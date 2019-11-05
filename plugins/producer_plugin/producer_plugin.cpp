@@ -2011,6 +2011,7 @@ bool producer_plugin_impl::process_unapplied_trxs( const fc::time_point& deadlin
                         _subjective_billing.subjective_bill_failure( first_auth, trace->elapsed, fc::time_point::now() );
                   }
                   ++num_failed;
+                  if( itr->next ) itr->next( trace );
                   itr = _unapplied_transactions.erase( itr );
                   continue;
                }
@@ -2022,6 +2023,7 @@ bool producer_plugin_impl::process_unapplied_trxs( const fc::time_point& deadlin
                                                     chain.get_read_mode() == chain::db_read_mode::SPECULATIVE );
                ++num_applied;
                if( itr->trx_type != trx_enum_type::persisted ) {
+                  if( itr->next ) itr->next( trace );
                   itr = _unapplied_transactions.erase( itr );
                   continue;
                }
