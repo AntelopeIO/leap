@@ -1386,7 +1386,7 @@ class Cluster(object):
         time.sleep(1) # Give processes time to stand down
         return True
 
-    def relaunchEosInstances(self, cachePopen=False, nodeArgs=None):
+    def relaunchEosInstances(self, cachePopen=False, nodeArgs=""):
 
         chainArg=self.__chainSyncStrategy.arg + " " + nodeArgs
 
