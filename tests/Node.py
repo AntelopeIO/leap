@@ -526,15 +526,27 @@ class Node(object):
     def waitForIrreversibleBlock(self, blockNum, timeout=None, reportInterval=None):
         return self.waitForBlock(blockNum, timeout=timeout, blockType=BlockType.lib, reportInterval=reportInterval)
 
-    def __transferFundsCmdArr(self, source, destination, amountStr, memo, force, retry, sign):
+    def __transferFundsCmdArr(self, source, destination, amountStr, memo, force, retry, sign, dontSend, expiration):
         assert isinstance(amountStr, str)
         assert(source)
         assert(isinstance(source, Account))
         assert(destination)
         assert(isinstance(destination, Account))
+        assert(expiration is None or isinstance(expiration, int))
 
-        cmd="%s %s -v transfer --expiration 90 %s -j" % (
-            Utils.EosClientPath, self.eosClientArgs(), self.getRetryCmdArg(retry))
+        dontSendStr = ""
+        if dontSend:
+            dontSendStr = "--dont-broadcast "
+            if expiration is None:
+                # default transaction expiration to be 4 minutes in the future
+                expiration = 240
+
+        expirationStr = ""
+        if expiration is not None:
+            expirationStr = "--expiration %d " % (expiration)
+
+        cmd="%s %s -v transfer %s -j %s %s" % (
+            Utils.EosClientPath, self.eosClientArgs(), self.getRetryCmdArg(retry), dontSendStr, expirationStr)
         cmdArr=cmd.split()
         # not using __sign_str, since cmdArr messes up the string
         if sign:
@@ -552,8 +564,8 @@ class Node(object):
         return cmdArr
 
     # Trasfer funds. Returns "transfer" json return object
-    def transferFunds(self, source, destination, amountStr, memo="memo", force=False, waitForTransBlock=False, exitOnError=True, reportStatus=True, retry=None, sign=False):
-        cmdArr = self.__transferFundsCmdArr(source, destination, amountStr, memo, force, retry, sign)
+    def transferFunds(self, source, destination, amountStr, memo="memo", force=False, waitForTransBlock=False, exitOnError=True, reportStatus=True, retry=None, sign=False, dontSend=False, expiration=None):
+        cmdArr = self.__transferFundsCmdArr(source, destination, amountStr, memo, force, retry, sign, dontSend, expiration)
         trans=None
         start=time.perf_counter()
         try:
@@ -561,7 +573,8 @@ class Node(object):
             if Utils.Debug:
                 end=time.perf_counter()
                 Utils.Print("cmd Duration: %.3f sec" % (end-start))
-            self.trackCmdTransaction(trans, reportStatus=reportStatus)
+            if not dontSend:
+                self.trackCmdTransaction(trans, reportStatus=reportStatus)
         except subprocess.CalledProcessError as ex:
             end=time.perf_counter()
             msg=ex.output.decode("utf-8")
@@ -578,8 +591,8 @@ class Node(object):
         return self.waitForTransBlockIfNeeded(trans, waitForTransBlock, exitOnError=exitOnError)
 
     # Trasfer funds. Returns (popen, cmdArr) for checkDelayedOutput
-    def transferFundsAsync(self, source, destination, amountStr, memo="memo", force=False, exitOnError=True, retry=None, sign=False):
-        cmdArr = self.__transferFundsCmdArr(source, destination, amountStr, memo, force, retry, sign)
+    def transferFundsAsync(self, source, destination, amountStr, memo="memo", force=False, exitOnError=True, retry=None, sign=False, dontSend=False, expiration=None):
+        cmdArr = self.__transferFundsCmdArr(source, destination, amountStr, memo, force, retry, sign, dontSend, expiration)
         start=time.perf_counter()
         try:
             popen=Utils.delayedCheckOutput(cmdArr)
@@ -820,11 +833,11 @@ class Node(object):
         keys=list(row.keys())
         return keys
 
+    # returns tuple with indication if transaction was successfully sent and either the transaction or else the exception output
     def pushTransaction(self, trans, opts="", silentErrors=False, permissions=None):
         assert(isinstance(trans, dict))
         if isinstance(permissions, str):
             permissions=[permissions]
-        reportStatus = True
 
         cmd="%s %s push transaction -j" % (Utils.EosClientPath, self.eosClientArgs())
         cmdArr=cmd.split()
@@ -852,7 +865,7 @@ class Node(object):
             msg=ex.output.decode("utf-8")
             if not silentErrors:
                 end=time.perf_counter()
-                Utils.Print("ERROR: Exception during push transaction.  cmd Duration=%.3f sec.  %s" % (end - start, msg))
+                Utils.Print("ERROR: Exception during push message.  cmd Duration=%.3f sec.  %s" % (end - start, msg))
             return (False, msg)
 
     # returns tuple with transaction execution status and transaction
@@ -867,7 +880,6 @@ class Node(object):
             cmdArr.append(data)
         if opts is not None:
             cmdArr += opts.split()
-        s=" ".join(cmdArr)
         if Utils.Debug: Utils.Print("cmd: %s" % (cmdArr))
         start=time.perf_counter()
         try:
@@ -897,7 +909,6 @@ class Node(object):
         assert(isinstance(account, Account))
         assert(isinstance(code, Account))
         signStr = Node.__sign_str(sign, [ account.activePublicKey ])
-        Utils.Print("REMOVE signStr: <%s>" % (signStr))
         cmdDesc="set action permission"
         cmd="%s -j %s %s %s %s %s" % (cmdDesc, signStr, account.name, code.name, pType, requirement)
         trans=self.processCleosCmd(cmd, cmdDesc, silentErrors=False, exitOnError=exitOnError)
