@@ -115,6 +115,7 @@ struct building_block {
                    const vector<digest_type>& new_protocol_feature_activations )
    :_pending_block_header_state( prev.next( when, num_prev_blocks_to_confirm ) )
    ,_new_protocol_feature_activations( new_protocol_feature_activations )
+   ,_trx_mroot_or_receipt_digests( digests_t{} )
    {}
 
    pending_block_header_state                 _pending_block_header_state;
@@ -122,10 +123,9 @@ struct building_block {
    vector<digest_type>                        _new_protocol_feature_activations;
    size_t                                     _num_new_protocol_features_that_have_activated = 0;
    deque<transaction_metadata_ptr>            _pending_trx_metas;
-   deque<transaction_receipt>                 _pending_trx_receipts;
-   deque<digest_type>                         _pending_trx_receipt_digests;
-   deque<digest_type>                         _action_receipt_digests;
-   std::optional<checksum256_type>            _transaction_mroot;
+   deque<transaction_receipt>                 _pending_trx_receipts; // boost deque in 1.71 with 1024 elements performs better
+   std::variant<checksum256_type, digests_t>  _trx_mroot_or_receipt_digests;
+   digests_t                                  _action_receipt_digests;
 };
 
 struct assembled_block {
@@ -1089,7 +1089,8 @@ struct controller_impl {
       auto& bb = std::get<building_block>(pending->_block_stage);
       auto orig_trx_receipts_size           = bb._pending_trx_receipts.size();
       auto orig_trx_metas_size              = bb._pending_trx_metas.size();
-      auto orig_trx_receipt_digests_size    = bb._pending_trx_receipt_digests.size();
+      auto orig_trx_receipt_digests_size    = bb._trx_mroot_or_receipt_digests.contains<digests_t>() ?
+            bb._trx_mroot_or_receipt_digests.get<digests_t>().size() : 0;
       auto orig_action_receipt_digests_size = bb._action_receipt_digests.size();
       std::function<void()> callback = [this,
             orig_trx_receipts_size,
@@ -1100,7 +1101,8 @@ struct controller_impl {
          auto& bb = std::get<building_block>(pending->_block_stage);
          bb._pending_trx_receipts.resize(orig_trx_receipts_size);
          bb._pending_trx_metas.resize(orig_trx_metas_size);
-         bb._pending_trx_receipt_digests.resize(orig_trx_receipt_digests_size);
+         if( bb._trx_mroot_or_receipt_digests.contains<digests_t>() )
+            bb._trx_mroot_or_receipt_digests.get<digests_t>().resize(orig_trx_receipt_digests_size);
          bb._action_receipt_digests.resize(orig_action_receipt_digests_size);
       };
 
@@ -1452,7 +1454,9 @@ struct controller_impl {
       r.cpu_usage_us         = cpu_usage_us;
       r.net_usage_words      = net_usage_words;
       r.status               = status;
-      std::get<building_block>(pending->_block_stage)._pending_trx_receipt_digests.emplace_back( r.digest() );
+      auto& bb = std::get<building_block>(pending->_block_stage);
+      if( std::holds_alternative<digests_t>(bb._trx_mroot_or_receipt_digests) )
+         std::get<digests_t>(bb._trx_mroot_or_receipt_digests).emplace_back( r.digest() );
       return r;
    }
 
@@ -1974,6 +1978,9 @@ struct controller_impl {
 
          auto producer_block_id = bsp->id;
          start_block( b->timestamp, b->confirmed, new_protocol_feature_activations, s, producer_block_id, fc::time_point::maximum() );
+
+         // validated in create_block_state_future()
+         pending->_block_stage.get<building_block>()._trx_mroot_or_receipt_digests = b->transaction_mroot;
 
          const bool existing_trxs_metas = !bsp->trxs_metas().empty();
          const bool pub_keys_recovered = bsp->is_pub_keys_recovered();
