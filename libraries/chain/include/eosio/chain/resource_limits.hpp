@@ -4,6 +4,7 @@
 #include <eosio/chain/config.hpp>
 #include <eosio/chain/trace.hpp>
 #include <eosio/chain/snapshot.hpp>
+#include <eosio/chain/block_timestamp.hpp>
 #include <chainbase/chainbase.hpp>
 #include <set>
 
@@ -58,6 +59,11 @@ namespace eosio { namespace chain {
       int64_t max = 0; ///< max per window under current congestion
    };
 
+   struct account_resource_usage {
+      chain::block_timestamp_type last_usage_update_time; ///< the time of the block of the account was last updated
+      uint64_t current_used; ///< the current resource usage value would be for current head block time
+   };
+
    class resource_limits_manager {
       public:
 
@@ -99,6 +105,8 @@ namespace eosio { namespace chain {
          uint64_t get_block_cpu_limit() const;
          uint64_t get_block_net_limit() const;
 
+         // return <optional<net>, optional<cpu>>
+         std::tuple<optional<account_resource_usage>, optional<account_resource_usage>> get_account_current_usages( const account_name& account) const;
          std::pair<int64_t, bool> get_account_cpu_limit( const account_name& name, uint32_t greylist_limit = config::maximum_elastic_resource_multiplier ) const;
          std::pair<int64_t, bool> get_account_net_limit( const account_name& name, uint32_t greylist_limit = config::maximum_elastic_resource_multiplier ) const;
 
@@ -114,5 +122,6 @@ namespace eosio { namespace chain {
 } } } /// eosio::chain
 
 FC_REFLECT( eosio::chain::resource_limits::account_resource_limit, (used)(available)(max) )
+FC_REFLECT( eosio::chain::resource_limits::account_resource_usage, (last_usage_update_time)(current_used) )
 FC_REFLECT( eosio::chain::resource_limits::ratio, (numerator)(denominator))
 FC_REFLECT( eosio::chain::resource_limits::elastic_limit_parameters, (target)(max)(periods)(max_multiplier)(contract_rate)(expand_rate))
