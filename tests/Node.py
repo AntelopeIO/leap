@@ -526,7 +526,7 @@ class Node(object):
     def waitForIrreversibleBlock(self, blockNum, timeout=None, reportInterval=None):
         return self.waitForBlock(blockNum, timeout=timeout, blockType=BlockType.lib, reportInterval=reportInterval)
 
-    def __transferFundsCmdArr(self, source, destination, amountStr, memo, force, retry, sign, dontSend, expiration):
+    def __transferFundsCmdArr(self, source, destination, amountStr, memo, force, retry, sign, dontSend, expiration, skipSign):
         assert isinstance(amountStr, str)
         assert(source)
         assert(isinstance(source, Account))
@@ -553,6 +553,9 @@ class Node(object):
             cmdArr.append("--sign-with")
             cmdArr.append("[ \"%s\" ]" % (source.activePublicKey))
 
+        if skipSign:
+            cmdArr.append("--skip-sign")
+
         cmdArr.append(source.name)
         cmdArr.append(destination.name)
         cmdArr.append(amountStr)
@@ -564,8 +567,8 @@ class Node(object):
         return cmdArr
 
     # Trasfer funds. Returns "transfer" json return object
-    def transferFunds(self, source, destination, amountStr, memo="memo", force=False, waitForTransBlock=False, exitOnError=True, reportStatus=True, retry=None, sign=False, dontSend=False, expiration=90):
-        cmdArr = self.__transferFundsCmdArr(source, destination, amountStr, memo, force, retry, sign, dontSend, expiration)
+    def transferFunds(self, source, destination, amountStr, memo="memo", force=False, waitForTransBlock=False, exitOnError=True, reportStatus=True, retry=None, sign=False, dontSend=False, expiration=90, skipSign=False):
+        cmdArr = self.__transferFundsCmdArr(source, destination, amountStr, memo, force, retry, sign, dontSend, expiration, skipSign)
         trans=None
         start=time.perf_counter()
         try:
@@ -591,8 +594,8 @@ class Node(object):
         return self.waitForTransBlockIfNeeded(trans, waitForTransBlock, exitOnError=exitOnError)
 
     # Trasfer funds. Returns (popen, cmdArr) for checkDelayedOutput
-    def transferFundsAsync(self, source, destination, amountStr, memo="memo", force=False, exitOnError=True, retry=None, sign=False, dontSend=False, expiration=90):
-        cmdArr = self.__transferFundsCmdArr(source, destination, amountStr, memo, force, retry, sign, dontSend, expiration)
+    def transferFundsAsync(self, source, destination, amountStr, memo="memo", force=False, exitOnError=True, retry=None, sign=False, dontSend=False, expiration=90, skipSign=False):
+        cmdArr = self.__transferFundsCmdArr(source, destination, amountStr, memo, force, retry, sign, dontSend, expiration, skipSign)
         start=time.perf_counter()
         try:
             popen=Utils.delayedCheckOutput(cmdArr)

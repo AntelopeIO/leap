@@ -3618,7 +3618,7 @@ int main( int argc, char** argv ) {
 
       signed_transaction trx;
       try {
-        trx = trx_var.as<signed_transaction>();
+        abi_serializer::from_variant( trx_var, trx, abi_serializer_resolver_empty, abi_serializer::create_yield_function( abi_serializer_max_time ) );
       } EOS_RETHROW_EXCEPTIONS(transaction_type_exception, "Invalid transaction format: '${data}'",
                                ("data", fc::json::to_string(trx_var, fc::time_point::maximum())))
 
