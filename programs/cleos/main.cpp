@@ -1136,7 +1136,7 @@ struct create_account_subcommand {
 
       add_standard_transaction_options(createAccount, "creator@active");
 
-      createAccount->set_callback([this] {
+      createAccount->callback([this] {
             authority owner, active;
             if( owner_key_str.find('{') != string::npos ) {
                try{
