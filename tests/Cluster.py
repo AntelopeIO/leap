@@ -1555,22 +1555,6 @@ class Cluster(object):
                 except:
                     Utils.Print("No reportStatus")
 
-    def printBlockLogIfNeeded(self):
-        printBlockLog=False
-        if hasattr(self, "nodes") and self.nodes is not None:
-            for node in self.nodes:
-                if node.missingTransaction:
-                    printBlockLog=True
-                    break
-
-        if hasattr(self, "biosNode") and self.biosNode is not None and self.biosNode.missingTransaction:
-            printBlockLog=True
-
-        if not printBlockLog:
-            return
-
-        self.printBlockLog()
-
     def getBlockLog(self, nodeExtension, blockLogAction=BlockLogAction.return_blocks, outputFile=None, first=None, last=None, throwException=False, silentErrors=False, exitOnError=False):
         blockLogDir=Utils.getNodeDataDir(nodeExtension, "blocks")
         return Utils.getBlockLog(blockLogDir, blockLogAction=blockLogAction, outputFile=outputFile, first=first, last=last,  throwException=throwException, silentErrors=silentErrors, exitOnError=exitOnError)
