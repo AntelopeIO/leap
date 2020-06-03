@@ -1378,8 +1378,7 @@ class Node(object):
                         prodTime = datetime.strptime(prodTimeStr, Utils.TimeFmt)
                         slotTime = datetime.strptime(slotTimeStr, Utils.TimeFmt)
                         delta = prodTime - slotTime
-                        millisecondsPerSecond=1000
-                        limit = timedelta(seconds=thresholdMs/millisecondsPerSecond)
+                        limit = timedelta(milliseconds=thresholdMs)
                         if delta > limit:
                             if blockNum in blockAnalysis:
                                 Utils.errorExit("Found repeat production of the same block num: %d in one of the stderr files in: %s" % (blockNum, dataDir))
