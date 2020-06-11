@@ -300,6 +300,7 @@ try:
     producerToSlot={}
     slot=-1
     inRowCountPerProducer=12
+    minNumBlocksPerProducer=10
     lastTimestamp=timestamp
     headBlockNum=node.getBlockNum()
     firstBlockForWindowMissedSlot=None
@@ -320,6 +321,7 @@ try:
         if firstBlockForWindowMissedSlot is not None:
             missedSlotAfter.append(firstBlockForWindowMissedSlot)
             firstBlockForWindowMissedSlot=None
+
         while blockProducer==lastBlockProducer:
             producerToSlot[blockProducer]["count"]+=1
             blockNum+=1
@@ -340,13 +342,16 @@ try:
                 missedSlotAfter.append("%d (%s)" % (blockNum-1, missed))
             lastTimestamp=timestamp
 
-        if producerToSlot[lastBlockProducer]["count"]!=inRowCountPerProducer:
+        if producerToSlot[lastBlockProducer]["count"] < minNumBlocksPerProducer or producerToSlot[lastBlockProducer]["count"] > inRowCountPerProducer:
             Utils.errorExit("Producer %s, in slot %d, expected to produce %d blocks but produced %d blocks.  At block number %d. " %
                             (lastBlockProducer, slot, inRowCountPerProducer, producerToSlot[lastBlockProducer]["count"], blockNum-1) +
                             "Slots were missed after the following blocks: %s" % (", ".join(missedSlotAfter)))
-        elif len(missedSlotAfter) > 0:
-            # if there was a full round, then the most recent producer missed a slot
-            firstBlockForWindowMissedSlot=missedSlotAfter[0]
+
+        if len(missedSlotAfter) > 0:
+            # it may be the most recent producer missed a slot
+            possibleMissed=missedSlotAfter[-1]
+            if possibleMissed == blockNum - 1:
+                firstBlockForWindowMissedSlot=possibleMissed
 
         if blockProducer==productionCycle[0]:
             break
