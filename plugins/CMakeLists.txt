@@ -8,7 +8,7 @@ add_subdirectory(producer_plugin)
 add_subdirectory(producer_api_plugin)
 add_subdirectory(state_history_plugin)
 add_subdirectory(trace_api_plugin)
-
+add_subdirectory(resource_monitor_plugin)
 add_subdirectory(wallet_plugin)
 add_subdirectory(wallet_api_plugin)
 add_subdirectory(txn_test_gen_plugin)
