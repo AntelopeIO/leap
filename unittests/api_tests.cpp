@@ -1968,6 +1968,31 @@ BOOST_FIXTURE_TEST_CASE(crypto_tests, TESTER) { try {
    BOOST_REQUIRE_EQUAL( validate(), true );
 } FC_LOG_AND_RETHROW() }
 
+static const char cstr_wast[] = R"======(
+(module
+ (import "env" "eosio_assert" (func $eosio_assert (param i32 i32)))
+ (memory 1)
+ (func (export "apply") (param i64 i64 i64)
+  (call $eosio_assert (i32.const 1) (i32.const 65534))
+ )
+ (data (i32.const 65535) "x")
+)
+)======";
+
+BOOST_FIXTURE_TEST_CASE(cstr_tests, TESTER) {
+   produce_block();
+   create_accounts( { "cstr"_n } );
+   set_code( "cstr"_n, cstr_wast );
+   auto pushit = [&](name acct, name act) {
+      signed_transaction trx;
+      trx.actions.push_back({ { {acct, config::active_name} }, acct, act, bytes()});
+      set_transaction_headers(trx);
+      trx.sign(get_private_key(acct, "active"), control->get_chain_id());
+      push_transaction(trx);
+   };
+   pushit("cstr"_n, name());
+}
+
 /*************************************************************************************
  * print_tests test case
  *************************************************************************************/
