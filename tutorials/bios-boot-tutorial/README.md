@@ -67,9 +67,8 @@ The command line to launch the script, make sure you replace `EOSIO_OLD_CONTRACT
 $ cd ~
 $ git clone https://github.com/EOSIO/eos.git
 $ cd ./eos/tutorials/bios-boot-tutorial/
-$ python3 bios-boot-tutorial.py --cleos="cleos --wallet-url http://127.0.0.1:6666 " --nodeos=nodeos --keosd=keosd --contracts-dir="EOSIO_CONTRACTS_DIRECTORY" --old-contracts-dir="EOSIO_OLD_CONTRACTS_DIRECTORY" -w -a
-```
+$ python3 bios-boot-tutorial.py --cleos=" --wallet-url http://127.0.0.1:6666 " --nodeos=nodeos --keosd=keosd --contracts-dir="EOSIO_CONTRACTS_DIRECTORY" -w -a
 
-6. At this point, when the script has finished running without error, you have a functional EOSIO based blockchain running locally with an latest version of `eosio.system` contract, 31 block producers out of which 21 active, `eosio` account resigned, 200k+ accounts with staked tokens, and votes allocated to each block producer. Enjoy exploring your freshly booted blockchain.
+```
 
 See [EOSIO Documentation Wiki: Tutorial - Bios Boot](https://github.com/EOSIO/eos/wiki/Tutorial-Bios-Boot-Sequence) for additional information.

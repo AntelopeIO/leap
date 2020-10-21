@@ -299,14 +299,17 @@ def stepSetSystemContract():
     # feature (codename PREACTIVATE_FEATURE) to be activated and for an updated version of the system 
     # contract that makes use of the functionality introduced by that feature to be deployed. 
 
-    # activate PREACTIVATE_FEATURE before installing eosio.system
+    # activate PREACTIVATE_FEATURE before installing eosio.boot
     retry('curl -X POST http://127.0.0.1:%d' % args.http_port + 
         '/v1/producer/schedule_protocol_feature_activations ' +
         '-d \'{"protocol_features_to_activate": ["0ec7e080177b2c02b278d5088611686b49d739925a92d9bfcacd7fc6b74053bd"]}\'')
     sleep(3)
 
-    # install eosio.system the older version first
-    retry(args.cleos + 'set contract eosio ' + args.old_contracts_dir + '/eosio.system/')
+    # install eosio.boot which supports the native actions and activate 
+    # action that allows activating desired protocol features prior to 
+    # deploying a system contract with more features such as eosio.bios 
+    # or eosio.system
+    retry(args.cleos + 'set contract eosio ' + args.contracts_dir + '/eosio.boot/')
     sleep(3)
 
     # activate remaining features
@@ -336,10 +339,10 @@ def stepSetSystemContract():
     retry(args.cleos + 'push action eosio activate \'["299dcb6af692324b899b39f16d5a530a33062804e41f09dc97e9f156b4476707"]\' -p eosio@active')
     sleep(1)
 
-    run(args.cleos + 'push action eosio setpriv' + jsonArg(['eosio.msig', 1]) + '-p eosio@active')
-
     # install eosio.system latest version
     retry(args.cleos + 'set contract eosio ' + args.contracts_dir + '/eosio.system/')
+    # setpriv is only available after eosio.system is installed
+    run(args.cleos + 'push action eosio setpriv' + jsonArg(['eosio.msig', 1]) + '-p eosio@active')
     sleep(3)
 
 def stepInitSystemContract():
@@ -433,7 +436,8 @@ for (flag, command, function, inAll, help) in commands:
         
 args = parser.parse_args()
 
-args.cleos += '--url http://127.0.0.1:%d ' % args.http_port
+# Leave a space in front of --url in case the user types cleos alone
+args.cleos += ' --url http://127.0.0.1:%d ' % args.http_port
 
 logFile = open(args.log_path, 'a')
 
