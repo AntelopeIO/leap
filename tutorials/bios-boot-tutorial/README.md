@@ -67,7 +67,7 @@ The command line to launch the script, make sure you replace `EOSIO_OLD_CONTRACT
 $ cd ~
 $ git clone https://github.com/EOSIO/eos.git
 $ cd ./eos/tutorials/bios-boot-tutorial/
-$ python3 bios-boot-tutorial.py --cleos=" --wallet-url http://127.0.0.1:6666 " --nodeos=nodeos --keosd=keosd --contracts-dir="EOSIO_CONTRACTS_DIRECTORY" -w -a
+$ python3 bios-boot-tutorial.py --cleos=cleos --nodeos=nodeos --keosd=keosd --contracts-dir="EOSIO_CONTRACTS_DIRECTORY" -w -a
 
 ```
 
