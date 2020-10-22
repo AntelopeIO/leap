@@ -408,6 +408,20 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          return true;
       }
 
+      auto make_retry_later_func() {
+         return [this]( const transaction_metadata_ptr& trx, bool persist_until_expired, next_func_t& next ) {
+            _unapplied_transactions.add_incoming( trx, persist_until_expired, next );
+         };
+      }
+
+      void restart_speculative_block() {
+         chain::controller& chain = chain_plug->chain();
+         // abort the pending block
+         _unapplied_transactions.add_aborted( chain.abort_block() );
+
+         schedule_production_loop();
+      }
+
       void on_incoming_transaction_async(const packed_transaction_ptr& trx,
                                          bool persist_until_expired,
                                          bool read_only,
@@ -442,6 +456,8 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                      if( !self->process_incoming_transaction_async( result, persist_until_expired, next, return_failure_traces ) ) {
                         if( self->_pending_block_mode == pending_block_mode::producing ) {
                            self->schedule_maybe_produce_block( true );
+                        } else {
+                           self->restart_speculative_block();
                         }
                      }
                   } CATCH_AND_CALL(exception_handler);
@@ -2394,6 +2410,32 @@ void producer_plugin::log_failed_transaction(const transaction_id_type& trx_id, 
             ("entire_trx", packed_trx_ptr ? my->chain_plug->get_log_trx(packed_trx_ptr->get_transaction()) : fc::variant{trx_id}));
    fc_dlog(_trx_trace_failure_log, "[TRX_TRACE] Speculative execution is REJECTING tx: ${entire_trx}",
             ("entire_trx", packed_trx_ptr ? my->chain_plug->get_log_trx(packed_trx_ptr->get_transaction()) : fc::variant{trx_id}));
+}
+
+bool producer_plugin::execute_incoming_transaction(const chain::transaction_metadata_ptr& trx,
+                                                   next_function<chain::transaction_trace_ptr> next,
+                                                   retry_later_function_t retry_later )
+{
+   auto retry_later_func = [&retry_later](const transaction_metadata_ptr& trx, bool persist_until_expired, next_func_t& next ) {
+      retry_later( trx, next );
+   };
+
+   const bool persist_until_expired = false;
+   bool exhausted = !my->process_incoming_transaction_async( trx, persist_until_expired, std::move(next), retry_later_func );
+   if( exhausted ) {
+      if( my->_pending_block_mode == pending_block_mode::producing ) {
+         my->schedule_maybe_produce_block( true );
+      } else {
+         my->restart_speculative_block();
+      }
+   }
+   return !exhausted;
+}
+
+fc::microseconds producer_plugin::get_max_transaction_time() const {
+   const auto max_trx_time_ms = my->_max_transaction_time_ms.load();
+   fc::microseconds max_trx_cpu_usage = max_trx_time_ms < 0 ? fc::microseconds::maximum() : fc::milliseconds( max_trx_time_ms );
+   return max_trx_cpu_usage;
 }
 
 } // namespace eosio
