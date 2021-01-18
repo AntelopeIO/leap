@@ -271,7 +271,6 @@ namespace eosio { namespace chain {
          void validate_expiration( const transaction& t )const;
          void validate_tapos( const transaction& t )const;
          void validate_db_available_size() const;
-         void validate_reversible_available_size() const;
 
          bool is_protocol_feature_activated( const digest_type& feature_digest )const;
          bool is_builtin_activated( builtin_protocol_feature_t f )const;
