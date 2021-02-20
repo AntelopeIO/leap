@@ -492,6 +492,7 @@ struct controller_impl {
          ilog( "${n} irreversible blocks replayed", ("n", 1 + head->block_num - start_block_num) );
 
          auto pending_head = fork_db.pending_head();
+         ilog( "fork database head ${h}, root ${r}", ("h", pending_head->block_num)("r", fork_db.root()->block_num) );
          if( pending_head->block_num < head->block_num || head->block_num < fork_db.root()->block_num ) {
             ilog( "resetting fork database with new last irreversible block as the new root: ${id}",
                   ("id", head->id) );
@@ -643,8 +644,6 @@ struct controller_impl {
    }
 
    void init(std::function<bool()> check_shutdown) {
-      uint32_t lib_num = (blog.head() ? blog.head()->block_num() : fork_db.root()->block_num);
-
       auto header_itr = validate_db_version( db );
 
       {
@@ -685,9 +684,7 @@ struct controller_impl {
          dm_logger->on_startup(db, head->block_num);
       }
 
-      if( lib_num > head->block_num ) {
-         replay( check_shutdown ); // replay any irreversible and reversible blocks ahead of current head
-      }
+      replay( check_shutdown ); // replay any irreversible and reversible blocks ahead of current head
 
       if( check_shutdown() ) return;
 
