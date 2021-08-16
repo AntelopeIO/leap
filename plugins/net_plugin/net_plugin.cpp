@@ -547,7 +547,7 @@ namespace eosio {
       fc::time_point   window_start_;              ///< The start of the recent rbw (0 implies not started)
       uint32_t         events_{0};                 ///< The number of consecutive rbws
       const uint32_t   max_consecutive_rejected_windows_{13};
-      
+
    public:
       /// ctor
       ///
@@ -670,6 +670,7 @@ namespace eosio {
       // timestamp for the lastest message
       tstamp                         latest_msg_time{0};
       tstamp                         hb_timeout{std::chrono::milliseconds{def_keepalive_interval}.count()};
+      tstamp                         latest_blk_time{0};
 
       bool connected();
       bool current();
@@ -1148,10 +1149,9 @@ namespace eosio {
    }
 
    // called from connection strand
-   void connection::check_heartbeat( tstamp current_time )
-   {
-      if( protocol_version >= heartbeat_interval ) {
-         if( latest_msg_time > 0 &&  current_time > latest_msg_time + hb_timeout ) {
+   void connection::check_heartbeat( tstamp current_time ) {
+      if( protocol_version >= heartbeat_interval && latest_msg_time > 0 ) {
+         if( current_time > latest_msg_time + hb_timeout ) {
             no_retry = benign_other;
             if( !peer_address().empty() ) {
                fc_wlog(logger, "heartbeat timed out for peer address ${adr}", ("adr", peer_address()));
@@ -1165,9 +1165,16 @@ namespace eosio {
                close(false);
             }
             return;
+         } else {
+            const tstamp timeout = std::max(hb_timeout/2, 2*std::chrono::milliseconds(config::block_interval_ms).count());
+            if ( current_time > latest_blk_time + timeout ) {
+               send_handshake(true);
+               return;
+            }
          }
       }
-      send_handshake(true);
+
+      send_time();
    }
 
    // called from connection strand
@@ -1414,12 +1421,21 @@ namespace eosio {
       enqueue_buffer( send_buffer, close_after_send );
    }
 
+   // called from connection strand
    void connection::enqueue_block( const signed_block_ptr& b, bool to_sync_queue) {
       peer_dlog( this, "enqueue block ${num}", ("num", b->block_num()) );
       verify_strand_in_this_thread( strand, __func__, __LINE__ );
 
       block_buffer_factory buff_factory;
-      auto sb = buff_factory.get_send_buffer( b );
+      auto sb = buff_factory.get_send_buffer( b, protocol_version.load() );
+      if( !sb ) {
+         peer_wlog( this, "Sending go away for incomplete block #${n} ${id}...",
+                    ("n", b->block_num())("id", b->calculate_id().str().substr(8,16)) );
+         // unable to convert to v0 signed block and client doesn't support proto_pruned_types, so tell it to go away
+         enqueue( go_away_message( fatal_other ) );
+         return;
+      }
+      latest_blk_time = get_time();
       enqueue_buffer( sb, no_reason, to_sync_queue);
    }
 
@@ -1727,6 +1743,7 @@ namespace eosio {
          peer_dlog( c, "We are already caught up, my irr = ${b}, head = ${h}, target = ${t}",
                   ("b", lib_num)( "h", fork_head_block_num )( "t", target ) );
          c->send_handshake();
+         return;
       }
 
       if( sync_state == in_sync ) {
@@ -2127,6 +2144,7 @@ namespace eosio {
          send_buffer_type sb = buff_factory.get_send_buffer( b );
 
          cp->strand.post( [this, cp, id, bnum, sb{std::move(sb)}]() {
+            cp->latest_blk_time = cp->get_time();
             std::unique_lock<std::mutex> g_conn( cp->conn_mtx );
             bool has_block = cp->last_handshake_recv.last_irreversible_block_num >= bnum;
             g_conn.unlock();
@@ -2552,7 +2570,8 @@ namespace eosio {
          auto peek_ds = pending_message_buffer.create_peek_datastream();
          unsigned_int which{};
          fc::raw::unpack( peek_ds, which );
-         if( which == signed_block_which ) {
+         if( which == signed_block_which || which == signed_block_v0_which ) {
+            latest_blk_time = get_time();
             return process_next_block_message( message_length );
 
          } else if( which == packed_transaction_which ) {
