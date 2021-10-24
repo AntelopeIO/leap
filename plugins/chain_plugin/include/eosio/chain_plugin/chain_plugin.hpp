@@ -48,10 +48,16 @@ class producer_plugin;
 namespace chain_apis {
 struct empty{};
 
+struct linked_action {
+   name                account;
+   std::optional<name> action;
+};
+
 struct permission {
-   name              perm_name;
-   name              parent;
-   authority         required_auth;
+   name                                       perm_name;
+   name                                       parent;
+   authority                                  required_auth;
+   std::optional<std::vector<linked_action>>  linked_actions;
 };
 
 
@@ -803,7 +809,8 @@ private:
 
 }
 
-FC_REFLECT( eosio::chain_apis::permission, (perm_name)(parent)(required_auth) )
+FC_REFLECT( eosio::chain_apis::linked_action, (account)(action) )
+FC_REFLECT( eosio::chain_apis::permission, (perm_name)(parent)(required_auth)(linked_actions) )
 FC_REFLECT(eosio::chain_apis::empty, )
 FC_REFLECT(eosio::chain_apis::read_only::get_info_results,
            (server_version)(chain_id)(head_block_num)(last_irreversible_block_num)(last_irreversible_block_id)
