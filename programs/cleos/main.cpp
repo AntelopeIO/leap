@@ -346,6 +346,10 @@ template<>
 fc::variant call( const std::string& url,
                   const std::string& path) { return call( url, path, fc::variant() ); }
 
+eosio::chain_apis::read_only::get_consensus_parameters_results get_consensus_parameters() {
+   return call(default_url, get_consensus_parameters_func).as<eosio::chain_apis::read_only::get_consensus_parameters_results>();
+}
+
 eosio::chain_apis::read_only::get_info_results get_info() {
    return call(url, get_info_func).as<eosio::chain_apis::read_only::get_info_results>();
 }
@@ -2794,6 +2798,11 @@ int main( int argc, char** argv ) {
       }
       auto arg= fc::mutable_variant_object( "id", status_transaction_id);
       std::cout << fc::json::to_pretty_string(call(get_transaction_status_func, arg)) << std::endl;
+   });
+
+   // get consensus parameters
+   get->add_subcommand("consensus_parameters", localized("Get current blockchain consensus parameters"))->callback([] {
+      std::cout << fc::json::to_pretty_string(get_consensus_parameters()) << std::endl;
    });
 
    // get block
