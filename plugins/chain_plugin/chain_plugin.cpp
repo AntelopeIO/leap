@@ -1107,7 +1107,7 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
          //
          // For the time being, when `deep-mind = true` is activated, we set `stdout` here to
          // be an unbuffered I/O stream.
-         //setbuf(stdout, NULL);
+         setbuf(stdout, NULL);
 
          my->chain->enable_deep_mind( &_deep_mind_log );
       }
@@ -1156,15 +1156,6 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
             my->_account_query_db->commit_block(blk);
          }
 
-         if (auto dm_logger = my->chain->get_deep_mind_logger()) {
-            auto packed_blk = fc::raw::pack(*blk);
-
-            fc_dlog(*dm_logger, "ACCEPTED_BLOCK ${num} ${blk}",
-               ("num", blk->block_num)
-               ("blk", fc::to_hex(packed_blk))
-            );
-         }
-
          my->accepted_block_channel.publish( priority::high, blk );
       } );
 
@@ -1181,15 +1172,6 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
             [this]( std::tuple<const transaction_trace_ptr&, const signed_transaction&> t ) {
                if (my->_account_query_db) {
                   my->_account_query_db->cache_transaction_trace(std::get<0>(t));
-               }
-
-               if (auto dm_logger = my->chain->get_deep_mind_logger()) {
-                  auto packed_trace = fc::raw::pack(*std::get<0>(t));
-
-                  fc_dlog(*dm_logger, "APPLIED_TRANSACTION ${block} ${traces}",
-                     ("block", my->chain->head_block_num() + 1)
-                     ("traces", fc::to_hex(packed_trace))
-                  );
                }
 
                my->applied_transaction_channel.publish( priority::low, std::get<0>(t) );

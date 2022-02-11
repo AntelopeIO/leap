@@ -390,6 +390,17 @@ struct controller_impl {
       }
    }
 
+   void dmlog_applied_transaction(const transaction_trace_ptr& t) {
+      if (auto dm_logger = get_deep_mind_logger()) {
+         auto packed_trace = fc::raw::pack(*t);
+
+         fc_dlog(*dm_logger, "APPLIED_TRANSACTION ${block} ${traces}",
+            ("block", self.head_block_num() + 1)
+            ("traces", fc::to_hex(packed_trace))
+         );
+      }
+   }
+
    void log_irreversible() {
       EOS_ASSERT( fork_db.root(), fork_database_exception, "fork database not properly initialized" );
 
@@ -1333,6 +1344,7 @@ struct controller_impl {
          trace->receipt = push_receipt( gtrx.trx_id, transaction_receipt::expired, billed_cpu_time_us, 0 ); // expire the transaction
          trace->account_ram_delta = account_delta( gtrx.payer, trx_removal_ram_delta );
          emit( self.accepted_transaction, trx );
+         dmlog_applied_transaction(trace);
          emit( self.applied_transaction, std::tie(trace, dtrx) );
          undo_session.squash();
          return trace;
@@ -1398,6 +1410,7 @@ struct controller_impl {
          trace->account_ram_delta = account_delta( gtrx.payer, trx_removal_ram_delta );
 
          emit( self.accepted_transaction, trx );
+         dmlog_applied_transaction(trace);
          emit( self.applied_transaction, std::tie(trace, dtrx) );
 
          trx_context.squash();
@@ -1436,6 +1449,7 @@ struct controller_impl {
          if( !trace->except_ptr ) {
             trace->account_ram_delta = account_delta( gtrx.payer, trx_removal_ram_delta );
             emit( self.accepted_transaction, trx );
+            dmlog_applied_transaction(trace);
             emit( self.applied_transaction, std::tie(trace, dtrx) );
             undo_session.squash();
             return trace;
@@ -1477,11 +1491,13 @@ struct controller_impl {
          trace->account_ram_delta = account_delta( gtrx.payer, trx_removal_ram_delta );
 
          emit( self.accepted_transaction, trx );
+         dmlog_applied_transaction(trace);
          emit( self.applied_transaction, std::tie(trace, dtrx) );
 
          undo_session.squash();
       } else {
          emit( self.accepted_transaction, trx );
+         dmlog_applied_transaction(trace);
          emit( self.applied_transaction, std::tie(trace, dtrx) );
       }
 
@@ -1607,6 +1623,7 @@ struct controller_impl {
                emit( self.accepted_transaction, trx);
             }
 
+            dmlog_applied_transaction(trace);
             emit(self.applied_transaction, std::tie(trace, trn));
 
 
@@ -1635,6 +1652,7 @@ struct controller_impl {
          }
 
          emit( self.accepted_transaction, trx );
+         dmlog_applied_transaction(trace);
          emit( self.applied_transaction, std::tie(trace, trn) );
 
          return trace;
@@ -1892,6 +1910,15 @@ struct controller_impl {
                ubo.blocknum = bsp->block_num;
                ubo.set_block( bsp->block );
             });
+         }
+
+         if (auto dm_logger = get_deep_mind_logger()) {
+            auto packed_blk = fc::raw::pack(*bsp);
+
+            fc_dlog(*dm_logger, "ACCEPTED_BLOCK ${num} ${blk}",
+               ("num", bsp->block_num)
+               ("blk", fc::to_hex(packed_blk))
+            );
          }
 
          emit( self.accepted_block, bsp );
