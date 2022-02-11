@@ -1,0 +1,1 @@
+#define DEEP_MIND_LOGFILE "${CMAKE_CURRENT_SOURCE_DIR}/deep-mind/deep-mind.log"

@@ -527,14 +527,14 @@ namespace eosio { namespace testing {
       }
       controller::config vcfg;
 
-      validating_tester(const flat_set<account_name>& trusted_producers = flat_set<account_name>()) {
+      validating_tester(const flat_set<account_name>& trusted_producers = flat_set<account_name>(), fc::logger* dmlog = nullptr) {
          auto def_conf = default_config(tempdir);
 
          vcfg = def_conf.first;
          config_validator(vcfg);
          vcfg.trusted_producers = trusted_producers;
 
-         validating_node = create_validating_node(vcfg, def_conf.second, true);
+         validating_node = create_validating_node(vcfg, def_conf.second, true, dmlog);
 
          init(def_conf.first, def_conf.second);
          execute_setup_policy(setup_policy::full);
@@ -550,9 +550,13 @@ namespace eosio { namespace testing {
          vcfg.contracts_console = false;
       }
 
-      static unique_ptr<controller> create_validating_node(controller::config vcfg, const genesis_state& genesis, bool use_genesis) {
+      static unique_ptr<controller> create_validating_node(controller::config vcfg, const genesis_state& genesis, bool use_genesis, fc::logger* dmlog = nullptr) {
          unique_ptr<controller> validating_node = std::make_unique<controller>(vcfg, make_protocol_feature_set(), genesis.compute_chain_id());
          validating_node->add_indices();
+         if(dmlog)
+         {
+            validating_node->enable_deep_mind(dmlog);
+         }
          if (use_genesis) {
             validating_node->startup( []() { return false; }, genesis );
          }

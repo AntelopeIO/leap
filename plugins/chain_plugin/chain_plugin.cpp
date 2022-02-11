@@ -1107,7 +1107,7 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
          //
          // For the time being, when `deep-mind = true` is activated, we set `stdout` here to
          // be an unbuffered I/O stream.
-         setbuf(stdout, NULL);
+         //setbuf(stdout, NULL);
 
          my->chain->enable_deep_mind( &_deep_mind_log );
       }
