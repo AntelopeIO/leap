@@ -37,6 +37,7 @@ namespace eosio { namespace chain {
    class global_property_object;
    class permission_object;
    class account_object;
+   class deep_mind_handler;
    using resource_limits::resource_limits_manager;
    using apply_handler = std::function<void(apply_context&)>;
    using forked_branch_callback = std::function<void(const branch_type&)>;
@@ -305,8 +306,8 @@ namespace eosio { namespace chain {
          void add_to_ram_correction( account_name account, uint64_t ram_bytes, uint32_t action_id, const char* event_id );
          bool all_subjective_mitigations_disabled()const;
 
-         fc::logger* get_deep_mind_logger() const;
-         void enable_deep_mind( fc::logger* logger );
+         deep_mind_handler* get_deep_mind_logger() const;
+         void enable_deep_mind( deep_mind_handler* logger );
 
 #if defined(EOSIO_EOS_VM_RUNTIME_ENABLED) || defined(EOSIO_EOS_VM_JIT_RUNTIME_ENABLED)
          vm::wasm_allocator&  get_wasm_allocator();

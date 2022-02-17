@@ -13,6 +13,7 @@
 #include <eosio/chain/generated_transaction_object.hpp>
 #include <eosio/chain/global_property_object.hpp>
 #include <eosio/chain/snapshot.hpp>
+#include <eosio/chain/deep_mind.hpp>
 
 #include <eosio/chain/eosio_contract.hpp>
 
@@ -35,7 +36,7 @@ FC_REFLECT_ENUM( chainbase::environment::arch_t,
 FC_REFLECT(chainbase::environment, (debug)(os)(arch)(boost_version)(compiler) )
 
 const fc::string deep_mind_logger_name("deep-mind");
-fc::logger _deep_mind_log;
+eosio::chain::deep_mind_handler _deep_mind_log;
 
 namespace eosio {
 
@@ -1248,7 +1249,7 @@ void chain_plugin::plugin_shutdown() {
 }
 
 void chain_plugin::handle_sighup() {
-   fc::logger::update( deep_mind_logger_name, _deep_mind_log );
+   _deep_mind_log.update_logger( deep_mind_logger_name );
 }
 
 chain_apis::read_write::read_write(controller& db, const fc::microseconds& abi_serializer_max_time, bool api_accept_transactions)

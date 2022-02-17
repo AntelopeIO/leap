@@ -25,6 +25,7 @@
 #include <eosio/chain/chain_snapshot.hpp>
 #include <eosio/chain/thread_utils.hpp>
 #include <eosio/chain/platform_timer.hpp>
+#include <eosio/chain/deep_mind.hpp>
 
 #include <chainbase/chainbase.hpp>
 #include <eosio/vm/allocator.hpp>
@@ -246,7 +247,7 @@ struct controller_impl {
    uint32_t                        snapshot_head_block = 0;
    named_thread_pool               thread_pool;
    platform_timer                  timer;
-   fc::logger*                     deep_mind_logger = nullptr;
+   deep_mind_handler*              deep_mind_logger = nullptr;
 #if defined(EOSIO_EOS_VM_RUNTIME_ENABLED) || defined(EOSIO_EOS_VM_JIT_RUNTIME_ENABLED)
    vm::wasm_allocator               wasm_alloc;
 #endif
@@ -392,12 +393,7 @@ struct controller_impl {
 
    void dmlog_applied_transaction(const transaction_trace_ptr& t) {
       if (auto dm_logger = get_deep_mind_logger()) {
-         auto packed_trace = fc::raw::pack(*t);
-
-         fc_dlog(*dm_logger, "APPLIED_TRANSACTION ${block} ${traces}",
-            ("block", self.head_block_num() + 1)
-            ("traces", fc::to_hex(packed_trace))
-         );
+         dm_logger->on_applied_transaction(self.head_block_num() + 1, t);
       }
    }
 
@@ -756,23 +752,7 @@ struct controller_impl {
       }
 
       if (auto dm_logger = get_deep_mind_logger()) {
-         // FIXME: We should probably feed that from CMake directly somehow ...
-         fc_dlog(*dm_logger, "DEEP_MIND_VERSION 13 0");
-
-         fc_dlog(*dm_logger, "ABIDUMP START ${block_num} ${global_sequence_num}",
-            ("block_num", head->block_num)
-            ("global_sequence_num", db.get<dynamic_global_property_object>().global_action_sequence)
-         );
-         const auto& idx = db.get_index<account_index>();
-         for (auto& row : idx.indices()) {
-            if (row.abi.size() != 0) {
-               fc_dlog(*dm_logger, "ABIDUMP ABI ${contract} ${abi}",
-                  ("contract", row.name)
-                  ("abi", row.abi)
-               );
-            }
-         }
-         fc_dlog(*dm_logger, "ABIDUMP END");
+         dm_logger->on_startup(db, head->block_num);
       }
 
       if( last_block_num > head->block_num ) {
@@ -1201,12 +1181,7 @@ struct controller_impl {
       }
 
       if (auto dm_logger = get_deep_mind_logger()) {
-         auto packed_trx = fc::raw::pack(etrx);
-
-         fc_dlog(*dm_logger, "TRX_OP CREATE onerror ${id} ${trx}",
-            ("id", etrx.id())
-            ("trx", fc::to_hex(packed_trx))
-         );
+         dm_logger->on_onerror(etrx);
       }
 
       transaction_checktime_timer trx_timer(timer);
@@ -1375,9 +1350,7 @@ struct controller_impl {
          trace->elapsed = fc::time_point::now() - trx_context.start;
 
          if (auto dm_logger = get_deep_mind_logger()) {
-            fc_dlog(*dm_logger, "DTRX_OP FAILED ${action_id}",
-               ("action_id", trx_context.get_action_id())
-            );
+            dm_logger->on_fail_deferred(trx_context.get_action_id());
          }
       };
 
@@ -1671,7 +1644,7 @@ struct controller_impl {
 
       if (auto dm_logger = get_deep_mind_logger()) {
          // The head block represents the block just before this one that is about to start, so add 1 to get this block num
-         fc_dlog(*dm_logger, "START_BLOCK ${block_num}", ("block_num", head->block_num + 1));
+         dm_logger->on_start_block(head->block_num + 1);
       }
 
       auto guard_pending = fc::make_scoped_exit([this, head_block_num=head->block_num](){
@@ -1913,12 +1886,7 @@ struct controller_impl {
          }
 
          if (auto dm_logger = get_deep_mind_logger()) {
-            auto packed_blk = fc::raw::pack(*bsp);
-
-            fc_dlog(*dm_logger, "ACCEPTED_BLOCK ${num} ${blk}",
-               ("num", bsp->block_num)
-               ("blk", fc::to_hex(packed_blk))
-            );
+            dm_logger->on_accepted_block(bsp);
          }
 
          emit( self.accepted_block, bsp );
@@ -2271,10 +2239,7 @@ struct controller_impl {
               ("current_head_id", head->id)("current_head_num", head->block_num)("new_head_id", new_head->id)("new_head_num", new_head->block_num) );
 
          if (auto dm_logger = get_deep_mind_logger()) {
-            fc_dlog(*dm_logger, "SWITCH_FORK ${from_id} ${to_id}",
-               ("from_id", head->id)
-               ("to_id", new_head->id)
-            );
+            dm_logger->on_switch_forks(head->id, new_head->id);
          }
 
          auto branches = fork_db.fetch_branch_from( new_head->id, head->id );
@@ -2584,18 +2549,13 @@ struct controller_impl {
       }
 
       if (auto dm_logger = get_deep_mind_logger()) {
-         auto packed_trx = fc::raw::pack(trx);
-
-         fc_dlog(*dm_logger, "TRX_OP CREATE onblock ${id} ${trx}",
-            ("id", trx.id())
-            ("trx", fc::to_hex(packed_trx))
-         );
+         dm_logger->on_onblock(trx);
       }
 
       return trx;
    }
 
-   inline fc::logger* get_deep_mind_logger() const {
+   inline deep_mind_handler* get_deep_mind_logger() const {
       return deep_mind_logger;
    }
 
@@ -2771,11 +2731,7 @@ void controller::preactivate_feature( uint32_t action_id, const digest_type& fea
    if (auto dm_logger = get_deep_mind_logger()) {
       const auto feature = pfs.get_protocol_feature(feature_digest);
 
-      fc_dlog(*dm_logger, "FEATURE_OP PRE_ACTIVATE ${action_id} ${feature_digest} ${feature}",
-         ("action_id", action_id)
-         ("feature_digest", feature_digest)
-         ("feature", feature.to_variant())
-      );
+      dm_logger->on_preactivate_feature(action_id, feature);
    }
 
    my->db.modify( pso, [&]( auto& ps ) {
@@ -3449,29 +3405,20 @@ const flat_set<account_name> &controller::get_resource_greylist() const {
 
 
 void controller::add_to_ram_correction( account_name account, uint64_t ram_bytes, uint32_t action_id, const char* event_id ) {
-   int64_t correction_object_id = 0;
-
-   if( auto ptr = my->db.find<account_ram_correction_object, by_name>( account ) ) {
+   auto ptr = my->db.find<account_ram_correction_object, by_name>( account );
+   if( ptr ) {
       my->db.modify<account_ram_correction_object>( *ptr, [&]( auto& rco ) {
-         correction_object_id = rco.id._id;
          rco.ram_correction += ram_bytes;
       } );
    } else {
-      my->db.create<account_ram_correction_object>( [&]( auto& rco ) {
-         correction_object_id = rco.id._id;
+      ptr = &my->db.create<account_ram_correction_object>( [&]( auto& rco ) {
          rco.name = account;
          rco.ram_correction = ram_bytes;
       } );
    }
 
    if (auto dm_logger = get_deep_mind_logger()) {
-      fc_dlog(*dm_logger, "RAM_CORRECTION_OP ${action_id} ${correction_id} ${event_id} ${payer} ${delta}",
-         ("action_id", action_id)
-         ("correction_id", correction_object_id)
-         ("event_id", event_id)
-         ("payer", account)
-         ("delta", ram_bytes)
-      );
+      dm_logger->on_add_ram_correction(action_id, *ptr, ram_bytes, event_id);
    }
 }
 
@@ -3483,11 +3430,11 @@ bool controller::all_subjective_mitigations_disabled()const {
    return my->conf.disable_all_subjective_mitigations;
 }
 
-fc::logger* controller::get_deep_mind_logger()const {
+deep_mind_handler* controller::get_deep_mind_logger()const {
    return my->get_deep_mind_logger();
 }
 
-void controller::enable_deep_mind(fc::logger* logger) {
+void controller::enable_deep_mind(deep_mind_handler* logger) {
    EOS_ASSERT( logger != nullptr, misc_exception, "Invalid logger passed into enable_deep_mind, must be set" );
    my->deep_mind_logger = logger;
 }

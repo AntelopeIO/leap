@@ -5,6 +5,8 @@
 
 namespace eosio { namespace chain {
 
+class deep_mind_handler;
+
 enum class protocol_feature_t : uint32_t {
    builtin
 };
@@ -248,7 +250,7 @@ protected:
 class protocol_feature_manager {
 public:
 
-   protocol_feature_manager( protocol_feature_set&& pfs, std::function<fc::logger*()> get_deep_mind_logger );
+   protocol_feature_manager( protocol_feature_set&& pfs, std::function<deep_mind_handler*()> get_deep_mind_logger );
 
    class const_iterator : public std::iterator<std::bidirectional_iterator_tag, const protocol_feature> {
    protected:
@@ -370,7 +372,7 @@ protected:
    bool                                   _initialized = false;
 
 private:
-   std::function<fc::logger*()>           _get_deep_mind_logger;
+   std::function<deep_mind_handler*()>           _get_deep_mind_logger;
 };
 
 } } // namespace eosio::chain

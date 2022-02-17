@@ -10,6 +10,7 @@
 #include <boost/tuple/tuple_io.hpp>
 #include <eosio/chain/database_utils.hpp>
 #include <eosio/chain/protocol_state_object.hpp>
+#include <eosio/chain/deep_mind.hpp>
 
 
 namespace eosio { namespace chain {
@@ -159,11 +160,7 @@ namespace eosio { namespace chain {
          p.auth         = auth;
 
          if (auto dm_logger = _control.get_deep_mind_logger()) {
-            fc_dlog(*dm_logger, "PERM_OP INS ${action_id} ${permission_id} ${data}",
-               ("action_id", action_id)
-               ("permission_id", p.id)
-               ("data", p)
-            );
+            dm_logger->on_create_permission(action_id, p);
          }
       });
       return perm;
@@ -199,11 +196,7 @@ namespace eosio { namespace chain {
          p.auth         = std::move(auth);
 
          if (auto dm_logger = _control.get_deep_mind_logger()) {
-            fc_dlog(*dm_logger, "PERM_OP INS ${action_id} ${permission_id} ${data}",
-               ("action_id", action_id)
-               ("permission_id", p.id)
-               ("data", p)
-            );
+            dm_logger->on_create_permission(action_id, p);
          }
       });
       return perm;
@@ -217,7 +210,7 @@ namespace eosio { namespace chain {
       _db.modify( permission, [&](permission_object& po) {
          auto dm_logger = _control.get_deep_mind_logger();
 
-         fc::variant old_permission;
+         std::optional<permission_object> old_permission;
          if (dm_logger) {
             old_permission = po;
          }
@@ -226,14 +219,7 @@ namespace eosio { namespace chain {
          po.last_updated = _control.pending_block_time();
 
          if (auto dm_logger = _control.get_deep_mind_logger()) {
-            fc_dlog(*dm_logger, "PERM_OP UPD ${action_id} ${permission_id} ${data}",
-               ("action_id", action_id)
-               ("permission_id", po.id)
-               ("data", fc::mutable_variant_object()
-                  ("old", old_permission)
-                  ("new", po)
-               )
-            );
+            dm_logger->on_modify_permission(action_id, *old_permission, po);
          }
       });
    }
@@ -247,11 +233,7 @@ namespace eosio { namespace chain {
       _db.get_mutable_index<permission_usage_index>().remove_object( permission.usage_id._id );
 
       if (auto dm_logger = _control.get_deep_mind_logger()) {
-         fc_dlog(*dm_logger, "PERM_OP REM ${action_id} ${permission_id} ${data}",
-              ("action_id", action_id)
-              ("permission_id", permission.id)
-              ("data", permission)
-         );
+         dm_logger->on_remove_permission(action_id, permission);
       }
 
       _db.remove( permission );

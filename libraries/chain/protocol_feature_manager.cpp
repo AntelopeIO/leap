@@ -1,6 +1,7 @@
 #include <eosio/chain/protocol_feature_manager.hpp>
 #include <eosio/chain/protocol_state_object.hpp>
 #include <eosio/chain/exceptions.hpp>
+#include <eosio/chain/deep_mind.hpp>
 
 #include <fc/scoped_exit.hpp>
 
@@ -540,7 +541,7 @@ Enables new `get_code_hash` intrinsic which gets the current code hash of an acc
 
    protocol_feature_manager::protocol_feature_manager(
       protocol_feature_set&& pfs,
-      std::function<fc::logger*()> get_deep_mind_logger
+      std::function<deep_mind_handler*()> get_deep_mind_logger
    ):_protocol_feature_set( std::move(pfs) ), _get_deep_mind_logger(get_deep_mind_logger)
    {
       _builtin_protocol_features.resize( _protocol_feature_set._recognized_builtin_protocol_features.size() );
@@ -722,10 +723,7 @@ Enables new `get_code_hash` intrinsic which gets the current code hash of an acc
       );
 
       if (auto dm_logger = _get_deep_mind_logger()) {
-         fc_dlog(*dm_logger, "FEATURE_OP ACTIVATE ${feature_digest} ${feature}",
-            ("feature_digest", feature_digest)
-            ("feature", itr->to_variant())
-         );
+         dm_logger->on_activate_feature(*itr);
       }
 
       _activated_protocol_features.push_back( protocol_feature_entry{itr, current_block_num} );
