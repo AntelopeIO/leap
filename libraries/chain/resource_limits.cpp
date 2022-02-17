@@ -204,7 +204,7 @@ void resource_limits_manager::add_transaction_usage(const flat_set<account_name>
    EOS_ASSERT( state.pending_net_usage <= config.net_limit_parameters.max, block_resource_exhausted, "Block has insufficient net resources" );
 }
 
-void resource_limits_manager::add_pending_ram_usage( const account_name account, int64_t ram_delta, const ram_trace& trace ) {
+void resource_limits_manager::add_pending_ram_usage( const account_name account, int64_t ram_delta ) {
    if (ram_delta == 0) {
       return;
    }
@@ -220,7 +220,7 @@ void resource_limits_manager::add_pending_ram_usage( const account_name account,
       u.ram_usage += ram_delta;
 
       if (auto dm_logger = _get_deep_mind_logger()) {
-         dm_logger->on_ram_event(account, u.ram_usage, ram_delta, trace);
+         dm_logger->on_ram_event(account, u.ram_usage, ram_delta);
       }
    });
 }

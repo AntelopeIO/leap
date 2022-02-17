@@ -23,6 +23,31 @@ namespace resource_limits {
    class resource_usage_object;
 }
 
+#define RAM_EVENT_ID( FORMAT, ... ) \
+   fc::format_string( FORMAT, fc::mutable_variant_object()__VA_ARGS__ )
+
+struct ram_trace {
+public:
+   ram_trace(const char* event_id, const char* family, const char* operation, const char* legacy_tag)
+   :event_id(event_id),family(family),operation(operation),legacy_tag(legacy_tag)
+   {}
+
+   std::string  event_id   = "generic";
+   const char*  family     = "generic";
+   const char*  operation  = "generic";
+   const char*  legacy_tag = "generic";
+
+private:
+   ram_trace()
+   {}
+
+   friend ram_trace generic_ram_trace(uint32_t);
+};
+
+inline ram_trace generic_ram_trace(uint32_t action_id) {
+   return {};
+}
+
 class deep_mind_handler
 {
 public:
@@ -60,12 +85,14 @@ public:
    void on_newaccount_resource_limits(const resource_limits::resource_limits_object& limits, const resource_limits::resource_usage_object& usage);
    void on_update_account_usage(const resource_limits::resource_usage_object& usage);
    void on_set_account_limits(const resource_limits::resource_limits_object& limits);
-   void on_ram_event(account_name account, uint64_t new_usage, int64_t delta, const ram_trace& trace);
+   void on_ram_trace(const char* event_id, const char* family, const char* operation, const char* legacy_tag);
+   void on_ram_event(account_name account, uint64_t new_usage, int64_t delta);
    void on_create_permission(const permission_object& p);
    void on_modify_permission(const permission_object& old_permission, const permission_object& new_permission);
    void on_remove_permission(const permission_object& permission);
 private:
-   uint32_t _action_id = 0;
+   uint32_t   _action_id = 0;
+   ram_trace  _ram_trace = generic_ram_trace(0);
    fc::logger _logger;
 };
 

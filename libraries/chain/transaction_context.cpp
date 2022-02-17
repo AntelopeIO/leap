@@ -517,9 +517,9 @@ namespace eosio { namespace chain {
       }
    }
 
-   void transaction_context::add_ram_usage( account_name account, int64_t ram_delta, const ram_trace& trace ) {
+   void transaction_context::add_ram_usage( account_name account, int64_t ram_delta ) {
       auto& rl = control.get_mutable_resource_limits_manager();
-      rl.add_pending_ram_usage( account, ram_delta, trace );
+      rl.add_pending_ram_usage( account, ram_delta );
       if( ram_delta > 0 ) {
          validate_ram_usage.insert( account );
       }
@@ -677,11 +677,12 @@ namespace eosio { namespace chain {
 
             auto packed_signed_trx = fc::raw::pack(trx);
             dm_logger->on_send_deferred(deep_mind_handler::operation_qualifier::push, gto);
+            dm_logger->on_ram_trace(event_id.c_str(), "deferred_trx", "push", "deferred_trx_pushed");
          }
       });
 
       int64_t ram_delta = (config::billable_size_v<generated_transaction_object> + trx_size);
-      add_ram_usage( cgto.payer, ram_delta, ram_trace(event_id.c_str(), "deferred_trx", "push", "deferred_trx_pushed") );
+      add_ram_usage( cgto.payer, ram_delta );
       trace->account_ram_delta = account_delta( cgto.payer, ram_delta );
    }
 

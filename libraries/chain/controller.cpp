@@ -1070,11 +1070,12 @@ struct controller_impl {
       ram_delta += active_permission.auth.get_billable_size();
 
       std::string event_id;
-      if (get_deep_mind_logger() != nullptr) {
+      if (auto dm_logger = get_deep_mind_logger()) {
          event_id = RAM_EVENT_ID("${name}", ("name", name));
+         dm_logger->on_ram_trace(event_id.c_str(), "account", "add", "newaccount");
       }
 
-      resource_limits.add_pending_ram_usage(name, ram_delta, ram_trace(event_id.c_str(), "account", "add", "newaccount"));
+      resource_limits.add_pending_ram_usage(name, ram_delta);
       resource_limits.verify_account_ram_usage(name);
    }
 
@@ -1232,12 +1233,13 @@ struct controller_impl {
 
    int64_t remove_scheduled_transaction( const generated_transaction_object& gto ) {
       std::string event_id;
-      if (get_deep_mind_logger() != nullptr) {
+      if (auto dm_logger = get_deep_mind_logger()) {
          event_id = RAM_EVENT_ID("${id}", ("id", gto.id));
+         dm_logger->on_ram_trace(event_id.c_str(), "deferred_trx", "remove", "deferred_trx_removed");
       }
 
       int64_t ram_delta = -(config::billable_size_v<generated_transaction_object> + gto.packed_trx.size());
-      resource_limits.add_pending_ram_usage( gto.payer, ram_delta, ram_trace(event_id.c_str(), "deferred_trx", "remove", "deferred_trx_removed") );
+      resource_limits.add_pending_ram_usage( gto.payer, ram_delta );
       // No need to verify_account_ram_usage since we are only reducing memory
 
       db.remove( gto );
@@ -3536,7 +3538,7 @@ void controller::replace_account_keys( name account, name permission, const publ
       p.auth = authority(key);
    });
    int64_t new_size = (int64_t)(chain::config::billable_size_v<permission_object> + perm->auth.get_billable_size());
-   rlm.add_pending_ram_usage(account, new_size - old_size, generic_ram_trace(0));
+   rlm.add_pending_ram_usage(account, new_size - old_size );
    rlm.verify_account_ram_usage(account);
 }
 
@@ -3570,11 +3572,12 @@ void controller_impl::on_activation<builtin_protocol_feature_t::replace_deferred
       }
 
       std::string event_id;
-      if (get_deep_mind_logger() != nullptr) {
+      if (auto dm_logger = get_deep_mind_logger()) {
          event_id = RAM_EVENT_ID("${id}", ("id", itr->id._id));
+         dm_logger->on_ram_trace(event_id.c_str(), "deferred_trx", "correction", "deferred_trx_ram_correction");
       }
 
-      resource_limits.add_pending_ram_usage( itr->name, ram_delta, ram_trace(event_id.c_str(), "deferred_trx", "correction", "deferred_trx_ram_correction") );
+      resource_limits.add_pending_ram_usage( itr->name, ram_delta );
       db.remove( *itr );
    }
 }

@@ -80,31 +80,6 @@ namespace eosio { namespace chain {
              auth.permission == eosio::chain::config::active_name;
    }
 
-   #define RAM_EVENT_ID( FORMAT, ... ) \
-      fc::format_string( FORMAT, fc::mutable_variant_object()__VA_ARGS__ )
-
-   struct ram_trace {
-   public:
-      ram_trace(const char* event_id, const char* family, const char* operation, const char* legacy_tag)
-      :event_id(event_id),family(family),operation(operation),legacy_tag(legacy_tag)
-      {}
-
-      const char*  event_id   = "generic";
-      const char*  family     = "generic";
-      const char*  operation  = "generic";
-      const char*  legacy_tag = "generic";
-
-   private:
-      ram_trace()
-      {}
-
-      friend ram_trace generic_ram_trace(uint32_t);
-   };
-
-   inline ram_trace generic_ram_trace(uint32_t action_id) {
-      return {};
-   }
-
 } }  /// namespace eosio::chain
 
 FC_REFLECT( eosio::chain::account_delta,

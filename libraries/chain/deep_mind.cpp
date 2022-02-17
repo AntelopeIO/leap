@@ -303,18 +303,23 @@ namespace eosio::chain {
          ("data", limits)
       );
    }
-   void deep_mind_handler::on_ram_event(account_name account, uint64_t new_usage, int64_t delta, const ram_trace& trace)
+   void deep_mind_handler::on_ram_trace(const char* event_id, const char* family, const char* operation, const char* legacy_tag)
+   {
+      _ram_trace = ram_trace(event_id, family, operation, legacy_tag);
+   }
+   void deep_mind_handler::on_ram_event(account_name account, uint64_t new_usage, int64_t delta)
    {
       fc_dlog(_logger, "RAM_OP ${action_id} ${event_id} ${family} ${operation} ${legacy_tag} ${payer} ${new_usage} ${delta}",
          ("action_id", _action_id)
-         ("event_id", trace.event_id)
-         ("family", trace.family)
-         ("operation", trace.operation)
-         ("legacy_tag", trace.legacy_tag)
+         ("event_id", _ram_trace.event_id)
+         ("family", _ram_trace.family)
+         ("operation", _ram_trace.operation)
+         ("legacy_tag", _ram_trace.legacy_tag)
          ("payer", account)
          ("new_usage", new_usage)
          ("delta", delta)
       );
+      _ram_trace = generic_ram_trace(0);
    }
 
    void deep_mind_handler::on_create_permission(const permission_object& p)
