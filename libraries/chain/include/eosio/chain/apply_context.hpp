@@ -203,7 +203,7 @@ class apply_context {
                   }
                });
 
-               context.update_db_usage( payer, config::billable_size_v<ObjectType>, ram_trace(context.get_action_id(), event_id.c_str(), "secondary_index", "add", "secondary_index_add") );
+               context.update_db_usage( payer, config::billable_size_v<ObjectType>, ram_trace(event_id.c_str(), "secondary_index", "add", "secondary_index_add") );
 
                itr_cache.cache_table( tab );
                return itr_cache.add( obj );
@@ -225,7 +225,7 @@ class apply_context {
                   );
                }
 
-               context.update_db_usage( obj.payer, -( config::billable_size_v<ObjectType> ), ram_trace(context.get_action_id(), event_id.c_str(), "secondary_index", "remove", "secondary_index_remove") );
+               context.update_db_usage( obj.payer, -( config::billable_size_v<ObjectType> ), ram_trace(event_id.c_str(), "secondary_index", "remove", "secondary_index_remove") );
 
 //               context.require_write_lock( table_obj.scope );
 
@@ -264,8 +264,8 @@ class apply_context {
                }
 
                if( obj.payer != payer ) {
-                  context.update_db_usage( obj.payer, -(billing_size), ram_trace(context.get_action_id(), event_id.c_str(), "secondary_index", "remove", "secondary_index_update_remove_old_payer") );
-                  context.update_db_usage( payer, +(billing_size), ram_trace(context.get_action_id(), event_id.c_str(), "secondary_index", "add", "secondary_index_update_add_new_payer") );
+                  context.update_db_usage( obj.payer, -(billing_size), ram_trace(event_id.c_str(), "secondary_index", "remove", "secondary_index_update_remove_old_payer") );
+                  context.update_db_usage( payer, +(billing_size), ram_trace(event_id.c_str(), "secondary_index", "add", "secondary_index_update_add_new_payer") );
                }
 
                context.db.modify( obj, [&]( auto& o ) {
@@ -586,9 +586,6 @@ class apply_context {
       const action& get_action()const { return *act; }
 
       action_name get_sender() const;
-
-      uint32_t get_action_id() const;
-      void increment_action_id();
 
    /// Fields:
    public:

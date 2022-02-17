@@ -89,6 +89,16 @@ namespace eosio::chain {
       );
    }
 
+   void deep_mind_handler::on_start_transaction()
+   {
+      _action_id = 0;
+   }
+
+   void deep_mind_handler::on_end_transaction()
+   {
+      _action_id = 0;
+   }
+
    void deep_mind_handler::on_applied_transaction(uint32_t block_num, const transaction_trace_ptr& trace)
    {
       auto packed_trace = fc::raw::pack(*trace);
@@ -98,10 +108,10 @@ namespace eosio::chain {
       );
    }
 
-   void deep_mind_handler::on_add_ram_correction(uint32_t action_id, const account_ram_correction_object& rco, uint64_t delta, const char* event_id)
+   void deep_mind_handler::on_add_ram_correction(const account_ram_correction_object& rco, uint64_t delta, const char* event_id)
    {
       fc_dlog(_logger, "RAM_CORRECTION_OP ${action_id} ${correction_id} ${event_id} ${payer} ${delta}",
-         ("action_id", action_id)
+         ("action_id", _action_id)
          ("correction_id", rco.id._id)
          ("event_id", event_id)
          ("payer", rco.name)
@@ -109,10 +119,10 @@ namespace eosio::chain {
       );
    }
 
-   void deep_mind_handler::on_preactivate_feature(uint32_t action_id, const protocol_feature& feature)
+   void deep_mind_handler::on_preactivate_feature(const protocol_feature& feature)
    {
       fc_dlog(_logger, "FEATURE_OP PRE_ACTIVATE ${action_id} ${feature_digest} ${feature}",
-         ("action_id", action_id)
+         ("action_id", _action_id)
          ("feature_digest", feature.feature_digest)
          ("feature", feature.to_variant())
       );
@@ -126,35 +136,39 @@ namespace eosio::chain {
       );
    }
 
-   void deep_mind_handler::on_input_action(uint32_t action_id)
+   void deep_mind_handler::on_input_action()
    {
       fc_dlog(_logger, "CREATION_OP ROOT ${action_id}",
-         ("action_id", action_id)
+         ("action_id", _action_id)
       );
    }
-   void deep_mind_handler::on_require_recipient(uint32_t action_id)
+   void deep_mind_handler::on_end_action()
+   {
+      ++_action_id;
+   }
+   void deep_mind_handler::on_require_recipient()
    {
       fc_dlog(_logger, "CREATION_OP NOTIFY ${action_id}",
-         ("action_id", action_id)
+         ("action_id", _action_id)
       );
    }
-   void deep_mind_handler::on_send_inline(uint32_t action_id)
+   void deep_mind_handler::on_send_inline()
    {
       fc_dlog(_logger, "CREATION_OP INLINE ${action_id}",
-         ("action_id", action_id)
+         ("action_id", _action_id)
       );
    }
-   void deep_mind_handler::on_send_context_free_inline(uint32_t action_id)
+   void deep_mind_handler::on_send_context_free_inline()
    {
       fc_dlog(_logger, "CREATION_OP CFA_INLINE ${action_id}",
-         ("action_id", action_id)
+         ("action_id", _action_id)
       );
    }
-   void deep_mind_handler::on_cancel_deferred(uint32_t action_id, operation_qualifier qual, const generated_transaction_object& gto)
+   void deep_mind_handler::on_cancel_deferred(operation_qualifier qual, const generated_transaction_object& gto)
    {
       fc_dlog(_logger, "DTRX_OP ${qual}CANCEL ${action_id} ${sender} ${sender_id} ${payer} ${published} ${delay} ${expiration} ${trx_id} ${trx}",
          ("qual", prefix(qual))
-         ("action_id", action_id)
+         ("action_id", _action_id)
          ("sender", gto.sender)
          ("sender_id", gto.sender_id)
          ("payer", gto.payer)
@@ -165,11 +179,11 @@ namespace eosio::chain {
          ("trx", fc::to_hex(gto.packed_trx.data(), gto.packed_trx.size()))
       );
    }
-   void deep_mind_handler::on_send_deferred(uint32_t action_id, operation_qualifier qual, const generated_transaction_object& gto)
+   void deep_mind_handler::on_send_deferred(operation_qualifier qual, const generated_transaction_object& gto)
    {
       fc_dlog(_logger, "DTRX_OP ${qual}CREATE ${action_id} ${sender} ${sender_id} ${payer} ${published} ${delay} ${expiration} ${trx_id} ${trx}",
          ("qual", prefix(qual))
-         ("action_id", action_id)
+         ("action_id", _action_id)
          ("sender", gto.sender)
          ("sender_id", gto.sender_id)
          ("payer", gto.payer)
@@ -183,36 +197,36 @@ namespace eosio::chain {
          ("trx", fc::to_hex(gto.packed_trx.data(), gto.packed_trx.size()))
       );
    }
-   void deep_mind_handler::on_fail_deferred(uint32_t action_id)
+   void deep_mind_handler::on_fail_deferred()
    {
       fc_dlog(_logger, "DTRX_OP FAILED ${action_id}",
-         ("action_id", action_id)
+         ("action_id", _action_id)
       );
    }
-   void deep_mind_handler::on_create_table(uint32_t action_id, const table_id_object& tid)
+   void deep_mind_handler::on_create_table(const table_id_object& tid)
    {
       fc_dlog(_logger, "TBL_OP INS ${action_id} ${code} ${scope} ${table} ${payer}",
-         ("action_id", action_id)
+         ("action_id", _action_id)
          ("code", tid.code)
          ("scope", tid.scope)
          ("table", tid.table)
          ("payer", tid.payer)
       );
    }
-   void deep_mind_handler::on_remove_table(uint32_t action_id, const table_id_object& tid)
+   void deep_mind_handler::on_remove_table(const table_id_object& tid)
    {
       fc_dlog(_logger, "TBL_OP REM ${action_id} ${code} ${scope} ${table} ${payer}",
-         ("action_id", action_id)
+         ("action_id", _action_id)
          ("code", tid.code)
          ("scope", tid.scope)
          ("table", tid.table)
          ("payer", tid.payer)
       );
    }
-   void deep_mind_handler::on_db_store_i64(uint32_t action_id, const table_id_object& tid, const key_value_object& kvo)
+   void deep_mind_handler::on_db_store_i64(const table_id_object& tid, const key_value_object& kvo)
    {
       fc_dlog(_logger, "DB_OP INS ${action_id} ${payer} ${table_code} ${scope} ${table_name} ${primkey} ${ndata}",
-         ("action_id", action_id)
+         ("action_id", _action_id)
          ("payer", kvo.payer)
          ("table_code", tid.code)
          ("scope", tid.scope)
@@ -221,10 +235,10 @@ namespace eosio::chain {
          ("ndata", fc::to_hex(kvo.value.data(), kvo.value.size()))
       );
    }
-   void deep_mind_handler::on_db_update_i64(uint32_t action_id, const table_id_object& tid, const key_value_object& kvo, account_name payer, const char* buffer, std::size_t buffer_size)
+   void deep_mind_handler::on_db_update_i64(const table_id_object& tid, const key_value_object& kvo, account_name payer, const char* buffer, std::size_t buffer_size)
    {
       fc_dlog(_logger, "DB_OP UPD ${action_id} ${opayer}:${npayer} ${table_code} ${scope} ${table_name} ${primkey} ${odata}:${ndata}",
-         ("action_id", action_id)
+         ("action_id", _action_id)
          ("opayer", kvo.payer)
          ("npayer", payer)
          ("table_code", tid.code)
@@ -235,10 +249,10 @@ namespace eosio::chain {
          ("ndata", fc::to_hex(buffer, buffer_size))
       );
    }
-   void deep_mind_handler::on_db_remove_i64(uint32_t action_id, const table_id_object& tid, const key_value_object& kvo)
+   void deep_mind_handler::on_db_remove_i64(const table_id_object& tid, const key_value_object& kvo)
    {
       fc_dlog(_logger, "DB_OP REM ${action_id} ${payer} ${table_code} ${scope} ${table_name} ${primkey} ${odata}",
-         ("action_id", action_id)
+         ("action_id", _action_id)
          ("payer", kvo.payer)
          ("table_code", tid.code)
          ("scope", tid.scope)
@@ -292,7 +306,7 @@ namespace eosio::chain {
    void deep_mind_handler::on_ram_event(account_name account, uint64_t new_usage, int64_t delta, const ram_trace& trace)
    {
       fc_dlog(_logger, "RAM_OP ${action_id} ${event_id} ${family} ${operation} ${legacy_tag} ${payer} ${new_usage} ${delta}",
-         ("action_id", trace.action_id)
+         ("action_id", _action_id)
          ("event_id", trace.event_id)
          ("family", trace.family)
          ("operation", trace.operation)
@@ -303,18 +317,18 @@ namespace eosio::chain {
       );
    }
 
-   void deep_mind_handler::on_create_permission(uint32_t action_id, const permission_object& p)
+   void deep_mind_handler::on_create_permission(const permission_object& p)
    {
       fc_dlog(_logger, "PERM_OP INS ${action_id} ${permission_id} ${data}",
-         ("action_id", action_id)
+         ("action_id", _action_id)
          ("permission_id", p.id)
          ("data", p)
       );
    }
-   void deep_mind_handler::on_modify_permission(uint32_t action_id, const permission_object& old_permission, const permission_object& new_permission)
+   void deep_mind_handler::on_modify_permission(const permission_object& old_permission, const permission_object& new_permission)
    {
       fc_dlog(_logger, "PERM_OP UPD ${action_id} ${permission_id} ${data}",
-         ("action_id", action_id)
+         ("action_id", _action_id)
          ("permission_id", new_permission.id)
          ("data", fc::mutable_variant_object()
             ("old", old_permission)
@@ -322,10 +336,10 @@ namespace eosio::chain {
          )
       );
    }
-   void deep_mind_handler::on_remove_permission(uint32_t action_id, const permission_object& permission)
+   void deep_mind_handler::on_remove_permission(const permission_object& permission)
    {
       fc_dlog(_logger, "PERM_OP REM ${action_id} ${permission_id} ${data}",
-        ("action_id", action_id)
+        ("action_id", _action_id)
         ("permission_id", permission.id)
         ("data", permission)
       );

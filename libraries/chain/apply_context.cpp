@@ -180,6 +180,11 @@ void apply_context::exec_one()
    if ( control.contracts_console() ) {
       print_debug(receiver, trace);
    }
+
+   if (auto dm_logger = control.get_deep_mind_logger())
+   {
+      dm_logger->on_end_action();
+   }
 }
 
 void apply_context::finalize_trace( action_trace& trace, const fc::time_point& start )
@@ -197,11 +202,9 @@ void apply_context::exec()
 {
    _notified.emplace_back( receiver, action_ordinal );
    exec_one();
-   increment_action_id();
    for( uint32_t i = 1; i < _notified.size(); ++i ) {
       std::tie( receiver, action_ordinal ) = _notified[i];
       exec_one();
-      increment_action_id();
    }
 
    if( _cfa_inline_actions.size() > 0 || _inline_actions.size() > 0 ) {
@@ -286,7 +289,7 @@ void apply_context::require_recipient( account_name recipient ) {
       );
 
       if (auto dm_logger = control.get_deep_mind_logger()) {
-         dm_logger->on_require_recipient(get_action_id());
+         dm_logger->on_require_recipient();
       }
    }
 }
@@ -390,7 +393,7 @@ void apply_context::execute_inline( action&& a ) {
    );
 
    if (auto dm_logger = control.get_deep_mind_logger()) {
-      dm_logger->on_send_inline(get_action_id());
+      dm_logger->on_send_inline();
    }
 }
 
@@ -415,7 +418,7 @@ void apply_context::execute_context_free_inline( action&& a ) {
    );
 
    if (auto dm_logger = control.get_deep_mind_logger()) {
-      dm_logger->on_send_context_free_inline(get_action_id());
+      dm_logger->on_send_context_free_inline();
    }
 }
 
@@ -560,9 +563,9 @@ void apply_context::schedule_deferred_transaction( const uint128_t& sender_id, a
 
       uint64_t orig_trx_ram_bytes = config::billable_size_v<generated_transaction_object> + ptr->packed_trx.size();
       if( replace_deferred_activated ) {
-         add_ram_usage( ptr->payer, -static_cast<int64_t>( orig_trx_ram_bytes ), ram_trace(get_action_id(), event_id.c_str(), "deferred_trx", "cancel", "deferred_trx_cancel") );
+         add_ram_usage( ptr->payer, -static_cast<int64_t>( orig_trx_ram_bytes ), ram_trace(event_id.c_str(), "deferred_trx", "cancel", "deferred_trx_cancel") );
       } else {
-         control.add_to_ram_correction( ptr->payer, orig_trx_ram_bytes, get_action_id(), event_id.c_str() );
+         control.add_to_ram_correction( ptr->payer, orig_trx_ram_bytes, event_id.c_str() );
       }
 
       transaction_id_type trx_id_for_new_obj;
@@ -573,7 +576,7 @@ void apply_context::schedule_deferred_transaction( const uint128_t& sender_id, a
       }
 
       if (auto dm_logger = control.get_deep_mind_logger()) {
-         dm_logger->on_cancel_deferred(get_action_id(), deep_mind_handler::operation_qualifier::modify, *ptr);
+         dm_logger->on_cancel_deferred(deep_mind_handler::operation_qualifier::modify, *ptr);
       }
 
       // Use remove and create rather than modify because mutating the trx_id field in a modifier is unsafe.
@@ -594,7 +597,7 @@ void apply_context::schedule_deferred_transaction( const uint128_t& sender_id, a
             operation = "update";
             event_id = RAM_EVENT_ID("${id}", ("id", gtx.id));
 
-            dm_logger->on_send_deferred(get_action_id(), deep_mind_handler::operation_qualifier::modify, gtx);
+            dm_logger->on_send_deferred(deep_mind_handler::operation_qualifier::modify, gtx);
          }
       } );
    } else {
@@ -613,7 +616,7 @@ void apply_context::schedule_deferred_transaction( const uint128_t& sender_id, a
             operation = "add";
             event_id = RAM_EVENT_ID("${id}", ("id", gtx.id));
 
-            dm_logger->on_send_deferred(get_action_id(), deep_mind_handler::operation_qualifier::none, gtx);
+            dm_logger->on_send_deferred(deep_mind_handler::operation_qualifier::none, gtx);
          }
       } );
    }
@@ -624,7 +627,7 @@ void apply_context::schedule_deferred_transaction( const uint128_t& sender_id, a
                subjective_block_production_exception,
                "Cannot charge RAM to other accounts during notify."
    );
-   add_ram_usage( payer, (config::billable_size_v<generated_transaction_object> + trx_size), ram_trace(get_action_id(), event_id.c_str(), "deferred_trx", operation.c_str(), "deferred_trx_add") );
+   add_ram_usage( payer, (config::billable_size_v<generated_transaction_object> + trx_size), ram_trace(event_id.c_str(), "deferred_trx", operation.c_str(), "deferred_trx_add") );
 }
 
 bool apply_context::cancel_deferred_transaction( const uint128_t& sender_id, account_name sender ) {
@@ -637,10 +640,10 @@ bool apply_context::cancel_deferred_transaction( const uint128_t& sender_id, acc
       if (auto dm_logger = control.get_deep_mind_logger()) {
          event_id = RAM_EVENT_ID("${id}", ("id", gto->id));
 
-         dm_logger->on_cancel_deferred(get_action_id(), deep_mind_handler::operation_qualifier::none, *gto);
+         dm_logger->on_cancel_deferred(deep_mind_handler::operation_qualifier::none, *gto);
       }
 
-      add_ram_usage( gto->payer, -(config::billable_size_v<generated_transaction_object> + gto->packed_trx.size()), ram_trace(get_action_id(), event_id.c_str(), "deferred_trx", "cancel", "deferred_trx_cancel") );
+      add_ram_usage( gto->payer, -(config::billable_size_v<generated_transaction_object> + gto->packed_trx.size()), ram_trace(event_id.c_str(), "deferred_trx", "cancel", "deferred_trx_cancel") );
       generated_transaction_idx.remove(*gto);
    }
    return gto;
@@ -685,7 +688,7 @@ const table_id_object& apply_context::find_or_create_table( name code, name scop
       );
    }
 
-   update_db_usage(payer, config::billable_size_v<table_id_object>, ram_trace(get_action_id(), event_id.c_str(), "table", "add", "create_table"));
+   update_db_usage(payer, config::billable_size_v<table_id_object>, ram_trace(event_id.c_str(), "table", "add", "create_table"));
 
    return db.create<table_id_object>([&](table_id_object &t_id){
       t_id.code = code;
@@ -694,7 +697,7 @@ const table_id_object& apply_context::find_or_create_table( name code, name scop
       t_id.payer = payer;
 
       if (auto dm_logger = control.get_deep_mind_logger()) {
-         dm_logger->on_create_table(get_action_id(), t_id);
+         dm_logger->on_create_table(t_id);
       }
    });
 }
@@ -709,10 +712,10 @@ void apply_context::remove_table( const table_id_object& tid ) {
       );
    }
 
-   update_db_usage(tid.payer, - config::billable_size_v<table_id_object>, ram_trace(get_action_id(), event_id.c_str(), "table", "remove", "remove_table") );
+   update_db_usage(tid.payer, - config::billable_size_v<table_id_object>, ram_trace(event_id.c_str(), "table", "remove", "remove_table") );
 
    if (auto dm_logger = control.get_deep_mind_logger()) {
-      dm_logger->on_remove_table(get_action_id(), tid);
+      dm_logger->on_remove_table(tid);
    }
 
    db.remove(tid);
@@ -822,10 +825,10 @@ int apply_context::db_store_i64( name code, name scope, name table, const accoun
       );
    }
 
-   update_db_usage( payer, billable_size, ram_trace(get_action_id(), event_id.c_str(), "table_row", "add", "primary_index_add") );
+   update_db_usage( payer, billable_size, ram_trace(event_id.c_str(), "table_row", "add", "primary_index_add") );
 
    if (auto dm_logger = control.get_deep_mind_logger()) {
-      dm_logger->on_db_store_i64(get_action_id(), tab, obj);
+      dm_logger->on_db_store_i64(tab, obj);
    }
 
    keyval_cache.cache_table( tab );
@@ -858,16 +861,16 @@ void apply_context::db_update_i64( int iterator, account_name payer, const char*
 
    if( account_name(obj.payer) != payer ) {
       // refund the existing payer
-      update_db_usage( obj.payer, -(old_size), ram_trace(get_action_id(), event_id.c_str(), "table_row", "remove", "primary_index_update_remove_old_payer") );
+      update_db_usage( obj.payer, -(old_size), ram_trace(event_id.c_str(), "table_row", "remove", "primary_index_update_remove_old_payer") );
       // charge the new payer
-      update_db_usage( payer,  (new_size), ram_trace(get_action_id(), event_id.c_str(), "table_row", "add", "primary_index_update_add_new_payer") );
+      update_db_usage( payer,  (new_size), ram_trace(event_id.c_str(), "table_row", "add", "primary_index_update_add_new_payer") );
    } else if(old_size != new_size) {
       // charge/refund the existing payer the difference
-      update_db_usage( obj.payer, new_size - old_size, ram_trace(get_action_id(), event_id.c_str() , "table_row", "update", "primary_index_update") );
+      update_db_usage( obj.payer, new_size - old_size, ram_trace(event_id.c_str() , "table_row", "update", "primary_index_update") );
    }
 
    if (auto dm_logger = control.get_deep_mind_logger()) {
-      dm_logger->on_db_update_i64(get_action_id(), table_obj, obj, payer, buffer, buffer_size);
+      dm_logger->on_db_update_i64(table_obj, obj, payer, buffer, buffer_size);
    }
 
    db.modify( obj, [&]( auto& o ) {
@@ -894,10 +897,10 @@ void apply_context::db_remove_i64( int iterator ) {
       );
    }
 
-   update_db_usage( obj.payer,  -(obj.value.size() + config::billable_size_v<key_value_object>), ram_trace(get_action_id(), event_id.c_str(), "table_row", "remove", "primary_index_remove") );
+   update_db_usage( obj.payer,  -(obj.value.size() + config::billable_size_v<key_value_object>), ram_trace(event_id.c_str(), "table_row", "remove", "primary_index_remove") );
 
    if (auto dm_logger = control.get_deep_mind_logger()) {
-      dm_logger->on_db_remove_i64(get_action_id(), table_obj, obj);
+      dm_logger->on_db_remove_i64(table_obj, obj);
    }
 
    db.modify( table_obj, [&]( auto& t ) {
@@ -1064,14 +1067,6 @@ action_name apply_context::get_sender() const {
       return creator_trace.receiver;
    }
    return action_name();
-}
-
-uint32_t apply_context::get_action_id() const {
-   return trx_context.action_id.current();
-}
-
-void apply_context::increment_action_id() {
-   trx_context.action_id.increment();
 }
 
 } } /// eosio::chain

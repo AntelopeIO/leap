@@ -6,22 +6,6 @@
 
 namespace eosio { namespace chain {
 
-   /**
-    * This is a little helper class used by deep mind tracer
-    * to record on-going execution id/index of all actions executed
-    * by a given transaction.
-    */
-   class action_id_type {
-      public:
-        action_id_type(): id(0) {}
-
-        inline void increment() { id++; }
-        inline uint32_t current() const { return id; }
-
-      private:
-        uint32_t id;
-   };
-
    struct transaction_checktime_timer {
       public:
          transaction_checktime_timer() = delete;
@@ -56,6 +40,7 @@ namespace eosio { namespace chain {
                               const transaction_id_type& trx_id,
                               transaction_checktime_timer&& timer,
                               fc::time_point start = fc::time_point::now() );
+         ~transaction_context();
 
          void init_for_implicit_trx( uint64_t initial_net_usage = 0 );
 
@@ -98,8 +83,6 @@ namespace eosio { namespace chain {
          std::tuple<int64_t, int64_t, bool, bool> max_bandwidth_billed_accounts_can_pay( bool force_elastic_limits = false )const;
 
          void validate_referenced_accounts( const transaction& trx, bool enforce_actor_whitelist_blacklist )const;
-
-         uint32_t get_action_id() const { return action_id.current(); }
 
       private:
 
@@ -166,9 +149,6 @@ namespace eosio { namespace chain {
          bool                          explicit_billed_cpu_time = false;
 
          transaction_checktime_timer   transaction_timer;
-
-         /// kept to track ids of action_traces push via this transaction
-         action_id_type                action_id;
 
       private:
          bool                          is_initialized = false;

@@ -66,6 +66,19 @@ namespace eosio { namespace chain {
       trace->block_num = c.head_block_num() + 1;
       trace->block_time = c.pending_block_time();
       trace->producer_block_id = c.pending_producer_block_id();
+
+      if(auto dm_logger = control.get_deep_mind_logger())
+      {
+         dm_logger->on_start_transaction();
+      }
+   }
+
+   transaction_context::~transaction_context()
+   {
+      if(auto dm_logger = control.get_deep_mind_logger())
+      {
+         dm_logger->on_end_transaction();
+      }
    }
 
    void transaction_context::disallow_transaction_extensions( const char* error_msg )const {
@@ -628,7 +641,7 @@ namespace eosio { namespace chain {
 
       if (recurse_depth == 0) {
          if (auto dm_logger = control.get_deep_mind_logger()) {
-            dm_logger->on_input_action(get_action_id());
+            dm_logger->on_input_action();
          }
       }
 
@@ -663,12 +676,12 @@ namespace eosio { namespace chain {
             event_id = RAM_EVENT_ID("${id}", ("id", gto.id));
 
             auto packed_signed_trx = fc::raw::pack(trx);
-            dm_logger->on_send_deferred(get_action_id(), deep_mind_handler::operation_qualifier::push, gto);
+            dm_logger->on_send_deferred(deep_mind_handler::operation_qualifier::push, gto);
          }
       });
 
       int64_t ram_delta = (config::billable_size_v<generated_transaction_object> + trx_size);
-      add_ram_usage( cgto.payer, ram_delta, ram_trace(get_action_id(), event_id.c_str(), "deferred_trx", "push", "deferred_trx_pushed") );
+      add_ram_usage( cgto.payer, ram_delta, ram_trace(event_id.c_str(), "deferred_trx", "push", "deferred_trx_pushed") );
       trace->account_ram_delta = account_delta( cgto.payer, ram_delta );
    }
 

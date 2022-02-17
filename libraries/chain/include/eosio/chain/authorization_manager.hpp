@@ -31,7 +31,6 @@ namespace eosio { namespace chain {
                                                      permission_name name,
                                                      permission_id_type parent,
                                                      const authority& auth,
-                                                     uint32_t action_id,
                                                      time_point initial_creation_time = time_point()
                                                    );
 
@@ -39,13 +38,12 @@ namespace eosio { namespace chain {
                                                      permission_name name,
                                                      permission_id_type parent,
                                                      authority&& auth,
-                                                     uint32_t action_id,
                                                      time_point initial_creation_time = time_point()
                                                    );
 
-         void modify_permission( const permission_object& permission, const authority& auth, uint32_t action_id );
+         void modify_permission( const permission_object& permission, const authority& auth );
 
-         void remove_permission( const permission_object& permission, uint32_t action_id );
+         void remove_permission( const permission_object& permission );
 
          void update_permission_usage( const permission_object& permission );
 

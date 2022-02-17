@@ -1058,9 +1058,9 @@ struct controller_impl {
       });
 
       const auto& owner_permission  = authorization.create_permission(name, config::owner_name, 0,
-                                                                      owner, 0, initial_timestamp );
+                                                                      owner, initial_timestamp );
       const auto& active_permission = authorization.create_permission(name, config::active_name, owner_permission.id,
-                                                                      active, 0, initial_timestamp );
+                                                                      active, initial_timestamp );
 
       resource_limits.initialize_account(name);
 
@@ -1074,7 +1074,7 @@ struct controller_impl {
          event_id = RAM_EVENT_ID("${name}", ("name", name));
       }
 
-      resource_limits.add_pending_ram_usage(name, ram_delta, ram_trace(0, event_id.c_str(), "account", "add", "newaccount"));
+      resource_limits.add_pending_ram_usage(name, ram_delta, ram_trace(event_id.c_str(), "account", "add", "newaccount"));
       resource_limits.verify_account_ram_usage(name);
    }
 
@@ -1127,13 +1127,11 @@ struct controller_impl {
                                                                              config::majority_producers_permission_name,
                                                                              active_permission.id,
                                                                              active_producers_authority,
-                                                                             0,
                                                                              genesis.initial_timestamp );
       const auto& minority_permission     = authorization.create_permission( config::producers_account_name,
                                                                              config::minority_producers_permission_name,
                                                                              majority_permission.id,
                                                                              active_producers_authority,
-                                                                             0,
                                                                              genesis.initial_timestamp );
    }
 
@@ -1239,7 +1237,7 @@ struct controller_impl {
       }
 
       int64_t ram_delta = -(config::billable_size_v<generated_transaction_object> + gto.packed_trx.size());
-      resource_limits.add_pending_ram_usage( gto.payer, ram_delta, ram_trace(0, event_id.c_str(), "deferred_trx", "remove", "deferred_trx_removed") );
+      resource_limits.add_pending_ram_usage( gto.payer, ram_delta, ram_trace(event_id.c_str(), "deferred_trx", "remove", "deferred_trx_removed") );
       // No need to verify_account_ram_usage since we are only reducing memory
 
       db.remove( gto );
@@ -1350,7 +1348,7 @@ struct controller_impl {
          trace->elapsed = fc::time_point::now() - trx_context.start;
 
          if (auto dm_logger = get_deep_mind_logger()) {
-            dm_logger->on_fail_deferred(trx_context.get_action_id());
+            dm_logger->on_fail_deferred();
          }
       };
 
@@ -2631,7 +2629,7 @@ chainbase::database& controller::mutable_db()const { return my->db; }
 
 const fork_database& controller::fork_db()const { return my->fork_db; }
 
-void controller::preactivate_feature( uint32_t action_id, const digest_type& feature_digest ) {
+void controller::preactivate_feature( const digest_type& feature_digest ) {
    const auto& pfs = my->protocol_features.get_protocol_feature_set();
    auto cur_time = pending_block_time();
 
@@ -2731,7 +2729,7 @@ void controller::preactivate_feature( uint32_t action_id, const digest_type& fea
    if (auto dm_logger = get_deep_mind_logger()) {
       const auto feature = pfs.get_protocol_feature(feature_digest);
 
-      dm_logger->on_preactivate_feature(action_id, feature);
+      dm_logger->on_preactivate_feature(feature);
    }
 
    my->db.modify( pso, [&]( auto& ps ) {
@@ -3404,7 +3402,7 @@ const flat_set<account_name> &controller::get_resource_greylist() const {
 }
 
 
-void controller::add_to_ram_correction( account_name account, uint64_t ram_bytes, uint32_t action_id, const char* event_id ) {
+void controller::add_to_ram_correction( account_name account, uint64_t ram_bytes, const char* event_id ) {
    auto ptr = my->db.find<account_ram_correction_object, by_name>( account );
    if( ptr ) {
       my->db.modify<account_ram_correction_object>( *ptr, [&]( auto& rco ) {
@@ -3418,7 +3416,7 @@ void controller::add_to_ram_correction( account_name account, uint64_t ram_bytes
    }
 
    if (auto dm_logger = get_deep_mind_logger()) {
-      dm_logger->on_add_ram_correction(action_id, *ptr, ram_bytes, event_id);
+      dm_logger->on_add_ram_correction(*ptr, ram_bytes, event_id);
    }
 }
 
@@ -3576,7 +3574,7 @@ void controller_impl::on_activation<builtin_protocol_feature_t::replace_deferred
          event_id = RAM_EVENT_ID("${id}", ("id", itr->id._id));
       }
 
-      resource_limits.add_pending_ram_usage( itr->name, ram_delta, ram_trace(0, event_id.c_str(), "deferred_trx", "correction", "deferred_trx_ram_correction") );
+      resource_limits.add_pending_ram_usage( itr->name, ram_delta, ram_trace(event_id.c_str(), "deferred_trx", "correction", "deferred_trx_ram_correction") );
       db.remove( *itr );
    }
 }

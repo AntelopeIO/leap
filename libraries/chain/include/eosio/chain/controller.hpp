@@ -119,7 +119,7 @@ namespace eosio { namespace chain {
          void startup( std::function<bool()> shutdown, const genesis_state& genesis);
          void startup( std::function<bool()> shutdown);
 
-         void preactivate_feature( uint32_t action_id, const digest_type& feature_digest );
+         void preactivate_feature( const digest_type& feature_digest );
 
          vector<digest_type> get_preactivated_protocol_features()const;
 
@@ -303,7 +303,7 @@ namespace eosio { namespace chain {
 
          fc::microseconds get_abi_serializer_max_time() const;
 
-         void add_to_ram_correction( account_name account, uint64_t ram_bytes, uint32_t action_id, const char* event_id );
+         void add_to_ram_correction( account_name account, uint64_t ram_bytes, const char* event_id );
          bool all_subjective_mitigations_disabled()const;
 
          deep_mind_handler* get_deep_mind_logger() const;
