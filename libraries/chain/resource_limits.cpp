@@ -53,11 +53,11 @@ void resource_limits_manager::add_indices() {
 }
 
 void resource_limits_manager::initialize_database() {
-   const auto& config = _db.create<resource_limits_config_object>([this](resource_limits_config_object& config){
+   const auto& config = _db.create<resource_limits_config_object>([](resource_limits_config_object& config){
       // see default settings in the declaration
    });
 
-   const auto& state = _db.create<resource_limits_state_object>([this, &config](resource_limits_state_object& state){
+   const auto& state = _db.create<resource_limits_state_object>([&config](resource_limits_state_object& state){
       // see default settings in the declaration
 
       // start the chain off in a way that it is "congested" aka slow-start
@@ -112,7 +112,6 @@ void resource_limits_manager::set_block_parameters(const elastic_limit_parameter
    const auto& config = _db.get<resource_limits_config_object>();
    if( config.cpu_limit_parameters == cpu_limit_parameters && config.net_limit_parameters == net_limit_parameters )
       return;
-
    _db.modify(config, [&](resource_limits_config_object& c){
       c.cpu_limit_parameters = cpu_limit_parameters;
       c.net_limit_parameters = net_limit_parameters;

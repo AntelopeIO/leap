@@ -579,7 +579,6 @@ void apply_context::schedule_deferred_transaction( const uint128_t& sender_id, a
 
       // Use remove and create rather than modify because mutating the trx_id field in a modifier is unsafe.
       db.remove( *ptr );
-
       db.create<generated_transaction_object>( [&]( auto& gtx ) {
          gtx.trx_id      = trx_id_for_new_obj;
          gtx.sender      = receiver;
@@ -625,8 +624,6 @@ void apply_context::schedule_deferred_transaction( const uint128_t& sender_id, a
 }
 
 bool apply_context::cancel_deferred_transaction( const uint128_t& sender_id, account_name sender ) {
-
-
    auto& generated_transaction_idx = db.get_mutable_index<generated_transaction_multi_index>();
    const auto* gto = db.find<generated_transaction_object,by_sender_id>(boost::make_tuple(sender, sender_id));
    if ( gto ) {
@@ -704,7 +701,7 @@ void apply_context::remove_table( const table_id_object& tid ) {
       dm_logger->on_ram_trace(std::move(event_id), "table", "remove", "remove_table");
    }
 
-   update_db_usage(tid.payer, - config::billable_size_v<table_id_object> );
+   update_db_usage(tid.payer, - config::billable_size_v<table_id_object>);
 
    if (auto dm_logger = control.get_deep_mind_logger()) {
       dm_logger->on_remove_table(tid);
@@ -817,7 +814,7 @@ int apply_context::db_store_i64( name code, name scope, name table, const accoun
       dm_logger->on_ram_trace(std::move(event_id), "table_row", "add", "primary_index_add");
    }
 
-   update_db_usage( payer, billable_size );
+   update_db_usage( payer, billable_size);
 
    if (auto dm_logger = control.get_deep_mind_logger()) {
       dm_logger->on_db_store_i64(tab, obj);
@@ -857,20 +854,20 @@ void apply_context::db_update_i64( int iterator, account_name payer, const char*
       {
          dm_logger->on_ram_trace(std::string(event_id), "table_row", "remove", "primary_index_update_remove_old_payer");
       }
-      update_db_usage( obj.payer, -(old_size) );
+      update_db_usage( obj.payer,  -(old_size) );
       // charge the new payer
       if (auto dm_logger = control.get_deep_mind_logger())
       {
          dm_logger->on_ram_trace(std::move(event_id), "table_row", "add", "primary_index_update_add_new_payer");
       }
-      update_db_usage( payer,  (new_size) );
+      update_db_usage( payer,  (new_size));
    } else if(old_size != new_size) {
       // charge/refund the existing payer the difference
       if (auto dm_logger = control.get_deep_mind_logger())
       {
          dm_logger->on_ram_trace(std::move(event_id) , "table_row", "update", "primary_index_update");
       }
-      update_db_usage( obj.payer, new_size - old_size );
+      update_db_usage( obj.payer, new_size - old_size);
    }
 
    if (auto dm_logger = control.get_deep_mind_logger()) {

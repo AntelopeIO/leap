@@ -222,7 +222,7 @@ namespace eosio { namespace chain {
       });
    }
 
-   void authorization_manager::remove_permission( const permission_object& permission) {
+   void authorization_manager::remove_permission( const permission_object& permission ) {
       const auto& index = _db.template get_index<permission_index, by_parent>();
       auto range = index.equal_range(permission.id);
       EOS_ASSERT( range.first == range.second, action_validate_exception,
@@ -363,7 +363,7 @@ namespace eosio { namespace chain {
                   "the owner of the linked permission needs to be the actor of the declared authorization" );
 
       if( link.code == config::system_account_name
-            || !_control.is_builtin_activated( builtin_protocol_feature_t::fix_linkauth_restriction ) )
+            || !_control.is_builtin_activated( builtin_protocol_feature_t::fix_linkauth_restriction ) ) 
       {
          EOS_ASSERT( link.type != updateauth::get_name(),  action_validate_exception,
                      "Cannot link eosio::updateauth to a minimum permission" );

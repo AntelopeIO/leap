@@ -10,7 +10,7 @@ class account_ram_correction_object;
 class generated_transaction_object;
 class table_id_object;
 class key_value_object;
-class permission_object;   
+class permission_object;
 struct block_state;
 struct protocol_feature;
 struct signed_transaction;

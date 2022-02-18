@@ -3418,10 +3418,6 @@ void controller::add_to_ram_correction( account_name account, uint64_t ram_bytes
    }
 }
 
-fc::microseconds controller::get_abi_serializer_max_time()const {
-   return my->conf.abi_serializer_max_time_us;
-}
-
 bool controller::all_subjective_mitigations_disabled()const {
    return my->conf.disable_all_subjective_mitigations;
 }
@@ -3534,7 +3530,7 @@ void controller::replace_account_keys( name account, name permission, const publ
       p.auth = authority(key);
    });
    int64_t new_size = (int64_t)(chain::config::billable_size_v<permission_object> + perm->auth.get_billable_size());
-   rlm.add_pending_ram_usage(account, new_size - old_size );
+   rlm.add_pending_ram_usage(account, new_size - old_size);
    rlm.verify_account_ram_usage(account);
 }
 

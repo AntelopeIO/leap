@@ -739,10 +739,8 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
 
       LOAD_VALUE_SET( options, "profile-account", my->chain_config->profile_accounts );
 
-      if(options.count("abi-serializer-max-time-ms")) {
+      if(options.count("abi-serializer-max-time-ms"))
          my->abi_serializer_max_time_us = fc::microseconds(options.at("abi-serializer-max-time-ms").as<uint32_t>() * 1000);
-         my->chain_config->abi_serializer_max_time_us = my->abi_serializer_max_time_us;
-      }
 
       my->chain_config->blocks_dir = my->blocks_dir;
       my->chain_config->state_dir = app().data_dir() / config::default_state_dir_name;
@@ -1156,7 +1154,6 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
          if (my->_account_query_db) {
             my->_account_query_db->commit_block(blk);
          }
-
          my->accepted_block_channel.publish( priority::high, blk );
       } );
 
@@ -1174,7 +1171,6 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
                if (my->_account_query_db) {
                   my->_account_query_db->cache_transaction_trace(std::get<0>(t));
                }
-
                my->applied_transaction_channel.publish( priority::low, std::get<0>(t) );
             } );
 
