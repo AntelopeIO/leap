@@ -190,18 +190,17 @@ class apply_context {
                   o.payer         = payer;
                });
 
-               std::string event_id;
                context.db.modify( tab, [&]( auto& t ) {
                  ++t.count;
 
                   if (auto dm_logger = context.control.get_deep_mind_logger()) {
-                     event_id = RAM_EVENT_ID("${code}:${scope}:${table}:${index_name}",
+                     std::string event_id = RAM_EVENT_ID("${code}:${scope}:${table}:${index_name}",
                         ("code", t.code)
                         ("scope", t.scope)
                         ("table", t.table)
                         ("index_name", name(id))
                      );
-                     dm_logger->on_ram_trace(event_id.c_str(), "secondary_index", "add", "secondary_index_add");
+                     dm_logger->on_ram_trace(std::move(event_id), "secondary_index", "add", "secondary_index_add");
                   }
                });
 
@@ -224,7 +223,7 @@ class apply_context {
                      ("table", table_obj.table)
                      ("index_name", name(obj.primary_key))
                   );
-                  dm_logger->on_ram_trace(event_id.c_str(), "secondary_index", "remove", "secondary_index_remove");
+                  dm_logger->on_ram_trace(std::move(event_id), "secondary_index", "remove", "secondary_index_remove");
                }
 
                context.update_db_usage( obj.payer, -( config::billable_size_v<ObjectType> ) );
@@ -268,12 +267,12 @@ class apply_context {
                if( obj.payer != payer ) {
                   if (auto dm_logger = context.control.get_deep_mind_logger())
                   {
-                     dm_logger->on_ram_trace(event_id.c_str(), "secondary_index", "remove", "secondary_index_remove");
+                     dm_logger->on_ram_trace(std::string(event_id), "secondary_index", "remove", "secondary_index_remove");
                   }
                   context.update_db_usage( obj.payer, -(billing_size) );
                   if (auto dm_logger = context.control.get_deep_mind_logger())
                   {
-                     dm_logger->on_ram_trace(event_id.c_str(), "secondary_index", "add", "secondary_index_update_add_new_payer");
+                     dm_logger->on_ram_trace(std::move(event_id), "secondary_index", "add", "secondary_index_update_add_new_payer");
                   }
                   context.update_db_usage( payer, +(billing_size) );
                }

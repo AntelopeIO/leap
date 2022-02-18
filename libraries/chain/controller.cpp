@@ -1069,10 +1069,8 @@ struct controller_impl {
       ram_delta += owner_permission.auth.get_billable_size();
       ram_delta += active_permission.auth.get_billable_size();
 
-      std::string event_id;
       if (auto dm_logger = get_deep_mind_logger()) {
-         event_id = RAM_EVENT_ID("${name}", ("name", name));
-         dm_logger->on_ram_trace(event_id.c_str(), "account", "add", "newaccount");
+         dm_logger->on_ram_trace(RAM_EVENT_ID("${name}", ("name", name)), "account", "add", "newaccount");
       }
 
       resource_limits.add_pending_ram_usage(name, ram_delta);
@@ -1232,10 +1230,8 @@ struct controller_impl {
    }
 
    int64_t remove_scheduled_transaction( const generated_transaction_object& gto ) {
-      std::string event_id;
       if (auto dm_logger = get_deep_mind_logger()) {
-         event_id = RAM_EVENT_ID("${id}", ("id", gto.id));
-         dm_logger->on_ram_trace(event_id.c_str(), "deferred_trx", "remove", "deferred_trx_removed");
+         dm_logger->on_ram_trace(RAM_EVENT_ID("${id}", ("id", gto.id)), "deferred_trx", "remove", "deferred_trx_removed");
       }
 
       int64_t ram_delta = -(config::billable_size_v<generated_transaction_object> + gto.packed_trx.size());
@@ -3404,7 +3400,7 @@ const flat_set<account_name> &controller::get_resource_greylist() const {
 }
 
 
-void controller::add_to_ram_correction( account_name account, uint64_t ram_bytes, const char* event_id ) {
+void controller::add_to_ram_correction( account_name account, uint64_t ram_bytes ) {
    auto ptr = my->db.find<account_ram_correction_object, by_name>( account );
    if( ptr ) {
       my->db.modify<account_ram_correction_object>( *ptr, [&]( auto& rco ) {
@@ -3418,7 +3414,7 @@ void controller::add_to_ram_correction( account_name account, uint64_t ram_bytes
    }
 
    if (auto dm_logger = get_deep_mind_logger()) {
-      dm_logger->on_add_ram_correction(*ptr, ram_bytes, event_id);
+      dm_logger->on_add_ram_correction(*ptr, ram_bytes);
    }
 }
 
@@ -3571,10 +3567,8 @@ void controller_impl::on_activation<builtin_protocol_feature_t::replace_deferred
                ("name", itr->name)("adjust", itr->ram_correction)("current", current_ram_usage) );
       }
 
-      std::string event_id;
       if (auto dm_logger = get_deep_mind_logger()) {
-         event_id = RAM_EVENT_ID("${id}", ("id", itr->id._id));
-         dm_logger->on_ram_trace(event_id.c_str(), "deferred_trx", "correction", "deferred_trx_ram_correction");
+         dm_logger->on_ram_trace(RAM_EVENT_ID("${id}", ("id", itr->id._id)), "deferred_trx", "correction", "deferred_trx_ram_correction");
       }
 
       resource_limits.add_pending_ram_usage( itr->name, ram_delta );

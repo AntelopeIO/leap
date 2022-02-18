@@ -108,15 +108,16 @@ namespace eosio::chain {
       );
    }
 
-   void deep_mind_handler::on_add_ram_correction(const account_ram_correction_object& rco, uint64_t delta, const char* event_id)
+   void deep_mind_handler::on_add_ram_correction(const account_ram_correction_object& rco, uint64_t delta)
    {
       fc_dlog(_logger, "RAM_CORRECTION_OP ${action_id} ${correction_id} ${event_id} ${payer} ${delta}",
          ("action_id", _action_id)
          ("correction_id", rco.id._id)
-         ("event_id", event_id)
+         ("event_id", _ram_trace.event_id)
          ("payer", rco.name)
          ("delta", delta)
       );
+      _ram_trace = ram_trace();
    }
 
    void deep_mind_handler::on_preactivate_feature(const protocol_feature& feature)
@@ -190,9 +191,6 @@ namespace eosio::chain {
          ("published", gto.published)
          ("delay", gto.delay_until)
          ("expiration", gto.expiration)
-         // TODO: behavior change before replace_deferred is activated
-         // I think that this behavior is correct as otherwise it won't
-         // match up with the corresponding cancel or execute, but need to confirm.
          ("trx_id", gto.trx_id)
          ("trx", fc::to_hex(gto.packed_trx.data(), gto.packed_trx.size()))
       );
@@ -303,9 +301,9 @@ namespace eosio::chain {
          ("data", limits)
       );
    }
-   void deep_mind_handler::on_ram_trace(const char* event_id, const char* family, const char* operation, const char* legacy_tag)
+   void deep_mind_handler::on_ram_trace(std::string&& event_id, const char* family, const char* operation, const char* legacy_tag)
    {
-      _ram_trace = ram_trace(event_id, family, operation, legacy_tag);
+      _ram_trace = ram_trace(std::move(event_id), family, operation, legacy_tag);
    }
    void deep_mind_handler::on_ram_event(account_name account, uint64_t new_usage, int64_t delta)
    {
@@ -319,7 +317,7 @@ namespace eosio::chain {
          ("new_usage", new_usage)
          ("delta", delta)
       );
-      _ram_trace = generic_ram_trace(0);
+      _ram_trace = ram_trace();
    }
 
    void deep_mind_handler::on_create_permission(const permission_object& p)

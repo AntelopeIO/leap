@@ -28,8 +28,8 @@ namespace resource_limits {
 
 struct ram_trace {
 public:
-   ram_trace(const char* event_id, const char* family, const char* operation, const char* legacy_tag)
-   :event_id(event_id),family(family),operation(operation),legacy_tag(legacy_tag)
+   ram_trace(std::string&& event_id, const char* family, const char* operation, const char* legacy_tag)
+      :event_id(std::move(event_id)),family(family),operation(operation),legacy_tag(legacy_tag)
    {}
 
    std::string  event_id   = "generic";
@@ -37,16 +37,9 @@ public:
    const char*  operation  = "generic";
    const char*  legacy_tag = "generic";
 
-private:
    ram_trace()
    {}
-
-   friend ram_trace generic_ram_trace(uint32_t);
 };
-
-inline ram_trace generic_ram_trace(uint32_t action_id) {
-   return {};
-}
 
 class deep_mind_handler
 {
@@ -63,7 +56,7 @@ public:
    void on_start_transaction();
    void on_end_transaction();
    void on_applied_transaction(uint32_t block_num, const std::shared_ptr<transaction_trace>& trace);
-   void on_add_ram_correction(const account_ram_correction_object& rco, uint64_t delta, const char* event_id);
+   void on_add_ram_correction(const account_ram_correction_object& rco, uint64_t delta);
    void on_preactivate_feature(const protocol_feature& feature);
    void on_activate_feature(const protocol_feature& feature);
    void on_input_action();
@@ -85,14 +78,15 @@ public:
    void on_newaccount_resource_limits(const resource_limits::resource_limits_object& limits, const resource_limits::resource_usage_object& usage);
    void on_update_account_usage(const resource_limits::resource_usage_object& usage);
    void on_set_account_limits(const resource_limits::resource_limits_object& limits);
-   void on_ram_trace(const char* event_id, const char* family, const char* operation, const char* legacy_tag);
+   // The trace is consumed by the next ram_event or ram_correction
+   void on_ram_trace(std::string&& event_id, const char* family, const char* operation, const char* legacy_tag);
    void on_ram_event(account_name account, uint64_t new_usage, int64_t delta);
    void on_create_permission(const permission_object& p);
    void on_modify_permission(const permission_object& old_permission, const permission_object& new_permission);
    void on_remove_permission(const permission_object& permission);
 private:
    uint32_t   _action_id = 0;
-   ram_trace  _ram_trace = generic_ram_trace(0);
+   ram_trace  _ram_trace;
    fc::logger _logger;
 };
 

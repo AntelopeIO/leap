@@ -660,7 +660,6 @@ namespace eosio { namespace chain {
 
       auto first_auth = trx.first_authorizer();
 
-      std::string event_id;
       uint32_t trx_size = 0;
       const auto& cgto = control.mutable_db().create<generated_transaction_object>( [&]( auto& gto ) {
         gto.trx_id      = id;
@@ -673,12 +672,11 @@ namespace eosio { namespace chain {
         trx_size = gto.set( trx );
 
         if (auto dm_logger = control.get_deep_mind_logger()) {
-            event_id = RAM_EVENT_ID("${id}", ("id", gto.id));
+           std::string event_id = RAM_EVENT_ID("${id}", ("id", gto.id));
 
-            auto packed_signed_trx = fc::raw::pack(trx);
-            dm_logger->on_send_deferred(deep_mind_handler::operation_qualifier::push, gto);
-            dm_logger->on_ram_trace(event_id.c_str(), "deferred_trx", "push", "deferred_trx_pushed");
-         }
+           dm_logger->on_send_deferred(deep_mind_handler::operation_qualifier::push, gto);
+           dm_logger->on_ram_trace(std::move(event_id), "deferred_trx", "push", "deferred_trx_pushed");
+        }
       });
 
       int64_t ram_delta = (config::billable_size_v<generated_transaction_object> + trx_size);
