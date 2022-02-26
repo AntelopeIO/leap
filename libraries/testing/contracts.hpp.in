@@ -6,7 +6,7 @@
 #include <fc/io/fstream.hpp>
 
 #define CORE_SYM_NAME "${CORE_SYMBOL_NAME}"
-#define CORE_SYM_PRECISION 8
+#define CORE_SYM_PRECISION 4
 
 #define _STRINGIZE1(x) #x
 #define _STRINGIZE2(x) _STRINGIZE1(x)
