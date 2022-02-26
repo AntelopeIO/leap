@@ -6,7 +6,7 @@
 #include <fc/io/fstream.hpp>
 
 #define CORE_SYM_NAME "${CORE_SYMBOL_NAME}"
-#define CORE_SYM_PRECISION 4
+#define CORE_SYM_PRECISION 8
 
 #define _STRINGIZE1(x) #x
 #define _STRINGIZE2(x) _STRINGIZE1(x)
@@ -65,6 +65,7 @@ namespace eosio {
          MAKE_READ_WASM_ABI(action_results,        action_results,        test-contracts)
          MAKE_READ_WASM_ABI(wasm_config_bios,      wasm_config_bios,      test-contracts)
          MAKE_READ_WASM_ABI(params_test,           params_test,           test-contracts)
+         MAKE_READ_WASM_ABI(wax_rsa,               wax_rsa,               test-contracts)
       };
    } /// eosio::testing
 }  /// eosio

@@ -100,4 +100,64 @@ namespace eosio { namespace chain { namespace webassembly {
    void interface::ripemd160(legacy_span<const char> data, legacy_ptr<fc::ripemd160> hash_val) const {
       *hash_val = context.trx_context.hash_with_checktime<fc::ripemd160>( data.data(), data.size() );
    }
+
+   /**
+    * WAX specific
+    *
+    * signature, exponent and modulus must be hexadecimal strings
+    */
+   int32_t interface::verify_rsa_sha256_sig(legacy_span<const char> message,
+                                            legacy_span<const char> signature,
+                                            legacy_span<const char> exponent,
+                                            legacy_span<const char> modulus)
+   {
+       using std::string;
+       using namespace std::string_literals;
+       using namespace boost::multiprecision;
+
+       const auto errPrefix = "[ERROR] verify_rsa_sha256_sig: "s;
+
+       try {
+          size_t message_len = message.size_bytes();
+          size_t signature_len = signature.size_bytes();
+          size_t exponent_len = exponent.size_bytes();
+          size_t modulus_len = modulus.size_bytes();
+          if (message_len && signature_len && exponent_len &&
+              modulus_len == signature_len && (modulus_len % 2 == 0))
+          {
+             fc::sha256 msg_sha256 = context.trx_context.hash_with_checktime<fc::sha256>( message.data(), message.size() );
+
+             auto pkcs1_encoding =
+                    "3031300d060960864801650304020105000420"s +
+                    fc::to_hex(msg_sha256.data(), msg_sha256.data_size());
+
+             auto emLen = modulus_len / 2;
+             auto tLen = pkcs1_encoding.size() / 2;
+
+             if (emLen >= tLen + 11) {
+                pkcs1_encoding = "0001"s + string(2*(emLen - tLen - 3), 'f') + "00"s + pkcs1_encoding;
+
+                const cpp_int signature_int { "0x"s + string{signature.data(), signature_len} };
+                const cpp_int exponent_int  { "0x"s + string{exponent.data(), exponent_len} };
+                const cpp_int modulus_int   { "0x"s + string{modulus.data(), modulus_len} };
+
+                const cpp_int decoded = powm(signature_int, exponent_int, modulus_int);
+
+                return cpp_int{"0x"s + pkcs1_encoding} == decoded;
+             }
+             else
+                context.console_append(errPrefix + "Intended encoding message lenght too short\n");
+          }
+          else
+             context.console_append(errPrefix + "At least 1 param has an invalid length\n");
+        }
+        catch(const std::exception& e) {
+           context.console_append(errPrefix + e.what() + "\n");
+        }
+        catch(...) {
+           context.console_append(errPrefix + "Unknown exception\n");
+        }
+
+        return false;
+    }
 }}} // ns eosio::chain::webassembly
