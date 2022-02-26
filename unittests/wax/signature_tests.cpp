@@ -25,7 +25,7 @@ using mvo = fc::mutable_variant_object;
 #  define EOSIO_FIXTURE eosio::testing::validating_tester
 #endif
 
-const name account_n = N(wax.test);
+const name account_n = "wax.test"_n;
 
 const std::string public_exponent_1024 = "3";
 
@@ -62,7 +62,7 @@ struct wax_fixture: public EOSIO_FIXTURE {
 
     bool get_last_result() {
         results_entry entry;
-        get_table_entry(entry, account_n, account_n, N(results), 0, false);
+        get_table_entry(entry, account_n, account_n, "results"_n, 0, false);
         return entry.value;
     }
 
@@ -72,7 +72,7 @@ struct wax_fixture: public EOSIO_FIXTURE {
                           const std::string& modulus) {
         push_action(
             account_n,
-            N(verrsasig),
+            "verrsasig"_n,
             account_n,
             mvo() ("message", message)("signature", signature)
                   ("exponent", exponent)("modulus", modulus));
