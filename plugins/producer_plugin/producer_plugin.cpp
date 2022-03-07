@@ -282,7 +282,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
 
       void on_block( const block_state_ptr& bsp ) {
          _unapplied_transactions.clear_applied( bsp );
-         _subjective_billing.on_block( bsp, fc::time_point::now() );
+         _subjective_billing.on_block( _log, bsp, fc::time_point::now() );
       }
 
       void on_block_header( const block_state_ptr& bsp ) {
@@ -1824,28 +1824,26 @@ public:
       return false;
    }
 
-   void report() const {
+   void report(const subjective_billing& sub_bill) const {
       if( _log.is_enabled( fc::log_level::debug ) ) {
+         auto now = fc::time_point::now();
          for( const auto& e : failed_accounts ) {
             std::string reason;
-            if( e.second.num_failures > max_failures_per_account ) {
-               reason.clear();
-               if( e.second.is_deadline() ) reason += "deadline";
-               if( e.second.is_tx_cpu_usage() ) {
-                  if( !reason.empty() ) reason += ", ";
-                  reason += "tx_cpu_usage";
-               }
-               if( e.second.is_eosio_assert() ) {
-                  if( !reason.empty() ) reason += ", ";
-                  reason += "assert";
-               }
-               if( e.second.is_other() ) {
-                  if( !reason.empty() ) reason += ", ";
-                  reason += "other";
-               }
-               fc_dlog( _log, "Dropped ${n} trxs, account: ${a}, reason: ${r} exceeded",
-                        ("n", e.second.num_failures - max_failures_per_account)("a", e.first)("r", reason) );
+            if( e.second.is_deadline() ) reason += "deadline";
+            if( e.second.is_tx_cpu_usage() ) {
+               if( !reason.empty() ) reason += ", ";
+               reason += "tx_cpu_usage";
             }
+            if( e.second.is_eosio_assert() ) {
+               if( !reason.empty() ) reason += ", ";
+               reason += "assert";
+            }
+            if( e.second.is_other() ) {
+               if( !reason.empty() ) reason += ", ";
+               reason += "other";
+            }
+            fc_dlog( _log, "Failed ${n} trxs, account: ${a}, sub bill: ${b}us, reason: ${r}",
+                     ("n", e.second.num_failures)("b", sub_bill.get_subjective_bill(e.first, now))("a", e.first)("r", reason) );
          }
       }
    }
@@ -1974,7 +1972,7 @@ bool producer_plugin_impl::process_unapplied_trxs( const fc::time_point& deadlin
 
       fc_dlog( _log, "Processed ${m} of ${n} previously applied transactions, Applied ${applied}, Failed/Dropped ${failed}",
                ("m", num_processed)( "n", unapplied_trxs_size )("applied", num_applied)("failed", num_failed) );
-      account_fails.report();
+      account_fails.report(_subjective_billing);
    }
    return !exhausted;
 }
