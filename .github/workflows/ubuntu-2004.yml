@@ -153,7 +153,7 @@ jobs:
           tar -xzf ubuntu-2004-build/build.tar.gz
           export DOCKER="docker run --rm -v ${GITHUB_WORKSPACE}:${GITHUB_WORKSPACE} -w ${GITHUB_WORKSPACE} ${UBUNTU_2004_IMAGE}"
           docker pull ${UBUNTU_2004_IMAGE}
-          ${DOCKER} bash -c 'cd build && ctest -j $(nproc) -LE "nonparallelizable_tests|long_running_tests|wasm_spec_tests"'
+          ${DOCKER} bash -c 'cd build && ctest --output-on-failure -j $(nproc) -LE "nonparallelizable_tests|long_running_tests|wasm_spec_tests"'
   ubuntu-2004-wasm-test:
     name: Ubuntu 20.04 | WASM Spec Test
     runs-on: ubuntu-latest
@@ -174,7 +174,7 @@ jobs:
           tar -xzf ubuntu-2004-build/build.tar.gz
           export DOCKER="docker run --rm -v ${GITHUB_WORKSPACE}:${GITHUB_WORKSPACE} -w ${GITHUB_WORKSPACE} ${UBUNTU_2004_IMAGE}"
           docker pull ${UBUNTU_2004_IMAGE}
-          ${DOCKER} bash -c 'cd build && ctest -j $(nproc) -L "wasm_spec_tests"'
+          ${DOCKER} bash -c 'cd build && ctest --output-on-failure -j $(nproc) -L "wasm_spec_tests"'
   ubuntu-2004-serial-test:
     name: Ubuntu 20.04 | Serial Test
     runs-on: ubuntu-latest
@@ -198,7 +198,7 @@ jobs:
           echo =====
           ${DOCKER} npm i
           echo =====
-          ${DOCKER} bash -c 'cd build && ctest -L "nonparallelizable_tests"'
+          ${DOCKER} bash -c 'cd build && ctest --output-on-failure -L "nonparallelizable_tests"'
   ubuntu-2004-long-test:
     name: Ubuntu 20.04 | Long-Running Test
     runs-on: ubuntu-latest
@@ -219,7 +219,7 @@ jobs:
           tar -xzf ubuntu-2004-build/build.tar.gz
           export DOCKER="docker run --rm -v ${GITHUB_WORKSPACE}:${GITHUB_WORKSPACE} -w ${GITHUB_WORKSPACE} ${UBUNTU_2004_IMAGE}"
           docker pull ${UBUNTU_2004_IMAGE}
-          ${DOCKER} bash -c 'cd build && ctest -L "long_running_tests" -E "nodeos_short_fork_take_over_lr_test|nodeos_under_min_avail_ram_lr_test|nodeos_startup_catchup_lr_test|nodeos_producer_watermark_lr_test|nodeos_irreversible_mode_lr_test|nodeos_forked_chain_lr_test|nodeos_voting_lr_test"'
+          ${DOCKER} bash -c 'cd build && ctest --output-on-failure -L "long_running_tests" -E "nodeos_short_fork_take_over_lr_test|nodeos_under_min_avail_ram_lr_test|nodeos_startup_catchup_lr_test|nodeos_producer_watermark_lr_test|nodeos_irreversible_mode_lr_test|nodeos_forked_chain_lr_test|nodeos_voting_lr_test"'
   nodeos_short_fork_take_over_lr_test:
     name: Ubuntu 20.04 | nodeos_short_fork_take_over_lr_test
     runs-on: ubuntu-latest
@@ -240,7 +240,7 @@ jobs:
           tar -xzf ubuntu-2004-build/build.tar.gz
           export DOCKER="docker run --rm -v ${GITHUB_WORKSPACE}:${GITHUB_WORKSPACE} -w ${GITHUB_WORKSPACE} ${UBUNTU_2004_IMAGE}"
           docker pull ${UBUNTU_2004_IMAGE}
-          ${DOCKER} bash -c 'cd build && ctest -R nodeos_short_fork_take_over_lr_test'
+          ${DOCKER} bash -c 'cd build && ctest --output-on-failure -R nodeos_short_fork_take_over_lr_test'
   nodeos_under_min_avail_ram_lr_test:
     name: Ubuntu 20.04 | nodeos_under_min_avail_ram_lr_test
     runs-on: ubuntu-latest
@@ -261,7 +261,7 @@ jobs:
           tar -xzf ubuntu-2004-build/build.tar.gz
           export DOCKER="docker run --rm -v ${GITHUB_WORKSPACE}:${GITHUB_WORKSPACE} -w ${GITHUB_WORKSPACE} ${UBUNTU_2004_IMAGE}"
           docker pull ${UBUNTU_2004_IMAGE}
-          ${DOCKER} bash -c 'cd build && ctest -R nodeos_under_min_avail_ram_lr_test'
+          ${DOCKER} bash -c 'cd build && ctest --output-on-failure -R nodeos_under_min_avail_ram_lr_test'
   nodeos_startup_catchup_lr_test:
     name: Ubuntu 20.04 | nodeos_startup_catchup_lr_test
     runs-on: ubuntu-latest
@@ -282,7 +282,7 @@ jobs:
           tar -xzf ubuntu-2004-build/build.tar.gz
           export DOCKER="docker run --rm -v ${GITHUB_WORKSPACE}:${GITHUB_WORKSPACE} -w ${GITHUB_WORKSPACE} ${UBUNTU_2004_IMAGE}"
           docker pull ${UBUNTU_2004_IMAGE}
-          ${DOCKER} bash -c 'cd build && ctest -R nodeos_startup_catchup_lr_test'
+          ${DOCKER} bash -c 'cd build && ctest --output-on-failure -R nodeos_startup_catchup_lr_test'
   nodeos_producer_watermark_lr_test:
     name: Ubuntu 20.04 | nodeos_producer_watermark_lr_test
     runs-on: ubuntu-latest
@@ -303,7 +303,7 @@ jobs:
           tar -xzf ubuntu-2004-build/build.tar.gz
           export DOCKER="docker run --rm -v ${GITHUB_WORKSPACE}:${GITHUB_WORKSPACE} -w ${GITHUB_WORKSPACE} ${UBUNTU_2004_IMAGE}"
           docker pull ${UBUNTU_2004_IMAGE}
-          ${DOCKER} bash -c 'cd build && ctest -R nodeos_producer_watermark_lr_test'
+          ${DOCKER} bash -c 'cd build && ctest --output-on-failure -R nodeos_producer_watermark_lr_test'
   nodeos_irreversible_mode_lr_test:
     name: Ubuntu 20.04 | nodeos_irreversible_mode_lr_test
     runs-on: ubuntu-latest
@@ -324,7 +324,7 @@ jobs:
           tar -xzf ubuntu-2004-build/build.tar.gz
           export DOCKER="docker run --rm -v ${GITHUB_WORKSPACE}:${GITHUB_WORKSPACE} -w ${GITHUB_WORKSPACE} ${UBUNTU_2004_IMAGE}"
           docker pull ${UBUNTU_2004_IMAGE}
-          ${DOCKER} bash -c 'cd build && ctest -R nodeos_irreversible_mode_lr_test'
+          ${DOCKER} bash -c 'cd build && ctest --output-on-failure -R nodeos_irreversible_mode_lr_test'
   nodeos_forked_chain_lr_test:
     name: Ubuntu 20.04 | nodeos_forked_chain_lr_test
     runs-on: ubuntu-latest
@@ -345,7 +345,7 @@ jobs:
           tar -xzf ubuntu-2004-build/build.tar.gz
           export DOCKER="docker run --rm -v ${GITHUB_WORKSPACE}:${GITHUB_WORKSPACE} -w ${GITHUB_WORKSPACE} ${UBUNTU_2004_IMAGE}"
           docker pull ${UBUNTU_2004_IMAGE}
-          ${DOCKER} bash -c 'cd build && ctest -R nodeos_forked_chain_lr_test'
+          ${DOCKER} bash -c 'cd build && ctest --output-on-failure -R nodeos_forked_chain_lr_test'
   nodeos_voting_lr_test:
     name: Ubuntu 20.04 | nodeos_voting_lr_test
     runs-on: ubuntu-latest
@@ -366,4 +366,4 @@ jobs:
           tar -xzf ubuntu-2004-build/build.tar.gz
           export DOCKER="docker run --rm -v ${GITHUB_WORKSPACE}:${GITHUB_WORKSPACE} -w ${GITHUB_WORKSPACE} ${UBUNTU_2004_IMAGE}"
           docker pull ${UBUNTU_2004_IMAGE}
-          ${DOCKER} bash -c 'cd build && ctest -R nodeos_voting_lr_test'
+          ${DOCKER} bash -c 'cd build && ctest --output-on-failure -R nodeos_voting_lr_test'
