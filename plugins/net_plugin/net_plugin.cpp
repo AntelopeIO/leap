@@ -135,7 +135,7 @@ namespace eosio {
          in_sync
       };
 
-      static constexpr uint32_t block_interval_ns =
+      static constexpr int64_t block_interval_ns =
             std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::milliseconds(config::block_interval_ms)).count();
 
       mutable std::mutex sync_mtx;
@@ -1644,7 +1644,7 @@ namespace eosio {
 
       sync_reset_lib_num(c);
 
-      uint32_t current_time_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+      auto current_time_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
       auto network_latency_ns = current_time_ns - msg.time; // net latency in nanoseconds
       // number of blocks syncing node is behind from a peer node
       uint32_t nblk_behind_by_net_latency = static_cast<uint32_t>(network_latency_ns / block_interval_ns);
