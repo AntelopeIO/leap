@@ -1645,7 +1645,11 @@ namespace eosio {
       sync_reset_lib_num(c);
 
       auto current_time_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-      auto network_latency_ns = current_time_ns - msg.time; // net latency in nanoseconds
+      int64_t network_latency_ns = current_time_ns - msg.time; // net latency in nanoseconds
+      if( network_latency_ns < 0 ) {
+         peer_wlog(c, "Peer sent a handshake with a timestamp skewed by at least ${t}ms", ("t", network_latency_ns/1000000));
+         network_latency_ns = 0;
+      }
       // number of blocks syncing node is behind from a peer node
       uint32_t nblk_behind_by_net_latency = static_cast<uint32_t>(network_latency_ns / block_interval_ns);
       // Multiplied by 2 to compensate the time it takes for message to reach peer node, and plus 1 to compensate for integer division truncation
