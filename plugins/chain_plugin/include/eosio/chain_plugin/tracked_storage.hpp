@@ -7,7 +7,8 @@
 #include <boost/multi_index/global_fun.hpp>
 #include <boost/multi_index/composite_key.hpp>
 #include <boost/filesystem.hpp>
-#include <eosio/chain/exceptions.hpp>
+#include <fc/exception/exception.hpp>
+#include <fc/io/cfile.hpp>
 #include <fc/io/datastream.hpp>
 #include <fc/io/fstream.hpp>
 #include <fc/io/raw.hpp>
@@ -37,8 +38,8 @@ namespace eosio::chain_apis {
 
       }
 
-      void read(fc::datastream<const char*>& ds, uint64_t max_memory) {
-         uint64_t container_size = 0;
+      void read(fc::cfile_datastream& ds, uint64_t max_memory) {
+         auto container_size = _index.size();
          fc::raw::unpack(ds, container_size);
          for (uint64_t i = 0; i < container_size && size() < max_memory; ++i) {
             Value v;
@@ -47,71 +48,65 @@ namespace eosio::chain_apis {
          }
       }
 
-      void write(std::ostream& out) const {
+      void write(fc::cfile& dat_content) const {
          const auto container_size = _index.size();
-         fc::raw::pack( out, container_size );
+         dat_content.write( reinterpret_cast<const char*>(&container_size), sizeof(container_size) );
          const primary_index_type& primary_idx = _index.template get<primary_tag>();
          
          for (auto itr = primary_idx.cbegin(); itr != primary_idx.cend(); ++itr) {
-            fc::raw::pack(out, *itr);
+            auto data = fc::raw::pack(*itr);
+            dat_content.write(data.data(), data.size());
          }
       }
 
-      class datastream {
-      public:
-         datastream(std::string&& content, fc::datastream<const char*>&& ds)
-         : _content(content),
-           _ds(ds) { }
-         fc::datastream<const char*>& ds() { return _ds; }
-      private:
-         std::string _content;
-         fc::datastream<const char*> _ds;
-      };
-
-      static fc::datastream<const char*> read_from_file(const bfs::path& dir, const std::string& filename, const uint32_t magic_number,
-         const uint32_t min_supported_version, const uint32_t max_supported_version, std::string& content) {
+      static fc::cfile read_from_file(const bfs::path& dir, const std::string& filename, const uint32_t magic_number,
+         const uint32_t min_supported_version, const uint32_t max_supported_version) {
          if (!fc::is_directory(dir))
             fc::create_directories(dir);
          
          auto dat_file = dir / filename;
-         fc::read_file_contents( dat_file, content );
-
-         fc::datastream<const char*> ds { content.data(), content.size() };
+         fc::cfile dat_content;
+         dat_content.set_file_path(dat_file);
+         dat_content.open(fc::cfile::update_rw_mode);
+         auto ds = dat_content.create_datastream();
 
          // validate totem
          uint32_t totem = 0;
          fc::raw::unpack( ds, totem );
-         EOS_ASSERT( totem == magic_number, eosio::chain::chain_exception,
-                     "File '${filename}' has unexpected magic number: ${actual_totem}. Expected ${expected_totem}",
-                     ("filename", dat_file.generic_string())
-                     ("actual_totem", totem)
-                     ("expected_totem", magic_number)
-         );
+         if( totem != magic_number) {
+            FC_THROW_EXCEPTION(fc::parse_error_exception,
+                               "File '${filename}' has unexpected magic number: ${actual_totem}. Expected ${expected_totem}",
+                               ("filename", dat_file.generic_string())
+                               ("actual_totem", totem)
+                               ("expected_totem", magic_number));
+         }
 
          // validate version
          uint32_t version = 0;
          fc::raw::unpack( ds, version );
-         EOS_ASSERT( version >= min_supported_version && version <= max_supported_version,
-                     eosio::chain::chain_exception,
-                     "Unsupported version of file '${filename}'. "
-                     "Version is ${version} while code supports version(s) [${min},${max}]",
-                     ("filename", dat_file.generic_string())
-                     ("version", version)
-                     ("min", min_supported_version)
-                     ("max", max_supported_version)
-         );
-         return ds;
+         if( version < min_supported_version || version > max_supported_version) {
+            FC_THROW_EXCEPTION(fc::parse_error_exception,
+                               "Unsupported version of file '${filename}'. "
+                               "Version is ${version} while code supports version(s) [${min},${max}]",
+                               ("filename", dat_file.generic_string())
+                               ("version", version)
+                               ("min", min_supported_version)
+                               ("max", max_supported_version));
+         }
+         return dat_content;
       }
 
-      static std::ofstream write_to_file(const bfs::path& dir, const std::string& filename, const uint32_t magic_number, const uint32_t current_version) {
+      static fc::cfile write_to_file(const bfs::path& dir, const std::string& filename, const uint32_t magic_number, const uint32_t current_version) {
          if (!fc::is_directory(dir))
             fc::create_directories(dir);
 
          auto dat_file = dir / filename;
-         std::ofstream out( dat_file.generic_string().c_str(), std::ios::out | std::ios::binary | std::ofstream::trunc );
-         fc::raw::pack( out, magic_number );
-         fc::raw::pack( out, current_version );
-         return out;
+         fc::cfile dat_content;
+         dat_content.set_file_path(dat_file.generic_string().c_str());
+         dat_content.open( fc::cfile::truncate_rw_mode );
+         dat_content.write( reinterpret_cast<const char*>(&magic_number), sizeof(magic_number) );
+         dat_content.write( reinterpret_cast<const char*>(&current_version), sizeof(current_version) );
+         return dat_content;
       }
 
       void insert(Value&& obj) {

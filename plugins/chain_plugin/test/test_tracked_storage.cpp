@@ -66,80 +66,49 @@ BOOST_AUTO_TEST_CASE(track_storage_test) {
    BOOST_CHECK_NO_THROW(storage.erase(2));
 }
 
-BOOST_AUTO_TEST_CASE(write_read_storage_test) {
-   tracked_storage<test_size_container, test_size, by_key> storage;
-   std::ostringstream ss;
-   storage.insert({ 0, 6 });
-   storage.insert({ 3, 7 });
-   storage.insert({ 5, 3 });
-   storage.insert({ 9, 4 });
-   storage.insert({ 15, 6 });
-   storage.insert({ 16, 4 });
-   storage.insert({ 19, 3 });
-   storage.insert({ 25, 7 });
-   BOOST_CHECK_EQUAL( storage.size(), 40);
-   BOOST_CHECK_EQUAL( storage.index().size(), 8);
-   storage.write(ss);
-
-   std::string content = ss.str();
-   fc::datastream<const char*> ds(content.data(), content.size());
-   tracked_storage<test_size_container, test_size, by_key> storage2;
-   storage2.read(ds, 500);
-   BOOST_CHECK_EQUAL( storage2.index().size(), 8);
-   const auto& primary_idx2 = storage2.index().get<by_key>();
-   auto itr2 = primary_idx2.cbegin();
-   BOOST_CHECK_EQUAL( itr2->key, 0);
-   BOOST_CHECK_EQUAL( itr2->s, 6);
-   BOOST_CHECK_EQUAL( (++itr2)->key, 3);
-   BOOST_CHECK_EQUAL( itr2->s, 7);
-   BOOST_CHECK_EQUAL( (++itr2)->key, 5);
-   BOOST_CHECK_EQUAL( itr2->s, 3);
-   BOOST_CHECK_EQUAL( (++itr2)->key, 9);
-   BOOST_CHECK_EQUAL( itr2->s, 4);
-   BOOST_CHECK_EQUAL( (++itr2)->key, 15);
-   BOOST_CHECK_EQUAL( itr2->s, 6);
-   BOOST_CHECK_EQUAL( (++itr2)->key, 16);
-   BOOST_CHECK_EQUAL( itr2->s, 4);
-   BOOST_CHECK_EQUAL( (++itr2)->key, 19);
-   BOOST_CHECK_EQUAL( itr2->s, 3);
-   BOOST_CHECK_EQUAL( (++itr2)->key, 25);
-   BOOST_CHECK_EQUAL( itr2->s, 7);
-   BOOST_CHECK_EQUAL( storage2.size(), 40);
-
-   BOOST_CHECK_EQUAL( ds.remaining(), 0);
-}
-
 BOOST_AUTO_TEST_CASE(simple_write_read_file_storage_test) {
    using tracked_storage1 = tracked_storage<test_size_container, test_size, by_key>;
    tracked_storage1 storage1_1;
    BOOST_CHECK_EQUAL( storage1_1.size(), 0);
    BOOST_CHECK_EQUAL( storage1_1.index().size(), 0);
-   auto ss = tracked_storage1::write_to_file(".", "temp.dat", 0x12345678, 5);
-   storage1_1.write(ss);
-   ss.close();
 
-   std::string content;
-   auto ds = tracked_storage1::read_from_file(".", "temp.dat", 0x12345678, 5, 5, content);
+   // fc::temp_directory td;
+   BOOST_CHECK(true);
+   // auto ss = tracked_storage1::write_to_file(td.path(), "temp.dat", 0x12345678, 5);
+   auto out = tracked_storage1::write_to_file(".", "temp.dat", 0x12345678, 5);
+   storage1_1.write(out);
+   out.flush();
+   out.close();
+   BOOST_CHECK(true);
+
+   auto content = tracked_storage1::read_from_file(".", "temp.dat", 0x12345678, 5, 5);
+   BOOST_CHECK(true);
+   auto ds = content.create_datastream();
+   BOOST_CHECK(true);
    tracked_storage1 storage1_2;
    storage1_2.read(ds, 500);
    BOOST_CHECK_EQUAL( storage1_2.index().size(), 0);
    BOOST_CHECK_EQUAL( storage1_2.size(), 0);
 
-   BOOST_CHECK_EQUAL( ds.remaining(), 0);
+   const auto tellp = content.tellp();
+   content.seek_end(0);
+   BOOST_CHECK_EQUAL( content.tellp(), tellp );
 }
 
-BOOST_AUTO_TEST_CASE(single_write_read_file_storage_test) {
+BOOST_AUTO_TEST_CASE(single_write_read_file_storage_test) { try {
    using tracked_storage1 = tracked_storage<test_size_container, test_size, by_key>;
    tracked_storage1 storage1_1;
    storage1_1.insert({ 0, 6 });
    BOOST_CHECK_EQUAL( storage1_1.size(), 6);
    BOOST_CHECK_EQUAL( storage1_1.index().size(), 1);
-   auto ss = tracked_storage1::write_to_file(".", "temp.dat", 0x12345678, 5);
-   storage1_1.write(ss);
-   ss.close();
+   fc::temp_directory td;
+   auto out = tracked_storage1::write_to_file(".", "temp.dat", 0x12345678, 5);
+   storage1_1.write(out);
+   out.flush();
+   out.close();
 
-   std::string content;
-   auto ds = tracked_storage1::read_from_file(".", "temp.dat", 0x12345678, 5, 5, content);
+   auto content = tracked_storage1::read_from_file(".", "temp.dat", 0x12345678, 5, 5);
+   auto ds = content.create_datastream();
    tracked_storage1 storage1_2;
    storage1_2.read(ds, 500);
    BOOST_CHECK_EQUAL( storage1_2.index().size(), 1);
@@ -149,8 +118,10 @@ BOOST_AUTO_TEST_CASE(single_write_read_file_storage_test) {
    BOOST_CHECK_EQUAL( itr2->s, 6);
    BOOST_CHECK_EQUAL( storage1_2.size(), 6);
 
-   BOOST_CHECK_EQUAL( ds.remaining(), 0);
-}
+   const auto tellp = content.tellp();
+   content.seek_end(0);
+   BOOST_CHECK_EQUAL( content.tellp(), tellp );
+} FC_LOG_AND_RETHROW() }
 
 BOOST_AUTO_TEST_CASE(write_read_file_storage_test) {
    using tracked_storage1 = tracked_storage<test_size_container, test_size, by_key>;
@@ -166,8 +137,8 @@ BOOST_AUTO_TEST_CASE(write_read_file_storage_test) {
    BOOST_CHECK_EQUAL( storage1_1.size(), 40);
    BOOST_CHECK_EQUAL( storage1_1.index().size(), 8);
 
-   auto ss = tracked_storage1::write_to_file(".", "temp.dat", 0x12345678, 5);
-   storage1_1.write(ss);
+   auto out = tracked_storage1::write_to_file(".", "temp.dat", 0x12345678, 5);
+   storage1_1.write(out);
 
    using tracked_storage2 = tracked_storage<test_size2_container, test_size2, by_key>;
    tracked_storage2 storage2_1;
@@ -176,12 +147,13 @@ BOOST_AUTO_TEST_CASE(write_read_file_storage_test) {
    BOOST_CHECK_EQUAL( storage2_1.size(), 7);
    BOOST_CHECK_EQUAL( storage2_1.index().size(), 1);
 
-   storage2_1.write(ss);
+   storage2_1.write(out);
 
-   ss.close();
+   out.flush();
+   out.close();
 
-   std::string content;
-   auto ds = tracked_storage1::read_from_file(".", "temp.dat", 0x12345678, 5, 5, content);
+   auto content = tracked_storage1::read_from_file(".", "temp.dat", 0x12345678, 5, 5);
+   auto ds = content.create_datastream();
    tracked_storage1 storage1_2;
    storage1_2.read(ds, 500);
    BOOST_CHECK_EQUAL( storage1_2.index().size(), 8);
@@ -214,7 +186,9 @@ BOOST_AUTO_TEST_CASE(write_read_file_storage_test) {
    BOOST_CHECK( itr3->time == now);
    BOOST_CHECK_EQUAL( itr3->s, 7);
 
-   BOOST_CHECK_EQUAL( ds.remaining(), 0);
+   const auto tellp = content.tellp();
+   content.seek_end(0);
+   BOOST_CHECK_EQUAL( content.tellp(), tellp );
 }
 
 BOOST_AUTO_TEST_SUITE_END()
