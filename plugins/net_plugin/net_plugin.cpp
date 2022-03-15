@@ -1673,7 +1673,7 @@ namespace eosio {
       }
       // number of blocks syncing node is behind from a peer node
       uint32_t nblk_behind_by_net_latency = static_cast<uint32_t>(network_latency_ns / block_interval_ns);
-      // Multiplied by 2 to compensate the time it takes for message to reach peer node, and plus 1 to compensate for integer division truncation
+      // 2x for time it takes for message to reach back to peer node, +1 to compensate for integer division truncation
       uint32_t nblk_combined_latency = 2 * nblk_behind_by_net_latency + 1;
       // message in the log below is used in p2p_high_latency_test.py test
       peer_dlog(c, "Network latency is ${lat}ms, ${num} blocks discrepancy by network latency, ${tot_num} blocks discrepancy expected once message received",
