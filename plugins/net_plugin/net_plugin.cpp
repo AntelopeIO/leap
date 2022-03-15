@@ -2051,7 +2051,7 @@ namespace eosio {
 
    void dispatch_manager::bcast_transaction(const packed_transaction& trx) {
       std::shared_ptr<std::vector<char>> send_buffer;
-      auto now = fc::time_point::now();
+      const auto now = fc::time_point::now();
       for_each_connection( [this, &trx, &now, &send_buffer]( auto& cp ) {
          if( cp->is_blocks_only_connection() || !cp->current() ) {
             return true;
