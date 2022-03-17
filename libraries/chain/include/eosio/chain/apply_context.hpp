@@ -2,6 +2,7 @@
 #include <eosio/chain/controller.hpp>
 #include <eosio/chain/transaction.hpp>
 #include <eosio/chain/contract_table_objects.hpp>
+#include <eosio/chain/deep_mind.hpp>
 #include <fc/utility.hpp>
 #include <sstream>
 #include <algorithm>
@@ -191,6 +192,16 @@ class apply_context {
 
                context.db.modify( tab, [&]( auto& t ) {
                  ++t.count;
+
+                  if (auto dm_logger = context.control.get_deep_mind_logger()) {
+                     std::string event_id = RAM_EVENT_ID("${code}:${scope}:${table}:${index_name}",
+                        ("code", t.code)
+                        ("scope", t.scope)
+                        ("table", t.table)
+                        ("index_name", name(id))
+                     );
+                     dm_logger->on_ram_trace(std::move(event_id), "secondary_index", "add", "secondary_index_add");
+                  }
                });
 
                context.update_db_usage( payer, config::billable_size_v<ObjectType> );
@@ -201,10 +212,21 @@ class apply_context {
 
             void remove( int iterator ) {
                const auto& obj = itr_cache.get( iterator );
-               context.update_db_usage( obj.payer, -( config::billable_size_v<ObjectType> ) );
 
                const auto& table_obj = itr_cache.get_table( obj.t_id );
                EOS_ASSERT( table_obj.code == context.receiver, table_access_violation, "db access violation" );
+
+               if (auto dm_logger = context.control.get_deep_mind_logger()) {
+                  std::string event_id = RAM_EVENT_ID("${code}:${scope}:${table}:${index_name}",
+                     ("code", table_obj.code)
+                     ("scope", table_obj.scope)
+                     ("table", table_obj.table)
+                     ("index_name", name(obj.primary_key))
+                  );
+                  dm_logger->on_ram_trace(std::move(event_id), "secondary_index", "remove", "secondary_index_remove");
+               }
+
+               context.update_db_usage( obj.payer, -( config::billable_size_v<ObjectType> ) );
 
 //               context.require_write_lock( table_obj.scope );
 
@@ -232,8 +254,26 @@ class apply_context {
 
                int64_t billing_size =  config::billable_size_v<ObjectType>;
 
+               std::string event_id;
+               if (context.control.get_deep_mind_logger() != nullptr) {
+                  event_id = RAM_EVENT_ID("${code}:${scope}:${table}:${index_name}",
+                     ("code", table_obj.code)
+                     ("scope", table_obj.scope)
+                     ("table", table_obj.table)
+                     ("index_name", name(obj.primary_key))
+                  );
+               }
+
                if( obj.payer != payer ) {
+                  if (auto dm_logger = context.control.get_deep_mind_logger())
+                  {
+                     dm_logger->on_ram_trace(std::string(event_id), "secondary_index", "remove", "secondary_index_remove");
+                  }
                   context.update_db_usage( obj.payer, -(billing_size) );
+                  if (auto dm_logger = context.control.get_deep_mind_logger())
+                  {
+                     dm_logger->on_ram_trace(std::move(event_id), "secondary_index", "add", "secondary_index_update_add_new_payer");
+                  }
                   context.update_db_usage( payer, +(billing_size) );
                }
 
