@@ -10,6 +10,7 @@
 #include <boost/tuple/tuple_io.hpp>
 #include <eosio/chain/database_utils.hpp>
 #include <eosio/chain/protocol_state_object.hpp>
+#include <eosio/chain/deep_mind.hpp>
 
 
 namespace eosio { namespace chain {
@@ -156,6 +157,10 @@ namespace eosio { namespace chain {
          p.name         = name;
          p.last_updated = creation_time;
          p.auth         = auth;
+
+         if (auto dm_logger = _control.get_deep_mind_logger()) {
+            dm_logger->on_create_permission(p);
+         }
       });
       return perm;
    }
@@ -187,6 +192,10 @@ namespace eosio { namespace chain {
          p.name         = name;
          p.last_updated = creation_time;
          p.auth         = std::move(auth);
+
+         if (auto dm_logger = _control.get_deep_mind_logger()) {
+            dm_logger->on_create_permission(p);
+         }
       });
       return perm;
    }
@@ -197,8 +206,19 @@ namespace eosio { namespace chain {
            "Unactivated key type used when modifying permission");
 
       _db.modify( permission, [&](permission_object& po) {
+         auto dm_logger = _control.get_deep_mind_logger();
+
+         std::optional<permission_object> old_permission;
+         if (dm_logger) {
+            old_permission = po;
+         }
+
          po.auth = auth;
          po.last_updated = _control.pending_block_time();
+
+         if (auto dm_logger = _control.get_deep_mind_logger()) {
+            dm_logger->on_modify_permission(*old_permission, po);
+         }
       });
    }
 
@@ -209,6 +229,11 @@ namespace eosio { namespace chain {
                   "Cannot remove a permission which has children. Remove the children first.");
 
       _db.get_mutable_index<permission_usage_index>().remove_object( permission.usage_id._id );
+
+      if (auto dm_logger = _control.get_deep_mind_logger()) {
+         dm_logger->on_remove_permission(permission);
+      }
+
       _db.remove( permission );
    }
 

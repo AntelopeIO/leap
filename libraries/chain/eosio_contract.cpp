@@ -6,6 +6,7 @@
 #include <eosio/chain/apply_context.hpp>
 #include <eosio/chain/transaction.hpp>
 #include <eosio/chain/exceptions.hpp>
+#include <eosio/chain/deep_mind.hpp>
 
 #include <eosio/chain/account_object.hpp>
 #include <eosio/chain/code_object.hpp>
@@ -117,6 +118,10 @@ void apply_eosio_newaccount(apply_context& context) {
    ram_delta += owner_permission.auth.get_billable_size();
    ram_delta += active_permission.auth.get_billable_size();
 
+   if (auto dm_logger = context.control.get_deep_mind_logger()) {
+      dm_logger->on_ram_trace(RAM_EVENT_ID("${name}", ("name", create.name)), "account", "add", "newaccount");
+   }
+
    context.add_ram_usage(create.name, ram_delta);
 
 } FC_CAPTURE_AND_RETHROW( (create) ) }
@@ -191,6 +196,17 @@ void apply_eosio_setcode(apply_context& context) {
    });
 
    if (new_size != old_size) {
+      if (auto dm_logger = context.control.get_deep_mind_logger()) {
+         const char* operation = "update";
+         if (old_size <= 0) {
+            operation = "add";
+         } else if (new_size <= 0) {
+            operation = "remove";
+         }
+
+         dm_logger->on_ram_trace(RAM_EVENT_ID("${account}", ("account", act.account)), "code", operation, "setcode");
+      }
+
       context.add_ram_usage( act.account, new_size - old_size );
    }
 }
@@ -218,6 +234,17 @@ void apply_eosio_setabi(apply_context& context) {
    });
 
    if (new_size != old_size) {
+      if (auto dm_logger = context.control.get_deep_mind_logger()) {
+         const char* operation = "update";
+         if (old_size <= 0) {
+            operation = "add";
+         } else if (new_size <= 0) {
+            operation = "remove";
+         }
+
+         dm_logger->on_ram_trace(RAM_EVENT_ID("${account}", ("account", act.account)), "abi", operation, "setabi");
+      }
+
       context.add_ram_usage( act.account, new_size - old_size );
    }
 }
@@ -276,11 +303,19 @@ void apply_eosio_updateauth(apply_context& context) {
 
       int64_t new_size = (int64_t)(config::billable_size_v<permission_object> + permission->auth.get_billable_size());
 
+      if (auto dm_logger = context.control.get_deep_mind_logger()) {
+         dm_logger->on_ram_trace(RAM_EVENT_ID("${id}", ("id", permission->id)), "auth", "update", "updateauth_update");
+      }
+
       context.add_ram_usage( permission->owner, new_size - old_size );
    } else {
       const auto& p = authorization.create_permission( update.account, update.permission, parent_id, update.auth );
 
       int64_t new_size = (int64_t)(config::billable_size_v<permission_object> + p.auth.get_billable_size());
+
+      if (auto dm_logger = context.control.get_deep_mind_logger()) {
+         dm_logger->on_ram_trace(RAM_EVENT_ID("${id}", ("id", p.id)), "auth", "add", "updateauth_create");
+      }
 
       context.add_ram_usage( update.account, new_size );
    }
@@ -310,6 +345,10 @@ void apply_eosio_deleteauth(apply_context& context) {
 
    const auto& permission = authorization.get_permission({remove.account, remove.permission});
    int64_t old_size = config::billable_size_v<permission_object> + permission.auth.get_billable_size();
+
+   if (auto dm_logger = context.control.get_deep_mind_logger()) {
+      dm_logger->on_ram_trace(RAM_EVENT_ID("${id}", ("id", permission.id)), "auth", "remove", "deleteauth");
+   }
 
    authorization.remove_permission( permission );
 
@@ -364,6 +403,10 @@ void apply_eosio_linkauth(apply_context& context) {
             link.required_permission = requirement.requirement;
          });
 
+         if (auto dm_logger = context.control.get_deep_mind_logger()) {
+            dm_logger->on_ram_trace(RAM_EVENT_ID("${id}", ("id", l.id)), "auth_link", "add", "linkauth");
+         }
+
          context.add_ram_usage(
             l.account,
             (int64_t)(config::billable_size_v<permission_link_object>)
@@ -384,6 +427,11 @@ void apply_eosio_unlinkauth(apply_context& context) {
    auto link_key = boost::make_tuple(unlink.account, unlink.code, unlink.type);
    auto link = db.find<permission_link_object, by_action_name>(link_key);
    EOS_ASSERT(link != nullptr, action_validate_exception, "Attempting to unlink authority, but no link found");
+
+   if (auto dm_logger = context.control.get_deep_mind_logger()) {
+      dm_logger->on_ram_trace(RAM_EVENT_ID("${id}", ("id", link->id)), "auth_link", "remove", "unlinkauth");
+   }
+
    context.add_ram_usage(
       link->account,
       -(int64_t)(config::billable_size_v<permission_link_object>)
