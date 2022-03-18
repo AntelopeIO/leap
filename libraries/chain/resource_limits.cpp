@@ -3,6 +3,7 @@
 #include <eosio/chain/resource_limits_private.hpp>
 #include <eosio/chain/transaction_metadata.hpp>
 #include <eosio/chain/transaction.hpp>
+#include <eosio/chain/deep_mind.hpp>
 #include <boost/tuple/tuple_io.hpp>
 #include <eosio/chain/database_utils.hpp>
 #include <algorithm>
@@ -56,13 +57,17 @@ void resource_limits_manager::initialize_database() {
       // see default settings in the declaration
    });
 
-   _db.create<resource_limits_state_object>([&config](resource_limits_state_object& state){
+   const auto& state = _db.create<resource_limits_state_object>([&config](resource_limits_state_object& state){
       // see default settings in the declaration
 
       // start the chain off in a way that it is "congested" aka slow-start
       state.virtual_cpu_limit = config.cpu_limit_parameters.max;
       state.virtual_net_limit = config.net_limit_parameters.max;
    });
+
+   if (auto dm_logger = _get_deep_mind_logger()) {
+      dm_logger->on_init_resource_limits(config, state);
+   }
 }
 
 void resource_limits_manager::add_to_snapshot( const snapshot_writer_ptr& snapshot ) const {
@@ -89,13 +94,16 @@ void resource_limits_manager::read_from_snapshot( const snapshot_reader_ptr& sna
 }
 
 void resource_limits_manager::initialize_account(const account_name& account) {
-   _db.create<resource_limits_object>([&]( resource_limits_object& bl ) {
+   const auto& limits = _db.create<resource_limits_object>([&]( resource_limits_object& bl ) {
       bl.owner = account;
    });
 
-   _db.create<resource_usage_object>([&]( resource_usage_object& bu ) {
+   const auto& usage = _db.create<resource_usage_object>([&]( resource_usage_object& bu ) {
       bu.owner = account;
    });
+   if (auto dm_logger = _get_deep_mind_logger()) {
+      dm_logger->on_newaccount_resource_limits(limits, usage);
+   }
 }
 
 void resource_limits_manager::set_block_parameters(const elastic_limit_parameters& cpu_limit_parameters, const elastic_limit_parameters& net_limit_parameters ) {
@@ -107,6 +115,10 @@ void resource_limits_manager::set_block_parameters(const elastic_limit_parameter
    _db.modify(config, [&](resource_limits_config_object& c){
       c.cpu_limit_parameters = cpu_limit_parameters;
       c.net_limit_parameters = net_limit_parameters;
+
+      if (auto dm_logger = _get_deep_mind_logger()) {
+         dm_logger->on_update_resource_limits_config(c);
+      }
    });
 }
 
@@ -136,6 +148,10 @@ void resource_limits_manager::add_transaction_usage(const flat_set<account_name>
       _db.modify( usage, [&]( auto& bu ){
           bu.net_usage.add( net_usage, time_slot, config.account_net_usage_average_window );
           bu.cpu_usage.add( cpu_usage, time_slot, config.account_cpu_usage_average_window );
+
+         if (auto dm_logger = _get_deep_mind_logger()) {
+            dm_logger->on_update_account_usage(bu);
+         }
       });
 
       if( cpu_weight >= 0 && state.total_cpu_weight > 0 ) {
@@ -200,7 +216,11 @@ void resource_limits_manager::add_pending_ram_usage( const account_name account,
               "Ram usage delta would underflow UINT64_MAX");
 
    _db.modify( usage, [&]( auto& u ) {
-     u.ram_usage += ram_delta;
+      u.ram_usage += ram_delta;
+
+      if (auto dm_logger = _get_deep_mind_logger()) {
+         dm_logger->on_ram_event(account, u.ram_usage, ram_delta);
+      }
    });
 }
 
@@ -266,6 +286,10 @@ bool resource_limits_manager::set_account_limits( const account_name& account, i
       pending_limits.ram_bytes = ram_bytes;
       pending_limits.net_weight = net_weight;
       pending_limits.cpu_weight = cpu_weight;
+
+      if (auto dm_logger = _get_deep_mind_logger()) {
+         dm_logger->on_set_account_limits(pending_limits);
+      }
    });
 
    return decreased_limit;
@@ -329,6 +353,10 @@ void resource_limits_manager::process_account_limit_updates() {
 
          multi_index.remove(*itr);
       }
+
+      if (auto dm_logger = _get_deep_mind_logger()) {
+         dm_logger->on_update_resource_limits_state(state);
+      }
    });
 }
 
@@ -346,6 +374,9 @@ void resource_limits_manager::process_block_usage(uint32_t block_num) {
       state.update_virtual_net_limit(config);
       state.pending_net_usage = 0;
 
+      if (auto dm_logger = _get_deep_mind_logger()) {
+         dm_logger->on_update_resource_limits_state(state);
+      }
    });
 
 }

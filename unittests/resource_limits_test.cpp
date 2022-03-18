@@ -15,7 +15,7 @@ class resource_limits_fixture: private chainbase_fixture<1024*1024>, public reso
    public:
       resource_limits_fixture()
       :chainbase_fixture()
-      ,resource_limits_manager(*chainbase_fixture::_db)
+      ,resource_limits_manager(*chainbase_fixture::_db, []() { return nullptr; })
       {
          add_indices();
          initialize_database();
