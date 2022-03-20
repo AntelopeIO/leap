@@ -19,10 +19,11 @@ namespace {
 
    struct tracked_transaction {
       const transaction_metadata_ptr trx_meta;
-      const fc::time_point           expiry;
-      transaction_trace_ptr          trx_trace;
+      uint32_t                       block_num = 0;
+      fc::variant                    trx_trace_v;
 
       const transaction_id_type& id()const { return trx_meta->id(); }
+      fc::time_point_sec expiry()const { return trx_meta->packed_trx()->expiration(); }
 
       tracked_transaction(const tracked_transaction&) = delete;
       tracked_transaction() = delete;
@@ -33,13 +34,15 @@ namespace {
    struct by_trx_id;
    struct by_expiry;
 
-   using tracked_transaction_index_t = multi_index_container< tracked_transaction,
+   using tracked_transaction_index_t = multi_index_container<tracked_transaction,
          indexed_by<
                hashed_unique<tag<by_trx_id>,
-               const_mem_fun<tracked_transaction, const transaction_id_type&, &tracked_transaction::id>
-         >,
-         ordered_non_unique<tag<by_expiry>, member<tracked_transaction, const fc::time_point, &tracked_transaction::expiry> >
-      >
+                     const_mem_fun<tracked_transaction, const transaction_id_type&, &tracked_transaction::id>, std::hash<transaction_id_type>
+               >,
+               ordered_non_unique<tag<by_expiry>,
+                     const_mem_fun<tracked_transaction, fc::time_point_sec, &tracked_transaction::expiry>
+               >
+         >
    >;
 
 } // anonymous namespace
@@ -68,6 +71,19 @@ namespace eosio::chain_apis {
          } else if( trace->failed_dtrx_trace ) {
             cached_trace_map[trace->failed_dtrx_trace->id] = trace;
          } else {
+            auto& idx = tracked_trxs.get<by_trx_id>();
+            auto itr = idx.find(trace->id);
+            if( itr != idx.end() ) {
+               idx.modify( itr, [&trace, &control=controller, &abi_max_time=abi_serializer_max_time]( tracked_transaction& tt ) {
+                  tt.block_num = trace->block_num;
+                  try {
+                     // send_transaction trace output format
+                     tt.trx_trace_v = control.to_variant_with_abi( *trace, abi_serializer::create_yield_function( abi_max_time ) );
+                  } catch( chain::abi_exception& ) {
+                     tt.trx_trace_v = *trace;
+                  }
+               } );
+            }
             cached_trace_map[trace->id] = trace;
          }
       }
@@ -92,9 +108,11 @@ namespace eosio::chain_apis {
       using cached_trace_map_t = std::map<chain::transaction_id_type, chain::transaction_trace_ptr>;
       using onblock_trace_t = std::optional<chain::transaction_trace_ptr>;
 
-      const chain::controller&   controller;               ///< the controller to read data from
-      cached_trace_map_t         cached_trace_map;         ///< temporary cache of uncommitted traces
-      onblock_trace_t            onblock_trace;            ///< temporary cache of on_block trace
+      const chain::controller&    controller;               ///< the controller to read data from
+      const fc::microseconds      abi_serializer_max_time;  ///< the maximum time to allow abi_serialization to run
+      cached_trace_map_t          cached_trace_map;         ///< temporary cache of uncommitted traces
+      onblock_trace_t             onblock_trace;            ///< temporary cache of on_block trace
+      tracked_transaction_index_t tracked_trxs;
    };
 
    trx_retry_db::trx_retry_db( const chain::controller& controller )
