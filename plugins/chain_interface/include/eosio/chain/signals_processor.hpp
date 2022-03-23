@@ -1,6 +1,7 @@
 #pragma once
 #include <eosio/chain/types.hpp>
 #include <eosio/chain/block_state.hpp>
+#include <eosio/chain/exceptions.hpp>
 #include <eosio/chain/trace.hpp>
 #include <eosio/chain/block_interface.hpp>
 #include <eosio/chain/trx_interface.hpp>
@@ -22,6 +23,10 @@ public:
      _speculative_block_trx_processor(speculative_block_trx_processor),
      _local_trx_processor(local_trx_processor),
      _trx_processor(_local_trx_processor) {
+      EOS_ASSERT( _block_processor, plugin_config_exception, "signals_processor must be provided a block_processor" );
+      EOS_ASSERT( _in_block_trx_processor, plugin_config_exception, "signals_processor must be provided a in_block_trx_processor" );
+      EOS_ASSERT( _speculative_block_trx_processor, plugin_config_exception, "signals_processor must be provided a speculative_block_trx_processor" );
+      EOS_ASSERT( _local_trx_processor, plugin_config_exception, "signals_processor must be provided a local_trx_processor" );
    }
 
    /// connect to chain controller applied_transaction signal
