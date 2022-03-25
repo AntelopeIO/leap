@@ -792,15 +792,15 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
                []( const chain::signals_processor::trx_deque& trxs) {},
                []( const chain::block_state_ptr& blk ) {},
                []( const chain::block_state_ptr& blk ) {},
-               []( uin32_t block_num ) {}
+               []( uint32_t block_num ) {}
             );
          }
          if (my->_trx_finality_status_processing) {
-            my->_trx_signals_processing->register(
+            my->_trx_signals_processor->register(
                []( const chain::signals_processor::trx_deque& trxs) {},
                []( const chain::block_state_ptr& blk ) {},
                []( const chain::block_state_ptr& blk ) {},
-               []( uin32_t block_num ) {}
+               []( uint32_t block_num ) {}
             );
          }
       }         
@@ -1228,12 +1228,10 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
                }
             } );
 
-      if (my->_trx_retry_signals_processor || my->_trx_finality_status_signals_processor) {
+      if (my->_trx_signals_processor) {
          my->block_start_connection = my->chain->block_start.connect(
             [this]( uint32_t block_num ) {
-               if (my->_trx_signals_processor) {
-                  my->_trx_signals_processor->signal_block_start(block_num);
-               }
+               my->_trx_signals_processor->signal_block_start(block_num);
             } );
       }
       my->chain->add_indices();

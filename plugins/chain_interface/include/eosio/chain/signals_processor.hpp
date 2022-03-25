@@ -38,14 +38,14 @@ public:
    void signal_accepted_block( const chain::block_state_ptr& bsp ) {
       push_transactions();
       for(auto& callback : _callbacks) {
-         callback.get<1>(bsp);
+         std::get<1>(callback)(bsp);
       }
    }
 
    /// connect to chain controller irreversible_block signal
    void signal_irreversible_block( const chain::block_state_ptr& bsp ) {
       for(auto& callback : _callbacks) {
-         callback.get<2>(bsp);
+         std::get<2>(callback)(bsp);
       }
    }
 
@@ -54,7 +54,7 @@ public:
    void signal_block_start( uint32_t block_num ) {
       push_transactions();
       for(auto& callback : _callbacks) {
-         callback.get<3>(block_num);
+         std::get<3>(callback)(block_num);
       }
    }
 
@@ -62,7 +62,7 @@ private:
    void push_transactions() {
       if (_trxs.size()) {
          for(auto& callback : _callbacks) {
-            callback.get<0>(_trxs);
+            std::get<0>(callback)(_trxs);
          }
          _trxs.clear();
       }
