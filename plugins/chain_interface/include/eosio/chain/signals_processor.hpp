@@ -24,7 +24,7 @@ public:
    signals_processor() {
    }
 
-   void register(std::function< void ( const eosio::chain::deque< std::tuple< chain::transaction_trace_ptr, packed_transaction_ptr > >& ) > at, accepted_block_func ab, irreversible_block_func ib, block_start_func bs) {
+   void register_callbacks(std::function< void ( const eosio::chain::deque< std::tuple< chain::transaction_trace_ptr, packed_transaction_ptr > >& ) > at, accepted_block_func ab, irreversible_block_func ib, block_start_func bs) {
       _callbacks.emplace_back(at, ab, ib, bs);
    }
 
