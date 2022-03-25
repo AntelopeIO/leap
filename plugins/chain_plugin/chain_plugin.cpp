@@ -788,7 +788,7 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
       if (my->_trx_retry_processing || my->_trx_finality_status_processing) {
          my->_trx_signals_processor.emplace();
          if (my->_trx_retry_processing) {
-            my->_trx_signals_processor->register(
+            my->_trx_signals_processor->register_callbacks(
                []( const chain::signals_processor::trx_deque& trxs) {},
                []( const chain::block_state_ptr& blk ) {},
                []( const chain::block_state_ptr& blk ) {},
@@ -796,7 +796,7 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
             );
          }
          if (my->_trx_finality_status_processing) {
-            my->_trx_signals_processor->register(
+            my->_trx_signals_processor->register_callbacks(
                []( const chain::signals_processor::trx_deque& trxs) {},
                []( const chain::block_state_ptr& blk ) {},
                []( const chain::block_state_ptr& blk ) {},

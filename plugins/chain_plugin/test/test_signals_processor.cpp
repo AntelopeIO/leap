@@ -34,24 +34,6 @@ struct signals_backend {
    chain::signals_processor::accepted_block_func ab;
    chain::signals_processor::irreversible_block_func ib;
    chain::signals_processor::block_start_func bs;
-}
-
-class trx_handler : public chain::trx_interface {
-public:
-   std::vector<chain::transaction_id_type> ids;
-   /// connect to chain controller applied_transaction signal
-   void signal_applied_transaction( const chain::transaction_trace_ptr& trace, const chain::signed_transaction& strx ) override {
-      ids.push_back(trace->id);
-   }
-};
-
-class block_handler : public chain::block_interface {
-public:
-   std::vector<chain::block_id_type> irr_ids;
-   /// connect to chain controller irreversible_block signal
-   void signal_irreversible_block( const chain::block_state_ptr& bsp ) override {
-      irr_ids.push_back(bsp->id);
-   }
 };
 
 namespace {
@@ -191,9 +173,9 @@ BOOST_AUTO_TEST_CASE(signals_test) { try {
    chain::signals_processor sig_proc;
 
    signals_backend be1;
-   sig_proc.register(be1.at, be1.ab, be1.ib, be1.bn);
+   sig_proc.register_callbacks(be1.at, be1.ab, be1.ib, be1.bs);
    signals_backend be2;
-   sig_proc.register(be2.at, be2.ab, be2.ib, be2.bn);
+   sig_proc.register_callbacks(be2.at, be2.ab, be2.ib, be2.bs);
 
    auto act1 = make_transfer_action( "alice"_n, "bob"_n, "0.0001 SYS"_t, "Memo!" );
    auto act2 = make_transfer_action( "alice"_n, "jen"_n, "0.0002 SYS"_t, "Memo!" );
@@ -201,16 +183,121 @@ BOOST_AUTO_TEST_CASE(signals_test) { try {
    auto actt2 = make_action_trace( 1, act2, "alice"_n );
    auto ptrx1 = make_packed_trx( { act1, act2 } );
    auto tt1 = make_transaction_trace( ptrx1.id(), 1, 1, {}, chain::transaction_receipt_header::executed, { actt1, actt2 } );
-   sig_proc.signal_applied_transaction( tt1, ptrx1.get_signed_transaction() );
+   sig_proc.signal_block_start(50);
    BOOST_CHECK_EQUAL(be1.trxs.size(), 0);
    BOOST_CHECK(!be1.accepted_block);
    BOOST_CHECK(!be1.irr_block);
-   BOOST_CHECK(!be1.block_num);
+   BOOST_CHECK(be1.block_num);
+   BOOST_CHECK_EQUAL(*be1.block_num, 50);
 
    BOOST_CHECK_EQUAL(be2.trxs.size(), 0);
    BOOST_CHECK(!be2.accepted_block);
    BOOST_CHECK(!be2.irr_block);
-   BOOST_CHECK(!be2.block_num);
+   BOOST_CHECK(be2.block_num);
+   BOOST_CHECK_EQUAL(*be2.block_num, 50);
+
+   sig_proc.signal_applied_transaction( tt1, ptrx1.get_signed_transaction() );
+   sig_proc.signal_applied_transaction( tt1, ptrx1.get_signed_transaction() );
+   sig_proc.signal_applied_transaction( tt1, ptrx1.get_signed_transaction() );
+   sig_proc.signal_applied_transaction( tt1, ptrx1.get_signed_transaction() );
+   BOOST_CHECK_EQUAL(be1.trxs.size(), 0);
+   BOOST_CHECK(!be1.accepted_block);
+   BOOST_CHECK(!be1.irr_block);
+   BOOST_CHECK(be1.block_num);
+   BOOST_CHECK_EQUAL(*be1.block_num, 50);
+
+   BOOST_CHECK_EQUAL(be2.trxs.size(), 0);
+   BOOST_CHECK(!be2.accepted_block);
+   BOOST_CHECK(!be2.irr_block);
+   BOOST_CHECK(be2.block_num);
+   BOOST_CHECK_EQUAL(*be2.block_num, 50);
+
+   auto bsp1 = make_block_state( chain::block_id_type(), 1, 1, "bp.one"_n, { chain::packed_transaction(ptrx1) } );
+   sig_proc.signal_accepted_block(bsp1);
+   BOOST_CHECK_EQUAL(be1.trxs.size(), 4);
+   BOOST_CHECK(be1.accepted_block);
+   BOOST_CHECK(!be1.irr_block);
+   BOOST_CHECK(be1.block_num);
+   BOOST_CHECK_EQUAL(*be1.block_num, 50);
+
+   BOOST_CHECK_EQUAL(be2.trxs.size(), 4);
+   BOOST_CHECK(be2.accepted_block);
+   BOOST_CHECK(!be2.irr_block);
+   BOOST_CHECK(be2.block_num);
+   BOOST_CHECK_EQUAL(*be2.block_num, 50);
+   be1.accepted_block.reset();
+   be2.accepted_block.reset();
+
+   sig_proc.signal_irreversible_block(bsp1);
+   BOOST_CHECK_EQUAL(be1.trxs.size(), 4);
+   BOOST_CHECK(!be1.accepted_block);
+   BOOST_CHECK(be1.irr_block);
+   BOOST_CHECK(be1.block_num);
+   BOOST_CHECK_EQUAL(*be1.block_num, 50);
+
+   BOOST_CHECK_EQUAL(be2.trxs.size(), 4);
+   BOOST_CHECK(!be2.accepted_block);
+   BOOST_CHECK(be2.irr_block);
+   BOOST_CHECK(be2.block_num);
+   BOOST_CHECK_EQUAL(*be2.block_num, 50);
+   be1.irr_block.reset();
+   be2.irr_block.reset();
+
+   sig_proc.signal_block_start(51);
+   BOOST_CHECK_EQUAL(be1.trxs.size(), 4);
+   BOOST_CHECK(!be1.accepted_block);
+   BOOST_CHECK(!be1.irr_block);
+   BOOST_CHECK(be1.block_num);
+   BOOST_CHECK_EQUAL(*be1.block_num, 51);
+
+   BOOST_CHECK_EQUAL(be2.trxs.size(), 4);
+   BOOST_CHECK(!be2.accepted_block);
+   BOOST_CHECK(!be2.irr_block);
+   BOOST_CHECK(be2.block_num);
+   BOOST_CHECK_EQUAL(*be2.block_num, 51);
+
+   sig_proc.signal_applied_transaction( tt1, ptrx1.get_signed_transaction() );
+   sig_proc.signal_applied_transaction( tt1, ptrx1.get_signed_transaction() );
+   sig_proc.signal_applied_transaction( tt1, ptrx1.get_signed_transaction() );
+   BOOST_CHECK_EQUAL(be1.trxs.size(), 4);
+   BOOST_CHECK(!be1.accepted_block);
+   BOOST_CHECK(!be1.irr_block);
+   BOOST_CHECK(be1.block_num);
+   BOOST_CHECK_EQUAL(*be1.block_num, 51);
+
+   BOOST_CHECK_EQUAL(be2.trxs.size(), 4);
+   BOOST_CHECK(!be2.accepted_block);
+   BOOST_CHECK(!be2.irr_block);
+   BOOST_CHECK(be2.block_num);
+   BOOST_CHECK_EQUAL(*be2.block_num, 51);
+   be1.trxs.clear();
+   be2.trxs.clear();
+
+   sig_proc.signal_block_start(52);
+   BOOST_CHECK_EQUAL(be1.trxs.size(), 3);
+   BOOST_CHECK(!be1.accepted_block);
+   BOOST_CHECK(!be1.irr_block);
+   BOOST_CHECK(be1.block_num);
+   BOOST_CHECK_EQUAL(*be1.block_num, 52);
+
+   BOOST_CHECK_EQUAL(be2.trxs.size(), 3);
+   BOOST_CHECK(!be2.accepted_block);
+   BOOST_CHECK(!be2.irr_block);
+   BOOST_CHECK(be2.block_num);
+   BOOST_CHECK_EQUAL(*be2.block_num, 52);
+
+   sig_proc.signal_accepted_block(bsp1);
+   BOOST_CHECK_EQUAL(be1.trxs.size(), 3);
+   BOOST_CHECK(be1.accepted_block);
+   BOOST_CHECK(!be1.irr_block);
+   BOOST_CHECK(be1.block_num);
+   BOOST_CHECK_EQUAL(*be1.block_num, 52);
+
+   BOOST_CHECK_EQUAL(be2.trxs.size(), 3);
+   BOOST_CHECK(be2.accepted_block);
+   BOOST_CHECK(!be2.irr_block);
+   BOOST_CHECK(be2.block_num);
+   BOOST_CHECK_EQUAL(*be2.block_num, 52);
 
 } FC_LOG_AND_RETHROW() }
 
