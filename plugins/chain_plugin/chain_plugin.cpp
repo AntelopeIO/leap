@@ -194,8 +194,7 @@ public:
 
    std::optional<chain_apis::account_query_db>                        _account_query_db;
    const producer_plugin* producer_plug;
-   std::optional<chain::signals_processor>                            _trx_retry_signals_processor;
-   std::optional<chain::signals_processor>                            _trx_finality_status_signals_processor;
+   std::optional<chain::signals_processor>                            _trx_signals_processor;
    chain_apis::trx_retry_processing_ptr                               _trx_retry_processing;
    chain_apis::trx_finality_status_processing_ptr                     _trx_finality_status_processing;
 };
@@ -776,8 +775,6 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
          const uint64_t max_storage_size = options.at( "transaction-retry-max-storage-size-gb" ).as<uint64_t>() * 1024 * 1024 * 1024;
          if (max_storage_size > 0) {
             my->_trx_retry_processing.reset(new chain_apis::trx_retry_processing(max_storage_size));
-            my->_trx_retry_signals_processor.emplace(my->_trx_retry_processing->get_block_processor(), my->_trx_retry_processing->get_in_block_trx_processor(),
-                my->_trx_retry_processing->get_speculative_trx_processor(), my->_trx_retry_processing->get_local_trx_processor());
          }
       }
 
@@ -785,11 +782,28 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
          const uint64_t max_storage_size = options.at( "transaction-finality-status-max-storage-size-gb" ).as<uint64_t>() * 1024 * 1024 * 1024;
          if (max_storage_size > 0) {
             my->_trx_finality_status_processing.reset(new chain_apis::trx_finality_status_processing(max_storage_size));
-            my->_trx_finality_status_signals_processor.emplace(my->_trx_finality_status_processing->get_block_processor(), my->_trx_finality_status_processing->get_in_block_trx_processor(),
-                my->_trx_finality_status_processing->get_speculative_trx_processor(), my->_trx_finality_status_processing->get_local_trx_processor());
          }
       }
-         
+
+      if (my->_trx_retry_processing || my->_trx_finality_status_processing) {
+         my->_trx_signals_processor.emplace();
+         if (my->_trx_retry_processing) {
+            my->_trx_signals_processor->register(
+               []( const chain::signals_processor::trx_deque& trxs) {},
+               []( const chain::block_state_ptr& blk ) {},
+               []( const chain::block_state_ptr& blk ) {},
+               []( uin32_t block_num ) {}
+            );
+         }
+         if (my->_trx_finality_status_processing) {
+            my->_trx_signals_processing->register(
+               []( const chain::signals_processor::trx_deque& trxs) {},
+               []( const chain::block_state_ptr& blk ) {},
+               []( const chain::block_state_ptr& blk ) {},
+               []( uin32_t block_num ) {}
+            );
+         }
+      }         
       if( options.count( "chain-threads" )) {
          my->chain_config->thread_pool_size = options.at( "chain-threads" ).as<uint16_t>();
          EOS_ASSERT( my->chain_config->thread_pool_size > 0, plugin_config_exception,
@@ -1183,21 +1197,17 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
             my->_account_query_db->commit_block(blk);
          }
          my->accepted_block_channel.publish( priority::high, blk );
-         if (my->_trx_retry_signals_processor) {
-            my->_trx_retry_signals_processor->signal_accepted_block(blk);
-         }
-         if (my->_trx_finality_status_signals_processor) {
-            my->_trx_finality_status_signals_processor->signal_accepted_block(blk);
+
+         if (my->_trx_signals_processor) {
+            my->_trx_signals_processor->signal_accepted_block(blk);
          }
       } );
 
       my->irreversible_block_connection = my->chain->irreversible_block.connect( [this]( const block_state_ptr& blk ) {
          my->irreversible_block_channel.publish( priority::low, blk );
-         if (my->_trx_retry_signals_processor) {
-            my->_trx_retry_signals_processor->signal_irreversible_block(blk);
-         }
-         if (my->_trx_finality_status_signals_processor) {
-            my->_trx_finality_status_signals_processor->signal_irreversible_block(blk);
+
+         if (my->_trx_signals_processor) {
+            my->_trx_signals_processor->signal_irreversible_block(blk);
          }
       } );
 
@@ -1212,24 +1222,19 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
                   my->_account_query_db->cache_transaction_trace(std::get<0>(t));
                }
                my->applied_transaction_channel.publish( priority::low, std::get<0>(t) );
-               if (my->_trx_retry_signals_processor) {
-                  my->_trx_retry_signals_processor->signal_applied_transaction(std::get<0>(t), std::get<1>(t));
-               }
-               if (my->_trx_finality_status_signals_processor) {
-                  my->_trx_finality_status_signals_processor->signal_applied_transaction(std::get<0>(t), std::get<1>(t));
+
+               if (my->_trx_signals_processor) {
+                  my->_trx_signals_processor->signal_applied_transaction(std::get<0>(t), std::get<1>(t));
                }
             } );
 
       if (my->_trx_retry_signals_processor || my->_trx_finality_status_signals_processor) {
          my->block_start_connection = my->chain->block_start.connect(
-               [this]( uint32_t block_num ) {
-                  if (my->_trx_retry_signals_processor) {
-                     my->_trx_retry_signals_processor->signal_block_start(block_num);
-                  }
-                  if (my->_trx_finality_status_signals_processor) {
-                     my->_trx_finality_status_signals_processor->signal_block_start(block_num);
-                  }
-               } );
+            [this]( uint32_t block_num ) {
+               if (my->_trx_signals_processor) {
+                  my->_trx_signals_processor->signal_block_start(block_num);
+               }
+            } );
       }
       my->chain->add_indices();
    } FC_LOG_AND_RETHROW()
