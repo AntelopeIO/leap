@@ -9,6 +9,33 @@
 using namespace eosio;
 using namespace eosio::chain;
 
+struct signals_backend {
+   signals_backend() {
+      at = [this](const trx_deque& td) {
+         trxs = td;
+      };
+      ab = [this](const chain::block_state_ptr& bs) {
+         accepted_block = bs;
+      };
+      ib = [this](const chain::block_state_ptr& bs) {
+         irr_block = bs;
+      };
+      bs = [this](uint32_t bn) {
+         block_num = bn;
+      };
+   }
+   using trx_deque = chain::signals_processor::trx_deque;
+   trx_deque trxs;
+   chain::block_state_ptr accepted_block;
+   chain::block_state_ptr irr_block;
+   std::optional<uint32_t> block_num;
+
+   chain::signals_processor::applied_transaction_func at;
+   chain::signals_processor::accepted_block_func ab;
+   chain::signals_processor::irreversible_block_func ib;
+   chain::signals_processor::block_start_func bs;
+}
+
 class trx_handler : public chain::trx_interface {
 public:
    std::vector<chain::transaction_id_type> ids;
@@ -160,15 +187,13 @@ namespace {
 BOOST_AUTO_TEST_SUITE(signals_processor_tests)
 
 BOOST_AUTO_TEST_CASE(signals_test) { try {
-   auto* blocks = new block_handler;
-   block_interface_ptr blocks_ptr{blocks};
-   auto* block_trxs = new trx_handler;
-   trx_interface_ptr block_trxs_ptr{block_trxs};
-   auto* speculative_trxs = new trx_handler;
-   trx_interface_ptr speculative_trxs_ptr{speculative_trxs};
-   auto* local_trxs = new trx_handler;
-   trx_interface_ptr local_trxs_ptr{local_trxs};
-   chain::signals_processor sig_proc{blocks_ptr, block_trxs_ptr, speculative_trxs_ptr, local_trxs_ptr};
+
+   chain::signals_processor sig_proc;
+
+   signals_backend be1;
+   sig_proc.register(be1.at, be1.ab, be1.ib, be1.bn);
+   signals_backend be2;
+   sig_proc.register(be2.at, be2.ab, be2.ib, be2.bn);
 
    auto act1 = make_transfer_action( "alice"_n, "bob"_n, "0.0001 SYS"_t, "Memo!" );
    auto act2 = make_transfer_action( "alice"_n, "jen"_n, "0.0002 SYS"_t, "Memo!" );
@@ -177,57 +202,15 @@ BOOST_AUTO_TEST_CASE(signals_test) { try {
    auto ptrx1 = make_packed_trx( { act1, act2 } );
    auto tt1 = make_transaction_trace( ptrx1.id(), 1, 1, {}, chain::transaction_receipt_header::executed, { actt1, actt2 } );
    sig_proc.signal_applied_transaction( tt1, ptrx1.get_signed_transaction() );
+   BOOST_CHECK_EQUAL(be1.trxs.size(), 0);
+   BOOST_CHECK(!be1.accepted_block);
+   BOOST_CHECK(!be1.irr_block);
+   BOOST_CHECK(!be1.block_num);
 
-   BOOST_CHECK_EQUAL(local_trxs->ids.size(), 1);
-   BOOST_CHECK_EQUAL(speculative_trxs->ids.size(), 0);
-   BOOST_CHECK_EQUAL(block_trxs->ids.size(), 0);
-   BOOST_CHECK_EQUAL(blocks->irr_ids.size(), 0);
-   BOOST_CHECK(!blocks->block_num());
-
-   sig_proc.signal_block_start(50);
-   BOOST_CHECK(blocks->block_num());
-   BOOST_CHECK_EQUAL(*blocks->block_num(), 50);
-   sig_proc.signal_applied_transaction( tt1, ptrx1.get_signed_transaction() );
-   BOOST_CHECK_EQUAL(local_trxs->ids.size(), 1);
-   BOOST_CHECK_EQUAL(speculative_trxs->ids.size(), 1);
-   BOOST_CHECK_EQUAL(block_trxs->ids.size(), 0);
-   BOOST_CHECK_EQUAL(blocks->irr_ids.size(), 0);
-   BOOST_CHECK(blocks->block_num());
-   BOOST_CHECK_EQUAL(*blocks->block_num(), 50);
-
-   auto tt2 = make_transaction_trace( ptrx1.id(), 1, 1, chain::block_id_type{}, chain::transaction_receipt_header::executed, { actt1, actt2 } );
-   sig_proc.signal_block_start(25);
-   BOOST_CHECK(blocks->block_num());
-   BOOST_CHECK_EQUAL(*blocks->block_num(), 25);
-   sig_proc.signal_applied_transaction( tt2, ptrx1.get_signed_transaction() );
-   BOOST_CHECK_EQUAL(local_trxs->ids.size(), 1);
-   BOOST_CHECK_EQUAL(speculative_trxs->ids.size(), 1);
-   BOOST_CHECK_EQUAL(block_trxs->ids.size(), 1);
-   BOOST_CHECK_EQUAL(blocks->irr_ids.size(), 0);
-   BOOST_CHECK(blocks->block_num());
-   BOOST_CHECK_EQUAL(*blocks->block_num(), 25);
-
-   auto bsp1 = make_block_state( chain::block_id_type(), 1, 1, "bp.one"_n, { chain::packed_transaction(ptrx1) } );
-   sig_proc.signal_accepted_block(bsp1);
-   BOOST_CHECK_EQUAL(local_trxs->ids.size(), 1);
-   BOOST_CHECK_EQUAL(speculative_trxs->ids.size(), 1);
-   BOOST_CHECK_EQUAL(block_trxs->ids.size(), 1);
-   BOOST_CHECK_EQUAL(blocks->irr_ids.size(), 0);
-   BOOST_CHECK(!blocks->block_num());
-
-   sig_proc.signal_applied_transaction( tt1, ptrx1.get_signed_transaction() );
-   BOOST_CHECK_EQUAL(local_trxs->ids.size(), 2);
-   BOOST_CHECK_EQUAL(speculative_trxs->ids.size(), 1);
-   BOOST_CHECK_EQUAL(block_trxs->ids.size(), 1);
-   BOOST_CHECK_EQUAL(blocks->irr_ids.size(), 0);
-   BOOST_CHECK(!blocks->block_num());
-
-   sig_proc.signal_irreversible_block(bsp1);
-   BOOST_CHECK_EQUAL(local_trxs->ids.size(), 2);
-   BOOST_CHECK_EQUAL(speculative_trxs->ids.size(), 1);
-   BOOST_CHECK_EQUAL(block_trxs->ids.size(), 1);
-   BOOST_CHECK_EQUAL(blocks->irr_ids.size(), 1);
-   BOOST_CHECK(!blocks->block_num());
+   BOOST_CHECK_EQUAL(be2.trxs.size(), 0);
+   BOOST_CHECK(!be2.accepted_block);
+   BOOST_CHECK(!be2.irr_block);
+   BOOST_CHECK(!be2.block_num);
 
 } FC_LOG_AND_RETHROW() }
 

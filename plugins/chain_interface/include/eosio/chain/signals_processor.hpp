@@ -5,64 +5,70 @@
 #include <eosio/chain/trace.hpp>
 #include <eosio/chain/block_interface.hpp>
 #include <eosio/chain/trx_interface.hpp>
+#include <functional>
+#include <tuple>
 
 namespace eosio::chain {
 
 class signals_processor {
 public:
+   using trx_deque = eosio::chain::deque< std::tuple< chain::transaction_trace_ptr, packed_transaction_ptr > >;
+   using applied_transaction_func = std::function< void ( const trx_deque& ) >;
+   using accepted_block_func = std::function< void ( const chain::block_state_ptr& ) >;
+   using irreversible_block_func = std::function< void ( const chain::block_state_ptr& ) >;
+   using block_start_func = std::function< void ( uint32_t block_num ) >;
+
    /**
     * Class for tracking transactions and which block they belong to.
-    * @param block_processor backend processor of block related signals
-    * @param in_block_trx_processor backend processor of transactions in speculative blocks
-    * @param speculative_block_trx_processor backend processor of transactions in speculative blocks
-    * @param local_trx_processor backend processor of transactions applied locally
     */
-   signals_processor( block_interface_ptr block_processor,  trx_interface_ptr in_block_trx_processor, trx_interface_ptr speculative_block_trx_processor, trx_interface_ptr local_trx_processor)
-   : _block_processor(block_processor),
-     _in_block_trx_processor(in_block_trx_processor),
-     _speculative_block_trx_processor(speculative_block_trx_processor),
-     _local_trx_processor(local_trx_processor),
-     _trx_processor(_local_trx_processor) {
-      EOS_ASSERT( _block_processor, plugin_config_exception, "signals_processor must be provided a block_processor" );
-      EOS_ASSERT( _in_block_trx_processor, plugin_config_exception, "signals_processor must be provided a in_block_trx_processor" );
-      EOS_ASSERT( _speculative_block_trx_processor, plugin_config_exception, "signals_processor must be provided a speculative_block_trx_processor" );
-      EOS_ASSERT( _local_trx_processor, plugin_config_exception, "signals_processor must be provided a local_trx_processor" );
+   signals_processor() {
+   }
+
+   void register(std::function< void ( const eosio::chain::deque< std::tuple< chain::transaction_trace_ptr, packed_transaction_ptr > >& ) > at, accepted_block_func ab, irreversible_block_func ib, block_start_func bs) {
+      _callbacks.emplace_back(at, ab, ib, bs);
    }
 
    /// connect to chain controller applied_transaction signal
    void signal_applied_transaction( const chain::transaction_trace_ptr& trace, const chain::signed_transaction& strx ) {
-      if (!_trx_processor) {
-         _trx_processor = trace->producer_block_id ? _in_block_trx_processor : _speculative_block_trx_processor;
-      }
-      _trx_processor->signal_applied_transaction(trace, strx);
+#warning TODO need to store packed transaction after code merged
+      _trxs.emplace_back(trace, packed_transaction_ptr{});
    }
 
    /// connect to chain controller accepted_block signal
    void signal_accepted_block( const chain::block_state_ptr& bsp ) {
-      _block_processor->signal_accepted_block(bsp);
-      _trx_processor = _local_trx_processor;
+      push_transactions();
+      for(auto& callback : _callbacks) {
+         callback.get<1>(bsp);
+      }
    }
 
    /// connect to chain controller irreversible_block signal
    void signal_irreversible_block( const chain::block_state_ptr& bsp ) {
-      _block_processor->signal_irreversible_block(bsp);
+      for(auto& callback : _callbacks) {
+         callback.get<2>(bsp);
+      }
    }
 
 
    /// connect to chain controller block_start signal
    void signal_block_start( uint32_t block_num ) {
-      _block_processor->signal_block_start(block_num);
-      // either it is a speculative block or real block. need to determine when we get a transaction
-      _trx_processor.reset();
+      push_transactions();
+      for(auto& callback : _callbacks) {
+         callback.get<3>(block_num);
+      }
    }
 
 private:
-   const block_interface_ptr _block_processor;
-   const trx_interface_ptr _in_block_trx_processor;
-   const trx_interface_ptr _speculative_block_trx_processor;
-   const trx_interface_ptr _local_trx_processor;
-
-   trx_interface_ptr _trx_processor;
+   void push_transactions() {
+      if (_trxs.size()) {
+         for(auto& callback : _callbacks) {
+            callback.get<0>(_trxs);
+         }
+         _trxs.clear();
+      }
+   }
+   trx_deque _trxs;
+   eosio::chain::vector< std::tuple< applied_transaction_func, accepted_block_func, irreversible_block_func, block_start_func > > _callbacks;
 };
 
 } // eosio::chain
