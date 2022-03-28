@@ -3,8 +3,6 @@
 #include <eosio/chain/block_state.hpp>
 #include <eosio/chain/exceptions.hpp>
 #include <eosio/chain/trace.hpp>
-#include <eosio/chain/block_interface.hpp>
-#include <eosio/chain/trx_interface.hpp>
 #include <functional>
 #include <tuple>
 
