@@ -29,7 +29,6 @@ struct signals_backend {
    std::optional<uint32_t> block_num;
 
    chain::signals_processor::applied_transaction_func at;
-   chain::signals_processor::accepted_block_func ab;
    chain::signals_processor::irreversible_block_func ib;
    chain::signals_processor::block_start_func bs;
 };
