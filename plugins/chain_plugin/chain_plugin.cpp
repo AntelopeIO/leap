@@ -789,16 +789,14 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
          my->_trx_signals_processor.emplace();
          if (my->_trx_retry_processing) {
             my->_trx_signals_processor->register_callbacks(
-               []( const chain::signals_processor::trx_deque& trxs) {},
-               []( const chain::block_state_ptr& blk ) {},
+               []( const chain::signals_processor::trx_deque& trxs, const chain::block_state_ptr& blk ) {},
                []( const chain::block_state_ptr& blk ) {},
                []( uint32_t block_num ) {}
             );
          }
          if (my->_trx_finality_status_processing) {
             my->_trx_signals_processor->register_callbacks(
-               []( const chain::signals_processor::trx_deque& trxs) {},
-               []( const chain::block_state_ptr& blk ) {},
+               []( const chain::signals_processor::trx_deque& trxs, const chain::block_state_ptr& blk ) {},
                []( const chain::block_state_ptr& blk ) {},
                []( uint32_t block_num ) {}
             );
