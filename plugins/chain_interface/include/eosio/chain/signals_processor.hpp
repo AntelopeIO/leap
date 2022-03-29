@@ -22,7 +22,7 @@ public:
    }
 
    void register_callbacks(applied_transaction_func at, irreversible_block_func ib, block_start_func bs) {
-      _callbacks.emplace_back(at, ab, ib, bs);
+      _callbacks.emplace_back(at, ib, bs);
    }
 
    /// connect to chain controller applied_transaction signal
@@ -40,7 +40,7 @@ public:
    /// connect to chain controller irreversible_block signal
    void signal_irreversible_block( const chain::block_state_ptr& bsp ) {
       for(auto& callback : _callbacks) {
-         std::get<2>(callback)(bsp);
+         std::get<1>(callback)(bsp);
       }
    }
 
@@ -52,7 +52,7 @@ public:
       }
       _block_started = true;
       for(auto& callback : _callbacks) {
-         std::get<3>(callback)(block_num);
+         std::get<2>(callback)(block_num);
       }
    }
 
