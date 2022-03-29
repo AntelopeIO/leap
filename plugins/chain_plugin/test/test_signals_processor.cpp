@@ -224,8 +224,8 @@ BOOST_AUTO_TEST_CASE(signals_test) { try {
    BOOST_CHECK(!be2.irr_block);
    BOOST_CHECK(be2.block_num);
    BOOST_CHECK_EQUAL(*be2.block_num, 50);
-   be1.accepted_block.reset();
-   be2.accepted_block.reset();
+   be1.accepted_blocks.clear();
+   be2.accepted_blocks.clear();
 
    sig_proc.signal_irreversible_block(bsp1);
    BOOST_CHECK_EQUAL(be1.trxs.size(), 4);
