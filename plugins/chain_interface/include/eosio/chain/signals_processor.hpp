@@ -26,9 +26,9 @@ public:
    }
 
    /// connect to chain controller applied_transaction signal
-   void signal_applied_transaction( const chain::transaction_trace_ptr& trace, const chain::signed_transaction& strx ) {
+   void signal_applied_transaction( const chain::transaction_trace_ptr& trace, const chain::packed_transaction_ptr& ptrx ) {
 #warning TODO need to store packed transaction after code merged
-      _trxs.emplace_back(trace, packed_transaction_ptr{});
+      _trxs.emplace_back(trace, ptrx);
    }
 
    /// connect to chain controller accepted_block signal

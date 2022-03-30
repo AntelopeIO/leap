@@ -193,10 +193,11 @@ BOOST_AUTO_TEST_CASE(signals_test) { try {
    BOOST_CHECK(be2.block_num);
    BOOST_CHECK_EQUAL(*be2.block_num, 50);
 
-   sig_proc.signal_applied_transaction( tt1, ptrx1.get_signed_transaction() );
-   sig_proc.signal_applied_transaction( tt1, ptrx1.get_signed_transaction() );
-   sig_proc.signal_applied_transaction( tt1, ptrx1.get_signed_transaction() );
-   sig_proc.signal_applied_transaction( tt1, ptrx1.get_signed_transaction() );
+   auto shared_ptrx1 = std::make_shared<packed_transaction>(ptrx1);
+   sig_proc.signal_applied_transaction( tt1, shared_ptrx1 );
+   sig_proc.signal_applied_transaction( tt1, shared_ptrx1 );
+   sig_proc.signal_applied_transaction( tt1, shared_ptrx1 );
+   sig_proc.signal_applied_transaction( tt1, shared_ptrx1 );
    BOOST_CHECK_EQUAL(be1.trxs.size(), 0);
    BOOST_CHECK_EQUAL(be1.accepted_blocks.size(), 0);
    BOOST_CHECK(!be1.irr_block);
@@ -255,9 +256,9 @@ BOOST_AUTO_TEST_CASE(signals_test) { try {
    BOOST_CHECK(be2.block_num);
    BOOST_CHECK_EQUAL(*be2.block_num, 51);
 
-   sig_proc.signal_applied_transaction( tt1, ptrx1.get_signed_transaction() );
-   sig_proc.signal_applied_transaction( tt1, ptrx1.get_signed_transaction() );
-   sig_proc.signal_applied_transaction( tt1, ptrx1.get_signed_transaction() );
+   sig_proc.signal_applied_transaction( tt1, shared_ptrx1 );
+   sig_proc.signal_applied_transaction( tt1, shared_ptrx1 );
+   sig_proc.signal_applied_transaction( tt1, shared_ptrx1 );
    BOOST_CHECK_EQUAL(be1.trxs.size(), 4);
    BOOST_CHECK_EQUAL(be1.accepted_blocks.size(), 0);
    BOOST_CHECK(!be1.irr_block);
