@@ -1135,7 +1135,7 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
       my->pre_accepted_block_connection = my->chain->pre_accepted_block.connect([this](const signed_block_ptr& blk) {
          auto itr = my->loaded_checkpoints.find( blk->block_num() );
          if( itr != my->loaded_checkpoints.end() ) {
-            auto id = blk->id();
+            auto id = blk->calculate_id();
             EOS_ASSERT( itr->second == id, checkpoint_exception,
                         "Checkpoint does not match for block number ${num}: expected: ${expected} actual: ${actual}",
                         ("num", blk->block_num())("expected", itr->second)("actual", id)
@@ -1167,7 +1167,7 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
             } );
 
       my->applied_transaction_connection = my->chain->applied_transaction.connect(
-            [this]( std::tuple<const transaction_trace_ptr&, const signed_transaction&> t ) {
+            [this]( std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> t ) {
                if (my->_account_query_db) {
                   my->_account_query_db->cache_transaction_trace(std::get<0>(t));
                }
@@ -1271,11 +1271,6 @@ bool chain_plugin::accept_block(const signed_block_ptr& block, const block_id_ty
 
 void chain_plugin::accept_transaction(const chain::packed_transaction_ptr& trx, next_function<chain::transaction_trace_ptr> next) {
    my->incoming_transaction_async_method(trx, false, std::move(next));
-}
-
-bool chain_plugin::block_is_on_preferred_chain(const block_id_type& block_id) {
-   auto b = chain().fetch_block_by_number( block_header::num_from_id(block_id) );
-   return b && b->id() == block_id;
 }
 
 bool chain_plugin::recover_reversible_blocks( const fc::path& db_dir, uint32_t cache_size,
@@ -2186,10 +2181,11 @@ fc::variant read_only::get_block(const read_only::get_block_params& params) cons
    abi_serializer::to_variant(*block, pretty_output, make_resolver(this, abi_serializer::create_yield_function( abi_serializer_max_time )),
                               abi_serializer::create_yield_function( abi_serializer_max_time ));
 
-   uint32_t ref_block_prefix = block->id()._hash[1];
+   const auto block_id = block->calculate_id();
+   uint32_t ref_block_prefix = block_id._hash[1];
 
    return fc::mutable_variant_object(pretty_output.get_object())
-           ("id", block->id())
+           ("id", block_id)
            ("block_num",block->block_num())
            ("ref_block_prefix", ref_block_prefix);
 }
