@@ -274,28 +274,32 @@ BOOST_AUTO_TEST_CASE(signals_test) { try {
 
    sig_proc.signal_block_start(52);
    BOOST_CHECK_EQUAL(be1.trxs.size(), 3);
-   BOOST_CHECK_EQUAL(be1.accepted_blocks.size(), 0);
-   BOOST_CHECK(!be1.irr_block);
-   BOOST_CHECK(be1.block_num);
-   BOOST_CHECK_EQUAL(*be1.block_num, 52);
-
-   BOOST_CHECK_EQUAL(be2.trxs.size(), 3);
-   BOOST_CHECK_EQUAL(be2.accepted_blocks.size(), 0);
-   BOOST_CHECK(!be2.irr_block);
-   BOOST_CHECK(be2.block_num);
-   BOOST_CHECK_EQUAL(*be2.block_num, 52);
-
-   sig_proc.signal_accepted_block(bsp1);
-   BOOST_CHECK_EQUAL(be1.trxs.size(), 3);
    BOOST_CHECK_EQUAL(be1.accepted_blocks.size(), 1);
-   BOOST_CHECK(be1.accepted_blocks[0]);
+   BOOST_CHECK(!be1.accepted_blocks[0]);
    BOOST_CHECK(!be1.irr_block);
    BOOST_CHECK(be1.block_num);
    BOOST_CHECK_EQUAL(*be1.block_num, 52);
 
    BOOST_CHECK_EQUAL(be2.trxs.size(), 3);
    BOOST_CHECK_EQUAL(be2.accepted_blocks.size(), 1);
-   BOOST_CHECK(be2.accepted_blocks[0]);
+   BOOST_CHECK(!be2.accepted_blocks[0]);
+   BOOST_CHECK(!be2.irr_block);
+   BOOST_CHECK(be2.block_num);
+   BOOST_CHECK_EQUAL(*be2.block_num, 52);
+
+   sig_proc.signal_accepted_block(bsp1);
+   BOOST_CHECK_EQUAL(be1.trxs.size(), 0);
+   BOOST_CHECK_EQUAL(be1.accepted_blocks.size(), 2);
+   BOOST_CHECK(!be1.accepted_blocks[0]);
+   BOOST_CHECK(be1.accepted_blocks[1] = bsp1);
+   BOOST_CHECK(!be1.irr_block);
+   BOOST_CHECK(be1.block_num);
+   BOOST_CHECK_EQUAL(*be1.block_num, 52);
+
+   BOOST_CHECK_EQUAL(be2.trxs.size(), 0);
+   BOOST_CHECK_EQUAL(be2.accepted_blocks.size(), 2);
+   BOOST_CHECK(!be2.accepted_blocks[0]);
+   BOOST_CHECK(be2.accepted_blocks[1] = bsp1);
    BOOST_CHECK(!be2.irr_block);
    BOOST_CHECK(be2.block_num);
    BOOST_CHECK_EQUAL(*be2.block_num, 52);
