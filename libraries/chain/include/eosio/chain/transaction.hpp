@@ -202,6 +202,7 @@ namespace eosio { namespace chain {
       vector<signature_type>                  signatures;
       fc::enum_type<uint8_t,compression_type> compression;
       bytes                                   packed_context_free_data;
+      // transaction (not signed_transaction) packed and possibly compressed according to compression
       bytes                                   packed_trx;
 
    private:

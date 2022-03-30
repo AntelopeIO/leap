@@ -148,7 +148,8 @@ uint32_t packed_transaction::get_prunable_size()const {
 }
 
 size_t packed_transaction::get_estimated_size()const {
-   // transaction is stored packed and unpacked, double packed_size and size of signed as an approximation of use
+   // transaction is stored packed (only transaction minus signed_transaction members) and unpacked (signed_transaction),
+   // double packed size, packed cfd size, and signature size to account for signed_transaction unpacked_trx size
    return sizeof(*this) +
           (signatures.size() * sizeof( signature_type )) * 2 +
           packed_context_free_data.size() * 2 +
