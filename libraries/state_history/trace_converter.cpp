@@ -4,10 +4,7 @@
 namespace eosio {
 namespace state_history {
 
-using eosio::chain::packed_transaction;
-using eosio::chain::plugin_exception;
-
-void trace_converter::add_transaction(const transaction_trace_ptr& trace, const signed_transaction& transaction) {
+void trace_converter::add_transaction(const transaction_trace_ptr& trace, const chain::packed_transaction_ptr& transaction) {
    if (trace->receipt) {
       if (chain::is_onblock(*trace))
          onblock_trace.emplace(trace, transaction);
@@ -27,9 +24,9 @@ bytes trace_converter::pack(const chainbase::database& db, bool trace_debug_mode
       if (std::holds_alternative<transaction_id_type>(r.trx))
          id = std::get<transaction_id_type>(r.trx);
       else
-         id = std::get<packed_transaction>(r.trx).id();
+         id = std::get<chain::packed_transaction>(r.trx).id();
       auto it = cached_traces.find(id);
-      EOS_ASSERT(it != cached_traces.end() && it->second.trace->receipt, plugin_exception,
+      EOS_ASSERT(it != cached_traces.end() && it->second.trace->receipt, chain::plugin_exception,
                  "missing trace for transaction ${id}", ("id", id));
       traces.push_back(it->second);
    }

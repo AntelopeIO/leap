@@ -147,6 +147,15 @@ uint32_t packed_transaction::get_prunable_size()const {
    return static_cast<uint32_t>(size);
 }
 
+size_t packed_transaction::get_estimated_size()const {
+   // transaction is stored packed and unpacked, double packed_size and size of signed as an approximation of use
+   return sizeof(*this) +
+          (signatures.size() * sizeof( signature_type )) * 2 +
+          packed_context_free_data.size() * 2 +
+          packed_trx.size() * 2;
+}
+
+
 digest_type packed_transaction::packed_digest()const {
    digest_type::encoder prunable;
    fc::raw::pack( prunable, signatures );
