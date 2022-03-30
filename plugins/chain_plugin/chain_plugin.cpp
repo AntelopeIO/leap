@@ -14,9 +14,6 @@
 #include <eosio/chain/global_property_object.hpp>
 #include <eosio/chain/snapshot.hpp>
 #include <eosio/chain/deep_mind.hpp>
-#include <eosio/chain/signals_processor.hpp>
-#include <eosio/chain_plugin/trx_retry_processing.hpp>
-#include <eosio/chain_plugin/trx_finality_status_processing.hpp>
 
 #include <eosio/chain/eosio_contract.hpp>
 
@@ -189,14 +186,10 @@ public:
    std::optional<scoped_connection>                                   irreversible_block_connection;
    std::optional<scoped_connection>                                   accepted_transaction_connection;
    std::optional<scoped_connection>                                   applied_transaction_connection;
-   std::optional<scoped_connection>                                   block_start_connection;
 
 
    std::optional<chain_apis::account_query_db>                        _account_query_db;
    const producer_plugin* producer_plug;
-   std::optional<chain::signals_processor>                            _trx_signals_processor;
-   chain_apis::trx_retry_processing_ptr                               _trx_retry_processing;
-   chain_apis::trx_finality_status_processing_ptr                     _trx_finality_status_processing;
 };
 
 chain_plugin::chain_plugin()
@@ -326,8 +319,6 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
 #endif
          ("enable-account-queries", bpo::value<bool>()->default_value(false), "enable queries to find accounts by various metadata.")
          ("max-nonprivileged-inline-action-size", bpo::value<uint32_t>()->default_value(config::default_max_nonprivileged_inline_action_size), "maximum allowed size (in bytes) of an inline action for a nonprivileged account")
-         ("transaction-retry-max-storage-size-gb", bpo::value<uint64_t>(), "Maximum size (in GiB) allowed to be allocated for the Transaction Retry feature. Setting above 0 enables this feature.")
-         ("transaction-finality-status-max-storage-size-gb", bpo::value<uint64_t>(), "Maximum size (in GiB) allowed to be allocated for the Transaction Finality Status feature. Setting above 0 enables this feature.")
          ;
 
 // TODO: rate limiting
@@ -771,37 +762,6 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
       if( options.count( "max-nonprivileged-inline-action-size" ))
          my->chain_config->max_nonprivileged_inline_action_size = options.at( "max-nonprivileged-inline-action-size" ).as<uint32_t>();
 
-      if( options.count( "transaction-retry-max-storage-size-gb" )) {
-         const uint64_t max_storage_size = options.at( "transaction-retry-max-storage-size-gb" ).as<uint64_t>() * 1024 * 1024 * 1024;
-         if (max_storage_size > 0) {
-            my->_trx_retry_processing.reset(new chain_apis::trx_retry_processing(max_storage_size));
-         }
-      }
-
-      if( options.count( "transaction-finality-status-max-storage-size-gb" )) {
-         const uint64_t max_storage_size = options.at( "transaction-finality-status-max-storage-size-gb" ).as<uint64_t>() * 1024 * 1024 * 1024;
-         if (max_storage_size > 0) {
-            my->_trx_finality_status_processing.reset(new chain_apis::trx_finality_status_processing(max_storage_size));
-         }
-      }
-
-      if (my->_trx_retry_processing || my->_trx_finality_status_processing) {
-         my->_trx_signals_processor.emplace();
-         if (my->_trx_retry_processing) {
-            my->_trx_signals_processor->register_callbacks(
-               []( const chain::signals_processor::trx_deque& trxs, const chain::block_state_ptr& blk ) {},
-               []( const chain::block_state_ptr& blk ) {},
-               []( uint32_t block_num ) {}
-            );
-         }
-         if (my->_trx_finality_status_processing) {
-            my->_trx_signals_processor->register_callbacks(
-               []( const chain::signals_processor::trx_deque& trxs, const chain::block_state_ptr& blk ) {},
-               []( const chain::block_state_ptr& blk ) {},
-               []( uint32_t block_num ) {}
-            );
-         }
-      }         
       if( options.count( "chain-threads" )) {
          my->chain_config->thread_pool_size = options.at( "chain-threads" ).as<uint16_t>();
          EOS_ASSERT( my->chain_config->thread_pool_size > 0, plugin_config_exception,
@@ -1195,18 +1155,10 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
             my->_account_query_db->commit_block(blk);
          }
          my->accepted_block_channel.publish( priority::high, blk );
-
-         if (my->_trx_signals_processor) {
-            my->_trx_signals_processor->signal_accepted_block(blk);
-         }
       } );
 
       my->irreversible_block_connection = my->chain->irreversible_block.connect( [this]( const block_state_ptr& blk ) {
          my->irreversible_block_channel.publish( priority::low, blk );
-
-         if (my->_trx_signals_processor) {
-            my->_trx_signals_processor->signal_irreversible_block(blk);
-         }
       } );
 
       my->accepted_transaction_connection = my->chain->accepted_transaction.connect(
@@ -1220,18 +1172,8 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
                   my->_account_query_db->cache_transaction_trace(std::get<0>(t));
                }
                my->applied_transaction_channel.publish( priority::low, std::get<0>(t) );
-
-               if (my->_trx_signals_processor) {
-                  my->_trx_signals_processor->signal_applied_transaction(std::get<0>(t), std::get<1>(t));
-               }
             } );
 
-      if (my->_trx_signals_processor) {
-         my->block_start_connection = my->chain->block_start.connect(
-            [this]( uint32_t block_num ) {
-               my->_trx_signals_processor->signal_block_start(block_num);
-            } );
-      }
       my->chain->add_indices();
    } FC_LOG_AND_RETHROW()
 
@@ -1297,7 +1239,6 @@ void chain_plugin::plugin_shutdown() {
    my->irreversible_block_connection.reset();
    my->accepted_transaction_connection.reset();
    my->applied_transaction_connection.reset();
-   my->block_start_connection.reset();
    if(app().is_quiting())
       my->chain->get_wasm_interface().indicate_shutting_down();
    my->chain.reset();
