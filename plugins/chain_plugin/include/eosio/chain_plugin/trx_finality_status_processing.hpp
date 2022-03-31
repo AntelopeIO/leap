@@ -18,5 +18,5 @@ namespace eosio::chain_apis {
       trx_finality_status_processing( uint64_t max_storage );
    };
 
-   using trx_finality_status_processing_ptr = std::shared_ptr<trx_finality_status_processing>;
+   using trx_finality_status_processing_ptr = std::unique_ptr<trx_finality_status_processing>;
 } // namespace eosio::chain_apis

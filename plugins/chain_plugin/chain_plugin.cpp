@@ -1194,19 +1194,20 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
          if (my->_account_query_db) {
             my->_account_query_db->commit_block(blk);
          }
-         my->accepted_block_channel.publish( priority::high, blk );
 
          if (my->_trx_signals_processor) {
             my->_trx_signals_processor->signal_accepted_block(blk);
          }
+
+         my->accepted_block_channel.publish( priority::high, blk );
       } );
 
       my->irreversible_block_connection = my->chain->irreversible_block.connect( [this]( const block_state_ptr& blk ) {
-         my->irreversible_block_channel.publish( priority::low, blk );
-
          if (my->_trx_signals_processor) {
             my->_trx_signals_processor->signal_irreversible_block(blk);
          }
+
+         my->irreversible_block_channel.publish( priority::low, blk );
       } );
 
       my->accepted_transaction_connection = my->chain->accepted_transaction.connect(
@@ -1219,11 +1220,12 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
                if (my->_account_query_db) {
                   my->_account_query_db->cache_transaction_trace(std::get<0>(t));
                }
-               my->applied_transaction_channel.publish( priority::low, std::get<0>(t) );
 
                if (my->_trx_signals_processor) {
                   my->_trx_signals_processor->signal_applied_transaction(std::get<0>(t), std::get<1>(t));
                }
+
+               my->applied_transaction_channel.publish( priority::low, std::get<0>(t) );
             } );
 
       if (my->_trx_signals_processor) {

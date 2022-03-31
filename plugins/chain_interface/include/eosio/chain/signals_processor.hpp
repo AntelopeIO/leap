@@ -27,7 +27,6 @@ public:
 
    /// connect to chain controller applied_transaction signal
    void signal_applied_transaction( const chain::transaction_trace_ptr& trace, const chain::packed_transaction_ptr& ptrx ) {
-#warning TODO need to store packed transaction after code merged
       _trxs.emplace_back(trace, ptrx);
    }
 
@@ -40,7 +39,9 @@ public:
    /// connect to chain controller irreversible_block signal
    void signal_irreversible_block( const chain::block_state_ptr& bsp ) {
       for(auto& callback : _callbacks) {
-         std::get<1>(callback)(bsp);
+         try {
+            std::get<1>(callback)(bsp);
+         } FC_LOG_AND_DROP(("Failed to pass irreversible block to callback"));
       }
    }
 
@@ -52,14 +53,18 @@ public:
       }
       _block_started = true;
       for(auto& callback : _callbacks) {
-         std::get<2>(callback)(block_num);
+         try {
+            std::get<2>(callback)(block_num);
+         } FC_LOG_AND_DROP(("Failed to pass block start to callback"));
       }
    }
 
 private:
    void push_transactions( const chain::block_state_ptr& bsp ) {
       for(auto& callback : _callbacks) {
-         std::get<0>(callback)(_trxs, bsp);
+         try {
+            std::get<0>(callback)(_trxs, bsp);
+         } FC_LOG_AND_DROP(("Failed to pass all transactions and block state to callback"));
       }
       _trxs.clear();
    }
