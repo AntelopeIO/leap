@@ -676,7 +676,7 @@ BOOST_AUTO_TEST_CASE(alphabetic_sort)
   std::sort(words.begin(), words.end(), std::less<string>());
 
   vector<uint64_t> uwords;
-  for(const auto w: words) {
+  for(const auto& w: words) {
     auto n = name(w.c_str());
     uwords.push_back(n.to_uint64_t());
   }
@@ -809,6 +809,26 @@ BOOST_AUTO_TEST_CASE(transaction_test) { try {
    pkt4.get_signed_transaction().get_signature_keys(test.control->get_chain_id(), fc::time_point::maximum(), keys);
    BOOST_CHECK_EQUAL(1u, keys.size());
    BOOST_CHECK_EQUAL(public_key, *keys.begin());
+
+   // verify packed_transaction creation from packed data
+   {
+      auto packed = fc::raw::pack( static_cast<const transaction&>(pkt5.get_transaction()) );
+      vector<signature_type> psigs = pkt5.get_signatures();
+      vector<bytes> pcfd = pkt5.get_context_free_data();
+      packed_transaction pkt7( std::move(packed), std::move(psigs), std::move(pcfd), packed_transaction::compression_type::none );
+      BOOST_CHECK_EQUAL(pkt5.get_transaction().id(), pkt7.get_transaction().id());
+   }
+   {
+      auto packed = fc::raw::pack( static_cast<const transaction&>(pkt5.get_transaction()) );
+      vector<signature_type> psigs = pkt5.get_signatures();
+      vector<bytes> pcfd = pkt5.get_context_free_data();
+      packed.push_back( '8' ); packed.push_back( '8' ); // extra ignored
+      auto packed_copy = packed;
+      packed_transaction pkt8( std::move(packed), std::move(psigs), std::move(pcfd), packed_transaction::compression_type::none );
+      BOOST_CHECK_EQUAL( pkt5.get_transaction().id(), pkt8.get_transaction().id() );
+      BOOST_CHECK( packed_copy != fc::raw::pack( static_cast<const transaction&>(pkt8.get_transaction()) ) );
+      BOOST_CHECK( packed_copy == pkt8.get_packed_transaction() ); // extra maintained
+   }
 
 } FC_LOG_AND_RETHROW() }
 
