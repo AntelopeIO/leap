@@ -1,6 +1,8 @@
 file(GLOB HEADERS "include/eosio/chain_plugin/*.hpp")
 add_library( chain_plugin
              account_query_db.cpp
+             trx_finality_status_processing.cpp
+             trx_retry_processing.cpp
              chain_plugin.cpp
              trx_retry_db.cpp
              ${HEADERS} )
