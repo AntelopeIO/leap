@@ -1,11 +1,16 @@
 #pragma once
 #include <eosio/chain/types.hpp>
 #include <eosio/chain/block_state.hpp>
+#include <eosio/chain/signals_processor.hpp>
 #include <eosio/chain/trace.hpp>
-#include <eosio/chain_plugin/finality_status_object.hpp>
+
+#include <fc/container/tracked_storage.hpp>
 #include <memory>
 
 namespace eosio::chain_apis {
+
+   struct trx_finality_status_processing_impl; 
+   using trx_finality_status_processing_impl_ptr = std::unique_ptr<trx_finality_status_processing_impl>;
    /**
     * This class manages the processing related to the transaction finality status feature.
     */
@@ -18,6 +23,8 @@ namespace eosio::chain_apis {
        */
       trx_finality_status_processing( uint64_t max_storage );
 
+      ~trx_finality_status_processing();
+
       void signal_applied_transactions( const chain::signals_processor::trx_deque& trxs, const chain::block_state_ptr& bsp );
 
       void signal_irreversible_block( const chain::block_state_ptr& bsp );
@@ -25,18 +32,7 @@ namespace eosio::chain_apis {
       void signal_block_start( uint32_t block_num );
 
    private:
-      void handle_rollback();
-
-      void status_expiry(const fc::time_point& now, const fc::time_point& head);
-
-      tracked_storage<finality_status_multi_index> _storage;
-      std::optional<uint32_t>                      _last_proc_block_num;
-      std::optional<uint32_t>                      _head_block_num;
-      std::optional<fc::time_point>                _head_timestamp;
-      std::optional<uint32_t>                      _irr_block_num;
-      std::optional<fc::time_point>                _irr_timestamp;
-      const fc::microseconds                       _success_duration;
-      const fc::microseconds                       _failure_duration;
+      trx_finality_status_processing_impl_ptr _my;
    };
 
    using trx_finality_status_processing_ptr = std::unique_ptr<trx_finality_status_processing>;
