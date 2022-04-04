@@ -2441,6 +2441,41 @@ void read_write::send_transaction(const read_write::send_transaction_params& par
    } CATCH_AND_CALL(next);
 }
 
+void read_write::send_transaction2(const read_write::send_transaction2_params& params, next_function<read_write::send_transaction_results> next) {
+   try {
+      auto pretty_input = std::make_shared<packed_transaction>();
+      auto resolver = make_resolver(this, abi_serializer::create_yield_function( abi_serializer_max_time ));
+      try {
+         abi_serializer::from_variant(params.transaction, *pretty_input, resolver, abi_serializer::create_yield_function( abi_serializer_max_time ));
+      } EOS_RETHROW_EXCEPTIONS(chain::packed_transaction_type_exception, "Invalid packed transaction")
+
+      app().get_method<incoming::methods::transaction_async>()(pretty_input, true,
+         [this, next](const std::variant<fc::exception_ptr, transaction_trace_ptr>& result) -> void {
+            if (std::holds_alternative<fc::exception_ptr>(result)) {
+               next(std::get<fc::exception_ptr>(result));
+            } else {
+               auto trx_trace_ptr = std::get<transaction_trace_ptr>(result);
+
+               try {
+                  fc::variant output;
+                  try {
+                     output = db.to_variant_with_abi( *trx_trace_ptr, abi_serializer::create_yield_function( abi_serializer_max_time ) );
+                  } catch( chain::abi_exception& ) {
+                     output = *trx_trace_ptr;
+                  }
+
+                  const chain::transaction_id_type& id = trx_trace_ptr->id;
+                  next(read_write::send_transaction_results{id, output});
+               } CATCH_AND_CALL(next);
+            }
+         });
+   } catch ( boost::interprocess::bad_alloc& ) {
+      chain_plugin::handle_db_exhaustion();
+   } catch ( const std::bad_alloc& ) {
+      chain_plugin::handle_bad_alloc();
+   } CATCH_AND_CALL(next);
+}
+
 read_only::get_abi_results read_only::get_abi( const get_abi_params& params )const {
    get_abi_results result;
    result.account_name = params.account_name;
