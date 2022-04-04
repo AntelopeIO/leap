@@ -7,22 +7,29 @@ namespace eosio::chain_apis {
 
 /**
  * This class manages the ephemeral indices and data that provide the transaction retry feature.
- * Transactions and meta data is persisted so that transactions are not lost on restart.
  */
 class trx_retry_db {
 public:
 
    /**
-    * Instantiate a new transaction DB from the given chain controller
-    * The caller is expected to manage lifetimes such that this controller reference does not go stale
-    * for the life of the transaction retry db
-    * @param chain - controller to read data from
+    * @param chain - controller to read data from, caller is expected to manage lifetimes such that this controller
+    *                reference does not go stale for the life of this class.
+    * @param max_mem_usage_size - maximum allowed memory for this feature, see track_transaction.
+    * @param retry_interval - how often to retry transaction if not see in a block.
     */
-   explicit trx_retry_db( const class eosio::chain::controller& chain );
+   explicit trx_retry_db( const chain::controller& controller, size_t max_mem_usage_size, fc::microseconds retry_interval );
    ~trx_retry_db();
 
    trx_retry_db(trx_retry_db&&) = delete;
    trx_retry_db& operator=(trx_retry_db&&) = delete;
+
+   /**
+    * @param trx_meta trx to retry if not see in a block for retry_interval
+    * @param num_blocks ack seen in a block after num_blocks have been accepted
+    * @param lib if true num_blocks param is ignored and ack'ed when block with trx is LIB
+    * @throws throw tx_resource_exhaustion if trx would exceeds max_mem_usage_size
+    */
+   void track_transaction( chain::transaction_metadata_ptr trx_meta, uint16_t num_blocks, bool lib );
 
    /**
     * Attach to chain applied_transaction signal

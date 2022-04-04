@@ -88,9 +88,11 @@ using tracked_transaction_index_t = multi_index_container<tracked_transaction,
 namespace eosio::chain_apis {
 
 struct trx_retry_db_impl {
-   explicit trx_retry_db_impl(const chain::controller& controller)
+   explicit trx_retry_db_impl(const chain::controller& controller, size_t max_mem_usage_size, fc::microseconds retry_interval)
    : _controller(controller)
    , _transaction_ack_channel(appbase::app().get_channel<chain::plugin_interface::compat::channels::transaction_ack>())
+   , _max_mem_usage_size(max_mem_usage_size)
+   , _retry_interval(retry_interval)
    {}
 
    /**
@@ -98,6 +100,8 @@ struct trx_retry_db_impl {
     * @param trx_meta
     */
    void track_transaction( transaction_metadata_ptr trx_meta, uint16_t num_blocks, bool lib ) {
+      EOS_ASSERT( _tracked_trxs.memory_size() < _max_mem_usage_size, tx_resource_exhaustion,
+                  "Transaction exceeded  transaction-retry-max-storage-size-gb limit: ${m} bytes", ("m", _tracked_trxs.memory_size()) );
       auto i = _tracked_trxs.index().get<by_trx_id>().find( trx_meta->id() );
       if( i == _tracked_trxs.index().end() ) {
          _tracked_trxs.insert( {std::move(trx_meta), lib ? lib_totem : num_blocks, 0, {}, fc::time_point::now()} );
@@ -259,20 +263,24 @@ private:
 
 
 private:
-   const chain::controller& _controller;               ///< the controller to read data from
+   const chain::controller& _controller; ///< the controller to read data from
    chain::plugin_interface::compat::channels::transaction_ack::channel_type& _transaction_ack_channel;
-   const fc::microseconds _abi_serializer_max_time;  ///< the maximum time to allow abi_serialization to run
-   fc::tracked_storage<tracked_transaction_index_t> _tracked_trxs;
+   const fc::microseconds _abi_serializer_max_time; ///< the maximum time to allow abi_serialization to run
    size_t _max_mem_usage_size = 0;
+   fc::tracked_storage<tracked_transaction_index_t> _tracked_trxs;
    fc::microseconds _retry_interval = fc::minutes( 1 );
 };
 
-trx_retry_db::trx_retry_db( const chain::controller& controller )
-:_impl(std::make_unique<trx_retry_db_impl>(controller))
+trx_retry_db::trx_retry_db( const chain::controller& controller, size_t max_mem_usage_size, fc::microseconds retry_interval )
+:_impl(std::make_unique<trx_retry_db_impl>(controller, max_mem_usage_size, retry_interval))
 {
 }
 
 trx_retry_db::~trx_retry_db() = default;
+
+void trx_retry_db::track_transaction( chain::transaction_metadata_ptr trx_meta, uint16_t num_blocks, bool lib ) {
+   _impl->track_transaction( std::move( trx_meta ), num_blocks, lib );
+}
 
 void trx_retry_db::on_applied_transaction( const chain::transaction_trace_ptr& trace, const chain::packed_transaction_ptr& ptrx ) {
    try {
