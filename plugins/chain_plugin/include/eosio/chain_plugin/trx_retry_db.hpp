@@ -4,41 +4,49 @@
 #include <eosio/chain/trace.hpp>
 
 namespace eosio::chain_apis {
+
+/**
+ * This class manages the ephemeral indices and data that provide the transaction retry feature.
+ * Transactions and meta data is persisted so that transactions are not lost on restart.
+ */
+class trx_retry_db {
+public:
+
    /**
-    * This class manages the ephemeral indices and data that provide the transaction retry feature.
-    * Transactions and meta data is persisted so that transactions are not lost on restart.
+    * Instantiate a new transaction DB from the given chain controller
+    * The caller is expected to manage lifetimes such that this controller reference does not go stale
+    * for the life of the transaction retry db
+    * @param chain - controller to read data from
     */
-   class trx_retry_db {
-   public:
+   explicit trx_retry_db( const class eosio::chain::controller& chain );
+   ~trx_retry_db();
 
-      /**
-       * Instantiate a new transaction DB from the given chain controller
-       * The caller is expected to manage lifetimes such that this controller reference does not go stale
-       * for the life of the transaction retry db
-       * @param chain - controller to read data from
-       */
-      explicit trx_retry_db( const class eosio::chain::controller& chain );
-      ~trx_retry_db();
+   trx_retry_db(trx_retry_db&&) = delete;
+   trx_retry_db& operator=(trx_retry_db&&) = delete;
 
-      trx_retry_db(trx_retry_db&&);
-      trx_retry_db& operator=(trx_retry_db&&);
+   /**
+    * Attach to chain applied_transaction signal
+    * Add a transaction trace to the DB that has been applied to the controller
+    */
+   void on_applied_transaction( const chain::transaction_trace_ptr& trace, const chain::packed_transaction_ptr& ptrx );
 
-      /**
-       * Add a transaction trace to the DB that has been applied to the controller even though it may
-       * not yet be committed to by a block.
-       *
-       * @param trace
-       */
-      void cache_transaction_trace( const chain::transaction_trace_ptr& trace );
+   /**
+    * Attach to chain block_start signal
+    */
+   void on_block_start( uint32_t block_num );
 
-      /**
-       * Add a block to the DB, committing all the cached traces it represents and dumping any uncommitted traces.
-       * @param block
-       */
-      void commit_block(const chain::block_state_ptr& block );
+   /**
+    * Attach to chain accepted_block signal
+    */
+   void on_accepted_block(const chain::block_state_ptr& block );
 
-   private:
-      std::unique_ptr<struct trx_retry_db_impl> _impl;
-   };
+   /**
+    * Attach to chain irreversible_block signal
+    */
+   void on_irreversible_block(const chain::block_state_ptr& block );
+
+private:
+   std::unique_ptr<struct trx_retry_db_impl> _impl;
+};
 
 } // namespace eosio::chain_apis
