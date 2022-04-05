@@ -707,8 +707,6 @@ void producer_plugin::set_program_options(
           "   KEOSD:<data>    \tis the URL where keosd is available and the approptiate wallet(s) are unlocked")
          ("keosd-provider-timeout", boost::program_options::value<int32_t>()->default_value(5),
           "Limits the maximum time (in milliseconds) that is allowed for sending blocks to a keosd provider for signing")
-         ("subjective-account-max-failures", boost::program_options::value<int32_t>()->default_value(3),
-          "maximum amount of failures allowed for an account")
          ("greylist-account", boost::program_options::value<vector<string>>()->composing()->multitoken(),
           "account that can not access to extended CPU/NET virtual resources")
          ("greylist-limit", boost::program_options::value<uint32_t>()->default_value(1000),
@@ -729,6 +727,8 @@ void producer_plugin::set_program_options(
           "Maximum wall-clock time, in milliseconds, spent retiring scheduled transactions in any block before returning to normal transaction processing.")
          ("subjective-cpu-leeway-us", boost::program_options::value<int32_t>()->default_value( config::default_subjective_cpu_leeway_us ),
           "Time in microseconds allowed for a transaction that starts with insufficient CPU quota to complete and cover its CPU usage.")
+         ("subjective-account-max-failures", boost::program_options::value<int32_t>()->default_value(3),
+          "Sets the maximum amount of failures that are allowed for a given account per block."),
          ("incoming-defer-ratio", bpo::value<double>()->default_value(1.0),
           "ratio between incoming transactions and deferred transactions when both are queued for execution")
          ("incoming-transaction-queue-size-mb", bpo::value<uint16_t>()->default_value( 1024 ),
@@ -1886,11 +1886,11 @@ private:
       bool is_other() const { return has_field( ex_flags, ex_fields::ex_other_exception ); }
 
       uint32_t num_failures = 0;
-      uint32_t max_failures_per_account = 0;
       uint8_t ex_flags = 0;
    };
 
    std::map<account_name, account_failure> failed_accounts;
+   uint32_t max_failures_per_account = 0;
 };
 
 } // anonymous namespace
