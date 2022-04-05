@@ -881,7 +881,7 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
 
    my->_keosd_provider_timeout_us = fc::milliseconds(options.at("keosd-provider-timeout").as<int32_t>());
 
-   my->__subjective_account_max_failures = options.at("subjective-account-max-failures").as<uint32_t>();
+   my->_subjective_account_max_failures = options.at("subjective-account-max-failures").as<uint32_t>();
 
    my->_produce_time_offset_us = options.at("produce-time-offset-us").as<int32_t>();
    EOS_ASSERT( my->_produce_time_offset_us <= 0 && my->_produce_time_offset_us >= -config::block_interval_us, plugin_config_exception,
