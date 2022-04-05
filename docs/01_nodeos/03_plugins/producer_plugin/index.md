@@ -99,6 +99,9 @@ Config Options for eosio::producer_plugin:
                                         transactions in any block before 
                                         returning to normal transaction 
                                         processing.
+  --subjective-account-decay-time-minutes (=1440)
+                                        Sets the time to return full cpu for a
+                                        given account. Must be at least 30 minutes
   --incoming-defer-ratio arg (=1)       ratio between incoming transactions and 
                                         deferred transactions when both are 
                                         queued for execution                                        
