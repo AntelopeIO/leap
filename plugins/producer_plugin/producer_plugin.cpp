@@ -222,6 +222,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       bool                                                      _disable_subjective_api_billing = true;
       fc::time_point                                            _irreversible_block_time;
       fc::microseconds                                          _keosd_provider_timeout_us;
+      uint32_t                                                  _subjective_account_max_failures = 0;
 
       std::vector<chain::digest_type>                           _protocol_features_to_activate;
       bool                                                      _protocol_features_signaled = false; // to mark whether it has been signaled in start_block
@@ -706,6 +707,8 @@ void producer_plugin::set_program_options(
           "   KEOSD:<data>    \tis the URL where keosd is available and the approptiate wallet(s) are unlocked")
          ("keosd-provider-timeout", boost::program_options::value<int32_t>()->default_value(5),
           "Limits the maximum time (in milliseconds) that is allowed for sending blocks to a keosd provider for signing")
+         ("subjective-account-max-failures", boost::program_options::value<int32_t>()->default_value(3),
+          "maximum amount of failures allowed for an account")
          ("greylist-account", boost::program_options::value<vector<string>>()->composing()->multitoken(),
           "account that can not access to extended CPU/NET virtual resources")
          ("greylist-limit", boost::program_options::value<uint32_t>()->default_value(1000),
@@ -877,6 +880,8 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
    }
 
    my->_keosd_provider_timeout_us = fc::milliseconds(options.at("keosd-provider-timeout").as<int32_t>());
+
+   my->__subjective_account_max_failures = options.at("subjective-account-max-failures").as<uint32_t>();
 
    my->_produce_time_offset_us = options.at("produce-time-offset-us").as<int32_t>();
    EOS_ASSERT( my->_produce_time_offset_us <= 0 && my->_produce_time_offset_us >= -config::block_interval_us, plugin_config_exception,
@@ -1806,7 +1811,10 @@ namespace {
 // track multiple failures on unapplied transactions
 class account_failures {
 public:
-   constexpr static uint32_t max_failures_per_account = 3;
+  explicit account_failures(uint32_t max_failures)
+  :max_failures_per_account(max_failures)
+  {
+  }
 
    void add( const account_name& n, int64_t exception_code ) {
       auto& fa = failed_accounts[n];
@@ -1878,6 +1886,7 @@ private:
       bool is_other() const { return has_field( ex_flags, ex_fields::ex_other_exception ); }
 
       uint32_t num_failures = 0;
+      uint32_t max_failures_per_account = 0;
       uint8_t ex_flags = 0;
    };
 
@@ -1890,7 +1899,7 @@ bool producer_plugin_impl::process_unapplied_trxs( const fc::time_point& deadlin
 {
    bool exhausted = false;
    if( !_unapplied_transactions.empty() ) {
-      account_failures account_fails;
+      account_failures account_fails(_subjective_account_max_failures);;
       chain::controller& chain = chain_plug->chain();
       const auto& rl = chain.get_resource_limits_manager();
       int num_applied = 0, num_failed = 0, num_processed = 0;

@@ -81,6 +81,9 @@ Config Options for eosio::producer_plugin:
                                         milliseconds) that is allowed for 
                                         sending blocks to a keosd provider for 
                                         signing
+  --subjective-account-max-failures (=3)
+                                        Sets the maximum amount of failures
+                                        that are allowed for a given account.
   --greylist-account arg                account that can not access to extended
                                         CPU/NET virtual resources
   --produce-time-offset-us arg (=0)     offset of non last block producing time
