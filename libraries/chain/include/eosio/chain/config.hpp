@@ -86,6 +86,9 @@ const static uint32_t   default_max_variable_signature_length        = 16384u;
 const static uint32_t   default_max_nonprivileged_inline_action_size = 4 * 1024; // 4 KB
 const static uint32_t   default_max_action_return_value_size         = 256;
 
+const static uint32_t   default_max_trx_finality_status_suc_dur_sec  = 180;
+const static uint32_t   default_max_trx_finality_status_fail_dur_sec = 180;
+
 static_assert(MAX_SIZE_OF_BYTE_ARRAYS == 20*1024*1024, "Changing MAX_SIZE_OF_BYTE_ARRAYS breaks consensus. Make sure this is expected");
 
 const static uint32_t default_max_wasm_mutable_global_bytes = 1024;

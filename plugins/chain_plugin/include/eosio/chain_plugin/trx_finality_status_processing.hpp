@@ -17,11 +17,23 @@ namespace eosio::chain_apis {
    class trx_finality_status_processing {
    public:
 
+      struct chain_state {
+         chain::block_id_type head_id;
+         chain::block_id_type irr_id;
+         chain::block_id_type last_tracked_block_id;
+      };
+
+      struct trx_state {
+         chain::block_id_type block_id;
+         fc::time_point       block_timestamp;
+         std::string          status;
+      };
+
       /**
        * Instantiate a new transaction retry processor
        * @param max_storage - the maximum storage allotted to this feature
        */
-      trx_finality_status_processing( uint64_t max_storage );
+      trx_finality_status_processing( uint64_t max_storage, const fc::microseconds& success_duration, const fc::microseconds& failure_duration );
 
       ~trx_finality_status_processing();
 
@@ -30,6 +42,10 @@ namespace eosio::chain_apis {
       void signal_irreversible_block( const chain::block_state_ptr& bsp );
 
       void signal_block_start( uint32_t block_num );
+
+      chain_state get_chain_state() const;
+
+      trx_state get_trx_state( const chain::transaction_id_type& id ) const;
 
    private:
       trx_finality_status_processing_impl_ptr _my;
