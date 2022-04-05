@@ -145,9 +145,9 @@ namespace eosio { namespace chain {
           */
          vector<transaction_metadata_ptr> abort_block();
 
-         /**
-          *
-          */
+       /**
+        *
+        */
          transaction_trace_ptr push_transaction( const transaction_metadata_ptr& trx, fc::time_point deadline,
                                                  uint32_t billed_cpu_time_us, bool explicit_billed_cpu_time,
                                                  uint32_t subjective_cpu_bill_us );
@@ -348,7 +348,7 @@ namespace eosio { namespace chain {
          }
 
          template<typename T>
-         fc::variant to_variant_with_abi( const T& obj, const abi_serializer::yield_function_t& yield ) {
+         fc::variant to_variant_with_abi( const T& obj, const abi_serializer::yield_function_t& yield ) const {
             fc::variant pretty_output;
             abi_serializer::to_variant( obj, pretty_output,
                                         [&]( account_name n ){ return get_abi_serializer( n, yield ); }, yield );
