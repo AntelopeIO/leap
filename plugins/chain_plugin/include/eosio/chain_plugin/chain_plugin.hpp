@@ -17,6 +17,7 @@
 #include <boost/multiprecision/cpp_int.hpp>
 
 #include <eosio/chain_plugin/account_query_db.hpp>
+#include <eosio/chain_plugin/trx_retry_db.hpp>
 
 #include <fc/static_variant.hpp>
 
@@ -605,10 +606,11 @@ public:
 
 class read_write {
    controller& db;
+   std::optional<trx_retry_db>& trx_retry;
    const fc::microseconds abi_serializer_max_time;
    const bool api_accept_transactions;
 public:
-   read_write(controller& db, const fc::microseconds& abi_serializer_max_time, bool api_accept_transactions);
+   read_write(controller& db, std::optional<trx_retry_db>& trx_retry, const fc::microseconds& abi_serializer_max_time, bool api_accept_transactions);
    void validate() const;
 
    using push_block_params = chain::signed_block;
@@ -727,7 +729,7 @@ public:
    void plugin_shutdown();
    void handle_sighup() override;
 
-   chain_apis::read_write get_read_write_api() { return chain_apis::read_write(chain(), get_abi_serializer_max_time(), api_accept_transactions()); }
+   chain_apis::read_write get_read_write_api();
    chain_apis::read_only get_read_only_api() const;
 
    bool accept_block( const chain::signed_block_ptr& block, const chain::block_id_type& id );

@@ -25,14 +25,15 @@ namespace {
 constexpr uint16_t lib_totem = std::numeric_limits<uint16_t>::max();
 
 struct tracked_transaction {
-   const transaction_metadata_ptr trx_meta;
-   const uint16_t                 num_blocks = 0; // lib is lib_totem
-   uint32_t                       block_num = 0;
-   fc::variant                    trx_trace_v;
-   fc::time_point                 last_try;
+   const packed_transaction_ptr                              ptrx;
+   const uint16_t                                            num_blocks = 0; // lib is lib_totem
+   uint32_t                                                  block_num = 0;
+   fc::variant                                               trx_trace_v;
+   fc::time_point                                            last_try;
+   chain_apis::next_function<std::unique_ptr<fc::variant>>   next;
 
-   const transaction_id_type& id()const { return trx_meta->id(); }
-   fc::time_point_sec expiry()const { return trx_meta->packed_trx()->expiration(); }
+   const transaction_id_type& id()const { return ptrx->id(); }
+   fc::time_point_sec expiry()const { return ptrx->expiration(); }
 
    uint32_t ready_block_num()const {
       if( block_num == 0 ) return std::numeric_limits<uint32_t>::max() - 1; // group not seen in middle
@@ -49,7 +50,8 @@ struct tracked_transaction {
    }
 
    // for fc::tracked_storage, x3 for trx_meta as a very rough guess of trace variant size
-   size_t memory_size()const { return trx_meta->get_estimated_size() * 3 + sizeof(*this); }
+   // todo: add get_estimated_size to fc::variant for use here
+   size_t memory_size()const { return ptrx->get_estimated_size() * 3 + sizeof(*this); }
 
    tracked_transaction(const tracked_transaction&) = delete;
    tracked_transaction() = delete;
@@ -88,23 +90,25 @@ using tracked_transaction_index_t = multi_index_container<tracked_transaction,
 namespace eosio::chain_apis {
 
 struct trx_retry_db_impl {
-   explicit trx_retry_db_impl(const chain::controller& controller, size_t max_mem_usage_size, fc::microseconds retry_interval)
+   explicit trx_retry_db_impl(const chain::controller& controller, size_t max_mem_usage_size,
+                              fc::microseconds retry_interval, fc::microseconds max_expiration_time)
    : _controller(controller)
    , _transaction_ack_channel(appbase::app().get_channel<chain::plugin_interface::compat::channels::transaction_ack>())
    , _max_mem_usage_size(max_mem_usage_size)
    , _retry_interval(retry_interval)
+   , _max_expiration_time(max_expiration_time)
    {}
 
-   /**
-    * Hooked up to callback of chain_plugin send_transaction2 api if enabled
-    * @param trx_meta
-    */
-   void track_transaction( transaction_metadata_ptr trx_meta, uint16_t num_blocks, bool lib ) {
+   const fc::microseconds& get_max_expiration_time()const {
+      return _max_expiration_time;
+   }
+
+   void track_transaction( packed_transaction_ptr ptrx, std::optional<uint16_t> num_blocks, next_function<std::unique_ptr<fc::variant>> next ) {
       EOS_ASSERT( _tracked_trxs.memory_size() < _max_mem_usage_size, tx_resource_exhaustion,
                   "Transaction exceeded  transaction-retry-max-storage-size-gb limit: ${m} bytes", ("m", _tracked_trxs.memory_size()) );
-      auto i = _tracked_trxs.index().get<by_trx_id>().find( trx_meta->id() );
+      auto i = _tracked_trxs.index().get<by_trx_id>().find( ptrx->id() );
       if( i == _tracked_trxs.index().end() ) {
-         _tracked_trxs.insert( {std::move(trx_meta), lib ? lib_totem : num_blocks, 0, {}, fc::time_point::now()} );
+         _tracked_trxs.insert( {std::move(ptrx), !num_blocks.has_value() ? lib_totem : *num_blocks, 0, {}, fc::time_point::now(), next} );
       } else {
          // already tracking trx_meta
       }
@@ -191,14 +195,14 @@ private:
       for( auto i = idx.begin(); i != idx.end(); ++i ) {
          if( i->is_ready() ) break;
 
-         if( i->last_try + _retry_interval >= now ) {
+         if( i->last_try + _retry_interval <= now ) {
             to_process.emplace_back( _tracked_trxs.index().project<0>( i ) );
          }
       }
       // retry
       for( auto& i: to_process ) {
          _transaction_ack_channel.publish(
-               appbase::priority::low, std::pair<fc::exception_ptr, transaction_metadata_ptr>( nullptr, i->trx_meta ) );
+               appbase::priority::low, std::pair<fc::exception_ptr, packed_transaction_ptr>( nullptr, i->ptrx ) );
          _tracked_trxs.modify( i, [&]( tracked_transaction& tt ) {
             tt.last_try = now;
          } );
@@ -214,13 +218,11 @@ private:
          // if we have reached requested block height then ack to user
          if( i->ready_block_num() >= block_num ) {
             to_process.emplace_back( i );
-            // todo: i->next();
-            _tracked_trxs.erase( i->id() );
          }
       }
       // ack
       for( auto& i: to_process ) {
-         // todo: i->next();
+         i->next( std::make_unique<fc::variant>( std::move( i->trx_trace_v ) ) );
          _tracked_trxs.erase( i->id() );
       }
    }
@@ -235,7 +237,7 @@ private:
       }
       // ack
       for( auto& i: to_process ) {
-         // todo: i->next();
+         i->next( std::make_unique<fc::variant>( std::move( i->trx_trace_v ) ) );
          _tracked_trxs.erase( i->id() );
       }
    }
@@ -248,19 +250,15 @@ private:
          if( itr->expiry() > block_time ) {
             break;
          }
-// todo:
-//         if( itr->next ) {
-//            itr->next( std::static_pointer_cast<fc::exception>(
-//                  std::make_shared<expired_tx_exception>(
-//                        FC_LOG_MESSAGE( error, "expired transaction ${id}, expiration ${e}, block time ${bt}",
-//                                        ("id", itr->id())("e", itr->trx_meta->packed_trx()->expiration())
-//                                        ("bt", block_timestamp) ) ) ) );
-//         }
+         itr->next( std::static_pointer_cast<fc::exception>(
+               std::make_shared<expired_tx_exception>(
+                     FC_LOG_MESSAGE( error, "expired retry transaction ${id}, expiration ${e}, block time ${bt}",
+                                     ("id", itr->id())("e", itr->ptrx->expiration())
+                                     ("bt", block_timestamp) ) ) ) );
          _tracked_trxs.erase( itr->id() );
       }
       return true;
    }
-
 
 private:
    const chain::controller& _controller; ///< the controller to read data from
@@ -268,18 +266,24 @@ private:
    const fc::microseconds _abi_serializer_max_time; ///< the maximum time to allow abi_serialization to run
    size_t _max_mem_usage_size = 0;
    fc::tracked_storage<tracked_transaction_index_t> _tracked_trxs;
-   fc::microseconds _retry_interval = fc::minutes( 1 );
+   fc::microseconds _retry_interval;
+   fc::microseconds _max_expiration_time;
 };
 
-trx_retry_db::trx_retry_db( const chain::controller& controller, size_t max_mem_usage_size, fc::microseconds retry_interval )
-:_impl(std::make_unique<trx_retry_db_impl>(controller, max_mem_usage_size, retry_interval))
+trx_retry_db::trx_retry_db( const chain::controller& controller, size_t max_mem_usage_size,
+                            fc::microseconds retry_interval, fc::microseconds max_expiration_time )
+:_impl(std::make_unique<trx_retry_db_impl>(controller, max_mem_usage_size, retry_interval, max_expiration_time))
 {
 }
 
 trx_retry_db::~trx_retry_db() = default;
 
-void trx_retry_db::track_transaction( chain::transaction_metadata_ptr trx_meta, uint16_t num_blocks, bool lib ) {
-   _impl->track_transaction( std::move( trx_meta ), num_blocks, lib );
+void trx_retry_db::track_transaction( chain::packed_transaction_ptr ptrx, std::optional<uint16_t> num_blocks, next_function<std::unique_ptr<fc::variant>> next ) {
+   _impl->track_transaction( std::move( ptrx ), num_blocks, next );
+}
+
+fc::time_point_sec trx_retry_db::get_max_expiration_time()const {
+   return fc::time_point::now() + _impl->get_max_expiration_time();
 }
 
 void trx_retry_db::on_applied_transaction( const chain::transaction_trace_ptr& trace, const chain::packed_transaction_ptr& ptrx ) {

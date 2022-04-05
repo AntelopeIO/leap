@@ -51,7 +51,7 @@ namespace eosio { namespace chain { namespace plugin_interface {
 
    namespace compat {
       namespace channels {
-         using transaction_ack       = channel_decl<struct accepted_transaction_tag, std::pair<fc::exception_ptr, transaction_metadata_ptr>>;
+         using transaction_ack       = channel_decl<struct accepted_transaction_tag, std::pair<fc::exception_ptr, packed_transaction_ptr>>;
       }
    }
 

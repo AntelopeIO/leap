@@ -5,6 +5,9 @@
 
 namespace eosio::chain_apis {
 
+template<typename T>
+using next_function = std::function<void(const std::variant<fc::exception_ptr, T>&)>;
+
 /**
  * This class manages the ephemeral indices and data that provide the transaction retry feature.
  */
@@ -16,20 +19,27 @@ public:
     *                reference does not go stale for the life of this class.
     * @param max_mem_usage_size - maximum allowed memory for this feature, see track_transaction.
     * @param retry_interval - how often to retry transaction if not see in a block.
+    * @param max_expiration_time - the maximum allowed expiration on a retry transaction
     */
-   explicit trx_retry_db( const chain::controller& controller, size_t max_mem_usage_size, fc::microseconds retry_interval );
+   explicit trx_retry_db( const chain::controller& controller, size_t max_mem_usage_size,
+                          fc::microseconds retry_interval, fc::microseconds max_expiration_time );
    ~trx_retry_db();
 
    trx_retry_db(trx_retry_db&&) = delete;
    trx_retry_db& operator=(trx_retry_db&&) = delete;
 
    /**
-    * @param trx_meta trx to retry if not see in a block for retry_interval
-    * @param num_blocks ack seen in a block after num_blocks have been accepted
-    * @param lib if true num_blocks param is ignored and ack'ed when block with trx is LIB
+    * @return current max expiration allowed on a retry transaction
+    */
+   fc::time_point_sec get_max_expiration_time()const;
+
+   /**
+    * @param ptrx trx to retry if not see in a block for retry_interval
+    * @param num_blocks ack seen in a block after num_blocks have been accepted, LIB if optional !has_value()
+    * @param next report result to user by calling next
     * @throws throw tx_resource_exhaustion if trx would exceeds max_mem_usage_size
     */
-   void track_transaction( chain::transaction_metadata_ptr trx_meta, uint16_t num_blocks, bool lib );
+   void track_transaction( chain::packed_transaction_ptr ptrx, std::optional<uint16_t> num_blocks, next_function<std::unique_ptr<fc::variant>> next );
 
    /**
     * Attach to chain applied_transaction signal
