@@ -230,7 +230,7 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       boost::posix_time::seconds pretry_interval = boost::posix_time::seconds(10);
       BOOST_REQUIRE(retry_interval.count() == pretry_interval.total_microseconds());
       fc::microseconds max_expiration_time = fc::hours(1);
-      trx_retry_db trx_retry( *chain, max_mem_usage_size, retry_interval, max_expiration_time );
+      trx_retry_db trx_retry( *chain, max_mem_usage_size, retry_interval, max_expiration_time, fc::seconds(10) );
 
       // provide a subscriber for the transaction_ack channel
       blocking_queue<std::pair<fc::exception_ptr, packed_transaction_ptr>> transactions_acked;

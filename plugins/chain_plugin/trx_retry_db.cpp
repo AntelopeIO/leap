@@ -91,9 +91,11 @@ namespace eosio::chain_apis {
 
 struct trx_retry_db_impl {
    explicit trx_retry_db_impl(const chain::controller& controller, size_t max_mem_usage_size,
-                              fc::microseconds retry_interval, fc::microseconds max_expiration_time)
+                              fc::microseconds retry_interval, fc::microseconds max_expiration_time,
+                              fc::microseconds abi_serializer_max_time)
    : _controller(controller)
    , _transaction_ack_channel(appbase::app().get_channel<chain::plugin_interface::compat::channels::transaction_ack>())
+   , _abi_serializer_max_time(abi_serializer_max_time)
    , _max_mem_usage_size(max_mem_usage_size)
    , _retry_interval(retry_interval)
    , _max_expiration_time(max_expiration_time)
@@ -269,7 +271,6 @@ private:
 private:
    const chain::controller& _controller; ///< the controller to read data from
    chain::plugin_interface::compat::channels::transaction_ack::channel_type& _transaction_ack_channel;
-   // todo: set abi max time
    const fc::microseconds _abi_serializer_max_time; ///< the maximum time to allow abi_serialization to run
    size_t _max_mem_usage_size = 0;
    fc::tracked_storage<tracked_transaction_index_t> _tracked_trxs;
@@ -278,8 +279,9 @@ private:
 };
 
 trx_retry_db::trx_retry_db( const chain::controller& controller, size_t max_mem_usage_size,
-                            fc::microseconds retry_interval, fc::microseconds max_expiration_time )
-:_impl(std::make_unique<trx_retry_db_impl>(controller, max_mem_usage_size, retry_interval, max_expiration_time))
+                            fc::microseconds retry_interval, fc::microseconds max_expiration_time,
+                            fc::microseconds abi_serializer_max_time )
+:_impl(std::make_unique<trx_retry_db_impl>(controller, max_mem_usage_size, retry_interval, max_expiration_time, abi_serializer_max_time))
 {
 }
 

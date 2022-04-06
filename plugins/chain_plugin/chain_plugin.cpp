@@ -1116,6 +1116,8 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
       if( options.count( "transaction-retry-max-storage-size-gb" )) {
          EOS_ASSERT( options.at( "disable-api-persisted-trx" ).as<bool>(), plugin_config_exception,
                      "disable-api-persisted-trx must be set to true for transaction retry feature" );
+         EOS_ASSERT( !options.count( "producer-name"), plugin_config_exception,
+                     "Transaction retry not allowed on producer nodes." );
          const uint64_t max_storage_size = options.at( "transaction-retry-max-storage-size-gb" ).as<uint64_t>() * 1024 * 1024 * 1024;
          if( max_storage_size > 0 ) {
             const uint32_t p2p_dedup_time_s = options.at( "p2p-dedup-cache-expire-time-sec" ).as<uint32_t>();
@@ -1127,7 +1129,9 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
             EOS_ASSERT( trx_retry_max_expire > trx_retry_interval, plugin_config_exception,
                         "transaction-retry-max-expiration-sec ${m} should be configured larger than transaction-retry-interval-sec ${i}",
                         ("m", trx_retry_max_expire)("i", trx_retry_interval) );
-            my->_trx_retry_db.emplace( *my->chain, max_storage_size, fc::seconds(trx_retry_interval), fc::seconds(trx_retry_max_expire) );
+            my->_trx_retry_db.emplace( *my->chain, max_storage_size,
+                                       fc::seconds(trx_retry_interval), fc::seconds(trx_retry_max_expire),
+                                       my->abi_serializer_max_time_us );
          }
       }
 

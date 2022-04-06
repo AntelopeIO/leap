@@ -10,6 +10,11 @@ using next_function = std::function<void(const std::variant<fc::exception_ptr, T
 
 /**
  * This class manages the ephemeral indices and data that provide the transaction retry feature.
+ * It is designed to be run on an API node, as it only tracks incoming API transactions.
+ * It will not work correctly on a BP node because on_applied_transaction looks for
+ * transactions registered in track_transaction which is registered after speculatively executed.
+ * If the transaction is only executed only in a final signed block, then it will not be seen
+ * as executed and will expire.
  */
 class trx_retry_db {
 public:
@@ -20,9 +25,11 @@ public:
     * @param max_mem_usage_size - maximum allowed memory for this feature, see track_transaction.
     * @param retry_interval - how often to retry transaction if not see in a block.
     * @param max_expiration_time - the maximum allowed expiration on a retry transaction
+    * @param abi_serializer_max_time - the configurable abi-serializer-max-time-ms option used for creating trace variants
     */
    explicit trx_retry_db( const chain::controller& controller, size_t max_mem_usage_size,
-                          fc::microseconds retry_interval, fc::microseconds max_expiration_time );
+                          fc::microseconds retry_interval, fc::microseconds max_expiration_time,
+                          fc::microseconds abi_serializer_max_time );
    ~trx_retry_db();
 
    trx_retry_db(trx_retry_db&&) = delete;
