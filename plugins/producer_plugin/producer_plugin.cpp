@@ -1912,7 +1912,8 @@ bool producer_plugin_impl::process_unapplied_trxs( const fc::time_point& deadlin
             auto trx_deadline = start + fc::milliseconds( _max_transaction_time_ms );
 
             auto first_auth = trx->packed_trx()->get_transaction().first_authorizer();
-            if( account_fails.failure_limit( first_auth ) ) {
+            auto max_fails_disabled = _subjective_billing.is_account_disabled( first_auth );
+            if( !max_fails_disabled && account_fails.failure_limit( first_auth ) ) {
                ++num_failed;
                itr = _unapplied_transactions.erase( itr );
                continue;

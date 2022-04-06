@@ -114,6 +114,7 @@ public: // public for tests
 public:
    void disable() { _disabled = true; }
    void disable_account( chain::account_name a ) { _disabled_accounts.emplace( a ); }
+   bool is_account_disabled(const account_name & a ) { _disabled_accounts.count( a ); }
 
    /// @param in_pending_block pass true if pt's bill time is accounted for in the pending block
    void subjective_bill( const transaction_id_type& id, const fc::time_point& expire, const account_name& first_auth,
