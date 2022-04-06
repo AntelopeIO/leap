@@ -1808,6 +1808,7 @@ class account_failures {
 public:
    constexpr static uint32_t max_failures_per_account = 3;
 
+   //lifetime of sb must outlive account_failures
    explicit account_failures( const eosio::subjective_billing& sb ) : subjective_billing(sb) {}
 
    void add( const account_name& n, int64_t exception_code ) {
@@ -1885,7 +1886,7 @@ private:
    };
 
    std::map<account_name, account_failure> failed_accounts;
-   eosio::subjective_billing subjective_billing;
+   const eosio::subjective_billing& subjective_billing;
 };
 
 } // anonymous namespace
