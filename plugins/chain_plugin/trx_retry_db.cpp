@@ -77,7 +77,7 @@ using tracked_transaction_index_t = multi_index_container<tracked_transaction,
                   const_mem_fun<tracked_transaction, uint32_t, &tracked_transaction::ready_block_num>
             >,
             ordered_non_unique<tag<by_block_num>,
-                  member<tracked_transaction, uint32_t, &tracked_transaction::block_num>, std::greater<>
+                  member<tracked_transaction, uint32_t, &tracked_transaction::block_num>
             >,
             ordered_non_unique<tag<by_last_try>,
                   member<tracked_transaction, fc::time_point, &tracked_transaction::last_try>
@@ -101,6 +101,10 @@ struct trx_retry_db_impl {
 
    const fc::microseconds& get_max_expiration_time()const {
       return _max_expiration_time;
+   }
+
+   size_t size()const {
+      return _tracked_trxs.index().size();
    }
 
    void track_transaction( packed_transaction_ptr ptrx, std::optional<uint16_t> num_blocks, next_function<std::unique_ptr<fc::variant>> next ) {
@@ -157,11 +161,11 @@ struct trx_retry_db_impl {
       // good time to perform processing
       ack_ready_trxs_by_block_num( bsp->block_num );
       retry_trxs();
-      clear_expired( bsp->block->timestamp );
    }
 
    void on_irreversible_block(const chain::block_state_ptr& bsp ) {
       ack_ready_trxs_by_lib( bsp->block_num );
+      clear_expired( bsp->block->timestamp );
    }
 
 private:
@@ -170,11 +174,12 @@ private:
       const auto& idx = _tracked_trxs.index().get<by_block_num>();
       // determine what to rollback
       std::vector<decltype(_tracked_trxs.index().project<0>(idx.begin()))> to_process;
-      for( auto i = idx.begin(); i != idx.end(); ++i ) {
+      for( auto i = idx.rbegin(); i != idx.rend(); ++i ) {
          // called on block_start, so any block_num greater or equal have been rolled back
          if( i->block_num < block_num ) break;
 
-         to_process.emplace_back( _tracked_trxs.index().project<0>( i ) );
+         auto ii = i.base(); // switch to forward iterator, then -- to get back to item
+         to_process.emplace_back( _tracked_trxs.index().project<0>( --ii ) );
       }
       // perform rollback
       for( auto& i : to_process ) {
@@ -210,13 +215,14 @@ private:
    }
 
    void ack_ready_trxs_by_block_num( uint32_t block_num ) {
-      const auto& idx = _tracked_trxs.index().get<by_ready_block_num>();
+      const auto& idx = _tracked_trxs.index().get<by_ready_block_num>(); // less sort
       // determine what to ack
       std::vector<decltype(idx.begin())> to_process;
-      for( auto i = idx.begin(); i != idx.end(); ) {
+      for( auto i = idx.begin(); i != idx.end(); ++i ) {
          if( !i->is_ready() ) break;
+         if( i->num_blocks == lib_totem ) break;
          // if we have reached requested block height then ack to user
-         if( i->ready_block_num() >= block_num ) {
+         if( i->ready_block_num() <= block_num ) {
             to_process.emplace_back( i );
          }
       }
@@ -227,12 +233,12 @@ private:
       }
    }
 
-   void ack_ready_trxs_by_lib( uint32_t block_num ) {
+   void ack_ready_trxs_by_lib( uint32_t lib_block_num ) {
       const auto& idx = _tracked_trxs.index().get<by_block_num>();
       // determine what to ack
       std::vector<decltype(idx.begin())> to_process;
-      for( auto i = idx.begin(); i != idx.end(); ++i ) {
-         if( i->block_num < block_num ) break;
+      for( auto i = idx.lower_bound(1); i != idx.end(); ++i ) { // skip over not ready, block_num == 0
+         if( i->block_num > lib_block_num ) break;
          to_process.emplace_back( i );
       }
       // ack
@@ -263,6 +269,7 @@ private:
 private:
    const chain::controller& _controller; ///< the controller to read data from
    chain::plugin_interface::compat::channels::transaction_ack::channel_type& _transaction_ack_channel;
+   // todo: set abi max time
    const fc::microseconds _abi_serializer_max_time; ///< the maximum time to allow abi_serialization to run
    size_t _max_mem_usage_size = 0;
    fc::tracked_storage<tracked_transaction_index_t> _tracked_trxs;
@@ -284,6 +291,10 @@ void trx_retry_db::track_transaction( chain::packed_transaction_ptr ptrx, std::o
 
 fc::time_point_sec trx_retry_db::get_max_expiration_time()const {
    return fc::time_point::now() + _impl->get_max_expiration_time();
+}
+
+size_t trx_retry_db::size()const {
+   return _impl->size();
 }
 
 void trx_retry_db::on_applied_transaction( const chain::transaction_trace_ptr& trace, const chain::packed_transaction_ptr& ptrx ) {

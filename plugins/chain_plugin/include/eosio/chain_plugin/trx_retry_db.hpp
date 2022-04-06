@@ -34,6 +34,11 @@ public:
    fc::time_point_sec get_max_expiration_time()const;
 
    /**
+    * @return number of trxs being tracked
+    */
+   size_t size()const;
+
+   /**
     * @param ptrx trx to retry if not see in a block for retry_interval
     * @param num_blocks ack seen in a block after num_blocks have been accepted, LIB if optional !has_value()
     * @param next report result to user by calling next
