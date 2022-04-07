@@ -713,7 +713,7 @@ class Node(object):
         return self.waitForBlock(blockNum, timeout=timeout, blockType=blockType)
 
     # Trasfer funds. Returns "transfer" json return object
-    def transferFunds(self, source, destination, amountStr, memo="memo", force=False, waitForTransBlock=False, exitOnError=True):
+    def transferFunds(self, source, destination, amountStr, memo="memo", force=False, waitForTransBlock=False, exitOnError=True, reportStatus=True):
         assert isinstance(amountStr, str)
         assert(source)
         assert(isinstance(source, Account))
