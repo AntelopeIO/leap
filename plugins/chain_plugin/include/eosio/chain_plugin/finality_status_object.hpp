@@ -42,13 +42,6 @@ namespace eosio {
             return cbh::num_from_id(lhs) < cbh::num_from_id(rhs);
          }
       };
-
-      // sort not seen blocks before seen blocks
-      struct real_block_comparator {
-         bool operator()(const chain::block_id_type& lhs, const chain::block_id_type& rhs) const {
-            return cbh::num_from_id(lhs) == no_block_num && cbh::num_from_id(rhs) != no_block_num;
-         }
-      };
    }
 
    using finality_status_multi_index = boost::multi_index_container<
@@ -57,11 +50,11 @@ namespace eosio {
          bmi::hashed_unique< tag<finality_status::by_trx_id>, member<finality_status_object, chain::transaction_id_type, &finality_status_object::trx_id> >,
          ordered_non_unique< tag<finality_status::by_status_expiry>, 
             composite_key< finality_status_object,
-               const_mem_fun<finality_status_object, bool, &tracked_transaction::is_in_block>
-               member< finality_status_object, fc::time_point,       &finality_status_object::received >
+               const_mem_fun<finality_status_object, bool,           &finality_status_object::is_in_block>,
+               member< finality_status_object,       fc::time_point, &finality_status_object::received >
             >,
             composite_key_compare<
-               finality_status::real_block_comparator,
+               std::less< >,
                std::less< >
             >
          >,
