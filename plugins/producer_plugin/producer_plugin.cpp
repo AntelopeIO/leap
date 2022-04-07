@@ -727,7 +727,7 @@ void producer_plugin::set_program_options(
           "Maximum wall-clock time, in milliseconds, spent retiring scheduled transactions in any block before returning to normal transaction processing.")
          ("subjective-cpu-leeway-us", boost::program_options::value<int32_t>()->default_value( config::default_subjective_cpu_leeway_us ),
           "Time in microseconds allowed for a transaction that starts with insufficient CPU quota to complete and cover its CPU usage.")
-         ("subjective-account-max-failures", boost::program_options::value<int32_t>()->default_value(3),
+         ("subjective-account-max-failures", boost::program_options::value<uint32_t>()->default_value(3),
           "Sets the maximum amount of failures that are allowed for a given account per block.")
          ("incoming-defer-ratio", bpo::value<double>()->default_value(1.0),
           "ratio between incoming transactions and deferred transactions when both are queued for execution")
