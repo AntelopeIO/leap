@@ -480,7 +480,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          auto send_response = [this, &trx, &chain, &next](const std::variant<fc::exception_ptr, transaction_trace_ptr>& response) {
             next(response);
             if (std::holds_alternative<fc::exception_ptr>(response)) {
-               _transaction_ack_channel.publish(priority::low, std::pair<fc::exception_ptr, transaction_metadata_ptr>(std::get<fc::exception_ptr>(response), trx));
+               _transaction_ack_channel.publish(priority::low, std::pair<fc::exception_ptr, packed_transaction_ptr>(std::get<fc::exception_ptr>(response), trx->packed_trx()));
                if (_pending_block_mode == pending_block_mode::producing) {
                   fc_dlog(_trx_successful_trace_log, "[TRX_TRACE] Block ${block_num} for producer ${prod} is REJECTING tx: ${txid}, auth: ${a} : ${why} ",
                         ("block_num", chain.head_block_num() + 1)
@@ -505,7 +505,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                           ("why",std::get<fc::exception_ptr>(response)->what()));
                }
             } else {
-               _transaction_ack_channel.publish(priority::low, std::pair<fc::exception_ptr, transaction_metadata_ptr>(nullptr, trx));
+               _transaction_ack_channel.publish(priority::low, std::pair<fc::exception_ptr, packed_transaction_ptr>(nullptr, trx->packed_trx()));
                if (_pending_block_mode == pending_block_mode::producing) {
                   fc_dlog(_trx_successful_trace_log, "[TRX_TRACE] Block ${block_num} for producer ${prod} is ACCEPTING tx: ${txid}, auth: ${a}",
                           ("block_num", chain.head_block_num() + 1)
@@ -1811,10 +1811,13 @@ namespace {
 // track multiple failures on unapplied transactions
 class account_failures {
 public:
-  explicit account_failures(uint32_t max_failures)
-  :max_failures_per_account(max_failures)
-  {
-  }
+
+   //lifetime of sb must outlive account_failures
+   explicit account_failures( const eosio::subjective_billing& sb, uint32_t max_failures )
+   : subjective_billing(sb),
+     max_failures_per_account(max_failures)
+   {
+   }
 
    void add( const account_name& n, int64_t exception_code ) {
       auto& fa = failed_accounts[n];
@@ -1825,7 +1828,8 @@ public:
    // return true if exceeds max_failures_per_account and should be dropped
    bool failure_limit( const account_name& n ) {
       auto fitr = failed_accounts.find( n );
-      if( fitr != failed_accounts.end() && fitr->second.num_failures >= max_failures_per_account ) {
+      bool is_whitelisted = subjective_billing.is_account_disabled( n );
+      if( !is_whitelisted && fitr != failed_accounts.end() && fitr->second.num_failures >= max_failures_per_account ) {
          ++fitr->second.num_failures;
          return true;
       }
@@ -1891,6 +1895,7 @@ private:
 
    std::map<account_name, account_failure> failed_accounts;
    uint32_t max_failures_per_account = 0;
+   const eosio::subjective_billing& subjective_billing;
 };
 
 } // anonymous namespace
@@ -1899,7 +1904,7 @@ bool producer_plugin_impl::process_unapplied_trxs( const fc::time_point& deadlin
 {
    bool exhausted = false;
    if( !_unapplied_transactions.empty() ) {
-      account_failures account_fails(_subjective_account_max_failures);;
+      account_failures account_fails( _subjective_billing, _subjective_account_max_failures );
       chain::controller& chain = chain_plug->chain();
       const auto& rl = chain.get_resource_limits_manager();
       int num_applied = 0, num_failed = 0, num_processed = 0;
