@@ -112,11 +112,11 @@ namespace eosio::chain_apis {
 
    void trx_finality_status_processing_impl::handle_rollback() {
       const auto& indx = _storage.index().get<by_block_num>();
-      chain::deque<chain::transaction_id_type> trxs;
-      auto iter = indx.lower_bound(chain::block_header::num_from_id(_head_block_id));
-      std::transform(iter, indx.end(), std::back_inserter(trxs), []( const finality_status_object& obj ) { return obj.trx_id; });
-      for (const auto& trx_id : trxs) {
-         auto trx_iter = _storage.find(trx_id);
+      chain::deque<decltype(_storage.index().project<0>(indx.begin()))> trxs;
+      for (auto iter = indx.lower_bound(chain::block_header::num_from_id(_head_block_id)); iter != indx.end(); ++iter) {
+         trxs.push_back(_storage.index().project<0>(iter));
+      }
+      for (const auto& trx_iter : trxs) {
          _storage.modify( trx_iter, []( finality_status_object& obj ) {
             obj.forked_out = true;
          } );
@@ -125,22 +125,24 @@ namespace eosio::chain_apis {
 
    bool trx_finality_status_processing_impl::status_expiry_of_trxs(const fc::time_point& now) {
       const auto& indx = _storage.index().get<by_status_expiry>();
-      chain::deque<chain::transaction_id_type> remove_trxs;
+      chain::deque<decltype(_storage.index().project<0>(indx.begin()))> remove_trxs;
       const fc::time_point success_expiry = now - _success_duration;
 
       // find the successful (in any block) transactions that are past the failure expiry times
       auto success_iter = indx.lower_bound(boost::make_tuple(true, fc::time_point{}));
       const auto fail_end = success_iter;
       const auto success_end = indx.upper_bound(boost::make_tuple(true, success_expiry));
-      auto get_id = []( const finality_status_object& obj ) { return obj.trx_id; };
-      std::transform(success_iter, success_end, std::back_inserter(remove_trxs), get_id);
+      for (; success_iter != success_end; ++success_iter) {
+         remove_trxs.push_back(_storage.index().project<0>(success_iter));
+      }
 
       // find the failure (not in a block) transactions that are past the failure expiry time
-      auto fail_iter = indx.begin();
-      std::transform(fail_iter, fail_end, std::back_inserter(remove_trxs), get_id);
+      for (auto fail_iter = indx.begin(); fail_iter != fail_end; ++fail_iter) {
+         remove_trxs.push_back(_storage.index().project<0>(fail_iter));
+      }
 
-      for (const auto& trx_id : remove_trxs) {
-         _storage.erase(trx_id);
+      for (const auto& trx_iter : remove_trxs) {
+         _storage.erase(trx_iter);
       }
       return !remove_trxs.empty();
    }
@@ -159,11 +161,12 @@ namespace eosio::chain_apis {
       int64_t storage_to_free = _storage.memory_size() - percentage(_max_storage) - remaining_storage;
       const auto& block_indx = _storage.index().get<by_block_num>();
       const auto& status_expiry_indx = _storage.index().get<by_status_expiry>();
-      chain::deque<chain::transaction_id_type> remove_trxs;
+      using index_iter_type = decltype(_storage.index().project<0>(block_indx.begin()));
+      chain::deque<index_iter_type> remove_trxs;
 
-      auto reduce_storage = [&storage_to_free,&remove_trxs](const finality_status_object& obj) {
-         storage_to_free -= obj.memory_size();
-         remove_trxs.push_back(obj.trx_id);
+      auto reduce_storage = [&storage_to_free,&remove_trxs,&storage=this->_storage](auto iter) {
+         storage_to_free -= iter->memory_size();
+         remove_trxs.push_back(storage.index().project<0>(iter));
       };
 
       auto block_upper_bound = finality_status::no_block_num;
@@ -182,7 +185,7 @@ namespace eosio::chain_apis {
                         ("storage", storage_to_free)
                         ("remove_entries", remove_trxs.size()));
             for (; oldest_failure_iter != oldest_failure_end; ++oldest_failure_iter) {
-               reduce_storage(*oldest_failure_iter);
+               reduce_storage(oldest_failure_iter);
             }
             EOS_ASSERT( storage_to_free < 1, chain::chain_type_exception,
                         "CODE ERROR: can not free more storage, but still exeeding limit. "
@@ -201,18 +204,18 @@ namespace eosio::chain_apis {
             block_upper_bound = block_num;
             const auto block_timestamp = oldest_block_iter->block_timestamp;
             for (; oldest_block_iter != block_indx.end() && oldest_block_iter->block_num() == block_num; ++oldest_block_iter) {
-               reduce_storage(*oldest_block_iter);
+               reduce_storage(oldest_block_iter);
             }
             for (auto oldest_failure_iter = status_expiry_indx.upper_bound( std::make_tuple( false, block_timestamp.to_time_point() ) );
                  oldest_failure_iter != oldest_failure_end;
                  ++oldest_failure_iter) {
-               reduce_storage(*oldest_failure_iter);
+               reduce_storage(oldest_failure_iter);
             }
          }
       }
 
-      for (const auto& trx_id : remove_trxs) {
-         _storage.erase(trx_id);
+      for (const auto& trx_iter : remove_trxs) {
+         _storage.erase(trx_iter);
       }
 
       if (earliest_block != finality_status::no_block_num) {
