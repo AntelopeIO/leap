@@ -28,8 +28,7 @@ namespace eosio {
 
    namespace finality_status {
       struct by_trx_id;
-      struct by_success_status_expiry;
-      struct by_fail_status_expiry;
+      struct by_status_expiry;
       struct by_block_num;
 
       using cbh = chain::block_header;
@@ -52,14 +51,14 @@ namespace eosio {
       finality_status_object,
       indexed_by<
          bmi::hashed_unique< tag<finality_status::by_trx_id>, member<finality_status_object, chain::transaction_id_type, &finality_status_object::trx_id> >,
-         ordered_non_unique< tag<finality_status::by_success_status_expiry>, 
+         ordered_non_unique< tag<finality_status::by_status_expiry>, 
             composite_key< finality_status_object,
                member< finality_status_object, chain::block_id_type, &finality_status_object::block_id >,
                member< finality_status_object, fc::time_point,       &finality_status_object::received >
             >,
             composite_key_compare<
                finality_status::real_block_comparator,
-               std::greater< >
+               std::less< >
             >
          >,
          ordered_non_unique< tag<finality_status::by_block_num>, member<finality_status_object, chain::block_id_type, &finality_status_object::block_id>, finality_status::block_id_comparator >
