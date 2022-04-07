@@ -572,6 +572,42 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       BOOST_CHECK(trx_9_expired);
       BOOST_CHECK_EQUAL(0, trx_retry.size());
 
+      //
+      // test reply to user for num_blocks == 0
+      //
+      auto trx_10 = make_unique_trx(chain->get_chain_id(), fc::seconds(30), 10);
+      bool trx_10_variant = false;
+      trx_retry.track_transaction( trx_10, std::optional<uint32_t>(0), [&trx_10_variant](const std::variant<fc::exception_ptr, std::unique_ptr<fc::variant>>& result){
+         BOOST_REQUIRE( std::holds_alternative<std::unique_ptr<fc::variant>>(result) );
+         BOOST_CHECK( !!std::get<std::unique_ptr<fc::variant>>(result) );
+         trx_10_variant = true;
+      } );
+      auto trx_11 = make_unique_trx(chain->get_chain_id(), fc::seconds(30), 11);
+      bool trx_11_variant = false;
+      trx_retry.track_transaction( trx_11, std::optional<uint32_t>(1), [&trx_11_variant](const std::variant<fc::exception_ptr, std::unique_ptr<fc::variant>>& result){
+         BOOST_REQUIRE( std::holds_alternative<std::unique_ptr<fc::variant>>(result) );
+         BOOST_CHECK( !!std::get<std::unique_ptr<fc::variant>>(result) );
+         trx_11_variant = true;
+      } );
+      // seen in block immediately
+      trx_retry.on_block_start(21);
+      auto trace_10 = make_transaction_trace( trx_10, 21);
+      auto trace_11 = make_transaction_trace( trx_11, 21);
+      trx_retry.on_applied_transaction(trace_10, trx_10);
+      trx_retry.on_applied_transaction(trace_11, trx_11);
+      auto bsp21 = make_block_state(21, {trx_10, trx_11});
+      trx_retry.on_accepted_block(bsp21);
+      BOOST_CHECK(trx_10_variant);
+      BOOST_CHECK(!trx_11_variant);
+      pnow += boost::posix_time::seconds(1); // new block, new time
+      fc::mock_time_traits::set_now(pnow);
+      auto bsp22 = make_block_state(22, {});
+      trx_retry.on_block_start(22);
+      trx_retry.on_accepted_block(bsp22);
+      BOOST_CHECK(trx_10_variant);
+      BOOST_CHECK(trx_11_variant);
+      BOOST_CHECK_EQUAL(0, trx_retry.size());
+
 
       // shutdown
       appbase::app().quit();
