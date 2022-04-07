@@ -4,7 +4,6 @@
 
 using namespace eosio;
 using namespace eosio::finality_status;
-using cbh = chain::block_header;
 
 namespace eosio::chain_apis {
 
@@ -53,7 +52,7 @@ namespace eosio::chain_apis {
    void trx_finality_status_processing_impl::signal_applied_transactions( const chain::signals_processor::trx_deque& trxs, const chain::block_state_ptr& bsp ) {
       const fc::time_point now = fc::time_point::now();
       // use the head block num if we are in a block, otherwise don't provide block number for speculative blocks
-      const auto block_id = bsp ? bsp->id : chain::block_id_type{};
+      const auto& block_id = bsp ? bsp->id : chain::block_id_type{};
       bool modified = !trxs.empty();
       chain::block_timestamp_type block_timestamp;
       if (bsp) {
@@ -71,7 +70,7 @@ namespace eosio::chain_apis {
       }
 
       for (const auto& trx_tuple : trxs) {
-         const auto trace = std::get<0>(trx_tuple);
+         const auto& trace = std::get<0>(trx_tuple);
          if (!trace->receipt) continue;
          if (trace->receipt->status != chain::transaction_receipt_header::executed) {
             continue;
@@ -113,8 +112,8 @@ namespace eosio::chain_apis {
 
    void trx_finality_status_processing_impl::handle_rollback() {
       const auto& indx = _storage.index().get<by_block_num>();
-      std::deque<chain::transaction_id_type> trxs;
-      auto iter = indx.lower_bound(_head_block_id);
+      chain::deque<chain::transaction_id_type> trxs;
+      auto iter = indx.lower_bound(chain::block_header::num_from_id(_head_block_id));
       std::transform(iter, indx.end(), std::back_inserter(trxs), []( const finality_status_object& obj ) { return obj.trx_id; });
       for (const auto& trx_id : trxs) {
          auto trx_iter = _storage.find(trx_id);
@@ -126,11 +125,11 @@ namespace eosio::chain_apis {
 
    bool trx_finality_status_processing_impl::status_expiry_of_trxs(const fc::time_point& now) {
       const auto& indx = _storage.index().get<by_status_expiry>();
-      std::deque<chain::transaction_id_type> remove_trxs;
+      chain::deque<chain::transaction_id_type> remove_trxs;
       const fc::time_point success_expiry = now - _success_duration;
 
-      // find the successful (in any block) transactions that are past the successful expiry time
-      auto success_iter = indx.upper_bound(boost::make_tuple(false, fc::time_point{}));
+      // find the successful (in any block) transactions that are past the failure expiry times
+      auto success_iter = indx.lower_bound(boost::make_tuple(true, fc::time_point{}));
       const auto fail_end = success_iter;
       const auto success_end = indx.upper_bound(boost::make_tuple(true, success_expiry));
       auto get_id = []( const finality_status_object& obj ) { return obj.trx_id; };
@@ -160,18 +159,17 @@ namespace eosio::chain_apis {
       int64_t storage_to_free = _storage.memory_size() - percentage(_max_storage) - remaining_storage;
       const auto& block_indx = _storage.index().get<by_block_num>();
       const auto& status_expiry_indx = _storage.index().get<by_status_expiry>();
-      std::deque<chain::transaction_id_type> remove_trxs;
+      chain::deque<chain::transaction_id_type> remove_trxs;
 
       auto reduce_storage = [&storage_to_free,&remove_trxs](const finality_status_object& obj) {
          storage_to_free -= obj.memory_size();
          remove_trxs.push_back(obj.trx_id);
       };
 
-      auto block_upper_bound = chain::block_id_type{};
+      auto block_upper_bound = finality_status::no_block_num;
       // the end of the oldest failure section
-      const auto oldest_failure_end = status_expiry_indx.upper_bound( std::make_tuple( false, fc::time_point::now() ) );
+      const auto oldest_failure_end = status_expiry_indx.lower_bound( std::make_tuple( true, fc::time_point{} ) );
       uint32_t earliest_block = finality_status::no_block_num;
-      uint32_t latest_block = finality_status::no_block_num;
       while (storage_to_free > 0) {
          auto oldest_block_iter = block_indx.upper_bound(block_upper_bound);
          if (oldest_block_iter == block_indx.end()) {
@@ -196,13 +194,13 @@ namespace eosio::chain_apis {
             break;
          }
          else {
-            const auto block_num = cbh::num_from_id(oldest_block_iter->block_id);
+            const auto block_num = oldest_block_iter->block_num();
             if (earliest_block == finality_status::no_block_num) {
                earliest_block = block_num;
             }
-            latest_block = block_num;
+            block_upper_bound = block_num;
             const auto block_timestamp = oldest_block_iter->block_timestamp;
-            for (; oldest_block_iter != block_indx.end() && cbh::num_from_id(oldest_block_iter->block_id) == block_num; ++oldest_block_iter) {
+            for (; oldest_block_iter != block_indx.end() && oldest_block_iter->block_num() == block_num; ++oldest_block_iter) {
                reduce_storage(*oldest_block_iter);
             }
             for (auto oldest_failure_iter = status_expiry_indx.upper_bound( std::make_tuple( false, block_timestamp.to_time_point() ) );
@@ -219,7 +217,7 @@ namespace eosio::chain_apis {
 
       if (earliest_block != finality_status::no_block_num) {
          ilog( "Finality Status dropped ${trx_count} transactions, which were removed from block # ${block_num_start} to block # ${block_num_end}",
-               ("trx_count", remove_trxs.size())("block_num_start", earliest_block)("block_num_end", latest_block) );
+               ("trx_count", remove_trxs.size())("block_num_start", earliest_block)("block_num_end", block_upper_bound) );
       }
       else {
          ilog( "Finality Status dropped ${trx_count} transactions, all were failed transactions", ("trx_count", remove_trxs.size()) );
@@ -251,8 +249,8 @@ namespace eosio::chain_apis {
          }
       }
       else {
-         const auto block_num = cbh::num_from_id(iter->block_id);
-         const auto lib = cbh::num_from_id(_my->_irr_block_id);
+         const auto block_num = iter->block_num();
+         const auto lib = chain::block_header::num_from_id(_my->_irr_block_id);
          if (block_num > lib) {
             state.status = "IN_BLOCK";
          }

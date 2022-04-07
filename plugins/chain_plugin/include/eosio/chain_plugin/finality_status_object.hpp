@@ -1,4 +1,5 @@
 #pragma once
+#include <eosio/chain/block_header.hpp>
 #include <eosio/chain/types.hpp>
 #include <eosio/chain/multi_index_includes.hpp>
 #include <boost/multi_index/hashed_index.hpp>
@@ -27,6 +28,7 @@ namespace eosio {
       bool is_in_block() const {
          return !forked_out && block_id != chain::block_id_type{};
       }
+      uint32_t block_num() const { return chain::block_header::num_from_id(block_id); }
    };
 
    namespace finality_status {
@@ -37,28 +39,21 @@ namespace eosio {
       using cbh = chain::block_header;
 
       constexpr uint32_t no_block_num = 0;
-      struct block_id_comparator {
-         bool operator()(const chain::block_id_type& lhs, const chain::block_id_type& rhs) const {
-            return cbh::num_from_id(lhs) < cbh::num_from_id(rhs);
-         }
-      };
    }
 
    using finality_status_multi_index = boost::multi_index_container<
       finality_status_object,
       indexed_by<
-         bmi::hashed_unique< tag<finality_status::by_trx_id>, member<finality_status_object, chain::transaction_id_type, &finality_status_object::trx_id> >,
+         bmi::hashed_unique< tag<finality_status::by_trx_id>,
+                             member<finality_status_object, chain::transaction_id_type, &finality_status_object::trx_id> >,
          ordered_non_unique< tag<finality_status::by_status_expiry>, 
             composite_key< finality_status_object,
                const_mem_fun<finality_status_object, bool,           &finality_status_object::is_in_block>,
                member< finality_status_object,       fc::time_point, &finality_status_object::received >
-            >,
-            composite_key_compare<
-               std::less< >,
-               std::less< >
             >
          >,
-         ordered_non_unique< tag<finality_status::by_block_num>, member<finality_status_object, chain::block_id_type, &finality_status_object::block_id>, finality_status::block_id_comparator >
+         ordered_non_unique< tag<finality_status::by_block_num>,
+                             const_mem_fun<finality_status_object, uint32_t, &finality_status_object::block_num> >
       >
    >;
 
