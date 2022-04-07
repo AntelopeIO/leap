@@ -167,7 +167,7 @@ namespace eosio::chain_apis {
       std::deque<chain::transaction_id_type> remove_trxs;
 
       auto reduce_storage = [&storage_to_free,&remove_trxs](const finality_status_object& obj) {
-         storage_to_free -= obj.size();
+         storage_to_free -= obj.memory_size();
          remove_trxs.push_back(obj.trx_id);
       };
 

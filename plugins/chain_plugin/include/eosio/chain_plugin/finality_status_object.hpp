@@ -23,7 +23,7 @@ namespace eosio {
       chain::block_timestamp_type block_timestamp;
       bool                        forked_out = false; // if !block_num && forked_out -> status == "forked out"
 
-      size_t size() const { return sizeof(*this); }
+      size_t memory_size() const { return sizeof(*this); }
    };
 
    namespace finality_status {
