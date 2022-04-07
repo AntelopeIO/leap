@@ -1813,9 +1813,9 @@ class account_failures {
 public:
 
    //lifetime of sb must outlive account_failures
-   explicit account_failures( const eosio::subjective_billing& sb, uint32_t max_failures )
-   : subjective_billing(sb),
-     max_failures_per_account(max_failures)
+   explicit account_failures( uint32_t max_failures, const eosio::subjective_billing& sb )
+   : max_failures_per_account(max_failures),
+     subjective_billing(sb)
    {
    }
 
