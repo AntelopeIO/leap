@@ -1,4 +1,5 @@
 #include <eosio/chain_plugin/chain_plugin.hpp>
+#include <eosio/chain_plugin/trx_retry_db.hpp>
 #include <eosio/producer_plugin/producer_plugin.hpp>
 #include <eosio/chain/fork_database.hpp>
 #include <eosio/chain/block_log.hpp>
@@ -15,7 +16,6 @@
 #include <eosio/chain/snapshot.hpp>
 #include <eosio/chain/deep_mind.hpp>
 #include <eosio/chain/signals_processor.hpp>
-#include <eosio/chain_plugin/trx_retry_processing.hpp>
 #include <eosio/chain_plugin/trx_finality_status_processing.hpp>
 
 #include <eosio/chain/eosio_contract.hpp>
@@ -153,7 +153,6 @@ public:
    bool                             account_queries_enabled = false;
 
    std::optional<fork_database>      fork_db;
-   std::optional<block_log>          block_logger;
    std::optional<controller::config> chain_config;
    std::optional<controller>         chain;
    std::optional<genesis_state>      genesis;
@@ -195,7 +194,7 @@ public:
    std::optional<chain_apis::account_query_db>                        _account_query_db;
    const producer_plugin* producer_plug;
    std::optional<chain::signals_processor>                            _trx_signals_processor;
-   chain_apis::trx_retry_processing_ptr                               _trx_retry_processing;
+   std::optional<chain_apis::trx_retry_db>                            _trx_retry_db;
    chain_apis::trx_finality_status_processing_ptr                     _trx_finality_status_processing;
 };
 
@@ -326,8 +325,14 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
 #endif
          ("enable-account-queries", bpo::value<bool>()->default_value(false), "enable queries to find accounts by various metadata.")
          ("max-nonprivileged-inline-action-size", bpo::value<uint32_t>()->default_value(config::default_max_nonprivileged_inline_action_size), "maximum allowed size (in bytes) of an inline action for a nonprivileged account")
-         ("transaction-retry-max-storage-size-gb", bpo::value<uint64_t>(), "Maximum size (in GiB) allowed to be allocated for the Transaction Retry feature. Setting above 0 enables this feature.")
-         ("transaction-finality-status-max-storage-size-gb", bpo::value<uint64_t>(), "Maximum size (in GiB) allowed to be allocated for the Transaction Finality Status feature. Setting above 0 enables this feature.")
+         ("transaction-retry-max-storage-size-gb", bpo::value<uint64_t>(),
+          "Maximum size (in GiB) allowed to be allocated for the Transaction Retry feature. Setting above 0 enables this feature.")
+         ("transaction-retry-interval-sec", bpo::value<uint32_t>()->default_value(20),
+          "How often, in seconds, to resend an incoming transaction to network if not seen in a block.")
+         ("transaction-retry-max-expiration-sec", bpo::value<uint32_t>()->default_value(90),
+          "Maximum allowed transaction expiration for retry transactions, will retry transactions up to this value.")
+         ("transaction-finality-status-max-storage-size-gb", bpo::value<uint64_t>(),
+          "Maximum size (in GiB) allowed to be allocated for the Transaction Finality Status feature. Setting above 0 enables this feature.")
          ;
 
 // TODO: rate limiting
@@ -771,13 +776,6 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
       if( options.count( "max-nonprivileged-inline-action-size" ))
          my->chain_config->max_nonprivileged_inline_action_size = options.at( "max-nonprivileged-inline-action-size" ).as<uint32_t>();
 
-      if( options.count( "transaction-retry-max-storage-size-gb" )) {
-         const uint64_t max_storage_size = options.at( "transaction-retry-max-storage-size-gb" ).as<uint64_t>() * 1024 * 1024 * 1024;
-         if (max_storage_size > 0) {
-            my->_trx_retry_processing.reset(new chain_apis::trx_retry_processing(max_storage_size));
-         }
-      }
-
       if( options.count( "transaction-finality-status-max-storage-size-gb" )) {
          const uint64_t max_storage_size = options.at( "transaction-finality-status-max-storage-size-gb" ).as<uint64_t>() * 1024 * 1024 * 1024;
          if (max_storage_size > 0) {
@@ -785,15 +783,8 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
          }
       }
 
-      if (my->_trx_retry_processing || my->_trx_finality_status_processing) {
+      if (my->_trx_finality_status_processing) {
          my->_trx_signals_processor.emplace();
-         if (my->_trx_retry_processing) {
-            my->_trx_signals_processor->register_callbacks(
-               []( const chain::signals_processor::trx_deque& trxs, const chain::block_state_ptr& blk ) {},
-               []( const chain::block_state_ptr& blk ) {},
-               []( uint32_t block_num ) {}
-            );
-         }
          if (my->_trx_finality_status_processing) {
             my->_trx_signals_processor->register_callbacks(
                []( const chain::signals_processor::trx_deque& trxs, const chain::block_state_ptr& blk ) {},
@@ -1122,6 +1113,28 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
 
       my->chain.emplace( *my->chain_config, std::move(pfs), *chain_id );
 
+      if( options.count( "transaction-retry-max-storage-size-gb" )) {
+         EOS_ASSERT( options.at( "disable-api-persisted-trx" ).as<bool>(), plugin_config_exception,
+                     "disable-api-persisted-trx must be set to true for transaction retry feature" );
+         EOS_ASSERT( !options.count( "producer-name"), plugin_config_exception,
+                     "Transaction retry not allowed on producer nodes." );
+         const uint64_t max_storage_size = options.at( "transaction-retry-max-storage-size-gb" ).as<uint64_t>() * 1024 * 1024 * 1024;
+         if( max_storage_size > 0 ) {
+            const uint32_t p2p_dedup_time_s = options.at( "p2p-dedup-cache-expire-time-sec" ).as<uint32_t>();
+            const uint32_t trx_retry_interval = options.at( "transaction-retry-interval-sec" ).as<uint32_t>();
+            const uint32_t trx_retry_max_expire = options.at( "transaction-retry-max-expiration-sec" ).as<uint32_t>();
+            EOS_ASSERT( trx_retry_interval >= 2 * p2p_dedup_time_s, plugin_config_exception,
+                        "transaction-retry-interval-sec ${ri} must be greater than 2 times p2p-dedup-cache-expire-time-sec ${dd}",
+                        ("ri", trx_retry_interval)("dd", p2p_dedup_time_s) );
+            EOS_ASSERT( trx_retry_max_expire > trx_retry_interval, plugin_config_exception,
+                        "transaction-retry-max-expiration-sec ${m} should be configured larger than transaction-retry-interval-sec ${i}",
+                        ("m", trx_retry_max_expire)("i", trx_retry_interval) );
+            my->_trx_retry_db.emplace( *my->chain, max_storage_size,
+                                       fc::seconds(trx_retry_interval), fc::seconds(trx_retry_max_expire),
+                                       my->abi_serializer_max_time_us );
+         }
+      }
+
       // initialize deep mind logging
       if ( options.at( "deep-mind" ).as<bool>() ) {
          // The actual `fc::dmlog_appender` implementation that is currently used by deep mind
@@ -1195,6 +1208,10 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
             my->_account_query_db->commit_block(blk);
          }
 
+         if (my->_trx_retry_db) {
+            my->_trx_retry_db->on_accepted_block(blk);
+         }
+
          if (my->_trx_signals_processor) {
             my->_trx_signals_processor->signal_accepted_block(blk);
          }
@@ -1203,6 +1220,10 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
       } );
 
       my->irreversible_block_connection = my->chain->irreversible_block.connect( [this]( const block_state_ptr& blk ) {
+         if (my->_trx_retry_db) {
+            my->_trx_retry_db->on_irreversible_block(blk);
+         }
+
          if (my->_trx_signals_processor) {
             my->_trx_signals_processor->signal_irreversible_block(blk);
          }
@@ -1221,6 +1242,10 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
                   my->_account_query_db->cache_transaction_trace(std::get<0>(t));
                }
 
+               if (my->_trx_retry_db) {
+                  my->_trx_retry_db->on_applied_transaction(std::get<0>(t), std::get<1>(t));
+               }
+
                if (my->_trx_signals_processor) {
                   my->_trx_signals_processor->signal_applied_transaction(std::get<0>(t), std::get<1>(t));
                }
@@ -1228,10 +1253,15 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
                my->applied_transaction_channel.publish( priority::low, std::get<0>(t) );
             } );
 
-      if (my->_trx_signals_processor) {
+      if (my->_trx_signals_processor || my->_trx_retry_db) {
          my->block_start_connection = my->chain->block_start.connect(
             [this]( uint32_t block_num ) {
-               my->_trx_signals_processor->signal_block_start(block_num);
+               if (my->_trx_retry_db) {
+                  my->_trx_retry_db->on_block_start(block_num);
+               }
+               if (my->_trx_signals_processor) {
+                  my->_trx_signals_processor->signal_block_start( block_num );
+               }
             } );
       }
       my->chain->add_indices();
@@ -1309,8 +1339,9 @@ void chain_plugin::handle_sighup() {
    _deep_mind_log.update_logger( deep_mind_logger_name );
 }
 
-chain_apis::read_write::read_write(controller& db, const fc::microseconds& abi_serializer_max_time, bool api_accept_transactions)
+chain_apis::read_write::read_write(controller& db, std::optional<trx_retry_db>& trx_retry, const fc::microseconds& abi_serializer_max_time, bool api_accept_transactions)
 : db(db)
+, trx_retry(trx_retry)
 , abi_serializer_max_time(abi_serializer_max_time)
 , api_accept_transactions(api_accept_transactions)
 {
@@ -1319,6 +1350,10 @@ chain_apis::read_write::read_write(controller& db, const fc::microseconds& abi_s
 void chain_apis::read_write::validate() const {
    EOS_ASSERT( api_accept_transactions, missing_chain_api_plugin_exception,
                "Not allowed, node has api-accept-transactions = false" );
+}
+
+chain_apis::read_write chain_plugin::get_read_write_api() {
+   return chain_apis::read_write(chain(), my->_trx_retry_db, get_abi_serializer_max_time(), api_accept_transactions());
 }
 
 chain_apis::read_only chain_plugin::get_read_only_api() const {
@@ -2432,6 +2467,60 @@ void read_write::send_transaction(const read_write::send_transaction_params& par
             } CATCH_AND_CALL(next);
          }
       });
+   } catch ( boost::interprocess::bad_alloc& ) {
+      chain_plugin::handle_db_exhaustion();
+   } catch ( const std::bad_alloc& ) {
+      chain_plugin::handle_bad_alloc();
+   } CATCH_AND_CALL(next);
+}
+
+void read_write::send_transaction2(const read_write::send_transaction2_params& params, next_function<read_write::send_transaction_results> next) {
+   try {
+      auto ptrx = std::make_shared<packed_transaction>();
+      auto resolver = make_resolver(this, abi_serializer::create_yield_function( abi_serializer_max_time ));
+      try {
+         abi_serializer::from_variant(params.transaction, *ptrx, resolver, abi_serializer::create_yield_function( abi_serializer_max_time ));
+      } EOS_RETHROW_EXCEPTIONS(chain::packed_transaction_type_exception, "Invalid packed transaction")
+
+      bool retry = params.retry_trx;
+      std::optional<uint16_t> retry_num_blocks = params.retry_trx_num_blocks;
+
+      EOS_ASSERT( !retry || trx_retry.has_value(), unsupported_feature, "Transaction retry not enabled on node" );
+      EOS_ASSERT( !retry || (ptrx->expiration() < trx_retry->get_max_expiration_time()), tx_exp_too_far_exception,
+                  "retry transaction expiration ${e} larger than allowed ${m}",
+                  ("e", ptrx->expiration())("m", trx_retry->get_max_expiration_time()) );
+
+      app().get_method<incoming::methods::transaction_async>()(ptrx, true,
+         [this, ptrx, next, retry, retry_num_blocks](const std::variant<fc::exception_ptr, transaction_trace_ptr>& result) -> void {
+            if( std::holds_alternative<fc::exception_ptr>( result ) ) {
+               next( std::get<fc::exception_ptr>( result ) );
+            } else {
+               try {
+                  if( retry && trx_retry.has_value() ) {
+                     // will be ack'ed via next later
+                     trx_retry->track_transaction( ptrx, retry_num_blocks,
+                        [ptrx, next](const std::variant<fc::exception_ptr, std::unique_ptr<fc::variant>>& result ) {
+                           if( std::holds_alternative<fc::exception_ptr>( result ) ) {
+                              next( std::get<fc::exception_ptr>( result ) );
+                           } else {
+                              fc::variant& output = *std::get<std::unique_ptr<fc::variant>>( result );
+                              next( read_write::send_transaction_results{ptrx->id(), std::move( output )} );
+                           }
+                        } );
+                  } else {
+                     auto trx_trace_ptr = std::get<transaction_trace_ptr>( result );
+                     fc::variant output;
+                     try {
+                        output = db.to_variant_with_abi( *trx_trace_ptr, abi_serializer::create_yield_function( abi_serializer_max_time ) );
+                     } catch( chain::abi_exception& ) {
+                        output = *trx_trace_ptr;
+                     }
+                     const chain::transaction_id_type& id = trx_trace_ptr->id;
+                     next( read_write::send_transaction_results{id, std::move( output )} );
+                  }
+               } CATCH_AND_CALL( next );
+            }
+         });
    } catch ( boost::interprocess::bad_alloc& ) {
       chain_plugin::handle_db_exhaustion();
    } catch ( const std::bad_alloc& ) {
