@@ -405,6 +405,7 @@ public:
        chain::transaction_id_type  transaction_id;
        fc::variant                 processed;
     };
+   using compute_transaction_params = fc::variant_object;
    void compute_transaction(const fc::variant_object& params, chain::plugin_interface::next_function<compute_transaction_results> next ) const;
 
    static void copy_inline_row(const chain::key_value_object& obj, vector<char>& data) {
