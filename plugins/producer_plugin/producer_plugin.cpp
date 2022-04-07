@@ -1808,6 +1808,9 @@ class account_failures {
 public:
    constexpr static uint32_t max_failures_per_account = 3;
 
+   //lifetime of sb must outlive account_failures
+   explicit account_failures( const eosio::subjective_billing& sb ) : subjective_billing(sb) {}
+
    void add( const account_name& n, int64_t exception_code ) {
       auto& fa = failed_accounts[n];
       ++fa.num_failures;
@@ -1817,7 +1820,8 @@ public:
    // return true if exceeds max_failures_per_account and should be dropped
    bool failure_limit( const account_name& n ) {
       auto fitr = failed_accounts.find( n );
-      if( fitr != failed_accounts.end() && fitr->second.num_failures >= max_failures_per_account ) {
+      bool is_whitelisted = subjective_billing.is_account_disabled( n );
+      if( !is_whitelisted && fitr != failed_accounts.end() && fitr->second.num_failures >= max_failures_per_account ) {
          ++fitr->second.num_failures;
          return true;
       }
@@ -1882,6 +1886,7 @@ private:
    };
 
    std::map<account_name, account_failure> failed_accounts;
+   const eosio::subjective_billing& subjective_billing;
 };
 
 } // anonymous namespace
@@ -1890,7 +1895,7 @@ bool producer_plugin_impl::process_unapplied_trxs( const fc::time_point& deadlin
 {
    bool exhausted = false;
    if( !_unapplied_transactions.empty() ) {
-      account_failures account_fails;
+      account_failures account_fails( _subjective_billing );
       chain::controller& chain = chain_plug->chain();
       const auto& rl = chain.get_resource_limits_manager();
       int num_applied = 0, num_failed = 0, num_processed = 0;
