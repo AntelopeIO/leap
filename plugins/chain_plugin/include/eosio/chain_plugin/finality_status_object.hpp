@@ -24,6 +24,9 @@ namespace eosio {
       bool                        forked_out = false; // if !block_num && forked_out -> status == "forked out"
 
       size_t memory_size() const { return sizeof(*this); }
+      bool is_in_block() const {
+         return !forked_out && block_id != chain::block_id_type{};
+      }
    };
 
    namespace finality_status {
@@ -54,7 +57,7 @@ namespace eosio {
          bmi::hashed_unique< tag<finality_status::by_trx_id>, member<finality_status_object, chain::transaction_id_type, &finality_status_object::trx_id> >,
          ordered_non_unique< tag<finality_status::by_status_expiry>, 
             composite_key< finality_status_object,
-               member< finality_status_object, chain::block_id_type, &finality_status_object::block_id >,
+               const_mem_fun<finality_status_object, bool, &tracked_transaction::is_in_block>
                member< finality_status_object, fc::time_point,       &finality_status_object::received >
             >,
             composite_key_compare<

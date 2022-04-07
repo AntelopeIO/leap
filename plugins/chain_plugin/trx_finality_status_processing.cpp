@@ -119,7 +119,6 @@ namespace eosio::chain_apis {
       for (const auto& trx_id : trxs) {
          auto trx_iter = _storage.find(trx_id);
          _storage.modify( trx_iter, []( finality_status_object& obj ) {
-            obj.block_id = chain::block_id_type{};
             obj.forked_out = true;
          } );
       }
@@ -130,13 +129,10 @@ namespace eosio::chain_apis {
       std::deque<chain::transaction_id_type> remove_trxs;
       const fc::time_point success_expiry = now - _success_duration;
 
-      // just need to have any valid block id, since ordering is based off of empty block id or non-empty
-      const auto& a_valid_block_id = _head_block_id;
-
       // find the successful (in any block) transactions that are past the successful expiry time
-      auto success_iter = indx.upper_bound(boost::make_tuple(chain::block_id_type{}, fc::time_point{}));
+      auto success_iter = indx.upper_bound(boost::make_tuple(false, fc::time_point{}));
       const auto fail_end = success_iter;
-      const auto success_end = indx.upper_bound(boost::make_tuple(a_valid_block_id, success_expiry));
+      const auto success_end = indx.upper_bound(boost::make_tuple(true, success_expiry));
       auto get_id = []( const finality_status_object& obj ) { return obj.trx_id; };
       std::transform(success_iter, success_end, std::back_inserter(remove_trxs), get_id);
 
@@ -173,7 +169,7 @@ namespace eosio::chain_apis {
 
       auto block_upper_bound = chain::block_id_type{};
       // the end of the oldest failure section
-      const auto oldest_failure_end = status_expiry_indx.upper_bound( std::make_tuple( chain::transaction_id_type{}, fc::time_point::now() ) );
+      const auto oldest_failure_end = status_expiry_indx.upper_bound( std::make_tuple( false, fc::time_point::now() ) );
       uint32_t earliest_block = finality_status::no_block_num;
       uint32_t latest_block = finality_status::no_block_num;
       while (storage_to_free > 0) {
@@ -209,7 +205,7 @@ namespace eosio::chain_apis {
             for (; oldest_block_iter != block_indx.end() && cbh::num_from_id(oldest_block_iter->block_id) == block_num; ++oldest_block_iter) {
                reduce_storage(*oldest_block_iter);
             }
-            for (auto oldest_failure_iter = status_expiry_indx.upper_bound( std::make_tuple( chain::transaction_id_type{}, block_timestamp.to_time_point() ) );
+            for (auto oldest_failure_iter = status_expiry_indx.upper_bound( std::make_tuple( false, block_timestamp.to_time_point() ) );
                  oldest_failure_iter != oldest_failure_end;
                  ++oldest_failure_iter) {
                reduce_storage(*oldest_failure_iter);
@@ -243,12 +239,12 @@ namespace eosio::chain_apis {
 
       state.block_id == iter->block_id;
       state.block_timestamp = iter->block_timestamp;
-      if (iter->block_id == chain::block_id_type{}) {
+      if (iter->forked_out) {
+         state.status = "FORKED OUT";
+      }
+      else if (iter->block_id == chain::block_id_type{}) {
          if (fc::time_point::now() >= iter->trx_expiry) {
             state.status = "FAILED";
-         }
-         else if (iter->forked_out) {
-            state.status = "FORKED OUT";
          }
          else {
             state.status = "LOCALLY APPLIED";
