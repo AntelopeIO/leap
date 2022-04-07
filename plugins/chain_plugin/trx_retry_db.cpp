@@ -41,15 +41,17 @@ struct tracked_transaction {
       return block_num + num_blocks;
    }
 
-   bool waiting_for_lib()const {
-      return num_blocks == lib_totem;
+   fc::time_point last_try_time()const {
+      if( block_num != 0 ) return fc::time_point::maximum();
+      return last_try;
    }
 
    bool is_ready()const {
       return block_num != 0;
    }
 
-   // for fc::tracked_storage, x3 for trx_meta as a very rough guess of trace variant size
+   // for fc::tracked_storage, rough guess for now until get_estimated_size() is implemented for variant
+   // Size of packed_transaction + (2 * packed_transaction size as rough guess for variant size)
    // todo: add get_estimated_size to fc::variant for use here
    size_t memory_size()const { return ptrx->get_estimated_size() * 3 + sizeof(*this); }
 
@@ -80,7 +82,7 @@ using tracked_transaction_index_t = multi_index_container<tracked_transaction,
                   member<tracked_transaction, uint32_t, &tracked_transaction::block_num>
             >,
             ordered_non_unique<tag<by_last_try>,
-                  member<tracked_transaction, fc::time_point, &tracked_transaction::last_try>
+                  const_mem_fun<tracked_transaction, fc::time_point, &tracked_transaction::last_try_time>
             >
       >
 >;
@@ -116,7 +118,7 @@ struct trx_retry_db_impl {
       if( i == _tracked_trxs.index().end() ) {
          _tracked_trxs.insert( {std::move(ptrx), !num_blocks.has_value() ? lib_totem : *num_blocks, 0, {}, fc::time_point::now(), next} );
       } else {
-         // already tracking trx_meta
+         // already tracking transaction
       }
    }
 
@@ -140,7 +142,6 @@ struct trx_retry_db_impl {
       if( itr != idx.end() ) {
          _tracked_trxs.modify( itr, [&trace, &control=_controller, &abi_max_time=_abi_serializer_max_time]( tracked_transaction& tt ) {
             tt.block_num = trace->block_num;
-            tt.last_try = fc::time_point::maximum(); // do not retry if already received in a block
             try {
                // send_transaction trace output format.
                // Convert to variant with abi here and now because abi could change in very next transaction.
@@ -184,10 +185,15 @@ private:
          to_process.emplace_back( _tracked_trxs.index().project<0>( --ii ) );
       }
       // perform rollback
+      auto now = fc::time_point::now();
       for( auto& i : to_process ) {
          _tracked_trxs.modify( i, [&]( tracked_transaction& tt ) {
-            // if forked out, then need to retry. Estimate last_try via block_num it was in.
-            tt.last_try = fc::time_point::now() - fc::microseconds( (i->block_num - tt.block_num) * chain::config::block_interval_us );
+            // if forked out, then need to retry, which will happen according to last_try.
+            // if last_try would cause it to immediately resend, then push it out 10 seconds to allow time for
+            // fork-switch to complete.
+            if( tt.last_try + _retry_interval <= now ) {
+               tt.last_try += fc::seconds( 10 );
+            }
             tt.block_num = 0;
             tt.trx_trace_v.clear();
          } );
@@ -217,16 +223,12 @@ private:
    }
 
    void ack_ready_trxs_by_block_num( uint32_t block_num ) {
-      const auto& idx = _tracked_trxs.index().get<by_ready_block_num>(); // less sort
-      // determine what to ack
+      const auto& idx = _tracked_trxs.index().get<by_ready_block_num>();
+      // if we have reached requested block height then ack to user
       std::vector<decltype(idx.begin())> to_process;
-      for( auto i = idx.begin(); i != idx.end(); ++i ) {
-         if( !i->is_ready() ) break;
-         if( i->num_blocks == lib_totem ) break;
-         // if we have reached requested block height then ack to user
-         if( i->ready_block_num() <= block_num ) {
-            to_process.emplace_back( i );
-         }
+      auto end = idx.upper_bound(block_num);
+      for( auto i = idx.begin(); i != end; ++i ) {
+         to_process.emplace_back( i );
       }
       // ack
       for( auto& i: to_process ) {
@@ -239,8 +241,8 @@ private:
       const auto& idx = _tracked_trxs.index().get<by_block_num>();
       // determine what to ack
       std::vector<decltype(idx.begin())> to_process;
-      for( auto i = idx.lower_bound(1); i != idx.end(); ++i ) { // skip over not ready, block_num == 0
-         if( i->block_num > lib_block_num ) break;
+      auto end = idx.upper_bound(lib_block_num); // process until lib_block_num
+      for( auto i = idx.lower_bound(1); i != end; ++i ) { // skip over not ready, block_num == 0
          to_process.emplace_back( i );
       }
       // ack
@@ -250,7 +252,7 @@ private:
       }
    }
 
-   bool clear_expired(const block_timestamp_type& block_timestamp) {
+   void clear_expired(const block_timestamp_type& block_timestamp) {
       const fc::time_point block_time = block_timestamp;
       auto& idx = _tracked_trxs.index().get<by_expiry>();
       while( !idx.empty() ) {
@@ -265,17 +267,16 @@ private:
                                      ("bt", block_timestamp) ) ) ) );
          _tracked_trxs.erase( itr->id() );
       }
-      return true;
    }
 
 private:
    const chain::controller& _controller; ///< the controller to read data from
    chain::plugin_interface::compat::channels::transaction_ack::channel_type& _transaction_ack_channel;
    const fc::microseconds _abi_serializer_max_time; ///< the maximum time to allow abi_serialization to run
-   size_t _max_mem_usage_size = 0;
+   const size_t _max_mem_usage_size; ///< maximum size allowed for _tracked_trxs
+   const fc::microseconds _retry_interval; ///< how often to resend not seen transactions
+   const fc::microseconds _max_expiration_time; ///< limit to expiration on transactions that are tracked
    fc::tracked_storage<tracked_transaction_index_t> _tracked_trxs;
-   fc::microseconds _retry_interval;
-   fc::microseconds _max_expiration_time;
 };
 
 trx_retry_db::trx_retry_db( const chain::controller& controller, size_t max_mem_usage_size,
