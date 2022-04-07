@@ -328,8 +328,10 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
          ("max-nonprivileged-inline-action-size", bpo::value<uint32_t>()->default_value(config::default_max_nonprivileged_inline_action_size), "maximum allowed size (in bytes) of an inline action for a nonprivileged account")
          ("transaction-retry-max-storage-size-gb", bpo::value<uint64_t>(), "Maximum size (in GiB) allowed to be allocated for the Transaction Retry feature. Setting above 0 enables this feature.")
          ("transaction-finality-status-max-storage-size-gb", bpo::value<uint64_t>(), "Maximum size (in GiB) allowed to be allocated for the Transaction Finality Status feature. Setting above 0 enables this feature.")
-         ("transaction-finality-status-success-duration-sec", bpo::value<uint64_t>()->default_value(config::default_max_trx_finality_status_suc_dur_sec), "Duration (in seconds) a successful transaction's Finality Status will remain available from being first identified.")
-         ("transaction-finality-status-failure-duration-sec", bpo::value<uint64_t>()->default_value(config::default_max_trx_finality_status_fail_dur_sec), "Duration (in seconds) a failed transaction's Finality Status will remain available from being first identified.")
+         ("transaction-finality-status-success-duration-sec", bpo::value<uint64_t>()->default_value(config::default_max_transaction_finality_status_success_duration_sec),
+          "Duration (in seconds) a successful transaction's Finality Status will remain available from being first identified.")
+         ("transaction-finality-status-failure-duration-sec", bpo::value<uint64_t>()->default_value(config::default_max_transaction_finality_status_failure_duration_sec),
+          "Duration (in seconds) a failed transaction's Finality Status will remain available from being first identified.")
          ;
 
 // TODO: rate limiting
@@ -783,11 +785,10 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
       if( options.count( "transaction-finality-status-max-storage-size-gb" )) {
          const uint64_t max_storage_size = options.at( "transaction-finality-status-max-storage-size-gb" ).as<uint64_t>() * 1024 * 1024 * 1024;
          if (max_storage_size > 0) {
-            const uint64_t sec_to_micro = 1000 * 1000;
-            const uint64_t success_duration = options.at( "transaction-finality-status-success-duration-sec" ).as<uint64_t>() * sec_to_micro;
-            const uint64_t failure_duration = options.at( "transaction-finality-status-failure-duration-sec" ).as<uint64_t>() * sec_to_micro;
+            const fc::microseconds success_duration = fc::seconds(options.at( "transaction-finality-status-success-duration-sec" ).as<uint64_t>());
+            const fc::microseconds failure_duration = fc::seconds(options.at( "transaction-finality-status-failure-duration-sec" ).as<uint64_t>());
             my->_trx_finality_status_processing.reset(
-               new chain_apis::trx_finality_status_processing(max_storage_size, fc::microseconds(success_duration), fc::microseconds(failure_duration)));
+               new chain_apis::trx_finality_status_processing(max_storage_size, success_duration, failure_duration));
          }
       }
 

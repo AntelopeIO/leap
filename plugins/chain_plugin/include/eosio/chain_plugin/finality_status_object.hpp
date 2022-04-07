@@ -40,6 +40,7 @@ namespace eosio {
          }
       };
 
+      // sort not seen blocks before seen blocks
       struct real_block_comparator {
          bool operator()(const chain::block_id_type& lhs, const chain::block_id_type& rhs) const {
             return cbh::num_from_id(lhs) == no_block_num && cbh::num_from_id(rhs) != no_block_num;

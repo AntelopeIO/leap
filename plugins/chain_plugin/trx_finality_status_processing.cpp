@@ -37,8 +37,7 @@ namespace eosio::chain_apis {
    {
    }
 
-   trx_finality_status_processing::~trx_finality_status_processing() {
-   }
+   trx_finality_status_processing::~trx_finality_status_processing() = default;
 
    void trx_finality_status_processing::signal_applied_transactions( const chain::signals_processor::trx_deque& trxs, const chain::block_state_ptr& bsp ) {
       _my->signal_applied_transactions(trxs, bsp);
@@ -87,6 +86,7 @@ namespace eosio::chain_apis {
             _storage.modify( iter, [&block_id,&block_timestamp]( finality_status_object& obj ) {
                obj.block_id = block_id;
                obj.block_timestamp = block_timestamp;
+               obj.forked_out = false;
             } );
          }
          else {
@@ -115,7 +115,7 @@ namespace eosio::chain_apis {
       const auto& indx = _storage.index().get<by_block_num>();
       std::deque<chain::transaction_id_type> trxs;
       auto iter = indx.lower_bound(_head_block_id);
-      std::transform(iter, indx.end(), trxs.end(), []( const finality_status_object& obj ) { return obj.trx_id; });
+      std::transform(iter, indx.end(), std::back_inserter(trxs), []( const finality_status_object& obj ) { return obj.trx_id; });
       for (const auto& trx_id : trxs) {
          auto trx_iter = _storage.find(trx_id);
          _storage.modify( trx_iter, []( finality_status_object& obj ) {
@@ -138,11 +138,11 @@ namespace eosio::chain_apis {
       const auto fail_end = success_iter;
       const auto success_end = indx.upper_bound(boost::make_tuple(a_valid_block_id, success_expiry));
       auto get_id = []( const finality_status_object& obj ) { return obj.trx_id; };
-      std::transform(success_iter, success_end, remove_trxs.end(), get_id);
+      std::transform(success_iter, success_end, std::back_inserter(remove_trxs), get_id);
 
       // find the failure (not in a block) transactions that are past the failure expiry time
       auto fail_iter = indx.begin();
-      std::transform(fail_iter, fail_end, remove_trxs.end(), get_id);
+      std::transform(fail_iter, fail_end, std::back_inserter(remove_trxs), get_id);
 
       for (const auto& trx_id : remove_trxs) {
          _storage.erase(trx_id);
@@ -151,7 +151,7 @@ namespace eosio::chain_apis {
    }
 
    void trx_finality_status_processing_impl::ensure_storage(const fc::time_point& now) {
-      const int64_t remaining_storage = _storage.memory_size() - _max_storage;
+      const int64_t remaining_storage = _max_storage - _storage.memory_size();
       if (remaining_storage > 0) {
          return;
       }
@@ -217,6 +217,10 @@ namespace eosio::chain_apis {
          }
       }
 
+      for (const auto& trx_id : remove_trxs) {
+         _storage.erase(trx_id);
+      }
+
       if (earliest_block != finality_status::no_block_num) {
          ilog( "Finality Status dropped ${trx_count} transactions, which were removed from block # ${block_num_start} to block # ${block_num_end}",
                ("trx_count", remove_trxs.size())("block_num_start", earliest_block)("block_num_end", latest_block) );
@@ -224,21 +228,41 @@ namespace eosio::chain_apis {
       else {
          ilog( "Finality Status dropped ${trx_count} transactions, all were failed transactions", ("trx_count", remove_trxs.size()) );
       }
-
-      for (const auto& trx_id : remove_trxs) {
-         _storage.erase(trx_id);
-      }
    }
 
    trx_finality_status_processing::chain_state trx_finality_status_processing::get_chain_state() const {
       return { .head_id = _my->_head_block_id, .irr_id = _my->_irr_block_id, .last_tracked_block_id = _my->_last_tracked_block_id };
    }
 
-   trx_finality_status_processing::trx_state trx_finality_status_processing::get_trx_state( const chain::transaction_id_type& id ) const {
+   std::optional<trx_finality_status_processing::trx_state> trx_finality_status_processing::get_trx_state( const chain::transaction_id_type& id ) const {
       trx_finality_status_processing::trx_state state;
       auto iter = _my->_storage.find(id);
-      if (iter != _my->_storage.index().cend()) {
-         state.block_id == iter->block_id;
+      if (iter == _my->_storage.index().cend()) {
+         return {};
+      }
+
+      state.block_id == iter->block_id;
+      state.block_timestamp = iter->block_timestamp;
+      if (iter->block_id == chain::block_id_type{}) {
+         if (fc::time_point::now() >= iter->trx_expiry) {
+            state.status = "FAILED";
+         }
+         else if (iter->forked_out) {
+            state.status = "FORKED OUT";
+         }
+         else {
+            state.status = "LOCALLY APPLIED";
+         }
+      }
+      else {
+         const auto block_num = cbh::num_from_id(iter->block_id);
+         const auto lib = cbh::num_from_id(_my->_irr_block_id);
+         if (block_num > lib) {
+            state.status = "IN BLOCK";
+         }
+         else {
+            state.status = "IRREVERSIBLE";
+         }
       }
       return state;
    }

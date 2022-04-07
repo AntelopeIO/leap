@@ -45,7 +45,7 @@ namespace eosio::chain_apis {
 
       chain_state get_chain_state() const;
 
-      trx_state get_trx_state( const chain::transaction_id_type& id ) const;
+      std::optional<trx_state> get_trx_state( const chain::transaction_id_type& id ) const;
 
    private:
       trx_finality_status_processing_impl_ptr _my;
