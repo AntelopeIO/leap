@@ -2490,7 +2490,7 @@ void read_write::send_transaction2(const read_write::send_transaction2_params& p
                   "retry transaction expiration ${e} larger than allowed ${m}",
                   ("e", ptrx->expiration())("m", trx_retry->get_max_expiration_time()) );
 
-      app().get_method<incoming::methods::transaction_async>()(ptrx, true,
+      app().get_method<incoming::methods::transaction_async>()(ptrx, true, false,
          [this, ptrx, next, retry, retry_num_blocks](const std::variant<fc::exception_ptr, transaction_trace_ptr>& result) -> void {
             if( std::holds_alternative<fc::exception_ptr>( result ) ) {
                next( std::get<fc::exception_ptr>( result ) );
