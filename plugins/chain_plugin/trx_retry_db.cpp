@@ -116,7 +116,12 @@ struct trx_retry_db_impl {
                   "Transaction exceeded  transaction-retry-max-storage-size-gb limit: ${m} bytes", ("m", _tracked_trxs.memory_size()) );
       auto i = _tracked_trxs.index().get<by_trx_id>().find( ptrx->id() );
       if( i == _tracked_trxs.index().end() ) {
-         _tracked_trxs.insert( {std::move(ptrx), !num_blocks.has_value() ? lib_totem : *num_blocks, 0, {}, fc::time_point::now(), next} );
+         _tracked_trxs.insert( {std::move(ptrx),
+                                !num_blocks.has_value() ? lib_totem : *num_blocks,
+                                0,
+                                {},
+                                fc::time_point::now(),
+                                std::move(next)} );
       } else {
          // already tracking transaction
       }
@@ -225,14 +230,17 @@ private:
    void ack_ready_trxs_by_block_num( uint32_t block_num ) {
       const auto& idx = _tracked_trxs.index().get<by_ready_block_num>();
       // if we have reached requested block height then ack to user
-      std::vector<decltype(idx.begin())> to_process;
+      std::vector<decltype(_tracked_trxs.index().project<0>(idx.begin()))> to_process;
       auto end = idx.upper_bound(block_num);
       for( auto i = idx.begin(); i != end; ++i ) {
-         to_process.emplace_back( i );
+         to_process.emplace_back( _tracked_trxs.index().project<0>( i ) );
       }
       // ack
       for( auto& i: to_process ) {
-         i->next( std::make_unique<fc::variant>( std::move( i->trx_trace_v ) ) );
+         _tracked_trxs.modify( i, [&]( tracked_transaction& tt ) {
+            tt.next( std::make_unique<fc::variant>( std::move( tt.trx_trace_v ) ) );
+            tt.trx_trace_v.clear();
+         } );
          _tracked_trxs.erase( i->id() );
       }
    }
@@ -240,14 +248,17 @@ private:
    void ack_ready_trxs_by_lib( uint32_t lib_block_num ) {
       const auto& idx = _tracked_trxs.index().get<by_block_num>();
       // determine what to ack
-      std::vector<decltype(idx.begin())> to_process;
+      std::vector<decltype(_tracked_trxs.index().project<0>(idx.begin()))> to_process;
       auto end = idx.upper_bound(lib_block_num); // process until lib_block_num
       for( auto i = idx.lower_bound(1); i != end; ++i ) { // skip over not ready, block_num == 0
-         to_process.emplace_back( i );
+         to_process.emplace_back( _tracked_trxs.index().project<0>( i ) );
       }
       // ack
       for( auto& i: to_process ) {
-         i->next( std::make_unique<fc::variant>( std::move( i->trx_trace_v ) ) );
+         _tracked_trxs.modify( i, [&]( tracked_transaction& tt ) {
+            tt.next( std::make_unique<fc::variant>( std::move( tt.trx_trace_v ) ) );
+            tt.trx_trace_v.clear();
+         } );
          _tracked_trxs.erase( i->id() );
       }
    }
