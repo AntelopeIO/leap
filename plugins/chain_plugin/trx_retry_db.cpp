@@ -1,5 +1,6 @@
 #include <eosio/chain_plugin/trx_retry_db.hpp>
 
+#include <eosio/chain/types.hpp>
 #include <eosio/chain/contract_types.hpp>
 #include <eosio/chain/controller.hpp>
 
@@ -181,7 +182,7 @@ private:
    void rollback_to( uint32_t block_num ) {
       const auto& idx = _tracked_trxs.index().get<by_block_num>();
       // determine what to rollback
-      std::vector<decltype(_tracked_trxs.index().project<0>(idx.begin()))> to_process;
+      deque<decltype(_tracked_trxs.index().project<0>(idx.begin()))> to_process;
       for( auto i = idx.rbegin(); i != idx.rend(); ++i ) {
          // called on block_start, so any block_num greater or equal have been rolled back
          if( i->block_num < block_num ) break;
@@ -209,7 +210,7 @@ private:
       const auto& idx = _tracked_trxs.index().get<by_last_try>();
       auto now = fc::time_point::now();
       // determine what to retry
-      std::vector<decltype(_tracked_trxs.index().project<0>(idx.begin()))> to_process;
+      deque<decltype(_tracked_trxs.index().project<0>(idx.begin()))> to_process;
       for( auto i = idx.begin(); i != idx.end(); ++i ) {
          if( i->is_ready() ) break;
 
@@ -230,7 +231,7 @@ private:
    void ack_ready_trxs_by_block_num( uint32_t block_num ) {
       const auto& idx = _tracked_trxs.index().get<by_ready_block_num>();
       // if we have reached requested block height then ack to user
-      std::vector<decltype(_tracked_trxs.index().project<0>(idx.begin()))> to_process;
+      deque<decltype(_tracked_trxs.index().project<0>(idx.begin()))> to_process;
       auto end = idx.upper_bound(block_num);
       for( auto i = idx.begin(); i != end; ++i ) {
          to_process.emplace_back( _tracked_trxs.index().project<0>( i ) );
@@ -241,14 +242,14 @@ private:
             tt.next( std::make_unique<fc::variant>( std::move( tt.trx_trace_v ) ) );
             tt.trx_trace_v.clear();
          } );
-         _tracked_trxs.erase( i->id() );
+         _tracked_trxs.erase( i );
       }
    }
 
    void ack_ready_trxs_by_lib( uint32_t lib_block_num ) {
       const auto& idx = _tracked_trxs.index().get<by_block_num>();
       // determine what to ack
-      std::vector<decltype(_tracked_trxs.index().project<0>(idx.begin()))> to_process;
+      deque<decltype(_tracked_trxs.index().project<0>(idx.begin()))> to_process;
       auto end = idx.upper_bound(lib_block_num); // process until lib_block_num
       for( auto i = idx.lower_bound(1); i != end; ++i ) { // skip over not ready, block_num == 0
          to_process.emplace_back( _tracked_trxs.index().project<0>( i ) );
@@ -259,7 +260,7 @@ private:
             tt.next( std::make_unique<fc::variant>( std::move( tt.trx_trace_v ) ) );
             tt.trx_trace_v.clear();
          } );
-         _tracked_trxs.erase( i->id() );
+         _tracked_trxs.erase( i );
       }
    }
 
@@ -276,7 +277,7 @@ private:
                      FC_LOG_MESSAGE( error, "expired retry transaction ${id}, expiration ${e}, block time ${bt}",
                                      ("id", itr->id())("e", itr->ptrx->expiration())
                                      ("bt", block_timestamp) ) ) ) );
-         _tracked_trxs.erase( itr->id() );
+         _tracked_trxs.erase( _tracked_trxs.index().project<0>( itr ) );
       }
    }
 
