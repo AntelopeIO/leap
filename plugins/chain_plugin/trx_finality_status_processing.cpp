@@ -19,7 +19,7 @@ namespace eosio::chain_apis {
 
       bool status_expiry_of_trxs(const fc::time_point& now);
 
-      void ensure_storage(const fc::time_point& now);
+      void ensure_storage();
 
       const uint64_t                                   _max_storage;
       fc::tracked_storage<finality_status_multi_index> _storage;
@@ -78,7 +78,7 @@ namespace eosio::chain_apis {
          if (trace->scheduled) continue;
          if (chain::is_onblock(*trace)) continue;
 
-         ensure_storage(now);
+         ensure_storage();
          const auto& trx_id = trace->id;
          auto iter = _storage.find(trx_id);
          if (iter != _storage.index().cend()) {
@@ -147,7 +147,7 @@ namespace eosio::chain_apis {
       return !remove_trxs.empty();
    }
 
-   void trx_finality_status_processing_impl::ensure_storage(const fc::time_point& now) {
+   void trx_finality_status_processing_impl::ensure_storage() {
       const int64_t remaining_storage = _max_storage - _storage.memory_size();
       if (remaining_storage > 0) {
          return;
@@ -177,8 +177,8 @@ namespace eosio::chain_apis {
          auto oldest_block_iter = block_indx.upper_bound(block_upper_bound);
          if (oldest_block_iter == block_indx.end()) {
             auto oldest_failure_iter = status_expiry_indx.begin();
-            EOS_ASSERT( oldest_failure_iter != oldest_failure_end, chain::chain_type_exception,
-                        "CODE ERROR: can not free more storage, but still exeeding limit. "
+            FC_ASSERT( oldest_failure_iter != oldest_failure_end,
+                        "CODE ERROR: can not free more storage, but still exceeding limit. "
                         "Total entries: ${total_entries}, storage memory to free: ${storage}, "
                         "entries slated for removal: ${remove_entries}",
                         ("total_entries", _storage.index().size())
@@ -187,8 +187,8 @@ namespace eosio::chain_apis {
             for (; oldest_failure_iter != oldest_failure_end; ++oldest_failure_iter) {
                reduce_storage(oldest_failure_iter);
             }
-            EOS_ASSERT( storage_to_free < 1, chain::chain_type_exception,
-                        "CODE ERROR: can not free more storage, but still exeeding limit. "
+            FC_ASSERT( storage_to_free < 1,
+                        "CODE ERROR: can not free more storage, but still exceeding limit. "
                         "Total entries: ${total_entries}, storage memory to free: ${storage}, "
                         "entries slated for removal: ${remove_entries}",
                         ("total_entries", _storage.index().size())
