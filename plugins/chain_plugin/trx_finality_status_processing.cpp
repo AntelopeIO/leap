@@ -240,21 +240,21 @@ namespace eosio::chain_apis {
       state.block_id == iter->block_id;
       state.block_timestamp = iter->block_timestamp;
       if (iter->forked_out) {
-         state.status = "FORKED OUT";
+         state.status = "FORKED_OUT";
       }
       else if (iter->block_id == chain::block_id_type{}) {
          if (fc::time_point::now() >= iter->trx_expiry) {
             state.status = "FAILED";
          }
          else {
-            state.status = "LOCALLY APPLIED";
+            state.status = "LOCALLY_APPLIED";
          }
       }
       else {
          const auto block_num = cbh::num_from_id(iter->block_id);
          const auto lib = cbh::num_from_id(_my->_irr_block_id);
          if (block_num > lib) {
-            state.status = "IN BLOCK";
+            state.status = "IN_BLOCK";
          }
          else {
             state.status = "IRREVERSIBLE";
