@@ -180,7 +180,7 @@ bool   tx_skip_sign = false;
 bool   tx_print_json = false;
 bool   tx_rtn_failure_trace = true;
 bool   tx_read_only = false;
-bool   tx_retry = false;
+bool   tx_retry_lib = false;
 uint16_t tx_retry_num_blocks = 0;
 bool   tx_use_old_rpc = false;
 bool   tx_use_old_send_rpc = false;
@@ -231,8 +231,8 @@ void add_standard_transaction_options(CLI::App* cmd, string default_permission =
 
    cmd->add_option("--delay-sec", delaysec, localized("set the delay_sec seconds, defaults to 0s"));
    cmd->add_option("-t,--return-failure-trace", tx_rtn_failure_trace, localized("Return partial traces on failed transactions"));
-   cmd->add_option("--retry", tx_retry, localized("Request node to retry transaction until irreversible or in a block of height --retry-num-blocks"));
-   cmd->add_option("--retry-num-blocks", tx_retry_num_blocks, localized("Request node to retry transaction until irreversible or in a block of height --retry-num-blocks"));
+   cmd->add_option("--retry-irreversible", tx_retry_lib, localized("Request node to retry transaction until it is irreversible or expires, blocking call"));
+   cmd->add_option("--retry-num-blocks", tx_retry_num_blocks, localized("Request node to retry transaction until in a block of given height, blocking call"));
 }
 
 vector<chain::permission_level> get_account_permissions(const vector<string>& permissions) {
@@ -350,16 +350,18 @@ fc::variant push_transaction( signed_transaction& trx, packed_transaction::compr
 
    if (!tx_dont_broadcast) {
       EOSC_ASSERT( !(tx_use_old_rpc && tx_use_old_send_rpc), "ERROR: --use-old-rpc and --use-old-send-rpc are mutually exclusive" );
-      if( tx_retry_num_blocks > 0 ) tx_retry = true;
+      EOSC_ASSERT( !(tx_retry_lib && tx_retry_num_blocks > 0), "ERROR: --retry-irreversible and --retry-num-blocks are mutually exclusive" );
       if (tx_use_old_rpc) {
          EOSC_ASSERT( !tx_read_only, "ERROR: --read-only can not be used with --use-old-rpc" );
          EOSC_ASSERT( !tx_rtn_failure_trace, "ERROR: --return-failure-trace can not be used with --use-old-rpc" );
-         EOSC_ASSERT( !tx_retry, "ERROR: --retry can not be used with --use-old-rpc" );
+         EOSC_ASSERT( !tx_retry_lib, "ERROR: --retry-irreversible can not be used with --use-old-rpc" );
+         EOSC_ASSERT( !tx_retry_num_blocks, "ERROR: --retry-num-blocks can not be used with --use-old-rpc" );
          return call( push_txn_func, packed_transaction( trx, compression ) );
       } else if (tx_use_old_send_rpc) {
          EOSC_ASSERT( !tx_read_only, "ERROR: --read-only can not be used with --use-old-send-rpc" );
          EOSC_ASSERT( !tx_rtn_failure_trace, "ERROR: --return-failure-trace can not be used with --use-old-send-rpc" );
-         EOSC_ASSERT( !tx_retry, "ERROR: --retry can not be used with --use-old-send-rpc" );
+         EOSC_ASSERT( !tx_retry_lib, "ERROR: --retry-irreversible can not be used with --use-old-send-rpc" );
+         EOSC_ASSERT( !tx_retry_num_blocks, "ERROR: --retry-num-blocks can not be used with --use-old-send-rpc" );
          try {
             return call( send_txn_func, packed_transaction( trx, compression ) );
          } catch( chain::missing_chain_api_plugin_exception& ) {
@@ -368,7 +370,8 @@ fc::variant push_transaction( signed_transaction& trx, packed_transaction::compr
          }
       } else {
          if( tx_read_only ) {
-            EOSC_ASSERT( !tx_retry, "ERROR: --retry can not be used with --read-only" );
+            EOSC_ASSERT( !tx_retry_lib, "ERROR: --retry-irreversible can not be used with --read-only" );
+            EOSC_ASSERT( !tx_retry_num_blocks, "ERROR: --retry-num-blocks can not be used with --read-only" );
             try {
                auto args = fc::mutable_variant_object()
                      ( "return_failure_traces", tx_rtn_failure_trace )
@@ -379,9 +382,10 @@ fc::variant push_transaction( signed_transaction& trx, packed_transaction::compr
             }
          } else {
             try {
+               bool retry = tx_retry_lib || tx_retry_num_blocks > 0;
                auto args = fc::mutable_variant_object()
                      ( "return_failure_traces", tx_rtn_failure_trace )
-                     ( "retry_trx", tx_retry );
+                     ( "retry_trx", retry );
                if( tx_retry_num_blocks > 0 ) args( "retry_trx_num_blocks", tx_retry_num_blocks );
                args( "transaction", packed_transaction( trx, compression ) );
                return call( send2_txn_func, args );
