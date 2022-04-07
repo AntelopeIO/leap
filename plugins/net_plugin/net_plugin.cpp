@@ -283,7 +283,7 @@ namespace eosio {
 
       void on_accepted_block( const block_state_ptr& bs );
       void on_pre_accepted_block( const signed_block_ptr& bs );
-      void transaction_ack(const std::pair<fc::exception_ptr, transaction_metadata_ptr>&);
+      void transaction_ack(const std::pair<fc::exception_ptr, packed_transaction_ptr>&);
       void on_irreversible_block( const block_state_ptr& blk );
 
       void start_conn_timer(boost::asio::steady_timer::duration du, std::weak_ptr<connection> from_connection);
@@ -3203,7 +3203,7 @@ namespace eosio {
    }
 
    // called from application thread
-   void net_plugin_impl::transaction_ack(const std::pair<fc::exception_ptr, transaction_metadata_ptr>& results) {
+   void net_plugin_impl::transaction_ack(const std::pair<fc::exception_ptr, packed_transaction_ptr>& results) {
       dispatcher->strand.post( [this, results]() {
          const auto& id = results.second->id();
          if (results.first) {
@@ -3211,10 +3211,10 @@ namespace eosio {
 
             uint32_t head_blk_num = 0;
             std::tie( std::ignore, head_blk_num, std::ignore, std::ignore, std::ignore, std::ignore ) = get_chain_info();
-            dispatcher->rejected_transaction(results.second->packed_trx(), head_blk_num);
+            dispatcher->rejected_transaction(results.second, head_blk_num);
          } else {
             fc_dlog( logger, "signaled ACK, trx-id = ${id}", ("id", id) );
-            dispatcher->bcast_transaction(*results.second->packed_trx());
+            dispatcher->bcast_transaction(*results.second);
          }
       });
    }
