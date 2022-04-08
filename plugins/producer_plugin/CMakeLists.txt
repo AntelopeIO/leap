@@ -1,7 +1,6 @@
 file(GLOB HEADERS "include/eosio/producer_plugin/*.hpp")
 
 add_library( producer_plugin
-             subjective_billing.cpp
              producer_plugin.cpp
              ${HEADERS}
            )
