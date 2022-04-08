@@ -219,7 +219,7 @@ jobs:
           tar -xzf ubuntu-2004-build/build.tar.gz
           export DOCKER="docker run --rm -v ${GITHUB_WORKSPACE}:${GITHUB_WORKSPACE} -w ${GITHUB_WORKSPACE} ${UBUNTU_2004_IMAGE}"
           docker pull ${UBUNTU_2004_IMAGE}
-          ${DOCKER} bash -c 'cd build && ctest --output-on-failure -L "long_running_tests" -E "nodeos_short_fork_take_over_lr_test|nodeos_under_min_avail_ram_lr_test|nodeos_startup_catchup_lr_test|nodeos_producer_watermark_lr_test|nodeos_irreversible_mode_lr_test|nodeos_forked_chain_lr_test|nodeos_voting_lr_test|nodeos_high_transaction_lr_test"'
+          ${DOCKER} bash -c 'cd build && ctest --output-on-failure -L "long_running_tests" -E "nodeos_short_fork_take_over_lr_test|nodeos_under_min_avail_ram_lr_test|nodeos_startup_catchup_lr_test|nodeos_producer_watermark_lr_test|nodeos_irreversible_mode_lr_test|nodeos_forked_chain_lr_test|nodeos_voting_lr_test|nodeos_high_transaction_lr_test|nodeos_retry_transaction_lr_test"'
   nodeos_short_fork_take_over_lr_test:
     name: Ubuntu 20.04 | nodeos_short_fork_take_over_lr_test
     runs-on: ubuntu-latest
@@ -388,3 +388,24 @@ jobs:
           export DOCKER="docker run --rm -v ${GITHUB_WORKSPACE}:${GITHUB_WORKSPACE} -w ${GITHUB_WORKSPACE} ${UBUNTU_2004_IMAGE}"
           docker pull ${UBUNTU_2004_IMAGE}
           ${DOCKER} bash -c 'cd build && ctest --output-on-failure -R nodeos_high_transaction_lr_test'
+  nodeos_retry_transaction_lr_test:
+    name: Ubuntu 20.04 | nodeos_retry_transaction_lr_test
+    runs-on: ubuntu-latest
+    needs: ubuntu-2004-build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - name: Download build
+        uses: actions/download-artifact@v1
+        with:
+          name: ubuntu-2004-build
+      - name: nodeos_retry_transaction_lr_test
+        run: |
+          set -e
+          tar -xzf ubuntu-2004-build/build.tar.gz
+          export DOCKER="docker run --rm -v ${GITHUB_WORKSPACE}:${GITHUB_WORKSPACE} -w ${GITHUB_WORKSPACE} ${UBUNTU_2004_IMAGE}"
+          docker pull ${UBUNTU_2004_IMAGE}
+          ${DOCKER} bash -c 'cd build && ctest --output-on-failure -R nodeos_retry_transaction_lr_test'
