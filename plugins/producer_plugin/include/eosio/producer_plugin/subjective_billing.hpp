@@ -100,7 +100,7 @@ private:
 
 public: // public for tests
    static constexpr uint32_t subjective_time_interval_ms = 5'000;
-   static uint32_t expired_accumulator_average_window = config::account_cpu_usage_average_window_ms / subjective_time_interval_ms;
+   static uint32_t expired_accumulator_average_window;
 
    void remove_subjective_billing( const transaction_id_type& trx_id, uint32_t time_ordinal ) {
       auto& idx = _trx_cache_index.get<by_id>();
