@@ -129,7 +129,7 @@ BOOST_AUTO_TEST_CASE( subjective_bill_test ) {
 
    { // expired handling logic, full billing until expiration then failed/decay logic
       subjective_billing sub_bill;
-      constexpr uint32_t window_size = subjective_billing::expired_accumulator_average_window;
+      uint32_t window_size = subjective_billing::expired_accumulator_average_window;
 
       sub_bill.subjective_bill( id1, now, a, fc::microseconds( 1024 ), false );
       sub_bill.subjective_bill( id2, now + fc::microseconds(1), a, fc::microseconds( 1024 ), false );
