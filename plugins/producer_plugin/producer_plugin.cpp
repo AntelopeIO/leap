@@ -1904,7 +1904,7 @@ bool producer_plugin_impl::process_unapplied_trxs( const fc::time_point& deadlin
 {
    bool exhausted = false;
    if( !_unapplied_transactions.empty() ) {
-      account_failures account_fails( _subjective_billing, _subjective_account_max_failures );
+      account_failures account_fails( _subjective_account_max_failures,  _subjective_billing );
       chain::controller& chain = chain_plug->chain();
       const auto& rl = chain.get_resource_limits_manager();
       int num_applied = 0, num_failed = 0, num_processed = 0;
