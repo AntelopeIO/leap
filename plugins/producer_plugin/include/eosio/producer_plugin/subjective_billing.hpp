@@ -61,7 +61,7 @@ private:
    account_subjective_bill_cache             _account_subjective_bill_cache;
    block_subjective_bill_cache               _block_subjective_bill_cache;
    std::set<chain::account_name>             _disabled_accounts;
-   uint32_t                                  _expired_accumulator_average_window = 24 * 60 * 60 * 1000l / subjective_time_interval_ms;
+   uint32_t                                  _expired_accumulator_average_window = config::account_cpu_usage_average_window_ms / subjective_time_interval_ms;
 
 private:
    uint32_t time_ordinal_for( const fc::time_point& t ) const {
