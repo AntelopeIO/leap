@@ -1366,7 +1366,7 @@ bool chain_plugin::accept_block(const signed_block_ptr& block, const block_id_ty
 }
 
 void chain_plugin::accept_transaction(const chain::packed_transaction_ptr& trx, next_function<chain::transaction_trace_ptr> next) {
-   my->incoming_transaction_async_method(trx, false, std::move(next));
+   my->incoming_transaction_async_method(trx, false, false, std::move(next));
 }
 
 bool chain_plugin::recover_reversible_blocks( const fc::path& db_dir, uint32_t cache_size,
@@ -2328,7 +2328,7 @@ void read_write::push_transaction(const read_write::push_transaction_params& par
          abi_serializer::from_variant(params, *pretty_input, std::move( resolver ), abi_serializer::create_yield_function( abi_serializer_max_time ));
       } EOS_RETHROW_EXCEPTIONS(chain::packed_transaction_type_exception, "Invalid packed transaction")
 
-      app().get_method<incoming::methods::transaction_async>()(pretty_input, true,
+      app().get_method<incoming::methods::transaction_async>()(pretty_input, true, false,
             [this, next](const std::variant<fc::exception_ptr, transaction_trace_ptr>& result) -> void {
          if (std::holds_alternative<fc::exception_ptr>(result)) {
             next(std::get<fc::exception_ptr>(result));
@@ -2447,7 +2447,7 @@ void read_write::send_transaction(const read_write::send_transaction_params& par
          abi_serializer::from_variant(params, *pretty_input, resolver, abi_serializer::create_yield_function( abi_serializer_max_time ));
       } EOS_RETHROW_EXCEPTIONS(chain::packed_transaction_type_exception, "Invalid packed transaction")
 
-      app().get_method<incoming::methods::transaction_async>()(pretty_input, true,
+      app().get_method<incoming::methods::transaction_async>()(pretty_input, true, false,
             [this, next](const std::variant<fc::exception_ptr, transaction_trace_ptr>& result) -> void {
          if (std::holds_alternative<fc::exception_ptr>(result)) {
             next(std::get<fc::exception_ptr>(result));
@@ -2490,7 +2490,7 @@ void read_write::send_transaction2(const read_write::send_transaction2_params& p
                   "retry transaction expiration ${e} larger than allowed ${m}",
                   ("e", ptrx->expiration())("m", trx_retry->get_max_expiration_time()) );
 
-      app().get_method<incoming::methods::transaction_async>()(ptrx, true,
+      app().get_method<incoming::methods::transaction_async>()(ptrx, true, false,
          [this, ptrx, next, retry, retry_num_blocks](const std::variant<fc::exception_ptr, transaction_trace_ptr>& result) -> void {
             if( std::holds_alternative<fc::exception_ptr>( result ) ) {
                next( std::get<fc::exception_ptr>( result ) );
@@ -2799,10 +2799,45 @@ read_only::get_required_keys_result read_only::get_required_keys( const get_requ
    result.required_keys = required_keys_set;
    return result;
 }
+void read_only::compute_transaction(const fc::variant_object& params, next_function<compute_transaction_results> next) const {
 
+    try {
+        auto pretty_input = std::make_shared<packed_transaction>();
+        auto resolver = make_resolver(this, abi_serializer::create_yield_function( abi_serializer_max_time ));
+        try {
+            abi_serializer::from_variant(params, *pretty_input, resolver, abi_serializer::create_yield_function( abi_serializer_max_time ));
+        } EOS_RETHROW_EXCEPTIONS(chain::packed_transaction_type_exception, "Invalid packed transaction")
+
+        app().get_method<incoming::methods::transaction_async>()(pretty_input, true, true,
+             [this, next](const std::variant<fc::exception_ptr, transaction_trace_ptr>& result) -> void {
+                 if (std::holds_alternative<fc::exception_ptr>(result)) {
+                     next(std::get<fc::exception_ptr>(result));
+                 } else {
+                     auto trx_trace_ptr = std::get<transaction_trace_ptr>(result);
+
+                     try {
+                         fc::variant output;
+                         try {
+                             output = db.to_variant_with_abi( *trx_trace_ptr, abi_serializer::create_yield_function( abi_serializer_max_time ) );
+                         } catch( chain::abi_exception& ) {
+                             output = *trx_trace_ptr;
+                         }
+
+                         const chain::transaction_id_type& id = trx_trace_ptr->id;
+                         next(compute_transaction_results{id, output});
+                     } CATCH_AND_CALL(next);
+                 }
+             });
+    } catch ( boost::interprocess::bad_alloc& ) {
+        chain_plugin::handle_db_exhaustion();
+    } catch ( const std::bad_alloc& ) {
+        chain_plugin::handle_bad_alloc();
+    } CATCH_AND_CALL(next);
+}
 read_only::get_transaction_id_result read_only::get_transaction_id( const read_only::get_transaction_id_params& params)const {
    return params.id();
 }
+
 
 account_query_db::get_accounts_by_authorizers_result read_only::get_accounts_by_authorizers( const account_query_db::get_accounts_by_authorizers_params& args) const
 {

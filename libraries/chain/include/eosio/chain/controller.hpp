@@ -145,9 +145,9 @@ namespace eosio { namespace chain {
           */
          vector<transaction_metadata_ptr> abort_block();
 
-         /**
-          *
-          */
+       /**
+        *
+        */
          transaction_trace_ptr push_transaction( const transaction_metadata_ptr& trx, fc::time_point deadline,
                                                  uint32_t billed_cpu_time_us, bool explicit_billed_cpu_time,
                                                  uint32_t subjective_cpu_bill_us );
