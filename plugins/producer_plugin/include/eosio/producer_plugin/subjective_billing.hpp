@@ -203,13 +203,13 @@ public:
       return !exhausted;
    }
 
-   uint32_t get_expired_accumulator_average_window() {
+   uint32_t get_expired_accumulator_average_window() const {
       return _expired_accumulator_average_window;
    }
 
-   void set_expired_accumulator_average_window( uint32_t subjective_account_decay_time_minutes ) {
+   void set_expired_accumulator_average_window( fc::microseconds subjective_account_decay_time ) {
       _expired_accumulator_average_window =
-        subjective_account_decay_time_minutes * 60 * 1000 / subjective_time_interval_ms;
+        subjective_account_decay_time.count() / 1000 / subjective_time_interval_ms;
    }
 };
 
