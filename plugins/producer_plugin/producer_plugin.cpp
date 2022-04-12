@@ -912,7 +912,7 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
 
    fc::microseconds subjective_account_decay_time = fc::minutes(options.at( "subjective-account-decay-time-minutes" ).as<uint32_t>());
    EOS_ASSERT( subjective_account_decay_time.count() > 0, plugin_config_exception,
-               "subjective-account-decay-time-minutes ${dt} must be greater than 0", ("dt", subjective_account_decay_time.to_seconds() * 60));
+               "subjective-account-decay-time-minutes ${dt} must be greater than 0", ("dt", subjective_account_decay_time.to_seconds() / 60));
    my->_subjective_billing.set_expired_accumulator_average_window( subjective_account_decay_time );
 
    my->_max_transaction_time_ms = options.at("max-transaction-time").as<int32_t>();
