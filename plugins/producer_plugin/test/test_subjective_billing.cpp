@@ -27,8 +27,10 @@ BOOST_AUTO_TEST_CASE( subjective_bill_test ) {
    account_name c = N("c");
 
    const auto now = time_point::now();
-   const auto halftime = now + fc::milliseconds(subjective_billing::expired_accumulator_average_window * subjective_billing::subjective_time_interval_ms / 2);
-   const auto endtime = now + fc::milliseconds(subjective_billing::expired_accumulator_average_window * subjective_billing::subjective_time_interval_ms);
+
+   subjective_billing timing_sub_bill;
+   const auto halftime = now + fc::milliseconds(timing_sub_bill.get_expired_accumulator_average_window() * subjective_billing::subjective_time_interval_ms / 2);
+   const auto endtime = now + fc::milliseconds(timing_sub_bill.get_expired_accumulator_average_window() * subjective_billing::subjective_time_interval_ms);
 
 
    {  // Failed transactions remain until expired in subjective billing.
@@ -129,7 +131,6 @@ BOOST_AUTO_TEST_CASE( subjective_bill_test ) {
 
    { // expired handling logic, full billing until expiration then failed/decay logic
       subjective_billing sub_bill;
-      constexpr uint32_t window_size = subjective_billing::expired_accumulator_average_window;
 
       sub_bill.subjective_bill( id1, now, a, fc::microseconds( 1024 ), false );
       sub_bill.subjective_bill( id2, now + fc::microseconds(1), a, fc::microseconds( 1024 ), false );
