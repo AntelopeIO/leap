@@ -163,7 +163,7 @@ set_property(TEST nodeos_producer_watermark_lr_test PROPERTY LABELS long_running
 add_test(NAME nodeos_high_transaction_lr_test COMMAND tests/nodeos_high_transaction_test.py -v --clean-run --dump-error-detail -p 4 -n 8 --num-transactions 10000 --max-transactions-per-second 500 WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nodeos_high_transaction_lr_test PROPERTY LABELS long_running_tests)
 
-add_test(NAME nodeos_retry_transaction_lr_test COMMAND tests/nodeos_retry_transaction_test.py -v --clean-run --dump-error-detail --num-transactions 10000 --max-transactions-per-second 500 WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+add_test(NAME nodeos_retry_transaction_lr_test COMMAND tests/nodeos_retry_transaction_test.py -v --clean-run --dump-error-detail --num-transactions 100 --max-transactions-per-second 10 --total-accounts 5 WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nodeos_retry_transaction_lr_test PROPERTY LABELS long_running_tests)
 
 
