@@ -126,16 +126,18 @@ namespace eosio::chain_apis {
    bool trx_finality_status_processing_impl::status_expiry_of_trxs(const fc::time_point& now) {
       const auto& indx = _storage.index().get<by_status_expiry>();
       chain::deque<decltype(_storage.index().project<0>(indx.begin()))> remove_trxs;
-      const fc::time_point success_expiry = now - _success_duration;
 
       // find the successful (in any block) transactions that are past the failure expiry times
       auto success_iter = indx.lower_bound(boost::make_tuple(true, fc::time_point{}));
-      const auto fail_end = success_iter;
+
+      const fc::time_point success_expiry = now - _success_duration;
       const auto success_end = indx.upper_bound(boost::make_tuple(true, success_expiry));
       for (; success_iter != success_end; ++success_iter) {
          remove_trxs.push_back(_storage.index().project<0>(success_iter));
       }
 
+      const fc::time_point fail_expiry = now - _failure_duration;
+      const auto fail_end = indx.upper_bound(boost::make_tuple(false, fail_expiry));
       // find the failure (not in a block) transactions that are past the failure expiry time
       for (auto fail_iter = indx.begin(); fail_iter != fail_end; ++fail_iter) {
          remove_trxs.push_back(_storage.index().project<0>(fail_iter));
@@ -158,7 +160,10 @@ namespace eosio::chain_apis {
          return (mem * pcnt)/100;
       };
       // determine how much we need to free to get back to at least the desired percentage of the storage
-      int64_t storage_to_free = _storage.memory_size() - percentage(_max_storage) - remaining_storage;
+      int64_t storage_to_free = _max_storage - percentage(_max_storage) - remaining_storage;
+      ilog("Finality Status exceeded max storage (${max_storage}GB) need to free up ${storage_to_free} GB",
+           ("max_storage",_max_storage/1024/1024/1024)
+           ("storage_to_free",storage_to_free/1024/1024/1024));
       const auto& block_indx = _storage.index().get<by_block_num>();
       const auto& status_expiry_indx = _storage.index().get<by_status_expiry>();
       using index_iter_type = decltype(_storage.index().project<0>(block_indx.begin()));
@@ -170,13 +175,14 @@ namespace eosio::chain_apis {
       };
 
       auto block_upper_bound = finality_status::no_block_num;
+      // start at the beginning of the oldest_failure section and just keep iterating from there
+      auto oldest_failure_iter = status_expiry_indx.begin();
       // the end of the oldest failure section
       const auto oldest_failure_end = status_expiry_indx.lower_bound( std::make_tuple( true, fc::time_point{} ) );
       uint32_t earliest_block = finality_status::no_block_num;
       while (storage_to_free > 0) {
          auto oldest_block_iter = block_indx.upper_bound(block_upper_bound);
          if (oldest_block_iter == block_indx.end()) {
-            auto oldest_failure_iter = status_expiry_indx.begin();
             FC_ASSERT( oldest_failure_iter != oldest_failure_end,
                         "CODE ERROR: can not free more storage, but still exceeding limit. "
                         "Total entries: ${total_entries}, storage memory to free: ${storage}, "
@@ -184,7 +190,7 @@ namespace eosio::chain_apis {
                         ("total_entries", _storage.index().size())
                         ("storage", storage_to_free)
                         ("remove_entries", remove_trxs.size()));
-            for (; oldest_failure_iter != oldest_failure_end; ++oldest_failure_iter) {
+            for (; oldest_failure_iter != oldest_failure_end && storage_to_free > 0; ++oldest_failure_iter) {
                reduce_storage(oldest_failure_iter);
             }
             FC_ASSERT( storage_to_free < 1,
@@ -206,9 +212,8 @@ namespace eosio::chain_apis {
             for (; oldest_block_iter != block_indx.end() && oldest_block_iter->block_num() == block_num; ++oldest_block_iter) {
                reduce_storage(oldest_block_iter);
             }
-            for (auto oldest_failure_iter = status_expiry_indx.upper_bound( std::make_tuple( false, block_timestamp.to_time_point() ) );
-                 oldest_failure_iter != oldest_failure_end;
-                 ++oldest_failure_iter) {
+            const auto oldest_failure_upper_bound = status_expiry_indx.upper_bound( std::make_tuple( false, block_timestamp.to_time_point() ));
+            for (; oldest_failure_iter != oldest_failure_upper_bound; ++oldest_failure_iter) {
                reduce_storage(oldest_failure_iter);
             }
          }
@@ -232,35 +237,29 @@ namespace eosio::chain_apis {
    }
 
    std::optional<trx_finality_status_processing::trx_state> trx_finality_status_processing::get_trx_state( const chain::transaction_id_type& id ) const {
-      trx_finality_status_processing::trx_state state;
       auto iter = _my->_storage.find(id);
       if (iter == _my->_storage.index().cend()) {
          return {};
       }
 
-      state.block_id == iter->block_id;
-      state.block_timestamp = iter->block_timestamp;
-      if (iter->forked_out) {
-         state.status = "FORKED_OUT";
-      }
-      else if (iter->block_id == chain::block_id_type{}) {
+      const char* status;
+      if (!iter->is_in_block()) {
          if (fc::time_point::now() >= iter->trx_expiry) {
-            state.status = "FAILED";
+            status = "FAILED";
          }
          else {
-            state.status = "LOCALLY_APPLIED";
+            status = iter->forked_out ? "FORKED_OUT" : "LOCALLY_APPLIED";
          }
       }
       else {
          const auto block_num = iter->block_num();
          const auto lib = chain::block_header::num_from_id(_my->_irr_block_id);
-         if (block_num > lib) {
-            state.status = "IN_BLOCK";
-         }
-         else {
-            state.status = "IRREVERSIBLE";
-         }
+         status = (block_num > lib) ? "IN_BLOCK" : "IRREVERSIBLE";
       }
-      return state;
+      return trx_finality_status_processing::trx_state{ .block_id = iter->block_id, .block_timestamp = iter->block_timestamp, .received = iter->received, .status = status };
+   }
+
+   size_t trx_finality_status_processing::get_storage_memory_size() const {
+      return _my->_storage.memory_size();
    }
 }
