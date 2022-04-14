@@ -48,7 +48,7 @@ private:
       uint64_t              pending_cpu_us;        // tracked cpu us for transactions that may still succeed in a block
       decaying_accumulator  expired_accumulator;   // accumulator used to account for transactions that have expired
 
-      bool empty(uint32_t time_ordinal) {
+      bool empty(uint32_t time_ordinal, uint32_t expired_accumulator_average_window) {
          return pending_cpu_us == 0 && expired_accumulator.value_at(time_ordinal, expired_accumulator_average_window) == 0;
       }
    };
@@ -61,6 +61,7 @@ private:
    account_subjective_bill_cache             _account_subjective_bill_cache;
    block_subjective_bill_cache               _block_subjective_bill_cache;
    std::set<chain::account_name>             _disabled_accounts;
+   uint32_t                                  _expired_accumulator_average_window = config::account_cpu_usage_average_window_ms / subjective_time_interval_ms;
 
 private:
    uint32_t time_ordinal_for( const fc::time_point& t ) const {
@@ -75,7 +76,7 @@ private:
          aitr->second.pending_cpu_us -= entry.subjective_cpu_bill;
          EOS_ASSERT( aitr->second.pending_cpu_us >= 0, chain::tx_resource_exhaustion,
                      "Logic error in subjective account billing ${a}", ("a", entry.account) );
-         if( aitr->second.empty(time_ordinal) ) _account_subjective_bill_cache.erase( aitr );
+         if( aitr->second.empty(time_ordinal, _expired_accumulator_average_window) ) _account_subjective_bill_cache.erase( aitr );
       }
    }
 
@@ -83,7 +84,7 @@ private:
       auto aitr = _account_subjective_bill_cache.find( entry.account );
       if( aitr != _account_subjective_bill_cache.end() ) {
          aitr->second.pending_cpu_us -= entry.subjective_cpu_bill;
-         aitr->second.expired_accumulator.add(entry.subjective_cpu_bill, time_ordinal, expired_accumulator_average_window);
+         aitr->second.expired_accumulator.add(entry.subjective_cpu_bill, time_ordinal, _expired_accumulator_average_window);
       }
    }
 
@@ -100,7 +101,6 @@ private:
 
 public: // public for tests
    static constexpr uint32_t subjective_time_interval_ms = 5'000;
-   static constexpr uint32_t expired_accumulator_average_window = config::account_cpu_usage_average_window_ms / subjective_time_interval_ms;
 
    void remove_subjective_billing( const transaction_id_type& trx_id, uint32_t time_ordinal ) {
       auto& idx = _trx_cache_index.get<by_id>();
@@ -141,7 +141,7 @@ public:
       if( !_disabled && !_disabled_accounts.count( first_auth ) ) {
          uint32_t bill = std::max<int64_t>( 0, elapsed.count() );
          const auto time_ordinal = time_ordinal_for(now);
-         _account_subjective_bill_cache[first_auth].expired_accumulator.add(bill, time_ordinal, expired_accumulator_average_window);
+         _account_subjective_bill_cache[first_auth].expired_accumulator.add(bill, time_ordinal, _expired_accumulator_average_window);
       }
    }
 
@@ -161,7 +161,7 @@ public:
 
       if (sub_bill_info) {
          EOS_ASSERT(sub_bill_info->pending_cpu_us >= in_block_pending_cpu_us, chain::tx_resource_exhaustion, "Logic error subjective billing ${a}", ("a", first_auth) );
-         uint32_t sub_bill = sub_bill_info->pending_cpu_us - in_block_pending_cpu_us + sub_bill_info->expired_accumulator.value_at(time_ordinal, expired_accumulator_average_window );
+         uint32_t sub_bill = sub_bill_info->pending_cpu_us - in_block_pending_cpu_us + sub_bill_info->expired_accumulator.value_at(time_ordinal, _expired_accumulator_average_window );
          return sub_bill;
       } else {
          return 0;
@@ -204,6 +204,15 @@ public:
                   ("n", orig_count)( "expired", num_expired ) );
       }
       return !exhausted;
+   }
+
+   uint32_t get_expired_accumulator_average_window() const {
+      return _expired_accumulator_average_window;
+   }
+
+   void set_expired_accumulator_average_window( fc::microseconds subjective_account_decay_time ) {
+      _expired_accumulator_average_window =
+        subjective_account_decay_time.count() / 1000 / subjective_time_interval_ms;
    }
 };
 
