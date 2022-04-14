@@ -182,6 +182,7 @@ class Utils:
         (output,error)=popen.communicate()
         Utils.CheckOutputDeque.append((output,error,cmd))
         if popen.returncode != 0 and not ignoreError:
+            Utils.Print("ERROR: %s" % error)
             raise subprocess.CalledProcessError(returncode=popen.returncode, cmd=cmd, output=error)
         return output.decode("utf-8")
 

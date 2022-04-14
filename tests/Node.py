@@ -776,7 +776,7 @@ class Node(object):
             else:
                 cmdRetry = "--retry-num-blocks %s" % retry
 
-        cmd="%s %s -v transfer %s -j %s %s" % (
+        cmd="%s %s -v transfer --expiration 90 %s -j %s %s" % (
             Utils.EosClientPath, self.eosClientArgs(), cmdRetry, source.name, destination.name)
         cmdArr=cmd.split()
         cmdArr.append(amountStr)

@@ -16,12 +16,12 @@ import json
 ###############################################################
 # nodeos_retry_transaction_test
 # 
-# This test sets up 3 producing nodes and 4
-#   non-producing node(s). The non-producing node will be sent
-#   many transfers.  When it is complete it verifies that all
-#   of the transactions made it into blocks.
+# This test sets up 3 producing nodes and 4 non-producing
+#   nodes; 2 API nodes and 2 relay nodes. The API nodes will be
+#   sent many transfers.  When it is complete it verifies that
+#   all of the transactions made it into blocks.
 #
-# During processing two of the relay nodes are killed so that
+# During processing the two relay nodes are killed so that
 # one of the api nodes is isolated and its transactions will
 # be lost. The api node retry logic should allow it to resend
 # those transactions once connectivity is restored.
@@ -31,11 +31,11 @@ import json
 Print=Utils.Print
 
 appArgs = AppArgs()
-minTotalAccounts = 10
+minTotalAccounts = 5
 extraArgs = appArgs.add(flag="--transaction-time-delta", type=int, help="How many seconds seconds behind an earlier sent transaction should be received after a later one", default=5)
-extraArgs = appArgs.add(flag="--num-transactions", type=int, help="How many total transactions should be sent", default=10000)
-extraArgs = appArgs.add(flag="--max-transactions-per-second", type=int, help="How many transactions per second should be sent", default=500)
-extraArgs = appArgs.add(flag="--total-accounts", type=int, help="How many accounts should be involved in sending transfers.  Must be greater than %d" % (minTotalAccounts), default=100)
+extraArgs = appArgs.add(flag="--num-transactions", type=int, help="How many total transactions should be sent", default=1000)
+extraArgs = appArgs.add(flag="--max-transactions-per-second", type=int, help="How many transactions per second should be sent", default=50)
+extraArgs = appArgs.add(flag="--total-accounts", type=int, help="How many accounts should be involved in sending transfers.  Must be greater than %d" % (minTotalAccounts), default=10)
 args = TestHelper.parse_args({"--dump-error-details","--keep-logs","-v","--leave-running","--clean-run"}, applicationSpecificArgs=appArgs)
 
 Utils.Debug=args.v
@@ -61,6 +61,7 @@ if numTransactions % args.total_accounts > 0:
     Print("NOTE: --num-transactions passed as %d, but rounding to %d so each of the %d accounts gets the same number of transactions" %
           (oldNumTransactions, numTransactions, args.total_accounts))
 numRounds = int(numTransactions / args.total_accounts)
+assert numRounds > 3, Print("ERROR: Need more than three rounds: %d" % numRounds)
 
 
 walletMgr=WalletMgr(True, port=walletPort)
@@ -257,7 +258,7 @@ try:
             Utils.Print("Delay %d seconds to keep max transactions under %d per second" % (delayTime, maxTransactionsPerSecond))
             time.sleep(delayTime)
 
-        if round % 5 == 0:
+        if round % 3 == 0:
             killTime = time.perf_counter()
             cluster.getNode(4).kill(signal.SIGTERM)
             cluster.getNode(6).kill(signal.SIGTERM)
@@ -276,7 +277,7 @@ try:
             popen, cmd = node.transferFundsAsync(fromAccount, toAccount, transferAmount, "transfer round %d" % (round), exitOnError=False, retry=2)
             trackedTransPopens.append((popen, cmd))
 
-        if round % 5 == 0:
+        if round % 3 == 0:
             relaunchTime = time.perf_counter()
             cluster.getNode(4).relaunch(4, cachePopen=True)
             cluster.getNode(6).relaunch(6, cachePopen=True)
@@ -285,8 +286,10 @@ try:
 
         # store off the transaction id, which we can use with the node.transCache
         for i in range(0, len(trackedTransPopens)):
-            Utils.Print("checking output ", i, " ", trackedTransPopens[i][0], " ", trackedTransPopens[i][1])
-            history.append( Utils.toJson( Utils.checkDelayedOutput(trackedTransPopens[i][0], trackedTransPopens[i][1]) ) )
+            trans = Utils.toJson( Utils.checkDelayedOutput(trackedTransPopens[i][0], trackedTransPopens[i][1]) )
+            assert trans is not None, Print("ERROR: failed round: %d, index: %s" % (round, i))
+            # store off the transaction id, which we can use with the node.transCache
+            history.append(Node.getTransId(trans))
 
 
     nextTime = time.perf_counter()
@@ -296,7 +299,7 @@ try:
     blocks = {}
     transToBlock = {}
     missingTransactions = []
-    transBlockOrderWeird = []
+    transBlockOutOfOrder = []
     newestBlockNum = None
     newestBlockNumTransId = None
     newestBlockNumTransOrder = None
@@ -330,7 +333,7 @@ try:
 
         if lastBlockNum is not None:
             if blockNum > lastBlockNum + transBlocksBehind or blockNum + transBlocksBehind < lastBlockNum:
-                transBlockOrderWeird.append({
+                transBlockOutOfOrder.append({
                     "newer_trans_id" : transId,
                     "newer_trans_index" : transOrder,
                     "newer_bnum" : blockNum,
@@ -339,7 +342,7 @@ try:
                     "last_bnum" : lastBlockNum
                 })
                 if newestBlockNum > lastBlockNum:
-                    last = transBlockOrderWeird[-1]
+                    last = transBlockOutOfOrder[-1]
                     last["older_trans_id"] = newestBlockNumTransId
                     last["older_trans_index"] = newestBlockNumTransOrder
                     last["older_bnum"] = newestBlockNum
@@ -360,31 +363,32 @@ try:
     nextTime = time.perf_counter()
     Print("Validating transfers took %s sec" % (nextTime - startTranferValidationTime))
 
-    delayedReportError = False
+    missingReportError = False
     if len(missingTransactions) > 0:
         verboseOutput = "Missing transaction information: [" if Utils.Debug else "Missing transaction ids: ["
         verboseOutput = ", ".join([missingTrans if Utils.Debug else missingTrans["newer_trans_id"] for missingTrans in missingTransactions])
         verboseOutput += "]"
         Utils.Print("ERROR: There are %d missing transactions.  %s" % (len(missingTransactions), verboseOutput))
-        delayedReportError = True
+        missingReportError = True
 
-    if len(transBlockOrderWeird) > 0:
+    delayedReportError = True # expect to find delayed transactions since they were retried
+    if len(transBlockOutOfOrder) > 0:
         verboseOutput = "Delayed transaction information: [" if Utils.Debug else "Delayed transaction ids: ["
-        verboseOutput = ", ".join([json.dumps(trans, indent=2) if Utils.Debug else trans["newer_trans_id"] for trans in transBlockOrderWeird])
+        verboseOutput = ", ".join([json.dumps(trans, indent=2) if Utils.Debug else trans["newer_trans_id"] for trans in transBlockOutOfOrder])
         verboseOutput += "]"
-        Utils.Print("ERROR: There are %d transactions delayed more than %d seconds.  %s" % (len(transBlockOrderWeird), args.transaction_time_delta, verboseOutput))
-        delayedReportError = True
+        Utils.Print("There are %d transactions delayed more than %d seconds.  %s" % (len(transBlockOutOfOrder), args.transaction_time_delta, verboseOutput))
+        delayedReportError = False
 
-    testSuccessful = not delayedReportError
+    testSuccessful = not missingReportError and not delayedReportError
 finally:
     TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, killEosInstances=killEosInstances, killWallet=killWallet, keepLogs=keepLogs, cleanRun=killAll, dumpErrorDetails=dumpErrorDetails)
     if not testSuccessful:
         Print(Utils.FileDivider)
-        #Print("Compare Blocklog")
-        #cluster.compareBlockLogs()
+        Print("Compare Blocklog")
+        cluster.compareBlockLogs()
         Print(Utils.FileDivider)
-        #Print("Print Blocklog")
-        #cluster.printBlockLog()
+        Print("Print Blocklog")
+        cluster.printBlockLog()
         Print(Utils.FileDivider)
 
 errorCode = 0 if testSuccessful else 1
