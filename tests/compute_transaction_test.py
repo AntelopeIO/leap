@@ -113,7 +113,7 @@ try:
         "data": txnData}]
     }
 
-    node.pushTransaction(trx, opts='--read-only', permissions=account2.name)
+    assert(node.pushTransaction(trx, opts='--read-only', permissions=account2.name))
 
     node.waitForLibToAdvance(30)
 
