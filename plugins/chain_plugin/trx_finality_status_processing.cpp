@@ -98,10 +98,12 @@ namespace eosio::chain_apis {
          }
       }
       if (modified) {
-         const auto& indx = _storage.index().get<by_block_num>();
-         auto iter = indx.cbegin();
-         if (iter != indx.cend()) {
-            _last_tracked_block_id = iter->block_id;
+         const auto& indx = _storage.index().get<by_status_expiry>();
+
+         // find the lowest value successful block
+         auto success_iter = indx.lower_bound(boost::make_tuple(true, fc::time_point{}));
+         if (success_iter != indx.cend()) {
+            _last_tracked_block_id = success_iter->block_id;
          }
       }
 

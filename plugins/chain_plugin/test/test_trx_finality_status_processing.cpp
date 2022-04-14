@@ -537,7 +537,7 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_logic) { try {
    cs = status.get_chain_state();
    BOOST_CHECK(cs.head_id == bs_19->id);
    BOOST_CHECK(cs.irr_id == eosio::chain::block_id_type{});
-   BOOST_CHECK(cs.last_tracked_block_id == bs_20->id);
+   BOOST_CHECK(cs.last_tracked_block_id == bs_19->id);
 
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[0])->id());
@@ -998,6 +998,11 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_storage_reduction) { try {
 
 
 
+   auto cs = status.get_chain_state();
+   BOOST_CHECK(cs.head_id == b_11.bs->id);
+   BOOST_CHECK(cs.irr_id == eosio::chain::block_id_type{});
+   BOOST_CHECK(cs.last_tracked_block_id == b_01.bs->id);
+
    // Test expects the next block range to exceed max_storage. Need to adjust
    // this test if this fails.
    BOOST_REQUIRE(status.get_storage_memory_size() + block_and_speculative_size > max_storage);
@@ -1010,12 +1015,11 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_storage_reduction) { try {
    b_12.send_block();
    b_12.verify_block();
 
+   cs = status.get_chain_state();
+   BOOST_CHECK(cs.head_id == b_12.bs->id);
+   BOOST_CHECK(cs.irr_id == eosio::chain::block_id_type{});
+   BOOST_CHECK(cs.last_tracked_block_id == b_03.bs->id);
 
-
-   // Test should have dropped 2 blocks along with speculative transactions in the same range
-   // to free up space and should be less than 1 block range above the reduced storage size
-   const auto reduced_storage = (max_storage * 90)/100;
-   BOOST_REQUIRE(status.get_storage_memory_size() < reduced_storage + block_and_speculative_size);
 
    b_01.verify_spec_block_not_there();
    b_01.verify_block_not_there();
@@ -1129,6 +1133,11 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_lifespan) { try {
    b_02.verify_block();
    b_01.verify_spec_block();
 
+   auto cs = status.get_chain_state();
+   BOOST_CHECK(cs.head_id == b_06.bs->id);
+   BOOST_CHECK(cs.irr_id == eosio::chain::block_id_type{});
+   BOOST_CHECK(cs.last_tracked_block_id == b_02.bs->id);
+
 
    block_frame b_07(status, "04:44:30.500");
    b_07.send_spec_block();
@@ -1142,6 +1151,11 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_lifespan) { try {
    b_03.verify_block();
    b_01.verify_spec_block();
    b_02.verify_spec_block();
+
+   cs = status.get_chain_state();
+   BOOST_CHECK(cs.head_id == b_07.bs->id);
+   BOOST_CHECK(cs.irr_id == eosio::chain::block_id_type{});
+   BOOST_CHECK(cs.last_tracked_block_id == b_03.bs->id);
 
 
    block_frame b_08(status, "04:44:35.500");
