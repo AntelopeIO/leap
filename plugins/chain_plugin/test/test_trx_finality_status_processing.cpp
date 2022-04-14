@@ -714,7 +714,7 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_logic) { try {
    BOOST_REQUIRE(!ts);
 
    // irreversible
-   status.signal_irreversible_block(trx_pairs_19_alt, bs_19_alt);
+   status.signal_irreversible_block(bs_19_alt);
 
    cs = status.get_chain_state();
    BOOST_CHECK(cs.head_id == bs_19_alt->id);
