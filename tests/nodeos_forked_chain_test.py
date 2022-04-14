@@ -548,7 +548,7 @@ finally:
         Print("Compare Blocklog")
         cluster.compareBlockLogs()
         Print(Utils.FileDivider)
-        Print("Compare Blocklog")
+        Print("Print Blocklog")
         cluster.printBlockLog()
         Print(Utils.FileDivider)
 

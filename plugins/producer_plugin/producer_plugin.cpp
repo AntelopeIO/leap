@@ -222,6 +222,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       bool                                                      _disable_subjective_api_billing = true;
       fc::time_point                                            _irreversible_block_time;
       fc::microseconds                                          _keosd_provider_timeout_us;
+      uint32_t                                                  _subjective_account_max_failures = 0;
 
       std::vector<chain::digest_type>                           _protocol_features_to_activate;
       bool                                                      _protocol_features_signaled = false; // to mark whether it has been signaled in start_block
@@ -726,6 +727,10 @@ void producer_plugin::set_program_options(
           "Maximum wall-clock time, in milliseconds, spent retiring scheduled transactions in any block before returning to normal transaction processing.")
          ("subjective-cpu-leeway-us", boost::program_options::value<int32_t>()->default_value( config::default_subjective_cpu_leeway_us ),
           "Time in microseconds allowed for a transaction that starts with insufficient CPU quota to complete and cover its CPU usage.")
+         ("subjective-account-max-failures", boost::program_options::value<uint32_t>()->default_value(3),
+          "Sets the maximum amount of failures that are allowed for a given account per block.")
+         ("subjective-account-decay-time-minutes", bpo::value<uint32_t>()->default_value( config::account_cpu_usage_average_window_ms / 1000 / 60 ),
+          "Sets the time to return full subjective cpu for accounts")
          ("incoming-defer-ratio", bpo::value<double>()->default_value(1.0),
           "ratio between incoming transactions and deferred transactions when both are queued for execution")
          ("incoming-transaction-queue-size-mb", bpo::value<uint16_t>()->default_value( 1024 ),
@@ -878,6 +883,8 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
 
    my->_keosd_provider_timeout_us = fc::milliseconds(options.at("keosd-provider-timeout").as<int32_t>());
 
+   my->_subjective_account_max_failures = options.at("subjective-account-max-failures").as<uint32_t>();
+
    my->_produce_time_offset_us = options.at("produce-time-offset-us").as<int32_t>();
    EOS_ASSERT( my->_produce_time_offset_us <= 0 && my->_produce_time_offset_us >= -config::block_interval_us, plugin_config_exception,
                "produce-time-offset-us ${o} must be 0 .. -${bi}", ("bi", config::block_interval_us)("o", my->_produce_time_offset_us) );
@@ -914,6 +921,11 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
    if( options.at( "subjective-cpu-leeway-us" ).as<int32_t>() != config::default_subjective_cpu_leeway_us ) {
       chain.set_subjective_cpu_leeway( fc::microseconds( options.at( "subjective-cpu-leeway-us" ).as<int32_t>() ) );
    }
+
+   fc::microseconds subjective_account_decay_time = fc::minutes(options.at( "subjective-account-decay-time-minutes" ).as<uint32_t>());
+   EOS_ASSERT( subjective_account_decay_time.count() > 0, plugin_config_exception,
+               "subjective-account-decay-time-minutes ${dt} must be greater than 0", ("dt", subjective_account_decay_time.to_seconds() / 60));
+   my->_subjective_billing.set_expired_accumulator_average_window( subjective_account_decay_time );
 
    my->_max_transaction_time_ms = options.at("max-transaction-time").as<int32_t>();
 
@@ -1806,10 +1818,13 @@ namespace {
 // track multiple failures on unapplied transactions
 class account_failures {
 public:
-   constexpr static uint32_t max_failures_per_account = 3;
 
    //lifetime of sb must outlive account_failures
-   explicit account_failures( const eosio::subjective_billing& sb ) : subjective_billing(sb) {}
+   explicit account_failures( uint32_t max_failures, const eosio::subjective_billing& sb )
+   : max_failures_per_account(max_failures),
+     subjective_billing(sb)
+   {
+   }
 
    void add( const account_name& n, int64_t exception_code ) {
       auto& fa = failed_accounts[n];
@@ -1886,6 +1901,7 @@ private:
    };
 
    std::map<account_name, account_failure> failed_accounts;
+   uint32_t max_failures_per_account = 0;
    const eosio::subjective_billing& subjective_billing;
 };
 
@@ -1895,7 +1911,7 @@ bool producer_plugin_impl::process_unapplied_trxs( const fc::time_point& deadlin
 {
    bool exhausted = false;
    if( !_unapplied_transactions.empty() ) {
-      account_failures account_fails( _subjective_billing );
+      account_failures account_fails( _subjective_account_max_failures,  _subjective_billing );
       chain::controller& chain = chain_plug->chain();
       const auto& rl = chain.get_resource_limits_manager();
       int num_applied = 0, num_failed = 0, num_processed = 0;
