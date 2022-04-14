@@ -174,7 +174,7 @@ jobs:
           tar -xzf ubuntu-2004-build/build.tar.gz
           export DOCKER="docker run --rm -v ${GITHUB_WORKSPACE}:${GITHUB_WORKSPACE} -w ${GITHUB_WORKSPACE} ${UBUNTU_2004_IMAGE}"
           docker pull ${UBUNTU_2004_IMAGE}
-          ${DOCKER} bash -c 'cd build && ctest --output-on-failure -j $(nproc) -L "wasm_spec_tests" -E "conversions.*|f32.*|memory.*|f64.*|unreachable.*|const.*"'
+          ${DOCKER} bash -c 'cd build && ctest --output-on-failure -j $(nproc) -L "wasm_spec_tests" -E "conversions.*|f32.*|f64.*|unreachable.*|const.*"'
   ubuntu-2004-wasm-test-2:
     name: Ubuntu 20.04 | WASM Spec Test 2
     runs-on: ubuntu-latest
@@ -195,7 +195,7 @@ jobs:
           tar -xzf ubuntu-2004-build/build.tar.gz
           export DOCKER="docker run --rm -v ${GITHUB_WORKSPACE}:${GITHUB_WORKSPACE} -w ${GITHUB_WORKSPACE} ${UBUNTU_2004_IMAGE}"
           docker pull ${UBUNTU_2004_IMAGE}
-          ${DOCKER} bash -c 'cd build && ctest --output-on-failure -j $(nproc) -L "wasm_spec_tests" -R "conversions.*|f32.*|memory.*|f64.*|unreachable.*|const.*"'
+          ${DOCKER} bash -c 'cd build && ctest --output-on-failure -j $(nproc) -L "wasm_spec_tests" -R "conversions.*|f32.*|f64.*|unreachable.*|const.*"'
   ubuntu-2004-serial-test:
     name: Ubuntu 20.04 | Serial Test
     runs-on: ubuntu-latest
