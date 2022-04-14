@@ -25,7 +25,7 @@ set( CXX_STANDARD_REQUIRED ON)
 
 set(VERSION_MAJOR 3)
 set(VERSION_MINOR 0)
-set(VERSION_PATCH 0)
+set(VERSION_PATCH 5)
 set(VERSION_SUFFIX rc1)
 
 if(VERSION_SUFFIX)
@@ -162,6 +162,17 @@ if ("${EOSIO_ROOT_KEY}" STREQUAL "")
 endif()
 
 message( STATUS "Using '${EOSIO_ROOT_KEY}' as public key for 'eosio' account" )
+
+find_package( Gperftools QUIET )
+if( GPERFTOOLS_FOUND )
+    message( STATUS "Found gperftools; compiling EOSIO with TCMalloc")
+    #if doing this by the book, simply link_libraries( ${GPERFTOOLS_TCMALLOC} ) here. That will
+    #give the performance benefits of tcmalloc but since it won't be linked last
+    #the heap profiler & checker may not be accurate. This here is rather undocumented behavior
+    #to stuff a library toward the end of the link list
+    set(CMAKE_C_STANDARD_LIBRARIES "${CMAKE_C_STANDARD_LIBRARIES} ${GPERFTOOLS_TCMALLOC}")
+    set(CMAKE_CXX_STANDARD_LIBRARIES "${CMAKE_CXX_STANDARD_LIBRARIES} ${GPERFTOOLS_TCMALLOC}")
+endif()
 
 add_subdirectory( libraries )
 add_subdirectory( plugins )
