@@ -26,6 +26,7 @@ namespace eosio::chain_apis {
       struct trx_state {
          chain::block_id_type block_id;
          fc::time_point       block_timestamp;
+         fc::time_point       received;
          std::string          status;
       };
 
@@ -46,6 +47,8 @@ namespace eosio::chain_apis {
       chain_state get_chain_state() const;
 
       std::optional<trx_state> get_trx_state( const chain::transaction_id_type& id ) const;
+
+      size_t get_storage_memory_size() const;
 
    private:
       trx_finality_status_processing_impl_ptr _my;
