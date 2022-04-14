@@ -1526,7 +1526,7 @@ struct controller_impl {
 
          const signed_transaction& trn = trx->packed_trx()->get_signed_transaction();
          transaction_checktime_timer trx_timer(timer);
-         transaction_context trx_context(self, *trx->packed_trx(), std::move(trx_timer), start);
+         transaction_context trx_context(self, *trx->packed_trx(), std::move(trx_timer), start, trx->read_only);
          if ((bool)subjective_cpu_leeway && pending->_block_status == controller::block_status::incomplete) {
             trx_context.leeway = *subjective_cpu_leeway;
          }
@@ -1564,7 +1564,8 @@ struct controller_impl {
                        {},
                        trx_context.delay,
                        [&trx_context](){ trx_context.checktime(); },
-                       false
+                       false,
+                       trx->read_only
                );
             }
             trx_context.exec();

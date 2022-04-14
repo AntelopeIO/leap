@@ -362,6 +362,7 @@ void apply_context::execute_inline( action&& a ) {
                                       control.pending_block_time() - trx_context.published,
                                       std::bind(&transaction_context::checktime, &this->trx_context),
                                       false,
+                                      trx_context.is_read_only,
                                       inherited_authorizations
                                     );
 
