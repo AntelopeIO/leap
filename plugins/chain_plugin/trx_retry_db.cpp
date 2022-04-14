@@ -104,7 +104,7 @@ struct trx_retry_db_impl {
    , _max_expiration_time(max_expiration_time)
    {}
 
-   const fc::microseconds& get_max_expiration_time()const {
+   const fc::microseconds& get_max_expiration()const {
       return _max_expiration_time;
    }
 
@@ -222,6 +222,7 @@ private:
       for( auto& i: to_process ) {
          _transaction_ack_channel.publish(
                appbase::priority::low, std::pair<fc::exception_ptr, packed_transaction_ptr>( nullptr, i->ptrx ) );
+         dlog( "retry send trx ${id}", ("id", i->ptrx->id()) );
          _tracked_trxs.modify( i, [&]( tracked_transaction& tt ) {
             tt.last_try = now;
          } );
@@ -305,7 +306,8 @@ void trx_retry_db::track_transaction( chain::packed_transaction_ptr ptrx, std::o
 }
 
 fc::time_point_sec trx_retry_db::get_max_expiration_time()const {
-   return fc::time_point::now() + _impl->get_max_expiration_time();
+   // conversion from time_point to time_point_sec rounds down, round up to nearest second to avoid appearing expired
+   return fc::time_point::now() + _impl->get_max_expiration() + fc::microseconds(999'999);
 }
 
 size_t trx_retry_db::size()const {

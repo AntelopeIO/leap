@@ -2486,7 +2486,7 @@ void read_write::send_transaction2(const read_write::send_transaction2_params& p
       std::optional<uint16_t> retry_num_blocks = params.retry_trx_num_blocks;
 
       EOS_ASSERT( !retry || trx_retry.has_value(), unsupported_feature, "Transaction retry not enabled on node" );
-      EOS_ASSERT( !retry || (ptrx->expiration() < trx_retry->get_max_expiration_time()), tx_exp_too_far_exception,
+      EOS_ASSERT( !retry || (ptrx->expiration() <= trx_retry->get_max_expiration_time()), tx_exp_too_far_exception,
                   "retry transaction expiration ${e} larger than allowed ${m}",
                   ("e", ptrx->expiration())("m", trx_retry->get_max_expiration_time()) );
 
