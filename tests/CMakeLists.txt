@@ -83,7 +83,7 @@ add_test(NAME producer-preactivate-feature-test COMMAND tests/prod_preactivation
 set_property(TEST producer-preactivate-feature-test PROPERTY LABELS nonparallelizable_tests)
 add_test(NAME nodeos_protocol_feature_test COMMAND tests/nodeos_protocol_feature_test.py -v --clean-run --dump-error-detail WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nodeos_protocol_feature_test PROPERTY LABELS nonparallelizable_tests)
-add_test(NAME compute_transaction_test COMMAND tests/compute_transaction_test.py -v --clean-run --dump-error-detail WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+add_test(NAME compute_transaction_test COMMAND tests/compute_transaction_test.py -v -p 2 --clean-run --dump-error-detail WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST compute_transaction_test PROPERTY LABELS nonparallelizable_tests)
 
 add_test(NAME distributed-transactions-test COMMAND tests/distributed-transactions-test.py -d 2 -p 4 -n 6 -v --clean-run --dump-error-detail WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
