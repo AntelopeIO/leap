@@ -99,6 +99,13 @@ Config Options for eosio::producer_plugin:
                                         transactions in any block before 
                                         returning to normal transaction 
                                         processing.
+  --subjective-account-max-failures (=3)
+                                        Sets the maximum amount of failures
+                                        that are allowed for a given account
+                                        per block.
+  --subjective-account-decay-time-minutes (=1440)
+                                        Sets the time to return full subjective
+                                        cpu for accounts
   --incoming-defer-ratio arg (=1)       ratio between incoming transactions and 
                                         deferred transactions when both are 
                                         queued for execution                                        
