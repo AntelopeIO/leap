@@ -104,17 +104,25 @@ try:
     Print("Starting balances:")
     Print(preBalances)
 
-    txnData ='{"from":"account1","to":"account2","quantity":"5.0000 EOS","memo":"tx1"}'
+    txnData ='"{"from":"account1","to":"account2","quantity":"5.0000 EOS","memo":"tx1"}"'
 
     Print("Sending read-only transfer")
     trx = {
-        "actions": [{"account": "eosio.token", "name": "transfer",
-        "authorization": [{"actor": account2.name, "permission": "active"}],
-        "data": txnData}]
+        "actions": [{"account": "eosio.token","name": "transfer",
+        "authorization": [{"actor": "account1","permission": "active"}],
+        "data": {"from": "account1","to": "account2","quantity": "1.0001 SYS","memo": "tx1"},
+        "compression": "none"}]
     }
 
-    assert(node.pushTransaction(trx, opts='--read-only', permissions=account2.name))
+    results = node.pushTransaction(trx, opts='--read-only', permissions=account1.name)
+    assert(results[0])
+    node.waitForLibToAdvance(30)
 
+    postBalances = node.getEosBalances([account1, account2])
+    assert(postBalances == preBalances)
+
+    results = node.pushTransaction(trx, opts='--read-only --skip-sign')
+    assert(results[0])
     node.waitForLibToAdvance(30)
 
     postBalances = node.getEosBalances([account1, account2])
