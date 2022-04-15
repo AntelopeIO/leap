@@ -963,7 +963,7 @@ class Node(object):
         keys=list(row.keys())
         return keys
 
-    def pushTransaction(self, trans, opts="--skip-sign", silentErrors=False, permissions=None):
+    def pushTransaction(self, trans, opts="", silentErrors=False, permissions=None):
         assert(isinstance(trans, dict))
         if isinstance(permissions, str):
             permissions=[permissions]
