@@ -104,8 +104,6 @@ try:
     Print("Starting balances:")
     Print(preBalances)
 
-    txnData ='"{"from":"account1","to":"account2","quantity":"5.0000 EOS","memo":"tx1"}"'
-
     Print("Sending read-only transfer")
     trx = {
         "actions": [{"account": "eosio.token","name": "transfer",
