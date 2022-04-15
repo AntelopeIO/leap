@@ -1526,7 +1526,7 @@ struct controller_impl {
 
          const signed_transaction& trn = trx->packed_trx()->get_signed_transaction();
          transaction_checktime_timer trx_timer(timer);
-         transaction_context trx_context(self, *trx->packed_trx(), std::move(trx_timer), start);
+         transaction_context trx_context(self, *trx->packed_trx(), std::move(trx_timer), start, trx->read_only);
          if ((bool)subjective_cpu_leeway && pending->_block_status == controller::block_status::incomplete) {
             trx_context.leeway = *subjective_cpu_leeway;
          }
@@ -1564,7 +1564,8 @@ struct controller_impl {
                        {},
                        trx_context.delay,
                        [&trx_context](){ trx_context.checktime(); },
-                       false
+                       false,
+                       trx->read_only
                );
             }
             trx_context.exec();
@@ -1600,8 +1601,8 @@ struct controller_impl {
             emit(self.applied_transaction, std::tie(trace, trx->packed_trx()));
 
 
-            if ( read_mode != db_read_mode::SPECULATIVE && pending->_block_status == controller::block_status::incomplete ) {
-               //this may happen automatically in destructor, but I prefere make it more explicit
+            if ( read_mode != db_read_mode::SPECULATIVE && pending->_block_status == controller::block_status::incomplete || trx->read_only ) {
+               //this may happen automatically in destructor, but I prefer make it more explicit
                trx_context.undo();
             } else {
                restore.cancel();
@@ -2022,7 +2023,7 @@ struct controller_impl {
                   } else {
                      packed_transaction_ptr ptrx( b, &pt ); // alias signed_block_ptr
                      auto fut = transaction_metadata::start_recover_keys(
-                           std::move( ptrx ), thread_pool.get_executor(), chain_id, microseconds::maximum() );
+                           std::move( ptrx ), thread_pool.get_executor(), chain_id, microseconds::maximum(), transaction_metadata::trx_type::input  );
                      trx_metas.emplace_back( transaction_metadata_ptr{}, std::move( fut ) );
                   }
                }

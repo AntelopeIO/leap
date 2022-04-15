@@ -1188,7 +1188,7 @@ BOOST_FIXTURE_TEST_CASE(transaction_tests, TESTER) { try {
       BOOST_CHECK(pkt.get_packed_transaction() == packed_copy);
       ptrx = std::make_shared<packed_transaction>( pkt );
 
-      auto fut = transaction_metadata::start_recover_keys( std::move( ptrx ), control->get_thread_pool(), control->get_chain_id(), time_limit );
+      auto fut = transaction_metadata::start_recover_keys( std::move( ptrx ), control->get_thread_pool(), control->get_chain_id(), time_limit, transaction_metadata::trx_type::input );
       auto r = control->push_transaction( fut.get(), fc::time_point::maximum(), DEFAULT_BILLED_CPU_TIME_US, true, 0 );
       if( r->except_ptr ) std::rethrow_exception( r->except_ptr );
       if( r->except) throw *r->except;

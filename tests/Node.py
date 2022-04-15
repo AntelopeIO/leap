@@ -1016,6 +1016,41 @@ class Node(object):
         keys=list(row.keys())
         return keys
 
+    def pushTransaction(self, trans, opts="", silentErrors=False, permissions=None):
+        assert(isinstance(trans, dict))
+        if isinstance(permissions, str):
+            permissions=[permissions]
+        reportStatus = True
+
+        cmd="%s %s push transaction -j" % (Utils.EosClientPath, self.eosClientArgs())
+        cmdArr=cmd.split()
+        transStr = json.dumps(trans, separators=(',', ':'))
+        transStr = transStr.replace("'", '"')
+        cmdArr.append(transStr)
+        if opts is not None:
+            cmdArr += opts.split()
+        if permissions is not None:
+            for permission in permissions:
+                cmdArr.append("-p")
+                cmdArr.append(permission)
+
+        s=" ".join(cmdArr)
+        if Utils.Debug: Utils.Print("cmd: %s" % (cmdArr))
+        start=time.perf_counter()
+        try:
+            retTrans=Utils.runCmdArrReturnJson(cmdArr)
+            self.trackCmdTransaction(retTrans, ignoreNonTrans=True)
+            if Utils.Debug:
+                end=time.perf_counter()
+                Utils.Print("cmd Duration: %.3f sec" % (end-start))
+            return (True, retTrans)
+        except subprocess.CalledProcessError as ex:
+            msg=ex.output.decode("utf-8")
+            if not silentErrors:
+                end=time.perf_counter()
+                Utils.Print("ERROR: Exception during push message.  cmd Duration=%.3f sec.  %s" % (end - start, msg))
+            return (False, msg)
+
     # returns tuple with transaction and
     def pushMessage(self, account, action, data, opts, silentErrors=False):
         cmd="%s %s push action -j %s %s" % (Utils.EosClientPath, self.eosClientArgs(), account, action)

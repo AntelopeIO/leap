@@ -38,7 +38,8 @@ namespace eosio { namespace chain {
          transaction_context( controller& c,
                               const packed_transaction& t,
                               transaction_checktime_timer&& timer,
-                              fc::time_point start = fc::time_point::now() );
+                              fc::time_point start = fc::time_point::now(),
+                              bool read_only=false);
          ~transaction_context();
 
          void init_for_implicit_trx( uint64_t initial_net_usage = 0 );
@@ -148,9 +149,9 @@ namespace eosio { namespace chain {
 
          transaction_checktime_timer   transaction_timer;
 
-      private:
+         bool                          is_read_only = false;
+   private:
          bool                          is_initialized = false;
-
 
          uint64_t                      net_limit = 0;
          bool                          net_limit_due_to_block = true;
