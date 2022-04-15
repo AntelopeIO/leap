@@ -712,16 +712,15 @@ class Node(object):
     def waitForIrreversibleBlock(self, blockNum, timeout=None, blockType=BlockType.head):
         return self.waitForBlock(blockNum, timeout=timeout, blockType=blockType)
 
-    # Trasfer funds. Returns "transfer" json return object
-    def transferFunds(self, source, destination, amountStr, memo="memo", force=False, waitForTransBlock=False, exitOnError=True, reportStatus=True):
+    def __transferFundsCmdArr(self, source, destination, amountStr, memo, force, retry):
         assert isinstance(amountStr, str)
         assert(source)
         assert(isinstance(source, Account))
         assert(destination)
         assert(isinstance(destination, Account))
 
-        cmd="%s %s -v transfer -j %s %s" % (
-            Utils.EosClientPath, self.eosClientArgs(), source.name, destination.name)
+        cmd="%s %s -v transfer --expiration 90 %s -j %s %s" % (
+            Utils.EosClientPath, self.eosClientArgs(), self.getRetryCmdArg(retry), source.name, destination.name)
         cmdArr=cmd.split()
         cmdArr.append(amountStr)
         cmdArr.append(memo)
@@ -729,6 +728,11 @@ class Node(object):
             cmdArr.append("-f")
         s=" ".join(cmdArr)
         if Utils.Debug: Utils.Print("cmd: %s" % (s))
+        return cmdArr
+
+    # Trasfer funds. Returns "transfer" json return object
+    def transferFunds(self, source, destination, amountStr, memo="memo", force=False, waitForTransBlock=False, exitOnError=True, reportStatus=True, retry=None):
+        cmdArr = self.__transferFundsCmdArr(source, destination, amountStr, memo, force, retry)
         trans=None
         start=time.perf_counter()
         try:
@@ -751,6 +755,38 @@ class Node(object):
             Utils.errorExit("Failed to transfer \"%s\" from %s to %s" % (amountStr, source, destination))
 
         return self.waitForTransBlockIfNeeded(trans, waitForTransBlock, exitOnError=exitOnError)
+
+    # Trasfer funds. Returns (popen, cmdArr) for checkDelayedOutput
+    def transferFundsAsync(self, source, destination, amountStr, memo="memo", force=False, exitOnError=True, retry=None):
+        cmdArr = self.__transferFundsCmdArr(source, destination, amountStr, memo, force, retry)
+        start=time.perf_counter()
+        try:
+            popen=Utils.delayedCheckOutput(cmdArr)
+            if Utils.Debug:
+                end=time.perf_counter()
+                Utils.Print("cmd Duration: %.3f sec" % (end-start))
+        except subprocess.CalledProcessError as ex:
+            end=time.perf_counter()
+            msg=ex.output.decode("utf-8")
+            Utils.Print("ERROR: Exception during spawn of funds transfer.  cmd Duration: %.3f sec.  %s" % (end-start, msg))
+            if exitOnError:
+                Utils.cmdError("could not transfer \"%s\" from %s to %s" % (amountStr, source, destination))
+                Utils.errorExit("Failed to transfer \"%s\" from %s to %s" % (amountStr, source, destination))
+            return None, None
+
+        return popen, cmdArr
+
+    @staticmethod
+    def getRetryCmdArg(retry):
+        """Returns the cleos cmd arg for retry"""
+        assert retry is None or isinstance(retry, int) or (isinstance(retry, str) and retry == "lib"), "Invalid retry passed"
+        cmdRetry = ""
+        if retry is not None:
+            if retry == "lib":
+                cmdRetry = "--retry-irreversible"
+            else:
+                cmdRetry = "--retry-num-blocks %s" % retry
+        return cmdRetry
 
     @staticmethod
     def currencyStrToInt(balanceStr):
