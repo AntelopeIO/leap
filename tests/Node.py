@@ -986,7 +986,7 @@ class Node(object):
         start=time.perf_counter()
         try:
             retTrans=Utils.runCmdArrReturnJson(cmdArr)
-            self.trackCmdTransaction(retTrans, ignoreNonTrans=True, reportStatus=reportStatus)
+            self.trackCmdTransaction(retTrans, ignoreNonTrans=True)
             if Utils.Debug:
                 end=time.perf_counter()
                 Utils.Print("cmd Duration: %.3f sec" % (end-start))
