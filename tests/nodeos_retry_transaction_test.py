@@ -83,7 +83,7 @@ try:
     specificExtraNodeosArgs={
         3:"--transaction-retry-max-storage-size-gb 5 --disable-api-persisted-trx", # api node
         4:"--disable-api-persisted-trx",                                           # relay only, will be killed
-        5:"--transaction-retry-max-storage-size-gb 5 --disable-api-persisted-trx", # api node, will be isolated
+        5:"--transaction-retry-max-storage-size-gb 5",                             # api node, will be isolated
         6:"--disable-api-persisted-trx"                                            # relay only, will be killed
     }
 
