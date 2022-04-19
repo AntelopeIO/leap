@@ -73,7 +73,7 @@ try:
     Print ("producing nodes: %s, non-producing nodes: %d, topology: %s, delay between nodes launch(seconds): %d" % (pnodes, total_nodes-pnodes, topo, delay))
 
     Print("Stand up cluster")
-    if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, topo=topo, delay=delay) is False:
+    if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, topo=topo, delay=delay,extraNodeosArgs=" --http-max-response-time-ms 990000 --disable-subjective-api-billing false --subjective-cpu-leeway-us 0" ) is False:
        errorExit("Failed to stand up eos cluster.")
 
     Print ("Wait for Cluster stabilization")
@@ -91,12 +91,17 @@ try:
     account2 = Account('account2')
     account2.ownerPublicKey = EOSIO_ACCT_PUBLIC_DEFAULT_KEY
     account2.activePublicKey = EOSIO_ACCT_PUBLIC_DEFAULT_KEY
-    cluster.createAccountAndVerify(account2, cluster.eosioAccount, stakedDeposit=1000)
+    cluster.createAccountAndVerify(account2, cluster.eosioAccount, stakedDeposit=1000, stakeCPU=1)
 
     Print("Validating accounts after bootstrap")
     cluster.validateAccounts([account1, account2])
 
     node = cluster.getNode()
+
+    # non-producing node
+    npnode = cluster.nodes[-1]
+
+
     transferAmount="1000.0000 {0}".format(CORE_SYMBOL)
 
     node.transferFunds(cluster.eosioAccount, account1, transferAmount, "fund account")
@@ -125,8 +130,45 @@ try:
 
     postBalances = node.getEosBalances([account1, account2])
 
-    testSuccessful = (postBalances == preBalances)
+    assert(postBalances == preBalances)
 
+#   Send through some failing *read only* transactions on a non-producer node
+    for x in range(5):
+        memo = 'tx-{}'.format(x)
+        trx2 = {
+
+            "actions": [{"account": "eosio.token","name": "transfer",
+                         "authorization": [{"actor": "account2","permission": "active"}],
+                         "data": {"from": "account2","to": "account1","quantity": "10.0001 SYS","memo": memo},
+                         "compression": "none"}]
+        }
+
+        results = npnode.pushTransaction(trx2, opts="--read-only")
+        assert(not results[0])
+
+# Verify that no subjective billing was charged
+    acct2 = npnode.getAccountSubjectiveInfo("account2")
+    assert(acct2["used"] == 0)
+
+    #   Send through some failing *non read-only* transactions on a non-producer node
+    for x in range(5):
+        memo = 'tx-{}'.format(x)
+        trx2 = {
+
+            "actions": [{"account": "eosio.token","name": "transfer",
+                         "authorization": [{"actor": "account2","permission": "active"}],
+                         "data": {"from": "account2","to": "account1","quantity": "10.0001 SYS","memo": memo},
+                         "compression": "none"}]
+        }
+
+        results = npnode.pushTransaction(trx2)
+        assert(not results[0])
+
+    # Verify that subjective billing *was* charged
+    acct2 = npnode.getAccountSubjectiveInfo("account2")
+    assert(acct2["used"] > 0)
+
+    testSuccessful = True
 finally:
     TestHelper.shutdown(cluster, walletMgr, testSuccessful, killEosInstances, killWallet, keepLogs, killAll, dumpErrorDetails)
 
