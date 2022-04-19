@@ -1121,8 +1121,6 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
       my->chain.emplace( *my->chain_config, std::move(pfs), *chain_id );
 
       if( options.count( "transaction-retry-max-storage-size-gb" )) {
-         EOS_ASSERT( options.at( "disable-api-persisted-trx" ).as<bool>(), plugin_config_exception,
-                     "disable-api-persisted-trx must be set to true for transaction retry feature" );
          EOS_ASSERT( !options.count( "producer-name"), plugin_config_exception,
                      "Transaction retry not allowed on producer nodes." );
          const uint64_t max_storage_size = options.at( "transaction-retry-max-storage-size-gb" ).as<uint64_t>() * 1024 * 1024 * 1024;

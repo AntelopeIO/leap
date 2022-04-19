@@ -1601,7 +1601,7 @@ struct controller_impl {
             emit(self.applied_transaction, std::tie(trace, trx->packed_trx()));
 
 
-            if ( read_mode != db_read_mode::SPECULATIVE && pending->_block_status == controller::block_status::incomplete || trx->read_only ) {
+            if ( (read_mode != db_read_mode::SPECULATIVE && pending->_block_status == controller::block_status::incomplete) || trx->read_only ) {
                //this may happen automatically in destructor, but I prefer make it more explicit
                trx_context.undo();
             } else {
