@@ -149,7 +149,7 @@ namespace eosio { namespace chain {
 
          transaction_checktime_timer   transaction_timer;
 
-         bool                          is_read_only = false;
+         const bool                    is_read_only;
    private:
          bool                          is_initialized = false;
 

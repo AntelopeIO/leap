@@ -55,9 +55,9 @@ namespace eosio { namespace chain {
    ,trace(std::make_shared<transaction_trace>())
    ,start(s)
    ,transaction_timer(std::move(tmr))
+   ,is_read_only(read_only)
    ,net_usage(trace->net_usage)
    ,pseudo_start(s)
-   ,is_read_only(read_only)
    {
       if (!c.skip_db_sessions()) {
          undo_session.emplace(c.mutable_db().start_undo_session(true));

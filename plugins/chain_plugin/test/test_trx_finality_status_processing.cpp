@@ -93,24 +93,11 @@ chain::transaction_trace_ptr make_transaction_trace( const packed_transaction_pt
    });
 }
 
-uint64_t get_id( const transaction& trx ) {
-   testit t = trx.actions.at(0).data_as<testit>();
-   return t.id;
-}
-
-uint64_t get_id( const packed_transaction_ptr& ptr ) {
-   return get_id( ptr->get_transaction() );
-}
-
 chain::block_id_type make_block_id( uint32_t block_num ) {
    chain::block_id_type block_id;
    block_id._hash[0] &= 0xffffffff00000000;
    block_id._hash[0] += fc::endian_reverse_u32(block_num);
    return block_id;
-}
-
-uint32_t get_block_num( const chain::block_id_type& block_id ) {
-   return eosio::chain::block_header::num_from_id(block_id);
 }
 
 auto make_block_state( uint32_t block_num ) {
