@@ -585,7 +585,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                   }
                   exhausted = block_is_exhausted();
                } else {
-                   if (!trx->read_only)
+                   if (!disable_subjective_billing)
                       _subjective_billing.subjective_bill_failure( first_auth, trace->elapsed, fc::time_point::now() );
 
                   auto e_ptr = trace->except->dynamic_copy_exception();
@@ -599,7 +599,8 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                   _unapplied_transactions.add_persisted( trx );
                } else {
                   // if db_read_mode SPECULATIVE then trx is in the pending block and not immediately reverted
-                  _subjective_billing.subjective_bill( trx->id(), expire, first_auth, trace->elapsed,
+                  if (!disable_subjective_billing)
+                     _subjective_billing.subjective_bill( trx->id(), expire, first_auth, trace->elapsed,
                                                        chain.get_read_mode() == chain::db_read_mode::SPECULATIVE );
                }
                send_response( trace );

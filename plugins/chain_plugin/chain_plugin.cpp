@@ -2813,7 +2813,7 @@ void read_only::compute_transaction(const fc::variant_object& params, next_funct
             abi_serializer::from_variant(params, *pretty_input, resolver, abi_serializer::create_yield_function( abi_serializer_max_time ));
         } EOS_RETHROW_EXCEPTIONS(chain::packed_transaction_type_exception, "Invalid packed transaction")
 
-        app().get_method<incoming::methods::transaction_async>()(pretty_input, true, true,
+        app().get_method<incoming::methods::transaction_async>()(pretty_input, false, true,
              [this, next](const std::variant<fc::exception_ptr, transaction_trace_ptr>& result) -> void {
                  if (std::holds_alternative<fc::exception_ptr>(result)) {
                      next(std::get<fc::exception_ptr>(result));
