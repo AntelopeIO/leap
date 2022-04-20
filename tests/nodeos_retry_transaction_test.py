@@ -141,15 +141,12 @@ try:
 
     apiNodeCount = len(apiNodes)
 
-    # ***   delegate bandwidth to accounts   ***
-
     node=apiNodes[0]
     checkTransIds = []
     startTime = time.perf_counter()
     Print("Create new accounts via %s" % (cluster.eosioAccount.name))
-    # create accounts via eosio as otherwise a bid is needed
     for account in accounts:
-        trans = node.createInitializeAccount(account, cluster.eosioAccount, stakedDeposit=0, waitForTransBlock=False, stakeNet=1000, stakeCPU=1000, buyRAM=1000, exitOnError=True)
+        trans = node.createInitializeAccount(account, cluster.eosioAccount, stakedDeposit=0, waitForTransBlock=(account == accounts[-1]), stakeNet=1000, stakeCPU=1000, buyRAM=1000, exitOnError=True)
         checkTransIds.append(Node.getTransId(trans))
 
     nextTime = time.perf_counter()
@@ -160,7 +157,7 @@ try:
     for account in accounts:
         transferAmount="1000.0000 {0}".format(CORE_SYMBOL)
         Print("Transfer funds %s from account %s to %s" % (transferAmount, cluster.eosioAccount.name, account.name))
-        trans = node.transferFunds(cluster.eosioAccount, account, transferAmount, "test transfer", waitForTransBlock=False, reportStatus=False)
+        trans = node.transferFunds(cluster.eosioAccount, account, transferAmount, "test transfer", waitForTransBlock=(account == accounts[-1]), reportStatus=False)
         checkTransIds.append(Node.getTransId(trans))
 
     nextTime = time.perf_counter()
@@ -169,7 +166,7 @@ try:
 
     Print("Delegate Bandwidth to new accounts")
     for account in accounts:
-        trans=node.delegatebw(account, 200.0000, 200.0000, waitForTransBlock=False, exitOnError=True, reportStatus=False)
+        trans=node.delegatebw(account, 200.0000, 200.0000, waitForTransBlock=(account == accounts[-1]), exitOnError=True, reportStatus=False)
         checkTransIds.append(Node.getTransId(trans))
 
     nextTime = time.perf_counter()
