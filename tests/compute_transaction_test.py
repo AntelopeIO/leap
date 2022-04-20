@@ -168,6 +168,17 @@ try:
     acct2 = npnode.getAccountSubjectiveInfo("account2")
     assert(acct2["used"] > 0)
 
+    # Test that irrelavent signature doesn't break read-only txn
+    trx3 = {
+
+        "actions": [{"account": "eosio.token","name": "transfer",
+                     "authorization": [{"actor": "account1","permission": "active"},{"actor": "account2","permission": "active"}],
+                     "data": {"from": "account1","to": "account2","quantity": "10.0001 SYS","memo": memo},
+                     "compression": "none"}]
+    }
+    results = npnode.pushTransaction(trx3, opts="--read-only")
+    assert(results[0])
+
     testSuccessful = True
 finally:
     TestHelper.shutdown(cluster, walletMgr, testSuccessful, killEosInstances, killWallet, keepLogs, killAll, dumpErrorDetails)
