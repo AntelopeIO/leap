@@ -851,6 +851,11 @@ class Node(object):
 
         return balances
 
+    # Gets subjective bill info for an account
+    def getAccountSubjectiveInfo(self, account):
+        acct = self.getEosAccount(account)
+        return acct["subjective_cpu_bill_limit"]
+
     # Gets accounts mapped to key. Returns json object
     def getAccountsByKey(self, key, exitOnError=False):
         cmdDesc = "get accounts"
