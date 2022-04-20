@@ -1963,6 +1963,10 @@ bool producer_plugin_impl::process_unapplied_trxs( const fc::time_point& deadlin
             }
             // no subjective billing since we are producing or processing persisted trxs
             const uint32_t sub_bill = 0;
+            bool disable_subjective_billing = ( _pending_block_mode == pending_block_mode::producing )
+               || ( (itr->trx_type == trx_enum_type::persisted) && _disable_subjective_api_billing )
+               || ( !(itr->trx_type == trx_enum_type::persisted) && _disable_subjective_p2p_billing )
+               || trx->read_only;
 
             auto trace = chain.push_transaction( trx, trx_deadline, prev_billed_cpu_time_us, false, sub_bill );
             fc_dlog( _trx_failed_trace_log, "Subjective unapplied bill for ${a}: ${b} prev ${t}us", ("a",first_auth)("b",prev_billed_cpu_time_us)("t",trace->elapsed));
@@ -1982,7 +1986,8 @@ bool producer_plugin_impl::process_unapplied_trxs( const fc::time_point& deadlin
                               ("c", trace->except->code())("p", prev_billed_cpu_time_us)
                               ("r", fc::time_point::now() - start)("id", trx->id()) );
                      account_fails.add( first_auth, failure_code );
-                     _subjective_billing.subjective_bill_failure( first_auth, trace->elapsed, fc::time_point::now() );
+                     if (!disable_subjective_billing)
+                        _subjective_billing.subjective_bill_failure( first_auth, trace->elapsed, fc::time_point::now() );
                   }
                   ++num_failed;
                   itr = _unapplied_transactions.erase( itr );
@@ -1991,7 +1996,8 @@ bool producer_plugin_impl::process_unapplied_trxs( const fc::time_point& deadlin
             } else {
                fc_dlog( _trx_successful_trace_log, "Subjective unapplied bill for success ${a}: ${b} prev ${t}us", ("a",first_auth)("b",prev_billed_cpu_time_us)("t",trace->elapsed));
                // if db_read_mode SPECULATIVE then trx is in the pending block and not immediately reverted
-               _subjective_billing.subjective_bill( trx->id(), trx->packed_trx()->expiration(), first_auth, trace->elapsed,
+               if (!disable_subjective_billing)
+                  _subjective_billing.subjective_bill( trx->id(), trx->packed_trx()->expiration(), first_auth, trace->elapsed,
                                                     chain.get_read_mode() == chain::db_read_mode::SPECULATIVE );
                ++num_applied;
                itr = _unapplied_transactions.erase( itr );
