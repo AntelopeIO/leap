@@ -1592,13 +1592,15 @@ struct controller_impl {
                              std::move(trx_context.executed_action_receipt_digests) );
 
             // call the accept signal but only once for this transaction
-            if (!trx->accepted) {
-               trx->accepted = true;
-               emit( self.accepted_transaction, trx);
-            }
+            if (!trx->read_only) {
+                if (!trx->accepted) {
+                    trx->accepted = true;
+                    emit(self.accepted_transaction, trx);
+                }
 
-            dmlog_applied_transaction(trace);
-            emit(self.applied_transaction, std::tie(trace, trx->packed_trx()));
+                dmlog_applied_transaction(trace);
+                emit(self.applied_transaction, std::tie(trace, trx->packed_trx()));
+            }
 
 
             if ( (read_mode != db_read_mode::SPECULATIVE && pending->_block_status == controller::block_status::incomplete) || trx->read_only ) {
@@ -1625,9 +1627,11 @@ struct controller_impl {
            handle_exception(wrapper);
          }
 
-         emit( self.accepted_transaction, trx );
-         dmlog_applied_transaction(trace);
-         emit( self.applied_transaction, std::tie(trace, trx->packed_trx()) );
+         if (!trx->read_only) {
+             emit(self.accepted_transaction, trx);
+             dmlog_applied_transaction(trace);
+             emit(self.applied_transaction, std::tie(trace, trx->packed_trx()));
+         }
 
          return trace;
       } FC_CAPTURE_AND_RETHROW((trace))
