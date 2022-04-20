@@ -219,7 +219,7 @@ void add_standard_transaction_options(CLI::App* cmd, string default_permission =
    cmd->add_flag("--return-packed", tx_return_packed, localized("used in conjunction with --dont-broadcast to get the packed transaction"));
    cmd->add_option("-r,--ref-block", tx_ref_block_num_or_id, (localized("set the reference block num or block id used for TAPOS (Transaction as Proof-of-Stake)")));
    cmd->add_flag("--use-old-rpc", tx_use_old_rpc, localized("use old RPC push_transaction, rather than new RPC send_transaction"));
-   cmd->add_flag("--use-old-send-rpc", tx_use_old_send_rpc, localized("Use old RPC send_transaction, rather than new RPC /v2/chain/send_transaction"));
+   cmd->add_flag("--use-old-send-rpc", tx_use_old_send_rpc, localized("Use old RPC send_transaction, rather than new RPC /v1/chain/send_transaction2"));
 
    string msg = "An account and permission level to authorize, as in 'account@permission'";
    if(!default_permission.empty())
