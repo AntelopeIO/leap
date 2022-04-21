@@ -381,7 +381,7 @@ fc::variant push_transaction( signed_transaction& trx, packed_transaction::compr
             try {
                bool retry = tx_retry_lib || tx_retry_num_blocks > 0;
                auto args = fc::mutable_variant_object()
-                     ( "return_failure_traces", tx_rtn_failure_trace )
+                     ( "return_failure_trace", tx_rtn_failure_trace )
                      ( "retry_trx", retry );
                if( tx_retry_num_blocks > 0 ) args( "retry_trx_num_blocks", tx_retry_num_blocks );
                args( "transaction", packed_transaction( trx, compression ) );
