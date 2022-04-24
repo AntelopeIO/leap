@@ -102,7 +102,6 @@ macro(add_eosio_test_executable test_name)
        ${libchainbase}
        ${libbuiltins}
        ${libsecp256k1}
-       @GMP_LIBRARIES@
 
        ${Boost_FILESYSTEM_LIBRARY}
        ${Boost_SYSTEM_LIBRARY}
