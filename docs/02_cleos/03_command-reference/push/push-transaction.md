@@ -42,6 +42,8 @@ This command has no options
 
 `--retry-num-blocks` - Request node to retry transaction until in a block of given height, blocking call
 
+`-o,--read-only` - Specify a transaction is read-only.
+
 ## Example
 
 
