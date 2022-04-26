@@ -64,7 +64,7 @@ BOOST_AUTO_TEST_CASE(block_with_invalid_tx_mroot_test)
    // Make a copy of the valid block and corrupt the transaction
    auto copy_b = std::make_shared<signed_block>(std::move(*b));
    const auto& packed_trx = std::get<packed_transaction>(copy_b->transactions.back().trx);
-   auto signed_tx = signed_transaction( packed_trx.to_packed_transaction_v0()->get_signed_transaction() );
+   auto signed_tx = packed_trx.get_signed_transaction();
 
    // Change the transaction that will be run
    signed_tx.actions[0].name = "something"_n;
@@ -72,7 +72,7 @@ BOOST_AUTO_TEST_CASE(block_with_invalid_tx_mroot_test)
    signed_tx.signatures.clear();
    signed_tx.sign(main.get_private_key(config::system_account_name, "active"), main.control->get_chain_id());
    // Replace the valid transaction with the invalid transaction
-   auto invalid_packed_tx = packed_transaction(std::move(signed_tx), true, packed_trx.get_compression());
+   auto invalid_packed_tx = packed_transaction(std::move(signed_tx), packed_trx.get_compression());
    copy_b->transactions.back().trx = std::move(invalid_packed_tx);
 
    // Re-sign the block
@@ -82,7 +82,7 @@ BOOST_AUTO_TEST_CASE(block_with_invalid_tx_mroot_test)
 
    // Push block with invalid transaction to other chain
    tester validator;
-   auto bs = validator.control->create_block_state_future( copy_b->calculate_id(), copy_b );
+   auto bs = validator.control->create_block_state_future( copy_b );
    validator.control->abort_block();
    BOOST_REQUIRE_EXCEPTION(validator.control->push_block( bs, forked_branch_callback{}, trx_meta_cache_lookup{} ), fc::exception ,
                            [] (const fc::exception &e)->bool {
