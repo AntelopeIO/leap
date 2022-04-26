@@ -143,6 +143,19 @@ struct test_api_action {
 FC_REFLECT_TEMPLATE((uint64_t T), test_api_action<T>, BOOST_PP_SEQ_NIL)
 
 template<uint64_t NAME>
+struct test_pause_action {
+   static account_name get_account() {
+      return "pause"_n;
+   }
+
+   static action_name get_name() {
+      return action_name(NAME);
+   }
+};
+
+FC_REFLECT_TEMPLATE((uint64_t T), test_pause_action<T>, BOOST_PP_SEQ_NIL)
+
+template<uint64_t NAME>
 struct test_chain_action {
 	static account_name get_account() {
 		return account_name(config::system_account_name);
@@ -286,9 +299,9 @@ bool is_page_memory_error(page_memory_error const &e) { return true; }
 bool is_unsatisfied_authorization(unsatisfied_authorization const & e) { return true;}
 bool is_wasm_execution_error(eosio::chain::wasm_execution_error const& e) {return true;}
 bool is_tx_net_usage_exceeded(const tx_net_usage_exceeded& e) { return true; }
-bool is_block_net_usage_exceeded(const tx_cpu_usage_exceeded& e) { return true; }
+bool is_block_net_usage_exceeded(const block_net_usage_exceeded& e) { return true; }
 bool is_tx_cpu_usage_exceeded(const tx_cpu_usage_exceeded& e) { return true; }
-bool is_block_cpu_usage_exceeded(const tx_cpu_usage_exceeded& e) { return true; }
+bool is_block_cpu_usage_exceeded(const block_cpu_usage_exceeded& e) { return true; }
 bool is_deadline_exception(const deadline_exception& e) { return true; }
 
 /*
@@ -878,17 +891,17 @@ BOOST_FIXTURE_TEST_CASE(checktime_pass_tests, TESTER) { try {
    BOOST_REQUIRE_EQUAL( validate(), true );
 } FC_LOG_AND_RETHROW() }
 
-template<class T>
-void call_test(TESTER& test, T ac, uint32_t billed_cpu_time_us , uint32_t max_cpu_usage_ms = 200, std::vector<char> payload = {} ) {
+template<class T, typename Tester>
+void call_test(Tester& test, T ac, uint32_t billed_cpu_time_us , uint32_t max_cpu_usage_ms = 200, std::vector<char> payload = {}, name account = "testapi"_n ) {
    signed_transaction trx;
 
-   auto pl = vector<permission_level>{{"testapi"_n, config::active_name}};
+   auto pl = vector<permission_level>{{account, config::active_name}};
    action act(pl, ac);
    act.data = payload;
 
    trx.actions.push_back(act);
    test.set_transaction_headers(trx);
-   auto sigs = trx.sign(test.get_private_key("testapi"_n, "active"), test.control->get_chain_id());
+   auto sigs = trx.sign(test.get_private_key(account, "active"), test.control->get_chain_id());
    flat_set<public_key_type> keys;
    trx.get_signature_keys(test.control->get_chain_id(), fc::time_point::maximum(), keys);
    auto res = test.push_transaction( trx, fc::time_point::now() + fc::milliseconds(max_cpu_usage_ms), billed_cpu_time_us );
@@ -910,8 +923,6 @@ BOOST_AUTO_TEST_CASE(checktime_fail_tests) { try {
    int64_t x; int64_t net; int64_t cpu;
    t.control->get_resource_limits_manager().get_account_limits( "testapi"_n, x, net, cpu );
    wdump((net)(cpu));
-
-#warning TODO call the contract before testing to cache it, and validate that it was cached
 
    BOOST_CHECK_EXCEPTION( call_test( t, test_api_action<TEST_METHOD("test_checktime", "checktime_failure")>{},
                                      5000, 200, fc::raw::pack(10000000000000000000ULL) ),
@@ -935,6 +946,54 @@ BOOST_AUTO_TEST_CASE(checktime_fail_tests) { try {
    BOOST_REQUIRE_EQUAL( t.validate(), true );
 } FC_LOG_AND_RETHROW() }
 
+BOOST_AUTO_TEST_CASE(checktime_pause_test) { try {
+
+   fc::temp_directory tempdir;
+   auto conf_genesis = tester::default_config( tempdir );
+
+   auto& cfg = conf_genesis.second.initial_configuration;
+
+   cfg.max_block_cpu_usage        = 250'000;
+   cfg.max_transaction_cpu_usage  = 4'999; // needs to be large enough for create_account and set_code
+   cfg.min_transaction_cpu_usage  = 1;
+
+   tester t( conf_genesis.first, conf_genesis.second );
+   t.execute_setup_policy( setup_policy::full );
+
+   t.produce_blocks(2);
+
+   ilog( "create account" );
+   t.create_account( "pause"_n );
+   ilog( "set code" );
+   t.set_code( "pause"_n, contracts::test_api_wasm() ); // only test that should use pause account so it is not cached
+   ilog( "produce block" );
+   t.produce_blocks(1);
+
+   int64_t ram_bytes; int64_t net; int64_t cpu;
+   auto& rl = t.control->get_resource_limits_manager();
+   rl.get_account_limits( "pause"_n, ram_bytes, net, cpu );
+   BOOST_CHECK_EQUAL( cpu, -1 );
+   auto cpu_limit = rl.get_block_cpu_limit();
+   idump(("cpu_limit")(cpu_limit));
+   BOOST_CHECK( cpu_limit <= 250'000 );
+
+   // 6ms should be lower than time to load wasm
+   auto before = fc::time_point::now();
+   BOOST_CHECK_EXCEPTION( call_test( t, test_pause_action<TEST_METHOD("test_checktime", "checktime_failure")>{},
+                                     0, 6, fc::raw::pack(10000000000000000000ULL), "pause"_n ),
+                          tx_cpu_usage_exceeded, is_tx_cpu_usage_exceeded );
+   auto after = fc::time_point::now();
+   // Test that it runs longer than specified limit of 6 to allow for wasm load time.
+   auto dur = (after - before).count();
+   dlog("elapsed ${e}us", ("e", dur) );
+   BOOST_CHECK( dur > 6500 );
+
+   BOOST_CHECK_EXCEPTION( call_test( t, test_pause_action<TEST_METHOD("test_checktime", "checktime_failure")>{},
+                                     0, 4, fc::raw::pack(10000000000000000000ULL), "pause"_n ),
+                          deadline_exception, is_deadline_exception );
+
+   BOOST_REQUIRE_EQUAL( t.validate(), true );
+} FC_LOG_AND_RETHROW() }
 
 BOOST_FIXTURE_TEST_CASE(checktime_intrinsic, TESTER) { try {
 	produce_blocks(2);

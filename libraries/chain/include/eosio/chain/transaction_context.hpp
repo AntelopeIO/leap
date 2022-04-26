@@ -142,7 +142,7 @@ namespace eosio { namespace chain {
          bool                          apply_context_free = true;
          bool                          enforce_whiteblacklist = true;
 
-         fc::time_point                deadline = fc::time_point::maximum();
+         fc::time_point                caller_deadline = fc::time_point::maximum();
          fc::microseconds              leeway = fc::microseconds( config::default_subjective_cpu_leeway_us );
          int64_t                       billed_cpu_time_us = 0;
          uint32_t                      subjective_cpu_bill_us = 0;
@@ -162,6 +162,9 @@ namespace eosio { namespace chain {
 
          bool                          cpu_limit_due_to_greylist = false;
 
+         fc::time_point                block_cpu_deadline;
+         fc::time_point                paused_time;
+         fc::microseconds              total_paused_time;
          fc::microseconds              initial_objective_duration_limit;
          fc::microseconds              objective_duration_limit;
          fc::time_point                _deadline = fc::time_point::maximum();
@@ -169,7 +172,6 @@ namespace eosio { namespace chain {
          int64_t                       billing_timer_exception_code = block_cpu_usage_exceeded::code_value;
          fc::time_point                pseudo_start;
          fc::microseconds              billed_time;
-         fc::microseconds              billing_timer_duration_limit;
    };
 
 } }

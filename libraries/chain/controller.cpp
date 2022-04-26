@@ -1183,7 +1183,7 @@ struct controller_impl {
 
       transaction_checktime_timer trx_timer(timer);
       transaction_context trx_context( self, etrx, etrx.id(), std::move(trx_timer), start );
-      trx_context.deadline = deadline;
+      trx_context.caller_deadline = deadline;
       trx_context.explicit_billed_cpu_time = explicit_billed_cpu_time;
       trx_context.billed_cpu_time_us = billed_cpu_time_us;
       trx_context.enforce_whiteblacklist = enforce_whiteblacklist;
@@ -1331,7 +1331,7 @@ struct controller_impl {
       transaction_checktime_timer trx_timer(timer);
       transaction_context trx_context( self, dtrx, gtrx.trx_id, std::move(trx_timer) );
       trx_context.leeway =  fc::microseconds(0); // avoid stealing cpu resource
-      trx_context.deadline = deadline;
+      trx_context.caller_deadline = deadline;
       trx_context.explicit_billed_cpu_time = explicit_billed_cpu_time;
       trx_context.billed_cpu_time_us = billed_cpu_time_us;
       trx_context.enforce_whiteblacklist = gtrx.sender.empty() ? true : !sender_avoids_whitelist_blacklist_enforcement( gtrx.sender );
@@ -1526,7 +1526,7 @@ struct controller_impl {
          if ((bool)subjective_cpu_leeway && pending->_block_status == controller::block_status::incomplete) {
             trx_context.leeway = *subjective_cpu_leeway;
          }
-         trx_context.deadline = deadline;
+         trx_context.caller_deadline = deadline;
          trx_context.explicit_billed_cpu_time = explicit_billed_cpu_time;
          trx_context.billed_cpu_time_us = billed_cpu_time_us;
          trx_context.subjective_cpu_bill_us = subjective_cpu_bill_us;
