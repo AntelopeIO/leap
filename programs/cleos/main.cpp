@@ -2625,6 +2625,15 @@ int main( int argc, char** argv ) {
       std::cout << fc::json::to_pretty_string(get_info()) << std::endl;
    });
 
+   // get transaction status
+   string status_transaction_id_str;
+   auto getTransactionStatus = get->add_subcommand("transaction-status", localized("Get transaction status information"));
+   getTransactionStatus->add_option("id", status_transaction_id_str, localized("ID of the transaction to retrieve"))->required();
+   getTransactionStatus->callback([&status_transaction_id_str] {
+      auto arg= fc::mutable_variant_object( "id", status_transaction_id_str);
+      std::cout << fc::json::to_pretty_string(call(get_transaction_status_func, arg)) << std::endl;
+   });
+
    // get block
    string blockArg;
    bool get_bhs = false;

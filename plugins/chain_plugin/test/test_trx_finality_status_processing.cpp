@@ -255,6 +255,7 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_logic) { try {
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == bs_20->id);
    BOOST_CHECK(ts->block_timestamp == bs_20->block->timestamp);
+   BOOST_CHECK(fc::time_point_sec(ts->expiration) == (std::get<1>(trx_pairs_20[1])->expiration()));
    BOOST_CHECK_EQUAL(std::string(ts->received), pre_block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
 
@@ -1004,7 +1005,9 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_storage_reduction) { try {
 
    cs = status.get_chain_state();
    BOOST_CHECK(cs.head_id == b_12.bs->id);
+   BOOST_CHECK(cs.head_block_timestamp == b_12.bs->block->timestamp);
    BOOST_CHECK(cs.irr_id == eosio::chain::block_id_type{});
+   BOOST_CHECK(cs.irr_block_timestamp == eosio::chain::block_timestamp_type{});
    BOOST_CHECK(cs.last_tracked_block_id == b_03.bs->id);
 
 
