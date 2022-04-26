@@ -1817,7 +1817,7 @@ BOOST_FIXTURE_TEST_CASE(db_tests, TESTER) { try {
 
 // The multi_index iterator cache is preserved across notifications for the same action.
 BOOST_FIXTURE_TEST_CASE(db_notify_tests, TESTER) {
-   create_accounts( { N(notifier), N(notified) } );
+   create_accounts( {"notifier"_n,"notified"_n } );
    const char notifier[] = R"=====(
 (module
  (func $db_store_i64 (import "env" "db_store_i64") (param i64 i64 i64 i64 i32 i32) (result i32))
@@ -1861,10 +1861,10 @@ BOOST_FIXTURE_TEST_CASE(db_notify_tests, TESTER) {
  (data (i32.const 160) "notifier: idx_long_double")
 )
 )=====";
-   set_code( N(notifier), notifier );
-   set_code( N(notified), notifier );
+   set_code("notifier"_n, notifier );
+   set_code("notified"_n, notifier );
 
-   BOOST_TEST_REQUIRE(push_action( action({}, N(notifier), name(), {}), N(notifier).to_uint64_t() ) == "");
+   BOOST_TEST_REQUIRE(push_action( action({},"notifier"_n, name(), {}),"notifier"_n.to_uint64_t() ) == "");
 }
 
 /*************************************************************************************
