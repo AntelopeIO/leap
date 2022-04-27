@@ -49,6 +49,7 @@ class Node(object):
         self.walletMgr=walletMgr
         self.missingTransaction=False
         self.popenProc=None           # initial process is started by launcher, this will only be set on relaunch
+        self.lastTransId=None
         if self.enableMongo:
             self.mongoEndpointArgs += "--host %s --port %d %s" % (mongoHost, mongoPort, mongoDb)
 
@@ -684,7 +685,7 @@ class Node(object):
 
     def waitForNextBlock(self, timeout=None, blockType=BlockType.head):
         num=self.getBlockNum(blockType=blockType)
-        lam = lambda: self.getHeadBlockNum() > num
+        lam = lambda: self.getBlockNum(blockType=blockType) > num
         ret=Utils.waitForBool(lam, timeout)
         return ret
 
@@ -709,8 +710,8 @@ class Node(object):
         ret=Utils.waitForBool(lam, timeout, reporter=reporter)
         return ret
 
-    def waitForIrreversibleBlock(self, blockNum, timeout=None, blockType=BlockType.head):
-        return self.waitForBlock(blockNum, timeout=timeout, blockType=blockType)
+    def waitForIrreversibleBlock(self, blockNum, timeout=None, reportInterval=None):
+        return self.waitForBlock(blockNum, timeout=timeout, blockType=BlockType.lib, reportInterval=reportInterval)
 
     def __transferFundsCmdArr(self, source, destination, amountStr, memo, force, retry):
         assert isinstance(amountStr, str)
@@ -1266,6 +1267,14 @@ class Node(object):
             self.lastRetrievedHeadBlockProducer=info["head_block_producer"]
         return info
 
+    def getTransactionStatus(self, transId, silentErrors=False, exitOnError=True):
+        cmdDesc = "get transaction_status {}".format(transId)
+#        status=self.processCleosCmd(cmdDesc, cmdDesc, silentErrors=silentErrors, exitOnError=exitOnError)
+        status=self.processCleosCmd(cmdDesc, cmdDesc, silentErrors=True, exitOnError=False)  #REMOVE
+        if status is None:              #REMOVE
+            status = self.REMOVEstatus  #REMOVE
+        return status
+
     def getBlockFromDb(self, idx):
         cmd="%s %s" % (Utils.MongoPath, self.mongoEndpointArgs)
         subcommand="db.blocks.find().sort({\"_id\":%d}).limit(1).pretty()" % (idx)
@@ -1550,6 +1559,7 @@ class Node(object):
             return
 
         transId=Node.getTransId(trans)
+        self.lastTransId=transId
         if transId in self.transCache.keys():
             replaceMsg="replacing previous trans=\n%s" % json.dumps(self.transCache[transId], indent=2, sort_keys=True)
         else:
@@ -1563,6 +1573,9 @@ class Node(object):
             Utils.Print("  cmd returned transaction id: %s %s" % (transId, replaceMsg))
 
         self.transCache[transId]=trans
+
+    def getLastSentTransactionId(self):
+        return self.lastTransId
 
     def reportStatus(self):
         Utils.Print("Node State:")
