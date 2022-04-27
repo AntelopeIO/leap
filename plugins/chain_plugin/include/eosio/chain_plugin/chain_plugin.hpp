@@ -129,7 +129,7 @@ public:
    get_info_results get_info(const get_info_params&) const;
 
    struct get_transaction_status_params {
-      string                       id;
+      string                               id;
    };
 
    struct get_transaction_status_results {
