@@ -73,7 +73,7 @@ try:
     Print ("producing nodes: %s, non-producing nodes: %d, topology: %s, delay between nodes launch(seconds): %d" % (pnodes, total_nodes-pnodes, topo, delay))
 
     specificArgs = {"2": "--disable-subjective-account-billing=account1",
-                    "3": "--subjective-account-decay-time-minutes=30" }
+                    "3": "--subjective-account-decay-time-minutes=1" }
 
     Print("Stand up cluster")
     if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, topo=topo, delay=delay,extraNodeosArgs=" --http-max-response-time-ms 990000 --disable-subjective-api-billing false", specificExtraNodeosArgs=specificArgs ) is False:
@@ -111,7 +111,7 @@ try:
     Print("Starting balances:")
     Print(preBalances)
 
-    #   Send through some failing transactions on 30 min decay node
+    #   Send through some failing transactions on 1 min decay node
     for x in range(5):
         memo = 'tx-{}'.format(x)
         txn = {
@@ -148,7 +148,7 @@ try:
         results = wlnode.pushTransaction(txn)
         assert(not results[0])
 
-    # Verify that no subjective billing was charged
+    # Verify that subjective billing was charged
     subjectiveBilling = wlnode.getAccountSubjectiveInfo("account2")
     Print(subjectiveBilling)
     Print(subjectiveBilling["used"])
@@ -177,20 +177,17 @@ try:
     assert(subjectiveBilling["used"] == 0)
 
 
-    # Sleep for 5 min
-    time.sleep(300)
+    # Sleep for 1 min
+    time.sleep(60)
 
     # Verify subjective decay
     acct1 = fdnode.getAccountSubjectiveInfo("account1")
     originalUsed = decaySubjectiveBilling["used"]
     finalUsed = acct1["used"]
-    percentLeft = finalUsed / originalUsed
 
     Print('Original Fast decay node subjective billing: {}'.format(decaySubjectiveBilling["used"]))
     Print('End decay node subjective billing: {}'.format(acct1["used"]))
-
-#    assert(percentLeft < 0.9)
-#    assert(percentLeft > 0.6)
+    assert(finalUsed == 0)
 
     testSuccessful = True
 finally:
