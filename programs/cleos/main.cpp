@@ -376,6 +376,7 @@ fc::variant push_transaction( signed_transaction& trx, packed_transaction::compr
                return call( compute_txn_func, packed_transaction(trx, compression));
             } catch( chain::missing_chain_api_plugin_exception& ) {
                std::cerr << "New RPC compute_transaction may not be supported. Submit to a different node." << std::endl;
+               throw;
             }
          } else {
             try {
@@ -389,6 +390,7 @@ fc::variant push_transaction( signed_transaction& trx, packed_transaction::compr
             } catch( chain::missing_chain_api_plugin_exception& ) {
                std::cerr << "New RPC send_transaction2 may not be supported.\n"
                          << "Add flag --use-old-send-rpc or --use-old-rpc to use old RPC send_transaction." << std::endl;
+               throw;
             }
          }
       }
