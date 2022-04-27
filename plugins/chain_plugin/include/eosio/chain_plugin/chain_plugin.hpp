@@ -640,7 +640,7 @@ public:
    void send_transaction(const send_transaction_params& params, chain::plugin_interface::next_function<send_transaction_results> next);
 
    struct send_transaction2_params {
-      bool return_failure_trace = true;
+      bool return_failure_trace = true; ///< Ignored. Will be enabled in future versions.
       bool retry_trx = false; ///< request transaction retry on validated transaction
       std::optional<uint16_t> retry_trx_num_blocks{}; ///< if retry_trx, report trace at specified blocks from executed or lib if not specified
       fc::variant transaction;
