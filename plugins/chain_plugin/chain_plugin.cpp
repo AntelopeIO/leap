@@ -1694,7 +1694,7 @@ read_only::get_transaction_status_results read_only::get_transaction_status(cons
    }
    EOS_RETHROW_EXCEPTIONS(transaction_id_type_exception, "Invalid transaction ID: ${transaction_id}", ("transaction_id", param.id))
 
-   EOS_ASSERT(!trx_finality_status_proc, unsupported_feature, "Transaction Status Interface not enabled.  To enable, configure nodeos with '--transaction-finality-status-max-storage-size-gb'.");
+   EOS_ASSERT(trx_finality_status_proc, unsupported_feature, "Transaction Status Interface not enabled.  To enable, configure nodeos with '--transaction-finality-status-max-storage-size-gb'.");
 
    trx_finality_status_processing::chain_state ch_state = trx_finality_status_proc->get_chain_state();
 
