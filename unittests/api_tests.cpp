@@ -995,6 +995,43 @@ BOOST_FIXTURE_TEST_CASE(checktime_intrinsic, TESTER) { try {
                                deadline_exception, is_deadline_exception );
 } FC_LOG_AND_RETHROW() }
 
+BOOST_FIXTURE_TEST_CASE(checktime_grow_memory, TESTER) { try {
+	produce_blocks(2);
+	create_account( "testapi"_n );
+	produce_blocks(10);
+
+        std::stringstream ss;
+        ss << R"CONTRACT(
+(module
+  (memory 1)
+
+  (func (export "apply") (param i64 i64 i64)
+)CONTRACT";
+
+        for(unsigned int i = 0; i < 5000; ++i) {
+           ss << R"CONTRACT(
+    (drop (grow_memory (i32.const 527)))
+    (drop (grow_memory (i32.const -527)))
+
+)CONTRACT";
+        }
+        ss<< "))";
+	set_code( "testapi"_n, ss.str().c_str() );
+	produce_blocks(1);
+
+        //initialize cache
+        BOOST_CHECK_EXCEPTION( call_test( *this, test_api_action<TEST_METHOD("doesn't matter", "doesn't matter")>{},
+                                          5000, 10 ),
+                               deadline_exception, is_deadline_exception );
+
+#warning TODO validate that the contract was successfully cached
+
+        //it will always call
+        BOOST_CHECK_EXCEPTION( call_test( *this, test_api_action<TEST_METHOD("doesn't matter", "doesn't matter")>{},
+                                          5000, 10 ),
+                               deadline_exception, is_deadline_exception );
+} FC_LOG_AND_RETHROW() }
+
 BOOST_FIXTURE_TEST_CASE(checktime_hashing_fail, TESTER) { try {
 	produce_blocks(2);
 	create_account( "testapi"_n );
@@ -1044,6 +1081,26 @@ BOOST_FIXTURE_TEST_CASE(checktime_hashing_fail, TESTER) { try {
 
    BOOST_REQUIRE_EQUAL( validate(), true );
 } FC_LOG_AND_RETHROW() }
+
+
+BOOST_FIXTURE_TEST_CASE(checktime_start, TESTER) try {
+   const char checktime_start_wast[] = R"=====(
+(module
+ (func $start (loop (br 0)))
+ (func (export "apply") (param i64 i64 i64))
+ (start $start)
+)
+)=====";
+   produce_blocks(2);
+   create_account( "testapi"_n );
+   produce_blocks(10);
+   set_code( "testapi"_n, checktime_start_wast );
+   produce_blocks(1);
+
+   BOOST_CHECK_EXCEPTION( call_test( *this, test_api_action<TEST_METHOD("doesn't matter", "doesn't matter")>{},
+                                     5000, 3 ),
+                          deadline_exception, is_deadline_exception );
+} FC_LOG_AND_RETHROW()
 
 /*************************************************************************************
  * transaction_tests test case
@@ -1850,6 +1907,58 @@ BOOST_FIXTURE_TEST_CASE(db_tests, TESTER) { try {
 
    BOOST_REQUIRE_EQUAL( validate(), true );
 } FC_LOG_AND_RETHROW() }
+
+// The multi_index iterator cache is preserved across notifications for the same action.
+BOOST_FIXTURE_TEST_CASE(db_notify_tests, TESTER) {
+   create_accounts( {"notifier"_n,"notified"_n } );
+   const char notifier[] = R"=====(
+(module
+ (func $db_store_i64 (import "env" "db_store_i64") (param i64 i64 i64 i64 i32 i32) (result i32))
+ (func $db_find_i64 (import "env" "db_find_i64") (param i64 i64 i64 i64) (result i32))
+ (func $db_idx64_store (import "env" "db_idx64_store") (param i64 i64 i64 i64 i32) (result i32))
+ (func $db_idx64_find_primary (import "env" "db_idx64_find_primary") (param i64 i64 i64 i32 i64) (result i32))
+ (func $db_idx128_store (import "env" "db_idx128_store") (param i64 i64 i64 i64 i32) (result i32))
+ (func $db_idx128_find_primary (import "env" "db_idx128_find_primary") (param i64 i64 i64 i32 i64) (result i32))
+ (func $db_idx256_store (import "env" "db_idx256_store") (param i64 i64 i64 i64 i32 i32) (result i32))
+ (func $db_idx256_find_primary (import "env" "db_idx256_find_primary") (param i64 i64 i64 i32 i32 i64) (result i32))
+ (func $db_idx_double_store (import "env" "db_idx_double_store") (param i64 i64 i64 i64 i32) (result i32))
+ (func $db_idx_double_find_primary (import "env" "db_idx_double_find_primary") (param i64 i64 i64 i32 i64) (result i32))
+ (func $db_idx_long_double_store (import "env" "db_idx_long_double_store") (param i64 i64 i64 i64 i32) (result i32))
+ (func $db_idx_long_double_find_primary (import "env" "db_idx_long_double_find_primary") (param i64 i64 i64 i32 i64) (result i32))
+ (func $eosio_assert (import "env" "eosio_assert") (param i32 i32))
+ (func $require_recipient (import "env" "require_recipient") (param i64))
+ (memory 1)
+ (func (export "apply") (param i64 i64 i64)
+  (local i32)
+  (set_local 3 (i64.ne (get_local 0) (get_local 1)))
+  (if (get_local 3) (then (i32.store8 (i32.const 7) (i32.const 100))))
+  (drop (call $db_store_i64 (i64.const 0) (i64.const 0) (get_local 0) (i64.const 0) (i32.const 0) (i32.const 0)))
+  (drop (call $db_idx64_store (i64.const 0) (i64.const 0) (get_local 0) (i64.const 0) (i32.const 256)))
+  (drop (call $db_idx128_store (i64.const 0) (i64.const 0) (get_local 0) (i64.const 0) (i32.const 256)))
+  (drop (call $db_idx256_store (i64.const 0) (i64.const 0) (get_local 0) (i64.const 0) (i32.const 256) (i32.const 2)))
+  (drop (call $db_idx_double_store (i64.const 0) (i64.const 0) (get_local 0) (i64.const 0) (i32.const 256)))
+  (drop (call $db_idx_long_double_store (i64.const 0) (i64.const 0) (get_local 0) (i64.const 0) (i32.const 256)))
+  (call $eosio_assert (i32.eq (call $db_find_i64 (get_local 0) (i64.const 0) (i64.const 0) (i64.const 0) ) (get_local 3)) (i32.const 0))
+  (call $eosio_assert (i32.eq (call $db_idx64_find_primary (get_local 0) (i64.const 0) (i64.const 0) (i32.const 256) (i64.const 0)) (get_local 3)) (i32.const 32))
+  (call $eosio_assert (i32.eq (call $db_idx128_find_primary (get_local 0) (i64.const 0) (i64.const 0) (i32.const 256) (i64.const 0)) (get_local 3)) (i32.const 64))
+  (call $eosio_assert (i32.eq (call $db_idx256_find_primary (get_local 0) (i64.const 0) (i64.const 0) (i32.const 256) (i32.const 2) (i64.const 0)) (get_local 3)) (i32.const 96))
+  (call $eosio_assert (i32.eq (call $db_idx_double_find_primary (get_local 0) (i64.const 0) (i64.const 0) (i32.const 256) (i64.const 0)) (get_local 3)) (i32.const 128))
+  (call $eosio_assert (i32.eq (call $db_idx_long_double_find_primary (get_local 0) (i64.const 0) (i64.const 0) (i32.const 256) (i64.const 0)) (get_local 3)) (i32.const 160))
+  (call $require_recipient (i64.const 11327368596746665984))
+ )
+ (data (i32.const 0) "notifier: primary")
+ (data (i32.const 32) "notifier: idx64")
+ (data (i32.const 64) "notifier: idx128")
+ (data (i32.const 96) "notifier: idx256")
+ (data (i32.const 128) "notifier: idx_double")
+ (data (i32.const 160) "notifier: idx_long_double")
+)
+)=====";
+   set_code("notifier"_n, notifier );
+   set_code("notified"_n, notifier );
+
+   BOOST_TEST_REQUIRE(push_action( action({},"notifier"_n, name(), {}),"notifier"_n.to_uint64_t() ) == "");
+}
 
 /*************************************************************************************
  * multi_index_tests test case

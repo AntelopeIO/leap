@@ -1182,8 +1182,13 @@ namespace eosio { namespace testing {
          preactivations.emplace_back( feature_digest );
       };
 
+      std::vector<builtin_protocol_feature_t> ordered_builtins;
       for( const auto& f : builtin_protocol_feature_codenames ) {
-         auto digest = pfs.get_builtin_digest( f.first );
+         ordered_builtins.push_back( f.first );
+      }
+      std::sort( ordered_builtins.begin(), ordered_builtins.end() );
+      for( const auto& f : ordered_builtins ) {
+         auto digest = pfs.get_builtin_digest( f);
          if( !digest ) continue;
          add_digests( *digest );
       }
