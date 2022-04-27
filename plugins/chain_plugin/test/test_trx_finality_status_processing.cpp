@@ -707,6 +707,7 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_logic) { try {
    cs = status.get_chain_state();
    BOOST_CHECK(cs.head_id == bs_19_alt->id);
    BOOST_CHECK(cs.irr_id == bs_19_alt->id);
+   BOOST_CHECK(cs.irr_block_timestamp == bs_19_alt->block->timestamp);
    BOOST_CHECK(cs.last_tracked_block_id == bs_19_alt->id);
 
 
