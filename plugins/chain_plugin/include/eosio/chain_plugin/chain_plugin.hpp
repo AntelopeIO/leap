@@ -138,10 +138,10 @@ public:
       std::optional<chain::block_id_type>  block_id;
       std::optional<fc::time_point>        block_timestamp;
       std::optional<fc::time_point>        expiration;
-      uint32_t                             head_number;
+      uint32_t                             head_number = 0;
       chain::block_id_type                 head_id;
       fc::time_point                       head_timestamp;
-      uint32_t                             irreversible_number;
+      uint32_t                             irreversible_number = 0;
       chain::block_id_type                 irreversible_id;
       fc::time_point                       irreversible_timestamp;
       chain::block_id_type                 last_tracked_block_id;
