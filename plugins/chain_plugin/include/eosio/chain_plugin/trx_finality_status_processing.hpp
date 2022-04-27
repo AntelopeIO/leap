@@ -18,15 +18,18 @@ namespace eosio::chain_apis {
    public:
 
       struct chain_state {
-         chain::block_id_type head_id;
-         chain::block_id_type irr_id;
-         chain::block_id_type last_tracked_block_id;
+         chain::block_id_type          head_id;
+         chain::block_timestamp_type   head_block_timestamp;
+         chain::block_id_type          irr_id;
+         chain::block_timestamp_type   irr_block_timestamp;
+         chain::block_id_type          last_tracked_block_id;
       };
 
       struct trx_state {
          chain::block_id_type block_id;
          fc::time_point       block_timestamp;
          fc::time_point       received;
+         fc::time_point       expiration;
          std::string          status;
       };
 
