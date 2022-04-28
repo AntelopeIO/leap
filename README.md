@@ -25,7 +25,6 @@ apt-get update && apt-get install   \
         cmake                       \
         curl                        \
         git                         \
-        jq                          \
         libboost-all-dev            \
         libcurl4-openssl-dev        \
         libssl-dev                  \
