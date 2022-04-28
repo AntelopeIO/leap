@@ -204,6 +204,7 @@ class Utils:
         (output,error)=popen.communicate()
         Utils.checkOutputFileWrite(start, cmd, output, error)
         if popen.returncode != 0 and not ignoreError:
+            Utils.Print("ERROR: %s" % error)
             raise subprocess.CalledProcessError(returncode=popen.returncode, cmd=cmd, output=error)
         return output.decode("utf-8")
 
@@ -278,8 +279,7 @@ class Utils:
         return retStr
 
     @staticmethod
-    def runCmdArrReturnJson(cmdArr, trace=False, silentErrors=True):
-        retStr=Utils.checkOutput(cmdArr)
+    def toJson(retStr, trace=False, silentErrors=True):
         jStr=Utils.filterJsonObjectOrArray(retStr)
         if trace: Utils.Print ("RAW > %s" % (retStr))
         if trace: Utils.Print ("JSON> %s" % (jStr))
@@ -298,6 +298,11 @@ class Utils:
             Utils.Print ("RAW > %s" % retStr)
             Utils.Print ("JSON> %s" % jStr)
             raise
+
+    @staticmethod
+    def runCmdArrReturnJson(cmdArr, trace=False, silentErrors=True):
+        retStr=Utils.checkOutput(cmdArr)
+        return Utils.toJson(retStr)
 
     @staticmethod
     def runCmdReturnStr(cmd, trace=False):

@@ -81,6 +81,7 @@ namespace eosio { namespace chain {
                               fc::microseconds                     provided_delay = fc::microseconds(0),
                               const std::function<void()>&         checktime = std::function<void()>(),
                               bool                                 allow_unused_keys = false,
+                              bool                                 check_but_dont_fail = false,
                               const flat_set<permission_level>&    satisfied_authorizations = flat_set<permission_level>()
                             )const;
 

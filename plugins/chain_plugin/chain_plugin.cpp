@@ -1,4 +1,5 @@
 #include <eosio/chain_plugin/chain_plugin.hpp>
+#include <eosio/chain_plugin/trx_retry_db.hpp>
 #include <eosio/producer_plugin/producer_plugin.hpp>
 #include <eosio/chain/fork_database.hpp>
 #include <eosio/chain/block_log.hpp>
@@ -14,6 +15,8 @@
 #include <eosio/chain/global_property_object.hpp>
 #include <eosio/chain/snapshot.hpp>
 #include <eosio/chain/deep_mind.hpp>
+#include <eosio/chain/signals_processor.hpp>
+#include <eosio/chain_plugin/trx_finality_status_processing.hpp>
 
 #include <eosio/chain/eosio_contract.hpp>
 
@@ -150,7 +153,6 @@ public:
    bool                             account_queries_enabled = false;
 
    std::optional<fork_database>      fork_db;
-   std::optional<block_log>          block_logger;
    std::optional<controller::config> chain_config;
    std::optional<controller>         chain;
    std::optional<genesis_state>      genesis;
@@ -186,10 +188,14 @@ public:
    std::optional<scoped_connection>                                   irreversible_block_connection;
    std::optional<scoped_connection>                                   accepted_transaction_connection;
    std::optional<scoped_connection>                                   applied_transaction_connection;
+   std::optional<scoped_connection>                                   block_start_connection;
 
 
    std::optional<chain_apis::account_query_db>                        _account_query_db;
    const producer_plugin* producer_plug;
+   std::optional<chain::signals_processor>                            _trx_signals_processor;
+   std::optional<chain_apis::trx_retry_db>                            _trx_retry_db;
+   chain_apis::trx_finality_status_processing_ptr                     _trx_finality_status_processing;
 };
 
 chain_plugin::chain_plugin()
@@ -319,6 +325,18 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
 #endif
          ("enable-account-queries", bpo::value<bool>()->default_value(false), "enable queries to find accounts by various metadata.")
          ("max-nonprivileged-inline-action-size", bpo::value<uint32_t>()->default_value(config::default_max_nonprivileged_inline_action_size), "maximum allowed size (in bytes) of an inline action for a nonprivileged account")
+         ("transaction-retry-max-storage-size-gb", bpo::value<uint64_t>(),
+          "Maximum size (in GiB) allowed to be allocated for the Transaction Retry feature. Setting above 0 enables this feature.")
+         ("transaction-retry-interval-sec", bpo::value<uint32_t>()->default_value(20),
+          "How often, in seconds, to resend an incoming transaction to network if not seen in a block.")
+         ("transaction-retry-max-expiration-sec", bpo::value<uint32_t>()->default_value(90),
+          "Maximum allowed transaction expiration for retry transactions, will retry transactions up to this value.")
+         ("transaction-finality-status-max-storage-size-gb", bpo::value<uint64_t>(),
+          "Maximum size (in GiB) allowed to be allocated for the Transaction Finality Status feature. Setting above 0 enables this feature.")
+         ("transaction-finality-status-success-duration-sec", bpo::value<uint64_t>()->default_value(config::default_max_transaction_finality_status_success_duration_sec),
+          "Duration (in seconds) a successful transaction's Finality Status will remain available from being first identified.")
+         ("transaction-finality-status-failure-duration-sec", bpo::value<uint64_t>()->default_value(config::default_max_transaction_finality_status_failure_duration_sec),
+          "Duration (in seconds) a failed transaction's Finality Status will remain available from being first identified.")
          ;
 
 // TODO: rate limiting
@@ -764,6 +782,32 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
       if( options.count( "max-nonprivileged-inline-action-size" ))
          my->chain_config->max_nonprivileged_inline_action_size = options.at( "max-nonprivileged-inline-action-size" ).as<uint32_t>();
 
+      if( options.count( "transaction-finality-status-max-storage-size-gb" )) {
+         const uint64_t max_storage_size = options.at( "transaction-finality-status-max-storage-size-gb" ).as<uint64_t>() * 1024 * 1024 * 1024;
+         if (max_storage_size > 0) {
+            const fc::microseconds success_duration = fc::seconds(options.at( "transaction-finality-status-success-duration-sec" ).as<uint64_t>());
+            const fc::microseconds failure_duration = fc::seconds(options.at( "transaction-finality-status-failure-duration-sec" ).as<uint64_t>());
+            my->_trx_finality_status_processing.reset(
+               new chain_apis::trx_finality_status_processing(max_storage_size, success_duration, failure_duration));
+         }
+      }
+
+      if (my->_trx_finality_status_processing) {
+         my->_trx_signals_processor.emplace();
+         if (my->_trx_finality_status_processing) {
+            my->_trx_signals_processor->register_callbacks(
+               [this]( const chain::signals_processor::trx_deque& trxs, const chain::block_state_ptr& blk ) {
+                  my->_trx_finality_status_processing->signal_applied_transactions(trxs, blk);
+               },
+               [this]( const chain::block_state_ptr& blk ) {
+                  my->_trx_finality_status_processing->signal_irreversible_block(blk);
+               },
+               [this]( uint32_t block_num ) {
+                  my->_trx_finality_status_processing->signal_block_start(block_num);
+               }
+            );
+         }
+      }         
       if( options.count( "chain-threads" )) {
          my->chain_config->thread_pool_size = options.at( "chain-threads" ).as<uint16_t>();
          EOS_ASSERT( my->chain_config->thread_pool_size > 0, plugin_config_exception,
@@ -1087,6 +1131,26 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
 
       my->chain.emplace( *my->chain_config, std::move(pfs), *chain_id );
 
+      if( options.count( "transaction-retry-max-storage-size-gb" )) {
+         EOS_ASSERT( !options.count( "producer-name"), plugin_config_exception,
+                     "Transaction retry not allowed on producer nodes." );
+         const uint64_t max_storage_size = options.at( "transaction-retry-max-storage-size-gb" ).as<uint64_t>() * 1024 * 1024 * 1024;
+         if( max_storage_size > 0 ) {
+            const uint32_t p2p_dedup_time_s = options.at( "p2p-dedup-cache-expire-time-sec" ).as<uint32_t>();
+            const uint32_t trx_retry_interval = options.at( "transaction-retry-interval-sec" ).as<uint32_t>();
+            const uint32_t trx_retry_max_expire = options.at( "transaction-retry-max-expiration-sec" ).as<uint32_t>();
+            EOS_ASSERT( trx_retry_interval >= 2 * p2p_dedup_time_s, plugin_config_exception,
+                        "transaction-retry-interval-sec ${ri} must be greater than 2 times p2p-dedup-cache-expire-time-sec ${dd}",
+                        ("ri", trx_retry_interval)("dd", p2p_dedup_time_s) );
+            EOS_ASSERT( trx_retry_max_expire > trx_retry_interval, plugin_config_exception,
+                        "transaction-retry-max-expiration-sec ${m} should be configured larger than transaction-retry-interval-sec ${i}",
+                        ("m", trx_retry_max_expire)("i", trx_retry_interval) );
+            my->_trx_retry_db.emplace( *my->chain, max_storage_size,
+                                       fc::seconds(trx_retry_interval), fc::seconds(trx_retry_max_expire),
+                                       my->abi_serializer_max_time_us );
+         }
+      }
+
       // initialize deep mind logging
       if ( options.at( "deep-mind" ).as<bool>() ) {
          // The actual `fc::dmlog_appender` implementation that is currently used by deep mind
@@ -1140,7 +1204,7 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
       my->pre_accepted_block_connection = my->chain->pre_accepted_block.connect([this](const signed_block_ptr& blk) {
          auto itr = my->loaded_checkpoints.find( blk->block_num() );
          if( itr != my->loaded_checkpoints.end() ) {
-            auto id = blk->id();
+            auto id = blk->calculate_id();
             EOS_ASSERT( itr->second == id, checkpoint_exception,
                         "Checkpoint does not match for block number ${num}: expected: ${expected} actual: ${actual}",
                         ("num", blk->block_num())("expected", itr->second)("actual", id)
@@ -1159,10 +1223,27 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
          if (my->_account_query_db) {
             my->_account_query_db->commit_block(blk);
          }
+
+         if (my->_trx_retry_db) {
+            my->_trx_retry_db->on_accepted_block(blk);
+         }
+
+         if (my->_trx_signals_processor) {
+            my->_trx_signals_processor->signal_accepted_block(blk);
+         }
+
          my->accepted_block_channel.publish( priority::high, blk );
       } );
 
       my->irreversible_block_connection = my->chain->irreversible_block.connect( [this]( const block_state_ptr& blk ) {
+         if (my->_trx_retry_db) {
+            my->_trx_retry_db->on_irreversible_block(blk);
+         }
+
+         if (my->_trx_signals_processor) {
+            my->_trx_signals_processor->signal_irreversible_block(blk);
+         }
+
          my->irreversible_block_channel.publish( priority::low, blk );
       } );
 
@@ -1172,13 +1253,33 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
             } );
 
       my->applied_transaction_connection = my->chain->applied_transaction.connect(
-            [this]( std::tuple<const transaction_trace_ptr&, const signed_transaction&> t ) {
+            [this]( std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> t ) {
                if (my->_account_query_db) {
                   my->_account_query_db->cache_transaction_trace(std::get<0>(t));
                }
+
+               if (my->_trx_retry_db) {
+                  my->_trx_retry_db->on_applied_transaction(std::get<0>(t), std::get<1>(t));
+               }
+
+               if (my->_trx_signals_processor) {
+                  my->_trx_signals_processor->signal_applied_transaction(std::get<0>(t), std::get<1>(t));
+               }
+
                my->applied_transaction_channel.publish( priority::low, std::get<0>(t) );
             } );
 
+      if (my->_trx_signals_processor || my->_trx_retry_db) {
+         my->block_start_connection = my->chain->block_start.connect(
+            [this]( uint32_t block_num ) {
+               if (my->_trx_retry_db) {
+                  my->_trx_retry_db->on_block_start(block_num);
+               }
+               if (my->_trx_signals_processor) {
+                  my->_trx_signals_processor->signal_block_start( block_num );
+               }
+            } );
+      }
       my->chain->add_indices();
    } FC_LOG_AND_RETHROW()
 
@@ -1245,6 +1346,7 @@ void chain_plugin::plugin_shutdown() {
    my->irreversible_block_connection.reset();
    my->accepted_transaction_connection.reset();
    my->applied_transaction_connection.reset();
+   my->block_start_connection.reset();
    if(app().is_quiting())
       my->chain->get_wasm_interface().indicate_shutting_down();
    my->chain.reset();
@@ -1254,8 +1356,9 @@ void chain_plugin::handle_sighup() {
    _deep_mind_log.update_logger( deep_mind_logger_name );
 }
 
-chain_apis::read_write::read_write(controller& db, const fc::microseconds& abi_serializer_max_time, bool api_accept_transactions)
+chain_apis::read_write::read_write(controller& db, std::optional<trx_retry_db>& trx_retry, const fc::microseconds& abi_serializer_max_time, bool api_accept_transactions)
 : db(db)
+, trx_retry(trx_retry)
 , abi_serializer_max_time(abi_serializer_max_time)
 , api_accept_transactions(api_accept_transactions)
 {
@@ -1266,8 +1369,12 @@ void chain_apis::read_write::validate() const {
                "Not allowed, node has api-accept-transactions = false" );
 }
 
+chain_apis::read_write chain_plugin::get_read_write_api() {
+   return chain_apis::read_write(chain(), my->_trx_retry_db, get_abi_serializer_max_time(), api_accept_transactions());
+}
+
 chain_apis::read_only chain_plugin::get_read_only_api() const {
-   return chain_apis::read_only(chain(), my->_account_query_db, get_abi_serializer_max_time(), my->producer_plug);
+   return chain_apis::read_only(chain(), my->_account_query_db, get_abi_serializer_max_time(), my->producer_plug, my->_trx_finality_status_processing.get());
 }
 
 
@@ -1276,12 +1383,7 @@ bool chain_plugin::accept_block(const signed_block_ptr& block, const block_id_ty
 }
 
 void chain_plugin::accept_transaction(const chain::packed_transaction_ptr& trx, next_function<chain::transaction_trace_ptr> next) {
-   my->incoming_transaction_async_method(trx, false, std::move(next));
-}
-
-bool chain_plugin::block_is_on_preferred_chain(const block_id_type& block_id) {
-   auto b = chain().fetch_block_by_number( block_header::num_from_id(block_id) );
-   return b && b->id() == block_id;
+   my->incoming_transaction_async_method(trx, false, false, std::move(next));
 }
 
 bool chain_plugin::recover_reversible_blocks( const fc::path& db_dir, uint32_t cache_size,
@@ -1590,6 +1692,39 @@ read_only::get_info_results read_only::get_info(const read_only::get_info_params
       app().full_version_string(),
       rm.get_total_cpu_weight(),
       rm.get_total_net_weight()
+   };
+}
+
+read_only::get_transaction_status_results read_only::get_transaction_status(const read_only::get_transaction_status_params& param) const {
+   transaction_id_type input_id;
+   auto input_id_length = param.id.size();
+   try
+   {
+      FC_ASSERT(input_id_length <= 64, "hex string is too long to represent an actual transaction id");
+      FC_ASSERT(input_id_length >= 8, "hex string representing transaction id should be at least 8 characters long to avoid excessive collisions");
+      input_id = transaction_id_type(param.id);
+   }
+   EOS_RETHROW_EXCEPTIONS(transaction_id_type_exception, "Invalid transaction ID: ${transaction_id}", ("transaction_id", param.id))
+
+   EOS_ASSERT(trx_finality_status_proc, unsupported_feature, "Transaction Status Interface not enabled.  To enable, configure nodeos with '--transaction-finality-status-max-storage-size-gb <size>'.");
+
+   trx_finality_status_processing::chain_state ch_state = trx_finality_status_proc->get_chain_state();
+
+   auto trx_st = trx_finality_status_proc->get_trx_state(input_id);
+
+   return {
+      trx_st ? trx_st->status : "UNKNOWN",
+      trx_st ? std::optional<uint32_t>(chain::block_header::num_from_id(trx_st->block_id)) : std::optional<uint32_t>{},
+      trx_st ? std::optional<chain::block_id_type>(trx_st->block_id) : std::optional<chain::block_id_type>{},
+      trx_st ? std::optional<fc::time_point>(trx_st->block_timestamp) : std::optional<fc::time_point>{},
+      trx_st ? std::optional<fc::time_point_sec>(trx_st->expiration) : std::optional<fc::time_point_sec>{},
+      chain::block_header::num_from_id(ch_state.head_id),
+      ch_state.head_id,
+      ch_state.head_block_timestamp,
+      chain::block_header::num_from_id(ch_state.irr_id),
+      ch_state.irr_id,
+      ch_state.irr_block_timestamp,
+      ch_state.last_tracked_block_id
    };
 }
 
@@ -2192,10 +2327,11 @@ fc::variant read_only::get_block(const read_only::get_block_params& params) cons
    abi_serializer::to_variant(*block, pretty_output, make_resolver(this, abi_serializer::create_yield_function( abi_serializer_max_time )),
                               abi_serializer::create_yield_function( abi_serializer_max_time ));
 
-   uint32_t ref_block_prefix = block->id()._hash[1];
+   const auto block_id = block->calculate_id();
+   uint32_t ref_block_prefix = block_id._hash[1];
 
    return fc::mutable_variant_object(pretty_output.get_object())
-           ("id", block->id())
+           ("id", block_id)
            ("block_num",block->block_num())
            ("ref_block_prefix", ref_block_prefix);
 }
@@ -2242,7 +2378,7 @@ void read_write::push_transaction(const read_write::push_transaction_params& par
          abi_serializer::from_variant(params, *pretty_input, std::move( resolver ), abi_serializer::create_yield_function( abi_serializer_max_time ));
       } EOS_RETHROW_EXCEPTIONS(chain::packed_transaction_type_exception, "Invalid packed transaction")
 
-      app().get_method<incoming::methods::transaction_async>()(pretty_input, true,
+      app().get_method<incoming::methods::transaction_async>()(pretty_input, true, false,
             [this, next](const std::variant<fc::exception_ptr, transaction_trace_ptr>& result) -> void {
          if (std::holds_alternative<fc::exception_ptr>(result)) {
             next(std::get<fc::exception_ptr>(result));
@@ -2361,7 +2497,7 @@ void read_write::send_transaction(const read_write::send_transaction_params& par
          abi_serializer::from_variant(params, *pretty_input, resolver, abi_serializer::create_yield_function( abi_serializer_max_time ));
       } EOS_RETHROW_EXCEPTIONS(chain::packed_transaction_type_exception, "Invalid packed transaction")
 
-      app().get_method<incoming::methods::transaction_async>()(pretty_input, true,
+      app().get_method<incoming::methods::transaction_async>()(pretty_input, true, false,
             [this, next](const std::variant<fc::exception_ptr, transaction_trace_ptr>& result) -> void {
          if (std::holds_alternative<fc::exception_ptr>(result)) {
             next(std::get<fc::exception_ptr>(result));
@@ -2381,6 +2517,60 @@ void read_write::send_transaction(const read_write::send_transaction_params& par
             } CATCH_AND_CALL(next);
          }
       });
+   } catch ( boost::interprocess::bad_alloc& ) {
+      chain_plugin::handle_db_exhaustion();
+   } catch ( const std::bad_alloc& ) {
+      chain_plugin::handle_bad_alloc();
+   } CATCH_AND_CALL(next);
+}
+
+void read_write::send_transaction2(const read_write::send_transaction2_params& params, next_function<read_write::send_transaction_results> next) {
+   try {
+      auto ptrx = std::make_shared<packed_transaction>();
+      auto resolver = make_resolver(this, abi_serializer::create_yield_function( abi_serializer_max_time ));
+      try {
+         abi_serializer::from_variant(params.transaction, *ptrx, resolver, abi_serializer::create_yield_function( abi_serializer_max_time ));
+      } EOS_RETHROW_EXCEPTIONS(chain::packed_transaction_type_exception, "Invalid packed transaction")
+
+      bool retry = params.retry_trx;
+      std::optional<uint16_t> retry_num_blocks = params.retry_trx_num_blocks;
+
+      EOS_ASSERT( !retry || trx_retry.has_value(), unsupported_feature, "Transaction retry not enabled on node" );
+      EOS_ASSERT( !retry || (ptrx->expiration() <= trx_retry->get_max_expiration_time()), tx_exp_too_far_exception,
+                  "retry transaction expiration ${e} larger than allowed ${m}",
+                  ("e", ptrx->expiration())("m", trx_retry->get_max_expiration_time()) );
+
+      app().get_method<incoming::methods::transaction_async>()(ptrx, true, false,
+         [this, ptrx, next, retry, retry_num_blocks](const std::variant<fc::exception_ptr, transaction_trace_ptr>& result) -> void {
+            if( std::holds_alternative<fc::exception_ptr>( result ) ) {
+               next( std::get<fc::exception_ptr>( result ) );
+            } else {
+               try {
+                  if( retry && trx_retry.has_value() ) {
+                     // will be ack'ed via next later
+                     trx_retry->track_transaction( ptrx, retry_num_blocks,
+                        [ptrx, next](const std::variant<fc::exception_ptr, std::unique_ptr<fc::variant>>& result ) {
+                           if( std::holds_alternative<fc::exception_ptr>( result ) ) {
+                              next( std::get<fc::exception_ptr>( result ) );
+                           } else {
+                              fc::variant& output = *std::get<std::unique_ptr<fc::variant>>( result );
+                              next( read_write::send_transaction_results{ptrx->id(), std::move( output )} );
+                           }
+                        } );
+                  } else {
+                     auto trx_trace_ptr = std::get<transaction_trace_ptr>( result );
+                     fc::variant output;
+                     try {
+                        output = db.to_variant_with_abi( *trx_trace_ptr, abi_serializer::create_yield_function( abi_serializer_max_time ) );
+                     } catch( chain::abi_exception& ) {
+                        output = *trx_trace_ptr;
+                     }
+                     const chain::transaction_id_type& id = trx_trace_ptr->id;
+                     next( read_write::send_transaction_results{id, std::move( output )} );
+                  }
+               } CATCH_AND_CALL( next );
+            }
+         });
    } catch ( boost::interprocess::bad_alloc& ) {
       chain_plugin::handle_db_exhaustion();
    } catch ( const std::bad_alloc& ) {
@@ -2659,10 +2849,45 @@ read_only::get_required_keys_result read_only::get_required_keys( const get_requ
    result.required_keys = required_keys_set;
    return result;
 }
+void read_only::compute_transaction(const fc::variant_object& params, next_function<compute_transaction_results> next) const {
 
+    try {
+        auto pretty_input = std::make_shared<packed_transaction>();
+        auto resolver = make_resolver(this, abi_serializer::create_yield_function( abi_serializer_max_time ));
+        try {
+            abi_serializer::from_variant(params, *pretty_input, resolver, abi_serializer::create_yield_function( abi_serializer_max_time ));
+        } EOS_RETHROW_EXCEPTIONS(chain::packed_transaction_type_exception, "Invalid packed transaction")
+
+        app().get_method<incoming::methods::transaction_async>()(pretty_input, false, true,
+             [this, next](const std::variant<fc::exception_ptr, transaction_trace_ptr>& result) -> void {
+                 if (std::holds_alternative<fc::exception_ptr>(result)) {
+                     next(std::get<fc::exception_ptr>(result));
+                 } else {
+                     auto trx_trace_ptr = std::get<transaction_trace_ptr>(result);
+
+                     try {
+                         fc::variant output;
+                         try {
+                             output = db.to_variant_with_abi( *trx_trace_ptr, abi_serializer::create_yield_function( abi_serializer_max_time ) );
+                         } catch( chain::abi_exception& ) {
+                             output = *trx_trace_ptr;
+                         }
+
+                         const chain::transaction_id_type& id = trx_trace_ptr->id;
+                         next(compute_transaction_results{id, output});
+                     } CATCH_AND_CALL(next);
+                 }
+             });
+    } catch ( boost::interprocess::bad_alloc& ) {
+        chain_plugin::handle_db_exhaustion();
+    } catch ( const std::bad_alloc& ) {
+        chain_plugin::handle_bad_alloc();
+    } CATCH_AND_CALL(next);
+}
 read_only::get_transaction_id_result read_only::get_transaction_id( const read_only::get_transaction_id_params& params)const {
    return params.id();
 }
+
 
 account_query_db::get_accounts_by_authorizers_result read_only::get_accounts_by_authorizers( const account_query_db::get_accounts_by_authorizers_params& args) const
 {

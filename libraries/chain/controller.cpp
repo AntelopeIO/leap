@@ -472,7 +472,7 @@ struct controller_impl {
       genheader.pending_schedule.schedule_hash = fc::sha256::hash(initial_legacy_schedule);
       genheader.header.timestamp               = genesis.initial_timestamp;
       genheader.header.action_mroot            = genesis.compute_chain_id();
-      genheader.id                             = genheader.header.id();
+      genheader.id                             = genheader.header.calculate_id();
       genheader.block_num                      = genheader.header.block_num();
 
       head = std::make_shared<block_state>();
@@ -1187,7 +1187,9 @@ struct controller_impl {
       }
 
       transaction_checktime_timer trx_timer(timer);
-      transaction_context trx_context( self, etrx, etrx.id(), std::move(trx_timer), start );
+      const packed_transaction trx( std::move( etrx ) );
+      transaction_context trx_context( self, trx, std::move(trx_timer), start );
+
       trx_context.deadline = deadline;
       trx_context.explicit_billed_cpu_time = explicit_billed_cpu_time;
       trx_context.billed_cpu_time_us = billed_cpu_time_us;
@@ -1205,7 +1207,7 @@ struct controller_impl {
       try {
          trx_context.init_for_implicit_trx();
          trx_context.published = gtrx.published;
-         trx_context.execute_action( trx_context.schedule_action( etrx.actions.back(), gtrx.sender, false, 0, 0 ), 0 );
+         trx_context.execute_action( trx_context.schedule_action( trx.get_transaction().actions.back(), gtrx.sender, false, 0, 0 ), 0 );
          trx_context.finalize(); // Automatically rounds up network and CPU usage in trace and bills payers if successful
 
          auto restore = make_block_restore_point();
@@ -1306,7 +1308,9 @@ struct controller_impl {
 
       signed_transaction dtrx;
       fc::raw::unpack(ds,static_cast<transaction&>(dtrx) );
-      transaction_metadata_ptr trx = transaction_metadata::create_no_recover_keys( packed_transaction( dtrx ), transaction_metadata::trx_type::scheduled );
+      transaction_metadata_ptr trx =
+            transaction_metadata::create_no_recover_keys( std::make_shared<packed_transaction>( std::move(dtrx)  ),
+                                                          transaction_metadata::trx_type::scheduled );
       trx->accepted = true;
 
       transaction_trace_ptr trace;
@@ -1321,7 +1325,7 @@ struct controller_impl {
          trace->account_ram_delta = account_delta( gtrx.payer, trx_removal_ram_delta );
          emit( self.accepted_transaction, trx );
          dmlog_applied_transaction(trace);
-         emit( self.applied_transaction, std::tie(trace, dtrx) );
+         emit( self.applied_transaction, std::tie(trace, trx->packed_trx()) );
          undo_session.squash();
          return trace;
       }
@@ -1334,7 +1338,7 @@ struct controller_impl {
       uint32_t cpu_time_to_bill_us = billed_cpu_time_us;
 
       transaction_checktime_timer trx_timer(timer);
-      transaction_context trx_context( self, dtrx, gtrx.trx_id, std::move(trx_timer) );
+      transaction_context trx_context( self, *trx->packed_trx(), std::move(trx_timer) );
       trx_context.leeway =  fc::microseconds(0); // avoid stealing cpu resource
       trx_context.deadline = deadline;
       trx_context.explicit_billed_cpu_time = explicit_billed_cpu_time;
@@ -1360,7 +1364,7 @@ struct controller_impl {
 
          if( trx_context.enforce_whiteblacklist && pending->_block_status == controller::block_status::incomplete ) {
             flat_set<account_name> actors;
-            for( const auto& act : trx_context.trx.actions ) {
+            for( const auto& act : trx->packed_trx()->get_transaction().actions ) {
                for( const auto& auth : act.authorization ) {
                   actors.insert( auth.actor );
                }
@@ -1385,7 +1389,7 @@ struct controller_impl {
 
          emit( self.accepted_transaction, trx );
          dmlog_applied_transaction(trace);
-         emit( self.applied_transaction, std::tie(trace, dtrx) );
+         emit( self.applied_transaction, std::tie(trace, trx->packed_trx()) );
 
          trx_context.squash();
          undo_session.squash();
@@ -1424,7 +1428,7 @@ struct controller_impl {
             trace->account_ram_delta = account_delta( gtrx.payer, trx_removal_ram_delta );
             emit( self.accepted_transaction, trx );
             dmlog_applied_transaction(trace);
-            emit( self.applied_transaction, std::tie(trace, dtrx) );
+            emit( self.applied_transaction, std::tie(trace, trx->packed_trx()) );
             undo_session.squash();
             return trace;
          }
@@ -1466,13 +1470,13 @@ struct controller_impl {
 
          emit( self.accepted_transaction, trx );
          dmlog_applied_transaction(trace);
-         emit( self.applied_transaction, std::tie(trace, dtrx) );
+         emit( self.applied_transaction, std::tie(trace, trx->packed_trx()) );
 
          undo_session.squash();
       } else {
          emit( self.accepted_transaction, trx );
          dmlog_applied_transaction(trace);
-         emit( self.applied_transaction, std::tie(trace, dtrx) );
+         emit( self.applied_transaction, std::tie(trace, trx->packed_trx()) );
       }
 
       return trace;
@@ -1527,7 +1531,7 @@ struct controller_impl {
 
          const signed_transaction& trn = trx->packed_trx()->get_signed_transaction();
          transaction_checktime_timer trx_timer(timer);
-         transaction_context trx_context(self, trn, trx->id(), std::move(trx_timer), start);
+         transaction_context trx_context(self, *trx->packed_trx(), std::move(trx_timer), start, trx->read_only);
          if ((bool)subjective_cpu_leeway && pending->_block_status == controller::block_status::incomplete) {
             trx_context.leeway = *subjective_cpu_leeway;
          }
@@ -1565,7 +1569,8 @@ struct controller_impl {
                        {},
                        trx_context.delay,
                        [&trx_context](){ trx_context.checktime(); },
-                       false
+                       false,
+                       trx->read_only
                );
             }
             trx_context.exec();
@@ -1592,17 +1597,19 @@ struct controller_impl {
                              std::move(trx_context.executed_action_receipt_digests) );
 
             // call the accept signal but only once for this transaction
-            if (!trx->accepted) {
-               trx->accepted = true;
-               emit( self.accepted_transaction, trx);
+            if (!trx->read_only) {
+                if (!trx->accepted) {
+                    trx->accepted = true;
+                    emit(self.accepted_transaction, trx);
+                }
+
+                dmlog_applied_transaction(trace);
+                emit(self.applied_transaction, std::tie(trace, trx->packed_trx()));
             }
 
-            dmlog_applied_transaction(trace);
-            emit(self.applied_transaction, std::tie(trace, trn));
 
-
-            if ( read_mode != db_read_mode::SPECULATIVE && pending->_block_status == controller::block_status::incomplete ) {
-               //this may happen automatically in destructor, but I prefere make it more explicit
+            if ( (read_mode != db_read_mode::SPECULATIVE && pending->_block_status == controller::block_status::incomplete) || trx->read_only ) {
+               //this may happen automatically in destructor, but I prefer make it more explicit
                trx_context.undo();
             } else {
                restore.cancel();
@@ -1625,9 +1632,11 @@ struct controller_impl {
            handle_exception(wrapper);
          }
 
-         emit( self.accepted_transaction, trx );
-         dmlog_applied_transaction(trace);
-         emit( self.applied_transaction, std::tie(trace, trn) );
+         if (!trx->read_only) {
+             emit(self.accepted_transaction, trx);
+             dmlog_applied_transaction(trace);
+             emit(self.applied_transaction, std::tie(trace, trx->packed_trx()));
+         }
 
          return trace;
       } FC_CAPTURE_AND_RETHROW((trace))
@@ -1766,7 +1775,8 @@ struct controller_impl {
 
          try {
             transaction_metadata_ptr onbtrx =
-                  transaction_metadata::create_no_recover_keys( packed_transaction( get_on_block_transaction() ), transaction_metadata::trx_type::implicit );
+                  transaction_metadata::create_no_recover_keys( std::make_shared<packed_transaction>( get_on_block_transaction() ),
+                                                                transaction_metadata::trx_type::implicit );
             auto reset_in_trx_requiring_checks = fc::make_scoped_exit([old_value=in_trx_requiring_checks,this](){
                   in_trx_requiring_checks = old_value;
                });
@@ -1830,7 +1840,7 @@ struct controller_impl {
 
       block_ptr->transactions = std::move( bb._pending_trx_receipts );
 
-      auto id = block_ptr->id();
+      auto id = block_ptr->calculate_id();
 
       // Update TaPoS table:
       create_block_summary( id );
@@ -1995,7 +2005,7 @@ struct controller_impl {
          const signed_block_ptr& b = bsp->block;
          const auto& new_protocol_feature_activations = bsp->get_new_protocol_feature_activations();
 
-         auto producer_block_id = b->id();
+         auto producer_block_id = bsp->id;
          start_block( b->timestamp, b->confirmed, new_protocol_feature_activations, s, producer_block_id, fc::time_point::maximum() );
 
          const bool existing_trxs_metas = !bsp->trxs_metas().empty();
@@ -2015,13 +2025,14 @@ struct controller_impl {
                   if( trx_meta_ptr && ( skip_auth_checks || !trx_meta_ptr->recovered_keys().empty() ) ) {
                      trx_metas.emplace_back( std::move( trx_meta_ptr ), recover_keys_future{} );
                   } else if( skip_auth_checks ) {
+                     packed_transaction_ptr ptrx( b, &pt ); // alias signed_block_ptr
                      trx_metas.emplace_back(
-                           transaction_metadata::create_no_recover_keys( pt, transaction_metadata::trx_type::input ),
+                           transaction_metadata::create_no_recover_keys( std::move(ptrx), transaction_metadata::trx_type::input ),
                            recover_keys_future{} );
                   } else {
-                     auto ptrx = std::make_shared<packed_transaction>( pt );
+                     packed_transaction_ptr ptrx( b, &pt ); // alias signed_block_ptr
                      auto fut = transaction_metadata::start_recover_keys(
-                           std::move( ptrx ), thread_pool.get_executor(), chain_id, microseconds::maximum() );
+                           std::move( ptrx ), thread_pool.get_executor(), chain_id, microseconds::maximum(), transaction_metadata::trx_type::input  );
                      trx_metas.emplace_back( transaction_metadata_ptr{}, std::move( fut ) );
                   }
                }
@@ -2055,17 +2066,17 @@ struct controller_impl {
             }
 
             EOS_ASSERT( trx_receipts.size() > 0,
-                        block_validate_exception, "expected a receipt",
-                        ("block", *b)("expected_receipt", receipt)
+                        block_validate_exception, "expected a receipt, block_num ${bn}, block_id ${id}, receipt ${e}",
+                        ("bn", b->block_num())("id", producer_block_id)("e", receipt)
                       );
             EOS_ASSERT( trx_receipts.size() == num_pending_receipts + 1,
-                        block_validate_exception, "expected receipt was not added",
-                        ("block", *b)("expected_receipt", receipt)
+                        block_validate_exception, "expected receipt was not added, block_num ${bn}, block_id ${id}, receipt ${e}",
+                        ("bn", b->block_num())("id", producer_block_id)("e", receipt)
                       );
             const transaction_receipt_header& r = trx_receipts.back();
             EOS_ASSERT( r == static_cast<const transaction_receipt_header&>(receipt),
-                        block_validate_exception, "receipt does not match",
-                        ("producer_receipt", receipt)("validator_receipt", trx_receipts.back()) );
+                        block_validate_exception, "receipt does not match, ${lhs} != ${rhs}",
+                        ("lhs", r)("rhs", static_cast<const transaction_receipt_header&>(receipt)) );
          }
 
          // validated in create_block_state_future()
@@ -2106,10 +2117,8 @@ struct controller_impl {
       }
    } FC_CAPTURE_AND_RETHROW() } /// apply_block
 
-   std::future<block_state_ptr> create_block_state_future( const signed_block_ptr& b ) {
+   std::future<block_state_ptr> create_block_state_future( const block_id_type& id, const signed_block_ptr& b ) {
       EOS_ASSERT( b, block_validate_exception, "null block" );
-
-      auto id = b->id();
 
       // no reason for a block_state if fork_db already knows about block
       auto existing = fork_db.get_block( id );
@@ -2119,14 +2128,14 @@ struct controller_impl {
       EOS_ASSERT( prev, unlinkable_block_exception,
                   "unlinkable block ${id}", ("id", id)("previous", b->previous) );
 
-      return async_thread_pool( thread_pool.get_executor(), [b, prev, control=this]() {
+      return async_thread_pool( thread_pool.get_executor(), [b, prev, id, control=this]() {
          const bool skip_validate_signee = false;
 
          auto trx_mroot = calculate_trx_merkle( b->transactions );
          EOS_ASSERT( b->transaction_mroot == trx_mroot, block_validate_exception,
                      "invalid block transaction merkle root ${b} != ${c}", ("b", b->transaction_mroot)("c", trx_mroot) );
 
-         return std::make_shared<block_state>(
+         auto bsp = std::make_shared<block_state>(
                         *prev,
                         move( b ),
                         control->protocol_features.get_protocol_feature_set(),
@@ -2136,6 +2145,10 @@ struct controller_impl {
                         { control->check_protocol_features( timestamp, cur_features, new_features ); },
                         skip_validate_signee
          );
+
+         EOS_ASSERT( id == bsp->id, block_validate_exception,
+                     "provided id ${id} does not match block id ${bid}", ("id", id)("bid", bsp->id) );
+         return bsp;
       } );
    }
 
@@ -2857,8 +2870,8 @@ boost::asio::io_context& controller::get_thread_pool() {
    return my->thread_pool.get_executor();
 }
 
-std::future<block_state_ptr> controller::create_block_state_future( const signed_block_ptr& b ) {
-   return my->create_block_state_future( b );
+std::future<block_state_ptr> controller::create_block_state_future( const block_id_type& id, const signed_block_ptr& b ) {
+   return my->create_block_state_future( id, b );
 }
 
 void controller::push_block( std::future<block_state_ptr>& block_state_future,
@@ -3042,7 +3055,7 @@ signed_block_ptr controller::fetch_block_by_id( block_id_type id )const {
    auto state = my->fork_db.get_block(id);
    if( state && state->block ) return state->block;
    auto bptr = fetch_block_by_number( block_header::num_from_id(id) );
-   if( bptr && bptr->id() == id ) return bptr;
+   if( bptr && bptr->calculate_id() == id ) return bptr;
    return signed_block_ptr();
 }
 
