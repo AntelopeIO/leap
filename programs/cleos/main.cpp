@@ -260,7 +260,7 @@ fc::variant call( const std::string& url,
       } else if(url == ::wallet_url) {
          exec_name = key_store_executable_name;
       }
-      std::cerr << localized( "Failed http call to ${n} at ${u}; is ${n} running?\n"
+      std::cerr << localized( "Failed http request to ${n} at ${u}; is ${n} running?\n"
                               "  Common issue is message size too large. Check the log of ${n}.\n"
                               "  Error: ${e}",
                               ("n", exec_name)("u", url)("e", e.what()) ) << std::endl;
