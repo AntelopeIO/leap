@@ -995,6 +995,43 @@ BOOST_FIXTURE_TEST_CASE(checktime_intrinsic, TESTER) { try {
                                deadline_exception, is_deadline_exception );
 } FC_LOG_AND_RETHROW() }
 
+BOOST_FIXTURE_TEST_CASE(checktime_grow_memory, TESTER) { try {
+	produce_blocks(2);
+	create_account( "testapi"_n );
+	produce_blocks(10);
+
+        std::stringstream ss;
+        ss << R"CONTRACT(
+(module
+  (memory 1)
+
+  (func (export "apply") (param i64 i64 i64)
+)CONTRACT";
+
+        for(unsigned int i = 0; i < 5000; ++i) {
+           ss << R"CONTRACT(
+    (drop (grow_memory (i32.const 527)))
+    (drop (grow_memory (i32.const -527)))
+
+)CONTRACT";
+        }
+        ss<< "))";
+	set_code( "testapi"_n, ss.str().c_str() );
+	produce_blocks(1);
+
+        //initialize cache
+        BOOST_CHECK_EXCEPTION( call_test( *this, test_api_action<TEST_METHOD("doesn't matter", "doesn't matter")>{},
+                                          5000, 10 ),
+                               deadline_exception, is_deadline_exception );
+
+#warning TODO validate that the contract was successfully cached
+
+        //it will always call
+        BOOST_CHECK_EXCEPTION( call_test( *this, test_api_action<TEST_METHOD("doesn't matter", "doesn't matter")>{},
+                                          5000, 10 ),
+                               deadline_exception, is_deadline_exception );
+} FC_LOG_AND_RETHROW() }
+
 BOOST_FIXTURE_TEST_CASE(checktime_hashing_fail, TESTER) { try {
 	produce_blocks(2);
 	create_account( "testapi"_n );
@@ -1044,6 +1081,26 @@ BOOST_FIXTURE_TEST_CASE(checktime_hashing_fail, TESTER) { try {
 
    BOOST_REQUIRE_EQUAL( validate(), true );
 } FC_LOG_AND_RETHROW() }
+
+
+BOOST_FIXTURE_TEST_CASE(checktime_start, TESTER) try {
+   const char checktime_start_wast[] = R"=====(
+(module
+ (func $start (loop (br 0)))
+ (func (export "apply") (param i64 i64 i64))
+ (start $start)
+)
+)=====";
+   produce_blocks(2);
+   create_account( "testapi"_n );
+   produce_blocks(10);
+   set_code( "testapi"_n, checktime_start_wast );
+   produce_blocks(1);
+
+   BOOST_CHECK_EXCEPTION( call_test( *this, test_api_action<TEST_METHOD("doesn't matter", "doesn't matter")>{},
+                                     5000, 3 ),
+                          deadline_exception, is_deadline_exception );
+} FC_LOG_AND_RETHROW()
 
 /*************************************************************************************
  * transaction_tests test case
@@ -1101,7 +1158,7 @@ BOOST_FIXTURE_TEST_CASE(transaction_tests, TESTER) { try {
    {
       produce_blocks(10);
       transaction_trace_ptr trace;
-      auto c = control->applied_transaction.connect([&](std::tuple<const transaction_trace_ptr&, const signed_transaction&> x) {
+      auto c = control->applied_transaction.connect([&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
          auto& t = std::get<0>(x);
          if (t && t->receipt && t->receipt->status != transaction_receipt::executed) { trace = t; }
       } );
@@ -1161,7 +1218,43 @@ BOOST_FIXTURE_TEST_CASE(transaction_tests, TESTER) { try {
       );
 
    BOOST_REQUIRE_EQUAL( validate(), true );
-} FC_LOG_AND_RETHROW() }
+
+   // test read_transaction only returns packed transaction
+   {
+      signed_transaction trx;
+
+      auto pl = vector<permission_level>{{"testapi"_n, config::active_name}};
+      action act( pl, test_api_action<TEST_METHOD( "test_transaction", "test_read_transaction" )>{} );
+      act.data = {};
+      act.authorization = {{"testapi"_n, config::active_name}};
+      trx.actions.push_back( act );
+
+      set_transaction_headers( trx, DEFAULT_EXPIRATION_DELTA );
+      auto sigs = trx.sign( get_private_key( "testapi"_n, "active" ), control->get_chain_id() );
+
+      auto time_limit = fc::microseconds::maximum();
+      auto ptrx = std::make_shared<packed_transaction>( signed_transaction(trx), packed_transaction::compression_type::none );
+
+      string sha_expect = ptrx->id();
+      auto packed = fc::raw::pack( static_cast<const transaction&>(ptrx->get_transaction()) );
+      packed.push_back('7'); packed.push_back('7'); // extra ignored
+      auto packed_copy = packed;
+      vector<signature_type> psigs = ptrx->get_signatures();
+      vector<bytes> pcfd = ptrx->get_context_free_data();
+      packed_transaction pkt( std::move(packed), std::move(psigs), std::move(pcfd), packed_transaction::compression_type::none );
+      BOOST_CHECK(pkt.get_packed_transaction() == packed_copy);
+      ptrx = std::make_shared<packed_transaction>( pkt );
+
+      auto fut = transaction_metadata::start_recover_keys( std::move( ptrx ), control->get_thread_pool(), control->get_chain_id(), time_limit, transaction_metadata::trx_type::input );
+      auto r = control->push_transaction( fut.get(), fc::time_point::maximum(), DEFAULT_BILLED_CPU_TIME_US, true, 0 );
+      if( r->except_ptr ) std::rethrow_exception( r->except_ptr );
+      if( r->except) throw *r->except;
+      tx_trace = r;
+      produce_block();
+      BOOST_CHECK(tx_trace->action_traces.front().console == sha_expect);
+   }
+
+   } FC_LOG_AND_RETHROW() }
 
 /*************************************************************************************
  * verify subjective limit test case
@@ -1226,7 +1319,7 @@ BOOST_AUTO_TEST_CASE(deferred_inline_action_subjective_limit_failure) { try {
    chain.produce_block();
 
    transaction_trace_ptr trace;
-   auto c = chain.control->applied_transaction.connect([&](std::tuple<const transaction_trace_ptr&, const signed_transaction&> x) {
+   auto c = chain.control->applied_transaction.connect([&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
       auto& t = std::get<0>(x);
       if (t->scheduled) { trace = t; }
    } );
@@ -1264,7 +1357,7 @@ BOOST_AUTO_TEST_CASE(deferred_inline_action_subjective_limit) { try {
    chain2.push_block(block);
 
    transaction_trace_ptr trace;
-   auto c = chain.control->applied_transaction.connect([&](std::tuple<const transaction_trace_ptr&, const signed_transaction&> x) {
+   auto c = chain.control->applied_transaction.connect([&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
       auto& t = std::get<0>(x);
       if (t->scheduled) { trace = t; }
    } );
@@ -1299,7 +1392,7 @@ BOOST_FIXTURE_TEST_CASE(deferred_transaction_tests, TESTER) { try {
    //schedule
    {
       transaction_trace_ptr trace;
-      auto c = control->applied_transaction.connect([&](std::tuple<const transaction_trace_ptr&, const signed_transaction&> x) {
+      auto c = control->applied_transaction.connect([&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
          auto& t = std::get<0>(x);
          if (t->scheduled) { trace = t; }
       } );
@@ -1322,7 +1415,7 @@ BOOST_FIXTURE_TEST_CASE(deferred_transaction_tests, TESTER) { try {
    {
       transaction_trace_ptr trace;
       uint32_t count = 0;
-      auto c = control->applied_transaction.connect([&](std::tuple<const transaction_trace_ptr&, const signed_transaction&> x) {
+      auto c = control->applied_transaction.connect([&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
          auto& t = std::get<0>(x);
          if (t && t->scheduled) { trace = t; ++count; }
       } );
@@ -1348,7 +1441,7 @@ BOOST_FIXTURE_TEST_CASE(deferred_transaction_tests, TESTER) { try {
    {
       transaction_trace_ptr trace;
       uint32_t count = 0;
-      auto c = control->applied_transaction.connect([&](std::tuple<const transaction_trace_ptr&, const signed_transaction&> x) {
+      auto c = control->applied_transaction.connect([&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
          auto& t = std::get<0>(x);
          if (t && t->scheduled) { trace = t; ++count; }
       } );
@@ -1374,7 +1467,7 @@ BOOST_FIXTURE_TEST_CASE(deferred_transaction_tests, TESTER) { try {
    //schedule and cancel
    {
       transaction_trace_ptr trace;
-      auto c = control->applied_transaction.connect([&](std::tuple<const transaction_trace_ptr&, const signed_transaction&> x) {
+      auto c = control->applied_transaction.connect([&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
          auto& t = std::get<0>(x);
          if (t && t->scheduled) { trace = t; }
       } );
@@ -1397,7 +1490,7 @@ BOOST_FIXTURE_TEST_CASE(deferred_transaction_tests, TESTER) { try {
    //repeated deferred transactions
    {
       vector<transaction_trace_ptr> traces;
-      auto c = control->applied_transaction.connect([&](std::tuple<const transaction_trace_ptr&, const signed_transaction&> x) {
+      auto c = control->applied_transaction.connect([&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
          auto& t = std::get<0>(x);
          if (t && t->scheduled) {
             traces.push_back( t );
@@ -1814,6 +1907,58 @@ BOOST_FIXTURE_TEST_CASE(db_tests, TESTER) { try {
 
    BOOST_REQUIRE_EQUAL( validate(), true );
 } FC_LOG_AND_RETHROW() }
+
+// The multi_index iterator cache is preserved across notifications for the same action.
+BOOST_FIXTURE_TEST_CASE(db_notify_tests, TESTER) {
+   create_accounts( {"notifier"_n,"notified"_n } );
+   const char notifier[] = R"=====(
+(module
+ (func $db_store_i64 (import "env" "db_store_i64") (param i64 i64 i64 i64 i32 i32) (result i32))
+ (func $db_find_i64 (import "env" "db_find_i64") (param i64 i64 i64 i64) (result i32))
+ (func $db_idx64_store (import "env" "db_idx64_store") (param i64 i64 i64 i64 i32) (result i32))
+ (func $db_idx64_find_primary (import "env" "db_idx64_find_primary") (param i64 i64 i64 i32 i64) (result i32))
+ (func $db_idx128_store (import "env" "db_idx128_store") (param i64 i64 i64 i64 i32) (result i32))
+ (func $db_idx128_find_primary (import "env" "db_idx128_find_primary") (param i64 i64 i64 i32 i64) (result i32))
+ (func $db_idx256_store (import "env" "db_idx256_store") (param i64 i64 i64 i64 i32 i32) (result i32))
+ (func $db_idx256_find_primary (import "env" "db_idx256_find_primary") (param i64 i64 i64 i32 i32 i64) (result i32))
+ (func $db_idx_double_store (import "env" "db_idx_double_store") (param i64 i64 i64 i64 i32) (result i32))
+ (func $db_idx_double_find_primary (import "env" "db_idx_double_find_primary") (param i64 i64 i64 i32 i64) (result i32))
+ (func $db_idx_long_double_store (import "env" "db_idx_long_double_store") (param i64 i64 i64 i64 i32) (result i32))
+ (func $db_idx_long_double_find_primary (import "env" "db_idx_long_double_find_primary") (param i64 i64 i64 i32 i64) (result i32))
+ (func $eosio_assert (import "env" "eosio_assert") (param i32 i32))
+ (func $require_recipient (import "env" "require_recipient") (param i64))
+ (memory 1)
+ (func (export "apply") (param i64 i64 i64)
+  (local i32)
+  (set_local 3 (i64.ne (get_local 0) (get_local 1)))
+  (if (get_local 3) (then (i32.store8 (i32.const 7) (i32.const 100))))
+  (drop (call $db_store_i64 (i64.const 0) (i64.const 0) (get_local 0) (i64.const 0) (i32.const 0) (i32.const 0)))
+  (drop (call $db_idx64_store (i64.const 0) (i64.const 0) (get_local 0) (i64.const 0) (i32.const 256)))
+  (drop (call $db_idx128_store (i64.const 0) (i64.const 0) (get_local 0) (i64.const 0) (i32.const 256)))
+  (drop (call $db_idx256_store (i64.const 0) (i64.const 0) (get_local 0) (i64.const 0) (i32.const 256) (i32.const 2)))
+  (drop (call $db_idx_double_store (i64.const 0) (i64.const 0) (get_local 0) (i64.const 0) (i32.const 256)))
+  (drop (call $db_idx_long_double_store (i64.const 0) (i64.const 0) (get_local 0) (i64.const 0) (i32.const 256)))
+  (call $eosio_assert (i32.eq (call $db_find_i64 (get_local 0) (i64.const 0) (i64.const 0) (i64.const 0) ) (get_local 3)) (i32.const 0))
+  (call $eosio_assert (i32.eq (call $db_idx64_find_primary (get_local 0) (i64.const 0) (i64.const 0) (i32.const 256) (i64.const 0)) (get_local 3)) (i32.const 32))
+  (call $eosio_assert (i32.eq (call $db_idx128_find_primary (get_local 0) (i64.const 0) (i64.const 0) (i32.const 256) (i64.const 0)) (get_local 3)) (i32.const 64))
+  (call $eosio_assert (i32.eq (call $db_idx256_find_primary (get_local 0) (i64.const 0) (i64.const 0) (i32.const 256) (i32.const 2) (i64.const 0)) (get_local 3)) (i32.const 96))
+  (call $eosio_assert (i32.eq (call $db_idx_double_find_primary (get_local 0) (i64.const 0) (i64.const 0) (i32.const 256) (i64.const 0)) (get_local 3)) (i32.const 128))
+  (call $eosio_assert (i32.eq (call $db_idx_long_double_find_primary (get_local 0) (i64.const 0) (i64.const 0) (i32.const 256) (i64.const 0)) (get_local 3)) (i32.const 160))
+  (call $require_recipient (i64.const 11327368596746665984))
+ )
+ (data (i32.const 0) "notifier: primary")
+ (data (i32.const 32) "notifier: idx64")
+ (data (i32.const 64) "notifier: idx128")
+ (data (i32.const 96) "notifier: idx256")
+ (data (i32.const 128) "notifier: idx_double")
+ (data (i32.const 160) "notifier: idx_long_double")
+)
+)=====";
+   set_code("notifier"_n, notifier );
+   set_code("notified"_n, notifier );
+
+   BOOST_TEST_REQUIRE(push_action( action({},"notifier"_n, name(), {}),"notifier"_n.to_uint64_t() ) == "");
+}
 
 /*************************************************************************************
  * multi_index_tests test case
@@ -2378,6 +2523,99 @@ BOOST_FIXTURE_TEST_CASE(permission_tests, TESTER) { try {
    BOOST_CHECK_EQUAL( int64_t(0), get_result_int64() );
 
 } FC_LOG_AND_RETHROW() }
+
+static const char resource_limits_wast[] = R"=====(
+(module
+ (func $set_resource_limits (import "env" "set_resource_limits") (param i64 i64 i64 i64))
+ (func $get_resource_limits (import "env" "get_resource_limits") (param i64 i32 i32 i32))
+ (func $eosio_assert (import "env" "eosio_assert") (param i32 i32))
+ (memory 1)
+ (func (export "apply") (param i64 i64 i64)
+  (call $set_resource_limits (get_local 2) (i64.const 2788) (i64.const 11) (i64.const 12))
+  (call $get_resource_limits (get_local 2) (i32.const 0x100) (i32.const 0x108) (i32.const 0x110))
+  (call $eosio_assert (i64.eq (i64.const 2788) (i64.load (i32.const 0x100))) (i32.const 8))
+  (call $eosio_assert (i64.eq (i64.const 11) (i64.load (i32.const 0x108))) (i32.const 32))
+  (call $eosio_assert (i64.eq (i64.const 12) (i64.load (i32.const 0x110))) (i32.const 64))
+  ;; Aligned overlap
+  (call $get_resource_limits (get_local 2) (i32.const 0x100) (i32.const 0x100) (i32.const 0x110))
+  (call $eosio_assert (i64.eq (i64.const 11) (i64.load (i32.const 0x100))) (i32.const 96))
+  (call $get_resource_limits (get_local 2) (i32.const 0x100) (i32.const 0x110) (i32.const 0x110))
+  (call $eosio_assert (i64.eq (i64.const 12) (i64.load (i32.const 0x110))) (i32.const 128))
+  ;; Unaligned beats aligned
+  (call $get_resource_limits (get_local 2) (i32.const 0x101) (i32.const 0x108) (i32.const 0x100))
+  (call $eosio_assert (i64.eq (i64.const 2788) (i64.load (i32.const 0x101))) (i32.const 160))
+  ;; Unaligned overlap
+  (call $get_resource_limits (get_local 2) (i32.const 0x101) (i32.const 0x101) (i32.const 0x110))
+  (call $eosio_assert (i64.eq (i64.const 11) (i64.load (i32.const 0x101))) (i32.const 192))
+  (call $get_resource_limits (get_local 2) (i32.const 0x100) (i32.const 0x111) (i32.const 0x111))
+  (call $eosio_assert (i64.eq (i64.const 12) (i64.load (i32.const 0x111))) (i32.const 224))
+ )
+ (data (i32.const 8) "expected ram 2788")
+ (data (i32.const 32) "expected net 11")
+ (data (i32.const 64) "expected cpu 12")
+ (data (i32.const 96) "expected net to overwrite ram")
+ (data (i32.const 128) "expected cpu to overwrite net")
+ (data (i32.const 160) "expected unaligned")
+ (data (i32.const 192) "expected unet to overwrite uram")
+ (data (i32.const 224) "expected ucpu to overwrite unet")
+)
+)=====";
+
+static const char get_resource_limits_null_ram_wast[] = R"=====(
+(module
+ (func $get_resource_limits (import "env" "get_resource_limits") (param i64 i32 i32 i32))
+ (memory 1)
+ (func (export "apply") (param i64 i64 i64)
+  (call $get_resource_limits (get_local 2) (i32.const 0) (i32.const 0x10) (i32.const 0x10))
+ )
+)
+)=====";
+
+static const char get_resource_limits_null_net_wast[] = R"=====(
+(module
+ (func $get_resource_limits (import "env" "get_resource_limits") (param i64 i32 i32 i32))
+ (memory 1)
+ (func (export "apply") (param i64 i64 i64)
+  (call $get_resource_limits (get_local 2) (i32.const 0x10) (i32.const 0) (i32.const 0x10))
+ )
+)
+)=====";
+
+static const char get_resource_limits_null_cpu_wast[] = R"=====(
+(module
+ (func $get_resource_limits (import "env" "get_resource_limits") (param i64 i32 i32 i32))
+ (memory 1)
+ (func (export "apply") (param i64 i64 i64)
+  (call $get_resource_limits (get_local 2) (i32.const 0x10) (i32.const 0x10) (i32.const 0))
+ )
+)
+)=====";
+
+BOOST_FIXTURE_TEST_CASE(resource_limits_tests, TESTER) {
+   create_accounts( { "rlimits"_n, "testacnt"_n } );
+   set_code("rlimits"_n, resource_limits_wast);
+   push_action( "eosio"_n, "setpriv"_n, "eosio"_n, mutable_variant_object()("account", "rlimits"_n)("is_priv", 1));
+   produce_block();
+
+   auto pushit = [&]{
+      signed_transaction trx;
+      trx.actions.push_back({ { { "rlimits"_n, config::active_name } }, "rlimits"_n, "testacnt"_n, bytes{}});
+      set_transaction_headers(trx);
+      trx.sign(get_private_key( "rlimits"_n, "active" ), control->get_chain_id());
+      push_transaction(trx);
+   };
+   pushit();
+   produce_block();
+
+   set_code("rlimits"_n, get_resource_limits_null_ram_wast);
+   BOOST_CHECK_THROW(pushit(), wasm_exception);
+
+   set_code("rlimits"_n, get_resource_limits_null_net_wast);
+   BOOST_CHECK_THROW(pushit(), wasm_exception);
+
+   set_code("rlimits"_n, get_resource_limits_null_cpu_wast);
+   BOOST_CHECK_THROW(pushit(), wasm_exception);
+}
 
 #if 0
 /*************************************************************************************

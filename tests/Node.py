@@ -96,11 +96,16 @@ class Node(object):
         def __contextDesc(self):
             return "%s%s" % (self.desc, self.__keyContext())
 
-        def add(self, newKey):
+        def hasKey(self, newKey, subSection = None):
             assert isinstance(newKey, str), print("ERROR: Trying to use %s as a key" % (newKey))
-            subSection=self.sections[-1]
+            if subSection is None:
+                subSection=self.sections[-1]
             assert isinstance(subSection, dict), print("ERROR: Calling \"add\" method when context is not a dictionary. %s in %s" % (self.__contextDesc(), self.__json()))
-            assert newKey in subSection, print("ERROR: %s%s does not contain key \"%s\". %s" % (self.__contextDesc(), key, self.__json()))
+            return newKey in subSection
+
+        def add(self, newKey):
+            subSection=self.sections[-1]
+            assert self.hasKey(newKey, subSection), print("ERROR: %s does not contain key \"%s\". %s" % (self.__contextDesc(), newKey, self.__json()))
             current=subSection[newKey]
             self.sections.append(current)
             self.keyContext.append(newKey)
@@ -120,16 +125,28 @@ class Node(object):
     @staticmethod
     def getTransStatus(trans):
         cntxt=Node.Context(trans, "trans")
-        cntxt.add("processed")
+        # could be a transaction response
+        if cntxt.hasKey("processed"):
+            cntxt.add("processed")
+            cntxt.add("receipt")
+            return cntxt.add("status")
+
+        # or what the history plugin returns
+        cntxt.add("trx")
         cntxt.add("receipt")
         return cntxt.add("status")
 
     @staticmethod
     def getTransBlockNum(trans):
         cntxt=Node.Context(trans, "trans")
-        cntxt.add("processed")
-        cntxt.add("action_traces")
-        cntxt.index(0)
+        # could be a transaction response
+        if cntxt.hasKey("processed"):
+            cntxt.add("processed")
+            cntxt.add("action_traces")
+            cntxt.index(0)
+            return cntxt.add("block_num")
+
+        # or what the history plugin returns
         return cntxt.add("block_num")
 
 
@@ -494,16 +511,15 @@ class Node(object):
     def waitForIrreversibleBlock(self, blockNum, timeout=None, blockType=BlockType.head):
         return self.waitForBlock(blockNum, timeout=timeout, blockType=blockType)
 
-    # Trasfer funds. Returns "transfer" json return object
-    def transferFunds(self, source, destination, amountStr, memo="memo", force=False, waitForTransBlock=False, exitOnError=True):
+    def __transferFundsCmdArr(self, source, destination, amountStr, memo, force, retry):
         assert isinstance(amountStr, str)
         assert(source)
         assert(isinstance(source, Account))
         assert(destination)
         assert(isinstance(destination, Account))
 
-        cmd="%s %s -v transfer -j %s %s" % (
-            Utils.EosClientPath, self.eosClientArgs(), source.name, destination.name)
+        cmd="%s %s -v transfer --expiration 90 %s -j %s %s" % (
+            Utils.EosClientPath, self.eosClientArgs(), self.getRetryCmdArg(retry), source.name, destination.name)
         cmdArr=cmd.split()
         cmdArr.append(amountStr)
         cmdArr.append(memo)
@@ -511,6 +527,11 @@ class Node(object):
             cmdArr.append("-f")
         s=" ".join(cmdArr)
         if Utils.Debug: Utils.Print("cmd: %s" % (s))
+        return cmdArr
+
+    # Trasfer funds. Returns "transfer" json return object
+    def transferFunds(self, source, destination, amountStr, memo="memo", force=False, waitForTransBlock=False, exitOnError=True, reportStatus=True, retry=None):
+        cmdArr = self.__transferFundsCmdArr(source, destination, amountStr, memo, force, retry)
         trans=None
         start=time.perf_counter()
         try:
@@ -518,7 +539,7 @@ class Node(object):
             if Utils.Debug:
                 end=time.perf_counter()
                 Utils.Print("cmd Duration: %.3f sec" % (end-start))
-            self.trackCmdTransaction(trans)
+            self.trackCmdTransaction(trans, reportStatus=reportStatus)
         except subprocess.CalledProcessError as ex:
             end=time.perf_counter()
             msg=ex.output.decode("utf-8")
@@ -533,6 +554,38 @@ class Node(object):
             Utils.errorExit("Failed to transfer \"%s\" from %s to %s" % (amountStr, source, destination))
 
         return self.waitForTransBlockIfNeeded(trans, waitForTransBlock, exitOnError=exitOnError)
+
+    # Trasfer funds. Returns (popen, cmdArr) for checkDelayedOutput
+    def transferFundsAsync(self, source, destination, amountStr, memo="memo", force=False, exitOnError=True, retry=None):
+        cmdArr = self.__transferFundsCmdArr(source, destination, amountStr, memo, force, retry)
+        start=time.perf_counter()
+        try:
+            popen=Utils.delayedCheckOutput(cmdArr)
+            if Utils.Debug:
+                end=time.perf_counter()
+                Utils.Print("cmd Duration: %.3f sec" % (end-start))
+        except subprocess.CalledProcessError as ex:
+            end=time.perf_counter()
+            msg=ex.output.decode("utf-8")
+            Utils.Print("ERROR: Exception during spawn of funds transfer.  cmd Duration: %.3f sec.  %s" % (end-start, msg))
+            if exitOnError:
+                Utils.cmdError("could not transfer \"%s\" from %s to %s" % (amountStr, source, destination))
+                Utils.errorExit("Failed to transfer \"%s\" from %s to %s" % (amountStr, source, destination))
+            return None, None
+
+        return popen, cmdArr
+
+    @staticmethod
+    def getRetryCmdArg(retry):
+        """Returns the cleos cmd arg for retry"""
+        assert retry is None or isinstance(retry, int) or (isinstance(retry, str) and retry == "lib"), "Invalid retry passed"
+        cmdRetry = ""
+        if retry is not None:
+            if retry == "lib":
+                cmdRetry = "--retry-irreversible"
+            else:
+                cmdRetry = "--retry-num-blocks %s" % retry
+        return cmdRetry
 
     @staticmethod
     def currencyStrToInt(balanceStr):
@@ -596,6 +649,11 @@ class Node(object):
             balances[account]=balance
 
         return balances
+
+    # Gets subjective bill info for an account
+    def getAccountSubjectiveInfo(self, account):
+        acct = self.getEosAccount(account)
+        return acct["subjective_cpu_bill_limit"]
 
     # Gets accounts mapped to key. Returns json object
     def getAccountsByKey(self, key, exitOnError=False):
@@ -732,6 +790,41 @@ class Node(object):
         keys=list(row.keys())
         return keys
 
+    def pushTransaction(self, trans, opts="", silentErrors=False, permissions=None):
+        assert(isinstance(trans, dict))
+        if isinstance(permissions, str):
+            permissions=[permissions]
+        reportStatus = True
+
+        cmd="%s %s push transaction -j" % (Utils.EosClientPath, self.eosClientArgs())
+        cmdArr=cmd.split()
+        transStr = json.dumps(trans, separators=(',', ':'))
+        transStr = transStr.replace("'", '"')
+        cmdArr.append(transStr)
+        if opts is not None:
+            cmdArr += opts.split()
+        if permissions is not None:
+            for permission in permissions:
+                cmdArr.append("-p")
+                cmdArr.append(permission)
+
+        s=" ".join(cmdArr)
+        if Utils.Debug: Utils.Print("cmd: %s" % (cmdArr))
+        start=time.perf_counter()
+        try:
+            retTrans=Utils.runCmdArrReturnJson(cmdArr)
+            self.trackCmdTransaction(retTrans, ignoreNonTrans=True)
+            if Utils.Debug:
+                end=time.perf_counter()
+                Utils.Print("cmd Duration: %.3f sec" % (end-start))
+            return (True, retTrans)
+        except subprocess.CalledProcessError as ex:
+            msg=ex.output.decode("utf-8")
+            if not silentErrors:
+                end=time.perf_counter()
+                Utils.Print("ERROR: Exception during push message.  cmd Duration=%.3f sec.  %s" % (end - start, msg))
+            return (False, msg)
+
     # returns tuple with transaction and
     def pushMessage(self, account, action, data, opts, silentErrors=False):
         cmd="%s %s push action -j %s %s" % (Utils.EosClientPath, self.eosClientArgs(), account, action)
@@ -765,7 +858,7 @@ class Node(object):
 
         return self.waitForTransBlockIfNeeded(trans, waitForTransBlock, exitOnError=exitOnError)
 
-    def delegatebw(self, fromAccount, netQuantity, cpuQuantity, toAccount=None, transferTo=False, waitForTransBlock=False, exitOnError=False):
+    def delegatebw(self, fromAccount, netQuantity, cpuQuantity, toAccount=None, transferTo=False, waitForTransBlock=False, exitOnError=False, reportStatus=True):
         if toAccount is None:
             toAccount=fromAccount
 
@@ -775,7 +868,7 @@ class Node(object):
             cmdDesc, fromAccount.name, toAccount.name, netQuantity, CORE_SYMBOL, cpuQuantity, CORE_SYMBOL, transferStr)
         msg="fromAccount=%s, toAccount=%s" % (fromAccount.name, toAccount.name);
         trans=self.processCleosCmd(cmd, cmdDesc, exitOnError=exitOnError, exitMsg=msg)
-        self.trackCmdTransaction(trans)
+        self.trackCmdTransaction(trans, reportStatus=reportStatus)
 
         return self.waitForTransBlockIfNeeded(trans, waitForTransBlock, exitOnError=exitOnError)
 
@@ -1182,24 +1275,28 @@ class Node(object):
             self.pid=popen.pid
             if Utils.Debug: Utils.Print("start Node host=%s, port=%s, pid=%s, cmd=%s" % (self.host, self.port, self.pid, self.cmd))
 
-    def trackCmdTransaction(self, trans, ignoreNonTrans=False):
+    def trackCmdTransaction(self, trans, ignoreNonTrans=False, reportStatus=True):
         if trans is None:
             if Utils.Debug: Utils.Print("  cmd returned transaction: %s" % (trans))
             return
 
         if ignoreNonTrans and not Node.isTrans(trans):
-            if Utils.Debug: Utils.Print("  cmd returned a non-transaction")
+            if Utils.Debug: Utils.Print("  cmd returned a non-transaction: %s" % (trans))
             return
 
         transId=Node.getTransId(trans)
-        if Utils.Debug:
+        if transId in self.transCache.keys():
+            replaceMsg="replacing previous trans=\n%s" % json.dumps(self.transCache[transId], indent=2, sort_keys=True)
+        else:
+            replaceMsg=""
+
+        if Utils.Debug and reportStatus:
             status=Node.getTransStatus(trans)
             blockNum=Node.getTransBlockNum(trans)
-            if transId in self.transCache.keys():
-                replaceMsg="replacing previous trans=\n%s" % json.dumps(self.transCache[transId], indent=2, sort_keys=True)
-            else:
-                replaceMsg=""
             Utils.Print("  cmd returned transaction id: %s, status: %s, (possible) block num: %s %s" % (transId, status, blockNum, replaceMsg))
+        elif Utils.Debug:
+            Utils.Print("  cmd returned transaction id: %s %s" % (transId, replaceMsg))
+
         self.transCache[transId]=trans
 
     def reportStatus(self):
