@@ -467,6 +467,7 @@ namespace eosio { namespace chain {
                                                fc::microseconds                     provided_delay,
                                                const std::function<void()>&         _checktime,
                                                bool                                 allow_unused_keys,
+                                               bool                                 check_but_dont_fail,
                                                const flat_set<permission_level>&    satisfied_authorizations
                                              )const
    {
@@ -542,7 +543,7 @@ namespace eosio { namespace chain {
       // ascending order of the actor name with ties broken by ascending order of the permission name.
       for( const auto& p : permissions_to_satisfy ) {
          checktime(); // TODO: this should eventually move into authority_checker instead
-         EOS_ASSERT( checker.satisfied( p.first, p.second ), unsatisfied_authorization,
+         EOS_ASSERT( checker.satisfied( p.first, p.second ) || check_but_dont_fail, unsatisfied_authorization,
                      "transaction declares authority '${auth}', "
                      "but does not have signatures for it under a provided delay of ${provided_delay} ms, "
                      "provided permissions ${provided_permissions}, provided keys ${provided_keys}, "
@@ -556,7 +557,7 @@ namespace eosio { namespace chain {
 
       }
 
-      if( !allow_unused_keys ) {
+      if( !allow_unused_keys  || check_but_dont_fail) {
          EOS_ASSERT( checker.all_keys_used(), tx_irrelevant_sig,
                      "transaction bears irrelevant signatures from these keys: ${keys}",
                      ("keys", checker.unused_keys()) );

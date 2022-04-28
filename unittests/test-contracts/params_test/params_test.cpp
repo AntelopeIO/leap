@@ -38,7 +38,7 @@ struct params_object{
       ds << val;
       ASSERT_LE(ds.tellp(), sizeof(buffer));
 
-      packed += {buffer, ds.tellp()};
+      packed += std::string_view{buffer, ds.tellp()};
       return *this;
    }
    params_object& operator () (uint16_t val){
@@ -47,7 +47,7 @@ struct params_object{
       ds << val;
       ASSERT_EQ(ds.tellp(), sizeof(buffer));
 
-      packed += {buffer, ds.tellp()};
+      packed += std::string_view{buffer, ds.tellp()};
       return *this;
    }
    params_object& operator () (uint32_t val){
@@ -56,7 +56,7 @@ struct params_object{
       ds << val;
       ASSERT_EQ(ds.tellp(), sizeof(buffer));
 
-      packed += {buffer, ds.tellp()};
+      packed += std::string_view{buffer, ds.tellp()};
       return *this;
    }
    params_object& operator () (uint64_t val){
@@ -65,7 +65,7 @@ struct params_object{
       ds << val;
       ASSERT_EQ(ds.tellp(), sizeof(buffer));
 
-      packed += {buffer, ds.tellp()};
+      packed += std::string_view{buffer, ds.tellp()};
       return *this;
    }
    params_object& operator () (vector<unsigned_int>&& val){
@@ -74,7 +74,7 @@ struct params_object{
       ds << val;
       ASSERT_LESS(ds.tellp(), sizeof(buffer));
 
-      packed += {buffer, ds.tellp()};
+      packed += std::string_view{buffer, ds.tellp()};
       return *this;
    }
 

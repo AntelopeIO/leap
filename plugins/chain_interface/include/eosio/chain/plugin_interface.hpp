@@ -45,13 +45,13 @@ namespace eosio { namespace chain { namespace plugin_interface {
       namespace methods {
          // synchronously push a block/trx to a single provider
          using block_sync            = method_decl<chain_plugin_interface, bool(const signed_block_ptr&, const std::optional<block_id_type>&), first_provider_policy>;
-         using transaction_async     = method_decl<chain_plugin_interface, void(const packed_transaction_ptr&, bool, next_function<transaction_trace_ptr>), first_provider_policy>;
+         using transaction_async     = method_decl<chain_plugin_interface, void(const packed_transaction_ptr&, bool, bool, next_function<transaction_trace_ptr>), first_provider_policy>;
       }
    }
 
    namespace compat {
       namespace channels {
-         using transaction_ack       = channel_decl<struct accepted_transaction_tag, std::pair<fc::exception_ptr, transaction_metadata_ptr>>;
+         using transaction_ack       = channel_decl<struct accepted_transaction_tag, std::pair<fc::exception_ptr, packed_transaction_ptr>>;
       }
    }
 
