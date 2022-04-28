@@ -37,14 +37,6 @@ Config Options for eosio::producer_plugin:
                                         the DPOS Irreversible Block for a chain
                                         this node will produce blocks on (use 
                                         negative value to indicate unlimited)
-  --max-block-cpu-usage-threshold-us    Threshold of CPU block production to 
-                                        consider block full; when within threshold 
-                                        of max-block-cpu-usage block can be 
-                                        produced immediately. Default value 5000
-  --max-block-net-usage-threshold-bytes Threshold of NET block production to 
-                                        consider block full; when within threshold
-                                        of max-block-net-usage block can be produced
-                                        immediately. Default value 1024
   -p [ --producer-name ] arg            ID of producer controlled by this node 
                                         (e.g. inita; may specify multiple 
                                         times)
@@ -83,26 +75,74 @@ Config Options for eosio::producer_plugin:
                                         signing
   --greylist-account arg                account that can not access to extended
                                         CPU/NET virtual resources
-  --produce-time-offset-us arg (=0)     offset of non last block producing time
-                                        in microseconds. Negative number 
-                                        results in blocks to go out sooner, and
-                                        positive number results in blocks to go
-                                        out later
-  --last-block-time-offset-us arg (=0)  offset of last block producing time in 
-                                        microseconds. Negative number results 
-                                        in blocks to go out sooner, and 
-                                        positive number results in blocks to go
-                                        out later
+  --greylist-limit arg (=1000)          Limit (between 1 and 1000) on the 
+                                        multiple that CPU/NET virtual resources
+                                        can extend during low usage (only 
+                                        enforced subjectively; use 1000 to not 
+                                        enforce any limit)
+  --produce-time-offset-us arg (=0)     Offset of non last block producing time
+                                        in microseconds. Valid range 0 .. 
+                                        -block_time_interval.
+  --last-block-time-offset-us arg (=-200000)
+                                        Offset of last block producing time in 
+                                        microseconds. Valid range 0 .. 
+                                        -block_time_interval.
+  --cpu-effort-percent arg (=80)        Percentage of cpu block production time
+                                        used to produce block. Whole number 
+                                        percentages, e.g. 80 for 80%
+  --last-block-cpu-effort-percent arg (=80)
+                                        Percentage of cpu block production time
+                                        used to produce last block. Whole 
+                                        number percentages, e.g. 80 for 80%
+  --max-block-cpu-usage-threshold-us arg (=5000)
+                                        Threshold of CPU block production to 
+                                        consider block full; when within 
+                                        threshold of max-block-cpu-usage block 
+                                        can be produced immediately
+  --max-block-net-usage-threshold-bytes arg (=1024)
+                                        Threshold of NET block production to 
+                                        consider block full; when within 
+                                        threshold of max-block-net-usage block 
+                                        can be produced immediately
   --max-scheduled-transaction-time-per-block-ms arg (=100)
                                         Maximum wall-clock time, in 
                                         milliseconds, spent retiring scheduled 
                                         transactions in any block before 
                                         returning to normal transaction 
                                         processing.
-  --incoming-defer-ratio arg (=1)       ratio between incoming transactions and 
+  --subjective-cpu-leeway-us arg (=31000)
+                                        Time in microseconds allowed for a 
+                                        transaction that starts with 
+                                        insufficient CPU quota to complete and 
+                                        cover its CPU usage.
+  --subjective-account-max-failures arg (=3)
+                                        Sets the maximum amount of failures 
+                                        that are allowed for a given account 
+                                        per block.
+  --subjective-account-decay-time-minutes arg (=1440)
+                                        Sets the time to return full subjective
+                                        cpu for accounts
+  --incoming-defer-ratio arg (=1)       ratio between incoming transactions and
                                         deferred transactions when both are 
-                                        queued for execution                                        
-                                                                            
+                                        queued for execution
+  --incoming-transaction-queue-size-mb arg (=1024)
+                                        Maximum size (in MiB) of the incoming 
+                                        transaction queue. Exceeding this value
+                                        will subjectively drop transaction with
+                                        resource exhaustion.
+  --disable-api-persisted-trx           Disable the re-apply of API 
+                                        transactions.
+  --disable-subjective-billing arg (=1) Disable subjective CPU billing for 
+                                        API/P2P transactions
+  --disable-subjective-account-billing arg
+                                        Account which is excluded from 
+                                        subjective CPU billing
+  --disable-subjective-p2p-billing arg (=1)
+                                        Disable subjective CPU billing for P2P 
+                                        transactions
+  --disable-subjective-api-billing arg (=1)
+                                        Disable subjective CPU billing for API 
+                                        transactions
   --producer-threads arg (=2)           Number of worker threads in producer 
                                         thread pool
   --snapshots-dir arg (="snapshots")    the location of the snapshots directory

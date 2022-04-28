@@ -252,7 +252,7 @@ namespace eosio { namespace chain {
 
          my->head = read_head();
          if( my->head ) {
-            my->head_id = my->head->id();
+            my->head_id = my->head->calculate_id();
          } else {
             my->head_id = {};
          }
@@ -309,7 +309,7 @@ namespace eosio { namespace chain {
          block_file.write((char*)&pos, sizeof(pos));
          index_file.write((char*)&pos, sizeof(pos));
          head = b;
-         head_id = b->id();
+         head_id = b->calculate_id();
 
          flush();
 
@@ -427,7 +427,7 @@ namespace eosio { namespace chain {
             read_block_header(bh, pos);
             EOS_ASSERT(bh.block_num() == block_num, reversible_blocks_exception,
                        "Wrong block header was read from block log.", ("returned", bh.block_num())("expected", block_num));
-            return bh.id();
+            return bh.calculate_id();
          }
          return {};
       } FC_LOG_AND_RETHROW()
@@ -629,7 +629,7 @@ namespace eosio { namespace chain {
             break;
          }
 
-         auto id = tmp.id();
+         auto id = tmp.calculate_id();
          if( block_header::num_from_id(previous) + 1 != block_header::num_from_id(id) ) {
             elog( "Block ${num} (${id}) skips blocks. Previous block in block log is block ${prev_num} (${previous})",
                   ("num", block_header::num_from_id(id))("id", id)

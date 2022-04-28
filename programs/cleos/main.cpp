@@ -178,7 +178,12 @@ bool   tx_dont_broadcast = false;
 bool   tx_return_packed = false;
 bool   tx_skip_sign = false;
 bool   tx_print_json = false;
+bool   tx_rtn_failure_trace = true;
+bool   tx_read_only = false;
+bool   tx_retry_lib = false;
+uint16_t tx_retry_num_blocks = 0;
 bool   tx_use_old_rpc = false;
+bool   tx_use_old_send_rpc = false;
 string tx_json_save_file;
 bool   print_request = false;
 bool   print_response = false;
@@ -214,6 +219,7 @@ void add_standard_transaction_options(CLI::App* cmd, string default_permission =
    cmd->add_flag("--return-packed", tx_return_packed, localized("used in conjunction with --dont-broadcast to get the packed transaction"));
    cmd->add_option("-r,--ref-block", tx_ref_block_num_or_id, (localized("set the reference block num or block id used for TAPOS (Transaction as Proof-of-Stake)")));
    cmd->add_flag("--use-old-rpc", tx_use_old_rpc, localized("use old RPC push_transaction, rather than new RPC send_transaction"));
+   cmd->add_flag("--use-old-send-rpc", tx_use_old_send_rpc, localized("Use old RPC send_transaction, rather than new RPC /v1/chain/send_transaction2"));
 
    string msg = "An account and permission level to authorize, as in 'account@permission'";
    if(!default_permission.empty())
@@ -224,6 +230,9 @@ void add_standard_transaction_options(CLI::App* cmd, string default_permission =
    cmd->add_option("--max-net-usage", tx_max_net_usage, localized("set an upper limit on the net usage budget, in bytes, for the transaction (defaults to 0 which means no limit)"));
 
    cmd->add_option("--delay-sec", delaysec, localized("set the delay_sec seconds, defaults to 0s"));
+   cmd->add_option("-t,--return-failure-trace", tx_rtn_failure_trace, localized("Return partial traces on failed transactions"));
+   cmd->add_option("--retry-irreversible", tx_retry_lib, localized("Request node to retry transaction until it is irreversible or expires, blocking call"));
+   cmd->add_option("--retry-num-blocks", tx_retry_num_blocks, localized("Request node to retry transaction until in a block of given height, blocking call"));
 }
 
 vector<chain::permission_level> get_account_permissions(const vector<string>& permissions) {
@@ -340,15 +349,49 @@ fc::variant push_transaction( signed_transaction& trx, packed_transaction::compr
    }
 
    if (!tx_dont_broadcast) {
+      EOSC_ASSERT( !(tx_use_old_rpc && tx_use_old_send_rpc), "ERROR: --use-old-rpc and --use-old-send-rpc are mutually exclusive" );
+      EOSC_ASSERT( !(tx_retry_lib && tx_retry_num_blocks > 0), "ERROR: --retry-irreversible and --retry-num-blocks are mutually exclusive" );
       if (tx_use_old_rpc) {
-         return call(push_txn_func, packed_transaction(trx, compression));
-      } else {
+         EOSC_ASSERT( !tx_read_only, "ERROR: --read-only can not be used with --use-old-rpc" );
+         EOSC_ASSERT( !tx_rtn_failure_trace, "ERROR: --return-failure-trace can not be used with --use-old-rpc" );
+         EOSC_ASSERT( !tx_retry_lib, "ERROR: --retry-irreversible can not be used with --use-old-rpc" );
+         EOSC_ASSERT( !tx_retry_num_blocks, "ERROR: --retry-num-blocks can not be used with --use-old-rpc" );
+         return call( push_txn_func, packed_transaction( trx, compression ) );
+      } else if (tx_use_old_send_rpc) {
+         EOSC_ASSERT( !tx_read_only, "ERROR: --read-only can not be used with --use-old-send-rpc" );
+         EOSC_ASSERT( !tx_rtn_failure_trace, "ERROR: --return-failure-trace can not be used with --use-old-send-rpc" );
+         EOSC_ASSERT( !tx_retry_lib, "ERROR: --retry-irreversible can not be used with --use-old-send-rpc" );
+         EOSC_ASSERT( !tx_retry_num_blocks, "ERROR: --retry-num-blocks can not be used with --use-old-send-rpc" );
          try {
-            return call(send_txn_func, packed_transaction(trx, compression));
-         }
-         catch (chain::missing_chain_api_plugin_exception &) {
+            return call( send_txn_func, packed_transaction( trx, compression ) );
+         } catch( chain::missing_chain_api_plugin_exception& ) {
             std::cerr << "New RPC send_transaction may not be supported. Add flag --use-old-rpc to use old RPC push_transaction instead." << std::endl;
             throw;
+         }
+      } else {
+         if( tx_read_only ) {
+            EOSC_ASSERT( !tx_retry_lib, "ERROR: --retry-irreversible can not be used with --read-only" );
+            EOSC_ASSERT( !tx_retry_num_blocks, "ERROR: --retry-num-blocks can not be used with --read-only" );
+            try {
+               return call( compute_txn_func, packed_transaction(trx, compression));
+            } catch( chain::missing_chain_api_plugin_exception& ) {
+               std::cerr << "New RPC compute_transaction may not be supported. Submit to a different node." << std::endl;
+               throw;
+            }
+         } else {
+            try {
+               bool retry = tx_retry_lib || tx_retry_num_blocks > 0;
+               auto args = fc::mutable_variant_object()
+                     ( "return_failure_trace", tx_rtn_failure_trace )
+                     ( "retry_trx", retry );
+               if( tx_retry_num_blocks > 0 ) args( "retry_trx_num_blocks", tx_retry_num_blocks );
+               args( "transaction", packed_transaction( trx, compression ) );
+               return call( send2_txn_func, args );
+            } catch( chain::missing_chain_api_plugin_exception& ) {
+               std::cerr << "New RPC send_transaction2 may not be supported.\n"
+                         << "Add flag --use-old-send-rpc or --use-old-rpc to use old RPC send_transaction." << std::endl;
+               throw;
+            }
          }
       }
    } else {
@@ -2584,6 +2627,15 @@ int main( int argc, char** argv ) {
       std::cout << fc::json::to_pretty_string(get_info()) << std::endl;
    });
 
+   // get transaction status
+   string status_transaction_id_str;
+   auto getTransactionStatus = get->add_subcommand("transaction-status", localized("Get transaction status information"));
+   getTransactionStatus->add_option("id", status_transaction_id_str, localized("ID of the transaction to retrieve"))->required();
+   getTransactionStatus->callback([&status_transaction_id_str] {
+      auto arg= fc::mutable_variant_object( "id", status_transaction_id_str);
+      std::cout << fc::json::to_pretty_string(call(get_transaction_status_func, arg)) << std::endl;
+   });
+
    // get block
    string blockArg;
    bool get_bhs = false;
@@ -3433,6 +3485,7 @@ int main( int argc, char** argv ) {
    auto trxSubcommand = push->add_subcommand("transaction", localized("Push an arbitrary JSON transaction"));
    trxSubcommand->add_option("transaction", trx_to_push, localized("The JSON string or filename defining the transaction to push"))->required();
    add_standard_transaction_options(trxSubcommand);
+   trxSubcommand->add_flag("-o,--read-only", tx_read_only, localized("Specify a transaction is read-only"));
 
    trxSubcommand->callback([&] {
       fc::variant trx_var = json_from_file_or_string(trx_to_push);
