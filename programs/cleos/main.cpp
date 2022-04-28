@@ -263,10 +263,16 @@ fc::variant call( const std::string& url,
       return eosio::client::http::do_http_call(*sp, fc::variant(v), print_request, print_response );
    }
    catch(boost::system::system_error& e) {
-      if(url == ::url)
-         std::cerr << localized("Failed to connect to ${n} at ${u}; is ${n} running?", ("n", node_executable_name)("u", url)) << std::endl;
-      else if(url == ::wallet_url)
-         std::cerr << localized("Failed to connect to ${k} at ${u}; is ${k} running?", ("k", key_store_executable_name)("u", url)) << std::endl;
+      std::string exec_name;
+      if(url == ::url) {
+         exec_name = node_executable_name;
+      } else if(url == ::wallet_url) {
+         exec_name = key_store_executable_name;
+      }
+      std::cerr << localized( "Failed http request to ${n} at ${u}; is ${n} running?\n"
+                              "  Common issue is message size too large. Check the log of ${n}.\n"
+                              "  Error: ${e}",
+                              ("n", exec_name)("u", url)("e", e.what()) ) << std::endl;
       throw connection_exception(fc::log_messages{FC_LOG_MESSAGE(error, e.what())});
    }
 }
