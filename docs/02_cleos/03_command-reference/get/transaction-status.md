@@ -8,7 +8,7 @@ in nodeos.
 
 ## Position Parameters
 
-- `id` _TEXT_ - The string ID of the transaction to retrieve status about (required)
+- `id` _TEXT_ - The transaction ID of the transaction to retrieve status about (required)
 
 ## Options
 - `-h` - --help                   Print this help message and exit

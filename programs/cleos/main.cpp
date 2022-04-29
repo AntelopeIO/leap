@@ -2634,11 +2634,17 @@ int main( int argc, char** argv ) {
    });
 
    // get transaction status
-   string status_transaction_id_str;
+   string status_transaction_id;
    auto getTransactionStatus = get->add_subcommand("transaction-status", localized("Get transaction status information"));
-   getTransactionStatus->add_option("id", status_transaction_id_str, localized("ID of the transaction to retrieve"))->required();
-   getTransactionStatus->callback([&status_transaction_id_str] {
-      auto arg= fc::mutable_variant_object( "id", status_transaction_id_str);
+   getTransactionStatus->add_option("id", status_transaction_id, localized("ID of the transaction to retrieve"))->required();
+   getTransactionStatus->callback([&status_transaction_id] {
+      try {
+         chain::transaction_id_type transaction_id(status_transaction_id);
+      } catch (...) {
+         std::cerr << "Unable to convert " << status_transaction_id << " to transaction id." << std::endl;
+         throw;
+      }
+      auto arg= fc::mutable_variant_object( "id", status_transaction_id);
       std::cout << fc::json::to_pretty_string(call(get_transaction_status_func, arg)) << std::endl;
    });
 
