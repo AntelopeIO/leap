@@ -799,6 +799,7 @@ public:
    static void handle_bad_alloc();
 
    bool account_queries_enabled() const;
+   bool transaction_finality_status_enabled() const;
 private:
    static void log_guard_exception(const chain::guard_exception& e);
 

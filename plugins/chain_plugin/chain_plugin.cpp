@@ -1649,6 +1649,9 @@ bool chain_plugin::account_queries_enabled() const {
    return my->account_queries_enabled;
 }
 
+bool chain_plugin::transaction_finality_status_enabled() const {
+   return my->_trx_finality_status_processing.get();
+}
 
 namespace chain_apis {
 
