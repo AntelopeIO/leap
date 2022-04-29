@@ -10,6 +10,7 @@ target_link_libraries( plugin_test eosio_testing eosio_chain chainbase chain_plu
 target_include_directories( plugin_test PUBLIC
                             ${CMAKE_SOURCE_DIR}/plugins/net_plugin/include
                             ${CMAKE_SOURCE_DIR}/plugins/chain_plugin/include
+                            ${CMAKE_SOURCE_DIR}/unittests
                             ${CMAKE_BINARY_DIR}/unittests/include/ )
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/core_symbol.py.in ${CMAKE_CURRENT_BINARY_DIR}/core_symbol.py)
@@ -45,7 +46,6 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/prod_preactivation_test.py ${CMAKE_CU
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/release-build.sh ${CMAKE_CURRENT_BINARY_DIR}/release-build.sh COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/version-label.sh ${CMAKE_CURRENT_BINARY_DIR}/version-label.sh COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/full-version-label.sh ${CMAKE_CURRENT_BINARY_DIR}/full-version-label.sh COPYONLY)
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/print-build-info.sh ${CMAKE_CURRENT_BINARY_DIR}/print-build-info.sh COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_producer_watermark_test.py ${CMAKE_CURRENT_BINARY_DIR}/nodeos_producer_watermark_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cli_test.py ${CMAKE_CURRENT_BINARY_DIR}/cli_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/ship_test.py ${CMAKE_CURRENT_BINARY_DIR}/ship_test.py COPYONLY)
@@ -53,6 +53,10 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/ship_client.js ${CMAKE_CURRENT_BINARY
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/large-lib-test.py ${CMAKE_CURRENT_BINARY_DIR}/large-lib-test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/http_plugin_test.py ${CMAKE_CURRENT_BINARY_DIR}/http_plugin_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/p2p_high_latency_test.py ${CMAKE_CURRENT_BINARY_DIR}/p2p_high_latency_test.py COPYONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/compute_transaction_test.py ${CMAKE_CURRENT_BINARY_DIR}/compute_transaction_test.py COPYONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/subjective_billing_test.py ${CMAKE_CURRENT_BINARY_DIR}/subjective_billing_test.py COPYONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_high_transaction_test.py ${CMAKE_CURRENT_BINARY_DIR}/nodeos_high_transaction_test.py COPYONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_retry_transaction_test.py ${CMAKE_CURRENT_BINARY_DIR}/nodeos_retry_transaction_test.py COPYONLY)
 
 #To run plugin_test with all log from blockchain displayed, put --verbose after --, i.e. plugin_test -- --verbose
 add_test(NAME plugin_test COMMAND plugin_test --report_level=detailed --color_output)
@@ -71,15 +75,15 @@ endif(NODE_FOUND)
 
 add_test(NAME p2p_dawn515_test COMMAND tests/p2p_tests/dawn_515/test.sh WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST p2p_dawn515_test PROPERTY LABELS nonparallelizable_tests)
-if(BUILD_MONGO_DB_PLUGIN)
-  add_test(NAME nodeos_run_test-mongodb COMMAND tests/nodeos_run_test.py --mongodb -v --clean-run --dump-error-detail WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
-  set_property(TEST nodeos_run_test-mongodb PROPERTY LABELS nonparallelizable_tests)
-endif()
 
 add_test(NAME producer-preactivate-feature-test COMMAND tests/prod_preactivation_test.py --clean-run --dump-error-detail WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST producer-preactivate-feature-test PROPERTY LABELS nonparallelizable_tests)
 add_test(NAME nodeos_protocol_feature_test COMMAND tests/nodeos_protocol_feature_test.py -v --clean-run --dump-error-detail WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nodeos_protocol_feature_test PROPERTY LABELS nonparallelizable_tests)
+add_test(NAME compute_transaction_test COMMAND tests/compute_transaction_test.py -v -p 2 -n 3 --clean-run --dump-error-detail WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+set_property(TEST compute_transaction_test PROPERTY LABELS nonparallelizable_tests)
+add_test(NAME subjective_billing_test COMMAND tests/subjective_billing_test.py -v -p 2 -n 4 --clean-run --dump-error-detail WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+set_property(TEST compute_transaction_test PROPERTY LABELS nonparallelizable_tests)
 
 add_test(NAME distributed-transactions-test COMMAND tests/distributed-transactions-test.py -d 2 -p 4 -n 6 -v --clean-run --dump-error-detail WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST distributed-transactions-test PROPERTY LABELS nonparallelizable_tests)
@@ -101,7 +105,6 @@ set_tests_properties(db_modes_test PROPERTIES COST 6000)
 add_test(NAME release-build-test COMMAND tests/release-build.sh WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 add_test(NAME version-label-test COMMAND tests/version-label.sh "v${VERSION_FULL}" WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 add_test(NAME full-version-label-test COMMAND tests/full-version-label.sh "v${VERSION_FULL}" ${CMAKE_SOURCE_DIR} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
-add_test(NAME print-build-info-test COMMAND tests/print-build-info.sh ${CMAKE_SOURCE_DIR} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 
 # Long running tests
 add_test(NAME nodeos_sanity_lr_test COMMAND tests/nodeos_run_test.py -v --sanity-test --clean-run --dump-error-detail WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
@@ -152,6 +155,12 @@ endif()
 add_test(NAME nodeos_producer_watermark_lr_test COMMAND tests/nodeos_producer_watermark_test.py -v --clean-run --dump-error-detail WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nodeos_producer_watermark_lr_test PROPERTY LABELS long_running_tests)
 
+add_test(NAME nodeos_high_transaction_lr_test COMMAND tests/nodeos_high_transaction_test.py -v --clean-run --dump-error-detail -p 4 -n 8 --num-transactions 10000 --max-transactions-per-second 500 WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+set_property(TEST nodeos_high_transaction_lr_test PROPERTY LABELS long_running_tests)
+
+add_test(NAME nodeos_retry_transaction_lr_test COMMAND tests/nodeos_retry_transaction_test.py -v --clean-run --dump-error-detail --num-transactions 100 --max-transactions-per-second 10 --total-accounts 5 WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+set_property(TEST nodeos_retry_transaction_lr_test PROPERTY LABELS long_running_tests)
+
 
 add_test(NAME cli_test COMMAND tests/cli_test.py WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 
@@ -180,7 +189,7 @@ if(ENABLE_COVERAGE_TESTING)
 
   # no spaces allowed within tests list
   set(ctest_tests 'plugin_test|p2p_dawn515_test|nodeos_run_test|distributed-transactions-test|restart-scenarios-test_resync')
-  set(ctest_exclude_tests 'nodeos_run_remote_test|nodeos_run_test-mongodb|distributed-transactions-remote-test|restart-scenarios-test_replay')
+  set(ctest_exclude_tests 'nodeos_run_remote_test|distributed-transactions-remote-test|restart-scenarios-test_replay')
 
   # Setup target
   add_custom_target(${Coverage_NAME}

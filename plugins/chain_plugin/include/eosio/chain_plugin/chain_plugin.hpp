@@ -17,6 +17,8 @@
 #include <boost/multiprecision/cpp_int.hpp>
 
 #include <eosio/chain_plugin/account_query_db.hpp>
+#include <eosio/chain_plugin/trx_retry_db.hpp>
+#include <eosio/chain_plugin/trx_finality_status_processing.hpp>
 
 #include <fc/static_variant.hpp>
 
@@ -85,12 +87,13 @@ class read_only {
    const fc::microseconds abi_serializer_max_time;
    bool  shorten_abi_errors = true;
    const producer_plugin* producer_plug;
+   const trx_finality_status_processing* trx_finality_status_proc;
 
 public:
    static const string KEYi64;
 
-   read_only(const controller& db, const std::optional<account_query_db>& aqdb, const fc::microseconds& abi_serializer_max_time, const producer_plugin* producer_plug)
-      : db(db), aqdb(aqdb), abi_serializer_max_time(abi_serializer_max_time), producer_plug(producer_plug) {
+   read_only(const controller& db, const std::optional<account_query_db>& aqdb, const fc::microseconds& abi_serializer_max_time, const producer_plugin* producer_plug, const trx_finality_status_processing* trx_finality_status_proc)
+      : db(db), aqdb(aqdb), abi_serializer_max_time(abi_serializer_max_time), producer_plug(producer_plug), trx_finality_status_proc(trx_finality_status_proc) {
    }
 
    void validate() const {}
@@ -124,6 +127,27 @@ public:
       std::optional<uint64_t>              total_net_weight;
    };
    get_info_results get_info(const get_info_params&) const;
+
+   struct get_transaction_status_params {
+      string                               id;
+   };
+
+   struct get_transaction_status_results {
+      string                               state;
+      std::optional<uint32_t>              block_number;
+      std::optional<chain::block_id_type>  block_id;
+      std::optional<fc::time_point>        block_timestamp;
+      std::optional<fc::time_point>        expiration;
+      uint32_t                             head_number = 0;
+      chain::block_id_type                 head_id;
+      fc::time_point                       head_timestamp;
+      uint32_t                             irreversible_number = 0;
+      chain::block_id_type                 irreversible_id;
+      fc::time_point                       irreversible_timestamp;
+      chain::block_id_type                 last_tracked_block_id;
+   };
+   get_transaction_status_results get_transaction_status(const get_transaction_status_params& params) const;
+
 
    struct get_activated_protocol_features_params {
       std::optional<uint32_t>  lower_bound;
@@ -401,6 +425,12 @@ public:
    };
 
    get_scheduled_transactions_result get_scheduled_transactions( const get_scheduled_transactions_params& params ) const;
+   struct compute_transaction_results {
+       chain::transaction_id_type  transaction_id;
+       fc::variant                 processed;
+    };
+   using compute_transaction_params = fc::variant_object;
+   void compute_transaction(const fc::variant_object& params, chain::plugin_interface::next_function<compute_transaction_results> next ) const;
 
    static void copy_inline_row(const chain::key_value_object& obj, vector<char>& data) {
       data.resize( obj.value.size() );
@@ -605,10 +635,11 @@ public:
 
 class read_write {
    controller& db;
+   std::optional<trx_retry_db>& trx_retry;
    const fc::microseconds abi_serializer_max_time;
    const bool api_accept_transactions;
 public:
-   read_write(controller& db, const fc::microseconds& abi_serializer_max_time, bool api_accept_transactions);
+   read_write(controller& db, std::optional<trx_retry_db>& trx_retry, const fc::microseconds& abi_serializer_max_time, bool api_accept_transactions);
    void validate() const;
 
    using push_block_params = chain::signed_block;
@@ -630,6 +661,14 @@ public:
    using send_transaction_params = push_transaction_params;
    using send_transaction_results = push_transaction_results;
    void send_transaction(const send_transaction_params& params, chain::plugin_interface::next_function<send_transaction_results> next);
+
+   struct send_transaction2_params {
+      bool return_failure_trace = true; ///< Ignored. Will be enabled in future versions.
+      bool retry_trx = false; ///< request transaction retry on validated transaction
+      std::optional<uint16_t> retry_trx_num_blocks{}; ///< if retry_trx, report trace at specified blocks from executed or lib if not specified
+      fc::variant transaction;
+   };
+   void send_transaction2(const send_transaction2_params& params, chain::plugin_interface::next_function<send_transaction_results> next);
 
    friend resolver_factory<read_write>;
 };
@@ -719,13 +758,11 @@ public:
    void plugin_shutdown();
    void handle_sighup() override;
 
-   chain_apis::read_write get_read_write_api() { return chain_apis::read_write(chain(), get_abi_serializer_max_time(), api_accept_transactions()); }
+   chain_apis::read_write get_read_write_api();
    chain_apis::read_only get_read_only_api() const;
 
    bool accept_block( const chain::signed_block_ptr& block, const chain::block_id_type& id );
    void accept_transaction(const chain::packed_transaction_ptr& trx, chain::plugin_interface::next_function<chain::transaction_trace_ptr> next);
-
-   bool block_is_on_preferred_chain(const chain::block_id_type& block_id);
 
    static bool recover_reversible_blocks( const fc::path& db_dir,
                                           uint32_t cache_size,
@@ -776,12 +813,16 @@ FC_REFLECT(eosio::chain_apis::read_only::get_info_results,
            (head_block_id)(head_block_time)(head_block_producer)
            (virtual_block_cpu_limit)(virtual_block_net_limit)(block_cpu_limit)(block_net_limit)
            (server_version_string)(fork_db_head_block_num)(fork_db_head_block_id)(server_full_version_string)(total_cpu_weight)(total_net_weight) )
+FC_REFLECT(eosio::chain_apis::read_only::get_transaction_status_params, (id) )
+FC_REFLECT(eosio::chain_apis::read_only::get_transaction_status_results, (state)(block_number)(block_id)(block_timestamp)(expiration)(head_number)(head_id)
+           (head_timestamp)(irreversible_number)(irreversible_id)(irreversible_timestamp)(last_tracked_block_id) )
 FC_REFLECT(eosio::chain_apis::read_only::get_activated_protocol_features_params, (lower_bound)(upper_bound)(limit)(search_by_block_num)(reverse) )
 FC_REFLECT(eosio::chain_apis::read_only::get_activated_protocol_features_results, (activated_protocol_features)(more) )
 FC_REFLECT(eosio::chain_apis::read_only::get_block_params, (block_num_or_id))
 FC_REFLECT(eosio::chain_apis::read_only::get_block_header_state_params, (block_num_or_id))
 
 FC_REFLECT( eosio::chain_apis::read_write::push_transaction_results, (transaction_id)(processed) )
+FC_REFLECT( eosio::chain_apis::read_write::send_transaction2_params, (return_failure_trace)(retry_trx)(retry_trx_num_blocks)(transaction) )
 
 FC_REFLECT( eosio::chain_apis::read_only::get_table_rows_params, (json)(code)(scope)(table)(table_key)(lower_bound)(upper_bound)(limit)(key_type)(index_position)(encode_type)(reverse)(show_payer) )
 FC_REFLECT( eosio::chain_apis::read_only::get_table_rows_result, (rows)(more)(next_key) );
@@ -826,4 +867,5 @@ FC_REFLECT( eosio::chain_apis::read_only::abi_bin_to_json_params, (code)(action)
 FC_REFLECT( eosio::chain_apis::read_only::abi_bin_to_json_result, (args) )
 FC_REFLECT( eosio::chain_apis::read_only::get_required_keys_params, (transaction)(available_keys) )
 FC_REFLECT( eosio::chain_apis::read_only::get_required_keys_result, (required_keys) )
+FC_REFLECT( eosio::chain_apis::read_only::compute_transaction_results, (transaction_id)(processed) )
 

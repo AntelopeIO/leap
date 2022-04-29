@@ -20,13 +20,17 @@ These can only be specified from the `nodeos` command-line:
 
 ```console
 Command Line Options for eosio::chain_plugin:
-
   --genesis-json arg                    File to read Genesis State from
   --genesis-timestamp arg               override the initial timestamp in the 
                                         Genesis State file
   --print-genesis-json                  extract genesis_state from blocks.log 
                                         as JSON, print to console, and exit
   --extract-genesis-json arg            extract genesis_state from blocks.log 
+                                        as JSON, write into specified file, and
+                                        exit
+  --print-build-info                    print build environment information to 
+                                        console as JSON and exit
+  --extract-build-info arg              extract build environment information 
                                         as JSON, write into specified file, and
                                         exit
   --fix-reversible-blocks               recovers reversible block database if 
@@ -53,6 +57,7 @@ Command Line Options for eosio::chain_plugin:
                                         portable format into specified file and
                                         then exit
   --snapshot arg                        File to read Snapshot State from
+
 ```
 
 ## Options
@@ -61,7 +66,6 @@ These can be specified from both the `nodeos` command-line or the `config.ini` f
 
 ```console
 Config Options for eosio::chain_plugin:
-
   --blocks-dir arg (="blocks")          the location of the blocks directory 
                                         (absolute path or relative to 
                                         application data dir)
@@ -71,9 +75,16 @@ Config Options for eosio::chain_plugin:
                                         application config dir)
   --checkpoint arg                      Pairs of [BLOCK_NUM,BLOCK_ID] that 
                                         should be enforced as checkpoints.
-  --wasm-runtime eos-vm|eos-vm-jit      Override default WASM runtime (wabt)
-  --eos-vm-oc-enable                    Enable optimized compilation in WASM
-  --abi-serializer-max-time-ms arg (=15000)
+  --wasm-runtime runtime (=eos-vm-jit)  Override default WASM runtime ( 
+                                        "eos-vm-jit", "eos-vm")
+                                        "eos-vm-jit" : A WebAssembly runtime 
+                                        that compiles WebAssembly code to 
+                                        native x86 code prior to execution.
+                                        "eos-vm" : A WebAssembly interpreter.
+                                        
+  --profile-account arg                 The name of an account whose code will 
+                                        be profiled
+  --abi-serializer-max-time-ms arg (=15)
                                         Override default maximum ABI 
                                         serialization time allowed in ms
   --chain-state-db-size-mb arg (=1024)  Maximum size (in MiB) of the chain 
@@ -97,6 +108,8 @@ Config Options for eosio::chain_plugin:
   --chain-threads arg (=2)              Number of worker threads in controller 
                                         thread pool
   --contracts-console                   print contract's output to console
+  --deep-mind                           print deeper information about chain 
+                                        operations
   --actor-whitelist arg                 Account added to actor whitelist (may 
                                         specify multiple times)
   --actor-blacklist arg                 Account added to actor blacklist (may 
@@ -119,22 +132,36 @@ Config Options for eosio::chain_plugin:
                                         times)
   --read-mode arg (=speculative)        Database read mode ("speculative", 
                                         "head", "read-only", "irreversible").
-                                        In "speculative" mode database contains
-                                        changes done up to the head block plus 
-                                        changes made by transactions not yet 
-                                        included to the blockchain.
-                                        In "head" mode database contains 
-                                        changes done up to the current head 
-                                        block.
-                                        In "read-only" mode database contains 
-                                        changes done up to the current head 
-                                        block and transactions cannot be pushed
-                                        to the chain API.
-                                        In "irreversible" mode database 
-                                        contains changes done up to the last 
-                                        irreversible block and transactions 
-                                        cannot be pushed to the chain API.
+                                        In "speculative" mode: database 
+                                        contains state changes by transactions 
+                                        in the blockchain up to the head block 
+                                        as well as some transactions not yet 
+                                        included in the blockchain.
+                                        In "head" mode: database contains state
+                                        changes by only transactions in the 
+                                        blockchain up to the head block; 
+                                        transactions received by the node are 
+                                        relayed if valid.
+                                        In "read-only" mode: (DEPRECATED: see 
+                                        p2p-accept-transactions & 
+                                        api-accept-transactions) database 
+                                        contains state changes by only 
+                                        transactions in the blockchain up to 
+                                        the head block; transactions received 
+                                        via the P2P network are not relayed and
+                                        transactions cannot be pushed via the 
+                                        chain API.
+                                        In "irreversible" mode: database 
+                                        contains state changes by only 
+                                        transactions in the blockchain up to 
+                                        the last irreversible block; 
+                                        transactions received via the P2P 
+                                        network are not relayed and 
+                                        transactions cannot be pushed via the 
+                                        chain API.
                                         
+  --api-accept-transactions arg (=1)    Allow API transactions to be evaluated 
+                                        and relayed if valid.
   --validation-mode arg (=full)         Chain validation mode ("full" or 
                                         "light").
                                         In "full" mode all incoming blocks will
@@ -150,6 +177,10 @@ Config Options for eosio::chain_plugin:
                                         context of a notification handler (i.e.
                                         when the receiver is not the code of 
                                         the action).
+  --maximum-variable-signature-length arg (=16384)
+                                        Subjectively limit the maximum length 
+                                        of variable components in a variable 
+                                        legnth signature to this size in bytes
   --trusted-producer arg                Indicate a producer whose blocks 
                                         headers signed by it will be fully 
                                         validated, but transactions in those 
@@ -159,21 +190,47 @@ Config Options for eosio::chain_plugin:
                                         In "mapped" mode database is memory 
                                         mapped as a file.
                                         In "heap" mode database is preloaded in
-                                        to swappable memory.
+                                        to swappable memory and will use huge 
+                                        pages if available.
                                         In "locked" mode database is preloaded,
-                                        locked in to memory, and optionally can
-                                        use huge pages.
+                                        locked in to memory, and will use huge 
+                                        pages if available.
                                         
-  --database-hugepage-path arg          Optional path for database hugepages 
-                                        when in "locked" mode (may specify 
-                                        multiple times)
-                                        
-  --max-nonprivileged-inline-action-size arg          
-                                        Sets the maximum limit for 
-                                        non-privileged inline actions. 
-                                        The default value is 4 KB 
-                                        and if this threshold is exceeded,
-                                        the transaction will subjectively fail.                                       
+  --enable-account-queries arg (=0)     enable queries to find accounts by 
+                                        various metadata.
+  --max-nonprivileged-inline-action-size arg (=4096)
+                                        maximum allowed size (in bytes) of an 
+                                        inline action for a nonprivileged 
+                                        account
+  --transaction-retry-max-storage-size-gb arg
+                                        Maximum size (in GiB) allowed to be 
+                                        allocated for the Transaction Retry 
+                                        feature. Setting above 0 enables this 
+                                        feature.
+  --transaction-retry-interval-sec arg (=20)
+                                        How often, in seconds, to resend an 
+                                        incoming transaction to network if not 
+                                        seen in a block.
+  --transaction-retry-max-expiration-sec arg (=90)
+                                        Maximum allowed transaction expiration 
+                                        for retry transactions, will retry 
+                                        transactions up to this value.
+  --transaction-finality-status-max-storage-size-gb arg
+                                        Maximum size (in GiB) allowed to be 
+                                        allocated for the Transaction Finality 
+                                        Status feature. Setting above 0 enables
+                                        this feature.
+  --transaction-finality-status-success-duration-sec arg (=180)
+                                        Duration (in seconds) a successful 
+                                        transaction's Finality Status will 
+                                        remain available from being first 
+                                        identified.
+  --transaction-finality-status-failure-duration-sec arg (=180)
+                                        Duration (in seconds) a failed 
+                                        transaction's Finality Status will 
+                                        remain available from being first 
+                                        identified.
+
 ```
 
 ## Dependencies
