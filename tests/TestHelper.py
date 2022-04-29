@@ -58,13 +58,15 @@ class TestHelper(object):
             parser.add_argument("-s", type=str, help="topology", choices=["mesh"], default="mesh")
         if "-c" in includeArgs:
             parser.add_argument("-c", type=str, help="chain strategy",
-                    choices=[Utils.SyncResyncTag, Utils.SyncNoneTag, Utils.SyncHardReplayTag],
+                    choices=[Utils.SyncResyncTag, Utils.SyncReplayTag, Utils.SyncNoneTag, Utils.SyncHardReplayTag],
                     default=Utils.SyncResyncTag)
         if "--kill-sig" in includeArgs:
             parser.add_argument("--kill-sig", type=str, choices=[Utils.SigKillTag, Utils.SigTermTag], help="kill signal.",
                     default=Utils.SigKillTag)
         if "--kill-count" in includeArgs:
             parser.add_argument("--kill-count", type=int, help="nodeos instances to kill", default=-1)
+        if "--terminate-at-block" in includeArgs:
+            parser.add_argument("--terminate-at-block", type=int, help="block to terminate on when replaying", default=0)
         if "--seed" in includeArgs:
             parser.add_argument("--seed", type=int, help="random seed", default=1)
 
@@ -72,7 +74,7 @@ class TestHelper(object):
             parser.add_argument("-h", "--host", type=str, help="%s host name" % (Utils.EosServerName),
                                      default=TestHelper.LOCAL_HOST)
         if "--port" in includeArgs:
-            parser.add_argument("-p", "--port", type=int, help="%s host port" % Utils.EosServerName,
+            parser.add_argument("--port", type=int, help="%s host port" % Utils.EosServerName,
                                      default=TestHelper.DEFAULT_PORT)
         if "--wallet-host" in includeArgs:
             parser.add_argument("--wallet-host", type=str, help="%s host" % Utils.EosWalletName,
@@ -86,8 +88,6 @@ class TestHelper(object):
             parser.add_argument("--defproducera_prvt_key", type=str, help="defproducera private key.")
         if "--defproducerb_prvt_key" in includeArgs:
             parser.add_argument("--defproducerb_prvt_key", type=str, help="defproducerb private key.")
-        if "--mongodb" in includeArgs:
-            parser.add_argument("--mongodb", help="Configure a MongoDb instance", action='store_true')
         if "--dump-error-details" in includeArgs:
             parser.add_argument("--dump-error-details",
                                      help="Upon error print etc/eosio/node_*/config.ini and var/lib/node_*/stderr.log to stdout",
@@ -148,27 +148,28 @@ class TestHelper(object):
             Utils.Print("Test succeeded.")
         else:
             Utils.Print("Test failed.")
+
+        def reportProductionAnalysis(thresholdMs):
+            Utils.Print(Utils.FileDivider)
+            for node in cluster.getAllNodes():
+                missedBlocks=node.analyzeProduction(thresholdMs=thresholdMs)
+                if len(missedBlocks) > 0:
+                    Utils.Print("NodeId: %s produced the following blocks late: %s" % (node.nodeId, missedBlocks))
+
         if not testSuccessful and dumpErrorDetails:
             cluster.reportStatus()
             Utils.Print(Utils.FileDivider)
-            psOut=Cluster.pgrepEosServers(timeout=60)
+            psOut = Cluster.pgrepEosServers(timeout=60)
             Utils.Print("pgrep output:\n%s" % (psOut))
-            cluster.dumpErrorDetails()
-            if walletMgr:
-                walletMgr.dumpErrorDetails()
-            cluster.printBlockLogIfNeeded()
+            reportProductionAnalysis(thresholdMs=0)
             Utils.Print("== Errors see above ==")
-            if len(Utils.CheckOutputDeque)>0:
-                Utils.Print("== cout/cerr pairs from last %d calls to Utils. ==" % len(Utils.CheckOutputDeque))
-                for out, err, cmd in reversed(Utils.CheckOutputDeque):
-                    Utils.Print("cmd={%s}" % (" ".join(cmd)))
-                    Utils.Print("cout={%s}" % (out))
-                    Utils.Print("cerr={%s}\n" % (err))
-                Utils.Print("== cmd/cout/cerr pairs done. ==")
+        elif dumpErrorDetails:
+            # for now report these to know how many blocks we are missing production windows for
+            reportProductionAnalysis(thresholdMs=200)
 
         if killEosInstances:
             Utils.Print("Shut down the cluster.")
-            cluster.killall(allInstances=cleanRun)
+            cluster.killall(allInstances=cleanRun, kill=testSuccessful)
             if testSuccessful and not keepLogs:
                 Utils.Print("Cleanup cluster data.")
                 cluster.cleanup()

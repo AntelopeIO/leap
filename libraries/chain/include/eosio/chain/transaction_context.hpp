@@ -36,10 +36,10 @@ namespace eosio { namespace chain {
       public:
 
          transaction_context( controller& c,
-                              const signed_transaction& t,
-                              const transaction_id_type& trx_id,
+                              const packed_transaction& t,
                               transaction_checktime_timer&& timer,
-                              fc::time_point start = fc::time_point::now() );
+                              fc::time_point start = fc::time_point::now(),
+                              bool read_only=false);
          ~transaction_context();
 
          void init_for_implicit_trx( uint64_t initial_net_usage = 0 );
@@ -121,8 +121,7 @@ namespace eosio { namespace chain {
       public:
 
          controller&                                 control;
-         const signed_transaction&                   trx;
-         transaction_id_type                         id;
+         const packed_transaction&                   packed_trx;
          std::optional<chainbase::database::session> undo_session;
          transaction_trace_ptr                       trace;
          fc::time_point                              start;
@@ -150,9 +149,9 @@ namespace eosio { namespace chain {
 
          transaction_checktime_timer   transaction_timer;
 
-      private:
+         const bool                    is_read_only;
+   private:
          bool                          is_initialized = false;
-
 
          uint64_t                      net_limit = 0;
          bool                          net_limit_due_to_block = true;
