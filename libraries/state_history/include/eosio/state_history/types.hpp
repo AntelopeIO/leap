@@ -28,16 +28,16 @@ struct partial_transaction {
    std::vector<signature_type> signatures             = {};
    std::vector<bytes>          context_free_data      = {};
 
-   partial_transaction(const signed_transaction& t)
-       : expiration(t.expiration)
-       , ref_block_num(t.ref_block_num)
-       , ref_block_prefix(t.ref_block_prefix)
-       , max_net_usage_words(t.max_net_usage_words)
-       , max_cpu_usage_ms(t.max_cpu_usage_ms)
-       , delay_sec(t.delay_sec)
-       , transaction_extensions(t.transaction_extensions)
-       , signatures(t.signatures)
-       , context_free_data(t.context_free_data) {}
+   partial_transaction(const chain::packed_transaction_ptr& t)
+       : expiration(t->get_transaction().expiration)
+       , ref_block_num(t->get_transaction().ref_block_num)
+       , ref_block_prefix(t->get_transaction().ref_block_prefix)
+       , max_net_usage_words(t->get_transaction().max_net_usage_words)
+       , max_cpu_usage_ms(t->get_transaction().max_cpu_usage_ms)
+       , delay_sec(t->get_transaction().delay_sec)
+       , transaction_extensions(t->get_transaction().transaction_extensions)
+       , signatures(t->get_signed_transaction().signatures)
+       , context_free_data(t->get_signed_transaction().context_free_data) {}
 };
 
 struct augmented_transaction_trace {
@@ -55,7 +55,7 @@ struct augmented_transaction_trace {
        : trace{trace}
        , partial{partial} {}
 
-   augmented_transaction_trace(const transaction_trace_ptr& trace, const signed_transaction& t)
+   augmented_transaction_trace(const transaction_trace_ptr& trace, const chain::packed_transaction_ptr& t)
        : trace{trace}
        , partial{std::make_shared<partial_transaction>(t)} {}
 

@@ -94,10 +94,37 @@ namespace {
    }\
 }
 
+#define CALL_ASYNC_WITH_400(api_name, api_handle, api_namespace, call_name, call_result, http_response_code) \
+{std::string("/v1/" #api_name "/" #call_name), \
+   [api_handle](string, string body, url_response_callback cb) mutable { \
+      api_handle.validate(); \
+      try { \
+         auto params = parse_params<api_namespace::call_name ## _params>(body);\
+         api_handle.call_name( std::move(params),\
+            [cb, body](const std::variant<fc::exception_ptr, call_result>& result){\
+               if (std::holds_alternative<fc::exception_ptr>(result)) {\
+                  try {\
+                     std::get<fc::exception_ptr>(result)->dynamic_rethrow_exception();\
+                  } catch (...) {\
+                     http_plugin::handle_exception(#api_name, #call_name, body, cb);\
+                  }\
+               } else {\
+                  cb(http_response_code, std::visit(async_result_visitor(), result));\
+               }\
+            });\
+      } catch (...) { \
+         http_plugin::handle_exception(#api_name, #call_name, body, cb); \
+      } \
+   }\
+}
+
 #define CHAIN_RO_CALL(call_name, http_response_code) CALL(chain, ro_api, chain_apis::read_only, call_name, http_response_code)
 #define CHAIN_RW_CALL(call_name, http_response_code) CALL(chain, rw_api, chain_apis::read_write, call_name, http_response_code)
 #define CHAIN_RO_CALL_ASYNC(call_name, call_result, http_response_code) CALL_ASYNC(chain, ro_api, chain_apis::read_only, call_name, call_result, http_response_code)
 #define CHAIN_RW_CALL_ASYNC(call_name, call_result, http_response_code) CALL_ASYNC(chain, rw_api, chain_apis::read_write, call_name, call_result, http_response_code)
+
+#define CHAIN_RO_CALL_ASYNC_WITH_400(call_name, call_result, http_response_code) CALL_ASYNC_WITH_400(chain, ro_api, chain_apis::read_only, call_name, call_result, http_response_code)
+#define CHAIN_RW_CALL_ASYNC_WITH_400(call_name, call_result, http_response_code) CALL_ASYNC_WITH_400(chain, rw_api, chain_apis::read_write, call_name, call_result, http_response_code)
 
 #define CHAIN_RO_CALL_WITH_400(call_name, http_response_code) CALL_WITH_400(chain, ro_api, chain_apis::read_only, call_name, http_response_code)
 
@@ -134,10 +161,13 @@ void chain_api_plugin::plugin_startup() {
       CHAIN_RO_CALL(abi_bin_to_json, 200),
       CHAIN_RO_CALL(get_required_keys, 200),
       CHAIN_RO_CALL(get_transaction_id, 200),
+      CHAIN_RO_CALL_WITH_400(get_transaction_status, 200),
+      CHAIN_RO_CALL_ASYNC_WITH_400(compute_transaction, chain_apis::read_only::compute_transaction_results, 200),
       CHAIN_RW_CALL_ASYNC(push_block, chain_apis::read_write::push_block_results, 202),
       CHAIN_RW_CALL_ASYNC(push_transaction, chain_apis::read_write::push_transaction_results, 202),
       CHAIN_RW_CALL_ASYNC(push_transactions, chain_apis::read_write::push_transactions_results, 202),
-      CHAIN_RW_CALL_ASYNC(send_transaction, chain_apis::read_write::send_transaction_results, 202)
+      CHAIN_RW_CALL_ASYNC(send_transaction, chain_apis::read_write::send_transaction_results, 202),
+      CHAIN_RW_CALL_ASYNC_WITH_400(send_transaction2, chain_apis::read_write::send_transaction_results, 202)
    });
 
    if (chain.account_queries_enabled()) {
