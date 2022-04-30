@@ -94,7 +94,7 @@ namespace eosio { namespace chain {
       EOS_ASSERT( !is_initialized, transaction_exception, "cannot initialize twice" );
 
       // set maximum to a semi-valid deadline to allow for pause math and conversion to dates for logging
-      if( caller_deadline == fc::time_point::maximum() ) caller_deadline = start + fc::hours(24*7*52);
+      if( block_deadline == fc::time_point::maximum() ) block_deadline = start + fc::hours(24*7*52);
 
       const auto& cfg = control.get_global_properties().configuration;
       auto& rl = control.get_mutable_resource_limits_manager();
@@ -102,7 +102,7 @@ namespace eosio { namespace chain {
       net_limit = rl.get_block_net_limit();
 
       objective_duration_limit = fc::microseconds( rl.get_block_cpu_limit() );
-      _deadline = block_cpu_deadline = start + objective_duration_limit;
+      _deadline = start + objective_duration_limit;
 
       // Possibly lower net_limit to the maximum net usage a transaction is allowed to be billed
       if( cfg.max_transaction_net_usage <= net_limit ) {
@@ -178,9 +178,22 @@ namespace eosio { namespace chain {
          billing_timer_exception_code = leeway_deadline_exception::code_value;
       }
 
-      // Check if deadline is limited by caller-set deadline (only change deadline if billed_cpu_time_us is not set)
-      if( explicit_billed_cpu_time || caller_deadline < _deadline ) {
-         _deadline = caller_deadline;
+      // Possibly limit deadline to subjective max_transaction_time
+      if( max_transaction_time_subjective != fc::microseconds::maximum() && (start + max_transaction_time_subjective) <= _deadline ) {
+         _deadline = start + (max_transaction_time_subjective == fc::microseconds::maximum() ?
+                              fc::hours(24*7*52) : max_transaction_time_subjective);
+         billing_timer_exception_code = tx_cpu_usage_exceeded::code_value;
+      }
+
+      // Possibly limit deadline to caller provided wall clock block deadline
+      if( block_deadline < _deadline ) {
+         _deadline = block_deadline;
+         billing_timer_exception_code = block_cpu_usage_exceeded::code_value;
+      }
+
+      // Explicit billed_cpu_time_us should be used, block_deadline will be maximum unless in test code
+      if( explicit_billed_cpu_time ) {
+         _deadline = block_deadline;
          deadline_exception_code = deadline_exception::code_value;
       } else {
          deadline_exception_code = billing_timer_exception_code;
@@ -437,14 +450,14 @@ namespace eosio { namespace chain {
 
       auto now = fc::time_point::now();
       auto paused = now - paused_time;
-      total_paused_time += paused;
 
       pseudo_start = now - billed_time;
-      _deadline += total_paused_time;
+      _deadline += paused;
 
-      if( block_cpu_deadline < _deadline ) {
+      // do not allow to go past block wall clock deadline
+      if( block_deadline < _deadline ) {
          deadline_exception_code = block_cpu_usage_exceeded::code_value;
-         _deadline = block_cpu_deadline;
+         _deadline = block_deadline;
       }
 
       transaction_timer.start(_deadline);

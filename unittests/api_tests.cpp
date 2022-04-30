@@ -892,7 +892,7 @@ BOOST_FIXTURE_TEST_CASE(checktime_pass_tests, TESTER) { try {
 } FC_LOG_AND_RETHROW() }
 
 template<class T, typename Tester>
-void call_test(Tester& test, T ac, uint32_t billed_cpu_time_us , uint32_t max_cpu_usage_ms = 200, std::vector<char> payload = {}, name account = "testapi"_n ) {
+void call_test(Tester& test, T ac, uint32_t billed_cpu_time_us , uint32_t max_cpu_usage_ms, uint32_t max_block_cpu_ms, std::vector<char> payload = {}, name account = "testapi"_n ) {
    signed_transaction trx;
 
    auto pl = vector<permission_level>{{account, config::active_name}};
@@ -904,8 +904,15 @@ void call_test(Tester& test, T ac, uint32_t billed_cpu_time_us , uint32_t max_cp
    auto sigs = trx.sign(test.get_private_key(account, "active"), test.control->get_chain_id());
    flat_set<public_key_type> keys;
    trx.get_signature_keys(test.control->get_chain_id(), fc::time_point::maximum(), keys);
-   auto res = test.push_transaction( trx, fc::time_point::now() + fc::milliseconds(max_cpu_usage_ms), billed_cpu_time_us );
-   BOOST_CHECK_EQUAL(res->receipt->status, transaction_receipt::executed);
+   auto ptrx = std::make_shared<packed_transaction>( std::move(trx) );
+
+   auto fut = transaction_metadata::start_recover_keys( std::move( ptrx ), test.control->get_thread_pool(),
+                                                        test.control->get_chain_id(), fc::microseconds::maximum(),
+                                                        transaction_metadata::trx_type::input );
+   auto res = test.control->push_transaction( fut.get(), fc::time_point::now() + fc::milliseconds(max_block_cpu_ms),
+                                              fc::milliseconds(max_cpu_usage_ms), billed_cpu_time_us, billed_cpu_time_us > 0, 0 );
+   if( res->except_ptr ) std::rethrow_exception( res->except_ptr );
+   if( res->except ) throw *res->except;
    test.produce_block();
 };
 
@@ -925,11 +932,11 @@ BOOST_AUTO_TEST_CASE(checktime_fail_tests) { try {
    wdump((net)(cpu));
 
    BOOST_CHECK_EXCEPTION( call_test( t, test_api_action<TEST_METHOD("test_checktime", "checktime_failure")>{},
-                                     5000, 200, fc::raw::pack(10000000000000000000ULL) ),
+                                     5000, 200, 200, fc::raw::pack(10000000000000000000ULL) ),
                           deadline_exception, is_deadline_exception );
 
    BOOST_CHECK_EXCEPTION( call_test( t, test_api_action<TEST_METHOD("test_checktime", "checktime_failure")>{},
-                                     0, 200, fc::raw::pack(10000000000000000000ULL) ),
+                                     0, 200, 200, fc::raw::pack(10000000000000000000ULL) ),
                           tx_cpu_usage_exceeded, is_tx_cpu_usage_exceeded );
 
    uint32_t time_left_in_block_us = config::default_max_block_cpu_usage - config::default_min_transaction_cpu_usage;
@@ -940,7 +947,7 @@ BOOST_AUTO_TEST_CASE(checktime_fail_tests) { try {
       time_left_in_block_us -= increment;
    }
    BOOST_CHECK_EXCEPTION( call_test( t, test_api_action<TEST_METHOD("test_checktime", "checktime_failure")>{},
-                                    0, 200, fc::raw::pack(10000000000000000000ULL) ),
+                                    0, 200, 200, fc::raw::pack(10000000000000000000ULL) ),
                           block_cpu_usage_exceeded, is_block_cpu_usage_exceeded );
 
    BOOST_REQUIRE_EQUAL( t.validate(), true );
@@ -953,8 +960,8 @@ BOOST_AUTO_TEST_CASE(checktime_pause_test) { try {
 
    auto& cfg = conf_genesis.second.initial_configuration;
 
-   cfg.max_block_cpu_usage        = 250'000;
-   cfg.max_transaction_cpu_usage  = 4'999; // needs to be large enough for create_account and set_code
+   cfg.max_block_cpu_usage        = 150'000;
+   cfg.max_transaction_cpu_usage  = 24'999; // needs to be large enough for create_account and set_code
    cfg.min_transaction_cpu_usage  = 1;
 
    tester t( conf_genesis.first, conf_genesis.second );
@@ -975,22 +982,24 @@ BOOST_AUTO_TEST_CASE(checktime_pause_test) { try {
    BOOST_CHECK_EQUAL( cpu, -1 );
    auto cpu_limit = rl.get_block_cpu_limit();
    idump(("cpu_limit")(cpu_limit));
-   BOOST_CHECK( cpu_limit <= 250'000 );
+   BOOST_CHECK( cpu_limit <= 150'000 );
 
-   // 6ms should be lower than time to load wasm
+   // Verify that the restriction on the transaction of 24'999 is honored even though there is wall clock time to
+   // load the wasm. If this test fails it is possible that the wasm loaded faster or slower than expected.
    auto before = fc::time_point::now();
    BOOST_CHECK_EXCEPTION( call_test( t, test_pause_action<TEST_METHOD("test_checktime", "checktime_failure")>{},
-                                     0, 6, fc::raw::pack(10000000000000000000ULL), "pause"_n ),
+                                     0, 9999, 500, fc::raw::pack(10000000000000000000ULL), "pause"_n ),
                           tx_cpu_usage_exceeded, is_tx_cpu_usage_exceeded );
    auto after = fc::time_point::now();
-   // Test that it runs longer than specified limit of 6 to allow for wasm load time.
+   // Test that it runs longer than specified limit of 24'999 to allow for wasm load time.
    auto dur = (after - before).count();
    dlog("elapsed ${e}us", ("e", dur) );
-   BOOST_CHECK( dur > 6500 );
+   BOOST_CHECK( dur >= 24'999 ); // should never fail
+   BOOST_CHECK( dur > 25'500 );  // if this fails but duration is >= 24'999, then could just be faster wasm load times
 
    BOOST_CHECK_EXCEPTION( call_test( t, test_pause_action<TEST_METHOD("test_checktime", "checktime_failure")>{},
-                                     0, 4, fc::raw::pack(10000000000000000000ULL), "pause"_n ),
-                          deadline_exception, is_deadline_exception );
+                                     0, 5, 50, fc::raw::pack(10000000000000000000ULL), "pause"_n ),
+                          tx_cpu_usage_exceeded, is_tx_cpu_usage_exceeded );
 
    BOOST_REQUIRE_EQUAL( t.validate(), true );
 } FC_LOG_AND_RETHROW() }
@@ -1043,14 +1052,14 @@ BOOST_FIXTURE_TEST_CASE(checktime_intrinsic, TESTER) { try {
 
         //initialize cache
         BOOST_CHECK_EXCEPTION( call_test( *this, test_api_action<TEST_METHOD("doesn't matter", "doesn't matter")>{},
-                                          5000, 10 ),
+                                          5000, 10, 10 ),
                                deadline_exception, is_deadline_exception );
 
 #warning TODO validate that the contract was successfully cached
 
         //it will always call
         BOOST_CHECK_EXCEPTION( call_test( *this, test_api_action<TEST_METHOD("doesn't matter", "doesn't matter")>{},
-                                          5000, 10 ),
+                                          5000, 10, 10 ),
                                deadline_exception, is_deadline_exception );
 } FC_LOG_AND_RETHROW() }
 
@@ -1080,14 +1089,14 @@ BOOST_FIXTURE_TEST_CASE(checktime_grow_memory, TESTER) { try {
 
         //initialize cache
         BOOST_CHECK_EXCEPTION( call_test( *this, test_api_action<TEST_METHOD("doesn't matter", "doesn't matter")>{},
-                                          5000, 10 ),
+                                          5000, 10, 10 ),
                                deadline_exception, is_deadline_exception );
 
 #warning TODO validate that the contract was successfully cached
 
         //it will always call
         BOOST_CHECK_EXCEPTION( call_test( *this, test_api_action<TEST_METHOD("doesn't matter", "doesn't matter")>{},
-                                          5000, 10 ),
+                                          5000, 10, 10 ),
                                deadline_exception, is_deadline_exception );
 } FC_LOG_AND_RETHROW() }
 
@@ -1100,42 +1109,42 @@ BOOST_FIXTURE_TEST_CASE(checktime_hashing_fail, TESTER) { try {
 
         //hit deadline exception, but cache the contract
         BOOST_CHECK_EXCEPTION( call_test( *this, test_api_action<TEST_METHOD("test_checktime", "checktime_sha1_failure")>{},
-                                          5000, 3 ),
+                                          5000, 3, 3 ),
                                deadline_exception, is_deadline_exception );
 
 #warning TODO validate that the contract was successfully cached
 
         //the contract should be cached, now we should get deadline_exception because of calls to checktime() from hashing function
         BOOST_CHECK_EXCEPTION( call_test( *this, test_api_action<TEST_METHOD("test_checktime", "checktime_sha1_failure")>{},
-                                          5000, 3 ),
+                                          5000, 3, 3 ),
                                deadline_exception, is_deadline_exception );
 
         BOOST_CHECK_EXCEPTION( call_test( *this, test_api_action<TEST_METHOD("test_checktime", "checktime_assert_sha1_failure")>{},
-                                          5000, 3 ),
+                                          5000, 3, 3 ),
                                deadline_exception, is_deadline_exception );
 
         BOOST_CHECK_EXCEPTION( call_test( *this, test_api_action<TEST_METHOD("test_checktime", "checktime_sha256_failure")>{},
-                                          5000, 3 ),
+                                          5000, 3, 3 ),
                                deadline_exception, is_deadline_exception );
 
         BOOST_CHECK_EXCEPTION( call_test( *this, test_api_action<TEST_METHOD("test_checktime", "checktime_assert_sha256_failure")>{},
-                                          5000, 3 ),
+                                          5000, 3, 3 ),
                                deadline_exception, is_deadline_exception );
 
         BOOST_CHECK_EXCEPTION( call_test( *this, test_api_action<TEST_METHOD("test_checktime", "checktime_sha512_failure")>{},
-                                          5000, 3 ),
+                                          5000, 3, 3 ),
                                deadline_exception, is_deadline_exception );
 
         BOOST_CHECK_EXCEPTION( call_test( *this, test_api_action<TEST_METHOD("test_checktime", "checktime_assert_sha512_failure")>{},
-                                          5000, 3 ),
+                                          5000, 3, 3 ),
                                deadline_exception, is_deadline_exception );
 
         BOOST_CHECK_EXCEPTION( call_test( *this, test_api_action<TEST_METHOD("test_checktime", "checktime_ripemd160_failure")>{},
-                                          5000, 3 ),
+                                          5000, 3, 3 ),
                                deadline_exception, is_deadline_exception );
 
         BOOST_CHECK_EXCEPTION( call_test( *this, test_api_action<TEST_METHOD("test_checktime", "checktime_assert_ripemd160_failure")>{},
-                                          5000, 3 ),
+                                          5000, 3, 3 ),
                                deadline_exception, is_deadline_exception );
 
    BOOST_REQUIRE_EQUAL( validate(), true );
@@ -1157,7 +1166,7 @@ BOOST_FIXTURE_TEST_CASE(checktime_start, TESTER) try {
    produce_blocks(1);
 
    BOOST_CHECK_EXCEPTION( call_test( *this, test_api_action<TEST_METHOD("doesn't matter", "doesn't matter")>{},
-                                     5000, 3 ),
+                                     5000, 3, 3 ),
                           deadline_exception, is_deadline_exception );
 } FC_LOG_AND_RETHROW()
 
@@ -1305,7 +1314,7 @@ BOOST_FIXTURE_TEST_CASE(transaction_tests, TESTER) { try {
       ptrx = std::make_shared<packed_transaction>( pkt );
 
       auto fut = transaction_metadata::start_recover_keys( std::move( ptrx ), control->get_thread_pool(), control->get_chain_id(), time_limit, transaction_metadata::trx_type::input );
-      auto r = control->push_transaction( fut.get(), fc::time_point::maximum(), DEFAULT_BILLED_CPU_TIME_US, true, 0 );
+      auto r = control->push_transaction( fut.get(), fc::time_point::maximum(), fc::microseconds::maximum(), DEFAULT_BILLED_CPU_TIME_US, true, 0 );
       if( r->except_ptr ) std::rethrow_exception( r->except_ptr );
       if( r->except) throw *r->except;
       tx_trace = r;
@@ -1486,7 +1495,7 @@ BOOST_FIXTURE_TEST_CASE(deferred_transaction_tests, TESTER) { try {
       auto dtrxs = get_scheduled_transactions();
       BOOST_CHECK_EQUAL(dtrxs.size(), 1);
       for (const auto& trx: dtrxs) {
-         control->push_scheduled_transaction(trx, fc::time_point::maximum(), 0, false);
+         control->push_scheduled_transaction(trx, fc::time_point::maximum(), fc::microseconds::maximum(), 0, false);
       }
       BOOST_CHECK_EQUAL(1, count);
       BOOST_REQUIRE(trace);
@@ -1513,7 +1522,7 @@ BOOST_FIXTURE_TEST_CASE(deferred_transaction_tests, TESTER) { try {
       auto dtrxs = get_scheduled_transactions();
       BOOST_CHECK_EQUAL(dtrxs.size(), 1);
       for (const auto& trx: dtrxs) {
-         control->push_scheduled_transaction(trx, fc::time_point::maximum(), billed_cpu_time_us, true);
+         control->push_scheduled_transaction(trx, fc::time_point::maximum(), fc::microseconds::maximum(), billed_cpu_time_us, true);
       }
       BOOST_CHECK_EQUAL(1, count);
       BOOST_CHECK(trace);
