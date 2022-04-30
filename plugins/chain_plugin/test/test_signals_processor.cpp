@@ -11,7 +11,7 @@ using namespace eosio::chain;
 
 struct signals_backend {
    signals_backend() {
-      at = [this](const trx_deque& td, const chain::block_state_ptr& bs) {
+      atbs = [this](const trx_deque& td, const chain::block_state_ptr& bs) {
          trxs = td;
          accepted_blocks.push_back(bs);
       };
@@ -28,7 +28,7 @@ struct signals_backend {
    chain::block_state_ptr irr_block;
    std::optional<uint32_t> block_num;
 
-   chain::signals_processor::applied_transaction_func at;
+   chain::signals_processor::applied_transaction_bs_func atbs;
    chain::signals_processor::irreversible_block_func ib;
    chain::signals_processor::block_start_func bs;
 };
@@ -170,9 +170,9 @@ BOOST_AUTO_TEST_CASE(signals_test) { try {
    chain::signals_processor sig_proc;
 
    signals_backend be1;
-   sig_proc.register_callbacks(be1.at, be1.ib, be1.bs);
+   sig_proc.register_callbacks(be1.atbs, be1.ib, be1.bs);
    signals_backend be2;
-   sig_proc.register_callbacks(be2.at, be2.ib, be2.bs);
+   sig_proc.register_callbacks(be2.atbs, be2.ib, be2.bs);
 
    auto act1 = make_transfer_action( "alice"_n, "bob"_n, "0.0001 SYS"_t, "Memo!" );
    auto act2 = make_transfer_action( "alice"_n, "jen"_n, "0.0002 SYS"_t, "Memo!" );

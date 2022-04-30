@@ -11,7 +11,7 @@ namespace eosio::chain {
 class signals_processor {
 public:
    using trx_deque = eosio::chain::deque< std::tuple< chain::transaction_trace_ptr, packed_transaction_ptr > >;
-   using applied_transaction_func = std::function< void ( const trx_deque&, const chain::block_state_ptr& ) >;
+   using applied_transaction_bs_func = std::function< void ( const trx_deque&, const chain::block_state_ptr& ) >;
    using irreversible_block_func = std::function< void ( const chain::block_state_ptr& ) >;
    using block_start_func = std::function< void ( uint32_t block_num ) >;
 
@@ -21,8 +21,8 @@ public:
    signals_processor() {
    }
 
-   void register_callbacks(applied_transaction_func at, irreversible_block_func ib, block_start_func bs) {
-      _callbacks.emplace_back(at, ib, bs);
+   void register_callbacks(applied_transaction_bs_func atbs, irreversible_block_func ib, block_start_func bs) {
+      _callbacks.emplace_back(atbs, ib, bs);
    }
 
    /// connect to chain controller applied_transaction signal
@@ -69,7 +69,7 @@ private:
       _trxs.clear();
    }
    trx_deque _trxs;
-   eosio::chain::vector< std::tuple< applied_transaction_func, irreversible_block_func, block_start_func > > _callbacks;
+   eosio::chain::vector< std::tuple< applied_transaction_bs_func, irreversible_block_func, block_start_func > > _callbacks;
    bool _block_started = false;
 };
 
