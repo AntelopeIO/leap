@@ -791,10 +791,10 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
       }
 
       if (my->_trx_finality_status_processing) {
-         my->_trx_signals_processor.emplace();
+         my->_trx_signals_processor.emplace(true);
          if (my->_trx_finality_status_processing) {
             my->_trx_signals_processor->register_callbacks(
-               [this]( const chain::signals_processor::trx_deque& trxs, const chain::block_state_ptr& blk ) {
+               [this]( const chain::signals_processor::trx_deque& trxs, const chain::block_state_ptr& blk ) {   // REMOVE
                   my->_trx_finality_status_processing->signal_applied_transactions(trxs, blk);
                },
                [this]( const chain::block_state_ptr& blk ) {
@@ -802,6 +802,12 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
                },
                [this]( uint32_t block_num ) {
                   my->_trx_finality_status_processing->signal_block_start(block_num);
+               },
+               [this]( const chain::block_state_ptr& blk ) {
+                  my->_trx_finality_status_processing->signal_accepted_block(blk);
+               },
+               [this]( const chain::transaction_trace_ptr& trace, const chain::packed_transaction_ptr& ptrx ) {
+                  my->_trx_finality_status_processing->signal_applied_transaction(trace, ptrx);
                }
             );
          }
@@ -1704,13 +1710,15 @@ read_only::get_transaction_status_results read_only::get_transaction_status(cons
 
    trx_finality_status_processing::chain_state ch_state = trx_finality_status_proc->get_chain_state();
 
-   auto trx_st = trx_finality_status_proc->get_trx_state(input_id);
+   const auto trx_st = trx_finality_status_proc->get_trx_state(input_id);
+   // check if block_id is set to a valid value, since trx_finality_status_proc does not use optionals for the block data
+   const auto trx_block_valid = trx_st && trx_st->block_id != chain::block_id_type{};
 
    return {
       trx_st ? trx_st->status : "UNKNOWN",
-      trx_st ? std::optional<uint32_t>(chain::block_header::num_from_id(trx_st->block_id)) : std::optional<uint32_t>{},
-      trx_st ? std::optional<chain::block_id_type>(trx_st->block_id) : std::optional<chain::block_id_type>{},
-      trx_st ? std::optional<fc::time_point>(trx_st->block_timestamp) : std::optional<fc::time_point>{},
+      trx_block_valid ? std::optional<uint32_t>(chain::block_header::num_from_id(trx_st->block_id)) : std::optional<uint32_t>{},
+      trx_block_valid ? std::optional<chain::block_id_type>(trx_st->block_id) : std::optional<chain::block_id_type>{},
+      trx_block_valid ? std::optional<fc::time_point>(trx_st->block_timestamp) : std::optional<fc::time_point>{},
       trx_st ? std::optional<fc::time_point_sec>(trx_st->expiration) : std::optional<fc::time_point_sec>{},
       chain::block_header::num_from_id(ch_state.head_id),
       ch_state.head_id,

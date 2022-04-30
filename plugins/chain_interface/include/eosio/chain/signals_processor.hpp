@@ -14,25 +14,46 @@ public:
    using applied_transaction_bs_func = std::function< void ( const trx_deque&, const chain::block_state_ptr& ) >;
    using irreversible_block_func = std::function< void ( const chain::block_state_ptr& ) >;
    using block_start_func = std::function< void ( uint32_t block_num ) >;
+   using accepted_block_func = std::function< void ( const chain::block_state_ptr& ) >;
+   using applied_transaction_func = std::function< void ( const chain::transaction_trace_ptr&, const packed_transaction_ptr& ) >;
 
    /**
     * Class for tracking transactions and which block they belong to.
     */
-   signals_processor() {
+   signals_processor(bool alternate_interface = false)
+   : _alternate_interface(alternate_interface) {
    }
 
-   void register_callbacks(applied_transaction_bs_func atbs, irreversible_block_func ib, block_start_func bs) {
-      _callbacks.emplace_back(atbs, ib, bs);
+   void register_callbacks(applied_transaction_bs_func atbs, irreversible_block_func ib, block_start_func bs, accepted_block_func ab, applied_transaction_func at) {
+      _callbacks.emplace_back(atbs, ib, bs, ab, at);
    }
 
    /// connect to chain controller applied_transaction signal
    void signal_applied_transaction( const chain::transaction_trace_ptr& trace, const chain::packed_transaction_ptr& ptrx ) {
-      _trxs.emplace_back(trace, ptrx);
+      if (_alternate_interface) {
+         for(auto& callback : _callbacks) {
+            try {
+               std::get<4>(callback)(trace, ptrx);
+            } FC_LOG_AND_DROP(("Failed to pass applied transaction to callback"));
+         }
+      }
+      else {
+         _trxs.emplace_back(trace, ptrx);
+      }
    }
 
    /// connect to chain controller accepted_block signal
    void signal_accepted_block( const chain::block_state_ptr& bsp ) {
-      push_transactions(bsp);
+      if (_alternate_interface) {
+         for(auto& callback : _callbacks) {
+            try {
+               std::get<3>(callback)(bsp);
+            } FC_LOG_AND_DROP(("Failed to pass accepted block to callback"));
+         }
+      }
+      else {
+         push_transactions(bsp);
+      }
       _block_started = false;
    }
 
@@ -48,7 +69,7 @@ public:
 
    /// connect to chain controller block_start signal
    void signal_block_start( uint32_t block_num ) {
-      if (_block_started) {
+      if (_block_started & !_alternate_interface) {
          push_transactions(chain::block_state_ptr{});
       }
       _block_started = true;
@@ -69,8 +90,9 @@ private:
       _trxs.clear();
    }
    trx_deque _trxs;
-   eosio::chain::vector< std::tuple< applied_transaction_bs_func, irreversible_block_func, block_start_func > > _callbacks;
+   eosio::chain::vector< std::tuple< applied_transaction_bs_func, irreversible_block_func, block_start_func, accepted_block_func, applied_transaction_func > > _callbacks;
    bool _block_started = false;
+   const bool _alternate_interface = false;
 };
 
 } // eosio::chain
