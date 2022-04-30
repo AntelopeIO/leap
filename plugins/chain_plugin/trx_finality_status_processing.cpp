@@ -119,7 +119,7 @@ namespace eosio::chain_apis {
                                    .block_timestamp = block_timestamp});
       }
 
-      if (old_trxs_removed) {
+      if (old_trxs_removed || _last_tracked_block_id == chain::block_id_type{}) {
          determine_last_tracked_block_id();
       }
    }
@@ -201,7 +201,7 @@ namespace eosio::chain_apis {
                                       .block_timestamp = block_timestamp});
          }
       }
-      if (modified) {
+      if (modified || _last_tracked_block_id == chain::block_id_type{}) {
          determine_last_tracked_block_id();
       }
 

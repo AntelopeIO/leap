@@ -1629,14 +1629,14 @@ class Node(object):
             return self.getIrreversibleBlockNum() > currentLib
         return Utils.waitForBool(isLibAdvancing, timeout)
 
-    def waitForProducer(self, producer, timeout=None, exitOnError=False):
+    def waitForProducer(self, producer, timeout=60, exitOnError=False):
         start=time.perf_counter()
         initialProducer=self.getInfo()["head_block_producer"]
         def isProducer():
             return self.getInfo()["head_block_producer"] == producer;
         found = Utils.waitForBool(isProducer, timeout)
-        assert exitOnError and not found, \
-            Utils.Print("Waited for {0:.3g} sec but never found producer: {}. Started with {} and ended with {}".
+        assert exitOnError and found, \
+            Utils.Print("Waited for {} sec but never found producer: {}. Started with {} and ended with {}".
                         format(time.perf_counter()-start, producer, initialProducer, self.getInfo()["head_block_producer"]))
         return found
 

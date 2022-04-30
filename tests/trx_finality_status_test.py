@@ -151,7 +151,7 @@ try:
     assert state == localState, \
         Print("ERROR: getTransactionStatus didn't return \"{}\" state.\n\nstatus: {}".format(localState, json.dumps(retStatus, indent=1)))
     status.append(copy.copy(retStatus))
-    startingBlockNum=postInfo["head_block_num"]
+    startingBlockNum=testNode.getInfo()["head_block_num"]
 
     def validateTrxState(status, present):
         bnPresent = "block_number" in status
@@ -184,20 +184,10 @@ try:
 
     validate(status[0])
 
-    # testNode.waitForBlock(REMOVEinfo["head_block_num"] + 1)
-    # REMOVEinfo2 = testNode.getInfo()
-    # testNode.REMOVEstatus.update({
-    #     "block_number": REMOVEinfo["head_block_num"],
-    #     "block_id": REMOVEinfo["head_block_id"],
-    #     "block_timestamp": REMOVEinfo["head_block_time"],
-    #     "head_number" : REMOVEinfo2["head_block_num"],
-    #     "head_id": REMOVEinfo2["head_block_id"],
-    #     "head_timestamp": REMOVEinfo2["head_block_time"],
-    # })     #REMOVE
     numTries = 5
     for i in range(0, numTries):
         retStatus=testNode.getTransactionStatus(transId)
-        Print("retStatus: {}".format(retStatus))  #REMOVE
+        Print("retStatus: {}".format(retStatus))
         state = getState(retStatus)
 
         if isState(state, inBlockState, allowedState=localState):
@@ -206,7 +196,6 @@ try:
 
         Print("Failed to catch status as \"{}\" after {} of {}".format(localState, i + 1, numTries))
         testNode.waitForNextBlock()
-        # testNode.REMOVEstatus["state"] = inBlockState  #REMOVE
 
     assert state == inBlockState, Print("ERROR: getTransactionStatus never returned a \"{}\" state, even after {} tries".format(localState, numTries))
 
@@ -222,10 +211,9 @@ try:
     assert testNode.waitForIrreversibleBlock(block_number, timeout=180), \
         Print("ERROR: Failed to advance irreversible block to {}. \nAPI Node info: {}\n\nProducer info: {}".
               format(block_number, json.dumps(prod0.getInfo(), indent=1), json.dumps(testNode.getInfo(), indent=1)))
-    # testNode.REMOVEstatus["state"] = irreversibleState  #REMOVE
 
     retStatus=testNode.getTransactionStatus(transId)
-    Print("retStatus: {}".format(retStatus))  #REMOVE
+    Print("retStatus: {}".format(retStatus))
     state = getState(retStatus)
     assert state == irreversibleState, \
         Print("ERROR: Successive calls to getTransactionStatus should have resulted in eventual \"{}\" state.\n1st status: {}\n\n2nd status: {}\n\nfinal status: {}".
@@ -235,12 +223,8 @@ try:
     leeway=4
     assert testNode.waitForBlock(blockNum=startingBlockNum+(successDuration*2),timeout=successDuration+leeway)
 
-    # testNode.REMOVEstatus["state"] = unknownState    # REMOVE
-    # del testNode.REMOVEstatus["block_number"]        # REMOVE
-    # del testNode.REMOVEstatus["block_id"]            # REMOVE
-    # del testNode.REMOVEstatus["block_timestamp"]     # REMOVE
     retStatus=testNode.getTransactionStatus(transId)
-    Print("retStatus: {}".format(retStatus))  #REMOVE
+    Print("retStatus: {}".format(retStatus))
     state = getState(retStatus)
     assert state == unknownState, \
         Print("ERROR: Calling getTransactionStatus after the success_duration should have resulted in an \"{}\" state.\nstatus: {}".
