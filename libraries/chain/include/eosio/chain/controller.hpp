@@ -84,6 +84,7 @@ namespace eosio { namespace chain {
             bool                     allow_ram_billing_in_notify = false;
             uint32_t                 maximum_variable_signature_length = chain::config::default_max_variable_signature_length;
             bool                     disable_all_subjective_mitigations = false; //< for developer & testing purposes, can be configured using `disable-all-subjective-mitigations` when `EOSIO_DEVELOPER` build option is provided
+            uint32_t                 terminate_at_block     = 0; //< primarily for testing purposes
 
             wasm_interface::vm_type  wasm_runtime = chain::config::default_wasm_runtime;
             eosvmoc::config          eosvmoc_config;
@@ -113,9 +114,9 @@ namespace eosio { namespace chain {
          ~controller();
 
          void add_indices();
-         void startup( std::function<bool()> shutdown, const snapshot_reader_ptr& snapshot);
-         void startup( std::function<bool()> shutdown, const genesis_state& genesis);
-         void startup( std::function<bool()> shutdown);
+         void startup( std::function<void()> shutdown, std::function<bool()> check_shutdown, const snapshot_reader_ptr& snapshot);
+         void startup( std::function<void()> shutdown, std::function<bool()> check_shutdown, const genesis_state& genesis);
+         void startup( std::function<void()> shutdown, std::function<bool()> check_shutdown);
 
          void preactivate_feature( const digest_type& feature_digest );
 
@@ -145,9 +146,9 @@ namespace eosio { namespace chain {
           */
          vector<transaction_metadata_ptr> abort_block();
 
-         /**
-          *
-          */
+       /**
+        *
+        */
          transaction_trace_ptr push_transaction( const transaction_metadata_ptr& trx, fc::time_point deadline,
                                                  uint32_t billed_cpu_time_us, bool explicit_billed_cpu_time,
                                                  uint32_t subjective_cpu_bill_us );
@@ -163,7 +164,7 @@ namespace eosio { namespace chain {
          void sign_block( const signer_callback_type& signer_callback );
          void commit_block();
 
-         std::future<block_state_ptr> create_block_state_future( const signed_block_ptr& b );
+         std::future<block_state_ptr> create_block_state_future( const block_id_type& id, const signed_block_ptr& b );
 
          /**
           * @param block_state_future provide from call to create_block_state_future
@@ -294,6 +295,7 @@ namespace eosio { namespace chain {
 
          db_read_mode get_read_mode()const;
          validation_mode get_validation_mode()const;
+         uint32_t get_terminate_at_block()const;
 
          void set_subjective_cpu_leeway(fc::microseconds leeway);
          std::optional<fc::microseconds> get_subjective_cpu_leeway() const;
@@ -318,7 +320,7 @@ namespace eosio { namespace chain {
          signal<void(const block_state_ptr&)>          accepted_block;
          signal<void(const block_state_ptr&)>          irreversible_block;
          signal<void(const transaction_metadata_ptr&)> accepted_transaction;
-         signal<void(std::tuple<const transaction_trace_ptr&, const signed_transaction&>)> applied_transaction;
+         signal<void(std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&>)> applied_transaction;
          signal<void(const int&)>                      bad_alloc;
 
          /*
@@ -348,7 +350,7 @@ namespace eosio { namespace chain {
          }
 
          template<typename T>
-         fc::variant to_variant_with_abi( const T& obj, const abi_serializer::yield_function_t& yield ) {
+         fc::variant to_variant_with_abi( const T& obj, const abi_serializer::yield_function_t& yield )const {
             fc::variant pretty_output;
             abi_serializer::to_variant( obj, pretty_output,
                                         [&]( account_name n ){ return get_abi_serializer( n, yield ); }, yield );

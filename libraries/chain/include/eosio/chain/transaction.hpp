@@ -172,6 +172,7 @@ namespace eosio { namespace chain {
 
       uint32_t get_unprunable_size()const;
       uint32_t get_prunable_size()const;
+      size_t get_estimated_size()const;
 
       digest_type packed_digest()const;
 
@@ -201,6 +202,7 @@ namespace eosio { namespace chain {
       vector<signature_type>                  signatures;
       fc::enum_type<uint8_t,compression_type> compression;
       bytes                                   packed_context_free_data;
+      // transaction (not signed_transaction) packed and possibly compressed according to compression
       bytes                                   packed_trx;
 
    private:
@@ -209,7 +211,7 @@ namespace eosio { namespace chain {
       transaction_id_type                     trx_id;
    };
 
-   using packed_transaction_ptr = std::shared_ptr<packed_transaction>;
+   using packed_transaction_ptr = std::shared_ptr<const packed_transaction>;
 
    uint128_t transaction_id_to_sender_id( const transaction_id_type& tid );
 
