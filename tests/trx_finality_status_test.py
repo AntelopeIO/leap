@@ -14,13 +14,18 @@ from TestHelper import AppArgs
 from TestHelper import TestHelper
 from testUtils import Account
 
-###############################################################
+########################################################################
 # trx_finality_status_test
 #
-#  Test to verify that transaction finality status feature is
-#  working appropriately
+#  Test to verify that transaction finality status feature is working
+#  appropriately.
+# 
+#  It sets up a "line" of block producers and non-producing nodes (NPN)
+#  so that a transaction added to the last NPN will have to travel along
+#  the "line" of nodes till it gets in a block which will also have to
+#  be sent back along that "line" till it gets to the last NPN.
 #
-###############################################################
+########################################################################
 
 Print=Utils.Print
 errorExit=Utils.errorExit
@@ -29,18 +34,17 @@ from core_symbol import CORE_SYMBOL
 
 
 appArgs=AppArgs()
-args = TestHelper.parse_args({"-n", "--prod-count", "--dump-error-details","--keep-logs","-v","--leave-running","--clean-run"})
+args = TestHelper.parse_args({"-n", "--dump-error-details","--keep-logs","-v","--leave-running","--clean-run"})
 Utils.Debug=args.v
-pnodes=2
+pnodes=3
 totalNodes=args.n
-if totalNodes<=pnodes:
+if totalNodes<=pnodes+2:
     totalNodes=pnodes+2
-totalNonProducerNodes=totalNodes-pnodes
 cluster=Cluster(walletd=True)
 dumpErrorDetails=args.dump_error_details
 keepLogs=args.keep_logs
 dontKill=args.leave_running
-prodCount=args.prod_count
+prodCount=1
 killAll=args.clean_run
 walletPort=TestHelper.DEFAULT_WALLET_PORT
 totalNodes=pnodes+1
@@ -113,54 +117,40 @@ try:
                   format(json.dumps(status, indent=1)))
         return status["state"]
 
-    def isState(state, expectedState, allowedState):
+    def isState(state, expectedState, allowedState=None, notAllowedState=None):
         if state == expectedState:
             return True
-        assert state in allowedState, \
+        assert allowedState is None or state == allowedState, \
                Print("ERROR: getTransactionStatus should have indicated a \"state\" of \"{}\" or \"{}\" but it was \"{}\"".
                      format(expectedState, allowedState, state))
+        assert notAllowedState is None or state != notAllowedState, \
+               Print("ERROR: getTransactionStatus should have indicated a \"state\" of \"{}\" and not \"{}\" but it was \"{}\"".
+                     format(expectedState, notAllowedState, state))
         return False
 
-    transferAmount=10
     localState = "LOCALLY_APPLIED"
     inBlockState = "IN_BLOCK"
     irreversibleState = "IRREVERSIBLE"
     unknownState = "UNKNOWN"
-    REMOVEinfo = testNode.getInfo()
-    testNode.REMOVEstatus = {
-        "state" : inBlockState,
-        "head_number" : REMOVEinfo["head_block_num"],
-        "head_id": REMOVEinfo["head_block_id"],
-        "head_timestamp": REMOVEinfo["head_block_time"],
-        "irreversible_number" : REMOVEinfo["last_irreversible_block_num"],
-        "irreversible_id": REMOVEinfo["last_irreversible_block_id"],
-        "irreversible_timestamp": "",
-        "expiration": "",
-        "last_tracked_block_id": REMOVEinfo["last_irreversible_block_num"] - 12
-    }  #REMOVE
-    numTries = 3
     status = []
     state = None
     i = 0
     preInfo = None
     postInfo = None
-    for i in range(0, numTries):
-        preInfo = testNode.getInfo()
-        testNode.transferFunds(cluster.eosioAccount, account1, "{}.0000 {}".format(transferAmount, CORE_SYMBOL), "fund account")
-        postInfo = testNode.getInfo()
-        transId=testNode.getLastSentTransactionId()
-        retStatus=testNode.getTransactionStatus(transId)
-        state = getState(retStatus)
+    transferAmount=10
 
-        if isState(state, expectedState=localState, allowedState=inBlockState):
-            status.append(copy.copy(retStatus))
-            break
+    # ensuring that prod0's producer is active, which will give sufficient time to identify the transaction as "LOCALLY_APPLIED" before it travels
+    # through the chain of nodes to nod0 to be added to a block
+    # defproducera -> defproducerb -> defproducerc -> NPN
+    prod0.waitForProducer("defproducera", exitOnError=True)
+    testNode.transferFunds(cluster.eosioAccount, account1, "{}.0000 {}".format(transferAmount, CORE_SYMBOL), "fund account")
+    transId=testNode.getLastSentTransactionId()
+    retStatus=testNode.getTransactionStatus(transId)
+    state = getState(retStatus)
 
-        transferAmount+=1
-        Print("Failed to catch status as \"{}\" after {} of {}".format(localState, i + 1, numTries))
-        testNode.REMOVEstatus["state"] = localState  #REMOVE
-
-    assert state == localState, Print("ERROR: getTransactionStatus never returned a \"{}\" state, even after {} tries".format(localState, numTries))
+    assert state == localState, \
+        Print("ERROR: getTransactionStatus didn't return \"{}\" state.\n\nstatus: {}".format(localState, json.dumps(retStatus, indent=1)))
+    status.append(copy.copy(retStatus))
     startingBlockNum=postInfo["head_block_num"]
 
     def validateTrxState(status, present):
@@ -194,28 +184,29 @@ try:
 
     validate(status[0])
 
-    testNode.waitForBlock(REMOVEinfo["head_block_num"] + 1)
-    REMOVEinfo2 = testNode.getInfo()
-    testNode.REMOVEstatus.update({
-        "block_number": REMOVEinfo["head_block_num"],
-        "block_id": REMOVEinfo["head_block_id"],
-        "block_timestamp": REMOVEinfo["head_block_time"],
-        "head_number" : REMOVEinfo2["head_block_num"],
-        "head_id": REMOVEinfo2["head_block_id"],
-        "head_timestamp": REMOVEinfo2["head_block_time"],
-    })     #REMOVE
+    # testNode.waitForBlock(REMOVEinfo["head_block_num"] + 1)
+    # REMOVEinfo2 = testNode.getInfo()
+    # testNode.REMOVEstatus.update({
+    #     "block_number": REMOVEinfo["head_block_num"],
+    #     "block_id": REMOVEinfo["head_block_id"],
+    #     "block_timestamp": REMOVEinfo["head_block_time"],
+    #     "head_number" : REMOVEinfo2["head_block_num"],
+    #     "head_id": REMOVEinfo2["head_block_id"],
+    #     "head_timestamp": REMOVEinfo2["head_block_time"],
+    # })     #REMOVE
     numTries = 5
     for i in range(0, numTries):
         retStatus=testNode.getTransactionStatus(transId)
+        Print("retStatus: {}".format(retStatus))  #REMOVE
         state = getState(retStatus)
 
-        if isState(state, expectedState=inBlockState, allowedState=localState):
+        if isState(state, inBlockState, allowedState=localState):
             status.append(copy.copy(retStatus))
             break
 
         Print("Failed to catch status as \"{}\" after {} of {}".format(localState, i + 1, numTries))
         testNode.waitForNextBlock()
-        testNode.REMOVEstatus["state"] = inBlockState  #REMOVE
+        # testNode.REMOVEstatus["state"] = inBlockState  #REMOVE
 
     assert state == inBlockState, Print("ERROR: getTransactionStatus never returned a \"{}\" state, even after {} tries".format(localState, numTries))
 
@@ -231,9 +222,10 @@ try:
     assert testNode.waitForIrreversibleBlock(block_number, timeout=180), \
         Print("ERROR: Failed to advance irreversible block to {}. \nAPI Node info: {}\n\nProducer info: {}".
               format(block_number, json.dumps(prod0.getInfo(), indent=1), json.dumps(testNode.getInfo(), indent=1)))
-    testNode.REMOVEstatus["state"] = irreversibleState  #REMOVE
+    # testNode.REMOVEstatus["state"] = irreversibleState  #REMOVE
 
     retStatus=testNode.getTransactionStatus(transId)
+    Print("retStatus: {}".format(retStatus))  #REMOVE
     state = getState(retStatus)
     assert state == irreversibleState, \
         Print("ERROR: Successive calls to getTransactionStatus should have resulted in eventual \"{}\" state.\n1st status: {}\n\n2nd status: {}\n\nfinal status: {}".
@@ -243,11 +235,12 @@ try:
     leeway=4
     assert testNode.waitForBlock(blockNum=startingBlockNum+(successDuration*2),timeout=successDuration+leeway)
 
-    testNode.REMOVEstatus["state"] = unknownState    # REMOVE
-    del testNode.REMOVEstatus["block_number"]        # REMOVE
-    del testNode.REMOVEstatus["block_id"]            # REMOVE
-    del testNode.REMOVEstatus["block_timestamp"]     # REMOVE
+    # testNode.REMOVEstatus["state"] = unknownState    # REMOVE
+    # del testNode.REMOVEstatus["block_number"]        # REMOVE
+    # del testNode.REMOVEstatus["block_id"]            # REMOVE
+    # del testNode.REMOVEstatus["block_timestamp"]     # REMOVE
     retStatus=testNode.getTransactionStatus(transId)
+    Print("retStatus: {}".format(retStatus))  #REMOVE
     state = getState(retStatus)
     assert state == unknownState, \
         Print("ERROR: Calling getTransactionStatus after the success_duration should have resulted in an \"{}\" state.\nstatus: {}".
