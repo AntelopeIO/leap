@@ -276,8 +276,8 @@ try:
 
         if round % 3 == 0:
             relaunchTime = time.perf_counter()
-            cluster.getNode(4).relaunch(4, cachePopen=True)
-            cluster.getNode(6).relaunch(6, cachePopen=True)
+            cluster.getNode(4).relaunch(cachePopen=True)
+            cluster.getNode(6).relaunch(cachePopen=True)
             startRound = startRound - ( time.perf_counter() - relaunchTime )
             startTime = startTime - ( time.perf_counter() - relaunchTime )
 

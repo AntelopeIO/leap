@@ -558,10 +558,10 @@ namespace eosio { namespace testing {
             validating_node->enable_deep_mind(dmlog);
          }
          if (use_genesis) {
-            validating_node->startup( []() { return false; }, genesis );
+            validating_node->startup( [](){}, []() { return false; }, genesis );
          }
          else {
-            validating_node->startup( []() { return false; } );
+            validating_node->startup( [](){}, []() { return false; } );
          }
          return validating_node;
       }
@@ -641,7 +641,7 @@ namespace eosio { namespace testing {
         validating_node.reset();
         validating_node = std::make_unique<controller>(vcfg, make_protocol_feature_set(), control->get_chain_id());
         validating_node->add_indices();
-        validating_node->startup( []() { return false; } );
+        validating_node->startup( [](){}, []() { return false; } );
 
         return ok;
       }
