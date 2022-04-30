@@ -151,7 +151,14 @@ public:
 
    const protocol_feature& add_feature( const builtin_protocol_feature& f );
 
-   class const_iterator : public std::iterator<std::bidirectional_iterator_tag, const protocol_feature> {
+   class const_iterator {
+   public:
+      using iterator_category = std::bidirectional_iterator_tag;
+      using value_type = const protocol_feature;
+      using difference_type = std::ptrdiff_t;
+      using pointer = const protocol_feature*;
+      using reference = const protocol_feature&;
+
    protected:
       protocol_feature_set_type::const_iterator _itr;
 
@@ -252,7 +259,14 @@ public:
 
    protocol_feature_manager( protocol_feature_set&& pfs, std::function<deep_mind_handler*()> get_deep_mind_logger );
 
-   class const_iterator : public std::iterator<std::bidirectional_iterator_tag, const protocol_feature> {
+   class const_iterator {
+   public:
+      using iterator_category = std::bidirectional_iterator_tag;
+      using value_type = const protocol_feature;
+      using difference_type = std::ptrdiff_t;
+      using pointer = const protocol_feature*;
+      using reference = const protocol_feature&;
+
    protected:
       const protocol_feature_manager* _pfm = nullptr;
       std::size_t                     _index = 0;

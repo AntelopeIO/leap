@@ -271,12 +271,14 @@ namespace eosio { namespace chain {
 
 
    template<typename Container>
-   class end_insert_iterator : public std::iterator< std::output_iterator_tag, void, void, void, void >
+   class end_insert_iterator
    {
    protected:
       Container* container;
 
    public:
+      using iterator_category = std::output_iterator_tag;
+
       using container_type = Container;
 
       explicit end_insert_iterator( Container& c )
