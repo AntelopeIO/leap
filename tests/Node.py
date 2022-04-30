@@ -1268,11 +1268,8 @@ class Node(object):
         return info
 
     def getTransactionStatus(self, transId, silentErrors=False, exitOnError=True):
-        cmdDesc = "get transaction_status {}".format(transId)
-#        status=self.processCleosCmd(cmdDesc, cmdDesc, silentErrors=silentErrors, exitOnError=exitOnError)
-        status=self.processCleosCmd(cmdDesc, cmdDesc, silentErrors=True, exitOnError=False)  #REMOVE
-        if status is None:              #REMOVE
-            status = self.REMOVEstatus  #REMOVE
+        cmdDesc = "get transaction-status {}".format(transId)
+        status=self.processCleosCmd(cmdDesc, cmdDesc, silentErrors=silentErrors, exitOnError=exitOnError)
         return status
 
     def getBlockFromDb(self, idx):
@@ -1631,6 +1628,17 @@ class Node(object):
         def isLibAdvancing():
             return self.getIrreversibleBlockNum() > currentLib
         return Utils.waitForBool(isLibAdvancing, timeout)
+
+    def waitForProducer(self, producer, timeout=None, exitOnError=False):
+        start=time.perf_counter()
+        initialProducer=self.getInfo()["head_block_producer"]
+        def isProducer():
+            return self.getInfo()["head_block_producer"] == producer;
+        found = Utils.waitForBool(isProducer, timeout)
+        assert exitOnError and not found, \
+            Utils.Print("Waited for {0:.3g} sec but never found producer: {}. Started with {} and ended with {}".
+                        format(time.perf_counter()-start, producer, initialProducer, self.getInfo()["head_block_producer"]))
+        return found
 
     # Require producer_api_plugin
     def activatePreactivateFeature(self):
