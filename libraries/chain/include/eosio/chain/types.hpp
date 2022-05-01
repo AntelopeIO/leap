@@ -278,6 +278,10 @@ namespace eosio { namespace chain {
 
    public:
       using iterator_category = std::output_iterator_tag;
+      using value_type = void;
+      using difference_type = void;
+      using pointer = void;
+      using reference = void;
 
       using container_type = Container;
 
