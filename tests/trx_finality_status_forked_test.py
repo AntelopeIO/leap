@@ -11,6 +11,7 @@ from TestHelper import TestHelper
 from testUtils import Account
 
 import decimal
+import json
 import math
 import re
 import signal
@@ -153,6 +154,12 @@ try:
     # producer nodes will be mapped to 0 through totalProducerNodes-1, so the number totalProducerNodes will be the non-producing node
     specificExtraNodeosArgs[totalProducerNodes]="--plugin eosio::test_control_api_plugin"
 
+    # ensure that transactions don't get cleaned up too early
+    successDuration = 360
+    failure_duration = 360
+    extraNodeosArgs=" --transaction-finality-status-max-storage-size-gb 1 " + \
+                    "--transaction-finality-status-success-duration-sec {} --transaction-finality-status-failure-duration-sec {}". \
+                    format(successDuration, failure_duration)
 
     # ***   setup topogrophy   ***
 
@@ -160,7 +167,8 @@ try:
     # and the only connection between those 2 groups is through the bridge node
     if cluster.launch(prodCount=2, topo="bridge", pnodes=totalProducerNodes,
                       totalNodes=totalNodes, totalProducers=totalProducers,
-                      useBiosBootFile=False, specificExtraNodeosArgs=specificExtraNodeosArgs) is False:
+                      useBiosBootFile=False, specificExtraNodeosArgs=specificExtraNodeosArgs,
+                      extraNodeosArgs=extraNodeosArgs) is False:
         Utils.cmdError("launcher")
         Utils.errorExit("Failed to stand up eos cluster.")
     Print("Validating system accounts after bootstrap")
@@ -235,16 +243,70 @@ try:
 
     assert not nonProdNode.verifyAlive(), Print("Bridge node should have been killed if test was functioning correctly.")
 
+    def getState(status):
+        assert status is not None, Print("ERROR: getTransactionStatus failed to return any status")
+        assert "state" in status, \
+            Print("ERROR: getTransactionStatus returned a status object that didn't have a \"state\" field. state: {}".
+                  format(json.dumps(status, indent=1)))
+        return status["state"]
+
+    transferAmount = 10
+    prodNodes[1].transferFunds(cluster.eosioAccount, account1, "{}.0000 {}".format(transferAmount, CORE_SYMBOL), "fund account")
+    transId = prodNodes[1].getLastSentTransactionId()
+    retStatus = prodNodes[1].getTransactionStatus(transId)
+    state = getState(retStatus)
+
+    localState = "LOCALLY_APPLIED"
+    inBlockState = "IN_BLOCK"
+    irreversibleState = "IRREVERSIBLE"
+    forkedOutState = "FORKED_OUT"
+    unknownState = "UNKNOWN"
+
+    assert state == localState, \
+        Print("ERROR: getTransactionStatus didn't return \"{}\" state.\n\nstatus: {}".format(localState, json.dumps(retStatus, indent=1)))
+
+    assert prodNodes[1].waitForNextBlock(), Print("Production node 1 should continue to advance, even after bridge node is killed")
+
+    numTries = 2
+    preInfo = prodNodes[1].getInfo()
+    while numTries > 0:
+        retStatus = prodNodes[1].getTransactionStatus(transId)
+        state = getState(retStatus)
+        if state == inBlockState:
+            break
+        numTries -= 1
+        assert prodNodes[1].waitForNextBlock(), Print("Production node 1 should continue to advance, even after bridge node is killed")
+
+    postInfo = prodNodes[1].getInfo()
+    Print("preInfo: {}\n\npostInfo: {}".format(json.dumps(preInfo, indent=1), json.dumps(postInfo, indent=1)))
+    assert state == inBlockState, \
+        Print("ERROR: getTransactionStatus didn't return \"{}\" state.\n\nstatus: {}".format(inBlockState, json.dumps(retStatus, indent=1)))
+
     Print("Relaunching the non-producing bridge node to connect the nodes")
     if not nonProdNode.relaunch(nonProdNode.nodeNum):
         errorExit("Failure - (non-production) node %d should have restarted" % (nonProdNode.nodeNum))
 
     Print("Waiting to allow forks to resolve")
-    time.sleep(3)
+    assert cluster.waitOnClusterSync(blockAdvancing=1, blockType=BlockType.lib), \
+        Print("ERROR: Network did not reach concensus after bridge node was restarted.")
+
+    retStatus = prodNodes[1].getTransactionStatus(transId)
+    state = getState(retStatus)
+
+    assert state == forkedOutState, \
+        Print("ERROR: getTransactionStatus didn't return \"{}\" state.\n\nstatus: {}".format(forkedOutState, json.dumps(retStatus, indent=1)))
 
     for prodNode in prodNodes:
         info=prodNode.getInfo()
         Print("node info: %s" % (info))
+
+    time.sleep(60)
+
+    retStatus = prodNodes[1].getTransactionStatus(transId)
+    state = getState(retStatus)
+
+    assert state == inBlockState, \
+        Print("ERROR: getTransactionStatus didn't return \"{}\" state.\n\nstatus: {}".format(inBlockState, json.dumps(retStatus, indent=1)))
 
     testSuccessful=True
 finally:
