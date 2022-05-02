@@ -25,10 +25,8 @@ apt-get update && apt-get install   \
         cmake                       \
         curl                        \
         git                         \
-        jq                          \
         libboost-all-dev            \
         libcurl4-openssl-dev        \
-        libgmp-dev                  \
         libssl-dev                  \
         libtinfo5                   \
         libusb-1.0-0-dev            \

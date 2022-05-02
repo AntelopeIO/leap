@@ -174,6 +174,12 @@ void chain_api_plugin::plugin_startup() {
          CHAIN_RO_CALL_WITH_400(get_accounts_by_authorizers, 200),
       });
    }
+
+   if (chain.transaction_finality_status_enabled()) {
+      _http_plugin.add_async_api({
+         CHAIN_RO_CALL_WITH_400(get_transaction_status, 200),
+      });
+   }
 }
 
 void chain_api_plugin::plugin_shutdown() {}

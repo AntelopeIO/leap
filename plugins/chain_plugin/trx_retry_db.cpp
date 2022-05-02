@@ -51,10 +51,7 @@ struct tracked_transaction {
       return block_num != 0;
    }
 
-   // for fc::tracked_storage, rough guess for now until get_estimated_size() is implemented for variant
-   // Size of packed_transaction + (2 * packed_transaction size as rough guess for variant size)
-   // todo: add get_estimated_size to fc::variant for use here
-   size_t memory_size()const { return ptrx->get_estimated_size() * 3 + sizeof(*this); }
+   size_t memory_size()const { return ptrx->get_estimated_size() + trx_trace_v.estimated_size() + sizeof(*this); }
 
    tracked_transaction(const tracked_transaction&) = delete;
    tracked_transaction() = delete;

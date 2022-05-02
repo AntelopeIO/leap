@@ -18,6 +18,7 @@
 
 #include <eosio/chain_plugin/account_query_db.hpp>
 #include <eosio/chain_plugin/trx_retry_db.hpp>
+#include <eosio/chain_plugin/trx_finality_status_processing.hpp>
 
 #include <fc/static_variant.hpp>
 
@@ -86,12 +87,13 @@ class read_only {
    const fc::microseconds abi_serializer_max_time;
    bool  shorten_abi_errors = true;
    const producer_plugin* producer_plug;
+   const trx_finality_status_processing* trx_finality_status_proc;
 
 public:
    static const string KEYi64;
 
-   read_only(const controller& db, const std::optional<account_query_db>& aqdb, const fc::microseconds& abi_serializer_max_time, const producer_plugin* producer_plug)
-      : db(db), aqdb(aqdb), abi_serializer_max_time(abi_serializer_max_time), producer_plug(producer_plug) {
+   read_only(const controller& db, const std::optional<account_query_db>& aqdb, const fc::microseconds& abi_serializer_max_time, const producer_plugin* producer_plug, const trx_finality_status_processing* trx_finality_status_proc)
+      : db(db), aqdb(aqdb), abi_serializer_max_time(abi_serializer_max_time), producer_plug(producer_plug), trx_finality_status_proc(trx_finality_status_proc) {
    }
 
    void validate() const {}
@@ -125,6 +127,28 @@ public:
       std::optional<uint64_t>              total_net_weight;
    };
    get_info_results get_info(const get_info_params&) const;
+
+   struct get_transaction_status_params {
+      chain::transaction_id_type           id;
+   };
+
+   struct get_transaction_status_results {
+      string                               state;
+      std::optional<uint32_t>              block_number;
+      std::optional<chain::block_id_type>  block_id;
+      std::optional<fc::time_point>        block_timestamp;
+      std::optional<fc::time_point>        expiration;
+      uint32_t                             head_number = 0;
+      chain::block_id_type                 head_id;
+      fc::time_point                       head_timestamp;
+      uint32_t                             irreversible_number = 0;
+      chain::block_id_type                 irreversible_id;
+      fc::time_point                       irreversible_timestamp;
+      chain::block_id_type                 last_tracked_block_id;
+      uint32_t                             last_tracked_block_number = 0;
+   };
+   get_transaction_status_results get_transaction_status(const get_transaction_status_params& params) const;
+
 
    struct get_activated_protocol_features_params {
       std::optional<uint32_t>  lower_bound;
@@ -640,7 +664,7 @@ public:
    void send_transaction(const send_transaction_params& params, chain::plugin_interface::next_function<send_transaction_results> next);
 
    struct send_transaction2_params {
-      bool return_failure_trace = true;
+      bool return_failure_trace = true; ///< Ignored. Will be enabled in future versions.
       bool retry_trx = false; ///< request transaction retry on validated transaction
       std::optional<uint16_t> retry_trx_num_blocks{}; ///< if retry_trx, report trace at specified blocks from executed or lib if not specified
       fc::variant transaction;
@@ -775,6 +799,7 @@ public:
    static void handle_bad_alloc();
 
    bool account_queries_enabled() const;
+   bool transaction_finality_status_enabled() const;
 private:
    static void log_guard_exception(const chain::guard_exception& e);
 
@@ -790,6 +815,9 @@ FC_REFLECT(eosio::chain_apis::read_only::get_info_results,
            (head_block_id)(head_block_time)(head_block_producer)
            (virtual_block_cpu_limit)(virtual_block_net_limit)(block_cpu_limit)(block_net_limit)
            (server_version_string)(fork_db_head_block_num)(fork_db_head_block_id)(server_full_version_string)(total_cpu_weight)(total_net_weight) )
+FC_REFLECT(eosio::chain_apis::read_only::get_transaction_status_params, (id) )
+FC_REFLECT(eosio::chain_apis::read_only::get_transaction_status_results, (state)(block_number)(block_id)(block_timestamp)(expiration)(head_number)(head_id)
+           (head_timestamp)(irreversible_number)(irreversible_id)(irreversible_timestamp)(last_tracked_block_id)(last_tracked_block_number) )
 FC_REFLECT(eosio::chain_apis::read_only::get_activated_protocol_features_params, (lower_bound)(upper_bound)(limit)(search_by_block_num)(reverse) )
 FC_REFLECT(eosio::chain_apis::read_only::get_activated_protocol_features_results, (activated_protocol_features)(more) )
 FC_REFLECT(eosio::chain_apis::read_only::get_block_params, (block_num_or_id))

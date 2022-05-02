@@ -303,19 +303,19 @@ namespace eosio { namespace testing {
       const auto& snapshot_chain_id = controller::extract_chain_id( *snapshot );
       snapshot->return_to_header();
       open(std::move(pfs), snapshot_chain_id, [&snapshot,&control=this->control]() {
-         control->startup([]() { return false; }, snapshot );
+         control->startup( [](){}, []() { return false; }, snapshot );
       });
    }
 
    void base_tester::open( protocol_feature_set&& pfs, const genesis_state& genesis ) {
       open(std::move(pfs), genesis.compute_chain_id(), [&genesis,&control=this->control]() {
-         control->startup( []() { return false; }, genesis );
+         control->startup( [](){}, []() { return false; }, genesis );
       });
    }
 
    void base_tester::open( protocol_feature_set&& pfs, std::optional<chain_id_type> expected_chain_id ) {
       open(std::move(pfs), expected_chain_id, [&control=this->control]() {
-         control->startup( []() { return false; } );
+         control->startup( [](){}, []() { return false; } );
       });
    }
 
@@ -1182,8 +1182,13 @@ namespace eosio { namespace testing {
          preactivations.emplace_back( feature_digest );
       };
 
+      std::vector<builtin_protocol_feature_t> ordered_builtins;
       for( const auto& f : builtin_protocol_feature_codenames ) {
-         auto digest = pfs.get_builtin_digest( f.first );
+         ordered_builtins.push_back( f.first );
+      }
+      std::sort( ordered_builtins.begin(), ordered_builtins.end() );
+      for( const auto& f : ordered_builtins ) {
+         auto digest = pfs.get_builtin_digest( f);
          if( !digest ) continue;
          add_digests( *digest );
       }

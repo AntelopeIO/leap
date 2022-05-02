@@ -64,23 +64,44 @@ class Utils:
     EosServerPath="programs/nodeos/"+ EosServerName
 
     EosLauncherPath="programs/eosio-launcher/eosio-launcher"
-    MongoPath="mongo"
     ShuttingDown=False
-    CheckOutputDeque=deque(maxlen=10)
 
     EosBlockLogPath="programs/eosio-blocklog/eosio-blocklog"
 
     FileDivider="================================================================="
-    DataDir="var/lib/"
+    DataRoot="var"
+    DataDir="%s/lib/" % (DataRoot)
     ConfigDir="etc/eosio/"
 
     TimeFmt='%Y-%m-%dT%H:%M:%S.%f'
 
     @staticmethod
+    def timestamp():
+        return datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%f")
+
+    @staticmethod
+    def checkOutputFileWrite(time, cmd, output, error):
+        stop=Utils.timestamp()
+        if not hasattr(Utils, "checkOutputFile"):
+            if not os.path.isdir(Utils.DataRoot):
+                if Utils.Debug: Utils.Print("creating dir %s in dir: %s" % (Utils.DataRoot, os.getcwd()))
+                os.mkdir(Utils.DataRoot)
+            filename="%s/subprocess_results.log" % (Utils.DataRoot)
+            if Utils.Debug: Utils.Print("opening %s in dir: %s" % (filename, os.getcwd()))
+            Utils.checkOutputFile=open(filename,"w")
+
+        Utils.checkOutputFile.write(Utils.FileDivider + "\n")
+        Utils.checkOutputFile.write("start={%s}\n" % (time))
+        Utils.checkOutputFile.write("cmd={%s}\n" % (" ".join(cmd)))
+        Utils.checkOutputFile.write("cout={%s}\n" % (output))
+        Utils.checkOutputFile.write("cerr={%s}\n" % (error))
+        Utils.checkOutputFile.write("stop={%s}\n" % (stop))
+
+    @staticmethod
     def Print(*args, **kwargs):
         stackDepth=len(inspect.stack())-2
         s=' '*stackDepth
-        stdout.write(datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%f "))
+        stdout.write(Utils.timestamp() + " ")
         stdout.write(s)
         print(*args, **kwargs)
 
@@ -179,8 +200,9 @@ class Utils:
     def checkDelayedOutput(popen, cmd, ignoreError=False):
         assert isinstance(popen, subprocess.Popen)
         assert isinstance(cmd, (str,list))
+        start=Utils.timestamp()
         (output,error)=popen.communicate()
-        Utils.CheckOutputDeque.append((output,error,cmd))
+        Utils.checkOutputFileWrite(start, cmd, output, error)
         if popen.returncode != 0 and not ignoreError:
             Utils.Print("ERROR: %s" % error)
             raise subprocess.CalledProcessError(returncode=popen.returncode, cmd=cmd, output=error)

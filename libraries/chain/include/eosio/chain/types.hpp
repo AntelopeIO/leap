@@ -72,9 +72,6 @@ namespace eosio { namespace chain {
    using                               fc::flat_multimap;
    using                               fc::flat_set;
    using                               std::variant;
-   using                               fc::ecc::range_proof_type;
-   using                               fc::ecc::range_proof_info;
-   using                               fc::ecc::commitment_type;
 
    using public_key_type  = fc::crypto::public_key;
    using private_key_type = fc::crypto::private_key;
@@ -274,12 +271,18 @@ namespace eosio { namespace chain {
 
 
    template<typename Container>
-   class end_insert_iterator : public std::iterator< std::output_iterator_tag, void, void, void, void >
+   class end_insert_iterator
    {
    protected:
       Container* container;
 
    public:
+      using iterator_category = std::output_iterator_tag;
+      using value_type = void;
+      using difference_type = void;
+      using pointer = void;
+      using reference = void;
+
       using container_type = Container;
 
       explicit end_insert_iterator( Container& c )

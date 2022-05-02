@@ -25,7 +25,9 @@ namespace eosio::chain_apis {
       fc::tracked_storage<finality_status_multi_index> _storage;
       uint32_t                                         _last_proc_block_num = finality_status::no_block_num;
       chain::block_id_type                             _head_block_id;
+      chain::block_timestamp_type                      _head_block_timestamp;
       chain::block_id_type                             _irr_block_id;
+      chain::block_timestamp_type                      _irr_block_timestamp;
       chain::block_id_type                             _last_tracked_block_id;
       const fc::microseconds                           _success_duration;
       const fc::microseconds                           _failure_duration;
@@ -44,6 +46,7 @@ namespace eosio::chain_apis {
 
    void trx_finality_status_processing::signal_irreversible_block( const chain::block_state_ptr& bsp ) {
       _my->_irr_block_id = bsp->id;
+      _my->_irr_block_timestamp = bsp->block->timestamp;
    }
 
    void trx_finality_status_processing::signal_block_start( uint32_t block_num ) {
@@ -57,6 +60,7 @@ namespace eosio::chain_apis {
       chain::block_timestamp_type block_timestamp;
       if (bsp) {
          _head_block_id = block_id;
+         _head_block_timestamp = bsp->block->timestamp;
          block_timestamp = bsp->block->timestamp;
          if (chain::block_header::num_from_id(_head_block_id) <= _last_proc_block_num) {
             handle_rollback();
@@ -235,7 +239,7 @@ namespace eosio::chain_apis {
    }
 
    trx_finality_status_processing::chain_state trx_finality_status_processing::get_chain_state() const {
-      return { .head_id = _my->_head_block_id, .irr_id = _my->_irr_block_id, .last_tracked_block_id = _my->_last_tracked_block_id };
+      return { .head_id = _my->_head_block_id, .head_block_timestamp = _my->_head_block_timestamp, .irr_id = _my->_irr_block_id, .irr_block_timestamp = _my->_irr_block_timestamp, .last_tracked_block_id = _my->_last_tracked_block_id };
    }
 
    std::optional<trx_finality_status_processing::trx_state> trx_finality_status_processing::get_trx_state( const chain::transaction_id_type& id ) const {
@@ -258,7 +262,7 @@ namespace eosio::chain_apis {
          const auto lib = chain::block_header::num_from_id(_my->_irr_block_id);
          status = (block_num > lib) ? "IN_BLOCK" : "IRREVERSIBLE";
       }
-      return trx_finality_status_processing::trx_state{ .block_id = iter->block_id, .block_timestamp = iter->block_timestamp, .received = iter->received, .status = status };
+      return trx_finality_status_processing::trx_state{ .block_id = iter->block_id, .block_timestamp = iter->block_timestamp, .received = iter->received, .expiration = iter->trx_expiry, .status = status };
    }
 
    size_t trx_finality_status_processing::get_storage_memory_size() const {

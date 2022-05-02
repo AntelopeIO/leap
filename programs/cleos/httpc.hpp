@@ -80,6 +80,7 @@ namespace eosio { namespace client { namespace http {
 
    const string chain_func_base = "/v1/chain";
    const string get_info_func = chain_func_base + "/get_info";
+   const string get_transaction_status_func = chain_func_base + "/get_transaction_status";
    const string send_txn_func = chain_func_base + "/send_transaction";
    const string push_txn_func = chain_func_base + "/push_transaction";
    const string send2_txn_func = chain_func_base + "/send_transaction2";
