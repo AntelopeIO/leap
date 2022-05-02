@@ -59,15 +59,12 @@ class Node(object):
     @staticmethod
     def validateTransaction(trans):
         assert trans
-        assert isinstance(trans, dict), print("Input type is %s" % type(trans))
+        assert isinstance(trans, dict), f"Input type is {type(trans)}"
 
         executed="executed"
-        def printTrans(trans, status):
-            Utils.Print("ERROR: Valid transaction should be \"%s\" but it was \"%s\"." % (executed, status))
-            Utils.Print("Transaction: %s" % (json.dumps(trans, indent=1)))
 
         transStatus=Node.getTransStatus(trans)
-        assert transStatus == executed, printTrans(trans, transStatus)
+        assert transStatus == executed, f"ERROR: Valid transaction should be '{executed}' but it was '{transStatus}'.\nTransaction: {json.dumps(trans, indent=1)}"
 
     @staticmethod
     def __printTransStructureError(trans, context):
@@ -100,26 +97,33 @@ class Node(object):
             return "%s%s" % (self.desc, self.__keyContext())
 
         def hasKey(self, newKey, subSection = None):
-            assert isinstance(newKey, str), print("ERROR: Trying to use %s as a key" % (newKey))
+            assert isinstance(newKey, str), f"ERROR: Trying to use {newKey} as a key"
             if subSection is None:
                 subSection=self.sections[-1]
-            assert isinstance(subSection, dict), print("ERROR: Calling \"add\" method when context is not a dictionary. %s in %s" % (self.__contextDesc(), self.__json()))
+            assert isinstance(subSection, dict), f"ERROR: Calling 'hasKey' method when context is not a dictionary. {self.__contextDesc()} in {self.__json()}"
             return newKey in subSection
+
+        def isSectionNull(self, key, subSection = None):
+            assert isinstance(key, str), f"ERROR: Trying to use {key} as a key"
+            if subSection is None:
+                subSection=self.sections[-1]
+            assert isinstance(subSection, dict), f"ERROR: Calling 'isSectionNull' method when context is not a dictionary. {self.__contextDesc()} in {self.__json()}"
+            return subSection[key] == None
 
         def add(self, newKey):
             subSection=self.sections[-1]
-            assert self.hasKey(newKey, subSection), print("ERROR: %s does not contain key \"%s\". %s" % (self.__contextDesc(), newKey, self.__json()))
+            assert self.hasKey(newKey, subSection), f"ERROR: {self.__contextDesc()} does not contain key '{newKey}'. {self.__json()}"
             current=subSection[newKey]
             self.sections.append(current)
             self.keyContext.append(newKey)
             return current
 
         def index(self, i):
-            assert isinstance(i, int), print("ERROR: Trying to use \"%s\" as a list index" % (i))
+            assert isinstance(i, int), f"ERROR: Trying to use {i} as a list index"
             cur=self.getCurrent()
-            assert isinstance(cur, list), print("ERROR: Calling \"index\" method when context is not a list.  %s in %s" % (self.__contextDesc(), self.__json()))
+            assert isinstance(cur, list), f"ERROR: Calling 'index' method when context is not a list.  {self.__contextDesc()} in {self.__json()}"
             listLen=len(cur)
-            assert i < listLen, print("ERROR: Index %s is beyond the size of the current list (%s).  %s in %s" % (i, listLen, self.__contextDesc(), self.__json()))
+            assert i < listLen, f"ERROR: Index {i} is beyond the size of the current list ({listLen}).  {self.__contextDesc()} in {self.__json()}"
             return self.sections.append(cur[i])
 
         def getCurrent(self):
@@ -131,6 +135,8 @@ class Node(object):
         # could be a transaction response
         if cntxt.hasKey("processed"):
             cntxt.add("processed")
+            if not cntxt.isSectionNull("except"):
+                return "exception"
             cntxt.add("receipt")
             return cntxt.add("status")
 
@@ -147,6 +153,8 @@ class Node(object):
             cntxt.add("processed")
             cntxt.add("action_traces")
             cntxt.index(0)
+            if cntxt.hasKey("except"):
+                return "no_block"
             return cntxt.add("block_num")
 
         # or what the history plugin returns
@@ -186,9 +194,9 @@ class Node(object):
     def getTransId(trans):
         """Retrieve transaction id from dictionary object."""
         assert trans
-        assert isinstance(trans, dict), print("Input type is %s" % type(trans))
+        assert isinstance(trans, dict), f"Input type is {type(trans)}"
 
-        assert "transaction_id" in trans, print("trans does not contain key %s. trans={%s}" % ("transaction_id", json.dumps(trans, indent=2, sort_keys=True)))
+        assert "transaction_id" in trans, f"trans does not contain key 'transaction_id'. trans={json.dumps(trans, indent=2, sort_keys=True)}"
         transId=trans["transaction_id"]
         return transId
 
@@ -362,11 +370,11 @@ class Node(object):
 
 
     # Create & initialize account and return creation transactions. Return transaction json object
-    def createInitializeAccount(self, account, creatorAccount, stakedDeposit=1000, waitForTransBlock=False, stakeNet=100, stakeCPU=100, buyRAM=10000, exitOnError=False):
+    def createInitializeAccount(self, account, creatorAccount, stakedDeposit=1000, waitForTransBlock=False, stakeNet=100, stakeCPU=100, buyRAM=10000, exitOnError=False, additionalArgs=''):
         cmdDesc="system newaccount"
-        cmd='%s -j %s %s %s %s --stake-net "%s %s" --stake-cpu "%s %s" --buy-ram "%s %s"' % (
+        cmd='%s -j %s %s %s %s --stake-net "%s %s" --stake-cpu "%s %s" --buy-ram "%s %s" %s' % (
             cmdDesc, creatorAccount.name, account.name, account.ownerPublicKey,
-            account.activePublicKey, stakeNet, CORE_SYMBOL, stakeCPU, CORE_SYMBOL, buyRAM, CORE_SYMBOL)
+            account.activePublicKey, stakeNet, CORE_SYMBOL, stakeCPU, CORE_SYMBOL, buyRAM, CORE_SYMBOL, additionalArgs)
         msg="(creator account=%s, account=%s)" % (creatorAccount.name, account.name);
         trans=self.processCleosCmd(cmd, cmdDesc, silentErrors=False, exitOnError=exitOnError, exitMsg=msg)
         self.trackCmdTransaction(trans)
@@ -764,8 +772,15 @@ class Node(object):
                 return retMap
 
         if shouldFail:
-            Utils.Print("ERROR: The publish contract did not fail as expected.")
-            return None
+            if trans["processed"]["except"] != None:
+                retMap={}
+                retMap["returncode"]=0
+                retMap["cmd"]=cmd
+                retMap["output"]=bytes(str(trans),'utf-8')
+                return retMap
+            else:
+                Utils.Print("ERROR: The publish contract did not fail as expected.")
+                return None
 
         Node.validateTransaction(trans)
         return self.waitForTransBlockIfNeeded(trans, waitForTransBlock, exitOnError=False)
@@ -820,15 +835,15 @@ class Node(object):
             if Utils.Debug:
                 end=time.perf_counter()
                 Utils.Print("cmd Duration: %.3f sec" % (end-start))
-            return (True, retTrans)
+            return (Node.getTransStatus(retTrans) == 'executed', retTrans)
         except subprocess.CalledProcessError as ex:
             msg=ex.output.decode("utf-8")
             if not silentErrors:
                 end=time.perf_counter()
-                Utils.Print("ERROR: Exception during push message.  cmd Duration=%.3f sec.  %s" % (end - start, msg))
+                Utils.Print("ERROR: Exception during push transaction.  cmd Duration=%.3f sec.  %s" % (end - start, msg))
             return (False, msg)
 
-    # returns tuple with transaction and
+    # returns tuple with transaction execution status and transaction
     def pushMessage(self, account, action, data, opts, silentErrors=False):
         cmd="%s %s push action -j %s %s" % (Utils.EosClientPath, self.eosClientArgs(), account, action)
         cmdArr=cmd.split()
@@ -845,7 +860,7 @@ class Node(object):
             if Utils.Debug:
                 end=time.perf_counter()
                 Utils.Print("cmd Duration: %.3f sec" % (end-start))
-            return (True, trans)
+            return (Node.getTransStatus(trans) == 'executed', trans)
         except subprocess.CalledProcessError as ex:
             msg=ex.output.decode("utf-8")
             if not silentErrors:
@@ -1096,11 +1111,11 @@ class Node(object):
 
     def interruptAndVerifyExitStatus(self, timeout=60):
         if Utils.Debug: Utils.Print("terminating node: %s" % (self.cmd))
-        assert self.popenProc is not None, "node: \"%s\" does not have a popenProc, this may be because it is only set after a relaunch." % (self.cmd)
+        assert self.popenProc is not None, f"node: '{self.cmd}' does not have a popenProc, this may be because it is only set after a relaunch."
         self.popenProc.send_signal(signal.SIGINT)
         try:
             outs, _ = self.popenProc.communicate(timeout=timeout)
-            assert self.popenProc.returncode == 0, "Expected terminating \"%s\" to have an exit status of 0, but got %d" % (self.cmd, self.popenProc.returncode)
+            assert self.popenProc.returncode == 0, f"Expected terminating '{self.cmd}' to have an exit status of 0, but got {self.popenProc.returncode}"
         except subprocess.TimeoutExpired:
             Utils.errorExit("Terminate call failed on node: %s" % (self.cmd))
 
@@ -1380,7 +1395,7 @@ class Node(object):
         self.scheduleProtocolFeatureActivations([preactivateFeatureDigest])
 
         # Wait for the next block to be produced so the scheduled protocol feature is activated
-        assert self.waitForHeadToAdvance(), print("ERROR: TIMEOUT WAITING FOR PREACTIVATE")
+        assert self.waitForHeadToAdvance(), "ERROR: TIMEOUT WAITING FOR PREACTIVATE"
 
     # Return an array of feature digests to be preactivated in a correct order respecting dependencies
     # Require producer_api_plugin

@@ -3072,7 +3072,7 @@ int main( int argc, char** argv ) {
 
         const string binary_wasm_header("\x00\x61\x73\x6d\x01\x00\x00\x00", 8);
         if(wasm.compare(0, 8, binary_wasm_header))
-           std::cerr << localized("WARNING: ") << wasmPath << localized(" doesn't look like a binary WASM file. Is it something else, like WAST? Trying anyways...") << std::endl;
+           std::cerr << localized("WARNING: ") << wasmPath << localized(" doesn't look like a binary WASM file. Is it something else, like WAST? Trying anyway...") << std::endl;
         code_bytes = bytes(wasm.begin(), wasm.end());
       } else {
         code_bytes = bytes();

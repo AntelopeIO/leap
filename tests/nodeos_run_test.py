@@ -496,7 +496,7 @@ try:
     action="transfer"
     data="{\"from\":\"defproducera\",\"to\":\"currency1111\",\"quantity\":"
     data +="\"00.0051 CUR\",\"memo\":\"test\"}"
-    opts="--permission defproducera@active"
+    opts="--permission defproducera@active --use-old-send-rpc"
     trans=node.pushMessage(contract, action, data, opts, True)
     if trans is None or trans[0]:
         cmdError("%s push message currency1111 transfer should have failed" % (ClientName))
@@ -549,7 +549,7 @@ try:
     action="transfer"
     data="{\"from\":\"defproducera\",\"to\":\"currency1111\",\"quantity\":"
     data +="\"00.0025 CUR\",\"memo\":\"test\"}"
-    opts="--permission defproducera@active"
+    opts="--permission defproducera@active --use-old-send-rpc" # --use-old-send-rpc flag used to retain a test of /v1/chain/send_transaction
     trans=node.pushMessage(contract, action, data, opts, True)
     if trans is None or trans[0]:
         cmdError("%s push message currency1111 transfer should have failed" % (ClientName))
