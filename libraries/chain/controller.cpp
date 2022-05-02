@@ -25,6 +25,7 @@
 #include <eosio/chain/chain_snapshot.hpp>
 #include <eosio/chain/thread_utils.hpp>
 #include <eosio/chain/platform_timer.hpp>
+#include <eosio/chain/deep_mind.hpp>
 
 #include <chainbase/chainbase.hpp>
 #include <eosio/vm/allocator.hpp>
@@ -246,6 +247,7 @@ struct controller_impl {
    uint32_t                        snapshot_head_block = 0;
    named_thread_pool               thread_pool;
    platform_timer                  timer;
+   deep_mind_handler*              deep_mind_logger = nullptr;
 #if defined(EOSIO_EOS_VM_RUNTIME_ENABLED) || defined(EOSIO_EOS_VM_JIT_RUNTIME_ENABLED)
    vm::wasm_allocator               wasm_alloc;
 #endif
@@ -309,9 +311,9 @@ struct controller_impl {
     blog( cfg.blocks_dir ),
     fork_db( cfg.state_dir ),
     wasmif( cfg.wasm_runtime, cfg.eosvmoc_tierup, db, cfg.state_dir, cfg.eosvmoc_config, !cfg.profile_accounts.empty() ),
-    resource_limits( db ),
+    resource_limits( db, [&s]() { return s.get_deep_mind_logger(); }),
     authorization( s, db ),
-    protocol_features( std::move(pfs) ),
+    protocol_features( std::move(pfs), [&s]() { return s.get_deep_mind_logger(); } ),
     conf( cfg ),
     chain_id( chain_id ),
     read_mode( cfg.read_mode ),
@@ -386,6 +388,12 @@ struct controller_impl {
          wlog( "std::exception: ${details}", ("details", e.what()) );
       } catch ( ... ) {
          wlog( "signal handler threw exception" );
+      }
+   }
+
+   void dmlog_applied_transaction(const transaction_trace_ptr& t) {
+      if (auto dm_logger = get_deep_mind_logger()) {
+         dm_logger->on_applied_transaction(self.head_block_num() + 1, t);
       }
    }
 
@@ -743,6 +751,10 @@ struct controller_impl {
          // else no checks needed since fork_db will be completely reset on replay anyway
       }
 
+      if (auto dm_logger = get_deep_mind_logger()) {
+         dm_logger->on_startup(db, head->block_num);
+      }
+
       if( last_block_num > head->block_num ) {
          replay( shutdown ); // replay any irreversible and reversible blocks ahead of current head
       }
@@ -1057,6 +1069,10 @@ struct controller_impl {
       ram_delta += owner_permission.auth.get_billable_size();
       ram_delta += active_permission.auth.get_billable_size();
 
+      if (auto dm_logger = get_deep_mind_logger()) {
+         dm_logger->on_ram_trace(RAM_EVENT_ID("${name}", ("name", name)), "account", "add", "newaccount");
+      }
+
       resource_limits.add_pending_ram_usage(name, ram_delta);
       resource_limits.verify_account_ram_usage(name);
    }
@@ -1161,6 +1177,10 @@ struct controller_impl {
          etrx.set_reference_block( self.head_block_id() );
       }
 
+      if (auto dm_logger = get_deep_mind_logger()) {
+         dm_logger->on_onerror(etrx);
+      }
+
       transaction_checktime_timer trx_timer(timer);
       transaction_context trx_context( self, etrx, etrx.id(), std::move(trx_timer), start );
       trx_context.deadline = deadline;
@@ -1210,6 +1230,10 @@ struct controller_impl {
    }
 
    int64_t remove_scheduled_transaction( const generated_transaction_object& gto ) {
+      if (auto dm_logger = get_deep_mind_logger()) {
+         dm_logger->on_ram_trace(RAM_EVENT_ID("${id}", ("id", gto.id)), "deferred_trx", "remove", "deferred_trx_removed");
+      }
+
       int64_t ram_delta = -(config::billable_size_v<generated_transaction_object> + gto.packed_trx.size());
       resource_limits.add_pending_ram_usage( gto.payer, ram_delta );
       // No need to verify_account_ram_usage since we are only reducing memory
@@ -1291,6 +1315,7 @@ struct controller_impl {
          trace->receipt = push_receipt( gtrx.trx_id, transaction_receipt::expired, billed_cpu_time_us, 0 ); // expire the transaction
          trace->account_ram_delta = account_delta( gtrx.payer, trx_removal_ram_delta );
          emit( self.accepted_transaction, trx );
+         dmlog_applied_transaction(trace);
          emit( self.applied_transaction, std::tie(trace, dtrx) );
          undo_session.squash();
          return trace;
@@ -1319,6 +1344,10 @@ struct controller_impl {
          trace->except = e;
          trace->except_ptr = std::current_exception();
          trace->elapsed = fc::time_point::now() - trx_context.start;
+
+         if (auto dm_logger = get_deep_mind_logger()) {
+            dm_logger->on_fail_deferred();
+         }
       };
 
       try {
@@ -1350,6 +1379,7 @@ struct controller_impl {
          trace->account_ram_delta = account_delta( gtrx.payer, trx_removal_ram_delta );
 
          emit( self.accepted_transaction, trx );
+         dmlog_applied_transaction(trace);
          emit( self.applied_transaction, std::tie(trace, dtrx) );
 
          trx_context.squash();
@@ -1388,6 +1418,7 @@ struct controller_impl {
          if( !trace->except_ptr ) {
             trace->account_ram_delta = account_delta( gtrx.payer, trx_removal_ram_delta );
             emit( self.accepted_transaction, trx );
+            dmlog_applied_transaction(trace);
             emit( self.applied_transaction, std::tie(trace, dtrx) );
             undo_session.squash();
             return trace;
@@ -1429,11 +1460,13 @@ struct controller_impl {
          trace->account_ram_delta = account_delta( gtrx.payer, trx_removal_ram_delta );
 
          emit( self.accepted_transaction, trx );
+         dmlog_applied_transaction(trace);
          emit( self.applied_transaction, std::tie(trace, dtrx) );
 
          undo_session.squash();
       } else {
          emit( self.accepted_transaction, trx );
+         dmlog_applied_transaction(trace);
          emit( self.applied_transaction, std::tie(trace, dtrx) );
       }
 
@@ -1559,6 +1592,7 @@ struct controller_impl {
                emit( self.accepted_transaction, trx);
             }
 
+            dmlog_applied_transaction(trace);
             emit(self.applied_transaction, std::tie(trace, trn));
 
 
@@ -1587,6 +1621,7 @@ struct controller_impl {
          }
 
          emit( self.accepted_transaction, trx );
+         dmlog_applied_transaction(trace);
          emit( self.applied_transaction, std::tie(trace, trn) );
 
          return trace;
@@ -1597,11 +1632,17 @@ struct controller_impl {
                      uint16_t confirm_block_count,
                      const vector<digest_type>& new_protocol_feature_activations,
                      controller::block_status s,
-                     const std::optional<block_id_type>& producer_block_id )
+                     const std::optional<block_id_type>& producer_block_id,
+                     const fc::time_point& deadline )
    {
       EOS_ASSERT( !pending, block_validate_exception, "pending block already exists" );
 
       emit( self.block_start, head->block_num + 1 );
+
+      if (auto dm_logger = get_deep_mind_logger()) {
+         // The head block represents the block just before this one that is about to start, so add 1 to get this block num
+         dm_logger->on_start_block(head->block_num + 1);
+      }
 
       auto guard_pending = fc::make_scoped_exit([this, head_block_num=head->block_num](){
          protocol_features.popped_blocks_to( head_block_num );
@@ -1745,7 +1786,7 @@ struct controller_impl {
             elog( "on block transaction failed due to unknown exception" );
          }
 
-         clear_expired_input_transactions();
+         clear_expired_input_transactions(deadline);
          update_producers_authority();
       }
 
@@ -1839,6 +1880,10 @@ struct controller_impl {
                ubo.blocknum = bsp->block_num;
                ubo.set_block( bsp->block );
             });
+         }
+
+         if (auto dm_logger = get_deep_mind_logger()) {
+            dm_logger->on_accepted_block(bsp);
          }
 
          emit( self.accepted_block, bsp );
@@ -1946,7 +1991,7 @@ struct controller_impl {
          const auto& new_protocol_feature_activations = bsp->get_new_protocol_feature_activations();
 
          auto producer_block_id = b->id();
-         start_block( b->timestamp, b->confirmed, new_protocol_feature_activations, s, producer_block_id);
+         start_block( b->timestamp, b->confirmed, new_protocol_feature_activations, s, producer_block_id, fc::time_point::maximum() );
 
          const bool existing_trxs_metas = !bsp->trxs_metas().empty();
          const bool pub_keys_recovered = bsp->is_pub_keys_recovered();
@@ -2189,6 +2234,11 @@ struct controller_impl {
          auto old_head = head;
          ilog("switching forks from ${current_head_id} (block number ${current_head_num}) to ${new_head_id} (block number ${new_head_num})",
               ("current_head_id", head->id)("current_head_num", head->block_num)("new_head_id", new_head->id)("new_head_num", new_head->block_num) );
+
+         if (auto dm_logger = get_deep_mind_logger()) {
+            dm_logger->on_switch_forks(head->id, new_head->id);
+         }
+
          auto branches = fork_db.fetch_branch_from( new_head->id, head->id );
 
          if( branches.second.size() > 0 ) {
@@ -2317,14 +2367,21 @@ struct controller_impl {
    }
 
 
-   void clear_expired_input_transactions() {
+   void clear_expired_input_transactions(const fc::time_point& deadline) {
       //Look for expired transactions in the deduplication list, and remove them.
       auto& transaction_idx = db.get_mutable_index<transaction_multi_index>();
       const auto& dedupe_index = transaction_idx.indices().get<by_expiration>();
       auto now = self.pending_block_time();
+      const auto total = dedupe_index.size();
+      uint32_t num_removed = 0;
       while( (!dedupe_index.empty()) && ( now > fc::time_point(dedupe_index.begin()->expiration) ) ) {
          transaction_idx.remove(*dedupe_index.begin());
+         ++num_removed;
+         if( deadline <= fc::time_point::now() ) {
+            break;
+         }
       }
+      dlog("removed ${n} expired transactions of the ${t} input dedup list", ("n", num_removed)("t", total));
    }
 
    bool sender_avoids_whitelist_blacklist_enforcement( account_name sender )const {
@@ -2494,7 +2551,16 @@ struct controller_impl {
          trx.expiration = self.pending_block_time() + fc::microseconds(999'999); // Round up to nearest second to avoid appearing expired
          trx.set_reference_block( self.head_block_id() );
       }
+
+      if (auto dm_logger = get_deep_mind_logger()) {
+         dm_logger->on_onblock(trx);
+      }
+
       return trx;
+   }
+
+   inline deep_mind_handler* get_deep_mind_logger() const {
+      return deep_mind_logger;
    }
 
 }; /// controller_impl
@@ -2666,6 +2732,12 @@ void controller::preactivate_feature( const digest_type& feature_digest ) {
                ("digest", feature_digest)
    );
 
+   if (auto dm_logger = get_deep_mind_logger()) {
+      const auto feature = pfs.get_protocol_feature(feature_digest);
+
+      dm_logger->on_preactivate_feature(feature);
+   }
+
    my->db.modify( pso, [&]( auto& ps ) {
       ps.preactivated_protocol_features.push_back( feature_digest );
    } );
@@ -2711,12 +2783,13 @@ void controller::start_block( block_timestamp_type when, uint16_t confirm_block_
    }
 
    my->start_block( when, confirm_block_count, new_protocol_feature_activations,
-                    block_status::incomplete, std::optional<block_id_type>() );
+                    block_status::incomplete, std::optional<block_id_type>(), fc::time_point::maximum() );
 }
 
 void controller::start_block( block_timestamp_type when,
                               uint16_t confirm_block_count,
-                              const vector<digest_type>& new_protocol_feature_activations )
+                              const vector<digest_type>& new_protocol_feature_activations,
+                              const fc::time_point& deadline )
 {
    validate_db_available_size();
 
@@ -2725,7 +2798,7 @@ void controller::start_block( block_timestamp_type when,
    }
 
    my->start_block( when, confirm_block_count, new_protocol_feature_activations,
-                    block_status::incomplete, std::optional<block_id_type>() );
+                    block_status::incomplete, std::optional<block_id_type>(), deadline );
 }
 
 block_state_ptr controller::finalize_block( const signer_callback_type& signer_callback ) {
@@ -3337,20 +3410,34 @@ const flat_set<account_name> &controller::get_resource_greylist() const {
 
 
 void controller::add_to_ram_correction( account_name account, uint64_t ram_bytes ) {
-   if( auto ptr = my->db.find<account_ram_correction_object, by_name>( account ) ) {
+   auto ptr = my->db.find<account_ram_correction_object, by_name>( account );
+   if( ptr ) {
       my->db.modify<account_ram_correction_object>( *ptr, [&]( auto& rco ) {
          rco.ram_correction += ram_bytes;
       } );
    } else {
-      my->db.create<account_ram_correction_object>( [&]( auto& rco ) {
+      ptr = &my->db.create<account_ram_correction_object>( [&]( auto& rco ) {
          rco.name = account;
          rco.ram_correction = ram_bytes;
       } );
+   }
+
+   if (auto dm_logger = get_deep_mind_logger()) {
+      dm_logger->on_add_ram_correction(*ptr, ram_bytes);
    }
 }
 
 bool controller::all_subjective_mitigations_disabled()const {
    return my->conf.disable_all_subjective_mitigations;
+}
+
+deep_mind_handler* controller::get_deep_mind_logger()const {
+   return my->get_deep_mind_logger();
+}
+
+void controller::enable_deep_mind(deep_mind_handler* logger) {
+   EOS_ASSERT( logger != nullptr, misc_exception, "Invalid logger passed into enable_deep_mind, must be set" );
+   my->deep_mind_logger = logger;
 }
 
 #if defined(EOSIO_EOS_VM_RUNTIME_ENABLED) || defined(EOSIO_EOS_VM_JIT_RUNTIME_ENABLED)
@@ -3483,6 +3570,10 @@ void controller_impl::on_activation<builtin_protocol_feature_t::replace_deferred
          ram_delta = -current_ram_usage;
          elog( "account ${name} was to be reduced by ${adjust} bytes of RAM despite only using ${current} bytes of RAM",
                ("name", itr->name)("adjust", itr->ram_correction)("current", current_ram_usage) );
+      }
+
+      if (auto dm_logger = get_deep_mind_logger()) {
+         dm_logger->on_ram_trace(RAM_EVENT_ID("${id}", ("id", itr->id._id)), "deferred_trx", "correction", "deferred_trx_ram_correction");
       }
 
       resource_limits.add_pending_ram_usage( itr->name, ram_delta );

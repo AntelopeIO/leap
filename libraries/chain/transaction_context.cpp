@@ -6,6 +6,7 @@
 #include <eosio/chain/generated_transaction_object.hpp>
 #include <eosio/chain/transaction_object.hpp>
 #include <eosio/chain/global_property_object.hpp>
+#include <eosio/chain/deep_mind.hpp>
 
 #pragma push_macro("N")
 #undef N
@@ -65,6 +66,19 @@ namespace eosio { namespace chain {
       trace->block_num = c.head_block_num() + 1;
       trace->block_time = c.pending_block_time();
       trace->producer_block_id = c.pending_producer_block_id();
+
+      if(auto dm_logger = control.get_deep_mind_logger())
+      {
+         dm_logger->on_start_transaction();
+      }
+   }
+
+   transaction_context::~transaction_context()
+   {
+      if(auto dm_logger = control.get_deep_mind_logger())
+      {
+         dm_logger->on_end_transaction();
+      }
    }
 
    void transaction_context::disallow_transaction_extensions( const char* error_msg )const {
@@ -624,6 +638,13 @@ namespace eosio { namespace chain {
 
    void transaction_context::execute_action( uint32_t action_ordinal, uint32_t recurse_depth ) {
       apply_context acontext( control, *this, action_ordinal, recurse_depth );
+
+      if (recurse_depth == 0) {
+         if (auto dm_logger = control.get_deep_mind_logger()) {
+            dm_logger->on_input_action();
+         }
+      }
+
       acontext.exec();
    }
 
@@ -649,6 +670,13 @@ namespace eosio { namespace chain {
         gto.delay_until = gto.published + delay;
         gto.expiration  = gto.delay_until + fc::seconds(control.get_global_properties().configuration.deferred_trx_expiration_window);
         trx_size = gto.set( trx );
+
+        if (auto dm_logger = control.get_deep_mind_logger()) {
+           std::string event_id = RAM_EVENT_ID("${id}", ("id", gto.id));
+
+           dm_logger->on_send_deferred(deep_mind_handler::operation_qualifier::push, gto);
+           dm_logger->on_ram_trace(std::move(event_id), "deferred_trx", "push", "deferred_trx_pushed");
+        }
       });
 
       int64_t ram_delta = (config::billable_size_v<generated_transaction_object> + trx_size);

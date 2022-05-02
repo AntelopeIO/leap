@@ -2,6 +2,7 @@
 #include <eosio/chain/types.hpp>
 #include <eosio/chain/config.hpp>
 #include <eosio/chain/exceptions.hpp>
+#include <eosio/chain/resource_limits.hpp>
 
 #include "multi_index_includes.hpp"
 

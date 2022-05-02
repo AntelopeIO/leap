@@ -25,7 +25,7 @@ set( CXX_STANDARD_REQUIRED ON)
 
 set(VERSION_MAJOR 3)
 set(VERSION_MINOR 0)
-set(VERSION_PATCH 0wax01)
+set(VERSION_PATCH 5wax01)
 set(VERSION_SUFFIX rc1)
 
 if(VERSION_SUFFIX)
@@ -47,6 +47,10 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang" OR "${CMAKE_CXX_COMPILER_ID}
     if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 5.0)
         message(FATAL_ERROR "Clang version must be at least 5.0!")
     endif()
+endif()
+
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "AppleClang")
+    set(CMAKE_VISIBILITY_INLINES_HIDDEN ON)
 endif()
 
 if ("${CMAKE_GENERATOR}" STREQUAL "Ninja")
@@ -123,6 +127,8 @@ else()
         endif()
     endif()
 endif()
+
+option(EOSIO_ENABLE_DEVELOPER_OPTIONS "enable developer options for EOSIO" OFF)
 
 # based on http://www.delorie.com/gnu/docs/gdb/gdb_70.html
 # uncomment this line to tell GDB about macros (slows compile times)

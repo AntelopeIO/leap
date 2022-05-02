@@ -37,6 +37,7 @@ namespace eosio { namespace chain {
    class global_property_object;
    class permission_object;
    class account_object;
+   class deep_mind_handler;
    using resource_limits::resource_limits_manager;
    using apply_handler = std::function<void(apply_context&)>;
    using forked_branch_callback = std::function<void(const branch_type&)>;
@@ -82,7 +83,7 @@ namespace eosio { namespace chain {
             bool                     contracts_console      =  false;
             bool                     allow_ram_billing_in_notify = false;
             uint32_t                 maximum_variable_signature_length = chain::config::default_max_variable_signature_length;
-            bool                     disable_all_subjective_mitigations = false; //< for testing purposes only
+            bool                     disable_all_subjective_mitigations = false; //< for developer & testing purposes, can be configured using `disable-all-subjective-mitigations` when `EOSIO_DEVELOPER` build option is provided
 
             wasm_interface::vm_type  wasm_runtime = chain::config::default_wasm_runtime;
             eosvmoc::config          eosvmoc_config;
@@ -136,7 +137,8 @@ namespace eosio { namespace chain {
           */
          void start_block( block_timestamp_type time,
                            uint16_t confirm_block_count,
-                           const vector<digest_type>& new_protocol_feature_activations );
+                           const vector<digest_type>& new_protocol_feature_activations,
+                           const fc::time_point& deadline = fc::time_point::maximum() );
 
          /**
           * @return transactions applied in aborted block
@@ -300,6 +302,9 @@ namespace eosio { namespace chain {
 
          void add_to_ram_correction( account_name account, uint64_t ram_bytes );
          bool all_subjective_mitigations_disabled()const;
+
+         deep_mind_handler* get_deep_mind_logger() const;
+         void enable_deep_mind( deep_mind_handler* logger );
 
 #if defined(EOSIO_EOS_VM_RUNTIME_ENABLED) || defined(EOSIO_EOS_VM_JIT_RUNTIME_ENABLED)
          vm::wasm_allocator&  get_wasm_allocator();
