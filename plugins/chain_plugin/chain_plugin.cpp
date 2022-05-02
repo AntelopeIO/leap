@@ -1655,6 +1655,9 @@ bool chain_plugin::account_queries_enabled() const {
    return my->account_queries_enabled;
 }
 
+bool chain_plugin::transaction_finality_status_enabled() const {
+   return my->_trx_finality_status_processing.get();
+}
 
 namespace chain_apis {
 
@@ -1696,21 +1699,11 @@ read_only::get_info_results read_only::get_info(const read_only::get_info_params
 }
 
 read_only::get_transaction_status_results read_only::get_transaction_status(const read_only::get_transaction_status_params& param) const {
-   transaction_id_type input_id;
-   auto input_id_length = param.id.size();
-   try
-   {
-      FC_ASSERT(input_id_length <= 64, "hex string is too long to represent an actual transaction id");
-      FC_ASSERT(input_id_length >= 8, "hex string representing transaction id should be at least 8 characters long to avoid excessive collisions");
-      input_id = transaction_id_type(param.id);
-   }
-   EOS_RETHROW_EXCEPTIONS(transaction_id_type_exception, "Invalid transaction ID: ${transaction_id}", ("transaction_id", param.id))
-
    EOS_ASSERT(trx_finality_status_proc, unsupported_feature, "Transaction Status Interface not enabled.  To enable, configure nodeos with '--transaction-finality-status-max-storage-size-gb <size>'.");
 
    trx_finality_status_processing::chain_state ch_state = trx_finality_status_proc->get_chain_state();
 
-   auto trx_st = trx_finality_status_proc->get_trx_state(input_id);
+   auto trx_st = trx_finality_status_proc->get_trx_state(param.id);
 
    return {
       trx_st ? trx_st->status : "UNKNOWN",
@@ -1724,7 +1717,8 @@ read_only::get_transaction_status_results read_only::get_transaction_status(cons
       chain::block_header::num_from_id(ch_state.irr_id),
       ch_state.irr_id,
       ch_state.irr_block_timestamp,
-      ch_state.last_tracked_block_id
+      ch_state.last_tracked_block_id,
+      chain::block_header::num_from_id(ch_state.last_tracked_block_id)
    };
 }
 

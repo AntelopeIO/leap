@@ -129,7 +129,7 @@ public:
    get_info_results get_info(const get_info_params&) const;
 
    struct get_transaction_status_params {
-      string                               id;
+      chain::transaction_id_type           id;
    };
 
    struct get_transaction_status_results {
@@ -145,6 +145,7 @@ public:
       chain::block_id_type                 irreversible_id;
       fc::time_point                       irreversible_timestamp;
       chain::block_id_type                 last_tracked_block_id;
+      uint32_t                             last_tracked_block_number = 0;
    };
    get_transaction_status_results get_transaction_status(const get_transaction_status_params& params) const;
 
@@ -798,6 +799,7 @@ public:
    static void handle_bad_alloc();
 
    bool account_queries_enabled() const;
+   bool transaction_finality_status_enabled() const;
 private:
    static void log_guard_exception(const chain::guard_exception& e);
 
@@ -815,7 +817,7 @@ FC_REFLECT(eosio::chain_apis::read_only::get_info_results,
            (server_version_string)(fork_db_head_block_num)(fork_db_head_block_id)(server_full_version_string)(total_cpu_weight)(total_net_weight) )
 FC_REFLECT(eosio::chain_apis::read_only::get_transaction_status_params, (id) )
 FC_REFLECT(eosio::chain_apis::read_only::get_transaction_status_results, (state)(block_number)(block_id)(block_timestamp)(expiration)(head_number)(head_id)
-           (head_timestamp)(irreversible_number)(irreversible_id)(irreversible_timestamp)(last_tracked_block_id) )
+           (head_timestamp)(irreversible_number)(irreversible_id)(irreversible_timestamp)(last_tracked_block_id)(last_tracked_block_number) )
 FC_REFLECT(eosio::chain_apis::read_only::get_activated_protocol_features_params, (lower_bound)(upper_bound)(limit)(search_by_block_num)(reverse) )
 FC_REFLECT(eosio::chain_apis::read_only::get_activated_protocol_features_results, (activated_protocol_features)(more) )
 FC_REFLECT(eosio::chain_apis::read_only::get_block_params, (block_num_or_id))
