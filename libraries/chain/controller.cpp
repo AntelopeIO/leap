@@ -874,10 +874,8 @@ struct controller_impl {
                      ("block_log_last_num", blog_end)
          );
 
-         fork_db.reset( head_header_state );
-         head = fork_db.head();
-         snapshot_head_block = head->block_num;
-
+         head = std::make_shared<block_state>();
+         static_cast<block_header_state&>(*head) = head_header_state;
       }
 
       controller_index_set::walk_indices([this, &snapshot, &header]( auto utils ){
