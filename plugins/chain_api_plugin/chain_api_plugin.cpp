@@ -46,6 +46,21 @@ namespace {
         }
       } EOS_RETHROW_EXCEPTIONS(chain::invalid_http_request, "Unable to parse valid input from POST body");
    }
+
+   // Only want a simple 'Invalid transaction id' if unable to parse the body
+   template<>
+   chain_apis::read_only::get_transaction_status_params parse_params<chain_apis::read_only::get_transaction_status_params>(const std::string& body) {
+      if (body.empty()) {
+         EOS_THROW(chain::invalid_http_request, "A Request body is required");
+      }
+
+      try {
+         auto v = fc::json::from_string( body ).as<chain_apis::read_only::get_transaction_status_params>();
+         if( v.id == transaction_id_type() ) throw false;
+      } catch( ... ) {
+         EOS_THROW(chain::invalid_http_request, "Invalid transaction id");
+      }
+   }
 }
 
 #define CALL(api_name, api_handle, api_namespace, call_name, http_response_code) \
