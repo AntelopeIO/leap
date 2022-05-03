@@ -1717,8 +1717,8 @@ read_only::get_transaction_status_results read_only::get_transaction_status(cons
       chain::block_header::num_from_id(ch_state.irr_id),
       ch_state.irr_id,
       ch_state.irr_block_timestamp,
-      ch_state.last_tracked_block_id,
-      chain::block_header::num_from_id(ch_state.last_tracked_block_id)
+      ch_state.earliest_tracked_block_id,
+      chain::block_header::num_from_id(ch_state.earliest_tracked_block_id)
    };
 }
 
