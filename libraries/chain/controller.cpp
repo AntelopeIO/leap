@@ -800,7 +800,7 @@ struct controller_impl {
       });
 
       snapshot->write_section<block_state>([this]( auto &section ){
-         section.template add_row<block_header_state>(*fork_db.head(), db);
+         section.template add_row<block_header_state>(*head, db);
       });
 
       controller_index_set::walk_indices([this, &snapshot]( auto utils ){
