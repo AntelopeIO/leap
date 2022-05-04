@@ -125,13 +125,12 @@ add_library( eosio_chain
              ${HEADERS}
              )
 
-target_link_libraries( eosio_chain fc chainbase Logging IR WAST WASM Runtime
+target_link_libraries( eosio_chain PUBLIC fc chainbase Logging IR WAST WASM Runtime
                        softfloat builtins ${CHAIN_EOSVM_LIBRARIES} ${LLVM_LIBS} ${CHAIN_RT_LINKAGE}
                      )
 target_include_directories( eosio_chain
                             PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" "${CMAKE_CURRENT_BINARY_DIR}/include"
                                    "${CMAKE_CURRENT_SOURCE_DIR}/../wasm-jit/Include"
-                                   "${CMAKE_CURRENT_SOURCE_DIR}/libraries/eos-vm/include"
                             )
 
 add_library(eosio_chain_wrap INTERFACE )
