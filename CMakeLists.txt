@@ -84,6 +84,8 @@ endif()
 if(CMAKE_SIZEOF_VOID_P EQUAL 8 AND NOT WIN32)
    if(CMAKE_SYSTEM_PROCESSOR STREQUAL x86_64)
       list(APPEND EOSIO_WASM_RUNTIMES eos-vm eos-vm-jit)
+   else()
+      list(APPEND EOSIO_WASM_RUNTIMES eos-vm)
    endif()
 endif()
 
