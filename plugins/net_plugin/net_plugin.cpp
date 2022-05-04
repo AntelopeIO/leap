@@ -2757,7 +2757,7 @@ namespace eosio {
          if( !retry ) no_retry = fatal_other; // only retry once on wrong version
       }
       else if ( msg.reason == benign_other ) {
-         if ( retry ) fc_dlog( logger, "received benign_other reason, retrying to connect");
+         if ( retry ) peer_dlog( this, "received benign_other reason, retrying to connect");
       }
       else {
          retry = false;
