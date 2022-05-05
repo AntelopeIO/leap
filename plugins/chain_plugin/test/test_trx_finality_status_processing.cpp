@@ -194,6 +194,7 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_logic) { try {
    auto cs = status.get_chain_state();
    BOOST_CHECK(cs.head_id == eosio::chain::block_id_type{});
    BOOST_CHECK(cs.head_id == *std::get<0>(trx_pairs_20[0])->producer_block_id);
+   BOOST_CHECK(cs.head_block_timestamp == eosio::chain::block_timestamp_type{});
    BOOST_CHECK(cs.irr_id == eosio::chain::block_id_type{});
    BOOST_CHECK(cs.last_tracked_block_id == eosio::chain::block_id_type{});
 
@@ -263,6 +264,7 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_logic) { try {
    BOOST_CHECK(cs.head_id == *std::get<0>(trx_pairs_20[1])->producer_block_id);
    BOOST_CHECK(cs.head_id == *std::get<0>(trx_pairs_20[2])->producer_block_id);
    BOOST_CHECK(cs.head_id == *std::get<0>(trx_pairs_20[3])->producer_block_id);
+   BOOST_CHECK(cs.head_block_timestamp == bs_20->block->timestamp);
    BOOST_CHECK(cs.irr_id == eosio::chain::block_id_type{});
    BOOST_CHECK(cs.last_tracked_block_id == bs_20->id);
 
@@ -324,6 +326,8 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_logic) { try {
 
    cs = status.get_chain_state();
    BOOST_CHECK(cs.head_id == bs_21->id);
+   BOOST_CHECK(cs.head_id == *std::get<0>(trx_pairs_21[0])->producer_block_id);
+   BOOST_CHECK(cs.head_block_timestamp == bs_21->block->timestamp);
    BOOST_CHECK(cs.irr_id == eosio::chain::block_id_type{});
    BOOST_CHECK(cs.last_tracked_block_id == bs_20->id);
 
@@ -391,6 +395,8 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_logic) { try {
 
    cs = status.get_chain_state();
    BOOST_CHECK(cs.head_id == bs_22->id);
+   BOOST_CHECK(cs.head_id == *std::get<0>(trx_pairs_22[0])->producer_block_id);
+   BOOST_CHECK(cs.head_block_timestamp == bs_22->block->timestamp);
    BOOST_CHECK(cs.irr_id == eosio::chain::block_id_type{});
    BOOST_CHECK(cs.last_tracked_block_id == bs_20->id);
 
@@ -467,6 +473,8 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_logic) { try {
 
    cs = status.get_chain_state();
    BOOST_CHECK(cs.head_id == bs_22_alt->id);
+   BOOST_CHECK(cs.head_id == *std::get<0>(trx_pairs_22_alt[0])->producer_block_id);
+   BOOST_CHECK(cs.head_block_timestamp == bs_22_alt->block->timestamp);
    BOOST_CHECK(cs.irr_id == eosio::chain::block_id_type{});
    BOOST_CHECK(cs.last_tracked_block_id == bs_20->id);
 
@@ -550,6 +558,8 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_logic) { try {
 
    cs = status.get_chain_state();
    BOOST_CHECK(cs.head_id == bs_19->id);
+   BOOST_CHECK(cs.head_id == *std::get<0>(trx_pairs_19[0])->producer_block_id);
+   BOOST_CHECK(cs.head_block_timestamp == bs_19->block->timestamp);
    BOOST_CHECK(cs.irr_id == eosio::chain::block_id_type{});
    BOOST_CHECK(cs.last_tracked_block_id == bs_19->id);
 
@@ -656,6 +666,8 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_logic) { try {
 
    cs = status.get_chain_state();
    BOOST_CHECK(cs.head_id == bs_19_alt->id);
+   BOOST_CHECK(cs.head_id == *std::get<0>(trx_pairs_19[0])->producer_block_id);
+   BOOST_CHECK(cs.head_block_timestamp == bs_19_alt->block->timestamp);
    BOOST_CHECK(cs.irr_id == eosio::chain::block_id_type{});
    BOOST_CHECK(cs.last_tracked_block_id == bs_19_alt->id);
 
