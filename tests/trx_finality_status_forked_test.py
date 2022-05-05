@@ -267,6 +267,8 @@ try:
 
     assert prodNodes[1].waitForNextBlock(), Print("Production node 1 should continue to advance, even after bridge node is killed")
 
+    # since the Bridge node is killed when this producer is producing its last block in its window, there is plenty of time for the transfer to be
+    # sent before the first block is created, but adding this to ensure it is in one of these blocks
     numTries = 2
     preInfo = prodNodes[1].getInfo()
     while numTries > 0:
@@ -279,6 +281,7 @@ try:
 
     postInfo = prodNodes[1].getInfo()
     Print("preInfo: {}\n\npostInfo: {}".format(json.dumps(preInfo, indent=1), json.dumps(postInfo, indent=1)))
+
     assert state == inBlockState, \
         Print("ERROR: getTransactionStatus didn't return \"{}\" state.\n\nstatus: {}".format(inBlockState, json.dumps(retStatus, indent=1)))
 
@@ -286,15 +289,20 @@ try:
     if not nonProdNode.relaunch(nonProdNode.nodeNum):
         errorExit("Failure - (non-production) node %d should have restarted" % (nonProdNode.nodeNum))
 
-    Print("Waiting to allow forks to resolve")
+    Print("Wait for LIB to move, which indicates prodNode[1] has forked out the branch")
     assert cluster.waitOnClusterSync(blockAdvancing=1, blockType=BlockType.lib), \
         Print("ERROR: Network did not reach concensus after bridge node was restarted.")
+
+    Print("Wait till prodNodes[1] is reporting at least the same head block number as the forked out block")
+    assert prodNodes[1].waitForBlock(retStatus["block_number"]), \
+        Print("Production node 1 should continue to advance, even after bridge node is killed. \n\nretStatus: {}".
+            format(json.dumps(retStatus, indent=1)))
 
     retStatus = prodNodes[1].getTransactionStatus(transId)
     state = getState(retStatus)
 
     assert state == forkedOutState, \
-        Print("ERROR: getTransactionStatus didn't return \"{}\" state.\n\nstatus: {}".format(forkedOutState, json.dumps(retStatus, indent=1)))
+        Print("ERROR: getTransactionStatus didn't return \"{}\" state.\n\nstatus: {}\n\nprod 0 info: {}\n\nprod 1 info: {}".format(forkedOutState, json.dumps(retStatus, indent=1), json.dumps(prodNodes[0].getInfo(), indent=1), json.dumps(prodNodes[1].getInfo(), indent=1)))
 
     for prodNode in prodNodes:
         info=prodNode.getInfo()
@@ -305,7 +313,7 @@ try:
     retStatus = prodNodes[1].getTransactionStatus(transId)
     state = getState(retStatus)
 
-    assert state == inBlockState, \
+    assert state == irreversibleState, \
         Print("ERROR: getTransactionStatus didn't return \"{}\" state.\n\nstatus: {}".format(inBlockState, json.dumps(retStatus, indent=1)))
 
     testSuccessful=True
