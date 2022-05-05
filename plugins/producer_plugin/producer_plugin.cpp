@@ -73,6 +73,12 @@ fc::logger       _trx_successful_trace_log;
 const fc::string trx_failed_trace_logger_name("transaction_failure_tracing");
 fc::logger       _trx_failed_trace_log;
 
+const std::string trx_trace_success_logger_name("transaction_trace_success");
+fc::logger       _trx_trace_success_log;
+
+const std::string trx_trace_failure_logger_name("transaction_trace_failure");
+fc::logger       _trx_trace_failure_log;
+
 namespace eosio {
 
 static appbase::abstract_plugin& _producer_plugin = app().register_plugin<producer_plugin>();
@@ -459,12 +465,15 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
             if( future.valid() ) {
                future.wait();
                app().post( priority::low, [self, future{std::move(future)}, persist_until_expired, next{std::move( next )}, trx{std::move(trx)}, return_failure_traces]() mutable {
-                  auto exception_handler = [&next, trx{std::move(trx)}](fc::exception_ptr ex) {
+                  auto exception_handler = [self, &next, trx{std::move(trx)}](fc::exception_ptr ex) {
                      fc_dlog(_trx_successful_trace_log, "[TRX_TRACE] Speculative execution is REJECTING tx: ${txid}, auth: ${a} : ${why} ",
                             ("txid", trx->id())("a",trx->get_transaction().first_authorizer())("why",ex->what()));
                      fc_dlog(_trx_failed_trace_log, "[TRX_TRACE] Speculative execution is REJECTING tx: ${txid}, auth: ${a} : ${why} ",
                             ("txid", trx->id())("a",trx->get_transaction().first_authorizer())("why",ex->what()));
                      next(ex);
+
+                      fc_dlog(_trx_trace_failure_log, "[TRX_TRACE] Speculative execution is REJECTING tx: ${entire_trx}",
+                              ("entire_trx", self->chain_plug->get_log_trx(trx->get_transaction())));
                   };
                   try {
                      auto result = future.get();
@@ -488,6 +497,15 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
 
          auto send_response = [this, &trx, &chain, &next](const std::variant<fc::exception_ptr, transaction_trace_ptr>& response) {
             next(response);
+
+         auto get_trace = [&](const std::variant<fc::exception_ptr, transaction_trace_ptr>& response) -> fc::variant {
+            if (std::holds_alternative<fc::exception_ptr>(response)) {
+                return fc::variant{std::get<fc::exception_ptr>(response)};
+            } else {
+                return chain_plug->get_log_trx_trace( std::get<transaction_trace_ptr>(response) );
+            }
+
+         };
             if (std::holds_alternative<fc::exception_ptr>(response)) {
                if (!trx->read_only) {
                   _transaction_ack_channel.publish(priority::low, std::pair<fc::exception_ptr, packed_transaction_ptr>(std::get<fc::exception_ptr>(response), trx->packed_trx()));
@@ -527,10 +545,15 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                           ("prod", get_pending_block_producer())
                           ("txid", trx->id())
                           ("a", trx->packed_trx()->get_transaction().first_authorizer()));
+                   fc_dlog(_trx_trace_success_log, "[TRX_TRACE] Block ${block_num} for producer ${prod} is ACCEPTING tx: ${entire_trace}",
+                           ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())
+                                   ("entire_trace", get_trace(response)));
                } else {
                   fc_dlog(_trx_successful_trace_log, "[TRX_TRACE] Speculative execution is ACCEPTING tx: ${txid}, auth: ${a}",
                           ("txid", trx->id())
                           ("a", trx->packed_trx()->get_transaction().first_authorizer()));
+                   fc_dlog(_trx_trace_success_log, "[TRX_TRACE] Speculative execution is ACCEPTING tx: ${entire_trace}",
+                           ("entire_trace", get_trace(response)));
                }
             }
          };
@@ -1785,6 +1808,7 @@ bool producer_plugin_impl::remove_expired_persisted_trxs( const fc::time_point& 
                            "[TRX_TRACE] Block ${block_num} for producer ${prod} is EXPIRING PERSISTED tx: ${txid}",
                            ("block_num", chain.head_block_num() + 1)("txid", txid)
                            ("prod", chain.is_building_block() ? chain.pending_block_producer() : name()) );
+
                } else {
                   fc_dlog(_trx_successful_trace_log, "[TRX_TRACE] Speculative execution is EXPIRING PERSISTED tx: ${txid}", ("txid", txid));
                   fc_dlog(_trx_failed_trace_log, "[TRX_TRACE] Speculative execution is EXPIRING PERSISTED tx: ${txid}", ("txid", txid));
@@ -2369,9 +2393,12 @@ void producer_plugin_impl::produce_block() {
 
 }
 
-void producer_plugin::log_failed_transaction(const transaction_id_type& trx_id, const char* reason) const {
-   fc_dlog(_trx_failed_trace_log, "[TRX_TRACE] Speculative execution is REJECTING tx: ${txid} : ${why}",
-           ("txid", trx_id)("why", reason));
-}
+    void producer_plugin::log_failed_transaction(const transaction_id_type& trx_id, const packed_transaction_ptr& packed_trx_ptr, const char* reason) const {
+        fc_dlog(_trx_failed_trace_log, "[TRX_TRACE] Speculative execution is REJECTING tx: ${txid} : ${why}",
+                ("txid", trx_id)("why", reason));
+
+        fc_dlog(_trx_trace_failure_log, "[TRX_TRACE] Speculative execution is REJECTING tx: ${entire_trx}",
+                ("entire_trx", packed_trx_ptr ? my->chain_plug->get_log_trx(packed_trx_ptr->get_transaction()) : fc::variant{trx_id}));
+    }
 
 } // namespace eosio
