@@ -39,6 +39,7 @@ namespace eosio::chain_apis {
       chain::block_id_type                             _last_tracked_block_id;
       const fc::microseconds                           _success_duration;
       const fc::microseconds                           _failure_duration;
+      std::deque<chain::transaction_id_type>           _speculative_trxs;
    };
 
    trx_finality_status_processing::trx_finality_status_processing( uint64_t max_storage, const fc::microseconds& success_duration, const fc::microseconds& failure_duration )
@@ -58,6 +59,8 @@ namespace eosio::chain_apis {
    }
 
    void trx_finality_status_processing::signal_block_start( uint32_t block_num ) {
+      // since a new block is started, no block state was received, so the speculative block did not get eventually produced
+      _my->_speculative_trxs.clear();
    }
 
    void trx_finality_status_processing::signal_applied_transaction( const chain::transaction_trace_ptr& trace, const chain::packed_transaction_ptr& ptrx ) {
@@ -99,6 +102,10 @@ namespace eosio::chain_apis {
       }
       if (trace->scheduled) return;
       if (chain::is_onblock(*trace)) return;
+
+      if (!trace->producer_block_id) {
+         _speculative_trxs.push_back(trace->id);
+      }
 
       old_trxs_removed = ensure_storage();
       const auto& trx_id = trace->id;
@@ -148,6 +155,22 @@ namespace eosio::chain_apis {
             _last_tracked_block_id = success_iter->block_id;
          }
       }
+
+      // if this approve block was proceeded by speculative transactions that had
+      auto mod = [&block_id=_head_block_id,&block_timestamp=_head_block_timestamp]( finality_status_object& obj ) {
+         obj.block_id = block_id;
+         obj.block_timestamp = block_timestamp;
+         obj.forked_out = false;
+      };
+      for (const auto& trx_id : _speculative_trxs) {
+         auto iter = _storage.find(trx_id);
+         FC_ASSERT( iter != _storage.index().cend(),
+                    "CODE ERROR: Should not have speculative transactions that have not already"
+                    "been identified prior to the block being accepted. trx id: ${trx_id}",
+                    ("trx_id", trx_id) );
+         _storage.modify( iter, mod );
+      }
+      _speculative_trxs.clear();
 
       _last_proc_block_num = head_block_num;
    }
