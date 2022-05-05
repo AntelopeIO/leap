@@ -13,8 +13,6 @@ namespace eosio::chain_apis {
         _success_duration(success_duration),
         _failure_duration(failure_duration) {}
 
-      void signal_applied_transactions( const chain::signals_processor::trx_deque& trxs, const chain::block_state_ptr& bsp ); // REMOVE
-
       void signal_applied_transaction( const chain::transaction_trace_ptr& trace, const chain::packed_transaction_ptr& ptrx );
 
       void signal_accepted_block( const chain::block_state_ptr& bsp );
@@ -49,10 +47,6 @@ namespace eosio::chain_apis {
 
    trx_finality_status_processing::~trx_finality_status_processing() = default;
 
-   void trx_finality_status_processing::signal_applied_transactions( const chain::signals_processor::trx_deque& trxs, const chain::block_state_ptr& bsp ) { // REMOVE
-      _my->signal_applied_transactions(trxs, bsp);
-   }
-
    void trx_finality_status_processing::signal_irreversible_block( const chain::block_state_ptr& bsp ) {
       _my->_irr_block_id = bsp->id;
       _my->_irr_block_timestamp = bsp->block->timestamp;
@@ -76,7 +70,7 @@ namespace eosio::chain_apis {
       // use the head block num if we are in a block, otherwise don't provide block number for speculative blocks
       chain::block_id_type block_id;
       chain::block_timestamp_type block_timestamp;
-      bool old_trxs_removed = false;
+      bool modified = false;
       if (trace->producer_block_id) {
          block_id = *trace->producer_block_id;
          const bool block_changed = block_id != _head_block_id;
@@ -89,11 +83,14 @@ namespace eosio::chain_apis {
          const auto head_block_num = chain::block_header::num_from_id(_head_block_id);
          if (block_changed && head_block_num <= _last_proc_block_num) {
             handle_rollback();
+            modified = true;
          }
 
          _last_proc_block_num = head_block_num;
 
-         old_trxs_removed = status_expiry_of_trxs(now);
+         if (status_expiry_of_trxs(now)) {
+            modified = true;
+         }
       }
 
       if (!trace->receipt) return;
@@ -107,7 +104,10 @@ namespace eosio::chain_apis {
          _speculative_trxs.push_back(trace->id);
       }
 
-      old_trxs_removed = ensure_storage();
+      if(ensure_storage()) {
+         modified = true;
+      }
+
       const auto& trx_id = trace->id;
       auto iter = _storage.find(trx_id);
       if (iter != _storage.index().cend()) {
@@ -126,7 +126,7 @@ namespace eosio::chain_apis {
                                    .block_timestamp = block_timestamp});
       }
 
-      if (old_trxs_removed || _last_tracked_block_id == chain::block_id_type{}) {
+      if (modified || _last_tracked_block_id == chain::block_id_type{}) {
          determine_last_tracked_block_id();
       }
    }
@@ -146,14 +146,9 @@ namespace eosio::chain_apis {
       }
 
       const fc::time_point now = fc::time_point::now();
-      if (status_expiry_of_trxs(now)) {
-         const auto& indx = _storage.index().get<by_status_expiry>();
-
-         // find the lowest value successful block
-         auto success_iter = indx.lower_bound(boost::make_tuple(true, fc::time_point{}));
-         if (success_iter != indx.cend()) {
-            _last_tracked_block_id = success_iter->block_id;
-         }
+      bool status_expiry = status_expiry_of_trxs(now);
+      if (status_expiry) {
+         determine_last_tracked_block_id();
       }
 
       // if this approve block was proceeded by speculative transactions that had
@@ -175,63 +170,6 @@ namespace eosio::chain_apis {
       _last_proc_block_num = head_block_num;
    }
 
-   void trx_finality_status_processing_impl::signal_applied_transactions( const chain::signals_processor::trx_deque& trxs, const chain::block_state_ptr& bsp ) {   // REMOVE
-      const fc::time_point now = fc::time_point::now();
-      // use the head block num if we are in a block, otherwise don't provide block number for speculative blocks
-      const auto& block_id = bsp ? bsp->id : chain::block_id_type{};
-      bool modified = !trxs.empty();
-      chain::block_timestamp_type block_timestamp;
-      if (bsp) {
-         _head_block_id = block_id;
-         _head_block_timestamp = bsp->block->timestamp;
-         block_timestamp = bsp->block->timestamp;
-         if (chain::block_header::num_from_id(_head_block_id) <= _last_proc_block_num) {
-            handle_rollback();
-            modified = true;
-         }
-
-         // clean up all status expired transactions, to free up storage
-         if (status_expiry_of_trxs(now)) {
-            modified = true;
-         }
-      }
-
-      for (const auto& trx_tuple : trxs) {
-         const auto& trace = std::get<0>(trx_tuple);
-         if (!trace->receipt) continue;
-         if (trace->receipt->status != chain::transaction_receipt_header::executed) {
-            continue;
-         }
-         if (trace->scheduled) continue;
-         if (chain::is_onblock(*trace)) continue;
-
-         ensure_storage();
-         const auto& trx_id = trace->id;
-         auto iter = _storage.find(trx_id);
-         if (iter != _storage.index().cend()) {
-            _storage.modify( iter, [&block_id,&block_timestamp]( finality_status_object& obj ) {
-               obj.block_id = block_id;
-               obj.block_timestamp = block_timestamp;
-               obj.forked_out = false;
-            } );
-         }
-         else {
-            _storage.insert(
-               finality_status_object{.trx_id = trx_id,
-                                      .trx_expiry = std::get<1>(trx_tuple)->expiration(),
-                                      .received = now,
-                                      .block_id = block_id,
-                                      .block_timestamp = block_timestamp});
-         }
-      }
-      if (modified || _last_tracked_block_id == chain::block_id_type{}) {
-         determine_last_tracked_block_id();
-      }
-
-      if (bsp) {
-         _last_proc_block_num = chain::block_header::num_from_id(_head_block_id);
-      }
-   }
 
    void trx_finality_status_processing_impl::handle_rollback() {
       const auto& indx = _storage.index().get<by_block_num>();
