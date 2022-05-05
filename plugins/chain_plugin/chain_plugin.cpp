@@ -2198,6 +2198,26 @@ read_only::get_producer_schedule_result read_only::get_producer_schedule( const 
    return result;
 }
 
+
+struct resolver_factory {
+    static auto make(const controller& control, abi_serializer::yield_function_t yield) {
+        return [&control, yield{std::move(yield)}](const account_name &name) -> std::optional<abi_serializer> {
+            const auto* accnt = control.db().template find<account_object, by_name>(name);
+            if (accnt != nullptr) {
+                abi_def abi;
+                if (abi_serializer::to_abi(accnt->abi, abi)) {
+                    return abi_serializer(abi, yield);
+                }
+            }
+            return std::optional<abi_serializer>();
+        };
+    }
+};
+
+auto make_resolver(const controller& control, abi_serializer::yield_function_t yield) {
+    return resolver_factory::make(control, std::move( yield ));
+}
+/*
 template<typename Api>
 struct resolver_factory {
    static auto make(const Api* api, abi_serializer::yield_function_t yield) {
@@ -2219,7 +2239,7 @@ template<typename Api>
 auto make_resolver(const Api* api, abi_serializer::yield_function_t yield) {
    return resolver_factory<Api>::make(api, std::move( yield ));
 }
-
+*/
 
 read_only::get_scheduled_transactions_result
 read_only::get_scheduled_transactions( const read_only::get_scheduled_transactions_params& p ) const {
@@ -2253,7 +2273,7 @@ read_only::get_scheduled_transactions( const read_only::get_scheduled_transactio
 
    read_only::get_scheduled_transactions_result result;
 
-   auto resolver = make_resolver(this, abi_serializer::create_yield_function( abi_serializer_max_time ));
+   auto resolver = make_resolver(db, abi_serializer::create_yield_function( abi_serializer_max_time ));
 
    uint32_t remaining = p.limit;
    auto time_limit = fc::time_point::now() + fc::microseconds(1000 * 10); /// 10ms max time
@@ -2318,7 +2338,7 @@ fc::variant read_only::get_block(const read_only::get_block_params& params) cons
    EOS_ASSERT( block, unknown_block_exception, "Could not find block: ${block}", ("block", params.block_num_or_id));
 
    fc::variant pretty_output;
-   abi_serializer::to_variant(*block, pretty_output, make_resolver(this, abi_serializer::create_yield_function( abi_serializer_max_time )),
+   abi_serializer::to_variant(*block, pretty_output, make_resolver(db, abi_serializer::create_yield_function( abi_serializer_max_time )),
                               abi_serializer::create_yield_function( abi_serializer_max_time ));
 
    const auto block_id = block->calculate_id();
@@ -2367,7 +2387,7 @@ void read_write::push_block(read_write::push_block_params&& params, next_functio
 void read_write::push_transaction(const read_write::push_transaction_params& params, next_function<read_write::push_transaction_results> next) {
    try {
       auto pretty_input = std::make_shared<packed_transaction>();
-      auto resolver = make_resolver(this, abi_serializer::create_yield_function( abi_serializer_max_time ));
+      auto resolver = make_resolver(db, abi_serializer::create_yield_function( abi_serializer_max_time ));
       try {
          abi_serializer::from_variant(params, *pretty_input, std::move( resolver ), abi_serializer::create_yield_function( abi_serializer_max_time ));
       } EOS_RETHROW_EXCEPTIONS(chain::packed_transaction_type_exception, "Invalid packed transaction")
@@ -2486,7 +2506,7 @@ void read_write::send_transaction(const read_write::send_transaction_params& par
 
    try {
       auto pretty_input = std::make_shared<packed_transaction>();
-      auto resolver = make_resolver(this, abi_serializer::create_yield_function( abi_serializer_max_time ));
+      auto resolver = make_resolver(db, abi_serializer::create_yield_function( abi_serializer_max_time ));
       try {
          abi_serializer::from_variant(params, *pretty_input, resolver, abi_serializer::create_yield_function( abi_serializer_max_time ));
       } EOS_RETHROW_EXCEPTIONS(chain::packed_transaction_type_exception, "Invalid packed transaction")
@@ -2521,7 +2541,7 @@ void read_write::send_transaction(const read_write::send_transaction_params& par
 void read_write::send_transaction2(const read_write::send_transaction2_params& params, next_function<read_write::send_transaction_results> next) {
    try {
       auto ptrx = std::make_shared<packed_transaction>();
-      auto resolver = make_resolver(this, abi_serializer::create_yield_function( abi_serializer_max_time ));
+      auto resolver = make_resolver(db, abi_serializer::create_yield_function( abi_serializer_max_time ));
       try {
          abi_serializer::from_variant(params.transaction, *ptrx, resolver, abi_serializer::create_yield_function( abi_serializer_max_time ));
       } EOS_RETHROW_EXCEPTIONS(chain::packed_transaction_type_exception, "Invalid packed transaction")
@@ -2833,7 +2853,7 @@ read_only::abi_bin_to_json_result read_only::abi_bin_to_json( const read_only::a
 
 read_only::get_required_keys_result read_only::get_required_keys( const get_required_keys_params& params )const {
    transaction pretty_input;
-   auto resolver = make_resolver(this, abi_serializer::create_yield_function( abi_serializer_max_time ));
+   auto resolver = make_resolver(db, abi_serializer::create_yield_function( abi_serializer_max_time ));
    try {
       abi_serializer::from_variant(params.transaction, pretty_input, resolver, abi_serializer::create_yield_function( abi_serializer_max_time ));
    } EOS_RETHROW_EXCEPTIONS(chain::transaction_type_exception, "Invalid transaction")
@@ -2847,7 +2867,7 @@ void read_only::compute_transaction(const fc::variant_object& params, next_funct
 
     try {
         auto pretty_input = std::make_shared<packed_transaction>();
-        auto resolver = make_resolver(this, abi_serializer::create_yield_function( abi_serializer_max_time ));
+        auto resolver = make_resolver(db, abi_serializer::create_yield_function( abi_serializer_max_time ));
         try {
             abi_serializer::from_variant(params, *pretty_input, resolver, abi_serializer::create_yield_function( abi_serializer_max_time ));
         } EOS_RETHROW_EXCEPTIONS(chain::packed_transaction_type_exception, "Invalid packed transaction")
@@ -2929,6 +2949,30 @@ chain::symbol read_only::extract_core_symbol()const {
 }
 
 } // namespace chain_apis
+
+fc::variant chain_plugin::get_log_trx_trace(const transaction_trace_ptr& trx_trace ) const {
+    fc::variant pretty_output;
+    try {
+        abi_serializer::to_log_variant(trx_trace, pretty_output,
+                                       chain_apis::make_resolver(chain(), abi_serializer::create_yield_function(get_abi_serializer_max_time())),
+                                       abi_serializer::create_yield_function(get_abi_serializer_max_time()));
+    } catch (...) {
+        pretty_output = trx_trace;
+    }
+    return pretty_output;
+}
+
+fc::variant chain_plugin::get_log_trx(const transaction& trx) const {
+    fc::variant pretty_output;
+    try {
+        abi_serializer::to_log_variant(trx, pretty_output,
+                                       chain_apis::make_resolver(chain(), abi_serializer::create_yield_function(get_abi_serializer_max_time())),
+                                       abi_serializer::create_yield_function(get_abi_serializer_max_time()));
+    } catch (...) {
+        pretty_output = trx;
+    }
+    return pretty_output;
+}
 } // namespace eosio
 
 FC_REFLECT( eosio::chain_apis::detail::ram_market_exchange_state_t, (ignore1)(ignore2)(ignore3)(core_symbol)(ignore4) )

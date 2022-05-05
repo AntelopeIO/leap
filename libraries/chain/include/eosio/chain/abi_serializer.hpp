@@ -85,6 +85,9 @@ struct abi_serializer {
    static void to_variant( const T& o, fc::variant& vo, Resolver resolver, const fc::microseconds& max_serialization_time );
 
    template<typename T, typename Resolver>
+   static void to_log_variant( const T& o, fc::variant& vo, Resolver resolver, const yield_function_t& yield );
+
+   template<typename T, typename Resolver>
    static void from_variant( const fc::variant& v, T& o, Resolver resolver, const yield_function_t& yield );
    template<typename T, typename Resolver>
    [[deprecated("use the overload with yield_function_t[=create_yield_function(max_serialization_time)]")]]
@@ -173,6 +176,9 @@ namespace impl {
       {
       }
 
+      void logging() { log = true; } // generate variant for logging
+      bool is_logging() const { return log; }
+
       void check_deadline()const { yield( recursion_depth ); }
       abi_serializer::yield_function_t get_yield_function() { return yield; }
 
@@ -180,7 +186,8 @@ namespace impl {
 
    protected:
       abi_serializer::yield_function_t  yield;
-      size_t                            recursion_depth;
+      size_t                            recursion_depth = 0;
+      bool                              log = false;
    };
 
    struct empty_path_root {};
@@ -864,6 +871,16 @@ template<typename T, typename Resolver>
 void abi_serializer::to_variant( const T& o, fc::variant& vo, Resolver resolver, const fc::microseconds& max_serialization_time ) {
    to_variant( o, vo, resolver, create_yield_function(max_serialization_time) );
 }
+
+template<typename T, typename Resolver>
+void abi_serializer::to_log_variant( const T& o, fc::variant& vo, Resolver resolver, const yield_function_t& yield ) try {
+    mutable_variant_object mvo;
+    impl::abi_traverse_context ctx( yield );
+    ctx.logging();
+    impl::abi_to_variant::add(mvo, "_", o, resolver, ctx);
+    vo = std::move(mvo["_"]);
+} FC_RETHROW_EXCEPTIONS(error, "Failed to serialize: ${type}", ("type", boost::core::demangle( typeid(o).name() ) ))
+
 
 template<typename T, typename Resolver>
 void abi_serializer::from_variant( const fc::variant& v, T& o, Resolver resolver, const yield_function_t& yield ) try {
