@@ -255,10 +255,6 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
           "Override default maximum ABI serialization time allowed in ms")
          ("chain-state-db-size-mb", bpo::value<uint64_t>()->default_value(config::default_state_size / (1024  * 1024)), "Maximum size (in MiB) of the chain state database")
          ("chain-state-db-guard-size-mb", bpo::value<uint64_t>()->default_value(config::default_state_guard_size / (1024  * 1024)), "Safely shut down node when free space remaining in the chain state database drops below this size (in MiB).")
-         ("reversible-blocks-db-size-mb", bpo::value<uint64_t>()->default_value(0),
-         "(DEPRECATED: no longer used) Maximum size (in MiB) of the reversible blocks database")
-         ("reversible-blocks-db-guard-size-mb", bpo::value<uint64_t>()->default_value(0),
-          "(DEPRECATED: no longer used) Safely shut down node when free space remaining in the reverseible blocks database drops below this size (in MiB).")
          ("signature-cpu-billable-pct", bpo::value<uint32_t>()->default_value(config::default_sig_cpu_bill_pct / config::percent_1),
           "Percentage of actual signature recovery cpu to bill. Whole number percentages, e.g. 50 for 50%")
          ("chain-threads", bpo::value<uint16_t>()->default_value(config::default_controller_thread_pool_size),
@@ -777,12 +773,6 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
 
       if( options.count( "chain-state-db-guard-size-mb" ))
          my->chain_config->state_guard_size = options.at( "chain-state-db-guard-size-mb" ).as<uint64_t>() * 1024 * 1024;
-
-      if( options.count( "reversible-blocks-db-size-mb" ))
-         wlog( "reversible-blocks-db-size-mb deprecated and will be removed in future version" );
-
-      if( options.count( "reversible-blocks-db-guard-size-mb" ))
-         wlog( "reversible-blocks-db-guard-size-mb deprecated and will be removed in future version" );
 
       if( options.count( "max-nonprivileged-inline-action-size" ))
          my->chain_config->max_nonprivileged_inline_action_size = options.at( "max-nonprivileged-inline-action-size" ).as<uint32_t>();
@@ -1378,9 +1368,6 @@ void chain_plugin::log_guard_exception(const chain::guard_exception&e ) {
    if (e.code() == chain::database_guard_exception::code_value) {
       elog("Database has reached an unsafe level of usage, shutting down to avoid corrupting the database.  "
            "Please increase the value set for \"chain-state-db-size-mb\" and restart the process!");
-   } else if (e.code() == chain::reversible_guard_exception::code_value) {
-      elog("Reversible block database has reached an unsafe level of usage, shutting down to avoid corrupting the database.  "
-           "Please increase the value set for \"reversible-blocks-db-size-mb\" and restart the process!");
    }
 
    dlog("Details: ${details}", ("details", e.to_detail_string()));
