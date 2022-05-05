@@ -2341,10 +2341,13 @@ fc::variant read_only::get_block_info(const read_only::get_block_info_params& pa
 
    EOS_ASSERT( block, unknown_block_exception, "Could not find block: ${block}", ("block", params.block_num));
 
+   const auto id = block->calculate_id();
+   const uint32_t ref_block_prefix = id._hash[1];
+
    return fc::mutable_variant_object ()
          ("block_num", block->block_num())
          ("ref_block_num", static_cast<uint16_t>(block->block_num()))
-         ("id", block->id())
+         ("id", id)
          ("timestamp", block->timestamp)
          ("producer", block->producer)
          ("confirmed", block->confirmed)
@@ -2353,7 +2356,7 @@ fc::variant read_only::get_block_info(const read_only::get_block_info_params& pa
          ("action_mroot", block->action_mroot)
          ("schedule_version", block->schedule_version)
          ("producer_signature", block->producer_signature)
-         ("ref_block_prefix", static_cast<uint32_t>(block->id()._hash[1]));
+         ("ref_block_prefix", ref_block_prefix);
 }
 
 fc::variant read_only::get_block_header_state(const get_block_header_state_params& params) const {
