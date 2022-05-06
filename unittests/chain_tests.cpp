@@ -2,10 +2,12 @@
 #include <eosio/chain/global_property_object.hpp>
 #include <eosio/chain/permission_object.hpp>
 #include <eosio/chain/resource_limits.hpp>
+#include <eosio/chain/transaction.hpp>
 #include <boost/test/unit_test.hpp>
 #include <eosio/testing/tester.hpp>
 
 #include "fork_test_utilities.hpp"
+#include "test_cfd_transaction.hpp"
 
 using namespace eosio;
 using namespace eosio::chain;
@@ -72,6 +74,49 @@ BOOST_AUTO_TEST_CASE( replace_account_keys ) try {
    const auto new_usr_auth = perm->auth;
    BOOST_REQUIRE(new_usr_auth == expected_authority);
 
+} FC_LOG_AND_RETHROW()
+
+BOOST_AUTO_TEST_CASE( decompressed_size_under_limit ) try {
+   tester chain;
+
+   // build a transaction, add cf data, sign
+   cf_action                        cfa;
+   eosio::chain::signed_transaction trx;
+   eosio::chain::action             act({}, cfa);
+   trx.context_free_actions.push_back(act);
+   // this is a under limit size  (4+4)*128*1024 = 1024*1024
+   for(int i = 0; i < 100*1024; ++i){
+      trx.context_free_data.emplace_back(fc::raw::pack<uint32_t>(100));
+      trx.context_free_data.emplace_back(fc::raw::pack<uint32_t>(200));
+   }
+   // add a normal action along with cfa
+   dummy_action         da = {DUMMY_ACTION_DEFAULT_A, DUMMY_ACTION_DEFAULT_B, DUMMY_ACTION_DEFAULT_C};
+   eosio::chain::action act1(
+       std::vector<eosio::chain::permission_level>{{"testapi"_n, eosio::chain::config::active_name}}, da);
+   trx.actions.push_back(act1);
+   chain.set_transaction_headers(trx);
+   auto sig = trx.sign(chain.get_private_key("testapi"_n, "active"), chain.control->get_chain_id());
+
+   // pack
+   packed_transaction ptv0(trx, packed_transaction::compression_type::zlib);
+   // try unpack and throw
+   bytes packed_txn = ptv0.get_packed_transaction();
+   bytes pcfd = ptv0.get_packed_context_free_data();
+   vector<signature_type>  sigs;
+   sigs.push_back(sig);
+   bool threw = false;
+   bool throw_expect_string = false;
+   try {
+      // will call into decompress zlib
+      packed_transaction copy( packed_txn, sigs, pcfd, packed_transaction::compression_type::zlib );
+   } catch(fc::exception& er){
+     threw = true;
+     if ( er.to_detail_string().find("Exceeded maximum decompressed transaction size") != std::string::npos){
+       throw_expect_string = true;
+     }
+   }
+   BOOST_REQUIRE(threw == false);
+   BOOST_REQUIRE(throw_expect_string == false);
 } FC_LOG_AND_RETHROW()
 
 BOOST_AUTO_TEST_SUITE_END()
