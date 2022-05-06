@@ -223,6 +223,7 @@ try:
     leeway=4
     assert testNode.waitForBlock(blockNum=startingBlockNum+(successDuration*2),timeout=successDuration+leeway)
 
+    recentBlockNum=testNode.getBlockNum()
     retStatus=testNode.getTransactionStatus(transId)
     Print("retStatus: {}".format(retStatus))
     state = getState(retStatus)
@@ -231,6 +232,8 @@ try:
               format(irreversibleState, json.dumps(retStatus, indent=1)))
     validateTrxState(retStatus, present=False)
     validate(retStatus, knownTrx=False)
+    assert recentBlockNum <= retStatus["head_number"], \
+        Print("ERROR: Expected call to getTransactionStatus to return increasing values for \"head_number\" beyond previous known recent block number.")
 
     testSuccessful=True
 
