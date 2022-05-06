@@ -2217,29 +2217,6 @@ struct resolver_factory {
 auto make_resolver(const controller& control, abi_serializer::yield_function_t yield) {
     return resolver_factory::make(control, std::move( yield ));
 }
-/*
-template<typename Api>
-struct resolver_factory {
-   static auto make(const Api* api, abi_serializer::yield_function_t yield) {
-      return [api, yield{std::move(yield)}](const account_name &name) -> std::optional<abi_serializer> {
-         const auto* accnt = api->db.db().template find<account_object, by_name>(name);
-         if (accnt != nullptr) {
-            abi_def abi;
-            if (abi_serializer::to_abi(accnt->abi, abi)) {
-               return abi_serializer(abi, yield);
-            }
-         }
-
-         return std::optional<abi_serializer>();
-      };
-   }
-};
-
-template<typename Api>
-auto make_resolver(const Api* api, abi_serializer::yield_function_t yield) {
-   return resolver_factory<Api>::make(api, std::move( yield ));
-}
-*/
 
 read_only::get_scheduled_transactions_result
 read_only::get_scheduled_transactions( const read_only::get_scheduled_transactions_params& p ) const {
