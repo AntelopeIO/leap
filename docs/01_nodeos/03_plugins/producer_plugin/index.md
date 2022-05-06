@@ -119,6 +119,11 @@ Config Options for eosio::producer_plugin:
                                         Sets the maximum amount of failures 
                                         that are allowed for a given account 
                                         per block.
+                                        Disregarded for accounts that have been
+                                        whitelisted by disabling subjective
+                                        billing for the account using the
+                                        disable-subjective-account-billing
+                                        configuration option.
   --subjective-account-decay-time-minutes arg (=1440)
                                         Sets the time to return full subjective
                                         cpu for accounts
@@ -137,6 +142,9 @@ Config Options for eosio::producer_plugin:
   --disable-subjective-account-billing arg
                                         Account which is excluded from 
                                         subjective CPU billing
+                                        Account is considered whitelisted and
+                                        will not be subject to enforcement of
+                                        subjective-account-max-failures.
   --disable-subjective-p2p-billing arg (=1)
                                         Disable subjective CPU billing for P2P 
                                         transactions

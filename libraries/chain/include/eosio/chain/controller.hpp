@@ -72,8 +72,6 @@ namespace eosio { namespace chain {
             path                     state_dir              =  chain::config::default_state_dir_name;
             uint64_t                 state_size             =  chain::config::default_state_size;
             uint64_t                 state_guard_size       =  chain::config::default_state_guard_size;
-            uint64_t                 reversible_cache_size  =  chain::config::default_reversible_cache_size;
-            uint64_t                 reversible_guard_size  =  chain::config::default_reversible_guard_size;
             uint32_t                 sig_cpu_bill_pct       =  chain::config::default_sig_cpu_bill_pct;
             uint16_t                 thread_pool_size       =  chain::config::default_controller_thread_pool_size;
             uint32_t   max_nonprivileged_inline_action_size =  chain::config::default_max_nonprivileged_inline_action_size;
@@ -84,6 +82,7 @@ namespace eosio { namespace chain {
             bool                     allow_ram_billing_in_notify = false;
             uint32_t                 maximum_variable_signature_length = chain::config::default_max_variable_signature_length;
             bool                     disable_all_subjective_mitigations = false; //< for developer & testing purposes, can be configured using `disable-all-subjective-mitigations` when `EOSIO_DEVELOPER` build option is provided
+            uint32_t                 terminate_at_block     = 0; //< primarily for testing purposes
 
             wasm_interface::vm_type  wasm_runtime = chain::config::default_wasm_runtime;
             eosvmoc::config          eosvmoc_config;
@@ -113,9 +112,9 @@ namespace eosio { namespace chain {
          ~controller();
 
          void add_indices();
-         void startup( std::function<bool()> shutdown, const snapshot_reader_ptr& snapshot);
-         void startup( std::function<bool()> shutdown, const genesis_state& genesis);
-         void startup( std::function<bool()> shutdown);
+         void startup( std::function<void()> shutdown, std::function<bool()> check_shutdown, const snapshot_reader_ptr& snapshot);
+         void startup( std::function<void()> shutdown, std::function<bool()> check_shutdown, const genesis_state& genesis);
+         void startup( std::function<void()> shutdown, std::function<bool()> check_shutdown);
 
          void preactivate_feature( const digest_type& feature_digest );
 
@@ -270,7 +269,6 @@ namespace eosio { namespace chain {
          void validate_expiration( const transaction& t )const;
          void validate_tapos( const transaction& t )const;
          void validate_db_available_size() const;
-         void validate_reversible_available_size() const;
 
          bool is_protocol_feature_activated( const digest_type& feature_digest )const;
          bool is_builtin_activated( builtin_protocol_feature_t f )const;
@@ -279,11 +277,11 @@ namespace eosio { namespace chain {
 
          int64_t set_proposed_producers( vector<producer_authority> producers );
 
-         bool light_validation_allowed(bool replay_opts_disabled_by_policy) const;
+         bool light_validation_allowed() const;
          bool skip_auth_check()const;
-         bool skip_db_sessions( )const;
-         bool skip_db_sessions( block_status bs )const;
          bool skip_trx_checks()const;
+         bool skip_db_sessions()const;
+         bool skip_db_sessions( block_status bs )const;
          bool is_trusted_producer( const account_name& producer) const;
 
          bool contracts_console()const;
@@ -294,6 +292,7 @@ namespace eosio { namespace chain {
 
          db_read_mode get_read_mode()const;
          validation_mode get_validation_mode()const;
+         uint32_t get_terminate_at_block()const;
 
          void set_subjective_cpu_leeway(fc::microseconds leeway);
          std::optional<fc::microseconds> get_subjective_cpu_leeway() const;

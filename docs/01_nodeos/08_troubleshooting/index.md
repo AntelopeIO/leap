@@ -12,8 +12,6 @@ If you get an error such as `St9exception: content of memory does not match data
 
 ```
 Command Line Options for eosio::chain_plugin:
-    --fix-reversible-blocks               recovers reversible block database if 
-                                          that database is in a bad state
     --force-all-checks                    do not skip any checks that can be 
                                           skipped while replaying irreversible 
                                           blocks

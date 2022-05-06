@@ -263,10 +263,16 @@ fc::variant call( const std::string& url,
       return eosio::client::http::do_http_call(*sp, fc::variant(v), print_request, print_response );
    }
    catch(boost::system::system_error& e) {
-      if(url == ::url)
-         std::cerr << localized("Failed to connect to ${n} at ${u}; is ${n} running?", ("n", node_executable_name)("u", url)) << std::endl;
-      else if(url == ::wallet_url)
-         std::cerr << localized("Failed to connect to ${k} at ${u}; is ${k} running?", ("k", key_store_executable_name)("u", url)) << std::endl;
+      std::string exec_name;
+      if(url == ::url) {
+         exec_name = node_executable_name;
+      } else if(url == ::wallet_url) {
+         exec_name = key_store_executable_name;
+      }
+      std::cerr << localized( "Failed http request to ${n} at ${u}; is ${n} running?\n"
+                              "  Common issue is message size too large. Check the log of ${n}.\n"
+                              "  Error: ${e}",
+                              ("n", exec_name)("u", url)("e", e.what()) ) << std::endl;
       throw connection_exception(fc::log_messages{FC_LOG_MESSAGE(error, e.what())});
    }
 }
@@ -2628,11 +2634,17 @@ int main( int argc, char** argv ) {
    });
 
    // get transaction status
-   string status_transaction_id_str;
+   string status_transaction_id;
    auto getTransactionStatus = get->add_subcommand("transaction-status", localized("Get transaction status information"));
-   getTransactionStatus->add_option("id", status_transaction_id_str, localized("ID of the transaction to retrieve"))->required();
-   getTransactionStatus->callback([&status_transaction_id_str] {
-      auto arg= fc::mutable_variant_object( "id", status_transaction_id_str);
+   getTransactionStatus->add_option("id", status_transaction_id, localized("ID of the transaction to retrieve"))->required();
+   getTransactionStatus->callback([&status_transaction_id] {
+      try {
+         chain::transaction_id_type transaction_id(status_transaction_id);
+      } catch (...) {
+         std::cerr << "Unable to convert " << status_transaction_id << " to transaction id." << std::endl;
+         throw;
+      }
+      auto arg= fc::mutable_variant_object( "id", status_transaction_id);
       std::cout << fc::json::to_pretty_string(call(get_transaction_status_func, arg)) << std::endl;
    });
 
@@ -3060,7 +3072,7 @@ int main( int argc, char** argv ) {
 
         const string binary_wasm_header("\x00\x61\x73\x6d\x01\x00\x00\x00", 8);
         if(wasm.compare(0, 8, binary_wasm_header))
-           std::cerr << localized("WARNING: ") << wasmPath << localized(" doesn't look like a binary WASM file. Is it something else, like WAST? Trying anyways...") << std::endl;
+           std::cerr << localized("WARNING: ") << wasmPath << localized(" doesn't look like a binary WASM file. Is it something else, like WAST? Trying anyway...") << std::endl;
         code_bytes = bytes(wasm.begin(), wasm.end());
       } else {
         code_bytes = bytes();

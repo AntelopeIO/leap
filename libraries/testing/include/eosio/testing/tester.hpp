@@ -399,8 +399,6 @@ namespace eosio { namespace testing {
             cfg.state_dir  = tempdir.path() / config::default_state_dir_name;
             cfg.state_size = 1024*1024*16;
             cfg.state_guard_size = 0;
-            cfg.reversible_cache_size = 1024*1024*8;
-            cfg.reversible_guard_size = 0;
             cfg.contracts_console = true;
             cfg.eosvmoc_config.cache_size = 1024*1024*8;
 
@@ -558,10 +556,10 @@ namespace eosio { namespace testing {
             validating_node->enable_deep_mind(dmlog);
          }
          if (use_genesis) {
-            validating_node->startup( []() { return false; }, genesis );
+            validating_node->startup( [](){}, []() { return false; }, genesis );
          }
          else {
-            validating_node->startup( []() { return false; } );
+            validating_node->startup( [](){}, []() { return false; } );
          }
          return validating_node;
       }
@@ -641,7 +639,7 @@ namespace eosio { namespace testing {
         validating_node.reset();
         validating_node = std::make_unique<controller>(vcfg, make_protocol_feature_set(), control->get_chain_id());
         validating_node->add_indices();
-        validating_node->startup( []() { return false; } );
+        validating_node->startup( [](){}, []() { return false; } );
 
         return ok;
       }

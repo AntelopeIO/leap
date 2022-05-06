@@ -2755,7 +2755,11 @@ namespace eosio {
       }
       if( msg.reason == wrong_version ) {
          if( !retry ) no_retry = fatal_other; // only retry once on wrong version
-      } else {
+      }
+      else if ( msg.reason == benign_other ) {
+         if ( retry ) peer_dlog( this, "received benign_other reason, retrying to connect");
+      }
+      else {
          retry = false;
       }
       flush_queues();

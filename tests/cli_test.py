@@ -38,7 +38,7 @@ def cli11_bugfix_test():
 
     # Make sure that the command failed because of the connection error,
     # not the command line parsing error.
-    assert(b'Failed to connect to nodeos' in completed_process.stderr)
+    assert(b'Failed http request to nodeos' in completed_process.stderr)
 
 
 def cli11_optional_option_arg_test():

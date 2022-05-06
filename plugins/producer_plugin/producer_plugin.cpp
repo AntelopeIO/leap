@@ -440,19 +440,25 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
 
       incoming_transaction_queue _pending_incoming_transactions;
 
-      void on_incoming_transaction_async(const packed_transaction_ptr& trx, bool persist_until_expired, const bool read_only, next_function<transaction_trace_ptr> next) {
+      void on_incoming_transaction_async(const packed_transaction_ptr& trx,
+                                         bool persist_until_expired,
+                                         const bool read_only,
+                                         const bool return_failure_traces,
+                                         next_function<transaction_trace_ptr> next) {
          chain::controller& chain = chain_plug->chain();
          const auto max_trx_time_ms = _max_transaction_time_ms.load();
          fc::microseconds max_trx_cpu_usage = max_trx_time_ms < 0 ? fc::microseconds::maximum() : fc::milliseconds( max_trx_time_ms );
 
          auto future = transaction_metadata::start_recover_keys( trx, _thread_pool->get_executor(),
-                chain.get_chain_id(), fc::microseconds( max_trx_cpu_usage ), read_only ? transaction_metadata::trx_type::read_only : transaction_metadata::trx_type::input, chain.configured_subjective_signature_length_limit() );
+                                                                 chain.get_chain_id(), fc::microseconds( max_trx_cpu_usage ),
+                                                                 read_only ? transaction_metadata::trx_type::read_only : transaction_metadata::trx_type::input,
+                                                                 chain.configured_subjective_signature_length_limit() );
 
-         boost::asio::post(_thread_pool->get_executor(), [self = this, future{std::move(future)}, persist_until_expired,
+         boost::asio::post(_thread_pool->get_executor(), [self = this, future{std::move(future)}, persist_until_expired, return_failure_traces,
                                                           next{std::move(next)}, trx]() mutable {
             if( future.valid() ) {
                future.wait();
-               app().post( priority::low, [self, future{std::move(future)}, persist_until_expired, next{std::move( next )}, trx{std::move(trx)}]() mutable {
+               app().post( priority::low, [self, future{std::move(future)}, persist_until_expired, next{std::move( next )}, trx{std::move(trx)}, return_failure_traces]() mutable {
                   auto exception_handler = [&next, trx{std::move(trx)}](fc::exception_ptr ex) {
                      fc_dlog(_trx_successful_trace_log, "[TRX_TRACE] Speculative execution is REJECTING tx: ${txid}, auth: ${a} : ${why} ",
                             ("txid", trx->id())("a",trx->get_transaction().first_authorizer())("why",ex->what()));
@@ -462,7 +468,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                   };
                   try {
                      auto result = future.get();
-                     if( !self->process_incoming_transaction_async( result, persist_until_expired, next ) ) {
+                     if( !self->process_incoming_transaction_async( result, persist_until_expired, next, return_failure_traces ) ) {
                         if( self->_pending_block_mode == pending_block_mode::producing ) {
                            self->schedule_maybe_produce_block( true );
                         }
@@ -473,7 +479,10 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          });
       }
 
-      bool process_incoming_transaction_async(const transaction_metadata_ptr& trx, bool persist_until_expired, next_function<transaction_trace_ptr> next) {
+      bool process_incoming_transaction_async(const transaction_metadata_ptr& trx,
+                                              bool persist_until_expired,
+                                              next_function<transaction_trace_ptr> next,
+                                              const bool return_failure_traces = false) {
          bool exhausted = false;
          chain::controller& chain = chain_plug->chain();
 
@@ -588,8 +597,12 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                    if (!disable_subjective_billing)
                       _subjective_billing.subjective_bill_failure( first_auth, trace->elapsed, fc::time_point::now() );
 
-                  auto e_ptr = trace->except->dynamic_copy_exception();
-                  send_response( e_ptr );
+                  if( return_failure_traces ) {
+                     send_response( trace );
+                  } else {
+                     auto e_ptr = trace->except->dynamic_copy_exception();
+                     send_response( e_ptr );
+                  }
                }
             } else {
                if( persist_until_expired && !_disable_persist_until_expired ) {
@@ -1001,7 +1014,7 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
    my->_incoming_transaction_subscription = app().get_channel<incoming::channels::transaction>().subscribe(
          [this](const packed_transaction_ptr& trx) {
       try {
-         my->on_incoming_transaction_async(trx, false, false, [](const auto&){});
+         my->on_incoming_transaction_async(trx, false, false, false, [](const auto&){});
       } LOG_AND_DROP();
    });
 
@@ -1011,8 +1024,8 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
    });
 
    my->_incoming_transaction_async_provider = app().get_method<incoming::methods::transaction_async>().register_provider(
-         [this](const packed_transaction_ptr& trx, bool persist_until_expired, bool read_only, next_function<transaction_trace_ptr> next) -> void {
-      return my->on_incoming_transaction_async(trx, persist_until_expired, read_only, next );
+         [this](const packed_transaction_ptr& trx, bool persist_until_expired, bool read_only, bool return_failure_traces, next_function<transaction_trace_ptr> next) -> void {
+      return my->on_incoming_transaction_async(trx, persist_until_expired, read_only, return_failure_traces, next );
    });
 
    if (options.count("greylist-account")) {
@@ -1533,6 +1546,12 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
       return start_block_result::waiting_for_block;
 
    const auto& hbs = chain.head_block_state();
+
+   if( chain.get_terminate_at_block() > 0 && chain.get_terminate_at_block() < chain.head_block_num() ) {
+      ilog("Reached configured maximum block ${num}; terminating", ("num", chain.get_terminate_at_block()));
+      app().quit();
+      return start_block_result::failed;
+   }
 
    const fc::time_point now = fc::time_point::now();
    const fc::time_point block_time = calculate_pending_block_time();
@@ -2305,9 +2324,7 @@ void producer_plugin_impl::produce_block() {
    //ilog("produce_block ${t}", ("t", fc::time_point::now())); // for testing _produce_time_offset_us
    EOS_ASSERT(_pending_block_mode == pending_block_mode::producing, producer_exception, "called produce_block while not actually producing");
    chain::controller& chain = chain_plug->chain();
-   const auto& hbs = chain.head_block_state();
    EOS_ASSERT(chain.is_building_block(), missing_pending_block_state, "pending_block_state does not exist but it should, another plugin may have corrupted it");
-
 
    const auto& auth = chain.pending_block_signing_authority();
    std::vector<std::reference_wrapper<const signature_provider_type>> relevant_providers;

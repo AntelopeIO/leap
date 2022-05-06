@@ -34,7 +34,7 @@ namespace eosio::chain_apis {
       chain::block_timestamp_type                      _head_block_timestamp;
       chain::block_id_type                             _irr_block_id;
       chain::block_timestamp_type                      _irr_block_timestamp;
-      chain::block_id_type                             _last_tracked_block_id;
+      chain::block_id_type                             _earliest_tracked_block_id;
       const fc::microseconds                           _success_duration;
       const fc::microseconds                           _failure_duration;
       std::deque<chain::transaction_id_type>           _speculative_trxs;
@@ -126,7 +126,7 @@ namespace eosio::chain_apis {
                                    .block_timestamp = block_timestamp});
       }
 
-      if (modified || _last_tracked_block_id == chain::block_id_type{}) {
+      if (modified || _earliest_tracked_block_id == chain::block_id_type{}) {
          determine_last_tracked_block_id();
       }
    }
@@ -296,7 +296,7 @@ namespace eosio::chain_apis {
    }
 
    trx_finality_status_processing::chain_state trx_finality_status_processing::get_chain_state() const {
-      return { .head_id = _my->_head_block_id, .head_block_timestamp = _my->_head_block_timestamp, .irr_id = _my->_irr_block_id, .irr_block_timestamp = _my->_irr_block_timestamp, .last_tracked_block_id = _my->_last_tracked_block_id };
+      return { .head_id = _my->_head_block_id, .head_block_timestamp = _my->_head_block_timestamp, .irr_id = _my->_irr_block_id, .irr_block_timestamp = _my->_irr_block_timestamp, .earliest_tracked_block_id = _my->_earliest_tracked_block_id };
    }
 
    std::optional<trx_finality_status_processing::trx_state> trx_finality_status_processing::get_trx_state( const chain::transaction_id_type& id ) const {
@@ -332,7 +332,7 @@ namespace eosio::chain_apis {
       // find the lowest value successful block
       auto success_iter = indx.lower_bound(boost::make_tuple(true, fc::time_point{}));
       if (success_iter != indx.cend()) {
-         _last_tracked_block_id = success_iter->block_id;
+         _earliest_tracked_block_id = success_iter->block_id;
       }
    }
 }
