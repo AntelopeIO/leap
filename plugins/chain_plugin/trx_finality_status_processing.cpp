@@ -151,7 +151,7 @@ namespace eosio::chain_apis {
          determine_earliest_tracked_block_id();
       }
 
-      // if this approve block was proceeded by speculative transactions that had
+      // if this approve block was preceded by speculative transactions then we produced the block, update trx state.
       auto mod = [&block_id=_head_block_id,&block_timestamp=_head_block_timestamp]( finality_status_object& obj ) {
          obj.block_id = block_id;
          obj.block_timestamp = block_timestamp;
