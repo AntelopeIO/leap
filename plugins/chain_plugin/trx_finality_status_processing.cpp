@@ -25,7 +25,7 @@ namespace eosio::chain_apis {
       // returns true if storage was freed
       bool ensure_storage();
 
-      void determine_last_tracked_block_id();
+      void determine_earliest_tracked_block_id();
 
       const uint64_t                                   _max_storage;
       fc::tracked_storage<finality_status_multi_index> _storage;
@@ -127,7 +127,7 @@ namespace eosio::chain_apis {
       }
 
       if (modified || _earliest_tracked_block_id == chain::block_id_type{}) {
-         determine_last_tracked_block_id();
+         determine_earliest_tracked_block_id();
       }
    }
 
@@ -148,7 +148,7 @@ namespace eosio::chain_apis {
       const fc::time_point now = fc::time_point::now();
       bool status_expiry = status_expiry_of_trxs(now);
       if (status_expiry) {
-         determine_last_tracked_block_id();
+         determine_earliest_tracked_block_id();
       }
 
       // if this approve block was proceeded by speculative transactions that had
@@ -326,7 +326,7 @@ namespace eosio::chain_apis {
       return _my->_storage.memory_size();
    }
 
-   void trx_finality_status_processing_impl::determine_last_tracked_block_id() {
+   void trx_finality_status_processing_impl::determine_earliest_tracked_block_id() {
       const auto& indx = _storage.index().get<by_status_expiry>();
 
       // find the lowest value successful block
