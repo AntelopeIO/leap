@@ -57,6 +57,7 @@ namespace {
       try {
          auto v = fc::json::from_string( body ).as<chain_apis::read_only::get_transaction_status_params>();
          if( v.id == transaction_id_type() ) throw false;
+         return v;
       } catch( ... ) {
          EOS_THROW(chain::invalid_http_request, "Invalid transaction id");
       }
