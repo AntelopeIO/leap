@@ -55,7 +55,7 @@ auto get_public_key( chain::name keyname, std::string role = "owner" ) {
    return get_private_key( keyname, role ).get_public_key();
 }
 
-auto  make_unique_trx( const fc::microseconds& expiration ) {
+auto make_unique_trx( const fc::microseconds& expiration ) {
 
    static uint64_t unique_id = 0;
    ++unique_id;
@@ -652,9 +652,9 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_logic) { try {
    // const auto bs_19_alt = make_block_state(make_block_id(bn), std::vector<chain::packed_transaction_ptr>{});
    status.signal_block_start(bn);
 
-   for (const auto &trx_tuple : trx_pairs_19_alt) {
-      const auto &trace = std::get<0>(trx_tuple);
-      const auto &txn = std::get<1>(trx_tuple);
+   for (const auto& trx_tuple : trx_pairs_19_alt) {
+      const auto& trace = std::get<0>(trx_tuple);
+      const auto& txn = std::get<1>(trx_tuple);
 
       trace->producer_block_id = bs_19_alt->id;
       trace->block_time = bs_19_alt->block->timestamp;
@@ -891,10 +891,10 @@ namespace {
       void send_block() {
          status.signal_block_start(bn);
 
-         for (const auto &trx_tuple : block)
+         for (const auto& trx_tuple : block)
          {
-            const auto &trace = std::get<0>(trx_tuple);
-            const auto &txn = std::get<1>(trx_tuple);
+            const auto& trace = std::get<0>(trx_tuple);
+            const auto& txn = std::get<1>(trx_tuple);
 
             status.signal_applied_transaction(trace, txn);
          }
@@ -905,10 +905,10 @@ namespace {
       void send_spec_block() {
          status.signal_block_start(bn);
 
-         for (const auto &trx_tuple : pre_block)
+         for (const auto& trx_tuple : pre_block)
          {
-            const auto &trace = std::get<0>(trx_tuple);
-            const auto &txn = std::get<1>(trx_tuple);
+            const auto& trace = std::get<0>(trx_tuple);
+            const auto& txn = std::get<1>(trx_tuple);
 
             status.signal_applied_transaction(trace, txn);
          }
