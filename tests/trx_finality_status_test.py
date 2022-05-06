@@ -178,8 +178,8 @@ try:
             Print("ERROR: getTransactionStatus should contain \"expiration\" always.\nstatus: {}".
                   format(json.dumps(status, indent=1)))
 
-        assert "earliest_tracked_block_id" in status, \
-            Print("ERROR: getTransactionStatus should contain \"earliest_tracked_block_id\" always.\nstatus: {}".
+        assert "earliest_tracked_block_id" in status and "earliest_tracked_block_number" in status, \
+            Print("ERROR: getTransactionStatus should contain \"earliest_tracked_block_id\" and \"earliest_tracked_block_number\" always.\nstatus: {}".
                   format(json.dumps(status, indent=1)))
 
     validate(status[0])
