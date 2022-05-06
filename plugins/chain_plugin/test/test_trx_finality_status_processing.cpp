@@ -9,7 +9,6 @@
 #include <eosio/chain/genesis_state.hpp>
 #include <eosio/chain/name.hpp>
 #include <eosio/chain/trace.hpp>
-#include <eosio/chain/signals_processor.hpp>
 
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <fc/mock_time.hpp>
@@ -171,7 +170,8 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_logic) { try {
    fc::microseconds max_failure_duration = fc::seconds(45);
    trx_finality_status_processing status(10'000, max_success_duration, max_failure_duration);
 
-   using trx_deque = eosio::chain::signals_processor::trx_deque;
+   using trx_deque = eosio::chain::deque< std::tuple< chain::transaction_trace_ptr, packed_transaction_ptr > >;
+
    uint32_t bn = 20;
    auto add = [&bn, &status](trx_deque& trx_pairs, const eosio::chain::block_state_ptr& bs_ptr) {
       auto trx = make_unique_trx(fc::seconds(2));
@@ -834,7 +834,7 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_logic) { try {
 } FC_LOG_AND_RETHROW() }
 
 namespace {
-   using trx_deque = eosio::chain::signals_processor::trx_deque;
+   using trx_deque = eosio::chain::deque< std::tuple< chain::transaction_trace_ptr, packed_transaction_ptr > >;
    const eosio::chain::block_state_ptr no_bs;
 
    struct block_frame {

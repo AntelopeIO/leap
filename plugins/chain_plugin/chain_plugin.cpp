@@ -13,7 +13,6 @@
 #include <eosio/chain/generated_transaction_object.hpp>
 #include <eosio/chain/snapshot.hpp>
 #include <eosio/chain/deep_mind.hpp>
-#include <eosio/chain/signals_processor.hpp>
 #include <eosio/chain_plugin/trx_finality_status_processing.hpp>
 
 #include <eosio/chain/eosio_contract.hpp>
@@ -192,7 +191,6 @@ public:
 
    std::optional<chain_apis::account_query_db>                        _account_query_db;
    const producer_plugin* producer_plug;
-   std::optional<chain::signals_processor>                            _trx_signals_processor;
    std::optional<chain_apis::trx_retry_db>                            _trx_retry_db;
    chain_apis::trx_finality_status_processing_ptr                     _trx_finality_status_processing;
 };
@@ -787,25 +785,6 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
          }
       }
 
-      if (my->_trx_finality_status_processing) {
-         my->_trx_signals_processor.emplace();
-         if (my->_trx_finality_status_processing) {
-            my->_trx_signals_processor->register_callbacks(
-               [this]( const chain::block_state_ptr& blk ) {
-                  my->_trx_finality_status_processing->signal_irreversible_block(blk);
-               },
-               [this]( uint32_t block_num ) {
-                  my->_trx_finality_status_processing->signal_block_start(block_num);
-               },
-               [this]( const chain::block_state_ptr& blk ) {
-                  my->_trx_finality_status_processing->signal_accepted_block(blk);
-               },
-               [this]( const chain::transaction_trace_ptr& trace, const chain::packed_transaction_ptr& ptrx ) {
-                  my->_trx_finality_status_processing->signal_applied_transaction(trace, ptrx);
-               }
-            );
-         }
-      }         
       if( options.count( "chain-threads" )) {
          my->chain_config->thread_pool_size = options.at( "chain-threads" ).as<uint16_t>();
          EOS_ASSERT( my->chain_config->thread_pool_size > 0, plugin_config_exception,
@@ -1185,8 +1164,8 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
             my->_trx_retry_db->on_accepted_block(blk);
          }
 
-         if (my->_trx_signals_processor) {
-            my->_trx_signals_processor->signal_accepted_block(blk);
+         if (my->_trx_finality_status_processing) {
+            my->_trx_finality_status_processing->signal_accepted_block(blk);
          }
 
          my->accepted_block_channel.publish( priority::high, blk );
@@ -1197,8 +1176,8 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
             my->_trx_retry_db->on_irreversible_block(blk);
          }
 
-         if (my->_trx_signals_processor) {
-            my->_trx_signals_processor->signal_irreversible_block(blk);
+         if (my->_trx_finality_status_processing) {
+            my->_trx_finality_status_processing->signal_irreversible_block(blk);
          }
 
          my->irreversible_block_channel.publish( priority::low, blk );
@@ -1219,21 +1198,21 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
                   my->_trx_retry_db->on_applied_transaction(std::get<0>(t), std::get<1>(t));
                }
 
-               if (my->_trx_signals_processor) {
-                  my->_trx_signals_processor->signal_applied_transaction(std::get<0>(t), std::get<1>(t));
+               if (my->_trx_finality_status_processing) {
+                  my->_trx_finality_status_processing->signal_applied_transaction(std::get<0>(t), std::get<1>(t));
                }
 
                my->applied_transaction_channel.publish( priority::low, std::get<0>(t) );
             } );
 
-      if (my->_trx_signals_processor || my->_trx_retry_db) {
+      if (my->_trx_finality_status_processing || my->_trx_retry_db) {
          my->block_start_connection = my->chain->block_start.connect(
             [this]( uint32_t block_num ) {
                if (my->_trx_retry_db) {
                   my->_trx_retry_db->on_block_start(block_num);
                }
-               if (my->_trx_signals_processor) {
-                  my->_trx_signals_processor->signal_block_start( block_num );
+               if (my->_trx_finality_status_processing) {
+                  my->_trx_finality_status_processing->signal_block_start( block_num );
                }
             } );
       }

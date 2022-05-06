@@ -48,21 +48,29 @@ namespace eosio::chain_apis {
    trx_finality_status_processing::~trx_finality_status_processing() = default;
 
    void trx_finality_status_processing::signal_irreversible_block( const chain::block_state_ptr& bsp ) {
-      _my->_irr_block_id = bsp->id;
-      _my->_irr_block_timestamp = bsp->block->timestamp;
+      try {
+         _my->_irr_block_id = bsp->id;
+         _my->_irr_block_timestamp = bsp->block->timestamp;
+      } FC_LOG_AND_DROP(("Failed to signal irreversible block for finality status"));
    }
 
    void trx_finality_status_processing::signal_block_start( uint32_t block_num ) {
-      // since a new block is started, no block state was received, so the speculative block did not get eventually produced
-      _my->_speculative_trxs.clear();
+      try {
+         // since a new block is started, no block state was received, so the speculative block did not get eventually produced
+         _my->_speculative_trxs.clear();
+      } FC_LOG_AND_DROP(("Failed to signal block start for finality status"));
    }
 
    void trx_finality_status_processing::signal_applied_transaction( const chain::transaction_trace_ptr& trace, const chain::packed_transaction_ptr& ptrx ) {
-      _my->signal_applied_transaction(trace, ptrx);
+      try {
+         _my->signal_applied_transaction(trace, ptrx);
+      } FC_LOG_AND_DROP(("Failed to signal applied transaction for finality status"));
    }
 
    void trx_finality_status_processing::signal_accepted_block( const chain::block_state_ptr& bsp ) {
-      _my->signal_accepted_block(bsp);
+      try {
+         _my->signal_accepted_block(bsp);
+      } FC_LOG_AND_DROP(("Failed to signal accepted block for finality status"));
    }
 
    void trx_finality_status_processing_impl::signal_applied_transaction( const chain::transaction_trace_ptr& trace, const chain::packed_transaction_ptr& ptrx ) {
