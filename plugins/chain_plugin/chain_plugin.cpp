@@ -358,7 +358,7 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
          ("extract-build-info", bpo::value<bfs::path>(),
           "extract build environment information as JSON, write into specified file, and exit")
          ("force-all-checks", bpo::bool_switch()->default_value(false),
-          "do not skip any checks that can be skipped while replaying irreversible blocks")
+          "do not skip any validation checks while replaying blocks (useful for replaying blocks from untrusted source)")
          ("disable-replay-opts", bpo::bool_switch()->default_value(false),
           "disable optimizations that specifically target replay")
          ("replay-blockchain", bpo::bool_switch()->default_value(false),
