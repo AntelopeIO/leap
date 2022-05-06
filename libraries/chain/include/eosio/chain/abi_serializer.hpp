@@ -1,6 +1,7 @@
 #pragma once
 #include <eosio/chain/abi_def.hpp>
 #include <eosio/chain/trace.hpp>
+#include <eosio/chain/contract_types.hpp>
 #include <eosio/chain/exceptions.hpp>
 #include <utility>
 #include <fc/variant_object.hpp>
@@ -168,11 +169,10 @@ private:
 };
 
 namespace impl {
-
+   const static size_t hex_log_max_size = 64;
    struct abi_traverse_context {
       explicit abi_traverse_context( abi_serializer::yield_function_t yield )
-      : yield(std::move( yield )),
-        recursion_depth(0)
+      : yield(std::move( yield ))
       {
       }
 
@@ -407,6 +407,26 @@ namespace impl {
          mvo(name, std::move(obj_mvo["_"]));
       }
 
+      template<typename Resolver>
+      static bool add_special_logging( mutable_variant_object& mvo, const char* name, const action& act, Resolver& resolver, abi_traverse_context& ctx ) {
+         if( !ctx.is_logging() ) return false;
+
+         try {
+
+            if( act.account == config::system_account_name && act.name == "setcode"_n ) {
+               auto setcode_act = act.data_as<setcode>();
+               if( setcode_act.code.size() > 0 ) {
+                  fc::sha256 code_hash = fc::sha256::hash(setcode_act.code.data(), (uint32_t) setcode_act.code.size());
+                  mvo("code_hash", code_hash);
+               }
+               return false; // still want the hex data included
+            }
+
+         } catch(...) {} // return false
+
+         return false;
+      }
+
       /**
        * overload of to_variant_object for actions
        *
@@ -426,6 +446,26 @@ namespace impl {
          mvo("name", act.name);
          mvo("authorization", act.authorization);
 
+         if( add_special_logging(mvo, name, act, resolver, ctx) ) {
+            out(name, std::move(mvo));
+            return;
+         }
+
+         auto set_hex_data = [&](mutable_variant_object& mvo, const char* name, const bytes& data) {
+            if( !ctx.is_logging() ) {
+               mvo(name, data);
+            } else {
+               fc::mutable_variant_object sub_obj;
+               sub_obj( "size", data.size() );
+               if( data.size() > impl::hex_log_max_size ) {
+                  sub_obj( "trimmed_hex", std::vector<char>(&data[0], &data[0] + impl::hex_log_max_size) );
+               } else {
+                  sub_obj( "hex", data );
+               }
+               mvo(name, std::move(sub_obj));
+            }
+         };
+
          try {
             auto abi = resolver(act.account);
             if (abi) {
@@ -438,16 +478,16 @@ namespace impl {
                      mvo("hex_data", act.data);
                   } catch(...) {
                      // any failure to serialize data, then leave as not serailzed
-                     mvo("data", act.data);
+                     set_hex_data(mvo, "data", act.data);
                   }
                } else {
-                  mvo("data", act.data);
+                  set_hex_data(mvo, "data", act.data);
                }
             } else {
-               mvo("data", act.data);
+               set_hex_data(mvo, "data", act.data);
             }
          } catch(...) {
-            mvo("data", act.data);
+            set_hex_data(mvo, "data", act.data);
          }
          out(name, std::move(mvo));
       }
@@ -522,7 +562,8 @@ namespace impl {
          mvo("compression", ptrx.get_compression());
          mvo("packed_context_free_data", ptrx.get_packed_context_free_data());
          mvo("context_free_data", ptrx.get_context_free_data());
-         mvo("packed_trx", ptrx.get_packed_transaction());
+         if( !ctx.is_logging() )
+            mvo("packed_trx", ptrx.get_packed_transaction());
          add(mvo, "transaction", trx, resolver, ctx);
 
          out(name, std::move(mvo));
