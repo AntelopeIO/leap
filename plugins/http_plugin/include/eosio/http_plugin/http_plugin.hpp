@@ -159,21 +159,6 @@ namespace eosio {
       error_info error;
    };
 
-   // Does body contain a JSON object with data
-   inline bool is_valid_json_object(const std::string& body) {
-      if( body.empty() ) return false;
-      // contains: { <data> }
-      auto open_bracket = body.find('{');
-      if( open_bracket == std::string::npos ) return false;
-      auto close_bracket = body.rfind('}');
-      if( close_bracket == std::string::npos) return false;
-      if( close_bracket < open_bracket ) return false;
-      // verify JSON object has data and not empty
-      auto data = body.find_first_not_of(" \t\f\v\n\r", open_bracket+1);
-      if( data == close_bracket ) return false;
-      return true;
-   }
-
    enum class http_params_types {
       no_params_required = 0,
       params_required = 1,
@@ -183,7 +168,7 @@ namespace eosio {
    template<typename T, http_params_types params_type>
    T parse_params(const std::string& body) {
       if constexpr (params_type == http_params_types::params_required) {
-         if (!is_valid_json_object(body)) {
+         if (body.empty()) {
             EOS_THROW(chain::invalid_http_request, "A Request body is required");
          }
       }
