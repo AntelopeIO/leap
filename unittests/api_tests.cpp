@@ -963,6 +963,12 @@ BOOST_AUTO_TEST_CASE(checktime_pause_max_trx_cpu_extended_test) { try {
    cfg.min_transaction_cpu_usage  = 1;
 
    tester t( conf_genesis.first, conf_genesis.second );
+   if( t.get_config().wasm_runtime == wasm_interface::vm_type::eos_vm_oc ) {
+      // eos_vm_oc wasm_runtime does not tier-up and completes compile before continuing execution.
+      // A completely different test with different constraints would be needed to test with eos_vm_oc.
+      // Since non-tier-up is not a normal valid nodeos runtime, just skip this test for eos_vm_oc.
+      return;
+   }
    t.execute_setup_policy( setup_policy::full );
    t.produce_blocks(2);
    t.create_account( "pause"_n );
@@ -1020,6 +1026,12 @@ BOOST_AUTO_TEST_CASE(checktime_pause_max_trx_extended_test) { try {
    cfg.min_transaction_cpu_usage  = 1;
 
    tester t( conf_genesis.first, conf_genesis.second );
+   if( t.get_config().wasm_runtime == wasm_interface::vm_type::eos_vm_oc ) {
+      // eos_vm_oc wasm_runtime does not tier-up and completes compile before continuing execution.
+      // A completely different test with different constraints would be needed to test with eos_vm_oc.
+      // Since non-tier-up is not a normal valid nodeos runtime, just skip this test for eos_vm_oc.
+      return;
+   }
    t.execute_setup_policy( setup_policy::full );
    t.produce_blocks(2);
    t.create_account( "pause"_n );
@@ -1059,6 +1071,12 @@ BOOST_AUTO_TEST_CASE(checktime_pause_block_deadline_not_extended_test) { try {
    cfg.min_transaction_cpu_usage  = 1;
 
    tester t( conf_genesis.first, conf_genesis.second );
+   if( t.get_config().wasm_runtime == wasm_interface::vm_type::eos_vm_oc ) {
+      // eos_vm_oc wasm_runtime does not tier-up and completes compile before continuing execution.
+      // A completely different test with different constraints would be needed to test with eos_vm_oc.
+      // Since non-tier-up is not a normal valid nodeos runtime, just skip this test for eos_vm_oc.
+      return;
+   }
    t.execute_setup_policy( setup_policy::full );
    t.produce_blocks(2);
    t.create_account( "pause"_n );
