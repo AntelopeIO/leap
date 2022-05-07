@@ -180,15 +180,14 @@ namespace eosio { namespace chain {
 
       // Possibly limit deadline to subjective max_transaction_time
       if( max_transaction_time_subjective != fc::microseconds::maximum() && (start + max_transaction_time_subjective) <= _deadline ) {
-         _deadline = start + (max_transaction_time_subjective == fc::microseconds::maximum() ?
-                              fc::hours(24*7*52) : max_transaction_time_subjective);
+         _deadline = start + max_transaction_time_subjective;
          billing_timer_exception_code = tx_cpu_usage_exceeded::code_value;
       }
 
       // Possibly limit deadline to caller provided wall clock block deadline
       if( block_deadline < _deadline ) {
          _deadline = block_deadline;
-         billing_timer_exception_code = block_cpu_usage_exceeded::code_value;
+         billing_timer_exception_code = deadline_exception::code_value;
       }
 
       // Explicit billed_cpu_time_us should be used, block_deadline will be maximum unless in test code
@@ -456,7 +455,7 @@ namespace eosio { namespace chain {
 
       // do not allow to go past block wall clock deadline
       if( block_deadline < _deadline ) {
-         deadline_exception_code = block_cpu_usage_exceeded::code_value;
+         deadline_exception_code = deadline_exception::code_value;
          _deadline = block_deadline;
       }
 
