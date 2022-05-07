@@ -24,6 +24,13 @@ auto call_parse_possible_no_params(const string& body)
    return parse_params<T, http_params_types::possible_no_params>(body);
 }
 
+namespace {
+struct int_struct {
+   int v = 0;
+};
+} // anonymous namespace
+FC_REFLECT(int_struct, (v));
+
 BOOST_AUTO_TEST_SUITE(plugin_tests)
 
 BOOST_AUTO_TEST_CASE( parse_params ) try {
@@ -43,7 +50,7 @@ BOOST_AUTO_TEST_CASE( parse_params ) try {
             BOOST_REQUIRE(test_result == "{}");
       );
       BOOST_REQUIRE_THROW(
-            call_parse_params_required<int>(empty_str), chain::invalid_http_request
+            call_parse_params_required<int_struct>(empty_str), chain::invalid_http_request
       );
    }
    // invalid input
@@ -51,30 +58,30 @@ BOOST_AUTO_TEST_CASE( parse_params ) try {
       const std::string invalid_int_str = "#$%";
       BOOST_REQUIRE(!invalid_int_str.empty());
       BOOST_REQUIRE_THROW(
-         call_parse_no_params_required<int>(invalid_int_str), chain::invalid_http_request
+         call_parse_no_params_required<int_struct>(invalid_int_str), chain::invalid_http_request
       );
       BOOST_REQUIRE_THROW(
-         call_parse_possible_no_params<int>(invalid_int_str), chain::invalid_http_request
+         call_parse_possible_no_params<int_struct>(invalid_int_str), chain::invalid_http_request
       );
       BOOST_REQUIRE_THROW(
-         call_parse_params_required<int>(invalid_int_str), chain::invalid_http_request
+         call_parse_params_required<int_struct>(invalid_int_str), chain::invalid_http_request
       );
    }
    // valid input
    {
-      const int exp_result = 1234;
-      const std::string valid_int_str = std::to_string(exp_result);
+      int_struct exp_result = {1234};
+      const std::string valid_int_str = fc::json::to_string(exp_result, fc::time_point::maximum());
       BOOST_REQUIRE(!valid_int_str.empty());
       BOOST_REQUIRE_THROW(
-         call_parse_no_params_required<int>(valid_int_str), chain::invalid_http_request
+         call_parse_no_params_required<int_struct>(valid_int_str), chain::invalid_http_request
       );
       BOOST_REQUIRE_NO_THROW(
-         const auto ret = call_parse_possible_no_params<int>(valid_int_str);
-         BOOST_REQUIRE(ret == exp_result);
+         const auto ret = call_parse_possible_no_params<int_struct>(valid_int_str);
+         BOOST_REQUIRE(ret.v == exp_result.v);
       );
       BOOST_REQUIRE_NO_THROW(
-         const auto ret = call_parse_params_required<int>(valid_int_str);
-         BOOST_REQUIRE(ret == exp_result);
+         const auto ret = call_parse_params_required<int_struct>(valid_int_str);
+         BOOST_REQUIRE(ret.v == exp_result.v);
       );
    }
 } FC_LOG_AND_RETHROW()
