@@ -42,36 +42,36 @@ BOOST_AUTO_TEST_CASE( make_trimmed_string_view ) try {
    {  // space on the head/tail only
       const std::string one_char_no_space  = "a";
       BOOST_REQUIRE(!one_char_no_space.empty());
-      BOOST_REQUIRE(eosio::make_trimmed_string_view(one_char_no_space) == one_char_no_space);
+      BOOST_CHECK_EQUAL(eosio::make_trimmed_string_view(one_char_no_space), one_char_no_space);
 
       const std::string one_char_with_leading_space = " " + one_char_no_space;
       BOOST_REQUIRE(!one_char_with_leading_space.empty());
-      BOOST_REQUIRE(eosio::make_trimmed_string_view(one_char_with_leading_space) == one_char_no_space);
+      BOOST_CHECK_EQUAL(eosio::make_trimmed_string_view(one_char_with_leading_space), one_char_no_space);
 
       const std::string one_char_with_trailing_space = one_char_no_space + " ";
       BOOST_REQUIRE(!one_char_with_trailing_space.empty());
-      BOOST_REQUIRE(eosio::make_trimmed_string_view(one_char_with_trailing_space) == one_char_no_space);
+      BOOST_CHECK_EQUAL(eosio::make_trimmed_string_view(one_char_with_trailing_space), one_char_no_space);
 
       const std::string one_char_with_space_both_side = " " + one_char_no_space + " ";
       BOOST_REQUIRE(!one_char_with_space_both_side.empty());
-      BOOST_REQUIRE(eosio::make_trimmed_string_view(one_char_with_space_both_side) == one_char_no_space);
+      BOOST_CHECK_EQUAL(eosio::make_trimmed_string_view(one_char_with_space_both_side), one_char_no_space);
    }
    {  // space on the head/tail and body only
       const std::string str_no_pace_both_side  = "a b";
       BOOST_REQUIRE(!str_no_pace_both_side.empty());
-      BOOST_REQUIRE(eosio::make_trimmed_string_view(str_no_pace_both_side) == str_no_pace_both_side);
+      BOOST_CHECK_EQUAL(eosio::make_trimmed_string_view(str_no_pace_both_side), str_no_pace_both_side);
 
       const std::string str_with_leading_space = " " + str_no_pace_both_side;
       BOOST_REQUIRE(!str_with_leading_space.empty());
-      BOOST_REQUIRE(eosio::make_trimmed_string_view(str_with_leading_space) == str_no_pace_both_side);
+      BOOST_CHECK_EQUAL(eosio::make_trimmed_string_view(str_with_leading_space), str_no_pace_both_side);
 
       const std::string str_with_with_trailing_space = str_no_pace_both_side + " ";
       BOOST_REQUIRE(!str_with_with_trailing_space.empty());
-      BOOST_REQUIRE(eosio::make_trimmed_string_view(str_with_with_trailing_space) == str_no_pace_both_side);
+      BOOST_CHECK_EQUAL(eosio::make_trimmed_string_view(str_with_with_trailing_space), str_no_pace_both_side);
 
       const std::string str_with_with_space_both_side = " " + str_no_pace_both_side + " ";
       BOOST_REQUIRE(!str_with_with_space_both_side.empty());
-      BOOST_REQUIRE(eosio::make_trimmed_string_view(str_with_with_space_both_side) == str_no_pace_both_side);
+      BOOST_CHECK_EQUAL(eosio::make_trimmed_string_view(str_with_with_space_both_side), str_no_pace_both_side);
    }
 } FC_LOG_AND_RETHROW()
 
@@ -182,12 +182,12 @@ BOOST_AUTO_TEST_CASE( parse_params ) try {
          call_parse_no_params_required<int>(valid_int_str), chain::invalid_http_request
       );
       BOOST_REQUIRE_NO_THROW(
-         const auto ret = call_parse_possible_no_params<int_struct>(valid_int_str);
-         BOOST_REQUIRE(ret.v == exp_result.v);
+         const auto ret = call_parse_possible_no_params<int>(valid_int_str);
+         BOOST_REQUIRE(ret == exp_result);
       );
       BOOST_REQUIRE_NO_THROW(
-         const auto ret = call_parse_params_required<int_struct>(valid_int_str);
-         BOOST_REQUIRE(ret.v == exp_result.v);
+         const auto ret = call_parse_params_required<int>(valid_int_str);
+         BOOST_REQUIRE(ret == exp_result);
       );
    }
    // empty content
