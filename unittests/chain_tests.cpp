@@ -104,16 +104,11 @@ BOOST_AUTO_TEST_CASE( decompressed_size_over_limit ) try {
    bytes pcfd = pt.get_packed_context_free_data();
    vector<signature_type>  sigs;
    sigs.push_back(sig);
-   bool throw_expect_string = false;
-   try {
-      // will call into decompress zlib
-      packed_transaction copy( std::move(packed_txn), std::move(sigs), std::move(pcfd), packed_transaction::compression_type::zlib );
-   } catch(fc::exception& er) {
-     if ( er.to_detail_string().find("Exceeded maximum decompressed transaction size") != std::string::npos){
-       throw_expect_string = true;
-     }
-   }
-   BOOST_REQUIRE(throw_expect_string);
+   BOOST_REQUIRE_EXCEPTION(packed_transaction copy( std::move(packed_txn), std::move(sigs), std::move(pcfd), packed_transaction::compression_type::zlib ),
+                           tx_decompression_error,
+                           [](const tx_decompression_error& e) {
+                              return e.to_detail_string().find("Exceeded maximum decompressed transaction size") != std::string::npos;
+                           });
 } FC_LOG_AND_RETHROW()
 
 BOOST_AUTO_TEST_CASE( decompressed_size_under_limit ) try {
@@ -139,21 +134,14 @@ BOOST_AUTO_TEST_CASE( decompressed_size_under_limit ) try {
 
    // pack
    packed_transaction pt(trx, packed_transaction::compression_type::zlib);
-   // try unpack and throw
+   // try unpack
    bytes packed_txn = pt.get_packed_transaction();
    bytes pcfd = pt.get_packed_context_free_data();
    vector<signature_type>  sigs;
    sigs.push_back(sig);
-   bool throw_expect_string = false;
-   try {
-      // will call into decompress zlib
-      packed_transaction copy( std::move(packed_txn), std::move(sigs), std::move(pcfd), packed_transaction::compression_type::zlib );
-   } catch(fc::exception& er) {
-     if ( er.to_detail_string().find("Exceeded maximum decompressed transaction size") != std::string::npos){
-       throw_expect_string = true;
-     }
-   }
-   BOOST_REQUIRE(throw_expect_string == false);
+   packed_transaction copy( std::move(packed_txn), std::move(sigs), std::move(pcfd), packed_transaction::compression_type::zlib );
+   //passes if no exception is thrown
+
 } FC_LOG_AND_RETHROW()
 
 BOOST_AUTO_TEST_SUITE_END()
