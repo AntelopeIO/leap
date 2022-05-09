@@ -543,11 +543,12 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                 }
 
                if (_pending_block_mode == pending_block_mode::producing) {
-                  fc_dlog(_trx_successful_trace_log, "[TRX_TRACE] Block ${block_num} for producer ${prod} is ACCEPTING tx: ${txid}, auth: ${a}",
+                  fc_dlog(_trx_successful_trace_log, "[TRX_TRACE] Block ${block_num} for producer ${prod} is ACCEPTING tx: ${txid}, auth: ${a}, cpu: ${cpu}",
                           ("block_num", chain.head_block_num() + 1)
                           ("prod", get_pending_block_producer())
                           ("txid", trx->id())
-                          ("a", trx->packed_trx()->get_transaction().first_authorizer()));
+                          ("a", trx->packed_trx()->get_transaction().first_authorizer())
+                          (("cpu"), trx->billed_cpu_time_us));
                   fc_dlog(_trx_log, "[TRX_TRACE] Block ${block_num} for producer ${prod} is ACCEPTING tx: ${trx}",
                           ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())
                                 ("trx", chain_plug->get_log_trx(trx->packed_trx()->get_transaction())));
@@ -555,9 +556,10 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                            ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())
                                    ("entire_trace", get_trace(response)));
                } else {
-                  fc_dlog(_trx_successful_trace_log, "[TRX_TRACE] Speculative execution is ACCEPTING tx: ${txid}, auth: ${a}",
+                  fc_dlog(_trx_successful_trace_log, "[TRX_TRACE] Speculative execution is ACCEPTING tx: ${txid}, auth: ${a}, cpu: ${cpu}",
                           ("txid", trx->id())
-                          ("a", trx->packed_trx()->get_transaction().first_authorizer()));
+                          ("a", trx->packed_trx()->get_transaction().first_authorizer())
+                          (("cpu"), trx->billed_cpu_time_us));
                    fc_dlog(_trx_trace_success_log, "[TRX_TRACE] Speculative execution is ACCEPTING tx: ${entire_trace}",
                            ("entire_trace", get_trace(response)));
                   fc_dlog(_trx_log, "[TRX_TRACE] Speculative execution is ACCEPTING tx: ${trx}",
@@ -615,12 +617,12 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                if( exception_is_exhausted( *trace->except, deadline_is_subjective )) {
                   _pending_incoming_transactions.add( trx, persist_until_expired, next );
                   if( _pending_block_mode == pending_block_mode::producing ) {
-                     fc_dlog(_log, "[TRX_TRACE] Block ${block_num} for producer ${prod} COULD NOT FIT, tx: ${txid} RETRYING ",
+                     fc_dlog(_trx_failed_trace_log, "[TRX_TRACE] Block ${block_num} for producer ${prod} COULD NOT FIT, tx: ${txid} RETRYING ",
                               ("block_num", chain.head_block_num() + 1)
                               ("prod", get_pending_block_producer())
                               ("txid", trx->id()));
                   } else {
-                     fc_dlog(_log, "[TRX_TRACE] Speculative execution COULD NOT FIT tx: ${txid} RETRYING",
+                     fc_dlog(_trx_failed_trace_log, "[TRX_TRACE] Speculative execution COULD NOT FIT tx: ${txid} RETRYING",
                               ("txid", trx->id()));
                   }
                   exhausted = block_is_exhausted();
