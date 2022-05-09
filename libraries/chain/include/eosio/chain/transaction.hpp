@@ -159,8 +159,6 @@ namespace eosio { namespace chain {
          local_pack_context_free_data();
       }
 
-      packed_transaction(const bytes& packed_txn, const vector<signature_type>& sigs, const bytes& packed_cfd, compression_type _compression);
-
       // used by abi_serializer
       packed_transaction( bytes&& packed_txn, vector<signature_type>&& sigs, bytes&& packed_cfd, compression_type _compression );
       packed_transaction( bytes&& packed_txn, vector<signature_type>&& sigs, vector<bytes>&& cfd, compression_type _compression );

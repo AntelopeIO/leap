@@ -76,6 +76,46 @@ BOOST_AUTO_TEST_CASE( replace_account_keys ) try {
 
 } FC_LOG_AND_RETHROW()
 
+BOOST_AUTO_TEST_CASE( decompressed_size_over_limit ) try {
+   tester chain;
+
+   // build a transaction, add cf data, sign
+   cf_action                        cfa;
+   eosio::chain::signed_transaction trx;
+   eosio::chain::action             act({}, cfa);
+   trx.context_free_actions.push_back(act);
+   // this is a over limit size (4+4)*129*1024 = 1032*1024 > 1M
+   for(int i = 0; i < 129*1024; ++i){
+      trx.context_free_data.emplace_back(fc::raw::pack<uint32_t>(100));
+      trx.context_free_data.emplace_back(fc::raw::pack<uint32_t>(200));
+   }
+   // add a normal action along with cfa
+   dummy_action         da = {DUMMY_ACTION_DEFAULT_A, DUMMY_ACTION_DEFAULT_B, DUMMY_ACTION_DEFAULT_C};
+   eosio::chain::action act1(
+       std::vector<eosio::chain::permission_level>{{"testapi"_n, eosio::chain::config::active_name}}, da);
+   trx.actions.push_back(act1);
+   chain.set_transaction_headers(trx);
+   auto sig = trx.sign(chain.get_private_key("testapi"_n, "active"), chain.control->get_chain_id());
+
+   // pack
+   packed_transaction pt(trx, packed_transaction::compression_type::zlib);
+   // try unpack and throw
+   bytes packed_txn = pt.get_packed_transaction();
+   bytes pcfd = pt.get_packed_context_free_data();
+   vector<signature_type>  sigs;
+   sigs.push_back(sig);
+   bool throw_expect_string = false;
+   try {
+      // will call into decompress zlib
+      packed_transaction copy( std::move(packed_txn), std::move(sigs), std::move(pcfd), packed_transaction::compression_type::zlib );
+   } catch(fc::exception& er) {
+     if ( er.to_detail_string().find("Exceeded maximum decompressed transaction size") != std::string::npos){
+       throw_expect_string = true;
+     }
+   }
+   BOOST_REQUIRE(throw_expect_string);
+} FC_LOG_AND_RETHROW()
+
 BOOST_AUTO_TEST_CASE( decompressed_size_under_limit ) try {
    tester chain;
 
@@ -98,24 +138,21 @@ BOOST_AUTO_TEST_CASE( decompressed_size_under_limit ) try {
    auto sig = trx.sign(chain.get_private_key("testapi"_n, "active"), chain.control->get_chain_id());
 
    // pack
-   packed_transaction ptv0(trx, packed_transaction::compression_type::zlib);
+   packed_transaction pt(trx, packed_transaction::compression_type::zlib);
    // try unpack and throw
-   bytes packed_txn = ptv0.get_packed_transaction();
-   bytes pcfd = ptv0.get_packed_context_free_data();
+   bytes packed_txn = pt.get_packed_transaction();
+   bytes pcfd = pt.get_packed_context_free_data();
    vector<signature_type>  sigs;
    sigs.push_back(sig);
-   bool threw = false;
    bool throw_expect_string = false;
    try {
       // will call into decompress zlib
-      packed_transaction copy( packed_txn, sigs, pcfd, packed_transaction::compression_type::zlib );
-   } catch(fc::exception& er){
-     threw = true;
+      packed_transaction copy( std::move(packed_txn), std::move(sigs), std::move(pcfd), packed_transaction::compression_type::zlib );
+   } catch(fc::exception& er) {
      if ( er.to_detail_string().find("Exceeded maximum decompressed transaction size") != std::string::npos){
        throw_expect_string = true;
      }
    }
-   BOOST_REQUIRE(threw == false);
    BOOST_REQUIRE(throw_expect_string == false);
 } FC_LOG_AND_RETHROW()
 
