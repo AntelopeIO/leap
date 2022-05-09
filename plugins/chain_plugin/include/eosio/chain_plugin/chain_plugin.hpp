@@ -142,8 +142,8 @@ public:
       uint32_t                             irreversible_number = 0;
       chain::block_id_type                 irreversible_id;
       fc::time_point                       irreversible_timestamp;
-      chain::block_id_type                 last_tracked_block_id;
-      uint32_t                             last_tracked_block_number = 0;
+      chain::block_id_type                 earliest_tracked_block_id;
+      uint32_t                             earliest_tracked_block_number = 0;
    };
    get_transaction_status_results get_transaction_status(const get_transaction_status_params& params) const;
 
@@ -312,6 +312,12 @@ public:
    };
 
    fc::variant get_block(const get_block_params& params) const;
+
+   struct get_block_info_params {
+      uint32_t block_num;
+   };
+
+   fc::variant get_block_info(const get_block_info_params& params) const;
 
    struct get_block_header_state_params {
       string block_num_or_id;
@@ -761,21 +767,6 @@ public:
    bool accept_block( const chain::signed_block_ptr& block, const chain::block_id_type& id );
    void accept_transaction(const chain::packed_transaction_ptr& trx, chain::plugin_interface::next_function<chain::transaction_trace_ptr> next);
 
-   static bool recover_reversible_blocks( const fc::path& db_dir,
-                                          uint32_t cache_size,
-                                          std::optional<fc::path> new_db_dir = std::optional<fc::path>(),
-                                          uint32_t truncate_at_block = 0
-                                        );
-
-   static bool import_reversible_blocks( const fc::path& reversible_dir,
-                                         uint32_t cache_size,
-                                         const fc::path& reversible_blocks_file
-                                       );
-
-   static bool export_reversible_blocks( const fc::path& reversible_dir,
-                                        const fc::path& reversible_blocks_file
-                                       );
-
    // Only call this after plugin_initialize()!
    controller& chain();
    // Only call this after plugin_initialize()!
@@ -819,10 +810,11 @@ FC_REFLECT(eosio::chain_apis::read_only::get_info_results,
            (server_version_string)(fork_db_head_block_num)(fork_db_head_block_id)(server_full_version_string)(total_cpu_weight)(total_net_weight) )
 FC_REFLECT(eosio::chain_apis::read_only::get_transaction_status_params, (id) )
 FC_REFLECT(eosio::chain_apis::read_only::get_transaction_status_results, (state)(block_number)(block_id)(block_timestamp)(expiration)(head_number)(head_id)
-           (head_timestamp)(irreversible_number)(irreversible_id)(irreversible_timestamp)(last_tracked_block_id)(last_tracked_block_number) )
+           (head_timestamp)(irreversible_number)(irreversible_id)(irreversible_timestamp)(earliest_tracked_block_id)(earliest_tracked_block_number) )
 FC_REFLECT(eosio::chain_apis::read_only::get_activated_protocol_features_params, (lower_bound)(upper_bound)(limit)(search_by_block_num)(reverse) )
 FC_REFLECT(eosio::chain_apis::read_only::get_activated_protocol_features_results, (activated_protocol_features)(more) )
 FC_REFLECT(eosio::chain_apis::read_only::get_block_params, (block_num_or_id))
+FC_REFLECT(eosio::chain_apis::read_only::get_block_info_params, (block_num))
 FC_REFLECT(eosio::chain_apis::read_only::get_block_header_state_params, (block_num_or_id))
 
 FC_REFLECT( eosio::chain_apis::read_write::push_transaction_results, (transaction_id)(processed) )
