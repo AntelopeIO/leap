@@ -286,7 +286,7 @@ try:
         Print("ERROR: getTransactionStatus didn't return \"{}\" state.\n\nstatus: {}".format(inBlockState, json.dumps(retStatus, indent=1)))
 
     Print("Relaunching the non-producing bridge node to connect the nodes")
-    if not nonProdNode.relaunch(nonProdNode.nodeNum):
+    if not nonProdNode.relaunch():
         errorExit("Failure - (non-production) node %d should have restarted" % (nonProdNode.nodeNum))
 
     Print("Wait for LIB to move, which indicates prodNode[1] has forked out the branch")
