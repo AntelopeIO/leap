@@ -7,9 +7,9 @@ using namespace eosio::chain;
 using namespace eosio::testing;
 
 template<typename T>
-auto call_parse_no_params_required(const string& body)
+auto call_parse_no_params(const string& body)
 {
-   return parse_params<T, http_params_types::no_params_required>(body);
+   return parse_params<T, http_params_types::no_params>( body);
 }
 
 template<typename T>
@@ -144,7 +144,7 @@ BOOST_AUTO_TEST_CASE( parse_params ) try {
       const std::string empty_str;
       BOOST_REQUIRE(empty_str.empty());
       BOOST_REQUIRE_NO_THROW(
-         auto test_result = call_parse_no_params_required<int>(empty_str);
+         auto test_result = call_parse_no_params<int>(empty_str);
          BOOST_REQUIRE(test_result == 0);
       );
       BOOST_REQUIRE_NO_THROW(
@@ -152,7 +152,7 @@ BOOST_AUTO_TEST_CASE( parse_params ) try {
          BOOST_REQUIRE(test_result == "{}");
       );
       BOOST_REQUIRE_NO_THROW(
-            auto test_result = call_parse_no_params_required<std::string>(empty_str);
+            auto test_result = call_parse_no_params<std::string>(empty_str);
             BOOST_REQUIRE(test_result == "{}");
       );
       BOOST_REQUIRE_THROW(
@@ -164,7 +164,7 @@ BOOST_AUTO_TEST_CASE( parse_params ) try {
       const std::string invalid_int_str = "#$%";
       BOOST_REQUIRE(!invalid_int_str.empty());
       BOOST_REQUIRE_THROW(
-         call_parse_no_params_required<int>(invalid_int_str), chain::invalid_http_request
+         call_parse_no_params<int>(invalid_int_str), chain::invalid_http_request
       );
       BOOST_REQUIRE_THROW(
          call_parse_possible_no_params<int>(invalid_int_str), chain::invalid_http_request
@@ -179,7 +179,7 @@ BOOST_AUTO_TEST_CASE( parse_params ) try {
       const std::string valid_int_str = std::to_string(exp_result);
       BOOST_REQUIRE(!valid_int_str.empty());
       BOOST_REQUIRE_THROW(
-         call_parse_no_params_required<int>(valid_int_str), chain::invalid_http_request
+         call_parse_no_params<int>(valid_int_str), chain::invalid_http_request
       );
       BOOST_REQUIRE_NO_THROW(
          const auto ret = call_parse_possible_no_params<int>(valid_int_str);

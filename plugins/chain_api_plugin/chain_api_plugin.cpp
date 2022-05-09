@@ -102,8 +102,8 @@ void chain_api_plugin::plugin_startup() {
    auto& _http_plugin = app().get_plugin<http_plugin>();
    ro_api.set_shorten_abi_errors( !_http_plugin.verbose_errors() );
 
-   _http_plugin.add_api({
-      CHAIN_RO_CALL(get_info, 200, http_params_types::no_params_required)}, appbase::priority::medium_high);
+   _http_plugin.add_api( {
+      CHAIN_RO_CALL(get_info, 200, http_params_types::no_params)}, appbase::priority::medium_high);
    _http_plugin.add_api({
       CHAIN_RO_CALL(get_activated_protocol_features, 200, http_params_types::possible_no_params),
       CHAIN_RO_CALL(get_block, 200, http_params_types::params_required),
@@ -120,7 +120,7 @@ void chain_api_plugin::plugin_startup() {
       CHAIN_RO_CALL(get_currency_balance, 200, http_params_types::params_required),
       CHAIN_RO_CALL(get_currency_stats, 200, http_params_types::params_required),
       CHAIN_RO_CALL(get_producers, 200, http_params_types::params_required),
-      CHAIN_RO_CALL(get_producer_schedule, 200, http_params_types::no_params_required),
+      CHAIN_RO_CALL(get_producer_schedule, 200, http_params_types::no_params),
       CHAIN_RO_CALL(get_scheduled_transactions, 200, http_params_types::params_required),
       CHAIN_RO_CALL(abi_json_to_bin, 200, http_params_types::params_required),
       CHAIN_RO_CALL(abi_bin_to_json, 200, http_params_types::params_required),

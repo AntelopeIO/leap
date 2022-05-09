@@ -213,7 +213,7 @@ namespace eosio {
    }
 
    enum class http_params_types {
-      no_params_required = 0,
+      no_params = 0,
       params_required = 1,
       possible_no_params = 2
    };
@@ -228,14 +228,14 @@ namespace eosio {
 
       try {
          try {
-            if constexpr (params_type == http_params_types::no_params_required || params_type == http_params_types::possible_no_params) {
+            if constexpr (params_type == http_params_types::no_params || params_type == http_params_types::possible_no_params) {
                if (is_empty_content(body)) {
                   if constexpr (std::is_same_v<T, std::string>) {
                      return std::string("{}");
                   }
                   return {};
                }
-               if constexpr (params_type == http_params_types::no_params_required) {
+               if constexpr (params_type == http_params_types::no_params) {
                   EOS_THROW(chain::invalid_http_request, "no parameter should be given");
                }
             }

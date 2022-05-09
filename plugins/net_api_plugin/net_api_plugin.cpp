@@ -35,7 +35,7 @@ using namespace eosio;
      fc::variant result( api_handle.call_name( std::move(params) ) );
 
 #define INVOKE_R_V(api_handle, call_name) \
-     body = parse_params<std::string, http_params_types::no_params_required>(body); \
+     body = parse_params<std::string, http_params_types::no_params>(body); \
      auto result = api_handle.call_name();
 
 #define INVOKE_V_R(api_handle, call_name, in_param) \

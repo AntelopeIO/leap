@@ -51,7 +51,7 @@ using namespace eosio;
      auto result = api_handle.call_name(params.at(0).as<in_param0>(), params.at(1).as<in_param1>(), params.at(2).as<in_param2>());
 
 #define INVOKE_R_V(api_handle, call_name) \
-     body = parse_params<std::string, http_params_types::no_params_required>(body); \
+     body = parse_params<std::string, http_params_types::no_params>(body); \
      auto result = api_handle.call_name();
 
 #define INVOKE_V_R(api_handle, call_name, in_param) \
@@ -76,7 +76,7 @@ using namespace eosio;
      eosio::detail::wallet_api_plugin_empty result;
 
 #define INVOKE_V_V(api_handle, call_name) \
-     body = parse_params<std::string, http_params_types::no_params_required>(body); \
+     body = parse_params<std::string, http_params_types::no_params>(body); \
      api_handle.call_name(); \
      eosio::detail::wallet_api_plugin_empty result;
 
