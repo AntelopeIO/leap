@@ -17,7 +17,7 @@ fi
 CORE_SYM=EOS
 DEP_DIR=$1
 JOBS=$2
-CLANG_VER=12.0.1
+CLANG_VER=11.0.1
 BOOST_VER=1.70.0
 LLVM_VER=7.1.0
 LIBPQXX_VER=7.2.1
@@ -99,8 +99,9 @@ popd
 MANDEL_DIR=${DEP_DIR}/mandel
 
 echo "Building Mandel"
-pushd .. 
+pushd ..
 mkdir -p build
 pushd build &> /dev/null
-cmake -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_INSTALL_PREFIX=${MANDEL_DIR} -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=${LLVM_DIR} ..
-make -j${JOBS} && make -j${JOBS} install
+cmake -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_INSTALL_PREFIX=/usr/local -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=${LLVM_DIR}/lib/cmake ..
+make -j${JOBS}
+cpack

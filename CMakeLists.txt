@@ -1,6 +1,6 @@
 cmake_minimum_required( VERSION 3.8 )
 
-project( EOSIO )
+project( MANDEL )
 include(CTest) # suppresses DartConfiguration.tcl error
 enable_testing()
 
@@ -79,6 +79,8 @@ if(ENABLE_OC AND CMAKE_SIZEOF_VOID_P EQUAL 8 AND NOT WIN32)
 	      message(FATAL_ERROR "EOSIO requires an LLVM version 7 through 11")
       endif()
    endif()
+
+   message(STATUS "LLVM ${LLVM_VERSION_MAJOR}" )
 endif()
 
 if(CMAKE_SIZEOF_VOID_P EQUAL 8 AND NOT WIN32)
@@ -244,3 +246,17 @@ get_property(_CTEST_CUSTOM_TESTS_IGNORE GLOBAL PROPERTY CTEST_CUSTOM_TESTS_IGNOR
 file(WRITE "${CMAKE_BINARY_DIR}/CTestCustom.cmake" "SET(CTEST_CUSTOM_TESTS_IGNORE ${_CTEST_CUSTOM_TESTS_IGNORE})")
 
 include(doxygen)
+
+# set up package generation for .deb packages
+set(CPACK_GENERATOR "DEB")
+set(CPACK_DEBIAN_PACKAGE_MAINTAINER "EosNetworkFoundation")
+set(CPACK_DEBIAN_PACKAGE_DESCRIPTION "Software for the Mandel network")
+set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://github.com/eosnetworkfoundation/mandel")
+set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
+set(CPACK_PACKAGE_VERSION_MAJOR ${VERSION_MAJOR})
+set(CPACK_PACKAGE_VERSION_MINOR ${VERSION_MINOR})
+set(CPACK_PACKAGE_VERSION_PATCH ${VERSION_PATCH})
+set(CPACK_PACKAGE_INSTALL_DIRECTORY ${CPACK_PACKAGE_NAME})
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+set(CPACK_RESOURCE_FILE_README "${CMAKE_CURRENT_SOURCE_DIR}/README.md")
+INCLUDE(CPack)
