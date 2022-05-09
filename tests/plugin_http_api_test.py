@@ -489,7 +489,7 @@ class PluginHttpTest(unittest.TestCase):
         ret_json = Utils.runCmdReturnJson(valid_cmd)
         self.assertEqual(ret_json["code"], 500)
 
-        # get_required_keys with empty p4arameter
+        # get_required_keys with empty parameter
         default_cmd = cmd_base + "get_required_keys"
         ret_json = Utils.runCmdReturnJson(default_cmd)
         self.assertEqual(ret_json["code"], 400)
