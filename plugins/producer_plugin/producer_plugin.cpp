@@ -67,7 +67,7 @@ using boost::signals2::scoped_connection;
 const std::string logger_name("producer_plugin");
 fc::logger _log;
 
-const std::string trx_successful_trace_logger_name("transaction_tracing");
+const std::string trx_successful_trace_logger_name("transaction_success_tracing");
 fc::logger       _trx_successful_trace_log;
 
 const std::string trx_failed_trace_logger_name("transaction_failure_tracing");
