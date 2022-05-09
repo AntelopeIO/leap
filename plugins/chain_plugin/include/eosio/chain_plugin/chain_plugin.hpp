@@ -54,11 +54,6 @@ struct permission {
    authority         required_auth;
 };
 
-/*
-template<typename>
-struct resolver_factory;
-*/
-
 
 // see specializations for uint64_t and double in source file
 template<typename Type>
