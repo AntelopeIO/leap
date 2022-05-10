@@ -1000,8 +1000,8 @@ BOOST_AUTO_TEST_CASE(checktime_pause_max_trx_cpu_extended_test) { try {
    // This assumes that loading the WASM takes at least 1.5 ms
    // If this check fails but duration is >= 24'999 (previous check did not fail), then the check here is likely
    // because WASM took less than 1.5 ms to load.
-   BOOST_CHECK_MESSAGE( dur > 26'500, "elapsed " << std::to_string(dur) << "us" );
-   BOOST_CHECK_MESSAGE( dur < 150'000, "elapsed " << std::to_string(dur) << "us" ); // Should not run to block_cpu_usage deadline
+   BOOST_CHECK_MESSAGE( dur > 26'500, "elapsed " << dur << "us" );
+   BOOST_CHECK_MESSAGE( dur < 150'000, "elapsed " << dur << "us" ); // Should not run to block_cpu_usage deadline
 
    // Test hitting max_transaction_time throws tx_cpu_usage_exceeded
    BOOST_CHECK_EXCEPTION( call_test( t, test_pause_action<TEST_METHOD("test_checktime", "checktime_failure")>{},
@@ -1055,8 +1055,8 @@ BOOST_AUTO_TEST_CASE(checktime_pause_max_trx_extended_test) { try {
    // This assumes that loading the WASM takes at least 1.5 ms
    // If this check fails but duration is >= 25'000 (previous check did not fail), then the check here is likely
    // because WASM took less than 1.5 ms to load.
-   BOOST_CHECK_MESSAGE( dur > 26'500, "elapsed " << std::to_string(dur) << "us" );
-   BOOST_CHECK_MESSAGE( dur < 250'000, "elapsed " << std::to_string(dur) << "us" ); // Should not run to max_transaction_cpu_usage deadline
+   BOOST_CHECK_MESSAGE( dur > 26'500, "elapsed " << dur << "us" );
+   BOOST_CHECK_MESSAGE( dur < 250'000, "elapsed " << dur << "us" ); // Should not run to max_transaction_cpu_usage deadline
 
    BOOST_REQUIRE_EQUAL( t.validate(), true );
 } FC_LOG_AND_RETHROW() }
@@ -1098,7 +1098,7 @@ BOOST_AUTO_TEST_CASE(checktime_pause_block_deadline_not_extended_test) { try {
    BOOST_CHECK( dur >= 75'000 ); // should never fail
    // If this check fails but duration is >= 75'000 (previous check did not fail), then the check here is likely
    // because it took longer than 2 ms for checktime to trigger, trace to be created, and to get to the now() call.
-   BOOST_CHECK_MESSAGE( dur < 77'000, "elapsed " << std::to_string(dur) << "us" );
+   BOOST_CHECK_MESSAGE( dur < 77'000, "elapsed " << dur << "us" );
 
    BOOST_REQUIRE_EQUAL( t.validate(), true );
 } FC_LOG_AND_RETHROW() }
@@ -1146,8 +1146,8 @@ BOOST_AUTO_TEST_CASE(checktime_pause_block_deadline_not_extended_while_loading_t
    // WASM load times on my machine was 35ms.
    // Since checktime only kicks in after WASM is loaded this needs to be large enough to load the WASM, but should be
    // considerably lower than the 150ms max_transaction_time
-   BOOST_CHECK_MESSAGE( dur < 50'000, "elapsed " << std::to_string(dur) << "us" );
-   BOOST_REQUIRE_MESSAGE( dur < 150'000, "elapsed " << std::to_string(dur) << "us" ); // should never fail
+   BOOST_CHECK_MESSAGE( dur < 50'000, "elapsed " << dur << "us" );
+   BOOST_REQUIRE_MESSAGE( dur < 150'000, "elapsed " << dur << "us" ); // should never fail
 
    BOOST_REQUIRE_EQUAL( t.validate(), true );
 } FC_LOG_AND_RETHROW() }
