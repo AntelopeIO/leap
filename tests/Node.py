@@ -1405,9 +1405,8 @@ class Node(object):
         def isProducer():
             return self.getInfo()["head_block_producer"] == producer;
         found = Utils.waitForBool(isProducer, timeout)
-        assert exitOnError and found, \
-            Utils.Print("Waited for {} sec but never found producer: {}. Started with {} and ended with {}".
-                        format(time.perf_counter()-start, producer, initialProducer, self.getInfo()["head_block_producer"]))
+        assert not exitOnError or found, \
+            f"Waited for {time.perf_counter()-start} sec but never found producer: {producer}. Started with {initialProducer} and ended with {self.getInfo()['head_block_producer']}"
         return found
 
     # Require producer_api_plugin
