@@ -24,6 +24,7 @@ import signal
 #
 ###############################################################
 Print=Utils.Print
+errorExit=Utils.errorExit
 
 from core_symbol import CORE_SYMBOL
 
