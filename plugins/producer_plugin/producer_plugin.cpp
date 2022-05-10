@@ -548,7 +548,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                           ("prod", get_pending_block_producer())
                           ("txid", trx->id())
                           ("a", trx->packed_trx()->get_transaction().first_authorizer())
-                          (("cpu"), trx->billed_cpu_time_us));
+                          ("cpu", trx->billed_cpu_time_us));
                   fc_dlog(_trx_log, "[TRX_TRACE] Block ${block_num} for producer ${prod} is ACCEPTING tx: ${trx}",
                           ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())
                                 ("trx", chain_plug->get_log_trx(trx->packed_trx()->get_transaction())));
@@ -559,7 +559,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                   fc_dlog(_trx_successful_trace_log, "[TRX_TRACE] Speculative execution is ACCEPTING tx: ${txid}, auth: ${a}, cpu: ${cpu}",
                           ("txid", trx->id())
                           ("a", trx->packed_trx()->get_transaction().first_authorizer())
-                          (("cpu"), trx->billed_cpu_time_us));
+                          ("cpu", trx->billed_cpu_time_us));
                    fc_dlog(_trx_trace_success_log, "[TRX_TRACE] Speculative execution is ACCEPTING tx: ${entire_trace}",
                            ("entire_trace", get_trace(response)));
                   fc_dlog(_trx_log, "[TRX_TRACE] Speculative execution is ACCEPTING tx: ${trx}",
