@@ -54,8 +54,6 @@ struct permission {
    authority         required_auth;
 };
 
-template<typename>
-struct resolver_factory;
 
 // see specializations for uint64_t and double in source file
 template<typename Type>
@@ -637,7 +635,6 @@ public:
 
    chain::symbol extract_core_symbol()const;
 
-   friend struct resolver_factory<read_only>;
 };
 
 class read_write {
@@ -677,7 +674,6 @@ public:
    };
    void send_transaction2(const send_transaction2_params& params, chain::plugin_interface::next_function<send_transaction_results> next);
 
-   friend resolver_factory<read_write>;
 };
 
  //support for --key_types [sha256,ripemd160] and --encoding [dec/hex]
@@ -791,6 +787,12 @@ public:
 
    bool account_queries_enabled() const;
    bool transaction_finality_status_enabled() const;
+
+    // return variant of trace for logging, trace is modified to minimize log output
+    fc::variant get_log_trx_trace(const chain::transaction_trace_ptr& trx_trace) const;
+    // return variant of trx for logging, trace is modified to minimize log output
+    fc::variant get_log_trx(const transaction& trx) const;
+
 private:
    static void log_guard_exception(const chain::guard_exception& e);
 

@@ -113,7 +113,7 @@ public:
          if (deadline <= fc::time_point::now()) {
             return false;
          }
-         callback( persisted_by_expiry.begin()->id(), persisted_by_expiry.begin()->trx_type );
+         callback( persisted_by_expiry.begin()->trx_meta->packed_trx(), persisted_by_expiry.begin()->trx_type );
          persisted_by_expiry.erase( persisted_by_expiry.begin() );
       }
       return true;

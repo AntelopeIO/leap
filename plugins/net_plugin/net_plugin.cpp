@@ -2939,7 +2939,9 @@ namespace eosio {
       if( trx_in_progress_sz > def_max_trx_in_progress_size ) {
          char reason[72];
          snprintf(reason, 72, "Dropping trx, too many trx in progress %lu bytes", (unsigned long) trx_in_progress_sz);
-         my_impl->producer_plug->log_failed_transaction(tid, reason);
+
+         my_impl->producer_plug->log_failed_transaction(tid, trx, reason);
+
          return;
       }
 
