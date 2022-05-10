@@ -181,9 +181,9 @@ try:
     testNode.waitForProducer("defproducerb")
     testNode.waitForProducer("defproducerc")
 
-    retStatus=testNode.getTransactionStatus(transId)
-    state = getState(retStatus)
-    assert state == inBlockState, f"ERROR: getTransactionStatus never returned a \"{localState}\" state, even after {numTries} tries"
+    status.append(testNode.getTransactionStatus(transId))
+    state = getState(status[1])
+    assert state == inBlockState, f"ERROR: getTransactionStatus never returned a \"{inBlockState}\" state"
 
     validateTrxState(status[1], present=True)
 
