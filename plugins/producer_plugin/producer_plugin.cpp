@@ -1966,7 +1966,7 @@ bool producer_plugin_impl::process_unapplied_trxs( const fc::time_point& deadlin
             if( max_trx_time.count() < 0 ) max_trx_time = fc::microseconds::maximum();
 
             auto prev_billed_cpu_time_us = trx->billed_cpu_time_us;
-            if( prev_billed_cpu_time_us > 0 && !rl.is_unlimited_cpu( first_auth )) {
+            if( prev_billed_cpu_time_us > 0 && !_subjective_billing.is_account_disabled( first_auth ) && !rl.is_unlimited_cpu( first_auth )) {
                uint64_t prev_billed_plus100_us = prev_billed_cpu_time_us + EOS_PERCENT( prev_billed_cpu_time_us, 100 * config::percent_1 );
                if( prev_billed_plus100_us < max_trx_time.count() ) max_trx_time = fc::microseconds( prev_billed_plus100_us );
             }
