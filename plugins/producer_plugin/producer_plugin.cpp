@@ -81,11 +81,11 @@ using namespace eosio::chain;
 using namespace eosio::chain::plugin_interface;
 
 namespace {
-   bool exception_is_exhausted(const fc::exception& e, bool deadline_is_subjective) {
+   bool exception_is_exhausted(const fc::exception& e) {
       auto code = e.code();
       return (code == block_cpu_usage_exceeded::code_value) ||
              (code == block_net_usage_exceeded::code_value) ||
-             (code == deadline_exception::code_value && deadline_is_subjective);
+             (code == deadline_exception::code_value);
    }
 }
 
@@ -559,14 +559,9 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                return true;
             }
 
-            auto deadline = fc::time_point::now() + fc::milliseconds( _max_transaction_time_ms );
-            bool deadline_is_subjective = false;
+            fc::microseconds max_trx_time = fc::milliseconds( _max_transaction_time_ms.load() );
+            if( max_trx_time.count() < 0 ) max_trx_time = fc::microseconds::maximum();
             const auto block_deadline = calculate_block_deadline( chain.pending_block_time() );
-            if( _max_transaction_time_ms < 0 ||
-                (_pending_block_mode == pending_block_mode::producing && block_deadline < deadline)) {
-               deadline_is_subjective = true;
-               deadline = block_deadline;
-            }
 
             bool disable_subjective_billing = ( _pending_block_mode == pending_block_mode::producing )
                                               || ( persist_until_expired && _disable_subjective_api_billing )
@@ -578,10 +573,10 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
             if( !disable_subjective_billing )
                sub_bill = _subjective_billing.get_subjective_bill( first_auth, fc::time_point::now() );
 
-            auto trace = chain.push_transaction( trx, deadline, trx->billed_cpu_time_us, false, sub_bill );
+            auto trace = chain.push_transaction( trx, block_deadline, max_trx_time, trx->billed_cpu_time_us, false, sub_bill );
             fc_dlog( _trx_failed_trace_log, "Subjective bill for ${a}: ${b} elapsed ${t}us", ("a",first_auth)("b",sub_bill)("t",trace->elapsed));
             if( trace->except ) {
-               if( exception_is_exhausted( *trace->except, deadline_is_subjective )) {
+               if( exception_is_exhausted( *trace->except ) ) {
                   _pending_incoming_transactions.add( trx, persist_until_expired, next );
                   if( _pending_block_mode == pending_block_mode::producing ) {
                      fc_dlog(_log, "[TRX_TRACE] Block ${block_num} for producer ${prod} COULD NOT FIT, tx: ${txid} RETRYING ",
@@ -1959,7 +1954,6 @@ bool producer_plugin_impl::process_unapplied_trxs( const fc::time_point& deadlin
          ++num_processed;
          try {
             auto start = fc::time_point::now();
-            auto trx_deadline = start + fc::milliseconds( _max_transaction_time_ms );
 
             auto first_auth = trx->packed_trx()->get_transaction().first_authorizer();
             if( account_fails.failure_limit( first_auth ) ) {
@@ -1968,18 +1962,15 @@ bool producer_plugin_impl::process_unapplied_trxs( const fc::time_point& deadlin
                continue;
             }
 
+            fc::microseconds max_trx_time = fc::milliseconds( _max_transaction_time_ms.load() );
+            if( max_trx_time.count() < 0 ) max_trx_time = fc::microseconds::maximum();
+
             auto prev_billed_cpu_time_us = trx->billed_cpu_time_us;
             if( prev_billed_cpu_time_us > 0 && !rl.is_unlimited_cpu( first_auth )) {
-               auto prev_billed_plus100 = prev_billed_cpu_time_us + EOS_PERCENT( prev_billed_cpu_time_us, 100 * config::percent_1 );
-               auto trx_dl = start + fc::microseconds( prev_billed_plus100 );
-               if( trx_dl < trx_deadline ) trx_deadline = trx_dl;
+               uint64_t prev_billed_plus100_us = prev_billed_cpu_time_us + EOS_PERCENT( prev_billed_cpu_time_us, 100 * config::percent_1 );
+               if( prev_billed_plus100_us < max_trx_time.count() ) max_trx_time = fc::microseconds( prev_billed_plus100_us );
             }
-            bool deadline_is_subjective = false;
-            if( _max_transaction_time_ms < 0 ||
-                (_pending_block_mode == pending_block_mode::producing && deadline < trx_deadline) ) {
-               deadline_is_subjective = true;
-               trx_deadline = deadline;
-            }
+
             // no subjective billing since we are producing or processing persisted trxs
             const uint32_t sub_bill = 0;
             bool disable_subjective_billing = ( _pending_block_mode == pending_block_mode::producing )
@@ -1987,10 +1978,10 @@ bool producer_plugin_impl::process_unapplied_trxs( const fc::time_point& deadlin
                || ( !(itr->trx_type == trx_enum_type::persisted) && _disable_subjective_p2p_billing )
                || trx->read_only;
 
-            auto trace = chain.push_transaction( trx, trx_deadline, prev_billed_cpu_time_us, false, sub_bill );
+            auto trace = chain.push_transaction( trx, deadline, max_trx_time, prev_billed_cpu_time_us, false, sub_bill );
             fc_dlog( _trx_failed_trace_log, "Subjective unapplied bill for ${a}: ${b} prev ${t}us", ("a",first_auth)("b",prev_billed_cpu_time_us)("t",trace->elapsed));
             if( trace->except ) {
-               if( exception_is_exhausted( *trace->except, deadline_is_subjective ) ) {
+               if( exception_is_exhausted( *trace->except ) ) {
                   if( block_is_exhausted() ) {
                      exhausted = true;
                      // don't erase, subjective failure so try again next time
@@ -2095,16 +2086,12 @@ void producer_plugin_impl::process_scheduled_and_incoming_trxs( const fc::time_p
       }
 
       try {
-         auto trx_deadline = fc::time_point::now() + fc::milliseconds(_max_transaction_time_ms);
-         bool deadline_is_subjective = false;
-         if (_max_transaction_time_ms < 0 || (_pending_block_mode == pending_block_mode::producing && deadline < trx_deadline)) {
-            deadline_is_subjective = true;
-            trx_deadline = deadline;
-         }
+         fc::microseconds max_trx_time = fc::milliseconds( _max_transaction_time_ms.load() );
+         if( max_trx_time.count() < 0 ) max_trx_time = fc::microseconds::maximum();
 
-         auto trace = chain.push_scheduled_transaction(trx_id, trx_deadline, 0, false);
+         auto trace = chain.push_scheduled_transaction(trx_id, deadline, max_trx_time, 0, false);
          if (trace->except) {
-            if (exception_is_exhausted(*trace->except, deadline_is_subjective)) {
+            if (exception_is_exhausted(*trace->except)) {
                if( block_is_exhausted() ) {
                   exhausted = true;
                   break;

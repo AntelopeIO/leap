@@ -62,7 +62,9 @@ void platform_timer::start(fc::time_point tp) {
    if(x.count() <= 0)
       expired = 1;
    else {
-      struct itimerspec enable = {{0, 0}, {0, (int)x.count()*1000}};
+      time_t secs = x.count() / 1000000;
+      long nsec = (x.count() - (secs*1000000)) * 1000;
+      struct itimerspec enable = {{0, 0}, {secs, nsec}};
       expired = 0;
       if(timer_settime(my->timerid, 0, &enable, NULL) != 0)
          expired = 1;

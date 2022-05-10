@@ -92,7 +92,9 @@ namespace eosio { namespace chain {
    void transaction_context::init(uint64_t initial_net_usage)
    {
       EOS_ASSERT( !is_initialized, transaction_exception, "cannot initialize twice" );
-      const static int64_t large_number_no_overflow = std::numeric_limits<int64_t>::max()/2;
+
+      // set maximum to a semi-valid deadline to allow for pause math and conversion to dates for logging
+      if( block_deadline == fc::time_point::maximum() ) block_deadline = start + fc::hours(24*7*52);
 
       const auto& cfg = control.get_global_properties().configuration;
       auto& rl = control.get_mutable_resource_limits_manager();
@@ -176,11 +178,21 @@ namespace eosio { namespace chain {
          billing_timer_exception_code = leeway_deadline_exception::code_value;
       }
 
-      billing_timer_duration_limit = _deadline - start;
+      // Possibly limit deadline to subjective max_transaction_time
+      if( max_transaction_time_subjective != fc::microseconds::maximum() && (start + max_transaction_time_subjective) <= _deadline ) {
+         _deadline = start + max_transaction_time_subjective;
+         billing_timer_exception_code = tx_cpu_usage_exceeded::code_value;
+      }
 
-      // Check if deadline is limited by caller-set deadline (only change deadline if billed_cpu_time_us is not set)
-      if( explicit_billed_cpu_time || deadline < _deadline ) {
-         _deadline = deadline;
+      // Possibly limit deadline to caller provided wall clock block deadline
+      if( block_deadline < _deadline ) {
+         _deadline = block_deadline;
+         billing_timer_exception_code = deadline_exception::code_value;
+      }
+
+      // Explicit billed_cpu_time_us should be used, block_deadline will be maximum unless in test code
+      if( explicit_billed_cpu_time ) {
+         _deadline = block_deadline;
          deadline_exception_code = deadline_exception::code_value;
       } else {
          deadline_exception_code = billing_timer_exception_code;
@@ -200,12 +212,12 @@ namespace eosio { namespace chain {
       if( initial_net_usage > 0 )
          add_net_usage( initial_net_usage );  // Fail early if current net usage is already greater than the calculated limit
 
-      checktime(); // Fail early if deadline has already been exceeded
-
-      if(control.skip_trx_checks())
-         transaction_timer.start(fc::time_point::maximum());
-      else
-         transaction_timer.start(_deadline);
+      if(control.skip_trx_checks()) {
+         transaction_timer.start( fc::time_point::maximum() );
+      } else {
+         transaction_timer.start( _deadline );
+         checktime(); // Fail early if deadline has already been exceeded
+      }
 
       is_initialized = true;
    }
@@ -426,9 +438,8 @@ namespace eosio { namespace chain {
    void transaction_context::pause_billing_timer() {
       if( explicit_billed_cpu_time || pseudo_start == fc::time_point() ) return; // either irrelevant or already paused
 
-      auto now = fc::time_point::now();
-      billed_time = now - pseudo_start;
-      deadline_exception_code = deadline_exception::code_value; // Other timeout exceptions cannot be thrown while billable timer is paused.
+      paused_time = fc::time_point::now();
+      billed_time = paused_time - pseudo_start;
       pseudo_start = fc::time_point();
       transaction_timer.stop();
    }
@@ -437,14 +448,17 @@ namespace eosio { namespace chain {
       if( explicit_billed_cpu_time || pseudo_start != fc::time_point() ) return; // either irrelevant or already running
 
       auto now = fc::time_point::now();
+      auto paused = now - paused_time;
+
       pseudo_start = now - billed_time;
-      if( (pseudo_start + billing_timer_duration_limit) <= deadline ) {
-         _deadline = pseudo_start + billing_timer_duration_limit;
-         deadline_exception_code = billing_timer_exception_code;
-      } else {
-         _deadline = deadline;
+      _deadline += paused;
+
+      // do not allow to go past block wall clock deadline
+      if( block_deadline < _deadline ) {
          deadline_exception_code = deadline_exception::code_value;
+         _deadline = block_deadline;
       }
+
       transaction_timer.start(_deadline);
    }
 
