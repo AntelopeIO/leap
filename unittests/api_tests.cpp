@@ -1000,8 +1000,8 @@ BOOST_AUTO_TEST_CASE(checktime_pause_max_trx_cpu_extended_test) { try {
    // This assumes that loading the WASM takes at least 1.5 ms
    // If this check fails but duration is >= 24'999 (previous check did not fail), then the check here is likely
    // because WASM took less than 1.5 ms to load.
-   BOOST_CHECK( dur > 26'500 );
-   BOOST_CHECK( dur < 150'000 ); // Should not run to block_cpu_usage deadline
+   BOOST_CHECK_MESSAGE( dur > 26'500, "elapsed " << std::to_string(dur) << "us" );
+   BOOST_CHECK_MESSAGE( dur < 150'000, "elapsed " << std::to_string(dur) << "us" ); // Should not run to block_cpu_usage deadline
 
    // Test hitting max_transaction_time throws tx_cpu_usage_exceeded
    BOOST_CHECK_EXCEPTION( call_test( t, test_pause_action<TEST_METHOD("test_checktime", "checktime_failure")>{},
@@ -1055,8 +1055,8 @@ BOOST_AUTO_TEST_CASE(checktime_pause_max_trx_extended_test) { try {
    // This assumes that loading the WASM takes at least 1.5 ms
    // If this check fails but duration is >= 25'000 (previous check did not fail), then the check here is likely
    // because WASM took less than 1.5 ms to load.
-   BOOST_CHECK( dur > 26'500 );
-   BOOST_CHECK( dur < 250'000 ); // Should not run to max_transaction_cpu_usage deadline
+   BOOST_CHECK_MESSAGE( dur > 26'500, "elapsed " << std::to_string(dur) << "us" );
+   BOOST_CHECK_MESSAGE( dur < 250'000, "elapsed " << std::to_string(dur) << "us" ); // Should not run to max_transaction_cpu_usage deadline
 
    BOOST_REQUIRE_EQUAL( t.validate(), true );
 } FC_LOG_AND_RETHROW() }
@@ -1084,23 +1084,70 @@ BOOST_AUTO_TEST_CASE(checktime_pause_block_deadline_not_extended_test) { try {
    t.produce_blocks(1);
 
    // Test block deadline is not extended when it is the limiting factor
+   // Specify large enough time so that WASM is completely loaded.
 
    // First call to contract which should cause the WASM to load and trx_context.pause_billing_timer() to be called.
-   // Verify that the restriction on the max_transaction_time of 25ms is honored even though there is wall clock time to
-   // load the wasm. If this test fails it is possible that the wasm loaded faster or slower than expected.
    auto before = fc::time_point::now();
    BOOST_CHECK_EXCEPTION( call_test( t, test_pause_action<TEST_METHOD("test_checktime", "checktime_failure")>{},
-                                     0, 150, 25, fc::raw::pack(10000000000000000000ULL), "pause"_n ),
+                                     0, 150, 75, fc::raw::pack(10000000000000000000ULL), "pause"_n ),
                           deadline_exception, is_deadline_exception );
    auto after = fc::time_point::now();
-   // Test that it runs longer than specified limit of 24'999 to allow for wasm load time.
+   // WASM load times on my machine are around 35ms
    auto dur = (after - before).count();
    dlog("elapsed ${e}us", ("e", dur) );
-   BOOST_CHECK( dur >= 25'000 ); // should never fail
-   // If this check fails but duration is >= 25'000 (previous check did not fail), then the check here is likely
-   // because it took longer than 2.5 ms for checktime to trigger, trace to be created, and to get to the now() call.
-   // Timer is paused during WASM load, so checktime will not trigger until after WASM is loaded.
-   BOOST_CHECK( dur < 150'000 ); // should not run to max_transaction_time
+   BOOST_CHECK( dur >= 75'000 ); // should never fail
+   // If this check fails but duration is >= 75'000 (previous check did not fail), then the check here is likely
+   // because it took longer than 2 ms for checktime to trigger, trace to be created, and to get to the now() call.
+   BOOST_CHECK_MESSAGE( dur < 77'000, "elapsed " << std::to_string(dur) << "us" );
+
+   BOOST_REQUIRE_EQUAL( t.validate(), true );
+} FC_LOG_AND_RETHROW() }
+
+
+BOOST_AUTO_TEST_CASE(checktime_pause_block_deadline_not_extended_while_loading_test) { try {
+   fc::temp_directory tempdir;
+   auto conf_genesis = tester::default_config( tempdir );
+   auto& cfg = conf_genesis.second.initial_configuration;
+
+   cfg.max_block_cpu_usage        = 350'000;
+   cfg.max_transaction_cpu_usage  = 250'000; // needs to be large enough for create_account and set_code
+   cfg.min_transaction_cpu_usage  = 1;
+
+   tester t( conf_genesis.first, conf_genesis.second );
+   if( t.get_config().wasm_runtime == wasm_interface::vm_type::eos_vm_oc ) {
+      // eos_vm_oc wasm_runtime does not tier-up and completes compile before continuing execution.
+      // A completely different test with different constraints would be needed to test with eos_vm_oc.
+      // Since non-tier-up is not a normal valid nodeos runtime, just skip this test for eos_vm_oc.
+      return;
+   }
+   t.execute_setup_policy( setup_policy::full );
+   t.produce_blocks(2);
+   t.create_account( "pause"_n );
+   t.set_code( "pause"_n, contracts::test_api_wasm() );
+   t.produce_blocks(1);
+
+   // Test block deadline is not extended when it is the limiting factor
+   // This test is different from the previous in that not enough time is provided to load the WASM.
+   // The block deadline will kick in once the timer is unpaused after loading the WASM.
+   // This is difficult to determine as checktime is not checked until WASM has completed loading.
+   // We want to test that blocktime is enforced immediately after timer is unpaused.
+
+   // First call to contract which should cause the WASM to load and trx_context.pause_billing_timer() to be called.
+   auto before = fc::time_point::now();
+   BOOST_CHECK_EXCEPTION( call_test( t, test_pause_action<TEST_METHOD("test_checktime", "checktime_failure")>{},
+                                     0, 150, 5, fc::raw::pack(10000000000000000000ULL), "pause"_n ),
+                          deadline_exception, is_deadline_exception );
+   auto after = fc::time_point::now();
+   // Test that it runs longer than specified limit of 10ms to allow for wasm load time.
+   // WASM load times on my machine are around 35ms
+   auto dur = (after - before).count();
+   dlog("elapsed ${e}us", ("e", dur) );
+   BOOST_CHECK( dur >= 5'000 ); // should never fail
+   // WASM load times on my machine was 35ms.
+   // Since checktime only kicks in after WASM is loaded this needs to be large enough to load the WASM, but should be
+   // considerably lower than the 150ms max_transaction_time
+   BOOST_CHECK_MESSAGE( dur < 50'000, "elapsed " << std::to_string(dur) << "us" );
+   BOOST_REQUIRE_MESSAGE( dur < 150'000, "elapsed " << std::to_string(dur) << "us" ); // should never fail
 
    BOOST_REQUIRE_EQUAL( t.validate(), true );
 } FC_LOG_AND_RETHROW() }
