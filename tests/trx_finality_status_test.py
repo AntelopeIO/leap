@@ -70,8 +70,8 @@ try:
     successDuration = 25
     failure_duration = 40
     extraNodeosArgs=" --transaction-finality-status-max-storage-size-gb 1 " + \
-                    "--transaction-finality-status-success-duration-sec {} --transaction-finality-status-failure-duration-sec {}". \
-                    format(successDuration, failure_duration)
+                   f"--transaction-finality-status-success-duration-sec {successDuration} --transaction-finality-status-failure-duration-sec {failure_duration}"
+    extraNodeosArgs+=" --plugin eosio::trace_api_plugin --trace-no-abis"
     if cluster.launch(prodCount=prodCount, onlyBios=False, pnodes=pnodes, totalNodes=totalNodes, totalProducers=pnodes*prodCount,
                       useBiosBootFile=False, topo="line", extraNodeosArgs=extraNodeosArgs) is False:
         Utils.errorExit("Failed to stand up eos cluster.")
@@ -107,25 +107,22 @@ try:
 
     prod0Info=prod0.getInfo(exitOnError=True)
     nodeInfo=testNode.getInfo(exitOnError=True)
-    Print("prod0 info={}".format(json.dumps(prod0Info, indent=1)))
-    Print("test node info={}".format(json.dumps(nodeInfo, indent=1)))
+    Print(f"prod0 info={json.dumps(prod0Info, indent=1)}")
+    Print(f"test node info={json.dumps(nodeInfo, indent=1)}")
 
     def getState(status):
         assert status is not None, Print("ERROR: getTransactionStatus failed to return any status")
         assert "state" in status, \
-            Print("ERROR: getTransactionStatus returned a status object that didn't have a \"state\" field. state: {}".
-                  format(json.dumps(status, indent=1)))
+            f"ERROR: getTransactionStatus returned a status object that didn't have a \"state\" field. state: {json.dumps(status, indent=1)}"
         return status["state"]
 
     def isState(state, expectedState, allowedState=None, notAllowedState=None):
         if state == expectedState:
             return True
         assert allowedState is None or state == allowedState, \
-               Print("ERROR: getTransactionStatus should have indicated a \"state\" of \"{}\" or \"{}\" but it was \"{}\"".
-                     format(expectedState, allowedState, state))
+               f"ERROR: getTransactionStatus should have indicated a \"state\" of \"{expectedState}\" or \"{allowedState}\" but it was \"{state}\""
         assert notAllowedState is None or state != notAllowedState, \
-               Print("ERROR: getTransactionStatus should have indicated a \"state\" of \"{}\" and not \"{}\" but it was \"{}\"".
-                     format(expectedState, notAllowedState, state))
+               f"ERROR: getTransactionStatus should have indicated a \"state\" of \"{expectedState}\" and not \"{notAllowedState}\" but it was \"{state}\""
         return False
 
     localState = "LOCALLY_APPLIED"
@@ -140,16 +137,16 @@ try:
     transferAmount=10
 
     # ensuring that prod0's producer is active, which will give sufficient time to identify the transaction as "LOCALLY_APPLIED" before it travels
-    # through the chain of nodes to nod0 to be added to a block
+    # through the chain of nodes to node0 to be added to a block
     # defproducera -> defproducerb -> defproducerc -> NPN
     prod0.waitForProducer("defproducera", exitOnError=True)
-    testNode.transferFunds(cluster.eosioAccount, account1, "{}.0000 {}".format(transferAmount, CORE_SYMBOL), "fund account")
-    transId=testNode.getLastSentTransactionId()
+    testNode.transferFunds(cluster.eosioAccount, account1, f"{transferAmount}.0000 {CORE_SYMBOL}", "fund account")
+    transId=testNode.getLastTrackedTransactionId()
     retStatus=testNode.getTransactionStatus(transId)
     state = getState(retStatus)
 
     assert state == localState, \
-        Print("ERROR: getTransactionStatus didn't return \"{}\" state.\n\nstatus: {}".format(localState, json.dumps(retStatus, indent=1)))
+        f"ERROR: getTransactionStatus didn't return \"{localState}\" state.\n\nstatus: {json.dumps(retStatus, indent=1)}"
     status.append(copy.copy(retStatus))
     startingBlockNum=testNode.getInfo()["head_block_num"]
 
@@ -160,64 +157,52 @@ try:
         desc = "" if present else "not "
         group = bnPresent and biPresent and btPresent if present else not bnPresent and not biPresent and not btPresent
         assert group, \
-            Print("ERROR: getTransactionStatus should{} contain \"block_number\", \"block_id\", or \"block_timestamp\" since state was \"{}\".\nstatus: {}".
-                  format(desc, getState(status), json.dumps(status, indent=1)))
+            f"ERROR: getTransactionStatus should{desc} contain \"block_number\", \"block_id\", or \"block_timestamp\" since state was \"{getState(status)}\".\nstatus: {json.dumps(status, indent=1)}"
 
     validateTrxState(status[0], present=False)
 
     def validate(status, knownTrx=True):
         assert "head_number" in status and "head_id" in status and "head_timestamp" in status, \
-            Print("ERROR: getTransactionStatus should contain \"head_number\", \"head_id\", and \"head_timestamp\" always.\nstatus: {}".
-                  format(json.dumps(status, indent=1)))
+            f"ERROR: getTransactionStatus is missing \"head_number\", \"head_id\", and \"head_timestamp\".\nstatus: {json.dumps(status, indent=1)}"
 
         assert "irreversible_number" in status and "irreversible_id" in status and "irreversible_timestamp" in status, \
-            Print("ERROR: getTransactionStatus should contain \"irreversible_number\", \"irreversible_id\", and \"irreversible_timestamp\" always.\nstatus: {}".
-                  format(json.dumps(status, indent=1)))
+            f"ERROR: getTransactionStatus is missing \"irreversible_number\", \"irreversible_id\", and \"irreversible_timestamp\".\nstatus: {json.dumps(status, indent=1)}"
 
         assert not knownTrx or "expiration" in status, \
-            Print("ERROR: getTransactionStatus should contain \"expiration\" always.\nstatus: {}".
-                  format(json.dumps(status, indent=1)))
+            f"ERROR: getTransactionStatus is missing \"expiration\".\nstatus: {json.dumps(status, indent=1)}"
 
         assert "earliest_tracked_block_id" in status and "earliest_tracked_block_number" in status, \
-            Print("ERROR: getTransactionStatus should contain \"earliest_tracked_block_id\" and \"earliest_tracked_block_number\" always.\nstatus: {}".
-                  format(json.dumps(status, indent=1)))
+            f"ERROR: getTransactionStatus is missing \"earliest_tracked_block_id\" and \"earliest_tracked_block_number\".\nstatus: {json.dumps(status, indent=1)}"
 
     validate(status[0])
 
-    numTries = 5
-    for i in range(0, numTries):
-        retStatus=testNode.getTransactionStatus(transId)
-        Print("retStatus: {}".format(retStatus))
-        state = getState(retStatus)
+    # since the transaction is traveling opposite to the flow of blocks (prodNodes[0] then prodNodes[1] etc) once the flow of blocks has progressed to testNode's
+    # nearest neighbor, it will at least be in its block if not one of the earlier ones
+    testNode.waitForProducer("defproducerb")
+    testNode.waitForProducer("defproducerc")
 
-        if isState(state, inBlockState, allowedState=localState):
-            status.append(copy.copy(retStatus))
-            break
-
-        Print("Failed to catch status as \"{}\" after {} of {}".format(localState, i + 1, numTries))
-        testNode.waitForNextBlock()
-
-    assert state == inBlockState, Print("ERROR: getTransactionStatus never returned a \"{}\" state, even after {} tries".format(localState, numTries))
+    retStatus=testNode.getTransactionStatus(transId)
+    state = getState(retStatus)
+    assert state == inBlockState, f"ERROR: getTransactionStatus never returned a \"{localState}\" state, even after {numTries} tries"
 
     validateTrxState(status[1], present=True)
 
     validate(status[1])
 
     assert status[0]["head_number"] < status[1]["head_number"], \
-        Print("ERROR: Successive calls to getTransactionStatus should return increasing values for \"head_number\".\n1st status: {}\n\n2nd status: {}".
-              format(json.dumps(status[0], indent=1), json.dumps(status[1], indent=1)))
+        f"ERROR: Successive calls to getTransactionStatus should return increasing values for \"head_number\".\n1st status: {json.dumps(status[0], indent=1)}\n\n2nd status: {json.dumps(status[1], indent=1)}"
 
     block_number = status[1]["block_number"]
     assert testNode.waitForIrreversibleBlock(block_number, timeout=180), \
-        Print("ERROR: Failed to advance irreversible block to {}. \nAPI Node info: {}\n\nProducer info: {}".
-              format(block_number, json.dumps(prod0.getInfo(), indent=1), json.dumps(testNode.getInfo(), indent=1)))
+        f"ERROR: Failed to advance irreversible block to {block_number}. \nAPI Node info: {json.dumps(prod0.getInfo(), indent=1)}\n\nProducer info: {json.dumps(testNode.getInfo(), indent=1)}"
 
     retStatus=testNode.getTransactionStatus(transId)
-    Print("retStatus: {}".format(retStatus))
+    Print(f"retStatus: {retStatus}")
     state = getState(retStatus)
     assert state == irreversibleState, \
-        Print("ERROR: Successive calls to getTransactionStatus should have resulted in eventual \"{}\" state.\n1st status: {}\n\n2nd status: {}\n\nfinal status: {}".
-              format(irreversibleState, json.dumps(status[0], indent=1), json.dumps(status[1], indent=1), json.dumps(retStatus, indent=1)))
+        f"ERROR: Successive calls to getTransactionStatus should have resulted in eventual \"{irreversibleState}\" state." + \
+        f"\n1st status: {json.dumps(status[0], indent=1)}\n\n2nd status: {json.dumps(status[1], indent=1)}" + \
+        f"\n\nfinal status: {json.dumps(retStatus, indent=1)}"
     validate(retStatus)
 
     leeway=4
@@ -225,15 +210,14 @@ try:
 
     recentBlockNum=testNode.getBlockNum()
     retStatus=testNode.getTransactionStatus(transId)
-    Print("retStatus: {}".format(retStatus))
+    Print(f"retStatus: {retStatus}")
     state = getState(retStatus)
     assert state == unknownState, \
-        Print("ERROR: Calling getTransactionStatus after the success_duration should have resulted in an \"{}\" state.\nstatus: {}".
-              format(irreversibleState, json.dumps(retStatus, indent=1)))
+        f"ERROR: Calling getTransactionStatus after the success_duration should have resulted in an \"{irreversibleState}\" state.\nstatus: {json.dumps(retStatus, indent=1)}"
     validateTrxState(retStatus, present=False)
     validate(retStatus, knownTrx=False)
     assert recentBlockNum <= retStatus["head_number"], \
-        Print("ERROR: Expected call to getTransactionStatus to return increasing values for \"head_number\" beyond previous known recent block number.")
+        "ERROR: Expected call to getTransactionStatus to return increasing values for \"head_number\" beyond previous known recent block number."
 
     testSuccessful=True
 

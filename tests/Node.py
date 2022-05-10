@@ -48,7 +48,7 @@ class Node(object):
         self.walletMgr=walletMgr
         self.missingTransaction=False
         self.popenProc=None           # initial process is started by launcher, this will only be set on relaunch
-        self.lastTransId=None
+        self.lastTrackedTransactionId=None
 
     def eosClientArgs(self):
         walletArgs=" " + self.walletMgr.getWalletEndpointArgs() if self.walletMgr is not None else ""
@@ -1055,7 +1055,7 @@ class Node(object):
         return info
 
     def getTransactionStatus(self, transId, silentErrors=False, exitOnError=True):
-        cmdDesc = "get transaction-status {}".format(transId)
+        cmdDesc = f"get transaction-status {transId}"
         status=self.processCleosCmd(cmdDesc, cmdDesc, silentErrors=silentErrors, exitOnError=exitOnError)
         return status
 
@@ -1326,7 +1326,7 @@ class Node(object):
             return
 
         transId=Node.getTransId(trans)
-        self.lastTransId=transId
+        self.lastTrackedTransactionId=transId
         if transId in self.transCache.keys():
             replaceMsg="replacing previous trans=\n%s" % json.dumps(self.transCache[transId], indent=2, sort_keys=True)
         else:
@@ -1341,8 +1341,8 @@ class Node(object):
 
         self.transCache[transId]=trans
 
-    def getLastSentTransactionId(self):
-        return self.lastTransId
+    def getLastTrackedTransactionId(self):
+        return self.lastTrackedTransactionId
 
     def reportStatus(self):
         Utils.Print("Node State:")
@@ -1399,7 +1399,10 @@ class Node(object):
             return self.getIrreversibleBlockNum() > currentLib
         return Utils.waitForBool(isLibAdvancing, timeout)
 
-    def waitForProducer(self, producer, timeout=60, exitOnError=False):
+    def waitForProducer(self, producer, timeout=None, exitOnError=False):
+        if timeout is None:
+            # default to the typical configuration of 21 producers, each producing 12 blocks in a row
+            timeout = 21 * 12;
         start=time.perf_counter()
         initialProducer=self.getInfo()["head_block_producer"]
         def isProducer():
