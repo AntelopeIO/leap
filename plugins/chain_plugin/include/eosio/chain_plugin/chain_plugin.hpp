@@ -314,7 +314,7 @@ public:
    fc::variant get_block(const get_block_params& params) const;
 
    struct get_block_info_params {
-      uint32_t block_num;
+      uint32_t block_num = 0;
    };
 
    fc::variant get_block_info(const get_block_info_params& params) const;
@@ -362,7 +362,7 @@ public:
       name        scope;
       name        table;
       name        payer;
-      uint32_t    count;
+      uint32_t    count = 0;
    };
    struct get_table_by_scope_result {
       vector<get_table_by_scope_result_row> rows;
