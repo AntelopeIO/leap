@@ -190,10 +190,10 @@ try:
         assert prodNodes[1].waitForNextBlock(), "Production node 1 should continue to advance, even after bridge node is killed"
 
     postInfo = prodNodes[1].getInfo()
-    Print("preInfo: {json.dumps(preInfo, indent=1)}\n\npostInfo: {json.dumps(postInfo, indent=1)}")
 
+    Print(f"getTransactionStatus returned status: {json.dumps(retStatus, indent=1)}")
     assert state == inBlockState, \
-        f"ERROR: getTransactionStatus didn't return \"{inBlockState}\" state.\n\nstatus: {json.dumps(retStatus, indent=1)}"
+        f"ERROR: getTransactionStatus didn't return \"{inBlockState}\" state."
 
     originalInBlockState = retStatus
 
@@ -202,7 +202,7 @@ try:
         errorExit(f"Failure - (non-production) node {nonProdNode.nodeNum} should have restarted")
 
     Print("Wait for LIB to move, which indicates prodNode[1] has forked out the branch")
-    assert cluster.waitOnClusterSync(blockAdvancing=1, blockType=BlockType.lib), \
+    assert prodNodes[1].waitForLibToAdvance(), \
         "ERROR: Network did not reach concensus after bridge node was restarted."
 
     Print("Wait till prodNodes[1] is reporting at least the same head block number as the forked out block")
@@ -257,14 +257,5 @@ try:
     testSuccessful=True
 finally:
     TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, killEosInstances=killEosInstances, killWallet=killWallet, keepLogs=keepLogs, cleanRun=killAll, dumpErrorDetails=dumpErrorDetails)
-
-    if not testSuccessful:
-        Print(Utils.FileDivider)
-        Print("Compare Blocklog")
-        cluster.compareBlockLogs()
-        Print(Utils.FileDivider)
-        Print("Print Blocklog")
-        cluster.printBlockLog()
-        Print(Utils.FileDivider)
 
 exit(0)
