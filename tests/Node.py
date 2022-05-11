@@ -1401,8 +1401,8 @@ class Node(object):
 
     def waitForProducer(self, producer, timeout=None, exitOnError=False):
         if timeout is None:
-            # default to the typical configuration of 21 producers, each producing 12 blocks in a row
-            timeout = 21 * 12;
+            # default to the typical configuration of 21 producers, each producing 12 blocks in a row (ever 1/2 second)
+            timeout = 21 * 6;
         start=time.perf_counter()
         initialProducer=self.getInfo()["head_block_producer"]
         def isProducer():
