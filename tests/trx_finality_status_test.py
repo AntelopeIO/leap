@@ -111,7 +111,7 @@ try:
     Print(f"test node info={json.dumps(nodeInfo, indent=1)}")
 
     def getState(status):
-        assert status is not None, Print("ERROR: getTransactionStatus failed to return any status")
+        assert status is not None, "ERROR: getTransactionStatus failed to return any status"
         assert "state" in status, \
             f"ERROR: getTransactionStatus returned a status object that didn't have a \"state\" field. state: {json.dumps(status, indent=1)}"
         return status["state"]
@@ -197,7 +197,6 @@ try:
         f"ERROR: Failed to advance irreversible block to {block_number}. \nAPI Node info: {json.dumps(prod0.getInfo(), indent=1)}\n\nProducer info: {json.dumps(testNode.getInfo(), indent=1)}"
 
     retStatus=testNode.getTransactionStatus(transId)
-    Print(f"retStatus: {retStatus}")
     state = getState(retStatus)
     assert state == irreversibleState, \
         f"ERROR: Successive calls to getTransactionStatus should have resulted in eventual \"{irreversibleState}\" state." + \
@@ -210,7 +209,6 @@ try:
 
     recentBlockNum=testNode.getBlockNum()
     retStatus=testNode.getTransactionStatus(transId)
-    Print(f"retStatus: {retStatus}")
     state = getState(retStatus)
     assert state == unknownState, \
         f"ERROR: Calling getTransactionStatus after the success_duration should have resulted in an \"{irreversibleState}\" state.\nstatus: {json.dumps(retStatus, indent=1)}"
