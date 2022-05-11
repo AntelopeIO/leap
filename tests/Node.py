@@ -1261,7 +1261,7 @@ class Node(object):
         def didNodeExitGracefully(popen, timeout):
             try:
                 popen.communicate(timeout=timeout)
-            except TimeoutExpired:
+            except subprocess.TimeoutExpired:
                 return False
             with open(popen.errfile.name, 'r') as f:
                 if "Reached configured maximum block 10; terminating" in f.read():
