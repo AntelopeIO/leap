@@ -1184,7 +1184,7 @@ launcher_def::write_logging_config_file(tn_node_def &node) {
   if( gelf_enabled ) pp.appenders.push_back( "net" );
   log_config.loggers.emplace_back( pp );
 
-  fc::logger_config tt( "transaction_tracing" );
+  fc::logger_config tt( "transaction_success_tracing" );
   tt.level = fc::log_level::debug;
   tt.appenders.push_back( "stderr" );
   if( gelf_enabled ) tt.appenders.push_back( "net" );

@@ -71,7 +71,7 @@ void platform_timer::start(fc::time_point tp) {
       p.get_future().get();
 #endif
       expired = 0;
-      my->timer->expires_after(std::chrono::microseconds((int)x.count()));
+      my->timer->expires_after(std::chrono::microseconds(x.count()));
       my->timer->async_wait([this](const boost::system::error_code& ec) {
          if(ec)
             return;

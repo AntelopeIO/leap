@@ -1091,7 +1091,8 @@ struct controller_impl {
    }
 
    transaction_trace_ptr apply_onerror( const generated_transaction& gtrx,
-                                        fc::time_point deadline,
+                                        fc::time_point block_deadline,
+                                        fc::microseconds max_transaction_time,
                                         fc::time_point start,
                                         uint32_t& cpu_time_to_bill_us, // only set on failure
                                         uint32_t billed_cpu_time_us,
@@ -1120,7 +1121,8 @@ struct controller_impl {
       const packed_transaction trx( std::move( etrx ) );
       transaction_context trx_context( self, trx, std::move(trx_timer), start );
 
-      trx_context.deadline = deadline;
+      trx_context.block_deadline = block_deadline;
+      trx_context.max_transaction_time_subjective = max_transaction_time;
       trx_context.explicit_billed_cpu_time = explicit_billed_cpu_time;
       trx_context.billed_cpu_time_us = billed_cpu_time_us;
       trx_context.enforce_whiteblacklist = enforce_whiteblacklist;
@@ -1204,14 +1206,19 @@ struct controller_impl {
              || failure_is_subjective(e);
    }
 
-   transaction_trace_ptr push_scheduled_transaction( const transaction_id_type& trxid, fc::time_point deadline, uint32_t billed_cpu_time_us, bool explicit_billed_cpu_time = false ) {
+   transaction_trace_ptr push_scheduled_transaction( const transaction_id_type& trxid,
+                                                     fc::time_point block_deadline, fc::microseconds max_transaction_time,
+                                                     uint32_t billed_cpu_time_us, bool explicit_billed_cpu_time = false )
+   {
       const auto& idx = db.get_index<generated_transaction_multi_index,by_trx_id>();
       auto itr = idx.find( trxid );
       EOS_ASSERT( itr != idx.end(), unknown_transaction_exception, "unknown transaction" );
-      return push_scheduled_transaction( *itr, deadline, billed_cpu_time_us, explicit_billed_cpu_time );
+      return push_scheduled_transaction( *itr, block_deadline, max_transaction_time, billed_cpu_time_us, explicit_billed_cpu_time );
    }
 
-   transaction_trace_ptr push_scheduled_transaction( const generated_transaction_object& gto, fc::time_point deadline, uint32_t billed_cpu_time_us, bool explicit_billed_cpu_time = false )
+   transaction_trace_ptr push_scheduled_transaction( const generated_transaction_object& gto,
+                                                     fc::time_point block_deadline, fc::microseconds max_transaction_time,
+                                                     uint32_t billed_cpu_time_us, bool explicit_billed_cpu_time = false )
    { try {
 
       const bool validating = !self.is_producing_block();
@@ -1270,7 +1277,8 @@ struct controller_impl {
       transaction_checktime_timer trx_timer(timer);
       transaction_context trx_context( self, *trx->packed_trx(), std::move(trx_timer) );
       trx_context.leeway =  fc::microseconds(0); // avoid stealing cpu resource
-      trx_context.deadline = deadline;
+      trx_context.block_deadline = block_deadline;
+      trx_context.max_transaction_time_subjective = max_transaction_time;
       trx_context.explicit_billed_cpu_time = explicit_billed_cpu_time;
       trx_context.billed_cpu_time_us = billed_cpu_time_us;
       trx_context.enforce_whiteblacklist = gtrx.sender.empty() ? true : !sender_avoids_whitelist_blacklist_enforcement( gtrx.sender );
@@ -1349,7 +1357,7 @@ struct controller_impl {
       if( gtrx.sender != account_name() && !(validating ? failure_is_subjective(*trace->except) : scheduled_failure_is_subjective(*trace->except))) {
          // Attempt error handling for the generated transaction.
 
-         auto error_trace = apply_onerror( gtrx, deadline, trx_context.pseudo_start,
+         auto error_trace = apply_onerror( gtrx, block_deadline, max_transaction_time, trx_context.pseudo_start,
                                            cpu_time_to_bill_us, billed_cpu_time_us, explicit_billed_cpu_time,
                                            trx_context.enforce_whiteblacklist );
          error_trace->failed_dtrx_trace = trace;
@@ -1436,12 +1444,13 @@ struct controller_impl {
     *  the pending block.
     */
    transaction_trace_ptr push_transaction( const transaction_metadata_ptr& trx,
-                                           fc::time_point deadline,
+                                           fc::time_point block_deadline,
+                                           fc::microseconds max_transaction_time,
                                            uint32_t billed_cpu_time_us,
                                            bool explicit_billed_cpu_time,
                                            uint32_t subjective_cpu_bill_us )
    {
-      EOS_ASSERT(deadline != fc::time_point(), transaction_exception, "deadline cannot be uninitialized");
+      EOS_ASSERT(block_deadline != fc::time_point(), transaction_exception, "deadline cannot be uninitialized");
 
       transaction_trace_ptr trace;
       try {
@@ -1465,7 +1474,8 @@ struct controller_impl {
          if ((bool)subjective_cpu_leeway && pending->_block_status == controller::block_status::incomplete) {
             trx_context.leeway = *subjective_cpu_leeway;
          }
-         trx_context.deadline = deadline;
+         trx_context.block_deadline = block_deadline;
+         trx_context.max_transaction_time_subjective = max_transaction_time;
          trx_context.explicit_billed_cpu_time = explicit_billed_cpu_time;
          trx_context.billed_cpu_time_us = billed_cpu_time_us;
          trx_context.subjective_cpu_bill_us = subjective_cpu_bill_us;
@@ -1711,7 +1721,8 @@ struct controller_impl {
                   in_trx_requiring_checks = old_value;
                });
             in_trx_requiring_checks = true;
-            auto trace = push_transaction( onbtrx, fc::time_point::maximum(), self.get_global_properties().configuration.min_transaction_cpu_usage, true, 0 );
+            auto trace = push_transaction( onbtrx, fc::time_point::maximum(), fc::microseconds::maximum(),
+                                           self.get_global_properties().configuration.min_transaction_cpu_usage, true, 0 );
             if( trace->except ) {
                wlog("onblock ${block_num} is REJECTING: ${entire_trace}",("block_num", head->block_num + 1)("entire_trace", trace));
             }
@@ -1973,10 +1984,10 @@ struct controller_impl {
                                                        : ( !!std::get<0>( trx_metas.at( packed_idx ) ) ?
                                                              std::get<0>( trx_metas.at( packed_idx ) )
                                                              : std::get<1>( trx_metas.at( packed_idx ) ).get() ) );
-               trace = push_transaction( trx_meta, fc::time_point::maximum(), receipt.cpu_usage_us, true, 0 );
+               trace = push_transaction( trx_meta, fc::time_point::maximum(), fc::microseconds::maximum(), receipt.cpu_usage_us, true, 0 );
                ++packed_idx;
             } else if( std::holds_alternative<transaction_id_type>(receipt.trx) ) {
-               trace = push_scheduled_transaction( std::get<transaction_id_type>(receipt.trx), fc::time_point::maximum(), receipt.cpu_usage_us, true );
+               trace = push_scheduled_transaction( std::get<transaction_id_type>(receipt.trx), fc::time_point::maximum(), fc::microseconds::maximum(), receipt.cpu_usage_us, true );
             } else {
                EOS_ASSERT( false, block_validate_exception, "encountered unexpected receipt type" );
             }
@@ -2802,21 +2813,23 @@ void controller::push_block( std::future<block_state_ptr>& block_state_future,
    my->push_block( block_state_future, forked_branch_cb, trx_lookup );
 }
 
-transaction_trace_ptr controller::push_transaction( const transaction_metadata_ptr& trx, fc::time_point deadline,
+transaction_trace_ptr controller::push_transaction( const transaction_metadata_ptr& trx,
+                                                    fc::time_point block_deadline, fc::microseconds max_transaction_time,
                                                     uint32_t billed_cpu_time_us, bool explicit_billed_cpu_time,
                                                     uint32_t subjective_cpu_bill_us ) {
    validate_db_available_size();
    EOS_ASSERT( get_read_mode() != db_read_mode::IRREVERSIBLE, transaction_type_exception, "push transaction not allowed in irreversible mode" );
    EOS_ASSERT( trx && !trx->implicit && !trx->scheduled, transaction_type_exception, "Implicit/Scheduled transaction not allowed" );
-   return my->push_transaction(trx, deadline, billed_cpu_time_us, explicit_billed_cpu_time, subjective_cpu_bill_us );
+   return my->push_transaction(trx, block_deadline, max_transaction_time, billed_cpu_time_us, explicit_billed_cpu_time, subjective_cpu_bill_us );
 }
 
-transaction_trace_ptr controller::push_scheduled_transaction( const transaction_id_type& trxid, fc::time_point deadline,
+transaction_trace_ptr controller::push_scheduled_transaction( const transaction_id_type& trxid,
+                                                              fc::time_point block_deadline, fc::microseconds max_transaction_time,
                                                               uint32_t billed_cpu_time_us, bool explicit_billed_cpu_time )
 {
    EOS_ASSERT( get_read_mode() != db_read_mode::IRREVERSIBLE, transaction_type_exception, "push scheduled transaction not allowed in irreversible mode" );
    validate_db_available_size();
-   return my->push_scheduled_transaction( trxid, deadline, billed_cpu_time_us, explicit_billed_cpu_time );
+   return my->push_scheduled_transaction( trxid, block_deadline, max_transaction_time, billed_cpu_time_us, explicit_billed_cpu_time );
 }
 
 const flat_set<account_name>& controller::get_actor_whitelist() const {
