@@ -14,7 +14,6 @@
 #include <eosio/chain/contract_table_objects.hpp>
 #include <eosio/chain/generated_transaction_object.hpp>
 #include <eosio/chain/transaction_object.hpp>
-#include <eosio/chain/reversible_block_object.hpp>
 #include <eosio/chain/genesis_intrinsics.hpp>
 #include <eosio/chain/whitelisted_intrinsics.hpp>
 #include <eosio/chain/database_header_object.hpp>
@@ -229,7 +228,6 @@ struct controller_impl {
    controller&                     self;
    std::function<void()>           shutdown;
    chainbase::database             db;
-   chainbase::database             reversible_blocks; ///< a special database to persist blocks that have successfully been applied but are still reversible
    block_log                       blog;
    std::optional<pending_state>    pending;
    block_state_ptr                 head;
@@ -263,11 +261,6 @@ struct controller_impl {
       if( !prev ) {
          EOS_ASSERT( fork_db.root()->id == head->header.previous, block_validate_exception, "attempt to pop beyond last irreversible block" );
          prev = fork_db.root();
-      }
-
-      if( const auto* b = reversible_blocks.find<reversible_block_object,by_num>(head->block_num) )
-      {
-         reversible_blocks.remove( *b );
       }
 
       if ( read_mode == db_read_mode::SPECULATIVE ) {
@@ -306,11 +299,8 @@ struct controller_impl {
     db( cfg.state_dir,
         cfg.read_only ? database::read_only : database::read_write,
         cfg.state_size, false, cfg.db_map_mode ),
-    reversible_blocks( cfg.blocks_dir/config::reversible_blocks_dir_name,
-        cfg.read_only ? database::read_only : database::read_write,
-        cfg.reversible_cache_size, false, cfg.db_map_mode ),
     blog( cfg.blocks_dir ),
-    fork_db( cfg.state_dir ),
+    fork_db( cfg.blocks_dir / config::reversible_blocks_dir_name ),
     wasmif( cfg.wasm_runtime, cfg.eosvmoc_tierup, db, cfg.state_dir, cfg.eosvmoc_config, !cfg.profile_accounts.empty() ),
     resource_limits( db, [&s]() { return s.get_deep_mind_logger(); }),
     authorization( s, db ),
@@ -421,7 +411,6 @@ struct controller_impl {
 
       const auto branch = fork_db.fetch_branch( fork_head->id, fork_head->dpos_irreversible_blocknum );
       try {
-         const auto& rbi = reversible_blocks.get_index<reversible_block_index,by_num>();
 
          for( auto bitr = branch.rbegin(); bitr != branch.rend(); ++bitr ) {
             if( read_mode == db_read_mode::IRREVERSIBLE ) {
@@ -436,12 +425,6 @@ struct controller_impl {
             root_id = (*bitr)->id;
 
             blog.append( (*bitr)->block );
-
-            auto rbitr = rbi.begin();
-            while( rbitr != rbi.end() && rbitr->blocknum <= (*bitr)->block_num ) {
-               reversible_blocks.remove( *rbitr );
-               rbitr = rbi.begin();
-            }
          }
       } catch( std::exception& ) {
          if( root_id != fork_db.root()->id ) {
@@ -484,15 +467,20 @@ struct controller_impl {
    }
 
    void replay(std::function<bool()> check_shutdown) {
+      if( !blog.head() && !fork_db.root() ) {
+         fork_db.reset( *head );
+         return;
+      }
+
       auto blog_head = blog.head();
-      auto blog_head_time = blog_head->timestamp.to_time_point();
+      auto blog_head_time = blog_head ? blog_head->timestamp.to_time_point() : fork_db.root()->header.timestamp.to_time_point();
       replay_head_time = blog_head_time;
       auto start_block_num = head->block_num + 1;
       auto start = fc::time_point::now();
 
       std::exception_ptr except_ptr;
 
-      if( start_block_num <= blog_head->block_num() ) {
+      if( blog_head && start_block_num <= blog_head->block_num() ) {
          ilog( "existing block log, attempting to replay from ${s} to ${n} blocks",
                ("s", start_block_num)("n", blog_head->block_num()) );
          try {
@@ -509,17 +497,20 @@ struct controller_impl {
          ilog( "${n} irreversible blocks replayed", ("n", 1 + head->block_num - start_block_num) );
 
          auto pending_head = fork_db.pending_head();
-         if( pending_head->block_num < head->block_num || head->block_num < fork_db.root()->block_num ) {
-            ilog( "resetting fork database with new last irreversible block as the new root: ${id}",
-                  ("id", head->id) );
-            fork_db.reset( *head );
-         } else if( head->block_num != fork_db.root()->block_num ) {
-            auto new_root = fork_db.search_on_branch( pending_head->id, head->block_num );
-            EOS_ASSERT( new_root, fork_database_exception, "unexpected error: could not find new LIB in fork database" );
-            ilog( "advancing fork database root to new last irreversible block within existing fork database: ${id}",
-                  ("id", new_root->id) );
-            fork_db.mark_valid( new_root );
-            fork_db.advance_root( new_root->id );
+         if( pending_head ) {
+            ilog( "fork database head ${h}, root ${r}", ("h", pending_head->block_num)( "r", fork_db.root()->block_num ) );
+            if( pending_head->block_num < head->block_num || head->block_num < fork_db.root()->block_num ) {
+               ilog( "resetting fork database with new last irreversible block as the new root: ${id}", ("id", head->id) );
+               fork_db.reset( *head );
+            } else if( head->block_num != fork_db.root()->block_num ) {
+               auto new_root = fork_db.search_on_branch( pending_head->id, head->block_num );
+               EOS_ASSERT( new_root, fork_database_exception,
+                           "unexpected error: could not find new LIB in fork database" );
+               ilog( "advancing fork database root to new last irreversible block within existing fork database: ${id}",
+                     ("id", new_root->id) );
+               fork_db.mark_valid( new_root );
+               fork_db.advance_root( new_root->id );
+            }
          }
 
          // if the irreverible log is played without undo sessions enabled, we need to sync the
@@ -530,14 +521,21 @@ struct controller_impl {
          ilog( "no irreversible blocks need to be replayed" );
       }
 
-      if( !except_ptr && !check_shutdown() ) {
+      if( !except_ptr && !check_shutdown() && fork_db.head() ) {
+         auto head_block_num = head->block_num;
+         auto branch = fork_db.fetch_branch( fork_db.head()->id );
          int rev = 0;
-         while( auto obj = reversible_blocks.find<reversible_block_object,by_num>(head->block_num+1) ) {
+         for( auto i = branch.rbegin(); i != branch.rend(); ++i ) {
             if( check_shutdown() ) break;
+            if( (*i)->block_num <= head_block_num ) continue;
             ++rev;
-            replay_push_block( obj->get_block(), controller::block_status::validated );
+            replay_push_block( (*i)->block, controller::block_status::validated );
          }
          ilog( "${n} reversible blocks replayed", ("n",rev) );
+      }
+
+      if( !fork_db.head() ) {
+         fork_db.reset( *head );
       }
 
       auto end = fc::time_point::now();
@@ -657,8 +655,6 @@ struct controller_impl {
    }
 
    void init(std::function<bool()> check_shutdown) {
-      uint32_t lib_num = (blog.head() ? blog.head()->block_num() : fork_db.root()->block_num);
-
       auto header_itr = validate_db_version( db );
 
       {
@@ -676,10 +672,7 @@ struct controller_impl {
          });
       }
 
-      // At this point head != nullptr && fork_db.head() != nullptr && fork_db.root() != nullptr.
-      // Furthermore, fork_db.root()->block_num <= lib_num.
-      // Also, even though blog.head() may still be nullptr, blog.first_block_num() is guaranteed to be lib_num + 1.
-
+      // At this point head != nullptr
       EOS_ASSERT( db.revision() >= head->block_num, fork_database_exception,
                   "fork database head (${head}) is inconsistent with state (${db})",
                   ("db",db.revision())("head",head->block_num) );
@@ -695,76 +688,17 @@ struct controller_impl {
 
       protocol_features.init( db );
 
-      const auto& rbi = reversible_blocks.get_index<reversible_block_index,by_num>();
-      auto last_block_num = lib_num;
-
-      if( read_mode == db_read_mode::IRREVERSIBLE ) {
-         // ensure there are no reversible blocks
-         auto itr = rbi.begin();
-         if( itr != rbi.end() ) {
-            wlog( "read_mode has changed to irreversible: erasing reversible blocks" );
-         }
-         for( ; itr != rbi.end(); itr = rbi.begin() )
-            reversible_blocks.remove( *itr );
-      } else {
-         auto itr = rbi.begin();
-         for( ; itr != rbi.end() && itr->blocknum <= lib_num; itr = rbi.begin() )
-            reversible_blocks.remove( *itr );
-
-         EOS_ASSERT( itr == rbi.end() || itr->blocknum == lib_num + 1, reversible_blocks_exception,
-                     "gap exists between last irreversible block (${lib}) and first reversible block (${first_reversible_block_num})",
-                     ("lib", lib_num)("first_reversible_block_num", itr->blocknum)
-         );
-
-         auto ritr = rbi.rbegin();
-
-         if( ritr != rbi.rend() ) {
-            last_block_num = ritr->blocknum;
-         }
-
-         EOS_ASSERT( head->block_num <= last_block_num, reversible_blocks_exception,
-                     "head block (${head_num}) is greater than the last locally stored block (${last_block_num})",
-                     ("head_num", head->block_num)("last_block_num", last_block_num)
-         );
-
-         auto pending_head = fork_db.pending_head();
-
-         if( ritr != rbi.rend()
-             && lib_num < pending_head->block_num
-             && pending_head->block_num <= last_block_num
-         ) {
-            auto rbitr = rbi.find( pending_head->block_num );
-            EOS_ASSERT( rbitr != rbi.end(), reversible_blocks_exception, "pending head block not found in reversible blocks");
-            auto rev_id = rbitr->get_block_id();
-            EOS_ASSERT( rev_id == pending_head->id,
-                        reversible_blocks_exception,
-                        "mismatch in block id of pending head block ${num} in reversible blocks database: "
-                        "expected: ${expected}, actual: ${actual}",
-                        ("num", pending_head->block_num)("expected", pending_head->id)("actual", rev_id)
-            );
-         } else if( ritr != rbi.rend() && last_block_num < pending_head->block_num ) {
-            const auto b = fork_db.search_on_branch( pending_head->id, last_block_num );
-            FC_ASSERT( b, "unexpected violation of invariants" );
-            auto rev_id = ritr->get_block_id();
-            EOS_ASSERT( rev_id == b->id,
-                        reversible_blocks_exception,
-                        "mismatch in block id of last block (${num}) in reversible blocks database: "
-                        "expected: ${expected}, actual: ${actual}",
-                        ("num", last_block_num)("expected", b->id)("actual", rev_id)
-            );
-         }
-         // else no checks needed since fork_db will be completely reset on replay anyway
-      }
-
       if (auto dm_logger = get_deep_mind_logger()) {
          dm_logger->on_startup(db, head->block_num);
       }
 
-      if( last_block_num > head->block_num ) {
-         replay( check_shutdown ); // replay any irreversible and reversible blocks ahead of current head
-      }
+      replay( check_shutdown ); // replay any irreversible and reversible blocks ahead of current head
 
       if( check_shutdown() ) return;
+
+      // At this point head != nullptr && fork_db.head() != nullptr && fork_db.root() != nullptr.
+      // Furthermore, fork_db.root()->block_num <= lib_num.
+      // Also, even though blog.head() may still be nullptr, blog.first_block_num() is guaranteed to be lib_num + 1.
 
       if( read_mode != db_read_mode::IRREVERSIBLE
           && fork_db.pending_head()->id != fork_db.head()->id
@@ -788,8 +722,6 @@ struct controller_impl {
    }
 
    void add_indices() {
-      reversible_blocks.add_index<reversible_block_index>();
-
       controller_index_set::add_indices(db);
       contract_database_index_set::add_indices(db);
 
@@ -868,7 +800,7 @@ struct controller_impl {
       });
 
       snapshot->write_section<block_state>([this]( auto &section ){
-         section.template add_row<block_header_state>(*fork_db.head(), db);
+         section.template add_row<block_header_state>(*head, db);
       });
 
       controller_index_set::walk_indices([this, &snapshot]( auto utils ){
@@ -942,10 +874,8 @@ struct controller_impl {
                      ("block_log_last_num", blog_end)
          );
 
-         fork_db.reset( head_header_state );
-         head = fork_db.head();
-         snapshot_head_block = head->block_num;
-
+         head = std::make_shared<block_state>();
+         static_cast<block_header_state&>(*head) = head_header_state;
       }
 
       controller_index_set::walk_indices([this, &snapshot, &header]( auto utils ){
@@ -1161,7 +1091,8 @@ struct controller_impl {
    }
 
    transaction_trace_ptr apply_onerror( const generated_transaction& gtrx,
-                                        fc::time_point deadline,
+                                        fc::time_point block_deadline,
+                                        fc::microseconds max_transaction_time,
                                         fc::time_point start,
                                         uint32_t& cpu_time_to_bill_us, // only set on failure
                                         uint32_t billed_cpu_time_us,
@@ -1190,7 +1121,8 @@ struct controller_impl {
       const packed_transaction trx( std::move( etrx ) );
       transaction_context trx_context( self, trx, std::move(trx_timer), start );
 
-      trx_context.deadline = deadline;
+      trx_context.block_deadline = block_deadline;
+      trx_context.max_transaction_time_subjective = max_transaction_time;
       trx_context.explicit_billed_cpu_time = explicit_billed_cpu_time;
       trx_context.billed_cpu_time_us = billed_cpu_time_us;
       trx_context.enforce_whiteblacklist = enforce_whiteblacklist;
@@ -1274,14 +1206,19 @@ struct controller_impl {
              || failure_is_subjective(e);
    }
 
-   transaction_trace_ptr push_scheduled_transaction( const transaction_id_type& trxid, fc::time_point deadline, uint32_t billed_cpu_time_us, bool explicit_billed_cpu_time = false ) {
+   transaction_trace_ptr push_scheduled_transaction( const transaction_id_type& trxid,
+                                                     fc::time_point block_deadline, fc::microseconds max_transaction_time,
+                                                     uint32_t billed_cpu_time_us, bool explicit_billed_cpu_time = false )
+   {
       const auto& idx = db.get_index<generated_transaction_multi_index,by_trx_id>();
       auto itr = idx.find( trxid );
       EOS_ASSERT( itr != idx.end(), unknown_transaction_exception, "unknown transaction" );
-      return push_scheduled_transaction( *itr, deadline, billed_cpu_time_us, explicit_billed_cpu_time );
+      return push_scheduled_transaction( *itr, block_deadline, max_transaction_time, billed_cpu_time_us, explicit_billed_cpu_time );
    }
 
-   transaction_trace_ptr push_scheduled_transaction( const generated_transaction_object& gto, fc::time_point deadline, uint32_t billed_cpu_time_us, bool explicit_billed_cpu_time = false )
+   transaction_trace_ptr push_scheduled_transaction( const generated_transaction_object& gto,
+                                                     fc::time_point block_deadline, fc::microseconds max_transaction_time,
+                                                     uint32_t billed_cpu_time_us, bool explicit_billed_cpu_time = false )
    { try {
 
       const bool validating = !self.is_producing_block();
@@ -1340,7 +1277,8 @@ struct controller_impl {
       transaction_checktime_timer trx_timer(timer);
       transaction_context trx_context( self, *trx->packed_trx(), std::move(trx_timer) );
       trx_context.leeway =  fc::microseconds(0); // avoid stealing cpu resource
-      trx_context.deadline = deadline;
+      trx_context.block_deadline = block_deadline;
+      trx_context.max_transaction_time_subjective = max_transaction_time;
       trx_context.explicit_billed_cpu_time = explicit_billed_cpu_time;
       trx_context.billed_cpu_time_us = billed_cpu_time_us;
       trx_context.enforce_whiteblacklist = gtrx.sender.empty() ? true : !sender_avoids_whitelist_blacklist_enforcement( gtrx.sender );
@@ -1419,7 +1357,7 @@ struct controller_impl {
       if( gtrx.sender != account_name() && !(validating ? failure_is_subjective(*trace->except) : scheduled_failure_is_subjective(*trace->except))) {
          // Attempt error handling for the generated transaction.
 
-         auto error_trace = apply_onerror( gtrx, deadline, trx_context.pseudo_start,
+         auto error_trace = apply_onerror( gtrx, block_deadline, max_transaction_time, trx_context.pseudo_start,
                                            cpu_time_to_bill_us, billed_cpu_time_us, explicit_billed_cpu_time,
                                            trx_context.enforce_whiteblacklist );
          error_trace->failed_dtrx_trace = trace;
@@ -1506,12 +1444,13 @@ struct controller_impl {
     *  the pending block.
     */
    transaction_trace_ptr push_transaction( const transaction_metadata_ptr& trx,
-                                           fc::time_point deadline,
+                                           fc::time_point block_deadline,
+                                           fc::microseconds max_transaction_time,
                                            uint32_t billed_cpu_time_us,
                                            bool explicit_billed_cpu_time,
                                            uint32_t subjective_cpu_bill_us )
    {
-      EOS_ASSERT(deadline != fc::time_point(), transaction_exception, "deadline cannot be uninitialized");
+      EOS_ASSERT(block_deadline != fc::time_point(), transaction_exception, "deadline cannot be uninitialized");
 
       transaction_trace_ptr trace;
       try {
@@ -1535,7 +1474,8 @@ struct controller_impl {
          if ((bool)subjective_cpu_leeway && pending->_block_status == controller::block_status::incomplete) {
             trx_context.leeway = *subjective_cpu_leeway;
          }
-         trx_context.deadline = deadline;
+         trx_context.block_deadline = block_deadline;
+         trx_context.max_transaction_time_subjective = max_transaction_time;
          trx_context.explicit_billed_cpu_time = explicit_billed_cpu_time;
          trx_context.billed_cpu_time_us = billed_cpu_time_us;
          trx_context.subjective_cpu_bill_us = subjective_cpu_bill_us;
@@ -1781,7 +1721,8 @@ struct controller_impl {
                   in_trx_requiring_checks = old_value;
                });
             in_trx_requiring_checks = true;
-            auto trace = push_transaction( onbtrx, fc::time_point::maximum(), self.get_global_properties().configuration.min_transaction_cpu_usage, true, 0 );
+            auto trace = push_transaction( onbtrx, fc::time_point::maximum(), fc::microseconds::maximum(),
+                                           self.get_global_properties().configuration.min_transaction_cpu_usage, true, 0 );
             if( trace->except ) {
                wlog("onblock ${block_num} is REJECTING: ${entire_trace}",("block_num", head->block_num + 1)("entire_trace", trace));
             }
@@ -1888,13 +1829,6 @@ struct controller_impl {
             emit( self.accepted_block_header, bsp );
             head = fork_db.head();
             EOS_ASSERT( bsp == head, fork_database_exception, "committed block did not become the new head in fork database");
-         }
-
-         if( !replay_head_time && read_mode != db_read_mode::IRREVERSIBLE ) {
-            reversible_blocks.create<reversible_block_object>( [&]( auto& ubo ) {
-               ubo.blocknum = bsp->block_num;
-               ubo.set_block( bsp->block );
-            });
          }
 
          if (auto dm_logger = get_deep_mind_logger()) {
@@ -2050,10 +1984,10 @@ struct controller_impl {
                                                        : ( !!std::get<0>( trx_metas.at( packed_idx ) ) ?
                                                              std::get<0>( trx_metas.at( packed_idx ) )
                                                              : std::get<1>( trx_metas.at( packed_idx ) ).get() ) );
-               trace = push_transaction( trx_meta, fc::time_point::maximum(), receipt.cpu_usage_us, true, 0 );
+               trace = push_transaction( trx_meta, fc::time_point::maximum(), fc::microseconds::maximum(), receipt.cpu_usage_us, true, 0 );
                ++packed_idx;
             } else if( std::holds_alternative<transaction_id_type>(receipt.trx) ) {
-               trace = push_scheduled_transaction( std::get<transaction_id_type>(receipt.trx), fc::time_point::maximum(), receipt.cpu_usage_us, true );
+               trace = push_scheduled_transaction( std::get<transaction_id_type>(receipt.trx), fc::time_point::maximum(), fc::microseconds::maximum(), receipt.cpu_usage_us, true );
             } else {
                EOS_ASSERT( false, block_validate_exception, "encountered unexpected receipt type" );
             }
@@ -2192,7 +2126,6 @@ struct controller_impl {
 
    void replay_push_block( const signed_block_ptr& b, controller::block_status s ) {
       self.validate_db_available_size();
-      self.validate_reversible_available_size();
 
       EOS_ASSERT(!pending, block_validate_exception, "it is not valid to push a block when there is a pending block");
 
@@ -2858,7 +2791,6 @@ block_state_ptr controller::finalize_block( const signer_callback_type& signer_c
 
 void controller::commit_block() {
    validate_db_available_size();
-   validate_reversible_available_size();
    my->commit_block(true);
 }
 
@@ -2878,25 +2810,26 @@ void controller::push_block( std::future<block_state_ptr>& block_state_future,
                              const forked_branch_callback& forked_branch_cb, const trx_meta_cache_lookup& trx_lookup )
 {
    validate_db_available_size();
-   validate_reversible_available_size();
    my->push_block( block_state_future, forked_branch_cb, trx_lookup );
 }
 
-transaction_trace_ptr controller::push_transaction( const transaction_metadata_ptr& trx, fc::time_point deadline,
+transaction_trace_ptr controller::push_transaction( const transaction_metadata_ptr& trx,
+                                                    fc::time_point block_deadline, fc::microseconds max_transaction_time,
                                                     uint32_t billed_cpu_time_us, bool explicit_billed_cpu_time,
                                                     uint32_t subjective_cpu_bill_us ) {
    validate_db_available_size();
    EOS_ASSERT( get_read_mode() != db_read_mode::IRREVERSIBLE, transaction_type_exception, "push transaction not allowed in irreversible mode" );
    EOS_ASSERT( trx && !trx->implicit && !trx->scheduled, transaction_type_exception, "Implicit/Scheduled transaction not allowed" );
-   return my->push_transaction(trx, deadline, billed_cpu_time_us, explicit_billed_cpu_time, subjective_cpu_bill_us );
+   return my->push_transaction(trx, block_deadline, max_transaction_time, billed_cpu_time_us, explicit_billed_cpu_time, subjective_cpu_bill_us );
 }
 
-transaction_trace_ptr controller::push_scheduled_transaction( const transaction_id_type& trxid, fc::time_point deadline,
+transaction_trace_ptr controller::push_scheduled_transaction( const transaction_id_type& trxid,
+                                                              fc::time_point block_deadline, fc::microseconds max_transaction_time,
                                                               uint32_t billed_cpu_time_us, bool explicit_billed_cpu_time )
 {
    EOS_ASSERT( get_read_mode() != db_read_mode::IRREVERSIBLE, transaction_type_exception, "push scheduled transaction not allowed in irreversible mode" );
    validate_db_available_size();
-   return my->push_scheduled_transaction( trxid, deadline, billed_cpu_time_us, explicit_billed_cpu_time );
+   return my->push_scheduled_transaction( trxid, block_deadline, max_transaction_time, billed_cpu_time_us, explicit_billed_cpu_time );
 }
 
 const flat_set<account_name>& controller::get_actor_whitelist() const {
@@ -3034,9 +2967,7 @@ uint32_t controller::last_irreversible_block_num() const {
 }
 
 block_id_type controller::last_irreversible_block_id() const {
-   auto lib_num = last_irreversible_block_num();
-
-   return get_block_id_for_num( lib_num );
+   return my->fork_db.root()->id;
 }
 
 time_point controller::last_irreversible_block_time() const {
@@ -3054,7 +2985,7 @@ const global_property_object& controller::get_global_properties()const {
 signed_block_ptr controller::fetch_block_by_id( block_id_type id )const {
    auto state = my->fork_db.get_block(id);
    if( state && state->block ) return state->block;
-   auto bptr = fetch_block_by_number( block_header::num_from_id(id) );
+   auto bptr = my->blog.read_block_by_num( block_header::num_from_id(id) );
    if( bptr && bptr->calculate_id() == id ) return bptr;
    return signed_block_ptr();
 }
@@ -3074,18 +3005,11 @@ block_state_ptr controller::fetch_block_state_by_id( block_id_type id )const {
 }
 
 block_state_ptr controller::fetch_block_state_by_number( uint32_t block_num )const  { try {
-   const auto& rev_blocks = my->reversible_blocks.get_index<reversible_block_index,by_num>();
-   auto objitr = rev_blocks.find(block_num);
-
-   if( objitr == rev_blocks.end() ) {
-      if( my->read_mode == db_read_mode::IRREVERSIBLE ) {
-         return my->fork_db.search_on_branch( my->fork_db.pending_head()->id, block_num );
-      } else {
-         return block_state_ptr();
-      }
+   if( my->read_mode == db_read_mode::IRREVERSIBLE ) {
+      return my->fork_db.search_on_branch( my->fork_db.pending_head()->id, block_num );
+   } else {
+      return my->fork_db.search_on_branch( my->fork_db.head()->id, block_num );
    }
-
-   return my->fork_db.get_block( objitr->get_block_id() );
 } FC_CAPTURE_AND_RETHROW( (block_num) ) }
 
 block_id_type controller::get_block_id_for_num( uint32_t block_num )const { try {
@@ -3099,17 +3023,8 @@ block_id_type controller::get_block_id_for_num( uint32_t block_num )const { try 
    bool find_in_blog = (blog_head && block_num <= blog_head->block_num());
 
    if( !find_in_blog ) {
-      if( my->read_mode != db_read_mode::IRREVERSIBLE ) {
-         const auto& rev_blocks = my->reversible_blocks.get_index<reversible_block_index,by_num>();
-         auto objitr = rev_blocks.find(block_num);
-         if( objitr != rev_blocks.end() ) {
-            return objitr->get_block_id();
-         }
-      } else {
-         auto bsp = my->fork_db.search_on_branch( my->fork_db.pending_head()->id, block_num );
-
-         if( bsp ) return bsp->id;
-      }
+      auto bsp = fetch_block_state_by_number( block_num );
+      if( bsp ) return bsp->id;
    }
 
    auto id = my->blog.read_block_id_by_num(block_num);
@@ -3220,7 +3135,7 @@ std::optional<producer_authority_schedule> controller::proposed_producers()const
    return producer_authority_schedule::from_shared(gpo.proposed_schedule);
 }
 
-bool controller::light_validation_allowed(bool replay_opts_disabled_by_policy) const {
+bool controller::light_validation_allowed() const {
    if (!my->pending || my->in_trx_requiring_checks) {
       return false;
    }
@@ -3228,7 +3143,8 @@ bool controller::light_validation_allowed(bool replay_opts_disabled_by_policy) c
    const auto pb_status = my->pending->_block_status;
 
    // in a pending irreversible or previously validated block and we have forcing all checks
-   const bool consider_skipping_on_replay = (pb_status == block_status::irreversible || pb_status == block_status::validated) && !replay_opts_disabled_by_policy;
+   const bool consider_skipping_on_replay =
+         (pb_status == block_status::irreversible || pb_status == block_status::validated) && !my->conf.force_all_checks;
 
    // OR in a signed block and in light validation mode
    const bool consider_skipping_on_validate = (pb_status == block_status::complete &&
@@ -3239,7 +3155,11 @@ bool controller::light_validation_allowed(bool replay_opts_disabled_by_policy) c
 
 
 bool controller::skip_auth_check() const {
-   return light_validation_allowed(my->conf.force_all_checks);
+   return light_validation_allowed();
+}
+
+bool controller::skip_trx_checks() const {
+   return light_validation_allowed();
 }
 
 bool controller::skip_db_sessions( block_status bs ) const {
@@ -3249,16 +3169,12 @@ bool controller::skip_db_sessions( block_status bs ) const {
       && !my->in_trx_requiring_checks;
 }
 
-bool controller::skip_db_sessions( ) const {
+bool controller::skip_db_sessions() const {
    if (my->pending) {
       return skip_db_sessions(my->pending->_block_status);
    } else {
       return false;
    }
-}
-
-bool controller::skip_trx_checks() const {
-   return light_validation_allowed(my->conf.disable_replay_opts);
 }
 
 bool controller::is_trusted_producer( const account_name& producer) const {
@@ -3375,12 +3291,6 @@ void controller::validate_db_available_size() const {
    const auto free = db().get_segment_manager()->get_free_memory();
    const auto guard = my->conf.state_guard_size;
    EOS_ASSERT(free >= guard, database_guard_exception, "database free: ${f}, guard size: ${g}", ("f", free)("g",guard));
-}
-
-void controller::validate_reversible_available_size() const {
-   const auto free = my->reversible_blocks.get_segment_manager()->get_free_memory();
-   const auto guard = my->conf.reversible_guard_size;
-   EOS_ASSERT(free >= guard, reversible_guard_exception, "reversible free: ${f}, guard size: ${g}", ("f", free)("g",guard));
 }
 
 bool controller::is_protocol_feature_activated( const digest_type& feature_digest )const {

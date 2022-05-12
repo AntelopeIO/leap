@@ -2651,12 +2651,6 @@ namespace eosio {
 
       const unsigned long trx_in_progress_sz = this->trx_in_progress_size.load();
 
-      auto report_dropping_trx = [](const transaction_id_type& trx_id, unsigned long trx_in_progress_sz) {
-         char reason[72];
-         snprintf(reason, 72, "Dropping trx, too many trx in progress %lu bytes", trx_in_progress_sz);
-         my_impl->producer_plug->log_failed_transaction(trx_id, reason);
-      };
-
       auto ds = pending_message_buffer.create_datastream();
       const auto buff_size_start = pending_message_buffer.bytes_to_read();
       unsigned_int which{};
@@ -2664,7 +2658,9 @@ namespace eosio {
       shared_ptr<packed_transaction> ptr = std::make_shared<packed_transaction>();
       fc::raw::unpack( ds, *ptr );
       if( trx_in_progress_sz > def_max_trx_in_progress_size) {
-         report_dropping_trx(ptr->id(), trx_in_progress_sz);
+         char reason[72];
+         snprintf(reason, 72, "Dropping trx, too many trx in progress %lu bytes", trx_in_progress_sz);
+         my_impl->producer_plug->log_failed_transaction(ptr->id(), ptr, reason);
          return true;
       }
       bool have_trx = my_impl->dispatcher->have_txn( ptr->id() );
@@ -2912,7 +2908,11 @@ namespace eosio {
       }
       if( msg.reason == wrong_version ) {
          if( !retry ) no_retry = fatal_other; // only retry once on wrong version
-      } else {
+      }
+      else if ( msg.reason == benign_other ) {
+         if ( retry ) peer_dlog( this, "received benign_other reason, retrying to connect");
+      }
+      else {
          retry = false;
       }
       flush_queues();

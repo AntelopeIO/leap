@@ -1,10 +1,14 @@
 ## Description
 
-Gets current blockchain state and, if available, transaction information given the transaction id
+Gets current blockchain state and, if available, transaction information given the transaction id.
+
+For query to work, the transaction finality status feature must be enabled by configuring
+the chain plugin with the config option "--transaction-finality-status-max-storage-size-gb <size>"
+in nodeos.
 
 ## Position Parameters
 
-- `id` _TEXT_ - The string ID of the transaction to retrieve status about (required)
+- `id` _TEXT_ - The transaction ID of the transaction to retrieve status about (required)
 
 ## Options
 - `-h` - --help                   Print this help message and exit
@@ -30,6 +34,7 @@ This command simply returns the current chain status and transaction status info
     "irreversible_number": 25,
     "irreversible_id": "0000001922118216bc16bf2c60d950598d80af3beca820eab751f7beecdb29e4",
     "irreversible_timestamp": "2022-04-27T16:10:54.000",
-    "last_tracked_block_id": "000000129cee97f3e27312f0184d52d006a470f0e620553dfb4c5b4f3c856ab2"
+    "earliest_tracked_block_id": "000000129cee97f3e27312f0184d52d006a470f0e620553dfb4c5b4f3c856ab2",
+    "earliest_tracked_block_number": 18
 }
 ```

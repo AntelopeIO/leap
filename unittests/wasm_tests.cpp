@@ -1905,7 +1905,7 @@ BOOST_AUTO_TEST_CASE( billed_cpu_test ) try {
 
    auto push_trx = [&]( const transaction_metadata_ptr& trx, fc::time_point deadline,
                      uint32_t billed_cpu_time_us, bool explicit_billed_cpu_time, uint32_t subjective_cpu_bill_us ) {
-      auto r = chain.control->push_transaction( trx, deadline, billed_cpu_time_us, explicit_billed_cpu_time, subjective_cpu_bill_us );
+      auto r = chain.control->push_transaction( trx, deadline, fc::microseconds::maximum(), billed_cpu_time_us, explicit_billed_cpu_time, subjective_cpu_bill_us );
       if( r->except_ptr ) std::rethrow_exception( r->except_ptr );
       if( r->except ) throw *r->except;
       return r;

@@ -54,8 +54,6 @@ struct permission {
    authority         required_auth;
 };
 
-template<typename>
-struct resolver_factory;
 
 // see specializations for uint64_t and double in source file
 template<typename Type>
@@ -129,7 +127,7 @@ public:
    get_info_results get_info(const get_info_params&) const;
 
    struct get_transaction_status_params {
-      string                               id;
+      chain::transaction_id_type           id;
    };
 
    struct get_transaction_status_results {
@@ -144,7 +142,8 @@ public:
       uint32_t                             irreversible_number = 0;
       chain::block_id_type                 irreversible_id;
       fc::time_point                       irreversible_timestamp;
-      chain::block_id_type                 last_tracked_block_id;
+      chain::block_id_type                 earliest_tracked_block_id;
+      uint32_t                             earliest_tracked_block_number = 0;
    };
    get_transaction_status_results get_transaction_status(const get_transaction_status_params& params) const;
 
@@ -314,6 +313,12 @@ public:
 
    fc::variant get_block(const get_block_params& params) const;
 
+   struct get_block_info_params {
+      uint32_t block_num = 0;
+   };
+
+   fc::variant get_block_info(const get_block_info_params& params) const;
+
    struct get_block_header_state_params {
       string block_num_or_id;
    };
@@ -357,7 +362,7 @@ public:
       name        scope;
       name        table;
       name        payer;
-      uint32_t    count;
+      uint32_t    count = 0;
    };
    struct get_table_by_scope_result {
       vector<get_table_by_scope_result_row> rows;
@@ -630,7 +635,6 @@ public:
 
    chain::symbol extract_core_symbol()const;
 
-   friend struct resolver_factory<read_only>;
 };
 
 class read_write {
@@ -663,14 +667,13 @@ public:
    void send_transaction(const send_transaction_params& params, chain::plugin_interface::next_function<send_transaction_results> next);
 
    struct send_transaction2_params {
-      bool return_failure_trace = true; ///< Ignored. Will be enabled in future versions.
+      bool return_failure_trace = true;
       bool retry_trx = false; ///< request transaction retry on validated transaction
       std::optional<uint16_t> retry_trx_num_blocks{}; ///< if retry_trx, report trace at specified blocks from executed or lib if not specified
       fc::variant transaction;
    };
    void send_transaction2(const send_transaction2_params& params, chain::plugin_interface::next_function<send_transaction_results> next);
 
-   friend resolver_factory<read_write>;
 };
 
  //support for --key_types [sha256,ripemd160] and --encoding [dec/hex]
@@ -764,21 +767,6 @@ public:
    bool accept_block( const chain::signed_block_ptr& block, const chain::block_id_type& id );
    void accept_transaction(const chain::packed_transaction_ptr& trx, chain::plugin_interface::next_function<chain::transaction_trace_ptr> next);
 
-   static bool recover_reversible_blocks( const fc::path& db_dir,
-                                          uint32_t cache_size,
-                                          std::optional<fc::path> new_db_dir = std::optional<fc::path>(),
-                                          uint32_t truncate_at_block = 0
-                                        );
-
-   static bool import_reversible_blocks( const fc::path& reversible_dir,
-                                         uint32_t cache_size,
-                                         const fc::path& reversible_blocks_file
-                                       );
-
-   static bool export_reversible_blocks( const fc::path& reversible_dir,
-                                        const fc::path& reversible_blocks_file
-                                       );
-
    // Only call this after plugin_initialize()!
    controller& chain();
    // Only call this after plugin_initialize()!
@@ -798,6 +786,13 @@ public:
    static void handle_bad_alloc();
 
    bool account_queries_enabled() const;
+   bool transaction_finality_status_enabled() const;
+
+    // return variant of trace for logging, trace is modified to minimize log output
+    fc::variant get_log_trx_trace(const chain::transaction_trace_ptr& trx_trace) const;
+    // return variant of trx for logging, trace is modified to minimize log output
+    fc::variant get_log_trx(const transaction& trx) const;
+
 private:
    static void log_guard_exception(const chain::guard_exception& e);
 
@@ -815,10 +810,11 @@ FC_REFLECT(eosio::chain_apis::read_only::get_info_results,
            (server_version_string)(fork_db_head_block_num)(fork_db_head_block_id)(server_full_version_string)(total_cpu_weight)(total_net_weight) )
 FC_REFLECT(eosio::chain_apis::read_only::get_transaction_status_params, (id) )
 FC_REFLECT(eosio::chain_apis::read_only::get_transaction_status_results, (state)(block_number)(block_id)(block_timestamp)(expiration)(head_number)(head_id)
-           (head_timestamp)(irreversible_number)(irreversible_id)(irreversible_timestamp)(last_tracked_block_id) )
+           (head_timestamp)(irreversible_number)(irreversible_id)(irreversible_timestamp)(earliest_tracked_block_id)(earliest_tracked_block_number) )
 FC_REFLECT(eosio::chain_apis::read_only::get_activated_protocol_features_params, (lower_bound)(upper_bound)(limit)(search_by_block_num)(reverse) )
 FC_REFLECT(eosio::chain_apis::read_only::get_activated_protocol_features_results, (activated_protocol_features)(more) )
 FC_REFLECT(eosio::chain_apis::read_only::get_block_params, (block_num_or_id))
+FC_REFLECT(eosio::chain_apis::read_only::get_block_info_params, (block_num))
 FC_REFLECT(eosio::chain_apis::read_only::get_block_header_state_params, (block_num_or_id))
 
 FC_REFLECT( eosio::chain_apis::read_write::push_transaction_results, (transaction_id)(processed) )

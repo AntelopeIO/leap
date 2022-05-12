@@ -2634,26 +2634,47 @@ int main( int argc, char** argv ) {
    });
 
    // get transaction status
-   string status_transaction_id_str;
+   string status_transaction_id;
    auto getTransactionStatus = get->add_subcommand("transaction-status", localized("Get transaction status information"));
-   getTransactionStatus->add_option("id", status_transaction_id_str, localized("ID of the transaction to retrieve"))->required();
-   getTransactionStatus->callback([&status_transaction_id_str] {
-      auto arg= fc::mutable_variant_object( "id", status_transaction_id_str);
+   getTransactionStatus->add_option("id", status_transaction_id, localized("ID of the transaction to retrieve"))->required();
+   getTransactionStatus->callback([&status_transaction_id] {
+      try {
+         chain::transaction_id_type transaction_id(status_transaction_id);
+      } catch (...) {
+         std::cerr << "Unable to convert " << status_transaction_id << " to transaction id." << std::endl;
+         throw;
+      }
+      auto arg= fc::mutable_variant_object( "id", status_transaction_id);
       std::cout << fc::json::to_pretty_string(call(get_transaction_status_func, arg)) << std::endl;
    });
 
    // get block
    string blockArg;
    bool get_bhs = false;
+   bool get_binfo = false;
    auto getBlock = get->add_subcommand("block", localized("Retrieve a full block from the blockchain"));
    getBlock->add_option("block", blockArg, localized("The number or ID of the block to retrieve"))->required();
    getBlock->add_flag("--header-state", get_bhs, localized("Get block header state from fork database instead") );
-   getBlock->callback([&blockArg,&get_bhs] {
-      auto arg = fc::mutable_variant_object("block_num_or_id", blockArg);
-      if( get_bhs ) {
-         std::cout << fc::json::to_pretty_string(call(get_block_header_state_func, arg)) << std::endl;
+   getBlock->add_flag("--info", get_binfo, localized("Get block info from the blockchain by block num only") );
+   getBlock->callback([&blockArg, &get_bhs, &get_binfo] {
+      EOSC_ASSERT( !(get_bhs && get_binfo), "ERROR: Either --header-state or --info can be set" );
+      if (get_binfo) {
+         std::optional<int64_t> block_num;
+         try {
+            block_num = fc::to_int64(blockArg);
+         } catch (...) {
+            // error is handled in assertion below
+         }
+         EOSC_ASSERT( block_num.has_value() && (*block_num > 0), "Invalid block num: ${block_num}", ("block_num", blockArg) );
+         const auto arg = fc::variant_object("block_num", static_cast<uint32_t>(*block_num));
+         std::cout << fc::json::to_pretty_string(call(get_block_info_func, arg)) << std::endl;
       } else {
-         std::cout << fc::json::to_pretty_string(call(get_block_func, arg)) << std::endl;
+         const auto arg = fc::variant_object("block_num_or_id", blockArg);
+         if (get_bhs) {
+            std::cout << fc::json::to_pretty_string(call(get_block_header_state_func, arg)) << std::endl;
+         } else {
+            std::cout << fc::json::to_pretty_string(call(get_block_func, arg)) << std::endl;
+         }
       }
    });
 
@@ -3066,7 +3087,7 @@ int main( int argc, char** argv ) {
 
         const string binary_wasm_header("\x00\x61\x73\x6d\x01\x00\x00\x00", 8);
         if(wasm.compare(0, 8, binary_wasm_header))
-           std::cerr << localized("WARNING: ") << wasmPath << localized(" doesn't look like a binary WASM file. Is it something else, like WAST? Trying anyways...") << std::endl;
+           std::cerr << localized("WARNING: ") << wasmPath << localized(" doesn't look like a binary WASM file. Is it something else, like WAST? Trying anyway...") << std::endl;
         code_bytes = bytes(wasm.begin(), wasm.end());
       } else {
         code_bytes = bytes();
