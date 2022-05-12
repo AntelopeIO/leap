@@ -2292,7 +2292,8 @@ void read_write::send_transaction2(const read_write::send_transaction2_params& p
                next( std::get<fc::exception_ptr>( result ) );
             } else {
                try {
-                  if( retry && trx_retry.has_value() ) {
+                  auto trx_trace_ptr = std::get<transaction_trace_ptr>( result );
+                  if( retry && trx_retry.has_value() && !trx_trace_ptr->except) {
                      // will be ack'ed via next later
                      trx_retry->track_transaction( ptrx, retry_num_blocks,
                         [ptrx, next](const std::variant<fc::exception_ptr, std::unique_ptr<fc::variant>>& result ) {
@@ -2304,7 +2305,6 @@ void read_write::send_transaction2(const read_write::send_transaction2_params& p
                            }
                         } );
                   } else {
-                     auto trx_trace_ptr = std::get<transaction_trace_ptr>( result );
                      fc::variant output;
                      try {
                         output = db.to_variant_with_abi( *trx_trace_ptr, abi_serializer::create_yield_function( abi_serializer_max_time ) );
