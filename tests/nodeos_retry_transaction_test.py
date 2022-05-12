@@ -174,6 +174,13 @@ try:
     startTime = nextTime
     lastIrreversibleBlockNum = None
 
+    overdrawAccount = accounts[0]
+    Print(f"Attempt to transfer more funds than available from {overdrawAccount.name} to test transaction fails with overdrawn balance, not expiration in retry.")
+    overdrawTransferAmount = "1001.0000 {0}".format(CORE_SYMBOL)
+    Print("Transfer funds %s from account %s to %s" % (overdrawTransferAmount, overdrawAccount.name, cluster.eosioAccount.name))
+    overdrawtrans = node.transferFunds(overdrawAccount, cluster.eosioAccount, overdrawTransferAmount, "test overdraw transfer", exitOnError=False, reportStatus=False, retry=1)
+    assert overdrawtrans["processed"]["except"]["stack"][0]["data"]["s"] == "overdrawn balance", "ERROR: Overdraw transaction attempt should have failed with overdrawn balance."
+
     def cacheTransIdInBlock(transId, transToBlock, node):
         global lastIrreversibleBlockNum
         lastPassLIB = None
