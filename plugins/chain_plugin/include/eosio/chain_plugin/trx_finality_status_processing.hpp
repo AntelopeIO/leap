@@ -1,7 +1,6 @@
 #pragma once
 #include <eosio/chain/types.hpp>
 #include <eosio/chain/block_state.hpp>
-#include <eosio/chain/signals_processor.hpp>
 #include <eosio/chain/trace.hpp>
 
 #include <fc/container/tracked_storage.hpp>
@@ -41,7 +40,9 @@ namespace eosio::chain_apis {
 
       ~trx_finality_status_processing();
 
-      void signal_applied_transactions( const chain::signals_processor::trx_deque& trxs, const chain::block_state_ptr& bsp );
+      void signal_applied_transaction( const chain::transaction_trace_ptr& trace, const chain::packed_transaction_ptr& ptrx );
+
+      void signal_accepted_block( const chain::block_state_ptr& bsp );
 
       void signal_irreversible_block( const chain::block_state_ptr& bsp );
 

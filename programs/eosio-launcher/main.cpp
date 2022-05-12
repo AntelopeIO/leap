@@ -452,7 +452,7 @@ struct launcher_def {
    bool   next_ndx(size_t &ndx);
    size_t skip_ndx (size_t from, size_t offset);
 
-   void make_ring ();
+   void make_line (bool make_ring = true);
    void make_star ();
    void make_mesh ();
    void make_custom ();
@@ -483,7 +483,7 @@ launcher_def::set_options (bpo::options_description &cfg) {
     ("producers",bpo::value<size_t>(&producers)->default_value(21),"total number of non-bios and non-shared producer instances in this network")
     ("shared-producers",bpo::value<size_t>(&shared_producers)->default_value(0),"total number of shared producers on each non-bios nodes")
     ("mode,m",bpo::value<vector<string>>()->multitoken()->default_value({"any"}, "any"),"connection mode, combination of \"any\", \"producers\", \"specified\", \"none\"")
-    ("shape,s",bpo::value<string>(&shape)->default_value("star"),"network topology, use \"star\" \"mesh\" or give a filename for custom")
+    ("shape,s",bpo::value<string>(&shape)->default_value("star"),"network topology, use \"star\", \"mesh\", \"ring\", \"line\" or give a filename for custom")
     ("genesis,g",bpo::value<string>()->default_value("./genesis.json"),"set the path to genesis.json")
     ("skip-signature", bpo::bool_switch(&skip_transaction_signatures)->default_value(false), (string(node_executable_name) + " does not require transaction signatures.").c_str())
     (node_executable_name, bpo::value<string>(&eosd_extra_args), ("forward " + string(node_executable_name) + " command line argument(s) to each instance of " + string(node_executable_name) + ", enclose arg(s) in quotes").c_str())
@@ -585,6 +585,7 @@ launcher_def::initialize (const variables_map &vmap) {
 
   if ( ! (shape.empty() ||
           boost::iequals( shape, "ring" ) ||
+          boost::iequals( shape, "line" ) ||
           boost::iequals( shape, "star" ) ||
           boost::iequals( shape, "mesh" )) &&
        host_map_file.empty()) {
@@ -716,7 +717,10 @@ bool
 launcher_def::generate () {
 
   if (boost::iequals (shape,"ring")) {
-    make_ring ();
+    make_line ();
+  }
+  else if (boost::iequals (shape,"line")) {
+    make_line(false);
   }
   else if (boost::iequals (shape, "star")) {
     make_star ();
@@ -1326,14 +1330,19 @@ size_t launcher_def::skip_ndx (size_t from, size_t offset) {
 }
 
 void
-launcher_def::make_ring () {
+launcher_def::make_line (bool make_ring) {
   bind_nodes();
   size_t non_bios = total_nodes - 1;
   if (non_bios > 2) {
-     bool loop = false;
-     for (size_t i = start_ndx(); !loop; loop = next_ndx(i)) {
+     // since we have at least 3 indexes, every next_ndx(i) call is guaranteed to not be the end of the loop
+     bool end_of_loop = false;
+     for (size_t i = start_ndx(); !end_of_loop; next_ndx(i)) {
         size_t front = i;
-        loop = next_ndx (front);
+        end_of_loop = next_ndx (front);
+        // if this is the end of the loop and this is not a ring, then don't connect the end to the beginning to make a ring
+        if (end_of_loop && !make_ring) {
+           break;
+        }
         network.nodes.find(aliases[i])->second.peers.push_back (aliases[front]);
      }
   }
@@ -1341,8 +1350,11 @@ launcher_def::make_ring () {
      size_t n0 = start_ndx();
      size_t n1 = n0;
      next_ndx(n1);
-    network.nodes.find(aliases[n0])->second.peers.push_back (aliases[n1]);
-    network.nodes.find(aliases[n1])->second.peers.push_back (aliases[n0]);
+     network.nodes.find(aliases[n0])->second.peers.push_back (aliases[n1]);
+     if (make_ring) {
+        network.nodes.find(aliases[n1])->second.peers.push_back (aliases[n0]);
+     }
+     // since there are only 2 nodes, this really just affects startup and that only index 0 will initiate the connection if !make_ring
   }
 }
 
@@ -1350,7 +1362,7 @@ void
 launcher_def::make_star () {
   size_t non_bios = total_nodes - 1;
   if (non_bios < 4) {
-    make_ring ();
+    make_line ();
     return;
   }
   bind_nodes();
