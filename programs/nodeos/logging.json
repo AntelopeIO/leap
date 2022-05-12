@@ -111,8 +111,7 @@
         "stderr",
         "net"
       ]
-    },
-    {
+    },{
       "name": "transaction_trace_success",
       "level": "info",
       "enabled": true,
