@@ -85,7 +85,7 @@
         "net"
       ]
     },{
-      "name": "transaction_tracing",
+      "name": "transaction_success_tracing",
       "level": "debug",
       "enabled": true,
       "additivity": false,
@@ -105,6 +105,34 @@
     },{
       "name": "trace_api",
       "level": "debug",
+      "enabled": true,
+      "additivity": false,
+      "appenders": [
+        "stderr",
+        "net"
+      ]
+    },
+    {
+      "name": "transaction_trace_success",
+      "level": "info",
+      "enabled": true,
+      "additivity": false,
+      "appenders": [
+        "stderr",
+        "net"
+      ]
+    },{
+      "name": "transaction_trace_failure",
+      "level": "info",
+      "enabled": true,
+      "additivity": false,
+      "appenders": [
+        "stderr",
+        "net"
+      ]
+    },{
+      "name": "transaction",
+      "level": "info",
       "enabled": true,
       "additivity": false,
       "appenders": [
