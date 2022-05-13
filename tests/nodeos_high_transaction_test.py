@@ -75,9 +75,11 @@ try:
     cluster.cleanup()
     Print("Stand up cluster")
 
+    traceNodeosArgs = " --plugin eosio::trace_api_plugin --trace-no-abis "
     if cluster.launch(pnodes=totalProducerNodes,
                       totalNodes=totalNodes, totalProducers=totalProducers,
-                      useBiosBootFile=False) is False:
+                      useBiosBootFile=False,
+                      extraNodeosArgs=traceNodeosArgs) is False:
         Utils.cmdError("launcher")
         Utils.errorExit("Failed to stand up eos cluster.")
 
@@ -172,7 +174,7 @@ try:
                     node.waitForTransInBlock(transId, timeout = args.transaction_time_delta)
                     continue
 
-            lastIrreversibleBlockNum = trans["last_irreversible_block"]
+            lastIrreversibleBlockNum = node.getIrreversibleBlockNum()
             blockNum = Node.getTransBlockNum(trans)
             assert blockNum is not None, Print("ERROR: could not retrieve block num from transId: %s, trans: %s" % (transId, json.dumps(trans, indent=2)))
             block = node.getBlock(blockNum)

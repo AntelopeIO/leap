@@ -44,9 +44,11 @@ namespace eosio::trace_api {
 
    struct block_trace_v0;
    struct block_trace_v1;
+   struct block_trace_v2;
    // optional block trace and irreversibility paired data
    using get_block_t = std::optional<std::tuple<data_log_entry, bool>>;
 
+   using get_block_n = std::optional<uint32_t>;
    /**
     * Normal use case: exception_handler except_handler;
     *   except_handler( MAKE_EXCEPTION_WITH_CONTEXT( std::current_exception() ) );

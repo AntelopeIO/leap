@@ -157,7 +157,7 @@ class Node(object):
                 return "no_block"
             return cntxt.add("block_num")
 
-        # or what the history plugin returns
+        # or what the trace api plugin returns
         return cntxt.add("block_num")
 
 
@@ -274,7 +274,7 @@ class Node(object):
         assert(isinstance(transId, str))
         exitOnErrorForDelayed=not delayedRetry and exitOnError
         timeout=3
-        cmdDesc="get transaction"
+        cmdDesc="get transaction_trace"
         cmd="%s %s" % (cmdDesc, transId)
         msg="(transaction id=%s)" % (transId);
         for i in range(0,(int(60/timeout) - 1)):
@@ -327,8 +327,8 @@ class Node(object):
         refBlockNum=None
         key=""
         try:
-            key="[trx][trx][ref_block_num]"
-            refBlockNum=trans["trx"]["trx"]["ref_block_num"]
+            key="[transaction][transaction_header][ref_block_num]"
+            refBlockNum=trans["transaction_header"]["ref_block_num"]
             refBlockNum=int(refBlockNum)+1
         except (TypeError, ValueError, KeyError) as _:
             Utils.Print("transaction%s not found. Transaction: %s" % (key, trans))
