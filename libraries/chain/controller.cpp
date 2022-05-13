@@ -571,12 +571,12 @@ struct controller_impl {
          ilog( "database initialized with hash: ${hash}", ("hash", hash) );
 
          init(check_shutdown);
+         ilog( "Finished initialization from snapshot" );
       } catch (boost::interprocess::bad_alloc& e) {
-         elog( "db storage not configured to have enough storage for the provided snapshot, please increase and retry snapshot" );
-         throw e;
+         elog( "Failed initialization from snapshot - db storage not configured to have enough storage for the provided snapshot, please increase and retry snapshot" );
+         shutdown();
       }
 
-      ilog( "Finished initialization from snapshot" );
    }
 
    void startup(std::function<void()> shutdown, std::function<bool()> check_shutdown, const genesis_state& genesis) {
