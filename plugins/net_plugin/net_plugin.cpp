@@ -393,7 +393,7 @@ namespace eosio {
    constexpr auto     def_sync_fetch_span = 100;
    constexpr auto     def_keepalive_interval = 32000;
 
-   constexpr auto     message_header_size = 4;
+   constexpr auto     message_header_size = sizeof(uint32_t);
    constexpr uint32_t signed_block_which       = fc::get_index<net_message, signed_block>();       // see protocol net_message
    constexpr uint32_t packed_transaction_which = fc::get_index<net_message, packed_transaction>(); // see protocol net_message
 
@@ -1275,7 +1275,7 @@ namespace eosio {
       uint32_t num = ++peer_requested->last;
       if(num == peer_requested->end_block) {
          peer_requested.reset();
-         peer_ilog( this, "completing enqueue_sync_block ${num}", ("num", num) );
+         peer_dlog( this, "completing enqueue_sync_block ${num}", ("num", num) );
       }
       connection_wptr weak = shared_from_this();
       app().post( priority::medium, [num, weak{std::move(weak)}]() {
@@ -1323,13 +1323,11 @@ namespace eosio {
          const uint32_t payload_size = fc::raw::pack_size( m );
 
          const char* const header = reinterpret_cast<const char* const>(&payload_size); // avoid variable size encoding of uint32_t
-         constexpr size_t header_size = sizeof(payload_size);
-         static_assert( header_size == message_header_size, "invalid message_header_size" );
-         const size_t buffer_size = header_size + payload_size;
+         const size_t buffer_size = message_header_size + payload_size;
 
          auto send_buffer = std::make_shared<vector<char>>(buffer_size);
          fc::datastream<char*> ds( send_buffer->data(), buffer_size);
-         ds.write( header, header_size );
+         ds.write( header, message_header_size );
          fc::raw::pack( ds, m );
 
          return send_buffer;
@@ -1342,13 +1340,11 @@ namespace eosio {
          const uint32_t payload_size = which_size + fc::raw::pack_size( v );
 
          const char* const header = reinterpret_cast<const char* const>(&payload_size); // avoid variable size encoding of uint32_t
-         constexpr size_t header_size = sizeof( payload_size );
-         static_assert( header_size == message_header_size, "invalid message_header_size" );
-         const size_t buffer_size = header_size + payload_size;
+         const size_t buffer_size = message_header_size + payload_size;
 
          auto send_buffer = std::make_shared<vector<char>>( buffer_size );
          fc::datastream<char*> ds( send_buffer->data(), buffer_size );
-         ds.write( header, header_size );
+         ds.write( header, message_header_size );
          fc::raw::pack( ds, unsigned_int( which ) );
          fc::raw::pack( ds, v );
 
