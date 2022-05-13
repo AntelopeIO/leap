@@ -220,7 +220,6 @@ struct trace_api_rpc_plugin_impl : public std::enable_shared_from_this<trace_api
                     "Trace API is not configured with ABIs and trace-no-abis is not set");
       }
 
-fc_dlog(_log, "about to instantiate req_handler");fc_elog(_log,"log something damnit");
       req_handler = std::make_shared<request_handler_t>(
          shared_store_provider<store_provider>(common->store),
          abi_data_handler::shared_provider(data_handler),

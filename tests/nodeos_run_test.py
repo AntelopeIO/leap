@@ -69,7 +69,7 @@ try:
         Print("Stand up cluster")
 
         abs_path = os.path.abspath(os.getcwd() + '/../unittests/contracts/eosio.token/eosio.token.abi')
-        traceNodeosArgs=" --plugin eosio::trace_api_plugin --trace-rpc-abi eosio.token=" + abs_path
+        traceNodeosArgs=" --http-max-response-time-ms 990000 --plugin eosio::trace_api_plugin --trace-rpc-abi eosio.token=" + abs_path
         if cluster.launch(prodCount=prodCount, onlyBios=onlyBios, dontBootstrap=dontBootstrap, extraNodeosArgs=traceNodeosArgs) is False:
             cmdError("launcher")
             errorExit("Failed to stand up eos cluster.")

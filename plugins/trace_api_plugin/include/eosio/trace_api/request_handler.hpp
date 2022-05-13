@@ -88,7 +88,8 @@ namespace eosio::trace_api {
                      }
                   }
                }
-               _log("Exhausted all " + std::to_string(transactions.size()) + " transactions in block " + b_mvo["number"].as_string() + " without finding trxid " + trxid.str());
+               if( result.is_null() )
+                  _log("Exhausted all " + std::to_string(transactions.size()) + " transactions in block " + b_mvo["number"].as_string() + " without finding trxid " + trxid.str());
             }
          }
          return result;
