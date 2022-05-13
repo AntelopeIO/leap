@@ -318,8 +318,8 @@ class Node(object):
 
         return False
 
-    def getBlockIdByTransId(self, transId, delayedRetry=True, blocksAhead=5):
-        """Given a transaction Id (string), will return the actual block id (int) containing the transaction"""
+    def getBlockNumByTransId(self, transId, delayedRetry=True, blocksAhead=5):
+        """Given a transaction Id (string), return the block number (int) containing the transaction"""
         assert(transId)
         assert(isinstance(transId, str))
         trans=self.getTransaction(transId, exitOnError=True, delayedRetry=delayedRetry)
@@ -338,7 +338,7 @@ class Node(object):
         assert(headBlockNum)
         try:
             headBlockNum=int(headBlockNum)
-        except(ValueError) as _:
+        except ValueError:
             Utils.Print("ERROR: Block info parsing failed. %s" % (headBlockNum))
             raise
 
@@ -355,19 +355,19 @@ class Node(object):
         """Check if transaction (transId) is in a block."""
         assert(transId)
         assert(isinstance(transId, (str,int)))
-        blockId=self.getBlockIdByTransId(transId)
+        blockId=self.getBlockNumByTransId(transId)
         return True if blockId else False
 
     def isTransFinalized(self, transId):
         """Check if transaction (transId) has been finalized."""
         assert(transId)
         assert(isinstance(transId, str))
-        blockId=self.getBlockIdByTransId(transId)
-        if not blockId:
+        blockNum=self.getBlockNumByTransId(transId)
+        if not blockNum:
             return False
 
-        assert(isinstance(blockId, int))
-        return self.isBlockPresent(blockId, blockType=BlockType.lib)
+        assert(isinstance(blockNum, int))
+        return self.isBlockPresent(blockNum, blockType=BlockType.lib)
 
 
     # Create & initialize account and return creation transactions. Return transaction json object

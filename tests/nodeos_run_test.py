@@ -445,9 +445,9 @@ try:
         raise
 
     Print("Test for block decoded packed transaction (issue 2932)")
-    blockId=node.getBlockIdByTransId(transId)
-    assert(blockId)
-    block=node.getBlock(blockId, exitOnError=True)
+    blockNum=node.getBlockNumByTransId(transId)
+    assert(blockNum)
+    block=node.getBlock(blockNum, exitOnError=True)
 
     transactions=None
     try:
