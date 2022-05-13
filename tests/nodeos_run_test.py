@@ -309,7 +309,7 @@ try:
     wasmFile="eosio.token.wasm"
     abiFile="eosio.token.abi"
     Print("Publish contract")
-    trans=node.publishContract(currencyAccount, contractDir, wasmFile, abiFile, waitForTransBlock=True)
+    trans=node.publishContract(currencyAccount.name, contractDir, wasmFile, abiFile, waitForTransBlock=True)
     if trans is None:
         cmdError("%s set contract currency1111" % (ClientName))
         errorExit("Failed to publish contract.")
