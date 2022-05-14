@@ -80,8 +80,9 @@ else()
    add_subdirectory(abieos EXCLUDE_FROM_ALL)
 endif()
 
+find_package(Threads)
 add_executable(ship_client ship_client.cpp)
-target_link_libraries(ship_client abieos Boost::program_options)
+target_link_libraries(ship_client abieos Boost::program_options Threads::Threads)
 
 add_test(NAME ship_test COMMAND tests/ship_test.py -v --num-clients 1 --num-requests 5000 --clean-run --dump-error-detail WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST ship_test PROPERTY LABELS nonparallelizable_tests)
