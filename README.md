@@ -33,7 +33,6 @@ apt-get update && apt-get install   \
         libzstd-dev                 \
         llvm-11-dev                 \
         ninja-build                 \
-        npm                         \
         pkg-config                  \
         time
 ```
