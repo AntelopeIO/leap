@@ -193,7 +193,7 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_logic) { try {
 
    auto cs = status.get_chain_state();
    BOOST_CHECK(cs.head_id == eosio::chain::block_id_type{});
-   BOOST_CHECK(cs.head_id == *std::get<0>(trx_pairs_20[0])->producer_block_id);
+   BOOST_TEST(!std::get<0>(trx_pairs_20[0])->producer_block_id.has_value());
    BOOST_CHECK(cs.head_block_timestamp == eosio::chain::block_timestamp_type{});
    BOOST_CHECK(cs.irr_id == eosio::chain::block_id_type{});
    BOOST_CHECK(cs.earliest_tracked_block_id == eosio::chain::block_id_type{});
