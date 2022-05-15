@@ -193,7 +193,7 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
          string                         access_control_allow_headers;
          string                         access_control_max_age;
          bool                           access_control_allow_credentials = false;
-         size_t                         max_body_size{1024*1024};
+         size_t                         max_body_size{2*1024*1024};
 
          websocket_server_type    server;
 
@@ -695,7 +695,7 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
                 if( v ) fc_ilog( logger, "configured http with Access-Control-Allow-Credentials: true" );
              })->default_value(false),
              "Specify if Access-Control-Allow-Credentials: true should be returned on each request.")
-            ("max-body-size", bpo::value<uint32_t>()->default_value(1024*1024),
+            ("max-body-size", bpo::value<uint32_t>()->default_value(my->max_body_size),
              "The maximum body size in bytes allowed for incoming RPC requests")
             ("http-max-bytes-in-flight-mb", bpo::value<uint32_t>()->default_value(500),
              "Maximum size in megabytes http_plugin should use for processing http requests. 503 error response when exceeded." )
