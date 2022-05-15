@@ -40,6 +40,7 @@ int main(int argc, char* argv[]) {
    }
 
    std::string::size_type colon = socket_address.find(':');
+   eosio::check(colon != std::string::npos, "Missing ':' seperator in Websocket address and port");
    std::string statehistory_server = socket_address.substr(0, colon);
    std::string statehistory_port = socket_address.substr(colon+1);
 
