@@ -61,7 +61,7 @@ bool has_prefix(Iter begin, Iter end, std::string_view prefix)
        std::equal(prefix.begin(), prefix.end(), begin);
 }
 
-static const std::string_view escaped_chars{"\\[*.^$+?{}()|"};
+static const std::string_view escaped_chars{"\\[]*.^$+?{}()|"};
 
 bool is_escaped(char ch)
 {
