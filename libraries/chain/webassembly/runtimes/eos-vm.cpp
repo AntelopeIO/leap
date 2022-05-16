@@ -237,11 +237,6 @@ void eos_vm_runtime<Impl>::immediately_exit_currently_running_module() {
 }
 
 template<typename Impl>
-bool eos_vm_runtime<Impl>::inject_module(IR::Module& module) {
-   return false;
-}
-
-template<typename Impl>
 std::unique_ptr<wasm_instantiated_module_interface> eos_vm_runtime<Impl>::instantiate_module(const char* code_bytes, size_t code_size, std::vector<uint8_t>,
                                                                                              const digest_type&, const uint8_t&, const uint8_t&) {
 
@@ -265,10 +260,6 @@ eos_vm_profile_runtime::eos_vm_profile_runtime() {}
 
 void eos_vm_profile_runtime::immediately_exit_currently_running_module() {
    throw wasm_exit{};
-}
-
-bool eos_vm_profile_runtime::inject_module(IR::Module& module) {
-   return false;
 }
 
 std::unique_ptr<wasm_instantiated_module_interface> eos_vm_profile_runtime::instantiate_module(const char* code_bytes, size_t code_size, std::vector<uint8_t>,
