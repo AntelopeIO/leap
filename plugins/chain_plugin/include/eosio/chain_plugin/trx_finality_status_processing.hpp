@@ -1,7 +1,6 @@
 #pragma once
 #include <eosio/chain/types.hpp>
 #include <eosio/chain/block_state.hpp>
-#include <eosio/chain/signals_processor.hpp>
 #include <eosio/chain/trace.hpp>
 
 #include <fc/container/tracked_storage.hpp>
@@ -22,7 +21,7 @@ namespace eosio::chain_apis {
          chain::block_timestamp_type   head_block_timestamp;
          chain::block_id_type          irr_id;
          chain::block_timestamp_type   irr_block_timestamp;
-         chain::block_id_type          last_tracked_block_id;
+         chain::block_id_type          earliest_tracked_block_id;
       };
 
       struct trx_state {
@@ -41,7 +40,9 @@ namespace eosio::chain_apis {
 
       ~trx_finality_status_processing();
 
-      void signal_applied_transactions( const chain::signals_processor::trx_deque& trxs, const chain::block_state_ptr& bsp );
+      void signal_applied_transaction( const chain::transaction_trace_ptr& trace, const chain::packed_transaction_ptr& ptrx );
+
+      void signal_accepted_block( const chain::block_state_ptr& bsp );
 
       void signal_irreversible_block( const chain::block_state_ptr& bsp );
 
