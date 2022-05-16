@@ -48,6 +48,7 @@ class Node(object):
         self.walletMgr=walletMgr
         self.missingTransaction=False
         self.popenProc=None           # initial process is started by launcher, this will only be set on relaunch
+        self.lastTrackedTransactionId=None
 
     def eosClientArgs(self):
         walletArgs=" " + self.walletMgr.getWalletEndpointArgs() if self.walletMgr is not None else ""
@@ -495,7 +496,7 @@ class Node(object):
 
     def waitForNextBlock(self, timeout=None, blockType=BlockType.head):
         num=self.getBlockNum(blockType=blockType)
-        lam = lambda: self.getHeadBlockNum() > num
+        lam = lambda: self.getBlockNum(blockType=blockType) > num
         ret=Utils.waitForBool(lam, timeout)
         return ret
 
@@ -520,8 +521,8 @@ class Node(object):
         ret=Utils.waitForBool(lam, timeout, reporter=reporter)
         return ret
 
-    def waitForIrreversibleBlock(self, blockNum, timeout=None, blockType=BlockType.head):
-        return self.waitForBlock(blockNum, timeout=timeout, blockType=blockType)
+    def waitForIrreversibleBlock(self, blockNum, timeout=None, reportInterval=None):
+        return self.waitForBlock(blockNum, timeout=timeout, blockType=BlockType.lib, reportInterval=reportInterval)
 
     def __transferFundsCmdArr(self, source, destination, amountStr, memo, force, retry):
         assert isinstance(amountStr, str)
@@ -1054,6 +1055,11 @@ class Node(object):
             self.lastRetrievedHeadBlockProducer=info["head_block_producer"]
         return info
 
+    def getTransactionStatus(self, transId, silentErrors=False, exitOnError=True):
+        cmdDesc = f"get transaction-status {transId}"
+        status=self.processCleosCmd(cmdDesc, cmdDesc, silentErrors=silentErrors, exitOnError=exitOnError)
+        return status
+
     def checkPulse(self, exitOnError=False):
         info=self.getInfo(True, exitOnError=exitOnError)
         return False if info is None else True
@@ -1183,7 +1189,10 @@ class Node(object):
         # The voted schedule should be promoted now, then need to wait for that to become irreversible
         votingTallyWindow=120  #could be up to 120 blocks before the votes were tallied
         promotedBlockNum=self.getHeadBlockNum()+votingTallyWindow
-        self.waitForIrreversibleBlock(promotedBlockNum, timeout=rounds/2)
+        # There was waitForIrreversibleBlock but due to bug it was waiting for head and not lib.
+        # leaving waitForIrreversibleBlock here slows down voting test by few minutes so since
+        # it was fine with head block for few years, switching to waitForBlock instead
+        self.waitForBlock(promotedBlockNum, timeout=rounds/2)
 
         ibnSchedActive=self.getIrreversibleBlockNum()
 
@@ -1253,7 +1262,7 @@ class Node(object):
         def didNodeExitGracefully(popen, timeout):
             try:
                 popen.communicate(timeout=timeout)
-            except TimeoutExpired:
+            except subprocess.TimeoutExpired:
                 return False
             with open(popen.errfile.name, 'r') as f:
                 if "Reached configured maximum block 10; terminating" in f.read():
@@ -1318,6 +1327,7 @@ class Node(object):
             return
 
         transId=Node.getTransId(trans)
+        self.lastTrackedTransactionId=transId
         if transId in self.transCache.keys():
             replaceMsg="replacing previous trans=\n%s" % json.dumps(self.transCache[transId], indent=2, sort_keys=True)
         else:
@@ -1331,6 +1341,9 @@ class Node(object):
             Utils.Print("  cmd returned transaction id: %s %s" % (transId, replaceMsg))
 
         self.transCache[transId]=trans
+
+    def getLastTrackedTransactionId(self):
+        return self.lastTrackedTransactionId
 
     def reportStatus(self):
         Utils.Print("Node State:")
@@ -1386,6 +1399,19 @@ class Node(object):
         def isLibAdvancing():
             return self.getIrreversibleBlockNum() > currentLib
         return Utils.waitForBool(isLibAdvancing, timeout)
+
+    def waitForProducer(self, producer, timeout=None, exitOnError=False):
+        if timeout is None:
+            # default to the typical configuration of 21 producers, each producing 12 blocks in a row (ever 1/2 second)
+            timeout = 21 * 6;
+        start=time.perf_counter()
+        initialProducer=self.getInfo()["head_block_producer"]
+        def isProducer():
+            return self.getInfo()["head_block_producer"] == producer;
+        found = Utils.waitForBool(isProducer, timeout)
+        assert not exitOnError or found, \
+            f"Waited for {time.perf_counter()-start} sec but never found producer: {producer}. Started with {initialProducer} and ended with {self.getInfo()['head_block_producer']}"
+        return found
 
     # Require producer_api_plugin
     def activatePreactivateFeature(self):
@@ -1455,6 +1481,14 @@ class Node(object):
     def createSnapshot(self):
         param = { }
         return self.processCurlCmd("producer", "create_snapshot", json.dumps(param))
+
+    # kill all existing nodeos in case lingering from previous test
+    @staticmethod
+    def killAllNodeos():
+        # kill the eos server
+        cmd="pkill -9 %s" % (Utils.EosServerName)
+        ret_code = subprocess.call(cmd.split(), stdout=Utils.FNull)
+        Utils.Print("cmd: %s, ret:%d" % (cmd, ret_code))
 
     @staticmethod
     def findStderrFiles(path):

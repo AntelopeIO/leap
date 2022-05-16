@@ -108,7 +108,15 @@ struct txn_test_gen_plugin_impl {
 
       for (size_t i = 0; i < trxs->size(); ++i) {
          cp.accept_transaction( std::make_shared<packed_transaction>(trxs->at(i)), [=](const std::variant<fc::exception_ptr, transaction_trace_ptr>& result){
+
+            fc::exception_ptr except_ptr;
             if (std::holds_alternative<fc::exception_ptr>(result)) {
+               except_ptr = std::get<fc::exception_ptr>(result);
+            } else if (std::get<transaction_trace_ptr>(result)->except) {
+               except_ptr = std::get<transaction_trace_ptr>(result)->except->dynamic_copy_exception();
+            }
+
+            if (except_ptr) {
                next(std::get<fc::exception_ptr>(result));
             } else {
                if (std::holds_alternative<transaction_trace_ptr>(result) && std::get<transaction_trace_ptr>(result)->receipt) {

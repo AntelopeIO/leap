@@ -327,8 +327,6 @@ namespace eosio { namespace chain {
 
       FC_DECLARE_DERIVED_EXCEPTION( database_guard_exception, guard_exception,
                                     3060101, "Database usage is at unsafe levels" )
-      FC_DECLARE_DERIVED_EXCEPTION( reversible_guard_exception, guard_exception,
-                                    3060102, "Reversible block log usage is at unsafe levels" )
 
    FC_DECLARE_DERIVED_EXCEPTION( wasm_exception, chain_exception,
                                  3070000, "WASM Exception" )

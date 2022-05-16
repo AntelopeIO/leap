@@ -33,8 +33,6 @@ Command Line Options for eosio::chain_plugin:
   --extract-build-info arg              extract build environment information 
                                         as JSON, write into specified file, and
                                         exit
-  --fix-reversible-blocks               recovers reversible block database if 
-                                        that database is in a bad state
   --force-all-checks                    do not skip any checks that can be 
                                         skipped while replaying irreversible 
                                         blocks
@@ -50,12 +48,6 @@ Command Line Options for eosio::chain_plugin:
   --truncate-at-block arg (=0)          stop hard replay / block log recovery 
                                         at this block number (if set to 
                                         non-zero number)
-  --import-reversible-blocks arg        replace reversible block database with 
-                                        blocks imported from specified file and
-                                        then exit
-  --export-reversible-blocks arg        export reversible block database in 
-                                        portable format into specified file and
-                                        then exit
   --snapshot arg                        File to read Snapshot State from
 
 ```
@@ -93,14 +85,6 @@ Config Options for eosio::chain_plugin:
                                         Safely shut down node when free space 
                                         remaining in the chain state database 
                                         drops below this size (in MiB).
-  --reversible-blocks-db-size-mb arg (=340)
-                                        Maximum size (in MiB) of the reversible
-                                        blocks database
-  --reversible-blocks-db-guard-size-mb arg (=2)
-                                        Safely shut down node when free space 
-                                        remaining in the reverseible blocks 
-                                        database drops below this size (in 
-                                        MiB).
   --signature-cpu-billable-pct arg (=50)
                                         Percentage of actual signature recovery
                                         cpu to bill. Whole number percentages, 

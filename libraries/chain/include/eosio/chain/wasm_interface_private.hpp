@@ -173,19 +173,6 @@ namespace eosio { namespace chain {
             } catch (const IR::ValidationException& e) {
                EOS_ASSERT(false, wasm_serialization_error, e.message.c_str());
             }
-            if (runtime_interface->inject_module(module)) {
-               try {
-                  Serialization::ArrayOutputStream outstream;
-                  WASM::serialize(outstream, module);
-                  bytes = outstream.getBytes();
-               } catch (const Serialization::FatalSerializationException& e) {
-                  EOS_ASSERT(false, wasm_serialization_error,
-                             e.message.c_str());
-               } catch (const IR::ValidationException& e) {
-                  EOS_ASSERT(false, wasm_serialization_error,
-                             e.message.c_str());
-               }
-            }
 
             wasm_instantiation_cache.modify(it, [&](auto& c) {
                c.module = runtime_interface->instantiate_module((const char*)bytes.data(), bytes.size(), parse_initial_memory(module), code_hash, vm_type, vm_version);
