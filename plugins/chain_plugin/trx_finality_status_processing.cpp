@@ -13,13 +13,19 @@ namespace eosio::chain_apis {
         _success_duration(success_duration),
         _failure_duration(failure_duration) {}
 
-      void signal_applied_transactions( const chain::signals_processor::trx_deque& trxs, const chain::block_state_ptr& bsp );
+      void signal_applied_transaction( const chain::transaction_trace_ptr& trace, const chain::packed_transaction_ptr& ptrx );
+
+      void signal_accepted_block( const chain::block_state_ptr& bsp );
 
       void handle_rollback();
 
       bool status_expiry_of_trxs(const fc::time_point& now);
 
-      void ensure_storage();
+      // free up 10% of memory if _max_storage is exceeded
+      // returns true if storage was freed
+      bool ensure_storage();
+
+      void determine_earliest_tracked_block_id();
 
       const uint64_t                                   _max_storage;
       fc::tracked_storage<finality_status_multi_index> _storage;
@@ -28,9 +34,10 @@ namespace eosio::chain_apis {
       chain::block_timestamp_type                      _head_block_timestamp;
       chain::block_id_type                             _irr_block_id;
       chain::block_timestamp_type                      _irr_block_timestamp;
-      chain::block_id_type                             _last_tracked_block_id;
+      chain::block_id_type                             _earliest_tracked_block_id;
       const fc::microseconds                           _success_duration;
       const fc::microseconds                           _failure_duration;
+      std::deque<chain::transaction_id_type>           _speculative_trxs;
    };
 
    trx_finality_status_processing::trx_finality_status_processing( uint64_t max_storage, const fc::microseconds& success_duration, const fc::microseconds& failure_duration )
@@ -40,81 +47,137 @@ namespace eosio::chain_apis {
 
    trx_finality_status_processing::~trx_finality_status_processing() = default;
 
-   void trx_finality_status_processing::signal_applied_transactions( const chain::signals_processor::trx_deque& trxs, const chain::block_state_ptr& bsp ) {
-      _my->signal_applied_transactions(trxs, bsp);
-   }
-
    void trx_finality_status_processing::signal_irreversible_block( const chain::block_state_ptr& bsp ) {
-      _my->_irr_block_id = bsp->id;
-      _my->_irr_block_timestamp = bsp->block->timestamp;
+      try {
+         _my->_irr_block_id = bsp->id;
+         _my->_irr_block_timestamp = bsp->block->timestamp;
+      } FC_LOG_AND_DROP(("Failed to signal irreversible block for finality status"));
    }
 
    void trx_finality_status_processing::signal_block_start( uint32_t block_num ) {
+      try {
+         // since a new block is started, no block state was received, so the speculative block did not get eventually produced
+         _my->_speculative_trxs.clear();
+      } FC_LOG_AND_DROP(("Failed to signal block start for finality status"));
    }
 
-   void trx_finality_status_processing_impl::signal_applied_transactions( const chain::signals_processor::trx_deque& trxs, const chain::block_state_ptr& bsp ) {
+   void trx_finality_status_processing::signal_applied_transaction( const chain::transaction_trace_ptr& trace, const chain::packed_transaction_ptr& ptrx ) {
+      try {
+         _my->signal_applied_transaction(trace, ptrx);
+      } FC_LOG_AND_DROP(("Failed to signal applied transaction for finality status"));
+   }
+
+   void trx_finality_status_processing::signal_accepted_block( const chain::block_state_ptr& bsp ) {
+      try {
+         _my->signal_accepted_block(bsp);
+      } FC_LOG_AND_DROP(("Failed to signal accepted block for finality status"));
+   }
+
+   void trx_finality_status_processing_impl::signal_applied_transaction( const chain::transaction_trace_ptr& trace, const chain::packed_transaction_ptr& ptrx ) {
       const fc::time_point now = fc::time_point::now();
       // use the head block num if we are in a block, otherwise don't provide block number for speculative blocks
-      const auto& block_id = bsp ? bsp->id : chain::block_id_type{};
-      bool modified = !trxs.empty();
+      chain::block_id_type block_id;
       chain::block_timestamp_type block_timestamp;
-      if (bsp) {
-         _head_block_id = block_id;
-         _head_block_timestamp = bsp->block->timestamp;
-         block_timestamp = bsp->block->timestamp;
-         if (chain::block_header::num_from_id(_head_block_id) <= _last_proc_block_num) {
+      bool modified = false;
+      if (trace->producer_block_id) {
+         block_id = *trace->producer_block_id;
+         const bool block_changed = block_id != _head_block_id;
+         if (block_changed) {
+            _head_block_id = block_id;
+            _head_block_timestamp = trace->block_time;
+         }
+         block_timestamp = _head_block_timestamp;
+
+         const auto head_block_num = chain::block_header::num_from_id(_head_block_id);
+         if (block_changed && head_block_num <= _last_proc_block_num) {
             handle_rollback();
             modified = true;
          }
 
-         // clean up all status expired transactions, to free up storage
+         _last_proc_block_num = head_block_num;
+
          if (status_expiry_of_trxs(now)) {
             modified = true;
          }
       }
 
-      for (const auto& trx_tuple : trxs) {
-         const auto& trace = std::get<0>(trx_tuple);
-         if (!trace->receipt) continue;
-         if (trace->receipt->status != chain::transaction_receipt_header::executed) {
-            continue;
-         }
-         if (trace->scheduled) continue;
-         if (chain::is_onblock(*trace)) continue;
-
-         ensure_storage();
-         const auto& trx_id = trace->id;
-         auto iter = _storage.find(trx_id);
-         if (iter != _storage.index().cend()) {
-            _storage.modify( iter, [&block_id,&block_timestamp]( finality_status_object& obj ) {
-               obj.block_id = block_id;
-               obj.block_timestamp = block_timestamp;
-               obj.forked_out = false;
-            } );
-         }
-         else {
-            _storage.insert(
-               finality_status_object{.trx_id = trx_id,
-                                      .trx_expiry = std::get<1>(trx_tuple)->expiration(),
-                                      .received = now,
-                                      .block_id = block_id,
-                                      .block_timestamp = block_timestamp});
-         }
+      if (!trace->receipt) return;
+      if (trace->receipt->status != chain::transaction_receipt_header::executed) {
+         return;
       }
-      if (modified) {
-         const auto& indx = _storage.index().get<by_status_expiry>();
+      if (trace->scheduled) return;
+      if (chain::is_onblock(*trace)) return;
 
-         // find the lowest value successful block
-         auto success_iter = indx.lower_bound(boost::make_tuple(true, fc::time_point{}));
-         if (success_iter != indx.cend()) {
-            _last_tracked_block_id = success_iter->block_id;
-         }
+      if (!trace->producer_block_id) {
+         _speculative_trxs.push_back(trace->id);
       }
 
-      if (bsp) {
-         _last_proc_block_num = chain::block_header::num_from_id(_head_block_id);
+      if(ensure_storage()) {
+         modified = true;
+      }
+
+      const auto& trx_id = trace->id;
+      auto iter = _storage.find(trx_id);
+      if (iter != _storage.index().cend()) {
+         _storage.modify( iter, [&block_id,&block_timestamp]( finality_status_object& obj ) {
+            obj.block_id = block_id;
+            obj.block_timestamp = block_timestamp;
+            obj.forked_out = false;
+         } );
+      }
+      else {
+         _storage.insert(
+            finality_status_object{.trx_id = trx_id,
+                                   .trx_expiry = ptrx->expiration(),
+                                   .received = now,
+                                   .block_id = block_id,
+                                   .block_timestamp = block_timestamp});
+      }
+
+      if (modified || _earliest_tracked_block_id == chain::block_id_type{}) {
+         determine_earliest_tracked_block_id();
       }
    }
+
+   void trx_finality_status_processing_impl::signal_accepted_block( const chain::block_state_ptr& bsp ) {
+      // if this block had any transactions, then we have processed everything we need to already
+      if (bsp->id == _head_block_id) {
+         return;
+      }
+
+      _head_block_id = bsp->id;
+      _head_block_timestamp = bsp->block->timestamp;
+
+      const auto head_block_num = chain::block_header::num_from_id(_head_block_id);
+      if (head_block_num <= _last_proc_block_num) {
+         handle_rollback();
+      }
+
+      const fc::time_point now = fc::time_point::now();
+      bool status_expiry = status_expiry_of_trxs(now);
+      if (status_expiry) {
+         determine_earliest_tracked_block_id();
+      }
+
+      // if this approve block was preceded by speculative transactions then we produced the block, update trx state.
+      auto mod = [&block_id=_head_block_id,&block_timestamp=_head_block_timestamp]( finality_status_object& obj ) {
+         obj.block_id = block_id;
+         obj.block_timestamp = block_timestamp;
+         obj.forked_out = false;
+      };
+      for (const auto& trx_id : _speculative_trxs) {
+         auto iter = _storage.find(trx_id);
+         FC_ASSERT( iter != _storage.index().cend(),
+                    "CODE ERROR: Should not have speculative transactions that have not already"
+                    "been identified prior to the block being accepted. trx id: ${trx_id}",
+                    ("trx_id", trx_id) );
+         _storage.modify( iter, mod );
+      }
+      _speculative_trxs.clear();
+
+      _last_proc_block_num = head_block_num;
+   }
+
 
    void trx_finality_status_processing_impl::handle_rollback() {
       const auto& indx = _storage.index().get<by_block_num>();
@@ -155,10 +218,10 @@ namespace eosio::chain_apis {
       return !remove_trxs.empty();
    }
 
-   void trx_finality_status_processing_impl::ensure_storage() {
+   bool trx_finality_status_processing_impl::ensure_storage() {
       const int64_t remaining_storage = _max_storage - _storage.memory_size();
       if (remaining_storage > 0) {
-         return;
+         return false;
       }
 
       auto percentage = [](uint64_t mem) {
@@ -236,10 +299,12 @@ namespace eosio::chain_apis {
       else {
          ilog( "Finality Status dropped ${trx_count} transactions, all were failed transactions", ("trx_count", remove_trxs.size()) );
       }
+
+      return true;
    }
 
    trx_finality_status_processing::chain_state trx_finality_status_processing::get_chain_state() const {
-      return { .head_id = _my->_head_block_id, .head_block_timestamp = _my->_head_block_timestamp, .irr_id = _my->_irr_block_id, .irr_block_timestamp = _my->_irr_block_timestamp, .last_tracked_block_id = _my->_last_tracked_block_id };
+      return { .head_id = _my->_head_block_id, .head_block_timestamp = _my->_head_block_timestamp, .irr_id = _my->_irr_block_id, .irr_block_timestamp = _my->_irr_block_timestamp, .earliest_tracked_block_id = _my->_earliest_tracked_block_id };
    }
 
    std::optional<trx_finality_status_processing::trx_state> trx_finality_status_processing::get_trx_state( const chain::transaction_id_type& id ) const {
@@ -267,5 +332,15 @@ namespace eosio::chain_apis {
 
    size_t trx_finality_status_processing::get_storage_memory_size() const {
       return _my->_storage.memory_size();
+   }
+
+   void trx_finality_status_processing_impl::determine_earliest_tracked_block_id() {
+      const auto& indx = _storage.index().get<by_status_expiry>();
+
+      // find the lowest value successful block
+      auto success_iter = indx.lower_bound(boost::make_tuple(true, fc::time_point{}));
+      if (success_iter != indx.cend()) {
+         _earliest_tracked_block_id = success_iter->block_id;
+      }
    }
 }

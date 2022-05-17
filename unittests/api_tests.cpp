@@ -38,6 +38,8 @@
 #include <Runtime/Runtime.h>
 
 #include <contracts.hpp>
+#include "test_cfd_transaction.hpp"
+
 
 #define DUMMY_ACTION_DEFAULT_A 0x45
 #define DUMMY_ACTION_DEFAULT_B 0xab11cd1244556677
@@ -58,33 +60,8 @@ static constexpr unsigned long long WASM_TEST_ACTION(const char* cls, const char
 
 using namespace eosio::chain::literals;
 
-struct dummy_action {
-   static eosio::chain::name get_name() {
-      return "dummyaction"_n;
-   }
-   static eosio::chain::name get_account() {
-      return "testapi"_n;
-   }
-
-  char a; //1
-  uint64_t b; //8
-  int32_t  c; //4
-};
-
 struct u128_action {
   unsigned __int128  values[3]; //16*3
-};
-
-struct cf_action {
-   static eosio::chain::name get_name() {
-      return "cfaction"_n;
-   }
-   static eosio::chain::name get_account() {
-      return "testapi"_n;
-   }
-
-   uint32_t       payload = 100;
-   uint32_t       cfd_idx = 0; // context free data index
 };
 
 // Deferred Transaction Trigger Action
@@ -110,9 +87,7 @@ struct invalid_access_action {
    bool store;
 };
 
-FC_REFLECT( dummy_action, (a)(b)(c) )
 FC_REFLECT( u128_action, (values) )
-FC_REFLECT( cf_action, (payload)(cfd_idx) )
 FC_REFLECT( dtt_action, (payer)(deferred_account)(deferred_action)(permission_name)(delay_sec) )
 FC_REFLECT( invalid_access_action, (code)(val)(index)(store) )
 
@@ -141,6 +116,19 @@ struct test_api_action {
 };
 
 FC_REFLECT_TEMPLATE((uint64_t T), test_api_action<T>, BOOST_PP_SEQ_NIL)
+
+template<uint64_t NAME>
+struct test_pause_action {
+   static account_name get_account() {
+      return "pause"_n;
+   }
+
+   static action_name get_name() {
+      return action_name(NAME);
+   }
+};
+
+FC_REFLECT_TEMPLATE((uint64_t T), test_pause_action<T>, BOOST_PP_SEQ_NIL)
 
 template<uint64_t NAME>
 struct test_chain_action {
@@ -286,9 +274,9 @@ bool is_page_memory_error(page_memory_error const &e) { return true; }
 bool is_unsatisfied_authorization(unsatisfied_authorization const & e) { return true;}
 bool is_wasm_execution_error(eosio::chain::wasm_execution_error const& e) {return true;}
 bool is_tx_net_usage_exceeded(const tx_net_usage_exceeded& e) { return true; }
-bool is_block_net_usage_exceeded(const tx_cpu_usage_exceeded& e) { return true; }
+bool is_block_net_usage_exceeded(const block_net_usage_exceeded& e) { return true; }
 bool is_tx_cpu_usage_exceeded(const tx_cpu_usage_exceeded& e) { return true; }
-bool is_block_cpu_usage_exceeded(const tx_cpu_usage_exceeded& e) { return true; }
+bool is_block_cpu_usage_exceeded(const block_cpu_usage_exceeded& e) { return true; }
 bool is_deadline_exception(const deadline_exception& e) { return true; }
 
 /*
@@ -878,21 +866,28 @@ BOOST_FIXTURE_TEST_CASE(checktime_pass_tests, TESTER) { try {
    BOOST_REQUIRE_EQUAL( validate(), true );
 } FC_LOG_AND_RETHROW() }
 
-template<class T>
-void call_test(TESTER& test, T ac, uint32_t billed_cpu_time_us , uint32_t max_cpu_usage_ms = 200, std::vector<char> payload = {} ) {
+template<class T, typename Tester>
+void call_test(Tester& test, T ac, uint32_t billed_cpu_time_us , uint32_t max_cpu_usage_ms, uint32_t max_block_cpu_ms, std::vector<char> payload = {}, name account = "testapi"_n ) {
    signed_transaction trx;
 
-   auto pl = vector<permission_level>{{"testapi"_n, config::active_name}};
+   auto pl = vector<permission_level>{{account, config::active_name}};
    action act(pl, ac);
    act.data = payload;
 
    trx.actions.push_back(act);
    test.set_transaction_headers(trx);
-   auto sigs = trx.sign(test.get_private_key("testapi"_n, "active"), test.control->get_chain_id());
+   auto sigs = trx.sign(test.get_private_key(account, "active"), test.control->get_chain_id());
    flat_set<public_key_type> keys;
    trx.get_signature_keys(test.control->get_chain_id(), fc::time_point::maximum(), keys);
-   auto res = test.push_transaction( trx, fc::time_point::now() + fc::milliseconds(max_cpu_usage_ms), billed_cpu_time_us );
-   BOOST_CHECK_EQUAL(res->receipt->status, transaction_receipt::executed);
+   auto ptrx = std::make_shared<packed_transaction>( std::move(trx) );
+
+   auto fut = transaction_metadata::start_recover_keys( std::move( ptrx ), test.control->get_thread_pool(),
+                                                        test.control->get_chain_id(), fc::microseconds::maximum(),
+                                                        transaction_metadata::trx_type::input );
+   auto res = test.control->push_transaction( fut.get(), fc::time_point::now() + fc::milliseconds(max_block_cpu_ms),
+                                              fc::milliseconds(max_cpu_usage_ms), billed_cpu_time_us, billed_cpu_time_us > 0, 0 );
+   if( res->except_ptr ) std::rethrow_exception( res->except_ptr );
+   if( res->except ) throw *res->except;
    test.produce_block();
 };
 
@@ -911,14 +906,12 @@ BOOST_AUTO_TEST_CASE(checktime_fail_tests) { try {
    t.control->get_resource_limits_manager().get_account_limits( "testapi"_n, x, net, cpu );
    wdump((net)(cpu));
 
-#warning TODO call the contract before testing to cache it, and validate that it was cached
-
    BOOST_CHECK_EXCEPTION( call_test( t, test_api_action<TEST_METHOD("test_checktime", "checktime_failure")>{},
-                                     5000, 200, fc::raw::pack(10000000000000000000ULL) ),
+                                     5000, 200, 200, fc::raw::pack(10000000000000000000ULL) ),
                           deadline_exception, is_deadline_exception );
 
    BOOST_CHECK_EXCEPTION( call_test( t, test_api_action<TEST_METHOD("test_checktime", "checktime_failure")>{},
-                                     0, 200, fc::raw::pack(10000000000000000000ULL) ),
+                                     0, 200, 200, fc::raw::pack(10000000000000000000ULL) ),
                           tx_cpu_usage_exceeded, is_tx_cpu_usage_exceeded );
 
    uint32_t time_left_in_block_us = config::default_max_block_cpu_usage - config::default_min_transaction_cpu_usage;
@@ -929,12 +922,210 @@ BOOST_AUTO_TEST_CASE(checktime_fail_tests) { try {
       time_left_in_block_us -= increment;
    }
    BOOST_CHECK_EXCEPTION( call_test( t, test_api_action<TEST_METHOD("test_checktime", "checktime_failure")>{},
-                                    0, 200, fc::raw::pack(10000000000000000000ULL) ),
+                                    0, 200, 200, fc::raw::pack(10000000000000000000ULL) ),
                           block_cpu_usage_exceeded, is_block_cpu_usage_exceeded );
 
    BOOST_REQUIRE_EQUAL( t.validate(), true );
 } FC_LOG_AND_RETHROW() }
 
+BOOST_AUTO_TEST_CASE(checktime_pause_max_trx_cpu_extended_test) { try {
+   fc::temp_directory tempdir;
+   auto conf_genesis = tester::default_config( tempdir );
+   auto& cfg = conf_genesis.second.initial_configuration;
+
+   cfg.max_block_cpu_usage        = 150'000;
+   cfg.max_transaction_cpu_usage  = 24'999; // needs to be large enough for create_account and set_code
+   cfg.min_transaction_cpu_usage  = 1;
+
+   tester t( conf_genesis.first, conf_genesis.second );
+   if( t.get_config().wasm_runtime == wasm_interface::vm_type::eos_vm_oc ) {
+      // eos_vm_oc wasm_runtime does not tier-up and completes compile before continuing execution.
+      // A completely different test with different constraints would be needed to test with eos_vm_oc.
+      // Since non-tier-up is not a normal valid nodeos runtime, just skip this test for eos_vm_oc.
+      return;
+   }
+   t.execute_setup_policy( setup_policy::full );
+   t.produce_blocks(2);
+   t.create_account( "pause"_n );
+   t.set_code( "pause"_n, contracts::test_api_wasm() );
+   t.produce_blocks(1);
+
+   int64_t ram_bytes; int64_t net; int64_t cpu;
+   auto& rl = t.control->get_resource_limits_manager();
+   rl.get_account_limits( "pause"_n, ram_bytes, net, cpu );
+   BOOST_CHECK_EQUAL( cpu, -1 );
+   auto cpu_limit = rl.get_block_cpu_limit();
+   idump(("cpu_limit")(cpu_limit));
+   BOOST_CHECK( cpu_limit <= 150'000 );
+
+   // Test deadline is extended when max_transaction_cpu_time is the limiting factor
+
+   // First call to contract which should cause the WASM to load and trx_context.pause_billing_timer() to be called.
+   // Verify that the restriction on the transaction of 24'999 is honored even though there is wall clock time to
+   // load the wasm. If this test fails it is possible that the wasm loaded faster or slower than expected.
+   auto before = fc::time_point::now();
+   BOOST_CHECK_EXCEPTION( call_test( t, test_pause_action<TEST_METHOD("test_checktime", "checktime_failure")>{},
+                                     0, 9999, 500, fc::raw::pack(10000000000000000000ULL), "pause"_n ),
+                          tx_cpu_usage_exceeded, is_tx_cpu_usage_exceeded );
+   auto after = fc::time_point::now();
+   // Test that it runs longer than specified limit of 24'999 to allow for wasm load time.
+   auto dur = (after - before).count();
+   dlog("elapsed ${e}us", ("e", dur) );
+   BOOST_CHECK( dur >= 24'999 ); // should never fail
+   // This assumes that loading the WASM takes at least 1.5 ms
+   // If this check fails but duration is >= 24'999 (previous check did not fail), then the check here is likely
+   // because WASM took less than 1.5 ms to load.
+   BOOST_CHECK_MESSAGE( dur > 26'500, "elapsed " << dur << "us" );
+   BOOST_CHECK_MESSAGE( dur < 150'000, "elapsed " << dur << "us" ); // Should not run to block_cpu_usage deadline
+
+   // Test hitting max_transaction_time throws tx_cpu_usage_exceeded
+   BOOST_CHECK_EXCEPTION( call_test( t, test_pause_action<TEST_METHOD("test_checktime", "checktime_failure")>{},
+                                     0, 5, 50, fc::raw::pack(10000000000000000000ULL), "pause"_n ),
+                          tx_cpu_usage_exceeded, is_tx_cpu_usage_exceeded );
+
+   // Test hitting block deadline throws deadline_exception
+   BOOST_CHECK_EXCEPTION( call_test( t, test_pause_action<TEST_METHOD("test_checktime", "checktime_failure")>{},
+                                     0, 50, 5, fc::raw::pack(10000000000000000000ULL), "pause"_n ),
+                          deadline_exception, is_deadline_exception );
+
+   BOOST_REQUIRE_EQUAL( t.validate(), true );
+} FC_LOG_AND_RETHROW() }
+
+BOOST_AUTO_TEST_CASE(checktime_pause_max_trx_extended_test) { try {
+   fc::temp_directory tempdir;
+   auto conf_genesis = tester::default_config( tempdir );
+   auto& cfg = conf_genesis.second.initial_configuration;
+
+   cfg.max_block_cpu_usage        = 350'000;
+   cfg.max_transaction_cpu_usage  = 250'000; // needs to be large enough for create_account and set_code
+   cfg.min_transaction_cpu_usage  = 1;
+
+   tester t( conf_genesis.first, conf_genesis.second );
+   if( t.get_config().wasm_runtime == wasm_interface::vm_type::eos_vm_oc ) {
+      // eos_vm_oc wasm_runtime does not tier-up and completes compile before continuing execution.
+      // A completely different test with different constraints would be needed to test with eos_vm_oc.
+      // Since non-tier-up is not a normal valid nodeos runtime, just skip this test for eos_vm_oc.
+      return;
+   }
+   t.execute_setup_policy( setup_policy::full );
+   t.produce_blocks(2);
+   t.create_account( "pause"_n );
+   t.set_code( "pause"_n, contracts::test_api_wasm() );
+   t.produce_blocks(1);
+
+   // Test deadline is extended when max_transaction_time is the limiting factor
+
+   // First call to contract which should cause the WASM to load and trx_context.pause_billing_timer() to be called.
+   // Verify that the restriction on the max_transaction_time of 25ms is honored even though there is wall clock time to
+   // load the wasm. If this test fails it is possible that the wasm loaded faster or slower than expected.
+   auto before = fc::time_point::now();
+   BOOST_CHECK_EXCEPTION( call_test( t, test_pause_action<TEST_METHOD("test_checktime", "checktime_failure")>{},
+                                     0, 25, 500, fc::raw::pack(10000000000000000000ULL), "pause"_n ),
+                          tx_cpu_usage_exceeded, is_tx_cpu_usage_exceeded );
+   auto after = fc::time_point::now();
+   // Test that it runs longer than specified limit of 24'999 to allow for wasm load time.
+   auto dur = (after - before).count();
+   dlog("elapsed ${e}us", ("e", dur) );
+   BOOST_CHECK( dur >= 25'000 ); // should never fail
+   // This assumes that loading the WASM takes at least 1.5 ms
+   // If this check fails but duration is >= 25'000 (previous check did not fail), then the check here is likely
+   // because WASM took less than 1.5 ms to load.
+   BOOST_CHECK_MESSAGE( dur > 26'500, "elapsed " << dur << "us" );
+   BOOST_CHECK_MESSAGE( dur < 250'000, "elapsed " << dur << "us" ); // Should not run to max_transaction_cpu_usage deadline
+
+   BOOST_REQUIRE_EQUAL( t.validate(), true );
+} FC_LOG_AND_RETHROW() }
+
+BOOST_AUTO_TEST_CASE(checktime_pause_block_deadline_not_extended_test) { try {
+   fc::temp_directory tempdir;
+   auto conf_genesis = tester::default_config( tempdir );
+   auto& cfg = conf_genesis.second.initial_configuration;
+
+   cfg.max_block_cpu_usage        = 350'000;
+   cfg.max_transaction_cpu_usage  = 250'000; // needs to be large enough for create_account and set_code
+   cfg.min_transaction_cpu_usage  = 1;
+
+   tester t( conf_genesis.first, conf_genesis.second );
+   if( t.get_config().wasm_runtime == wasm_interface::vm_type::eos_vm_oc ) {
+      // eos_vm_oc wasm_runtime does not tier-up and completes compile before continuing execution.
+      // A completely different test with different constraints would be needed to test with eos_vm_oc.
+      // Since non-tier-up is not a normal valid nodeos runtime, just skip this test for eos_vm_oc.
+      return;
+   }
+   t.execute_setup_policy( setup_policy::full );
+   t.produce_blocks(2);
+   t.create_account( "pause"_n );
+   t.set_code( "pause"_n, contracts::test_api_wasm() );
+   t.produce_blocks(1);
+
+   // Test block deadline is not extended when it is the limiting factor
+   // Specify large enough time so that WASM is completely loaded.
+
+   // First call to contract which should cause the WASM to load and trx_context.pause_billing_timer() to be called.
+   auto before = fc::time_point::now();
+   BOOST_CHECK_EXCEPTION( call_test( t, test_pause_action<TEST_METHOD("test_checktime", "checktime_failure")>{},
+                                     0, 150, 75, fc::raw::pack(10000000000000000000ULL), "pause"_n ),
+                          deadline_exception, is_deadline_exception );
+   auto after = fc::time_point::now();
+   // WASM load times on my machine are around 35ms
+   auto dur = (after - before).count();
+   dlog("elapsed ${e}us", ("e", dur) );
+   BOOST_CHECK( dur >= 75'000 ); // should never fail
+   // If this check fails but duration is >= 75'000 (previous check did not fail), then the check here is likely
+   // because it took longer than 2 ms for checktime to trigger, trace to be created, and to get to the now() call.
+   BOOST_CHECK_MESSAGE( dur < 77'000, "elapsed " << dur << "us" );
+
+   BOOST_REQUIRE_EQUAL( t.validate(), true );
+} FC_LOG_AND_RETHROW() }
+
+
+BOOST_AUTO_TEST_CASE(checktime_pause_block_deadline_not_extended_while_loading_test) { try {
+   fc::temp_directory tempdir;
+   auto conf_genesis = tester::default_config( tempdir );
+   auto& cfg = conf_genesis.second.initial_configuration;
+
+   cfg.max_block_cpu_usage        = 350'000;
+   cfg.max_transaction_cpu_usage  = 250'000; // needs to be large enough for create_account and set_code
+   cfg.min_transaction_cpu_usage  = 1;
+
+   tester t( conf_genesis.first, conf_genesis.second );
+   if( t.get_config().wasm_runtime == wasm_interface::vm_type::eos_vm_oc ) {
+      // eos_vm_oc wasm_runtime does not tier-up and completes compile before continuing execution.
+      // A completely different test with different constraints would be needed to test with eos_vm_oc.
+      // Since non-tier-up is not a normal valid nodeos runtime, just skip this test for eos_vm_oc.
+      return;
+   }
+   t.execute_setup_policy( setup_policy::full );
+   t.produce_blocks(2);
+   t.create_account( "pause"_n );
+   t.set_code( "pause"_n, contracts::test_api_wasm() );
+   t.produce_blocks(1);
+
+   // Test block deadline is not extended when it is the limiting factor
+   // This test is different from the previous in that not enough time is provided to load the WASM.
+   // The block deadline will kick in once the timer is unpaused after loading the WASM.
+   // This is difficult to determine as checktime is not checked until WASM has completed loading.
+   // We want to test that blocktime is enforced immediately after timer is unpaused.
+
+   // First call to contract which should cause the WASM to load and trx_context.pause_billing_timer() to be called.
+   auto before = fc::time_point::now();
+   BOOST_CHECK_EXCEPTION( call_test( t, test_pause_action<TEST_METHOD("test_checktime", "checktime_failure")>{},
+                                     0, 150, 5, fc::raw::pack(10000000000000000000ULL), "pause"_n ),
+                          deadline_exception, is_deadline_exception );
+   auto after = fc::time_point::now();
+   // Test that it runs longer than specified limit of 10ms to allow for wasm load time.
+   // WASM load times on my machine are around 35ms
+   auto dur = (after - before).count();
+   dlog("elapsed ${e}us", ("e", dur) );
+   BOOST_CHECK( dur >= 5'000 ); // should never fail
+   // WASM load times on my machine was 35ms.
+   // Since checktime only kicks in after WASM is loaded this needs to be large enough to load the WASM, but should be
+   // considerably lower than the 150ms max_transaction_time
+   BOOST_CHECK_MESSAGE( dur < 50'000, "elapsed " << dur << "us" );
+   BOOST_REQUIRE_MESSAGE( dur < 150'000, "elapsed " << dur << "us" ); // should never fail
+
+   BOOST_REQUIRE_EQUAL( t.validate(), true );
+} FC_LOG_AND_RETHROW() }
 
 BOOST_FIXTURE_TEST_CASE(checktime_intrinsic, TESTER) { try {
 	produce_blocks(2);
@@ -984,14 +1175,14 @@ BOOST_FIXTURE_TEST_CASE(checktime_intrinsic, TESTER) { try {
 
         //initialize cache
         BOOST_CHECK_EXCEPTION( call_test( *this, test_api_action<TEST_METHOD("doesn't matter", "doesn't matter")>{},
-                                          5000, 10 ),
+                                          5000, 10, 10 ),
                                deadline_exception, is_deadline_exception );
 
 #warning TODO validate that the contract was successfully cached
 
         //it will always call
         BOOST_CHECK_EXCEPTION( call_test( *this, test_api_action<TEST_METHOD("doesn't matter", "doesn't matter")>{},
-                                          5000, 10 ),
+                                          5000, 10, 10 ),
                                deadline_exception, is_deadline_exception );
 } FC_LOG_AND_RETHROW() }
 
@@ -1021,14 +1212,14 @@ BOOST_FIXTURE_TEST_CASE(checktime_grow_memory, TESTER) { try {
 
         //initialize cache
         BOOST_CHECK_EXCEPTION( call_test( *this, test_api_action<TEST_METHOD("doesn't matter", "doesn't matter")>{},
-                                          5000, 10 ),
+                                          5000, 10, 10 ),
                                deadline_exception, is_deadline_exception );
 
 #warning TODO validate that the contract was successfully cached
 
         //it will always call
         BOOST_CHECK_EXCEPTION( call_test( *this, test_api_action<TEST_METHOD("doesn't matter", "doesn't matter")>{},
-                                          5000, 10 ),
+                                          5000, 10, 10 ),
                                deadline_exception, is_deadline_exception );
 } FC_LOG_AND_RETHROW() }
 
@@ -1041,42 +1232,42 @@ BOOST_FIXTURE_TEST_CASE(checktime_hashing_fail, TESTER) { try {
 
         //hit deadline exception, but cache the contract
         BOOST_CHECK_EXCEPTION( call_test( *this, test_api_action<TEST_METHOD("test_checktime", "checktime_sha1_failure")>{},
-                                          5000, 3 ),
+                                          5000, 3, 3 ),
                                deadline_exception, is_deadline_exception );
 
 #warning TODO validate that the contract was successfully cached
 
         //the contract should be cached, now we should get deadline_exception because of calls to checktime() from hashing function
         BOOST_CHECK_EXCEPTION( call_test( *this, test_api_action<TEST_METHOD("test_checktime", "checktime_sha1_failure")>{},
-                                          5000, 3 ),
+                                          5000, 3, 3 ),
                                deadline_exception, is_deadline_exception );
 
         BOOST_CHECK_EXCEPTION( call_test( *this, test_api_action<TEST_METHOD("test_checktime", "checktime_assert_sha1_failure")>{},
-                                          5000, 3 ),
+                                          5000, 3, 3 ),
                                deadline_exception, is_deadline_exception );
 
         BOOST_CHECK_EXCEPTION( call_test( *this, test_api_action<TEST_METHOD("test_checktime", "checktime_sha256_failure")>{},
-                                          5000, 3 ),
+                                          5000, 3, 3 ),
                                deadline_exception, is_deadline_exception );
 
         BOOST_CHECK_EXCEPTION( call_test( *this, test_api_action<TEST_METHOD("test_checktime", "checktime_assert_sha256_failure")>{},
-                                          5000, 3 ),
+                                          5000, 3, 3 ),
                                deadline_exception, is_deadline_exception );
 
         BOOST_CHECK_EXCEPTION( call_test( *this, test_api_action<TEST_METHOD("test_checktime", "checktime_sha512_failure")>{},
-                                          5000, 3 ),
+                                          5000, 3, 3 ),
                                deadline_exception, is_deadline_exception );
 
         BOOST_CHECK_EXCEPTION( call_test( *this, test_api_action<TEST_METHOD("test_checktime", "checktime_assert_sha512_failure")>{},
-                                          5000, 3 ),
+                                          5000, 3, 3 ),
                                deadline_exception, is_deadline_exception );
 
         BOOST_CHECK_EXCEPTION( call_test( *this, test_api_action<TEST_METHOD("test_checktime", "checktime_ripemd160_failure")>{},
-                                          5000, 3 ),
+                                          5000, 3, 3 ),
                                deadline_exception, is_deadline_exception );
 
         BOOST_CHECK_EXCEPTION( call_test( *this, test_api_action<TEST_METHOD("test_checktime", "checktime_assert_ripemd160_failure")>{},
-                                          5000, 3 ),
+                                          5000, 3, 3 ),
                                deadline_exception, is_deadline_exception );
 
    BOOST_REQUIRE_EQUAL( validate(), true );
@@ -1098,7 +1289,7 @@ BOOST_FIXTURE_TEST_CASE(checktime_start, TESTER) try {
    produce_blocks(1);
 
    BOOST_CHECK_EXCEPTION( call_test( *this, test_api_action<TEST_METHOD("doesn't matter", "doesn't matter")>{},
-                                     5000, 3 ),
+                                     5000, 3, 3 ),
                           deadline_exception, is_deadline_exception );
 } FC_LOG_AND_RETHROW()
 
@@ -1246,7 +1437,7 @@ BOOST_FIXTURE_TEST_CASE(transaction_tests, TESTER) { try {
       ptrx = std::make_shared<packed_transaction>( pkt );
 
       auto fut = transaction_metadata::start_recover_keys( std::move( ptrx ), control->get_thread_pool(), control->get_chain_id(), time_limit, transaction_metadata::trx_type::input );
-      auto r = control->push_transaction( fut.get(), fc::time_point::maximum(), DEFAULT_BILLED_CPU_TIME_US, true, 0 );
+      auto r = control->push_transaction( fut.get(), fc::time_point::maximum(), fc::microseconds::maximum(), DEFAULT_BILLED_CPU_TIME_US, true, 0 );
       if( r->except_ptr ) std::rethrow_exception( r->except_ptr );
       if( r->except) throw *r->except;
       tx_trace = r;
@@ -1427,7 +1618,7 @@ BOOST_FIXTURE_TEST_CASE(deferred_transaction_tests, TESTER) { try {
       auto dtrxs = get_scheduled_transactions();
       BOOST_CHECK_EQUAL(dtrxs.size(), 1);
       for (const auto& trx: dtrxs) {
-         control->push_scheduled_transaction(trx, fc::time_point::maximum(), 0, false);
+         control->push_scheduled_transaction(trx, fc::time_point::maximum(), fc::microseconds::maximum(), 0, false);
       }
       BOOST_CHECK_EQUAL(1, count);
       BOOST_REQUIRE(trace);
@@ -1454,7 +1645,7 @@ BOOST_FIXTURE_TEST_CASE(deferred_transaction_tests, TESTER) { try {
       auto dtrxs = get_scheduled_transactions();
       BOOST_CHECK_EQUAL(dtrxs.size(), 1);
       for (const auto& trx: dtrxs) {
-         control->push_scheduled_transaction(trx, fc::time_point::maximum(), billed_cpu_time_us, true);
+         control->push_scheduled_transaction(trx, fc::time_point::maximum(), fc::microseconds::maximum(), billed_cpu_time_us, true);
       }
       BOOST_CHECK_EQUAL(1, count);
       BOOST_CHECK(trace);
