@@ -427,13 +427,26 @@ BOOST_FIXTURE_TEST_CASE(max_stack, wasm_config_tester) {
    {
       std::stringstream ss;
       ss << "(module ";
-      ss << " (func (export \"apply\") (param i64 i64 i64) (call 1 (i32.wrap/i64 (get_local 2))))";
-      ss << " (func ";
-      ss << "   (param i32)";
+      ss << " (func (export \"apply\") (param i64 i64 i64)";
       // pad to 8192 bytes
       for(int i = 0; i < 2046; ++i)
          ss << "(local i32)";
-      ss << "   (if (get_local 0) (call 1 (i32.sub (get_local 0) (i32.const 1))))";
+      ss << "   (get_local 2)"
+         << "   (i32.wrap/i64)"
+         << "   (i32.const 0)"
+         << "   (call 1))";
+      ss << " (func ";
+      ss << "   (param i32 i32)";
+      // pad to 8192 bytes
+      for(int i = 0; i < 2046; ++i)
+         ss << "(local i32)";
+      ss << "   (if (get_local 0)"
+         << "     (then"
+         << "       (get_local 0)"
+         << "       (i32.const 1)"
+         << "       (i32.sub)"
+         << "       (get_local 1)"
+         << "       (call 1)))";
       ss << " )";
       ss << ")";
       code = ss.str();
@@ -463,7 +476,11 @@ BOOST_FIXTURE_TEST_CASE(max_stack_old, old_wasm_tester) {
    {
       std::stringstream ss;
       ss << "(module ";
-      ss << " (func (export \"apply\") (param i64 i64 i64) (call 1 (i32.const 249)))";
+      ss << " (func (export \"apply\") (param i64 i64 i64)";
+      // pad to 8192 bytes
+      for(int i = 0; i < 2042; ++i)
+         ss << "(local i32)";
+      ss << " (call 1 (i32.const 249)))";
       ss << " (func ";
       ss << "   (param i32)";
       // pad to 8192 bytes
