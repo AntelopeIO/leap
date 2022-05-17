@@ -319,11 +319,11 @@ class Node(object):
 
         return False
 
-    def getBlockNumByTransId(self, transId, delayedRetry=True, blocksAhead=5):
+    def getBlockNumByTransId(self, transId, exitOnError=True, delayedRetry=True, blocksAhead=5):
         """Given a transaction Id (string), return the block number (int) containing the transaction"""
         assert(transId)
         assert(isinstance(transId, str))
-        trans=self.getTransaction(transId, exitOnError=True, delayedRetry=delayedRetry)
+        trans=self.getTransaction(transId, exitOnError=exitOnError, delayedRetry=delayedRetry)
 
         refBlockNum=None
         key=""
