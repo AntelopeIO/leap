@@ -11,8 +11,8 @@ echo 'nodeos from source should perform a "release build" which excludes asserts
 echo 'debugging symbols, and performs compiler optimizations.'
 echo ''
 
-NODEOS_DEBUG=$(programs/nodeos/nodeos --extract-build-info >(python3 -c 'import json,sys; print(json.load(sys.stdin)["debug"]);') &> /dev/null)
-if [[ "${NODEOS_DEBUG,,}" == 'false' ]]; then
+NODEOS_DEBUG=$(programs/nodeos/nodeos --extract-build-info >(python3 -c 'import json,sys; print(str(json.load(sys.stdin)["debug"]).lower());') &> /dev/null)
+if [[ "${NODEOS_DEBUG}" == 'false' ]]; then
     echo 'PASS: Debug flag is not set.'
     echo ''
     exit 0

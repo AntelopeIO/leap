@@ -84,8 +84,8 @@ try:
     cluster.waitOnClusterSync(blockAdvancing=5)
     Print("Cluster in Sync")
 
-    javascriptClient = "tests/ship_client.js"
-    cmd = "node %s --num-requests %d" % (javascriptClient, args.num_requests)
+    shipClient = "tests/ship_client"
+    cmd = "%s --num-requests %d" % (shipClient, args.num_requests)
     if Utils.Debug: Utils.Print("cmd: %s" % (cmd))
     clients = []
     files = []
@@ -126,13 +126,6 @@ try:
         with open(shipClientErrorFile, "r") as errFile:
             statuses = None
             lines = errFile.readlines()
-            missingModules = []
-            for line in lines:
-                match = re.search(r"Error: Cannot find module '(\w+)'", line)
-                if match:
-                    missingModules.append(match.group(1))
-            if len(missingModules) > 0:
-                Utils.errorExit("Javascript client #%d threw an exception, it was missing modules: %s" % (index, ", ".join(missingModules)))
 
             try:
                 statuses = json.loads(" ".join(lines))

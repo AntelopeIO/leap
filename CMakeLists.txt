@@ -20,9 +20,9 @@ set( CMAKE_CXX_EXTENSIONS ON )
 set( CXX_STANDARD_REQUIRED ON)
 
 set(VERSION_MAJOR 3)
-set(VERSION_MINOR 0)
-set(VERSION_PATCH 5)
-set(VERSION_SUFFIX rc1)
+set(VERSION_MINOR 1)
+set(VERSION_PATCH 0)
+set(VERSION_SUFFIX dev)
 
 if(VERSION_SUFFIX)
     set(VERSION_FULL "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}-${VERSION_SUFFIX}")
@@ -59,7 +59,7 @@ set(ENABLE_MULTIVERSION_PROTOCOL_TEST FALSE CACHE BOOL "Enable nodeos multiversi
 
 # add defaults for openssl
 if(APPLE AND UNIX AND "${OPENSSL_ROOT_DIR}" STREQUAL "")
-   set(OPENSSL_ROOT_DIR "/usr/local/opt/openssl@1.1")
+   set(OPENSSL_ROOT_DIR "/usr/local/opt/openssl@3;/usr/local/opt/openssl@1.1")
 endif()
 # fc also adds these definitions to its public interface. once fc becomes the sole importer of openssl, this should be removed
 add_definitions(-DOPENSSL_API_COMPAT=0x10100000L -DOPENSSL_NO_DEPRECATED)

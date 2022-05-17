@@ -564,7 +564,7 @@ class Cluster(object):
         if targetBlockNum == -1:
             return False
 
-        return self.waitOnClusterBlockNumSync(targetBlockNum, timeout)
+        return self.waitOnClusterBlockNumSync(targetBlockNum, timeout, blockType=blockType)
 
     def waitOnClusterBlockNumSync(self, targetBlockNum, timeout=None, blockType=BlockType.head):
         """Wait for all nodes to have targetBlockNum finalized."""
