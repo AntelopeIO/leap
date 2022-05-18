@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from testUtils import Account
 from testUtils import Utils
 from Cluster import Cluster
 from WalletMgr import WalletMgr
@@ -9,6 +10,8 @@ from TestHelper import TestHelper
 
 import decimal
 import re
+import json
+import os
 
 ###############################################################
 # nodeos_run_test
@@ -64,7 +67,10 @@ try:
         cluster.killall(allInstances=killAll)
         cluster.cleanup()
         Print("Stand up cluster")
-        if cluster.launch(prodCount=prodCount, onlyBios=onlyBios, dontBootstrap=dontBootstrap) is False:
+
+        abs_path = os.path.abspath(os.getcwd() + '/../unittests/contracts/eosio.token/eosio.token.abi')
+        traceNodeosArgs=" --http-max-response-time-ms 990000 --plugin eosio::trace_api_plugin --trace-rpc-abi eosio.token=" + abs_path
+        if cluster.launch(prodCount=prodCount, onlyBios=onlyBios, dontBootstrap=dontBootstrap, extraNodeosArgs=traceNodeosArgs) is False:
             cmdError("launcher")
             errorExit("Failed to stand up eos cluster.")
     else:
@@ -268,14 +274,6 @@ try:
         cmdError("FAILURE - transfer failed")
         errorExit("Transfer verification failed. Excepted %s, actual: %s" % (expectedAmount, actualAmount))
 
-    Print("Validate last action for account %s" % (testeraAccount.name))
-    actions=node.getActions(testeraAccount, -1, -1, exitOnError=True)
-    try:
-        assert (actions["actions"][0]["action_trace"]["act"]["name"] == "transfer")
-    except (AssertionError, TypeError, KeyError) as _:
-        Print("Action validation failed. Actions: %s" % (actions))
-        raise
-
     node.waitForTransInBlock(transId)
 
     transaction=node.getTransaction(transId, exitOnError=True, delayedRetry=False)
@@ -284,10 +282,10 @@ try:
     amountVal=None
     key=""
     try:
-        key = "[traces][0][act][name]"
-        typeVal = transaction["traces"][0]["act"]["name"]
-        key = "[traces][0][act][data][quantity]"
-        amountVal = transaction["traces"][0]["act"]["data"]["quantity"]
+        key = "[actions][0][action]"
+        typeVal = transaction["actions"][0]["action"]
+        key = "[actions][0][params][quantity]"
+        amountVal = transaction["actions"][0]["params"]["quantity"]
         amountVal = int(decimal.Decimal(amountVal.split()[0]) * 10000)
     except (TypeError, KeyError) as e:
         Print("transaction%s not found. Transaction: %s" % (key, transaction))
@@ -447,9 +445,9 @@ try:
         raise
 
     Print("Test for block decoded packed transaction (issue 2932)")
-    blockId=node.getBlockIdByTransId(transId)
-    assert(blockId)
-    block=node.getBlock(blockId, exitOnError=True)
+    blockNum=node.getBlockNumByTransId(transId)
+    assert(blockNum)
+    block=node.getBlock(blockNum, exitOnError=True)
 
     transactions=None
     try:
@@ -495,8 +493,8 @@ try:
     contract="currency1111"
     action="transfer"
     data="{\"from\":\"defproducera\",\"to\":\"currency1111\",\"quantity\":"
-    data +="\"00.0051 CUR\",\"memo\":\"test\"}"
-    opts="--permission defproducera@active --use-old-send-rpc"
+    data +="\"00.0151 CUR\",\"memo\":\"test\"}"
+    opts="--permission defproducera@active"
     trans=node.pushMessage(contract, action, data, opts, True)
     if trans is None or trans[0]:
         cmdError("%s push message currency1111 transfer should have failed" % (ClientName))

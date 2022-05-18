@@ -88,9 +88,11 @@ try:
     }
 
     # topo=ring all nodes are connected in a ring but also to the bios node
+    traceNodeosArgs=' --plugin eosio::trace_api_plugin --trace-no-abis '
     if cluster.launch(pnodes=totalProducerNodes, totalNodes=totalNodes, totalProducers=totalProducers,
                       topo="ring",
                       specificExtraNodeosArgs=specificExtraNodeosArgs,
+                      extraNodeosArgs=traceNodeosArgs,
                       useBiosBootFile=False) is False:
         Utils.cmdError("launcher")
         Utils.errorExit("Failed to stand up eos cluster.")
@@ -179,7 +181,7 @@ try:
     overdrawTransferAmount = "1001.0000 {0}".format(CORE_SYMBOL)
     Print("Transfer funds %s from account %s to %s" % (overdrawTransferAmount, overdrawAccount.name, cluster.eosioAccount.name))
     overdrawtrans = node.transferFunds(overdrawAccount, cluster.eosioAccount, overdrawTransferAmount, "test overdraw transfer", exitOnError=False, reportStatus=False, retry=1)
-    assert overdrawtrans["processed"]["except"]["stack"][0]["data"]["s"] == "overdrawn balance", "ERROR: Overdraw transaction attempt should have failed with overdrawn balance."
+    assert "overdrawn balance" in str(overdrawtrans), "ERROR: Overdraw transaction attempt should have failed with overdrawn balance."
 
     def cacheTransIdInBlock(transId, transToBlock, node):
         global lastIrreversibleBlockNum
@@ -199,7 +201,7 @@ try:
                     node.waitForTransInBlock(transId, timeout = args.transaction_time_delta)
                     continue
 
-            lastIrreversibleBlockNum = trans["last_irreversible_block"]
+            lastIrreversibleBlockNum = node.getIrreversibleBlockNum()
             blockNum = Node.getTransBlockNum(trans)
             assert blockNum is not None, Print("ERROR: could not retrieve block num from transId: %s, trans: %s" % (transId, json.dumps(trans, indent=2)))
             block = node.getBlock(blockNum)
@@ -386,14 +388,6 @@ try:
     testSuccessful = not missingReportError and not delayedReportError
 finally:
     TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, killEosInstances=killEosInstances, killWallet=killWallet, keepLogs=keepLogs, cleanRun=killAll, dumpErrorDetails=dumpErrorDetails)
-    if not testSuccessful:
-        Print(Utils.FileDivider)
-        Print("Compare Blocklog")
-        cluster.compareBlockLogs()
-        Print(Utils.FileDivider)
-        Print("Print Blocklog")
-        cluster.printBlockLog()
-        Print(Utils.FileDivider)
 
 errorCode = 0 if testSuccessful else 1
 exit(errorCode)
