@@ -183,12 +183,12 @@ namespace eosio::trace_api {
       void find_or_create_slice_pair(uint32_t slice_number, open_state state, fc::cfile& trace, fc::cfile& index);
 
       /**
-       * Find or create a trx id file that contains all the transaction ids and associate block numbers
+       * Find or create a trx id file that contains all the transaction ids and associated block numbers
        *
        * @param slice_number : slice number of the requested slice file
        * @param state : indicate if the file is going to be written to (appended) or read
        * @param trx_id_file : the cfile
-       * @return the true if file was found (i.e. already existed)
+       * @return true if file was found (i.e. already existed)
        */
       bool find_or_create_trx_id_slice(uint32_t slice_number, open_state state, fc::cfile& trx_id_file) const;
 
@@ -199,8 +199,8 @@ namespace eosio::trace_api {
        * @param state : indicate if the file is going to be written to (appended) or read
        * @param trx_id_file : the cfile
        * @param open_file : indicate if the file should be opened (if found) or not
-       * @return the true if file was found (i.e. already existed), if not found trx_id_file
-       *         is set to the appropriate file, but not open
+       * @return true if file was found (i.e. already existed), if not found trx_id_file
+       *         is set to the appropriate file, but not opened
        */
       bool find_trx_id_slice(uint32_t slice_number, open_state state, fc::cfile& trx_id_file, bool open_file = true) const;
 

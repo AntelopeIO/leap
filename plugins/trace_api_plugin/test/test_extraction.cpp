@@ -343,7 +343,7 @@ BOOST_AUTO_TEST_SUITE(block_extraction)
          }
       };
 
-      const block_trace_v2 expected_block_trace{
+      const block_trace_v2 expected_block_trace {
          bsp1->id,
          1,
          bsp1->prev(),

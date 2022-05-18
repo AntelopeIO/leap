@@ -13,7 +13,7 @@ inline ActionTrace to_action_trace( const chain::action_trace& at ) {
    r.account = at.act.account;
    r.action = at.act.name;
    r.data = at.act.data;
-   if constexpr(std::is_same_v<ActionTrace, action_trace_v1>){
+   if constexpr(std::is_same_v<ActionTrace, action_trace_v1>) {
       r.return_value = at.return_value;
    }
    if( at.receipt ) {
@@ -50,7 +50,7 @@ inline TransactionTrace to_transaction_trace( const cache_trace& t ) {
       r.producer_block_id = t.trace->producer_block_id;
    }
 
-   using action_trace_t = std::conditional_t<std::is_same_v<TransactionTrace, transaction_trace_v2>||
+   using action_trace_t = std::conditional_t<std::is_same_v<TransactionTrace, transaction_trace_v2> ||
                                              std::is_same_v<TransactionTrace, transaction_trace_v3>
                                              , action_trace_v1, action_trace_v0>;
    r.actions = std::vector<action_trace_t>();

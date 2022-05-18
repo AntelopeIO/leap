@@ -223,9 +223,10 @@ struct trace_api_rpc_plugin_impl : public std::enable_shared_from_this<trace_api
       req_handler = std::make_shared<request_handler_t>(
          shared_store_provider<store_provider>(common->store),
          abi_data_handler::shared_provider(data_handler),
-         [](const std::string& msg ){
+         [](const std::string& msg ) {
             fc_dlog( _log, msg );
-      });
+         }
+      );
    }
 
    fc::time_point calc_deadline( const fc::microseconds& max_serialization_time ) {

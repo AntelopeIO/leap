@@ -35,7 +35,7 @@ namespace eosio {
        *
        * @param action - trace of the action including metadata necessary for finding the ABI
        * @param yield - a yield function to allow cooperation during long running tasks
-       * @return tuple with the first element is a variant representing the `data` field of the action interpreted by known ABIs OR an empty variant, the second element representing the `return_value` field of the trace.
+       * @return tuple where the first element is a variant representing the `data` field of the action interpreted by known ABIs OR an empty variant, and the second element represents the `return_value` field of the trace.
        */
       std::tuple<fc::variant, std::optional<fc::variant>> serialize_to_variant(const std::variant<action_trace_v0, action_trace_v1> & action, const yield_function& yield );
 
