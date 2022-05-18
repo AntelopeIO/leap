@@ -306,6 +306,7 @@ namespace eosio { namespace chain {
 
          deep_mind_handler* get_deep_mind_logger() const;
          void enable_deep_mind( deep_mind_handler* logger );
+         uint32_t earliest_available_block() const;
 
 #if defined(EOSIO_EOS_VM_RUNTIME_ENABLED) || defined(EOSIO_EOS_VM_JIT_RUNTIME_ENABLED)
          vm::wasm_allocator&  get_wasm_allocator();

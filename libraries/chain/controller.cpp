@@ -2527,6 +2527,13 @@ struct controller_impl {
       return deep_mind_logger;
    }
 
+   uint32_t earliest_available_block() const {
+      auto earliest_available_fork_block = fork_db.root()->block_num;
+      auto earliest_available_blog_block = blog.first_block_num();
+
+      return std::min(earliest_available_fork_block, earliest_available_blog_block);
+   }
+
 }; /// controller_impl
 
 const resource_limits_manager&   controller::get_resource_limits_manager()const
@@ -3385,6 +3392,9 @@ void controller::enable_deep_mind(deep_mind_handler* logger) {
    my->deep_mind_logger = logger;
 }
 
+uint32_t controller::earliest_available_block() const{
+   return my->earliest_available_block();
+}
 #if defined(EOSIO_EOS_VM_RUNTIME_ENABLED) || defined(EOSIO_EOS_VM_JIT_RUNTIME_ENABLED)
 vm::wasm_allocator& controller::get_wasm_allocator() {
    return my->wasm_alloc;
