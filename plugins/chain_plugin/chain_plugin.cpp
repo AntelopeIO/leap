@@ -1398,6 +1398,9 @@ std::string itoh(I n, size_t hlen = sizeof(I)<<1) {
 
 read_only::get_info_results read_only::get_info(const read_only::get_info_params&) const {
    const auto& rm = db.get_resource_limits_manager();
+   trx_finality_status_processing::chain_state ch_state = trx_finality_status_proc->get_chain_state();
+
+
    return {
       itoh(static_cast<uint32_t>(app().version())),
       db.get_chain_id(),
@@ -1418,7 +1421,9 @@ read_only::get_info_results read_only::get_info(const read_only::get_info_params
       db.fork_db_pending_head_block_id(),
       app().full_version_string(),
       rm.get_total_cpu_weight(),
-      rm.get_total_net_weight()
+      rm.get_total_net_weight(),
+      db.earliest_available_block(),
+      db.last_irreversible_block_time()
    };
 }
 
