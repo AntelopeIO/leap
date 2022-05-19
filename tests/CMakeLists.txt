@@ -1,5 +1,3 @@
-find_program( NODE_FOUND node )
-
 include_directories( "${CMAKE_SOURCE_DIR}/plugins/wallet_plugin/include" )
 
 file(GLOB UNIT_TESTS RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" "*.cpp")
