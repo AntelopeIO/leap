@@ -2528,10 +2528,7 @@ struct controller_impl {
    }
 
    uint32_t earliest_available_block() const {
-      auto earliest_available_fork_block = fork_db.root()->block_num;
-      auto earliest_available_blog_block = blog.first_block_num();
-
-      return std::min(earliest_available_fork_block, earliest_available_blog_block);
+      return (blog.first_block_num() != 0) ? blog.first_block_num() : fork_db.root()->block_num;
    }
 
 }; /// controller_impl
