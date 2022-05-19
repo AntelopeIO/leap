@@ -437,4 +437,5 @@ finally:
         cluster.printBlockLog()
         Print(Utils.FileDivider)
 
-exit(0)
+exitCode = 0 if testSuccessful else 1
+exit(exitCode)
