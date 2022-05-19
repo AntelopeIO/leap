@@ -1398,8 +1398,6 @@ std::string itoh(I n, size_t hlen = sizeof(I)<<1) {
 
 read_only::get_info_results read_only::get_info(const read_only::get_info_params&) const {
    const auto& rm = db.get_resource_limits_manager();
-   trx_finality_status_processing::chain_state ch_state = trx_finality_status_proc->get_chain_state();
-
 
    return {
       itoh(static_cast<uint32_t>(app().version())),
