@@ -101,13 +101,42 @@ class PluginHttpTest(unittest.TestCase):
         self.activateAllBuiltinProtocolFeatures()
         allProtocolFeatures = self.nodeos.getSupportedProtocolFeatures()
         allFeatureDigests = [d['feature_digest'] for d in allProtocolFeatures]
+
+        # Default limit set in get_activated_protocol_features_params
         ACT_FEATURE_DEFAULT_LIMIT = 10
+
+        # Actual expected activated features total
+        ACT_FEATURE_CURRENT_EXPECTED_TOTAL = 17
+
+        # Extemely high value to attempt to always get full list of activated features
+        ACT_FEATURE_EXTREME = 10000
+
+        expected_active_features_list = [
+            "PREACTIVATE_FEATURE",
+            "ONLY_LINK_TO_EXISTING_PERMISSION",
+            "FORWARD_SETCODE",
+            "WTMSIG_BLOCK_SIGNATURES",
+            "CONFIGURABLE_WASM_LIMITS2",
+            "REPLACE_DEFERRED",
+            "NO_DUPLICATE_DEFERRED_ID",
+            "RAM_RESTRICTIONS",
+            "WEBAUTHN_KEY",
+            "DISALLOW_EMPTY_PRODUCER_SCHEDULE",
+            "ONLY_BILL_FIRST_AUTHORIZER",
+            "BLOCKCHAIN_PARAMETERS",
+            "GET_CODE_HASH",
+            "RESTRICT_ACTION_TO_SELF",
+            "ACTION_RETURN_VALUE",
+            "FIX_LINKAUTH_RESTRICTION",
+            "GET_SENDER",
+        ]
+
 
         # get_activated_protocol_features without parameter
         default_cmd = cmd_base + "get_activated_protocol_features"
         ret_json = Utils.runCmdReturnJson(default_cmd)
         self.assertEqual(type(ret_json["activated_protocol_features"]), list)
-        self.assertEqual(len(ret_json["activated_protocol_features"]), min(ACT_FEATURE_DEFAULT_LIMIT, len(allProtocolFeatures)))
+        self.assertEqual(len(ret_json["activated_protocol_features"]), ACT_FEATURE_DEFAULT_LIMIT)
         for dict_feature in ret_json["activated_protocol_features"]:
             self.assertTrue(dict_feature['feature_digest'] in allFeatureDigests)
 
@@ -115,7 +144,7 @@ class PluginHttpTest(unittest.TestCase):
         empty_content_cmd = default_cmd + self.http_post_str + self.empty_content_str
         ret_json = Utils.runCmdReturnJson(empty_content_cmd)
         self.assertEqual(type(ret_json["activated_protocol_features"]), list)
-        self.assertEqual(len(ret_json["activated_protocol_features"]), min(ACT_FEATURE_DEFAULT_LIMIT, len(allProtocolFeatures)))
+        self.assertEqual(len(ret_json["activated_protocol_features"]), ACT_FEATURE_DEFAULT_LIMIT)
         for dict_feature in ret_json["activated_protocol_features"]:
             self.assertTrue(dict_feature['feature_digest'] in allFeatureDigests)
         for index, _ in enumerate(ret_json["activated_protocol_features"]):
@@ -131,7 +160,7 @@ class PluginHttpTest(unittest.TestCase):
         param_1st_cmd = default_cmd + self.http_post_str + "'{\"lower_bound\":1}'"
         ret_json = Utils.runCmdReturnJson(param_1st_cmd)
         self.assertEqual(type(ret_json["activated_protocol_features"]), list)
-        self.assertEqual(len(ret_json["activated_protocol_features"]), min(ACT_FEATURE_DEFAULT_LIMIT, len(allProtocolFeatures)))
+        self.assertEqual(len(ret_json["activated_protocol_features"]), ACT_FEATURE_DEFAULT_LIMIT)
         for dict_feature in ret_json["activated_protocol_features"]:
             self.assertTrue(dict_feature['feature_digest'] in allFeatureDigests)
 
@@ -139,7 +168,7 @@ class PluginHttpTest(unittest.TestCase):
         param_2nd_cmd = default_cmd + self.http_post_str + "'{\"upper_bound\":1000}'"
         ret_json = Utils.runCmdReturnJson(param_2nd_cmd)
         self.assertEqual(type(ret_json["activated_protocol_features"]), list)
-        self.assertEqual(len(ret_json["activated_protocol_features"]), min(ACT_FEATURE_DEFAULT_LIMIT, len(allProtocolFeatures)))
+        self.assertEqual(len(ret_json["activated_protocol_features"]), ACT_FEATURE_DEFAULT_LIMIT)
         for dict_feature in ret_json["activated_protocol_features"]:
             self.assertTrue(dict_feature['feature_digest'] in allFeatureDigests)
 
@@ -156,7 +185,26 @@ class PluginHttpTest(unittest.TestCase):
         param_3rd_cmd = default_cmd + self.http_post_str + "'{\"limit\":1}'"
         ret_json = Utils.runCmdReturnJson(param_3rd_cmd)
         self.assertEqual(type(ret_json["activated_protocol_features"]), list)
-        self.assertEqual(len(ret_json["activated_protocol_features"]), min(1, len(allProtocolFeatures)))
+        self.assertEqual(len(ret_json["activated_protocol_features"]), 1)
+        for dict_feature in ret_json["activated_protocol_features"]:
+            self.assertTrue(dict_feature['feature_digest'] in allFeatureDigests)
+
+        # get_activated_protocol_features with 3rd param to get expected full list of activated features
+        param_3rd_cmd = default_cmd + self.http_post_str + ("'{\"limit\":%s}'" % ACT_FEATURE_CURRENT_EXPECTED_TOTAL)
+        ret_json = Utils.runCmdReturnJson(param_3rd_cmd)
+        self.assertEqual(type(ret_json["activated_protocol_features"]), list)
+        self.assertEqual(len(ret_json["activated_protocol_features"]), ACT_FEATURE_CURRENT_EXPECTED_TOTAL)
+        for dict_feature in ret_json["activated_protocol_features"]:
+            self.assertTrue(dict_feature['feature_digest'] in allFeatureDigests)
+        for feature in expected_active_features_list:
+            assert feature in str(ret_json["activated_protocol_features"]), f"ERROR: Expected active feature \'{feature}\' not found in returned list."
+
+        # get_activated_protocol_features with 3rd param set extremely high to attempt to catch the
+        # addition of new features and fail and cause this test to be updated.
+        param_3rd_cmd = default_cmd + self.http_post_str + ("'{\"limit\":%s}'" % ACT_FEATURE_EXTREME)
+        ret_json = Utils.runCmdReturnJson(param_3rd_cmd)
+        self.assertEqual(type(ret_json["activated_protocol_features"]), list)
+        self.assertEqual(len(ret_json["activated_protocol_features"]), ACT_FEATURE_CURRENT_EXPECTED_TOTAL)
         for dict_feature in ret_json["activated_protocol_features"]:
             self.assertTrue(dict_feature['feature_digest'] in allFeatureDigests)
 
@@ -164,7 +212,7 @@ class PluginHttpTest(unittest.TestCase):
         param_4th_cmd = default_cmd + self.http_post_str + "'{\"search_by_block_num\":true}'"
         ret_json = Utils.runCmdReturnJson(param_4th_cmd)
         self.assertEqual(type(ret_json["activated_protocol_features"]), list)
-        self.assertEqual(len(ret_json["activated_protocol_features"]), min(ACT_FEATURE_DEFAULT_LIMIT, len(allProtocolFeatures)))
+        self.assertEqual(len(ret_json["activated_protocol_features"]), ACT_FEATURE_DEFAULT_LIMIT)
         for dict_feature in ret_json["activated_protocol_features"]:
             self.assertTrue(dict_feature['feature_digest'] in allFeatureDigests)
 
@@ -172,7 +220,7 @@ class PluginHttpTest(unittest.TestCase):
         param_5th_cmd = default_cmd + self.http_post_str + "'{\"reverse\":true}'"
         ret_json = Utils.runCmdReturnJson(param_5th_cmd)
         self.assertEqual(type(ret_json["activated_protocol_features"]), list)
-        self.assertEqual(len(ret_json["activated_protocol_features"]), min(ACT_FEATURE_DEFAULT_LIMIT, len(allProtocolFeatures)))
+        self.assertEqual(len(ret_json["activated_protocol_features"]), ACT_FEATURE_DEFAULT_LIMIT)
         for dict_feature in ret_json["activated_protocol_features"]:
             self.assertTrue(dict_feature['feature_digest'] in allFeatureDigests)
         for index, _ in enumerate(ret_json["activated_protocol_features"]):
