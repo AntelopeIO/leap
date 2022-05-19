@@ -64,23 +64,3 @@ copy_bin( ${NODE_EXECUTABLE_NAME} )
 install( TARGETS
    ${NODE_EXECUTABLE_NAME} RUNTIME DESTINATION ${CMAKE_INSTALL_FULL_BINDIR} COMPONENT base
 )
-install(DIRECTORY DESTINATION ${CMAKE_INSTALL_FULL_LOCALSTATEDIR}/log/eosio
-        DIRECTORY_PERMISSIONS OWNER_READ
-                              OWNER_WRITE
-                              OWNER_EXECUTE
-                              GROUP_READ
-                              GROUP_WRITE
-                              GROUP_EXECUTE
-                              WORLD_READ
-                              WORLD_EXECUTE
-)
-install(DIRECTORY DESTINATION ${CMAKE_INSTALL_FULL_LOCALSTATEDIR}/lib/eosio
-        DIRECTORY_PERMISSIONS OWNER_READ
-                              OWNER_WRITE
-                              OWNER_EXECUTE
-                              GROUP_READ
-                              GROUP_WRITE
-                              GROUP_EXECUTE
-                              WORLD_READ
-                              WORLD_EXECUTE
-			)
