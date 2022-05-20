@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from core_symbol import CORE_SYMBOL
 from testUtils import Utils
 from datetime import datetime
 from datetime import timedelta
@@ -22,6 +23,7 @@ import signal
 #
 ###############################################################
 
+Print = Utils.Print
 errorExit=Utils.errorExit
 
 args = TestHelper.parse_args({"--wallet-port", "-v"})
@@ -48,6 +50,7 @@ try:
     # producer nodes will be mapped to 0 through totalProducerNodes-1, so the number totalProducerNodes will be the non-producing node
     specificExtraNodeosArgs[totalProducerNodes] = "--plugin eosio::producer_plugin --plugin eosio::chain_api_plugin --plugin eosio::http_plugin "
     "--plugin eosio::txn_test_gen_plugin --plugin eosio::producer_api_plugin "
+    traceNodeosArgs = " --plugin eosio::trace_api_plugin --trace-no-abis "
 
     # ***   setup topogrophy   ***
 
@@ -55,8 +58,9 @@ try:
     # and the only connection between those 2 groups is through the bridge node
 
     if cluster.launch(prodCount=1, topo="bridge", pnodes=totalProducerNodes,
-                      totalNodes=totalNodes, totalProducers=totalProducers,
-                      useBiosBootFile=False, specificExtraNodeosArgs=specificExtraNodeosArgs) is False:
+                      totalNodes=totalNodes, totalProducers=totalProducerNodes,
+                      useBiosBootFile=False, specificExtraNodeosArgs=specificExtraNodeosArgs,
+                      extraNodeosArgs=traceNodeosArgs) is False:
         Utils.cmdError("launcher")
         Utils.errorExit("Failed to stand up eos cluster.")
     Print("Validating system accounts after bootstrap")
