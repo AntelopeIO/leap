@@ -98,9 +98,12 @@ try:
         TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, killEosInstances=True, killWallet=True, keepLogs=True, cleanRun=True, dumpErrorDetails=True)
         errorExit("Failed to kill the producer node")
 
+    #Reset test success flag for next check
+    testSuccessful=False
+
     for amt in range(1, 500, 1):
         xferAmount = Node.currencyIntToStr(amt, CORE_SYMBOL)
-        nonProdNode.transferFunds(accounts[0], accounts[1], xferAmount, "test transfer", waitForTransBlock=False)
+        nonProdNode.transferFundsAsync(accounts[0], accounts[1], xferAmount, "test transfer", exitOnError=False)
 
     testSuccessful = nonProdNode.kill(signal.SIGTERM)
 
