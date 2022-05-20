@@ -489,7 +489,7 @@ try:
     Print("Relaunching the non-producing bridge node to connect the producing nodes again")
 
     if not nonProdNode.relaunch():
-        errorExit("Failure - (non-production) node %d should have restarted" % (nonProdNode.nodeNum))
+        Utils.errorExit("Failure - (non-production) node %d should have restarted" % (nonProdNode.nodeNum))
 
 
     Print("Waiting to allow forks to resolve")
@@ -553,7 +553,7 @@ try:
         if prod["blockNum"]==killBlockNum:
             resolvedKillBlockProducer = prod["prod"]
     if resolvedKillBlockProducer is None:
-        Utils.errorExit("Did not find find block %s (the original divergent block) in blockProducers0, test setup is wrong.  blockProducers0: %s" % (killBlockNum, ", ".join(blockProducers)))
+        Utils.errorExit("Did not find find block %s (the original divergent block) in blockProducers0, test setup is wrong.  blockProducers0: %s" % (killBlockNum, ", ".join(blockProducers0)))
     Print("Fork resolved and determined producer %s for block %s" % (resolvedKillBlockProducer, killBlockNum))
 
     blockProducers0=[]
