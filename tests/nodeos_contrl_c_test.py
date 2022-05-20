@@ -30,13 +30,17 @@ args = TestHelper.parse_args({"--wallet-port", "-v"})
 
 cluster=Cluster(walletd=True)
 killAll=True
-totalProducerNodes=1
+totalProducerNodes=2
 totalNonProducerNodes=1
 totalNodes=totalProducerNodes+totalNonProducerNodes
+maxActiveProducers=2
+totalProducers=maxActiveProducers
 walletPort=args.wallet_port
 walletMgr=WalletMgr(True, port=walletPort)
 producerEndpoint = '127.0.0.1:8888'
 httpServerAddress = '127.0.0.1:8889'
+
+testSuccessful=False
 
 try:
     TestHelper.printSystemInfo("BEGIN")
@@ -45,12 +49,13 @@ try:
     cluster.cleanup()
 
     specificExtraNodeosArgs = {}
-    specificExtraNodeosArgs[0] = "--plugin eosio::producer_plugin --plugin eosio::chain_api_plugin --plugin eosio::http_plugin "
-    "--plugin eosio::txn_test_gen_plugin --plugin eosio::producer_api_plugin "
+    # specificExtraNodeosArgs[0] = "--plugin eosio::producer_plugin --plugin eosio::chain_api_plugin --plugin eosio::http_plugin "
+    # "--plugin eosio::txn_test_gen_plugin --plugin eosio::producer_api_plugin "
     # producer nodes will be mapped to 0 through totalProducerNodes-1, so the number totalProducerNodes will be the non-producing node
     specificExtraNodeosArgs[totalProducerNodes] = "--plugin eosio::producer_plugin --plugin eosio::chain_api_plugin --plugin eosio::http_plugin "
     "--plugin eosio::txn_test_gen_plugin --plugin eosio::producer_api_plugin "
-    traceNodeosArgs = " --plugin eosio::trace_api_plugin --trace-no-abis "
+    extraNodeosArgs = " --plugin eosio::trace_api_plugin --trace-no-abis "
+    extraNodeosArgs+= " --http-max-response-time-ms 990000"
 
     # ***   setup topogrophy   ***
 
@@ -58,9 +63,9 @@ try:
     # and the only connection between those 2 groups is through the bridge node
 
     if cluster.launch(prodCount=1, topo="bridge", pnodes=totalProducerNodes,
-                      totalNodes=totalNodes, totalProducers=totalProducerNodes,
+                      totalNodes=totalNodes, totalProducers=totalProducers,
                       useBiosBootFile=False, specificExtraNodeosArgs=specificExtraNodeosArgs,
-                      extraNodeosArgs=traceNodeosArgs) is False:
+                      extraNodeosArgs=extraNodeosArgs) is False:
         Utils.cmdError("launcher")
         Utils.errorExit("Failed to stand up eos cluster.")
     Print("Validating system accounts after bootstrap")
@@ -95,9 +100,9 @@ try:
         TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, killEosInstances=True, killWallet=True, keepLogs=True, cleanRun=True, dumpErrorDetails=True)
         errorExit("Failed to kill the producer node")
 
-    transferAmount="1.0000 {0}".format(CORE_SYMBOL)
-    for _ in range(500):
-        nonProdNode.transferFunds(account[0], account[1], transferAmount, "test transfer", waitForTransBlock=False)
+    for amt in range(1, 500, 1):
+        xferAmount = Node.currencyIntToStr(amt, CORE_SYMBOL)
+        nonProdNode.transferFunds(accounts[0], accounts[1], xferAmount, "test transfer", waitForTransBlock=False)
 
     testSuccessful = nonProdNode.kill(signal.SIGTERM)
 
