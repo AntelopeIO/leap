@@ -17,6 +17,7 @@ set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "daemon and CLI tools for Mandel blockchai
 set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/eosnetworkfoundation/mandel")
 
 set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
+set(CPACK_DEBIAN_PACKAGE_SECTION "utils")
 
 #turn some knobs to try and make package paths cooperate with GNUInstallDirs a little better
 set(CPACK_SET_DESTDIR ON)
