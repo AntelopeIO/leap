@@ -1,5 +1,12 @@
-#DEB & RPM are known to work, but don't enable them by default
 set(CPACK_GENERATOR "TGZ")
+find_program(DPKG_FOUND "dpkg")
+find_program(RPMBUILD_FOUND "rpmbuild")
+if(DPKG_FOUND)
+   list(APPEND CPACK_GENERATOR "DEB")
+endif()
+if(RPMBUILD_FOUND)
+   list(APPEND CPACK_GENERATOR "RPM")
+endif()
 
 set(CPACK_PACKAGE_VERSION "${VERSION_FULL}")
 set(CPACK_PACKAGE_FILE_NAME "${CMAKE_PROJECT_NAME}-${VERSION_FULL}")
