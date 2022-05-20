@@ -114,4 +114,6 @@ finally:
     TestHelper.shutdown(cluster, None, testSuccessful, killEosInstances, False, keepLogs, killAll, dumpErrorDetails)
 
 if debug: Print("Exiting test, exit value 0.")
-exit(0)
+
+exitCode = 0 if testSuccessful else 1
+exit(exitCode)

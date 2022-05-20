@@ -25,6 +25,8 @@ parser = argparse.ArgumentParser(add_help=False)
 Print=testUtils.Utils.Print
 cmdError=Utils.cmdError
 errorExit=Utils.errorExit
+testSuccessful=False
+
 
 # Override default help argument so that only --help (and not -h) can call help
 parser.add_argument('-?', action='help', default=argparse.SUPPRESS,
@@ -186,7 +188,11 @@ try:
                 if failedcount == 0:
                     successhosts.append(host)
         Print("%d host(s) passed, %d host(s) failed" % (len(successhosts), len(hosts) - len(successhosts)))
+
+    testSuccessful = True
 finally:
     Print("\nfinally: restore everything")
     module.on_exit()
-exit(0)
+
+errorCode = 0 if testSuccessful else 1
+exit(errorCode)
