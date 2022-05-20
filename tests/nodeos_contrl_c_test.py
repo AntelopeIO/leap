@@ -103,4 +103,6 @@ try:
 
 finally:
     TestHelper.shutdown(cluster, walletMgr, testSuccessful=True, killEosInstances=True, killWallet=True, keepLogs=True, cleanRun=True, dumpErrorDetails=True)
-    exit(0)
+
+errorCode = 0 if testSuccessful else 1
+exit(errorCode)
