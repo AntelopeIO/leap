@@ -65,7 +65,7 @@ auto make_unique_trx( const chain_id_type& chain_id ) {
       trx.sign( priv_key, chain_id );
    }
 
-   return std::make_shared<packed_transaction>( std::move(trx), true, packed_transaction::compression_type::none);
+   return std::make_shared<packed_transaction>( std::move(trx) );
 }
 
 // verify all trxs are in blocks only once
@@ -150,8 +150,8 @@ BOOST_AUTO_TEST_CASE(producer) {
             bool return_failure_traces = false; // 2.2.x+ = num_posts % 2 == 0;
             app().get_method<plugin_interface::incoming::methods::transaction_async>()(ptrx,
                false, // persist_until_expiried
-               // 2.2.x+ false, // read_only
-               // 2.2.x+ return_failure_traces == true, // return_failure_traces
+               false, // read_only
+               false, // return_failure_traces
                [ptrx, &next_calls, &trace_with_except, &trx_match, &trxs, return_failure_traces]
                (const std::variant<fc::exception_ptr, transaction_trace_ptr>& result) {
                   if( !std::holds_alternative<fc::exception_ptr>( result ) && !std::get<chain::transaction_trace_ptr>( result )->except ) {
