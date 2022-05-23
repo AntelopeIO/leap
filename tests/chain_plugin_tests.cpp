@@ -126,7 +126,7 @@ BOOST_FIXTURE_TEST_CASE( get_account, TESTER ) try {
 
    produce_block();
 
-   chain_apis::read_only plugin(*(this->control), {}, fc::microseconds::maximum());
+   chain_apis::read_only plugin(*(this->control), {}, fc::microseconds::maximum(), nullptr, nullptr);
 
    chain_apis::read_only::get_account_params p{"alice"_n};
 
@@ -205,3 +205,4 @@ BOOST_FIXTURE_TEST_CASE( get_account, TESTER ) try {
       }
    }
 } FC_LOG_AND_RETHROW() /// get_account
+}
