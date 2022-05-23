@@ -42,68 +42,6 @@ EOSIO currently supports the following operating systems:
 
 **Note: It may be possible to install EOSIO on other Unix-based operating systems. This is not officially supported, though.**
 
----
-
-## Software Installation
-
-If you are new to EOSIO, it is recommended that you install the [EOSIO Prebuilt Binaries](#prebuilt-binaries), then proceed to the [Getting Started](https://developers.eos.io/eosio-home/docs) walkthrough. If you are an advanced developer, a block producer, or no binaries are available for your platform, you may need to [Build EOSIO from source](https://eosio.github.io/eos/latest/install/build-from-source).
-
----
-
-**Note: If you used our scripts to build/install EOSIO, please run the [Uninstall Script](#uninstall-script) before using our prebuilt binary packages.**
-
----
-
-## Prebuilt Binaries
-
-Prebuilt EOSIO software packages are available for the operating systems below. Find and follow the instructions for your OS:
-
-### Mac OS X:
-
-#### Mac OS X Brew Install
-```sh
-brew tap eosio/eosio
-brew install eosio
-```
-#### Mac OS X Brew Uninstall
-```sh
-brew remove eosio
-```
-
-### Ubuntu Linux:
-
-#### Ubuntu 18.04 Package Install
-```sh
-wget https://github.com/eosio/eos/releases/download/v2.0.13/eosio_2.0.13-1-ubuntu-18.04_amd64.deb
-sudo apt install ./eosio_2.0.13-1-ubuntu-18.04_amd64.deb
-```
-#### Ubuntu 16.04 Package Install
-```sh
-wget https://github.com/eosio/eos/releases/download/v2.0.13/eosio_2.0.13-1-ubuntu-16.04_amd64.deb
-sudo apt install ./eosio_2.0.13-1-ubuntu-16.04_amd64.deb
-```
-#### Ubuntu Package Uninstall
-```sh
-sudo apt remove eosio
-```
-
-### RPM-based (CentOS, Amazon Linux, etc.):
-
-#### RPM Package Install
-```sh
-wget https://github.com/eosio/eos/releases/download/v2.0.13/eosio-2.0.13-1.el7.x86_64.rpm
-sudo yum install ./eosio-2.0.13-1.el7.x86_64.rpm
-```
-#### RPM Package Uninstall
-```sh
-sudo yum remove eosio
-```
-
-## Uninstall Script
-To uninstall the EOSIO built/installed binaries and dependencies, run:
-```sh
-./scripts/eosio_uninstall.sh
-```
 
 ## Documentation
 1. [Nodeos](http://eosio.github.io/eos/latest/nodeos/)
