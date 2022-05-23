@@ -15,7 +15,6 @@
 #include <eosio/chain/deep_mind.hpp>
 #include <eosio/chain_plugin/trx_finality_status_processing.hpp>
 #include <eosio/chain/permission_link_object.hpp>
-#include <eosio/to_key.hpp>
 
 #include <eosio/chain/eosio_contract.hpp>
 
