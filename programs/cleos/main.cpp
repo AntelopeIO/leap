@@ -3447,9 +3447,9 @@ int main( int argc, char** argv ) {
       if( trx_var.is_object() ) {
          fc::variant_object& vo = trx_var.get_object();
          if( vo.contains("packed_trx") ) {
-            packed_transaction_v0 packed_trx;
+            packed_transaction packed_trx;
             try {
-              fc::from_variant<packed_transaction_v0>( trx_var, packed_trx );
+              fc::from_variant<packed_transaction>( trx_var, packed_trx );
             } EOS_RETHROW_EXCEPTIONS( transaction_type_exception, "Invalid packed transaction format: '${data}'",
                                 ("data", fc::json::to_string(trx_var, fc::time_point::maximum())))
            const signed_transaction& strx = packed_trx.get_signed_transaction();
@@ -3500,7 +3500,7 @@ int main( int argc, char** argv ) {
          std::cout << fc::json::to_pretty_string(trx_result) << std::endl;
       } else {
          if ( was_packed_trx ) { // pack it as before
-           std::cout << fc::json::to_pretty_string(packed_transaction_v0(trx,packed_transaction_v0::compression_type::none)) << std::endl;
+           std::cout << fc::json::to_pretty_string(packed_transaction(trx,packed_transaction::compression_type::none)) << std::endl;
          } else {
            std::cout << fc::json::to_pretty_string(trx) << std::endl;
          }
