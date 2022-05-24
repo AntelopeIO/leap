@@ -9,7 +9,6 @@
 #include <eosio/chain/genesis_state.hpp>
 #include <eosio/chain/name.hpp>
 #include <eosio/chain/trace.hpp>
-#include <eosio/chain/signals_processor.hpp>
 
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <fc/mock_time.hpp>
@@ -73,13 +72,20 @@ auto make_unique_trx( const fc::microseconds& expiration ) {
    return std::make_shared<packed_transaction>( std::move(trx), packed_transaction::compression_type::none);
 }
 
-chain::transaction_trace_ptr make_transaction_trace( const packed_transaction_ptr trx, uint32_t block_number,
+chain::block_id_type make_block_id( uint32_t block_num ) {
+   chain::block_id_type block_id;
+   block_id._hash[0] &= 0xffffffff00000000;
+   block_id._hash[0] += fc::endian_reverse_u32(block_num);
+   return block_id;
+}
+
+chain::transaction_trace_ptr make_transaction_trace( const packed_transaction_ptr trx, uint32_t block_number, const eosio::chain::block_state_ptr& bs_ptr,
                                                      chain::transaction_receipt_header::status_enum status = eosio::chain::transaction_receipt_header::executed ) {
    return std::make_shared<chain::transaction_trace>(chain::transaction_trace{
          trx->id(),
          block_number,
          chain::block_timestamp_type(fc::time_point::now()),
-         trx->id(), // block_id, doesn't matter what it is for this test as long as it is set
+         bs_ptr ? bs_ptr->id : std::optional<block_id_type> {},
          chain::transaction_receipt_header{status},
          fc::microseconds(0),
          0,
@@ -93,15 +99,11 @@ chain::transaction_trace_ptr make_transaction_trace( const packed_transaction_pt
    });
 }
 
-chain::block_id_type make_block_id( uint32_t block_num ) {
-   chain::block_id_type block_id;
-   block_id._hash[0] &= 0xffffffff00000000;
-   block_id._hash[0] += fc::endian_reverse_u32(block_num);
-   return block_id;
-}
-
 auto make_block_state( uint32_t block_num ) {
+   static uint64_t unique_num = 0;
+   ++unique_num;
    chain::block_id_type block_id = make_block_id(block_num);
+   block_id._hash[3] = unique_num;
    name producer = "brianj"_n;
    chain::signed_block_ptr block = std::make_shared<chain::signed_block>();
    block->producer = producer;
@@ -168,26 +170,31 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_logic) { try {
    fc::microseconds max_failure_duration = fc::seconds(45);
    trx_finality_status_processing status(10'000, max_success_duration, max_failure_duration);
 
-   using trx_deque = eosio::chain::signals_processor::trx_deque;
+   using trx_deque = eosio::chain::deque< std::tuple< chain::transaction_trace_ptr, packed_transaction_ptr > >;
+
    uint32_t bn = 20;
-   auto add = [&bn](trx_deque& trx_pairs) {
+   auto add = [&bn, &status](trx_deque& trx_pairs, const eosio::chain::block_state_ptr& bs_ptr) {
       auto trx = make_unique_trx(fc::seconds(2));
-      auto trace = make_transaction_trace( trx, bn);
+      auto trace = make_transaction_trace( trx, bn, bs_ptr);
       trx_pairs.push_back(std::tuple(trace, trx));
+      status.signal_applied_transaction(trace, trx);
    };
 
    trx_deque trx_pairs_20;
-   add(trx_pairs_20);
-   add(trx_pairs_20);
-   add(trx_pairs_20);
-   add(trx_pairs_20);
 
+   // Create speculative block to begin applying transactions locally
    status.signal_block_start(bn);
    const eosio::chain::block_state_ptr no_bs;
-   status.signal_applied_transactions(trx_pairs_20, no_bs);
+
+   add(trx_pairs_20, no_bs);
+   add(trx_pairs_20, no_bs);
+   add(trx_pairs_20, no_bs);
+   add(trx_pairs_20, no_bs);
 
    auto cs = status.get_chain_state();
    BOOST_CHECK(cs.head_id == eosio::chain::block_id_type{});
+   BOOST_TEST(!std::get<0>(trx_pairs_20[0])->producer_block_id.has_value());
+   BOOST_CHECK(cs.head_block_timestamp == eosio::chain::block_timestamp_type{});
    BOOST_CHECK(cs.irr_id == eosio::chain::block_id_type{});
    BOOST_CHECK(cs.earliest_tracked_block_id == eosio::chain::block_id_type{});
 
@@ -221,7 +228,7 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_logic) { try {
    BOOST_CHECK_EQUAL(std::string(ts->received), pre_block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "LOCALLY_APPLIED");
 
-   // the last 2 trxs are not actually in the block
+   // Simulate situation where the last 2 trxs do not make it into the block.
    trx_deque hold_pairs;
    std::vector<chain::packed_transaction_ptr> holds;
    hold_pairs.push_back(trx_pairs_20[2]);
@@ -229,18 +236,35 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_logic) { try {
    trx_pairs_20.pop_back();
    trx_pairs_20.pop_back();
 
-   // and 2 new transactions
-   const auto block_20_time = set_now("2022-04-04", "04:44:44.500");
-   add(trx_pairs_20);
-   add(trx_pairs_20);
-
+   //Make a real block start.  Pull these before any updates to the trx/trace objects.
    // send block 20
    const auto bs_20 = make_block_state(bn);
    status.signal_block_start(bn);
-   status.signal_applied_transactions(trx_pairs_20, bs_20);
+
+   for (const auto& trx_tuple : trx_pairs_20) {
+      const auto& trace = std::get<0>(trx_tuple);
+      const auto& txn = std::get<1>(trx_tuple);
+
+      trace->producer_block_id = bs_20->id;
+      trace->block_time = bs_20->block->timestamp;
+
+      status.signal_applied_transaction(trace, txn);
+   }
+
+   // and 2 new transactions
+   const auto block_20_time = set_now("2022-04-04", "04:44:44.500");
+   add(trx_pairs_20, bs_20);
+   add(trx_pairs_20, bs_20);
+   status.signal_accepted_block(bs_20);
+
 
    cs = status.get_chain_state();
    BOOST_CHECK(cs.head_id == bs_20->id);
+   BOOST_CHECK(cs.head_id == *std::get<0>(trx_pairs_20[0])->producer_block_id);
+   BOOST_CHECK(cs.head_id == *std::get<0>(trx_pairs_20[1])->producer_block_id);
+   BOOST_CHECK(cs.head_id == *std::get<0>(trx_pairs_20[2])->producer_block_id);
+   BOOST_CHECK(cs.head_id == *std::get<0>(trx_pairs_20[3])->producer_block_id);
+   BOOST_CHECK(cs.head_block_timestamp == bs_20->block->timestamp);
    BOOST_CHECK(cs.irr_id == eosio::chain::block_id_type{});
    BOOST_CHECK(cs.earliest_tracked_block_id == bs_20->id);
 
@@ -293,15 +317,17 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_logic) { try {
    const auto block_21_time = set_now("2022-04-04", "04:44:45.000");
    trx_deque trx_pairs_21;
    bn = 21;
-   add(trx_pairs_21);
-
    const auto bs_21 = make_block_state(bn);
    status.signal_block_start(bn);
    fc::logger::get(DEFAULT_LOGGER).set_log_level(fc::log_level::debug);
-   status.signal_applied_transactions(trx_pairs_21, bs_21);
+
+   add(trx_pairs_21, bs_21);
+   status.signal_accepted_block(bs_21);
 
    cs = status.get_chain_state();
    BOOST_CHECK(cs.head_id == bs_21->id);
+   BOOST_CHECK(cs.head_id == *std::get<0>(trx_pairs_21[0])->producer_block_id);
+   BOOST_CHECK(cs.head_block_timestamp == bs_21->block->timestamp);
    BOOST_CHECK(cs.irr_id == eosio::chain::block_id_type{});
    BOOST_CHECK(cs.earliest_tracked_block_id == bs_20->id);
 
@@ -360,14 +386,17 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_logic) { try {
    const auto block_22_time = set_now("2022-04-04", "04:44:45.500");
    trx_deque trx_pairs_22;
    bn = 22;
-   add(trx_pairs_22);
 
    const auto bs_22 = make_block_state(bn);
    status.signal_block_start(bn);
-   status.signal_applied_transactions(trx_pairs_22, bs_22);
+
+   add(trx_pairs_22, bs_22);
+   status.signal_accepted_block(bs_22);
 
    cs = status.get_chain_state();
    BOOST_CHECK(cs.head_id == bs_22->id);
+   BOOST_CHECK(cs.head_id == *std::get<0>(trx_pairs_22[0])->producer_block_id);
+   BOOST_CHECK(cs.head_block_timestamp == bs_22->block->timestamp);
    BOOST_CHECK(cs.irr_id == eosio::chain::block_id_type{});
    BOOST_CHECK(cs.earliest_tracked_block_id == bs_20->id);
 
@@ -435,14 +464,17 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_logic) { try {
    const auto block_22_alt_time = set_now("2022-04-04", "04:44:46.000");
    trx_deque trx_pairs_22_alt;
    bn = 22;
-   add(trx_pairs_22_alt);
 
    const auto bs_22_alt = make_block_state(bn);
    status.signal_block_start(bn);
-   status.signal_applied_transactions(trx_pairs_22_alt, bs_22_alt);
+
+   add(trx_pairs_22_alt, bs_22_alt);
+   status.signal_accepted_block(bs_22_alt);
 
    cs = status.get_chain_state();
    BOOST_CHECK(cs.head_id == bs_22_alt->id);
+   BOOST_CHECK(cs.head_id == *std::get<0>(trx_pairs_22_alt[0])->producer_block_id);
+   BOOST_CHECK(cs.head_block_timestamp == bs_22_alt->block->timestamp);
    BOOST_CHECK(cs.irr_id == eosio::chain::block_id_type{});
    BOOST_CHECK(cs.earliest_tracked_block_id == bs_20->id);
 
@@ -512,18 +544,22 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_logic) { try {
 
 
 
-   // send block 19
+   // send block 19 (forking out previous blocks.)
+   // Testing that code handles getting blocks before when it started
    const auto block_19_time = set_now("2022-04-04", "04:44:47.000");
    trx_deque trx_pairs_19;
    bn = 19;
-   add(trx_pairs_19);
 
    const auto bs_19 = make_block_state(bn);
    status.signal_block_start(bn);
-   status.signal_applied_transactions(trx_pairs_19, bs_19);
+
+   add(trx_pairs_19, bs_19);
+   status.signal_accepted_block(bs_19);
 
    cs = status.get_chain_state();
    BOOST_CHECK(cs.head_id == bs_19->id);
+   BOOST_CHECK(cs.head_id == *std::get<0>(trx_pairs_19[0])->producer_block_id);
+   BOOST_CHECK(cs.head_block_timestamp == bs_19->block->timestamp);
    BOOST_CHECK(cs.irr_id == eosio::chain::block_id_type{});
    BOOST_CHECK(cs.earliest_tracked_block_id == bs_19->id);
 
@@ -615,10 +651,23 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_logic) { try {
    const auto bs_19_alt = make_block_state(bn);
    // const auto bs_19_alt = make_block_state(make_block_id(bn), std::vector<chain::packed_transaction_ptr>{});
    status.signal_block_start(bn);
-   status.signal_applied_transactions(trx_pairs_19_alt, bs_19_alt);
+
+   for (const auto& trx_tuple : trx_pairs_19_alt) {
+      const auto& trace = std::get<0>(trx_tuple);
+      const auto& txn = std::get<1>(trx_tuple);
+
+      trace->producer_block_id = bs_19_alt->id;
+      trace->block_time = bs_19_alt->block->timestamp;
+
+      status.signal_applied_transaction(trace, txn);
+   }
+
+   status.signal_accepted_block(bs_19_alt);
 
    cs = status.get_chain_state();
    BOOST_CHECK(cs.head_id == bs_19_alt->id);
+   BOOST_CHECK(cs.head_id == *std::get<0>(trx_pairs_19[0])->producer_block_id);
+   BOOST_CHECK(cs.head_block_timestamp == bs_19_alt->block->timestamp);
    BOOST_CHECK(cs.irr_id == eosio::chain::block_id_type{});
    BOOST_CHECK(cs.earliest_tracked_block_id == bs_19_alt->id);
 
@@ -785,7 +834,7 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_logic) { try {
 } FC_LOG_AND_RETHROW() }
 
 namespace {
-   using trx_deque = eosio::chain::signals_processor::trx_deque;
+   using trx_deque = eosio::chain::deque< std::tuple< chain::transaction_trace_ptr, packed_transaction_ptr > >;
    const eosio::chain::block_state_ptr no_bs;
 
    struct block_frame {
@@ -806,15 +855,17 @@ namespace {
          block_frame::last_used_block_num = bn;
          for (uint32_t i = 0; i < block_frame::num; ++i) {
             auto trx = make_unique_trx(fc::seconds(30));
-            auto trace = make_transaction_trace( trx, bn);
+            auto trace = make_transaction_trace( trx, bn, no_bs);
             pre_block.push_back(std::tuple(trace, trx));
-         }
-         for (uint32_t i = 0; i < block_frame::num; ++i) {
-            auto trx = make_unique_trx(fc::seconds(30));
-            auto trace = make_transaction_trace( trx, bn);
-            block.push_back(std::tuple(trace, trx));
+            status.signal_applied_transaction(trace, trx);
          }
          bs = make_block_state(bn);
+         for (uint32_t i = 0; i < block_frame::num; ++i) {
+            auto trx = make_unique_trx(fc::seconds(30));
+            auto trace = make_transaction_trace( trx, bn, bs);
+            block.push_back(std::tuple(trace, trx));
+            status.signal_applied_transaction(trace, trx);
+         }
       }
 
       void verify_block(uint32_t begin = 0, uint32_t end = std::numeric_limits<uint32_t>::max()) {
@@ -839,12 +890,28 @@ namespace {
 
       void send_block() {
          status.signal_block_start(bn);
-         status.signal_applied_transactions(block, bs);
+
+         for (const auto& trx_tuple : block)
+         {
+            const auto& trace = std::get<0>(trx_tuple);
+            const auto& txn = std::get<1>(trx_tuple);
+
+            status.signal_applied_transaction(trace, txn);
+         }
+
+         status.signal_accepted_block(bs);
       }
 
       void send_spec_block() {
          status.signal_block_start(bn);
-         status.signal_applied_transactions(pre_block, no_bs);
+
+         for (const auto& trx_tuple : pre_block)
+         {
+            const auto& trace = std::get<0>(trx_tuple);
+            const auto& txn = std::get<1>(trx_tuple);
+
+            status.signal_applied_transaction(trace, txn);
+         }
       }
 
    private:

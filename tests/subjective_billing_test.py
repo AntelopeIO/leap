@@ -76,7 +76,9 @@ try:
                     "3": "--subjective-account-decay-time-minutes=1" }
 
     Print("Stand up cluster")
-    if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, topo=topo, delay=delay,extraNodeosArgs=" --http-max-response-time-ms 990000 --disable-subjective-api-billing false", specificExtraNodeosArgs=specificArgs ) is False:
+    if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, topo=topo, delay=delay,
+                      extraNodeosArgs=" --http-max-response-time-ms 990000 --disable-subjective-api-billing false --plugin eosio::trace_api_plugin --trace-no-abis ",
+                      specificExtraNodeosArgs=specificArgs ) is False:
        errorExit("Failed to stand up eos cluster.")
 
     Print ("Wait for Cluster stabilization")
@@ -193,4 +195,5 @@ try:
 finally:
     TestHelper.shutdown(cluster, walletMgr, testSuccessful, killEosInstances, killWallet, keepLogs, killAll, dumpErrorDetails)
 
-exit(0)
+errorCode = 0 if testSuccessful else 1
+exit(errorCode)

@@ -183,6 +183,28 @@ namespace eosio::trace_api {
       void find_or_create_slice_pair(uint32_t slice_number, open_state state, fc::cfile& trace, fc::cfile& index);
 
       /**
+       * Find or create a trx id file that contains all the transaction ids and associated block numbers
+       *
+       * @param slice_number : slice number of the requested slice file
+       * @param state : indicate if the file is going to be written to (appended) or read
+       * @param trx_id_file : the cfile
+       * @return true if file was found (i.e. already existed)
+       */
+      bool find_or_create_trx_id_slice(uint32_t slice_number, open_state state, fc::cfile& trx_id_file) const;
+
+      /**
+       * Find the trx id file
+       *
+       * @param slice_number : slice number of the requested slice file
+       * @param state : indicate if the file is going to be written to (appended) or read
+       * @param trx_id_file : the cfile
+       * @param open_file : indicate if the file should be opened (if found) or not
+       * @return true if file was found (i.e. already existed), if not found trx_id_file
+       *         is set to the appropriate file, but not opened
+       */
+      bool find_trx_id_slice(uint32_t slice_number, open_state state, fc::cfile& trx_id_file, bool open_file = true) const;
+
+      /**
        * set the LIB for maintenance
        * @param lib
        */
@@ -246,8 +268,10 @@ namespace eosio::trace_api {
       store_provider(const boost::filesystem::path& slice_dir, uint32_t stride_width, std::optional<uint32_t> minimum_irreversible_history_blocks,
             std::optional<uint32_t> minimum_uncompressed_irreversible_history_blocks, size_t compression_seek_point_stride);
 
-      void append(const block_trace_v1& bt);
+      template<typename BlockTrace>
+      void append(const BlockTrace& bt);
       void append_lib(uint32_t lib);
+      void append_trx_ids(block_trxs_entry tt);
 
       /**
        * Read the trace for a given block
@@ -257,13 +281,14 @@ namespace eosio::trace_api {
        */
       get_block_t get_block(uint32_t block_height, const yield_function& yield= {});
 
+      get_block_n get_trx_block_number(const chain::transaction_id_type& trx_id, std::optional<uint32_t> minimum_irreversible_history_blocks, const yield_function& yield= {});
+
       void start_maintenance_thread( log_handler log ) {
          _slice_directory.start_maintenance_thread( std::move(log) );
       }
       void stop_maintenance_thread() {
          _slice_directory.stop_maintenance_thread();
       }
-
 
       protected:
       /**

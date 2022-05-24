@@ -88,6 +88,7 @@ namespace eosio { namespace client { namespace http {
    const string push_txns_func = chain_func_base + "/push_transactions";
    const string json_to_bin_func = chain_func_base + "/abi_json_to_bin";
    const string get_block_func = chain_func_base + "/get_block";
+   const string get_block_info_func = chain_func_base + "/get_block_info";
    const string get_block_header_state_func = chain_func_base + "/get_block_header_state";
    const string get_account_func = chain_func_base + "/get_account";
    const string get_table_func = chain_func_base + "/get_table_rows";
@@ -104,7 +105,10 @@ namespace eosio { namespace client { namespace http {
    const string get_required_keys = chain_func_base + "/get_required_keys";
 
    const string history_func_base = "/v1/history";
+   const string trace_api_func_base = "/v1/trace_api";
    const string get_actions_func = history_func_base + "/get_actions";
+   const string get_transaction_trace_func = trace_api_func_base + "/get_transaction_trace";
+   const string get_block_trace_func = trace_api_func_base + "/get_block";
    const string get_transaction_func = history_func_base + "/get_transaction";
    const string get_key_accounts_func = history_func_base + "/get_key_accounts";
    const string get_controlled_accounts_func = history_func_base + "/get_controlled_accounts";

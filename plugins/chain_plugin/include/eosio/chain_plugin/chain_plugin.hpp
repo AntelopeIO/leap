@@ -54,8 +54,6 @@ struct permission {
    authority         required_auth;
 };
 
-template<typename>
-struct resolver_factory;
 
 // see specializations for uint64_t and double in source file
 template<typename Type>
@@ -125,6 +123,8 @@ public:
       std::optional<string>                server_full_version_string;
       std::optional<uint64_t>              total_cpu_weight;
       std::optional<uint64_t>              total_net_weight;
+      std::optional<uint32_t>              earliest_available_block_num;
+      std::optional<fc::time_point>        last_irreversible_block_time;
    };
    get_info_results get_info(const get_info_params&) const;
 
@@ -218,7 +218,7 @@ public:
 
    struct get_code_params {
       name account_name;
-      bool code_as_wasm = false;
+      bool code_as_wasm = true;
    };
 
    struct get_code_hash_results {
@@ -315,6 +315,12 @@ public:
 
    fc::variant get_block(const get_block_params& params) const;
 
+   struct get_block_info_params {
+      uint32_t block_num = 0;
+   };
+
+   fc::variant get_block_info(const get_block_info_params& params) const;
+
    struct get_block_header_state_params {
       string block_num_or_id;
    };
@@ -358,7 +364,7 @@ public:
       name        scope;
       name        table;
       name        payer;
-      uint32_t    count;
+      uint32_t    count = 0;
    };
    struct get_table_by_scope_result {
       vector<get_table_by_scope_result_row> rows;
@@ -631,7 +637,6 @@ public:
 
    chain::symbol extract_core_symbol()const;
 
-   friend struct resolver_factory<read_only>;
 };
 
 class read_write {
@@ -671,7 +676,6 @@ public:
    };
    void send_transaction2(const send_transaction2_params& params, chain::plugin_interface::next_function<send_transaction_results> next);
 
-   friend resolver_factory<read_write>;
 };
 
  //support for --key_types [sha256,ripemd160] and --encoding [dec/hex]
@@ -785,6 +789,12 @@ public:
 
    bool account_queries_enabled() const;
    bool transaction_finality_status_enabled() const;
+
+   // return variant of trace for logging, trace is modified to minimize log output
+   fc::variant get_log_trx_trace(const chain::transaction_trace_ptr& trx_trace) const;
+   // return variant of trx for logging, trace is modified to minimize log output
+   fc::variant get_log_trx(const transaction& trx) const;
+
 private:
    static void log_guard_exception(const chain::guard_exception& e);
 
@@ -799,13 +809,15 @@ FC_REFLECT(eosio::chain_apis::read_only::get_info_results,
            (server_version)(chain_id)(head_block_num)(last_irreversible_block_num)(last_irreversible_block_id)
            (head_block_id)(head_block_time)(head_block_producer)
            (virtual_block_cpu_limit)(virtual_block_net_limit)(block_cpu_limit)(block_net_limit)
-           (server_version_string)(fork_db_head_block_num)(fork_db_head_block_id)(server_full_version_string)(total_cpu_weight)(total_net_weight) )
+           (server_version_string)(fork_db_head_block_num)(fork_db_head_block_id)(server_full_version_string)
+           (total_cpu_weight)(total_net_weight)(earliest_available_block_num)(last_irreversible_block_time))
 FC_REFLECT(eosio::chain_apis::read_only::get_transaction_status_params, (id) )
 FC_REFLECT(eosio::chain_apis::read_only::get_transaction_status_results, (state)(block_number)(block_id)(block_timestamp)(expiration)(head_number)(head_id)
            (head_timestamp)(irreversible_number)(irreversible_id)(irreversible_timestamp)(earliest_tracked_block_id)(earliest_tracked_block_number) )
 FC_REFLECT(eosio::chain_apis::read_only::get_activated_protocol_features_params, (lower_bound)(upper_bound)(limit)(search_by_block_num)(reverse) )
 FC_REFLECT(eosio::chain_apis::read_only::get_activated_protocol_features_results, (activated_protocol_features)(more) )
 FC_REFLECT(eosio::chain_apis::read_only::get_block_params, (block_num_or_id))
+FC_REFLECT(eosio::chain_apis::read_only::get_block_info_params, (block_num))
 FC_REFLECT(eosio::chain_apis::read_only::get_block_header_state_params, (block_num_or_id))
 
 FC_REFLECT( eosio::chain_apis::read_write::push_transaction_results, (transaction_id)(processed) )

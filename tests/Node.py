@@ -48,6 +48,7 @@ class Node(object):
         self.walletMgr=walletMgr
         self.missingTransaction=False
         self.popenProc=None           # initial process is started by launcher, this will only be set on relaunch
+        self.lastTrackedTransactionId=None
 
     def eosClientArgs(self):
         walletArgs=" " + self.walletMgr.getWalletEndpointArgs() if self.walletMgr is not None else ""
@@ -157,7 +158,7 @@ class Node(object):
                 return "no_block"
             return cntxt.add("block_num")
 
-        # or what the history plugin returns
+        # or what the trace api plugin returns
         return cntxt.add("block_num")
 
 
@@ -274,11 +275,11 @@ class Node(object):
         assert(isinstance(transId, str))
         exitOnErrorForDelayed=not delayedRetry and exitOnError
         timeout=3
-        cmdDesc="get transaction"
+        cmdDesc="get transaction_trace"
         cmd="%s %s" % (cmdDesc, transId)
         msg="(transaction id=%s)" % (transId);
         for i in range(0,(int(60/timeout) - 1)):
-            trans=self.processCleosCmd(cmd, cmdDesc, silentErrors=silentErrors, exitOnError=exitOnErrorForDelayed, exitMsg=msg)
+            trans=self.processCleosCmd(cmd, cmdDesc, silentErrors=True, exitOnError=exitOnErrorForDelayed, exitMsg=msg)
             if trans is not None or not delayedRetry:
                 return trans
             if Utils.Debug: Utils.Print("Could not find transaction with id %s, delay and retry" % (transId))
@@ -318,17 +319,17 @@ class Node(object):
 
         return False
 
-    def getBlockIdByTransId(self, transId, delayedRetry=True):
-        """Given a transaction Id (string), will return the actual block id (int) containing the transaction"""
+    def getBlockNumByTransId(self, transId, exitOnError=True, delayedRetry=True, blocksAhead=5):
+        """Given a transaction Id (string), return the block number (int) containing the transaction"""
         assert(transId)
         assert(isinstance(transId, str))
-        trans=self.getTransaction(transId, exitOnError=True, delayedRetry=delayedRetry)
+        trans=self.getTransaction(transId, exitOnError=exitOnError, delayedRetry=delayedRetry)
 
         refBlockNum=None
         key=""
         try:
-            key="[trx][trx][ref_block_num]"
-            refBlockNum=trans["trx"]["trx"]["ref_block_num"]
+            key="[transaction][transaction_header][ref_block_num]"
+            refBlockNum=trans["transaction_header"]["ref_block_num"]
             refBlockNum=int(refBlockNum)+1
         except (TypeError, ValueError, KeyError) as _:
             Utils.Print("transaction%s not found. Transaction: %s" % (key, trans))
@@ -338,12 +339,13 @@ class Node(object):
         assert(headBlockNum)
         try:
             headBlockNum=int(headBlockNum)
-        except(ValueError) as _:
+        except ValueError:
             Utils.Print("ERROR: Block info parsing failed. %s" % (headBlockNum))
             raise
 
         if Utils.Debug: Utils.Print("Reference block num %d, Head block num: %d" % (refBlockNum, headBlockNum))
-        for blockNum in range(refBlockNum, headBlockNum+1):
+        for blockNum in range(refBlockNum, headBlockNum + blocksAhead):
+            self.waitForBlock(blockNum)
             if self.isTransInBlock(str(transId), blockNum):
                 if Utils.Debug: Utils.Print("Found transaction %s in block %d" % (transId, blockNum))
                 return blockNum
@@ -354,19 +356,19 @@ class Node(object):
         """Check if transaction (transId) is in a block."""
         assert(transId)
         assert(isinstance(transId, (str,int)))
-        blockId=self.getBlockIdByTransId(transId)
+        blockId=self.getBlockNumByTransId(transId)
         return True if blockId else False
 
     def isTransFinalized(self, transId):
         """Check if transaction (transId) has been finalized."""
         assert(transId)
         assert(isinstance(transId, str))
-        blockId=self.getBlockIdByTransId(transId)
-        if not blockId:
+        blockNum=self.getBlockNumByTransId(transId)
+        if not blockNum:
             return False
 
-        assert(isinstance(blockId, int))
-        return self.isBlockPresent(blockId, blockType=BlockType.lib)
+        assert(isinstance(blockNum, int))
+        return self.isBlockPresent(blockNum, blockType=BlockType.lib)
 
 
     # Create & initialize account and return creation transactions. Return transaction json object
@@ -494,7 +496,7 @@ class Node(object):
 
     def waitForNextBlock(self, timeout=None, blockType=BlockType.head):
         num=self.getBlockNum(blockType=blockType)
-        lam = lambda: self.getHeadBlockNum() > num
+        lam = lambda: self.getBlockNum(blockType=blockType) > num
         ret=Utils.waitForBool(lam, timeout)
         return ret
 
@@ -519,8 +521,8 @@ class Node(object):
         ret=Utils.waitForBool(lam, timeout, reporter=reporter)
         return ret
 
-    def waitForIrreversibleBlock(self, blockNum, timeout=None, blockType=BlockType.head):
-        return self.waitForBlock(blockNum, timeout=timeout, blockType=blockType)
+    def waitForIrreversibleBlock(self, blockNum, timeout=None, reportInterval=None):
+        return self.waitForBlock(blockNum, timeout=timeout, blockType=BlockType.lib, reportInterval=reportInterval)
 
     def __transferFundsCmdArr(self, source, destination, amountStr, memo, force, retry):
         assert isinstance(amountStr, str)
@@ -1053,6 +1055,11 @@ class Node(object):
             self.lastRetrievedHeadBlockProducer=info["head_block_producer"]
         return info
 
+    def getTransactionStatus(self, transId, silentErrors=False, exitOnError=True):
+        cmdDesc = f"get transaction-status {transId}"
+        status=self.processCleosCmd(cmdDesc, cmdDesc, silentErrors=silentErrors, exitOnError=exitOnError)
+        return status
+
     def checkPulse(self, exitOnError=False):
         info=self.getInfo(True, exitOnError=exitOnError)
         return False if info is None else True
@@ -1255,7 +1262,7 @@ class Node(object):
         def didNodeExitGracefully(popen, timeout):
             try:
                 popen.communicate(timeout=timeout)
-            except TimeoutExpired:
+            except subprocess.TimeoutExpired:
                 return False
             with open(popen.errfile.name, 'r') as f:
                 if "Reached configured maximum block 10; terminating" in f.read():
@@ -1320,6 +1327,7 @@ class Node(object):
             return
 
         transId=Node.getTransId(trans)
+        self.lastTrackedTransactionId=transId
         if transId in self.transCache.keys():
             replaceMsg="replacing previous trans=\n%s" % json.dumps(self.transCache[transId], indent=2, sort_keys=True)
         else:
@@ -1333,6 +1341,9 @@ class Node(object):
             Utils.Print("  cmd returned transaction id: %s %s" % (transId, replaceMsg))
 
         self.transCache[transId]=trans
+
+    def getLastTrackedTransactionId(self):
+        return self.lastTrackedTransactionId
 
     def reportStatus(self):
         Utils.Print("Node State:")
@@ -1388,6 +1399,19 @@ class Node(object):
         def isLibAdvancing():
             return self.getIrreversibleBlockNum() > currentLib
         return Utils.waitForBool(isLibAdvancing, timeout)
+
+    def waitForProducer(self, producer, timeout=None, exitOnError=False):
+        if timeout is None:
+            # default to the typical configuration of 21 producers, each producing 12 blocks in a row (ever 1/2 second)
+            timeout = 21 * 6;
+        start=time.perf_counter()
+        initialProducer=self.getInfo()["head_block_producer"]
+        def isProducer():
+            return self.getInfo()["head_block_producer"] == producer;
+        found = Utils.waitForBool(isProducer, timeout)
+        assert not exitOnError or found, \
+            f"Waited for {time.perf_counter()-start} sec but never found producer: {producer}. Started with {initialProducer} and ended with {self.getInfo()['head_block_producer']}"
+        return found
 
     # Require producer_api_plugin
     def activatePreactivateFeature(self):
@@ -1457,6 +1481,14 @@ class Node(object):
     def createSnapshot(self):
         param = { }
         return self.processCurlCmd("producer", "create_snapshot", json.dumps(param))
+
+    # kill all existing nodeos in case lingering from previous test
+    @staticmethod
+    def killAllNodeos():
+        # kill the eos server
+        cmd="pkill -9 %s" % (Utils.EosServerName)
+        ret_code = subprocess.call(cmd.split(), stdout=Utils.FNull)
+        Utils.Print("cmd: %s, ret:%d" % (cmd, ret_code))
 
     @staticmethod
     def findStderrFiles(path):

@@ -72,7 +72,8 @@ namespace {
       :store(store)
       {}
 
-      void append( const block_trace_v1& trace ) {
+      template <typename BlockTrace>
+      void append( const BlockTrace& trace ) {
          store->append(trace);
       }
 
@@ -82,6 +83,10 @@ namespace {
 
       get_block_t get_block(uint32_t height, const yield_function& yield) {
          return store->get_block(height, yield);
+      }
+
+      void append_trx_ids(block_trxs_entry tt){
+         store->append_trx_ids(std::move(tt));
       }
 
       std::shared_ptr<Store> store;
@@ -190,6 +195,7 @@ struct trace_api_rpc_plugin_impl : public std::enable_shared_from_this<trace_api
    }
 
    void plugin_initialize(const appbase::variables_map& options) {
+      ilog("initializing trace api rpc plugin");
       std::shared_ptr<abi_data_handler> data_handler = std::make_shared<abi_data_handler>([](const exception_with_context& e){
          log_exception(e, fc::log_level::debug);
       });
@@ -214,10 +220,12 @@ struct trace_api_rpc_plugin_impl : public std::enable_shared_from_this<trace_api
                     "Trace API is not configured with ABIs and trace-no-abis is not set");
       }
 
-
       req_handler = std::make_shared<request_handler_t>(
          shared_store_provider<store_provider>(common->store),
-         abi_data_handler::shared_provider(data_handler)
+         abi_data_handler::shared_provider(data_handler),
+         [](const std::string& msg ) {
+            fc_dlog( _log, msg );
+         }
       );
    }
 
@@ -271,7 +279,7 @@ struct trace_api_rpc_plugin_impl : public std::enable_shared_from_this<trace_api
             const auto deadline = that->calc_deadline( max_response_time );
             auto resp = that->req_handler->get_block_trace(*block_number, [deadline]() { FC_CHECK_DEADLINE(deadline); });
             if (resp.is_null()) {
-               error_results results{404, "Block trace missing"};
+               error_results results{404, "Trace API: block trace missing"};
                cb( 404, fc::variant( results ));
             } else {
                cb( 200, std::move(resp) );
@@ -279,6 +287,58 @@ struct trace_api_rpc_plugin_impl : public std::enable_shared_from_this<trace_api
          } catch (...) {
             http_plugin::handle_exception("trace_api", "get_block", body, cb);
          }
+      });
+
+
+      http.add_async_handler("/v1/trace_api/get_transaction_trace",
+            [wthis=weak_from_this(), max_response_time, this](std::string, std::string body, url_response_callback cb)
+      {
+         auto that = wthis.lock();
+         if (!that) {
+            return;
+         }
+
+         auto trx_id = ([&body]() -> std::optional<transaction_id_type> {
+            if (body.empty()) {
+               return {};
+            }
+            try {
+               auto input = fc::json::from_string(body);
+               auto trxid = input.get_object()["id"].as_string();
+               if (trxid.size() < 8 || trxid.size() > 64) {
+                  return {};
+               }
+               return transaction_id_type(trxid);
+            } catch (...) {
+               return {};
+            }
+         })();
+
+         if (!trx_id) {
+            error_results results{400, "Bad or missing transaction ID"};
+            cb( 400, fc::variant( results ));
+            return;
+         }
+
+         try {
+            const auto deadline = that->calc_deadline( max_response_time );
+            // search for the block that contains the transaction
+            get_block_n blk_num = common->store->get_trx_block_number(*trx_id, common->minimum_irreversible_history_blocks, [deadline]() { FC_CHECK_DEADLINE(deadline); });
+            if (!blk_num.has_value()){
+               error_results results{404, "Trace API: transaction id missing in the transaction id log files"};
+               cb( 404, fc::variant( results ));
+            } else {
+               auto resp = that->req_handler->get_transaction_trace(*trx_id, *blk_num, [deadline]() { FC_CHECK_DEADLINE(deadline); });
+               if (resp.is_null()) {
+                  error_results results{404, "Trace API: transaction trace missing"};
+                  cb( 404, fc::variant( results ));
+               } else {
+                  cb( 200, std::move(resp) );
+               }
+            }
+          } catch (...) {
+             http_plugin::handle_exception("trace_api", "get_transaction", body, cb);
+          }
       });
    }
 
@@ -300,6 +360,7 @@ struct trace_api_plugin_impl {
    }
 
    void plugin_initialize(const appbase::variables_map& options) {
+      ilog("initializing trace api plugin");
       auto log_exceptions_and_shutdown = [](const exception_with_context& e) {
          log_exception(e, fc::log_level::error);
          app().quit();

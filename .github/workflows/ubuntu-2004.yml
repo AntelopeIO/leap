@@ -217,8 +217,6 @@ jobs:
           export DOCKER="docker run --rm -v ${GITHUB_WORKSPACE}:${GITHUB_WORKSPACE} -w ${GITHUB_WORKSPACE} ${UBUNTU_2004_IMAGE}"
           docker pull ${UBUNTU_2004_IMAGE}
           echo =====
-          ${DOCKER} npm i
-          echo =====
           ${DOCKER} bash -c 'cd build && ctest --output-on-failure -L "nonparallelizable_tests"'
   ubuntu-2004-long-test:
     name: Ubuntu 20.04 | Long-Running Test

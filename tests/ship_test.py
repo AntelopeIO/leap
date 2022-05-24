@@ -68,10 +68,11 @@ try:
     # non-producing nodes are at the end of the cluster's nodes, so reserving the last one for state_history_plugin
     shipNodeNum = totalNodes - 1
     specificExtraNodeosArgs[shipNodeNum]="--plugin eosio::state_history_plugin --disable-replay-opts --sync-fetch-span 200 --plugin eosio::net_api_plugin "
+    traceNodeosArgs=" --plugin eosio::trace_api_plugin --trace-no-abis "
 
     if cluster.launch(pnodes=totalProducerNodes,
                       totalNodes=totalNodes, totalProducers=totalProducers,
-                      useBiosBootFile=False, specificExtraNodeosArgs=specificExtraNodeosArgs) is False:
+                      useBiosBootFile=False, specificExtraNodeosArgs=specificExtraNodeosArgs, extraNodeosArgs=traceNodeosArgs) is False:
         Utils.cmdError("launcher")
         Utils.errorExit("Failed to stand up eos cluster.")
 
@@ -84,8 +85,8 @@ try:
     cluster.waitOnClusterSync(blockAdvancing=5)
     Print("Cluster in Sync")
 
-    javascriptClient = "tests/ship_client.js"
-    cmd = "node %s --num-requests %d" % (javascriptClient, args.num_requests)
+    shipClient = "tests/ship_client"
+    cmd = "%s --num-requests %d" % (shipClient, args.num_requests)
     if Utils.Debug: Utils.Print("cmd: %s" % (cmd))
     clients = []
     files = []
@@ -126,13 +127,6 @@ try:
         with open(shipClientErrorFile, "r") as errFile:
             statuses = None
             lines = errFile.readlines()
-            missingModules = []
-            for line in lines:
-                match = re.search(r"Error: Cannot find module '(\w+)'", line)
-                if match:
-                    missingModules.append(match.group(1))
-            if len(missingModules) > 0:
-                Utils.errorExit("Javascript client #%d threw an exception, it was missing modules: %s" % (index, ", ".join(missingModules)))
 
             try:
                 statuses = json.loads(" ".join(lines))

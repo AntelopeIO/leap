@@ -79,7 +79,6 @@ Options:
 
 #include <eosio/chain/name.hpp>
 #include <eosio/chain/config.hpp>
-#include <eosio/chain/wast_to_wasm.hpp>
 #include <eosio/chain/trace.hpp>
 #include <eosio/chain_plugin/chain_plugin.hpp>
 #include <eosio/chain/contract_types.hpp>
@@ -2651,15 +2650,30 @@ int main( int argc, char** argv ) {
    // get block
    string blockArg;
    bool get_bhs = false;
+   bool get_binfo = false;
    auto getBlock = get->add_subcommand("block", localized("Retrieve a full block from the blockchain"));
    getBlock->add_option("block", blockArg, localized("The number or ID of the block to retrieve"))->required();
    getBlock->add_flag("--header-state", get_bhs, localized("Get block header state from fork database instead") );
-   getBlock->callback([&blockArg,&get_bhs] {
-      auto arg = fc::mutable_variant_object("block_num_or_id", blockArg);
-      if( get_bhs ) {
-         std::cout << fc::json::to_pretty_string(call(get_block_header_state_func, arg)) << std::endl;
+   getBlock->add_flag("--info", get_binfo, localized("Get block info from the blockchain by block num only") );
+   getBlock->callback([&blockArg, &get_bhs, &get_binfo] {
+      EOSC_ASSERT( !(get_bhs && get_binfo), "ERROR: Either --header-state or --info can be set" );
+      if (get_binfo) {
+         std::optional<int64_t> block_num;
+         try {
+            block_num = fc::to_int64(blockArg);
+         } catch (...) {
+            // error is handled in assertion below
+         }
+         EOSC_ASSERT( block_num.has_value() && (*block_num > 0), "Invalid block num: ${block_num}", ("block_num", blockArg) );
+         const auto arg = fc::variant_object("block_num", static_cast<uint32_t>(*block_num));
+         std::cout << fc::json::to_pretty_string(call(get_block_info_func, arg)) << std::endl;
       } else {
-         std::cout << fc::json::to_pretty_string(call(get_block_func, arg)) << std::endl;
+         const auto arg = fc::variant_object("block_num_or_id", blockArg);
+         if (get_bhs) {
+            std::cout << fc::json::to_pretty_string(call(get_block_header_state_func, arg)) << std::endl;
+         } else {
+            std::cout << fc::json::to_pretty_string(call(get_block_func, arg)) << std::endl;
+         }
       }
    });
 
@@ -2676,14 +2690,14 @@ int main( int argc, char** argv ) {
    // get code
    string codeFilename;
    string abiFilename;
-   bool code_as_wasm = false;
+   bool code_as_wasm = true;
    auto getCode = get->add_subcommand("code", localized("Retrieve the code and ABI for an account"));
    getCode->add_option("name", accountName, localized("The name of the account whose code should be retrieved"))->required();
-   getCode->add_option("-c,--code",codeFilename, localized("The name of the file to save the contract .wast/wasm to") );
+   getCode->add_option("-c,--code",codeFilename, localized("The name of the file to save the contract wasm to") );
    getCode->add_option("-a,--abi",abiFilename, localized("The name of the file to save the contract .abi to") );
-   getCode->add_flag("--wasm", code_as_wasm, localized("Save contract as wasm"));
+   getCode->add_flag("--wasm", code_as_wasm, localized("Save contract as wasm (ignored, default)"));
    getCode->callback([&] {
-      string code_hash, wasm, wast, abi;
+      string code_hash, wasm, abi;
       try {
          const auto result = call(get_raw_code_and_abi_func, fc::mutable_variant_object("account_name", accountName));
          const std::vector<char> wasm_v = result["wasm"].as_blob().data;
@@ -2695,8 +2709,6 @@ int main( int argc, char** argv ) {
          code_hash = (string)hash;
 
          wasm = string(wasm_v.begin(), wasm_v.end());
-         if(!code_as_wasm && wasm_v.size())
-            wast = wasm_to_wast((const uint8_t*)wasm_v.data(), wasm_v.size(), false);
 
          abi_def abi_d;
          if(abi_serializer::to_abi(abi_v, abi_d))
@@ -2706,25 +2718,18 @@ int main( int argc, char** argv ) {
          //see if this is an old nodeos that doesn't support get_raw_code_and_abi
          const auto old_result = call(get_code_func, fc::mutable_variant_object("account_name", accountName)("code_as_wasm",code_as_wasm));
          code_hash = old_result["code_hash"].as_string();
-         if(code_as_wasm) {
-            wasm = old_result["wasm"].as_string();
-            std::cout << localized("Warning: communicating to older ${n} which returns malformed binary wasm", ("n", node_executable_name)) << std::endl;
-         }
-         else
-            wast = old_result["wast"].as_string();
+         wasm = old_result["wasm"].as_string();
+         std::cout << localized("Warning: communicating to older ${n} which returns malformed binary wasm", ("n", node_executable_name)) << std::endl;
          abi = fc::json::to_pretty_string(old_result["abi"]);
       }
 
       std::cout << localized("code hash: ${code_hash}", ("code_hash", code_hash)) << std::endl;
 
       if( codeFilename.size() ){
-         std::cout << localized("saving ${type} to ${codeFilename}", ("type", (code_as_wasm ? "wasm" : "wast"))("codeFilename", codeFilename)) << std::endl;
+         std::cout << localized("saving wasm to ${codeFilename}", ("codeFilename", codeFilename)) << std::endl;
 
          std::ofstream out( codeFilename.c_str() );
-         if(code_as_wasm)
-            out << wasm;
-         else
-            out << wast;
+         out << wasm;
       }
       if( abiFilename.size() ) {
          std::cout << localized("saving abi to ${abiFilename}", ("abiFilename", abiFilename)) << std::endl;
@@ -2889,18 +2894,36 @@ int main( int argc, char** argv ) {
       std::cout << fc::json::to_pretty_string(call(get_controlled_accounts_func, arg)) << std::endl;
    });
 
-   // get transaction
+   // get transaction (history api plugin)
    string transaction_id_str;
    uint32_t block_num_hint = 0;
    auto getTransaction = get->add_subcommand("transaction", localized("Retrieve a transaction from the blockchain"));
    getTransaction->add_option("id", transaction_id_str, localized("ID of the transaction to retrieve"))->required();
-   getTransaction->add_option( "-b,--block-hint", block_num_hint, localized("the block number this transaction may be in") );
+   getTransaction->add_option( "-b,--block-hint", block_num_hint, localized("The block number this transaction may be in") );
    getTransaction->callback([&] {
       auto arg= fc::mutable_variant_object( "id", transaction_id_str);
       if ( block_num_hint > 0 ) {
          arg = arg("block_num_hint", block_num_hint);
       }
       std::cout << fc::json::to_pretty_string(call(get_transaction_func, arg)) << std::endl;
+   });
+
+   // get transaction_trace (trace api plugin)
+   auto getTransactionTrace = get->add_subcommand("transaction_trace", localized("Retrieve a transaction from trace logs"));
+   getTransactionTrace->add_option("id", transaction_id_str, localized("ID of the transaction to retrieve"))->required();
+   getTransactionTrace->callback([&] {
+      auto arg= fc::mutable_variant_object( "id", transaction_id_str);
+      std::cout << fc::json::to_pretty_string(call(get_transaction_trace_func, arg)) << std::endl;
+   });
+
+   // get block_trace
+   string blockNum;
+   auto getBlockTrace = get->add_subcommand("block_trace", localized("Retrieve a block from trace logs"));
+   getBlockTrace->add_option("block", blockNum, localized("The number of the block to retrieve"))->required();
+
+   getBlockTrace->callback([&] {
+      auto arg= fc::mutable_variant_object( "block_num", blockNum);
+      std::cout << fc::json::to_pretty_string(call(get_block_trace_func, arg)) << std::endl;
    });
 
    // get actions
@@ -3036,7 +3059,7 @@ int main( int argc, char** argv ) {
 //                     ->check(CLI::ExistingFile);
    auto abi = contractSubcommand->add_option("abi-file,-a,--abi", abiPath, localized("The ABI for the contract relative to contract-dir"));
 //                                ->check(CLI::ExistingFile);
-   contractSubcommand->add_flag( "-c,--clear", contract_clear, localized("Rmove contract on an account"));
+   contractSubcommand->add_flag( "-c,--clear", contract_clear, localized("Remove contract on an account"));
    contractSubcommand->add_flag( "--suppress-duplicate-check", suppress_duplicate_check, localized("Don't check for duplicate"));
 
    std::vector<chain::action> actions;
@@ -3234,7 +3257,7 @@ int main( int argc, char** argv ) {
 
    auto connections = net->add_subcommand("peers", localized("status of all existing peers"));
    connections->callback([&] {
-      const auto& v = call(url, net_connections, new_host);
+      const auto& v = call(url, net_connections);
       std::cout << fc::json::to_pretty_string(v) << std::endl;
    });
 
