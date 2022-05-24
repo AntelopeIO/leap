@@ -7,10 +7,12 @@ namespace eosio { namespace chain {
 
 class deep_mind_handler;
 
+// Values are included in protocol digest, so values must remain constant
 enum class protocol_feature_t : uint32_t {
    builtin
 };
 
+// Values are included in protocol digest, so values must remain constant
 enum class builtin_protocol_feature_t : uint32_t {
    preactivate_feature = 0,
    only_link_to_existing_permission = 1,
@@ -27,9 +29,10 @@ enum class builtin_protocol_feature_t : uint32_t {
    wtmsig_block_signatures = 12,
    action_return_value = 13,
    // 14 reserved
-   configurable_wasm_limits = 15,
-   blockchain_parameters = 16,
+   // 15 reserved
+   blockchain_parameters = 16, // matches release 2.1 value
    get_code_hash = 17,
+   configurable_wasm_limits = 18, // configurable_wasm_limits2
    reserved_private_fork_protocol_features = 500000,
 };
 
