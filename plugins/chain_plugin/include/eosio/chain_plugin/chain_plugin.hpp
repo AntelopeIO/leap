@@ -123,6 +123,8 @@ public:
       std::optional<string>                server_full_version_string;
       std::optional<uint64_t>              total_cpu_weight;
       std::optional<uint64_t>              total_net_weight;
+      std::optional<uint32_t>              earliest_available_block_num;
+      std::optional<fc::time_point>        last_irreversible_block_time;
    };
    get_info_results get_info(const get_info_params&) const;
 
@@ -216,7 +218,7 @@ public:
 
    struct get_code_params {
       name account_name;
-      bool code_as_wasm = false;
+      bool code_as_wasm = true;
    };
 
    struct get_code_hash_results {
@@ -807,7 +809,8 @@ FC_REFLECT(eosio::chain_apis::read_only::get_info_results,
            (server_version)(chain_id)(head_block_num)(last_irreversible_block_num)(last_irreversible_block_id)
            (head_block_id)(head_block_time)(head_block_producer)
            (virtual_block_cpu_limit)(virtual_block_net_limit)(block_cpu_limit)(block_net_limit)
-           (server_version_string)(fork_db_head_block_num)(fork_db_head_block_id)(server_full_version_string)(total_cpu_weight)(total_net_weight) )
+           (server_version_string)(fork_db_head_block_num)(fork_db_head_block_id)(server_full_version_string)
+           (total_cpu_weight)(total_net_weight)(earliest_available_block_num)(last_irreversible_block_time))
 FC_REFLECT(eosio::chain_apis::read_only::get_transaction_status_params, (id) )
 FC_REFLECT(eosio::chain_apis::read_only::get_transaction_status_results, (state)(block_number)(block_id)(block_timestamp)(expiration)(head_number)(head_id)
            (head_timestamp)(irreversible_number)(irreversible_id)(irreversible_timestamp)(earliest_tracked_block_id)(earliest_tracked_block_number) )

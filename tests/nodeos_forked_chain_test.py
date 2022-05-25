@@ -162,6 +162,7 @@ try:
     specificExtraNodeosArgs={}
     # producer nodes will be mapped to 0 through totalProducerNodes-1, so the number totalProducerNodes will be the non-producing node
     specificExtraNodeosArgs[totalProducerNodes]="--plugin eosio::test_control_api_plugin"
+    traceNodeosArgs = " --plugin eosio::trace_api_plugin --trace-no-abis "
 
 
     # ***   setup topogrophy   ***
@@ -171,7 +172,7 @@ try:
 
     if cluster.launch(prodCount=prodCount, topo="bridge", pnodes=totalProducerNodes,
                       totalNodes=totalNodes, totalProducers=totalProducers,
-                      useBiosBootFile=False, specificExtraNodeosArgs=specificExtraNodeosArgs) is False:
+                      useBiosBootFile=False, specificExtraNodeosArgs=specificExtraNodeosArgs, extraNodeosArgs=traceNodeosArgs) is False:
         Utils.cmdError("launcher")
         Utils.errorExit("Failed to stand up eos cluster.")
     Print("Validating system accounts after bootstrap")
@@ -488,7 +489,7 @@ try:
     Print("Relaunching the non-producing bridge node to connect the producing nodes again")
 
     if not nonProdNode.relaunch():
-        errorExit("Failure - (non-production) node %d should have restarted" % (nonProdNode.nodeNum))
+        Utils.errorExit("Failure - (non-production) node %d should have restarted" % (nonProdNode.nodeNum))
 
 
     Print("Waiting to allow forks to resolve")
@@ -552,7 +553,7 @@ try:
         if prod["blockNum"]==killBlockNum:
             resolvedKillBlockProducer = prod["prod"]
     if resolvedKillBlockProducer is None:
-        Utils.errorExit("Did not find find block %s (the original divergent block) in blockProducers0, test setup is wrong.  blockProducers0: %s" % (killBlockNum, ", ".join(blockProducers)))
+        Utils.errorExit("Did not find find block %s (the original divergent block) in blockProducers0, test setup is wrong.  blockProducers0: %s" % (killBlockNum, ", ".join(blockProducers0)))
     Print("Fork resolved and determined producer %s for block %s" % (resolvedKillBlockProducer, killBlockNum))
 
     blockProducers0=[]
@@ -571,4 +572,5 @@ finally:
         cluster.printBlockLog()
         Print(Utils.FileDivider)
 
-exit(0)
+exitCode = 0 if testSuccessful else 1
+exit(exitCode)

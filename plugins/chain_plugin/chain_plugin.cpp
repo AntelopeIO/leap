@@ -1398,6 +1398,7 @@ std::string itoh(I n, size_t hlen = sizeof(I)<<1) {
 
 read_only::get_info_results read_only::get_info(const read_only::get_info_params&) const {
    const auto& rm = db.get_resource_limits_manager();
+
    return {
       itoh(static_cast<uint32_t>(app().version())),
       db.get_chain_id(),
@@ -1418,7 +1419,9 @@ read_only::get_info_results read_only::get_info(const read_only::get_info_params
       db.fork_db_pending_head_block_id(),
       app().full_version_string(),
       rm.get_total_cpu_weight(),
-      rm.get_total_net_weight()
+      rm.get_total_net_weight(),
+      db.earliest_available_block_num(),
+      db.last_irreversible_block_time()
    };
 }
 
@@ -1503,7 +1506,7 @@ read_only::get_activated_protocol_features( const read_only::get_activated_proto
    auto lower = ( params.search_by_block_num ? pfm.lower_bound( lower_bound_value )
                                              : pfm.at_activation_ordinal( lower_bound_value ) );
 
-   auto upper = ( params.search_by_block_num ? pfm.upper_bound( lower_bound_value )
+   auto upper = ( params.search_by_block_num ? pfm.upper_bound( upper_bound_value )
                                              : get_next_if_not_end( pfm.at_activation_ordinal( upper_bound_value ) ) );
 
    if( params.reverse ) {

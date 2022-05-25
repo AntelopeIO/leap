@@ -158,7 +158,7 @@ class Node(object):
                 return "no_block"
             return cntxt.add("block_num")
 
-        # or what the history plugin returns
+        # or what the trace api plugin returns
         return cntxt.add("block_num")
 
 
@@ -275,11 +275,11 @@ class Node(object):
         assert(isinstance(transId, str))
         exitOnErrorForDelayed=not delayedRetry and exitOnError
         timeout=3
-        cmdDesc="get transaction"
+        cmdDesc="get transaction_trace"
         cmd="%s %s" % (cmdDesc, transId)
         msg="(transaction id=%s)" % (transId);
         for i in range(0,(int(60/timeout) - 1)):
-            trans=self.processCleosCmd(cmd, cmdDesc, silentErrors=silentErrors, exitOnError=exitOnErrorForDelayed, exitMsg=msg)
+            trans=self.processCleosCmd(cmd, cmdDesc, silentErrors=True, exitOnError=exitOnErrorForDelayed, exitMsg=msg)
             if trans is not None or not delayedRetry:
                 return trans
             if Utils.Debug: Utils.Print("Could not find transaction with id %s, delay and retry" % (transId))
@@ -319,17 +319,17 @@ class Node(object):
 
         return False
 
-    def getBlockIdByTransId(self, transId, delayedRetry=True):
-        """Given a transaction Id (string), will return the actual block id (int) containing the transaction"""
+    def getBlockNumByTransId(self, transId, exitOnError=True, delayedRetry=True, blocksAhead=5):
+        """Given a transaction Id (string), return the block number (int) containing the transaction"""
         assert(transId)
         assert(isinstance(transId, str))
-        trans=self.getTransaction(transId, exitOnError=True, delayedRetry=delayedRetry)
+        trans=self.getTransaction(transId, exitOnError=exitOnError, delayedRetry=delayedRetry)
 
         refBlockNum=None
         key=""
         try:
-            key="[trx][trx][ref_block_num]"
-            refBlockNum=trans["trx"]["trx"]["ref_block_num"]
+            key="[transaction][transaction_header][ref_block_num]"
+            refBlockNum=trans["transaction_header"]["ref_block_num"]
             refBlockNum=int(refBlockNum)+1
         except (TypeError, ValueError, KeyError) as _:
             Utils.Print("transaction%s not found. Transaction: %s" % (key, trans))
@@ -339,12 +339,13 @@ class Node(object):
         assert(headBlockNum)
         try:
             headBlockNum=int(headBlockNum)
-        except(ValueError) as _:
+        except ValueError:
             Utils.Print("ERROR: Block info parsing failed. %s" % (headBlockNum))
             raise
 
         if Utils.Debug: Utils.Print("Reference block num %d, Head block num: %d" % (refBlockNum, headBlockNum))
-        for blockNum in range(refBlockNum, headBlockNum+1):
+        for blockNum in range(refBlockNum, headBlockNum + blocksAhead):
+            self.waitForBlock(blockNum)
             if self.isTransInBlock(str(transId), blockNum):
                 if Utils.Debug: Utils.Print("Found transaction %s in block %d" % (transId, blockNum))
                 return blockNum
@@ -355,19 +356,19 @@ class Node(object):
         """Check if transaction (transId) is in a block."""
         assert(transId)
         assert(isinstance(transId, (str,int)))
-        blockId=self.getBlockIdByTransId(transId)
+        blockId=self.getBlockNumByTransId(transId)
         return True if blockId else False
 
     def isTransFinalized(self, transId):
         """Check if transaction (transId) has been finalized."""
         assert(transId)
         assert(isinstance(transId, str))
-        blockId=self.getBlockIdByTransId(transId)
-        if not blockId:
+        blockNum=self.getBlockNumByTransId(transId)
+        if not blockNum:
             return False
 
-        assert(isinstance(blockId, int))
-        return self.isBlockPresent(blockId, blockType=BlockType.lib)
+        assert(isinstance(blockNum, int))
+        return self.isBlockPresent(blockNum, blockType=BlockType.lib)
 
 
     # Create & initialize account and return creation transactions. Return transaction json object

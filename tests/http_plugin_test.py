@@ -53,4 +53,7 @@ try:
     testSuccessful = True
 finally:
     TestHelper.shutdown(cluster, None, testSuccessful, killEosInstances, True, keepLogs, killAll, dumpErrorDetails)
+
+exitCode = 0 if testSuccessful else 1
+exit(exitCode)
         

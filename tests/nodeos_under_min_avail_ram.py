@@ -56,7 +56,7 @@ try:
     minRAMValue=1002
     maxRAMFlag="--chain-state-db-size-mb"
     maxRAMValue=1010
-    extraNodeosArgs=" %s %d %s %d  --http-max-response-time-ms 990000 " % (minRAMFlag, minRAMValue, maxRAMFlag, maxRAMValue)
+    extraNodeosArgs=" %s %d %s %d  --http-max-response-time-ms 990000 --plugin eosio::trace_api_plugin --trace-no-abis " % (minRAMFlag, minRAMValue, maxRAMFlag, maxRAMValue)
     if cluster.launch(onlyBios=False, pnodes=totalNodes, totalNodes=totalNodes, totalProducers=totalNodes, extraNodeosArgs=extraNodeosArgs, useBiosBootFile=False) is False:
         Utils.cmdError("launcher")
         errorExit("Failed to stand up eos cluster.")
@@ -313,4 +313,5 @@ try:
 finally:
     TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, killEosInstances=killEosInstances, killWallet=killWallet, keepLogs=keepLogs, cleanRun=killAll, dumpErrorDetails=dumpErrorDetails)
 
-exit(0)
+exitCode = 0 if testSuccessful else 1
+exit(exitCode)
