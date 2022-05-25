@@ -9,14 +9,13 @@ fi
 
 if [ $# -eq 0 ] || [ -z "$1" ]
    then
-      echo "Please supply a directory for the build dependencies to be placed and a value for the number of jobs to use for building."
-      echo "./pinned_build.sh <directory> 1-100"
+      echo "Please supply a value for the number of jobs to use for building."
+      echo "./pinned_build.sh 1-100"
       exit -1
 fi
 
 CORE_SYM=EOS
-DEP_DIR=$1
-JOBS=$2
+JOBS=$1
 SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]:-$0}"; )" &> /dev/null && pwd 2> /dev/null; )";
 
 
@@ -39,10 +38,18 @@ popdir() {
    fi
 }
 
+try(){
+   output=$($@)
+   res=$?
+   if [[ ${res} -ne 0 ]]; then
+      exit -1
+   fi
+}
+
 install_boost() {
    # TODO when we get better ARM support support full pinned compilations
    # Currently Boost on aarch64-linux fails because of CMake issues and correctly detecting the toolchain
-   apt-get install libboost-all-dev
+   try apt-get install libboost-all-dev
 }
 
 install_boost
@@ -54,19 +61,22 @@ MANDEL_DIR=${DEP_DIR}/mandel
 echo "Building Mandel"
 pushdir ../build
 
-cmake ${CMAKE_ARG} -DCMAKE_BUILD_TYPE=Release -DENABLE_OC=Off ..
+try cmake ${CMAKE_ARG} -DCMAKE_BUILD_TYPE=Release -DENABLE_OC=Off ..
 
-make -j${JOBS}
-cpack
+try make -j${JOBS}
+try cpack
 
-echo " .----------------.  .----------------.  .-----------------. .----------------.  .----------------.  .----------------. ";
-echo "| .--------------. || .--------------. || .--------------. || .--------------. || .--------------. || .--------------. |";
-echo "| | ____    ____ | || |      __      | || | ____  _____  | || |  ________    | || |  _________   | || |   _____      | |";
-echo "| ||_   \  /   _|| || |     /  \     | || ||_   \|_   _| | || | |_   ___ \`.  | || | |_   ___  |  | || |  |_   _|     | |";
-echo "| |  |   \/   |  | || |    / /\ \    | || |  |   \ | |   | || |   | |   \`. \ | || |   | |_  \_|  | || |    | |       | |";
-echo "| |  | |\  /| |  | || |   / ____ \   | || |  | |\ \| |   | || |   | |    | | | || |   |  _|  _   | || |    | |   _   | |";
-echo "| | _| |_\/_| |_ | || | _/ /    \ \_ | || | _| |_\   |_  | || |  _| |___.' / | || |  _| |___/ |  | || |   _| |__/ |  | |";
-echo "| ||_____||_____|| || ||____|  |____|| || ||_____|\____| | || | |________.'  | || | |_________|  | || |  |________|  | |";
-echo "| |              | || |              | || |              | || |              | || |              | || |              | |";
-echo "| '--------------' || '--------------' || '--------------' || '--------------' || '--------------' || '--------------' |";
-echo " '----------------'  '----------------'  '----------------'  '----------------'  '----------------'  '----------------' ";
+                                                                            
+echo "                                                                            ";
+echo "                                     _______                          .---. ";
+echo " __  __   ___                _..._   \  ___ \`'.         __.....__     |   | ";
+echo "|  |/  \`.'   \`.            .'     '.  ' |--.\  \    .-''         '.   |   | ";
+echo "|   .-.  .-.   '          .   .-.   . | |    \  '  /     .-''\"'-.  \`. |   | ";
+echo "|  |  |  |  |  |    __    |  '   '  | | |     |  '/     /________\   \|   | ";
+echo "|  |  |  |  |  | .:--.'.  |  |   |  | | |     |  ||                  ||   | ";
+echo "|  |  |  |  |  |/ |   \ | |  |   |  | | |     ' .'\    .-------------'|   | ";
+echo "|  |  |  |  |  |\`\" __ | | |  |   |  | | |___.' /'  \    '-.____...---.|   | ";
+echo "|__|  |__|  |__| .'.''| | |  |   |  |/_______.'/    \`.             .' |   | ";
+echo "                / /   | |_|  |   |  |\_______|/       \`''-...... -'   '---' ";
+echo "                \ \._,\ '/|  |   |  |                                       ";
+echo "                 \`--'  \`\" '--'   '--'                                       ";
