@@ -42,6 +42,17 @@ Adds new host functions to support the EVM runtime
 */
             {}
          } )
+         (  builtin_protocol_feature_t::get_block_num, builtin_protocol_feature_spec{
+            "GET_BLOCK_NUM",
+            fc::variant("e5d7992006e628a38c5e6c28dd55ff5e57ea682079bf41fef9b3cced0f46b491").as<digest_type>(),
+            // SHA256 hash of the raw message below within the comment delimiters (do not modify message below).
+/*
+Builtin protocol feature: GET_BLOCK_NUM
+
+Enables new `get_block_num` intrinsic which returns the current block number.
+*/
+            {}
+         } )
          (  builtin_protocol_feature_t::only_link_to_existing_permission, builtin_protocol_feature_spec{
             "ONLY_LINK_TO_EXISTING_PERMISSION",
             fc::variant("f3c3d91c4603cde2397268bfed4e662465293aab10cd9416db0d442b8cec2949").as<digest_type>(),

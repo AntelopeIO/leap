@@ -266,7 +266,8 @@ inline constexpr auto get_intrinsic_table() {
       "env.mod_exp",
       "env.sha3",
       "env.blake2_f",
-      "env.ecrecover"
+      "env.ecrecover",
+      "env.get_block_num"
    );
 }
 inline constexpr std::size_t find_intrinsic_index(std::string_view hf) {
