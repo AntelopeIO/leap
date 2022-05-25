@@ -543,6 +543,15 @@ namespace webassembly {
          uint64_t current_time() const;
 
          /**
+          * Returns the current block number.
+          *
+          * @ingroup system
+          *
+          * @return current block number.
+         */
+         uint32_t get_block_num() const;
+
+         /**
           * Returns the transaction's publication time.
           *
           * @ingroup system
@@ -1689,6 +1698,92 @@ namespace webassembly {
           * @return the number of bytes written on the buffer or -1 if there was an error.
          */
          int32_t get_action(uint32_t type, uint32_t index, legacy_span<char> buffer) const;
+
+         /**
+          * Host function for addition on the elliptic curve alt_bn128
+          *
+          * @ingroup crypto
+          * @param op1 - a span containing the first operand G1 point.
+          * @param op2 - a span containing the second operand G1 point.
+          * @param[out] result - the result op1 + op2.
+          * @return 1 if there was an error 0 otherwise
+         */
+         int32_t alt_bn128_add(span<const char> op1, span<const char> op2, span<char> result) const;
+
+         /**
+          * Host function for scalar multiplication on the elliptic curve alt_bn128
+          *
+          * @ingroup crypto
+          * @param g1_point - a span containing G1 point.
+          * @param scalar   - a span containing the scalar.
+          * @param[out] result - g1 * scalar.
+          * @return 1 if there was an error 0 otherwise
+         */
+         int32_t alt_bn128_mul(span<const char> g1_point, span<const char> scalar, span<char> result) const;
+
+         /**
+          * Host function for optimal ate pairing check on the elliptic curve alt_bn128 
+          *
+          * @ingroup crypto
+          * @param g1_g2_pairs - a span containing pairs of G1,G2 points. (2 * 32 bytes) + (2 * 64 bytes)
+          * @param[out] result - true if pairing evaluates to 1, false otherwise
+          * @return 1 if there was an error 0 otherwise
+         */
+         int32_t alt_bn128_pair(span<const char> g1_g2_pairs, bool* result) const;
+
+         /**
+          * Big integer modular exponentiation
+          *
+          * <BASE> <EXPONENT> <MODULUS>
+          * returns an output (BASE**EXPONENT) % MODULUS as a byte array {{{{ with the same length as the modulus }}}}
+          *
+          * @ingroup crypto
+          * @param base        - a span containing BASE.
+          * @param exp         - a span containing EXPONENT.
+          * @param modulus     - a span containing MODULUS.
+          * @param[out] out    - the result (BASE**EXPONENT) % MODULUS
+          * @return              1 if there was an error 0 otherwise
+         */
+         int32_t mod_exp(span<const char> base, span<const char> exp, span<const char> modulus, span<char> out) const;
+
+         /**
+          * BLAKE2 compression function `F`
+          * https://eips.ethereum.org/EIPS/eip-152
+          * Precompiled contract which implements the compression function F used in the BLAKE2 cryptographic hashing algorithm.
+          *
+          * @ingroup crypto
+          * @param rounds        - the number of rounds - 32-bit unsigned big-endian word
+          * @param state         - a span containing the state vector - 8 unsigned 64-bit little-endian words
+          * @param message       - a span containing the message block vector - 16 unsigned 64-bit little-endian words
+          * @param t0_offset     - offset counters - unsigned 64-bit little-endian word
+          * @param t1_offset     - offset counters - unsigned 64-bit little-endian word
+          * @param final         - the final block indicator flag - 8-bit word
+          * @param[out] result   - the result
+          * @return                1 if there was an error 0 otherwise
+         */
+         int32_t blake2_f( uint32_t rounds, span<const char> state, span<const char> message, span<const char> t0_offset, span<const char> t1_offset, bool final, span<char> result) const;
+
+         /**
+          * Hashes data using SHA3.
+          *
+          * @ingroup crypto
+          * @param data - a span containing the data.
+          * @param[out] hash_val - the resulting digest.
+          * @param keccak - use keccak version.
+         */
+         void sha3( span<const char> data, span<char> hash_val, bool keccak) const;
+
+         /**
+          * Calculates the uncompressed public key used for a given signature on a given digest.
+          *
+          * @ingroup crypto
+          * @param signatue - signature.
+          * @param digest - digest of the message that was signed.
+          * @param[out] pub - output buffer for the public key result.
+          *
+          * @return 1 if there was an error 0 otherwise.
+         */
+         int32_t ecrecover( span<const char> signature, span<const char> digest, span<char> pub) const;
 
          // compiler builtins api
          void __ashlti3(legacy_ptr<int128_t>, uint64_t, uint64_t, uint32_t) const;

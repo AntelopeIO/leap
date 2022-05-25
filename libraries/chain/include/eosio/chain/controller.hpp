@@ -226,6 +226,7 @@ namespace eosio { namespace chain {
          account_name                   pending_block_producer()const;
          const block_signing_authority& pending_block_signing_authority()const;
          std::optional<block_id_type>   pending_producer_block_id()const;
+         uint32_t                       pending_block_num()const;
 
          const vector<transaction_receipt>& get_pending_trx_receipts()const;
 

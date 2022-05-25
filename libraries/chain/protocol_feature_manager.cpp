@@ -26,6 +26,22 @@ Pre-activated protocol features must be activated in the next block.
             {},
             {time_point{}, false, true} // enabled without preactivation and ready to go at any time
          } )
+         (  builtin_protocol_feature_t::evm_precompiles, builtin_protocol_feature_spec{
+            "EVM_PRECOMPILES",
+            fc::variant("7fc04d1e925fd57bfe584b0146186560b8e73371af475978196698f2d26cf0a2").as<digest_type>(),
+            // SHA256 hash of the raw message below within the comment delimiters (do not modify message below).
+/*
+Builtin protocol feature: EVM_PRECOMPILES
+
+Adds new host functions to support the EVM runtime
+- Big integer modular exponentiation (mod_exp)
+- Add, multiply, and pairing check functions for the alt_bn128 elliptic curve. (alt_bn128_add, alt_bn128_mul, alt_bn128_pair)
+- BLAKE2b F compression function (blake2_f)
+- sha3 hash function (with Keccak256 support)
+- ecrecover (safe ECDSA uncompressed pubkey recover)
+*/
+            {}
+         } )
          (  builtin_protocol_feature_t::only_link_to_existing_permission, builtin_protocol_feature_spec{
             "ONLY_LINK_TO_EXISTING_PERMISSION",
             fc::variant("f3c3d91c4603cde2397268bfed4e662465293aab10cd9416db0d442b8cec2949").as<digest_type>(),

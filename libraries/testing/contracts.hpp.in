@@ -65,6 +65,7 @@ namespace eosio {
          MAKE_READ_WASM_ABI(action_results,        action_results,        test-contracts)
          MAKE_READ_WASM_ABI(wasm_config_bios,      wasm_config_bios,      test-contracts)
          MAKE_READ_WASM_ABI(params_test,           params_test,           test-contracts)
+         MAKE_READ_WASM_ABI(evm_precompiles_test,  evm_precompiles_test,  test-contracts)
       };
    } /// eosio::testing
 }  /// eosio

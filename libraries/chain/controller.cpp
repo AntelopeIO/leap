@@ -325,6 +325,8 @@ struct controller_impl {
       set_activation_handler<builtin_protocol_feature_t::configurable_wasm_limits>();
       set_activation_handler<builtin_protocol_feature_t::blockchain_parameters>();
       set_activation_handler<builtin_protocol_feature_t::get_code_hash>();
+      set_activation_handler<builtin_protocol_feature_t::get_block_num>();
+      set_activation_handler<builtin_protocol_feature_t::evm_precompiles>();
 
       self.irreversible_block.connect([this](const block_state_ptr& bsp) {
          wasmif.current_lib(bsp->block_num);
@@ -2938,6 +2940,15 @@ time_point controller::pending_block_time()const {
    return my->pending->get_pending_block_header_state().timestamp;
 }
 
+uint32_t controller::pending_block_num()const {
+   EOS_ASSERT( my->pending, block_validate_exception, "no pending block" );
+
+   if( std::holds_alternative<completed_block>(my->pending->_block_stage) )
+      return std::get<completed_block>(my->pending->_block_stage)._block_state->header.block_num();
+
+   return my->pending->get_pending_block_header_state().block_num;
+}
+
 account_name controller::pending_block_producer()const {
    EOS_ASSERT( my->pending, block_validate_exception, "no pending block" );
 
@@ -3574,6 +3585,26 @@ template<>
 void controller_impl::on_activation<builtin_protocol_feature_t::get_code_hash>() {
    db.modify( db.get<protocol_state_object>(), [&]( auto& ps ) {
       add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "get_code_hash" );
+   } );
+}
+
+template<>
+void controller_impl::on_activation<builtin_protocol_feature_t::get_block_num>() {
+   db.modify( db.get<protocol_state_object>(), [&]( auto& ps ) {
+      add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "get_block_num" );
+   } );
+}
+
+template<>
+void controller_impl::on_activation<builtin_protocol_feature_t::evm_precompiles>() {
+   db.modify( db.get<protocol_state_object>(), [&]( auto& ps ) {
+      add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "alt_bn128_add" );
+      add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "alt_bn128_mul" );
+      add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "alt_bn128_pair" );
+      add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "mod_exp" );
+      add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "blake2_f" );
+      add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "sha3" );
+      add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "ecrecover" );
    } );
 }
 
