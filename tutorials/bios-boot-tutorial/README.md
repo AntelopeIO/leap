@@ -21,10 +21,10 @@ The `bios-boot-tutorial.py` script simulates the bios boot sequence.
 1. Install mandel binaries by following the steps outlined in below tutorial
 [Install mandel binaries](https://github.com/eosnetworkfoundation/mandel/tree/release/3.0.x#Building).
 
-2. Install mandel.cdt version 1.8.x binaries by following the steps outlined in below tutorial
-[Install mandel.cdt binaries](https://github.com/eosnetworkfoundation/mandel.cdt/tree/release/v1.8.x#binary-releases).
+2. Install mandel.cdt version 1.8.1 binaries by following the steps outlined in below tutorial
+[Install mandel.cdt binaries](https://github.com/eosnetworkfoundation/mandel.cdt/tree/v1.8.1#binary-releases).
 
-3. Compile `mandel-contracts` version 1.8.x.
+3. Compile `mandel-contracts` version 3.0.x
 
 ```bash
 $ cd ~

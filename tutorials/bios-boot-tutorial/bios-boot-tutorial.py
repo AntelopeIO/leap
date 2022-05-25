@@ -319,7 +319,7 @@ def stepSetSystemContract():
     # ACTION_RETURN_VALUE
     retry(args.cleos + 'push action eosio activate \'["c3a6138c5061cf291310887c0b5c71fcaffeab90d5deb50d3b9e687cead45071"]\' -p eosio@active')
     # CONFIGURABLE_WASM_LIMITS2
-    retry(args.cleos + 'push action eosio activate \'["218036d611869ca2a3f66f96003ad652d80a8eda847a74af45e70c265fe5558c"]\' -p eosio@active')
+    retry(args.cleos + 'push action eosio activate \'["d528b9f6e9693f45ed277af93474fd473ce7d831dae2180cca35d907bd10cb40"]\' -p eosio@active')
     # BLOCKCHAIN_PARAMETERS
     retry(args.cleos + 'push action eosio activate \'["5443fcf88330c586bc0e5f3dee10e7f63c76c00249c87fe4fbf7f38c082006b4"]\' -p eosio@active')
     # GET_SENDER
