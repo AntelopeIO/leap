@@ -88,7 +88,7 @@ install_boost() {
       wget https://boostorg.jfrog.io/artifactory/main/release/${BOOST_VER}/source/boost_${BOOST_VER//\./_}.tar.gz
       tar -xvzf boost_${BOOST_VER//\./_}.tar.gz -C ${DEP_DIR}
       pushdir ${BOOST_DIR}
-      if [[ ${ARCH}=="x86_64" ]]; then
+      if [[ ${ARCH} = "x86_64" ]]; then
          ./bootstrap.sh -with-toolset=clang --prefix=${BOOST_DIR}/bin
          ./b2 toolset=clang cxxflags='-stdlib=libc++ -D__STRICT_ANSI__ -nostdinc++ -I${CLANG_DIR}/include/c++/v1 -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fPIE' linkflags='-stdlib=libc++ -pie' link=static threading=multi --with-iostreams --with-date_time --with-filesystem --with-system --with-program_options --with-chrono --with-test -q -j${JOBS} install
       else
@@ -103,7 +103,7 @@ install_boost() {
 
 pushdir ${DEP_DIR} # dir stack <DEP_DIR>/
 
-if [[ ${ARCH}=="x86_64" ]]; then
+if [[ ${ARCH} = "x86_64" ]]; then
    install_clang ${DEP_DIR}/clang-${CLANG_VER}
    install_llvm ${DEP_DIR}/llvm-${LLVM_VER}
    CMAKE_ARG="-DCMAKE_TOOLCHAIN_FILE=${SCRIPT_DIR}/pinned_toolchain.cmake"
