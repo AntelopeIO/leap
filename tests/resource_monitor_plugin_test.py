@@ -78,9 +78,9 @@ def prepareDirectories():
 def runNodeos(extraNodeosArgs, myTimeout):
     """Startup nodeos, wait for timeout (before forced shutdown) and collect output."""
     if debug: Print("Launching nodeos process.")
-    cmd="programs/nodeos/nodeos --config-dir rsmStaging/etc -e -p eosio --plugin eosio::chain_api_plugin --plugin eosio::history_api_plugin --data-dir " + dataDir + " "
+    cmd="programs/nodeos/nodeos --config-dir rsmStaging/etc -e -p eosio --plugin eosio::chain_api_plugin --data-dir " + dataDir + " "
 
-    cmd=cmd + extraNodeosArgs;
+    cmd=cmd + extraNodeosArgs
     if debug: Print("cmd: %s" % (cmd))
     with open(stderrFile, 'w') as serr:
         proc=subprocess.Popen(cmd.split(), stdout=subprocess.PIPE, stderr=serr)
@@ -235,5 +235,6 @@ finally:
     cleanDirectories()
     TestHelper.shutdown(cluster, None, testSuccessful, killEosInstances, False, keepLogs, killAll, dumpErrorDetails)
 
-if debug: Print("Exiting test, exit value 0.")
-exit(0)
+exitCode = 0 if testSuccessful else 1
+if debug: Print("Exiting test, exit value %d." % (exitCode))
+exit(exitCode)
