@@ -9,14 +9,16 @@ fi
 
 if [ $# -eq 0 ] || [ -z "$1" ]
    then
-      echo "Please supply a directory for the build dependencies to be placed and a value for the number of jobs to use for building."
-      echo "./pinned_build.sh <directory> 1-100"
+      echo "Please supply a directory for the build dependencies to be placed and a directory for mandel build and a value for the number of jobs to use for building."
+      echo "The binary packages will be created and placed into the mandel build directory."
+      echo "./pinned_build.sh <dependencies directory> <mandel build directory> <1-100>"
       exit -1
 fi
 
 CORE_SYM=EOS
 DEP_DIR=$1
-JOBS=$2
+MANDEL_DIR=$2
+JOBS=$3
 CLANG_VER=11.0.1
 BOOST_VER=1.70.0
 LLVM_VER=7.1.0
@@ -105,22 +107,17 @@ install_boost() {
    export BOOST_DIR=${BOOST_DIR}
 }
 
-pushdir ${DEP_DIR} # dir stack <DEP_DIR>/
+pushdir ${DEP_DIR}
 
 install_clang ${DEP_DIR}/clang-${CLANG_VER}
 install_llvm ${DEP_DIR}/llvm-${LLVM_VER}
 install_boost ${DEP_DIR}/boost_${BOOST_VER//\./_}
 
-popdir ${SCRIPT_DIR}
-
+pushdir ${MANDEL_DIR}
 
 # build Mandel
-MANDEL_DIR=${DEP_DIR}/mandel
-
-echo "Building Mandel"
-pushdir ../build
-
-try cmake -DCMAKE_TOOLCHAIN_FILE=${SCRIPT_DIR}/pinned_toolchain.cmake -DCMAKE_INSTALL_PREFIX=/usr/local -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=${LLVM_DIR}/lib/cmake -DCMAKE_PREFIX_PATH=${BOOST_DIR}/bin ..
+echo "Building Mandel ${SCRIPT_DIR}"
+try cmake -DCMAKE_TOOLCHAIN_FILE=${SCRIPT_DIR}/pinned_toolchain.cmake -DCMAKE_INSTALL_PREFIX=/usr/local -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=${LLVM_DIR}/lib/cmake -DCMAKE_PREFIX_PATH=${BOOST_DIR}/bin -S${SCRIPT_DIR}/..
 
 try make -j${JOBS}
 try cpack
@@ -136,3 +133,4 @@ echo "| ||_____||_____|| || ||____|  |____|| || ||_____|\____| | || | |________.
 echo "| |              | || |              | || |              | || |              | || |              | || |              | |";
 echo "| '--------------' || '--------------' || '--------------' || '--------------' || '--------------' || '--------------' |";
 echo " '----------------'  '----------------'  '----------------'  '----------------'  '----------------'  '----------------' ";
+echo "Mandel has successfully built and constructed its packages.  You should be able to find the packages at ${MANDEL_DIR}.  Enjoy!!!"

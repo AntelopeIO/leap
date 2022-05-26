@@ -9,13 +9,15 @@ fi
 
 if [ $# -eq 0 ] || [ -z "$1" ]
    then
-      echo "Please supply a value for the number of jobs to use for building."
-      echo "./pinned_build.sh 1-100"
+      echo "Please supply a directory for the mandel build and a value for the number of jobs to use for building."
+      echo "The binary packages will be created and placed into the mandel build directory."
+      echo "./pinned_build.sh <mandel build dir> <1-100>"
       exit -1
 fi
 
 CORE_SYM=EOS
-JOBS=$1
+MANDEL_DIR=$1
+JOBS=$2
 SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]:-$0}"; )" &> /dev/null && pwd 2> /dev/null; )";
 
 
@@ -56,12 +58,11 @@ install_boost
 
 
 # build Mandel
-MANDEL_DIR=${DEP_DIR}/mandel
 
 echo "Building Mandel"
-pushdir ../build
+pushdir ${MANDEL_DIR}
 
-try cmake ${CMAKE_ARG} -DCMAKE_BUILD_TYPE=Release -DENABLE_OC=Off ..
+try cmake -S${SCRIPT_DIR}/.. -DCMAKE_BUILD_TYPE=Release -DENABLE_OC=Off ..
 
 try make -j${JOBS}
 try cpack
@@ -80,3 +81,4 @@ echo "|__|  |__|  |__| .'.''| | |  |   |  |/_______.'/    \`.             .' |  
 echo "                / /   | |_|  |   |  |\_______|/       \`''-...... -'   '---' ";
 echo "                \ \._,\ '/|  |   |  |                                       ";
 echo "                 \`--'  \`\" '--'   '--'                                       ";
+echo "Mandel has successfully built and constructed its packages.  You should be able to find the packages at ${MANDEL_DIR}.  Enjoy!!!"
