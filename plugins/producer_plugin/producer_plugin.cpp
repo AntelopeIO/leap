@@ -184,6 +184,107 @@ enum class pending_block_mode {
    speculating
 };
 
+namespace {
+
+// track multiple failures on unapplied transactions
+class account_failures {
+public:
+
+   //lifetime of sb must outlive account_failures
+   explicit account_failures( const eosio::subjective_billing& sb )
+   : subjective_billing(sb)
+   {
+   }
+
+   void set_max_failures_per_account( uint32_t max_failures ) {
+       max_failures_per_account = max_failures;
+   }
+
+   void add( const account_name& n, int64_t exception_code ) {
+      auto& fa = failed_accounts[n];
+      ++fa.num_failures;
+      fa.add( n, exception_code );
+   }
+
+   // return true if exceeds max_failures_per_account and should be dropped
+   bool failure_limit( const account_name& n ) {
+      auto fitr = failed_accounts.find( n );
+      bool is_whitelisted = subjective_billing.is_account_disabled( n );
+      if( !is_whitelisted && fitr != failed_accounts.end() && fitr->second.num_failures >= max_failures_per_account ) {
+         ++fitr->second.num_failures;
+         return true;
+      }
+      return false;
+   }
+
+   void report() const {
+      if( _log.is_enabled( fc::log_level::debug ) ) {
+         auto now = fc::time_point::now();
+         for( const auto& e : failed_accounts ) {
+            std::string reason;
+            if( e.second.is_deadline() ) reason += "deadline";
+            if( e.second.is_tx_cpu_usage() ) {
+               if( !reason.empty() ) reason += ", ";
+               reason += "tx_cpu_usage";
+            }
+            if( e.second.is_eosio_assert() ) {
+               if( !reason.empty() ) reason += ", ";
+               reason += "assert";
+            }
+            if( e.second.is_other() ) {
+               if( !reason.empty() ) reason += ", ";
+               reason += "other";
+            }
+            fc_dlog( _log, "Failed ${n} trxs, account: ${a}, sub bill: ${b}us, reason: ${r}",
+                     ("n", e.second.num_failures)("b", subjective_billing.get_subjective_bill(e.first, now))
+                     ("a", e.first)("r", reason) );
+         }
+      }
+   }
+
+   void clear() {
+      failed_accounts.clear();
+   }
+
+private:
+   struct account_failure {
+      enum class ex_fields : uint8_t {
+         ex_deadline_exception = 1,
+         ex_tx_cpu_usage_exceeded = 2,
+         ex_eosio_assert_exception = 4,
+         ex_other_exception = 8
+      };
+
+      void add( const account_name& n, int64_t exception_code ) {
+         if( exception_code == tx_cpu_usage_exceeded::code_value ) {
+            ex_flags = set_field( ex_flags, ex_fields::ex_tx_cpu_usage_exceeded );
+         } else if( exception_code == deadline_exception::code_value ) {
+            ex_flags = set_field( ex_flags, ex_fields::ex_deadline_exception );
+         } else if( exception_code == eosio_assert_message_exception::code_value ||
+                    exception_code == eosio_assert_code_exception::code_value ) {
+            ex_flags = set_field( ex_flags, ex_fields::ex_eosio_assert_exception );
+         } else {
+            ex_flags = set_field( ex_flags, ex_fields::ex_other_exception );
+            fc_dlog( _log, "Failed trx, account: ${a}, reason: ${r}",
+                     ("a", n)("r", exception_code) );
+         }
+      }
+
+      bool is_deadline() const { return has_field( ex_flags, ex_fields::ex_deadline_exception ); }
+      bool is_tx_cpu_usage() const { return has_field( ex_flags, ex_fields::ex_tx_cpu_usage_exceeded ); }
+      bool is_eosio_assert() const { return has_field( ex_flags, ex_fields::ex_eosio_assert_exception ); }
+      bool is_other() const { return has_field( ex_flags, ex_fields::ex_other_exception ); }
+
+      uint32_t num_failures = 0;
+      uint8_t ex_flags = 0;
+   };
+
+   std::map<account_name, account_failure> failed_accounts;
+   uint32_t max_failures_per_account = 3;
+   const eosio::subjective_billing& subjective_billing;
+};
+
+} // anonymous namespace
 
 class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin_impl> {
    public:
@@ -231,7 +332,6 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       bool                                                      _disable_subjective_api_billing = true;
       fc::time_point                                            _irreversible_block_time;
       fc::microseconds                                          _keosd_provider_timeout_us;
-      uint32_t                                                  _subjective_account_max_failures = 0;
 
       std::vector<chain::digest_type>                           _protocol_features_to_activate;
       bool                                                      _protocol_features_signaled = false; // to mark whether it has been signaled in start_block
@@ -249,6 +349,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       transaction_id_with_expiry_index                         _blacklisted_transactions;
       pending_snapshot_index                                   _pending_snapshot_index;
       subjective_billing                                       _subjective_billing;
+      account_failures                                         _account_fails{_subjective_billing};
 
       std::optional<scoped_connection>                          _accepted_block_connection;
       std::optional<scoped_connection>                          _accepted_block_header_connection;
@@ -568,6 +669,15 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                return true;
             }
 
+            auto first_auth = trx->packed_trx()->get_transaction().first_authorizer();
+            if( _account_fails.failure_limit( first_auth ) ) {
+               send_response( std::static_pointer_cast<fc::exception>( std::make_shared<tx_cpu_usage_exceeded>(
+                     FC_LOG_MESSAGE( error, "transaction ${id} exceeded failure limit for account ${a}",
+                                     ("id", trx->id())("a", first_auth) ) ) ) );
+               return true;
+            }
+
+            auto start = fc::time_point::now();
             fc::microseconds max_trx_time = fc::milliseconds( _max_transaction_time_ms.load() );
             if( max_trx_time.count() < 0 ) max_trx_time = fc::microseconds::maximum();
             const auto block_deadline = calculate_block_deadline( chain.pending_block_time() );
@@ -577,12 +687,12 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                                               || ( !persist_until_expired && _disable_subjective_p2p_billing )
                                               || trx->read_only;
 
-            auto first_auth = trx->packed_trx()->get_transaction().first_authorizer();
             uint32_t sub_bill = 0;
             if( !disable_subjective_billing )
                sub_bill = _subjective_billing.get_subjective_bill( first_auth, fc::time_point::now() );
 
-            auto trace = chain.push_transaction( trx, block_deadline, max_trx_time, trx->billed_cpu_time_us, false, sub_bill );
+            auto prev_billed_cpu_time_us = trx->billed_cpu_time_us;
+            auto trace = chain.push_transaction( trx, block_deadline, max_trx_time, prev_billed_cpu_time_us, false, sub_bill );
             fc_dlog( _trx_failed_trace_log, "Subjective bill for ${a}: ${b} elapsed ${t}us", ("a",first_auth)("b",sub_bill)("t",trace->elapsed));
             if( trace->except ) {
                if( exception_is_exhausted( *trace->except ) ) {
@@ -601,6 +711,16 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                    if (!disable_subjective_billing)
                       _subjective_billing.subjective_bill_failure( first_auth, trace->elapsed, fc::time_point::now() );
 
+                  if( _pending_block_mode == pending_block_mode::producing ) {
+                     auto failure_code = trace->except->code();
+                     if( failure_code != tx_duplicate::code_value ) {
+                        // this failed our configured maximum transaction time, we don't want to replay it
+                        fc_dlog( _log, "Failed ${c} trx, prev billed: ${p}us, ran: ${r}us, id: ${id}",
+                                 ("c", trace->except->code())( "p", prev_billed_cpu_time_us )
+                                 ( "r", fc::time_point::now() - start )( "id", trx->id() ) );
+                        _account_fails.add( first_auth, failure_code );
+                     }
+                  }
                   if( return_failure_traces ) {
                      send_response( trace );
                   } else {
@@ -905,7 +1025,7 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
 
    my->_keosd_provider_timeout_us = fc::milliseconds(options.at("keosd-provider-timeout").as<int32_t>());
 
-   my->_subjective_account_max_failures = options.at("subjective-account-max-failures").as<uint32_t>();
+   my->_account_fails.set_max_failures_per_account( options.at("subjective-account-max-failures").as<uint32_t>() );
 
    my->_produce_time_offset_us = options.at("produce-time-offset-us").as<int32_t>();
    EOS_ASSERT( my->_produce_time_offset_us <= 0 && my->_produce_time_offset_us >= -config::block_interval_us, plugin_config_exception,
@@ -1729,6 +1849,7 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
 
          // limit execution of pending incoming to once per block
          size_t pending_incoming_process_limit = _unapplied_transactions.incoming_size();
+         _account_fails.clear();
 
          if( !process_unapplied_trxs( preprocess_deadline ) )
             return start_block_result::exhausted;
@@ -1860,104 +1981,10 @@ bool producer_plugin_impl::remove_expired_blacklisted_trxs( const fc::time_point
    return !exhausted;
 }
 
-namespace {
-// track multiple failures on unapplied transactions
-class account_failures {
-public:
-
-   //lifetime of sb must outlive account_failures
-   explicit account_failures( uint32_t max_failures, const eosio::subjective_billing& sb )
-   : max_failures_per_account(max_failures),
-     subjective_billing(sb)
-   {
-   }
-
-   void add( const account_name& n, int64_t exception_code ) {
-      auto& fa = failed_accounts[n];
-      ++fa.num_failures;
-      fa.add( n, exception_code );
-   }
-
-   // return true if exceeds max_failures_per_account and should be dropped
-   bool failure_limit( const account_name& n ) {
-      auto fitr = failed_accounts.find( n );
-      bool is_whitelisted = subjective_billing.is_account_disabled( n );
-      if( !is_whitelisted && fitr != failed_accounts.end() && fitr->second.num_failures >= max_failures_per_account ) {
-         ++fitr->second.num_failures;
-         return true;
-      }
-      return false;
-   }
-
-   void report(const subjective_billing& sub_bill) const {
-      if( _log.is_enabled( fc::log_level::debug ) ) {
-         auto now = fc::time_point::now();
-         for( const auto& e : failed_accounts ) {
-            std::string reason;
-            if( e.second.is_deadline() ) reason += "deadline";
-            if( e.second.is_tx_cpu_usage() ) {
-               if( !reason.empty() ) reason += ", ";
-               reason += "tx_cpu_usage";
-            }
-            if( e.second.is_eosio_assert() ) {
-               if( !reason.empty() ) reason += ", ";
-               reason += "assert";
-            }
-            if( e.second.is_other() ) {
-               if( !reason.empty() ) reason += ", ";
-               reason += "other";
-            }
-            fc_dlog( _log, "Failed ${n} trxs, account: ${a}, sub bill: ${b}us, reason: ${r}",
-                     ("n", e.second.num_failures)("b", sub_bill.get_subjective_bill(e.first, now))("a", e.first)("r", reason) );
-         }
-      }
-   }
-
-private:
-   struct account_failure {
-      enum class ex_fields : uint8_t {
-         ex_deadline_exception = 1,
-         ex_tx_cpu_usage_exceeded = 2,
-         ex_eosio_assert_exception = 4,
-         ex_other_exception = 8
-      };
-
-      void add( const account_name& n, int64_t exception_code ) {
-         if( exception_code == tx_cpu_usage_exceeded::code_value ) {
-            ex_flags = set_field( ex_flags, ex_fields::ex_tx_cpu_usage_exceeded );
-         } else if( exception_code == deadline_exception::code_value ) {
-            ex_flags = set_field( ex_flags, ex_fields::ex_deadline_exception );
-         } else if( exception_code == eosio_assert_message_exception::code_value ||
-                    exception_code == eosio_assert_code_exception::code_value ) {
-            ex_flags = set_field( ex_flags, ex_fields::ex_eosio_assert_exception );
-         } else {
-            ex_flags = set_field( ex_flags, ex_fields::ex_other_exception );
-            fc_dlog( _log, "Failed trx, account: ${a}, reason: ${r}",
-                     ("a", n)("r", exception_code) );
-         }
-      }
-
-      bool is_deadline() const { return has_field( ex_flags, ex_fields::ex_deadline_exception ); }
-      bool is_tx_cpu_usage() const { return has_field( ex_flags, ex_fields::ex_tx_cpu_usage_exceeded ); }
-      bool is_eosio_assert() const { return has_field( ex_flags, ex_fields::ex_eosio_assert_exception ); }
-      bool is_other() const { return has_field( ex_flags, ex_fields::ex_other_exception ); }
-
-      uint32_t num_failures = 0;
-      uint8_t ex_flags = 0;
-   };
-
-   std::map<account_name, account_failure> failed_accounts;
-   uint32_t max_failures_per_account = 0;
-   const eosio::subjective_billing& subjective_billing;
-};
-
-} // anonymous namespace
-
 bool producer_plugin_impl::process_unapplied_trxs( const fc::time_point& deadline )
 {
    bool exhausted = false;
    if( !_unapplied_transactions.empty() ) {
-      account_failures account_fails( _subjective_account_max_failures,  _subjective_billing );
       chain::controller& chain = chain_plug->chain();
       const auto& rl = chain.get_resource_limits_manager();
       int num_applied = 0, num_failed = 0, num_processed = 0;
@@ -1979,7 +2006,7 @@ bool producer_plugin_impl::process_unapplied_trxs( const fc::time_point& deadlin
             auto start = fc::time_point::now();
 
             auto first_auth = trx->packed_trx()->get_transaction().first_authorizer();
-            if( account_fails.failure_limit( first_auth ) ) {
+            if( _account_fails.failure_limit( first_auth ) ) {
                ++num_failed;
                if( itr->next ) {
                   itr->next( std::make_shared<tx_cpu_usage_exceeded>(
@@ -2023,7 +2050,7 @@ bool producer_plugin_impl::process_unapplied_trxs( const fc::time_point& deadlin
                      fc_dlog( _log, "Failed ${c} trx, prev billed: ${p}us, ran: ${r}us, id: ${id}",
                               ("c", trace->except->code())("p", prev_billed_cpu_time_us)
                               ("r", fc::time_point::now() - start)("id", trx->id()) );
-                     account_fails.add( first_auth, failure_code );
+                     _account_fails.add( first_auth, failure_code );
                      if (!disable_subjective_billing)
                         _subjective_billing.subjective_bill_failure( first_auth, trace->elapsed, fc::time_point::now() );
                   }
@@ -2053,7 +2080,6 @@ bool producer_plugin_impl::process_unapplied_trxs( const fc::time_point& deadlin
 
       fc_dlog( _log, "Processed ${m} of ${n} previously applied transactions, Applied ${applied}, Failed/Dropped ${failed}",
                ("m", num_processed)( "n", unapplied_trxs_size )("applied", num_applied)("failed", num_failed) );
-      account_fails.report(_subjective_billing);
    }
    return !exhausted;
 }
@@ -2396,6 +2422,9 @@ void producer_plugin_impl::produce_block() {
    chain.commit_block();
 
    block_state_ptr new_bs = chain.head_block_state();
+
+   _account_fails.report();
+   _account_fails.clear();
 
    ilog("Produced block ${id}... #${n} @ ${t} signed by ${p} [trxs: ${count}, lib: ${lib}, confirmed: ${confs}]",
         ("p",new_bs->header.producer)("id",new_bs->id.str().substr(8,16))
