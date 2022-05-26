@@ -487,10 +487,11 @@ BOOST_AUTO_TEST_CASE( unapplied_transaction_queue_incoming_count ) try {
    itr = q.begin();
    end = q.end();
 
+   unapplied_transaction_queue q2;
    while( itr != end ) {
-      q.add_incoming( itr->trx_meta, false, false, [](auto){} );
+      q2.add_incoming( itr->trx_meta, false, false, [](auto){} );
       ++expected;
-      BOOST_CHECK( q.incoming_size() == expected );
+      BOOST_CHECK( q2.incoming_size() == expected );
       ++itr;
    }
 

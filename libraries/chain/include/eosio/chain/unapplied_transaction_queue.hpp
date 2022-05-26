@@ -133,15 +133,8 @@ public:
                   itr->next( std::static_pointer_cast<fc::exception>( std::make_shared<tx_duplicate>(
                                 FC_LOG_MESSAGE( info, "duplicate transaction ${id}", ("id", itr->trx_meta->id())))));
                }
-               if( itr->trx_type != trx_enum_type::persisted &&
-                   itr->trx_type != trx_enum_type::incoming_persisted ) {
-                  removed( itr );
-                  idx.erase( itr );
-               } else if( itr->next ) {
-                  idx.modify( itr, [](auto& un){
-                     un.next = nullptr;
-                  } );
-               }
+               removed( itr );
+               idx.erase( itr );
             }
          }
       }
@@ -191,21 +184,11 @@ public:
                { trx, expiry, persist_until_expired ? trx_enum_type::incoming_persisted : trx_enum_type::incoming, return_failure_trace, std::move( next ) } );
          if( insert_itr.second ) added( insert_itr.first );
       } else {
-         if( !(itr->trx_meta == trx) && next ) {
-            // next will be updated in modify() below, notify previous next of duplicate
+         if( itr->trx_meta == trx ) return; // same trx meta pointer
+         if( next ) {
             next( std::static_pointer_cast<fc::exception>( std::make_shared<tx_duplicate>(
                   FC_LOG_MESSAGE( info, "duplicate transaction ${id}", ("id", trx->id()) ) ) ) );
-            return;
          }
-
-         if (itr->trx_type != trx_enum_type::incoming && itr->trx_type != trx_enum_type::incoming_persisted)
-            ++incoming_count;
-
-         queue.get<by_trx_id>().modify( itr, [persist_until_expired, return_failure_trace, next{std::move(next)}](auto& un) mutable {
-            un.trx_type = persist_until_expired ? trx_enum_type::incoming_persisted : trx_enum_type::incoming;
-            un.return_failure_trace = return_failure_trace;
-            un.next = std::move( next );
-         } );
       }
    }
 
@@ -224,7 +207,7 @@ public:
    iterator incoming_begin() { return queue.get<by_type>().lower_bound( trx_enum_type::incoming_persisted ); }
    iterator incoming_end() { return queue.get<by_type>().end(); } // if changed to upper_bound, verify usage performance
 
-   /// caller's responsibilty to call next() if applicable
+   /// caller's responsibility to call next() if applicable
    iterator erase( iterator itr ) {
       removed( itr );
       return queue.get<by_type>().erase( itr );
