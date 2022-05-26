@@ -79,8 +79,6 @@ if(ENABLE_OC AND CMAKE_SIZEOF_VOID_P EQUAL 8 AND NOT WIN32)
 	      message(FATAL_ERROR "EOSIO requires an LLVM version 7 through 11")
       endif()
    endif()
-
-   message(STATUS "LLVM ${LLVM_VERSION_MAJOR}" )
 endif()
 
 if(CMAKE_SIZEOF_VOID_P EQUAL 8 AND NOT WIN32)
