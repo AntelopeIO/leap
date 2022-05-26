@@ -195,4 +195,5 @@ try:
 finally:
     TestHelper.shutdown(cluster, walletMgr, testSuccessful, killEosInstances, killWallet, keepLogs, killAll, dumpErrorDetails)
 
-exit(0)
+errorCode = 0 if testSuccessful else 1
+exit(errorCode)

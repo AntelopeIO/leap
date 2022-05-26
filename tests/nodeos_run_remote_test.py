@@ -70,4 +70,5 @@ try:
 finally:
     TestHelper.shutdown(cluster, None, testSuccessful, killEosInstances, False, False, killAll, dumpErrorDetails)
 
-exit(0)
+errorCode = 0 if testSuccessful else 1 
+exit(errorCode) 

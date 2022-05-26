@@ -7,28 +7,33 @@ namespace eosio { namespace chain {
 
 class deep_mind_handler;
 
+// Values are included in protocol digest, so values must remain constant
 enum class protocol_feature_t : uint32_t {
    builtin
 };
 
+// Values are included in protocol digest, so values must remain constant
 enum class builtin_protocol_feature_t : uint32_t {
-   preactivate_feature,
-   only_link_to_existing_permission,
-   replace_deferred,
-   no_duplicate_deferred_id,
-   fix_linkauth_restriction,
-   disallow_empty_producer_schedule,
-   restrict_action_to_self,
-   only_bill_first_authorizer,
-   forward_setcode,
-   get_sender,
-   ram_restrictions,
-   webauthn_key,
-   wtmsig_block_signatures,
-   action_return_value,
-   configurable_wasm_limits,
-   blockchain_parameters,
-   get_code_hash,
+   preactivate_feature = 0,
+   only_link_to_existing_permission = 1,
+   replace_deferred = 2,
+   no_duplicate_deferred_id = 3,
+   fix_linkauth_restriction = 4,
+   disallow_empty_producer_schedule = 5,
+   restrict_action_to_self = 6,
+   only_bill_first_authorizer = 7,
+   forward_setcode = 8,
+   get_sender = 9,
+   ram_restrictions = 10,
+   webauthn_key = 11,
+   wtmsig_block_signatures = 12,
+   action_return_value = 13,
+   // 14 reserved
+   // 15 reserved
+   blockchain_parameters = 16, // matches release 2.1 value
+   get_code_hash = 17,
+   configurable_wasm_limits = 18, // configurable_wasm_limits2
+   reserved_private_fork_protocol_features = 500000,
 };
 
 struct protocol_feature_subjective_restrictions {
