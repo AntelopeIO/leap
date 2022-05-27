@@ -62,7 +62,7 @@ install_boost
 echo "Building Mandel"
 pushdir ${MANDEL_DIR}
 
-try cmake -S${SCRIPT_DIR}/.. -DCMAKE_BUILD_TYPE=Release -DENABLE_OC=Off ..
+try cmake -S${SCRIPT_DIR}/.. -DCMAKE_BUILD_TYPE=Release ..
 
 try make -j${JOBS}
 try cpack
