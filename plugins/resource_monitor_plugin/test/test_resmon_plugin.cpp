@@ -5,6 +5,8 @@
 
 #include <eosio/resource_monitor_plugin/resource_monitor_plugin.hpp>
 
+#include <thread>
+
 using namespace eosio;
 using namespace boost::system;
 
