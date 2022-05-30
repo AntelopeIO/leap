@@ -120,7 +120,6 @@ class state_history_log {
                  "wrote payload with incorrect size to ${name}.log", ("name", name));
       log.write((char*)&pos, sizeof(pos));
 
-      index.seek_end(0);
       index.write((char*)&pos, sizeof(pos));
       if (_begin_block == _end_block)
          _begin_block = block_num;
@@ -203,7 +202,7 @@ class state_history_log {
 
    void open_log() {
       log.set_file_path(log_filename);
-      log.open("a+b"); // std::ios_base::binary | std::ios_base::in | std::ios_base::out | std::ios_base::app
+      log.open("a+b");
       log.seek_end(0);
       uint64_t size = log.tellp();
       if (size >= state_history_log_header_serial_size) {
@@ -226,14 +225,14 @@ class state_history_log {
 
    void open_index() {
       index.set_file_path(index_filename);
-      index.open("a+b"); // std::ios_base::binary | std::ios_base::in | std::ios_base::out | std::ios_base::app
+      index.open("a+b");
       index.seek_end(0);
       if (index.tellp() == (static_cast<int>(_end_block) - _begin_block) * sizeof(uint64_t))
          return;
       ilog("Regenerate ${name}.index", ("name", name));
       index.close();
-      index.open("w+b"); // std::ios_base::binary | std::ios_base::in | std::ios_base::out | std::ios_base::trunc
 
+      index.open("wb");
       log.seek_end(0);
       uint64_t size      = log.tellp();
       uint64_t pos       = 0;
@@ -261,6 +260,9 @@ class state_history_log {
             dlog("${num_found} blocks found, log pos = ${pos}", ("num_found", num_found)("pos", pos));
          }
       }
+
+      index.close();
+      index.open("a+b");
    }
 
    uint64_t get_pos(uint32_t block_num) {
@@ -277,7 +279,6 @@ class state_history_log {
       if (block_num <= _begin_block) {
          num_removed = _end_block - _begin_block;
          log.seek(0);
-         index.seek(0);
          boost::filesystem::resize_file(log_filename, 0);
          boost::filesystem::resize_file(index_filename, 0);
          _begin_block = _end_block = 0;
@@ -285,13 +286,11 @@ class state_history_log {
          num_removed  = _end_block - block_num;
          uint64_t pos = get_pos(block_num);
          log.seek(0);
-         index.seek(0);
          boost::filesystem::resize_file(log_filename, pos);
          boost::filesystem::resize_file(index_filename, (block_num - _begin_block) * sizeof(uint64_t));
          _end_block = block_num;
       }
       log.flush();
-      index.flush();
       ilog("fork or replay: removed ${n} blocks from ${name}.log", ("n", num_removed)("name", name));
    }
 }; // state_history_log
