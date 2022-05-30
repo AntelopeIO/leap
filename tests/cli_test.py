@@ -87,7 +87,7 @@ def cleos_sign_test():
         '"context_free_data": []'
     '}')
 
-    output = subprocess.check_output(['./programs/cleos/cleos', 'sign',
+    output = subprocess.check_output(['./programs/cleos/cleos', '--no-auto-keosd', 'sign',
                                       '-c', chain, '-k', key, trx])
     # make sure it is signed
     assert(b'signatures' in output)
@@ -105,7 +105,7 @@ def cleos_sign_test():
 
     # Test packed transaction is unpacked. Only with options --print-request and --public-key
     # the sign request is dumped to stderr.
-    cmd = ['./programs/cleos/cleos', '--print-request', 'sign', '-c', chain, '--public-key', 'EOS8Dq1KosJ9PMn1vKQK3TbiihgfUiDBUsz471xaCE6eYUssPB1KY', packed_trx]
+    cmd = ['./programs/cleos/cleos', '--print-request', '--no-auto-keosd', 'sign', '-c', chain, '--public-key', 'EOS8Dq1KosJ9PMn1vKQK3TbiihgfUiDBUsz471xaCE6eYUssPB1KY', packed_trx]
     outs=None
     errs=None
     try:
@@ -125,7 +125,7 @@ def cleos_sign_test():
     assert(b'"data": "000000000000a6690000000000ea305501000000000000000453595300000000016d"' in errs)
 
     # Test packed transaction is signed.
-    output = subprocess.check_output(['./programs/cleos/cleos', 'sign',
+    output = subprocess.check_output(['./programs/cleos/cleos', '--no-auto-keosd', 'sign',
                                       '-c', chain, '-k', key, packed_trx])
     # Make sure signatures not empty
     assert(b'signatures' in output)
