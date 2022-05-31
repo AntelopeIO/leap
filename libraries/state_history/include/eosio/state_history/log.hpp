@@ -234,30 +234,27 @@ class state_history_log {
 
       index.open("wb");
       log.seek_end(0);
-      uint64_t size      = log.tellp();
-      uint64_t pos       = 0;
-      uint32_t num_found = 0;
-      while (pos < size) {
-         state_history_log_header header;
-         EOS_ASSERT(pos + state_history_log_header_serial_size <= size, chain::plugin_exception,
-                    "corrupt ${name}.log (6)", ("name", name));
-         log.seek(pos);
-         read_header(header, false);
-         uint64_t suffix_pos = pos + state_history_log_header_serial_size + header.payload_size;
-         uint64_t suffix;
-         EOS_ASSERT(is_ship(header.magic) && is_ship_supported_version(header.magic) &&
-                        suffix_pos + sizeof(suffix) <= size,
-                    chain::plugin_exception, "corrupt ${name}.log (7)", ("name", name));
-         log.seek(suffix_pos);
-         log.read((char*)&suffix, sizeof(suffix));
-         // ilog("block ${b} at ${pos}-${end} suffix=${suffix} file_size=${fs}",
-         //      ("b", header.block_num)("pos", pos)("end", suffix_pos + sizeof(suffix))("suffix", suffix)("fs", size));
-         EOS_ASSERT(suffix == pos, chain::plugin_exception, "corrupt ${name}.log (8)", ("name", name));
+      if(log.tellp()) {
+         uint32_t remaining = _end_block - _begin_block;
+         index.seek(remaining*sizeof(uint64_t));
 
-         index.write((char*)&pos, sizeof(pos));
-         pos = suffix_pos + sizeof(suffix);
-         if (!(++num_found % 10000)) {
-            dlog("${num_found} blocks found, log pos = ${pos}", ("num_found", num_found)("pos", pos));
+
+         while(remaining--) {
+            uint64_t pos = 0;
+            state_history_log_header header;
+            log.skip(-sizeof(pos));
+            fc::raw::unpack(log, pos);
+            log.seek(pos);
+            read_header(header, false);
+            log.seek(pos);
+            EOS_ASSERT(is_ship(header.magic) && is_ship_supported_version(header.magic), chain::plugin_exception, "corrupt ${name}.log (6)", ("name", name));
+
+            index.skip(-sizeof(uint64_t));
+            fc::raw::pack(index, pos);
+            index.skip(-sizeof(uint64_t));
+
+            if (!(remaining % 10000))
+               dlog("${remaining} blocks remaining, log pos = ${pos}", ("num_found", remaining)("pos", pos));
          }
       }
 
