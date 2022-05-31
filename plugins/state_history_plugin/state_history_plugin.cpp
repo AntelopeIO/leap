@@ -391,7 +391,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
 
       EOS_ASSERT(traces_bin.size() == (uint32_t)traces_bin.size(), plugin_exception, "traces is too big");
 
-      state_history_log_header header{.magic        = ship_magic(ship_current_version),
+      state_history_log_header header{.magic        = ship_magic(ship_current_version, 0),
                                       .block_id     = block_state->id,
                                       .payload_size = sizeof(uint32_t) + traces_bin.size()};
       trace_log->write_entry(header, block_state->block->previous, [&](auto& stream) {
@@ -411,7 +411,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
 
       std::vector<table_delta> deltas     = state_history::create_deltas(chain_plug->chain().db(), fresh);
       auto                     deltas_bin = state_history::zlib_compress_bytes(fc::raw::pack(deltas));
-      state_history_log_header header{.magic        = ship_magic(ship_current_version),
+      state_history_log_header header{.magic        = ship_magic(ship_current_version, 0),
                                       .block_id     = block_state->id,
                                       .payload_size = sizeof(uint32_t) + deltas_bin.size()};
       chain_state_log->write_entry(header, block_state->block->previous, [&](auto& stream) {
@@ -445,6 +445,9 @@ void state_history_plugin::set_program_options(options_description& cli, options
            "the endpoint upon which to listen for incoming connections. Caution: only expose this port to "
            "your internal network.");
    options("trace-history-debug-mode", bpo::bool_switch()->default_value(false), "enable debug mode for trace history");
+#ifdef HAS_LOG_TRIM
+   options("state-history-log-trim-blocks", bpo::value<uint32_t>(), "if set, periodically trim the state history files to store only configured number of most recent blocks");
+#endif
 }
 
 void state_history_plugin::plugin_initialize(const variables_map& options) {
@@ -490,12 +493,18 @@ void state_history_plugin::plugin_initialize(const variables_map& options) {
          my->trace_debug_mode = true;
       }
 
+      std::optional<uint32_t> block_limit;
+      if (options.count("state-history-log-trim-blocks")) {
+         block_limit = options.at("state-history-log-trim-blocks").as<uint32_t>();
+         EOS_ASSERT(block_limit >= 1000, plugin_exception, "state-history-log-trim-blocks must be 1000 blocks or greater");
+      }
+
       if (options.at("trace-history").as<bool>())
          my->trace_log.emplace("trace_history", (state_history_dir / "trace_history.log").string(),
-                               (state_history_dir / "trace_history.index").string());
+                               (state_history_dir / "trace_history.index").string(), block_limit);
       if (options.at("chain-state-history").as<bool>())
          my->chain_state_log.emplace("chain_state_history", (state_history_dir / "chain_state_history.log").string(),
-                                     (state_history_dir / "chain_state_history.index").string());
+                                     (state_history_dir / "chain_state_history.index").string(), block_limit);
    }
    FC_LOG_AND_RETHROW()
 } // state_history_plugin::plugin_initialize
