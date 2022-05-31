@@ -48,10 +48,16 @@ class producer_plugin;
 namespace chain_apis {
 struct empty{};
 
+struct linked_action {
+   name                account;
+   std::optional<name> action;
+};
+
 struct permission {
-   name              perm_name;
-   name              parent;
-   authority         required_auth;
+   name                                       perm_name;
+   name                                       parent;
+   authority                                  required_auth;
+   std::optional<std::vector<linked_action>>  linked_actions;
 };
 
 
@@ -123,6 +129,8 @@ public:
       std::optional<string>                server_full_version_string;
       std::optional<uint64_t>              total_cpu_weight;
       std::optional<uint64_t>              total_net_weight;
+      std::optional<uint32_t>              earliest_available_block_num;
+      std::optional<fc::time_point>        last_irreversible_block_time;
    };
    get_info_results get_info(const get_info_params&) const;
 
@@ -197,6 +205,7 @@ public:
       fc::variant                rex_info;
 
       std::optional<account_resource_limit> subjective_cpu_bill_limit;
+      std::vector<linked_action> eosio_any_linked_actions;
    };
 
    struct get_account_params {
@@ -801,13 +810,15 @@ private:
 
 }
 
-FC_REFLECT( eosio::chain_apis::permission, (perm_name)(parent)(required_auth) )
+FC_REFLECT( eosio::chain_apis::linked_action, (account)(action) )
+FC_REFLECT( eosio::chain_apis::permission, (perm_name)(parent)(required_auth)(linked_actions) )
 FC_REFLECT(eosio::chain_apis::empty, )
 FC_REFLECT(eosio::chain_apis::read_only::get_info_results,
            (server_version)(chain_id)(head_block_num)(last_irreversible_block_num)(last_irreversible_block_id)
            (head_block_id)(head_block_time)(head_block_producer)
            (virtual_block_cpu_limit)(virtual_block_net_limit)(block_cpu_limit)(block_net_limit)
-           (server_version_string)(fork_db_head_block_num)(fork_db_head_block_id)(server_full_version_string)(total_cpu_weight)(total_net_weight) )
+           (server_version_string)(fork_db_head_block_num)(fork_db_head_block_id)(server_full_version_string)
+           (total_cpu_weight)(total_net_weight)(earliest_available_block_num)(last_irreversible_block_time))
 FC_REFLECT(eosio::chain_apis::read_only::get_transaction_status_params, (id) )
 FC_REFLECT(eosio::chain_apis::read_only::get_transaction_status_results, (state)(block_number)(block_id)(block_timestamp)(expiration)(head_number)(head_id)
            (head_timestamp)(irreversible_number)(irreversible_id)(irreversible_timestamp)(earliest_tracked_block_id)(earliest_tracked_block_number) )
@@ -843,7 +854,8 @@ FC_REFLECT( eosio::chain_apis::read_only::get_scheduled_transactions_result, (tr
 FC_REFLECT( eosio::chain_apis::read_only::get_account_results,
             (account_name)(head_block_num)(head_block_time)(privileged)(last_code_update)(created)
             (core_liquid_balance)(ram_quota)(net_weight)(cpu_weight)(net_limit)(cpu_limit)(ram_usage)(permissions)
-            (total_resources)(self_delegated_bandwidth)(refund_request)(voter_info)(rex_info)(subjective_cpu_bill_limit) )
+            (total_resources)(self_delegated_bandwidth)(refund_request)(voter_info)(rex_info)
+            (subjective_cpu_bill_limit) (eosio_any_linked_actions) )
 // @swap code_hash
 FC_REFLECT( eosio::chain_apis::read_only::get_code_results, (account_name)(code_hash)(wast)(wasm)(abi) )
 FC_REFLECT( eosio::chain_apis::read_only::get_code_hash_results, (account_name)(code_hash) )

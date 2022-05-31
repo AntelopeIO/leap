@@ -401,7 +401,7 @@ struct controller_impl {
          EOS_ASSERT( root_id == blog.head_id(), fork_database_exception, "fork database root does not match block log head" );
       } else {
          EOS_ASSERT( fork_db.root()->block_num == lib_num, fork_database_exception,
-                     "empty block log expects the first appended block to build off a block that is not the fork database root" );
+                     "empty block log expects the first appended block to build off a block that is not the fork database root. root block number: ${block_num}, lib: ${lib_num}", ("block_num", fork_db.root()->block_num) ("lib_num", lib_num) );
       }
 
       auto fork_head = (read_mode == db_read_mode::IRREVERSIBLE) ? fork_db.pending_head() : fork_db.head();
@@ -421,10 +421,12 @@ struct controller_impl {
 
             emit( self.irreversible_block, *bitr );
 
+            // blog.append could fail due to failures like running out of space.
+            // Do it before commit so that in case it throws, DB can be rolled back.
+            blog.append( (*bitr)->block );
+
             db.commit( (*bitr)->block_num );
             root_id = (*bitr)->id;
-
-            blog.append( (*bitr)->block );
          }
       } catch( std::exception& ) {
          if( root_id != fork_db.root()->id ) {
@@ -2527,6 +2529,10 @@ struct controller_impl {
       return deep_mind_logger;
    }
 
+   uint32_t earliest_available_block_num() const {
+      return (blog.first_block_num() != 0) ? blog.first_block_num() : fork_db.root()->block_num;
+   }
+
 }; /// controller_impl
 
 const resource_limits_manager&   controller::get_resource_limits_manager()const
@@ -3385,6 +3391,9 @@ void controller::enable_deep_mind(deep_mind_handler* logger) {
    my->deep_mind_logger = logger;
 }
 
+uint32_t controller::earliest_available_block_num() const{
+   return my->earliest_available_block_num();
+}
 #if defined(EOSIO_EOS_VM_RUNTIME_ENABLED) || defined(EOSIO_EOS_VM_JIT_RUNTIME_ENABLED)
 vm::wasm_allocator& controller::get_wasm_allocator() {
    return my->wasm_alloc;

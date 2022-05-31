@@ -14,8 +14,11 @@
 #include <eosio/chain/snapshot.hpp>
 #include <eosio/chain/deep_mind.hpp>
 #include <eosio/chain_plugin/trx_finality_status_processing.hpp>
+#include <eosio/chain/permission_link_object.hpp>
 
 #include <eosio/chain/eosio_contract.hpp>
+
+#include <eosio/resource_monitor_plugin/resource_monitor_plugin.hpp>
 
 #include <chainbase/environment.hpp>
 
@@ -766,6 +769,11 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
       my->chain_config->state_dir = app().data_dir() / config::default_state_dir_name;
       my->chain_config->read_only = my->readonly;
 
+      if (auto resmon_plugin = app().find_plugin<resource_monitor_plugin>()) {
+        resmon_plugin->monitor_directory(my->chain_config->blocks_dir);
+        resmon_plugin->monitor_directory(my->chain_config->state_dir);
+      }
+
       if( options.count( "chain-state-db-size-mb" ))
          my->chain_config->state_size = options.at( "chain-state-db-size-mb" ).as<uint64_t>() * 1024 * 1024;
 
@@ -1398,6 +1406,7 @@ std::string itoh(I n, size_t hlen = sizeof(I)<<1) {
 
 read_only::get_info_results read_only::get_info(const read_only::get_info_params&) const {
    const auto& rm = db.get_resource_limits_manager();
+
    return {
       itoh(static_cast<uint32_t>(app().version())),
       db.get_chain_id(),
@@ -1418,7 +1427,9 @@ read_only::get_info_results read_only::get_info(const read_only::get_info_params
       db.fork_db_pending_head_block_id(),
       app().full_version_string(),
       rm.get_total_cpu_weight(),
-      rm.get_total_net_weight()
+      rm.get_total_net_weight(),
+      db.earliest_available_block_num(),
+      db.last_irreversible_block_time()
    };
 }
 
@@ -1503,7 +1514,7 @@ read_only::get_activated_protocol_features( const read_only::get_activated_proto
    auto lower = ( params.search_by_block_num ? pfm.lower_bound( lower_bound_value )
                                              : pfm.at_activation_ordinal( lower_bound_value ) );
 
-   auto upper = ( params.search_by_block_num ? pfm.upper_bound( lower_bound_value )
+   auto upper = ( params.search_by_block_num ? pfm.upper_bound( upper_bound_value )
                                              : get_next_if_not_end( pfm.at_activation_ordinal( upper_bound_value ) ) );
 
    if( params.reverse ) {
@@ -2433,7 +2444,31 @@ read_only::get_account_results read_only::get_account( const get_account_params&
       account_resource_limit subjective_cpu_bill_limit;
       subjective_cpu_bill_limit.used = producer_plug->get_subjective_bill( result.account_name, fc::time_point::now() );
       result.subjective_cpu_bill_limit = subjective_cpu_bill_limit;
-   } 
+   }
+
+   const auto linked_action_map = ([&](){
+      const auto& links = d.get_index<permission_link_index,by_permission_name>();
+      auto iter = links.lower_bound( boost::make_tuple( params.account_name ) );
+
+      std::multimap<name, linked_action> result;
+      while (iter != links.end() && iter->account == params.account_name ) {
+         auto action = iter->message_type.empty() ? std::optional<name>() : std::optional<name>(iter->message_type);
+         result.emplace(std::make_pair(iter->required_permission, linked_action{iter->code, std::move(action)}));
+         ++iter;
+      }
+
+      return result;
+   })();
+
+   auto get_linked_actions = [&](chain::name perm_name) {
+      auto link_bounds = linked_action_map.equal_range(perm_name);
+      auto linked_actions = std::vector<linked_action>();
+      linked_actions.reserve(linked_action_map.count(perm_name));
+      for (auto link = link_bounds.first; link != link_bounds.second; ++link) {
+         linked_actions.push_back(link->second);
+      }
+      return linked_actions;
+   };
 
    const auto& permissions = d.get_index<permission_index,by_owner>();
    auto perm = permissions.lower_bound( boost::make_tuple( params.account_name ) );
@@ -2450,9 +2485,14 @@ read_only::get_account_results read_only::get_account( const get_account_params&
          }
       }
 
-      result.permissions.push_back( permission{ perm->name, parent, perm->auth.to_authority() } );
+      auto linked_actions = get_linked_actions(perm->name);
+
+      result.permissions.push_back( permission{ perm->name, parent, perm->auth.to_authority(), std::move(linked_actions)} );
       ++perm;
    }
+
+   // add eosio.any linked authorizations
+   result.eosio_any_linked_actions = get_linked_actions(chain::config::eosio_any_name);
 
    const auto& code_account = db.db().get<account_object,by_name>( config::system_account_name );
 

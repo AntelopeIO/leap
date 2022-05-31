@@ -8,7 +8,6 @@ set(Sources
 	ParseFunction.cpp
 	ParseNumbers.cpp
 	ParseModule.cpp
-	ParseTests.cpp
 	Print.cpp
 	Regexp.cpp
 	Regexp.h)
