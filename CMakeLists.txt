@@ -1,6 +1,6 @@
 cmake_minimum_required( VERSION 3.8 )
 
-project( EOSIO )
+project( mandel )
 include(CTest) # suppresses DartConfiguration.tcl error
 enable_testing()
 
@@ -236,3 +236,6 @@ get_property(_CTEST_CUSTOM_TESTS_IGNORE GLOBAL PROPERTY CTEST_CUSTOM_TESTS_IGNOR
 file(WRITE "${CMAKE_BINARY_DIR}/CTestCustom.cmake" "SET(CTEST_CUSTOM_TESTS_IGNORE ${_CTEST_CUSTOM_TESTS_IGNORE})")
 
 include(doxygen)
+
+include(package.cmake)
+include(CPack)
