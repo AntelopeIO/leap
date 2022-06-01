@@ -307,9 +307,6 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
           "In \"locked\" mode database is preloaded, locked in to memory, and will use huge pages if available.\n"
 #endif
          )
-#ifdef __linux__
-         ("database-hugepage-path", bpo::value<vector<string>>()->composing(), "Optional path for database hugepages when in \"locked\" mode (may specify multiple times)")
-#endif
 
 #ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
          ("eos-vm-oc-cache-size-mb", bpo::value<uint64_t>()->default_value(eosvmoc::config().cache_size / (1024u*1024u)), "Maximum size (in MiB) of the EOS VM OC code cache")
