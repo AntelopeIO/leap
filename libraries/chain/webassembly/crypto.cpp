@@ -113,15 +113,17 @@ namespace eosio { namespace chain { namespace webassembly {
       bytes bop1(op1.data(), op1.data() + op1.size());
       bytes bop2(op2.data(), op2.data() + op2.size());
 
-      auto res = fc::alt_bn128_add(bop1, bop2);
-      if(res.first != fc::alt_bn128_error::none) {
+      auto maybe_err = fc::alt_bn128_add(bop1, bop2);
+      if(std::holds_alternative<fc::alt_bn128_error>(maybe_err)) {
          return error_code::fail;
       }
 
-      if( result.size() < res.second.size() )
+      const auto& res = std::get<bytes>(maybe_err);
+
+      if( result.size() < res.size() )
          return error_code::fail;
 
-      std::memcpy( result.data(), res.second.data(), res.second.size() );
+      std::memcpy( result.data(), res.data(), res.size() );
       return error_code::none;
    }
 
@@ -131,15 +133,17 @@ namespace eosio { namespace chain { namespace webassembly {
       bytes bg1_point(g1_point.data(), g1_point.data() + g1_point.size());
       bytes bscalar(scalar.data(), scalar.data() + scalar.size());
 
-      auto res = fc::alt_bn128_mul(bg1_point, bscalar);
-      if(res.first != fc::alt_bn128_error::none) {
+      auto maybe_err = fc::alt_bn128_mul(bg1_point, bscalar);
+      if(std::holds_alternative<fc::alt_bn128_error>(maybe_err)) {
          return error_code::fail;
       }
 
-      if( result.size() < res.second.size() )
+      const auto& res = std::get<bytes>(maybe_err);
+
+      if( result.size() < res.size() )
          return error_code::fail;
 
-      std::memcpy( result.data(), res.second.data(), res.second.size() );
+      std::memcpy( result.data(), res.data(), res.size() );
       return error_code::none;
    }
 
@@ -149,12 +153,12 @@ namespace eosio { namespace chain { namespace webassembly {
       bytes bg1_g2_pairs(g1_g2_pairs.data(), g1_g2_pairs.data() + g1_g2_pairs.size());
 
       auto checktime = [this]() { context.trx_context.checktime(); };
-      auto res = fc::alt_bn128_pair(bg1_g2_pairs, checktime);
-      if(res.first != fc::alt_bn128_error::none) {
+      auto maybe_err = fc::alt_bn128_pair(bg1_g2_pairs, checktime);
+      if(std::holds_alternative<fc::alt_bn128_error>(maybe_err)) {
          return error_code::fail;
       }
 
-      *result = res.second;
+      *result = std::get<bool>(maybe_err);
       return error_code::none;
    }
 
@@ -168,15 +172,17 @@ namespace eosio { namespace chain { namespace webassembly {
       bytes bexp(exp.data(), exp.data() + exp.size());
       bytes bmod(modulus.data(), modulus.data() + modulus.size());
 
-      auto res = fc::modexp(bbase, bexp, bmod);
-      if(res.first != fc::modular_arithmetic_error::none) {
+      auto maybe_err = fc::modexp(bbase, bexp, bmod);
+      if(std::holds_alternative<fc::modular_arithmetic_error>(maybe_err)) {
          return error_code::fail;
       }
 
-      if( out.size() < res.second.size() )
+      const auto& res = std::get<bytes>(maybe_err);
+
+      if( out.size() < res.size() )
          return error_code::fail;
 
-      std::memcpy( out.data(), res.second.data(), res.second.size() );
+      std::memcpy( out.data(), res.data(), res.size() );
       return error_code::none;
    }
 
@@ -197,15 +203,17 @@ namespace eosio { namespace chain { namespace webassembly {
 
       auto checktime = [this]() { context.trx_context.checktime(); };
 
-      auto res = fc::blake2b(rounds, bstate, bmessage, bt0_offset, bt1_offset, final, checktime);
-      if(res.first != fc::blake2b_error::none) {
+      auto maybe_err = fc::blake2b(rounds, bstate, bmessage, bt0_offset, bt1_offset, final, checktime);
+      if(std::holds_alternative<fc::blake2b_error>(maybe_err)) {
          return error_code::fail;
       }
 
-      if( out.size() < res.second.size() )
+      const auto& res = std::get<bytes>(maybe_err);
+
+      if( out.size() < res.size() )
          return error_code::fail;
 
-      std::memcpy( out.data(), res.second.data(), res.second.size() );
+      std::memcpy( out.data(), res.data(), res.size() );
       return error_code::none;
    }
 
@@ -213,7 +221,7 @@ namespace eosio { namespace chain { namespace webassembly {
       const size_t bs = eosio::chain::config::hashing_checktime_block_size;
       const char* data = input.data();
       uint32_t datalen = input.size();
-      fc::sha3::encoder enc{keccak};
+      fc::sha3::encoder enc;
       while ( datalen > bs ) {
          enc.write( data, bs);
          data    += bs;
@@ -221,7 +229,7 @@ namespace eosio { namespace chain { namespace webassembly {
          context.trx_context.checktime();
       }
       enc.write( data, datalen);
-      auto res = enc.result();
+      auto res = enc.result(!keccak);
 
       auto copy_size = std::min( output.size(), res.data_size() );
       std::memcpy( output.data(), res.data(), copy_size );
@@ -233,15 +241,17 @@ namespace eosio { namespace chain { namespace webassembly {
       bytes bsignature(signature.data(), signature.data() + signature.size());
       bytes bdigest(digest.data(), digest.data() + digest.size());
 
-      auto res = fc::ecrecover(bsignature, bdigest);
-      if( res.first != fc::ecrecover_error::none ) {
+      auto maybe_err = fc::ecrecover(bsignature, bdigest);
+      if( std::holds_alternative<fc::ecrecover_error>(maybe_err)) {
          return error_code::fail;
       }
 
-      if( pub.size() < res.second.size() )
+      const auto& res = std::get<bytes>(maybe_err);
+
+      if( pub.size() < res.size() )
          return error_code::fail;
 
-      std::memcpy( pub.data(), res.second.data(), res.second.size() );
+      std::memcpy( pub.data(), res.data(), res.size() );
       return error_code::none;
    }
 
