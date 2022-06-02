@@ -47,10 +47,6 @@ cmake -DCMAKE_BUILD_TYPE=Release ..
 make -j $(nproc)
 ```
 
-`make install` isn't supported unless:
-* You used cmake's `-DCMAKE_INSTALL_PREFIX=....` option, or
-* You're building a docker image
-
 We support the following CMake options:
 ```
 -DCMAKE_CXX_COMPILER_LAUNCHER=ccache    Speed up builds
