@@ -1,7 +1,7 @@
 #include <eosio/chain/config.hpp>
+#include <eosio/resource_monitor_plugin/resource_monitor_plugin.hpp>
 #include <eosio/state_history/compression.hpp>
 #include <eosio/state_history/create_deltas.hpp>
-#include <eosio/resource_monitor_plugin/resource_monitor_plugin.hpp>
 #include <eosio/state_history/log.hpp>
 #include <eosio/state_history/serialization.hpp>
 #include <eosio/state_history/trace_converter.hpp>
@@ -16,6 +16,7 @@
 #include <boost/signals2/connection.hpp>
 
 using tcp    = boost::asio::ip::tcp;
+using unixs  = boost::asio::local::stream_protocol;
 namespace ws = boost::beast::websocket;
 
 extern const char* const state_history_plugin_abi;
@@ -45,14 +46,22 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
    std::optional<state_history_log> trace_log;
    std::optional<state_history_log> chain_state_log;
    bool                             trace_debug_mode = false;
-   bool                             stopping         = false;
+   std::atomic<bool>                stopping         = false;
    std::optional<scoped_connection> applied_transaction_connection;
    std::optional<scoped_connection> block_start_connection;
    std::optional<scoped_connection> accepted_block_connection;
    string                           endpoint_address = "0.0.0.0";
    uint16_t                         endpoint_port    = 8080;
    std::unique_ptr<tcp::acceptor>   acceptor;
+   string                           unix_path;
+   std::unique_ptr<unixs::acceptor> unix_acceptor;
    state_history::trace_converter   trace_converter;
+
+   std::thread                                                              thr;
+   boost::asio::io_context                                                  ctx;
+   boost::asio::io_context::strand                                          work_strand{ctx};
+   boost::asio::executor_work_guard<boost::asio::io_context::executor_type> work_guard =
+       boost::asio::make_work_guard(ctx);
 
    void get_log_entry(state_history_log& log, uint32_t block_num, std::optional<bytes>& result) {
       if (block_num < log.begin_block() || block_num >= log.end_block())
@@ -297,10 +306,35 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
 
       void close() {
          socket_stream->next_layer().close();
-         plugin->sessions.erase(this);
+         plugin->sessions.remove(this->shared_from_this());
       }
    };
-   std::map<session*, std::shared_ptr<session>> sessions;
+
+   class session_manager_t {
+      std::mutex                                           mx;
+      boost::container::flat_set<std::shared_ptr<session>> session_set;
+
+    public:
+      void add(std::shared_ptr<state_history_plugin_impl> plugin, std::shared_ptr<tcp::socket> socket) {
+         auto s = std::make_shared<session>(plugin);
+         s->start(std::move(*socket));
+         std::lock_guard lock(mx);
+         session_set.insert(std::move(s));
+      }
+
+      void remove(std::shared_ptr<session> s) {
+         std::lock_guard lock(mx);
+         session_set.erase(s);
+      }
+
+      template <typename F>
+      void for_each(F&& f) {
+         std::lock_guard lock(mx);
+         for (auto& s : session_set) {
+            f(s);
+         }
+      }
+   } sessions;
 
    void listen() {
       boost::system::error_code ec;
@@ -326,6 +360,45 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
       do_accept();
    }
 
+   void unix_listen() {
+      boost::system::error_code ec;
+
+      auto check_ec = [&](const char* what) {
+         if (!ec)
+            return;
+         elog("${w}: ${m}", ("w", what)("m", ec.message()));
+         EOS_ASSERT(false, plugin_exception, "unable to open unix socket");
+      };
+
+      // take a sniff and see if anything is already listening at the given socket path, or if the socket path exists
+      //  but nothing is listening
+      {
+         boost::system::error_code test_ec;
+         unixs::socket             test_socket(app().get_io_service());
+         test_socket.connect(unix_path.c_str(), test_ec);
+
+         // looks like a service is already running on that socket, don't touch it... fail out
+         if (test_ec == boost::system::errc::success)
+            ec = boost::system::errc::make_error_code(boost::system::errc::address_in_use);
+         // socket exists but no one home, go ahead and remove it and continue on
+         else if (test_ec == boost::system::errc::connection_refused)
+            ::unlink(unix_path.c_str());
+         else if (test_ec != boost::system::errc::no_such_file_or_directory)
+            ec = test_ec;
+      }
+
+      check_ec("open");
+
+      unix_acceptor = std::make_unique<unixs::acceptor>(this->ctx);
+      unix_acceptor->open(unixs::acceptor::protocol_type(), ec);
+      check_ec("open");
+      unix_acceptor->bind(unix_path.c_str(), ec);
+      check_ec("bind");
+      unix_acceptor->listen(boost::asio::socket_base::max_listen_connections, ec);
+      check_ec("listen");
+      do_accept();
+   }
+
    void do_accept() {
       auto socket = std::make_shared<tcp::socket>(app().get_io_service());
       acceptor->async_accept(*socket, [self = shared_from_this(), socket, this](const boost::system::error_code& ec) {
@@ -336,11 +409,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
                catch_and_log([&] { do_accept(); });
             return;
          }
-         catch_and_log([&] {
-            auto s            = std::make_shared<session>(self);
-            sessions[s.get()] = s;
-            s->start(std::move(*socket));
-         });
+         catch_and_log([&] { sessions.add(self, socket); });
          catch_and_log([&] { do_accept(); });
       });
    }
@@ -366,14 +435,13 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
              "the process");
       }
 
-      for (auto& s : sessions) {
-         auto& p = s.second;
+      sessions.for_each([&block_state](auto& p) {
          if (p) {
             if (p->current_request && block_state->block_num < p->current_request->start_block_num)
                p->current_request->start_block_num = block_state->block_num;
             p->send_update(block_state);
          }
-      }
+      });
    }
 
    void on_block_start(uint32_t block_num) { clear_caches(); }
@@ -444,6 +512,8 @@ void state_history_plugin::set_program_options(options_description& cli, options
    options("state-history-endpoint", bpo::value<string>()->default_value("127.0.0.1:8080"),
            "the endpoint upon which to listen for incoming connections. Caution: only expose this port to "
            "your internal network.");
+   options("state-history-unix-socket-path", bpo::value<string>(),
+           "the path (relative to data-dir) to create a unix socket upon which to listen for incoming connections.");
    options("trace-history-debug-mode", bpo::bool_switch()->default_value(false), "enable debug mode for trace history");
 }
 
@@ -455,8 +525,8 @@ void state_history_plugin::plugin_initialize(const variables_map& options) {
       my->chain_plug = app().find_plugin<chain_plugin>();
       EOS_ASSERT(my->chain_plug, chain::missing_chain_plugin_exception, "");
       auto& chain = my->chain_plug->chain();
-      my->applied_transaction_connection.emplace(
-          chain.applied_transaction.connect([&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> t) {
+      my->applied_transaction_connection.emplace(chain.applied_transaction.connect(
+          [&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> t) {
              my->on_applied_transaction(std::get<0>(t), std::get<1>(t));
           }));
       my->accepted_block_connection.emplace(
@@ -473,12 +543,21 @@ void state_history_plugin::plugin_initialize(const variables_map& options) {
       if (auto resmon_plugin = app().find_plugin<resource_monitor_plugin>())
          resmon_plugin->monitor_directory(state_history_dir);
 
-      auto ip_port         = options.at("state-history-endpoint").as<string>();
-      auto port            = ip_port.substr(ip_port.find(':') + 1, ip_port.size());
-      auto host            = ip_port.substr(0, ip_port.find(':'));
-      my->endpoint_address = host;
-      my->endpoint_port    = std::stoi(port);
-      idump((ip_port)(host)(port));
+      auto ip_port = options.at("state-history-endpoint").as<string>();
+      if (ip_port.size()) {
+         auto port            = ip_port.substr(ip_port.find(':') + 1, ip_port.size());
+         auto host            = ip_port.substr(0, ip_port.find(':'));
+         my->endpoint_address = host;
+         my->endpoint_port    = std::stoi(port);
+         idump((ip_port)(host)(port));
+      }
+
+      if (options.count("state-history-unix-socket-path")) {
+         boost::filesystem::path sock_path = options.at("state-history-unix-socket-path").as<string>();
+         if (sock_path.is_relative())
+            sock_path = app().data_dir() / sock_path;
+         my->unix_path = sock_path.generic_string();
+      }
 
       if (options.at("delete-state-history").as<bool>()) {
          ilog("Deleting state history");
@@ -500,15 +579,30 @@ void state_history_plugin::plugin_initialize(const variables_map& options) {
    FC_LOG_AND_RETHROW()
 } // state_history_plugin::plugin_initialize
 
-void state_history_plugin::plugin_startup() { my->listen(); }
+void state_history_plugin::plugin_startup() {
+   try {
+      my->thr = std::thread([ptr = my.get()] { ptr->ctx.run(); });
+
+      if (my->endpoint_address.size())
+         my->listen();
+      if (my->unix_path.size())
+         my->unix_listen();
+   } catch (std::exception& ex) {
+      appbase::app().quit();
+   }
+}
 
 void state_history_plugin::plugin_shutdown() {
    my->applied_transaction_connection.reset();
    my->accepted_block_connection.reset();
    my->block_start_connection.reset();
-   while (!my->sessions.empty())
-      my->sessions.begin()->second->close();
+   my->sessions.for_each([](auto& s) { s->close(); });
    my->stopping = true;
+   if (my->thr.joinable()) {
+      my->work_guard.reset();
+      my->ctx.stop();
+      my->thr.join();
+   }
 }
 
 } // namespace eosio
