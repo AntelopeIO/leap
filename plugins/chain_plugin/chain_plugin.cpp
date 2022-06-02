@@ -335,6 +335,9 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
           "Duration (in seconds) a successful transaction's Finality Status will remain available from being first identified.")
          ("transaction-finality-status-failure-duration-sec", bpo::value<uint64_t>()->default_value(config::default_max_transaction_finality_status_failure_duration_sec),
           "Duration (in seconds) a failed transaction's Finality Status will remain available from being first identified.")
+#ifdef HAS_LOG_TRIM
+         ("block-log-trim-blocks", bpo::value<uint32_t>(), "if set, periodically trim the block log to store only configured number of most recent blocks");
+#endif
          ;
 
 // TODO: rate limiting
@@ -862,6 +865,9 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
 
       // move fork_db to new location
       upgrade_from_reversible_to_fork_db( my.get() );
+
+      if(options.count( "block-log-trim-blocks" ))
+         my->chain_config->block_trim_count = options.at( "block-log-trim-blocks" ).as<uint32_t>();
 
       if( options.at( "delete-all-blocks" ).as<bool>()) {
          ilog( "Deleting state database and blocks" );

@@ -3,6 +3,10 @@
 #include <eosio/chain/block.hpp>
 #include <eosio/chain/genesis_state.hpp>
 
+#if defined(__linux__) || defined(__APPLE__)
+#define HAS_LOG_TRIM
+#endif
+
 namespace eosio { namespace chain {
 
    namespace detail { class block_log_impl; }
@@ -34,11 +38,11 @@ namespace eosio { namespace chain {
 
    class block_log {
       public:
-         block_log(const fc::path& data_dir);
+         block_log(const fc::path& data_dir, std::optional<uint32_t> trim_blocks);
          block_log(block_log&& other);
          ~block_log();
 
-         uint64_t append(const signed_block_ptr& b);
+         void append(const signed_block_ptr& b);
          void flush();
          void reset( const genesis_state& gs, const signed_block_ptr& genesis_block );
          void reset( const chain_id_type& chain_id, uint32_t first_block_num );

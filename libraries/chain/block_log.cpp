@@ -42,11 +42,14 @@ namespace eosio { namespace chain {
             signed_block_ptr         head;
             block_id_type            head_id;
             fc::cfile                block_file;
+            size_t                   log_blk_size;
             fc::cfile                index_file;
             bool                     open_files = false;
             bool                     genesis_written_to_block_log = false;
             uint32_t                 version = 0;
-            uint32_t                 first_block_num = 0;
+            uint32_t                 first_block_num = 0;       //the first number available to read
+            uint32_t                 index_first_block_num = 0; //the first number in index & the log had it not been trimmed
+            std::optional<uint32_t>  trim_blocks;
 
             inline void check_open_files() {
                if( !open_files ) {
@@ -72,11 +75,23 @@ namespace eosio { namespace chain {
 
             void flush();
 
-            uint64_t append(const signed_block_ptr& b);
+            void append(const signed_block_ptr& b);
+
+            void trim();
+
+            uint64_t get_block_pos(uint32_t block_num);
 
             template <typename ChainContext, typename Lambda>
             static std::optional<ChainContext> extract_chain_context( const fc::path& data_dir, Lambda&& lambda );
       };
+
+      constexpr uint32_t trimmed_version_flag = 1<<16;
+
+      static bool is_trimmed_log_and_mask_version(uint32_t& version) {
+         bool ret = version & trimmed_version_flag;
+         version &= ~trimmed_version_flag;
+         return ret;
+      }
 
       void detail::block_log_impl::reopen() {
          close();
@@ -181,8 +196,9 @@ namespace eosio { namespace chain {
       };
    }
 
-   block_log::block_log(const fc::path& data_dir)
+   block_log::block_log(const fc::path& data_dir, std::optional<uint32_t> trim_blocks)
    :my(new detail::block_log_impl()) {
+      my->trim_blocks = trim_blocks;
       open(data_dir);
    }
 
@@ -209,6 +225,10 @@ namespace eosio { namespace chain {
 
       my->reopen();
 
+      struct stat st;
+      if( fstat(my->block_file.fileno(), &st) == 0 )
+         my->log_blk_size = st.st_blksize;
+
       /* On startup of the block log, there are several states the log file and the index file can be
        * in relation to each other.
        *
@@ -234,7 +254,8 @@ namespace eosio { namespace chain {
          ilog("Log is nonempty");
          my->block_file.seek( 0 );
          my->version = 0;
-         my->block_file.read( (char*)&my->version, sizeof(my->version) );
+         fc::raw::unpack(my->block_file, my->version);
+         const bool is_currently_trimmed = detail::is_trimmed_log_and_mask_version(my->version);
          EOS_ASSERT( my->version > 0, block_log_exception, "Block log was not setup properly" );
          EOS_ASSERT( is_supported_version(my->version), block_log_unsupported_version,
                      "Unsupported version of block log. Block log version is ${version} while code supports version(s) [${min},${max}]",
@@ -244,11 +265,12 @@ namespace eosio { namespace chain {
          my->genesis_written_to_block_log = true; // Assume it was constructed properly.
          if (my->version > 1){
             my->first_block_num = 0;
-            my->block_file.read( (char*)&my->first_block_num, sizeof(my->first_block_num) );
+            fc::raw::unpack(my->block_file, my->first_block_num);
             EOS_ASSERT(my->first_block_num > 0, block_log_exception, "Block log is malformed, first recorded block number is 0 but must be greater than or equal to 1");
          } else {
             my->first_block_num = 1;
          }
+         my->index_first_block_num = my->first_block_num;
 
          my->head = read_head();
          if( my->head ) {
@@ -257,10 +279,19 @@ namespace eosio { namespace chain {
             my->head_id = {};
          }
 
+         my->block_file.seek_end(0);
+         if(is_currently_trimmed) {
+            uint32_t trim_log_count;
+            my->block_file.skip(-sizeof(uint32_t));
+            fc::raw::unpack(my->block_file, trim_log_count);
+            my->first_block_num = chain::block_header::num_from_id(my->head_id) - trim_log_count;
+            my->block_file.skip(-sizeof(uint32_t));
+         }
+
          if (index_size) {
             ilog("Index is nonempty");
             uint64_t block_pos;
-            my->block_file.seek_end(-sizeof(uint64_t));
+            my->block_file.skip(-sizeof(uint64_t));
             my->block_file.read((char*)&block_pos, sizeof(block_pos));
 
             uint64_t index_pos;
@@ -278,6 +309,26 @@ namespace eosio { namespace chain {
             ilog("Index is empty");
             construct_index();
          }
+
+         if(!is_currently_trimmed && my->trim_blocks) {
+            //need to convert non-trimmed log to trimmed log. trim any blocks to start with
+            my->trim();
+
+            //update version
+            my->block_file.seek(0);
+            fc::raw::pack(my->block_file, my->version | detail::trimmed_version_flag);
+
+            //and write out the trailing block count
+            my->block_file.seek_end(0);
+            uint32_t num_blocks_in_log = 0;
+            if(my->head_id != block_id_type())
+               num_blocks_in_log = chain::block_header::num_from_id(my->head_id) - my->first_block_num;
+            fc::raw::pack(my->block_file, num_blocks_in_log);
+         }
+         else if(is_currently_trimmed && !my->trim_blocks) {
+            //this should really vacuum the data back to a non-trimmed log
+            my->trim_blocks = UINT32_MAX;
+         }
       } else if (index_size) {
          ilog("Index is nonempty, remove and recreate it");
          my->close();
@@ -286,11 +337,11 @@ namespace eosio { namespace chain {
       }
    }
 
-   uint64_t block_log::append(const signed_block_ptr& b) {
-      return my->append(b);
+   void block_log::append(const signed_block_ptr& b) {
+      my->append(b);
    }
 
-   uint64_t detail::block_log_impl::append(const signed_block_ptr& b) {
+   void detail::block_log_impl::append(const signed_block_ptr& b) {
       try {
          EOS_ASSERT( genesis_written_to_block_log, block_log_append_fail, "Cannot append to block log until the genesis is first written" );
 
@@ -298,24 +349,72 @@ namespace eosio { namespace chain {
 
          block_file.seek_end(0);
          index_file.seek_end(0);
+         //if trimmed log, rewind over count trailer if any block is already present
+         if(trim_blocks && head_id != block_id_type())
+            block_file.skip(-sizeof(uint32_t));
          uint64_t pos = block_file.tellp();
-         EOS_ASSERT(index_file.tellp() == sizeof(uint64_t) * (b->block_num() - first_block_num),
+
+         const uint32_t num_blocks_in_log = chain::block_header::num_from_id(head_id) - first_block_num + 1; //+1 since we don't update head until below
+         EOS_ASSERT(index_file.tellp() == sizeof(uint64_t) * (b->block_num() - index_first_block_num),
                    block_log_append_fail,
                    "Append to index file occuring at wrong position.",
                    ("position", (uint64_t) index_file.tellp())
-                   ("expected", (b->block_num() - first_block_num) * sizeof(uint64_t)));
+                   ("expected", (b->block_num() - index_first_block_num) * sizeof(uint64_t)));
          auto data = fc::raw::pack(*b);
          block_file.write(data.data(), data.size());
          block_file.write((char*)&pos, sizeof(pos));
+         const uint64_t end = block_file.tellp();
          index_file.write((char*)&pos, sizeof(pos));
          head = b;
          head_id = b->calculate_id();
 
          flush();
 
-         return pos;
+         if(trim_blocks) {
+            //only bother to try trimming every 4MB written. except for when the trim is set very low (mainly for unit test purposes)
+            uint64_t bother_every = 4*1024*1024;
+            if(*trim_blocks < 16)
+               bother_every = 4096;
+
+            const uint64_t mask = ~(bother_every-1);
+            if((pos&mask) != (end&mask))
+               trim();
+
+            const uint32_t num_blocks_in_log = chain::block_header::num_from_id(head_id) - first_block_num;
+            fc::raw::pack(block_file, num_blocks_in_log);
+         }
       }
       FC_LOG_AND_RETHROW()
+   }
+
+   void detail::block_log_impl::trim() {
+      if(!head)
+         return;
+      const uint32_t head_num = chain::block_header::num_from_id(head_id);
+      if(!head || head_num - first_block_num <= *trim_blocks)
+         return;
+
+      const uint32_t trim_to_num = head_num - *trim_blocks;
+      uint64_t trim_to_pos = get_block_pos(trim_to_num);
+
+      trim_to_pos &= ~(log_blk_size-1);
+      if(trim_to_pos <= log_blk_size)
+         return;
+
+      int ret = 0;
+#if defined(__linux__)
+      ret = fallocate(block_file.fileno(), FALLOC_FL_PUNCH_HOLE|FALLOC_FL_KEEP_SIZE, log_blk_size, trim_to_pos-log_blk_size);
+#elif defined(__APPLE__)
+      struct fpunchhole puncher = {0, 0, st.st_blksize, trim_to_pos-st.st_blksize};
+      ret = fcntl(block_file.fileno(), F_PUNCHHOLE, &puncher);
+#endif
+      if(ret == -1)
+         wlog("Failed to trim blocks.log: ${e}", ("e", strerror(errno)));
+
+      first_block_num = trim_to_num;
+      block_file.flush();
+
+      ilog("blocks.log trimmed to blocks ${b}-${e}", ("b", first_block_num)("e", head_num));
    }
 
    void block_log::flush() {
@@ -337,7 +436,7 @@ namespace eosio { namespace chain {
       reopen();
 
       version = 0; // version of 0 is invalid; it indicates that subsequent data was not properly written to the block log
-      first_block_num = first_bnum;
+      index_first_block_num = first_block_num = first_bnum;
 
       block_file.seek_end(0);
       block_file.write((char*)&version, sizeof(version));
@@ -363,6 +462,8 @@ namespace eosio { namespace chain {
 
       // going back to write correct version to indicate that all block log header data writes completed successfully
       version = block_log::max_supported_version;
+      if(trim_blocks)
+         version |= trimmed_version_flag;
       block_file.seek( 0 );
       block_file.write( (char*)&version, sizeof(version) );
       block_file.seek( pos );
@@ -433,14 +534,18 @@ namespace eosio { namespace chain {
       } FC_LOG_AND_RETHROW()
    }
 
-   uint64_t block_log::get_block_pos(uint32_t block_num) const {
-      my->check_open_files();
-      if (!(my->head && block_num <= block_header::num_from_id(my->head_id) && block_num >= my->first_block_num))
-         return npos;
-      my->index_file.seek(sizeof(uint64_t) * (block_num - my->first_block_num));
+   uint64_t detail::block_log_impl::get_block_pos(uint32_t block_num) {
+      check_open_files();
+      if (!(head && block_num <= block_header::num_from_id(head_id) && block_num >= first_block_num))
+         return block_log::npos;
+      index_file.seek(sizeof(uint64_t) * (block_num - index_first_block_num));
       uint64_t pos;
-      my->index_file.read((char*)&pos, sizeof(pos));
+      index_file.read((char*)&pos, sizeof(pos));
       return pos;
+   }
+
+   uint64_t block_log::get_block_pos(uint32_t block_num) const {
+      return my->get_block_pos(block_num);
    }
 
    signed_block_ptr block_log::read_head()const {
@@ -453,13 +558,20 @@ namespace eosio { namespace chain {
       if (my->block_file.tellp() <= sizeof(pos))
          return {};
 
+      //figure out if this is a trimmed log or not. we can't just look at the configuration since
+      // read_head() is called early on, and this isn't hot enough to warrant a member bool to track it
+      my->block_file.seek(0);
+      uint32_t current_version;
+      fc::raw::unpack(my->block_file, current_version);
+      bool is_currently_trimmed = detail::is_trimmed_log_and_mask_version(current_version);
+
       my->block_file.seek_end(-sizeof(pos));
-      my->block_file.read((char*)&pos, sizeof(pos));
-      if (pos != npos) {
+      if(is_currently_trimmed)
+         my->block_file.skip(-sizeof(uint32_t)); //skip the end of file block count too
+      fc::raw::unpack(my->block_file, pos);
+      if (pos != npos)
          return read_block(pos);
-      } else {
-         return {};
-      }
+      return {};
    }
 
    const signed_block_ptr& block_log::head()const {
@@ -715,6 +827,7 @@ namespace eosio { namespace chain {
 
       uint32_t version = 0;
       block_stream.read( (char*)&version, sizeof(version) );
+      is_trimmed_log_and_mask_version(version);
       EOS_ASSERT( version >= block_log::min_supported_version && version <= block_log::max_supported_version, block_log_unsupported_version,
                   "Unsupported version of block log. Block log version is ${version} while code supports version(s) [${min},${max}]",
                   ("version", version)("min", block_log::min_supported_version)("max", block_log::max_supported_version) );
