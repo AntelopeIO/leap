@@ -378,7 +378,9 @@ fc::variant push_transaction( signed_transaction& trx, packed_transaction::compr
             EOSC_ASSERT( !tx_retry_lib, "ERROR: --retry-irreversible can not be used with --read-only" );
             EOSC_ASSERT( !tx_retry_num_blocks, "ERROR: --retry-num-blocks can not be used with --read-only" );
             try {
-               return call( compute_txn_func, packed_transaction(trx, compression));
+               auto compute_txn_arg = fc::mutable_variant_object ("transaction",
+                                                                  packed_transaction(trx,compression));
+               return call( compute_txn_func, compute_txn_arg);
             } catch( chain::missing_chain_api_plugin_exception& ) {
                std::cerr << "New RPC compute_transaction may not be supported. Submit to a different node." << std::endl;
                throw;
