@@ -144,22 +144,11 @@ namespace eosio { namespace chain {
       public:
          index_writer(const fc::path& block_index_name, uint32_t blocks_expected);
          void write(uint64_t pos);
-         void complete();
-         void update_buffer_position();
-         constexpr static uint64_t          _buffer_bytes             = 1U << 22;
       private:
-         void prepare_buffer();
-         bool shift_buffer();
+         std::optional<boost::interprocess::file_mapping>  _file;
+         std::optional<boost::interprocess::mapped_region> _mapped_file_region;
 
-         unique_file                        _file;
-         const std::string                  _block_index_name;
-         const uint32_t                     _blocks_expected;
-         uint32_t                           _block_written;
-         std::unique_ptr<uint64_t[]>        _buffer_ptr;
-         int64_t                            _current_position         = 0;
-         int64_t                            _start_of_buffer_position = 0;
-         int64_t                            _end_of_buffer_position   = 0;
-         constexpr static uint64_t          _max_buffer_length        = file_location_to_buffer_location(_buffer_bytes);
+         uint32_t                                          _blocks_remaining;
       };
 
       /*
@@ -617,7 +606,6 @@ namespace eosio { namespace chain {
       while ((position = block_log_iter.previous()) != npos) {
          index.write(position);
       }
-      index.complete();
    }
 
    fc::path block_log::repair_log(const fc::path& data_dir, uint32_t truncate_at_block, const char* reversible_block_dir_name) {
@@ -984,76 +972,28 @@ namespace eosio { namespace chain {
    }
 
    detail::index_writer::index_writer(const fc::path& block_index_name, uint32_t blocks_expected)
-   : _file(nullptr, &fclose)
-   , _block_index_name(block_index_name.generic_string())
-   , _blocks_expected(blocks_expected)
-   , _block_written(blocks_expected)
-   , _buffer_ptr(std::make_unique<uint64_t[]>(_max_buffer_length)) {
+   : _blocks_remaining(blocks_expected) {
+      const size_t file_sz = blocks_expected*sizeof(uint64_t);
+
+      fc::cfile file;
+      file.set_file_path(block_index_name);
+      file.open(LOG_WRITE_C);
+      file.close();
+
+      fc::resize_file(block_index_name, file_sz);
+      _file.emplace(block_index_name.string().c_str(), boost::interprocess::read_write);
+      _mapped_file_region.emplace(*_file, boost::interprocess::read_write);
    }
 
    void detail::index_writer::write(uint64_t pos) {
-      prepare_buffer();
-      uint64_t* buffer = _buffer_ptr.get();
-      buffer[_current_position - _start_of_buffer_position] = pos;
-      --_current_position;
-      if ((_block_written & 0xfffff) == 0) {                            //periodically print a progress indicator
-         ilog("block: ${block_written}      position in file: ${pos}", ("block_written", _block_written)("pos",pos));
-      }
-      --_block_written;
-   }
+      EOS_ASSERT( _blocks_remaining, block_log_exception, "No more blocks were expected for the block log index" );
 
-   void detail::index_writer::prepare_buffer() {
-      if (_file == nullptr) {
-         _file.reset(FC_FOPEN(_block_index_name.c_str(), "w"));
-         EOS_ASSERT( _file, block_log_exception, "Could not open Block index file at '${blocks_index}'", ("blocks_index", _block_index_name) );
-         // allocate 8 bytes for each block position to store
-         const auto full_file_size = buffer_location_to_file_location(_blocks_expected);
-         auto status = fseek(_file.get(), full_file_size, SEEK_SET);
-         EOS_ASSERT( status == 0, block_log_exception, "Could not allocate in '${blocks_index}' storage for all the blocks, size: ${size}. Returned status: ${status}", ("blocks_index", _block_index_name)("size", full_file_size)("status", status) );
-         const auto block_end = file_location_to_buffer_location(full_file_size);
-         _current_position = block_end - 1;
-         update_buffer_position();
-      }
+      char* base = (char*)_mapped_file_region->get_address();
+      base += --_blocks_remaining*sizeof(uint64_t);
+      memcpy(base, &pos, sizeof(pos));
 
-      shift_buffer();
-   }
-
-   bool detail::index_writer::shift_buffer() {
-      if (_current_position >= _start_of_buffer_position) {
-         return false;
-      }
-
-      const auto file_location_start = buffer_location_to_file_location(_start_of_buffer_position);
-
-      auto status = fseek(_file.get(), file_location_start, SEEK_SET);
-      EOS_ASSERT( status == 0, block_log_exception, "Could not navigate in '${blocks_index}' file_location_start: ${loc}, _start_of_buffer_position: ${_start_of_buffer_position}. Returned status: ${status}", ("blocks_index", _block_index_name)("loc", file_location_start)("_start_of_buffer_position",_start_of_buffer_position)("status", status) );
-
-      const auto buffer_size = _end_of_buffer_position - _start_of_buffer_position;
-      const auto file_size = buffer_location_to_file_location(buffer_size);
-      uint64_t* buf = _buffer_ptr.get();
-      auto size = fwrite((void*)buf, file_size, 1, _file.get());
-      EOS_ASSERT( size == 1, block_log_exception, "Writing Block Index file '${file}' failed at location: ${loc}", ("file", _block_index_name)("loc", file_location_start) );
-      update_buffer_position();
-      return true;
-   }
-
-   void detail::index_writer::complete() {
-      const bool shifted = shift_buffer();
-      EOS_ASSERT(shifted, block_log_exception, "Failed to write buffer to '${blocks_index}'", ("blocks_index", _block_index_name) );
-      EOS_ASSERT(_current_position == -1,
-                 block_log_exception,
-                 "Should have written buffer, starting at the 0 index block position, to '${blocks_index}' but instead writing ${pos} position",
-                 ("blocks_index", _block_index_name)("pos", _current_position) );
-   }
-
-   void detail::index_writer::update_buffer_position() {
-      _end_of_buffer_position = _current_position + 1;
-      if (_end_of_buffer_position < _max_buffer_length) {
-         _start_of_buffer_position = 0;
-      }
-      else {
-         _start_of_buffer_position = _end_of_buffer_position - _max_buffer_length;
-      }
+      if ((_blocks_remaining & 0xfffff) == 0)
+         ilog("blocks remaining to index: ${blocks_left}      position in log file: ${pos}", ("blocks_left", _blocks_remaining)("pos",pos));
    }
 
    bool block_log::contains_genesis_state(uint32_t version, uint32_t first_block_num) {
@@ -1185,7 +1125,6 @@ namespace eosio { namespace chain {
          new_block_file.write(buf+offset, write_size);
       }
 
-      index.complete();
       fclose(original_block_log.blk_in);
       original_block_log.blk_in = nullptr;
       new_block_file.flush();
