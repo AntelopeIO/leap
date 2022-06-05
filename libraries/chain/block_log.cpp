@@ -395,21 +395,14 @@ namespace eosio { namespace chain {
          return;
 
       const uint32_t trim_to_num = head_num - *trim_blocks;
-      uint64_t trim_to_pos = get_block_pos(trim_to_num);
 
-      trim_to_pos &= ~(log_blk_size-1);
-      if(trim_to_pos <= log_blk_size)
-         return;
+      static_assert( block_log::max_supported_version == 3, "Code was written to support version 3 format, need to update this code for latest format." );
+      const genesis_state gs;
+      const size_t max_header_size_v1  = sizeof(uint32_t) + fc::raw::pack_size(gs) + sizeof(uint64_t);
+      const size_t max_header_size_v23 = sizeof(uint32_t) + sizeof(uint32_t) + sizeof(chain_id_type) + sizeof(uint64_t);
+      const auto max_header_size = std::max(max_header_size_v1, max_header_size_v23);
 
-      int ret = 0;
-#if defined(__linux__)
-      ret = fallocate(block_file.fileno(), FALLOC_FL_PUNCH_HOLE|FALLOC_FL_KEEP_SIZE, log_blk_size, trim_to_pos-log_blk_size);
-#elif defined(__APPLE__)
-      struct fpunchhole puncher = {0, 0, st.st_blksize, trim_to_pos-st.st_blksize};
-      ret = fcntl(block_file.fileno(), F_PUNCHHOLE, &puncher);
-#endif
-      if(ret == -1)
-         wlog("Failed to trim blocks.log: ${e}", ("e", strerror(errno)));
+      block_file.punch_hole(max_header_size, get_block_pos(trim_to_num));
 
       first_block_num = trim_to_num;
       block_file.flush();

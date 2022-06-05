@@ -3,10 +3,6 @@
 #include <eosio/chain/block.hpp>
 #include <eosio/chain/genesis_state.hpp>
 
-#if defined(__linux__) || defined(__APPLE__)
-#define HAS_LOG_TRIM
-#endif
-
 namespace eosio { namespace chain {
 
    namespace detail { class block_log_impl; }
