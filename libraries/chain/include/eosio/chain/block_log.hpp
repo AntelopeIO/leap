@@ -30,11 +30,15 @@ namespace eosio { namespace chain {
     *
     * The main file is the only file that needs to persist. The index file can be reconstructed during a
     * linear scan of the main file.
+    *
+    * An optional "pruned" mode can be activated which stores a 4 byte trailer on the log file indicating
+    * how many blocks at the end of the log are valid. Any earlier blocks in the log are assumed destroyed
+    * and unreadable due to reclamation for purposes of saving space.
     */
 
    class block_log {
       public:
-         block_log(const fc::path& data_dir, std::optional<uint32_t> trim_blocks);
+         block_log(const fc::path& data_dir, std::optional<uint32_t> prune_blocks);
          block_log(block_log&& other);
          ~block_log();
 
@@ -81,7 +85,7 @@ namespace eosio { namespace chain {
 
          static bool is_supported_version(uint32_t version);
 
-         static bool is_trimmed_log(const fc::path& data_dir);
+         static bool is_pruned_log(const fc::path& data_dir);
 
          static bool trim_blocklog_front(const fc::path& block_dir, const fc::path& temp_dir, uint32_t truncate_at_block);
 

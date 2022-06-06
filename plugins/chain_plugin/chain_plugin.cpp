@@ -337,7 +337,7 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
           "Duration (in seconds) a failed transaction's Finality Status will remain available from being first identified.");
 
    if(cfile::supports_hole_punching())
-      cfg.add_options()("block-log-trim-blocks", bpo::value<uint32_t>(), "if set, periodically trim the block log to store only configured number of most recent blocks");
+      cfg.add_options()("block-log-prune-blocks", bpo::value<uint32_t>(), "if set, periodically prune the block log to store only configured number of most recent blocks");
 
 
 // TODO: rate limiting

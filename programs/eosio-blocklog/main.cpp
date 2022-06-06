@@ -51,7 +51,7 @@ struct blocklog {
    bool                             vacuum = false;
    bool                             help = false;
 
-   std::optional<uint32_t>          keep_trimmed;
+   std::optional<uint32_t>          keep_pruned;
 };
 
 struct report_time {
@@ -70,14 +70,14 @@ struct report_time {
 };
 
 void blocklog::do_vacuum() {
-   EOS_ASSERT( keep_trimmed, block_log_exception, "blocks.log is not a pruned log; nothing to vacuum" );
+   EOS_ASSERT( keep_pruned, block_log_exception, "blocks.log is not a pruned log; nothing to vacuum" );
    block_log blocks(blocks_dir, std::optional<uint32_t>());
    ilog("Successfully vacuumed block log");
 }
 
 void blocklog::read_log() {
    report_time rt("reading log");
-   block_log block_logger(blocks_dir, keep_trimmed);
+   block_log block_logger(blocks_dir, keep_pruned);
    const auto end = block_logger.read_head();
    EOS_ASSERT( end, block_log_exception, "No blocks found in block log" );
    EOS_ASSERT( end->block_num() > 1, block_log_exception, "Only one block found in block log" );
@@ -197,7 +197,7 @@ void blocklog::set_program_options(options_description& cli)
          ("smoke-test", bpo::bool_switch(&smoke_test)->default_value(false),
           "Quick test that blocks.log and blocks.index are well formed and agree with each other.")
          ("vacuum", bpo::bool_switch(&vacuum)->default_value(false),
-          "Vacuum a trimmed blocks.log to an un-trimmed blocks.log")
+          "Vacuum a pruned blocks.log in to an un-pruned blocks.log")
          ("help,h", bpo::bool_switch(&help)->default_value(false), "Print this help message and exit.")
          ;
 }
@@ -218,10 +218,10 @@ void blocklog::initialize(const variables_map& options) {
             output_file = bld;
       }
 
-      //if the log is trimmed, keep it that way by passing the ctor a large trim value. otherwise the ctor
+      //if the log is pruned, keep it that way by passing the ctor a large trim value. otherwise the ctor
       // will perform a prune even if the user hadn't asked for one here
-      if(block_log::is_trimmed_log(blocks_dir))
-         keep_trimmed = UINT32_MAX;
+      if(block_log::is_pruned_log(blocks_dir))
+         keep_pruned = UINT32_MAX;
    } FC_LOG_AND_RETHROW()
 
 }
