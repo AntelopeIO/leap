@@ -10,10 +10,6 @@
 #include <fc/io/cfile.hpp>
 #include <fc/log/logger.hpp>
 
-#if defined(__linux__) || defined(__APPLE__)
-#define HAS_LOG_TRIM
-#endif
-
 namespace eosio {
 
 /*
@@ -74,7 +70,6 @@ class state_history_log {
    std::string             index_filename;
    std::optional<uint32_t> trim_blocks;
    fc::cfile               log;
-   size_t                  log_blk_size = 4096;
    fc::cfile               index;
    uint32_t                _begin_block = 0;        //always tracks the first block available even after trimming
    uint32_t                _index_begin_block = 0;  //the first block of the file; even after trimming. it's what index 0 in the index file points to
@@ -245,19 +240,7 @@ class state_history_log {
       const uint32_t trim_to_num = _end_block - *trim_blocks;
       uint64_t trim_to_pos = get_pos(trim_to_num);
 
-      trim_to_pos &= ~(log_blk_size-1);
-      if(trim_to_pos <= log_blk_size)
-         return;
-
-      int ret = 0;
-#if defined(__linux__)
-      ret = fallocate(log.fileno(), FALLOC_FL_PUNCH_HOLE|FALLOC_FL_KEEP_SIZE, log_blk_size, trim_to_pos-log_blk_size);
-#elif defined(__APPLE__)
-      struct fpunchhole puncher = {0, 0, st.st_blksize, trim_to_pos-st.st_blksize};
-      ret = fcntl(log.fileno(), F_PUNCHHOLE, &puncher);
-#endif
-      if(ret == -1)
-         wlog("Failed to trim ${name}.log: ${e}", ("name", name)("e", strerror(errno)));
+      log.punch_hole(state_history_log_header_serial_size, trim_to_pos);
 
       _begin_block = trim_to_num;
       log.flush();
@@ -347,10 +330,6 @@ class state_history_log {
          EOS_ASSERT(!size, chain::plugin_exception, "corrupt ${name}.log (5)", ("name", name));
          ilog("${name}.log is empty", ("name", name));
       }
-
-      struct stat st;
-      if( fstat(log.fileno(), &st) == 0 )
-         log_blk_size = st.st_blksize;
    }
 
    void open_index() {

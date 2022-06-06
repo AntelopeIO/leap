@@ -445,9 +445,9 @@ void state_history_plugin::set_program_options(options_description& cli, options
            "the endpoint upon which to listen for incoming connections. Caution: only expose this port to "
            "your internal network.");
    options("trace-history-debug-mode", bpo::bool_switch()->default_value(false), "enable debug mode for trace history");
-#ifdef HAS_LOG_TRIM
-   options("state-history-log-trim-blocks", bpo::value<uint32_t>(), "if set, periodically trim the state history files to store only configured number of most recent blocks");
-#endif
+
+   if(cfile::supports_hole_punching())
+      options("state-history-log-trim-blocks", bpo::value<uint32_t>(), "if set, periodically trim the state history files to store only configured number of most recent blocks");
 }
 
 void state_history_plugin::plugin_initialize(const variables_map& options) {
