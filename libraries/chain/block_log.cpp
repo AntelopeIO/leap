@@ -59,6 +59,17 @@ namespace eosio { namespace chain {
             void reopen();
 
             void close() {
+               //for a trimmed log that has at least one block, see if we should vacuum it
+               if( block_file.is_open() && index_file.is_open() && head && trim_blocks ) {
+                  const size_t first_data_pos = get_block_pos(first_block_num);
+                  block_file.seek_end(-sizeof(uint32_t));
+                  const size_t last_data_pos = block_file.tellp();
+                  if(last_data_pos - first_data_pos < 1024*1024*1024) {
+                     ilog("Vacuuming trimmed block log");
+                     vacuum();
+                  }
+               }
+
                if( block_file.is_open() )
                   block_file.close();
                if( index_file.is_open() )
@@ -78,6 +89,10 @@ namespace eosio { namespace chain {
             void append(const signed_block_ptr& b);
 
             void trim();
+
+            void vacuum();
+
+            size_t convert_existing_header_to_vacuumed();
 
             uint64_t get_block_pos(uint32_t block_num);
 
@@ -315,8 +330,7 @@ namespace eosio { namespace chain {
             fc::raw::pack(my->block_file, num_blocks_in_log);
          }
          else if(is_currently_trimmed && !my->trim_blocks) {
-            //this should really vacuum the data back to a non-trimmed log
-            my->trim_blocks = UINT32_MAX;
+            my->vacuum();
          }
       } else if (index_size) {
          ilog("Index is nonempty, remove and recreate it");
@@ -405,6 +419,124 @@ namespace eosio { namespace chain {
    void detail::block_log_impl::flush() {
       block_file.flush();
       index_file.flush();
+   }
+
+   void block_log::vacuum() {
+      my->vacuum();
+   }
+
+   size_t detail::block_log_impl::convert_existing_header_to_vacuumed() {
+      uint32_t old_version;
+      uint32_t old_first_block_num;
+      const auto totem = block_log::npos;
+
+      block_file.seek(0);
+      fc::raw::unpack(block_file, old_version);
+      fc::raw::unpack(block_file, old_first_block_num);
+      is_trimmed_log_and_mask_version(old_version);
+
+      //we'll always write a v3 log, but need to possibly mutate the genesis_state to a chainid
+      if(first_block_num == 1) {
+         EOS_ASSERT(old_first_block_num == 1, block_log_exception, "expected an old first blocknum of 1");
+         genesis_state gs;
+         auto ds = block_file.create_datastream();
+         fc::raw::unpack(ds, gs);
+
+         block_file.seek(0);
+         fc::raw::pack(block_file, block_log::max_supported_version);
+         fc::raw::pack(block_file, first_block_num);
+         fc::raw::pack(block_file, gs);
+         fc::raw::pack(block_file, totem);
+      }
+      else if(block_log::contains_genesis_state(old_version, old_first_block_num)) {
+         //read in the genesis state and convert it to chainid before writing out
+         genesis_state gs;
+         auto ds = block_file.create_datastream();
+         fc::raw::unpack(ds, gs);
+
+         block_file.seek(0);
+         fc::raw::pack(block_file, block_log::max_supported_version);
+         fc::raw::pack(block_file, first_block_num);
+         fc::raw::pack(block_file, gs.compute_chain_id());
+         fc::raw::pack(block_file, totem);
+      }
+      else {
+         //read in the existing chainid, to parrot back out
+         fc::sha256 chainid;
+         fc::raw::unpack(block_file, chainid);
+
+         block_file.seek(0);
+         fc::raw::pack(block_file, block_log::max_supported_version);
+         fc::raw::pack(block_file, first_block_num);
+         fc::raw::pack(block_file, chainid);
+         fc::raw::pack(block_file, totem);
+      }
+
+      return block_file.tellp();
+   }
+
+   void detail::block_log_impl::vacuum() {
+      //go ahead and write a new valid header now. if the vacuum fails midway, at least this means maybe the
+      // block recovery can get through some blocks.
+      size_t copy_to_pos = convert_existing_header_to_vacuumed();
+
+      version = block_log::max_supported_version;
+      trim_blocks.reset();
+
+      //if there is no head block though, bail now, otherwise first_block_num won't actually be available
+      // and it'll mess this all up
+      if(!head)
+         return;
+
+      size_t copy_from_pos = get_block_pos(first_block_num);
+      block_file.seek_end(-sizeof(uint32_t));
+      size_t copy_sz = block_file.tellp() - copy_from_pos;
+      uint32_t num_blocks_in_log = chain::block_header::num_from_id(head_id) - first_block_num + 1;
+
+      const size_t offset_bytes = copy_from_pos - copy_to_pos;
+      const size_t offset_blocks = first_block_num - index_first_block_num;
+
+      std::vector<char> buff;
+      buff.resize(4*1024*1024);
+      while(copy_sz) {
+         const size_t copy_this_round = std::min(buff.size(), copy_sz);
+         block_file.seek(copy_from_pos);
+         block_file.read(buff.data(), copy_this_round);
+         block_file.punch_hole(copy_from_pos, copy_from_pos+copy_this_round);
+         block_file.seek(copy_to_pos);
+         block_file.write(buff.data(), copy_this_round);
+
+         copy_from_pos += copy_this_round;
+         copy_to_pos += copy_this_round;
+
+         const size_t old_copy_sz = copy_sz;
+         const uint64_t chat_every_mask = ~(16*1024*1024-1);
+         copy_sz -= copy_this_round;
+         if((copy_sz&chat_every_mask) != (old_copy_sz&chat_every_mask))
+            ilog("Vacuuming pruned log, ${b} bytes remaining", ("b", copy_sz));
+      }
+      block_file.flush();
+      fc::resize_file(block_file.get_file_path(), block_file.tellp());
+
+      index_file.flush();
+      {
+         boost::interprocess::mapped_region index_mapped(index_file, boost::interprocess::read_write);
+         uint64_t* index_ptr = (uint64_t*)index_mapped.get_address();
+
+         for(uint32_t new_block_num = 0; new_block_num < num_blocks_in_log; ++new_block_num) {
+            const uint64_t new_pos = index_ptr[new_block_num + offset_blocks] - offset_bytes;
+            index_ptr[new_block_num] = new_pos;
+
+            if(new_block_num + 1 != num_blocks_in_log)
+               block_file.seek(index_ptr[new_block_num + offset_blocks + 1] - offset_bytes - sizeof(uint64_t));
+            else
+               block_file.seek_end(-sizeof(uint64_t));
+            block_file.write((char*)&new_pos, sizeof(new_pos));
+         }
+      }
+      fc::resize_file(index_file.get_file_path(), num_blocks_in_log*sizeof(uint64_t));
+
+      index_first_block_num = first_block_num;
    }
 
    template<typename T>
