@@ -60,7 +60,8 @@ namespace eosio { namespace chain {
 
             void close() {
                //for a trimmed log that has at least one block, see if we should vacuum it
-               if( block_file.is_open() && index_file.is_open() && head && trim_blocks ) {
+               //trim_blocks == UINT32_MAX is kind of a hint to "please don't trim, but keep it a trimmed log"
+               if( block_file.is_open() && index_file.is_open() && head && trim_blocks && *trim_blocks != UINT32_MAX) {
                   const size_t first_data_pos = get_block_pos(first_block_num);
                   block_file.seek_end(-sizeof(uint32_t));
                   const size_t last_data_pos = block_file.tellp();
@@ -988,6 +989,20 @@ namespace eosio { namespace chain {
       }));
    }
 
+   bool block_log::is_trimmed_log(const fc::path& data_dir) {
+      uint32_t version = 0;
+      try {
+         fc::cfile log_file;
+         log_file.set_file_path(data_dir / "blocks.log");
+         log_file.open("rb");
+         fc::raw::unpack(log_file, version);
+      }
+      catch(...) {
+         return false;
+      }
+      return detail::is_trimmed_log_and_mask_version(version);
+   }
+
    detail::reverse_iterator::reverse_iterator()
    : _file(nullptr, &fclose)
    , _buffer_ptr(std::make_unique<char[]>(_buf_len)) {
@@ -1301,6 +1316,8 @@ namespace eosio { namespace chain {
       auto size = fread((void*)&version,sizeof(version), 1, blk_in);
       EOS_ASSERT( size == 1, block_log_unsupported_version, "invalid format for file ${file}", ("file",block_file_name.string()));
       ilog("block log version= ${version}",("version",version));
+      bool is_trimmed = detail::is_trimmed_log_and_mask_version(version);
+      EOS_ASSERT( !is_trimmed, block_log_unsupported_version, "Block log is currently in trimmed format, it must be vacuumed before doing this operation");
       EOS_ASSERT( block_log::is_supported_version(version), block_log_unsupported_version, "block log version ${v} is not supported", ("v",version));
 
       detail::fileptr_datastream ds(blk_in, block_file_name.string());
