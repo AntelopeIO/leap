@@ -866,8 +866,10 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
       // move fork_db to new location
       upgrade_from_reversible_to_fork_db( my.get() );
 
-      if(options.count( "block-log-trim-blocks" ))
-         my->chain_config->block_trim_count = options.at( "block-log-trim-blocks" ).as<uint32_t>();
+      if(options.count( "block-log-prune-blocks" )) {
+         my->chain_config->block_prune_count = options.at( "block-log-prune-blocks" ).as<uint32_t>();
+         EOS_ASSERT(*my->chain_config->block_prune_count, plugin_config_exception, "block-log-prune-blocks cannot be 0");
+      }
 
       if( options.at( "delete-all-blocks" ).as<bool>()) {
          ilog( "Deleting state database and blocks" );
