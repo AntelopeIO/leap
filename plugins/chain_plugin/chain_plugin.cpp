@@ -2632,13 +2632,13 @@ read_only::get_required_keys_result read_only::get_required_keys( const get_requ
    result.required_keys = required_keys_set;
    return result;
 }
-void read_only::compute_transaction(const fc::variant_object& params, next_function<compute_transaction_results> next) const {
+void read_only::compute_transaction(const compute_transaction_params& params, next_function<compute_transaction_results> next) const {
 
     try {
         auto pretty_input = std::make_shared<packed_transaction>();
         auto resolver = make_resolver(db, abi_serializer::create_yield_function( abi_serializer_max_time ));
         try {
-            abi_serializer::from_variant(params, *pretty_input, resolver, abi_serializer::create_yield_function( abi_serializer_max_time ));
+            abi_serializer::from_variant(params.transaction, *pretty_input, resolver, abi_serializer::create_yield_function( abi_serializer_max_time ));
         } EOS_RETHROW_EXCEPTIONS(chain::packed_transaction_type_exception, "Invalid packed transaction")
 
         app().get_method<incoming::methods::transaction_async>()(pretty_input, false, true, true,

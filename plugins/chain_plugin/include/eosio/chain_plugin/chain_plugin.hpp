@@ -443,8 +443,12 @@ public:
        chain::transaction_id_type  transaction_id;
        fc::variant                 processed;
     };
-   using compute_transaction_params = fc::variant_object;
-   void compute_transaction(const fc::variant_object& params, chain::plugin_interface::next_function<compute_transaction_results> next ) const;
+
+   struct compute_transaction_params {
+      fc::variant transaction;
+   };
+
+   void compute_transaction(const compute_transaction_params& params, chain::plugin_interface::next_function<compute_transaction_results> next ) const;
 
    static void copy_inline_row(const chain::key_value_object& obj, vector<char>& data) {
       data.resize( obj.value.size() );
@@ -875,5 +879,6 @@ FC_REFLECT( eosio::chain_apis::read_only::abi_bin_to_json_params, (code)(action)
 FC_REFLECT( eosio::chain_apis::read_only::abi_bin_to_json_result, (args) )
 FC_REFLECT( eosio::chain_apis::read_only::get_required_keys_params, (transaction)(available_keys) )
 FC_REFLECT( eosio::chain_apis::read_only::get_required_keys_result, (required_keys) )
+FC_REFLECT( eosio::chain_apis::read_only::compute_transaction_params, (transaction))
 FC_REFLECT( eosio::chain_apis::read_only::compute_transaction_results, (transaction_id)(processed) )
 
