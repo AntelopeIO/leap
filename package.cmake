@@ -19,6 +19,9 @@ set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/eosnetworkfoundation/mandel")
 set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
 set(CPACK_DEBIAN_PACKAGE_SECTION "utils")
 
+set(CPACK_DEBIAN_PACKAGE_CONFLICTS "eosio")
+set(CPACK_RPM_PACKAGE_CONFLICTS "eosio")
+
 #turn some knobs to try and make package paths cooperate with GNUInstallDirs a little better
 set(CPACK_SET_DESTDIR ON)
 set(CPACK_PACKAGE_RELOCATABLE OFF)
