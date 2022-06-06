@@ -54,7 +54,7 @@ try:
         cluster.cleanup()
         Print("Stand up cluster")
         pnodes=4
-        abs_path = os.path.abspath(os.getcwd() + '/../unittests/contracts/eosio.token/eosio.token.abi')
+        abs_path = os.path.abspath(os.getcwd() + '/unittests/contracts/eosio.token/eosio.token.abi')
         traceNodeosArgs=" --plugin eosio::trace_api_plugin --trace-rpc-abi eosio.token=" + abs_path
         if cluster.launch(pnodes=pnodes, totalNodes=pnodes, extraNodeosArgs=traceNodeosArgs) is False:
             cmdError("launcher")
