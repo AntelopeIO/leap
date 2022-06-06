@@ -127,8 +127,8 @@ namespace eosio { namespace chain {
          uint32_t                       _last_block_num                   = 0;
          uint32_t                       _blocks_found                     = 0;
          uint32_t                       _blocks_expected                  = 0;
+         std::optional<uint32_t>        _trim_block_limit;
          uint64_t                       _current_position_in_file         = 0;
-         uint64_t                       _eof_position_in_file             = 0;
          uint64_t                       _end_of_buffer_position           = _unset_position;
          uint64_t                       _start_of_buffer_position         = 0;
          std::unique_ptr<char[]>        _buffer_ptr;
@@ -590,6 +590,7 @@ namespace eosio { namespace chain {
       ilog("Will read existing blocks.log file ${file}", ("file", block_file_name.generic_string()));
       ilog("Will write new blocks.index file ${file}", ("file", index_file_name.generic_string()));
 
+      //for a trimmed log, this will still return blocks in the count that have been removed. that's okay and desirable
       const uint32_t num_blocks = block_log_iter.open(block_file_name);
 
       ilog("block log version= ${version}", ("version", block_log_iter.version()));
@@ -869,6 +870,7 @@ namespace eosio { namespace chain {
       _version = 0;
       auto size = fread((char*)&_version, sizeof(_version), 1, _file.get());
       EOS_ASSERT( size == 1, block_log_exception, "Block log file at '${blocks_log}' could not be read.", ("file", _block_file_name) );
+      bool is_trim_log = is_trimmed_log_and_mask_version(_version);
       EOS_ASSERT( block_log::is_supported_version(_version), block_log_unsupported_version,
                   "block log version ${v} is not supported", ("v", _version));
       if (_version == 1) {
@@ -882,8 +884,18 @@ namespace eosio { namespace chain {
       auto status = fseek(_file.get(), 0, SEEK_END);
       EOS_ASSERT( status == 0, block_log_exception, "Could not open Block log file at '${blocks_log}'. Returned status: ${status}", ("blocks_log", _block_file_name)("status", status) );
 
-      _eof_position_in_file = ftell(_file.get());
+      auto _eof_position_in_file = ftell(_file.get());
       EOS_ASSERT( _eof_position_in_file > 0, block_log_exception, "Block log file at '${blocks_log}' could not be read.", ("blocks_log", _block_file_name) );
+
+      if(is_trim_log) {
+         fseek(_file.get(), -sizeof(uint32_t), SEEK_CUR);
+         uint32_t trim_count;
+         size = fread((char*)&trim_count, sizeof(trim_count), 1, _file.get());
+         EOS_ASSERT( size == 1, block_log_exception, "Block log file at '${blocks_log}' not formatted consistently with trimmed version ${v}.", ("file", _block_file_name)("v", _version) );
+         _trim_block_limit = trim_count;
+         _eof_position_in_file -= sizeof(trim_count);
+      }
+
       _current_position_in_file = _eof_position_in_file - _position_size;
 
       update_buffer();
@@ -919,7 +931,7 @@ namespace eosio { namespace chain {
                   block_log_exception,
                   "Block log file at '${blocks_log}' first block already returned by former call to previous(), it is no longer valid to call this function.", ("blocks_log", _block_file_name) );
 
-      if (_version == 1 && _blocks_found == _blocks_expected) {
+      if ((_version == 1 && _blocks_found == _blocks_expected) || (_trim_block_limit && _blocks_found == *_trim_block_limit)) {
          _current_position_in_file = block_log::npos;
          return _current_position_in_file;
       }
