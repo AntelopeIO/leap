@@ -269,11 +269,11 @@ namespace eosio { namespace chain {
          }
 
          my->block_file.seek_end(0);
-         if(is_currently_trimmed) {
+         if(is_currently_trimmed && my->head) {
             uint32_t trim_log_count;
             my->block_file.skip(-sizeof(uint32_t));
             fc::raw::unpack(my->block_file, trim_log_count);
-            my->first_block_num = chain::block_header::num_from_id(my->head_id) - trim_log_count;
+            my->first_block_num = chain::block_header::num_from_id(my->head_id) - trim_log_count + 1;
             my->block_file.skip(-sizeof(uint32_t));
          }
 
@@ -310,7 +310,7 @@ namespace eosio { namespace chain {
             //and write out the trailing block count
             my->block_file.seek_end(0);
             uint32_t num_blocks_in_log = 0;
-            if(my->head_id != block_id_type())
+            if(my->head)
                num_blocks_in_log = chain::block_header::num_from_id(my->head_id) - my->first_block_num;
             fc::raw::pack(my->block_file, num_blocks_in_log);
          }
@@ -343,7 +343,6 @@ namespace eosio { namespace chain {
             block_file.skip(-sizeof(uint32_t));
          uint64_t pos = block_file.tellp();
 
-         const uint32_t num_blocks_in_log = chain::block_header::num_from_id(head_id) - first_block_num + 1; //+1 since we don't update head until below
          EOS_ASSERT(index_file.tellp() == sizeof(uint64_t) * (b->block_num() - index_first_block_num),
                    block_log_append_fail,
                    "Append to index file occuring at wrong position.",
@@ -369,7 +368,7 @@ namespace eosio { namespace chain {
             if((pos&mask) != (end&mask))
                trim();
 
-            const uint32_t num_blocks_in_log = chain::block_header::num_from_id(head_id) - first_block_num;
+            const uint32_t num_blocks_in_log = chain::block_header::num_from_id(head_id) - first_block_num + 1;
             fc::raw::pack(block_file, num_blocks_in_log);
          }
       }
@@ -380,7 +379,7 @@ namespace eosio { namespace chain {
       if(!head)
          return;
       const uint32_t head_num = chain::block_header::num_from_id(head_id);
-      if(!head || head_num - first_block_num <= *trim_blocks)
+      if(head_num - first_block_num <= *trim_blocks)
          return;
 
       const uint32_t trim_to_num = head_num - *trim_blocks;
@@ -437,6 +436,10 @@ namespace eosio { namespace chain {
          head.reset();
          head_id = {};
       }
+
+      uint32_t numblocks = !!head;
+      if(trim_blocks)
+         fc::raw::pack(block_file, numblocks);
 
       auto pos = block_file.tellp();
 
