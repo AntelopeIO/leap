@@ -27,14 +27,14 @@ namespace eosio {
  *    state_history_log_header
  *    payload
  *
- * When block trimming is enabled, a slight modification to the format is as followed:
- * For first entry in log, a unique version is used to indicate the log is a "trimmed log": this prevents
+ * When block pruning is enabled, a slight modification to the format is as followed:
+ * For first entry in log, a unique version is used to indicate the log is a "pruned log": this prevents
  *  older versions from trying to read something with holes in it
  * The end of the log has a 4 byte value that indicates guaranteed number of blocks the log has at its
  *  end (this can be used to reconstruct an index of the log from the end even when there is a hole in
  *  the middle of the log)
  *
- * In theory it should be possible to transition from a trimmed log back to a standard log fairly easily. This
+ * In theory it should be possible to transition from a pruned log back to a standard log fairly easily. This
  *  is why only the version in the first block of the file is marked with a different value. But this functionality
  *  is not implemented yet.
  */
@@ -51,8 +51,8 @@ inline uint16_t       get_ship_version(uint64_t magic) { return magic; }
 inline uint16_t       get_ship_features(uint64_t magic) { return magic>>16; }
 inline bool           is_ship_supported_version(uint64_t magic) { return get_ship_version(magic) == 0; }
 static const uint16_t ship_current_version = 0;
-static const uint16_t ship_feature_trimmed_log = 1;
-inline bool           is_ship_log_trimmed(uint64_t magic) { return get_ship_features(magic) & ship_feature_trimmed_log; }
+static const uint16_t ship_feature_pruned_log = 1;
+inline bool           is_ship_log_pruned(uint64_t magic) { return get_ship_features(magic) & ship_feature_pruned_log; }
 
 struct state_history_log_header {
    uint64_t             magic        = ship_magic(ship_current_version);
@@ -68,36 +68,36 @@ class state_history_log {
    const char* const       name = "";
    std::string             log_filename;
    std::string             index_filename;
-   std::optional<uint32_t> trim_blocks;
+   std::optional<uint32_t> prune_blocks;
    fc::cfile               log;
    fc::cfile               index;
-   uint32_t                _begin_block = 0;        //always tracks the first block available even after trimming
-   uint32_t                _index_begin_block = 0;  //the first block of the file; even after trimming. it's what index 0 in the index file points to
+   uint32_t                _begin_block = 0;        //always tracks the first block available even after pruning
+   uint32_t                _index_begin_block = 0;  //the first block of the file; even after pruning. it's what index 0 in the index file points to
    uint32_t                _end_block   = 0;
    chain::block_id_type    last_block_id;
 
  public:
-   state_history_log(const char* const name, std::string log_filename, std::string index_filename, const std::optional<uint32_t> trim_blocks)
+   state_history_log(const char* const name, std::string log_filename, std::string index_filename, const std::optional<uint32_t> prune_blocks)
        : name(name)
        , log_filename(std::move(log_filename))
        , index_filename(std::move(index_filename))
-       , trim_blocks(trim_blocks) {
+       , prune_blocks(prune_blocks) {
       open_log();
       open_index();
 
-      //check for conversions to/from trimmed log, as long as log contains something
+      //check for conversions to/from pruned log, as long as log contains something
       if(_begin_block != _end_block) {
          state_history_log_header first_header;
          log.seek(0);
          read_header(first_header);
 
-         if((is_ship_log_trimmed(first_header.magic) == false) && trim_blocks) {
-            //need to convert non-trimmed to trimmed; first trim any ranges we can (might be none)
-            trim();
+         if((is_ship_log_pruned(first_header.magic) == false) && prune_blocks) {
+            //need to convert non-pruned to pruned; first prune any ranges we can (might be none)
+            prune();
 
-            //update first header to indicate trim feature is enabled
+            //update first header to indicate prune feature is enabled
             log.seek(0);
-            first_header.magic = ship_magic(get_ship_version(first_header.magic), ship_feature_trimmed_log);
+            first_header.magic = ship_magic(get_ship_version(first_header.magic), ship_feature_pruned_log);
             write_header(first_header);
 
             //write trailer on log with num blocks
@@ -105,9 +105,9 @@ class state_history_log {
             const uint32_t num_blocks_in_log = _end_block - _begin_block;
             fc::raw::pack(log, num_blocks_in_log);
          }
-         else if(is_ship_log_trimmed(first_header.magic) && !trim_blocks) {
-            //there is no turning off trimmed log at the moment; ideally this should "vacuum" the log back to a non-trimmed one
-            this->trim_blocks = UINT32_MAX;
+         else if(is_ship_log_pruned(first_header.magic) && !prune_blocks) {
+            //there is no turning off pruned log at the moment; ideally this should "vacuum" the log back to a non-pruned one
+            this->prune_blocks = UINT32_MAX;
          }
       }
    }
@@ -154,14 +154,14 @@ class state_history_log {
 
       if (block_num < _end_block)
          truncate(block_num); //truncate is expected to always leave file pointer at the end
-      else if (!trim_blocks)
+      else if (!prune_blocks)
          log.seek_end(0);
-      else if (trim_blocks && _begin_block != _end_block)
+      else if (prune_blocks && _begin_block != _end_block)
          log.seek_end(-sizeof(uint32_t));  //overwrite the trailing block count marker on this write
 
-      //if we're operating on a trimmed block log and this is the first entry in the log, make note of the feature in the header
-      if(trim_blocks && _begin_block == _end_block)
-         header.magic = ship_magic(get_ship_version(header.magic), ship_feature_trimmed_log);
+      //if we're operating on a pruned block log and this is the first entry in the log, make note of the feature in the header
+      if(prune_blocks && _begin_block == _end_block)
+         header.magic = ship_magic(get_ship_version(header.magic), ship_feature_pruned_log);
 
       uint64_t pos = log.tellp();
       write_header(header);
@@ -175,15 +175,15 @@ class state_history_log {
       _end_block    = block_num + 1;
       last_block_id = header.block_id;
 
-      if(trim_blocks) {
-         //only bother to try trimming every 4MB written. except for when the trim is set very low (mainly for unit test purposes)
+      if(prune_blocks) {
+         //only bother to try pruning every 4MB written. except for when the config is set very low (mainly for unit test purposes)
          uint64_t bother_every = 4*1024*1024;
-         if(*trim_blocks < 16)
+         if(*prune_blocks < 16)
             bother_every = 4096;
 
          const uint64_t mask = ~(bother_every-1);
          if((pos&mask) != (end&mask))
-            trim();
+            prune();
 
          const uint32_t num_blocks_in_log = _end_block - _begin_block;
          fc::raw::pack(log, num_blocks_in_log);
@@ -233,22 +233,22 @@ class state_history_log {
       return true;
    }
 
-   void trim() {
-      if(_end_block - _begin_block <= *trim_blocks)
+   void prune() {
+      if(_end_block - _begin_block <= *prune_blocks)
          return;
 
-      const uint32_t trim_to_num = _end_block - *trim_blocks;
-      uint64_t trim_to_pos = get_pos(trim_to_num);
+      const uint32_t prune_to_num = _end_block - *prune_blocks;
+      uint64_t prune_to_pos = get_pos(prune_to_num);
 
-      log.punch_hole(state_history_log_header_serial_size, trim_to_pos);
+      log.punch_hole(state_history_log_header_serial_size, prune_to_pos);
 
-      _begin_block = trim_to_num;
+      _begin_block = prune_to_num;
       log.flush();
 
-      ilog("${name}.log trimmed to blocks ${b}-${e}", ("name", name)("b", _begin_block)("e", _end_block - 1));
+      ilog("${name}.log pruned to blocks ${b}-${e}", ("name", name)("b", _begin_block)("e", _end_block - 1));
    }
 
-   //only works on non-trimmed logs
+   //only works on non-pruned logs
    void recover_blocks() {
       ilog("recover ${name}.log", ("name", name));
       uint64_t pos       = 0;
@@ -304,13 +304,13 @@ class state_history_log {
 
          log.seek_end(0);
 
-         std::optional<uint32_t> trimed_count;
-         if(is_ship_log_trimmed(header.magic)) {
-            //the existing log is a trim'ed log. find the count of blocks at the end
+         std::optional<uint32_t> pruneed_count;
+         if(is_ship_log_pruned(header.magic)) {
+            //the existing log is a prune'ed log. find the count of blocks at the end
             log.skip(-sizeof(uint32_t));
             uint32_t count;
             fc::raw::unpack(log, count);
-            trimed_count = count;
+            pruneed_count = count;
             log.skip(-sizeof(uint32_t));
          }
 
@@ -318,12 +318,12 @@ class state_history_log {
          last_block_id = header.block_id;
          log.skip(-sizeof(uint64_t));
          if(!get_last_block()) {
-            EOS_ASSERT(!is_ship_log_trimmed(header.magic), chain::plugin_exception, "${name}.log is trimmed and cannot have recovery attempted", ("name", name));
+            EOS_ASSERT(!is_ship_log_pruned(header.magic), chain::plugin_exception, "${name}.log is pruned and cannot have recovery attempted", ("name", name));
             recover_blocks();
          }
 
-         if(trimed_count)
-            _begin_block = _end_block - *trimed_count;
+         if(pruneed_count)
+            _begin_block = _end_block - *pruneed_count;
 
          ilog("${name}.log has blocks ${b}-${e}", ("name", name)("b", _begin_block)("e", _end_block - 1));
       } else {
@@ -345,12 +345,12 @@ class state_history_log {
       log.seek_end(0);
       if(log.tellp()) {
          uint32_t remaining = _end_block - _begin_block;
-         index.seek((_end_block - _index_begin_block)*sizeof(uint64_t));  //this can make the index sparse for a trimmed log; but that's okay
+         index.seek((_end_block - _index_begin_block)*sizeof(uint64_t));  //this can make the index sparse for a pruned log; but that's okay
 
          log.seek(0);
          state_history_log_header first_entry_header;
          read_header(first_entry_header);
-         if(is_ship_log_trimmed(first_entry_header.magic))
+         if(is_ship_log_pruned(first_entry_header.magic))
             log.seek_end(-sizeof(uint32_t));
 
          while(remaining--) {

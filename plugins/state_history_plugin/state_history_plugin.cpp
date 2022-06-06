@@ -447,7 +447,7 @@ void state_history_plugin::set_program_options(options_description& cli, options
    options("trace-history-debug-mode", bpo::bool_switch()->default_value(false), "enable debug mode for trace history");
 
    if(cfile::supports_hole_punching())
-      options("state-history-log-trim-blocks", bpo::value<uint32_t>(), "if set, periodically trim the state history files to store only configured number of most recent blocks");
+      options("state-history-log-prune-blocks", bpo::value<uint32_t>(), "if set, periodically prune the state history files to store only configured number of most recent blocks");
 }
 
 void state_history_plugin::plugin_initialize(const variables_map& options) {
@@ -494,9 +494,9 @@ void state_history_plugin::plugin_initialize(const variables_map& options) {
       }
 
       std::optional<uint32_t> block_limit;
-      if (options.count("state-history-log-trim-blocks")) {
-         block_limit = options.at("state-history-log-trim-blocks").as<uint32_t>();
-         EOS_ASSERT(block_limit >= 1000, plugin_exception, "state-history-log-trim-blocks must be 1000 blocks or greater");
+      if (options.count("state-history-log-prune-blocks")) {
+         block_limit = options.at("state-history-log-prune-blocks").as<uint32_t>();
+         EOS_ASSERT(block_limit >= 1000, plugin_exception, "state-history-log-prune-blocks must be 1000 blocks or greater");
       }
 
       if (options.at("trace-history").as<bool>())
