@@ -305,7 +305,11 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
       }
 
       void close() {
-         socket_stream->next_layer().close();
+         boost::system::error_code ec;
+         socket_stream->next_layer().close(ec);
+         if (ec) {
+            elog("close: ${m}", ("m", ec.message()));
+         }
          plugin->sessions.remove(this->shared_from_this());
       }
    };
