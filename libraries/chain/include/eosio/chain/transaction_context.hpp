@@ -36,10 +36,10 @@ namespace eosio { namespace chain {
       public:
 
          transaction_context( controller& c,
-                              const signed_transaction& t,
-                              const transaction_id_type& trx_id,
+                              const packed_transaction& t,
                               transaction_checktime_timer&& timer,
-                              fc::time_point start = fc::time_point::now() );
+                              fc::time_point start = fc::time_point::now(),
+                              bool read_only=false);
          ~transaction_context();
 
          void init_for_implicit_trx( uint64_t initial_net_usage = 0 );
@@ -121,8 +121,7 @@ namespace eosio { namespace chain {
       public:
 
          controller&                                 control;
-         const signed_transaction&                   trx;
-         transaction_id_type                         id;
+         const packed_transaction&                   packed_trx;
          std::optional<chainbase::database::session> undo_session;
          transaction_trace_ptr                       trace;
          fc::time_point                              start;
@@ -142,7 +141,7 @@ namespace eosio { namespace chain {
          bool                          apply_context_free = true;
          bool                          enforce_whiteblacklist = true;
 
-         fc::time_point                deadline = fc::time_point::maximum();
+         fc::time_point                block_deadline = fc::time_point::maximum();
          fc::microseconds              leeway = fc::microseconds( config::default_subjective_cpu_leeway_us );
          int64_t                       billed_cpu_time_us = 0;
          uint32_t                      subjective_cpu_bill_us = 0;
@@ -150,9 +149,9 @@ namespace eosio { namespace chain {
 
          transaction_checktime_timer   transaction_timer;
 
-      private:
+         const bool                    is_read_only;
+   private:
          bool                          is_initialized = false;
-
 
          uint64_t                      net_limit = 0;
          bool                          net_limit_due_to_block = true;
@@ -162,14 +161,15 @@ namespace eosio { namespace chain {
 
          bool                          cpu_limit_due_to_greylist = false;
 
+         fc::microseconds              max_transaction_time_subjective;
+         fc::time_point                paused_time;
          fc::microseconds              initial_objective_duration_limit;
          fc::microseconds              objective_duration_limit;
-         fc::time_point                _deadline = fc::time_point::maximum();
+         fc::time_point                _deadline = fc::time_point::maximum(); // calculated deadline
          int64_t                       deadline_exception_code = block_cpu_usage_exceeded::code_value;
          int64_t                       billing_timer_exception_code = block_cpu_usage_exceeded::code_value;
          fc::time_point                pseudo_start;
          fc::microseconds              billed_time;
-         fc::microseconds              billing_timer_duration_limit;
    };
 
 } }

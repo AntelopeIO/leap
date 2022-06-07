@@ -22,13 +22,12 @@ errorExit=Utils.errorExit
 cmdError=Utils.cmdError
 from core_symbol import CORE_SYMBOL
 
-args = TestHelper.parse_args({"--host","--port","--defproducera_prvt_key","--defproducerb_prvt_key","--mongodb"
+args = TestHelper.parse_args({"--host","--port","--defproducera_prvt_key","--defproducerb_prvt_key"
                               ,"--dump-error-details","--dont-launch","--keep-logs","-v","--leave-running","--only-bios","--clean-run"
                               ,"--sanity-test","--wallet-port"})
 server=args.host
 port=args.port
 debug=args.v
-enableMongo=args.mongodb
 defproduceraPrvtKey=args.defproducera_prvt_key
 defproducerbPrvtKey=args.defproducerb_prvt_key
 dumpErrorDetails=args.dump_error_details
@@ -43,7 +42,7 @@ walletPort=args.wallet_port
 
 Utils.Debug=debug
 localTest=True
-cluster=Cluster(host=server, port=port, walletd=True, enableMongo=enableMongo, defproduceraPrvtKey=defproduceraPrvtKey, defproducerbPrvtKey=defproducerbPrvtKey)
+cluster=Cluster(host=server, port=port, walletd=True, defproduceraPrvtKey=defproduceraPrvtKey, defproducerbPrvtKey=defproducerbPrvtKey)
 walletMgr=WalletMgr(True, port=walletPort)
 testSuccessful=False
 killEosInstances=not dontKill
@@ -59,16 +58,14 @@ try:
     Print("SERVER: %s" % (server))
     Print("PORT: %d" % (port))
 
-    if enableMongo and not cluster.isMongodDbRunning():
-        errorExit("MongoDb doesn't seem to be running.")
-
     if localTest and not dontLaunch:
         cluster.killall(allInstances=killAll)
         cluster.cleanup()
         Print("Stand up cluster")
+        traceNodeosArgs=" --plugin eosio::trace_api_plugin --trace-no-abis "
         if cluster.launch(pnodes=prodCount, totalNodes=prodCount, prodCount=1, onlyBios=onlyBios,
                          dontBootstrap=dontBootstrap, useBiosBootFile=False,
-                         pfSetupPolicy=PFSetupPolicy.NONE, extraNodeosArgs=" --plugin eosio::producer_api_plugin  --http-max-response-time-ms 990000 ") is False:
+                         pfSetupPolicy=PFSetupPolicy.NONE, extraNodeosArgs=" --plugin eosio::producer_api_plugin  --http-max-response-time-ms 990000 " + traceNodeosArgs) is False:
             cmdError("launcher")
             errorExit("Failed to stand up eos cluster.")
 
@@ -177,4 +174,5 @@ try:
 finally:
     TestHelper.shutdown(cluster, walletMgr, testSuccessful, killEosInstances, killWallet, keepLogs, killAll, dumpErrorDetails)
 
-exit(0)
+exitCode = 0 if testSuccessful else 1
+exit(exitCode)

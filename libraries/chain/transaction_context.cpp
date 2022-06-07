@@ -45,24 +45,24 @@ namespace eosio { namespace chain {
    }
 
    transaction_context::transaction_context( controller& c,
-                                             const signed_transaction& t,
-                                             const transaction_id_type& trx_id,
+                                             const packed_transaction& t,
                                              transaction_checktime_timer&& tmr,
-                                             fc::time_point s )
+                                             fc::time_point s,
+                                             bool read_only)
    :control(c)
-   ,trx(t)
-   ,id(trx_id)
+   ,packed_trx(t)
    ,undo_session()
    ,trace(std::make_shared<transaction_trace>())
    ,start(s)
    ,transaction_timer(std::move(tmr))
+   ,is_read_only(read_only)
    ,net_usage(trace->net_usage)
    ,pseudo_start(s)
    {
       if (!c.skip_db_sessions()) {
          undo_session.emplace(c.mutable_db().start_undo_session(true));
       }
-      trace->id = id;
+      trace->id = packed_trx.id();
       trace->block_num = c.head_block_num() + 1;
       trace->block_time = c.pending_block_time();
       trace->producer_block_id = c.pending_producer_block_id();
@@ -92,7 +92,9 @@ namespace eosio { namespace chain {
    void transaction_context::init(uint64_t initial_net_usage)
    {
       EOS_ASSERT( !is_initialized, transaction_exception, "cannot initialize twice" );
-      const static int64_t large_number_no_overflow = std::numeric_limits<int64_t>::max()/2;
+
+      // set maximum to a semi-valid deadline to allow for pause math and conversion to dates for logging
+      if( block_deadline == fc::time_point::maximum() ) block_deadline = start + fc::hours(24*7*52);
 
       const auto& cfg = control.get_global_properties().configuration;
       auto& rl = control.get_mutable_resource_limits_manager();
@@ -115,6 +117,7 @@ namespace eosio { namespace chain {
          _deadline = start + objective_duration_limit;
       }
 
+      const transaction& trx = packed_trx.get_transaction();
       // Possibly lower net_limit to optional limit set in the transaction header
       uint64_t trx_specified_net_usage_limit = static_cast<uint64_t>(trx.max_net_usage_words.value) * 8;
       if( trx_specified_net_usage_limit > 0 && trx_specified_net_usage_limit <= net_limit ) {
@@ -162,7 +165,7 @@ namespace eosio { namespace chain {
 
       eager_net_limit = net_limit;
 
-      // Possible lower eager_net_limit to what the billed accounts can pay plus some (objective) leeway
+      // Possibly lower eager_net_limit to what the billed accounts can pay plus some (objective) leeway
       auto new_eager_net_limit = std::min( eager_net_limit, static_cast<uint64_t>(account_net_limit + cfg.net_usage_leeway) );
       if( new_eager_net_limit < eager_net_limit ) {
          eager_net_limit = new_eager_net_limit;
@@ -175,11 +178,21 @@ namespace eosio { namespace chain {
          billing_timer_exception_code = leeway_deadline_exception::code_value;
       }
 
-      billing_timer_duration_limit = _deadline - start;
+      // Possibly limit deadline to subjective max_transaction_time
+      if( max_transaction_time_subjective != fc::microseconds::maximum() && (start + max_transaction_time_subjective) <= _deadline ) {
+         _deadline = start + max_transaction_time_subjective;
+         billing_timer_exception_code = tx_cpu_usage_exceeded::code_value;
+      }
 
-      // Check if deadline is limited by caller-set deadline (only change deadline if billed_cpu_time_us is not set)
-      if( explicit_billed_cpu_time || deadline < _deadline ) {
-         _deadline = deadline;
+      // Possibly limit deadline to caller provided wall clock block deadline
+      if( block_deadline < _deadline ) {
+         _deadline = block_deadline;
+         billing_timer_exception_code = deadline_exception::code_value;
+      }
+
+      // Explicit billed_cpu_time_us should be used, block_deadline will be maximum unless in test code
+      if( explicit_billed_cpu_time ) {
+         _deadline = block_deadline;
          deadline_exception_code = deadline_exception::code_value;
       } else {
          deadline_exception_code = billing_timer_exception_code;
@@ -199,18 +212,19 @@ namespace eosio { namespace chain {
       if( initial_net_usage > 0 )
          add_net_usage( initial_net_usage );  // Fail early if current net usage is already greater than the calculated limit
 
-      checktime(); // Fail early if deadline has already been exceeded
-
-      if(control.skip_trx_checks())
-         transaction_timer.start(fc::time_point::maximum());
-      else
-         transaction_timer.start(_deadline);
+      if(control.skip_trx_checks()) {
+         transaction_timer.start( fc::time_point::maximum() );
+      } else {
+         transaction_timer.start( _deadline );
+         checktime(); // Fail early if deadline has already been exceeded
+      }
 
       is_initialized = true;
    }
 
    void transaction_context::init_for_implicit_trx( uint64_t initial_net_usage  )
    {
+      const transaction& trx = packed_trx.get_transaction();
       if( trx.transaction_extensions.size() > 0 ) {
          disallow_transaction_extensions( "no transaction extensions supported yet for implicit transactions" );
       }
@@ -223,6 +237,7 @@ namespace eosio { namespace chain {
                                                  uint64_t packed_trx_prunable_size,
                                                  bool skip_recording )
    {
+      const transaction& trx = packed_trx.get_transaction();
       if( trx.transaction_extensions.size() > 0 ) {
          disallow_transaction_extensions( "no transaction extensions supported yet for input transactions" );
       }
@@ -258,11 +273,12 @@ namespace eosio { namespace chain {
       }
       init( initial_net_usage);
       if (!skip_recording)
-         record_transaction( id, trx.expiration ); /// checks for dupes
+         record_transaction( packed_trx.id(), trx.expiration ); /// checks for dupes
    }
 
    void transaction_context::init_for_deferred_trx( fc::time_point p )
    {
+      const transaction& trx = packed_trx.get_transaction();
       if( (trx.expiration.sec_since_epoch() != 0) && (trx.transaction_extensions.size() > 0) ) {
          disallow_transaction_extensions( "no transaction extensions supported yet for deferred transactions" );
       }
@@ -280,6 +296,7 @@ namespace eosio { namespace chain {
    void transaction_context::exec() {
       EOS_ASSERT( is_initialized, transaction_exception, "must first initialize" );
 
+      const transaction& trx = packed_trx.get_transaction();
       if( apply_context_free ) {
          for( const auto& act : trx.context_free_actions ) {
             schedule_action( act, act.account, true, 0, 0 );
@@ -307,6 +324,7 @@ namespace eosio { namespace chain {
       EOS_ASSERT( is_initialized, transaction_exception, "must first initialize" );
 
       if( is_input ) {
+         const transaction& trx = packed_trx.get_transaction();
          auto& am = control.get_mutable_authorization_manager();
          for( const auto& act : trx.actions ) {
             for( const auto& auth : act.authorization ) {
@@ -420,9 +438,8 @@ namespace eosio { namespace chain {
    void transaction_context::pause_billing_timer() {
       if( explicit_billed_cpu_time || pseudo_start == fc::time_point() ) return; // either irrelevant or already paused
 
-      auto now = fc::time_point::now();
-      billed_time = now - pseudo_start;
-      deadline_exception_code = deadline_exception::code_value; // Other timeout exceptions cannot be thrown while billable timer is paused.
+      paused_time = fc::time_point::now();
+      billed_time = paused_time - pseudo_start;
       pseudo_start = fc::time_point();
       transaction_timer.stop();
    }
@@ -431,14 +448,17 @@ namespace eosio { namespace chain {
       if( explicit_billed_cpu_time || pseudo_start != fc::time_point() ) return; // either irrelevant or already running
 
       auto now = fc::time_point::now();
+      auto paused = now - paused_time;
+
       pseudo_start = now - billed_time;
-      if( (pseudo_start + billing_timer_duration_limit) <= deadline ) {
-         _deadline = pseudo_start + billing_timer_duration_limit;
-         deadline_exception_code = billing_timer_exception_code;
-      } else {
-         _deadline = deadline;
+      _deadline += paused;
+
+      // do not allow to go past block wall clock deadline
+      if( block_deadline < _deadline ) {
          deadline_exception_code = deadline_exception::code_value;
+         _deadline = block_deadline;
       }
+
       transaction_timer.start(_deadline);
    }
 
@@ -652,6 +672,7 @@ namespace eosio { namespace chain {
    void transaction_context::schedule_transaction() {
       // Charge ahead of time for the additional net usage needed to retire the delayed transaction
       // whether that be by successfully executing, soft failure, hard failure, or expiration.
+      const transaction& trx = packed_trx.get_transaction();
       if( trx.delay_sec.value == 0 ) { // Do not double bill. Only charge if we have not already charged for the delay.
          const auto& cfg = control.get_global_properties().configuration;
          add_net_usage( static_cast<uint64_t>(cfg.base_per_transaction_net_usage)
@@ -662,7 +683,7 @@ namespace eosio { namespace chain {
 
       uint32_t trx_size = 0;
       const auto& cgto = control.mutable_db().create<generated_transaction_object>( [&]( auto& gto ) {
-        gto.trx_id      = id;
+        gto.trx_id      = packed_trx.id();
         gto.payer       = first_auth;
         gto.sender      = account_name(); /// delayed transactions have no sender
         gto.sender_id   = transaction_id_to_sender_id( gto.trx_id );
@@ -729,7 +750,7 @@ namespace eosio { namespace chain {
                actors.insert( auth.actor );
          }
       }
-      EOS_ASSERT( one_auth, tx_no_auths, "transaction must have at least one authorization" );
+      EOS_ASSERT( one_auth || is_read_only, tx_no_auths, "transaction must have at least one authorization" );
 
       if( enforce_actor_whitelist_blacklist ) {
          control.check_actor_list( actors );

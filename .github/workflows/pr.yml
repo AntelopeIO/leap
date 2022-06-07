@@ -17,4 +17,4 @@ jobs:
           git submodule sync --recursive
           git submodule update --init --force --recursive
       - name: Submodule Regression Check
-        run: ./.cicd/submodule-regression-check.sh
+        run: ./scripts/submodule-regression-check.sh

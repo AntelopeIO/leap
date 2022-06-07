@@ -303,24 +303,24 @@ namespace eosio { namespace testing {
       const auto& snapshot_chain_id = controller::extract_chain_id( *snapshot );
       snapshot->return_to_header();
       open(std::move(pfs), snapshot_chain_id, [&snapshot,&control=this->control]() {
-         control->startup([]() { return false; }, snapshot );
+         control->startup( [](){}, []() { return false; }, snapshot );
       });
    }
 
    void base_tester::open( protocol_feature_set&& pfs, const genesis_state& genesis ) {
       open(std::move(pfs), genesis.compute_chain_id(), [&genesis,&control=this->control]() {
-         control->startup( []() { return false; }, genesis );
+         control->startup( [](){}, []() { return false; }, genesis );
       });
    }
 
    void base_tester::open( protocol_feature_set&& pfs, std::optional<chain_id_type> expected_chain_id ) {
       open(std::move(pfs), expected_chain_id, [&control=this->control]() {
-         control->startup( []() { return false; } );
+         control->startup( [](){}, []() { return false; } );
       });
    }
 
    void base_tester::push_block(signed_block_ptr b) {
-      auto bsf = control->create_block_state_future(b);
+      auto bsf = control->create_block_state_future(b->calculate_id(), b);
       unapplied_transactions.add_aborted( control->abort_block() );
       control->push_block( bsf, [this]( const branch_type& forked_branch ) {
          unapplied_transactions.add_forked( forked_branch );
@@ -329,8 +329,8 @@ namespace eosio { namespace testing {
       } );
 
       auto itr = last_produced_block.find(b->producer);
-      if (itr == last_produced_block.end() || block_header::num_from_id(b->id()) > block_header::num_from_id(itr->second)) {
-         last_produced_block[b->producer] = b->id();
+      if (itr == last_produced_block.end() || b->block_num() > block_header::num_from_id(itr->second)) {
+         last_produced_block[b->producer] = b->calculate_id();
       }
    }
 
@@ -351,7 +351,7 @@ namespace eosio { namespace testing {
 
       if( !skip_pending_trxs ) {
          for( auto itr = unapplied_transactions.begin(); itr != unapplied_transactions.end();  ) {
-            auto trace = control->push_transaction( itr->trx_meta, fc::time_point::maximum(), DEFAULT_BILLED_CPU_TIME_US, true, 0 );
+            auto trace = control->push_transaction( itr->trx_meta, fc::time_point::maximum(), fc::microseconds::maximum(), DEFAULT_BILLED_CPU_TIME_US, true, 0 );
             traces.emplace_back( trace );
             if(!no_throw && trace->except) {
                // this always throws an fc::exception, since the original exception is copied into an fc::exception
@@ -363,7 +363,7 @@ namespace eosio { namespace testing {
          vector<transaction_id_type> scheduled_trxs;
          while ((scheduled_trxs = get_scheduled_transactions()).size() > 0 ) {
             for( const auto& trx : scheduled_trxs ) {
-               auto trace = control->push_scheduled_transaction( trx, fc::time_point::maximum(), DEFAULT_BILLED_CPU_TIME_US, true );
+               auto trace = control->push_scheduled_transaction( trx, fc::time_point::maximum(), fc::microseconds::maximum(), DEFAULT_BILLED_CPU_TIME_US, true );
                traces.emplace_back( trace );
                if( !no_throw && trace->except ) {
                   // this always throws an fc::exception, since the original exception is copied into an fc::exception
@@ -570,8 +570,8 @@ namespace eosio { namespace testing {
       auto time_limit = deadline == fc::time_point::maximum() ?
             fc::microseconds::maximum() :
             fc::microseconds( deadline - fc::time_point::now() );
-      auto fut = transaction_metadata::start_recover_keys( ptrx, control->get_thread_pool(), control->get_chain_id(), time_limit );
-      auto r = control->push_transaction( fut.get(), deadline, billed_cpu_time_us, billed_cpu_time_us > 0, 0 );
+      auto fut = transaction_metadata::start_recover_keys( ptrx, control->get_thread_pool(), control->get_chain_id(), time_limit, transaction_metadata::trx_type::input );
+      auto r = control->push_transaction( fut.get(), deadline, fc::microseconds::maximum(), billed_cpu_time_us, billed_cpu_time_us > 0, 0 );
       if( r->except_ptr ) std::rethrow_exception( r->except_ptr );
       if( r->except ) throw *r->except;
       return r;
@@ -595,8 +595,8 @@ namespace eosio { namespace testing {
             fc::microseconds::maximum() :
             fc::microseconds( deadline - fc::time_point::now() );
       auto ptrx = std::make_shared<packed_transaction>( trx, c );
-      auto fut = transaction_metadata::start_recover_keys( ptrx, control->get_thread_pool(), control->get_chain_id(), time_limit );
-      auto r = control->push_transaction( fut.get(), deadline, billed_cpu_time_us, billed_cpu_time_us > 0, 0 );
+      auto fut = transaction_metadata::start_recover_keys( ptrx, control->get_thread_pool(), control->get_chain_id(), time_limit, transaction_metadata::trx_type::input );
+      auto r = control->push_transaction( fut.get(), deadline, fc::microseconds::maximum(), billed_cpu_time_us, billed_cpu_time_us > 0, 0 );
       if (no_throw) return r;
       if( r->except_ptr ) std::rethrow_exception( r->except_ptr );
       if( r->except)  throw *r->except;
@@ -1048,7 +1048,7 @@ namespace eosio { namespace testing {
 
             auto block = a.control->fetch_block_by_number(i);
             if( block ) { //&& !b.control->is_known_block(block->id()) ) {
-               auto bsf = b.control->create_block_state_future( block );
+               auto bsf = b.control->create_block_state_future( block->calculate_id(), block );
                b.control->abort_block();
                b.control->push_block(bsf, forked_branch_callback{}, trx_meta_cache_lookup{}); //, eosio::chain::validation_steps::created_block);
             }
@@ -1182,8 +1182,13 @@ namespace eosio { namespace testing {
          preactivations.emplace_back( feature_digest );
       };
 
+      std::vector<builtin_protocol_feature_t> ordered_builtins;
       for( const auto& f : builtin_protocol_feature_codenames ) {
-         auto digest = pfs.get_builtin_digest( f.first );
+         ordered_builtins.push_back( f.first );
+      }
+      std::sort( ordered_builtins.begin(), ordered_builtins.end() );
+      for( const auto& f : ordered_builtins ) {
+         auto digest = pfs.get_builtin_digest( f);
          if( !digest ) continue;
          add_digests( *digest );
       }

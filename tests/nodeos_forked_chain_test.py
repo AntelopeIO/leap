@@ -162,6 +162,7 @@ try:
     specificExtraNodeosArgs={}
     # producer nodes will be mapped to 0 through totalProducerNodes-1, so the number totalProducerNodes will be the non-producing node
     specificExtraNodeosArgs[totalProducerNodes]="--plugin eosio::test_control_api_plugin"
+    traceNodeosArgs = " --plugin eosio::trace_api_plugin --trace-no-abis "
 
 
     # ***   setup topogrophy   ***
@@ -171,7 +172,7 @@ try:
 
     if cluster.launch(prodCount=prodCount, topo="bridge", pnodes=totalProducerNodes,
                       totalNodes=totalNodes, totalProducers=totalProducers,
-                      useBiosBootFile=False, specificExtraNodeosArgs=specificExtraNodeosArgs) is False:
+                      useBiosBootFile=False, specificExtraNodeosArgs=specificExtraNodeosArgs, extraNodeosArgs=traceNodeosArgs) is False:
         Utils.cmdError("launcher")
         Utils.errorExit("Failed to stand up eos cluster.")
     Print("Validating system accounts after bootstrap")
@@ -371,6 +372,7 @@ try:
     # block number to start expecting node killed after
     preKillBlockNum=nonProdNode.getBlockNum()
     preKillBlockProducer=nonProdNode.getBlockProducerByNum(preKillBlockNum)
+    Print("preKillBlockProducer = {}".format(preKillBlockProducer))
     # kill at last block before defproducerl, since the block it is killed on will get propagated
     killAtProducer="defproducerk"
     nonProdNode.killNodeOnProducer(producer=killAtProducer, whereInSequence=(inRowCountPerProducer-1))
@@ -400,8 +402,13 @@ try:
             (headBlockNum, libNumAroundDivergence)=getMinHeadAndLib(prodNodes)
 
         # track the block number and producer from each producing node
-        blockProducer0=prodNodes[0].getBlockProducerByNum(blockNum)
-        blockProducer1=prodNodes[1].getBlockProducerByNum(blockNum)
+        # we use timeout 70 here because of case when chain break, call to getBlockProducerByNum
+        # and call of producer_plugin::schedule_delayed_production_loop happens nearly immediately
+        # for 10 producers wait cycle is 10 * (12*0.5) = 60 seconds.
+        # for 11 producers wait cycle is 11 * (12*0.5) = 66 seconds.
+        blockProducer0=prodNodes[0].getBlockProducerByNum(blockNum, timeout=70)
+        blockProducer1=prodNodes[1].getBlockProducerByNum(blockNum, timeout=70)
+        Print("blockNum = {} blockProducer0 = {} blockProducer1 = {}".format(blockNum, blockProducer0, blockProducer1))
         blockProducers0.append({"blockNum":blockNum, "prod":blockProducer0})
         blockProducers1.append({"blockNum":blockNum, "prod":blockProducer1})
 
@@ -410,12 +417,14 @@ try:
         if not prodChanged:
             if preKillBlockProducer!=blockProducer0:
                 prodChanged=True
+                Print("prodChanged = True")
 
         #since it is killing for the last block of killAtProducer, we look for the next producer change
         if not nextProdChange and prodChanged and blockProducer1==killAtProducer:
             nextProdChange=True
+            Print("nextProdChange = True")
         elif nextProdChange and blockProducer1!=killAtProducer:
-            nextProdChange=False
+            Print("nextProdChange = False")
             if blockProducer0!=blockProducer1:
                 Print("Divergence identified at block %s, node_00 producer: %s, node_01 producer: %s" % (blockNum, blockProducer0, blockProducer1))
                 actualLastBlockNum=blockNum
@@ -423,6 +432,7 @@ try:
             else:
                 missedTransitionBlock=blockNum
                 transitionCount+=1
+                Print("missedTransitionBlock = {} transitionCount = {}".format(missedTransitionBlock, transitionCount))
                 # allow this to transition twice, in case the script was identifying an earlier transition than the bridge node received the kill command
                 if transitionCount>1:
                     Print("At block %d and have passed producer: %s %d times and we have not diverged, stopping looking and letting errors report" % (blockNum, killAtProducer, transitionCount))
@@ -478,8 +488,8 @@ try:
 
     Print("Relaunching the non-producing bridge node to connect the producing nodes again")
 
-    if not nonProdNode.relaunch(nonProdNode.nodeNum, None):
-        errorExit("Failure - (non-production) node %d should have restarted" % (nonProdNode.nodeNum))
+    if not nonProdNode.relaunch():
+        Utils.errorExit("Failure - (non-production) node %d should have restarted" % (nonProdNode.nodeNum))
 
 
     Print("Waiting to allow forks to resolve")
@@ -490,16 +500,20 @@ try:
 
     #ensure that the nodes have enough time to get in concensus, so wait for 3 producers to produce their complete round
     time.sleep(inRowCountPerProducer * 3 / 2)
-    remainingChecks=20
+    remainingChecks=60
     match=False
     checkHead=False
+    checkMatchBlock=killBlockNum
+    forkResolved=False
     while remainingChecks>0:
-        checkMatchBlock=killBlockNum if not checkHead else prodNodes[0].getBlockNum()
+        if checkMatchBlock == killBlockNum and checkHead:
+            checkMatchBlock = prodNodes[0].getBlockNum()
         blockProducer0=prodNodes[0].getBlockProducerByNum(checkMatchBlock)
         blockProducer1=prodNodes[1].getBlockProducerByNum(checkMatchBlock)
         match=blockProducer0==blockProducer1
         if match:
             if checkHead:
+                forkResolved=True
                 break
             else:
                 checkHead=True
@@ -507,6 +521,12 @@ try:
         Print("Fork has not resolved yet, wait a little more. Block %s has producer %s for node_00 and %s for node_01.  Original divergence was at block %s. Wait time remaining: %d" % (checkMatchBlock, blockProducer0, blockProducer1, killBlockNum, remainingChecks))
         time.sleep(1)
         remainingChecks-=1
+    
+    assert forkResolved, "fork was not resolved in a reasonable time. node_00 lib {} head {} node_01 lib {} head {}".format(
+                                                                                  prodNodes[0].getIrreversibleBlockNum(), 
+                                                                                          prodNodes[0].getHeadBlockNum(), 
+                                                                                                          prodNodes[1].getIrreversibleBlockNum(), 
+                                                                                                                 prodNodes[1].getHeadBlockNum()) 
 
     for prodNode in prodNodes:
         info=prodNode.getInfo()
@@ -533,7 +553,7 @@ try:
         if prod["blockNum"]==killBlockNum:
             resolvedKillBlockProducer = prod["prod"]
     if resolvedKillBlockProducer is None:
-        Utils.errorExit("Did not find find block %s (the original divergent block) in blockProducers0, test setup is wrong.  blockProducers0: %s" % (killBlockNum, ", ".join(blockProducers)))
+        Utils.errorExit("Did not find find block %s (the original divergent block) in blockProducers0, test setup is wrong.  blockProducers0: %s" % (killBlockNum, ", ".join(blockProducers0)))
     Print("Fork resolved and determined producer %s for block %s" % (resolvedKillBlockProducer, killBlockNum))
 
     blockProducers0=[]
@@ -548,8 +568,9 @@ finally:
         Print("Compare Blocklog")
         cluster.compareBlockLogs()
         Print(Utils.FileDivider)
-        Print("Compare Blocklog")
+        Print("Print Blocklog")
         cluster.printBlockLog()
         Print(Utils.FileDivider)
 
-exit(0)
+exitCode = 0 if testSuccessful else 1
+exit(exitCode)

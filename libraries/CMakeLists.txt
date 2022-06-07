@@ -1,3 +1,9 @@
+set(CHAINBASE_INSTALL_COMPONENT "dev")
+set(FC_INSTALL_COMPONENT "dev")
+set(APPBASE_INSTALL_COMPONENT "dev")
+set(SOFTFLOAT_INSTALL_COMPONENT "dev")
+set(EOSVM_INSTALL_COMPONENT "dev")
+
 add_subdirectory( fc )
 add_subdirectory( builtins )
 

@@ -252,7 +252,7 @@ namespace eosio { namespace chain {
 
          my->head = read_head();
          if( my->head ) {
-            my->head_id = my->head->id();
+            my->head_id = my->head->calculate_id();
          } else {
             my->head_id = {};
          }
@@ -309,7 +309,7 @@ namespace eosio { namespace chain {
          block_file.write((char*)&pos, sizeof(pos));
          index_file.write((char*)&pos, sizeof(pos));
          head = b;
-         head_id = b->id();
+         head_id = b->calculate_id();
 
          flush();
 
@@ -427,7 +427,7 @@ namespace eosio { namespace chain {
             read_block_header(bh, pos);
             EOS_ASSERT(bh.block_num() == block_num, reversible_blocks_exception,
                        "Wrong block header was read from block log.", ("returned", bh.block_num())("expected", block_num));
-            return bh.id();
+            return bh.calculate_id();
          }
          return {};
       } FC_LOG_AND_RETHROW()
@@ -515,7 +515,7 @@ namespace eosio { namespace chain {
       index.complete();
    }
 
-   fc::path block_log::repair_log( const fc::path& data_dir, uint32_t truncate_at_block ) {
+   fc::path block_log::repair_log(const fc::path& data_dir, uint32_t truncate_at_block, const char* reversible_block_dir_name) {
       ilog("Recovering Block Log...");
       EOS_ASSERT( fc::is_directory(data_dir) && fc::is_regular_file(data_dir / "blocks.log"), block_log_not_found,
                  "Block log not found in '${blocks_dir}'", ("blocks_dir", data_dir)          );
@@ -537,6 +537,10 @@ namespace eosio { namespace chain {
 
       fc::rename( blocks_dir, backup_dir );
       ilog( "Moved existing blocks directory to backup location: '${new_blocks_dir}'", ("new_blocks_dir", backup_dir) );
+
+      if (strlen(reversible_block_dir_name) && fc::is_directory(blocks_dir/reversible_block_dir_name)) {
+         fc::rename(blocks_dir/ reversible_block_dir_name, backup_dir/ reversible_block_dir_name);
+      }
 
       fc::create_directories(blocks_dir);
       auto block_log_path = blocks_dir / "blocks.log";
@@ -629,7 +633,7 @@ namespace eosio { namespace chain {
             break;
          }
 
-         auto id = tmp.id();
+         auto id = tmp.calculate_id();
          if( block_header::num_from_id(previous) + 1 != block_header::num_from_id(id) ) {
             elog( "Block ${num} (${id}) skips blocks. Previous block in block log is block ${prev_num} (${previous})",
                   ("num", block_header::num_from_id(id))("id", id)

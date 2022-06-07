@@ -159,7 +159,6 @@ namespace eosio { namespace chain {
     *   |- reversible_blocks_exception
     *   |- block_log_exception
     *   |- resource_limit_exception
-    *   |- mongo_db_exception
     *   |- contract_api_exception
     */
 
@@ -328,8 +327,6 @@ namespace eosio { namespace chain {
 
       FC_DECLARE_DERIVED_EXCEPTION( database_guard_exception, guard_exception,
                                     3060101, "Database usage is at unsafe levels" )
-      FC_DECLARE_DERIVED_EXCEPTION( reversible_guard_exception, guard_exception,
-                                    3060102, "Reversible block log usage is at unsafe levels" )
 
    FC_DECLARE_DERIVED_EXCEPTION( wasm_exception, chain_exception,
                                  3070000, "WASM Exception" )
@@ -431,6 +428,8 @@ namespace eosio { namespace chain {
                                     3110005, "Missing Chain Plugin" )
       FC_DECLARE_DERIVED_EXCEPTION( plugin_config_exception,               plugin_exception,
                                     3110006, "Incorrect plugin configuration" )
+      FC_DECLARE_DERIVED_EXCEPTION( missing_trace_api_plugin_exception,           plugin_exception,
+                                    3110007, "Missing Trace API Plugin" )
 
 
    FC_DECLARE_DERIVED_EXCEPTION( wallet_exception, chain_exception,
@@ -614,13 +613,6 @@ namespace eosio { namespace chain {
 
    FC_DECLARE_DERIVED_EXCEPTION( resource_limit_exception, chain_exception,
                                  3210000, "Resource limit exception" )
-
-   FC_DECLARE_DERIVED_EXCEPTION( mongo_db_exception, chain_exception,
-                                 3220000, "Mongo DB exception" )
-      FC_DECLARE_DERIVED_EXCEPTION( mongo_db_insert_fail, mongo_db_exception,
-                                 3220001, "Fail to insert new data to Mongo DB" )
-      FC_DECLARE_DERIVED_EXCEPTION( mongo_db_update_fail, mongo_db_exception,
-                                 3220002, "Fail to update existing data in Mongo DB" )
 
    FC_DECLARE_DERIVED_EXCEPTION( contract_api_exception,    chain_exception,
                                  3230000, "Contract API exception" )

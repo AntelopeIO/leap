@@ -192,8 +192,7 @@ class state_history_log {
             break;
          pos = pos + state_history_log_header_serial_size + header.payload_size + sizeof(suffix);
          if (!(++num_found % 10000)) {
-            printf("%10u blocks found, log pos=%12llu\r", (unsigned)num_found, (unsigned long long)pos);
-            fflush(stdout);
+            dlog("${num_found} blocks found, log pos = ${pos}", ("num_found", num_found)("pos", pos));
          }
       }
       log.flush();
@@ -259,8 +258,7 @@ class state_history_log {
          index.write((char*)&pos, sizeof(pos));
          pos = suffix_pos + sizeof(suffix);
          if (!(++num_found % 10000)) {
-            printf("%10u blocks found, log pos=%12llu\r", (unsigned)num_found, (unsigned long long)pos);
-            fflush(stdout);
+            dlog("${num_found} blocks found, log pos = ${pos}", ("num_found", num_found)("pos", pos));
          }
       }
    }

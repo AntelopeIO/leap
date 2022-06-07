@@ -399,8 +399,6 @@ namespace eosio { namespace testing {
             cfg.state_dir  = tempdir.path() / config::default_state_dir_name;
             cfg.state_size = 1024*1024*16;
             cfg.state_guard_size = 0;
-            cfg.reversible_cache_size = 1024*1024*8;
-            cfg.reversible_guard_size = 0;
             cfg.contracts_console = true;
             cfg.eosvmoc_config.cache_size = 1024*1024*8;
 
@@ -558,10 +556,10 @@ namespace eosio { namespace testing {
             validating_node->enable_deep_mind(dmlog);
          }
          if (use_genesis) {
-            validating_node->startup( []() { return false; }, genesis );
+            validating_node->startup( [](){}, []() { return false; }, genesis );
          }
          else {
-            validating_node->startup( []() { return false; } );
+            validating_node->startup( [](){}, []() { return false; } );
          }
          return validating_node;
       }
@@ -598,7 +596,7 @@ namespace eosio { namespace testing {
 
       signed_block_ptr produce_block( fc::microseconds skip_time = fc::milliseconds(config::block_interval_ms) )override {
          auto sb = _produce_block(skip_time, false);
-         auto bsf = validating_node->create_block_state_future( sb );
+         auto bsf = validating_node->create_block_state_future( sb->calculate_id(), sb );
          validating_node->push_block( bsf, forked_branch_callback{}, trx_meta_cache_lookup{} );
 
          return sb;
@@ -609,14 +607,14 @@ namespace eosio { namespace testing {
       }
 
       void validate_push_block(const signed_block_ptr& sb) {
-         auto bs = validating_node->create_block_state_future( sb );
+         auto bs = validating_node->create_block_state_future( sb->calculate_id(), sb );
          validating_node->push_block( bs, forked_branch_callback{}, trx_meta_cache_lookup{} );
       }
 
       signed_block_ptr produce_empty_block( fc::microseconds skip_time = fc::milliseconds(config::block_interval_ms) )override {
          unapplied_transactions.add_aborted( control->abort_block() );
          auto sb = _produce_block(skip_time, true);
-         auto bsf = validating_node->create_block_state_future( sb );
+         auto bsf = validating_node->create_block_state_future( sb->calculate_id(), sb );
          validating_node->push_block( bsf, forked_branch_callback{}, trx_meta_cache_lookup{} );
 
          return sb;
@@ -641,7 +639,7 @@ namespace eosio { namespace testing {
         validating_node.reset();
         validating_node = std::make_unique<controller>(vcfg, make_protocol_feature_set(), control->get_chain_id());
         validating_node->add_indices();
-        validating_node->startup( []() { return false; } );
+        validating_node->startup( [](){}, []() { return false; } );
 
         return ok;
       }
