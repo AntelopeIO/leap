@@ -417,10 +417,6 @@ namespace eosio { namespace chain {
       index_file.flush();
    }
 
-   void block_log::vacuum() {
-      my->vacuum();
-   }
-
    size_t detail::block_log_impl::convert_existing_header_to_vacuumed() {
       uint32_t old_version;
       uint32_t old_first_block_num;
