@@ -366,8 +366,6 @@ namespace eosio { namespace chain {
          head = b;
          head_id = b->calculate_id();
 
-         flush();
-
          if(prune_blocks) {
             //only bother to try pruning every 4MB written. except for when the prune is set very low (mainly for unit test purposes)
             uint64_t bother_every = 4*1024*1024;
@@ -381,6 +379,8 @@ namespace eosio { namespace chain {
             const uint32_t num_blocks_in_log = chain::block_header::num_from_id(head_id) - first_block_num + 1;
             fc::raw::pack(block_file, num_blocks_in_log);
          }
+
+         flush();
       }
       FC_LOG_AND_RETHROW()
    }
