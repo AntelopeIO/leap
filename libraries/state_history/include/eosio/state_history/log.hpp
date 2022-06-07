@@ -304,13 +304,13 @@ class state_history_log {
 
          log.seek_end(0);
 
-         std::optional<uint32_t> pruneed_count;
+         std::optional<uint32_t> pruned_count;
          if(is_ship_log_pruned(header.magic)) {
             //the existing log is a prune'ed log. find the count of blocks at the end
             log.skip(-sizeof(uint32_t));
             uint32_t count;
             fc::raw::unpack(log, count);
-            pruneed_count = count;
+            pruned_count = count;
             log.skip(-sizeof(uint32_t));
          }
 
@@ -322,8 +322,8 @@ class state_history_log {
             recover_blocks();
          }
 
-         if(pruneed_count)
-            _begin_block = _end_block - *pruneed_count;
+         if(pruned_count)
+            _begin_block = _end_block - *pruned_count;
 
          ilog("${name}.log has blocks ${b}-${e}", ("name", name)("b", _begin_block)("e", _end_block - 1));
       } else {
