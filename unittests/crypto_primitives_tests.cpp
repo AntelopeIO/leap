@@ -25,7 +25,7 @@ bytes h2bin(const std::string& source) {
    return output;
 }
 
-BOOST_AUTO_TEST_SUITE(evm_precompiles_tests)
+BOOST_AUTO_TEST_SUITE(crypto_primitives_tests)
 
 BOOST_AUTO_TEST_CASE( alt_bn128_add_test ) { try {
    tester c( setup_policy::preactivate_feature_and_new_bios );
@@ -35,14 +35,14 @@ BOOST_AUTO_TEST_CASE( alt_bn128_add_test ) { try {
    c.produce_block();
 
    const auto& pfm = c.control->get_protocol_feature_manager();
-   const auto& d = pfm.get_builtin_digest( builtin_protocol_feature_t::evm_precompiles );
+   const auto& d = pfm.get_builtin_digest( builtin_protocol_feature_t::crypto_primitives );
    BOOST_REQUIRE( d );
 
    c.preactivate_protocol_features( {*d} );
    c.produce_block();
 
-   c.set_code( tester1_account, contracts::evm_precompiles_test_wasm() );
-   c.set_abi( tester1_account, contracts::evm_precompiles_test_abi().data() );
+   c.set_code( tester1_account, contracts::crypto_primitives_test_wasm() );
+   c.set_abi( tester1_account, contracts::crypto_primitives_test_abi().data() );
    c.produce_block();
 
    using test_add = std::tuple<std::string, std::string, int32_t, std::string>;
@@ -113,14 +113,14 @@ BOOST_AUTO_TEST_CASE( alt_bn128_mul_test ) { try {
    c.produce_block();
 
    const auto& pfm = c.control->get_protocol_feature_manager();
-   const auto& d = pfm.get_builtin_digest( builtin_protocol_feature_t::evm_precompiles );
+   const auto& d = pfm.get_builtin_digest( builtin_protocol_feature_t::crypto_primitives );
    BOOST_REQUIRE( d );
 
    c.preactivate_protocol_features( {*d} );
    c.produce_block();
 
-   c.set_code( tester1_account, contracts::evm_precompiles_test_wasm() );
-   c.set_abi( tester1_account, contracts::evm_precompiles_test_abi().data() );
+   c.set_code( tester1_account, contracts::crypto_primitives_test_wasm() );
+   c.set_abi( tester1_account, contracts::crypto_primitives_test_abi().data() );
    c.produce_block();
 
    using test_mul = std::tuple<std::string, std::string, int32_t, std::string>;
@@ -200,14 +200,14 @@ BOOST_AUTO_TEST_CASE( alt_bn128_pair_test ) { try {
    c.produce_block();
 
    const auto& pfm = c.control->get_protocol_feature_manager();
-   const auto& d = pfm.get_builtin_digest( builtin_protocol_feature_t::evm_precompiles );
+   const auto& d = pfm.get_builtin_digest( builtin_protocol_feature_t::crypto_primitives );
    BOOST_REQUIRE( d );
 
    c.preactivate_protocol_features( {*d} );
    c.produce_block();
 
-   c.set_code( tester1_account, contracts::evm_precompiles_test_wasm() );
-   c.set_abi( tester1_account, contracts::evm_precompiles_test_abi().data() );
+   c.set_code( tester1_account, contracts::crypto_primitives_test_wasm() );
+   c.set_abi( tester1_account, contracts::crypto_primitives_test_abi().data() );
    c.produce_block();
 
    using g1g2_pair = std::vector<std::string>;
@@ -347,14 +347,14 @@ BOOST_AUTO_TEST_CASE( modexp_test ) { try {
    c.produce_block();
 
    const auto& pfm = c.control->get_protocol_feature_manager();
-   const auto& d = pfm.get_builtin_digest( builtin_protocol_feature_t::evm_precompiles );
+   const auto& d = pfm.get_builtin_digest( builtin_protocol_feature_t::crypto_primitives );
    BOOST_REQUIRE( d );
 
    c.preactivate_protocol_features( {*d} );
    c.produce_block();
 
-   c.set_code( tester1_account, contracts::evm_precompiles_test_wasm() );
-   c.set_abi( tester1_account, contracts::evm_precompiles_test_abi().data() );
+   c.set_code( tester1_account, contracts::crypto_primitives_test_wasm() );
+   c.set_abi( tester1_account, contracts::crypto_primitives_test_abi().data() );
    c.produce_block();
 
    using modexp_test = std::tuple<std::vector<string>, int32_t, std::string>;
@@ -422,14 +422,14 @@ BOOST_AUTO_TEST_CASE( blake2f_test ) { try {
    c.produce_block();
 
    const auto& pfm = c.control->get_protocol_feature_manager();
-   const auto& d = pfm.get_builtin_digest( builtin_protocol_feature_t::evm_precompiles );
+   const auto& d = pfm.get_builtin_digest( builtin_protocol_feature_t::crypto_primitives );
    BOOST_REQUIRE( d );
 
    c.preactivate_protocol_features( {*d} );
    c.produce_block();
 
-   c.set_code( tester1_account, contracts::evm_precompiles_test_wasm() );
-   c.set_abi( tester1_account, contracts::evm_precompiles_test_abi().data() );
+   c.set_code( tester1_account, contracts::crypto_primitives_test_wasm() );
+   c.set_abi( tester1_account, contracts::crypto_primitives_test_abi().data() );
    c.produce_block();
 
    using compress_test = std::tuple<std::vector<string>, int32_t, std::string>;
@@ -549,14 +549,14 @@ BOOST_AUTO_TEST_CASE( keccak256_test ) { try {
    c.produce_block();
 
    const auto& pfm = c.control->get_protocol_feature_manager();
-   const auto& d = pfm.get_builtin_digest( builtin_protocol_feature_t::evm_precompiles );
+   const auto& d = pfm.get_builtin_digest( builtin_protocol_feature_t::crypto_primitives );
    BOOST_REQUIRE( d );
 
    c.preactivate_protocol_features( {*d} );
    c.produce_block();
 
-   c.set_code( tester1_account, contracts::evm_precompiles_test_wasm() );
-   c.set_abi( tester1_account, contracts::evm_precompiles_test_abi().data() );
+   c.set_code( tester1_account, contracts::crypto_primitives_test_wasm() );
+   c.set_abi( tester1_account, contracts::crypto_primitives_test_abi().data() );
    c.produce_block();
 
    using test_keccak256 = std::tuple<std::string, std::string>;
@@ -600,14 +600,14 @@ BOOST_AUTO_TEST_CASE( sha3_test ) { try {
    c.produce_block();
 
    const auto& pfm = c.control->get_protocol_feature_manager();
-   const auto& d = pfm.get_builtin_digest( builtin_protocol_feature_t::evm_precompiles );
+   const auto& d = pfm.get_builtin_digest( builtin_protocol_feature_t::crypto_primitives );
    BOOST_REQUIRE( d );
 
    c.preactivate_protocol_features( {*d} );
    c.produce_block();
 
-   c.set_code( tester1_account, contracts::evm_precompiles_test_wasm() );
-   c.set_abi( tester1_account, contracts::evm_precompiles_test_abi().data() );
+   c.set_code( tester1_account, contracts::crypto_primitives_test_wasm() );
+   c.set_abi( tester1_account, contracts::crypto_primitives_test_abi().data() );
    c.produce_block();
 
    using test_sha3 = std::tuple<std::string, std::string>;
@@ -651,14 +651,14 @@ BOOST_AUTO_TEST_CASE( ecrecover_test ) { try {
    c.produce_block();
 
    const auto& pfm = c.control->get_protocol_feature_manager();
-   const auto& d = pfm.get_builtin_digest( builtin_protocol_feature_t::evm_precompiles );
+   const auto& d = pfm.get_builtin_digest( builtin_protocol_feature_t::crypto_primitives );
    BOOST_REQUIRE( d );
 
    c.preactivate_protocol_features( {*d} );
    c.produce_block();
 
-   c.set_code( tester1_account, contracts::evm_precompiles_test_wasm() );
-   c.set_abi( tester1_account, contracts::evm_precompiles_test_abi().data() );
+   c.set_code( tester1_account, contracts::crypto_primitives_test_wasm() );
+   c.set_abi( tester1_account, contracts::crypto_primitives_test_abi().data() );
    c.produce_block();
 
    using test_ecrecover = std::tuple<std::string, std::string, int32_t, std::string>;

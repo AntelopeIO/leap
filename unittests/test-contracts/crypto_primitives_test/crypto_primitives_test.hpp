@@ -2,16 +2,6 @@
 
 #include <eosio/eosio.hpp>
 
-// [[eosio::action]]
-// void testblock(uint32_t blocknum);
-// __attribute__((eosio_wasm_import))
-// uint32_t get_block_num(); 
-// [[eosio::action]]
-// void evm_precompiles_test::testblock(uint32_t blocknum) {
-//    uint32_t retBlock = eosio::internal_use_do_not_use::get_block_num();
-//    check( retBlock == blocknum , "result does not match");
-// }
-
 using bytes = std::vector<char>;
 
 namespace eosio {
@@ -58,7 +48,7 @@ namespace eosio {
    }
 }
 
-class [[eosio::contract]] evm_precompiles_test : public eosio::contract {
+class [[eosio::contract]] crypto_primitives_test : public eosio::contract {
 public:
    using eosio::contract::contract;
 

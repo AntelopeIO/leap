@@ -326,7 +326,7 @@ struct controller_impl {
       set_activation_handler<builtin_protocol_feature_t::blockchain_parameters>();
       set_activation_handler<builtin_protocol_feature_t::get_code_hash>();
       set_activation_handler<builtin_protocol_feature_t::get_block_num>();
-      set_activation_handler<builtin_protocol_feature_t::evm_precompiles>();
+      set_activation_handler<builtin_protocol_feature_t::crypto_primitives>();
 
       self.irreversible_block.connect([this](const block_state_ptr& bsp) {
          wasmif.current_lib(bsp->block_num);
@@ -3596,7 +3596,7 @@ void controller_impl::on_activation<builtin_protocol_feature_t::get_block_num>()
 }
 
 template<>
-void controller_impl::on_activation<builtin_protocol_feature_t::evm_precompiles>() {
+void controller_impl::on_activation<builtin_protocol_feature_t::crypto_primitives>() {
    db.modify( db.get<protocol_state_object>(), [&]( auto& ps ) {
       add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "alt_bn128_add" );
       add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "alt_bn128_mul" );
