@@ -69,6 +69,7 @@ class state_history_log {
    std::string             log_filename;
    std::string             index_filename;
    std::optional<uint32_t> prune_blocks;
+   bool                    prune_on_exit_if_small = true;
    fc::cfile               log;
    fc::cfile               index;
    uint32_t                _begin_block = 0;        //always tracks the first block available even after pruning
@@ -77,11 +78,12 @@ class state_history_log {
    chain::block_id_type    last_block_id;
 
  public:
-   state_history_log(const char* const name, std::string log_filename, std::string index_filename, const std::optional<uint32_t> prune_blocks)
+   state_history_log(const char* const name, std::string log_filename, std::string index_filename, const std::optional<uint32_t> prune_blocks, bool prune_on_exit_if_small = true)
        : name(name)
        , log_filename(std::move(log_filename))
        , index_filename(std::move(index_filename))
-       , prune_blocks(prune_blocks) {
+       , prune_blocks(prune_blocks)
+       , prune_on_exit_if_small(prune_on_exit_if_small) {
       open_log();
       open_index();
 
@@ -106,10 +108,22 @@ class state_history_log {
             fc::raw::pack(log, num_blocks_in_log);
          }
          else if(is_ship_log_pruned(first_header.magic) && !prune_blocks) {
-            //there is no turning off pruned log at the moment; ideally this should "vacuum" the log back to a non-pruned one
-            this->prune_blocks = UINT32_MAX;
+            vacuum();
          }
       }
+   }
+
+   ~state_history_log() {
+      //nothing to do if log is empty or we aren't pruning
+      if(_begin_block == _end_block)
+         return;
+      if(!prune_blocks)
+         return;
+
+      const size_t first_data_pos = get_pos(_begin_block);
+      const size_t last_data_pos = fc::file_size(log.get_file_path());
+      if(last_data_pos - first_data_pos < 1024*1024*1024 && prune_on_exit_if_small)
+         vacuum();
    }
 
    uint32_t begin_block() const { return _begin_block; }
@@ -403,6 +417,83 @@ class state_history_log {
       }
       log.seek_end(0);
       ilog("fork or replay: removed ${n} blocks from ${name}.log", ("n", num_removed)("name", name));
+   }
+
+   void vacuum() {
+      //a completely empty log should have nothing on disk; don't touch anything
+      if(_begin_block == _end_block)
+         return;
+
+      size_t copy_from_pos = get_pos(_begin_block) + sizeof(uint64_t); //skip first copied block's magic
+      //go ahead and clear the pruned flag from the log file. If we fail to completely vacuum well maybe recovery can sort out something
+      log.seek(0);
+      fc::raw::pack(log, ship_magic(ship_current_version));
+      size_t copy_to_pos = log.tellp();
+
+      //may happen if _begin_block is still first block on-disk of log. just erase 4 byte trailer
+      if(_begin_block == _index_begin_block) {
+         log.flush();
+         fc::resize_file(log.get_file_path(), fc::file_size(log.get_file_path()) - sizeof(uint32_t));
+         return;
+      }
+
+      ilog("Vacuuming pruned log ${n}", ("n", name));
+
+      const size_t offset_bytes = copy_from_pos - copy_to_pos;
+      const size_t offset_blocks = _begin_block - _index_begin_block;
+      log.seek_end(0);
+      size_t copy_sz = log.tellp() - copy_from_pos - sizeof(uint32_t); //don't copy trailer in to new unpruned log
+      const uint32_t num_blocks_in_log = _end_block - _begin_block;
+
+      std::vector<char> buff;
+      buff.resize(4*1024*1024);
+
+      auto tick = std::chrono::time_point_cast<std::chrono::seconds>(std::chrono::system_clock::now());
+      while(copy_sz) {
+         const size_t copy_this_round = std::min(buff.size(), copy_sz);
+         log.seek(copy_from_pos);
+         log.read(buff.data(), copy_this_round);
+         log.punch_hole(copy_from_pos, copy_from_pos+copy_this_round);
+         log.seek(copy_to_pos);
+         log.write(buff.data(), copy_this_round);
+
+         copy_from_pos += copy_this_round;
+         copy_to_pos += copy_this_round;
+         copy_sz -= copy_this_round;
+
+         const auto tock = std::chrono::time_point_cast<std::chrono::seconds>(std::chrono::system_clock::now());
+         if(tick != tock)
+            ilog("Vacuuming pruned log ${n}, ${b} bytes remaining", ("b", copy_sz)("n", name));
+         tick = tock;
+      }
+      log.flush();
+      fc::resize_file(log.get_file_path(), log.tellp());
+
+      index.flush();
+      {
+         struct wrap_cfile {
+            wrap_cfile(fc::cfile& f) : f(f) {}
+            boost::interprocess::mapping_handle_t get_mapping_handle() const {return {f.fileno(), false};};
+            fc::cfile& f;
+         } cfile_map_handle(index);
+         boost::interprocess::mapped_region index_mapped(cfile_map_handle, boost::interprocess::read_write);
+         uint64_t* index_ptr = (uint64_t*)index_mapped.get_address();
+
+         for(uint32_t new_block_num = 0; new_block_num < num_blocks_in_log; ++new_block_num) {
+            const uint64_t new_pos = index_ptr[new_block_num + offset_blocks] - offset_bytes;
+            index_ptr[new_block_num] = new_pos;
+
+            if(new_block_num + 1 != num_blocks_in_log)
+               log.seek(index_ptr[new_block_num + offset_blocks + 1] - offset_bytes - sizeof(uint64_t));
+            else
+               log.seek_end(-sizeof(uint64_t));
+            log.write((char*)&new_pos, sizeof(new_pos));
+         }
+      }
+      fc::resize_file(index.get_file_path(), num_blocks_in_log*sizeof(uint64_t));
+
+      _index_begin_block = _begin_block;
+      ilog("Vacuum of pruned log ${n} complete",("n", name));
    }
 }; // state_history_log
 
