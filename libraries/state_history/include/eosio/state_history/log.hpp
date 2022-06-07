@@ -472,12 +472,7 @@ class state_history_log {
 
       index.flush();
       {
-         struct wrap_cfile {
-            wrap_cfile(fc::cfile& f) : f(f) {}
-            boost::interprocess::mapping_handle_t get_mapping_handle() const {return {f.fileno(), false};};
-            fc::cfile& f;
-         } cfile_map_handle(index);
-         boost::interprocess::mapped_region index_mapped(cfile_map_handle, boost::interprocess::read_write);
+         boost::interprocess::mapped_region index_mapped(index, boost::interprocess::read_write);
          uint64_t* index_ptr = (uint64_t*)index_mapped.get_address();
 
          for(uint32_t new_block_num = 0; new_block_num < num_blocks_in_log; ++new_block_num) {
