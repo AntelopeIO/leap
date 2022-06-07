@@ -185,7 +185,7 @@ class state_history_log {
 
       fc::raw::pack(index, pos);
       if (_begin_block == _end_block)
-         _begin_block = block_num;
+         _index_begin_block = _begin_block = block_num;
       _end_block    = block_num + 1;
       last_block_id = header.block_id;
 
@@ -364,8 +364,9 @@ class state_history_log {
          log.seek(0);
          state_history_log_header first_entry_header;
          read_header(first_entry_header);
+         log.seek_end(0);
          if(is_ship_log_pruned(first_entry_header.magic))
-            log.seek_end(-sizeof(uint32_t));
+            log.skip(-sizeof(uint32_t));
 
          while(remaining--) {
             uint64_t pos = 0;
@@ -412,7 +413,7 @@ class state_history_log {
          uint64_t pos = get_pos(block_num);
          log.seek(0);
          boost::filesystem::resize_file(log_filename, pos);
-         boost::filesystem::resize_file(index_filename, (block_num - _begin_block) * sizeof(uint64_t));
+         boost::filesystem::resize_file(index_filename, (block_num - _index_begin_block) * sizeof(uint64_t));
          _end_block = block_num;
       }
       log.seek_end(0);
