@@ -42,7 +42,6 @@ namespace eosio { namespace chain {
             signed_block_ptr         head;
             block_id_type            head_id;
             fc::cfile                block_file;
-            size_t                   log_blk_size;
             fc::cfile                index_file;
             bool                     open_files = false;
             bool                     genesis_written_to_block_log = false;
@@ -229,10 +228,6 @@ namespace eosio { namespace chain {
       my->index_file.set_file_path( data_dir / "blocks.index" );
 
       my->reopen();
-
-      struct stat st;
-      if( fstat(my->block_file.fileno(), &st) == 0 )
-         my->log_blk_size = st.st_blksize;
 
       /* On startup of the block log, there are several states the log file and the index file can be
        * in relation to each other.
