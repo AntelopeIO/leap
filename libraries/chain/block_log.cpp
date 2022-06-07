@@ -494,6 +494,8 @@ namespace eosio { namespace chain {
 
       std::vector<char> buff;
       buff.resize(4*1024*1024);
+
+      auto tick = std::chrono::time_point_cast<std::chrono::seconds>(std::chrono::system_clock::now());
       while(copy_sz) {
          const size_t copy_this_round = std::min(buff.size(), copy_sz);
          block_file.seek(copy_from_pos);
@@ -504,12 +506,12 @@ namespace eosio { namespace chain {
 
          copy_from_pos += copy_this_round;
          copy_to_pos += copy_this_round;
-
-         const size_t old_copy_sz = copy_sz;
-         const uint64_t chat_every_mask = ~(16*1024*1024-1);
          copy_sz -= copy_this_round;
-         if((copy_sz&chat_every_mask) != (old_copy_sz&chat_every_mask))
-            ilog("Vacuuming pruned log, ${b} bytes remaining", ("b", copy_sz));
+
+         const auto tock = std::chrono::time_point_cast<std::chrono::seconds>(std::chrono::system_clock::now());
+         if(tick != tock)
+            ilog("Vacuuming pruned block log, ${b} bytes remaining", ("b", copy_sz));
+         tick = tock;
       }
       block_file.flush();
       fc::resize_file(block_file.get_file_path(), block_file.tellp());
