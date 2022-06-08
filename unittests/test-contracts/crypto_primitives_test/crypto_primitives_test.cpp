@@ -67,7 +67,7 @@ void crypto_primitives_test::testkeccak(const bytes& input, const bytes& expecte
 [[eosio::action]]
 void crypto_primitives_test::testecrec(const bytes& signature, const bytes& digest, int32_t expected_error, const bytes& expected_result) {
    bytes ret(65);
-   int32_t errorCode = eosio::internal_use_do_not_use::ecrecover(signature.data(), signature.size(), digest.data(), digest.size(), (char*)ret.data(), ret.size());
+   int32_t errorCode = eosio::internal_use_do_not_use::k1_recover(signature.data(), signature.size(), digest.data(), digest.size(), (char*)ret.data(), ret.size());
    check( errorCode == expected_error, "Error does not match");
    check( ret == expected_result, "Result does not match");
 }

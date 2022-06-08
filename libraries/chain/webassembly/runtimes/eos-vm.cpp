@@ -623,7 +623,7 @@ REGISTER_CF_HOST_FUNCTION( alt_bn128_pair );
 REGISTER_CF_HOST_FUNCTION( mod_exp );
 REGISTER_CF_HOST_FUNCTION( blake2_f );
 REGISTER_CF_HOST_FUNCTION( sha3 );
-REGISTER_CF_HOST_FUNCTION( ecrecover );
+REGISTER_CF_HOST_FUNCTION( k1_recover );
 
 } // namespace webassembly
 } // namespace chain

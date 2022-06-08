@@ -266,7 +266,7 @@ inline constexpr auto get_intrinsic_table() {
       "env.mod_exp",
       "env.sha3",
       "env.blake2_f",
-      "env.ecrecover",
+      "env.k1_recover",
       "env.get_block_num"
    );
 }

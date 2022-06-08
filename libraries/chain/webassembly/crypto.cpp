@@ -7,7 +7,7 @@
 #include <fc/crypto/modular_arithmetic.hpp>
 #include <fc/crypto/blake2.hpp>
 #include <fc/crypto/sha3.hpp>
-#include <fc/crypto/ecrecover.hpp>
+#include <fc/crypto/k1_recover.hpp>
 
 namespace eosio { namespace chain { namespace webassembly {
 
@@ -235,14 +235,14 @@ namespace eosio { namespace chain { namespace webassembly {
       std::memcpy( output.data(), res.data(), copy_size );
    }
 
-   int32_t interface::ecrecover( span<const char> signature, span<const char> digest, span<char> pub) const {
+   int32_t interface::k1_recover( span<const char> signature, span<const char> digest, span<char> pub) const {
       using error_code = eosio::chain::webassembly::error_codes::crypto;
 
       bytes bsignature(signature.data(), signature.data() + signature.size());
       bytes bdigest(digest.data(), digest.data() + digest.size());
 
-      auto maybe_err = fc::ecrecover(bsignature, bdigest);
-      if( std::holds_alternative<fc::ecrecover_error>(maybe_err)) {
+      auto maybe_err = fc::k1_recover(bsignature, bdigest);
+      if( std::holds_alternative<fc::k1_recover_error>(maybe_err)) {
          return error_code::fail;
       }
 

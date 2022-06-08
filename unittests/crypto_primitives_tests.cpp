@@ -643,7 +643,7 @@ BOOST_AUTO_TEST_CASE( sha3_test ) { try {
 
 } FC_LOG_AND_RETHROW() }
 
-BOOST_AUTO_TEST_CASE( ecrecover_test ) { try {
+BOOST_AUTO_TEST_CASE( k1_recover_test ) { try {
    tester c( setup_policy::preactivate_feature_and_new_bios );
 
    const auto& tester1_account = account_name("tester1");
@@ -661,8 +661,8 @@ BOOST_AUTO_TEST_CASE( ecrecover_test ) { try {
    c.set_abi( tester1_account, contracts::crypto_primitives_test_abi().data() );
    c.produce_block();
 
-   using test_ecrecover = std::tuple<std::string, std::string, int32_t, std::string>;
-   const std::vector<test_ecrecover> tests {
+   using test_k1_recover = std::tuple<std::string, std::string, int32_t, std::string>;
+   const std::vector<test_k1_recover> tests {
       //test
       {
          "1b174de755b55bd29026d626f7313a5560353dc5175f29c78d79d961b81a0c04360d833ca789bc16d4ee714a6d1a19461d890966e0ec5c074f67be67e631d33aa7",

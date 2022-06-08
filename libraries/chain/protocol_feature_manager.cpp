@@ -28,7 +28,7 @@ Pre-activated protocol features must be activated in the next block.
          } )
          (  builtin_protocol_feature_t::crypto_primitives, builtin_protocol_feature_spec{
             "CRYPTO_PRIMITIVES",
-            fc::variant("3ae8b6fe6a2ab4ed1337e8503c0d320edc3b7ded25acacb0cbd46c17122932f2").as<digest_type>(),
+            fc::variant("7d9d4e4365f803e5d5fd2e2bd792026b3995765b4a833f32f8c09d66bd94c705").as<digest_type>(),
             // SHA256 hash of the raw message below within the comment delimiters (do not modify message below).
 /*
 Builtin protocol feature: CRYPTO_PRIMITIVES
@@ -38,7 +38,7 @@ Adds new crypto host functions
 - Add, multiply, and pairing check functions for the alt_bn128 elliptic curve. (alt_bn128_add, alt_bn128_mul, alt_bn128_pair)
 - BLAKE2b F compression function (blake2_f)
 - sha3 hash function (with Keccak256 support)
-- ecrecover (safe ECDSA uncompressed pubkey recover)
+- k1_recover (safe ECDSA uncompressed pubkey recover for the secp256k1 curve)
 */
             {}
          } )

@@ -1783,7 +1783,7 @@ namespace webassembly {
           *
           * @return 1 if there was an error 0 otherwise.
          */
-         int32_t ecrecover( span<const char> signature, span<const char> digest, span<char> pub) const;
+         int32_t k1_recover( span<const char> signature, span<const char> digest, span<char> pub) const;
 
          // compiler builtins api
          void __ashlti3(legacy_ptr<int128_t>, uint64_t, uint64_t, uint32_t) const;

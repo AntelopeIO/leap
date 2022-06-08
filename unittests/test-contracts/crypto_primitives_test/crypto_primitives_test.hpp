@@ -41,7 +41,7 @@ namespace eosio {
                          char* output_data, uint32_t output_length, bool keccak);
 
       __attribute__((eosio_wasm_import))
-      int32_t ecrecover( const char* signature_data, uint32_t signature_length,
+      int32_t k1_recover( const char* signature_data, uint32_t signature_length,
                          const char* digest_data, uint32_t digest_length,
                          char* output_data, uint32_t output_length);
       }
