@@ -53,6 +53,7 @@ inline bool           is_ship_supported_version(uint64_t magic) { return get_shi
 static const uint16_t ship_current_version = 0;
 static const uint16_t ship_feature_pruned_log = 1;
 inline bool           is_ship_log_pruned(uint64_t magic) { return get_ship_features(magic) & ship_feature_pruned_log; }
+inline uint64_t       clear_ship_log_pruned_feature(uint64_t magic) { return ship_magic(get_ship_version(magic), get_ship_features(magic) & ~ship_feature_pruned_log); }
 
 struct state_history_log_header {
    uint64_t             magic        = ship_magic(ship_current_version);
@@ -248,6 +249,8 @@ class state_history_log {
    }
 
    void prune() {
+      if(!prune_blocks)
+         return;
       if(_end_block - _begin_block <= *prune_blocks)
          return;
 
@@ -415,6 +418,9 @@ class state_history_log {
          boost::filesystem::resize_file(log_filename, pos);
          boost::filesystem::resize_file(index_filename, (block_num - _index_begin_block) * sizeof(uint64_t));
          _end_block = block_num;
+         //this will leave the end of the log with the last block's suffix no matter if the log is operating in pruned
+         // mode or not. The assumption is truncate() is always immediately followed up with an append to the log thus
+         // restoring the prune trailer if required
       }
       log.seek_end(0);
       ilog("fork or replay: removed ${n} blocks from ${name}.log", ("n", num_removed)("name", name));
@@ -425,20 +431,26 @@ class state_history_log {
       if(_begin_block == _end_block)
          return;
 
-      size_t copy_from_pos = get_pos(_begin_block) + sizeof(uint64_t); //skip first copied block's magic
-      //go ahead and clear the pruned flag from the log file. If we fail to completely vacuum well maybe recovery can sort out something
       log.seek(0);
-      fc::raw::pack(log, ship_magic(ship_current_version));
-      size_t copy_to_pos = log.tellp();
+      uint64_t magic;
+      fc::raw::unpack(log, magic);
+      EOS_ASSERT(is_ship_log_pruned(magic), chain::plugin_exception, "vacuum can only be performed on pruned logs");
 
-      //may happen if _begin_block is still first block on-disk of log. just erase 4 byte trailer
+      //may happen if _begin_block is still first block on-disk of log. clear the pruned feature flag & erase
+      // the 4 byte trailer. The pruned flag is only set on the first header in the log, so it does not need
+      // to be touched up if we actually vacuum up any other blocks to the front.
       if(_begin_block == _index_begin_block) {
+         log.seek(0);
+         fc::raw::pack(log, clear_ship_log_pruned_feature(magic));
          log.flush();
          fc::resize_file(log.get_file_path(), fc::file_size(log.get_file_path()) - sizeof(uint32_t));
          return;
       }
 
       ilog("Vacuuming pruned log ${n}", ("n", name));
+
+      size_t copy_from_pos = get_pos(_begin_block);
+      size_t copy_to_pos = 0;
 
       const size_t offset_bytes = copy_from_pos - copy_to_pos;
       const size_t offset_blocks = _begin_block - _index_begin_block;
