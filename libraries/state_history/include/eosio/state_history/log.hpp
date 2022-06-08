@@ -177,7 +177,8 @@ class state_history_log {
       uint64_t pos = log.tellp();
       write_header(header);
       write_payload(log);
-      uint64_t end = log.tellp();
+      EOS_ASSERT(log.tellp() == pos + state_history_log_header_serial_size + header.payload_size, chain::plugin_exception,
+                 "wrote payload with incorrect size to ${name}.log", ("name", name));
       fc::raw::pack(log, pos);
 
       fc::raw::pack(index, pos);
@@ -193,7 +194,7 @@ class state_history_log {
             bother_every = 4096;
 
          const uint64_t mask = ~(bother_every-1);
-         if((pos&mask) != (end&mask))
+         if((pos&mask) != (log.tellp()&mask))
             prune();
 
          const uint32_t num_blocks_in_log = _end_block - _begin_block;
@@ -462,7 +463,7 @@ class state_history_log {
          const size_t copy_this_round = std::min(buff.size(), copy_sz);
          log.seek(copy_from_pos);
          log.read(buff.data(), copy_this_round);
-         log.punch_hole(copy_from_pos, copy_from_pos+copy_this_round);
+         log.punch_hole(copy_to_pos, copy_from_pos+copy_this_round);
          log.seek(copy_to_pos);
          log.write(buff.data(), copy_this_round);
 
