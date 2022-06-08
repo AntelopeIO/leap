@@ -33,10 +33,6 @@ namespace eosio {
  * The end of the log has a 4 byte value that indicates guaranteed number of blocks the log has at its
  *  end (this can be used to reconstruct an index of the log from the end even when there is a hole in
  *  the middle of the log)
- *
- * In theory it should be possible to transition from a pruned log back to a standard log fairly easily. This
- *  is why only the version in the first block of the file is marked with a different value. But this functionality
- *  is not implemented yet.
  */
 
 inline uint64_t       ship_magic(uint16_t version, uint16_t features = 0) {
