@@ -49,6 +49,10 @@ namespace eosio { namespace chain {
             uint32_t                 first_block_num = 0;       //the first number available to read
             uint32_t                 index_first_block_num = 0; //the first number in index & the log had it not been pruned
             std::optional<uint32_t>  prune_blocks;
+            bool vacuum_on_exit_if_small = true;
+
+            block_log_impl(std::optional<uint32_t> prune_blocks, bool vacuum_on_exit_if_small) :
+              prune_blocks(prune_blocks), vacuum_on_exit_if_small(vacuum_on_exit_if_small) {}
 
             inline void check_open_files() {
                if( !open_files ) {
@@ -57,19 +61,23 @@ namespace eosio { namespace chain {
             }
             void reopen();
 
-            void close() {
+            //close() is called all over the place. Let's make this an explict call to ensure it only is called when
+            // we really want: when someone is destroying the blog instance
+            void try_exit_vacuum() {
                //for a pruned log that has at least one block, see if we should vacuum it
                //pruned_blocks == UINT32_MAX is kind of a hint to "please don't prune, but keep it a pruned log"
-               if( block_file.is_open() && index_file.is_open() && head && prune_blocks && *prune_blocks != UINT32_MAX) {
+               if( block_file.is_open() && index_file.is_open() && head && prune_blocks) {
                   const size_t first_data_pos = get_block_pos(first_block_num);
                   block_file.seek_end(-sizeof(uint32_t));
                   const size_t last_data_pos = block_file.tellp();
-                  if(last_data_pos - first_data_pos < 1024*1024*1024) {
+                  if(last_data_pos - first_data_pos < 1024*1024*1024 && vacuum_on_exit_if_small) {
                      ilog("Vacuuming pruned block log");
                      vacuum();
                   }
                }
+            }
 
+            void close() {
                if( block_file.is_open() )
                   block_file.close();
                if( index_file.is_open() )
@@ -200,9 +208,8 @@ namespace eosio { namespace chain {
       };
    }
 
-   block_log::block_log(const fc::path& data_dir, std::optional<uint32_t> prune_blocks)
-   :my(new detail::block_log_impl()) {
-      my->prune_blocks = prune_blocks;
+   block_log::block_log(const fc::path& data_dir, std::optional<uint32_t> prune_blocks, bool vacuum_on_exit_if_small)
+   :my(new detail::block_log_impl(prune_blocks, vacuum_on_exit_if_small)) {
       open(data_dir);
    }
 
@@ -213,6 +220,7 @@ namespace eosio { namespace chain {
    block_log::~block_log() {
       if (my) {
          flush();
+         my->try_exit_vacuum();
          my->close();
          my.reset();
       }
@@ -389,10 +397,10 @@ namespace eosio { namespace chain {
       if(!head)
          return;
       const uint32_t head_num = chain::block_header::num_from_id(head_id);
-      if(head_num - first_block_num <= *prune_blocks)
+      if(head_num - first_block_num < *prune_blocks)
          return;
 
-      const uint32_t prune_to_num = head_num - *prune_blocks;
+      const uint32_t prune_to_num = head_num - *prune_blocks + 1;
 
       static_assert( block_log::max_supported_version == 3, "Code was written to support version 3 format, need to update this code for latest format." );
       const genesis_state gs;
@@ -561,11 +569,9 @@ namespace eosio { namespace chain {
       } else {
          head.reset();
          head_id = {};
+         if(prune_blocks)
+            fc::raw::pack(block_file, (uint32_t)0);
       }
-
-      uint32_t numblocks = !!head;
-      if(prune_blocks)
-         fc::raw::pack(block_file, numblocks);
 
       auto pos = block_file.tellp();
 

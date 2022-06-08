@@ -38,7 +38,7 @@ namespace eosio { namespace chain {
 
    class block_log {
       public:
-         block_log(const fc::path& data_dir, std::optional<uint32_t> prune_blocks);
+         block_log(const fc::path& data_dir, std::optional<uint32_t> prune_blocks, bool vacuum_on_exit_if_small = true);
          block_log(block_log&& other);
          ~block_log();
 
