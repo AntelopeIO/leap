@@ -102,8 +102,8 @@ struct txn_test_gen_plugin_impl {
    name                                                 newaccountA;
    name                                                 newaccountB;
    name                                                 newaccountT;
-   fc::microseconds                                     trx_expiration;
-   bool                                                 stop_on_trx_failed;
+   fc::microseconds                                     trx_expiration{3600};
+   bool                                                 stop_on_trx_failed{true};
 
    void push_next_transaction(const std::shared_ptr<std::vector<signed_transaction>>& trxs, const std::function<void(const fc::exception_ptr&)>& next ) {
       chain_plugin& cp = app().get_plugin<chain_plugin>();
