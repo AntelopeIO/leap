@@ -59,14 +59,18 @@ struct state_history_log_header {
 static const int state_history_log_header_serial_size = sizeof(state_history_log_header::magic) +
                                                         sizeof(state_history_log_header::block_id) +
                                                         sizeof(state_history_log_header::payload_size);
+struct state_history_log_prune_config {
+   uint32_t                prune_blocks;                  //number of blocks to prune to when doing a prune
+   size_t                  prune_threshold = 4*1024*1024; //(approximately) how many bytes need to be added before a prune is performed
+   std::optional<size_t>   vacuum_on_close;               //when set, a vacuum is performed on dtor if log contains less than this many bytes
+};
 
 class state_history_log {
  private:
    const char* const       name = "";
    std::string             log_filename;
    std::string             index_filename;
-   std::optional<uint32_t> prune_blocks;
-   bool                    prune_on_exit_if_small = true;
+   std::optional<state_history_log_prune_config> prune_config; //is set, log is in pruned mode
    fc::cfile               log;
    fc::cfile               index;
    uint32_t                _begin_block = 0;        //always tracks the first block available even after pruning
@@ -75,12 +79,12 @@ class state_history_log {
    chain::block_id_type    last_block_id;
 
  public:
-   state_history_log(const char* const name, std::string log_filename, std::string index_filename, const std::optional<uint32_t> prune_blocks, bool prune_on_exit_if_small = true)
+   state_history_log(const char* const name, std::string log_filename, std::string index_filename,
+                     std::optional<state_history_log_prune_config> prune_config = std::optional<state_history_log_prune_config>())
        : name(name)
        , log_filename(std::move(log_filename))
        , index_filename(std::move(index_filename))
-       , prune_blocks(prune_blocks)
-       , prune_on_exit_if_small(prune_on_exit_if_small) {
+       , prune_config(prune_config) {
       open_log();
       open_index();
 
@@ -90,7 +94,14 @@ class state_history_log {
          log.seek(0);
          read_header(first_header);
 
-         if((is_ship_log_pruned(first_header.magic) == false) && prune_blocks) {
+         if(prune_config) {
+            EOS_ASSERT(prune_config->prune_blocks, chain::plugin_exception, "state history log prune configuration requires at least one block");
+            EOS_ASSERT(__builtin_popcount(prune_config->prune_threshold) == 1, chain::plugin_exception, "state history prune threshold must be power of 2");
+            //switch this over to the mask that will be used
+            prune_config->prune_threshold--;
+         }
+
+         if((is_ship_log_pruned(first_header.magic) == false) && prune_config) {
             //need to convert non-pruned to pruned; first prune any ranges we can (might be none)
             prune();
 
@@ -104,7 +115,7 @@ class state_history_log {
             const uint32_t num_blocks_in_log = _end_block - _begin_block;
             fc::raw::pack(log, num_blocks_in_log);
          }
-         else if(is_ship_log_pruned(first_header.magic) && !prune_blocks) {
+         else if(is_ship_log_pruned(first_header.magic) && !prune_config) {
             vacuum();
          }
       }
@@ -114,12 +125,12 @@ class state_history_log {
       //nothing to do if log is empty or we aren't pruning
       if(_begin_block == _end_block)
          return;
-      if(!prune_blocks)
+      if(!prune_config || !prune_config->vacuum_on_close)
          return;
 
       const size_t first_data_pos = get_pos(_begin_block);
       const size_t last_data_pos = fc::file_size(log.get_file_path());
-      if(last_data_pos - first_data_pos < 1024*1024*1024 && prune_on_exit_if_small)
+      if(last_data_pos - first_data_pos < *prune_config->vacuum_on_close)
          vacuum();
    }
 
@@ -165,13 +176,13 @@ class state_history_log {
 
       if (block_num < _end_block)
          truncate(block_num); //truncate is expected to always leave file pointer at the end
-      else if (!prune_blocks)
+      else if (!prune_config)
          log.seek_end(0);
-      else if (prune_blocks && _begin_block != _end_block)
+      else if (prune_config && _begin_block != _end_block)
          log.seek_end(-sizeof(uint32_t));  //overwrite the trailing block count marker on this write
 
       //if we're operating on a pruned block log and this is the first entry in the log, make note of the feature in the header
-      if(prune_blocks && _begin_block == _end_block)
+      if(prune_config && _begin_block == _end_block)
          header.magic = ship_magic(get_ship_version(header.magic), ship_feature_pruned_log);
 
       uint64_t pos = log.tellp();
@@ -187,14 +198,8 @@ class state_history_log {
       _end_block    = block_num + 1;
       last_block_id = header.block_id;
 
-      if(prune_blocks) {
-         //only bother to try pruning every 4MB written. except for when the config is set very low (mainly for unit test purposes)
-         uint64_t bother_every = 4*1024*1024;
-         if(*prune_blocks < 16)
-            bother_every = 4096;
-
-         const uint64_t mask = ~(bother_every-1);
-         if((pos&mask) != (log.tellp()&mask))
+      if(prune_config) {
+         if((pos&prune_config->prune_threshold) != (log.tellp()&prune_config->prune_threshold))
             prune();
 
          const uint32_t num_blocks_in_log = _end_block - _begin_block;
@@ -246,12 +251,12 @@ class state_history_log {
    }
 
    void prune() {
-      if(!prune_blocks)
+      if(!prune_config)
          return;
-      if(_end_block - _begin_block <= *prune_blocks)
+      if(_end_block - _begin_block <= prune_config->prune_blocks)
          return;
 
-      const uint32_t prune_to_num = _end_block - *prune_blocks;
+      const uint32_t prune_to_num = _end_block - prune_config->prune_blocks;
       uint64_t prune_to_pos = get_pos(prune_to_num);
 
       log.punch_hole(state_history_log_header_serial_size, prune_to_pos);

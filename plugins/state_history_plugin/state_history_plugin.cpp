@@ -493,18 +493,21 @@ void state_history_plugin::plugin_initialize(const variables_map& options) {
          my->trace_debug_mode = true;
       }
 
-      std::optional<uint32_t> block_limit;
+      std::optional<state_history_log_prune_config> ship_log_prune_conf;
       if (options.count("state-history-log-prune-blocks")) {
-         block_limit = options.at("state-history-log-prune-blocks").as<uint32_t>();
-         EOS_ASSERT(block_limit >= 1000, plugin_exception, "state-history-log-prune-blocks must be 1000 blocks or greater");
+         ship_log_prune_conf.emplace();
+         ship_log_prune_conf->prune_blocks = options.at("state-history-log-prune-blocks").as<uint32_t>();
+         //the arbitrary limit of 1000 here is mainly so that there is enough buffer for newly applied forks to be delivered to clients
+         // before getting pruned out. ideally pruning would have been smart enough to know not to prune reversible blocks
+         EOS_ASSERT(ship_log_prune_conf->prune_blocks >= 1000, plugin_exception, "state-history-log-prune-blocks must be 1000 blocks or greater");
       }
 
       if (options.at("trace-history").as<bool>())
          my->trace_log.emplace("trace_history", (state_history_dir / "trace_history.log").string(),
-                               (state_history_dir / "trace_history.index").string(), block_limit);
+                               (state_history_dir / "trace_history.index").string(), ship_log_prune_conf);
       if (options.at("chain-state-history").as<bool>())
          my->chain_state_log.emplace("chain_state_history", (state_history_dir / "chain_state_history.log").string(),
-                                     (state_history_dir / "chain_state_history.index").string(), block_limit);
+                                     (state_history_dir / "chain_state_history.index").string(), ship_log_prune_conf);
    }
    FC_LOG_AND_RETHROW()
 } // state_history_plugin::plugin_initialize
