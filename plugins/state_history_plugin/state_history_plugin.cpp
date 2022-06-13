@@ -142,7 +142,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
                    fc::datastream<const char*> ds(d, s);
                    state_request               req;
                    fc::raw::unpack(ds, req);
-                   std::visit(*self, req);
+                   app().post(priority::medium, [self, req = std::move(req)]() mutable { std::visit(*self, req); });
                    self->start_read();
                 });
              });
@@ -220,13 +220,16 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
          need_to_send_update = true;
          if (!send_queue.empty() || !current_request || !current_request->max_messages_in_flight)
             return;
+
          auto& chain              = plugin->chain_plug->chain();
          result.last_irreversible = {chain.last_irreversible_block_num(), chain.last_irreversible_block_id()};
          uint32_t current =
              current_request->irreversible_only ? result.last_irreversible.block_num : result.head.block_num;
+
          if (current_request->start_block_num <= current &&
              current_request->start_block_num < current_request->end_block_num) {
             auto block_id = plugin->get_block_id(current_request->start_block_num);
+
             if (block_id) {
                result.this_block  = block_position{current_request->start_block_num, *block_id};
                auto prev_block_id = plugin->get_block_id(current_request->start_block_num - 1);
