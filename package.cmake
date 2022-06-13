@@ -10,6 +10,18 @@ endif()
 
 set(CPACK_PACKAGE_VERSION "${VERSION_FULL}")
 set(CPACK_PACKAGE_FILE_NAME "${CMAKE_PROJECT_NAME}-${VERSION_FULL}")
+if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.9")
+   #if we're doing the build on Ubuntu or RHELish, add the platform version in to the package name
+   file(READ /etc/os-release OS_RELEASE LIMIT 4096)
+   if(OS_RELEASE MATCHES "\n?ID=\"?ubuntu" AND OS_RELEASE MATCHES "\n?VERSION_ID=\"?([0-9.]+)")
+      string(APPEND CPACK_PACKAGE_FILE_NAME "-ubuntu${CMAKE_MATCH_1}")
+   elseif(OS_RELEASE MATCHES "\n?ID=\"?rhel" AND OS_RELEASE MATCHES "\n?VERSION_ID=\"?([0-9]+)")
+	   string(APPEND CPACK_PACKAGE_FILE_NAME "-el${CMAKE_MATCH_1}")
+   elseif(OS_RELEASE MATCHES "\n?ID_LIKE=\"?([a-zA-Z0-9 ]*)" AND CMAKE_MATCH_1 MATCHES "rhel" AND OS_RELEASE MATCHES "\n?VERSION_ID=\"?([0-9]+)")
+      string(APPEND CPACK_PACKAGE_FILE_NAME "-el${CMAKE_MATCH_1}")
+   endif()
+endif()
+string(APPEND CPACK_PACKAGE_FILE_NAME "-${CMAKE_SYSTEM_PROCESSOR}")
 
 set(CPACK_PACKAGE_CONTACT "EOS Network Foundation")
 set(CPACK_PACKAGE_VENDOR "EOS Network Foundation")
