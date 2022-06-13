@@ -56,7 +56,7 @@ namespace eosio { namespace chain {
                   EOS_ASSERT(prune_config->prune_blocks, block_log_exception, "block log prune configuration requires at least one block");
                   EOS_ASSERT(__builtin_popcount(prune_config->prune_threshold) == 1, block_log_exception, "block log prune threshold must be power of 2");
                   //switch this over to the mask that will be used
-                  prune_config->prune_threshold--;
+                  prune_config->prune_threshold = ~(prune_config->prune_threshold-1);
                }
             }
 
