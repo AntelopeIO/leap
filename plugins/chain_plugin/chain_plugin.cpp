@@ -307,9 +307,6 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
           "In \"locked\" mode database is preloaded, locked in to memory, and will use huge pages if available.\n"
 #endif
          )
-#ifdef __linux__
-         ("database-hugepage-path", bpo::value<vector<string>>()->composing(), "Optional path for database hugepages when in \"locked\" mode (may specify multiple times)")
-#endif
 
 #ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
          ("eos-vm-oc-cache-size-mb", bpo::value<uint64_t>()->default_value(eosvmoc::config().cache_size / (1024u*1024u)), "Maximum size (in MiB) of the EOS VM OC code cache")
@@ -2644,13 +2641,13 @@ read_only::get_required_keys_result read_only::get_required_keys( const get_requ
    result.required_keys = required_keys_set;
    return result;
 }
-void read_only::compute_transaction(const fc::variant_object& params, next_function<compute_transaction_results> next) const {
+void read_only::compute_transaction(const compute_transaction_params& params, next_function<compute_transaction_results> next) const {
 
     try {
         auto pretty_input = std::make_shared<packed_transaction>();
         auto resolver = make_resolver(db, abi_serializer::create_yield_function( abi_serializer_max_time ));
         try {
-            abi_serializer::from_variant(params, *pretty_input, resolver, abi_serializer::create_yield_function( abi_serializer_max_time ));
+            abi_serializer::from_variant(params.transaction, *pretty_input, resolver, abi_serializer::create_yield_function( abi_serializer_max_time ));
         } EOS_RETHROW_EXCEPTIONS(chain::packed_transaction_type_exception, "Invalid packed transaction")
 
         app().get_method<incoming::methods::transaction_async>()(pretty_input, false, true, true,

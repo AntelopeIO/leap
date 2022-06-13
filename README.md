@@ -47,10 +47,6 @@ cmake -DCMAKE_BUILD_TYPE=Release ..
 make -j $(nproc)
 ```
 
-`make install` isn't supported unless:
-* You used cmake's `-DCMAKE_INSTALL_PREFIX=....` option, or
-* You're building a docker image
-
 We support the following CMake options:
 ```
 -DCMAKE_CXX_COMPILER_LAUNCHER=ccache    Speed up builds
@@ -82,3 +78,13 @@ ctest -L "nonparallelizable_tests"
 # These tests can't run in parallel. They also take a long time to run.
 ctest -L "long_running_tests"
 ```
+
+### Building Pinned Build Binary Packages
+In the directory `<mandel src>/scripts` you will find the two scripts `install_deps.sh` and `pinned_build.sh`.  These are designed currently to run on Ubuntu 18/20/22.
+
+If you haven't installed build dependencies then run `install_deps.sh`.
+Then run `pinned_build.sh <dependencies directory> <mandel build directory> <number of jobs>`.
+
+The dependencies directory is where the script will pull the C++ dependencies that need to be built with the pinned compiler for building the pinned binaries for binary packaging.
+
+The binary package will be produced in the mandel build directory that was supplied.

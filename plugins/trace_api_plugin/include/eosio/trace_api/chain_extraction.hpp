@@ -85,7 +85,7 @@ private:
          using transaction_trace_t = transaction_trace_v3;
          auto bt = create_block_trace( block_state );
 
-         std::vector<transaction_trace_t>& traces = std::get<std::vector<transaction_trace_t>>(bt.transactions);
+         std::vector<transaction_trace_t> traces;
          traces.reserve( block_state->block->transactions.size() + 1 );
          block_trxs_entry tt;
          tt.ids.reserve(block_state->block->transactions.size() + 1);
@@ -104,6 +104,7 @@ private:
             }
             tt.ids.emplace_back(id);
          }
+         bt.transactions = std::move( traces );
          clear_caches();
 
          // tt entry acts as a placeholder in a trx id slice if this block has no transaction

@@ -52,7 +52,7 @@ jobs:
           ${DOCKER} bash -c "cd build && make -j $(nproc)"
           echo =====
           mkdir install
-          ${DOCKER_ROOT} bash -c "cd build && DESTDIR=${GITHUB_WORKSPACE}/installed make -j $(nproc) install"
+          ${DOCKER_ROOT} bash -c "cd build && DESTDIR=${GITHUB_WORKSPACE}/installed make -j $(nproc) dev-install"
           echo =====
           ls -la ${GITHUB_WORKSPACE}
           echo =====
