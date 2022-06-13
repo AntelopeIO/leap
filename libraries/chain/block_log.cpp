@@ -108,7 +108,7 @@ namespace eosio { namespace chain {
             static std::optional<ChainContext> extract_chain_context( const fc::path& data_dir, Lambda&& lambda );
       };
 
-      constexpr uint32_t pruned_version_flag = 1<<16;
+      constexpr uint32_t pruned_version_flag = 1<<31;
 
       static bool is_pruned_log_and_mask_version(uint32_t& version) {
          bool ret = version & pruned_version_flag;
@@ -433,11 +433,10 @@ namespace eosio { namespace chain {
       block_file.seek(0);
       fc::raw::unpack(block_file, old_version);
       fc::raw::unpack(block_file, old_first_block_num);
-      is_pruned_log_and_mask_version(old_version);
+      EOS_ASSERT(is_pruned_log_and_mask_version(old_version), block_log_exception, "Trying to vacuumed a non-pruned block log");
 
-      //we'll always write a v3 log, but need to possibly mutate the genesis_state to a chainid
-      if(first_block_num == 1) {
-         EOS_ASSERT(old_first_block_num == 1, block_log_exception, "expected an old first blocknum of 1");
+      if(block_log::contains_genesis_state(old_version, old_first_block_num)) {
+         //we'll always write a v3 log, but need to possibly mutate the genesis_state to a chainid should we have pruned a log starting with a genesis_state
          genesis_state gs;
          auto ds = block_file.create_datastream();
          fc::raw::unpack(ds, gs);
@@ -445,19 +444,12 @@ namespace eosio { namespace chain {
          block_file.seek(0);
          fc::raw::pack(block_file, block_log::max_supported_version);
          fc::raw::pack(block_file, first_block_num);
-         fc::raw::pack(block_file, gs);
-         fc::raw::pack(block_file, totem);
-      }
-      else if(block_log::contains_genesis_state(old_version, old_first_block_num)) {
-         //read in the genesis state and convert it to chainid before writing out
-         genesis_state gs;
-         auto ds = block_file.create_datastream();
-         fc::raw::unpack(ds, gs);
-
-         block_file.seek(0);
-         fc::raw::pack(block_file, block_log::max_supported_version);
-         fc::raw::pack(block_file, first_block_num);
-         fc::raw::pack(block_file, gs.compute_chain_id());
+         if(first_block_num == 1) {
+            EOS_ASSERT(old_first_block_num == 1, block_log_exception, "expected an old first blocknum of 1");
+            fc::raw::pack(block_file, gs);
+         }
+         else
+            fc::raw::pack(block_file, gs.compute_chain_id());
          fc::raw::pack(block_file, totem);
       }
       else {
@@ -484,14 +476,17 @@ namespace eosio { namespace chain {
       prune_blocks.reset();
 
       //if there is no head block though, bail now, otherwise first_block_num won't actually be available
-      // and it'll mess this all up
-      if(!head)
+      // and it'll mess this all up. Be sure to still remove the 4 byte trailer though.
+      if(!head) {
+         block_file.flush();
+         fc::resize_file(block_file.get_file_path(), fc::file_size(block_file.get_file_path()) - sizeof(uint32_t));
          return;
+      }
 
       size_t copy_from_pos = get_block_pos(first_block_num);
       block_file.seek_end(-sizeof(uint32_t));
       size_t copy_sz = block_file.tellp() - copy_from_pos;
-      uint32_t num_blocks_in_log = chain::block_header::num_from_id(head_id) - first_block_num + 1;
+      const uint32_t num_blocks_in_log = chain::block_header::num_from_id(head_id) - first_block_num + 1;
 
       const size_t offset_bytes = copy_from_pos - copy_to_pos;
       const size_t offset_blocks = first_block_num - index_first_block_num;
@@ -504,7 +499,7 @@ namespace eosio { namespace chain {
          const size_t copy_this_round = std::min(buff.size(), copy_sz);
          block_file.seek(copy_from_pos);
          block_file.read(buff.data(), copy_this_round);
-         block_file.punch_hole(copy_from_pos, copy_from_pos+copy_this_round);
+         block_file.punch_hole(copy_to_pos, copy_from_pos+copy_this_round);
          block_file.seek(copy_to_pos);
          block_file.write(buff.data(), copy_this_round);
 
@@ -513,9 +508,10 @@ namespace eosio { namespace chain {
          copy_sz -= copy_this_round;
 
          const auto tock = std::chrono::time_point_cast<std::chrono::seconds>(std::chrono::system_clock::now());
-         if(tick != tock)
+         if(tick < tock - std::chrono::seconds(5)) {
             ilog("Vacuuming pruned block log, ${b} bytes remaining", ("b", copy_sz));
-         tick = tock;
+            tick = tock;
+         }
       }
       block_file.flush();
       fc::resize_file(block_file.get_file_path(), block_file.tellp());
@@ -680,7 +676,7 @@ namespace eosio { namespace chain {
       my->block_file.seek(0);
       uint32_t current_version;
       fc::raw::unpack(my->block_file, current_version);
-      bool is_currently_pruned = detail::is_pruned_log_and_mask_version(current_version);
+      const bool is_currently_pruned = detail::is_pruned_log_and_mask_version(current_version);
 
       my->block_file.seek_end(-sizeof(pos));
       if(is_currently_pruned)
@@ -1019,7 +1015,7 @@ namespace eosio { namespace chain {
       _version = 0;
       auto size = fread((char*)&_version, sizeof(_version), 1, _file.get());
       EOS_ASSERT( size == 1, block_log_exception, "Block log file at '${blocks_log}' could not be read.", ("file", _block_file_name) );
-      bool is_prune_log = is_pruned_log_and_mask_version(_version);
+      const bool is_prune_log = is_pruned_log_and_mask_version(_version);
       EOS_ASSERT( block_log::is_supported_version(_version), block_log_unsupported_version,
                   "block log version ${v} is not supported", ("v", _version));
       if (_version == 1) {
@@ -1033,8 +1029,8 @@ namespace eosio { namespace chain {
       auto status = fseek(_file.get(), 0, SEEK_END);
       EOS_ASSERT( status == 0, block_log_exception, "Could not open Block log file at '${blocks_log}'. Returned status: ${status}", ("blocks_log", _block_file_name)("status", status) );
 
-      auto _eof_position_in_file = ftell(_file.get());
-      EOS_ASSERT( _eof_position_in_file > 0, block_log_exception, "Block log file at '${blocks_log}' could not be read.", ("blocks_log", _block_file_name) );
+      auto eof_position_in_file = ftell(_file.get());
+      EOS_ASSERT( eof_position_in_file > 0, block_log_exception, "Block log file at '${blocks_log}' could not be read.", ("blocks_log", _block_file_name) );
 
       if(is_prune_log) {
          fseek(_file.get(), -sizeof(uint32_t), SEEK_CUR);
@@ -1042,10 +1038,10 @@ namespace eosio { namespace chain {
          size = fread((char*)&prune_count, sizeof(prune_count), 1, _file.get());
          EOS_ASSERT( size == 1, block_log_exception, "Block log file at '${blocks_log}' not formatted consistently with pruned version ${v}.", ("file", _block_file_name)("v", _version) );
          _prune_block_limit = prune_count;
-         _eof_position_in_file -= sizeof(prune_count);
+         eof_position_in_file -= sizeof(prune_count);
       }
 
-      _current_position_in_file = _eof_position_in_file - _position_size;
+      _current_position_in_file = eof_position_in_file - _position_size;
 
       update_buffer();
 

@@ -471,4 +471,56 @@ BOOST_DATA_TEST_CASE(non_prune_to_prune_nongenesis, bdata::xrange(2) * bdata::xr
 
 } FC_LOG_AND_RETHROW() }
 
+BOOST_DATA_TEST_CASE(empty_nonprune_to_prune_transitions, bdata::xrange(2) * bdata::xrange(1, 11, 9), remove_index_on_reopen, starting_block)  { try {
+   //start non pruned
+   block_log_fixture t(false, true, remove_index_on_reopen, false, std::optional<uint32_t>());
+   t.startup(starting_block);
+
+   //pruned mode..
+   t.prune_blocks = 5;
+   t.check_n_bounce([&]() {});
+   if(starting_block == 1) {
+      t.check_range_present(1, 1);
+      t.check_not_present(2);
+   }
+   else
+      t.check_not_present(starting_block);
+
+   //vacuum back to non-pruned
+   t.prune_blocks.reset();
+   t.check_n_bounce([&]() {});
+   if(starting_block == 1) {
+      t.check_range_present(1, 1);
+      t.check_not_present(2);
+   }
+   else
+      t.check_not_present(starting_block);
+}  FC_LOG_AND_RETHROW() }
+
+BOOST_DATA_TEST_CASE(empty_prune_to_nonprune_transitions, bdata::xrange(2) * bdata::xrange(1, 11, 9), remove_index_on_reopen, starting_block)  { try {
+   //start pruned
+   block_log_fixture t(false, true, remove_index_on_reopen, false, 5);
+   t.startup(starting_block);
+
+   //vacuum back to non-pruned
+   t.prune_blocks.reset();
+   t.check_n_bounce([&]() {});
+   if(starting_block == 1) {
+      t.check_range_present(1, 1);
+      t.check_not_present(2);
+   }
+   else
+      t.check_not_present(starting_block);
+
+   //and back to pruned
+   t.prune_blocks = 5;
+   t.check_n_bounce([&]() {});
+   if(starting_block == 1) {
+      t.check_range_present(1, 1);
+      t.check_not_present(2);
+   }
+   else
+      t.check_not_present(starting_block);
+}  FC_LOG_AND_RETHROW() }
+
 BOOST_AUTO_TEST_SUITE_END()
