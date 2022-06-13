@@ -51,7 +51,7 @@ struct blocklog {
    bool                             vacuum = false;
    bool                             help = false;
 
-   std::optional<uint32_t>          keep_pruned;
+   std::optional<block_log_prune_config> blog_keep_prune_conf;
 };
 
 struct report_time {
@@ -70,14 +70,14 @@ struct report_time {
 };
 
 void blocklog::do_vacuum() {
-   EOS_ASSERT( keep_pruned, block_log_exception, "blocks.log is not a pruned log; nothing to vacuum" );
-   block_log blocks(blocks_dir, std::optional<uint32_t>());
+   EOS_ASSERT( blog_keep_prune_conf, block_log_exception, "blocks.log is not a pruned log; nothing to vacuum" );
+   block_log blocks(blocks_dir, std::optional<block_log_prune_config>()); //passing an unset block_log_prune_config turns off pruning this performs a vacuum
    ilog("Successfully vacuumed block log");
 }
 
 void blocklog::read_log() {
    report_time rt("reading log");
-   block_log block_logger(blocks_dir, keep_pruned);
+   block_log block_logger(blocks_dir, blog_keep_prune_conf);
    const auto end = block_logger.read_head();
    EOS_ASSERT( end, block_log_exception, "No blocks found in block log" );
    EOS_ASSERT( end->block_num() > 1, block_log_exception, "Only one block found in block log" );
@@ -218,10 +218,12 @@ void blocklog::initialize(const variables_map& options) {
             output_file = bld;
       }
 
-      //if the log is pruned, keep it that way by passing the ctor a large trim value. otherwise the ctor
-      // will perform a prune even if the user hadn't asked for one here
-      if(block_log::is_pruned_log(blocks_dir))
-         keep_pruned = UINT32_MAX;
+      //if the log is pruned, keep it that way by passing in a config with a large block pruning value. There is otherwise no
+      // way to tell block_log "keep the current non/pruneness of the log"
+      if(block_log::is_pruned_log(blocks_dir)) {
+         blog_keep_prune_conf.emplace();
+         blog_keep_prune_conf->prune_blocks = UINT32_MAX;
+      }
    } FC_LOG_AND_RETHROW()
 
 }
