@@ -867,8 +867,9 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
       upgrade_from_reversible_to_fork_db( my.get() );
 
       if(options.count( "block-log-prune-blocks" )) {
-         my->chain_config->block_prune_count = options.at( "block-log-prune-blocks" ).as<uint32_t>();
-         EOS_ASSERT(*my->chain_config->block_prune_count, plugin_config_exception, "block-log-prune-blocks cannot be 0");
+         my->chain_config->prune_config.emplace();
+         my->chain_config->prune_config->prune_blocks = options.at( "block-log-prune-blocks" ).as<uint32_t>();
+         EOS_ASSERT(my->chain_config->prune_config->prune_blocks, plugin_config_exception, "block-log-prune-blocks cannot be 0");
       }
 
       if( options.at( "delete-all-blocks" ).as<bool>()) {

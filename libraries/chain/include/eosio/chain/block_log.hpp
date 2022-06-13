@@ -36,9 +36,15 @@ namespace eosio { namespace chain {
     * and unreadable due to reclamation for purposes of saving space.
     */
 
+   struct block_log_prune_config {
+      uint32_t                prune_blocks;                  //number of blocks to prune to when doing a prune
+      size_t                  prune_threshold = 4*1024*1024; //(approximately) how many bytes need to be added before a prune is performed
+      std::optional<size_t>   vacuum_on_close;               //when set, a vacuum is performed on dtor if log contains less than this many live bytes
+   };
+
    class block_log {
       public:
-         block_log(const fc::path& data_dir, std::optional<uint32_t> prune_blocks, bool vacuum_on_exit_if_small = true);
+         block_log(const fc::path& data_dir, std::optional<block_log_prune_config> prune_config);
          block_log(block_log&& other);
          ~block_log();
 

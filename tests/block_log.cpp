@@ -105,7 +105,15 @@ private:
       log.reset();
       if(remove_index_on_reopen)
          fc::remove(dir.path() / "blocks.index");
-      log.emplace(dir.path(), prune_blocks);
+      std::optional<eosio::chain::block_log_prune_config> conf;
+      if(prune_blocks) {
+         conf.emplace();
+         conf->prune_blocks = *prune_blocks;
+         conf->prune_threshold = 8; //check to prune every 8 bytes; should guarantee always checking to prune for each block added
+         if(vacuum_on_exit_if_small)
+            conf->vacuum_on_close = 1024*1024*1024; //something large: will always vacuum on close for these small tests
+      }
+      log.emplace(dir.path(), conf);
    }
 };
 

@@ -48,11 +48,17 @@ namespace eosio { namespace chain {
             uint32_t                 version = 0;
             uint32_t                 first_block_num = 0;       //the first number available to read
             uint32_t                 index_first_block_num = 0; //the first number in index & the log had it not been pruned
-            std::optional<uint32_t>  prune_blocks;
-            bool vacuum_on_exit_if_small = true;
+            std::optional<block_log_prune_config> prune_config;
 
-            block_log_impl(std::optional<uint32_t> prune_blocks, bool vacuum_on_exit_if_small) :
-              prune_blocks(prune_blocks), vacuum_on_exit_if_small(vacuum_on_exit_if_small) {}
+            block_log_impl(std::optional<block_log_prune_config> prune_conf) :
+              prune_config(prune_conf) {
+               if(prune_config) {
+                  EOS_ASSERT(prune_config->prune_blocks, block_log_exception, "block log prune configuration requires at least one block");
+                  EOS_ASSERT(__builtin_popcount(prune_config->prune_threshold) == 1, block_log_exception, "block log prune threshold must be power of 2");
+                  //switch this over to the mask that will be used
+                  prune_config->prune_threshold--;
+               }
+            }
 
             inline void check_open_files() {
                if( !open_files ) {
@@ -65,14 +71,19 @@ namespace eosio { namespace chain {
             // we really want: when someone is destroying the blog instance
             void try_exit_vacuum() {
                //for a pruned log that has at least one block, see if we should vacuum it
-               //pruned_blocks == UINT32_MAX is kind of a hint to "please don't prune, but keep it a pruned log"
-               if( block_file.is_open() && index_file.is_open() && head && prune_blocks) {
-                  const size_t first_data_pos = get_block_pos(first_block_num);
-                  block_file.seek_end(-sizeof(uint32_t));
-                  const size_t last_data_pos = block_file.tellp();
-                  if(last_data_pos - first_data_pos < 1024*1024*1024 && vacuum_on_exit_if_small) {
-                     ilog("Vacuuming pruned block log");
+               if( block_file.is_open() && index_file.is_open() && prune_config && prune_config->vacuum_on_close) {
+                  if(!head) {
+                     //disregard vacuum_on_close size if there isn't even a block and just do it silently anyways
                      vacuum();
+                  }
+                  else {
+                     const size_t first_data_pos = get_block_pos(first_block_num);
+                     block_file.seek_end(-sizeof(uint32_t));
+                     const size_t last_data_pos = block_file.tellp();
+                     if(last_data_pos - first_data_pos < prune_config->vacuum_on_close) {
+                        ilog("Vacuuming pruned block log");
+                        vacuum();
+                     }
                   }
                }
             }
@@ -208,8 +219,8 @@ namespace eosio { namespace chain {
       };
    }
 
-   block_log::block_log(const fc::path& data_dir, std::optional<uint32_t> prune_blocks, bool vacuum_on_exit_if_small)
-   :my(new detail::block_log_impl(prune_blocks, vacuum_on_exit_if_small)) {
+   block_log::block_log(const fc::path& data_dir, std::optional<block_log_prune_config> prune_config)
+   :my(new detail::block_log_impl(prune_config)) {
       open(data_dir);
    }
 
@@ -318,7 +329,7 @@ namespace eosio { namespace chain {
             construct_index();
          }
 
-         if(!is_currently_pruned && my->prune_blocks) {
+         if(!is_currently_pruned && my->prune_config) {
             //need to convert non-pruned log to pruned log. prune any blocks to start with
             my->prune();
 
@@ -330,10 +341,10 @@ namespace eosio { namespace chain {
             my->block_file.seek_end(0);
             uint32_t num_blocks_in_log = 0;
             if(my->head)
-               num_blocks_in_log = chain::block_header::num_from_id(my->head_id) - my->first_block_num;
+               num_blocks_in_log = chain::block_header::num_from_id(my->head_id) - my->first_block_num + 1;
             fc::raw::pack(my->block_file, num_blocks_in_log);
          }
-         else if(is_currently_pruned && !my->prune_blocks) {
+         else if(is_currently_pruned && !my->prune_config) {
             my->vacuum();
          }
       } else if (index_size) {
@@ -357,7 +368,7 @@ namespace eosio { namespace chain {
          block_file.seek_end(0);
          index_file.seek_end(0);
          //if pruned log, rewind over count trailer if any block is already present
-         if(prune_blocks && head)
+         if(prune_config && head)
             block_file.skip(-sizeof(uint32_t));
          uint64_t pos = block_file.tellp();
 
@@ -374,14 +385,8 @@ namespace eosio { namespace chain {
          head = b;
          head_id = b->calculate_id();
 
-         if(prune_blocks) {
-            //only bother to try pruning every 4MB written. except for when the prune is set very low (mainly for unit test purposes)
-            uint64_t bother_every = 4*1024*1024;
-            if(*prune_blocks < 16)
-               bother_every = 4096;
-
-            const uint64_t mask = ~(bother_every-1);
-            if((pos&mask) != (end&mask))
+         if(prune_config) {
+            if((pos&prune_config->prune_threshold) != (end&prune_config->prune_threshold))
                prune();
 
             const uint32_t num_blocks_in_log = chain::block_header::num_from_id(head_id) - first_block_num + 1;
@@ -397,10 +402,10 @@ namespace eosio { namespace chain {
       if(!head)
          return;
       const uint32_t head_num = chain::block_header::num_from_id(head_id);
-      if(head_num - first_block_num < *prune_blocks)
+      if(head_num - first_block_num < prune_config->prune_blocks)
          return;
 
-      const uint32_t prune_to_num = head_num - *prune_blocks + 1;
+      const uint32_t prune_to_num = head_num - prune_config->prune_blocks + 1;
 
       static_assert( block_log::max_supported_version == 3, "Code was written to support version 3 format, need to update this code for latest format." );
       const genesis_state gs;
@@ -473,7 +478,7 @@ namespace eosio { namespace chain {
       size_t copy_to_pos = convert_existing_header_to_vacuumed();
 
       version = block_log::max_supported_version;
-      prune_blocks.reset();
+      prune_config.reset();
 
       //if there is no head block though, bail now, otherwise first_block_num won't actually be available
       // and it'll mess this all up. Be sure to still remove the 4 byte trailer though.
@@ -565,7 +570,7 @@ namespace eosio { namespace chain {
       } else {
          head.reset();
          head_id = {};
-         if(prune_blocks)
+         if(prune_config)
             fc::raw::pack(block_file, (uint32_t)0);
       }
 
@@ -575,7 +580,7 @@ namespace eosio { namespace chain {
 
       // going back to write correct version to indicate that all block log header data writes completed successfully
       version = block_log::max_supported_version;
-      if(prune_blocks)
+      if(prune_config)
          version |= pruned_version_flag;
       block_file.seek( 0 );
       block_file.write( (char*)&version, sizeof(version) );
