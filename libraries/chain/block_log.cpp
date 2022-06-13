@@ -683,9 +683,10 @@ namespace eosio { namespace chain {
       fc::raw::unpack(my->block_file, current_version);
       const bool is_currently_pruned = detail::is_pruned_log_and_mask_version(current_version);
 
-      my->block_file.seek_end(-sizeof(pos));
+      my->block_file.seek_end(0);
       if(is_currently_pruned)
-         my->block_file.skip(-sizeof(uint32_t)); //skip the end of file block count too
+         my->block_file.skip(-sizeof(uint32_t)); //skip the trailer containing block count
+      my->block_file.skip(-sizeof(pos));
       fc::raw::unpack(my->block_file, pos);
       if (pos != npos)
          return read_block(pos);
