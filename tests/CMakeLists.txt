@@ -74,6 +74,7 @@ add_test(NAME block_log_util_test COMMAND tests/block_log_util_test.py -v --clea
 set_property(TEST block_log_util_test PROPERTY LABELS nonparallelizable_tests)
 
 option(ABIEOS_ONLY_LIBRARY "define and build the ABIEOS library" ON)
+set(ABIEOS_INSTALL_COMPONENT "dev")
 set(SKIP_SUBMODULE_TEST ON)
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
    set(CMAKE_BUILD_TYPE "StopAbieosFromTouchingThis")
