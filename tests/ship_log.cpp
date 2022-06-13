@@ -16,8 +16,6 @@ struct ship_log_fixture {
      remove_index_on_reopen(remove_index_on_reopen), vacuum_on_exit_if_small(vacuum_on_exit_if_small),
      prune_blocks(prune_blocks) {
       bounce();
-
-      prune_threshold = 8; //every 8 bytes check in and see if to prune. should make it always check after each entry for us
    }
 
    void add(uint32_t index, size_t size, char fillchar) {
@@ -83,7 +81,6 @@ struct ship_log_fixture {
    std::optional<uint32_t> prune_blocks;
    fc::temp_file log_file;
    fc::temp_file index_file;
-   size_t prune_threshold;
 
    std::optional<eosio::state_history_log> log;
 
@@ -98,7 +95,7 @@ private:
       if(prune_blocks) {
          prune_conf.emplace();
          prune_conf->prune_blocks = *prune_blocks;
-         prune_conf->prune_threshold = prune_threshold;
+         prune_conf->prune_threshold = 8; //every 8 bytes check in and see if to prune. should make it always check after each entry for us
          if(vacuum_on_exit_if_small)
             prune_conf->vacuum_on_close = 1024*1024*1024; //something large: always vacuum on close for these tests
       }

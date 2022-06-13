@@ -80,26 +80,26 @@ class state_history_log {
 
  public:
    state_history_log(const char* const name, std::string log_filename, std::string index_filename,
-                     std::optional<state_history_log_prune_config> prune_config = std::optional<state_history_log_prune_config>())
+                     std::optional<state_history_log_prune_config> prune_conf = std::optional<state_history_log_prune_config>())
        : name(name)
        , log_filename(std::move(log_filename))
        , index_filename(std::move(index_filename))
-       , prune_config(prune_config) {
+       , prune_config(prune_conf) {
       open_log();
       open_index();
+
+      if(prune_config) {
+         EOS_ASSERT(prune_config->prune_blocks, chain::plugin_exception, "state history log prune configuration requires at least one block");
+         EOS_ASSERT(__builtin_popcount(prune_config->prune_threshold) == 1, chain::plugin_exception, "state history prune threshold must be power of 2");
+         //switch this over to the mask that will be used
+         prune_config->prune_threshold = ~(prune_config->prune_threshold-1);
+      }
 
       //check for conversions to/from pruned log, as long as log contains something
       if(_begin_block != _end_block) {
          state_history_log_header first_header;
          log.seek(0);
          read_header(first_header);
-
-         if(prune_config) {
-            EOS_ASSERT(prune_config->prune_blocks, chain::plugin_exception, "state history log prune configuration requires at least one block");
-            EOS_ASSERT(__builtin_popcount(prune_config->prune_threshold) == 1, chain::plugin_exception, "state history prune threshold must be power of 2");
-            //switch this over to the mask that will be used
-            prune_config->prune_threshold--;
-         }
 
          if((is_ship_log_pruned(first_header.magic) == false) && prune_config) {
             //need to convert non-pruned to pruned; first prune any ranges we can (might be none)
@@ -477,9 +477,10 @@ class state_history_log {
          copy_sz -= copy_this_round;
 
          const auto tock = std::chrono::time_point_cast<std::chrono::seconds>(std::chrono::system_clock::now());
-         if(tick != tock)
+         if(tick < tock - std::chrono::seconds(5)) {
             ilog("Vacuuming pruned log ${n}, ${b} bytes remaining", ("b", copy_sz)("n", name));
-         tick = tock;
+            tick = tock;
+         }
       }
       log.flush();
       fc::resize_file(log.get_file_path(), log.tellp());
