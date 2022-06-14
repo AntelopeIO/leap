@@ -209,15 +209,15 @@ void add_standard_transaction_options(CLI::App* cmd, string default_permission =
       return true;
    };
 
-   cmd->add_option("-x,--expiration", parse_expiration, localized("set the time in seconds before a transaction expires, defaults to 30s"));
-   cmd->add_flag("-f,--force-unique", tx_force_unique, localized("force the transaction to be unique. this will consume extra bandwidth and remove any protections against accidently issuing the same transaction multiple times"));
+   cmd->add_option("-x,--expiration", parse_expiration, localized("Set the time in seconds before a transaction expires, defaults to 30s"));
+   cmd->add_flag("-f,--force-unique", tx_force_unique, localized("Force the transaction to be unique. this will consume extra bandwidth and remove any protections against accidently issuing the same transaction multiple times"));
    cmd->add_flag("-s,--skip-sign", tx_skip_sign, localized("Specify if unlocked wallet keys should be used to sign transaction"));
-   cmd->add_flag("-j,--json", tx_print_json, localized("print result as json"));
-   cmd->add_option("--json-file", tx_json_save_file, localized("save result in json format into a file"));
-   cmd->add_flag("-d,--dont-broadcast", tx_dont_broadcast, localized("don't broadcast transaction to the network (just print to stdout)"));
-   cmd->add_flag("--return-packed", tx_return_packed, localized("used in conjunction with --dont-broadcast to get the packed transaction"));
-   cmd->add_option("-r,--ref-block", tx_ref_block_num_or_id, (localized("set the reference block num or block id used for TAPOS (Transaction as Proof-of-Stake)")));
-   cmd->add_flag("--use-old-rpc", tx_use_old_rpc, localized("use old RPC push_transaction, rather than new RPC send_transaction"));
+   cmd->add_flag("-j,--json", tx_print_json, localized("Print result as JSON"));
+   cmd->add_option("--json-file", tx_json_save_file, localized("Save result in JSON format into a file"));
+   cmd->add_flag("-d,--dont-broadcast", tx_dont_broadcast, localized("Don't broadcast transaction to the network (just print to stdout)"));
+   cmd->add_flag("--return-packed", tx_return_packed, localized("Used in conjunction with --dont-broadcast to get the packed transaction"));
+   cmd->add_option("-r,--ref-block", tx_ref_block_num_or_id, (localized("Set the reference block num or block id used for TAPOS (Transaction as Proof-of-Stake)")));
+   cmd->add_flag("--use-old-rpc", tx_use_old_rpc, localized("Use old RPC push_transaction, rather than new RPC send_transaction"));
    cmd->add_flag("--use-old-send-rpc", tx_use_old_send_rpc, localized("Use old RPC send_transaction, rather than new RPC /v1/chain/send_transaction2"));
 
    string msg = "An account and permission level to authorize, as in 'account@permission'";
@@ -225,10 +225,10 @@ void add_standard_transaction_options(CLI::App* cmd, string default_permission =
       msg += " (defaults to '" + default_permission + "')";
    cmd->add_option("-p,--permission", tx_permission, localized(msg.c_str()));
 
-   cmd->add_option("--max-cpu-usage-ms", tx_max_cpu_usage, localized("set an upper limit on the milliseconds of cpu usage budget, for the execution of the transaction (defaults to 0 which means no limit)"));
-   cmd->add_option("--max-net-usage", tx_max_net_usage, localized("set an upper limit on the net usage budget, in bytes, for the transaction (defaults to 0 which means no limit)"));
+   cmd->add_option("--max-cpu-usage-ms", tx_max_cpu_usage, localized("Set an upper limit on the milliseconds of cpu usage budget, for the execution of the transaction (defaults to 0 which means no limit)"));
+   cmd->add_option("--max-net-usage", tx_max_net_usage, localized("Set an upper limit on the net usage budget, in bytes, for the transaction (defaults to 0 which means no limit)"));
 
-   cmd->add_option("--delay-sec", delaysec, localized("set the delay_sec seconds, defaults to 0s"));
+   cmd->add_option("--delay-sec", delaysec, localized("Set the delay_sec seconds, defaults to 0s"));
    cmd->add_option("-t,--return-failure-trace", tx_rtn_failure_trace, localized("Return partial traces on failed transactions"));
    cmd->add_option("--retry-irreversible", tx_retry_lib, localized("Request node to retry transaction until it is irreversible or expires, blocking call"));
    cmd->add_option("--retry-num-blocks", tx_retry_num_blocks, localized("Request node to retry transaction until in a block of given height, blocking call"));
@@ -378,7 +378,9 @@ fc::variant push_transaction( signed_transaction& trx, packed_transaction::compr
             EOSC_ASSERT( !tx_retry_lib, "ERROR: --retry-irreversible can not be used with --read-only" );
             EOSC_ASSERT( !tx_retry_num_blocks, "ERROR: --retry-num-blocks can not be used with --read-only" );
             try {
-               return call( compute_txn_func, packed_transaction(trx, compression));
+               auto compute_txn_arg = fc::mutable_variant_object ("transaction",
+                                                                  packed_transaction(trx,compression));
+               return call( compute_txn_func, compute_txn_arg);
             } catch( chain::missing_chain_api_plugin_exception& ) {
                std::cerr << "New RPC compute_transaction may not be supported. Submit to a different node." << std::endl;
                throw;
@@ -823,7 +825,7 @@ struct set_account_permission_subcommand {
    bool remove_code = false;
 
    set_account_permission_subcommand(CLI::App* accountCmd) {
-      auto permissions = accountCmd->add_subcommand("permission", localized("set parameters dealing with account permissions"));
+      auto permissions = accountCmd->add_subcommand("permission", localized("Set parameters dealing with account permissions"));
       permissions->add_option("account", account, localized("The account to set/delete a permission authority for"))->required();
       permissions->add_option("permission", permission, localized("The permission name to set/delete an authority for"))->required();
       permissions->add_option("authority", authority_json_or_file, localized("[delete] NULL, [create/update] public key, JSON string or filename defining the authority, [code] contract name"));
@@ -955,7 +957,7 @@ struct set_action_permission_subcommand {
       auto permissions = actionRoot->add_subcommand("permission", localized("set parmaters dealing with account permissions"));
       permissions->add_option("account", accountStr, localized("The account to set/delete a permission authority for"))->required();
       permissions->add_option("code", codeStr, localized("The account that owns the code for the action"))->required();
-      permissions->add_option("type", typeStr, localized("the type of the action"))->required();
+      permissions->add_option("type", typeStr, localized("The type of the action"))->required();
       permissions->add_option("requirement", requirementStr, localized("[delete] NULL, [set/update] The permission name require for executing the given action"))->required();
 
       add_standard_transaction_options(permissions, "account@active");
@@ -1077,8 +1079,8 @@ struct register_producer_subcommand {
       auto register_producer = actionRoot->add_subcommand("regproducer", localized("Register a new producer"));
       register_producer->add_option("account", producer_str, localized("The account to register as a producer"))->required();
       register_producer->add_option("producer_key", producer_key_str, localized("The producer's public key"))->required();
-      register_producer->add_option("url", url, localized("url where info about producer can be found"), true);
-      register_producer->add_option("location", loc, localized("relative location for purpose of nearest neighbor scheduling"), true);
+      register_producer->add_option("url", url, localized("The URL where info about producer can be found"), true);
+      register_producer->add_option("location", loc, localized("Relative location for purpose of nearest neighbor scheduling"), true);
       add_standard_transaction_options(register_producer, "account@active");
 
 
@@ -1359,7 +1361,7 @@ struct list_producers_subcommand {
       auto list_producers = actionRoot->add_subcommand("listproducers", localized("List producers"));
       list_producers->add_flag("--json,-j", print_json, localized("Output in JSON format"));
       list_producers->add_option("-l,--limit", limit, localized("The maximum number of rows to return"));
-      list_producers->add_option("-L,--lower", lower, localized("lower bound value of key, defaults to first"));
+      list_producers->add_option("-L,--lower", lower, localized("Lower bound value of key, defaults to first"));
       list_producers->callback([this] {
          auto rawResult = call(get_producers_func, fc::mutable_variant_object
             ("json", true)("lower_bound", lower)("limit", limit));
@@ -1467,11 +1469,11 @@ struct get_transaction_id_subcommand {
                         }
                      }
                   } else {
-                     std::cerr << "transaction json 'actions' is not an array" << std::endl;
+                     std::cerr << "transaction JSON 'actions' is not an array" << std::endl;
                      return;
                   }
                } else {
-                  std::cerr << "transaction json does not include 'actions'" << std::endl;
+                  std::cerr << "transaction JSON does not include 'actions'" << std::endl;
                   return;
                }
                auto trx = trx_var.as<transaction>();
@@ -1505,8 +1507,8 @@ struct delegate_bandwidth_subcommand {
       delegate_bandwidth->add_option("receiver", receiver_str, localized("The account to receive the delegated bandwidth"))->required();
       delegate_bandwidth->add_option("stake_net_quantity", stake_net_amount, localized("The amount of tokens to stake for network bandwidth"))->required();
       delegate_bandwidth->add_option("stake_cpu_quantity", stake_cpu_amount, localized("The amount of tokens to stake for CPU bandwidth"))->required();
-      delegate_bandwidth->add_option("--buyram", buy_ram_amount, localized("The amount of tokens to buyram"));
-      delegate_bandwidth->add_option("--buy-ram-bytes", buy_ram_bytes, localized("The amount of RAM to buy in number of bytes"));
+      delegate_bandwidth->add_option("--buyram", buy_ram_amount, localized("The amount of tokens to buy RAM with"));
+      delegate_bandwidth->add_option("--buy-ram-bytes", buy_ram_bytes, localized("The amount of RAM to buy in bytes"));
       delegate_bandwidth->add_flag("--transfer", transfer, localized("Transfer voting power and right to unstake tokens to receiver"));
       add_standard_transaction_options(delegate_bandwidth, "from@active");
 
@@ -1668,8 +1670,8 @@ struct buyram_subcommand {
       buyram->add_option("payer", from_str, localized("The account paying for RAM"))->required();
       buyram->add_option("receiver", receiver_str, localized("The account receiving bought RAM"))->required();
       buyram->add_option("amount", amount, localized("The amount of tokens to pay for RAM, or number of bytes/kibibytes of RAM if --bytes/--kbytes is set"))->required();
-      buyram->add_flag("--kbytes,-k", kbytes, localized("buyram in number of kibibytes (KiB)"));
-      buyram->add_flag("--bytes,-b", bytes, localized("buyram in number of bytes"));
+      buyram->add_flag("--kbytes,-k", kbytes, localized("The amount to buy in kibibytes (KiB)"));
+      buyram->add_flag("--bytes,-b", bytes, localized("The amount to buy in bytes"));
       add_standard_transaction_options(buyram, "payer@active");
       buyram->callback([this] {
          EOSC_ASSERT( !kbytes || !bytes, "ERROR: --kbytes and --bytes cannot be set at the same time" );
@@ -1690,7 +1692,7 @@ struct sellram_subcommand {
    sellram_subcommand(CLI::App* actionRoot) {
       auto sellram = actionRoot->add_subcommand("sellram", localized("Sell RAM"));
       sellram->add_option("account", receiver_str, localized("The account to receive tokens for sold RAM"))->required();
-      sellram->add_option("bytes", amount, localized("Number of RAM bytes to sell"))->required();
+      sellram->add_option("bytes", amount, localized("The amount of RAM bytes to sell"))->required();
       add_standard_transaction_options(sellram, "account@active");
 
       sellram->callback([this] {
@@ -2218,9 +2220,26 @@ void get_account( const string& accountName, const string& coresym, bool json_fo
          // looks a little crazy, but should be efficient
          cache.insert( std::make_pair(name, std::move(perm)) );
       }
-      std::function<void (account_name, int)> dfs_print = [&]( account_name name, int depth ) -> void {
+      
+      using dfs_fn_t = std::function<void (const eosio::chain_apis::permission&, int)>;
+      std::function<void (account_name, int, dfs_fn_t&)> dfs_exec = [&]( account_name name, int depth, dfs_fn_t& f ) -> void {
          auto& p = cache.at(name);
-         std::cout << indent << std::string(depth*3, ' ') << name << ' ' << std::setw(5) << p.required_auth.threshold << ":    ";
+
+         f(p, depth);
+         auto it = tree.find( name );
+         if (it != tree.end()) {
+            auto& children = it->second;
+            sort( children.begin(), children.end() );
+            for ( auto& n : children ) {
+               // we have a tree, not a graph, so no need to check for already visited nodes
+               dfs_exec( n, depth+1, f );
+            }
+         } // else it's a leaf node
+      };
+
+      dfs_fn_t print_auth = [&]( const eosio::chain_apis::permission& p, int depth ) -> void {
+         std::cout << indent << std::string(depth*3, ' ') << p.perm_name << ' ' << std::setw(5) << p.required_auth.threshold << ":    ";
+
          const char *sep = "";
          for ( auto it = p.required_auth.keys.begin(); it != p.required_auth.keys.end(); ++it ) {
             std::cout << sep << it->weight << ' ' << it->key.to_string();
@@ -2231,21 +2250,39 @@ void get_account( const string& accountName, const string& coresym, bool json_fo
             sep = ", ";
          }
          std::cout << std::endl;
-         auto it = tree.find( name );
-         if (it != tree.end()) {
-            auto& children = it->second;
-            sort( children.begin(), children.end() );
-            for ( auto& n : children ) {
-               // we have a tree, not a graph, so no need to check for already visited nodes
-               dfs_print( n, depth+1 );
-            }
-         } // else it's a leaf node
       };
       std::sort(roots.begin(), roots.end());
       for ( auto r : roots ) {
-         dfs_print( r, 0 );
+         dfs_exec( r, 0, print_auth );
+      }
+      std::cout << std::endl;
+
+      std::cout << "permission links: " << std::endl;
+      dfs_fn_t print_links = [&](const eosio::chain_apis::permission& p, int) -> void {
+         if (p.linked_actions) {
+            if (!p.linked_actions->empty()) {
+               std::cout << indent << p.perm_name.to_string() + ":" << std::endl;
+               for ( auto it = p.linked_actions->begin(); it != p.linked_actions->end(); ++it ) {
+                  auto action_value = it->action ? it->action->to_string() : std::string("*");
+                  std::cout << indent << indent << it->account << "::" << action_value << std::endl;
+               }
+            }
+         }
+      };
+
+      for ( auto r : roots ) {
+         dfs_exec( r, 0, print_links);
       }
 
+      // print linked actions 
+      std::cout << indent << "eosio.any: " << std::endl;
+      for (const auto& it : res.eosio_any_linked_actions) {
+         auto action_value = it.action ? it.action->to_string() : std::string("*");
+         std::cout << indent << indent << it.account << "::" << action_value << std::endl;
+      }
+
+      std::cout << std::endl;
+ 
       auto to_pretty_net = []( int64_t nbytes, uint8_t width_for_units = 5 ) {
          if(nbytes == -1) {
              // special case. Treat it as unlimited
@@ -2478,22 +2515,22 @@ int main( int argc, char** argv ) {
    CLI::App app{"Command Line Interface to EOSIO Client"};
    app.require_subcommand();
    // Hide obsolete options by putting them into a group with an empty name.
-   app.add_option( "-H,--host", obsoleted_option_host_port, localized("the host where ${n} is running", ("n", node_executable_name)) )->group("");
-   app.add_option( "-p,--port", obsoleted_option_host_port, localized("the port where ${n} is running", ("n", node_executable_name)) )->group("");
-   app.add_option( "--wallet-host", obsoleted_option_host_port, localized("the host where ${k} is running", ("k", key_store_executable_name)) )->group("");
-   app.add_option( "--wallet-port", obsoleted_option_host_port, localized("the port where ${k} is running", ("k", key_store_executable_name)) )->group("");
+   app.add_option( "-H,--host", obsoleted_option_host_port, localized("The host where ${n} is running", ("n", node_executable_name)) )->group("");
+   app.add_option( "-p,--port", obsoleted_option_host_port, localized("The port where ${n} is running", ("n", node_executable_name)) )->group("");
+   app.add_option( "--wallet-host", obsoleted_option_host_port, localized("The host where ${k} is running", ("k", key_store_executable_name)) )->group("");
+   app.add_option( "--wallet-port", obsoleted_option_host_port, localized("The port where ${k} is running", ("k", key_store_executable_name)) )->group("");
 
-   app.add_option( "-u,--url", url, localized("the http/https URL where ${n} is running", ("n", node_executable_name)), true );
-   app.add_option( "--wallet-url", wallet_url, localized("the http/https URL where ${k} is running", ("k", key_store_executable_name)), true );
+   app.add_option( "-u,--url", url, localized("The http/https URL where ${n} is running", ("n", node_executable_name)), true );
+   app.add_option( "--wallet-url", wallet_url, localized("The http/https URL where ${k} is running", ("k", key_store_executable_name)), true );
 
-   app.add_option( "-r,--header", header_opt_callback, localized("pass specific HTTP header; repeat this option to pass multiple headers"));
-   app.add_flag( "-n,--no-verify", no_verify, localized("don't verify peer certificate when using HTTPS"));
-   app.add_flag( "--no-auto-" + string(key_store_executable_name), no_auto_keosd, localized("don't automatically launch a ${k} if one is not currently running", ("k", key_store_executable_name)));
+   app.add_option( "-r,--header", header_opt_callback, localized("Pass specific HTTP header; repeat this option to pass multiple headers"));
+   app.add_flag( "-n,--no-verify", no_verify, localized("Don't verify peer certificate when using HTTPS"));
+   app.add_flag( "--no-auto-" + string(key_store_executable_name), no_auto_keosd, localized("Don't automatically launch a ${k} if one is not currently running", ("k", key_store_executable_name)));
    app.parse_complete_callback([&app]{ ensure_keosd_running(&app);});
 
-   app.add_flag( "-v,--verbose", verbose, localized("output verbose errors and action console output"));
-   app.add_flag("--print-request", print_request, localized("print HTTP request to STDERR"));
-   app.add_flag("--print-response", print_response, localized("print HTTP response to STDERR"));
+   app.add_flag( "-v,--verbose", verbose, localized("Output verbose errors and action console output"));
+   app.add_flag("--print-request", print_request, localized("Print HTTP request to STDERR"));
+   app.add_flag("--print-response", print_response, localized("Print HTTP response to STDERR"));
 
    auto version = app.add_subcommand("version", localized("Retrieve version information"));
    version->require_subcommand();
@@ -2547,8 +2584,8 @@ int main( int argc, char** argv ) {
    // pack transaction
    string plain_signed_transaction_json;
    bool pack_action_data_flag = false;
-   auto pack_transaction = convert->add_subcommand("pack_transaction", localized("From plain signed json to packed form"));
-   pack_transaction->add_option("transaction", plain_signed_transaction_json, localized("The plain signed json (string)"))->required();
+   auto pack_transaction = convert->add_subcommand("pack_transaction", localized("From plain signed JSON to packed form"));
+   pack_transaction->add_option("transaction", plain_signed_transaction_json, localized("The plain signed JSON (string)"))->required();
    pack_transaction->add_flag("--pack-action-data", pack_action_data_flag, localized("Pack all action data within transaction, needs interaction with ${n}", ("n", node_executable_name)));
    pack_transaction->callback([&] {
       fc::variant trx_var = json_from_file_or_string( plain_signed_transaction_json );
@@ -2570,8 +2607,8 @@ int main( int argc, char** argv ) {
    // unpack transaction
    string packed_transaction_json;
    bool unpack_action_data_flag = false;
-   auto unpack_transaction = convert->add_subcommand("unpack_transaction", localized("From packed to plain signed json form"));
-   unpack_transaction->add_option("transaction", packed_transaction_json, localized("The packed transaction json (string containing packed_trx and optionally compression fields)"))->required();
+   auto unpack_transaction = convert->add_subcommand("unpack_transaction", localized("From packed to plain signed JSON form"));
+   unpack_transaction->add_option("transaction", packed_transaction_json, localized("The packed transaction JSON (string containing packed_trx and optionally compression fields)"))->required();
    unpack_transaction->add_flag("--unpack-action-data", unpack_action_data_flag, localized("Unpack all action data within transaction, needs interaction with ${n}", ("n", node_executable_name)));
    unpack_transaction->callback([&] {
       fc::variant packed_trx_var = json_from_file_or_string( packed_transaction_json );
@@ -2594,10 +2631,10 @@ int main( int argc, char** argv ) {
    string unpacked_action_data_account_string;
    string unpacked_action_data_name_string;
    string unpacked_action_data_string;
-   auto pack_action_data = convert->add_subcommand("pack_action_data", localized("From json action data to packed form"));
-   pack_action_data->add_option("account", unpacked_action_data_account_string, localized("The name of the account that hosts the contract"))->required();
-   pack_action_data->add_option("name", unpacked_action_data_name_string, localized("The name of the function that's called by this action"))->required();
-   pack_action_data->add_option("unpacked_action_data", unpacked_action_data_string, localized("The action data expressed as json"))->required();
+   auto pack_action_data = convert->add_subcommand("pack_action_data", localized("From JSON action data to packed form"));
+   pack_action_data->add_option("account", unpacked_action_data_account_string, localized("The name of the account hosting the contract"))->required();
+   pack_action_data->add_option("name", unpacked_action_data_name_string, localized("The name of the function called by this action"))->required();
+   pack_action_data->add_option("unpacked_action_data", unpacked_action_data_string, localized("The action data expressed as JSON"))->required();
    pack_action_data->callback([&] {
       fc::variant unpacked_action_data_json = json_from_file_or_string(unpacked_action_data_string);
       bytes packed_action_data_string;
@@ -2611,7 +2648,7 @@ int main( int argc, char** argv ) {
    string packed_action_data_account_string;
    string packed_action_data_name_string;
    string packed_action_data_string;
-   auto unpack_action_data = convert->add_subcommand("unpack_action_data", localized("From packed to json action data form"));
+   auto unpack_action_data = convert->add_subcommand("unpack_action_data", localized("From packed to JSON action data form"));
    unpack_action_data->add_option("account", packed_action_data_account_string, localized("The name of the account that hosts the contract"))->required();
    unpack_action_data->add_option("name", packed_action_data_name_string, localized("The name of the function that's called by this action"))->required();
    unpack_action_data->add_option("packed_action_data", packed_action_data_string, localized("The action data expressed as packed hex string"))->required();
@@ -2789,7 +2826,7 @@ int main( int argc, char** argv ) {
                                     "i256 - supports both 'dec' and 'hex', ripemd160 and sha256 is 'hex' only"));
    getTable->add_flag("-b,--binary", binary, localized("Return the value as BINARY rather than using abi to interpret as JSON"));
    getTable->add_flag("-r,--reverse", reverse, localized("Iterate in reverse order"));
-   getTable->add_flag("--show-payer", show_payer, localized("show RAM payer"));
+   getTable->add_flag("--show-payer", show_payer, localized("Show RAM payer"));
 
 
    getTable->callback([&] {
@@ -2816,8 +2853,8 @@ int main( int argc, char** argv ) {
    getScope->add_option( "contract", code, localized("The contract who owns the table") )->required();
    getScope->add_option( "-t,--table", table, localized("The name of the table as filter") );
    getScope->add_option( "-l,--limit", limit, localized("The maximum number of rows to return") );
-   getScope->add_option( "-L,--lower", lower, localized("lower bound of scope") );
-   getScope->add_option( "-U,--upper", upper, localized("upper bound of scope") );
+   getScope->add_option( "-L,--lower", lower, localized("Lower bound of scope") );
+   getScope->add_option( "-U,--upper", upper, localized("Upper bound of scope") );
    getScope->add_flag("-r,--reverse", reverse, localized("Iterate in reverse order"));
    getScope->callback([&] {
       auto result = call(get_table_by_scope_func, fc::mutable_variant_object("code",code)
@@ -2938,13 +2975,13 @@ int main( int argc, char** argv ) {
    int32_t pos_seq = -1;
    int32_t offset = -20;
    auto getActions = get->add_subcommand("actions", localized("Retrieve all actions with specific account name referenced in authorization or receiver"));
-   getActions->add_option("account_name", account_name, localized("name of account to query on"))->required();
-   getActions->add_option("pos", pos_seq, localized("sequence number of action for this account, -1 for last"));
-   getActions->add_option("offset", offset, localized("get actions [pos,pos+offset] for positive offset or [pos-offset,pos) for negative offset"));
-   getActions->add_flag("--json,-j", printjson, localized("print full json"));
-   getActions->add_flag("--full", fullact, localized("don't truncate action output"));
-   getActions->add_flag("--pretty", prettyact, localized("pretty print full action json "));
-   getActions->add_flag("--console", printconsole, localized("print console output generated by action "));
+   getActions->add_option("account_name", account_name, localized("Name of account to query on"))->required();
+   getActions->add_option("pos", pos_seq, localized("Sequence number of action for this account, -1 for last"));
+   getActions->add_option("offset", offset, localized("Get actions [pos,pos+offset] for positive offset or [pos-offset,pos) for negative offset"));
+   getActions->add_flag("--json,-j", printjson, localized("Print full JSON"));
+   getActions->add_flag("--full", fullact, localized("Don't truncate action output"));
+   getActions->add_flag("--pretty", prettyact, localized("Pretty print full action JSON"));
+   getActions->add_flag("--console", printconsole, localized("Print console output generated by action "));
    getActions->callback([&] {
       fc::mutable_variant_object arg;
       arg( "account_name", account_name );
@@ -3186,13 +3223,13 @@ int main( int argc, char** argv ) {
    abiSubcommand->callback(set_abi_callback);
 
    // set account
-   auto setAccount = setSubcommand->add_subcommand("account", localized("set or update blockchain account state"))->require_subcommand();
+   auto setAccount = setSubcommand->add_subcommand("account", localized("Set or update blockchain account state"))->require_subcommand();
 
    // set account permission
    auto setAccountPermission = set_account_permission_subcommand(setAccount);
 
    // set action
-   auto setAction = setSubcommand->add_subcommand("action", localized("set or update blockchain action state"))->require_subcommand();
+   auto setAction = setSubcommand->add_subcommand("action", localized("Set or update blockchain action state"))->require_subcommand();
 
    // set action permission
    auto setActionPermission = set_action_permission_subcommand(setAction);
@@ -3209,8 +3246,8 @@ int main( int argc, char** argv ) {
    transfer->add_option("recipient", recipient, localized("The account receiving tokens"))->required();
    transfer->add_option("amount", amount, localized("The amount of tokens to send"))->required();
    transfer->add_option("memo", memo, localized("The memo for the transfer"));
-   transfer->add_option("--contract,-c", con, localized("The contract which controls the token"));
-   transfer->add_flag("--pay-ram-to-open", pay_ram, localized("Pay ram to open recipient's token balance row"));
+   transfer->add_option("--contract,-c", con, localized("The contract that controls the token"));
+   transfer->add_flag("--pay-ram-to-open", pay_ram, localized("Pay RAM to open recipient's token balance row"));
 
    add_standard_transaction_options(transfer, "sender@active");
    transfer->callback([&] {
@@ -3234,28 +3271,28 @@ int main( int argc, char** argv ) {
    string new_host;
    auto net = app.add_subcommand( "net", localized("Interact with local p2p network connections"));
    net->require_subcommand();
-   auto connect = net->add_subcommand("connect", localized("start a new connection to a peer"));
+   auto connect = net->add_subcommand("connect", localized("Start a new connection to a peer"));
    connect->add_option("host", new_host, localized("The hostname:port to connect to."))->required();
    connect->callback([&] {
       const auto& v = call(url, net_connect, new_host);
       std::cout << fc::json::to_pretty_string(v) << std::endl;
    });
 
-   auto disconnect = net->add_subcommand("disconnect", localized("close an existing connection"));
+   auto disconnect = net->add_subcommand("disconnect", localized("Close an existing connection"));
    disconnect->add_option("host", new_host, localized("The hostname:port to disconnect from."))->required();
    disconnect->callback([&] {
       const auto& v = call(url, net_disconnect, new_host);
       std::cout << fc::json::to_pretty_string(v) << std::endl;
    });
 
-   auto status = net->add_subcommand("status", localized("status of existing connection"));
+   auto status = net->add_subcommand("status", localized("Status of existing connection"));
    status->add_option("host", new_host, localized("The hostname:port to query status of connection"))->required();
    status->callback([&] {
       const auto& v = call(url, net_status, new_host);
       std::cout << fc::json::to_pretty_string(v) << std::endl;
    });
 
-   auto connections = net->add_subcommand("peers", localized("status of all existing peers"));
+   auto connections = net->add_subcommand("peers", localized("Status of all existing peers"));
    connections->callback([&] {
       const auto& v = call(url, net_connections);
       std::cout << fc::json::to_pretty_string(v) << std::endl;
@@ -3592,11 +3629,11 @@ int main( int argc, char** argv ) {
 
    auto propose_action = msig->add_subcommand("propose", localized("Propose action"));
    add_standard_transaction_options(propose_action, "proposer@active");
-   propose_action->add_option("proposal_name", proposal_name, localized("proposal name (string)"))->required();
+   propose_action->add_option("proposal_name", proposal_name, localized("The proposal name (string)"))->required();
    propose_action->add_option("requested_permissions", requested_perm, localized("The JSON string or filename defining requested permissions"))->required();
    propose_action->add_option("trx_permissions", transaction_perm, localized("The JSON string or filename defining transaction permissions"))->required();
-   propose_action->add_option("contract", proposed_contract, localized("contract to which deferred transaction should be delivered"))->required();
-   propose_action->add_option("action", proposed_action, localized("action of deferred transaction"))->required();
+   propose_action->add_option("contract", proposed_contract, localized("The contract to which deferred transaction should be delivered"))->required();
+   propose_action->add_option("action", proposed_action, localized("The action of deferred transaction"))->required();
    propose_action->add_option("data", proposed_transaction, localized("The JSON string or filename defining the action to propose"))->required();
    propose_action->add_option("proposer", proposer, localized("Account proposing the transaction"));
    propose_action->add_option("proposal_expiration", parse_expiration_hours, localized("Proposal expiration interval in hours"));
@@ -3658,7 +3695,7 @@ int main( int argc, char** argv ) {
    //multisig propose transaction
    auto propose_trx = msig->add_subcommand("propose_trx", localized("Propose transaction"));
    add_standard_transaction_options(propose_trx, "proposer@active");
-   propose_trx->add_option("proposal_name", proposal_name, localized("proposal name (string)"))->required();
+   propose_trx->add_option("proposal_name", proposal_name, localized("The proposal name (string)"))->required();
    propose_trx->add_option("requested_permissions", requested_perm, localized("The JSON string or filename defining requested permissions"))->required();
    propose_trx->add_option("transaction", trx_to_push, localized("The JSON string or filename defining the transaction to push"))->required();
    propose_trx->add_option("proposer", proposer, localized("Account proposing the transaction"));
@@ -3692,8 +3729,8 @@ int main( int argc, char** argv ) {
    // multisig review
    bool show_approvals_in_multisig_review = false;
    auto review = msig->add_subcommand("review", localized("Review transaction"));
-   review->add_option("proposer", proposer, localized("proposer name (string)"))->required();
-   review->add_option("proposal_name", proposal_name, localized("proposal name (string)"))->required();
+   review->add_option("proposer", proposer, localized("The proposer name (string)"))->required();
+   review->add_option("proposal_name", proposal_name, localized("The proposal name (string)"))->required();
    review->add_flag( "--show-approvals", show_approvals_in_multisig_review, localized("Show the status of the approvals requested within the proposal") );
 
    review->callback([&] {
@@ -3908,8 +3945,8 @@ int main( int argc, char** argv ) {
    // multisig approve
    auto approve = msig->add_subcommand("approve", localized("Approve proposed transaction"));
    add_standard_transaction_options(approve, "proposer@active");
-   approve->add_option("proposer", proposer, localized("proposer name (string)"))->required();
-   approve->add_option("proposal_name", proposal_name, localized("proposal name (string)"))->required();
+   approve->add_option("proposer", proposer, localized("The proposer name (string)"))->required();
+   approve->add_option("proposal_name", proposal_name, localized("The proposal name (string)"))->required();
    approve->add_option("permissions", perm, localized("The JSON string of filename defining approving permissions"))->required();
    approve->add_option("proposal_hash", proposal_hash, localized("Hash of proposed transaction (i.e. transaction ID) to optionally enforce as a condition of the approval"));
    approve->callback([&] { approve_or_unapprove("approve"); });
@@ -3917,8 +3954,8 @@ int main( int argc, char** argv ) {
    // multisig unapprove
    auto unapprove = msig->add_subcommand("unapprove", localized("Unapprove proposed transaction"));
    add_standard_transaction_options(unapprove, "proposer@active");
-   unapprove->add_option("proposer", proposer, localized("proposer name (string)"))->required();
-   unapprove->add_option("proposal_name", proposal_name, localized("proposal name (string)"))->required();
+   unapprove->add_option("proposer", proposer, localized("The proposer name (string)"))->required();
+   unapprove->add_option("proposal_name", proposal_name, localized("The proposal name (string)"))->required();
    unapprove->add_option("permissions", perm, localized("The JSON string of filename defining approving permissions"))->required();
    unapprove->callback([&] { approve_or_unapprove("unapprove"); });
 
@@ -3939,9 +3976,9 @@ int main( int argc, char** argv ) {
    string canceler;
    auto cancel = msig->add_subcommand("cancel", localized("Cancel proposed transaction"));
    add_standard_transaction_options(cancel, "canceler@active");
-   cancel->add_option("proposer", proposer, localized("proposer name (string)"))->required();
+   cancel->add_option("proposer", proposer, localized("The proposer name (string)"))->required();
    cancel->add_option("proposal_name", proposal_name, localized("proposal name (string)"))->required();
-   cancel->add_option("canceler", canceler, localized("canceler name (string)"));
+   cancel->add_option("canceler", canceler, localized("The canceler name (string)"));
    cancel->callback([&]() {
       auto accountPermissions = get_account_permissions(tx_permission);
       if (accountPermissions.empty()) {
@@ -3967,9 +4004,9 @@ int main( int argc, char** argv ) {
    string executer;
    auto exec = msig->add_subcommand("exec", localized("Execute proposed transaction"));
    add_standard_transaction_options(exec, "executer@active");
-   exec->add_option("proposer", proposer, localized("proposer name (string)"))->required();
-   exec->add_option("proposal_name", proposal_name, localized("proposal name (string)"))->required();
-   exec->add_option("executer", executer, localized("account paying for execution (string)"));
+   exec->add_option("proposer", proposer, localized("The proposer name (string)"))->required();
+   exec->add_option("proposal_name", proposal_name, localized("The proposal name (string)"))->required();
+   exec->add_option("executer", executer, localized("The account paying for execution (string)"));
    exec->callback([&] {
       auto accountPermissions = get_account_permissions(tx_permission);
       if (accountPermissions.empty()) {

@@ -8,7 +8,6 @@ set(Sources
 	ParseFunction.cpp
 	ParseNumbers.cpp
 	ParseModule.cpp
-	ParseTests.cpp
 	Print.cpp
 	Regexp.cpp
 	Regexp.h)
@@ -22,5 +21,6 @@ add_definitions(-DWAST_API=DLL_EXPORT)
 target_link_libraries(WAST Logging IR WASM)
 install(TARGETS WAST 
    LIBRARY DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}
-   ARCHIVE DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR})
+   ARCHIVE DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}
+   COMPONENT dev EXCLUDE_FROM_ALL)
 

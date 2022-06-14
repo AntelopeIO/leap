@@ -23,7 +23,7 @@ namespace eosio::chain {
 
    inline constexpr uint64_t string_to_uint64_t( std::string_view str ) {
       uint64_t n = 0;
-      int i = 0;
+      size_t i = 0;
       for ( ; i < str.size() && i < 12; ++i) {
          // NOTE: char_to_symbol() returns char type, and without this explicit
          // expansion to uint64 type, the compilation fails at the point of usage

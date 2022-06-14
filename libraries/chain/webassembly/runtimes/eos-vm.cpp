@@ -162,6 +162,7 @@ class eos_vm_instantiated_module : public wasm_instantiated_module_interface {
       std::unique_ptr<backend_t> _instantiated_module;
 };
 
+#ifdef __x86_64__
 class eos_vm_profiling_module : public wasm_instantiated_module_interface {
       using backend_t = eosio::vm::backend<eos_vm_host_functions_t, eosio::vm::jit_profile, webassembly::eos_vm_runtime::apply_options, vm::profile_instr_map>;
    public:
@@ -227,6 +228,7 @@ class eos_vm_profiling_module : public wasm_instantiated_module_interface {
       boost::container::flat_map<name, std::unique_ptr<profile_data>> _prof;
       std::vector<char> _original_code;
 };
+#endif
 
 template<typename Impl>
 eos_vm_runtime<Impl>::eos_vm_runtime() {}
@@ -254,6 +256,7 @@ std::unique_ptr<wasm_instantiated_module_interface> eos_vm_runtime<Impl>::instan
 }
 
 template class eos_vm_runtime<eosio::vm::interpreter>;
+#ifdef __x86_64__
 template class eos_vm_runtime<eosio::vm::jit>;
 
 eos_vm_profile_runtime::eos_vm_profile_runtime() {}
@@ -277,6 +280,7 @@ std::unique_ptr<wasm_instantiated_module_interface> eos_vm_profile_runtime::inst
       FC_THROW_EXCEPTION(wasm_execution_error, "Error building eos-vm interp: ${e}", ("e", e.what()));
    }
 }
+#endif
 
 }
 

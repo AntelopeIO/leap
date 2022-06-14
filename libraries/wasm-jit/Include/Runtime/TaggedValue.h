@@ -34,7 +34,7 @@ namespace Runtime
 		#if ENABLE_SIMD_PROTOTYPE
 		UntaggedValue(IR::V128 inV128) { v128 = inV128; }
 		#endif
-		UntaggedValue() {memset(this,0,sizeof(*this));}
+		UntaggedValue() = delete;
 	};
 
 	// A boxed value: may hold any value that can be passed to a function invoked through the runtime.
@@ -52,7 +52,7 @@ namespace Runtime
 		Value(const IR::V128& inV128): UntaggedValue(inV128), type(IR::ValueType::v128) {}
 		#endif
 		Value(IR::ValueType inType,UntaggedValue inValue): UntaggedValue(inValue), type(inType) {}
-		Value(): type(IR::ValueType::any) {}
+		Value() = delete;
 		
 		friend std::string asString(const Value& value)
 		{
@@ -86,7 +86,7 @@ namespace Runtime
 		#endif
 		Result(IR::ResultType inType,UntaggedValue inValue): UntaggedValue(inValue), type(inType) {}
 		Result(const Value& inValue): UntaggedValue(inValue), type(asResultType(inValue.type)) {}
-		Result(): type(IR::ResultType::none) {}
+		Result() = delete;
 
 		friend std::string asString(const Result& result)
 		{

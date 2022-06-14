@@ -48,10 +48,16 @@ class producer_plugin;
 namespace chain_apis {
 struct empty{};
 
+struct linked_action {
+   name                account;
+   std::optional<name> action;
+};
+
 struct permission {
-   name              perm_name;
-   name              parent;
-   authority         required_auth;
+   name                                       perm_name;
+   name                                       parent;
+   authority                                  required_auth;
+   std::optional<std::vector<linked_action>>  linked_actions;
 };
 
 
@@ -199,6 +205,7 @@ public:
       fc::variant                rex_info;
 
       std::optional<account_resource_limit> subjective_cpu_bill_limit;
+      std::vector<linked_action> eosio_any_linked_actions;
    };
 
    struct get_account_params {
@@ -436,8 +443,12 @@ public:
        chain::transaction_id_type  transaction_id;
        fc::variant                 processed;
     };
-   using compute_transaction_params = fc::variant_object;
-   void compute_transaction(const fc::variant_object& params, chain::plugin_interface::next_function<compute_transaction_results> next ) const;
+
+   struct compute_transaction_params {
+      fc::variant transaction;
+   };
+
+   void compute_transaction(const compute_transaction_params& params, chain::plugin_interface::next_function<compute_transaction_results> next ) const;
 
    static void copy_inline_row(const chain::key_value_object& obj, vector<char>& data) {
       data.resize( obj.value.size() );
@@ -803,7 +814,8 @@ private:
 
 }
 
-FC_REFLECT( eosio::chain_apis::permission, (perm_name)(parent)(required_auth) )
+FC_REFLECT( eosio::chain_apis::linked_action, (account)(action) )
+FC_REFLECT( eosio::chain_apis::permission, (perm_name)(parent)(required_auth)(linked_actions) )
 FC_REFLECT(eosio::chain_apis::empty, )
 FC_REFLECT(eosio::chain_apis::read_only::get_info_results,
            (server_version)(chain_id)(head_block_num)(last_irreversible_block_num)(last_irreversible_block_id)
@@ -846,7 +858,8 @@ FC_REFLECT( eosio::chain_apis::read_only::get_scheduled_transactions_result, (tr
 FC_REFLECT( eosio::chain_apis::read_only::get_account_results,
             (account_name)(head_block_num)(head_block_time)(privileged)(last_code_update)(created)
             (core_liquid_balance)(ram_quota)(net_weight)(cpu_weight)(net_limit)(cpu_limit)(ram_usage)(permissions)
-            (total_resources)(self_delegated_bandwidth)(refund_request)(voter_info)(rex_info)(subjective_cpu_bill_limit) )
+            (total_resources)(self_delegated_bandwidth)(refund_request)(voter_info)(rex_info)
+            (subjective_cpu_bill_limit) (eosio_any_linked_actions) )
 // @swap code_hash
 FC_REFLECT( eosio::chain_apis::read_only::get_code_results, (account_name)(code_hash)(wast)(wasm)(abi) )
 FC_REFLECT( eosio::chain_apis::read_only::get_code_hash_results, (account_name)(code_hash) )
@@ -866,5 +879,6 @@ FC_REFLECT( eosio::chain_apis::read_only::abi_bin_to_json_params, (code)(action)
 FC_REFLECT( eosio::chain_apis::read_only::abi_bin_to_json_result, (args) )
 FC_REFLECT( eosio::chain_apis::read_only::get_required_keys_params, (transaction)(available_keys) )
 FC_REFLECT( eosio::chain_apis::read_only::get_required_keys_result, (required_keys) )
+FC_REFLECT( eosio::chain_apis::read_only::compute_transaction_params, (transaction))
 FC_REFLECT( eosio::chain_apis::read_only::compute_transaction_results, (transaction_id)(processed) )
 
