@@ -288,7 +288,11 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
 
       void on_fail(boost::system::error_code ec, const char* what) {
          try {
-            elog("${w}: ${m}", ("w", what)("m", ec.message()));
+            if (ec == boost::asio::error::eof) {
+               dlog("${w}: ${m}", ("w", what)("m", ec.message()));
+            } else {
+               elog("${w}: ${m}", ("w", what)("m", ec.message()));
+            }
             close();
          } catch (...) {
             elog("uncaught exception on close");
