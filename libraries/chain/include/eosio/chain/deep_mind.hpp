@@ -44,6 +44,12 @@ public:
 class deep_mind_handler
 {
 public:
+   struct deep_mind_config {
+      bool zero_elapsed = false; // if true, the elapsed field of transaction and action traces is always set to 0 (for reproducibility)
+   };
+
+   void update_config(deep_mind_config config);
+
    void update_logger(const std::string& logger_name);
    enum class operation_qualifier { none, modify, push };
 
@@ -85,9 +91,10 @@ public:
    void on_modify_permission(const permission_object& old_permission, const permission_object& new_permission);
    void on_remove_permission(const permission_object& permission);
 private:
-   uint32_t   _action_id = 0;
-   ram_trace  _ram_trace;
-   fc::logger _logger;
+   uint32_t         _action_id = 0;
+   ram_trace        _ram_trace;
+   deep_mind_config _config;
+   fc::logger       _logger;
 };
 
 }
