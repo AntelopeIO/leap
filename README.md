@@ -1,11 +1,14 @@
 # Mandel
 
+Home of the official [EOS Network Foundation](https://eosnetwork.com/) blockchain node software.
+
 ## Repo organization
 
 | branch                | description |
 | ------                | ----------- |
 | `main`                | Development for future releases |
-| `release/3.0.x`       | 3.0.x-* series of releases |
+| `release/3.0.x`       | 3.0.x-* series of pre-releases before 3.1.x |
+| `release/3.1.x`       | 3.1.x* series of 3.1.0 releases |
 
 ## Supported Operating Systems
 
@@ -19,7 +22,6 @@ To speed up development and reduce support overhead, we're initially only suppor
 
 ```
 apt-get update && apt-get install   \
-        binaryen                    \
         build-essential             \
         ccache                      \
         cmake                       \
