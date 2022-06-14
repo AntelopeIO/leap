@@ -1,4 +1,4 @@
-#! /bin/sh
+#! /usr/bin/bash
 
 apt-get update
 apt-get update --fix-missing
