@@ -451,7 +451,7 @@ void state_history_plugin::set_program_options(options_description& cli, options
    options("trace-history-debug-mode", bpo::bool_switch()->default_value(false), "enable debug mode for trace history");
 
    if(cfile::supports_hole_punching())
-      options("state-history-log-prune-blocks", bpo::value<uint32_t>(), "if set, periodically prune the state history files to store only configured number of most recent blocks");
+      options("state-history-log-retain-blocks", bpo::value<uint32_t>(), "if set, periodically prune the state history files to store only configured number of most recent blocks");
 }
 
 void state_history_plugin::plugin_initialize(const variables_map& options) {
@@ -498,12 +498,12 @@ void state_history_plugin::plugin_initialize(const variables_map& options) {
       }
 
       std::optional<state_history_log_prune_config> ship_log_prune_conf;
-      if (options.count("state-history-log-prune-blocks")) {
+      if (options.count("state-history-log-retain-blocks")) {
          ship_log_prune_conf.emplace();
-         ship_log_prune_conf->prune_blocks = options.at("state-history-log-prune-blocks").as<uint32_t>();
+         ship_log_prune_conf->prune_blocks = options.at("state-history-log-retain-blocks").as<uint32_t>();
          //the arbitrary limit of 1000 here is mainly so that there is enough buffer for newly applied forks to be delivered to clients
          // before getting pruned out. ideally pruning would have been smart enough to know not to prune reversible blocks
-         EOS_ASSERT(ship_log_prune_conf->prune_blocks >= 1000, plugin_exception, "state-history-log-prune-blocks must be 1000 blocks or greater");
+         EOS_ASSERT(ship_log_prune_conf->prune_blocks >= 1000, plugin_exception, "state-history-log-retain-blocks must be 1000 blocks or greater");
       }
 
       if (options.at("trace-history").as<bool>())
