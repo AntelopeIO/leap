@@ -334,7 +334,7 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
           "Duration (in seconds) a failed transaction's Finality Status will remain available from being first identified.");
 
    if(cfile::supports_hole_punching())
-      cfg.add_options()("block-log-prune-blocks", bpo::value<uint32_t>(), "if set, periodically prune the block log to store only configured number of most recent blocks");
+      cfg.add_options()("block-log-retain-blocks", bpo::value<uint32_t>(), "if set, periodically prune the block log to store only configured number of most recent blocks");
 
 
 // TODO: rate limiting
@@ -863,10 +863,10 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
       // move fork_db to new location
       upgrade_from_reversible_to_fork_db( my.get() );
 
-      if(options.count( "block-log-prune-blocks" )) {
+      if(options.count( "block-log-retain-blocks" )) {
          my->chain_config->prune_config.emplace();
-         my->chain_config->prune_config->prune_blocks = options.at( "block-log-prune-blocks" ).as<uint32_t>();
-         EOS_ASSERT(my->chain_config->prune_config->prune_blocks, plugin_config_exception, "block-log-prune-blocks cannot be 0");
+         my->chain_config->prune_config->prune_blocks = options.at( "block-log-retain-blocks" ).as<uint32_t>();
+         EOS_ASSERT(my->chain_config->prune_config->prune_blocks, plugin_config_exception, "block-log-retain-blocks cannot be 0");
       }
 
       if( options.at( "delete-all-blocks" ).as<bool>()) {
