@@ -4,11 +4,13 @@
 #include <fstream>
 #include <stdint.h>
 
+#include <boost/asio.hpp>
 #include <eosio/chain/block_header.hpp>
 #include <eosio/chain/exceptions.hpp>
 #include <eosio/chain/types.hpp>
 #include <fc/io/cfile.hpp>
 #include <fc/log/logger.hpp>
+#include <fc/log/logger_config.hpp> //set_thread_name
 
 namespace eosio {
 
@@ -28,11 +30,11 @@ namespace eosio {
  *    payload
  */
 
-inline uint64_t       ship_magic(uint32_t version) {
+inline uint64_t ship_magic(uint32_t version) {
    using namespace eosio::chain::literals;
    return "ship"_n.to_uint64_t() | version;
 }
-inline bool           is_ship(uint64_t magic) {
+inline bool is_ship(uint64_t magic) {
    using namespace eosio::chain::literals;
    return (magic & 0xffff'ffff'0000'0000) == "ship"_n.to_uint64_t();
 }
@@ -60,6 +62,15 @@ class state_history_log {
    uint32_t             _end_block   = 0;
    chain::block_id_type last_block_id;
 
+   std::thread                                                              thr;
+   std::atomic<bool>                                                        write_thread_has_exception = false;
+   std::exception_ptr                                                       eptr;
+   boost::asio::io_context                                                  ctx;
+   boost::asio::io_context::strand                                          work_strand{ctx};
+   boost::asio::executor_work_guard<boost::asio::io_context::executor_type> work_guard =
+       boost::asio::make_work_guard(ctx);
+   std::mutex                                                               mx;
+
  public:
    state_history_log(const char* const name, std::string log_filename, std::string index_filename)
        : name(name)
@@ -67,6 +78,25 @@ class state_history_log {
        , index_filename(std::move(index_filename)) {
       open_log();
       open_index();
+
+      thr = std::thread([this] {
+         try {
+            fc::set_os_thread_name(this->name);
+            this->ctx.run();
+         } catch (...) {
+            elog("catched exception from ${name} write thread", ("name", this->name));
+            eptr                       = std::current_exception();
+            write_thread_has_exception = true;
+         }
+         elog("${name} thread ended", ("name", this->name));
+      });
+   }
+
+   void stop() {
+      if (thr.joinable()) {
+         work_guard.reset();
+         thr.join();
+      }
    }
 
    uint32_t begin_block() const { return _begin_block; }
@@ -93,7 +123,12 @@ class state_history_log {
 
    template <typename F>
    void write_entry(const state_history_log_header& header, const chain::block_id_type& prev_id, F write_payload) {
-      auto block_num = chain::block_header::num_from_id(header.block_id);
+      if (write_thread_has_exception) {
+         std::rethrow_exception(eptr);
+      }
+
+      std::unique_lock<std::mutex> lock(mx);
+      auto                         block_num = chain::block_header::num_from_id(header.block_id);
       EOS_ASSERT(_begin_block == _end_block || block_num <= _end_block, chain::plugin_exception,
                  "missed a block in ${name}.log", ("name", name));
 
@@ -113,8 +148,12 @@ class state_history_log {
          truncate(block_num);
       log.seek_end(0);
       uint64_t pos = log.tellp();
+      
+      lock.unlock();
       write_header(header);
       write_payload(log);
+      lock.lock();
+      
       uint64_t end = log.tellp();
       EOS_ASSERT(end == pos + state_history_log_header_serial_size + header.payload_size, chain::plugin_exception,
                  "wrote payload with incorrect size to ${name}.log", ("name", name));
@@ -138,6 +177,7 @@ class state_history_log {
    }
 
    chain::block_id_type get_block_id(uint32_t block_num) {
+      std::lock_guard          lock(mx);
       state_history_log_header header;
       get_entry(block_num, header);
       return header.block_id;

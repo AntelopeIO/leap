@@ -120,10 +120,12 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
       void start(tcp::socket socket) {
          ilog("incoming connection");
          socket_stream = std::make_unique<ws::stream<tcp::socket>>(std::move(socket));
+         socket_stream->auto_fragment(false);
          socket_stream->binary(true);
          socket_stream->next_layer().set_option(boost::asio::ip::tcp::no_delay(true));
          socket_stream->next_layer().set_option(boost::asio::socket_base::send_buffer_size(1024 * 1024));
          socket_stream->next_layer().set_option(boost::asio::socket_base::receive_buffer_size(1024 * 1024));
+        
          socket_stream->async_accept([self = shared_from_this()](boost::system::error_code ec) {
             self->callback(ec, "async_accept", [self] {
                self->start_read();
@@ -292,7 +294,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
          app().post(priority::medium, [=]() {
             if (plugin->stopping)
                return;
-            if (ec)
+            if (ec) 
                return on_fail(ec, what);
             catch_and_close(f);
          });
@@ -605,6 +607,8 @@ void state_history_plugin::plugin_shutdown() {
    my->block_start_connection.reset();
    my->sessions.for_each([](auto& s) { s->close(); });
    my->stopping = true;
+   my->trace_log->stop();
+   my->chain_state_log->stop();
    if (my->thr.joinable()) {
       my->work_guard.reset();
       my->ctx.stop();
