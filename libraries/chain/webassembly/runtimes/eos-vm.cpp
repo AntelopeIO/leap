@@ -617,6 +617,18 @@ REGISTER_CF_HOST_FUNCTION(__letf2);
 REGISTER_CF_HOST_FUNCTION(__lttf2);
 REGISTER_CF_HOST_FUNCTION(__unordtf2);
 
+// get_block_num protocol feature
+REGISTER_CF_HOST_FUNCTION( get_block_num );
+
+// crypto_primitives protocol feature
+REGISTER_CF_HOST_FUNCTION( alt_bn128_add );
+REGISTER_CF_HOST_FUNCTION( alt_bn128_mul );
+REGISTER_CF_HOST_FUNCTION( alt_bn128_pair );
+REGISTER_CF_HOST_FUNCTION( mod_exp );
+REGISTER_CF_HOST_FUNCTION( blake2_f );
+REGISTER_CF_HOST_FUNCTION( sha3 );
+REGISTER_CF_HOST_FUNCTION( k1_recover );
+
 } // namespace webassembly
 } // namespace chain
 } // namespace eosio
