@@ -21,7 +21,6 @@ To speed up development and reduce support overhead, we're initially only suppor
 apt-get update && apt-get install   \
         binaryen                    \
         build-essential             \
-        ccache                      \
         cmake                       \
         curl                        \
         git                         \
