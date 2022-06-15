@@ -12,11 +12,11 @@
 namespace {
 
    void set_trace_elapsed_to_zero(eosio::chain::action_trace& trace) {
-      trace.elapsed = {};
+      trace.elapsed = fc::microseconds{};
    }
 
    void set_trace_elapsed_to_zero(eosio::chain::transaction_trace& trace) {
-      trace.elapsed = {};
+      trace.elapsed = fc::microseconds{};
       for (auto& act_trace : trace.action_traces) {
          set_trace_elapsed_to_zero(act_trace);
       }
