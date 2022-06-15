@@ -68,7 +68,6 @@ I highly recommend the ccache options. They don't speed up the first clean build
 
 ```
 cd build
-npm install
 
 # Runs parallelizable tests in parallel. This runs much faster when
 # -DDISABLE_WASM_SPEC_TESTS=yes is used.
