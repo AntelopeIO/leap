@@ -373,6 +373,8 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
          ("terminate-at-block", bpo::value<uint32_t>()->default_value(0),
           "terminate after reaching this block number (if set to a non-zero number)")
          ("snapshot", bpo::value<bfs::path>(), "File to read Snapshot State from")
+         ("integrity-hash-on-start", bpo::bool_switch(), "Log the state integrity hash on startup")
+         ("integrity-hash-on-stop", bpo::bool_switch(), "Log the state integrity hash on shutdown")
          ;
 
 }
@@ -1078,6 +1080,9 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
 #endif
 
       my->account_queries_enabled = options.at("enable-account-queries").as<bool>();
+
+      my->chain_config->integrity_hash_on_start = options.at("integrity-hash-on-start").as<bool>();
+      my->chain_config->integrity_hash_on_stop = options.at("integrity-hash-on-stop").as<bool>();
 
       my->chain.emplace( *my->chain_config, std::move(pfs), *chain_id );
 

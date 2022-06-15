@@ -569,8 +569,6 @@ struct controller_impl {
                         "Snapshot is invalid." );
             blog.reset( chain_id, lib_num + 1 );
          }
-         const auto hash = calculate_integrity_hash();
-         ilog( "database initialized with hash: ${hash}", ("hash", hash) );
 
          init(check_shutdown);
          ilog( "Finished initialization from snapshot" );
@@ -696,6 +694,9 @@ struct controller_impl {
          dm_logger->on_startup(db, head->block_num);
       }
 
+      if( conf.integrity_hash_on_start )
+         ilog( "chain database started with hash: ${hash}", ("hash", calculate_integrity_hash()) );
+
       replay( check_shutdown ); // replay any irreversible and reversible blocks ahead of current head
 
       if( check_shutdown() ) return;
@@ -723,6 +724,9 @@ struct controller_impl {
    ~controller_impl() {
       thread_pool.stop();
       pending.reset();
+      //using the presence of a row in datebase_header index to indicate controller had a successful startup()
+      if(db.get_index<database_header_multi_index>().indices().get<by_id>().size() && conf.integrity_hash_on_stop)
+         ilog( "chain database stopped with hash: ${hash}", ("hash", calculate_integrity_hash()) );
    }
 
    void add_indices() {
