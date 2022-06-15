@@ -64,3 +64,8 @@ EOSIO 2.0.12 merged
 ## Release `v2.0.13wax01`
 
 EOSIO 2.0.13 merged
+
+## Release candidate `v3.1.0wax01-rc1`
+
+Mandel v3.1.0-rc1 merged
+
