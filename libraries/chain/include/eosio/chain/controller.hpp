@@ -1,5 +1,6 @@
 #pragma once
 #include <eosio/chain/block_state.hpp>
+#include <eosio/chain/block_log.hpp>
 #include <eosio/chain/trace.hpp>
 #include <eosio/chain/genesis_state.hpp>
 #include <chainbase/pinnable_mapped_file.hpp>
@@ -69,6 +70,7 @@ namespace eosio { namespace chain {
             flat_set< pair<account_name, action_name> > action_blacklist;
             flat_set<public_key_type> key_blacklist;
             path                     blocks_dir             =  chain::config::default_blocks_dir_name;
+            std::optional<block_log_prune_config>  prune_config;
             path                     state_dir              =  chain::config::default_state_dir_name;
             uint64_t                 state_size             =  chain::config::default_state_size;
             uint64_t                 state_guard_size       =  chain::config::default_state_guard_size;
@@ -226,6 +228,7 @@ namespace eosio { namespace chain {
          account_name                   pending_block_producer()const;
          const block_signing_authority& pending_block_signing_authority()const;
          std::optional<block_id_type>   pending_producer_block_id()const;
+         uint32_t                       pending_block_num()const;
 
          const vector<transaction_receipt>& get_pending_trx_receipts()const;
 
