@@ -60,6 +60,7 @@ else()
    find_library(libsecp256k1 secp256k1 @CMAKE_BINARY_DIR@/libraries/fc/secp256k1 NO_DEFAULT_PATH)
 endif()
 
+find_library(libff ff @CMAKE_BINARY_DIR@/libraries/fc/libraries/ff NO_DEFAULT_PATH)
 find_library(libwasm WASM @CMAKE_BINARY_DIR@/libraries/wasm-jit/Source/WASM NO_DEFAULT_PATH)
 find_library(libwast WAST @CMAKE_BINARY_DIR@/libraries/wasm-jit/Source/WAST NO_DEFAULT_PATH)
 find_library(libir IR     @CMAKE_BINARY_DIR@/libraries/wasm-jit/Source/IR NO_DEFAULT_PATH)
@@ -100,6 +101,8 @@ macro(add_eosio_test_executable test_name)
        ${libchainbase}
        ${libbuiltins}
        ${libsecp256k1}
+       ${libff}
+       @GMP_LIBRARIES@
 
        ${Boost_FILESYSTEM_LIBRARY}
        ${Boost_SYSTEM_LIBRARY}

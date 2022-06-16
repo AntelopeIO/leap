@@ -1,11 +1,14 @@
 # Mandel
 
+Home of the official [EOS Network Foundation](https://eosnetwork.com/) blockchain node software.
+
 ## Repo organization
 
 | branch                | description |
 | ------                | ----------- |
 | `main`                | Development for future releases |
-| `release/3.0.x`       | 3.0.x-* series of releases |
+| `release/3.0.x`       | 3.0.x-* series of pre-releases before 3.1.x |
+| `release/3.1.x`       | 3.1.x* series of 3.1.0 releases |
 
 ## Supported Operating Systems
 
@@ -19,14 +22,13 @@ To speed up development and reduce support overhead, we're initially only suppor
 
 ```
 apt-get update && apt-get install   \
-        binaryen                    \
         build-essential             \
-        ccache                      \
         cmake                       \
         curl                        \
         git                         \
         libboost-all-dev            \
         libcurl4-openssl-dev        \
+        libgmp-dev                  \
         libssl-dev                  \
         libtinfo5                   \
         libusb-1.0-0-dev            \
@@ -66,7 +68,6 @@ I highly recommend the ccache options. They don't speed up the first clean build
 
 ```
 cd build
-npm install
 
 # Runs parallelizable tests in parallel. This runs much faster when
 # -DDISABLE_WASM_SPEC_TESTS=yes is used.

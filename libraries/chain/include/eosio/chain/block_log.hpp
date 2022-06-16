@@ -30,15 +30,25 @@ namespace eosio { namespace chain {
     *
     * The main file is the only file that needs to persist. The index file can be reconstructed during a
     * linear scan of the main file.
+    *
+    * An optional "pruned" mode can be activated which stores a 4 byte trailer on the log file indicating
+    * how many blocks at the end of the log are valid. Any earlier blocks in the log are assumed destroyed
+    * and unreadable due to reclamation for purposes of saving space.
     */
+
+   struct block_log_prune_config {
+      uint32_t                prune_blocks;                  //number of blocks to prune to when doing a prune
+      size_t                  prune_threshold = 4*1024*1024; //(approximately) how many bytes need to be added before a prune is performed
+      std::optional<size_t>   vacuum_on_close;               //when set, a vacuum is performed on dtor if log contains less than this many live bytes
+   };
 
    class block_log {
       public:
-         block_log(const fc::path& data_dir);
+         block_log(const fc::path& data_dir, std::optional<block_log_prune_config> prune_config);
          block_log(block_log&& other);
          ~block_log();
 
-         uint64_t append(const signed_block_ptr& b);
+         void append(const signed_block_ptr& b);
          void flush();
          void reset( const genesis_state& gs, const signed_block_ptr& genesis_block );
          void reset( const chain_id_type& chain_id, uint32_t first_block_num );
@@ -78,6 +88,8 @@ namespace eosio { namespace chain {
          static bool contains_chain_id(uint32_t version, uint32_t first_block_num);
 
          static bool is_supported_version(uint32_t version);
+
+         static bool is_pruned_log(const fc::path& data_dir);
 
          static bool trim_blocklog_front(const fc::path& block_dir, const fc::path& temp_dir, uint32_t truncate_at_block);
 

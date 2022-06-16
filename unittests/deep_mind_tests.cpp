@@ -36,6 +36,7 @@ struct deep_mind_log_fixture
       fc::configure_logging(cfg);
       setup_test_logging();
 
+      deep_mind_logger.update_config(deep_mind_handler::deep_mind_config{.zero_elapsed = true});
       deep_mind_logger.update_logger("deep-mind");
    }
    ~deep_mind_log_fixture()
