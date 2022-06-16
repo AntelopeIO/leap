@@ -328,6 +328,7 @@ namespace eosio {
       constexpr static uint16_t to_protocol_version(uint16_t v);
 
       connection_ptr find_connection(const string& host)const; // must call with held mutex
+      string connect( const string& host );
    };
 
    const fc::string logger_name("net_plugin_impl");
@@ -1469,6 +1470,7 @@ namespace eosio {
    void connection::sync_timeout( boost::system::error_code ec ) {
       if( !ec ) {
          my_impl->sync_master->sync_reassign_fetch( shared_from_this(), benign_other );
+         close(true);
       } else if( ec != boost::asio::error::operation_aborted ) { // don't log on operation_aborted, called on destroy
          peer_elog( this, "setting timer for sync request got error ${ec}", ("ec", ec.message()) );
       }
@@ -3697,19 +3699,6 @@ namespace eosio {
          }
       }
 
-      if( my->acceptor ) {
-         try {
-           my->acceptor->open(listen_endpoint.protocol());
-           my->acceptor->set_option(tcp::acceptor::reuse_address(true));
-           my->acceptor->bind(listen_endpoint);
-           my->acceptor->listen();
-         } catch (const std::exception& e) {
-           elog( "net_plugin::plugin_startup failed to bind to port ${port}", ("port", listen_endpoint.port()) );
-           throw e;
-         }
-         fc_ilog( logger, "starting listener, max clients is ${mc}",("mc",my->max_client_count) );
-         my->start_listen_loop();
-      }
       {
          chain::controller& cc = my->chain_plug->chain();
          cc.accepted_block.connect( [my = my]( const block_state_ptr& s ) {
@@ -3727,18 +3716,32 @@ namespace eosio {
          std::lock_guard<std::mutex> g( my->keepalive_timer_mtx );
          my->keepalive_timer.reset( new boost::asio::steady_timer( my->thread_pool->get_executor() ) );
       }
-      my->ticker();
 
       my->incoming_transaction_ack_subscription = app().get_channel<compat::channels::transaction_ack>().subscribe(
             std::bind(&net_plugin_impl::transaction_ack, my.get(), std::placeholders::_1));
 
-      my->start_monitors();
+      app().post(priority::highest, [my=my, listen_endpoint](){
+         if( my->acceptor ) {
+            try {
+               my->acceptor->open(listen_endpoint.protocol());
+               my->acceptor->set_option(tcp::acceptor::reuse_address(true));
+               my->acceptor->bind(listen_endpoint);
+               my->acceptor->listen();
+            } catch (const std::exception& e) {
+               elog( "net_plugin::plugin_startup failed to bind to port ${port}", ("port", listen_endpoint.port()) );
+               throw e;
+            }
+            fc_ilog( logger, "starting listener, max clients is ${mc}",("mc",my->max_client_count) );
+            my->start_listen_loop();
+         }
 
-      my->update_chain_info();
-
-      for( const auto& seed_node : my->supplied_peers ) {
-         connect( seed_node );
-      }
+         my->ticker();
+         my->start_monitors();
+         my->update_chain_info();
+         for( const auto& seed_node : my->supplied_peers ) {
+            my->connect( seed_node );
+         }
+      });
 
       } catch( ... ) {
          // always want plugin_shutdown even on exception
@@ -3799,16 +3802,20 @@ namespace eosio {
     *  Used to trigger a new connection from RPC API
     */
    string net_plugin::connect( const string& host ) {
-      std::lock_guard<std::shared_mutex> g( my->connections_mtx );
-      if( my->find_connection( host ) )
+      return my->connect( host );
+   }
+
+   string net_plugin_impl::connect( const string& host ) {
+      std::lock_guard<std::shared_mutex> g( connections_mtx );
+      if( find_connection( host ) )
          return "already connected";
 
       connection_ptr c = std::make_shared<connection>( host );
       fc_dlog( logger, "calling active connector: ${h}", ("h", host) );
       if( c->resolve_and_connect() ) {
          fc_dlog( logger, "adding new connection to the list: ${host} ${cid}", ("host", host)("cid", c->connection_id) );
-         c->set_heartbeat_timeout( my->heartbeat_timeout );
-         my->connections.insert( c );
+         c->set_heartbeat_timeout( heartbeat_timeout );
+         connections.insert( c );
       }
       return "added connection";
    }
