@@ -247,6 +247,7 @@ struct controller_impl {
    named_thread_pool               thread_pool;
    platform_timer                  timer;
    deep_mind_handler*              deep_mind_logger = nullptr;
+   bool                            okay_to_print_integrity_hash_on_exit = false;
 #if defined(EOSIO_EOS_VM_RUNTIME_ENABLED) || defined(EOSIO_EOS_VM_JIT_RUNTIME_ENABLED)
    vm::wasm_allocator               wasm_alloc;
 #endif
@@ -696,6 +697,7 @@ struct controller_impl {
 
       if( conf.integrity_hash_on_start )
          ilog( "chain database started with hash: ${hash}", ("hash", calculate_integrity_hash()) );
+      okay_to_print_integrity_hash_on_stop = true;
 
       replay( check_shutdown ); // replay any irreversible and reversible blocks ahead of current head
 
@@ -724,8 +726,8 @@ struct controller_impl {
    ~controller_impl() {
       thread_pool.stop();
       pending.reset();
-      //using the presence of a row in datebase_header index to indicate controller had a successful startup()
-      if(db.get_index<database_header_multi_index>().indices().get<by_id>().size() && conf.integrity_hash_on_stop)
+      //only log this not just if configured to, but also if initialization made it to the point we'd log the startup too
+      if(okay_to_print_integrity_hash_on_stop && conf.integrity_hash_on_stop)
          ilog( "chain database stopped with hash: ${hash}", ("hash", calculate_integrity_hash()) );
    }
 
