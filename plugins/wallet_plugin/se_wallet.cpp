@@ -269,7 +269,11 @@ static void check_signed() {
    CFNumberRef pidnumber = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &pid);
    CFDictionaryRef piddict = CFDictionaryCreate(kCFAllocatorDefault, (const void**)&kSecGuestAttributePid, (const void**)&pidnumber, 1, nullptr, nullptr);
    if(!SecCodeCopyGuestWithAttributes(nullptr, piddict, kSecCSDefaultFlags, &code)) {
-      is_valid = SecCodeCheckValidity(code, kSecCSDefaultFlags, 0);
+      SecRequirementRef sec_requirement = nullptr;
+      if(!SecRequirementCreateWithString(CFSTR("anchor trusted"), kSecCSDefaultFlags, &sec_requirement)) {
+         is_valid = SecCodeCheckValidity(code, kSecCSDefaultFlags, sec_requirement);
+         CFRelease(sec_requirement);
+      }
       CFRelease(code);
    }
    CFRelease(piddict);
