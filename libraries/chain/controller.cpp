@@ -247,7 +247,7 @@ struct controller_impl {
    named_thread_pool               thread_pool;
    platform_timer                  timer;
    deep_mind_handler*              deep_mind_logger = nullptr;
-   bool                            okay_to_print_integrity_hash_on_exit = false;
+   bool                            okay_to_print_integrity_hash_on_stop = false;
 #if defined(EOSIO_EOS_VM_RUNTIME_ENABLED) || defined(EOSIO_EOS_VM_JIT_RUNTIME_ENABLED)
    vm::wasm_allocator               wasm_alloc;
 #endif
