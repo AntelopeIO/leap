@@ -5,6 +5,8 @@
 #include <stdint.h>
 
 #include <boost/asio.hpp>
+#include <boost/thread.hpp>
+
 #include <eosio/chain/block_header.hpp>
 #include <eosio/chain/exceptions.hpp>
 #include <eosio/chain/types.hpp>
@@ -98,7 +100,6 @@ class state_history_log {
        , prune_config(prune_conf) {
       open_log();
       open_index();
-
      
       if(prune_config) {
          EOS_ASSERT(prune_config->prune_blocks, chain::plugin_exception, "state history log prune configuration requires at least one block");
@@ -153,6 +154,15 @@ class state_history_log {
    }
 
    ~state_history_log() {
+      // complete execution before possible vacuuming
+      if (thr.joinable()) {
+         try  { 
+            work_guard.reset();
+            thr.join(); 
+         }
+         catch (const boost::thread_interrupted&) {/* suppressed */}
+      }     
+
       //nothing to do if log is empty or we aren't pruning
       if(_begin_block == _end_block)
          return;
