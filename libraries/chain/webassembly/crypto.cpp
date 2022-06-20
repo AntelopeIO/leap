@@ -2,7 +2,6 @@
 #include <eosio/chain/protocol_state_object.hpp>
 #include <eosio/chain/transaction_context.hpp>
 #include <eosio/chain/apply_context.hpp>
-#include <eosio/chain/webassembly/error_codes.hpp>
 #include <fc/crypto/alt_bn128.hpp>
 #include <fc/crypto/modular_arithmetic.hpp>
 #include <fc/crypto/blake2.hpp>
@@ -108,82 +107,73 @@ namespace eosio { namespace chain { namespace webassembly {
    }
 
    int32_t interface::alt_bn128_add(span<const char> op1, span<const char> op2, span<char> result ) const {
-      using error_code = eosio::chain::webassembly::error_codes::crypto;
-
       bytes bop1(op1.data(), op1.data() + op1.size());
       bytes bop2(op2.data(), op2.data() + op2.size());
 
       auto maybe_err = fc::alt_bn128_add(bop1, bop2);
       if(std::holds_alternative<fc::alt_bn128_error>(maybe_err)) {
-         return error_code::fail;
+         return return_code::failure;
       }
 
       const auto& res = std::get<bytes>(maybe_err);
 
       if( result.size() < res.size() )
-         return error_code::fail;
+         return return_code::failure;
 
       std::memcpy( result.data(), res.data(), res.size() );
-      return error_code::none;
+      return return_code::success;
    }
 
    int32_t interface::alt_bn128_mul(span<const char> g1_point, span<const char> scalar, span<char> result) const {
-      using error_code = eosio::chain::webassembly::error_codes::crypto;
-
       bytes bg1_point(g1_point.data(), g1_point.data() + g1_point.size());
       bytes bscalar(scalar.data(), scalar.data() + scalar.size());
 
       auto maybe_err = fc::alt_bn128_mul(bg1_point, bscalar);
       if(std::holds_alternative<fc::alt_bn128_error>(maybe_err)) {
-         return error_code::fail;
+         return return_code::failure;
       }
 
       const auto& res = std::get<bytes>(maybe_err);
 
       if( result.size() < res.size() )
-         return error_code::fail;
+         return return_code::failure;
 
       std::memcpy( result.data(), res.data(), res.size() );
-      return error_code::none;
+      return return_code::success;
    }
 
-   int32_t interface::alt_bn128_pair(span<const char> g1_g2_pairs, bool* result) const {
-      using error_code = eosio::chain::webassembly::error_codes::crypto;
-
+   int32_t interface::alt_bn128_pair(span<const char> g1_g2_pairs) const {
       bytes bg1_g2_pairs(g1_g2_pairs.data(), g1_g2_pairs.data() + g1_g2_pairs.size());
 
       auto checktime = [this]() { context.trx_context.checktime(); };
-      auto maybe_err = fc::alt_bn128_pair(bg1_g2_pairs, checktime);
-      if(std::holds_alternative<fc::alt_bn128_error>(maybe_err)) {
-         return error_code::fail;
+      auto res = fc::alt_bn128_pair(bg1_g2_pairs, checktime);
+      if(std::holds_alternative<fc::alt_bn128_error>(res)) {
+         return return_code::failure;
       }
 
-      *result = std::get<bool>(maybe_err);
-      return error_code::none;
+      return !std::get<bool>(res); 
    }
 
    int32_t interface::mod_exp(span<const char> base,
                               span<const char> exp,
                               span<const char> modulus,
                               span<char> out) const {
-      using error_code = eosio::chain::webassembly::error_codes::crypto;
-
       bytes bbase(base.data(), base.data() + base.size());
       bytes bexp(exp.data(), exp.data() + exp.size());
       bytes bmod(modulus.data(), modulus.data() + modulus.size());
 
       auto maybe_err = fc::modexp(bbase, bexp, bmod);
       if(std::holds_alternative<fc::modular_arithmetic_error>(maybe_err)) {
-         return error_code::fail;
+         return return_code::failure;
       }
 
       const auto& res = std::get<bytes>(maybe_err);
 
       if( out.size() < res.size() )
-         return error_code::fail;
+         return return_code::failure;
 
       std::memcpy( out.data(), res.data(), res.size() );
-      return error_code::none;
+      return return_code::success;
    }
 
    int32_t interface::blake2_f( uint32_t rounds,
@@ -191,10 +181,8 @@ namespace eosio { namespace chain { namespace webassembly {
                                 span<const char> message,
                                 span<const char> t0_offset,
                                 span<const char> t1_offset,
-                                bool final,
+                                int32_t final,
                                 span<char> out) const {
-
-      using error_code = eosio::chain::webassembly::error_codes::crypto;
 
       bytes bstate(state.data(), state.data() + state.size());
       bytes bmessage(message.data(), message.data() + message.size());
@@ -205,19 +193,19 @@ namespace eosio { namespace chain { namespace webassembly {
 
       auto maybe_err = fc::blake2b(rounds, bstate, bmessage, bt0_offset, bt1_offset, final, checktime);
       if(std::holds_alternative<fc::blake2b_error>(maybe_err)) {
-         return error_code::fail;
+         return return_code::failure;
       }
 
       const auto& res = std::get<bytes>(maybe_err);
 
       if( out.size() < res.size() )
-         return error_code::fail;
+         return return_code::failure;
 
       std::memcpy( out.data(), res.data(), res.size() );
-      return error_code::none;
+      return return_code::success;
    }
 
-   void interface::sha3( span<const char> input, span<char> output, bool keccak ) const {
+   void interface::sha3( span<const char> input, span<char> output, int32_t keccak ) const {
       const size_t bs = eosio::chain::config::hashing_checktime_block_size;
       const char* data = input.data();
       uint32_t datalen = input.size();
@@ -236,23 +224,21 @@ namespace eosio { namespace chain { namespace webassembly {
    }
 
    int32_t interface::k1_recover( span<const char> signature, span<const char> digest, span<char> pub) const {
-      using error_code = eosio::chain::webassembly::error_codes::crypto;
-
       bytes bsignature(signature.data(), signature.data() + signature.size());
       bytes bdigest(digest.data(), digest.data() + digest.size());
 
       auto maybe_err = fc::k1_recover(bsignature, bdigest);
       if( std::holds_alternative<fc::k1_recover_error>(maybe_err)) {
-         return error_code::fail;
+         return return_code::failure;
       }
 
       const auto& res = std::get<bytes>(maybe_err);
 
       if( pub.size() < res.size() )
-         return error_code::fail;
+         return return_code::failure;
 
       std::memcpy( pub.data(), res.data(), res.size() );
-      return error_code::none;
+      return return_code::success;
    }
 
 }}} // ns eosio::chain::webassembly

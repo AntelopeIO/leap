@@ -41,8 +41,8 @@ namespace eosio { namespace chain { namespace webassembly {
 
       template <typename T>
       struct is_whitelisted_type {
-         static constexpr bool value = is_wasm_arithmetic_type_v<T> ||
-                                       std::is_same_v<name, T>;
+         static constexpr bool value = (is_wasm_arithmetic_type_v<T> || std::is_same_v<name, T>) &&
+                                       !(std::is_pointer_v<T> || std::is_reference_v<T>);
       };
       template <typename T>
       struct is_whitelisted_type<vm::span<T>> {

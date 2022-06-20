@@ -1,6 +1,6 @@
 {
     "____comment": "This file was generated with eosio-abigen. DO NOT EDIT ",
-    "version": "eosio::abi/1.1",
+    "version": "eosio::abi/1.2",
     "types": [],
     "structs": [
         {
@@ -158,10 +158,6 @@
                 {
                     "name": "expected_error",
                     "type": "int32"
-                },
-                {
-                    "name": "expected_result",
-                    "type": "bool"
                 }
             ]
         },
@@ -223,6 +219,8 @@
         }
     ],
     "tables": [],
+    "kv_tables": {},
     "ricardian_clauses": [],
-    "variants": []
+    "variants": [],
+    "action_results": []
 }

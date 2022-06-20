@@ -31,6 +31,8 @@ namespace eosio { namespace chain {
    template <typename T, std::size_t Align = alignof(T)>
    using legacy_span = eosio::vm::argument_proxy<eosio::vm::span<T>, Align>;
 
+   using legacy_bool = bool;
+
    struct null_terminated_ptr {
       null_terminated_ptr(const char* ptr) : ptr(ptr) {}
       const char* data() const { return ptr; }

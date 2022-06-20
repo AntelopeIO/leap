@@ -18,14 +18,12 @@ void crypto_primitives_test::testmul(const bytes& point, const bytes& scalar, in
 }
 
 [[eosio::action]]
-void crypto_primitives_test::testpair(const bytes& g1_g2_pairs, int32_t expected_error, bool expected_result) {
-   bool ret = false;
-   int32_t errorCode = eosio::internal_use_do_not_use::alt_bn128_pair( g1_g2_pairs.data(), g1_g2_pairs.size(), &ret);
+void crypto_primitives_test::testpair(const bytes& g1_g2_pairs, int32_t expected) {
+   int32_t  res = eosio::internal_use_do_not_use::alt_bn128_pair( g1_g2_pairs.data(), g1_g2_pairs.size());
 
-   eosio::print("alt_bn128_pair: ", ret, " ", uint64_t(errorCode));
+   eosio::print("alt_bn128_pair: ", uint64_t(res));
 
-   check( errorCode == expected_error, "Error does not match");
-   check( ret == expected_result, "Result does not match");
+   check( res == expected, "Result does not match expected");
 }
 
 [[eosio::action]]
