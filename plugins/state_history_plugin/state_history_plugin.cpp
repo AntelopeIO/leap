@@ -21,6 +21,22 @@ namespace ws = boost::beast::websocket;
 
 extern const char* const state_history_plugin_abi;
 
+/* Prior to boost 1.70, if socket type is not boost::asio::ip::tcp::socket nor boost::asio::ssl::stream beast requires
+   an overload of async_teardown. This has been improved in 1.70+ to support any basic_stream_socket<> out of the box
+   which includes unix sockets. */
+#if BOOST_VERSION < 107000
+namespace boost::beast::websocket {
+template<typename TeardownHandler>
+void async_teardown(role_type, unixs::socket& sock, TeardownHandler&& handler) {
+   boost::system::error_code ec;
+   sock.close(ec);
+   boost::asio::post(boost::asio::get_associated_executor(handler, sock.get_executor()), [h=std::move(handler),ec]() mutable {
+      h(ec);
+   });
+}
+}
+#endif
+
 namespace eosio {
 using namespace chain;
 using namespace state_history;
