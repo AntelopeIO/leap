@@ -235,7 +235,7 @@ Enables new `get_code_hash` intrinsic which gets the current code hash of an acc
          } )
          (  builtin_protocol_feature_t::crypto_primitives, builtin_protocol_feature_spec{
             "CRYPTO_PRIMITIVES",
-            fc::variant("e7588f16c434be13b673d4c701cbd4f43bbc56dc79d68aa85695106c870118ff").as<digest_type>(),
+            fc::variant("68d6405cb8df3de95bd834ebb408196578500a9f818ff62ccc68f60b932f7d82").as<digest_type>(),
             // SHA256 hash of the raw message below within the comment delimiters (do not modify message below).
 /*
 Builtin protocol feature: CRYPTO_PRIMITIVES
