@@ -331,7 +331,9 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
          ("transaction-finality-status-success-duration-sec", bpo::value<uint64_t>()->default_value(config::default_max_transaction_finality_status_success_duration_sec),
           "Duration (in seconds) a successful transaction's Finality Status will remain available from being first identified.")
          ("transaction-finality-status-failure-duration-sec", bpo::value<uint64_t>()->default_value(config::default_max_transaction_finality_status_failure_duration_sec),
-          "Duration (in seconds) a failed transaction's Finality Status will remain available from being first identified.");
+          "Duration (in seconds) a failed transaction's Finality Status will remain available from being first identified.")
+         ("integrity-hash-on-start", bpo::bool_switch(), "Log the state integrity hash on startup")
+         ("integrity-hash-on-stop", bpo::bool_switch(), "Log the state integrity hash on shutdown");
 
    if(cfile::supports_hole_punching())
       cfg.add_options()("block-log-retain-blocks", bpo::value<uint32_t>(), "if set, periodically prune the block log to store only configured number of most recent blocks");
@@ -373,8 +375,6 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
          ("terminate-at-block", bpo::value<uint32_t>()->default_value(0),
           "terminate after reaching this block number (if set to a non-zero number)")
          ("snapshot", bpo::value<bfs::path>(), "File to read Snapshot State from")
-         ("integrity-hash-on-start", bpo::bool_switch(), "Log the state integrity hash on startup")
-         ("integrity-hash-on-stop", bpo::bool_switch(), "Log the state integrity hash on shutdown")
          ;
 
 }
