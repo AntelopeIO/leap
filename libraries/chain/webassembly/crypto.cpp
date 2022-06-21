@@ -184,6 +184,7 @@ namespace eosio { namespace chain { namespace webassembly {
                                 int32_t final,
                                 span<char> out) const {
 
+      bool _final = final == 1;
       bytes bstate(state.data(), state.data() + state.size());
       bytes bmessage(message.data(), message.data() + message.size());
       bytes bt0_offset(t0_offset.data(), t0_offset.data() + t0_offset.size());
@@ -191,7 +192,7 @@ namespace eosio { namespace chain { namespace webassembly {
 
       auto checktime = [this]() { context.trx_context.checktime(); };
 
-      auto maybe_err = fc::blake2b(rounds, bstate, bmessage, bt0_offset, bt1_offset, final, checktime);
+      auto maybe_err = fc::blake2b(rounds, bstate, bmessage, bt0_offset, bt1_offset, _final, checktime);
       if(std::holds_alternative<fc::blake2b_error>(maybe_err)) {
          return return_code::failure;
       }
@@ -206,6 +207,7 @@ namespace eosio { namespace chain { namespace webassembly {
    }
 
    void interface::sha3( span<const char> input, span<char> output, int32_t keccak ) const {
+      bool _keccak = keccak == 1;
       const size_t bs = eosio::chain::config::hashing_checktime_block_size;
       const char* data = input.data();
       uint32_t datalen = input.size();
@@ -217,7 +219,7 @@ namespace eosio { namespace chain { namespace webassembly {
          context.trx_context.checktime();
       }
       enc.write( data, datalen);
-      auto res = enc.result(!keccak);
+      auto res = enc.result(!_keccak);
 
       auto copy_size = std::min( output.size(), res.data_size() );
       std::memcpy( output.data(), res.data(), copy_size );

@@ -1757,7 +1757,7 @@ namespace webassembly {
           * @param message       - a span containing the message block vector - 16 unsigned 64-bit little-endian words
           * @param t0_offset     - offset counters - unsigned 64-bit little-endian word
           * @param t1_offset     - offset counters - unsigned 64-bit little-endian word
-          * @param final         - the final block indicator flag - (1-true, 0-false)
+          * @param final         - the final block indicator flag - (1-true, all other values == false)
           * @param[out] result   - the result
           * @return                -1 if there was an error 0 otherwise
          */
@@ -1769,7 +1769,7 @@ namespace webassembly {
           * @ingroup crypto
           * @param data - a span containing the data.
           * @param[out] hash_val - the resulting digest.
-          * @param keccak - use keccak version (1-true, 0-false).
+          * @param keccak - use keccak version (1-true, all other values == false).
          */
          void sha3( span<const char> data, span<char> hash_val, int32_t keccak) const;
 
