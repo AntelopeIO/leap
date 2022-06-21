@@ -180,9 +180,9 @@ public:
       int64_t used = 0;
       int64_t available = 0;
       int64_t max = 0;
-      optional<chain::block_timestamp_type> last_usage_update_time;    // optional for backward nodeos support
-      optional<int64_t> current_used;  // optional for backward nodeos support
-      void set( const chain::resource_limits::account_resource_limit& arl)
+      std::optional<chain::block_timestamp_type> last_usage_update_time;    // optional for backward nodeos support
+      std::optional<int64_t> current_used;  // optional for backward nodeos support
+      void set( const eosio::chain::resource_limits::account_resource_limit& arl)
       {
          used = arl.used;
          available = arl.available;
@@ -219,7 +219,7 @@ public:
       fc::variant                voter_info;
       fc::variant                rex_info;
 
-      std::optional<account_resource_limit> subjective_cpu_bill_limit;
+      std::optional<eosio::chain::resource_limits::account_resource_limit> subjective_cpu_bill_limit;
       std::vector<linked_action> eosio_any_linked_actions;
    };
 
