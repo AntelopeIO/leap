@@ -247,6 +247,7 @@ struct controller_impl {
    named_thread_pool               thread_pool;
    platform_timer                  timer;
    deep_mind_handler*              deep_mind_logger = nullptr;
+   bool                            okay_to_print_integrity_hash_on_stop = false;
 #if defined(EOSIO_EOS_VM_RUNTIME_ENABLED) || defined(EOSIO_EOS_VM_JIT_RUNTIME_ENABLED)
    vm::wasm_allocator               wasm_alloc;
 #endif
@@ -569,8 +570,6 @@ struct controller_impl {
                         "Snapshot is invalid." );
             blog.reset( chain_id, lib_num + 1 );
          }
-         const auto hash = calculate_integrity_hash();
-         ilog( "database initialized with hash: ${hash}", ("hash", hash) );
 
          init(check_shutdown);
          ilog( "Finished initialization from snapshot" );
@@ -696,6 +695,10 @@ struct controller_impl {
          dm_logger->on_startup(db, head->block_num);
       }
 
+      if( conf.integrity_hash_on_start )
+         ilog( "chain database started with hash: ${hash}", ("hash", calculate_integrity_hash()) );
+      okay_to_print_integrity_hash_on_stop = true;
+
       replay( check_shutdown ); // replay any irreversible and reversible blocks ahead of current head
 
       if( check_shutdown() ) return;
@@ -723,6 +726,9 @@ struct controller_impl {
    ~controller_impl() {
       thread_pool.stop();
       pending.reset();
+      //only log this not just if configured to, but also if initialization made it to the point we'd log the startup too
+      if(okay_to_print_integrity_hash_on_stop && conf.integrity_hash_on_stop)
+         ilog( "chain database stopped with hash: ${hash}", ("hash", calculate_integrity_hash()) );
    }
 
    void add_indices() {
