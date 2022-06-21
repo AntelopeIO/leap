@@ -474,7 +474,7 @@ auto abi_serializer_resolver = [](const name& account) -> std::optional<abi_seri
       const auto raw_abi_result = call(get_raw_abi_func, fc::mutable_variant_object("account_name", account));
       const auto raw_abi_blob = raw_abi_result["abi"].as_blob().data;
 
-      fc::optional<abi_serializer> abis;
+      std::optional<abi_serializer> abis;
       if (raw_abi_blob.size() != 0) {
          abis.emplace(fc::raw::unpack<abi_def>(raw_abi_blob), abi_serializer_max_time);
       } else {
@@ -2780,7 +2780,7 @@ int main( int argc, char** argv ) {
    auto getAbi = get->add_subcommand("abi", localized("Retrieve the ABI for an account"));
    getAbi->add_option("name", accountName, localized("The name of the account whose abi should be retrieved"))->required();
    getAbi->add_option("-f,--file",filename, localized("The name of the file to save the contract .abi to instead of writing to console") );
-   getAbi->set_callback([&] {
+   getAbi->callback([&] {
       const auto raw_abi_result = call(get_raw_abi_func, fc::mutable_variant_object("account_name", accountName));
       const auto raw_abi_blob = raw_abi_result["abi"].as_blob().data;
       if (raw_abi_blob.size() != 0) {
