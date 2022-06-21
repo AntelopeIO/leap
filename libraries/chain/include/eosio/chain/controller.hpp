@@ -142,7 +142,7 @@ namespace eosio { namespace chain {
          /**
           * @return transactions applied in aborted block
           */
-         vector<transaction_metadata_ptr> abort_block();
+         deque<transaction_metadata_ptr> abort_block();
 
        /**
         *
@@ -226,8 +226,6 @@ namespace eosio { namespace chain {
          account_name                   pending_block_producer()const;
          const block_signing_authority& pending_block_signing_authority()const;
          std::optional<block_id_type>   pending_producer_block_id()const;
-
-         const vector<transaction_receipt>& get_pending_trx_receipts()const;
 
          const producer_authority_schedule&         active_producers()const;
          const producer_authority_schedule&         pending_producers()const;
