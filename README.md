@@ -64,6 +64,18 @@ We support the following CMake options:
 
 I highly recommend the ccache options. They don't speed up the first clean build, but they speed up future clean builds after the first build.
 
+### Installing for use with mandel.cdt (or others)
+
+```
+git submodule update --init --recursive
+mkdir build
+cd build
+cmake -DCMAKE_BUILD_TYPE=Release ..
+make -j $(nproc)
+make install
+cmake --install . --component dev
+```
+
 ### Running tests
 
 ```
