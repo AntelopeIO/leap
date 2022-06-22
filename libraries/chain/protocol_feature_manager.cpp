@@ -235,12 +235,12 @@ Enables new `get_code_hash` intrinsic which gets the current code hash of an acc
          } )
          (  builtin_protocol_feature_t::crypto_primitives, builtin_protocol_feature_spec{
             "CRYPTO_PRIMITIVES",
-            fc::variant("7d9d4e4365f803e5d5fd2e2bd792026b3995765b4a833f32f8c09d66bd94c705").as<digest_type>(),
+            fc::variant("68d6405cb8df3de95bd834ebb408196578500a9f818ff62ccc68f60b932f7d82").as<digest_type>(),
             // SHA256 hash of the raw message below within the comment delimiters (do not modify message below).
 /*
 Builtin protocol feature: CRYPTO_PRIMITIVES
 
-Adds new crypto host functions
+Adds new cryptographic host functions
 - Big integer modular exponentiation (mod_exp)
 - Add, multiply, and pairing check functions for the alt_bn128 elliptic curve. (alt_bn128_add, alt_bn128_mul, alt_bn128_pair)
 - BLAKE2b F compression function (blake2_f)

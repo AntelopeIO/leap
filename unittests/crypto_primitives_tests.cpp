@@ -2,6 +2,7 @@
 #include <eosio/chain/resource_limits.hpp>
 #include <eosio/chain/generated_transaction_object.hpp>
 #include <eosio/testing/tester.hpp>
+#include <eosio/chain/webassembly/return_codes.hpp>
 
 #include <Runtime/Runtime.h>
 
@@ -15,6 +16,7 @@
 
 using namespace eosio::chain;
 using namespace eosio::testing;
+using namespace eosio::chain::webassembly;
 using namespace std::literals;
 
 using bytes = std::vector<char>;
@@ -51,7 +53,7 @@ BOOST_AUTO_TEST_CASE( alt_bn128_add_test ) { try {
         {
             "222480c9f95409bfa4ac6ae890b9c150bc88542b87b352e92950c340458b0c092976efd698cf23b414ea622b3f720dd9080d679042482ff3668cb2e32cad8ae2",
             "1bd20beca3d8d28e536d2b5bd3bf36d76af68af5e6c96ca6e5519ba9ff8f53322a53edf6b48bcf5cb1c0b4ad1d36dfce06a79dcd6526f1c386a14d8ce4649844",
-            0,
+            return_code::success,
             "16c7c4042e3a725ddbacf197c519c3dcad2bc87dfd9ac7e1e1631154ee0b7d9c19cd640dd28c9811ebaaa095a16b16190d08d6906c4f926fce581985fe35be0e"
         },
 
@@ -59,7 +61,7 @@ BOOST_AUTO_TEST_CASE( alt_bn128_add_test ) { try {
         {
             "222480c9f95409bfa4ac6ae890b9c150bc88542b87b352e92950c340458b0c092976efd698cf23b414ea622b3f720dd9080d679042482ff3668cb2e32cad8ae2",
             "2a53edf6b48bcf5cb1c0b4ad1d36dfce06a79dcd6526f1c386a14d8ce46498441bd20beca3d8d28e536d2b5bd3bf36d76af68af5e6c96ca6e5519ba9ff8f5332",
-            1,
+            return_code::failure,
             "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
         },
 
@@ -67,7 +69,7 @@ BOOST_AUTO_TEST_CASE( alt_bn128_add_test ) { try {
         {
             "2a",
             "222480c9f95409bfa4ac6ae890b9c150bc88542b87b352e92950c340458b0c092976efd698cf23b414ea622b3f720dd9080d679042482ff3668cb2e32cad8ae2",
-            1,
+            return_code::failure,
             "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
         },
 
@@ -76,7 +78,7 @@ BOOST_AUTO_TEST_CASE( alt_bn128_add_test ) { try {
         {
             "30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd472976efd698cf23b414ea622b3f720dd9080d679042482ff3668cb2e32cad8ae2",
             "1bd20beca3d8d28e536d2b5bd3bf36d76af68af5e6c96ca6e5519ba9ff8f53322a53edf6b48bcf5cb1c0b4ad1d36dfce06a79dcd6526f1c386a14d8ce4649844",
-            1,
+            return_code::failure,
             "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
         },
 
@@ -84,7 +86,7 @@ BOOST_AUTO_TEST_CASE( alt_bn128_add_test ) { try {
         {
             "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
             "1bd20beca3d8d28e536d2b5bd3bf36d76af68af5e6c96ca6e5519ba9ff8f53322a53edf6b48bcf5cb1c0b4ad1d36dfce06a79dcd6526f1c386a14d8ce4649844",
-            1,
+            return_code::failure,
             "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
         },
    };
@@ -129,7 +131,7 @@ BOOST_AUTO_TEST_CASE( alt_bn128_mul_test ) { try {
         {
             "007c43fcd125b2b13e2521e395a81727710a46b34fe279adbf1b94c72f7f91360db2f980370fb8962751c6ff064f4516a6a93d563388518bb77ab9a6b30755be",
             "0312ed43559cf8ecbab5221256a56e567aac5035308e3f1d54954d8b97cd1c9b",
-            0,
+            return_code::success,
             "2d66cdeca5e1715896a5a924c50a149be87ddd2347b862150fbb0fd7d0b1833c11c76319ebefc5379f7aa6d85d40169a612597637242a4bbb39e5cd3b844becd"
         },
 
@@ -137,7 +139,7 @@ BOOST_AUTO_TEST_CASE( alt_bn128_mul_test ) { try {
         {
             "007c43fcd125b2b13e2521e395a81727710a46b34fe279adbf1b94c72f7f91360db2f980370fb8962751c6ff064f4516a6a93d563388518bb77ab9a6b30755be",
             "01",
-            1,
+            return_code::failure,
             "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
         },
 
@@ -145,7 +147,7 @@ BOOST_AUTO_TEST_CASE( alt_bn128_mul_test ) { try {
         {
             "0db2f980370fb8962751c6ff064f4516a6a93d563388518bb77ab9a6b30755be007c43fcd125b2b13e2521e395a81727710a46b34fe279adbf1b94c72f7f9136",
             "0312ed43559cf8ecbab5221256a56e567aac5035308e3f1d54954d8b97cd1c9b",
-            1,
+            return_code::failure,
             "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
         },
         
@@ -153,7 +155,7 @@ BOOST_AUTO_TEST_CASE( alt_bn128_mul_test ) { try {
         {
             "222480c9f95409bfa4ac6ae890b9c150bc88542b87b352e92950c340458b0c092976efd698cf23b414ea622b3f720dd9080d679042482ff3668cb2e32cad8a",
             "0312ed43559cf8ecbab5221256a56e567aac5035308e3f1d54954d8b97cd1c9b",
-            1,
+            return_code::failure,
             "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
         },
 
@@ -162,7 +164,7 @@ BOOST_AUTO_TEST_CASE( alt_bn128_mul_test ) { try {
         {
             "2976efd698cf23b414ea622b3f720dd9080d679042482ff3668cb2e32cad8ae230644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47",
             "0100010001000100010001000100010001000100010001000100010001000100",
-            1,
+            return_code::failure,
             "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
         },
 
@@ -170,7 +172,7 @@ BOOST_AUTO_TEST_CASE( alt_bn128_mul_test ) { try {
         {
             "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
             "0312ed43559cf8ecbab5221256a56e567aac5035308e3f1d54954d8b97cd1c9b",
-            1,
+            return_code::failure,
             "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
         },
    };
@@ -211,7 +213,7 @@ BOOST_AUTO_TEST_CASE( alt_bn128_pair_test ) { try {
    c.produce_block();
 
    using g1g2_pair = std::vector<std::string>;
-   using pair_test = std::tuple<std::vector<g1g2_pair>, int32_t, bool>;
+   using pair_test = std::tuple<std::vector<g1g2_pair>, int32_t>;
 
    const std::vector<pair_test> tests =
    {
@@ -236,8 +238,7 @@ BOOST_AUTO_TEST_CASE( alt_bn128_pair_test ) { try {
                   "12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa",
                }
          },
-         0,
-         true
+         0
       },
 
       //test2: 1 pair => (G1_a,G2_a) G1_a not on curve
@@ -253,8 +254,7 @@ BOOST_AUTO_TEST_CASE( alt_bn128_pair_test ) { try {
                },
 
          },
-         1,
-         false
+         return_code::failure
       },
 
       //test3: 1 pair => (G1_a,G2_a) ; G1_a.x wrong length
@@ -270,8 +270,7 @@ BOOST_AUTO_TEST_CASE( alt_bn128_pair_test ) { try {
                },
 
          },
-         1,
-         false
+         return_code::failure
       },
 
       //test4: 1 pair => (G1_a,G2_a) ; G1_a=(0,0)
@@ -287,8 +286,7 @@ BOOST_AUTO_TEST_CASE( alt_bn128_pair_test ) { try {
                },
 
          },
-         1,
-         false
+         return_code::failure
       },
 
       //test6: 1 pair => (G1_a,G2_a) ; G1_a.x == |Fp|
@@ -304,8 +302,7 @@ BOOST_AUTO_TEST_CASE( alt_bn128_pair_test ) { try {
                },
 
          },
-         1,
-         false
+         return_code::failure
       }
    };
 
@@ -317,7 +314,6 @@ BOOST_AUTO_TEST_CASE( alt_bn128_pair_test ) { try {
    for(const auto& test : tests) {
       const auto& pairs           = std::get<0>(test);
       const auto& expected_error  = std::get<1>(test);
-      const auto& expected_result = std::get<2>(test);
 
       bytes g1_g2_pairs;
       for(const auto& pair : pairs) {
@@ -333,7 +329,6 @@ BOOST_AUTO_TEST_CASE( alt_bn128_pair_test ) { try {
       c.push_action( tester1_account, "testpair"_n, tester1_account, mutable_variant_object()
          ("g1_g2_pairs", g1_g2_pairs)
          ("expected_error", expected_error)
-         ("expected_result", expected_result)
       );
    }
 
@@ -366,7 +361,7 @@ BOOST_AUTO_TEST_CASE( modexp_test ) { try {
                "fffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2e",
                "fffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f",
          },
-         0,
+         return_code::success,
          "0000000000000000000000000000000000000000000000000000000000000001",
       },
 
@@ -377,7 +372,7 @@ BOOST_AUTO_TEST_CASE( modexp_test ) { try {
                "fffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2e",
                "fffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f",
          },
-         0,
+         return_code::success,
          "0000000000000000000000000000000000000000000000000000000000000000",
       },
 
@@ -388,7 +383,7 @@ BOOST_AUTO_TEST_CASE( modexp_test ) { try {
                "fffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2e",
                "",
          },
-         1,
+         return_code::failure,
          "",
       },
    };
@@ -444,7 +439,7 @@ BOOST_AUTO_TEST_CASE( blake2f_test ) { try {
                "00000000000000000",
                "01",
          },
-         0,
+         return_code::success,
          "08c9bcf367e6096a3ba7ca8485ae67bb2bf894fe72f36e3cf1361d5f3af54fa5d282e6ad7f520e511f6c3e2b8c68059b9442be0454267ce079217e1319cde05b",
       },
 
@@ -458,7 +453,7 @@ BOOST_AUTO_TEST_CASE( blake2f_test ) { try {
                "00000000000000000",
                "01",
          },
-         0,
+         return_code::success,
          "ba80a53f981c4d0d6a2797b69f12f6e94c212f14685ac4b74b12bb6fdbffa2d17d87c5392aab792dc252d5de4533cc9518d38aa8dbf1925ab92386edd4009923"
       },
 
@@ -472,7 +467,7 @@ BOOST_AUTO_TEST_CASE( blake2f_test ) { try {
                "00000000000000000",
                "00",
          },
-         0,
+         return_code::success,
          "75ab69d3190a562c51aef8d88f1c2775876944407270c42c9844252c26d2875298743e7f6d5ea2f2d3e8d226039cd31b4e426ac4f2d3d666a610c2116fde4735"
       },
 
@@ -486,7 +481,7 @@ BOOST_AUTO_TEST_CASE( blake2f_test ) { try {
                "00000000000000000",
                "01",
          },
-         0,
+         return_code::success,
          "b63a380cb2897d521994a85234ee2c181b5f844d2c624c002677e9703449d2fba551b3a8333bcdf5f2f7e08993d53923de3d64fcc68c034e717b9293fed7a421"
       },
 
@@ -500,7 +495,7 @@ BOOST_AUTO_TEST_CASE( blake2f_test ) { try {
                "00000000000000000",
                "01",
          },
-         1,
+         return_code::failure,
          "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
       }
    };
@@ -667,7 +662,7 @@ BOOST_AUTO_TEST_CASE( k1_recover_test ) { try {
       {
          "1b174de755b55bd29026d626f7313a5560353dc5175f29c78d79d961b81a0c04360d833ca789bc16d4ee714a6d1a19461d890966e0ec5c074f67be67e631d33aa7",
          "45fd65f6dd062fe7020f11d19fe5c35dc4d425e1479c0968c8e932c208f25399",
-         0,
+         return_code::success,
          "0407521b8289ec7b603bd60b1d7efc5f7ad91cda280a6bebbe6d95d0ac96ef93fb12f99b751dba9238cd35e3c43b44b11474d2a6561afe331ec48c77cd287e438b",
       },
 
@@ -675,7 +670,7 @@ BOOST_AUTO_TEST_CASE( k1_recover_test ) { try {
       {
          "01174de755b55bd29026d626f7313a5560353dc5175f29c78d79d961b81a0c04360d833ca789bc16d4ee714a6d1a19461d890966e0ec5c074f67be67e631d33aa7",
          "45fd65f6dd062fe7020f11d19fe5c35dc4d425e1479c0968c8e932c208f25399",
-         1,
+         return_code::failure,
          "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
       },
 
@@ -683,7 +678,7 @@ BOOST_AUTO_TEST_CASE( k1_recover_test ) { try {
       {
          "174de755b55bd29026d626f7313a5560353dc5175f29c78d79d961b81a0c04360d833ca789bc16d4ee714a6d1a19461d890966e0ec5c074f67be67e631d33aa7",
          "45fd65f6dd062fe7020f11d19fe5c35dc4d425e1479c0968c8e932c208f25399",
-         1,
+         return_code::failure,
          "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
       },
 
@@ -691,7 +686,7 @@ BOOST_AUTO_TEST_CASE( k1_recover_test ) { try {
       {
          "00174de755b55bd29026d626f7313a5560353dc5175f29c78d79d961b81a0c04360d833ca789bc16d4ee714a6d1a19461d890966e0ec5c074f67be67e631d33aa7",
          "fd65f6dd062fe7020f11d19fe5c35dc4d425e1479c0968c8e932c208f25399",
-         1,
+         return_code::failure,
          "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
       },
 
