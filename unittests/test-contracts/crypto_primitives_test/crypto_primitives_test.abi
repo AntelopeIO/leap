@@ -158,10 +158,6 @@
                 {
                     "name": "expected_error",
                     "type": "int32"
-                },
-                {
-                    "name": "expected_result",
-                    "type": "bool"
                 }
             ]
         },
