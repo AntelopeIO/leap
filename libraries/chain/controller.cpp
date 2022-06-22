@@ -121,17 +121,17 @@ struct building_block {
    std::optional<producer_authority_schedule> _new_pending_producer_schedule;
    vector<digest_type>                        _new_protocol_feature_activations;
    size_t                                     _num_new_protocol_features_that_have_activated = 0;
-   deque<transaction_metadata_ptr>           _pending_trx_metas;
-   deque<transaction_receipt>                _pending_trx_receipts;
-   deque<digest_type>                        _pending_trx_receipt_digests;
-   deque<digest_type>                        _action_receipt_digests;
+   deque<transaction_metadata_ptr>            _pending_trx_metas;
+   deque<transaction_receipt>                 _pending_trx_receipts;
+   deque<digest_type>                         _pending_trx_receipt_digests;
+   deque<digest_type>                         _action_receipt_digests;
    std::optional<checksum256_type>            _transaction_mroot;
 };
 
 struct assembled_block {
    block_id_type                     _id;
    pending_block_header_state        _pending_block_header_state;
-   deque<transaction_metadata_ptr>  _trx_metas;
+   deque<transaction_metadata_ptr>   _trx_metas;
    signed_block_ptr                  _unsigned_block;
 
    // if the _unsigned_block pre-dates block-signing authorities this may be present.
