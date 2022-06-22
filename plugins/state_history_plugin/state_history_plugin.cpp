@@ -71,10 +71,14 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
       result = state_history::zlib_decompress(compressed);
    }
 
-   void get_block(uint32_t block_num, std::optional<bytes>& result) {
+   void get_block(uint32_t block_num, const block_state_ptr& block_state, std::optional<bytes>& result) {
       chain::signed_block_ptr p;
       try {
-         p = chain_plug->chain().fetch_block_by_number(block_num);
+         if( block_state && block_num == block_state->block_num ) {
+            p = block_state->block;
+         } else {
+            p = chain_plug->chain().fetch_block_by_number( block_num );
+         }
       } catch (...) {
          return;
       }
@@ -88,11 +92,8 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
       if (chain_state_log && block_num >= chain_state_log->begin_block() && block_num < chain_state_log->end_block())
          return chain_state_log->get_block_id(block_num);
       try {
-         auto block = chain_plug->chain().fetch_block_by_number(block_num);
-         if (block)
-            return block->calculate_id();
-      } catch (...) {
-      }
+         return chain_plug->chain().get_block_id_for_num(block_num);
+      } catch (...) {}
       return {};
    }
 
@@ -207,7 +208,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
          send_update();
       }
 
-      void send_update(get_blocks_result_v0 result) {
+      void send_update(get_blocks_result_v0 result, const block_state_ptr& block_state) {
          need_to_send_update = true;
          if (!send_queue.empty() || !current_request || !current_request->max_messages_in_flight)
             return;
@@ -223,8 +224,9 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
                auto prev_block_id = plugin->get_block_id(current_request->start_block_num - 1);
                if (prev_block_id)
                   result.prev_block = block_position{current_request->start_block_num - 1, *prev_block_id};
-               if (current_request->fetch_block)
-                  plugin->get_block(current_request->start_block_num, result.block);
+               if (current_request->fetch_block) {
+                  plugin->get_block( current_request->start_block_num, block_state, result.block );
+               }
                if (current_request->fetch_traces && plugin->trace_log)
                   plugin->get_log_entry(*plugin->trace_log, current_request->start_block_num, result.traces);
                if (current_request->fetch_deltas && plugin->chain_state_log)
@@ -244,7 +246,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
             return;
          get_blocks_result_v0 result;
          result.head = {block_state->block_num, block_state->id};
-         send_update(std::move(result));
+         send_update(std::move(result), block_state);
       }
 
       void send_update(bool changed = false) {
@@ -256,7 +258,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
          auto&                chain = plugin->chain_plug->chain();
          get_blocks_result_v0 result;
          result.head = {chain.head_block_num(), chain.head_block_id()};
-         send_update(std::move(result));
+         send_update(std::move(result), {});
       }
 
       template <typename F>
