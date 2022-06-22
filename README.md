@@ -70,7 +70,7 @@ I highly recommend the ccache options. They don't speed up the first clean build
 git submodule update --init --recursive
 mkdir build
 cd build
-cmake -DCMAKE_BUILD_TYPE=Release ..
+cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=/usr/local ..
 make -j $(nproc)
 make install
 cmake --install . --component dev
