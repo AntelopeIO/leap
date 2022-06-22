@@ -441,7 +441,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
       check_ec("bind");
       unix_acceptor->listen(boost::asio::socket_base::max_listen_connections, ec);
       check_ec("listen");
-      do_accept(*acceptor);
+      do_accept(*unix_acceptor);
    }
 
    template <typename Acceptor>
