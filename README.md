@@ -71,9 +71,7 @@ git submodule update --init --recursive
 mkdir build
 cd build
 cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=/usr/local ..
-make -j $(nproc)
-make install
-cmake --install . --component dev
+make -j $(nproc) dev-install
 ```
 
 ### Running tests
