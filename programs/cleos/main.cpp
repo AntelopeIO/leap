@@ -296,6 +296,10 @@ chain::action generate_nonce_action() {
    return chain::action( {}, config::null_account_name, name("nonce"), fc::raw::pack(fc::time_point::now().time_since_epoch().count()));
 }
 
+auto abi_serializer_resolver_empty = [](const name& account) -> std::optional<abi_serializer> {
+   return std::optional<abi_serializer>();
+};
+
 void prompt_for_wallet_password(string& pw, const string& name) {
    if(pw.size() == 0 && name != "SecureEnclave") {
       std::cout << localized("password: ");
@@ -2680,7 +2684,7 @@ int main( int argc, char** argv ) {
       } EOS_RETHROW_EXCEPTIONS(transaction_type_exception, "Invalid transaction format: '${data}'",
                                ("data", fc::json::to_string(trx_var, fc::time_point::maximum())))
 
-      fc::optional<chain_id_type> chain_id;
+      std::optional<chain_id_type> chain_id;
 
       if( str_chain_id.size() == 0 ) {
          ilog( "grabbing chain_id from ${n}", ("n", node_executable_name) );
