@@ -1427,7 +1427,7 @@ namespace eosio {
       verify_strand_in_this_thread( strand, __func__, __LINE__ );
 
       block_buffer_factory buff_factory;
-      auto sb = buff_factory.get_send_buffer( b, protocol_version.load() );
+      auto sb = buff_factory.get_send_buffer( b );
       if( !sb ) {
          peer_wlog( this, "Sending go away for incomplete block #${n} ${id}...",
                     ("n", b->block_num())("id", b->calculate_id().str().substr(8,16)) );
@@ -2573,7 +2573,7 @@ namespace eosio {
          auto peek_ds = pending_message_buffer.create_peek_datastream();
          unsigned_int which{};
          fc::raw::unpack( peek_ds, which );
-         if( which == signed_block_which || which == signed_block_v0_which ) {
+         if( which == signed_block_which ) {
             latest_blk_time = get_time();
             return process_next_block_message( message_length );
 
@@ -2910,7 +2910,7 @@ namespace eosio {
          if( protocol_version >= proto_pruned_types && protocol_version < mandel_initial ) {
             sent_handshake_count = 0;
             net_version = proto_explicit_sync;
-            send_handshake(true);
+            send_handshake();
             return;
          }
 
