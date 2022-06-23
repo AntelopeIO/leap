@@ -581,7 +581,6 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                } else {
                   return chain_plug->get_log_trx_trace( std::get<transaction_trace_ptr>(response) );
                }
-
             };
 
             fc::exception_ptr except_ptr; // rejected
@@ -2157,6 +2156,14 @@ void producer_plugin_impl::process_scheduled_and_incoming_trxs( const fc::time_p
          break;
       }
 
+      auto get_first_authorizer = [&](const transaction_trace_ptr& trace) {
+         for( const auto& a : trace->action_traces ) {
+            for( const auto& u : a.act.authorization )
+               return u.actor;
+         }
+         return account_name();
+      };
+
       try {
          fc::microseconds max_trx_time = fc::milliseconds( _max_transaction_time_ms.load() );
          if( max_trx_time.count() < 0 ) max_trx_time = fc::microseconds::maximum();
@@ -2169,11 +2176,23 @@ void producer_plugin_impl::process_scheduled_and_incoming_trxs( const fc::time_p
                   break;
                }
             } else {
+               fc_dlog(_trx_failed_trace_log, "[TRX_TRACE] Block ${block_num} for producer ${prod} is REJECTING scheduled tx: ${txid}, auth: ${a} : ${why} ",
+                       ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())
+                       ("txid", trx_id)("a", get_first_authorizer(trace))("why", trace->except->what()));
+               fc_dlog(_trx_trace_failure_log, "[TRX_TRACE] Block ${block_num} for producer ${prod} is REJECTING scheduled tx: ${entire_trace}",
+                       ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())
+                       ("entire_trace", chain_plug->get_log_trx_trace(trace)));
                // this failed our configured maximum transaction time, we don't want to replay it add it to a blacklist
                _blacklisted_transactions.insert(transaction_id_with_expiry{trx_id, sch_expiration});
                num_failed++;
             }
          } else {
+            fc_dlog(_trx_successful_trace_log, "[TRX_TRACE] Block ${block_num} for producer ${prod} is ACCEPTING scheduled tx: ${txid}, auth: ${a}, cpu: ${cpu}",
+                    ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())
+                    ("txid", trx_id)("a", get_first_authorizer(trace))("cpu", trace->receipt ? trace->receipt->cpu_usage_us : 0));
+            fc_dlog(_trx_trace_success_log, "[TRX_TRACE] Block ${block_num} for producer ${prod} is ACCEPTING scheduled tx: ${entire_trace}",
+                    ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())
+                    ("entire_trace", chain_plug->get_log_trx_trace(trace)));
             num_applied++;
          }
       } LOG_AND_DROP();
