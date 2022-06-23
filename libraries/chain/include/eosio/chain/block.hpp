@@ -97,7 +97,7 @@ namespace eosio { namespace chain {
       signed_block& operator=(signed_block&&) = default;
       signed_block clone() const { return *this; }
 
-      vector<transaction_receipt>   transactions; /// new or generated transactions
+      deque<transaction_receipt>   transactions; /// new or generated transactions
       extensions_type               block_extensions;
 
       flat_multimap<uint16_t, block_extension> validate_and_extract_extensions()const;

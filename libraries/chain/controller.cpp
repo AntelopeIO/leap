@@ -121,16 +121,17 @@ struct building_block {
    std::optional<producer_authority_schedule> _new_pending_producer_schedule;
    vector<digest_type>                        _new_protocol_feature_activations;
    size_t                                     _num_new_protocol_features_that_have_activated = 0;
-   vector<transaction_metadata_ptr>           _pending_trx_metas;
-   vector<transaction_receipt>                _pending_trx_receipts;
-   vector<digest_type>                        _action_receipt_digests;
+   deque<transaction_metadata_ptr>            _pending_trx_metas;
+   deque<transaction_receipt>                 _pending_trx_receipts;
+   deque<digest_type>                         _pending_trx_receipt_digests;
+   deque<digest_type>                         _action_receipt_digests;
    std::optional<checksum256_type>            _transaction_mroot;
 };
 
 struct assembled_block {
    block_id_type                     _id;
    pending_block_header_state        _pending_block_header_state;
-   vector<transaction_metadata_ptr>  _trx_metas;
+   deque<transaction_metadata_ptr>   _trx_metas;
    signed_block_ptr                  _unsigned_block;
 
    // if the _unsigned_block pre-dates block-signing authorities this may be present.
@@ -165,17 +166,7 @@ struct pending_state {
       return std::get<assembled_block>(_block_stage)._pending_block_header_state;
    }
 
-   const vector<transaction_receipt>& get_trx_receipts()const {
-      if( std::holds_alternative<building_block>(_block_stage) )
-         return std::get<building_block>(_block_stage)._pending_trx_receipts;
-
-      if( std::holds_alternative<assembled_block>(_block_stage) )
-         return std::get<assembled_block>(_block_stage)._unsigned_block->transactions;
-
-      return std::get<completed_block>(_block_stage)._block_state->block->transactions;
-    }
-
-   vector<transaction_metadata_ptr> extract_trx_metas() {
+   deque<transaction_metadata_ptr> extract_trx_metas() {
       if( std::holds_alternative<building_block>(_block_stage) )
          return std::move( std::get<building_block>(_block_stage)._pending_trx_metas );
 
@@ -1082,18 +1073,20 @@ struct controller_impl {
    // The returned scoped_exit should not exceed the lifetime of the pending which existed when make_block_restore_point was called.
    fc::scoped_exit<std::function<void()>> make_block_restore_point() {
       auto& bb = std::get<building_block>(pending->_block_stage);
-      auto orig_block_transactions_size = bb._pending_trx_receipts.size();
-      auto orig_state_transactions_size = bb._pending_trx_metas.size();
+      auto orig_trx_receipts_size           = bb._pending_trx_receipts.size();
+      auto orig_trx_metas_size              = bb._pending_trx_metas.size();
+      auto orig_trx_receipt_digests_size    = bb._pending_trx_receipt_digests.size();
       auto orig_action_receipt_digests_size = bb._action_receipt_digests.size();
-
       std::function<void()> callback = [this,
-                                        orig_block_transactions_size,
-                                        orig_state_transactions_size,
-                                        orig_action_receipt_digests_size]()
+            orig_trx_receipts_size,
+            orig_trx_metas_size,
+            orig_trx_receipt_digests_size,
+            orig_action_receipt_digests_size]()
       {
          auto& bb = std::get<building_block>(pending->_block_stage);
-         bb._pending_trx_receipts.resize(orig_block_transactions_size);
-         bb._pending_trx_metas.resize(orig_state_transactions_size);
+         bb._pending_trx_receipts.resize(orig_trx_receipts_size);
+         bb._pending_trx_metas.resize(orig_trx_metas_size);
+         bb._pending_trx_receipt_digests.resize(orig_trx_receipt_digests_size);
          bb._action_receipt_digests.resize(orig_action_receipt_digests_size);
       };
 
@@ -1445,6 +1438,7 @@ struct controller_impl {
       r.cpu_usage_us         = cpu_usage_us;
       r.net_usage_words      = net_usage_words;
       r.status               = status;
+      std::get<building_block>(pending->_block_stage)._pending_trx_receipt_digests.emplace_back( r.digest() );
       return r;
    }
 
@@ -1697,7 +1691,7 @@ struct controller_impl {
             });
          }
 
-         const auto& gpo = db.get<global_property_object>();
+         const auto& gpo = self.get_global_properties();
 
          if( gpo.proposed_schedule_block_num && // if there is a proposed schedule that was proposed in a block ...
              ( *gpo.proposed_schedule_block_num <= pbhs.dpos_irreversible_blocknum ) && // ... that has now become irreversible ...
@@ -1732,7 +1726,7 @@ struct controller_impl {
                });
             in_trx_requiring_checks = true;
             auto trace = push_transaction( onbtrx, fc::time_point::maximum(), fc::microseconds::maximum(),
-                                           self.get_global_properties().configuration.min_transaction_cpu_usage, true, 0 );
+                                           gpo.configuration.min_transaction_cpu_usage, true, 0 );
             if( trace->except ) {
                wlog("onblock ${block_num} is REJECTING: ${entire_trace}",("block_num", head->block_num + 1)("entire_trace", trace));
             }
@@ -1782,7 +1776,7 @@ struct controller_impl {
 
       // Create (unsigned) block:
       auto block_ptr = std::make_shared<signed_block>( pbhs.make_block_header(
-         bb._transaction_mroot ? *bb._transaction_mroot : calculate_trx_merkle( bb._pending_trx_receipts ),
+         merkle( std::move( std::get<building_block>(pending->_block_stage)._pending_trx_receipt_digests ) ),
          merkle( std::move( std::get<building_block>(pending->_block_stage)._action_receipt_digests ) ),
          bb._new_pending_producer_schedule,
          std::move( bb._new_protocol_feature_activations ),
@@ -1986,8 +1980,8 @@ struct controller_impl {
          transaction_trace_ptr trace;
 
          size_t packed_idx = 0;
+         const auto& trx_receipts = std::get<building_block>(pending->_block_stage)._pending_trx_receipts;
          for( const auto& receipt : b->transactions ) {
-            const auto& trx_receipts = std::get<building_block>(pending->_block_stage)._pending_trx_receipts;
             auto num_pending_receipts = trx_receipts.size();
             if( std::holds_alternative<packed_transaction>(receipt.trx) ) {
                const auto& trx_meta = ( use_bsp_cached ? bsp->trxs_metas().at( packed_idx )
@@ -2277,8 +2271,8 @@ struct controller_impl {
 
    } /// push_block
 
-   vector<transaction_metadata_ptr> abort_block() {
-      vector<transaction_metadata_ptr> applied_trxs;
+   deque<transaction_metadata_ptr> abort_block() {
+      deque<transaction_metadata_ptr> applied_trxs;
       if( pending ) {
          applied_trxs = pending->extract_trx_metas();
          pending.reset();
@@ -2287,9 +2281,8 @@ struct controller_impl {
       return applied_trxs;
    }
 
-   static checksum256_type calculate_trx_merkle( const vector<transaction_receipt>& trxs ) {
-      vector<digest_type> trx_digests;
-      trx_digests.reserve( trxs.size() );
+   static checksum256_type calculate_trx_merkle( const deque<transaction_receipt>& trxs ) {
+      deque<digest_type> trx_digests;
       for( const auto& a : trxs )
          trx_digests.emplace_back( a.digest() );
 
@@ -2808,7 +2801,7 @@ void controller::commit_block() {
    my->commit_block(true);
 }
 
-vector<transaction_metadata_ptr> controller::abort_block() {
+deque<transaction_metadata_ptr> controller::abort_block() {
    return my->abort_block();
 }
 
@@ -2978,11 +2971,6 @@ const block_signing_authority& controller::pending_block_signing_authority()cons
 std::optional<block_id_type> controller::pending_producer_block_id()const {
    EOS_ASSERT( my->pending, block_validate_exception, "no pending block" );
    return my->pending->_producer_block_id;
-}
-
-const vector<transaction_receipt>& controller::get_pending_trx_receipts()const {
-   EOS_ASSERT( my->pending, block_validate_exception, "no pending block" );
-   return my->pending->get_trx_receipts();
 }
 
 uint32_t controller::last_irreversible_block_num() const {
