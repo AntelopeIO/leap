@@ -18,8 +18,7 @@ namespace eosio {
                            char* result , uint32_t result_length);
 
       __attribute__((eosio_wasm_import)) 
-      int32_t alt_bn128_pair( const char* op1_data, uint32_t op1_length,
-                           bool* result);
+      int32_t alt_bn128_pair( const char* op1_data, uint32_t op1_length);
 
       __attribute__((eosio_wasm_import)) 
       int32_t mod_exp(const char* base_data, uint32_t base_length,
@@ -33,12 +32,12 @@ namespace eosio {
                         const char* message, uint32_t len_message, 
                         const char* t0_offset, uint32_t len_t0_offset, 
                         const char* t1_offset, uint32_t len_t1_offset, 
-                        bool final, 
+                        int32_t final, 
                         char* result, uint32_t len_result);
 
       __attribute__((eosio_wasm_import))
       void sha3( const char* input_data, uint32_t input_length,
-                         char* output_data, uint32_t output_length, bool keccak);
+                 char* output_data, uint32_t output_length, int32_t keccak);
 
       __attribute__((eosio_wasm_import))
       int32_t k1_recover( const char* signature_data, uint32_t signature_length,
@@ -59,7 +58,7 @@ public:
    void testmul(const bytes& point, const bytes& scalar, int32_t expected_error, const bytes& expected_result);
 
    [[eosio::action]]
-   void testpair(const bytes& g1_g2_pairs, int32_t expected_error, bool expected_result);
+   void testpair(const bytes& g1_g2_pairs, int32_t expected_error);
 
    [[eosio::action]]
    void testmodexp(const bytes& base, const bytes& exp, const bytes& modulo, int32_t expected_error, const bytes& expected_result);

@@ -153,7 +153,7 @@ class PluginHttpTest(unittest.TestCase):
             "c3a6138c5061cf291310887c0b5c71fcaffeab90d5deb50d3b9e687cead45071",
             "e0fb64b1085cc5538970158d05a009c24e276fb94e1a0bf6a528b48fbc4ff526",
             "f0af56d2c5a48d60a4a5b5c903edfb7db3a736a94ed589d0b797df33ff9d3e1d",
-            "02960778343add9a58245a63a9fae9693d007794d06feaa5be7bae1d4b5d9b29",
+            "6bcb40a24e49c26d0a60513b6aeb8551d264e4717f306b81a37a5afb3b47cedc",
             "35c2186cc36f7bb4aeaf4487b36e57039ccf45a9136aa856a5d569ecca55ef2b",
         ]
 
