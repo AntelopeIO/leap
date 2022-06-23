@@ -9,6 +9,8 @@
 #include <boost/asio.hpp>
 #include <boost/beast.hpp>
 #include <boost/program_options.hpp>
+#include <boost/algorithm/string.hpp>
+
 
 #include <iostream>
 #include <string>
@@ -39,10 +41,22 @@ int main(int argc, char* argv[]) {
       return 0;
    }
 
-   std::string::size_type colon = socket_address.find(':');
-   eosio::check(colon != std::string::npos, "Missing ':' seperator in Websocket address and port");
-   std::string statehistory_server = socket_address.substr(0, colon);
-   std::string statehistory_port = socket_address.substr(colon+1);
+   std::string statehistory_server, statehistory_port;
+   
+   // unix socket
+   if(boost::algorithm::starts_with(socket_address, "ws+unix://") || boost::algorithm::starts_with(socket_address, "unix://")) {
+         // statehistory_port   = "";
+         // statehistory_server = socket_address.substr(socket_address.find("unix://") + strlen("unix://") + 1);     
+         // TODO: hack - switching to ip connection, unix socket client needs to be implemented
+         statehistory_server =  "127.0.0.1";
+         statehistory_port   =  "8080";
+   }
+   else {
+      std::string::size_type colon = socket_address.find(':');
+      eosio::check(colon != std::string::npos, "Missing ':' seperator in Websocket address and port");
+      statehistory_server = socket_address.substr(0, colon);
+      statehistory_port   = socket_address.substr(colon+1);
+   }
 
    std::cerr << "[\n{\n   \"status\": \"construct\",\n   \"time\": " << time(NULL) << "\n},\n";
 
@@ -58,7 +72,7 @@ int main(int argc, char* argv[]) {
          eosio::abi_def abidef = eosio::from_json<eosio::abi_def>(token_stream);
          eosio::convert(abidef, abi);
       }
-
+   
       std::cerr << "{\n   \"status\": \"set_abi\",\n   \"time\": " << time(NULL) << "\n},\n";
 
       const eosio::abi_type& request_type = abi.abi_types.at("request");
