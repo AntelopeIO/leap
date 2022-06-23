@@ -1428,13 +1428,6 @@ namespace eosio {
 
       block_buffer_factory buff_factory;
       auto sb = buff_factory.get_send_buffer( b );
-      if( !sb ) {
-         peer_wlog( this, "Sending go away for incomplete block #${n} ${id}...",
-                    ("n", b->block_num())("id", b->calculate_id().str().substr(8,16)) );
-         // unable to convert to v0 signed block and client doesn't support proto_pruned_types, so tell it to go away
-         enqueue( go_away_message( fatal_other ) );
-         return;
-      }
       latest_blk_time = get_time();
       enqueue_buffer( sb, no_reason, to_sync_queue);
    }
