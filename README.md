@@ -64,13 +64,17 @@ We support the following CMake options:
 
 I highly recommend the ccache options. They don't speed up the first clean build, but they speed up future clean builds after the first build.
 
-### Installing for use with mandel.cdt (or others)
+### Installing mandel dev for use with mandel.cdt (or others)
+
+The following instructions will install mandel and the development packages.  Installing is not strictly necessary. Instructions are provided, for example, in `mandel.cdt` for development and testing against a `mandel` source build directory (which may be preferable).
+
+**Warning:** It is highly recommended to select a `CMAKE_INSTALL_PREFIX` location different than the default `/usr/local`.  Here, `$HOME/mandeldev` is used as an example that should be safe for most dev systems, but each developer should determine if another location is better suited to their specific needs.
 
 ```
 git submodule update --init --recursive
 mkdir build
 cd build
-cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=/usr/local ..
+cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=$HOME/mandeldev ..
 make -j $(nproc) dev-install
 ```
 
