@@ -277,7 +277,7 @@ bool extract_block_range(bfs::path block_dir, bfs::path output_dir, uint32_t sta
    progressbar *bar = progressbar_new_percent_with_format_and_tumbler("Extracting:", "[= ]", "/-\\|");
    auto progress_increment = [bar](const double percent){progressbar_update_percent(bar, percent);};
 #else
-   auto progress_increment = [](){};
+   auto progress_increment = [](const double percent){};
 #endif
    const bool status = block_log::extract_block_range(block_dir, output_dir, start, end, false, std::move(progress_increment));
 #if ENABLE_PROGRESSBAR
