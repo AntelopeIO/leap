@@ -1,0 +1,11 @@
+/**
+ * \warning This file is machine generated. DO NOT EDIT.  See config.hpp.in for changes.
+ */
+#pragma once
+
+#ifndef CONFIG_HPP_IN
+#define CONFIG_HPP_IN
+
+#define ENABLE_PROGRESSBAR ${progressbar_FOUND}
+
+#endif // CONFIG_HPP_

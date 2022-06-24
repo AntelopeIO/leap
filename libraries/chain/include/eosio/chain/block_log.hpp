@@ -7,6 +7,8 @@ namespace eosio { namespace chain {
 
    namespace detail { class block_log_impl; }
 
+   using progress_function = std::function<void(const double)>;
+
    /* The block log is an external append only log of the blocks with a header. Blocks should only
     * be written to the log after they irreverisble as the log is append only. The log is a doubly
     * linked list of blocks. There is a secondary index file of only block positions that enables
@@ -91,7 +93,7 @@ namespace eosio { namespace chain {
 
          static bool is_pruned_log(const fc::path& data_dir);
 
-         static bool trim_blocklog_front(const fc::path& block_dir, const fc::path& temp_dir, uint32_t truncate_at_block);
+         static bool extract_block_range(const fc::path& block_dir, const fc::path&output_dir, block_num_type& start, block_num_type& end, bool rename_input=false, progress_function&& progress=[](const double){});
 
    private:
          void open(const fc::path& data_dir);
@@ -119,6 +121,7 @@ namespace eosio { namespace chain {
       FILE* ind_in = nullptr;                            //C style files for reading blocks.log and blocks.index
       //we use low level file IO because it is distinctly faster than C++ filebuf or iostream
       uint64_t first_block_pos = 0;                      //file position in blocks.log for the first block in the log
+      genesis_state gs;
       chain_id_type chain_id;
 
       static constexpr int blknum_offset{14};            //offset from start of block to 4 byte block number, valid for the only allowed versions
