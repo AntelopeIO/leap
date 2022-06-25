@@ -170,12 +170,20 @@ namespace eosio { namespace chain {
 
          std::future<block_state_ptr> create_block_state_future( const block_id_type& id, const signed_block_ptr& b );
 
+         struct block_report {
+            size_t             total_net_usage = 0;
+            size_t             total_cpu_usage_us = 0;
+            fc::microseconds   total_elapsed_time{};
+            fc::microseconds   total_time{};
+         };
          /**
+          * @param br returns statistics for block
           * @param block_state_future provide from call to create_block_state_future
           * @param cb calls cb with forked applied transactions for each forked block
           * @param trx_lookup user provided lookup function for externally cached transaction_metadata
           */
-         void push_block( std::future<block_state_ptr>& block_state_future,
+         void push_block( block_report& br,
+                          std::future<block_state_ptr>& block_state_future,
                           const forked_branch_callback& cb,
                           const trx_meta_cache_lookup& trx_lookup );
 

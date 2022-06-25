@@ -470,8 +470,9 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
             throw;
          };
 
+         controller::block_report br;
          try {
-            chain.push_block( bsf, [this]( const branch_type& forked_branch ) {
+            chain.push_block( br, bsf, [this]( const branch_type& forked_branch ) {
                _unapplied_transactions.add_forked( forked_branch );
             }, [this]( const transaction_id_type& id ) {
                return _unapplied_transactions.get_trx( id );
@@ -498,15 +499,21 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          }
 
          if( fc::time_point::now() - block->timestamp < fc::minutes(5) || (blk_num % 1000 == 0) ) {
-            ilog("Received block ${id}... #${n} @ ${t} signed by ${p} [trxs: ${count}, lib: ${lib}, conf: ${confs}, latency: ${latency} ms]",
+            ilog("Received block ${id}... #${n} @ ${t} signed by ${p} "
+                 "[trxs: ${count}, lib: ${lib}, conf: ${confs}, net: ${net}, cpu: ${cpu}, elapsed: ${elapsed}, time: ${time}, latency: ${latency} ms]",
                  ("p",block->producer)("id",id.str().substr(8,16))("n",blk_num)("t",block->timestamp)
                  ("count",block->transactions.size())("lib",chain.last_irreversible_block_num())
-                 ("confs", block->confirmed)("latency", (fc::time_point::now() - block->timestamp).count()/1000 ) );
+                 ("confs", block->confirmed)("net", br.total_net_usage)("cpu", br.total_cpu_usage_us)
+                 ("elapsed", br.total_elapsed_time)("time", br.total_time)
+                 ("latency", (fc::time_point::now() - block->timestamp).count()/1000 ) );
             if( chain.get_read_mode() != db_read_mode::IRREVERSIBLE && hbs->id != id && hbs->block != nullptr ) { // not applied to head
-               ilog("Block not applied to head ${id}... #${n} @ ${t} signed by ${p} [trxs: ${count}, dpos: ${dpos}, conf: ${confs}, latency: ${latency} ms]",
+               ilog("Block not applied to head ${id}... #${n} @ ${t} signed by ${p} "
+                    "[trxs: ${count}, dpos: ${dpos}, conf: ${confs}, net: ${net}, cpu: ${cpu}, elapsed: ${elapsed}, time: ${time}, latency: ${latency} ms]",
                     ("p",hbs->block->producer)("id",hbs->id.str().substr(8,16))("n",hbs->block_num)("t",hbs->block->timestamp)
                     ("count",hbs->block->transactions.size())("dpos", hbs->dpos_irreversible_blocknum)
-                    ("confs", hbs->block->confirmed)("latency", (fc::time_point::now() - hbs->block->timestamp).count()/1000 ) );
+                    ("confs", hbs->block->confirmed)("net", br.total_net_usage)("cpu", br.total_cpu_usage_us)
+                    ("elapsed", br.total_elapsed_time)("time", br.total_time)
+                    ("latency", (fc::time_point::now() - hbs->block->timestamp).count()/1000 ) );
             }
          }
 
@@ -2450,11 +2457,18 @@ void producer_plugin_impl::produce_block() {
    _account_fails.report();
    _account_fails.clear();
 
-   ilog("Produced block ${id}... #${n} @ ${t} signed by ${p} [trxs: ${count}, lib: ${lib}, confirmed: ${confs}]",
+   controller::block_report br;
+   for( const auto& r : new_bs->block->transactions ) {
+      br.total_cpu_usage_us += r.cpu_usage_us;
+      br.total_net_usage += r.net_usage_words * 8;
+   }
+   ilog("Produced block ${id}... #${n} @ ${t} signed by ${p} "
+        "[trxs: ${count}, lib: ${lib}, confirmed: ${confs}, net: ${net}, cpu: ${cpu}]",
         ("p",new_bs->header.producer)("id",new_bs->id.str().substr(8,16))
         ("n",new_bs->block_num)("t",new_bs->header.timestamp)
-        ("count",new_bs->block->transactions.size())("lib",chain.last_irreversible_block_num())("confs", new_bs->header.confirmed));
-
+        ("count",new_bs->block->transactions.size())("lib",chain.last_irreversible_block_num())
+        ("net", br.total_net_usage)("cpu", br.total_cpu_usage_us)
+        ("confs", new_bs->header.confirmed));
 }
 
 void producer_plugin::log_failed_transaction(const transaction_id_type& trx_id, const packed_transaction_ptr& packed_trx_ptr, const char* reason) const {
