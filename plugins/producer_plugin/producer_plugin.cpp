@@ -18,6 +18,7 @@
 
 #include <iostream>
 #include <algorithm>
+#include <boost/algorithm/string/predicate.hpp>
 #include <boost/range/adaptor/map.hpp>
 #include <boost/function_output_iterator.hpp>
 #include <boost/multi_index_container.hpp>
@@ -929,37 +930,6 @@ if( options.count(op_name) ) { \
    } \
 }
 
-static producer_plugin_impl::signature_provider_type
-make_key_signature_provider(const private_key_type& key) {
-   return [key]( const chain::digest_type& digest ) {
-      return key.sign(digest);
-   };
-}
-
-static producer_plugin_impl::signature_provider_type
-make_keosd_signature_provider(const std::shared_ptr<producer_plugin_impl>& impl, const string& url_str, const public_key_type pubkey) {
-   fc::url keosd_url;
-   if(boost::algorithm::starts_with(url_str, "unix://"))
-      //send the entire string after unix:// to http_plugin. It'll auto-detect which part
-      // is the unix socket path, and which part is the url to hit on the server
-      keosd_url = fc::url("unix", url_str.substr(7), ostring(), ostring(), ostring(), ostring(), ovariant_object(), std::optional<uint16_t>());
-   else
-      keosd_url = fc::url(url_str);
-   std::weak_ptr<producer_plugin_impl> weak_impl = impl;
-
-   return [weak_impl, keosd_url, pubkey]( const chain::digest_type& digest ) {
-      auto impl = weak_impl.lock();
-      if (impl) {
-         fc::variant params;
-         fc::to_variant(std::make_pair(digest, pubkey), params);
-         auto deadline = impl->_keosd_provider_timeout_us.count() >= 0 ? fc::time_point::now() + impl->_keosd_provider_timeout_us : fc::time_point::maximum();
-         return app().get_plugin<http_client_plugin>().get_client().post_sync(keosd_url, params, deadline).as<chain::signature_type>();
-      } else {
-         return signature_type();
-      }
-   };
-}
-
 void producer_plugin::plugin_initialize(const boost::program_options::variables_map& options)
 { try {
    my->chain_plug = app().find_plugin<chain_plugin>();
@@ -1000,8 +970,6 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
          }
       }
    }
-
-   my->_keosd_provider_timeout_us = fc::milliseconds(options.at("keosd-provider-timeout").as<int32_t>());
 
    my->_account_fails.set_max_failures_per_account( options.at("subjective-account-max-failures").as<uint32_t>() );
 
