@@ -333,6 +333,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       bool                                                      _disable_subjective_api_billing = true;
       fc::time_point                                            _irreversible_block_time;
       fc::microseconds                                          _keosd_provider_timeout_us;
+      fc::time_point                                            _idle_trx_time;
 
       std::vector<chain::digest_type>                           _protocol_features_to_activate;
       bool                                                      _protocol_features_signaled = false; // to mark whether it has been signaled in start_block
@@ -685,6 +686,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
             }
 
             auto start = fc::time_point::now();
+            fc_dlog( _trx_successful_trace_log, "Time since last trx: ${t}us", ("t", start - _idle_trx_time) );
             fc::microseconds max_trx_time = fc::milliseconds( _max_transaction_time_ms.load() );
             if( max_trx_time.count() < 0 ) max_trx_time = fc::microseconds::maximum();
             const auto block_deadline = calculate_block_deadline( chain.pending_block_time() );
@@ -700,7 +702,6 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
 
             auto prev_billed_cpu_time_us = trx->billed_cpu_time_us;
             auto trace = chain.push_transaction( trx, block_deadline, max_trx_time, prev_billed_cpu_time_us, false, sub_bill );
-            fc_dlog( _trx_failed_trace_log, "Subjective bill for ${a}: ${b} elapsed ${t}us", ("a",first_auth)("b",sub_bill)("t",trace->elapsed));
             if( trace->except ) {
                if( exception_is_exhausted( *trace->except ) ) {
                   _unapplied_transactions.add_incoming( trx, persist_until_expired, return_failure_traces, next );
@@ -715,8 +716,10 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                   }
                   exhausted = block_is_exhausted();
                } else {
-                   if (!disable_subjective_billing)
-                      _subjective_billing.subjective_bill_failure( first_auth, trace->elapsed, fc::time_point::now() );
+                  fc_dlog( _trx_failed_trace_log, "Subjective bill for failed ${a}: ${b} elapsed ${t}us, time ${r}us",
+                           ("a",first_auth)("b",sub_bill)("t",trace->elapsed)("r", fc::time_point::now() - start));
+                  if (!disable_subjective_billing)
+                     _subjective_billing.subjective_bill_failure( first_auth, trace->elapsed, fc::time_point::now() );
 
                   if( _pending_block_mode == pending_block_mode::producing ) {
                      auto failure_code = trace->except->code();
@@ -736,6 +739,8 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                   }
                }
             } else {
+               fc_dlog( _trx_successful_trace_log, "Subjective bill for success ${a}: ${b} elapsed ${t}us, time ${r}us",
+                        ("a",first_auth)("b",sub_bill)("t",trace->elapsed)("r", fc::time_point::now() - start));
                if( persist_until_expired && !_disable_persist_until_expired ) {
                   // if this trx didnt fail/soft-fail and the persist flag is set, store its ID so that we can
                   // ensure its applied to all future speculative blocks as well.
@@ -758,6 +763,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
             chain_plugin::handle_bad_alloc();
          } CATCH_AND_CALL(send_response);
 
+         _idle_trx_time = fc::time_point::now();
          return !exhausted;
       }
 
@@ -1693,6 +1699,7 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
    const fc::time_point now = fc::time_point::now();
    const fc::time_point block_time = calculate_pending_block_time();
    const fc::time_point preprocess_deadline = calculate_block_deadline(block_time);
+   _idle_trx_time = now;
 
    const pending_block_mode previous_pending_mode = _pending_block_mode;
    _pending_block_mode = pending_block_mode::producing;
@@ -2045,7 +2052,6 @@ bool producer_plugin_impl::process_unapplied_trxs( const fc::time_point& deadlin
                || trx->read_only;
 
             auto trace = chain.push_transaction( trx, deadline, max_trx_time, prev_billed_cpu_time_us, false, sub_bill );
-            fc_dlog( _trx_failed_trace_log, "Subjective unapplied bill for ${a}: ${b} prev ${t}us", ("a",first_auth)("b",prev_billed_cpu_time_us)("t",trace->elapsed));
             if( trace->except ) {
                if( exception_is_exhausted( *trace->except ) ) {
                   if( block_is_exhausted() ) {
@@ -2054,7 +2060,8 @@ bool producer_plugin_impl::process_unapplied_trxs( const fc::time_point& deadlin
                      break;
                   }
                } else {
-                  fc_dlog( _trx_failed_trace_log, "Subjective unapplied bill for failed ${a}: ${b} prev ${t}us", ("a",first_auth)("b",prev_billed_cpu_time_us)("t",trace->elapsed));
+                  fc_dlog( _trx_failed_trace_log, "Subjective bill for failed ${a}: ${b} prev ${t}us, time ${r}us",
+                           ("a",first_auth)("b",prev_billed_cpu_time_us)("t",trace->elapsed)("r", fc::time_point::now() - start));
                   auto failure_code = trace->except->code();
                   if( failure_code != tx_duplicate::code_value ) {
                      // this failed our configured maximum transaction time, we don't want to replay it
@@ -2073,7 +2080,8 @@ bool producer_plugin_impl::process_unapplied_trxs( const fc::time_point& deadlin
                   continue;
                }
             } else {
-               fc_dlog( _trx_successful_trace_log, "Subjective unapplied bill for success ${a}: ${b} prev ${t}us", ("a",first_auth)("b",prev_billed_cpu_time_us)("t",trace->elapsed));
+               fc_dlog( _trx_successful_trace_log, "Subjective bill for success ${a}: ${b} prev ${t}us, time ${r}us",
+                        ("a",first_auth)("b",prev_billed_cpu_time_us)("t",trace->elapsed)("r", fc::time_point::now() - start));
                // if db_read_mode SPECULATIVE then trx is in the pending block and not immediately reverted
                if (!disable_subjective_billing)
                   _subjective_billing.subjective_bill( trx->id(), trx->packed_trx()->expiration(), first_auth, trace->elapsed,
@@ -2137,6 +2145,7 @@ void producer_plugin_impl::process_scheduled_and_incoming_trxs( const fc::time_p
 
       num_processed++;
 
+      _idle_trx_time = fc::time_point::now();
       // configurable ratio of incoming txns vs deferred txns
       while (incoming_trx_weight >= 1.0 && pending_incoming_process_limit && itr != end ) {
          if (deadline <= fc::time_point::now()) {
@@ -2172,6 +2181,7 @@ void producer_plugin_impl::process_scheduled_and_incoming_trxs( const fc::time_p
       };
 
       try {
+         auto start = fc::time_point::now();
          fc::microseconds max_trx_time = fc::milliseconds( _max_transaction_time_ms.load() );
          if( max_trx_time.count() < 0 ) max_trx_time = fc::microseconds::maximum();
 
@@ -2183,9 +2193,11 @@ void producer_plugin_impl::process_scheduled_and_incoming_trxs( const fc::time_p
                   break;
                }
             } else {
-               fc_dlog(_trx_failed_trace_log, "[TRX_TRACE] Block ${block_num} for producer ${prod} is REJECTING scheduled tx: ${txid}, auth: ${a} : ${why} ",
+               fc_dlog(_trx_failed_trace_log,
+                       "[TRX_TRACE] Block ${block_num} for producer ${prod} is REJECTING scheduled tx: ${txid}, time: ${r}, auth: ${a} : ${why} ",
                        ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())
-                       ("txid", trx_id)("a", get_first_authorizer(trace))("why", trace->except->what()));
+                       ("txid", trx_id)("r", fc::time_point::now() - start)("a", get_first_authorizer(trace))
+                       ("why", trace->except->what()));
                fc_dlog(_trx_trace_failure_log, "[TRX_TRACE] Block ${block_num} for producer ${prod} is REJECTING scheduled tx: ${entire_trace}",
                        ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())
                        ("entire_trace", chain_plug->get_log_trx_trace(trace)));
@@ -2194,9 +2206,11 @@ void producer_plugin_impl::process_scheduled_and_incoming_trxs( const fc::time_p
                num_failed++;
             }
          } else {
-            fc_dlog(_trx_successful_trace_log, "[TRX_TRACE] Block ${block_num} for producer ${prod} is ACCEPTING scheduled tx: ${txid}, auth: ${a}, cpu: ${cpu}",
+            fc_dlog(_trx_successful_trace_log,
+                    "[TRX_TRACE] Block ${block_num} for producer ${prod} is ACCEPTING scheduled tx: ${txid}, time: ${r}, auth: ${a}, cpu: ${cpu}",
                     ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())
-                    ("txid", trx_id)("a", get_first_authorizer(trace))("cpu", trace->receipt ? trace->receipt->cpu_usage_us : 0));
+                    ("txid", trx_id)("r", fc::time_point::now() - start)("a", get_first_authorizer(trace))
+                    ("cpu", trace->receipt ? trace->receipt->cpu_usage_us : 0));
             fc_dlog(_trx_trace_success_log, "[TRX_TRACE] Block ${block_num} for producer ${prod} is ACCEPTING scheduled tx: ${entire_trace}",
                     ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())
                     ("entire_trace", chain_plug->get_log_trx_trace(trace)));
@@ -2222,6 +2236,7 @@ bool producer_plugin_impl::process_incoming_trxs( const fc::time_point& deadline
 {
    bool exhausted = false;
    if( pending_incoming_process_limit ) {
+      _idle_trx_time = fc::time_point::now();
       size_t processed = 0;
       fc_dlog( _log, "Processing ${n} pending transactions", ("n", pending_incoming_process_limit) );
       auto itr = _unapplied_transactions.incoming_begin();
