@@ -255,12 +255,12 @@ public:
          } else {
             fc::variant json_keys;
             try {
-               json_keys = fc::json::from_string(public_key_json, fc::json::relaxed_parser);
+               json_keys = fc::json::from_string(public_key_json, fc::json::parse_type::relaxed_parser);
             } EOS_RETHROW_EXCEPTIONS(json_parse_exception, "Fail to parse JSON from string: ${string}", ("string", public_key_json));
             try {
                std::vector<public_key_type> keys = json_keys.template as<std::vector<public_key_type>>();
                signing_keys = std::move(keys);
-            } EOS_RETHROW_EXCEPTIONS(public_key_type_exception, "Invalid public key array format '${data}'", ("data", fc::json::to_string(json_keys)))
+            } EOS_RETHROW_EXCEPTIONS(public_key_type_exception, "Invalid public key array format '${data}'", ("data", fc::json::to_string(json_keys, fc::time_point::maximum())))
          }
       }
       return signing_keys;
