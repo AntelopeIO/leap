@@ -131,7 +131,7 @@ void trim_blocklog_front(uint32_t truncate_at_block, buf_len_type len_type) {
    }
 
    block_num_type end = std::numeric_limits<block_num_type>::max();
-   BOOST_CHECK( block_log::extract_block_range(temp1.path, temp2.path, truncate_at_block, end) == true);
+   BOOST_CHECK( block_log::extract_block_range(temp1.path, temp2.path, truncate_at_block, end, true) == true);
    trim_data new_log(temp1.path);
    BOOST_CHECK(new_log.first_block == truncate_at_block);
    BOOST_CHECK(new_log.last_block == old_log.last_block);
