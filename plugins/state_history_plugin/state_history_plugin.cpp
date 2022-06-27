@@ -146,7 +146,9 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
          ilog("incoming connection");
          socket_stream.auto_fragment(false);
          socket_stream.binary(true);
-         socket_stream.next_layer().set_option(boost::asio::ip::tcp::no_delay(true));
+         if constexpr (std::is_same_v<SocketType, tcp::socket>) {
+            socket_stream.next_layer().set_option(boost::asio::ip::tcp::no_delay(true));
+         }
          socket_stream.next_layer().set_option(boost::asio::socket_base::send_buffer_size(1024 * 1024));
          socket_stream.next_layer().set_option(boost::asio::socket_base::receive_buffer_size(1024 * 1024));
         
