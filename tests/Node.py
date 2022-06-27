@@ -533,8 +533,8 @@ class Node(object):
         assert(destination)
         assert(isinstance(destination, Account))
 
-        cmd="%s %s -v transfer --expiration 90 %s -j %s %s" % (
-            Utils.EosClientPath, self.eosClientArgs(), self.getRetryCmdArg(retry), source.name, destination.name)
+        cmd="%s %s -v transfer --expiration 90 %s -j" % (
+            Utils.EosClientPath, self.eosClientArgs(), self.getRetryCmdArg(retry))
         cmdArr=cmd.split()
         # not using __sign_str, since cmdArr messes up the string
         if sign:
