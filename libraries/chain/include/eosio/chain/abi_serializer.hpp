@@ -492,7 +492,7 @@ namespace impl {
                      binary_to_variant_context _ctx(*abi, ctx, type);
                      _ctx.short_path = true; // Just to be safe while avoiding the complexity of threading an override boolean all over the place
                      mvo( "data", abi->_binary_to_variant( type, act.data, _ctx ));
-                     mvo("hex_data", act.data);
+                     set_hex_data(mvo, "hex_data", act.data);
                   } catch(...) {
                      // any failure to serialize data, then leave as not serailzed
                      set_hex_data(mvo, "data", act.data);
