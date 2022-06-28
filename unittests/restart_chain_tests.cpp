@@ -31,8 +31,8 @@ void remove_existing_states(controller::config& config) {
 }
 
 struct dummy_action {
-   static eosio::chain::name get_name() { return N(dummyaction); }
-   static eosio::chain::name get_account() { return N(testapi); }
+   static eosio::chain::name get_name() { return "dummyaction"_n; }
+   static eosio::chain::name get_account() { return "testapi"_n; }
 
    char     a; // 1
    uint64_t b; // 8
@@ -40,8 +40,8 @@ struct dummy_action {
 };
 
 struct cf_action {
-   static eosio::chain::name get_name() { return N(cfaction); }
-   static eosio::chain::name get_account() { return N(testapi); }
+   static eosio::chain::name get_name() { return "cfaction"_n; }
+   static eosio::chain::name get_account() { return "testapi"_n; }
 
    uint32_t payload = 100;
    uint32_t cfd_idx = 0; // context free data index
@@ -139,16 +139,16 @@ BOOST_AUTO_TEST_CASE(test_restart_with_different_chain_id) {
 BOOST_AUTO_TEST_CASE(test_restart_from_block_log) {
    tester chain;
 
-   chain.create_account(N(replay1));
+   chain.create_account("replay1"_n);
    chain.produce_blocks(1);
-   chain.create_account(N(replay2));
+   chain.create_account("replay2"_n);
    chain.produce_blocks(1);
-   chain.create_account(N(replay3));
+   chain.create_account("replay3"_n);
    chain.produce_blocks(1);
 
-   BOOST_REQUIRE_NO_THROW(chain.control->get_account(N(replay1)));
-   BOOST_REQUIRE_NO_THROW(chain.control->get_account(N(replay2)));
-   BOOST_REQUIRE_NO_THROW(chain.control->get_account(N(replay3)));
+   BOOST_REQUIRE_NO_THROW(chain.control->get_account("replay1"_n));
+   BOOST_REQUIRE_NO_THROW(chain.control->get_account("replay2"_n));
+   BOOST_REQUIRE_NO_THROW(chain.control->get_account("replay3"_n));
 
    chain.close();
 
@@ -161,18 +161,18 @@ BOOST_AUTO_TEST_CASE(test_restart_from_block_log) {
 
    tester from_block_log_chain(copied_config, *genesis);
 
-   BOOST_REQUIRE_NO_THROW(from_block_log_chain.control->get_account(N(replay1)));
-   BOOST_REQUIRE_NO_THROW(from_block_log_chain.control->get_account(N(replay2)));
-   BOOST_REQUIRE_NO_THROW(from_block_log_chain.control->get_account(N(replay3)));
+   BOOST_REQUIRE_NO_THROW(from_block_log_chain.control->get_account("replay1"_n));
+   BOOST_REQUIRE_NO_THROW(from_block_log_chain.control->get_account("replay2"_n));
+   BOOST_REQUIRE_NO_THROW(from_block_log_chain.control->get_account("replay3"_n));
 }
 
 BOOST_AUTO_TEST_CASE(test_light_validation_restart_from_block_log) {
    tester chain(setup_policy::full);
 
-   chain.create_account(N(testapi));
-   chain.create_account(N(dummy));
+   chain.create_account("testapi"_n);
+   chain.create_account("dummy"_n);
    chain.produce_block();
-   chain.set_code(N(testapi), contracts::test_api_wasm());
+   chain.set_code("testapi"_n, contracts::test_api_wasm());
    chain.produce_block();
 
    cf_action          cfa;
@@ -183,11 +183,11 @@ BOOST_AUTO_TEST_CASE(test_light_validation_restart_from_block_log) {
    trx.context_free_data.emplace_back(fc::raw::pack<uint32_t>(200));
    // add a normal action along with cfa
    dummy_action da = {DUMMY_ACTION_DEFAULT_A, DUMMY_ACTION_DEFAULT_B, DUMMY_ACTION_DEFAULT_C};
-   action       act1(vector<permission_level>{{N(testapi), config::active_name}}, da);
+   action       act1(vector<permission_level>{{"testapi"_n, config::active_name}}, da);
    trx.actions.push_back(act1);
    chain.set_transaction_headers(trx);
    // run normal passing case
-   auto sigs  = trx.sign(chain.get_private_key(N(testapi), "active"), chain.control->get_chain_id());
+   auto sigs  = trx.sign(chain.get_private_key("testapi"_n, "active"), chain.control->get_chain_id());
    auto trace = chain.push_transaction(trx);
    chain.produce_block();
 
@@ -212,12 +212,13 @@ BOOST_AUTO_TEST_CASE(test_light_validation_restart_from_block_log) {
    transaction_trace_ptr other_trace;
 
    replay_tester from_block_log_chain(copied_config, *genesis,
-                                      [&](std::tuple<const transaction_trace_ptr&, const signed_transaction&> x) {
-                                         auto& t = std::get<0>(x);
-                                         if (t && t->id == trace->id) {
-                                            other_trace = t;
-                                         }
-                                      });
+                                       [&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
+                                          auto& t = std::get<0>(x);
+                                          if (t && t->id == trace->id) {
+                                             other_trace = t;
+                                          }
+                                       });
+
 
    BOOST_REQUIRE(other_trace);
    BOOST_REQUIRE(other_trace->receipt);
