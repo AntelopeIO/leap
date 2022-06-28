@@ -1185,7 +1185,7 @@ namespace eosio { namespace chain {
       }
    }
 
-   bool block_log::extract_block_range(const fc::path& block_dir, const fc::path&output_dir, block_num_type& start, block_num_type& end, bool rename_input, progress_function&& progress) {
+   bool block_log::extract_block_range(const fc::path& block_dir, const fc::path&output_dir, block_num_type& start, block_num_type& end, bool rename_input) {
       EOS_ASSERT( block_dir != output_dir, block_log_exception, "block_dir and output_dir need to be different directories" );
       trim_data original_block_log(block_dir);
       if(start < original_block_log.first_block) {
@@ -1297,7 +1297,6 @@ namespace eosio { namespace chain {
          new_block_file.seek(new_block_file_first_block_pos + to_write_remaining - write_size);
          uint64_t offset = read_size - write_size;
          new_block_file.write(buf+offset, write_size);
-         progress(static_cast<double>(to_write - to_write_remaining)/to_write);
       }
 
       fclose(original_block_log.blk_in);

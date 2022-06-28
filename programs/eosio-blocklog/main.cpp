@@ -16,12 +16,6 @@
 
 #include <chrono>
 
-#include "config.hpp"
-
-#if ENABLE_PROGRESSBAR
-  #include <progressbar/progressbar.h>
-#endif
-
 #ifndef _WIN32
 #define FOPEN(p, m) fopen(p, m)
 #else
@@ -273,16 +267,7 @@ bool trim_blocklog_front(bfs::path block_dir, uint32_t n) {        //n is first 
 bool extract_block_range(bfs::path block_dir, bfs::path output_dir, uint32_t start, uint32_t end) {
    report_time rt("extracting block range");
    EOS_ASSERT( end > start, block_log_exception, "extract range end must be greater than start");
-#if ENABLE_PROGRESSBAR
-   progressbar *bar = progressbar_new_percent_with_format_and_tumbler("Extracting:", "[= ]", "/-\\|");
-   auto progress_increment = [bar](const double percent){progressbar_update_percent(bar, percent);};
-#else
-   auto progress_increment = [](const double percent){};
-#endif
-   const bool status = block_log::extract_block_range(block_dir, output_dir, start, end, false, std::move(progress_increment));
-#if ENABLE_PROGRESSBAR
-   progressbar_finish(bar);
-#endif
+   const bool status = block_log::extract_block_range(block_dir, output_dir, start, end, false);
    rt.report();
    return status;
 }
