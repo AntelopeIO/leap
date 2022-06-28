@@ -133,9 +133,6 @@ namespace eosio {
          virtual bool verify_max_requests_in_flight() = 0;
          virtual void handle_exception() = 0;
          virtual void send_response(std::string, int) = 0;
-
-         virtual const void* operator* () const = 0;
-         virtual void* operator* () = 0;
       };
 
       using abstract_conn_ptr = std::shared_ptr<abstract_conn>;
@@ -332,7 +329,7 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
          }
 
          template<typename T>
-         void report_429_error( const T& con, string what) {
+         void report_429_error( const T& con, const std::string& what) {
             error_results::error_info ei;
             ei.code = websocketpp::http::status_code::too_many_requests;
             ei.name = "Busy";
@@ -412,22 +409,6 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
                _conn->set_body(std::move(body));
                _conn->set_status( websocketpp::http::status_code::value( code ) );
                _conn->send_http_response();
-            }
-
-            /**
-             * const accessor
-             * @return const reference to the contained _conn
-             */
-            const void* operator* () const override {
-               return (const void *) &_conn;
-            }
-
-            /**
-             * mutable accessor (can be moved frmo)
-             * @return mutable reference to the contained _conn
-             */
-            void* operator* () override {
-               return (void *) &_conn;
             }
 
             detail::connection_ptr<T> _conn;
@@ -531,7 +512,7 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
             return [my=std::move(my), priority, next_ptr=std::move(next_ptr)]
                        ( detail::abstract_conn_ptr conn, string r, string b, url_response_callback then ) {
                auto tracked_b = make_in_flight<string>(std::move(b), my);
-               if (!conn->verify_max_bytes_in_flight() || !conn->verify_max_requests_in_flight()) {
+               if (!conn->verify_max_bytes_in_flight()) {
                   return;
                }
 
@@ -580,7 +561,7 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
          auto make_http_response_handler( detail::abstract_conn_ptr abstract_conn_ptr) {
             return [my=shared_from_this(), abstract_conn_ptr]( int code, fc::variant response ) {
                auto tracked_response = make_in_flight(std::move(response), my);
-               if (!abstract_conn_ptr->verify_max_bytes_in_flight() || !abstract_conn_ptr->verify_max_requests_in_flight()) {
+               if (!abstract_conn_ptr->verify_max_bytes_in_flight()) {
                   return;
                }
 
@@ -749,9 +730,9 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
             ("max-body-size", bpo::value<uint32_t>()->default_value(my->max_body_size),
              "The maximum body size in bytes allowed for incoming RPC requests")
             ("http-max-bytes-in-flight-mb", bpo::value<uint32_t>()->default_value(500),
-             "Maximum size in megabytes http_plugin should use for processing http requests. 503 error response when exceeded." )
+             "Maximum size in megabytes http_plugin should use for processing http requests. 429 error response when exceeded." )
             ("http-max-in-flight-requests", bpo::value<int32_t>()->default_value(-1),
-             "Maximum number of requests http_plugin should use for processing http requests. 503 error response when exceeded." )
+             "Maximum number of requests http_plugin should use for processing http requests. 429 error response when exceeded." )
             ("http-max-response-time-ms", bpo::value<uint32_t>()->default_value(30),
              "Maximum time for processing a request.")
             ("verbose-http-errors", bpo::bool_switch()->default_value(false),
