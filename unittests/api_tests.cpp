@@ -856,10 +856,10 @@ BOOST_AUTO_TEST_CASE(light_validation_skip_cfa) try {
    std::vector<signed_block_ptr> blocks;
    blocks.push_back(chain.produce_block());
 
-   chain.create_account( N(testapi) );
-   chain.create_account( N(dummy) );
+   chain.create_account( "testapi"_n );
+   chain.create_account( "dummy"_n );
    blocks.push_back(chain.produce_block());
-   chain.set_code( N(testapi), contracts::test_api_wasm() );
+   chain.set_code( "testapi"_n, contracts::test_api_wasm() );
    blocks.push_back(chain.produce_block());
 
    cf_action cfa;
@@ -870,11 +870,11 @@ BOOST_AUTO_TEST_CASE(light_validation_skip_cfa) try {
    trx.context_free_data.emplace_back(fc::raw::pack<uint32_t>(200));
    // add a normal action along with cfa
    dummy_action da = { DUMMY_ACTION_DEFAULT_A, DUMMY_ACTION_DEFAULT_B, DUMMY_ACTION_DEFAULT_C };
-   action act1(vector<permission_level>{{N(testapi), config::active_name}}, da);
+   action act1(vector<permission_level>{{"testapi"_n, config::active_name}}, da);
    trx.actions.push_back(act1);
    chain.set_transaction_headers(trx);
    // run normal passing case
-   auto sigs = trx.sign(chain.get_private_key(N(testapi), "active"), chain.control->get_chain_id());
+   auto sigs = trx.sign(chain.get_private_key("testapi"_n, "active"), chain.control->get_chain_id());
    auto trace = chain.push_transaction(trx);
    blocks.push_back(chain.produce_block());
 
@@ -893,14 +893,13 @@ BOOST_AUTO_TEST_CASE(light_validation_skip_cfa) try {
    auto conf_genesis = tester::default_config( tempdir );
 
    auto& cfg = conf_genesis.first;
-   cfg.trusted_producers = { N(eosio) }; // light validation
+   cfg.trusted_producers = { "eosio"_n }; // light validation
 
    tester other( conf_genesis.first, conf_genesis.second );
    other.execute_setup_policy( setup_policy::full );
 
-
    transaction_trace_ptr other_trace;
-   auto cc = other.control->applied_transaction.connect( [&](std::tuple<const transaction_trace_ptr&, const signed_transaction&> x) {
+   auto cc = other.control->applied_transaction.connect( [&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
       auto& t = std::get<0>(x);
       if( t && t->id == trace->id ) {
          other_trace = t;
