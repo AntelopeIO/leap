@@ -275,7 +275,8 @@ try:
                     # delay and see if transfer is accepted now
                     Utils.Print("Transfer rejected, delay 1 second and see if it is then accepted")
                     time.sleep(1)
-                trans=node.transferFunds(fromAccount, toAccount, transferAmount, "transfer round %d" % (round), exitOnError=False, reportStatus=False, sign = True, dontSend = args.send_duplicates)
+                expiration=None if args.send_duplicates else 90
+                trans=node.transferFunds(fromAccount, toAccount, transferAmount, "transfer round %d" % (round), exitOnError=False, reportStatus=False, sign = True, dontSend = args.send_duplicates, expiration=expiration)
                 attempts += 1
 
             if args.send_duplicates:

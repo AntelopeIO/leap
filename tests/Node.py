@@ -564,7 +564,7 @@ class Node(object):
         return cmdArr
 
     # Trasfer funds. Returns "transfer" json return object
-    def transferFunds(self, source, destination, amountStr, memo="memo", force=False, waitForTransBlock=False, exitOnError=True, reportStatus=True, retry=None, sign=False, dontSend=False, expiration=None):
+    def transferFunds(self, source, destination, amountStr, memo="memo", force=False, waitForTransBlock=False, exitOnError=True, reportStatus=True, retry=None, sign=False, dontSend=False, expiration=90):
         cmdArr = self.__transferFundsCmdArr(source, destination, amountStr, memo, force, retry, sign, dontSend, expiration)
         trans=None
         start=time.perf_counter()
@@ -591,7 +591,7 @@ class Node(object):
         return self.waitForTransBlockIfNeeded(trans, waitForTransBlock, exitOnError=exitOnError)
 
     # Trasfer funds. Returns (popen, cmdArr) for checkDelayedOutput
-    def transferFundsAsync(self, source, destination, amountStr, memo="memo", force=False, exitOnError=True, retry=None, sign=False, dontSend=False, expiration=None):
+    def transferFundsAsync(self, source, destination, amountStr, memo="memo", force=False, exitOnError=True, retry=None, sign=False, dontSend=False, expiration=90):
         cmdArr = self.__transferFundsCmdArr(source, destination, amountStr, memo, force, retry, sign, dontSend, expiration)
         start=time.perf_counter()
         try:
