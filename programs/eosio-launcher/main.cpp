@@ -1196,6 +1196,18 @@ launcher_def::write_logging_config_file(tn_node_def &node) {
   if( gelf_enabled ) tft.appenders.push_back( "net" );
   log_config.loggers.emplace_back( tft );
 
+  fc::logger_config tts( "transaction_trace_success" );
+  tts.level = fc::log_level::debug;
+  tts.appenders.push_back( "stderr" );
+  if( gelf_enabled ) tts.appenders.push_back( "net" );
+  log_config.loggers.emplace_back( tts );
+
+   fc::logger_config ttf( "transaction_trace_failure" );
+   ttf.level = fc::log_level::debug;
+   ttf.appenders.push_back( "stderr" );
+   if( gelf_enabled ) ttf.appenders.push_back( "net" );
+   log_config.loggers.emplace_back( ttf );
+
   fc::logger_config ta( "trace_api" );
   ta.level = fc::log_level::debug;
   ta.appenders.push_back( "stderr" );
