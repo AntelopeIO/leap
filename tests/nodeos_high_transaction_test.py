@@ -52,7 +52,7 @@ blocksPerSec=2
 transBlocksBehind=args.transaction_time_delta * blocksPerSec
 numTransactions = args.num_transactions
 maxTransactionsPerSecond = args.max_transactions_per_second
-assert args.total_accounts >= minTotalAccounts, Print("ERROR: Only %d was selected for --total-accounts, must have at least %d" % (args.total_accounts, minTotalAccounts))
+assert args.total_accounts >= minTotalAccounts, "ERROR: Only %d was selected for --total-accounts, must have at least %d" % (args.total_accounts, minTotalAccounts)
 if numTransactions % args.total_accounts > 0:
     oldNumTransactions = numTransactions
     numTransactions = int((oldNumTransactions + args.total_accounts - 1)/args.total_accounts) * args.total_accounts
@@ -182,16 +182,16 @@ try:
 
             lastIrreversibleBlockNum = node.getIrreversibleBlockNum()
             blockNum = Node.getTransBlockNum(trans)
-            assert blockNum is not None, Print("ERROR: could not retrieve block num from transId: %s, trans: %s" % (transId, json.dumps(trans, indent=2)))
+            assert blockNum is not None, "ERROR: could not retrieve block num from transId: %s, trans: %s" % (transId, json.dumps(trans, indent=2))
             block = node.getBlock(blockNum)
             if block is not None:
                 transactions = block["transactions"]
                 for trans_receipt in transactions:
                     btrans = trans_receipt["trx"]
-                    assert btrans is not None, Print("ERROR: could not retrieve \"trx\" from transaction_receipt: %s, from transId: %s that led to block: %s" % (json.dumps(trans_receipt, indent=2), transId, json.dumps(block, indent=2)))
+                    assert btrans is not None, "ERROR: could not retrieve \"trx\" from transaction_receipt: %s, from transId: %s that led to block: %s" % (json.dumps(trans_receipt, indent=2), transId, json.dumps(block, indent=2))
                     btransId = btrans["id"]
-                    assert btransId is not None, Print("ERROR: could not retrieve \"id\" from \"trx\": %s, from transId: %s that led to block: %s" % (json.dumps(btrans, indent=2), transId, json.dumps(block, indent=2)))
-                    assert btransId not in transToBlock, Print("ERROR: transaction_id: %s found in block: %d, but originally seen in block number: %d" % (btransId, blockNum, transToBlock[btransId]["block_num"]))
+                    assert btransId is not None, "ERROR: could not retrieve \"id\" from \"trx\": %s, from transId: %s that led to block: %s" % (json.dumps(btrans, indent=2), transId, json.dumps(block, indent=2))
+                    assert btransId not in transToBlock, "ERROR: transaction_id: %s found in block: %d, but originally seen in block number: %d" % (btransId, blockNum, transToBlock[btransId]["block_num"])
                     transToBlock[btransId] = block
 
                 break
@@ -212,8 +212,8 @@ try:
         if transId in transToBlock:
             return
         (block, trans) = cacheTransIdInBlock(transId, transToBlock, node)
-        assert trans is not None, Print("ERROR: could not find transaction for transId: %s" % (transId))
-        assert block is not None, Print("ERROR: could not retrieve block with block num: %d, from transId: %s, trans: %s" % (blockNum, transId, json.dumps(trans, indent=2)))
+        assert trans is not None, "ERROR: could not find transaction for transId: %s" % (transId)
+        assert block is not None, "ERROR: could not retrieve block with block num: %d, from transId: %s, trans: %s" % (blockNum, transId, json.dumps(trans, indent=2))
 
     transToBlock = {}
     for transId in checkTransIds:
@@ -296,7 +296,7 @@ try:
 
                     attempts += 1
 
-            assert trans is not None, Print("ERROR: failed round: %d, fromAccount: %s, toAccount: %s" % (round, accountIndex, toAccountIndex))
+            assert trans is not None, "ERROR: failed round: %d, fromAccount: %s, toAccount: %s" % (round, accountIndex, toAccountIndex)
             transId = Node.getTransId(trans)
             history.append(transId)
 
@@ -333,11 +333,11 @@ try:
                 if newestBlockNum > lastBlockNum:
                     missingTransactions[-1]["highest_block_seen"] = newestBlockNum
             blockNum = Node.getTransBlockNum(trans)
-            assert blockNum is not None, Print("ERROR: could not retrieve block num from transId: %s, trans: %s" % (transId, json.dumps(trans, indent=2)))
+            assert blockNum is not None, "ERROR: could not retrieve block num from transId: %s, trans: %s" % (transId, json.dumps(trans, indent=2))
         else:
             block = transToBlock[transId]
             blockNum = block["block_num"]
-            assert blockNum is not None, Print("ERROR: could not retrieve block num for block retrieved for transId: %s, block: %s" % (transId, json.dumps(block, indent=2)))
+            assert blockNum is not None, "ERROR: could not retrieve block num for block retrieved for transId: %s, block: %s" % (transId, json.dumps(block, indent=2))
 
         if lastBlockNum is not None:
             if blockNum > lastBlockNum + transBlocksBehind or blockNum + transBlocksBehind < lastBlockNum:
