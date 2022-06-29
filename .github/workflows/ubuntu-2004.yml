@@ -156,7 +156,7 @@ jobs:
           ${DOCKER} bash -c 'cd build && ctest --output-on-failure -j $(nproc) -LE "nonparallelizable_tests|long_running_tests|wasm_spec_tests"'
       - uses: actions/upload-artifact@v3
         with:
-          name: logs
+          name: parallel-logs
           path: |
             build/var/*
             build/etc/*
@@ -184,7 +184,7 @@ jobs:
           ${DOCKER} bash -c 'cd build && ctest --output-on-failure -j $(nproc) -L "wasm_spec_tests" -E "conversions.*|f32.*|f64.*|unreachable.*|const.*"'
       - uses: actions/upload-artifact@v3
         with:
-          name: logs
+          name: wasm-logs
           path: |
             build/var/*
             build/etc/*
@@ -212,7 +212,7 @@ jobs:
           ${DOCKER} bash -c 'cd build && ctest --output-on-failure -j $(nproc) -L "wasm_spec_tests" -R "conversions.*|f32.*|f64.*|unreachable.*|const.*"'
       - uses: actions/upload-artifact@v3
         with:
-          name: logs
+          name: wasm-logs-2
           path: |
             build/var/*
             build/etc/*
@@ -241,7 +241,7 @@ jobs:
           ${DOCKER} bash -c 'cd build && ctest --output-on-failure -L "nonparallelizable_tests"'
       - uses: actions/upload-artifact@v3
         with:
-          name: logs
+          name: serial-logs
           path: |
             build/var/*
             build/etc/*
@@ -269,7 +269,7 @@ jobs:
           ${DOCKER} bash -c 'cd build && ctest --output-on-failure -L "long_running_tests" -E "nodeos_short_fork_take_over_lr_test|nodeos_under_min_avail_ram_lr_test|nodeos_startup_catchup_lr_test|nodeos_producer_watermark_lr_test|nodeos_irreversible_mode_lr_test|nodeos_forked_chain_lr_test|nodeos_voting_lr_test|nodeos_high_transaction_lr_test|nodeos_retry_transaction_lr_test"'
       - uses: actions/upload-artifact@v3
         with:
-          name: logs
+          name: long-logs
           path: |
             build/var/*
             build/etc/*
@@ -297,7 +297,7 @@ jobs:
           ${DOCKER} bash -c 'cd build && ctest --output-on-failure -R nodeos_short_fork_take_over_lr_test'
       - uses: actions/upload-artifact@v3
         with:
-          name: logs
+          name: short-fork-logs
           path: |
             build/var/*
             build/etc/*
@@ -325,7 +325,7 @@ jobs:
           ${DOCKER} bash -c 'cd build && ctest --output-on-failure -R nodeos_under_min_avail_ram_lr_test'
       - uses: actions/upload-artifact@v3
         with:
-          name: logs
+          name: min-avail-ram-logs
           path: |
             build/var/*
             build/etc/*
@@ -353,7 +353,7 @@ jobs:
           ${DOCKER} bash -c 'cd build && ctest --output-on-failure -R nodeos_startup_catchup_lr_test'
       - uses: actions/upload-artifact@v3
         with:
-          name: logs
+          name: startup-catchup-logs
           path: |
             build/var/*
             build/etc/*
@@ -381,7 +381,7 @@ jobs:
           ${DOCKER} bash -c 'cd build && ctest --output-on-failure -R nodeos_producer_watermark_lr_test'
       - uses: actions/upload-artifact@v3
         with:
-          name: logs
+          name: producer-watermark-logs
           path: |
             build/var/*
             build/etc/*
@@ -409,7 +409,7 @@ jobs:
           ${DOCKER} bash -c 'cd build && ctest --output-on-failure -R nodeos_irreversible_mode_lr_test'
       - uses: actions/upload-artifact@v3
         with:
-          name: logs
+          name: irreversible-logs
           path: |
             build/var/*
             build/etc/*
@@ -437,7 +437,7 @@ jobs:
           ${DOCKER} bash -c 'cd build && ctest --output-on-failure -R nodeos_forked_chain_lr_test'
       - uses: actions/upload-artifact@v3
         with:
-          name: logs
+          name: forked-chain-logs
           path: |
             build/var/*
             build/etc/*
@@ -465,7 +465,7 @@ jobs:
           ${DOCKER} bash -c 'cd build && ctest --output-on-failure -R nodeos_voting_lr_test'
       - uses: actions/upload-artifact@v3
         with:
-          name: logs
+          name: voting-logs
           path: |
             build/var/*
             build/etc/*
@@ -493,7 +493,7 @@ jobs:
           ${DOCKER} bash -c 'cd build && ctest --output-on-failure -R nodeos_high_transaction_lr_test'
       - uses: actions/upload-artifact@v3
         with:
-          name: logs
+          name: high-trx-logs
           path: |
             build/var/*
             build/etc/*
@@ -521,7 +521,7 @@ jobs:
           ${DOCKER} bash -c 'cd build && ctest --output-on-failure -R nodeos_retry_transaction_lr_test'
       - uses: actions/upload-artifact@v3
         with:
-          name: logs
+          name: retry-trx-logs
           path: |
             build/var/*
             build/etc/*
