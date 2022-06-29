@@ -286,7 +286,7 @@ try:
                 attempts = 0
                 while trans is None and attempts < maxTransactionAttempts:
                     for node in map(lambda ordinal: allNodes[ordinal], nodeOrder):
-                        repeatTrans = node.pushTransaction(sendTrans, silentErrors=True)
+                        repeatTrans = node.pushTransaction(sendTrans, opts="--skip-sign", silentErrors=True)
                         if repeatTrans is not None:
                             if trans is None and repeatTrans[0]:
                                 trans = repeatTrans[1]
