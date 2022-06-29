@@ -78,7 +78,7 @@ class PluginHttpTest(unittest.TestCase):
         walletAccounts = [eosioAccount]
         self.keosd.create(testWalletName, walletAccounts)
 
-        retMap = self.nodeos.publishContract(eosioAccount.name, contractDir, wasmFile, abiFile, waitForTransBlock=True)
+        retMap = self.nodeos.publishContract(eosioAccount, contractDir, wasmFile, abiFile, waitForTransBlock=True)
 
         self.nodeos.preactivateAllBuiltinProtocolFeature()
 
