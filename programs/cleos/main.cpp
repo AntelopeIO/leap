@@ -127,7 +127,6 @@ using namespace eosio::client::http;
 using namespace eosio::client::localize;
 using namespace eosio::client::config;
 using namespace boost::filesystem;
-using auth_type = std::variant<public_key_type, permission_level>;
 
 FC_DECLARE_EXCEPTION( explained_exception, 9000000, "explained exception, see error log" );
 FC_DECLARE_EXCEPTION( localized_exception, 10000000, "an error occured" );
@@ -294,6 +293,10 @@ string generate_nonce_string() {
 chain::action generate_nonce_action() {
    return chain::action( {}, config::null_account_name, name("nonce"), fc::raw::pack(fc::time_point::now().time_since_epoch().count()));
 }
+
+auto abi_serializer_resolver_empty = [](const name& account) -> std::optional<abi_serializer> {
+   return std::optional<abi_serializer>();
+};
 
 void prompt_for_wallet_password(string& pw, const string& name) {
    if(pw.size() == 0 && name != "SecureEnclave") {
@@ -639,14 +642,14 @@ chain::permission_level to_permission_level(const std::string& s) {
    return permission_level { name(s.substr(0, at_pos)), name(s.substr(at_pos + 1)) };
 }
 
-chain::action create_newaccount(const name& creator, const name& newaccount, auth_type owner, auth_type active) {
+chain::action create_newaccount(const name& creator, const name& newaccount, authority owner, authority active) {
    return action {
       get_account_permissions(tx_permission, {creator,config::active_name}),
       eosio::chain::newaccount{
          .creator      = creator,
          .name         = newaccount,
-         .owner        = std::holds_alternative<public_key_type>(owner) ? authority(std::get<public_key_type>(owner)) : authority(std::get<permission_level>(owner)),
-         .active       = std::holds_alternative<public_key_type>(active) ? authority(std::get<public_key_type>(active)) : authority(std::get<permission_level>(active))
+         .owner        = owner,
+         .active       = active
       }
    };
 }
@@ -1117,8 +1120,8 @@ struct create_account_subcommand {
       );
       createAccount->add_option("creator", creator, localized("The name of the account creating the new account"))->required();
       createAccount->add_option("name", account_name, localized("The name of the new account"))->required();
-      createAccount->add_option("OwnerKey", owner_key_str, localized("The owner public key or permission level for the new account"))->required();
-      createAccount->add_option("ActiveKey", active_key_str, localized("The active public key or permission level for the new account"));
+      createAccount->add_option("OwnerKey", owner_key_str, localized("The owner public key, permission level, or authority for the new account"))->required();
+      createAccount->add_option("ActiveKey", active_key_str, localized("The active public key, permission level, or authority for the new account"));
 
       if (!simple) {
          createAccount->add_option("--stake-net", stake_net,
@@ -1138,27 +1141,34 @@ struct create_account_subcommand {
       add_standard_transaction_options(createAccount, "creator@active");
 
       createAccount->callback([this] {
-            auth_type owner, active;
-
-            if( owner_key_str.find('@') != string::npos ) {
+            authority owner, active;
+            if( owner_key_str.find('{') != string::npos ) {
+               try{
+                  owner = parse_json_authority_or_key(owner_key_str);
+               } EOS_RETHROW_EXCEPTIONS( explained_exception, "Invalid owner authority: ${authority}", ("authority", owner_key_str) )
+            } else if( owner_key_str.find('@') != string::npos ) {
                try {
-                  owner = to_permission_level(owner_key_str);
+                  owner = authority(to_permission_level(owner_key_str));
                } EOS_RETHROW_EXCEPTIONS( explained_exception, "Invalid owner permission level: ${permission}", ("permission", owner_key_str) )
             } else {
                try {
-                  owner = public_key_type(owner_key_str);
+                  owner = authority(public_key_type(owner_key_str));
                } EOS_RETHROW_EXCEPTIONS( public_key_type_exception, "Invalid owner public key: ${public_key}", ("public_key", owner_key_str) );
             }
 
             if( active_key_str.empty() ) {
                active = owner;
-            } else if( active_key_str.find('@') != string::npos ) {
+            } else if ( active_key_str.find('{') != string::npos ) { 
+               try{
+                  active = parse_json_authority_or_key(active_key_str);
+               } EOS_RETHROW_EXCEPTIONS( explained_exception, "Invalid active authority: ${authority}", ("authority", owner_key_str) )
+            }else if( active_key_str.find('@') != string::npos ) {
                try {
-                  active = to_permission_level(active_key_str);
+                  active = authority(to_permission_level(active_key_str));
                } EOS_RETHROW_EXCEPTIONS( explained_exception, "Invalid active permission level: ${permission}", ("permission", active_key_str) )
             } else {
                try {
-                  active = public_key_type(active_key_str);
+                  active = authority(public_key_type(active_key_str));
                } EOS_RETHROW_EXCEPTIONS( public_key_type_exception, "Invalid active public key: ${public_key}", ("public_key", active_key_str) );
             }
 
@@ -2381,9 +2391,13 @@ void get_account( const string& accountName, const string& coresym, bool json_fo
          return ss.str();
       };
 
-
       std::cout << std::fixed << setprecision(3);
-      std::cout << indent << std::left << std::setw(11) << "used:"      << std::right << std::setw(18) << to_pretty_net( res.net_limit.used ) << "\n";
+      std::cout << indent << std::left << std::setw(11) << "used:" << std::right << std::setw(18);
+      if( res.net_limit.current_used ) {
+         std::cout << to_pretty_net(*res.net_limit.current_used) << "\n";
+      } else {
+         std::cout << to_pretty_net(res.net_limit.used) << "    ( out of date )\n";
+      }
       std::cout << indent << std::left << std::setw(11) << "available:" << std::right << std::setw(18) << to_pretty_net( res.net_limit.available ) << "\n";
       std::cout << indent << std::left << std::setw(11) << "limit:"     << std::right << std::setw(18) << to_pretty_net( res.net_limit.max ) << "\n";
       std::cout << std::endl;
@@ -2411,7 +2425,12 @@ void get_account( const string& accountName, const string& coresym, bool json_fo
       }
 
       std::cout << std::fixed << setprecision(3);
-      std::cout << indent << std::left << std::setw(11) << "used:"      << std::right << std::setw(18) << to_pretty_time( res.cpu_limit.used ) << "\n";
+      std::cout << indent << std::left << std::setw(11) << "used:" << std::right << std::setw(18);
+      if( res.cpu_limit.current_used ) {
+         std::cout << to_pretty_time(*res.cpu_limit.current_used) << "\n";
+      } else {
+         std::cout << to_pretty_time(res.cpu_limit.used) << "    ( out of date )\n";
+      }
       std::cout << indent << std::left << std::setw(11) << "available:" << std::right << std::setw(18) << to_pretty_time( res.cpu_limit.available ) << "\n";
       std::cout << indent << std::left << std::setw(11) << "limit:"     << std::right << std::setw(18) << to_pretty_time( res.cpu_limit.max ) << "\n";
       std::cout << std::endl;
@@ -2659,6 +2678,42 @@ int main( int argc, char** argv ) {
       fc::from_hex(packed_action_data_string, packed_action_data_blob.data(), packed_action_data_blob.size());
       fc::variant unpacked_action_data_json = bin_to_variant(name(packed_action_data_account_string), name(packed_action_data_name_string), packed_action_data_blob);
       std::cout << fc::json::to_pretty_string(unpacked_action_data_json) << std::endl;
+   });
+
+   // validate subcommand
+   auto validate = app.add_subcommand("validate", localized("Validate transactions")); 
+   validate->require_subcommand();
+
+   // validate signatures
+   string trx_json_to_validate;
+   string str_chain_id;
+   auto validate_signatures = validate->add_subcommand("signatures", localized("Validate signatures and recover public keys"));
+   validate_signatures->add_option("transaction", trx_json_to_validate,
+                                   localized("The JSON string or filename defining the transaction to validate"), true)->required();
+   validate_signatures->add_option("-c,--chain-id", str_chain_id, localized("The chain id that will be used in signature verification"));
+
+   validate_signatures->callback([&] {
+      fc::variant trx_var = json_from_file_or_string(trx_json_to_validate);
+      signed_transaction trx;
+      try {
+        abi_serializer::from_variant( trx_var, trx, abi_serializer_resolver_empty, abi_serializer::create_yield_function( abi_serializer_max_time ) );
+      } EOS_RETHROW_EXCEPTIONS(transaction_type_exception, "Invalid transaction format: '${data}'",
+                               ("data", fc::json::to_string(trx_var, fc::time_point::maximum())))
+
+      std::optional<chain_id_type> chain_id;
+
+      if( str_chain_id.size() == 0 ) {
+         ilog( "grabbing chain_id from ${n}", ("n", node_executable_name) );
+         auto info = get_info();
+         chain_id = info.chain_id;
+      } else {
+         chain_id = chain_id_type(str_chain_id);
+      }
+
+      flat_set<public_key_type> recovered_pub_keys;
+      trx.get_signature_keys( *chain_id, fc::time_point::maximum(), recovered_pub_keys, false );
+
+      std::cout << fc::json::to_pretty_string(recovered_pub_keys) << std::endl;
    });
 
    // Get subcommand
@@ -3466,7 +3521,7 @@ int main( int argc, char** argv ) {
    // sign subcommand
    string trx_json_to_sign;
    string str_private_key;
-   string str_chain_id;
+   str_chain_id = {};
    string str_private_key_file;
    string str_public_key;
    bool push_trx = false;
