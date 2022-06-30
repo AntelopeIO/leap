@@ -41,7 +41,7 @@ try:
     TestHelper.printSystemInfo("BEGIN")
     cluster.killall(allInstances=killAll)
     cluster.cleanup()
-
+    traceNodeosArgs = " --plugin eosio::trace_api_plugin --trace-no-abis "
     assert cluster.launch(
         pnodes=1,
         prodCount=1,
@@ -49,6 +49,7 @@ try:
         totalNodes=2,
         useBiosBootFile=False,
         loadSystemContract=False,
+        extraNodeosArgs=traceNodeosArgs,
         specificExtraNodeosArgs={
             1:"--validation-mode light"})
 
@@ -94,7 +95,7 @@ try:
     assert trans["account_name"], "Failed to get the account payloadless"
 
     Utils.Print("verify the context free transaction from validation node")
-    cmd = "get transaction " + cfTrxId
+    cmd = "get transaction_trace " + cfTrxId
     trans = validationNode.processCleosCmd(cmd, cmd, silentErrors=False)
     assert trans, "Failed to get the transaction with context free data from the light validation node"
 
