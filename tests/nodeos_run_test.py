@@ -582,7 +582,7 @@ try:
     data="{\"from\":\"currency1111\",\"to\":\"defproducera\",\"quantity\":"
     data +="\"00.0001 CUR\",\"memo\":\"test\"}"
     opts="-s -d --permission currency1111@active"
-    trans=node.pushMessage(contract, action, data, opts)
+    trans=node.pushMessage(contract, action, data, opts, expectTrxTrace=False)
 
     try:
         assert(not trans[1]["signatures"])
