@@ -613,7 +613,7 @@ try:
     currencyAccountAmountBeforeTrx=node.getAccountEosBalanceStr(currencyAccount.name)
 
     xferAmount="1.2345 {0}".format(CORE_SYMBOL)
-    unsignedTrxRet = node.transferFunds(currencyAccount, testeraAccount, xferAmount, "unsigned trx", False, False, True, False, False, True, None, True)
+    unsignedTrxRet = node.transferFunds(currencyAccount, testeraAccount, xferAmount, "unsigned trx", force=False, waitForTransBlock=False, exitOnError=True, reportStatus=False, sign=False, dontSend=True, expiration=None, skipSign=True)
     unsignedTrxJsonFile = "unsigned_trx_file"
     with open(unsignedTrxJsonFile, 'w') as outfile:
         json.dump(unsignedTrxRet, outfile)
