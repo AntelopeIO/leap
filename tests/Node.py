@@ -154,7 +154,7 @@ class Node(object):
             cntxt.add("processed")
             cntxt.add("action_traces")
             cntxt.index(0)
-            if cntxt.hasKey("except"):
+            if not cntxt.isSectionNull("except"):
                 return "no_block"
             return cntxt.add("block_num")
 
