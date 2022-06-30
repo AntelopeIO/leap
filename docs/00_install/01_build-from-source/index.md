@@ -1,14 +1,56 @@
 ---
-content_title: Build EOSIO from Source
+content_title: Build Mandel from Source
 ---
 
-[[info | Building EOSIO is for Advanced Developers]]
-| If you are new to EOSIO, it is recommended that you install the [EOSIO Prebuilt Binaries](../00_install-prebuilt-binaries.md) instead of building from source.
+The shell scripts previously recommended for building the software have been removed in favor of a build process entirely driven by CMake. Those wishing to build from source are now responsible for installing the necessary dependencies. The list of dependencies and the recommended build procedure are in the README.md file. Instructions are also included for efficiently running the tests.
 
-EOSIO can be built on several platforms using different build methods. Advanced users may opt to build EOSIO using our shell scripts. Node operators or block producers who wish to deploy a public node, may prefer our manual build instructions.
+## Building Mandel
 
-* [Shell Scripts](01_shell-scripts/index.md) - Suitable for the majority of developers, these scripts build on Mac OS and many flavors of Linux.
-* [Manual Build](02_manual-build/index.md) - Suitable for those platforms that may be hostile to the shell scripts or for operators who need more control over their builds.
+```
+git submodule update --init --recursive
+mkdir build
+cd build
+cmake -DCMAKE_BUILD_TYPE=Release ..
+make -j $(nproc)
+```
 
-[[info | EOSIO Installation Recommended]]
-| After building EOSIO successfully, it is highly recommended to install the EOSIO binaries from their default build directory. This copies the EOSIO binaries to a central location, such as `/usr/local/bin`, or `~/eosio/x.y/bin`, where `x.y` is the EOSIO release version.
+We support the following CMake options:
+```
+-DCMAKE_CXX_COMPILER_LAUNCHER=ccache    Speed up builds
+-DCMAKE_C_COMPILER_LAUNCHER=ccache      Speed up builds
+-DCMAKE_BUILD_TYPE=DEBUG                Debug builds
+-DDISABLE_WASM_SPEC_TESTS=yes           Speed up builds and skip many tests
+-DCMAKE_INSTALL_PREFIX=/foo/bar         Where to install to
+-DENABLE_OC=no                          Disable OC support; useful when this repo is used
+                                        as a library
+-GNinja                                 Use ninja instead of make
+                                        (faster on high-core-count machines)
+```
+
+I highly recommend the ccache options. They don't speed up the first clean build, but they speed up future clean builds after the first build.
+
+### Running tests
+
+```
+cd build
+
+# Runs parallelizable tests in parallel. This runs much faster when
+# -DDISABLE_WASM_SPEC_TESTS=yes is used.
+ctest -j $(nproc) -LE "nonparallelizable_tests|long_running_tests" -E "full-version-label-test|release-build-test|print-build-info-test"
+
+# These tests can't run in parallel.
+ctest -L "nonparallelizable_tests"
+
+# These tests can't run in parallel. They also take a long time to run.
+ctest -L "long_running_tests"
+```
+
+## Other Compilers
+
+To override `clang`'s default compiler toolchain, add these flags to the `cmake` command within the above instructions:
+
+`-DCMAKE_CXX_COMPILER=/path/to/c++ -DCMAKE_C_COMPILER=/path/to/cc`
+
+## Debug Builds
+
+For a debug build, add `-DCMAKE_BUILD_TYPE=Debug`. Other common build types include `Release` and `RelWithDebInfo`.

@@ -10,10 +10,10 @@ Make sure to meet the following requirements:
 * Install the currently supported version of `cleos`.
 
 [[info | Note]]
-| `cleos` is bundled with the EOSIO software. [Installing EOSIO](../../00_install/index.md) will also install `cleos`.
+| `cleos` is bundled with the Mandel software. [Installing Mandel](../../00_install/index.md) will also install `cleos`.
 
 * Understand what a [block](https://developers.eos.io/welcome/latest/glossary/index/#block) is and its role in the blockchain.
-* Understand the [block lifecycle](https://developers.eos.io/welcome/latest/protocol-guides/consensus_protocol/#5-block-lifecycle) in the EOSIO consensus protocol.
+* Understand the [block lifecycle](https://developers.eos.io/welcome/latest/protocol-guides/consensus_protocol/#5-block-lifecycle) in the Mandel consensus protocol.
 
 ## Steps
 
