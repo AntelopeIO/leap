@@ -154,7 +154,7 @@ class Node(object):
             cntxt.add("processed")
             cntxt.add("action_traces")
             cntxt.index(0)
-            if cntxt.hasKey("except"):
+            if not cntxt.isSectionNull("except"):
                 return "no_block"
             return cntxt.add("block_num")
 
@@ -526,7 +526,7 @@ class Node(object):
     def waitForIrreversibleBlock(self, blockNum, timeout=None, reportInterval=None):
         return self.waitForBlock(blockNum, timeout=timeout, blockType=BlockType.lib, reportInterval=reportInterval)
 
-    def __transferFundsCmdArr(self, source, destination, amountStr, memo, force, retry, sign, dontSend, expiration):
+    def __transferFundsCmdArr(self, source, destination, amountStr, memo, force, retry, sign, dontSend, expiration, skipSign):
         assert isinstance(amountStr, str)
         assert(source)
         assert(isinstance(source, Account))
@@ -553,6 +553,9 @@ class Node(object):
             cmdArr.append("--sign-with")
             cmdArr.append("[ \"%s\" ]" % (source.activePublicKey))
 
+        if skipSign:
+            cmdArr.append("--skip-sign")
+
         cmdArr.append(source.name)
         cmdArr.append(destination.name)
         cmdArr.append(amountStr)
@@ -564,8 +567,8 @@ class Node(object):
         return cmdArr
 
     # Trasfer funds. Returns "transfer" json return object
-    def transferFunds(self, source, destination, amountStr, memo="memo", force=False, waitForTransBlock=False, exitOnError=True, reportStatus=True, retry=None, sign=False, dontSend=False, expiration=90):
-        cmdArr = self.__transferFundsCmdArr(source, destination, amountStr, memo, force, retry, sign, dontSend, expiration)
+    def transferFunds(self, source, destination, amountStr, memo="memo", force=False, waitForTransBlock=False, exitOnError=True, reportStatus=True, retry=None, sign=False, dontSend=False, expiration=90, skipSign=False):
+        cmdArr = self.__transferFundsCmdArr(source, destination, amountStr, memo, force, retry, sign, dontSend, expiration, skipSign)
         trans=None
         start=time.perf_counter()
         try:
@@ -591,8 +594,8 @@ class Node(object):
         return self.waitForTransBlockIfNeeded(trans, waitForTransBlock, exitOnError=exitOnError)
 
     # Trasfer funds. Returns (popen, cmdArr) for checkDelayedOutput
-    def transferFundsAsync(self, source, destination, amountStr, memo="memo", force=False, exitOnError=True, retry=None, sign=False, dontSend=False, expiration=90):
-        cmdArr = self.__transferFundsCmdArr(source, destination, amountStr, memo, force, retry, sign, dontSend, expiration)
+    def transferFundsAsync(self, source, destination, amountStr, memo="memo", force=False, exitOnError=True, retry=None, sign=False, dontSend=False, expiration=90, skipSign=False):
+        cmdArr = self.__transferFundsCmdArr(source, destination, amountStr, memo, force, retry, sign, dontSend, expiration, skipSign)
         start=time.perf_counter()
         try:
             popen=Utils.delayedCheckOutput(cmdArr)
@@ -869,7 +872,7 @@ class Node(object):
             return (False, msg)
 
     # returns tuple with transaction execution status and transaction
-    def pushMessage(self, account, action, data, opts, silentErrors=False, signatures=None):
+    def pushMessage(self, account, action, data, opts, silentErrors=False, signatures=None, expectTrxTrace=True):
         cmd="%s %s push action -j %s %s" % (Utils.EosClientPath, self.eosClientArgs(), account, action)
         cmdArr=cmd.split()
         # not using __sign_str, since cmdArr messes up the string
@@ -888,7 +891,7 @@ class Node(object):
             if Utils.Debug:
                 end=time.perf_counter()
                 Utils.Print("cmd Duration: %.3f sec" % (end-start))
-            return (Node.getTransStatus(trans) == 'executed', trans)
+            return (Node.getTransStatus(trans) == 'executed' if expectTrxTrace else True, trans)
         except subprocess.CalledProcessError as ex:
             msg=ex.output.decode("utf-8")
             if not silentErrors:
