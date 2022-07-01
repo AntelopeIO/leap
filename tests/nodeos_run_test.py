@@ -578,6 +578,67 @@ try:
     if actual != expected:
         errorExit("FAILURE - Wrong currency1111 balance (expected=%s, actual=%s)" % (str(expected), str(actual)), raw=True)
 
+    Print("push transfer action to currency1111 contract with sign skipping option enabled")
+    data="{\"from\":\"currency1111\",\"to\":\"defproducera\",\"quantity\":"
+    data +="\"00.0001 CUR\",\"memo\":\"test\"}"
+    opts="-s -d --permission currency1111@active"
+    trans=node.pushMessage(contract, action, data, opts, expectTrxTrace=False)
+
+    try:
+        assert(not trans[1]["signatures"])
+    except (AssertionError, KeyError) as _:
+        Print("ERROR: Expected signatures array to be empty due to skipping option enabled.")
+        raise
+
+    try:
+        assert(trans[1]["actions"][0]["data"]["from"] == "currency1111")
+        assert(trans[1]["actions"][0]["data"]["to"] == "defproducera")
+        assert(trans[1]["actions"][0]["data"]["quantity"] == "0.0001 CUR")
+        assert(trans[1]["actions"][0]["data"]["memo"] == "test")
+    except (AssertionError, KeyError) as _:
+        Print("ERROR: Expecting unpacked data fields on push transfer action json result.")
+        raise
+
+    result=node.pushTransaction(trans[1], None)
+
+    amountStr=node.getTableAccountBalance("currency1111", currencyAccount.name)
+
+    expected="99999.9999 CUR"
+    actual=amountStr
+    if actual != expected:
+        errorExit("FAILURE - Wrong currency1111 balance (expectedgma=%s, actual=%s)" % (str(expected), str(actual)), raw=True)
+
+    Print("---- Test for signing transaction ----")
+    testeraAccountAmountBeforeTrx=node.getAccountEosBalanceStr(testeraAccount.name)
+    currencyAccountAmountBeforeTrx=node.getAccountEosBalanceStr(currencyAccount.name)
+
+    xferAmount="1.2345 {0}".format(CORE_SYMBOL)
+    unsignedTrxRet = node.transferFunds(currencyAccount, testeraAccount, xferAmount, "unsigned trx", force=False, waitForTransBlock=False, exitOnError=True, reportStatus=False, sign=False, dontSend=True, expiration=None, skipSign=True)
+    unsignedTrxJsonFile = "unsigned_trx_file"
+    with open(unsignedTrxJsonFile, 'w') as outfile:
+        json.dump(unsignedTrxRet, outfile)
+    testeraAccountAmountAftrTrx=node.getAccountEosBalanceStr(testeraAccount.name)
+    currencyAccountAmountAftrTrx=node.getAccountEosBalanceStr(currencyAccount.name)
+    try:
+        assert(testeraAccountAmountBeforeTrx == testeraAccountAmountAftrTrx)
+        assert(currencyAccountAmountBeforeTrx == currencyAccountAmountAftrTrx)
+    except (AssertionError) as _:
+        Print("ERROR: Expecting transfer is not executed.")
+        raise
+
+    signCmd = "sign --public-key {0} {1} -p".format(currencyAccount.activePublicKey, unsignedTrxJsonFile)
+    node.processCleosCmd(signCmd, "Sign and push a transaction", False, True)
+    os.remove(unsignedTrxJsonFile)
+
+    testeraAccountAmountAfterSign=node.getAccountEosBalanceStr(testeraAccount.name)
+    currencyAccountAmountAfterSign=node.getAccountEosBalanceStr(currencyAccount.name)
+    try:
+        assert(Utils.addAmount(testeraAccountAmountAftrTrx, xferAmount) == testeraAccountAmountAfterSign)
+        assert(Utils.deduceAmount(currencyAccountAmountAftrTrx, xferAmount) == currencyAccountAmountAfterSign)
+    except (AssertionError) as _:
+        Print("ERROR: Expecting transfer has been executed with exact amount.")
+        raise
+
     Print("Locking wallet \"%s\"." % (defproduceraWallet.name))
     if not walletMgr.lockWallet(defproduceraWallet):
         cmdError("%s wallet lock" % (ClientName))
