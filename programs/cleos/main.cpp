@@ -361,6 +361,28 @@ auto abi_serializer_resolver_empty = [](const name& account) -> std::optional<ab
    return std::optional<abi_serializer>();
 };
 
+//resolver for ABI serializer to decode actions in proposed transaction in multisig contract
+auto abi_serializer_resolver = [](const name& account) -> std::optional<abi_serializer> {
+   static unordered_map<account_name, std::optional<abi_serializer> > abi_cache;
+   auto it = abi_cache.find( account );
+   if ( it == abi_cache.end() ) {
+      const auto raw_abi_result = call(get_raw_abi_func, fc::mutable_variant_object("account_name", account));
+      const auto raw_abi_blob = raw_abi_result["abi"].as_blob().data;
+
+      std::optional<abi_serializer> abis;
+      if (raw_abi_blob.size() != 0) {
+         abis.emplace(fc::raw::unpack<abi_def>(raw_abi_blob), abi_serializer_max_time);
+      } else {
+         std::cerr << "ABI for contract " << account.to_string() << " not found. Action data will be shown in hex only." << std::endl;
+      }
+      abi_cache.emplace( account, abis );
+
+      return abis;
+   }
+
+   return it->second;
+};
+
 void prompt_for_wallet_password(string& pw, const string& name) {
    if(pw.size() == 0 && name != "SecureEnclave") {
       std::cout << localized("password: ");
@@ -476,7 +498,13 @@ fc::variant push_transaction( signed_transaction& trx, const std::vector<public_
       }
    } else {
       if (!tx_return_packed) {
-        return fc::variant(trx);
+         try {
+            fc::variant unpacked_data_trx;
+            abi_serializer::to_variant(trx, unpacked_data_trx, abi_serializer_resolver, abi_serializer_max_time);
+            return unpacked_data_trx;
+         } catch (...) {
+            return fc::variant(trx);
+         }
       } else {
         return fc::variant(packed_transaction(trx, compression));
       }
@@ -538,28 +566,6 @@ void print_action( const fc::variant& at ) {
       }
    }
 }
-
-//resolver for ABI serializer to decode actions in proposed transaction in multisig contract
-auto abi_serializer_resolver = [](const name& account) -> std::optional<abi_serializer> {
-   static unordered_map<account_name, std::optional<abi_serializer> > abi_cache;
-   auto it = abi_cache.find( account );
-   if ( it == abi_cache.end() ) {
-      const auto raw_abi_result = call(get_raw_abi_func, fc::mutable_variant_object("account_name", account));
-      const auto raw_abi_blob = raw_abi_result["abi"].as_blob().data;
-
-      std::optional<abi_serializer> abis;
-      if (raw_abi_blob.size() != 0) {
-         abis.emplace(fc::raw::unpack<abi_def>(raw_abi_blob), abi_serializer_max_time);
-      } else {
-         std::cerr << "ABI for contract " << account.to_string() << " not found. Action data will be shown in hex only." << std::endl;
-      }
-      abi_cache.emplace( account, abis );
-
-      return abis;
-   }
-
-   return it->second;
-};
 
 bytes variant_to_bin( const account_name& account, const action_name& action, const fc::variant& action_args_var ) {
    auto abis = abi_serializer_resolver( account );
