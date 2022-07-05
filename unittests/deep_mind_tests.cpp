@@ -50,17 +50,6 @@ struct deep_mind_tester : deep_mind_log_fixture, validating_tester
 
 namespace {
 
-void save_logfile(const std::string& input_filename, const std::string& output_filename)
-{
-   std::ifstream input_file(input_filename);
-   std::ofstream output_file(output_filename, std::ios_base::trunc);
-   std::string s;
-
-   while(std::getline(input_file, s)) {
-      output_file << s << "\n";
-   }
-}
-
 void compare_files(const std::string& filename1, const std::string& filename2)
 {
    std::ifstream file1(filename1.c_str());
@@ -71,7 +60,7 @@ void compare_files(const std::string& filename1, const std::string& filename2)
    {
       if(!std::getline(file1, line1))
       {
-         BOOST_TEST(false, "Unexpected end of input at line1 " << i);
+         BOOST_TEST(false, "Unexpected end of input of file1 at line " << i);
          return;
       }
       if(line1 != line2)
@@ -83,7 +72,7 @@ void compare_files(const std::string& filename1, const std::string& filename2)
    }
    if(std::getline(file1, line1))
    {
-      BOOST_TEST(false, "Expected end of file1 at line1 " << i);
+      BOOST_TEST(false, "Expected end of file of file1 at line " << i);
    }
 }
 
@@ -113,7 +102,8 @@ BOOST_FIXTURE_TEST_CASE(deep_mind, deep_mind_tester)
 
    if(save_log)
    {
-      save_logfile(log_output.path().preferred_string(), DEEP_MIND_LOGFILE);
+      // Cannot use fc::copy as it does not copy to an existing destination file 
+      fc::rename(log_output.path().preferred_string(), DEEP_MIND_LOGFILE);
    }
    else
    {
