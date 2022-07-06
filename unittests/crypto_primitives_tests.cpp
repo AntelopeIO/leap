@@ -86,8 +86,8 @@ BOOST_AUTO_TEST_CASE( alt_bn128_add_test ) { try {
         {
             "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
             "1bd20beca3d8d28e536d2b5bd3bf36d76af68af5e6c96ca6e5519ba9ff8f53322a53edf6b48bcf5cb1c0b4ad1d36dfce06a79dcd6526f1c386a14d8ce4649844",
-            return_code::failure,
-            "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+            return_code::success,
+            "1bd20beca3d8d28e536d2b5bd3bf36d76af68af5e6c96ca6e5519ba9ff8f53322a53edf6b48bcf5cb1c0b4ad1d36dfce06a79dcd6526f1c386a14d8ce4649844"
         },
    };
 
@@ -172,7 +172,7 @@ BOOST_AUTO_TEST_CASE( alt_bn128_mul_test ) { try {
         {
             "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
             "0312ed43559cf8ecbab5221256a56e567aac5035308e3f1d54954d8b97cd1c9b",
-            return_code::failure,
+            return_code::success,
             "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
         },
    };
@@ -238,7 +238,7 @@ BOOST_AUTO_TEST_CASE( alt_bn128_pair_test ) { try {
                   "12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa",
                }
          },
-         0
+         0 // With these input pairs, alt_bn128_pair should return 0 indicating a pair result of true.
       },
 
       //test2: 1 pair => (G1_a,G2_a) G1_a not on curve
@@ -286,10 +286,10 @@ BOOST_AUTO_TEST_CASE( alt_bn128_pair_test ) { try {
                },
 
          },
-         return_code::failure
+         0 // With these input pairs, alt_bn128_pair should return 0 indicating a pair result of true.
       },
 
-      //test6: 1 pair => (G1_a,G2_a) ; G1_a.x == |Fp|
+      //test5: 1 pair => (G1_a,G2_a) ; G1_a.x == |Fp|
       {
          {
                { //G1_a G2_a
