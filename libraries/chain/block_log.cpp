@@ -1237,7 +1237,7 @@ namespace eosio { namespace chain {
       char* buf =  buffer.get();
 
       // offset bytes to shift from old blocklog position to new blocklog position
-      uint64_t original_file_start_block_pos = original_block_log.block_pos(start);
+      const uint64_t original_file_start_block_pos = original_block_log.block_pos(start);
       const uint64_t pos_delta = original_file_start_block_pos - new_block_file_first_block_pos;
       uint64_t original_file_end_block_pos;
       if (end == original_block_log.last_block) {
