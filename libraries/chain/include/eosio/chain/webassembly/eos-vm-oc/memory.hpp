@@ -52,7 +52,7 @@ class memory {
 
       // Changed from -cb_offset == EOS_VM_OC_CONTROL_BLOCK_OFFSET to get around
       // of compile warning about comparing integers of different signedness
-      static_assert(EOS_VM_OC_CONTROL_BLOCK_OFFSET + cb_offset == 0, "EEOS VM OC control block offset has slid out of place somehow");
+      static_assert(EOS_VM_OC_CONTROL_BLOCK_OFFSET + cb_offset == 0, "EOS VM OC control block offset has slid out of place somehow");
       static_assert(stride == EOS_VM_OC_MEMORY_STRIDE, "EOS VM OC memory stride has slid out of place somehow");
 
    private:
