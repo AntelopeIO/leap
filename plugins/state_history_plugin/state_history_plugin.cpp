@@ -20,6 +20,12 @@ namespace ws = boost::beast::websocket;
 
 extern const char* const state_history_plugin_abi;
 
+// during syncing if block is older than this, reduce logging 
+const int64_t   log_reduction_minutes = 5;    
+
+// during reduced logging, log every log_reduction_one_per block
+const uint32_t  log_reduction_one_per = 1000;
+
 namespace eosio {
 using namespace chain;
 using namespace state_history;
@@ -234,6 +240,28 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
             }
             ++current_request->start_block_num;
          }
+
+         auto& block_num = current_request->start_block_num;
+         auto get_blk = [&chain, block_num, block_state]() -> signed_block_ptr {
+            try {
+               if (block_state->block_num == block_num)
+                  return block_state->block;
+               return chain.fetch_block_by_number(block_num);
+            } catch (...) {
+               return {};
+            }
+         };
+         auto block = get_blk();
+
+         bool fresh_block = block && fc::time_point::now() - block->timestamp < fc::minutes(log_reduction_minutes);
+         if( fresh_block || (result.this_block && result.this_block->block_num % log_reduction_one_per == 0) ) {
+            ilog("pushing result "
+                  "{\"head\":{\"block_num\":${head}},\"last_irreversible\":{\"block_num\":${last_irr}},\"this_block\":{"
+                  "\"block_num\":${this_block}}} to send queue",
+                  ("head", result.head.block_num)("last_irr", result.last_irreversible.block_num)(
+                        "this_block", result.this_block ? result.this_block->block_num : fc::variant()));
+         }
+
          send(std::move(result));
          --current_request->max_messages_in_flight;
          need_to_send_update = current_request->start_block_num <= current &&
