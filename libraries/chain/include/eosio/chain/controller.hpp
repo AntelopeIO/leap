@@ -1,5 +1,6 @@
 #pragma once
 #include <eosio/chain/block_state.hpp>
+#include <eosio/chain/block_log.hpp>
 #include <eosio/chain/trace.hpp>
 #include <eosio/chain/genesis_state.hpp>
 #include <chainbase/pinnable_mapped_file.hpp>
@@ -69,6 +70,7 @@ namespace eosio { namespace chain {
             flat_set< pair<account_name, action_name> > action_blacklist;
             flat_set<public_key_type> key_blacklist;
             path                     blocks_dir             =  chain::config::default_blocks_dir_name;
+            std::optional<block_log_prune_config>  prune_config;
             path                     state_dir              =  chain::config::default_state_dir_name;
             uint64_t                 state_size             =  chain::config::default_state_size;
             uint64_t                 state_guard_size       =  chain::config::default_state_guard_size;
@@ -83,6 +85,8 @@ namespace eosio { namespace chain {
             uint32_t                 maximum_variable_signature_length = chain::config::default_max_variable_signature_length;
             bool                     disable_all_subjective_mitigations = false; //< for developer & testing purposes, can be configured using `disable-all-subjective-mitigations` when `EOSIO_DEVELOPER` build option is provided
             uint32_t                 terminate_at_block     = 0; //< primarily for testing purposes
+            bool                     integrity_hash_on_start= false;
+            bool                     integrity_hash_on_stop = false;
 
             wasm_interface::vm_type  wasm_runtime = chain::config::default_wasm_runtime;
             eosvmoc::config          eosvmoc_config;
@@ -142,7 +146,7 @@ namespace eosio { namespace chain {
          /**
           * @return transactions applied in aborted block
           */
-         vector<transaction_metadata_ptr> abort_block();
+         deque<transaction_metadata_ptr> abort_block();
 
        /**
         *
@@ -166,12 +170,20 @@ namespace eosio { namespace chain {
 
          std::future<block_state_ptr> create_block_state_future( const block_id_type& id, const signed_block_ptr& b );
 
+         struct block_report {
+            size_t             total_net_usage = 0;
+            size_t             total_cpu_usage_us = 0;
+            fc::microseconds   total_elapsed_time{};
+            fc::microseconds   total_time{};
+         };
          /**
+          * @param br returns statistics for block
           * @param block_state_future provide from call to create_block_state_future
           * @param cb calls cb with forked applied transactions for each forked block
           * @param trx_lookup user provided lookup function for externally cached transaction_metadata
           */
-         void push_block( std::future<block_state_ptr>& block_state_future,
+         void push_block( block_report& br,
+                          std::future<block_state_ptr>& block_state_future,
                           const forked_branch_callback& cb,
                           const trx_meta_cache_lookup& trx_lookup );
 
@@ -226,8 +238,7 @@ namespace eosio { namespace chain {
          account_name                   pending_block_producer()const;
          const block_signing_authority& pending_block_signing_authority()const;
          std::optional<block_id_type>   pending_producer_block_id()const;
-
-         const vector<transaction_receipt>& get_pending_trx_receipts()const;
+         uint32_t                       pending_block_num()const;
 
          const producer_authority_schedule&         active_producers()const;
          const producer_authority_schedule&         pending_producers()const;

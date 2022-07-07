@@ -289,7 +289,10 @@ namespace eosio::trace_api {
    }
 
    void slice_directory::set_lib(uint32_t lib) {
-      _best_known_lib = lib;
+      {
+         std::scoped_lock lock(_maintenance_mtx);
+         _best_known_lib = lib;
+      }
       _maintenance_condition.notify_one();
    }
 
@@ -306,6 +309,7 @@ namespace eosio::trace_api {
 
             uint32_t best_known_lib = _best_known_lib;
             bool shutdown = _maintenance_shutdown;
+            lock.unlock();
 
             log(std::string("Waking up to handle lib: ") + std::to_string(best_known_lib));
 
@@ -324,7 +328,10 @@ namespace eosio::trace_api {
    }
 
    void slice_directory::stop_maintenance_thread() {
-      _maintenance_shutdown = true;
+      {
+         std::scoped_lock lock(_maintenance_mtx);
+         _maintenance_shutdown = true;
+      }
       _maintenance_condition.notify_one();
       _maintenance_thread.join();
    }

@@ -205,4 +205,5 @@ BOOST_FIXTURE_TEST_CASE( get_account, TESTER ) try {
       }
    }
 } FC_LOG_AND_RETHROW() /// get_account
-}
+
+BOOST_AUTO_TEST_SUITE_END()

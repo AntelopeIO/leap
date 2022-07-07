@@ -71,10 +71,14 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
       result = state_history::zlib_decompress(compressed);
    }
 
-   void get_block(uint32_t block_num, std::optional<bytes>& result) {
+   void get_block(uint32_t block_num, const block_state_ptr& block_state, std::optional<bytes>& result) {
       chain::signed_block_ptr p;
       try {
-         p = chain_plug->chain().fetch_block_by_number(block_num);
+         if( block_state && block_num == block_state->block_num ) {
+            p = block_state->block;
+         } else {
+            p = chain_plug->chain().fetch_block_by_number( block_num );
+         }
       } catch (...) {
          return;
       }
@@ -88,11 +92,8 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
       if (chain_state_log && block_num >= chain_state_log->begin_block() && block_num < chain_state_log->end_block())
          return chain_state_log->get_block_id(block_num);
       try {
-         auto block = chain_plug->chain().fetch_block_by_number(block_num);
-         if (block)
-            return block->calculate_id();
-      } catch (...) {
-      }
+         return chain_plug->chain().get_block_id_for_num(block_num);
+      } catch (...) {}
       return {};
    }
 
@@ -207,7 +208,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
          send_update();
       }
 
-      void send_update(get_blocks_result_v0 result) {
+      void send_update(get_blocks_result_v0 result, const block_state_ptr& block_state) {
          need_to_send_update = true;
          if (!send_queue.empty() || !current_request || !current_request->max_messages_in_flight)
             return;
@@ -223,8 +224,9 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
                auto prev_block_id = plugin->get_block_id(current_request->start_block_num - 1);
                if (prev_block_id)
                   result.prev_block = block_position{current_request->start_block_num - 1, *prev_block_id};
-               if (current_request->fetch_block)
-                  plugin->get_block(current_request->start_block_num, result.block);
+               if (current_request->fetch_block) {
+                  plugin->get_block( current_request->start_block_num, block_state, result.block );
+               }
                if (current_request->fetch_traces && plugin->trace_log)
                   plugin->get_log_entry(*plugin->trace_log, current_request->start_block_num, result.traces);
                if (current_request->fetch_deltas && plugin->chain_state_log)
@@ -244,7 +246,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
             return;
          get_blocks_result_v0 result;
          result.head = {block_state->block_num, block_state->id};
-         send_update(std::move(result));
+         send_update(std::move(result), block_state);
       }
 
       void send_update(bool changed = false) {
@@ -256,7 +258,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
          auto&                chain = plugin->chain_plug->chain();
          get_blocks_result_v0 result;
          result.head = {chain.head_block_num(), chain.head_block_id()};
-         send_update(std::move(result));
+         send_update(std::move(result), {});
       }
 
       template <typename F>
@@ -288,7 +290,11 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
 
       void on_fail(boost::system::error_code ec, const char* what) {
          try {
-            elog("${w}: ${m}", ("w", what)("m", ec.message()));
+            if (ec == boost::asio::error::eof) {
+               dlog("${w}: ${m}", ("w", what)("m", ec.message()));
+            } else {
+               elog("${w}: ${m}", ("w", what)("m", ec.message()));
+            }
             close();
          } catch (...) {
             elog("uncaught exception on close");
@@ -391,7 +397,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
 
       EOS_ASSERT(traces_bin.size() == (uint32_t)traces_bin.size(), plugin_exception, "traces is too big");
 
-      state_history_log_header header{.magic        = ship_magic(ship_current_version),
+      state_history_log_header header{.magic        = ship_magic(ship_current_version, 0),
                                       .block_id     = block_state->id,
                                       .payload_size = sizeof(uint32_t) + traces_bin.size()};
       trace_log->write_entry(header, block_state->block->previous, [&](auto& stream) {
@@ -411,7 +417,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
 
       std::vector<table_delta> deltas     = state_history::create_deltas(chain_plug->chain().db(), fresh);
       auto                     deltas_bin = state_history::zlib_compress_bytes(fc::raw::pack(deltas));
-      state_history_log_header header{.magic        = ship_magic(ship_current_version),
+      state_history_log_header header{.magic        = ship_magic(ship_current_version, 0),
                                       .block_id     = block_state->id,
                                       .payload_size = sizeof(uint32_t) + deltas_bin.size()};
       chain_state_log->write_entry(header, block_state->block->previous, [&](auto& stream) {
@@ -445,6 +451,9 @@ void state_history_plugin::set_program_options(options_description& cli, options
            "the endpoint upon which to listen for incoming connections. Caution: only expose this port to "
            "your internal network.");
    options("trace-history-debug-mode", bpo::bool_switch()->default_value(false), "enable debug mode for trace history");
+
+   if(cfile::supports_hole_punching())
+      options("state-history-log-retain-blocks", bpo::value<uint32_t>(), "if set, periodically prune the state history files to store only configured number of most recent blocks");
 }
 
 void state_history_plugin::plugin_initialize(const variables_map& options) {
@@ -490,12 +499,21 @@ void state_history_plugin::plugin_initialize(const variables_map& options) {
          my->trace_debug_mode = true;
       }
 
+      std::optional<state_history_log_prune_config> ship_log_prune_conf;
+      if (options.count("state-history-log-retain-blocks")) {
+         ship_log_prune_conf.emplace();
+         ship_log_prune_conf->prune_blocks = options.at("state-history-log-retain-blocks").as<uint32_t>();
+         //the arbitrary limit of 1000 here is mainly so that there is enough buffer for newly applied forks to be delivered to clients
+         // before getting pruned out. ideally pruning would have been smart enough to know not to prune reversible blocks
+         EOS_ASSERT(ship_log_prune_conf->prune_blocks >= 1000, plugin_exception, "state-history-log-retain-blocks must be 1000 blocks or greater");
+      }
+
       if (options.at("trace-history").as<bool>())
          my->trace_log.emplace("trace_history", (state_history_dir / "trace_history.log").string(),
-                               (state_history_dir / "trace_history.index").string());
+                               (state_history_dir / "trace_history.index").string(), ship_log_prune_conf);
       if (options.at("chain-state-history").as<bool>())
          my->chain_state_log.emplace("chain_state_history", (state_history_dir / "chain_state_history.log").string(),
-                                     (state_history_dir / "chain_state_history.index").string());
+                                     (state_history_dir / "chain_state_history.index").string(), ship_log_prune_conf);
    }
    FC_LOG_AND_RETHROW()
 } // state_history_plugin::plugin_initialize

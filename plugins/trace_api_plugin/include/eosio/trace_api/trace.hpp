@@ -82,7 +82,7 @@ namespace eosio { namespace trace_api {
      chain::checksum256_type            transaction_mroot = {};
      chain::checksum256_type            action_mroot = {};
      uint32_t                           schedule_version = {};
-     std::variant<std::vector<transaction_trace_v3>, std::vector<transaction_trace_v2>>  transactions = {};
+     std::variant<std::vector<transaction_trace_v2>, std::vector<transaction_trace_v3>>  transactions = {};
   };
 
   struct cache_trace {

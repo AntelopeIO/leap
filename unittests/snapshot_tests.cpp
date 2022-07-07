@@ -181,11 +181,30 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(test_exhaustive_snapshot, SNAPSHOT_SUITE, snapshot
 {
    tester chain;
 
-   chain.create_account("snapshot"_n);
+   // Create 2 accounts
+   chain.create_accounts({"snapshot"_n, "snapshot1"_n});
+
+   // Set code and increment the first account
    chain.produce_blocks(1);
    chain.set_code("snapshot"_n, contracts::snapshot_test_wasm());
    chain.set_abi("snapshot"_n, contracts::snapshot_test_abi().data());
    chain.produce_blocks(1);
+   chain.push_action("snapshot"_n, "increment"_n, "snapshot"_n, mutable_variant_object()
+         ( "value", 1 )
+   );
+
+   // Set code and increment the second account
+   chain.produce_blocks(1);
+   chain.set_code("snapshot1"_n, contracts::snapshot_test_wasm());
+   chain.set_abi("snapshot1"_n, contracts::snapshot_test_abi().data());
+   chain.produce_blocks(1);
+   // increment the test contract
+   chain.push_action("snapshot1"_n, "increment"_n, "snapshot1"_n, mutable_variant_object()
+         ( "value", 1 )
+   );
+
+   chain.produce_blocks(1);
+
    chain.control->abort_block();
 
    static const int generation_count = 8;
@@ -202,6 +221,9 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(test_exhaustive_snapshot, SNAPSHOT_SUITE, snapshot
 
       // increment the test contract
       chain.push_action("snapshot"_n, "increment"_n, "snapshot"_n, mutable_variant_object()
+         ( "value", 1 )
+      );
+      chain.push_action("snapshot1"_n, "increment"_n, "snapshot1"_n, mutable_variant_object()
          ( "value", 1 )
       );
 
@@ -392,10 +414,10 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(test_compatible_versions, SNAPSHOT_SUITE, snapshot
    bfs::copy(source_log_dir / "blocks.log", config.blocks_dir / "blocks.log");
    tester base_chain(config, *genesis);
 
-   std::string current_version = "v5";
+   std::string current_version = "v6";
 
    int ordinal = 0;
-   for(std::string version : {"v2", "v3", "v4" , "v5"})
+   for(std::string version : {"v2", "v3", "v4" , "v5", "v6"})
    {
       if(save_snapshot && version == current_version) continue;
       static_assert(chain_snapshot_header::minimum_compatible_version <= 2, "version 2 unit test is no longer needed.  Please clean up data files");

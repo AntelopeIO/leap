@@ -19,4 +19,9 @@ namespace eosio { namespace chain { namespace webassembly {
    name interface::get_sender() const {
       return context.get_sender();
    }
+
+   uint32_t interface::get_block_num() const {
+      return context.control.pending_block_num();
+   }
+
 }}} // ns eosio::chain::webassembly

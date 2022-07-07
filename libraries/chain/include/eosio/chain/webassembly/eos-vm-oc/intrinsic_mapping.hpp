@@ -259,7 +259,15 @@ inline constexpr auto get_intrinsic_table() {
       "env.set_wasm_parameters_packed",
       "env.get_parameters_packed",
       "env.set_parameters_packed",
-      "env.get_code_hash"
+      "env.get_code_hash",
+      "env.alt_bn128_add",
+      "env.alt_bn128_mul",
+      "env.alt_bn128_pair",
+      "env.mod_exp",
+      "env.sha3",
+      "env.blake2_f",
+      "env.k1_recover",
+      "env.get_block_num"
    );
 }
 inline constexpr std::size_t find_intrinsic_index(std::string_view hf) {

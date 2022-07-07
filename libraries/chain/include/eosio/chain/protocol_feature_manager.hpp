@@ -32,7 +32,9 @@ enum class builtin_protocol_feature_t : uint32_t {
    // 15 reserved
    blockchain_parameters = 16, // matches release 2.1 value
    get_code_hash = 17,
-   configurable_wasm_limits = 18, // configurable_wasm_limits2
+   configurable_wasm_limits = 18, // configurable_wasm_limits2,
+   crypto_primitives = 19,
+   get_block_num = 20,
    reserved_private_fork_protocol_features = 500000,
 };
 

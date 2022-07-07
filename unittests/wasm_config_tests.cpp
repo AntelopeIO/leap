@@ -418,6 +418,92 @@ BOOST_DATA_TEST_CASE_F(old_wasm_tester, max_func_local_bytes_old, data::make({0,
    }
 }
 
+// Combines max_call_depth and max_func_local_bytes
+BOOST_FIXTURE_TEST_CASE(max_stack, wasm_config_tester) {
+   produce_blocks();
+   create_accounts({"stackz"_n});
+   produce_block();
+   std::string code;
+   {
+      std::stringstream ss;
+      ss << "(module ";
+      ss << " (func (export \"apply\") (param i64 i64 i64)";
+      // pad to 8192 bytes
+      for(int i = 0; i < 2046; ++i)
+         ss << "(local i32)";
+      ss << "   (get_local 2)"
+         << "   (i32.wrap/i64)"
+         << "   (i32.const 0)"
+         << "   (call 1))";
+      ss << " (func ";
+      ss << "   (param i32 i32)";
+      // pad to 8192 bytes
+      for(int i = 0; i < 2046; ++i)
+         ss << "(local i32)";
+      ss << "   (if (get_local 0)"
+         << "     (then"
+         << "       (get_local 0)"
+         << "       (i32.const 1)"
+         << "       (i32.sub)"
+         << "       (get_local 1)"
+         << "       (call 1)))";
+      ss << " )";
+      ss << ")";
+      code = ss.str();
+   }
+   set_code("stackz"_n, code.c_str());
+   produce_block();
+
+   auto params = genesis_state::default_initial_wasm_configuration;
+   auto pushit = [&]{
+      signed_transaction trx;
+      trx.actions.push_back({{{"stackz"_n,config::active_name}}, "stackz"_n, name(params.max_call_depth - 2), {}});
+      set_transaction_headers(trx);
+      trx.sign(get_private_key( "stackz"_n, "active" ), control->get_chain_id());
+      push_transaction(trx);
+   };
+   pushit();
+   params.max_call_depth = 1024;
+   set_wasm_params(params);
+   pushit();
+}
+
+BOOST_FIXTURE_TEST_CASE(max_stack_old, old_wasm_tester) {
+   produce_blocks();
+   create_accounts({"stackz"_n});
+   produce_block();
+   std::string code;
+   {
+      std::stringstream ss;
+      ss << "(module ";
+      ss << " (func (export \"apply\") (param i64 i64 i64)";
+      // pad to 8192 bytes
+      for(int i = 0; i < 2042; ++i)
+         ss << "(local i32)";
+      ss << " (call 1 (i32.const 249)))";
+      ss << " (func ";
+      ss << "   (param i32)";
+      // pad to 8192 bytes
+      for(int i = 0; i < 2047; ++i)
+         ss << "(local i32)";
+      ss << "   (if (get_local 0) (call 1 (i32.sub (get_local 0) (i32.const 1))))";
+      ss << " )";
+      ss << ")";
+      code = ss.str();
+   }
+   set_code("stackz"_n, code.c_str());
+   produce_block();
+
+   auto pushit = [&]{
+      signed_transaction trx;
+      trx.actions.push_back({{{"stackz"_n,config::active_name}}, "stackz"_n, name(), {}});
+      set_transaction_headers(trx);
+      trx.sign(get_private_key( "stackz"_n, "active" ), control->get_chain_id());
+      push_transaction(trx);
+   };
+   pushit();
+}
+
 BOOST_FIXTURE_TEST_CASE(max_func_local_bytes_mixed_old, old_wasm_tester) {
    produce_blocks(2);
    create_accounts({"stackz"_n});

@@ -37,6 +37,7 @@ struct blocklog {
    void read_log();
    void set_program_options(options_description& cli);
    void initialize(const variables_map& options);
+   void do_vacuum();
 
    bfs::path                        blocks_dir;
    bfs::path                        output_file;
@@ -46,8 +47,12 @@ struct blocklog {
    bool                             as_json_array = false;
    bool                             make_index = false;
    bool                             trim_log = false;
+   bool                             extract_blocks = false;
    bool                             smoke_test = false;
+   bool                             vacuum = false;
    bool                             help = false;
+
+   std::optional<block_log_prune_config> blog_keep_prune_conf;
 };
 
 struct report_time {
@@ -65,9 +70,15 @@ struct report_time {
     const std::string                                    _desc;
 };
 
+void blocklog::do_vacuum() {
+   EOS_ASSERT( blog_keep_prune_conf, block_log_exception, "blocks.log is not a pruned log; nothing to vacuum" );
+   block_log blocks(blocks_dir, std::optional<block_log_prune_config>()); //passing an unset block_log_prune_config turns off pruning this performs a vacuum
+   ilog("Successfully vacuumed block log");
+}
+
 void blocklog::read_log() {
    report_time rt("reading log");
-   block_log block_logger(blocks_dir);
+   block_log block_logger(blocks_dir, blog_keep_prune_conf);
    const auto end = block_logger.read_head();
    EOS_ASSERT( end, block_log_exception, "No blocks found in block log" );
    EOS_ASSERT( end->block_num() > 1, block_log_exception, "Only one block found in block log" );
@@ -183,9 +194,15 @@ void blocklog::set_program_options(options_description& cli)
          ("make-index", bpo::bool_switch(&make_index)->default_value(false),
           "Create blocks.index from blocks.log. Must give 'blocks-dir'. Give 'output-file' relative to current directory or absolute path (default is <blocks-dir>/blocks.index).")
          ("trim-blocklog", bpo::bool_switch(&trim_log)->default_value(false),
-          "Trim blocks.log and blocks.index. Must give 'blocks-dir' and 'first and/or 'last'.")
+          "Trim blocks.log and blocks.index. Must give 'blocks-dir' and 'first' and/or 'last'.")
+         ("extract-blocks", bpo::bool_switch(&extract_blocks)->default_value(false),
+          "Extract range of blocks from blocks.log and write to output-dir.  Must give 'first' and/or 'last'.")
+         ("output-dir", bpo::value<bfs::path>(),
+          "the output directory for the block log extracted from blocks-dir")
          ("smoke-test", bpo::bool_switch(&smoke_test)->default_value(false),
           "Quick test that blocks.log and blocks.index are well formed and agree with each other.")
+         ("vacuum", bpo::bool_switch(&vacuum)->default_value(false),
+          "Vacuum a pruned blocks.log in to an un-pruned blocks.log")
          ("help,h", bpo::bool_switch(&help)->default_value(false), "Print this help message and exit.")
          ;
 }
@@ -204,6 +221,13 @@ void blocklog::initialize(const variables_map& options) {
             output_file = bfs::current_path() / bld;
          else
             output_file = bld;
+      }
+
+      //if the log is pruned, keep it that way by passing in a config with a large block pruning value. There is otherwise no
+      // way to tell block_log "keep the current non/pruneness of the log"
+      if(block_log::is_pruned_log(blocks_dir)) {
+         blog_keep_prune_conf.emplace();
+         blog_keep_prune_conf->prune_blocks = UINT32_MAX;
       }
    } FC_LOG_AND_RETHROW()
 
@@ -234,7 +258,16 @@ int trim_blocklog_end(bfs::path block_dir, uint32_t n) {       //n is last block
 
 bool trim_blocklog_front(bfs::path block_dir, uint32_t n) {        //n is first block to keep (remove prior blocks)
    report_time rt("trimming blocklog start");
-   const bool status = block_log::trim_blocklog_front(block_dir, block_dir / "old", n);
+   block_num_type end = std::numeric_limits<block_num_type>::max();
+   const bool status = block_log::extract_block_range(block_dir, block_dir / "old", n, end, true);
+   rt.report();
+   return status;
+}
+
+bool extract_block_range(bfs::path block_dir, bfs::path output_dir, uint32_t start, uint32_t end) {
+   report_time rt("extracting block range");
+   EOS_ASSERT( end > start, block_log_exception, "extract range end must be greater than start");
+   const bool status = block_log::extract_block_range(block_dir, output_dir, start, end, false);
    rt.report();
    return status;
 }
@@ -289,7 +322,7 @@ int main(int argc, char** argv) {
       }
       if (blog.trim_log) {
          if (blog.first_block == 0 && blog.last_block == std::numeric_limits<uint32_t>::max()) {
-            std::cerr << "trim-blocklog does nothing unless specify first and/or last block.";
+            std::cerr << "trim-blocklog does nothing unless first and/or last block are specified.";
             return -1;
          }
          if (blog.last_block != std::numeric_limits<uint32_t>::max()) {
@@ -300,6 +333,20 @@ int main(int argc, char** argv) {
             if (!trim_blocklog_front(vmap.at("blocks-dir").as<bfs::path>(), blog.first_block))
                return -1;
          }
+         return 0;
+      }
+      if (blog.extract_blocks) {
+         if (blog.first_block == 0 && blog.last_block == std::numeric_limits<uint32_t>::max()) {
+            std::cerr << "extract-blocklog does nothing unless first and/or last block are specified.";
+            return -1;
+         }
+         if (!extract_block_range(vmap.at("blocks-dir").as<bfs::path>(), vmap.at("output-dir").as<bfs::path>(), blog.first_block, blog.last_block))
+            return -1;
+         return 0;
+      }
+      if (blog.vacuum) {
+         blog.initialize(vmap);
+         blog.do_vacuum();
          return 0;
       }
       if (blog.make_index) {
