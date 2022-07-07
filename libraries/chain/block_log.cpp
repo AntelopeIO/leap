@@ -1196,7 +1196,7 @@ namespace eosio { namespace chain {
          dlog("Requested end block of ${end} is greater than the last available block ${n}; adjusting to ${n}", ("end", end)("n", original_block_log.last_block));
          end = original_block_log.last_block;
       }
-      ilog("In directory ${ouput} will create new block log with range ${start}-${end}",
+      ilog("In directory ${output} will create new block log with range ${start}-${end}",
            ("output", output_dir.generic_string())("start", start)("end", end));
       // ****** create the new block log file and write out the header for the file
       fc::create_directories(output_dir);
