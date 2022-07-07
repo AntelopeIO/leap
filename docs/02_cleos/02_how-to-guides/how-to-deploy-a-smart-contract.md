@@ -1,6 +1,6 @@
 ## Goal
 
-Deploy a Mandel contract
+Deploy a EOSIO contract
 
 ## Before you begin
 

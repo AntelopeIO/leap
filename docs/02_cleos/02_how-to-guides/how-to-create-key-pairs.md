@@ -1,14 +1,14 @@
 ## Overview
 
-This how-to guide provides instructions on how to create a keypair consisting of a public key and a private key for signing transactions in a Mandel blockchain.
+This how-to guide provides instructions on how to create a keypair consisting of a public key and a private key for signing transactions in a EOSIO blockchain.
 
 ## Before you begin
 
 Make sure you meet the following requirements:
 * Install the currently supported version of `cleos`
 [[info | Note]]
-| The cleos tool is bundled with the Mandel software. [Installing Mandel](../../00_install/index.md) will also install the cleos tool. 
-* Learn about asymmetric cryptography (public and private keypair) in the context of a Mandel blockchain.
+| The cleos tool is bundled with the EOSIO software. [Installing EOSIO](../../00_install/index.md) will also install the cleos tool. 
+* Learn about asymmetric cryptography (public and private keypair) in the context of a EOSIO blockchain.
 
 ## Command Reference
 

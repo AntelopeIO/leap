@@ -11,7 +11,7 @@ Make sure you meet the following requirements:
 * Install the currently supported version of `cleos`.
 
 [[info | Note]]
-| `cleos` is bundled with the Mandel software. [Installing Mandel](../../00_install/index.md) will also install `cleos`.
+| `cleos` is bundled with the EOSIO software. [Installing EOSIO](../../00_install/index.md) will also install `cleos`.
 
 * Understand what an [account](https://developers.eos.io/welcome/latest/glossary/index/#account) is and its role in the blockchain.
 * Understand [Accounts and Permissions](https://developers.eos.io/welcome/latest/protocol-guides/accounts_and_permissions) in the protocol documents.
