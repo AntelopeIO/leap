@@ -244,7 +244,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
          auto& block_num = current_request->start_block_num;
          auto get_blk = [&chain, block_num, block_state]() -> signed_block_ptr {
             try {
-               if (block_state->block_num == block_num)
+               if (block_state && block_state->block_num == block_num)
                   return block_state->block;
                return chain.fetch_block_by_number(block_num);
             } catch (...) {
