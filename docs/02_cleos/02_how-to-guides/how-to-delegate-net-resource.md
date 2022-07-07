@@ -10,12 +10,12 @@ Make sure you meet the following requirements:
 * Install the currently supported version of `cleos`.
 
 [[info | Note]]
-| `cleos` is bundled with the Mandel software. [Installing Mandel](../../00_install/index.md) will also install `cleos`.
+| `cleos` is bundled with the EOSIO software. [Installing EOSIO](../../00_install/index.md) will also install `cleos`.
 
 * Ensure the reference system contracts from [`eosio.contracts`](https://github.com/eosnetworkfoundation/mandel-contracts) repository is deployed and used to manage system resources.
 * Understand what an [account](https://developers.eos.io/welcome/latest/glossary/index/#account) is and its role in the blockchain.
-* Understand [NET bandwidth](https://developers.eos.io/welcome/latest/glossary/index/#net) in a Mandel blockchain.
-* Understand [CPU bandwidth](https://developers.eos.io/welcome/latest/glossary/index/#cpu) in a Mandel blockchain.
+* Understand [NET bandwidth](https://developers.eos.io/welcome/latest/glossary/index/#net) in a EOSIO blockchain.
+* Understand [CPU bandwidth](https://developers.eos.io/welcome/latest/glossary/index/#cpu) in a EOSIO blockchain.
 
 ## Steps
 

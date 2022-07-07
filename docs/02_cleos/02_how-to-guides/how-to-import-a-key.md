@@ -1,6 +1,6 @@
 ## Overview
 
-This how-to guide provides instructions on how to import a private key into the `keosd` default wallet. You can use the private key to authorize transactions in a Mandel blockchain. 
+This how-to guide provides instructions on how to import a private key into the `keosd` default wallet. You can use the private key to authorize transactions in a EOSIO blockchain. 
 
 ## Before you Begin
 
@@ -11,7 +11,7 @@ Make sure you meet the following requirements:
 * Familiarize with the [`cleos wallet import`](../03_command-reference/wallet/import.md) command.
 * Install the currently supported version of `cleos`.
 [[info | Note]]
-| `cleos` is bundled with the Mandel software. [Installing Mandel](../../00_install/index.md) will also install `cleos`.
+| `cleos` is bundled with the EOSIO software. [Installing EOSIO](../../00_install/index.md) will also install `cleos`.
 * Understand what a [public key](https://developers.eos.io/welcome/latest/glossary/index/#public-key) and [private key](https://developers.eos.io/welcome/latest/glossary/index/#private-key) is.
 
 ## Command Reference

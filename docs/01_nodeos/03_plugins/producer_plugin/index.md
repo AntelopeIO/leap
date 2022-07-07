@@ -49,7 +49,7 @@ Config Options for eosio::producer_plugin:
                                         <public-key>=<provider-spec>
                                         Where:
                                            <public-key>    is a string form of 
-                                                           a vaild Mandel public
+                                                           a vaild EOSIO public
                                                            key
                                         
                                            <provider-spec> is a string in the 
@@ -59,7 +59,7 @@ Config Options for eosio::producer_plugin:
                                            <provider-type> is KEY, or KEOSD
                                         
                                            KEY:<data>      is a string form of 
-                                                           a valid Mandel 
+                                                           a valid EOSIO 
                                                            private key which 
                                                            maps to the provided
                                                            public key
