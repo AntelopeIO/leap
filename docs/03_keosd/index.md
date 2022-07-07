@@ -8,7 +8,7 @@ content_title: Keosd
 
 ## Installation
 
-`keosd` is distributed as part of the [EOSIO software suite](https://github.com/EOSIO/eos/blob/master/README.md). To install `keosd` just visit the [EOSIO Software Installation](../00_install/index.md) section.
+`keosd` is distributed as part of the [EOSIO software suite](https://github.com/eosnetworkfoundation/mandel). To install `keosd` just visit the [EOSIO Software Installation](../00_install/index.md) section.
 
 ## Operation
 

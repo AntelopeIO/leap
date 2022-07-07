@@ -48,11 +48,6 @@ Config Options for eosio::state_history_plugin:
 
 ## Examples
 
-### history-tools
-
-  * [Source code](https://github.com/EOSIO/history-tools/)
-  * [Documentation](https://eosio.github.io/history-tools/)
-
 ## Dependencies
 
 * [`chain_plugin`](../chain_plugin/index.md)
