@@ -14,8 +14,8 @@ Make sure you meet the following requirements:
 
 * Ensure the reference system contracts from [`eosio.contracts`](https://github.com/eosnetworkfoundation/mandel-contracts) repository is deployed and used to manage system resources.
 * Understand what an [account](https://developers.eos.io/welcome/latest/glossary/index/#account) is and its role in the blockchain.
-* Understand [CPU bandwidth](https://developers.eos.io/welcome/latest/glossary/index/#cpu) in a EOSIO blockchain.
-* Understand [NET bandwidth](https://developers.eos.io/welcome/latest/glossary/index/#net) in a EOSIO blockchain.
+* Understand [CPU bandwidth](https://developers.eos.io/welcome/latest/glossary/index/#cpu) in an EOSIO blockchain.
+* Understand [NET bandwidth](https://developers.eos.io/welcome/latest/glossary/index/#net) in an EOSIO blockchain.
 
 ## Steps
 

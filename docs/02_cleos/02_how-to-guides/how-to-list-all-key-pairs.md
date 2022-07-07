@@ -1,6 +1,6 @@
 ## Overview
 
-This how-to guide provides instructions on how to list all public keys and public/private key pairs within the `keosd` default wallet. You can use the public and private keys to authorize transactions in a EOSIO blockchain. 
+This how-to guide provides instructions on how to list all public keys and public/private key pairs within the `keosd` default wallet. You can use the public and private keys to authorize transactions in an EOSIO blockchain. 
 
 The example in this how-to guide displays all public keys and public/private key pairs stored within the existing default wallet.
 
