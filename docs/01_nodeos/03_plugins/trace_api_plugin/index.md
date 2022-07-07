@@ -5,7 +5,7 @@ The `trace_api_plugin` provides a consumer-focused long-term API for retrieving 
 
 ## Purpose
 
-While integrating applications such as block explorers and exchanges with a EOSIO blockchain, the user might require a complete transcript of actions processed by the blockchain, including those spawned from the execution of smart contracts and scheduled transactions. The `trace_api_plugin` serves this need. The purpose of the plugin is to provide:
+While integrating applications such as block explorers and exchanges with an EOSIO blockchain, the user might require a complete transcript of actions processed by the blockchain, including those spawned from the execution of smart contracts and scheduled transactions. The `trace_api_plugin` serves this need. The purpose of the plugin is to provide:
 
 * A transcript of retired actions and related metadata
 * A consumer-focused long-term API to retrieve blocks

@@ -1,6 +1,6 @@
 ## Overview
 
-This how-to guide provides instructions on how to import a private key into the `keosd` default wallet. You can use the private key to authorize transactions in a EOSIO blockchain. 
+This how-to guide provides instructions on how to import a private key into the `keosd` default wallet. You can use the private key to authorize transactions in an EOSIO blockchain. 
 
 ## Before you Begin
 

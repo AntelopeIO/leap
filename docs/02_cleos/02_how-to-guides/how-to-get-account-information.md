@@ -1,6 +1,6 @@
 ## Overview
 
-This how-to guide provides instructions on how to query infomation of a EOSIO account. The example in this how-to guide retrieves information of the `eosio` account. 
+This how-to guide provides instructions on how to query infomation of an EOSIO account. The example in this how-to guide retrieves information of the `eosio` account. 
 
 ## Before you begin
 
