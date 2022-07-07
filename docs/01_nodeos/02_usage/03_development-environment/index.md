@@ -19,9 +19,7 @@ While this option can technically be used for smart contract development, it may
 
 ## Official Testnet
 
-The official testnet is available for testing Mandel dApps and smart contracts:
-
-* [testnet.eos.io](https://testnet.eos.io/)
+The official testnet for testing Mandel dApps and smart contracts will be available soon
 
 ## Third-Party Testnets
 

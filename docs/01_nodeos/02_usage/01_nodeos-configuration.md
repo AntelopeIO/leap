@@ -10,9 +10,8 @@ For example, the CLI option `--plugin eosio::chain_api_plugin` can also be set b
 
 ## `config.ini` location
 
-The default `config.ini` can be found in the following folders:
-- Mac OS: `~/Library/Application Support/eosio/nodeos/config`
-- Linux: `~/.local/share/eosio/nodeos/config`
+The default `config.ini` can be found in the following folder on Linux:
+`~/.local/share/eosio/nodeos/config`
 
 A custom `config.ini` file can be set by passing the `nodeos` option `--config path/to/config.ini`.
 
