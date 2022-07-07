@@ -18,15 +18,12 @@ This section describes how to set up a multi-node blockchain configuration runni
 
 Open four "terminal" windows and perform the following steps:
 
-- [Goal](#goal)
-- [Before you begin](#before-you-begin)
-- [Steps](#steps)
-  - [1. Start the Wallet Manager](#1-start-the-wallet-manager)
-  - [2. Create a Default Wallet](#2-create-a-default-wallet)
-  - [3. Loading the EOSIO Key](#3-loading-the-mandel-key)
-  - [4. Start the First Producer Node](#4-start-the-first-producer-node)
-  - [5. Start the Second Producer Node](#5-start-the-second-producer-node)
-  - [6. Get Nodes Info](#6-get-nodes-info)
+1. [Start the Wallet Manager](#1-start-the-wallet-manager)
+2. [Create a Default Wallet](#2-create-a-default-wallet)
+3. [Loading the EOSIO Key](#3-loading-the-eosio-key)
+4. [Start the First Producer Node](#4-start-the-first-producer-node)
+5. [Start the Second Producer Node](#5-start-the-second-producer-node)
+6. [Get Nodes Info](#6-get-nodes-info)
 
 ### 1. Start the Wallet Manager
 
