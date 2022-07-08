@@ -2,23 +2,23 @@
 content_title: EOSIO Software Installation
 ---
 
-There are various ways to install and use the EOSIO software:
+The best way to install and use the EOSIO software is to build it from source:
 
-* [Install EOSIO Prebuilt Binaries](00_install-prebuilt-binaries.md)
 * [Build EOSIO from Source](01_build-from-source/index.md)
-
-[[info]]
-| If you are new to EOSIO, it is recommended that you install the [EOSIO Prebuilt Binaries](00_install-prebuilt-binaries.md), then proceed to the [Getting Started](https://developers.eos.io/eosio-home/docs/) section of the [EOSIO Developer Portal](https://developers.eos.io/). If you are an advanced developer, a block producer, or no binaries are available for your platform, you may need to [Build EOSIO from source](01_build-from-source/index.md) instead.
 
 ## Supported Operating Systems
 
 EOSIO currently supports the following operating systems:
 
-1. Amazon Linux 2
-2. CentOS 7
-3. Ubuntu 16.04
-4. Ubuntu 18.04
-5. MacOS 10.14 (Mojave)
+1. Ubuntu 18.04
+2. Ubuntu 20.04
+3. Ubuntu 22.04
 
 [[info | Note]]
-| It may be possible to install EOSIO on other Unix-based operating systems. This is not officially supported, though.
+| It may be possible to build and install EOSIO on other Unix-based operating systems. This is not officially supported, though.
+
+## Docker Utilities for Node Execution (D.U.N.E.)
+
+If you are using different operating system or prefer not to build EOSIO from source you can try our Docker - based set of utilities called DUNE that can get you started with exploring EOSIO and doing contract development pretty much instantly
+
+* [Docker Utilities for Node Execution (D.U.N.E.)](https://github.com/eosnetworkfoundation/DUNE)
