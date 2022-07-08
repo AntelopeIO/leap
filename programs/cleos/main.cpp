@@ -212,6 +212,7 @@ packed_transaction::compression_type to_compression_type( tx_compression_type t 
       case tx_compression_type::none: return packed_transaction::compression_type::none;
       case tx_compression_type::zlib: return packed_transaction::compression_type::zlib;
       case tx_compression_type::default_compression: return packed_transaction::compression_type::none;
+      default: EOS_ASSERT(false, unknown_transaction_compression, "unknown transaction compression type");
    }
 }
 
@@ -500,7 +501,7 @@ fc::variant push_transaction( signed_transaction& trx, const std::vector<public_
       if (!tx_return_packed) {
          try {
             fc::variant unpacked_data_trx;
-            abi_serializer::to_variant(trx, unpacked_data_trx, abi_serializer_resolver, abi_serializer_max_time);
+            abi_serializer::to_variant(trx, unpacked_data_trx, abi_serializer_resolver, abi_serializer::create_yield_function(abi_serializer_max_time));
             return unpacked_data_trx;
          } catch (...) {
             return fc::variant(trx);
@@ -3175,7 +3176,7 @@ int main( int argc, char** argv ) {
       }
    });
 
-   auto getSchedule = get_schedule_subcommand{get};
+   get_schedule_subcommand{get};
    auto getTransactionId = get_transaction_id_subcommand{get};
 
    // set subcommand
