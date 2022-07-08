@@ -201,17 +201,29 @@ BOOST_AUTO_TEST_CASE(test_chain_state_log) {
 }
 */
 
-/*
-struct state_history_tester_logs  {
-   state_history_tester_logs(const state_history_config& config) {}
-//      : traces_log(config) , chain_state_log(config) {}
+struct state_history_log_config {
+   const char* const name;
+   std::string log_filename;
+   std::string index_filename;
+   std::optional<eosio::state_history_log_prune_config> prune;
+};
 
-//   state_history_traces_log traces_log;
-//   state_history_chain_state_log chain_state_log;
+struct state_history_tester_config {
+   state_history_log_config traces;
+   state_history_log_config chain_state;
+};
+
+struct state_history_tester_logs  {
+   state_history_tester_logs(const state_history_tester_config& config) :
+      traces_log(config.traces.name, config.traces.log_filename, config.traces.index_filename, config.traces.prune),
+      chain_state_log(config.traces.name, config.traces.log_filename, config.traces.index_filename, config.traces.prune){}
+
+   eosio::state_history_log traces_log;
+   eosio::state_history_log chain_state_log;
 };
 
 
-
+/*
 struct state_history_tester : state_history_tester_logs, tester {
    state_history_tester(const state_history_config& config) 
    : state_history_tester_logs(config), tester ([&](eosio::chain::controller& control) {
