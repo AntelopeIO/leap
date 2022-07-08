@@ -3176,6 +3176,7 @@ int main( int argc, char** argv ) {
       }
    });
 
+   get_schedule_subcommand{get};
    auto getTransactionId = get_transaction_id_subcommand{get};
 
    // set subcommand
