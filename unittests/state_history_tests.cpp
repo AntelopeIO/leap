@@ -6,6 +6,7 @@
 #include <eosio/state_history/trace_converter.hpp>
 #include <eosio/testing/tester.hpp>
 #include <fc/io/json.hpp>
+#include <eosio/chain/global_property_object.hpp>
 
 #include "test_cfd_transaction.hpp"
 #include <boost/filesystem.hpp>
@@ -21,14 +22,54 @@ using namespace eosio::testing;
 using namespace std::literals;
 
 extern const char* const state_history_plugin_abi;
+/*
+eosio::ship_protocol::prunable_data_type::prunable_data_t
+get_prunable_data_from_traces(std::vector<transaction_trace>& traces,
+                              const transaction_id_type&                            id) {
+   auto cfd_trace_itr =
+         std::find_if(traces.begin(), traces.end(), [id](const eosio::ship_protocol::transaction_trace& v) {
+            return std::get<eosio::ship_protocol::transaction_trace_v0>(v).id == id;
+         });
 
-struct state_history_config {
-   chainbase::bfs::path log_dir;
-   chainbase::bfs::path retained_dir;
-   chainbase::bfs::path archive_dir;
-   uint32_t  stride             = UINT32_MAX;
-   uint32_t  max_retained_files = 10;
-};
+   // make sure the trace with cfd can be found
+   BOOST_REQUIRE(cfd_trace_itr != traces.end());
+   BOOST_REQUIRE(std::holds_alternative<eosio::ship_protocol::transaction_trace_v0>(*cfd_trace_itr));
+   auto trace_v0 = std::get<eosio::ship_protocol::transaction_trace_v0>(*cfd_trace_itr);
+   BOOST_REQUIRE(trace_v0.partial);
+   BOOST_REQUIRE(std::holds_alternative<eosio::ship_protocol::partial_transaction_v1>(*trace_v0.partial));
+   return std::get<eosio::ship_protocol::partial_transaction_v1>(*trace_v0.partial).prunable_data->prunable_data;
+}
+*/
+
+bool operator==(const eosio::checksum256& lhs, const transaction_id_type& rhs) {
+   return memcmp(lhs.extract_as_byte_array().data(), rhs.data(), rhs.data_size()) == 0;
+}
+
+auto get_prunable_data_from_traces(std::vector<eosio::ship_protocol::transaction_trace>& traces,
+                                   const transaction_id_type&                            id) {
+   auto cfd_trace_itr =
+         std::find_if(traces.begin(), traces.end(), [id](const eosio::ship_protocol::transaction_trace& v) {
+            return std::get<eosio::ship_protocol::transaction_trace_v0>(v).id == id;
+         });
+
+   // make sure the trace with cfd can be found
+   BOOST_REQUIRE(cfd_trace_itr != traces.end());
+   BOOST_REQUIRE(std::holds_alternative<eosio::ship_protocol::transaction_trace_v0>(*cfd_trace_itr));
+   auto trace_v0 = std::get<eosio::ship_protocol::transaction_trace_v0>(*cfd_trace_itr);
+   BOOST_REQUIRE(trace_v0.partial);
+   BOOST_REQUIRE(std::holds_alternative<eosio::ship_protocol::partial_transaction_v1>(*trace_v0.partial));
+   return std::get<eosio::ship_protocol::partial_transaction_v1>(*trace_v0.partial).prunable_data->prunable_data;
+}
+
+eosio::ship_protocol::prunable_data_type::prunable_data_t get_prunable_data_from_traces_bin(const std::vector<char>&   entry,
+                                                                      const transaction_id_type& id) {
+   fc::datastream<const char*>                          strm(entry.data(), entry.size());
+   std::vector<eosio::ship_protocol::transaction_trace> traces;
+   /* Where is the equivalent for this?
+   eosio::state_history::trace_converter::unpack(strm, traces);
+    */
+   return get_prunable_data_from_traces(traces, id);
+}
 
 struct state_history_abi_serializer {
    tester&        chain;
@@ -39,7 +80,7 @@ struct state_history_abi_serializer {
        , sr(fc::json::from_string(state_history_plugin_abi).as<abi_def>(),
             abi_serializer::create_yield_function(chain.abi_serializer_max_time)) {}
 
-   fc::variant deserialize(const chain::bytes& data, const char* type) {
+   fc::variant deserialize(const eosio::chain::bytes& data, const char* type) {
       fc::datastream<const char*> strm(data.data(), data.size());
       auto                        result =
           sr.binary_to_variant(type, strm, abi_serializer::create_yield_function(chain.abi_serializer_max_time));
@@ -50,14 +91,14 @@ struct state_history_abi_serializer {
 
 BOOST_AUTO_TEST_SUITE(test_state_history)
 
-/*
+
 BOOST_AUTO_TEST_CASE(test_trace_converter) {
 
    tester chain;
    using namespace eosio::state_history;
 
-   state_history::trace_converter converter;
-   std::map<uint32_t, chain::bytes>       on_disk_log_entries;
+   trace_converter converter;
+   std::map<uint32_t, eosio::chain::bytes>       on_disk_log_entries;
 
    chain.control->applied_transaction.connect(
        [&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> t) {
@@ -79,18 +120,20 @@ BOOST_AUTO_TEST_CASE(test_trace_converter) {
 
    // Now deserialize the on disk trace log and make sure that the cfd exists
    auto& cfd_entry = on_disk_log_entries.at(cfd_trace->block_num);
-   BOOST_REQUIRE(!get_prunable_data_from_traces_bin(cfd_entry, cfd_trace->id).contains<prunable_data_type::none>());
+   BOOST_REQUIRE(!std::holds_alternative<eosio::ship_protocol::prunable_data_type::none>(get_prunable_data_from_traces_bin(cfd_entry, cfd_trace->id)));
 
+/* Do we need this?
    // prune the cfd for the block
    std::vector<transaction_id_type> ids{cfd_trace->id};
    fc::datastream<char*>            rw_strm(cfd_entry.data(), cfd_entry.size());
-   state_history::trace_converter::prune_traces(rw_strm, cfd_entry.size(), ids);
+   eosio::state_history::trace_converter::prune_traces(rw_strm, cfd_entry.size(), ids);
    BOOST_CHECK(ids.size() == 0);
 
    // read the pruned trace and make sure it's pruned
-   BOOST_CHECK(get_prunable_data_from_traces_bin(cfd_entry, cfd_trace->id).contains<prunable_data_type::none>());
-}
+   BOOST_CHECK(get_prunable_data_from_traces_bin(cfd_entry, cfd_trace->id).contains<eosio::ship_protocol::prunable_data_type::none>());
 */
+}
+
 
 /*
 BOOST_AUTO_TEST_CASE(test_trace_log) {
@@ -132,7 +175,7 @@ BOOST_AUTO_TEST_CASE(test_trace_log) {
 }
 */
 
-/*
+/* Do we need this?
 BOOST_AUTO_TEST_CASE(test_chain_state_log) {
 
    namespace bfs = boost::filesystem;
@@ -160,33 +203,33 @@ BOOST_AUTO_TEST_CASE(test_chain_state_log) {
 
 /*
 struct state_history_tester_logs  {
-   state_history_tester_logs(const state_history_config& config) 
-      : traces_log(config) , chain_state_log(config) {}
+   state_history_tester_logs(const state_history_config& config) {}
+//      : traces_log(config) , chain_state_log(config) {}
 
-   state_history_traces_log traces_log;
-   state_history_chain_state_log chain_state_log;
+//   state_history_traces_log traces_log;
+//   state_history_chain_state_log chain_state_log;
 };
-*/
 
-/*
+
+
 struct state_history_tester : state_history_tester_logs, tester {
    state_history_tester(const state_history_config& config) 
    : state_history_tester_logs(config), tester ([&](eosio::chain::controller& control) {
       control.applied_transaction.connect(
        [&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> t) {
-          traces_log.add_transaction(std::get<0>(t), std::get<1>(t));
+//          traces_log.add_transaction(std::get<0>(t), std::get<1>(t));
        });
 
       control.accepted_block.connect([&](const block_state_ptr& bs) { 
-         traces_log.store(control.db(), bs); 
-         chain_state_log.store(control.db(), bs); 
+//         traces_log.store(control.db(), bs);
+//         chain_state_log.store(control.db(), bs);
       });
       control.block_start.connect([&](uint32_t block_num) { traces_log.block_start(block_num); } );
    }) {}
 };
 */
 
-/*
+/* Do we need this?
 BOOST_AUTO_TEST_CASE(test_splitted_log) {
    namespace bfs = boost::filesystem;
 
@@ -283,15 +326,16 @@ BOOST_AUTO_TEST_CASE(test_corrupted_log_recovery) {
 
    scoped_temp_path state_history_dir;
    fc::create_directories(state_history_dir.path);
-
+/*
    state_history_config config{
       .log_dir = state_history_dir.path,
       .archive_dir = "archive",
       .stride  = 100,
       .max_retained_files = 5 
    };
+*/
 
-   state_history_tester chain(config);
+   tester chain;
    chain.produce_blocks(50);
    chain.close();
 
@@ -302,24 +346,25 @@ BOOST_AUTO_TEST_CASE(test_corrupted_log_recovery) {
    const char random_data[] = "12345678901231876983271649837";
    logfile.write(random_data, sizeof(random_data));
 
-   bfs::remove_all(chain.get_config().blog.log_dir/"reversible");
+   bfs::remove_all(chain.get_config().blocks_dir/"reversible");
 
-   state_history_tester new_chain(config);
+   tester new_chain;
    new_chain.produce_blocks(50);
 
-   BOOST_CHECK(new_chain.traces_log.get_traces(10).size());
-   BOOST_CHECK(new_chain.chain_state_log.get_log_entry(10).size());
+// What do we need to do to verify?
+//   BOOST_CHECK(new_chain.traces_log.get_traces(10).size());
+//   BOOST_CHECK(new_chain.chain_state_log.get_log_entry(10).size());
 }
 
-
+/* It seems like this one needs to be re-written due to underlying differences between mandel and eosio
 BOOST_AUTO_TEST_CASE(test_state_result_abi) {
-   using namespace state_history;
+   using namespace eosio::state_history;
 
    tester chain;
 
-   transaction_trace_cache          trace_cache;
-   std::map<uint32_t, chain::bytes> history;
-   fc::optional<block_position>     prev_block;
+   trace_converter                  trace_cache;
+   std::map<uint32_t, eosio::chain::bytes> history;
+   std::optional<block_position>     prev_block;
 
    chain.control->applied_transaction.connect(
        [&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> t) {
@@ -330,24 +375,24 @@ BOOST_AUTO_TEST_CASE(test_state_result_abi) {
       auto& control = chain.control;
 
       fc::datastream<std::vector<char>> strm;
-      trace_converter::pack(strm, control->db(), false, trace_cache.prepare_traces(block_state),
-                            compression_type::none);
+      trace_cache.pack(control->db(), false, block_state);
+
       strm.seekp(0);
 
-      get_blocks_result_v1 message;
+      eosio::state_history::get_blocks_result_v0 message;
       message.head = block_position{control->head_block_num(), control->head_block_id()};
       message.last_irreversible =
-          state_history::block_position{control->last_irreversible_block_num(), control->last_irreversible_block_id()};
-      message.this_block = state_history::block_position{block_state->block->block_num(), block_state->id};
+          eosio::state_history::block_position{control->last_irreversible_block_num(), control->last_irreversible_block_id()};
+      message.this_block = eosio::state_history::block_position{block_state->block->block_num(), block_state->id};
       message.prev_block = prev_block;
       message.block      = block_state->block;
-      std::vector<state_history::transaction_trace> traces;
-      state_history::trace_converter::unpack(strm, traces);
+      std::vector<eosio::ship_protocol::transaction_trace> traces;
+      eosio::state_history::trace_converter::unpack(strm, traces);
       message.traces = traces;
-      message.deltas = fc::raw::pack(state_history::create_deltas(control->db(), !prev_block));
+      message.deltas = fc::raw::pack(eosio::state_history::create_deltas(control->db(), !prev_block));
 
       prev_block                         = message.this_block;
-      history[control->head_block_num()] = fc::raw::pack(state_history::state_result{message});
+      history[control->head_block_num()] = fc::raw::pack(eosio::state_history::state_result{message});
    });
 
    deploy_test_api(chain);
@@ -365,11 +410,11 @@ BOOST_AUTO_TEST_CASE(test_state_result_abi) {
          BOOST_CHECK(result_variant[0].as_string() == "get_blocks_result_v1");
          auto& get_blocks_result_v1 = result_variant[1].get_object();
 
-         chain::bytes traces_bin;
+         eosio::chain::bytes traces_bin;
          fc::from_variant(get_blocks_result_v1["traces"], traces_bin);
          BOOST_CHECK_NO_THROW( serializer.deserialize(traces_bin, "transaction_trace[]") );
       
-         chain::bytes deltas_bin;
+         eosio::chain::bytes deltas_bin;
          fc::from_variant(get_blocks_result_v1["deltas"], deltas_bin);
          BOOST_CHECK_NO_THROW( serializer.deserialize(deltas_bin, "table_delta[]"));
       }
@@ -390,9 +435,9 @@ BOOST_AUTO_TEST_CASE(test_state_result_abi) {
       }
    }
 }
+*/
 
-
-
+/* what is equivalent to state_history_traces_log in mandel
 BOOST_AUTO_TEST_CASE(test_traces_present)
 {
    namespace bfs = boost::filesystem;
@@ -446,7 +491,7 @@ BOOST_AUTO_TEST_CASE(test_traces_present)
 
    BOOST_REQUIRE(new_account_action_itr != action_traces.end());
 }
-
+*/
 
 class table_deltas_tester : public tester {
 public:
@@ -552,7 +597,7 @@ BOOST_AUTO_TEST_CASE(test_deltas_account_permission_creation_and_deletion) {
    BOOST_REQUIRE(ptr != nullptr);
 
    // Create new permission
-   chain.set_authority("newacc"_n, "mypermission"_n, ptr->auth,  "active"_n));
+   chain.set_authority("newacc"_n, "mypermission"_n, ptr->auth,  "active"_n);
 
    const permission_object* ptr_sub = authorization_manager.find_permission( {"newacc"_n, "mypermission"_n} );
    BOOST_REQUIRE(ptr_sub != nullptr);
@@ -714,7 +759,7 @@ BOOST_AUTO_TEST_CASE(test_deltas_contract) {
    table_deltas_tester chain;
    chain.produce_block();
 
-   chain.create_account("tester"_n));
+   chain.create_account("tester"_n);
 
    chain.set_code("tester"_n, contracts::get_table_test_wasm());
    chain.set_abi("tester"_n, contracts::get_table_test_abi().data());
