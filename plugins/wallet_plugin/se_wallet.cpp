@@ -313,6 +313,10 @@ se_wallet::se_wallet() : my(new detail::se_wallet_impl()) {
          my->populate_existing_keys();
          return;
       }
+      if(sscanf(model, "MacPro%u", &major) == 1 && major >= 7) {
+         my->populate_existing_keys();
+         return;
+      }
       if(sscanf(model, "Mac%u", &major) == 1 && major >= 13) { //Mac Studio
          my->populate_existing_keys();
          return;
