@@ -1,6 +1,10 @@
 if( EOSIO_COMPILE_TEST_CONTRACTS )
    set(EOSIO_WASM_OLD_BEHAVIOR "Off")
-   find_package( cdt REQUIRED )
+   if(USE_EOSIO_CDT_1_7_X)
+      find_package( eosio.cdt REQUIRED )
+   else()
+      find_package( cdt REQUIRED )
+   endif()
 endif()
 
 if ("${CMAKE_GENERATOR}" STREQUAL "Ninja")
