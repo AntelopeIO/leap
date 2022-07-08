@@ -9,7 +9,7 @@ if( EOSIO_COMPILE_TEST_CONTRACTS )
    if( USE_EOSIO_CDT_1_7_X)
       list(APPEND CMAKE_ARGS_VAL -DUSE_EOSIO_CDT_1_7_X=${USE_EOSIO_CDT_1_7_X})
    endif()
-   message( STATUS "Building contracts in directory `mandel/unittests/test-contracts/`" )
+   message( STATUS "Building contracts in directory `./unittests/test-contracts/`" )
    ExternalProject_Add(
       test_contracts_project
       SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/test-contracts
@@ -22,7 +22,7 @@ if( EOSIO_COMPILE_TEST_CONTRACTS )
       BUILD_ALWAYS 1
    )
 else()
-  message( STATUS "Not building contracts in directory `mandel/unittests/test-contracts/`" )
+  message( STATUS "Not building contracts in directory `./unittests/test-contracts/`" )
   add_subdirectory(test-contracts)
 endif()
 
