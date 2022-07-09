@@ -569,7 +569,7 @@ namespace eosio { namespace chain {
       block_file.write((char*)&totem, sizeof(totem));
 
       if (first_block) {
-         append(first_block);
+         append(first_block, first_block->calculate_id(), fc::raw::pack(*first_block));
       } else {
          head.reset();
          head_id = {};
