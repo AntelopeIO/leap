@@ -1089,8 +1089,8 @@ struct controller_impl {
       auto& bb = std::get<building_block>(pending->_block_stage);
       auto orig_trx_receipts_size           = bb._pending_trx_receipts.size();
       auto orig_trx_metas_size              = bb._pending_trx_metas.size();
-      auto orig_trx_receipt_digests_size    = bb._trx_mroot_or_receipt_digests.contains<digests_t>() ?
-            bb._trx_mroot_or_receipt_digests.get<digests_t>().size() : 0;
+      auto orig_trx_receipt_digests_size    = std::holds_alternative<digests_t>(bb._trx_mroot_or_receipt_digests) ?
+                                              std::get<digests_t>(bb._trx_mroot_or_receipt_digests).size() : 0;
       auto orig_action_receipt_digests_size = bb._action_receipt_digests.size();
       std::function<void()> callback = [this,
             orig_trx_receipts_size,
@@ -1101,8 +1101,8 @@ struct controller_impl {
          auto& bb = std::get<building_block>(pending->_block_stage);
          bb._pending_trx_receipts.resize(orig_trx_receipts_size);
          bb._pending_trx_metas.resize(orig_trx_metas_size);
-         if( bb._trx_mroot_or_receipt_digests.contains<digests_t>() )
-            bb._trx_mroot_or_receipt_digests.get<digests_t>().resize(orig_trx_receipt_digests_size);
+         if( std::holds_alternative<digests_t>(bb._trx_mroot_or_receipt_digests) )
+            std::get<digests_t>(bb._trx_mroot_or_receipt_digests).resize(orig_trx_receipt_digests_size);
          bb._action_receipt_digests.resize(orig_action_receipt_digests_size);
       };
 
@@ -1980,7 +1980,7 @@ struct controller_impl {
          start_block( b->timestamp, b->confirmed, new_protocol_feature_activations, s, producer_block_id, fc::time_point::maximum() );
 
          // validated in create_block_state_future()
-         pending->_block_stage.get<building_block>()._trx_mroot_or_receipt_digests = b->transaction_mroot;
+         std::get<building_block>(pending->_block_stage)._trx_mroot_or_receipt_digests = b->transaction_mroot;
 
          const bool existing_trxs_metas = !bsp->trxs_metas().empty();
          const bool pub_keys_recovered = bsp->is_pub_keys_recovered();
@@ -2058,9 +2058,6 @@ struct controller_impl {
                br.total_elapsed_time += trace->elapsed;
             }
          }
-
-         // validated in create_block_state_future()
-         std::get<building_block>(pending->_block_stage)._transaction_mroot = b->transaction_mroot;
 
          finalize_block();
 
