@@ -580,15 +580,15 @@ BOOST_FIXTURE_TEST_CASE( get_table_next_key_test, TESTER ) try {
    auto res_4 = plugin.get_table_rows(params);
    float64_t secdouble_expected_value = ui64_to_f64(5);
    BOOST_REQUIRE(res_4.rows.size() > 0);
-   double secdouble_res_value = res_4.rows[0].get_object()["secdouble"].as<double>();
-   BOOST_CHECK(*reinterpret_cast<float64_t*>(&secdouble_res_value) == secdouble_expected_value);
+   float64_t secdouble_res_value = res_4.rows[0].get_object()["secdouble"].as<float64_t>();
+   BOOST_CHECK(secdouble_res_value == secdouble_expected_value);
    BOOST_TEST(res_4.next_key == "7.00000000000000000");
    params.lower_bound = res_4.next_key;
    auto more2_res_4 = plugin.get_table_rows(params);
    float64_t more2_secdouble_expected_value = ui64_to_f64(7);
    BOOST_REQUIRE(more2_res_4.rows.size() > 0);
-   double more2_secdouble_res_value = more2_res_4.rows[0].get_object()["secdouble"].as<double>();
-   BOOST_CHECK(*reinterpret_cast<float64_t*>(&more2_secdouble_res_value) == more2_secdouble_expected_value);
+   float64_t more2_secdouble_res_value = more2_res_4.rows[0].get_object()["secdouble"].as<float64_t>();
+   BOOST_CHECK(more2_secdouble_res_value == more2_secdouble_expected_value);
 
    // float128 secondary key type
    params.key_type = "float128";
