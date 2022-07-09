@@ -195,6 +195,26 @@ namespace eosio {
       void expire_txns();
    };
 
+   /**
+    * default value initializers
+    */
+   constexpr auto     def_send_buffer_size_mb = 4;
+   constexpr auto     def_send_buffer_size = 1024*1024*def_send_buffer_size_mb;
+   constexpr auto     def_max_write_queue_size = def_send_buffer_size*10;
+   constexpr auto     def_max_trx_in_progress_size = 100*1024*1024; // 100 MB
+   constexpr auto     def_max_consecutive_immediate_connection_close = 9; // back off if client keeps closing
+   constexpr auto     def_max_clients = 25; // 0 for unlimited clients
+   constexpr auto     def_max_nodes_per_host = 1;
+   constexpr auto     def_conn_retry_wait = 30;
+   constexpr auto     def_txn_expire_wait = std::chrono::seconds(3);
+   constexpr auto     def_resp_expected_wait = std::chrono::seconds(5);
+   constexpr auto     def_sync_fetch_span = 100;
+   constexpr auto     def_keepalive_interval = 10000;
+
+   constexpr auto     message_header_size = sizeof(uint32_t);
+   constexpr uint32_t signed_block_which       = fc::get_index<net_message, signed_block>();       // see protocol net_message
+   constexpr uint32_t packed_transaction_which = fc::get_index<net_message, packed_transaction>(); // see protocol net_message
+
    class net_plugin_impl : public std::enable_shared_from_this<net_plugin_impl> {
    public:
       unique_ptr<tcp::acceptor>        acceptor;
@@ -225,7 +245,7 @@ namespace eosio {
       boost::asio::steady_timer::duration   connector_period{0};
       boost::asio::steady_timer::duration   txn_exp_period{0};
       boost::asio::steady_timer::duration   resp_expected_period{0};
-      std::chrono::milliseconds             keepalive_interval{std::chrono::milliseconds{32 * 1000}};
+      std::chrono::milliseconds             keepalive_interval{std::chrono::milliseconds{def_keepalive_interval}};
       std::chrono::milliseconds             heartbeat_timeout{keepalive_interval * 2};
 
       int                                   max_cleanup_time_ms = 0;
@@ -379,26 +399,6 @@ namespace eosio {
    static net_plugin_impl *my_impl;
 
    /**
-    * default value initializers
-    */
-   constexpr auto     def_send_buffer_size_mb = 4;
-   constexpr auto     def_send_buffer_size = 1024*1024*def_send_buffer_size_mb;
-   constexpr auto     def_max_write_queue_size = def_send_buffer_size*10;
-   constexpr auto     def_max_trx_in_progress_size = 100*1024*1024; // 100 MB
-   constexpr auto     def_max_consecutive_immediate_connection_close = 9; // back off if client keeps closing
-   constexpr auto     def_max_clients = 25; // 0 for unlimited clients
-   constexpr auto     def_max_nodes_per_host = 1;
-   constexpr auto     def_conn_retry_wait = 30;
-   constexpr auto     def_txn_expire_wait = std::chrono::seconds(3);
-   constexpr auto     def_resp_expected_wait = std::chrono::seconds(5);
-   constexpr auto     def_sync_fetch_span = 100;
-   constexpr auto     def_keepalive_interval = 32000;
-
-   constexpr auto     message_header_size = sizeof(uint32_t);
-   constexpr uint32_t signed_block_which       = fc::get_index<net_message, signed_block>();       // see protocol net_message
-   constexpr uint32_t packed_transaction_which = fc::get_index<net_message, packed_transaction>(); // see protocol net_message
-
-   /**
     *  For a while, network version was a 16 bit value equal to the second set of 16 bits
     *  of the current build's git commit id. We are now replacing that with an integer protocol
     *  identifier. Based on historical analysis of all git commit identifiers, the larges gap
@@ -420,12 +420,12 @@ namespace eosio {
    constexpr uint16_t proto_explicit_sync = 1;       // version at time of eosio 1.0
    constexpr uint16_t proto_block_id_notify = 2;     // reserved. feature was removed. next net_version should be 3
    constexpr uint16_t proto_pruned_types = 3;        // eosio 2.1: supports new signed_block & packed_transaction types
-   constexpr uint16_t heartbeat_interval = 4;        // eosio 2.1: supports configurable heartbeat interval
-   constexpr uint16_t dup_goaway_resolution = 5;     // eosio 2.1: support peer address based duplicate connection resolution
-   constexpr uint16_t dup_node_id_goaway = 6;        // eosio 2.1: support peer node_id based duplicate connection resolution
-   constexpr uint16_t mandel_initial = 7;            // mandel client, needed because none of the 2.1 versions are supported
+   constexpr uint16_t proto_heartbeat_interval = 4;        // eosio 2.1: supports configurable heartbeat interval
+   constexpr uint16_t proto_dup_goaway_resolution = 5;     // eosio 2.1: support peer address based duplicate connection resolution
+   constexpr uint16_t proto_dup_node_id_goaway = 6;        // eosio 2.1: support peer node_id based duplicate connection resolution
+   constexpr uint16_t proto_mandel_initial = 7;            // mandel client, needed because none of the 2.1 versions are supported
 
-   constexpr uint16_t net_version_max = mandel_initial;
+   constexpr uint16_t net_version_max = proto_mandel_initial;
 
    /**
     * Index by start_block_num
@@ -547,7 +547,7 @@ namespace eosio {
       fc::time_point   window_start_;              ///< The start of the recent rbw (0 implies not started)
       uint32_t         events_{0};                 ///< The number of consecutive rbws
       const uint32_t   max_consecutive_rejected_windows_{13};
-      
+
    public:
       /// ctor
       ///
@@ -670,6 +670,7 @@ namespace eosio {
       // timestamp for the lastest message
       tstamp                         latest_msg_time{0};
       tstamp                         hb_timeout{std::chrono::milliseconds{def_keepalive_interval}.count()};
+      tstamp                         latest_blk_time{0};
 
       bool connected();
       bool current();
@@ -684,7 +685,7 @@ namespace eosio {
       bool process_next_trx_message(uint32_t message_length);
    public:
 
-      bool populate_handshake( handshake_message& hello, bool force );
+      bool populate_handshake( handshake_message& hello );
 
       bool resolve_and_connect();
       void connect( const std::shared_ptr<tcp::resolver>& resolver, tcp::resolver::results_type endpoints );
@@ -700,7 +701,7 @@ namespace eosio {
        */
       bool process_next_message(uint32_t message_length);
 
-      void send_handshake( bool force = false );
+      void send_handshake();
 
       /** \name Peer Timestamps
        *  Time message handling
@@ -1129,10 +1130,10 @@ namespace eosio {
       syncing = false;
    }
 
-   void connection::send_handshake( bool force ) {
-      strand.post( [force, c = shared_from_this()]() {
+   void connection::send_handshake() {
+      strand.post( [c = shared_from_this()]() {
          std::unique_lock<std::mutex> g_conn( c->conn_mtx );
-         if( c->populate_handshake( c->last_handshake_sent, force ) ) {
+         if( c->populate_handshake( c->last_handshake_sent ) ) {
             static_assert( std::is_same_v<decltype( c->sent_handshake_count ), int16_t>, "INT16_MAX based on int16_t" );
             if( c->sent_handshake_count == INT16_MAX ) c->sent_handshake_count = 1; // do not wrap
             c->last_handshake_sent.generation = ++c->sent_handshake_count;
@@ -1148,21 +1149,27 @@ namespace eosio {
    }
 
    // called from connection strand
-   void connection::check_heartbeat( tstamp current_time )
-   {
-      if( protocol_version >= heartbeat_interval ) {
-         if( latest_msg_time > 0 &&  current_time > latest_msg_time + hb_timeout ) {
+   void connection::check_heartbeat( tstamp current_time ) {
+      if( latest_msg_time > 0 ) {
+         if( current_time > latest_msg_time + hb_timeout ) {
             no_retry = benign_other;
             if( !peer_address().empty() ) {
                peer_wlog(this, "heartbeat timed out for peer address");
-               close(true);  // reconnect
+               close(true);
             } else {
-               peer_wlog( this, "heartbeat timed out" );
+               peer_wlog(this, "heartbeat timed out");
                close(false);
             }
             return;
+         } else {
+            const tstamp timeout = std::max(hb_timeout/2, 2*std::chrono::milliseconds(config::block_interval_ms).count());
+            if ( current_time > latest_blk_time + timeout ) {
+               send_handshake();
+               return;
+            }
          }
       }
+
       send_time();
    }
 
@@ -1410,12 +1417,14 @@ namespace eosio {
       enqueue_buffer( send_buffer, close_after_send );
    }
 
+   // called from connection strand
    void connection::enqueue_block( const signed_block_ptr& b, bool to_sync_queue) {
       peer_dlog( this, "enqueue block ${num}", ("num", b->block_num()) );
       verify_strand_in_this_thread( strand, __func__, __LINE__ );
 
       block_buffer_factory buff_factory;
       auto sb = buff_factory.get_send_buffer( b );
+      latest_blk_time = get_time();
       enqueue_buffer( sb, no_reason, to_sync_queue);
    }
 
@@ -1723,12 +1732,14 @@ namespace eosio {
          peer_dlog( c, "We are already caught up, my irr = ${b}, head = ${h}, target = ${t}",
                   ("b", lib_num)( "h", fork_head_block_num )( "t", target ) );
          c->send_handshake();
+         return;
       }
 
       if( sync_state == in_sync ) {
          set_state( lib_catchup );
       }
-      sync_next_expected_num = std::max( lib_num + 1, sync_next_expected_num );
+      // if starting to sync need to always start from lib as we might be on our own fork
+      sync_next_expected_num = lib_num + 1;
 
       // p2p_high_latency_test.py test depends on this exact log statement.
       peer_ilog( c, "Catching up with chain, our last req is ${cc}, theirs is ${t}",
@@ -1807,6 +1818,9 @@ namespace eosio {
          peer_ilog( c, "handshake lib ${lib}, head ${head}, head id ${id}.. sync 1",
                     ("lib", msg.last_irreversible_block_num)("head", msg.head_num)("id", msg.head_id.str().substr(8,16)) );
          c->syncing = false;
+         if (c->sent_handshake_count > 0) {
+            c->send_handshake();
+         }
          return;
       }
       if (lib_num > msg.head_num + nblk_combined_latency) {
@@ -1951,7 +1965,7 @@ namespace eosio {
          c->close();
       } else {
          g.unlock();
-         c->send_handshake(true);
+         c->send_handshake();
       }
    }
 
@@ -2123,6 +2137,7 @@ namespace eosio {
          send_buffer_type sb = buff_factory.get_send_buffer( b );
 
          cp->strand.post( [this, cp, id, bnum, sb{std::move(sb)}]() {
+            cp->latest_blk_time = cp->get_time();
             std::unique_lock<std::mutex> g_conn( cp->conn_mtx );
             bool has_block = cp->last_handshake_recv.last_irreversible_block_num >= bnum;
             g_conn.unlock();
@@ -2549,6 +2564,7 @@ namespace eosio {
          unsigned_int which{};
          fc::raw::unpack( peek_ds, which );
          if( which == signed_block_which ) {
+            latest_blk_time = get_time();
             return process_next_block_message( message_length );
 
          } else if( which == packed_transaction_which ) {
@@ -2781,7 +2797,7 @@ namespace eosio {
                fc_dlog( logger, "dup check: connected ${c}, ${l} =? ${r}",
                         ("c", check->connected())("l", check->last_handshake_recv.node_id)("r", msg.node_id) );
                if(check->connected() && check->last_handshake_recv.node_id == msg.node_id) {
-                  if (net_version < dup_goaway_resolution || msg.network_version < dup_goaway_resolution) {
+                  if (net_version < proto_dup_goaway_resolution || msg.network_version < proto_dup_goaway_resolution) {
                      // It's possible that both peers could arrive here at relatively the same time, so
                      // we need to avoid the case where they would both tell a different connection to go away.
                      // Using the sum of the initial handshake times of the two connections, we will
@@ -2791,7 +2807,7 @@ namespace eosio {
                      g_check_conn.unlock();
                      if (msg.time + c_time <= check_time)
                         continue;
-                  } else if (net_version < dup_node_id_goaway || msg.network_version < dup_node_id_goaway) {
+                  } else if (net_version < proto_dup_node_id_goaway || msg.network_version < proto_dup_node_id_goaway) {
                      if (my_impl->p2p_address < msg.p2p_address) {
                         fc_dlog( logger, "my_impl->p2p_address '${lhs}' < msg.p2p_address '${rhs}'",
                                  ("lhs", my_impl->p2p_address)( "rhs", msg.p2p_address ) );
@@ -2830,8 +2846,10 @@ namespace eosio {
          }
          protocol_version = my_impl->to_protocol_version(msg.network_version);
          if( protocol_version != net_version ) {
-            peer_ilog( this, "Local network version: ${nv} Remote version: ${mnv}",
+            peer_ilog( this, "Local network version different: ${nv} Remote version: ${mnv}",
                        ("nv", net_version)("mnv", protocol_version.load()) );
+         } else {
+            peer_ilog( this, "Local network version: ${nv}", ("nv", net_version) );
          }
 
          conn_node_id = msg.node_id;
@@ -2881,10 +2899,10 @@ namespace eosio {
          });
 
          // we don't support the 2.1 packed_transaction & signed_block, so tell 2.1 clients we are 2.0
-         if( protocol_version >= proto_pruned_types && protocol_version < mandel_initial ) {
+         if( protocol_version >= proto_pruned_types && protocol_version < proto_mandel_initial ) {
             sent_handshake_count = 0;
             net_version = proto_explicit_sync;
-            send_handshake(true);
+            send_handshake();
             return;
          }
 
@@ -2919,7 +2937,7 @@ namespace eosio {
    }
 
    void connection::handle_message( const time_message& msg ) {
-      peer_dlog( this, "received time_message" );
+      peer_ilog( this, "received time_message" );
 
       /* We've already lost however many microseconds it took to dispatch
        * the message, but it can't be helped.
@@ -3448,19 +3466,13 @@ namespace eosio {
    }
 
    // call from connection strand
-   bool connection::populate_handshake( handshake_message& hello, bool force ) {
+   bool connection::populate_handshake( handshake_message& hello ) {
       namespace sc = std::chrono;
-      bool send = force;
       hello.network_version = net_version_base + net_version;
       const auto prev_head_id = hello.head_id;
       uint32_t lib, head;
       std::tie( lib, std::ignore, head,
                 hello.last_irreversible_block_id, std::ignore, hello.head_id ) = my_impl->get_chain_info();
-      // only send handshake if state has changed since last handshake
-      send |= lib != hello.last_irreversible_block_num;
-      send |= head != hello.head_num;
-      send |= prev_head_id != hello.head_id;
-      if( !send ) return false;
       hello.last_irreversible_block_num = lib;
       hello.head_num = head;
       hello.chain_id = my_impl->chain_id;
