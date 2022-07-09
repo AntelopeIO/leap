@@ -195,6 +195,26 @@ namespace eosio {
       void expire_txns();
    };
 
+   /**
+    * default value initializers
+    */
+   constexpr auto     def_send_buffer_size_mb = 4;
+   constexpr auto     def_send_buffer_size = 1024*1024*def_send_buffer_size_mb;
+   constexpr auto     def_max_write_queue_size = def_send_buffer_size*10;
+   constexpr auto     def_max_trx_in_progress_size = 100*1024*1024; // 100 MB
+   constexpr auto     def_max_consecutive_immediate_connection_close = 9; // back off if client keeps closing
+   constexpr auto     def_max_clients = 25; // 0 for unlimited clients
+   constexpr auto     def_max_nodes_per_host = 1;
+   constexpr auto     def_conn_retry_wait = 30;
+   constexpr auto     def_txn_expire_wait = std::chrono::seconds(3);
+   constexpr auto     def_resp_expected_wait = std::chrono::seconds(5);
+   constexpr auto     def_sync_fetch_span = 100;
+   constexpr auto     def_keepalive_interval = 10000;
+
+   constexpr auto     message_header_size = sizeof(uint32_t);
+   constexpr uint32_t signed_block_which       = fc::get_index<net_message, signed_block>();       // see protocol net_message
+   constexpr uint32_t packed_transaction_which = fc::get_index<net_message, packed_transaction>(); // see protocol net_message
+
    class net_plugin_impl : public std::enable_shared_from_this<net_plugin_impl> {
    public:
       unique_ptr<tcp::acceptor>        acceptor;
@@ -225,7 +245,7 @@ namespace eosio {
       boost::asio::steady_timer::duration   connector_period{0};
       boost::asio::steady_timer::duration   txn_exp_period{0};
       boost::asio::steady_timer::duration   resp_expected_period{0};
-      std::chrono::milliseconds             keepalive_interval{std::chrono::milliseconds{10 * 1000}};
+      std::chrono::milliseconds             keepalive_interval{std::chrono::milliseconds{def_keepalive_interval}};
       std::chrono::milliseconds             heartbeat_timeout{keepalive_interval * 2};
 
       int                                   max_cleanup_time_ms = 0;
@@ -379,26 +399,6 @@ namespace eosio {
    static net_plugin_impl *my_impl;
 
    /**
-    * default value initializers
-    */
-   constexpr auto     def_send_buffer_size_mb = 4;
-   constexpr auto     def_send_buffer_size = 1024*1024*def_send_buffer_size_mb;
-   constexpr auto     def_max_write_queue_size = def_send_buffer_size*10;
-   constexpr auto     def_max_trx_in_progress_size = 100*1024*1024; // 100 MB
-   constexpr auto     def_max_consecutive_immediate_connection_close = 9; // back off if client keeps closing
-   constexpr auto     def_max_clients = 25; // 0 for unlimited clients
-   constexpr auto     def_max_nodes_per_host = 1;
-   constexpr auto     def_conn_retry_wait = 30;
-   constexpr auto     def_txn_expire_wait = std::chrono::seconds(3);
-   constexpr auto     def_resp_expected_wait = std::chrono::seconds(5);
-   constexpr auto     def_sync_fetch_span = 100;
-   constexpr auto     def_keepalive_interval = 10000;
-
-   constexpr auto     message_header_size = sizeof(uint32_t);
-   constexpr uint32_t signed_block_which       = fc::get_index<net_message, signed_block>();       // see protocol net_message
-   constexpr uint32_t packed_transaction_which = fc::get_index<net_message, packed_transaction>(); // see protocol net_message
-
-   /**
     *  For a while, network version was a 16 bit value equal to the second set of 16 bits
     *  of the current build's git commit id. We are now replacing that with an integer protocol
     *  identifier. Based on historical analysis of all git commit identifiers, the larges gap
@@ -420,12 +420,12 @@ namespace eosio {
    constexpr uint16_t proto_explicit_sync = 1;       // version at time of eosio 1.0
    constexpr uint16_t proto_block_id_notify = 2;     // reserved. feature was removed. next net_version should be 3
    constexpr uint16_t proto_pruned_types = 3;        // eosio 2.1: supports new signed_block & packed_transaction types
-   constexpr uint16_t heartbeat_interval = 4;        // eosio 2.1: supports configurable heartbeat interval
-   constexpr uint16_t dup_goaway_resolution = 5;     // eosio 2.1: support peer address based duplicate connection resolution
-   constexpr uint16_t dup_node_id_goaway = 6;        // eosio 2.1: support peer node_id based duplicate connection resolution
-   constexpr uint16_t mandel_initial = 7;            // mandel client, needed because none of the 2.1 versions are supported
+   constexpr uint16_t proto_heartbeat_interval = 4;        // eosio 2.1: supports configurable heartbeat interval
+   constexpr uint16_t proto_dup_goaway_resolution = 5;     // eosio 2.1: support peer address based duplicate connection resolution
+   constexpr uint16_t proto_dup_node_id_goaway = 6;        // eosio 2.1: support peer node_id based duplicate connection resolution
+   constexpr uint16_t proto_mandel_initial = 7;            // mandel client, needed because none of the 2.1 versions are supported
 
-   constexpr uint16_t net_version_max = mandel_initial;
+   constexpr uint16_t net_version_max = proto_mandel_initial;
 
    /**
     * Index by start_block_num
@@ -1154,14 +1154,10 @@ namespace eosio {
          if( current_time > latest_msg_time + hb_timeout ) {
             no_retry = benign_other;
             if( !peer_address().empty() ) {
-               fc_wlog(logger, "heartbeat timed out for peer address ${adr}", ("adr", peer_address()));
+               peer_wlog(this, "heartbeat timed out for peer address");
                close(true);
             } else {
-               {
-                  std::lock_guard<std::mutex> g_conn( conn_mtx );
-                  fc_wlog(logger, "heartbeat timed out from ${p} ${ag}",
-                          ("p", last_handshake_recv.p2p_address)("ag", last_handshake_recv.agent));
-               }
+               peer_wlog(this, "heartbeat timed out");
                close(false);
             }
             return;
@@ -2801,7 +2797,7 @@ namespace eosio {
                fc_dlog( logger, "dup check: connected ${c}, ${l} =? ${r}",
                         ("c", check->connected())("l", check->last_handshake_recv.node_id)("r", msg.node_id) );
                if(check->connected() && check->last_handshake_recv.node_id == msg.node_id) {
-                  if (net_version < dup_goaway_resolution || msg.network_version < dup_goaway_resolution) {
+                  if (net_version < proto_dup_goaway_resolution || msg.network_version < proto_dup_goaway_resolution) {
                      // It's possible that both peers could arrive here at relatively the same time, so
                      // we need to avoid the case where they would both tell a different connection to go away.
                      // Using the sum of the initial handshake times of the two connections, we will
@@ -2811,7 +2807,7 @@ namespace eosio {
                      g_check_conn.unlock();
                      if (msg.time + c_time <= check_time)
                         continue;
-                  } else if (net_version < dup_node_id_goaway || msg.network_version < dup_node_id_goaway) {
+                  } else if (net_version < proto_dup_node_id_goaway || msg.network_version < proto_dup_node_id_goaway) {
                      if (my_impl->p2p_address < msg.p2p_address) {
                         fc_dlog( logger, "my_impl->p2p_address '${lhs}' < msg.p2p_address '${rhs}'",
                                  ("lhs", my_impl->p2p_address)( "rhs", msg.p2p_address ) );
@@ -2903,7 +2899,7 @@ namespace eosio {
          });
 
          // we don't support the 2.1 packed_transaction & signed_block, so tell 2.1 clients we are 2.0
-         if( protocol_version >= proto_pruned_types && protocol_version < mandel_initial ) {
+         if( protocol_version >= proto_pruned_types && protocol_version < proto_mandel_initial ) {
             sent_handshake_count = 0;
             net_version = proto_explicit_sync;
             send_handshake();
