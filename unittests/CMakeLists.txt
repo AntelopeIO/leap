@@ -3,14 +3,26 @@ include(ExternalProject)
 
 if( EOSIO_COMPILE_TEST_CONTRACTS )
    set(EOSIO_WASM_OLD_BEHAVIOR "Off")
-   find_package(eosio.cdt REQUIRED)
+   if( USE_EOSIO_CDT_1_7_X OR USE_EOSIO_CDT_1_8_X )
+      find_package( eosio.cdt REQUIRED )
+      set(CMAKE_ARGS_VAL -DCMAKE_TOOLCHAIN_FILE=${EOSIO_CDT_ROOT}/lib/cmake/eosio.cdt/EosioWasmToolchain.cmake -DEOSIO_COMPILE_TEST_CONTRACTS=${EOSIO_COMPILE_TEST_CONTRACTS} )
+   else()
+      find_package( cdt REQUIRED )
+      set(CMAKE_ARGS_VAL -DCMAKE_TOOLCHAIN_FILE=${CDT_ROOT}/lib/cmake/cdt/CDTWasmToolchain.cmake -DEOSIO_COMPILE_TEST_CONTRACTS=${EOSIO_COMPILE_TEST_CONTRACTS} )
+   endif()
 
-   message( STATUS "Building contracts in directory `eos/unittests/test-contracts/`" )
+   if( USE_EOSIO_CDT_1_7_X )
+      list(APPEND CMAKE_ARGS_VAL -DUSE_EOSIO_CDT_1_7_X=${USE_EOSIO_CDT_1_7_X})
+   elseif( USE_EOSIO_CDT_1_8_X )
+      list(APPEND CMAKE_ARGS_VAL -DUSE_EOSIO_CDT_1_8_X=${USE_EOSIO_CDT_1_8_X})
+   endif()
+
+   message( STATUS "Building contracts in directory `./unittests/test-contracts/`" )
    ExternalProject_Add(
       test_contracts_project
       SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/test-contracts
       BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/test-contracts
-      CMAKE_ARGS -DCMAKE_TOOLCHAIN_FILE=${EOSIO_CDT_ROOT}/lib/cmake/eosio.cdt/EosioWasmToolchain.cmake -DEOSIO_COMPILE_TEST_CONTRACTS=${EOSIO_COMPILE_TEST_CONTRACTS}
+      CMAKE_ARGS ${CMAKE_ARGS_VAL}
       UPDATE_COMMAND ""
       PATCH_COMMAND ""
       TEST_COMMAND ""
@@ -18,7 +30,7 @@ if( EOSIO_COMPILE_TEST_CONTRACTS )
       BUILD_ALWAYS 1
    )
 else()
-  message( STATUS "Not building contracts in directory `eos/unittests/test-contracts/`" )
+  message( STATUS "Not building contracts in directory `./unittests/test-contracts/`" )
   add_subdirectory(test-contracts)
 endif()
 
