@@ -225,7 +225,7 @@ namespace eosio {
       boost::asio::steady_timer::duration   connector_period{0};
       boost::asio::steady_timer::duration   txn_exp_period{0};
       boost::asio::steady_timer::duration   resp_expected_period{0};
-      std::chrono::milliseconds             keepalive_interval{std::chrono::milliseconds{32 * 1000}};
+      std::chrono::milliseconds             keepalive_interval{std::chrono::milliseconds{10 * 1000}};
       std::chrono::milliseconds             heartbeat_timeout{keepalive_interval * 2};
 
       int                                   max_cleanup_time_ms = 0;
@@ -392,7 +392,7 @@ namespace eosio {
    constexpr auto     def_txn_expire_wait = std::chrono::seconds(3);
    constexpr auto     def_resp_expected_wait = std::chrono::seconds(5);
    constexpr auto     def_sync_fetch_span = 100;
-   constexpr auto     def_keepalive_interval = 32000;
+   constexpr auto     def_keepalive_interval = 10000;
 
    constexpr auto     message_header_size = sizeof(uint32_t);
    constexpr uint32_t signed_block_which       = fc::get_index<net_message, signed_block>();       // see protocol net_message
@@ -1150,7 +1150,7 @@ namespace eosio {
 
    // called from connection strand
    void connection::check_heartbeat( tstamp current_time ) {
-      if( protocol_version >= heartbeat_interval && latest_msg_time > 0 ) {
+      if( latest_msg_time > 0 ) {
          if( current_time > latest_msg_time + hb_timeout ) {
             no_retry = benign_other;
             if( !peer_address().empty() ) {
@@ -1742,7 +1742,8 @@ namespace eosio {
       if( sync_state == in_sync ) {
          set_state( lib_catchup );
       }
-      sync_next_expected_num = std::max( lib_num + 1, sync_next_expected_num );
+      // if starting to sync need to always start from lib as we might be on our own fork
+      sync_next_expected_num = lib_num + 1;
 
       // p2p_high_latency_test.py test depends on this exact log statement.
       peer_ilog( c, "Catching up with chain, our last req is ${cc}, theirs is ${t}",
@@ -2849,8 +2850,10 @@ namespace eosio {
          }
          protocol_version = my_impl->to_protocol_version(msg.network_version);
          if( protocol_version != net_version ) {
-            peer_ilog( this, "Local network version: ${nv} Remote version: ${mnv}",
+            peer_ilog( this, "Local network version different: ${nv} Remote version: ${mnv}",
                        ("nv", net_version)("mnv", protocol_version.load()) );
+         } else {
+            peer_ilog( this, "Local network version: ${nv}", ("nv", net_version) );
          }
 
          conn_node_id = msg.node_id;
@@ -2938,7 +2941,7 @@ namespace eosio {
    }
 
    void connection::handle_message( const time_message& msg ) {
-      peer_dlog( this, "received time_message" );
+      peer_ilog( this, "received time_message" );
 
       /* We've already lost however many microseconds it took to dispatch
        * the message, but it can't be helped.
