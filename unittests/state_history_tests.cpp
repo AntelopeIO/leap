@@ -58,15 +58,12 @@ private:
 };
 
 BOOST_AUTO_TEST_CASE(test_deltas_not_empty) {
-   for (backing_store_type backing_store : { backing_store_type::CHAINBASE/* TODO: uncomment this , backing_store_type::ROCKSDB*/ } ) {
-      table_deltas_tester chain;
-      chain.set_backing_store(backing_store);
+   table_deltas_tester chain;
 
-      auto deltas = eosio::state_history::create_deltas(chain.control->kv_db(), false);
+   auto deltas = eosio::state_history::create_deltas(chain.control->db(), false);
 
-      for(const auto &delta: deltas) {
-         BOOST_REQUIRE(!delta.rows.obj.empty());
-      }
+   for(const auto &delta: deltas) {
+      BOOST_REQUIRE(!delta.rows.obj.empty());
    }
 }
 
