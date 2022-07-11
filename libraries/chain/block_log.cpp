@@ -49,14 +49,22 @@ namespace eosio { namespace chain {
             uint32_t                 first_block_num = 0;       //the first number available to read
             uint32_t                 index_first_block_num = 0; //the first number in index & the log had it not been pruned
             std::optional<block_log_prune_config> prune_config;
+            bool                     not_generate_block_log = false;
 
             block_log_impl(std::optional<block_log_prune_config> prune_conf) :
               prune_config(prune_conf) {
                if(prune_config) {
-                  EOS_ASSERT(prune_config->prune_blocks, block_log_exception, "block log prune configuration requires at least one block");
-                  EOS_ASSERT(__builtin_popcount(prune_config->prune_threshold) == 1, block_log_exception, "block log prune threshold must be power of 2");
-                  //switch this over to the mask that will be used
-                  prune_config->prune_threshold = ~(prune_config->prune_threshold-1);
+                  if (prune_config->prune_blocks == 0 ) {
+                     // not to generate blocks.log
+                     // disable prune log handling by resetting prune_config
+                     prune_config.reset();
+                     not_generate_block_log = true;
+                  } else {
+                     EOS_ASSERT(prune_config->prune_blocks, block_log_exception, "block log prune configuration requires at least one block");
+                     EOS_ASSERT(__builtin_popcount(prune_config->prune_threshold) == 1, block_log_exception, "block log prune threshold must be power of 2");
+                     //switch this over to the mask that will be used
+                     prune_config->prune_threshold = ~(prune_config->prune_threshold-1);
+                  }
                }
             }
 
@@ -99,6 +107,8 @@ namespace eosio { namespace chain {
             template<typename T>
             void reset( const T& t, const signed_block_ptr& genesis_block, uint32_t first_block_num );
 
+            void remove();
+
             void write( const genesis_state& gs );
 
             void write( const chain_id_type& chain_id );
@@ -106,6 +116,8 @@ namespace eosio { namespace chain {
             void flush();
 
             void append(const signed_block_ptr& b);
+
+            void update_head(const signed_block_ptr& b);
 
             void prune();
 
@@ -363,6 +375,11 @@ namespace eosio { namespace chain {
       try {
          EOS_ASSERT( genesis_written_to_block_log, block_log_append_fail, "Cannot append to block log until the genesis is first written" );
 
+         if (not_generate_block_log) {
+            update_head(b);
+            return;
+         }
+
          check_open_files();
 
          block_file.seek_end(0);
@@ -396,6 +413,11 @@ namespace eosio { namespace chain {
          flush();
       }
       FC_LOG_AND_RETHROW()
+   }
+
+   void detail::block_log_impl::update_head(const signed_block_ptr& b) {
+      head = b;
+      head_id = b->calculate_id();
    }
 
    void detail::block_log_impl::prune() {
@@ -598,6 +620,17 @@ namespace eosio { namespace chain {
       my->reset(chain_id, signed_block_ptr(), first_block_num);
    }
 
+   void detail::block_log_impl::remove() {
+      close();
+
+      fc::remove( block_file.get_file_path() );
+      fc::remove( index_file.get_file_path() );
+   }
+
+   void block_log::remove() {
+      my->remove();
+   }
+
    void detail::block_log_impl::write( const genesis_state& gs ) {
       auto data = fc::raw::pack(gs);
       block_file.write(data.data(), data.size());
@@ -628,6 +661,12 @@ namespace eosio { namespace chain {
    signed_block_ptr block_log::read_block_by_num(uint32_t block_num)const {
       try {
          signed_block_ptr b;
+
+         if (my->not_generate_block_log) {
+            // No blocks exist. Avoid cascading failures if going further.
+            return b;
+         }
+
          uint64_t pos = get_block_pos(block_num);
          if (pos != npos) {
             b = read_block(pos);

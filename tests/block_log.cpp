@@ -531,4 +531,46 @@ BOOST_DATA_TEST_CASE(empty_prune_to_nonprune_transitions, bdata::xrange(2) * bda
       t.check_not_present(starting_block);
 }  FC_LOG_AND_RETHROW() }
 
+// Test when prune_blocks is set to 0, no block log is generated
+BOOST_DATA_TEST_CASE(not_generate_block_log_genesis, bdata::xrange(2) * bdata::xrange(2) * bdata::xrange(2) * bdata::xrange(2),
+                                               enable_read, reopen_on_mark, remove_index_on_reopen, vacuum_on_exit_if_small)  { try {
+   // set enable_read to false: when it is true, startup calls
+   // log->read_block_by_num which always returns null when block log does not exist.
+   // set reopen_on_mark to false: when it is ture, check_n_bounce resets block
+   // object but does not reinitialze.
+   block_log_fixture t(false, false, remove_index_on_reopen, vacuum_on_exit_if_small, 0);
+
+   t.startup(1);
+
+   t.add(2, payload_size(), 'A');
+   t.check_not_present(2);
+
+   t.add(3, payload_size(), 'B');
+   t.add(4, payload_size(), 'C');
+   t.check_not_present(3);
+   t.check_not_present(4);
+
+   t.add(5, payload_size(), 'D');
+   t.check_not_present(5);
+}  FC_LOG_AND_RETHROW() }
+
+// Test when prune_blocks is set to 0, no block log is generated
+BOOST_DATA_TEST_CASE(not_generate_block_log_nongenesis, bdata::xrange(2) * bdata::xrange(2) * bdata::xrange(2) * bdata::xrange(2),
+                                               enable_read, reopen_on_mark, remove_index_on_reopen, vacuum_on_exit_if_small)  { try {
+   block_log_fixture t(enable_read, reopen_on_mark, remove_index_on_reopen, vacuum_on_exit_if_small, 0);
+
+   t.startup(10);
+
+   t.add(10, payload_size(), 'A');
+   t.check_not_present(10);
+
+   t.add(11, payload_size(), 'B');
+   t.add(12, payload_size(), 'C');
+   t.check_not_present(11);
+   t.check_not_present(12);
+
+   t.add(13, payload_size(), 'D');
+   t.check_not_present(13);
+}  FC_LOG_AND_RETHROW() }
+
 BOOST_AUTO_TEST_SUITE_END()
