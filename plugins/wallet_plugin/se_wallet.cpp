@@ -269,7 +269,11 @@ static void check_signed() {
    CFNumberRef pidnumber = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &pid);
    CFDictionaryRef piddict = CFDictionaryCreate(kCFAllocatorDefault, (const void**)&kSecGuestAttributePid, (const void**)&pidnumber, 1, nullptr, nullptr);
    if(!SecCodeCopyGuestWithAttributes(nullptr, piddict, kSecCSDefaultFlags, &code)) {
-      is_valid = SecCodeCheckValidity(code, kSecCSDefaultFlags, 0);
+      SecRequirementRef sec_requirement = nullptr;
+      if(!SecRequirementCreateWithString(CFSTR("anchor trusted"), kSecCSDefaultFlags, &sec_requirement)) {
+         is_valid = SecCodeCheckValidity(code, kSecCSDefaultFlags, sec_requirement);
+         CFRelease(sec_requirement);
+      }
       CFRelease(code);
    }
    CFRelease(piddict);
@@ -306,6 +310,14 @@ se_wallet::se_wallet() : my(new detail::se_wallet_impl()) {
          return;
       }
       if(sscanf(model, "MacBookAir%u", &major) == 1 && major >= 8) {
+         my->populate_existing_keys();
+         return;
+      }
+      if(sscanf(model, "MacPro%u", &major) == 1 && major >= 7) {
+         my->populate_existing_keys();
+         return;
+      }
+      if(sscanf(model, "Mac%u", &major) == 1 && major >= 13) { //Mac Studio
          my->populate_existing_keys();
          return;
       }
