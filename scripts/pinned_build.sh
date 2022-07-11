@@ -1,10 +1,19 @@
-#! /usr/bin/bash
+#!/usr/bin/env bash
 
 echo "Mandel Pinned Build"
 
-if [[ $NAME != "Ubuntu" ]]
-   then
-      echo "Currently only supporting Ubuntu based builds. Proceed at your own risk."
+if [[ "$(uname)" == "Linux" ]]; then
+   if [[ -e /etc/os-release ]]; then
+      # obtain NAME and other information
+      . /etc/os-release
+      if [[ ${NAME} != "Ubuntu" ]]; then
+         echo "Currently only supporting Ubuntu based builds. Proceed at your own risk."
+      fi
+   else
+       echo "Currently only supporting Ubuntu based builds. /etc/os-release not found. Your Linux distribution is not supported. Proceed at your own risk."
+   fi
+else
+    echo "Currently only supporting Ubuntu based builds. Your architecture is not supported. Proceed at your own risk."
 fi
 
 if [ $# -eq 0 ] || [ -z "$1" ]
@@ -22,9 +31,9 @@ JOBS=$3
 CLANG_VER=11.0.1
 BOOST_VER=1.70.0
 LLVM_VER=7.1.0
-LIBPQXX_VER=7.2.1
 ARCH=`uname -m`
 SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]:-$0}"; )" &> /dev/null && pwd 2> /dev/null; )";
+START_DIR="$(pwd)"
 
 
 pushdir() {
@@ -113,11 +122,14 @@ install_clang ${DEP_DIR}/clang-${CLANG_VER}
 install_llvm ${DEP_DIR}/llvm-${LLVM_VER}
 install_boost ${DEP_DIR}/boost_${BOOST_VER//\./_}
 
+# go back to the directory where the script starts
+popdir ${START_DIR}
+
 pushdir ${MANDEL_DIR}
 
 # build Mandel
 echo "Building Mandel ${SCRIPT_DIR}"
-try cmake -DCMAKE_TOOLCHAIN_FILE=${SCRIPT_DIR}/pinned_toolchain.cmake -DCMAKE_INSTALL_PREFIX=/usr/local -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=${LLVM_DIR}/lib/cmake -DCMAKE_PREFIX_PATH=${BOOST_DIR}/bin -S${SCRIPT_DIR}/..
+try cmake -DCMAKE_TOOLCHAIN_FILE=${SCRIPT_DIR}/pinned_toolchain.cmake -DCMAKE_INSTALL_PREFIX=/usr/local -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=${LLVM_DIR}/lib/cmake -DCMAKE_PREFIX_PATH=${BOOST_DIR}/bin ${SCRIPT_DIR}/..
 
 try make -j${JOBS}
 try cpack

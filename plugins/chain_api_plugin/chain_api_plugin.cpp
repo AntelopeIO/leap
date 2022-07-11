@@ -141,7 +141,7 @@ void chain_api_plugin::plugin_startup() {
    }
 
    if (chain.transaction_finality_status_enabled()) {
-      _http_plugin.add_async_api({
+      _http_plugin.add_api({
          CHAIN_RO_CALL_WITH_400(get_transaction_status, 200, http_params_types::params_required),
       });
    }

@@ -22,7 +22,7 @@ import sys
 # This test sets up <-p> producing node(s) and <-n - -p>
 #   non-producing node(s). One of the non-producing nodes
 #   is configured with the state_history_plugin.  An instance
-#   of node will be started with a client javascript to exercise
+#   of node will be started with a client to exercise
 #   the SHiP API.
 #
 ###############################################################
@@ -55,7 +55,6 @@ killEosInstances=not dontKill
 killWallet=not dontKill
 
 WalletdName=Utils.EosWalletName
-ClientName="cleos"
 shipTempDir=None
 
 try:

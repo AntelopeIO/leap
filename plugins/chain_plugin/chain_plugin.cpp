@@ -331,7 +331,9 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
          ("transaction-finality-status-success-duration-sec", bpo::value<uint64_t>()->default_value(config::default_max_transaction_finality_status_success_duration_sec),
           "Duration (in seconds) a successful transaction's Finality Status will remain available from being first identified.")
          ("transaction-finality-status-failure-duration-sec", bpo::value<uint64_t>()->default_value(config::default_max_transaction_finality_status_failure_duration_sec),
-          "Duration (in seconds) a failed transaction's Finality Status will remain available from being first identified.");
+          "Duration (in seconds) a failed transaction's Finality Status will remain available from being first identified.")
+         ("integrity-hash-on-start", bpo::bool_switch(), "Log the state integrity hash on startup")
+         ("integrity-hash-on-stop", bpo::bool_switch(), "Log the state integrity hash on shutdown");
 
    if(cfile::supports_hole_punching())
       cfg.add_options()("block-log-retain-blocks", bpo::value<uint32_t>(), "if set, periodically prune the block log to store only configured number of most recent blocks");
@@ -1079,6 +1081,9 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
 
       my->account_queries_enabled = options.at("enable-account-queries").as<bool>();
 
+      my->chain_config->integrity_hash_on_start = options.at("integrity-hash-on-start").as<bool>();
+      my->chain_config->integrity_hash_on_stop = options.at("integrity-hash-on-stop").as<bool>();
+
       my->chain.emplace( *my->chain_config, std::move(pfs), *chain_id );
 
       if( options.count( "transaction-retry-max-storage-size-gb" )) {
@@ -1576,6 +1581,10 @@ uint64_t read_only::get_table_index_name(const read_only::get_table_rows_params&
    }
    index |= (pos & 0x000000000000000FULL);
    return index;
+}
+
+uint64_t convert_to_type(const eosio::name &n, const string &desc) {
+   return n.to_uint64_t();
 }
 
 template<>
@@ -2442,12 +2451,19 @@ read_only::get_account_results read_only::get_account( const get_account_params&
    result.created          = accnt_obj.creation_date;
 
    uint32_t greylist_limit = db.is_resource_greylisted(result.account_name) ? 1 : config::maximum_elastic_resource_multiplier;
-   result.net_limit = rm.get_account_net_limit_ex( result.account_name, greylist_limit).first;
-   result.cpu_limit = rm.get_account_cpu_limit_ex( result.account_name, greylist_limit).first;
+   const block_timestamp_type current_usage_time (db.head_block_time());
+   result.net_limit.set( rm.get_account_net_limit_ex( result.account_name, greylist_limit, current_usage_time).first );
+   if ( result.net_limit.last_usage_update_time && (result.net_limit.last_usage_update_time->slot == 0) ) {   // account has no action yet
+      result.net_limit.last_usage_update_time = accnt_obj.creation_date;
+   }
+   result.cpu_limit.set( rm.get_account_cpu_limit_ex( result.account_name, greylist_limit, current_usage_time).first );
+   if ( result.cpu_limit.last_usage_update_time && (result.cpu_limit.last_usage_update_time->slot == 0) ) {   // account has no action yet
+      result.cpu_limit.last_usage_update_time = accnt_obj.creation_date;
+   }
    result.ram_usage = rm.get_account_ram_usage( result.account_name );
 
    if ( producer_plug ) {  // producer_plug is null when called from chain_plugin_tests.cpp and get_table_tests.cpp
-      account_resource_limit subjective_cpu_bill_limit;
+      eosio::chain::resource_limits::account_resource_limit subjective_cpu_bill_limit;
       subjective_cpu_bill_limit.used = producer_plug->get_subjective_bill( result.account_name, fc::time_point::now() );
       result.subjective_cpu_bill_limit = subjective_cpu_bill_limit;
    }

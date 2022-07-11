@@ -9,6 +9,7 @@
 #include <eosio/chain/block.hpp>
 #include <eosio/chain/block_state.hpp>
 #include <eosio/chain/name.hpp>
+#include <eosio/chain/types.hpp>
 
 #include <eosio/trace_api/data_log.hpp>
 #include <eosio/trace_api/metadata_log.hpp>
@@ -94,7 +95,7 @@ namespace eosio::trace_api {
          auto bsp = std::make_shared<chain::block_state>(
             std::move( pbhs ),
             std::move( block ),
-            std::vector<chain::transaction_metadata_ptr>(),
+            eosio::chain::deque<chain::transaction_metadata_ptr>(),
             chain::protocol_feature_set(),
             []( chain::block_timestamp_type timestamp,
                 const fc::flat_set<chain::digest_type>& cur_features,

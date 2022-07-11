@@ -25,7 +25,7 @@ memory::memory(uint64_t max_pages) {
    FC_ASSERT(mapbase != MAP_FAILED, "Failed to mmap memory");
 
    uint8_t* next_slice = mapbase;
-   uint8_t* last;
+   uint8_t* last = nullptr;
 
    for(unsigned int p = 0; p < number_slices; ++p) {
       last = (uint8_t*)mmap(next_slice, memory_prologue_size+64u*1024u*p, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_FIXED, fd, 0);
@@ -33,6 +33,7 @@ memory::memory(uint64_t max_pages) {
       next_slice += total_memory_per_slice;
    }
 
+   FC_ASSERT(last != nullptr, "expected last not nullptr");
    zeropage_base = mapbase + memory_prologue_size;
    fullpage_base = last + memory_prologue_size;
 

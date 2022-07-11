@@ -180,7 +180,7 @@ auto make_block_state( uint32_t block_num, std::vector<chain::packed_transaction
    auto bsp = std::make_shared<chain::block_state>(
          std::move( pbhs ),
          std::move( block ),
-         std::vector<chain::transaction_metadata_ptr>(),
+         deque<chain::transaction_metadata_ptr>(),
          chain::protocol_feature_set(),
          []( chain::block_timestamp_type timestamp,
              const fc::flat_set<chain::digest_type>& cur_features,

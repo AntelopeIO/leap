@@ -54,7 +54,11 @@ set(ENABLE_MULTIVERSION_PROTOCOL_TEST FALSE CACHE BOOL "Enable nodeos multiversi
 
 # add defaults for openssl
 if(APPLE AND UNIX AND "${OPENSSL_ROOT_DIR}" STREQUAL "")
-   set(OPENSSL_ROOT_DIR "/usr/local/opt/openssl@3;/usr/local/opt/openssl@1.1")
+   if(CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
+      set(OPENSSL_ROOT_DIR "/opt/homebrew/opt/openssl@3;/opt/homebrew/opt/openssl@1.1")
+   else()
+      set(OPENSSL_ROOT_DIR "/usr/local/opt/openssl@3;/usr/local/opt/openssl@1.1")
+   endif()
 endif()
 # fc also adds these definitions to its public interface. once fc becomes the sole importer of openssl, this should be removed
 add_definitions(-DOPENSSL_API_COMPAT=0x10100000L -DOPENSSL_NO_DEPRECATED)
@@ -101,7 +105,7 @@ set(Boost_USE_MULTITHREADED      ON)
 set( Boost_USE_STATIC_LIBS ON CACHE STRING "ON or OFF" )
 # Most boost deps get implictly picked up via fc, as just about everything links to fc. In addition we pick up
 # the pthread dependency through fc.
-find_package(Boost 1.67 REQUIRED COMPONENTS program_options unit_test_framework)
+find_package(Boost 1.67 REQUIRED COMPONENTS program_options unit_test_framework system)
 
 if( APPLE AND UNIX )
 # Apple Specific Options Here
@@ -193,11 +197,14 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/eosio.version.hpp DESTINATION ${CMAKE_
 
 set(EOS_ROOT_DIR ${CMAKE_BINARY_DIR})
 configure_file(${CMAKE_SOURCE_DIR}/CMakeModules/eosio-config.cmake.in ${CMAKE_BINARY_DIR}/lib/cmake/eosio/eosio-config.cmake @ONLY)
+configure_file(${CMAKE_SOURCE_DIR}/CMakeModules/eosio-config.cmake.in ${CMAKE_BINARY_DIR}/lib/cmake/eosio/mandel-config.cmake @ONLY)
 configure_file(${CMAKE_SOURCE_DIR}/CMakeModules/EosioTesterBuild.cmake.in ${CMAKE_BINARY_DIR}/lib/cmake/eosio/EosioTester.cmake @ONLY)
 
 set(EOS_ROOT_DIR ${CMAKE_INSTALL_PREFIX})
 configure_file(${CMAKE_SOURCE_DIR}/CMakeModules/eosio-config.cmake.in ${CMAKE_BINARY_DIR}/modules/eosio-config.cmake @ONLY)
+configure_file(${CMAKE_SOURCE_DIR}/CMakeModules/eosio-config.cmake.in ${CMAKE_BINARY_DIR}/modules/mandel-config.cmake @ONLY)
 install(FILES ${CMAKE_BINARY_DIR}/modules/eosio-config.cmake DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}/cmake/eosio COMPONENT dev EXCLUDE_FROM_ALL)
+install(FILES ${CMAKE_BINARY_DIR}/modules/mandel-config.cmake DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}/cmake/mandel COMPONENT dev EXCLUDE_FROM_ALL)
 configure_file(${CMAKE_SOURCE_DIR}/CMakeModules/EosioTester.cmake.in ${CMAKE_BINARY_DIR}/modules/EosioTester.cmake @ONLY)
 install(FILES ${CMAKE_BINARY_DIR}/modules/EosioTester.cmake DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}/cmake/eosio COMPONENT dev EXCLUDE_FROM_ALL)
 
