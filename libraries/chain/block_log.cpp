@@ -1,6 +1,5 @@
 #include <eosio/chain/block_log.hpp>
 #include <eosio/chain/exceptions.hpp>
-#include <fstream>
 #include <fc/bitutil.hpp>
 #include <fc/io/cfile.hpp>
 #include <fc/io/raw.hpp>
@@ -50,7 +49,7 @@ namespace eosio { namespace chain {
             uint32_t                 index_first_block_num = 0; //the first number in index & the log had it not been pruned
             std::optional<block_log_prune_config> prune_config;
 
-            block_log_impl(std::optional<block_log_prune_config> prune_conf) :
+            explicit block_log_impl(std::optional<block_log_prune_config> prune_conf) :
               prune_config(prune_conf) {
                if(prune_config) {
                   EOS_ASSERT(prune_config->prune_blocks, block_log_exception, "block log prune configuration requires at least one block");
@@ -65,6 +64,7 @@ namespace eosio { namespace chain {
                   reopen();
                }
             }
+
             void reopen();
 
             //close() is called all over the place. Let's make this an explict call to ensure it only is called when
@@ -105,7 +105,7 @@ namespace eosio { namespace chain {
 
             void flush();
 
-            void append(const signed_block_ptr& b);
+            void append(const signed_block_ptr& b, const block_id_type& id, const std::vector<char>& packed_block);
 
             void prune();
 
@@ -355,11 +355,15 @@ namespace eosio { namespace chain {
       }
    }
 
-   void block_log::append(const signed_block_ptr& b) {
-      my->append(b);
+   void block_log::append(const signed_block_ptr& b, const block_id_type& id) {
+      my->append(b, id, fc::raw::pack(*b));
    }
 
-   void detail::block_log_impl::append(const signed_block_ptr& b) {
+   void block_log::append(const signed_block_ptr& b, const block_id_type& id, const std::vector<char>& packed_block) {
+      my->append(b, id, packed_block);
+   }
+
+   void detail::block_log_impl::append(const signed_block_ptr& b, const block_id_type& id, const std::vector<char>& packed_block) {
       try {
          EOS_ASSERT( genesis_written_to_block_log, block_log_append_fail, "Cannot append to block log until the genesis is first written" );
 
@@ -377,13 +381,12 @@ namespace eosio { namespace chain {
                    "Append to index file occuring at wrong position.",
                    ("position", (uint64_t) index_file.tellp())
                    ("expected", (b->block_num() - index_first_block_num) * sizeof(uint64_t)));
-         auto data = fc::raw::pack(*b);
-         block_file.write(data.data(), data.size());
+         block_file.write(packed_block.data(), packed_block.size());
          block_file.write((char*)&pos, sizeof(pos));
          const uint64_t end = block_file.tellp();
          index_file.write((char*)&pos, sizeof(pos));
          head = b;
-         head_id = b->calculate_id();
+         head_id = id;
 
          if(prune_config) {
             if((pos&prune_config->prune_threshold) != (end&prune_config->prune_threshold))
@@ -566,7 +569,7 @@ namespace eosio { namespace chain {
       block_file.write((char*)&totem, sizeof(totem));
 
       if (first_block) {
-         append(first_block);
+         append(first_block, first_block->calculate_id(), fc::raw::pack(*first_block));
       } else {
          head.reset();
          head_id = {};
