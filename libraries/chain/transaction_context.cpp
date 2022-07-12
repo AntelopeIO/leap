@@ -695,7 +695,7 @@ namespace eosio { namespace chain {
         if (auto dm_logger = control.get_deep_mind_logger()) {
            std::string event_id = RAM_EVENT_ID("${id}", ("id", gto.id));
 
-           dm_logger->on_send_deferred(deep_mind_handler::operation_qualifier::push, gto);
+           dm_logger->on_create_deferred(deep_mind_handler::operation_qualifier::push, gto, packed_trx);
            dm_logger->on_ram_trace(std::move(event_id), "deferred_trx", "push", "deferred_trx_pushed");
         }
       });
