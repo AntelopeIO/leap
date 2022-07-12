@@ -2727,7 +2727,7 @@ namespace eosio {
          valid = false;
       } else if( msg.p2p_address.length() > max_handshake_str_length ) {
          // see max_handshake_str_length comment in protocol.hpp
-         peer_wlog( this, "Handshake message validation: p2p_address to large: ${p}",
+         peer_wlog( this, "Handshake message validation: p2p_address too large: ${p}",
                     ("p", msg.p2p_address.substr(0, max_handshake_str_length) + "...") );
          valid = false;
       }
@@ -2735,12 +2735,12 @@ namespace eosio {
          peer_wlog( this, "Handshake message validation: os field is null string" );
          valid = false;
       } else if( msg.os.length() > max_handshake_str_length ) {
-         peer_wlog( this, "Handshake message validation: os field to large: ${p}",
+         peer_wlog( this, "Handshake message validation: os field too large: ${p}",
                     ("p", msg.os.substr(0, max_handshake_str_length) + "...") );
          valid = false;
       }
       if( msg.agent.length() > max_handshake_str_length ) {
-         peer_wlog( this, "Handshake message validation: agent field to large: ${p}",
+         peer_wlog( this, "Handshake message validation: agent field too large: ${p}",
                   ("p", msg.agent.substr(0, max_handshake_str_length) + "...") );
          valid = false;
       }
@@ -3587,12 +3587,12 @@ namespace eosio {
          if( options.count( "p2p-listen-endpoint" ) && options.at("p2p-listen-endpoint").as<string>().length()) {
             my->p2p_address = options.at( "p2p-listen-endpoint" ).as<string>();
             EOS_ASSERT( my->p2p_address.length() <= max_p2p_address_length, chain::plugin_config_exception,
-                        "p2p-listen-endpoint to long, must be less than ${m}", ("m", max_p2p_address_length) );
+                        "p2p-listen-endpoint too long, must be less than ${m}", ("m", max_p2p_address_length) );
          }
          if( options.count( "p2p-server-address" ) ) {
             my->p2p_server_address = options.at( "p2p-server-address" ).as<string>();
             EOS_ASSERT( my->p2p_server_address.length() <= max_p2p_address_length, chain::plugin_config_exception,
-                        "p2p_server_address to long, must be less than ${m}", ("m", max_p2p_address_length) );
+                        "p2p_server_address too long, must be less than ${m}", ("m", max_p2p_address_length) );
          }
 
          my->thread_pool_size = options.at( "net-threads" ).as<uint16_t>();
@@ -3605,7 +3605,7 @@ namespace eosio {
          if( options.count( "agent-name" )) {
             my->user_agent_name = options.at( "agent-name" ).as<string>();
             EOS_ASSERT( my->user_agent_name.length() <= max_handshake_str_length, chain::plugin_config_exception,
-                        "agent-name to long, must be less than ${m}", ("m", max_handshake_str_length) );
+                        "agent-name too long, must be less than ${m}", ("m", max_handshake_str_length) );
          }
 
          if( options.count( "allowed-connection" )) {
