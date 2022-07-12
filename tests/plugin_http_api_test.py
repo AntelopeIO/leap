@@ -19,6 +19,7 @@ class PluginHttpTest(unittest.TestCase):
     node_id = 1
     nodeos = Node(TestHelper.LOCAL_HOST, TestHelper.DEFAULT_PORT, node_id, walletMgr=keosd)
     data_dir = Utils.getNodeDataDir(node_id)
+    config_dir = Utils.getNodeConfigDir(node_id)
     http_post_str = " -X POST -d "
     http_post_invalid_param = " '{invalid}' "
     empty_content_str = " ' { } '  "
@@ -31,13 +32,21 @@ class PluginHttpTest(unittest.TestCase):
             shutil.rmtree(self.data_dir)
         os.makedirs(self.data_dir)
 
-    # kill nodeos and keosd and clean up dir
+    # make a fresh config dir
+    def createConfigDir(self):
+        if os.path.exists(self.config_dir):
+            shutil.rmtree(self.config_dir)
+        os.makedirs(self.config_dir)
+
+    # kill nodeos and keosd and clean up dirs
     def cleanEnv(self) :
         self.keosd.killall(True)
         WalletMgr.cleanup()
         Node.killAllNodeos()
         if os.path.exists(self.data_dir):
             shutil.rmtree(self.data_dir)
+        if os.path.exists(self.config_dir):
+            shutil.rmtree(self.config_dir)
         time.sleep(self.sleep_s)
 
     # start keosd and nodeos
