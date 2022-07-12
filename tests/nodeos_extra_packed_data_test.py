@@ -31,7 +31,7 @@ from core_symbol import CORE_SYMBOL
 
 args = TestHelper.parse_args({"--host","--port","-p","--defproducera_prvt_key","--defproducerb_prvt_key"
                               ,"--dump-error-details","--dont-launch","--keep-logs","-v","--leave-running","--clean-run"
-                              ,"--sanity-test","--wallet-port", "--alternate-version-labels-file"})
+                              ,"--sanity-test","--wallet-port"})
 server=args.host
 port=args.port
 debug=args.v
@@ -45,7 +45,6 @@ pnodes=args.p
 killAll=args.clean_run
 sanityTest=args.sanity_test
 walletPort=args.wallet_port
-alternateVersionLabelsFile=args.alternate_version_labels_file
 
 Utils.Debug=debug
 localTest=True if server == TestHelper.LOCAL_HOST else False
@@ -78,22 +77,18 @@ try:
         specificExtraNodeosArgs = {}
         associatedNodeLabels = {}
         if pnodes > 1:
-            specificExtraNodeosArgs[pnodes - 1] = " --backing-store=rocksdb"
+            specificExtraNodeosArgs[pnodes - 1] = ""
         if pnodes > 3:
-            specificExtraNodeosArgs[pnodes - 2] = " --backing-store=rocksdb"
+            specificExtraNodeosArgs[pnodes - 2] = ""
 
-        if alternateVersionLabelsFile is not None:
-            #that means we are in multiversion mode
-            for i in range( int(pnodes / 2) ):
-                associatedNodeLabels[str(i)] = "209"
-        
+        traceNodeosArgs = " --plugin eosio::trace_api_plugin --trace-no-abis "
         if cluster.launch(totalNodes=pnodes, 
                           pnodes=pnodes,
                           dontBootstrap=dontBootstrap,
                           pfSetupPolicy=PFSetupPolicy.PREACTIVATE_FEATURE_ONLY,
                           specificExtraNodeosArgs=specificExtraNodeosArgs,
-                          alternateVersionLabelsFile=alternateVersionLabelsFile,
-                          associatedNodeLabels=associatedNodeLabels) is False:
+                          associatedNodeLabels=associatedNodeLabels,
+                          extraNodeosArgs=traceNodeosArgs,) is False:
             cmdError("launcher")
             errorExit("Failed to stand up eos cluster.")
     else:
@@ -186,7 +181,7 @@ try:
         attemptCnt = 10
         trxBlock = None
         while trxBlock is None and attemptCnt > 0:
-            trxBlock = node.getBlockIdByTransId(trx_id)
+            trxBlock = node.getBlockNumByTransId(trx_id)
             attemptCnt = attemptCnt - 1
         
         assert trxBlock, Print("Transaction %s wasn't posted" % (trx_id))
