@@ -147,7 +147,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
           : plugin(std::move(plugin)), socket_stream(std::move(socket)) {}
 
       void start() {
-         ilog("incoming connection");
+         fc_ilog(_log, "incoming connection");
          socket_stream.auto_fragment(false);
          socket_stream.binary(true);
          if constexpr (std::is_same_v<SocketType, tcp::socket>) {
@@ -376,9 +376,9 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
       void on_fail(boost::system::error_code ec, const char* what) {
          try {
             if (ec == boost::asio::error::eof) {
-               dlog("${w}: ${m}", ("w", what)("m", ec.message()));
+               fc_dlog(_log, "${w}: ${m}", ("w", what)("m", ec.message()));
             } else {
-               elog("${w}: ${m}", ("w", what)("m", ec.message()));
+               fc_elog(_log, "${w}: ${m}", ("w", what)("m", ec.message()));
             }
             close();
          } catch (...) {
@@ -390,7 +390,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
          boost::system::error_code ec;
          socket_stream.next_layer().close(ec);
          if (ec) {
-            elog("close: ${m}", ("m", ec.message()));
+            fc_elog(_log, "close: ${m}", ("m", ec.message()));
          }
          plugin->sessions.remove(this->shared_from_this());
       }
@@ -453,7 +453,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
       auto check_ec = [&](const char* what) {
          if (!ec)
             return;
-         elog("${w}: ${m}", ("w", what)("m", ec.message()));
+         fc_elog(_log, "${w}: ${m}", ("w", what)("m", ec.message()));
          EOS_ASSERT(false, plugin_exception, "unable to open unix socket");
       };
 
@@ -514,7 +514,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
          store_traces(block_state);
          store_chain_state(block_state);
       } catch (const fc::exception& e) {
-         elog("fc::exception: ${details}", ("details", e.to_detail_string()));
+         fc_elog(_log, "fc::exception: ${details}", ("details", e.to_detail_string()));
          // Both app().quit() and exception throwing are required. Without app().quit(),
          // the exception would be caught and drop before reaching main(). The exception is
          // to ensure the block won't be commited.
@@ -565,7 +565,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
          return;
       bool fresh = chain_state_log->begin_block() == chain_state_log->end_block();
       if (fresh)
-         ilog("Placing initial state in block ${n}", ("n", block_state->block->block_num()));
+         fc_ilog(_log, "Placing initial state in block ${n}", ("n", block_state->block->block_num()));
 
       std::vector<table_delta> deltas     = state_history::create_deltas(chain_plug->chain().db(), fresh);
       auto                     deltas_bin = state_history::zlib_compress_bytes(fc::raw::pack(deltas));
@@ -637,12 +637,15 @@ void state_history_plugin::plugin_initialize(const variables_map& options) {
          resmon_plugin->monitor_directory(state_history_dir);
 
       auto ip_port = options.at("state-history-endpoint").as<string>();
+
       if (ip_port.size()) {
          auto port            = ip_port.substr(ip_port.find(':') + 1, ip_port.size());
          auto host            = ip_port.substr(0, ip_port.find(':'));
          my->endpoint_address = host;
          my->endpoint_port    = std::stoi(port);
-         idump((ip_port)(host)(port));
+
+         fc_dlog(_log, "PLUGIN_INITIALIZE ${ip_port} ${host} ${port}",
+                 ("ip_port", ip_port)("host", host)("port", port));
       }
 
       if (options.count("state-history-unix-socket-path")) {
@@ -682,6 +685,8 @@ void state_history_plugin::plugin_initialize(const variables_map& options) {
 } // state_history_plugin::plugin_initialize
 
 void state_history_plugin::plugin_startup() {
+   handle_sighup(); // setup logging
+
    try {
       my->thr = std::thread([ptr = my.get()] { ptr->ctx.run(); });
 
@@ -709,8 +714,6 @@ void state_history_plugin::plugin_shutdown() {
    }
 }
 
-void state_history_plugin::handle_sighup() {
-   fc::logger::update( logger_name, _log );
-}
+void state_history_plugin::handle_sighup() { fc::logger::update(logger_name, _log); }
 
 } // namespace eosio
