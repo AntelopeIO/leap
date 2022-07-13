@@ -89,7 +89,7 @@ class state_history_log {
    boost::asio::io_context::strand                                          work_strand{ctx};
    boost::asio::executor_work_guard<boost::asio::io_context::executor_type> work_guard =
        boost::asio::make_work_guard(ctx);
-   std::mutex                                                               mx;
+   std::recursive_mutex                                                     mx;
 
  public:
    state_history_log(const char* const name, std::string log_filename, std::string index_filename,
@@ -203,7 +203,7 @@ class state_history_log {
          std::rethrow_exception(eptr);
       }
 
-      std::unique_lock<std::mutex> lock(mx);
+      std::unique_lock<std::recursive_mutex> lock(mx);
       
       auto block_num = chain::block_header::num_from_id(header.block_id);
       EOS_ASSERT(_begin_block == _end_block || block_num <= _end_block, chain::plugin_exception,
@@ -233,9 +233,10 @@ class state_history_log {
          header.magic = ship_magic(get_ship_version(header.magic), ship_feature_pruned_log);
 
       uint64_t pos = log.tellp();
-      
-      lock.unlock();
+            
       write_header(header);
+
+      lock.unlock();
       write_payload(log);
       lock.lock();
 
@@ -262,6 +263,7 @@ class state_history_log {
    fc::cfile& get_entry(uint32_t block_num, state_history_log_header& header) {
       EOS_ASSERT(block_num >= _begin_block && block_num < _end_block, chain::plugin_exception,
                  "read non-existing block in ${name}.log", ("name", name));
+      std::lock_guard lock(mx);
       log.seek(get_pos(block_num));
       read_header(header);
       return log;
@@ -276,6 +278,7 @@ class state_history_log {
 
  private:
    //file position must be at start of last block's suffix (back pointer)
+   //called from open_log / ctor 
    bool get_last_block() {
       state_history_log_header header;
       uint64_t                 suffix;
@@ -357,6 +360,7 @@ class state_history_log {
       EOS_ASSERT(get_last_block(), chain::plugin_exception, "recover ${name}.log failed", ("name", name));
    }
 
+   // only called from constructor
    void open_log() {
       log.set_file_path(log_filename);
       log.open("a+b");
@@ -403,6 +407,7 @@ class state_history_log {
       }
    }
 
+   // only called from constructor
    void open_index() {
       index.set_file_path(index_filename);
       index.open("a+b");

@@ -38,6 +38,10 @@ void async_teardown(role_type, unixs::socket& sock, TeardownHandler&& handler) {
 }
 #endif
 
+// overload pattern for variant visitation
+template<class... Ts> struct overload : Ts... { using Ts::operator()...; };
+template<class... Ts> overload(Ts...) -> overload<Ts...>;
+
 namespace eosio {
 using namespace chain;
 using namespace state_history;
@@ -72,8 +76,9 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
    std::optional<scoped_connection> accepted_block_connection;
    string                           endpoint_address;
    uint16_t                         endpoint_port    = 8080;
-   std::unique_ptr<tcp::acceptor>   acceptor;
-   std::unique_ptr<unixs::acceptor> unix_acceptor;
+  // std::unique_ptr<tcp::acceptor>   acceptor;
+  // std::unique_ptr<unixs::acceptor> unix_acceptor;
+   std::variant<std::unique_ptr<tcp::acceptor>, std::unique_ptr<unixs::acceptor>> acceptor;
    state_history::trace_converter   trace_converter;
 
    std::thread                                                              thr;
@@ -425,64 +430,61 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
    void listen() {
       boost::system::error_code ec;
 
-      auto address  = boost::asio::ip::make_address(endpoint_address);
-      auto endpoint = tcp::endpoint{address, endpoint_port};
-      acceptor      = std::make_unique<tcp::acceptor>(app().get_io_service());
-
-      auto check_ec = [&](const char* what) {
-         if (!ec)
-            return;
-         fc_elog(_log,"${w}: ${m}", ("w", what)("m", ec.message()));
-         EOS_ASSERT(false, plugin_exception, "unable to open listen socket");
-      };
-
-      acceptor->open(endpoint.protocol(), ec);
-      check_ec("open");
-      acceptor->set_option(boost::asio::socket_base::reuse_address(true));
-      acceptor->bind(endpoint, ec);
-      check_ec("bind");
-      acceptor->listen(boost::asio::socket_base::max_listen_connections, ec);
-      check_ec("listen");
-      do_accept(*acceptor);
-   }
-
-   void unix_listen() {
-      boost::system::error_code ec;
-
       auto check_ec = [&](const char* what) {
          if (!ec)
             return;
          fc_elog(_log, "${w}: ${m}", ("w", what)("m", ec.message()));
-         EOS_ASSERT(false, plugin_exception, "unable to open unix socket");
+         EOS_ASSERT(false, plugin_exception, "unable to open listen socket");
       };
 
-      // take a sniff and see if anything is already listening at the given socket path, or if the socket path exists
-      //  but nothing is listening
-      {
-         boost::system::error_code test_ec;
-         unixs::socket             test_socket(app().get_io_service());
-         test_socket.connect(endpoint_address.c_str(), test_ec);
+      auto init_tcp_acceptor  = [&]() { acceptor = std::make_unique<tcp::acceptor>(app().get_io_service()); };
+      auto init_unix_acceptor = [&]() {
+         // take a sniff and see if anything is already listening at the given socket path, or if the socket path exists
+         //  but nothing is listening
+         {
+            boost::system::error_code test_ec;
+            unixs::socket             test_socket(app().get_io_service());
+            test_socket.connect(endpoint_address.c_str(), test_ec);
 
-         // looks like a service is already running on that socket, don't touch it... fail out
-         if (test_ec == boost::system::errc::success)
-            ec = boost::system::errc::make_error_code(boost::system::errc::address_in_use);
-         // socket exists but no one home, go ahead and remove it and continue on
-         else if (test_ec == boost::system::errc::connection_refused)
-            ::unlink(endpoint_address.c_str());
-         else if (test_ec != boost::system::errc::no_such_file_or_directory)
-            ec = test_ec;
-      }
+            // looks like a service is already running on that socket, don't touch it... fail out
+            if (test_ec == boost::system::errc::success)
+               ec = boost::system::errc::make_error_code(boost::system::errc::address_in_use);
+            // socket exists but no one home, go ahead and remove it and continue on
+            else if (test_ec == boost::system::errc::connection_refused)
+               ::unlink(endpoint_address.c_str());
+            else if (test_ec != boost::system::errc::no_such_file_or_directory)
+               ec = test_ec;
+         }
+         check_ec("open");
+         acceptor = std::make_unique<unixs::acceptor>(this->ctx);
+      };
 
-      check_ec("open");
+      // create and configure acceptors
+      endpoint_port ? init_tcp_acceptor() : init_unix_acceptor();
 
-      unix_acceptor = std::make_unique<unixs::acceptor>(this->ctx);
-      unix_acceptor->open(unixs::acceptor::protocol_type(), ec);
-      check_ec("open");
-      unix_acceptor->bind(endpoint_address.c_str(), ec);
-      check_ec("bind");
-      unix_acceptor->listen(boost::asio::socket_base::max_listen_connections, ec);
-      check_ec("listen");
-      do_accept(*unix_acceptor);
+      // start it
+      std::visit(overload{[&](const std::unique_ptr<tcp::acceptor>& tcp_acc) {
+                             auto address  = boost::asio::ip::make_address(endpoint_address);
+                             auto endpoint = tcp::endpoint{address, endpoint_port};
+                             tcp_acc->open(endpoint.protocol(), ec);
+                             check_ec("open");
+                             tcp_acc->set_option(boost::asio::socket_base::reuse_address(true));
+                             tcp_acc->bind(endpoint, ec);
+                             check_ec("bind");
+                             tcp_acc->listen(boost::asio::socket_base::max_listen_connections, ec);
+                             check_ec("listen");
+                             do_accept(*tcp_acc);
+                          },
+                          [&](const std::unique_ptr<unixs::acceptor>& unx_acc) {
+                             unx_acc->open(unixs::acceptor::protocol_type(), ec);
+                             check_ec("open");
+                             unx_acc->bind(endpoint_address.c_str(), ec);
+                             check_ec("bind");
+                             unx_acc->listen(boost::asio::socket_base::max_listen_connections, ec);
+                             check_ec("listen");
+                             do_accept(*unx_acc);
+                          }},
+                 acceptor);
    }
 
    template <typename Acceptor>
@@ -689,7 +691,7 @@ void state_history_plugin::plugin_startup() {
 
    try {
       my->thr = std::thread([ptr = my.get()] { ptr->ctx.run(); });
-      my->endpoint_port ? my->listen() : my->unix_listen();
+      my->listen();
    } catch (std::exception& ex) {
       appbase::app().quit();
    }
