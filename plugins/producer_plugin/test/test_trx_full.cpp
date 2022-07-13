@@ -147,7 +147,7 @@ BOOST_AUTO_TEST_CASE(producer) {
          dlog( "posting ${id}", ("id", ptrx->id()) );
          app().post( priority::low, [ptrx, &next_calls, &num_posts, &trace_with_except, &trx_match, &trxs]() {
             ++num_posts;
-            bool return_failure_traces = num_posts % 2; // 2.2.x+ = num_posts % 2 == 0;
+            bool return_failure_traces = num_posts % 2;
             app().get_method<plugin_interface::incoming::methods::transaction_async>()(ptrx,
                false, // persist_until_expiried
                false, // read_only
