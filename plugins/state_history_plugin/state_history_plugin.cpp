@@ -73,7 +73,6 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
    string                           endpoint_address;
    uint16_t                         endpoint_port    = 8080;
    std::unique_ptr<tcp::acceptor>   acceptor;
-   string                           unix_path;
    std::unique_ptr<unixs::acceptor> unix_acceptor;
    state_history::trace_converter   trace_converter;
 
@@ -462,14 +461,14 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
       {
          boost::system::error_code test_ec;
          unixs::socket             test_socket(app().get_io_service());
-         test_socket.connect(unix_path.c_str(), test_ec);
+         test_socket.connect(endpoint_address.c_str(), test_ec);
 
          // looks like a service is already running on that socket, don't touch it... fail out
          if (test_ec == boost::system::errc::success)
             ec = boost::system::errc::make_error_code(boost::system::errc::address_in_use);
          // socket exists but no one home, go ahead and remove it and continue on
          else if (test_ec == boost::system::errc::connection_refused)
-            ::unlink(unix_path.c_str());
+            ::unlink(endpoint_address.c_str());
          else if (test_ec != boost::system::errc::no_such_file_or_directory)
             ec = test_ec;
       }
@@ -479,7 +478,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
       unix_acceptor = std::make_unique<unixs::acceptor>(this->ctx);
       unix_acceptor->open(unixs::acceptor::protocol_type(), ec);
       check_ec("open");
-      unix_acceptor->bind(unix_path.c_str(), ec);
+      unix_acceptor->bind(endpoint_address.c_str(), ec);
       check_ec("bind");
       unix_acceptor->listen(boost::asio::socket_base::max_listen_connections, ec);
       check_ec("listen");
@@ -652,7 +651,8 @@ void state_history_plugin::plugin_initialize(const variables_map& options) {
          boost::filesystem::path sock_path = options.at("state-history-unix-socket-path").as<string>();
          if (sock_path.is_relative())
             sock_path = app().data_dir() / sock_path;
-         my->unix_path = sock_path.generic_string();
+         my->endpoint_address = sock_path.generic_string();
+         my->endpoint_port    = 0;
       }
 
       if (options.at("delete-state-history").as<bool>()) {
@@ -689,11 +689,7 @@ void state_history_plugin::plugin_startup() {
 
    try {
       my->thr = std::thread([ptr = my.get()] { ptr->ctx.run(); });
-
-      if (my->endpoint_address.size())
-         my->listen();
-      if (my->unix_path.size())
-         my->unix_listen();
+      my->endpoint_port ? my->listen() : my->unix_listen();
    } catch (std::exception& ex) {
       appbase::app().quit();
    }
