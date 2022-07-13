@@ -181,9 +181,8 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
              });
       }
 
-      
-
-       void send() {
+     
+      void send() {
          if (sending)
             return;
          if (send_queue.empty())
@@ -368,7 +367,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
          app().post(priority::medium, [=]() {
             if (plugin->stopping)
                return;
-            if (ec) 
+            if (ec)
                return on_fail(ec, what);
             catch_and_close(f);
          });
