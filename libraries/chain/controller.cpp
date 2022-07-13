@@ -3498,10 +3498,7 @@ std::optional<chain_id_type> controller::extract_chain_id_from_db( const path& s
       if (gpo==nullptr) return {};
 
       return gpo->chain_id;
-
-   } catch (std::system_error &) {   
-   
-   } 
+   } catch (std::system_error &) {} //  do not propagate db_error_code::not_found" for absent db, so it will be created 
 
    return {};
 }
