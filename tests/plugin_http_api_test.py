@@ -1516,25 +1516,6 @@ class PluginHttpTest(unittest.TestCase):
         ret_json = Utils.runCmdReturnJson(invalid_cmd)
         self.assertEqual(ret_json["code"], 400)
 
-        # get_reversible with empty parameter
-        default_cmd = cmd_base + "get_reversible"
-        ret_json = Utils.runCmdReturnJson(default_cmd)
-        self.assertIn("free_bytes", ret_json)
-        self.assertIn("used_bytes", ret_json)
-        self.assertIn("size", ret_json)
-        self.assertIn("indices", ret_json)
-        # get_reversible with empty content parameter
-        empty_content_cmd = default_cmd + self.http_post_str + self.empty_content_str
-        ret_json = Utils.runCmdReturnJson(empty_content_cmd)
-        self.assertIn("free_bytes", ret_json)
-        self.assertIn("used_bytes", ret_json)
-        self.assertIn("size", ret_json)
-        self.assertIn("indices", ret_json)
-        # get_reversible with invalid parameter
-        invalid_cmd = default_cmd + self.http_post_str + self.http_post_invalid_param
-        ret_json = Utils.runCmdReturnJson(invalid_cmd)
-        self.assertEqual(ret_json["code"], 400)
-
     def test_multipleRequests(self):
         """Test keep-alive ability of HTTP plugin.  Handle multiple requests in a single session"""
         host = self.nodeos.host
