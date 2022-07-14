@@ -86,8 +86,8 @@ int main(int argc, char *argv[]) {
       std::cerr << "{\n   \"status\": \"set_abi\",\n   \"time\": " << time(NULL)
                 << "\n},\n";
 
-      const eosio::abi_type &request_type = abi.abi_types.at("request");
-      const eosio::abi_type &result_type = abi.abi_types.at("result");
+      const eosio::abi_type& request_type = abi.abi_types.at("request");
+      const eosio::abi_type& result_type = abi.abi_types.at("result");
 
       bool is_first = true;
       uint32_t first_block_num = 0;
