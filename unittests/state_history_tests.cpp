@@ -494,7 +494,6 @@ BOOST_AUTO_TEST_CASE(test_deltas_resources_history) {
       std::multiset<std::string> result_contract_row_table_names;
       std::multiset<uint64_t> result_contract_row_table_primary_keys;
       for(auto &contract_row : contract_rows) {
-         std::cerr << contract_row.table.to_string() << ":" << contract_row.primary_key << std::endl;
          result_contract_row_table_names.insert(contract_row.table.to_string());
          result_contract_row_table_primary_keys.insert(contract_row.primary_key);
       }
