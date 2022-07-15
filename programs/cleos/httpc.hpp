@@ -135,5 +135,8 @@ namespace eosio { namespace client { namespace http {
    const string wallet_sign_trx = wallet_func_base + "/sign_transaction";
    const string keosd_stop = "/v1/" + string(client::config::key_store_executable_name) + "/stop";
 
+   const string producer_func_base = "/v1/producer";
+   const string producer_get_supported_protocol_features_func = producer_func_base + "/get_supported_protocol_features";
+
    FC_DECLARE_EXCEPTION( connection_exception, 1100000, "Connection Exception" );
  }}}
