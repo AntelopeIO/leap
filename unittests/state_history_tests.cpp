@@ -453,15 +453,8 @@ BOOST_AUTO_TEST_CASE(test_deltas_resources_history) {
    }
 
    BOOST_AUTO_TEST_CASE(test_deltas_contract_several_rows){
-      table_deltas_tester chain(setup_policy::preactivate_feature_and_new_bios );
+      table_deltas_tester chain(setup_policy::full);
 
-      chain.produce_block();
-
-      const auto& pfm = chain.control->get_protocol_feature_manager();
-      const auto& d = pfm.get_builtin_digest( builtin_protocol_feature_t::crypto_primitives );
-      BOOST_REQUIRE( d );
-
-      chain.preactivate_protocol_features( {*d} );
       chain.produce_block();
       chain.create_account("tester"_n);
 
@@ -492,14 +485,16 @@ BOOST_AUTO_TEST_CASE(test_deltas_resources_history) {
       auto result = chain.find_table_delta("contract_row", true);
       BOOST_REQUIRE(result.first);
       auto &it_contract_row = result.second;
-      BOOST_REQUIRE_EQUAL(it_contract_row->rows.obj.size(), 6);
+      BOOST_REQUIRE_EQUAL(it_contract_row->rows.obj.size(), 8);
       auto contract_rows = chain.deserialize_data<eosio::ship_protocol::contract_row_v0, eosio::ship_protocol::contract_row>(it_contract_row);
 
-      std::multiset<std::string> expected_contract_row_table_names {"hashobjs", "hashobjs", "hashobjs", "numobjs", "numobjs", "numobjs"};
-      std::multiset<uint64_t> expected_contract_row_table_primary_keys {0, 1 ,2, 0, 1, 2};
+      std::multiset<std::string> expected_contract_row_table_names {"abihash", "abihash", "hashobjs", "hashobjs", "hashobjs", "numobjs", "numobjs", "numobjs"};
+
+      std::multiset<uint64_t> expected_contract_row_table_primary_keys {6138663577826885632,14605619288908759040, 0, 1 ,2, 0, 1, 2};
       std::multiset<std::string> result_contract_row_table_names;
       std::multiset<uint64_t> result_contract_row_table_primary_keys;
       for(auto &contract_row : contract_rows) {
+         std::cerr << contract_row.table.to_string() << ":" << contract_row.primary_key << std::endl;
          result_contract_row_table_names.insert(contract_row.table.to_string());
          result_contract_row_table_primary_keys.insert(contract_row.primary_key);
       }
