@@ -3505,11 +3505,11 @@ std::optional<chain_id_type> controller::extract_chain_id_from_db( const path& s
 
       if( db.revision() < 1 ) return {};
 
-      return db.get<global_property_object>().chain_id;
-   } catch( const bad_database_version_exception& ) {
-      throw;
-   } catch( ... ) {
-   }
+      auto * gpo = db.find<global_property_object>();
+      if (gpo==nullptr) return {};
+
+      return gpo->chain_id;
+   } catch (std::system_error &) {} //  do not propagate db_error_code::not_found" for absent db, so it will be created 
 
    return {};
 }
