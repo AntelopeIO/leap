@@ -2337,8 +2337,8 @@ struct activate_subcommand {
       std::string description = "The name, one of below (lowercase also works):\n" + supported_features.names;
       auto activate = actionRoot->add_subcommand("activate", localized("Activate protocol feature by name"));
       activate->add_option("feature",  feature_name_str, localized(description.c_str()))->required();
-      activate->add_option("-a,--account", account_str, localized("The contract account name. default is eosio"));
-      activate->add_option("-p,--permission", permission_str, localized("The permission level to authorize, Default is eosio"));
+      activate->add_option("-a,--account", account_str, localized("The contract account name, default is eosio"));
+      activate->add_option("-p,--permission", permission_str, localized("The permission level to authorize, default is eosio"));
       activate->fallthrough(false);
 
       activate->callback([this] {
