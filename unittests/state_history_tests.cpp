@@ -453,10 +453,16 @@ BOOST_AUTO_TEST_CASE(test_deltas_resources_history) {
    }
 
    BOOST_AUTO_TEST_CASE(test_deltas_contract_several_rows){
-      table_deltas_tester chain(setup_policy::none);
+      table_deltas_tester chain(setup_policy::preactivate_feature_and_new_bios );
 
       chain.produce_block();
 
+      const auto& pfm = chain.control->get_protocol_feature_manager();
+      const auto& d = pfm.get_builtin_digest( builtin_protocol_feature_t::crypto_primitives );
+      BOOST_REQUIRE( d );
+
+      chain.preactivate_protocol_features( {*d} );
+      chain.produce_block();
       chain.create_account("tester"_n);
 
       chain.set_code("tester"_n, contracts::get_table_test_wasm());
@@ -501,7 +507,7 @@ BOOST_AUTO_TEST_CASE(test_deltas_resources_history) {
       BOOST_REQUIRE(expected_contract_row_table_primary_keys == result_contract_row_table_primary_keys);
 
       chain.produce_block();
-/* TODO erasenumobj does not exist in mandel
+
       trace = chain.push_action("tester"_n, "erasenumobj"_n, "tester"_n, mutable_variant_object()("id", 1));
       BOOST_REQUIRE_EQUAL(transaction_receipt::executed, trace->receipt->status);
 
@@ -529,7 +535,7 @@ BOOST_AUTO_TEST_CASE(test_deltas_resources_history) {
          BOOST_REQUIRE_EQUAL(it_contract_index_double->rows.obj[i].first, 0);
          BOOST_REQUIRE_EQUAL(contract_index_double_elems[i].table.to_string(), "numobjs.....2");
       }
-      */
+
    }
 
 BOOST_AUTO_TEST_SUITE_END()
