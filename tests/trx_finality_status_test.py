@@ -47,7 +47,6 @@ dontKill=args.leave_running
 prodCount=1
 killAll=args.clean_run
 walletPort=TestHelper.DEFAULT_WALLET_PORT
-totalNodes=pnodes+1
 
 walletMgr=WalletMgr(True, port=walletPort)
 testSuccessful=False
