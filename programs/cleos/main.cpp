@@ -2350,7 +2350,8 @@ struct activate_subcommand {
             std::string digest = supported_features.digests[feature_name_str];
             data =  "[\"" + digest + "\"]";
          } else {
-            std::cout << feature_name_str << " not known. Use \"cleos get supported_protocol_features\" to find supported protocol features." << std::endl;
+            std::cerr << feature_name_str << " is unknown. Following protocol features are supported" << std::endl << std::endl;
+            std::cerr << supported_features.names << std::endl;
             return;
          }
          fc::variant action_args_var;
