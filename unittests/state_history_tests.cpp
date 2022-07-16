@@ -57,6 +57,16 @@ private:
    deltas_vector v;
 };
 
+BOOST_AUTO_TEST_CASE(test_deltas_not_empty) {
+   table_deltas_tester chain;
+
+   auto deltas = eosio::state_history::create_deltas(chain.control->db(), false);
+
+   for(const auto &delta: deltas) {
+      BOOST_REQUIRE(!delta.rows.obj.empty());
+   }
+}
+
 BOOST_AUTO_TEST_CASE(test_deltas_account_creation) {
    table_deltas_tester chain;
    chain.produce_block();
