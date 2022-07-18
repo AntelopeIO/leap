@@ -347,7 +347,7 @@ fc::variant call( const std::string& url,
                   const std::string& path) { return call( url, path, fc::variant() ); }
 
 eosio::chain_apis::read_only::get_consensus_parameters_results get_consensus_parameters() {
-   return call(default_url, get_consensus_parameters_func).as<eosio::chain_apis::read_only::get_consensus_parameters_results>();
+   return call(url, get_consensus_parameters_func).as<eosio::chain_apis::read_only::get_consensus_parameters_results>();
 }
 
 eosio::chain_apis::read_only::get_info_results get_info() {
