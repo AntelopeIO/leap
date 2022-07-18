@@ -115,6 +115,7 @@ struct building_block {
                    const vector<digest_type>& new_protocol_feature_activations )
    :_pending_block_header_state( prev.next( when, num_prev_blocks_to_confirm ) )
    ,_new_protocol_feature_activations( new_protocol_feature_activations )
+   ,_trx_mroot_or_receipt_digests( digests_t{} )
    {}
 
    pending_block_header_state                 _pending_block_header_state;
@@ -122,10 +123,9 @@ struct building_block {
    vector<digest_type>                        _new_protocol_feature_activations;
    size_t                                     _num_new_protocol_features_that_have_activated = 0;
    deque<transaction_metadata_ptr>            _pending_trx_metas;
-   deque<transaction_receipt>                 _pending_trx_receipts;
-   deque<digest_type>                         _pending_trx_receipt_digests;
-   deque<digest_type>                         _action_receipt_digests;
-   std::optional<checksum256_type>            _transaction_mroot;
+   deque<transaction_receipt>                 _pending_trx_receipts; // boost deque in 1.71 with 1024 elements performs better
+   std::variant<checksum256_type, digests_t>  _trx_mroot_or_receipt_digests;
+   digests_t                                  _action_receipt_digests;
 };
 
 struct assembled_block {
@@ -403,8 +403,15 @@ struct controller_impl {
       if( fork_head->dpos_irreversible_blocknum <= lib_num )
          return;
 
-      const auto branch = fork_db.fetch_branch( fork_head->id, fork_head->dpos_irreversible_blocknum );
+      auto branch = fork_db.fetch_branch( fork_head->id, fork_head->dpos_irreversible_blocknum );
       try {
+
+         std::vector<std::future<std::vector<char>>> v;
+         v.reserve( branch.size() );
+         for( auto bitr = branch.rbegin(); bitr != branch.rend(); ++bitr ) {
+            v.emplace_back( async_thread_pool( thread_pool.get_executor(), [b=(*bitr)->block]() { return fc::raw::pack(*b); } ) );
+         }
+         auto it = v.begin();
 
          for( auto bitr = branch.rbegin(); bitr != branch.rend(); ++bitr ) {
             if( read_mode == db_read_mode::IRREVERSIBLE ) {
@@ -418,7 +425,8 @@ struct controller_impl {
 
             // blog.append could fail due to failures like running out of space.
             // Do it before commit so that in case it throws, DB can be rolled back.
-            blog.append( (*bitr)->block );
+            blog.append( (*bitr)->block, (*bitr)->id, it->get() );
+            ++it;
 
             db.commit( (*bitr)->block_num );
             root_id = (*bitr)->id;
@@ -433,8 +441,12 @@ struct controller_impl {
       //db.commit( fork_head->dpos_irreversible_blocknum ); // redundant
 
       if( root_id != fork_db.root()->id ) {
+         branch.emplace_back(fork_db.root());
          fork_db.advance_root( root_id );
       }
+
+      // delete branch in thread pool
+      boost::asio::post( thread_pool.get_executor(), [branch{std::move(branch)}]() {} );
    }
 
    /**
@@ -1088,7 +1100,8 @@ struct controller_impl {
       auto& bb = std::get<building_block>(pending->_block_stage);
       auto orig_trx_receipts_size           = bb._pending_trx_receipts.size();
       auto orig_trx_metas_size              = bb._pending_trx_metas.size();
-      auto orig_trx_receipt_digests_size    = bb._pending_trx_receipt_digests.size();
+      auto orig_trx_receipt_digests_size    = std::holds_alternative<digests_t>(bb._trx_mroot_or_receipt_digests) ?
+                                              std::get<digests_t>(bb._trx_mroot_or_receipt_digests).size() : 0;
       auto orig_action_receipt_digests_size = bb._action_receipt_digests.size();
       std::function<void()> callback = [this,
             orig_trx_receipts_size,
@@ -1099,7 +1112,8 @@ struct controller_impl {
          auto& bb = std::get<building_block>(pending->_block_stage);
          bb._pending_trx_receipts.resize(orig_trx_receipts_size);
          bb._pending_trx_metas.resize(orig_trx_metas_size);
-         bb._pending_trx_receipt_digests.resize(orig_trx_receipt_digests_size);
+         if( std::holds_alternative<digests_t>(bb._trx_mroot_or_receipt_digests) )
+            std::get<digests_t>(bb._trx_mroot_or_receipt_digests).resize(orig_trx_receipt_digests_size);
          bb._action_receipt_digests.resize(orig_action_receipt_digests_size);
       };
 
@@ -1451,7 +1465,9 @@ struct controller_impl {
       r.cpu_usage_us         = cpu_usage_us;
       r.net_usage_words      = net_usage_words;
       r.status               = status;
-      std::get<building_block>(pending->_block_stage)._pending_trx_receipt_digests.emplace_back( r.digest() );
+      auto& bb = std::get<building_block>(pending->_block_stage);
+      if( std::holds_alternative<digests_t>(bb._trx_mroot_or_receipt_digests) )
+         std::get<digests_t>(bb._trx_mroot_or_receipt_digests).emplace_back( r.digest() );
       return r;
    }
 
@@ -1775,6 +1791,21 @@ struct controller_impl {
 
       auto& pbhs = pending->get_pending_block_header_state();
 
+      auto& bb = std::get<building_block>(pending->_block_stage);
+
+      auto action_merkle_fut = async_thread_pool( thread_pool.get_executor(),
+                                                  [ids{std::move( bb._action_receipt_digests )}]() mutable {
+                                                     return merkle( std::move( ids ) );
+                                                  } );
+      const bool calc_trx_merkle = !std::holds_alternative<checksum256_type>(bb._trx_mroot_or_receipt_digests);
+      std::future<checksum256_type> trx_merkle_fut;
+      if( calc_trx_merkle ) {
+         trx_merkle_fut = async_thread_pool( thread_pool.get_executor(),
+                                             [ids{std::move( std::get<digests_t>(bb._trx_mroot_or_receipt_digests) )}]() mutable {
+                                                return merkle( std::move( ids ) );
+                                             } );
+      }
+
       // Update resource limits:
       resource_limits.process_account_limit_updates();
       const auto& chain_config = self.get_global_properties().configuration;
@@ -1785,12 +1816,10 @@ struct controller_impl {
       );
       resource_limits.process_block_usage(pbhs.block_num);
 
-      auto& bb = std::get<building_block>(pending->_block_stage);
-
       // Create (unsigned) block:
       auto block_ptr = std::make_shared<signed_block>( pbhs.make_block_header(
-         merkle( std::move( std::get<building_block>(pending->_block_stage)._pending_trx_receipt_digests ) ),
-         merkle( std::move( std::get<building_block>(pending->_block_stage)._action_receipt_digests ) ),
+         calc_trx_merkle ? trx_merkle_fut.get() : std::get<checksum256_type>(bb._trx_mroot_or_receipt_digests),
+         action_merkle_fut.get(),
          bb._new_pending_producer_schedule,
          std::move( bb._new_protocol_feature_activations ),
          protocol_features.get_protocol_feature_set()
@@ -1961,6 +1990,9 @@ struct controller_impl {
          auto producer_block_id = bsp->id;
          start_block( b->timestamp, b->confirmed, new_protocol_feature_activations, s, producer_block_id, fc::time_point::maximum() );
 
+         // validated in create_block_state_future()
+         std::get<building_block>(pending->_block_stage)._trx_mroot_or_receipt_digests = b->transaction_mroot;
+
          const bool existing_trxs_metas = !bsp->trxs_metas().empty();
          const bool pub_keys_recovered = bsp->is_pub_keys_recovered();
          const bool skip_auth_checks = self.skip_auth_check();
@@ -2037,9 +2069,6 @@ struct controller_impl {
                br.total_elapsed_time += trace->elapsed;
             }
          }
-
-         // validated in create_block_state_future()
-         std::get<building_block>(pending->_block_stage)._transaction_mroot = b->transaction_mroot;
 
          finalize_block();
 
@@ -3487,11 +3516,11 @@ std::optional<chain_id_type> controller::extract_chain_id_from_db( const path& s
 
       if( db.revision() < 1 ) return {};
 
-      return db.get<global_property_object>().chain_id;
-   } catch( const bad_database_version_exception& ) {
-      throw;
-   } catch( ... ) {
-   }
+      auto * gpo = db.find<global_property_object>();
+      if (gpo==nullptr) return {};
+
+      return gpo->chain_id;
+   } catch (std::system_error &) {} //  do not propagate db_error_code::not_found" for absent db, so it will be created 
 
    return {};
 }

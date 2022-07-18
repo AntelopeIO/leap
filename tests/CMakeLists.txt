@@ -40,6 +40,7 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_read_terminate_at_block_test.p
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_chainbase_allocation_test.py ${CMAKE_CURRENT_BINARY_DIR}/nodeos_chainbase_allocation_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_protocol_feature_test.py ${CMAKE_CURRENT_BINARY_DIR}/nodeos_protocol_feature_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_multiple_version_protocol_feature_test.py ${CMAKE_CURRENT_BINARY_DIR}/nodeos_multiple_version_protocol_feature_test.py COPYONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_extra_packed_data_test.py ${CMAKE_CURRENT_BINARY_DIR}/nodeos_extra_packed_data_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/validate-dirty-db.py ${CMAKE_CURRENT_BINARY_DIR}/validate-dirty-db.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/launcher_test.py ${CMAKE_CURRENT_BINARY_DIR}/launcher_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/keosd_auto_launch_test.py ${CMAKE_CURRENT_BINARY_DIR}/keosd_auto_launch_test.py COPYONLY)
@@ -65,6 +66,7 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/trx_finality_status_forked_test.py ${
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/plugin_http_api_test.py ${CMAKE_CURRENT_BINARY_DIR}/plugin_http_api_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_contrl_c_test.py ${CMAKE_CURRENT_BINARY_DIR}/nodeos_contrl_c_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/resource_monitor_plugin_test.py ${CMAKE_CURRENT_BINARY_DIR}/resource_monitor_plugin_test.py COPYONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/light_validation_sync_test.py ${CMAKE_CURRENT_BINARY_DIR}/light_validation_sync_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/trace_plugin_test.py ${CMAKE_CURRENT_BINARY_DIR}/trace_plugin_test.py COPYONLY)
 
 #To run plugin_test with all log from blockchain displayed, put --verbose after --, i.e. plugin_test -- --verbose
@@ -193,13 +195,8 @@ set_property(TEST nodeos_startup_catchup_lr_test PROPERTY LABELS long_running_te
 add_test(NAME nodeos_short_fork_take_over_lr_test COMMAND tests/nodeos_short_fork_take_over_test.py -v --wallet-port 9905 --clean-run --dump-error-detail WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nodeos_short_fork_take_over_lr_test PROPERTY LABELS long_running_tests)
 
-if(ENABLE_MULTIVERSION_PROTOCOL_TEST)
-  set(ALTERNATE_VERSION_LABELS_FILE "${CMAKE_BINARY_DIR}/tests/multiversion_paths.conf")
-
-  add_test(NAME nodeos_multiple_version_protocol_feature_mv_test COMMAND tests/nodeos_multiple_version_protocol_feature_test.py
-           -v --clean-run --dump-error-detail --alternate-version-labels-file ${ALTERNATE_VERSION_LABELS_FILE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
-  set_property(TEST nodeos_multiple_version_protocol_feature_mv_test PROPERTY LABELS mixed_version_tests)
-endif()
+add_test(NAME nodeos_extra_packed_data_test COMMAND tests/nodeos_extra_packed_data_test.py -v --clean-run -p 8 --dump-error-detail WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+set_property(TEST nodeos_extra_packed_data_test PROPERTY LABELS long_running_tests)
 
 add_test(NAME nodeos_producer_watermark_lr_test COMMAND tests/nodeos_producer_watermark_test.py -v --clean-run --dump-error-detail WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nodeos_producer_watermark_lr_test PROPERTY LABELS long_running_tests)
@@ -234,6 +231,8 @@ set_property(TEST resource_monitor_plugin_test PROPERTY LABELS long_running_test
 add_test(NAME nodeos_repeat_transaction_lr_test COMMAND tests/nodeos_high_transaction_test.py -v --clean-run --dump-error-detail -p 4 -n 8 --num-transactions 1000 --max-transactions-per-second 500 --send-duplicates WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nodeos_repeat_transaction_lr_test PROPERTY LABELS long_running_tests)
 
+add_test(NAME light_validation_sync_test COMMAND tests/light_validation_sync_test.py -v --clean-run --dump-error-detail WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+set_property(TEST light_validation_sync_test PROPERTY LABELS long_running_tests)
 
 if(ENABLE_COVERAGE_TESTING)
 
