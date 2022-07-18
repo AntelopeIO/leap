@@ -1,101 +1,98 @@
 #!/usr/bin/env python3
 
 from testUtils import Utils
+from Cluster import Cluster
+from WalletMgr import WalletMgr
 from TestHelper import TestHelper
 
-import subprocess
-import signal
-import time
+import random
 import os
-import shutil
+import signal
 
 ###############################################################
-# block-log-retain-blocks test
+# terminate-scenarios-test
 #
-# A basic test for --block-log-retain-blocks option. It validates no blocks.log
-# is generated when the option is set to 0 and blocks.log is generated when the
-# option is set to greater than 0.
+# A basic test for --block-log-retain-blocks option. It validates
+#   * no blocks.log is generated when the option is set to 0
+#   * blocks.log is generated when the option is set to greater than 0
+#   * blocks.log is generated when the option is not present.
 #
 ###############################################################
 
 Print=Utils.Print
 errorExit=Utils.errorExit
 
-args = TestHelper.parse_args({"--keep-logs", "--dump-error-details", "-v", "--leave-running", "--clean-run"})
+args=TestHelper.parse_args({"--keep-logs" ,"--dump-error-details","-v","--leave-running","--clean-run" })
 debug=args.v
-keepLogs=args.keep_logs
-dumpErrorDetails=args.dump_error_details
-killAll=args.clean_run
 killEosInstances= not args.leave_running
+dumpErrorDetails=args.dump_error_details
+keepLogs=args.keep_logs
+killAll=args.clean_run
 
+seed=1
 Utils.Debug=debug
+testSuccessful=False
 
-def is_in_file(string, filename):
-   with open(filename) as myfile:
-      if string in myfile.read():
-         return True
-      else:
-         return False
+random.seed(seed) # Use a fixed seed for repeatability.
+cluster=Cluster(walletd=True)
+walletMgr=WalletMgr(True)
 
-def start_and_stop_nodeos(retain_blocks=0, produced_block=10):
-   cmd=f'programs/nodeos/nodeos -e -p eosio --plugin eosio::producer_api_plugin --plugin eosio::producer_plugin --plugin eosio::chain_api_plugin --plugin eosio::chain_plugin --data-dir {data_dir} --block-log-retain-blocks {retain_blocks}'
-   Print(f'cmd to launch nodeos: {cmd}')
+# the first  node for --block-log-retain-blocks 0,
+# the second for --block-log-retain-blocks 10,
+# the third for -block-log-retain-blocks not configured
+pnodes=1
+total_nodes=pnodes + 2
 
-   stdout_filename=data_dir + "stdout.out"
-   stderr_filename=data_dir + "stderr.out"
-   stdout_file=open(stdout_filename, "w")
-   stderr_file=open(stderr_filename, "w")
-   proc=subprocess.Popen(cmd.split(), stdout=stdout_file, stderr=stderr_file)
+try:
+    TestHelper.printSystemInfo("BEGIN")
+    cluster.setWalletMgr(walletMgr)
 
-   for i in range(1,20):
-      if is_in_file(f'lib: {produced_block}', stderr_filename):
-         Print(f'nodeos launched and lib: {produced_block} produced')
-         break;
-      elif i == 19:
-         os.system('killall nodeos')
-         errorExit("nodeos failed to start after 20 seconds")
-      time.sleep(1)
-   
-   proc.send_signal(signal.SIGINT)
-   proc.wait()
-   stdout_file.close()
-   stderr_file.close()
-   Print(f'nodeos stopped')
+    cluster.setWalletMgr(walletMgr)
 
-def expect_no_block_log_file():
-   if os.path.exists(blocklog_file):
-      errorExit(f'{blocklog_file} not expected to exist. Test failed')
+    cluster.killall(allInstances=killAll)
+    cluster.cleanup()
+    walletMgr.killall(allInstances=killAll)
+    walletMgr.cleanup()
 
-def expect_block_log_file():
-   if not os.path.exists(blocklog_file):
-      errorExit(f'{blocklog_file} expected to exist. Test failed')
+    specificExtraNodeosArgs={}
+    specificExtraNodeosArgs[0]=f' --block-log-retain-blocks 0 '
+    specificExtraNodeosArgs[1]=f' --block-log-retain-blocks 10 '
+    extraNodeosArgs=" --plugin eosio::trace_api_plugin --trace-no-abis "
 
-TestHelper.printSystemInfo("BEGIN")
+    Print("Stand up cluster")
+    if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, extraNodeosArgs=extraNodeosArgs, specificExtraNodeosArgs=specificExtraNodeosArgs) is False:
+        errorExit("Failed to stand up eos cluster.")
 
-if killAll:
-   os.system('killall nodeos')
-data_dir="var/lib/node/" # OK to be a global
-blocklog_file=data_dir + "blocks/blocks.log"
-shutil.rmtree(data_dir, ignore_errors=True)
-os.makedirs(data_dir, exist_ok=True)
+    Print ("Wait for Cluster stabilization")
+    # wait for cluster to start producing blocks
+    if not cluster.waitOnClusterBlockNumSync(3):
+        errorExit("Cluster never stabilized")
+    Print ("Cluster stabilized")
 
-Print("Start nodeos with retain_blocks as 0 the first time")
-start_and_stop_nodeos(retain_blocks=0, produced_block=10)
-expect_no_block_log_file()
+    # node 0 started with --block-log-retain-blocks 0. no blocks.log should
+    # be generated
+    blocksLog0=os.path.join(Utils.getNodeDataDir(0), "blocks", "blocks.log")
+    if os.path.exists(blocksLog0):
+       errorExit(f'{blocksLog0} not expected to exist. Test failed')
+    Print ("Verified no blocks.log existed for --block-log-retain-blocks 0");
 
-Print("Start nodeos with retain_blocks as 0 the second time")
-start_and_stop_nodeos(retain_blocks=0, produced_block=20)
-expect_no_block_log_file()
+    # node 1 started with --block-log-retain-blocks 10. blocks.log should
+    # be generated
+    blocksLog1=os.path.join(Utils.getNodeDataDir(1), "blocks", "blocks.log")
+    if not os.path.exists(blocksLog1):
+       errorExit(f'{blocksLog1} expected to exist. Test failed')
+    Print ("Verified blocks.log existed for --block-log-retain-blocks 10");
 
-shutil.rmtree(data_dir, ignore_errors=True)
-os.makedirs(data_dir, exist_ok=True)
+    # node 2 started without --block-log-retain-blocks. blocks.log should
+    # be generated
+    blocksLog2=os.path.join(Utils.getNodeDataDir(2), "blocks", "blocks.log")
+    if not os.path.exists(blocksLog2):
+       errorExit(f'{blocksLog2} expected to exist. Test failed')
+    Print ("Verified blocks.log existed for no --block-log-retain-blocks configured");
 
-Print("Start nodeos with retain_blocks as 10")
-start_and_stop_nodeos(retain_blocks=5, produced_block=10)
-expect_block_log_file()
+    testSuccessful=True
+finally:
+    TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, killEosInstances=killEosInstances, killWallet=killEosInstances, keepLogs=keepLogs, cleanRun=killAll, dumpErrorDetails=dumpErrorDetails)
 
-Print("Test succeeded")
-if not keepLogs:
-   shutil.rmtree(data_dir, ignore_errors=True)
-
-exit(0)
+exitCode = 0 if testSuccessful else 1
+exit(exitCode)
