@@ -235,10 +235,7 @@ class state_history_log {
       uint64_t pos = log.tellp();
             
       write_header(header);
-
-      lock.unlock();
       write_payload(log);
-      lock.lock();
 
       EOS_ASSERT(log.tellp() == pos + state_history_log_header_serial_size + header.payload_size, chain::plugin_exception,
                  "wrote payload with incorrect size to ${name}.log", ("name", name));
