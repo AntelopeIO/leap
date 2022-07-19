@@ -116,7 +116,7 @@ namespace eosio { namespace chain {
 
             void append(const signed_block_ptr& b, const block_id_type& id, const std::vector<char>& packed_block);
 
-            void update_head(const signed_block_ptr& b);
+            void update_head(const signed_block_ptr& b, const std::optional<block_id_type>& id={});
 
             void prune();
 
@@ -374,7 +374,7 @@ namespace eosio { namespace chain {
          EOS_ASSERT( genesis_written_to_block_log, block_log_append_fail, "Cannot append to block log until the genesis is first written" );
 
          if (not_generate_block_log) {
-            update_head(b);
+            update_head(b, id);
             return;
          }
 
@@ -397,8 +397,7 @@ namespace eosio { namespace chain {
          const uint64_t end = block_file.tellp();
          index_file.write((char*)&pos, sizeof(pos));
 
-         head = b;
-         head_id = id;
+         update_head(b, id);
 
          if(prune_config) {
             if((pos&prune_config->prune_threshold) != (end&prune_config->prune_threshold))
@@ -413,12 +412,16 @@ namespace eosio { namespace chain {
       FC_LOG_AND_RETHROW()
    }
 
-   void detail::block_log_impl::update_head(const signed_block_ptr& b) {
+   void detail::block_log_impl::update_head(const signed_block_ptr& b, const std::optional<block_id_type>& id) {
       head = b;
-      if (head) {
-         head_id = b->calculate_id();
+      if (id) {
+         head_id = *id;
       } else {
-         head_id = {};
+         if (head) {
+            head_id = b->calculate_id();
+         } else {
+            head_id = {};
+         }
       }
    }
 
@@ -447,7 +450,6 @@ namespace eosio { namespace chain {
 
    void block_log::flush() {
       if (my->not_generate_block_log) {
-         ilog("Not possible to flush in no blocks.log mode (block-log-retain-blocks=0)");
          return;
       }
       my->flush();
@@ -652,7 +654,6 @@ namespace eosio { namespace chain {
 
    signed_block_ptr block_log::read_block(uint64_t pos)const {
       if (my->not_generate_block_log) {
-         ilog("Not possible to read_block in no blocks.log mode (block-log-retain-blocks=0)");
          return nullptr;
       }
 
@@ -667,7 +668,6 @@ namespace eosio { namespace chain {
 
    void block_log::read_block_header(block_header& bh, uint64_t pos)const {
       if (my->not_generate_block_log) {
-         ilog("Not possible to read_block_header in no blocks.log mode (block-log-retain-blocks=0)");
          return;
       }
 
@@ -684,7 +684,6 @@ namespace eosio { namespace chain {
 
          if (my->not_generate_block_log) {
             // No blocks exist. Avoid cascading failures if going further.
-            ilog("Not possible to read_block_by_num in no blocks.log mode (block-log-retain-blocks=0)");
             return b;
          }
 
@@ -701,7 +700,6 @@ namespace eosio { namespace chain {
    block_id_type block_log::read_block_id_by_num(uint32_t block_num)const {
       try {
          if (my->not_generate_block_log) {
-            ilog("Not possible to read_block_id_by_num in no blocks.log mode (block-log-retain-blocks=0)");
             return {};
          }
          uint64_t pos = get_block_pos(block_num);
@@ -728,7 +726,6 @@ namespace eosio { namespace chain {
 
    uint64_t block_log::get_block_pos(uint32_t block_num) const {
       if (my->not_generate_block_log) {
-         ilog("Not possible to get_block_pos in no blocks.log mode (block-log-retain-blocks=0)");
          return block_log::npos;
       }
       return my->get_block_pos(block_num);
@@ -736,7 +733,6 @@ namespace eosio { namespace chain {
 
    signed_block_ptr block_log::read_head()const {
       if (my->not_generate_block_log) {
-         ilog("Not possible to read_head in no blocks.log mode (block-log-retain-blocks=0)");
          return {};
       }
 
