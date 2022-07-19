@@ -33,18 +33,24 @@ struct core_sym {
       return std::vector<char>(s.begin(), s.end());                                         \
    }
 
+//contracts that need to be available by native contract unit testing's libtester need to be embedded
+// in to the library as the build directory may not exist after being 'make install'ed.
+#define MAKE_EMBD_WASM_ABI(CN)                                                              \
+   static std::vector<uint8_t> CN ## _wasm();                                               \
+   static std::vector<char> CN ## _abi();
+
 namespace eosio {
    namespace testing {
       struct contracts {
          // Contracts in `eos/unittests/contracts' directory
-         MAKE_READ_WASM_ABI(eosio_bios,   eosio.bios, contracts)
+         MAKE_EMBD_WASM_ABI(eosio_bios)
          MAKE_READ_WASM_ABI(eosio_msig,   eosio.msig, contracts)
          MAKE_READ_WASM_ABI(eosio_system, eosio.system, contracts)
          MAKE_READ_WASM_ABI(eosio_token,  eosio.token,  contracts)
          MAKE_READ_WASM_ABI(eosio_wrap,   eosio.wrap,   contracts)
 
-         MAKE_READ_WASM_ABI(before_producer_authority_eosio_bios,   eosio.bios, contracts/old_versions/v1.7.0-develop-preactivate_feature)
-         MAKE_READ_WASM_ABI(before_preactivate_eosio_bios,          eosio.bios, contracts/old_versions/v1.6.0-rc3)
+         MAKE_EMBD_WASM_ABI(before_producer_authority_eosio_bios)
+         MAKE_EMBD_WASM_ABI(before_preactivate_eosio_bios)
 
          // Contracts in `eos/unittests/unittests/test-contracts' directory
          MAKE_READ_WASM_ABI(asserter,              asserter,              test-contracts)
