@@ -7,3 +7,8 @@ add_executable( test_trx_full test_trx_full.cpp )
 target_link_libraries( test_trx_full producer_plugin eosio_testing )
 
 add_test(NAME test_trx_full COMMAND plugins/producer_plugin/test/test_trx_full WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+
+add_executable( test_snapshot_information test_snapshot_information.cpp )
+target_link_libraries( test_snapshot_information producer_plugin eosio_testing )
+
+add_test(NAME test_snapshot_information COMMAND plugins/producer_plugin/test/test_snapshot_information WORKING_DIRECTORY ${CMAKE_BINARY_DIR})

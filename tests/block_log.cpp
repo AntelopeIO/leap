@@ -58,7 +58,7 @@ struct block_log_fixture {
       p->previous._hash[0] = fc::endian_reverse_u32(index-1);
       p->header_extensions.push_back(std::make_pair<uint16_t, std::vector<char>>(0, std::vector<char>(a)));
 
-      log->append(p);
+      log->append(p, p->calculate_id());
 
       if(index + 1 > written_data.size())
          written_data.resize(index + 1);

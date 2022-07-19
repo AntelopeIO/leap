@@ -22,7 +22,7 @@ struct block_log_extract_fixture {
    void add(uint32_t index) {
       signed_block_ptr p = std::make_shared<signed_block>();
       p->previous._hash[0] = fc::endian_reverse_u32(index-1);
-      log->append(p);
+      log->append(p, p->calculate_id());
    }
 
    genesis_state gs;

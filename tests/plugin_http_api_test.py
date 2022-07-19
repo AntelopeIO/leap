@@ -19,6 +19,7 @@ class PluginHttpTest(unittest.TestCase):
     node_id = 1
     nodeos = Node(TestHelper.LOCAL_HOST, TestHelper.DEFAULT_PORT, node_id, walletMgr=keosd)
     data_dir = Utils.getNodeDataDir(node_id)
+    config_dir = Utils.getNodeConfigDir(node_id)
     http_post_str = " -X POST -d "
     http_post_invalid_param = " '{invalid}' "
     empty_content_str = " ' { } '  "
@@ -31,18 +32,27 @@ class PluginHttpTest(unittest.TestCase):
             shutil.rmtree(self.data_dir)
         os.makedirs(self.data_dir)
 
-    # kill nodeos and keosd and clean up dir
+    # make a fresh config dir
+    def createConfigDir(self):
+        if os.path.exists(self.config_dir):
+            shutil.rmtree(self.config_dir)
+        os.makedirs(self.config_dir)
+
+    # kill nodeos and keosd and clean up dirs
     def cleanEnv(self) :
         self.keosd.killall(True)
         WalletMgr.cleanup()
         Node.killAllNodeos()
         if os.path.exists(self.data_dir):
             shutil.rmtree(self.data_dir)
+        if os.path.exists(self.config_dir):
+            shutil.rmtree(self.config_dir)
         time.sleep(self.sleep_s)
 
     # start keosd and nodeos
     def startEnv(self) :
         self.createDataDir(self)
+        self.createConfigDir(self)
         self.keosd.launch()
         nodeos_plugins = (" --plugin %s --plugin %s --plugin %s --plugin %s --plugin %s --plugin %s"
                           " --plugin %s --plugin %s --plugin %s --plugin %s ") % ( "eosio::trace_api_plugin",
@@ -55,9 +65,9 @@ class PluginHttpTest(unittest.TestCase):
                                                                                    "eosio::chain_api_plugin",
                                                                                    "eosio::http_plugin",
                                                                                    "eosio::db_size_api_plugin")
-        nodeos_flags = (" --data-dir=%s --trace-dir=%s --trace-no-abis --access-control-allow-origin=%s "
+        nodeos_flags = (" --data-dir=%s --config-dir=%s --trace-dir=%s --trace-no-abis --access-control-allow-origin=%s "
                         "--contracts-console --http-validate-host=%s --verbose-http-errors "
-                        "--p2p-peer-address localhost:9011 --resource-monitor-not-shutdown-on-threshold-exceeded ") % (self.data_dir, self.data_dir, "\'*\'", "false")
+                        "--p2p-peer-address localhost:9011 --resource-monitor-not-shutdown-on-threshold-exceeded ") % (self.data_dir, self.config_dir, self.data_dir, "\'*\'", "false")
         start_nodeos_cmd = ("%s -e -p eosio %s %s ") % (Utils.EosServerPath, nodeos_plugins, nodeos_flags)
         self.nodeos.launchCmd(start_nodeos_cmd, self.node_id)
         time.sleep(self.sleep_s)
