@@ -532,4 +532,45 @@ BOOST_AUTO_TEST_CASE(test_deltas_resources_history) {
 
    }
 
+   std::vector<shared_ptr<eosio::state_history::partial_transaction>> get_partial_txns(eosio::state_history::trace_converter& log) {
+      std::vector<shared_ptr<eosio::state_history::partial_transaction>> partial_txns;
+
+      for (auto ct : log.cached_traces) {
+         partial_txns.push_back(std::get<1>(ct).partial);
+      }
+
+      return partial_txns;
+   }
+
+   BOOST_AUTO_TEST_CASE(test_trace_log_with_transaction_extensions) {
+      tester c(setup_policy::full);
+
+      scoped_temp_path state_history_dir;
+      fc::create_directories(state_history_dir.path);
+      eosio::state_history::trace_converter log;
+
+      c.control->applied_transaction.connect(
+            [&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> t) {
+               log.add_transaction(std::get<0>(t), std::get<1>(t));
+            });
+
+      c.create_accounts({"alice"_n, "test"_n});
+      c.set_code("test"_n, contracts::deferred_test_wasm());
+      c.set_abi("test"_n, contracts::deferred_test_abi().data());
+      c.produce_block();
+
+      c.push_action("test"_n, "defercall"_n, "alice"_n,
+                    fc::mutable_variant_object()("payer", "alice")("sender_id", 1)("contract", "test")("payload", 40));
+
+      auto block  = c.produce_block();
+      auto partial_txns = get_partial_txns(log);
+
+      auto contains_transaction_extensions = [](shared_ptr<eosio::state_history::partial_transaction> txn) {
+         return txn->transaction_extensions.size() > 0;
+      };
+
+      BOOST_CHECK(std::any_of(partial_txns.begin(), partial_txns.end(), contains_transaction_extensions));
+   }
+
+
 BOOST_AUTO_TEST_SUITE_END()
