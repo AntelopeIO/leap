@@ -225,6 +225,23 @@ namespace eosio::chain {
          ("trx", fc::to_hex(gto.packed_trx.data(), gto.packed_trx.size()))
       );
    }
+   void deep_mind_handler::on_create_deferred(operation_qualifier qual, const generated_transaction_object& gto, const packed_transaction& packed_trx)
+   {
+      auto packed_signed_trx = fc::raw::pack(packed_trx.get_signed_transaction());
+
+      fc_dlog(_logger, "DTRX_OP ${qual}CREATE ${action_id} ${sender} ${sender_id} ${payer} ${published} ${delay} ${expiration} ${trx_id} ${trx}",
+         ("qual", prefix(qual))
+         ("action_id", _action_id)
+         ("sender", gto.sender)
+         ("sender_id", gto.sender_id)
+         ("payer", gto.payer)
+         ("published", gto.published)
+         ("delay", gto.delay_until)
+         ("expiration", gto.expiration)
+         ("trx_id", gto.trx_id)
+         ("trx", fc::to_hex(packed_signed_trx.data(), packed_signed_trx.size()))
+      );
+   }
    void deep_mind_handler::on_fail_deferred()
    {
       fc_dlog(_logger, "DTRX_OP FAILED ${action_id}",
