@@ -7,6 +7,7 @@
 #include <eosio/chain/resource_limits.hpp>
 #include <eosio/chain/exceptions.hpp>
 #include <eosio/chain/wast_to_wasm.hpp>
+#include <eosio/chain/global_property_object.hpp>
 #include <eosio/chain_plugin/chain_plugin.hpp>
 
 #include <contracts.hpp>
@@ -118,59 +119,11 @@ BOOST_FIXTURE_TEST_CASE( get_block_with_invalid_abi, TESTER ) try {
 
 } FC_LOG_AND_RETHROW() /// get_block_with_invalid_abi
 
-BOOST_FIXTURE_TEST_CASE( get_info, TESTER ) try {
-   produce_blocks(1);
-
-   chain_apis::read_only::get_info_params p;
-   chain_apis::read_only plugin(*(this->control), {}, fc::microseconds::maximum());
-
-   auto info = plugin.get_info({});
-   BOOST_TEST(info.server_version == version_to_fixed_str(app().version()));
-   BOOST_TEST(info.chain_id == control->get_chain_id());
-   BOOST_TEST(info.head_block_num == control->head_block_num());
-   BOOST_TEST(info.last_irreversible_block_num == control->last_irreversible_block_num());
-   BOOST_TEST(info.last_irreversible_block_id == control->last_irreversible_block_id());
-   BOOST_TEST(info.head_block_id == control->head_block_id());
-   BOOST_TEST(info.head_block_time == control->head_block_time());
-   BOOST_TEST(info.head_block_producer == control->head_block_producer());
-   BOOST_TEST(info.virtual_block_cpu_limit == control->get_resource_limits_manager().get_virtual_block_cpu_limit());
-   BOOST_TEST(info.virtual_block_net_limit == control->get_resource_limits_manager().get_virtual_block_net_limit());
-   BOOST_TEST(info.block_cpu_limit == control->get_resource_limits_manager().get_block_cpu_limit());
-   BOOST_TEST(info.block_net_limit == control->get_resource_limits_manager().get_block_net_limit());
-   BOOST_TEST(*info.server_version_string == app().version_string());
-   BOOST_TEST(*info.fork_db_head_block_num == control->fork_db_pending_head_block_num());
-   BOOST_TEST(*info.fork_db_head_block_id == control->fork_db_pending_head_block_id());
-   BOOST_TEST(*info.server_full_version_string == app().full_version_string());
-   BOOST_TEST(*info.last_irreversible_block_time == control->last_irreversible_block_time());
-
-   produce_blocks(1);
-
-   //make sure it works after producing new block
-   info = plugin.get_info({});
-   BOOST_TEST(info.server_version == version_to_fixed_str(app().version()));
-   BOOST_TEST(info.chain_id == control->get_chain_id());
-   BOOST_TEST(info.head_block_num == control->head_block_num());
-   BOOST_TEST(info.last_irreversible_block_num == control->last_irreversible_block_num());
-   BOOST_TEST(info.last_irreversible_block_id == control->last_irreversible_block_id());
-   BOOST_TEST(info.head_block_id == control->head_block_id());
-   BOOST_TEST(info.head_block_time == control->head_block_time());
-   BOOST_TEST(info.head_block_producer == control->head_block_producer());
-   BOOST_TEST(info.virtual_block_cpu_limit == control->get_resource_limits_manager().get_virtual_block_cpu_limit());
-   BOOST_TEST(info.virtual_block_net_limit == control->get_resource_limits_manager().get_virtual_block_net_limit());
-   BOOST_TEST(info.block_cpu_limit == control->get_resource_limits_manager().get_block_cpu_limit());
-   BOOST_TEST(info.block_net_limit == control->get_resource_limits_manager().get_block_net_limit());
-   BOOST_TEST(*info.server_version_string == app().version_string());
-   BOOST_TEST(*info.fork_db_head_block_num == control->fork_db_pending_head_block_num());
-   BOOST_TEST(*info.fork_db_head_block_id == control->fork_db_pending_head_block_id());
-   BOOST_TEST(*info.server_full_version_string == app().full_version_string());
-   BOOST_TEST(*info.last_irreversible_block_time == control->last_irreversible_block_time());
-} FC_LOG_AND_RETHROW() //get_info
-
 BOOST_FIXTURE_TEST_CASE( get_consensus_parameters, TESTER ) try {
    produce_blocks(1);
 
    chain_apis::read_only::get_info_params p;
-   chain_apis::read_only plugin(*(this->control), {}, fc::microseconds::maximum());
+   chain_apis::read_only plugin(*(this->control), {}, fc::microseconds::maximum(), nullptr, nullptr);
 
    auto parms = plugin.get_consensus_parameters({});
 
@@ -193,11 +146,6 @@ BOOST_FIXTURE_TEST_CASE( get_consensus_parameters, TESTER ) try {
    BOOST_TEST(parms.chain_config.max_inline_action_depth == control->get_global_properties().configuration.max_inline_action_depth);
    BOOST_TEST(parms.chain_config.max_authority_depth == control->get_global_properties().configuration.max_authority_depth);
    BOOST_TEST(parms.chain_config.max_action_return_value_size == control->get_global_properties().configuration.max_action_return_value_size);
-
-   // verifying kv_database_config
-   BOOST_TEST(parms.kv_database_config.max_key_size == control->get_global_properties().kv_configuration.max_key_size);
-   BOOST_TEST(parms.kv_database_config.max_value_size == control->get_global_properties().kv_configuration.max_value_size);
-   BOOST_TEST(parms.kv_database_config.max_iterators == control->get_global_properties().kv_configuration.max_iterators);
 
    // verifying wasm_config
    BOOST_TEST(parms.wasm_config.max_mutable_global_bytes == control->get_global_properties().wasm_configuration.max_mutable_global_bytes);
