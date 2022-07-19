@@ -94,31 +94,6 @@ make -j $(nproc) package
 After building you may remove the `$HOME/boost1.79` directory, or you may keep it around until next time building the software.
 </details>
 
-<details>
-  <summary>FreeBSD 13.1 Build Instructions</summary>
-
-Install required dependencies: 
-```
-pkg update && pkg install   \
-    git                     \
-    cmake                   \
-    curl                    \
-    boost-all               \
-    python3                 \
-    openssl                 \
-    llvm11                  \
-    pkgconf
-```
-and perform the build (please note that FreeBSD 13.1 comes with llvm13 by default so you should provide clang11 options to cmake):
-```
-git submodule update --init --recursive
-mkdir build
-cd build
-cmake -DCMAKE_CXX_COMPILER=clang++11 -DCMAKE_C_COMPILER=clang11 -DCMAKE_BUILD_TYPE=Release ..
-make -j $(nproc) package
-```
-</details>
-
 ### Running Tests
 
 When building from source it's recommended to run at least what we refer to as the "parallelizable tests". Not included by default in the "parallelizable tests" are the WASM spec tests which can add additional coverage and can also be run in parallel.
