@@ -118,7 +118,7 @@ namespace eosio {
         string                         access_control_allow_headers;
         string                         access_control_max_age;
         bool                           access_control_allow_credentials = false;
-        size_t                         max_body_size{1024*1024};
+        size_t                         max_body_size{2*1024*1024};
 
         std::atomic<size_t>                            bytes_in_flight{0};
         std::atomic<int32_t>                           requests_in_flight{0};
