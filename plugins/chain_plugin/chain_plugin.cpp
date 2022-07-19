@@ -2747,7 +2747,6 @@ read_only::get_consensus_parameters(const get_consensus_parameters_params& ) con
    get_consensus_parameters_results results;
 
    results.chain_config = db.get_global_properties().configuration;
-   results.kv_database_config = db.get_global_properties().kv_configuration;
    results.wasm_config = db.get_global_properties().wasm_configuration;
 
    return results;
