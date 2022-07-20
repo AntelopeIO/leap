@@ -881,7 +881,7 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
          boost::filesystem::path temp_dir = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
          my->chain_config->state_dir = temp_dir / "state";
          my->blocks_dir = temp_dir / "blocks";
-         my->chain_config->blog.log_dir = my->blocks_dir;
+         my->chain_config->blocks_dir = my->blocks_dir;
          try {
             auto shutdown = [](){ return app().quit(); };
             auto check_shutdown = [](){ return app().is_quiting(); };
