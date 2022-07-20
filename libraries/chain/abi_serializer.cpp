@@ -5,13 +5,11 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <fc/io/varint.hpp>
 
-using namespace boost;
-
-
 namespace eosio { namespace chain {
 
    const size_t abi_serializer::max_recursion_depth;
 
+   using boost::algorithm::starts_with;
    using boost::algorithm::ends_with;
    using std::string;
    using std::string_view;
