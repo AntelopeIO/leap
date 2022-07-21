@@ -332,14 +332,14 @@ fc::variant call( const std::string& url,
 
 template<typename T>
 fc::variant call( const std::string& path,
-                  const T& v ) { return call( default_url, path, fc::variant( v) ); }
+                  const T& v ) { return call( ::default_url, path, fc::variant( v) ); }
 
 template<>
 fc::variant call( const std::string& url,
                   const std::string& path) { return call( url, path, fc::variant() ); }
 
 eosio::chain_apis::read_only::get_info_results get_info() {
-   return call(default_url, get_info_func).as<eosio::chain_apis::read_only::get_info_results>();
+   return call(::default_url, get_info_func).as<eosio::chain_apis::read_only::get_info_results>();
 }
 
 string generate_nonce_string() {
@@ -352,28 +352,26 @@ chain::action generate_nonce_action() {
 
 //resolver for ABI serializer to decode actions in proposed transaction in multisig contract
 auto abi_serializer_resolver = [](const name& account) -> std::optional<abi_serializer> {
-  static unordered_map<account_name, std::optional<abi_serializer> > abi_cache;
-  auto it = abi_cache.find( account );
-  if ( it == abi_cache.end() ) {
-
-    std::optional<abi_serializer> abis;
-    if (abi_files_override.find(account) != abi_files_override.end()) {
-      abis.emplace( fc::json::from_file(abi_files_override[account]).as<abi_def>(), abi_serializer::create_yield_function( abi_serializer_max_time ));
-    } else {
-      const auto raw_abi_result = call(get_raw_abi_func, fc::mutable_variant_object("account_name", account));
-      const auto raw_abi_blob = raw_abi_result["abi"].as_blob().data;
-      if (raw_abi_blob.size() != 0) {
-        abis.emplace(fc::raw::unpack<abi_def>(raw_abi_blob), abi_serializer::create_yield_function( abi_serializer_max_time ));
+   static unordered_map<account_name, std::optional<abi_serializer> > abi_cache;
+   auto it = abi_cache.find( account );
+   if ( it == abi_cache.end() ) {
+      std::optional<abi_serializer> abis;
+      if (abi_files_override.find(account) != abi_files_override.end()) {
+         abis.emplace( fc::json::from_file(abi_files_override[account]).as<abi_def>(), abi_serializer::create_yield_function( abi_serializer_max_time ));
       } else {
-        std::cerr << "ABI for contract " << account.to_string() << " not found. Action data will be shown in hex only." << std::endl;
+         const auto raw_abi_result = call(get_raw_abi_func, fc::mutable_variant_object("account_name", account));
+         const auto raw_abi_blob = raw_abi_result["abi"].as_blob().data;
+         if (raw_abi_blob.size() != 0) {
+            abis.emplace(fc::raw::unpack<abi_def>(raw_abi_blob), abi_serializer::create_yield_function( abi_serializer_max_time ));
+         } else {
+            std::cerr << "ABI for contract " << account.to_string() << " not found. Action data will be shown in hex only." << std::endl;
+         }
       }
-    }
-    abi_cache.emplace( account, abis );
+      abi_cache.emplace( account, abis );
 
-    return abis;
-  }
-
-  return it->second;
+      return abis;
+   }
+   return it->second;
 };
 
 auto abi_serializer_resolver_empty = [](const name& account) -> std::optional<abi_serializer> {
@@ -2594,7 +2592,7 @@ int main( int argc, char** argv ) {
    app.add_option( "--wallet-host", obsoleted_option_host_port, localized("The host where ${k} is running", ("k", key_store_executable_name)) )->group("");
    app.add_option( "--wallet-port", obsoleted_option_host_port, localized("The port where ${k} is running", ("k", key_store_executable_name)) )->group("");
 
-   app.add_option( "-u,--url", default_url, localized( "The http/https URL where ${n} is running", ("n", node_executable_name)), true );
+   app.add_option( "-u,--url", ::default_url, localized( "The http/https URL where ${n} is running", ("n", node_executable_name)), true );
    app.add_option( "--wallet-url", wallet_url, localized("The http/https URL where ${k} is running", ("k", key_store_executable_name)), true );
 
    app.add_option( "-r,--header", header_opt_callback, localized("Pass specific HTTP header; repeat this option to pass multiple headers"));
@@ -3395,27 +3393,27 @@ int main( int argc, char** argv ) {
    auto connect = net->add_subcommand("connect", localized("Start a new connection to a peer"));
    connect->add_option("host", new_host, localized("The hostname:port to connect to."))->required();
    connect->callback([&] {
-      const auto& v = call(default_url, net_connect, new_host);
+      const auto& v = call(::default_url, net_connect, new_host);
       std::cout << fc::json::to_pretty_string(v) << std::endl;
    });
 
    auto disconnect = net->add_subcommand("disconnect", localized("Close an existing connection"));
    disconnect->add_option("host", new_host, localized("The hostname:port to disconnect from."))->required();
    disconnect->callback([&] {
-      const auto& v = call(default_url, net_disconnect, new_host);
+      const auto& v = call(::default_url, net_disconnect, new_host);
       std::cout << fc::json::to_pretty_string(v) << std::endl;
    });
 
    auto status = net->add_subcommand("status", localized("Status of existing connection"));
    status->add_option("host", new_host, localized("The hostname:port to query status of connection"))->required();
    status->callback([&] {
-      const auto& v = call(default_url, net_status, new_host);
+      const auto& v = call(::default_url, net_status, new_host);
       std::cout << fc::json::to_pretty_string(v) << std::endl;
    });
 
    auto connections = net->add_subcommand("peers", localized("Status of all existing peers"));
    connections->callback([&] {
-      const auto& v = call(default_url, net_connections);
+      const auto& v = call(::default_url, net_connections);
       std::cout << fc::json::to_pretty_string(v) << std::endl;
    });
 
