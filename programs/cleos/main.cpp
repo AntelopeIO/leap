@@ -69,6 +69,8 @@ Options:
 #include <vector>
 #include <regex>
 #include <iostream>
+#include <locale>
+#include <unordered_map>
 #include <fc/crypto/hex.hpp>
 #include <fc/variant.hpp>
 #include <fc/io/datastream.hpp>
@@ -337,6 +339,10 @@ fc::variant call( const std::string& path,
 template<>
 fc::variant call( const std::string& url,
                   const std::string& path) { return call( url, path, fc::variant() ); }
+
+eosio::chain_apis::read_only::get_consensus_parameters_results get_consensus_parameters() {
+   return call(url, get_consensus_parameters_func).as<eosio::chain_apis::read_only::get_consensus_parameters_results>();
+}
 
 eosio::chain_apis::read_only::get_info_results get_info() {
    return call(::default_url, get_info_func).as<eosio::chain_apis::read_only::get_info_results>();
@@ -827,6 +833,7 @@ authority parse_json_authority_or_key(const std::string& authorityJsonOrFile) {
       } EOS_RETHROW_EXCEPTIONS(public_key_type_exception, "Invalid public key: ${public_key}", ("public_key", authorityJsonOrFile))
    } else {
       auto result = parse_json_authority(authorityJsonOrFile);
+      result.sort_fields();
       EOS_ASSERT( eosio::chain::validate(result), authority_type_exception, "Authority failed validation! ensure that keys, accounts, and waits are sorted and that the threshold is valid and satisfiable!");
       return result;
    }
@@ -2241,6 +2248,120 @@ struct closerex_subcommand {
    }
 };
 
+struct protocol_features_t {
+   std::string names;
+   std::unordered_map<std::string, std::string> digests {}; // from name to digest
+};
+
+protocol_features_t get_supported_protocol_features() {
+   protocol_features_t results;
+
+   auto prot_features = call(producer_get_supported_protocol_features_func, fc::mutable_variant_object("exclude_disabled", true)
+       ("exclude_unactivatable", true)
+    );
+
+   if ( !prot_features.is_array() ) {
+      std::cerr << "protocol features not an array" << endl;
+      return {};
+   }
+   fc::variants& feature_variants = prot_features.get_array();
+
+   for( auto& feature_v : feature_variants ) {
+      if( !feature_v.is_object() ) {
+         std::cerr << "feature_v not an object" << endl;
+         return {};
+      }
+      fc::variant_object& feature_vo = feature_v.get_object();
+      if( !feature_vo.contains( "feature_digest" ) ) {
+         std::cerr << "feature_digest is missing" << std::endl;
+         return {};
+      }
+      if( !feature_vo["feature_digest"].is_string() ) {
+         std::cerr << "feature_digest not a string" << std::endl;
+         return {};
+      }
+      auto digest = feature_vo["feature_digest"].as_string();
+
+      if( !feature_vo.contains( "specification" ) ) {
+         std::cerr << "specification is missing" << std::endl;
+         return {};
+      }
+      if( !feature_vo["specification"].is_array() ) {
+         std::cerr << "specification not an array" << std::endl;
+         return {};
+      }
+      const fc::variants& spec_variants = feature_vo["specification"].get_array();
+      if ( spec_variants.size() != 1 ) {
+         std::cerr << "specification array size " << spec_variants.size() << " not 1 " <<  std::endl;
+         return {};
+      }
+      if ( !spec_variants[0].is_object() ) {
+         std::cerr << "spec_variants[0] not an object" << endl;
+         return {};
+      }
+      const fc::variant_object& spec_vo = spec_variants[0].get_object();
+      if ( !spec_vo.contains( "value" ) ) {
+         std::cerr << "value is missing" << endl;
+         return {};
+      }
+      if ( !spec_vo["value"].is_string() ) {
+         std::cerr << "value not a string" << std::endl;
+         return {};
+      }
+      auto name = spec_vo["value"].as_string();
+
+      if ( spec_vo["value"].as_string() == "PREACTIVATE_FEATURE" )
+      {
+         // PREACTIVATE_FEATURE must be activated by schedule_protocol_feature_activations RPC,
+         // not by activate action
+         continue;
+      }
+
+      results.names += name;
+      results.names += "\n";
+      results.digests.emplace(name, digest);
+   }
+
+   return results;
+};
+
+struct activate_subcommand {
+   string feature_name_str;
+   std::string account_str = "eosio";
+   std::string permission_str = "eosio";
+
+   activate_subcommand(CLI::App* actionRoot) {
+      auto activate = actionRoot->add_subcommand("activate", localized("Activate protocol feature by name"));
+      activate->add_option("feature",  feature_name_str, localized("The name, can be found from \"cleos get supported_protoctol_features\" command"))->required();
+      activate->add_option("-a,--account", account_str, localized("The contract account name, default is eosio"));
+      activate->add_option("-p,--permission", permission_str, localized("The permission level to authorize, default is eosio"));
+      activate->fallthrough(false);
+
+      activate->callback([this] {
+         string action="activate";
+         string data;
+         std::locale loc;
+         vector<std::string> permissions = { permission_str };
+         for(auto & c : feature_name_str) c = std::toupper(c, loc);
+         protocol_features_t supported_features;
+         supported_features = get_supported_protocol_features();
+         if( supported_features.digests.find(feature_name_str) != supported_features.digests.end() ){
+            std::string digest = supported_features.digests[feature_name_str];
+            data =  "[\"" + digest + "\"]";
+         } else {
+            std::cerr << feature_name_str << " is unknown. Following protocol features are supported" << std::endl << std::endl;
+            std::cerr << supported_features.names << std::endl;
+            return;
+         }
+         fc::variant action_args_var;
+         action_args_var = json_from_file_or_string(data, fc::json::parse_type::relaxed_parser);
+         auto accountPermissions = get_account_permissions(permissions);
+         send_actions({chain::action{accountPermissions, name(account_str), name(action),
+                                     variant_to_bin( name(account_str), name(action), action_args_var ) }}, signing_keys_opt.get_keys());
+      });
+   }
+};
+
 void get_account( const string& accountName, const string& coresym, bool json_format ) {
    fc::variant json;
    if (coresym.empty()) {
@@ -2792,6 +2913,11 @@ int main( int argc, char** argv ) {
       std::cout << fc::json::to_pretty_string(call(get_transaction_status_func, arg)) << std::endl;
    });
 
+   // get consensus parameters
+   get->add_subcommand("consensus_parameters", localized("Get current blockchain consensus parameters"))->callback([] {
+      std::cout << fc::json::to_pretty_string(get_consensus_parameters()) << std::endl;
+   });
+
    // get block
    string blockArg;
    bool get_bhs = false;
@@ -3174,6 +3300,13 @@ int main( int argc, char** argv ) {
 
    get_schedule_subcommand{get};
    auto getTransactionId = get_transaction_id_subcommand{get};
+
+   // get supported_protocol_features
+   get->add_subcommand("supported_protocol_features", localized("Get supported protocol features"))->callback([] {
+      protocol_features_t supported_features;
+      supported_features = get_supported_protocol_features();
+      std::cout << supported_features.names << std::endl;
+   });
 
    // set subcommand
    auto setSubcommand = app.add_subcommand("set", localized("Set or update blockchain state"));
@@ -3694,22 +3827,35 @@ int main( int argc, char** argv ) {
 
    // push transaction
    string trx_to_push;
+
+   std::vector<string> extra_signatures;
+   CLI::callback_t extra_sig_opt_callback = [&](CLI::results_t res) {
+     vector<string>::iterator itr;
+     for (itr = res.begin(); itr != res.end(); ++itr) {
+       extra_signatures.push_back(*itr);
+     }
+     return true;
+   };
+
    auto trxSubcommand = push->add_subcommand("transaction", localized("Push an arbitrary JSON transaction"));
    trxSubcommand->add_option("transaction", trx_to_push, localized("The JSON string or filename defining the transaction to push"))->required();
+   trxSubcommand->add_option("--signature", extra_sig_opt_callback, localized("append a signature to the transaction; repeat this option to append multiple signatures"))->type_size(0, 1000);
    add_standard_transaction_options_plus_signing(trxSubcommand);
    trxSubcommand->add_flag("-o,--read-only", tx_read_only, localized("Specify a transaction is read-only"));
 
    trxSubcommand->callback([&] {
       fc::variant trx_var = json_from_file_or_string(trx_to_push);
+      signed_transaction trx;
       try {
-         signed_transaction trx = trx_var.as<signed_transaction>();
-         std::cout << fc::json::to_pretty_string( push_transaction( trx, signing_keys_opt.get_keys() )) << std::endl;
+         trx = trx_var.as<signed_transaction>();
       } catch( const std::exception& ) {
          // unable to convert so try via abi
-         signed_transaction trx;
          abi_serializer::from_variant( trx_var, trx, abi_serializer_resolver, abi_serializer::create_yield_function( abi_serializer_max_time ) );
-         std::cout << fc::json::to_pretty_string( push_transaction( trx, signing_keys_opt.get_keys() )) << std::endl;
       }
+      for (const string& sig : extra_signatures) {
+         trx.signatures.push_back(fc::crypto::signature(sig));
+      }
+      std::cout << fc::json::to_pretty_string( push_transaction( trx, signing_keys_opt.get_keys() )) << std::endl;
    });
 
    // push transactions
@@ -4209,6 +4355,7 @@ int main( int argc, char** argv ) {
    auto unregProxy = unregproxy_subcommand(system);
 
    auto cancelDelay = canceldelay_subcommand(system);
+   auto activate = activate_subcommand(system);
 
    auto rex = system->add_subcommand("rex", localized("Actions related to REX (the resource exchange)"));
    rex->require_subcommand();

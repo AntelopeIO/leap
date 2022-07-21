@@ -15,7 +15,9 @@ EOSIO currently supports the following operating systems:
 3. Ubuntu 22.04
 
 [[info | Note]]
-| It may be possible to build and install EOSIO on other Unix-based operating systems. This is not officially supported, though.
+| It may be possible to build and install EOSIO on other Unix-based operating systems. We gathered helpful information on the following page but please keep in mind that it is experimental and not officially supported. 
+
+* [Build EOSIO on Other Unix-based Systems](01_build-from-source/00_build-unsupported-os.md)
 
 ## Docker Utilities for Node Execution (D.U.N.E.)
 

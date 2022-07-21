@@ -671,6 +671,12 @@ public:
 
    chain::symbol extract_core_symbol()const;
 
+   using get_consensus_parameters_params = empty;
+   struct get_consensus_parameters_results {
+     chain::chain_config        chain_config;
+     chain::wasm_config         wasm_config;
+   };
+   get_consensus_parameters_results get_consensus_parameters(const get_consensus_parameters_params&) const;
 };
 
 class read_write {
@@ -905,4 +911,4 @@ FC_REFLECT( eosio::chain_apis::read_only::get_required_keys_params, (transaction
 FC_REFLECT( eosio::chain_apis::read_only::get_required_keys_result, (required_keys) )
 FC_REFLECT( eosio::chain_apis::read_only::compute_transaction_params, (transaction))
 FC_REFLECT( eosio::chain_apis::read_only::compute_transaction_results, (transaction_id)(processed) )
-
+FC_REFLECT( eosio::chain_apis::read_only::get_consensus_parameters_results, (chain_config)(wasm_config))

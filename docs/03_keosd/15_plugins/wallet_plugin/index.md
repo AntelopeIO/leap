@@ -21,7 +21,10 @@ None
 
 ## Dependencies
 
-* [`http_plugin`](../http_plugin/index.md)
+* `http_plugin`
+
+[//]: # ( THIS IS A COMMENT LINK BELOW IS BROKEN )  
+[//]: # ( `http_plugin` ../http_plugin.md )  
 
 ### Load Dependency Examples
 
