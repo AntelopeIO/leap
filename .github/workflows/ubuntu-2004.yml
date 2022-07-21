@@ -82,7 +82,7 @@ jobs:
           docker pull ${UBUNTU_2004_IMAGE}
           echo =====
           mkdir build
-          ${DOCKER} bash -c "cd build && cmake -DCMAKE_BUILD_TYPE=Release .."
+          ${DOCKER} bash -c "cd build && cmake -DCMAKE_BUILD_TYPE=Release -UCMAKE_CXX_COMPILER_LAUNCHER -UCMAKE_C_COMPILER_LAUNCHER .."
           echo =====
           ${DOCKER} bash -c "cd build && make -j $(nproc)"
           echo =====
