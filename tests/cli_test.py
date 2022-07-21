@@ -89,7 +89,7 @@ def cleos_sign_test():
         '"context_free_data": []'
     '}')
 
-    output = subprocess.check_output(['./programs/cleos/cleos', 'sign',
+    output = subprocess.check_output(['./programs/cleos/cleos', '--no-auto-keosd', 'sign',
                                       '-c', chain, '-k', key, trx])
     # make sure it is signed
     assert(b'signatures' in output)
