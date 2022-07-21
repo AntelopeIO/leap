@@ -166,6 +166,20 @@ class PluginHttpTest(unittest.TestCase):
             "6bcb40a24e49c26d0a60513b6aeb8551d264e4717f306b81a37a5afb3b47cedc",
             "35c2186cc36f7bb4aeaf4487b36e57039ccf45a9136aa856a5d569ecca55ef2b",
         ]
+        # get_consensus_parameters without parameter
+        default_cmd = cmd_base + "get_consensus_parameters"
+        ret_json = Utils.runCmdReturnJson(default_cmd)
+        self.assertIn("chain_config", ret_json)
+        self.assertIn("wasm_config", ret_json)
+        # get_consensus_parameters with empty content parameter
+        empty_content_cmd = default_cmd + self.http_post_str + self.empty_content_str
+        ret_json = Utils.runCmdReturnJson(empty_content_cmd)
+        self.assertIn("chain_config", ret_json)
+        self.assertIn("wasm_config", ret_json)
+        # get_consensus_parameters with invalid parameter
+        invalid_cmd = default_cmd + self.http_post_str + self.http_post_invalid_param
+        ret_json = Utils.runCmdReturnJson(invalid_cmd)
+        self.assertEqual(ret_json["code"], 400)
 
         # get_activated_protocol_features without parameter
         default_cmd = cmd_base + "get_activated_protocol_features"
