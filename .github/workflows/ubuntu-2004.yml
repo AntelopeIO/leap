@@ -15,6 +15,13 @@ jobs:
     name: Ubuntu 20.04 | Build
     runs-on: ubuntu-latest
     steps:
+      - name: no-ccache
+        id: no-ccache
+        uses: saulmaldonado/skip-workflow@v1
+        with:
+          search: '["pull_request"]'
+          pr-message: 'body'
+          phrase: '[no-ccache]'
       - name: Timestamp
         id: ccache_cache_timestamp
         shell: cmake -P {0}
@@ -27,6 +34,7 @@ jobs:
           submodules: recursive
           fetch-depth: 0
       - name: Preserve ccache
+        if: ${{ !steps.no-ccache.outputs.skip }}
         uses: actions/cache@v1.1.0
         with:
           path: .ccache
@@ -34,6 +42,7 @@ jobs:
           restore-keys: |
             $ubuntu-20.04-ccache_make-
       - name: Build
+        if: ${{ !steps.no-ccache.outputs.skip }}
         run: |
           set -e
           export CCACHE_DIR=${GITHUB_WORKSPACE}/.ccache
@@ -57,6 +66,29 @@ jobs:
           ls -la ${GITHUB_WORKSPACE}
           echo =====
           ${DOCKER} ccache -s
+          echo =====
+          ${DOCKER} build/bin/nodeos --version
+          ${DOCKER} build/bin/nodeos --full-version
+          echo =====
+          tar -pczf build.tar.gz build
+          tar -pczf usr_local.tar.gz installed
+      - name: Build without ccache
+        if: ${{ steps.no-ccache.outputs.skip }}
+        run: |
+          set -e
+          export DOCKER="docker run --rm -v ${GITHUB_WORKSPACE}:${GITHUB_WORKSPACE} -w ${GITHUB_WORKSPACE} --user $(id -u):$(id -g) ${UBUNTU_2004_IMAGE}"
+          export DOCKER_ROOT="docker run --rm -v ${GITHUB_WORKSPACE}:${GITHUB_WORKSPACE} -w ${GITHUB_WORKSPACE} ${UBUNTU_2004_IMAGE}"
+          docker pull ${UBUNTU_2004_IMAGE}
+          echo =====
+          mkdir build
+          ${DOCKER} bash -c "cd build && cmake -DCMAKE_BUILD_TYPE=Release .."
+          echo =====
+          ${DOCKER} bash -c "cd build && make -j $(nproc)"
+          echo =====
+          mkdir install
+          ${DOCKER_ROOT} bash -c "cd build && DESTDIR=${GITHUB_WORKSPACE}/installed make -j $(nproc) dev-install"
+          echo =====
+          ls -la ${GITHUB_WORKSPACE}
           echo =====
           ${DOCKER} build/bin/nodeos --version
           ${DOCKER} build/bin/nodeos --full-version
