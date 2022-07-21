@@ -19,6 +19,7 @@ jobs:
         id: no-ccache
         uses: saulmaldonado/skip-workflow@v1
         with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           search: '["pull_request"]'
           pr-message: 'body'
           phrase: '[no-ccache]'
