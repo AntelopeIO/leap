@@ -9,12 +9,16 @@ This section describes how to set up a non-producing node within the EOSIO netwo
 ## Before you begin
 
 * [Install the EOSIO software](../../../00_install/index.md) before starting this section.
-* It is assumed that `nodeos`, `cleos`, and `keosd` are accessible through the path. If you built EOSIO using shell scripts, make sure to run the [Install Script](../../../00_install/01_build-from-source/01_shell-scripts/03_install-eosio-binaries.md).
+* It is assumed that `nodeos`, `cleos`, and `keosd` are accessible through the path.
+
+[//]: # ( THIS IS A COMMENT NEXT LINK CONTAINS A BROKEN LINK )  
+[//]: # (  If you built EOSIO using shell scripts, make sure to run the Install Script ../../../00_install/01_build-from-source/01_shell-scripts/03_install-eosio-binaries.md )  
+
 * Know how to pass [Nodeos options](../../02_usage/00_nodeos-options.md) to enable or disable functionality.
 
 ## Steps
 
-To setup a non-producing node is simple. 
+To setup a non-producing node is simple.
 
 1. [Set Peers](#1-set-peers)
 2. [Enable one or more available plugins](#2-enable-one-or-more-available-plugins)

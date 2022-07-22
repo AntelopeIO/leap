@@ -4,7 +4,9 @@ cleos net peers [OPTIONS]
 ```
 
 **Where:**
-* [OPTIONS] = See **Options** in the [**Command Usage**](command-usage) section below.
+* [OPTIONS] = See **Options** section TBD
+
+[//]: # (in the **Command Usage** command-usage section below.)  
 
 **Note:** The arguments and options enclosed in square brackets are optional.
 
