@@ -15,7 +15,7 @@
 #include <eosio/chain/deep_mind.hpp>
 #include <eosio/chain_plugin/trx_finality_status_processing.hpp>
 #include <eosio/chain/permission_link_object.hpp>
-
+#include <eosio/chain/global_property_object.hpp>
 #include <eosio/chain/eosio_contract.hpp>
 
 #include <eosio/resource_monitor_plugin/resource_monitor_plugin.hpp>
@@ -2750,6 +2750,16 @@ chain::symbol read_only::extract_core_symbol()const {
    }
 
    return core_symbol;
+}
+
+read_only::get_consensus_parameters_results
+read_only::get_consensus_parameters(const get_consensus_parameters_params& ) const {
+   get_consensus_parameters_results results;
+
+   results.chain_config = db.get_global_properties().configuration;
+   results.wasm_config = db.get_global_properties().wasm_configuration;
+
+   return results;
 }
 
 } // namespace chain_apis

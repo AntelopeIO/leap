@@ -348,6 +348,10 @@ template<>
 fc::variant call( const std::string& url,
                   const std::string& path) { return call( url, path, fc::variant() ); }
 
+eosio::chain_apis::read_only::get_consensus_parameters_results get_consensus_parameters() {
+   return call(url, get_consensus_parameters_func).as<eosio::chain_apis::read_only::get_consensus_parameters_results>();
+}
+
 eosio::chain_apis::read_only::get_info_results get_info() {
    return call(url, get_info_func).as<eosio::chain_apis::read_only::get_info_results>();
 }
@@ -835,6 +839,7 @@ authority parse_json_authority_or_key(const std::string& authorityJsonOrFile) {
       } EOS_RETHROW_EXCEPTIONS(public_key_type_exception, "Invalid public key: ${public_key}", ("public_key", authorityJsonOrFile))
    } else {
       auto result = parse_json_authority(authorityJsonOrFile);
+      result.sort_fields();
       EOS_ASSERT( eosio::chain::validate(result), authority_type_exception, "Authority failed validation! ensure that keys, accounts, and waits are sorted and that the threshold is valid and satisfiable!");
       return result;
    }
@@ -2910,6 +2915,11 @@ int main( int argc, char** argv ) {
       }
       auto arg= fc::mutable_variant_object( "id", status_transaction_id);
       std::cout << fc::json::to_pretty_string(call(get_transaction_status_func, arg)) << std::endl;
+   });
+
+   // get consensus parameters
+   get->add_subcommand("consensus_parameters", localized("Get current blockchain consensus parameters"))->callback([] {
+      std::cout << fc::json::to_pretty_string(get_consensus_parameters()) << std::endl;
    });
 
    // get block

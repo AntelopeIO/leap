@@ -44,7 +44,7 @@ using namespace eosio;
      eosio::detail::net_api_plugin_empty result;
 
 #define INVOKE_V_V(api_handle, call_name) \
-     body = parse_params<std::string, http_params_types::no_params_required>(body); \
+     body = parse_params<std::string, http_params_types::no_params>(body); \
      api_handle.call_name(); \
      eosio::detail::net_api_plugin_empty result;
 
