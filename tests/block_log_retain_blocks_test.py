@@ -10,7 +10,7 @@ import os
 import signal
 
 ###############################################################
-# terminate-scenarios-test
+# block_log_retain_blocks_test
 #
 # A basic test for --block-log-retain-blocks option. It validates
 #   * no blocks.log is generated when the option is set to 0
@@ -45,7 +45,6 @@ total_nodes=pnodes + 2
 
 try:
     TestHelper.printSystemInfo("BEGIN")
-    cluster.setWalletMgr(walletMgr)
 
     cluster.setWalletMgr(walletMgr)
 
