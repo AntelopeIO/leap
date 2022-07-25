@@ -15,7 +15,7 @@ jobs:
     name: Ubuntu 20.04 | Build
     runs-on: ubuntu-latest
     steps:
-      - name: no-ccache
+      - name: Check for ccache disable
         id: no-ccache
         uses: saulmaldonado/skip-workflow@v1
         with:
