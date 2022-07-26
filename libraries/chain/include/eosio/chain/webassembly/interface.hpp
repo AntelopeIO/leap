@@ -844,7 +844,7 @@ namespace webassembly {
 
          /**
           * Find the table row in a primary 64-bit integer index table that matches the lowerbound condition for a given primary key.
-          * Lowerbound record is the first nearest record which primary key is <= the given key.
+          * Lowerbound record is the first nearest record which primary key is >= the given key.
           *
           * @ingroup database primary-index
           * @param code - the name of the owner of the table.
