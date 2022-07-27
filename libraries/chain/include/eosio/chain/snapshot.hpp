@@ -272,11 +272,6 @@ namespace eosio { namespace chain {
          read_section(detail::snapshot_section_traits<T>::section_name(), f);
       }
 
-      template<typename T>
-      bool has_section(const std::string& suffix = std::string()) {
-         return has_section(suffix + detail::snapshot_section_traits<T>::section_name());
-      }
-
       virtual void validate() const = 0;
 
       virtual void return_to_header() = 0;
@@ -284,7 +279,6 @@ namespace eosio { namespace chain {
       virtual ~snapshot_reader(){};
 
       protected:
-         virtual bool has_section( const std::string& section_name ) = 0;
          virtual void set_section( const std::string& section_name ) = 0;
          virtual bool read_row( detail::abstract_snapshot_row_reader& row_reader ) = 0;
          virtual bool empty( ) = 0;
@@ -313,7 +307,6 @@ namespace eosio { namespace chain {
          explicit variant_snapshot_reader(const fc::variant& snapshot);
 
          void validate() const override;
-         bool has_section( const string& section_name ) override;
          void set_section( const string& section_name ) override;
          bool read_row( detail::abstract_snapshot_row_reader& row_reader ) override;
          bool empty ( ) override;
@@ -365,7 +358,6 @@ namespace eosio { namespace chain {
          explicit istream_snapshot_reader(std::istream& snapshot);
 
          void validate() const override;
-         bool has_section( const string& section_name ) override;
          void set_section( const string& section_name ) override;
          bool read_row( detail::abstract_snapshot_row_reader& row_reader ) override;
          bool empty ( ) override;

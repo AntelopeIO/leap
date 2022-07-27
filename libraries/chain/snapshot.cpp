@@ -77,17 +77,6 @@ void variant_snapshot_reader::validate() const {
    }
 }
 
-bool variant_snapshot_reader::has_section( const string& section_name ) {
-   const auto& sections = snapshot["sections"].get_array();
-   for( const auto& section: sections ) {
-      if (section["name"].as_string() == section_name) {
-         return true;
-      }
-   }
-
-   return false;
-}
-
 void variant_snapshot_reader::set_section( const string& section_name ) {
    const auto& sections = snapshot["sections"].get_array();
    for( const auto& section: sections ) {
