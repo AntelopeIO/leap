@@ -319,6 +319,11 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       // path to write the snapshots to
       bfs::path _snapshots_dir;
 
+      // max size of detailed exception message to log;
+      // this is to prevent from logging arbitrary lengths of exception
+      // messages from contracts
+      static constexpr uint32_t _max_size_of_detail_exception_msg = 512;
+
       void consider_new_watermark( account_name producer, uint32_t block_num, block_timestamp_type timestamp) {
          auto itr = _producer_watermarks.find( producer );
          if( itr != _producer_watermarks.end() ) {
@@ -547,13 +552,15 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
             }
 
             if (except_ptr) {
+               std::string details(except_ptr->to_detail_string(), 0, _max_size_of_detail_exception_msg);
+
                if (_pending_block_mode == pending_block_mode::producing) {
                   fc_dlog(_trx_failed_trace_log, "[TRX_TRACE] Block ${block_num} for producer ${prod} is REJECTING tx: ${txid}, auth: ${a} : ${why} ",
                         ("block_num", chain.head_block_num() + 1)
                         ("prod", get_pending_block_producer())
                         ("txid", trx->id())
                         ("a", trx->packed_trx()->get_transaction().first_authorizer())
-                        ("why", except_ptr->what()));
+                        ("why", details));
                   fc_dlog(_trx_log, "[TRX_TRACE] Block ${block_num} for producer ${prod} is REJECTING tx: ${trx}",
                           ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())
                                 ("trx", chain_plug->get_log_trx(trx->packed_trx()->get_transaction())));
@@ -564,7 +571,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                   fc_dlog(_trx_failed_trace_log, "[TRX_TRACE] Speculative execution is REJECTING tx: ${txid}, auth: ${a} : ${why} ",
                           ("txid", trx->id())
                           ("a", trx->packed_trx()->get_transaction().first_authorizer())
-                          ("why", except_ptr->what()));
+                          ("why", details));
                   fc_dlog(_trx_log, "[TRX_TRACE] Speculative execution is REJECTING tx: ${trx} ",
                           ("trx", chain_plug->get_log_trx(trx->packed_trx()->get_transaction())));
                   fc_dlog(_trx_trace_failure_log, "[TRX_TRACE] Speculative execution is REJECTING tx: ${entire_trace} ",
@@ -2084,11 +2091,12 @@ void producer_plugin_impl::process_scheduled_and_incoming_trxs( const fc::time_p
                   break;
                }
             } else {
+               std::string details(trace->except->to_detail_string(), 0, _max_size_of_detail_exception_msg);
                fc_dlog(_trx_failed_trace_log,
                        "[TRX_TRACE] Block ${block_num} for producer ${prod} is REJECTING scheduled tx: ${txid}, time: ${r}, auth: ${a} : ${why} ",
                        ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())
                        ("txid", trx_id)("r", fc::time_point::now() - start)("a", get_first_authorizer(trace))
-                       ("why", trace->except->what()));
+                       ("why", details));
                fc_dlog(_trx_trace_failure_log, "[TRX_TRACE] Block ${block_num} for producer ${prod} is REJECTING scheduled tx: ${entire_trace}",
                        ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())
                        ("entire_trace", chain_plug->get_log_trx_trace(trace)));
