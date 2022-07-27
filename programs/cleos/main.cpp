@@ -2698,6 +2698,23 @@ CLI::callback_t header_opt_callback = [](CLI::results_t res) {
    return true;
 };
 
+CLI::callback_t abi_files_overide_callback = [](CLI::results_t account_abis) {
+   for (vector<string>::iterator itr = account_abis.begin(); itr != account_abis.end(); ++itr) {
+      size_t delim = itr->find(":");
+      std::string acct_name, abi_path;
+      if (delim != std::string::npos) {
+         acct_name = itr->substr(0, delim);
+         abi_path = itr->substr(delim + 1);
+      }
+      if (acct_name.length() == 0 || abi_path.length() == 0) {
+         std::cerr << "please specify --abi-file in form of <contract name>:<abi file path>.\n";
+         return false;
+      }
+      abi_files_override[name(acct_name)] = abi_path;
+   }
+   return true;
+};
+
 
 int main( int argc, char** argv ) {
 
@@ -2716,6 +2733,7 @@ int main( int argc, char** argv ) {
    app.add_option( "-u,--url", ::default_url, localized( "The http/https URL where ${n} is running", ("n", node_executable_name)), true );
    app.add_option( "--wallet-url", wallet_url, localized("The http/https URL where ${k} is running", ("k", key_store_executable_name)), true );
 
+   app.add_option( "--abi-file", abi_files_overide_callback, localized("In form of <contract name>:<abi file path>, use a local abi file for serialization and deserialization instead of getting the abi data from the blockchain; repeat this option to pass multiple abi files for different contracts"))->type_size(0, 1000);
    app.add_option( "-r,--header", header_opt_callback, localized("Pass specific HTTP header; repeat this option to pass multiple headers"));
    app.add_flag( "-n,--no-verify", no_verify, localized("Don't verify peer certificate when using HTTPS"));
    app.add_flag( "--no-auto-" + string(key_store_executable_name), no_auto_keosd, localized("Don't automatically launch a ${k} if one is not currently running", ("k", key_store_executable_name)));
