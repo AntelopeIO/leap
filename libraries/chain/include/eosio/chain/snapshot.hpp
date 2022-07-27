@@ -381,6 +381,28 @@ namespace eosio { namespace chain {
          uint64_t       cur_row;
    };
 
+   class istream_json_snapshot_reader : public snapshot_reader {
+      public:
+         explicit istream_json_snapshot_reader(std::istream& snapshot);
+
+         void validate() const override;
+         void set_section( const string& section_name ) override;
+         bool read_row( detail::abstract_snapshot_row_reader& row_reader ) override;
+         bool empty ( ) override;
+         void clear_section() override;
+         void return_to_header() override;
+
+      private:
+         bool validate_section() const;
+
+         std::istream&      snapshot;
+         std::streampos     header_pos;
+         uint64_t           num_rows;
+         uint64_t           cur_row;
+         fc::variant_object var_obj;
+         fc::variant_object cur_section;
+   };
+
    class integrity_hash_snapshot_writer : public snapshot_writer {
       public:
          explicit integrity_hash_snapshot_writer(fc::sha256::encoder&  enc);

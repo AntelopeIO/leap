@@ -286,44 +286,6 @@ bool istream_snapshot_reader::validate_section() const {
    return true;
 }
 
-bool istream_snapshot_reader::has_section( const string& section_name ) {
-   auto restore_pos = fc::make_scoped_exit([this,pos=snapshot.tellg()](){
-      snapshot.seekg(pos);
-   });
-
-   const std::streamoff header_size = sizeof(ostream_snapshot_writer::magic_number) + sizeof(current_snapshot_version);
-
-   auto next_section_pos = header_pos + header_size;
-
-   while (true) {
-      snapshot.seekg(next_section_pos);
-      uint64_t section_size = 0;
-      snapshot.read((char*)&section_size,sizeof(section_size));
-      if (section_size == std::numeric_limits<uint64_t>::max()) {
-         break;
-      }
-
-      next_section_pos = snapshot.tellg() + std::streamoff(section_size);
-
-      uint64_t ignore = 0;
-      snapshot.read((char*)&ignore,sizeof(ignore));
-
-      bool match = true;
-      for(auto c : section_name) {
-         if(snapshot.get() != c) {
-            match = false;
-            break;
-         }
-      }
-
-      if (match && snapshot.get() == 0) {
-         return true;
-      }
-   }
-
-   return false;
-}
-
 void istream_snapshot_reader::set_section( const string& section_name ) {
    auto restore_pos = fc::make_scoped_exit([this,pos=snapshot.tellg()](){
       snapshot.seekg(pos);
@@ -383,6 +345,82 @@ void istream_snapshot_reader::clear_section() {
 
 void istream_snapshot_reader::return_to_header() {
    snapshot.seekg( header_pos );
+   clear_section();
+}
+
+istream_json_snapshot_reader::istream_json_snapshot_reader(std::istream& snapshot)
+   :snapshot(snapshot)
+   ,header_pos(snapshot.tellg())
+   ,num_rows(0)
+   ,cur_row(0)
+{
+   std::stringstream my_buffer;
+   my_buffer << snapshot.rdbuf();
+   auto var = fc::json::from_string(my_buffer.str(), fc::json::parse_type::relaxed_parser);
+   if (var.is_object()) {
+      var_obj = var.get_object();
+   }
+}
+
+void istream_json_snapshot_reader::validate() const {
+   try {
+      // validate totem
+      auto expected_totem = ostream_json_snapshot_writer::magic_number;
+      decltype(expected_totem) actual_totem;
+      if (var_obj.contains("magic_number")) {
+         auto magic_num = var_obj["magic_number"];
+         from_variant(magic_num, actual_totem);
+         EOS_ASSERT(actual_totem == expected_totem, snapshot_exception,
+                  "JSON snapshot has unexpected magic number!");
+      }
+
+      // validate version
+      auto expected_version = current_snapshot_version;
+      decltype(expected_version) actual_version;
+      if (var_obj.contains("version")) {
+         auto version_num = var_obj["version"];
+         from_variant(version_num, actual_version);
+      EOS_ASSERT(actual_version == expected_version, snapshot_exception,
+                 "JSON snapshot is an unsuppored version.  Expected : ${expected}, Got: ${actual}",
+                 ("expected", expected_version)("actual", actual_version));
+      }
+   } catch( const std::exception& e ) {  \
+      snapshot_exception fce(FC_LOG_MESSAGE( warn, "JSON snapshot validation threw IO exception (${what})",("what",e.what())));
+      throw fce;
+   }
+}
+
+bool istream_json_snapshot_reader::validate_section() const {
+   return true;
+}
+
+void istream_json_snapshot_reader::set_section( const string& section_name ) {
+   if (var_obj.contains(section_name.c_str())) {
+      cur_section  = var_obj[section_name.c_str()].get_object();
+      cur_row = 0;
+      num_rows = cur_section.size();
+   } else {
+      EOS_THROW(snapshot_exception, "JSON snapshot has no section named ${n}", ("n", section_name));
+   }
+}
+
+bool istream_json_snapshot_reader::read_row( detail::abstract_snapshot_row_reader& row_reader ) {
+   std::string row_name = "row_" + std::to_string(cur_row);
+   row_reader.provide(cur_section[row_name.c_str()]);
+   return ++cur_row < num_rows;
+}
+
+bool istream_json_snapshot_reader::empty ( ) {
+   return num_rows == 0;
+}
+
+void istream_json_snapshot_reader::clear_section() {
+   num_rows = 0;
+   cur_row = 0;
+   cur_section = fc::variant_object();
+}
+
+void istream_json_snapshot_reader::return_to_header() {
    clear_section();
 }
 
