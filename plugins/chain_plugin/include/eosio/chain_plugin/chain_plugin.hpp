@@ -69,6 +69,8 @@ Type convert_to_type(const string& str, const string& desc) {
    } FC_RETHROW_EXCEPTIONS(warn, "Could not convert ${desc} string '${str}' to key type.", ("desc", desc)("str",str) )
 }
 
+uint64_t convert_to_type(const eosio::name &n, const string &desc);
+
 template<>
 uint64_t convert_to_type(const string& str, const string& desc);
 
@@ -175,7 +177,22 @@ public:
       name                       producer_name;
    };
 
-   using account_resource_limit = chain::resource_limits::account_resource_limit;
+   // account_resource_info holds similar data members as in account_resource_limit, but decoupling making them independently to be refactored in future
+   struct account_resource_info {
+      int64_t used = 0;
+      int64_t available = 0;
+      int64_t max = 0;
+      std::optional<chain::block_timestamp_type> last_usage_update_time;    // optional for backward nodeos support
+      std::optional<int64_t> current_used;  // optional for backward nodeos support
+      void set( const eosio::chain::resource_limits::account_resource_limit& arl)
+      {
+         used = arl.used;
+         available = arl.available;
+         max = arl.max;
+         last_usage_update_time = arl.last_usage_update_time;
+         current_used = arl.current_used;
+      }
+   };
 
    struct get_account_results {
       name                       account_name;
@@ -192,8 +209,8 @@ public:
       int64_t                    net_weight = 0;
       int64_t                    cpu_weight = 0;
 
-      account_resource_limit     net_limit;
-      account_resource_limit     cpu_limit;
+      account_resource_info      net_limit;
+      account_resource_info      cpu_limit;
       int64_t                    ram_usage = 0;
 
       vector<permission>         permissions;
@@ -204,7 +221,7 @@ public:
       fc::variant                voter_info;
       fc::variant                rex_info;
 
-      std::optional<account_resource_limit> subjective_cpu_bill_limit;
+      std::optional<eosio::chain::resource_limits::account_resource_limit> subjective_cpu_bill_limit;
       std::vector<linked_action> eosio_any_linked_actions;
    };
 
@@ -503,9 +520,12 @@ public:
 
          if( p.lower_bound.size() ) {
             if( p.key_type == "name" ) {
-               name s(p.lower_bound);
-               SecKeyType lv = convert_to_type<SecKeyType>( s.to_string(), "lower_bound name" ); // avoids compiler error
-               std::get<1>(lower_bound_lookup_tuple) = conv( lv );
+               if constexpr (std::is_same_v<uint64_t, SecKeyType>) {
+                  SecKeyType lv = convert_to_type(name{p.lower_bound}, "lower_bound name");
+                  std::get<1>(lower_bound_lookup_tuple) = conv(lv);
+               } else {
+                  EOS_ASSERT(false, chain::contract_table_query_exception, "Invalid key type of eosio::name ${nm} for lower bound", ("nm", p.lower_bound));
+               }
             } else {
                SecKeyType lv = convert_to_type<SecKeyType>( p.lower_bound, "lower_bound" );
                std::get<1>(lower_bound_lookup_tuple) = conv( lv );
@@ -514,9 +534,12 @@ public:
 
          if( p.upper_bound.size() ) {
             if( p.key_type == "name" ) {
-               name s(p.upper_bound);
-               SecKeyType uv = convert_to_type<SecKeyType>( s.to_string(), "upper_bound name" );
-               std::get<1>(upper_bound_lookup_tuple) = conv( uv );
+               if constexpr (std::is_same_v<uint64_t, SecKeyType>) {
+                  SecKeyType uv = convert_to_type(name{p.upper_bound}, "upper_bound name");
+                  std::get<1>(upper_bound_lookup_tuple) = conv(uv);
+               } else {
+                  EOS_ASSERT(false, chain::contract_table_query_exception, "Invalid key type of eosio::name ${nm} for upper bound", ("nm", p.upper_bound));
+               }
             } else {
                SecKeyType uv = convert_to_type<SecKeyType>( p.upper_bound, "upper_bound" );
                std::get<1>(upper_bound_lookup_tuple) = conv( uv );
@@ -648,6 +671,12 @@ public:
 
    chain::symbol extract_core_symbol()const;
 
+   using get_consensus_parameters_params = empty;
+   struct get_consensus_parameters_results {
+     chain::chain_config        chain_config;
+     chain::wasm_config         wasm_config;
+   };
+   get_consensus_parameters_results get_consensus_parameters(const get_consensus_parameters_params&) const;
 };
 
 class read_write {
@@ -855,6 +884,7 @@ FC_REFLECT( eosio::chain_apis::read_only::get_producer_schedule_result, (active)
 FC_REFLECT( eosio::chain_apis::read_only::get_scheduled_transactions_params, (json)(lower_bound)(limit) )
 FC_REFLECT( eosio::chain_apis::read_only::get_scheduled_transactions_result, (transactions)(more) );
 
+FC_REFLECT( eosio::chain_apis::read_only::account_resource_info, (used)(available)(max)(last_usage_update_time)(current_used) )
 FC_REFLECT( eosio::chain_apis::read_only::get_account_results,
             (account_name)(head_block_num)(head_block_time)(privileged)(last_code_update)(created)
             (core_liquid_balance)(ram_quota)(net_weight)(cpu_weight)(net_limit)(cpu_limit)(ram_usage)(permissions)
@@ -881,4 +911,4 @@ FC_REFLECT( eosio::chain_apis::read_only::get_required_keys_params, (transaction
 FC_REFLECT( eosio::chain_apis::read_only::get_required_keys_result, (required_keys) )
 FC_REFLECT( eosio::chain_apis::read_only::compute_transaction_params, (transaction))
 FC_REFLECT( eosio::chain_apis::read_only::compute_transaction_results, (transaction_id)(processed) )
-
+FC_REFLECT( eosio::chain_apis::read_only::get_consensus_parameters_results, (chain_config)(wasm_config))

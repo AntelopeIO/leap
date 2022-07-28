@@ -9,7 +9,7 @@ cleos version
 ```
 
 ## Subcommands
-[client](client) - Retrieve version information of the client
+[client](client.md) - Retrieve version information of the client
 
 ```sh
 cleos version client

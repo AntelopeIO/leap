@@ -2,6 +2,7 @@
 
 #include <eosio/chain/types.hpp>
 #include <eosio/chain/webassembly/common.hpp>
+#include <eosio/chain/webassembly/return_codes.hpp>
 #include <fc/crypto/sha1.hpp>
 #include <boost/hana/string.hpp>
 
@@ -853,7 +854,7 @@ namespace webassembly {
 
          /**
           * Find the table row in a primary 64-bit integer index table that matches the lowerbound condition for a given primary key.
-          * Lowerbound record is the first nearest record which primary key is <= the given key.
+          * Lowerbound record is the first nearest record which primary key is >= the given key.
           *
           * @ingroup database primary-index
           * @param code - the name of the owner of the table.
@@ -963,7 +964,7 @@ namespace webassembly {
 
          /**
           * Find the table row in a secondary 64-bit integer index table that matches the lowerbound condition for a given secondary key.
-          * Lowerbound secondary index is the first secondary index which key is <= the given secondary index key.
+          * Lowerbound secondary index is the first secondary index which key is >= the given secondary index key.
           *
           * @ingroup database uint64_t-secondary-index
           * @param code - the name of the owner of the table.
@@ -1104,7 +1105,7 @@ namespace webassembly {
 
          /**
           * Find the table row in a secondary 128-bit integer index table that matches the lowerbound condition for a given secondary key.
-          * Lowerbound secondary index is the first secondary index which key is <= the given secondary index key.
+          * Lowerbound secondary index is the first secondary index which key is >= the given secondary index key.
           *
           * @ingroup database uint128_t-secondary-index
           * @param code - the name of the owner of the table.
@@ -1245,7 +1246,7 @@ namespace webassembly {
 
          /**
           * Find the table row in a secondary 256-bit integer index table that matches the lowerbound condition for a given secondary key.
-          * Lowerbound secondary index is the first secondary index which key is <= the given secondary index key.
+          * Lowerbound secondary index is the first secondary index which key is >= the given secondary index key.
           *
           * @ingroup database 256-bit-secondary-index
           * @param code - the name of the owner of the table.
@@ -1389,7 +1390,7 @@ namespace webassembly {
 
          /**
           * Find the table row in a secondary double-precision floating-point index table that matches the lowerbound condition for a given secondary key.
-          * Lowerbound secondary index is the first secondary index which key is <= the given secondary index key.
+          * Lowerbound secondary index is the first secondary index which key is >= the given secondary index key.
           *
           * @ingroup database double-secondary-index
           * @param code - the name of the owner of the table.
@@ -1533,7 +1534,7 @@ namespace webassembly {
 
          /**
           * Find the table row in a secondary quadruple-precision floating-point index table that matches the lowerbound condition for a given secondary key.
-          * Lowerbound secondary index is the first secondary index which key is <= the given secondary index key.
+          * Lowerbound secondary index is the first secondary index which key is >= the given secondary index key.
           *
           * @ingroup database long-double-secondary-index
           * @param code - the name of the owner of the table.
@@ -1716,7 +1717,7 @@ namespace webassembly {
           * @param op1 - a span containing the first operand G1 point.
           * @param op2 - a span containing the second operand G1 point.
           * @param[out] result - the result op1 + op2.
-          * @return 1 if there was an error 0 otherwise
+          * @return -1 if there was an error 0 otherwise
          */
          int32_t alt_bn128_add(span<const char> op1, span<const char> op2, span<char> result) const;
 
@@ -1727,7 +1728,7 @@ namespace webassembly {
           * @param g1_point - a span containing G1 point.
           * @param scalar   - a span containing the scalar.
           * @param[out] result - g1 * scalar.
-          * @return 1 if there was an error 0 otherwise
+          * @return -1 if there was an error 0 otherwise
          */
          int32_t alt_bn128_mul(span<const char> g1_point, span<const char> scalar, span<char> result) const;
 
@@ -1736,10 +1737,9 @@ namespace webassembly {
           *
           * @ingroup crypto
           * @param g1_g2_pairs - a span containing pairs of G1,G2 points. (2 * 32 bytes) + (2 * 64 bytes)
-          * @param[out] result - true if pairing evaluates to 1, false otherwise
-          * @return 1 if there was an error 0 otherwise
+          * @return -1 if there was an error, 1 if false and 0 if true 
          */
-         int32_t alt_bn128_pair(span<const char> g1_g2_pairs, bool* result) const;
+         int32_t alt_bn128_pair(span<const char> g1_g2_pairs) const;
 
          /**
           * Big integer modular exponentiation
@@ -1752,7 +1752,7 @@ namespace webassembly {
           * @param exp         - a span containing EXPONENT.
           * @param modulus     - a span containing MODULUS.
           * @param[out] out    - the result (BASE**EXPONENT) % MODULUS
-          * @return              1 if there was an error 0 otherwise
+          * @return              -1 if there was an error 0 otherwise
          */
          int32_t mod_exp(span<const char> base, span<const char> exp, span<const char> modulus, span<char> out) const;
 
@@ -1767,11 +1767,11 @@ namespace webassembly {
           * @param message       - a span containing the message block vector - 16 unsigned 64-bit little-endian words
           * @param t0_offset     - offset counters - unsigned 64-bit little-endian word
           * @param t1_offset     - offset counters - unsigned 64-bit little-endian word
-          * @param final         - the final block indicator flag - 8-bit word
+          * @param final         - the final block indicator flag - (1-true, all other values == false)
           * @param[out] result   - the result
-          * @return                1 if there was an error 0 otherwise
+          * @return                -1 if there was an error 0 otherwise
          */
-         int32_t blake2_f( uint32_t rounds, span<const char> state, span<const char> message, span<const char> t0_offset, span<const char> t1_offset, bool final, span<char> result) const;
+         int32_t blake2_f( uint32_t rounds, span<const char> state, span<const char> message, span<const char> t0_offset, span<const char> t1_offset, int32_t final, span<char> result) const;
 
          /**
           * Hashes data using SHA3.
@@ -1779,9 +1779,9 @@ namespace webassembly {
           * @ingroup crypto
           * @param data - a span containing the data.
           * @param[out] hash_val - the resulting digest.
-          * @param keccak - use keccak version.
+          * @param keccak - use keccak version (1-true, all other values == false).
          */
-         void sha3( span<const char> data, span<char> hash_val, bool keccak) const;
+         void sha3( span<const char> data, span<char> hash_val, int32_t keccak) const;
 
          /**
           * Calculates the uncompressed public key used for a given signature on a given digest.
@@ -1791,7 +1791,7 @@ namespace webassembly {
           * @param digest - digest of the message that was signed.
           * @param[out] pub - output buffer for the public key result.
           *
-          * @return 1 if there was an error 0 otherwise.
+          * @return -1 if there was an error 0 otherwise.
          */
          int32_t k1_recover( span<const char> signature, span<const char> digest, span<char> pub) const;
 

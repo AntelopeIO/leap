@@ -4,8 +4,10 @@ cleos net disconnect [OPTIONS] host
 ```
 
 **Where:**
-* [OPTIONS] = See **Options** in the [**Command Usage**](command-usage) section below.
-* host = The hostname:port to disconnect from
+* [OPTIONS] = See **Options**section TBD
+
+[//]: # ( THIS IS A COMMENT LINK BELOW IS BROKEN )  
+[//]: # (in the **Command Usage** command-usage section below.)  
 
 **Note:** The arguments and options enclosed in square brackets are optional.
 

@@ -3,7 +3,7 @@
 Gets current blockchain state and, if available, transaction information given the transaction id.
 
 For query to work, the transaction finality status feature must be enabled by configuring
-the chain plugin with the config option "--transaction-finality-status-max-storage-size-gb <size>"
+the chain plugin with the config option "--transaction-finality-status-max-storage-size-gb \<size\>"
 in nodeos.
 
 ## Position Parameters
@@ -19,7 +19,7 @@ in nodeos.
 cleos get transaction-status 6438df82216dfaf46978f703fb818b49110dbfc5d9b521b5d08c342277438b29
 ```
 
-This command simply returns the current chain status and transaction status information (if available). 
+This command simply returns the current chain status and transaction status information (if available).
 
 ```json
 {

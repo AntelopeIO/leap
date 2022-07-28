@@ -164,8 +164,7 @@ namespace eosio { namespace testing {
          void              execute_setup_policy(const setup_policy policy);
 
          void              close();
-         template <typename Lambda>
-         void              open( protocol_feature_set&& pfs, std::optional<chain_id_type> expected_chain_id, Lambda lambda );
+         void              open( protocol_feature_set&& pfs, std::optional<chain_id_type> expected_chain_id, const std::function<void()>& lambda );
          void              open( protocol_feature_set&& pfs, const snapshot_reader_ptr& snapshot );
          void              open( protocol_feature_set&& pfs, const genesis_state& genesis );
          void              open( protocol_feature_set&& pfs, std::optional<chain_id_type> expected_chain_id = {} );
@@ -517,8 +516,8 @@ namespace eosio { namespace testing {
          try {
             if( num_blocks_to_producer_before_shutdown > 0 )
                produce_blocks( num_blocks_to_producer_before_shutdown );
-            if (!skip_validate)
-               BOOST_REQUIRE_EQUAL( validate(), true );
+            if (!skip_validate && std::uncaught_exceptions() == 0)
+               BOOST_CHECK_EQUAL( validate(), true );
          } catch( const fc::exception& e ) {
             wdump((e.to_detail_string()));
          }
@@ -597,7 +596,8 @@ namespace eosio { namespace testing {
       signed_block_ptr produce_block( fc::microseconds skip_time = fc::milliseconds(config::block_interval_ms) )override {
          auto sb = _produce_block(skip_time, false);
          auto bsf = validating_node->create_block_state_future( sb->calculate_id(), sb );
-         validating_node->push_block( bsf, forked_branch_callback{}, trx_meta_cache_lookup{} );
+         controller::block_report br;
+         validating_node->push_block( br, bsf, forked_branch_callback{}, trx_meta_cache_lookup{} );
 
          return sb;
       }
@@ -608,14 +608,16 @@ namespace eosio { namespace testing {
 
       void validate_push_block(const signed_block_ptr& sb) {
          auto bs = validating_node->create_block_state_future( sb->calculate_id(), sb );
-         validating_node->push_block( bs, forked_branch_callback{}, trx_meta_cache_lookup{} );
+         controller::block_report br;
+         validating_node->push_block( br, bs, forked_branch_callback{}, trx_meta_cache_lookup{} );
       }
 
       signed_block_ptr produce_empty_block( fc::microseconds skip_time = fc::milliseconds(config::block_interval_ms) )override {
          unapplied_transactions.add_aborted( control->abort_block() );
          auto sb = _produce_block(skip_time, true);
          auto bsf = validating_node->create_block_state_future( sb->calculate_id(), sb );
-         validating_node->push_block( bsf, forked_branch_callback{}, trx_meta_cache_lookup{} );
+         controller::block_report br;
+         validating_node->push_block( br, bsf, forked_branch_callback{}, trx_meta_cache_lookup{} );
 
          return sb;
       }

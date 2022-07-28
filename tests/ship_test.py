@@ -22,7 +22,7 @@ import sys
 # This test sets up <-p> producing node(s) and <-n - -p>
 #   non-producing node(s). One of the non-producing nodes
 #   is configured with the state_history_plugin.  An instance
-#   of node will be started with a client javascript to exercise
+#   of node will be started with a client to exercise
 #   the SHiP API.
 #
 ###############################################################
@@ -32,6 +32,7 @@ Print=Utils.Print
 appArgs = AppArgs()
 extraArgs = appArgs.add(flag="--num-requests", type=int, help="How many requests that each ship_client requests", default=1)
 extraArgs = appArgs.add(flag="--num-clients", type=int, help="How many ship_clients should be started", default=1)
+extraArgs = appArgs.add_bool(flag="--unix-socket", help="Run ship over unix socket")
 args = TestHelper.parse_args({"-p", "-n","--dump-error-details","--keep-logs","-v","--leave-running","--clean-run"}, applicationSpecificArgs=appArgs)
 
 Utils.Debug=args.v
@@ -54,7 +55,6 @@ killEosInstances=not dontKill
 killWallet=not dontKill
 
 WalletdName=Utils.EosWalletName
-ClientName="cleos"
 shipTempDir=None
 
 try:
@@ -69,6 +69,9 @@ try:
     shipNodeNum = totalNodes - 1
     specificExtraNodeosArgs[shipNodeNum]="--plugin eosio::state_history_plugin --disable-replay-opts --sync-fetch-span 200 --plugin eosio::net_api_plugin "
     traceNodeosArgs=" --plugin eosio::trace_api_plugin --trace-no-abis "
+
+    if args.unix_socket:
+        specificExtraNodeosArgs[shipNodeNum] += "--state-history-unix-socket-path ship.sock"
 
     if cluster.launch(pnodes=totalProducerNodes,
                       totalNodes=totalNodes, totalProducers=totalProducers,
@@ -87,6 +90,8 @@ try:
 
     shipClient = "tests/ship_client"
     cmd = "%s --num-requests %d" % (shipClient, args.num_requests)
+    if args.unix_socket:
+        cmd += " -a ws+unix:///%s/%s" % (os.getcwd(), Utils.getNodeDataDir(shipNodeNum, "ship.sock"))
     if Utils.Debug: Utils.Print("cmd: %s" % (cmd))
     clients = []
     files = []

@@ -251,11 +251,11 @@ namespace eosio::trace_api {
       std::optional<uint32_t> _last_compressed_slice;
       const size_t _compression_seek_point_stride;
 
-      std::atomic<uint32_t> _best_known_lib{0};
       std::mutex _maintenance_mtx;
       std::condition_variable _maintenance_condition;
       std::thread _maintenance_thread;
-      std::atomic_bool _maintenance_shutdown{false};
+      bool _maintenance_shutdown{false};
+      uint32_t _best_known_lib{0};
    };
 
    /**

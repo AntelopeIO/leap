@@ -10,7 +10,7 @@ endif()
 
 set(CPACK_PACKAGE_VERSION "${VERSION_FULL}")
 set(CPACK_PACKAGE_FILE_NAME "${CMAKE_PROJECT_NAME}-${VERSION_FULL}")
-if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.9")
+if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.9" AND EXISTS /etc/os-release)
    #if we're doing the build on Ubuntu or RHELish, add the platform version in to the package name
    file(READ /etc/os-release OS_RELEASE LIMIT 4096)
    if(OS_RELEASE MATCHES "\n?ID=\"?ubuntu" AND OS_RELEASE MATCHES "\n?VERSION_ID=\"?([0-9.]+)")
@@ -49,9 +49,9 @@ string(REGEX REPLACE "^(${CMAKE_PROJECT_NAME})" "\\1-dev" CPACK_DEBIAN_DEV_FILE_
 #deb package tooling will be unable to detect deps for the dev package. llvm is tricky since we don't know what package could have been used; try to figure it out
 set(CPACK_DEBIAN_DEV_PACKAGE_DEPENDS "libboost-all-dev;libssl-dev;libgmp-dev")
 find_program(DPKG_QUERY "dpkg-query")
-if(DPKG_QUERY AND OS_RELEASE MATCHES "\n?ID=\"?ubuntu")
+if(DPKG_QUERY AND OS_RELEASE MATCHES "\n?ID=\"?ubuntu" AND LLVM_CMAKE_DIR)
    execute_process(COMMAND "${DPKG_QUERY}" -S "${LLVM_CMAKE_DIR}" COMMAND cut -d: -f1 RESULT_VARIABLE LLVM_PKG_FIND_RESULT OUTPUT_VARIABLE LLVM_PKG_FIND_OUTPUT)
-   if(LLVM_PKG_FIND_RESULT EQUAL 0)
+   if(LLVM_PKG_FIND_OUTPUT)
       string(STRIP "${LLVM_PKG_FIND_OUTPUT}" LLVM_PKG_FIND_OUTPUT)
       list(APPEND CPACK_DEBIAN_DEV_PACKAGE_DEPENDS "${LLVM_PKG_FIND_OUTPUT}")
    endif()

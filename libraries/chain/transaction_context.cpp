@@ -695,7 +695,7 @@ namespace eosio { namespace chain {
         if (auto dm_logger = control.get_deep_mind_logger()) {
            std::string event_id = RAM_EVENT_ID("${id}", ("id", gto.id));
 
-           dm_logger->on_send_deferred(deep_mind_handler::operation_qualifier::push, gto);
+           dm_logger->on_create_deferred(deep_mind_handler::operation_qualifier::push, gto, packed_trx);
            dm_logger->on_ram_trace(std::move(event_id), "deferred_trx", "push", "deferred_trx_pushed");
         }
       });
@@ -723,12 +723,14 @@ namespace eosio { namespace chain {
       const auto& db = control.db();
       const auto& auth_manager = control.get_authorization_manager();
 
-      for( const auto& a : trx.context_free_actions ) {
-         auto* code = db.find<account_object, by_name>(a.account);
-         EOS_ASSERT( code != nullptr, transaction_exception,
-                     "action's code account '${account}' does not exist", ("account", a.account) );
-         EOS_ASSERT( a.authorization.size() == 0, transaction_exception,
-                     "context-free actions cannot have authorizations" );
+      if( !trx.context_free_actions.empty() && !control.skip_trx_checks() ) {
+         for( const auto& a : trx.context_free_actions ) {
+            auto* code = db.find<account_object, by_name>( a.account );
+            EOS_ASSERT( code != nullptr, transaction_exception,
+                        "action's code account '${account}' does not exist", ("account", a.account) );
+            EOS_ASSERT( a.authorization.size() == 0, transaction_exception,
+                        "context-free actions cannot have authorizations" );
+         }
       }
 
       flat_set<account_name> actors;

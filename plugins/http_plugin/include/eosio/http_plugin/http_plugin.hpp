@@ -14,7 +14,7 @@ namespace eosio {
     *
     * Arguments: response_code, response_body
     */
-   using url_response_callback = std::function<void(int,fc::variant)>;
+   using url_response_callback = std::function<void(int,std::optional<fc::variant>)>;
 
    /**
     * @brief Callback type for a URL handler
@@ -65,13 +65,13 @@ namespace eosio {
    {
       public:
         http_plugin();
-        virtual ~http_plugin();
+        ~http_plugin() override;
 
         //must be called before initialize
-        static void set_defaults(const http_plugin_defaults config);
+        static void set_defaults(const http_plugin_defaults& config);
 
         APPBASE_PLUGIN_REQUIRES()
-        virtual void set_program_options(options_description&, options_description& cfg) override;
+        void set_program_options(options_description&, options_description& cfg) override;
 
         void plugin_initialize(const variables_map& options);
         void plugin_startup();
@@ -87,7 +87,7 @@ namespace eosio {
         void add_async_handler(const string& url, const url_handler& handler);
         void add_async_api(const api_description& api) {
            for (const auto& call : api)
-              add_handler(call.first, call.second);
+              add_async_handler(call.first, call.second);
         }
 
         // standard exception handling for api handlers
@@ -134,7 +134,7 @@ namespace eosio {
 
          static const uint8_t details_limit = 10;
 
-         error_info() {};
+         error_info() = default;
 
          error_info(const fc::exception& exc, bool include_full_log) {
             code = exc.code();
