@@ -1,0 +1,225 @@
+{
+    "____comment": "This file was generated with eosio-abigen. DO NOT EDIT ",
+    "version": "eosio::abi/1.2",
+    "types": [],
+    "structs": [
+        {
+            "name": "testadd",
+            "base": "",
+            "fields": [
+                {
+                    "name": "op1",
+                    "type": "bytes"
+                },
+                {
+                    "name": "op2",
+                    "type": "bytes"
+                },
+                {
+                    "name": "expected_error",
+                    "type": "int32"
+                },
+                {
+                    "name": "expected_result",
+                    "type": "bytes"
+                }
+            ]
+        },
+        {
+            "name": "testblake2f",
+            "base": "",
+            "fields": [
+                {
+                    "name": "rounds",
+                    "type": "uint32"
+                },
+                {
+                    "name": "state",
+                    "type": "bytes"
+                },
+                {
+                    "name": "message",
+                    "type": "bytes"
+                },
+                {
+                    "name": "t0",
+                    "type": "bytes"
+                },
+                {
+                    "name": "t1",
+                    "type": "bytes"
+                },
+                {
+                    "name": "final",
+                    "type": "bool"
+                },
+                {
+                    "name": "expected_error",
+                    "type": "int32"
+                },
+                {
+                    "name": "expected_result",
+                    "type": "bytes"
+                }
+            ]
+        },
+        {
+            "name": "testecrec",
+            "base": "",
+            "fields": [
+                {
+                    "name": "signature",
+                    "type": "bytes"
+                },
+                {
+                    "name": "digest",
+                    "type": "bytes"
+                },
+                {
+                    "name": "expected_error",
+                    "type": "int32"
+                },
+                {
+                    "name": "expected_result",
+                    "type": "bytes"
+                }
+            ]
+        },
+        {
+            "name": "testkeccak",
+            "base": "",
+            "fields": [
+                {
+                    "name": "input",
+                    "type": "bytes"
+                },
+                {
+                    "name": "expected_result",
+                    "type": "bytes"
+                }
+            ]
+        },
+        {
+            "name": "testmodexp",
+            "base": "",
+            "fields": [
+                {
+                    "name": "base",
+                    "type": "bytes"
+                },
+                {
+                    "name": "exp",
+                    "type": "bytes"
+                },
+                {
+                    "name": "modulo",
+                    "type": "bytes"
+                },
+                {
+                    "name": "expected_error",
+                    "type": "int32"
+                },
+                {
+                    "name": "expected_result",
+                    "type": "bytes"
+                }
+            ]
+        },
+        {
+            "name": "testmul",
+            "base": "",
+            "fields": [
+                {
+                    "name": "point",
+                    "type": "bytes"
+                },
+                {
+                    "name": "scalar",
+                    "type": "bytes"
+                },
+                {
+                    "name": "expected_error",
+                    "type": "int32"
+                },
+                {
+                    "name": "expected_result",
+                    "type": "bytes"
+                }
+            ]
+        },
+        {
+            "name": "testpair",
+            "base": "",
+            "fields": [
+                {
+                    "name": "g1_g2_pairs",
+                    "type": "bytes"
+                },
+                {
+                    "name": "expected_error",
+                    "type": "int32"
+                }
+            ]
+        },
+        {
+            "name": "testsha3",
+            "base": "",
+            "fields": [
+                {
+                    "name": "input",
+                    "type": "bytes"
+                },
+                {
+                    "name": "expected_result",
+                    "type": "bytes"
+                }
+            ]
+        }
+    ],
+    "actions": [
+        {
+            "name": "testadd",
+            "type": "testadd",
+            "ricardian_contract": ""
+        },
+        {
+            "name": "testblake2f",
+            "type": "testblake2f",
+            "ricardian_contract": ""
+        },
+        {
+            "name": "testecrec",
+            "type": "testecrec",
+            "ricardian_contract": ""
+        },
+        {
+            "name": "testkeccak",
+            "type": "testkeccak",
+            "ricardian_contract": ""
+        },
+        {
+            "name": "testmodexp",
+            "type": "testmodexp",
+            "ricardian_contract": ""
+        },
+        {
+            "name": "testmul",
+            "type": "testmul",
+            "ricardian_contract": ""
+        },
+        {
+            "name": "testpair",
+            "type": "testpair",
+            "ricardian_contract": ""
+        },
+        {
+            "name": "testsha3",
+            "type": "testsha3",
+            "ricardian_contract": ""
+        }
+    ],
+    "tables": [],
+    "ricardian_clauses": [],
+    "variants": [],
+    "action_results": []
+}
