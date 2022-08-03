@@ -943,76 +943,47 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
          wlog( "The --truncate-at-block option can only be used with --hard-replay-blockchain." );
       }
 
-      if (options.count( "snapshot" )) {
-         my->snapshot_path = options.at( "snapshot" ).as<bfs::path>();
-         EOS_ASSERT( fc::exists(*my->snapshot_path), plugin_config_exception,
-                     "Cannot load snapshot, ${name} does not exist", ("name", my->snapshot_path->generic_string()) );
-
-         // recover genesis information from the snapshot
-         // used for validation code below
-         auto infile = std::ifstream(my->snapshot_path->generic_string(), (std::ios::in | std::ios::binary));
-         istream_snapshot_reader reader(infile);
-         reader.validate();
-         chain_id = controller::extract_chain_id(reader);
-         infile.close();
-
-         EOS_ASSERT( options.count( "genesis-timestamp" ) == 0,
-                 plugin_config_exception,
-                 "--snapshot is incompatible with --genesis-timestamp as the snapshot contains genesis information");
-         EOS_ASSERT( options.count( "genesis-json" ) == 0,
-                     plugin_config_exception,
-                     "--snapshot is incompatible with --genesis-json as the snapshot contains genesis information");
-
-         auto shared_mem_path = my->chain_config->state_dir / "shared_memory.bin";
-         EOS_ASSERT( !fc::is_regular_file(shared_mem_path),
-                 plugin_config_exception,
-                 "Snapshot can only be used to initialize an empty database." );
-
-         if( fc::is_regular_file( my->blocks_dir / "blocks.log" )) {
-            auto block_log_genesis = block_log::extract_genesis_state(my->blocks_dir);
-            if( block_log_genesis ) {
-               const auto& block_log_chain_id = block_log_genesis->compute_chain_id();
-               EOS_ASSERT( *chain_id == block_log_chain_id,
-                           plugin_config_exception,
-                           "snapshot chain ID (${snapshot_chain_id}) does not match the chain ID from the genesis state in the block log (${block_log_chain_id})",
-                           ("snapshot_chain_id",  *chain_id)
-                           ("block_log_chain_id", block_log_chain_id)
-               );
-            } else {
-               const auto& block_log_chain_id = block_log::extract_chain_id(my->blocks_dir);
-               EOS_ASSERT( *chain_id == block_log_chain_id,
-                           plugin_config_exception,
-                           "snapshot chain ID (${snapshot_chain_id}) does not match the chain ID (${block_log_chain_id}) in the block log",
-                           ("snapshot_chain_id",  *chain_id)
-                           ("block_log_chain_id", block_log_chain_id)
-               );
-            }
+      if (options.count( "snapshot" ) || options.count( "json-snapshot")) {
+         bfs::path snap_path;
+         std::string command;
+         bool is_json_snapshot = false;
+         if (options.count( "snapshot" )) {
+            snap_path = options.at( "snapshot" ).as<bfs::path>();
+            my->snapshot_path = snap_path;
+            command = "--snapshot";
+         } else {
+            snap_path = options.at( "json-snapshot" ).as<bfs::path>();
+            is_json_snapshot = true;
+            my->json_snapshot_path = snap_path;
+            command = "--json-snapshot";
          }
-
-      } else if (options.count( "json-snapshot" )) {
-         my->json_snapshot_path = options.at( "json-snapshot" ).as<bfs::path>();
-         EOS_ASSERT( fc::exists(*my->json_snapshot_path), plugin_config_exception,
-                     "Cannot load snapshot, ${name} does not exist", ("name", my->json_snapshot_path->generic_string()) );
+         EOS_ASSERT( fc::exists(snap_path), plugin_config_exception,
+                     "Cannot load snapshot, ${name} does not exist", ("name", snap_path.generic_string()) );
 
          // recover genesis information from the snapshot
          // used for validation code below
-         auto infile = std::ifstream(my->json_snapshot_path->generic_string(), (std::ios::in));
-         istream_json_snapshot_reader reader(infile);
-         reader.validate();
-         chain_id = controller::extract_chain_id(reader);
+         auto infile = std::ifstream(snap_path.generic_string(), (std::ios::in | std::ios::binary));
+         shared_ptr<snapshot_reader> reader_ptr;
+         if (is_json_snapshot) {
+            reader_ptr = shared_ptr<snapshot_reader>(new istream_json_snapshot_reader(snap_path));
+         } else {
+            reader_ptr = shared_ptr<snapshot_reader>(new istream_snapshot_reader(infile));
+         }
+         reader_ptr->validate();
+         chain_id = controller::extract_chain_id(*reader_ptr);
          infile.close();
 
          EOS_ASSERT( options.count( "genesis-timestamp" ) == 0,
-                 plugin_config_exception,
-                 "--snapshot is incompatible with --genesis-timestamp as the snapshot contains genesis information");
+                     plugin_config_exception,
+                     command + " is incompatible with --genesis-timestamp as the snapshot contains genesis information");
          EOS_ASSERT( options.count( "genesis-json" ) == 0,
                      plugin_config_exception,
-                     "--snapshot is incompatible with --genesis-json as the snapshot contains genesis information");
+                     command + " is incompatible with --genesis-json as the snapshot contains genesis information");
 
          auto shared_mem_path = my->chain_config->state_dir / "shared_memory.bin";
          EOS_ASSERT( !fc::is_regular_file(shared_mem_path),
                  plugin_config_exception,
-                 "Snapshot can only be used to initialize an empty database." );
+                 "A snapshot can only be used to initialize an empty database." );
 
          if( fc::is_regular_file( my->blocks_dir / "blocks.log" )) {
             auto block_log_genesis = block_log::extract_genesis_state(my->blocks_dir);
@@ -1358,10 +1329,8 @@ void chain_plugin::plugin_startup()
          my->chain->startup(shutdown, check_shutdown, reader);
          infile.close();
       } else if (my->json_snapshot_path) {
-         auto infile = std::ifstream(my->json_snapshot_path->generic_string(), (std::ios::in | std::ios::binary));
-         auto reader = std::make_shared<istream_json_snapshot_reader>(infile);
+         auto reader = std::make_shared<istream_json_snapshot_reader>(fc::path(*my->json_snapshot_path));
          my->chain->startup(shutdown, check_shutdown, reader);
-         infile.close();
       } else if( my->genesis ) {
          my->chain->startup(shutdown, check_shutdown, *my->genesis);
       } else {

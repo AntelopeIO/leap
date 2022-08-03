@@ -337,15 +337,11 @@ void istream_snapshot_reader::return_to_header() {
    clear_section();
 }
 
-istream_json_snapshot_reader::istream_json_snapshot_reader(std::istream& snapshot)
-   :snapshot(snapshot)
-   ,header_pos(snapshot.tellg())
-   ,num_rows(0)
+istream_json_snapshot_reader::istream_json_snapshot_reader(const fc::path& p)
+   :num_rows(0)
    ,cur_row(0)
 {
-   std::stringstream my_buffer;
-   my_buffer << snapshot.rdbuf();
-   auto var = fc::json::from_string(my_buffer.str(), fc::json::parse_type::relaxed_parser);
+   auto var = fc::json::from_file(p, fc::json::parse_type::relaxed_parser);
    if (var.is_object()) {
       var_obj = var.get_object();
    }
