@@ -113,13 +113,17 @@ class PluginHttpTest(unittest.TestCase):
         self.activateAllBuiltinProtocolFeatures()
         allProtocolFeatures = self.nodeos.getSupportedProtocolFeatures()
         allFeatureDigests = [d['feature_digest'] for d in allProtocolFeatures]
-        allFeatureCodenames = [s['specification'][0]['value'] for s in allProtocolFeatures]
+        allFeatureCodenames = []
+        for s in allProtocolFeatures:
+           if 'specification' in s and len(s['specification']) > 0 and 'name' in s['specification'][0] and s['specification'][0]['name'] == 'builtin_feature_codename':
+              allFeatureCodenames.append(s['specification'][0]['value'])
+        self.assertEqual(len(allFeatureDigests), len(allFeatureCodenames))
 
         # Default limit set in get_activated_protocol_features_params
-        ACT_FEATURE_DEFAULT_LIMIT = 10
+        ACT_FEATURE_DEFAULT_LIMIT = 10 if len(allFeatureCodenames) > 10 else len(allFeatureCodenames)
 
         # Actual expected activated features total
-        ACT_FEATURE_CURRENT_EXPECTED_TOTAL = 19
+        ACT_FEATURE_CURRENT_EXPECTED_TOTAL = len(allFeatureCodenames)
 
         # Extemely high value to attempt to always get full list of activated features
         ACT_FEATURE_EXTREME = 10000
