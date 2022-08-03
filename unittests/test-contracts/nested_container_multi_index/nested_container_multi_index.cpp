@@ -24,23 +24,20 @@ using namespace eosio;
 using namespace std;
 
 #define  SETCONTAINERVAL(x) do { \
-        require_auth(user); \
-        psninfoindex2 tblIndex(get_self(), get_first_receiver().value); \
-        auto iter = tblIndex.find(user.value); \
-        if (iter == tblIndex.end()) \
-        { \
-            tblIndex.emplace(user, [&](auto &row) { \
-                        row.key = user; \
-                        row.x = x; \
-                    }); \
-        } \
-        else \
-        { \
-            tblIndex.modify(iter, user, [&]( auto& row ) { \
-                        row.x = x; \
-                    }); \
-        } \
-    }while(0)
+   require_auth(user); \
+   psninfoindex2 tblIndex(get_self(), get_first_receiver().value); \
+   auto iter = tblIndex.find(user.value); \
+   if (iter == tblIndex.end()) { \
+      tblIndex.emplace(user, [&](auto &row) { \
+         row.key = user; \
+         row.x = x; \
+     }); \
+   } else { \
+      tblIndex.modify(iter, user, [&]( auto& row ) { \
+      row.x = x; \
+      }); \
+   } \
+ } while(0)
 
 struct mystruct
 {
