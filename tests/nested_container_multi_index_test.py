@@ -390,4 +390,7 @@ try:
 finally:
     TestHelper.shutdown(cluster, walletMgr, testSuccessful, killEosInstances, killWallet)
 
-exit(0)
+if testSuccessful:
+    exit(0)
+else:
+    exit(-1)
