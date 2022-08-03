@@ -158,6 +158,14 @@ namespace eosio { namespace chain { namespace webassembly {
                               span<const char> exp,
                               span<const char> modulus,
                               span<char> out) const {
+      if (context.control.is_producing_block()) {
+         static constexpr int byte_size_limit = 256; // Allow up to 2048-bit values for base, exp, and modulus.
+
+         if (std::max(std::max(base.size(), exp.size()), modulus.size()) > byte_size_limit) {
+            EOS_THROW(subjective_block_production_exception, "Bit size too large for values passed into mod_exp");
+         }
+      }
+
       bytes bbase(base.data(), base.data() + base.size());
       bytes bexp(exp.data(), exp.data() + exp.size());
       bytes bmod(modulus.data(), modulus.data() + modulus.size());
