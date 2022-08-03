@@ -386,6 +386,7 @@ BOOST_AUTO_TEST_CASE( modexp_test ) { try {
          return_code::failure,
          "",
       },
+
    };
 
    for(const auto& test : tests) {
@@ -408,6 +409,59 @@ BOOST_AUTO_TEST_CASE( modexp_test ) { try {
 
 } FC_LOG_AND_RETHROW() }
 
+
+BOOST_AUTO_TEST_CASE( modexp_subjective_limit_test ) { try {
+
+   // Given the need to respect the deadline timer and the current limitation that the deadline timer is not plumbed into the
+   // inner loops of the implementation of mod_exp (which currently exists in the gmp shared library), only a small enough duration for
+   // mod_exp can be tolerated to avoid going over the deadline timer by too much. A good threshold for small may be less than 5 ms.
+   // Then based on benchmarks within the test_modular_arithmetic test within fc, it seems safe to limit the bit size to 2048 bits.
+
+   // This test case verifies that the subjective bit size limit for mod_exp is properly enforced within libchain.
+
+   // To allow mod_exp to be more useful, the limits on bit size need to be removed and the deadline timer plumbing into the implementation
+   // needs to occur. When that happens, this test case can be removed.
+
+   tester c( setup_policy::preactivate_feature_and_new_bios );
+
+   const auto& tester1_account = account_name("tester1");
+   c.create_accounts( {tester1_account} );
+   c.produce_block();
+
+   const auto& pfm = c.control->get_protocol_feature_manager();
+   const auto& d = pfm.get_builtin_digest( builtin_protocol_feature_t::crypto_primitives );
+   BOOST_REQUIRE( d );
+
+   c.preactivate_protocol_features( {*d} );
+   c.produce_block();
+
+   c.set_code( tester1_account, contracts::crypto_primitives_test_wasm() );
+   c.set_abi( tester1_account, contracts::crypto_primitives_test_abi().data() );
+   c.produce_block();
+
+   bytes exponent(256); // 2048 bits of all zeros is fine
+
+   c.push_action( tester1_account, "testmodexp"_n, tester1_account, mutable_variant_object()
+      ("base", h2bin("01"))
+      ("exp", exponent)
+      ("modulo", h2bin("0F"))
+      ("expected_error", static_cast<int32_t>(return_code::success))
+      ("expected_result", h2bin("01"))
+   );
+
+   exponent.push_back(0); // But 2056 bits of all zeros crosses the subjective limit (even if the value is still technically only zero).
+
+   BOOST_CHECK_EXCEPTION(c.push_action( tester1_account, "testmodexp"_n, tester1_account, mutable_variant_object()
+                                        ("base", h2bin("01"))
+                                        ("exp", exponent)
+                                        ("modulo", h2bin("0F"))
+                                        ("expected_error", static_cast<int32_t>(return_code::success))
+                                        ("expected_result", h2bin("01"))),
+                         eosio::chain::subjective_block_production_exception,
+                         fc_exception_message_is("Bit size too large for values passed into mod_exp")
+   );
+
+} FC_LOG_AND_RETHROW() }
 
 BOOST_AUTO_TEST_CASE( blake2f_test ) { try {
    tester c( setup_policy::preactivate_feature_and_new_bios );

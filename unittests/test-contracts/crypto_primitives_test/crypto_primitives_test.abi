@@ -1,6 +1,6 @@
 {
     "____comment": "This file was generated with eosio-abigen. DO NOT EDIT ",
-    "version": "eosio::abi/1.1",
+    "version": "eosio::abi/1.2",
     "types": [],
     "structs": [
         {
@@ -220,5 +220,6 @@
     ],
     "tables": [],
     "ricardian_clauses": [],
-    "variants": []
+    "variants": [],
+    "action_results": []
 }

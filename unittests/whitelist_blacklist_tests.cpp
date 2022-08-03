@@ -333,6 +333,8 @@ BOOST_AUTO_TEST_CASE( blacklist_eosio ) { try {
 BOOST_AUTO_TEST_CASE( deferred_blacklist_failure ) { try {
    whitelist_blacklist_tester<tester> tester1;
    tester1.init();
+   tester1.chain->execute_setup_policy( setup_policy::preactivate_feature_and_new_bios );
+   tester1.chain->preactivate_builtin_protocol_features( {builtin_protocol_feature_t::crypto_primitives} );
    tester1.chain->produce_blocks();
    tester1.chain->set_code( "bob"_n, contracts::deferred_test_wasm() );
    tester1.chain->set_abi( "bob"_n,  contracts::deferred_test_abi().data() );
@@ -384,6 +386,8 @@ BOOST_AUTO_TEST_CASE( deferred_blacklist_failure ) { try {
 BOOST_AUTO_TEST_CASE( blacklist_onerror ) { try {
    whitelist_blacklist_tester<TESTER> tester1;
    tester1.init();
+   tester1.chain->execute_setup_policy( setup_policy::preactivate_feature_and_new_bios );
+   tester1.chain->preactivate_builtin_protocol_features( {builtin_protocol_feature_t::crypto_primitives} );
    tester1.chain->produce_blocks();
    tester1.chain->set_code( "bob"_n, contracts::deferred_test_wasm() );
    tester1.chain->set_abi( "bob"_n,  contracts::deferred_test_abi().data() );
@@ -420,6 +424,8 @@ BOOST_AUTO_TEST_CASE( blacklist_onerror ) { try {
 BOOST_AUTO_TEST_CASE( actor_blacklist_inline_deferred ) { try {
    whitelist_blacklist_tester<tester> tester1;
    tester1.init();
+   tester1.chain->execute_setup_policy( setup_policy::preactivate_feature_and_new_bios );
+   tester1.chain->preactivate_builtin_protocol_features( {builtin_protocol_feature_t::crypto_primitives} );
    tester1.chain->produce_blocks();
    tester1.chain->set_code( "alice"_n, contracts::deferred_test_wasm() );
    tester1.chain->set_abi( "alice"_n,  contracts::deferred_test_abi().data() );
@@ -564,6 +570,8 @@ BOOST_AUTO_TEST_CASE( actor_blacklist_inline_deferred ) { try {
 BOOST_AUTO_TEST_CASE( blacklist_sender_bypass ) { try {
    whitelist_blacklist_tester<tester> tester1;
    tester1.init();
+   tester1.chain->execute_setup_policy( setup_policy::preactivate_feature_and_new_bios );
+   tester1.chain->preactivate_builtin_protocol_features( {builtin_protocol_feature_t::crypto_primitives} );
    tester1.chain->produce_blocks();
    tester1.chain->set_code( "alice"_n, contracts::deferred_test_wasm() );
    tester1.chain->set_abi( "alice"_n,  contracts::deferred_test_abi().data() );
