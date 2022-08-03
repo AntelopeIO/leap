@@ -409,14 +409,6 @@ def abi_file_with_nodeos_test():
             Utils.Print("Cleanup nodeos data.")
             shutil.rmtree(data_dir)
 
-        '''
-        if pWallet.pid:
-            os.kill(pWallet.pid, signal.SIGKILL)
-        subprocess.call(("pkill -9 keosd").split())
-        wallet_file = os.path.expanduser('~') + "/eosio-wallet/" + wallet_name + ".wallet"
-        if os.path.exists(wallet_file):
-            os.remove(wallet_file)
-        '''
         if malicious_token_abi_path:
             if os.path.exists(malicious_token_abi_path):
                 os.remove(malicious_token_abi_path)
