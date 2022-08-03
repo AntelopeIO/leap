@@ -264,10 +264,9 @@ class state_history_log {
       _begin_block = prune_to_num;
       log.flush();
 
-      const auto log_msg = fc::log_message(fc::log_context(loglevel, __FILE__, __LINE__, __func__),
-                                           "${name}.log pruned to blocks ${b}-${e}", fc::mutable_variant_object()("name", name)("b", _begin_block)("e", _end_block - 1));
-      if(auto l = fc::logger::get(); l.is_enabled(log_msg.get_context().get_log_level()))
-         l.log(log_msg);
+      if(auto l = fc::logger::get(); l.is_enabled(loglevel))
+         l.log(fc::log_message(fc::log_context(loglevel, __FILE__, __LINE__, __func__),
+                               "${name}.log pruned to blocks ${b}-${e}", fc::mutable_variant_object()("name", name)("b", _begin_block)("e", _end_block - 1)));
    }
 
    //only works on non-pruned logs

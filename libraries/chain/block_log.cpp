@@ -418,10 +418,9 @@ namespace eosio { namespace chain {
       first_block_num = prune_to_num;
       block_file.flush();
 
-      const auto log_msg = fc::log_message(fc::log_context(loglevel, __FILE__, __LINE__, __func__),
-                                          "blocks.log pruned to blocks ${b}-${e}", fc::mutable_variant_object()("b", first_block_num)("e", head_num));
-      if(auto l = fc::logger::get(); l.is_enabled(log_msg.get_context().get_log_level()))
-         l.log(log_msg);
+      if(auto l = fc::logger::get(); l.is_enabled(loglevel))
+         l.log(fc::log_message(fc::log_context(loglevel, __FILE__, __LINE__, __func__),
+                               "blocks.log pruned to blocks ${b}-${e}", fc::mutable_variant_object()("b", first_block_num)("e", head_num)));
    }
 
    void block_log::flush() {
