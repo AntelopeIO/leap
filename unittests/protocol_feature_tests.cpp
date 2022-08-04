@@ -373,6 +373,8 @@ BOOST_AUTO_TEST_CASE( subjective_restrictions_test ) try {
 BOOST_AUTO_TEST_CASE( replace_deferred_test ) try {
    tester c( setup_policy::preactivate_feature_and_new_bios );
 
+   c.preactivate_builtin_protocol_features( {builtin_protocol_feature_t::crypto_primitives} );
+   c.produce_block();
    c.create_accounts( {"alice"_n, "bob"_n, "test"_n} );
    c.set_code( "test"_n, contracts::deferred_test_wasm() );
    c.set_abi( "test"_n, contracts::deferred_test_abi().data() );
@@ -511,6 +513,8 @@ BOOST_AUTO_TEST_CASE( no_duplicate_deferred_id_test ) try {
    tester c( setup_policy::preactivate_feature_and_new_bios );
    tester c2( setup_policy::none );
 
+   c.preactivate_builtin_protocol_features( {builtin_protocol_feature_t::crypto_primitives} );
+   c.produce_block();
    c.create_accounts( {"alice"_n, "test"_n} );
    c.set_code( "test"_n, contracts::deferred_test_wasm() );
    c.set_abi( "test"_n, contracts::deferred_test_abi().data() );
