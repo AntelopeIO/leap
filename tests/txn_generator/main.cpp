@@ -1,5 +1,7 @@
 #include <eosio/chain_plugin/chain_plugin.hpp>
 
+#include <boost/algorithm/string.hpp>
+
 #include <fc/io/json.hpp>
 #include <fc/bitutil.hpp>
 
@@ -20,9 +22,6 @@ enum return_codes {
 
 uint64_t _total_us = 0;
 uint64_t _txcount = 0;
-unsigned batch;
-uint64_t nonce_prefix;
-
 
 using namespace eosio::testing;
 using namespace eosio::chain;
@@ -60,41 +59,42 @@ void push_transactions( std::vector<signed_transaction>&& trxs, const std::funct
    });
 }
 
-string start_generation(const std::string& salt, const uint64_t& period, const uint64_t& batch_size, const name& newaccountT, const name& newaccountA, const name& newaccountB, action& act_a_to_b, action& act_b_to_a, const fc::microseconds& abi_serializer_max_time) {
-   ilog("Starting transaction test plugin");
-   if(period < 1 || period > 2500)
-      return "period must be between 1 and 2500";
-   if(batch_size < 1 || batch_size > 250)
-      return "batch_size must be between 1 and 250";
-   if(batch_size & 1)
-      return "batch_size must be even";
-   ilog("Starting transaction test plugin valid");
+vector<pair<eosio::chain::action, eosio::chain::action>> create_transfer_actions(const std::string& salt, const uint64_t& period, const uint64_t& batch_size, const name& newaccountT, const vector<name>& accounts, const fc::microseconds& abi_serializer_max_time) {
+   vector<pair<eosio::chain::action, eosio::chain::action>> actions_pairs_vector;
 
    abi_serializer eosio_token_serializer{fc::json::from_string(contracts::eosio_token_abi().data()).as<abi_def>(), abi_serializer::create_yield_function( abi_serializer_max_time )};
-   //create the actions here
-   act_a_to_b.account = newaccountT;
-   act_a_to_b.name = "transfer"_n;
-   act_a_to_b.authorization = vector<permission_level>{{newaccountA,config::active_name}};
-   act_a_to_b.data = eosio_token_serializer.variant_to_binary("transfer",
-                                                               fc::json::from_string(fc::format_string("{\"from\":\"${from}\",\"to\":\"${to}\",\"quantity\":\"1.0000 CUR\",\"memo\":\"${l}\"}",
-                                                               fc::mutable_variant_object()("from",newaccountA.to_string())("to",newaccountB.to_string())("l", salt))),
-                                                               abi_serializer::create_yield_function( abi_serializer_max_time ));
 
-   act_b_to_a.account = newaccountT;
-   act_b_to_a.name = "transfer"_n;
-   act_b_to_a.authorization = vector<permission_level>{{newaccountB,config::active_name}};
-   act_b_to_a.data = eosio_token_serializer.variant_to_binary("transfer",
-                                                               fc::json::from_string(fc::format_string("{\"from\":\"${from}\",\"to\":\"${to}\",\"quantity\":\"1.0000 CUR\",\"memo\":\"${l}\"}",
-                                                               fc::mutable_variant_object()("from",newaccountB.to_string())("to",newaccountA.to_string())("l", salt))),
-                                                               abi_serializer::create_yield_function( abi_serializer_max_time ));
+   for (size_t i = 0; i < accounts.size(); ++i) {
+      for ( size_t j = i+1; j < accounts.size(); ++j) {
+         //create the actions here
+         ilog("create_transfer_actions: creating transfer from ${acctA} to ${acctB}", ("acctA", accounts.at(i)) ("acctB", accounts.at(j)));
+         action act_a_to_b;
+         act_a_to_b.account = newaccountT;
+         act_a_to_b.name = "transfer"_n;
+         act_a_to_b.authorization = vector<permission_level>{{accounts.at(i),config::active_name}};
+         act_a_to_b.data = eosio_token_serializer.variant_to_binary("transfer",
+                                                                     fc::json::from_string(fc::format_string("{\"from\":\"${from}\",\"to\":\"${to}\",\"quantity\":\"1.0000 CUR\",\"memo\":\"${l}\"}",
+                                                                     fc::mutable_variant_object()("from",accounts.at(i).to_string())("to",accounts.at(j).to_string())("l", salt))),
+                                                                     abi_serializer::create_yield_function( abi_serializer_max_time ));
 
-   batch = batch_size/2;
-   nonce_prefix = 0;
+         ilog("create_transfer_actions: creating transfer from ${acctB} to ${acctA}", ("acctB", accounts.at(j)) ("acctA", accounts.at(i)));
+         action act_b_to_a;
+         act_b_to_a.account = newaccountT;
+         act_b_to_a.name = "transfer"_n;
+         act_b_to_a.authorization = vector<permission_level>{{accounts.at(j),config::active_name}};
+         act_b_to_a.data = eosio_token_serializer.variant_to_binary("transfer",
+                                                                     fc::json::from_string(fc::format_string("{\"from\":\"${from}\",\"to\":\"${to}\",\"quantity\":\"1.0000 CUR\",\"memo\":\"${l}\"}",
+                                                                     fc::mutable_variant_object()("from",accounts.at(j).to_string())("to",accounts.at(i).to_string())("l", salt))),
+                                                                     abi_serializer::create_yield_function( abi_serializer_max_time ));
 
-   return "success";
+         actions_pairs_vector.push_back(make_pair(act_a_to_b, act_b_to_a));
+      }
+   }
+   ilog("create_transfer_actions: total action pairs created: ${pairs}", ("pairs", actions_pairs_vector.size()));
+   return actions_pairs_vector;
 }
 
-void send_transaction(std::function<void(const fc::exception_ptr&)> next, uint64_t nonce_prefix, const action& act_a_to_b, const action& act_b_to_a, const fc::microseconds& trx_expiration, const chain_id_type& chain_id, const block_id_type& reference_block_id) {
+void send_transaction_batch(std::function<void(const fc::exception_ptr&)> next, uint64_t nonce_prefix, const vector<pair<eosio::chain::action, eosio::chain::action>>& action_pairs_vector, const fc::microseconds& trx_expiration, const chain_id_type& chain_id, const block_id_type& reference_block_id, const unsigned& batch) {
    std::vector<signed_transaction> trxs;
    trxs.reserve(2*batch);
 
@@ -104,10 +104,12 @@ void send_transaction(std::function<void(const fc::exception_ptr&)> next, uint64
 
       static uint64_t nonce = static_cast<uint64_t>(fc::time_point::now().sec_since_epoch()) << 32;
 
+      int action_pair_index = 0;
+
       for(unsigned int i = 0; i < batch; ++i) {
          {
             signed_transaction trx;
-            trx.actions.push_back(act_a_to_b);
+            trx.actions.push_back(action_pairs_vector.at(action_pair_index).first);
             trx.context_free_actions.emplace_back(action({}, config::null_account_name, name("nonce"), fc::raw::pack( std::to_string(nonce_prefix)+std::to_string(nonce++) )));
             trx.set_reference_block(reference_block_id);
             trx.expiration = fc::time_point::now() + trx_expiration;
@@ -118,7 +120,7 @@ void send_transaction(std::function<void(const fc::exception_ptr&)> next, uint64
 
          {
             signed_transaction trx;
-            trx.actions.push_back(act_b_to_a);
+            trx.actions.push_back(action_pairs_vector.at(action_pair_index).second);
             trx.context_free_actions.emplace_back(action({}, config::null_account_name, name("nonce"), fc::raw::pack( std::to_string(nonce_prefix)+std::to_string(nonce++) )));
             trx.set_reference_block(reference_block_id);
             trx.expiration = fc::time_point::now() + trx_expiration;
@@ -126,6 +128,7 @@ void send_transaction(std::function<void(const fc::exception_ptr&)> next, uint64
             trx.sign(b_priv_key, chain_id);
             trxs.emplace_back(std::move(trx));
          }
+         action_pair_index = action_pair_index % action_pairs_vector.size();
       }
    } catch ( const std::bad_alloc& ) {
       throw;
@@ -156,68 +159,144 @@ chain::block_id_type make_block_id( uint32_t block_num ) {
    return block_id;
 }
 
+vector<name> get_accounts(const vector<string>& account_str_vector)
+{
+   vector<name> acct_name_list;
+   for (string account_name : account_str_vector)
+   {
+      ilog("get_account about to try to create name for ${acct}", ("acct", account_name));
+      acct_name_list.push_back(eosio::chain::name(account_name));
+   }
+   return acct_name_list;
+}
+
 int main(int argc, char** argv)
 {
-   name                                                 newaccountA;
-   name                                                 newaccountB;
-   name                                                 newaccountT;
-   fc::microseconds                                     trx_expiration{3600};
+   const uint32_t TRX_EXPIRATION_MAX = 3600;
+   variables_map vmap;
+   options_description cli ("Transaction Generator command line options.");
+   string chain_id_in;
+   string hAcct;
+   string accts;
+   uint32_t abi_serializer_max_time_us;
+   uint32_t trx_expr;
+   uint32_t reference_block_num;
 
-   action act_a_to_b;
-   action act_b_to_a;
+   vector<string> account_str_vector;
 
-   const std::string thread_pool_account_prefix = "txngentest";
-   const std::string init_name = "eosio";
-   const std::string init_priv_key = "5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3";
-   const std::string salt = "";
-   const uint64_t& period = 20;
-   const uint64_t& batch_size = 20;
 
-   const static uint32_t   default_abi_serializer_max_time_us = 15*1000;
-   const static fc::microseconds   abi_serializer_max_time = fc::microseconds(default_abi_serializer_max_time_us);
-   const chain_id_type             chain_id("cf057bbfb72640471fd910bcb67639c22df9f92470936cddc1ade0e2f2e7dc4f");
-   // other chain_id: 60fb0eb4742886af8a0e147f4af6fd363e8e8d8f18bdf73a10ee0134fec1c551
-
-   uint32_t reference_block_num = 0;
-   // uint32_t reference_block_num = cc.last_irreversible_block_num();
-   // // if (txn_reference_block_lag >= 0) {
-   // //    reference_block_num = cc.head_block_num();
-   // //    if (reference_block_num <= (uint32_t)txn_reference_block_lag) {
-   // //       reference_block_num = 0;
-   // //    } else {
-   // //       reference_block_num -= (uint32_t)txn_reference_block_lag;
-   // //    }
-   // // }
-   // block_id_type reference_block_id = cc.get_block_id_for_num(reference_block_num);
-   block_id_type reference_block_id = make_block_id(reference_block_num);
+   cli.add_options()
+      ("chain-id",bpo::value<string>(&chain_id_in),"set the chain id")
+      ("handler-account",bpo::value<string>(&hAcct),"Account name of the handler account for the transfer actions")
+      ("accounts", bpo::value<string>(&accts),"comma-separated list of accounts that will be used for transfers. Minimum required accounts: 2.")
+      ("abi-serializer-max-time-us",bpo::value<uint32_t>(&abi_serializer_max_time_us)->default_value(15*1000),"maximum abi serializer time in microseconds (us). Defaults to 15,000.")
+      ("trx-expiration",bpo::value<uint32_t>(&trx_expr)->default_value(3600),"transaction expiration time in microseconds (us). Defaults to 3,600. Maximum allowed: 3,600")
+      ("ref-block-num",bpo::value<uint32_t>(&reference_block_num)->default_value(0),"the reference block (last_irreversible_block_num or head_block_num) to use for transactions. Defaults to 0.")
+      ("help,h","print this list")
+      ;
 
    try {
-      //Initialize
-      newaccountA = eosio::chain::name(thread_pool_account_prefix + "a");
-      newaccountB = eosio::chain::name(thread_pool_account_prefix + "b");
-      newaccountT = eosio::chain::name(thread_pool_account_prefix + "t");
-      // EOS_ASSERT(trx_expiration < fc::seconds(3600), chain::plugin_config_exception,
-      //            "txn-test-gen-expiration-seconds must be smaller than 3600");
+      bpo::store(bpo::parse_command_line(argc, argv, cli), vmap);
+      bpo::notify(vmap);
+
+      if (vmap.count("help") > 0) {
+         cli.print(std::cerr);
+         return SUCCESS;
+      }
+
+      if (!vmap.count("chain-id")) {
+         ilog("Initialization error: missing chain-id");
+         cli.print(std::cerr);
+         return INITIALIZE_FAIL;
+      }
+
+      if (vmap.count("handler-account")) {
+      } else {
+         ilog("Initialization error: missing handler-account");
+         cli.print(std::cerr);
+         return INITIALIZE_FAIL;
+      }
+
+      if (vmap.count("accounts")) {
+         boost::split(account_str_vector, accts, boost::is_any_of(","));
+         if (account_str_vector.size() < 2) {
+            ilog("Initialization error: requires at minimum 2 transfer accounts");
+            cli.print(std::cerr);
+            return INITIALIZE_FAIL;
+         }
+      }
+      else {
+         ilog("Initialization error: did not specify transfer accounts. requires at minimum 2 transfer accounts");
+         cli.print(std::cerr);
+         return INITIALIZE_FAIL;
+      }
+
+      if (vmap.count("trx-expiration"))
+      {
+         if (trx_expr > TRX_EXPIRATION_MAX)
+         {
+            ilog("Initialization error: Exceeded max value for transaction expiration. Value must be less than ${max}.", ("max", TRX_EXPIRATION_MAX));;
+            cli.print(std::cerr);
+            return INITIALIZE_FAIL;
+         }
+      }
+   } catch (bpo::unknown_option &ex) {
+      std::cerr << ex.what() << std::endl;
+      cli.print (std::cerr);
+      return INITIALIZE_FAIL;
+   }
+
+   try {
+      ilog( "Initial chain id ${chainId}", ("chainId", chain_id_in) );
+      ilog( "Handler account ${acct}", ("acct", hAcct) );
+      ilog( "Transfer accounts ${accts}", ("accts", accts) );
+      ilog( "Abi serializer max time microsections ${asmt}", ("asmt", abi_serializer_max_time_us) );
+      ilog( "Transaction expiration microsections ${expr}", ("expr", trx_expr) );
+      ilog( "Reference block number ${blkNum}", ("blkNum", reference_block_num) );
+
+      //Example chain ids:
+      // cf057bbfb72640471fd910bcb67639c22df9f92470936cddc1ade0e2f2e7dc4f
+      // 60fb0eb4742886af8a0e147f4af6fd363e8e8d8f18bdf73a10ee0134fec1c551
+      const chain_id_type chain_id(chain_id_in);
+      const name handlerAcct = eosio::chain::name(hAcct);
+      const vector<name> accounts = get_accounts(account_str_vector);
+      fc::microseconds trx_expiration{trx_expr};
+      const static fc::microseconds abi_serializer_max_time = fc::microseconds(abi_serializer_max_time_us);
+
+      const std::string salt = "";
+      const uint64_t& period = 20;
+      const uint64_t& batch_size = 20;
+      unsigned batch = batch_size/2;
+      uint64_t nonce_prefix = 0;
+
+      //TODO: Revisit if this type of update is necessary
+      // uint32_t reference_block_num = cc.last_irreversible_block_num();
+      // // if (txn_reference_block_lag >= 0) {
+      // //    reference_block_num = cc.head_block_num();
+      // //    if (reference_block_num <= (uint32_t)txn_reference_block_lag) {
+      // //       reference_block_num = 0;
+      // //    } else {
+      // //       reference_block_num -= (uint32_t)txn_reference_block_lag;
+      // //    }
+      // // }
+      // block_id_type reference_block_id = cc.get_block_id_for_num(reference_block_num);
+      block_id_type reference_block_id = make_block_id(reference_block_num);
+
+      const auto action_pairs_vector = create_transfer_actions(salt, period, batch_size, handlerAcct, accounts, abi_serializer_max_time);
 
       std::cout << "Stop Generation." << std::endl;
-      // CALL(txn_test_gen, my, stop_generation, INVOKE_V_V(my, stop_generation), 200),
       stop_generation();
 
-      std::cout << "Start Generation." << std::endl;
-      // CALL(txn_test_gen, my, start_generation, INVOKE_V_R_R_R(my, start_generation, std::string, uint64_t, uint64_t), 200)
-      start_generation(salt, period, batch_size, newaccountT, newaccountA, newaccountB, act_a_to_b, act_b_to_a, abi_serializer_max_time);
-
-      std::cout << "Send Transaction." << std::endl;
-      send_transaction([](const fc::exception_ptr& e){
+      std::cout << "Send Batch of Transactions." << std::endl;
+      send_transaction_batch([](const fc::exception_ptr& e){
          if (e) {
             elog("pushing transaction failed: ${e}", ("e", e->to_detail_string()));
             stop_generation();
          }
-      }, nonce_prefix++, act_a_to_b, act_b_to_a, trx_expiration, chain_id, reference_block_id);
+      }, nonce_prefix++, action_pairs_vector, trx_expiration, chain_id, reference_block_id, batch);
 
       //Stop & Cleanup
       std::cout << "Stop Generation." << std::endl;
-      // CALL(txn_test_gen, my, stop_generation, INVOKE_V_V(my, stop_generation), 200),
       stop_generation();
 
    } catch( const std::exception& e ) {
