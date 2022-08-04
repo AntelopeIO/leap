@@ -62,8 +62,12 @@ try:
     account1Name = cluster.accounts[0].name
     account2Name = cluster.accounts[1].name
 
-    if Utils.Debug: Print(f'Running txn_generator with accounts {account1Name} {account2Name}')
-    #Utils.runCmdReturnStr(f'../txn_generator/txn_generator {account1Name} {account2Name}')
+    node0 = cluster.getNode()
+    info = node0.getInfo()
+    chainId = info['chain_id']
+
+    if Utils.Debug: Print(f'Running txn_generator with chain-id:{chainId} handler-account:{cluster.eosioAccount.name} accounts:{account1Name},{account2Name}')
+    Utils.runCmdReturnStr(f'./tests/txn_generator/txn_generator  --chain-id {chainId} --handler-account {cluster.eosioAccount.name} --accounts {account1Name},{account2Name}')
 
     testSuccessful = True
 finally:
