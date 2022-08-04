@@ -66,8 +66,8 @@ try:
     info = node0.getInfo()
     chainId = info['chain_id']
 
-    if Utils.Debug: Print(f'Running txn_generator with chain-id:{chainId} handler-account:{cluster.eosioAccount.name} accounts:{account1Name},{account2Name}')
-    Utils.runCmdReturnStr(f'./tests/txn_generator/txn_generator  --chain-id {chainId} --handler-account {cluster.eosioAccount.name} --accounts {account1Name},{account2Name}')
+    if Utils.Debug: Print(f'Running trx_generator with chain-id:{chainId} handler-account:{cluster.eosioAccount.name} accounts:{account1Name},{account2Name}')
+    Utils.runCmdReturnStr(f'./tests/trx_generator/trx_generator  --chain-id {chainId} --handler-account {cluster.eosioAccount.name} --accounts {account1Name},{account2Name}')
 
     testSuccessful = True
 finally:
