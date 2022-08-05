@@ -11,6 +11,15 @@ import time
 import shutil
 import signal
 
+from testUtils import Account
+from testUtils import Utils
+from Cluster import Cluster
+from Node import Node
+from Node import ReturnType
+from WalletMgr import WalletMgr
+
+testSuccessful=False
+
 def nodeos_help_test():
     """Test that nodeos help contains option descriptions"""
     help_text = subprocess.check_output(["./programs/nodeos/nodeos", "--help"])
@@ -158,12 +167,13 @@ def cleos_abi_file_test():
     # use URL http://127.0.0.1:12345 to make sure cleos not to connect to any running nodeos
     cmd = ['./programs/cleos/cleos', '-u', 'http://127.0.0.1:12345', 'convert', 'pack_action_data', account, action, unpacked_action_data]
     outs, errs = processCleosCommand(cmd)
-    assert(b'Failed to connect to nodeos' in errs)
+    assert(b'Connection refused' in errs)
 
     # invalid option --abi-file
     invalid_abi_arg = 'eosio.token' + ' ' + token_abi_path
     cmd = ['./programs/cleos/cleos', '-u', 'http://127.0.0.1:12345', '--abi-file', invalid_abi_arg, 'convert', 'pack_action_data', account, action, unpacked_action_data]
     outs, errs = processCleosCommand(cmd)
+    print(errs)
     assert(b'please specify --abi-file in form of <contract name>:<abi file path>.' in errs)
 
     # pack token transfer data
@@ -315,40 +325,14 @@ def cleos_abi_file_test():
     assert(b'"quantity": "10.0000 SYS"' in outs)
     assert(b'"memo": "hello"' in outs)
 
+def abi_file_with_nodeos_test():
     # push action token transfer with option `--abi-file`
+    global testSuccessful
     try:
-        data_dir = "./taf_data"
-        cmd = "./programs/nodeos/nodeos -e -p eosio --plugin eosio::producer_plugin --plugin eosio::producer_api_plugin --plugin eosio::chain_api_plugin --plugin eosio::chain_plugin --plugin eosio::http_plugin --access-control-allow-origin=* --http-validate-host=false " + "--data-dir " + data_dir
-        pNodeos = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-        time.sleep(10)
-
-        PUBLIC_KEY  = "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
-        PRIVATE_KEY = "5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3"
-
-        wallet_name = "taf_wallet"
-        cmd = "./programs/cleos/cleos wallet create --name " + wallet_name + " --to-console"
-        pWallet = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        cmd = "./programs/cleos/cleos wallet import --name " + wallet_name + " --private-key " + PRIVATE_KEY
-        processCleosCommand(cmd.split())
-
-        accounts = ["eosio.token", "alice", "bob"]
-        for account in accounts:
-            cmd = "./programs/cleos/cleos get account -j " + account
-            outs, errs = processCleosCommand(cmd.split())
-            str = '"account_name"' + ': ' + '"' + account + '"'
-            if str not in outs.decode('utf-8'):
-                cmd = "./programs/cleos/cleos -u http://127.0.0.1:8888 create account eosio " + account + " " + PUBLIC_KEY
-                outs, errs = processCleosCommand(cmd.split())
-
-        cmd = "./programs/cleos/cleos set contract eosio.token " + os.path.abspath(os.getcwd() + "/../unittests/contracts/eosio.token") + " " + "--abi " + "eosio.token.abi -p eosio.token@active"
-        processCleosCommand(cmd.split())
-        cmd = ['./programs/cleos/cleos', 'push', 'action', 'eosio.token', 'create', '[ "alice", "1000000000.0000 SYS" ]', '-p', 'eosio.token']
-        processCleosCommand(cmd)
-        cmd = ['./programs/cleos/cleos', 'push', 'action', 'eosio.token', 'issue', '[ "alice", "100.0000 SYS", "memo" ]', '-p', 'alice']
-        processCleosCommand(cmd)
-
+        contractDir = os.path.abspath(os.getcwd() + "/../unittests/contracts/eosio.token")
         # make a malicious abi file by switching 'from' and 'to' in eosio.token.abi
+        token_abi_path = os.path.abspath(os.getcwd() + '/../unittests/contracts/eosio.token/eosio.token.abi')
+        token_abi_file_arg = 'eosio.token' + ':' + token_abi_path
         malicious_token_abi_path = os.path.abspath(os.getcwd() + '/../unittests/contracts/eosio.token/malicious.eosio.token.abi')
         shutil.copyfile(token_abi_path, malicious_token_abi_path)
         replaces = [["from", "malicious"], ["to", "from"], ["malicious", "to"]]
@@ -360,33 +344,79 @@ def cleos_abi_file_test():
                 f.write(abi)
                 f.truncate()
 
-        # set the malicious abi
-        cmd = "./programs/cleos/cleos set abi eosio.token " + malicious_token_abi_path
-        processCleosCommand(cmd.split())
+        tries = 30
+        while not Utils.arePortsAvailable(set(range(8888, 8889))):
+            Utils.Print("ERROR: Another process is listening on nodeos test port 8888. wait...")
+            if tries == 0:
+                assert False
+            tries -= 1
+            time.sleep(2)
+        nodeId = 'bios'
+        data_dir = Utils.getNodeDataDir(nodeId)
+        assert not os.path.exists(data_dir), 'data_dir exists'
+        os.mkdir(data_dir)
+        walletMgr = WalletMgr(True)
+        walletMgr.launch()
+        node = Node('localhost', 8888, nodeId, cmd="./programs/nodeos/nodeos -e -p eosio --plugin eosio::trace_api_plugin --trace-no-abis --plugin eosio::producer_plugin --plugin eosio::producer_api_plugin --plugin eosio::chain_api_plugin --plugin eosio::chain_plugin --plugin eosio::http_plugin --access-control-allow-origin=* --http-validate-host=false --resource-monitor-not-shutdown-on-threshold-exceeded " + "--data-dir " + data_dir + " --config-dir " + data_dir, walletMgr=walletMgr)
+        node.verifyAlive() # Setting node state to not alive
+        node.relaunch(newChain=True, cachePopen=True)
+        accountNames = ["eosio", "eosio.token", "alice", "bob"]
+        accounts = []
+        for name in accountNames:
+            account = Account(name)
+            account.ownerPrivateKey = account.activePrivateKey = "5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3"
+            account.ownerPublicKey = account.activePublicKey = "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
+            accounts.append(account)
+        walletMgr.create('eosio', [accounts[0]])
+        node.createAccount(accounts[1], accounts[0], stakedDeposit=0)
+        node.publishContract(accounts[1], contractDir, 'eosio.token.wasm', 'eosio.token.abi')
+        account = 'eosio.token'
+        action = 'create'
+        data = '{"issuer":"eosio.token","maximum_supply":"100000.0000 SYS","can_freeze":"0","can_recall":"0","can_whitelist":"0"}'
+        permission = '--permission eosio.token@active'
+        node.pushMessage(account, action, data, permission)
+        action = 'issue'
+        data = '{"from":"eosio.token","to":"eosio.token","quantity":"100000.0000 SYS","memo":"issue"}'
+        node.pushMessage(account, action, data, permission)
+        node.createAccount(accounts[2], accounts[0], stakedDeposit=0)
+        node.createAccount(accounts[3], accounts[0], stakedDeposit=0)
 
-        # option '--abi-file' makes token still be transferred from alice to bob after setting the malicious abi
-        cmd = ['./programs/cleos/cleos', '-u', 'http://127.0.0.1:8888', '--print-request', '--abi-file', token_abi_file_arg, 'push', 'action', 'eosio.token', 'transfer', '{ "from":"alice", "to":"bob", "quantity":"25.0000 SYS", "memo":"m" }', '-p', 'alice']
-        outs, errs = processCleosCommand(cmd)
-        assert(b'"/v1/chain/get_raw_abi"' not in errs)
-        cmd = "./programs/cleos/cleos get currency balance eosio.token alice SYS"
-        outs, errs = processCleosCommand(cmd.split())
-        assert(outs.strip().decode('utf-8') == "75.0000 SYS")
+        node.transferFunds(accounts[1], accounts[2], '100.0000 SYS')
 
+        node.processCleosCmd('set abi eosio.token ' + malicious_token_abi_path, 'set malicious eosio.token abi', returnType=ReturnType.raw)
+
+        cmdArr = node._Node__transferFundsCmdArr(accounts[2], accounts[3], '25.0000 SYS', 'm', False, None, False, False, 90, False)
+        cmdArr.insert(6, '--print-request')
+        cmdArr.insert(7, '--abi-file')
+        cmdArr.insert(8, token_abi_file_arg)
+        Utils.runCmdArrReturnStr(cmdArr)
+        balance = node.getCurrencyBalance('eosio.token', 'alice')
+        assert balance == '75.0000 SYS\n'
+        testSuccessful=True
+    except Exception as e:
+        testSuccessful=False
+        Utils.Print(e.args)
     finally:
+        if testSuccessful:
+            Utils.Print("Test succeeded.")
+        else:
+            Utils.Print("Test failed.")
+        if node:
+            if not node.killed:
+                if node.pid:
+                    os.kill(node.pid, signal.SIGKILL)
+        if testSuccessful:
+            Utils.Print("Cleanup nodeos data.")
+            shutil.rmtree(data_dir)
 
-        if pNodeos.pid:
-            os.kill(pNodeos.pid, signal.SIGKILL)
-        shutil.rmtree(data_dir)
+        if malicious_token_abi_path:
+            if os.path.exists(malicious_token_abi_path):
+                os.remove(malicious_token_abi_path)
 
-        if pWallet.pid:
-            os.kill(pWallet.pid, signal.SIGKILL)
-        subprocess.call(("pkill -9 keosd").split())
-        wallet_file = os.path.expanduser('~') + "/eosio-wallet/" + wallet_name + ".wallet"
-        if os.path.exists(wallet_file):
-            os.remove(wallet_file)
-
-        if os.path.exists(malicious_token_abi_path):
-            os.remove(malicious_token_abi_path)
+        walletMgr.killall()
+        if testSuccessful:
+            Utils.Print("Cleanup wallet data.")
+            walletMgr.cleanup()
 
 nodeos_help_test()
 
@@ -399,3 +429,9 @@ cli11_bugfix_test()
 
 cli11_optional_option_arg_test()
 cleos_sign_test()
+
+cleos_abi_file_test()
+abi_file_with_nodeos_test()
+
+errorCode = 0 if testSuccessful else 1
+exit(errorCode)
