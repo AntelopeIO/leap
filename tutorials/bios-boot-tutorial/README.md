@@ -47,5 +47,3 @@ $ git clone https://github.com/AntelopeIO/leap
 $ cd ./leap/tutorials/bios-boot-tutorial/
 $ python3 bios-boot-tutorial.py --cleos=cleos --nodeos=nodeos --keosd=keosd --contracts-dir="${CONTRACTS_DIRECTORY}" -w -a
 ```
-
-See [Developer Portal: Bios Boot Sequence](https://developers.eos.io/welcome/latest/tutorials/bios-boot-sequence) for additional information.
