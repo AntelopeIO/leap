@@ -454,7 +454,7 @@ BOOST_AUTO_TEST_CASE( modexp_subjective_limit_test ) { try {
                          fc_exception_message_is("mod_exp restriction: exponent bit size cannot exceed bit size of either base or modulus")
    );
 
-   std::vector<char> modulus(2048 - 1);
+   std::vector<char> modulus(4096 - 1);
    std::vector<char> expected_result(modulus.size());
    modulus.push_back(0x0F);
    expected_result.push_back(0x01);
@@ -466,7 +466,7 @@ BOOST_AUTO_TEST_CASE( modexp_subjective_limit_test ) { try {
         return 32 - __builtin_clz(n - 1);
     };
 
-   BOOST_CHECK(5 * ceil_log2(exponent.size()) + 8 * ceil_log2(modulus.size()) == 98);
+   BOOST_CHECK(5 * ceil_log2(exponent.size()) + 8 * ceil_log2(modulus.size()) == 106);
 
    c.push_action( tester1_account, "testmodexp"_n, tester1_account, mutable_variant_object()
       ("base", h2bin("01"))
@@ -479,12 +479,12 @@ BOOST_AUTO_TEST_CASE( modexp_subjective_limit_test ) { try {
    modulus.pop_back();
    expected_result.pop_back();
 
-   modulus.resize(2048);
+   modulus.resize(4096);
    expected_result.resize(modulus.size());
    modulus.push_back(0x0F);
    expected_result.push_back(0x01);
 
-   BOOST_CHECK(5 * ceil_log2(exponent.size()) + 8 * ceil_log2(modulus.size()) == 106);
+   BOOST_CHECK(5 * ceil_log2(exponent.size()) + 8 * ceil_log2(modulus.size()) == 114);
 
    BOOST_CHECK_EXCEPTION(c.push_action(tester1_account, "testmodexp"_n, tester1_account, mutable_variant_object()
                                        ("base", h2bin("01"))

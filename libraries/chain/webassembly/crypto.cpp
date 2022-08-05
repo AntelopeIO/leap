@@ -176,7 +176,7 @@ namespace eosio { namespace chain { namespace webassembly {
                       "mod_exp restriction: exponent bit size cannot exceed bit size of either base or modulus");
          }
 
-         static constexpr uint64_t bit_calc_limit = 101;
+         static constexpr uint64_t bit_calc_limit = 106;
 
          uint64_t bit_calc = 5 * ceil_log2(exp.size()) + 8 * ceil_log2(base_modulus_size);
 
