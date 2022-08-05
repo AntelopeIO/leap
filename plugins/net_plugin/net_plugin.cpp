@@ -2280,6 +2280,7 @@ namespace eosio {
          case no_reason:
          case wrong_version:
          case benign_other:
+         case duplicate: // attempt reconnect in case connection has been dropped, should quickly disconnect if duplicate
             break;
          default:
             fc_dlog( logger, "Skipping connect due to go_away reason ${r}",("r", reason_str( no_retry )));
