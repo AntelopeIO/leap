@@ -116,7 +116,7 @@ class state_history_log {
 
          if((is_ship_log_pruned(first_header.magic) == false) && prune_config) {
             //need to convert non-pruned to pruned; first prune any ranges we can (might be none)
-            prune();
+            prune(fc::log_level::info);
 
             //update first header to indicate prune feature is enabled
             log.seek(0);
@@ -249,7 +249,7 @@ class state_history_log {
 
       if(prune_config) {
          if((pos&prune_config->prune_threshold) != (log.tellp()&prune_config->prune_threshold))
-            prune();
+            prune(fc::log_level::debug);
 
          const uint32_t num_blocks_in_log = _end_block - _begin_block;
          fc::raw::pack(log, num_blocks_in_log);
@@ -302,7 +302,7 @@ class state_history_log {
       return true;
    }
 
-   void prune() {
+   void prune(const fc::log_level& loglevel) {
       if(!prune_config)
          return;
       if(_end_block - _begin_block <= prune_config->prune_blocks)
@@ -316,7 +316,9 @@ class state_history_log {
       _begin_block = prune_to_num;
       log.flush();
 
-      ilog("${name}.log pruned to blocks ${b}-${e}", ("name", name)("b", _begin_block)("e", _end_block - 1));
+      if(auto l = fc::logger::get(); l.is_enabled(loglevel))
+         l.log(fc::log_message(fc::log_context(loglevel, __FILE__, __LINE__, __func__),
+                               "${name}.log pruned to blocks ${b}-${e}", fc::mutable_variant_object()("name", name)("b", _begin_block)("e", _end_block - 1)));
    }
 
    //only works on non-pruned logs
