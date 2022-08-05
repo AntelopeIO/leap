@@ -380,7 +380,7 @@ BOOST_AUTO_TEST_CASE( modexp_test ) { try {
       {
          {
                "01",
-               "fffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2e",
+               "ff",
                "",
          },
          return_code::failure,
@@ -415,9 +415,12 @@ BOOST_AUTO_TEST_CASE( modexp_subjective_limit_test ) { try {
    // Given the need to respect the deadline timer and the current limitation that the deadline timer is not plumbed into the
    // inner loops of the implementation of mod_exp (which currently exists in the gmp shared library), only a small enough duration for
    // mod_exp can be tolerated to avoid going over the deadline timer by too much. A good threshold for small may be less than 5 ms.
-   // Then based on benchmarks within the test_modular_arithmetic test within fc, it seems safe to limit the bit size to 2048 bits.
+   // Based on benchmarks within the test_modular_arithmetic test within fc, the following constraints are subjectively enforced on the 
+   // base, exp, and modulus input arguments of the mod_exp host function:
+   //    1. exp.size() <= std::max(base.size(), modulus.size())
+   //    2. 5 * ceil(log2(exp.size())) + 8 * ceil(log2(std::max(base.size(), modulus.size()))) <= 101
 
-   // This test case verifies that the subjective bit size limit for mod_exp is properly enforced within libchain.
+   // This test case verifies that the above constraints on mod_exp are subjectively enforced properly within libchain.
 
    // To allow mod_exp to be more useful, the limits on bit size need to be removed and the deadline timer plumbing into the implementation
    // needs to occur. When that happens, this test case can be removed.
@@ -439,26 +442,58 @@ BOOST_AUTO_TEST_CASE( modexp_subjective_limit_test ) { try {
    c.set_abi( tester1_account, contracts::crypto_primitives_test_abi().data() );
    c.produce_block();
 
-   bytes exponent(256); // 2048 bits of all zeros is fine
+   auto exponent = h2bin("010001");
+
+   BOOST_CHECK_EXCEPTION(c.push_action(tester1_account, "testmodexp"_n, tester1_account, mutable_variant_object()
+                                       ("base", h2bin("01"))
+                                       ("exp", exponent)
+                                       ("modulo", h2bin("0F"))
+                                       ("expected_error", static_cast<int32_t>(return_code::success))
+                                       ("expected_result", h2bin("01"))),
+                         eosio::chain::subjective_block_production_exception,
+                         fc_exception_message_is("mod_exp restriction: exponent bit size cannot exceed bit size of either base or modulus")
+   );
+
+   std::vector<char> modulus(4096 - 1);
+   std::vector<char> expected_result(modulus.size());
+   modulus.push_back(0x0F);
+   expected_result.push_back(0x01);
+
+    auto ceil_log2 = [](uint32_t n) -> uint32_t {
+        if (n <= 1) {
+            return 0;
+        }
+        return 32 - __builtin_clz(n - 1);
+    };
+
+   BOOST_CHECK(5 * ceil_log2(exponent.size()) + 8 * ceil_log2(modulus.size()) == 106);
 
    c.push_action( tester1_account, "testmodexp"_n, tester1_account, mutable_variant_object()
       ("base", h2bin("01"))
       ("exp", exponent)
-      ("modulo", h2bin("0F"))
+      ("modulo", modulus)
       ("expected_error", static_cast<int32_t>(return_code::success))
-      ("expected_result", h2bin("01"))
+      ("expected_result", expected_result)
    );
 
-   exponent.push_back(0); // But 2056 bits of all zeros crosses the subjective limit (even if the value is still technically only zero).
+   modulus.pop_back();
+   expected_result.pop_back();
 
-   BOOST_CHECK_EXCEPTION(c.push_action( tester1_account, "testmodexp"_n, tester1_account, mutable_variant_object()
-                                        ("base", h2bin("01"))
-                                        ("exp", exponent)
-                                        ("modulo", h2bin("0F"))
-                                        ("expected_error", static_cast<int32_t>(return_code::success))
-                                        ("expected_result", h2bin("01"))),
+   modulus.resize(4096);
+   expected_result.resize(modulus.size());
+   modulus.push_back(0x0F);
+   expected_result.push_back(0x01);
+
+   BOOST_CHECK(5 * ceil_log2(exponent.size()) + 8 * ceil_log2(modulus.size()) == 114);
+
+   BOOST_CHECK_EXCEPTION(c.push_action(tester1_account, "testmodexp"_n, tester1_account, mutable_variant_object()
+                                       ("base", h2bin("01"))
+                                       ("exp", exponent)
+                                       ("modulo", modulus)
+                                       ("expected_error", static_cast<int32_t>(return_code::success))
+                                       ("expected_result", expected_result)),
                          eosio::chain::subjective_block_production_exception,
-                         fc_exception_message_is("Bit size too large for values passed into mod_exp")
+                         fc_exception_message_is("mod_exp restriction: bit size too large for input arguments")
    );
 
 } FC_LOG_AND_RETHROW() }
