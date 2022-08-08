@@ -92,7 +92,8 @@ else()
    add_subdirectory(abieos)
 endif()
 
-add_subdirectory( txn_generator )
+add_subdirectory( trx_generator )
+add_subdirectory( performance_tests )
 
 find_package(Threads)
 add_executable(ship_client ship_client.cpp)
