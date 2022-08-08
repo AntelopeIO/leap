@@ -17,7 +17,7 @@ jobs:
     steps:
       - name: Check for ccache disable
         id: no-ccache
-        uses: saulmaldonado/skip-workflow@v1
+        uses: saulmaldonado/skip-workflow@b934401f1ef10783ab5e7f25a78a31959a4fbad3
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           search: '["pull_request"]'
