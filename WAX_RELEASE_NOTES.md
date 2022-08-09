@@ -64,3 +64,14 @@ EOSIO 2.0.12 merged
 ## Release `v2.0.13wax01`
 
 EOSIO 2.0.13 merged
+
+## Release candidate `v3.1.0wax01-rc3`
+
+EOS Network Foundation has taken over the EOSIO development from Block
+One, and the first new release will be called Mandel 3.1.0. This tag
+is a merge of WAX-specific intrinsic into the Mandel code.
+
+Mandel repository: https://github.com/eosnetworkfoundation/mandel
+
+WAX-Mandel repository: https://github.com/cc32d9/wax-mandel
+
