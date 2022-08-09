@@ -9,7 +9,27 @@
 #include <eosio/chain/protocol_feature_manager.hpp>
 #include <fc/crypto/hex.hpp>
 
+namespace {
+
+   void set_trace_elapsed_to_zero(eosio::chain::action_trace& trace) {
+      trace.elapsed = fc::microseconds{};
+   }
+
+   void set_trace_elapsed_to_zero(eosio::chain::transaction_trace& trace) {
+      trace.elapsed = fc::microseconds{};
+      for (auto& act_trace : trace.action_traces) {
+         set_trace_elapsed_to_zero(act_trace);
+      }
+   }
+
+}
+
 namespace eosio::chain {
+
+   void deep_mind_handler::update_config(deep_mind_config config)
+   {
+      _config = std::move(config);
+   }
 
    void deep_mind_handler::update_logger(const std::string& logger_name)
    {
@@ -101,7 +121,17 @@ namespace eosio::chain {
 
    void deep_mind_handler::on_applied_transaction(uint32_t block_num, const transaction_trace_ptr& trace)
    {
-      auto packed_trace = fc::raw::pack(*trace);
+      std::vector<char> packed_trace;
+      
+      if (_config.zero_elapsed) {
+         transaction_trace trace_copy = *trace;
+         set_trace_elapsed_to_zero(trace_copy);
+         packed_trace = fc::raw::pack(trace_copy);
+
+      } else {
+         packed_trace = fc::raw::pack(*trace);
+      }
+
       fc_dlog(_logger, "APPLIED_TRANSACTION ${block} ${traces}",
          ("block", block_num)
          ("traces", fc::to_hex(packed_trace))
@@ -193,6 +223,23 @@ namespace eosio::chain {
          ("expiration", gto.expiration)
          ("trx_id", gto.trx_id)
          ("trx", fc::to_hex(gto.packed_trx.data(), gto.packed_trx.size()))
+      );
+   }
+   void deep_mind_handler::on_create_deferred(operation_qualifier qual, const generated_transaction_object& gto, const packed_transaction& packed_trx)
+   {
+      auto packed_signed_trx = fc::raw::pack(packed_trx.get_signed_transaction());
+
+      fc_dlog(_logger, "DTRX_OP ${qual}CREATE ${action_id} ${sender} ${sender_id} ${payer} ${published} ${delay} ${expiration} ${trx_id} ${trx}",
+         ("qual", prefix(qual))
+         ("action_id", _action_id)
+         ("sender", gto.sender)
+         ("sender_id", gto.sender_id)
+         ("payer", gto.payer)
+         ("published", gto.published)
+         ("delay", gto.delay_until)
+         ("expiration", gto.expiration)
+         ("trx_id", gto.trx_id)
+         ("trx", fc::to_hex(packed_signed_trx.data(), packed_signed_trx.size()))
       );
    }
    void deep_mind_handler::on_fail_deferred()

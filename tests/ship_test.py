@@ -22,7 +22,7 @@ import sys
 # This test sets up <-p> producing node(s) and <-n - -p>
 #   non-producing node(s). One of the non-producing nodes
 #   is configured with the state_history_plugin.  An instance
-#   of node will be started with a client javascript to exercise
+#   of node will be started with a client to exercise
 #   the SHiP API.
 #
 ###############################################################
@@ -54,7 +54,6 @@ killEosInstances=not dontKill
 killWallet=not dontKill
 
 WalletdName=Utils.EosWalletName
-ClientName="cleos"
 shipTempDir=None
 
 try:
@@ -68,10 +67,11 @@ try:
     # non-producing nodes are at the end of the cluster's nodes, so reserving the last one for state_history_plugin
     shipNodeNum = totalNodes - 1
     specificExtraNodeosArgs[shipNodeNum]="--plugin eosio::state_history_plugin --disable-replay-opts --sync-fetch-span 200 --plugin eosio::net_api_plugin "
+    traceNodeosArgs=" --plugin eosio::trace_api_plugin --trace-no-abis "
 
     if cluster.launch(pnodes=totalProducerNodes,
                       totalNodes=totalNodes, totalProducers=totalProducers,
-                      useBiosBootFile=False, specificExtraNodeosArgs=specificExtraNodeosArgs) is False:
+                      useBiosBootFile=False, specificExtraNodeosArgs=specificExtraNodeosArgs, extraNodeosArgs=traceNodeosArgs) is False:
         Utils.cmdError("launcher")
         Utils.errorExit("Failed to stand up eos cluster.")
 
@@ -84,8 +84,8 @@ try:
     cluster.waitOnClusterSync(blockAdvancing=5)
     Print("Cluster in Sync")
 
-    javascriptClient = "tests/ship_client.js"
-    cmd = "node %s --num-requests %d" % (javascriptClient, args.num_requests)
+    shipClient = "tests/ship_client"
+    cmd = "%s --num-requests %d" % (shipClient, args.num_requests)
     if Utils.Debug: Utils.Print("cmd: %s" % (cmd))
     clients = []
     files = []
@@ -126,13 +126,6 @@ try:
         with open(shipClientErrorFile, "r") as errFile:
             statuses = None
             lines = errFile.readlines()
-            missingModules = []
-            for line in lines:
-                match = re.search(r"Error: Cannot find module '(\w+)'", line)
-                if match:
-                    missingModules.append(match.group(1))
-            if len(missingModules) > 0:
-                Utils.errorExit("Javascript client #%d threw an exception, it was missing modules: %s" % (index, ", ".join(missingModules)))
 
             try:
                 statuses = json.loads(" ".join(lines))
@@ -169,15 +162,30 @@ try:
                 blockNum = int(match.group(2))
                 if blockNum > maxFirstBN:
                     # ship requests can only affect time after clients started
-                    timeFmt = '%Y-%m-%dT%H:%M:%S.%f'
-                    rcvTime = datetime.strptime(rcvTimeStr, timeFmt)
-                    prodTime = datetime.strptime(prodTimeStr, timeFmt)
+                    rcvTime = datetime.strptime(rcvTimeStr, Utils.TimeFmt)
+                    prodTime = datetime.strptime(prodTimeStr, Utils.TimeFmt)
                     delta = rcvTime - prodTime
                     biggestDelta = max(delta, biggestDelta)
 
                     totalDelta += delta
                     timeCount += 1
-                    assert delta < timedelta(seconds=0.500), Print("ERROR: block_num: %s took %.3f seconds to be received." % (blockNum, delta.total_seconds()))
+                    limit = timedelta(seconds=0.500)
+                    if delta >= limit:
+                        actualProducerTimeStr=None
+                        nodes = [node for node in cluster.getAllNodes() if node.nodeId != shipNodeNum]
+                        for node in nodes:
+                            threshold=-500   # set negative to guarantee the block analysis gets returned
+                            blockAnalysis = node.analyzeProduction(specificBlockNum=blockNum, thresholdMs=threshold)
+                            actualProducerTimeStr = blockAnalysis[blockNum]["prod"]
+                            if actualProducerTimeStr is not None:
+                                break
+                        if actualProducerTimeStr is not None:
+                            actualProducerTime = datetime.strptime(actualProducerTimeStr, Utils.TimeFmt)
+                            if rcvTime - actualProducerTime >= limit:
+                                actualProducerTime = None   # let it fail below
+
+                        if actualProducerTimeStr is None:
+                            Utils.errorExit("block_num: %s took %.3f seconds to be received." % (blockNum, delta.total_seconds()))
 
             line = f.readline()
 
@@ -188,36 +196,8 @@ try:
 finally:
     TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, killEosInstances=killEosInstances, killWallet=killWallet, keepLogs=keepLogs, cleanRun=killAll, dumpErrorDetails=dumpErrorDetails)
     if shipTempDir is not None:
-        if dumpErrorDetails and not testSuccessful:
-            def printTruncatedFile(filename, maxLines):
-                Print(Utils.FileDivider)
-                with open(filename, "r") as f:
-                    Print("Contents of %s" % (filename))
-                    line = f.readline()
-                    lineCount = 0
-                    while line and lineCount < maxLines:
-                        Print(line)
-                        lineCount += 1
-                        line = f.readline()
-                    if line:
-                        Print("...       CONTENT TRUNCATED AT %d lines" % (maxLines))
-
-            for index in range(0, args.num_clients):
-                # error file should not contain much content, so if there are lots of lines it is likely useless
-                printTruncatedFile("%s%d.err" % (shipClientFilePrefix, i), maxLines=1000)
-                # output file should have lots of output, but if user passes in a huge number of requests, these could go on forever
-                printTruncatedFile("%s%d.out" % (shipClientFilePrefix, i), maxLines=20000)
-
-        if not keepLogs:
+        if testSuccessful and not keepLogs:
             shutil.rmtree(shipTempDir, ignore_errors=True)
-    if not testSuccessful and dumpErrorDetails:
-        Print(Utils.FileDivider)
-        Print("Compare Blocklog")
-        cluster.compareBlockLogs()
-        Print(Utils.FileDivider)
-        Print("Print Blocklog")
-        cluster.printBlockLog()
-        Print(Utils.FileDivider)
 
 errorCode = 0 if testSuccessful else 1
 exit(errorCode)

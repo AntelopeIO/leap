@@ -18,6 +18,7 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/path.hpp>
+#include <boost/filesystem/fstream.hpp>
 #include <fc/crypto/private_key.hpp>
 #include <fc/crypto/public_key.hpp>
 #include <fc/io/json.hpp>
@@ -199,7 +200,6 @@ public:
       p2p_port(),
       http_port(),
       file_size(),
-      has_db(false),
       name(),
       node(),
       host(),
@@ -212,7 +212,6 @@ public:
   uint16_t     p2p_port;
   uint16_t     http_port;
   uint16_t     file_size;
-  bool         has_db;
   string       name;
   tn_node_def* node;
   string       host;
@@ -453,7 +452,7 @@ struct launcher_def {
    bool   next_ndx(size_t &ndx);
    size_t skip_ndx (size_t from, size_t offset);
 
-   void make_ring ();
+   void make_line (bool make_ring = true);
    void make_star ();
    void make_mesh ();
    void make_custom ();
@@ -472,6 +471,7 @@ struct launcher_def {
    void roll (const string& host_names);
    void start_all (string &gts, launch_modes mode);
    void ignite ();
+   string find_and_remove_arg(string str, string substr);
 };
 
 void
@@ -484,7 +484,7 @@ launcher_def::set_options (bpo::options_description &cfg) {
     ("producers",bpo::value<size_t>(&producers)->default_value(21),"total number of non-bios and non-shared producer instances in this network")
     ("shared-producers",bpo::value<size_t>(&shared_producers)->default_value(0),"total number of shared producers on each non-bios nodes")
     ("mode,m",bpo::value<vector<string>>()->multitoken()->default_value({"any"}, "any"),"connection mode, combination of \"any\", \"producers\", \"specified\", \"none\"")
-    ("shape,s",bpo::value<string>(&shape)->default_value("star"),"network topology, use \"star\" \"mesh\" or give a filename for custom")
+    ("shape,s",bpo::value<string>(&shape)->default_value("star"),"network topology, use \"star\", \"mesh\", \"ring\", \"line\" or give a filename for custom")
     ("genesis,g",bpo::value<string>()->default_value("./genesis.json"),"set the path to genesis.json")
     ("skip-signature", bpo::bool_switch(&skip_transaction_signatures)->default_value(false), (string(node_executable_name) + " does not require transaction signatures.").c_str())
     (node_executable_name, bpo::value<string>(&eosd_extra_args), ("forward " + string(node_executable_name) + " command line argument(s) to each instance of " + string(node_executable_name) + ", enclose arg(s) in quotes").c_str())
@@ -586,6 +586,7 @@ launcher_def::initialize (const variables_map &vmap) {
 
   if ( ! (shape.empty() ||
           boost::iequals( shape, "ring" ) ||
+          boost::iequals( shape, "line" ) ||
           boost::iequals( shape, "star" ) ||
           boost::iequals( shape, "mesh" )) &&
        host_map_file.empty()) {
@@ -717,7 +718,10 @@ bool
 launcher_def::generate () {
 
   if (boost::iequals (shape,"ring")) {
-    make_ring ();
+    make_line ();
+  }
+  else if (boost::iequals (shape,"line")) {
+    make_line(false);
   }
   else if (boost::iequals (shape, "star")) {
     make_star ();
@@ -841,16 +845,7 @@ launcher_def::define_network () {
 
       eosd_def eosd;
       assign_name(eosd, do_bios);
-      eosd.has_db = false;
 
-      if (servers.db.size()) {
-        for (auto &dbn : servers.db) {
-          if (lhost->host_name == dbn) {
-            eosd.has_db = true;
-            break;
-         }
-        }
-      }
       aliases.push_back(eosd.name);
       eosd.set_host (lhost, do_bios);
       do_bios = false;
@@ -1127,7 +1122,7 @@ launcher_def::write_config_file (tn_node_def &node) {
   for (const auto &p : node.peers) {
      cfg << "p2p-peer-address = " << network.nodes.find(p)->second.instance->p2p_endpoint << "\n";
   }
-  if (instance.has_db || node.producers.size()) {
+  if (node.producers.size()) {
     for (const auto &kp : node.keys ) {
        cfg << "private-key = [\"" << kp.get_public_key().to_string()
            << "\",\"" << kp.to_string() << "\"]\n";
@@ -1137,12 +1132,8 @@ launcher_def::write_config_file (tn_node_def &node) {
     }
     cfg << "plugin = eosio::producer_plugin\n";
   }
-  if( instance.has_db ) {
-    cfg << "plugin = eosio::mongo_db_plugin\n";
-  }
   cfg << "plugin = eosio::net_plugin\n";
-  cfg << "plugin = eosio::chain_api_plugin\n"
-      << "plugin = eosio::history_api_plugin\n";
+  cfg << "plugin = eosio::chain_api_plugin\n";
   cfg.close();
 }
 
@@ -1192,6 +1183,36 @@ launcher_def::write_logging_config_file(tn_node_def &node) {
   pp.appenders.push_back( "stderr" );
   if( gelf_enabled ) pp.appenders.push_back( "net" );
   log_config.loggers.emplace_back( pp );
+
+  fc::logger_config tt( "transaction_success_tracing" );
+  tt.level = fc::log_level::debug;
+  tt.appenders.push_back( "stderr" );
+  if( gelf_enabled ) tt.appenders.push_back( "net" );
+  log_config.loggers.emplace_back( tt );
+
+  fc::logger_config tft( "transaction_failure_tracing" );
+  tft.level = fc::log_level::debug;
+  tft.appenders.push_back( "stderr" );
+  if( gelf_enabled ) tft.appenders.push_back( "net" );
+  log_config.loggers.emplace_back( tft );
+
+  fc::logger_config tts( "transaction_trace_success" );
+  tts.level = fc::log_level::debug;
+  tts.appenders.push_back( "stderr" );
+  if( gelf_enabled ) tts.appenders.push_back( "net" );
+  log_config.loggers.emplace_back( tts );
+
+   fc::logger_config ttf( "transaction_trace_failure" );
+   ttf.level = fc::log_level::debug;
+   ttf.appenders.push_back( "stderr" );
+   if( gelf_enabled ) ttf.appenders.push_back( "net" );
+   log_config.loggers.emplace_back( ttf );
+
+  fc::logger_config ta( "trace_api" );
+  ta.level = fc::log_level::debug;
+  ta.appenders.push_back( "stderr" );
+  if( gelf_enabled ) ta.appenders.push_back( "net" );
+  log_config.loggers.emplace_back( ta );
 
   auto str = fc::json::to_pretty_string( log_config, fc::time_point::maximum(), fc::json::output_formatting::stringify_large_ints_and_doubles );
   cfg.write( str.c_str(), str.size() );
@@ -1327,14 +1348,19 @@ size_t launcher_def::skip_ndx (size_t from, size_t offset) {
 }
 
 void
-launcher_def::make_ring () {
+launcher_def::make_line (bool make_ring) {
   bind_nodes();
   size_t non_bios = total_nodes - 1;
   if (non_bios > 2) {
-     bool loop = false;
-     for (size_t i = start_ndx(); !loop; loop = next_ndx(i)) {
+     // since we have at least 3 indexes, every next_ndx(i) call is guaranteed to not be the end of the loop
+     bool end_of_loop = false;
+     for (size_t i = start_ndx(); !end_of_loop; next_ndx(i)) {
         size_t front = i;
-        loop = next_ndx (front);
+        end_of_loop = next_ndx (front);
+        // if this is the end of the loop and this is not a ring, then don't connect the end to the beginning to make a ring
+        if (end_of_loop && !make_ring) {
+           break;
+        }
         network.nodes.find(aliases[i])->second.peers.push_back (aliases[front]);
      }
   }
@@ -1342,8 +1368,11 @@ launcher_def::make_ring () {
      size_t n0 = start_ndx();
      size_t n1 = n0;
      next_ndx(n1);
-    network.nodes.find(aliases[n0])->second.peers.push_back (aliases[n1]);
-    network.nodes.find(aliases[n1])->second.peers.push_back (aliases[n0]);
+     network.nodes.find(aliases[n0])->second.peers.push_back (aliases[n1]);
+     if (make_ring) {
+        network.nodes.find(aliases[n1])->second.peers.push_back (aliases[n0]);
+     }
+     // since there are only 2 nodes, this really just affects startup and that only index 0 will initiate the connection if !make_ring
   }
 }
 
@@ -1351,7 +1380,7 @@ void
 launcher_def::make_star () {
   size_t non_bios = total_nodes - 1;
   if (non_bios < 4) {
-    make_ring ();
+    make_line ();
     return;
   }
   bind_nodes();
@@ -1514,6 +1543,26 @@ launcher_def::prep_remote_config_dir (eosd_def &node, host_def *host) {
   }
 }
 
+string
+launcher_def::find_and_remove_arg(string args, string arg ){
+   if (args.empty() || arg.empty())
+      return args;
+
+   string left, middle, right;
+   size_t found = args.find(arg);
+   if (found != std::string::npos){
+      left = args.substr(0, found);
+      middle = args.substr(found + 2); //skip --
+      found = middle.find("--");
+      if (found != std::string::npos){
+         right = middle.substr(found);
+      }
+      return left + right;
+   } else {
+      return args;
+   }
+}
+
 void
 launcher_def::launch (eosd_def &instance, string &gts) {
   bfs::path dd = instance.data_dir_name;
@@ -1545,18 +1594,7 @@ launcher_def::launch (eosd_def &instance, string &gts) {
     eosdcmd += "--skip-transaction-signatures ";
   }
   if (!eosd_extra_args.empty()) {
-    if (instance.name == "bios") {
-       // Strip the mongo-related options out of the bios node so
-       // the plugins don't conflict between 00 and bios.
-       regex r("--plugin +eosio::mongo_db_plugin");
-       string args = std::regex_replace (eosd_extra_args,r,"");
-       regex r2("--mongodb-uri +[^ ]+");
-       args = std::regex_replace (args,r2,"");
-       eosdcmd += args + " ";
-    }
-    else {
-       eosdcmd += eosd_extra_args + " ";
-    }
+    eosdcmd += eosd_extra_args + " ";
   }
   if (instance.name != "bios" && !specific_nodeos_args.empty()) {
      const auto node_num = boost::lexical_cast<uint16_t,string>(instance.get_node_num());
@@ -1574,6 +1612,13 @@ launcher_def::launch (eosd_def &instance, string &gts) {
   eosdcmd += " --genesis-json " + instance.config_dir_name + "/genesis.json";
   if (gts.length()) {
     eosdcmd += " --genesis-timestamp " + gts;
+  }
+
+  if (eosdcmd.find("eosio::history_api_plugin") != string::npos && eosdcmd.find("eosio::trace_api_plugin") != string::npos){
+    // remove trace_api_plugin from old version nodes in multiversion test
+    eosdcmd = find_and_remove_arg(eosdcmd, "--plugin eosio::trace_api_plugin");
+    eosdcmd = find_and_remove_arg(eosdcmd, "--trace-no-abis");
+    eosdcmd = find_and_remove_arg(eosdcmd, "--trace-rpc-abi");
   }
 
   if (!host->is_local()) {
@@ -2084,7 +2129,7 @@ FC_REFLECT( host_def,
 // @ignore node, dot_label_str
 FC_REFLECT( eosd_def,
             (config_dir_name)(data_dir_name)(p2p_port)
-            (http_port)(file_size)(has_db)(name)(host)
+            (http_port)(file_size)(name)(host)
             (p2p_endpoint) )
 
 // @ignore instance, gelf_endpoint

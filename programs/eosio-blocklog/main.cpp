@@ -1,8 +1,8 @@
 #include <memory>
 #include <eosio/chain/abi_serializer.hpp>
 #include <eosio/chain/block_log.hpp>
+#include <eosio/chain/fork_database.hpp>
 #include <eosio/chain/config.hpp>
-#include <eosio/chain/reversible_block_object.hpp>
 
 #include <fc/io/json.hpp>
 #include <fc/filesystem.hpp>
@@ -37,6 +37,7 @@ struct blocklog {
    void read_log();
    void set_program_options(options_description& cli);
    void initialize(const variables_map& options);
+   void do_vacuum();
 
    bfs::path                        blocks_dir;
    bfs::path                        output_file;
@@ -47,7 +48,10 @@ struct blocklog {
    bool                             make_index = false;
    bool                             trim_log = false;
    bool                             smoke_test = false;
+   bool                             vacuum = false;
    bool                             help = false;
+
+   std::optional<block_log_prune_config> blog_keep_prune_conf;
 };
 
 struct report_time {
@@ -65,9 +69,15 @@ struct report_time {
     const std::string                                    _desc;
 };
 
+void blocklog::do_vacuum() {
+   EOS_ASSERT( blog_keep_prune_conf, block_log_exception, "blocks.log is not a pruned log; nothing to vacuum" );
+   block_log blocks(blocks_dir, std::optional<block_log_prune_config>()); //passing an unset block_log_prune_config turns off pruning this performs a vacuum
+   ilog("Successfully vacuumed block log");
+}
+
 void blocklog::read_log() {
    report_time rt("reading log");
-   block_log block_logger(blocks_dir);
+   block_log block_logger(blocks_dir, blog_keep_prune_conf);
    const auto end = block_logger.read_head();
    EOS_ASSERT( end, block_log_exception, "No blocks found in block log" );
    EOS_ASSERT( end->block_num() > 1, block_log_exception, "Only one block found in block log" );
@@ -79,24 +89,26 @@ void blocklog::read_log() {
       first_block = block_logger.first_block_num();
    }
 
-   std::optional<chainbase::database> reversible_blocks;
-   try {
-      reversible_blocks.emplace(blocks_dir / config::reversible_blocks_dir_name, chainbase::database::read_only, config::default_reversible_cache_size);
-      reversible_blocks->add_index<reversible_block_index>();
-      const auto& idx = reversible_blocks->get_index<reversible_block_index,by_num>();
-      auto first = idx.lower_bound(end->block_num());
-      auto last = idx.rbegin();
-      if (first != idx.end() && last != idx.rend())
-         ilog( "existing reversible block num ${first} through block num ${last} ", ("first",first->get_block()->block_num())("last",last->get_block()->block_num()) );
-      else {
+   eosio::chain::branch_type fork_db_branch;
+   if( fc::exists( blocks_dir / config::reversible_blocks_dir_name / config::forkdb_filename ) ) {
+      ilog( "opening fork_db" );
+      fork_database fork_db( blocks_dir / config::reversible_blocks_dir_name );
+
+      fork_db.open( []( block_timestamp_type timestamp,
+                        const flat_set<digest_type>& cur_features,
+                        const vector<digest_type>& new_features ) {}
+      );
+
+      fork_db_branch = fork_db.fetch_branch( fork_db.head()->id );
+      if( fork_db_branch.empty() ) {
          elog( "no blocks available in reversible block database: only block_log blocks are available" );
-         reversible_blocks.reset();
-      }
-   } catch( const std::runtime_error& e ) {
-      if( std::string(e.what()).find("atabase dirty flag set") != std::string::npos ) {
-         elog( "database dirty flag set (likely due to unclean shutdown): only block_log blocks are available" );
       } else {
-         throw;
+         auto first = fork_db_branch.rbegin();
+         auto last = fork_db_branch.rend() - 1;
+         ilog( "existing reversible fork_db block num ${first} through block num ${last} ",
+               ("first", (*first)->block_num)( "last", (*last)->block_num ) );
+         EOS_ASSERT( end->block_num() + 1 == (*first)->block_num, block_log_exception,
+                     "fork_db does not start at end of block log" );
       }
    }
 
@@ -125,7 +137,7 @@ void blocklog::read_log() {
                                  pretty_output,
                                  []( account_name n ) { return std::optional<abi_serializer>(); },
                                  abi_serializer::create_yield_function( deadline ));
-      const auto block_id = next->id();
+      const auto block_id = next->calculate_id();
       const uint32_t ref_block_prefix = block_id._hash[1];
       const auto enhanced_object = fc::mutable_variant_object
                  ("block_num",next->block_num())
@@ -147,12 +159,11 @@ void blocklog::read_log() {
       contains_obj = true;
    }
 
-   if (reversible_blocks) {
-      const reversible_block_object* obj = nullptr;
-      while( (block_num <= last_block) && (obj = reversible_blocks->find<reversible_block_object,by_num>(block_num)) ) {
+   if( !fork_db_branch.empty() ) {
+      for( auto bitr = fork_db_branch.rbegin(); bitr != fork_db_branch.rend() && block_num <= last_block; ++bitr ) {
          if (as_json_array && contains_obj)
             *out << ",";
-         auto next = obj->get_block();
+         auto next = (*bitr)->block;
          print_block(next);
          ++block_num;
          contains_obj = true;
@@ -185,6 +196,8 @@ void blocklog::set_program_options(options_description& cli)
           "Trim blocks.log and blocks.index. Must give 'blocks-dir' and 'first and/or 'last'.")
          ("smoke-test", bpo::bool_switch(&smoke_test)->default_value(false),
           "Quick test that blocks.log and blocks.index are well formed and agree with each other.")
+         ("vacuum", bpo::bool_switch(&vacuum)->default_value(false),
+          "Vacuum a pruned blocks.log in to an un-pruned blocks.log")
          ("help,h", bpo::bool_switch(&help)->default_value(false), "Print this help message and exit.")
          ;
 }
@@ -203,6 +216,13 @@ void blocklog::initialize(const variables_map& options) {
             output_file = bfs::current_path() / bld;
          else
             output_file = bld;
+      }
+
+      //if the log is pruned, keep it that way by passing in a config with a large block pruning value. There is otherwise no
+      // way to tell block_log "keep the current non/pruneness of the log"
+      if(block_log::is_pruned_log(blocks_dir)) {
+         blog_keep_prune_conf.emplace();
+         blog_keep_prune_conf->prune_blocks = UINT32_MAX;
       }
    } FC_LOG_AND_RETHROW()
 
@@ -299,6 +319,11 @@ int main(int argc, char** argv) {
             if (!trim_blocklog_front(vmap.at("blocks-dir").as<bfs::path>(), blog.first_block))
                return -1;
          }
+         return 0;
+      }
+      if (blog.vacuum) {
+         blog.initialize(vmap);
+         blog.do_vacuum();
          return 0;
       }
       if (blog.make_index) {

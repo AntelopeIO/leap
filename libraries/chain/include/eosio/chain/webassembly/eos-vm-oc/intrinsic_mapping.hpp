@@ -22,8 +22,8 @@ inline constexpr auto get_intrinsic_table() {
       "eosvmoc_internal.indirect_call_mismatch",
       "eosvmoc_internal.indirect_call_oob",
       "eosvmoc_internal.depth_assert",
-      "eosio_injection.call_depth_assert",  //these two are never used by EOS VM OC but all intrinsics
-      "eosio_injection.checktime",          //must be mapped
+      "eosio_injection.call_depth_assert",  //now unused; left for purposes of not upsetting existing code mappings
+      "eosio_injection.checktime",          //now unused; left for purposes of not upsetting existing code mappings
       "env.__ashlti3",
       "env.__ashrti3",
       "env.__lshlti3",
@@ -260,7 +260,15 @@ inline constexpr auto get_intrinsic_table() {
       "env.set_wasm_parameters_packed",
       "env.get_parameters_packed",
       "env.set_parameters_packed",
-      "env.get_code_hash"
+      "env.get_code_hash",
+      "env.alt_bn128_add",
+      "env.alt_bn128_mul",
+      "env.alt_bn128_pair",
+      "env.mod_exp",
+      "env.sha3",
+      "env.blake2_f",
+      "env.k1_recover",
+      "env.get_block_num"
    );
 }
 inline constexpr std::size_t find_intrinsic_index(std::string_view hf) {

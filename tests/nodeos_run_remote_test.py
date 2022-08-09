@@ -5,6 +5,7 @@ from Cluster import Cluster
 from TestHelper import TestHelper
 
 import subprocess
+import os
 
 ###############################################################
 # nodeos_run_remote_test
@@ -45,7 +46,9 @@ try:
            (pnodes, total_nodes-pnodes, topo, delay))
     Print("Stand up cluster")
 
-    if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, prodCount=prodCount, topo=topo, delay=delay, onlyBios=onlyBios) is False:
+    abs_path = os.path.abspath(os.getcwd() + '/unittests/contracts/eosio.token/eosio.token.abi')
+    traceNodeosArgs = " --plugin eosio::trace_api_plugin --trace-rpc-abi eosio.token=" + abs_path
+    if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, prodCount=prodCount, topo=topo, delay=delay, onlyBios=onlyBios, extraNodeosArgs=traceNodeosArgs) is False:
         errorExit("Failed to stand up eos cluster.")
 
     Print ("Wait for Cluster stabilization")
@@ -67,4 +70,5 @@ try:
 finally:
     TestHelper.shutdown(cluster, None, testSuccessful, killEosInstances, False, False, killAll, dumpErrorDetails)
 
-exit(0)
+errorCode = 0 if testSuccessful else 1 
+exit(errorCode) 

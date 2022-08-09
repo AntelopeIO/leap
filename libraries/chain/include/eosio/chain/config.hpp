@@ -11,8 +11,6 @@ typedef __uint128_t uint128_t;
 
 const static auto default_blocks_dir_name    = "blocks";
 const static auto reversible_blocks_dir_name = "reversible";
-const static auto default_reversible_cache_size = 340*1024*1024ll;/// 1MB * 340 blocks based on 21 producer BFT delay
-const static auto default_reversible_guard_size = 2*1024*1024ll;/// 1MB * 340 blocks based on 21 producer BFT delay
 
 const static auto default_state_dir_name     = "state";
 const static auto forkdb_filename            = "fork_db.dat";
@@ -86,6 +84,9 @@ const static uint32_t   default_max_variable_signature_length        = 16384u;
 const static uint32_t   default_max_nonprivileged_inline_action_size = 4 * 1024; // 4 KB
 const static uint32_t   default_max_action_return_value_size         = 256;
 
+const static uint32_t   default_max_transaction_finality_status_success_duration_sec = 180;
+const static uint32_t   default_max_transaction_finality_status_failure_duration_sec = 180;
+
 static_assert(MAX_SIZE_OF_BYTE_ARRAYS == 20*1024*1024, "Changing MAX_SIZE_OF_BYTE_ARRAYS breaks consensus. Make sure this is expected");
 
 const static uint32_t default_max_wasm_mutable_global_bytes = 1024;
@@ -113,7 +114,12 @@ const static uint32_t   setcode_ram_bytes_multiplier       = 10;     ///< multip
 
 const static uint32_t   hashing_checktime_block_size       = 10*1024;  /// call checktime from hashing intrinsic once per this number of bytes
 
+#ifdef EOSIO_EOS_VM_JIT_RUNTIME_ENABLED
 const static eosio::chain::wasm_interface::vm_type default_wasm_runtime = eosio::chain::wasm_interface::vm_type::eos_vm_jit;
+#else
+const static eosio::chain::wasm_interface::vm_type default_wasm_runtime = eosio::chain::wasm_interface::vm_type::eos_vm;
+#endif
+
 const static uint32_t   default_abi_serializer_max_time_us = 15*1000; ///< default deadline for abi serialization methods
 
 /**

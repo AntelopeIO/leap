@@ -4,6 +4,7 @@
       "name": "stderr",
       "type": "console",
       "args": {
+        "format": "${timestamp} ${thread_name} ${context} ${file}:${line} ${method} ${level}]  ${message}",
         "stream": "std_error",
         "level_colors": [{
             "level": "debug",
@@ -43,7 +44,8 @@
       "type": "gelf",
       "args": {
         "endpoint": "10.10.10.10:12201",
-        "host": "host_name"
+        "host": "host_name",
+        "_network": "jungle"
       },
       "enabled": true
     }
@@ -85,7 +87,7 @@
         "net"
       ]
     },{
-      "name": "transaction_tracing",
+      "name": "transaction_success_tracing",
       "level": "debug",
       "enabled": true,
       "additivity": false,
@@ -105,6 +107,33 @@
     },{
       "name": "trace_api",
       "level": "debug",
+      "enabled": true,
+      "additivity": false,
+      "appenders": [
+        "stderr",
+        "net"
+      ]
+    },{
+      "name": "transaction_trace_success",
+      "level": "info",
+      "enabled": true,
+      "additivity": false,
+      "appenders": [
+        "stderr",
+        "net"
+      ]
+    },{
+      "name": "transaction_trace_failure",
+      "level": "info",
+      "enabled": true,
+      "additivity": false,
+      "appenders": [
+        "stderr",
+        "net"
+      ]
+    },{
+      "name": "transaction",
+      "level": "info",
       "enabled": true,
       "additivity": false,
       "appenders": [

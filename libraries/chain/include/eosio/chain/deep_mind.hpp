@@ -14,6 +14,7 @@ class permission_object;
 struct block_state;
 struct protocol_feature;
 struct signed_transaction;
+struct packed_transaction;
 struct transaction_trace;
 struct ram_trace;
 namespace resource_limits {
@@ -44,6 +45,12 @@ public:
 class deep_mind_handler
 {
 public:
+   struct deep_mind_config {
+      bool zero_elapsed = false; // if true, the elapsed field of transaction and action traces is always set to 0 (for reproducibility)
+   };
+
+   void update_config(deep_mind_config config);
+
    void update_logger(const std::string& logger_name);
    enum class operation_qualifier { none, modify, push };
 
@@ -66,6 +73,7 @@ public:
    void on_send_context_free_inline();
    void on_cancel_deferred(operation_qualifier qual, const generated_transaction_object& gto);
    void on_send_deferred(operation_qualifier qual, const generated_transaction_object& gto);
+   void on_create_deferred(operation_qualifier qual, const generated_transaction_object& gto, const packed_transaction& packed_trx);
    void on_fail_deferred();
    void on_create_table(const table_id_object& tid);
    void on_remove_table(const table_id_object& tid);
@@ -85,9 +93,10 @@ public:
    void on_modify_permission(const permission_object& old_permission, const permission_object& new_permission);
    void on_remove_permission(const permission_object& permission);
 private:
-   uint32_t   _action_id = 0;
-   ram_trace  _ram_trace;
-   fc::logger _logger;
+   uint32_t         _action_id = 0;
+   ram_trace        _ram_trace;
+   deep_mind_config _config;
+   fc::logger       _logger;
 };
 
 }

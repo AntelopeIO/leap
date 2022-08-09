@@ -36,6 +36,7 @@ struct deep_mind_log_fixture
       fc::configure_logging(cfg);
       setup_test_logging();
 
+      deep_mind_logger.update_config(deep_mind_handler::deep_mind_config{.zero_elapsed = true});
       deep_mind_logger.update_logger("deep-mind");
    }
    ~deep_mind_log_fixture()
@@ -61,7 +62,7 @@ bool has_prefix(Iter begin, Iter end, std::string_view prefix)
        std::equal(prefix.begin(), prefix.end(), begin);
 }
 
-static const std::string_view escaped_chars{"\\[*.^$+?{}()|"};
+static const std::string_view escaped_chars{"\\[]*.^$+?{}()|"};
 
 bool is_escaped(char ch)
 {
@@ -89,6 +90,11 @@ std::string merge_line(const std::string& line, const std::string& pattern)
    std::string result;
    auto line_iter = line.begin(), line_end = line.end();
    auto pattern_iter = pattern.begin(), pattern_end = pattern.end();
+   // The nondeterministic data is an fc::microseconds object in
+   // the traces, which is 8-bytes long.
+   static constexpr int xdigit_group = 16;
+   int current_xdigits = 0;
+   int skip_xdigit = 0;
    while(line_iter != line_end && pattern_iter != pattern_end)
    {
       if(*pattern_iter == '\\')
@@ -99,6 +105,7 @@ std::string merge_line(const std::string& line, const std::string& pattern)
             // Either manually edited or does not match
             return pattern;
          }
+         current_xdigits = 0;
          result.push_back('\\');
          result.push_back(*pattern_iter);
       }
@@ -109,9 +116,23 @@ std::string merge_line(const std::string& line, const std::string& pattern)
             // Does not match
             return pattern;
          }
-         result += "[[:xdigit:]]";
+         if(skip_xdigit && *line_iter == '0') {
+            result += '0';
+         } else {
+            ++current_xdigits;
+            result += "[[:xdigit:]]";
+         }
          ++line_iter;
          pattern_iter += 12;
+         if(skip_xdigit)
+         {
+            --skip_xdigit;
+         }
+         if(current_xdigits == xdigit_group)
+         {
+            current_xdigits = 0;
+            skip_xdigit = xdigit_group;
+         }
          continue;
       }
       else if(is_escaped(*pattern_iter))
@@ -121,12 +142,23 @@ std::string merge_line(const std::string& line, const std::string& pattern)
       }
       else if(*line_iter == *pattern_iter)
       {
-         result.push_back(*line_iter);
+         if(current_xdigits > 0 && current_xdigits < xdigit_group && *line_iter == '0')
+         {
+            ++current_xdigits;
+            result += "[[:xdigit:]]";
+         }
+         else
+         {
+            current_xdigits = 0;
+            result.push_back(*line_iter);
+         }
       }
       else
       {
          if(std::isxdigit(*line_iter) && std::isxdigit(*pattern_iter))
          {
+            skip_xdigit = 0;
+            ++current_xdigits;
             result += "[[:xdigit:]]";
          }
          else
@@ -137,6 +169,15 @@ std::string merge_line(const std::string& line, const std::string& pattern)
       }
       ++line_iter;
       ++pattern_iter;
+      if(skip_xdigit)
+      {
+         --skip_xdigit;
+      }
+      if(current_xdigits == xdigit_group)
+      {
+         current_xdigits = 0;
+         skip_xdigit = xdigit_group;
+      }
    }
    if(line_iter != line_end || pattern_iter != pattern_end)
    {

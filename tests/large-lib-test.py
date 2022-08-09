@@ -48,8 +48,8 @@ cluster=Cluster(walletd=True)
 walletMgr=WalletMgr(True)
 cluster.setWalletMgr(walletMgr)
 
-def relaunchNode(node: Node, nodeId, chainArg="", skipGenesis=True, relaunchAssertMessage="Fail to relaunch"):
-   isRelaunchSuccess=node.relaunch(nodeId, chainArg=chainArg, timeout=relaunchTimeout, skipGenesis=skipGenesis, cachePopen=True)
+def relaunchNode(node: Node, chainArg="", skipGenesis=True, relaunchAssertMessage="Fail to relaunch"):
+   isRelaunchSuccess=node.relaunch(chainArg=chainArg, timeout=relaunchTimeout, skipGenesis=skipGenesis, cachePopen=True)
    time.sleep(1) # Give a second to replay or resync if needed
    assert isRelaunchSuccess, relaunchAssertMessage
    return isRelaunchSuccess
@@ -68,13 +68,15 @@ try:
     specificExtraNodeosArgs[2]="--read-mode speculative "
 
     Print("Stand up cluster")
+    traceNodeosArgs=" --plugin eosio::trace_api_plugin --trace-no-abis "
     if cluster.launch(
             pnodes=pnodes,
             totalNodes=total_nodes,
             totalProducers=1,
             useBiosBootFile=False,
             topo="mesh",
-            specificExtraNodeosArgs=specificExtraNodeosArgs) is False:
+            specificExtraNodeosArgs=specificExtraNodeosArgs,
+            extraNodeosArgs=traceNodeosArgs) is False:
         errorExit("Failed to stand up eos cluster.")
 
     producingNode=cluster.getNode(0)
@@ -103,9 +105,9 @@ try:
 
     Print ("Relaunch all cluster nodes instances.")
     # -e -p eosio for resuming production, skipGenesis=False for launch the same chain as before
-    relaunchNode(producingNode, 0, chainArg="-e -p eosio --sync-fetch-span 5 ", skipGenesis=False)
-    relaunchNode(speculativeNode1, 1, chainArg="--sync-fetch-span 5 ")
-    relaunchNode(speculativeNode2, 2, chainArg="--sync-fetch-span 5 ", skipGenesis=False)
+    relaunchNode(producingNode, chainArg="-e -p eosio --sync-fetch-span 5 ", skipGenesis=False)
+    relaunchNode(speculativeNode1, chainArg="--sync-fetch-span 5 ")
+    relaunchNode(speculativeNode2, chainArg="--sync-fetch-span 5 ", skipGenesis=False)
 
     Print("Note LIBs")
     prodLib = producingNode.getIrreversibleBlockNum()

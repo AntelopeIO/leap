@@ -25,6 +25,8 @@ parser = argparse.ArgumentParser(add_help=False)
 Print=testUtils.Utils.Print
 cmdError=Utils.cmdError
 errorExit=Utils.errorExit
+testSuccessful=False
+
 
 # Override default help argument so that only --help (and not -h) can call help
 parser.add_argument('-?', action='help', default=argparse.SUPPRESS,
@@ -41,7 +43,6 @@ parser.add_argument("--stress_network", help="test load/stress network", action=
 parser.add_argument("--not_kill_wallet", help="not killing walletd", action='store_true')
 
 args = parser.parse_args()
-enableMongo=False
 defproduceraPrvtKey=args.defproducera_prvt_key
 defproducerbPrvtKey=args.defproducerb_prvt_key
 
@@ -56,7 +57,7 @@ elif args.stress_network:
 else:
     errorExit("one of impaired_network, lossy_network or stress_network must be set. Please also check peer configs in p2p_test_peers.py.")
 
-cluster=testUtils.Cluster(walletd=True, enableMongo=enableMongo, defproduceraPrvtKey=defproduceraPrvtKey, defproducerbPrvtKey=defproducerbPrvtKey, walletHost=args.wallet_host, walletPort=args.wallet_port)
+cluster=testUtils.Cluster(walletd=True, defproduceraPrvtKey=defproduceraPrvtKey, defproducerbPrvtKey=defproducerbPrvtKey, walletHost=args.wallet_host, walletPort=args.wallet_port)
 
 print("BEGIN")
 
@@ -187,7 +188,11 @@ try:
                 if failedcount == 0:
                     successhosts.append(host)
         Print("%d host(s) passed, %d host(s) failed" % (len(successhosts), len(hosts) - len(successhosts)))
+
+    testSuccessful = True
 finally:
     Print("\nfinally: restore everything")
     module.on_exit()
-exit(0)
+
+errorCode = 0 if testSuccessful else 1
+exit(errorCode)
