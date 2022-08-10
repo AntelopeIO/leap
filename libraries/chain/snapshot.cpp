@@ -343,7 +343,6 @@ istream_json_snapshot_reader::istream_json_snapshot_reader(const fc::path& p)
    :num_rows(0)
    ,cur_row(0)
 {
-   // rapidjson::FileReadStream s(p.string().c_str());
    FILE* fp = fopen(p.string().c_str(), "rb");
    char readBuffer[65536];
    rapidjson::FileReadStream is(fp, readBuffer, sizeof(readBuffer));

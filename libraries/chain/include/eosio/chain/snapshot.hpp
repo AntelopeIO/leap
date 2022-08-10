@@ -8,7 +8,6 @@
 #include "../rapidjson/include/rapidjson/document.h"
 
 namespace eosio { namespace chain {
-
    /**
     * History:
     * Version 1: initial version with string identified sections and rows
