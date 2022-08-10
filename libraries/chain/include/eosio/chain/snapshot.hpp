@@ -5,8 +5,10 @@
 #include <fc/variant_object.hpp>
 #include <boost/core/demangle.hpp>
 #include <ostream>
+#include "../rapidjson/include/rapidjson/document.h"
 
 namespace eosio { namespace chain {
+
    /**
     * History:
     * Version 1: initial version with string identified sections and rows
@@ -387,10 +389,10 @@ namespace eosio { namespace chain {
       private:
          bool validate_section() const;
 
-         uint64_t           num_rows;
-         uint64_t           cur_row;
-         fc::variant_object var_obj;
-         fc::variant_object cur_section;
+         uint64_t            num_rows;
+         uint64_t            cur_row;
+         rapidjson::Document doc;
+         std::string         sec_name;
    };
 
    class integrity_hash_snapshot_writer : public snapshot_writer {
