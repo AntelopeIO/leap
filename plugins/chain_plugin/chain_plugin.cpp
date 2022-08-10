@@ -324,7 +324,7 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
           "Maximum size (in GiB) allowed to be allocated for the Transaction Retry feature. Setting above 0 enables this feature.")
          ("transaction-retry-interval-sec", bpo::value<uint32_t>()->default_value(20),
           "How often, in seconds, to resend an incoming transaction to network if not seen in a block.")
-         ("transaction-retry-max-expiration-sec", bpo::value<uint32_t>()->default_value(90),
+         ("transaction-retry-max-expiration-sec", bpo::value<uint32_t>()->default_value(120),
           "Maximum allowed transaction expiration for retry transactions, will retry transactions up to this value.")
          ("transaction-finality-status-max-storage-size-gb", bpo::value<uint64_t>(),
           "Maximum size (in GiB) allowed to be allocated for the Transaction Finality Status feature. Setting above 0 enables this feature.")
