@@ -417,14 +417,19 @@ namespace eosio { namespace chain {
                      "not enough time left in block to complete executing transaction ${billing_timer}us",
                      ("now", now)("deadline", _deadline)("start", start)("billing_timer", now - pseudo_start) );
       } else if( deadline_exception_code == tx_cpu_usage_exceeded::code_value ) {
+         std::string assert_msg = "transaction was executing for too long ${billing_timer}us";
+         if (subjective_cpu_bill_us > 0) {
+            assert_msg += " with a subjective cpu of (${subjective} us)";
+         }
          if (cpu_limit_due_to_greylist) {
+            assert_msg = "greylisted " + assert_msg;
             EOS_THROW( greylist_cpu_usage_exceeded,
-                     "greylisted transaction was executing for too long ${billing_timer}us",
-                     ("now", now)("deadline", _deadline)("start", start)("billing_timer", now - pseudo_start) );
+                     assert_msg,
+                     ("now", now)("deadline", _deadline)("start", start)("billing_timer", now - pseudo_start)( "subjective", subjective_cpu_bill_us) );
          } else {
             EOS_THROW( tx_cpu_usage_exceeded,
-                     "transaction was executing for too long ${billing_timer}us",
-                     ("now", now)("deadline", _deadline)("start", start)("billing_timer", now - pseudo_start) );
+                     assert_msg,
+                     ("now", now)("deadline", _deadline)("start", start)("billing_timer", now - pseudo_start)("subjective", subjective_cpu_bill_us) );
          }
       } else if( deadline_exception_code == leeway_deadline_exception::code_value ) {
          EOS_THROW( leeway_deadline_exception,
@@ -487,30 +492,24 @@ namespace eosio { namespace chain {
                         ("billed", billed_us)( "billable", objective_duration_limit.count() )
             );
          } else {
-            if( cpu_limit_due_to_greylist && cpu_limited_by_account ) {
-               EOS_ASSERT( billed_us <= account_cpu_limit,
-                           greylist_cpu_usage_exceeded,
-                           "billed CPU time (${billed} us) is greater than the maximum greylisted billable CPU time for the transaction (${billable} us)",
-                           ("billed", billed_us)( "billable", account_cpu_limit )
-               );
-            } else {
+            auto check_cpu_limit = [&](bool graylisted, bool subjective) {
+               std::string assert_msg =   "billed CPU time (${billed} us) is greater than the maximum";
+               assert_msg += graylisted ? " greylisted" : "";
+               assert_msg +=              " billable CPU time for the transaction (${billable} us)";
+               assert_msg += subjective ? " with a subjective cpu of (${subjective} us)" : "";
                // exceeds trx.max_cpu_usage_ms or cfg.max_transaction_cpu_usage if objective_duration_limit is greater
-               const int64_t cpu_limit = (cpu_limited_by_account ? account_cpu_limit : objective_duration_limit.count());
-               if( subjective_billed_us > 0 ) {
-                    EOS_ASSERT( billed_us <= cpu_limit,
+               auto limit = graylisted ? account_cpu_limit : (cpu_limited_by_account ? account_cpu_limit : objective_duration_limit.count());                            
+               if (graylisted)
+                  EOS_ASSERT( billed_us <= limit,
+                              greylist_cpu_usage_exceeded, 
+                              assert_msg,
+                              ("billed", billed_us)("billable", limit)("subjective", subjective_billed_us));
+               else
+                  EOS_ASSERT( billed_us <= limit,
                               tx_cpu_usage_exceeded,
-                              "billed CPU time (${billed} us) is greater than the maximum billable CPU time for the transaction (${billable} us) with a subjective cpu of (${subjective} us)",
-                              ("billed", billed_us)( "billable", cpu_limit )( "subjective", subjective_billed_us )
-                  );
-               }
-               else {
-                  EOS_ASSERT( billed_us <= cpu_limit,
-                              tx_cpu_usage_exceeded,
-                              "billed CPU time (${billed} us) is greater than the maximum billable CPU time for the transaction (${billable} us)",
-                              ("billed", billed_us)( "billable", cpu_limit )
-                  );
-               }
-            }
+                              assert_msg, ("billed", billed_us)("billable", limit)("subjective", subjective_billed_us));
+            };
+            check_cpu_limit(cpu_limit_due_to_greylist && cpu_limited_by_account,  subjective_billed_us > 0); // graylisted, subjective
          }
       }
    }
@@ -526,31 +525,25 @@ namespace eosio { namespace chain {
                         "estimated CPU time (${billed} us) is not less than the billable CPU time left in the block (${billable} us)",
                         ("billed", prev_billed_us)( "billable", objective_duration_limit.count() )
             );
-         } else {
-            if( cpu_limit_due_to_greylist && cpu_limited_by_account ) {
-               EOS_ASSERT( prev_billed_us < account_cpu_limit,
-                           greylist_cpu_usage_exceeded,
-                           "estimated CPU time (${billed} us) is not less than the maximum greylisted billable CPU time for the transaction (${billable} us)",
-                           ("billed", prev_billed_us)( "billable", account_cpu_limit )
-               );
-            } else {
+         } else {             
+            auto check_cpu_limit = [&](bool graylisted, bool subjective) {
+               std::string assert_msg =   "estimated CPU time (${billed} us) is not less than the maximum";
+               assert_msg += graylisted ? " greylisted" : "";
+               assert_msg +=              " billable CPU time for the transaction (${billable} us)";
+               assert_msg += subjective ? " with a subjective cpu of (${subjective} us)" : "";
                // exceeds trx.max_cpu_usage_ms or cfg.max_transaction_cpu_usage if objective_duration_limit is greater
-               const int64_t cpu_limit = (cpu_limited_by_account ? account_cpu_limit : objective_duration_limit.count());
-               if( subjective_billed_us > 0 ) {
-                  EOS_ASSERT( prev_billed_us < cpu_limit,
+               auto limit = graylisted ? account_cpu_limit : (cpu_limited_by_account ? account_cpu_limit : objective_duration_limit.count());                            
+               if (graylisted)
+                  EOS_ASSERT( prev_billed_us < limit,
+                              greylist_cpu_usage_exceeded, 
+                              assert_msg,
+                              ("billed", prev_billed_us)("billable", limit)("subjective", subjective_billed_us));
+               else
+                  EOS_ASSERT( prev_billed_us < limit,
                               tx_cpu_usage_exceeded,
-                              "estimated CPU time (${billed} us) is not less than the maximum billable CPU time for the transaction (${billable} us) with a subjective cpu of (${subjective} us)",
-                              ("billed", prev_billed_us)( "billable", cpu_limit )( "subjective", subjective_billed_us )
-                  );
-               }
-               else {
-                  EOS_ASSERT( prev_billed_us < cpu_limit,
-                              tx_cpu_usage_exceeded,
-                              "estimated CPU time (${billed} us) is not less than the maximum billable CPU time for the transaction (${billable} us)",
-                              ("billed", prev_billed_us)( "billable", cpu_limit )
-                  );
-               }
-            }
+                              assert_msg, ("billed", prev_billed_us)("billable", limit)("subjective", subjective_billed_us));
+            };
+            check_cpu_limit(cpu_limit_due_to_greylist && cpu_limited_by_account,  subjective_billed_us > 0); // graylisted, subjective
          }
       }
    }
