@@ -519,17 +519,17 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
 
       // Returns contract name, action name, and exception text
       // of an exception occured in a contract
-      std::tuple<account_name, action_name, fc::string> get_detailed_contract_exception_info(const fc::exception_ptr& except_ptr,
+      std::string get_detailed_contract_exception_info(const fc::exception_ptr& except_ptr,
                                      const std::variant<fc::exception_ptr, transaction_trace_ptr>& response) {
          account_name contract_name;
          action_name  act_name;
-         fc::string   details;
+         std::string   details;
 
          if (std::holds_alternative<transaction_trace_ptr>(response)) {
             auto resp_ptr = std::get<transaction_trace_ptr>(response);
             if (resp_ptr && !resp_ptr->action_traces.empty()) {
-               fc::unsigned_int last_action_ordinal = resp_ptr->action_traces.size() - 1;
-               contract_name = resp_ptr->action_traces[last_action_ordinal].act.account;
+               auto last_action_ordinal = resp_ptr->action_traces.size() - 1;
+               contract_name = resp_ptr->action_traces[last_action_ordinal].receiver;
                act_name = resp_ptr->action_traces[last_action_ordinal].act.name;
             }
          }
@@ -538,7 +538,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
             details = fc::format_string("${d}", fc::mutable_variant_object() ("d", except_ptr->top_message()), true);  // true for limitting the formatted string size
          }
 
-         return std::make_tuple(contract_name, act_name, details);
+         return "action::" + contract_name.to_string() + ":" + act_name.to_string() + ":" + details;
       }
 
       bool process_incoming_transaction_async(const transaction_metadata_ptr& trx,
@@ -571,17 +571,13 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
             }
 
             if (except_ptr) {
-               auto [contract_name, act_name, details] = get_detailed_contract_exception_info(except_ptr, response);
-
                if (_pending_block_mode == pending_block_mode::producing) {
-                  fc_dlog(_trx_failed_trace_log, "[TRX_TRACE] Block ${block_num} for producer ${prod} is REJECTING tx: ${txid}, auth: ${a} : ${why}, contract name: ${contract}, action name: ${act}",
+                  fc_dlog(_trx_failed_trace_log, "[TRX_TRACE] Block ${block_num} for producer ${prod} is REJECTING tx: ${txid}, auth: ${a}, ${details}",
                         ("block_num", chain.head_block_num() + 1)
                         ("prod", get_pending_block_producer())
                         ("txid", trx->id())
                         ("a", trx->packed_trx()->get_transaction().first_authorizer())
-                        ("why", details)
-                        ("contract", contract_name)
-                        ("act", act_name));
+                        ("details", get_detailed_contract_exception_info(except_ptr, response)));
                   fc_dlog(_trx_log, "[TRX_TRACE] Block ${block_num} for producer ${prod} is REJECTING tx: ${trx}",
                           ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())
                                 ("trx", chain_plug->get_log_trx(trx->packed_trx()->get_transaction())));
@@ -589,12 +585,10 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                           ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())
                                 ("entire_trace", get_trace(response)));
                } else {
-                  fc_dlog(_trx_failed_trace_log, "[TRX_TRACE] Speculative execution is REJECTING tx: ${txid}, auth: ${a} : ${why}, contract name: ${contract}, action name: ${act}",
+                  fc_dlog(_trx_failed_trace_log, "[TRX_TRACE] Speculative execution is REJECTING tx: ${txid}, auth: ${a} : ${details}",
                           ("txid", trx->id())
                           ("a", trx->packed_trx()->get_transaction().first_authorizer())
-                          ("why", details)
-                          ("contract", contract_name)
-                          ("act", act_name));
+                          ("details", get_detailed_contract_exception_info(except_ptr, response)));
                   fc_dlog(_trx_log, "[TRX_TRACE] Speculative execution is REJECTING tx: ${trx} ",
                           ("trx", chain_plug->get_log_trx(trx->packed_trx()->get_transaction())));
                   fc_dlog(_trx_trace_failure_log, "[TRX_TRACE] Speculative execution is REJECTING tx: ${entire_trace} ",
@@ -2114,14 +2108,11 @@ void producer_plugin_impl::process_scheduled_and_incoming_trxs( const fc::time_p
                   break;
                }
             } else {
-               auto [contract_name, act_name, details] = get_detailed_contract_exception_info(trace->except->dynamic_copy_exception(), trace);
                fc_dlog(_trx_failed_trace_log,
-                       "[TRX_TRACE] Block ${block_num} for producer ${prod} is REJECTING scheduled tx: ${txid}, time: ${r}, auth: ${a} : ${why}, contract name: ${contract}, action name: ${act} ",
+                       "[TRX_TRACE] Block ${block_num} for producer ${prod} is REJECTING scheduled tx: ${txid}, time: ${r}, auth: ${a} : ${details}",
                        ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())
                        ("txid", trx_id)("r", fc::time_point::now() - start)("a", get_first_authorizer(trace))
-                       ("why", details)
-                       ("contract", contract_name)
-                       ("act", act_name));
+                       ("details", get_detailed_contract_exception_info(trace->except->dynamic_copy_exception(), trace)));
                fc_dlog(_trx_trace_failure_log, "[TRX_TRACE] Block ${block_num} for producer ${prod} is REJECTING scheduled tx: ${entire_trace}",
                        ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())
                        ("entire_trace", chain_plug->get_log_trx_trace(trace)));
