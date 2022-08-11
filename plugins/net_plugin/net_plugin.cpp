@@ -1300,8 +1300,10 @@ namespace eosio {
             });
          } else {
             c->strand.post( [c, num]() {
-               peer_ilog( c, "enqueue sync, unable to fetch block ${num}", ("num", num) );
-               c->send_handshake();
+               peer_ilog( c, "enqueue sync, unable to fetch block ${num}, sending benign_other go away", ("num", num) );
+               c->peer_requested.reset(); // unable to provide requested blocks
+               c->no_retry = benign_other;
+               c->enqueue( go_away_message( benign_other ) );
             });
          }
       });
@@ -2280,6 +2282,7 @@ namespace eosio {
          case no_reason:
          case wrong_version:
          case benign_other:
+         case duplicate: // attempt reconnect in case connection has been dropped, should quickly disconnect if duplicate
             break;
          default:
             fc_dlog( logger, "Skipping connect due to go_away reason ${r}",("r", reason_str( no_retry )));

@@ -46,7 +46,7 @@ public:
    template <typename A, typename B>
    vector<A> deserialize_data(deltas_vector::iterator &it) {
       vector<A> result;
-      for(int i=0; i < it->rows.obj.size(); i++) {
+      for(size_t i=0; i < it->rows.obj.size(); i++) {
          eosio::input_stream stream{it->rows.obj[i].second.data(), it->rows.obj[i].second.size()};
          result.push_back(std::get<A>(eosio::from_bin<B>(stream)));
       }
@@ -120,7 +120,7 @@ BOOST_AUTO_TEST_CASE(test_deltas_account_permission) {
    auto &it_permission = result.second;
    BOOST_REQUIRE_EQUAL(it_permission->rows.obj.size(), 2);
    auto accounts_permissions = chain.deserialize_data<eosio::ship_protocol::permission_v0, eosio::ship_protocol::permission>(it_permission);
-   for(int i = 0; i < accounts_permissions.size(); i++)
+   for(size_t i = 0; i < accounts_permissions.size(); i++)
    {
       BOOST_REQUIRE_EQUAL(it_permission->rows.obj[i].first, true);
       BOOST_REQUIRE_EQUAL(accounts_permissions[i].owner.to_string(), "newacc");
@@ -285,7 +285,7 @@ BOOST_AUTO_TEST_CASE(test_deltas_protocol_feature_history) {
 
    auto digest_byte_array = protocol_feature.feature_digest.extract_as_byte_array();
    char digest_array[digest_byte_array.size()];
-   for(int i=0; i < digest_byte_array.size(); i++) digest_array[i] = digest_byte_array[i];
+   for(size_t i=0; i < digest_byte_array.size(); i++) digest_array[i] = digest_byte_array[i];
    eosio::chain::digest_type digest_in_delta(digest_array, digest_byte_array.size());
 
    BOOST_REQUIRE_EQUAL(digest_in_delta, *d);
@@ -490,7 +490,7 @@ BOOST_AUTO_TEST_CASE(test_deltas_resources_history) {
 
       std::multiset<std::string> expected_contract_row_table_names {"abihash", "abihash", "hashobjs", "hashobjs", "hashobjs", "numobjs", "numobjs", "numobjs"};
 
-      std::multiset<uint64_t> expected_contract_row_table_primary_keys {6138663577826885632,14605619288908759040, 0, 1 ,2, 0, 1, 2};
+      std::multiset<uint64_t> expected_contract_row_table_primary_keys {6138663577826885632U,14605619288908759040U, 0, 1 ,2, 0, 1, 2};
       std::multiset<std::string> result_contract_row_table_names;
       std::multiset<uint64_t> result_contract_row_table_primary_keys;
       for(auto &contract_row : contract_rows) {
@@ -514,7 +514,7 @@ BOOST_AUTO_TEST_CASE(test_deltas_resources_history) {
       BOOST_REQUIRE_EQUAL(it_contract_row->rows.obj.size(), 2);
       contract_rows = chain.deserialize_data<eosio::ship_protocol::contract_row_v0, eosio::ship_protocol::contract_row>(it_contract_row);
 
-      for(int i=0; i < contract_rows.size(); i++) {
+      for(size_t i=0; i < contract_rows.size(); i++) {
          BOOST_REQUIRE_EQUAL(it_contract_row->rows.obj[i].first, 0);
          BOOST_REQUIRE_EQUAL(contract_rows[i].table.to_string(), "numobjs");
       }
@@ -525,7 +525,7 @@ BOOST_AUTO_TEST_CASE(test_deltas_resources_history) {
       BOOST_REQUIRE_EQUAL(it_contract_index_double->rows.obj.size(), 2);
       auto contract_index_double_elems = chain.deserialize_data<eosio::ship_protocol::contract_index_double_v0, eosio::ship_protocol::contract_index_double>(it_contract_index_double);
 
-      for(int i=0; i < contract_index_double_elems.size(); i++) {
+      for(size_t i=0; i < contract_index_double_elems.size(); i++) {
          BOOST_REQUIRE_EQUAL(it_contract_index_double->rows.obj[i].first, 0);
          BOOST_REQUIRE_EQUAL(contract_index_double_elems[i].table.to_string(), "numobjs.....2");
       }
