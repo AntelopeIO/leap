@@ -73,7 +73,8 @@ try:
             totalNodes=total_nodes,
             totalProducers=1,
             useBiosBootFile=False,
-            topo="mesh") is False:
+            topo="mesh",
+            specificExtraNodeosArgs=specificExtraNodeosArgs) is False:
         errorExit("Failed to stand up eos cluster.")
 
     producingNode=cluster.getNode(0)
