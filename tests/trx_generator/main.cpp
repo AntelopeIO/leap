@@ -111,6 +111,29 @@ vector<signed_transaction> create_intial_transfer_transactions(uint64_t nonce_pr
    return trxs;
 }
 
+void update_resign_transactions(const vector<signed_transaction>& trxs, uint64_t nonce_prefix, const fc::microseconds& trx_expiration, const chain_id_type& chain_id, const block_id_type& reference_block_id) {
+   try {
+      static uint64_t nonce = static_cast<uint64_t>(fc::time_point::now().sec_since_epoch()) << 32;
+      static fc::crypto::private_key a_priv_key = fc::crypto::private_key::regenerate(fc::sha256(std::string(64, 'a')));
+
+      for (signed_transaction strx : trxs) {
+            strx.context_free_actions.clear();
+            strx.context_free_actions.emplace_back(action({}, config::null_account_name, name("nonce"), fc::raw::pack(std::to_string(nonce_prefix) +":"+ std::to_string(++nonce)+":"+fc::time_point::now().time_since_epoch().count())));
+            strx.set_reference_block(reference_block_id);
+            strx.expiration = fc::time_point::now() + trx_expiration;
+            strx.sign(a_priv_key, chain_id);
+      }
+   } catch(const std::bad_alloc&) {
+      throw;
+   } catch(const boost::interprocess::bad_alloc&) {
+      throw;
+   } catch(const fc::exception&) {
+      throw;
+   } catch(const std::exception&) {
+      throw;
+   }
+}
+
 void stop_generation() {
    ilog("Stopping transaction generation");
 
