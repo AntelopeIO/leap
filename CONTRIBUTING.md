@@ -57,7 +57,7 @@ Change requests cover both architectural and functional changes to how Leap work
 1. Take a moment to think about the best way to make a case for, and explain what you're thinking. Are you sure this shouldn't really be
    a [bug report](#bug-reports) or a [feature request](#feature-requests)?  Is it really one idea or is it many? What's the context? What problem are you solving? Why is what you are suggesting better than what's already there?
 
-## Working on leap
+## Working on Leap
 
 Code contributions are welcome and encouraged! If you are looking for a good place to start, check out the [good first issue](https://github.com/AntelopeIO/leap/labels/good%20first%20issue) label in GitHub issues.
 
@@ -68,7 +68,7 @@ Also, please follow these guidelines when submitting code:
 To get it out of the way:
 
 - **[main](https://github.com/AntelopeIO/leap/tree/main)** is the development branch. All work on the next release happens here so you should generally branch off `main`. Do **NOT** use this branch for a production site.
-- **release/** branches contain stable releases of leap. Some of these branches may be obsolete, a prerelease (release candidate), or designated as stable and ready for use in production. Generally do **NOT** use these branches to work on leap's source unless you are working on a defect or change that would apply to a current stable release or release candidate. If in doubt, branch off of `main` and a leap maintainer will chime in if you should switch to a release branch.
+- **release/** branches contain stable releases of Leap. Some of these branches may be obsolete, a prerelease (release candidate), or designated as stable and ready for use in production. Generally do **NOT** use these branches to work on Leap's source unless you are working on a defect or change that would apply to a current stable release or release candidate. If in doubt, branch off of `main` and a Leap maintainer will chime in if you should switch to a release branch.
 
 ### Submitting Pull Requests
 
