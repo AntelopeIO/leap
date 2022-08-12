@@ -1,4 +1,5 @@
 #include <eosio/chain_plugin/chain_plugin.hpp>
+#include <trx_provider.hpp>
 
 #include <boost/algorithm/string.hpp>
 
@@ -26,37 +27,6 @@ uint64_t _txcount = 0;
 using namespace eosio::testing;
 using namespace eosio::chain;
 using namespace eosio;
-
-void push_next_transaction(const std::shared_ptr<std::vector<signed_transaction>>& trxs, const std::function<void(const fc::exception_ptr&)>& next) {
-   chain_plugin& cp = app().get_plugin<chain_plugin>();
-
-   for(size_t i = 0; i < trxs->size(); ++i) {
-      cp.accept_transaction(std::make_shared<packed_transaction>(trxs->at(i)), [=](const std::variant<fc::exception_ptr, transaction_trace_ptr>& result) {
-         fc::exception_ptr except_ptr;
-         if(std::holds_alternative<fc::exception_ptr>(result)) {
-            except_ptr = std::get<fc::exception_ptr>(result);
-         } else if(std::get<transaction_trace_ptr>(result)->except) {
-            except_ptr = std::get<transaction_trace_ptr>(result)->except->dynamic_copy_exception();
-         }
-
-         if(except_ptr) {
-            next(std::get<fc::exception_ptr>(result));
-         } else {
-            if(std::holds_alternative<transaction_trace_ptr>(result) && std::get<transaction_trace_ptr>(result)->receipt) {
-               _total_us += std::get<transaction_trace_ptr>(result)->receipt->cpu_usage_us;
-               ++_txcount;
-            }
-         }
-      });
-   }
-}
-
-void push_transactions(std::vector<signed_transaction>&& trxs, const std::function<void(fc::exception_ptr)>& next) {
-   auto trxs_copy = std::make_shared<std::decay_t<decltype(trxs)>>(std::move(trxs));
-   app().post(priority::low, [trxs_copy, next]() {
-      push_next_transaction(trxs_copy, next);
-   });
-}
 
 vector<pair<eosio::chain::action, eosio::chain::action>> create_transfer_actions(const std::string& salt, const uint64_t& period, const name& newaccountT, const vector<name>& accounts, const fc::microseconds& abi_serializer_max_time) {
    vector<pair<eosio::chain::action, eosio::chain::action>> actions_pairs_vector;
@@ -279,6 +249,26 @@ int main(int argc, char** argv) {
 
       std::cout << "Create All Initial Transfer Transactions (one for each created action)." << std::endl;
       std::vector<signed_transaction> trxs = create_intial_transfer_transactions(nonce_prefix++, action_pairs_vector, trx_expiration, chain_id, reference_block_id);
+
+      std::cout << "Setup p2p transaction provider" << std::endl;
+      p2p_trx_provider provider = p2p_trx_provider();
+      provider.setup();
+
+      std::cout << "send all initial transactions via p2p transaction provider" << std::endl;
+      std::vector<signed_transaction> single_send = std::vector<signed_transaction>();
+      single_send.reserve(1);
+      for(signed_transaction trx : trxs)
+      {
+         single_send.emplace_back(trx);
+         provider.send(single_send);
+         single_send.clear();
+         ++_txcount;
+      }
+
+      std::cout << "Sent transactions: " << _txcount << std::endl;
+
+      std::cout << "Tear down p2p transaction provider" << std::endl;
+      provider.teardown();
 
       //Stop & Cleanup
       std::cout << "Stop Generation." << std::endl;
