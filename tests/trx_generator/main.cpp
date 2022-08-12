@@ -75,11 +75,11 @@ vector<signed_transaction> create_intial_transfer_transactions(uint64_t nonce_pr
 
       static uint64_t nonce = static_cast<uint64_t>(fc::time_point::now().sec_since_epoch()) << 32;
 
-      for(action_pair acts : action_pairs_vector) {
+      for(action_pair acts: action_pairs_vector) {
          {
             signed_transaction trx;
             trx.actions.push_back(acts.first);
-            trx.context_free_actions.emplace_back(action({}, config::null_account_name, name("nonce"), fc::raw::pack(std::to_string(nonce_prefix) +":"+ std::to_string(++nonce)+":"+fc::time_point::now().time_since_epoch().count())));
+            trx.context_free_actions.emplace_back(action({}, config::null_account_name, name("nonce"), fc::raw::pack(std::to_string(nonce_prefix) + ":" + std::to_string(++nonce) + ":" + fc::time_point::now().time_since_epoch().count())));
             trx.set_reference_block(reference_block_id);
             trx.expiration = fc::time_point::now() + trx_expiration;
             trx.max_net_usage_words = 100;
@@ -90,7 +90,7 @@ vector<signed_transaction> create_intial_transfer_transactions(uint64_t nonce_pr
          {
             signed_transaction trx;
             trx.actions.push_back(acts.second);
-            trx.context_free_actions.emplace_back(action({}, config::null_account_name, name("nonce"), fc::raw::pack(std::to_string(nonce_prefix) +":"+ std::to_string(++nonce)+":"+fc::time_point::now().time_since_epoch().count())));
+            trx.context_free_actions.emplace_back(action({}, config::null_account_name, name("nonce"), fc::raw::pack(std::to_string(nonce_prefix) + ":" + std::to_string(++nonce) + ":" + fc::time_point::now().time_since_epoch().count())));
             trx.set_reference_block(reference_block_id);
             trx.expiration = fc::time_point::now() + trx_expiration;
             trx.max_net_usage_words = 100;
@@ -116,12 +116,12 @@ void update_resign_transactions(const vector<signed_transaction>& trxs, uint64_t
       static uint64_t nonce = static_cast<uint64_t>(fc::time_point::now().sec_since_epoch()) << 32;
       static fc::crypto::private_key a_priv_key = fc::crypto::private_key::regenerate(fc::sha256(std::string(64, 'a')));
 
-      for (signed_transaction strx : trxs) {
-            strx.context_free_actions.clear();
-            strx.context_free_actions.emplace_back(action({}, config::null_account_name, name("nonce"), fc::raw::pack(std::to_string(nonce_prefix) +":"+ std::to_string(++nonce)+":"+fc::time_point::now().time_since_epoch().count())));
-            strx.set_reference_block(reference_block_id);
-            strx.expiration = fc::time_point::now() + trx_expiration;
-            strx.sign(a_priv_key, chain_id);
+      for(signed_transaction strx: trxs) {
+         strx.context_free_actions.clear();
+         strx.context_free_actions.emplace_back(action({}, config::null_account_name, name("nonce"), fc::raw::pack(std::to_string(nonce_prefix) + ":" + std::to_string(++nonce) + ":" + fc::time_point::now().time_since_epoch().count())));
+         strx.set_reference_block(reference_block_id);
+         strx.expiration = fc::time_point::now() + trx_expiration;
+         strx.sign(a_priv_key, chain_id);
       }
    } catch(const std::bad_alloc&) {
       throw;
@@ -281,8 +281,7 @@ int main(int argc, char** argv) {
       std::cout << "send all initial transactions via p2p transaction provider" << std::endl;
       std::vector<signed_transaction> single_send = std::vector<signed_transaction>();
       single_send.reserve(1);
-      for(signed_transaction trx : trxs)
-      {
+      for(signed_transaction trx: trxs) {
          single_send.emplace_back(trx);
          provider.send(single_send);
          single_send.clear();
