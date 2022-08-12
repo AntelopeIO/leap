@@ -77,7 +77,7 @@ try:
 
     Print("Stand up cluster")
     if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, topo=topo, delay=delay,
-                      extraNodeosArgs=" --http-max-response-time-ms 990000 --disable-subjective-api-billing false --plugin eosio::trace_api_plugin --trace-no-abis ",
+                      extraNodeosArgs=" --http-max-response-time-ms 990000 --disable-subjective-api-billing false ",
                       specificExtraNodeosArgs=specificArgs ) is False:
        errorExit("Failed to stand up eos cluster.")
 

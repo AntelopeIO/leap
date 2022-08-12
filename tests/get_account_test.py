@@ -73,7 +73,7 @@ try:
     Print ("producing nodes: %s, non-producing nodes: %d, topology: %s, delay between nodes launch(seconds): %d" % (pnodes, total_nodes-pnodes, topo, delay))
 
     Print("Stand up cluster")
-    extraNodeosArgs=" --http-max-response-time-ms 990000 --disable-subjective-api-billing false --plugin eosio::trace_api_plugin --trace-no-abis "
+    extraNodeosArgs=" --http-max-response-time-ms 990000 --disable-subjective-api-billing false "
     if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, topo=topo, delay=delay,extraNodeosArgs=extraNodeosArgs ) is False:
        errorExit("Failed to stand up eos cluster.")
 
