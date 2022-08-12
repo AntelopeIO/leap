@@ -5,7 +5,7 @@
 #include <fc/variant_object.hpp>
 #include <boost/core/demangle.hpp>
 #include <ostream>
-#include "../rapidjson/include/rapidjson/document.h"
+#include <memory>
 
 namespace eosio { namespace chain {
    /**
@@ -377,6 +377,7 @@ namespace eosio { namespace chain {
    class istream_json_snapshot_reader : public snapshot_reader {
       public:
          explicit istream_json_snapshot_reader(const fc::path& p);
+         ~istream_json_snapshot_reader();
 
          void validate() const override;
          void set_section( const string& section_name ) override;
@@ -388,10 +389,7 @@ namespace eosio { namespace chain {
       private:
          bool validate_section() const;
 
-         uint64_t            num_rows;
-         uint64_t            cur_row;
-         rapidjson::Document doc;
-         std::string         sec_name;
+         std::unique_ptr<struct istream_json_snapshot_reader_impl> impl;
    };
 
    class integrity_hash_snapshot_writer : public snapshot_writer {
