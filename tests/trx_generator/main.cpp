@@ -28,8 +28,25 @@ using namespace eosio::testing;
 using namespace eosio::chain;
 using namespace eosio;
 
-vector<pair<eosio::chain::action, eosio::chain::action>> create_initial_transfer_actions(const std::string& salt, const uint64_t& period, const name& newaccountT, const vector<name>& accounts, const fc::microseconds& abi_serializer_max_time) {
-   vector<pair<eosio::chain::action, eosio::chain::action>> actions_pairs_vector;
+struct action_pair_w_keys {
+   action_pair_w_keys(eosio::chain::action first_action, eosio::chain::action second_action, fc::crypto::private_key first_act_signer, fc::crypto::private_key second_act_signer)
+       : _first_acct(first_action), _second_acct(), _first_acct_priv_key(first_act_signer), _second_acct_priv_key(second_act_signer) {}
+
+   eosio::chain::action _first_acct;
+   eosio::chain::action _second_acct;
+   fc::crypto::private_key _first_acct_priv_key;
+   fc::crypto::private_key _second_acct_priv_key;
+};
+
+struct signed_transaction_w_signer {
+   signed_transaction_w_signer(signed_transaction trx, fc::crypto::private_key key) : _trx(trx), _signer(key) {}
+
+   signed_transaction _trx;
+   fc::crypto::private_key _signer;
+};
+
+vector<action_pair_w_keys> create_initial_transfer_actions(const std::string& salt, const uint64_t& period, const name& newaccountT, const vector<name>& accounts, const vector<fc::crypto::private_key>& priv_keys, const fc::microseconds& abi_serializer_max_time) {
+   vector<action_pair_w_keys> actions_pairs_vector;
 
    abi_serializer eosio_token_serializer{fc::json::from_string(contracts::eosio_token_abi().data()).as<abi_def>(), abi_serializer::create_yield_function(abi_serializer_max_time)};
 
@@ -56,46 +73,39 @@ vector<pair<eosio::chain::action, eosio::chain::action>> create_initial_transfer
                                                                     fc::mutable_variant_object()("from", accounts.at(j).to_string())("to", accounts.at(i).to_string())("l", salt))),
                                                                     abi_serializer::create_yield_function(abi_serializer_max_time));
 
-         actions_pairs_vector.push_back(make_pair(act_a_to_b, act_b_to_a));
+         actions_pairs_vector.push_back(action_pair_w_keys(act_a_to_b, act_b_to_a, priv_keys.at(i), priv_keys.at(j)));
       }
    }
    ilog("create_initial_transfer_actions: total action pairs created: ${pairs}", ("pairs", actions_pairs_vector.size()));
    return actions_pairs_vector;
 }
 
-vector<signed_transaction> create_intial_transfer_transactions(uint64_t nonce_prefix, const vector<pair<eosio::chain::action, eosio::chain::action>>& action_pairs_vector, const fc::microseconds& trx_expiration, const chain_id_type& chain_id, const block_id_type& reference_block_id) {
-   std::vector<signed_transaction> trxs;
+vector<signed_transaction_w_signer> create_intial_transfer_transactions(const vector<action_pair_w_keys>& action_pairs_vector, uint64_t& nonce_prefix, uint64_t& nonce, const fc::microseconds& trx_expiration, const chain_id_type& chain_id, const block_id_type& reference_block_id) {
+   std::vector<signed_transaction_w_signer> trxs;
    trxs.reserve(2 * action_pairs_vector.size());
 
-   using action_pair = pair<eosio::chain::action, eosio::chain::action>;
-
    try {
-      static fc::crypto::private_key a_priv_key = fc::crypto::private_key::regenerate(fc::sha256(std::string(64, 'a')));
-      static fc::crypto::private_key b_priv_key = fc::crypto::private_key::regenerate(fc::sha256(std::string(64, 'b')));
-
-      static uint64_t nonce = static_cast<uint64_t>(fc::time_point::now().sec_since_epoch()) << 32;
-
-      for(action_pair acts: action_pairs_vector) {
+      for(action_pair_w_keys ap: action_pairs_vector) {
          {
             signed_transaction trx;
-            trx.actions.push_back(acts.first);
+            trx.actions.push_back(ap._first_acct);
             trx.context_free_actions.emplace_back(action({}, config::null_account_name, name("nonce"), fc::raw::pack(std::to_string(nonce_prefix) + ":" + std::to_string(++nonce) + ":" + fc::time_point::now().time_since_epoch().count())));
             trx.set_reference_block(reference_block_id);
             trx.expiration = fc::time_point::now() + trx_expiration;
             trx.max_net_usage_words = 100;
-            trx.sign(a_priv_key, chain_id);
-            trxs.emplace_back(std::move(trx));
+            trx.sign(ap._first_acct_priv_key, chain_id);
+            trxs.emplace_back(std::move(signed_transaction_w_signer(trx, ap._first_acct_priv_key)));
          }
 
          {
             signed_transaction trx;
-            trx.actions.push_back(acts.second);
+            trx.actions.push_back(ap._second_acct);
             trx.context_free_actions.emplace_back(action({}, config::null_account_name, name("nonce"), fc::raw::pack(std::to_string(nonce_prefix) + ":" + std::to_string(++nonce) + ":" + fc::time_point::now().time_since_epoch().count())));
             trx.set_reference_block(reference_block_id);
             trx.expiration = fc::time_point::now() + trx_expiration;
             trx.max_net_usage_words = 100;
-            trx.sign(b_priv_key, chain_id);
-            trxs.emplace_back(std::move(trx));
+            trx.sign(ap._second_acct_priv_key, chain_id);
+            trxs.emplace_back(std::move(signed_transaction_w_signer(trx, ap._second_acct_priv_key)));
          }
       }
    } catch(const std::bad_alloc&) {
@@ -111,18 +121,13 @@ vector<signed_transaction> create_intial_transfer_transactions(uint64_t nonce_pr
    return trxs;
 }
 
-void update_resign_transactions(const vector<signed_transaction>& trxs, uint64_t nonce_prefix, const fc::microseconds& trx_expiration, const chain_id_type& chain_id, const block_id_type& reference_block_id) {
+void update_resign_transaction(signed_transaction& trx, fc::crypto::private_key priv_key, uint64_t& nonce_prefix, uint64_t& nonce, const fc::microseconds& trx_expiration, const chain_id_type& chain_id, const block_id_type& reference_block_id) {
    try {
-      static uint64_t nonce = static_cast<uint64_t>(fc::time_point::now().sec_since_epoch()) << 32;
-      static fc::crypto::private_key a_priv_key = fc::crypto::private_key::regenerate(fc::sha256(std::string(64, 'a')));
-
-      for(signed_transaction strx: trxs) {
-         strx.context_free_actions.clear();
-         strx.context_free_actions.emplace_back(action({}, config::null_account_name, name("nonce"), fc::raw::pack(std::to_string(nonce_prefix) + ":" + std::to_string(++nonce) + ":" + fc::time_point::now().time_since_epoch().count())));
-         strx.set_reference_block(reference_block_id);
-         strx.expiration = fc::time_point::now() + trx_expiration;
-         strx.sign(a_priv_key, chain_id);
-      }
+      trx.context_free_actions.clear();
+      trx.context_free_actions.emplace_back(action({}, config::null_account_name, name("nonce"), fc::raw::pack(std::to_string(nonce_prefix) + ":" + std::to_string(++nonce) + ":" + fc::time_point::now().time_since_epoch().count())));
+      trx.set_reference_block(reference_block_id);
+      trx.expiration = fc::time_point::now() + trx_expiration;
+      trx.sign(priv_key, chain_id);
    } catch(const std::bad_alloc&) {
       throw;
    } catch(const boost::interprocess::bad_alloc&) {
@@ -132,6 +137,20 @@ void update_resign_transactions(const vector<signed_transaction>& trxs, uint64_t
    } catch(const std::exception&) {
       throw;
    }
+}
+
+void push_transactions(p2p_trx_provider& provider, const vector<signed_transaction_w_signer>& trxs, uint64_t& nonce_prefix, uint64_t& nonce, const fc::microseconds& trx_expiration, const chain_id_type& chain_id, const block_id_type& reference_block_id)
+{
+      std::vector<signed_transaction> single_send = std::vector<signed_transaction>();
+      single_send.reserve(1);
+
+      for(signed_transaction_w_signer trx: trxs) {
+         update_resign_transaction(trx._trx, trx._signer, ++nonce_prefix, nonce, trx_expiration, chain_id, reference_block_id);
+         single_send.emplace_back(trx._trx);
+         provider.send(single_send);
+         single_send.clear();
+         ++_txcount;
+      }
 }
 
 void stop_generation() {
@@ -250,7 +269,9 @@ int main(int argc, char** argv) {
 
       const std::string salt = "";
       const uint64_t& period = 20;
-      uint64_t nonce_prefix = 0;
+      static uint64_t nonce_prefix = 0;
+      static uint64_t nonce = static_cast<uint64_t>(fc::time_point::now().sec_since_epoch()) << 32;
+
 
       //TODO: Revisit if this type of update is necessary
       // uint32_t reference_block_num = cc.last_irreversible_block_num();
@@ -265,28 +286,27 @@ int main(int argc, char** argv) {
       // block_id_type reference_block_id = cc.get_block_id_for_num(reference_block_num);
       block_id_type reference_block_id = make_block_id(reference_block_num);
 
+      static fc::crypto::private_key a_priv_key = fc::crypto::private_key::regenerate(fc::sha256(std::string(64, 'a')));
+      static fc::crypto::private_key b_priv_key = fc::crypto::private_key::regenerate(fc::sha256(std::string(64, 'b')));
+      std::vector<fc::crypto::private_key> private_key_vector;
+      private_key_vector.push_back(a_priv_key);
+      private_key_vector.push_back(b_priv_key);
+
       std::cout << "Create All Initial Transfer Action/Reaction Pairs (acct 1 -> acct 2, acct 2 -> acct 1) between all provided accounts." << std::endl;
-      const auto action_pairs_vector = create_initial_transfer_actions(salt, period, handlerAcct, accounts, abi_serializer_max_time);
+      const auto action_pairs_vector = create_initial_transfer_actions(salt, period, handlerAcct, accounts, private_key_vector, abi_serializer_max_time);
 
       std::cout << "Stop Generation." << std::endl;
       stop_generation();
 
       std::cout << "Create All Initial Transfer Transactions (one for each created action)." << std::endl;
-      std::vector<signed_transaction> trxs = create_intial_transfer_transactions(nonce_prefix++, action_pairs_vector, trx_expiration, chain_id, reference_block_id);
+      std::vector<signed_transaction_w_signer> trxs = create_intial_transfer_transactions(action_pairs_vector, ++nonce_prefix, nonce, trx_expiration, chain_id, reference_block_id);
 
       std::cout << "Setup p2p transaction provider" << std::endl;
       p2p_trx_provider provider = p2p_trx_provider();
       provider.setup();
 
-      std::cout << "send all initial transactions via p2p transaction provider" << std::endl;
-      std::vector<signed_transaction> single_send = std::vector<signed_transaction>();
-      single_send.reserve(1);
-      for(signed_transaction trx: trxs) {
-         single_send.emplace_back(trx);
-         provider.send(single_send);
-         single_send.clear();
-         ++_txcount;
-      }
+      std::cout << "Update each trx to qualify as unique and fresh timestamps, re-sign trx, and send each updated transactions via p2p transaction provider" << std::endl;
+      push_transactions(provider, trxs, ++nonce_prefix, nonce, trx_expiration, chain_id, reference_block_id);
 
       std::cout << "Sent transactions: " << _txcount << std::endl;
 
