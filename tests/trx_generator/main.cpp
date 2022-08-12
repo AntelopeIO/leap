@@ -28,7 +28,7 @@ using namespace eosio::testing;
 using namespace eosio::chain;
 using namespace eosio;
 
-vector<pair<eosio::chain::action, eosio::chain::action>> create_transfer_actions(const std::string& salt, const uint64_t& period, const name& newaccountT, const vector<name>& accounts, const fc::microseconds& abi_serializer_max_time) {
+vector<pair<eosio::chain::action, eosio::chain::action>> create_initial_transfer_actions(const std::string& salt, const uint64_t& period, const name& newaccountT, const vector<name>& accounts, const fc::microseconds& abi_serializer_max_time) {
    vector<pair<eosio::chain::action, eosio::chain::action>> actions_pairs_vector;
 
    abi_serializer eosio_token_serializer{fc::json::from_string(contracts::eosio_token_abi().data()).as<abi_def>(), abi_serializer::create_yield_function(abi_serializer_max_time)};
@@ -36,7 +36,7 @@ vector<pair<eosio::chain::action, eosio::chain::action>> create_transfer_actions
    for(size_t i = 0; i < accounts.size(); ++i) {
       for(size_t j = i + 1; j < accounts.size(); ++j) {
          //create the actions here
-         ilog("create_transfer_actions: creating transfer from ${acctA} to ${acctB}", ("acctA", accounts.at(i))("acctB", accounts.at(j)));
+         ilog("create_initial_transfer_actions: creating transfer from ${acctA} to ${acctB}", ("acctA", accounts.at(i))("acctB", accounts.at(j)));
          action act_a_to_b;
          act_a_to_b.account = newaccountT;
          act_a_to_b.name = "transfer"_n;
@@ -46,7 +46,7 @@ vector<pair<eosio::chain::action, eosio::chain::action>> create_transfer_actions
                                                                     fc::mutable_variant_object()("from", accounts.at(i).to_string())("to", accounts.at(j).to_string())("l", salt))),
                                                                     abi_serializer::create_yield_function(abi_serializer_max_time));
 
-         ilog("create_transfer_actions: creating transfer from ${acctB} to ${acctA}", ("acctB", accounts.at(j))("acctA", accounts.at(i)));
+         ilog("create_initial_transfer_actions: creating transfer from ${acctB} to ${acctA}", ("acctB", accounts.at(j))("acctA", accounts.at(i)));
          action act_b_to_a;
          act_b_to_a.account = newaccountT;
          act_b_to_a.name = "transfer"_n;
@@ -59,7 +59,7 @@ vector<pair<eosio::chain::action, eosio::chain::action>> create_transfer_actions
          actions_pairs_vector.push_back(make_pair(act_a_to_b, act_b_to_a));
       }
    }
-   ilog("create_transfer_actions: total action pairs created: ${pairs}", ("pairs", actions_pairs_vector.size()));
+   ilog("create_initial_transfer_actions: total action pairs created: ${pairs}", ("pairs", actions_pairs_vector.size()));
    return actions_pairs_vector;
 }
 
@@ -242,7 +242,8 @@ int main(int argc, char** argv) {
       // block_id_type reference_block_id = cc.get_block_id_for_num(reference_block_num);
       block_id_type reference_block_id = make_block_id(reference_block_num);
 
-      const auto action_pairs_vector = create_transfer_actions(salt, period, handlerAcct, accounts, abi_serializer_max_time);
+      std::cout << "Create All Initial Transfer Action/Reaction Pairs (acct 1 -> acct 2, acct 2 -> acct 1) between all provided accounts." << std::endl;
+      const auto action_pairs_vector = create_initial_transfer_actions(salt, period, handlerAcct, accounts, abi_serializer_max_time);
 
       std::cout << "Stop Generation." << std::endl;
       stop_generation();
