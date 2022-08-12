@@ -56,10 +56,9 @@ try:
     specificExtraNodeosArgs={}
     specificExtraNodeosArgs[0]=f' --block-log-retain-blocks 0 '
     specificExtraNodeosArgs[1]=f' --block-log-retain-blocks 10 '
-    extraNodeosArgs=" --plugin eosio::trace_api_plugin --trace-no-abis "
 
     Print("Stand up cluster")
-    if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, extraNodeosArgs=extraNodeosArgs, specificExtraNodeosArgs=specificExtraNodeosArgs) is False:
+    if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, specificExtraNodeosArgs=specificExtraNodeosArgs) is False:
         errorExit("Failed to stand up eos cluster.")
 
     Print ("Wait for Cluster stabilization")
