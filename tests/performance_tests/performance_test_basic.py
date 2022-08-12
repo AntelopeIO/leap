@@ -68,9 +68,10 @@ try:
     node0 = cluster.getNode()
     info = node0.getInfo()
     chainId = info['chain_id']
+    lib_id = info['last_irreversible_block_id']
 
-    if Utils.Debug: Print(f'Running trx_generator: ./tests/trx_generator/trx_generator  --chain-id {chainId} --handler-account {cluster.eosioAccount.name} --accounts {account1Name},{account2Name} --priv-keys {account1PrivKey},{account2PrivKey}')
-    Utils.runCmdReturnStr(f'./tests/trx_generator/trx_generator  --chain-id {chainId} --handler-account {cluster.eosioAccount.name} --accounts {account1Name},{account2Name} --priv-keys {account1PrivKey},{account2PrivKey}')
+    if Utils.Debug: Print(f'Running trx_generator: ./tests/trx_generator/trx_generator  --chain-id {chainId} --last-irreversible-block-id {lib_id} --handler-account {cluster.eosioAccount.name} --accounts {account1Name},{account2Name} --priv-keys {account1PrivKey},{account2PrivKey}')
+    Utils.runCmdReturnStr(f'./tests/trx_generator/trx_generator  --chain-id {chainId} --last-irreversible-block-id {lib_id} --handler-account {cluster.eosioAccount.name} --accounts {account1Name},{account2Name} --priv-keys {account1PrivKey},{account2PrivKey}')
 
     testSuccessful = True
 finally:

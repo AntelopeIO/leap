@@ -80,7 +80,7 @@ vector<action_pair_w_keys> create_initial_transfer_actions(const std::string& sa
    return actions_pairs_vector;
 }
 
-vector<signed_transaction_w_signer> create_intial_transfer_transactions(const vector<action_pair_w_keys>& action_pairs_vector, uint64_t& nonce_prefix, uint64_t& nonce, const fc::microseconds& trx_expiration, const chain_id_type& chain_id, const block_id_type& reference_block_id) {
+vector<signed_transaction_w_signer> create_intial_transfer_transactions(const vector<action_pair_w_keys>& action_pairs_vector, uint64_t& nonce_prefix, uint64_t& nonce, const fc::microseconds& trx_expiration, const chain_id_type& chain_id, const block_id_type& last_irr_block_id) {
    std::vector<signed_transaction_w_signer> trxs;
    trxs.reserve(2 * action_pairs_vector.size());
 
@@ -90,7 +90,7 @@ vector<signed_transaction_w_signer> create_intial_transfer_transactions(const ve
             signed_transaction trx;
             trx.actions.push_back(ap._first_acct);
             trx.context_free_actions.emplace_back(action({}, config::null_account_name, name("nonce"), fc::raw::pack(std::to_string(nonce_prefix) + ":" + std::to_string(++nonce) + ":" + fc::time_point::now().time_since_epoch().count())));
-            trx.set_reference_block(reference_block_id);
+            trx.set_reference_block(last_irr_block_id);
             trx.expiration = fc::time_point::now() + trx_expiration;
             trx.max_net_usage_words = 100;
             trx.sign(ap._first_acct_priv_key, chain_id);
@@ -101,7 +101,7 @@ vector<signed_transaction_w_signer> create_intial_transfer_transactions(const ve
             signed_transaction trx;
             trx.actions.push_back(ap._second_acct);
             trx.context_free_actions.emplace_back(action({}, config::null_account_name, name("nonce"), fc::raw::pack(std::to_string(nonce_prefix) + ":" + std::to_string(++nonce) + ":" + fc::time_point::now().time_since_epoch().count())));
-            trx.set_reference_block(reference_block_id);
+            trx.set_reference_block(last_irr_block_id);
             trx.expiration = fc::time_point::now() + trx_expiration;
             trx.max_net_usage_words = 100;
             trx.sign(ap._second_acct_priv_key, chain_id);
@@ -121,11 +121,11 @@ vector<signed_transaction_w_signer> create_intial_transfer_transactions(const ve
    return trxs;
 }
 
-void update_resign_transaction(signed_transaction& trx, fc::crypto::private_key priv_key, uint64_t& nonce_prefix, uint64_t& nonce, const fc::microseconds& trx_expiration, const chain_id_type& chain_id, const block_id_type& reference_block_id) {
+void update_resign_transaction(signed_transaction& trx, fc::crypto::private_key priv_key, uint64_t& nonce_prefix, uint64_t& nonce, const fc::microseconds& trx_expiration, const chain_id_type& chain_id, const block_id_type& last_irr_block_id) {
    try {
       trx.context_free_actions.clear();
       trx.context_free_actions.emplace_back(action({}, config::null_account_name, name("nonce"), fc::raw::pack(std::to_string(nonce_prefix) + ":" + std::to_string(++nonce) + ":" + fc::time_point::now().time_since_epoch().count())));
-      trx.set_reference_block(reference_block_id);
+      trx.set_reference_block(last_irr_block_id);
       trx.expiration = fc::time_point::now() + trx_expiration;
       trx.sign(priv_key, chain_id);
    } catch(const std::bad_alloc&) {
@@ -139,13 +139,13 @@ void update_resign_transaction(signed_transaction& trx, fc::crypto::private_key 
    }
 }
 
-void push_transactions(p2p_trx_provider& provider, const vector<signed_transaction_w_signer>& trxs, uint64_t& nonce_prefix, uint64_t& nonce, const fc::microseconds& trx_expiration, const chain_id_type& chain_id, const block_id_type& reference_block_id)
+void push_transactions(p2p_trx_provider& provider, const vector<signed_transaction_w_signer>& trxs, uint64_t& nonce_prefix, uint64_t& nonce, const fc::microseconds& trx_expiration, const chain_id_type& chain_id, const block_id_type& last_irr_block_id)
 {
       std::vector<signed_transaction> single_send = std::vector<signed_transaction>();
       single_send.reserve(1);
 
       for(signed_transaction_w_signer trx: trxs) {
-         update_resign_transaction(trx._trx, trx._signer, ++nonce_prefix, nonce, trx_expiration, chain_id, reference_block_id);
+         update_resign_transaction(trx._trx, trx._signer, ++nonce_prefix, nonce, trx_expiration, chain_id, last_irr_block_id);
          single_send.emplace_back(trx._trx);
          provider.send(single_send);
          single_send.clear();
@@ -160,13 +160,6 @@ void stop_generation() {
       ilog("${d} transactions executed, ${t}us / transaction", ("d", _txcount)("t", _total_us / (double) _txcount));
       _txcount = _total_us = 0;
    }
-}
-
-chain::block_id_type make_block_id(uint32_t block_num) {
-   chain::block_id_type block_id;
-   block_id._hash[0] &= 0xffffffff00000000;
-   block_id._hash[0] += fc::endian_reverse_u32(block_num);
-   return block_id;
 }
 
 vector<name> get_accounts(const vector<string>& account_str_vector) {
@@ -197,7 +190,7 @@ int main(int argc, char** argv) {
    string pkeys;
    uint32_t abi_serializer_max_time_us;
    uint32_t trx_expr;
-   uint32_t reference_block_num;
+   string lib_id_str;
 
    vector<string> account_str_vector;
    vector<string> private_keys_str_vector;
@@ -210,7 +203,7 @@ int main(int argc, char** argv) {
       ("priv-keys", bpo::value<string>(&pkeys), "comma-separated list of private keys in same order of accounts list that will be used to sign transactions. Minimum required: 2.")
       ("abi-serializer-max-time-us", bpo::value<uint32_t>(&abi_serializer_max_time_us)->default_value(15 * 1000), "maximum abi serializer time in microseconds (us). Defaults to 15,000.")
       ("trx-expiration", bpo::value<uint32_t>(&trx_expr)->default_value(3600), "transaction expiration time in microseconds (us). Defaults to 3,600. Maximum allowed: 3,600")
-      ("ref-block-num", bpo::value<uint32_t>(&reference_block_num)->default_value(0), "the reference block (last_irreversible_block_num or head_block_num) to use for transactions. Defaults to 0.")
+      ("last-irreversible-block-id", bpo::value<string>(&lib_id_str), "Current last-irreversible-block-id (LIB ID) to use for transactions.")
       ("help,h", "print this list")
       ;
 
@@ -225,6 +218,12 @@ int main(int argc, char** argv) {
 
       if(!vmap.count("chain-id")) {
          ilog("Initialization error: missing chain-id");
+         cli.print(std::cerr);
+         return INITIALIZE_FAIL;
+      }
+
+      if(!vmap.count("last-irreversible-block-id")) {
+         ilog("Initialization error: missing last-irreversible-block-id");
          cli.print(std::cerr);
          return INITIALIZE_FAIL;
       }
@@ -282,11 +281,8 @@ int main(int argc, char** argv) {
       ilog("Account private keys ${priv_keys}", ("priv_keys", pkeys));
       ilog("Abi serializer max time microsections ${asmt}", ("asmt", abi_serializer_max_time_us));
       ilog("Transaction expiration microsections ${expr}", ("expr", trx_expr));
-      ilog("Reference block number ${blkNum}", ("blkNum", reference_block_num));
+      ilog("Reference LIB block id ${LIB}", ("LIB", lib_id_str));
 
-      //Example chain ids:
-      // cf057bbfb72640471fd910bcb67639c22df9f92470936cddc1ade0e2f2e7dc4f
-      // 60fb0eb4742886af8a0e147f4af6fd363e8e8d8f18bdf73a10ee0134fec1c551
       const chain_id_type chain_id(chain_id_in);
       const name handlerAcct = eosio::chain::name(hAcct);
       const vector<name> accounts = get_accounts(account_str_vector);
@@ -299,35 +295,23 @@ int main(int argc, char** argv) {
       static uint64_t nonce_prefix = 0;
       static uint64_t nonce = static_cast<uint64_t>(fc::time_point::now().sec_since_epoch()) << 32;
 
-
-      //TODO: Revisit if this type of update is necessary
-      // uint32_t reference_block_num = cc.last_irreversible_block_num();
-      // // if (txn_reference_block_lag >= 0) {
-      // //    reference_block_num = cc.head_block_num();
-      // //    if (reference_block_num <= (uint32_t)txn_reference_block_lag) {
-      // //       reference_block_num = 0;
-      // //    } else {
-      // //       reference_block_num -= (uint32_t)txn_reference_block_lag;
-      // //    }
-      // // }
-      // block_id_type reference_block_id = cc.get_block_id_for_num(reference_block_num);
-      block_id_type reference_block_id = make_block_id(reference_block_num);
+      block_id_type last_irr_block_id = fc::variant(lib_id_str).as<block_id_type>();
 
       std::cout << "Create All Initial Transfer Action/Reaction Pairs (acct 1 -> acct 2, acct 2 -> acct 1) between all provided accounts." << std::endl;
       const auto action_pairs_vector = create_initial_transfer_actions(salt, period, handlerAcct, accounts, private_key_vector, abi_serializer_max_time);
 
-      std::cout << "Stop Generation." << std::endl;
+      std::cout << "Stop Generation (form potential ongoing generation in preparation for starting new generation run)." << std::endl;
       stop_generation();
 
       std::cout << "Create All Initial Transfer Transactions (one for each created action)." << std::endl;
-      std::vector<signed_transaction_w_signer> trxs = create_intial_transfer_transactions(action_pairs_vector, ++nonce_prefix, nonce, trx_expiration, chain_id, reference_block_id);
+      std::vector<signed_transaction_w_signer> trxs = create_intial_transfer_transactions(action_pairs_vector, ++nonce_prefix, nonce, trx_expiration, chain_id, last_irr_block_id);
 
       std::cout << "Setup p2p transaction provider" << std::endl;
       p2p_trx_provider provider = p2p_trx_provider();
       provider.setup();
 
       std::cout << "Update each trx to qualify as unique and fresh timestamps, re-sign trx, and send each updated transactions via p2p transaction provider" << std::endl;
-      push_transactions(provider, trxs, ++nonce_prefix, nonce, trx_expiration, chain_id, reference_block_id);
+      push_transactions(provider, trxs, ++nonce_prefix, nonce, trx_expiration, chain_id, last_irr_block_id);
 
       std::cout << "Sent transactions: " << _txcount << std::endl;
 
