@@ -523,7 +523,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                                      const std::variant<fc::exception_ptr, transaction_trace_ptr>& response) {
          account_name contract_name;
          action_name  act_name;
-         std::string   details;
+         std::string  details;
 
          if (std::holds_alternative<transaction_trace_ptr>(response)) {
             auto resp_ptr = std::get<transaction_trace_ptr>(response);
@@ -538,7 +538,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
             details = fc::format_string("${d}", fc::mutable_variant_object() ("d", except_ptr->top_message()), true);  // true for limitting the formatted string size
          }
 
-         return "action::" + contract_name.to_string() + ":" + act_name.to_string() + ":" + details;
+         return "action:" + contract_name.to_string() + ":" + act_name.to_string() + ":" + details;
       }
 
       bool process_incoming_transaction_async(const transaction_metadata_ptr& trx,
