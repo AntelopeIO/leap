@@ -58,7 +58,7 @@ void push_transactions(std::vector<signed_transaction>&& trxs, const std::functi
    });
 }
 
-vector<pair<eosio::chain::action, eosio::chain::action>> create_transfer_actions(const std::string& salt, const uint64_t& period, const uint64_t& batch_size, const name& newaccountT, const vector<name>& accounts, const fc::microseconds& abi_serializer_max_time) {
+vector<pair<eosio::chain::action, eosio::chain::action>> create_transfer_actions(const std::string& salt, const uint64_t& period, const name& newaccountT, const vector<name>& accounts, const fc::microseconds& abi_serializer_max_time) {
    vector<pair<eosio::chain::action, eosio::chain::action>> actions_pairs_vector;
 
    abi_serializer eosio_token_serializer{fc::json::from_string(contracts::eosio_token_abi().data()).as<abi_def>(), abi_serializer::create_yield_function(abi_serializer_max_time)};
@@ -93,9 +93,11 @@ vector<pair<eosio::chain::action, eosio::chain::action>> create_transfer_actions
    return actions_pairs_vector;
 }
 
-void send_transaction_batch(std::function<void(const fc::exception_ptr&)> next, uint64_t nonce_prefix, const vector<pair<eosio::chain::action, eosio::chain::action>>& action_pairs_vector, const fc::microseconds& trx_expiration, const chain_id_type& chain_id, const block_id_type& reference_block_id, const unsigned& batch) {
+vector<signed_transaction> create_intial_transfer_transactions(uint64_t nonce_prefix, const vector<pair<eosio::chain::action, eosio::chain::action>>& action_pairs_vector, const fc::microseconds& trx_expiration, const chain_id_type& chain_id, const block_id_type& reference_block_id) {
    std::vector<signed_transaction> trxs;
-   trxs.reserve(2 * batch);
+   trxs.reserve(2 * action_pairs_vector.size());
+
+   using action_pair = pair<eosio::chain::action, eosio::chain::action>;
 
    try {
       static fc::crypto::private_key a_priv_key = fc::crypto::private_key::regenerate(fc::sha256(std::string(64, 'a')));
@@ -103,12 +105,10 @@ void send_transaction_batch(std::function<void(const fc::exception_ptr&)> next, 
 
       static uint64_t nonce = static_cast<uint64_t>(fc::time_point::now().sec_since_epoch()) << 32;
 
-      int action_pair_index = 0;
-
-      for(unsigned int i = 0; i < batch; ++i) {
+      for(action_pair acts : action_pairs_vector) {
          {
             signed_transaction trx;
-            trx.actions.push_back(action_pairs_vector.at(action_pair_index).first);
+            trx.actions.push_back(acts.first);
             trx.context_free_actions.emplace_back(action({}, config::null_account_name, name("nonce"), fc::raw::pack(std::to_string(nonce_prefix) +":"+ std::to_string(++nonce)+":"+fc::time_point::now().time_since_epoch().count())));
             trx.set_reference_block(reference_block_id);
             trx.expiration = fc::time_point::now() + trx_expiration;
@@ -119,27 +119,26 @@ void send_transaction_batch(std::function<void(const fc::exception_ptr&)> next, 
 
          {
             signed_transaction trx;
-            trx.actions.push_back(action_pairs_vector.at(action_pair_index).second);
-            trx.context_free_actions.emplace_back(action({}, config::null_account_name, name("nonce"), fc::raw::pack(std::to_string(nonce_prefix)  +":"+ std::to_string(++nonce)+":"+fc::time_point::now().time_since_epoch().count())));
+            trx.actions.push_back(acts.second);
+            trx.context_free_actions.emplace_back(action({}, config::null_account_name, name("nonce"), fc::raw::pack(std::to_string(nonce_prefix) +":"+ std::to_string(++nonce)+":"+fc::time_point::now().time_since_epoch().count())));
             trx.set_reference_block(reference_block_id);
             trx.expiration = fc::time_point::now() + trx_expiration;
             trx.max_net_usage_words = 100;
             trx.sign(b_priv_key, chain_id);
             trxs.emplace_back(std::move(trx));
          }
-         action_pair_index = action_pair_index % action_pairs_vector.size();
       }
    } catch(const std::bad_alloc&) {
       throw;
    } catch(const boost::interprocess::bad_alloc&) {
       throw;
-   } catch(const fc::exception& e) {
-      next(e.dynamic_copy_exception());
-   } catch(const std::exception& e) {
-      next(fc::std_exception_wrapper::from_current_exception(e).dynamic_copy_exception());
+   } catch(const fc::exception&) {
+      throw;
+   } catch(const std::exception&) {
+      throw;
    }
 
-   push_transactions(std::move(trxs), next);
+   return trxs;
 }
 
 void stop_generation() {
@@ -258,8 +257,6 @@ int main(int argc, char** argv) {
 
       const std::string salt = "";
       const uint64_t& period = 20;
-      const uint64_t& batch_size = 20;
-      unsigned batch = batch_size / 2;
       uint64_t nonce_prefix = 0;
 
       //TODO: Revisit if this type of update is necessary
@@ -275,18 +272,13 @@ int main(int argc, char** argv) {
       // block_id_type reference_block_id = cc.get_block_id_for_num(reference_block_num);
       block_id_type reference_block_id = make_block_id(reference_block_num);
 
-      const auto action_pairs_vector = create_transfer_actions(salt, period, batch_size, handlerAcct, accounts, abi_serializer_max_time);
+      const auto action_pairs_vector = create_transfer_actions(salt, period, handlerAcct, accounts, abi_serializer_max_time);
 
       std::cout << "Stop Generation." << std::endl;
       stop_generation();
 
-      std::cout << "Send Batch of Transactions." << std::endl;
-      send_transaction_batch([](const fc::exception_ptr& e) {
-         if(e) {
-            elog("pushing transaction failed: ${e}", ("e", e->to_detail_string()));
-            stop_generation();
-         }
-      }, nonce_prefix++, action_pairs_vector, trx_expiration, chain_id, reference_block_id, batch);
+      std::cout << "Create All Initial Transfer Transactions (one for each created action)." << std::endl;
+      std::vector<signed_transaction> trxs = create_intial_transfer_transactions(nonce_prefix++, action_pairs_vector, trx_expiration, chain_id, reference_block_id);
 
       //Stop & Cleanup
       std::cout << "Stop Generation." << std::endl;
