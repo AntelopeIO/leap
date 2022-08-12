@@ -178,6 +178,15 @@ vector<name> get_accounts(const vector<string>& account_str_vector) {
    return acct_name_list;
 }
 
+vector<fc::crypto::private_key> get_private_keys(const vector<string>& priv_key_str_vector) {
+   vector<fc::crypto::private_key> key_list;
+   for(string private_key : priv_key_str_vector) {
+      ilog("get_private_keys about to try to create private_key for ${key} : gen key ${newKey}", ("key", private_key)("newKey", fc::crypto::private_key(private_key)));
+      key_list.push_back(fc::crypto::private_key(private_key));
+   }
+   return key_list;
+}
+
 int main(int argc, char** argv) {
    const uint32_t TRX_EXPIRATION_MAX = 3600;
    variables_map vmap;
@@ -185,17 +194,20 @@ int main(int argc, char** argv) {
    string chain_id_in;
    string hAcct;
    string accts;
+   string pkeys;
    uint32_t abi_serializer_max_time_us;
    uint32_t trx_expr;
    uint32_t reference_block_num;
 
    vector<string> account_str_vector;
+   vector<string> private_keys_str_vector;
 
 
    cli.add_options()
       ("chain-id", bpo::value<string>(&chain_id_in), "set the chain id")
       ("handler-account", bpo::value<string>(&hAcct), "Account name of the handler account for the transfer actions")
       ("accounts", bpo::value<string>(&accts), "comma-separated list of accounts that will be used for transfers. Minimum required accounts: 2.")
+      ("priv-keys", bpo::value<string>(&pkeys), "comma-separated list of private keys in same order of accounts list that will be used to sign transactions. Minimum required: 2.")
       ("abi-serializer-max-time-us", bpo::value<uint32_t>(&abi_serializer_max_time_us)->default_value(15 * 1000), "maximum abi serializer time in microseconds (us). Defaults to 15,000.")
       ("trx-expiration", bpo::value<uint32_t>(&trx_expr)->default_value(3600), "transaction expiration time in microseconds (us). Defaults to 3,600. Maximum allowed: 3,600")
       ("ref-block-num", bpo::value<uint32_t>(&reference_block_num)->default_value(0), "the reference block (last_irreversible_block_num or head_block_num) to use for transactions. Defaults to 0.")
@@ -237,6 +249,19 @@ int main(int argc, char** argv) {
          return INITIALIZE_FAIL;
       }
 
+      if(vmap.count("priv-keys")) {
+         boost::split(private_keys_str_vector, pkeys, boost::is_any_of(","));
+         if(private_keys_str_vector.size() < 2) {
+            ilog("Initialization error: requires at minimum 2 private keys");
+            cli.print(std::cerr);
+            return INITIALIZE_FAIL;
+         }
+      } else {
+         ilog("Initialization error: did not specify accounts' private keys. requires at minimum 2 private keys");
+         cli.print(std::cerr);
+         return INITIALIZE_FAIL;
+      }
+
       if(vmap.count("trx-expiration")) {
          if(trx_expr > TRX_EXPIRATION_MAX) {
             ilog("Initialization error: Exceeded max value for transaction expiration. Value must be less than ${max}.", ("max", TRX_EXPIRATION_MAX));
@@ -254,6 +279,7 @@ int main(int argc, char** argv) {
       ilog("Initial chain id ${chainId}", ("chainId", chain_id_in));
       ilog("Handler account ${acct}", ("acct", hAcct));
       ilog("Transfer accounts ${accts}", ("accts", accts));
+      ilog("Account private keys ${priv_keys}", ("priv_keys", pkeys));
       ilog("Abi serializer max time microsections ${asmt}", ("asmt", abi_serializer_max_time_us));
       ilog("Transaction expiration microsections ${expr}", ("expr", trx_expr));
       ilog("Reference block number ${blkNum}", ("blkNum", reference_block_num));
@@ -264,6 +290,7 @@ int main(int argc, char** argv) {
       const chain_id_type chain_id(chain_id_in);
       const name handlerAcct = eosio::chain::name(hAcct);
       const vector<name> accounts = get_accounts(account_str_vector);
+      const vector<fc::crypto::private_key> private_key_vector = get_private_keys(private_keys_str_vector);
       fc::microseconds trx_expiration{trx_expr};
       const static fc::microseconds abi_serializer_max_time = fc::microseconds(abi_serializer_max_time_us);
 
@@ -285,12 +312,6 @@ int main(int argc, char** argv) {
       // // }
       // block_id_type reference_block_id = cc.get_block_id_for_num(reference_block_num);
       block_id_type reference_block_id = make_block_id(reference_block_num);
-
-      static fc::crypto::private_key a_priv_key = fc::crypto::private_key::regenerate(fc::sha256(std::string(64, 'a')));
-      static fc::crypto::private_key b_priv_key = fc::crypto::private_key::regenerate(fc::sha256(std::string(64, 'b')));
-      std::vector<fc::crypto::private_key> private_key_vector;
-      private_key_vector.push_back(a_priv_key);
-      private_key_vector.push_back(b_priv_key);
 
       std::cout << "Create All Initial Transfer Action/Reaction Pairs (acct 1 -> acct 2, acct 2 -> acct 1) between all provided accounts." << std::endl;
       const auto action_pairs_vector = create_initial_transfer_actions(salt, period, handlerAcct, accounts, private_key_vector, abi_serializer_max_time);
