@@ -109,7 +109,7 @@ void send_transaction_batch(std::function<void(const fc::exception_ptr&)> next, 
          {
             signed_transaction trx;
             trx.actions.push_back(action_pairs_vector.at(action_pair_index).first);
-            trx.context_free_actions.emplace_back(action({}, config::null_account_name, name("nonce"), fc::raw::pack(std::to_string(nonce_prefix) + std::to_string(nonce++))));
+            trx.context_free_actions.emplace_back(action({}, config::null_account_name, name("nonce"), fc::raw::pack(std::to_string(nonce_prefix) +":"+ std::to_string(++nonce))));
             trx.set_reference_block(reference_block_id);
             trx.expiration = fc::time_point::now() + trx_expiration;
             trx.max_net_usage_words = 100;
@@ -120,7 +120,7 @@ void send_transaction_batch(std::function<void(const fc::exception_ptr&)> next, 
          {
             signed_transaction trx;
             trx.actions.push_back(action_pairs_vector.at(action_pair_index).second);
-            trx.context_free_actions.emplace_back(action({}, config::null_account_name, name("nonce"), fc::raw::pack(std::to_string(nonce_prefix) + std::to_string(nonce++))));
+            trx.context_free_actions.emplace_back(action({}, config::null_account_name, name("nonce"), fc::raw::pack(std::to_string(nonce_prefix)  +":"+ std::to_string(++nonce))));
             trx.set_reference_block(reference_block_id);
             trx.expiration = fc::time_point::now() + trx_expiration;
             trx.max_net_usage_words = 100;
