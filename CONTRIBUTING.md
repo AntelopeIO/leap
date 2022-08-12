@@ -1,4 +1,4 @@
-# Contributing to leap
+# Contributing to Leap
 
 Interested in contributing? That's awesome! Here are some guidelines to get started quickly and easily:
 
@@ -6,7 +6,7 @@ Interested in contributing? That's awesome! Here are some guidelines to get star
   - [Bug Reports](#bug-reports)
   - [Feature Requests](#feature-requests)
   - [Change Requests](#change-requests)
-- [Working on leap](#working-on-leap)
+- [Working on Leap](#working-on-leap)
   - [Feature Branches](#feature-branches)
   - [Submitting Pull Requests](#submitting-pull-requests)
   - [Testing and Quality Assurance](#testing-and-quality-assurance)
@@ -16,7 +16,7 @@ Interested in contributing? That's awesome! Here are some guidelines to get star
 
 ## Reporting An Issue
 
-If you're about to raise an issue because you think you've found a problem with leap, or you'd like to make a request for a new feature in the codebase, or any other reason… please read this first.
+If you're about to raise an issue because you think you've found a problem with Leap, or you'd like to make a request for a new feature in the codebase, or any other reason… please read this first.
 
 The GitHub issue tracker is the preferred channel for [bug reports](#bug-reports), [feature requests](#feature-requests), and [submitting pull requests](#submitting-pull-requests), but please respect the following restrictions:
 
@@ -51,7 +51,7 @@ Feature requests are welcome. Before you submit one be sure to have:
 
 ### Change Requests
 
-Change requests cover both architectural and functional changes to how leap works. If you have an idea for a new or different dependency, a refactor, or an improvement to a feature, etc - please be sure to:
+Change requests cover both architectural and functional changes to how Leap works. If you have an idea for a new or different dependency, a refactor, or an improvement to a feature, etc - please be sure to:
 
 1. **Use the GitHub search** and check someone else didn't get there first
 1. Take a moment to think about the best way to make a case for, and explain what you're thinking. Are you sure this shouldn't really be

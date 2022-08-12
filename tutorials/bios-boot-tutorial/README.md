@@ -18,11 +18,11 @@ The `bios-boot-tutorial.py` script simulates the bios boot sequence.
 
 ``Steps``:
 
-1. Install mandel binaries by following the steps outlined in below tutorial
-[Install mandel binaries](https://github.com/eosnetworkfoundation/mandel/tree/release/3.0.x#Building).
+1. Install Leap binaries by following the steps outlined in below tutorial
+[Install Leap binaries](https://github.com/AntelopeIO/leap/tree/release/3.0.x#Building).
 
-2. Install mandel.cdt version 1.8.1 binaries by following the steps outlined in below tutorial
-[Install mandel.cdt binaries](https://github.com/eosnetworkfoundation/mandel.cdt/tree/v1.8.1#binary-releases).
+2. Install cdt version 1.8.1 binaries by following the steps outlined in below tutorial
+[Install cdt binaries](https://github.com/AntelopeIO/cdt/tree/v1.8.1#binary-releases).
 
 3. Compile `mandel-contracts` version 3.0.x
 
@@ -45,8 +45,8 @@ The command line to launch the script, make sure you replace `CONTRACTS_DIRECTOR
 
 ```bash
 $ cd ~
-$ git clone https://github.com/eosnetworkfoundation/mandel
-$ cd ./mandel/tutorials/bios-boot-tutorial/
+$ git clone https://github.com/AntelopeIO/leap
+$ cd ./leap/tutorials/bios-boot-tutorial/
 $ python3 bios-boot-tutorial.py --cleos=cleos --nodeos=nodeos --keosd=keosd --contracts-dir="CONTRACTS_DIRECTORY" -w -a
 
 ```
