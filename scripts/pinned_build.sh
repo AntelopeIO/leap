@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-echo "Mandel Pinned Build"
+echo "Leap Pinned Build"
 
 if [[ "$(uname)" == "Linux" ]]; then
    if [[ -e /etc/os-release ]]; then
@@ -18,15 +18,15 @@ fi
 
 if [ $# -eq 0 ] || [ -z "$1" ]
    then
-      echo "Please supply a directory for the build dependencies to be placed and a directory for mandel build and a value for the number of jobs to use for building."
-      echo "The binary packages will be created and placed into the mandel build directory."
-      echo "./pinned_build.sh <dependencies directory> <mandel build directory> <1-100>"
+      echo "Please supply a directory for the build dependencies to be placed and a directory for leap build and a value for the number of jobs to use for building."
+      echo "The binary packages will be created and placed into the leap build directory."
+      echo "./pinned_build.sh <dependencies directory> <leap build directory> <1-100>"
       exit -1
 fi
 
 CORE_SYM=EOS
 DEP_DIR=$1
-MANDEL_DIR=$2
+LEAP_DIR=$2
 JOBS=$3
 CLANG_VER=11.0.1
 BOOST_VER=1.70.0
@@ -125,10 +125,10 @@ install_boost ${DEP_DIR}/boost_${BOOST_VER//\./_}
 # go back to the directory where the script starts
 popdir ${START_DIR}
 
-pushdir ${MANDEL_DIR}
+pushdir ${LEAP_DIR}
 
-# build Mandel
-echo "Building Mandel ${SCRIPT_DIR}"
+# build Leap
+echo "Building Leap ${SCRIPT_DIR}"
 try cmake -DCMAKE_TOOLCHAIN_FILE=${SCRIPT_DIR}/pinned_toolchain.cmake -DCMAKE_INSTALL_PREFIX=/usr/local -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=${LLVM_DIR}/lib/cmake -DCMAKE_PREFIX_PATH=${BOOST_DIR}/bin ${SCRIPT_DIR}/..
 
 try make -j${JOBS}
@@ -145,4 +145,4 @@ echo "| ||_____||_____|| || ||____|  |____|| || ||_____|\____| | || | |________.
 echo "| |              | || |              | || |              | || |              | || |              | || |              | |";
 echo "| '--------------' || '--------------' || '--------------' || '--------------' || '--------------' || '--------------' |";
 echo " '----------------'  '----------------'  '----------------'  '----------------'  '----------------'  '----------------' ";
-echo "Mandel has successfully built and constructed its packages.  You should be able to find the packages at ${MANDEL_DIR}.  Enjoy!!!"
+echo "Leap has successfully built and constructed its packages.  You should be able to find the packages at ${LEAP_DIR}.  Enjoy!!!"

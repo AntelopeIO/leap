@@ -1,14 +1,14 @@
-# Mandel
+# Leap
 
 Home of the official [EOS Network Foundation](https://eosnetwork.com/) blockchain node software.
 
 ## Repo Organization
 
-`main` branch is the development branch: do not use this for production. Refer to the [release page](https://github.com/eosnetworkfoundation/mandel/releases) for current information on releases, pre-releases, and obsolete releases as well as the corresponding tags for those releases.
+`main` branch is the development branch: do not use this for production. Refer to the [release page](https://github.com/AntelopeIO/leap/releases) for current information on releases, pre-releases, and obsolete releases as well as the corresponding tags for those releases.
 
 ## Software Installation
 
-Visit the [release page](https://github.com/eosnetworkfoundation/mandel/releases) for Ubuntu binaries. This is the fastest way to get started with the software.
+Visit the [release page](https://github.com/AntelopeIO/leap/releases) for Ubuntu binaries. This is the fastest way to get started with the software.
 
 ### Building From Source
 
@@ -20,16 +20,16 @@ Recent Ubuntu LTS releases are the only Linux distributions that we fully suppor
 
 A few other common libraries are tools also required such as openssl 1.1+, libcurl, curl, libusb, GMP, Python 3, and zlib.
 
-**A Warning On Parallel Compilation Jobs (`-j` flag)**: When building C/C++ software often the build is performed in parallel via a command such as `make -j $(nproc)` which uses the number of CPU cores as the number of compilation jobs to perform simultaneously. However, be aware that some compilation units (.cpp files) in mandel are extremely complex and will consume nearly 4GB of memory to compile. You may need to reduce the level of parallelization depending on the amount of memory on your build host. e.g. instead of `make -j $(nproc)` run `make -j2`. Failures due to memory exhaustion will typically but not always manifest as compiler crashes.
+**A Warning On Parallel Compilation Jobs (`-j` flag)**: When building C/C++ software often the build is performed in parallel via a command such as `make -j $(nproc)` which uses the number of CPU cores as the number of compilation jobs to perform simultaneously. However, be aware that some compilation units (.cpp files) in leap are extremely complex and will consume nearly 4GB of memory to compile. You may need to reduce the level of parallelization depending on the amount of memory on your build host. e.g. instead of `make -j $(nproc)` run `make -j2`. Failures due to memory exhaustion will typically but not always manifest as compiler crashes.
 
-Generally we recommend performing what we refer to as a "pinned build" which ensures the compiler and boost version remain the same between builds of different mandel versions (mandel requires these versions remain the same otherwise its state needs to be repopulated from a portable snapshot).
+Generally we recommend performing what we refer to as a "pinned build" which ensures the compiler and boost version remain the same between builds of different leap versions (leap requires these versions remain the same otherwise its state needs to be repopulated from a portable snapshot).
 
 #### Building Pinned Build Binary Packages
-In the directory `<mandel src>/scripts` you will find the two scripts `install_deps.sh` and `pinned_build.sh`. If you haven't installed build dependencies then run `install_deps.sh`. Then run `pinned_build.sh <dependencies directory> <mandel build directory> <number of jobs>`.
+In the directory `<leap src>/scripts` you will find the two scripts `install_deps.sh` and `pinned_build.sh`. If you haven't installed build dependencies then run `install_deps.sh`. Then run `pinned_build.sh <dependencies directory> <leap build directory> <number of jobs>`.
 
 The dependencies directory is where the script will pull the C++ dependencies that need to be built with the pinned compiler for building the pinned binaries for binary packaging.
 
-The binary package will be produced in the mandel build directory that was supplied.
+The binary package will be produced in the leap build directory that was supplied.
 
 #### Manual (non "pinned") Build Instructions
 
