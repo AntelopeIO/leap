@@ -46,7 +46,7 @@ namespace eosio::testing {
          packed_transaction pt(t);
          net_message msg{std::move(pt)};
 
-         _peer_connection.send_transaction()
+         _peer_connection.send_transaction(pt);
       }
    }
 
