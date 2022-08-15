@@ -54,17 +54,17 @@ auto make_transfer_action(chain::name account, chain::name from, chain::name to,
                         account, "transfer"_n, make_transfer_data(from, to, quantity, std::move(memo)));
 }
 
-vector<action_pair_w_keys> create_initial_transfer_actions(const std::string& salt, const uint64_t& period, const name& newaccountT, const vector<name>& accounts, const vector<fc::crypto::private_key>& priv_keys) {
+vector<action_pair_w_keys> create_initial_transfer_actions(const std::string& salt, const uint64_t& period, const name& handler_acct, const vector<name>& accounts, const vector<fc::crypto::private_key>& priv_keys) {
    vector<action_pair_w_keys> actions_pairs_vector;
 
    for(size_t i = 0; i < accounts.size(); ++i) {
       for(size_t j = i + 1; j < accounts.size(); ++j) {
          //create the actions here
          ilog("create_initial_transfer_actions: creating transfer from ${acctA} to ${acctB}", ("acctA", accounts.at(i))("acctB", accounts.at(j)));
-         action act_a_to_b = make_transfer_action(newaccountT, accounts.at(i), accounts.at(j), asset::from_string("1.0000 CUR"), salt);
+         action act_a_to_b = make_transfer_action(handler_acct, accounts.at(i), accounts.at(j), asset::from_string("1.0000 CUR"), salt);
 
          ilog("create_initial_transfer_actions: creating transfer from ${acctB} to ${acctA}", ("acctB", accounts.at(j))("acctA", accounts.at(i)));
-         action act_b_to_a = make_transfer_action(newaccountT, accounts.at(j), accounts.at(i), asset::from_string("1.0000 CUR"), salt);
+         action act_b_to_a = make_transfer_action(handler_acct, accounts.at(j), accounts.at(i), asset::from_string("1.0000 CUR"), salt);
 
          actions_pairs_vector.push_back(action_pair_w_keys(act_a_to_b, act_b_to_a, priv_keys.at(i), priv_keys.at(j)));
       }
@@ -169,9 +169,9 @@ int main(int argc, char** argv) {
    variables_map vmap;
    options_description cli("Transaction Generator command line options.");
    string chain_id_in;
-   string hAcct;
+   string h_acct;
    string accts;
-   string pkeys;
+   string p_keys;
    uint32_t trx_expr;
    string lib_id_str;
 
@@ -181,9 +181,9 @@ int main(int argc, char** argv) {
 
    cli.add_options()
       ("chain-id", bpo::value<string>(&chain_id_in), "set the chain id")
-      ("handler-account", bpo::value<string>(&hAcct), "Account name of the handler account for the transfer actions")
+      ("handler-account", bpo::value<string>(&h_acct), "Account name of the handler account for the transfer actions")
       ("accounts", bpo::value<string>(&accts), "comma-separated list of accounts that will be used for transfers. Minimum required accounts: 2.")
-      ("priv-keys", bpo::value<string>(&pkeys), "comma-separated list of private keys in same order of accounts list that will be used to sign transactions. Minimum required: 2.")
+      ("priv-keys", bpo::value<string>(&p_keys), "comma-separated list of private keys in same order of accounts list that will be used to sign transactions. Minimum required: 2.")
       ("trx-expiration", bpo::value<uint32_t>(&trx_expr)->default_value(3600), "transaction expiration time in microseconds (us). Defaults to 3,600. Maximum allowed: 3,600")
       ("last-irreversible-block-id", bpo::value<string>(&lib_id_str), "Current last-irreversible-block-id (LIB ID) to use for transactions.")
       ("help,h", "print this list")
@@ -231,7 +231,7 @@ int main(int argc, char** argv) {
       }
 
       if(vmap.count("priv-keys")) {
-         boost::split(private_keys_str_vector, pkeys, boost::is_any_of(","));
+         boost::split(private_keys_str_vector, p_keys, boost::is_any_of(","));
          if(private_keys_str_vector.size() < 2) {
             ilog("Initialization error: requires at minimum 2 private keys");
             cli.print(std::cerr);
@@ -258,14 +258,14 @@ int main(int argc, char** argv) {
 
    try {
       ilog("Initial chain id ${chainId}", ("chainId", chain_id_in));
-      ilog("Handler account ${acct}", ("acct", hAcct));
+      ilog("Handler account ${acct}", ("acct", h_acct));
       ilog("Transfer accounts ${accts}", ("accts", accts));
-      ilog("Account private keys ${priv_keys}", ("priv_keys", pkeys));
+      ilog("Account private keys ${priv_keys}", ("priv_keys", p_keys));
       ilog("Transaction expiration microsections ${expr}", ("expr", trx_expr));
       ilog("Reference LIB block id ${LIB}", ("LIB", lib_id_str));
 
       const chain_id_type chain_id(chain_id_in);
-      const name handlerAcct = eosio::chain::name(hAcct);
+      const name handler_acct = eosio::chain::name(h_acct);
       const vector<name> accounts = get_accounts(account_str_vector);
       const vector<fc::crypto::private_key> private_key_vector = get_private_keys(private_keys_str_vector);
       fc::microseconds trx_expiration{trx_expr};
@@ -278,7 +278,7 @@ int main(int argc, char** argv) {
       block_id_type last_irr_block_id = fc::variant(lib_id_str).as<block_id_type>();
 
       std::cout << "Create All Initial Transfer Action/Reaction Pairs (acct 1 -> acct 2, acct 2 -> acct 1) between all provided accounts." << std::endl;
-      const auto action_pairs_vector = create_initial_transfer_actions(salt, period, handlerAcct, accounts, private_key_vector);
+      const auto action_pairs_vector = create_initial_transfer_actions(salt, period, handler_acct, accounts, private_key_vector);
 
       std::cout << "Stop Generation (form potential ongoing generation in preparation for starting new generation run)." << std::endl;
       stop_generation();
