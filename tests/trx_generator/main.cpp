@@ -39,7 +39,7 @@ struct action_pair_w_keys {
 };
 
 struct signed_transaction_w_signer {
-   signed_transaction_w_signer(signed_transaction trx, fc::crypto::private_key key) : _trx(trx), _signer(key) {}
+   signed_transaction_w_signer(signed_transaction trx, fc::crypto::private_key key) : _trx(move(trx)), _signer(key) {}
 
    signed_transaction _trx;
    fc::crypto::private_key _signer;
@@ -124,11 +124,11 @@ void update_resign_transaction(signed_transaction& trx, fc::crypto::private_key 
    }
 }
 
-void push_transactions(p2p_trx_provider& provider, const vector<signed_transaction_w_signer>& trxs, uint64_t& nonce_prefix, uint64_t& nonce, const fc::microseconds& trx_expiration, const chain_id_type& chain_id, const block_id_type& last_irr_block_id) {
-   std::vector<signed_transaction> single_send = std::vector<signed_transaction>();
+void push_transactions(p2p_trx_provider& provider, vector<signed_transaction_w_signer>& trxs, uint64_t& nonce_prefix, uint64_t& nonce, const fc::microseconds& trx_expiration, const chain_id_type& chain_id, const block_id_type& last_irr_block_id) {
+   std::vector<signed_transaction> single_send;
    single_send.reserve(1);
 
-   for(signed_transaction_w_signer trx: trxs) {
+   for(signed_transaction_w_signer& trx: trxs) {
       update_resign_transaction(trx._trx, trx._signer, ++nonce_prefix, nonce, trx_expiration, chain_id, last_irr_block_id);
       single_send.emplace_back(trx._trx);
       provider.send(single_send);
@@ -157,7 +157,7 @@ vector<name> get_accounts(const vector<string>& account_str_vector) {
 
 vector<fc::crypto::private_key> get_private_keys(const vector<string>& priv_key_str_vector) {
    vector<fc::crypto::private_key> key_list;
-   for(string private_key: priv_key_str_vector) {
+   for(const string& private_key: priv_key_str_vector) {
       ilog("get_private_keys about to try to create private_key for ${key} : gen key ${newKey}", ("key", private_key)("newKey", fc::crypto::private_key(private_key)));
       key_list.push_back(fc::crypto::private_key(private_key));
    }
