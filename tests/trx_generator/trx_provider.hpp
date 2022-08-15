@@ -58,6 +58,7 @@ namespace eosio::testing {
 
       void setup();
       void send(const std::vector<chain::signed_transaction>& trxs);
+      void send(const chain::signed_transaction& trx);
       void teardown();
 
    private:

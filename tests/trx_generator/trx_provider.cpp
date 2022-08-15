@@ -62,10 +62,14 @@ namespace eosio::testing {
       _peer_connection.connect();
    }
 
+   void p2p_trx_provider::send(const chain::signed_transaction& trx) {
+      chain::packed_transaction pt(trx);
+      _peer_connection.send_transaction(pt);
+   }
+
    void p2p_trx_provider::send(const std::vector<chain::signed_transaction>& trxs) {
       for(const auto& t : trxs ){
-         chain::packed_transaction pt(t);
-         _peer_connection.send_transaction(pt);
+         send(t);
       }
    }
 
