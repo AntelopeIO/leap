@@ -7,42 +7,10 @@
 #include<fc/network/message_buffer.hpp>
 #include<eosio/chain/thread_utils.hpp>
 
-namespace eosio {
-   using namespace eosio::chain;
-
-   struct chain_size_message {
-   };
-
-   struct handshake_message {
-   };
-
-   struct go_away_message {
-   };
-
-   struct time_message {
-   };
-
-   struct notice_message {
-   };
-
-   struct request_message {
-   };
-
-   struct sync_request_message {
-   };
-
-   using net_message = std::variant<handshake_message,
-         chain_size_message,
-         go_away_message,
-         time_message,
-         notice_message,
-         request_message,
-         sync_request_message,
-         signed_block,         // which = 7
-         packed_transaction>;  // which = 8
-} // namespace eosio
-
 namespace eosio::testing {
+
+   using send_buffer_type = std::shared_ptr<std::vector<char>>;
+
 
    struct simple_trx_generator {
       void setup() {}
@@ -74,8 +42,10 @@ namespace eosio::testing {
 
    struct p2p_connection {
       std::string _peer_endpoint;
+      boost::asio::io_service p2p_service;
+      boost::asio::ip::tcp::socket p2p_socket;
 
-      p2p_connection(std::string peer_endpoint) : _peer_endpoint(peer_endpoint) {}
+      p2p_connection(std::string peer_endpoint) : _peer_endpoint(peer_endpoint), p2p_service(), p2p_socket(p2p_service) {}
 
       void connect();
       void disconnect();

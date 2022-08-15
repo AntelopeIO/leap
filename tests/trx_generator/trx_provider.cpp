@@ -20,17 +20,38 @@ using std::vector;
 using namespace eosio;
 
 namespace eosio::testing {
+   using namespace boost::asio;
+   using ip::tcp;
 
    void p2p_connection::connect() {
-
+      p2p_socket.connect( tcp::endpoint( boost::asio::ip::address::from_string(_peer_endpoint), 8090));
+      boost::system::error_code error;
    }
 
    void p2p_connection::disconnect() {
+      p2p_socket.close();
+   }
 
+   constexpr auto     message_header_size = sizeof(uint32_t);
+
+   static send_buffer_type create_send_buffer( const chain::packed_transaction& m ) {
+      const uint32_t payload_size = fc::raw::pack_size( m );
+
+      const char* const header = reinterpret_cast<const char* const>(&payload_size); // avoid variable size encoding of uint32_t
+      const size_t buffer_size = message_header_size + payload_size;
+
+      auto send_buffer = std::make_shared<vector<char>>(buffer_size);
+      fc::datastream<char*> ds( send_buffer->data(), buffer_size);
+      ds.write( header, message_header_size );
+      fc::raw::pack( ds, fc::unsigned_int(8));
+      fc::raw::pack( ds, m );
+
+      return send_buffer;
    }
 
    void p2p_connection::send_transaction(const chain::packed_transaction& trx) {
-
+      send_buffer_type msg = create_send_buffer(trx);
+      p2p_socket.send(boost::asio::buffer(*msg));
    }
 
    p2p_trx_provider::p2p_trx_provider(std::string peer_endpoint) : _peer_connection(peer_endpoint) {
@@ -43,10 +64,8 @@ namespace eosio::testing {
 
    void p2p_trx_provider::send(const std::vector<chain::signed_transaction>& trxs) {
       for(const auto& t : trxs ){
-         packed_transaction pt(t);
-         net_message msg{std::move(pt)};
-
-         _peer_connection.send_transaction()
+         chain::packed_transaction pt(t);
+         _peer_connection.send_transaction(pt);
       }
    }
 
