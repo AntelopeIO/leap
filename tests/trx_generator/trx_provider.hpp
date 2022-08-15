@@ -8,53 +8,24 @@
 #include<eosio/chain/thread_utils.hpp>
 
 namespace eosio::testing {
-
    using send_buffer_type = std::shared_ptr<std::vector<char>>;
-
-
-   struct simple_trx_generator {
-      void setup() {}
-      void teardown() {}
-
-      void generate(std::vector<chain::signed_transaction>& trxs, size_t requested) {
-
-      }
-   };
-
-   template<typename G, typename I> struct simple_tps_tester {
-      G trx_generator;
-      I trx_provider;
-      size_t num_trxs = 1;
-
-      std::vector<chain::signed_transaction> trxs;
-
-      void run() {
-         trx_generator.setup();
-         trx_provider.setup();
-
-         trx_generator.generate(trxs, num_trxs);
-         trx_provider.send(trxs);
-
-         trx_provider.teardown();
-         trx_generator.teardown();
-      }
-   };
 
    struct p2p_connection {
       std::string _peer_endpoint;
-      boost::asio::io_service p2p_service;
-      boost::asio::ip::tcp::socket p2p_socket;
+      boost::asio::io_service _p2p_service;
+      boost::asio::ip::tcp::socket _p2p_socket;
+      unsigned short _peer_port;
 
-      p2p_connection(std::string peer_endpoint) : _peer_endpoint(peer_endpoint), p2p_service(), p2p_socket(p2p_service) {}
+      p2p_connection(const std::string& peer_endpoint, unsigned short peer_port) :
+            _peer_endpoint(peer_endpoint), _p2p_service(), _p2p_socket(_p2p_service), _peer_port(peer_port) {}
 
       void connect();
       void disconnect();
       void send_transaction(const chain::packed_transaction& trx);
    };
 
-
    struct p2p_trx_provider {
-      p2p_trx_provider(std::string peer_endpoint="http://localhost:8080");
+      p2p_trx_provider(const std::string& peer_endpoint="127.0.0.1", unsigned short port=9876);
 
       void setup();
       void send(const std::vector<chain::signed_transaction>& trxs);
@@ -63,26 +34,6 @@ namespace eosio::testing {
 
    private:
       p2p_connection _peer_connection;
-
    };
 
-   template <typename T>
-   struct timeboxed_trx_provider {
-      T trx_provider;
-
-      void setup() {
-         trx_provider.setup();
-      }
-
-      void teardown() {
-         trx_provider.teardown();
-      }
-
-      void send(const std::vector<chain::signed_transaction>& trxs) {
-         // set timer
-         trx_provider.send(trxs);
-         // handle timeout or success
-      }
-
-   };
 }
