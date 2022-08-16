@@ -2,7 +2,7 @@
 import os
 import sys
 import re
-
+import json
 harnessPath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(harnessPath)
 
@@ -19,6 +19,28 @@ errorExit = Utils.errorExit
 cmdError = Utils.cmdError
 relaunchTimeout = 30
 
+def waitForEmptyBlocks(node1):
+    blankBlocks = 0
+    while blankBlocks < 5:
+        headBlock = node1.getHeadBlockNum()
+        block = node1.processCurlCmd("chain", "get_block_info", f'{{"block_num":{headBlock}}}', silentErrors=False, exitOnError=True)
+        node1.waitForHeadToAdvance()
+        if block['transaction_mroot'] == "0000000000000000000000000000000000000000000000000000000000000000":
+            print("incrementing\n")
+            blankBlocks += 1
+        else:
+            blankBlocks = 0
+
+def checkTotalTrx():
+    total = 0
+    f = open("var/lib/node_00/stderr.txt")
+    stringResult = re.findall(r'trxs:\s+\d+', f.read())
+    for value in stringResult:
+        intResult = re.findall(r'\d+', value)
+        total += int(intResult[0])
+    f.close()
+    return total
+
 args=TestHelper.parse_args({"-p","-n","-d","-s","--nodes-file"
                             ,"--dump-error-details","-v","--leave-running"
                             ,"--clean-run","--keep-logs"})
@@ -26,14 +48,14 @@ args=TestHelper.parse_args({"-p","-n","-d","-s","--nodes-file"
 pnodes=args.p
 topo=args.s
 delay=args.d
-total_nodes = pnodes if args.n < pnodes else args.n
+total_nodes = max(2, pnodes if args.n < pnodes else args.n)
 Utils.Debug = args.v
 killAll=args.clean_run
 dumpErrorDetails=args.dump_error_details
 dontKill=args.leave_running
 killEosInstances = not dontKill
 killWallet=not dontKill
-keepLogs=True
+keepLogs=args.keep_logs
 
 # Setup cluster and its wallet manager
 walletMgr=WalletMgr(True)
@@ -42,17 +64,6 @@ cluster.setWalletMgr(walletMgr)
 
 testSuccessful = False
 
-log_path = "var/lib/node_00/"
-log_name = r"stderr\..*\.txt"
-transaction_regex = r'trxs:\s+\d+'
-int_regex = r'\d+'
-
-for filename in os.listdir(log_path):
-    if re.match(log_name, filename):
-        # with open(os.path.join(log_path, filename), 'r') as f:
-        print("\n\n\n\ntrying to remove: ")
-        print(log_path + filename)
-        os.remove(log_path + filename)
 try:
     # Kill any existing instances and launch cluster
     TestHelper.printSystemInfo("BEGIN")
@@ -76,19 +87,46 @@ try:
     account1PrivKey = cluster.accounts[0].activePrivateKey
     account2PrivKey = cluster.accounts[1].activePrivateKey
 
-    node0 = cluster.getNode()
+    node0 = cluster.getNode(0)
+    node1 = cluster.getNode(1)
     info = node0.getInfo()
     chainId = info['chain_id']
     lib_id = info['last_irreversible_block_id']
 
-    transactions_to_send = 73
+    testGenerationDurationSec = 60
+    targetTps = 1
+    transactionsSent = testGenerationDurationSec * targetTps
 
-    # if Utils.Debug: Print(f'Running trx_generator: ./tests/trx_generator/trx_generator  --chain-id {chainId} --last-irreversible-block-id {lib_id} --handler-account {cluster.eosioAccount.name} --accounts {account1Name},{account2Name} --priv-keys {account1PrivKey},{account2PrivKey}')
-    node0.waitForLibToAdvance(30)
-    # Utils.runCmdReturnStr(f'./tests/trx_generator/trx_generator  --chain-id {chainId} --last-irreversible-block-id {lib_id} --handler-account {cluster.eosioAccount.name} --accounts {account1Name},{account2Name} --priv-keys {account1PrivKey},{account2PrivKey}')
-    node0.waitForLibToAdvance(30)
+    waitForEmptyBlocks(node1)
+    setupTotal = checkTotalTrx()
+
+    if Utils.Debug: Print(
+                            f'Running trx_generator: ./tests/trx_generator/trx_generator  '
+                            f'--chain-id {chainId} '
+                            f'--last-irreversible-block-id {lib_id} '
+                            f'--handler-account {cluster.eosioAccount.name} '
+                            f'--accounts {account1Name},{account2Name} '
+                            f'--priv-keys {account1PrivKey},{account2PrivKey} '
+                            f'--trx-gen-duration {testGenerationDurationSec} '
+                            f'--target-tps {targetTps}'
+                         )
+    Utils.runCmdReturnStr(
+                            f'./tests/trx_generator/trx_generator '
+                            f'--chain-id {chainId} '
+                            f'--last-irreversible-block-id {lib_id} '
+                            f'--handler-account {cluster.eosioAccount.name} '
+                            f'--accounts {account1Name},{account2Name} '
+                            f'--priv-keys {account1PrivKey},{account2PrivKey} '
+                            f'--trx-gen-duration {testGenerationDurationSec} '
+                            f'--target-tps {targetTps}'
+                         )
+
+    waitForEmptyBlocks(node1)
+    total = checkTotalTrx()
+    assert transactionsSent == total - setupTotal , "Error: Transactions received: %d did not match expected total: %d" % (total - setupTotal, transactionsSent)
 
     testSuccessful = True
+
 finally:
     TestHelper.shutdown(
         cluster,
@@ -100,19 +138,5 @@ finally:
         killAll,
         dumpErrorDetails
     )
-
-for filename in os.listdir(log_name):
-    if re.match(log_path, filename):
-        with open(os.path.join(log_name, filename), 'r') as f:
-            total = 0
-            string_result = re.findall(transaction_regex, f.read())
-            for value in string_result:
-                int_result = re.findall(int_regex, value)
-                total += int(int_result[0])
-            f.close()
-            if transactions_to_send != total:
-                testSuccessful = False
-                print("Error: Transactions received: %d did not match expected total: %d" % (total, transactions_to_send))
-
 exitCode = 0 if testSuccessful else 1
 exit(exitCode)
