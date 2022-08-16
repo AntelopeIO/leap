@@ -18,17 +18,18 @@ Print = Utils.Print
 errorExit = Utils.errorExit
 cmdError = Utils.cmdError
 relaunchTimeout = 30
+emptyBlockGoal = 5
 
 def waitForEmptyBlocks(node1):
-    blankBlocks = 0
-    while blankBlocks < 5:
+    emptyBlocks = 0
+    while emptyBlocks < emptyBlockGoal:
         headBlock = node1.getHeadBlockNum()
         block = node1.processCurlCmd("chain", "get_block_info", f'{{"block_num":{headBlock}}}', silentErrors=False, exitOnError=True)
         node1.waitForHeadToAdvance()
         if block['transaction_mroot'] == "0000000000000000000000000000000000000000000000000000000000000000":
-            blankBlocks += 1
+            emptyBlocks += 1
         else:
-            blankBlocks = 0
+            emptyBlocks = 0
 
 def checkTotalTrx():
     total = 0
