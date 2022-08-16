@@ -173,6 +173,8 @@ int main(int argc, char** argv) {
    string accts;
    string p_keys;
    uint32_t trx_expr;
+   uint32_t gen_duration;
+   uint32_t target_tps;
    string lib_id_str;
 
    vector<string> account_str_vector;
@@ -185,6 +187,8 @@ int main(int argc, char** argv) {
       ("accounts", bpo::value<string>(&accts), "comma-separated list of accounts that will be used for transfers. Minimum required accounts: 2.")
       ("priv-keys", bpo::value<string>(&p_keys), "comma-separated list of private keys in same order of accounts list that will be used to sign transactions. Minimum required: 2.")
       ("trx-expiration", bpo::value<uint32_t>(&trx_expr)->default_value(3600), "transaction expiration time in microseconds (us). Defaults to 3,600. Maximum allowed: 3,600")
+      ("trx-gen-duration", bpo::value<uint32_t>(&gen_duration)->default_value(60), "Transaction generation duration (seconds). Defaults to 60 seconds.")
+      ("target-tps", bpo::value<uint32_t>(&target_tps)->default_value(1), "Target transactions per second to generate/send. Defaults to 1 transaction per second.")
       ("last-irreversible-block-id", bpo::value<string>(&lib_id_str), "Current last-irreversible-block-id (LIB ID) to use for transactions.")
       ("help,h", "print this list")
       ;
@@ -263,6 +267,8 @@ int main(int argc, char** argv) {
       ilog("Account private keys ${priv_keys}", ("priv_keys", p_keys));
       ilog("Transaction expiration microsections ${expr}", ("expr", trx_expr));
       ilog("Reference LIB block id ${LIB}", ("LIB", lib_id_str));
+      ilog("Transaction Generation Duration (sec) ${dur}", ("dur", gen_duration));
+      ilog("Target generation Transaction Per Second (TPS) ${tps}", ("tps", target_tps));
 
       const chain_id_type chain_id(chain_id_in);
       const name handler_acct = eosio::chain::name(h_acct);

@@ -70,8 +70,29 @@ try:
     chainId = info['chain_id']
     lib_id = info['last_irreversible_block_id']
 
-    if Utils.Debug: Print(f'Running trx_generator: ./tests/trx_generator/trx_generator  --chain-id {chainId} --last-irreversible-block-id {lib_id} --handler-account {cluster.eosioAccount.name} --accounts {account1Name},{account2Name} --priv-keys {account1PrivKey},{account2PrivKey}')
-    Utils.runCmdReturnStr(f'./tests/trx_generator/trx_generator  --chain-id {chainId} --last-irreversible-block-id {lib_id} --handler-account {cluster.eosioAccount.name} --accounts {account1Name},{account2Name} --priv-keys {account1PrivKey},{account2PrivKey}')
+    testGenerationDurationSec = 60
+    targetTps = 1
+
+    if Utils.Debug: Print(
+                            f'Running trx_generator: ./tests/trx_generator/trx_generator  '
+                            f'--chain-id {chainId} '
+                            f'--last-irreversible-block-id {lib_id} '
+                            f'--handler-account {cluster.eosioAccount.name} '
+                            f'--accounts {account1Name},{account2Name} '
+                            f'--priv-keys {account1PrivKey},{account2PrivKey} '
+                            f'--trx-gen-duration {testGenerationDurationSec} '
+                            f'--target-tps {targetTps}'
+                         )
+    Utils.runCmdReturnStr(
+                            f'./tests/trx_generator/trx_generator '
+                            f'--chain-id {chainId} '
+                            f'--last-irreversible-block-id {lib_id} '
+                            f'--handler-account {cluster.eosioAccount.name} '
+                            f'--accounts {account1Name},{account2Name} '
+                            f'--priv-keys {account1PrivKey},{account2PrivKey} '
+                            f'--trx-gen-duration {testGenerationDurationSec} '
+                            f'--target-tps {targetTps}'
+                         )
 
     testSuccessful = True
 finally:
