@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
+
 import os
 import sys
 import re
-import json
+
 harnessPath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(harnessPath)
 
