@@ -64,7 +64,6 @@ cluster=Cluster(walletd=True)
 cluster.setWalletMgr(walletMgr)
 
 testSuccessful = False
-
 try:
     # Kill any existing instances and launch cluster
     TestHelper.printSystemInfo("BEGIN")
@@ -82,6 +81,7 @@ try:
     wallet = walletMgr.create('default')
     cluster.populateWallet(2, wallet)
     cluster.createAccounts(cluster.eosioAccount, stakedDeposit=0)
+
     account1Name = cluster.accounts[0].name
     account2Name = cluster.accounts[1].name
 
@@ -127,7 +127,6 @@ try:
     assert transactionsSent == total - setupTotal , "Error: Transactions received: %d did not match expected total: %d" % (total - setupTotal, transactionsSent)
 
     testSuccessful = True
-
 finally:
     TestHelper.shutdown(
         cluster,
@@ -139,5 +138,6 @@ finally:
         killAll,
         dumpErrorDetails
     )
+
 exitCode = 0 if testSuccessful else 1
 exit(exitCode)
