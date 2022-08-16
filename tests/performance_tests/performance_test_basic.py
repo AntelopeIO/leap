@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-
 import os
 import sys
+import re
 
 harnessPath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(harnessPath)
@@ -33,7 +33,7 @@ dumpErrorDetails=args.dump_error_details
 dontKill=args.leave_running
 killEosInstances = not dontKill
 killWallet=not dontKill
-keepLogs=args.keep_logs
+keepLogs=True
 
 # Setup cluster and its wallet manager
 walletMgr=WalletMgr(True)
@@ -41,6 +41,18 @@ cluster=Cluster(walletd=True)
 cluster.setWalletMgr(walletMgr)
 
 testSuccessful = False
+
+log_path = "var/lib/node_00/"
+log_name = r"stderr\..*\.txt"
+transaction_regex = r'trxs:\s+\d+'
+int_regex = r'\d+'
+
+for filename in os.listdir(log_path):
+    if re.match(log_name, filename):
+        # with open(os.path.join(log_path, filename), 'r') as f:
+        print("\n\n\n\ntrying to remove: ")
+        print(log_path + filename)
+        os.remove(log_path + filename)
 try:
     # Kill any existing instances and launch cluster
     TestHelper.printSystemInfo("BEGIN")
@@ -58,7 +70,6 @@ try:
     wallet = walletMgr.create('default')
     cluster.populateWallet(2, wallet)
     cluster.createAccounts(cluster.eosioAccount, stakedDeposit=0)
-    
     account1Name = cluster.accounts[0].name
     account2Name = cluster.accounts[1].name
 
@@ -70,8 +81,12 @@ try:
     chainId = info['chain_id']
     lib_id = info['last_irreversible_block_id']
 
-    if Utils.Debug: Print(f'Running trx_generator: ./tests/trx_generator/trx_generator  --chain-id {chainId} --last-irreversible-block-id {lib_id} --handler-account {cluster.eosioAccount.name} --accounts {account1Name},{account2Name} --priv-keys {account1PrivKey},{account2PrivKey}')
-    Utils.runCmdReturnStr(f'./tests/trx_generator/trx_generator  --chain-id {chainId} --last-irreversible-block-id {lib_id} --handler-account {cluster.eosioAccount.name} --accounts {account1Name},{account2Name} --priv-keys {account1PrivKey},{account2PrivKey}')
+    transactions_to_send = 73
+
+    # if Utils.Debug: Print(f'Running trx_generator: ./tests/trx_generator/trx_generator  --chain-id {chainId} --last-irreversible-block-id {lib_id} --handler-account {cluster.eosioAccount.name} --accounts {account1Name},{account2Name} --priv-keys {account1PrivKey},{account2PrivKey}')
+    node0.waitForLibToAdvance(30)
+    # Utils.runCmdReturnStr(f'./tests/trx_generator/trx_generator  --chain-id {chainId} --last-irreversible-block-id {lib_id} --handler-account {cluster.eosioAccount.name} --accounts {account1Name},{account2Name} --priv-keys {account1PrivKey},{account2PrivKey}')
+    node0.waitForLibToAdvance(30)
 
     testSuccessful = True
 finally:
@@ -85,6 +100,19 @@ finally:
         killAll,
         dumpErrorDetails
     )
+
+for filename in os.listdir(log_name):
+    if re.match(log_path, filename):
+        with open(os.path.join(log_name, filename), 'r') as f:
+            total = 0
+            string_result = re.findall(transaction_regex, f.read())
+            for value in string_result:
+                int_result = re.findall(int_regex, value)
+                total += int(int_result[0])
+            f.close()
+            if transactions_to_send != total:
+                testSuccessful = False
+                print("Error: Transactions received: %d did not match expected total: %d" % (total, transactions_to_send))
 
 exitCode = 0 if testSuccessful else 1
 exit(exitCode)
