@@ -26,7 +26,6 @@ def waitForEmptyBlocks(node1):
         block = node1.processCurlCmd("chain", "get_block_info", f'{{"block_num":{headBlock}}}', silentErrors=False, exitOnError=True)
         node1.waitForHeadToAdvance()
         if block['transaction_mroot'] == "0000000000000000000000000000000000000000000000000000000000000000":
-            print("incrementing\n")
             blankBlocks += 1
         else:
             blankBlocks = 0
