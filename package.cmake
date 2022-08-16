@@ -33,8 +33,8 @@ set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/AntelopeIO/leap")
 set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
 set(CPACK_DEBIAN_BASE_PACKAGE_SECTION "utils")
 
-set(CPACK_DEBIAN_PACKAGE_CONFLICTS "eosio" "mandel")
-set(CPACK_RPM_PACKAGE_CONFLICTS "eosio" "mandel")
+set(CPACK_DEBIAN_PACKAGE_CONFLICTS "eosio, mandel")
+set(CPACK_RPM_PACKAGE_CONFLICTS "eosio, mandel")
 
 #only consider "base" and "dev" components for per-component packages
 get_cmake_property(CPACK_COMPONENTS_ALL COMPONENTS)
