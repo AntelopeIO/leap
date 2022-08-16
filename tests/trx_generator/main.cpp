@@ -30,7 +30,7 @@ using namespace eosio;
 
 struct action_pair_w_keys {
    action_pair_w_keys(eosio::chain::action first_action, eosio::chain::action second_action, fc::crypto::private_key first_act_signer, fc::crypto::private_key second_act_signer)
-       : _first_act(first_action), _second_act(), _first_act_priv_key(first_act_signer), _second_act_priv_key(second_act_signer) {}
+       : _first_act(first_action), _second_act(second_action), _first_act_priv_key(first_act_signer), _second_act_priv_key(second_act_signer) {}
 
    eosio::chain::action _first_act;
    eosio::chain::action _second_act;
@@ -112,6 +112,7 @@ void update_resign_transaction(signed_transaction& trx, fc::crypto::private_key 
       trx.context_free_actions.emplace_back(action({}, config::null_account_name, name("nonce"), fc::raw::pack(std::to_string(nonce_prefix) + ":" + std::to_string(++nonce) + ":" + fc::time_point::now().time_since_epoch().count())));
       trx.set_reference_block(last_irr_block_id);
       trx.expiration = fc::time_point::now() + trx_expiration;
+      trx.signatures.clear();
       trx.sign(priv_key, chain_id);
    } catch(const std::bad_alloc&) {
       throw;
@@ -165,14 +166,14 @@ vector<fc::crypto::private_key> get_private_keys(const vector<string>& priv_key_
 }
 
 int main(int argc, char** argv) {
-   const uint32_t TRX_EXPIRATION_MAX = 3600;
+   const uint64_t TRX_EXPIRATION_MAX = 3600;
    variables_map vmap;
    options_description cli("Transaction Generator command line options.");
    string chain_id_in;
    string h_acct;
    string accts;
    string p_keys;
-   uint32_t trx_expr;
+   uint64_t trx_expr;
    uint32_t gen_duration;
    uint32_t target_tps;
    string lib_id_str;
@@ -186,7 +187,7 @@ int main(int argc, char** argv) {
       ("handler-account", bpo::value<string>(&h_acct), "Account name of the handler account for the transfer actions")
       ("accounts", bpo::value<string>(&accts), "comma-separated list of accounts that will be used for transfers. Minimum required accounts: 2.")
       ("priv-keys", bpo::value<string>(&p_keys), "comma-separated list of private keys in same order of accounts list that will be used to sign transactions. Minimum required: 2.")
-      ("trx-expiration", bpo::value<uint32_t>(&trx_expr)->default_value(3600), "transaction expiration time in microseconds (us). Defaults to 3,600. Maximum allowed: 3,600")
+      ("trx-expiration", bpo::value<uint64_t>(&trx_expr)->default_value(3600), "transaction expiration time in seconds. Defaults to 3,600. Maximum allowed: 3,600")
       ("trx-gen-duration", bpo::value<uint32_t>(&gen_duration)->default_value(60), "Transaction generation duration (seconds). Defaults to 60 seconds.")
       ("target-tps", bpo::value<uint32_t>(&target_tps)->default_value(1), "Target transactions per second to generate/send. Defaults to 1 transaction per second.")
       ("last-irreversible-block-id", bpo::value<string>(&lib_id_str), "Current last-irreversible-block-id (LIB ID) to use for transactions.")
@@ -274,7 +275,7 @@ int main(int argc, char** argv) {
       const name handler_acct = eosio::chain::name(h_acct);
       const vector<name> accounts = get_accounts(account_str_vector);
       const vector<fc::crypto::private_key> private_key_vector = get_private_keys(private_keys_str_vector);
-      fc::microseconds trx_expiration{trx_expr};
+      fc::microseconds trx_expiration{trx_expr * 1000000};
 
       const std::string salt = "";
       const uint64_t& period = 20;
