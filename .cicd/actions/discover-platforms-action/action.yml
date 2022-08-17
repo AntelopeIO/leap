@@ -1,0 +1,17 @@
+name: 'Discover Platforms'
+description: 'Discover Platform Tags & Unbuilt Platform Tags'
+inputs:
+  platform-file:
+    required: true
+  password:
+    required: true
+  package-name:
+    required: true
+outputs:
+  missing-platforms:
+    description: 'Array of platforms that need to be built'
+  platforms:
+    description: 'Populated map with platform:{dockerfile, tag}'
+runs:
+  using: 'node16'
+  main: 'dist/index.mjs'
