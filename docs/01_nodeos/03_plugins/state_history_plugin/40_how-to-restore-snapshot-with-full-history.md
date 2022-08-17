@@ -21,7 +21,7 @@ This procedure restores an existing snapshot with full history, so the node can 
 
 2. Make sure `data/state` does not exist
 
-3. Start `nodeos` with the `--snapshot` option, and the options listed in the [`state_history_plugin`](#index.md).
+3. Start `nodeos` with the `--snapshot` option, and the options listed in the [`state_history_plugin`](index.md).
 
 4. Do not stop `nodeos` until it has received at least 1 block from the network, or it won't be able to restart.
 

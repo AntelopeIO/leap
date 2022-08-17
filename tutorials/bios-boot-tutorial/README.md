@@ -25,7 +25,7 @@ The `bios-boot-tutorial.py` script simulates the bios boot sequence.
 
 ```bash
 $ cd ~
-$ git clone https://github.com/eosnetworkfoundation/mandel-contracts system-contracts-3.1
+$ git clone https://github.com/eosnetworkfoundation/eos-system-contracts system-contracts-3.1
 $ cd ./system-contracts-3.1/
 $ git checkout release/3.1
 $ mkdir build
@@ -47,5 +47,3 @@ $ git clone https://github.com/AntelopeIO/leap
 $ cd ./leap/tutorials/bios-boot-tutorial/
 $ python3 bios-boot-tutorial.py --cleos=cleos --nodeos=nodeos --keosd=keosd --contracts-dir="${CONTRACTS_DIRECTORY}" -w -a
 ```
-
-See [Developer Portal: Bios Boot Sequence](https://developers.eos.io/welcome/latest/tutorials/bios-boot-sequence) for additional information.
