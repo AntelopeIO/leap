@@ -32,7 +32,7 @@ void set_num_runs(uint32_t runs) {
    num_runs = runs;
 }
 
-void printt_header() {
+void print_header() {
    std::cout << std::left << std::setw(name_width) << "function"
       << std::setw(runs_width) << "runs"
       << std::setw(time_width + ns_width) << std::right << "average"

@@ -62,7 +62,7 @@ int main(int argc, char* argv[]) {
    }
 
    benchmark::set_num_runs(num_runs);
-   benchmark::printt_header();
+   benchmark::print_header();
 
    if (feature_name.empty()) {
       for (auto& [name, f]: features) {
