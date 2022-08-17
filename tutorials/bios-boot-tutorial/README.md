@@ -2,7 +2,7 @@
 
 The `bios-boot-tutorial.py` script simulates the bios boot sequence.
 
-``Prerequisites``:
+## Prerequisites
 
 1. Python 3.x
 2. CMake
@@ -15,24 +15,35 @@ The `bios-boot-tutorial.py` script simulates the bios boot sequence.
 9. jq
 10. psmisc
 
+## Steps
 
-``Steps``:
+1. Install Leap 3.1 binaries by following the steps provided in the [Leap README](https://github.com/AntelopeIO/leap/tree/release/3.1#software-installation).
 
-1. Install mandel binaries by following the steps outlined in below tutorial
-[Install mandel binaries](https://github.com/eosnetworkfoundation/mandel/releases).
+2. Install CDT 3.0 binaries by following the steps provided in the [CDT README](https://github.com/AntelopeIO/cdt/tree/release/3.0#binary-releases).
 
-2. Install mandel.cdt version 3.0 binaries by following the steps outlined in below tutorial
-[Install mandel.cdt binaries](https://github.com/eosnetworkfoundation/mandel.cdt/releases).
-
-3. [Compile mandel-contracts](https://github.com/eosnetworkfoundation/mandel-contracts#build-system-contracts)
-
-4. Launch the `bios-boot-tutorial.py` script.
-The command line to launch the script, make sure you replace `CONTRACTS_DIRECTORY` with the actual directory path.
+3. Compile EOS System Contracts 3.1:
 
 ```bash
 $ cd ~
-$ git clone https://github.com/eosnetworkfoundation/mandel
-$ cd ./mandel/tutorials/bios-boot-tutorial/
-$ python3 bios-boot-tutorial.py --cleos=cleos --nodeos=nodeos --keosd=keosd --contracts-dir="CONTRACTS_DIRECTORY" -w -a
+$ git clone https://github.com/eosnetworkfoundation/eos-system-contracts system-contracts-3.1
+$ cd ./system-contracts-3.1/
+$ git checkout release/3.1
+$ mkdir build
+$ cd ./build
+$ cmake -DCMAKE_BUILD_TYPE=Release ..
+$ make -j $(nproc)
+$ cd ./contracts/
+$ pwd
+```
 
+4. Make note of the path where the contracts were compiled
+The last command in the previous step printed the contracts directory. Make note of it; we will reference it from now on as the environment variable `CONTRACTS_DIRECTORY`.
+
+5. Launch the `bios-boot-tutorial.py` script:
+
+```bash
+$ cd ~
+$ git clone https://github.com/AntelopeIO/leap
+$ cd ./leap/tutorials/bios-boot-tutorial/
+$ python3 bios-boot-tutorial.py --cleos=cleos --nodeos=nodeos --keosd=keosd --contracts-dir="${CONTRACTS_DIRECTORY}" -w -a
 ```

@@ -48,7 +48,7 @@ namespace eosio::chain {
    void deep_mind_handler::on_startup(chainbase::database& db, uint32_t head_block_num)
    {
       // FIXME: We should probably feed that from CMake directly somehow ...
-      fc_dlog(_logger, "DEEP_MIND_VERSION mandel 13 0");
+      fc_dlog(_logger, "DEEP_MIND_VERSION leap 13 0");
 
       fc_dlog(_logger, "ABIDUMP START ${block_num} ${global_sequence_num}",
          ("block_num", head_block_num)
