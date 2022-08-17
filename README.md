@@ -1,6 +1,6 @@
 # Leap
 
-Home of the official [EOS Network Foundation](https://eosnetwork.com/) blockchain node software, a C++ implementation of the Antelope protocol.
+Leap is blockchain node software and supporting tools that implements the [Antelope](https://github.com/AntelopeIO) protocol.
 
 ## Repo Organization
 
