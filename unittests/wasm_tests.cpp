@@ -20,10 +20,10 @@
 #include <boost/algorithm/string/predicate.hpp>
 
 #include <fc/io/fstream.hpp>
+#include <fc/io/incbin.h>
 #include <fc/io/json.hpp>
 #include <fc/variant_object.hpp>
 
-#include "incbin.h"
 #include "test_wasts.hpp"
 #include "test_softfloat_wasts.hpp"
 

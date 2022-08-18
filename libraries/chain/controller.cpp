@@ -582,6 +582,9 @@ struct controller_impl {
          shutdown();
       }
 
+      if (conf.prune_config && conf.prune_config->prune_blocks == 0) {
+         blog.remove();
+      }
    }
 
    void startup(std::function<void()> shutdown, std::function<bool()> check_shutdown, const genesis_state& genesis) {
@@ -615,6 +618,10 @@ struct controller_impl {
          blog.reset( genesis, head->block );
       }
       init(check_shutdown);
+
+      if (conf.prune_config && conf.prune_config->prune_blocks == 0) {
+         blog.remove();
+      }
    }
 
    void startup(std::function<void()> shutdown, std::function<bool()> check_shutdown) {
@@ -645,6 +652,10 @@ struct controller_impl {
       head = fork_db.head();
 
       init(check_shutdown);
+
+      if (conf.prune_config && conf.prune_config->prune_blocks == 0) {
+         blog.remove();
+      }
    }
 
 
@@ -3505,11 +3516,11 @@ std::optional<chain_id_type> controller::extract_chain_id_from_db( const path& s
 
       if( db.revision() < 1 ) return {};
 
-      return db.get<global_property_object>().chain_id;
-   } catch( const bad_database_version_exception& ) {
-      throw;
-   } catch( ... ) {
-   }
+      auto * gpo = db.find<global_property_object>();
+      if (gpo==nullptr) return {};
+
+      return gpo->chain_id;
+   } catch (std::system_error &) {} //  do not propagate db_error_code::not_found" for absent db, so it will be created 
 
    return {};
 }

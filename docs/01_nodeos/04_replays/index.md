@@ -17,7 +17,7 @@ Snapshot files can be created from a running `nodeos` instance. The snapshot con
 * [How To Generate a Blocks Log](how-to-generate-a-blocks.log.md)
 * [How To Generate a Snapshot](how-to-generate-a-snapshot.md)
 * [How To Replay from a Blocks Log](how-to-replay-from-a-blocks.log.md)
-* [How to Replay from a Snapshot](how-to-replay-from-a-snapshot.md)
+* [How to Replay from a Snapshot](../04_replays/how-to-replay-from-a-snapshot.md)
 
 ## Replay Snapshot-specific Options
 
@@ -41,9 +41,9 @@ This tells `nodeos` to clear the local chain state and local the `blocks.log` fi
  - **--truncate-at-block**  
 Default argument (=0), only used if the given value is non-zero.
 Using this option when replaying the blockchain will force the replay to stop at the specified block number. This option will only work if replaying with the `--hard-replay-blockchain` option. The local `nodeos` process will contain the chain state for that block. This option may be useful for checking blockchain state at specific points in time. It is intended for testing/validation and is not intended to be used when creating a local `nodeos` instance which is synchronized with the network.  
- 
+
  - **--snapshot**  
-Use this option to specify which snapshot file to use to recreate the chain state from a snapshot file. This option will not replay the `blocks.log` file. The `nodeos` instance will not know the full transaction history of the blockchain. 
+Use this option to specify which snapshot file to use to recreate the chain state from a snapshot file. This option will not replay the `blocks.log` file. The `nodeos` instance will not know the full transaction history of the blockchain.
 
  - **--snapshots-dir**  
 You can use this to specify the location of the snapshot file directory  (absolute path or relative to application data dir.)

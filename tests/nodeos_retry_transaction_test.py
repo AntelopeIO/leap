@@ -88,11 +88,9 @@ try:
     }
 
     # topo=ring all nodes are connected in a ring but also to the bios node
-    traceNodeosArgs=' --plugin eosio::trace_api_plugin --trace-no-abis '
     if cluster.launch(pnodes=totalProducerNodes, totalNodes=totalNodes, totalProducers=totalProducers,
                       topo="ring",
                       specificExtraNodeosArgs=specificExtraNodeosArgs,
-                      extraNodeosArgs=traceNodeosArgs,
                       useBiosBootFile=False) is False:
         Utils.cmdError("launcher")
         Utils.errorExit("Failed to stand up eos cluster.")

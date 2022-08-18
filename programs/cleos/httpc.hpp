@@ -81,6 +81,7 @@ namespace eosio { namespace client { namespace http {
    const string chain_func_base = "/v1/chain";
    const string get_info_func = chain_func_base + "/get_info";
    const string get_transaction_status_func = chain_func_base + "/get_transaction_status";
+   const string get_consensus_parameters_func = chain_func_base + "/get_consensus_parameters";
    const string send_txn_func = chain_func_base + "/send_transaction";
    const string push_txn_func = chain_func_base + "/push_transaction";
    const string send2_txn_func = chain_func_base + "/send_transaction2";
@@ -134,6 +135,9 @@ namespace eosio { namespace client { namespace http {
    const string wallet_create_key = wallet_func_base + "/create_key";
    const string wallet_sign_trx = wallet_func_base + "/sign_transaction";
    const string keosd_stop = "/v1/" + string(client::config::key_store_executable_name) + "/stop";
+
+   const string producer_func_base = "/v1/producer";
+   const string producer_get_supported_protocol_features_func = producer_func_base + "/get_supported_protocol_features";
 
    FC_DECLARE_EXCEPTION( connection_exception, 1100000, "Connection Exception" );
  }}}

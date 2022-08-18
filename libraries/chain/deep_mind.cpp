@@ -48,7 +48,7 @@ namespace eosio::chain {
    void deep_mind_handler::on_startup(chainbase::database& db, uint32_t head_block_num)
    {
       // FIXME: We should probably feed that from CMake directly somehow ...
-      fc_dlog(_logger, "DEEP_MIND_VERSION mandel 13 0");
+      fc_dlog(_logger, "DEEP_MIND_VERSION leap 13 0");
 
       fc_dlog(_logger, "ABIDUMP START ${block_num} ${global_sequence_num}",
          ("block_num", head_block_num)
@@ -223,6 +223,23 @@ namespace eosio::chain {
          ("expiration", gto.expiration)
          ("trx_id", gto.trx_id)
          ("trx", fc::to_hex(gto.packed_trx.data(), gto.packed_trx.size()))
+      );
+   }
+   void deep_mind_handler::on_create_deferred(operation_qualifier qual, const generated_transaction_object& gto, const packed_transaction& packed_trx)
+   {
+      auto packed_signed_trx = fc::raw::pack(packed_trx.get_signed_transaction());
+
+      fc_dlog(_logger, "DTRX_OP ${qual}CREATE ${action_id} ${sender} ${sender_id} ${payer} ${published} ${delay} ${expiration} ${trx_id} ${trx}",
+         ("qual", prefix(qual))
+         ("action_id", _action_id)
+         ("sender", gto.sender)
+         ("sender_id", gto.sender_id)
+         ("payer", gto.payer)
+         ("published", gto.published)
+         ("delay", gto.delay_until)
+         ("expiration", gto.expiration)
+         ("trx_id", gto.trx_id)
+         ("trx", fc::to_hex(packed_signed_trx.data(), packed_signed_trx.size()))
       );
    }
    void deep_mind_handler::on_fail_deferred()

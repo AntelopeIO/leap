@@ -47,7 +47,6 @@ dontKill=args.leave_running
 prodCount=1
 killAll=args.clean_run
 walletPort=TestHelper.DEFAULT_WALLET_PORT
-totalNodes=pnodes+1
 
 walletMgr=WalletMgr(True, port=walletPort)
 testSuccessful=False
@@ -71,7 +70,6 @@ try:
     failure_duration = 40
     extraNodeosArgs=" --transaction-finality-status-max-storage-size-gb 1 " + \
                    f"--transaction-finality-status-success-duration-sec {successDuration} --transaction-finality-status-failure-duration-sec {failure_duration}"
-    extraNodeosArgs+=" --plugin eosio::trace_api_plugin --trace-no-abis"
     extraNodeosArgs+=" --http-max-response-time-ms 990000"
     if cluster.launch(prodCount=prodCount, onlyBios=False, pnodes=pnodes, totalNodes=totalNodes, totalProducers=pnodes*prodCount,
                       useBiosBootFile=False, topo="line", extraNodeosArgs=extraNodeosArgs) is False:

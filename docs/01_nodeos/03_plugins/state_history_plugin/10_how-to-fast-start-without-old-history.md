@@ -20,7 +20,7 @@ This procedure records the current chain state and future history, without previ
 
 2. Make sure `data/state` does not exist
 
-3. Start `nodeos` with the `--snapshot` option, and the options listed in the [`state_history_plugin`](#index.md).
+3. Start `nodeos` with the `--snapshot` option, and the options listed in the [`state_history_plugin`](index.md).
 
 4. Look for `Placing initial state in block n` in the log, where n is the start block number.
 

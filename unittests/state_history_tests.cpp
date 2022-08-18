@@ -31,8 +31,8 @@ public:
    using tester::tester;
    using deltas_vector = vector<eosio::state_history::table_delta>;
 
-   pair<bool, deltas_vector::iterator> find_table_delta(const std::string &name) {
-      v = eosio::state_history::create_deltas(control->db(), false);;
+   pair<bool, deltas_vector::iterator> find_table_delta(const std::string &name, bool full_snapshot = false) {
+      v = eosio::state_history::create_deltas(control->db(), full_snapshot);;
 
       auto find_by_name = [&name](const auto& x) {
          return x.name == name;
@@ -46,7 +46,7 @@ public:
    template <typename A, typename B>
    vector<A> deserialize_data(deltas_vector::iterator &it) {
       vector<A> result;
-      for(int i=0; i < it->rows.obj.size(); i++) {
+      for(size_t i=0; i < it->rows.obj.size(); i++) {
          eosio::input_stream stream{it->rows.obj[i].second.data(), it->rows.obj[i].second.size()};
          result.push_back(std::get<A>(eosio::from_bin<B>(stream)));
       }
@@ -120,7 +120,7 @@ BOOST_AUTO_TEST_CASE(test_deltas_account_permission) {
    auto &it_permission = result.second;
    BOOST_REQUIRE_EQUAL(it_permission->rows.obj.size(), 2);
    auto accounts_permissions = chain.deserialize_data<eosio::ship_protocol::permission_v0, eosio::ship_protocol::permission>(it_permission);
-   for(int i = 0; i < accounts_permissions.size(); i++)
+   for(size_t i = 0; i < accounts_permissions.size(); i++)
    {
       BOOST_REQUIRE_EQUAL(it_permission->rows.obj[i].first, true);
       BOOST_REQUIRE_EQUAL(accounts_permissions[i].owner.to_string(), "newacc");
@@ -285,7 +285,7 @@ BOOST_AUTO_TEST_CASE(test_deltas_protocol_feature_history) {
 
    auto digest_byte_array = protocol_feature.feature_digest.extract_as_byte_array();
    char digest_array[digest_byte_array.size()];
-   for(int i=0; i < digest_byte_array.size(); i++) digest_array[i] = digest_byte_array[i];
+   for(size_t i=0; i < digest_byte_array.size(); i++) digest_array[i] = digest_byte_array[i];
    eosio::chain::digest_type digest_in_delta(digest_array, digest_byte_array.size());
 
    BOOST_REQUIRE_EQUAL(digest_in_delta, *d);
@@ -451,5 +451,126 @@ BOOST_AUTO_TEST_CASE(test_deltas_resources_history) {
       it = std::find_if(v.begin(), v.end(), find_by_name);
       BOOST_REQUIRE(it==v.end());
    }
+
+   BOOST_AUTO_TEST_CASE(test_deltas_contract_several_rows){
+      table_deltas_tester chain(setup_policy::full);
+
+      chain.produce_block();
+      chain.create_account("tester"_n);
+
+      chain.set_code("tester"_n, contracts::get_table_test_wasm());
+      chain.set_abi("tester"_n, contracts::get_table_test_abi().data());
+
+      chain.produce_blocks(2);
+
+      auto trace = chain.push_action("tester"_n, "addhashobj"_n, "tester"_n, mutable_variant_object()("hashinput", "hello"));
+      BOOST_REQUIRE_EQUAL(transaction_receipt::executed, trace->receipt->status);
+
+      trace = chain.push_action("tester"_n, "addhashobj"_n, "tester"_n, mutable_variant_object()("hashinput", "world"));
+      BOOST_REQUIRE_EQUAL(transaction_receipt::executed, trace->receipt->status);
+
+      trace = chain.push_action("tester"_n, "addhashobj"_n, "tester"_n, mutable_variant_object()("hashinput", "!"));
+      BOOST_REQUIRE_EQUAL(transaction_receipt::executed, trace->receipt->status);
+
+      trace = chain.push_action("tester"_n, "addnumobj"_n, "tester"_n, mutable_variant_object()("input", 2));
+      BOOST_REQUIRE_EQUAL(transaction_receipt::executed, trace->receipt->status);
+
+      trace = chain.push_action("tester"_n, "addnumobj"_n, "tester"_n, mutable_variant_object()("input", 3));
+      BOOST_REQUIRE_EQUAL(transaction_receipt::executed, trace->receipt->status);
+
+      trace = chain.push_action("tester"_n, "addnumobj"_n, "tester"_n, mutable_variant_object()("input", 4));
+      BOOST_REQUIRE_EQUAL(transaction_receipt::executed, trace->receipt->status);
+
+      // Spot onto contract_row with full snapshot
+      auto result = chain.find_table_delta("contract_row", true);
+      BOOST_REQUIRE(result.first);
+      auto &it_contract_row = result.second;
+      BOOST_REQUIRE_EQUAL(it_contract_row->rows.obj.size(), 8);
+      auto contract_rows = chain.deserialize_data<eosio::ship_protocol::contract_row_v0, eosio::ship_protocol::contract_row>(it_contract_row);
+
+      std::multiset<std::string> expected_contract_row_table_names {"abihash", "abihash", "hashobjs", "hashobjs", "hashobjs", "numobjs", "numobjs", "numobjs"};
+
+      std::multiset<uint64_t> expected_contract_row_table_primary_keys {6138663577826885632U,14605619288908759040U, 0, 1 ,2, 0, 1, 2};
+      std::multiset<std::string> result_contract_row_table_names;
+      std::multiset<uint64_t> result_contract_row_table_primary_keys;
+      for(auto &contract_row : contract_rows) {
+         result_contract_row_table_names.insert(contract_row.table.to_string());
+         result_contract_row_table_primary_keys.insert(contract_row.primary_key);
+      }
+      BOOST_REQUIRE(expected_contract_row_table_names == result_contract_row_table_names);
+      BOOST_REQUIRE(expected_contract_row_table_primary_keys == result_contract_row_table_primary_keys);
+
+      chain.produce_block();
+
+      trace = chain.push_action("tester"_n, "erasenumobj"_n, "tester"_n, mutable_variant_object()("id", 1));
+      BOOST_REQUIRE_EQUAL(transaction_receipt::executed, trace->receipt->status);
+
+      trace = chain.push_action("tester"_n, "erasenumobj"_n, "tester"_n, mutable_variant_object()("id", 0));
+      BOOST_REQUIRE_EQUAL(transaction_receipt::executed, trace->receipt->status);
+
+      result = chain.find_table_delta("contract_row");
+      BOOST_REQUIRE(result.first);
+      auto &it_contract_row_after_delete = result.second;
+      BOOST_REQUIRE_EQUAL(it_contract_row->rows.obj.size(), 2);
+      contract_rows = chain.deserialize_data<eosio::ship_protocol::contract_row_v0, eosio::ship_protocol::contract_row>(it_contract_row);
+
+      for(size_t i=0; i < contract_rows.size(); i++) {
+         BOOST_REQUIRE_EQUAL(it_contract_row->rows.obj[i].first, 0);
+         BOOST_REQUIRE_EQUAL(contract_rows[i].table.to_string(), "numobjs");
+      }
+
+      result = chain.find_table_delta("contract_index_double");
+      BOOST_REQUIRE(result.first);
+      auto &it_contract_index_double = result.second;
+      BOOST_REQUIRE_EQUAL(it_contract_index_double->rows.obj.size(), 2);
+      auto contract_index_double_elems = chain.deserialize_data<eosio::ship_protocol::contract_index_double_v0, eosio::ship_protocol::contract_index_double>(it_contract_index_double);
+
+      for(size_t i=0; i < contract_index_double_elems.size(); i++) {
+         BOOST_REQUIRE_EQUAL(it_contract_index_double->rows.obj[i].first, 0);
+         BOOST_REQUIRE_EQUAL(contract_index_double_elems[i].table.to_string(), "numobjs.....2");
+      }
+
+   }
+
+   std::vector<shared_ptr<eosio::state_history::partial_transaction>> get_partial_txns(eosio::state_history::trace_converter& log) {
+      std::vector<shared_ptr<eosio::state_history::partial_transaction>> partial_txns;
+
+      for (auto ct : log.cached_traces) {
+         partial_txns.push_back(std::get<1>(ct).partial);
+      }
+
+      return partial_txns;
+   }
+
+   BOOST_AUTO_TEST_CASE(test_trace_log_with_transaction_extensions) {
+      tester c(setup_policy::full);
+
+      scoped_temp_path state_history_dir;
+      fc::create_directories(state_history_dir.path);
+      eosio::state_history::trace_converter log;
+
+      c.control->applied_transaction.connect(
+            [&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> t) {
+               log.add_transaction(std::get<0>(t), std::get<1>(t));
+            });
+
+      c.create_accounts({"alice"_n, "test"_n});
+      c.set_code("test"_n, contracts::deferred_test_wasm());
+      c.set_abi("test"_n, contracts::deferred_test_abi().data());
+      c.produce_block();
+
+      c.push_action("test"_n, "defercall"_n, "alice"_n,
+                    fc::mutable_variant_object()("payer", "alice")("sender_id", 1)("contract", "test")("payload", 40));
+
+      auto block  = c.produce_block();
+      auto partial_txns = get_partial_txns(log);
+
+      auto contains_transaction_extensions = [](shared_ptr<eosio::state_history::partial_transaction> txn) {
+         return txn->transaction_extensions.size() > 0;
+      };
+
+      BOOST_CHECK(std::any_of(partial_txns.begin(), partial_txns.end(), contains_transaction_extensions));
+   }
+
 
 BOOST_AUTO_TEST_SUITE_END()
