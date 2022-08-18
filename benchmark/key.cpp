@@ -1,6 +1,8 @@
 #include <fc/crypto/public_key.hpp>
 #include <fc/crypto/private_key.hpp>
 #include <fc/crypto/signature.hpp>
+#include <fc/crypto/hex.hpp>
+#include <fc/crypto/k1_recover.hpp>
 #include <fc/utility.hpp>
 
 #include <benchmark.hpp>
@@ -11,21 +13,42 @@ using namespace std::literals;
 
 namespace benchmark {
 
-void k1_benchmarking() {
+void k1_sign_benchmarking() {
    auto payload = "Test Cases";
    auto digest = sha256::hash(payload, const_strlen(payload));
-   auto key = private_key::generate<ecc::private_key_shim>();
+   auto private_key_string = std::string("5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3");
+   auto key = private_key(private_key_string);
 
-   auto sign_f = [&]() {
+   auto sign_canonical_f = [&]() {
       key.sign(digest);
    };
-   benchmarking("k1_sign", sign_f);
+   benchmarking("k1_sign_canonical", sign_canonical_f);
 
-   auto sig = key.sign(digest);
+   auto sign_non_canonical_f = [&]() {
+      key.sign(digest, false);
+   };
+   benchmarking("k1_sign_non_canonical", sign_non_canonical_f);
+}
+
+void k1_recover_benchmarking() {
+   auto to_bytes = [](const std::string& source) {
+      bytes output(source.length()/2);
+      fc::from_hex(source, output.data(), output.size());
+      return output;
+   };
+
+   auto signature = to_bytes( "1b323dd47a1dd5592c296ee2ee12e0af38974087a475e99098a440284f19c1f7642fa0baa10a8a3ab800dfdbe987dee68a09b6fa3db45a5cc4f3a5835a1671d4dd");
+   auto digest    = to_bytes( "92390316873c5a9d520b28aba61e7a8f00025ac069acd9c4d2a71d775a55fa5f");
+
    auto recover_f = [&]() {
-      public_key(sig, digest);;
+      fc::k1_recover(signature, digest);
    };
    benchmarking("k1_recover", recover_f);
+}
+
+void k1_benchmarking() {
+   k1_sign_benchmarking();
+   k1_recover_benchmarking();
 }
 
 void r1_benchmarking() {

@@ -19,7 +19,7 @@ std::map<std::string, std::function<void()>> features {
 // values to control cout format
 constexpr auto name_width = 28;
 constexpr auto runs_width = 5;
-constexpr auto time_width = 13;
+constexpr auto time_width = 12;
 constexpr auto ns_width = 2;
 
 uint32_t num_runs = 1;
