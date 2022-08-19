@@ -1,9 +1,10 @@
+#define RAPIDJSON_NAMESPACE eosio_rapidjson // This is ABSOLUTELY necessary anywhere that is using eosio_rapidjson
+
 #include <eosio/chain/snapshot.hpp>
 #include <eosio/chain/exceptions.hpp>
 #include <fc/scoped_exit.hpp>
 #include <fc/io/json.hpp>
 
-#define RAPIDJSON_NAMESPACE eosio_rapidjson
 #include <rapidjson/document.h>
 #include <rapidjson/filereadstream.h>
 #include <rapidjson/stringbuffer.h>
