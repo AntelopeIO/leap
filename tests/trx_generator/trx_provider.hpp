@@ -6,6 +6,9 @@
 #include<boost/asio/ip/tcp.hpp>
 #include<fc/network/message_buffer.hpp>
 #include<eosio/chain/thread_utils.hpp>
+#include<chrono>
+
+using namespace std::chrono_literals;
 
 namespace eosio::testing {
    using send_buffer_type = std::shared_ptr<std::vector<char>>;
@@ -75,10 +78,10 @@ namespace eosio::testing {
          stats.total_trxs = _gen_duration_seconds * _target_tps;
          stats.trxs_left = stats.total_trxs;
          stats.start_time = fc::time_point::now();
-         stats.expected_end_time = stats.start_time + fc::microseconds{_gen_duration_seconds * 1000000};
+         stats.expected_end_time = stats.start_time + fc::microseconds{_gen_duration_seconds * std::chrono::microseconds(1s).count()};
 
          bool keep_running = true;
-         fc::microseconds trx_interval{_target_tps / 1000000};
+         fc::microseconds trx_interval{std::chrono::microseconds(1s).count() / _target_tps};
 
          fc::time_point last_run;
          fc::time_point next_run;
