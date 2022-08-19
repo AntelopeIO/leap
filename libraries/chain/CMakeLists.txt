@@ -72,6 +72,10 @@ set(CHAIN_WEBASSEMBLY_SOURCES
    webassembly/transaction.cpp
 )
 
+add_library(rapidjson INTERFACE)
+target_include_directories(rapidjson INTERFACE ../rapidjson/include)
+target_compile_definitions(rapidjson INTERFACE)
+
 ## SORT .cpp by most likely to change / break compile
 add_library( eosio_chain
              merkle.cpp
@@ -125,13 +129,12 @@ add_library( eosio_chain
              ${HEADERS}
              )
 
-target_link_libraries( eosio_chain PUBLIC fc chainbase Logging IR WAST WASM Runtime
+target_link_libraries( eosio_chain PUBLIC fc chainbase rapidjson Logging IR WAST WASM Runtime
                        softfloat builtins ${CHAIN_EOSVM_LIBRARIES} ${LLVM_LIBS} ${CHAIN_RT_LINKAGE}
                      )
 target_include_directories( eosio_chain
                             PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" "${CMAKE_CURRENT_BINARY_DIR}/include"
                                    "${CMAKE_CURRENT_SOURCE_DIR}/../wasm-jit/Include"
-                                   "${CMAKE_CURRENT_SOURCE_DIR}/../rapidjson/include"
                             )
 
 add_library(eosio_chain_wrap INTERFACE )
