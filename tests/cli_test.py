@@ -155,8 +155,8 @@ def processCleosCommand(cmd):
 
 def cleos_abi_file_test():
     """Test option --abi-file """
-    token_abi_path = os.path.abspath(os.getcwd() + '/../unittests/contracts/eosio.token/eosio.token.abi')
-    system_abi_path = os.path.abspath(os.getcwd() + '/../unittests/contracts/eosio.system/eosio.system.abi')
+    token_abi_path = os.path.abspath(os.getcwd() + '/unittests/contracts/eosio.token/eosio.token.abi')
+    system_abi_path = os.path.abspath(os.getcwd() + '/unittests/contracts/eosio.system/eosio.system.abi')
     token_abi_file_arg = 'eosio.token' + ':' + token_abi_path
     system_abi_file_arg = 'eosio' + ':' + system_abi_path
 
@@ -328,11 +328,11 @@ def abi_file_with_nodeos_test():
     # push action token transfer with option `--abi-file`
     global testSuccessful
     try:
-        contractDir = os.path.abspath(os.getcwd() + "/../unittests/contracts/eosio.token")
+        contractDir = os.path.abspath(os.getcwd() + "/unittests/contracts/eosio.token")
         # make a malicious abi file by switching 'from' and 'to' in eosio.token.abi
-        token_abi_path = os.path.abspath(os.getcwd() + '/../unittests/contracts/eosio.token/eosio.token.abi')
+        token_abi_path = os.path.abspath(os.getcwd() + '/unittests/contracts/eosio.token/eosio.token.abi')
         token_abi_file_arg = 'eosio.token' + ':' + token_abi_path
-        malicious_token_abi_path = os.path.abspath(os.getcwd() + '/../unittests/contracts/eosio.token/malicious.eosio.token.abi')
+        malicious_token_abi_path = os.path.abspath(os.getcwd() + '/unittests/contracts/eosio.token/malicious.eosio.token.abi')
         shutil.copyfile(token_abi_path, malicious_token_abi_path)
         replaces = [["from", "malicious"], ["to", "from"], ["malicious", "to"]]
         for replace in replaces:
