@@ -352,8 +352,7 @@ def abi_file_with_nodeos_test():
             time.sleep(2)
         nodeId = 'bios'
         data_dir = Utils.getNodeDataDir(nodeId)
-        assert not os.path.exists(data_dir), 'data_dir exists'
-        os.mkdir(data_dir)
+        os.makedirs(data_dir, exist_ok=True)
         walletMgr = WalletMgr(True)
         walletMgr.launch()
         node = Node('localhost', 8888, nodeId, cmd="./programs/nodeos/nodeos -e -p eosio --plugin eosio::trace_api_plugin --trace-no-abis --plugin eosio::producer_plugin --plugin eosio::producer_api_plugin --plugin eosio::chain_api_plugin --plugin eosio::chain_plugin --plugin eosio::http_plugin --access-control-allow-origin=* --http-validate-host=false --resource-monitor-not-shutdown-on-threshold-exceeded " + "--data-dir " + data_dir + " --config-dir " + data_dir, walletMgr=walletMgr)
