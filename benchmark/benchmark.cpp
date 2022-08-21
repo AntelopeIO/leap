@@ -14,7 +14,7 @@ std::map<std::string, std::function<void()>> features {
    { "modexp", modexp_benchmarking },
    { "key", key_benchmarking },
    { "hash", hash_benchmarking },
-   { "black2", blake2_benchmarking },
+   { "blake2", blake2_benchmarking },
 };
 
 // values to control cout format
