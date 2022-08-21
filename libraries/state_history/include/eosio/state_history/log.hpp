@@ -5,7 +5,6 @@
 #include <stdint.h>
 
 #include <boost/asio.hpp>
-#include <boost/thread.hpp>
 
 #include <eosio/chain/block_header.hpp>
 #include <eosio/chain/exceptions.hpp>
@@ -156,11 +155,8 @@ class state_history_log {
    ~state_history_log() {
       // complete execution before possible vacuuming
       if (thr.joinable()) {
-         try  { 
-            work_guard.reset();
-            thr.join(); 
-         }
-         catch (const boost::thread_interrupted&) {/* suppressed */}
+         work_guard.reset();
+         thr.join();
       }     
 
       //nothing to do if log is empty or we aren't pruning
