@@ -19,11 +19,6 @@ void k1_sign_benchmarking() {
    auto private_key_string = std::string("5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3");
    auto key = private_key(private_key_string);
 
-   auto sign_canonical_f = [&]() {
-      key.sign(digest);
-   };
-   benchmarking("k1_sign_canonical", sign_canonical_f);
-
    auto sign_non_canonical_f = [&]() {
       key.sign(digest, false);
    };
