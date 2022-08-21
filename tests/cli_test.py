@@ -173,7 +173,6 @@ def cleos_abi_file_test():
     invalid_abi_arg = 'eosio.token' + ' ' + token_abi_path
     cmd = ['./programs/cleos/cleos', '-u', 'http://127.0.0.1:12345', '--abi-file', invalid_abi_arg, 'convert', 'pack_action_data', account, action, unpacked_action_data]
     outs, errs = processCleosCommand(cmd)
-    print(errs)
     assert(b'please specify --abi-file in form of <contract name>:<abi file path>.' in errs)
 
     # pack token transfer data
