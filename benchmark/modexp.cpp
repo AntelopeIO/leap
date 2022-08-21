@@ -1,5 +1,4 @@
 #include <fc/crypto/modular_arithmetic.hpp>
-#include <fc/utility.hpp>
 
 #include <random>
 

@@ -14,6 +14,7 @@ std::map<std::string, std::function<void()>> features {
    { "modexp", modexp_benchmarking },
    { "key", key_benchmarking },
    { "hash", hash_benchmarking },
+   { "black2", blake2_benchmarking },
 };
 
 // values to control cout format
@@ -54,6 +55,12 @@ void print_results(std::string name, uint32_t runs, uint64_t total, uint64_t min
       << std::setw(time_width) << max << std::setw(ns_width) << " ns"
       << std::endl;
 }
+
+bytes to_bytes(const std::string& source) {
+   bytes output(source.length()/2);
+   fc::from_hex(source, output.data(), output.size());
+   return output;
+};
 
 void benchmarking(std::string name, const std::function<void()>& func) {
    uint64_t total {0}, min {std::numeric_limits<uint64_t>::max()}, max {0};
