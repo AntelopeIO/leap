@@ -423,9 +423,9 @@ namespace eosio {
    constexpr uint16_t proto_heartbeat_interval = 4;        // eosio 2.1: supports configurable heartbeat interval
    constexpr uint16_t proto_dup_goaway_resolution = 5;     // eosio 2.1: support peer address based duplicate connection resolution
    constexpr uint16_t proto_dup_node_id_goaway = 6;        // eosio 2.1: support peer node_id based duplicate connection resolution
-   constexpr uint16_t proto_mandel_initial = 7;            // mandel client, needed because none of the 2.1 versions are supported
+   constexpr uint16_t proto_leap_initial = 7;            // leap client, needed because none of the 2.1 versions are supported
 
-   constexpr uint16_t net_version_max = proto_mandel_initial;
+   constexpr uint16_t net_version_max = proto_leap_initial;
 
    /**
     * Index by start_block_num
@@ -1300,8 +1300,10 @@ namespace eosio {
             });
          } else {
             c->strand.post( [c, num]() {
-               peer_ilog( c, "enqueue sync, unable to fetch block ${num}", ("num", num) );
-               c->send_handshake();
+               peer_ilog( c, "enqueue sync, unable to fetch block ${num}, sending benign_other go away", ("num", num) );
+               c->peer_requested.reset(); // unable to provide requested blocks
+               c->no_retry = benign_other;
+               c->enqueue( go_away_message( benign_other ) );
             });
          }
       });
@@ -2900,7 +2902,7 @@ namespace eosio {
          });
 
          // we don't support the 2.1 packed_transaction & signed_block, so tell 2.1 clients we are 2.0
-         if( protocol_version >= proto_pruned_types && protocol_version < proto_mandel_initial ) {
+         if( protocol_version >= proto_pruned_types && protocol_version < proto_leap_initial ) {
             sent_handshake_count = 0;
             net_version = proto_explicit_sync;
             send_handshake();
