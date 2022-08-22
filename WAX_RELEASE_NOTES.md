@@ -75,3 +75,13 @@ Mandel repository: https://github.com/eosnetworkfoundation/mandel
 
 WAX-Mandel repository: https://github.com/cc32d9/wax-mandel
 
+## Release candidate `v3.1.0wax01-rc4`
+
+The EOSIO development is now called Antelope, and the nodeos 
+implememtation is called Leap. Apart from naming, the new RC contains a few 
+fixes.
+
+Leap repository: https://github.com/AntelopeIO/leap
+
+WAX-Leap repository: https://github.com/cc32d9/wax-leap
+
