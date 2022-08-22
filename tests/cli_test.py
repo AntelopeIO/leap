@@ -155,8 +155,8 @@ def processCleosCommand(cmd):
 
 def cleos_abi_file_test():
     """Test option --abi-file """
-    token_abi_path = os.path.abspath(os.getcwd() + '/../unittests/contracts/eosio.token/eosio.token.abi')
-    system_abi_path = os.path.abspath(os.getcwd() + '/../unittests/contracts/eosio.system/eosio.system.abi')
+    token_abi_path = os.path.abspath(os.getcwd() + '/unittests/contracts/eosio.token/eosio.token.abi')
+    system_abi_path = os.path.abspath(os.getcwd() + '/unittests/contracts/eosio.system/eosio.system.abi')
     token_abi_file_arg = 'eosio.token' + ':' + token_abi_path
     system_abi_file_arg = 'eosio' + ':' + system_abi_path
 
@@ -173,7 +173,6 @@ def cleos_abi_file_test():
     invalid_abi_arg = 'eosio.token' + ' ' + token_abi_path
     cmd = ['./programs/cleos/cleos', '-u', 'http://127.0.0.1:12345', '--abi-file', invalid_abi_arg, 'convert', 'pack_action_data', account, action, unpacked_action_data]
     outs, errs = processCleosCommand(cmd)
-    print(errs)
     assert(b'please specify --abi-file in form of <contract name>:<abi file path>.' in errs)
 
     # pack token transfer data
@@ -329,11 +328,11 @@ def abi_file_with_nodeos_test():
     # push action token transfer with option `--abi-file`
     global testSuccessful
     try:
-        contractDir = os.path.abspath(os.getcwd() + "/../unittests/contracts/eosio.token")
+        contractDir = os.path.abspath(os.getcwd() + "/unittests/contracts/eosio.token")
         # make a malicious abi file by switching 'from' and 'to' in eosio.token.abi
-        token_abi_path = os.path.abspath(os.getcwd() + '/../unittests/contracts/eosio.token/eosio.token.abi')
+        token_abi_path = os.path.abspath(os.getcwd() + '/unittests/contracts/eosio.token/eosio.token.abi')
         token_abi_file_arg = 'eosio.token' + ':' + token_abi_path
-        malicious_token_abi_path = os.path.abspath(os.getcwd() + '/../unittests/contracts/eosio.token/malicious.eosio.token.abi')
+        malicious_token_abi_path = os.path.abspath(os.getcwd() + '/unittests/contracts/eosio.token/malicious.eosio.token.abi')
         shutil.copyfile(token_abi_path, malicious_token_abi_path)
         replaces = [["from", "malicious"], ["to", "from"], ["malicious", "to"]]
         for replace in replaces:
@@ -353,8 +352,7 @@ def abi_file_with_nodeos_test():
             time.sleep(2)
         nodeId = 'bios'
         data_dir = Utils.getNodeDataDir(nodeId)
-        assert not os.path.exists(data_dir), 'data_dir exists'
-        os.mkdir(data_dir)
+        os.makedirs(data_dir, exist_ok=True)
         walletMgr = WalletMgr(True)
         walletMgr.launch()
         node = Node('localhost', 8888, nodeId, cmd="./programs/nodeos/nodeos -e -p eosio --plugin eosio::trace_api_plugin --trace-no-abis --plugin eosio::producer_plugin --plugin eosio::producer_api_plugin --plugin eosio::chain_api_plugin --plugin eosio::chain_plugin --plugin eosio::http_plugin --access-control-allow-origin=* --http-validate-host=false --resource-monitor-not-shutdown-on-threshold-exceeded " + "--data-dir " + data_dir + " --config-dir " + data_dir, walletMgr=walletMgr)
