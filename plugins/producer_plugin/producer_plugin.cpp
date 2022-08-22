@@ -844,7 +844,7 @@ void producer_plugin::set_program_options(
          ("max-block-net-usage-threshold-bytes", bpo::value<uint32_t>()->default_value( 1024 ),
           "Threshold of NET block production to consider block full; when within threshold of max-block-net-usage block can be produced immediately")
          ("max-scheduled-transaction-time-per-block-ms", boost::program_options::value<int32_t>()->default_value(100),
-          "Maximum wall-clock time, in milliseconds, spent retiring scheduled transactions in any block before returning to normal transaction processing.")
+          "Maximum wall-clock time, in milliseconds, spent retiring scheduled transactions (and incoming transactions according to incoming-defer-ratio) in any block before returning to normal transaction processing.")
          ("subjective-cpu-leeway-us", boost::program_options::value<int32_t>()->default_value( config::default_subjective_cpu_leeway_us ),
           "Time in microseconds allowed for a transaction that starts with insufficient CPU quota to complete and cover its CPU usage.")
          ("subjective-account-max-failures", boost::program_options::value<uint32_t>()->default_value(3),
