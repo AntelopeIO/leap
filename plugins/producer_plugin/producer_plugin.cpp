@@ -248,8 +248,8 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       bool remove_expired_trxs( const fc::time_point& deadline );
       bool remove_expired_blacklisted_trxs( const fc::time_point& deadline );
       bool process_unapplied_trxs( const fc::time_point& deadline );
-      void process_scheduled_and_incoming_trxs( const fc::time_point& deadline, size_t& pending_incoming_process_limit );
-      bool process_incoming_trxs( const fc::time_point& deadline, size_t& pending_incoming_process_limit );
+      void process_scheduled_and_incoming_trxs( const fc::time_point& deadline, unapplied_transaction_queue::iterator& itr, size_t& pending_incoming_process_limit );
+      bool process_incoming_trxs( const fc::time_point& deadline, unapplied_transaction_queue::iterator& itr, size_t& pending_incoming_process_limit );
 
       struct push_result {
          bool block_exhausted = false;
@@ -522,9 +522,8 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                future.wait();
                app().post( priority::low, [self, future{std::move(future)}, persist_until_expired, next{std::move( next )}, trx{std::move(trx)}, return_failure_traces]() mutable {
                   auto exception_handler = [self, &next, trx{std::move(trx)}](fc::exception_ptr ex) {
-                     next(ex);
-
                      self->log_trx_results( trx, nullptr, ex, 0, fc::time_point::now() );
+                     next(ex);
                   };
                   try {
                      auto result = future.get();
@@ -546,7 +545,6 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                                               bool return_failure_trace,
                                               next_function<transaction_trace_ptr> next) {
          bool exhausted = false;
-         auto start = fc::time_point::now();
          chain::controller& chain = chain_plug->chain();
 
          try {
@@ -559,7 +557,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                      std::make_shared<expired_tx_exception>(
                            FC_LOG_MESSAGE( error, "expired transaction ${id}, expiration ${e}, block time ${bt}",
                                            ("id", id)("e", expire)("bt", bt))));
-               log_trx_results( trx, nullptr, except_ptr, start );
+               log_trx_results( trx, nullptr, except_ptr, fc::time_point::now() );
                next( std::move(except_ptr) );
                return true;
             }
@@ -567,7 +565,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
             if( chain.is_known_unexpired_transaction( id )) {
                auto except_ptr = std::static_pointer_cast<fc::exception>( std::make_shared<tx_duplicate>(
                      FC_LOG_MESSAGE( error, "duplicate transaction ${id}", ("id", id))));
-               log_trx_results( trx, nullptr, except_ptr, start );
+               log_trx_results( trx, nullptr, except_ptr, fc::time_point::now() );
                next( std::move(except_ptr) );
                return true;
             }
@@ -1649,6 +1647,7 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
 
          // limit execution of pending incoming to once per block
          size_t pending_incoming_process_limit = _unapplied_transactions.incoming_size();
+         auto incoming_itr = _unapplied_transactions.incoming_begin();
          _account_fails.clear();
 
          if( !process_unapplied_trxs( preprocess_deadline ) )
@@ -1663,7 +1662,7 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
                );
             }
             // may exhaust scheduled_trx_deadline but not preprocess_deadline, exhausted preprocess_deadline checked below
-            process_scheduled_and_incoming_trxs( scheduled_trx_deadline, pending_incoming_process_limit );
+            process_scheduled_and_incoming_trxs( scheduled_trx_deadline, incoming_itr, pending_incoming_process_limit );
          }
 
          if( app().is_quiting() ) // db guard exception above in LOG_AND_DROP could have called app().quit()
@@ -1671,7 +1670,7 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
          if (preprocess_deadline <= fc::time_point::now() || block_is_exhausted()) {
             return start_block_result::exhausted;
          } else {
-            if( !process_incoming_trxs( preprocess_deadline, pending_incoming_process_limit ) )
+            if( !process_incoming_trxs( preprocess_deadline, incoming_itr, pending_incoming_process_limit ) )
                return start_block_result::exhausted;
             return start_block_result::succeeded;
          }
@@ -2013,7 +2012,7 @@ bool producer_plugin_impl::process_unapplied_trxs( const fc::time_point& deadlin
    return !exhausted;
 }
 
-void producer_plugin_impl::process_scheduled_and_incoming_trxs( const fc::time_point& deadline, size_t& pending_incoming_process_limit )
+void producer_plugin_impl::process_scheduled_and_incoming_trxs( const fc::time_point& deadline, unapplied_transaction_queue::iterator& itr, size_t& pending_incoming_process_limit )
 {
    // scheduled transactions
    int num_applied = 0;
@@ -2025,7 +2024,6 @@ void producer_plugin_impl::process_scheduled_and_incoming_trxs( const fc::time_p
    auto& blacklist_by_id = _blacklisted_transactions.get<by_id>();
    chain::controller& chain = chain_plug->chain();
    time_point pending_block_time = chain.pending_block_time();
-   auto itr = _unapplied_transactions.incoming_begin();
    auto end = _unapplied_transactions.incoming_end();
    const auto& sch_idx = chain.db().get_index<generated_transaction_multi_index,by_delay>();
    const auto scheduled_trxs_size = sch_idx.size();
@@ -2067,14 +2065,21 @@ void producer_plugin_impl::process_scheduled_and_incoming_trxs( const fc::time_p
          incoming_trx_weight -= 1.0;
 
          auto trx_meta = itr->trx_meta;
-         auto next = itr->next;
          bool persist_until_expired = itr->trx_type == trx_enum_type::incoming_persisted;
-         bool return_failure_trace = itr->return_failure_trace;
-         itr = _unapplied_transactions.erase( itr );
-         if( !process_incoming_transaction_async( trx_meta, persist_until_expired, return_failure_trace, next ) ) {
-            exhausted = true;
-            break;
+
+         push_result pr = push_transaction( deadline, trx_meta, persist_until_expired, itr->return_failure_trace, itr->next );
+
+         exhausted = pr.block_exhausted;
+         if( pr.trx_exhausted ) {
+            ++itr; // leave in incoming
+         } else if( pr.persist ) {
+            ++itr;
+            _unapplied_transactions.add_persisted( trx_meta ); // updates type and moves it out of incoming range
+         } else {
+            itr = _unapplied_transactions.erase( itr );
          }
+
+         if( exhausted ) break;
       }
 
       if (exhausted || deadline <= fc::time_point::now()) {
@@ -2142,14 +2147,13 @@ void producer_plugin_impl::process_scheduled_and_incoming_trxs( const fc::time_p
    }
 }
 
-bool producer_plugin_impl::process_incoming_trxs( const fc::time_point& deadline, size_t& pending_incoming_process_limit )
+bool producer_plugin_impl::process_incoming_trxs( const fc::time_point& deadline, unapplied_transaction_queue::iterator& itr, size_t& pending_incoming_process_limit )
 {
    bool exhausted = false;
    if( pending_incoming_process_limit ) {
       _idle_trx_time = fc::time_point::now();
       size_t processed = 0;
       fc_dlog( _log, "Processing ${n} pending transactions", ("n", pending_incoming_process_limit) );
-      auto itr = _unapplied_transactions.incoming_begin();
       auto end = _unapplied_transactions.incoming_end();
       while( pending_incoming_process_limit && itr != end ) {
          if (deadline <= fc::time_point::now()) {
@@ -2159,14 +2163,21 @@ bool producer_plugin_impl::process_incoming_trxs( const fc::time_point& deadline
          --pending_incoming_process_limit;
 
          auto trx_meta = itr->trx_meta;
-         auto next = itr->next;
          bool persist_until_expired = itr->trx_type == trx_enum_type::incoming_persisted;
-         bool return_failure_trace = itr->return_failure_trace;
-         itr = _unapplied_transactions.erase( itr );
-         if( !process_incoming_transaction_async( trx_meta, persist_until_expired, return_failure_trace, next ) ) {
-            exhausted = true;
-            break;
+
+         push_result pr = push_transaction( deadline, trx_meta, persist_until_expired, itr->return_failure_trace, itr->next );
+
+         exhausted = pr.block_exhausted;
+         if( pr.trx_exhausted ) {
+            ++itr; // leave in incoming
+         } else if( pr.persist ) {
+            ++itr;
+            _unapplied_transactions.add_persisted( trx_meta ); // updates type and moves it out of incoming range
+         } else {
+            itr = _unapplied_transactions.erase( itr );
          }
+
+         if( exhausted ) break;
          ++processed;
       }
       fc_dlog( _log, "Processed ${n} pending transactions, ${p} left", ("n", processed)("p", _unapplied_transactions.incoming_size()) );
