@@ -582,6 +582,9 @@ struct controller_impl {
          shutdown();
       }
 
+      if (conf.prune_config && conf.prune_config->prune_blocks == 0) {
+         blog.remove();
+      }
    }
 
    void startup(std::function<void()> shutdown, std::function<bool()> check_shutdown, const genesis_state& genesis) {
@@ -615,6 +618,10 @@ struct controller_impl {
          blog.reset( genesis, head->block );
       }
       init(check_shutdown);
+
+      if (conf.prune_config && conf.prune_config->prune_blocks == 0) {
+         blog.remove();
+      }
    }
 
    void startup(std::function<void()> shutdown, std::function<bool()> check_shutdown) {
@@ -645,6 +652,10 @@ struct controller_impl {
       head = fork_db.head();
 
       init(check_shutdown);
+
+      if (conf.prune_config && conf.prune_config->prune_blocks == 0) {
+         blog.remove();
+      }
    }
 
 

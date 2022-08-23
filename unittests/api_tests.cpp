@@ -589,10 +589,8 @@ BOOST_AUTO_TEST_CASE(ram_billing_in_notify_tests) { try {
    fc::temp_directory tempdir;
    validating_tester chain( tempdir, true );
    chain.execute_setup_policy( setup_policy::preactivate_feature_and_new_bios );
-   const auto& pfm = chain.control->get_protocol_feature_manager();
-   const auto& d = pfm.get_builtin_digest(builtin_protocol_feature_t::action_return_value); // testapi requires this
-   BOOST_REQUIRE(d);
-   chain.preactivate_protocol_features( {*d} );
+   chain.preactivate_builtin_protocol_features( {builtin_protocol_feature_t::action_return_value} );
+   chain.preactivate_builtin_protocol_features( {builtin_protocol_feature_t::crypto_primitives} );
 
    chain.produce_blocks(2);
    chain.create_account( "testapi"_n );
@@ -1850,12 +1848,8 @@ BOOST_AUTO_TEST_CASE(more_deferred_transaction_tests) { try {
    fc::temp_directory tempdir;
    validating_tester chain( tempdir, true );
    chain.execute_setup_policy( setup_policy::preactivate_feature_and_new_bios );
-
-   const auto& pfm = chain.control->get_protocol_feature_manager();
-   auto d = pfm.get_builtin_digest( builtin_protocol_feature_t::replace_deferred );
-   BOOST_REQUIRE( d );
-
-   chain.preactivate_protocol_features( {*d} );
+   chain.preactivate_builtin_protocol_features( {builtin_protocol_feature_t::replace_deferred} );
+   chain.preactivate_builtin_protocol_features( {builtin_protocol_feature_t::crypto_primitives} );
    chain.produce_block();
 
    const auto& index = chain.control->db().get_index<generated_transaction_multi_index,by_id>();

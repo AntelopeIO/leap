@@ -1,0 +1,3 @@
+list(APPEND CMAKE_MODULE_PATH @EOS_ROOT_DIR@/cmake/leap)
+include(EosioTester)
+include(EosioCheckVersion)
