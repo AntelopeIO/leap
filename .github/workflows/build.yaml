@@ -98,7 +98,7 @@ jobs:
           if: matrix.platform == 'ubuntu20'
           uses: actions/upload-artifact@v3
           with:
-            name: leap_dev_amd64
+            name: leap-dev-ubuntu20-amd64
             path: build/leap-dev*.deb
   tests:
     name: Tests
