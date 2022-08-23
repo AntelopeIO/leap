@@ -21,26 +21,144 @@ cmdError = Utils.cmdError
 relaunchTimeout = 30
 emptyBlockGoal = 5
 
-def waitForEmptyBlocks(node1):
+class blockData():
+    def __init__(self):
+        self.transactions = 0
+        self.cpu = 0
+        self.net = 0
+        self.elapsed = 0
+        self.time = 0
+        self.latency = 0
+
+class chainData():
+    def __init__(self):
+        self.blockLog = []
+    def sum_transactions(self):
+        total = 0
+        for block in self.blockLog:
+            total += block.transactions
+        return total
+    def sum_cpu(self):
+        total = 0
+        for block in self.blockLog:
+            total += block.cpu
+        return total
+    def sum_net(self):
+        total = 0
+        for block in self.blockLog:
+            total += block.net
+        return total
+    def sum_elapsed(self):
+        total = 0
+        for block in self.blockLog:
+            total += block.elapsed
+        return total
+    def sum_time(self):
+        total = 0
+        for block in self.blockLog:
+            total += block.time
+        return total
+    def sum_latency(self):
+        total = 0
+        for block in self.blockLog:
+            total += block.latency
+        return total
+    def print_stats(self):
+        print("Chain transactions: ", self.sum_transactions())
+        print("Chain cpu: ", self.sum_cpu())
+        print("Chain net: ", self.sum_net())
+        print("Chain elapsed: ", self.sum_elapsed())
+        print("Chain time: ", self.sum_time())
+        print("Chain latency: ", self.sum_latency())
+
+class chainsContainer():
+    def __init__(self):
+        self.preData = chainData()
+        self.totalData = chainData()
+        self.startBlock = 0
+        self.ceaseBlock = 0
+    def total_transactions(self):
+        return self.totalData.sum_transactions() - self.preData.sum_transactions()
+    def total_cpu(self):
+        return self.totalData.sum_cpu() - self.preData.sum_cpu()
+    def total_net(self):
+        return self.totalData.sum_net() - self.preData.sum_net()
+    def total_elapsed(self):
+        return self.totalData.sum_elapsed() - self.preData.sum_elapsed()
+    def total_time(self):
+        return self.totalData.sum_time() - self.preData.sum_time()
+    def total_latency(self):
+        return self.totalData.sum_latency() - self.preData.sum_latency()
+    def print_stats(self):
+        print("Total transactions: ", self.total_transactions())
+        print("Total cpu: ", self.total_cpu())
+        print("Total net: ", self.total_net())
+        print("Total elapsed: ", self.total_elapsed())
+        print("Total time: ", self.total_time())
+        print("Total latency: ", self.total_latency())
+    def print_range(self):
+        print("Starting block %d ending block %d" % (self.startBlock, self.ceaseBlock))
+
+
+def waitForEmptyBlocks(node):
     emptyBlocks = 0
     while emptyBlocks < emptyBlockGoal:
-        headBlock = node1.getHeadBlockNum()
-        block = node1.processCurlCmd("chain", "get_block_info", f'{{"block_num":{headBlock}}}', silentErrors=False, exitOnError=True)
-        node1.waitForHeadToAdvance()
+        headBlock = node.getHeadBlockNum()
+        block = node.processCurlCmd("chain", "get_block_info", f'{{"block_num":{headBlock}}}', silentErrors=False, exitOnError=True)
+        node.waitForHeadToAdvance()
         if block['transaction_mroot'] == "0000000000000000000000000000000000000000000000000000000000000000":
             emptyBlocks += 1
         else:
             emptyBlocks = 0
+    return node.getHeadBlockNum()
 
-def checkTotalTrx():
-    total = 0
-    f = open("var/lib/node_00/stderr.txt")
-    stringResult = re.findall(r'trxs:\s+\d+', f.read())
-    for value in stringResult:
-        intResult = re.findall(r'\d+', value)
-        total += int(intResult[0])
+def fetchStats(total):
+    i = -1
+    f = open("var/lib/node_01/stderr.txt")
+    trxResult = re.findall(r'trxs:\s+\d+.*cpu:\s+\d+.*', f.read())
+    for value in trxResult:
+        i+=1
+        strResult = re.findall(r'trxs:\s+\d+', value)
+        for str in strResult:
+            intResult = re.findall(r'\d+', str)
+            total.blockLog.append(blockData())
+            total.blockLog[i].transactions = int(intResult[0])
+    i = -1
+    for value in trxResult:
+        i+=1
+        strResult = re.findall(r'cpu:\s+\d+', value)
+        for str in strResult:
+            intResult = re.findall(r'\d+', str)
+            total.blockLog[i].cpu = int(intResult[0])
+    i = -1
+    for value in trxResult:
+        i+=1
+        strResult = re.findall(r'net:\s+\d+', value)
+        for str in strResult:
+            intResult = re.findall(r'\d+', str)
+            total.blockLog[i].net = int(intResult[0])
+    i = -1
+    for value in trxResult:
+        i+=1
+        strResult = re.findall(r'elapsed:\s+\d+', value)
+        for str in strResult:
+            intResult = re.findall(r'\d+', str)
+            total.blockLog[i].elapsed = int(intResult[0])
+    i = -1
+    for value in trxResult:
+        i+=1
+        strResult = re.findall(r'time:\s+\d+', value)
+        for str in strResult:
+            intResult = re.findall(r'\d+', str)
+            total.blockLog[i].time = int(intResult[0])
+    i = -1
+    for value in trxResult:
+        i+=1
+        strResult = re.findall(r'latency:\s+.*\d+', value)
+        for str in strResult:
+            intResult = re.findall(r'-*\d+', str)
+            total.blockLog[i].latency = int(intResult[0])
     f.close()
-    return total
 
 args=TestHelper.parse_args({"-p","-n","-d","-s","--nodes-file"
                             ,"--dump-error-details","-v","--leave-running"
@@ -97,9 +215,11 @@ try:
     testGenerationDurationSec = 60
     targetTps = 1
     transactionsSent = testGenerationDurationSec * targetTps
+    cont = chainsContainer()
 
-    waitForEmptyBlocks(node1)
-    setupTotal = checkTotalTrx()
+    # Get stats prior to transaction generation
+    cont.startBlock = waitForEmptyBlocks(node1)
+    fetchStats(cont.preData)
 
     if Utils.Debug: Print(
                             f'Running trx_generator: ./tests/trx_generator/trx_generator  '
@@ -121,10 +241,15 @@ try:
                             f'--trx-gen-duration {testGenerationDurationSec} '
                             f'--target-tps {targetTps}'
                          )
+    # Get stats after transaction generation stops
+    cont.ceaseBlock = waitForEmptyBlocks(node1) - emptyBlockGoal
+    fetchStats(cont.totalData)
 
-    waitForEmptyBlocks(node1)
-    total = checkTotalTrx()
-    assert transactionsSent == total - setupTotal , "Error: Transactions received: %d did not match expected total: %d" % (total - setupTotal, transactionsSent)
+    cont.preData.print_stats()
+    cont.totalData.print_stats()
+    cont.print_stats()
+    cont.print_range()
+    assert transactionsSent == cont.total_transactions() , "Error: Transactions received: %d did not match expected total: %d" % (cont.total_transactions(), transactionsSent)
 
     testSuccessful = True
 finally:
