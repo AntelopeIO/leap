@@ -12,7 +12,8 @@ Documentation for all `cleos` main commands
 - [sign](sign.md) - Sign a transaction
 - [push](push) - Push arbitrary transactions to the blockchain
 - [multisig](multisig) - Multisig contract commands
-<!--
-- [wrap](wrap) - Wrap contract commands
--->
+
+[//]: # ( THIS IS A COMMENT FOLLOWING LINE HAD JS COMMENTS JS COMMENTS BREAK MDX )  
+[//]: # ( wrap wrap - Wrap contract commands )  
+
 - [system](system) - Send eosio.system contract action to the blockchain.

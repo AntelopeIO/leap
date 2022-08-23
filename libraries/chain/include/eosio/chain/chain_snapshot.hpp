@@ -22,7 +22,7 @@ struct chain_snapshot_header {
     *         - Configurable wasm limits
     *   5: Updated for v3.0.0 eos features:
     *         - chain_config update
-    *   6: Updated for v3.1.0 eos mandel release
+    *   6: Updated for v3.1.0 release
     */
 
    static constexpr uint32_t minimum_compatible_version = 2;

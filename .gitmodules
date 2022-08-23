@@ -1,29 +1,27 @@
-[submodule "libraries/chainbase"]
-	path = libraries/chainbase
-	url = https://github.com/eosnetworkfoundation/mandel-chainbase
-        ignore = dirty
 [submodule "libraries/appbase"]
 	path = libraries/appbase
-	url = https://github.com/eosnetworkfoundation/mandel-appbase
-        ignore = dirty
-[submodule "libraries/softfloat"]
-	path = libraries/softfloat
-	url = https://github.com/eosnetworkfoundation/mandel-berkeley-softfloat-3
+	url = https://github.com/AntelopeIO/appbase
+[submodule "libraries/chainbase"]
+	path = libraries/chainbase
+	url = https://github.com/AntelopeIO/chainbase
+[submodule "libraries/eos-vm"]
+	path = libraries/eos-vm
+	url = https://github.com/AntelopeIO/eos-vm
 [submodule "libraries/fc"]
 	path = libraries/fc
-	url = https://github.com/eosnetworkfoundation/mandel-fc
+	url = https://github.com/AntelopeIO/fc
+[submodule "libraries/softfloat"]
+	path = libraries/softfloat
+	url = https://github.com/AntelopeIO/berkeley-softfloat-3
 [submodule "libraries/yubihsm"]
 	path = libraries/yubihsm
 	url = https://github.com/Yubico/yubihsm-shell
-[submodule "libraries/eos-vm"]
-	path = libraries/eos-vm
-	url = https://github.com/eosnetworkfoundation/mandel-eos-vm
 [submodule "libraries/rapidjson"]
 	path = libraries/rapidjson
 	url = https://github.com/Tencent/rapidjson/
-[submodule "eosio-wasm-spec-tests"]
-	path = eosio-wasm-spec-tests
-	url = https://github.com/eosnetworkfoundation/mandel-wasm-spec-tests
 [submodule "tests/abieos"]
 	path = tests/abieos
-	url = https://github.com/eosnetworkfoundation/mandel-abieos
+	url = https://github.com/AntelopeIO/abieos
+[submodule "wasm-spec-tests"]
+	path = wasm-spec-tests
+	url = https://github.com/AntelopeIO/wasm-spec-tests

@@ -13,9 +13,11 @@ The basic relationship between these components is illustrated in the diagram be
 ![EOSIO components](mandel_components.png)
 
 Additional EOSIO Resources:
-* [EOSIO Utilities](10_utilities/index.md) - Utilities that complement the EOSIO software.
-* [Upgrade Guide](20_upgrade-guide/index.md) - EOSIO version/protocol upgrade guide.
-* [Release Notes](30_release-notes/index.md) - All release notes for this EOSIO version.
+* [EOSIO Utilities](10_utilities/index.md) - Utilities that complement the EOSIO software.  
+
+[//]: # (THIS IS A COMMENT REMOVING BROKEN LINKS)  
+[//]: # (Upgrade-Guide-20_upgrade-guide/index.md-EOSIO-version/protocol-upgrade-guide.)  
+[//]: # (Release Notes 30_release-notes/index.md  - All release notes for this EOSIO version.)  
 
 [[info | What's Next?]]
 | [Install the EOSIO Software](00_install/index.md) before exploring the sections above.

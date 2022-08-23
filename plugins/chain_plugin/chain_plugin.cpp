@@ -325,7 +325,7 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
           "Maximum size (in GiB) allowed to be allocated for the Transaction Retry feature. Setting above 0 enables this feature.")
          ("transaction-retry-interval-sec", bpo::value<uint32_t>()->default_value(20),
           "How often, in seconds, to resend an incoming transaction to network if not seen in a block.")
-         ("transaction-retry-max-expiration-sec", bpo::value<uint32_t>()->default_value(90),
+         ("transaction-retry-max-expiration-sec", bpo::value<uint32_t>()->default_value(120),
           "Maximum allowed transaction expiration for retry transactions, will retry transactions up to this value.")
          ("transaction-finality-status-max-storage-size-gb", bpo::value<uint64_t>(),
           "Maximum size (in GiB) allowed to be allocated for the Transaction Finality Status feature. Setting above 0 enables this feature.")
@@ -336,8 +336,8 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
          ("integrity-hash-on-start", bpo::bool_switch(), "Log the state integrity hash on startup")
          ("integrity-hash-on-stop", bpo::bool_switch(), "Log the state integrity hash on shutdown");
 
-   if(cfile::supports_hole_punching())
-      cfg.add_options()("block-log-retain-blocks", bpo::value<uint32_t>(), "if set, periodically prune the block log to store only configured number of most recent blocks");
+    cfg.add_options()("block-log-retain-blocks", bpo::value<uint32_t>(), "If set to greater than 0, periodically prune the block log to store only configured number of most recent blocks.\n"
+        "If set to 0, no blocks are be written to the block log; block log file is removed after startup.");
 
 
 // TODO: rate limiting
@@ -923,7 +923,17 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
       if(options.count( "block-log-retain-blocks" )) {
          my->chain_config->prune_config.emplace();
          my->chain_config->prune_config->prune_blocks = options.at( "block-log-retain-blocks" ).as<uint32_t>();
-         EOS_ASSERT(my->chain_config->prune_config->prune_blocks, plugin_config_exception, "block-log-retain-blocks cannot be 0");
+
+         if ( my->chain_config->prune_config->prune_blocks == 0 ) {
+            // clear out empty blocks.log. otherwise block_log::extract_genesis_state
+            // will return version 0 which asserts.
+            if( fc::exists( my->blocks_dir / "blocks.log" ) && fc::file_size( my->blocks_dir / "blocks.log" ) == 0 ) {
+               fc::remove( my->blocks_dir / "blocks.log" );
+               fc::remove( my->blocks_dir / "blocks.index" );
+            }
+         } else {
+            EOS_ASSERT(cfile::supports_hole_punching(), plugin_config_exception, "block-log-retain-blocks cannot be greater than 0 because the file system does not support hole punching");
+         }
       }
 
       if( options.at( "delete-all-blocks" ).as<bool>()) {
