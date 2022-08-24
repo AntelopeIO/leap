@@ -88,4 +88,4 @@ The authority JSON object ...
 ```
 
 ## See Also
-- [Accounts and Permissions](https://developers.eos.io/welcome/latest/protocol/accounts_and_permissions) protocol document.
+- [Accounts and Permissions](/protocol-guides/04_accounts_and_permissions.md) protocol document.

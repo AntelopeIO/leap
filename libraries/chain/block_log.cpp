@@ -118,7 +118,7 @@ namespace eosio { namespace chain {
 
             void update_head(const signed_block_ptr& b, const std::optional<block_id_type>& id={});
 
-            void prune();
+            void prune(const fc::log_level& loglevel);
 
             void vacuum();
 
@@ -337,7 +337,7 @@ namespace eosio { namespace chain {
 
          if(!is_currently_pruned && my->prune_config) {
             //need to convert non-pruned log to pruned log. prune any blocks to start with
-            my->prune();
+            my->prune(fc::log_level::info);
 
             //update version
             my->block_file.seek(0);
@@ -401,7 +401,7 @@ namespace eosio { namespace chain {
 
          if(prune_config) {
             if((pos&prune_config->prune_threshold) != (end&prune_config->prune_threshold))
-               prune();
+               prune(fc::log_level::debug);
 
             const uint32_t num_blocks_in_log = chain::block_header::num_from_id(head_id) - first_block_num + 1;
             fc::raw::pack(block_file, num_blocks_in_log);
@@ -425,7 +425,7 @@ namespace eosio { namespace chain {
       }
    }
 
-   void detail::block_log_impl::prune() {
+   void detail::block_log_impl::prune(const fc::log_level& loglevel) {
       if(!head)
          return;
       const uint32_t head_num = chain::block_header::num_from_id(head_id);
@@ -445,7 +445,9 @@ namespace eosio { namespace chain {
       first_block_num = prune_to_num;
       block_file.flush();
 
-      ilog("blocks.log pruned to blocks ${b}-${e}", ("b", first_block_num)("e", head_num));
+      if(auto l = fc::logger::get(); l.is_enabled(loglevel))
+         l.log(fc::log_message(fc::log_context(loglevel, __FILE__, __LINE__, __func__),
+                               "blocks.log pruned to blocks ${b}-${e}", fc::mutable_variant_object()("b", first_block_num)("e", head_num)));
    }
 
    void block_log::flush() {

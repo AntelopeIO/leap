@@ -80,11 +80,9 @@ try:
     cluster.cleanup()
     Print("Stand up cluster")
 
-    traceNodeosArgs = " --plugin eosio::trace_api_plugin --trace-no-abis "
     if cluster.launch(pnodes=totalProducerNodes,
                       totalNodes=totalNodes, totalProducers=totalProducers,
-                      useBiosBootFile=False,
-                      extraNodeosArgs=traceNodeosArgs, topo="ring") is False:
+                      useBiosBootFile=False, topo="ring") is False:
         Utils.cmdError("launcher")
         Utils.errorExit("Failed to stand up eos cluster.")
 

@@ -42,13 +42,14 @@ namespace eosio::chain {
       case deep_mind_handler::operation_qualifier::none: return "";
       case deep_mind_handler::operation_qualifier::modify: return "MODIFY_";
       case deep_mind_handler::operation_qualifier::push: return "PUSH_";
+      default: elog("Unknown operation_qualifier"); return "";
       }
    }
 
    void deep_mind_handler::on_startup(chainbase::database& db, uint32_t head_block_num)
    {
       // FIXME: We should probably feed that from CMake directly somehow ...
-      fc_dlog(_logger, "DEEP_MIND_VERSION mandel 13 0");
+      fc_dlog(_logger, "DEEP_MIND_VERSION leap 13 0");
 
       fc_dlog(_logger, "ABIDUMP START ${block_num} ${global_sequence_num}",
          ("block_num", head_block_num)
