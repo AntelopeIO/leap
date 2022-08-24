@@ -85,3 +85,7 @@ Leap repository: https://github.com/AntelopeIO/leap
 
 WAX-Leap repository: https://github.com/cc32d9/wax-leap
 
+## Release `v3.1.0wax01`
+
+Snapshot unit tests are not ported to WAX properly and need to be re-done.
+
