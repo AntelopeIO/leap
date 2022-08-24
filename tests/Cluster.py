@@ -82,7 +82,7 @@ class Cluster(object):
     # pylint: disable=too-many-arguments
     # walletd [True|False] Is keosd running. If not load the wallet plugin
     def __init__(self, walletd=False, localCluster=True, host="localhost", port=8888, walletHost="localhost", walletPort=9899
-                 , defproduceraPrvtKey=None, defproducerbPrvtKey=None, staging=False):
+                 , defproduceraPrvtKey=None, defproducerbPrvtKey=None, staging=False, loggingLevel="debug"):
         """Cluster container.
         walletd [True|False] Is wallet keosd running. If not load the wallet plugin
         localCluster [True|False] Is cluster local to host.
@@ -105,6 +105,7 @@ class Cluster(object):
         self.walletHost=walletHost
         self.walletPort=walletPort
         self.staging=staging
+        self.loggingLevel=loggingLevel
         # init accounts
         self.defProducerAccounts={}
         self.defproduceraAccount=self.defProducerAccounts["defproducera"]= Account("defproducera")
@@ -234,9 +235,9 @@ class Cluster(object):
             tries = tries - 1
             time.sleep(2)
 
-        cmd="%s -p %s -n %s -d %s -i %s -f %s --unstarted-nodes %s" % (
+        cmd="%s -p %s -n %s -d %s -i %s -f %s --unstarted-nodes %s --logging-level %s" % (
             Utils.EosLauncherPath, pnodes, totalNodes, delay, datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3],
-            producerFlag, unstartedNodes)
+            producerFlag, unstartedNodes, self.loggingLevel)
         cmdArr=cmd.split()
         if self.staging:
             cmdArr.append("--nogen")

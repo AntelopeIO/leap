@@ -425,6 +425,7 @@ struct launcher_def {
    string start_script;
    std::optional<uint32_t> max_block_cpu_usage;
    std::optional<uint32_t> max_transaction_cpu_usage;
+   std::optional<string> logging_level;
    eosio::chain::genesis_state genesis_from_file;
 
    void assign_name (eosd_def &node, bool is_bios);
@@ -505,6 +506,7 @@ launcher_def::set_options (bpo::options_description &cfg) {
     ("script",bpo::value<string>(&start_script)->default_value("bios_boot.sh"),"the generated startup script name")
     ("max-block-cpu-usage",bpo::value<uint32_t>(),"Provide the \"max-block-cpu-usage\" value to use in the genesis.json file")
     ("max-transaction-cpu-usage",bpo::value<uint32_t>(),"Provide the \"max-transaction-cpu-usage\" value to use in the genesis.json file")
+    ("logging-level",bpo::value<string>(),"Provide the \"level\" value to use in the logging.json file ")
         ;
 }
 
@@ -564,6 +566,10 @@ launcher_def::initialize (const variables_map &vmap) {
 
   if (vmap.count("max-transaction-cpu-usage")) {
      max_transaction_cpu_usage = vmap["max-transaction-cpu-usage"].as<uint32_t>();
+  }
+
+  if (vmap.count("logging-level")) {
+     logging_level = vmap["logging-level"].as<string>();
   }
 
   genesis = vmap["genesis"].as<string>();
@@ -1146,6 +1152,18 @@ launcher_def::write_logging_config_file(tn_node_def &node) {
   if (!bfs::exists(dd)) {
     bfs::create_directories(dd);
   }
+  fc::log_level ll = fc::log_level::debug;
+  if (logging_level == "all") {
+     ll = fc::log_level::all;
+  } else if (logging_level == "info") {
+     ll = fc::log_level::info;
+  } else if (logging_level == "warn") {
+     ll = fc::log_level::warn;
+  } else if (logging_level == "error") {
+     ll = fc::log_level::error;
+  } else if (logging_level == "off") {
+     ll = fc::log_level::off;
+  }
 
   filename = dd / "logging.json";
 
@@ -1167,49 +1185,49 @@ launcher_def::write_logging_config_file(tn_node_def &node) {
   }
 
   fc::logger_config p2p( "net_plugin_impl" );
-  p2p.level = fc::log_level::debug;
+  p2p.level = ll;
   p2p.appenders.push_back( "stderr" );
   if( gelf_enabled ) p2p.appenders.push_back( "net" );
   log_config.loggers.emplace_back( p2p );
 
   fc::logger_config http( "http_plugin" );
-  http.level = fc::log_level::debug;
+  http.level = ll;
   http.appenders.push_back( "stderr" );
   if( gelf_enabled ) http.appenders.push_back( "net" );
   log_config.loggers.emplace_back( http );
 
   fc::logger_config pp( "producer_plugin" );
-  pp.level = fc::log_level::debug;
+  pp.level = ll;
   pp.appenders.push_back( "stderr" );
   if( gelf_enabled ) pp.appenders.push_back( "net" );
   log_config.loggers.emplace_back( pp );
 
   fc::logger_config tt( "transaction_success_tracing" );
-  tt.level = fc::log_level::debug;
+  tt.level = ll;
   tt.appenders.push_back( "stderr" );
   if( gelf_enabled ) tt.appenders.push_back( "net" );
   log_config.loggers.emplace_back( tt );
 
   fc::logger_config tft( "transaction_failure_tracing" );
-  tft.level = fc::log_level::debug;
+  tft.level = ll;
   tft.appenders.push_back( "stderr" );
   if( gelf_enabled ) tft.appenders.push_back( "net" );
   log_config.loggers.emplace_back( tft );
 
   fc::logger_config tts( "transaction_trace_success" );
-  tts.level = fc::log_level::debug;
+  tts.level = ll;
   tts.appenders.push_back( "stderr" );
   if( gelf_enabled ) tts.appenders.push_back( "net" );
   log_config.loggers.emplace_back( tts );
 
    fc::logger_config ttf( "transaction_trace_failure" );
-   ttf.level = fc::log_level::debug;
+   ttf.level = ll;
    ttf.appenders.push_back( "stderr" );
    if( gelf_enabled ) ttf.appenders.push_back( "net" );
    log_config.loggers.emplace_back( ttf );
 
   fc::logger_config ta( "trace_api" );
-  ta.level = fc::log_level::debug;
+  ta.level = ll;
   ta.appenders.push_back( "stderr" );
   if( gelf_enabled ) ta.appenders.push_back( "net" );
   log_config.loggers.emplace_back( ta );
