@@ -193,7 +193,7 @@ jobs:
 
   all-passing:
     name: All Required Tests Passed
-    needs: [tests, lr-tests, np-tests]
+    needs: [tests, np-tests]
     runs-on: ubuntu-latest
     steps:
       - run: true
