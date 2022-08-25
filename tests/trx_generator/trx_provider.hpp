@@ -7,6 +7,7 @@
 #include<fc/network/message_buffer.hpp>
 #include<eosio/chain/thread_utils.hpp>
 #include<chrono>
+#include<thread>
 
 using namespace std::chrono_literals;
 
