@@ -14,6 +14,8 @@ from WalletMgr import WalletMgr
 from Node import Node
 from Node import ReturnType
 from TestHelper import TestHelper
+from dataclasses import dataclass
+from typing import List
 
 Print = Utils.Print
 errorExit = Utils.errorExit
@@ -21,55 +23,28 @@ cmdError = Utils.cmdError
 relaunchTimeout = 30
 emptyBlockGoal = 5
 
+@dataclass
 class blockData():
-    def __init__(self):
-        self.transactions = 0
-        self.cpu = 0
-        self.net = 0
-        self.elapsed = 0
-        self.time = 0
-        self.latency = 0
+    blockId: str = ""
+    blockNum: int = 0
+    transactions: int = 0
+    net: int = 0
+    cpu: int = 0
+    elapsed: int = 0
+    time: int = 0
+    latency: int = 0
 
 class chainData():
     def __init__(self):
         self.blockLog = []
-    def sum_transactions(self):
+    def total(self, attrname):
         total = 0
-        for block in self.blockLog:
-            total += block.transactions
+        for n in self.blockLog:
+            total += getattr(n, attrname)
         return total
-    def sum_cpu(self):
-        total = 0
-        for block in self.blockLog:
-            total += block.cpu
-        return total
-    def sum_net(self):
-        total = 0
-        for block in self.blockLog:
-            total += block.net
-        return total
-    def sum_elapsed(self):
-        total = 0
-        for block in self.blockLog:
-            total += block.elapsed
-        return total
-    def sum_time(self):
-        total = 0
-        for block in self.blockLog:
-            total += block.time
-        return total
-    def sum_latency(self):
-        total = 0
-        for block in self.blockLog:
-            total += block.latency
-        return total
-    def print_stats(self):
-        print("Chain transactions: ", self.sum_transactions())
-        print("Chain cpu: ", self.sum_cpu())
-        print("Chain net: ", self.sum_net())
-        print("Chain elapsed: ", self.sum_elapsed())
-        print("Chain time: ", self.sum_time())
-        print("Chain latency: ", self.sum_latency())
+    def __str__(self):
+        return "Chain transactions: %d\n Chain cpu: %d\n Chain net: %d\n Chain elapsed: %d\n Chain time: %d\n Chain latency: %d" %\
+         (self.total("transactions"), self.total("net"), self.total("cpu"), self.total("elapsed"), self.total("time"), self.total("latency"))
 
 class chainsContainer():
     def __init__(self):
@@ -77,28 +52,11 @@ class chainsContainer():
         self.totalData = chainData()
         self.startBlock = 0
         self.ceaseBlock = 0
-    def total_transactions(self):
-        return self.totalData.sum_transactions() - self.preData.sum_transactions()
-    def total_cpu(self):
-        return self.totalData.sum_cpu() - self.preData.sum_cpu()
-    def total_net(self):
-        return self.totalData.sum_net() - self.preData.sum_net()
-    def total_elapsed(self):
-        return self.totalData.sum_elapsed() - self.preData.sum_elapsed()
-    def total_time(self):
-        return self.totalData.sum_time() - self.preData.sum_time()
-    def total_latency(self):
-        return self.totalData.sum_latency() - self.preData.sum_latency()
-    def print_stats(self):
-        print("Total transactions: ", self.total_transactions())
-        print("Total cpu: ", self.total_cpu())
-        print("Total net: ", self.total_net())
-        print("Total elapsed: ", self.total_elapsed())
-        print("Total time: ", self.total_time())
-        print("Total latency: ", self.total_latency())
-    def print_range(self):
-        print("Starting block %d ending block %d" % (self.startBlock, self.ceaseBlock))
-
+    def total(self, attrname):
+        return self.totalData.total(attrname) - self.preData.total(attrname)
+    def __str__(self):
+        return "Starting block %d ending block %d\n Total transactions: %d\n Total cpu: %d\nTotal net: %d\nTotal elapsed: %d\nTotal time: %d\nTotal latency: %d" %\
+         (self.startBlock, self.ceaseBlock, self.total("transactions"), self.total("net"), self.total("cpu"), self.total("elapsed"), self.total("time"), self.total("latency"))
 
 def waitForEmptyBlocks(node):
     emptyBlocks = 0
@@ -113,52 +71,11 @@ def waitForEmptyBlocks(node):
     return node.getHeadBlockNum()
 
 def fetchStats(total):
-    i = -1
-    f = open("var/lib/node_01/stderr.txt")
-    trxResult = re.findall(r'trxs:\s+\d+.*cpu:\s+\d+.*', f.read())
-    for value in trxResult:
-        i+=1
-        strResult = re.findall(r'trxs:\s+\d+', value)
-        for str in strResult:
-            intResult = re.findall(r'\d+', str)
-            total.blockLog.append(blockData())
-            total.blockLog[i].transactions = int(intResult[0])
-    i = -1
-    for value in trxResult:
-        i+=1
-        strResult = re.findall(r'cpu:\s+\d+', value)
-        for str in strResult:
-            intResult = re.findall(r'\d+', str)
-            total.blockLog[i].cpu = int(intResult[0])
-    i = -1
-    for value in trxResult:
-        i+=1
-        strResult = re.findall(r'net:\s+\d+', value)
-        for str in strResult:
-            intResult = re.findall(r'\d+', str)
-            total.blockLog[i].net = int(intResult[0])
-    i = -1
-    for value in trxResult:
-        i+=1
-        strResult = re.findall(r'elapsed:\s+\d+', value)
-        for str in strResult:
-            intResult = re.findall(r'\d+', str)
-            total.blockLog[i].elapsed = int(intResult[0])
-    i = -1
-    for value in trxResult:
-        i+=1
-        strResult = re.findall(r'time:\s+\d+', value)
-        for str in strResult:
-            intResult = re.findall(r'\d+', str)
-            total.blockLog[i].time = int(intResult[0])
-    i = -1
-    for value in trxResult:
-        i+=1
-        strResult = re.findall(r'latency:\s+.*\d+', value)
-        for str in strResult:
-            intResult = re.findall(r'-*\d+', str)
-            total.blockLog[i].latency = int(intResult[0])
-    f.close()
+    with open("var/lib/node_01/stderr.txt") as f:
+        trxResult = re.findall(r'Received block ([0-9a-fA-F]*).* #(\d+) .*trxs: (\d+),.*, net: (\d+), cpu: (\d+), elapsed: (\d+), time: (\d+), latency: (-?\d+) ms', f.read())
+        for value in trxResult:
+            # print("Creating block data using ", value.group(1), value.group(2), value.group(3), value.group(4), value.group(5), value.group(6), value.group(7), value.group(8))
+            total.blockLog.append(blockData(value[0], int(value[1]), int(value[2]), int(value[3]), int(value[4]), int(value[5]), int(value[6]), int(value[7])))
 
 args=TestHelper.parse_args({"-p","-n","-d","-s","--nodes-file"
                             ,"--dump-error-details","-v","--leave-running"
@@ -187,7 +104,7 @@ try:
     TestHelper.printSystemInfo("BEGIN")
     cluster.killall(allInstances=killAll)
     cluster.cleanup()
-    extraNodeosArgs=' --http-max-response-time-ms 990000 --disable-subjective-api-billing false --plugin eosio::trace_api_plugin --trace-no-abis '
+    extraNodeosArgs=' --http-max-response-time-ms 990000 --disable-subjective-api-billing false '
     if cluster.launch(
        pnodes=pnodes,
        totalNodes=total_nodes,
@@ -206,9 +123,9 @@ try:
     account1PrivKey = cluster.accounts[0].activePrivateKey
     account2PrivKey = cluster.accounts[1].activePrivateKey
 
-    node0 = cluster.getNode(0)
-    node1 = cluster.getNode(1)
-    info = node0.getInfo()
+    producerNode = cluster.getNode(0)
+    validationNode = cluster.getNode(1)
+    info = producerNode.getInfo()
     chainId = info['chain_id']
     lib_id = info['last_irreversible_block_id']
 
@@ -218,7 +135,7 @@ try:
     cont = chainsContainer()
 
     # Get stats prior to transaction generation
-    cont.startBlock = waitForEmptyBlocks(node1)
+    cont.startBlock = waitForEmptyBlocks(validationNode)
     fetchStats(cont.preData)
 
     if Utils.Debug: Print(
@@ -242,14 +159,13 @@ try:
                             f'--target-tps {targetTps}'
                          )
     # Get stats after transaction generation stops
-    cont.ceaseBlock = waitForEmptyBlocks(node1) - emptyBlockGoal
+    cont.ceaseBlock = waitForEmptyBlocks(validationNode) - emptyBlockGoal
     fetchStats(cont.totalData)
 
-    cont.preData.print_stats()
-    cont.totalData.print_stats()
-    cont.print_stats()
-    cont.print_range()
-    assert transactionsSent == cont.total_transactions() , "Error: Transactions received: %d did not match expected total: %d" % (cont.total_transactions(), transactionsSent)
+    print(cont.preData)
+    print(cont.totalData)
+    print(cont)
+    assert transactionsSent == cont.total("transactions") , "Error: Transactions received: %d did not match expected total: %d" % (cont.total("transactions"), transactionsSent)
 
     testSuccessful = True
 finally:
