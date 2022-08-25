@@ -192,7 +192,7 @@ BOOST_AUTO_TEST_CASE(tps_med_run_med_tps_30us_delay)
 {
    constexpr uint32_t test_duration_s = 15;
    constexpr uint32_t test_tps = 3000;
-   constexpr uint32_t trx_delay_us = 10;
+   constexpr uint32_t trx_delay_us = 30;
    constexpr uint32_t expected_trxs = test_duration_s * test_tps;
    constexpr uint64_t expected_runtime_us = test_duration_s * 1000000;
    constexpr uint64_t allowable_runtime_deviation_per = 20;
