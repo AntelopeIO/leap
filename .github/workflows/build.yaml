@@ -190,3 +190,10 @@ jobs:
         with:
           name: ${{matrix.platform}}-${{matrix.test-name}}-logs
           path: ${{matrix.platform}}-${{matrix.test-name}}-logs.tar.gz
+
+  all-passing:
+    name: All Required Tests Passed
+    needs: [tests, lr-tests, np-tests]
+    runs-on: ubuntu-latest
+    steps:
+      - run: true
