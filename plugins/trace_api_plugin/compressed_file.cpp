@@ -115,7 +115,7 @@ struct compressed_file_impl {
          initialized = false;
       }
 
-      long remaining = loc;
+      auto remaining = loc;
 
       // read in the seek point map
       file.seek_end(-expected_seek_point_count_size);
