@@ -9,4 +9,5 @@ add_executable(trx_generator_tests trx_generator_tests.cpp)
 target_link_libraries( trx_generator_tests
         PRIVATE eosio_chain fc chain_plugin eosio_testing_contracts ${CMAKE_DL_LIBS} ${PLATFORM_SPECIFIC_LIBS} )
 target_include_directories(trx_generator_tests PUBLIC ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
+add_test(trx_generator_tests trx_generator_tests.cpp)
 
