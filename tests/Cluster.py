@@ -248,7 +248,9 @@ class Cluster(object):
             nodeosArgs += " --contracts-console"
         if PFSetupPolicy.hasPreactivateFeature(pfSetupPolicy):
             nodeosArgs += " --plugin eosio::producer_api_plugin"
-
+        nodeosArgs += " --plugin eosio::trace_api_plugin "
+        if extraNodeosArgs.find("--trace-rpc-abi") == -1:
+            nodeosArgs += " --trace-no-abis "
         httpMaxResponseTimeSet = False
         if specificExtraNodeosArgs is not None:
             assert(isinstance(specificExtraNodeosArgs, dict))

@@ -111,9 +111,9 @@ namespace eosio { namespace chain {
          void schedule_transaction();
          void record_transaction( const transaction_id_type& id, fc::time_point_sec expire );
 
-         void validate_cpu_usage_to_bill( int64_t billed_us, int64_t account_cpu_limit, bool check_minimum )const;
-         void validate_account_cpu_usage( int64_t billed_us, int64_t account_cpu_limit )const;
-         void validate_account_cpu_usage_estimate( int64_t billed_us, int64_t account_cpu_limit )const;
+         void validate_cpu_usage_to_bill( int64_t billed_us, int64_t account_cpu_limit, bool check_minimum, int64_t subjective_billed_us )const;
+         void validate_account_cpu_usage( int64_t billed_us, int64_t account_cpu_limit,  int64_t subjective_billed_us )const;
+         void validate_account_cpu_usage_estimate( int64_t billed_us, int64_t account_cpu_limit, int64_t subjective_billed_us )const;
 
          void disallow_transaction_extensions( const char* error_msg )const;
 
