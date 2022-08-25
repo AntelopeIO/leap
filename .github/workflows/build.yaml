@@ -28,10 +28,9 @@ jobs:
       missing-platforms: ${{steps.discover.outputs.missing-platforms}}
       p: ${{steps.discover.outputs.platforms}}
     steps:
-      - uses: actions/checkout@v3
       - name: Discover Platforms
         id: discover
-        uses: ./.cicd/actions/discover-platforms-action
+        uses: AntelopeIO/discover-platforms-action@v1
         with:
           platform-file: .cicd/platforms.json
           password: ${{secrets.GITHUB_TOKEN}}
@@ -58,7 +57,6 @@ jobs:
           push: true
           tags: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
           file: ${{fromJSON(needs.d.outputs.p)[matrix.platform].dockerfile}}
-          github-token: ${{secrets.GH_PRIVATE_REPO_TOKEN}}
   Build:
     needs: [d, build-platforms]
     if: always() && needs.d.result == 'success' && (needs.build-platforms.result == 'success' || needs.build-platforms.result == 'skipped')
@@ -74,7 +72,6 @@ jobs:
         - uses: actions/checkout@v3
           with:
             submodules: recursive
-            token: ${{secrets.GH_PRIVATE_REPO_TOKEN}}
         - name: Build
           id: build
           run: |
@@ -101,7 +98,7 @@ jobs:
           if: matrix.platform == 'ubuntu20'
           uses: actions/upload-artifact@v3
           with:
-            name: leap_dev_amd64
+            name: leap-dev-ubuntu20-amd64
             path: build/leap-dev*.deb
   tests:
     name: Tests
@@ -117,7 +114,6 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: true
-          token: ${{secrets.GH_PRIVATE_REPO_TOKEN}}
       - name: Download builddir
         uses: actions/download-artifact@v3
         with:
@@ -143,8 +139,6 @@ jobs:
       options: --init
     steps:
       - uses: actions/checkout@v3
-        with:
-          token: ${{secrets.GH_PRIVATE_REPO_TOKEN}}
       - name: Download builddir
         uses: actions/download-artifact@v3
         with:
@@ -178,8 +172,6 @@ jobs:
       options: --init
     steps:
       - uses: actions/checkout@v3
-        with:
-          token: ${{secrets.GH_PRIVATE_REPO_TOKEN}}
       - name: Download builddir
         uses: actions/download-artifact@v3
         with:
