@@ -49,7 +49,7 @@ namespace eosio::testing {
       time_point expected_end_time;
       time_point last_run;
       time_point next_run;
-      int64_t last_sleep = 0;
+      int64_t time_to_next_trx_us = 0;
 
    };
 
@@ -61,8 +61,8 @@ namespace eosio::testing {
       std::shared_ptr<G> _generator;
       std::shared_ptr<M> _monitor;
 
-      int64_t _gen_duration_seconds;
-      int64_t _target_tps;
+      uint32_t _gen_duration_seconds;
+      uint32_t _target_tps;
 
       trx_tps_tester(std::shared_ptr<G> generator, std::shared_ptr<M> monitor, uint32_t gen_duration_seconds, uint32_t target_tps) :
             _generator(generator), _monitor(monitor),
@@ -79,13 +79,11 @@ namespace eosio::testing {
          tps_test_stats stats;
          fc::microseconds trx_interval(std::chrono::microseconds(1s).count() / _target_tps);
 
-         ilog("transaction interval = ${trxi}", ("trxi", trx_interval.count()));
-
          stats.total_trxs = _gen_duration_seconds * _target_tps;
          stats.trxs_left = stats.total_trxs;
          stats.start_time = fc::time_point::now();
          stats.expected_end_time = stats.start_time + fc::microseconds{_gen_duration_seconds * std::chrono::microseconds(1s).count()};
-         stats.last_sleep = 0;
+         stats.time_to_next_trx_us = 0;
 
          bool keep_running = true;
 
@@ -102,11 +100,9 @@ namespace eosio::testing {
             if (keep_running) {
                fc::microseconds time_to_sleep{stats.next_run - fc::time_point::now()};
                if (time_to_sleep.count() >= min_sleep_us) {
-                  stats.last_sleep = time_to_sleep.count();
                   std::this_thread::sleep_for(std::chrono::microseconds(time_to_sleep.count()));
-               } else {
-                  stats.last_sleep = time_to_sleep.count();
                }
+               stats.time_to_next_trx_us = time_to_sleep.count();
             }
 
          }
