@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from itertools import chain
 import os
 import sys
 import re
@@ -37,26 +38,25 @@ class blockData():
 class chainData():
     def __init__(self):
         self.blockLog = []
-    def total(self, attrname):
-        total = 0
-        for n in self.blockLog:
-            total += getattr(n, attrname)
-        return total
-    def __str__(self):
-        return "Chain transactions: %d\n Chain cpu: %d\n Chain net: %d\n Chain elapsed: %d\n Chain time: %d\n Chain latency: %d" %\
-         (self.total("transactions"), self.total("net"), self.total("cpu"), self.total("elapsed"), self.total("time"), self.total("latency"))
-
-class chainsContainer():
-    def __init__(self):
-        self.preData = chainData()
-        self.totalData = chainData()
         self.startBlock = 0
         self.ceaseBlock = 0
-    def total(self, attrname):
-        return self.totalData.total(attrname) - self.preData.total(attrname)
+        self.totalTransactions = 0
+        self.totalNet = 0
+        self.totalCpu = 0
+        self.totalElapsed = 0
+        self.totalTime = 0
+        self.totalLatency = 0
+    def updateTotal(self, block):
+        print("Block is ", block)
+        self.totalTransactions += int(block[2])
+        self.totalNet += int(block[3])
+        self.totalCpu += int(block[4])
+        self.totalElapsed += int(block[5])
+        self.totalTime += int(block[6])
+        self.totalLatency += int(block[7])
     def __str__(self):
-        return "Starting block %d ending block %d\n Total transactions: %d\n Total cpu: %d\nTotal net: %d\nTotal elapsed: %d\nTotal time: %d\nTotal latency: %d" %\
-         (self.startBlock, self.ceaseBlock, self.total("transactions"), self.total("net"), self.total("cpu"), self.total("elapsed"), self.total("time"), self.total("latency"))
+        return "Starting block: %d\nEnding block:%d\nChain transactions: %d\nChain cpu: %d\nChain net: %d\nChain elapsed: %d\nChain time: %d\nChain latency: %d" %\
+         (self.startBlock, self.ceaseBlock, self.totalTransactions, self.totalNet, self.totalCpu, self.totalElapsed, self.totalTime, self.totalLatency)
 
 def waitForEmptyBlocks(node):
     emptyBlocks = 0
@@ -74,8 +74,9 @@ def fetchStats(total):
     with open("var/lib/node_01/stderr.txt") as f:
         trxResult = re.findall(r'Received block ([0-9a-fA-F]*).* #(\d+) .*trxs: (\d+),.*, net: (\d+), cpu: (\d+), elapsed: (\d+), time: (\d+), latency: (-?\d+) ms', f.read())
         for value in trxResult:
-            # print("Creating block data using ", value.group(1), value.group(2), value.group(3), value.group(4), value.group(5), value.group(6), value.group(7), value.group(8))
             total.blockLog.append(blockData(value[0], int(value[1]), int(value[2]), int(value[3]), int(value[4]), int(value[5]), int(value[6]), int(value[7])))
+            if int(value[1]) in range (total.startBlock, total.ceaseBlock):
+                total.updateTotal(value)
 
 args=TestHelper.parse_args({"-p","-n","-d","-s","--nodes-file"
                             ,"--dump-error-details","-v","--leave-running"
@@ -132,11 +133,9 @@ try:
     testGenerationDurationSec = 60
     targetTps = 1
     transactionsSent = testGenerationDurationSec * targetTps
-    cont = chainsContainer()
+    data = chainData()
 
-    # Get stats prior to transaction generation
-    cont.startBlock = waitForEmptyBlocks(validationNode)
-    fetchStats(cont.preData)
+    data.startBlock = waitForEmptyBlocks(validationNode)
 
     if Utils.Debug: Print(
                             f'Running trx_generator: ./tests/trx_generator/trx_generator  '
@@ -159,13 +158,11 @@ try:
                             f'--target-tps {targetTps}'
                          )
     # Get stats after transaction generation stops
-    cont.ceaseBlock = waitForEmptyBlocks(validationNode) - emptyBlockGoal
-    fetchStats(cont.totalData)
+    data.ceaseBlock = waitForEmptyBlocks(validationNode) - emptyBlockGoal
+    fetchStats(data)
 
-    print(cont.preData)
-    print(cont.totalData)
-    print(cont)
-    assert transactionsSent == cont.total("transactions") , "Error: Transactions received: %d did not match expected total: %d" % (cont.total("transactions"), transactionsSent)
+    print(data)
+    assert transactionsSent == data.totalTransactions , "Error: Transactions received: %d did not match expected total: %d" % (data.totalTransactions, transactionsSent)
 
     testSuccessful = True
 finally:
