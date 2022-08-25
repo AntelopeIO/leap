@@ -59,7 +59,7 @@ namespace eosio::testing {
    template<typename G, typename M>
    struct trx_tps_tester {
       std::shared_ptr<G> _generator;
-      std::shared_ptr<M>_monitor;
+      std::shared_ptr<M> _monitor;
 
       int64_t _gen_duration_seconds;
       int64_t _target_tps;
@@ -71,8 +71,14 @@ namespace eosio::testing {
       }
 
       void run() {
+         if ((_target_tps) < 1 || (_gen_duration_seconds < 1)) {
+            elog("target tps (${tps}) and duration (${dur}) must both be 1+", ("tps", _target_tps)("dur", _gen_duration_seconds));
+            return;
+         }
+
          tps_test_stats stats;
          fc::microseconds trx_interval(std::chrono::microseconds(1s).count() / _target_tps);
+
          ilog("transaction interval = ${trxi}", ("trxi", trx_interval.count()));
 
          stats.total_trxs = _gen_duration_seconds * _target_tps;
