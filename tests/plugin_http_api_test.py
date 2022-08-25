@@ -113,59 +113,21 @@ class PluginHttpTest(unittest.TestCase):
         self.activateAllBuiltinProtocolFeatures()
         allProtocolFeatures = self.nodeos.getSupportedProtocolFeatures()
         allFeatureDigests = [d['feature_digest'] for d in allProtocolFeatures]
+        allFeatureCodenames = []
+        for s in allProtocolFeatures:
+           if 'specification' in s and len(s['specification']) > 0 and 'name' in s['specification'][0] and s['specification'][0]['name'] == 'builtin_feature_codename':
+              allFeatureCodenames.append(s['specification'][0]['value'])
+        self.assertEqual(len(allFeatureDigests), len(allFeatureCodenames))
 
         # Default limit set in get_activated_protocol_features_params
-        ACT_FEATURE_DEFAULT_LIMIT = 10
+        ACT_FEATURE_DEFAULT_LIMIT = 10 if len(allFeatureCodenames) > 10 else len(allFeatureCodenames)
 
         # Actual expected activated features total
-        ACT_FEATURE_CURRENT_EXPECTED_TOTAL = 19
+        ACT_FEATURE_CURRENT_EXPECTED_TOTAL = len(allFeatureCodenames)
 
         # Extemely high value to attempt to always get full list of activated features
         ACT_FEATURE_EXTREME = 10000
 
-        expected_active_features_list = [
-            "PREACTIVATE_FEATURE",
-            "ONLY_LINK_TO_EXISTING_PERMISSION",
-            "FORWARD_SETCODE",
-            "WTMSIG_BLOCK_SIGNATURES",
-            "CONFIGURABLE_WASM_LIMITS2",
-            "REPLACE_DEFERRED",
-            "NO_DUPLICATE_DEFERRED_ID",
-            "RAM_RESTRICTIONS",
-            "WEBAUTHN_KEY",
-            "DISALLOW_EMPTY_PRODUCER_SCHEDULE",
-            "ONLY_BILL_FIRST_AUTHORIZER",
-            "BLOCKCHAIN_PARAMETERS",
-            "GET_CODE_HASH",
-            "RESTRICT_ACTION_TO_SELF",
-            "ACTION_RETURN_VALUE",
-            "FIX_LINKAUTH_RESTRICTION",
-            "GET_SENDER",
-            "CRYPTO_PRIMITIVES",
-            "GET_BLOCK_NUM",
-        ]
-
-        expected_digest_list = [
-            "0ec7e080177b2c02b278d5088611686b49d739925a92d9bfcacd7fc6b74053bd",
-            "1a99a59d87e06e09ec5b028a9cbb7749b4a5ad8819004365d02dc4379a8b7241",
-            "2652f5f96006294109b3dd0bbde63693f55324af452b799ee137a81a905eed25",
-            "299dcb6af692324b899b39f16d5a530a33062804e41f09dc97e9f156b4476707",
-            "d528b9f6e9693f45ed277af93474fd473ce7d831dae2180cca35d907bd10cb40",
-            "ef43112c6543b88db2283a2e077278c315ae2c84719a8b25f25cc88565fbea99",
-            "4a90c00d55454dc5b059055ca213579c6ea856967712a56017487886a4d4cc0f",
-            "4e7bf348da00a945489b2a681749eb56f5de00b900014e137ddae39f48f69d67",
-            "4fca8bd82bbd181e714e283f83e1b45d95ca5af40fb89ad3977b653c448f78c2",
-            "68dcaa34c0517d19666e6b33add67351d8c5f69e999ca1e37931bc410a297428",
-            "8ba52fe7a3956c5cd3a656a3174b931d3bb2abb45578befc59f283ecd816a405",
-            "4fca8bd82bbd181e714e283f83e1b45d95ca5af40fb89ad3977b653c448f78c2",
-            "bcd2a26394b36614fd4894241d3c451ab0f6fd110958c3423073621a70826e99",
-            "ad9e3d8f650687709fd68f4b90b41f7d825a365b02c23a636cef88ac2ac00c43",
-            "c3a6138c5061cf291310887c0b5c71fcaffeab90d5deb50d3b9e687cead45071",
-            "e0fb64b1085cc5538970158d05a009c24e276fb94e1a0bf6a528b48fbc4ff526",
-            "f0af56d2c5a48d60a4a5b5c903edfb7db3a736a94ed589d0b797df33ff9d3e1d",
-            "6bcb40a24e49c26d0a60513b6aeb8551d264e4717f306b81a37a5afb3b47cedc",
-            "35c2186cc36f7bb4aeaf4487b36e57039ccf45a9136aa856a5d569ecca55ef2b",
-        ]
         # get_consensus_parameters without parameter
         default_cmd = cmd_base + "get_consensus_parameters"
         ret_json = Utils.runCmdReturnJson(default_cmd)
@@ -245,9 +207,9 @@ class PluginHttpTest(unittest.TestCase):
         self.assertEqual(len(ret_json["activated_protocol_features"]), ACT_FEATURE_CURRENT_EXPECTED_TOTAL)
         for dict_feature in ret_json["activated_protocol_features"]:
             self.assertTrue(dict_feature['feature_digest'] in allFeatureDigests)
-        for feature in expected_active_features_list:
+        for feature in allFeatureCodenames:
             assert feature in str(ret_json["activated_protocol_features"]), f"ERROR: Expected active feature \'{feature}\' not found in returned list."
-        for digest in expected_digest_list:
+        for digest in allFeatureDigests:
             assert digest in str(ret_json["activated_protocol_features"]), f"ERROR: Expected active feature \'{feature}\' not found in returned list."
 
         # get_activated_protocol_features with 3rd param set extremely high to attempt to catch the

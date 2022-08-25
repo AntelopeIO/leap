@@ -5,13 +5,11 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <fc/io/varint.hpp>
 
-using namespace boost;
-
-
 namespace eosio { namespace chain {
 
    const size_t abi_serializer::max_recursion_depth;
 
+   using boost::algorithm::starts_with;
    using boost::algorithm::ends_with;
    using std::string;
    using std::string_view;
@@ -79,7 +77,7 @@ namespace eosio { namespace chain {
 
    abi_serializer::abi_serializer( const abi_def& abi, const fc::microseconds& max_serialization_time) {
       configure_built_in_types();
-      set_abi(abi, max_serialization_time);
+      set_abi(abi, create_yield_function(max_serialization_time));
    }
 
    void abi_serializer::add_specialized_unpack_pack( const string& name,
@@ -412,10 +410,8 @@ namespace eosio { namespace chain {
          for( decltype(size.value) i = 0; i < size; ++i ) {
             ctx.set_array_index_of_path_back(i);
             auto v = _binary_to_variant(ftype, stream, ctx);
-            // QUESTION: Is it actually desired behavior to require the returned variant to not be null?
-            //           This would disallow arrays of optionals in general (though if all optionals in the array were present it would be allowed).
-            //           Is there any scenario in which the returned variant would be null other than in the case of an empty optional?
-            EOS_ASSERT( !v.is_null(), unpack_exception, "Invalid packed array '${p}'", ("p", ctx.get_path_string()) );
+            // The exception below is commented out to allow array of optional as input data
+            //EOS_ASSERT( !v.is_null(), unpack_exception, "Invalid packed array '${p}'", ("p", ctx.get_path_string()) );
             vars.emplace_back(std::move(v));
          }
          // QUESTION: Why would the assert below ever fail?

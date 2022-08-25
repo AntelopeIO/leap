@@ -81,14 +81,12 @@ try:
         if pnodes > 3:
             specificExtraNodeosArgs[pnodes - 2] = ""
 
-        traceNodeosArgs = " --plugin eosio::trace_api_plugin --trace-no-abis "
         if cluster.launch(totalNodes=pnodes, 
                           pnodes=pnodes,
                           dontBootstrap=dontBootstrap,
                           pfSetupPolicy=PFSetupPolicy.PREACTIVATE_FEATURE_ONLY,
                           specificExtraNodeosArgs=specificExtraNodeosArgs,
-                          associatedNodeLabels=associatedNodeLabels,
-                          extraNodeosArgs=traceNodeosArgs,) is False:
+                          associatedNodeLabels=associatedNodeLabels) is False:
             cmdError("launcher")
             errorExit("Failed to stand up eos cluster.")
     else:

@@ -79,4 +79,6 @@ namespace eosio::testing {
       _peer_connection.disconnect();
   }
 
+
+  typedef trx_tps_tester<null_trx_generator, simple_tps_monitor> null_tester;
 }

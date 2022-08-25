@@ -16,7 +16,7 @@ Additional EOSIO Resources:
 * [EOSIO Utilities](10_utilities/index.md) - Utilities that complement the EOSIO software.  
 
 [//]: # (THIS IS A COMMENT REMOVING BROKEN LINKS)  
-[//]: #Upgrade-Guide-20_upgrade-guide/index.md-EOSIO-version/protocol-upgrade-guide.  
+[//]: # (Upgrade-Guide-20_upgrade-guide/index.md-EOSIO-version/protocol-upgrade-guide.)  
 [//]: # (Release Notes 30_release-notes/index.md  - All release notes for this EOSIO version.)  
 
 [[info | What's Next?]]
