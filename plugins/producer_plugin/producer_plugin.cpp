@@ -261,8 +261,8 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                                     const transaction_metadata_ptr& trx,
                                     bool persist_until_expired, bool return_failure_trace,
                                     next_function<transaction_trace_ptr> next );
-      void log_trx_results( const transaction_metadata_ptr& trx, const transaction_trace_ptr& trace,
-                            const fc::exception_ptr& except_ptr, const fc::time_point& start );
+      void log_trx_results( const transaction_metadata_ptr& trx, const transaction_trace_ptr& trace, const fc::time_point& start );
+      void log_trx_results( const transaction_metadata_ptr& trx, const fc::exception_ptr& except_ptr );
       void log_trx_results( const packed_transaction_ptr& trx, const transaction_trace_ptr& trace,
                             const fc::exception_ptr& except_ptr, uint32_t billed_cpu_us, const fc::time_point& start );
 
@@ -523,7 +523,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                app().post( priority::low, [self, future{std::move(future)}, persist_until_expired, next{std::move( next )}, trx{std::move(trx)}, return_failure_traces]() mutable {
                   auto exception_handler = [self, &next, trx{std::move(trx)}](fc::exception_ptr ex) {
                      self->log_trx_results( trx, nullptr, ex, 0, fc::time_point::now() );
-                     next(ex);
+                     next( std::move(ex) );
                   };
                   try {
                      auto result = future.get();
@@ -557,7 +557,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                      std::make_shared<expired_tx_exception>(
                            FC_LOG_MESSAGE( error, "expired transaction ${id}, expiration ${e}, block time ${bt}",
                                            ("id", id)("e", expire)("bt", bt))));
-               log_trx_results( trx, nullptr, except_ptr, fc::time_point::now() );
+               log_trx_results( trx, except_ptr );
                next( std::move(except_ptr) );
                return true;
             }
@@ -565,7 +565,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
             if( chain.is_known_unexpired_transaction( id )) {
                auto except_ptr = std::static_pointer_cast<fc::exception>( std::make_shared<tx_duplicate>(
                      FC_LOG_MESSAGE( error, "duplicate transaction ${id}", ("id", id))));
-               log_trx_results( trx, nullptr, except_ptr, fc::time_point::now() );
+               log_trx_results( trx, except_ptr );
                next( std::move(except_ptr) );
                return true;
             }
@@ -1032,6 +1032,8 @@ void producer_plugin::plugin_shutdown() {
    if( my->_thread_pool ) {
       my->_thread_pool->stop();
    }
+
+   my->_unapplied_transactions.clear();
 
    app().post( 0, [me = my](){} ); // keep my pointer alive until queue is drained
 }
@@ -1773,28 +1775,28 @@ inline std::string get_detailed_contract_except_info(const packed_transaction_pt
       details = fc::format_string("${d}", fc::mutable_variant_object() ("d", details), true);  // true for limiting the formatted string size
    }
 
+   // this format is parsed by external tools
    return "action: " + contract_name + ":" + act_name + ", " + details;
 }
 
 void producer_plugin_impl::log_trx_results( const transaction_metadata_ptr& trx,
-                                            const transaction_trace_ptr& trace, const fc::exception_ptr& except_ptr,
+                                            const transaction_trace_ptr& trace,
                                             const fc::time_point& start )
 {
-   auto get_billed_cpu = [&](const transaction_metadata_ptr& trx, const transaction_trace_ptr& trace) -> uint32_t {
-      if( trace && trace->receipt ) {
-         return trace->receipt->cpu_usage_us;
-      } else if (trx) {
-         return trx->billed_cpu_time_us;
-      }
-      return 0;
-   };
+   uint32_t billed_cpu_time_us = (trace && trace->receipt) ? trace->receipt->cpu_usage_us : 0;
+   log_trx_results( trx->packed_trx(), trace, nullptr, billed_cpu_time_us, start );
+}
 
-
-   log_trx_results( trx ? trx->packed_trx() : nullptr, trace, except_ptr, get_billed_cpu( trx, trace ), start );
+void producer_plugin_impl::log_trx_results( const transaction_metadata_ptr& trx,
+                                            const fc::exception_ptr& except_ptr )
+{
+   uint32_t billed_cpu_time_us = trx ? trx->billed_cpu_time_us : 0;
+   log_trx_results( trx->packed_trx(), nullptr, except_ptr, billed_cpu_time_us, fc::time_point::now() );
 }
 
 void producer_plugin_impl::log_trx_results( const packed_transaction_ptr& trx,
-                                            const transaction_trace_ptr& trace, const fc::exception_ptr& except_ptr,
+                                            const transaction_trace_ptr& trace,
+                                            const fc::exception_ptr& except_ptr,
                                             uint32_t billed_cpu_us,
                                             const fc::time_point& start )
 {
@@ -1870,7 +1872,7 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
          auto except_ptr = std::static_pointer_cast<fc::exception>( std::make_shared<tx_cpu_usage_exceeded>(
                FC_LOG_MESSAGE( error, "transaction ${id} exceeded failure limit for account ${a}",
                                ("id", trx->id())( "a", first_auth ) ) ) );
-         log_trx_results( trx, nullptr, except_ptr, start );
+         log_trx_results( trx, except_ptr );
          next( except_ptr );
       }
       _idle_trx_time = fc::time_point::now();
@@ -1891,7 +1893,7 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
       sub_bill = _subjective_billing.get_subjective_bill( first_auth, fc::time_point::now() );
 
    auto prev_billed_cpu_time_us = trx->billed_cpu_time_us;
-   if( prev_billed_cpu_time_us > 0 && _pending_block_mode == pending_block_mode::producing ) {
+   if( _pending_block_mode == pending_block_mode::producing && prev_billed_cpu_time_us > 0 ) {
       const auto& rl = chain.get_resource_limits_manager();
       if ( !_subjective_billing.is_account_disabled( first_auth ) && !rl.is_unlimited_cpu( first_auth ) ) {
          int64_t prev_billed_plus100_us = prev_billed_cpu_time_us + EOS_PERCENT( prev_billed_cpu_time_us, 100 * config::percent_1 );
@@ -1918,7 +1920,7 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
          if (!disable_subjective_billing)
             _subjective_billing.subjective_bill_failure( first_auth, trace->elapsed, fc::time_point::now() );
 
-         log_trx_results( trx, trace, nullptr, start );
+         log_trx_results( trx, trace, start );
          if( _pending_block_mode == pending_block_mode::producing ) {
             auto failure_code = trace->except->code();
             if( failure_code != tx_duplicate::code_value ) {
@@ -1941,7 +1943,7 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
    } else {
       fc_dlog( _trx_successful_trace_log, "Subjective bill for success ${a}: ${b} elapsed ${t}us, time ${r}us",
                ("a",first_auth)("b",sub_bill)("t",trace->elapsed)("r", fc::time_point::now() - start));
-      log_trx_results( trx, trace, nullptr, start );
+      log_trx_results( trx, trace, start );
       if( persist_until_expired && !_disable_persist_until_expired ) {
          // if this trx didn't fail/soft-fail and the persist flag is set
          // ensure it is applied to all future speculative blocks as well.
