@@ -1161,11 +1161,12 @@ namespace eosio {
                close(false);
             }
             return;
-         } else {
-            const tstamp timeout = std::max(hb_timeout/2, 2*std::chrono::milliseconds(config::block_interval_ms).count());
+         } else if( latest_blk_time > 0 ) {
+            const tstamp timeout = std::max(hb_timeout*2, 2*std::chrono::milliseconds(config::block_interval_ms).count());
             if ( current_time > latest_blk_time + timeout ) {
-               send_handshake();
-               return;
+               no_retry = benign_other;
+               peer_wlog(this, "block timeout");
+               close();
             }
          }
       }
@@ -1586,9 +1587,10 @@ namespace eosio {
          // if closing the connection we are currently syncing from, then reset our last requested and next expected.
          if( c == sync_source ) {
             reset_last_requested_num(g);
-            uint32_t head_blk_num = 0;
-            std::tie( std::ignore, head_blk_num, std::ignore, std::ignore, std::ignore, std::ignore ) = my_impl->get_chain_info();
-            sync_next_expected_num = head_blk_num + 1;
+            // if starting to sync need to always start from lib as we might be on our own fork
+            uint32_t lib_num = 0;
+            std::tie( lib_num, std::ignore, std::ignore, std::ignore, std::ignore, std::ignore ) = my_impl->get_chain_info();
+            sync_next_expected_num = lib_num + 1;
             request_next_chunk( std::move(g) );
          }
       }
@@ -1605,8 +1607,9 @@ namespace eosio {
                ("r", sync_last_requested_num)("e", sync_next_expected_num)("k", sync_known_lib_num)("s", sync_req_span) );
 
       if( fork_head_block_num < sync_last_requested_num && sync_source && sync_source->current() ) {
-         fc_ilog( logger, "ignoring request, head is ${h} last req = ${r}, source connection ${c}",
-                  ("h", fork_head_block_num)("r", sync_last_requested_num)("c", sync_source->connection_id) );
+         fc_ilog( logger, "ignoring request, head is ${h} last req = ${r}, sync_next_expected_num: ${e}, sync_known_lib_num: ${k}, sync_req_span: ${s}, source connection ${c}",
+                  ("h", fork_head_block_num)("r", sync_last_requested_num)("e", sync_next_expected_num)
+                  ("k", sync_known_lib_num)("s", sync_req_span)("c", sync_source->connection_id) );
          return;
       }
 
@@ -1740,12 +1743,11 @@ namespace eosio {
       if( sync_state == in_sync ) {
          set_state( lib_catchup );
       }
-      // if starting to sync need to always start from lib as we might be on our own fork
-      sync_next_expected_num = lib_num + 1;
+      sync_next_expected_num = std::max( lib_num + 1, sync_next_expected_num );
 
       // p2p_high_latency_test.py test depends on this exact log statement.
-      peer_ilog( c, "Catching up with chain, our last req is ${cc}, theirs is ${t}",
-                 ("cc", sync_last_requested_num)("t", target) );
+      peer_ilog( c, "Catching up with chain, our last req is ${cc}, theirs is ${t}, next expected ${n}",
+                 ("cc", sync_last_requested_num)("t", target)("n", sync_next_expected_num) );
 
       request_next_chunk( std::move( g_sync ), c );
    }
