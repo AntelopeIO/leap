@@ -69,8 +69,8 @@ def waitForEmptyBlocks(node):
 
 def fetchStats(total):
     with open("var/lib/node_01/stderr.txt") as f:
-        trxResult = re.findall(r'Received block ([0-9a-fA-F]*).* #(\d+) .*trxs: (\d+),.*, net: (\d+), cpu: (\d+), elapsed: (\d+), time: (\d+), latency: (-?\d+) ms', f.read())
-        for value in trxResult:
+        blockResult = re.findall(r'Received block ([0-9a-fA-F]*).* #(\d+) .*trxs: (\d+),.*, net: (\d+), cpu: (\d+), elapsed: (\d+), time: (\d+), latency: (-?\d+) ms', f.read())
+        for value in blockResult:
             total.blockLog.append(blockData(value[0], int(value[1]), int(value[2]), int(value[3]), int(value[4]), int(value[5]), int(value[6]), int(value[7])))
             if int(value[1]) in range(total.startBlock, total.ceaseBlock):
                 total.updateTotal(int(value[2]), int(value[3]), int(value[4]), int(value[5]), int(value[6]), int(value[7]))
