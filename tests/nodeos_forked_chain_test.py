@@ -1,16 +1,12 @@
 #!/usr/bin/env python3
 
-from testUtils import Utils
 from datetime import datetime
 from datetime import timedelta
 import time
-from Cluster import Cluster
 import json
-from WalletMgr import WalletMgr
-from Node import Node
-from TestHelper import TestHelper
-
 import signal
+
+from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr
 
 ###############################################################
 # nodeos_forked_chain_test
