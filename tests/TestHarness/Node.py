@@ -10,12 +10,12 @@ import signal
 from datetime import datetime
 from datetime import timedelta
 from core_symbol import CORE_SYMBOL
-from testUtils import Utils
-from testUtils import Account
-from testUtils import EnumType
-from testUtils import addEnum
-from testUtils import unhandledEnumType
-from testUtils import ReturnType
+from .testUtils import Utils
+from .testUtils import Account
+from .testUtils import EnumType
+from .testUtils import addEnum
+from .testUtils import unhandledEnumType
+from .testUtils import ReturnType
 
 class BlockType(EnumType):
     pass

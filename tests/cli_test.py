@@ -11,12 +11,7 @@ import time
 import shutil
 import signal
 
-from testUtils import Account
-from testUtils import Utils
-from Cluster import Cluster
-from Node import Node
-from Node import ReturnType
-from WalletMgr import WalletMgr
+from TestHarness import Account, Cluster, Node, ReturnType, Utils, WalletMgr
 
 testSuccessful=False
 

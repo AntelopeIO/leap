@@ -1,17 +1,13 @@
 #!/usr/bin/env python3
 
-from testUtils import Utils
 import signal
 import time
-from Cluster import Cluster
-from Cluster import NamedAccounts
-from core_symbol import CORE_SYMBOL
-from WalletMgr import WalletMgr
-from Node import Node
-from TestHelper import TestHelper
-from TestHelper import AppArgs
-
 import json
+
+from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr
+from TestHarness.Cluster import NamedAccounts
+from TestHarness.TestHelper import AppArgs
+from core_symbol import CORE_SYMBOL
 
 ###############################################################
 # nodeos_high_transaction_test

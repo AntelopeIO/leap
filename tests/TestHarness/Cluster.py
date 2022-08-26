@@ -13,12 +13,12 @@ import random
 import json
 
 from core_symbol import CORE_SYMBOL
-from testUtils import Utils
-from testUtils import Account
-from testUtils import BlockLogAction
-from Node import BlockType
-from Node import Node
-from WalletMgr import WalletMgr
+from .testUtils import Utils
+from .testUtils import Account
+from .testUtils import BlockLogAction
+from .Node import BlockType
+from .Node import Node
+from .WalletMgr import WalletMgr
 
 # Protocol Feature Setup Policy
 class PFSetupPolicy:

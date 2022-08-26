@@ -1,19 +1,13 @@
 #!/usr/bin/env python3
 
-from testUtils import Utils
-from Cluster import Cluster
-from WalletMgr import WalletMgr
-from Node import Node
-from Node import ReturnType
-from TestHelper import TestHelper
-from testUtils import Account
-
 import re
 import os
 import time
 import signal
 import subprocess
 import shutil
+
+from TestHarness import Cluster, Node, ReturnType, TestHelper, Utils, WalletMgr
 
 ###############################################################
 # nodeos_irreversible_mode_test

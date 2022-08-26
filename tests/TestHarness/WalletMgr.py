@@ -7,7 +7,7 @@ from collections import namedtuple
 import re
 import sys
 
-from testUtils import Utils
+from .testUtils import Utils
 
 Wallet=namedtuple("Wallet", "name password host port")
 # pylint: disable=too-many-instance-attributes
