@@ -190,3 +190,12 @@ jobs:
         with:
           name: ${{matrix.platform}}-${{matrix.test-name}}-logs
           path: ${{matrix.platform}}-${{matrix.test-name}}-logs.tar.gz
+
+  all-passing:
+    name: All Required Tests Passed
+    needs: [tests, np-tests]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - if: needs.tests.result != 'success' || needs.np-tests.result != 'success'
+        run: false
