@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-from itertools import chain
 import os
 import sys
 import re
@@ -16,7 +15,6 @@ from Node import Node
 from Node import ReturnType
 from TestHelper import TestHelper
 from dataclasses import dataclass
-from typing import List
 
 Print = Utils.Print
 errorExit = Utils.errorExit
@@ -46,17 +44,16 @@ class chainData():
         self.totalElapsed = 0
         self.totalTime = 0
         self.totalLatency = 0
-    def updateTotal(self, block):
-        print("Block is ", block)
-        self.totalTransactions += int(block[2])
-        self.totalNet += int(block[3])
-        self.totalCpu += int(block[4])
-        self.totalElapsed += int(block[5])
-        self.totalTime += int(block[6])
-        self.totalLatency += int(block[7])
+    def updateTotal(self, transactions, net, cpu, elapsed, time, latency):
+        self.totalTransactions += transactions
+        self.totalNet += net
+        self.totalCpu += cpu
+        self.totalElapsed += elapsed
+        self.totalTime += time
+        self.totalLatency += latency
     def __str__(self):
-        return "Starting block: %d\nEnding block:%d\nChain transactions: %d\nChain cpu: %d\nChain net: %d\nChain elapsed: %d\nChain time: %d\nChain latency: %d" %\
-         (self.startBlock, self.ceaseBlock, self.totalTransactions, self.totalNet, self.totalCpu, self.totalElapsed, self.totalTime, self.totalLatency)
+        return (f"Starting block: {self.startBlock}\nEnding block:{self.ceaseBlock}\nChain transactions: {self.totalTransactions}\n"
+         f"Chain cpu: {self.totalNet}\nChain net: {self.totalCpu}\nChain elapsed: {self.totalElapsed}\nChain time: {self.totalTime}\nChain latency: {self.totalLatency}")
 
 def waitForEmptyBlocks(node):
     emptyBlocks = 0
@@ -75,8 +72,8 @@ def fetchStats(total):
         trxResult = re.findall(r'Received block ([0-9a-fA-F]*).* #(\d+) .*trxs: (\d+),.*, net: (\d+), cpu: (\d+), elapsed: (\d+), time: (\d+), latency: (-?\d+) ms', f.read())
         for value in trxResult:
             total.blockLog.append(blockData(value[0], int(value[1]), int(value[2]), int(value[3]), int(value[4]), int(value[5]), int(value[6]), int(value[7])))
-            if int(value[1]) in range (total.startBlock, total.ceaseBlock):
-                total.updateTotal(value)
+            if int(value[1]) in range(total.startBlock, total.ceaseBlock):
+                total.updateTotal(int(value[2]), int(value[3]), int(value[4]), int(value[5]), int(value[6]), int(value[7]))
 
 args=TestHelper.parse_args({"-p","-n","-d","-s","--nodes-file"
                             ,"--dump-error-details","-v","--leave-running"
@@ -162,7 +159,7 @@ try:
     fetchStats(data)
 
     print(data)
-    assert transactionsSent == data.totalTransactions , "Error: Transactions received: %d did not match expected total: %d" % (data.totalTransactions, transactionsSent)
+    assert transactionsSent == data.totalTransactions , f"Error: Transactions received: {data.totalTransactions} did not match expected total: {transactionsSent}"
 
     testSuccessful = True
 finally:
