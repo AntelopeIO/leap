@@ -71,7 +71,6 @@ try:
     failure_duration = 360
     extraNodeosArgs=" --transaction-finality-status-max-storage-size-gb 1 " + \
                    f"--transaction-finality-status-success-duration-sec {successDuration} --transaction-finality-status-failure-duration-sec {failure_duration}"
-    extraNodeosArgs+=" --plugin eosio::trace_api_plugin --trace-no-abis"
     extraNodeosArgs+=" --http-max-response-time-ms 990000"
 
 

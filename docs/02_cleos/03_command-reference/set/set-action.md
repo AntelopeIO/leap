@@ -40,7 +40,7 @@ cleos set action permission
 
 `-f,--force-unique` - force the transaction to be unique. this will consume extra bandwidth and remove any protections against accidently issuing the same transaction multiple times
 
-`-s,--skip-sign` Specify if unlocked wallet keys 
+`-s,--skip-sign` Specify if unlocked wallet keys
 should be used to sign transaction
 
 `-j,--json` print result as json
@@ -65,9 +65,9 @@ should be used to sign transaction
 #Link a `voteproducer` action to the 'voting' permissions
 cleos set action permission sandwichfarm eosio.system voteproducer voting -p sandwichfarm@voting
 
-#Now can execute the transaction with the previously set permissions. 
+#Now can execute the transaction with the previously set permissions.
 cleos system voteproducer approve sandwichfarm someproducer -p sandwichfarm@voting
 ```
 
 ## See Also
-- [Accounts and Permissions](https://developers.eos.io/welcome/latest/protocol/accounts_and_permissions) protocol document.
+- [Accounts and Permissions](/protocol-guides/04_accounts_and_permissions.md) protocol document.

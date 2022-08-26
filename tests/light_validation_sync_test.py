@@ -41,7 +41,6 @@ try:
     TestHelper.printSystemInfo("BEGIN")
     cluster.killall(allInstances=killAll)
     cluster.cleanup()
-    traceNodeosArgs = " --plugin eosio::trace_api_plugin --trace-no-abis "
     assert cluster.launch(
         pnodes=1,
         prodCount=1,
@@ -49,7 +48,6 @@ try:
         totalNodes=2,
         useBiosBootFile=False,
         loadSystemContract=False,
-        extraNodeosArgs=traceNodeosArgs,
         specificExtraNodeosArgs={
             1:"--validation-mode light"})
 

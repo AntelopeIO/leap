@@ -125,17 +125,10 @@ void update_resign_transaction(signed_transaction& trx, fc::crypto::private_key 
    }
 }
 
-void push_transactions(p2p_trx_provider& provider, vector<signed_transaction_w_signer>& trxs, uint64_t& nonce_prefix, uint64_t& nonce, const fc::microseconds& trx_expiration, const chain_id_type& chain_id, const block_id_type& last_irr_block_id) {
-   std::vector<signed_transaction> single_send;
-   single_send.reserve(1);
-
-   for(signed_transaction_w_signer& trx: trxs) {
+void push_transaction(p2p_trx_provider& provider, signed_transaction_w_signer& trx, uint64_t& nonce_prefix, uint64_t& nonce, const fc::microseconds& trx_expiration, const chain_id_type& chain_id, const block_id_type& last_irr_block_id) {
       update_resign_transaction(trx._trx, trx._signer, ++nonce_prefix, nonce, trx_expiration, chain_id, last_irr_block_id);
-      single_send.emplace_back(trx._trx);
-      provider.send(single_send);
-      single_send.clear();
+      provider.send(trx._trx);
       ++_txcount;
-   }
 }
 
 void stop_generation() {
@@ -166,14 +159,14 @@ vector<fc::crypto::private_key> get_private_keys(const vector<string>& priv_key_
 }
 
 int main(int argc, char** argv) {
-   const uint64_t TRX_EXPIRATION_MAX = 3600;
+   const int64_t TRX_EXPIRATION_MAX = 3600;
    variables_map vmap;
    options_description cli("Transaction Generator command line options.");
    string chain_id_in;
    string h_acct;
    string accts;
    string p_keys;
-   uint64_t trx_expr;
+   int64_t trx_expr;
    uint32_t gen_duration;
    uint32_t target_tps;
    string lib_id_str;
@@ -187,7 +180,7 @@ int main(int argc, char** argv) {
       ("handler-account", bpo::value<string>(&h_acct), "Account name of the handler account for the transfer actions")
       ("accounts", bpo::value<string>(&accts), "comma-separated list of accounts that will be used for transfers. Minimum required accounts: 2.")
       ("priv-keys", bpo::value<string>(&p_keys), "comma-separated list of private keys in same order of accounts list that will be used to sign transactions. Minimum required: 2.")
-      ("trx-expiration", bpo::value<uint64_t>(&trx_expr)->default_value(3600), "transaction expiration time in seconds. Defaults to 3,600. Maximum allowed: 3,600")
+      ("trx-expiration", bpo::value<int64_t>(&trx_expr)->default_value(3600), "transaction expiration time in seconds. Defaults to 3,600. Maximum allowed: 3,600")
       ("trx-gen-duration", bpo::value<uint32_t>(&gen_duration)->default_value(60), "Transaction generation duration (seconds). Defaults to 60 seconds.")
       ("target-tps", bpo::value<uint32_t>(&target_tps)->default_value(1), "Target transactions per second to generate/send. Defaults to 1 transaction per second.")
       ("last-irreversible-block-id", bpo::value<string>(&lib_id_str), "Current last-irreversible-block-id (LIB ID) to use for transactions.")
@@ -298,7 +291,13 @@ int main(int argc, char** argv) {
       provider.setup();
 
       std::cout << "Update each trx to qualify as unique and fresh timestamps, re-sign trx, and send each updated transactions via p2p transaction provider" << std::endl;
-      push_transactions(provider, trxs, ++nonce_prefix, nonce, trx_expiration, chain_id, last_irr_block_id);
+      uint32_t trx_sent = 0;
+      while (trx_sent < gen_duration * target_tps)
+      {
+         size_t index_to_send = trx_sent % trxs.size();
+         push_transaction(provider, trxs.at(index_to_send), ++nonce_prefix, nonce, trx_expiration, chain_id, last_irr_block_id);
+         ++trx_sent;
+      }
 
       std::cout << "Sent transactions: " << _txcount << std::endl;
 

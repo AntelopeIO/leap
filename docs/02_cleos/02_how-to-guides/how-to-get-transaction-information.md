@@ -2,7 +2,7 @@
 
 This how-to guide provides instructions on how to retrieve infomation of an EOSIO transaction using a transaction ID.
 
-The example in this how-to retrieves transaction information associated with the creation of the account **bob**. 
+The example in this how-to retrieves transaction information associated with the creation of the account **bob**.
 
 ## Before you begin
 
@@ -10,7 +10,7 @@ Make sure you meet the following requirements:
 * Install the currently supported version of `cleos`.
 [[info | Note]]
 | `cleos` is bundled with the EOSIO software. [Installing EOSIO](../../00_install/index.md) will also install `cleos`.
-* Understand how transactions work in an EOSIO blockchain. For more information on transactions, see the [Transactions Protocol](https://developers.eos.io/welcome/latest/protocol-guides/transactions_protocol) section.
+* Understand how transactions work in an EOSIO blockchain. For more information on transactions, see the [Transactions Protocol](/protocol-guides/02_transactions_protocol.md) section.
 
 ## Command Reference
 
@@ -25,7 +25,7 @@ The following step shows how to retrieve transaction information associated with
 ```sh
 cleos get transaction 870a6b6e3882061ff0f64016e1eedfdd9439e2499bf978c3fb29fcedadada9b1
 ```
-* Where `870a6b6e38...dada9b1`= The transaction ID associated with the creation of account **bob**. 
+* Where `870a6b6e38...dada9b1`= The transaction ID associated with the creation of account **bob**.
 
 **Example Output**
 
@@ -179,7 +179,7 @@ The `cleos` command returns detailed information of the transaction:
 
 ## Summary
 
-By following these instructions, you are able to retrieve transaction information using a transaction ID. 
+By following these instructions, you are able to retrieve transaction information using a transaction ID.
 
 ## Trobleshooting
 
@@ -195,4 +195,4 @@ Error Details:
 History API plugin is not enabled
 ```
 
-To troubleshoot this error, enable the [history plugin](../../01_nodeos/03_plugins/history_plugin/index.md) and [history API plugin](../../01_nodeos/03_plugins/history_api_plugin/index.md), then run the command again. 
+To troubleshoot this error, enable the [history plugin](../../01_nodeos/03_plugins/history_plugin/index.md) and [history API plugin](../../01_nodeos/03_plugins/history_api_plugin/index.md), then run the command again.
