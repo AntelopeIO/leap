@@ -69,7 +69,7 @@ try:
     TestHelper.printSystemInfo("BEGIN")
     cluster.killall(allInstances=killAll)
     cluster.cleanup()
-    extraNodeosArgs=' --http-max-response-time-ms 990000 --disable-subjective-api-billing false --plugin eosio::trace_api_plugin --trace-no-abis '
+    extraNodeosArgs=' --http-max-response-time-ms 990000 --disable-subjective-api-billing false '
     if cluster.launch(
        pnodes=pnodes,
        totalNodes=total_nodes,
