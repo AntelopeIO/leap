@@ -194,6 +194,8 @@ jobs:
   all-passing:
     name: All Required Tests Passed
     needs: [tests, np-tests]
+    if: always()
     runs-on: ubuntu-latest
     steps:
-      - run: true
+      - if: needs.tests.result != 'success' || needs.np-tests.result != 'success'
+        run: false
