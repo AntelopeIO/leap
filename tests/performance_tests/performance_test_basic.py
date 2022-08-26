@@ -24,7 +24,7 @@ emptyBlockGoal = 5
 
 @dataclass
 class blockData():
-    blockId: str = ""
+    partialBlockId: str = ""
     blockNum: int = 0
     transactions: int = 0
     net: int = 0
