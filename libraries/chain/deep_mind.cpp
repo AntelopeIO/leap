@@ -42,6 +42,7 @@ namespace eosio::chain {
       case deep_mind_handler::operation_qualifier::none: return "";
       case deep_mind_handler::operation_qualifier::modify: return "MODIFY_";
       case deep_mind_handler::operation_qualifier::push: return "PUSH_";
+      default: elog("Unknown operation_qualifier"); return "";
       }
    }
 
