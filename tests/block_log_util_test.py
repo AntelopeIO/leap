@@ -1,16 +1,14 @@
 #!/usr/bin/env python3
 
-from testUtils import Utils
-from testUtils import BlockLogAction
 import time
-from Cluster import Cluster
-from WalletMgr import WalletMgr
-from Node import BlockType
 import os
 import signal
 import subprocess
-from TestHelper import AppArgs
-from TestHelper import TestHelper
+
+from TestHarness import Cluster, TestHelper, Utils, WalletMgr
+from TestHarness.testUtils import BlockLogAction
+from TestHarness.TestHelper import AppArgs
+from TestHarness.Node import BlockType
 
 ###############################################################
 # block_log_util_test

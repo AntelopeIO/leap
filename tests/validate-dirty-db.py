@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
 
-from testUtils import Utils
-from Cluster import Cluster
-from TestHelper import TestHelper
-
 import random
 import subprocess
 import signal
+
+from TestHarness import Cluster, TestHelper, Utils
 
 ###############################################################
 # validate-dirty-db
