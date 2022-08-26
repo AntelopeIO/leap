@@ -69,11 +69,22 @@ def waitForEmptyBlocks(node):
 
 def fetchStats(total):
     with open("var/lib/node_01/stderr.txt") as f:
-        blockResult = re.findall(r'Received block ([0-9a-fA-F]*).* #(\d+) .*trxs: (\d+),.*, net: (\d+), cpu: (\d+), elapsed: (\d+), time: (\d+), latency: (-?\d+) ms', f.read())
+        blockResult = re.findall(r'Received block ([0-9a-fA-F]*).* #(\d+) .*trxs: (\d+)(.*)', f.read())
         for value in blockResult:
-            total.blockLog.append(blockData(value[0], int(value[1]), int(value[2]), int(value[3]), int(value[4]), int(value[5]), int(value[6]), int(value[7])))
-            if int(value[1]) in range(total.startBlock, total.ceaseBlock):
-                total.updateTotal(int(value[2]), int(value[3]), int(value[4]), int(value[5]), int(value[6]), int(value[7]))
+            v3Logging = re.findall(r'net: (\d+), cpu: (\d+), elapsed: (\d+), time: (\d+), latency: (-?\d+) ms', value[3])
+            if v3Logging:
+                total.blockLog.append(blockData(value[0], int(value[1]), int(value[2]), int(v3Logging[0][0]), int(v3Logging[0][1]), int(v3Logging[0][2]), int(v3Logging[0][3]), int(v3Logging[0][4])))
+                if int(value[1]) in range(total.startBlock, total.ceaseBlock):
+                    total.updateTotal(int(value[2]), int(v3Logging[0][0]), int(v3Logging[0][1]), int(v3Logging[0][2]), int(v3Logging[0][3]), int(v3Logging[0][4]))
+            else:
+                v2Logging = re.findall(r'latency: (-?\d+) ms', value[3])
+                if v2Logging:
+                    total.blockLog.append(blockData(value[0], int(value[1]), int(value[2]), 0, 0, 0, 0, int(v2Logging[0])))
+                    if int(value[1]) in range(total.startBlock, total.ceaseBlock):
+                        total.updateTotal(int(value[2]), 0, 0, 0, 0, int(v2Logging[0]))
+                else:
+                    print("Error: Unknown log format")
+
 
 args=TestHelper.parse_args({"-p","-n","-d","-s","--nodes-file"
                             ,"--dump-error-details","-v","--leave-running"
