@@ -77,7 +77,7 @@ class Cluster(object):
     __BiosHost="localhost"
     __BiosPort=8788
     __LauncherCmdArr=[]
-    __bootlog="eosio-ignition-wd/bootlog.txt"
+    __bootlog="leap-ignition-wd/bootlog.txt"
 
     # pylint: disable=too-many-arguments
     # walletd [True|False] Is keosd running. If not load the wallet plugin
