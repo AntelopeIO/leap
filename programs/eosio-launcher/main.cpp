@@ -1153,16 +1153,9 @@ launcher_def::write_logging_config_file(tn_node_def &node) {
     bfs::create_directories(dd);
   }
   fc::log_level ll = fc::log_level::debug;
-  if (logging_level == "all") {
-     ll = fc::log_level::all;
-  } else if (logging_level == "info") {
-     ll = fc::log_level::info;
-  } else if (logging_level == "warn") {
-     ll = fc::log_level::warn;
-  } else if (logging_level == "error") {
-     ll = fc::log_level::error;
-  } else if (logging_level == "off") {
-     ll = fc::log_level::off;
+  if (logging_level != "") {
+     fc::variant v(logging_level);
+     fc::from_variant(v, ll);
   }
 
   filename = dd / "logging.json";
