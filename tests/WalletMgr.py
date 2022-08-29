@@ -12,9 +12,9 @@ from testUtils import Utils
 Wallet=namedtuple("Wallet", "name password host port")
 # pylint: disable=too-many-instance-attributes
 class WalletMgr(object):
-    __walletLogOutFile="test_keosd_out.log"
-    __walletLogErrFile="test_keosd_err.log"
-    __walletDataDir="test_wallet_0"
+    __walletLogOutFile="var/test_keosd_out.log"
+    __walletLogErrFile="var/test_keosd_err.log"
+    __walletDataDir="var/test_wallet_0"
     __MaxPort=9999
 
     # pylint: disable=too-many-arguments
@@ -127,7 +127,7 @@ class WalletMgr(object):
                             portStatus="AVAILABLE"
                         else:
                             portStatus="NOT AVAILABLE"
-                    if Utils.Debug: Utils.Print("%s was not accepted, delaying for %d seconds and trying again. port %d is %s. %s - {%s}" % (cmdDesc, delay, self.port, pgrepCmd, psOut))
+                    if Utils.Debug: Utils.Print("%s was not accepted, delaying for %d seconds and trying again. port %d is %s. %s - {%s}" % (cmdDesc, delay, self.port, pgrepCmd, psOut, portStatus))
                     time.sleep(delay)
                     continue
 
