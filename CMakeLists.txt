@@ -230,8 +230,6 @@ configure_file(${CMAKE_SOURCE_DIR}/libraries/fc/include/fc/crypto/webauthn_json/
                ${CMAKE_BINARY_DIR}/licenses/leap/LICENSE.rapidjson COPYONLY)
 configure_file(${CMAKE_SOURCE_DIR}/libraries/fc/src/network/LICENSE.go
                ${CMAKE_BINARY_DIR}/licenses/leap/LICENSE.go COPYONLY)
-configure_file(${CMAKE_SOURCE_DIR}/libraries/yubihsm/LICENSE
-               ${CMAKE_BINARY_DIR}/licenses/leap/LICENSE.yubihsm COPYONLY)
 configure_file(${CMAKE_SOURCE_DIR}/libraries/eos-vm/LICENSE
                ${CMAKE_BINARY_DIR}/licenses/leap/LICENSE.eos-vm COPYONLY)
 
@@ -241,7 +239,6 @@ install(FILES libraries/wasm-jit/LICENSE DESTINATION ${CMAKE_INSTALL_FULL_DATARO
 install(FILES libraries/fc/secp256k1/secp256k1/COPYING DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/licenses/leap/ RENAME LICENSE.secp256k1 COMPONENT base)
 install(FILES libraries/fc/include/fc/crypto/webauthn_json/license.txt DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/licenses/leap/ RENAME LICENSE.rapidjson COMPONENT base)
 install(FILES libraries/fc/src/network/LICENSE.go DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/licenses/leap/ COMPONENT base)
-install(FILES libraries/yubihsm/LICENSE DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/licenses/leap/ RENAME LICENSE.yubihsm COMPONENT base)
 install(FILES libraries/eos-vm/LICENSE DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/licenses/leap/ RENAME LICENSE.eos-vm COMPONENT base)
 install(FILES libraries/fc/libraries/ff/LICENSE DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/licenses/leap/ RENAME LICENSE.libff COMPONENT base)
 
@@ -251,9 +248,6 @@ add_custom_target(dev-install
   COMMAND "${CMAKE_COMMAND}" --install "${CMAKE_BINARY_DIR}" --component dev
   USES_TERMINAL
 )
-
-get_property(_CTEST_CUSTOM_TESTS_IGNORE GLOBAL PROPERTY CTEST_CUSTOM_TESTS_IGNORE)
-file(WRITE "${CMAKE_BINARY_DIR}/CTestCustom.cmake" "SET(CTEST_CUSTOM_TESTS_IGNORE ${_CTEST_CUSTOM_TESTS_IGNORE})")
 
 include(doxygen)
 

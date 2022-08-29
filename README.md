@@ -18,7 +18,7 @@ Recent Ubuntu LTS releases are the only Linux distributions that we fully suppor
 * CMake 3.8+
 * (for Linux only) LLVM 7 - 11 (newer versions do not work)
 
-A few other common libraries are tools also required such as openssl 1.1+, libcurl, curl, libusb, GMP, Python 3, and zlib.
+A few other common libraries are tools also required such as openssl 1.1+, curl, GMP, Python 3, and zlib.
 
 **A Warning On Parallel Compilation Jobs (`-j` flag)**: When building C/C++ software often the build is performed in parallel via a command such as `make -j $(nproc)` which uses the number of CPU cores as the number of compilation jobs to perform simultaneously. However, be aware that some compilation units (.cpp files) in Leap are extremely complex and will consume nearly 4GB of memory to compile. You may need to reduce the level of parallelization depending on the amount of memory on your build host. e.g. instead of `make -j $(nproc)` run `make -j2`. Failures due to memory exhaustion will typically but not always manifest as compiler crashes.
 
@@ -33,6 +33,8 @@ The binary package will be produced in the Leap build directory that was supplie
 
 #### Manual (non "pinned") Build Instructions
 
+These instructions are valid for this branch. Other release branches may have different requirements so ensure you follow the directions in the branch or release you intend to build.
+
 <details>
   <summary>Ubuntu 20.04 & 22.04 Build Instructions</summary>
 
@@ -44,12 +46,9 @@ apt-get update && apt-get install   \
         curl                        \
         git                         \
         libboost-all-dev            \
-        libcurl4-openssl-dev        \
         libgmp-dev                  \
         libssl-dev                  \
-        libusb-1.0-0-dev            \
-        llvm-11-dev                 \
-        pkg-config
+        llvm-11-dev
 ```
 and perform the build:
 ```
@@ -72,12 +71,9 @@ apt-get update && apt-get install   \
         curl                        \
         g++-8                       \
         git                         \
-        libcurl4-openssl-dev        \
         libgmp-dev                  \
         libssl-dev                  \
-        libusb-1.0-0-dev            \
         llvm-7-dev                  \
-        pkg-config                  \
         python3                     \
         zlib1g-dev
         
