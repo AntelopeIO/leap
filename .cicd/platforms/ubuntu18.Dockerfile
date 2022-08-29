@@ -7,13 +7,10 @@ RUN apt-get update && apt-get upgrade -y && \
                                                       g++-8                       \
                                                       git                         \
                                                       jq                          \
-                                                      libcurl4-openssl-dev        \
                                                       libgmp-dev                  \
                                                       libssl-dev                  \
-                                                      libusb-1.0-0-dev            \
                                                       llvm-7-dev                  \
                                                       ninja-build                 \
-                                                      pkg-config                  \
                                                       python3                     \
                                                       software-properties-common  \
                                                       zlib1g-dev                  \
