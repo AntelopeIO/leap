@@ -750,8 +750,8 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
              "Specify if Access-Control-Allow-Credentials: true should be returned on each request.")
             ("max-body-size", bpo::value<uint32_t>()->default_value(my->max_body_size),
              "The maximum body size in bytes allowed for incoming RPC requests")
-            ("http-max-bytes-in-flight-mb", bpo::value<uint32_t>()->default_value(500),
-             "Maximum size in megabytes http_plugin should use for processing http requests. 429 error response when exceeded." )
+            ("http-max-bytes-in-flight-mb", bpo::value<int64_t>()->default_value(500),
+             "Maximum size in megabytes http_plugin should use for processing http requests. -1 for unlimited. 429 error response when exceeded." )
             ("http-max-in-flight-requests", bpo::value<int32_t>()->default_value(-1),
              "Maximum number of requests http_plugin should use for processing http requests. 429 error response when exceeded." )
             ("http-max-response-time-ms", bpo::value<uint32_t>()->default_value(30),
@@ -776,7 +776,14 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
          EOS_ASSERT( my->thread_pool_size > 0, chain::plugin_config_exception,
                      "http-threads ${num} must be greater than 0", ("num", my->thread_pool_size));
 
-         my->max_bytes_in_flight = options.at( "http-max-bytes-in-flight-mb" ).as<uint32_t>() * 1024 * 1024;
+         auto max_bytes_mb = options.at( "http-max-bytes-in-flight-mb" ).as<int64_t>();
+         EOS_ASSERT( (max_bytes_mb >= -1 && max_bytes_mb < std::numeric_limits<int64_t>::max() / (1024 * 1024)), chain::plugin_config_exception,
+                     "http-max-bytes-in-flight-mb (${max_bytes_mb}) must be equal to or greater than -1 and less than ${max}", ("max_bytes_mb", max_bytes_mb) ("max", std::numeric_limits<int64_t>::max() / (1024 * 1024)) );
+         if ( max_bytes_mb == -1 ) {
+            my->max_bytes_in_flight = std::numeric_limits<size_t>::max();
+         } else {
+            my->max_bytes_in_flight = max_bytes_mb * 1024 * 1024;
+         }
          my->max_requests_in_flight = options.at( "http-max-in-flight-requests" ).as<int32_t>();
          my->max_response_time = fc::microseconds( options.at("http-max-response-time-ms").as<uint32_t>() * 1000 );
          

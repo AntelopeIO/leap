@@ -1,17 +1,14 @@
 #!/usr/bin/env python3
 
-from testUtils import Utils
 import time
-from Cluster import Cluster
-from WalletMgr import WalletMgr
-from TestHelper import TestHelper
-from TestHelper import AppArgs
-
 import json
 import os
 import shutil
 import signal
 import sys
+
+from TestHarness import Cluster, TestHelper, Utils, WalletMgr
+from TestHarness.TestHelper import AppArgs
 
 ###############################################################
 # ship_streamer_test

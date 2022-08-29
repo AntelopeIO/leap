@@ -1,19 +1,14 @@
 #!/usr/bin/env python3
 
-from testUtils import Utils
-import testUtils
 import time
-from Cluster import Cluster
-from WalletMgr import WalletMgr
-from Node import BlockType
-from Node import Node
 import signal
-from TestHelper import AppArgs
-from TestHelper import TestHelper
-
 import decimal
 import math
 import re
+
+from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr
+from TestHarness.Node import BlockType
+from TestHarness.TestHelper import AppArgs
 
 ###############################################################
 # nodeos_startup_catchup

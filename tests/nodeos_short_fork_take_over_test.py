@@ -1,18 +1,13 @@
 #!/usr/bin/env python3
 
-from testUtils import Utils
-import testUtils
 import time
-from Cluster import Cluster
-from WalletMgr import WalletMgr
-from Node import BlockType
-from Node import Node
-from TestHelper import TestHelper
-
 import decimal
 import math
 import re
 import signal
+
+from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr
+from TestHarness.Node import BlockType
 
 ###############################################################
 # nodeos_short_fork_take_over_test

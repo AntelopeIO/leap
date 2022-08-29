@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-from testUtils import Utils, WaitSpec
-from Cluster import Cluster
-from WalletMgr import WalletMgr
-from TestHelper import TestHelper
+
 import signal
 import platform
 import subprocess
 import time
 import re
+
+from TestHarness import Cluster, TestHelper, Utils, WalletMgr
+from TestHarness.testUtils import WaitSpec
 
 ###############################################################
 # p2p connection in high latency network for one producer and one syning node cluster.

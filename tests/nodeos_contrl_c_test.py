@@ -1,17 +1,13 @@
 #!/usr/bin/env python3
 
-from core_symbol import CORE_SYMBOL
-from testUtils import Utils
 from datetime import datetime
 from datetime import timedelta
 import time
-from Cluster import Cluster
 import json
-from WalletMgr import WalletMgr
-from Node import Node
-from TestHelper import TestHelper
-
 import signal
+
+from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr
+from core_symbol import CORE_SYMBOL
 
 ###############################################################
 # nodeos_contrl_c_lr_test

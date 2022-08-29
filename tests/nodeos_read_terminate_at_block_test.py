@@ -4,11 +4,7 @@ import re
 import signal
 import time
 
-from testUtils import Utils
-from Cluster import Cluster
-from WalletMgr import WalletMgr
-from TestHelper import TestHelper
-
+from TestHarness import Cluster, TestHelper, Utils, WalletMgr
 
 ###############################################################
 # nodeos_read_terminate_at_block_test
