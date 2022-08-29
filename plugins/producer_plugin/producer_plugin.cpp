@@ -1924,8 +1924,8 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
             auto failure_code = trace->except->code();
             if( failure_code != tx_duplicate::code_value ) {
                // this failed our configured maximum transaction time, we don't want to replay it
-               fc_dlog( _log, "Failed ${c} trx, prev billed: ${p}us, ran: ${r}us, id: ${id}",
-                        ("c", trace->except->code())( "p", prev_billed_cpu_time_us )
+               fc_dlog( _log, "Failed ${c} trx, auth: ${a}, prev billed: ${p}us, ran: ${r}us, id: ${id}",
+                        ("c", failure_code)("a", first_auth)("p", prev_billed_cpu_time_us)
                         ( "r", fc::time_point::now() - start )( "id", trx->id() ) );
                _account_fails.add( first_auth, failure_code );
             }
