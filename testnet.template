@@ -24,7 +24,7 @@ if [ -z "$bioscurrencysymbol" ]; then
     bioscurrencysymbol="SYS"
 fi
 
-wddir=eosio-ignition-wd
+wddir=leap-ignition-wd
 wdaddr=localhost:8899
 wdurl=http://$wdaddr
 # Manual deployers, add a line below this block that looks like:
