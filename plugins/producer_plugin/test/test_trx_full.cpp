@@ -136,6 +136,13 @@ BOOST_AUTO_TEST_CASE(producer) {
       auto bs = chain_plug->chain().block_start.connect( [&]( uint32_t bn ) {
       } );
 
+      std::atomic<size_t> num_acked = 0;
+      plugin_interface::compat::channels::transaction_ack::channel_type::handle incoming_transaction_ack_subscription =
+            appbase::app().get_channel<plugin_interface::compat::channels::transaction_ack>().subscribe(
+                  [&num_acked]( const std::pair<fc::exception_ptr, packed_transaction_ptr>& t){
+                     ++num_acked;
+                  } );
+
       std::deque<packed_transaction_ptr> trxs;
       std::atomic<size_t> next_calls = 0;
       std::atomic<size_t> num_posts = 0;
@@ -189,6 +196,7 @@ BOOST_AUTO_TEST_CASE(producer) {
       BOOST_CHECK( all_blocks.size() > 3 ); // should have a few blocks otherwise test is running too fast
       BOOST_CHECK_EQUAL( num_pushes, num_posts );
       BOOST_CHECK_EQUAL( num_pushes, next_calls );
+      BOOST_CHECK_EQUAL( num_pushes, num_acked );
       BOOST_CHECK( trx_match.load() );
 
       appbase::app().quit();

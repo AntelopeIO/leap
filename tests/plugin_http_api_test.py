@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 import json
 import os
 import shutil
@@ -7,11 +8,7 @@ import unittest
 import socket
 import re
 
-from testUtils import Utils
-from testUtils import Account
-from TestHelper import TestHelper
-from Node import Node
-from WalletMgr import WalletMgr
+from TestHarness import Account, Node, TestHelper, Utils, WalletMgr
 
 class PluginHttpTest(unittest.TestCase):
     sleep_s = 2
@@ -72,7 +69,8 @@ class PluginHttpTest(unittest.TestCase):
                         "--p2p-peer-address localhost:9011 --resource-monitor-not-shutdown-on-threshold-exceeded ") % (self.data_dir, self.config_dir, self.data_dir, "\'*\'", "false")
         start_nodeos_cmd = ("%s -e -p eosio %s %s ") % (Utils.EosServerPath, nodeos_plugins, nodeos_flags)
         self.nodeos.launchCmd(start_nodeos_cmd, self.node_id)
-        time.sleep(self.sleep_s)
+        time.sleep(self.sleep_s*2)
+        self.nodeos.waitForBlock(1, timeout=30)
 
     def activateAllBuiltinProtocolFeatures(self):
         self.nodeos.activatePreactivateFeature()

@@ -76,7 +76,7 @@ namespace eosio::trace_api {
        * @throws std::ios_base::failure if this would seek past the end of the file
        * @throws compressed_file_error if the compressed data stream is corrupt or unreadable
        */
-      void seek( long loc );
+      void seek( uint64_t loc );
 
       /**
        * Read a given number of uncompressed bytes to the buffer pointed to by `d`.

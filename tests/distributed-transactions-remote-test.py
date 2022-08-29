@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
 
-from testUtils import Utils
-from Cluster import Cluster
-from TestHelper import TestHelper
-
 import subprocess
 import tempfile
 import os
+
+from TestHarness import Cluster, TestHelper, Utils
 
 ###############################################################
 # distributed-transactions-remote-test

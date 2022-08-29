@@ -359,10 +359,6 @@ struct trace_api_plugin_impl {
    trace_api_plugin_impl( const std::shared_ptr<trace_api_common_impl>& common )
    :common(common) {}
 
-   static void set_program_options(appbase::options_description& cli, appbase::options_description& cfg) {
-      auto cfg_options = cfg.add_options();
-   }
-
    void plugin_initialize(const appbase::variables_map& options) {
       ilog("initializing trace api plugin");
       auto log_exceptions_and_shutdown = [](const exception_with_context& e) {
@@ -431,7 +427,6 @@ trace_api_plugin::~trace_api_plugin()
 
 void trace_api_plugin::set_program_options(appbase::options_description& cli, appbase::options_description& cfg) {
    trace_api_common_impl::set_program_options(cli, cfg);
-   trace_api_plugin_impl::set_program_options(cli, cfg);
    trace_api_rpc_plugin_impl::set_program_options(cli, cfg);
 }
 
