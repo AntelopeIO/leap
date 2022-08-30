@@ -294,14 +294,6 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
             my->plugin_state->valid_hosts.insert(aliases.begin(), aliases.end());
          }
 
-         my->plugin_state->thread_pool_size = options.at( "http-threads" ).as<uint16_t>();
-         EOS_ASSERT( my->plugin_state->thread_pool_size > 0, chain::plugin_config_exception,
-                     "http-threads ${num} must be greater than 0", ("num", my->plugin_state->thread_pool_size));
-
-         my->plugin_state->max_bytes_in_flight = options.at( "http-max-bytes-in-flight-mb" ).as<uint32_t>() * 1024 * 1024;
-         my->plugin_state->max_requests_in_flight = options.at( "http-max-in-flight-requests" ).as<int32_t>();
-         my->plugin_state->max_response_time = fc::microseconds( options.at("http-max-response-time-ms").as<uint32_t>() * 1000 );
-
          my->plugin_state->keep_alive = options.at("http-keep-alive").as<bool>();
 
          tcp::resolver resolver( app().get_io_service());
