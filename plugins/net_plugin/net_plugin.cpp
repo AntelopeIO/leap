@@ -3743,8 +3743,10 @@ namespace eosio {
                my->acceptor->bind(listen_endpoint);
                my->acceptor->listen();
             } catch (const std::exception& e) {
-               elog( "net_plugin::plugin_startup failed to bind to port ${port}", ("port", listen_endpoint.port()) );
-               throw e;
+               elog( "net_plugin::plugin_startup failed to bind to port ${port}, ${what}",
+                     ("port", listen_endpoint.port())("what", e.what()) );
+               app().quit();
+               return;
             }
             fc_ilog( logger, "starting listener, max clients is ${mc}",("mc",my->max_client_count) );
             my->start_listen_loop();
