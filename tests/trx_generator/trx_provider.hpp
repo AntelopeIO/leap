@@ -54,8 +54,11 @@ namespace eosio::testing {
 
    };
 
-
    constexpr int64_t min_sleep_us = 1;
+
+   struct null_tps_monitor {
+      bool monitor_test(const tps_test_stats& stats) {return true;}
+   };
 
    template<typename G, typename M>
    struct trx_tps_tester {
@@ -71,10 +74,10 @@ namespace eosio::testing {
 
       }
 
-      void run() {
+      bool run() {
          if ((_target_tps) < 1 || (_gen_duration_seconds < 1)) {
             elog("target tps (${tps}) and duration (${dur}) must both be 1+", ("tps", _target_tps)("dur", _gen_duration_seconds));
-            return;
+            return false;
          }
 
          tps_test_stats stats;
@@ -96,7 +99,7 @@ namespace eosio::testing {
             stats.trxs_left--;
             stats.trxs_sent++;
 
-            keep_running = (_monitor->monitor_test(stats) && stats.trxs_left);
+            keep_running = ((_monitor == nullptr || _monitor->monitor_test(stats)) && stats.trxs_left);
 
             if (keep_running) {
                fc::microseconds time_to_sleep{stats.next_run - fc::time_point::now()};
@@ -105,8 +108,9 @@ namespace eosio::testing {
                }
                stats.time_to_next_trx_us = time_to_sleep.count();
             }
-
          }
+
+         return true;
       }
    };
 }
