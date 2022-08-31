@@ -77,7 +77,7 @@ namespace eosio { namespace chain {
 
    abi_serializer::abi_serializer( const abi_def& abi, const fc::microseconds& max_serialization_time) {
       configure_built_in_types();
-      set_abi(abi, max_serialization_time);
+      set_abi(abi, create_yield_function(max_serialization_time));
    }
 
    void abi_serializer::add_specialized_unpack_pack( const string& name,

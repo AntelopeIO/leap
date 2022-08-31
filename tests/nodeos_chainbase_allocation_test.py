@@ -1,16 +1,12 @@
 #!/usr/bin/env python3
 
-from testUtils import Utils, Account
-from Cluster import Cluster
-from TestHelper import TestHelper
-from WalletMgr import WalletMgr
-from Node import Node
-
 import signal
 import json
 import time
 import os
 import filecmp
+
+from TestHarness import Account, Cluster, Node, TestHelper, Utils, WalletMgr
 
 ###############################################################
 # nodeos_chainbase_allocation_test

@@ -401,10 +401,10 @@ paths:
                     type: string
                     description: base64 encoded ABI
 
-  /get_scheduled_transaction:
+  /get_scheduled_transactions:
     post:
-      description: Retrieves the scheduled transaction
-      operationId: get_scheduled_transaction
+      description: Retrieves scheduled transactions
+      operationId: get_scheduled_transactions
       requestBody:
         content:
           application/json:
