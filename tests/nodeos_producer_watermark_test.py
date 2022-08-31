@@ -1,16 +1,11 @@
 #!/usr/bin/env python3
 
-from testUtils import Utils
-import testUtils
-from Cluster import Cluster
-from WalletMgr import WalletMgr
-from Node import Node
-from TestHelper import TestHelper
-
 import time
 import decimal
 import math
 import re
+
+from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr
 
 ###############################################################
 # nodeos_producer_watermark_test

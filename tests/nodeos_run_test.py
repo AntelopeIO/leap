@@ -1,17 +1,12 @@
 #!/usr/bin/env python3
 
-from testUtils import Account
-from testUtils import Utils
-from Cluster import Cluster
-from WalletMgr import WalletMgr
-from Node import Node
-from Node import ReturnType
-from TestHelper import TestHelper
+from TestHarness import Account, Cluster, Node, ReturnType, TestHelper, Utils, WalletMgr
 
 import decimal
 import re
 import json
 import os
+import sys
 
 ###############################################################
 # nodeos_run_test
