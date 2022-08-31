@@ -37,4 +37,8 @@ namespace eosio { namespace version {
       }
    }
 
+   std::string _version_hash() {
+      return version_hash;
+   }
+
 } }

@@ -108,7 +108,10 @@ enum return_codes {
 int main(int argc, char** argv)
 {
    try {
-      app().set_version(eosio::nodeos::config::version);
+      uint32_t short_hash = 0;
+      fc::from_hex(eosio::version::version_hash(), (char*)&short_hash, sizeof(short_hash));
+
+      app().set_version(htonl(short_hash));
       app().set_version_string(eosio::version::version_client());
       app().set_full_version_string(eosio::version::version_full());
 

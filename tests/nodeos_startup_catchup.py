@@ -159,8 +159,15 @@ try:
         numBlocksToCatchup=(lastLibNum-lastCatchupLibNum-1)+twoRounds
         waitForBlock(catchupNode, lastLibNum, timeout=twoRoundsTimeout, blockType=BlockType.lib)
 
+        catchupHead=head(catchupNode)
         Print("Shutdown catchup node and validate exit code")
         catchupNode.interruptAndVerifyExitStatus(60)
+
+        # every other catchup make a lib catchup
+        if catchup_num % 2 == 0:
+            Print(f"Wait for producer to advance lib past head of catchup {catchupHead}")
+            # catchupHead+5 to allow for advancement of head during shutdown of catchupNode
+            waitForBlock(node0, catchupHead+5, timeout=twoRoundsTimeout*2, blockType=BlockType.lib)
 
         Print("Restart catchup node")
         catchupNode.relaunch(cachePopen=True)
