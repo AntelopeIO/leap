@@ -359,7 +359,7 @@ istream_json_snapshot_reader::istream_json_snapshot_reader(const fc::path& p)
    : impl{new istream_json_snapshot_reader_impl{0, 0, {}, {}}}
 {
    FILE* fp = fopen(p.string().c_str(), "rb");
-   EOS_ASSERT(fp, snapshot_exception, "Failed to JSON snapshot: ${file}", ("file", p));
+   EOS_ASSERT(fp, snapshot_exception, "Failed to open JSON snapshot: ${file}", ("file", p));
    auto close = fc::make_scoped_exit( [&fp]() { fclose( fp ); } );
    char readBuffer[65536];
    eosio_rapidjson::FileReadStream is(fp, readBuffer, sizeof(readBuffer));

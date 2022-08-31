@@ -125,12 +125,18 @@ struct json_snapshot_suite {
       std::shared_ptr<write_storage_t> storage;
    };
 
+   static std::string temp_file() {
+      static fc::temp_directory temp_dir;
+      std::string temp_file = temp_dir.path().string() + "temp.bin.json";
+      return temp_file;
+   }
+
    struct reader : public reader_t {
       explicit reader(const fc::path& p)
       :reader_t(p)
       {}
       ~reader() {
-         remove("temp.bin.json");
+         remove(json_snapshot_suite::temp_file().c_str());
       }
    };
 
@@ -145,10 +151,10 @@ struct json_snapshot_suite {
    }
 
    static auto get_reader( const snapshot_t& buffer) {
-      std::ofstream fs("temp.bin.json");
+      std::ofstream fs(json_snapshot_suite::temp_file());
       fs << buffer;
       fs.close();
-      fc::path p("temp.bin.json");
+      fc::path p(json_snapshot_suite::temp_file());
       return std::make_shared<reader>(p);
    }
 
