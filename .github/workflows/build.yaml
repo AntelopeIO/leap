@@ -57,6 +57,7 @@ jobs:
           push: true
           tags: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
           file: ${{fromJSON(needs.d.outputs.p)[matrix.platform].dockerfile}}
+
   Build:
     needs: [d, build-platforms]
     if: always() && needs.d.result == 'success' && (needs.build-platforms.result == 'success' || needs.build-platforms.result == 'skipped')
@@ -83,23 +84,38 @@ jobs:
             ninja
             # the correct approach is by far "--show-only=json-v1 | jq '.tests[].name' | jq -sc"  but that doesn't work on U18's cmake 3.10 since it lacks json-v1
             echo ::set-output name=lr-tests::$(ctest -L "long_running_tests" --show-only | head -n -1 | cut -d ':' -f 2 -s | jq -cnR '[inputs | select(length>0)[1:]]')
-            tar -pc -C .. --exclude "*.a" --exclude "*.o" build | zstd --long -T0 -9 > ../build.tar.gz
+            tar -pc -C .. --exclude "*.o" build | zstd --long -T0 -9 > ../build.tar.zst
         - name: Upload builddir
-          uses: actions/upload-artifact@v3
+          uses: AntelopeIO/upload-artifact-large-chunks-action@v1
           with:
             name: ${{matrix.platform}}-build
-            path: build.tar.gz
-        - name: Build dev package (Ubuntu 20 only)
-          if: matrix.platform == 'ubuntu20'
-          run: |
-            cd build
-            ninja package
-        - name: Upload dev package (Ubuntu 20 only)
-          if: matrix.platform == 'ubuntu20'
-          uses: actions/upload-artifact@v3
-          with:
-            name: leap-dev-ubuntu20-amd64
-            path: build/leap-dev*.deb
+            path: build.tar.zst
+
+  dev-package:
+    name: Build leap-dev package
+    needs: [d, Build]
+    if: always() && needs.Build.result == 'success'
+    runs-on: ubuntu-latest
+    container: ${{fromJSON(needs.d.outputs.p)['ubuntu20'].image}}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: true
+      - name: Download builddir
+        uses: actions/download-artifact@v3
+        with:
+          name: ubuntu20-build
+      - name: Build dev package
+        run: |
+          zstdcat build.tar.zst | tar x
+          cd build
+          cpack
+      - name: Upload dev package
+        uses: actions/upload-artifact@v3
+        with:
+          name: leap-dev-ubuntu20-amd64
+          path: build/leap-dev*.deb
+
   tests:
     name: Tests
     needs: [d, Build]
@@ -122,9 +138,10 @@ jobs:
         run: |
           # https://github.com/actions/runner/issues/2033  -- need this because of full version label test looking at git revs
           chown -R $(id -u):$(id -g) $PWD
-          zstdcat build.tar.gz | tar x
+          zstdcat build.tar.zst | tar x
           cd build
           ctest --output-on-failure -j $(nproc) -LE "(nonparallelizable_tests|long_running_tests)"
+
   np-tests:
     name: NP Tests
     needs: [d, Build]
@@ -145,7 +162,7 @@ jobs:
           name: ${{matrix.platform}}-build
       - name: Run NP Tests
         run: |
-          zstdcat build.tar.gz | tar x
+          zstdcat build.tar.zst | tar x
           cd build
           ctest --output-on-failure -L "nonparallelizable_tests"
       - name: Bundle logs from failed tests
@@ -157,6 +174,7 @@ jobs:
         with:
           name: ${{matrix.platform}}-serial-logs
           path: ${{matrix.platform}}-serial-logs.tar.gz
+
   lr-tests:
     name: LR Tests
     needs: [d, Build]
@@ -178,7 +196,7 @@ jobs:
           name: ${{matrix.platform}}-build
       - name: Run ${{matrix.test-name}} Test
         run: |
-          zstdcat build.tar.gz | tar x
+          zstdcat build.tar.zst | tar x
           cd build
           ctest --output-on-failure -R ${{matrix.test-name}}
       - name: Bundle logs from failed tests
@@ -193,9 +211,9 @@ jobs:
 
   all-passing:
     name: All Required Tests Passed
-    needs: [tests, np-tests]
+    needs: [dev-package, tests, np-tests]
     if: always()
     runs-on: ubuntu-latest
     steps:
-      - if: needs.tests.result != 'success' || needs.np-tests.result != 'success'
+      - if: needs.dev-package.result != 'success' || needs.tests.result != 'success' || needs.np-tests.result != 'success'
         run: false
