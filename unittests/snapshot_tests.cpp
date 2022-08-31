@@ -603,6 +603,13 @@ BOOST_AUTO_TEST_CASE(json_snapshot_validity_test)
    verify_integrity_hash<buffered_snapshot_suite>(*tester_bin_from_json.control, *tester_bin.control);
    verify_integrity_hash<buffered_snapshot_suite>(*tester_bin_from_json.control, *tester_json.control);
    verify_integrity_hash<buffered_snapshot_suite>(*tester_json.control, *tester_bin.control);
+
+   auto bin_snap_path = bfs::path(snapshot_file<snapshot::binary>::base_path) / "BinSnapshot.bin.gz";
+   auto bin_from_json_snap_path = bfs::path(snapshot_file<snapshot::binary>::base_path) / "BinFromJsonSnapshot.bin.gz";
+   auto json_snap_path = bfs::path(snapshot_file<snapshot::binary>::base_path) / "JsonSnapshot.bin.json.gz";
+   remove(bin_snap_path);
+   remove(bin_from_json_snap_path);
+   remove(json_snap_path);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
