@@ -149,6 +149,7 @@ namespace eosio::testing {
    }
 
    bool transfer_trx_generator::setup() {
+
       const vector<name> accounts = get_accounts(_accts);
       const vector<fc::crypto::private_key> private_key_vector = get_private_keys(_private_keys_str_vector);
       const std::string salt = "";
@@ -168,10 +169,12 @@ namespace eosio::testing {
       stop_generation();
 
       std::cout << "Create All Initial Transfer Transactions (one for each created action)." << std::endl;
-      std::vector<signed_transaction_w_signer> _trxs = create_initial_transfer_transactions(action_pairs_vector,
-                                                                                          ++_nonce_prefix, _nonce,
-                                                                                          _trx_expiration, _chain_id,
-                                                                                          _last_irr_block_id);
+      _trxs = create_initial_transfer_transactions(action_pairs_vector,
+                                                   ++_nonce_prefix,
+                                                   _nonce,
+                                                   _trx_expiration,
+                                                   _chain_id,
+                                                   _last_irr_block_id);
 
       std::cout << "Setup p2p transaction provider" << std::endl;
 
@@ -197,10 +200,15 @@ namespace eosio::testing {
 
    bool transfer_trx_generator::generate_and_send() {
       try {
-         size_t index_to_send = _txcount % _trxs.size();
-         push_transaction(_provider, _trxs.at(index_to_send), ++_nonce_prefix, _nonce, _trx_expiration, _chain_id,
-                          _last_irr_block_id);
-         ++_txcount;
+         if (_trxs.size()) {
+            size_t index_to_send = _txcount % _trxs.size();
+            push_transaction(_provider, _trxs.at(index_to_send), ++_nonce_prefix, _nonce, _trx_expiration, _chain_id,
+                             _last_irr_block_id);
+            ++_txcount;
+         } else {
+            elog("no transactions available to send");
+            return false;
+         }
       } catch (const std::exception &e) {
          elog("${e}", ("e", e.what()));
          return false;
