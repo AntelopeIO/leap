@@ -224,7 +224,6 @@ configure_file(libraries/wasm-jit/LICENSE                               licenses
 configure_file(libraries/fc/secp256k1/secp256k1/COPYING                 licenses/leap/LICENSE.secp256k1 COPYONLY)
 configure_file(libraries/fc/include/fc/crypto/webauthn_json/license.txt licenses/leap/LICENSE.rapidjson COPYONLY)
 configure_file(libraries/fc/src/network/LICENSE.go                      licenses/leap/LICENSE.go        COPYONLY)
-configure_file(libraries/yubihsm/LICENSE                                licenses/leap/LICENSE.yubihsm   COPYONLY)
 configure_file(libraries/eos-vm/LICENSE                                 licenses/leap/LICENSE.eos-vm    COPYONLY)
 configure_file(libraries/fc/libraries/ff/LICENSE                        licenses/leap/LICENSE.libff     COPYONLY)
 
@@ -236,9 +235,6 @@ add_custom_target(dev-install
   COMMAND "${CMAKE_COMMAND}" --install "${CMAKE_BINARY_DIR}" --component dev
   USES_TERMINAL
 )
-
-get_property(_CTEST_CUSTOM_TESTS_IGNORE GLOBAL PROPERTY CTEST_CUSTOM_TESTS_IGNORE)
-file(WRITE "${CMAKE_BINARY_DIR}/CTestCustom.cmake" "SET(CTEST_CUSTOM_TESTS_IGNORE ${_CTEST_CUSTOM_TESTS_IGNORE})")
 
 include(doxygen)
 
