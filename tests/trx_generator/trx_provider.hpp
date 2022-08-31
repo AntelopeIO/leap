@@ -80,6 +80,10 @@ namespace eosio::testing {
             return false;
          }
 
+         if (!_generator->setup()) {
+            return false;
+         }
+
          tps_test_stats stats;
          fc::microseconds trx_interval(std::chrono::microseconds(1s).count() / _target_tps);
 
@@ -95,9 +99,13 @@ namespace eosio::testing {
             stats.last_run = fc::time_point::now();
             stats.next_run = stats.start_time + fc::microseconds(trx_interval.count() * (stats.trxs_sent+1));
 
-            _generator->generate_and_send();
+            if (_generator->generate_and_send()) {
+               stats.trxs_sent++;
+            } else {
+               elog("generator unable to create/send a transaction");
+            }
+
             stats.trxs_left--;
-            stats.trxs_sent++;
 
             keep_running = ((_monitor == nullptr || _monitor->monitor_test(stats)) && stats.trxs_left);
 
@@ -109,6 +117,8 @@ namespace eosio::testing {
                stats.time_to_next_trx_us = time_to_sleep.count();
             }
          }
+
+         _generator->tear_down();
 
          return true;
       }

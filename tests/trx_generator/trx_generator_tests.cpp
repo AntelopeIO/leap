@@ -18,11 +18,15 @@ struct mock_trx_generator {
    std::vector<fc::time_point> _calls;
    std::chrono::microseconds _delay;
 
-   void generate_and_send() {
+   bool setup() {return true;}
+   bool tear_down() {return true;}
+
+   bool generate_and_send() {
       _calls.push_back(fc::time_point::now());
       if (_delay.count() > 0) {
          std::this_thread::sleep_for(_delay);
       }
+      return true;
    }
 
    mock_trx_generator(size_t expected_num_calls, uint32_t delay=0) :_calls(), _delay(delay) {
