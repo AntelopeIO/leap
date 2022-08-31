@@ -54,8 +54,11 @@ namespace eosio::testing {
 
    };
 
-
    constexpr int64_t min_sleep_us = 1;
+
+   struct null_tps_monitor {
+      bool monitor_test(const tps_test_stats& stats) {return true;}
+   };
 
    template<typename G, typename M>
    struct trx_tps_tester {
@@ -71,10 +74,14 @@ namespace eosio::testing {
 
       }
 
-      void run() {
+      bool run() {
          if ((_target_tps) < 1 || (_gen_duration_seconds < 1)) {
             elog("target tps (${tps}) and duration (${dur}) must both be 1+", ("tps", _target_tps)("dur", _gen_duration_seconds));
-            return;
+            return false;
+         }
+
+         if (!_generator->setup()) {
+            return false;
          }
 
          tps_test_stats stats;
@@ -92,11 +99,15 @@ namespace eosio::testing {
             stats.last_run = fc::time_point::now();
             stats.next_run = stats.start_time + fc::microseconds(trx_interval.count() * (stats.trxs_sent+1));
 
-            _generator->generate_and_send();
-            stats.trxs_left--;
-            stats.trxs_sent++;
+            if (_generator->generate_and_send()) {
+               stats.trxs_sent++;
+            } else {
+               elog("generator unable to create/send a transaction");
+            }
 
-            keep_running = (_monitor->monitor_test(stats) && stats.trxs_left);
+            stats.trxs_left--;
+
+            keep_running = ((_monitor == nullptr || _monitor->monitor_test(stats)) && stats.trxs_left);
 
             if (keep_running) {
                fc::microseconds time_to_sleep{stats.next_run - fc::time_point::now()};
@@ -105,8 +116,11 @@ namespace eosio::testing {
                }
                stats.time_to_next_trx_us = time_to_sleep.count();
             }
-
          }
+
+         _generator->tear_down();
+
+         return true;
       }
    };
 }
