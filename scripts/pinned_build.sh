@@ -106,8 +106,9 @@ install_boost() {
    if [ ! -d "${BOOST_DIR}" ]; then
       echo "Installing Boost ${BOOST_VER} @ ${BOOST_DIR}"
       try wget https://boostorg.jfrog.io/artifactory/main/release/${BOOST_VER}/source/boost_${BOOST_VER//\./_}.tar.gz
-      try tar -xvzf boost_${BOOST_VER//\./_}.tar.gz -C ${DEP_DIR}
+      try tar --transform="s:^boost_${BOOST_VER//\./_}:boost_${BOOST_VER//\./_}patched:" -xvzf boost_${BOOST_VER//\./_}.tar.gz -C ${DEP_DIR}
       pushdir ${BOOST_DIR}
+      patch -p1 < "${SCRIPT_DIR}/0001-beast-fix-moved-from-executor.patch"
       try ./bootstrap.sh -with-toolset=clang --prefix=${BOOST_DIR}/bin
       ./b2 toolset=clang cxxflags='-stdlib=libc++ -D__STRICT_ANSI__ -nostdinc++ -I${CLANG_DIR}/include/c++/v1 -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fPIE' linkflags='-stdlib=libc++ -pie' link=static threading=multi --with-iostreams --with-date_time --with-filesystem --with-system --with-program_options --with-chrono --with-test -q -j${JOBS} install
       popdir ${DEP_DIR}
@@ -120,7 +121,7 @@ pushdir ${DEP_DIR}
 
 install_clang ${DEP_DIR}/clang-${CLANG_VER}
 install_llvm ${DEP_DIR}/llvm-${LLVM_VER}
-install_boost ${DEP_DIR}/boost_${BOOST_VER//\./_}
+install_boost ${DEP_DIR}/boost_${BOOST_VER//\./_}patched
 
 # go back to the directory where the script starts
 popdir ${START_DIR}
