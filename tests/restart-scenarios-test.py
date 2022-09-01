@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
 
-from testUtils import Utils
-from Cluster import Cluster
-from WalletMgr import WalletMgr
-from TestHelper import TestHelper
-
 import random
+
+from TestHarness import Cluster, TestHelper, Utils, WalletMgr
 
 ###############################################################
 # restart-scenarios-test

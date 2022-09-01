@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "@actions/core": "^1.9.1",
+    "tar-stream": "^2.2.0"
+  }
+
+}

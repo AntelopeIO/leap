@@ -1,15 +1,12 @@
 #!/usr/bin/env python3
 
-from testUtils import Utils
-from Cluster import Cluster, PFSetupPolicy
-from TestHelper import TestHelper
-from WalletMgr import WalletMgr
-from Node import Node
-
 import signal
 import json
 from os.path import join
 from datetime import datetime
+
+from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr
+from TestHarness.Cluster import PFSetupPolicy
 
 ###############################################################
 # nodeos_protocol_feature_test
