@@ -241,7 +241,7 @@ install(FILES libraries/fc/src/network/LICENSE.go DESTINATION ${CMAKE_INSTALL_FU
 install(FILES libraries/yubihsm/LICENSE DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/licenses/leap/ RENAME LICENSE.yubihsm COMPONENT base)
 install(FILES libraries/eos-vm/LICENSE DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/licenses/leap/ RENAME LICENSE.eos-vm COMPONENT base)
 install(FILES libraries/fc/libraries/ff/LICENSE DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/licenses/leap/ RENAME LICENSE.libff COMPONENT base)
-install(FILES programs/cleos/LICENSE.CLI11 DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/licenses/leap/ RENAME COMPONENT base)
+install(FILES programs/cleos/LICENSE.CLI11 DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/licenses/leap/ COMPONENT base)
 
 add_custom_target(dev-install
   COMMAND "${CMAKE_COMMAND}" --build "${CMAKE_BINARY_DIR}"
