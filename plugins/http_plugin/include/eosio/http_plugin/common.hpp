@@ -124,6 +124,7 @@ struct http_plugin_state {
    size_t max_bytes_in_flight = 0;
    int32_t max_requests_in_flight = -1;
    fc::microseconds max_response_time{30 * 1000};
+   fc::microseconds abi_serializer_max_time;
 
    std::optional<ssl::context> ctx;// only for ssl
 
@@ -218,12 +219,12 @@ auto make_http_response_handler(std::shared_ptr<http_plugin_state> plugin_state,
          return;
       }
 
-      // post  back to an HTTP thread to to allow the response handler to be called from any thread
+      // post back to an HTTP thread to allow the response handler to be called from any thread
       boost::asio::post(plugin_state->thread_pool->get_executor(),
                         [plugin_state, session_ptr, code, tracked_response = std::move(tracked_response)]() {
                            try {
                               if(tracked_response->obj().has_value()) {
-                                 std::string json = fc::json::to_string(*tracked_response->obj(), fc::time_point::now() + plugin_state->max_response_time);
+                                 std::string json = fc::json::to_string(*tracked_response->obj(), fc::time_point::now() + plugin_state->abi_serializer_max_time);
                                  auto tracked_json = make_in_flight(std::move(json), plugin_state);
                                  session_ptr->send_response(std::move(tracked_json->obj()), code);
                               } else {

@@ -287,6 +287,7 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
          }
          my->plugin_state->max_requests_in_flight = options.at( "http-max-in-flight-requests" ).as<int32_t>();
          my->plugin_state->max_response_time = fc::microseconds( options.at("http-max-response-time-ms").as<uint32_t>() * 1000 );
+         my->plugin_state->abi_serializer_max_time = fc::microseconds(options.at("abi-serializer-max-time-ms").as<uint32_t>() * 1000);
          
          my->plugin_state->validate_host = options.at("http-validate-host").as<bool>();
          if( options.count( "http-alias" )) {
