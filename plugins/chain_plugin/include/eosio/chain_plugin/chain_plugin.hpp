@@ -179,6 +179,7 @@ public:
       uint32_t                 limit = 10;
       bool                     search_by_block_num = false;
       bool                     reverse = false;
+      std::optional<uint32_t>  time_limit_ms; // defaults to 10ms
    };
 
    struct get_activated_protocol_features_results {
@@ -380,7 +381,8 @@ public:
       string               index_position; // 1 - primary (first), 2 - secondary index (in order defined by multi_index), 3 - third index, etc
       string               encode_type{"dec"}; //dec, hex , default=dec
       std::optional<bool>  reverse;
-      std::optional<bool>  show_payer; // show RAM pyer
+      std::optional<bool>  show_payer; // show RAM payer
+      std::optional<uint32_t> time_limit_ms; // defaults to 10ms
     };
 
    struct get_table_rows_result {
@@ -398,6 +400,7 @@ public:
       string               upper_bound; // upper bound of scope, optional
       uint32_t             limit = 10;
       std::optional<bool>  reverse;
+      std::optional<uint32_t> time_limit_ms; // defaults to 10ms
    };
    struct get_table_by_scope_result_row {
       name        code;
@@ -439,6 +442,7 @@ public:
       bool        json = false;
       string      lower_bound;
       uint32_t    limit = 50;
+      std::optional<uint32_t> time_limit_ms; // defaults to 10ms
    };
 
    struct get_producers_result {
@@ -464,6 +468,7 @@ public:
       bool        json = false;
       string      lower_bound;  /// timestamp OR transaction ID
       uint32_t    limit = 50;
+      std::optional<uint32_t> time_limit_ms; // defaults to 10ms
    };
 
    struct get_scheduled_transactions_result {
@@ -510,7 +515,14 @@ public:
    static uint64_t get_table_index_name(const read_only::get_table_rows_params& p, bool& primary);
 
    template <typename IndexType, typename SecKeyType, typename ConvFn>
-   read_only::get_table_rows_result get_table_rows_by_seckey( const read_only::get_table_rows_params& p, const abi_def& abi, const fc::time_point& deadline, ConvFn conv )const {
+   read_only::get_table_rows_result get_table_rows_by_seckey( const read_only::get_table_rows_params& p,
+                                                              const abi_def& abi,
+                                                              const fc::time_point& deadline,
+                                                              ConvFn conv )const {
+
+      fc::microseconds params_time_limit = p.time_limit_ms ? fc::milliseconds(*p.time_limit_ms) : fc::milliseconds(10);
+      fc::time_point params_deadline = fc::time_point::now() + params_time_limit;
+
       read_only::get_table_rows_result result;
       const auto& d = db.db();
 
@@ -568,7 +580,8 @@ public:
          auto walk_table_row_range = [&]( auto itr, auto end_itr ) {
             auto cur_time = fc::time_point::now();
             vector<char> data;
-            for( unsigned int count = 0; cur_time <= deadline && count < p.limit && itr != end_itr; ++itr, cur_time = fc::time_point::now() ) {
+            for( unsigned int count = 0; cur_time <= params_deadline && count < p.limit && itr != end_itr; ++itr, cur_time = fc::time_point::now() ) {
+               FC_CHECK_DEADLINE(deadline);
                const auto* itr2 = d.find<chain::key_value_object, chain::by_scope_primary>( boost::make_tuple(t_id->id, itr->primary_key) );
                if( itr2 == nullptr ) continue;
                copy_inline_row(*itr2, data);
@@ -606,7 +619,13 @@ public:
    }
 
    template <typename IndexType>
-   read_only::get_table_rows_result get_table_rows_ex( const read_only::get_table_rows_params& p, const abi_def& abi, const fc::time_point& deadline )const {
+   read_only::get_table_rows_result get_table_rows_ex( const read_only::get_table_rows_params& p,
+                                                       const abi_def& abi,
+                                                       const fc::time_point& deadline )const {
+
+      fc::microseconds params_time_limit = p.time_limit_ms ? fc::milliseconds(*p.time_limit_ms) : fc::milliseconds(10);
+      fc::time_point params_deadline = fc::time_point::now() + params_time_limit;
+
       read_only::get_table_rows_result result;
       const auto& d = db.db();
 
@@ -646,7 +665,8 @@ public:
          auto walk_table_row_range = [&]( auto itr, auto end_itr ) {
             auto cur_time = fc::time_point::now();
             vector<char> data;
-            for( unsigned int count = 0; cur_time <= deadline && count < p.limit && itr != end_itr; ++count, ++itr, cur_time = fc::time_point::now() ) {
+            for( unsigned int count = 0; cur_time <= params_deadline && count < p.limit && itr != end_itr; ++count, ++itr, cur_time = fc::time_point::now() ) {
+               FC_CHECK_DEADLINE(deadline);
                copy_inline_row(*itr, data);
 
                fc::variant data_var;
@@ -878,7 +898,7 @@ FC_REFLECT(eosio::chain_apis::read_only::get_info_results,
 FC_REFLECT(eosio::chain_apis::read_only::get_transaction_status_params, (id) )
 FC_REFLECT(eosio::chain_apis::read_only::get_transaction_status_results, (state)(block_number)(block_id)(block_timestamp)(expiration)(head_number)(head_id)
            (head_timestamp)(irreversible_number)(irreversible_id)(irreversible_timestamp)(earliest_tracked_block_id)(earliest_tracked_block_number) )
-FC_REFLECT(eosio::chain_apis::read_only::get_activated_protocol_features_params, (lower_bound)(upper_bound)(limit)(search_by_block_num)(reverse) )
+FC_REFLECT(eosio::chain_apis::read_only::get_activated_protocol_features_params, (lower_bound)(upper_bound)(limit)(search_by_block_num)(reverse)(time_limit_ms) )
 FC_REFLECT(eosio::chain_apis::read_only::get_activated_protocol_features_results, (activated_protocol_features)(more) )
 FC_REFLECT(eosio::chain_apis::read_only::get_block_params, (block_num_or_id))
 FC_REFLECT(eosio::chain_apis::read_only::get_block_info_params, (block_num))
@@ -887,10 +907,10 @@ FC_REFLECT(eosio::chain_apis::read_only::get_block_header_state_params, (block_n
 FC_REFLECT( eosio::chain_apis::read_write::push_transaction_results, (transaction_id)(processed) )
 FC_REFLECT( eosio::chain_apis::read_write::send_transaction2_params, (return_failure_trace)(retry_trx)(retry_trx_num_blocks)(transaction) )
 
-FC_REFLECT( eosio::chain_apis::read_only::get_table_rows_params, (json)(code)(scope)(table)(table_key)(lower_bound)(upper_bound)(limit)(key_type)(index_position)(encode_type)(reverse)(show_payer) )
+FC_REFLECT( eosio::chain_apis::read_only::get_table_rows_params, (json)(code)(scope)(table)(table_key)(lower_bound)(upper_bound)(limit)(key_type)(index_position)(encode_type)(reverse)(show_payer)(time_limit_ms) )
 FC_REFLECT( eosio::chain_apis::read_only::get_table_rows_result, (rows)(more)(next_key) );
 
-FC_REFLECT( eosio::chain_apis::read_only::get_table_by_scope_params, (code)(table)(lower_bound)(upper_bound)(limit)(reverse) )
+FC_REFLECT( eosio::chain_apis::read_only::get_table_by_scope_params, (code)(table)(lower_bound)(upper_bound)(limit)(reverse)(time_limit_ms) )
 FC_REFLECT( eosio::chain_apis::read_only::get_table_by_scope_result_row, (code)(scope)(table)(payer)(count));
 FC_REFLECT( eosio::chain_apis::read_only::get_table_by_scope_result, (rows)(more) );
 
@@ -898,13 +918,13 @@ FC_REFLECT( eosio::chain_apis::read_only::get_currency_balance_params, (code)(ac
 FC_REFLECT( eosio::chain_apis::read_only::get_currency_stats_params, (code)(symbol));
 FC_REFLECT( eosio::chain_apis::read_only::get_currency_stats_result, (supply)(max_supply)(issuer));
 
-FC_REFLECT( eosio::chain_apis::read_only::get_producers_params, (json)(lower_bound)(limit) )
+FC_REFLECT( eosio::chain_apis::read_only::get_producers_params, (json)(lower_bound)(limit)(time_limit_ms) )
 FC_REFLECT( eosio::chain_apis::read_only::get_producers_result, (rows)(total_producer_vote_weight)(more) );
 
 FC_REFLECT_EMPTY( eosio::chain_apis::read_only::get_producer_schedule_params )
 FC_REFLECT( eosio::chain_apis::read_only::get_producer_schedule_result, (active)(pending)(proposed) );
 
-FC_REFLECT( eosio::chain_apis::read_only::get_scheduled_transactions_params, (json)(lower_bound)(limit) )
+FC_REFLECT( eosio::chain_apis::read_only::get_scheduled_transactions_params, (json)(lower_bound)(limit)(time_limit_ms) )
 FC_REFLECT( eosio::chain_apis::read_only::get_scheduled_transactions_result, (transactions)(more) );
 
 FC_REFLECT( eosio::chain_apis::read_only::account_resource_info, (used)(available)(max)(last_usage_update_time)(current_used) )

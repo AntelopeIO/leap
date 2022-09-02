@@ -1505,6 +1505,9 @@ read_only::get_activated_protocol_features( const read_only::get_activated_proto
    if( upper_bound_value < lower_bound_value )
       return result;
 
+   fc::microseconds params_time_limit = params.time_limit_ms ? fc::milliseconds(*params.time_limit_ms) : fc::milliseconds(10);
+   fc::time_point params_deadline = fc::time_point::now() + params_time_limit;
+
    auto walk_range = [&]( auto itr, auto end_itr, auto&& convert_iterator ) {
       fc::mutable_variant_object mvo;
       mvo( "activation_ordinal", 0 );
@@ -1515,9 +1518,10 @@ read_only::get_activated_protocol_features( const read_only::get_activated_proto
 
       auto cur_time = fc::time_point::now();
       for( unsigned int count = 0;
-           cur_time <= deadline && count < params.limit && itr != end_itr;
+           cur_time <= params_deadline && count < params.limit && itr != end_itr;
            ++itr, cur_time = fc::time_point::now() )
       {
+         FC_CHECK_DEADLINE(deadline);
          const auto& conv_itr = convert_iterator( itr );
          activation_ordinal_value   = conv_itr.activation_ordinal();
          activation_block_num_value = conv_itr.activation_block_num();
@@ -1766,7 +1770,12 @@ read_only::get_table_rows_result read_only::get_table_rows( const read_only::get
 #pragma GCC diagnostic pop
 }
 
-read_only::get_table_by_scope_result read_only::get_table_by_scope( const read_only::get_table_by_scope_params& p, const fc::time_point& deadline )const {
+read_only::get_table_by_scope_result read_only::get_table_by_scope( const read_only::get_table_by_scope_params& p,
+                                                                    const fc::time_point& deadline )const {
+
+   fc::microseconds params_time_limit = p.time_limit_ms ? fc::milliseconds(*p.time_limit_ms) : fc::milliseconds(10);
+   fc::time_point params_deadline = fc::time_point::now() + params_time_limit;
+
    read_only::get_table_by_scope_result result;
    const auto& d = db.db();
 
@@ -1790,7 +1799,8 @@ read_only::get_table_by_scope_result read_only::get_table_by_scope( const read_o
 
    auto walk_table_range = [&]( auto itr, auto end_itr ) {
       auto cur_time = fc::time_point::now();
-      for( unsigned int count = 0; cur_time <= deadline && count < p.limit && itr != end_itr; ++itr, cur_time = fc::time_point::now() ) {
+      for( unsigned int count = 0; cur_time <= params_deadline && count < p.limit && itr != end_itr; ++itr, cur_time = fc::time_point::now() ) {
+         FC_CHECK_DEADLINE(deadline);
          if( p.table && itr->table != p.table ) continue;
 
          result.rows.push_back( {itr->code, itr->scope, itr->table, itr->payer, itr->count} );
@@ -1880,7 +1890,8 @@ fc::variant get_global_row( const database& db, const abi_def& abi, const abi_se
    return abis.binary_to_variant(abis.get_table_type("global"_n), data, abi_serializer::create_yield_function( abi_serializer_max_time_us ), shorten_abi_errors );
 }
 
-read_only::get_producers_result read_only::get_producers( const read_only::get_producers_params& params, const fc::time_point& deadline ) const try {
+read_only::get_producers_result
+read_only::get_producers( const read_only::get_producers_params& params, const fc::time_point& deadline ) const try {
    const abi_def abi = eosio::chain_apis::get_abi(db, config::system_account_name);
    const auto table_type = get_table_type(abi, "producers"_n);
    const abi_serializer abis{ abi, abi_serializer::create_yield_function( abi_serializer_max_time ) };
@@ -1914,8 +1925,12 @@ read_only::get_producers_result read_only::get_producers( const read_only::get_p
                boost::make_tuple(secondary_table_id->id, lower.to_uint64_t())));
    }();
 
+   fc::microseconds params_time_limit = params.time_limit_ms ? fc::milliseconds(*params.time_limit_ms) : fc::milliseconds(10);
+   fc::time_point params_deadline = fc::time_point::now() + params_time_limit;
+
    for( ; it != secondary_index_by_secondary.end() && it->t_id == secondary_table_id->id; ++it ) {
-      if (result.rows.size() >= params.limit || fc::time_point::now() > deadline) {
+      FC_CHECK_DEADLINE(deadline);
+      if (result.rows.size() >= params.limit || fc::time_point::now() > params_deadline) {
          result.more = name{it->primary_key}.to_string();
          break;
       }
@@ -1986,6 +2001,10 @@ auto make_resolver(const controller& control, abi_serializer::yield_function_t y
 
 read_only::get_scheduled_transactions_result
 read_only::get_scheduled_transactions( const read_only::get_scheduled_transactions_params& p, const fc::time_point& deadline ) const {
+
+   fc::microseconds params_time_limit = p.time_limit_ms ? fc::milliseconds(*p.time_limit_ms) : fc::milliseconds(10);
+   fc::time_point params_deadline = fc::time_point::now() + params_time_limit;
+
    const auto& d = db.db();
 
    const auto& idx_by_delay = d.get_index<generated_transaction_multi_index,by_delay>();
@@ -2019,7 +2038,8 @@ read_only::get_scheduled_transactions( const read_only::get_scheduled_transactio
    auto resolver = make_resolver(db, abi_serializer::create_yield_function( abi_serializer_max_time ));
 
    uint32_t remaining = p.limit;
-   while (itr != idx_by_delay.end() && remaining > 0 && deadline > fc::time_point::now()) {
+   while (itr != idx_by_delay.end() && remaining > 0 && params_deadline > fc::time_point::now()) {
+      FC_CHECK_DEADLINE(deadline);
       auto row = fc::mutable_variant_object()
               ("trx_id", itr->trx_id)
               ("sender", itr->sender)
