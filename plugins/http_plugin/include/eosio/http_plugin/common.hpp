@@ -124,7 +124,6 @@ struct http_plugin_state {
    size_t max_bytes_in_flight = 0;
    int32_t max_requests_in_flight = -1;
    fc::microseconds max_response_time{30 * 1000};
-   fc::microseconds abi_serializer_max_time;
 
    std::optional<ssl::context> ctx;// only for ssl
 
@@ -213,18 +212,24 @@ auto make_in_flight(T&& object, std::shared_ptr<http_plugin_state> plugin_state)
 */
 auto make_http_response_handler(std::shared_ptr<http_plugin_state> plugin_state, detail::abstract_conn_ptr session_ptr) {
    return [plugin_state{std::move(plugin_state)},
-           session_ptr{std::move(session_ptr)}](int code, std::optional<fc::variant> response) {
+           session_ptr{std::move(session_ptr)}](int code, fc::time_point deadline, std::optional<fc::variant> response) {
       auto tracked_response = make_in_flight(std::move(response), plugin_state);
       if(!session_ptr->verify_max_bytes_in_flight()) {
          return;
       }
 
+      auto start = fc::time_point::now();
+      if( deadline == fc::time_point::maximum() ) { // no caller supplied deadline so use http configured deadline
+         deadline = start + plugin_state->max_response_time;
+      }
+
       // post back to an HTTP thread to allow the response handler to be called from any thread
       boost::asio::post(plugin_state->thread_pool->get_executor(),
-                        [plugin_state, session_ptr, code, tracked_response = std::move(tracked_response)]() {
+                        [plugin_state, session_ptr, code, deadline, start,
+                         tracked_response = std::move(tracked_response)]() {
                            try {
                               if(tracked_response->obj().has_value()) {
-                                 std::string json = fc::json::to_string(*tracked_response->obj(), fc::time_point::now() + plugin_state->abi_serializer_max_time);
+                                 std::string json = fc::json::to_string(*tracked_response->obj(), deadline + (fc::time_point::now() - start));
                                  auto tracked_json = make_in_flight(std::move(json), plugin_state);
                                  session_ptr->send_response(std::move(tracked_json->obj()), code);
                               } else {

@@ -56,7 +56,7 @@ parse_params<chain_apis::read_only::get_transaction_status_params, http_params_t
              auto params = parse_params<api_namespace::call_name ## _params, params_type>(body);\
              FC_CHECK_DEADLINE(deadline);\
              fc::variant result( api_handle.call_name( std::move(params), deadline ) ); \
-             cb(http_response_code, std::move(result)); \
+             cb(http_response_code, deadline, std::move(result)); \
           } catch (...) { \
              http_plugin::handle_exception(#api_name, #call_name, body, cb); \
           } \
@@ -78,7 +78,7 @@ parse_params<chain_apis::read_only::get_transaction_status_params, http_params_t
                      http_plugin::handle_exception(#api_name, #call_name, body, cb);\
                   }\
                } else {\
-                  cb(http_response_code, std::visit(async_result_visitor(), result));\
+                  cb(http_response_code, fc::time_point::maximum(), std::visit(async_result_visitor(), result));\
                }\
             });\
       } catch (...) { \
