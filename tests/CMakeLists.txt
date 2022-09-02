@@ -155,13 +155,10 @@ add_test(NAME full-version-label-test COMMAND tests/full-version-label.sh "v${VE
 add_test(NAME nested_container_multi_index_test COMMAND tests/nested_container_multi_index_test.py WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nested_container_multi_index_test PROPERTY LABELS nonparallelizable_tests)
 
-# Long running tests
-add_test(NAME nodeos_sanity_lr_test COMMAND tests/nodeos_run_test.py -v --sanity-test --clean-run --dump-error-detail WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
-set_property(TEST nodeos_sanity_lr_test PROPERTY LABELS long_running_tests)
-add_test(NAME nodeos_run_check_lr_test COMMAND tests/nodeos_run_test.py -v --clean-run --dump-error-detail WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
-set_property(TEST nodeos_run_check_lr_test PROPERTY LABELS long_running_tests)
-add_test(NAME nodeos_remote_lr_test COMMAND tests/nodeos_run_remote_test.py -v --clean-run --dump-error-detail WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
-set_property(TEST nodeos_remote_lr_test PROPERTY LABELS long_running_tests)
+add_test(NAME nodeos_run_check_test COMMAND tests/nodeos_run_test.py -v --clean-run --dump-error-detail WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+set_property(TEST nodeos_run_check_test PROPERTY LABELS nonparallelizable_tests)
+add_test(NAME nodeos_remote_test COMMAND tests/nodeos_run_remote_test.py -v --clean-run --dump-error-detail WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+set_property(TEST nodeos_remote_test PROPERTY LABELS nonparallelizable_tests)
 
 # needs iproute-tc or iproute2 depending on platform
 #add_test(NAME p2p_high_latency_test COMMAND tests/p2p_high_latency_test.py -v --clean-run --dump-error-detail WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
@@ -173,8 +170,8 @@ set_property(TEST nodeos_remote_lr_test PROPERTY LABELS long_running_tests)
 add_test(NAME nodeos_forked_chain_lr_test COMMAND tests/nodeos_forked_chain_test.py -v --wallet-port 9901 --clean-run --dump-error-detail WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nodeos_forked_chain_lr_test PROPERTY LABELS long_running_tests)
 
-add_test(NAME nodeos_contrl_c_lr_test COMMAND tests/nodeos_contrl_c_test.py -v --wallet-port 9901 WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
-set_property(TEST nodeos_contrl_c_lr_test PROPERTY LABELS long_running_tests)
+add_test(NAME nodeos_contrl_c_test COMMAND tests/nodeos_contrl_c_test.py -v --wallet-port 9901 WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+set_property(TEST nodeos_contrl_c_test PROPERTY LABELS nonparallelizable_tests)
 
 add_test(NAME nodeos_voting_lr_test COMMAND tests/nodeos_voting_test.py -v --wallet-port 9902 --clean-run --dump-error-detail WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nodeos_voting_lr_test PROPERTY LABELS long_running_tests)
@@ -189,18 +186,18 @@ set_property(TEST nodeos_irreversible_mode_lr_test PROPERTY LABELS long_running_
 add_test(NAME nodeos_read_terminate_at_block_lr_test COMMAND tests/nodeos_read_terminate_at_block_test.py -v --clean-run --dump-error-detail WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nodeos_read_terminate_at_block_lr_test PROPERTY LABELS long_running_tests)
 
-add_test(NAME nodeos_chainbase_allocation_lr_test COMMAND tests/nodeos_chainbase_allocation_test.py -v --clean-run --dump-error-detail WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
-set_property(TEST nodeos_chainbase_allocation_lr_test PROPERTY LABELS long_running_tests)
+add_test(NAME nodeos_chainbase_allocation_test COMMAND tests/nodeos_chainbase_allocation_test.py -v --clean-run --dump-error-detail WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+set_property(TEST nodeos_chainbase_allocation_test PROPERTY LABELS nonparallelizable_tests)
 
 add_test(NAME nodeos_startup_catchup_lr_test COMMAND tests/nodeos_startup_catchup.py -v --clean-run --dump-error-detail WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_tests_properties(nodeos_startup_catchup_lr_test PROPERTIES TIMEOUT 3000)
 set_property(TEST nodeos_startup_catchup_lr_test PROPERTY LABELS long_running_tests)
 
-add_test(NAME nodeos_short_fork_take_over_lr_test COMMAND tests/nodeos_short_fork_take_over_test.py -v --wallet-port 9905 --clean-run --dump-error-detail WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
-set_property(TEST nodeos_short_fork_take_over_lr_test PROPERTY LABELS long_running_tests)
+add_test(NAME nodeos_short_fork_take_over_test COMMAND tests/nodeos_short_fork_take_over_test.py -v --wallet-port 9905 --clean-run --dump-error-detail WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+set_property(TEST nodeos_short_fork_take_over_test PROPERTY LABELS nonparallelizable_tests)
 
 add_test(NAME nodeos_extra_packed_data_test COMMAND tests/nodeos_extra_packed_data_test.py -v --clean-run -p 8 --dump-error-detail WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
-set_property(TEST nodeos_extra_packed_data_test PROPERTY LABELS long_running_tests)
+set_property(TEST nodeos_extra_packed_data_test PROPERTY LABELS nonparallelizable_tests)
 
 add_test(NAME nodeos_producer_watermark_lr_test COMMAND tests/nodeos_producer_watermark_test.py -v --clean-run --dump-error-detail WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nodeos_producer_watermark_lr_test PROPERTY LABELS long_running_tests)
@@ -237,7 +234,7 @@ add_test(NAME nodeos_repeat_transaction_lr_test COMMAND tests/nodeos_high_transa
 set_property(TEST nodeos_repeat_transaction_lr_test PROPERTY LABELS long_running_tests)
 
 add_test(NAME light_validation_sync_test COMMAND tests/light_validation_sync_test.py -v --clean-run --dump-error-detail WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
-set_property(TEST light_validation_sync_test PROPERTY LABELS long_running_tests)
+set_property(TEST light_validation_sync_test PROPERTY LABELS nonparallelizable_tests)
 
 if(ENABLE_COVERAGE_TESTING)
 

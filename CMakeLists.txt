@@ -226,6 +226,7 @@ configure_file(libraries/fc/include/fc/crypto/webauthn_json/license.txt licenses
 configure_file(libraries/fc/src/network/LICENSE.go                      licenses/leap/LICENSE.go        COPYONLY)
 configure_file(libraries/eos-vm/LICENSE                                 licenses/leap/LICENSE.eos-vm    COPYONLY)
 configure_file(libraries/fc/libraries/ff/LICENSE                        licenses/leap/LICENSE.libff     COPYONLY)
+configure_file(programs/cleos/LICENSE.CLI11                             licenses/leap/LICENSE.CLI11     COPYONLY)
 
 install(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/licenses/leap" DESTINATION "${CMAKE_INSTALL_FULL_DATAROOTDIR}/licenses/" COMPONENT base)
 
