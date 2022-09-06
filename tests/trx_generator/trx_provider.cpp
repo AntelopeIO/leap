@@ -79,4 +79,33 @@ namespace eosio::testing {
       _peer_connection.disconnect();
   }
 
+  bool tps_performance_monitor::monitor_test(const tps_test_stats &stats) {
+      if ((!stats.expected_sent) || (stats.last_run - stats.start_time < _spin_up_time)) {
+         return true;
+      }
+
+      int32_t trxs_behind = stats.expected_sent - stats.trxs_sent;
+      if (trxs_behind < 1) {
+         return true;
+      }
+
+      uint32_t per_off = (100*trxs_behind) / stats.expected_sent;
+
+      if (per_off > _max_lag_per) {
+         if (_violation_start_time.has_value()) {
+           auto lag_duration_us = stats.last_run - _violation_start_time.value();
+           if (lag_duration_us > _max_lag_duration_us) {
+               elog("target tps lagging outside of defined limits. terminating test");
+               return false;
+           }
+         } else {
+            _violation_start_time.emplace(stats.last_run);
+         }
+      } else {
+         if (_violation_start_time.has_value()) {
+            _violation_start_time.reset();
+         }
+      }
+      return true;
+  }
 }

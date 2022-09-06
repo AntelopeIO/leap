@@ -43,21 +43,39 @@ namespace eosio::testing {
    using fc::time_point;
 
    struct tps_test_stats {
-      uint32_t total_trxs = 0;
-      uint32_t trxs_left = 0;
-      uint32_t trxs_sent = 0;
-      time_point start_time;
-      time_point expected_end_time;
-      time_point last_run;
-      time_point next_run;
-      int64_t time_to_next_trx_us = 0;
-
+      uint32_t          total_trxs = 0;
+      uint32_t          trxs_left = 0;
+      uint32_t          trxs_sent = 0;
+      time_point        start_time;
+      time_point        expected_end_time;
+      time_point        last_run;
+      time_point        next_run;
+      int64_t           time_to_next_trx_us = 0;
+      fc::microseconds  trx_interval;
+      uint32_t          expected_sent;
    };
 
-   constexpr int64_t min_sleep_us = 1;
+   constexpr int64_t min_sleep_us                  = 1;
+   constexpr int64_t default_spin_up_time_us       = std::chrono::microseconds(1s).count();
+   constexpr uint32_t default_max_lag_per          = 5;
+   constexpr int64_t default_max_lag_duration_us  = std::chrono::microseconds(1s).count();
 
    struct null_tps_monitor {
       bool monitor_test(const tps_test_stats& stats) {return true;}
+   };
+
+   struct tps_performance_monitor {
+      fc::microseconds     _spin_up_time;
+      uint32_t             _max_lag_per;
+      fc::microseconds     _max_lag_duration_us;
+
+      std::optional<fc::time_point>       _violation_start_time;
+
+      tps_performance_monitor(int64_t spin_up_time=default_spin_up_time_us, uint32_t max_lag_per=default_max_lag_per,
+                              int64_t max_lag_duration_us=default_max_lag_duration_us) : _spin_up_time(spin_up_time),
+                              _max_lag_per(max_lag_per), _max_lag_duration_us(max_lag_duration_us) {}
+
+      bool monitor_test(const tps_test_stats& stats);
    };
 
    template<typename G, typename M>
@@ -85,7 +103,7 @@ namespace eosio::testing {
          }
 
          tps_test_stats stats;
-         fc::microseconds trx_interval(std::chrono::microseconds(1s).count() / _target_tps);
+         stats.trx_interval = fc::microseconds(std::chrono::microseconds(1s).count() / _target_tps);
 
          stats.total_trxs = _gen_duration_seconds * _target_tps;
          stats.trxs_left = stats.total_trxs;
@@ -97,7 +115,7 @@ namespace eosio::testing {
 
          while (keep_running) {
             stats.last_run = fc::time_point::now();
-            stats.next_run = stats.start_time + fc::microseconds(trx_interval.count() * (stats.trxs_sent+1));
+            stats.next_run = stats.start_time + fc::microseconds(stats.trx_interval.count() * (stats.trxs_sent+1));
 
             if (_generator->generate_and_send()) {
                stats.trxs_sent++;
@@ -105,6 +123,7 @@ namespace eosio::testing {
                elog("generator unable to create/send a transaction");
             }
 
+            stats.expected_sent = ((stats.last_run - stats.start_time).count() / stats.trx_interval.count()) +1;
             stats.trxs_left--;
 
             keep_running = ((_monitor == nullptr || _monitor->monitor_test(stats)) && stats.trxs_left);
