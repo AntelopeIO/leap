@@ -13,8 +13,6 @@ from dataclasses import dataclass
 Print = Utils.Print
 errorExit = Utils.errorExit
 cmdError = Utils.cmdError
-relaunchTimeout = 30
-emptyBlockGoal = 5
 
 @dataclass
 class blockData():
@@ -53,19 +51,7 @@ class chainData():
         for block in self.blockLog:
             print(block)
 
-def waitForEmptyBlocks(node):
-    emptyBlocks = 0
-    while emptyBlocks < emptyBlockGoal:
-        headBlock = node.getHeadBlockNum()
-        block = node.processCurlCmd("chain", "get_block_info", f'{{"block_num":{headBlock}}}', silentErrors=False, exitOnError=True)
-        node.waitForHeadToAdvance()
-        if block['transaction_mroot'] == "0000000000000000000000000000000000000000000000000000000000000000":
-            emptyBlocks += 1
-        else:
-            emptyBlocks = 0
-    return node.getHeadBlockNum()
-
-def fetchStats(total, path):
+def scrapeLog(total, path):
     with open(path) as f:
         blockResult = re.findall(r'Received block ([0-9a-fA-F]*).* #(\d+) .*trxs: (\d+)(.*)', f.read())
         if total.ceaseBlock == 0:

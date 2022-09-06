@@ -16,6 +16,19 @@ Print = Utils.Print
 errorExit = Utils.errorExit
 cmdError = Utils.cmdError
 relaunchTimeout = 30
+emptyBlockGoal = 5
+
+def waitForEmptyBlocks(node):
+    emptyBlocks = 0
+    while emptyBlocks < emptyBlockGoal:
+        headBlock = node.getHeadBlockNum()
+        block = node.processCurlCmd("chain", "get_block_info", f'{{"block_num":{headBlock}}}', silentErrors=False, exitOnError=True)
+        node.waitForHeadToAdvance()
+        if block['transaction_mroot'] == "0000000000000000000000000000000000000000000000000000000000000000":
+            emptyBlocks += 1
+        else:
+            emptyBlocks = 0
+    return node.getHeadBlockNum()
 
 args=TestHelper.parse_args({"-p","-n","-d","-s","--nodes-file"
                             ,"--dump-error-details","-v","--leave-running"
@@ -74,7 +87,7 @@ try:
     transactionsSent = testGenerationDurationSec * targetTps
     data = log_reader.chainData()
 
-    data.startBlock = log_reader.waitForEmptyBlocks(validationNode)
+    data.startBlock = waitForEmptyBlocks(validationNode)
 
     if Utils.Debug: Print(
                             f'Running trx_generator: ./tests/trx_generator/trx_generator  '
@@ -97,8 +110,8 @@ try:
                             f'--target-tps {targetTps}'
                          )
     # Get stats after transaction generation stops
-    data.ceaseBlock = log_reader.waitForEmptyBlocks(validationNode) - log_reader.emptyBlockGoal + 1
-    log_reader.fetchStats(data, "var/lib/node_01/stderr.txt")
+    data.ceaseBlock = waitForEmptyBlocks(validationNode) - emptyBlockGoal + 1
+    log_reader.scrapeLog(data, "var/lib/node_01/stderr.txt")
 
     print(data)
     assert transactionsSent == data.totalTransactions , f"Error: Transactions received: {data.totalTransactions} did not match expected total: {transactionsSent}"

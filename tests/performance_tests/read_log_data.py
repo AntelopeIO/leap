@@ -10,6 +10,6 @@ args = parser.parse_args()
 logPath=args.log_path
 data = log_reader.chainData()
 data.startBlock = args.start_block
-log_reader.fetchStats(data, logPath)
+log_reader.scrapeLog(data, logPath)
 print(data)
 data.printBlockData()
