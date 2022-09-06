@@ -104,7 +104,7 @@ keepLogs=args.keep_logs
 
 # Setup cluster and its wallet manager
 walletMgr=WalletMgr(True)
-cluster=Cluster(walletd=True)
+cluster=Cluster(walletd=True, loggingLevel="info")
 cluster.setWalletMgr(walletMgr)
 
 testSuccessful = False
