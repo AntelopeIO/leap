@@ -283,6 +283,15 @@ BOOST_AUTO_TEST_CASE(tps_performance_monitor_outside_spin_up_within_limit)
    // behind, but within limit, out of spin up window
    stats.last_run =  fc::time_point{fc::microseconds{6600000}};
    BOOST_REQUIRE(monitor.monitor_test(stats));
+
+   stats.expected_sent = 150;
+   // outside of limit again, out of spin up window
+   stats.last_run =  fc::time_point{fc::microseconds{7000000}};
+   BOOST_REQUIRE(monitor.monitor_test(stats));
+
+   // outside of limit for too long
+   stats.last_run =  fc::time_point{fc::microseconds{8100000}};
+   BOOST_REQUIRE(!monitor.monitor_test(stats));
 }
 
 BOOST_AUTO_TEST_CASE(tps_cant_keep_up_monitored)
