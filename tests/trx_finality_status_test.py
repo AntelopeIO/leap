@@ -132,8 +132,8 @@ try:
     postInfo = None
     transferAmount=10
 
-    # ensuring that prod0's producer is active, which will give sufficient time to identify the transaction as "LOCALLY_APPLIED" before it travels
-    # through the chain of nodes to node0 to be added to a block
+    # Ensuring that prod0's producer is active, which will give more time to identify the transaction as "LOCALLY_APPLIED" before it travels
+    # through the chain of nodes to node0 to be added to a block. It is still possible to hit the end of a block and state be IN_BLOCK here.
     # defproducera -> defproducerb -> defproducerc -> NPN
     prod0.waitForProducer("defproducera", exitOnError=True)
     testNode.transferFunds(cluster.eosioAccount, account1, f"{transferAmount}.0000 {CORE_SYMBOL}", "fund account")
@@ -141,7 +141,7 @@ try:
     retStatus=testNode.getTransactionStatus(transId)
     state = getState(retStatus)
 
-    assert state == localState, \
+    assert (state == localState or state == inBlockState), \
         f"ERROR: getTransactionStatus didn't return \"{localState}\" state.\n\nstatus: {json.dumps(retStatus, indent=1)}"
     status.append(copy.copy(retStatus))
     startingBlockNum=testNode.getInfo()["head_block_num"]
