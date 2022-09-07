@@ -16,6 +16,3 @@
 [submodule "tests/abieos"]
 	path = tests/abieos
 	url = https://github.com/AntelopeIO/abieos
-[submodule "wasm-spec-tests"]
-	path = wasm-spec-tests
-	url = https://github.com/AntelopeIO/wasm-spec-tests
