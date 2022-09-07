@@ -54,7 +54,7 @@ class chainData():
 def scrapeLog(total, path):
     with open(path) as f:
         blockResult = re.findall(r'Received block ([0-9a-fA-F]*).* #(\d+) .*trxs: (\d+)(.*)', f.read())
-        if total.ceaseBlock == 0:
+        if total.ceaseBlock == None:
             total.ceaseBlock = len(blockResult) + 1
         for value in blockResult:
             v3Logging = re.findall(r'net: (\d+), cpu: (\d+), elapsed: (\d+), time: (\d+), latency: (-?\d+) ms', value[3])
