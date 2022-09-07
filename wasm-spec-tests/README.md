@@ -1,6 +1,6 @@
 # WASM Spec Tests
 
-This repo provides a set of unit tests that can be used to check a WASM Backend's conformance to the
+This directory provides a set of unit tests that can be used to check a WASM Backend's conformance to the
 WebAssembly spec.
 
 ## Tests
@@ -54,7 +54,3 @@ WebAssembly spec.
 - globals.14 -- Delete from generated tests or it segfaults due to missing wasm.
     - Imports "global_i32" from "spectest".
         - Unclear what an appropriate substition would be.
-
-## License
-
-[MIT](./LICENSE)
