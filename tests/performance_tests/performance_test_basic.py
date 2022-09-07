@@ -7,13 +7,7 @@ import re
 harnessPath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(harnessPath)
 
-from testUtils import Account
-from testUtils import Utils
-from Cluster import Cluster
-from WalletMgr import WalletMgr
-from Node import Node
-from Node import ReturnType
-from TestHelper import TestHelper
+from TestHarness import Account, Cluster, Node, ReturnType, TestHelper, Utils, WalletMgr
 from dataclasses import dataclass
 
 Print = Utils.Print

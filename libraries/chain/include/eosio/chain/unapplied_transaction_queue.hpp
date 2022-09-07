@@ -172,6 +172,7 @@ public:
             --incoming_count;
          queue.get<by_trx_id>().modify( itr, [](auto& un){
             un.trx_type = trx_enum_type::persisted;
+            un.next = nullptr; // persisted already have ack'ed initial trace
          } );
       }
    }
