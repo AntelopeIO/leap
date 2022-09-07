@@ -1,4 +1,4 @@
-add_executable( leap-util main.cpp CLI11.hpp actions_generic.cpp)
+add_executable( leap-util main.cpp CLI11.hpp actions_generic.cpp actions_blocklog.cpp)
 
 if( UNIX AND NOT APPLE )
   set(rt_library rt )
