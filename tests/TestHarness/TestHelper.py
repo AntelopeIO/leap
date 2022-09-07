@@ -1,6 +1,6 @@
-from testUtils import Utils
-from Cluster import Cluster
-from WalletMgr import WalletMgr
+from .testUtils import Utils
+from .Cluster import Cluster
+from .WalletMgr import WalletMgr
 from datetime import datetime
 import platform
 

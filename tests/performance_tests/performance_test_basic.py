@@ -6,10 +6,7 @@ import sys
 harnessPath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(harnessPath)
 
-from testUtils import Utils
-from Cluster import Cluster
-from WalletMgr import WalletMgr
-from TestHelper import TestHelper
+from TestHarness import Cluster, TestHelper, Utils, WalletMgr
 import log_reader
 
 Print = Utils.Print

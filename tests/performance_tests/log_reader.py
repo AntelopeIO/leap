@@ -7,7 +7,7 @@ import re
 harnessPath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(harnessPath)
 
-from testUtils import Utils
+from TestHarness import Utils
 from dataclasses import dataclass
 
 Print = Utils.Print

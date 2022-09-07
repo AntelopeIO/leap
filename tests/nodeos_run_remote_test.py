@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 
-from testUtils import Utils
-from Cluster import Cluster
-from TestHelper import TestHelper
-
 import subprocess
 import os
+
+from TestHarness import Cluster, TestHelper, Utils
 
 ###############################################################
 # nodeos_run_remote_test

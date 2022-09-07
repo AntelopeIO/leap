@@ -1,14 +1,10 @@
 #!/usr/bin/env python3
 
-from testUtils import Utils
-from Cluster import Cluster
-from WalletMgr import WalletMgr
-from Node import Node
-from TestHelper import TestHelper
-
 import decimal
 import re
 import os
+
+from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr
 
 ###############################################################
 # launcher-test

@@ -1,14 +1,9 @@
 #!/usr/bin/env python3
 
-from core_symbol import CORE_SYMBOL
-from testUtils import Account
-from testUtils import Utils
-from testUtils import ReturnType
-from Cluster import Cluster
-from WalletMgr import WalletMgr
-from TestHelper import TestHelper
-
 import random
+
+from TestHarness import Account, Cluster, ReturnType, TestHelper, Utils, WalletMgr
+from core_symbol import CORE_SYMBOL
 
 ###############################################################
 # get_account_test
