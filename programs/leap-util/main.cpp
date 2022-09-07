@@ -12,6 +12,7 @@ int main(int argc, char** argv) {
    fc::logger::get(DEFAULT_LOGGER).set_log_level(fc::log_level::debug);
 
    CLI::App app{"Command Line Leap Utility"};
+   app.set_help_all_flag("--help-all", "Show all help");
    app.require_subcommand(1, 2);
 
    // register actions
