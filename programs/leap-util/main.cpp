@@ -1,10 +1,11 @@
-#include <fc/io/json.hpp>
-#include <fc/filesystem.hpp>
-#include <fc/variant.hpp>
 #include <fc/bitutil.hpp>
+#include <fc/filesystem.hpp>
+#include <fc/io/json.hpp>
+#include <fc/variant.hpp>
 
 #include "CLI11.hpp"
 
+#include "actions_blocklog.hpp"
 #include "actions_generic.hpp"
 
 int main(int argc, char** argv) {
@@ -13,10 +14,9 @@ int main(int argc, char** argv) {
    CLI::App app{"Command Line Leap Utility"};
    app.require_subcommand(1, 2);
 
-   // version, etc
+   // register actions
    GenericActions().setup(app);
-   // SomeOtherActions1().setup(app);
-   // SomeOtherActions2().setup(app);
+   BlocklogActions().setup(app);
 
    // parse
    CLI11_PARSE(app, argc, argv);
