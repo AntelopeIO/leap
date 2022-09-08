@@ -13,6 +13,9 @@
 [submodule "libraries/softfloat"]
 	path = libraries/softfloat
 	url = https://github.com/AntelopeIO/berkeley-softfloat-3
+[submodule "libraries/rapidjson"]
+	path = libraries/rapidjson
+	url = https://github.com/Tencent/rapidjson/
 [submodule "tests/abieos"]
 	path = tests/abieos
 	url = https://github.com/AntelopeIO/abieos
