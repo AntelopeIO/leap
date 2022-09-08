@@ -21,6 +21,20 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.9" AND EXISTS /etc/os-release)
       string(APPEND CPACK_PACKAGE_FILE_NAME "-el${CMAKE_MATCH_1}")
    endif()
 endif()
+
+# Fix debian package filename as it should have the format:
+# <PackageName>_<VersionNumber>_<DebianArchitecture>.deb
+
+# Find architecture using dpkg
+if (DPKG_FOUND)
+    execute_process(COMMAND bash -c "${DPKG_FOUND} --print-architecture"
+        OUTPUT_VARIABLE DEB_ARCH
+        OUTPUT_STRIP_TRAILING_WHITESPACE)
+else()
+    set(DEB_ARCH "${CMAKE_SYSTEM_PROCESSOR}")
+endif()
+string(REGEX REPLACE "^${CMAKE_PROJECT_NAME}-(.*)$" "${CMAKE_PROJECT_NAME}_\\1_${DEB_ARCH}" CPACK_DEBIAN_FILE_NAME "${CPACK_PACKAGE_FILE_NAME}")
+
 string(APPEND CPACK_PACKAGE_FILE_NAME "-${CMAKE_SYSTEM_PROCESSOR}")
 
 set(CPACK_PACKAGE_CONTACT "EOS Network Foundation")
