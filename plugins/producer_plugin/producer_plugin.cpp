@@ -1335,6 +1335,8 @@ producer_plugin::runtime_options producer_plugin::get_runtime_options() const {
 }
 
 void producer_plugin::add_greylist_accounts(const greylist_params& params) {
+   EOS_ASSERT(params.accounts.size() > 0, chain::invalid_http_request, "At least one account is required");
+
    chain::controller& chain = my->chain_plug->chain();
    for (auto &acc : params.accounts) {
       chain.add_resource_greylist(acc);
@@ -1342,6 +1344,8 @@ void producer_plugin::add_greylist_accounts(const greylist_params& params) {
 }
 
 void producer_plugin::remove_greylist_accounts(const greylist_params& params) {
+   EOS_ASSERT(params.accounts.size() > 0, chain::invalid_http_request, "At least one account is required");
+
    chain::controller& chain = my->chain_plug->chain();
    for (auto &acc : params.accounts) {
       chain.remove_resource_greylist(acc);
@@ -1372,6 +1376,11 @@ producer_plugin::whitelist_blacklist producer_plugin::get_whitelist_blacklist() 
 }
 
 void producer_plugin::set_whitelist_blacklist(const producer_plugin::whitelist_blacklist& params) {
+   EOS_ASSERT(params.actor_whitelist || params.actor_blacklist || params.contract_whitelist || params.contract_blacklist || params.action_blacklist || params.key_blacklist,
+              chain::invalid_http_request,
+              "At least one of actor_whitelist, actor_blacklist, contract_whitelist, contract_blacklist, action_blacklist, and key_blacklist is required"
+             );
+
    chain::controller& chain = my->chain_plug->chain();
    if(params.actor_whitelist) chain.set_actor_whitelist(*params.actor_whitelist);
    if(params.actor_blacklist) chain.set_actor_blacklist(*params.actor_blacklist);
