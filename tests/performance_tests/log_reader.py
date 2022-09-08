@@ -36,6 +36,15 @@ class chainData():
         self.totalElapsed = 0
         self.totalTime = 0
         self.totalLatency = 0
+    def __eq__(self, other):
+        return self.startBlock == other.startBlock and\
+         self.ceaseBlock == other.ceaseBlock and\
+         self.totalTransactions == other.totalTransactions and\
+         self.totalNet == other.totalNet and\
+         self.totalCpu == other.totalCpu and\
+         self.totalElapsed == other.totalElapsed and\
+         self.totalTime == other.totalTime and\
+         self.totalLatency == other.totalLatency
     def updateTotal(self, transactions, net, cpu, elapsed, time, latency):
         self.totalTransactions += transactions
         self.totalNet += net
@@ -50,6 +59,8 @@ class chainData():
     def printBlockData(self):
         for block in self.blockLog:
             print(block)
+    def assertEquality(self, other):
+        assert self == other, f"Error: Actual log:\n{self}\ndid not match expected log:\n{other}"
 
 def scrapeLog(total, path):
     with open(path) as f:
