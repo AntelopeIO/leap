@@ -34,11 +34,10 @@ public:
    int run_subcommand();
 
    void initialize();
-   int trim_blocklog_end(bfs::path block_dir, uint32_t n);
+   int  trim_blocklog_end(bfs::path block_dir, uint32_t n);
    bool trim_blocklog_front(bfs::path block_dir, uint32_t n);
    bool extract_block_range(bfs::path block_dir, bfs::path output_dir, uint32_t start, uint32_t end);
    void smoke_test(bfs::path block_dir);
-
    void do_vacuum();
    void read_log();
 };

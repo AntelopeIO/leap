@@ -7,6 +7,7 @@
 
 #include "actions_blocklog.hpp"
 #include "actions_generic.hpp"
+#include "actions_snapshot.hpp"
 
 int main(int argc, char** argv) {
    fc::logger::get(DEFAULT_LOGGER).set_log_level(fc::log_level::debug);
@@ -18,6 +19,7 @@ int main(int argc, char** argv) {
    // register actions
    GenericActions().setup(app);
    BlocklogActions().setup(app);
+   SnapshotActions().setup(app);
 
    // parse
    CLI11_PARSE(app, argc, argv);
