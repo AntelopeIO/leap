@@ -28,7 +28,7 @@ private:
    struct trx_cache_entry {
       transaction_id_type     trx_id;
       account_name            account;
-      uint32_t                subjective_cpu_bill;
+      int64_t                 subjective_cpu_bill;
       fc::time_point          expiry;
    };
    struct by_id;
@@ -120,7 +120,7 @@ public:
                          const fc::microseconds& elapsed, bool in_pending_block )
    {
       if( !_disabled && !_disabled_accounts.count( first_auth ) ) {
-         uint32_t bill = std::max<int64_t>( 0, elapsed.count() );
+         int64_t bill = std::max<int64_t>( 0, elapsed.count() );
          auto p = _trx_cache_index.emplace(
                trx_cache_entry{id,
                                first_auth,
@@ -138,13 +138,13 @@ public:
    void subjective_bill_failure( const account_name& first_auth, const fc::microseconds& elapsed, const fc::time_point& now )
    {
       if( !_disabled && !_disabled_accounts.count( first_auth ) ) {
-         uint32_t bill = std::max<int64_t>( 0, elapsed.count() );
+         int64_t bill = std::max<int64_t>( 0, elapsed.count() );
          const auto time_ordinal = time_ordinal_for(now);
          _account_subjective_bill_cache[first_auth].expired_accumulator.add(bill, time_ordinal, _expired_accumulator_average_window);
       }
    }
 
-   uint32_t get_subjective_bill( const account_name& first_auth, const fc::time_point& now ) const {
+   int64_t get_subjective_bill( const account_name& first_auth, const fc::time_point& now ) const {
       if( _disabled || _disabled_accounts.count( first_auth ) ) return 0;
       const auto time_ordinal = time_ordinal_for(now);
       const subjective_billing_info* sub_bill_info = nullptr;
@@ -160,7 +160,7 @@ public:
 
       if (sub_bill_info) {
          EOS_ASSERT(sub_bill_info->pending_cpu_us >= in_block_pending_cpu_us, chain::tx_resource_exhaustion, "Logic error subjective billing ${a}", ("a", first_auth) );
-         uint32_t sub_bill = sub_bill_info->pending_cpu_us - in_block_pending_cpu_us + sub_bill_info->expired_accumulator.value_at(time_ordinal, _expired_accumulator_average_window );
+         int64_t sub_bill = sub_bill_info->pending_cpu_us - in_block_pending_cpu_us + sub_bill_info->expired_accumulator.value_at(time_ordinal, _expired_accumulator_average_window );
          return sub_bill;
       } else {
          return 0;
