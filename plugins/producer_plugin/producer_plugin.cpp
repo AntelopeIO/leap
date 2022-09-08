@@ -743,7 +743,7 @@ bool producer_plugin::is_producer_key(const chain::public_key_type& key) const
   return false;
 }
 
-uint32_t producer_plugin::get_subjective_bill( const account_name& first_auth, const fc::time_point& now ) const
+int64_t producer_plugin::get_subjective_bill( const account_name& first_auth, const fc::time_point& now ) const
 {
    return my->_subjective_billing.get_subjective_bill( first_auth, now );
 }
@@ -1896,7 +1896,7 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
                                      || ( !persist_until_expired && _disable_subjective_p2p_billing )
                                      || trx->read_only;
 
-   uint32_t sub_bill = 0;
+   int64_t sub_bill = 0;
    if( !disable_subjective_billing )
       sub_bill = _subjective_billing.get_subjective_bill( first_auth, fc::time_point::now() );
 
