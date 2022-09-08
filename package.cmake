@@ -57,7 +57,7 @@ list(REMOVE_ITEM CPACK_COMPONENTS_ALL "Unspecified")
 #enable per component packages for .deb; ensure main package is just "leap", not "leap-base", and make the dev package have "leap-dev" at the front not the back
 set(CPACK_DEB_COMPONENT_INSTALL ON)
 set(CPACK_DEBIAN_BASE_PACKAGE_NAME "${CMAKE_PROJECT_NAME}")
-set(CPACK_DEBIAN_BASE_FILE_NAME "${CPACK_PACKAGE_FILE_NAME}.deb")
+set(CPACK_DEBIAN_BASE_FILE_NAME "${CPACK_DEBIAN_FILE_NAME}.deb")
 string(REGEX REPLACE "^(${CMAKE_PROJECT_NAME})" "\\1-dev" CPACK_DEBIAN_DEV_FILE_NAME "${CPACK_DEBIAN_BASE_FILE_NAME}")
 
 #deb package tooling will be unable to detect deps for the dev package. llvm is tricky since we don't know what package could have been used; try to figure it out
