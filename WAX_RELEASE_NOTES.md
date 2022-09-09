@@ -89,3 +89,8 @@ WAX-Leap repository: https://github.com/cc32d9/wax-leap
 
 Snapshot unit tests are not ported to WAX properly and need to be re-done.
 
+## Release `v3.1.0wax02pr124`
+
+Merging https://github.com/AntelopeIO/leap/pull/124
+[3.1] Allow for larger subjective CPU billing amounts
+
