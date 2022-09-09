@@ -1618,28 +1618,29 @@ namespace eosio {
        * otherwise select the next available from the list, round-robin style.
        */
 
+      connection_ptr new_sync_source = sync_source;
       if (conn && conn->current() ) {
-         sync_source = conn;
+         new_sync_source = conn;
       } else {
          std::shared_lock<std::shared_mutex> g( my_impl->connections_mtx );
          if( my_impl->connections.size() == 0 ) {
-            sync_source.reset();
+            new_sync_source.reset();
          } else if( my_impl->connections.size() == 1 ) {
-            if (!sync_source) {
-               sync_source = *my_impl->connections.begin();
+            if (!new_sync_source) {
+               new_sync_source = *my_impl->connections.begin();
             }
          } else {
             // init to a linear array search
             auto cptr = my_impl->connections.begin();
             auto cend = my_impl->connections.end();
             // do we remember the previous source?
-            if (sync_source) {
+            if (new_sync_source) {
                //try to find it in the list
-               cptr = my_impl->connections.find( sync_source );
+               cptr = my_impl->connections.find( new_sync_source );
                cend = cptr;
                if( cptr == my_impl->connections.end() ) {
                   //not there - must have been closed! cend is now connections.end, so just flatten the ring.
-                  sync_source.reset();
+                  new_sync_source.reset();
                   cptr = my_impl->connections.begin();
                } else {
                   //was found - advance the start to the next. cend is the old source.
@@ -1657,7 +1658,7 @@ namespace eosio {
                   if( !(*cptr)->is_transactions_only_connection() && (*cptr)->current() ) {
                      std::lock_guard<std::mutex> g_conn( (*cptr)->conn_mtx );
                      if( (*cptr)->last_handshake_recv.last_irreversible_block_num >= sync_known_lib_num ) {
-                        sync_source = *cptr;
+                        new_sync_source = *cptr;
                         break;
                      }
                   }
@@ -1670,8 +1671,9 @@ namespace eosio {
       }
 
       // verify there is an available source
-      if( !sync_source || !sync_source->current() || sync_source->is_transactions_only_connection() ) {
+      if( !new_sync_source || !new_sync_source->current() || new_sync_source->is_transactions_only_connection() ) {
          fc_elog( logger, "Unable to continue syncing at this time");
+         if( !new_sync_source ) sync_source.reset();
          sync_known_lib_num = lib_block_num;
          reset_last_requested_num(g_sync);
          set_state( in_sync ); // probably not, but we can't do anything else
@@ -1686,12 +1688,12 @@ namespace eosio {
             end = sync_known_lib_num;
          if( end > 0 && end >= start ) {
             sync_last_requested_num = end;
-            connection_ptr c = sync_source;
+            sync_source = new_sync_source;
             g_sync.unlock();
             request_sent = true;
-            c->strand.post( [c, start, end]() {
-               peer_ilog( c, "requesting range ${s} to ${e}", ("s", start)("e", end) );
-               c->request_sync_blocks( start, end );
+            new_sync_source->strand.post( [new_sync_source, start, end]() {
+               peer_ilog( new_sync_source, "requesting range ${s} to ${e}", ("s", start)("e", end) );
+               new_sync_source->request_sync_blocks( start, end );
             } );
          }
       }
