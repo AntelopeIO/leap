@@ -5,11 +5,11 @@ import log_reader
 
 testSuccessful = False
 
-# Test log scraping for current log format
+# Test log scraping for 3.2 log format
 dataCurrent = log_reader.chainData()
 dataCurrent.startBlock = None
 dataCurrent.ceaseBlock = None
-log_reader.scrapeLog(dataCurrent, "tests/performance_tests/sample_nodeos_log.txt.gz")
+log_reader.scrapeLog(dataCurrent, "tests/performance_tests/nodeos_log_3_2.txt.gz")
 
 expectedCurrent = log_reader.chainData()
 expectedCurrent.startBlock = 2
@@ -28,12 +28,16 @@ dataCurrent.assertEquality(expectedCurrent)
 dataOld = log_reader.chainData()
 dataOld.startBlock = None
 dataOld.ceaseBlock = None
-log_reader.scrapeLog(dataOld, "tests/performance_tests/sample_nodeos_old_log.txt.gz")
+log_reader.scrapeLog(dataOld, "tests/performance_tests/nodeos_log_2_0_14.txt.gz")
 expectedOld = log_reader.chainData()
 expectedOld.startBlock = 2
 expectedOld.ceaseBlock = 93
 expectedOld.totalTransactions = 129
 # Net, Cpu, Elapsed, and Time are not logged in the old logging and will thus be 0
+expectedOld.totalNet = 0
+expectedOld.totalCpu = 0
+expectedOld.totalElapsed = 0
+expectedOld.totalTime = 0
 expectedOld.totalLatency = -5802
 
 dataOld.assertEquality(expectedOld)
