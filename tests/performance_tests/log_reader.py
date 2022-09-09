@@ -9,6 +9,7 @@ sys.path.append(harnessPath)
 
 from TestHarness import Utils
 from dataclasses import dataclass
+import gzip
 
 Print = Utils.Print
 errorExit = Utils.errorExit
@@ -62,22 +63,25 @@ class chainData():
     def assertEquality(self, other):
         assert self == other, f"Error: Actual log:\n{self}\ndid not match expected log:\n{other}"
 
-def scrapeLog(total, path):
-    with open(path) as f:
+def scrapeLog(data, path):
+    selectedopen = gzip.open if path.endswith('.gz') else open
+    with selectedopen(path, 'rt') as f:
         blockResult = re.findall(r'Received block ([0-9a-fA-F]*).* #(\d+) .*trxs: (\d+)(.*)', f.read())
-        if total.ceaseBlock is None:
-            total.ceaseBlock = len(blockResult) + 1
+        if data.startBlock is None:
+            data.startBlock = 2
+        if data.ceaseBlock is None:
+            data.ceaseBlock = len(blockResult) + 1
         for value in blockResult:
             v3Logging = re.findall(r'net: (\d+), cpu: (\d+), elapsed: (\d+), time: (\d+), latency: (-?\d+) ms', value[3])
             if v3Logging:
-                total.blockLog.append(blockData(value[0], int(value[1]), int(value[2]), int(v3Logging[0][0]), int(v3Logging[0][1]), int(v3Logging[0][2]), int(v3Logging[0][3]), int(v3Logging[0][4])))
-                if int(value[1]) in range(total.startBlock, total.ceaseBlock + 1):
-                    total.updateTotal(int(value[2]), int(v3Logging[0][0]), int(v3Logging[0][1]), int(v3Logging[0][2]), int(v3Logging[0][3]), int(v3Logging[0][4]))
+                data.blockLog.append(blockData(value[0], int(value[1]), int(value[2]), int(v3Logging[0][0]), int(v3Logging[0][1]), int(v3Logging[0][2]), int(v3Logging[0][3]), int(v3Logging[0][4])))
+                if int(value[1]) in range(data.startBlock, data.ceaseBlock + 1):
+                    data.updateTotal(int(value[2]), int(v3Logging[0][0]), int(v3Logging[0][1]), int(v3Logging[0][2]), int(v3Logging[0][3]), int(v3Logging[0][4]))
             else:
                 v2Logging = re.findall(r'latency: (-?\d+) ms', value[3])
                 if v2Logging:
-                    total.blockLog.append(blockData(value[0], int(value[1]), int(value[2]), 0, 0, 0, 0, int(v2Logging[0])))
-                    if int(value[1]) in range(total.startBlock, total.ceaseBlock + 1):
-                        total.updateTotal(int(value[2]), 0, 0, 0, 0, int(v2Logging[0]))
+                    data.blockLog.append(blockData(value[0], int(value[1]), int(value[2]), 0, 0, 0, 0, int(v2Logging[0])))
+                    if int(value[1]) in range(data.startBlock, data.ceaseBlock + 1):
+                        data.updateTotal(int(value[2]), 0, 0, 0, 0, int(v2Logging[0]))
                 else:
                     print("Error: Unknown log format")
