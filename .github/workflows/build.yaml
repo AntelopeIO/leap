@@ -150,7 +150,7 @@ jobs:
           ctest --output-on-failure -L "nonparallelizable_tests"
       - name: Bundle logs from failed tests
         if: failure()
-        run: tar -czf ${{matrix.platform}}-serial-logs.tar.gz build/var build/etc
+        run: tar -czf ${{matrix.platform}}-serial-logs.tar.gz build/var build/etc build/leap-ignition-wd
       - name: Upload logs from failed tests  
         uses: actions/upload-artifact@v3
         if: failure()
@@ -183,10 +183,19 @@ jobs:
           ctest --output-on-failure -R ${{matrix.test-name}}
       - name: Bundle logs from failed tests
         if: failure()
-        run: tar -czf ${{matrix.platform}}-${{matrix.test-name}}-logs.tar.gz build/var build/etc
+        run: tar -czf ${{matrix.platform}}-${{matrix.test-name}}-logs.tar.gz build/var build/etc build/leap-ignition-wd
       - name: Upload logs from failed tests  
         uses: actions/upload-artifact@v3
         if: failure()
         with:
           name: ${{matrix.platform}}-${{matrix.test-name}}-logs
           path: ${{matrix.platform}}-${{matrix.test-name}}-logs.tar.gz
+
+  all-passing:
+    name: All Required Tests Passed
+    needs: [tests, np-tests]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - if: needs.tests.result != 'success' || needs.np-tests.result != 'success'
+        run: false

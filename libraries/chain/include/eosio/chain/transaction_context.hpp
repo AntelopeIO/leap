@@ -144,7 +144,7 @@ namespace eosio { namespace chain {
          fc::time_point                block_deadline = fc::time_point::maximum();
          fc::microseconds              leeway = fc::microseconds( config::default_subjective_cpu_leeway_us );
          int64_t                       billed_cpu_time_us = 0;
-         uint32_t                      subjective_cpu_bill_us = 0;
+         int64_t                       subjective_cpu_bill_us = 0;
          bool                          explicit_billed_cpu_time = false;
 
          transaction_checktime_timer   transaction_timer;
