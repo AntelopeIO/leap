@@ -233,6 +233,7 @@ try:
         f"\n\nprod 0 info: {json.dumps(prodNodes[0].getInfo(), indent=1)}\n\nprod 1 info: {json.dumps(prodNodes[1].getInfo(), indent=1)}"
 
     afterForkInBlockState = retStatus
+    afterForkBlockId = retStatus["block_id"]
     assert afterForkInBlockState["block_number"] > originalInBlockState["block_number"], \
         "ERROR: The way the test is designed, the transaction should be added to a block that has a higher number than it was in originally before it was forked out." + \
        f"\n\noriginal in block state: {json.dumps(originalInBlockState, indent=1)}\n\nafter fork in block state: {json.dumps(afterForkInBlockState, indent=1)}"
@@ -240,6 +241,12 @@ try:
     assert prodNodes[1].waitForBlock(afterForkInBlockState["block_number"], blockType=BlockType.lib), \
         f"ERROR: Block never finalized.\n\nprod 0 info: {json.dumps(prodNodes[0].getInfo(), indent=1)}\n\nprod 1 info: {json.dumps(prodNodes[1].getInfo(), indent=1)}" + \
         f"\n\nafter fork in block state: {json.dumps(afterForkInBlockState, indent=1)}"
+
+    retStatus = prodNodes[1].getTransactionStatus(transId)
+    if afterForkBlockId != retStatus["block_id"]: # might have been forked out, if so wait for new block to become LIB
+        assert prodNodes[1].waitForBlock(retStatus["block_number"], blockType=BlockType.lib), \
+            f"ERROR: Block never finalized.\n\nprod 0 info: {json.dumps(prodNodes[0].getInfo(), indent=1)}\n\nprod 1 info: {json.dumps(prodNodes[1].getInfo(), indent=1)}" + \
+            f"\n\nafter fork in block state: {json.dumps(afterForkInBlockState, indent=1)}"
 
     retStatus = prodNodes[1].getTransactionStatus(transId)
     state = getState(retStatus)
