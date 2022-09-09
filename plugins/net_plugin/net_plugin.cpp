@@ -1161,7 +1161,7 @@ namespace eosio {
                close(false);
             }
             return;
-         } else if( latest_blk_time > 0 ) {
+         } else {
             const tstamp timeout = std::max(hb_timeout/2, 2*std::chrono::milliseconds(config::block_interval_ms).count());
             if ( current_time > latest_blk_time + timeout ) {
                send_handshake();
