@@ -16,6 +16,9 @@
 [submodule "libraries/rapidjson"]
 	path = libraries/rapidjson
 	url = https://github.com/Tencent/rapidjson/
+[submodule "libraries/yubihsm"]
+	path = libraries/yubihsm
+	url = https://github.com/Yubico/yubihsm-shell
 [submodule "tests/abieos"]
 	path = tests/abieos
 	url = https://github.com/AntelopeIO/abieos
