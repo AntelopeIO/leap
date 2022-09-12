@@ -151,10 +151,12 @@ public:
 
    void add_fail_time( const fc::microseconds& fail_time ) {
       trx_fail_time += fail_time;
+      ++trx_fail_num;
    }
 
    void add_success_time( const fc::microseconds& time ) {
       trx_success_time += time;
+      ++trx_success_num;
    }
 
 
@@ -179,8 +181,9 @@ public:
       if( _log.is_enabled( fc::log_level::debug ) ) {
          auto now = fc::time_point::now();
          add_idle_time( now - idle_trx_time );
-         fc_dlog( _log, "Block trx idle: ${i}us out of ${t}us, success: ${s}us, fail: ${f}us, other: ${o}us",
-                  ("i", block_idle_time)("t", now - clear_time)("s", trx_success_time)("f", trx_fail_time)
+         fc_dlog( _log, "Block trx idle: ${i}us out of ${t}us, success: ${sn}, ${s}us, fail: ${fn}, ${f}us, other: ${o}us",
+                  ("i", block_idle_time)("t", now - clear_time)("sn", trx_success_num)("s", trx_success_time)
+                  ("fn", trx_fail_num)("f", trx_fail_time)
                   ("o", (now - clear_time) - block_idle_time - trx_success_time - trx_fail_time) );
          for( const auto& e : failed_accounts ) {
             std::string reason;
@@ -207,6 +210,7 @@ public:
    void clear() {
       failed_accounts.clear();
       block_idle_time = trx_fail_time = trx_success_time = fc::microseconds{};
+      trx_fail_num = trx_success_num = 0;
       clear_time = fc::time_point::now();
    }
 
@@ -246,6 +250,8 @@ private:
    std::map<account_name, account_failure> failed_accounts;
    uint32_t max_failures_per_account = 3;
    mutable fc::microseconds block_idle_time;
+   uint32_t trx_success_num = 0;
+   uint32_t trx_fail_num = 0;
    fc::microseconds trx_success_time;
    fc::microseconds trx_fail_time;
    fc::time_point clear_time{fc::time_point::now()};
@@ -409,6 +415,9 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       void abort_block() {
          auto& chain = chain_plug->chain();
 
+         if( chain.is_building_block() ) {
+            _account_fails.report( _idle_trx_time );
+         }
          _unapplied_transactions.add_aborted( chain.abort_block() );
          _subjective_billing.abort_block();
          _account_fails.clear();
@@ -439,7 +448,6 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          auto bsf = chain.create_block_state_future( id, block );
 
          // abort the pending block
-         _account_fails.report(_idle_trx_time);
          abort_block();
 
          // exceptions throw out, make sure we restart our loop
@@ -509,8 +517,6 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       void restart_speculative_block() {
          chain::controller& chain = chain_plug->chain();
 
-         _account_fails.report(_idle_trx_time);
-
          // abort the pending block
          abort_block();
 
@@ -551,9 +557,13 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
             if( future.valid() ) {
                future.wait();
                app().post( priority::low, [self, future{std::move(future)}, persist_until_expired, next{std::move( next )}, trx{std::move(trx)}, return_failure_traces]() mutable {
-                  auto exception_handler = [self, &next, trx{std::move(trx)}](fc::exception_ptr ex) {
-                     self->log_trx_results( trx, nullptr, ex, 0, fc::time_point::now() );
+                  auto start = fc::time_point::now();
+                  auto exception_handler = [self, &next, trx{std::move(trx)}, &start](fc::exception_ptr ex) {
+                     self->_account_fails.add_idle_time( start - self->_idle_trx_time );
+                     self->log_trx_results( trx, nullptr, ex, 0, start );
                      next( std::move(ex) );
+                     self->_idle_trx_time = fc::time_point::now();
+                     self->_account_fails.add_fail_time(self->_idle_trx_time - start);
                   };
                   try {
                      auto result = future.get();
@@ -564,6 +574,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                            self->restart_speculative_block();
                         }
                      }
+                     self->_idle_trx_time = fc::time_point::now();
                   } CATCH_AND_CALL(exception_handler);
                } );
             }
@@ -574,9 +585,13 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                                               bool persist_until_expired,
                                               bool return_failure_trace,
                                               next_function<transaction_trace_ptr> next) {
+         auto start = fc::time_point::now();
+         auto idle_time = start - _idle_trx_time;
+         _account_fails.add_idle_time( idle_time );
+         fc_dlog( _trx_successful_trace_log, "Time since last trx: ${t}us", ("t", idle_time) );
+
          bool exhausted = false;
          chain::controller& chain = chain_plug->chain();
-
          try {
             const auto& id = trx->id();
 
@@ -623,7 +638,6 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
             chain_plugin::handle_bad_alloc();
          } CATCH_AND_CALL(next);
 
-         _idle_trx_time = fc::time_point::now();
          return !exhausted;
       }
 
@@ -1707,11 +1721,12 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
             return start_block_result::failed;
          if (preprocess_deadline <= fc::time_point::now() || block_is_exhausted()) {
             return start_block_result::exhausted;
-         } else {
-            if( !process_incoming_trxs( preprocess_deadline, incoming_itr ) )
-               return start_block_result::exhausted;
-            return start_block_result::succeeded;
          }
+
+         if( !process_incoming_trxs( preprocess_deadline, incoming_itr ) )
+            return start_block_result::exhausted;
+
+         return start_block_result::succeeded;
 
       } catch ( const guard_exception& e ) {
          chain_plugin::handle_guard_exception(e);
@@ -1900,9 +1915,6 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
                                         next_function<transaction_trace_ptr> next )
 {
    auto start = fc::time_point::now();
-   auto idle_time = start - _idle_trx_time;
-   _account_fails.add_idle_time( idle_time );
-   fc_dlog( _trx_successful_trace_log, "Time since last trx: ${t}us", ("t", idle_time) );
 
    auto first_auth = trx->packed_trx()->get_transaction().first_authorizer();
    if( _pending_block_mode == pending_block_mode::producing && _account_fails.failure_limit( first_auth ) ) {
@@ -1913,8 +1925,7 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
          log_trx_results( trx, except_ptr );
          next( except_ptr );
       }
-      _idle_trx_time = fc::time_point::now();
-      _account_fails.add_fail_time(_idle_trx_time - start);
+      _account_fails.add_fail_time(fc::time_point::now() - start);
       return push_result{.failed = true};
    }
 
@@ -1998,7 +2009,6 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
       if( next ) next( trace );
    }
 
-   _idle_trx_time = fc::time_point::now();
    return pr;
 }
 
@@ -2095,7 +2105,6 @@ void producer_plugin_impl::process_scheduled_and_incoming_trxs( const fc::time_p
 
       num_processed++;
 
-      _idle_trx_time = fc::time_point::now();
       // configurable ratio of incoming txns vs deferred txns
       while (incoming_trx_weight >= 1.0 && itr != end ) {
          if (deadline <= fc::time_point::now()) {
@@ -2195,7 +2204,6 @@ bool producer_plugin_impl::process_incoming_trxs( const fc::time_point& deadline
    bool exhausted = false;
    auto end = _unapplied_transactions.incoming_end();
    if( itr != end ) {
-      _idle_trx_time = fc::time_point::now();
       size_t processed = 0;
       fc_dlog( _log, "Processing ${n} pending transactions", ("n", _unapplied_transactions.incoming_size()) );
       while( itr != end ) {
@@ -2248,6 +2256,8 @@ void producer_plugin_impl::schedule_production_loop() {
    _timer.cancel();
 
    auto result = start_block();
+
+   _idle_trx_time = fc::time_point::now();
 
    if (result == start_block_result::failed) {
       elog("Failed to start a pending block, will try again later");
