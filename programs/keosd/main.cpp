@@ -93,7 +93,11 @@ int main(int argc, char** argv)
       }
       initialize_logging();
       auto& http = app().get_plugin<http_plugin>();
-      http.add_handler("/v1/" + keosd::config::key_store_executable_name + "/stop", [&a=app()](string, string, url_response_callback cb) { cb(200, fc::variant(fc::variant_object())); a.quit(); } );
+      http.add_handler("/v1/" + keosd::config::key_store_executable_name + "/stop",
+                       [&a=app()](string, string, url_response_callback cb) {
+         cb(200, fc::time_point::maximum(), fc::variant(fc::variant_object()));
+         a.quit();
+      } );
       app().startup();
       app().exec();
    } catch (const fc::exception& e) {
