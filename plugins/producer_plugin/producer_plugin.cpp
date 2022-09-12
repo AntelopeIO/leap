@@ -558,6 +558,10 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                future.wait();
                app().post( priority::low, [self, future{std::move(future)}, persist_until_expired, next{std::move( next )}, trx{std::move(trx)}, return_failure_traces]() mutable {
                   auto start = fc::time_point::now();
+                  auto idle_time = start - self->_idle_trx_time;
+                  self->_account_fails.add_idle_time( idle_time );
+                  fc_dlog( _trx_successful_trace_log, "Time since last trx: ${t}us", ("t", idle_time) );
+
                   auto exception_handler = [self, &next, trx{std::move(trx)}, &start](fc::exception_ptr ex) {
                      self->_account_fails.add_idle_time( start - self->_idle_trx_time );
                      self->log_trx_results( trx, nullptr, ex, 0, start );
@@ -585,11 +589,6 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                                               bool persist_until_expired,
                                               bool return_failure_trace,
                                               next_function<transaction_trace_ptr> next) {
-         auto start = fc::time_point::now();
-         auto idle_time = start - _idle_trx_time;
-         _account_fails.add_idle_time( idle_time );
-         fc_dlog( _trx_successful_trace_log, "Time since last trx: ${t}us", ("t", idle_time) );
-
          bool exhausted = false;
          chain::controller& chain = chain_plug->chain();
          try {
