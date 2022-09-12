@@ -34,6 +34,10 @@ int main(int argc, char** argv) {
    uint32_t gen_duration;
    uint32_t target_tps;
    string lib_id_str;
+   int64_t spinup_time_us;
+   uint32_t max_lag_per;
+   int64_t max_lag_duration_us;
+
 
    vector<string> account_str_vector;
    vector<string> private_keys_str_vector;
@@ -48,6 +52,9 @@ int main(int argc, char** argv) {
          ("trx-gen-duration", bpo::value<uint32_t>(&gen_duration)->default_value(60), "Transaction generation duration (seconds). Defaults to 60 seconds.")
          ("target-tps", bpo::value<uint32_t>(&target_tps)->default_value(1), "Target transactions per second to generate/send. Defaults to 1 transaction per second.")
          ("last-irreversible-block-id", bpo::value<string>(&lib_id_str), "Current last-irreversible-block-id (LIB ID) to use for transactions.")
+         ("monitor-spinup-time-us", bpo::value<int64_t>(&spinup_time_us)->default_value(1000000), "Number of microseconds to wait before monitoring TPS. Defaults to 1000000 (1s).")
+         ("monitor-max-lag-percent", bpo::value<uint32_t>(&max_lag_per)->default_value(0), "Max percentage off from expected transactions sent before being in violation. Defaults to 5.")
+         ("monitor-max-lag-duration-us", bpo::value<int64_t>(&max_lag_duration_us), "Max microseconds that transaction generation can be in violation before quitting. Defaults to 1000000 (1s).")
          ("help,h", "print this list")
          ;
 
@@ -112,6 +119,22 @@ int main(int argc, char** argv) {
             return INITIALIZE_FAIL;
          }
       }
+
+      if(vmap.count("spinup-time-us")) {
+         if(spinup_time_us < 0) {
+            ilog("Initialization error: spinup-time-us cannot be negative");
+            cli.print(std::cerr);
+            return INITIALIZE_FAIL;
+         }
+      }
+
+      if(vmap.count("max-lag-duration-us")) {
+         if(max_lag_duration_us < 0) {
+            ilog("Initialization error: max-lag-duration-us cannot be negative");
+            cli.print(std::cerr);
+            return INITIALIZE_FAIL;
+         }
+      }
    } catch(bpo::unknown_option& ex) {
       std::cerr << ex.what() << std::endl;
       cli.print(std::cerr);
@@ -129,9 +152,9 @@ int main(int argc, char** argv) {
 
    auto generator = std::make_shared<transfer_trx_generator>(chain_id_in, h_acct,
                                                              account_str_vector, trx_expr, private_keys_str_vector, lib_id_str);
-   std::shared_ptr<null_tps_monitor> monitor(nullptr);
+   std::shared_ptr<tps_performance_monitor> monitor = std::make_shared<tps_performance_monitor>(spinup_time_us, max_lag_per, max_lag_duration_us);
 
-   trx_tps_tester<transfer_trx_generator, null_tps_monitor> tester{generator, monitor, gen_duration, target_tps};
+   trx_tps_tester<transfer_trx_generator, tps_performance_monitor> tester{generator, monitor, gen_duration, target_tps};
 
    if (!tester.run()) {
       return OTHER_FAIL;
