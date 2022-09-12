@@ -127,8 +127,8 @@ struct json_snapshot_suite {
 
    static std::string temp_file() {
       static fc::temp_directory temp_dir;
-      std::string temp_file = temp_dir.path().string() + "temp.bin.json";
-      return temp_file;
+      auto temp_file = temp_dir.path() / "temp.bin.json";
+      return temp_file.string();
    }
 
    struct reader : public reader_t {

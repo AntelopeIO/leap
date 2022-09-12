@@ -566,25 +566,30 @@ BOOST_AUTO_TEST_CASE(json_snapshot_validity_test)
    chain.produce_blocks(10);
    chain.control->abort_block();
 
+   auto pid_string = std::to_string(getpid());
+   auto bin_file = pid_string + "BinSnapshot";
+   auto json_file = pid_string + "JsonSnapshot";
+   auto bin_from_json_file = pid_string + "BinFromJsonSnapshot";
+
    // create bin snapshot
    auto writer_bin = buffered_snapshot_suite::get_writer();
    chain.control->write_snapshot(writer_bin);
    auto snapshot_bin = buffered_snapshot_suite::finalize(writer_bin);
-   buffered_snapshot_suite::write_to_file("BinSnapshot", snapshot_bin);
+   buffered_snapshot_suite::write_to_file(bin_file, snapshot_bin);
 
    // create json snapshot
    auto writer_json = json_snapshot_suite::get_writer();
    chain.control->write_snapshot(writer_json);
    auto snapshot_json = json_snapshot_suite::finalize(writer_json);
-   json_snapshot_suite::write_to_file("JsonSnapshot", snapshot_json);
+   json_snapshot_suite::write_to_file(json_file, snapshot_json);
 
    // load bin snapshot
-   auto snapshot_bin_read = buffered_snapshot_suite::load_from_file("BinSnapshot");
+   auto snapshot_bin_read = buffered_snapshot_suite::load_from_file(bin_file);
    auto reader_bin = buffered_snapshot_suite::get_reader(snapshot_bin_read);
    snapshotted_tester tester_bin(chain.get_config(), reader_bin, ordinal++);
 
    // load json snapshot
-   auto snapshot_json_read = json_snapshot_suite::load_from_file("JsonSnapshot");
+   auto snapshot_json_read = json_snapshot_suite::load_from_file(json_file);
    auto reader_json = json_snapshot_suite::get_reader(snapshot_json_read);
    snapshotted_tester tester_json(chain.get_config(), reader_json, ordinal++);
 
@@ -592,10 +597,10 @@ BOOST_AUTO_TEST_CASE(json_snapshot_validity_test)
    auto writer_bin_from_json = buffered_snapshot_suite::get_writer();
    tester_json.control->write_snapshot(writer_bin_from_json);
    auto snapshot_bin_from_json = buffered_snapshot_suite::finalize(writer_bin_from_json);
-   buffered_snapshot_suite::write_to_file("BinFromJsonSnapshot", snapshot_bin_from_json);
+   buffered_snapshot_suite::write_to_file(bin_from_json_file, snapshot_bin_from_json);
 
    // load new bin snapshot
-   auto snapshot_bin_from_json_read = buffered_snapshot_suite::load_from_file("BinFromJsonSnapshot");
+   auto snapshot_bin_from_json_read = buffered_snapshot_suite::load_from_file(bin_from_json_file);
    auto reader_bin_from_json = buffered_snapshot_suite::get_reader(snapshot_bin_from_json_read);
    snapshotted_tester tester_bin_from_json(chain.get_config(), reader_bin_from_json, ordinal++);
 
@@ -604,9 +609,9 @@ BOOST_AUTO_TEST_CASE(json_snapshot_validity_test)
    verify_integrity_hash<buffered_snapshot_suite>(*tester_bin_from_json.control, *tester_json.control);
    verify_integrity_hash<buffered_snapshot_suite>(*tester_json.control, *tester_bin.control);
 
-   auto bin_snap_path = bfs::path(snapshot_file<snapshot::binary>::base_path) / "BinSnapshot.bin.gz";
-   auto bin_from_json_snap_path = bfs::path(snapshot_file<snapshot::binary>::base_path) / "BinFromJsonSnapshot.bin.gz";
-   auto json_snap_path = bfs::path(snapshot_file<snapshot::binary>::base_path) / "JsonSnapshot.bin.json.gz";
+   auto bin_snap_path = bfs::path(snapshot_file<snapshot::binary>::base_path) / bin_file;
+   auto bin_from_json_snap_path = bfs::path(snapshot_file<snapshot::binary>::base_path) / bin_from_json_file;
+   auto json_snap_path = bfs::path(snapshot_file<snapshot::json>::base_path) / json_file;
    remove(bin_snap_path);
    remove(bin_from_json_snap_path);
    remove(json_snap_path);
