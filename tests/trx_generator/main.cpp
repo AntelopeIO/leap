@@ -53,8 +53,8 @@ int main(int argc, char** argv) {
          ("target-tps", bpo::value<uint32_t>(&target_tps)->default_value(1), "Target transactions per second to generate/send. Defaults to 1 transaction per second.")
          ("last-irreversible-block-id", bpo::value<string>(&lib_id_str), "Current last-irreversible-block-id (LIB ID) to use for transactions.")
          ("monitor-spinup-time-us", bpo::value<int64_t>(&spinup_time_us)->default_value(1000000), "Number of microseconds to wait before monitoring TPS. Defaults to 1000000 (1s).")
-         ("monitor-max-lag-percent", bpo::value<uint32_t>(&max_lag_per)->default_value(0), "Max percentage off from expected transactions sent before being in violation. Defaults to 5.")
-         ("monitor-max-lag-duration-us", bpo::value<int64_t>(&max_lag_duration_us), "Max microseconds that transaction generation can be in violation before quitting. Defaults to 1000000 (1s).")
+         ("monitor-max-lag-percent", bpo::value<uint32_t>(&max_lag_per)->default_value(5), "Max percentage off from expected transactions sent before being in violation. Defaults to 5.")
+         ("monitor-max-lag-duration-us", bpo::value<int64_t>(&max_lag_duration_us)->default_value(1000000), "Max microseconds that transaction generation can be in violation before quitting. Defaults to 1000000 (1s).")
          ("help,h", "print this list")
          ;
 
@@ -131,6 +131,14 @@ int main(int argc, char** argv) {
       if(vmap.count("max-lag-duration-us")) {
          if(max_lag_duration_us < 0) {
             ilog("Initialization error: max-lag-duration-us cannot be negative");
+            cli.print(std::cerr);
+            return INITIALIZE_FAIL;
+         }
+      }
+
+      if(vmap.count("max-lag-percent")) {
+         if(max_lag_per > 100) {
+            ilog("Initialization error: max-lag-percent must be between 0 and 100");
             cli.print(std::cerr);
             return INITIALIZE_FAIL;
          }
