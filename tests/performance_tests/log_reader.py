@@ -3,6 +3,7 @@
 import os
 import sys
 import re
+import numpy
 
 harnessPath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(harnessPath)
@@ -13,6 +14,13 @@ from dataclasses import dataclass
 Print = Utils.Print
 errorExit = Utils.errorExit
 cmdError = Utils.cmdError
+
+@dataclass
+class stats():
+    min: int = 0
+    max: int = 0
+    avg: int = 0
+    sigma: int = 0
 
 @dataclass
 class blockData():
@@ -70,3 +78,51 @@ def scrapeLog(total, path):
                         total.updateTotal(int(value[2]), 0, 0, 0, 0, int(v2Logging[0]))
                 else:
                     print("Error: Unknown log format")
+
+def findPrunedRangeOfInterest(data: chainData, numAddlBlocksToDrop=0):
+
+    startBlockIndex = 0
+    endBlockIndex = len(data.blockLog) - 1
+
+    #skip leading empty blocks in initial range of interest as well as specified number of potentially non-empty blocks
+    droppedBlocks = 0
+    for block in data.blockLog:
+        if block.blockNum < data.startBlock or (droppedBlocks == 0 and block.transactions == 0):
+            continue
+        else:
+            if droppedBlocks < numAddlBlocksToDrop:
+                droppedBlocks += 1
+                continue
+            else:
+                startBlockIndex = data.blockLog.index(block)
+                break
+
+    #skip trailing empty blocks at end of initial range of interest as well as specified number of potentially non-empty blocks
+    droppedBlocks = 0
+    for block in reversed(data.blockLog):
+        if block.blockNum > data.ceaseBlock or (droppedBlocks == 0 and block.transactions == 0):
+            continue
+        else:
+            if droppedBlocks < numAddlBlocksToDrop:
+                droppedBlocks += 1
+                continue
+            else:
+                endBlockIndex = data.blockLog.index(block)
+                break
+
+    return startBlockIndex,endBlockIndex
+
+def scoreTransfersPerSecond(data: chainData, numAddlBlocksToDrop=0) -> stats:
+    consecutiveBlockTps = []
+
+    startBlockIndex,endBlockIndex = findPrunedRangeOfInterest(data, numAddlBlocksToDrop)
+
+    if startBlockIndex >= endBlockIndex:
+        print(f"Error: Invalid block index range start: {startBlockIndex} end: {endBlockIndex}")
+        return stats()
+
+    for i in range(startBlockIndex, endBlockIndex+1):
+        if i + 1 < endBlockIndex:
+            consecutiveBlockTps.append(data.blockLog[i].transactions + data.blockLog[i+1].transactions)
+
+    return stats(numpy.min(consecutiveBlockTps) , numpy.max(consecutiveBlockTps), numpy.average(consecutiveBlockTps), numpy.std(consecutiveBlockTps))
