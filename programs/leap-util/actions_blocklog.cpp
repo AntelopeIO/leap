@@ -66,7 +66,11 @@ void BlocklogActions::setup(CLI::App& app) {
    sub->add_flag("--smoke-test", opt->smoke_test, "Quick test that blocks.log and blocks.index are well formed and agree with each other.");
    sub->add_flag("--vacuum", opt->vacuum, "Vacuum a pruned blocks.log in to an un-pruned blocks.log");
 
-   sub->callback([this]() { run_subcommand(); });
+   sub->callback([this]() {
+      int rc = run_subcommand();
+      // properly return err code in main
+      if (rc) throw(CLI::RuntimeError(rc));
+   });
 }
 
 int BlocklogActions::run_subcommand() {
@@ -154,8 +158,6 @@ void BlocklogActions::initialize() {
 
       //if the log is pruned, keep it that way by passing in a config with a large block pruning value. There is otherwise no
       // way to tell block_log "keep the current non/pruneness of the log"
-      // TODO
-
       if(block_log::is_pruned_log(opt->blocks_dir)) {
          opt->blog_keep_prune_conf.emplace();
          opt->blog_keep_prune_conf->prune_blocks = UINT32_MAX;

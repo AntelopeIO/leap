@@ -32,7 +32,7 @@ public:
 
    // callbacks
    int run_subcommand();
-
+protected:
    void initialize();
    int  trim_blocklog_end(bfs::path block_dir, uint32_t n);
    bool trim_blocklog_front(bfs::path block_dir, uint32_t n);
