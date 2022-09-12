@@ -1,18 +1,13 @@
 #!/usr/bin/env python3
 
-from core_symbol import CORE_SYMBOL
-from Cluster import Cluster
-from Cluster import NamedAccounts
-from WalletMgr import WalletMgr
-from Node import Node
-from TestHelper import TestHelper
-from testUtils import Utils
-import testUtils
 import time
-
 import decimal
 import math
 import re
+
+from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr
+from TestHarness.Cluster import NamedAccounts
+from core_symbol import CORE_SYMBOL
 
 ###############################################################
 # nodeos_under_min_avail_ram

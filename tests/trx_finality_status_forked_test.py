@@ -1,20 +1,14 @@
 #!/usr/bin/env python3
 
-from testUtils import Utils
-import testUtils
 import time
-from Cluster import Cluster
-from WalletMgr import WalletMgr
-from Node import BlockType
-from Node import Node
-from TestHelper import TestHelper
-from testUtils import Account
-
 import decimal
 import json
 import math
 import re
 import signal
+
+from TestHarness import Account, Cluster, Node, TestHelper, Utils, WalletMgr
+from TestHarness.Node import BlockType
 
 ###############################################################
 # trx_finality_status_forked_test

@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
 
-from testUtils import Utils
-from Cluster import Cluster
-from TestHelper import TestHelper
-
 import random
 import subprocess
 import signal
@@ -12,6 +8,8 @@ import shutil
 import re
 from datetime import datetime
 from datetime import timedelta
+
+from TestHarness import Cluster, TestHelper, Utils
 
 Print=Utils.Print
 errorExit=Utils.errorExit

@@ -1,15 +1,11 @@
 #!/usr/bin/env python3
 
-from testUtils import Utils
-from Cluster import Cluster, PFSetupPolicy
-from WalletMgr import WalletMgr
-from Node import Node
-from Node import ReturnType
-from TestHelper import TestHelper
-
 import decimal
 import re
 import time
+
+from TestHarness import Cluster, Node, ReturnType, TestHelper, Utils, WalletMgr
+from TestHarness.Cluster import PFSetupPolicy
 
 ###############################################################
 # prod_preactivation_test
