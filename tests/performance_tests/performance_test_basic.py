@@ -112,8 +112,10 @@ try:
 
     print(data)
 
-    # Define number of potentially non-empty blocks to prune from the beginning and end of the range of blocks of interest for evaluation.
-    # All leading and trailing 0 size blocks will be pruned as well prior to evaluating and applying the numBlocksToPrune
+    # Define number of potentially non-empty blocks to prune from the beginning and end of the range
+    # of blocks of interest for evaluation to zero in on steady state operation.
+    # All leading and trailing 0 size blocks will be pruned as well prior
+    # to evaluating and applying the numBlocksToPrune
     numAddlBlocksToPrune = 2
 
     stats = log_reader.scoreTransfersPerSecond(data, numAddlBlocksToPrune)
