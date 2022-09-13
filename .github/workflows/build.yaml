@@ -130,8 +130,6 @@ jobs:
     container: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
     steps:
       - uses: actions/checkout@v3
-        with:
-          submodules: true
       - name: Download builddir
         uses: actions/download-artifact@v3
         with:
