@@ -3,6 +3,7 @@
 import os
 import sys
 import re
+import numpy as np
 
 harnessPath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(harnessPath)
@@ -14,6 +15,15 @@ import gzip
 Print = Utils.Print
 errorExit = Utils.errorExit
 cmdError = Utils.cmdError
+
+@dataclass
+class stats():
+    min: int = 0
+    max: int = 0
+    avg: int = 0
+    sigma: int = 0
+    emptyBlocks: int = 0
+    numBlocks: int = 0
 
 @dataclass
 class blockData():
@@ -29,8 +39,8 @@ class blockData():
 class chainData():
     def __init__(self):
         self.blockLog = []
-        self.startBlock = 0
-        self.ceaseBlock = 0
+        self.startBlock = None
+        self.ceaseBlock = None
         self.totalTransactions = 0
         self.totalNet = 0
         self.totalCpu = 0
@@ -85,3 +95,58 @@ def scrapeLog(data, path):
                         data.updateTotal(int(value[2]), 0, 0, 0, 0, int(v2Logging[0]))
                 else:
                     print("Error: Unknown log format")
+
+def pruneToSteadyState(data: chainData, numAddlBlocksToDrop=0):
+    """Prunes the block data log in data down to range of blocks when steady state has been reached.
+
+    This includes pruning out 3 distinct ranges of blocks from the total block data log:
+    1) Blocks during test scenario setup and tear down
+    2) Empty blocks during test scenario ramp up and ramp down
+    3) Additional blocks - potentially partially full blocks while test scenario ramps up to steady state
+
+    Keyword arguments:
+    data -- the chainData for the test run.  Includes blockLog, startBlock, and ceaseBlock
+    numAddlBlocksToDrop -- num potentially non-empty blocks to ignore at beginning and end of test for steady state purposes
+
+    Returns:
+    pruned list of blockData representing steady state operation
+    """
+    firstBlockNum = data.blockLog[0].blockNum
+    lastBlockNum = data.blockLog[len(data.blockLog) - 1].blockNum
+
+    setupBlocks = 0
+    if data.startBlock is not None:
+        setupBlocks = data.startBlock - firstBlockNum
+
+    tearDownBlocks = 0
+    if data.ceaseBlock is not None:
+        tearDownBlocks = lastBlockNum - data.ceaseBlock
+
+    leadingEmpty = 0
+    for le in range(setupBlocks, len(data.blockLog) - tearDownBlocks - 1):
+        if data.blockLog[le].transactions == 0:
+            leadingEmpty += 1
+        else:
+            break
+
+    trailingEmpty = 0
+    for te in range(len(data.blockLog) - tearDownBlocks - 1, setupBlocks + leadingEmpty, -1):
+        if data.blockLog[te].transactions == 0:
+            trailingEmpty += 1
+        else:
+            break
+
+    return data.blockLog[setupBlocks + leadingEmpty + numAddlBlocksToDrop:-(tearDownBlocks + trailingEmpty + numAddlBlocksToDrop)]
+
+def scoreTransfersPerSecond(data: chainData, numAddlBlocksToDrop=0) -> stats:
+    """Analyzes a test scenario's steady state block data for statistics around transfers per second over every two-consecutive-block window"""
+    prunedBlockDataLog = pruneToSteadyState(data, numAddlBlocksToDrop)
+
+    # Calculate the num trxs in each two-consecutive-block window and count any empty blocks in range.
+    # for instance: given 4 blocks [1, 2, 3, 4], the two-consecutive-block windows analyzed would be [(1,2),(2,3),(3,4)]
+    consecBlkTrxsAndEmptyCnt = [(first.transactions + second.transactions, int(first.transactions == 0)) for first, second in zip(prunedBlockDataLog, prunedBlockDataLog[1:])]
+
+    npCBTAEC = np.array(consecBlkTrxsAndEmptyCnt, dtype=np.uint)
+
+    # Note: numpy array slicing in use -> [:,0] -> from all elements return index 0
+    return stats(np.min(npCBTAEC[:,0]), np.max(npCBTAEC[:,0]), np.average(npCBTAEC[:,0]), np.std(npCBTAEC[:,0]), np.sum(npCBTAEC[:,1]), len(prunedBlockDataLog))
