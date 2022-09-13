@@ -149,6 +149,7 @@ inline constexpr auto get_intrinsic_table() {
       "env.sha256",
       "env.sha512",
       "env.ripemd160",
+      "env.verify_rsa_sha256_sig",
       "env.check_transaction_authorization",
       "env.check_permission_authorization",
       "env.get_permission_last_used",

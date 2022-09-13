@@ -414,6 +414,16 @@ namespace webassembly {
          void ripemd160(legacy_span<const char> data, legacy_ptr<fc::ripemd160> hash_val) const;
 
          /**
+          * WAX specific
+          *
+          * signature, exponent and modulus must be hexadecimal strings
+          */
+         int32_t verify_rsa_sha256_sig(legacy_span<const char> message,
+                                       legacy_span<const char> signature,
+                                       legacy_span<const char> exponent,
+                                       legacy_span<const char> modulus);
+
+         /**
           * Checks if a transaction is authorized by a provided set of keys and permissions.
           *
           * @ingroup permission

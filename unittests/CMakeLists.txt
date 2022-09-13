@@ -37,6 +37,9 @@ add_custom_command(
 
 ### BUILD UNIT TEST EXECUTABLE ###
 file(GLOB UNIT_TESTS "*.cpp") # find all unit test suites
+
+set(UNIT_TESTS ${UNIT_TESTS} ${CMAKE_CURRENT_SOURCE_DIR}/wax/signature_tests.cpp)
+
 add_executable( unit_test ${UNIT_TESTS} protocol_feature_digest_tests.cpp) # build unit tests as one executable
 
 target_link_libraries( unit_test eosio_chain_wrap chainbase eosio_testing fc appbase ${PLATFORM_SPECIFIC_LIBS} )
