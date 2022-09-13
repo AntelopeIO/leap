@@ -97,31 +97,31 @@ def pruneToSteadyState(data: chainData, numAddlBlocksToDrop=0):
     pruned list of blockData representing steady state operation
     """
     firstBlockNum = data.blockLog[0].blockNum
-    lastBlockNum = data.blockLog[len(data.blockLog)-1].blockNum
+    lastBlockNum = data.blockLog[len(data.blockLog) - 1].blockNum
 
     setupBlocks = 0
     if data.startBlock is not None:
-        setupBlocks = data.startBlock-firstBlockNum
+        setupBlocks = data.startBlock - firstBlockNum
 
     tearDownBlocks = 0
     if data.ceaseBlock is not None:
-        tearDownBlocks = lastBlockNum-data.ceaseBlock
+        tearDownBlocks = lastBlockNum - data.ceaseBlock
 
     leadingEmpty = 0
-    for le in range(setupBlocks, len(data.blockLog)-tearDownBlocks-1):
+    for le in range(setupBlocks, len(data.blockLog) - tearDownBlocks - 1):
         if data.blockLog[le].transactions == 0:
-            leadingEmpty +=1
+            leadingEmpty += 1
         else:
             break
 
     trailingEmpty = 0
-    for te in range(len(data.blockLog)-tearDownBlocks-1, setupBlocks+leadingEmpty, -1):
+    for te in range(len(data.blockLog) - tearDownBlocks - 1, setupBlocks + leadingEmpty, -1):
         if data.blockLog[te].transactions == 0:
-            trailingEmpty +=1
+            trailingEmpty += 1
         else:
             break
 
-    return data.blockLog[setupBlocks+leadingEmpty+numAddlBlocksToDrop:-(tearDownBlocks+trailingEmpty+numAddlBlocksToDrop)]
+    return data.blockLog[setupBlocks + leadingEmpty + numAddlBlocksToDrop:-(tearDownBlocks + trailingEmpty + numAddlBlocksToDrop)]
 
 def scoreTransfersPerSecond(data: chainData, numAddlBlocksToDrop=0) -> stats:
     """Analyzes a test scenario's steady state block data for statistics around transfers per second over every two-consecutive-block window"""
@@ -134,4 +134,4 @@ def scoreTransfersPerSecond(data: chainData, numAddlBlocksToDrop=0) -> stats:
     npCBTAEC = np.array(consecBlkTrxsAndEmptyCnt, dtype=np.uint)
 
     #Note: numpy array slicing in use -> [:,0] -> from all elements return index 0
-    return stats(np.min(npCBTAEC[:,0]) , np.max(npCBTAEC[:,0]), np.average(npCBTAEC[:,0]), np.std(npCBTAEC[:,0]), np.sum(npCBTAEC[:,1]), len(prunedBlockDataLog))
+    return stats(np.min(npCBTAEC[:,0]), np.max(npCBTAEC[:,0]), np.average(npCBTAEC[:,0]), np.std(npCBTAEC[:,0]), np.sum(npCBTAEC[:,1]), len(prunedBlockDataLog))
