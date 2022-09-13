@@ -712,15 +712,13 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                    if (!disable_subjective_billing)
                       _subjective_billing.subjective_bill_failure( first_auth, trace->elapsed, fc::time_point::now() );
 
-                  if( _pending_block_mode == pending_block_mode::producing ) {
-                     auto failure_code = trace->except->code();
-                     if( failure_code != tx_duplicate::code_value ) {
-                        // this failed our configured maximum transaction time, we don't want to replay it
-                        fc_dlog( _log, "Failed ${c} trx, prev billed: ${p}us, ran: ${r}us, id: ${id}",
-                                 ("c", trace->except->code())( "p", prev_billed_cpu_time_us )
-                                 ( "r", fc::time_point::now() - start )( "id", trx->id() ) );
-                        _account_fails.add( first_auth, failure_code );
-                     }
+                  auto failure_code = trace->except->code();
+                  if( failure_code != tx_duplicate::code_value ) {
+                     // this failed our configured maximum transaction time, we don't want to replay it
+                     fc_dlog( _trx_failed_trace_log, "Failed ${c} trx, prev billed: ${p}us, ran: ${r}us, id: ${id}",
+                              ("c", trace->except->code())( "p", prev_billed_cpu_time_us )
+                              ( "r", fc::time_point::now() - start )( "id", trx->id() ) );
+                     _account_fails.add( first_auth, failure_code );
                   }
                   if( return_failure_traces ) {
                      send_response( trace );
