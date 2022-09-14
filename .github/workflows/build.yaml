@@ -126,7 +126,7 @@ jobs:
       fail-fast: false
       matrix:
         platform: [ubuntu20]
-    runs-on: ["self-hosted", "enf-x86-beefy"]
+    runs-on: ["self-hosted", "enf-x86-hightier"]
     container: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
     steps:
       - uses: actions/checkout@v3
