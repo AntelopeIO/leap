@@ -31,6 +31,7 @@ def waitForEmptyBlocks(node):
 appArgs=AppArgs()
 extraArgs = appArgs.add(flag="--target-tps", type=int, help="The target transfers per second to send during test. Default: 1000", default=1000)
 extraArgs = appArgs.add(flag="--test-duration-sec", type=int, help="The duration of transfer trx generation for the test in seconds. Default: 30", default=30)
+extraArgs = appArgs.add('--genesis', type=str, help="Path to genesis.json", default="tests/performance_tests/genesis.json")
 args=TestHelper.parse_args({"-p","-n","-d","-s","--nodes-file"
                             ,"--dump-error-details","-v","--leave-running"
                             ,"--clean-run","--keep-logs"}, applicationSpecificArgs=appArgs)
@@ -48,6 +49,7 @@ killWallet=not dontKill
 keepLogs=args.keep_logs
 testGenerationDurationSec = args.test_duration_sec
 targetTps = args.target_tps
+genesisJsonFile = args.genesis
 
 # Setup cluster and its wallet manager
 walletMgr=WalletMgr(True)
@@ -66,6 +68,7 @@ try:
        totalNodes=total_nodes,
        useBiosBootFile=False,
        topo=topo,
+       genesisPath=genesisJsonFile,
        extraNodeosArgs=extraNodeosArgs) == False:
         errorExit('Failed to stand up cluster.')
 
