@@ -764,8 +764,7 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
 
       LOAD_VALUE_SET( options, "profile-account", my->chain_config->profile_accounts );
 
-      if(options.count("abi-serializer-max-time-ms"))
-         my->abi_serializer_max_time_us = fc::microseconds(options.at("abi-serializer-max-time-ms").as<uint32_t>() * 1000);
+      my->abi_serializer_max_time_us = fc::microseconds(options.at("abi-serializer-max-time-ms").as<uint32_t>() * 1000);
 
       my->chain_config->blocks_dir = my->blocks_dir;
       my->chain_config->state_dir = app().data_dir() / config::default_state_dir_name;
@@ -1321,10 +1320,15 @@ void chain_plugin::handle_sighup() {
    _deep_mind_log.update_logger( deep_mind_logger_name );
 }
 
-chain_apis::read_write::read_write(controller& db, std::optional<trx_retry_db>& trx_retry, const fc::microseconds& abi_serializer_max_time, bool api_accept_transactions)
+chain_apis::read_write::read_write(controller& db,
+                                   std::optional<trx_retry_db>& trx_retry,
+                                   const fc::microseconds& abi_serializer_max_time,
+                                   const fc::microseconds& http_max_response_time,
+                                   bool api_accept_transactions)
 : db(db)
 , trx_retry(trx_retry)
 , abi_serializer_max_time(abi_serializer_max_time)
+, http_max_response_time(http_max_response_time)
 , api_accept_transactions(api_accept_transactions)
 {
 }
@@ -1334,12 +1338,12 @@ void chain_apis::read_write::validate() const {
                "Not allowed, node has api-accept-transactions = false" );
 }
 
-chain_apis::read_write chain_plugin::get_read_write_api() {
-   return chain_apis::read_write(chain(), my->_trx_retry_db, get_abi_serializer_max_time(), api_accept_transactions());
+chain_apis::read_write chain_plugin::get_read_write_api(const fc::microseconds& http_max_response_time) {
+   return chain_apis::read_write(chain(), my->_trx_retry_db, get_abi_serializer_max_time(), http_max_response_time, api_accept_transactions());
 }
 
-chain_apis::read_only chain_plugin::get_read_only_api() const {
-   return chain_apis::read_only(chain(), my->_account_query_db, get_abi_serializer_max_time(), my->producer_plug, my->_trx_finality_status_processing.get());
+chain_apis::read_only chain_plugin::get_read_only_api(const fc::microseconds& http_max_response_time) const {
+   return chain_apis::read_only(chain(), my->_account_query_db, get_abi_serializer_max_time(), http_max_response_time, my->producer_plug, my->_trx_finality_status_processing.get());
 }
 
 
@@ -1425,7 +1429,7 @@ std::string itoh(I n, size_t hlen = sizeof(I)<<1) {
    return r;
 }
 
-read_only::get_info_results read_only::get_info(const read_only::get_info_params&) const {
+read_only::get_info_results read_only::get_info(const read_only::get_info_params&, const fc::time_point&) const {
    const auto& rm = db.get_resource_limits_manager();
 
    return {
@@ -1454,7 +1458,8 @@ read_only::get_info_results read_only::get_info(const read_only::get_info_params
    };
 }
 
-read_only::get_transaction_status_results read_only::get_transaction_status(const read_only::get_transaction_status_params& param) const {
+read_only::get_transaction_status_results
+read_only::get_transaction_status(const read_only::get_transaction_status_params& param, const fc::time_point& deadline) const {
    EOS_ASSERT(trx_finality_status_proc, unsupported_feature, "Transaction Status Interface not enabled.  To enable, configure nodeos with '--transaction-finality-status-max-storage-size-gb <size>'.");
 
    trx_finality_status_processing::chain_state ch_state = trx_finality_status_proc->get_chain_state();
@@ -1481,7 +1486,8 @@ read_only::get_transaction_status_results read_only::get_transaction_status(cons
 }
 
 read_only::get_activated_protocol_features_results
-read_only::get_activated_protocol_features( const read_only::get_activated_protocol_features_params& params )const {
+read_only::get_activated_protocol_features( const read_only::get_activated_protocol_features_params& params,
+                                            const fc::time_point& deadline )const {
    read_only::get_activated_protocol_features_results result;
    const auto& pfm = db.get_protocol_feature_manager();
 
@@ -1499,6 +1505,9 @@ read_only::get_activated_protocol_features( const read_only::get_activated_proto
    if( upper_bound_value < lower_bound_value )
       return result;
 
+   fc::microseconds params_time_limit = params.time_limit_ms ? fc::milliseconds(*params.time_limit_ms) : fc::milliseconds(10);
+   fc::time_point params_deadline = fc::time_point::now() + params_time_limit;
+
    auto walk_range = [&]( auto itr, auto end_itr, auto&& convert_iterator ) {
       fc::mutable_variant_object mvo;
       mvo( "activation_ordinal", 0 );
@@ -1508,11 +1517,11 @@ read_only::get_activated_protocol_features( const read_only::get_activated_proto
       auto& activation_block_num_value = mvo["activation_block_num"];
 
       auto cur_time = fc::time_point::now();
-      auto end_time = cur_time + fc::microseconds(1000 * 10); /// 10ms max time
       for( unsigned int count = 0;
-           cur_time <= end_time && count < params.limit && itr != end_itr;
+           cur_time <= params_deadline && count < params.limit && itr != end_itr;
            ++itr, cur_time = fc::time_point::now() )
       {
+         FC_CHECK_DEADLINE(deadline);
          const auto& conv_itr = convert_iterator( itr );
          activation_ordinal_value   = conv_itr.activation_ordinal();
          activation_block_num_value = conv_itr.activation_block_num();
@@ -1695,7 +1704,7 @@ string get_table_type( const abi_def& abi, const name& table_name ) {
    EOS_ASSERT( false, chain::contract_table_query_exception, "Table ${table} is not specified in the ABI", ("table",table_name) );
 }
 
-read_only::get_table_rows_result read_only::get_table_rows( const read_only::get_table_rows_params& p )const {
+read_only::get_table_rows_result read_only::get_table_rows( const read_only::get_table_rows_params& p, const fc::time_point& deadline )const {
    const abi_def abi = eosio::chain_apis::get_abi( db, p.code );
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wstrict-aliasing"
@@ -1705,43 +1714,43 @@ read_only::get_table_rows_result read_only::get_table_rows( const read_only::get
       EOS_ASSERT( p.table == table_with_index, chain::contract_table_query_exception, "Invalid table name ${t}", ( "t", p.table ));
       auto table_type = get_table_type( abi, p.table );
       if( table_type == KEYi64 || p.key_type == "i64" || p.key_type == "name" ) {
-         return get_table_rows_ex<key_value_index>(p,abi);
+         return get_table_rows_ex<key_value_index>(p,abi,deadline);
       }
       EOS_ASSERT( false, chain::contract_table_query_exception,  "Invalid table type ${type}", ("type",table_type)("abi",abi));
    } else {
       EOS_ASSERT( !p.key_type.empty(), chain::contract_table_query_exception, "key type required for non-primary index" );
 
       if (p.key_type == chain_apis::i64 || p.key_type == "name") {
-         return get_table_rows_by_seckey<index64_index, uint64_t>(p, abi, [](uint64_t v)->uint64_t {
+         return get_table_rows_by_seckey<index64_index, uint64_t>(p, abi, deadline, [](uint64_t v)->uint64_t {
             return v;
          });
       }
       else if (p.key_type == chain_apis::i128) {
-         return get_table_rows_by_seckey<index128_index, uint128_t>(p, abi, [](uint128_t v)->uint128_t {
+         return get_table_rows_by_seckey<index128_index, uint128_t>(p, abi, deadline, [](uint128_t v)->uint128_t {
             return v;
          });
       }
       else if (p.key_type == chain_apis::i256) {
          if ( p.encode_type == chain_apis::hex) {
             using  conv = keytype_converter<chain_apis::sha256,chain_apis::hex>;
-            return get_table_rows_by_seckey<conv::index_type, conv::input_type>(p, abi, conv::function());
+            return get_table_rows_by_seckey<conv::index_type, conv::input_type>(p, abi, deadline, conv::function());
          }
          using  conv = keytype_converter<chain_apis::i256>;
-         return get_table_rows_by_seckey<conv::index_type, conv::input_type>(p, abi, conv::function());
+         return get_table_rows_by_seckey<conv::index_type, conv::input_type>(p, abi, deadline, conv::function());
       }
       else if (p.key_type == chain_apis::float64) {
-         return get_table_rows_by_seckey<index_double_index, double>(p, abi, [](double v)->float64_t {
+         return get_table_rows_by_seckey<index_double_index, double>(p, abi, deadline, [](double v)->float64_t {
             float64_t f = *(float64_t *)&v;
             return f;
          });
       }
       else if (p.key_type == chain_apis::float128) {
          if ( p.encode_type == chain_apis::hex) {
-            return get_table_rows_by_seckey<index_long_double_index, uint128_t>(p, abi, [](uint128_t v)->float128_t{
+            return get_table_rows_by_seckey<index_long_double_index, uint128_t>(p, abi, deadline, [](uint128_t v)->float128_t{
                return *reinterpret_cast<float128_t *>(&v);
             });
          }
-         return get_table_rows_by_seckey<index_long_double_index, double>(p, abi, [](double v)->float128_t{
+         return get_table_rows_by_seckey<index_long_double_index, double>(p, abi, deadline, [](double v)->float128_t{
             float64_t f = *(float64_t *)&v;
             float128_t f128;
             f64_to_f128M(f, &f128);
@@ -1750,18 +1759,23 @@ read_only::get_table_rows_result read_only::get_table_rows( const read_only::get
       }
       else if (p.key_type == chain_apis::sha256) {
          using  conv = keytype_converter<chain_apis::sha256,chain_apis::hex>;
-         return get_table_rows_by_seckey<conv::index_type, conv::input_type>(p, abi, conv::function());
+         return get_table_rows_by_seckey<conv::index_type, conv::input_type>(p, abi, deadline, conv::function());
       }
       else if(p.key_type == chain_apis::ripemd160) {
          using  conv = keytype_converter<chain_apis::ripemd160,chain_apis::hex>;
-         return get_table_rows_by_seckey<conv::index_type, conv::input_type>(p, abi, conv::function());
+         return get_table_rows_by_seckey<conv::index_type, conv::input_type>(p, abi, deadline, conv::function());
       }
       EOS_ASSERT(false, chain::contract_table_query_exception,  "Unsupported secondary index type: ${t}", ("t", p.key_type));
    }
 #pragma GCC diagnostic pop
 }
 
-read_only::get_table_by_scope_result read_only::get_table_by_scope( const read_only::get_table_by_scope_params& p )const {
+read_only::get_table_by_scope_result read_only::get_table_by_scope( const read_only::get_table_by_scope_params& p,
+                                                                    const fc::time_point& deadline )const {
+
+   fc::microseconds params_time_limit = p.time_limit_ms ? fc::milliseconds(*p.time_limit_ms) : fc::milliseconds(10);
+   fc::time_point params_deadline = fc::time_point::now() + params_time_limit;
+
    read_only::get_table_by_scope_result result;
    const auto& d = db.db();
 
@@ -1785,8 +1799,8 @@ read_only::get_table_by_scope_result read_only::get_table_by_scope( const read_o
 
    auto walk_table_range = [&]( auto itr, auto end_itr ) {
       auto cur_time = fc::time_point::now();
-      auto end_time = cur_time + fc::microseconds(1000 * 10); /// 10ms max time
-      for( unsigned int count = 0; cur_time <= end_time && count < p.limit && itr != end_itr; ++itr, cur_time = fc::time_point::now() ) {
+      for( unsigned int count = 0; cur_time <= params_deadline && count < p.limit && itr != end_itr; ++itr, cur_time = fc::time_point::now() ) {
+         FC_CHECK_DEADLINE(deadline);
          if( p.table && itr->table != p.table ) continue;
 
          result.rows.push_back( {itr->code, itr->scope, itr->table, itr->payer, itr->count} );
@@ -1809,7 +1823,7 @@ read_only::get_table_by_scope_result read_only::get_table_by_scope( const read_o
    return result;
 }
 
-vector<asset> read_only::get_currency_balance( const read_only::get_currency_balance_params& p )const {
+vector<asset> read_only::get_currency_balance( const read_only::get_currency_balance_params& p, const fc::time_point& deadline )const {
 
    const abi_def abi = eosio::chain_apis::get_abi( db, p.code );
    (void)get_table_type( abi, name("accounts") );
@@ -1835,7 +1849,7 @@ vector<asset> read_only::get_currency_balance( const read_only::get_currency_bal
    return results;
 }
 
-fc::variant read_only::get_currency_stats( const read_only::get_currency_stats_params& p )const {
+fc::variant read_only::get_currency_stats( const read_only::get_currency_stats_params& p, const fc::time_point& deadline )const {
    fc::mutable_variant_object results;
 
    const abi_def abi = eosio::chain_apis::get_abi( db, p.code );
@@ -1876,14 +1890,15 @@ fc::variant get_global_row( const database& db, const abi_def& abi, const abi_se
    return abis.binary_to_variant(abis.get_table_type("global"_n), data, abi_serializer::create_yield_function( abi_serializer_max_time_us ), shorten_abi_errors );
 }
 
-read_only::get_producers_result read_only::get_producers( const read_only::get_producers_params& p ) const try {
+read_only::get_producers_result
+read_only::get_producers( const read_only::get_producers_params& params, const fc::time_point& deadline ) const try {
    const abi_def abi = eosio::chain_apis::get_abi(db, config::system_account_name);
    const auto table_type = get_table_type(abi, "producers"_n);
    const abi_serializer abis{ abi, abi_serializer::create_yield_function( abi_serializer_max_time ) };
    EOS_ASSERT(table_type == KEYi64, chain::contract_table_query_exception, "Invalid table type ${type} for table producers", ("type",table_type));
 
    const auto& d = db.db();
-   const auto lower = name{p.lower_bound};
+   const auto lower = name{params.lower_bound};
 
    static const uint8_t secondary_index_num = 0;
    const auto* const table_id = d.find<chain::table_id_object, chain::by_code_scope_table>(
@@ -1898,7 +1913,6 @@ read_only::get_producers_result read_only::get_producers( const read_only::get_p
    const auto& secondary_index_by_secondary = secondary_index.get<by_secondary>();
 
    read_only::get_producers_result result;
-   const auto stopTime = fc::time_point::now() + fc::microseconds(1000 * 10); // 10ms
    vector<char> data;
 
    auto it = [&]{
@@ -1911,13 +1925,17 @@ read_only::get_producers_result read_only::get_producers( const read_only::get_p
                boost::make_tuple(secondary_table_id->id, lower.to_uint64_t())));
    }();
 
+   fc::microseconds params_time_limit = params.time_limit_ms ? fc::milliseconds(*params.time_limit_ms) : fc::milliseconds(10);
+   fc::time_point params_deadline = fc::time_point::now() + params_time_limit;
+
    for( ; it != secondary_index_by_secondary.end() && it->t_id == secondary_table_id->id; ++it ) {
-      if (result.rows.size() >= p.limit || fc::time_point::now() > stopTime) {
+      FC_CHECK_DEADLINE(deadline);
+      if (result.rows.size() >= params.limit || fc::time_point::now() > params_deadline) {
          result.more = name{it->primary_key}.to_string();
          break;
       }
       copy_inline_row(*kv_index.find(boost::make_tuple(table_id->id, it->primary_key)), data);
-      if (p.json)
+      if (params.json)
          result.rows.emplace_back( abis.binary_to_variant( abis.get_table_type("producers"_n), data, abi_serializer::create_yield_function( abi_serializer_max_time ), shorten_abi_errors ) );
       else
          result.rows.emplace_back(fc::variant(data));
@@ -1927,8 +1945,9 @@ read_only::get_producers_result read_only::get_producers( const read_only::get_p
    return result;
 } catch (...) {
    read_only::get_producers_result result;
+   result.rows.reserve(db.active_producers().producers.size());
 
-   for (auto p : db.active_producers().producers) {
+   for (const auto& p : db.active_producers().producers) {
       auto row = fc::mutable_variant_object()
          ("owner", p.producer_name)
          ("producer_authority", p.authority)
@@ -1943,13 +1962,13 @@ read_only::get_producers_result read_only::get_producers( const read_only::get_p
          }
       }
 
-      result.rows.push_back(row);
+      result.rows.emplace_back(std::move(row));
    }
 
    return result;
 }
 
-read_only::get_producer_schedule_result read_only::get_producer_schedule( const read_only::get_producer_schedule_params& p ) const {
+read_only::get_producer_schedule_result read_only::get_producer_schedule( const read_only::get_producer_schedule_params& p, const fc::time_point& deadline ) const {
    read_only::get_producer_schedule_result result;
    to_variant(db.active_producers(), result.active);
    if(!db.pending_producers().producers.empty())
@@ -1981,7 +2000,11 @@ auto make_resolver(const controller& control, abi_serializer::yield_function_t y
 }
 
 read_only::get_scheduled_transactions_result
-read_only::get_scheduled_transactions( const read_only::get_scheduled_transactions_params& p ) const {
+read_only::get_scheduled_transactions( const read_only::get_scheduled_transactions_params& p, const fc::time_point& deadline ) const {
+
+   fc::microseconds params_time_limit = p.time_limit_ms ? fc::milliseconds(*p.time_limit_ms) : fc::milliseconds(10);
+   fc::time_point params_deadline = fc::time_point::now() + params_time_limit;
+
    const auto& d = db.db();
 
    const auto& idx_by_delay = d.get_index<generated_transaction_multi_index,by_delay>();
@@ -2015,8 +2038,8 @@ read_only::get_scheduled_transactions( const read_only::get_scheduled_transactio
    auto resolver = make_resolver(db, abi_serializer::create_yield_function( abi_serializer_max_time ));
 
    uint32_t remaining = p.limit;
-   auto time_limit = fc::time_point::now() + fc::microseconds(1000 * 10); /// 10ms max time
-   while (itr != idx_by_delay.end() && remaining > 0 && time_limit > fc::time_point::now()) {
+   while (itr != idx_by_delay.end() && remaining > 0 && params_deadline > fc::time_point::now()) {
+      FC_CHECK_DEADLINE(deadline);
       auto row = fc::mutable_variant_object()
               ("trx_id", itr->trx_id)
               ("sender", itr->sender)
@@ -2053,7 +2076,7 @@ read_only::get_scheduled_transactions( const read_only::get_scheduled_transactio
    return result;
 }
 
-fc::variant read_only::get_block(const read_only::get_block_params& params) const {
+fc::variant read_only::get_block(const read_only::get_block_params& params, const fc::time_point& deadline) const {
    signed_block_ptr block;
    std::optional<uint64_t> block_num;
 
@@ -2089,7 +2112,7 @@ fc::variant read_only::get_block(const read_only::get_block_params& params) cons
            ("ref_block_prefix", ref_block_prefix);
 }
 
-fc::variant read_only::get_block_info(const read_only::get_block_info_params& params) const {
+fc::variant read_only::get_block_info(const read_only::get_block_info_params& params, const fc::time_point& deadline) const {
 
    signed_block_ptr block;
    try {
@@ -2118,7 +2141,7 @@ fc::variant read_only::get_block_info(const read_only::get_block_info_params& pa
          ("ref_block_prefix", ref_block_prefix);
 }
 
-fc::variant read_only::get_block_header_state(const get_block_header_state_params& params) const {
+fc::variant read_only::get_block_header_state(const get_block_header_state_params& params, const fc::time_point& deadline) const {
    block_state_ptr b;
    std::optional<uint64_t> block_num;
    std::exception_ptr e;
@@ -2360,7 +2383,7 @@ void read_write::send_transaction2(const read_write::send_transaction2_params& p
    } CATCH_AND_CALL(next);
 }
 
-read_only::get_abi_results read_only::get_abi( const get_abi_params& params )const {
+read_only::get_abi_results read_only::get_abi( const get_abi_params& params, const fc::time_point& deadline )const {
    get_abi_results result;
    result.account_name = params.account_name;
    const auto& d = db.db();
@@ -2374,7 +2397,7 @@ read_only::get_abi_results read_only::get_abi( const get_abi_params& params )con
    return result;
 }
 
-read_only::get_code_results read_only::get_code( const get_code_params& params )const {
+read_only::get_code_results read_only::get_code( const get_code_params& params, const fc::time_point& deadline )const {
    get_code_results result;
    result.account_name = params.account_name;
    const auto& d = db.db();
@@ -2397,7 +2420,7 @@ read_only::get_code_results read_only::get_code( const get_code_params& params )
    return result;
 }
 
-read_only::get_code_hash_results read_only::get_code_hash( const get_code_hash_params& params )const {
+read_only::get_code_hash_results read_only::get_code_hash( const get_code_hash_params& params, const fc::time_point& deadline )const {
    get_code_hash_results result;
    result.account_name = params.account_name;
    const auto& d = db.db();
@@ -2409,7 +2432,7 @@ read_only::get_code_hash_results read_only::get_code_hash( const get_code_hash_p
    return result;
 }
 
-read_only::get_raw_code_and_abi_results read_only::get_raw_code_and_abi( const get_raw_code_and_abi_params& params)const {
+read_only::get_raw_code_and_abi_results read_only::get_raw_code_and_abi( const get_raw_code_and_abi_params& params, const fc::time_point& deadline)const {
    get_raw_code_and_abi_results result;
    result.account_name = params.account_name;
 
@@ -2425,7 +2448,7 @@ read_only::get_raw_code_and_abi_results read_only::get_raw_code_and_abi( const g
    return result;
 }
 
-read_only::get_raw_abi_results read_only::get_raw_abi( const get_raw_abi_params& params )const {
+read_only::get_raw_abi_results read_only::get_raw_abi( const get_raw_abi_params& params, const fc::time_point& deadline )const {
    get_raw_abi_results result;
    result.account_name = params.account_name;
 
@@ -2441,7 +2464,7 @@ read_only::get_raw_abi_results read_only::get_raw_abi( const get_raw_abi_params&
    return result;
 }
 
-read_only::get_account_results read_only::get_account( const get_account_params& params )const {
+read_only::get_account_results read_only::get_account( const get_account_params& params, const fc::time_point& deadline )const {
    get_account_results result;
    result.account_name = params.account_name;
 
@@ -2620,7 +2643,7 @@ static fc::variant action_abi_to_variant( const abi_def& abi, type_name action_t
    return v;
 };
 
-read_only::abi_json_to_bin_result read_only::abi_json_to_bin( const read_only::abi_json_to_bin_params& params )const try {
+read_only::abi_json_to_bin_result read_only::abi_json_to_bin( const read_only::abi_json_to_bin_params& params, const fc::time_point& deadline )const try {
    abi_json_to_bin_result result;
    const auto code_account = db.db().find<account_object,by_name>( params.code );
    EOS_ASSERT(code_account != nullptr, contract_query_exception, "Contract can't be found ${contract}", ("contract", params.code));
@@ -2642,7 +2665,7 @@ read_only::abi_json_to_bin_result read_only::abi_json_to_bin( const read_only::a
 } FC_RETHROW_EXCEPTIONS( warn, "code: ${code}, action: ${action}, args: ${args}",
                          ("code", params.code)( "action", params.action )( "args", params.args ))
 
-read_only::abi_bin_to_json_result read_only::abi_bin_to_json( const read_only::abi_bin_to_json_params& params )const {
+read_only::abi_bin_to_json_result read_only::abi_bin_to_json( const read_only::abi_bin_to_json_params& params, const fc::time_point& deadline )const {
    abi_bin_to_json_result result;
    const auto& code_account = db.db().get<account_object,by_name>( params.code );
    abi_def abi;
@@ -2655,7 +2678,7 @@ read_only::abi_bin_to_json_result read_only::abi_bin_to_json( const read_only::a
    return result;
 }
 
-read_only::get_required_keys_result read_only::get_required_keys( const get_required_keys_params& params )const {
+read_only::get_required_keys_result read_only::get_required_keys( const get_required_keys_params& params, const fc::time_point& deadline )const {
    transaction pretty_input;
    auto resolver = make_resolver(db, abi_serializer::create_yield_function( abi_serializer_max_time ));
    try {
@@ -2702,12 +2725,13 @@ void read_only::compute_transaction(const compute_transaction_params& params, ne
         chain_plugin::handle_bad_alloc();
     } CATCH_AND_CALL(next);
 }
-read_only::get_transaction_id_result read_only::get_transaction_id( const read_only::get_transaction_id_params& params)const {
+read_only::get_transaction_id_result read_only::get_transaction_id( const read_only::get_transaction_id_params& params, const fc::time_point& deadline)const {
    return params.id();
 }
 
 
-account_query_db::get_accounts_by_authorizers_result read_only::get_accounts_by_authorizers( const account_query_db::get_accounts_by_authorizers_params& args) const
+account_query_db::get_accounts_by_authorizers_result
+read_only::get_accounts_by_authorizers( const account_query_db::get_accounts_by_authorizers_params& args, const fc::time_point& deadline) const
 {
    EOS_ASSERT(aqdb.has_value(), plugin_config_exception, "Account Queries being accessed when not enabled");
    return aqdb->get_accounts_by_authorizers(args);
@@ -2753,7 +2777,7 @@ chain::symbol read_only::extract_core_symbol()const {
 }
 
 read_only::get_consensus_parameters_results
-read_only::get_consensus_parameters(const get_consensus_parameters_params& ) const {
+read_only::get_consensus_parameters(const get_consensus_parameters_params&, const fc::time_point& deadline ) const {
    get_consensus_parameters_results results;
 
    results.chain_config = db.get_global_properties().configuration;

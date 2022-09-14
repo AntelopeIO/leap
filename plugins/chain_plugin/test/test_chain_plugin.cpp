@@ -235,8 +235,8 @@ public:
     read_only::get_account_results get_account_info(const account_name acct){
        auto account_object = control->get_account(acct);
        read_only::get_account_params params = { account_object.name };
-       chain_apis::read_only plugin(*(control.get()), {}, fc::microseconds::maximum(), {}, {});
-       return plugin.get_account(params);
+       chain_apis::read_only plugin(*(control.get()), {}, fc::microseconds::maximum(), fc::microseconds::maximum(), {}, {});
+       return plugin.get_account(params, fc::time_point::maximum());
     }
 
     transaction_trace_ptr setup_producer_accounts( const std::vector<account_name>& accounts ) {

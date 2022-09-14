@@ -93,8 +93,8 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
                   return;
                }
 
-               url_response_callback wrapped_then = [tracked_b, then=std::move(then)](int code, std::optional<fc::variant> resp) {
-                  then(code, std::move(resp));
+               url_response_callback wrapped_then = [tracked_b, then=std::move(then)](int code, const fc::time_point& deadline, std::optional<fc::variant> resp) {
+                  then(code, deadline, std::move(resp));
                };
 
                // post to the app thread taking shared ownership of next (via std::shared_ptr),
@@ -253,8 +253,8 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
              "Maximum size in megabytes http_plugin should use for processing http requests. -1 for unlimited. 429 error response when exceeded." )
             ("http-max-in-flight-requests", bpo::value<int32_t>()->default_value(-1),
              "Maximum number of requests http_plugin should use for processing http requests. 429 error response when exceeded." )
-            ("http-max-response-time-ms", bpo::value<uint32_t>()->default_value(30),
-             "Maximum time for processing a request.")
+            ("http-max-response-time-ms", bpo::value<int64_t>()->default_value(30),
+             "Maximum time for processing a request, -1 for unlimited")
             ("verbose-http-errors", bpo::bool_switch()->default_value(false),
              "Append the error log to HTTP responses")
             ("http-validate-host", boost::program_options::value<bool>()->default_value(true),
@@ -286,8 +286,13 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
             my->plugin_state->max_bytes_in_flight = max_bytes_mb * 1024 * 1024;
          }
          my->plugin_state->max_requests_in_flight = options.at( "http-max-in-flight-requests" ).as<int32_t>();
-         my->plugin_state->max_response_time = fc::microseconds( options.at("http-max-response-time-ms").as<uint32_t>() * 1000 );
-         
+         int64_t max_reponse_time_ms = options.at("http-max-response-time-ms").as<int64_t>();
+         EOS_ASSERT( max_reponse_time_ms == -1 || max_reponse_time_ms >= 0, chain::plugin_config_exception,
+                     "http-max-response-time-ms must be -1, or non-negative: ${m}", ("m", max_reponse_time_ms) );
+         // set to one year for -1, unlimited, since this is added to fc::time_point::now() for a deadline
+         my->plugin_state->max_response_time = max_reponse_time_ms == -1 ?
+               fc::days(365) : fc::microseconds( max_reponse_time_ms * 1000 );
+
          my->plugin_state->validate_host = options.at("http-validate-host").as<bool>();
          if( options.count( "http-alias" )) {
             const auto& aliases = options["http-alias"].as<vector<string>>();
@@ -430,7 +435,7 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
                   try {
                      if (body.empty()) body = "{}";
                      auto result = (*this).get_supported_apis();
-                     cb(200, fc::variant(result));
+                     cb(200, fc::time_point::maximum(), fc::variant(result));
                   } catch (...) {
                      handle_exception("node", "get_supported_apis", body, cb);
                   }
@@ -487,36 +492,36 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
             throw;
          } catch (chain::unknown_block_exception& e) {
             error_results results{400, "Unknown Block", error_results::error_info(e, verbose_http_errors)};
-            cb( 400, fc::variant( results ));
+            cb( 400, fc::time_point::maximum(), fc::variant( results ));
          } catch (chain::invalid_http_request& e) {
             error_results results{400, "Invalid Request", error_results::error_info(e, verbose_http_errors)};
-            cb( 400, fc::variant( results ));
+            cb( 400, fc::time_point::maximum(), fc::variant( results ));
          } catch (chain::unsatisfied_authorization& e) {
             error_results results{401, "UnAuthorized", error_results::error_info(e, verbose_http_errors)};
-            cb( 401, fc::variant( results ));
+            cb( 401, fc::time_point::maximum(), fc::variant( results ));
          } catch (chain::tx_duplicate& e) {
             error_results results{409, "Conflict", error_results::error_info(e, verbose_http_errors)};
-            cb( 409, fc::variant( results ));
+            cb( 409, fc::time_point::maximum(), fc::variant( results ));
          } catch (fc::eof_exception& e) {
             error_results results{422, "Unprocessable Entity", error_results::error_info(e, verbose_http_errors)};
-            cb( 422, fc::variant( results ));
+            cb( 422, fc::time_point::maximum(), fc::variant( results ));
             fc_elog( logger(), "Unable to parse arguments to ${api}.${call}", ("api", api_name)( "call", call_name ) );
             fc_dlog( logger(), "Bad arguments: ${args}", ("args", body) );
          } catch (fc::exception& e) {
             error_results results{500, "Internal Service Error", error_results::error_info(e, verbose_http_errors)};
-            cb( 500, fc::variant( results ));
+            cb( 500, fc::time_point::maximum(), fc::variant( results ));
             fc_dlog( logger(), "Exception while processing ${api}.${call}: ${e}",
                      ("api", api_name)( "call", call_name )("e", e.to_detail_string()) );
          } catch (std::exception& e) {
             error_results results{500, "Internal Service Error", error_results::error_info(fc::exception( FC_LOG_MESSAGE( error, e.what())), verbose_http_errors)};
-            cb( 500, fc::variant( results ));
+            cb( 500, fc::time_point::maximum(), fc::variant( results ));
             fc_elog( logger(), "STD Exception encountered while processing ${api}.${call}",
                      ("api", api_name)( "call", call_name ) );
             fc_dlog( logger(), "Exception Details: ${e}", ("e", e.what()) );
          } catch (...) {
             error_results results{500, "Internal Service Error",
                error_results::error_info(fc::exception( FC_LOG_MESSAGE( error, "Unknown Exception" )), verbose_http_errors)};
-            cb( 500, fc::variant( results ));
+            cb( 500, fc::time_point::maximum(), fc::variant( results ));
             fc_elog( logger(), "Unknown Exception encountered while processing ${api}.${call}",
                      ("api", api_name)( "call", call_name ) );
          }
