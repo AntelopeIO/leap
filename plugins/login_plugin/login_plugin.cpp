@@ -65,7 +65,7 @@ void login_plugin::plugin_initialize(const variables_map& options) {
             if (body.empty())                                                                                          \
                body = "{}";                                                                                            \
             fc::variant result( call_name(fc::json::from_string(body).as<login_plugin::call_name##_params>()) );       \
-            cb(http_response_code, std::move(result));                                                                 \
+            cb(http_response_code, fc::time_point::maximum(), std::move(result));                                      \
          } catch (...) {                                                                                               \
             http_plugin::handle_exception("login", #call_name, body, cb);                                              \
          }                                                                                                             \

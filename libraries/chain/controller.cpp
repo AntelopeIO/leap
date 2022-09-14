@@ -1481,7 +1481,7 @@ struct controller_impl {
                                            fc::microseconds max_transaction_time,
                                            uint32_t billed_cpu_time_us,
                                            bool explicit_billed_cpu_time,
-                                           uint32_t subjective_cpu_bill_us )
+                                           int64_t subjective_cpu_bill_us )
    {
       EOS_ASSERT(block_deadline != fc::time_point(), transaction_exception, "deadline cannot be uninitialized");
 
@@ -2879,7 +2879,7 @@ void controller::push_block( controller::block_report& br,
 transaction_trace_ptr controller::push_transaction( const transaction_metadata_ptr& trx,
                                                     fc::time_point block_deadline, fc::microseconds max_transaction_time,
                                                     uint32_t billed_cpu_time_us, bool explicit_billed_cpu_time,
-                                                    uint32_t subjective_cpu_bill_us ) {
+                                                    int64_t subjective_cpu_bill_us ) {
    validate_db_available_size();
    EOS_ASSERT( get_read_mode() != db_read_mode::IRREVERSIBLE, transaction_type_exception, "push transaction not allowed in irreversible mode" );
    EOS_ASSERT( trx && !trx->implicit && !trx->scheduled, transaction_type_exception, "Implicit/Scheduled transaction not allowed" );

@@ -19,10 +19,12 @@ namespace eosio {
          // tags for snapshot type
          struct json {};
          struct binary {};
+         struct json_snapshot{};
       } // ns eosio::testing::snapshot
 
       static inline constexpr snapshot::json   json_tag;
       static inline constexpr snapshot::binary binary_tag;
+      static inline constexpr snapshot::json_snapshot json_snapshot_tag;
 
       namespace snapshot {
          template <typename T>
@@ -30,6 +32,9 @@ namespace eosio {
 
          template <typename T>
          static inline constexpr bool is_binary_v =std::is_same_v<std::decay_t<T>, snapshot::binary>;
+
+         template <typename T>
+         static inline constexpr bool is_json_snapshot_v =std::is_same_v<std::decay_t<T>, snapshot::json_snapshot>;
       } // ns eosio::testing::snapshot
 
       template <typename TypeTag>
@@ -38,8 +43,10 @@ namespace eosio {
          static inline constexpr auto file_suffix() {
             if constexpr (snapshot::is_json_v<TypeTag>)
                return ".json.gz";
-            else
+            else if constexpr (snapshot::is_binary_v<TypeTag>)
                return ".bin.gz";
+            else
+               return ".bin.json.gz";
          }
 
          std::string file_name;
@@ -67,8 +74,10 @@ namespace eosio {
          auto read() const {
             if constexpr (snapshot::is_json_v<TypeTag>) {
                return fc::json::from_string(read_as_string());
+            } else if constexpr (snapshot::is_binary_v<TypeTag>) {
+               return fc::json::from_string(read_as_string());
             } else {
-               static_assert(snapshot::is_binary_v<TypeTag>, "unsupported type");
+               static_assert(snapshot::is_json_snapshot_v<TypeTag>, "unsupported type");
                return fc::json::from_string(read_as_string());
             }
          }
@@ -85,8 +94,12 @@ namespace eosio {
 
             if constexpr (snapshot::is_json_v<TypeTag>) {
                out_string = fc::json::to_string(snapshot, fc::time_point::maximum());
+            } else if constexpr (snapshot::is_binary_v<TypeTag>) {
+               std::ostringstream out_stream;
+               out_stream.write(snapshot.data(), snapshot.size());
+               out_string = out_stream.str();
             } else {
-               static_assert(snapshot::is_binary_v<TypeTag>, "unsupported type");
+               static_assert(snapshot::is_json_snapshot_v<TypeTag>, "unsupported type");
                std::ostringstream out_stream;
                out_stream.write(snapshot.data(), snapshot.size());
                out_string = out_stream.str();

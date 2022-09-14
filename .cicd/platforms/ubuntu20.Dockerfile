@@ -7,8 +7,11 @@ RUN apt-get update && apt-get upgrade -y && \
                                                       git                  \
                                                       jq                   \
                                                       libboost-all-dev     \
+                                                      libcurl4-openssl-dev \
                                                       libgmp-dev           \
                                                       libssl-dev           \
+                                                      libusb-1.0-0-dev     \
                                                       llvm-11-dev          \
                                                       ninja-build          \
+                                                      pkg-config           \
                                                       zstd

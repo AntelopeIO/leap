@@ -32,7 +32,7 @@ struct async_result_visitor : public fc::visitor<fc::variant> {
    [&api_handle](string, string body, url_response_callback cb) mutable { \
           try { \
              INVOKE \
-             cb(http_response_code, fc::variant(result)); \
+             cb(http_response_code, fc::time_point::maximum(), fc::variant(result)); \
           } catch (...) { \
              http_plugin::handle_exception(#api_name, #call_name, body, cb); \
           } \
@@ -50,7 +50,7 @@ struct async_result_visitor : public fc::visitor<fc::variant> {
                http_plugin::handle_exception(#api_name, #call_name, body, cb);\
             }\
          } else {\
-            cb(http_response_code, std::visit(async_result_visitor(), result));\
+            cb(http_response_code, fc::time_point::maximum(), std::visit(async_result_visitor(), result));\
          }\
       };\
       INVOKE\
