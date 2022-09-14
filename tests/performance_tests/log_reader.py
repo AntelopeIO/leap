@@ -154,14 +154,10 @@ def scoreTransfersPerSecond(data: chainData, numAddlBlocksToDrop=0) -> stats:
     return stats(int(np.min(npCBTAEC[:,0])), int(np.max(npCBTAEC[:,0])), int(np.average(npCBTAEC[:,0])), int(np.std(npCBTAEC[:,0])), int(np.sum(npCBTAEC[:,1])), int(len(prunedBlockDataLog)))
 
 def exportAsJSON(data, args):
-    json_string = "{"
-    with open("../CMakeLists.txt", 'rt') as r:
-        regex_match = re.findall(r'VERSION_MAJOR ([0-9]+).*\n.*VERSION_MINOR ([0-9]+).*\n.*VERSION_PATCH ([0-9]+).*\n.*VERSION_SUFFIX (.*)\)', r.read())
-        json_string += f"\"nodeosVersion\":\"{regex_match[0][0]}_{regex_match[0][1]}_{regex_match[0][2]}_{regex_match[0][3]}\","
-    json_string += f"\"env\":\"{system()} {os.name} {release()}\","
-    json_string += f"\"args\":\"{args}\","
-    json_string += "\"TPS\":"
-    json_string += json.dumps(asdict(data))
-    json_string += "}"
+    js = {}
+    js['nodeosVersion'] = os.popen("./bin/nodeos --version").read().replace("\n", "")
+    js['env'] = f"{system()} {os.name} {release()}"
+    js['args'] = f"{args}"
+    js['TPS'] = asdict(data)
     with open('data.json', 'wt') as f:
-        f.write(json.dumps(json.loads(json_string), sort_keys=True, indent=2))
+        f.write(json.dumps(js, sort_keys=True, indent=2))
