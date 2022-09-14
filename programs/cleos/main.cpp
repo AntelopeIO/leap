@@ -105,7 +105,8 @@ Options:
 #include <fc/io/fstream.hpp>
 
 #define CLI11_HAS_FILESYSTEM 0
-#include "CLI11.hpp"
+#include <cli11/CLI11.hpp>
+
 #include "help_text.hpp"
 #include "localize.hpp"
 #include "config.hpp"
@@ -1137,8 +1138,8 @@ struct register_producer_subcommand {
       auto register_producer = actionRoot->add_subcommand("regproducer", localized("Register a new producer"));
       register_producer->add_option("account", producer_str, localized("The account to register as a producer"))->required();
       register_producer->add_option("producer_key", producer_key_str, localized("The producer's public key"))->required();
-      register_producer->add_option("url", url, localized("The URL where info about producer can be found"), true);
-      register_producer->add_option("location", loc, localized("Relative location for purpose of nearest neighbor scheduling"), true);
+      register_producer->add_option<string>("url", url, localized("The URL where info about producer can be found"))->capture_default_str();
+      register_producer->add_option("location", loc, localized("Relative location for purpose of nearest neighbor scheduling"))->capture_default_str();
       add_standard_transaction_options_plus_signing(register_producer, "account@active");
 
 
@@ -2402,7 +2403,7 @@ void get_account( const string& accountName, const string& coresym, bool json_fo
          // looks a little crazy, but should be efficient
          cache.insert( std::make_pair(name, std::move(perm)) );
       }
-      
+
       using dfs_fn_t = std::function<void (const eosio::chain_apis::permission&, int)>;
       std::function<void (account_name, int, dfs_fn_t&)> dfs_exec = [&]( account_name name, int depth, dfs_fn_t& f ) -> void {
          auto& p = cache.at(name);
@@ -2456,7 +2457,7 @@ void get_account( const string& accountName, const string& coresym, bool json_fo
          dfs_exec( r, 0, print_links);
       }
 
-      // print linked actions 
+      // print linked actions
       std::cout << indent << "eosio.any: " << std::endl;
       for (const auto& it : res.eosio_any_linked_actions) {
          auto action_value = it.action ? it.action->to_string() : std::string("*");
@@ -2464,7 +2465,7 @@ void get_account( const string& accountName, const string& coresym, bool json_fo
       }
 
       std::cout << std::endl;
- 
+
       auto to_pretty_net = []( int64_t nbytes, uint8_t width_for_units = 5 ) {
          if(nbytes == -1) {
              // special case. Treat it as unlimited
@@ -2723,6 +2724,7 @@ int main( int argc, char** argv ) {
    wallet_url = default_wallet_url;
 
    CLI::App app{"Command Line Interface to EOSIO Client"};
+   app.set_help_all_flag("--help-all", "Show all help");
    app.require_subcommand();
    // Hide obsolete options by putting them into a group with an empty name.
    app.add_option( "-H,--host", obsoleted_option_host_port, localized("The host where ${n} is running", ("n", node_executable_name)) )->group("");
@@ -2730,8 +2732,8 @@ int main( int argc, char** argv ) {
    app.add_option( "--wallet-host", obsoleted_option_host_port, localized("The host where ${k} is running", ("k", key_store_executable_name)) )->group("");
    app.add_option( "--wallet-port", obsoleted_option_host_port, localized("The port where ${k} is running", ("k", key_store_executable_name)) )->group("");
 
-   app.add_option( "-u,--url", ::default_url, localized( "The http/https URL where ${n} is running", ("n", node_executable_name)), true );
-   app.add_option( "--wallet-url", wallet_url, localized("The http/https URL where ${k} is running", ("k", key_store_executable_name)), true );
+   app.add_option( "-u,--url", ::default_url, localized( "The http/https URL where ${n} is running", ("n", node_executable_name)))->capture_default_str();
+   app.add_option( "--wallet-url", wallet_url, localized("The http/https URL where ${k} is running", ("k", key_store_executable_name)))->capture_default_str();
 
    app.add_option( "--abi-file", abi_files_overide_callback, localized("In form of <contract name>:<abi file path>, use a local abi file for serialization and deserialization instead of getting the abi data from the blockchain; repeat this option to pass multiple abi files for different contracts"))->type_size(0, 1000);
    app.add_option( "-r,--header", header_opt_callback, localized("Pass specific HTTP header; repeat this option to pass multiple headers"));
@@ -2880,7 +2882,7 @@ int main( int argc, char** argv ) {
    string str_chain_id;
    auto validate_signatures = validate->add_subcommand("signatures", localized("Validate signatures and recover public keys"));
    validate_signatures->add_option("transaction", trx_json_to_validate,
-                                   localized("The JSON string or filename defining the transaction to validate"), true)->required();
+                                   localized("The JSON string or filename defining the transaction to validate"))->required()->capture_default_str();
    validate_signatures->add_option("-c,--chain-id", str_chain_id, localized("The chain id that will be used in signature verification"));
 
    validate_signatures->callback([&] {
@@ -3577,7 +3579,7 @@ int main( int argc, char** argv ) {
    string wallet_name = "default";
    string password_file;
    auto createWallet = wallet->add_subcommand("create", localized("Create a new wallet locally"));
-   createWallet->add_option("-n,--name", wallet_name, localized("The name of the new wallet"), true);
+   createWallet->add_option("-n,--name", wallet_name, localized("The name of the new wallet"))->capture_default_str();
    createWallet->add_option("-f,--file", password_file, localized("Name of file to write wallet password output to. (Must be set, unless \"--to-console\" is passed"));
    createWallet->add_flag( "--to-console", print_console, localized("Print password to console."));
    createWallet->callback([&wallet_name, &password_file, &print_console] {
@@ -3683,8 +3685,8 @@ int main( int argc, char** argv ) {
    // create a key within wallet
    string wallet_create_key_type;
    auto createKeyInWallet = wallet->add_subcommand("create_key", localized("Create private key within wallet"));
-   createKeyInWallet->add_option("-n,--name", wallet_name, localized("The name of the wallet to create key into"), true);
-   createKeyInWallet->add_option("key_type", wallet_create_key_type, localized("Key type to create (K1/R1)"), true)->type_name("K1/R1");
+   createKeyInWallet->add_option("-n,--name", wallet_name, localized("The name of the wallet to create key into"))->capture_default_str();
+   createKeyInWallet->add_option("key_type", wallet_create_key_type, localized("Key type to create (K1/R1)"))->type_name("K1/R1")->capture_default_str();
    createKeyInWallet->callback([&wallet_name, &wallet_create_key_type] {
       //an empty key type is allowed -- it will let the underlying wallet pick which type it prefers
       fc::variants vs = {fc::variant(wallet_name), fc::variant(wallet_create_key_type)};
@@ -3709,7 +3711,7 @@ int main( int argc, char** argv ) {
 
    // list private keys
    auto listPrivKeys = wallet->add_subcommand("private_keys", localized("List of private keys from an unlocked wallet in wif or PVT_R1 format."));
-   listPrivKeys->add_option("-n,--name", wallet_name, localized("The name of the wallet to list keys from"), true);
+   listPrivKeys->add_option("-n,--name", wallet_name, localized("The name of the wallet to list keys from"))->capture_default_str();
    listPrivKeys->add_option("--password", wallet_pw, localized("The password returned by wallet create"))->expected(0, 1);
    listPrivKeys->callback([&wallet_name, &wallet_pw] {
       prompt_for_wallet_password(wallet_pw, wallet_name);
@@ -3738,7 +3740,7 @@ int main( int argc, char** argv ) {
 
    auto sign = app.add_subcommand("sign", localized("Sign a transaction"));
    sign->add_option("transaction", trx_json_to_sign,
-                                 localized("The JSON string or filename defining the transaction to sign"), true)->required();
+                                 localized("The JSON string or filename defining the transaction to sign"))->required()->capture_default_str();
    sign->add_option("-k,--private-key", str_private_key, localized("The private key that will be used to sign the transaction"))->expected(0, 1);
    sign->add_option("--public-key", str_public_key, localized("Ask ${exec} to sign with the corresponding private key of the given public key", ("exec", key_store_executable_name)));
    sign->add_option("-c,--chain-id", str_chain_id, localized("The chain id that will be used to sign the transaction"));
@@ -3749,7 +3751,7 @@ int main( int argc, char** argv ) {
       EOSC_ASSERT( str_private_key.empty() || str_public_key.empty(), "ERROR: Either -k/--private-key or --public-key or none of them can be set" );
       fc::variant trx_var = json_from_file_or_string(trx_json_to_sign);
 
-      // If transaction was packed, unpack it before signing 
+      // If transaction was packed, unpack it before signing
       bool was_packed_trx = false;
       if( trx_var.is_object() ) {
          fc::variant_object& vo = trx_var.get_object();
@@ -3826,9 +3828,9 @@ int main( int argc, char** argv ) {
    auto actionsSubcommand = push->add_subcommand("action", localized("Push a transaction with a single action"));
    actionsSubcommand->fallthrough(false);
    actionsSubcommand->add_option("account", contract_account,
-                                 localized("The account providing the contract to execute"), true)->required();
+                                 localized("The account providing the contract to execute"))->required()->capture_default_str();
    actionsSubcommand->add_option("action", action,
-                                 localized("A JSON string or filename defining the action to execute on the contract"), true)->required();
+                                 localized("A JSON string or filename defining the action to execute on the contract"))->required()->capture_default_str();
    actionsSubcommand->add_option("data", data, localized("The arguments to the contract"))->required();
 
    add_standard_transaction_options_plus_signing(actionsSubcommand);
@@ -4427,7 +4429,7 @@ int main( int argc, char** argv ) {
    } catch (const fc::exception& e) {
      return handle_error(e);
    } catch (const std::exception& e) {
-      return handle_error(fc::std_exception_wrapper::from_current_exception(e)); 
+      return handle_error(fc::std_exception_wrapper::from_current_exception(e));
    }
 
    return 0;

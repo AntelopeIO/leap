@@ -3,7 +3,7 @@
 #include <fc/io/json.hpp>
 #include <fc/variant.hpp>
 
-#include "CLI11.hpp"
+#include <cli11/CLI11.hpp>
 
 #include "actions_blocklog.hpp"
 #include "actions_generic.hpp"
@@ -19,7 +19,7 @@ int main(int argc, char** argv) {
    // register actions
    GenericActions().setup(app);
    BlocklogActions().setup(app);
-   SnapshotActions().setup(app);
+   // SnapshotActions().setup(app);
 
    // parse
    CLI11_PARSE(app, argc, argv);

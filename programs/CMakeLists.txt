@@ -1,3 +1,4 @@
+add_subdirectory( leap-cli11 )
 add_subdirectory( nodeos )
 add_subdirectory( cleos )
 add_subdirectory( keosd )
