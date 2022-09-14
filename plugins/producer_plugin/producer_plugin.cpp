@@ -145,7 +145,7 @@ public:
        max_failures_per_account = max_failures;
    }
 
-   void add_idle_time( const fc::microseconds& idle ) const {
+   void add_idle_time( const fc::microseconds& idle ) {
       block_idle_time += idle;
    }
 
@@ -177,7 +177,7 @@ public:
       return false;
    }
 
-   void report( const fc::time_point& idle_trx_time ) const {
+   void report( const fc::time_point& idle_trx_time ) {
       if( _log.is_enabled( fc::log_level::debug ) ) {
          auto now = fc::time_point::now();
          add_idle_time( now - idle_trx_time );
@@ -249,7 +249,7 @@ private:
 
    std::map<account_name, account_failure> failed_accounts;
    uint32_t max_failures_per_account = 3;
-   mutable fc::microseconds block_idle_time;
+   fc::microseconds block_idle_time;
    uint32_t trx_success_num = 0;
    uint32_t trx_fail_num = 0;
    fc::microseconds trx_success_time;
