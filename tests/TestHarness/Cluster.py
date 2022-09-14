@@ -281,7 +281,7 @@ class Cluster(object):
             cmdArr.append("--max-block-cpu-usage")
             cmdArr.append(str(500000))
             cmdArr.append("--max-transaction-cpu-usage")
-            cmdArr.append(str(375000))
+            cmdArr.append(str(475000))
         else:
             cmdArr.append("--genesis")
             cmdArr.append(str(genesisPath))
