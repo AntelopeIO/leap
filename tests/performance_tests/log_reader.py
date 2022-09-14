@@ -4,12 +4,14 @@ import os
 import sys
 import re
 import numpy as np
+import json
 
 harnessPath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(harnessPath)
 
 from TestHarness import Utils
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
+from platform import release, system
 import gzip
 
 Print = Utils.Print
@@ -149,4 +151,17 @@ def scoreTransfersPerSecond(data: chainData, numAddlBlocksToDrop=0) -> stats:
     npCBTAEC = np.array(consecBlkTrxsAndEmptyCnt, dtype=np.uint)
 
     # Note: numpy array slicing in use -> [:,0] -> from all elements return index 0
-    return stats(np.min(npCBTAEC[:,0]), np.max(npCBTAEC[:,0]), np.average(npCBTAEC[:,0]), np.std(npCBTAEC[:,0]), np.sum(npCBTAEC[:,1]), len(prunedBlockDataLog))
+    return stats(int(np.min(npCBTAEC[:,0])), int(np.max(npCBTAEC[:,0])), int(np.average(npCBTAEC[:,0])), int(np.std(npCBTAEC[:,0])), int(np.sum(npCBTAEC[:,1])), int(len(prunedBlockDataLog)))
+
+def exportAsJSON(data, args):
+    json_string = "{"
+    with open("../CMakeLists.txt", 'rt') as r:
+        regex_match = re.findall(r'VERSION_MAJOR ([0-9]+).*\n.*VERSION_MINOR ([0-9]+).*\n.*VERSION_PATCH ([0-9]+).*\n.*VERSION_SUFFIX (.*)\)', r.read())
+        json_string += f"\"nodeosVersion\":\"{regex_match[0][0]}_{regex_match[0][1]}_{regex_match[0][2]}_{regex_match[0][3]}\","
+    json_string += f"\"env\":\"{system()} {os.name} {release()}\","
+    json_string += f"\"args\":\"{args}\","
+    json_string += "\"TPS\":"
+    json_string += json.dumps(asdict(data))
+    json_string += "}"
+    with open('data.json', 'wt') as f:
+        f.write(json.dumps(json.loads(json_string), sort_keys=True, indent=2))
