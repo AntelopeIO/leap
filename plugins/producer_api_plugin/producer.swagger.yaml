@@ -6,7 +6,7 @@ info:
     name: MIT
     url: https://opensource.org/licenses/MIT
   contact:
-    url: https://eos.io
+    url: https://eosnetwork.com
 tags:
   - name: eosio
 servers:
@@ -30,74 +30,32 @@ paths:
   /producer/pause:
     post:
       summary: pause
-      description: Pause producer node
+      description: Pause producer node. Takes no arguments returns no values. Always returns 200 OK.
       operationId: pause
-      parameters: []
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
       responses:
         "200":
           description: OK
-          content:
-            application/json:
-              schema:
-                type: boolean
-                description: "returns status"
   /producer/resume:
     post:
       summary: resume
-      description: Resume producer node
+      description: Resume producer node. Takes no arguments returns no values. Always returns 200 OK. Aborts the pending block, and resumes production, when the block mode is speculating.
       operationId: resume
-      parameters: []
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              description: Resumes activity for producer
       responses:
         "200":
           description: OK
-          content:
-            application/json:
-              schema:
-                description: Returns Nothing
   /producer/paused:
     post:
       summary: paused
-      description: Retreives paused status for producer node
+      description: Retreives paused status for producer node. Takes no arguments returns no values. Always returns 200 OK.
       operationId: paused
-      parameters: []
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
       responses:
         "200":
           description: OK
-          content:
-            application/json:
-              schema:
-                type: boolean
-                description: True if producer is paused, false otherwise
   /producer/get_runtime_options:
     post:
       summary: get_runtime_options
-      description: Retreives run time options for producer node
+      description: Retreives run time options for producer node. All returned values are numbers. Only `incoming_defer_ratio` is a floating point number the other return values are signed integers.
       operationId: get_runtime_options
-      parameters: []
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
       responses:
         "200":
           description: OK
@@ -131,42 +89,35 @@ paths:
   /producer/update_runtime_options:
     post:
       summary: update_runtime_options
-      description: Update run time options for producer node
+      description: Update run time options for producer node. When `max_irreversible_block_age` is provided and the pending block is speculating, the pending block is aborted before resuming production.
       operationId: update_runtime_options
-      parameters: []
       requestBody:
         content:
           application/json:
             schema:
               type: object
-              required:
-                - options
               properties:
-                options:
-                  type: object
-                  description: Defines the run time options to set for the producer
-                  properties:
-                    max_transaction_time:
-                      type: integer
-                      description: Max transaction time
-                    max_irreversible_block_age:
-                      type: integer
-                      description: Max irreversible block age
-                    produce_time_offset_us:
-                      type: integer
-                      description: Time offset
-                    last_block_time_offset_us:
-                      type: integer
-                      description: Last block time offset
-                    max_scheduled_transaction_time_per_block_ms:
-                      type: integer
-                      description: Max scheduled transaction time per block in ms
-                    subjective_cpu_leeway_us:
-                      type: integer
-                      description: Subjective CPU leeway
-                    incoming_defer_ratio:
-                      type: integer
-                      description: Incoming defer ration
+                max_transaction_time:
+                  type: integer
+                  description: Max transaction time
+                max_irreversible_block_age:
+                  type: integer
+                  description: Max irreversible block age
+                produce_time_offset_us:
+                  type: integer
+                  description: Time offset
+                last_block_time_offset_us:
+                  type: integer
+                  description: Last block time offset
+                max_scheduled_transaction_time_per_block_ms:
+                  type: integer
+                  description: Max scheduled transaction time per block in ms
+                subjective_cpu_leeway_us:
+                  type: integer
+                  description: Subjective CPU leeway
+                incoming_defer_ratio:
+                  type: integer
+                  description: Incoming defer ration
 
       responses:
         "200":
@@ -265,7 +216,7 @@ paths:
   /producer/get_whitelist_blacklist:
     post:
       summary: get_whitelist_blacklist
-      description: Retreives the white list and black list for producer node
+      description: Retreives the white list and black list for producer node. A json object containing whitelist and blacklist information. `actor_whitelist` , `actor_blacklist`, `contract_whitelist`, `contract_blacklist` are represented by an array of Names. `action_blacklist` is an array of tuples consisting of Name and Action. `key_blacklist` is an array of Public Keys. Name is a string represeting a NamePrivileged or NameBasic or NameBid or NameCatchAll
       operationId: get_whitelist_blacklist
       parameters: []
       requestBody:
@@ -282,7 +233,6 @@ paths:
             application/json:
               schema:
                 type: object
-                description: Defines the actor whitelist and blacklist, the contract whitelist and blacklist, the action blacklist and key blacklist
                 properties:
                   actor_whitelist:
                     type: array
@@ -317,7 +267,7 @@ paths:
   /producer/set_whitelist_blacklist:
     post:
       summary: set_whitelist_blacklist
-      description: A json object containing whitelist and blacklist information. `actor_whitelist` , `actor_blacklist`, `contract_whitelist`, `contract_blacklist` take an array of Names, strings represeting a NamePrivileged or NameBasic or NameBid or NameCatchAll.
+      description: Defines the whitelist and blacklist for a producer node. Takes a json object containing whitelist and blacklist information. At least one of actor_whitelist, actor_blacklist, contract_whitelist, contract_blacklist, action_blacklist, and key_blacklist is required. `actor_whitelist` , `actor_blacklist`, `contract_whitelist`, `contract_blacklist` take an array of Names. `action_blacklist` is an array of tuples consisting of Name and Action. `key_blacklist` is an array of Public Keys. Name is a string represeting a NamePrivileged or NameBasic or NameBid or NameCatchAll
       operationId: set_whitelist_blacklist
       required: true
       requestBody:
