@@ -155,7 +155,7 @@ def scoreTransfersPerSecond(data: chainData, numAddlBlocksToDrop=0) -> stats:
 
 def exportAsJSON(data, args):
     js = {}
-    js['nodeosVersion'] = os.popen("./bin/nodeos --version").read().replace("\n", "")
+    js['nodeosVersion'] = os.popen("nodeos --version").read().replace("\n", "")
     js['env'] = f"{system()} {os.name} {release()}"
     js['args'] = f"{args}"
     js['TPS'] = asdict(data)
