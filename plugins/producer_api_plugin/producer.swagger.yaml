@@ -317,51 +317,44 @@ paths:
   /producer/set_whitelist_blacklist:
     post:
       summary: set_whitelist_blacklist
-      description: Sets the white list and black list for producer node
+      description: A json object containing whitelist and blacklist information. `actor_whitelist` , `actor_blacklist`, `contract_whitelist`, `contract_blacklist` take an array of Names, strings represeting a NamePrivileged or NameBasic or NameBid or NameCatchAll.
       operationId: set_whitelist_blacklist
-      parameters: []
+      required: true
       requestBody:
         content:
           application/json:
             schema:
               type: object
-              required:
-                - params
               properties:
-                params:
-                  type: object
-                  description: Defines the actor whitelist and blacklist, the contract whitelist and blacklist, the action blacklist and key blacklist
-                  properties:
-                    actor_whitelist:
-                      type: array
-                      items:
-                        $ref: "https://eosio.github.io/schemata/v2.0/oas/Name.yaml"
-                    actor_blacklist:
-                      type: array
-                      items:
-                        $ref: "https://eosio.github.io/schemata/v2.0/oas/Name.yaml"
-                    contract_whitelist:
-                      type: array
-                      items:
-                        $ref: "https://eosio.github.io/schemata/v2.0/oas/Name.yaml"
-                    contract_blacklist:
-                      type: array
-                      items:
-                        $ref: "https://eosio.github.io/schemata/v2.0/oas/Name.yaml"
-                    action_blacklist:
-                      type: array
-                      items:
-                        type: array
-                        description: Array of two string values, the account name as the first and action name as the second
-                        items:
-                          allOf:
-                            - $ref: "https://eosio.github.io/schemata/v2.0/oas/Name.yaml"
-                            - $ref: "https://eosio.github.io/schemata/v2.0/oas/CppSignature.yaml"
-                    key_blacklist:
-                      type: array
-                      items:
-                        $ref: "https://eosio.github.io/schemata/v2.0/oas/KeyType.yaml"
-
+                actor_whitelist:
+                  type: array
+                  items:
+                    $ref: "https://eosio.github.io/schemata/v2.0/oas/Name.yaml"
+                actor_blacklist:
+                  type: array
+                  items:
+                    $ref: "https://eosio.github.io/schemata/v2.0/oas/Name.yaml"
+                contract_whitelist:
+                  type: array
+                  items:
+                    $ref: "https://eosio.github.io/schemata/v2.0/oas/Name.yaml"
+                contract_blacklist:
+                  type: array
+                  items:
+                    $ref: "https://eosio.github.io/schemata/v2.0/oas/Name.yaml"
+                action_blacklist:
+                  type: array
+                  items:
+                    type: array
+                    description: Array of two string values, the account name as the first and action name as the second
+                    items:
+                      anyOf:
+                        - $ref: "https://eosio.github.io/schemata/v2.0/oas/Name.yaml"
+                        - $ref: "https://eosio.github.io/schemata/v2.0/oas/CppSignature.yaml"
+                key_blacklist:
+                  type: array
+                  items:
+                    $ref: "https://eosio.github.io/schemata/v2.0/oas/KeyType.yaml"
       responses:
         "200":
           description: OK
