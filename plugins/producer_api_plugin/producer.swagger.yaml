@@ -30,7 +30,7 @@ paths:
   /producer/pause:
     post:
       summary: pause
-      description: Pause producer node. Takes no arguments returns no values. Always returns 200 OK.
+      description: Pause producer node. Takes no arguments returns no values.
       operationId: pause
       responses:
         "200":
@@ -38,7 +38,7 @@ paths:
   /producer/resume:
     post:
       summary: resume
-      description: Resume producer node. Takes no arguments returns no values. Always returns 200 OK. Aborts the pending block, and resumes production, when the block mode is speculating.
+      description: Resume producer node. Takes no arguments returns no values.
       operationId: resume
       responses:
         "200":
@@ -46,7 +46,7 @@ paths:
   /producer/paused:
     post:
       summary: paused
-      description: Retreives paused status for producer node. Takes no arguments returns no values. Always returns 200 OK.
+      description: Retreives paused status for producer node. Takes no arguments returns no values.
       operationId: paused
       responses:
         "200":
@@ -54,7 +54,7 @@ paths:
   /producer/get_runtime_options:
     post:
       summary: get_runtime_options
-      description: Retreives run time options for producer node. All returned values are numbers. Only `incoming_defer_ratio` is a floating point number the other return values are signed integers.
+      description: Retreives run time options for producer node. Only `incoming_defer_ratio` is a floating point number the other return values are signed integers.
       operationId: get_runtime_options
       responses:
         "200":
@@ -84,12 +84,13 @@ paths:
                     type: integer
                     description: Subjective CPU leeway
                   incoming_defer_ratio:
-                    type: integer
+                    type: double
+                    example: 0.0
                     description: Incoming defer ration
   /producer/update_runtime_options:
     post:
       summary: update_runtime_options
-      description: Update run time options for producer node. When `max_irreversible_block_age` is provided and the pending block is speculating, the pending block is aborted before resuming production.
+      description: Update run time options for producer node. Only `incoming_defer_ratio` is a floating point number the other values are signed integers.
       operationId: update_runtime_options
       requestBody:
         content:
@@ -116,28 +117,18 @@ paths:
                   type: integer
                   description: Subjective CPU leeway
                 incoming_defer_ratio:
-                  type: integer
+                  type: double
+                  example: 0.0
                   description: Incoming defer ration
 
       responses:
         "200":
           description: OK
-          content:
-            application/json:
-              schema:
-                description: Returns Nothing
   /producer/get_greylist:
     post:
       summary: get_greylist
-      description: Retreives the greylist for producer node
+      description: Retreives the greylist for producer node.
       operationId: get_greylist
-      parameters: []
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
       responses:
         "200":
           description: OK
@@ -145,73 +136,50 @@ paths:
             application/json:
               schema:
                 type: array
-                description: List of account names stored in the greylist
+                description: Array of account names stored in the greylist
                 items:
                   $ref: "https://eosio.github.io/schemata/v2.0/oas/Name.yaml"
 
   /producer/add_greylist_accounts:
     post:
       summary: add_greylist_accounts
-      description: Adds accounts to grey list for producer node
+      description: Adds accounts to grey list for producer node. At least one account is required.
       operationId: add_greylist_accounts
-      parameters: []
       requestBody:
         content:
           application/json:
             schema:
               type: object
-              required:
-                - params
               properties:
-                params:
-                  type: object
-                  properties:
-                    accounts:
-                      type: array
-                      description: List of account names to add
-                      items:
-                        $ref: "https://eosio.github.io/schemata/v2.0/oas/Name.yaml"
+                  accounts:
+                    type: array
+                    description: List of account names to add
+                    items:
+                      $ref: "https://eosio.github.io/schemata/v2.0/oas/Name.yaml"
 
       responses:
         "200":
           description: OK
-          content:
-            application/json:
-              schema:
-                description: Returns Nothing
   /producer/remove_greylist_accounts:
     post:
       summary: remove_greylist_accounts
-      description: Removes accounts from greylist for producer node
+      description: Removes accounts from greylist for producer node. At least one account is required.
       operationId: remove_greylist_accounts
-      parameters: []
       requestBody:
         content:
           application/json:
             schema:
               type: object
-              required:
-                - params
               properties:
-                params:
-                  type: object
-                  properties:
-                    accounts:
-                      type: array
-                      description: List of account names to remove
-                      items:
-                        $ref: "https://eosio.github.io/schemata/v2.0/oas/Name.yaml"
+                accounts:
+                  type: array
+                  description: List of account names to remove
+                  items:
+                    $ref: "https://eosio.github.io/schemata/v2.0/oas/Name.yaml"
 
       responses:
         "200":
           description: OK
-          content:
-            application/json:
-              schema:
-                type: array
-                description: List of account names stored in the greylist
-                items:
-                  $ref: "https://eosio.github.io/schemata/v2.0/oas/Name.yaml"
 
   /producer/get_whitelist_blacklist:
     post:
@@ -308,55 +276,30 @@ paths:
       responses:
         "200":
           description: OK
-          content:
-            application/json:
-              schema:
-                description: Returns Nothing
   /producer/create_snapshot:
     post:
       summary: create_snapshot
       description: Creates a snapshot for producer node
       operationId: create_snapshot
-      parameters: []
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - next
-              properties:
-                next:
-                  type: object
-                  description: Defines the snapshot to be created
-                  properties:
-                    snapshot_name:
-                      type: string
-                      description: The name of the snapshot
-                    head_block_id:
-                      $ref: "https://eosio.github.io/schemata/v2.0/oas/Sha256.yaml"
-
-
       responses:
         "200":
           description: OK
           content:
             application/json:
               schema:
-                description: Returns Nothing
+                type: object
+                properties:
+                  snapshot_name:
+                    type: string
+                    description: The name of the snapshot
+                  head_block_id:
+                    $ref: "https://eosio.github.io/schemata/v2.0/oas/Sha256.yaml"
 
   /producer/get_integrity_hash:
     post:
       summary: get_integrity_hash
       description: Retreives the integrity hash for producer node
       operationId: get_integrity_hash
-      parameters: []
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
 
       responses:
         "200":
@@ -367,67 +310,48 @@ paths:
                 type: object
                 description: Defines the integrity hash information details
                 properties:
-                  integrity_hash:
-                    $ref: "https://eosio.github.io/schemata/v2.0/oas/Sha256.yaml"
                   head_block_id:
+                    $ref: "https://eosio.github.io/schemata/v2.0/oas/Sha256.yaml"
+                  integrity_hash:
                     $ref: "https://eosio.github.io/schemata/v2.0/oas/Sha256.yaml"
 
   /producer/schedule_protocol_feature_activations:
     post:
       summary: schedule_protocol_feature_activations
-      description: Schedule protocol feature activation for producer node
+      description: Schedule protocol feature activation for producer node. Note some features may require pre-activation.
       operationId: schedule_protocol_feature_activations
-      parameters: []
       requestBody:
         content:
           application/json:
             schema:
               type: object
-              required:
-                - schedule
               properties:
-                schedule:
-                  type: object
-                  properties:
-                    protocol_features_to_activate:
-                      type: array
-                      description: List of protocol features to activate
-                      items:
-                        $ref: "https://eosio.github.io/schemata/v2.0/oas/Sha256.yaml"
-
+                protocol_features_to_activate:
+                  type: array
+                  description: List of protocol features to activate
+                  items:
+                    $ref: "https://eosio.github.io/schemata/v2.0/oas/Sha256.yaml"
       responses:
         "200":
           description: OK
-          content:
-            application/json:
-              schema:
-                description: Returns Nothing
 
   /producer/get_supported_protocol_features:
     post:
       summary: get_supported_protocol_features
-      description: Retreives supported protocol features for producer node
+      description: Retreives supported protocol features for producer node. Pass filters in as part of the request body.
       operationId: get_supported_protocol_features
-      parameters: []
       requestBody:
         content:
           application/json:
             schema:
               type: object
-              required:
-                - params
               properties:
-                params:
-                  type: object
-                  description: Defines filters based on which to return the supported protocol features
-                  properties:
-                    exclude_disabled:
-                      type: boolean
-                      description: Exclude disabled protocol features
-                    exclude_unactivatable:
-                      type: boolean
-                      description: Exclude unactivatable protocol features
-
+                exclude_disabled:
+                  type: boolean
+                  description: Exclude disabled protocol features
+                exclude_unactivatable:
+                  type: boolean
+                  description: Exclude unactivatable protocol features
       responses:
         "200":
           description: OK
