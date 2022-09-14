@@ -23,8 +23,6 @@ namespace eosio::testing {
       const uint32_t payload_size = which_size + fc::raw::pack_size( m );
       const size_t buffer_size = message_header_size + payload_size;
 
-      ilog("Creating transaction buffer which size=${wsiz}, payload size=${psiz}, buffer size=${bsiz}",
-           ("wsiz", which_size)("psiz", payload_size)("bsiz", buffer_size));
       const char* const header = reinterpret_cast<const char* const>(&payload_size); // avoid variable size encoding of uint32_t
 
 
@@ -51,7 +49,6 @@ namespace eosio::testing {
 
    void p2p_connection::send_transaction(const chain::packed_transaction& trx) {
       send_buffer_type msg = create_send_buffer(trx);
-      ilog("Sending packed transaction ${trxid}", ("trxid", trx.id()));
       _p2p_socket.send(boost::asio::buffer(*msg));
    }
 
@@ -95,7 +92,12 @@ namespace eosio::testing {
          if (_violation_start_time.has_value()) {
            auto lag_duration_us = stats.last_run - _violation_start_time.value();
            if (lag_duration_us > _max_lag_duration_us) {
-               elog("target tps lagging outside of defined limits. terminating test");
+               elog("Target tps lagging outside of defined limits. Terminating test");
+               elog("Expected=${expected}, Sent=${sent}, Percent off=${per_off}, Violation start=${vstart} ",
+                    ("expected",  stats.expected_sent)
+                    ("sent", stats.trxs_sent)
+                    ("per_off", per_off)
+                    ("vstart", _violation_start_time));
                return false;
            }
          } else {
