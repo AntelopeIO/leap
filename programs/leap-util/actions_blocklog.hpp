@@ -7,7 +7,7 @@
 namespace bfs = boost::filesystem;
 using namespace eosio::chain;
 
-struct BlocklogOptions {
+struct blocklog_options {
    std::string blocks_dir = "blocks";
    std::string output_file = "";
    int first_block = 0;
@@ -25,16 +25,17 @@ struct BlocklogOptions {
    std::optional<block_log_prune_config> blog_keep_prune_conf;
 };
 
-class BlocklogActions : public ISubCommand<BlocklogOptions> {
+class blocklog_actions : public sub_command<blocklog_options> {
 public:
-   BlocklogActions() : ISubCommand() {}
-   virtual void setup(CLI::App& app);
+   blocklog_actions() : sub_command() {}
+   void setup(CLI::App& app);
 
    // callbacks
    int run_subcommand();
+
 protected:
    void initialize();
-   int  trim_blocklog_end(bfs::path block_dir, uint32_t n);
+   int trim_blocklog_end(bfs::path block_dir, uint32_t n);
    bool trim_blocklog_front(bfs::path block_dir, uint32_t n);
    bool extract_block_range(bfs::path block_dir, bfs::path output_dir, uint32_t start, uint32_t end);
    void smoke_test(bfs::path block_dir);

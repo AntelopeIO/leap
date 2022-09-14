@@ -17,9 +17,9 @@ int main(int argc, char** argv) {
    app.require_subcommand(1, 2);
 
    // register actions
-   GenericActions().setup(app);
-   BlocklogActions().setup(app);
-   // SnapshotActions().setup(app);
+   generic_actions().setup(app);
+   blocklog_actions().setup(app);
+   // snapshot_actions().setup(app);
 
    // parse
    CLI11_PARSE(app, argc, argv);

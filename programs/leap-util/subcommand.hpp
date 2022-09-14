@@ -4,11 +4,11 @@
 
 #include <memory>
 
-template<class TSubcommandOptions>
-class ISubCommand {
+template<class subcommand_options>
+class sub_command {
 protected:
-   std::shared_ptr<TSubcommandOptions> opt;
-   ISubCommand() : opt(std::make_shared<TSubcommandOptions>()) {}
+   std::shared_ptr<subcommand_options> opt;
+   sub_command() : opt(std::make_shared<subcommand_options>()) {}
 
 public:
    virtual void setup(CLI::App& app) = 0;

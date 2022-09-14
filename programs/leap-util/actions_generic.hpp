@@ -1,12 +1,12 @@
 #include "subcommand.hpp"
 
-struct ScGenericOptions {
+struct sc_generic_options {
 };
 
-class GenericActions : public ISubCommand<ScGenericOptions> {
+class generic_actions : public sub_command<sc_generic_options> {
 public:
-   GenericActions() : ISubCommand() {}
-   virtual void setup(CLI::App& app);
+   generic_actions() : sub_command() {}
+   void setup(CLI::App& app);
 
    // callbacks
    void cb_version(bool full);

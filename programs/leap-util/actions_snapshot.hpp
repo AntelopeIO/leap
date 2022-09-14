@@ -2,15 +2,15 @@
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/path.hpp>
 
-struct SnapshotOptions {
-   std::string input_file  = "";
+struct snapshot_options {
+   std::string input_file = "";
    std::string output_file = "";
 };
 
-class SnapshotActions : public ISubCommand<SnapshotOptions> {
+class snapshot_actions : public sub_command<snapshot_options> {
 public:
-   SnapshotActions() : ISubCommand(){}
-   virtual void setup(CLI::App& app);
+   snapshot_actions() : sub_command() {}
+   void setup(CLI::App& app);
 
    // callbacks
    int run_subcommand();

@@ -46,7 +46,7 @@ struct report_time {
 };
 
 
-void BlocklogActions::setup(CLI::App& app) {
+void blocklog_actions::setup(CLI::App& app) {
    auto* sub = app.add_subcommand("blocklog", "Blocklog utility");
    //sub->require_subcommand();
 
@@ -69,11 +69,11 @@ void BlocklogActions::setup(CLI::App& app) {
    sub->callback([this]() {
       int rc = run_subcommand();
       // properly return err code in main
-      if (rc) throw(CLI::RuntimeError(rc));
+      if(rc) throw(CLI::RuntimeError(rc));
    });
 }
 
-int BlocklogActions::run_subcommand() {
+int blocklog_actions::run_subcommand() {
    std::ios::sync_with_stdio(false);// for potential performance boost for large block log files
    try {
       if(opt->trim_blocklog) {
@@ -140,7 +140,7 @@ int BlocklogActions::run_subcommand() {
    return 0;
 }
 
-void BlocklogActions::initialize() {
+void blocklog_actions::initialize() {
    try {
       bfs::path bld = opt->blocks_dir;
       if(bld.is_relative())
@@ -166,7 +166,7 @@ void BlocklogActions::initialize() {
    FC_LOG_AND_RETHROW()
 }
 
-int BlocklogActions::trim_blocklog_end(bfs::path block_dir, uint32_t n) {//n is last block to keep (remove later blocks)
+int blocklog_actions::trim_blocklog_end(bfs::path block_dir, uint32_t n) {//n is last block to keep (remove later blocks)
    report_time rt("trimming blocklog end");
    using namespace std;
    trim_data td(block_dir);
@@ -189,7 +189,7 @@ int BlocklogActions::trim_blocklog_end(bfs::path block_dir, uint32_t n) {//n is 
    return 0;
 }
 
-bool BlocklogActions::trim_blocklog_front(bfs::path block_dir, uint32_t n) {//n is first block to keep (remove prior blocks)
+bool blocklog_actions::trim_blocklog_front(bfs::path block_dir, uint32_t n) {//n is first block to keep (remove prior blocks)
    report_time rt("trimming blocklog start");
    block_num_type end = std::numeric_limits<block_num_type>::max();
    const bool status = block_log::extract_block_range(block_dir, block_dir / "old", n, end, true);
@@ -197,7 +197,7 @@ bool BlocklogActions::trim_blocklog_front(bfs::path block_dir, uint32_t n) {//n 
    return status;
 }
 
-bool BlocklogActions::extract_block_range(bfs::path block_dir, bfs::path output_dir, uint32_t start, uint32_t end) {
+bool blocklog_actions::extract_block_range(bfs::path block_dir, bfs::path output_dir, uint32_t start, uint32_t end) {
    report_time rt("extracting block range");
    EOS_ASSERT(end > start, block_log_exception, "extract range end must be greater than start");
    const bool status = block_log::extract_block_range(block_dir, output_dir, start, end, false);
@@ -206,7 +206,7 @@ bool BlocklogActions::extract_block_range(bfs::path block_dir, bfs::path output_
 }
 
 
-void BlocklogActions::smoke_test(bfs::path block_dir) {
+void blocklog_actions::smoke_test(bfs::path block_dir) {
    using namespace std;
    cout << "\nSmoke test of blocks.log and blocks.index in directory " << block_dir << '\n';
    trim_data td(block_dir);
@@ -236,13 +236,13 @@ void BlocklogActions::smoke_test(bfs::path block_dir) {
    cout << "\nno problems found\n";//if get here there were no exceptions
 }
 
-void BlocklogActions::do_vacuum() {
+void blocklog_actions::do_vacuum() {
    EOS_ASSERT(opt->blog_keep_prune_conf, block_log_exception, "blocks.log is not a pruned log; nothing to vacuum");
    block_log blocks(opt->blocks_dir, std::optional<block_log_prune_config>());//passing an unset block_log_prune_config turns off pruning this performs a vacuum
    ilog("Successfully vacuumed block log");
 }
 
-void BlocklogActions::read_log() {
+void blocklog_actions::read_log() {
    report_time rt("reading log");
    block_log block_logger(opt->blocks_dir, opt->blog_keep_prune_conf);
    const auto end = block_logger.read_head();
