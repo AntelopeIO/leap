@@ -15,3 +15,5 @@ RUN apt-get update && apt-get upgrade -y && \
                                                       ninja-build          \
                                                       pkg-config           \
                                                       zstd
+
+RUN python3 -m pip install numpy
