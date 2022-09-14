@@ -1,6 +1,6 @@
 #/usr/bin/env bash
 
-_cli11_complete()
+_leap_complete()
 {
     # Get cmdline while ignoring the last word
     cmdline=${COMP_LINE}
@@ -23,5 +23,4 @@ _cli11_complete()
     COMPREPLY=($(compgen -W "${words}" -- "${COMP_WORDS[${COMP_CWORD}]}"))
 }
 
-#complete -F _cli11_complete -o bashdefault -o default @CLI11_EXE_NAME@
-complete -F _cli11_complete leap-util
+complete -F _leap_complete leap-util
