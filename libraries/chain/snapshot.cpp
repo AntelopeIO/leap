@@ -371,13 +371,13 @@ void istream_json_snapshot_reader::validate() const {
       // validate totem
       auto expected_totem = ostream_json_snapshot_writer::magic_number;
       EOS_ASSERT(impl->doc.HasMember("magic_number"), snapshot_exception, "magic_number section not found" );
-      auto actual_totem = impl->doc["magic_number"].GetInt();
+      auto actual_totem = impl->doc["magic_number"].GetUint();
       EOS_ASSERT( actual_totem == expected_totem, snapshot_exception, "JSON snapshot has unexpected magic number" );
 
       // validate version
       auto expected_version = current_snapshot_version;
       EOS_ASSERT(impl->doc.HasMember("version"), snapshot_exception, "version section not found" );
-      auto actual_version = impl->doc["version"].GetInt();
+      auto actual_version = impl->doc["version"].GetUint();
       EOS_ASSERT( actual_version == expected_version, snapshot_exception,
                   "JSON snapshot is an unsupported version.  Expected : ${expected}, Got: ${actual}",
                   ("expected", expected_version)( "actual", actual_version ) );
