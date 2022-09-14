@@ -7,6 +7,7 @@ harnessPath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(harnessPath)
 
 from TestHarness import Cluster, TestHelper, Utils, WalletMgr
+from TestHarness.TestHelper import AppArgs
 import log_reader
 
 Print = Utils.Print
@@ -27,9 +28,12 @@ def waitForEmptyBlocks(node):
             emptyBlocks = 0
     return node.getHeadBlockNum()
 
+appArgs=AppArgs()
+extraArgs = appArgs.add(flag="--target-tps", type=int, help="The target transfers per second to send during test. Default: 1000", default=1000)
+extraArgs = appArgs.add(flag="--test-duration-sec", type=int, help="The duration of transfer trx generation for the test in seconds. Default: 30", default=30)
 args=TestHelper.parse_args({"-p","-n","-d","-s","--nodes-file"
                             ,"--dump-error-details","-v","--leave-running"
-                            ,"--clean-run","--keep-logs"})
+                            ,"--clean-run","--keep-logs"}, applicationSpecificArgs=appArgs)
 
 pnodes=args.p
 topo=args.s
@@ -42,6 +46,8 @@ dontKill=args.leave_running
 killEosInstances = not dontKill
 killWallet=not dontKill
 keepLogs=args.keep_logs
+testGenerationDurationSec = args.test_duration_sec
+targetTps = args.target_tps
 
 # Setup cluster and its wallet manager
 walletMgr=WalletMgr(True)
@@ -79,8 +85,6 @@ try:
     chainId = info['chain_id']
     lib_id = info['last_irreversible_block_id']
 
-    testGenerationDurationSec = 60
-    targetTps = 1
     transactionsSent = testGenerationDurationSec * targetTps
     data = log_reader.chainData()
 
