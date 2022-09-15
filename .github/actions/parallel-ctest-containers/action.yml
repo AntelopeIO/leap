@@ -1,5 +1,5 @@
 name: 'Parallel ctest'
-description: 'Runs a set of ctests in parallel via multiple docker containers'
+description: 'Runs a set of labeled ctests in parallel via multiple docker containers'
 inputs:
   container:
     required: true
@@ -7,7 +7,7 @@ inputs:
     required: true
   log-tarball-prefix:
     required: true
-  tests:
+  tests-label:
     required: true
 runs:
   using: 'node16'
