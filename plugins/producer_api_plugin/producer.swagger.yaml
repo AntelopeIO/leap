@@ -388,7 +388,79 @@ paths:
                 type: array
                 description: Variant type, an array of strings with the supported protocol features
                 items:
-                  type: string
+                  type: object
+                  properties:
+                    feature_digest:
+                      $ref: "https://eosio.github.io/schemata/v2.0/oas/Sha256.yaml"
+                    subjective_restrictions:
+                      type: object
+                      properties:
+                        enabled:
+                          type: boolean
+                          example: true
+                        preactivation_required:
+                          type: boolean
+                          example: true
+                        earliest_allowed_activation_time:
+                          type: string
+                          example: "1970-01-01T00:00:00.000"
+                        description_digest:
+                          $ref: "https://eosio.github.io/schemata/v2.0/oas/Sha256.yaml"
+                        dependancies:
+                          type: array
+                          items:
+                            $ref: "https://eosio.github.io/schemata/v2.0/oas/Sha256.yaml"
+                        protocol_feature_type:
+                          type: string
+                          example: "builtin"
+                        specification:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              name:
+                                type: string
+                              value:
+                                type: string 
+
+
+  /producer/get_account_ram_corrections:
+    post:
+      summary: get_account_ram_corrections
+      description: Retreives accounts with ram corrections.
+      operationId: get_account_ram_corrections
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                lower_bound:
+                  type: int
+                  description: lowest account key
+                upper_bound:
+                  type: int
+                  description: highest account key
+                limit:
+                  type: int
+                  description: number of rows to scans
+                  example: 10
+                reverse:
+                  type: boolean
+                  description: direction of search
+                  example: false
+      responses:
+        "201":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rows:
+                    type: array
+                    items:
+                      type: string
 
 component:
   schema:
