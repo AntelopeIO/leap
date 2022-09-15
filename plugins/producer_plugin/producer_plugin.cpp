@@ -1915,8 +1915,12 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
 {
    auto start = fc::time_point::now();
 
+   bool disable_subjective_enforcement = (persist_until_expired && _disable_subjective_api_billing)
+                                         || (!persist_until_expired && _disable_subjective_p2p_billing)
+                                         || trx->read_only;
+
    auto first_auth = trx->packed_trx()->get_transaction().first_authorizer();
-   if( _account_fails.failure_limit( first_auth ) ) {
+   if( !disable_subjective_enforcement && _account_fails.failure_limit( first_auth ) ) {
       if( next ) {
          auto except_ptr = std::static_pointer_cast<fc::exception>( std::make_shared<tx_cpu_usage_exceeded>(
                FC_LOG_MESSAGE( error, "transaction ${id} exceeded failure limit for account ${a}",
@@ -1933,9 +1937,7 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
    if( max_trx_time.count() < 0 ) max_trx_time = fc::microseconds::maximum();
 
    bool disable_subjective_billing = ( _pending_block_mode == pending_block_mode::producing )
-                                     || ( persist_until_expired && _disable_subjective_api_billing )
-                                     || ( !persist_until_expired && _disable_subjective_p2p_billing )
-                                     || trx->read_only;
+                                     || disable_subjective_enforcement;
 
    int64_t sub_bill = 0;
    if( !disable_subjective_billing )
