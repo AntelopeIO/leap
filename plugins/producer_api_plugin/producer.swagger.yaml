@@ -33,112 +33,85 @@ paths:
       description: Pause producer node. Takes no arguments returns no values.
       operationId: pause
       responses:
-        "200":
+        "201":
           description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/component/schema/OK'
   /producer/resume:
     post:
       summary: resume
       description: Resume producer node. Takes no arguments returns no values.
       operationId: resume
       responses:
-        "200":
+        "201":
           description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/component/schema/OK'
   /producer/paused:
     post:
       summary: paused
       description: Retreives paused status for producer node. Takes no arguments returns no values.
       operationId: paused
       responses:
-        "200":
+        "201":
           description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/component/schema/OK'
   /producer/get_runtime_options:
     post:
       summary: get_runtime_options
       description: Retreives run time options for producer node. Only `incoming_defer_ratio` is a floating point number the other return values are signed integers.
       operationId: get_runtime_options
       responses:
-        "200":
+        "201":
           description: OK
           content:
             application/json:
               schema:
-                type: object
-                description: Returns run time options set for the producer
-                properties:
-                  max_transaction_time:
-                    type: integer
-                    description: Max transaction time
-                  max_irreversible_block_age:
-                    type: integer
-                    description: Max irreversible block age
-                  produce_time_offset_us:
-                    type: integer
-                    description: Time offset
-                  last_block_time_offset_us:
-                    type: integer
-                    description: Last block time offset
-                  max_scheduled_transaction_time_per_block_ms:
-                    type: integer
-                    description: Max scheduled transaction time per block in ms
-                  subjective_cpu_leeway_us:
-                    type: integer
-                    description: Subjective CPU leeway
-                  incoming_defer_ratio:
-                    type: double
-                    example: 0.0
-                    description: Incoming defer ration
+                $ref: '#/component/schema/Runtime_Options'
+
   /producer/update_runtime_options:
     post:
       summary: update_runtime_options
-      description: Update run time options for producer node. Only `incoming_defer_ratio` is a floating point number the other values are signed integers.
+      description: Update run time options for producer node. May post any of the runtime options in combination or along. Only `incoming_defer_ratio` is a floating point number the other values are signed integers.
       operationId: update_runtime_options
       requestBody:
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                max_transaction_time:
-                  type: integer
-                  description: Max transaction time
-                max_irreversible_block_age:
-                  type: integer
-                  description: Max irreversible block age
-                produce_time_offset_us:
-                  type: integer
-                  description: Time offset
-                last_block_time_offset_us:
-                  type: integer
-                  description: Last block time offset
-                max_scheduled_transaction_time_per_block_ms:
-                  type: integer
-                  description: Max scheduled transaction time per block in ms
-                subjective_cpu_leeway_us:
-                  type: integer
-                  description: Subjective CPU leeway
-                incoming_defer_ratio:
-                  type: double
-                  example: 0.0
-                  description: Incoming defer ration
+              $ref: '#/component/schema/Runtime_Options'
 
       responses:
-        "200":
+        "201":
           description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/component/schema/OK'
   /producer/get_greylist:
     post:
       summary: get_greylist
       description: Retreives the greylist for producer node.
       operationId: get_greylist
       responses:
-        "200":
+        "201":
           description: OK
           content:
             application/json:
               schema:
-                type: array
-                description: Array of account names stored in the greylist
-                items:
-                  $ref: "https://eosio.github.io/schemata/v2.0/oas/Name.yaml"
+                type: object
+                properties:
+                  accounts:
+                    type: array
+                    description: Array of account names stored in the greylist
+                    items:
+                      $ref: "https://eosio.github.io/schemata/v2.0/oas/Name.yaml"
 
   /producer/add_greylist_accounts:
     post:
@@ -158,8 +131,18 @@ paths:
                       $ref: "https://eosio.github.io/schemata/v2.0/oas/Name.yaml"
 
       responses:
-        "200":
+        "201":
           description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/component/schema/OK'
+        "400":
+          description: client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/component/schema/Error'
   /producer/remove_greylist_accounts:
     post:
       summary: remove_greylist_accounts
@@ -178,24 +161,26 @@ paths:
                     $ref: "https://eosio.github.io/schemata/v2.0/oas/Name.yaml"
 
       responses:
-        "200":
+        "201":
           description: OK
-
+          content:
+            application/json:
+              schema:
+                $ref: '#/component/schema/OK'
+        "400":
+          description: client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/component/schema/Error'
   /producer/get_whitelist_blacklist:
     post:
       summary: get_whitelist_blacklist
       description: Retreives the white list and black list for producer node. A json object containing whitelist and blacklist information. `actor_whitelist` , `actor_blacklist`, `contract_whitelist`, `contract_blacklist` are represented by an array of Names. `action_blacklist` is an array of tuples consisting of Name and Action. `key_blacklist` is an array of Public Keys. Name is a string represeting a NamePrivileged or NameBasic or NameBid or NameCatchAll
       operationId: get_whitelist_blacklist
-      parameters: []
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
 
       responses:
-        "200":
+        "201":
           description: OK
           content:
             application/json:
@@ -274,26 +259,57 @@ paths:
                   items:
                     $ref: "https://eosio.github.io/schemata/v2.0/oas/KeyType.yaml"
       responses:
-        "200":
+        "201":
           description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/component/schema/OK'
+
+        "400":
+          description: client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/component/schema/Error'
+
   /producer/create_snapshot:
     post:
       summary: create_snapshot
-      description: Creates a snapshot for producer node
+      description: Creates a snapshot for producer node. Returns error when unable to create snapshot.
       operationId: create_snapshot
       responses:
-        "200":
+        "201":
           description: OK
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  snapshot_name:
-                    type: string
-                    description: The name of the snapshot
                   head_block_id:
                     $ref: "https://eosio.github.io/schemata/v2.0/oas/Sha256.yaml"
+                  head_block_num:
+                    type: integer
+                    descripiton: Highest block number on the chain
+                    example: 5102
+                  head_block_time:
+                    type: string
+                    description: Highest block unix timestamp
+                    example: 2020-11-16T00:00:00.000
+                  version:
+                    type: integer
+                    description: version number
+                    example: 6
+                  snapshot_name:
+                    type: string
+                    description: The path and file name of the snapshot
+                    example: /home/me/nodes/node-name/snapshots/snapshot-0000999f99999f9f999f99f99ff9999f999f9fff99ff99ffff9f9f9fff9f9999.bin
+        "400":
+          description: client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/component/schema/Error'
 
   /producer/get_integrity_hash:
     post:
@@ -302,7 +318,7 @@ paths:
       operationId: get_integrity_hash
 
       responses:
-        "200":
+        "201":
           description: OK
           content:
             application/json:
@@ -318,7 +334,7 @@ paths:
   /producer/schedule_protocol_feature_activations:
     post:
       summary: schedule_protocol_feature_activations
-      description: Schedule protocol feature activation for producer node. Note some features may require pre-activation.
+      description: Schedule protocol feature activation for producer node. Note some features may require pre-activation. Will return error for duplicate requests or when feature required pre-activation.
       operationId: schedule_protocol_feature_activations
       requestBody:
         content:
@@ -332,8 +348,18 @@ paths:
                   items:
                     $ref: "https://eosio.github.io/schemata/v2.0/oas/Sha256.yaml"
       responses:
-        "200":
+        "201":
           description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/component/schema/OK'
+        "400":
+          description: client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/component/schema/Error'
 
   /producer/get_supported_protocol_features:
     post:
@@ -352,8 +378,9 @@ paths:
                 exclude_unactivatable:
                   type: boolean
                   description: Exclude unactivatable protocol features
+                  example: false
       responses:
-        "200":
+        "201":
           description: OK
           content:
             application/json:
@@ -362,3 +389,93 @@ paths:
                 description: Variant type, an array of strings with the supported protocol features
                 items:
                   type: string
+
+component:
+  schema:
+    Error:
+      type: object
+      properties:
+        code:
+          type: integer
+          description: http return code
+          example: 400
+        message:
+          type: string
+          description: summary of error
+          example: Invalid Request
+        error:
+          type: object
+          description: details on the error
+          properties:
+            code:
+              type: integer
+              description: internal error code
+              example: 3200006
+            name:
+              type: string
+              description: name of error
+              example: invalid_http_request
+            what:
+              type: string
+              description: prettier version of error name
+              example: invalid http request
+            details:
+              type: array
+              description: list of additional information for debugging
+              items:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: debugging message
+                    example: Unable to parse valid input from POST body
+                  file:
+                    type: string
+                    description: file where error was thrown
+                    example: http_plugin.hpp
+                  line_number:
+                    type: integer
+                    description: line number in file where error was thrown
+                    example: 246
+                  method:
+                    type: string
+                    description: function executed when error occured
+                    example: parse_params
+    OK:
+      type: object
+      properties:
+        result:
+          type: string
+          description: status
+          example: ok
+    Runtime_Options:
+      type: object
+      properties:
+        max_transaction_time:
+          type: integer
+          description: Max transaction time
+          example: 100
+        max_irreversible_block_age:
+          type: integer
+          description: Max irreversible block age
+          example: -1
+        produce_time_offset_us:
+          type: integer
+          description: Time offset
+          example: -100000
+        last_block_time_offset_us:
+          type: integer
+          description: Last block time offset
+          example: -200000
+        max_scheduled_transaction_time_per_block_ms:
+          type: integer
+          description: Max scheduled transaction time per block in ms
+          example: 100
+        incoming_defer_ratio:
+          type: string
+          description: Incoming defer ration, parsed to double
+          example: "1.00000000000000000"
+        greylist_limit:
+          type: integer
+          description: limit on number of Names supported by greylist
+          example: 1000
