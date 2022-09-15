@@ -670,8 +670,12 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                return true;
             }
 
+            bool disable_subjective_enforcement = (persist_until_expired && _disable_subjective_api_billing)
+                                                  || (!persist_until_expired && _disable_subjective_p2p_billing)
+                                                  || trx->read_only;
+
             auto first_auth = trx->packed_trx()->get_transaction().first_authorizer();
-            if( _account_fails.failure_limit( first_auth ) ) {
+            if( !disable_subjective_enforcement && _account_fails.failure_limit( first_auth ) ) {
                send_response( std::static_pointer_cast<fc::exception>( std::make_shared<tx_cpu_usage_exceeded>(
                      FC_LOG_MESSAGE( error, "transaction ${id} exceeded failure limit for account ${a}",
                                      ("id", trx->id())("a", first_auth) ) ) ) );
@@ -684,9 +688,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
             const auto block_deadline = calculate_block_deadline( chain.pending_block_time() );
 
             bool disable_subjective_billing = ( _pending_block_mode == pending_block_mode::producing )
-                                              || ( persist_until_expired && _disable_subjective_api_billing )
-                                              || ( !persist_until_expired && _disable_subjective_p2p_billing )
-                                              || trx->read_only;
+                                              || disable_subjective_enforcement;
 
             int64_t sub_bill = 0;
             if( !disable_subjective_billing )
@@ -718,7 +720,8 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                      fc_dlog( _trx_failed_trace_log, "Failed ${c} trx, prev billed: ${p}us, ran: ${r}us, id: ${id}",
                               ("c", trace->except->code())( "p", prev_billed_cpu_time_us )
                               ( "r", fc::time_point::now() - start )( "id", trx->id() ) );
-                     _account_fails.add( first_auth, failure_code );
+                     if( !disable_subjective_enforcement )
+                        _account_fails.add( first_auth, failure_code );
                   }
                   if( return_failure_traces ) {
                      send_response( trace );
@@ -2017,8 +2020,13 @@ bool producer_plugin_impl::process_unapplied_trxs( const fc::time_point& deadlin
          try {
             auto start = fc::time_point::now();
 
+            bool disable_subjective_enforcement = ((itr->trx_type == trx_enum_type::persisted) && _disable_subjective_api_billing)
+                                                  || (!(itr->trx_type == trx_enum_type::persisted) && _disable_subjective_p2p_billing)
+                                                  || trx->read_only;
+
+
             auto first_auth = trx->packed_trx()->get_transaction().first_authorizer();
-            if( _account_fails.failure_limit( first_auth ) ) {
+            if( !disable_subjective_enforcement && _account_fails.failure_limit( first_auth ) ) {
                ++num_failed;
                if( itr->next ) {
                   itr->next( std::make_shared<tx_cpu_usage_exceeded>(
@@ -2040,10 +2048,8 @@ bool producer_plugin_impl::process_unapplied_trxs( const fc::time_point& deadlin
 
             // no subjective billing since we are producing or processing persisted trxs
             const int64_t sub_bill = 0;
-            bool disable_subjective_billing = ( _pending_block_mode == pending_block_mode::producing )
-               || ( (itr->trx_type == trx_enum_type::persisted) && _disable_subjective_api_billing )
-               || ( !(itr->trx_type == trx_enum_type::persisted) && _disable_subjective_p2p_billing )
-               || trx->read_only;
+            bool disable_subjective_billing = (_pending_block_mode == pending_block_mode::producing)
+                                              || disable_subjective_enforcement;
 
             auto trace = chain.push_transaction( trx, deadline, max_trx_time, prev_billed_cpu_time_us, false, sub_bill );
             fc_dlog( _trx_failed_trace_log, "Subjective unapplied bill for ${a}: ${b} prev ${t}us", ("a",first_auth)("b",prev_billed_cpu_time_us)("t",trace->elapsed));
@@ -2062,7 +2068,8 @@ bool producer_plugin_impl::process_unapplied_trxs( const fc::time_point& deadlin
                      fc_dlog( _log, "Failed ${c} trx, prev billed: ${p}us, ran: ${r}us, id: ${id}",
                               ("c", trace->except->code())("p", prev_billed_cpu_time_us)
                               ("r", fc::time_point::now() - start)("id", trx->id()) );
-                     _account_fails.add( first_auth, failure_code );
+                     if( !disable_subjective_enforcement )
+                        _account_fails.add( first_auth, failure_code );
                      if (!disable_subjective_billing)
                         _subjective_billing.subjective_bill_failure( first_auth, trace->elapsed, fc::time_point::now() );
                   }
