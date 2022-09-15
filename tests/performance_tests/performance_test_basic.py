@@ -29,8 +29,8 @@ def waitForEmptyBlocks(node):
     return node.getHeadBlockNum()
 
 appArgs=AppArgs()
-extraArgs = appArgs.add(flag="--target-tps", type=int, help="The target transfers per second to send during test. Default: 1000", default=1000)
-extraArgs = appArgs.add(flag="--test-duration-sec", type=int, help="The duration of transfer trx generation for the test in seconds. Default: 30", default=30)
+extraArgs = appArgs.add(flag="--target-tps", type=int, help="The target transfers per second to send during test", default=1000)
+extraArgs = appArgs.add(flag="--test-duration-sec", type=int, help="The duration of transfer trx generation for the test in seconds", default=30)
 extraArgs = appArgs.add(flag="--genesis", type=str, help="Path to genesis.json", default="tests/performance_tests/genesis.json")
 args=TestHelper.parse_args({"-p","-n","-d","-s","--nodes-file"
                             ,"--dump-error-details","-v","--leave-running"
