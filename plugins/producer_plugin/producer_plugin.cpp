@@ -1916,7 +1916,7 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
    auto start = fc::time_point::now();
 
    auto first_auth = trx->packed_trx()->get_transaction().first_authorizer();
-   if( _pending_block_mode == pending_block_mode::producing && _account_fails.failure_limit( first_auth ) ) {
+   if( _account_fails.failure_limit( first_auth ) ) {
       if( next ) {
          auto except_ptr = std::static_pointer_cast<fc::exception>( std::make_shared<tx_cpu_usage_exceeded>(
                FC_LOG_MESSAGE( error, "transaction ${id} exceeded failure limit for account ${a}",
