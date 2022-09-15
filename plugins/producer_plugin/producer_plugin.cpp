@@ -1980,7 +1980,8 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
             fc_dlog( _trx_failed_trace_log, "Failed ${c} trx, auth: ${a}, prev billed: ${p}us, ran: ${r}us, id: ${id}",
                      ("c", failure_code)("a", first_auth)("p", prev_billed_cpu_time_us)
                      ( "r", end - start )( "id", trx->id() ) );
-            _account_fails.add( first_auth, failure_code );
+            if( !disable_subjective_enforcement )
+               _account_fails.add( first_auth, failure_code );
          }
          if( next ) {
             if( return_failure_trace ) {
