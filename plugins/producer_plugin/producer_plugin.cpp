@@ -720,7 +720,8 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                      fc_dlog( _trx_failed_trace_log, "Failed ${c} trx, prev billed: ${p}us, ran: ${r}us, id: ${id}",
                               ("c", trace->except->code())( "p", prev_billed_cpu_time_us )
                               ( "r", fc::time_point::now() - start )( "id", trx->id() ) );
-                     _account_fails.add( first_auth, failure_code );
+                     if( !disable_subjective_enforcement )
+                        _account_fails.add( first_auth, failure_code );
                   }
                   if( return_failure_traces ) {
                      send_response( trace );
@@ -2067,7 +2068,8 @@ bool producer_plugin_impl::process_unapplied_trxs( const fc::time_point& deadlin
                      fc_dlog( _log, "Failed ${c} trx, prev billed: ${p}us, ran: ${r}us, id: ${id}",
                               ("c", trace->except->code())("p", prev_billed_cpu_time_us)
                               ("r", fc::time_point::now() - start)("id", trx->id()) );
-                     _account_fails.add( first_auth, failure_code );
+                     if( !disable_subjective_enforcement )
+                        _account_fails.add( first_auth, failure_code );
                      if (!disable_subjective_billing)
                         _subjective_billing.subjective_bill_failure( first_auth, trace->elapsed, fc::time_point::now() );
                   }
