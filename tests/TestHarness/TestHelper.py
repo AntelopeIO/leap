@@ -43,7 +43,7 @@ class TestHelper(object):
         assert(isinstance(includeArgs, set))
         assert(isinstance(applicationSpecificArgs, AppArgs))
 
-        parser = argparse.ArgumentParser(add_help=False)
+        parser = argparse.ArgumentParser(add_help=False, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
         parser.add_argument('-?', action='help', default=argparse.SUPPRESS,
                                  help=argparse._('show this help message and exit'))
 
