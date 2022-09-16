@@ -159,5 +159,5 @@ def exportAsJSON(data, args):
     js['env'] = f"{system()} {os.name} {release()}"
     js['args'] = f"{args}"
     js['TPS'] = asdict(data)
-    with open('data.json', 'wt') as f:
+    with open(args.json_path, 'wt') as f:
         f.write(json.dumps(js, sort_keys=True, indent=2))
