@@ -204,6 +204,12 @@ public:
    iterator incoming_begin() { return queue.get<by_type>().lower_bound( trx_enum_type::incoming_persisted ); }
    iterator incoming_end() { return queue.get<by_type>().end(); } // if changed to upper_bound, verify usage performance
 
+   iterator lower_bound( const transaction_id_type& id ) {
+      auto itr = queue.get<by_trx_id>().find( id );
+      if( itr == queue.get<by_trx_id>().end() ) return queue.get<by_type>().end();
+      return queue.project<by_type>(itr);
+   }
+
    /// caller's responsibility to call next() if applicable
    iterator erase( iterator itr ) {
       removed( itr );
