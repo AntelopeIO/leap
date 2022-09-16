@@ -29,7 +29,7 @@ def waitForEmptyBlocks(node):
     return node.getHeadBlockNum()
 
 appArgs = AppArgs()
-appArgs.add(flag="--save-json", type=bool, default=False, help="Whether to save stats as json")
+appArgs.add(flag = "--save-json", type=str, default="data.json", help="Path to save json output")
 args=TestHelper.parse_args({"-p","-n","-d","-s","--nodes-file"
                             ,"--dump-error-details","-v","--leave-running"
                             ,"--clean-run","--keep-logs"}, applicationSpecificArgs=appArgs)
