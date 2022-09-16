@@ -151,11 +151,11 @@ def scoreTransfersPerSecond(data: chainData, numAddlBlocksToDrop=0) -> stats:
     npCBTAEC = np.array(consecBlkTrxsAndEmptyCnt, dtype=np.uint)
 
     # Note: numpy array slicing in use -> [:,0] -> from all elements return index 0
-    return stats(int(np.min(npCBTAEC[:,0])), int(np.max(npCBTAEC[:,0])), int(np.average(npCBTAEC[:,0])), int(np.std(npCBTAEC[:,0])), int(np.sum(npCBTAEC[:,1])), int(len(prunedBlockDataLog)))
+    return stats(int(np.min(npCBTAEC[:,0])), int(np.max(npCBTAEC[:,0])), int(np.average(npCBTAEC[:,0])), int(np.std(npCBTAEC[:,0])), int(np.sum(npCBTAEC[:,1])), len(prunedBlockDataLog))
 
 def exportAsJSON(data, args):
     js = {}
-    js['nodeosVersion'] = os.popen("nodeos --version").read().replace("\n", "")
+    js['nodeosVersion'] = Utils.getNodeosVersion()
     js['env'] = f"{system()} {os.name} {release()}"
     js['args'] = f"{args}"
     js['TPS'] = asdict(data)
