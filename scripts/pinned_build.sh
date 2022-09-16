@@ -25,7 +25,8 @@ if [ $# -eq 0 ] || [ -z "$1" ]
 fi
 
 CORE_SYM=EOS
-DEP_DIR=$1
+# CMAKE_C_COMPILER requires absolute path
+DEP_DIR=`realpath $1`
 LEAP_DIR=$2
 JOBS=$3
 CLANG_VER=11.0.1
@@ -49,7 +50,8 @@ popdir() {
    echo ${D}
    D=`eval echo $D | head -n1 | cut -d " " -f1`
 
-   if [[ ${D} != ${EXPECTED} ]]; then
+   # -ef compares absolute paths
+   if ! [[ ${D} -ef ${EXPECTED} ]]; then
      echo "Directory is not where expected EXPECTED=${EXPECTED} at ${D}"
      exit 1 
    fi
