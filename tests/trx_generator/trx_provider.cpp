@@ -98,6 +98,7 @@ namespace eosio::testing {
                     ("sent", stats.trxs_sent)
                     ("per_off", per_off)
                     ("vstart", _violation_start_time));
+               _terminated_early = true;
                return false;
            }
          } else {
