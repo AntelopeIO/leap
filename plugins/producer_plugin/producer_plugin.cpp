@@ -1438,6 +1438,78 @@ producer_plugin::get_account_ram_corrections( const get_account_ram_corrections_
    return result;
 }
 
+producer_plugin::get_unapplied_transactions_result
+producer_plugin::get_unapplied_transactions( const get_unapplied_transactions_params& p, const fc::time_point& deadline ) const {
+
+   fc::microseconds params_time_limit = p.time_limit_ms ? fc::milliseconds(*p.time_limit_ms) : fc::milliseconds(10);
+   fc::time_point params_deadline = fc::time_point::now() + params_time_limit;
+
+   auto& ua = my->_unapplied_transactions;
+
+   auto itr = ([&](){
+      if (!p.lower_bound.empty()) {
+         try {
+            auto trx_id = transaction_id_type( p.lower_bound );
+            return ua.lower_bound( trx_id );
+         } catch( ... ) {
+            return ua.end();
+         }
+      } else {
+         return ua.begin();
+      }
+   })();
+
+   auto get_trx_type = [&](trx_enum_type t, bool read_only) {
+      if( read_only ) return "read_only";
+      switch( t ) {
+         case trx_enum_type::unknown:
+            return "unknown";
+         case trx_enum_type::persisted:
+            return "persisted";
+         case trx_enum_type::forked:
+            return "forked";
+         case trx_enum_type::aborted:
+            return "aborted";
+         case trx_enum_type::incoming:
+            return "incoming";
+      }
+      return "unknown type";
+   };
+
+   get_unapplied_transactions_result result;
+   result.size = ua.size();
+   result.incoming_size = ua.incoming_size();
+
+   uint32_t remaining = p.limit ? *p.limit : std::numeric_limits<uint32_t>::max();
+   while (itr != ua.end() && remaining > 0 && params_deadline > fc::time_point::now()) {
+      FC_CHECK_DEADLINE(deadline);
+      auto& r = result.trxs.emplace_back();
+      r.trx_id = itr->id();
+      r.expiration = itr->expiration();
+      const auto& pt = itr->trx_meta->packed_trx();
+      r.trx_type = get_trx_type( itr->trx_type, itr->trx_meta->read_only );
+      r.first_auth = pt->get_transaction().first_authorizer();
+      const auto& actions = pt->get_transaction().actions;
+      if( !actions.empty() ) {
+         r.first_receiver = actions[0].account;
+         r.first_action = actions[0].name;
+      }
+      r.total_actions = pt->get_transaction().total_actions();
+      r.billed_cpu_time_us = itr->trx_meta->billed_cpu_time_us;
+      r.size = pt->get_estimated_size();
+
+      ++itr;
+      remaining--;
+   }
+
+   if (itr != ua.end()) {
+      result.more = itr->id();
+   }
+
+   return result;
+}
+
+
 std::optional<fc::time_point> producer_plugin_impl::calculate_next_block_time(const account_name& producer_name, const block_timestamp_type& current_block_time) const {
    chain::controller& chain = chain_plug->chain();
    const auto& hbs = chain.head_block_state();
