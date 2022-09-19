@@ -2422,9 +2422,12 @@ read_only::get_raw_abi_results read_only::get_raw_abi( const get_raw_abi_params&
    return result;
 }
 
-read_only::get_account_results read_only::get_account( const get_account_params& params )const {
+read_only::get_account_results read_only::get_account( const get_account_params& params )const try {
    get_account_results result;
    result.account_name = params.account_name;
+
+   const auto account = db.db().find<account_object,by_name>( params.account_name );
+   EOS_ASSERT( account != nullptr, account_query_exception, "Account not found: ${a}", ("a", params.account_name) );
 
    const auto& d = db.db();
    const auto& rm = db.get_resource_limits_manager();
@@ -2434,7 +2437,7 @@ read_only::get_account_results read_only::get_account( const get_account_params&
 
    rm.get_account_limits( result.account_name, result.ram_quota, result.net_weight, result.cpu_weight );
 
-   const auto& accnt_obj = db.get_account( result.account_name );
+   const auto& accnt_obj = *account;
    const auto& accnt_metadata_obj = db.db().get<account_metadata_object,by_name>( result.account_name );
 
    result.privileged       = accnt_metadata_obj.is_privileged();
@@ -2584,7 +2587,7 @@ read_only::get_account_results read_only::get_account( const get_account_params&
       }
    }
    return result;
-}
+} FC_RETHROW_EXCEPTIONS( info, "account: ${a}", ("a", params.account_name) )
 
 static fc::variant action_abi_to_variant( const abi_def& abi, type_name action_type ) {
    fc::variant v;
