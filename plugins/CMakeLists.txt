@@ -17,3 +17,8 @@ add_subdirectory(db_size_api_plugin)
 add_subdirectory(login_plugin)
 add_subdirectory(test_control_plugin)
 add_subdirectory(test_control_api_plugin)
+
+option(ENABLE_PROMETHEUS_PLUGIN "Enable prometheus plugin" OFF)
+if (ENABLE_PROMETHEUS_PLUGIN)
+    add_subdirectory(prometheus_plugin)
+endif()
