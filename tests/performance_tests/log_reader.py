@@ -144,14 +144,21 @@ def scoreTransfersPerSecond(data: chainData, numAddlBlocksToDrop=0) -> stats:
     """Analyzes a test scenario's steady state block data for statistics around transfers per second over every two-consecutive-block window"""
     prunedBlockDataLog = pruneToSteadyState(data, numAddlBlocksToDrop)
 
-    # Calculate the num trxs in each two-consecutive-block window and count any empty blocks in range.
-    # for instance: given 4 blocks [1, 2, 3, 4], the two-consecutive-block windows analyzed would be [(1,2),(2,3),(3,4)]
-    consecBlkTrxsAndEmptyCnt = [(first.transactions + second.transactions, int(first.transactions == 0)) for first, second in zip(prunedBlockDataLog, prunedBlockDataLog[1:])]
+    blocksToAnalyze = len(prunedBlockDataLog)
+    if blocksToAnalyze == 0:
+        return stats()
+    elif blocksToAnalyze == 1:
+        onlyBlockTrxs = prunedBlockDataLog[0].transactions
+        return stats(onlyBlockTrxs, onlyBlockTrxs, onlyBlockTrxs, 0, int(onlyBlockTrxs == 0), 1)
+    else:
+        # Calculate the num trxs in each two-consecutive-block window and count any empty blocks in range.
+        # for instance: given 4 blocks [1, 2, 3, 4], the two-consecutive-block windows analyzed would be [(1,2),(2,3),(3,4)]
+        consecBlkTrxsAndEmptyCnt = [(first.transactions + second.transactions, int(first.transactions == 0)) for first, second in zip(prunedBlockDataLog, prunedBlockDataLog[1:])]
 
-    npCBTAEC = np.array(consecBlkTrxsAndEmptyCnt, dtype=np.uint)
+        npCBTAEC = np.array(consecBlkTrxsAndEmptyCnt, dtype=np.uint)
 
-    # Note: numpy array slicing in use -> [:,0] -> from all elements return index 0
-    return stats(int(np.min(npCBTAEC[:,0])), int(np.max(npCBTAEC[:,0])), int(np.average(npCBTAEC[:,0])), int(np.std(npCBTAEC[:,0])), int(np.sum(npCBTAEC[:,1])), len(prunedBlockDataLog))
+        # Note: numpy array slicing in use -> [:,0] -> from all elements return index 0
+        return stats(int(np.min(npCBTAEC[:,0])), int(np.max(npCBTAEC[:,0])), int(np.average(npCBTAEC[:,0])), int(np.std(npCBTAEC[:,0])), int(np.sum(npCBTAEC[:,1])), len(prunedBlockDataLog))
 
 def exportAsJSON(data, args):
     js = {}
