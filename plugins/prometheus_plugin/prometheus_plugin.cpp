@@ -1,4 +1,5 @@
 #include <eosio/prometheus_plugin/prometheus_plugin.hpp>
+#include <fc/log/logger.hpp>
 
 namespace eosio {
 
