@@ -65,17 +65,18 @@ namespace eosio::testing {
    };
 
    struct tps_performance_monitor {
-      fc::microseconds     _spin_up_time;
-      uint32_t             _max_lag_per;
-      fc::microseconds     _max_lag_duration_us;
-
+      fc::microseconds                    _spin_up_time;
+      uint32_t                            _max_lag_per;
+      fc::microseconds                    _max_lag_duration_us;
+      bool                                _terminated_early;
       std::optional<fc::time_point>       _violation_start_time;
 
       tps_performance_monitor(int64_t spin_up_time=default_spin_up_time_us, uint32_t max_lag_per=default_max_lag_per,
                               int64_t max_lag_duration_us=default_max_lag_duration_us) : _spin_up_time(spin_up_time),
-                              _max_lag_per(max_lag_per), _max_lag_duration_us(max_lag_duration_us) {}
+                              _max_lag_per(max_lag_per), _max_lag_duration_us(max_lag_duration_us), _terminated_early(false) {}
 
       bool monitor_test(const tps_test_stats& stats);
+      bool terminated_early() {return _terminated_early;}
    };
 
    template<typename G, typename M>
