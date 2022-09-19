@@ -2,6 +2,7 @@
 
 import os
 import sys
+import subprocess
 
 harnessPath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(harnessPath)
@@ -106,6 +107,7 @@ try:
                             f'--trx-gen-duration {testGenerationDurationSec} '
                             f'--target-tps {targetTps}'
                          )
+
     # Get stats after transaction generation stops
     data.ceaseBlock = waitForEmptyBlocks(validationNode) - emptyBlockGoal + 1
     log_reader.scrapeLog(data, "var/lib/node_01/stderr.txt")
@@ -124,6 +126,8 @@ try:
     assert transactionsSent == data.totalTransactions , f"Error: Transactions received: {data.totalTransactions} did not match expected total: {transactionsSent}"
 
     testSuccessful = True
+except subprocess.CalledProcessError as err:
+    print(f"trx_generator return error code: {err.returncode}.  Test aborted.")
 finally:
     TestHelper.shutdown(
         cluster,
