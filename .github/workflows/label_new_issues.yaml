@@ -1,0 +1,17 @@
+name: Label New Issue
+
+on:
+  issues:
+    types: opened
+
+jobs:
+  label_new_issue:
+    uses: AntelopeIO/issue-project-labeler-workflow/.github/workflows/issue-project-labeler.yaml@v1
+    with:
+      issue-id: ${{github.event.issue.node_id}}
+      label: triage
+      org-project: 'Team Backlog'
+      project-field: Status=Todo
+    secrets:
+      token: ${{secrets.ENFCIBOT_REPO_AND_PROJECTS}}
+
