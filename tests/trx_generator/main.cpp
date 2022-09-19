@@ -12,6 +12,7 @@ using namespace eosio::chain;
 using namespace eosio;
 
 enum return_codes {
+   TERMINATED_EARLY = -3,
    OTHER_FAIL = -2,
    INITIALIZE_FAIL = -1,
    SUCCESS = 0,
@@ -168,6 +169,10 @@ int main(int argc, char** argv) {
       return OTHER_FAIL;
    }
 
+   if (monitor->terminated_early()) {
+      return TERMINATED_EARLY;
+   }
+   
    return SUCCESS;
 
 }

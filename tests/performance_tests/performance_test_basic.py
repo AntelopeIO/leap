@@ -2,6 +2,7 @@
 
 import os
 import sys
+import subprocess
 
 harnessPath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(harnessPath)
@@ -29,6 +30,9 @@ def waitForEmptyBlocks(node):
     return node.getHeadBlockNum()
 
 appArgs = AppArgs()
+extraArgs = appArgs.add(flag="--target-tps", type=int, help="The target transfers per second to send during test", default=1000)
+extraArgs = appArgs.add(flag="--test-duration-sec", type=int, help="The duration of transfer trx generation for the test in seconds", default=30)
+extraArgs = appArgs.add(flag="--genesis", type=str, help="Path to genesis.json", default="tests/performance_tests/genesis.json")
 appArgs.add(flag="--save-json", type=bool, help="Whether to save json output of stats", default=False)
 appArgs.add(flag="--json-path", type=str, help="Path to save json output", default="data.json")
 args=TestHelper.parse_args({"-p","-n","-d","-s","--nodes-file"
@@ -46,6 +50,9 @@ dontKill=args.leave_running
 killEosInstances = not dontKill
 killWallet=not dontKill
 keepLogs=args.keep_logs
+testGenerationDurationSec = args.test_duration_sec
+targetTps = args.target_tps
+genesisJsonFile = args.genesis
 
 # Setup cluster and its wallet manager
 walletMgr=WalletMgr(True)
@@ -64,6 +71,7 @@ try:
        totalNodes=total_nodes,
        useBiosBootFile=False,
        topo=topo,
+       genesisPath=genesisJsonFile,
        extraNodeosArgs=extraNodeosArgs) == False:
         errorExit('Failed to stand up cluster.')
 
@@ -83,8 +91,6 @@ try:
     chainId = info['chain_id']
     lib_id = info['last_irreversible_block_id']
 
-    testGenerationDurationSec = 60
-    targetTps = 1
     transactionsSent = testGenerationDurationSec * targetTps
     data = log_reader.chainData()
 
@@ -110,6 +116,7 @@ try:
                             f'--trx-gen-duration {testGenerationDurationSec} '
                             f'--target-tps {targetTps}'
                          )
+
     # Get stats after transaction generation stops
     data.ceaseBlock = waitForEmptyBlocks(validationNode) - emptyBlockGoal + 1
     log_reader.scrapeLog(data, "var/lib/node_01/stderr.txt")
@@ -130,6 +137,8 @@ try:
     assert transactionsSent == data.totalTransactions , f"Error: Transactions received: {data.totalTransactions} did not match expected total: {transactionsSent}"
 
     testSuccessful = True
+except subprocess.CalledProcessError as err:
+    print(f"trx_generator return error code: {err.returncode}.  Test aborted.")
 finally:
     TestHelper.shutdown(
         cluster,

@@ -167,7 +167,7 @@ class Cluster(object):
     # pylint: disable=too-many-statements
     def launch(self, pnodes=1, unstartedNodes=0, totalNodes=1, prodCount=1, topo="mesh", delay=1, onlyBios=False, dontBootstrap=False,
                totalProducers=None, sharedProducers=0, extraNodeosArgs="", useBiosBootFile=True, specificExtraNodeosArgs=None, onlySetProds=False,
-               pfSetupPolicy=PFSetupPolicy.FULL, alternateVersionLabelsFile=None, associatedNodeLabels=None, loadSystemContract=True):
+               pfSetupPolicy=PFSetupPolicy.FULL, alternateVersionLabelsFile=None, associatedNodeLabels=None, loadSystemContract=True, genesisPath=None):
         """Launch cluster.
         pnodes: producer nodes count
         unstartedNodes: non-producer nodes that are configured into the launch, but not started.  Should be included in totalNodes.
@@ -189,6 +189,7 @@ class Cluster(object):
         alternateVersionLabelsFile: Supply an alternate version labels file to use with associatedNodeLabels.
         associatedNodeLabels: Supply a dictionary of node numbers to use an alternate label for a specific node.
         loadSystemContract: indicate whether the eosio.system contract should be loaded (setting this to False causes useBiosBootFile to be treated as False)
+        genesisPath: set the path to a specific genesis.json to use
         """
         assert(isinstance(topo, str))
         assert PFSetupPolicy.isValid(pfSetupPolicy)
@@ -276,10 +277,14 @@ class Cluster(object):
             cmdArr.append("--nodeos")
             cmdArr.append(nodeosArgs)
 
-        cmdArr.append("--max-block-cpu-usage")
-        cmdArr.append(str(160000000))
-        cmdArr.append("--max-transaction-cpu-usage")
-        cmdArr.append(str(150000000))
+        if genesisPath is None:
+            cmdArr.append("--max-block-cpu-usage")
+            cmdArr.append(str(500000))
+            cmdArr.append("--max-transaction-cpu-usage")
+            cmdArr.append(str(475000))
+        else:
+            cmdArr.append("--genesis")
+            cmdArr.append(str(genesisPath))
 
         if associatedNodeLabels is not None:
             for nodeNum,label in associatedNodeLabels.items():
