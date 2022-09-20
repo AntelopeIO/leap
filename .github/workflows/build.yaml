@@ -13,7 +13,7 @@ on:
         type: boolean
 
 permissions:
-  packages: write
+  packages: read
   contents: read
 
 defaults:
@@ -44,6 +44,9 @@ jobs:
       matrix:
         platform: ${{fromJSON(needs.d.outputs.missing-platforms)}}
     runs-on: ["self-hosted", "enf-x86-beefy"]
+    permissions:
+      packages: write
+      contents: read
     steps:
       - name: Login to Container Registry
         uses: docker/login-action@v2
@@ -65,9 +68,6 @@ jobs:
       fail-fast: false
       matrix:
         platform: [ubuntu18, ubuntu20, ubuntu22]
-    outputs:
-      np-tests: ${{steps.build.outputs.np-tests}}
-      lr-tests: ${{steps.build.outputs.lr-tests}}
     runs-on: ["self-hosted", "enf-x86-beefy"]
     container: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
     steps:
@@ -83,9 +83,6 @@ jobs:
             cd build
             cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -GNinja ..
             ninja
-            # the correct approach is by far "--show-only=json-v1 | jq '.tests[].name' | jq -sc"  but that doesn't work on U18's cmake 3.10 since it lacks json-v1
-            echo ::set-output name=np-tests::$(ctest -L "nonparallelizable_tests" --show-only | head -n -1 | cut -d ':' -f 2 -s | jq -cnR '[inputs | select(length>0)[1:]]')
-            echo ::set-output name=lr-tests::$(ctest -L "long_running_tests" --show-only | head -n -1 | cut -d ':' -f 2 -s | jq -cnR '[inputs | select(length>0)[1:]]')
             tar -pc -C .. --exclude "*.o" build | zstd --long -T0 -9 > ../build.tar.zst
         - name: Upload builddir
           uses: AntelopeIO/upload-artifact-large-chunks-action@v1
@@ -125,8 +122,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [ubuntu20]
-    runs-on: ["self-hosted", "enf-x86-beefy"]
+        platform: [ubuntu20, ubuntu22]
+    runs-on: ["self-hosted", "enf-x86-hightier"]
     container: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
     steps:
       - uses: actions/checkout@v3
@@ -140,6 +137,9 @@ jobs:
         run: |
           # https://github.com/actions/runner/issues/2033  -- need this because of full version label test looking at git revs
           chown -R $(id -u):$(id -g) $PWD
+          # jammy's boost 1.74 can stumble on an EXDEV via copy_file_range() it doesn't have a fallback for; re-eval once moving to std::filesystem
+          export TMPDIR="$PWD/tmp"
+          mkdir -p $TMPDIR
           zstdcat build.tar.zst | tar x
           cd build
           ctest --output-on-failure -j $(nproc) -LE "(nonparallelizable_tests|long_running_tests)"
@@ -151,7 +151,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [ubuntu20]
+        platform: [ubuntu18, ubuntu20, ubuntu22]
     runs-on: ["self-hosted", "enf-x86-midtier"]
     steps:
       - uses: actions/checkout@v3
@@ -165,7 +165,7 @@ jobs:
           container: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
           error-log-paths: '["build/etc", "build/var", "build/leap-ignition-wd"]'
           log-tarball-prefix: ${{matrix.platform}}
-          tests: ${{needs.Build.outputs.np-tests}}
+          tests-label: nonparallelizable_tests
       - name: Upload logs from failed tests  
         uses: actions/upload-artifact@v3
         if: failure()
@@ -180,7 +180,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [ubuntu20]
+        platform: [ubuntu18, ubuntu20, ubuntu22]
     runs-on: ["self-hosted", "enf-x86-lowtier"]
     steps:
       - uses: actions/checkout@v3
@@ -194,7 +194,7 @@ jobs:
           container: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
           error-log-paths: '["build/etc", "build/var", "build/leap-ignition-wd"]'
           log-tarball-prefix: ${{matrix.platform}}
-          tests: ${{needs.Build.outputs.lr-tests}}
+          tests-label: long_running_tests
       - name: Upload logs from failed tests
         uses: actions/upload-artifact@v3
         if: failure()
