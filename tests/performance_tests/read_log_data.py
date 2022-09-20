@@ -17,5 +17,6 @@ log_reader.scrapeLog(data, logPath)
 print(data)
 data.printBlockData()
 
-stats = log_reader.scoreTransfersPerSecond(data, args.num_blocks_to_prune)
-print(f"TPS: {stats}")
+guide = log_reader.calcChainGuide(data, args.num_blocks_to_prune)
+stats = log_reader.scoreTransfersPerSecond(data, guide)
+print(f"Guide: {guide}\nTPS: {stats}")

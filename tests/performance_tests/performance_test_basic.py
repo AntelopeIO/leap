@@ -127,8 +127,9 @@ try:
     # to evaluating and applying the numBlocksToPrune
     numAddlBlocksToPrune = 2
 
-    stats = log_reader.scoreTransfersPerSecond(data, numAddlBlocksToPrune)
-    print(f"TPS: {stats}")
+    guide = log_reader.calcChainGuide(data, numAddlBlocksToPrune)
+    stats = log_reader.scoreTransfersPerSecond(data, guide)
+    print(f"Guide: {guide}\nTPS: {stats}")
 
     assert transactionsSent == data.totalTransactions , f"Error: Transactions received: {data.totalTransactions} did not match expected total: {transactionsSent}"
 
