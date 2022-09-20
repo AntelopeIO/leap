@@ -14,4 +14,7 @@ RUN apt-get update && apt-get upgrade -y && \
                                                       llvm-11-dev          \
                                                       ninja-build          \
                                                       pkg-config           \
+                                                      python3-pip          \
                                                       zstd
+
+RUN python3 -m pip install numpy
