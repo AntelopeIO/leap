@@ -22,8 +22,8 @@ cmdError = Utils.cmdError
 class stats():
     min: int = 0
     max: int = 0
-    avg: int = 0
-    sigma: int = 0
+    avg: float = 0
+    sigma: float = 0
     emptyBlocks: int = 0
     numBlocks: int = 0
 
@@ -158,7 +158,7 @@ def scoreTransfersPerSecond(data: chainData, numAddlBlocksToDrop=0) -> stats:
         npCBTAEC = np.array(consecBlkTrxsAndEmptyCnt, dtype=np.uint)
 
         # Note: numpy array slicing in use -> [:,0] -> from all elements return index 0
-        return stats(int(np.min(npCBTAEC[:,0])), int(np.max(npCBTAEC[:,0])), int(np.average(npCBTAEC[:,0])), int(np.std(npCBTAEC[:,0])), int(np.sum(npCBTAEC[:,1])), len(prunedBlockDataLog))
+        return stats(int(np.min(npCBTAEC[:,0])), int(np.max(npCBTAEC[:,0])), float(np.average(npCBTAEC[:,0])), float(np.std(npCBTAEC[:,0])), int(np.sum(npCBTAEC[:,1])), len(prunedBlockDataLog))
 
 def exportAsJSON(data, args):
     js = {}
