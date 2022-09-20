@@ -20,7 +20,8 @@ RUN apt-get update && apt-get upgrade -y && \
                                                       zlib1g-dev                  \
                                                       zstd
 
-RUN python3 -m pip install numpy
+RUN python3 -m pip install dataclasses     \
+                           numpy
 
 # GitHub's actions/checkout requires git 2.18+ but Ubuntu 18 only provides 2.17
 RUN add-apt-repository ppa:git-core/ppa && apt update && apt install -y git
