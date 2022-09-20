@@ -1,4 +1,4 @@
-#include "actions_generic.hpp"
+#include "generic.hpp"
 #include <eosio/version/version.hpp>
 #include <iostream>
 

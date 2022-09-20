@@ -1,4 +1,4 @@
-#include "actions_blocklog.hpp"
+#include "blocklog.hpp"
 #include <eosio/chain/abi_serializer.hpp>
 #include <eosio/chain/block_log.hpp>
 #include <eosio/chain/config.hpp>

@@ -1,4 +1,4 @@
-#include "actions_snapshot.hpp"
+#include "snapshot.hpp"
 #include <memory>
 
 #include <fc/bitutil.hpp>

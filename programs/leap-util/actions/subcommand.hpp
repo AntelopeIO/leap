@@ -11,5 +11,6 @@ protected:
    sub_command() : opt(std::make_shared<subcommand_options>()) {}
 
 public:
+   virtual ~sub_command(){}
    virtual void setup(CLI::App& app) = 0;
 };
