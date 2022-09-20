@@ -15,7 +15,7 @@ RUN apt-get update && apt-get upgrade -y && \
                                                       ninja-build                 \
                                                       pkg-config                  \
                                                       python3                     \
-                                                      python3-pip          \
+                                                      python3-pip                 \
                                                       software-properties-common  \
                                                       zlib1g-dev                  \
                                                       zstd
