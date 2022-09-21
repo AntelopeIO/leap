@@ -545,19 +545,22 @@ int get_return_code( const fc::variant& result ) {
    if (result.is_object() && result.get_object().contains("processed")) {
       const auto& processed = result["processed"];
       if( processed.get_object().contains( "except" ) ) {
-         try {
-            auto soft_except = processed["except"].as<std::optional<fc::exception>>();
-            if( soft_except ) {
-               auto code = soft_except->code();
-               if( code > std::numeric_limits<int>::max() ) {
-                  r = 1;
-               } else {
-                  r = static_cast<int>( code );
+         const auto& except = processed["except"];
+         if( except.is_object() ) {
+            try {
+               auto soft_except = except.as<std::optional<fc::exception>>();
+               if( soft_except ) {
+                  auto code = soft_except->code();
+                  if( code > std::numeric_limits<int>::max() ) {
+                     r = 1;
+                  } else {
+                     r = static_cast<int>( code );
+                  }
+                  if( r == 0 ) r = 1;
                }
+            } catch( ... ) {
+               r = 1;
             }
-            if( r == 0 ) r = 1;
-         } catch( ... ) {
-            r = 1;
          }
       }
    }
