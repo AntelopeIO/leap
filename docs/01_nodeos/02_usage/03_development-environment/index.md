@@ -23,7 +23,7 @@ Try [Docker Utilities for Node Execution](https://github.com/eosnetworkfoundatio
 
 ## Third-Party Testnets
 
-The following third-party testnets are available for testing EOSIO dApps and smart contracts:
+The following third-party testnets are available for testing Antelope dApps and smart contracts:
 
 * Jungle Testnet [monitor](https://monitor.jungletestnet.io/), [website](https://jungletestnet.io/)
 * [CryptoKylin Testnet](https://www.cryptokylin.io/)

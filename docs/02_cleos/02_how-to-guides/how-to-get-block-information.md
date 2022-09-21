@@ -10,10 +10,10 @@ Make sure to meet the following requirements:
 * Install the currently supported version of `cleos`.
 
 [[info | Note]]
-| `cleos` is bundled with the EOSIO software. [Installing EOSIO](../../00_install/index.md) will also install `cleos`.
+| `cleos` is bundled with the Antelope software. [Installing Antelope](../../00_install/index.md) will also install `cleos`.
 
 * Understand what a [block](/glossary.md#block) is and its role in the blockchain.
-* Understand the [block lifecycle](/protocol-guides/01_consensus_protocol.md#5-block-lifecycle) in the EOSIO consensus protocol.
+* Understand the [block lifecycle](/protocol-guides/01_consensus_protocol.md#5-block-lifecycle) in the Antelope consensus protocol.
 
 ## Steps
 
