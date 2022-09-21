@@ -4,12 +4,14 @@ import os
 import sys
 import re
 import numpy as np
+import json
 
 harnessPath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(harnessPath)
 
 from TestHarness import Utils
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
+from platform import release, system
 import gzip
 
 Print = Utils.Print
@@ -20,8 +22,8 @@ cmdError = Utils.cmdError
 class stats():
     min: int = 0
     max: int = 0
-    avg: int = 0
-    sigma: int = 0
+    avg: float = 0
+    sigma: float = 0
     emptyBlocks: int = 0
     numBlocks: int = 0
 
@@ -194,4 +196,13 @@ def scoreTransfersPerSecond(data: chainData, guide : chainGuide) -> stats:
         npCBTAEC = np.array(consecBlkTrxsAndEmptyCnt, dtype=np.uint)
 
         # Note: numpy array slicing in use -> [:,0] -> from all elements return index 0
-        return stats(np.min(npCBTAEC[:,0]), np.max(npCBTAEC[:,0]), np.average(npCBTAEC[:,0]), np.std(npCBTAEC[:,0]), np.sum(npCBTAEC[:,1]), len(prunedBlockDataLog))
+        return stats(int(np.min(npCBTAEC[:,0])), int(np.max(npCBTAEC[:,0])), float(np.average(npCBTAEC[:,0])), float(np.std(npCBTAEC[:,0])), int(np.sum(npCBTAEC[:,1])), len(prunedBlockDataLog))
+
+def exportAsJSON(data, args):
+    js = {}
+    js['nodeosVersion'] = Utils.getNodeosVersion()
+    js['env'] = f"{system()} {os.name} {release()}"
+    js['args'] = f"{args}"
+    js['TPS'] = asdict(data)
+    with open(args.json_path, 'wt') as f:
+        f.write(json.dumps(js, sort_keys=True, indent=2))
