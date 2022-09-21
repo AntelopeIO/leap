@@ -8,7 +8,7 @@ content_title: Keosd
 
 ## Installation
 
-`keosd` is distributed as part of the [Antelope software suite](https://github.com/eosnetworkfoundation/mandel). To install `keosd` just visit the [Antelope Software Installation](../00_install/index.md) section.
+`keosd` is distributed as part of the [Antelope software suite](https://github.com/AntelopeIO/leap). To install `keosd` just visit the [Antelope Software Installation](../00_install/index.md) section.
 
 ## Operation
 

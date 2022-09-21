@@ -19,7 +19,7 @@ While this option can technically be used for smart contract development, it may
 
 ## Official Testing Node
 
-Try [Docker Utilities for Node Execution](https://github.com/eosnetworkfoundation/DUNE) for the easiest way to get started, and for multi-platform support.  
+Try [Docker Utilities for Node Execution](https://github.com/AntelopeIO/DUNE) for the easiest way to get started, and for multi-platform support.  
 
 ## Third-Party Testnets
 

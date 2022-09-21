@@ -8,7 +8,7 @@ content_title: Nodeos
 
 ## Installation
 
-`nodeos` is distributed as part of the [Antelope software suite](https://github.com/eosnetworkfoundation/mandel). To install `nodeos`, visit the [Antelope Software Installation](../00_install/index.md) section.
+`nodeos` is distributed as part of the [Antelope software suite](https://github.com/AntelopeIO/leap). To install `nodeos`, visit the [Antelope Software Installation](../00_install/index.md) section.
 
 ## Explore
 
