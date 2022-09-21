@@ -421,7 +421,7 @@ paths:
                               name:
                                 type: string
                               value:
-                                type: string 
+                                type: string
 
 
   /producer/get_account_ram_corrections:
@@ -461,6 +461,81 @@ paths:
                     type: array
                     items:
                       type: string
+
+  /producer/producer/get_unapplied_transactions:
+    post:
+      summary: get_unapplied_transactions
+      description: Get Unapplied Transactions. No required parameters.
+      operationId: get_unapplied_transactions
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                limit:
+                  type: int
+                  description: number of transactions to return, defaults to 4,294,967,295
+                  example: 2
+                lower_bound:
+                  $ref: "https://eosio.github.io/schemata/v2.0/oas/Sha256.yaml"
+                time_limit_ms:
+                  type: int
+                  description: defaults to 10ms
+                  example: 10
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  size:
+                    type: integer
+                    example: 12428
+                  incoming_size:
+                    type: integer
+                    example: 4475
+                  trxs:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        trx_id:
+                          $ref: "https://eosio.github.io/schemata/v2.0/oas/Sha256.yaml"
+                        expiration:
+                          type: string
+                          example: "2022-09-17T16:30:16"
+                        trx_type:
+                          type: string
+                          example: "aborted"
+                        first_auth:
+                          type: string
+                          example: "jkbsg.wam"
+                        first_receiver:
+                          type: string
+                          example: "m.federation"
+                        first_action:
+                          type: string
+                          example: "mine"
+                        total_actions:
+                          type: integer
+                          example: 1
+                        billed_cpu_time_us:
+                          type: integer
+                          example: 504
+                        size:
+                          type: integer
+                          example: 934
+                  more:
+                    $ref: "https://eosio.github.io/schemata/v2.0/oas/Sha256.yaml"
+        "400":
+          description: client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/component/schema/Error'
 
 component:
   schema:
