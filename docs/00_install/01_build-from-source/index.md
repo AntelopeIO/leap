@@ -1,5 +1,5 @@
 ---
-content_title: Build EOSIO from Source
+content_title: Build Antelope from Source
 ---
 
 The shell scripts previously recommended for building the software have been removed in favor of a build process entirely driven by CMake. Those wishing to build from source are now responsible for installing the necessary dependencies. The list of dependencies and the recommended build procedure are in the README.md file. Instructions are also included for efficiently running the tests.
