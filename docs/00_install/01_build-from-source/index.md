@@ -6,7 +6,7 @@ The shell scripts previously recommended for building the software have been rem
 
 ### Using DUNE
 
-As an alternative to building from source try [Docker Utilities for Node Execution](https://github.com/eosnetworkfoundation/DUNE) for the easiest way to get started, and for multi-platform support.  
+As an alternative to building from source try [Docker Utilities for Node Execution](https://github.com/AntelopeIO/DUNE) for the easiest way to get started, and for multi-platform support.  
 
 ### Building From Source
 

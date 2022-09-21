@@ -23,4 +23,4 @@ Antelope currently supports the following operating systems:
 
 If you are using different operating system or prefer not to build Antelope from source you can try our Docker - based set of utilities called DUNE that can get you started with exploring Antelope and doing contract development pretty much instantly
 
-* [Docker Utilities for Node Execution (D.U.N.E.)](https://github.com/eosnetworkfoundation/DUNE)
+* [Docker Utilities for Node Execution (D.U.N.E.)](https://github.com/AntelopeIO/DUNE)
