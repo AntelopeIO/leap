@@ -12,7 +12,7 @@ Make sure you meet the following requirements:
 [[info | Note]]
 | `cleos` is bundled with the Antelope software. [Installing Antelope](../../00_install/index.md) will also install `cleos`.
 
-* Ensure the reference system contracts from [`eosio.contracts`](https://github.com/eosnetworkfoundation/mandel-contracts) repository is deployed and used to manage system resources.
+* Ensure the reference system contracts from [`reference-contracts`](https://github.com/AntelopeIO/reference-contracts) repository is deployed and used to manage system resources.
 * Understand what an [account](/glossary.md#account) is and its role in the blockchain.
 * Understand [NET bandwidth](/glossary.md#net) in an Antelope blockchain.
 * Understand [CPU bandwidth](/glossary.md#cpu) in an Antelope blockchain.
