@@ -20,7 +20,7 @@ Open four "terminal" windows and perform the following steps:
 
 1. [Start the Wallet Manager](#1-start-the-wallet-manager)
 2. [Create a Default Wallet](#2-create-a-default-wallet)
-3. [Loading the Antelope Key](#3-loading-the-eosio-key)
+3. [Loading the Antelope Key](#3-loading-the-antelope-key)
 4. [Start the First Producer Node](#4-start-the-first-producer-node)
 5. [Start the Second Producer Node](#5-start-the-second-producer-node)
 6. [Get Nodes Info](#6-get-nodes-info)
@@ -90,7 +90,9 @@ This creates a special producer, known as the "bios" producer. Assuming everythi
 
 ### 5. Start the Second Producer Node
 
+<!-- don't render for now
 The following commands assume that you are running this tutorial from the `eos\build` directory, from which you ran `./eosio_build.sh` to build the Antelope binaries.
+-->
 
 To start additional nodes, you must first load the `eosio.bios` contract. This contract enables you to have direct control over the resource allocation of other accounts and to access other privileged API calls. Return to the second terminal window and run the following command to load the contract:
 
