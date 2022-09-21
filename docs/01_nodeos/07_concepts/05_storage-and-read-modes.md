@@ -17,7 +17,7 @@ Every `nodeos` instance creates some internal files to housekeep the blockchain 
 
 ## Antelope Interfaces
 
-Antelope provides a set of [services](../../) and [interfaces](https://docs.eosnetwork.com/reference/mandel-cdt/files.html) that enable contract developers to persist state across action, and consequently transaction, boundaries. Contracts may use these services and interfaces for various purposes. For example, `eosio.token` contract keeps balances for all users in the chain database. Each instance of `nodeos` keeps the database in memory, so contracts can read and write data with ease.
+Antelope provides a set of [services](../../) and [interfaces](https://docs.eosnetwork.com/cdt/latest/reference/Files/) that enable contract developers to persist state across action, and consequently transaction, boundaries. Contracts may use these services and interfaces for various purposes. For example, `eosio.token` contract keeps balances for all users in the chain database. Each instance of `nodeos` keeps the database in memory, so contracts can read and write data with ease.
 
 ### Nodeos RPC API
 
