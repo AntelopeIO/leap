@@ -33,6 +33,8 @@ appArgs=AppArgs()
 appArgs.add(flag="--target-tps", type=int, help="The target transfers per second to send during test", default=1000)
 appArgs.add(flag="--test-duration-sec", type=int, help="The duration of transfer trx generation for the test in seconds", default=30)
 appArgs.add(flag="--genesis", type=str, help="Path to genesis.json", default="tests/performance_tests/genesis.json")
+appArgs.add(flag="--save-json", type=bool, help="Whether to save json output of stats", default=False)
+appArgs.add(flag="--json-path", type=str, help="Path to save json output", default="data.json")
 args=TestHelper.parse_args({"-p","-n","-d","-s","--nodes-file"
                             ,"--dump-error-details","-v","--leave-running"
                             ,"--clean-run","--keep-logs"}, applicationSpecificArgs=appArgs)
@@ -129,6 +131,8 @@ try:
 
     stats = log_reader.scoreTransfersPerSecond(data, numAddlBlocksToPrune)
     print(f"TPS: {stats}")
+    if args.save_json:
+        log_reader.exportAsJSON(stats, args)
 
     assert transactionsSent == data.totalTransactions , f"Error: Transactions received: {data.totalTransactions} did not match expected total: {transactionsSent}"
 
