@@ -1,14 +1,14 @@
 ## Overview
 
-This how-to guide provides instructions on how to create a keypair consisting of a public key and a private key for signing transactions in an EOSIO blockchain.
+This how-to guide provides instructions on how to create a keypair consisting of a public key and a private key for signing transactions in an Antelope blockchain.
 
 ## Before you begin
 
 Make sure you meet the following requirements:
 * Install the currently supported version of `cleos`
 [[info | Note]]
-| The cleos tool is bundled with the EOSIO software. [Installing EOSIO](../../00_install/index.md) will also install the cleos tool. 
-* Learn about asymmetric cryptography (public and private keypair) in the context of an EOSIO blockchain.
+| The cleos tool is bundled with the Antelope software. [Installing Antelope](../../00_install/index.md) will also install the cleos tool. 
+* Learn about asymmetric cryptography (public and private keypair) in the context of an Antelope blockchain.
 
 ## Command Reference
 

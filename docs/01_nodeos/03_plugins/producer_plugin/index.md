@@ -49,7 +49,7 @@ Config Options for eosio::producer_plugin:
                                         <public-key>=<provider-spec>
                                         Where:
                                            <public-key>    is a string form of
-                                                           a vaild EOSIO public
+                                                           a vaild Antelope public
                                                            key
 
                                            <provider-spec> is a string in the
@@ -59,7 +59,7 @@ Config Options for eosio::producer_plugin:
                                            <provider-type> is KEY, or KEOSD
 
                                            KEY:<data>      is a string form of
-                                                           a valid EOSIO
+                                                           a valid Antelope
                                                            private key which
                                                            maps to the provided
                                                            public key
