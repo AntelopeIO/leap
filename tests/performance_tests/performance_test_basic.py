@@ -129,10 +129,13 @@ try:
     # to evaluating and applying the numBlocksToPrune
     numAddlBlocksToPrune = 2
 
-    stats = log_reader.scoreTransfersPerSecond(data, numAddlBlocksToPrune)
-    print(f"TPS: {stats}")
+    guide = log_reader.calcChainGuide(data, numAddlBlocksToPrune)
+    tpsStats = log_reader.scoreTransfersPerSecond(data, guide)
+    print(f"Blocks Guide: {guide}\nTPS: {tpsStats}")
+    report = log_reader.createJSONReport(guide, tpsStats, args)
+    print(report)
     if args.save_json:
-        log_reader.exportAsJSON(stats, args)
+        log_reader.exportAsJSON(report, args)
 
     assert transactionsSent == data.totalTransactions , f"Error: Transactions received: {data.totalTransactions} did not match expected total: {transactionsSent}"
 

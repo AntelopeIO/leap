@@ -28,6 +28,20 @@ class stats():
     numBlocks: int = 0
 
 @dataclass
+class chainBlocksGuide():
+    firstBlockNum: int = 0
+    lastBlockNum: int = 0
+    totalBlocks: int = 0
+    testStartBlockNum: int = 0
+    testEndBlockNum: int = 0
+    setupBlocksCnt: int = 0
+    tearDownBlocksCnt: int = 0
+    leadingEmptyBlocksCnt: int = 0
+    trailingEmptyBlocksCnt: int = 0
+    configAddlDropCnt: int = 0
+    testAnalysisBlockCnt: int = 0
+
+@dataclass
 class blockData():
     partialBlockId: str = ""
     blockNum: int = 0
@@ -98,10 +112,10 @@ def scrapeLog(data, path):
                 else:
                     print("Error: Unknown log format")
 
-def pruneToSteadyState(data: chainData, numAddlBlocksToDrop=0):
-    """Prunes the block data log in data down to range of blocks when steady state has been reached.
+def calcChainGuide(data: chainData, numAddlBlocksToDrop=0) -> chainBlocksGuide:
+    """Calculates guide to understanding key points/blocks in chain data. In particular, test scenario phases like setup, teardown, etc.
 
-    This includes pruning out 3 distinct ranges of blocks from the total block data log:
+    This includes breaking out 3 distinct ranges of blocks from the total block data log:
     1) Blocks during test scenario setup and tear down
     2) Empty blocks during test scenario ramp up and ramp down
     3) Additional blocks - potentially partially full blocks while test scenario ramps up to steady state
@@ -111,38 +125,62 @@ def pruneToSteadyState(data: chainData, numAddlBlocksToDrop=0):
     numAddlBlocksToDrop -- num potentially non-empty blocks to ignore at beginning and end of test for steady state purposes
 
     Returns:
-    pruned list of blockData representing steady state operation
+    chain guide describing key blocks and counts of blocks to describe test scenario
     """
-    firstBlockNum = data.blockLog[0].blockNum
-    lastBlockNum = data.blockLog[len(data.blockLog) - 1].blockNum
+    firstBN = data.blockLog[0].blockNum
+    lastBN = data.blockLog[-1].blockNum
+    total = len(data.blockLog)
+    testStartBN = data.startBlock
+    testEndBN = data.ceaseBlock
 
-    setupBlocks = 0
+    setupCnt = 0
     if data.startBlock is not None:
-        setupBlocks = data.startBlock - firstBlockNum
+        setupCnt = data.startBlock - firstBN
 
-    tearDownBlocks = 0
+    tearDownCnt = 0
     if data.ceaseBlock is not None:
-        tearDownBlocks = lastBlockNum - data.ceaseBlock
+        tearDownCnt = lastBN - data.ceaseBlock
 
     leadingEmpty = 0
-    for le in range(setupBlocks, len(data.blockLog) - tearDownBlocks - 1):
+    for le in range(setupCnt, total - tearDownCnt - 1):
         if data.blockLog[le].transactions == 0:
             leadingEmpty += 1
         else:
             break
 
     trailingEmpty = 0
-    for te in range(len(data.blockLog) - tearDownBlocks - 1, setupBlocks + leadingEmpty, -1):
+    for te in range(total - tearDownCnt - 1, setupCnt + leadingEmpty, -1):
         if data.blockLog[te].transactions == 0:
             trailingEmpty += 1
         else:
             break
 
-    return data.blockLog[setupBlocks + leadingEmpty + numAddlBlocksToDrop:-(tearDownBlocks + trailingEmpty + numAddlBlocksToDrop)]
+    testAnalysisBCnt = total - setupCnt - tearDownCnt - leadingEmpty - trailingEmpty - ( 2 * numAddlBlocksToDrop )
+    testAnalysisBCnt = 0 if testAnalysisBCnt < 0 else testAnalysisBCnt
 
-def scoreTransfersPerSecond(data: chainData, numAddlBlocksToDrop=0) -> stats:
+    return chainBlocksGuide(firstBN, lastBN, total, testStartBN, testEndBN, setupCnt, tearDownCnt, leadingEmpty, trailingEmpty, numAddlBlocksToDrop, testAnalysisBCnt)
+
+def pruneToSteadyState(data: chainData, guide: chainBlocksGuide):
+    """Prunes the block data log down to range of blocks when steady state has been reached.
+
+    This includes pruning out 3 distinct ranges of blocks from the total block data log:
+    1) Blocks during test scenario setup and tear down
+    2) Empty blocks during test scenario ramp up and ramp down
+    3) Additional blocks - potentially partially full blocks while test scenario ramps up to steady state
+
+    Keyword arguments:
+    data -- the chainData for the test run.  Includes blockLog, startBlock, and ceaseBlock
+    guide -- chain guiderails calculated over chain data to guide interpretation of whole run's block data
+
+    Returns:
+    pruned list of blockData representing steady state operation
+    """
+
+    return data.blockLog[guide.setupBlocksCnt + guide.leadingEmptyBlocksCnt + guide.configAddlDropCnt:-(guide.tearDownBlocksCnt + guide.trailingEmptyBlocksCnt + guide.configAddlDropCnt)]
+
+def scoreTransfersPerSecond(data: chainData, guide : chainBlocksGuide) -> stats:
     """Analyzes a test scenario's steady state block data for statistics around transfers per second over every two-consecutive-block window"""
-    prunedBlockDataLog = pruneToSteadyState(data, numAddlBlocksToDrop)
+    prunedBlockDataLog = pruneToSteadyState(data, guide)
 
     blocksToAnalyze = len(prunedBlockDataLog)
     if blocksToAnalyze == 0:
@@ -160,11 +198,18 @@ def scoreTransfersPerSecond(data: chainData, numAddlBlocksToDrop=0) -> stats:
         # Note: numpy array slicing in use -> [:,0] -> from all elements return index 0
         return stats(int(np.min(npCBTAEC[:,0])), int(np.max(npCBTAEC[:,0])), float(np.average(npCBTAEC[:,0])), float(np.std(npCBTAEC[:,0])), int(np.sum(npCBTAEC[:,1])), len(prunedBlockDataLog))
 
-def exportAsJSON(data, args):
+def createJSONReport(guide: chainBlocksGuide, tpsStats: stats, args) -> json:
     js = {}
     js['nodeosVersion'] = Utils.getNodeosVersion()
-    js['env'] = f"{system()} {os.name} {release()}"
-    js['args'] = f"{args}"
-    js['TPS'] = asdict(data)
+    js['env'] = {'system': system(), 'os': os.name, 'release': release()}
+    js['args'] =  dict(item.split("=") for item in f"{args}"[10:-1].split(", "))
+    js['Analysis'] = {}
+    js['Analysis']['BlocksGuide'] = asdict(guide)
+    js['Analysis']['TPS'] = asdict(tpsStats)
+    js['Analysis']['TPS']['configTps']=args.target_tps
+    js['Analysis']['TPS']['configTestDuration']=args.test_duration_sec
+    return json.dumps(js, sort_keys=True, indent=2)
+
+def exportReportAsJSON(report: json, args):
     with open(args.json_path, 'wt') as f:
-        f.write(json.dumps(js, sort_keys=True, indent=2))
+        f.write(report)

@@ -19,7 +19,10 @@ log_reader.scrapeLog(data, logPath)
 print(data)
 data.printBlockData()
 
-stats = log_reader.scoreTransfersPerSecond(data, args.num_blocks_to_prune)
-print(f"TPS: {stats}")
+guide = log_reader.calcChainGuide(data, args.num_blocks_to_prune)
+tpsStats = log_reader.scoreTransfersPerSecond(data, guide)
+print(f"Guide: {guide}\nTPS: {tpsStats}")
+report = log_reader.createJSONReport(guide, tpsStats, args)
+print(report)
 if args.save_json:
-    log_reader.exportAsJSON(stats, args)
+    log_reader.exportAsJSON(report, args)
