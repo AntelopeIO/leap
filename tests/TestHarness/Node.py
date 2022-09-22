@@ -177,7 +177,7 @@ class Node(object):
             outs,errs=popen.communicate(input=subcommand.encode("utf-8"))
             ret=popen.wait()
         except subprocess.CalledProcessError as ex:
-            msg=ex.output
+            msg=ex.stderr
             return (ex.returncode, msg, None)
 
         return (ret, outs, errs)
@@ -580,7 +580,7 @@ class Node(object):
                 self.trackCmdTransaction(trans, reportStatus=reportStatus)
         except subprocess.CalledProcessError as ex:
             end=time.perf_counter()
-            msg=ex.output.decode("utf-8")
+            msg=ex.stderr.decode("utf-8")
             Utils.Print("ERROR: Exception during funds transfer.  cmd Duration: %.3f sec.  %s" % (end-start, msg))
             if exitOnError:
                 Utils.cmdError("could not transfer \"%s\" from %s to %s" % (amountStr, source, destination))
@@ -604,7 +604,7 @@ class Node(object):
                 Utils.Print("cmd Duration: %.3f sec" % (end-start))
         except subprocess.CalledProcessError as ex:
             end=time.perf_counter()
-            msg=ex.output.decode("utf-8")
+            msg=ex.stderr.decode("utf-8")
             Utils.Print("ERROR: Exception during spawn of funds transfer.  cmd Duration: %.3f sec.  %s" % (end-start, msg))
             if exitOnError:
                 Utils.cmdError("could not transfer \"%s\" from %s to %s" % (amountStr, source, destination))
@@ -764,7 +764,7 @@ class Node(object):
             return m.group(1)
         except subprocess.CalledProcessError as ex:
             end=time.perf_counter()
-            msg=ex.output.decode("utf-8")
+            msg=ex.stderr.decode("utf-8")
             Utils.Print("ERROR: Exception during code hash retrieval.  cmd Duration: %.3f sec.  %s" % (end-start, msg))
             return None
 
@@ -786,7 +786,7 @@ class Node(object):
         except subprocess.CalledProcessError as ex:
             if not shouldFail:
                 end=time.perf_counter()
-                msg=ex.output.decode("utf-8")
+                msg=ex.stderr.decode("utf-8")
                 Utils.Print("ERROR: Exception during set contract.  cmd Duration: %.3f sec.  %s" % (end-start, msg))
                 return None
             else:
@@ -865,7 +865,7 @@ class Node(object):
                 Utils.Print("cmd Duration: %.3f sec" % (end-start))
             return (Node.getTransStatus(retTrans) == 'executed', retTrans)
         except subprocess.CalledProcessError as ex:
-            msg=ex.output.decode("utf-8")
+            msg=ex.stderr.decode("utf-8")
             if not silentErrors:
                 end=time.perf_counter()
                 Utils.Print("ERROR: Exception during push transaction.  cmd Duration=%.3f sec.  %s" % (end - start, msg))
@@ -893,7 +893,7 @@ class Node(object):
                 Utils.Print("cmd Duration: %.3f sec" % (end-start))
             return (Node.getTransStatus(trans) == 'executed' if expectTrxTrace else True, trans)
         except subprocess.CalledProcessError as ex:
-            msg=ex.output.decode("utf-8")
+            msg=ex.stderr.decode("utf-8")
             if not silentErrors:
                 end=time.perf_counter()
                 Utils.Print("ERROR: Exception during push message.  cmd Duration=%.3f sec.  %s" % (end - start, msg))
@@ -994,7 +994,7 @@ class Node(object):
         except subprocess.CalledProcessError as ex:
             if not silentErrors:
                 end=time.perf_counter()
-                msg=ex.output.decode("utf-8")
+                msg=ex.stderr.decode("utf-8")
                 errorMsg="Exception during \"%s\". Exception message: %s.  cmd Duration=%.3f sec. %s" % (cmdDesc, msg, end-start, exitMsg)
                 if exitOnError:
                     Utils.cmdError(errorMsg)
@@ -1040,7 +1040,7 @@ class Node(object):
         except subprocess.CalledProcessError as ex:
             if not silentErrors:
                 end=time.perf_counter()
-                msg=ex.output.decode("utf-8")
+                msg=ex.stderr.decode("utf-8")
                 errorMsg="Exception during \"%s\". %s.  cmd Duration=%.3f sec." % (cmd, msg, end-start)
                 if exitOnError:
                     Utils.cmdError(errorMsg)

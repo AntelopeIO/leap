@@ -624,7 +624,7 @@ class Cluster(object):
             verStr=m.group(1)
             return verStr
         except subprocess.CalledProcessError as ex:
-            msg=ex.output.decode("utf-8")
+            msg=ex.stderr.decode("utf-8")
             Utils.Print("ERROR: Exception during client version query. %s" % (msg))
             raise
 
@@ -666,7 +666,7 @@ class Cluster(object):
                 if Utils.Debug: Utils.Print("name: %s, key(owner): ['%s', '%s], key(active): ['%s', '%s']" % (name, ownerPublic, ownerPrivate, activePublic, activePrivate))
 
             except subprocess.CalledProcessError as ex:
-                msg=ex.output.decode("utf-8")
+                msg=ex.stderr.decode("utf-8")
                 Utils.Print("ERROR: Exception during key creation. %s" % (msg))
                 break
 
@@ -1353,7 +1353,7 @@ class Cluster(object):
                 psOut=Utils.checkOutput(cmd.split())
                 return psOut
             except subprocess.CalledProcessError as ex:
-                msg=ex.output.decode("utf-8")
+                msg=ex.stderr.decode("utf-8")
                 Utils.Print("ERROR: call of \"%s\" failed. %s" % (cmd, msg))
                 return None
             return None
