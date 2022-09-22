@@ -28,7 +28,7 @@ class stats():
     numBlocks: int = 0
 
 @dataclass
-class chainGuide():
+class chainBlocksGuide():
     firstBlockNum: int = 0
     lastBlockNum: int = 0
     totalBlocks: int = 0
@@ -112,7 +112,7 @@ def scrapeLog(data, path):
                 else:
                     print("Error: Unknown log format")
 
-def calcChainGuide(data: chainData, numAddlBlocksToDrop=0) -> chainGuide:
+def calcChainGuide(data: chainData, numAddlBlocksToDrop=0) -> chainBlocksGuide:
     """Calculates guide to understanding key points/blocks in chain data. In particular, test scenario phases like setup, teardown, etc.
 
     This includes breaking out 3 distinct ranges of blocks from the total block data log:
@@ -158,9 +158,9 @@ def calcChainGuide(data: chainData, numAddlBlocksToDrop=0) -> chainGuide:
     testAnalysisBCnt = total - setupCnt - tearDownCnt - leadingEmpty - trailingEmpty - ( 2 * numAddlBlocksToDrop )
     testAnalysisBCnt = 0 if testAnalysisBCnt < 0 else testAnalysisBCnt
 
-    return chainGuide(firstBN, lastBN, total, testStartBN, testEndBN, setupCnt, tearDownCnt, leadingEmpty, trailingEmpty, numAddlBlocksToDrop, testAnalysisBCnt)
+    return chainBlocksGuide(firstBN, lastBN, total, testStartBN, testEndBN, setupCnt, tearDownCnt, leadingEmpty, trailingEmpty, numAddlBlocksToDrop, testAnalysisBCnt)
 
-def pruneToSteadyState(data: chainData, guide: chainGuide):
+def pruneToSteadyState(data: chainData, guide: chainBlocksGuide):
     """Prunes the block data log down to range of blocks when steady state has been reached.
 
     This includes pruning out 3 distinct ranges of blocks from the total block data log:
@@ -178,7 +178,7 @@ def pruneToSteadyState(data: chainData, guide: chainGuide):
 
     return data.blockLog[guide.setupBlocksCnt + guide.leadingEmptyBlocksCnt + guide.configAddlDropCnt:-(guide.tearDownBlocksCnt + guide.trailingEmptyBlocksCnt + guide.configAddlDropCnt)]
 
-def scoreTransfersPerSecond(data: chainData, guide : chainGuide) -> stats:
+def scoreTransfersPerSecond(data: chainData, guide : chainBlocksGuide) -> stats:
     """Analyzes a test scenario's steady state block data for statistics around transfers per second over every two-consecutive-block window"""
     prunedBlockDataLog = pruneToSteadyState(data, guide)
 
@@ -198,11 +198,18 @@ def scoreTransfersPerSecond(data: chainData, guide : chainGuide) -> stats:
         # Note: numpy array slicing in use -> [:,0] -> from all elements return index 0
         return stats(int(np.min(npCBTAEC[:,0])), int(np.max(npCBTAEC[:,0])), float(np.average(npCBTAEC[:,0])), float(np.std(npCBTAEC[:,0])), int(np.sum(npCBTAEC[:,1])), len(prunedBlockDataLog))
 
-def exportAsJSON(data, args):
+def createJSONReport(guide: chainBlocksGuide, tpsStats: stats, args) -> json:
     js = {}
     js['nodeosVersion'] = Utils.getNodeosVersion()
-    js['env'] = f"{system()} {os.name} {release()}"
-    js['args'] = f"{args}"
-    js['TPS'] = asdict(data)
+    js['env'] = {'system': system(), 'os': os.name, 'release': release()}
+    js['args'] =  dict(item.split("=") for item in f"{args}"[10:-1].split(", "))
+    js['Analysis'] = {}
+    js['Analysis']['BlocksGuide'] = asdict(guide)
+    js['Analysis']['TPS'] = asdict(tpsStats)
+    js['Analysis']['TPS']['configTps']=args.target_tps
+    js['Analysis']['TPS']['configTestDuration']=args.test_duration_sec
+    return json.dumps(js, sort_keys=True, indent=2)
+
+def exportReportAsJSON(report: json, args):
     with open(args.json_path, 'wt') as f:
-        f.write(json.dumps(js, sort_keys=True, indent=2))
+        f.write(report)
