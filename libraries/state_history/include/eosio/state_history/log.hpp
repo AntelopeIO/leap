@@ -141,7 +141,6 @@ class state_history_log {
             eptr                       = std::current_exception();
             write_thread_has_exception = true;
          }
-         elog("${name} thread ended", ("name", this->name));
       });
    }
 
