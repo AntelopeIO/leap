@@ -794,9 +794,7 @@ class Node(object):
                 retMap["returncode"]=ex.returncode
                 retMap["cmd"]=ex.cmd
                 retMap["output"]=ex.output
-                # commented below as they are available only in Python3.5 and above
-                # retMap["stdout"]=ex.stdout
-                # retMap["stderr"]=ex.stderr
+                retMap["stderr"]=ex.stderr
                 return retMap
 
         if shouldFail:
