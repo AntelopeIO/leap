@@ -548,16 +548,14 @@ int get_return_code( const fc::variant& result ) {
          const auto& except = processed["except"];
          if( except.is_object() ) {
             try {
-               auto soft_except = except.as<std::optional<fc::exception>>();
-               if( soft_except ) {
-                  auto code = soft_except->code();
-                  if( code > std::numeric_limits<int>::max() ) {
-                     r = 1;
-                  } else {
-                     r = static_cast<int>( code );
-                  }
-                  if( r == 0 ) r = 1;
+               auto soft_except = except.as<fc::exception>();
+               auto code = soft_except.code();
+               if( code > std::numeric_limits<int>::max() ) {
+                  r = 1;
+               } else {
+                  r = static_cast<int>( code );
                }
+               if( r == 0 ) r = 1;
             } catch( ... ) {
                r = 1;
             }
