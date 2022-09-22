@@ -1,1 +1,1 @@
-<!-- THIS IS A PLACEHOLDER, WILL BE REPLACED BY REDOC INSTANCE -->
+[Net API Reference](https://docs.eosnetwork.com/leap-plugins/latest/net.api/)
