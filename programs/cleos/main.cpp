@@ -544,7 +544,7 @@ int get_return_code( const fc::variant& result ) {
    int r = 0;
    if (result.is_object() && result.get_object().contains("processed")) {
       const auto& processed = result["processed"];
-      if( processed.get_object().contains( "except" ) ) {
+      if( processed.is_object() && processed.get_object().contains( "except" ) ) {
          const auto& except = processed["except"];
          if( except.is_object() ) {
             try {
