@@ -70,6 +70,7 @@ try:
        useBiosBootFile=False,
        topo=topo,
        genesisPath=genesisJsonFile,
+       maximumP2pPerHost=25,
        extraNodeosArgs=extraNodeosArgs) == False:
         errorExit('Failed to stand up cluster.')
 
@@ -94,27 +95,7 @@ try:
 
     data.startBlock = waitForEmptyBlocks(validationNode)
 
-    if Utils.Debug: Print(
-                            f'Running trx_generator: ./tests/trx_generator/trx_generator  '
-                            f'--chain-id {chainId} '
-                            f'--last-irreversible-block-id {lib_id} '
-                            f'--handler-account {cluster.eosioAccount.name} '
-                            f'--accounts {account1Name},{account2Name} '
-                            f'--priv-keys {account1PrivKey},{account2PrivKey} '
-                            f'--trx-gen-duration {testGenerationDurationSec} '
-                            f'--target-tps {targetTps}'
-                         )
-    Utils.runCmdReturnStr(
-                            f'./tests/trx_generator/trx_generator '
-                            f'--chain-id {chainId} '
-                            f'--last-irreversible-block-id {lib_id} '
-                            f'--handler-account {cluster.eosioAccount.name} '
-                            f'--accounts {account1Name},{account2Name} '
-                            f'--priv-keys {account1PrivKey},{account2PrivKey} '
-                            f'--trx-gen-duration {testGenerationDurationSec} '
-                            f'--target-tps {targetTps}'
-                         )
-
+    subprocess.Popen([f"./tests/performance_tests/launch_transaction_generators.py", f"{chainId}", f"{lib_id}", f"{cluster.eosioAccount.name}", f"{account1Name}", f"{account2Name}", f"{account1PrivKey}", f"{account2PrivKey}", f"{testGenerationDurationSec}", f"{targetTps}"])
     # Get stats after transaction generation stops
     data.ceaseBlock = waitForEmptyBlocks(validationNode) - emptyBlockGoal + 1
     log_reader.scrapeLog(data, "var/lib/node_01/stderr.txt")

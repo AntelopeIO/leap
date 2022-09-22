@@ -2,6 +2,7 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/performance_test_basic.py ${CMAKE_CUR
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/log_reader.py ${CMAKE_CURRENT_BINARY_DIR}/log_reader.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/read_log_data.py ${CMAKE_CURRENT_BINARY_DIR}/read_log_data.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/log_reader_tests.py ${CMAKE_CURRENT_BINARY_DIR}/log_reader_tests.py COPYONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/launch_transaction_generators.py ${CMAKE_CURRENT_BINARY_DIR}/launch_transaction_generators.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_log_2_0_14.txt.gz ${CMAKE_CURRENT_BINARY_DIR}/nodeos_log_2_0_14.txt.gz COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_log_3_2.txt.gz ${CMAKE_CURRENT_BINARY_DIR}/nodeos_log_3_2.txt.gz COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/genesis.json ${CMAKE_CURRENT_BINARY_DIR}/genesis.json COPYONLY)
