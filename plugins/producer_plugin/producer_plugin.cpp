@@ -1470,6 +1470,8 @@ producer_plugin::get_unapplied_transactions( const get_unapplied_transactions_pa
             return "forked";
          case trx_enum_type::aborted:
             return "aborted";
+         case trx_enum_type::incoming_persisted:
+            return "incoming_persisted";
          case trx_enum_type::incoming:
             return "incoming";
       }
