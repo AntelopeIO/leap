@@ -776,7 +776,7 @@ class Node(object):
         if shouldFail:
             if trans["processed"]["except"] != None:
                 retMap={}
-                retMap["returncode"]=0
+                retMap["returncode"]=1
                 retMap["cmd"]=cmd
                 retMap["output"]=bytes(str(trans),'utf-8')
                 return retMap

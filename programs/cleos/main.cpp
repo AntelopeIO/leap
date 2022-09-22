@@ -188,6 +188,7 @@ bool   print_request = false;
 bool   print_response = false;
 bool   no_auto_keosd = false;
 bool   verbose = false;
+int    return_code = 0;
 
 uint8_t  tx_max_cpu_usage = 0;
 uint32_t tx_max_net_usage = 0;
@@ -538,6 +539,32 @@ void print_action_tree( const fc::variant& action ) {
    }
 }
 
+int get_return_code( const fc::variant& result ) {
+   // if a trx with a processed, then check to see if it failed execution for return value
+   int r = 0;
+   if (result.is_object() && result.get_object().contains("processed")) {
+      const auto& processed = result["processed"];
+      if( processed.is_object() && processed.get_object().contains( "except" ) ) {
+         const auto& except = processed["except"];
+         if( except.is_object() ) {
+            try {
+               auto soft_except = except.as<fc::exception>();
+               auto code = soft_except.code();
+               if( code > std::numeric_limits<int>::max() ) {
+                  r = 1;
+               } else {
+                  r = static_cast<int>( code );
+               }
+               if( r == 0 ) r = 1;
+            } catch( ... ) {
+               r = 1;
+            }
+         }
+      }
+   }
+   return r;
+}
+
 void print_result( const fc::variant& result ) { try {
       if (result.is_object() && result.get_object().contains("processed")) {
          const auto& processed = result["processed"];
@@ -600,6 +627,7 @@ void send_actions(std::vector<chain::action>&& actions, packed_transaction::comp
       out << jsonstr;
       out.close();
    }
+   return_code = get_return_code( result );
    if( tx_print_json ) {
       if (jsonstr.length() == 0) {
          jsonstr = fc::json::to_pretty_string( result );
@@ -624,6 +652,7 @@ void send_transaction( signed_transaction& trx, packed_transaction::compression_
       out << jsonstr;
       out.close();
    }
+   return_code = get_return_code( result );
    if( tx_print_json ) {
       if (jsonstr.length() == 0) {
          jsonstr = fc::json::to_pretty_string( result );
@@ -4136,14 +4165,16 @@ int main( int argc, char** argv ) {
       }
       return 1;
    } catch ( const std::bad_alloc& ) {
-     elog("bad alloc");
+      elog("bad alloc");
+      return 1;
    } catch( const boost::interprocess::bad_alloc& ) {
-     elog("bad alloc");
+      elog("bad alloc");
+      return 1;
    } catch (const fc::exception& e) {
-     return handle_error(e);
+      return handle_error(e);
    } catch (const std::exception& e) {
-      return handle_error(fc::std_exception_wrapper::from_current_exception(e)); 
+      return handle_error(fc::std_exception_wrapper::from_current_exception(e));
    }
 
-   return 0;
+   return return_code;
 }

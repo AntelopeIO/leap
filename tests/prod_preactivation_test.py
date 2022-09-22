@@ -112,8 +112,9 @@ try:
     Print("publish a new bios contract %s should fails because env.is_feature_activated unresolveable" % (contractDir))
     retMap = node0.publishContract("eosio", contractDir, wasmFile, abiFile, True, shouldFail=True)
 
-    if retMap["output"].decode("utf-8").find("unresolveable") < 0:
-        errorExit("bios contract not result in expected unresolveable error")
+    outPut = retMap["output"].decode("utf-8")
+    if outPut.find("unresolveable") < 0:
+        errorExit(f"bios contract not result in expected unresolveable error: {outPut}")
 
     secwait = 30
     Print("Wait for node 1 to produce...")
