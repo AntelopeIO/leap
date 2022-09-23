@@ -13,8 +13,6 @@ from TestHarness import Utils
 
 Print = Utils.Print
 
-tpsLimitPerGenerator = 1000
-
 parser = argparse.ArgumentParser(add_help=False)
 parser.add_argument("chain_id", type=str, help="Chain ID")
 parser.add_argument("last_irreversible_block_id", type=str, help="Last irreversible block ID")
@@ -25,19 +23,19 @@ parser.add_argument("account_1_priv_key", type=str, help="First account private 
 parser.add_argument("account_2_priv_key", type=str, help="Second account private key")
 parser.add_argument("trx_gen_duration", type=str, help="How long to run transaction generators")
 parser.add_argument("target_tps", type=int, help="Goal transactions per second")
-parser.add_argument("tps_limit_per_generator", type=int, help="Maximum amount of transactions per second a single generator can have.")
+parser.add_argument("tps_limit_per_generator", type=int, help="Maximum amount of transactions per second a single generator can have.", default=4000)
 args = parser.parse_args()
 
 targetTps = args.target_tps
-numGenerators = math.ceil(targetTps/args.tps_limit_per_generator)
-tpsPerGenerator = math.floor(targetTps/numGenerators)
-modTps = targetTps%numGenerators
+numGenerators = math.ceil(targetTps / args.tps_limit_per_generator)
+tpsPerGenerator = math.floor(targetTps / numGenerators)
+modTps = targetTps % numGenerators
 cleanlyDivisible = modTps == 0
 incrementPoint = numGenerators + 1 - modTps
-num_list = []
+subprocess_ret_codes = []
 for num in range(1, numGenerators+1):
     if not cleanlyDivisible and num == incrementPoint:
-        tpsPerGenerator = tpsPerGenerator+1
+        tpsPerGenerator = tpsPerGenerator + 1
     if Utils.Debug: Print(
                             f'Running trx_generator: ./tests/trx_generator/trx_generator  '
                             f'--chain-id {args.chain_id} '
@@ -48,7 +46,7 @@ for num in range(1, numGenerators+1):
                             f'--trx-gen-duration {args.trx_gen_duration} '
                             f'--target-tps {tpsPerGenerator}'
                         )
-    num_list.append(subprocess.Popen(
+    subprocess_ret_codes.append(subprocess.Popen(
                             [f'./tests/trx_generator/trx_generator',
                             '--chain-id', f'{args.chain_id}',
                             '--last-irreversible-block-id', f'{args.last_irreversible_block_id}',
@@ -58,4 +56,4 @@ for num in range(1, numGenerators+1):
                             '--trx-gen-duration', f'{args.trx_gen_duration}',
                             '--target-tps', f'{tpsPerGenerator}']
                         ))
-exit_codes = [num.wait() for num in num_list]
+exit_codes = [ret_code.wait() for ret_code in subprocess_ret_codes]

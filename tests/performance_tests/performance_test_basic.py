@@ -31,8 +31,8 @@ def waitForEmptyBlocks(node):
     return node.getHeadBlockNum()
 
 appArgs=AppArgs()
-appArgs.add(flag="--target-tps", type=int, help="The target transfers per second to send during test", default=1000)
-appArgs.add(flag="--tps-limit-per-generator", type=int, help="Maximum amount of transactions per second a single generator can have.", default=1000)
+appArgs.add(flag="--target-tps", type=int, help="The target transfers per second to send during test", default=8000)
+appArgs.add(flag="--tps-limit-per-generator", type=int, help="Maximum amount of transactions per second a single generator can have.", default=4000)
 appArgs.add(flag="--test-duration-sec", type=int, help="The duration of transfer trx generation for the test in seconds", default=30)
 appArgs.add(flag="--genesis", type=str, help="Path to genesis.json", default="tests/performance_tests/genesis.json")
 args=TestHelper.parse_args({"-p","-n","-d","-s","--nodes-file"
@@ -74,7 +74,7 @@ try:
        topo=topo,
        genesisPath=genesisJsonFile,
        maximumP2pPerHost=5000,
-       maximumClients=5000,
+       maximumClients=0,
        extraNodeosArgs=extraNodeosArgs) == False:
         errorExit('Failed to stand up cluster.')
 
@@ -100,9 +100,10 @@ try:
 
     data.startBlock = waitForEmptyBlocks(validationNode)
 
-    subprocess.run([f"./tests/performance_tests/launch_transaction_generators.py", f"{chainId}", f"{lib_id}",
-     f"{cluster.eosioAccount.name}", f"{account1Name}", f"{account2Name}", f"{account1PrivKey}",
-     f"{account2PrivKey}", f"{testGenerationDurationSec}", f"{targetTps}", f"{tpsLimitPerGenerator}"])
+    subprocess.run([f"./tests/performance_tests/launch_transaction_generators.py",
+     f"{chainId}", f"{lib_id}", f"{cluster.eosioAccount.name}",
+     f"{account1Name}", f"{account2Name}", f"{account1PrivKey}", f"{account2PrivKey}",
+     f"{testGenerationDurationSec}", f"{targetTps}", f"{tpsLimitPerGenerator}"])
     # Get stats after transaction generation stops
     data.ceaseBlock = waitForEmptyBlocks(validationNode) - emptyBlockGoal + 1
     log_reader.scrapeLog(data, "var/lib/node_01/stderr.txt")
