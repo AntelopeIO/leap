@@ -37,23 +37,25 @@ for num in range(1, numGenerators+1):
     if not cleanlyDivisible and num == incrementPoint:
         tpsPerGenerator = tpsPerGenerator + 1
     if Utils.Debug: Print(
-                            f'Running trx_generator: ./tests/trx_generator/trx_generator  '
-                            f'--chain-id {args.chain_id} '
-                            f'--last-irreversible-block-id {args.last_irreversible_block_id} '
-                            f'--handler-account {args.handler_account} '
-                            f'--accounts {args.account_1_name},{args.account_2_name} '
-                            f'--priv-keys {args.account_1_priv_key},{args.account_2_priv_key} '
-                            f'--trx-gen-duration {args.trx_gen_duration} '
-                            f'--target-tps {tpsPerGenerator}'
-                        )
-    subprocess_ret_codes.append(subprocess.Popen(
-                            [f'./tests/trx_generator/trx_generator',
-                            '--chain-id', f'{args.chain_id}',
-                            '--last-irreversible-block-id', f'{args.last_irreversible_block_id}',
-                            '--handler-account', f'{args.handler_account}',
-                            '--accounts', f'{args.account_1_name},{args.account_2_name}',
-                            '--priv-keys', f'{args.account_1_priv_key},{args.account_2_priv_key}',
-                            '--trx-gen-duration', f'{args.trx_gen_duration}',
-                            '--target-tps', f'{tpsPerGenerator}']
-                        ))
+       f'Running trx_generator: ./tests/trx_generator/trx_generator  '
+       f'--chain-id {args.chain_id} '
+       f'--last-irreversible-block-id {args.last_irreversible_block_id} '
+       f'--handler-account {args.handler_account} '
+       f'--accounts {args.account_1_name},{args.account_2_name} '
+       f'--priv-keys {args.account_1_priv_key},{args.account_2_priv_key} '
+       f'--trx-gen-duration {args.trx_gen_duration} '
+       f'--target-tps {tpsPerGenerator}'
+    )
+    subprocess_ret_codes.append(
+       subprocess.Popen([
+           './tests/trx_generator/trx_generator',
+           '--chain-id', f'{args.chain_id}',
+           '--last-irreversible-block-id', f'{args.last_irreversible_block_id}',
+           '--handler-account', f'{args.handler_account}',
+           '--accounts', f'{args.account_1_name},{args.account_2_name}',
+           '--priv-keys', f'{args.account_1_priv_key},{args.account_2_priv_key}',
+           '--trx-gen-duration', f'{args.trx_gen_duration}',
+           '--target-tps', f'{tpsPerGenerator}'
+       ])
+    )
 exit_codes = [ret_code.wait() for ret_code in subprocess_ret_codes]

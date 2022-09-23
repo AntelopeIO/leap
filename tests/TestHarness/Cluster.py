@@ -190,8 +190,8 @@ class Cluster(object):
         associatedNodeLabels: Supply a dictionary of node numbers to use an alternate label for a specific node.
         loadSystemContract: indicate whether the eosio.system contract should be loaded (setting this to False causes useBiosBootFile to be treated as False)
         genesisPath: set the path to a specific genesis.json to use
-        maximumP2pPerHost:  Maximum number of client nodes from any single IP address
-        maximumClients: Maximum number of clients from which connections are accepted, use 0 for no limit
+        maximumP2pPerHost:  Maximum number of client nodes from any single IP address. Defaults to totalNodes if not set.
+        maximumClients: Maximum number of clients from which connections are accepted, use 0 for no limit. Defaults to 25.
         """
         assert(isinstance(topo, str))
         assert PFSetupPolicy.isValid(pfSetupPolicy)

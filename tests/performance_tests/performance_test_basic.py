@@ -75,7 +75,8 @@ try:
        genesisPath=genesisJsonFile,
        maximumP2pPerHost=5000,
        maximumClients=0,
-       extraNodeosArgs=extraNodeosArgs) == False:
+       extraNodeosArgs=extraNodeosArgs
+    ) == False:
         errorExit('Failed to stand up cluster.')
 
     wallet = walletMgr.create('default')
@@ -100,10 +101,12 @@ try:
 
     data.startBlock = waitForEmptyBlocks(validationNode)
 
-    subprocess.run([f"./tests/performance_tests/launch_transaction_generators.py",
-     f"{chainId}", f"{lib_id}", f"{cluster.eosioAccount.name}",
-     f"{account1Name}", f"{account2Name}", f"{account1PrivKey}", f"{account2PrivKey}",
-     f"{testGenerationDurationSec}", f"{targetTps}", f"{tpsLimitPerGenerator}"])
+    subprocess.run([
+       f"./tests/performance_tests/launch_transaction_generators.py",
+       f"{chainId}", f"{lib_id}", f"{cluster.eosioAccount.name}",
+       f"{account1Name}", f"{account2Name}", f"{account1PrivKey}", f"{account2PrivKey}",
+       f"{testGenerationDurationSec}", f"{targetTps}", f"{tpsLimitPerGenerator}"
+    ])
     # Get stats after transaction generation stops
     data.ceaseBlock = waitForEmptyBlocks(validationNode) - emptyBlockGoal + 1
     log_reader.scrapeLog(data, "var/lib/node_01/stderr.txt")
@@ -126,14 +129,14 @@ except subprocess.CalledProcessError as err:
     print(f"trx_generator return error code: {err.returncode}.  Test aborted.")
 finally:
     TestHelper.shutdown(
-        cluster,
-        walletMgr,
-        testSuccessful,
-        killEosInstances,
-        killWallet,
-        keepLogs,
-        killAll,
-        dumpErrorDetails
+       cluster,
+       walletMgr,
+       testSuccessful,
+       killEosInstances,
+       killWallet,
+       keepLogs,
+       killAll,
+       dumpErrorDetails
     )
 
 exitCode = 0 if testSuccessful else 1
