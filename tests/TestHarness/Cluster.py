@@ -167,7 +167,7 @@ class Cluster(object):
     # pylint: disable=too-many-statements
     def launch(self, pnodes=1, unstartedNodes=0, totalNodes=1, prodCount=1, topo="mesh", delay=1, onlyBios=False, dontBootstrap=False,
                totalProducers=None, sharedProducers=0, extraNodeosArgs="", useBiosBootFile=True, specificExtraNodeosArgs=None, onlySetProds=False,
-               pfSetupPolicy=PFSetupPolicy.FULL, alternateVersionLabelsFile=None, associatedNodeLabels=None, loadSystemContract=True, genesisPath=None, maximumP2pPerHost=0):
+               pfSetupPolicy=PFSetupPolicy.FULL, alternateVersionLabelsFile=None, associatedNodeLabels=None, loadSystemContract=True, genesisPath=None, maximumP2pPerHost=0, maximumClients=0):
         """Launch cluster.
         pnodes: producer nodes count
         unstartedNodes: non-producer nodes that are configured into the launch, but not started.  Should be included in totalNodes.
@@ -226,8 +226,11 @@ class Cluster(object):
         if sharedProducers > 0:
             producerFlag += (" --shared-producers %d" % (sharedProducers))
 
+        if maximumClients <= 0:
+            maximumClients = 25
         if maximumP2pPerHost <= 0:
             maximumP2pPerHost = totalNodes
+
 
         self.setAlternateVersionLabels(alternateVersionLabelsFile)
 
@@ -246,7 +249,7 @@ class Cluster(object):
         if self.staging:
             cmdArr.append("--nogen")
 
-        nodeosArgs="--resource-monitor-not-shutdown-on-threshold-exceeded --max-transaction-time -1 --abi-serializer-max-time-ms 990000 --p2p-max-nodes-per-host %d" % (maximumP2pPerHost)
+        nodeosArgs="--resource-monitor-not-shutdown-on-threshold-exceeded --max-transaction-time -1 --abi-serializer-max-time-ms 990000 --p2p-max-nodes-per-host %d --max-clients %d" % (maximumP2pPerHost, maximumClients)
         if not self.walletd:
             nodeosArgs += " --plugin eosio::wallet_api_plugin"
         if Utils.Debug:
