@@ -65,7 +65,7 @@ Sample `logging.json`:
 }
 ```
 
-## Expected output of debug levels
+## Expected output of log levels
 
 * `error`
   * Log output that likely requires operator intervention. Error level logging should 
