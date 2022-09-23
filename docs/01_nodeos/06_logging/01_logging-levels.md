@@ -70,10 +70,13 @@ Sample `logging.json`:
 * `error`
   * Log output that likely requires operator intervention. Error level logging should 
     be reserved for conditions that are completely unexpected or otherwise needs human
-    intervention. Currently, there are numerous `error` level logging that likely should
-    be `warn` as they do not require human intervention. The `net_plugin_impl`, for 
-    example, has a number of `error` level logs for bad network connections. This is
-    handled and processed correctly. These should be changed to `warn` or `info`.
+    intervention. Also used to indicate a software error like impossible values of an
+    `enum`, out of bounds array access, null pointers, or other conditions that likely
+    will throw an exception. Currently, there are numerous `error` level logging 
+    that likely should be `warn` as they do not require human intervention. The 
+    `net_plugin_impl`, for example, has a number of `error` level logs for bad network 
+    connections. This is handled and processed correctly. These should be changed 
+    to `warn` or `info`.
 * `warn`
   * Log output indicating unexpected but recoverable errors. Although, `warn` level
     typically does not require human intervention, repeated output of `warn`
