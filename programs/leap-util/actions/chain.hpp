@@ -3,9 +3,6 @@
 #include <boost/filesystem/path.hpp>
 
 struct chain_options {
-   bool genesis_just_print = false;
-   std::string genesis_output_file = "";
-
    bool build_just_print = false;
    std::string build_output_file = "";
 };
@@ -16,6 +13,5 @@ public:
    void setup(CLI::App& app);
 
    // callbacks
-   int run_subcommand_genesis();
    int run_subcommand_build();
 };

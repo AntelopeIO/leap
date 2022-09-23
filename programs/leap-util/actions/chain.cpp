@@ -59,20 +59,10 @@ FC_REFLECT(chainbase::environment, (debug) (os) (arch) (boost_version) (compiler
 void chain_actions::setup(CLI::App& app) {
    auto* sub = app.add_subcommand("chain-state", "chain utility");
 
-   auto* genesis = sub->add_subcommand("genesis-json", "extract genesis_state from blocks.log as JSON");
-   genesis->add_option("--output-file,-o", opt->genesis_output_file, "write into specified file")->capture_default_str();
-   genesis->add_flag("--print,-p", opt->genesis_just_print, "print to console");
-
    auto* build = sub->add_subcommand("build-info", "extract build environment information as JSON");
    build->add_option("--output-file,-o", opt->build_output_file, "write into specified file")->capture_default_str();
    build->add_flag("--print,-p", opt->build_just_print, "print to console");
 
-   // callbacks
-   genesis->callback([&]() {
-      int rc = run_subcommand_genesis();
-      // properly return err code in main
-      if(rc) throw(CLI::RuntimeError(rc));
-   });
 
    build->callback([&]() {
       int rc = run_subcommand_build();
@@ -94,9 +84,5 @@ int chain_actions::run_subcommand_build() {
       ilog("\nBuild environment JSON:\n${e}", ("e", fc::json::to_pretty_string(chainbase::environment())));
    }
 
-   return 0;
-}
-
-int chain_actions::run_subcommand_genesis() {
    return 0;
 }
