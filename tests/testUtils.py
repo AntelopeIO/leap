@@ -204,7 +204,6 @@ class Utils:
         (output,error)=popen.communicate()
         Utils.checkOutputFileWrite(start, cmd, output, error)
         if popen.returncode != 0 and not ignoreError:
-            Utils.Print("ERROR: %s" % error)
             # for now just include both stderr and stdout in output, python 3.5+ supports both a stdout and stderr attributes
             raise subprocess.CalledProcessError(returncode=popen.returncode, cmd=cmd, output=error+bytes(" ", 'utf-8')+output)
         return output.decode("utf-8")
