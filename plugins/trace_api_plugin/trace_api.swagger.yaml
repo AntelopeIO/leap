@@ -43,9 +43,22 @@ paths:
           content:
             application/json:
               schema:
-                oneOf:
-                  - $ref: "https://docs.eosnetwork.com/openapi/v2.0/BlockTraceV0.yaml"
-                  - $ref: "https://docs.eosnetwork.com/openapi/v2.0/BlockTraceV1.yaml"
+                type: object
+                properties:
+                  id:
+                    type: string
+                  number:
+                    type: integer
+                  previous_id:
+                    type: string
+                  status:
+                    type: string
+                    enum: ["irreversible", "pending"]
+                    example: pending
+                  timestamp:
+                    type: string
+                  producer:
+                    type: string
         "400":
           description: Error - requested block number is invalid (not a number, larger than max int)
           content:
@@ -130,7 +143,7 @@ paths:
 
   /trace_api/get_transaction_trace:
     post:
-      description: foo
+      description: Does a scan of the trace files looking for the transaction
       optionationId: get_transaction_trace
       requestBody:
         content:
@@ -145,7 +158,9 @@ paths:
                   description: Proviade a transaction id
       responses:
         "200":
-          description: ok
+          content:
+            application/json:
+              schema:
         "400":
           content:
             application/json:
