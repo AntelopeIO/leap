@@ -119,7 +119,8 @@ def cleos_sign_test():
         outs,errs=popen.communicate()
         popen.wait()
     except subprocess.CalledProcessError as ex:
-        print(ex.output)
+        print(f"STDOUT: {ex.output}")
+        print(f"STDERR: {ex.stderr}")
     # make sure fields are unpacked
     assert(b'"expiration": "2019-08-01T07:15:49"' in errs)
     assert(b'"ref_block_num": 34881' in errs)
@@ -145,7 +146,8 @@ def processCleosCommand(cmd):
         outs, errs = popen.communicate()
         popen.wait()
     except subprocess.CalledProcessError as ex:
-        print(ex.output)
+        print(f"STDOUT: {ex.output}")
+        print(f"STDERR: {ex.stderr}")
     return outs, errs
 
 def cleos_abi_file_test():
