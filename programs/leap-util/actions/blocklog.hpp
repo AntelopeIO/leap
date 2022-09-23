@@ -21,6 +21,7 @@ struct blocklog_options {
    bool extract_blocks;
    bool smoke_test;
    bool vacuum;
+   bool genesis;
 
    std::optional<block_log_prune_config> blog_keep_prune_conf;
 };
@@ -40,5 +41,6 @@ protected:
    bool extract_block_range(bfs::path block_dir, bfs::path output_dir, uint32_t start, uint32_t end);
    void smoke_test(bfs::path block_dir);
    void do_vacuum();
+   void do_genesis();
    void read_log();
 };

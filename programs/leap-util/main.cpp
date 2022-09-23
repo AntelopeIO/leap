@@ -35,8 +35,8 @@ int main(int argc, char** argv) {
    blocklog_subcommand->setup(app);
 
    // snapshot sc tree, reserved
-   auto snapshot_subcommand = std::make_shared<snapshot_actions>();
-   snapshot_subcommand->setup(app);
+   // auto snapshot_subcommand = std::make_shared<snapshot_actions>();
+   // snapshot_subcommand->setup(app);
 
    // chain subcommand from nodeos chain_plugin
    auto chain_subcommand = std::make_shared<chain_actions>();
