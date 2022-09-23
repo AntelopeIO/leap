@@ -6,7 +6,7 @@ info:
     name: MIT
     url: https://opensource.org/licenses/MIT
   contact:
-    url: https://eos.io
+    url: https://eosnetwork.com
 servers:
   - url: '{protocol}://{host}:{port}/v1/'
     variables:
@@ -24,7 +24,7 @@ components:
 paths:
   /trace_api/get_block:
     post:
-      description: Returns a block trace object containing retired actions and related metadata.
+      description: Returns a block trace object containing retired actions and related metadata. Must specifiy one option `trace-rpc-abi` or `no-trace-abis`. These options are provided at nodeos startup on the command line or in config.ini file. Configuration option `trace-rpc-abi` There must be at least one ABI specified OR the flag trace-no-abis must be used. ABIs are specified as "Key=Value" pairs in the form <account-name>=<abi-def> Where <abi-def> can be an absolute path to a file containing a valid JSON-encoded ABI a relative path from `data-dir` to a file containing a valid JSON-encoded ABI. Configuration option `trace-no-abis` use to indicate that the RPC responses will not use ABIs
       operationId: get_block
       requestBody:
         content:
@@ -48,7 +48,180 @@ paths:
                   - $ref: "https://docs.eosnetwork.com/openapi/v2.0/BlockTraceV1.yaml"
         "400":
           description: Error - requested block number is invalid (not a number, larger than max int)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 400
+                  message:
+                    type: string
+                    example: "bad or missing block_num"
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: integer
+                        example: 0
+                      name:
+                        type: string
+                      what:
+                        type: string
+                      details:
+                        type: array
+                        items:
+                          type: string
         "404":
           description: Error - requested data not present on node
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 400
+                  message:
+                    type: string
+                    example: "bad or missing block_num"
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: integer
+                        example: 0
+                      name:
+                        type: string
+                      what:
+                        type: string
+                      details:
+                        type: array
+                        items:
+                          type: string
         "500":
           description: Error - exceptional condition while processing get_block; e.g. corrupt files
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 500
+                  message:
+                    type: string
+                    example: "Trace API encountered an Error which it cannot recover from.  Please resolve the error and relaunch the process"
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: integer
+                        example: 0
+                      name:
+                        type: string
+                      what:
+                        type: string
+                      details:
+                        type: array
+                        items:
+                          type: string
+
+  /trace_api/get_transaction_trace:
+    post:
+      description: foo
+      optionationId: get_transaction_trace
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+              properties:
+                id:
+                  type: integer
+                  description: Proviade a transaction id
+      responses:
+        "200":
+          description: ok
+        "400":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 400
+                  message:
+                    type: string
+                    example: "bad or missing block_num"
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: integer
+                        example: 0
+                      name:
+                        type: string
+                      what:
+                        type: string
+                      details:
+                        type: array
+                        items:
+                          type: string
+        "404":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 400
+                  message:
+                    type: string
+                    example: "bad or missing block_num"
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: integer
+                        example: 0
+                      name:
+                        type: string
+                      what:
+                        type: string
+                      details:
+                        type: array
+                        items:
+                          type: string
+        "500":
+          description: Error - exceptional condition while processing get_block; e.g. corrupt files
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 500
+                  message:
+                    type: string
+                    example: "Trace API encountered an Error which it cannot recover from.  Please resolve the error and relaunch the process"
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: integer
+                        example: 0
+                      name:
+                        type: string
+                      what:
+                        type: string
+                      details:
+                        type: array
+                        items:
+                          type: string
