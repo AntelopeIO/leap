@@ -181,7 +181,7 @@ try:
     overdrawTransferAmount = "1001.0000 {0}".format(CORE_SYMBOL)
     Print("Transfer funds %s from account %s to %s" % (overdrawTransferAmount, overdrawAccount.name, cluster.eosioAccount.name))
     overdrawtrans = node.transferFunds(overdrawAccount, cluster.eosioAccount, overdrawTransferAmount, "test overdraw transfer", exitOnError=False, reportStatus=False, retry=1)
-    assert "overdrawn balance" in str(overdrawtrans), "ERROR: Overdraw transaction attempt should have failed with overdrawn balance."
+    assert overdrawtrans is None, f"ERROR: Overdraw transaction attempt should have failed with overdrawn balance: {overdrawtrans}"
 
     def cacheTransIdInBlock(transId, transToBlock, node):
         global lastIrreversibleBlockNum
