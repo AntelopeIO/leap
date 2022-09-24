@@ -150,7 +150,7 @@ jobs:
           ctest --output-on-failure -L "nonparallelizable_tests"
       - name: Bundle logs from failed tests
         if: failure()
-        run: tar -czf ${{matrix.platform}}-serial-logs.tar.gz build/var build/etc build/leap-ignition-wd
+        run: tar --ignore-failed-read -czf ${{matrix.platform}}-serial-logs.tar.gz build/var build/etc build/leap-ignition-wd
       - name: Upload logs from failed tests  
         uses: actions/upload-artifact@v3
         if: failure()
@@ -183,7 +183,7 @@ jobs:
           ctest --output-on-failure -R ${{matrix.test-name}}
       - name: Bundle logs from failed tests
         if: failure()
-        run: tar -czf ${{matrix.platform}}-${{matrix.test-name}}-logs.tar.gz build/var build/etc build/leap-ignition-wd
+        run: tar --ignore-failed-read -czf ${{matrix.platform}}-${{matrix.test-name}}-logs.tar.gz build/var build/etc build/leap-ignition-wd
       - name: Upload logs from failed tests  
         uses: actions/upload-artifact@v3
         if: failure()
