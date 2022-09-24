@@ -515,9 +515,8 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
          } catch (std::exception& e) {
             error_results results{500, "Internal Service Error", error_results::error_info(fc::exception( FC_LOG_MESSAGE( error, e.what())), verbose_http_errors)};
             cb( 500, fc::time_point::maximum(), fc::variant( results ));
-            fc_elog( logger(), "STD Exception encountered while processing ${api}.${call}",
-                     ("api", api_name)( "call", call_name ) );
-            fc_dlog( logger(), "Exception Details: ${e}", ("e", e.what()) );
+            fc_dlog( logger(), "STD Exception encountered while processing ${api}.${call}: ${e}",
+                     ("api", api_name)("call", call_name)("e", e.what()) );
          } catch (...) {
             error_results results{500, "Internal Service Error",
                error_results::error_info(fc::exception( FC_LOG_MESSAGE( error, "Unknown Exception" )), verbose_http_errors)};
