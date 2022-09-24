@@ -7,10 +7,6 @@ on:
       - "release/*"
   pull_request:
   workflow_dispatch:
-    inputs:
-      run-lr-tests:
-        description: 'Run long running tests'
-        type: boolean
 
 permissions:
   packages: read
@@ -176,7 +172,7 @@ jobs:
   lr-tests:
     name: LR Tests
     needs: [d, Build]
-    if: always() && needs.Build.result == 'success' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/') || inputs.run-lr-tests)
+    if: always() && needs.Build.result == 'success'
     strategy:
       fail-fast: false
       matrix:
