@@ -198,7 +198,26 @@ def scoreTransfersPerSecond(data: chainData, guide : chainBlocksGuide) -> stats:
         # Note: numpy array slicing in use -> [:,0] -> from all elements return index 0
         return stats(int(np.min(npCBTAEC[:,0])), int(np.max(npCBTAEC[:,0])), float(np.average(npCBTAEC[:,0])), float(np.std(npCBTAEC[:,0])), int(np.sum(npCBTAEC[:,1])), len(prunedBlockDataLog))
 
-def createJSONReport(guide: chainBlocksGuide, tpsStats: stats, args) -> json:
+def calcBlockSizeStats(data: chainData, guide : chainBlocksGuide) -> stats:
+    """Analyzes a test scenario's steady state block data for statistics blocks size during the test window"""
+    prunedBlockDataLog = pruneToSteadyState(data, guide)
+
+    blocksToAnalyze = len(prunedBlockDataLog)
+    if blocksToAnalyze == 0:
+        return stats()
+    elif blocksToAnalyze == 1:
+        onlyBlockNetSize = prunedBlockDataLog[0].net
+        return stats(onlyBlockNetSize, onlyBlockNetSize, onlyBlockNetSize, 0, int(onlyBlockNetSize == 0), 1)
+    else:
+        blockSizeList = [(blk.net, int(blk.net == 0)) for blk in prunedBlockDataLog]
+
+        npBlkSizeList = np.array(blockSizeList, dtype=np.uint)
+
+        # Note: numpy array slicing in use -> [:,0] -> from all elements return index 0
+        return stats(int(np.min(npBlkSizeList[:,0])), int(np.max(npBlkSizeList[:,0])), float(np.average(npBlkSizeList[:,0])), float(np.std(npBlkSizeList[:,0])), int(np.sum(npBlkSizeList[:,1])), len(prunedBlockDataLog))
+
+
+def createJSONReport(guide: chainBlocksGuide, tpsStats: stats, blockSizeStats: stats, args) -> json:
     js = {}
     js['nodeosVersion'] = Utils.getNodeosVersion()
     js['env'] = {'system': system(), 'os': os.name, 'release': release()}
@@ -208,6 +227,7 @@ def createJSONReport(guide: chainBlocksGuide, tpsStats: stats, args) -> json:
     js['Analysis']['TPS'] = asdict(tpsStats)
     js['Analysis']['TPS']['configTps']=args.target_tps
     js['Analysis']['TPS']['configTestDuration']=args.test_duration_sec
+    js['Analysis']['BlockSize'] = asdict(blockSizeStats)
     return json.dumps(js, sort_keys=True, indent=2)
 
 def exportReportAsJSON(report: json, args):
