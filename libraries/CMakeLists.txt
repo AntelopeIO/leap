@@ -4,7 +4,7 @@ set(APPBASE_INSTALL_COMPONENT "dev")
 set(SOFTFLOAT_INSTALL_COMPONENT "dev")
 set(EOSVM_INSTALL_COMPONENT "dev")
 
-add_subdirectory( fc )
+add_subdirectory( libfc )
 add_subdirectory( builtins )
 
 # Suppress warnings on 3rdParty Library
