@@ -244,6 +244,14 @@ install(FILES libraries/yubihsm/LICENSE DESTINATION ${CMAKE_INSTALL_FULL_DATAROO
 install(FILES libraries/eos-vm/LICENSE DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/licenses/leap/ RENAME LICENSE.eos-vm COMPONENT base)
 install(FILES libraries/fc/libraries/ff/LICENSE DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/licenses/leap/ RENAME LICENSE.libff COMPONENT base)
 
+configure_file(${CMAKE_SOURCE_DIR}/programs/leap-cli11/bash-completion/completions/leap-util
+               ${CMAKE_BINARY_DIR}/programs/leap-cli11/bash-completion/completions/leap-util COPYONLY)
+configure_file(${CMAKE_SOURCE_DIR}/programs/leap-cli11/bash-completion/completions/cleos
+               ${CMAKE_BINARY_DIR}/programs/leap-cli11/bash-completion/completions/cleos COPYONLY)
+
+install(FILES programs/leap-cli11/bash-completion/completions/leap-util DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/bash-completion/completions COMPONENT base)
+install(FILES programs/leap-cli11/bash-completion/completions/cleos DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/bash-completion/completions COMPONENT base)
+
 add_custom_target(dev-install
   COMMAND "${CMAKE_COMMAND}" --build "${CMAKE_BINARY_DIR}"
   COMMAND "${CMAKE_COMMAND}" --install "${CMAKE_BINARY_DIR}"
