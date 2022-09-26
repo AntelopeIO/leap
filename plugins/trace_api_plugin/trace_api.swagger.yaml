@@ -1,7 +1,7 @@
 openapi: 3.0.0
 info:
   title: Trace API
-  description: This plubing must specifiy one option `trace-rpc-abi` or `no-trace-abis`. These options are provided at nodeos startup on the command line or in config.ini file. Configuration option `trace-rpc-abi` There must be at least one ABI specified OR the flag trace-no-abis must be used. ABIs are specified as "Key=Value" pairs in the form <account-name>=<abi-def> Where <abi-def> can be an absolute path to a file containing a valid JSON-encoded ABI a relative path from `data-dir` to a file containing a valid JSON-encoded ABI. Configuration option `trace-no-abis` use to indicate that the RPC responses
+  description: See developer documentation at https://docs.eosnetwork.com for information on enabling this plugin.
   version: 1.0.0
   license:
     name: MIT
@@ -47,7 +47,10 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/component/schema/BLOCK_TRACE"
+                oneOf:
+                  - $ref: "https://docs.eosnetwork.com/openapi/v2.0/BlockTraceV0.yaml"
+                  - $ref: "https://docs.eosnetwork.com/openapi/v2.0/BlockTraceV1.yaml"
+                  - $ref: "https://docs.eosnetwork.com/openapi/v2.0/BlockTraceV2.yaml"
         "400":
           description: Error - requested block number is invalid (not a number, larger than max int)
           content:
@@ -115,7 +118,11 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/component/schema/TRANSACTION_TRACE"
+                oneOf:
+                  - $ref: "https://docs.eosnetwork.com/openapi/v2.0/TransactionTraceV0.yaml"
+                  - $ref: "https://docs.eosnetwork.com/openapi/v2.0/TransactionTraceV1.yaml"
+                  - $ref: "https://docs.eosnetwork.com/openapi/v2.0/TransactionTraceV2.yaml"
+                  - $ref: "https://docs.eosnetwork.com/openapi/v2.0/TransactionTraceV3.yaml"
         "400":
           description: Error - requested block number is invalid (not a number, larger than max int)
           content:
@@ -210,114 +217,6 @@ component:
             memo:
               type: string
               example: "first transfer"
-    TRANSACTION_HEADER:
-      type: object
-      properties:
-        expiration:
-          type: string
-          example: "2019-06-18T00:00:00"
-        ref_block_num:
-          type: integer
-          example: 25
-        ref_block_prefix:
-          type: integer
-          example: 61809694
-        max_net_usage_words:
-          type: integer
-          example: 0
-        max_cpu_usage_ms:
-          type: integer
-          example: 0
-        delay_sec:
-          type: integer
-          example: 0
-    TRANSACTION_TRACE:
-      type: object
-      properties:
-        id:
-          type: string
-          $ref: "https://docs.eosnetwork.com/openapi/v2.0/Sha256.yaml"
-        block_num:
-          type: integer
-          example: 31
-        block_time:
-          type: string
-          example: "2019-06-18T00:00:00"
-        producer_block_id:
-          type: string
-          $ref: "https://docs.eosnetwork.com/openapi/v2.0/Sha256.yaml"
-        actions:
-          type: array
-          items:
-            $ref: "#/component/schema/TRACE"
-        status:
-          type: string
-          example: executed
-        cpu_usage_us:
-          type: integer
-          example: 669
-        net_usage_words:
-          type: integer
-          example: 6
-        signatures:
-          type: array
-          items:
-            $ref: "https://docs.eosnetwork.com/openapi/v2.0/CppSignature.yaml"
-        transaction_header:
-          type: object
-          $ref: "#/component/schema/TRANSACTION_HEADER"
-    BLOCK_TRACE:
-      type: object
-      properties:
-        id:
-          $ref: "https://docs.eosnetwork.com/openapi/v2.0/Sha256.yaml"
-        number:
-          type: integer
-          example: 31
-        previous_id:
-          $ref: "https://docs.eosnetwork.com/openapi/v2.0/Sha256.yaml"
-        status:
-          type: string
-          enum:
-            - "irreversible"
-            - "executed"
-            - "pending"
-          example: executed
-        timestamp:
-          type: string
-          example: "2019-06-18T00:00:00"
-        producer:
-          type: string
-          example: myproducer
-        transaction_mroot:
-          $ref: "https://docs.eosnetwork.com/openapi/v2.0/Sha256.yaml"
-        action_mroot:
-          $ref: "https://docs.eosnetwork.com/openapi/v2.0/Sha256.yaml"
-        schedule_version:
-          type: integer
-          example: 1
-        transactions:
-          type: array
-          items:
-            type: object
-            properties:
-              id:
-                $ref: "https://docs.eosnetwork.com/openapi/v2.0/Sha256.yaml"
-              block_num:
-                type: integer
-                example: 31
-              block_time:
-                type: string
-                example: "2019-06-18T00:00:00"
-              producer_block_id:
-                $ref: "https://docs.eosnetwork.com/openapi/v2.0/Sha256.yaml"
-              actions:
-                type: array
-                items:
-                  $ref: "#/component/schema/TRACE"
-              transaction_header:
-                type: object
-                $ref: "#/component/schema/TRANSACTION_HEADER"
     ERROR_DETAILS:
       type: object
       properties:
