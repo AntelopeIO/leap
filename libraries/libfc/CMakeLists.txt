@@ -1,65 +1,28 @@
-project( fc )
-cmake_minimum_required( VERSION 3.8 )
-
-SET( DEFAULT_HEADER_INSTALL_DIR usr/include/${target} )
-SET( DEFAULT_LIBRARY_INSTALL_DIR usr/lib )
-SET( DEFAULT_EXECUTABLE_INSTALL_DIR usr/bin )
-SET( CMAKE_DEBUG_POSTFIX _debug )
-SET( BUILD_SHARED_LIBS NO )
-SET( ECC_IMPL secp256k1 CACHE STRING "secp256k1 or openssl or mixed" )
-
-set(platformBitness 32)
-if(CMAKE_SIZEOF_VOID_P EQUAL 8)
-  set(platformBitness 64)
-endif()
-
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMakeModules")
-
-include( GNUInstallDirs )
-include( SetupTargetMacros )
-
-if(CMAKE_CXX_STANDARD EQUAL 98 OR CMAKE_CXX_STANDARD LESS 17)
-   message(FATAL_ERROR "fc requires c++17 or newer")
-elseif(NOT CMAKE_CXX_STANDARD)
-   set(CMAKE_CXX_STANDARD 17)
-   set(CMAKE_CXX_STANDARD_REQUIRED ON)
-endif()
-
-if(FC_INSTALL_COMPONENT)
-   set(INSTALL_COMPONENT_ARGS COMPONENT ${FC_INSTALL_COMPONENT} EXCLUDE_FROM_ALL)
-endif()
+set( ECC_IMPL secp256k1 CACHE STRING "secp256k1 or openssl or mixed" )
 
 add_subdirectory( secp256k1 )
 
-SET( WITH_PROCPS OFF CACHE BOOL "" FORCE)
-SET( CURVE "ALT_BN128" CACHE STRING "" FORCE)
-SET( USE_ASM OFF CACHE BOOL "" FORCE)
-SET( IS_LIBFF_PARENT OFF CACHE BOOL "" FORCE)
-SET( FF_INSTALL_COMPONENT "${FC_INSTALL_COMPONENT}")
+set( WITH_PROCPS OFF CACHE BOOL "" FORCE)
+set( CURVE "ALT_BN128" CACHE STRING "" FORCE)
+set( USE_ASM OFF CACHE BOOL "" FORCE)
+set( IS_LIBFF_PARENT OFF CACHE BOOL "" FORCE)
+set( FF_INSTALL_COMPONENT "${FC_INSTALL_COMPONENT}")
 add_subdirectory( libraries/ff )
 
-IF( ECC_IMPL STREQUAL openssl )
-  SET( ECC_REST src/crypto/elliptic_impl_pub.cpp )
-ELSE( ECC_IMPL STREQUAL openssl )
-  SET( ECC_LIB secp256k1 )
-  IF( ECC_IMPL STREQUAL mixed )
-    SET( ECC_REST src/crypto/elliptic_impl_priv.cpp src/crypto/elliptic_impl_pub.cpp )
-  ELSE( ECC_IMPL STREQUAL mixed )
-    SET( ECC_REST src/crypto/elliptic_impl_priv.cpp )
-  ENDIF( ECC_IMPL STREQUAL mixed )
-ENDIF( ECC_IMPL STREQUAL openssl )
-
-MESSAGE(STATUS "Configuring fc to build on Unix/Apple")
+if( ECC_IMPL STREQUAL openssl )
+  set( ECC_REST src/crypto/elliptic_impl_pub.cpp )
+else( ECC_IMPL STREQUAL openssl )
+  set( ECC_LIB secp256k1 )
+  if( ECC_IMPL STREQUAL mixed )
+    set( ECC_REST src/crypto/elliptic_impl_priv.cpp src/crypto/elliptic_impl_pub.cpp )
+  else( ECC_IMPL STREQUAL mixed )
+    set( ECC_REST src/crypto/elliptic_impl_priv.cpp )
+  endif( ECC_IMPL STREQUAL mixed )
+endif( ECC_IMPL STREQUAL openssl )
 
 set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)
 find_package(Threads)
-
-IF(NOT "$ENV{OPENSSL_ROOT_DIR}" STREQUAL "")
-  set(OPENSSL_ROOT_DIR $ENV{OPENSSL_ROOT_DIR} )
-  set(OPENSSL_INCLUDE_DIR ${OPENSSL_ROOT_DIR}/include)
-  message(STATUS "Setting up OpenSSL root and include vars to ${OPENSSL_ROOT_DIR}, ${OPENSSL_INCLUDE_DIR}")
-ENDIF()
 
 find_package(OpenSSL REQUIRED)
 
@@ -132,13 +95,7 @@ set( fc_sources
 
 file( GLOB_RECURSE fc_headers ${CMAKE_CURRENT_SOURCE_DIR} *.hpp *.h )
 
-set( sources
-  ${fc_sources}
-)
-
-list(APPEND sources ${fc_headers})
-
-setup_library( fc SOURCES ${sources} LIBRARY_TYPE STATIC DONT_INSTALL_LIBRARY )
+add_library(fc ${fc_sources} ${fc_headers})
 
 function(detect_thread_name)
   include(CheckSymbolExists)
@@ -160,69 +117,39 @@ find_package(Boost 1.66 REQUIRED COMPONENTS
     unit_test_framework
     iostreams)
 
-IF(APPLE)
-  # As of 10.10 yosemite, the OpenSSL static libraries shipped with os x have a dependency
-  # on zlib, so any time you link in openssl you also need to link zlib.  .  We really want to detect whether openssl was configured with the --no-zlib
-  # option or not when it was built, but that's difficult to do in practice, so we
-  # just always try to link it in on mac.
-  find_package( ZLIB REQUIRED )
-ELSE(APPLE)
-  find_package( ZLIB )
-ENDIF(APPLE)
+# fc picks up a dependency on zlib via Boost::iostreams, however in some versions of cmake/boost (depending on if CMake config
+#  files are used) the Boost::iostreams target does not have a dependency on zlib itself so add it explicitly
+find_package(ZLIB REQUIRED)
 
-if( ZLIB_FOUND )
-  MESSAGE( STATUS "zlib found" )
-  add_definitions( -DHAS_ZLIB )
-else()
-  MESSAGE( STATUS "zlib not found" )
-  set( ZLIB_LIBRARIES "" )
-endif( ZLIB_FOUND )
-
-target_include_directories(fc
-  PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${OPENSSL_INCLUDE_DIR}
-  )
+target_include_directories(fc PUBLIC include)
 
 # try and make this very clear that this json parser is intended only for webauthn parsing..
 if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.11.0)
-   set_source_files_properties(src/crypto/elliptic_webauthn.cpp PROPERTIES INCLUDE_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}/include/fc/crypto/webauthn_json/include)
+   set_source_files_properties(src/crypto/elliptic_webauthn.cpp PROPERTIES INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/include/fc/crypto/webauthn_json/include")
 else()
    set_source_files_properties(src/crypto/elliptic_webauthn.cpp PROPERTIES COMPILE_FLAGS "-I${CMAKE_CURRENT_SOURCE_DIR}/include/fc/crypto/webauthn_json/include")
 endif()
 
-IF(NOT WIN32)
-  set(LINK_USR_LOCAL_LIB -L/usr/local/lib)
-ENDIF()
-
-IF(WIN32)
+if(WIN32)
   target_link_libraries( fc PUBLIC ws2_32 mswsock userenv )
-ENDIF()
+endif()
 
-IF(APPLE)
+if(APPLE)
   find_library(security_framework Security)
   find_library(corefoundation_framework CoreFoundation)
-ENDIF()
-target_link_libraries( fc PUBLIC ff ${LINK_USR_LOCAL_LIB}
+endif()
+target_link_libraries( fc PUBLIC ff
                                  Boost::date_time Boost::filesystem Boost::chrono Boost::iostreams Threads::Threads
-                                 ${OPENSSL_LIBRARIES} ${ZLIB_LIBRARIES} ${PLATFORM_SPECIFIC_LIBS} ${RPCRT4} ${CMAKE_DL_LIBS} ${readline_libraries} ${ECC_LIB} ${security_framework} ${corefoundation_framework} )
+                                 OpenSSL::Crypto OpenSSL::SSL ZLIB::ZLIB ${PLATFORM_SPECIFIC_LIBS} ${CMAKE_DL_LIBS} ${ECC_LIB} ${security_framework} ${corefoundation_framework} )
 
 # Critically, this ensures that OpenSSL 1.1 & 3.0 both have a variant of BN_zero() with void return value. But it also allows access
 #  to some obsoleted AES functions in 3.0 too, since 3.0's API_COMPAT is effectively 3.0 by default
 target_compile_definitions(fc PUBLIC "OPENSSL_API_COMPAT=0x10100000L" "OPENSSL_NO_DEPRECATED")
 
-SET(OPENSSL_CONF_TARGET )
-IF(DEFINED CMAKE_RUNTIME_OUTPUT_DIRECTORY)
-  SET (OPENSSL_CONF_TARGET ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
-ELSE()
-  SET (OPENSSL_CONF_TARGET ${CMAKE_CURRENT_BINARY_DIR})
-ENDIF()
-
-IF(NOT DEFINED SKIP_FC_TESTS)
-  add_subdirectory( test )
-ENDIF()
+add_subdirectory( test )
 
 install(TARGETS fc
-   LIBRARY DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR} ${INSTALL_COMPONENT_ARGS}
-   ARCHIVE DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR} ${INSTALL_COMPONENT_ARGS} )
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/fc DESTINATION ${CMAKE_INSTALL_FULL_INCLUDEDIR} ${INSTALL_COMPONENT_ARGS} )
+   LIBRARY DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR} COMPONENT dev EXCLUDE_FROM_ALL
+   ARCHIVE DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR} COMPONENT dev EXCLUDE_FROM_ALL)
+install(DIRECTORY include/fc DESTINATION ${CMAKE_INSTALL_FULL_INCLUDEDIR} COMPONENT dev EXCLUDE_FROM_ALL)
 
