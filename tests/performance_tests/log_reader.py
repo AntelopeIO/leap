@@ -198,8 +198,9 @@ def scoreTransfersPerSecond(data: chainData, guide : chainBlocksGuide) -> stats:
         # Note: numpy array slicing in use -> [:,0] -> from all elements return index 0
         return stats(int(np.min(npCBTAEC[:,0])), int(np.max(npCBTAEC[:,0])), float(np.average(npCBTAEC[:,0])), float(np.std(npCBTAEC[:,0])), int(np.sum(npCBTAEC[:,1])), len(prunedBlockDataLog))
 
-def createJSONReport(guide: chainBlocksGuide, tpsStats: stats, args) -> json:
+def createJSONReport(guide: chainBlocksGuide, tpsStats: stats, args, completedRun) -> json:
     js = {}
+    js['completedRun'] = completedRun
     js['nodeosVersion'] = Utils.getNodeosVersion()
     js['env'] = {'system': system(), 'os': os.name, 'release': release()}
     js['args'] =  dict(item.split("=") for item in f"{args}"[10:-1].split(", "))
