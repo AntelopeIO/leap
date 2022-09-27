@@ -33,7 +33,7 @@ modTps = targetTps % numGenerators
 cleanlyDivisible = modTps == 0
 incrementPoint = numGenerators + 1 - modTps
 subprocess_ret_codes = []
-for num in range(1, numGenerators+1):
+for num in range(1, numGenerators + 1):
     if not cleanlyDivisible and num == incrementPoint:
         tpsPerGenerator = tpsPerGenerator + 1
     if Utils.Debug: Print(
