@@ -199,7 +199,7 @@ def scoreTransfersPerSecond(data: chainData, guide : chainBlocksGuide) -> stats:
         return stats(int(np.min(npCBTAEC[:,0])), int(np.max(npCBTAEC[:,0])), float(np.average(npCBTAEC[:,0])), float(np.std(npCBTAEC[:,0])), int(np.sum(npCBTAEC[:,1])), len(prunedBlockDataLog))
 
 def calcBlockSizeStats(data: chainData, guide : chainBlocksGuide) -> stats:
-    """Analyzes a test scenario's steady state block data for statistics blocks size during the test window"""
+    """Analyzes a test scenario's steady state block data for block size statistics during the test window"""
     prunedBlockDataLog = pruneToSteadyState(data, guide)
 
     blocksToAnalyze = len(prunedBlockDataLog)
