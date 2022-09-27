@@ -166,6 +166,7 @@ const fc::microseconds abi_serializer_max_time = fc::seconds(10); // No risk to 
 string tx_ref_block_num_or_id;
 bool   tx_force_unique = false;
 bool   tx_dont_broadcast = false;
+bool   tx_unpack_data = false;
 bool   tx_return_packed = false;
 bool   tx_skip_sign = false;
 bool   tx_print_json = false;
@@ -180,6 +181,7 @@ bool   print_request = false;
 bool   print_response = false;
 bool   no_auto_keosd = false;
 bool   verbose = false;
+int    return_code = 0;
 
 uint8_t  tx_max_cpu_usage = 0;
 uint32_t tx_max_net_usage = 0;
@@ -226,6 +228,7 @@ void add_standard_transaction_options(CLI::App* cmd, string default_permission =
    cmd->add_flag("-j,--json", tx_print_json, localized("Print result as JSON"));
    cmd->add_option("--json-file", tx_json_save_file, localized("Save result in JSON format into a file"));
    cmd->add_flag("-d,--dont-broadcast", tx_dont_broadcast, localized("Don't broadcast transaction to the network (just print to stdout)"));
+   cmd->add_flag("-u,--unpack-action-data", tx_unpack_data, localized("Unpack all action data within transaction, needs interaction with ${n} unless --abi-file. Used in conjunction with --dont-broadcast.", ("n", node_executable_name)));
    cmd->add_flag("--return-packed", tx_return_packed, localized("Used in conjunction with --dont-broadcast to get the packed transaction"));
    cmd->add_option("-r,--ref-block", tx_ref_block_num_or_id, (localized("Set the reference block num or block id used for TAPOS (Transaction as Proof-of-Stake)")));
    cmd->add_flag("--use-old-rpc", tx_use_old_rpc, localized("Use old RPC push_transaction, rather than new RPC send_transaction"));
@@ -499,14 +502,15 @@ fc::variant push_transaction( signed_transaction& trx, const std::vector<public_
       }
    } else {
       if (!tx_return_packed) {
-         try {
+         if( tx_unpack_data ) {
             fc::variant unpacked_data_trx;
             abi_serializer::to_variant(trx, unpacked_data_trx, abi_serializer_resolver, abi_serializer::create_yield_function(abi_serializer_max_time));
             return unpacked_data_trx;
-         } catch (...) {
+         } else {
             return fc::variant(trx);
          }
       } else {
+         EOSC_ASSERT( !tx_unpack_data, "ERROR: --unpack-action-data not supported with --return-packed" );
         return fc::variant(packed_transaction(trx, compression));
       }
    }
@@ -619,6 +623,32 @@ void print_action_tree( const fc::variant& action ) {
    }
 }
 
+int get_return_code( const fc::variant& result ) {
+   // if a trx with a processed, then check to see if it failed execution for return value
+   int r = 0;
+   if (result.is_object() && result.get_object().contains("processed")) {
+      const auto& processed = result["processed"];
+      if( processed.is_object() && processed.get_object().contains( "except" ) ) {
+         const auto& except = processed["except"];
+         if( except.is_object() ) {
+            try {
+               auto soft_except = except.as<fc::exception>();
+               auto code = soft_except.code();
+               if( code > std::numeric_limits<int>::max() ) {
+                  r = 1;
+               } else {
+                  r = static_cast<int>( code );
+               }
+               if( r == 0 ) r = 1;
+            } catch( ... ) {
+               r = 1;
+            }
+         }
+      }
+   }
+   return r;
+}
+
 void print_result( const fc::variant& result ) { try {
       if (result.is_object() && result.get_object().contains("processed")) {
          const auto& processed = result["processed"];
@@ -682,6 +712,7 @@ void send_actions(std::vector<chain::action>&& actions, const std::vector<public
       out << jsonstr;
       out.close();
    }
+   return_code = get_return_code( result );
    if( tx_print_json ) {
       if (jsonstr.length() == 0) {
          jsonstr = fc::json::to_pretty_string( result );
@@ -1420,6 +1451,7 @@ struct unapprove_producer_subcommand {
 struct list_producers_subcommand {
    bool print_json = false;
    uint32_t limit = 50;
+   uint32_t time_limit_ms = 10;
    std::string lower;
 
    list_producers_subcommand(CLI::App* actionRoot) {
@@ -1427,15 +1459,18 @@ struct list_producers_subcommand {
       list_producers->add_flag("--json,-j", print_json, localized("Output in JSON format"));
       list_producers->add_option("-l,--limit", limit, localized("The maximum number of rows to return"));
       list_producers->add_option("-L,--lower", lower, localized("Lower bound value of key, defaults to first"));
+      list_producers->add_option("--time-limit", time_limit_ms, localized("Limit time of execution in milliseconds, defaults to 10ms"));
       list_producers->callback([this] {
-         auto rawResult = call(get_producers_func, fc::mutable_variant_object
-            ("json", true)("lower_bound", lower)("limit", limit));
+         fc::mutable_variant_object mo;
+         mo("json", true)("lower_bound", lower)("limit", limit);
+         if( time_limit_ms != 10 ) mo("time_limit_ms", time_limit_ms);
+         auto rawResult = call(get_producers_func, mo);
          if ( print_json ) {
             std::cout << fc::json::to_pretty_string(rawResult) << std::endl;
             return;
          }
          auto result = rawResult.as<eosio::chain_apis::read_only::get_producers_result>();
-         if ( result.rows.empty() ) {
+         if ( result.rows.empty() && result.more.empty() ) {
             std::cout << "No producers found" << std::endl;
             return;
          }
@@ -3060,6 +3095,7 @@ int main( int argc, char** argv ) {
    string encode_type{"dec"};
    bool binary = false;
    uint32_t limit = 10;
+   uint32_t time_limit_ms = 10;
    string index_position;
    bool reverse = false;
    bool show_payer = false;
@@ -3068,6 +3104,7 @@ int main( int argc, char** argv ) {
    getTable->add_option( "scope", scope, localized("The scope within the contract in which the table is found") )->required();
    getTable->add_option( "table", table, localized("The name of the table as specified by the contract abi") )->required();
    getTable->add_option( "-l,--limit", limit, localized("The maximum number of rows to return") );
+   getTable->add_option( "--time-limit", time_limit_ms, localized("Limit time of execution in milliseconds, defaults to 10ms"));
    getTable->add_option( "-k,--key", table_key, localized("Deprecated") );
    getTable->add_option( "-L,--lower", lower, localized("JSON representation of lower bound value of key, defaults to first") );
    getTable->add_option( "-U,--upper", upper, localized("JSON representation of upper bound value of key, defaults to last") );
@@ -3086,20 +3123,22 @@ int main( int argc, char** argv ) {
 
 
    getTable->callback([&] {
-      auto result = call(get_table_func, fc::mutable_variant_object("json", !binary)
-                         ("code",code)
-                         ("scope",scope)
-                         ("table",table)
-                         ("table_key",table_key) // not used
-                         ("lower_bound",lower)
-                         ("upper_bound",upper)
-                         ("limit",limit)
-                         ("key_type",key_type)
-                         ("index_position", index_position)
-                         ("encode_type", encode_type)
-                         ("reverse", reverse)
-                         ("show_payer", show_payer)
-                         );
+      fc::mutable_variant_object mo;
+      mo( "json", !binary )
+        ( "code", code )
+        ( "scope", scope )
+        ( "table", table )
+        ( "table_key", table_key ) // not used
+        ( "lower_bound", lower )
+        ( "upper_bound", upper )
+        ( "limit", limit )
+        ( "key_type", key_type )
+        ( "index_position", index_position )
+        ( "encode_type", encode_type )
+        ( "reverse", reverse )
+        ( "show_payer", show_payer );
+      if( time_limit_ms != 10 ) mo( "time_limit_ms", time_limit_ms );
+      auto result = call( get_table_func, mo );
 
       std::cout << fc::json::to_pretty_string(result)
                 << std::endl;
@@ -3109,17 +3148,21 @@ int main( int argc, char** argv ) {
    getScope->add_option( "contract", code, localized("The contract who owns the table") )->required();
    getScope->add_option( "-t,--table", table, localized("The name of the table as filter") );
    getScope->add_option( "-l,--limit", limit, localized("The maximum number of rows to return") );
+   getScope->add_option( "--time-limit", time_limit_ms, localized("Limit time of execution in milliseconds, defaults to 10ms"));
    getScope->add_option( "-L,--lower", lower, localized("Lower bound of scope") );
    getScope->add_option( "-U,--upper", upper, localized("Upper bound of scope") );
    getScope->add_flag("-r,--reverse", reverse, localized("Iterate in reverse order"));
    getScope->callback([&] {
-      auto result = call(get_table_by_scope_func, fc::mutable_variant_object("code",code)
-                         ("table",table)
-                         ("lower_bound",lower)
-                         ("upper_bound",upper)
-                         ("limit",limit)
-                         ("reverse", reverse)
-                         );
+      fc::mutable_variant_object mo;
+      mo( "code", code )
+        ( "table", table )
+        ( "lower_bound", lower )
+        ( "upper_bound", upper )
+        ( "limit", limit )
+        ( "reverse", reverse );
+      if( time_limit_ms != 10 ) mo( "time_limit_ms", time_limit_ms );
+      auto result = call( get_table_by_scope_func, mo );
+
       std::cout << fc::json::to_pretty_string(result)
                 << std::endl;
    });
@@ -4421,14 +4464,16 @@ int main( int argc, char** argv ) {
       }
       return 1;
    } catch ( const std::bad_alloc& ) {
-     elog("bad alloc");
+      elog("bad alloc");
+      return 1;
    } catch( const boost::interprocess::bad_alloc& ) {
-     elog("bad alloc");
+      elog("bad alloc");
+      return 1;
    } catch (const fc::exception& e) {
-     return handle_error(e);
+      return handle_error(e);
    } catch (const std::exception& e) {
-      return handle_error(fc::std_exception_wrapper::from_current_exception(e)); 
+      return handle_error(fc::std_exception_wrapper::from_current_exception(e));
    }
 
-   return 0;
+   return return_code;
 }

@@ -25,7 +25,8 @@ if [ $# -eq 0 ] || [ -z "$1" ]
 fi
 
 CORE_SYM=EOS
-DEP_DIR=$1
+# CMAKE_C_COMPILER requires absolute path
+DEP_DIR=`realpath $1`
 LEAP_DIR=$2
 JOBS=$3
 CLANG_VER=11.0.1
@@ -49,7 +50,8 @@ popdir() {
    echo ${D}
    D=`eval echo $D | head -n1 | cut -d " " -f1`
 
-   if [[ ${D} != ${EXPECTED} ]]; then
+   # -ef compares absolute paths
+   if ! [[ ${D} -ef ${EXPECTED} ]]; then
      echo "Directory is not where expected EXPECTED=${EXPECTED} at ${D}"
      exit 1 
    fi
@@ -69,7 +71,7 @@ install_clang() {
       echo "Installing Clang ${CLANG_VER} @ ${CLANG_DIR}"
       mkdir -p ${CLANG_DIR}
       CLANG_FN=clang+llvm-${CLANG_VER}-x86_64-linux-gnu-ubuntu-16.04.tar.xz
-      try wget https://github.com/llvm/llvm-project/releases/download/llvmorg-${CLANG_VER}/${CLANG_FN}
+      try wget -O ${CLANG_FN} https://github.com/llvm/llvm-project/releases/download/llvmorg-${CLANG_VER}/${CLANG_FN}
       try tar -xvf ${CLANG_FN} -C ${CLANG_DIR}
       pushdir ${CLANG_DIR}
       mv clang+*/* .
@@ -85,7 +87,7 @@ install_llvm() {
    if [ ! -d "${LLVM_DIR}" ]; then
       echo "Installing LLVM ${LLVM_VER} @ ${LLVM_DIR}"
       mkdir -p ${LLVM_DIR}
-      try wget https://github.com/llvm/llvm-project/releases/download/llvmorg-${LLVM_VER}/llvm-${LLVM_VER}.src.tar.xz
+      try wget -O llvm-${LLVM_VER}.src.tar.xz https://github.com/llvm/llvm-project/releases/download/llvmorg-${LLVM_VER}/llvm-${LLVM_VER}.src.tar.xz
       try tar -xvf llvm-${LLVM_VER}.src.tar.xz
       pushdir "${LLVM_DIR}.src"
       pushdir build
@@ -105,7 +107,7 @@ install_boost() {
 
    if [ ! -d "${BOOST_DIR}" ]; then
       echo "Installing Boost ${BOOST_VER} @ ${BOOST_DIR}"
-      try wget https://boostorg.jfrog.io/artifactory/main/release/${BOOST_VER}/source/boost_${BOOST_VER//\./_}.tar.gz
+      try wget -O boost_${BOOST_VER//\./_}.tar.gz https://boostorg.jfrog.io/artifactory/main/release/${BOOST_VER}/source/boost_${BOOST_VER//\./_}.tar.gz
       try tar --transform="s:^boost_${BOOST_VER//\./_}:boost_${BOOST_VER//\./_}patched:" -xvzf boost_${BOOST_VER//\./_}.tar.gz -C ${DEP_DIR}
       pushdir ${BOOST_DIR}
       patch -p1 < "${SCRIPT_DIR}/0001-beast-fix-moved-from-executor.patch"

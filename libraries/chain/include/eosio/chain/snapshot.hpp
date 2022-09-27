@@ -5,6 +5,7 @@
 #include <fc/variant_object.hpp>
 #include <boost/core/demangle.hpp>
 #include <ostream>
+#include <memory>
 
 namespace eosio { namespace chain {
    /**
@@ -272,11 +273,6 @@ namespace eosio { namespace chain {
          read_section(detail::snapshot_section_traits<T>::section_name(), f);
       }
 
-      template<typename T>
-      bool has_section(const std::string& suffix = std::string()) {
-         return has_section(suffix + detail::snapshot_section_traits<T>::section_name());
-      }
-
       virtual void validate() const = 0;
 
       virtual void return_to_header() = 0;
@@ -284,7 +280,6 @@ namespace eosio { namespace chain {
       virtual ~snapshot_reader(){};
 
       protected:
-         virtual bool has_section( const std::string& section_name ) = 0;
          virtual void set_section( const std::string& section_name ) = 0;
          virtual bool read_row( detail::abstract_snapshot_row_reader& row_reader ) = 0;
          virtual bool empty( ) = 0;
@@ -313,7 +308,6 @@ namespace eosio { namespace chain {
          explicit variant_snapshot_reader(const fc::variant& snapshot);
 
          void validate() const override;
-         bool has_section( const string& section_name ) override;
          void set_section( const string& section_name ) override;
          bool read_row( detail::abstract_snapshot_row_reader& row_reader ) override;
          bool empty ( ) override;
@@ -342,7 +336,22 @@ namespace eosio { namespace chain {
          std::streampos          header_pos;
          std::streampos          section_pos;
          uint64_t                row_count;
+   };
 
+   class ostream_json_snapshot_writer : public snapshot_writer {
+      public:
+         explicit ostream_json_snapshot_writer(std::ostream& snapshot);
+
+         void write_start_section( const std::string& section_name ) override;
+         void write_row( const detail::abstract_snapshot_row_writer& row_writer ) override;
+         void write_end_section() override;
+         void finalize();
+
+         static const uint32_t magic_number = 0x30510550;
+
+      private:
+         detail::ostream_wrapper snapshot;
+         uint64_t                row_count;
    };
 
    class istream_snapshot_reader : public snapshot_reader {
@@ -350,7 +359,6 @@ namespace eosio { namespace chain {
          explicit istream_snapshot_reader(std::istream& snapshot);
 
          void validate() const override;
-         bool has_section( const string& section_name ) override;
          void set_section( const string& section_name ) override;
          bool read_row( detail::abstract_snapshot_row_reader& row_reader ) override;
          bool empty ( ) override;
@@ -364,6 +372,24 @@ namespace eosio { namespace chain {
          std::streampos header_pos;
          uint64_t       num_rows;
          uint64_t       cur_row;
+   };
+
+   class istream_json_snapshot_reader : public snapshot_reader {
+      public:
+         explicit istream_json_snapshot_reader(const fc::path& p);
+         ~istream_json_snapshot_reader();
+
+         void validate() const override;
+         void set_section( const string& section_name ) override;
+         bool read_row( detail::abstract_snapshot_row_reader& row_reader ) override;
+         bool empty ( ) override;
+         void clear_section() override;
+         void return_to_header() override;
+
+      private:
+         bool validate_section() const;
+
+         std::unique_ptr<struct istream_json_snapshot_reader_impl> impl;
    };
 
    class integrity_hash_snapshot_writer : public snapshot_writer {
