@@ -21,8 +21,9 @@ data.printBlockData()
 
 guide = log_reader.calcChainGuide(data, args.num_blocks_to_prune)
 tpsStats = log_reader.scoreTransfersPerSecond(data, guide)
-print(f"Guide: {guide}\nTPS: {tpsStats}")
-report = log_reader.createJSONReport(guide, tpsStats, args, True)
+blkSizeStats = log_reader.calcBlockSizeStats(data, guide)
+print(f"Blocks Guide: {guide}\nTPS: {tpsStats}\nBlock Size: {blkSizeStats}")
+report = log_reader.createJSONReport(guide, tpsStats, blkSizeStats, args, True)
 print(report)
 if args.save_json:
     log_reader.exportAsJSON(report, args)
