@@ -1,5 +1,3 @@
-set( ECC_IMPL secp256k1 CACHE STRING "secp256k1 or openssl or mixed" )
-
 add_subdirectory( secp256k1 )
 
 set( WITH_PROCPS OFF CACHE BOOL "" FORCE)
@@ -8,17 +6,6 @@ set( USE_ASM OFF CACHE BOOL "" FORCE)
 set( IS_LIBFF_PARENT OFF CACHE BOOL "" FORCE)
 set( FF_INSTALL_COMPONENT "${FC_INSTALL_COMPONENT}")
 add_subdirectory( libraries/ff )
-
-if( ECC_IMPL STREQUAL openssl )
-  set( ECC_REST src/crypto/elliptic_impl_pub.cpp )
-else( ECC_IMPL STREQUAL openssl )
-  set( ECC_LIB secp256k1 )
-  if( ECC_IMPL STREQUAL mixed )
-    set( ECC_REST src/crypto/elliptic_impl_priv.cpp src/crypto/elliptic_impl_pub.cpp )
-  else( ECC_IMPL STREQUAL mixed )
-    set( ECC_REST src/crypto/elliptic_impl_priv.cpp )
-  endif( ECC_IMPL STREQUAL mixed )
-endif( ECC_IMPL STREQUAL openssl )
 
 set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)
@@ -69,8 +56,8 @@ set( fc_sources
      src/crypto/dh.cpp
      src/crypto/blowfish.cpp
      src/crypto/elliptic_common.cpp
-     ${ECC_REST}
-     src/crypto/elliptic_${ECC_IMPL}.cpp
+     src/crypto/elliptic_impl_priv.cpp
+     src/crypto/elliptic_secp256k1.cpp
      src/crypto/elliptic_r1.cpp
      src/crypto/elliptic_webauthn.cpp
      src/crypto/rand.cpp
@@ -140,7 +127,7 @@ if(APPLE)
 endif()
 target_link_libraries( fc PUBLIC ff
                                  Boost::date_time Boost::filesystem Boost::chrono Boost::iostreams Threads::Threads
-                                 OpenSSL::Crypto OpenSSL::SSL ZLIB::ZLIB ${PLATFORM_SPECIFIC_LIBS} ${CMAKE_DL_LIBS} ${ECC_LIB} ${security_framework} ${corefoundation_framework} )
+                                 OpenSSL::Crypto OpenSSL::SSL ZLIB::ZLIB ${PLATFORM_SPECIFIC_LIBS} ${CMAKE_DL_LIBS} secp256k1 ${security_framework} ${corefoundation_framework} )
 
 # Critically, this ensures that OpenSSL 1.1 & 3.0 both have a variant of BN_zero() with void return value. But it also allows access
 #  to some obsoleted AES functions in 3.0 too, since 3.0's API_COMPAT is effectively 3.0 by default
