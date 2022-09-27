@@ -20,4 +20,4 @@ Replace API_ENDPOINT and PORT with your remote `nodeos` API endpoint detail
 
 ## "Missing Authorizations"
 
-That means you are not using the required authorizations. Most likely you are not using correct EOSIO account or permission level to sign the transaction
+That means you are not using the required authorizations. Most likely you are not using correct Antelope account or permission level to sign the transaction
