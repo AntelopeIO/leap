@@ -60,6 +60,8 @@ cluster=Cluster(walletd=True, loggingLevel="info")
 cluster.setWalletMgr(walletMgr)
 
 testSuccessful = False
+completedRun = False
+
 try:
     # Kill any existing instances and launch cluster
     TestHelper.printSystemInfo("BEGIN")
@@ -119,6 +121,21 @@ try:
 
     # Get stats after transaction generation stops
     data.ceaseBlock = waitForEmptyBlocks(validationNode) - emptyBlockGoal + 1
+    completedRun = True
+
+except subprocess.CalledProcessError as err:
+    print(f"trx_generator return error code: {err.returncode}.  Test aborted.")
+finally:
+    TestHelper.shutdown(
+        cluster,
+        walletMgr,
+        testSuccessful,
+        killEosInstances,
+        killWallet,
+        keepLogs,
+        killAll,
+        dumpErrorDetails
+    )
     log_reader.scrapeLog(data, "var/lib/node_01/stderr.txt")
 
     print(data)
@@ -133,27 +150,18 @@ try:
     tpsStats = log_reader.scoreTransfersPerSecond(data, guide)
     blkSizeStats = log_reader.calcBlockSizeStats(data, guide)
     print(f"Blocks Guide: {guide}\nTPS: {tpsStats}\nBlock Size: {blkSizeStats}")
-    report = log_reader.createJSONReport(guide, tpsStats, blkSizeStats, args)
+    report = log_reader.createJSONReport(guide, tpsStats, blkSizeStats, args, completedRun)
     print(report)
     if args.save_json:
         log_reader.exportAsJSON(report, args)
 
-    assert transactionsSent == data.totalTransactions , f"Error: Transactions received: {data.totalTransactions} did not match expected total: {transactionsSent}"
+    if completedRun:
+        assert transactionsSent == data.totalTransactions , f"Error: Transactions received: {data.totalTransactions} did not match expected total: {transactionsSent}"
+    else:
+        os.system("pkill trx_generator")
+        print("Test run cancelled early via SIGINT")
 
     testSuccessful = True
-except subprocess.CalledProcessError as err:
-    print(f"trx_generator return error code: {err.returncode}.  Test aborted.")
-finally:
-    TestHelper.shutdown(
-        cluster,
-        walletMgr,
-        testSuccessful,
-        killEosInstances,
-        killWallet,
-        keepLogs,
-        killAll,
-        dumpErrorDetails
-    )
 
 exitCode = 0 if testSuccessful else 1
 exit(exitCode)

@@ -217,8 +217,9 @@ def calcBlockSizeStats(data: chainData, guide : chainBlocksGuide) -> stats:
         return stats(int(np.min(npBlkSizeList[:,0])), int(np.max(npBlkSizeList[:,0])), float(np.average(npBlkSizeList[:,0])), float(np.std(npBlkSizeList[:,0])), int(np.sum(npBlkSizeList[:,1])), len(prunedBlockDataLog))
 
 
-def createJSONReport(guide: chainBlocksGuide, tpsStats: stats, blockSizeStats: stats, args) -> json:
+def createJSONReport(guide: chainBlocksGuide, tpsStats: stats, blockSizeStats: stats, args, completedRun) -> json:
     js = {}
+    js['completedRun'] = completedRun
     js['nodeosVersion'] = Utils.getNodeosVersion()
     js['env'] = {'system': system(), 'os': os.name, 'release': release()}
     js['args'] =  dict(item.split("=") for item in f"{args}"[10:-1].split(", "))
