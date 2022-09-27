@@ -38,8 +38,10 @@
 
 #if defined(__SSE4_2__) && defined(__x86_64__)
 #include <nmmintrin.h>
+#define MM_CRC32_U64I _mm_crc32_u64
 #else
-uint64_t _mm_crc32_u64(uint64_t a, uint64_t b );
+uint64_t mm_crc32_u64(uint64_t a, uint64_t b );
+#define MM_CRC32_U64I mm_crc32_u64
 #endif
 
 namespace fc {
@@ -578,9 +580,9 @@ static void CityHashCrc256Long(const char *s, size_t len,
     g += e;                                     \
     e += z;                                     \
     g += x;                                     \
-    z = _mm_crc32_u64(z, b + g);                \
-    y = _mm_crc32_u64(y, e + h);                \
-    x = _mm_crc32_u64(x, f + a);                \
+    z = MM_CRC32_U64I(z, b + g);                \
+    y = MM_CRC32_U64I(y, e + h);                \
+    x = MM_CRC32_U64I(x, f + a);                \
     e = Rotate(e, r);                           \
     c += e;                                     \
     s += 40
