@@ -473,6 +473,44 @@ class Utils:
         return "comparison of %s type is not supported, context=%s" % (typeName,context)
 
     @staticmethod
+    def compareFiles(file1: str, file2: str):
+        f1 = open(file1)
+        f2 = open(file2)
+
+        i = 0
+        same = True
+        for line1 in f1:
+            i += 1
+            for line2 in f2:
+                if line1 != line2:
+                    if Utils.Debug: Utils.Print("Diff line ", i, ":")
+                    if Utils.Debug: Utils.Print("\tFile 1: ", line1)
+                    if Utils.Debug: Utils.Print("\tFile 2: ", line2)
+                    same = False
+                break
+
+        f1.close()
+        f2.close()
+        return same
+
+    @staticmethod
+    def rmFromFile(file: str, matchValue: str):
+        """Rm lines from file that match *matchValue*"""
+
+        lines = []
+        with open(file, "r") as f:
+            lines = f.readlines()
+
+        c = 0
+        with open(file, "w") as f:
+            for line in lines:
+                if matchValue not in line:
+                    f.write(line)
+                    c += 1
+
+        return c
+
+    @staticmethod
     def addAmount(assetStr: str, deltaStr: str) -> str:
         asset = assetStr.split()
         if len(asset) != 2:
