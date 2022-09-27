@@ -604,7 +604,7 @@ static const uint32_t crc_c[256] = {
 #if !defined __SSE4_2__ || (defined __SSE4_2__ && !defined __x86_64__)
 
 
-uint64_t _mm_crc32_u64(uint64_t a, uint64_t b )
+uint64_t mm_crc32_u64(uint64_t a, uint64_t b )
 {
     return crc32cSlicingBy8(a, (unsigned char*)&b, sizeof(b)); 
 }
@@ -617,7 +617,7 @@ int main( int argc, char** argv )
 {
     uint64_t f = 0x1234;
     uint64_t a = 0x5678;
-    uint32_t f1 = _mm_crc32_u64(f, a); 
+    uint32_t f1 = mm_crc32_u64(f, a);
     uint32_t f4  = crc32cSlicingBy8(f, (unsigned char*)&a, sizeof(a)); 
     std::cout<<std::hex<<f1<<"\n"<<f2<<"\n"<<f3<<"\n"<<f4<<"\n";
     return 0;
