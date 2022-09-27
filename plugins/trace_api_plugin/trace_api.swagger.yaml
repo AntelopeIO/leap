@@ -1,12 +1,13 @@
 openapi: 3.0.0
 info:
   title: Trace API
+  description: See developer documentation at https://docs.eosnetwork.com for information on enabling this plugin.
   version: 1.0.0
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT
   contact:
-    url: https://eos.io
+    url: https://eosnetwork.com
 servers:
   - url: '{protocol}://{host}:{port}/v1/'
     variables:
@@ -21,9 +22,12 @@ servers:
         default: "8080"
 components:
   schemas: {}
+security:
+  - {}
 paths:
   /trace_api/get_block:
     post:
+      summary: get block
       description: Returns a block trace object containing retired actions and related metadata.
       operationId: get_block
       requestBody:
@@ -44,11 +48,186 @@ paths:
             application/json:
               schema:
                 oneOf:
-                  - $ref: "https://eosio.github.io/schemata/v2.0/oas/BlockTraceV0.yaml"
-                  - $ref: "https://eosio.github.io/schemata/v2.0/oas/BlockTraceV1.yaml"
+                  - $ref: "https://docs.eosnetwork.com/openapi/v2.0/BlockTraceV0.yaml"
+                  - $ref: "https://docs.eosnetwork.com/openapi/v2.0/BlockTraceV1.yaml"
+                  - $ref: "https://docs.eosnetwork.com/openapi/v2.0/BlockTraceV2.yaml"
         "400":
           description: Error - requested block number is invalid (not a number, larger than max int)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 400
+                  message:
+                    type: string
+                    example: "bad or missing block_num"
+                  error:
+                    $ref: "#/component/schema/ERROR_DETAILS"
         "404":
           description: Error - requested data not present on node
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 400
+                  message:
+                    type: string
+                    example: "bad or missing block_num"
+                  error:
+                    $ref: "#/component/schema/ERROR_DETAILS"
         "500":
           description: Error - exceptional condition while processing get_block; e.g. corrupt files
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 500
+                  message:
+                    type: string
+                    example: "Trace API encountered an Error which it cannot recover from.  Please resolve the error and relaunch the process"
+                  error:
+                    $ref: "#/component/schema/ERROR_DETAILS"
+
+  /trace_api/get_transaction_trace:
+    post:
+      summary: transaction trace
+      description: Does a scan of the trace files looking for the transaction
+      optionationId: get_transaction_trace
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+              properties:
+                id:
+                  type: integer
+                  description: Proviade a transaction id
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "https://docs.eosnetwork.com/openapi/v2.0/TransactionTraceV0.yaml"
+                  - $ref: "https://docs.eosnetwork.com/openapi/v2.0/TransactionTraceV1.yaml"
+                  - $ref: "https://docs.eosnetwork.com/openapi/v2.0/TransactionTraceV2.yaml"
+                  - $ref: "https://docs.eosnetwork.com/openapi/v2.0/TransactionTraceV3.yaml"
+        "400":
+          description: Error - requested block number is invalid (not a number, larger than max int)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 400
+                  message:
+                    type: string
+                    example: "bad or missing block_num"
+                  error:
+                    $ref: "#/component/schema/ERROR_DETAILS"
+        "404":
+          description: Error - requested data not present on node
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 400
+                  message:
+                    type: string
+                    example: "bad or missing block_num"
+                  error:
+                    $ref: "#/component/schema/ERROR_DETAILS"
+        "500":
+          description: Error - exceptional condition while processing get_block; e.g. corrupt files
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 500
+                  message:
+                    type: string
+                    example: "Trace API encountered an Error which it cannot recover from.  Please resolve the error and relaunch the process"
+                  error:
+                    $ref: "#/component/schema/ERROR_DETAILS"
+component:
+  schema:
+    TRACE:
+      type: object
+      properties:
+        global_squence:
+          type: integer
+          example: 669
+        receiver:
+          type: string
+          example: myproducer
+        account:
+          type: string
+          example: esio.token
+        action:
+          type: string
+          example: transfer
+        authorization:
+          type: array
+          items:
+            type: object
+            properties:
+              account:
+                type: string
+                example: myaccount
+              permission:
+                type: string
+                example: active
+        data:
+          type: string
+          $ref: "https://docs.eosnetwork.com/openapi/v2.0/Sha256.yaml"
+        return_value:
+          type: string
+          example: ""
+        params:
+          type: object
+          properties:
+            from:
+              type: string
+              example: eosio
+            to:
+              type: string
+              example: myproducer
+            quantity:
+              type: string
+              example: "10.000 SYS"
+            memo:
+              type: string
+              example: "first transfer"
+    ERROR_DETAILS:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 0
+        name:
+          type: string
+        what:
+          type: string
+        details:
+          type: array
+        items:
+          type: string
