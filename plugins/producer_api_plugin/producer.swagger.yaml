@@ -111,7 +111,7 @@ paths:
                     type: array
                     description: Array of account names stored in the greylist
                     items:
-                      $ref: "https://eosio.github.io/schemata/v2.0/oas/Name.yaml"
+                      $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
 
   /producer/add_greylist_accounts:
     post:
@@ -128,7 +128,7 @@ paths:
                     type: array
                     description: List of account names to add
                     items:
-                      $ref: "https://eosio.github.io/schemata/v2.0/oas/Name.yaml"
+                      $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
 
       responses:
         "201":
@@ -158,7 +158,7 @@ paths:
                   type: array
                   description: List of account names to remove
                   items:
-                    $ref: "https://eosio.github.io/schemata/v2.0/oas/Name.yaml"
+                    $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
 
       responses:
         "201":
@@ -190,19 +190,19 @@ paths:
                   actor_whitelist:
                     type: array
                     items:
-                      $ref: "https://eosio.github.io/schemata/v2.0/oas/Name.yaml"
+                      $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
                   actor_blacklist:
                     type: array
                     items:
-                      $ref: "https://eosio.github.io/schemata/v2.0/oas/Name.yaml"
+                      $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
                   contract_whitelist:
                     type: array
                     items:
-                      $ref: "https://eosio.github.io/schemata/v2.0/oas/Name.yaml"
+                      $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
                   contract_blacklist:
                     type: array
                     items:
-                      $ref: "https://eosio.github.io/schemata/v2.0/oas/Name.yaml"
+                      $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
                   action_blacklist:
                     type: array
                     items:
@@ -210,12 +210,12 @@ paths:
                       description: Array of two string values, the account name as the first and action name as the second
                       items:
                         allOf:
-                          - $ref: "https://eosio.github.io/schemata/v2.0/oas/Name.yaml"
-                          - $ref: "https://eosio.github.io/schemata/v2.0/oas/CppSignature.yaml"
+                          - $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
+                          - $ref: "https://docs.eosnetwork.com/openapi/v2.0/CppSignature.yaml"
                   key_blacklist:
                     type: array
                     items:
-                      $ref: "https://eosio.github.io/schemata/v2.0/oas/KeyType.yaml"
+                      $ref: "https://docs.eosnetwork.com/openapi/v2.0/KeyType.yaml"
 
   /producer/set_whitelist_blacklist:
     post:
@@ -232,19 +232,19 @@ paths:
                 actor_whitelist:
                   type: array
                   items:
-                    $ref: "https://eosio.github.io/schemata/v2.0/oas/Name.yaml"
+                    $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
                 actor_blacklist:
                   type: array
                   items:
-                    $ref: "https://eosio.github.io/schemata/v2.0/oas/Name.yaml"
+                    $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
                 contract_whitelist:
                   type: array
                   items:
-                    $ref: "https://eosio.github.io/schemata/v2.0/oas/Name.yaml"
+                    $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
                 contract_blacklist:
                   type: array
                   items:
-                    $ref: "https://eosio.github.io/schemata/v2.0/oas/Name.yaml"
+                    $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
                 action_blacklist:
                   type: array
                   items:
@@ -252,12 +252,12 @@ paths:
                     description: Array of two string values, the account name as the first and action name as the second
                     items:
                       anyOf:
-                        - $ref: "https://eosio.github.io/schemata/v2.0/oas/Name.yaml"
-                        - $ref: "https://eosio.github.io/schemata/v2.0/oas/CppSignature.yaml"
+                        - $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
+                        - $ref: "https://docs.eosnetwork.com/openapi/v2.0/CppSignature.yaml"
                 key_blacklist:
                   type: array
                   items:
-                    $ref: "https://eosio.github.io/schemata/v2.0/oas/KeyType.yaml"
+                    $ref: "https://docs.eosnetwork.com/openapi/v2.0/KeyType.yaml"
       responses:
         "201":
           description: OK
@@ -287,7 +287,7 @@ paths:
                 type: object
                 properties:
                   head_block_id:
-                    $ref: "https://eosio.github.io/schemata/v2.0/oas/Sha256.yaml"
+                    $ref: "https://docs.eosnetwork.com/openapi/v2.0/Sha256.yaml"
                   head_block_num:
                     type: integer
                     descripiton: Highest block number on the chain
@@ -327,9 +327,9 @@ paths:
                 description: Defines the integrity hash information details
                 properties:
                   head_block_id:
-                    $ref: "https://eosio.github.io/schemata/v2.0/oas/Sha256.yaml"
+                    $ref: "https://docs.eosnetwork.com/openapi/v2.0/Sha256.yaml"
                   integrity_hash:
-                    $ref: "https://eosio.github.io/schemata/v2.0/oas/Sha256.yaml"
+                    $ref: "https://docs.eosnetwork.com/openapi/v2.0/Sha256.yaml"
 
   /producer/schedule_protocol_feature_activations:
     post:
@@ -346,7 +346,7 @@ paths:
                   type: array
                   description: List of protocol features to activate
                   items:
-                    $ref: "https://eosio.github.io/schemata/v2.0/oas/Sha256.yaml"
+                    $ref: "https://docs.eosnetwork.com/openapi/v2.0/Sha256.yaml"
       responses:
         "201":
           description: OK
@@ -391,7 +391,7 @@ paths:
                   type: object
                   properties:
                     feature_digest:
-                      $ref: "https://eosio.github.io/schemata/v2.0/oas/Sha256.yaml"
+                      $ref: "https://docs.eosnetwork.com/openapi/v2.0/Sha256.yaml"
                     subjective_restrictions:
                       type: object
                       properties:
@@ -405,11 +405,11 @@ paths:
                           type: string
                           example: "1970-01-01T00:00:00.000"
                         description_digest:
-                          $ref: "https://eosio.github.io/schemata/v2.0/oas/Sha256.yaml"
+                          $ref: "https://docs.eosnetwork.com/openapi/v2.0/Sha256.yaml"
                         dependancies:
                           type: array
                           items:
-                            $ref: "https://eosio.github.io/schemata/v2.0/oas/Sha256.yaml"
+                            $ref: "https://docs.eosnetwork.com/openapi/v2.0/Sha256.yaml"
                         protocol_feature_type:
                           type: string
                           example: "builtin"
@@ -421,7 +421,7 @@ paths:
                               name:
                                 type: string
                               value:
-                                type: string 
+                                type: string
 
 
   /producer/get_account_ram_corrections:
@@ -461,6 +461,81 @@ paths:
                     type: array
                     items:
                       type: string
+
+  /producer/producer/get_unapplied_transactions:
+    post:
+      summary: get_unapplied_transactions
+      description: Get Unapplied Transactions. No required parameters.
+      operationId: get_unapplied_transactions
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                limit:
+                  type: int
+                  description: number of transactions to return, defaults to 4,294,967,295
+                  example: 2
+                lower_bound:
+                  $ref: "https://docs.eosnetwork.com/openapi/v2.0/Sha256.yaml"
+                time_limit_ms:
+                  type: int
+                  description: defaults to 10ms
+                  example: 10
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  size:
+                    type: integer
+                    example: 12428
+                  incoming_size:
+                    type: integer
+                    example: 4475
+                  trxs:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        trx_id:
+                          $ref: "https://docs.eosnetwork.com/openapi/v2.0/Sha256.yaml"
+                        expiration:
+                          type: string
+                          example: "2022-09-17T16:30:16"
+                        trx_type:
+                          type: string
+                          example: "aborted"
+                        first_auth:
+                          type: string
+                          example: "jkbsg.wam"
+                        first_receiver:
+                          type: string
+                          example: "m.federation"
+                        first_action:
+                          type: string
+                          example: "mine"
+                        total_actions:
+                          type: integer
+                          example: 1
+                        billed_cpu_time_us:
+                          type: integer
+                          example: 504
+                        size:
+                          type: integer
+                          example: 934
+                  more:
+                    $ref: "https://docs.eosnetwork.com/openapi/v2.0/Sha256.yaml"
+        "400":
+          description: client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/component/schema/Error'
 
 component:
   schema:
