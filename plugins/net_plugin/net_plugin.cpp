@@ -416,6 +416,8 @@ namespace eosio {
     *  If there is a change to network protocol or behavior, increment net version to identify
     *  the need for compatibility hooks
     */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
    constexpr uint16_t proto_base = 0;
    constexpr uint16_t proto_explicit_sync = 1;       // version at time of eosio 1.0
    constexpr uint16_t proto_block_id_notify = 2;     // reserved. feature was removed. next net_version should be 3
@@ -424,6 +426,7 @@ namespace eosio {
    constexpr uint16_t proto_dup_goaway_resolution = 5;     // eosio 2.1: support peer address based duplicate connection resolution
    constexpr uint16_t proto_dup_node_id_goaway = 6;        // eosio 2.1: support peer node_id based duplicate connection resolution
    constexpr uint16_t proto_leap_initial = 7;            // leap client, needed because none of the 2.1 versions are supported
+#pragma GCC diagnostic pop
 
    constexpr uint16_t net_version_max = proto_leap_initial;
 
@@ -2672,7 +2675,6 @@ namespace eosio {
       const unsigned long trx_in_progress_sz = this->trx_in_progress_size.load();
 
       auto ds = pending_message_buffer.create_datastream();
-      const auto buff_size_start = pending_message_buffer.bytes_to_read();
       unsigned_int which{};
       fc::raw::unpack( ds, which );
       shared_ptr<packed_transaction> ptr = std::make_shared<packed_transaction>();
@@ -3348,7 +3350,6 @@ namespace eosio {
    // called from application thread
    void net_plugin_impl::on_accepted_block(const block_state_ptr& bs) {
       update_chain_info();
-      controller& cc = chain_plug->chain();
       dispatcher->strand.post( [this, bs]() {
          fc_dlog( logger, "signaled accepted_block, blk num = ${num}, id = ${id}", ("num", bs->block_num)("id", bs->id) );
 
@@ -3475,7 +3476,6 @@ namespace eosio {
    bool connection::populate_handshake( handshake_message& hello ) {
       namespace sc = std::chrono;
       hello.network_version = net_version_base + net_version;
-      const auto prev_head_id = hello.head_id;
       uint32_t lib, head;
       std::tie( lib, std::ignore, head,
                 hello.last_irreversible_block_id, std::ignore, hello.head_id ) = my_impl->get_chain_info();
