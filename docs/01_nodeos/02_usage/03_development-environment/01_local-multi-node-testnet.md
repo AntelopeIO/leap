@@ -10,8 +10,8 @@ This section describes how to set up a multi-node blockchain configuration runni
 
 ## Before you begin
 
-* [Install the EOSIO software](../../../00_install/index.md) before starting this section.
-* It is assumed that `nodeos`, `cleos`, and `keosd` are accessible through the path. If you built EOSIO using shell scripts, make sure to run the [Install Script](../../../00_install/01_build-from-source/01_shell-scripts/03_install-eosio-binaries.md).
+* [Install the Antelope software](../../../00_install/index.md) before starting this section.
+* It is assumed that `nodeos`, `cleos`, and `keosd` are accessible through the path.
 * Know how to pass [Nodeos options](../../02_usage/00_nodeos-options.md) to enable or disable functionality.
 
 ## Steps
@@ -20,7 +20,7 @@ Open four "terminal" windows and perform the following steps:
 
 1. [Start the Wallet Manager](#1-start-the-wallet-manager)
 2. [Create a Default Wallet](#2-create-a-default-wallet)
-3. [Loading the EOSIO Key](#3-loading-the-eosio-key)
+3. [Loading the Antelope Key](#3-loading-the-antelope-key)
 4. [Start the First Producer Node](#4-start-the-first-producer-node)
 5. [Start the Second Producer Node](#5-start-the-second-producer-node)
 6. [Get Nodes Info](#6-get-nodes-info)
@@ -66,7 +66,7 @@ Without password imported keys will not be retrievable.
 
 `keosd` will generate some status output in its window. We will continue to use this second window for subsequent `cleos` commands.
 
-### 3. Loading the EOSIO Key
+### 3. Loading the Antelope Key
 
 The private blockchain launched in the steps above is created with a default initial key which must be loaded into the wallet.
 
@@ -90,7 +90,8 @@ This creates a special producer, known as the "bios" producer. Assuming everythi
 
 ### 5. Start the Second Producer Node
 
-The following commands assume that you are running this tutorial from the `eos\build` directory, from which you ran `./eosio_build.sh` to build the EOSIO binaries.
+[//]: # (don't render for now)
+[//]: # (The following commands assume that you are running this tutorial from the `eos\build` directory, from which you ran `./eosio_build.sh` to build the Antelope binaries.)
 
 To start additional nodes, you must first load the `eosio.bios` contract. This contract enables you to have direct control over the resource allocation of other accounts and to access other privileged API calls. Return to the second terminal window and run the following command to load the contract:
 

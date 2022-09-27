@@ -12,8 +12,12 @@ This section describes how to set up a single-node blockchain configuration runn
 
 ## Before you begin
 
-* [Install the EOSIO software](../../../00_install/index.md) before starting this section.
-* It is assumed that `nodeos`, `cleos`, and `keosd` are accessible through the path. If you built EOSIO using shell scripts, make sure to run the [Install Script](../../../00_install/01_build-from-source/01_shell-scripts/03_install-eosio-binaries.md).
+* [Install the Antelope software](../../../00_install/index.md) before starting this section.
+* It is assumed that `nodeos`, `cleos`, and `keosd` are accessible through the path.  
+
+[//]: # (THIS IS A COMMENT, NEXT LINK HAS BROKEN LINK)  
+[//]: # (If you built Antelope using shell scripts, make sure to run the Install Script ../../../00_install/01_build-from-source/01_shell-scripts/03_install-antelope-binaries.md .)  
+
 * Know how to pass [Nodeos options](../../02_usage/00_nodeos-options.md) to enable or disable functionality.
 
 ## Steps
@@ -87,7 +91,7 @@ The more advanced user will likely have need to modify the configuration.  `node
 * Linux: `~/.local/share/eosio/nodeos/config`
 
 The build seeds this folder with a default `genesis.json` file.  A configuration folder can be specified using the `--config-dir` command line argument to `nodeos`.  If you use this option, you will need to manually copy a `genesis.json` file to your config folder.
- 
+
 `nodeos` will need a properly configured `config.ini` file in order to do meaningful work.  On startup, `nodeos` looks in the config folder for `config.ini`.  If one is not found, a default `config.ini` file is created.  If you do not already have a `config.ini` file ready to use, run `nodeos` and then close it immediately with <kbd>Ctrl-C</kbd>.  A default configuration (`config.ini`) will have been created in the config folder.  Edit the `config.ini` file, adding/updating the following settings to the defaults already in place:
 
 ```console
@@ -115,7 +119,7 @@ nodeos
 
 * Mac OS: `~/Library/Application\ Support/eosio/nodeos/data`
 * Linux: `~/.local/share/eosio/nodeos/data`
- 
+
 A data folder can be specified using the `--data-dir` command line argument to `nodeos`.
 
 [[info | What's next?]]

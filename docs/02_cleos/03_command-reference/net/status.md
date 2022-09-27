@@ -4,7 +4,11 @@ cleos net status [OPTIONS] host
 ```
 
 **Where:**
-* [OPTIONS] = See **Options** in the [**Command Usage**](command-usage) section below.
+* [OPTIONS] = See **Options** section TBD
+
+[//]: # ( THIS IS A COMMENT LINK BELOW IS BROKEN )  
+[//]: # (in the **Command Usage** command-usage section below.)  
+
 * host = The hostname:port to query status of connection
 
 **Note:** The arguments and options enclosed in square brackets are optional.
@@ -26,7 +30,7 @@ Make sure you meet the following requirements:
 
 * Install the currently supported version of `cleos`.
 [[info | Note]]
-| `cleos` is bundled with the EOSIO software. [Installing EOSIO](../../../00_install/index.md) will also install the `cleos` and `keosd` command line tools.
+| `cleos` is bundled with the Antelope software. [Installing Antelope](../../../00_install/index.md) will also install the `cleos` and `keosd` command line tools.
 * You have access to a producing node instance with the [`net_api_plugin`](../../../01_nodeos/03_plugins/net_api_plugin/index.md) loaded.
 
 ## Examples
@@ -63,4 +67,4 @@ cleos -u http://127.0.0.1:8002 net status localhost:9001
 }
 ```
 
-**Note:** The `last_handshake` field contains the chain state of the specified peer as of the last handshake message with the node. For more information read the [Handshake Message](https://developers.eos.io/welcome/latest/protocol/network_peer_protocol#421-handshake-message) in the *Network Peer Protocol* document.
+**Note:** The `last_handshake` field contains the chain state of the specified peer as of the last handshake message with the node. For more information read the [Handshake Message](/protocol-guides/03_network_peer_protocol.md#421-handshake-message) in the *Network Peer Protocol* document.

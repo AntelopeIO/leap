@@ -24,100 +24,100 @@ These can be specified from both the `nodeos` command-line or the `config.ini` f
 ```console
 Config Options for eosio::producer_plugin:
 
-  -e [ --enable-stale-production ]      Enable block production, even if the 
+  -e [ --enable-stale-production ]      Enable block production, even if the
                                         chain is stale.
-  -x [ --pause-on-startup ]             Start this node in a state where 
+  -x [ --pause-on-startup ]             Start this node in a state where
                                         production is paused
-  --max-transaction-time arg (=30)      Limits the maximum time (in 
-                                        milliseconds) that is allowed a pushed 
-                                        transaction's code to execute before 
+  --max-transaction-time arg (=30)      Limits the maximum time (in
+                                        milliseconds) that is allowed a pushed
+                                        transaction's code to execute before
                                         being considered invalid
   --max-irreversible-block-age arg (=-1)
-                                        Limits the maximum age (in seconds) of 
+                                        Limits the maximum age (in seconds) of
                                         the DPOS Irreversible Block for a chain
-                                        this node will produce blocks on (use 
+                                        this node will produce blocks on (use
                                         negative value to indicate unlimited)
-  -p [ --producer-name ] arg            ID of producer controlled by this node 
-                                        (e.g. inita; may specify multiple 
+  -p [ --producer-name ] arg            ID of producer controlled by this node
+                                        (e.g. inita; may specify multiple
                                         times)
-  --private-key arg                     (DEPRECATED - Use signature-provider 
-                                        instead) Tuple of [public key, WIF 
-                                        private key] (may specify multiple 
+  --private-key arg                     (DEPRECATED - Use signature-provider
+                                        instead) Tuple of [public key, WIF
+                                        private key] (may specify multiple
                                         times)
   --signature-provider arg (=EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV=KEY:5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3)
-                                        Key=Value pairs in the form 
+                                        Key=Value pairs in the form
                                         <public-key>=<provider-spec>
                                         Where:
-                                           <public-key>    is a string form of 
-                                                           a vaild EOSIO public
+                                           <public-key>    is a string form of
+                                                           a vaild Antelope public
                                                            key
-                                        
-                                           <provider-spec> is a string in the 
+
+                                           <provider-spec> is a string in the
                                                            form <provider-type>
                                                            :<data>
-                                        
+
                                            <provider-type> is KEY, or KEOSD
-                                        
-                                           KEY:<data>      is a string form of 
-                                                           a valid EOSIO 
-                                                           private key which 
+
+                                           KEY:<data>      is a string form of
+                                                           a valid Antelope
+                                                           private key which
                                                            maps to the provided
                                                            public key
-                                        
-                                           KEOSD:<data>    is the URL where 
-                                                           keosd is available 
-                                                           and the approptiate 
-                                                           wallet(s) are 
+
+                                           KEOSD:<data>    is the URL where
+                                                           keosd is available
+                                                           and the approptiate
+                                                           wallet(s) are
                                                            unlocked
-  --keosd-provider-timeout arg (=5)     Limits the maximum time (in 
-                                        milliseconds) that is allowed for 
-                                        sending blocks to a keosd provider for 
+  --keosd-provider-timeout arg (=5)     Limits the maximum time (in
+                                        milliseconds) that is allowed for
+                                        sending blocks to a keosd provider for
                                         signing
   --greylist-account arg                account that can not access to extended
                                         CPU/NET virtual resources
-  --greylist-limit arg (=1000)          Limit (between 1 and 1000) on the 
+  --greylist-limit arg (=1000)          Limit (between 1 and 1000) on the
                                         multiple that CPU/NET virtual resources
-                                        can extend during low usage (only 
-                                        enforced subjectively; use 1000 to not 
+                                        can extend during low usage (only
+                                        enforced subjectively; use 1000 to not
                                         enforce any limit)
   --produce-time-offset-us arg (=0)     Offset of non last block producing time
-                                        in microseconds. Valid range 0 .. 
+                                        in microseconds. Valid range 0 ..
                                         -block_time_interval.
   --last-block-time-offset-us arg (=-200000)
-                                        Offset of last block producing time in 
-                                        microseconds. Valid range 0 .. 
+                                        Offset of last block producing time in
+                                        microseconds. Valid range 0 ..
                                         -block_time_interval.
   --cpu-effort-percent arg (=80)        Percentage of cpu block production time
-                                        used to produce block. Whole number 
+                                        used to produce block. Whole number
                                         percentages, e.g. 80 for 80%
   --last-block-cpu-effort-percent arg (=80)
                                         Percentage of cpu block production time
-                                        used to produce last block. Whole 
+                                        used to produce last block. Whole
                                         number percentages, e.g. 80 for 80%
   --max-block-cpu-usage-threshold-us arg (=5000)
-                                        Threshold of CPU block production to 
-                                        consider block full; when within 
-                                        threshold of max-block-cpu-usage block 
+                                        Threshold of CPU block production to
+                                        consider block full; when within
+                                        threshold of max-block-cpu-usage block
                                         can be produced immediately
   --max-block-net-usage-threshold-bytes arg (=1024)
-                                        Threshold of NET block production to 
-                                        consider block full; when within 
-                                        threshold of max-block-net-usage block 
+                                        Threshold of NET block production to
+                                        consider block full; when within
+                                        threshold of max-block-net-usage block
                                         can be produced immediately
   --max-scheduled-transaction-time-per-block-ms arg (=100)
-                                        Maximum wall-clock time, in 
-                                        milliseconds, spent retiring scheduled 
-                                        transactions in any block before 
-                                        returning to normal transaction 
+                                        Maximum wall-clock time, in
+                                        milliseconds, spent retiring scheduled
+                                        transactions in any block before
+                                        returning to normal transaction
                                         processing.
   --subjective-cpu-leeway-us arg (=31000)
-                                        Time in microseconds allowed for a 
-                                        transaction that starts with 
-                                        insufficient CPU quota to complete and 
+                                        Time in microseconds allowed for a
+                                        transaction that starts with
+                                        insufficient CPU quota to complete and
                                         cover its CPU usage.
   --subjective-account-max-failures arg (=3)
-                                        Sets the maximum amount of failures 
-                                        that are allowed for a given account 
+                                        Sets the maximum amount of failures
+                                        that are allowed for a given account
                                         per block.
                                         Disregarded for accounts that have been
                                         whitelisted by disabling subjective
@@ -128,33 +128,33 @@ Config Options for eosio::producer_plugin:
                                         Sets the time to return full subjective
                                         cpu for accounts
   --incoming-defer-ratio arg (=1)       ratio between incoming transactions and
-                                        deferred transactions when both are 
+                                        deferred transactions when both are
                                         queued for execution
   --incoming-transaction-queue-size-mb arg (=1024)
-                                        Maximum size (in MiB) of the incoming 
+                                        Maximum size (in MiB) of the incoming
                                         transaction queue. Exceeding this value
                                         will subjectively drop transaction with
                                         resource exhaustion.
-  --disable-api-persisted-trx           Disable the re-apply of API 
+  --disable-api-persisted-trx           Disable the re-apply of API
                                         transactions.
-  --disable-subjective-billing arg (=1) Disable subjective CPU billing for 
+  --disable-subjective-billing arg (=1) Disable subjective CPU billing for
                                         API/P2P transactions
   --disable-subjective-account-billing arg
-                                        Account which is excluded from 
+                                        Account which is excluded from
                                         subjective CPU billing
                                         Account is considered whitelisted and
                                         will not be subject to enforcement of
                                         subjective-account-max-failures.
   --disable-subjective-p2p-billing arg (=1)
-                                        Disable subjective CPU billing for P2P 
+                                        Disable subjective CPU billing for P2P
                                         transactions
   --disable-subjective-api-billing arg (=1)
-                                        Disable subjective CPU billing for API 
+                                        Disable subjective CPU billing for API
                                         transactions
-  --producer-threads arg (=2)           Number of worker threads in producer 
+  --producer-threads arg (=2)           Number of worker threads in producer
                                         thread pool
   --snapshots-dir arg (="snapshots")    the location of the snapshots directory
-                                        (absolute path or relative to 
+                                        (absolute path or relative to
                                         application data dir)
 ```
 
@@ -172,7 +172,7 @@ The option below sets the ratio between the incoming transaction and the deferre
   --incoming-defer-ratio arg (=1)       
 ```
 
-By default value of `1`, the `producer` plugin processes one incoming transaction per deferred transaction. When `arg` sets to `10`, the `producer` plugin processes 10 incoming transactions per deferred transaction. 
+By default value of `1`, the `producer` plugin processes one incoming transaction per deferred transaction. When `arg` sets to `10`, the `producer` plugin processes 10 incoming transactions per deferred transaction.
 
 If the `arg` is set to a sufficiently large number, the plugin always processes the incoming transaction first until the queue of the incoming transactions is empty. Respectively, if the `arg` is 0, the `producer` plugin processes the deferred transactions queue first.
 

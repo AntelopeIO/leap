@@ -4,7 +4,7 @@
 The `txn_test_gen_plugin` is used for transaction test purposes.
 
 [[info | For More Information]]
-For more information, check the [txn_test_gen_plugin/README.md](https://github.com/EOSIO/eos/blob/develop/plugins/txn_test_gen_plugin/README.md) on the EOSIO/eos repository.
+For more information, check the [txn_test_gen_plugin/README.md](https://github.com/AntelopeIO/leap/tree/main/plugins/txn_test_gen_plugin) on the `AntelopeIO/leap` repository.
 
 ## Usage
 

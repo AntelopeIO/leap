@@ -17,10 +17,10 @@ cleos get account eosio
 ```
 ```console
 privileged: true
-permissions: 
+permissions:
      owner     1:    1 EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV
         active     1:    1 EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV
-memory: 
+memory:
      quota:        -1 bytes  used:      1.22 Mb   
 
 net bandwidth: (averaged over 3 days)
@@ -106,4 +106,4 @@ cleos get account eosio --json
 ```
 
 ## See Also
-- [Accounts and Permissions](https://developers.eos.io/welcome/latest/protocol/accounts_and_permissions) protocol document.
+- [Accounts and Permissions](/protocol-guides/04_accounts_and_permissions.md) protocol document.

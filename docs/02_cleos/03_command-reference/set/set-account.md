@@ -2,7 +2,7 @@
 set parameters dealing with account permissions
 
 [[info | JSON input]]
-| This command involves specifying JSON input which depends on underlying class definitions. Therefore, such JSON input is subject to change in future versions of the EOSIO software.
+| This command involves specifying JSON input which depends on underlying class definitions. Therefore, such JSON input is subject to change in future versions of the Antelope software.
 
 ## Positionals
 - `account` _TEXT_ - The account to set/delete a permission authority for
@@ -88,4 +88,4 @@ The authority JSON object ...
 ```
 
 ## See Also
-- [Accounts and Permissions](https://developers.eos.io/welcome/latest/protocol/accounts_and_permissions) protocol document.
+- [Accounts and Permissions](/protocol-guides/04_accounts_and_permissions.md) protocol document.

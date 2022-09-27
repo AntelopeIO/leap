@@ -1,15 +1,15 @@
 ## Overview
 
-This how-to guide provides instructions on how to query infomation of an EOSIO account. The example in this how-to guide retrieves information of the `eosio` account. 
+This how-to guide provides instructions on how to query infomation of an Antelope account. The example in this how-to guide retrieves information of the `eosio` account.
 
 ## Before you begin
 
 * Install the currently supported version of `cleos`
 
 [[info | Note]]
-| The cleos tool is bundled with the EOSIO software. [Installing EOSIO](../../00_install/index.md) will also install the cleos tool. 
+| The cleos tool is bundled with the Antelope software. [Installing Antelope](../../00_install/index.md) will also install the cleos tool.
 
-* Acquire functional understanding of [EOSIO Accounts and Permissions](https://developers.eos.io/welcome/v2.1/protocol/accounts_and_permissions)
+* Acquire functional understanding of [Antelope Accounts and Permissions](/protocol-guides/04_accounts_and_permissions.md)
 
 ## Command Reference
 
@@ -28,7 +28,7 @@ cleos get account eosio
 ```
 **Where**:
 
-* `eosio` = The name of the default system account in the EOSIO blockchain.
+* `eosio` = The name of the default system account in the Antelope blockchain.
 
 **Example Output**
 
@@ -53,4 +53,4 @@ cpu bandwidth:
 ```
 
 [[info | Account Fields]]
-| Depending on the EOSIO network you are connected, you might see different fields associated with an account. That depends on which system contract has been deployed on the network.
+| Depending on the Antelope network you are connected, you might see different fields associated with an account. That depends on which system contract has been deployed on the network.

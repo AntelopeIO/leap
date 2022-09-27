@@ -10,10 +10,10 @@ Make sure to meet the following requirements:
 * Install the currently supported version of `cleos`.
 
 [[info | Note]]
-| `cleos` is bundled with the EOSIO software. [Installing EOSIO](../../00_install/index.md) will also install `cleos`.
+| `cleos` is bundled with the Antelope software. [Installing Antelope](../../00_install/index.md) will also install `cleos`.
 
-* Understand what a [block](https://developers.eos.io/welcome/latest/glossary/index/#block) is and its role in the blockchain.
-* Understand the [block lifecycle](https://developers.eos.io/welcome/latest/protocol-guides/consensus_protocol/#5-block-lifecycle) in the EOSIO consensus protocol.
+* Understand what a [block](/glossary.md#block) is and its role in the blockchain.
+* Understand the [block lifecycle](/protocol-guides/01_consensus_protocol.md#5-block-lifecycle) in the Antelope consensus protocol.
 
 ## Steps
 
@@ -34,8 +34,10 @@ Some examples are provided below:
 **Example Output**
 
 ```sh
-cleos -u https://api.testnet.eos.io get block 48351112
+cleos -u https://choiceofyourprovider get block 48351112
 ```
+Reference to [testnet providers](/resources/index.md)
+
 ```json
 {
   "timestamp": "2021-01-28T17:58:59.500",
@@ -59,7 +61,7 @@ cleos -u https://api.testnet.eos.io get block 48351112
 **Example Output**
 
 ```sh
-cleos -u https://api.testnet.eos.io get block 02e1c7888a92206573ae38d00e09366c7ba7bc54cd8b7996506f7d2a619c43ba
+cleos -u https://choiceofyourprovider get block 02e1c7888a92206573ae38d00e09366c7ba7bc54cd8b7996506f7d2a619c43ba
 ```
 ```json
 {

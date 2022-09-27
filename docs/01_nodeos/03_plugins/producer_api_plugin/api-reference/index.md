@@ -1,1 +1,1 @@
-<!-- THIS IS A PLACEHOLDER, WILL BE REPLACED BY REDOC INSTANCE -->
+[Producer API Reference](https://docs.eosnetwork.com/leap-plugins/latest/producer.api/)

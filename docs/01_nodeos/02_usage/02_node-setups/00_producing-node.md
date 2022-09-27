@@ -7,12 +7,16 @@ content_title: Producing Node Setup
 
 ## Goal
 
-This section describes how to set up a producing node within the EOSIO network. A producing node, as its name implies, is a node that is configured to produce blocks in an `EOSIO` based blockchain. This functionality if provided through the `producer_plugin` as well as other [Nodeos Plugins](../../03_plugins/index.md).
+This section describes how to set up a producing node within the Antelope network. A producing node, as its name implies, is a node that is configured to produce blocks in an `Antelope` based blockchain. This functionality if provided through the `producer_plugin` as well as other [Nodeos Plugins](../../03_plugins/index.md).
 
 ## Before you begin
 
-* [Install the EOSIO software](../../../00_install/index.md) before starting this section.
-* It is assumed that `nodeos`, `cleos`, and `keosd` are accessible through the path. If you built EOSIO using shell scripts, make sure to run the [Install Script](../../../00_install/01_build-from-source/01_shell-scripts/03_install-eosio-binaries.md).
+* [Install the Antelope software](../../../00_install/index.md) before starting this section.
+* It is assumed that `nodeos`, `cleos`, and `keosd` are accessible through the path.
+
+[//]: # ( THIS IS A COMMENT LINK BELOW IS BROKEN )  
+[//]: # ( If you built Antelope using shell scripts, make sure to run the  Install Script ../../../00_install/01_build-from-source/01_shell-scripts/03_install-antelope-binaries.md )  
+
 * Know how to pass [Nodeos options](../../02_usage/00_nodeos-options.md) to enable or disable functionality.
 
 ## Steps
@@ -46,11 +50,11 @@ producer-name = youraccount
 
 ### 3. Set the Producer's signature-provider
 
-You will need to set the private key for your producer. The public key should have an authority for the producer account defined above. 
+You will need to set the private key for your producer. The public key should have an authority for the producer account defined above.
 
 `signature-provider` is defined with a 3-field tuple:
-* `public-key` - A valid EOSIO public key in form of a string.
-* `provider-spec` - It's a string formatted like <provider-type>:<data>
+* `public-key` - A valid Antelope public key in form of a string.
+* `provider-spec` - It's a string formatted like `<provider-type>:<data>`
 * `provider-type` - KEY or KEOSD
 
 #### Using a Key:
@@ -65,7 +69,7 @@ signature-provider = PUBLIC_SIGNING_KEY=KEY:PRIVATE_SIGNING_KEY
 ```
 
 #### Using Keosd:
-You can also use `keosd` instead of hard-defining keys. 
+You can also use `keosd` instead of hard-defining keys.
 
 ```console
 # config.ini:
@@ -87,7 +91,7 @@ p2p-peer-address = 123.255.78.9:9876
 
 ### 5. Load the Required Plugins
 
-In your [config.ini](../index.md), confirm the following plugins are loading or append them if necessary. 
+In your [config.ini](../index.md), confirm the following plugins are loading or append them if necessary.
 
 ```console
 # config.ini:

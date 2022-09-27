@@ -10,12 +10,12 @@ Make sure you meet the following requirements:
 * Install the currently supported version of `cleos`.
 
 [[info | Note]]
-| `cleos` is bundled with the EOSIO software. [Installing EOSIO](../../00_install/index.md) will also install `cleos`.
+| `cleos` is bundled with the Antelope software. [Installing Antelope](../../00_install/index.md) will also install `cleos`.
 
-* Ensure the reference system contracts from [`eosio.contracts`](https://github.com/EOSIO/eosio.contracts) repository is deployed and used to manage system resources.
-* Understand what an [account](https://developers.eos.io/welcome/latest/glossary/index/#account) is and its role in the blockchain.
-* Understand [NET bandwidth](https://developers.eos.io/welcome/latest/glossary/index/#net) in an EOSIO blockchain.
-* Understand [CPU bandwidth](https://developers.eos.io/welcome/latest/glossary/index/#cpu) in an EOSIO blockchain.
+* Ensure the reference system contracts from [`reference-contracts`](https://github.com/AntelopeIO/reference-contracts) repository is deployed and used to manage system resources.
+* Understand what an [account](/glossary.md#account) is and its role in the blockchain.
+* Understand [NET bandwidth](/glossary.md#net) in an Antelope blockchain.
+* Understand [CPU bandwidth](/glossary.md#cpu) in an Antelope blockchain.
 
 ## Steps
 
