@@ -36,6 +36,10 @@ endif()
 
 add_subdirectory(contracts)
 
+if (NOT DISABLE_WASM_SPEC_TESTS)
+add_subdirectory( wasm-spec-tests/generated-tests )
+endif()
+
 add_subdirectory(snapshots)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/snapshots.hpp.in ${CMAKE_CURRENT_BINARY_DIR}/include/snapshots.hpp ESCAPE_QUOTES)
 

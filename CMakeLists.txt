@@ -185,10 +185,6 @@ add_subdirectory( benchmark )
 
 option(DISABLE_WASM_SPEC_TESTS "disable building of wasm spec unit tests" OFF)
 
-if (NOT DISABLE_WASM_SPEC_TESTS)
-add_subdirectory( wasm-spec-tests/generated-tests )
-endif()
-
 install(FILES testnet.template DESTINATION ${CMAKE_INSTALL_FULL_SYSCONFDIR}/eosio/launcher COMPONENT dev EXCLUDE_FROM_ALL)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/testnet.template ${CMAKE_CURRENT_BINARY_DIR}/etc/eosio/launcher/testnet.template COPYONLY)
 
