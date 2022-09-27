@@ -110,6 +110,19 @@ if(CMAKE_SYSTEM_NAME MATCHES "Linux")
   detect_thread_name()
 endif()
 
+# Yuck: newer CMake files from boost iostreams will effectively target_link_libraries(Boost::iostreams z;bz2;lzma;zstd)
+#  without first "finding" those libraries. This resolves to simple -lz -lbz2 etc: it'll look for those libraries in the linker's
+#  library search path. This is most problematic on macOS where something like libzstd isn't in the standard search path. Historically
+#  fc would just "-L/usr/local/lib" as a heavy handed way to make sure something like -lzstd can be found in brew's library path. But
+#  that isn't sufficient for something like ARM homebrew. Let's just "null" these libraries out since we're already linking to zlib
+#  explicitly anyways via a proper find_package(ZLIB) below.
+if(APPLE)
+  add_library(z INTERFACE)
+  add_library(bz2 INTERFACE)
+  add_library(lzma INTERFACE)
+  add_library(zstd INTERFACE)
+endif()
+
 find_package(Boost 1.66 REQUIRED COMPONENTS
     date_time
     filesystem
