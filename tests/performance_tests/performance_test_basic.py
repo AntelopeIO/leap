@@ -60,6 +60,8 @@ cluster=Cluster(walletd=True, loggingLevel="info")
 cluster.setWalletMgr(walletMgr)
 
 testSuccessful = False
+completedRun = False
+
 try:
     # Kill any existing instances and launch cluster
     TestHelper.printSystemInfo("BEGIN")
@@ -119,27 +121,8 @@ try:
 
     # Get stats after transaction generation stops
     data.ceaseBlock = waitForEmptyBlocks(validationNode) - emptyBlockGoal + 1
-    log_reader.scrapeLog(data, "var/lib/node_01/stderr.txt")
+    completedRun = True
 
-    print(data)
-
-    # Define number of potentially non-empty blocks to prune from the beginning and end of the range
-    # of blocks of interest for evaluation to zero in on steady state operation.
-    # All leading and trailing 0 size blocks will be pruned as well prior
-    # to evaluating and applying the numBlocksToPrune
-    numAddlBlocksToPrune = 2
-
-    guide = log_reader.calcChainGuide(data, numAddlBlocksToPrune)
-    tpsStats = log_reader.scoreTransfersPerSecond(data, guide)
-    print(f"Blocks Guide: {guide}\nTPS: {tpsStats}")
-    report = log_reader.createJSONReport(guide, tpsStats, args)
-    print(report)
-    if args.save_json:
-        log_reader.exportAsJSON(report, args)
-
-    assert transactionsSent == data.totalTransactions , f"Error: Transactions received: {data.totalTransactions} did not match expected total: {transactionsSent}"
-
-    testSuccessful = True
 except subprocess.CalledProcessError as err:
     print(f"trx_generator return error code: {err.returncode}.  Test aborted.")
 finally:
@@ -153,6 +136,31 @@ finally:
         killAll,
         dumpErrorDetails
     )
+    log_reader.scrapeLog(data, "var/lib/node_01/stderr.txt")
+
+    print(data)
+
+    # Define number of potentially non-empty blocks to prune from the beginning and end of the range
+    # of blocks of interest for evaluation to zero in on steady state operation.
+    # All leading and trailing 0 size blocks will be pruned as well prior
+    # to evaluating and applying the numBlocksToPrune
+    numAddlBlocksToPrune = 2
+
+    guide = log_reader.calcChainGuide(data, numAddlBlocksToPrune)
+    tpsStats = log_reader.scoreTransfersPerSecond(data, guide)
+    print(f"Blocks Guide: {guide}\nTPS: {tpsStats}")
+    report = log_reader.createJSONReport(guide, tpsStats, args, completedRun)
+    print(report)
+    if args.save_json:
+        log_reader.exportAsJSON(report, args)
+
+    if completedRun:
+        assert transactionsSent == data.totalTransactions , f"Error: Transactions received: {data.totalTransactions} did not match expected total: {transactionsSent}"
+    else:
+        os.system("pkill trx_generator")
+        print("Test run cancelled early via SIGINT")
+
+    testSuccessful = True
 
 exitCode = 0 if testSuccessful else 1
 exit(exitCode)
