@@ -4,7 +4,7 @@ set(APPBASE_INSTALL_COMPONENT "dev")
 set(SOFTFLOAT_INSTALL_COMPONENT "dev")
 set(EOSVM_INSTALL_COMPONENT "dev")
 
-add_subdirectory( fc )
+add_subdirectory( libfc )
 add_subdirectory( builtins )
 
 # Suppress warnings on 3rdParty Library
@@ -31,6 +31,12 @@ if(eos-vm IN_LIST EOSIO_WASM_RUNTIMES OR eos-vm-jit IN_LIST EOSIO_WASM_RUNTIMES)
 add_subdirectory( eos-vm )
 endif()
 
+#yubihsm's openssl discovery is via pkg-config instead of find_package. Help it out on macOS otherwise openssl's pkgconfig
+# files may not be found down in the /opt/homebrew/opt directory
+if(APPLE)
+  get_filename_component(OPENSSL_LIB_PATH "${OPENSSL_CRYPTO_LIBRARY}" DIRECTORY)
+  set(ENV{PKG_CONFIG_PATH} "$ENV{PKG_CONFIG_PATH}:${OPENSSL_LIB_PATH}/pkgconfig")
+endif()
 set(ENABLE_STATIC ON)
 set(CMAKE_MACOSX_RPATH OFF)
 set(BUILD_ONLY_LIB ON CACHE BOOL "Library only build")

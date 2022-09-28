@@ -74,7 +74,7 @@ namespace eosio::trace_api {
    get_block_t store_provider::get_block(uint32_t block_height, const yield_function& yield) {
       std::optional<uint64_t> trace_offset;
       bool irreversible = false;
-      uint64_t offset = scan_metadata_log_from(block_height, 0, [&block_height, &trace_offset, &irreversible](const metadata_log_entry& e) -> bool {
+      scan_metadata_log_from(block_height, 0, [&block_height, &trace_offset, &irreversible](const metadata_log_entry& e) -> bool {
          if (std::holds_alternative<block_entry_v0>(e)) {
             const auto& block = std::get<block_entry_v0>(e);
             if (block.number == block_height) {
