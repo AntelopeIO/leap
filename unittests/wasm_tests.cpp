@@ -239,7 +239,7 @@ BOOST_FIXTURE_TEST_CASE( f32_tests, TESTER ) try {
       push_transaction(trx);
       produce_blocks(1);
       BOOST_REQUIRE_EQUAL(true, chain_has_transaction(trx.id()));
-      const auto& receipt = get_transaction_receipt(trx.id());
+      get_transaction_receipt(trx.id());
    }
 } FC_LOG_AND_RETHROW()
 BOOST_FIXTURE_TEST_CASE( f32_test_bitwise, TESTER ) try {
@@ -262,7 +262,7 @@ BOOST_FIXTURE_TEST_CASE( f32_test_bitwise, TESTER ) try {
       push_transaction(trx);
       produce_blocks(1);
       BOOST_REQUIRE_EQUAL(true, chain_has_transaction(trx.id()));
-      const auto& receipt = get_transaction_receipt(trx.id());
+      get_transaction_receipt(trx.id());
    }
 } FC_LOG_AND_RETHROW()
 BOOST_FIXTURE_TEST_CASE( f32_test_cmp, TESTER ) try {
@@ -285,7 +285,7 @@ BOOST_FIXTURE_TEST_CASE( f32_test_cmp, TESTER ) try {
       push_transaction(trx);
       produce_blocks(1);
       BOOST_REQUIRE_EQUAL(true, chain_has_transaction(trx.id()));
-      const auto& receipt = get_transaction_receipt(trx.id());
+      get_transaction_receipt(trx.id());
    }
 } FC_LOG_AND_RETHROW()
 
@@ -310,7 +310,7 @@ BOOST_FIXTURE_TEST_CASE( f64_tests, TESTER ) try {
       push_transaction(trx);
       produce_blocks(1);
       BOOST_REQUIRE_EQUAL(true, chain_has_transaction(trx.id()));
-      const auto& receipt = get_transaction_receipt(trx.id());
+      get_transaction_receipt(trx.id());
    }
 } FC_LOG_AND_RETHROW()
 BOOST_FIXTURE_TEST_CASE( f64_test_bitwise, TESTER ) try {
@@ -333,7 +333,7 @@ BOOST_FIXTURE_TEST_CASE( f64_test_bitwise, TESTER ) try {
       push_transaction(trx);
       produce_blocks(1);
       BOOST_REQUIRE_EQUAL(true, chain_has_transaction(trx.id()));
-      const auto& receipt = get_transaction_receipt(trx.id());
+      get_transaction_receipt(trx.id());
    }
 } FC_LOG_AND_RETHROW()
 BOOST_FIXTURE_TEST_CASE( f64_test_cmp, TESTER ) try {
@@ -356,7 +356,7 @@ BOOST_FIXTURE_TEST_CASE( f64_test_cmp, TESTER ) try {
       push_transaction(trx);
       produce_blocks(1);
       BOOST_REQUIRE_EQUAL(true, chain_has_transaction(trx.id()));
-      const auto& receipt = get_transaction_receipt(trx.id());
+      get_transaction_receipt(trx.id());
    }
 } FC_LOG_AND_RETHROW()
 
@@ -382,7 +382,7 @@ BOOST_FIXTURE_TEST_CASE( f32_f64_conversion_tests, tester ) try {
       push_transaction(trx);
       produce_blocks(1);
       BOOST_REQUIRE_EQUAL(true, chain_has_transaction(trx.id()));
-      const auto& receipt = get_transaction_receipt(trx.id());
+      get_transaction_receipt(trx.id());
    }
 } FC_LOG_AND_RETHROW()
 
@@ -413,7 +413,7 @@ BOOST_FIXTURE_TEST_CASE( f32_f64_overflow_tests, tester ) try {
          push_transaction(trx);
          produce_blocks(1);
          BOOST_REQUIRE_EQUAL(true, chain_has_transaction(trx.id()));
-         const auto& receipt = get_transaction_receipt(trx.id());
+         get_transaction_receipt(trx.id());
          return true;
       } catch (eosio::chain::wasm_execution_error &) {
          return false;

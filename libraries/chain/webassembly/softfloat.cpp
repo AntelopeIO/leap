@@ -276,7 +276,6 @@ namespace eosio { namespace chain { namespace webassembly {
       float64_t ret;
       int e = a.v >> 52 & 0x7FF;
       float64_t y;
-      double de = 1/DBL_EPSILON;
       if ( a.v == 0x8000000000000000) {
          return af;
       }
