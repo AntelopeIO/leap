@@ -3,6 +3,7 @@
 import os
 import sys
 import subprocess
+import signal
 
 harnessPath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(harnessPath)
@@ -30,7 +31,8 @@ def waitForEmptyBlocks(node):
     return node.getHeadBlockNum()
 
 appArgs=AppArgs()
-appArgs.add(flag="--target-tps", type=int, help="The target transfers per second to send during test", default=1000)
+appArgs.add(flag="--target-tps", type=int, help="The target transfers per second to send during test", default=8000)
+appArgs.add(flag="--tps-limit-per-generator", type=int, help="Maximum amount of transactions per second a single generator can have.", default=4000)
 appArgs.add(flag="--test-duration-sec", type=int, help="The duration of transfer trx generation for the test in seconds", default=30)
 appArgs.add(flag="--genesis", type=str, help="Path to genesis.json", default="tests/performance_tests/genesis.json")
 appArgs.add(flag="--save-json", type=bool, help="Whether to save json output of stats", default=False)
@@ -53,6 +55,7 @@ keepLogs=args.keep_logs
 testGenerationDurationSec = args.test_duration_sec
 targetTps = args.target_tps
 genesisJsonFile = args.genesis
+tpsLimitPerGenerator = args.tps_limit_per_generator
 
 # Setup cluster and its wallet manager
 walletMgr=WalletMgr(True)
@@ -67,14 +70,17 @@ try:
     TestHelper.printSystemInfo("BEGIN")
     cluster.killall(allInstances=killAll)
     cluster.cleanup()
-    extraNodeosArgs=' --http-max-response-time-ms 990000 --disable-subjective-api-billing false '
+    extraNodeosArgs=' --http-max-response-time-ms 990000 --disable-subjective-api-billing true '
     if cluster.launch(
        pnodes=pnodes,
        totalNodes=total_nodes,
        useBiosBootFile=False,
        topo=topo,
        genesisPath=genesisJsonFile,
-       extraNodeosArgs=extraNodeosArgs) == False:
+       maximumP2pPerHost=5000,
+       maximumClients=0,
+       extraNodeosArgs=extraNodeosArgs
+    ) == False:
         errorExit('Failed to stand up cluster.')
 
     wallet = walletMgr.create('default')
@@ -92,33 +98,19 @@ try:
     info = producerNode.getInfo()
     chainId = info['chain_id']
     lib_id = info['last_irreversible_block_id']
+    cluster.biosNode.kill(signal.SIGTERM)
 
     transactionsSent = testGenerationDurationSec * targetTps
     data = log_reader.chainData()
 
     data.startBlock = waitForEmptyBlocks(validationNode)
 
-    if Utils.Debug: Print(
-                            f'Running trx_generator: ./tests/trx_generator/trx_generator  '
-                            f'--chain-id {chainId} '
-                            f'--last-irreversible-block-id {lib_id} '
-                            f'--handler-account {cluster.eosioAccount.name} '
-                            f'--accounts {account1Name},{account2Name} '
-                            f'--priv-keys {account1PrivKey},{account2PrivKey} '
-                            f'--trx-gen-duration {testGenerationDurationSec} '
-                            f'--target-tps {targetTps}'
-                         )
-    Utils.runCmdReturnStr(
-                            f'./tests/trx_generator/trx_generator '
-                            f'--chain-id {chainId} '
-                            f'--last-irreversible-block-id {lib_id} '
-                            f'--handler-account {cluster.eosioAccount.name} '
-                            f'--accounts {account1Name},{account2Name} '
-                            f'--priv-keys {account1PrivKey},{account2PrivKey} '
-                            f'--trx-gen-duration {testGenerationDurationSec} '
-                            f'--target-tps {targetTps}'
-                         )
-
+    subprocess.run([
+       f"./tests/performance_tests/launch_transaction_generators.py",
+       f"{chainId}", f"{lib_id}", f"{cluster.eosioAccount.name}",
+       f"{account1Name}", f"{account2Name}", f"{account1PrivKey}", f"{account2PrivKey}",
+       f"{testGenerationDurationSec}", f"{targetTps}", f"{tpsLimitPerGenerator}"
+    ])
     # Get stats after transaction generation stops
     data.ceaseBlock = waitForEmptyBlocks(validationNode) - emptyBlockGoal + 1
     completedRun = True
@@ -127,14 +119,14 @@ except subprocess.CalledProcessError as err:
     print(f"trx_generator return error code: {err.returncode}.  Test aborted.")
 finally:
     TestHelper.shutdown(
-        cluster,
-        walletMgr,
-        testSuccessful,
-        killEosInstances,
-        killWallet,
-        keepLogs,
-        killAll,
-        dumpErrorDetails
+       cluster,
+       walletMgr,
+       testSuccessful,
+       killEosInstances,
+       killWallet,
+       keepLogs,
+       killAll,
+       dumpErrorDetails
     )
     log_reader.scrapeLog(data, "var/lib/node_01/stderr.txt")
 

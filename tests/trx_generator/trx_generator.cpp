@@ -152,7 +152,8 @@ namespace eosio::testing {
 
       const vector<name> accounts = get_accounts(_accts);
       const vector<fc::crypto::private_key> private_key_vector = get_private_keys(_private_keys_str_vector);
-      const std::string salt = "";
+
+      const std::string salt = std::to_string(getpid());
       const uint64_t &period = 20;
       _nonce_prefix = 0;
       _nonce = static_cast<uint64_t>(fc::time_point::now().sec_since_epoch()) << 32;
