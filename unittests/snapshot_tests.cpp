@@ -23,7 +23,7 @@ chainbase::bfs::path get_parent_path(chainbase::bfs::path blocks_dir, int ordina
       blocks_dir = blocks_dir.parent_path();
       leaf_dir = blocks_dir.filename();
       try {
-         auto ordinal_for_config = boost::lexical_cast<int>(leaf_dir.generic_string());
+         boost::lexical_cast<int>(leaf_dir.generic_string());
          blocks_dir = blocks_dir.parent_path();
       }
       catch(const boost::bad_lexical_cast& ) {
