@@ -11,7 +11,7 @@ Make sure you meet the following requirements:
 * Install the currently supported version of `cleos`.
 
 [[info | Note]]
-| `cleos` is bundled with the EOSIO software. [Installing EOSIO](../../00_install/index.md) will also install `cleos`.
+| `cleos` is bundled with the Antelope software. [Installing Antelope](../../00_install/index.md) will also install `cleos`.
 
 * Understand what an [account](/glossary.md#account) is and its role in the blockchain.
 * Understand [Accounts and Permissions](/protocol-guides/04_accounts_and_permissions.md) in the protocol documents.

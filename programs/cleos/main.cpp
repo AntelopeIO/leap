@@ -166,6 +166,7 @@ const fc::microseconds abi_serializer_max_time = fc::seconds(10); // No risk to 
 string tx_ref_block_num_or_id;
 bool   tx_force_unique = false;
 bool   tx_dont_broadcast = false;
+bool   tx_unpack_data = false;
 bool   tx_return_packed = false;
 bool   tx_skip_sign = false;
 bool   tx_print_json = false;
@@ -180,6 +181,7 @@ bool   print_request = false;
 bool   print_response = false;
 bool   no_auto_keosd = false;
 bool   verbose = false;
+int    return_code = 0;
 
 uint8_t  tx_max_cpu_usage = 0;
 uint32_t tx_max_net_usage = 0;
@@ -226,6 +228,7 @@ void add_standard_transaction_options(CLI::App* cmd, string default_permission =
    cmd->add_flag("-j,--json", tx_print_json, localized("Print result as JSON"));
    cmd->add_option("--json-file", tx_json_save_file, localized("Save result in JSON format into a file"));
    cmd->add_flag("-d,--dont-broadcast", tx_dont_broadcast, localized("Don't broadcast transaction to the network (just print to stdout)"));
+   cmd->add_flag("-u,--unpack-action-data", tx_unpack_data, localized("Unpack all action data within transaction, needs interaction with ${n} unless --abi-file. Used in conjunction with --dont-broadcast.", ("n", node_executable_name)));
    cmd->add_flag("--return-packed", tx_return_packed, localized("Used in conjunction with --dont-broadcast to get the packed transaction"));
    cmd->add_option("-r,--ref-block", tx_ref_block_num_or_id, (localized("Set the reference block num or block id used for TAPOS (Transaction as Proof-of-Stake)")));
    cmd->add_flag("--use-old-rpc", tx_use_old_rpc, localized("Use old RPC push_transaction, rather than new RPC send_transaction"));
@@ -499,14 +502,15 @@ fc::variant push_transaction( signed_transaction& trx, const std::vector<public_
       }
    } else {
       if (!tx_return_packed) {
-         try {
+         if( tx_unpack_data ) {
             fc::variant unpacked_data_trx;
             abi_serializer::to_variant(trx, unpacked_data_trx, abi_serializer_resolver, abi_serializer::create_yield_function(abi_serializer_max_time));
             return unpacked_data_trx;
-         } catch (...) {
+         } else {
             return fc::variant(trx);
          }
       } else {
+         EOSC_ASSERT( !tx_unpack_data, "ERROR: --unpack-action-data not supported with --return-packed" );
         return fc::variant(packed_transaction(trx, compression));
       }
    }
@@ -619,6 +623,32 @@ void print_action_tree( const fc::variant& action ) {
    }
 }
 
+int get_return_code( const fc::variant& result ) {
+   // if a trx with a processed, then check to see if it failed execution for return value
+   int r = 0;
+   if (result.is_object() && result.get_object().contains("processed")) {
+      const auto& processed = result["processed"];
+      if( processed.is_object() && processed.get_object().contains( "except" ) ) {
+         const auto& except = processed["except"];
+         if( except.is_object() ) {
+            try {
+               auto soft_except = except.as<fc::exception>();
+               auto code = soft_except.code();
+               if( code > std::numeric_limits<int>::max() ) {
+                  r = 1;
+               } else {
+                  r = static_cast<int>( code );
+               }
+               if( r == 0 ) r = 1;
+            } catch( ... ) {
+               r = 1;
+            }
+         }
+      }
+   }
+   return r;
+}
+
 void print_result( const fc::variant& result ) { try {
       if (result.is_object() && result.get_object().contains("processed")) {
          const auto& processed = result["processed"];
@@ -682,6 +712,7 @@ void send_actions(std::vector<chain::action>&& actions, const std::vector<public
       out << jsonstr;
       out.close();
    }
+   return_code = get_return_code( result );
    if( tx_print_json ) {
       if (jsonstr.length() == 0) {
          jsonstr = fc::json::to_pretty_string( result );
@@ -4433,14 +4464,16 @@ int main( int argc, char** argv ) {
       }
       return 1;
    } catch ( const std::bad_alloc& ) {
-     elog("bad alloc");
+      elog("bad alloc");
+      return 1;
    } catch( const boost::interprocess::bad_alloc& ) {
-     elog("bad alloc");
+      elog("bad alloc");
+      return 1;
    } catch (const fc::exception& e) {
-     return handle_error(e);
+      return handle_error(e);
    } catch (const std::exception& e) {
-      return handle_error(fc::std_exception_wrapper::from_current_exception(e)); 
+      return handle_error(fc::std_exception_wrapper::from_current_exception(e));
    }
 
-   return 0;
+   return return_code;
 }

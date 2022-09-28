@@ -14,4 +14,5 @@ RUN apt-get update && apt-get upgrade -y && \
                                                       llvm-11-dev          \
                                                       ninja-build          \
                                                       pkg-config           \
+                                                      python3-numpy        \
                                                       zstd

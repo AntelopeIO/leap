@@ -204,8 +204,7 @@ class Utils:
         (output,error)=popen.communicate()
         Utils.checkOutputFileWrite(start, cmd, output, error)
         if popen.returncode != 0 and not ignoreError:
-            Utils.Print("ERROR: %s" % error)
-            raise subprocess.CalledProcessError(returncode=popen.returncode, cmd=cmd, output=error)
+            raise subprocess.CalledProcessError(returncode=popen.returncode, cmd=cmd, output=output, stderr=error)
         return output.decode("utf-8")
 
     @staticmethod
@@ -396,7 +395,7 @@ class Utils:
             if throwException:
                 raise
             if not silentErrors:
-                msg=ex.output.decode("utf-8")
+                msg=ex.stderr.decode("utf-8")
                 errorMsg="Exception during \"%s\". %s" % (cmd, msg)
                 if exitOnError:
                     Utils.cmdError(errorMsg)
@@ -542,7 +541,10 @@ class Utils:
         Retrusn data as decoded string object"""
         data = Utils.readSocketData(sock, maxMsgSize) 
         return data.decode(enc)
-        
+
+    @staticmethod
+    def getNodeosVersion():
+        return os.popen(f"{Utils.EosServerPath} --version").read().replace("\n", "")
 
 
 ###########################################################################################

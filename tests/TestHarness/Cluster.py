@@ -636,7 +636,7 @@ class Cluster(object):
             verStr=m.group(1)
             return verStr
         except subprocess.CalledProcessError as ex:
-            msg=ex.output.decode("utf-8")
+            msg=ex.stderr.decode("utf-8")
             Utils.Print("ERROR: Exception during client version query. %s" % (msg))
             raise
 
@@ -678,7 +678,7 @@ class Cluster(object):
                 if Utils.Debug: Utils.Print("name: %s, key(owner): ['%s', '%s], key(active): ['%s', '%s']" % (name, ownerPublic, ownerPrivate, activePublic, activePrivate))
 
             except subprocess.CalledProcessError as ex:
-                msg=ex.output.decode("utf-8")
+                msg=ex.stderr.decode("utf-8")
                 Utils.Print("ERROR: Exception during key creation. %s" % (msg))
                 break
 
@@ -1349,6 +1349,11 @@ class Cluster(object):
             data="{\"version\":0,\"core\":\"4,%s\"}" % (CORE_SYMBOL)
             opts="--permission %s@active" % (eosioAccount.name)
             trans=biosNode.pushMessage(eosioAccount.name, action, data, opts)
+            transId=Node.getTransId(trans[1])
+            Utils.Print("Wait for system init transaction to be in a block.")
+            if not biosNode.waitForTransInBlock(transId):
+                Utils.Print("ERROR: Failed to validate transaction %s in block on server port %d." % (transId, biosNode.port))
+                return None
 
         Utils.Print("Cluster bootstrap done.")
 
@@ -1365,7 +1370,7 @@ class Cluster(object):
                 psOut=Utils.checkOutput(cmd.split())
                 return psOut
             except subprocess.CalledProcessError as ex:
-                msg=ex.output.decode("utf-8")
+                msg=ex.stderr.decode("utf-8")
                 Utils.Print("ERROR: call of \"%s\" failed. %s" % (cmd, msg))
                 return None
             return None

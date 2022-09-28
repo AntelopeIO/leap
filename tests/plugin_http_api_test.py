@@ -1161,6 +1161,26 @@ class PluginHttpTest(unittest.TestCase):
         ret_json = Utils.runCmdReturnJson(valid_cmd)
         self.assertIn("rows", ret_json)
 
+        # get_unapplied_transactions with empty parameter
+        default_cmd = cmd_base + "get_unapplied_transactions"
+        ret_json = Utils.runCmdReturnJson(default_cmd)
+        self.assertIn("size", ret_json)
+        self.assertIn("incoming_size", ret_json)
+        # get_unapplied_transactions with empty content parameter
+        empty_content_cmd = default_cmd + self.http_post_str + self.empty_content_str
+        ret_json = Utils.runCmdReturnJson(empty_content_cmd)
+        self.assertIn("size", ret_json)
+        self.assertIn("incoming_size", ret_json)
+        # get_unapplied_transactions with invalid parameter
+        invalid_cmd = default_cmd + self.http_post_str + self.http_post_invalid_param
+        ret_json = Utils.runCmdReturnJson(invalid_cmd)
+        self.assertEqual(ret_json["code"], 400)
+        self.assertEqual(ret_json["error"]["code"], 3200006)
+        # get_unapplied_transactions with valid parameter
+        valid_cmd = default_cmd + self.http_post_str + ("'{\"lower_bound\":\"\", \"limit\":1, \"time_limit_ms\":500}'")
+        ret_json = Utils.runCmdReturnJson(valid_cmd)
+        self.assertIn("trxs", ret_json)
+
     # test all wallet api
     def test_WalletApi(self) :
         cmd_base = self.base_wallet_cmd_str + "wallet/"

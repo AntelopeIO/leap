@@ -8,7 +8,7 @@ The `net_api_plugin` provides four RPC API endpoints:
 * connections
 * status
 
-See [Net API Reference Documentation](https://docs.eosnetwork.com/reference/mandel-plugins/net_api.html).
+See [Net API Reference Documentation](https://docs.eosnetwork.com/leap-plugins/latest/net.api/).
 
 [[caution | Caution]]
 | This plugin exposes endpoints that allow management of p2p connections. Running this plugin on a publicly accessible node is not recommended as it can be exploited.
