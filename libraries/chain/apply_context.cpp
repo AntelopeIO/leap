@@ -56,7 +56,6 @@ void apply_context::exec_one()
 
    digest_type act_digest;
 
-   const auto& cfg = control.get_global_properties().configuration;
    const account_metadata_object* receiver_account = nullptr;
 
    auto handle_exception = [&](const auto& e)

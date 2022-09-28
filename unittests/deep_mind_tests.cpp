@@ -328,7 +328,7 @@ void merge(const std::string& input_filename, const std::string& pattern_filenam
          for(std::ptrdiff_t i = 0; i < std::min(line_end - line_iter, pattern_end - pattern_iter); ++i)
          {
             tab.emplace_back();
-            for(std::ptrdiff_t j = 0, j_end; j < i; ++j)
+            for(std::ptrdiff_t j = 0; j < i; ++j)
             {
                tab[i].push_back(add_point(i, j));
                if(tab[i][j].unmodified >= resync_threshold)

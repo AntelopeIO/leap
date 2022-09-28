@@ -3122,7 +3122,7 @@ int main( int argc, char** argv ) {
                      // ->required();
    contractSubcommand->add_option("wasm-file", wasmPath, localized("The file containing the contract WASM relative to contract-dir"));
 //                     ->check(CLI::ExistingFile);
-   auto abi = contractSubcommand->add_option("abi-file,-a,--abi", abiPath, localized("The ABI for the contract relative to contract-dir"));
+   contractSubcommand->add_option("abi-file,-a,--abi", abiPath, localized("The ABI for the contract relative to contract-dir"));
 //                                ->check(CLI::ExistingFile);
    contractSubcommand->add_flag( "-c,--clear", contract_clear, localized("Remove contract on an account"));
    contractSubcommand->add_flag( "--suppress-duplicate-check", suppress_duplicate_check, localized("Don't check for duplicate"));
@@ -3818,13 +3818,11 @@ int main( int argc, char** argv ) {
             const auto& approvals_object = rows2[0].get_object();
 
             for( const auto& ra : approvals_object["requested_approvals"].get_array() ) {
-               const auto& ra_obj = ra.get_object();
                auto pl = ra["level"].as<permission_level>();
                all_approvals.emplace( pl, std::make_pair(ra["time"].as<fc::time_point>(), approval_status::unapproved) );
             }
 
             for( const auto& pa : approvals_object["provided_approvals"].get_array() ) {
-               const auto& pa_obj = pa.get_object();
                auto pl = pa["level"].as<permission_level>();
                auto res = all_approvals.emplace( pl, std::make_pair(pa["time"].as<fc::time_point>(), approval_status::approved) );
                provided_approvers[pl.actor].second.push_back( res.first );

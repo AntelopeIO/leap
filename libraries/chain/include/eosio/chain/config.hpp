@@ -3,8 +3,6 @@
 #include <fc/time.hpp>
 #include <fc/utility.hpp>
 
-#pragma GCC diagnostic ignored "-Wunused-variable"
-
 namespace eosio { namespace chain { namespace config {
 
 typedef __uint128_t uint128_t;

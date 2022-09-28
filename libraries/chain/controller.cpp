@@ -1066,11 +1066,12 @@ struct controller_impl {
                                                                              active_permission.id,
                                                                              active_producers_authority,
                                                                              genesis.initial_timestamp );
-      const auto& minority_permission     = authorization.create_permission( config::producers_account_name,
+                                            authorization.create_permission( config::producers_account_name,
                                                                              config::minority_producers_permission_name,
                                                                              majority_permission.id,
                                                                              active_producers_authority,
                                                                              genesis.initial_timestamp );
+
    }
 
    // The returned scoped_exit should not exceed the lifetime of the pending which existed when make_block_restore_point was called.

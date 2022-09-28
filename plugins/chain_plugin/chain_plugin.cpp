@@ -554,8 +554,6 @@ protocol_feature_set initialize_protocol_features( const fc::path& p, bool popul
    }
 
    auto output_protocol_feature = [&p]( const builtin_protocol_feature& f, const digest_type& feature_digest ) {
-      static constexpr int max_tries = 10;
-
       string filename( "BUILTIN-" );
       filename += builtin_protocol_feature_codename( f.get_codename() );
       filename += ".json";
@@ -1678,8 +1676,6 @@ string get_table_type( const abi_def& abi, const name& table_name ) {
 
 read_only::get_table_rows_result read_only::get_table_rows( const read_only::get_table_rows_params& p )const {
    const abi_def abi = eosio::chain_apis::get_abi( db, p.code );
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wstrict-aliasing"
    bool primary = false;
    auto table_with_index = get_table_index_name( p, primary );
    if( primary ) {
@@ -1712,18 +1708,22 @@ read_only::get_table_rows_result read_only::get_table_rows( const read_only::get
       }
       else if (p.key_type == chain_apis::float64) {
          return get_table_rows_by_seckey<index_double_index, double>(p, abi, [](double v)->float64_t {
-            float64_t f = *(float64_t *)&v;
+            float64_t f;
+            double_to_float64(v, f);
             return f;
          });
       }
       else if (p.key_type == chain_apis::float128) {
          if ( p.encode_type == chain_apis::hex) {
             return get_table_rows_by_seckey<index_long_double_index, uint128_t>(p, abi, [](uint128_t v)->float128_t{
-               return *reinterpret_cast<float128_t *>(&v);
+               float128_t f;
+               uint128_to_float128(v, f);
+               return f;
             });
          }
          return get_table_rows_by_seckey<index_long_double_index, double>(p, abi, [](double v)->float128_t{
-            float64_t f = *(float64_t *)&v;
+            float64_t f;
+            double_to_float64(v, f);
             float128_t f128;
             f64_to_f128M(f, &f128);
             return f128;
@@ -1739,7 +1739,6 @@ read_only::get_table_rows_result read_only::get_table_rows( const read_only::get
       }
       EOS_ASSERT(false, chain::contract_table_query_exception,  "Unsupported secondary index type: ${t}", ("t", p.key_type));
    }
-#pragma GCC diagnostic pop
 }
 
 read_only::get_table_by_scope_result read_only::get_table_by_scope( const read_only::get_table_by_scope_params& p )const {
