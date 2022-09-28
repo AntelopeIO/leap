@@ -122,7 +122,6 @@ BOOST_FIXTURE_TEST_CASE( get_block_with_invalid_abi, TESTER ) try {
 BOOST_FIXTURE_TEST_CASE( get_consensus_parameters, TESTER ) try {
    produce_blocks(1);
 
-   chain_apis::read_only::get_info_params p;
    chain_apis::read_only plugin(*(this->control), {}, fc::microseconds::maximum(), fc::microseconds::maximum(), nullptr, nullptr);
 
    auto parms = plugin.get_consensus_parameters({}, fc::time_point::maximum());
