@@ -3,6 +3,7 @@ set(FC_INSTALL_COMPONENT "dev")
 set(APPBASE_INSTALL_COMPONENT "dev")
 set(SOFTFLOAT_INSTALL_COMPONENT "dev")
 set(EOSVM_INSTALL_COMPONENT "dev")
+set(PROMETHEUS_INSTALL_COMPONENT "dev")
 
 add_subdirectory( fc )
 add_subdirectory( builtins )
@@ -44,3 +45,5 @@ set_property(GLOBAL PROPERTY CTEST_CUSTOM_TESTS_IGNORE
   "change_authkey import_ed decrypt_ec decrypt_rsa ssh logs generate_rsa import_ec echo\
   yubico_otp wrap_data wrap info import_rsa import_authkey generate_hmac generate_ec\
   attest pbkdf2 parsing ${_CTEST_CUSTOM_TESTS_IGNORE}")
+
+add_subdirectory( prometheus )
