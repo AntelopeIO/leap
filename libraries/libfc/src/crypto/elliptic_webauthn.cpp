@@ -88,6 +88,8 @@ struct webauthn_json_handler : public rapidjson::BaseReaderHandler<rapidjson::UT
             return true;
          case IN_NESTED_CONTAINER:
             return true;
+         default:
+            FC_THROW_EXCEPTION( exception, "String: current_state (${current_statea}) out of bound", ("current_state", current_state) );
       }
    }
 
@@ -108,6 +110,8 @@ struct webauthn_json_handler : public rapidjson::BaseReaderHandler<rapidjson::UT
          case EXPECT_ORIGIN_VALUE:
          case EXPECT_TYPE_VALUE:
             return false;
+         default:
+            FC_THROW_EXCEPTION( exception, "Key: current_state (${current_statea}) out of bound", ("current_state", current_state) );
       }
    }
    bool Key(const char* str, rapidjson::SizeType length, bool copy) {
@@ -131,6 +135,8 @@ struct webauthn_json_handler : public rapidjson::BaseReaderHandler<rapidjson::UT
          }
          case IN_NESTED_CONTAINER:
             return true;
+         default:
+            FC_THROW_EXCEPTION( exception, "Key: current_state (${current_statea}) out of bound", ("current_state", current_state) );
       }
    }
    bool EndObject(rapidjson::SizeType memberCount) {
@@ -147,6 +153,8 @@ struct webauthn_json_handler : public rapidjson::BaseReaderHandler<rapidjson::UT
             return true;
          case EXPECT_FIRST_OBJECT_KEY:
             return true;
+         default:
+            FC_THROW_EXCEPTION( exception, "EndObject: current_state (${current_statea}) out of bound", ("current_state", current_state) );
       }
    }
 
@@ -165,6 +173,8 @@ struct webauthn_json_handler : public rapidjson::BaseReaderHandler<rapidjson::UT
          case EXPECT_ORIGIN_VALUE:
          case EXPECT_TYPE_VALUE:
             return false;
+         default:
+            FC_THROW_EXCEPTION( exception, "StartArray: current_state (${current_statea}) out of bound", ("current_state", current_state) );
       }
    }
    bool EndArray(rapidjson::SizeType elementCount) {
@@ -180,6 +190,8 @@ struct webauthn_json_handler : public rapidjson::BaseReaderHandler<rapidjson::UT
             if(!--current_nested_container_depth)
                current_state = EXPECT_FIRST_OBJECT_KEY;
             return true;
+         default:
+            FC_THROW_EXCEPTION( exception, "EndArray: current_state (${current_statea}) out of bound", ("current_state", current_state) );
       }
    }
 };

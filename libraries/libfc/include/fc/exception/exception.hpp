@@ -496,6 +496,22 @@ namespace fc
       wlog( "${details}", ("details",e.to_detail_string()) ); \
    }
 
+#define FC_LOG_AND_DROP_NO_INTERPROCESS_BAD_ALLOC( ... )  \
+   catch( fc::exception& er ) { \
+      wlog( "${details}", ("details",er.to_detail_string()) ); \
+   } catch( const std::exception& e ) {  \
+      fc::std_exception_wrapper sew( \
+                FC_LOG_MESSAGE( warn, "rethrow ${what}: ",FC_FORMAT_ARG_PARAMS( __VA_ARGS__  )("what",e.what()) ), \
+                std::current_exception(), \
+                BOOST_CORE_TYPEID(e).name(), \
+                e.what() ) ; \
+      wlog( "${details}", ("details",sew.to_detail_string()) ); \
+   } catch( ... ) {  \
+      fc::unhandled_exception e( \
+                FC_LOG_MESSAGE( warn, "rethrow", FC_FORMAT_ARG_PARAMS( __VA_ARGS__) ), \
+                std::current_exception() ); \
+      wlog( "${details}", ("details",e.to_detail_string()) ); \
+   }
 
 /**
  *  @def FC_RETHROW_EXCEPTIONS(LOG_LEVEL,FORMAT,...)

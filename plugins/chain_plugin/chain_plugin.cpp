@@ -2170,7 +2170,7 @@ void read_write::push_block(read_write::push_block_params&& params, next_functio
       chain_plugin::handle_db_exhaustion();
    } catch ( const std::bad_alloc& ) {
       chain_plugin::handle_bad_alloc();
-   } FC_LOG_AND_DROP()
+   } FC_LOG_AND_DROP_NO_INTERPROCESS_BAD_ALLOC()
    next(read_write::push_block_results{});
 }
 
