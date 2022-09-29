@@ -10,6 +10,12 @@ target_include_directories(secp256k1-internal
 
 target_compile_definitions(secp256k1-internal INTERFACE HAVE_CONFIG_H)
 
+# secp256k1 produces over 190 "unused-function" warnings like
+# warning: ‘secp256k1_fe_normalize_weak’ declared ‘static’ but never defined [-Wunused-f unction]
+# As we consider it as a system header and use it verbatim without any modifications,
+# just disable the warning to avoid cluttering compile log
+target_compile_options(secp256k1-internal INTERFACE -Wno-unused-function)
+
 add_library(secp256k1 STATIC
   secp256k1/src/secp256k1.c secp256k1/src/precomputed_ecmult.c secp256k1/src/precomputed_ecmult_gen.c
 )
