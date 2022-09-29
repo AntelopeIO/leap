@@ -185,10 +185,6 @@ add_subdirectory( benchmark )
 
 option(DISABLE_WASM_SPEC_TESTS "disable building of wasm spec unit tests" OFF)
 
-if (NOT DISABLE_WASM_SPEC_TESTS)
-add_subdirectory( wasm-spec-tests/generated-tests )
-endif()
-
 install(FILES testnet.template DESTINATION ${CMAKE_INSTALL_FULL_SYSCONFDIR}/eosio/launcher COMPONENT dev EXCLUDE_FROM_ALL)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/testnet.template ${CMAKE_CURRENT_BINARY_DIR}/etc/eosio/launcher/testnet.template COPYONLY)
 
@@ -218,16 +214,16 @@ install(FILES ${CMAKE_BINARY_DIR}/modules/leap-config.cmake DESTINATION ${CMAKE_
 install(FILES ${CMAKE_BINARY_DIR}/modules/EosioTester.cmake DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}/cmake/leap COMPONENT dev EXCLUDE_FROM_ALL)
 install(FILES ${CMAKE_SOURCE_DIR}/CMakeModules/EosioCheckVersion.cmake DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}/cmake/leap COMPONENT dev EXCLUDE_FROM_ALL)
 
-configure_file(LICENSE                                                  licenses/leap/LICENSE           COPYONLY)
-configure_file(libraries/softfloat/COPYING.txt                          licenses/leap/LICENSE.softfloat COPYONLY)
-configure_file(libraries/wasm-jit/LICENSE                               licenses/leap/LICENSE.wavm      COPYONLY)
-configure_file(libraries/fc/secp256k1/secp256k1/COPYING                 licenses/leap/LICENSE.secp256k1 COPYONLY)
-configure_file(libraries/fc/include/fc/crypto/webauthn_json/license.txt licenses/leap/LICENSE.rapidjson COPYONLY)
-configure_file(libraries/fc/src/network/LICENSE.go                      licenses/leap/LICENSE.go        COPYONLY)
-configure_file(libraries/eos-vm/LICENSE                                 licenses/leap/LICENSE.eos-vm    COPYONLY)
-configure_file(libraries/fc/libraries/ff/LICENSE                        licenses/leap/LICENSE.libff     COPYONLY)
-configure_file(programs/cleos/LICENSE.CLI11                             licenses/leap/LICENSE.CLI11     COPYONLY)
-configure_file(libraries/yubihsm/LICENSE                                licenses/leap/LICENSE.yubihsm   COPYONLY)
+configure_file(LICENSE                                                     licenses/leap/LICENSE           COPYONLY)
+configure_file(libraries/softfloat/COPYING.txt                             licenses/leap/LICENSE.softfloat COPYONLY)
+configure_file(libraries/wasm-jit/LICENSE                                  licenses/leap/LICENSE.wavm      COPYONLY)
+configure_file(libraries/libfc/secp256k1/secp256k1/COPYING                 licenses/leap/LICENSE.secp256k1 COPYONLY)
+configure_file(libraries/libfc/include/fc/crypto/webauthn_json/license.txt licenses/leap/LICENSE.rapidjson COPYONLY)
+configure_file(libraries/libfc/src/network/LICENSE.go                      licenses/leap/LICENSE.go        COPYONLY)
+configure_file(libraries/eos-vm/LICENSE                                    licenses/leap/LICENSE.eos-vm    COPYONLY)
+configure_file(libraries/libfc/libraries/ff/LICENSE                        licenses/leap/LICENSE.libff     COPYONLY)
+configure_file(programs/cleos/LICENSE.CLI11                                licenses/leap/LICENSE.CLI11     COPYONLY)
+configure_file(libraries/yubihsm/LICENSE                                   licenses/leap/LICENSE.yubihsm   COPYONLY)
 
 install(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/licenses/leap" DESTINATION "${CMAKE_INSTALL_FULL_DATAROOTDIR}/licenses/" COMPONENT base)
 

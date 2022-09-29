@@ -158,7 +158,7 @@ static const char many_exports_wast[] = R"=====(
   (func (export "apply") (param i64 i64 i64))
 )
 )=====";
-static const char one_export[] =  "(export \"fn${N}\" (func 0))";
+//static const char one_export[] =  "(export \"fn${N}\" (func 0))";
 
 static const char many_elem_wast[] = R"=====(
 (module

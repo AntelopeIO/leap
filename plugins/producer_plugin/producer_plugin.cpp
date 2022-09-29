@@ -515,8 +515,6 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       }
 
       void restart_speculative_block() {
-         chain::controller& chain = chain_plug->chain();
-
          // abort the pending block
          abort_block();
 
