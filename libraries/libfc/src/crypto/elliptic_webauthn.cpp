@@ -88,9 +88,12 @@ struct webauthn_json_handler : public rapidjson::BaseReaderHandler<rapidjson::UT
             return true;
          case IN_NESTED_CONTAINER:
             return true;
-         default:
-            FC_THROW_EXCEPTION( exception, "String: current_state (${current_statea}) out of bound", ("current_state", current_state) );
+         // default may not be added now, as consensus could be broken.
       }
+      // Add elog to report the error and __builtin_unreachable to surpress
+      // warning of control reaches end of non-void function.
+      elog("String: current_state(${current_statea}) out of bound", ("current_state", current_state) );
+      __builtin_unreachable();
    }
 
    bool StartObject() {
@@ -110,9 +113,12 @@ struct webauthn_json_handler : public rapidjson::BaseReaderHandler<rapidjson::UT
          case EXPECT_ORIGIN_VALUE:
          case EXPECT_TYPE_VALUE:
             return false;
-         default:
-            FC_THROW_EXCEPTION( exception, "Key: current_state (${current_statea}) out of bound", ("current_state", current_state) );
+         // default may not be added now, as consensus could be broken.
       }
+      // Add elog to report the error and __builtin_unreachable to surpress
+      // warning of control reaches end of non-void function.
+      elog( "Key: current_state (${current_statea}) out of bound", ("current_state", current_state) );
+      __builtin_unreachable();
    }
    bool Key(const char* str, rapidjson::SizeType length, bool copy) {
       switch(current_state) {
@@ -135,9 +141,12 @@ struct webauthn_json_handler : public rapidjson::BaseReaderHandler<rapidjson::UT
          }
          case IN_NESTED_CONTAINER:
             return true;
-         default:
-            FC_THROW_EXCEPTION( exception, "Key: current_state (${current_statea}) out of bound", ("current_state", current_state) );
+         // default may not be added now, as consensus could be broken.
       }
+      // Add elog to report the error and __builtin_unreachable to surpress
+      // warning of control reaches end of non-void function.
+      elog( "Key: current_state (${current_statea}) out of bound", ("current_state", current_state) );
+      __builtin_unreachable();
    }
    bool EndObject(rapidjson::SizeType memberCount) {
       switch(current_state) {
@@ -153,9 +162,12 @@ struct webauthn_json_handler : public rapidjson::BaseReaderHandler<rapidjson::UT
             return true;
          case EXPECT_FIRST_OBJECT_KEY:
             return true;
-         default:
-            FC_THROW_EXCEPTION( exception, "EndObject: current_state (${current_statea}) out of bound", ("current_state", current_state) );
+         // default may not be added now, as consensus could be broken.
       }
+      // Add elog to report the error and __builtin_unreachable to surpress
+      // warning of control reaches end of non-void function.
+      elog( "EndObject: current_state (${current_statea}) out of bound", ("current_state", current_state) );
+      __builtin_unreachable();
    }
 
    bool StartArray() {
@@ -173,9 +185,13 @@ struct webauthn_json_handler : public rapidjson::BaseReaderHandler<rapidjson::UT
          case EXPECT_ORIGIN_VALUE:
          case EXPECT_TYPE_VALUE:
             return false;
-         default:
-            FC_THROW_EXCEPTION( exception, "StartArray: current_state (${current_statea}) out of bound", ("current_state", current_state) );
+         // default may not be added now, as consensus could be broken.
       }
+      // Add elog to report the error and __builtin_unreachable to surpress
+      // warning of control reaches end of non-void function.
+      elog( "StartArray: current_state (${current_statea}) out of bound", ("current_state", current_state) );
+      __builtin_unreachable();
+
    }
    bool EndArray(rapidjson::SizeType elementCount) {
       switch(current_state) {
@@ -190,9 +206,12 @@ struct webauthn_json_handler : public rapidjson::BaseReaderHandler<rapidjson::UT
             if(!--current_nested_container_depth)
                current_state = EXPECT_FIRST_OBJECT_KEY;
             return true;
-         default:
-            FC_THROW_EXCEPTION( exception, "EndArray: current_state (${current_statea}) out of bound", ("current_state", current_state) );
+         // default may not be added now, as consensus could be broken.
       }
+      // Add elog to report the error and __builtin_unreachable to surpress
+      // warning of control reaches end of non-void function.
+      elog( "EndArray: current_state (${current_statea}) out of bound", ("current_state", current_state) );
+      __builtin_unreachable();
    }
 };
 } //detail
