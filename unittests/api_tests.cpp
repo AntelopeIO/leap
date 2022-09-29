@@ -333,7 +333,7 @@ BOOST_FIXTURE_TEST_CASE(action_receipt_tests, TESTER) { try {
                      != result->action_traces[0].receipt->auth_sequence.end() );
    auto base_global_sequence_num = result->action_traces[0].receipt->global_sequence;
    auto base_system_recv_seq_num = result->action_traces[0].receipt->recv_sequence;
-   auto base_system_auth_seq_num = result->action_traces[0].receipt->auth_sequence[config::system_account_name];
+                                   result->action_traces[0].receipt->auth_sequence[config::system_account_name];
    auto base_system_code_seq_num = result->action_traces[0].receipt->code_sequence.value;
    auto base_system_abi_seq_num  = result->action_traces[0].receipt->abi_sequence.value;
 
