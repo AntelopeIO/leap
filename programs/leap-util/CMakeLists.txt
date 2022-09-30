@@ -4,9 +4,9 @@ if( UNIX AND NOT APPLE )
   set(rt_library rt )
 endif()
 
-target_include_directories(leap-util PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
+target_include_directories(${LEAP_UTIL_EXECUTABLE_NAME} PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
 
-target_link_libraries( leap-util
+target_link_libraries( ${LEAP_UTIL_EXECUTABLE_NAME}
         PRIVATE appbase version
         PRIVATE eosio_chain chain_plugin fc leap-cli11 producer_plugin ${CMAKE_DL_LIBS} ${PLATFORM_SPECIFIC_LIBS} )
 
