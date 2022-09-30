@@ -10,8 +10,8 @@ using namespace eosio::chain;
 struct blocklog_options {
    std::string blocks_dir = "blocks";
    std::string output_file = "";
-   int first_block = 0;
-   int last_block = std::numeric_limits<uint32_t>::max();
+   uint32_t first_block = 0;
+   uint32_t last_block = std::numeric_limits<uint32_t>::max();
    std::string output_dir;
 
    // flags
@@ -43,7 +43,7 @@ protected:
    bool trim_blocklog_front(bfs::path block_dir, uint32_t n);
    bool extract_block_range(bfs::path block_dir, bfs::path output_dir, uint32_t start, uint32_t end);
    void smoke_test(bfs::path block_dir);
-   void do_vacuum();
-   void do_genesis();
+   int  do_vacuum();
+   int  do_genesis();
    void read_log();
 };

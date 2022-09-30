@@ -48,7 +48,7 @@ struct report_time {
 
 void blocklog_actions::setup(CLI::App& app) {
    auto* sub = app.add_subcommand("block-log", "Blocklog utility");
-   //sub->require_subcommand();
+   sub->require_subcommand(1);
 
    // callback with error code handling
    auto cb = [this]() {
@@ -108,12 +108,11 @@ int blocklog_actions::run_subcommand() {
       }
       if(opt->vacuum) {
          initialize();
-         do_vacuum();
-         return 0;
+         return do_vacuum();
       }
       if(opt->genesis) {
          initialize();
-         do_genesis();
+         return do_genesis();
       }
       if(opt->make_index) {
          const bfs::path blocks_dir = opt->blocks_dir;
@@ -150,38 +149,40 @@ int blocklog_actions::run_subcommand() {
    return 0;
 }
 
-void blocklog_actions::do_genesis() {
+int blocklog_actions::do_genesis() {
    std::optional<genesis_state> gs;
    bfs::path bld = opt->blocks_dir;
+   auto full_path = (bld / "blocks.log").generic_string();
 
    if(fc::exists(bld / "blocks.log")) {
       gs = block_log::extract_genesis_state(opt->blocks_dir);
-      EOS_ASSERT(gs,
-                 plugin_config_exception,
-                 "Block log at '${path}' does not contain a genesis state, it only has the chain-id.",
-                 ("path", (bld / "blocks.log").generic_string()));
+      if (!gs) {
+         std::cerr << "Block log at '" << full_path 
+                   << "' does not contain a genesis state, it only has the chain-id." << std::endl;
+         return -1;
+      }
    } else {
-      wlog("No blocks.log found at '${p}'. Using default genesis state.",
-           ("p", (bld / "blocks.log").generic_string()));
-      gs.emplace();
+      std::cerr << "No blocks.log found at '" << full_path << "'." << std::endl;
+      return -1;
    }
 
    // just print if output not set
    if(opt->output_file.empty()) {
-      ilog("Genesis JSON:\n${genesis}", ("genesis", json::to_pretty_string(*gs)));
+      std::cout << json::to_pretty_string(*gs) << std::endl;
    } else {
       bfs::path p = opt->output_file;
       if(p.is_relative()) {
          p = bfs::current_path() / p;
       }
 
-      EOS_ASSERT(fc::json::save_to_file(*gs, p, true),
-                 misc_exception,
-                 "Error occurred while writing genesis JSON to '${path}'",
-                 ("path", p.generic_string()));
-
-      ilog("Saved genesis JSON to '${path}'", ("path", p.generic_string()));
+      if (!fc::json::save_to_file(*gs, p, true)) {
+         std::cerr <<  "Error occurred while writing genesis JSON to '" << p.generic_string() << "'" << std::endl;    
+         return -1;
+      }
+    
+      std::cout << "Saved genesis JSON to '" << p.generic_string() << "'" << std::endl;
    }
+   return 0;
 }
 
 void blocklog_actions::initialize() {
@@ -280,10 +281,14 @@ void blocklog_actions::smoke_test(bfs::path block_dir) {
    cout << "\nno problems found\n";//if get here there were no exceptions
 }
 
-void blocklog_actions::do_vacuum() {
-   EOS_ASSERT(opt->blog_keep_prune_conf, block_log_exception, "blocks.log is not a pruned log; nothing to vacuum");
+int blocklog_actions::do_vacuum() {
+   if (!opt->blog_keep_prune_conf) {
+      std::cerr << "blocks.log is not a pruned log; nothing to vacuum" << std::endl;
+      return -1;
+   }
    block_log blocks(opt->blocks_dir, std::optional<block_log_prune_config>());//passing an unset block_log_prune_config turns off pruning this performs a vacuum
-   ilog("Successfully vacuumed block log");
+   std::cout << "Successfully vacuumed block log" << std::endl;
+   return 0;
 }
 
 void blocklog_actions::read_log() {
