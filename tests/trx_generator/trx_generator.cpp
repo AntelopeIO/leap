@@ -110,10 +110,10 @@ namespace eosio::testing {
 
    transfer_trx_generator::transfer_trx_generator(std::string chain_id_in, std::string handler_acct,
       const std::vector<std::string>& accts, int64_t trx_expr, const std::vector<std::string>& private_keys_str_vector,
-      std::string lib_id_str) :
+      std::string lib_id_str, std::string log_dir) :
       _provider(), _chain_id(chain_id_in), _handler_acct(handler_acct), _accts(accts),
       _trx_expiration(trx_expr*1000000), _private_keys_str_vector(private_keys_str_vector),
-      _last_irr_block_id(fc::variant(lib_id_str).as<block_id_type>()) {
+      _last_irr_block_id(fc::variant(lib_id_str).as<block_id_type>()), _log_dir(log_dir) {
    }
 
    void transfer_trx_generator::push_transaction(p2p_trx_provider& provider, signed_transaction_w_signer& trx, uint64_t& nonce_prefix, uint64_t& nonce, const fc::microseconds& trx_expiration, const chain_id_type& chain_id, const block_id_type& last_irr_block_id) {
@@ -188,6 +188,7 @@ namespace eosio::testing {
    }
 
    bool transfer_trx_generator::tear_down() {
+      _provider.log_trxs(_log_dir);
       _provider.teardown();
 
       std::cout << "Sent transactions: " << _txcount << std::endl;

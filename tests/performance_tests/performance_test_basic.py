@@ -3,6 +3,7 @@
 import os
 import sys
 import subprocess
+import shutil
 import signal
 
 harnessPath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -29,6 +30,28 @@ def waitForEmptyBlocks(node):
         else:
             emptyBlocks = 0
     return node.getHeadBlockNum()
+
+def testArtifactDirCleanup(scriptName):
+    try:
+        print(f"Checking if test artifacts dir exists: {scriptName}")
+        if os.path.isdir(f"{scriptName}"):
+            print(f"Cleaning up test artifacts dir and all contents of: {scriptName}")
+            shutil.rmtree(f"{scriptName}")
+    except OSError as error:
+        print(error)
+
+def testArtifactDirSetup(scriptName, logDir):
+    try:
+        print(f"Checking if test artifacts dir exists: {scriptName}")
+        if not os.path.isdir(f"{scriptName}"):
+            print(f"Creating test artifacts dir: {scriptName}")
+            os.mkdir(f"{scriptName}")
+        print(f"Checking if logs dir exists: {logDir}")
+        if not os.path.isdir(f"{logDir}"):
+            print(f"Creating logs dir: {logDir}")
+            os.mkdir(f"{logDir}")
+    except OSError as error:
+        print(error)
 
 appArgs=AppArgs()
 appArgs.add(flag="--target-tps", type=int, help="The target transfers per second to send during test", default=8000)
@@ -70,6 +93,14 @@ try:
     TestHelper.printSystemInfo("BEGIN")
     cluster.killall(allInstances=killAll)
     cluster.cleanup()
+
+    scriptName  = __file__.split("/")[-1][:-3]
+    logDir = f'{scriptName}/logs'
+
+    testArtifactDirCleanup(scriptName)
+
+    testArtifactDirSetup(scriptName, logDir)
+
     extraNodeosArgs=' --http-max-response-time-ms 990000 --disable-subjective-api-billing true '
     if cluster.launch(
        pnodes=pnodes,
@@ -109,7 +140,7 @@ try:
        f"./tests/performance_tests/launch_transaction_generators.py",
        f"{chainId}", f"{lib_id}", f"{cluster.eosioAccount.name}",
        f"{account1Name}", f"{account2Name}", f"{account1PrivKey}", f"{account2PrivKey}",
-       f"{testGenerationDurationSec}", f"{targetTps}", f"{tpsLimitPerGenerator}"
+       f"{testGenerationDurationSec}", f"{targetTps}", f"{tpsLimitPerGenerator}", f"{logDir}"
     ])
     # Get stats after transaction generation stops
     data.ceaseBlock = waitForEmptyBlocks(validationNode) - emptyBlockGoal + 1
@@ -152,6 +183,8 @@ finally:
     else:
         os.system("pkill trx_generator")
         print("Test run cancelled early via SIGINT")
+
+    testArtifactDirCleanup(scriptName)
 
     testSuccessful = True
 

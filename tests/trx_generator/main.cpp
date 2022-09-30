@@ -38,6 +38,7 @@ int main(int argc, char** argv) {
    int64_t spinup_time_us;
    uint32_t max_lag_per;
    int64_t max_lag_duration_us;
+   string log_dir_in;
 
 
    vector<string> account_str_vector;
@@ -56,6 +57,7 @@ int main(int argc, char** argv) {
          ("monitor-spinup-time-us", bpo::value<int64_t>(&spinup_time_us)->default_value(1000000), "Number of microseconds to wait before monitoring TPS. Defaults to 1000000 (1s).")
          ("monitor-max-lag-percent", bpo::value<uint32_t>(&max_lag_per)->default_value(5), "Max percentage off from expected transactions sent before being in violation. Defaults to 5.")
          ("monitor-max-lag-duration-us", bpo::value<int64_t>(&max_lag_duration_us)->default_value(1000000), "Max microseconds that transaction generation can be in violation before quitting. Defaults to 1000000 (1s).")
+         ("log-dir", bpo::value<string>(&log_dir_in), "set the logs directory")
          ("help,h", "print this list")
          ;
 
@@ -70,6 +72,12 @@ int main(int argc, char** argv) {
 
       if(!vmap.count("chain-id")) {
          ilog("Initialization error: missing chain-id");
+         cli.print(std::cerr);
+         return INITIALIZE_FAIL;
+      }
+
+      if(!vmap.count("log-dir")) {
+         ilog("Initialization error: missing log-dir");
          cli.print(std::cerr);
          return INITIALIZE_FAIL;
       }
@@ -158,9 +166,10 @@ int main(int argc, char** argv) {
    ilog("Reference LIB block id ${LIB}", ("LIB", lib_id_str));
    ilog("Transaction Generation Duration (sec) ${dur}", ("dur", gen_duration));
    ilog("Target generation Transaction Per Second (TPS) ${tps}", ("tps", target_tps));
+   ilog("Logs directory ${logDir}", ("logDir", log_dir_in));
 
    auto generator = std::make_shared<transfer_trx_generator>(chain_id_in, h_acct,
-                                                             account_str_vector, trx_expr, private_keys_str_vector, lib_id_str);
+                                                             account_str_vector, trx_expr, private_keys_str_vector, lib_id_str, log_dir_in);
    std::shared_ptr<tps_performance_monitor> monitor = std::make_shared<tps_performance_monitor>(spinup_time_us, max_lag_per, max_lag_duration_us);
 
    trx_tps_tester<transfer_trx_generator, tps_performance_monitor> tester{generator, monitor, gen_duration, target_tps};

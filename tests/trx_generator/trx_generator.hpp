@@ -23,6 +23,7 @@ namespace eosio::testing {
       fc::microseconds _trx_expiration;
       std::vector<std::string> _private_keys_str_vector;
       eosio::chain::block_id_type _last_irr_block_id;
+      std::string _log_dir;
 
       uint64_t _total_us = 0;
       uint64_t _txcount = 0;
@@ -33,7 +34,7 @@ namespace eosio::testing {
       uint64_t _nonce_prefix = 0;
 
       transfer_trx_generator(std::string chain_id_in, std::string handler_acct, const std::vector<std::string>& accts,
-         int64_t trx_expr, const std::vector<std::string>& private_keys_str_vector, std::string lib_id_str);
+         int64_t trx_expr, const std::vector<std::string>& private_keys_str_vector, std::string lib_id_str, std::string log_dir);
 
       void push_transaction(p2p_trx_provider& provider, signed_transaction_w_signer& trx, uint64_t& nonce_prefix,
                             uint64_t& nonce, const fc::microseconds& trx_expiration, const eosio::chain::chain_id_type& chain_id,

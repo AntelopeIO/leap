@@ -14,6 +14,14 @@ using namespace std::chrono_literals;
 namespace eosio::testing {
    using send_buffer_type = std::shared_ptr<std::vector<char>>;
 
+   struct logged_trx_data {
+      eosio::chain::transaction_id_type _trx_id;
+      fc::time_point _sent_timestamp;
+
+      logged_trx_data(eosio::chain::transaction_id_type trx_id, fc::time_point sent=fc::time_point::now()) :
+         _trx_id(trx_id), _sent_timestamp(sent) {}
+   };
+
    struct p2p_connection {
       std::string _peer_endpoint;
       boost::asio::io_service _p2p_service;
@@ -34,10 +42,12 @@ namespace eosio::testing {
       void setup();
       void send(const std::vector<chain::signed_transaction>& trxs);
       void send(const chain::signed_transaction& trx);
+      void log_trxs(const std::string& log_dir);
       void teardown();
 
    private:
       p2p_connection _peer_connection;
+      std::vector<logged_trx_data> _sent_trx_data;
    };
 
    using fc::time_point;

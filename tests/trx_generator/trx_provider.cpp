@@ -64,6 +64,7 @@ namespace eosio::testing {
    void p2p_trx_provider::send(const chain::signed_transaction& trx) {
       chain::packed_transaction pt(trx);
       _peer_connection.send_transaction(pt);
+      _sent_trx_data.push_back(logged_trx_data(trx.id()));
    }
 
    void p2p_trx_provider::send(const std::vector<chain::signed_transaction>& trxs) {
@@ -72,11 +73,22 @@ namespace eosio::testing {
       }
    }
 
-  void p2p_trx_provider::teardown() {
-      _peer_connection.disconnect();
-  }
+   void p2p_trx_provider::log_trxs(const std::string& log_dir) {
+      std::ostringstream fileName;
+      fileName << log_dir << "/trx_data_output_" << getpid() << ".txt";
+      std::ofstream out(fileName.str());
 
-  bool tps_performance_monitor::monitor_test(const tps_test_stats &stats) {
+      for (logged_trx_data data : _sent_trx_data) {
+         out << fc::string(data._trx_id) << ","<< std::string(data._sent_timestamp) << "\n";
+      }
+      out.close();
+   }
+
+   void p2p_trx_provider::teardown() {
+      _peer_connection.disconnect();
+   }
+
+   bool tps_performance_monitor::monitor_test(const tps_test_stats &stats) {
       if ((!stats.expected_sent) || (stats.last_run - stats.start_time < _spin_up_time)) {
          return true;
       }
@@ -110,5 +122,5 @@ namespace eosio::testing {
          }
       }
       return true;
-  }
+   }
 }
