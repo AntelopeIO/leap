@@ -36,6 +36,7 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_chainbase_allocation_test.py $
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_protocol_feature_test.py ${CMAKE_CURRENT_BINARY_DIR}/nodeos_protocol_feature_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_multiple_version_protocol_feature_test.py ${CMAKE_CURRENT_BINARY_DIR}/nodeos_multiple_version_protocol_feature_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_extra_packed_data_test.py ${CMAKE_CURRENT_BINARY_DIR}/nodeos_extra_packed_data_test.py COPYONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_trust_evm_test.py ${CMAKE_CURRENT_BINARY_DIR}/nodeos_trust_evm_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/validate-dirty-db.py ${CMAKE_CURRENT_BINARY_DIR}/validate-dirty-db.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/launcher_test.py ${CMAKE_CURRENT_BINARY_DIR}/launcher_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/keosd_auto_launch_test.py ${CMAKE_CURRENT_BINARY_DIR}/keosd_auto_launch_test.py COPYONLY)
@@ -78,6 +79,9 @@ add_test(NAME block_log_util_test COMMAND tests/block_log_util_test.py -v --clea
 set_property(TEST block_log_util_test PROPERTY LABELS nonparallelizable_tests)
 add_test(NAME block_log_retain_blocks_test COMMAND tests/block_log_retain_blocks_test.py -v --clean-run --dump-error-detail WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST block_log_retain_blocks_test PROPERTY LABELS nonparallelizable_tests)
+# comment out for now since prerequisites are not available
+#add_test(NAME nodeos_trust_evm_test COMMAND tests/nodeos_trust_evm_test.py -v --clean-run --dump-error-detail WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+#set_property(TEST nodeos_trust_evm_test PROPERTY LABELS nonparallelizable_tests)
 
 option(ABIEOS_ONLY_LIBRARY "define and build the ABIEOS library" ON)
 set(ABIEOS_INSTALL_COMPONENT "dev")
