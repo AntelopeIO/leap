@@ -4,7 +4,7 @@
 
 void generic_actions::setup(CLI::App& app) {
    auto* sub = app.add_subcommand("version", "retrieve version information");
-   // sub->require_subcommand();
+   sub->require_subcommand(1);
    sub->add_subcommand("client", "retrieve basic version information of the client")->callback([this]() { cb_version(false); });
    sub->add_subcommand("full", "retrieve full version information of the client")->callback([this]() { cb_version(true); });
 }
