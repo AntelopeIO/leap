@@ -31,8 +31,8 @@ def waitForEmptyBlocks(node):
     return node.getHeadBlockNum()
 
 appArgs=AppArgs()
-appArgs.add(flag="--target-tps", type=int, help="The target transfers per second to send during test", default=8000)
-appArgs.add(flag="--tps-limit-per-generator", type=int, help="Maximum amount of transactions per second a single generator can have.", default=4000)
+appArgs.add(flag="--target-tps", type=int, help="The target transfers per second to send during test", default=7000)
+appArgs.add(flag="--tps-limit-per-generator", type=int, help="Maximum amount of transactions per second a single generator can have.", default=3500)
 appArgs.add(flag="--test-duration-sec", type=int, help="The duration of transfer trx generation for the test in seconds", default=30)
 appArgs.add(flag="--genesis", type=str, help="Path to genesis.json", default="tests/performance_tests/genesis.json")
 appArgs.add(flag="--save-json", type=bool, help="Whether to save json output of stats", default=False)
