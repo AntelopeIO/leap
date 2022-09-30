@@ -12,13 +12,15 @@ for file in args.infiles:
     file_js = {}
     with open(file, 'rt') as rf: 
         file_js = json.load(rf)
+
         if "env" not in js.keys():
             js["env"] = file_js["env"]
         file_js.pop("env")
+
         if "nodeosVersion" not in js.keys():
             js["nodeosVersion"] = file_js["nodeosVersion"]
-        
         file_js.pop("nodeosVersion")
+
         js[file]=file_js
 
 with open(args.outfile, 'wt') as wf:
