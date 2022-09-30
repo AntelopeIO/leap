@@ -4,7 +4,7 @@ _leap_complete()
 {
     # Get cmdline while ignoring the last word
     cmdline=${COMP_LINE}
-    if [[ "${cmdline:${cmdlinex}-1}" != " " ]]; then
+    if [[ "${cmdline:(-1)}" != " " ]]; then
         cmdline=${COMP_WORDS[@]:0:${COMP_CWORD}}
     fi
 

@@ -7,7 +7,7 @@ to update included in this library include/cli11/CLI11.hpp file it needs to be (
 
 
 ```bash
-git clone git@github.com:AntelopeIO/CLI11.git
+git clone https://github.com/AntelopeIO/CLI11.git
 cd CLI11
 mkdir build
 cd build
@@ -23,4 +23,4 @@ build/include/CLI11.hpp
 
 And is ready to be copied to include/cli11/CLI11.hpp of leap-cli11 library
 
-Automated CLI11 subproject build / import of CLI11.hpp header will be added in feature versions.
+Automated CLI11 subproject build / import of CLI11.hpp header will be added in future versions.

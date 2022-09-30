@@ -27,6 +27,7 @@ endif()
 set( CLI_CLIENT_EXECUTABLE_NAME cleos )
 set( NODE_EXECUTABLE_NAME nodeos )
 set( KEY_STORE_EXECUTABLE_NAME keosd )
+set( LEAP_UTIL_EXECUTABLE_NAME leap-util )
 
 # http://stackoverflow.com/a/18369825
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
@@ -244,9 +245,9 @@ install(FILES libraries/yubihsm/LICENSE DESTINATION ${CMAKE_INSTALL_FULL_DATAROO
 install(FILES libraries/eos-vm/LICENSE DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/licenses/leap/ RENAME LICENSE.eos-vm COMPONENT base)
 install(FILES libraries/fc/libraries/ff/LICENSE DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/licenses/leap/ RENAME LICENSE.libff COMPONENT base)
 
-configure_file(${CMAKE_SOURCE_DIR}/programs/leap-cli11/bash-completion/completions/leap-util
+configure_file(${CMAKE_SOURCE_DIR}/libraries/cli11/bash-completion/completions/leap-util
                ${CMAKE_BINARY_DIR}/programs/leap-cli11/bash-completion/completions/leap-util COPYONLY)
-configure_file(${CMAKE_SOURCE_DIR}/programs/leap-cli11/bash-completion/completions/cleos
+configure_file(${CMAKE_SOURCE_DIR}/libraries/cli11/bash-completion/completions/cleos
                ${CMAKE_BINARY_DIR}/programs/leap-cli11/bash-completion/completions/cleos COPYONLY)
 
 install(FILES programs/leap-cli11/bash-completion/completions/leap-util DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/bash-completion/completions COMPONENT base)

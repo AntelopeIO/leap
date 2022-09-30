@@ -14,8 +14,11 @@ struct blocklog_options {
    int last_block = std::numeric_limits<uint32_t>::max();
    std::string output_dir;
 
-   bool no_pretty_print;
-   bool as_json_array;
+   // flags
+   bool no_pretty_print = false;
+   bool as_json_array = false;
+
+   // subcommands
    bool make_index;
    bool trim_blocklog;
    bool extract_blocks;

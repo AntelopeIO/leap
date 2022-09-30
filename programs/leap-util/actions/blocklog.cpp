@@ -69,7 +69,7 @@ void blocklog_actions::setup(CLI::App& app) {
    sub->add_flag("--as-json-array", opt->as_json_array, "Print out json blocks wrapped in json array (otherwise the output is free-standing json objects).");
 
    // subcommands
-   sub->add_subcommand("make-index", "    Create blocks.index from blocks.log. Must give 'blocks-dir'. Give 'output-file' relative to current directory or absolute path (default is <blocks-dir>/blocks.index).")->callback([this, cb]() {opt->make_index=true; cb(); });
+   sub->add_subcommand("make-index", "Create blocks.index from blocks.log. Must give 'blocks-dir'. Give 'output-file' relative to current directory or absolute path (default is <blocks-dir>/blocks.index).")->callback([this, cb]() {opt->make_index=true; cb(); });
    sub->add_subcommand("trim-blocklog", "Trim blocks.log and blocks.index. Must give 'blocks-dir' and 'first' and/or 'last'.")->callback([this, cb]() {opt->trim_blocklog=true; cb(); });
    sub->add_subcommand("extract-blocks", "Extract range of blocks from blocks.log and write to output-dir.  Must give 'first' and/or 'last'.")->callback([this, cb]() {opt->extract_blocks=true; cb(); });
    sub->add_subcommand("smoke-test", "Quick test that blocks.log and blocks.index are well formed and agree with each other.")->callback([this, cb]() {opt->smoke_test=true; cb(); });

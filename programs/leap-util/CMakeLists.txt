@@ -1,4 +1,4 @@
-add_executable( leap-util main.cpp actions/generic.cpp actions/blocklog.cpp actions/snapshot.cpp actions/chain.cpp)
+add_executable( ${LEAP_UTIL_EXECUTABLE_NAME} main.cpp actions/generic.cpp actions/blocklog.cpp actions/snapshot.cpp actions/chain.cpp)
 
 if( UNIX AND NOT APPLE )
   set(rt_library rt )
@@ -10,13 +10,7 @@ target_link_libraries( leap-util
         PRIVATE appbase version
         PRIVATE eosio_chain chain_plugin fc leap-cli11 producer_plugin ${CMAKE_DL_LIBS} ${PLATFORM_SPECIFIC_LIBS} )
 
-copy_bin( leap-util )
+copy_bin( ${LEAP_UTIL_EXECUTABLE_NAME} )
 install( TARGETS
-   leap-util
-
-   COMPONENT base
-
-   RUNTIME DESTINATION ${CMAKE_INSTALL_FULL_BINDIR}
-   LIBRARY DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}
-   ARCHIVE DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}
+  ${LEAP_UTIL_EXECUTABLE_NAME} RUNTIME DESTINATION ${CMAKE_INSTALL_FULL_BINDIR} COMPONENT base
 )

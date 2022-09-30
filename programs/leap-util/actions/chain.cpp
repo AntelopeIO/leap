@@ -10,38 +10,14 @@
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/path.hpp>
 
-#include <eosio/chain/authorization_manager.hpp>
 #include <eosio/chain/block_log.hpp>
-#include <eosio/chain/code_object.hpp>
-#include <eosio/chain/config.hpp>
-#include <eosio/chain/controller.hpp>
-#include <eosio/chain/deep_mind.hpp>
-#include <eosio/chain/eosio_contract.hpp>
 #include <eosio/chain/exceptions.hpp>
-#include <eosio/chain/fork_database.hpp>
-#include <eosio/chain/generated_transaction_object.hpp>
-#include <eosio/chain/global_property_object.hpp>
-#include <eosio/chain/permission_link_object.hpp>
-#include <eosio/chain/resource_limits.hpp>
-#include <eosio/chain/snapshot.hpp>
-#include <eosio/chain/wasm_interface.hpp>
-#include <eosio/chain_plugin/chain_plugin.hpp>
-#include <eosio/chain_plugin/trx_finality_status_processing.hpp>
-#include <eosio/chain_plugin/trx_retry_db.hpp>
-#include <eosio/producer_plugin/producer_plugin.hpp>
-#include <fc/io/json.hpp>
-
-#include <eosio/resource_monitor_plugin/resource_monitor_plugin.hpp>
-
 #include <chainbase/environment.hpp>
-#include <eosio/chain/exceptions.hpp>
-
 
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/path.hpp>
 #include <boost/lexical_cast.hpp>
-#include <boost/signals2/connection.hpp>
 
 namespace bfs = boost::filesystem;
 using namespace eosio;
