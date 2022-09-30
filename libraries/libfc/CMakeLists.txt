@@ -6,6 +6,7 @@ set( USE_ASM OFF CACHE BOOL "" FORCE)
 set( IS_LIBFF_PARENT OFF CACHE BOOL "" FORCE)
 set( FF_INSTALL_COMPONENT "${FC_INSTALL_COMPONENT}")
 add_subdirectory( libraries/ff )
+add_subdirectory( libraries/bn256 )
 
 set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)
