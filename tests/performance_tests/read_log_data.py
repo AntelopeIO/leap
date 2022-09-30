@@ -26,4 +26,4 @@ print(f"Blocks Guide: {guide}\nTPS: {tpsStats}\nBlock Size: {blkSizeStats}")
 report = log_reader.createJSONReport(guide, tpsStats, blkSizeStats, args, True)
 print(report)
 if args.save_json:
-    log_reader.exportAsJSON(report, args)
+    log_reader.exportReportAsJSON(report, args)

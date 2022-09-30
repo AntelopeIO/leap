@@ -145,7 +145,7 @@ finally:
     report = log_reader.createJSONReport(guide, tpsStats, blkSizeStats, args, completedRun)
     print(report)
     if args.save_json:
-        log_reader.exportAsJSON(report, args)
+        log_reader.exportReportAsJSON(report, args)
 
     if completedRun:
         assert transactionsSent == data.totalTransactions , f"Error: Transactions received: {data.totalTransactions} did not match expected total: {transactionsSent}"
