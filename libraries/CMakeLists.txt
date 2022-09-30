@@ -6,13 +6,8 @@ set(EOSVM_INSTALL_COMPONENT "dev")
 
 add_subdirectory( libfc )
 add_subdirectory( builtins )
-
-# Suppress warnings on 3rdParty Library
-add_definitions( -w )
 add_subdirectory( softfloat )
 add_subdirectory( wasm-jit )
-remove_definitions( -w )
-
 add_subdirectory( chainbase )
 set(APPBASE_ENABLE_AUTO_VERSION OFF CACHE BOOL "enable automatic discovery of version via 'git describe'")
 add_subdirectory( appbase )
