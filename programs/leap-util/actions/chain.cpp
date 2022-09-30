@@ -34,11 +34,12 @@ FC_REFLECT(chainbase::environment, (debug) (os) (arch) (boost_version) (compiler
 
 void chain_actions::setup(CLI::App& app) {
    auto* sub = app.add_subcommand("chain-state", "chain utility");
+   sub->require_subcommand(1);
 
    auto* build = sub->add_subcommand("build-info", "extract build environment information as JSON");
-   build->add_option("--output-file,-o", opt->build_output_file, "write into specified file")->capture_default_str();
-   build->add_flag("--print,-p", opt->build_just_print, "print to console");
-
+   auto opt1 = build->add_option("--output-file,-o", opt->build_output_file, "write into specified file")->capture_default_str();
+   auto opt2 = build->add_flag("--print,-p", opt->build_just_print, "print to console");
+   build->require_option(1);
 
    build->callback([&]() {
       int rc = run_subcommand_build();
@@ -54,10 +55,10 @@ int chain_actions::run_subcommand_build() {
          p = bfs::current_path() / p;
       }
       fc::json::save_to_file(chainbase::environment(), p, true);
-      ilog("Saved build info JSON to '${path}'", ("path", p.generic_string()));
+      std::cout << "Saved build info JSON to '" <<  p.generic_string() << "'" << std::endl;
    }
    if(opt->build_just_print) {
-      ilog("\nBuild environment JSON:\n${e}", ("e", fc::json::to_pretty_string(chainbase::environment())));
+      std::cout << fc::json::to_pretty_string(chainbase::environment()) << std::endl;
    }
 
    return 0;
