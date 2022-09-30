@@ -28,6 +28,14 @@ class stats():
     numBlocks: int = 0
 
 @dataclass
+class basicStats():
+    min: float = 0
+    max: float = 0
+    avg: float = 0
+    sigma: float = 0
+    samples: int = 0
+
+@dataclass
 class chainBlocksGuide():
     firstBlockNum: int = 0
     lastBlockNum: int = 0
@@ -178,7 +186,7 @@ def pruneToSteadyState(data: chainData, guide: chainBlocksGuide):
 
     return data.blockLog[guide.setupBlocksCnt + guide.leadingEmptyBlocksCnt + guide.configAddlDropCnt:-(guide.tearDownBlocksCnt + guide.trailingEmptyBlocksCnt + guide.configAddlDropCnt)]
 
-def scoreTransfersPerSecond(data: chainData, guide : chainBlocksGuide) -> stats:
+def scoreTransfersPerSecond(data: chainData, guide: chainBlocksGuide) -> stats:
     """Analyzes a test scenario's steady state block data for statistics around transfers per second over every two-consecutive-block window"""
     prunedBlockDataLog = pruneToSteadyState(data, guide)
 
@@ -216,8 +224,14 @@ def calcBlockSizeStats(data: chainData, guide : chainBlocksGuide) -> stats:
         # Note: numpy array slicing in use -> [:,0] -> from all elements return index 0
         return stats(int(np.min(npBlkSizeList[:,0])), int(np.max(npBlkSizeList[:,0])), float(np.average(npBlkSizeList[:,0])), float(np.std(npBlkSizeList[:,0])), int(np.sum(npBlkSizeList[:,1])), len(prunedBlockDataLog))
 
+def calcTrxLatencyStats(trxDict : dict, blockDict: dict) -> basicStats:
+    latencyList = [(blockDict[data.blockNum].timestampEpoch - data.calcdTimeEpoch) for trxId, data in trxDict.items() if data.calcdTimeEpoch != 0]
 
-def createJSONReport(guide: chainBlocksGuide, tpsStats: stats, blockSizeStats: stats, args, completedRun) -> json:
+    npLatencyList = np.array(latencyList, dtype=np.float)
+
+    return basicStats(float(np.min(npLatencyList)), float(np.max(npLatencyList)), float(np.average(npLatencyList)), float(np.std(npLatencyList)), len(npLatencyList))
+
+def createJSONReport(guide: chainBlocksGuide, tpsStats: stats, blockSizeStats: stats, trxLatencyStats: basicStats, args, completedRun) -> json:
     js = {}
     js['completedRun'] = completedRun
     js['nodeosVersion'] = Utils.getNodeosVersion()
@@ -229,6 +243,7 @@ def createJSONReport(guide: chainBlocksGuide, tpsStats: stats, blockSizeStats: s
     js['Analysis']['TPS']['configTps']=args.target_tps
     js['Analysis']['TPS']['configTestDuration']=args.test_duration_sec
     js['Analysis']['BlockSize'] = asdict(blockSizeStats)
+    js['Analysis']['TrxLatency'] = asdict(trxLatencyStats)
     return json.dumps(js, sort_keys=True, indent=2)
 
 def exportReportAsJSON(report: json, args):

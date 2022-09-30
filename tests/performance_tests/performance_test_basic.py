@@ -5,19 +5,58 @@ import sys
 import subprocess
 import shutil
 import signal
+import time
+import datetime
+from datetime import datetime
+import glob
 
 harnessPath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(harnessPath)
 
 from TestHarness import Cluster, TestHelper, Utils, WalletMgr
 from TestHarness.TestHelper import AppArgs
+from dataclasses import dataclass
 import log_reader
+import gzip
 
 Print = Utils.Print
 errorExit = Utils.errorExit
 cmdError = Utils.cmdError
 relaunchTimeout = 30
 emptyBlockGoal = 5
+
+@dataclass
+class trxData():
+    blockNum: int = 0
+    cpuUsageUs: int = 0
+    netUsageUs: int = 0
+    sentTimestamp: str  = ""
+    calcdTimeEpoch: float  = 0
+
+    def setSentTimestamp(self, sentTime):
+        self.sentTimestamp = sentTime
+        self.calcdTimeEpoch = datetime.fromisoformat(sentTime).timestamp()
+
+@dataclass
+class blkData():
+    blockId: int = 0
+    producer: str = ""
+    status: str = ""
+    timestamp: str = ""
+    timestampEpoch: float = 0
+
+def queryBlockData(node, blockNum, trxDict, blockDict):
+    block = node.processCurlCmd("trace_api", "get_block", f'{{"block_num":{blockNum}}}', silentErrors=False, exitOnError=True)
+
+    trxDict.update(dict([(trx['id'], trxData(trx['block_num'], trx['cpu_usage_us'], trx['net_usage_words'], "")) for trx in block['transactions'] if block['transactions']]))
+
+    #Note block timestamp formatted like: '2022-09-30T16:48:13.500Z', but 'Z' is not part of python's recognized iso format, so strip it off the end
+    blockDict.update({block['number'] : blkData(block['id'], block['producer'], block['status'], block['timestamp'], datetime.fromisoformat(block['timestamp'][:-1]).timestamp())})
+
+def scrapeTrxGenLog(trxSent, path):
+    selectedopen = gzip.open if path.endswith('.gz') else open
+    with selectedopen(path, 'rt') as f:
+        trxSent.update(dict([(x[0], x[1]) for x in (line.rstrip('\n').split(',') for line in f)]))
 
 def waitForEmptyBlocks(node):
     emptyBlocks = 0
@@ -146,6 +185,13 @@ try:
     data.ceaseBlock = waitForEmptyBlocks(validationNode) - emptyBlockGoal + 1
     completedRun = True
 
+    trxDict = {}
+    blockDict = {}
+    for query in range(data.startBlock, data.ceaseBlock):
+        queryBlockData(validationNode, query, trxDict, blockDict)
+
+    time.sleep(5)
+
 except subprocess.CalledProcessError as err:
     print(f"trx_generator return error code: {err.returncode}.  Test aborted.")
 finally:
@@ -163,6 +209,27 @@ finally:
 
     print(data)
 
+    trxSent = {}
+    filesScraped = []
+    for fileName in glob.glob(f"{logDir}/trx_data_output_*.txt"):
+        filesScraped.append(fileName)
+        scrapeTrxGenLog(trxSent, fileName)
+        os.rename(fileName, f"{fileName}.prev")
+
+    print("Transaction Log Files Scraped:")
+    print(filesScraped)
+
+    notFound = []
+    for sentTrxId in trxSent.keys():
+        if sentTrxId in trxDict.keys():
+            trxDict[sentTrxId].setSentTimestamp(trxSent[sentTrxId])
+        else:
+            notFound.append(sentTrxId)
+
+    if len(notFound) > 0:
+        print(f"Transactions logged as sent but NOT FOUND in block!! count {len(notFound)} :")
+        print(notFound)
+
     # Define number of potentially non-empty blocks to prune from the beginning and end of the range
     # of blocks of interest for evaluation to zero in on steady state operation.
     # All leading and trailing 0 size blocks will be pruned as well prior
@@ -170,11 +237,15 @@ finally:
     numAddlBlocksToPrune = 2
 
     guide = log_reader.calcChainGuide(data, numAddlBlocksToPrune)
+    trxLatencyStats = log_reader.calcTrxLatencyStats(trxDict, blockDict)
     tpsStats = log_reader.scoreTransfersPerSecond(data, guide)
     blkSizeStats = log_reader.calcBlockSizeStats(data, guide)
-    print(f"Blocks Guide: {guide}\nTPS: {tpsStats}\nBlock Size: {blkSizeStats}")
-    report = log_reader.createJSONReport(guide, tpsStats, blkSizeStats, args, completedRun)
+
+    print(f"Blocks Guide: {guide}\nTPS: {tpsStats}\nBlock Size: {blkSizeStats}\nTrx Latency: {trxLatencyStats}")
+
+    report = log_reader.createJSONReport(guide, tpsStats, blkSizeStats, trxLatencyStats, args, completedRun)
     print(report)
+
     if args.save_json:
         log_reader.exportAsJSON(report, args)
 
