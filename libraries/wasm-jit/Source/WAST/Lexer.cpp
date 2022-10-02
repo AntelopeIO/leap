@@ -121,6 +121,8 @@ namespace WAST
 			addLiteralToNFA(literalString,nfaBuilder,0,finalState);
 		}
 
+		nfaMachine = NFA::Machine(nfaBuilder);
+
 		Timing::logTimer("built lexer tables",timer);
 	}
 
