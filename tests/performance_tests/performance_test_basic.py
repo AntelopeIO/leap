@@ -14,7 +14,7 @@ sys.path.append(harnessPath)
 
 from TestHarness import Cluster, TestHelper, Utils, WalletMgr
 from TestHarness.TestHelper import AppArgs
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import log_reader
 import gzip
 
@@ -29,12 +29,26 @@ class trxData():
     blockNum: int = 0
     cpuUsageUs: int = 0
     netUsageUs: int = 0
-    sentTimestamp: str  = ""
-    calcdTimeEpoch: float  = 0
+    _sentTimestamp: str = field(init=True, repr=False, default='')
+    _calcdTimeEpoch: float = 0
 
-    def setSentTimestamp(self, sentTime):
-        self.sentTimestamp = sentTime
-        self.calcdTimeEpoch = datetime.fromisoformat(sentTime).timestamp()
+    @property
+    def sentTimestamp(self):
+        return self._sentTimestamp
+
+    @property
+    def calcdTimeEpoch(self):
+        return self._calcdTimeEpoch
+
+    @sentTimestamp.setter
+    def sentTimestamp(self, sentTime: str):
+        self._sentTimestamp = sentTime
+        self._calcdTimeEpoch = datetime.fromisoformat(sentTime).timestamp()
+
+    @sentTimestamp.deleter
+    def sentTimestamp(self):
+        self._sentTimestamp = ""
+        self._calcdTimeEpoch = 0
 
 @dataclass
 class blkData():
@@ -221,7 +235,7 @@ finally:
     notFound = []
     for sentTrxId in trxSent.keys():
         if sentTrxId in trxDict.keys():
-            trxDict[sentTrxId].setSentTimestamp(trxSent[sentTrxId])
+            trxDict[sentTrxId].sentTimestamp = trxSent[sentTrxId]
         else:
             notFound.append(sentTrxId)
 
