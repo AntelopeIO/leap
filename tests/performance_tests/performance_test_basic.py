@@ -241,7 +241,7 @@ finally:
 
     if len(notFound) > 0:
         print(f"Transactions logged as sent but NOT FOUND in block!! count {len(notFound)} :")
-        print(notFound)
+        # print(notFound)
 
     # Define number of potentially non-empty blocks to prune from the beginning and end of the range
     # of blocks of interest for evaluation to zero in on steady state operation.
