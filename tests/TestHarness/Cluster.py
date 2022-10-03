@@ -242,7 +242,7 @@ class Cluster(object):
                 return False
             tries = tries - 1
             time.sleep(2)
-        loggingLevelDictString = json.dumps(self.loggingLevelDict).replace(" ", "")
+        loggingLevelDictString = json.dumps(self.loggingLevelDict, separators=(',', ':'))
         cmd="%s -p %s -n %s -d %s -i %s -f %s --unstarted-nodes %s --logging-level %s --logging-level-map %s" % (
             Utils.EosLauncherPath, pnodes, totalNodes, delay, datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3],
             producerFlag, unstartedNodes, self.loggingLevel, loggingLevelDictString)

@@ -509,7 +509,7 @@ launcher_def::set_options (bpo::options_description &cfg) {
     ("max-block-cpu-usage",bpo::value<uint32_t>(),"Provide the \"max-block-cpu-usage\" value to use in the genesis.json file")
     ("max-transaction-cpu-usage",bpo::value<uint32_t>(),"Provide the \"max-transaction-cpu-usage\" value to use in the genesis.json file")
     ("logging-level",bpo::value<string>(),"Provide the \"level\" value to use in the logging.json file ")
-    ("logging-level-map",bpo::value<string>(),"String of a dict which specifies \"level\" value to use in the logging.json file for specific nodes, matching based on node number")
+    ("logging-level-map",bpo::value<string>(),"String of a dict which specifies \"level\" value to use in the logging.json file for specific nodes, matching based on node number. Ex: {\"bios\":\"off\",\"00\":\"info\"}")
         ;
 }
 
