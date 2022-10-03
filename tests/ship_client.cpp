@@ -76,7 +76,7 @@ int main(int argc, char* argv[]) {
    std::cerr << "[\n{\n   \"status\": \"construct\",\n   \"time\": " << time(NULL) << "\n},\n";
 
    try {
-      auto run = [&]<typename SocketStream>(SocketStream& stream) {
+      auto run = [&](auto& stream) { // C++20: [&]<typename SocketStream>(SocketStream& stream)
          {
             boost::beast::flat_buffer abi_buffer;
             stream.read(abi_buffer);

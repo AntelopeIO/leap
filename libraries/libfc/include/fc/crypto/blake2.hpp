@@ -17,11 +17,11 @@ namespace fc {
 
     std::variant<blake2b_error, bytes> blake2b(uint32_t _rounds, const bytes& _h, const bytes& _m, const bytes& _t0_offset, const bytes& _t1_offset, bool _f, const yield_function_t& yield);
 
-    typedef struct {
+    struct blake2b_state {
         uint64_t h[8] = {0,0,0,0,0,0,0,0};
         uint64_t t[2] = {0,0};
         uint64_t f[1] = {0};
-    } blake2b_state;
+    };
 
     class blake2b_wrapper {
     public:
