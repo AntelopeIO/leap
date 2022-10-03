@@ -19,12 +19,12 @@ struct blocklog_options {
    bool as_json_array = false;
 
    // subcommands
-   bool make_index;
-   bool trim_blocklog;
-   bool extract_blocks;
-   bool smoke_test;
-   bool vacuum;
-   bool genesis;
+   bool make_index = false;
+   bool trim_blocklog = false;
+   bool extract_blocks = false;
+   bool smoke_test = false;
+   bool vacuum = false;
+   bool genesis = false;
 
    std::optional<block_log_prune_config> blog_keep_prune_conf;
 };
