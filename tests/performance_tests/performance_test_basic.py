@@ -6,7 +6,6 @@ import subprocess
 import shutil
 import signal
 import time
-import datetime
 from datetime import datetime
 import glob
 
@@ -70,7 +69,7 @@ def waitForEmptyBlocks(node):
             emptyBlocks = 0
     return node.getHeadBlockNum()
 
-def testArtifactDirCleanup(scriptName):
+def testDirsCleanup(scriptName):
     try:
         print(f"Checking if test artifacts dir exists: {scriptName}")
         if os.path.isdir(f"{scriptName}"):
@@ -79,7 +78,7 @@ def testArtifactDirCleanup(scriptName):
     except OSError as error:
         print(error)
 
-def testArtifactDirSetup(scriptName, logDir):
+def testDirsSetup(scriptName, logDir):
     try:
         print(f"Checking if test artifacts dir exists: {scriptName}")
         if not os.path.isdir(f"{scriptName}"):
@@ -133,12 +132,12 @@ try:
     cluster.killall(allInstances=killAll)
     cluster.cleanup()
 
-    scriptName  = __file__.split("/")[-1][:-3]
+    scriptName  = os.path.splitext(os.path.basename(__file__))[0]
     logDir = f'{scriptName}/logs'
 
-    testArtifactDirCleanup(scriptName)
+    testDirsCleanup(scriptName)
 
-    testArtifactDirSetup(scriptName, logDir)
+    testDirsSetup(scriptName, logDir)
 
     extraNodeosArgs=' --http-max-response-time-ms 990000 --disable-subjective-api-billing true '
     if cluster.launch(
@@ -255,7 +254,7 @@ finally:
         os.system("pkill trx_generator")
         print("Test run cancelled early via SIGINT")
 
-    testArtifactDirCleanup(scriptName)
+    testDirsCleanup(scriptName)
 
     testSuccessful = True
 
