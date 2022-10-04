@@ -607,7 +607,6 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
             if( chain.is_known_unexpired_transaction( id )) {
                auto except_ptr = std::static_pointer_cast<fc::exception>( std::make_shared<tx_duplicate>(
                      FC_LOG_MESSAGE( error, "duplicate transaction ${id}", ("id", id))));
-               log_trx_results( trx, except_ptr );
                next( std::move(except_ptr) );
                return true;
             }
@@ -2040,14 +2039,14 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
          pr.trx_exhausted = true;
       } else {
          pr.failed = true;
-         fc_dlog( _trx_failed_trace_log, "Subjective bill for failed ${a}: ${b} elapsed ${t}us, time ${r}us",
-                  ("a",first_auth)("b",sub_bill)("t",trace->elapsed)("r", end - start));
-         if (!disable_subjective_billing)
-            _subjective_billing.subjective_bill_failure( first_auth, trace->elapsed, fc::time_point::now() );
-
-         log_trx_results( trx, trace, start );
          auto failure_code = trace->except->code();
          if( failure_code != tx_duplicate::code_value ) {
+            fc_dlog( _trx_failed_trace_log, "Subjective bill for failed ${a}: ${b} elapsed ${t}us, time ${r}us",
+                     ("a",first_auth)("b",sub_bill)("t",trace->elapsed)("r", end - start));
+            if (!disable_subjective_billing)
+               _subjective_billing.subjective_bill_failure( first_auth, trace->elapsed, fc::time_point::now() );
+
+            log_trx_results( trx, trace, start );
             // this failed our configured maximum transaction time, we don't want to replay it
             fc_dlog( _trx_failed_trace_log, "Failed ${c} trx, auth: ${a}, prev billed: ${p}us, ran: ${r}us, id: ${id}",
                      ("c", failure_code)("a", first_auth)("p", prev_billed_cpu_time_us)
