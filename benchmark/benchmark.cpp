@@ -10,6 +10,7 @@ namespace benchmark {
 // update this map when a new feature is supported
 // key is the name and value is the function doing benchmarking
 std::map<std::string, std::function<void()>> features {
+   { "bn_256", bn_256_benchmarking },
    { "alt_bn_128", alt_bn_128_benchmarking },
    { "modexp", modexp_benchmarking },
    { "key", key_benchmarking },
