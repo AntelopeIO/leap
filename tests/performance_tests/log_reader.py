@@ -5,12 +5,13 @@ import sys
 import re
 import numpy as np
 import json
+from datetime import datetime
 
 harnessPath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(harnessPath)
 
 from TestHarness import Utils
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 from platform import release, system
 import gzip
 
@@ -34,6 +35,66 @@ class basicStats():
     avg: float = 0
     sigma: float = 0
     samples: int = 0
+
+@dataclass
+class trxData():
+    blockNum: int = 0
+    cpuUsageUs: int = 0
+    netUsageUs: int = 0
+    _sentTimestamp: str = ""
+    _calcdTimeEpoch: float = 0
+
+    @property
+    def sentTimestamp(self):
+        return self._sentTimestamp
+
+    @property
+    def calcdTimeEpoch(self):
+        return self._calcdTimeEpoch
+
+    @sentTimestamp.setter
+    def sentTimestamp(self, sentTime: str):
+        self._sentTimestamp = sentTime
+        # When we no longer support Python 3.6, would be great to update to use this
+        # self._calcdTimeEpoch = datetime.fromisoformat(sentTime).timestamp()
+        self._calcdTimeEpoch = datetime.strptime(sentTime, "%Y-%m-%dT%H:%M:%S.%f").timestamp()
+
+    @sentTimestamp.deleter
+    def sentTimestamp(self):
+        self._sentTimestamp = ""
+        self._calcdTimeEpoch = 0
+
+@dataclass
+class blkData():
+    blockId: int = 0
+    producer: str = ""
+    status: str = ""
+    _timestamp: str = field(init=True, repr=True, default='')
+    _calcdTimeEpoch: float = 0
+
+    def __post_init__(self):
+        self.timestamp = self._timestamp
+
+    @property
+    def timestamp(self):
+        return self._timestamp
+
+    @property
+    def calcdTimeEpoch(self):
+        return self._calcdTimeEpoch
+
+    @timestamp.setter
+    def timestamp(self, time: str):
+        self._timestamp = time[:-1]
+        # When we no longer support Python 3.6, would be great to update to use this
+        # self._calcdTimeEpoch = datetime.fromisoformat(time[:-1]).timestamp()
+        #Note block timestamp formatted like: '2022-09-30T16:48:13.500Z', but 'Z' is not part of python's recognized iso format, so strip it off the end
+        self._calcdTimeEpoch = datetime.strptime(time[:-1], "%Y-%m-%dT%H:%M:%S.%f").timestamp()
+
+    @timestamp.deleter
+    def timestamp(self):
+        self._timestamp = ""
+        self._calcdTimeEpoch = 0
 
 @dataclass
 class chainBlocksGuide():
@@ -119,6 +180,21 @@ def scrapeLog(data, path):
                         data.updateTotal(int(value[2]), 0, 0, 0, 0, int(v2Logging[0]))
                 else:
                     print("Error: Unknown log format")
+
+def scrapeTrxGenLog(trxSent, path):
+    selectedopen = gzip.open if path.endswith('.gz') else open
+    with selectedopen(path, 'rt') as f:
+        trxSent.update(dict([(x[0], x[1]) for x in (line.rstrip('\n').split(',') for line in f)]))
+
+def scrapeBlockTrxDataLog(trxDict, path):
+    selectedopen = gzip.open if path.endswith('.gz') else open
+    with selectedopen(path, 'rt') as f:
+        trxDict.update(dict([(x[0], trxData(x[1], x[2], x[3])) for x in (line.rstrip('\n').split(',') for line in f)]))
+
+def scrapeBlockDataLog(blockDict, path):
+    selectedopen = gzip.open if path.endswith('.gz') else open
+    with selectedopen(path, 'rt') as f:
+        blockDict.update(dict([(x[0], blkData(x[1], x[2], x[3], x[4])) for x in (line.rstrip('\n').split(',') for line in f)]))
 
 def calcChainGuide(data: chainData, numAddlBlocksToDrop=0) -> chainBlocksGuide:
     """Calculates guide to understanding key points/blocks in chain data. In particular, test scenario phases like setup, teardown, etc.
@@ -225,7 +301,16 @@ def calcBlockSizeStats(data: chainData, guide : chainBlocksGuide) -> stats:
         return stats(int(np.min(npBlkSizeList[:,0])), int(np.max(npBlkSizeList[:,0])), float(np.average(npBlkSizeList[:,0])), float(np.std(npBlkSizeList[:,0])), int(np.sum(npBlkSizeList[:,1])), len(prunedBlockDataLog))
 
 def calcTrxLatencyStats(trxDict : dict, blockDict: dict) -> basicStats:
-    latencyList = [(blockDict[data.blockNum].timestampEpoch - data.calcdTimeEpoch) for trxId, data in trxDict.items() if data.calcdTimeEpoch != 0]
+    """Analyzes a test scenario's steady state block data for transaction latency statistics during the test window
+
+    Keyword arguments:
+    trxDict -- the dictionary mapping trx id to trxData, wherein the trx sent timestamp has been populated from the trx generator at moment of send
+    blockDict -- the dictionary of block number to blockData, wherein the block production timestamp is recorded
+
+    Returns:
+    transaction latency stats as a basicStats object
+    """
+    latencyList = [(blockDict[data.blockNum].calcdTimeEpoch - data.calcdTimeEpoch) for trxId, data in trxDict.items() if data.calcdTimeEpoch != 0]
 
     npLatencyList = np.array(latencyList, dtype=np.float)
 

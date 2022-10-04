@@ -24,7 +24,7 @@ parser.add_argument("account_2_priv_key", type=str, help="Second account private
 parser.add_argument("trx_gen_duration", type=str, help="How long to run transaction generators")
 parser.add_argument("target_tps", type=int, help="Goal transactions per second")
 parser.add_argument("tps_limit_per_generator", type=int, help="Maximum amount of transactions per second a single generator can have.", default=4000)
-parser.add_argument("log_dir", type=str, help="Path to directory where trx logs should be written.", default="performance_test_basic/logs")
+parser.add_argument("log_dir", type=str, help="Path to directory where trx logs should be written.")
 args = parser.parse_args()
 
 targetTps = args.target_tps

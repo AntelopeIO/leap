@@ -14,9 +14,7 @@ sys.path.append(harnessPath)
 
 from TestHarness import Cluster, TestHelper, Utils, WalletMgr
 from TestHarness.TestHelper import AppArgs
-from dataclasses import dataclass, field
 import log_reader
-import gzip
 
 Print = Utils.Print
 errorExit = Utils.errorExit
@@ -24,52 +22,26 @@ cmdError = Utils.cmdError
 relaunchTimeout = 30
 emptyBlockGoal = 5
 
-@dataclass
-class trxData():
-    blockNum: int = 0
-    cpuUsageUs: int = 0
-    netUsageUs: int = 0
-    _sentTimestamp: str = field(init=True, repr=False, default='')
-    _calcdTimeEpoch: float = 0
+def fileOpenMode(filePath) -> str:
+        if os.path.exists(filePath):
+            append_write = 'a'
+        else:
+            append_write = 'w'
+        return append_write
 
-    @property
-    def sentTimestamp(self):
-        return self._sentTimestamp
+def queryBlockTrxData(node, blockDataPath, blockTrxDataPath, startBlockNum, endBlockNum):
+    for blockNum in range(startBlockNum, endBlockNum):
+        block = node.processCurlCmd("trace_api", "get_block", f'{{"block_num":{blockNum}}}', silentErrors=False, exitOnError=True)
 
-    @property
-    def calcdTimeEpoch(self):
-        return self._calcdTimeEpoch
+        btdf_append_write = fileOpenMode(blockTrxDataPath)
+        with open(blockTrxDataPath, btdf_append_write) as trxDataFile:
+            [trxDataFile.write(f"{trx['id']},{trx['block_num']},{trx['cpu_usage_us']},{trx['net_usage_words']}\n") for trx in block['transactions'] if block['transactions']]
+        trxDataFile.close()
 
-    @sentTimestamp.setter
-    def sentTimestamp(self, sentTime: str):
-        self._sentTimestamp = sentTime
-        self._calcdTimeEpoch = datetime.fromisoformat(sentTime).timestamp()
-
-    @sentTimestamp.deleter
-    def sentTimestamp(self):
-        self._sentTimestamp = ""
-        self._calcdTimeEpoch = 0
-
-@dataclass
-class blkData():
-    blockId: int = 0
-    producer: str = ""
-    status: str = ""
-    timestamp: str = ""
-    timestampEpoch: float = 0
-
-def queryBlockData(node, blockNum, trxDict, blockDict):
-    block = node.processCurlCmd("trace_api", "get_block", f'{{"block_num":{blockNum}}}', silentErrors=False, exitOnError=True)
-
-    trxDict.update(dict([(trx['id'], trxData(trx['block_num'], trx['cpu_usage_us'], trx['net_usage_words'], "")) for trx in block['transactions'] if block['transactions']]))
-
-    #Note block timestamp formatted like: '2022-09-30T16:48:13.500Z', but 'Z' is not part of python's recognized iso format, so strip it off the end
-    blockDict.update({block['number'] : blkData(block['id'], block['producer'], block['status'], block['timestamp'], datetime.fromisoformat(block['timestamp'][:-1]).timestamp())})
-
-def scrapeTrxGenLog(trxSent, path):
-    selectedopen = gzip.open if path.endswith('.gz') else open
-    with selectedopen(path, 'rt') as f:
-        trxSent.update(dict([(x[0], x[1]) for x in (line.rstrip('\n').split(',') for line in f)]))
+        bdf_append_write = fileOpenMode(blockDataPath)
+        with open(blockDataPath, bdf_append_write) as blockDataFile:
+            blockDataFile.write(f"{block['number']},{block['id']},{block['producer']},{block['status']},{block['timestamp']}\n")
+        blockDataFile.close()
 
 def waitForEmptyBlocks(node):
     emptyBlocks = 0
@@ -83,25 +55,36 @@ def waitForEmptyBlocks(node):
             emptyBlocks = 0
     return node.getHeadBlockNum()
 
-def testDirsCleanup(scriptName):
+def testDirsCleanup(rootDir):
     try:
-        print(f"Checking if test artifacts dir exists: {scriptName}")
-        if os.path.isdir(f"{scriptName}"):
-            print(f"Cleaning up test artifacts dir and all contents of: {scriptName}")
-            shutil.rmtree(f"{scriptName}")
+        print(f"Checking if test artifacts dir exists: {rootDir}")
+        if os.path.isdir(f"{rootDir}"):
+            print(f"Cleaning up test artifacts dir and all contents of: {rootDir}")
+            shutil.rmtree(f"{rootDir}")
     except OSError as error:
         print(error)
 
-def testDirsSetup(scriptName, logDir):
+def testDirsSetup(scriptName, testRunTimestamp, trxGenLogDir, blockDataLogDir):
     try:
         print(f"Checking if test artifacts dir exists: {scriptName}")
         if not os.path.isdir(f"{scriptName}"):
             print(f"Creating test artifacts dir: {scriptName}")
             os.mkdir(f"{scriptName}")
-        print(f"Checking if logs dir exists: {logDir}")
-        if not os.path.isdir(f"{logDir}"):
-            print(f"Creating logs dir: {logDir}")
-            os.mkdir(f"{logDir}")
+
+        print(f"Checking if logs dir exists: {testRunTimestamp}")
+        if not os.path.isdir(f"{testRunTimestamp}"):
+            print(f"Creating logs dir: {testRunTimestamp}")
+            os.mkdir(f"{testRunTimestamp}")
+
+        print(f"Checking if logs dir exists: {trxGenLogDir}")
+        if not os.path.isdir(f"{trxGenLogDir}"):
+            print(f"Creating logs dir: {trxGenLogDir}")
+            os.mkdir(f"{trxGenLogDir}")
+
+        print(f"Checking if logs dir exists: {blockDataLogDir}")
+        if not os.path.isdir(f"{blockDataLogDir}"):
+            print(f"Creating logs dir: {blockDataLogDir}")
+            os.mkdir(f"{blockDataLogDir}")
     except OSError as error:
         print(error)
 
@@ -110,6 +93,7 @@ appArgs.add(flag="--target-tps", type=int, help="The target transfers per second
 appArgs.add(flag="--tps-limit-per-generator", type=int, help="Maximum amount of transactions per second a single generator can have.", default=4000)
 appArgs.add(flag="--test-duration-sec", type=int, help="The duration of transfer trx generation for the test in seconds", default=30)
 appArgs.add(flag="--genesis", type=str, help="Path to genesis.json", default="tests/performance_tests/genesis.json")
+appArgs.add(flag="--num-blocks-to-prune", type=int, help="The number of potentially non-empty blocks, in addition to leading and trailing size 0 blocks, to prune from the beginning and end of the range of blocks of interest for evaluation.", default=2)
 appArgs.add(flag="--save-json", type=bool, help="Whether to save json output of stats", default=False)
 appArgs.add(flag="--json-path", type=str, help="Path to save json output", default="data.json")
 args=TestHelper.parse_args({"-p","-n","-d","-s","--nodes-file"
@@ -131,6 +115,7 @@ testGenerationDurationSec = args.test_duration_sec
 targetTps = args.target_tps
 genesisJsonFile = args.genesis
 tpsLimitPerGenerator = args.tps_limit_per_generator
+numAddlBlocksToPrune = args.num_blocks_to_prune
 
 # Setup cluster and its wallet manager
 walletMgr=WalletMgr(True)
@@ -147,11 +132,13 @@ try:
     cluster.cleanup()
 
     scriptName  = os.path.splitext(os.path.basename(__file__))[0]
-    logDir = f'{scriptName}/logs'
+    testTimeStampDirPath = f"{scriptName}/{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
+    trxGenLogDirPath = f"{testTimeStampDirPath}/trxGenLogs"
+    blockDataLogDirPath = f"{testTimeStampDirPath}/blockDataLogs"
 
-    testDirsCleanup(scriptName)
+    testDirsCleanup(testTimeStampDirPath)
 
-    testDirsSetup(scriptName, logDir)
+    testDirsSetup(scriptName, testTimeStampDirPath, trxGenLogDirPath, blockDataLogDirPath)
 
     extraNodeosArgs=' --http-max-response-time-ms 990000 --disable-subjective-api-billing true '
     if cluster.launch(
@@ -192,16 +179,16 @@ try:
        f"./tests/performance_tests/launch_transaction_generators.py",
        f"{chainId}", f"{lib_id}", f"{cluster.eosioAccount.name}",
        f"{account1Name}", f"{account2Name}", f"{account1PrivKey}", f"{account2PrivKey}",
-       f"{testGenerationDurationSec}", f"{targetTps}", f"{tpsLimitPerGenerator}", f"{logDir}"
+       f"{testGenerationDurationSec}", f"{targetTps}", f"{tpsLimitPerGenerator}", f"{trxGenLogDirPath}"
     ])
     # Get stats after transaction generation stops
     data.ceaseBlock = waitForEmptyBlocks(validationNode) - emptyBlockGoal + 1
     completedRun = True
 
-    trxDict = {}
-    blockDict = {}
-    for query in range(data.startBlock, data.ceaseBlock):
-        queryBlockData(validationNode, query, trxDict, blockDict)
+    blockDataPath = f"{blockDataLogDirPath}/blockData.txt"
+    blockTrxDataPath = f"{blockDataLogDirPath}/blockTrxData.txt"
+
+    queryBlockTrxData(validationNode, blockDataPath, blockTrxDataPath, data.startBlock, data.ceaseBlock)
 
     time.sleep(5)
 
@@ -224,13 +211,18 @@ finally:
 
     trxSent = {}
     filesScraped = []
-    for fileName in glob.glob(f"{logDir}/trx_data_output_*.txt"):
+    for fileName in glob.glob(f"{trxGenLogDirPath}/trx_data_output_*.txt"):
         filesScraped.append(fileName)
-        scrapeTrxGenLog(trxSent, fileName)
-        os.rename(fileName, f"{fileName}.prev")
+        log_reader.scrapeTrxGenLog(trxSent, fileName)
 
     print("Transaction Log Files Scraped:")
     print(filesScraped)
+
+    trxDict = {}
+    log_reader.scrapeBlockTrxDataLog(trxDict, blockTrxDataPath)
+
+    blockDict = {}
+    log_reader.scrapeBlockDataLog(blockDict, blockDataPath)
 
     notFound = []
     for sentTrxId in trxSent.keys():
@@ -241,13 +233,6 @@ finally:
 
     if len(notFound) > 0:
         print(f"Transactions logged as sent but NOT FOUND in block!! lost {len(notFound)} out of {len(trxSent)}")
-        # print(notFound)
-
-    # Define number of potentially non-empty blocks to prune from the beginning and end of the range
-    # of blocks of interest for evaluation to zero in on steady state operation.
-    # All leading and trailing 0 size blocks will be pruned as well prior
-    # to evaluating and applying the numBlocksToPrune
-    numAddlBlocksToPrune = 2
 
     guide = log_reader.calcChainGuide(data, numAddlBlocksToPrune)
     trxLatencyStats = log_reader.calcTrxLatencyStats(trxDict, blockDict)
@@ -257,6 +242,7 @@ finally:
     print(f"Blocks Guide: {guide}\nTPS: {tpsStats}\nBlock Size: {blkSizeStats}\nTrx Latency: {trxLatencyStats}")
 
     report = log_reader.createJSONReport(guide, tpsStats, blkSizeStats, trxLatencyStats, args, completedRun)
+    print("Report:")
     print(report)
 
     if args.save_json:
@@ -268,7 +254,9 @@ finally:
         os.system("pkill trx_generator")
         print("Test run cancelled early via SIGINT")
 
-    testDirsCleanup(scriptName)
+    if not keepLogs:
+        print(f"Cleaning up logs directory: {testTimeStampDirPath}")
+        testDirsCleanup(testTimeStampDirPath)
 
     testSuccessful = True
 
