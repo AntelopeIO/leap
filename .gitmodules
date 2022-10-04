@@ -30,4 +30,4 @@
 	url = https://github.com/AntelopeIO/libff
 [submodule "libraries/libfc/libraries/bn256"]
 	path = libraries/libfc/libraries/bn256
-	url = https://github.com/AntelopeIO/bn256.git
+	url = https://github.com/AntelopeIO/bn256
