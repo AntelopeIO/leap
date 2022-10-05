@@ -115,10 +115,13 @@ targetTps = args.target_tps
 genesisJsonFile = args.genesis
 tpsLimitPerGenerator = args.tps_limit_per_generator
 numAddlBlocksToPrune = args.num_blocks_to_prune
+logging_dict = {
+    "bios": "off"
+}
 
 # Setup cluster and its wallet manager
 walletMgr=WalletMgr(True)
-cluster=Cluster(walletd=True, loggingLevel="info")
+cluster=Cluster(walletd=True, loggingLevel="info", loggingLevelDict=logging_dict)
 cluster.setWalletMgr(walletMgr)
 
 testSuccessful = False
