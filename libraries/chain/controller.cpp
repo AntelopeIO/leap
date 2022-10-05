@@ -1528,7 +1528,7 @@ struct controller_impl {
                trx_context.init_for_implicit_trx();
                trx_context.enforce_whiteblacklist = false;
             } else {
-               bool skip_recording = replay_head_time && (time_point(trn.expiration) <= *replay_head_time);
+               bool skip_recording = replay_head_time && (time_point(trn.expiration) < *replay_head_time);
                trx_context.init_for_input_trx( trx->packed_trx()->get_unprunable_size(),
                                                trx->packed_trx()->get_prunable_size(),
                                                skip_recording);
@@ -2404,7 +2404,8 @@ struct controller_impl {
             break;
          }
       }
-      dlog("removed ${n} expired transactions of the ${t} input dedup list", ("n", num_removed)("t", total));
+      dlog("removed ${n} expired transactions of the ${t} input dedup list, pending block time ${pt}",
+           ("n", num_removed)("t", total)("pt", now));
    }
 
    bool sender_avoids_whitelist_blacklist_enforcement( account_name sender )const {

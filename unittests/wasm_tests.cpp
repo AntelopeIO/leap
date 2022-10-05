@@ -71,7 +71,9 @@ FC_REFLECT_EMPTY(provereset);
 
 BOOST_AUTO_TEST_SUITE(wasm_tests)
 
-#warning Change this back to using TESTER
+// https://github.com/AntelopeIO/leap/issues/259 was created to track this.
+// Remove those comments after the issue is resolved.
+//#warning Change this back to using TESTER
 struct old_wasm_tester : tester {
    old_wasm_tester() : tester{setup_policy::old_wasm_parser} {}
 };
