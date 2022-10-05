@@ -5,12 +5,14 @@ import sys
 import re
 import numpy as np
 import json
+from datetime import datetime
+import glob
 
 harnessPath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(harnessPath)
 
 from TestHarness import Utils
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 from platform import release, system
 import gzip
 
@@ -26,6 +28,74 @@ class stats():
     sigma: float = 0
     emptyBlocks: int = 0
     numBlocks: int = 0
+
+@dataclass
+class basicStats():
+    min: float = 0
+    max: float = 0
+    avg: float = 0
+    sigma: float = 0
+    samples: int = 0
+
+@dataclass
+class trxData():
+    blockNum: int = 0
+    cpuUsageUs: int = 0
+    netUsageUs: int = 0
+    _sentTimestamp: str = ""
+    _calcdTimeEpoch: float = 0
+
+    @property
+    def sentTimestamp(self):
+        return self._sentTimestamp
+
+    @property
+    def calcdTimeEpoch(self):
+        return self._calcdTimeEpoch
+
+    @sentTimestamp.setter
+    def sentTimestamp(self, sentTime: str):
+        self._sentTimestamp = sentTime
+        # When we no longer support Python 3.6, would be great to update to use this
+        # self._calcdTimeEpoch = datetime.fromisoformat(sentTime).timestamp()
+        self._calcdTimeEpoch = datetime.strptime(sentTime, "%Y-%m-%dT%H:%M:%S.%f").timestamp()
+
+    @sentTimestamp.deleter
+    def sentTimestamp(self):
+        self._sentTimestamp = ""
+        self._calcdTimeEpoch = 0
+
+@dataclass
+class blkData():
+    blockId: int = 0
+    producer: str = ""
+    status: str = ""
+    _timestamp: str = field(init=True, repr=True, default='')
+    _calcdTimeEpoch: float = 0
+
+    def __post_init__(self):
+        self.timestamp = self._timestamp
+
+    @property
+    def timestamp(self):
+        return self._timestamp
+
+    @property
+    def calcdTimeEpoch(self):
+        return self._calcdTimeEpoch
+
+    @timestamp.setter
+    def timestamp(self, time: str):
+        self._timestamp = time[:-1]
+        # When we no longer support Python 3.6, would be great to update to use this
+        # self._calcdTimeEpoch = datetime.fromisoformat(time[:-1]).timestamp()
+        #Note block timestamp formatted like: '2022-09-30T16:48:13.500Z', but 'Z' is not part of python's recognized iso format, so strip it off the end
+        self._calcdTimeEpoch = datetime.strptime(time[:-1], "%Y-%m-%dT%H:%M:%S.%f").timestamp()
+
+    @timestamp.deleter
+    def timestamp(self):
+        self._timestamp = ""
+        self._calcdTimeEpoch = 0
 
 @dataclass
 class chainBlocksGuide():
@@ -112,6 +182,37 @@ def scrapeLog(data, path):
                 else:
                     print("Error: Unknown log format")
 
+def scrapeTrxGenLog(trxSent, path):
+    selectedopen = gzip.open if path.endswith('.gz') else open
+    with selectedopen(path, 'rt') as f:
+        trxSent.update(dict([(x[0], x[1]) for x in (line.rstrip('\n').split(',') for line in f)]))
+
+def scrapeBlockTrxDataLog(trxDict, path):
+    selectedopen = gzip.open if path.endswith('.gz') else open
+    with selectedopen(path, 'rt') as f:
+        trxDict.update(dict([(x[0], trxData(x[1], x[2], x[3])) for x in (line.rstrip('\n').split(',') for line in f)]))
+
+def scrapeBlockDataLog(blockDict, path):
+    selectedopen = gzip.open if path.endswith('.gz') else open
+    with selectedopen(path, 'rt') as f:
+        blockDict.update(dict([(x[0], blkData(x[1], x[2], x[3], x[4])) for x in (line.rstrip('\n').split(',') for line in f)]))
+
+def scrapeTrxGenTrxSentDataLogs(trxSent, trxGenLogDirPath):
+    filesScraped = []
+    for fileName in glob.glob(f"{trxGenLogDirPath}/trx_data_output_*.txt"):
+        filesScraped.append(fileName)
+        scrapeTrxGenLog(trxSent, fileName)
+
+    print("Transaction Log Files Scraped:")
+    print(filesScraped)
+
+def populateTrxSentTimestamp(trxSent: dict, trxDict: dict, notFound):
+    for sentTrxId in trxSent.keys():
+        if sentTrxId in trxDict.keys():
+            trxDict[sentTrxId].sentTimestamp = trxSent[sentTrxId]
+        else:
+            notFound.append(sentTrxId)
+
 def calcChainGuide(data: chainData, numAddlBlocksToDrop=0) -> chainBlocksGuide:
     """Calculates guide to understanding key points/blocks in chain data. In particular, test scenario phases like setup, teardown, etc.
 
@@ -178,7 +279,7 @@ def pruneToSteadyState(data: chainData, guide: chainBlocksGuide):
 
     return data.blockLog[guide.setupBlocksCnt + guide.leadingEmptyBlocksCnt + guide.configAddlDropCnt:-(guide.tearDownBlocksCnt + guide.trailingEmptyBlocksCnt + guide.configAddlDropCnt)]
 
-def scoreTransfersPerSecond(data: chainData, guide : chainBlocksGuide) -> stats:
+def scoreTransfersPerSecond(data: chainData, guide: chainBlocksGuide) -> stats:
     """Analyzes a test scenario's steady state block data for statistics around transfers per second over every two-consecutive-block window"""
     prunedBlockDataLog = pruneToSteadyState(data, guide)
 
@@ -216,8 +317,23 @@ def calcBlockSizeStats(data: chainData, guide : chainBlocksGuide) -> stats:
         # Note: numpy array slicing in use -> [:,0] -> from all elements return index 0
         return stats(int(np.min(npBlkSizeList[:,0])), int(np.max(npBlkSizeList[:,0])), float(np.average(npBlkSizeList[:,0])), float(np.std(npBlkSizeList[:,0])), int(np.sum(npBlkSizeList[:,1])), len(prunedBlockDataLog))
 
+def calcTrxLatencyStats(trxDict : dict, blockDict: dict) -> basicStats:
+    """Analyzes a test scenario's steady state block data for transaction latency statistics during the test window
 
-def createJSONReport(guide: chainBlocksGuide, tpsStats: stats, blockSizeStats: stats, args, completedRun) -> json:
+    Keyword arguments:
+    trxDict -- the dictionary mapping trx id to trxData, wherein the trx sent timestamp has been populated from the trx generator at moment of send
+    blockDict -- the dictionary of block number to blockData, wherein the block production timestamp is recorded
+
+    Returns:
+    transaction latency stats as a basicStats object
+    """
+    latencyList = [(blockDict[data.blockNum].calcdTimeEpoch - data.calcdTimeEpoch) for trxId, data in trxDict.items() if data.calcdTimeEpoch != 0]
+
+    npLatencyList = np.array(latencyList, dtype=np.float)
+
+    return basicStats(float(np.min(npLatencyList)), float(np.max(npLatencyList)), float(np.average(npLatencyList)), float(np.std(npLatencyList)), len(npLatencyList))
+
+def createJSONReport(guide: chainBlocksGuide, tpsStats: stats, blockSizeStats: stats, trxLatencyStats: basicStats, args, completedRun) -> json:
     js = {}
     js['completedRun'] = completedRun
     js['nodeosVersion'] = Utils.getNodeosVersion()
@@ -229,7 +345,37 @@ def createJSONReport(guide: chainBlocksGuide, tpsStats: stats, blockSizeStats: s
     js['Analysis']['TPS']['configTps']=args.target_tps
     js['Analysis']['TPS']['configTestDuration']=args.test_duration_sec
     js['Analysis']['BlockSize'] = asdict(blockSizeStats)
+    js['Analysis']['TrxLatency'] = asdict(trxLatencyStats)
     return json.dumps(js, sort_keys=True, indent=2)
+
+def calcAndReport(data, nodeosLogPath, trxGenLogDirPath, blockTrxDataPath, blockDataPath, args, completedRun) -> json:
+    scrapeLog(data, nodeosLogPath)
+
+    trxSent = {}
+    scrapeTrxGenTrxSentDataLogs(trxSent, trxGenLogDirPath)
+
+    trxDict = {}
+    scrapeBlockTrxDataLog(trxDict, blockTrxDataPath)
+
+    blockDict = {}
+    scrapeBlockDataLog(blockDict, blockDataPath)
+
+    notFound = []
+    populateTrxSentTimestamp(trxSent, trxDict, notFound)
+
+    if len(notFound) > 0:
+        print(f"Transactions logged as sent but NOT FOUND in block!! lost {len(notFound)} out of {len(trxSent)}")
+
+    guide = calcChainGuide(data, args.num_blocks_to_prune)
+    trxLatencyStats = calcTrxLatencyStats(trxDict, blockDict)
+    tpsStats = scoreTransfersPerSecond(data, guide)
+    blkSizeStats = calcBlockSizeStats(data, guide)
+
+    print(f"Blocks Guide: {guide}\nTPS: {tpsStats}\nBlock Size: {blkSizeStats}\nTrx Latency: {trxLatencyStats}")
+
+    report = createJSONReport(guide, tpsStats, blkSizeStats, trxLatencyStats, args, completedRun)
+
+    return report
 
 def exportReportAsJSON(report: json, args):
     with open(args.json_path, 'wt') as f:

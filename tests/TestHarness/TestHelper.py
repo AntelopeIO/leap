@@ -97,7 +97,7 @@ class TestHelper(object):
             parser.add_argument("--dont-launch", help="Don't launch own node. Assume node is already running.",
                                      action='store_true')
         if "--keep-logs" in includeArgs:
-            parser.add_argument("--keep-logs", help="Don't delete var/lib/node_* folders upon test completion",
+            parser.add_argument("--keep-logs", help="Don't delete var/lib/node_* folders, or other test specific log directories, upon test completion",
                                      action='store_true')
         if "-v" in includeArgs:
             parser.add_argument("-v", help="verbose logging", action='store_true')

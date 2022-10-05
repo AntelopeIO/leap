@@ -24,6 +24,7 @@ parser.add_argument("account_2_priv_key", type=str, help="Second account private
 parser.add_argument("trx_gen_duration", type=str, help="How long to run transaction generators")
 parser.add_argument("target_tps", type=int, help="Goal transactions per second")
 parser.add_argument("tps_limit_per_generator", type=int, help="Maximum amount of transactions per second a single generator can have.", default=4000)
+parser.add_argument("log_dir", type=str, help="Path to directory where trx logs should be written.")
 args = parser.parse_args()
 
 targetTps = args.target_tps
@@ -44,7 +45,8 @@ for num in range(1, numGenerators + 1):
        f'--accounts {args.account_1_name},{args.account_2_name} '
        f'--priv-keys {args.account_1_priv_key},{args.account_2_priv_key} '
        f'--trx-gen-duration {args.trx_gen_duration} '
-       f'--target-tps {tpsPerGenerator}'
+       f'--target-tps {tpsPerGenerator} '
+       f'--log-dir {args.log_dir}'
     )
     subprocess_ret_codes.append(
        subprocess.Popen([
@@ -55,7 +57,8 @@ for num in range(1, numGenerators + 1):
            '--accounts', f'{args.account_1_name},{args.account_2_name}',
            '--priv-keys', f'{args.account_1_priv_key},{args.account_2_priv_key}',
            '--trx-gen-duration', f'{args.trx_gen_duration}',
-           '--target-tps', f'{tpsPerGenerator}'
+           '--target-tps', f'{tpsPerGenerator}',
+           '--log-dir', f'{args.log_dir}'
        ])
     )
 exit_codes = [ret_code.wait() for ret_code in subprocess_ret_codes]
