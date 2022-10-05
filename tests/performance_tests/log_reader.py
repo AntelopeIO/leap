@@ -317,7 +317,7 @@ def calcBlockSizeStats(data: chainData, guide : chainBlocksGuide) -> stats:
         # Note: numpy array slicing in use -> [:,0] -> from all elements return index 0
         return stats(int(np.min(npBlkSizeList[:,0])), int(np.max(npBlkSizeList[:,0])), float(np.average(npBlkSizeList[:,0])), float(np.std(npBlkSizeList[:,0])), int(np.sum(npBlkSizeList[:,1])), len(prunedBlockDataLog))
 
-def calcTrxLatencyStats(trxDict : dict, blockDict: dict) -> basicStats:
+def calcTrxLatencyCpuNetStats(trxDict : dict, blockDict: dict):
     """Analyzes a test scenario's steady state block data for transaction latency statistics during the test window
 
     Keyword arguments:
@@ -327,13 +327,15 @@ def calcTrxLatencyStats(trxDict : dict, blockDict: dict) -> basicStats:
     Returns:
     transaction latency stats as a basicStats object
     """
-    latencyList = [(blockDict[data.blockNum].calcdTimeEpoch - data.calcdTimeEpoch) for trxId, data in trxDict.items() if data.calcdTimeEpoch != 0]
+    trxLatencyCpuNetList = [((blockDict[data.blockNum].calcdTimeEpoch - data.calcdTimeEpoch), data.cpuUsageUs, data.netUsageUs) for trxId, data in trxDict.items() if data.calcdTimeEpoch != 0]
 
-    npLatencyList = np.array(latencyList, dtype=np.float)
+    npLatencyCpuNetList = np.array(trxLatencyCpuNetList, dtype=np.float)
 
-    return basicStats(float(np.min(npLatencyList)), float(np.max(npLatencyList)), float(np.average(npLatencyList)), float(np.std(npLatencyList)), len(npLatencyList))
+    return basicStats(float(np.min(npLatencyCpuNetList[:,0])), float(np.max(npLatencyCpuNetList[:,0])), float(np.average(npLatencyCpuNetList[:,0])), float(np.std(npLatencyCpuNetList[:,0])), len(npLatencyCpuNetList)), \
+           basicStats(float(np.min(npLatencyCpuNetList[:,1])), float(np.max(npLatencyCpuNetList[:,1])), float(np.average(npLatencyCpuNetList[:,1])), float(np.std(npLatencyCpuNetList[:,1])), len(npLatencyCpuNetList)), \
+           basicStats(float(np.min(npLatencyCpuNetList[:,2])), float(np.max(npLatencyCpuNetList[:,2])), float(np.average(npLatencyCpuNetList[:,2])), float(np.std(npLatencyCpuNetList[:,2])), len(npLatencyCpuNetList))
 
-def createJSONReport(guide: chainBlocksGuide, tpsStats: stats, blockSizeStats: stats, trxLatencyStats: basicStats, args, completedRun) -> json:
+def createJSONReport(guide: chainBlocksGuide, tpsStats: stats, blockSizeStats: stats, trxLatencyStats: basicStats, trxCpuStats: basicStats, trxNetStats: basicStats, args, completedRun) -> json:
     js = {}
     js['completedRun'] = completedRun
     js['nodeosVersion'] = Utils.getNodeosVersion()
@@ -345,7 +347,9 @@ def createJSONReport(guide: chainBlocksGuide, tpsStats: stats, blockSizeStats: s
     js['Analysis']['TPS']['configTps']=args.target_tps
     js['Analysis']['TPS']['configTestDuration']=args.test_duration_sec
     js['Analysis']['BlockSize'] = asdict(blockSizeStats)
+    js['Analysis']['TrxCPU'] = asdict(trxCpuStats)
     js['Analysis']['TrxLatency'] = asdict(trxLatencyStats)
+    js['Analysis']['TrxNet'] = asdict(trxNetStats)
     return json.dumps(js, sort_keys=True, indent=2)
 
 def calcAndReport(data, nodeosLogPath, trxGenLogDirPath, blockTrxDataPath, blockDataPath, args, completedRun) -> json:
@@ -367,13 +371,13 @@ def calcAndReport(data, nodeosLogPath, trxGenLogDirPath, blockTrxDataPath, block
         print(f"Transactions logged as sent but NOT FOUND in block!! lost {len(notFound)} out of {len(trxSent)}")
 
     guide = calcChainGuide(data, args.num_blocks_to_prune)
-    trxLatencyStats = calcTrxLatencyStats(trxDict, blockDict)
+    trxLatencyStats, trxCpuStats, trxNetStats = calcTrxLatencyCpuNetStats(trxDict, blockDict)
     tpsStats = scoreTransfersPerSecond(data, guide)
     blkSizeStats = calcBlockSizeStats(data, guide)
 
-    print(f"Blocks Guide: {guide}\nTPS: {tpsStats}\nBlock Size: {blkSizeStats}\nTrx Latency: {trxLatencyStats}")
+    print(f"Blocks Guide: {guide}\nTPS: {tpsStats}\nBlock Size: {blkSizeStats}\nTrx Latency: {trxLatencyStats}\nTrx CPU: {trxCpuStats}\nTrx Net: {trxNetStats}")
 
-    report = createJSONReport(guide, tpsStats, blkSizeStats, trxLatencyStats, args, completedRun)
+    report = createJSONReport(guide, tpsStats, blkSizeStats, trxLatencyStats, trxCpuStats, trxNetStats, args, completedRun)
 
     return report
 
