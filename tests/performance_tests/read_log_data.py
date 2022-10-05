@@ -16,7 +16,7 @@ parser.add_argument("--num-blocks-to-prune", type=int, default=2, help="The numb
 parser.add_argument("--save-json", type=bool, help="Whether to save json output of stats", default=False)
 parser.add_argument("--json-path", type=str, help="Path to save json output", default="data.json")
 args = parser.parse_args()
-logPath=args.log_path
+nodeosLogPath=args.log_path
 blockDataLogDirPath = args.block_data_logs_dir
 trxGenLogDirPath = args.trx_data_logs_dir
 data = log_reader.chainData()
@@ -25,43 +25,11 @@ data.ceaseBlock = args.cease_block
 blockDataPath = f"{blockDataLogDirPath}/blockData.txt"
 blockTrxDataPath = f"{blockDataLogDirPath}/blockTrxData.txt"
 
-log_reader.scrapeLog(data, logPath)
+report = log_reader.calcAndReport(data, nodeosLogPath, trxGenLogDirPath, blockTrxDataPath, blockDataPath, args, True)
+
 print(data)
 data.printBlockData()
 
-trxSent = {}
-filesScraped = []
-for fileName in glob.glob(f"{trxGenLogDirPath}/trx_data_output_*.txt"):
-    filesScraped.append(fileName)
-    log_reader.scrapeTrxGenLog(trxSent, fileName)
-
-print("Transaction Log Files Scraped:")
-print(filesScraped)
-
-trxDict = {}
-log_reader.scrapeBlockTrxDataLog(trxDict, blockTrxDataPath)
-
-blockDict = {}
-log_reader.scrapeBlockDataLog(blockDict, blockDataPath)
-
-notFound = []
-for sentTrxId in trxSent.keys():
-    if sentTrxId in trxDict.keys():
-        trxDict[sentTrxId].sentTimestamp = trxSent[sentTrxId]
-    else:
-        notFound.append(sentTrxId)
-
-if len(notFound) > 0:
-    print(f"Transactions logged as sent but NOT FOUND in block!! lost {len(notFound)} out of {len(trxSent)}")
-
-guide = log_reader.calcChainGuide(data, args.num_blocks_to_prune)
-trxLatencyStats = log_reader.calcTrxLatencyStats(trxDict, blockDict)
-tpsStats = log_reader.scoreTransfersPerSecond(data, guide)
-blkSizeStats = log_reader.calcBlockSizeStats(data, guide)
-
-print(f"Blocks Guide: {guide}\nTPS: {tpsStats}\nBlock Size: {blkSizeStats}\nTrx Latency: {trxLatencyStats}")
-
-report = log_reader.createJSONReport(guide, tpsStats, blkSizeStats, trxLatencyStats, args, True)
 print("Report:")
 print(report)
 

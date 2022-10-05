@@ -7,7 +7,6 @@ import shutil
 import signal
 import time
 from datetime import datetime
-import glob
 
 harnessPath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(harnessPath)
@@ -203,43 +202,11 @@ finally:
        killAll,
        dumpErrorDetails
     )
-    log_reader.scrapeLog(data, "var/lib/node_01/stderr.txt")
+
+    report = log_reader.calcAndReport(data, "var/lib/node_01/stderr.txt", trxGenLogDirPath, blockTrxDataPath, blockDataPath, args, completedRun)
 
     print(data)
 
-    trxSent = {}
-    filesScraped = []
-    for fileName in glob.glob(f"{trxGenLogDirPath}/trx_data_output_*.txt"):
-        filesScraped.append(fileName)
-        log_reader.scrapeTrxGenLog(trxSent, fileName)
-
-    print("Transaction Log Files Scraped:")
-    print(filesScraped)
-
-    trxDict = {}
-    log_reader.scrapeBlockTrxDataLog(trxDict, blockTrxDataPath)
-
-    blockDict = {}
-    log_reader.scrapeBlockDataLog(blockDict, blockDataPath)
-
-    notFound = []
-    for sentTrxId in trxSent.keys():
-        if sentTrxId in trxDict.keys():
-            trxDict[sentTrxId].sentTimestamp = trxSent[sentTrxId]
-        else:
-            notFound.append(sentTrxId)
-
-    if len(notFound) > 0:
-        print(f"Transactions logged as sent but NOT FOUND in block!! lost {len(notFound)} out of {len(trxSent)}")
-
-    guide = log_reader.calcChainGuide(data, numAddlBlocksToPrune)
-    trxLatencyStats = log_reader.calcTrxLatencyStats(trxDict, blockDict)
-    tpsStats = log_reader.scoreTransfersPerSecond(data, guide)
-    blkSizeStats = log_reader.calcBlockSizeStats(data, guide)
-
-    print(f"Blocks Guide: {guide}\nTPS: {tpsStats}\nBlock Size: {blkSizeStats}\nTrx Latency: {trxLatencyStats}")
-
-    report = log_reader.createJSONReport(guide, tpsStats, blkSizeStats, trxLatencyStats, args, completedRun)
     print("Report:")
     print(report)
 
