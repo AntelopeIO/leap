@@ -190,8 +190,6 @@ try:
 
     queryBlockTrxData(validationNode, blockDataPath, blockTrxDataPath, data.startBlock, data.ceaseBlock)
 
-    time.sleep(5)
-
 except subprocess.CalledProcessError as err:
     print(f"trx_generator return error code: {err.returncode}.  Test aborted.")
 finally:
