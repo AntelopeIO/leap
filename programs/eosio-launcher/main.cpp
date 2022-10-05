@@ -214,6 +214,7 @@ public:
   uint16_t     http_port;
   uint16_t     file_size;
   string       name;
+  string       dex;
   tn_node_def* node;
   string       host;
   string       p2p_endpoint;
@@ -425,7 +426,8 @@ struct launcher_def {
    string start_script;
    std::optional<uint32_t> max_block_cpu_usage;
    std::optional<uint32_t> max_transaction_cpu_usage;
-   std::optional<string> logging_level;
+   std::string logging_level;
+   std::map<string,fc::log_level> logging_level_map;
    eosio::chain::genesis_state genesis_from_file;
 
    void assign_name (eosd_def &node, bool is_bios);
@@ -507,6 +509,7 @@ launcher_def::set_options (bpo::options_description &cfg) {
     ("max-block-cpu-usage",bpo::value<uint32_t>(),"Provide the \"max-block-cpu-usage\" value to use in the genesis.json file")
     ("max-transaction-cpu-usage",bpo::value<uint32_t>(),"Provide the \"max-transaction-cpu-usage\" value to use in the genesis.json file")
     ("logging-level",bpo::value<string>(),"Provide the \"level\" value to use in the logging.json file ")
+    ("logging-level-map",bpo::value<string>(),"String of a dict which specifies \"level\" value to use in the logging.json file for specific nodes, matching based on node number. Ex: {\"bios\":\"off\",\"00\":\"info\"}")
         ;
 }
 
@@ -570,6 +573,17 @@ launcher_def::initialize (const variables_map &vmap) {
 
   if (vmap.count("logging-level")) {
      logging_level = vmap["logging-level"].as<string>();
+  }
+  if (vmap.count("logging-level-map")) {
+     string llm_str = vmap["logging-level-map"].as<string>();
+     auto const regex = std::regex("\"(.*?)\":\"(.*?)\"");
+     for (auto it = std::sregex_iterator(llm_str.begin(), llm_str.end(), regex); it != std::sregex_iterator(); it++) {
+        std::smatch sm = *it;
+        fc::log_level ll;
+        fc::variant v(sm.str(2));
+        fc::from_variant(v, ll);
+        logging_level_map[sm.str(1)] = ll;
+     }
   }
 
   genesis = vmap["genesis"].as<string>();
@@ -709,12 +723,14 @@ launcher_def::assign_name (eosd_def &node, bool is_bios) {
    if (is_bios) {
       node.name = "bios";
       node_cfg_name = "node_bios";
+      node.dex = "bios";
    }
    else {
       string dex = next_node < 10 ? "0":"";
       dex += boost::lexical_cast<string,int>(next_node++);
       node.name = network.name + dex;
       node_cfg_name = "node_" + dex;
+      node.dex = dex;
    }
   node.config_dir_name = (config_dir_base / node_cfg_name).string();
   node.data_dir_name = (data_dir_base / node_cfg_name).string();
@@ -1160,10 +1176,17 @@ launcher_def::write_logging_config_file(tn_node_def &node) {
 
   filename = dd / "logging.json";
 
+  if (!logging_level_map.empty()) {
+     auto it = logging_level_map.find(instance.dex);
+     if (it != logging_level_map.end()) {
+       ll = it->second;
+     }
+  }
+
   bfs::ofstream cfg(filename);
   if (!cfg.good()) {
-    cerr << "unable to open " << filename << " " << strerror(errno) << "\n";
-    exit (9);
+     cerr << "unable to open " << filename << " " << strerror(errno) << "\n";
+     exit (9);
   }
 
   auto log_config = fc::logging_config::default_config();
