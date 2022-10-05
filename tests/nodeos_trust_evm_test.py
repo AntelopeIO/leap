@@ -44,8 +44,7 @@ Print=Utils.Print
 errorExit=Utils.errorExit
 
 appArgs=AppArgs()
-extraArgs = appArgs.add(flag="--trust-evm-root", type=str, help="TrustEVM build dir", default="")
-extraArgs = appArgs.add(flag="--trust-evm-contract-root", type=str, help="TrustEVM contract build dir", default="")
+extraArgs = appArgs.add(flag="--trust-evm-contract-root", type=str, help="TrustEVM contract build dir", default=None)
 
 args=TestHelper.parse_args({"--keep-logs","--dump-error-details","-v","--leave-running","--clean-run" }, applicationSpecificArgs=appArgs)
 debug=args.v
@@ -53,8 +52,9 @@ killEosInstances= not args.leave_running
 dumpErrorDetails=args.dump_error_details
 keepLogs=args.keep_logs
 killAll=args.clean_run
-trustEvmRoot=args.trust_evm_root
 trustEvmContractRoot=args.trust_evm_contract_root
+
+assert trustEvmContractRoot is not None, "--trust-evm-contract-root is required"
 
 seed=1
 Utils.Debug=debug
