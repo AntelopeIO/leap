@@ -27,6 +27,7 @@ endif()
 set( CLI_CLIENT_EXECUTABLE_NAME cleos )
 set( NODE_EXECUTABLE_NAME nodeos )
 set( KEY_STORE_EXECUTABLE_NAME keosd )
+set( LEAP_UTIL_EXECUTABLE_NAME leap-util )
 
 # http://stackoverflow.com/a/18369825
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
@@ -226,6 +227,14 @@ configure_file(programs/cleos/LICENSE.CLI11                                licen
 configure_file(libraries/yubihsm/LICENSE                                   licenses/leap/LICENSE.yubihsm   COPYONLY)
 
 install(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/licenses/leap" DESTINATION "${CMAKE_INSTALL_FULL_DATAROOTDIR}/licenses/" COMPONENT base)
+
+configure_file(${CMAKE_SOURCE_DIR}/libraries/cli11/bash-completion/completions/leap-util
+               ${CMAKE_BINARY_DIR}/programs/leap-util/bash-completion/completions/leap-util COPYONLY)
+configure_file(${CMAKE_SOURCE_DIR}/libraries/cli11/bash-completion/completions/cleos
+               ${CMAKE_BINARY_DIR}/programs/cleos/bash-completion/completions/cleos COPYONLY)
+
+install(FILES libraries/cli11/bash-completion/completions/leap-util DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/bash-completion/completions COMPONENT base)
+install(FILES libraries/cli11/bash-completion/completions/cleos DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/bash-completion/completions COMPONENT base)
 
 add_custom_target(dev-install
   COMMAND "${CMAKE_COMMAND}" --build "${CMAKE_BINARY_DIR}"

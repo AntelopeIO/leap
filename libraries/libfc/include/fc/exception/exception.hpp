@@ -478,9 +478,7 @@ namespace fc
    }
 
 #define FC_LOG_AND_DROP( ... )  \
-   catch( const boost::interprocess::bad_alloc& ) {\
-      throw;\
-   } catch( fc::exception& er ) { \
+   catch( fc::exception& er ) { \
       wlog( "${details}", ("details",er.to_detail_string()) ); \
    } catch( const std::exception& e ) {  \
       fc::std_exception_wrapper sew( \
@@ -495,7 +493,6 @@ namespace fc
                 std::current_exception() ); \
       wlog( "${details}", ("details",e.to_detail_string()) ); \
    }
-
 
 /**
  *  @def FC_RETHROW_EXCEPTIONS(LOG_LEVEL,FORMAT,...)

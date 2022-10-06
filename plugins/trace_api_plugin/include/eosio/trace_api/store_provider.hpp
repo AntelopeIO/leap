@@ -96,7 +96,7 @@ namespace eosio::trace_api {
    class slice_directory {
    public:
       struct index_header {
-         uint32_t version;
+         uint32_t version = 0;
       };
 
       enum class open_state { read /*read from front to back*/, write /*write to end of file*/ };
