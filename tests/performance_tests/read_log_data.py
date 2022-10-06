@@ -25,7 +25,7 @@ data.ceaseBlock = args.cease_block
 blockDataPath = f"{blockDataLogDirPath}/blockData.txt"
 blockTrxDataPath = f"{blockDataLogDirPath}/blockTrxData.txt"
 
-report = log_reader.calcAndReport(data, nodeosLogPath, trxGenLogDirPath, blockTrxDataPath, blockDataPath, args, True)
+report = log_reader.calcAndReport(data, args.target_tps, args.test_duration_sec, nodeosLogPath, trxGenLogDirPath, blockTrxDataPath, blockDataPath, args.num_blocks_to_prune, dict(item.split("=") for item in f"{args}"[10:-1].split(", ")), True)
 
 print(data)
 data.printBlockData()
@@ -34,4 +34,4 @@ print("Report:")
 print(report)
 
 if args.save_json:
-    log_reader.exportAsJSON(report, args)
+    log_reader.exportReportAsJSON(report, args.json_path)

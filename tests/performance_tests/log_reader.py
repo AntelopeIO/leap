@@ -335,24 +335,24 @@ def calcTrxLatencyCpuNetStats(trxDict : dict, blockDict: dict):
            basicStats(float(np.min(npLatencyCpuNetList[:,1])), float(np.max(npLatencyCpuNetList[:,1])), float(np.average(npLatencyCpuNetList[:,1])), float(np.std(npLatencyCpuNetList[:,1])), len(npLatencyCpuNetList)), \
            basicStats(float(np.min(npLatencyCpuNetList[:,2])), float(np.max(npLatencyCpuNetList[:,2])), float(np.average(npLatencyCpuNetList[:,2])), float(np.std(npLatencyCpuNetList[:,2])), len(npLatencyCpuNetList))
 
-def createJSONReport(guide: chainBlocksGuide, tpsStats: stats, blockSizeStats: stats, trxLatencyStats: basicStats, trxCpuStats: basicStats, trxNetStats: basicStats, args, completedRun) -> json:
+def createJSONReport(guide: chainBlocksGuide, targetTps: int, testDurationSec: int, tpsStats: stats, blockSizeStats: stats, trxLatencyStats: basicStats, trxCpuStats: basicStats, trxNetStats: basicStats, argsDict, completedRun) -> json:
     js = {}
     js['completedRun'] = completedRun
     js['nodeosVersion'] = Utils.getNodeosVersion()
     js['env'] = {'system': system(), 'os': os.name, 'release': release()}
-    js['args'] =  dict(item.split("=") for item in f"{args}"[10:-1].split(", "))
+    js['args'] =  argsDict
     js['Analysis'] = {}
     js['Analysis']['BlocksGuide'] = asdict(guide)
     js['Analysis']['TPS'] = asdict(tpsStats)
-    js['Analysis']['TPS']['configTps']=args.target_tps
-    js['Analysis']['TPS']['configTestDuration']=args.test_duration_sec
+    js['Analysis']['TPS']['configTps']=targetTps
+    js['Analysis']['TPS']['configTestDuration']=testDurationSec
     js['Analysis']['BlockSize'] = asdict(blockSizeStats)
     js['Analysis']['TrxCPU'] = asdict(trxCpuStats)
     js['Analysis']['TrxLatency'] = asdict(trxLatencyStats)
     js['Analysis']['TrxNet'] = asdict(trxNetStats)
     return json.dumps(js, sort_keys=True, indent=2)
 
-def calcAndReport(data, nodeosLogPath, trxGenLogDirPath, blockTrxDataPath, blockDataPath, args, completedRun) -> json:
+def calcAndReport(data, targetTps, testDurationSec, nodeosLogPath, trxGenLogDirPath, blockTrxDataPath, blockDataPath, numBlocksToPrune, args, completedRun) -> json:
     scrapeLog(data, nodeosLogPath)
 
     trxSent = {}
@@ -370,17 +370,17 @@ def calcAndReport(data, nodeosLogPath, trxGenLogDirPath, blockTrxDataPath, block
     if len(notFound) > 0:
         print(f"Transactions logged as sent but NOT FOUND in block!! lost {len(notFound)} out of {len(trxSent)}")
 
-    guide = calcChainGuide(data, args.num_blocks_to_prune)
+    guide = calcChainGuide(data, numBlocksToPrune)
     trxLatencyStats, trxCpuStats, trxNetStats = calcTrxLatencyCpuNetStats(trxDict, blockDict)
     tpsStats = scoreTransfersPerSecond(data, guide)
     blkSizeStats = calcBlockSizeStats(data, guide)
 
     print(f"Blocks Guide: {guide}\nTPS: {tpsStats}\nBlock Size: {blkSizeStats}\nTrx Latency: {trxLatencyStats}\nTrx CPU: {trxCpuStats}\nTrx Net: {trxNetStats}")
 
-    report = createJSONReport(guide, tpsStats, blkSizeStats, trxLatencyStats, trxCpuStats, trxNetStats, args, completedRun)
+    report = createJSONReport(guide, targetTps, testDurationSec, tpsStats, blkSizeStats, trxLatencyStats, trxCpuStats, trxNetStats, args, completedRun)
 
     return report
 
-def exportReportAsJSON(report: json, args):
-    with open(args.json_path, 'wt') as f:
+def exportReportAsJSON(report: json, exportPath):
+    with open(exportPath, 'wt') as f:
         f.write(report)
