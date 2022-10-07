@@ -48,7 +48,9 @@ class PerformanceBasicTest():
         def __post_init__(self):
             self._totalNodes = max(2, self.pnodes if self.totalNodes < self.pnodes else self.totalNodes)
 
-    def __init__(self, testHelperConfig: TestHelperConfig=TestHelperConfig(), clusterConfig: ClusterConfig=ClusterConfig(), targetTps: int=8000, testTrxGenDurationSec: int=30, tpsLimitPerGenerator: int=4000, numAddlBlocksToPrune: int=2, rootLogDir: str=os.path.splitext(os.path.basename(__file__))[0], saveJsonReport: bool=False):
+    def __init__(self, testHelperConfig: TestHelperConfig=TestHelperConfig(), clusterConfig: ClusterConfig=ClusterConfig(), targetTps: int=8000,
+                 testTrxGenDurationSec: int=30, tpsLimitPerGenerator: int=4000, numAddlBlocksToPrune: int=2,
+                 rootLogDir: str=os.path.splitext(os.path.basename(__file__))[0], saveJsonReport: bool=False):
         self.testHelperConfig = testHelperConfig
         self.clusterConfig = clusterConfig
         self.targetTps = targetTps
@@ -209,7 +211,8 @@ class PerformanceBasicTest():
 
     def analyzeResultsAndReport(self, completedRun):
         args = self.prepArgs()
-        self.report = log_reader.calcAndReport(self.data, self.targetTps, self.testTrxGenDurationSec, self.nodeosLogPath, self.trxGenLogDirPath, self.blockTrxDataPath, self.blockDataPath, self.numAddlBlocksToPrune, args, completedRun)
+        self.report = log_reader.calcAndReport(self.data, self.targetTps, self.testTrxGenDurationSec, self.nodeosLogPath, self.trxGenLogDirPath,
+                                               self.blockTrxDataPath, self.blockDataPath, self.numAddlBlocksToPrune, args, completedRun)
 
         print(self.data)
 
@@ -263,7 +266,8 @@ class PerformanceBasicTest():
             self.analyzeResultsAndReport(completedRun)
 
             if completedRun:
-                assert self.expectedTransactionsSent == self.data.totalTransactions , f"Error: Transactions received: {self.data.totalTransactions} did not match expected total: {self.expectedTransactionsSent}"
+                assert self.expectedTransactionsSent == self.data.totalTransactions , \
+                    f"Error: Transactions received: {self.data.totalTransactions} did not match expected total: {self.expectedTransactionsSent}"
             else:
                 os.system("pkill trx_generator")
                 print("Test run cancelled early via SIGINT")
@@ -280,7 +284,8 @@ def parseArgs():
     appArgs.add(flag="--tps-limit-per-generator", type=int, help="Maximum amount of transactions per second a single generator can have.", default=4000)
     appArgs.add(flag="--test-duration-sec", type=int, help="The duration of transfer trx generation for the test in seconds", default=30)
     appArgs.add(flag="--genesis", type=str, help="Path to genesis.json", default="tests/performance_tests/genesis.json")
-    appArgs.add(flag="--num-blocks-to-prune", type=int, help="The number of potentially non-empty blocks, in addition to leading and trailing size 0 blocks, to prune from the beginning and end of the range of blocks of interest for evaluation.", default=2)
+    appArgs.add(flag="--num-blocks-to-prune", type=int, help=("The number of potentially non-empty blocks, in addition to leading and trailing size 0 blocks, "
+                "to prune from the beginning and end of the range of blocks of interest for evaluation."), default=2)
     appArgs.add(flag="--save-json", type=bool, help="Whether to save json output of stats", default=False)
     args=TestHelper.parse_args({"-p","-n","-d","-s","--nodes-file"
                                 ,"--dump-error-details","-v","--leave-running"
@@ -292,10 +297,13 @@ def main():
     args = parseArgs()
     Utils.Debug = args.v
 
-    testHelperConfig = PerformanceBasicTest.TestHelperConfig(killAll=args.clean_run, dontKill=args.leave_running, keepLogs=args.keep_logs, dumpErrorDetails=args.dump_error_details, delay=args.d, nodesFile=args.nodes_file, verbose=args.v)
+    testHelperConfig = PerformanceBasicTest.TestHelperConfig(killAll=args.clean_run, dontKill=args.leave_running, keepLogs=args.keep_logs,
+                                                             dumpErrorDetails=args.dump_error_details, delay=args.d, nodesFile=args.nodes_file, verbose=args.v)
     testClusterConfig = PerformanceBasicTest.ClusterConfig(pnodes=args.p, totalNodes=args.n, topo=args.s, genesisPath=args.genesis)
 
-    myTest = PerformanceBasicTest(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, targetTps=args.target_tps, testTrxGenDurationSec=args.test_duration_sec , tpsLimitPerGenerator=args.tps_limit_per_generator, numAddlBlocksToPrune=args.num_blocks_to_prune, saveJsonReport=args.save_json)
+    myTest = PerformanceBasicTest(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, targetTps=args.target_tps,
+                                  testTrxGenDurationSec=args.test_duration_sec , tpsLimitPerGenerator=args.tps_limit_per_generator,
+                                  numAddlBlocksToPrune=args.num_blocks_to_prune, saveJsonReport=args.save_json)
     testSuccessful = myTest.runTest()
 
     exitCode = 0 if testSuccessful else 1
