@@ -1,15 +1,12 @@
 #include <eosio/prometheus_plugin/prometheus_plugin.hpp>
 #include <fc/log/logger.hpp>
-#include <prometheus/client_metric.hpp>
 
-using namespace prometheus;
 
 namespace eosio {
 
    static appbase::abstract_plugin &_prometheus_plugin = app().register_plugin<prometheus_plugin>();
 
    struct prometheus_plugin_impl {
-      vector<client_metric> _metrics;
    };
 
    prometheus_plugin::prometheus_plugin() {

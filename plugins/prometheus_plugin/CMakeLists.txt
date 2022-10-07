@@ -3,5 +3,5 @@ add_library( prometheus_plugin
         prometheus_plugin.cpp
         ${HEADERS} )
 
-target_link_libraries( prometheus_plugin appbase fc prometheus)
+target_link_libraries( prometheus_plugin appbase fc prometheus-core)
 target_include_directories( prometheus_plugin PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
