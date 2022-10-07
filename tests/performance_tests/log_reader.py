@@ -7,6 +7,9 @@ import numpy as np
 import json
 from datetime import datetime
 import glob
+import multiprocessing
+import math
+import threading
 
 harnessPath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(harnessPath)
@@ -336,16 +339,19 @@ def calcTrxLatencyCpuNetStats(trxDict : dict, blockDict: dict):
            basicStats(float(np.min(npLatencyCpuNetList[:,2])), float(np.max(npLatencyCpuNetList[:,2])), float(np.average(npLatencyCpuNetList[:,2])), float(np.std(npLatencyCpuNetList[:,2])), len(npLatencyCpuNetList))
 
 def createJSONReport(guide: chainBlocksGuide, tpsStats: stats, blockSizeStats: stats, trxLatencyStats: basicStats, trxCpuStats: basicStats, trxNetStats: basicStats, args, completedRun) -> json:
+    numGenerators = math.ceil(args.target_tps / args.tps_limit_per_generator)
     js = {}
     js['completedRun'] = completedRun
     js['nodeosVersion'] = Utils.getNodeosVersion()
-    js['env'] = {'system': system(), 'os': os.name, 'release': release()}
+    js['env'] = {'system': system(), 'os': os.name, 'release': release(), 'threads': threading.activeCount(), 'cpu_count': multiprocessing.cpu_count()}
     js['args'] =  dict(item.split("=") for item in f"{args}"[10:-1].split(", "))
     js['Analysis'] = {}
     js['Analysis']['BlocksGuide'] = asdict(guide)
     js['Analysis']['TPS'] = asdict(tpsStats)
-    js['Analysis']['TPS']['configTps']=args.target_tps
-    js['Analysis']['TPS']['configTestDuration']=args.test_duration_sec
+    js['Analysis']['TPS']['configTps'] = args.target_tps
+    js['Analysis']['TPS']['configTestDuration'] = args.test_duration_sec
+    js['Analysis']['TPS']['tpsPerGenerator'] = math.floor(args.target_tps / numGenerators)
+    js['Analysis']['TPS']['generatorCount'] = numGenerators
     js['Analysis']['BlockSize'] = asdict(blockSizeStats)
     js['Analysis']['TrxCPU'] = asdict(trxCpuStats)
     js['Analysis']['TrxLatency'] = asdict(trxLatencyStats)
