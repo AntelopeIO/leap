@@ -28,3 +28,6 @@
 [submodule "libraries/libfc/libraries/ff"]
 	path = libraries/libfc/libraries/ff
 	url = https://github.com/AntelopeIO/libff
+[submodule "libraries/prometheus/prometheus-cpp"]
+	path = libraries/prometheus/prometheus-cpp
+	url = https://github.com/jupp0r/prometheus-cpp.git
