@@ -1,4 +1,5 @@
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/performance_test_basic.py ${CMAKE_CURRENT_BINARY_DIR}/performance_test_basic.py COPYONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/performance_test.py ${CMAKE_CURRENT_BINARY_DIR}/performance_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/log_reader.py ${CMAKE_CURRENT_BINARY_DIR}/log_reader.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/read_log_data.py ${CMAKE_CURRENT_BINARY_DIR}/read_log_data.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/log_reader_tests.py ${CMAKE_CURRENT_BINARY_DIR}/log_reader_tests.py COPYONLY)

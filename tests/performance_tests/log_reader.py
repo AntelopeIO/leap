@@ -335,7 +335,8 @@ def calcTrxLatencyCpuNetStats(trxDict : dict, blockDict: dict):
            basicStats(float(np.min(npLatencyCpuNetList[:,1])), float(np.max(npLatencyCpuNetList[:,1])), float(np.average(npLatencyCpuNetList[:,1])), float(np.std(npLatencyCpuNetList[:,1])), len(npLatencyCpuNetList)), \
            basicStats(float(np.min(npLatencyCpuNetList[:,2])), float(np.max(npLatencyCpuNetList[:,2])), float(np.average(npLatencyCpuNetList[:,2])), float(np.std(npLatencyCpuNetList[:,2])), len(npLatencyCpuNetList))
 
-def createJSONReport(guide: chainBlocksGuide, targetTps: int, testDurationSec: int, tpsStats: stats, blockSizeStats: stats, trxLatencyStats: basicStats, trxCpuStats: basicStats, trxNetStats: basicStats, argsDict, completedRun) -> json:
+def createJSONReport(guide: chainBlocksGuide, targetTps: int, testDurationSec: int, tpsStats: stats, blockSizeStats: stats,
+                     trxLatencyStats: basicStats, trxCpuStats: basicStats, trxNetStats: basicStats, argsDict, completedRun) -> json:
     js = {}
     js['completedRun'] = completedRun
     js['nodeosVersion'] = Utils.getNodeosVersion()

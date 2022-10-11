@@ -50,7 +50,7 @@ class PerformanceBasicTest():
 
     def __init__(self, testHelperConfig: TestHelperConfig=TestHelperConfig(), clusterConfig: ClusterConfig=ClusterConfig(), targetTps: int=8000,
                  testTrxGenDurationSec: int=30, tpsLimitPerGenerator: int=4000, numAddlBlocksToPrune: int=2,
-                 rootLogDir: str=os.path.splitext(os.path.basename(__file__))[0], saveJsonReport: bool=False):
+                 rootLogDir: str=".", saveJsonReport: bool=False):
         self.testHelperConfig = testHelperConfig
         self.clusterConfig = clusterConfig
         self.targetTps = targetTps
@@ -66,7 +66,8 @@ class PerformanceBasicTest():
         self.emptyBlockGoal = 5
 
         self.rootLogDir = rootLogDir
-        self.testTimeStampDirPath = f"{self.rootLogDir}/{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
+        self.ptbLogDir = f"{self.rootLogDir}/{os.path.splitext(os.path.basename(__file__))[0]}"
+        self.testTimeStampDirPath = f"{self.ptbLogDir}/{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
         self.trxGenLogDirPath = f"{self.testTimeStampDirPath}/trxGenLogs"
         self.blockDataLogDirPath = f"{self.testTimeStampDirPath}/blockDataLogs"
         self.blockDataPath = f"{self.blockDataLogDirPath}/blockData.txt"
@@ -94,10 +95,15 @@ class PerformanceBasicTest():
 
     def testDirsSetup(self):
         try:
-            print(f"Checking if test artifacts dir exists: {self.rootLogDir}")
+            print(f"Checking if root log dir exists: {self.rootLogDir}")
             if not os.path.isdir(f"{self.rootLogDir}"):
-                print(f"Creating test artifacts dir: {self.rootLogDir}")
+                print(f"Creating root log dir: {self.rootLogDir}")
                 os.mkdir(f"{self.rootLogDir}")
+
+            print(f"Checking if test artifacts dir exists: {self.ptbLogDir}")
+            if not os.path.isdir(f"{self.ptbLogDir}"):
+                print(f"Creating test artifacts dir: {self.ptbLogDir}")
+                os.mkdir(f"{self.ptbLogDir}")
 
             print(f"Checking if logs dir exists: {self.testTimeStampDirPath}")
             if not os.path.isdir(f"{self.testTimeStampDirPath}"):
@@ -206,7 +212,6 @@ class PerformanceBasicTest():
         args["expectedTransactionsSent"] = self.expectedTransactionsSent
         args["saveJsonReport"] = self.saveJsonReport
         args["numAddlBlocksToPrune"] = self.numAddlBlocksToPrune
-        args["saveJsonReport"] = self.saveJsonReport
         return args
 
     def analyzeResultsAndReport(self, completedRun):
@@ -249,6 +254,8 @@ class PerformanceBasicTest():
 
             testSuccessful = True
 
+            self.analyzeResultsAndReport(completedRun)
+
         except subprocess.CalledProcessError as err:
             print(f"trx_generator return error code: {err.returncode}.  Test aborted.")
         finally:
@@ -263,18 +270,13 @@ class PerformanceBasicTest():
                 self.testHelperConfig.dumpErrorDetails
                 )
 
-            self.analyzeResultsAndReport(completedRun)
-
-            if completedRun:
-                assert self.expectedTransactionsSent == self.data.totalTransactions , \
-                    f"Error: Transactions received: {self.data.totalTransactions} did not match expected total: {self.expectedTransactionsSent}"
-            else:
+            if not completedRun:
                 os.system("pkill trx_generator")
                 print("Test run cancelled early via SIGINT")
 
             if not self.testHelperConfig.keepLogs:
                 print(f"Cleaning up logs directory: {self.testTimeStampDirPath}")
-                self.testDirsCleanup(self.testTimeStampDirPath)
+                self.testDirsCleanup()
 
             return testSuccessful
 
@@ -302,9 +304,13 @@ def main():
     testClusterConfig = PerformanceBasicTest.ClusterConfig(pnodes=args.p, totalNodes=args.n, topo=args.s, genesisPath=args.genesis)
 
     myTest = PerformanceBasicTest(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, targetTps=args.target_tps,
-                                  testTrxGenDurationSec=args.test_duration_sec , tpsLimitPerGenerator=args.tps_limit_per_generator,
+                                  testTrxGenDurationSec=args.test_duration_sec, tpsLimitPerGenerator=args.tps_limit_per_generator,
                                   numAddlBlocksToPrune=args.num_blocks_to_prune, saveJsonReport=args.save_json)
     testSuccessful = myTest.runTest()
+
+    if testSuccessful:
+        assert myTest.expectedTransactionsSent == myTest.data.totalTransactions , \
+        f"Error: Transactions received: {myTest.data.totalTransactions} did not match expected total: {myTest.expectedTransactionsSent}"
 
     exitCode = 0 if testSuccessful else 1
     exit(exitCode)
