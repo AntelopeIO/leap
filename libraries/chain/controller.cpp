@@ -1640,7 +1640,7 @@ struct controller_impl {
             emit(self.applied_transaction, std::tie(trace, trx->packed_trx()));
 
             pending->_block_report.total_net_usage += trace->net_usage;
-            pending->_block_report.total_cpu_usage_us += trace->receipt->cpu_usage_us;
+            if( trace->receipt ) pending->_block_report.total_cpu_usage_us += trace->receipt->cpu_usage_us;
             pending->_block_report.total_elapsed_time += trace->elapsed;
             pending->_block_report.total_time += fc::time_point::now() - start;
          }
