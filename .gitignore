@@ -10,6 +10,7 @@
 *.abi.hpp
 *.cmake
 !.cicd
+!package.cmake
 !CMakeModules/*.cmake
 *.ninja
 \#*

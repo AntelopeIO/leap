@@ -333,7 +333,7 @@ BOOST_FIXTURE_TEST_CASE(action_receipt_tests, TESTER) { try {
                      != result->action_traces[0].receipt->auth_sequence.end() );
    auto base_global_sequence_num = result->action_traces[0].receipt->global_sequence;
    auto base_system_recv_seq_num = result->action_traces[0].receipt->recv_sequence;
-   auto base_system_auth_seq_num = result->action_traces[0].receipt->auth_sequence[config::system_account_name];
+                                   result->action_traces[0].receipt->auth_sequence[config::system_account_name];
    auto base_system_code_seq_num = result->action_traces[0].receipt->code_sequence.value;
    auto base_system_abi_seq_num  = result->action_traces[0].receipt->abi_sequence.value;
 
@@ -589,10 +589,8 @@ BOOST_AUTO_TEST_CASE(ram_billing_in_notify_tests) { try {
    fc::temp_directory tempdir;
    validating_tester chain( tempdir, true );
    chain.execute_setup_policy( setup_policy::preactivate_feature_and_new_bios );
-   const auto& pfm = chain.control->get_protocol_feature_manager();
-   const auto& d = pfm.get_builtin_digest(builtin_protocol_feature_t::action_return_value); // testapi requires this
-   BOOST_REQUIRE(d);
-   chain.preactivate_protocol_features( {*d} );
+   chain.preactivate_builtin_protocol_features( {builtin_protocol_feature_t::action_return_value} );
+   chain.preactivate_builtin_protocol_features( {builtin_protocol_feature_t::crypto_primitives} );
 
    chain.produce_blocks(2);
    chain.create_account( "testapi"_n );
@@ -1260,7 +1258,9 @@ BOOST_FIXTURE_TEST_CASE(checktime_intrinsic, TESTER) { try {
                                           5000, 10, 10 ),
                                deadline_exception, is_deadline_exception );
 
-#warning TODO validate that the contract was successfully cached
+// https://github.com/AntelopeIO/leap/issues/260 was created to track this TODO.
+// Remove those comments after the issue is resolved.
+// #warning TODO validate that the contract was successfully cached
 
         //it will always call
         BOOST_CHECK_EXCEPTION( call_test( *this, test_api_action<TEST_METHOD("doesn't matter", "doesn't matter")>{},
@@ -1297,7 +1297,9 @@ BOOST_FIXTURE_TEST_CASE(checktime_grow_memory, TESTER) { try {
                                           5000, 10, 10 ),
                                deadline_exception, is_deadline_exception );
 
-#warning TODO validate that the contract was successfully cached
+// https://github.com/AntelopeIO/leap/issues/260 was created to track this TODO.
+// Remove those comments after the issue is resolved.
+//#warning TODO validate that the contract was successfully cached
 
         //it will always call
         BOOST_CHECK_EXCEPTION( call_test( *this, test_api_action<TEST_METHOD("doesn't matter", "doesn't matter")>{},
@@ -1317,7 +1319,9 @@ BOOST_FIXTURE_TEST_CASE(checktime_hashing_fail, TESTER) { try {
                                           5000, 3, 3 ),
                                deadline_exception, is_deadline_exception );
 
-#warning TODO validate that the contract was successfully cached
+// https://github.com/AntelopeIO/leap/issues/260 was created to track this TODO.
+// Remove those comments after the issue is resolved.
+//#warning TODO validate that the contract was successfully cached
 
         //the contract should be cached, now we should get deadline_exception because of calls to checktime() from hashing function
         BOOST_CHECK_EXCEPTION( call_test( *this, test_api_action<TEST_METHOD("test_checktime", "checktime_sha1_failure")>{},
@@ -1850,12 +1854,8 @@ BOOST_AUTO_TEST_CASE(more_deferred_transaction_tests) { try {
    fc::temp_directory tempdir;
    validating_tester chain( tempdir, true );
    chain.execute_setup_policy( setup_policy::preactivate_feature_and_new_bios );
-
-   const auto& pfm = chain.control->get_protocol_feature_manager();
-   auto d = pfm.get_builtin_digest( builtin_protocol_feature_t::replace_deferred );
-   BOOST_REQUIRE( d );
-
-   chain.preactivate_protocol_features( {*d} );
+   chain.preactivate_builtin_protocol_features( {builtin_protocol_feature_t::replace_deferred} );
+   chain.preactivate_builtin_protocol_features( {builtin_protocol_feature_t::crypto_primitives} );
    chain.produce_block();
 
    const auto& index = chain.control->db().get_index<generated_transaction_multi_index,by_id>();

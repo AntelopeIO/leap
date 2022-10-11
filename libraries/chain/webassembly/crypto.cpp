@@ -8,6 +8,16 @@
 #include <fc/crypto/sha3.hpp>
 #include <fc/crypto/k1_recover.hpp>
 
+namespace {
+    uint32_t ceil_log2(uint32_t n)
+    {
+        if (n <= 1) {
+            return 0;
+        }
+        return 32 - __builtin_clz(n - 1);
+    };
+}
+
 namespace eosio { namespace chain { namespace webassembly {
 
    void interface::assert_recover_key( legacy_ptr<const fc::sha256> digest,
@@ -158,6 +168,24 @@ namespace eosio { namespace chain { namespace webassembly {
                               span<const char> exp,
                               span<const char> modulus,
                               span<char> out) const {
+      if (context.control.is_producing_block()) {
+         unsigned int base_modulus_size = std::max(base.size(), modulus.size());
+
+         if (base_modulus_size < exp.size()) {
+            EOS_THROW(subjective_block_production_exception, 
+                      "mod_exp restriction: exponent bit size cannot exceed bit size of either base or modulus");
+         }
+
+         static constexpr uint64_t bit_calc_limit = 106;
+
+         uint64_t bit_calc = 5 * ceil_log2(exp.size()) + 8 * ceil_log2(base_modulus_size);
+
+         if (bit_calc_limit < bit_calc) {
+            EOS_THROW(subjective_block_production_exception, 
+                      "mod_exp restriction: bit size too large for input arguments");
+         }
+      }
+
       bytes bbase(base.data(), base.data() + base.size());
       bytes bexp(exp.data(), exp.data() + exp.size());
       bytes bmod(modulus.data(), modulus.data() + modulus.size());

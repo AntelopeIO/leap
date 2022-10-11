@@ -1,17 +1,12 @@
 #!/usr/bin/env python3
 
-from testUtils import Account
-from testUtils import Utils
-from Cluster import Cluster
-from WalletMgr import WalletMgr
-from Node import Node
-from Node import ReturnType
-from TestHelper import TestHelper
+from TestHarness import Account, Cluster, Node, ReturnType, TestHelper, Utils, WalletMgr
 
 import decimal
 import re
 import json
 import os
+import sys
 
 ###############################################################
 # nodeos_run_test
@@ -69,7 +64,7 @@ try:
         Print("Stand up cluster")
 
         abs_path = os.path.abspath(os.getcwd() + '/unittests/contracts/eosio.token/eosio.token.abi')
-        traceNodeosArgs=" --http-max-response-time-ms 990000 --plugin eosio::trace_api_plugin --trace-rpc-abi eosio.token=" + abs_path
+        traceNodeosArgs=" --http-max-response-time-ms 990000 --trace-rpc-abi eosio.token=" + abs_path
         if cluster.launch(prodCount=prodCount, onlyBios=onlyBios, dontBootstrap=dontBootstrap, extraNodeosArgs=traceNodeosArgs) is False:
             cmdError("launcher")
             errorExit("Failed to stand up eos cluster.")
@@ -282,7 +277,7 @@ try:
         cmdError("FAILURE - transfer failed")
         errorExit("Transfer verification failed. Excepted %s, actual: %s" % (expectedAmount, actualAmount))
 
-    node.waitForTransInBlock(transId)
+    node.waitForTransactionInBlock(transId)
 
     transaction=node.getTransaction(transId, exitOnError=True, delayedRetry=False)
 
@@ -422,7 +417,7 @@ try:
         errorExit("Failed to reject duplicate message for currency1111 contract")
 
     Print("verify transaction exists")
-    if not node.waitForTransInBlock(transId):
+    if not node.waitForTransactionInBlock(transId):
         cmdError("%s get transaction trans_id" % (ClientName))
         errorExit("Failed to verify push message transaction id.")
 
@@ -578,10 +573,11 @@ try:
     if actual != expected:
         errorExit("FAILURE - Wrong currency1111 balance (expected=%s, actual=%s)" % (str(expected), str(actual)), raw=True)
 
-    Print("push transfer action to currency1111 contract with sign skipping option enabled")
+    # Test skip sign with unpacked action data
+    Print("push transfer action to currency1111 contract with sign skipping and unpack action data options enabled")
     data="{\"from\":\"currency1111\",\"to\":\"defproducera\",\"quantity\":"
     data +="\"00.0001 CUR\",\"memo\":\"test\"}"
-    opts="-s -d --permission currency1111@active"
+    opts="-s -d -u --permission currency1111@active"
     trans=node.pushMessage(contract, action, data, opts, expectTrxTrace=False)
 
     try:
@@ -607,6 +603,37 @@ try:
     actual=amountStr
     if actual != expected:
         errorExit("FAILURE - Wrong currency1111 balance (expectedgma=%s, actual=%s)" % (str(expected), str(actual)), raw=True)
+
+    # Test skip sign with packed action data
+    Print("push transfer action to currency1111 contract with sign skipping option enabled")
+    data="{\"from\":\"currency1111\",\"to\":\"defproducera\",\"quantity\":"
+    data +="\"00.0002 CUR\",\"memo\":\"test packed\"}"
+    opts="-s -d --permission currency1111@active"
+    trans=node.pushMessage(contract, action, data, opts, expectTrxTrace=False)
+
+    try:
+        assert(not trans[1]["signatures"])
+    except (AssertionError, KeyError) as _:
+        Print("ERROR: Expected signatures array to be empty due to skipping option enabled.")
+        raise
+
+    try:
+        data = trans[1]["actions"][0]["data"]
+        Print(f"Action data: {data}")
+        assert data == "1042081e4d75af4660ae423ad15b974a020000000000000004435552000000000b74657374207061636b6564"
+    except (AssertionError, KeyError) as _:
+        Print("ERROR: Expecting packed data on push transfer action json result.")
+        raise
+
+    result=node.pushTransaction(trans[1], None)
+
+    amountStr=node.getTableAccountBalance("currency1111", currencyAccount.name)
+
+    expected="99999.9997 CUR"
+    actual=amountStr
+    if actual != expected:
+        errorExit("FAILURE - Wrong currency1111 balance (expectedgma=%s, actual=%s)" % (str(expected), str(actual)), raw=True)
+
 
     Print("---- Test for signing transaction ----")
     testeraAccountAmountBeforeTrx=node.getAccountEosBalanceStr(testeraAccount.name)

@@ -1,17 +1,14 @@
 #!/usr/bin/env python3
 
-from testUtils import Utils
-from Cluster import Cluster, PFSetupPolicy
-from TestHelper import TestHelper
-from WalletMgr import WalletMgr
-from Node import Node
-
 import signal
 import json
 import time
 import os
 from os.path import join, exists
 from datetime import datetime
+
+from TestHarness import  Cluster, Node, TestHelper, Utils, WalletMgr
+from TestHarness.Cluster import PFSetupPolicy
 
 ###############################################################
 # nodeos_multiple_version_protocol_feature_test
@@ -94,7 +91,7 @@ try:
     # version 1.7 did not provide a default value for "--last-block-time-offset-us" so this is needed to
     # avoid dropping late blocks
     assert cluster.launch(pnodes=4, totalNodes=4, prodCount=1, totalProducers=4,
-                          extraNodeosArgs=" --plugin eosio::producer_api_plugin --plugin eosio::trace_api_plugin --trace-no-abis",
+                          extraNodeosArgs=" --plugin eosio::producer_api_plugin ",
                           useBiosBootFile=False,
                           specificExtraNodeosArgs={
                              0:"--http-max-response-time-ms 990000",

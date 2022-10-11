@@ -1,6 +1,16 @@
+#define RAPIDJSON_NAMESPACE eosio_rapidjson // This is ABSOLUTELY necessary anywhere that is using eosio_rapidjson
+
 #include <eosio/chain/snapshot.hpp>
 #include <eosio/chain/exceptions.hpp>
 #include <fc/scoped_exit.hpp>
+#include <fc/io/json.hpp>
+
+#include <rapidjson/document.h>
+#include <rapidjson/filereadstream.h>
+#include <rapidjson/stringbuffer.h>
+#include <rapidjson/writer.h>
+
+using namespace eosio_rapidjson;
 
 namespace eosio { namespace chain {
 
@@ -74,17 +84,6 @@ void variant_snapshot_reader::validate() const {
       EOS_ASSERT(so["rows"].is_array(), snapshot_validation_exception,
                  "Variant snapshot section rows is not an array");
    }
-}
-
-bool variant_snapshot_reader::has_section( const string& section_name ) {
-   const auto& sections = snapshot["sections"].get_array();
-   for( const auto& section: sections ) {
-      if (section["name"].as_string() == section_name) {
-         return true;
-      }
-   }
-
-   return false;
 }
 
 void variant_snapshot_reader::set_section( const string& section_name ) {
@@ -190,6 +189,45 @@ void ostream_snapshot_writer::finalize() {
    snapshot.write((char*)&end_marker, sizeof(end_marker));
 }
 
+ostream_json_snapshot_writer::ostream_json_snapshot_writer(std::ostream& snapshot)
+      :snapshot(snapshot)
+      ,row_count(0)
+{
+   snapshot << "{\n";
+   // write magic number
+   auto totem = magic_number;
+   snapshot << "\"magic_number\":" << fc::json::to_string(totem, fc::time_point::maximum()) << "\n";
+
+   // write version
+   auto version = current_snapshot_version;
+   snapshot << ",\"version\":" << fc::json::to_string(version, fc::time_point::maximum()) << "\n";
+}
+
+void ostream_json_snapshot_writer::write_start_section( const std::string& section_name )
+{
+   row_count = 0;
+   snapshot.inner << "," << fc::json::to_string(section_name, fc::time_point::maximum()) << ":{\n\"rows\":[\n";
+}
+
+void ostream_json_snapshot_writer::write_row( const detail::abstract_snapshot_row_writer& row_writer ) {
+   const auto yield = [&](size_t s) {};
+
+   if(row_count != 0) snapshot.inner << ",";
+   snapshot.inner << fc::json::to_string(row_writer.to_variant(), yield) << "\n";
+   ++row_count;
+}
+
+void ostream_json_snapshot_writer::write_end_section( ) {
+   snapshot.inner << "],\n\"num_rows\":" << row_count << "\n}\n";
+   row_count = 0;
+}
+
+void ostream_json_snapshot_writer::finalize() {
+   snapshot.inner << "}\n";
+   snapshot.inner.flush();
+}
+
+
 istream_snapshot_reader::istream_snapshot_reader(std::istream& snapshot)
 :snapshot(snapshot)
 ,header_pos(snapshot.tellg())
@@ -244,44 +282,6 @@ bool istream_snapshot_reader::validate_section() const {
    snapshot.seekg(snapshot.tellg() + std::streamoff(section_size));
 
    return true;
-}
-
-bool istream_snapshot_reader::has_section( const string& section_name ) {
-   auto restore_pos = fc::make_scoped_exit([this,pos=snapshot.tellg()](){
-      snapshot.seekg(pos);
-   });
-
-   const std::streamoff header_size = sizeof(ostream_snapshot_writer::magic_number) + sizeof(current_snapshot_version);
-
-   auto next_section_pos = header_pos + header_size;
-
-   while (true) {
-      snapshot.seekg(next_section_pos);
-      uint64_t section_size = 0;
-      snapshot.read((char*)&section_size,sizeof(section_size));
-      if (section_size == std::numeric_limits<uint64_t>::max()) {
-         break;
-      }
-
-      next_section_pos = snapshot.tellg() + std::streamoff(section_size);
-
-      uint64_t ignore = 0;
-      snapshot.read((char*)&ignore,sizeof(ignore));
-
-      bool match = true;
-      for(auto c : section_name) {
-         if(snapshot.get() != c) {
-            match = false;
-            break;
-         }
-      }
-
-      if (match && snapshot.get() == 0) {
-         return true;
-      }
-   }
-
-   return false;
 }
 
 void istream_snapshot_reader::set_section( const string& section_name ) {
@@ -343,6 +343,91 @@ void istream_snapshot_reader::clear_section() {
 
 void istream_snapshot_reader::return_to_header() {
    snapshot.seekg( header_pos );
+   clear_section();
+}
+
+struct istream_json_snapshot_reader_impl {
+   uint64_t num_rows;
+   uint64_t cur_row;
+   eosio_rapidjson::Document doc;
+   std::string sec_name;
+};
+
+istream_json_snapshot_reader::~istream_json_snapshot_reader() = default;
+
+istream_json_snapshot_reader::istream_json_snapshot_reader(const fc::path& p)
+   : impl{new istream_json_snapshot_reader_impl{0, 0, {}, {}}}
+{
+   FILE* fp = fopen(p.string().c_str(), "rb");
+   EOS_ASSERT(fp, snapshot_exception, "Failed to open JSON snapshot: ${file}", ("file", p));
+   auto close = fc::make_scoped_exit( [&fp]() { fclose( fp ); } );
+   char readBuffer[65536];
+   eosio_rapidjson::FileReadStream is(fp, readBuffer, sizeof(readBuffer));
+   impl->doc.ParseStream(is);
+}
+
+void istream_json_snapshot_reader::validate() const {
+   try {
+      // validate totem
+      auto expected_totem = ostream_json_snapshot_writer::magic_number;
+      EOS_ASSERT(impl->doc.HasMember("magic_number"), snapshot_exception, "magic_number section not found" );
+      auto actual_totem = impl->doc["magic_number"].GetUint();
+      EOS_ASSERT( actual_totem == expected_totem, snapshot_exception, "JSON snapshot has unexpected magic number" );
+
+      // validate version
+      auto expected_version = current_snapshot_version;
+      EOS_ASSERT(impl->doc.HasMember("version"), snapshot_exception, "version section not found" );
+      auto actual_version = impl->doc["version"].GetUint();
+      EOS_ASSERT( actual_version == expected_version, snapshot_exception,
+                  "JSON snapshot is an unsupported version.  Expected : ${expected}, Got: ${actual}",
+                  ("expected", expected_version)( "actual", actual_version ) );
+
+   } catch( const std::exception& e ) {  \
+      snapshot_exception fce(FC_LOG_MESSAGE( warn, "JSON snapshot validation threw IO exception (${what})",("what",e.what())));
+      throw fce;
+   }
+}
+
+bool istream_json_snapshot_reader::validate_section() const {
+   return true;
+}
+
+void istream_json_snapshot_reader::set_section( const string& section_name ) {
+   EOS_ASSERT( impl->doc.HasMember( section_name.c_str() ), snapshot_exception, "JSON snapshot has no section ${sec}", ("sec", section_name) );
+   EOS_ASSERT( impl->doc[section_name.c_str()].HasMember( "num_rows" ), snapshot_exception, "JSON snapshot ${sec} num_rows not found", ("sec", section_name) );
+   EOS_ASSERT( impl->doc[section_name.c_str()].HasMember( "rows" ), snapshot_exception, "JSON snapshot ${sec} rows not found", ("sec", section_name) );
+   EOS_ASSERT( impl->doc[section_name.c_str()]["rows"].IsArray(), snapshot_exception, "JSON snapshot ${sec} rows is not an array", ("sec_name", section_name) );
+
+   impl->sec_name = section_name;
+   impl->num_rows = impl->doc[section_name.c_str()]["num_rows"].GetInt();
+   ilog( "reading ${section_name}, num_rows: ${num_rows}", ("section_name", section_name)( "num_rows", impl->num_rows ) );
+}
+
+bool istream_json_snapshot_reader::read_row( detail::abstract_snapshot_row_reader& row_reader ) {
+   EOS_ASSERT( impl->cur_row < impl->num_rows, snapshot_exception, "JSON snapshot ${sect}'s cur_row ${cur_row} >= num_rows ${num_rows}",
+               ("sect_name", impl->sec_name)( "cur_row", impl->cur_row )( "num_rows", impl->num_rows ) );
+
+   const eosio_rapidjson::Value& rows = impl->doc[impl->sec_name.c_str()]["rows"];
+   eosio_rapidjson::StringBuffer buffer;
+   eosio_rapidjson::Writer<eosio_rapidjson::StringBuffer> writer( buffer );
+   rows[impl->cur_row].Accept( writer );
+
+   const auto& row = fc::json::from_string( buffer.GetString() );
+   row_reader.provide( row );
+   return ++impl->cur_row < impl->num_rows;
+}
+
+bool istream_json_snapshot_reader::empty ( ) {
+   return impl->num_rows == 0;
+}
+
+void istream_json_snapshot_reader::clear_section() {
+   impl->num_rows = 0;
+   impl->cur_row = 0;
+   impl->sec_name = "";
+}
+
+void istream_json_snapshot_reader::return_to_header() {
    clear_section();
 }
 

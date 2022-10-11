@@ -1,6 +1,6 @@
 ## Overview
 
-This how-to guide provides instructions on how to list all public keys and public/private key pairs within the `keosd` default wallet. You can use the public and private keys to authorize transactions in an EOSIO blockchain. 
+This how-to guide provides instructions on how to list all public keys and public/private key pairs within the `keosd` default wallet. You can use the public and private keys to authorize transactions in an Antelope blockchain.
 
 The example in this how-to guide displays all public keys and public/private key pairs stored within the existing default wallet.
 
@@ -8,13 +8,13 @@ The example in this how-to guide displays all public keys and public/private key
 
 Make sure you meet the following requirements:
 
-* Create a default wallet using the `cleos wallet create` command. See the [How to Create a Wallet](../02_how-to-guides/how-to-create-a-wallet.md) section for instructions. 
+* Create a default wallet using the `cleos wallet create` command. See the [How to Create a Wallet](../02_how-to-guides/how-to-create-a-wallet.md) section for instructions.
 * [Create a keypair](../03_command-reference/wallet/create_key.md) within the default wallet.
 * Familiarize with the [`cleos wallet`](../03_command-reference/wallet/index.md) commands.
 * Install the currently supported version of `cleos`.
 [[info | Note]]
-| `cleos` is bundled with the EOSIO software. [Installing EOSIO](../../00_install/index.md) will also install `cleos`.
-* Understand what a [public key](https://developers.eos.io/welcome/latest/glossary/index/#public-key) and [private key](https://developers.eos.io/welcome/latest/glossary/index/#private-key) is.
+| `cleos` is bundled with the Antelope software. [Installing Antelope](../../00_install/index.md) will also install `cleos`.
+* Understand what a [public key](/glossary.md#public-key) and [private key](/glossary.md#private-key) is.
 
 ## Command Reference
 
@@ -71,7 +71,7 @@ cleos wallet private_keys
 password:
 ```
 
-6. Enter the generated password when you created the default wallet: 
+6. Enter the generated password when you created the default wallet:
 ```sh
 ***
 ```
@@ -86,7 +86,7 @@ password: [[
 ```
 
 [[caution | Warning]]
-| Never reveal your private keys in a production environment. 
+| Never reveal your private keys in a production environment.
 
 [[info | Note]]
 | If the above commands does not list any keys, make sure you have created keypairs and imported private keys to your wallet.

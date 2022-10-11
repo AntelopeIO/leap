@@ -1,18 +1,15 @@
 #!/usr/bin/env python3
 
-from testUtils import Utils
 import copy
 import time
-from Cluster import Cluster
-from WalletMgr import WalletMgr
-from Node import BlockType
 import json
 import os
 import signal
 import subprocess
-from TestHelper import AppArgs
-from TestHelper import TestHelper
-from testUtils import Account
+
+from TestHarness import Account, Cluster, TestHelper, Utils, WalletMgr
+from TestHarness.Node import BlockType
+from TestHarness.TestHelper import AppArgs
 
 ########################################################################
 # trx_finality_status_test
@@ -70,7 +67,6 @@ try:
     failure_duration = 40
     extraNodeosArgs=" --transaction-finality-status-max-storage-size-gb 1 " + \
                    f"--transaction-finality-status-success-duration-sec {successDuration} --transaction-finality-status-failure-duration-sec {failure_duration}"
-    extraNodeosArgs+=" --plugin eosio::trace_api_plugin --trace-no-abis"
     extraNodeosArgs+=" --http-max-response-time-ms 990000"
     if cluster.launch(prodCount=prodCount, onlyBios=False, pnodes=pnodes, totalNodes=totalNodes, totalProducers=pnodes*prodCount,
                       useBiosBootFile=False, topo="line", extraNodeosArgs=extraNodeosArgs) is False:
@@ -136,8 +132,8 @@ try:
     postInfo = None
     transferAmount=10
 
-    # ensuring that prod0's producer is active, which will give sufficient time to identify the transaction as "LOCALLY_APPLIED" before it travels
-    # through the chain of nodes to node0 to be added to a block
+    # Ensuring that prod0's producer is active, which will give more time to identify the transaction as "LOCALLY_APPLIED" before it travels
+    # through the chain of nodes to node0 to be added to a block. It is still possible to hit the end of a block and state be IN_BLOCK here.
     # defproducera -> defproducerb -> defproducerc -> NPN
     prod0.waitForProducer("defproducera", exitOnError=True)
     testNode.transferFunds(cluster.eosioAccount, account1, f"{transferAmount}.0000 {CORE_SYMBOL}", "fund account")
@@ -145,7 +141,7 @@ try:
     retStatus=testNode.getTransactionStatus(transId)
     state = getState(retStatus)
 
-    assert state == localState, \
+    assert (state == localState or state == inBlockState), \
         f"ERROR: getTransactionStatus didn't return \"{localState}\" state.\n\nstatus: {json.dumps(retStatus, indent=1)}"
     status.append(copy.copy(retStatus))
     startingBlockNum=testNode.getInfo()["head_block_num"]

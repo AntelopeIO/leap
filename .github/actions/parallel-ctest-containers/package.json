@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "@actions/core": "^1.9.1",
+    "@vercel/ncc": "^0.34.0",
+    "tar-stream": "^2.2.0"
+  }
+}

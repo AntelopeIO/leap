@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
 
-from testUtils import Utils
-from Cluster import Cluster
-from WalletMgr import WalletMgr
-from TestHelper import TestHelper
-
 import random
+
+from TestHarness import Cluster, TestHelper, Utils, WalletMgr
 
 ###############################################################
 # terminate-scenarios-test
@@ -61,8 +58,7 @@ try:
     pnodes, topo, delay, chainSyncStrategyStr))
 
     Print("Stand up cluster")
-    traceNodeosArgs=" --plugin eosio::trace_api_plugin --trace-no-abis "
-    if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, topo=topo, delay=delay, extraNodeosArgs=traceNodeosArgs) is False:
+    if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, topo=topo, delay=delay) is False:
         errorExit("Failed to stand up eos cluster.")
 
     Print ("Wait for Cluster stabilization")

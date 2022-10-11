@@ -1088,11 +1088,12 @@ struct controller_impl {
                                                                              active_permission.id,
                                                                              active_producers_authority,
                                                                              genesis.initial_timestamp );
-      const auto& minority_permission     = authorization.create_permission( config::producers_account_name,
+                                            authorization.create_permission( config::producers_account_name,
                                                                              config::minority_producers_permission_name,
                                                                              majority_permission.id,
                                                                              active_producers_authority,
                                                                              genesis.initial_timestamp );
+
    }
 
    // The returned scoped_exit should not exceed the lifetime of the pending which existed when make_block_restore_point was called.
@@ -1481,7 +1482,7 @@ struct controller_impl {
                                            fc::microseconds max_transaction_time,
                                            uint32_t billed_cpu_time_us,
                                            bool explicit_billed_cpu_time,
-                                           uint32_t subjective_cpu_bill_us )
+                                           int64_t subjective_cpu_bill_us )
    {
       EOS_ASSERT(block_deadline != fc::time_point(), transaction_exception, "deadline cannot be uninitialized");
 
@@ -1527,7 +1528,7 @@ struct controller_impl {
                trx_context.init_for_implicit_trx();
                trx_context.enforce_whiteblacklist = false;
             } else {
-               bool skip_recording = replay_head_time && (time_point(trn.expiration) <= *replay_head_time);
+               bool skip_recording = replay_head_time && (time_point(trn.expiration) < *replay_head_time);
                trx_context.init_for_input_trx( trx->packed_trx()->get_unprunable_size(),
                                                trx->packed_trx()->get_prunable_size(),
                                                skip_recording);
@@ -2403,7 +2404,8 @@ struct controller_impl {
             break;
          }
       }
-      dlog("removed ${n} expired transactions of the ${t} input dedup list", ("n", num_removed)("t", total));
+      dlog("removed ${n} expired transactions of the ${t} input dedup list, pending block time ${pt}",
+           ("n", num_removed)("t", total)("pt", now));
    }
 
    bool sender_avoids_whitelist_blacklist_enforcement( account_name sender )const {
@@ -2879,7 +2881,7 @@ void controller::push_block( controller::block_report& br,
 transaction_trace_ptr controller::push_transaction( const transaction_metadata_ptr& trx,
                                                     fc::time_point block_deadline, fc::microseconds max_transaction_time,
                                                     uint32_t billed_cpu_time_us, bool explicit_billed_cpu_time,
-                                                    uint32_t subjective_cpu_bill_us ) {
+                                                    int64_t subjective_cpu_bill_us ) {
    validate_db_available_size();
    EOS_ASSERT( get_read_mode() != db_read_mode::IRREVERSIBLE, transaction_type_exception, "push transaction not allowed in irreversible mode" );
    EOS_ASSERT( trx && !trx->implicit && !trx->scheduled, transaction_type_exception, "Implicit/Scheduled transaction not allowed" );

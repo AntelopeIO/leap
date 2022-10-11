@@ -1,15 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+
 import json
 import time
 import unittest
 import os
 
-from testUtils import Utils
-from Cluster import Cluster
-from TestHelper import TestHelper
-from Node import Node
-from WalletMgr import WalletMgr
+from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr
 from core_symbol import CORE_SYMBOL
 
 class TraceApiPluginTest(unittest.TestCase):
@@ -32,7 +29,7 @@ class TraceApiPluginTest(unittest.TestCase):
     def startEnv(self) :
         account_names = ["alice", "bob", "charlie"]
         abs_path = os.path.abspath(os.getcwd() + '/unittests/contracts/eosio.token/eosio.token.abi')
-        traceNodeosArgs = " --plugin eosio::trace_api_plugin --trace-rpc-abi eosio.token=" + abs_path
+        traceNodeosArgs = " --trace-rpc-abi eosio.token=" + abs_path
         self.cluster.launch(totalNodes=1, extraNodeosArgs=traceNodeosArgs)
         self.walletMgr.launch()
         testWalletName="testwallet"

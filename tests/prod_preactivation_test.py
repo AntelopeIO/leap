@@ -1,15 +1,11 @@
 #!/usr/bin/env python3
 
-from testUtils import Utils
-from Cluster import Cluster, PFSetupPolicy
-from WalletMgr import WalletMgr
-from Node import Node
-from Node import ReturnType
-from TestHelper import TestHelper
-
 import decimal
 import re
 import time
+
+from TestHarness import Cluster, Node, ReturnType, TestHelper, Utils, WalletMgr
+from TestHarness.Cluster import PFSetupPolicy
 
 ###############################################################
 # prod_preactivation_test
@@ -62,10 +58,9 @@ try:
         cluster.killall(allInstances=killAll)
         cluster.cleanup()
         Print("Stand up cluster")
-        traceNodeosArgs=" --plugin eosio::trace_api_plugin --trace-no-abis "
         if cluster.launch(pnodes=prodCount, totalNodes=prodCount, prodCount=1, onlyBios=onlyBios,
                          dontBootstrap=dontBootstrap, useBiosBootFile=False,
-                         pfSetupPolicy=PFSetupPolicy.NONE, extraNodeosArgs=" --plugin eosio::producer_api_plugin  --http-max-response-time-ms 990000 " + traceNodeosArgs) is False:
+                         pfSetupPolicy=PFSetupPolicy.NONE, extraNodeosArgs=" --plugin eosio::producer_api_plugin  --http-max-response-time-ms 990000 ") is False:
             cmdError("launcher")
             errorExit("Failed to stand up eos cluster.")
 
@@ -112,8 +107,9 @@ try:
     Print("publish a new bios contract %s should fails because env.is_feature_activated unresolveable" % (contractDir))
     retMap = node0.publishContract(cluster.eosioAccount, contractDir, wasmFile, abiFile, True, shouldFail=True)
 
-    if retMap["output"].decode("utf-8").find("unresolveable") < 0:
-        errorExit("bios contract not result in expected unresolveable error")
+    outPut = retMap["output"].decode("utf-8")
+    if outPut.find("unresolveable") < 0:
+        errorExit(f"bios contract not result in expected unresolveable error: {outPut}")
 
     secwait = 30
     Print("Wait for node 1 to produce...")

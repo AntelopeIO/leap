@@ -1,18 +1,13 @@
 #!/usr/bin/env python3
 
-from core_symbol import CORE_SYMBOL
-from Cluster import Cluster
-from Cluster import NamedAccounts
-from WalletMgr import WalletMgr
-from Node import Node
-from TestHelper import TestHelper
-from testUtils import Utils
-import testUtils
 import time
-
 import decimal
 import math
 import re
+
+from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr
+from TestHarness.Cluster import NamedAccounts
+from core_symbol import CORE_SYMBOL
 
 ###############################################################
 # nodeos_under_min_avail_ram
@@ -56,7 +51,7 @@ try:
     minRAMValue=1002
     maxRAMFlag="--chain-state-db-size-mb"
     maxRAMValue=1010
-    extraNodeosArgs=" %s %d %s %d  --http-max-response-time-ms 990000 --plugin eosio::trace_api_plugin --trace-no-abis " % (minRAMFlag, minRAMValue, maxRAMFlag, maxRAMValue)
+    extraNodeosArgs=" %s %d %s %d  --http-max-response-time-ms 990000 " % (minRAMFlag, minRAMValue, maxRAMFlag, maxRAMValue)
     if cluster.launch(onlyBios=False, pnodes=totalNodes, totalNodes=totalNodes, totalProducers=totalNodes, extraNodeosArgs=extraNodeosArgs, useBiosBootFile=False) is False:
         Utils.cmdError("launcher")
         errorExit("Failed to stand up eos cluster.")

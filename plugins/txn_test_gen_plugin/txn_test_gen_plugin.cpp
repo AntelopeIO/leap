@@ -45,7 +45,7 @@ using namespace eosio::chain;
           try { \
              if (body.empty()) body = "{}"; \
              INVOKE \
-             cb(http_response_code, fc::variant(result)); \
+             cb(http_response_code, fc::time_point::maximum(), fc::variant(result)); \
           } catch (...) { \
              http_plugin::handle_exception(#api_name, #call_name, body, cb); \
           } \
@@ -80,7 +80,7 @@ using namespace eosio::chain;
                http_plugin::handle_exception(#api_name, #call_name, body, cb);\
             }\
          } else {\
-            cb(http_response_code, fc::variant(eosio::detail::txn_test_gen_empty())); \
+            cb(http_response_code, fc::time_point::maximum(), fc::variant(eosio::detail::txn_test_gen_empty())); \
          }\
       };\
       INVOKE \
@@ -293,7 +293,6 @@ struct txn_test_gen_plugin_impl {
 
       running = true;
 
-      controller& cc = app().get_plugin<chain_plugin>().chain();
       auto abi_serializer_max_time = app().get_plugin<chain_plugin>().get_abi_serializer_max_time();
       abi_serializer eosio_token_serializer{fc::json::from_string(contracts::eosio_token_abi().data()).as<abi_def>(), abi_serializer::create_yield_function( abi_serializer_max_time )};
       //create the actions here

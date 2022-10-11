@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-echo "Mandel Pinned Build"
+echo "Leap Pinned Build"
 
 if [[ "$(uname)" == "Linux" ]]; then
    if [[ -e /etc/os-release ]]; then
@@ -18,15 +18,16 @@ fi
 
 if [ $# -eq 0 ] || [ -z "$1" ]
    then
-      echo "Please supply a directory for the build dependencies to be placed and a directory for mandel build and a value for the number of jobs to use for building."
-      echo "The binary packages will be created and placed into the mandel build directory."
-      echo "./pinned_build.sh <dependencies directory> <mandel build directory> <1-100>"
+      echo "Please supply a directory for the build dependencies to be placed and a directory for leap build and a value for the number of jobs to use for building."
+      echo "The binary packages will be created and placed into the leap build directory."
+      echo "./pinned_build.sh <dependencies directory> <leap build directory> <1-100>"
       exit -1
 fi
 
 CORE_SYM=EOS
-DEP_DIR=$1
-MANDEL_DIR=$2
+# CMAKE_C_COMPILER requires absolute path
+DEP_DIR=`realpath $1`
+LEAP_DIR=$2
 JOBS=$3
 CLANG_VER=11.0.1
 BOOST_VER=1.70.0
@@ -49,7 +50,8 @@ popdir() {
    echo ${D}
    D=`eval echo $D | head -n1 | cut -d " " -f1`
 
-   if [[ ${D} != ${EXPECTED} ]]; then
+   # -ef compares absolute paths
+   if ! [[ ${D} -ef ${EXPECTED} ]]; then
      echo "Directory is not where expected EXPECTED=${EXPECTED} at ${D}"
      exit 1 
    fi
@@ -69,7 +71,7 @@ install_clang() {
       echo "Installing Clang ${CLANG_VER} @ ${CLANG_DIR}"
       mkdir -p ${CLANG_DIR}
       CLANG_FN=clang+llvm-${CLANG_VER}-x86_64-linux-gnu-ubuntu-16.04.tar.xz
-      try wget https://github.com/llvm/llvm-project/releases/download/llvmorg-${CLANG_VER}/${CLANG_FN}
+      try wget -O ${CLANG_FN} https://github.com/llvm/llvm-project/releases/download/llvmorg-${CLANG_VER}/${CLANG_FN}
       try tar -xvf ${CLANG_FN} -C ${CLANG_DIR}
       pushdir ${CLANG_DIR}
       mv clang+*/* .
@@ -85,7 +87,7 @@ install_llvm() {
    if [ ! -d "${LLVM_DIR}" ]; then
       echo "Installing LLVM ${LLVM_VER} @ ${LLVM_DIR}"
       mkdir -p ${LLVM_DIR}
-      try wget https://github.com/llvm/llvm-project/releases/download/llvmorg-${LLVM_VER}/llvm-${LLVM_VER}.src.tar.xz
+      try wget -O llvm-${LLVM_VER}.src.tar.xz https://github.com/llvm/llvm-project/releases/download/llvmorg-${LLVM_VER}/llvm-${LLVM_VER}.src.tar.xz
       try tar -xvf llvm-${LLVM_VER}.src.tar.xz
       pushdir "${LLVM_DIR}.src"
       pushdir build
@@ -105,9 +107,10 @@ install_boost() {
 
    if [ ! -d "${BOOST_DIR}" ]; then
       echo "Installing Boost ${BOOST_VER} @ ${BOOST_DIR}"
-      try wget https://boostorg.jfrog.io/artifactory/main/release/${BOOST_VER}/source/boost_${BOOST_VER//\./_}.tar.gz
-      try tar -xvzf boost_${BOOST_VER//\./_}.tar.gz -C ${DEP_DIR}
+      try wget -O boost_${BOOST_VER//\./_}.tar.gz https://boostorg.jfrog.io/artifactory/main/release/${BOOST_VER}/source/boost_${BOOST_VER//\./_}.tar.gz
+      try tar --transform="s:^boost_${BOOST_VER//\./_}:boost_${BOOST_VER//\./_}patched:" -xvzf boost_${BOOST_VER//\./_}.tar.gz -C ${DEP_DIR}
       pushdir ${BOOST_DIR}
+      patch -p1 < "${SCRIPT_DIR}/0001-beast-fix-moved-from-executor.patch"
       try ./bootstrap.sh -with-toolset=clang --prefix=${BOOST_DIR}/bin
       ./b2 toolset=clang cxxflags='-stdlib=libc++ -D__STRICT_ANSI__ -nostdinc++ -I${CLANG_DIR}/include/c++/v1 -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fPIE' linkflags='-stdlib=libc++ -pie' link=static threading=multi --with-iostreams --with-date_time --with-filesystem --with-system --with-program_options --with-chrono --with-test -q -j${JOBS} install
       popdir ${DEP_DIR}
@@ -120,29 +123,29 @@ pushdir ${DEP_DIR}
 
 install_clang ${DEP_DIR}/clang-${CLANG_VER}
 install_llvm ${DEP_DIR}/llvm-${LLVM_VER}
-install_boost ${DEP_DIR}/boost_${BOOST_VER//\./_}
+install_boost ${DEP_DIR}/boost_${BOOST_VER//\./_}patched
 
 # go back to the directory where the script starts
 popdir ${START_DIR}
 
-pushdir ${MANDEL_DIR}
+pushdir ${LEAP_DIR}
 
-# build Mandel
-echo "Building Mandel ${SCRIPT_DIR}"
+# build Leap
+echo "Building Leap ${SCRIPT_DIR}"
 try cmake -DCMAKE_TOOLCHAIN_FILE=${SCRIPT_DIR}/pinned_toolchain.cmake -DCMAKE_INSTALL_PREFIX=/usr/local -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=${LLVM_DIR}/lib/cmake -DCMAKE_PREFIX_PATH=${BOOST_DIR}/bin ${SCRIPT_DIR}/..
 
 try make -j${JOBS}
 try cpack
 
-echo " .----------------.  .----------------.  .-----------------. .----------------.  .----------------.  .----------------. ";
-echo "| .--------------. || .--------------. || .--------------. || .--------------. || .--------------. || .--------------. |";
-echo "| | ____    ____ | || |      __      | || | ____  _____  | || |  ________    | || |  _________   | || |   _____      | |";
-echo "| ||_   \  /   _|| || |     /  \     | || ||_   \|_   _| | || | |_   ___ \`.  | || | |_   ___  |  | || |  |_   _|     | |";
-echo "| |  |   \/   |  | || |    / /\ \    | || |  |   \ | |   | || |   | |   \`. \ | || |   | |_  \_|  | || |    | |       | |";
-echo "| |  | |\  /| |  | || |   / ____ \   | || |  | |\ \| |   | || |   | |    | | | || |   |  _|  _   | || |    | |   _   | |";
-echo "| | _| |_\/_| |_ | || | _/ /    \ \_ | || | _| |_\   |_  | || |  _| |___.' / | || |  _| |___/ |  | || |   _| |__/ |  | |";
-echo "| ||_____||_____|| || ||____|  |____|| || ||_____|\____| | || | |________.'  | || | |_________|  | || |  |________|  | |";
-echo "| |              | || |              | || |              | || |              | || |              | || |              | |";
-echo "| '--------------' || '--------------' || '--------------' || '--------------' || '--------------' || '--------------' |";
-echo " '----------------'  '----------------'  '----------------'  '----------------'  '----------------'  '----------------' ";
-echo "Mandel has successfully built and constructed its packages.  You should be able to find the packages at ${MANDEL_DIR}.  Enjoy!!!"
+echo " .----------------.  .----------------.  .----------------.  .----------------. ";
+echo "| .--------------. || .--------------. || .--------------. || .--------------. |";
+echo "| |   _____      | || |  _________   | || |      __      | || |   ______     | |";
+echo "| |  |_   _|     | || | |_   ___  |  | || |     /  \     | || |  |_   __ \   | |";
+echo "| |    | |       | || |   | |_  \_|  | || |    / /\ \    | || |    | |__) |  | |";
+echo "| |    | |   _   | || |   |  _|  _   | || |   / ____ \   | || |    |  ___/   | |";
+echo "| |   _| |__/ |  | || |  _| |___/ |  | || | _/ /    \ \_ | || |   _| |_      | |";
+echo "| |  |________|  | || | |_________|  | || ||____|  |____|| || |  |_____|     | |";
+echo "| |              | || |              | || |              | || |              | |";
+echo "| '--------------' || '--------------' || '--------------' || '--------------' |";
+echo " '----------------'  '----------------'  '----------------'  '----------------' ";
+echo "Leap has successfully built and constructed its packages.  You should be able to find the packages at ${LEAP_DIR}.  Enjoy!!!"

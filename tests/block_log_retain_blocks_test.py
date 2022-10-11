@@ -1,13 +1,10 @@
 #!/usr/bin/env python3
 
-from testUtils import Utils
-from Cluster import Cluster
-from WalletMgr import WalletMgr
-from TestHelper import TestHelper
-
 import random
 import os
 import signal
+
+from TestHarness import Cluster, TestHelper, Utils, WalletMgr
 
 ###############################################################
 # block_log_retain_blocks_test
@@ -56,10 +53,9 @@ try:
     specificExtraNodeosArgs={}
     specificExtraNodeosArgs[0]=f' --block-log-retain-blocks 0 '
     specificExtraNodeosArgs[1]=f' --block-log-retain-blocks 10 '
-    extraNodeosArgs=" --plugin eosio::trace_api_plugin --trace-no-abis "
 
     Print("Stand up cluster")
-    if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, extraNodeosArgs=extraNodeosArgs, specificExtraNodeosArgs=specificExtraNodeosArgs) is False:
+    if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, specificExtraNodeosArgs=specificExtraNodeosArgs) is False:
         errorExit("Failed to stand up eos cluster.")
 
     Print ("Wait for Cluster stabilization")

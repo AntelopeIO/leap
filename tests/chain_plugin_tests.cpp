@@ -90,10 +90,10 @@ BOOST_FIXTURE_TEST_CASE( get_block_with_invalid_abi, TESTER ) try {
    char headnumstr[20];
    sprintf(headnumstr, "%d", headnum);
    chain_apis::read_only::get_block_params param{headnumstr};
-   chain_apis::read_only plugin(*(this->control), {}, fc::microseconds::maximum(), {}, {});
+   chain_apis::read_only plugin(*(this->control), {}, fc::microseconds::maximum(), fc::microseconds::maximum(), {}, {});
 
    // block should be decoded successfully
-   std::string block_str = json::to_pretty_string(plugin.get_block(param));
+   std::string block_str = json::to_pretty_string(plugin.get_block(param, fc::time_point::maximum()));
    BOOST_TEST(block_str.find("procassert") != std::string::npos);
    BOOST_TEST(block_str.find("condition") != std::string::npos);
    BOOST_TEST(block_str.find("Should Not Assert!") != std::string::npos);
@@ -111,7 +111,7 @@ BOOST_FIXTURE_TEST_CASE( get_block_with_invalid_abi, TESTER ) try {
    BOOST_CHECK_THROW(resolver("asserter"_n), invalid_type_inside_abi);
 
    // get the same block as string, results in decode failed(invalid abi) but not exception
-   std::string block_str2 = json::to_pretty_string(plugin.get_block(param));
+   std::string block_str2 = json::to_pretty_string(plugin.get_block(param, fc::time_point::maximum()));
    BOOST_TEST(block_str2.find("procassert") != std::string::npos);
    BOOST_TEST(block_str2.find("condition") == std::string::npos); // decode failed
    BOOST_TEST(block_str2.find("Should Not Assert!") == std::string::npos); // decode failed
@@ -122,10 +122,9 @@ BOOST_FIXTURE_TEST_CASE( get_block_with_invalid_abi, TESTER ) try {
 BOOST_FIXTURE_TEST_CASE( get_consensus_parameters, TESTER ) try {
    produce_blocks(1);
 
-   chain_apis::read_only::get_info_params p;
-   chain_apis::read_only plugin(*(this->control), {}, fc::microseconds::maximum(), nullptr, nullptr);
+   chain_apis::read_only plugin(*(this->control), {}, fc::microseconds::maximum(), fc::microseconds::maximum(), nullptr, nullptr);
 
-   auto parms = plugin.get_consensus_parameters({});
+   auto parms = plugin.get_consensus_parameters({}, fc::time_point::maximum());
 
    // verifying chain_config
    BOOST_TEST(parms.chain_config.max_block_cpu_usage == control->get_global_properties().configuration.max_block_cpu_usage);
@@ -170,11 +169,11 @@ BOOST_FIXTURE_TEST_CASE( get_account, TESTER ) try {
 
    produce_block();
 
-   chain_apis::read_only plugin(*(this->control), {}, fc::microseconds::maximum(), nullptr, nullptr);
+   chain_apis::read_only plugin(*(this->control), {}, fc::microseconds::maximum(), fc::microseconds::maximum(), nullptr, nullptr);
 
    chain_apis::read_only::get_account_params p{"alice"_n};
 
-   chain_apis::read_only::get_account_results result = plugin.read_only::get_account(p);
+   chain_apis::read_only::get_account_results result = plugin.read_only::get_account(p, fc::time_point::maximum());
 
    auto check_result_basic = [](chain_apis::read_only::get_account_results result, eosio::name nm, bool isPriv) {
       BOOST_REQUIRE_EQUAL(nm, result.account_name);
@@ -214,7 +213,7 @@ BOOST_FIXTURE_TEST_CASE( get_account, TESTER ) try {
    // test link authority
    link_authority(name("alice"_n), name("bob"_n), name("active"_n), name("foo"_n));
    produce_block();
-   result = plugin.read_only::get_account(p);
+   result = plugin.read_only::get_account(p, fc::time_point::maximum());
 
    check_result_basic(result, name("alice"_n), false);
    auto perm = result.permissions[0];
@@ -232,7 +231,7 @@ BOOST_FIXTURE_TEST_CASE( get_account, TESTER ) try {
    // test link authority to eosio.any
    link_authority(name("alice"_n), name("bob"_n), name("eosio.any"_n), name("foo"_n));
    produce_block();
-   result = plugin.read_only::get_account(p);
+   result = plugin.read_only::get_account(p, fc::time_point::maximum());
    check_result_basic(result, name("alice"_n), false);
    // active permission should no longer have linked auth, as eosio.any replaces it
    perm = result.permissions[0];

@@ -1,14 +1,9 @@
 #!/usr/bin/env python3
 
-from testUtils import Account
-from testUtils import Utils
-from Cluster import Cluster
-from WalletMgr import WalletMgr
-from Node import Node
-from Node import ReturnType
-from TestHelper import TestHelper
-from TestHelper import AppArgs
 import json
+
+from TestHarness import Account, Cluster, Node, ReturnType, TestHelper, Utils, WalletMgr
+from TestHarness.TestHelper import AppArgs
 
 ###############################################################
 # light_validation_sync_test
@@ -41,7 +36,6 @@ try:
     TestHelper.printSystemInfo("BEGIN")
     cluster.killall(allInstances=killAll)
     cluster.cleanup()
-    traceNodeosArgs = " --plugin eosio::trace_api_plugin --trace-no-abis "
     assert cluster.launch(
         pnodes=1,
         prodCount=1,
@@ -49,7 +43,6 @@ try:
         totalNodes=2,
         useBiosBootFile=False,
         loadSystemContract=False,
-        extraNodeosArgs=traceNodeosArgs,
         specificExtraNodeosArgs={
             1:"--validation-mode light"})
 

@@ -30,6 +30,7 @@
 #include <netinet/in.h>
 #include <net/if.h>
 #include <eosio/chain/genesis_state.hpp>
+#include <eosio/version/version.hpp>
 
 #include "config.hpp"
 
@@ -362,7 +363,6 @@ string producer_names::producer_name(unsigned int producer_number, bool shared_p
    }
 
    prod_name[total_chars] = '\0';
-   const auto original_producer_number = producer_number;
    for (int current_char_loc = total_chars - 1; current_char_loc >= 0; --current_char_loc) {
       const unsigned int slot_value = static_cast<char>(producer_number % valid_char_range);
       producer_number /= valid_char_range;
@@ -1866,7 +1866,6 @@ launcher_def::ignite() {
       string script("bash " + start_script);
       bp::child c(script);
       try {
-         boost::system::error_code ec;
          cerr << "waiting for script completion\n";
          c.wait();
       } catch (bfs::filesystem_error &ex) {
@@ -2026,7 +2025,7 @@ int main (int argc, char *argv[]) {
       return 0;
     }
     if (vmap.count("version") > 0) {
-      cout << eosio::launcher::config::version_str << endl;
+      cout << eosio::version::version_full() << endl;
       return 0;
     }
 

@@ -12,16 +12,16 @@ namespace eosio {
     * @brief A callback function provided to a URL handler to
     * allow it to specify the HTTP response code and body
     *
-    * Arguments: response_code, response_body
+    * Arguments: response_code, deadline, response_body
     */
-   using url_response_callback = std::function<void(int,std::optional<fc::variant>)>;
+   using url_response_callback = std::function<void(int,fc::time_point,std::optional<fc::variant>)>;
 
    /**
     * @brief Callback type for a URL handler
     *
     * URL handlers have this type
     *
-    * The handler must gaurantee that url_response_callback() is called;
+    * The handler must guarantee that url_response_callback() is called;
     * otherwise, the connection will hang and result in a memory leak.
     *
     * Arguments: url, request_body, response_callback
@@ -91,7 +91,7 @@ namespace eosio {
         }
 
         // standard exception handling for api handlers
-        static void handle_exception( const char *api_name, const char *call_name, const string& body, url_response_callback cb );
+        static void handle_exception( const char *api_name, const char *call_name, const string& body, const url_response_callback& cb );
 
         bool is_on_loopback() const;
         bool is_secure() const;

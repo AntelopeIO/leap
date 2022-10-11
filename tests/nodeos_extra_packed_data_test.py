@@ -1,14 +1,5 @@
 #!/usr/bin/env python3
 
-from testUtils import Account
-from testUtils import Utils
-from Cluster import Cluster, PFSetupPolicy
-from WalletMgr import WalletMgr
-from Node import Node
-from Node import ReturnType
-from TestHelper import TestHelper
-from TestHelper import AppArgs
-
 import decimal
 import re
 import json
@@ -16,6 +7,10 @@ import os
 import copy
 import math
 import time
+
+from TestHarness import Account, Cluster, Node, ReturnType, TestHelper, Utils, WalletMgr
+from TestHarness.Cluster import PFSetupPolicy
+from TestHarness.TestHelper import AppArgs
 
 ###############################################################
 # nodeos_run_test
@@ -81,14 +76,12 @@ try:
         if pnodes > 3:
             specificExtraNodeosArgs[pnodes - 2] = ""
 
-        traceNodeosArgs = " --plugin eosio::trace_api_plugin --trace-no-abis "
         if cluster.launch(totalNodes=pnodes, 
                           pnodes=pnodes,
                           dontBootstrap=dontBootstrap,
                           pfSetupPolicy=PFSetupPolicy.PREACTIVATE_FEATURE_ONLY,
                           specificExtraNodeosArgs=specificExtraNodeosArgs,
-                          associatedNodeLabels=associatedNodeLabels,
-                          extraNodeosArgs=traceNodeosArgs,) is False:
+                          associatedNodeLabels=associatedNodeLabels) is False:
             cmdError("launcher")
             errorExit("Failed to stand up eos cluster.")
     else:

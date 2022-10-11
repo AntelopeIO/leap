@@ -1,16 +1,12 @@
 #!/usr/bin/env python3
 
-from testUtils import Utils, Account
-from Cluster import Cluster
-from TestHelper import TestHelper
-from WalletMgr import WalletMgr
-from Node import Node
-
 import signal
 import json
 import time
 import os
 import filecmp
+
+from TestHarness import Account, Cluster, Node, TestHelper, Utils, WalletMgr
 
 ###############################################################
 # nodeos_chainbase_allocation_test
@@ -50,7 +46,6 @@ try:
     # The bootstrap process has created account_object and code_object (by uploading the bios contract),
     # key_value_object (token creation), protocol_state_object (preactivation feature), and permission_object
     # (automatically taken care by the automatically generated eosio account)
-    traceNodeosArgs = " --plugin eosio::trace_api_plugin --trace-no-abis "
     assert cluster.launch(
         pnodes=1,
         prodCount=1,
@@ -58,7 +53,6 @@ try:
         totalNodes=2,
         useBiosBootFile=False,
         loadSystemContract=False,
-        extraNodeosArgs=traceNodeosArgs,
         specificExtraNodeosArgs={
             1:"--read-mode irreversible --plugin eosio::producer_api_plugin"})
 

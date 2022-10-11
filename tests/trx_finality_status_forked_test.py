@@ -1,20 +1,14 @@
 #!/usr/bin/env python3
 
-from testUtils import Utils
-import testUtils
 import time
-from Cluster import Cluster
-from WalletMgr import WalletMgr
-from Node import BlockType
-from Node import Node
-from TestHelper import TestHelper
-from testUtils import Account
-
 import decimal
 import json
 import math
 import re
 import signal
+
+from TestHarness import Account, Cluster, Node, TestHelper, Utils, WalletMgr
+from TestHarness.Node import BlockType
 
 ###############################################################
 # trx_finality_status_forked_test
@@ -71,7 +65,6 @@ try:
     failure_duration = 360
     extraNodeosArgs=" --transaction-finality-status-max-storage-size-gb 1 " + \
                    f"--transaction-finality-status-success-duration-sec {successDuration} --transaction-finality-status-failure-duration-sec {failure_duration}"
-    extraNodeosArgs+=" --plugin eosio::trace_api_plugin --trace-no-abis"
     extraNodeosArgs+=" --http-max-response-time-ms 990000"
 
 
@@ -93,10 +86,10 @@ try:
     nonProdNode=None
     prodNodes=[]
     producers=[]
-    for node in cluster.getNodes():
+    for i, node in enumerate(cluster.getNodes()):
         node.producers=Cluster.parseProducers(node.nodeId)
         numProducers=len(node.producers)
-        Print(f"node has producers={node.producers}")
+        Print(f"node {i} has producers={node.producers}")
         if numProducers==0:
             if nonProdNode is None:
                 nonProdNode=node
@@ -106,9 +99,8 @@ try:
             prodNodes.append(node)
             producers.extend(node.producers)
 
-
-    node=prodNodes[0]
-    node1=prodNodes[1]
+    prodAB=prodNodes[0]  # defproducera, defproducerb
+    prodC=prodNodes[1]   # defproducerc
 
     # ***   Identify a block where production is stable   ***
 
@@ -122,24 +114,15 @@ try:
     account1.activePublicKey = EOSIO_ACCT_PUBLIC_DEFAULT_KEY
     cluster.createAccountAndVerify(account1, cluster.eosioAccount, stakedDeposit=1000)
 
-    Print("Creating account2")
-    account2 = Account('account2')
-    account2.ownerPublicKey = EOSIO_ACCT_PUBLIC_DEFAULT_KEY
-    account2.activePublicKey = EOSIO_ACCT_PUBLIC_DEFAULT_KEY
-    cluster.createAccountAndVerify(account2, cluster.eosioAccount, stakedDeposit=1000)
-
     Print("Validating accounts after bootstrap")
-    cluster.validateAccounts([account1, account2])
+    cluster.validateAccounts([account1])
 
     # ***   Killing the "bridge" node   ***
     Print("Sending command to kill \"bridge\" node to separate the 2 producer groups.")
-    # block number to start expecting node killed after
-    preKillBlockNum=nonProdNode.getBlockNum()
-    preKillBlockProducer=nonProdNode.getBlockProducerByNum(preKillBlockNum)
-    # kill at the end of the production window for defproducera, so there is still time for the fork for
+    # kill at the beginning of the production window for defproducera, so there is time for the fork for
     # defproducerc to grow before it would overtake the fork for defproducera and defproducerb
-    killAtProducer="defproducerc"
-    nonProdNode.killNodeOnProducer(producer=killAtProducer, whereInSequence=11)
+    killAtProducer="defproducera"
+    nonProdNode.killNodeOnProducer(producer=killAtProducer, whereInSequence=1)
 
     #verify that the non producing node is not alive (and populate the producer nodes with current getInfo data to report if
     #an error occurs)
@@ -150,7 +133,7 @@ try:
     while nonProdNode.verifyAlive() and count > 0:
         # wait on prodNode 0 since it will continue to advance, since defproducera and defproducerb are its producers
         Print("Wait for next block")
-        assert prodNodes[0].waitForNextBlock(timeout=6), "Production node 0 should continue to advance, even after bridge node is killed"
+        assert prodAB.waitForNextBlock(timeout=6), "Production node AB should continue to advance, even after bridge node is killed"
         count -= 1
 
     assert not nonProdNode.verifyAlive(), "Bridge node should have been killed if test was functioning correctly."
@@ -162,9 +145,9 @@ try:
         return status["state"]
 
     transferAmount = 10
-    prodNodes[1].transferFunds(cluster.eosioAccount, account1, f"{transferAmount}.0000 {CORE_SYMBOL}", "fund account")
-    transId = prodNodes[1].getLastTrackedTransactionId()
-    retStatus = prodNodes[1].getTransactionStatus(transId)
+    prodC.transferFunds(cluster.eosioAccount, account1, f"{transferAmount}.0000 {CORE_SYMBOL}", "fund account")
+    transId = prodC.getLastTrackedTransactionId()
+    retStatus = prodC.getTransactionStatus(transId)
     state = getState(retStatus)
 
     localState = "LOCALLY_APPLIED"
@@ -176,21 +159,21 @@ try:
     assert state == localState, \
         f"ERROR: getTransactionStatus didn't return \"{localState}\" state.\n\nstatus: {json.dumps(retStatus, indent=1)}"
 
-    assert prodNodes[1].waitForNextBlock(), "Production node 1 should continue to advance, even after bridge node is killed"
+    assert prodC.waitForNextBlock(), "Production node C should continue to advance, even after bridge node is killed"
 
     # since the Bridge node is killed when this producer is producing its last block in its window, there is plenty of time for the transfer to be
     # sent before the first block is created, but adding this to ensure it is in one of these blocks
     numTries = 2
-    preInfo = prodNodes[1].getInfo()
+    preInfo = prodC.getInfo()
     while numTries > 0:
-        retStatus = prodNodes[1].getTransactionStatus(transId)
+        retStatus = prodC.getTransactionStatus(transId)
         state = getState(retStatus)
         if state == inBlockState:
             break
         numTries -= 1
-        assert prodNodes[1].waitForNextBlock(), "Production node 1 should continue to advance, even after bridge node is killed"
+        assert prodC.waitForNextBlock(), "Production node C should continue to advance, even after bridge node is killed"
 
-    postInfo = prodNodes[1].getInfo()
+    postInfo = prodC.getInfo()
 
     Print(f"getTransactionStatus returned status: {json.dumps(retStatus, indent=1)}")
     assert state == inBlockState, \
@@ -202,58 +185,54 @@ try:
     if not nonProdNode.relaunch():
         errorExit(f"Failure - (non-production) node {nonProdNode.nodeNum} should have restarted")
 
-    Print("Wait for LIB to move, which indicates prodNode[1] has forked out the branch")
-    assert prodNodes[1].waitForLibToAdvance(), \
-        "ERROR: Network did not reach concensus after bridge node was restarted."
+    Print("Wait for LIB to move, which indicates prodC has forked out the branch")
+    assert prodC.waitForLibToAdvance(), \
+        "ERROR: Network did not reach consensus after bridge node was restarted."
 
-    Print("Wait till prodNodes[1] is reporting at least the same head block number as the forked out block")
-    assert prodNodes[1].waitForBlock(originalInBlockState["block_number"]), \
-        f"Production node 1 should continue to advance after LIB starts advancing. \n\originalInBlockState: {json.dumps(originalInBlockState, indent=1)}"
-
-    retStatus = prodNodes[1].getTransactionStatus(transId)
+    retStatus = prodC.getTransactionStatus(transId)
     state = getState(retStatus)
 
     assert state == forkedOutState, \
         f"ERROR: getTransactionStatus didn't return \"{forkedOutState}\" state.\n\nstatus: {json.dumps(retStatus, indent=1)}" + \
-        f"\n\nprod 0 info: {json.dumps(prodNodes[0].getInfo(), indent=1)}\n\nprod 1 info: {json.dumps(prodNodes[1].getInfo(), indent=1)}"
+        f"\n\nprod AB info: {json.dumps(prodAB.getInfo(), indent=1)}\n\nprod C info: {json.dumps(prodC.getInfo(), indent=1)}"
 
     for prodNode in prodNodes:
         info=prodNode.getInfo()
         Print(f"node info: {json.dumps(info, indent=1)}")
 
-    retStatus = prodNodes[1].getTransactionStatus(transId)
-    state = getState(retStatus)
+    assert prodC.waitForProducer("defproducerc"), \
+        f"Waiting for prodC to produce, but it never happened" + \
+        f"\n\nprod AB info: {json.dumps(prodAB.getInfo(), indent=1)}\n\nprod C info: {json.dumps(prodC.getInfo(), indent=1)}"
 
-    assert state == forkedOutState, \
-        f"ERROR: getTransactionStatus didn't return \"{forkedOutState}\" state.\n\nstatus: {json.dumps(retStatus, indent=1)}" + \
-        f"\n\nprod 0 info: {json.dumps(prodNodes[0].getInfo(), indent=1)}\n\nprod 1 info: {json.dumps(prodNodes[1].getInfo(), indent=1)}"
-
-    assert prodNodes[1].waitForProducer("defproducerc"), \
-        f"Waiting for prodNode 1 to produce, but it never happened" + \
-        f"\n\nprod 0 info: {json.dumps(prodNodes[0].getInfo(), indent=1)}\n\nprod 1 info: {json.dumps(prodNodes[1].getInfo(), indent=1)}"
-
-    retStatus = prodNodes[1].getTransactionStatus(transId)
+    retStatus = prodC.getTransactionStatus(transId)
     state = getState(retStatus)
 
     assert state == inBlockState, \
         f"ERROR: getTransactionStatus didn't return \"{inBlockState}\" state.\n\nstatus: {json.dumps(retStatus, indent=1)}" + \
-        f"\n\nprod 0 info: {json.dumps(prodNodes[0].getInfo(), indent=1)}\n\nprod 1 info: {json.dumps(prodNodes[1].getInfo(), indent=1)}"
+        f"\n\nprod AB info: {json.dumps(prodAB.getInfo(), indent=1)}\n\nprod C info: {json.dumps(prodC.getInfo(), indent=1)}"
 
     afterForkInBlockState = retStatus
+    afterForkBlockId = retStatus["block_id"]
     assert afterForkInBlockState["block_number"] > originalInBlockState["block_number"], \
         "ERROR: The way the test is designed, the transaction should be added to a block that has a higher number than it was in originally before it was forked out." + \
        f"\n\noriginal in block state: {json.dumps(originalInBlockState, indent=1)}\n\nafter fork in block state: {json.dumps(afterForkInBlockState, indent=1)}"
 
-    assert prodNodes[1].waitForBlock(afterForkInBlockState["block_number"], blockType=BlockType.lib), \
-        f"ERROR: Block never finalized.\n\nprod 0 info: {json.dumps(prodNodes[0].getInfo(), indent=1)}\n\nprod 1 info: {json.dumps(prodNodes[1].getInfo(), indent=1)}" + \
+    assert prodC.waitForBlock(afterForkInBlockState["block_number"], timeout=120, blockType=BlockType.lib), \
+        f"ERROR: Block never finalized.\n\nprod AB info: {json.dumps(prodAB.getInfo(), indent=1)}\n\nprod C info: {json.dumps(prodC.getInfo(), indent=1)}" + \
         f"\n\nafter fork in block state: {json.dumps(afterForkInBlockState, indent=1)}"
 
-    retStatus = prodNodes[1].getTransactionStatus(transId)
+    retStatus = prodC.getTransactionStatus(transId)
+    if afterForkBlockId != retStatus["block_id"]: # might have been forked out, if so wait for new block to become LIB
+        assert prodC.waitForBlock(retStatus["block_number"], timeout=120, blockType=BlockType.lib), \
+            f"ERROR: Block never finalized.\n\nprod AB info: {json.dumps(prodAB.getInfo(), indent=1)}\n\nprod C info: {json.dumps(prodC.getInfo(), indent=1)}" + \
+            f"\n\nafter fork in block state: {json.dumps(afterForkInBlockState, indent=1)}"
+
+    retStatus = prodC.getTransactionStatus(transId)
     state = getState(retStatus)
 
     assert state == irreversibleState, \
         f"ERROR: getTransactionStatus didn't return \"{irreversibleState}\" state.\n\nstatus: {json.dumps(retStatus, indent=1)}" + \
-        f"\n\nprod 0 info: {json.dumps(prodNodes[0].getInfo(), indent=1)}\n\nprod 1 info: {json.dumps(prodNodes[1].getInfo(), indent=1)}"
+        f"\n\nprod AB info: {json.dumps(prodAB.getInfo(), indent=1)}\n\nprod C info: {json.dumps(prodC.getInfo(), indent=1)}"
 
     testSuccessful=True
 finally:

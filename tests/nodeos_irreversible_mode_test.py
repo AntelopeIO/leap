@@ -1,19 +1,13 @@
 #!/usr/bin/env python3
 
-from testUtils import Utils
-from Cluster import Cluster
-from WalletMgr import WalletMgr
-from Node import Node
-from Node import ReturnType
-from TestHelper import TestHelper
-from testUtils import Account
-
 import re
 import os
 import time
 import signal
 import subprocess
 import shutil
+
+from TestHarness import Cluster, Node, ReturnType, TestHelper, Utils, WalletMgr
 
 ###############################################################
 # nodeos_irreversible_mode_test
@@ -170,7 +164,6 @@ try:
    TestHelper.printSystemInfo("BEGIN")
    cluster.killall(allInstances=killAll)
    cluster.cleanup()
-   traceNodeosArgs = " --plugin eosio::trace_api_plugin --trace-no-abis "
    cluster.launch(
       prodCount=numOfProducers,
       totalProducers=numOfProducers,
@@ -178,7 +171,6 @@ try:
       pnodes=1,
       useBiosBootFile=False,
       topo="mesh",
-      extraNodeosArgs=traceNodeosArgs,
       specificExtraNodeosArgs={
          0:"--enable-stale-production",
          4:"--read-mode irreversible",

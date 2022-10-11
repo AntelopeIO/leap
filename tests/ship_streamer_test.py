@@ -1,17 +1,14 @@
 #!/usr/bin/env python3
 
-from testUtils import Utils
 import time
-from Cluster import Cluster
-from WalletMgr import WalletMgr
-from TestHelper import TestHelper
-from TestHelper import AppArgs
-
 import json
 import os
 import shutil
 import signal
 import sys
+
+from TestHarness import Cluster, TestHelper, Utils, WalletMgr
+from TestHarness.TestHelper import AppArgs
 
 ###############################################################
 # ship_streamer_test
@@ -64,11 +61,10 @@ try:
     # non-producing nodes are at the end of the cluster's nodes, so reserving the last one for state_history_plugin
     shipNodeNum = totalNodes - 1
     specificExtraNodeosArgs[shipNodeNum]="--plugin eosio::state_history_plugin --disable-replay-opts --trace-history --sync-fetch-span 200 --plugin eosio::net_api_plugin "
-    traceNodeosArgs=" --plugin eosio::trace_api_plugin --trace-no-abis "
 
     if cluster.launch(pnodes=totalProducerNodes,
                       totalNodes=totalNodes, totalProducers=totalProducers,
-                      useBiosBootFile=False, specificExtraNodeosArgs=specificExtraNodeosArgs, extraNodeosArgs=traceNodeosArgs) is False:
+                      useBiosBootFile=False, specificExtraNodeosArgs=specificExtraNodeosArgs) is False:
         Utils.cmdError("launcher")
         Utils.errorExit("Failed to stand up eos cluster.")
 

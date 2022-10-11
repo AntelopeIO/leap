@@ -1,19 +1,14 @@
 #!/usr/bin/env python3
 
-from testUtils import Utils
-import testUtils
 import time
-from Cluster import Cluster
-from WalletMgr import WalletMgr
-from Node import BlockType
-from Node import Node
 import signal
-from TestHelper import AppArgs
-from TestHelper import TestHelper
-
 import decimal
 import math
 import re
+
+from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr
+from TestHarness.Node import BlockType
+from TestHarness.TestHelper import AppArgs
 
 ###############################################################
 # nodeos_startup_catchup
@@ -71,10 +66,9 @@ try:
     txnGenNodeNum=pnodes  # next node after producer nodes
     for nodeNum in range(txnGenNodeNum, txnGenNodeNum+startedNonProdNodes):
         specificExtraNodeosArgs[nodeNum]="--plugin eosio::txn_test_gen_plugin --txn-test-gen-account-prefix txntestacct"
-    traceNodeosArgs = " --plugin eosio::trace_api_plugin --trace-no-abis "
     Print("Stand up cluster")
     if cluster.launch(prodCount=prodCount, onlyBios=False, pnodes=pnodes, totalNodes=totalNodes, totalProducers=pnodes*prodCount,
-                      useBiosBootFile=False, specificExtraNodeosArgs=specificExtraNodeosArgs, unstartedNodes=catchupCount, loadSystemContract=False, extraNodeosArgs=traceNodeosArgs) is False:
+                      useBiosBootFile=False, specificExtraNodeosArgs=specificExtraNodeosArgs, unstartedNodes=catchupCount, loadSystemContract=False) is False:
         Utils.errorExit("Failed to stand up eos cluster.")
 
     Print("Validating system accounts after bootstrap")
@@ -165,8 +159,15 @@ try:
         numBlocksToCatchup=(lastLibNum-lastCatchupLibNum-1)+twoRounds
         waitForBlock(catchupNode, lastLibNum, timeout=twoRoundsTimeout, blockType=BlockType.lib)
 
+        catchupHead=head(catchupNode)
         Print("Shutdown catchup node and validate exit code")
         catchupNode.interruptAndVerifyExitStatus(60)
+
+        # every other catchup make a lib catchup
+        if catchup_num % 2 == 0:
+            Print(f"Wait for producer to advance lib past head of catchup {catchupHead}")
+            # catchupHead+5 to allow for advancement of head during shutdown of catchupNode
+            waitForBlock(node0, catchupHead+5, timeout=twoRoundsTimeout*2, blockType=BlockType.lib)
 
         Print("Restart catchup node")
         catchupNode.relaunch(cachePopen=True)

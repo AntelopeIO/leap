@@ -1,8 +1,8 @@
 ## Overview
 
-This how-to guide provides instructions on how to create a new EOSIO blockchain account using the `cleos` CLI tool. You can use accounts to deploy smart contracts and perform other related blockchain operations. Create one or multiple accounts as part of your development environment setup.
+This how-to guide provides instructions on how to create a new Antelope blockchain account using the `cleos` CLI tool. You can use accounts to deploy smart contracts and perform other related blockchain operations. Create one or multiple accounts as part of your development environment setup.
 
-The example in this how-to guide creates a new account named **bob**, authorized by the default system account **eosio**, using the `cleos` CLI tool. 
+The example in this how-to guide creates a new account named **bob**, authorized by the default system account **eosio**, using the `cleos` CLI tool.
 
 ## Before you Begin
 
@@ -10,9 +10,9 @@ Make sure you meet the following requirements:
 
 * Install the currently supported version of `cleos`.
 [[info | Note]]
-| The cleos tool is bundled with the EOSIO software. [Installing EOSIO](../../00_install/index.md) will also install the cleos tool. 
-* Learn about [EOSIO Accounts and Permissions](https://developers.eos.io/welcome/v2.1/protocol/accounts_and_permissions)
-* Learn about Asymmetric Cryptography - [public key](https://developers.eos.io/welcome/v2.1/glossary/index#public-key) and [private key](https://developers.eos.io/welcome/v2.1/glossary/index#private-key) pairs.
+| The cleos tool is bundled with the Antelope software. [Installing Antelope](../../00_install/index.md) will also install the cleos tool.
+* Learn about [Antelope Accounts and Permissions](/protocol-guides/04_accounts_and_permissions.md)
+* Learn about Asymmetric Cryptography - [public key](/glossary.md#public-key) and [private key](/glossary.md#private-key) pairs.
 * Create public/private keypairs for the `owner` and `active` permissions of an account.
 
 ## Command Reference
@@ -31,10 +31,10 @@ cleos create account eosio bob EOS87TQktA5RVse2EguhztfQVEh6XXxBmgkU8b4Y5YnGvtYAo
 ```
 **Where**:
 * `eosio` = the system account that authorizes the creation of a new account
-* `bob` = the name of the new account conforming to [account naming conventions](https://developers.eos.io/welcome/v2.1/protocol-guides/accounts_and_permissions#2-accounts)
+* `bob` = the name of the new account conforming to [account naming conventions](/protocol-guides/04_accounts_and_permissions.md#2-accounts)
 * `EOS87TQ...AoLGNN` = the owner public key or permission level for the new account (**required**)
 [[info | Note]]
-| To create a new account in the EOSIO blockchain, an existing account, also referred to as a creator account, is required to authorize the creation of a new account. For a newly created EOSIO blockchain, the default system account used to create a new account is **eosio**.
+| To create a new account in the Antelope blockchain, an existing account, also referred to as a creator account, is required to authorize the creation of a new account. For a newly created Antelope blockchain, the default system account used to create a new account is **eosio**.
 
 **Example Output**
 
@@ -46,4 +46,4 @@ warning: transaction executed locally, but may not be confirmed by the network y
 
 ### Summary
 
-By following these instructions, you are able to create a new EOSIO account in your blockchain environment.
+By following these instructions, you are able to create a new Antelope account in your blockchain environment.

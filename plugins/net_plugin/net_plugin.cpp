@@ -416,6 +416,8 @@ namespace eosio {
     *  If there is a change to network protocol or behavior, increment net version to identify
     *  the need for compatibility hooks
     */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
    constexpr uint16_t proto_base = 0;
    constexpr uint16_t proto_explicit_sync = 1;       // version at time of eosio 1.0
    constexpr uint16_t proto_block_id_notify = 2;     // reserved. feature was removed. next net_version should be 3
@@ -423,9 +425,10 @@ namespace eosio {
    constexpr uint16_t proto_heartbeat_interval = 4;        // eosio 2.1: supports configurable heartbeat interval
    constexpr uint16_t proto_dup_goaway_resolution = 5;     // eosio 2.1: support peer address based duplicate connection resolution
    constexpr uint16_t proto_dup_node_id_goaway = 6;        // eosio 2.1: support peer node_id based duplicate connection resolution
-   constexpr uint16_t proto_mandel_initial = 7;            // mandel client, needed because none of the 2.1 versions are supported
+   constexpr uint16_t proto_leap_initial = 7;            // leap client, needed because none of the 2.1 versions are supported
+#pragma GCC diagnostic pop
 
-   constexpr uint16_t net_version_max = proto_mandel_initial;
+   constexpr uint16_t net_version_max = proto_leap_initial;
 
    /**
     * Index by start_block_num
@@ -1300,8 +1303,10 @@ namespace eosio {
             });
          } else {
             c->strand.post( [c, num]() {
-               peer_ilog( c, "enqueue sync, unable to fetch block ${num}", ("num", num) );
-               c->send_handshake();
+               peer_ilog( c, "enqueue sync, unable to fetch block ${num}, sending benign_other go away", ("num", num) );
+               c->peer_requested.reset(); // unable to provide requested blocks
+               c->no_retry = benign_other;
+               c->enqueue( go_away_message( benign_other ) );
             });
          }
       });
@@ -1584,9 +1589,10 @@ namespace eosio {
          // if closing the connection we are currently syncing from, then reset our last requested and next expected.
          if( c == sync_source ) {
             reset_last_requested_num(g);
-            uint32_t head_blk_num = 0;
-            std::tie( std::ignore, head_blk_num, std::ignore, std::ignore, std::ignore, std::ignore ) = my_impl->get_chain_info();
-            sync_next_expected_num = head_blk_num + 1;
+            // if starting to sync need to always start from lib as we might be on our own fork
+            uint32_t lib_num = 0;
+            std::tie( lib_num, std::ignore, std::ignore, std::ignore, std::ignore, std::ignore ) = my_impl->get_chain_info();
+            sync_next_expected_num = lib_num + 1;
             request_next_chunk( std::move(g) );
          }
       }
@@ -1603,8 +1609,9 @@ namespace eosio {
                ("r", sync_last_requested_num)("e", sync_next_expected_num)("k", sync_known_lib_num)("s", sync_req_span) );
 
       if( fork_head_block_num < sync_last_requested_num && sync_source && sync_source->current() ) {
-         fc_ilog( logger, "ignoring request, head is ${h} last req = ${r}, source connection ${c}",
-                  ("h", fork_head_block_num)("r", sync_last_requested_num)("c", sync_source->connection_id) );
+         fc_ilog( logger, "ignoring request, head is ${h} last req = ${r}, sync_next_expected_num: ${e}, sync_known_lib_num: ${k}, sync_req_span: ${s}, source connection ${c}",
+                  ("h", fork_head_block_num)("r", sync_last_requested_num)("e", sync_next_expected_num)
+                  ("k", sync_known_lib_num)("s", sync_req_span)("c", sync_source->connection_id) );
          return;
       }
 
@@ -1614,28 +1621,29 @@ namespace eosio {
        * otherwise select the next available from the list, round-robin style.
        */
 
+      connection_ptr new_sync_source = sync_source;
       if (conn && conn->current() ) {
-         sync_source = conn;
+         new_sync_source = conn;
       } else {
          std::shared_lock<std::shared_mutex> g( my_impl->connections_mtx );
          if( my_impl->connections.size() == 0 ) {
-            sync_source.reset();
+            new_sync_source.reset();
          } else if( my_impl->connections.size() == 1 ) {
-            if (!sync_source) {
-               sync_source = *my_impl->connections.begin();
+            if (!new_sync_source) {
+               new_sync_source = *my_impl->connections.begin();
             }
          } else {
             // init to a linear array search
             auto cptr = my_impl->connections.begin();
             auto cend = my_impl->connections.end();
             // do we remember the previous source?
-            if (sync_source) {
+            if (new_sync_source) {
                //try to find it in the list
-               cptr = my_impl->connections.find( sync_source );
+               cptr = my_impl->connections.find( new_sync_source );
                cend = cptr;
                if( cptr == my_impl->connections.end() ) {
                   //not there - must have been closed! cend is now connections.end, so just flatten the ring.
-                  sync_source.reset();
+                  new_sync_source.reset();
                   cptr = my_impl->connections.begin();
                } else {
                   //was found - advance the start to the next. cend is the old source.
@@ -1653,7 +1661,7 @@ namespace eosio {
                   if( !(*cptr)->is_transactions_only_connection() && (*cptr)->current() ) {
                      std::lock_guard<std::mutex> g_conn( (*cptr)->conn_mtx );
                      if( (*cptr)->last_handshake_recv.last_irreversible_block_num >= sync_known_lib_num ) {
-                        sync_source = *cptr;
+                        new_sync_source = *cptr;
                         break;
                      }
                   }
@@ -1666,8 +1674,9 @@ namespace eosio {
       }
 
       // verify there is an available source
-      if( !sync_source || !sync_source->current() || sync_source->is_transactions_only_connection() ) {
+      if( !new_sync_source || !new_sync_source->current() || new_sync_source->is_transactions_only_connection() ) {
          fc_elog( logger, "Unable to continue syncing at this time");
+         if( !new_sync_source ) sync_source.reset();
          sync_known_lib_num = lib_block_num;
          reset_last_requested_num(g_sync);
          set_state( in_sync ); // probably not, but we can't do anything else
@@ -1682,12 +1691,12 @@ namespace eosio {
             end = sync_known_lib_num;
          if( end > 0 && end >= start ) {
             sync_last_requested_num = end;
-            connection_ptr c = sync_source;
+            sync_source = new_sync_source;
             g_sync.unlock();
             request_sent = true;
-            c->strand.post( [c, start, end]() {
-               peer_ilog( c, "requesting range ${s} to ${e}", ("s", start)("e", end) );
-               c->request_sync_blocks( start, end );
+            new_sync_source->strand.post( [new_sync_source, start, end]() {
+               peer_ilog( new_sync_source, "requesting range ${s} to ${e}", ("s", start)("e", end) );
+               new_sync_source->request_sync_blocks( start, end );
             } );
          }
       }
@@ -1738,12 +1747,11 @@ namespace eosio {
       if( sync_state == in_sync ) {
          set_state( lib_catchup );
       }
-      // if starting to sync need to always start from lib as we might be on our own fork
-      sync_next_expected_num = lib_num + 1;
+      sync_next_expected_num = std::max( lib_num + 1, sync_next_expected_num );
 
       // p2p_high_latency_test.py test depends on this exact log statement.
-      peer_ilog( c, "Catching up with chain, our last req is ${cc}, theirs is ${t}",
-                 ("cc", sync_last_requested_num)("t", target) );
+      peer_ilog( c, "Catching up with chain, our last req is ${cc}, theirs is ${t}, next expected ${n}",
+                 ("cc", sync_last_requested_num)("t", target)("n", sync_next_expected_num) );
 
       request_next_chunk( std::move( g_sync ), c );
    }
@@ -2280,6 +2288,7 @@ namespace eosio {
          case no_reason:
          case wrong_version:
          case benign_other:
+         case duplicate: // attempt reconnect in case connection has been dropped, should quickly disconnect if duplicate
             break;
          default:
             fc_dlog( logger, "Skipping connect due to go_away reason ${r}",("r", reason_str( no_retry )));
@@ -2666,7 +2675,6 @@ namespace eosio {
       const unsigned long trx_in_progress_sz = this->trx_in_progress_size.load();
 
       auto ds = pending_message_buffer.create_datastream();
-      const auto buff_size_start = pending_message_buffer.bytes_to_read();
       unsigned_int which{};
       fc::raw::unpack( ds, which );
       shared_ptr<packed_transaction> ptr = std::make_shared<packed_transaction>();
@@ -2899,7 +2907,7 @@ namespace eosio {
          });
 
          // we don't support the 2.1 packed_transaction & signed_block, so tell 2.1 clients we are 2.0
-         if( protocol_version >= proto_pruned_types && protocol_version < proto_mandel_initial ) {
+         if( protocol_version >= proto_pruned_types && protocol_version < proto_leap_initial ) {
             sent_handshake_count = 0;
             net_version = proto_explicit_sync;
             send_handshake();
@@ -3342,7 +3350,6 @@ namespace eosio {
    // called from application thread
    void net_plugin_impl::on_accepted_block(const block_state_ptr& bs) {
       update_chain_info();
-      controller& cc = chain_plug->chain();
       dispatcher->strand.post( [this, bs]() {
          fc_dlog( logger, "signaled accepted_block, blk num = ${num}, id = ${id}", ("num", bs->block_num)("id", bs->id) );
 
@@ -3469,7 +3476,6 @@ namespace eosio {
    bool connection::populate_handshake( handshake_message& hello ) {
       namespace sc = std::chrono;
       hello.network_version = net_version_base + net_version;
-      const auto prev_head_id = hello.head_id;
       uint32_t lib, head;
       std::tie( lib, std::ignore, head,
                 hello.last_irreversible_block_id, std::ignore, hello.head_id ) = my_impl->get_chain_info();
@@ -3740,8 +3746,10 @@ namespace eosio {
                my->acceptor->bind(listen_endpoint);
                my->acceptor->listen();
             } catch (const std::exception& e) {
-               elog( "net_plugin::plugin_startup failed to bind to port ${port}", ("port", listen_endpoint.port()) );
-               throw e;
+               elog( "net_plugin::plugin_startup failed to bind to port ${port}, ${what}",
+                     ("port", listen_endpoint.port())("what", e.what()) );
+               app().quit();
+               return;
             }
             fc_ilog( logger, "starting listener, max clients is ${mc}",("mc",my->max_client_count) );
             my->start_listen_loop();

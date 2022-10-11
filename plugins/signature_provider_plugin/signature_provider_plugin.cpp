@@ -6,10 +6,6 @@
 
 #include <boost/algorithm/string.hpp>
 
-#ifdef __APPLE__
-#include <eosio/se-helpers/se-helpers.hpp>
-#endif
-
 namespace eosio {
    static appbase::abstract_plugin& _signature_provider_plugin = app().register_plugin<signature_provider_plugin>();
 
@@ -23,23 +19,6 @@ class signature_provider_plugin_impl {
             return key.sign(digest);
          };
       }
-
-#ifdef __APPLE__
-      signature_provider_plugin::signature_provider_type
-      make_se_signature_provider(const chain::public_key_type pubkey) const {
-         EOS_ASSERT(secure_enclave::hardware_supports_secure_enclave(), chain::secure_enclave_exception, "Secure Enclave not supported on this hardware");
-         EOS_ASSERT(secure_enclave::application_signed(), chain::secure_enclave_exception, "Application is not signed, Secure Enclave use not supported");
-
-         std::set<secure_enclave::secure_enclave_key> allkeys = secure_enclave::get_all_keys();
-         for(const auto& se_key : secure_enclave::get_all_keys())
-            if(se_key.public_key() == pubkey)
-               return [se_key](const chain::digest_type& digest) {
-                  return se_key.sign(digest);
-               };
-
-         EOS_THROW(chain::secure_enclave_exception, "${k} not found in Secure Enclave", ("k", pubkey));
-      }
-#endif
 
       signature_provider_plugin::signature_provider_type
       make_keosd_signature_provider(const string& url_str, const chain::public_key_type pubkey) const {
@@ -78,9 +57,6 @@ const char* const signature_provider_plugin::signature_provider_help_text() cons
           "   <provider-type> \tis KEY, KEOSD, or SE\n\n"
           "   KEY:<data>      \tis a string form of a valid EOSIO private key which maps to the provided public key\n\n"
           "   KEOSD:<data>    \tis the URL where keosd is available and the approptiate wallet(s) are unlocked\n\n"
-#ifdef __APPLE__
-          "   SE:             \tindicates the key resides in Secure Enclave"
-#endif
           ;
 
 }
@@ -110,10 +86,6 @@ signature_provider_plugin::signature_provider_for_specification(const std::strin
    }
    else if(spec_type_str == "KEOSD")
       return std::make_pair(pubkey, my->make_keosd_signature_provider(spec_data, pubkey));
-#ifdef __APPLE__
-   else if(spec_type_str == "SE")
-      return std::make_pair(pubkey, my->make_se_signature_provider(pubkey));
-#endif
    EOS_THROW(chain::plugin_config_exception, "Unsupported key provider type \"${t}\"", ("t", spec_type_str));
 }
 

@@ -1,17 +1,13 @@
 #!/usr/bin/env python3
 
-from testUtils import Utils
 import signal
 import time
-from Cluster import Cluster
-from Cluster import NamedAccounts
-from core_symbol import CORE_SYMBOL
-from WalletMgr import WalletMgr
-from Node import Node
-from TestHelper import TestHelper
-from TestHelper import AppArgs
-
 import json
+
+from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr
+from TestHarness.Cluster import NamedAccounts
+from TestHarness.TestHelper import AppArgs
+from core_symbol import CORE_SYMBOL
 
 ###############################################################
 # nodeos_high_transaction_test
@@ -80,11 +76,9 @@ try:
     cluster.cleanup()
     Print("Stand up cluster")
 
-    traceNodeosArgs = " --plugin eosio::trace_api_plugin --trace-no-abis "
     if cluster.launch(pnodes=totalProducerNodes,
                       totalNodes=totalNodes, totalProducers=totalProducers,
-                      useBiosBootFile=False,
-                      extraNodeosArgs=traceNodeosArgs, topo="ring") is False:
+                      useBiosBootFile=False, topo="ring") is False:
         Utils.cmdError("launcher")
         Utils.errorExit("Failed to stand up eos cluster.")
 
@@ -177,7 +171,7 @@ try:
                         Print("Transaction not found for trans id: %s. Will wait %d seconds to see if it arrives in a block." %
                               (transId, args.transaction_time_delta))
                     transTimeDelayed = True
-                    node.waitForTransInBlock(transId, timeout = args.transaction_time_delta)
+                    node.waitForTransactionInBlock(transId, timeout = args.transaction_time_delta)
                     continue
 
             lastIrreversibleBlockNum = node.getIrreversibleBlockNum()
