@@ -84,12 +84,23 @@ class PerformanceBasicTest():
         self.cluster.killall(allInstances=self.testHelperConfig.killAll)
         self.cluster.cleanup()
 
-    def testDirsCleanup(self):
+    def testDirsCleanup(self, saveJsonReport: bool=False):
         try:
-            print(f"Checking if test artifacts dir exists: {self.testTimeStampDirPath}")
-            if os.path.isdir(f"{self.testTimeStampDirPath}"):
-                print(f"Cleaning up test artifacts dir and all contents of: {self.testTimeStampDirPath}")
-                shutil.rmtree(f"{self.testTimeStampDirPath}")
+            if saveJsonReport:
+                print(f"Checking if test artifacts dir exists: {self.trxGenLogDirPath}")
+                if os.path.isdir(f"{self.trxGenLogDirPath}"):
+                    print(f"Cleaning up test artifacts dir and all contents of: {self.trxGenLogDirPath}")
+                    shutil.rmtree(f"{self.trxGenLogDirPath}")
+
+                print(f"Checking if test artifacts dir exists: {self.blockDataLogDirPath}")
+                if os.path.isdir(f"{self.blockDataLogDirPath}"):
+                    print(f"Cleaning up test artifacts dir and all contents of: {self.blockDataLogDirPath}")
+                    shutil.rmtree(f"{self.blockDataLogDirPath}")
+            else:
+                print(f"Checking if test artifacts dir exists: {self.testTimeStampDirPath}")
+                if os.path.isdir(f"{self.testTimeStampDirPath}"):
+                    print(f"Cleaning up test artifacts dir and all contents of: {self.testTimeStampDirPath}")
+                    shutil.rmtree(f"{self.testTimeStampDirPath}")
         except OSError as error:
             print(error)
 
@@ -276,7 +287,7 @@ class PerformanceBasicTest():
 
             if not self.testHelperConfig.keepLogs:
                 print(f"Cleaning up logs directory: {self.testTimeStampDirPath}")
-                self.testDirsCleanup()
+                self.testDirsCleanup(self.saveJsonReport)
 
             return testSuccessful
 

@@ -113,16 +113,22 @@ def exportReportAsJSON(report: json, exportPath):
     with open(exportPath, 'wt') as f:
         f.write(report)
 
-def testDirsCleanup(testTimeStampDirPath):
+def testDirsCleanup(saveJsonReport, testTimeStampDirPath, ptbLogsDirPath):
     try:
-        print(f"Checking if test artifacts dir exists: {testTimeStampDirPath}")
-        if os.path.isdir(f"{testTimeStampDirPath}"):
-            print(f"Cleaning up test artifacts dir and all contents of: {testTimeStampDirPath}")
-            shutil.rmtree(f"{testTimeStampDirPath}")
+        if saveJsonReport:
+            print(f"Checking if test artifacts dir exists: {ptbLogsDirPath}")
+            if os.path.isdir(f"{ptbLogsDirPath}"):
+                print(f"Cleaning up test artifacts dir and all contents of: {ptbLogsDirPath}")
+                shutil.rmtree(f"{ptbLogsDirPath}")
+        else:
+            print(f"Checking if test artifacts dir exists: {testTimeStampDirPath}")
+            if os.path.isdir(f"{testTimeStampDirPath}"):
+                print(f"Cleaning up test artifacts dir and all contents of: {testTimeStampDirPath}")
+                shutil.rmtree(f"{testTimeStampDirPath}")
     except OSError as error:
         print(error)
 
-def testDirsSetup(rootLogDir, testTimeStampDirPath):
+def testDirsSetup(rootLogDir, testTimeStampDirPath, ptbLogsDirPath):
     try:
         print(f"Checking if test artifacts dir exists: {rootLogDir}")
         if not os.path.isdir(f"{rootLogDir}"):
@@ -134,11 +140,16 @@ def testDirsSetup(rootLogDir, testTimeStampDirPath):
             print(f"Creating logs dir: {testTimeStampDirPath}")
             os.mkdir(f"{testTimeStampDirPath}")
 
+        print(f"Checking if logs dir exists: {ptbLogsDirPath}")
+        if not os.path.isdir(f"{ptbLogsDirPath}"):
+            print(f"Creating logs dir: {ptbLogsDirPath}")
+            os.mkdir(f"{ptbLogsDirPath}")
+
     except OSError as error:
         print(error)
 
 def prepArgsDict(testDurationSec, finalDurationSec, testTimeStampDirPath, maxTpsToTest, testIterationMinStep,
-             tpsLimitPerGenerator, saveJsonReport, numAddlBlocksToPrune, testHelperConfig, testClusterConfig) -> dict:
+             tpsLimitPerGenerator, saveJsonReport, saveTestJsonReports, numAddlBlocksToPrune, testHelperConfig, testClusterConfig) -> dict:
     argsDict = {}
     argsDict.update(asdict(testHelperConfig))
     argsDict.update(asdict(testClusterConfig))
@@ -148,6 +159,7 @@ def prepArgsDict(testDurationSec, finalDurationSec, testTimeStampDirPath, maxTps
     argsDict["testIterationMinStep"] = testIterationMinStep
     argsDict["tpsLimitPerGenerator"] = tpsLimitPerGenerator
     argsDict["saveJsonReport"] = saveJsonReport
+    argsDict["saveTestJsonReports"] = saveTestJsonReports
     argsDict["numAddlBlocksToPrune"] = numAddlBlocksToPrune
     argsDict["logsDir"] = testTimeStampDirPath
     return argsDict
@@ -161,7 +173,8 @@ def parseArgs():
     appArgs.add(flag="--tps-limit-per-generator", type=int, help="Maximum amount of transactions per second a single generator can have.", default=4000)
     appArgs.add(flag="--genesis", type=str, help="Path to genesis.json", default="tests/performance_tests/genesis.json")
     appArgs.add(flag="--num-blocks-to-prune", type=int, help="The number of potentially non-empty blocks, in addition to leading and trailing size 0 blocks, to prune from the beginning and end of the range of blocks of interest for evaluation.", default=2)
-    appArgs.add(flag="--save-json", type=bool, help="Whether to save json output of stats", default=False)
+    appArgs.add(flag="--save-json", type=bool, help="Whether to save overarching performance run report.", default=False)
+    appArgs.add(flag="--save-test-json", type=bool, help="Whether to save json reports from each test scenario.", default=False)
     args=TestHelper.parse_args({"-p","-n","-d","-s","--nodes-file"
                                 ,"--dump-error-details","-v","--leave-running"
                                 ,"--clean-run","--keep-logs"}, applicationSpecificArgs=appArgs)
@@ -188,12 +201,14 @@ def main():
     testIterationMinStep=args.test_iteration_min_step
     tpsLimitPerGenerator=args.tps_limit_per_generator
     saveJsonReport=args.save_json
+    saveTestJsonReports=args.save_test_json
     numAddlBlocksToPrune=args.num_blocks_to_prune
 
     rootLogDir: str=os.path.splitext(os.path.basename(__file__))[0]
     testTimeStampDirPath = f"{rootLogDir}/{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
+    ptbLogsDirPath = f"{testTimeStampDirPath}/testRunLogs"
 
-    testDirsSetup(rootLogDir=rootLogDir, testTimeStampDirPath=testTimeStampDirPath)
+    testDirsSetup(rootLogDir=rootLogDir, testTimeStampDirPath=testTimeStampDirPath, ptbLogsDirPath=ptbLogsDirPath)
 
     testHelperConfig = PerformanceBasicTest.TestHelperConfig(killAll=killAll, dontKill=dontKill, keepLogs=keepLogs,
                                                              dumpErrorDetails=dumpErrorDetails, delay=delay, nodesFile=nodesFile,
@@ -203,14 +218,14 @@ def main():
 
     argsDict = prepArgsDict(testDurationSec=testDurationSec, finalDurationSec=finalDurationSec, testTimeStampDirPath=testTimeStampDirPath,
                         maxTpsToTest=maxTpsToTest, testIterationMinStep=testIterationMinStep, tpsLimitPerGenerator=tpsLimitPerGenerator,
-                        saveJsonReport=saveJsonReport, numAddlBlocksToPrune=numAddlBlocksToPrune, testHelperConfig=testHelperConfig, testClusterConfig=testClusterConfig)
+                        saveJsonReport=saveJsonReport, saveTestJsonReports=saveTestJsonReports, numAddlBlocksToPrune=numAddlBlocksToPrune, testHelperConfig=testHelperConfig, testClusterConfig=testClusterConfig)
 
     perfRunSuccessful = False
 
     try:
         binSearchResults = performPtbBinarySearch(tpsTestFloor=0, tpsTestCeiling=maxTpsToTest, minStep=testIterationMinStep, testHelperConfig=testHelperConfig,
                            testClusterConfig=testClusterConfig, testDurationSec=testDurationSec, tpsLimitPerGenerator=tpsLimitPerGenerator,
-                           numAddlBlocksToPrune=numAddlBlocksToPrune, testLogDir=testTimeStampDirPath, saveJson=saveJsonReport)
+                           numAddlBlocksToPrune=numAddlBlocksToPrune, testLogDir=ptbLogsDirPath, saveJson=saveTestJsonReports)
 
         print(f"Successful rate of: {binSearchResults.maxTpsAchieved}")
 
@@ -223,7 +238,7 @@ def main():
 
         longRunningBinSearchResults = performPtbBinarySearch(tpsTestFloor=longRunningFloor, tpsTestCeiling=longRunningCeiling, minStep=testIterationMinStep, testHelperConfig=testHelperConfig,
                            testClusterConfig=testClusterConfig, testDurationSec=finalDurationSec, tpsLimitPerGenerator=tpsLimitPerGenerator,
-                           numAddlBlocksToPrune=numAddlBlocksToPrune, testLogDir=testTimeStampDirPath, saveJson=saveJsonReport)
+                           numAddlBlocksToPrune=numAddlBlocksToPrune, testLogDir=ptbLogsDirPath, saveJson=saveTestJsonReports)
 
         print(f"Long Running Test - Successful rate of: {longRunningBinSearchResults.maxTpsAchieved}")
         perfRunSuccessful = True
@@ -245,7 +260,7 @@ def main():
 
         if not keepLogs:
             print(f"Cleaning up logs directory: {testTimeStampDirPath}")
-            testDirsCleanup(testTimeStampDirPath)
+            testDirsCleanup(saveJsonReport=saveJsonReport, testTimeStampDirPath=testTimeStampDirPath, ptbLogsDirPath=ptbLogsDirPath)
 
     exitCode = 0 if perfRunSuccessful else 1
     exit(exitCode)
