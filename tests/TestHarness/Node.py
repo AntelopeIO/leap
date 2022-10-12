@@ -6,6 +6,7 @@ import os
 import re
 import json
 import signal
+import sys
 
 from datetime import datetime
 from datetime import timedelta
@@ -488,6 +489,32 @@ class Node(object):
         lam = lambda: self.isTransInAnyBlock(transId)
         ret=Utils.waitForBool(lam, timeout)
         return ret
+
+    def checkBlocksForTransactions(self, transIds, lastBlockProcessed, endBlock):
+        for blockNum in range(endBlock, lastBlockProcessed + 1, -1):
+            block = self.processCurlCmd("trace_api", "get_block", f'{{"block_num":{blockNum}}}', silentErrors=False, exitOnError=True)
+            if block['transactions']:
+                for trx in block['transactions']:
+                    if trx['id'] in transIds:
+                        transIds.pop(trx['id'])
+        return transIds
+
+    def waitOnBlockTransactions(self, transIds, startBlock=1, timeout=30):
+        lastBlockProcessed = startBlock
+        finalBlock = sys.maxsize
+        if timeout is not None:
+            finalBlock = self.getHeadBlockNum() + timeout * 2
+        while len(transIds) > 0:
+            self.waitForHeadToAdvance()
+            endBlock = self.getHeadBlockNum()
+            if endBlock > finalBlock:
+                endBlock = finalBlock
+            print(lastBlockProcessed, endBlock)
+            transIds = self.checkBlocksForTransactions(transIds, lastBlockProcessed, endBlock)
+            lastBlockProcessed = endBlock
+            if endBlock == finalBlock:
+                break
+        return transIds
 
     def waitForTransFinalization(self, transId, timeout=None):
         """Wait for trans id to be finalized."""
