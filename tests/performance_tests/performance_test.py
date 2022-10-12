@@ -53,7 +53,7 @@ def performPtbBinarySearch(tpsTestFloor: int, tpsTestCeiling: int, minStep: int,
     searchResults = []
 
     while floor <= ceiling:
-        binSearchTarget = (ceiling + floor) // 2 if not lastRun else ceiling
+        binSearchTarget = round(((ceiling + floor) // 2) / 100) * 100 if not lastRun else round(ceiling / 100) * 100
         print(f"Running scenario: floor {floor} binSearchTarget {binSearchTarget} ceiling {ceiling}")
         ptbResult = PerfTestBasicResult()
         scenarioResult = PerfTestSearchIndivResult(success=False, searchTarget=binSearchTarget, searchFloor=floor, searchCeiling=ceiling, basicTestResult=ptbResult)
@@ -66,10 +66,10 @@ def performPtbBinarySearch(tpsTestFloor: int, tpsTestCeiling: int, minStep: int,
         if evaluateSuccess(myTest, testSuccessful, ptbResult):
             maxTpsAchieved = binSearchTarget
             maxTpsReport = json.loads(myTest.report)
-            floor = binSearchTarget + 1
+            floor = binSearchTarget
             scenarioResult.success = True
         else:
-            ceiling = binSearchTarget - 1
+            ceiling = binSearchTarget
 
         scenarioResult.basicTestResult = ptbResult
         searchResults.append(scenarioResult)
@@ -156,7 +156,7 @@ def parseArgs():
     appArgs=AppArgs()
     appArgs.add(flag="--max-tps-to-test", type=int, help="The max target transfers realistic as ceiling of test range", default=50000)
     appArgs.add(flag="--test-iteration-duration-sec", type=int, help="The duration of transfer trx generation for each iteration of the test during the initial search (seconds)", default=30)
-    appArgs.add(flag="--test-iteration-min-step", type=int, help="The step size determining granularity of tps result during initial search", default=200)
+    appArgs.add(flag="--test-iteration-min-step", type=int, help="The step size determining granularity of tps result during initial search", default=500)
     appArgs.add(flag="--final-iterations-duration-sec", type=int, help="The duration of transfer trx generation for each final longer run iteration of the test during the final search (seconds)", default=90)
     appArgs.add(flag="--tps-limit-per-generator", type=int, help="Maximum amount of transactions per second a single generator can have.", default=4000)
     appArgs.add(flag="--genesis", type=str, help="Path to genesis.json", default="tests/performance_tests/genesis.json")
@@ -221,7 +221,7 @@ def main():
         longRunningFloor = binSearchResults.maxTpsAchieved - 3 * testIterationMinStep if binSearchResults.maxTpsAchieved - 3 * testIterationMinStep > 0 else 0
         longRunningCeiling = binSearchResults.maxTpsAchieved + 3 * testIterationMinStep
 
-        longRunningBinSearchResults = performPtbBinarySearch(tpsTestFloor=longRunningFloor, tpsTestCeiling=longRunningCeiling, minStep=(testIterationMinStep // 2), testHelperConfig=testHelperConfig,
+        longRunningBinSearchResults = performPtbBinarySearch(tpsTestFloor=longRunningFloor, tpsTestCeiling=longRunningCeiling, minStep=testIterationMinStep, testHelperConfig=testHelperConfig,
                            testClusterConfig=testClusterConfig, testDurationSec=finalDurationSec, tpsLimitPerGenerator=tpsLimitPerGenerator,
                            numAddlBlocksToPrune=numAddlBlocksToPrune, testLogDir=testTimeStampDirPath, saveJson=saveJsonReport)
 
