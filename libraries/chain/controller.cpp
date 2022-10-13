@@ -157,6 +157,7 @@ struct pending_state {
    block_stage_type                   _block_stage;
    controller::block_status           _block_status = controller::block_status::incomplete;
    std::optional<block_id_type>       _producer_block_id;
+   controller::block_report           _block_report{};
 
    /** @pre _block_stage cannot hold completed_block alternative */
    const pending_block_header_state& get_pending_block_header_state()const {
@@ -1252,6 +1253,7 @@ struct controller_impl {
                                                      uint32_t billed_cpu_time_us, bool explicit_billed_cpu_time = false )
    { try {
 
+      auto start = fc::time_point::now();
       const bool validating = !self.is_producing_block();
       EOS_ASSERT( !validating || explicit_billed_cpu_time, transaction_exception, "validating requires explicit billing" );
 
@@ -1291,6 +1293,10 @@ struct controller_impl {
          trace->scheduled = true;
          trace->receipt = push_receipt( gtrx.trx_id, transaction_receipt::expired, billed_cpu_time_us, 0 ); // expire the transaction
          trace->account_ram_delta = account_delta( gtrx.payer, trx_removal_ram_delta );
+         trace->elapsed = fc::time_point::now() - start;
+         pending->_block_report.total_cpu_usage_us += billed_cpu_time_us;
+         pending->_block_report.total_elapsed_time += trace->elapsed;
+         pending->_block_report.total_time += trace->elapsed;
          emit( self.accepted_transaction, trx );
          dmlog_applied_transaction(trace);
          emit( self.applied_transaction, std::tie(trace, trx->packed_trx()) );
@@ -1321,7 +1327,7 @@ struct controller_impl {
          trace->error_code = controller::convert_exception_to_error_code( e );
          trace->except = e;
          trace->except_ptr = std::current_exception();
-         trace->elapsed = fc::time_point::now() - trx_context.start;
+         trace->elapsed = fc::time_point::now() - start;
 
          if (auto dm_logger = get_deep_mind_logger()) {
             dm_logger->on_fail_deferred();
@@ -1365,6 +1371,11 @@ struct controller_impl {
 
          restore.cancel();
 
+         pending->_block_report.total_net_usage += trace->net_usage;
+         pending->_block_report.total_cpu_usage_us += trace->receipt->cpu_usage_us;
+         pending->_block_report.total_elapsed_time += trace->elapsed;
+         pending->_block_report.total_time += fc::time_point::now() - start;
+
          return trace;
       } catch( const disallowed_transaction_extensions_bad_block_exception& ) {
          throw;
@@ -1395,13 +1406,18 @@ struct controller_impl {
          trace = error_trace;
          if( !trace->except_ptr ) {
             trace->account_ram_delta = account_delta( gtrx.payer, trx_removal_ram_delta );
+            trace->elapsed = fc::time_point::now() - start;
             emit( self.accepted_transaction, trx );
             dmlog_applied_transaction(trace);
             emit( self.applied_transaction, std::tie(trace, trx->packed_trx()) );
             undo_session.squash();
+            pending->_block_report.total_net_usage += trace->net_usage;
+            if( trace->receipt ) pending->_block_report.total_cpu_usage_us += trace->receipt->cpu_usage_us;
+            pending->_block_report.total_elapsed_time += trace->elapsed;
+            pending->_block_report.total_time += trace->elapsed;
             return trace;
          }
-         trace->elapsed = fc::time_point::now() - trx_context.start;
+         trace->elapsed = fc::time_point::now() - start;
       }
 
       // Only subjective OR hard failure logic below:
@@ -1447,6 +1463,11 @@ struct controller_impl {
          dmlog_applied_transaction(trace);
          emit( self.applied_transaction, std::tie(trace, trx->packed_trx()) );
       }
+
+      pending->_block_report.total_net_usage += trace->net_usage;
+      if( trace->receipt ) pending->_block_report.total_cpu_usage_us += trace->receipt->cpu_usage_us;
+      pending->_block_report.total_elapsed_time += trace->elapsed;
+      pending->_block_report.total_time += fc::time_point::now() - start;
 
       return trace;
    } FC_CAPTURE_AND_RETHROW() } /// push_scheduled_transaction
@@ -1590,6 +1611,13 @@ struct controller_impl {
                trx_context.squash();
             }
 
+            if( !trx->read_only ) {
+               pending->_block_report.total_net_usage += trace->net_usage;
+               pending->_block_report.total_cpu_usage_us += trace->receipt->cpu_usage_us;
+               pending->_block_report.total_elapsed_time += trace->elapsed;
+               pending->_block_report.total_time += fc::time_point::now() - start;
+            }
+
             return trace;
          } catch( const disallowed_transaction_extensions_bad_block_exception& ) {
             throw;
@@ -1607,9 +1635,14 @@ struct controller_impl {
          }
 
          if (!trx->read_only) {
-             emit(self.accepted_transaction, trx);
-             dmlog_applied_transaction(trace);
-             emit(self.applied_transaction, std::tie(trace, trx->packed_trx()));
+            emit(self.accepted_transaction, trx);
+            dmlog_applied_transaction(trace);
+            emit(self.applied_transaction, std::tie(trace, trx->packed_trx()));
+
+            pending->_block_report.total_net_usage += trace->net_usage;
+            if( trace->receipt ) pending->_block_report.total_cpu_usage_us += trace->receipt->cpu_usage_us;
+            pending->_block_report.total_elapsed_time += trace->elapsed;
+            pending->_block_report.total_time += fc::time_point::now() - start;
          }
 
          return trace;
@@ -2063,12 +2096,6 @@ struct controller_impl {
             EOS_ASSERT( r == static_cast<const transaction_receipt_header&>(receipt),
                         block_validate_exception, "receipt does not match, ${lhs} != ${rhs}",
                         ("lhs", r)("rhs", static_cast<const transaction_receipt_header&>(receipt)) );
-
-            if( trace ) {
-               br.total_net_usage += trace->net_usage;
-               if( trace->receipt ) br.total_cpu_usage_us += trace->receipt->cpu_usage_us;
-               br.total_elapsed_time += trace->elapsed;
-            }
          }
 
          finalize_block();
@@ -2089,6 +2116,7 @@ struct controller_impl {
          // create completed_block with the existing block_state as we just verified it is the same as assembled_block
          pending->_block_stage = completed_block{ bsp };
 
+         br = pending->_block_report; // copy before commit block destroys pending
          commit_block(false);
          br.total_time = fc::time_point::now() - start;
          return;
@@ -2829,7 +2857,7 @@ void controller::start_block( block_timestamp_type when,
                     block_status::incomplete, std::optional<block_id_type>(), deadline );
 }
 
-block_state_ptr controller::finalize_block( const signer_callback_type& signer_callback ) {
+block_state_ptr controller::finalize_block( block_report& br, const signer_callback_type& signer_callback ) {
    validate_db_available_size();
 
    my->finalize_block();
@@ -2849,6 +2877,8 @@ block_state_ptr controller::finalize_block( const signer_callback_type& signer_c
               );
 
    my->pending->_block_stage = completed_block{ bsp };
+
+   br = my->pending->_block_report;
 
    return bsp;
 }

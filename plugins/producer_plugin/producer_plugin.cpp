@@ -494,7 +494,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
 
          if( now - block->timestamp < fc::minutes(5) || (blk_num % 1000 == 0) ) {
             ilog("Received block ${id}... #${n} @ ${t} signed by ${p} "
-                 "[trxs: ${count}, lib: ${lib}, conf: ${confs}, net: ${net}, cpu: ${cpu}, elapsed: ${elapsed}, time: ${time}, latency: ${latency} ms]",
+                 "[trxs: ${count}, lib: ${lib}, confirmed: ${confs}, net: ${net}, cpu: ${cpu}, elapsed: ${elapsed}, time: ${time}, latency: ${latency} ms]",
                  ("p",block->producer)("id",id.str().substr(8,16))("n",blk_num)("t",block->timestamp)
                  ("count",block->transactions.size())("lib",chain.last_irreversible_block_num())
                  ("confs", block->confirmed)("net", br.total_net_usage)("cpu", br.total_cpu_usage_us)
@@ -502,7 +502,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                  ("latency", (now - block->timestamp).count()/1000 ) );
             if( chain.get_read_mode() != db_read_mode::IRREVERSIBLE && hbs->id != id && hbs->block != nullptr ) { // not applied to head
                ilog("Block not applied to head ${id}... #${n} @ ${t} signed by ${p} "
-                    "[trxs: ${count}, dpos: ${dpos}, conf: ${confs}, net: ${net}, cpu: ${cpu}, elapsed: ${elapsed}, time: ${time}, latency: ${latency} ms]",
+                    "[trxs: ${count}, dpos: ${dpos}, confirmed: ${confs}, net: ${net}, cpu: ${cpu}, elapsed: ${elapsed}, time: ${time}, latency: ${latency} ms]",
                     ("p",hbs->block->producer)("id",hbs->id.str().substr(8,16))("n",hbs->block_num)("t",hbs->block->timestamp)
                     ("count",hbs->block->transactions.size())("dpos", hbs->dpos_irreversible_blocknum)
                     ("confs", hbs->block->confirmed)("net", br.total_net_usage)("cpu", br.total_cpu_usage_us)
@@ -2475,6 +2475,7 @@ static auto maybe_make_debug_time_logger() -> std::optional<decltype(make_debug_
 
 void producer_plugin_impl::produce_block() {
    //ilog("produce_block ${t}", ("t", fc::time_point::now())); // for testing _produce_time_offset_us
+   auto start = fc::time_point::now();
    EOS_ASSERT(_pending_block_mode == pending_block_mode::producing, producer_exception, "called produce_block while not actually producing");
    chain::controller& chain = chain_plug->chain();
    EOS_ASSERT(chain.is_building_block(), missing_pending_block_state, "pending_block_state does not exist but it should, another plugin may have corrupted it");
@@ -2499,7 +2500,8 @@ void producer_plugin_impl::produce_block() {
    }
 
    //idump( (fc::time_point::now() - chain.pending_block_time()) );
-   chain.finalize_block( [&]( const digest_type& d ) {
+   controller::block_report br;
+   chain.finalize_block( br, [&]( const digest_type& d ) {
       auto debug_logger = maybe_make_debug_time_logger();
       vector<signature_type> sigs;
       sigs.reserve(relevant_providers.size());
@@ -2518,17 +2520,14 @@ void producer_plugin_impl::produce_block() {
    _account_fails.report(_idle_trx_time);
    _account_fails.clear();
 
-   controller::block_report br;
-   for( const auto& r : new_bs->block->transactions ) {
-      br.total_cpu_usage_us += r.cpu_usage_us;
-      br.total_net_usage += r.net_usage_words * 8;
-   }
+   br.total_time += fc::time_point::now() - start;
+
    ilog("Produced block ${id}... #${n} @ ${t} signed by ${p} "
-        "[trxs: ${count}, lib: ${lib}, confirmed: ${confs}, net: ${net}, cpu: ${cpu}]",
+        "[trxs: ${count}, lib: ${lib}, confirmed: ${confs}, net: ${net}, cpu: ${cpu}, elapsed: ${et}, time: ${tt}]",
         ("p",new_bs->header.producer)("id",new_bs->id.str().substr(8,16))
         ("n",new_bs->block_num)("t",new_bs->header.timestamp)
         ("count",new_bs->block->transactions.size())("lib",chain.last_irreversible_block_num())
-        ("net", br.total_net_usage)("cpu", br.total_cpu_usage_us)
+        ("net", br.total_net_usage)("cpu", br.total_cpu_usage_us)("et", br.total_elapsed_time)("tt", br.total_time)
         ("confs", new_bs->header.confirmed));
 }
 
