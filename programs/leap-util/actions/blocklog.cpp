@@ -47,106 +47,127 @@ struct report_time {
 
 
 void blocklog_actions::setup(CLI::App& app) {
-   auto* sub = app.add_subcommand("block-log", "Blocklog utility");
-   sub->require_subcommand(1);
-
-   // callback with error code handling
-   auto cb = [this]() {
-      int rc = run_subcommand();
+   // callback helper with error code handling
+   auto cb = [this](action_type at) {
+      int rc = run_subcommand(at);
       // properly return err code in main
       if(rc) throw(CLI::RuntimeError(rc));
    };
+
+   auto* sub = app.add_subcommand("block-log", "Blocklog utility")->callback([cb]() { cb(action_type::ac_default); });
 
    // options
    sub->add_option("--blocks-dir", opt->blocks_dir, "The location of the blocks directory (absolute path or relative to the current directory).");
    sub->add_option("--output-file,-o", opt->output_file, "The file to write the output to (absolute or relative path).  If not specified then output is to stdout.");
    sub->add_option("--first,-f", opt->first_block, "The first block number to log or the first to keep if trim-blocklog.");
    sub->add_option("--last,-l", opt->last_block, "The last block number to log or the last to keep if trim-blocklog.");
-   sub->add_option("--output-dir", opt->output_dir, "The output directory for the block log extracted from blocks-dir.");
 
    // flags
    sub->add_flag("--no-pretty-print", opt->no_pretty_print, "Do not pretty print the output.  Useful if piping to jq to improve performance.");
    sub->add_flag("--as-json-array", opt->as_json_array, "Print out json blocks wrapped in json array (otherwise the output is free-standing json objects).");
 
-   // subcommands
-   sub->add_subcommand("make-index", "Create blocks.index from blocks.log. Must give 'blocks-dir'. Give 'output-file' relative to current directory or absolute path (default is <blocks-dir>/blocks.index).")->callback([this, cb]() {opt->make_index=true; cb(); });
-   sub->add_subcommand("trim-blocklog", "Trim blocks.log and blocks.index. Must give 'blocks-dir' and 'first' and/or 'last'.")->callback([this, cb]() {opt->trim_blocklog=true; cb(); });
-   sub->add_subcommand("extract-blocks", "Extract range of blocks from blocks.log and write to output-dir.  Must give 'first' and/or 'last'.")->callback([this, cb]() {opt->extract_blocks=true; cb(); });
-   sub->add_subcommand("smoke-test", "Quick test that blocks.log and blocks.index are well formed and agree with each other.")->callback([this, cb]() {opt->smoke_test=true; cb(); });
-   sub->add_subcommand("vacuum", "Vacuum a pruned blocks.log in to an un-pruned blocks.log")->callback([this, cb]() {opt->vacuum=true; cb(); });
-   sub->add_subcommand("genesis", "Extract genesis_state from blocks.log as JSON")->callback([this, cb]() {opt->genesis=true; cb(); });
+   // subcommand - make index
+   auto* make_index = sub->add_subcommand("make-index", "Create blocks.index from blocks.log. Must give 'blocks-dir'. Give 'output-file' relative to current directory or absolute path (default is <blocks-dir>/blocks.index).")->callback([cb]() { cb(action_type::make_index); });
+   make_index->add_option("--blocks-dir", opt->blocks_dir, "The location of the blocks directory (absolute path or relative to the current directory).");
+   make_index->add_option("--output-file,-o", opt->output_file, "The file to write the output to (absolute or relative path).  If not specified then output is to stdout.");
 
-   sub->callback([cb]() { cb(); });
+   // subcommand - trim blocklog
+   auto* trim_blocklog = sub->add_subcommand("trim-blocklog", "Trim blocks.log and blocks.index. Must give 'blocks-dir' and 'first' and/or 'last'.")->callback([cb]() { cb(action_type::trim_blocklog); });
+   trim_blocklog->add_option("--blocks-dir", opt->blocks_dir, "The location of the blocks directory (absolute path or relative to the current directory).");
+   trim_blocklog->add_option("--first,-f", opt->first_block, "The first block number to keep.")->required();
+   trim_blocklog->add_option("--last,-l", opt->last_block, "The last block number to keep.")->required();
+
+   // subcommand - extract blocks
+   auto* extract_blocks = sub->add_subcommand("extract-blocks", "Extract range of blocks from blocks.log and write to output-dir.  Must give 'first' and/or 'last'.")->callback([cb]() { cb(action_type::extract_blocks); });
+   extract_blocks->add_option("--blocks-dir", opt->blocks_dir, "The location of the blocks directory (absolute path or relative to the current directory).");
+   extract_blocks->add_option("--first,-f", opt->first_block, "The first block number to keep.")->required();
+   extract_blocks->add_option("--last,-l", opt->last_block, "The last block number to keep.")->required();
+   extract_blocks->add_option("--output-dir", opt->output_dir, "The output directory for the block log extracted from blocks-dir.");
+
+   // subcommand - smoke test
+   auto* smoke_test = sub->add_subcommand("smoke-test", "Quick test that blocks.log and blocks.index are well formed and agree with each other.")->callback([cb]() { cb(action_type::smoke_test); });
+   smoke_test->add_option("--blocks-dir", opt->blocks_dir, "The location of the blocks directory (absolute path or relative to the current directory).");
+
+   auto* vacuum = sub->add_subcommand("vacuum", "Vacuum a pruned blocks.log in to an un-pruned blocks.log")->callback([cb]() { cb(action_type::vacuum); });
+   vacuum->add_option("--blocks-dir", opt->blocks_dir, "The location of the blocks directory (absolute path or relative to the current directory).");
+
+   auto* genesis = sub->add_subcommand("genesis", "Extract genesis_state from blocks.log as JSON")->callback([cb]() { cb(action_type::genesis); });
+   genesis->add_option("--blocks-dir", opt->blocks_dir, "The location of the blocks directory (absolute path or relative to the current directory).");
+   genesis->add_option("--output-file,-o", opt->output_file, "The file to write the output to (absolute or relative path).  If not specified then output is to stdout.");
 }
 
-int blocklog_actions::run_subcommand() {
-   std::ios::sync_with_stdio(false);// for potential performance boost for large block log files
+int blocklog_actions::run_subcommand(action_type at) {
+   std::ios::sync_with_stdio(false); // for potential performance boost for large block log files
+   int return_code = 0;
    try {
-      if(opt->trim_blocklog) {
-         if(opt->first_block == 0 && opt->last_block == std::numeric_limits<uint32_t>::max()) {
-            std::cerr << "trim-blocklog does nothing unless first and/or last block are specified.";
-            return -1;
-         }
-         if(opt->last_block != std::numeric_limits<uint32_t>::max()) {
-            if(trim_blocklog_end(opt->blocks_dir, opt->last_block) != 0)
-               return -1;
-         }
-         if(opt->first_block != 0) {
-            if(!trim_blocklog_front(opt->blocks_dir, opt->first_block))
-               return -1;
-         }
-         return 0;
-      }
-      if(opt->extract_blocks) {
-         if(opt->first_block == 0 && opt->last_block == std::numeric_limits<uint32_t>::max()) {
-            std::cerr << "extract-blocklog does nothing unless first and/or last block are specified.";
-            return -1;
-         }
-         if(!extract_block_range(opt->blocks_dir, opt->output_dir, opt->first_block, opt->last_block))
-            return -1;
-         return 0;
-      }
-      if(opt->vacuum) {
-         initialize();
-         return do_vacuum();
-      }
-      if(opt->genesis) {
-         initialize();
-         return do_genesis();
-      }
-      if(opt->make_index) {
-         const bfs::path blocks_dir = opt->blocks_dir;
-         bfs::path out_file = blocks_dir / "blocks.index";
-         const bfs::path block_file = blocks_dir / "blocks.log";
+      switch(at) {
+         case action_type::ac_default:
+            initialize();
+            read_log();
+            break;
+         case action_type::trim_blocklog:
+            if(opt->last_block != std::numeric_limits<uint32_t>::max()) {
+               if(trim_blocklog_end(opt->blocks_dir, opt->last_block) != 0) {
+                  return_code = -1;
+                  break;
+               }
+            }
+            if(opt->first_block != 0) {
+               if(!trim_blocklog_front(opt->blocks_dir, opt->first_block))
+                  return_code = -1;
+            }
+            break;
+         case action_type::extract_blocks:
+            if(!extract_block_range(opt->blocks_dir, opt->output_dir, opt->first_block, opt->last_block))
+               return_code = -1;
+            break;
+         case action_type::vacuum:
+            initialize();
+            return_code = do_vacuum();
+            break;
+         case action_type::genesis:
+            initialize();
+            return_code = do_genesis();
+            break;
+         case action_type::smoke_test:
+            initialize();
+            smoke_test(); // will throw on errors
+            break;
+         case action_type::make_index:
+            const bfs::path blocks_dir = opt->blocks_dir;
+            bfs::path out_file = blocks_dir / "blocks.index";
+            const bfs::path block_file = blocks_dir / "blocks.log";
 
-         if(!opt->output_file.empty())
-            out_file = opt->output_file;
+            if(!opt->output_file.empty())
+               out_file = opt->output_file;
 
-         report_time rt("making index");
-         const auto log_level = fc::logger::get(DEFAULT_LOGGER).get_log_level();
-         fc::logger::get(DEFAULT_LOGGER).set_log_level(fc::log_level::debug);
-         block_log::construct_index(block_file.generic_string(), out_file.generic_string());
-         fc::logger::get(DEFAULT_LOGGER).set_log_level(log_level);
-         rt.report();
-         return 0;
+            report_time rt("making index");
+            const auto log_level = fc::logger::get(DEFAULT_LOGGER).get_log_level();
+            fc::logger::get(DEFAULT_LOGGER).set_log_level(fc::log_level::debug);
+            block_log::construct_index(block_file.generic_string(), out_file.generic_string());
+            fc::logger::get(DEFAULT_LOGGER).set_log_level(log_level);
+            rt.report();
+            break;
       }
-      //else print blocks.log as JSON
-      initialize();
-      read_log();
+   } catch(...) {
+      lippincott();
+      return_code = -1;
+   }
+   return return_code;
+}
+
+void blocklog_actions::lippincott() noexcept {
+   try {
+      throw;
    } catch(const fc::exception& e) {
       elog("${e}", ("e", e.to_detail_string()));
-      return -1;
    } catch(const boost::exception& e) {
       elog("${e}", ("e", boost::diagnostic_information(e)));
-      return -1;
    } catch(const std::exception& e) {
       elog("${e}", ("e", e.what()));
-      return -1;
    } catch(...) {
       elog("unknown exception");
-      return -1;
    }
-   return 0;
 }
 
 int blocklog_actions::do_genesis() {
@@ -156,8 +177,8 @@ int blocklog_actions::do_genesis() {
 
    if(fc::exists(bld / "blocks.log")) {
       gs = block_log::extract_genesis_state(opt->blocks_dir);
-      if (!gs) {
-         std::cerr << "Block log at '" << full_path 
+      if(!gs) {
+         std::cerr << "Block log at '" << full_path
                    << "' does not contain a genesis state, it only has the chain-id." << std::endl;
          return -1;
       }
@@ -175,11 +196,11 @@ int blocklog_actions::do_genesis() {
          p = bfs::current_path() / p;
       }
 
-      if (!fc::json::save_to_file(*gs, p, true)) {
-         std::cerr <<  "Error occurred while writing genesis JSON to '" << p.generic_string() << "'" << std::endl;    
+      if(!fc::json::save_to_file(*gs, p, true)) {
+         std::cerr << "Error occurred while writing genesis JSON to '" << p.generic_string() << "'" << std::endl;
          return -1;
       }
-    
+
       std::cout << "Saved genesis JSON to '" << p.generic_string() << "'" << std::endl;
    }
    return 0;
@@ -251,8 +272,9 @@ bool blocklog_actions::extract_block_range(bfs::path block_dir, bfs::path output
 }
 
 
-void blocklog_actions::smoke_test(bfs::path block_dir) {
+void blocklog_actions::smoke_test() {
    using namespace std;
+   bfs::path block_dir = opt->blocks_dir;
    cout << "\nSmoke test of blocks.log and blocks.index in directory " << block_dir << '\n';
    trim_data td(block_dir);
    auto status = fseek(td.blk_in, -sizeof(uint64_t), SEEK_END);//get last_block from blocks.log, compare to from blocks.index
@@ -282,7 +304,7 @@ void blocklog_actions::smoke_test(bfs::path block_dir) {
 }
 
 int blocklog_actions::do_vacuum() {
-   if (!opt->blog_keep_prune_conf) {
+   if(!opt->blog_keep_prune_conf) {
       std::cerr << "blocks.log is not a pruned log; nothing to vacuum" << std::endl;
       return -1;
    }
