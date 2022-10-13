@@ -25,8 +25,8 @@ namespace benchmark {
    }
 
    void benchmark_bn_256_pair() {
-      bn256::g1 g1{bn256::curve_gen};
-      bn256::g2 g2{bn256::twist_gen};
+      bn256::g1 g1{bn256::g1::curve_gen};
+      bn256::g2 g2{bn256::g2::twist_gen};
       auto f = [&]() {
          bn256::pair(g1, g2);
       };
