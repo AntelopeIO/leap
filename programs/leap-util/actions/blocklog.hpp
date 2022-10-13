@@ -21,35 +21,23 @@ struct blocklog_options {
    std::optional<block_log_prune_config> blog_keep_prune_conf;
 };
 
-
 class blocklog_actions : public sub_command<blocklog_options> {
 public:
    blocklog_actions() : sub_command() {}
    void setup(CLI::App& app);
-
-   enum class action_type : uint32_t {
-      ac_default = 0,
-      make_index = 1,
-      trim_blocklog = 2,
-      extract_blocks = 3,
-      smoke_test = 4,
-      vacuum = 5,
-      genesis = 6,
-   };
-
-   // callback
-   int run_subcommand(action_type at = action_type::ac_default);
-
-   // exception logger
-   void lippincott() noexcept;
-
 protected:
+   void print_exception() noexcept;
+
    void initialize();
    int trim_blocklog_end(bfs::path block_dir, uint32_t n);
    bool trim_blocklog_front(bfs::path block_dir, uint32_t n);
    bool extract_block_range(bfs::path block_dir, bfs::path output_dir, uint32_t start, uint32_t end);
-   void smoke_test();
+
+   int make_index();
+   int trim_blocklog();
+   int extract_blocks();
+   int smoke_test();
    int do_vacuum();
    int do_genesis();
-   void read_log();
+   int read_log();
 };
