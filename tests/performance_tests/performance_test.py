@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
 from dataclasses import dataclass, asdict, field
-from math import floor
 import os
+from platform import release, system
 import sys
 import json
 from datetime import datetime
@@ -107,6 +107,8 @@ def createJSONReport(maxTpsAchieved, searchResults, maxTpsReport, longRunningMax
     js['LongRunningSearchResults'] =  {x: asdict(longRunningSearchResults[x]) for x in range(len(longRunningSearchResults))}
     js['LongRunningMaxTpsReport'] =  longRunningMaxTpsReport
     js['args'] =  argsDict
+    js['env'] = {'system': system(), 'os': os.name, 'release': release()}
+    js['nodeosVersion'] = Utils.getNodeosVersion()
     return json.dumps(js, indent=2)
 
 def exportReportAsJSON(report: json, exportPath):
