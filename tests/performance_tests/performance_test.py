@@ -52,8 +52,8 @@ def performPtbBinarySearch(tpsTestFloor: int, tpsTestCeiling: int, minStep: int,
     maxTpsReport = {}
     searchResults = []
 
-    while floor <= ceiling:
-        binSearchTarget = round(((ceiling + floor) // 2) / 100) * 100 if not lastRun else round(ceiling / 100) * 100
+    while floor < ceiling:
+        binSearchTarget = round(((ceiling + floor) // 2) / 100) * 100
         print(f"Running scenario: floor {floor} binSearchTarget {binSearchTarget} ceiling {ceiling}")
         ptbResult = PerfTestBasicResult()
         scenarioResult = PerfTestSearchIndivResult(success=False, searchTarget=binSearchTarget, searchFloor=floor, searchCeiling=ceiling, basicTestResult=ptbResult)
@@ -76,7 +76,7 @@ def performPtbBinarySearch(tpsTestFloor: int, tpsTestCeiling: int, minStep: int,
         print(f"searchResult: {binSearchTarget} : {searchResults[-1]}")
         if lastRun:
             break
-        if scenarioResult.success and ceiling - floor <= minStep:
+        if ceiling - floor <= minStep:
             lastRun = True
 
     return PerfTestBinSearchResults(maxTpsAchieved=maxTpsAchieved, searchResults=searchResults, maxTpsReport=maxTpsReport)
