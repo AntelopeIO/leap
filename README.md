@@ -50,7 +50,7 @@ Notable requirements to build are:
 - zlib
 
 #### Jobs Flag
-**A Warning On Parallel Compilation Jobs (`-j` flag)**: When building C/C++ software often the build is performed in parallel via a command such as `make -j $(nproc)` which uses the number of CPU cores as the number of compilation jobs to perform simultaneously. However, be aware that some compilation units (.cpp files) in Leap are extremely complex and will consume nearly 4GB of memory to compile. You may need to reduce the level of parallelization depending on the amount of memory on your build host. e.g. instead of `make -j $(nproc)` run `make -j2`. Failures due to memory exhaustion will typically but not always manifest as compiler crashes.
+**A Warning On Parallel Compilation Jobs (`-j` flag)**: When building C/C++ software, often the build is performed in parallel via a command such as `make -j "$(nproc)"` which uses all available CPU threads. However, be aware that some compilation units (`*.cpp` files) in Leap will consume nearly 4GB of memory to compile. Failures due to memory exhaustion will typically, but not always, manifest as compiler crashes. Using all available CPU threads may also prevent you from doing other things on your computer during compilation. Consider adjusting parallelization for these reasons.
 
 Generally we recommend performing what we refer to as a "pinned build" which ensures the compiler and boost version remain the same between builds of different Leap versions (Leap requires these versions remain the same otherwise its state needs to be repopulated from a portable snapshot).
 
