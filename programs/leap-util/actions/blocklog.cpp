@@ -16,7 +16,6 @@
 #include <boost/program_options.hpp>
 
 #include <chrono>
-#include <functional>
 
 #ifndef _WIN32
 #define FOPEN(p, m) fopen(p, m)
@@ -63,16 +62,14 @@ void blocklog_actions::setup(CLI::App& app) {
    auto* sub = app.add_subcommand("block-log", "Blocklog utility");
    sub->require_subcommand(1);
 
-   // flags
-   sub->add_flag("--no-pretty-print", opt->no_pretty_print, "Do not pretty print the output.  Useful if piping to jq to improve performance.");
-   sub->add_flag("--as-json-array", opt->as_json_array, "Print out json blocks wrapped in json array (otherwise the output is free-standing json objects).");
-
    // subcommand - print log
    auto* print_log = sub->add_subcommand("print-log", "Print  blocks.log as JSON")->callback([err_guard]() { err_guard(&blocklog_actions::read_log); });
    print_log->add_option("--blocks-dir", opt->blocks_dir, "The location of the blocks directory (absolute path or relative to the current directory).");
    print_log->add_option("--output-file,-o", opt->output_file, "The file to write the output to (absolute or relative path).  If not specified then output is to stdout.");
    print_log->add_option("--first,-f", opt->first_block, "The first block number to log or the first to keep if trim-blocklog.");
    print_log->add_option("--last,-l", opt->last_block, "The last block number to log or the last to keep if trim-blocklog.");
+   print_log->add_flag("--no-pretty-print", opt->no_pretty_print, "Do not pretty print the output.  Useful if piping to jq to improve performance.");
+   print_log->add_flag("--as-json-array", opt->as_json_array, "Print out json blocks wrapped in json array (otherwise the output is free-standing json objects).");
 
    // subcommand - make index
    auto* make_index = sub->add_subcommand("make-index", "Create blocks.index from blocks.log. Must give 'blocks-dir'. Give 'output-file' relative to current directory or absolute path (default is <blocks-dir>/blocks.index).")->callback([err_guard]() { err_guard(&blocklog_actions::make_index); });
@@ -106,13 +103,54 @@ void blocklog_actions::setup(CLI::App& app) {
    genesis->add_option("--output-file,-o", opt->output_file, "The file to write the output to (absolute or relative path).  If not specified then output is to stdout.");
 }
 
+void blocklog_actions::print_exception() noexcept {
+   try {
+      throw;
+   } catch(const fc::exception& e) {
+      elog("${e}", ("e", e.to_detail_string()));
+   } catch(const boost::exception& e) {
+      elog("${e}", ("e", boost::diagnostic_information(e)));
+   } catch(const CLI::RuntimeError& e) {
+      // avoid reporting it twice, RuntimeError is only for cli11
+   } catch(const std::exception& e) {
+      elog("${e}", ("e", e.what()));
+   } catch(...) {
+      elog("unknown exception");
+   }
+}
+
+void blocklog_actions::initialize() {
+   try {
+      bfs::path bld = opt->blocks_dir;
+      if(bld.is_relative())
+         opt->blocks_dir = (bfs::current_path() / bld).string();
+      else
+         opt->blocks_dir = bld.string();
+
+      if(!opt->output_file.empty()) {
+         bld = opt->output_file;
+         if(bld.is_relative())
+            opt->output_file = (bfs::current_path() / bld).string();
+         else
+            opt->output_file = bld.string();
+      }
+
+      //if the log is pruned, keep it that way by passing in a config with a large block pruning value. There is otherwise no
+      // way to tell block_log "keep the current non/pruneness of the log"
+      if(block_log::is_pruned_log(opt->blocks_dir)) {
+         opt->blog_keep_prune_conf.emplace();
+         opt->blog_keep_prune_conf->prune_blocks = UINT32_MAX;
+      }
+   }
+   FC_LOG_AND_RETHROW()
+}
+
 int blocklog_actions::make_index() {
+   initialize();
    const bfs::path blocks_dir = opt->blocks_dir;
    bfs::path out_file = blocks_dir / "blocks.index";
    const bfs::path block_file = blocks_dir / "blocks.log";
-
-   if(!opt->output_file.empty())
-      out_file = opt->output_file;
+   if(!opt->output_file.empty()) out_file = opt->output_file;
 
    report_time rt("making index");
    const auto log_level = fc::logger::get(DEFAULT_LOGGER).get_log_level();
@@ -125,36 +163,21 @@ int blocklog_actions::make_index() {
 }
 
 int blocklog_actions::trim_blocklog() {
+   initialize();
    if(opt->last_block != std::numeric_limits<uint32_t>::max()) {
-      if(trim_blocklog_end(opt->blocks_dir, opt->last_block) != 0) {
-         return -1;
-      }
+      if(trim_blocklog_end(opt->blocks_dir, opt->last_block) != 0) return -1;
    }
    if(opt->first_block != 0) {
-      if(!trim_blocklog_front(opt->blocks_dir, opt->first_block))
-         return -1;
+      if(!trim_blocklog_front(opt->blocks_dir, opt->first_block)) return -1;
    }
    return 0;
 }
 
 int blocklog_actions::extract_blocks() {
+   initialize();
    if(!extract_block_range(opt->blocks_dir, opt->output_dir, opt->first_block, opt->last_block))
       return -1;
    return 0;
-}
-
-void blocklog_actions::print_exception() noexcept {
-   try {
-      throw;
-   } catch(const fc::exception& e) {
-      elog("${e}", ("e", e.to_detail_string()));
-   } catch(const boost::exception& e) {
-      elog("${e}", ("e", boost::diagnostic_information(e)));
-   } catch(const std::exception& e) {
-      elog("${e}", ("e", e.what()));
-   } catch(...) {
-      elog("unknown exception");
-   }
 }
 
 int blocklog_actions::do_genesis() {
@@ -192,32 +215,6 @@ int blocklog_actions::do_genesis() {
       std::cout << "Saved genesis JSON to '" << p.generic_string() << "'" << std::endl;
    }
    return 0;
-}
-
-void blocklog_actions::initialize() {
-   try {
-      bfs::path bld = opt->blocks_dir;
-      if(bld.is_relative())
-         opt->blocks_dir = (bfs::current_path() / bld).string();
-      else
-         opt->blocks_dir = bld.string();
-
-      if(!opt->output_file.empty()) {
-         bld = opt->output_file;
-         if(bld.is_relative())
-            opt->output_file = (bfs::current_path() / bld).string();
-         else
-            opt->output_file = bld.string();
-      }
-
-      //if the log is pruned, keep it that way by passing in a config with a large block pruning value. There is otherwise no
-      // way to tell block_log "keep the current non/pruneness of the log"
-      if(block_log::is_pruned_log(opt->blocks_dir)) {
-         opt->blog_keep_prune_conf.emplace();
-         opt->blog_keep_prune_conf->prune_blocks = UINT32_MAX;
-      }
-   }
-   FC_LOG_AND_RETHROW()
 }
 
 int blocklog_actions::trim_blocklog_end(bfs::path block_dir, uint32_t n) {//n is last block to keep (remove later blocks)
@@ -259,7 +256,6 @@ bool blocklog_actions::extract_block_range(bfs::path block_dir, bfs::path output
    return status;
 }
 
-
 int blocklog_actions::smoke_test() {
    initialize();
    using namespace std;
@@ -295,6 +291,15 @@ int blocklog_actions::smoke_test() {
 
 int blocklog_actions::do_vacuum() {
    initialize();
+
+   bfs::path bld = opt->blocks_dir;
+   auto full_path = (bld / "blocks.log").generic_string();
+
+   if(!fc::exists(bld / "blocks.log")) {
+      std::cerr << "No blocks.log found at '" << full_path << "'." << std::endl;
+      return -1;
+   }
+
    if(!opt->blog_keep_prune_conf) {
       std::cerr << "blocks.log is not a pruned log; nothing to vacuum" << std::endl;
       return -1;
@@ -305,8 +310,8 @@ int blocklog_actions::do_vacuum() {
 }
 
 int blocklog_actions::read_log() {
-   report_time rt("reading log");
    initialize();
+   report_time rt("reading log");
    block_log block_logger(opt->blocks_dir, opt->blog_keep_prune_conf);
    const auto end = block_logger.read_head();
    EOS_ASSERT(end, block_log_exception, "No blocks found in block log");

@@ -12,7 +12,7 @@ struct blocklog_options {
    std::string output_file = "";
    uint32_t first_block = 0;
    uint32_t last_block = std::numeric_limits<uint32_t>::max();
-   std::string output_dir;
+   std::string output_dir = "";
 
    // flags
    bool no_pretty_print = false;
@@ -25,6 +25,7 @@ class blocklog_actions : public sub_command<blocklog_options> {
 public:
    blocklog_actions() : sub_command() {}
    void setup(CLI::App& app);
+
 protected:
    void print_exception() noexcept;
 
