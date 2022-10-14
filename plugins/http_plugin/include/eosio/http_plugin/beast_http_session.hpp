@@ -351,14 +351,13 @@ public:
       }
    }
 
-   virtual void send_response(std::optional<std::string> json_body, unsigned int code) override {
+   virtual void send_response(std::string json_body, unsigned int code) override {
       write_begin_ = steady_clock::now();
       auto dt = write_begin_ - handle_begin_;
       handle_time_us_ += std::chrono::duration_cast<std::chrono::microseconds>(dt).count();
 
       res_->result(code);
-      if(json_body.has_value())
-         res_->body() = std::move(*json_body);
+      res_->body() = std::move(json_body);
 
       res_->prepare_payload();
 
