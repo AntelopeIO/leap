@@ -53,6 +53,7 @@ Notable requirements to build are:
 ⚠️ **A Warning On Parallel Compilation Jobs (`-j` flag)** ⚠️
 When building C/C++ software, often the build is performed in parallel via a command such as `make -j "$(nproc)"` which uses all available CPU threads. However, be aware that some compilation units (`*.cpp` files) in Leap will consume nearly 4GB of memory to compile. Failures due to memory exhaustion will typically, but not always, manifest as compiler crashes. Using all available CPU threads may also prevent you from doing other things on your computer during compilation. Consider adjusting parallelization for these reasons.
 
+#### Pinned vs. Unpinned
 Generally we recommend performing what we refer to as a "pinned build" which ensures the compiler and boost version remain the same between builds of different Leap versions (Leap requires these versions remain the same otherwise its state needs to be repopulated from a portable snapshot).
 
 #### Building Pinned Build Binary Packages
