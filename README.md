@@ -24,6 +24,10 @@ Finally, verify Leap was installed correctly.
 ```bash
 nodeos --full-version
 ```
+You should see a [semantic version](https://semver.org) string print out followed by a `git` commit hash with no errors. For example:
+```
+v3.1.2-0b64f879e3ebe2e4df09d2e62f1fc164cc1125d1
+```
 
 ## Source Installation
 Visit the [release page](https://github.com/AntelopeIO/leap/releases) for Ubuntu binaries. This is the fastest way to get started with the software.
