@@ -96,7 +96,7 @@ namespace eosio {
         bool is_on_loopback() const;
         bool is_secure() const;
 
-        bool verbose_errors()const;
+        static bool verbose_errors();
 
         struct get_supported_apis_result {
            vector<string> apis;
