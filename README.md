@@ -20,8 +20,7 @@ sudo apt-get install -y ~/Downloads/leap*.deb
 ```
 Your download path may vary. If you are running in docker, omit `sudo` as Ubuntu docker containers run as `root` by default.
 
-## Software Installation
-
+## Source Installation
 Visit the [release page](https://github.com/AntelopeIO/leap/releases) for Ubuntu binaries. This is the fastest way to get started with the software.
 
 ### Building From Source
