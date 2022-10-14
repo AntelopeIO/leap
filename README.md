@@ -5,6 +5,21 @@ Leap is blockchain node software and supporting tools that implements the [Antel
 ## Branches
 The `main` branch is the development branch, do not use this for production. Refer to the [release page](https://github.com/AntelopeIO/leap/releases) for current information on releases, pre-releases, and obsolete releases, as well as the corresponding tags for those releases.
 
+## Binary Installation
+This is the fastest way to get started. Download a binary for the [latest](https://github.com/AntelopeIO/leap/releases/latest) release, or visit the [releases](https://github.com/AntelopeIO/leap/releases) page to download a binary for a specific version of Leap.
+
+We currently only support Ubuntu. If you aren't using Ubuntu, please visit [this page](./docs/00_install/01_build-from-source/00_build-unsupported-os.md) to explore your options.
+
+You will need to know your version of Ubuntu to download the right binary. You can find this by going to Start/Windows/Super key > Settings > About > OS Name, or by running the following in your terminal.
+```bash
+lsb_release -a
+```
+Once you have a `*.deb` file downloaded for your version of Ubuntu, you can install it as follows.
+```bash
+sudo apt-get install -y ~/Downloads/leap*.deb
+```
+Your download path may vary. If you are running in docker, omit `sudo` as Ubuntu docker containers run as `root` by default.
+
 ## Software Installation
 
 Visit the [release page](https://github.com/AntelopeIO/leap/releases) for Ubuntu binaries. This is the fastest way to get started with the software.
