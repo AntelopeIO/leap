@@ -2,7 +2,6 @@
  
 import argparse
 import log_reader
-import glob
 
 parser = argparse.ArgumentParser(add_help=False)
 parser.add_argument("--target-tps", type=int, help="The target transfers per second to send during test", default=8000)

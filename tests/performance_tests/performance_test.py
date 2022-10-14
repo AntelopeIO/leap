@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
 
-from dataclasses import dataclass, asdict, field
 import os
-from platform import release, system
 import sys
 import json
-from datetime import datetime
 import shutil
 
 harnessPath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -14,6 +11,9 @@ sys.path.append(harnessPath)
 from TestHarness import TestHelper, Utils
 from TestHarness.TestHelper import AppArgs
 from performance_test_basic import PerformanceBasicTest
+from platform import release, system
+from dataclasses import dataclass, asdict, field
+from datetime import datetime
 
 @dataclass
 class PerfTestBasicResult:

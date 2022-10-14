@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
 
-from dataclasses import dataclass, asdict
 import os
 import sys
 import subprocess
 import shutil
 import signal
-from datetime import datetime
+import log_reader
 
 harnessPath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(harnessPath)
 
 from TestHarness import Cluster, TestHelper, Utils, WalletMgr
 from TestHarness.TestHelper import AppArgs
-import log_reader
+from dataclasses import dataclass, asdict
+from datetime import datetime
 
 class PerformanceBasicTest():
     @dataclass

@@ -5,8 +5,8 @@ import sys
 import re
 import numpy as np
 import json
-from datetime import datetime
 import glob
+import gzip
 
 harnessPath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(harnessPath)
@@ -14,7 +14,7 @@ sys.path.append(harnessPath)
 from TestHarness import Utils
 from dataclasses import dataclass, asdict, field
 from platform import release, system
-import gzip
+from datetime import datetime
 
 Print = Utils.Print
 errorExit = Utils.errorExit
