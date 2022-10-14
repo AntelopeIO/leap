@@ -32,7 +32,7 @@ v3.1.2-0b64f879e3ebe2e4df09d2e62f1fc164cc1125d1
 ## Source Installation
 You can also build and install Leap from source. Recent Ubuntu LTS releases are the only operating systems that we support. Other Unix derivatives such as macOS are tended to on a best-effort basis and may not be full featured. If you aren't using Ubuntu, please visit [this page](./docs/00_install/01_build-from-source/00_build-unsupported-os.md) to explore your options.
 
-### Building From Source
+### Prerequisites
 Notable requirements to build are:
 * C++17 compiler and standard library
 * boost 1.67+
