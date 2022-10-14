@@ -56,6 +56,8 @@ When building C/C++ software, often the build is performed in parallel via a com
 #### Pinned vs. Unpinned
 We have two types of builds for Leap, "pinned" and "unpinned." The only difference is that pinned builds use specific versions for some dependencies hand-picked by Leap engineers, whereas unpinned builds use the default dependency versions available on the build system at the time. We recommend performing a pinned build to ensure the compiler and boost version remain the same between builds of different Leap versions. Leap requires these versions to remain the same, otherwise its state needs to be recovered from a portable snapshot or the chain needs to be replayed.
 
+For the curious, the "pinned" terminology comes from our days developing on macOS where you would run `brew pin` to lock one of the Leap dependencies to a specific version despite available upgrades.
+
 #### Building Pinned Build Binary Packages
 In the directory `<leap src>/scripts` you will find the two scripts `install_deps.sh` and `pinned_build.sh`. If you haven't installed build dependencies then run `install_deps.sh`. Then run `pinned_build.sh <dependencies directory> <leap build directory> <number of jobs>`.
 
