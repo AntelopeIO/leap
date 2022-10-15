@@ -110,7 +110,7 @@ These instructions are valid for this branch. Other release branches may have di
 Install required dependencies: 
 ```bash
 sudo apt-get update
-sudo apt-get install \
+sudo apt-get install -y \
         build-essential \
         cmake \
         curl \
@@ -137,7 +137,7 @@ make -j "$(( $(nproc) - 2 ))" package
 Install required dependencies.
 ```bash
 sudo apt-get update
-sudo apt-get install \
+sudo apt-get install -y \
         build-essential \
         cmake \
         curl \
