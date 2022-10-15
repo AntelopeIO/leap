@@ -104,15 +104,15 @@ These instructions are valid for this branch. Other release branches may have di
 Install required dependencies: 
 ```bash
 sudo apt-get update
-sudo apt-get install   \
-        build-essential             \
-        cmake                       \
-        curl                        \
-        git                         \
-        libboost-all-dev            \
-        libgmp-dev                  \
-        libssl-dev                  \
-        llvm-11-dev
+sudo apt-get install \
+    build-essential \
+    cmake \
+    curl \
+    git \
+    libboost-all-dev \
+    libgmp-dev \
+    libssl-dev \
+    llvm-11-dev
 ```
 and perform the build:
 ```bash
@@ -128,33 +128,31 @@ make -j "$(( $(nproc) - 2 ))" package
 Install required dependencies.
 ```bash
 sudo apt-get update
-sudo apt-get install   \
-        build-essential             \
-        cmake                       \
-        curl                        \
-        g++-8                       \
-        git                         \
-        libgmp-dev                  \
-        libssl-dev                  \
-        llvm-7-dev                  \
-        python3                     \
-        zlib1g-dev
+sudo apt-get install \
+    build-essential \
+    cmake \
+    curl \
+    g++-8 \
+    git \
+    libgmp-dev \
+    libssl-dev \
+    llvm-7-dev \
+    python3 \
+    zlib1g-dev
 ```
 You need to build Boost from source on this distribution.
 ```bash
-curl -L https://boostorg.jfrog.io/artifactory/main/release/1.79.0/source/boost_1_79_0.tar.bz2 | tar jx && \
-   cd boost_1_79_0 &&                                                                                     \
-   ./bootstrap.sh --prefix="$HOME/boost1.79" &&                                                             \
-   ./b2 --with-iostreams --with-date_time --with-filesystem --with-system                                 \
-        --with-program_options --with-chrono --with-test -j "$(( $(nproc) - 2 ))" install &&                            \
-   cd ..
+curl -L https://boostorg.jfrog.io/artifactory/main/release/1.79.0/source/boost_1_79_0.tar.bz2 | tar jx
+cd boost_1_79_0
+./bootstrap.sh --prefix="$HOME/boost1.79"
+./b2 --with-iostreams --with-date_time --with-filesystem --with-system --with-program_options --with-chrono --with-test -j "$(( $(nproc) - 2 ))" install
+cd ..
 ```
 and perform the build:
 ```bash
 mkdir -p build
 cd build
-cmake -DCMAKE_C_COMPILER=gcc-8 -DCMAKE_CXX_COMPILER=g++-8 \
-      -DCMAKE_PREFIX_PATH="$HOME/boost1.79;/usr/lib/llvm-7/"  -DCMAKE_BUILD_TYPE=Release .. \
+cmake -DCMAKE_C_COMPILER=gcc-8 -DCMAKE_CXX_COMPILER=g++-8 -DCMAKE_PREFIX_PATH="$HOME/boost1.79;/usr/lib/llvm-7/" -DCMAKE_BUILD_TYPE=Release ..
 make -j "$(( $(nproc) - 2 ))" package
 ```
 After building, you may remove the `~/boost1.79` directory or you may keep it around for your next build.
