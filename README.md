@@ -50,6 +50,29 @@ Notable requirements to build are:
 - Python 3
 - zlib
 
+If you don't already have the Leap repo cloned to your computer, [open a terminal](https://itsfoss.com/open-terminal-ubuntu) and navigate to the folder you want the Leap source code to be in using `cd`. Clone Leap using HTTPS...
+```bash
+git clone --recursive https://github.com/AntelopeIO/leap.git
+```
+...or SSH.
+```bash
+git clone --recursive git@github.com:AntelopeIO/leap.git
+```
+They both result in the same thing, a folder named `leap` containg our source code. Navigate into that folder.
+```bash
+cd leap
+```
+Choose which [release tag](https://github.com/AntelopeIO/leap/releases) or [branch](#branches) you would like to build and check it out. If you don't know, use the [latest release](https://github.com/AntelopeIO/leap/releases/latest). For example, if you want to build release 3.1.2, you would check it out using its tag.
+```bash
+git checkout v3.1.2
+```
+
+Once you are on the branch or tag (release) you want to build, make sure everything is up-to-date.
+```bash
+git pull
+git submodule update --init --recursive
+```
+
 #### Jobs Flag
 ⚠️ **A Warning On Parallel Compilation Jobs (`-j` flag)** ⚠️
 When building C/C++ software, often the build is performed in parallel via a command such as `make -j "$(nproc)"` which uses all available CPU threads. However, be aware that some compilation units (`*.cpp` files) in Leap will consume nearly 4GB of memory to compile. Failures due to memory exhaustion will typically, but not always, manifest as compiler crashes. Using all available CPU threads may also prevent you from doing other things on your computer during compilation. Consider adjusting parallelization for these reasons.
