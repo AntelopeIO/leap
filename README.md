@@ -45,6 +45,7 @@ Notable requirements to build are:
 - libcurl
 - curl
 - libusb
+- git
 - GMP
 - Python 3
 - zlib
