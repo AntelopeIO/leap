@@ -49,7 +49,11 @@ Notable requirements to build are:
 - Python 3
 - zlib
 
-If you don't already have the Leap repo cloned to your computer, [open a terminal](https://itsfoss.com/open-terminal-ubuntu) and navigate to the folder you want the Leap source code to be in using `cd`. Clone Leap using HTTPS...
+If you don't already have the Leap repo cloned to your computer, [open a terminal](https://itsfoss.com/open-terminal-ubuntu) and navigate to the folder you want the Leap source code to live in.
+```bash
+cd ~/Downloads
+```
+Clone Leap using HTTPS...
 ```bash
 git clone --recursive https://github.com/AntelopeIO/leap.git
 ```
