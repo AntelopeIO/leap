@@ -43,6 +43,7 @@ Notable requirements to build are:
   - Newer versions do not work
 - openssl 1.1+
 - cURL
+- git
 - GMP
 - Python 3
 - zlib
