@@ -80,7 +80,7 @@ We have two types of builds for Leap, "pinned" and "unpinned." The only differen
 
 For the curious, the "pinned" terminology comes from our days developing on macOS where you would run `brew pin` to lock one of the Leap dependencies to a specific version despite available upgrades.
 
-#### Building Pinned Build Binary Packages
+#### Pinned Build
 In the directory `<leap src>/scripts` you will find the two scripts `install_deps.sh` and `pinned_build.sh`. If you haven't installed build dependencies then run `install_deps.sh`. Then run `pinned_build.sh <dependencies directory> <leap build directory> <number of jobs>`.
 
 The dependencies directory is where the script will pull the C++ dependencies that need to be built with the pinned compiler for building the pinned binaries for binary packaging.
