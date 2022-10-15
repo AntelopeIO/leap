@@ -104,7 +104,7 @@ These instructions are valid for this branch. Other release branches may have di
 <details> <summary>Ubuntu 22.04 & 20.04</summary>
 
 Install required dependencies: 
-```
+```bash
 apt-get update && apt-get install   \
         build-essential             \
         cmake                       \
@@ -119,7 +119,7 @@ apt-get update && apt-get install   \
         pkg-config
 ```
 and perform the build:
-```
+```bash
 git submodule update --init --recursive
 mkdir build
 cd build
@@ -131,7 +131,7 @@ make -j $(nproc) package
 <details> <summary>Ubuntu 18.04</summary>
 
 Install required dependencies. You will need to build Boost from source on this distribution. 
-```
+```bash
 apt-get update && apt-get install   \
         build-essential             \
         cmake                       \
@@ -155,7 +155,7 @@ curl -L https://boostorg.jfrog.io/artifactory/main/release/1.79.0/source/boost_1
    cd ..
 ```
 and perform the build:
-```
+```bash
 git submodule update --init --recursive
 mkdir build
 cd build
