@@ -107,7 +107,7 @@ These instructions are valid for this branch. Other release branches may have di
 
 <details> <summary>Ubuntu 22.04 Jammy & Ubuntu 20.04 Focal</summary>
 
-Install required dependencies: 
+Install dependencies.
 ```bash
 sudo apt-get update
 sudo apt-get install -y \
@@ -123,7 +123,7 @@ sudo apt-get install -y \
         llvm-11-dev \
         pkg-config
 ```
-and perform the build:
+From a terminal in the root of the `leap` repo, build.
 ```bash
 mkdir -p build
 cd build
@@ -134,7 +134,7 @@ make -j "$(( $(nproc) - 2 ))" package
 
 <details> <summary>Ubuntu 18.04 Bionic</summary>
 
-Install required dependencies.
+Install dependencies.
 ```bash
 sudo apt-get update
 sudo apt-get install -y \
@@ -161,7 +161,7 @@ pushd ~/Downloads/boost_1_79_0
 ./b2 --with-iostreams --with-date_time --with-filesystem --with-system --with-program_options --with-chrono --with-test -j "$(( $(nproc) - 2 ))" install
 popd
 ```
-and perform the build:
+From a terminal in the root of the `leap` repo, build.
 ```bash
 mkdir -p build
 cd build
