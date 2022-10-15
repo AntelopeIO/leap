@@ -63,7 +63,7 @@ git clone --recursive https://github.com/AntelopeIO/leap.git
 ```bash
 git clone --recursive git@github.com:AntelopeIO/leap.git
 ```
-They both result in the same thing, a folder named `leap` containg our source code. Navigate into that folder.
+An HTTPS and SSH clone both result in the same thing, a folder named `leap` containg our source code, it doesn't matter which one you use. Navigate into that folder.
 ```bash
 cd leap
 ```
