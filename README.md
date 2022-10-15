@@ -179,12 +179,15 @@ Long-running tests | Integration | Medium-to-Large | Tests which take an extraor
 
 When building from source, we recommended running at least the parallelizable tests.
 
+#### Parallelizable Tests
+This test suite consits of any test which completes in a short amount of time and does not require shared resources such as file descriptors, specific folders, or ports, and can therefore be run concurrently in different threads without side effects (hence, easily parallelized). These are mostly unit tests and [small tests](https://testing.googleblog.com/2010/12/test-sizes.html).
+
+You can invoke them using `ctest` from a terminal in your Leap build directory.
+```bash
+ctest -j "$(nproc)" -LE _tests
 ```
-cd build
 
-# "parallelizable tests": the minimum test set that should be run
-ctest -j $(nproc) -LE _tests
-
+```bash
 # Also consider running the WASM spec tests for more coverage
 ctest -j $(nproc) -L wasm_spec_tests
 ```
