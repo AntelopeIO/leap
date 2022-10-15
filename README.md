@@ -211,3 +211,12 @@ You can invoke them using `ctest` from a terminal in your Leap build directory.
 ```bash
 ctest -L "long_running_tests"
 ```
+
+### Install
+Once you have [built](#build) Leap and [tested](#test) your build, you can install Leap to your system.
+
+Navigate to your Leap build directory and run this command.
+```bash
+sudo make install
+```
+- If you are in an Ubuntu docker container, omit `sudo` because you run as `root` by default.
