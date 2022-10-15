@@ -212,7 +212,10 @@ You can invoke them using `ctest` from a terminal in your Leap build directory.
 ctest -L "nonparallelizable_tests"
 ```
 
+#### Long-Running Tests
+The long-running tests are [medium-to-large](https://testing.googleblog.com/2010/12/test-sizes.html) integration tests that rely on shared resources and take a very long time to run.
+
+You can invoke them using `ctest` from a terminal in your Leap build directory.
 ```bash
-# These tests can't run in parallel. They also take a long time to run.
 ctest -L "long_running_tests"
 ```
