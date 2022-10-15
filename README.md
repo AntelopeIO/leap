@@ -82,11 +82,19 @@ We have two types of builds for Leap, "pinned" and "unpinned." The only differen
 For the curious, the "pinned" terminology comes from our days developing on macOS where you would run `brew pin` to lock one of the Leap dependencies to a specific version despite available upgrades.
 
 #### Pinned Build
-In the directory `<leap src>/scripts` you will find the two scripts `install_deps.sh` and `pinned_build.sh`. If you haven't installed build dependencies then run `install_deps.sh`. Then run `pinned_build.sh <dependencies directory> <leap build directory> <number of jobs>`.
+From a terminal in the root of the `leap` repo, run our script to install dependencies.
+```bash
+sudo scripts/install_deps.sh
+```
+- If you are in a docker container, omit `sudo` because you run as `root` by default in Ubuntu.
 
-The dependencies directory is where the script will pull the C++ dependencies that need to be built with the pinned compiler for building the pinned binaries for binary packaging.
+Next, call our pinned build script. You have to give it three arguments, a folder for dependencies, a build folder, and [the number of jobs or CPU cores/threads to use](#jobs-flag). This command uses a `deps` and `build` folder in the root of the Leap repo for the first two arguments, then builds using all but two of your computer's CPU threads.
+```bash
+scripts/pinned_build.sh deps build "$(( $(nproc) - 2 ))"
+```
+- You don't need `sudo` for this command.
 
-The binary package will be produced in the Leap build directory that was supplied.
+The binaries will be in the Leap build directory you passed to the build script. For example, the command above leaves them in `build/bin` from the root of the Leap repository.
 
 #### Manual (non "pinned") Build Instructions
 
