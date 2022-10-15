@@ -130,7 +130,7 @@ make -j $(nproc) package
 
 <details> <summary>Ubuntu 18.04</summary>
 
-Install required dependencies. You will need to build Boost from source on this distribution. 
+Install required dependencies.
 ```bash
 sudo apt-get update
 sudo apt-get install   \
@@ -147,7 +147,9 @@ sudo apt-get install   \
         pkg-config                  \
         python3                     \
         zlib1g-dev
-        
+```
+You need to build Boost from source on this distribution.
+```bash
 curl -L https://boostorg.jfrog.io/artifactory/main/release/1.79.0/source/boost_1_79_0.tar.bz2 | tar jx && \
    cd boost_1_79_0 &&                                                                                     \
    ./bootstrap.sh --prefix=$HOME/boost1.79 &&                                                             \
