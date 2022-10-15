@@ -120,7 +120,6 @@ apt-get update && apt-get install   \
 ```
 and perform the build:
 ```bash
-git submodule update --init --recursive
 mkdir build
 cd build
 cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/usr/lib/llvm-11 ..
@@ -156,7 +155,6 @@ curl -L https://boostorg.jfrog.io/artifactory/main/release/1.79.0/source/boost_1
 ```
 and perform the build:
 ```bash
-git submodule update --init --recursive
 mkdir build
 cd build
 cmake -DCMAKE_C_COMPILER=gcc-8 -DCMAKE_CXX_COMPILER=g++-8 \
