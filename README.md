@@ -105,7 +105,7 @@ The binaries will be in the Leap build directory you passed to the build script.
 #### Unpinned Build
 These instructions are valid for this branch. Other release branches may have different requirements so ensure you follow the directions in the branch or release you intend to build.
 
-<details> <summary>Ubuntu 22.04 & 20.04</summary>
+<details> <summary>Ubuntu 22.04 & Ubuntu 20.04</summary>
 
 Install required dependencies: 
 ```bash
