@@ -154,9 +154,9 @@ sudo apt-get install \
 ```
 You need to build Boost from source on this distribution.
 ```bash
-curl -fL https://boostorg.jfrog.io/artifactory/main/release/1.79.0/source/boost_1_79_0.tar.bz2 -o boost_1_79_0.tar.bz2
-tar -jvxf boost_1_79_0.tar.bz2
-pushd boost_1_79_0
+curl -fL https://boostorg.jfrog.io/artifactory/main/release/1.79.0/source/boost_1_79_0.tar.bz2 -o ~/Downloads/boost_1_79_0.tar.bz2
+tar -jvxf ~/Downloads/boost_1_79_0.tar.bz2 -C ~/Downloads/
+pushd ~/Downloads/boost_1_79_0
 ./bootstrap.sh --prefix="$HOME/boost1.79"
 ./b2 --with-iostreams --with-date_time --with-filesystem --with-system --with-program_options --with-chrono --with-test -j "$(( $(nproc) - 2 ))" install
 popd
