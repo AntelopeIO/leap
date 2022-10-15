@@ -153,6 +153,10 @@ pushd ~/Downloads/boost_1_79_0
 ./b2 --with-iostreams --with-date_time --with-filesystem --with-system --with-program_options --with-chrono --with-test -j "$(( $(nproc) - 2 ))" install
 popd
 ```
+The Boost `*.tar.bz2` download and `boost_1_79_0` folder can be removed now if you want more space.
+```bash
+rm -r ~/Downloads/boost_1_79_0.tar.bz2 ~/Downloads/boost_1_79_0
+```
 From a terminal in the root of the `leap` repo, build.
 ```bash
 mkdir -p build
