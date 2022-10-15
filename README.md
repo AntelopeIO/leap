@@ -19,7 +19,7 @@ Once you have a `*.deb` file downloaded for your version of Ubuntu, you can inst
 sudo apt-get install -y ~/Downloads/leap*.deb
 ```
 Your download path may vary.
-- If you are running in docker, omit `sudo` as Ubuntu docker containers run as `root` by default.
+- If you are in an Ubuntu docker container, omit `sudo` because you run as `root` by default.
 
 Finally, verify Leap was installed correctly.
 ```bash
@@ -86,7 +86,7 @@ From a terminal in the root of the `leap` repo, run our script to install depend
 ```bash
 sudo scripts/install_deps.sh
 ```
-- If you are in a docker container, omit `sudo` because you run as `root` by default in Ubuntu.
+- If you are in an Ubuntu docker container, omit `sudo` because you run as `root` by default.
 
 Next, call our pinned build script. You have to give it three arguments, a folder for dependencies, a build folder, and [the number of jobs or CPU cores/threads to use](#jobs-flag). This command uses a `deps` and `build` folder in the root of the Leap repo for the first two arguments, then builds using all but two of your computer's CPU threads.
 ```bash
