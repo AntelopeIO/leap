@@ -118,6 +118,7 @@ sudo apt-get install -y \
     libssl-dev \
     llvm-11-dev
 ```
+- If you are in an Ubuntu docker container, omit `sudo` because you run as `root` by default.
 From a terminal in the root of the `leap` repo, build.
 ```bash
 mkdir -p build
@@ -144,6 +145,7 @@ sudo apt-get install -y \
     python3 \
     zlib1g-dev
 ```
+- If you are in an Ubuntu docker container, omit `sudo` because you run as `root` by default.
 You need to build Boost from source on this distribution.
 ```bash
 curl -fL https://boostorg.jfrog.io/artifactory/main/release/1.79.0/source/boost_1_79_0.tar.bz2 -o ~/Downloads/boost_1_79_0.tar.bz2
