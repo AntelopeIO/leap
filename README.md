@@ -105,8 +105,8 @@ These instructions are valid for this branch. Other release branches may have di
 
 Install required dependencies: 
 ```bash
-apt-get update
-apt-get install   \
+sudo apt-get update
+sudo apt-get install   \
         build-essential             \
         cmake                       \
         curl                        \
@@ -132,8 +132,8 @@ make -j $(nproc) package
 
 Install required dependencies. You will need to build Boost from source on this distribution. 
 ```bash
-apt-get update
-apt-get install   \
+sudo apt-get update
+sudo apt-get install   \
         build-essential             \
         cmake                       \
         curl                        \
