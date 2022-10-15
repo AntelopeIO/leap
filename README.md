@@ -196,14 +196,15 @@ ctest -j "$(nproc)" -L wasm_spec_tests
 ```
 We have observed severe performance issues when two virtual machines are running this test suite on the same physical host at the same time, for example in a CICD system. This can be resolved by disabling hyperthreading on the host.
 
+#### Serial Tests
+The serial test suite consists of [medium](https://testing.googleblog.com/2010/12/test-sizes.html) component or integration tests that use specific paths, ports, rely on process names, or similar and cannot be run concurrently with other tests. Serial tests can be sensitive to other software running on the same host and they may `SIGKILL` other `nodeos` processes. These tests take a moderate amount of time to complete, but we recommend running them.
 
-Some other tests are available and recommended but be aware they can be sensitive to other software running on the same host and they may **SIGKILL** other nodeos instances running on the host.
-```
-cd build
-
-# These tests can't run in parallel but are recommended.
+You can invoke them using `ctest` from a terminal in your Leap build directory.
+```bash
 ctest -L "nonparallelizable_tests"
+```
 
+```bash
 # These tests can't run in parallel. They also take a long time to run.
 ctest -L "long_running_tests"
 ```
