@@ -168,7 +168,16 @@ After building, you may remove the `~/boost1.79` directory or you may keep it ar
 </details>
 
 ### Test
-When building from source it's recommended to run at least what we refer to as the "parallelizable tests". Not included by default in the "parallelizable tests" are the WASM spec tests which can add additional coverage and can also be run in parallel.
+Leap currently has the following test suites.
+
+Test Suite | Test Type | [Test Size](https://testing.googleblog.com/2010/12/test-sizes.html) | Notes
+---|:---:|:---:|---
+Parallelizable tests | Unit tests | Small
+WASM spec tests | Unit tests | Small | Unit tests for our WASM runtime, each short but _very_ CPU-intensive
+Serial tests | Component/Integration | Medium
+Long-running tests | Integration | Medium-to-Large | Tests which take an extraordinarily long amount of time to run
+
+When building from source, we recommended running at least the parallelizable tests.
 
 ```
 cd build
