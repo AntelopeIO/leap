@@ -115,7 +115,7 @@ apt-get update && apt-get install   \
 ```
 and perform the build:
 ```bash
-mkdir build
+mkdir -p build
 cd build
 cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/usr/lib/llvm-11 ..
 make -j $(nproc) package
@@ -147,7 +147,7 @@ curl -L https://boostorg.jfrog.io/artifactory/main/release/1.79.0/source/boost_1
 ```
 and perform the build:
 ```bash
-mkdir build
+mkdir -p build
 cd build
 cmake -DCMAKE_C_COMPILER=gcc-8 -DCMAKE_CXX_COMPILER=g++-8 \
       -DCMAKE_PREFIX_PATH="$HOME/boost1.79;/usr/lib/llvm-7/"  -DCMAKE_BUILD_TYPE=Release .. \
