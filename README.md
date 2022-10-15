@@ -96,8 +96,7 @@ scripts/pinned_build.sh deps build "$(( $(nproc) - 2 ))"
 
 The binaries will be in the Leap build directory you passed to the build script. For example, the command above leaves them in `build/bin` from the root of the Leap repository.
 
-#### Manual (non "pinned") Build Instructions
-
+#### Unpinned Build
 These instructions are valid for this branch. Other release branches may have different requirements so ensure you follow the directions in the branch or release you intend to build.
 
 <details>
