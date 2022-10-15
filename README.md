@@ -195,10 +195,15 @@ You can invoke them using `ctest` from a terminal in your Leap build directory.
 ctest -j "$(nproc)" -LE _tests
 ```
 
+#### WASM Spec Tests
+The WASM spec tests verify that our WASM execution engine is compliant with the web assembly standard. These are very [small](https://testing.googleblog.com/2010/12/test-sizes.html), very fast unit tests. However, there are over a thousand of them so the suite can take a little time to run. These tests are extremely CPU-intensive.
+
+You can invoke them using `ctest` from a terminal in your Leap build directory.
 ```bash
-# Also consider running the WASM spec tests for more coverage
-ctest -j $(nproc) -L wasm_spec_tests
+ctest -j "$(nproc)" -L wasm_spec_tests
 ```
+We have observed severe performance issues when two virtual machines are running this test suite on the same physical host at the same time, for example in a CICD system. This can be resolved by disabling hyperthreading on the host.
+
 
 Some other tests are available and recommended but be aware they can be sensitive to other software running on the same host and they may **SIGKILL** other nodeos instances running on the host.
 ```
