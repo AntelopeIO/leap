@@ -167,8 +167,7 @@ make -j "$(( $(nproc) - 2 ))" package
 After building, you may remove the `~/boost1.79` directory or you may keep it around for your next build.
 </details>
 
-### Running Tests
-
+### Test
 When building from source it's recommended to run at least what we refer to as the "parallelizable tests". Not included by default in the "parallelizable tests" are the WASM spec tests which can add additional coverage and can also be run in parallel.
 
 ```
