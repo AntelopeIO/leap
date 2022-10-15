@@ -157,7 +157,7 @@ cmake -DCMAKE_C_COMPILER=gcc-8 -DCMAKE_CXX_COMPILER=g++-8 \
       -DCMAKE_PREFIX_PATH="$HOME/boost1.79;/usr/lib/llvm-7/"  -DCMAKE_BUILD_TYPE=Release .. \
 make -j $(nproc) package
 ```
-After building you may remove the `$HOME/boost1.79` directory, or you may keep it around until next time building the software.
+After building, you may remove the `~/boost1.79` directory or you may keep it around for your next build.
 </details>
 
 ### Running Tests
