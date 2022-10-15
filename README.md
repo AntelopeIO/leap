@@ -101,8 +101,7 @@ The binaries will be in the Leap build directory you passed to the build script.
 #### Unpinned Build
 These instructions are valid for this branch. Other release branches may have different requirements so ensure you follow the directions in the branch or release you intend to build.
 
-<details>
-  <summary>Ubuntu 20.04 & 22.04 Build Instructions</summary>
+<details> <summary>Ubuntu 22.04 & 20.04</summary>
 
 Install required dependencies: 
 ```
@@ -129,8 +128,7 @@ make -j $(nproc) package
 ```
 </details>
 
-<details>
-  <summary>Ubuntu 18.04 Build Instructions</summary>
+<details> <summary>Ubuntu 18.04</summary>
 
 Install required dependencies. You will need to build Boost from source on this distribution. 
 ```
