@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.8
+#!/usr/bin/env python3
 
 import argparse
 from dataclasses import dataclass, field
@@ -20,7 +20,7 @@ class KeyStrings(object):
 
 @dataclass
 class nodeDefinition:
-    name: str = field(init=False)
+    name: str
     keys: List[str] = field(init=False)
     peers: List[str] = field(init=False)
     producers: List[str] = field(init=False)
@@ -73,7 +73,6 @@ def producer_name(producer_number: int, shared_producer: bool = False):
 class launcher(object):
     def __init__(self, args):
         self.args = self.parseArgs(args)
-        self.total_nodes = 
         self.network = testnetDefinition(self.args.network_name)
         self.aliases: List[str] = []
         self.next_node = 0
@@ -106,9 +105,9 @@ class launcher(object):
         
         cfg = parser.add_argument_group(title='optional and config file arguments')
         cfg.add_argument('-f', '--force', action='store_true', help='force overwrite of existing configuration files and erase blockchain', default=False)
-        cfg.add_argument('-n', '--nodes', dest='total_nodes', type=int, help='total number of nodes to configure and launch', default=1)
+        cfg.add_argument('-n', '--nodes', dest='total_nodes', type=int, help='total number of nodes to configure and launch', default=2)
         cfg.add_argument('--unstarted-nodes', type=int, help='total number of nodes to configure, but not launch', default=0)
-        cfg.add_argument('-p', '--pnodes', type=int, help='number of nodes that contain one or more producers', default=1)
+        cfg.add_argument('-p', '--pnodes', type=int, help='number of nodes that contain one or more producers', default=2)
         cfg.add_argument('--producers', type=int, help='total number of non-bios and non-shared producer instances in this network', default=21)
         cfg.add_argument('--shared-producers', type=int, help='total number of shared producers on each non-bios node', default=0)
         cfg.add_argument('-m', '--mode', choices=['any', 'producers', 'specified', 'none'], help='connection mode', default='any')
@@ -295,7 +294,7 @@ plugin = eosio::chain_api_plugin
                 attempts -= 1
         return ndx
 
-    def make_line(self, make_ring: bool):
+    def make_line(self, make_ring: bool = True):
         print(f"making {'ring' if make_ring else 'line'}")
         self.bind_nodes()
         non_bios = self.args.total_nodes - 1
