@@ -2,7 +2,7 @@
 Leap is blockchain node software and supporting tools that implement the [Antelope](https://github.com/AntelopeIO) protocol.
 
 ## Branches
-The `main` branch is the development branch, do not use this for production. Refer to the [release page](https://github.com/AntelopeIO/leap/releases) for current information on releases, pre-releases, and obsolete releases, as well as the corresponding tags for those releases.
+The `main` branch is the development branch, do not use it for production. Refer to the [release page](https://github.com/AntelopeIO/leap/releases) for current information on releases, pre-releases, and obsolete releases, as well as the corresponding tags for those releases.
 
 ## Binary Installation
 This is the fastest way to get started. Download a binary for the [latest](https://github.com/AntelopeIO/leap/releases/latest) release, or visit the [releases](https://github.com/AntelopeIO/leap/releases) page to download a binary for a specific version of Leap.
