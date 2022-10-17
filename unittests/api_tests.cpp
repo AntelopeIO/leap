@@ -1072,8 +1072,8 @@ BOOST_AUTO_TEST_CASE(checktime_pause_block_deadline_not_extended_test) { try {
    dlog("elapsed ${e}us", ("e", dur) );
    BOOST_CHECK( dur >= 75'000 ); // should never fail
    // If this check fails but duration is >= 75'000 (previous check did not fail), then the check here is likely
-   // because it took longer than 2 ms for checktime to trigger, trace to be created, and to get to the now() call.
-   BOOST_CHECK_MESSAGE( dur < 77'000, "elapsed " << dur << "us" );
+   // because it took longer than 10 ms for checktime to trigger, trace to be created, and to get to the now() call.
+   BOOST_CHECK_MESSAGE( dur < 85'000, "elapsed " << dur << "us" );
 
    BOOST_REQUIRE_EQUAL( t.validate(), true );
 } FC_LOG_AND_RETHROW() }
