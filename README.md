@@ -106,17 +106,17 @@ These instructions are valid for this branch. Other release branches may have di
 Install required dependencies: 
 ```bash
 sudo apt-get update
-sudo apt-get install   \
-        build-essential             \
-        cmake                       \
-        curl                        \
-        git                         \
-        libboost-all-dev            \
-        libcurl4-openssl-dev        \
-        libgmp-dev                  \
-        libssl-dev                  \
-        libusb-1.0-0-dev            \
-        llvm-11-dev                 \
+sudo apt-get install \
+        build-essential \
+        cmake \
+        curl \
+        git \
+        libboost-all-dev \
+        libcurl4-openssl-dev \
+        libgmp-dev \
+        libssl-dev \
+        libusb-1.0-0-dev \
+        llvm-11-dev \
         pkg-config
 ```
 and perform the build:
@@ -133,19 +133,19 @@ make -j "$(( $(nproc) - 2 ))" package
 Install required dependencies.
 ```bash
 sudo apt-get update
-sudo apt-get install   \
-        build-essential             \
-        cmake                       \
-        curl                        \
-        g++-8                       \
-        git                         \
-        libcurl4-openssl-dev        \
-        libgmp-dev                  \
-        libssl-dev                  \
-        libusb-1.0-0-dev            \
-        llvm-7-dev                  \
-        pkg-config                  \
-        python3                     \
+sudo apt-get install \
+        build-essential \
+        cmake \
+        curl \
+        g++-8 \
+        git \
+        libcurl4-openssl-dev \
+        libgmp-dev \
+        libssl-dev \
+        libusb-1.0-0-dev \
+        llvm-7-dev \
+        pkg-config \
+        python3 \
         zlib1g-dev
 ```
 You need to build Boost from source on this distribution.
