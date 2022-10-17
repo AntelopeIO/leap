@@ -13,6 +13,16 @@ You will need to know your version of Ubuntu to download the right binary. You c
 ```bash
 lsb_release -a
 ```
+
+<details> <summary>Ubuntu derivatives</summary>
+
+We currently only support Ubuntu but, if you want to try running our software on an Ubuntu derivative such as Linux Mint, you can determine the version of Ubuntu it was built from using the following command.
+```bash
+cat /etc/upstream-release/lsb-release
+```
+
+</details>
+
 Once you have a `*.deb` file downloaded for your version of Ubuntu, you can install it as follows.
 ```bash
 sudo apt-get install -y ~/Downloads/leap*.deb
