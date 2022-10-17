@@ -25,6 +25,7 @@ cat /etc/upstream-release/lsb-release
 
 Once you have a `*.deb` file downloaded for your version of Ubuntu, you can install it as follows.
 ```bash
+sudo apt-get update
 sudo apt-get install -y ~/Downloads/leap*.deb
 ```
 Your download path may vary.
