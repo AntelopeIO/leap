@@ -34,12 +34,18 @@ You can also build and install Leap from source. Recent Ubuntu LTS releases are 
 
 ### Prerequisites
 Notable requirements to build are:
-* C++17 compiler and standard library
-* boost 1.67+
-* CMake 3.8+
-* (for Linux only) LLVM 7 - 11 (newer versions do not work)
-
-A few other common libraries are tools also required such as openssl 1.1+, libcurl, curl, libusb, GMP, Python 3, and zlib.
+- C++17 compiler and standard library
+- boost 1.67+
+- CMake 3.8+
+- LLVM 7 - 11 - for Linux only
+  - newer versions do not work
+- openssl 1.1+
+- libcurl
+- curl
+- libusb
+- GMP
+- Python 3
+- zlib
 
 **A Warning On Parallel Compilation Jobs (`-j` flag)**: When building C/C++ software often the build is performed in parallel via a command such as `make -j $(nproc)` which uses the number of CPU cores as the number of compilation jobs to perform simultaneously. However, be aware that some compilation units (.cpp files) in Leap are extremely complex and will consume nearly 4GB of memory to compile. You may need to reduce the level of parallelization depending on the amount of memory on your build host. e.g. instead of `make -j $(nproc)` run `make -j2`. Failures due to memory exhaustion will typically but not always manifest as compiler crashes.
 
