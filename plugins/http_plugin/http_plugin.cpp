@@ -537,7 +537,7 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
       return (!my->listen_endpoint || my->listen_endpoint->address().is_loopback());
    }
 
-   bool http_plugin::verbose_errors()const {
+   bool http_plugin::verbose_errors() {
       return verbose_http_errors;
    }
 
