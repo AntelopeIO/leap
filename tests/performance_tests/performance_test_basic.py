@@ -227,8 +227,9 @@ class PerformanceBasicTest():
 
     def analyzeResultsAndReport(self, completedRun):
         args = self.prepArgs()
-        self.report = log_reader.calcAndReport(self.data, self.targetTps, self.testTrxGenDurationSec, self.nodeosLogPath, self.trxGenLogDirPath,
-                                               self.blockTrxDataPath, self.blockDataPath, self.numAddlBlocksToPrune, args, completedRun)
+        self.report = log_reader.calcAndReport(data=self.data, targetTps=self.targetTps, testDurationSec=self.testTrxGenDurationSec, tpsLimitPerGenerator=self.tpsLimitPerGenerator,
+                                               nodeosLogPath=self.nodeosLogPath, trxGenLogDirPath=self.trxGenLogDirPath, blockTrxDataPath=self.blockTrxDataPath,
+                                               blockDataPath=self.blockDataPath, numBlocksToPrune=self.numAddlBlocksToPrune, argsDict=args, completedRun=completedRun)
 
         print(self.data)
 

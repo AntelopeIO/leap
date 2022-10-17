@@ -7,6 +7,7 @@ import numpy as np
 import json
 import glob
 import gzip
+import math
 
 harnessPath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(harnessPath)
@@ -335,25 +336,28 @@ def calcTrxLatencyCpuNetStats(trxDict : dict, blockDict: dict):
            basicStats(float(np.min(npLatencyCpuNetList[:,1])), float(np.max(npLatencyCpuNetList[:,1])), float(np.average(npLatencyCpuNetList[:,1])), float(np.std(npLatencyCpuNetList[:,1])), len(npLatencyCpuNetList)), \
            basicStats(float(np.min(npLatencyCpuNetList[:,2])), float(np.max(npLatencyCpuNetList[:,2])), float(np.average(npLatencyCpuNetList[:,2])), float(np.std(npLatencyCpuNetList[:,2])), len(npLatencyCpuNetList))
 
-def createJSONReport(guide: chainBlocksGuide, targetTps: int, testDurationSec: int, tpsStats: stats, blockSizeStats: stats,
+def createJSONReport(guide: chainBlocksGuide, targetTps: int, testDurationSec: int, tpsLimitPerGenerator: int, tpsStats: stats, blockSizeStats: stats,
                      trxLatencyStats: basicStats, trxCpuStats: basicStats, trxNetStats: basicStats, argsDict, completedRun) -> json:
+    numGenerators = math.ceil(targetTps / tpsLimitPerGenerator)
     js = {}
     js['completedRun'] = completedRun
     js['nodeosVersion'] = Utils.getNodeosVersion()
-    js['env'] = {'system': system(), 'os': os.name, 'release': release()}
+    js['env'] = {'system': system(), 'os': os.name, 'release': release(), 'logical_cpu_count': os.cpu_count()}
     js['args'] =  argsDict
     js['Analysis'] = {}
     js['Analysis']['BlocksGuide'] = asdict(guide)
     js['Analysis']['TPS'] = asdict(tpsStats)
-    js['Analysis']['TPS']['configTps']=targetTps
-    js['Analysis']['TPS']['configTestDuration']=testDurationSec
+    js['Analysis']['TPS']['configTps'] = targetTps
+    js['Analysis']['TPS']['configTestDuration'] = testDurationSec
+    js['Analysis']['TPS']['tpsPerGenerator'] = math.floor(targetTps / numGenerators)
+    js['Analysis']['TPS']['generatorCount'] = numGenerators
     js['Analysis']['BlockSize'] = asdict(blockSizeStats)
     js['Analysis']['TrxCPU'] = asdict(trxCpuStats)
     js['Analysis']['TrxLatency'] = asdict(trxLatencyStats)
     js['Analysis']['TrxNet'] = asdict(trxNetStats)
     return json.dumps(js, sort_keys=True, indent=2)
 
-def calcAndReport(data, targetTps, testDurationSec, nodeosLogPath, trxGenLogDirPath, blockTrxDataPath, blockDataPath, numBlocksToPrune, args, completedRun) -> json:
+def calcAndReport(data, targetTps, testDurationSec, tpsLimitPerGenerator, nodeosLogPath, trxGenLogDirPath, blockTrxDataPath, blockDataPath, numBlocksToPrune, argsDict, completedRun) -> json:
     scrapeLog(data, nodeosLogPath)
 
     trxSent = {}
@@ -378,7 +382,8 @@ def calcAndReport(data, targetTps, testDurationSec, nodeosLogPath, trxGenLogDirP
 
     print(f"Blocks Guide: {guide}\nTPS: {tpsStats}\nBlock Size: {blkSizeStats}\nTrx Latency: {trxLatencyStats}\nTrx CPU: {trxCpuStats}\nTrx Net: {trxNetStats}")
 
-    report = createJSONReport(guide, targetTps, testDurationSec, tpsStats, blkSizeStats, trxLatencyStats, trxCpuStats, trxNetStats, args, completedRun)
+    report = createJSONReport(guide=guide, targetTps=targetTps, testDurationSec=testDurationSec, tpsLimitPerGenerator=tpsLimitPerGenerator, tpsStats=tpsStats, blockSizeStats=blkSizeStats,
+                              trxLatencyStats=trxLatencyStats, trxCpuStats=trxCpuStats, trxNetStats=trxNetStats, argsDict=argsDict, completedRun=completedRun)
 
     return report
 

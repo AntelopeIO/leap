@@ -6,6 +6,7 @@ import log_reader
 parser = argparse.ArgumentParser(add_help=False)
 parser.add_argument("--target-tps", type=int, help="The target transfers per second to send during test", default=8000)
 parser.add_argument("--test-duration-sec", type=int, help="The duration of transfer trx generation for the test in seconds", default=30)
+parser.add_argument("--tps-limit-per-generator", type=int, help="Maximum amount of transactions per second a single generator can have.", default=4000)
 parser.add_argument("--log-path", type=str, help="Path to nodeos log to scrape")
 parser.add_argument("--block-data-logs-dir", type=str, help="Path to block data logs directory (contains blockData.txt and blockTrxData.txt) to scrape")
 parser.add_argument("--trx-data-logs-dir", type=str, help="Path to trx data logs dir to scrape")
@@ -23,8 +24,9 @@ data.startBlock = args.start_block
 data.ceaseBlock = args.cease_block
 blockDataPath = f"{blockDataLogDirPath}/blockData.txt"
 blockTrxDataPath = f"{blockDataLogDirPath}/blockTrxData.txt"
-
-report = log_reader.calcAndReport(data, args.target_tps, args.test_duration_sec, nodeosLogPath, trxGenLogDirPath, blockTrxDataPath, blockDataPath, args.num_blocks_to_prune, dict(item.split("=") for item in f"{args}"[10:-1].split(", ")), True)
+report = log_reader.calcAndReport(data=data, targetTps=args.target_tps, testDurationSec=args.test_duration_sec, tpsLimitPerGenerator=args.tps_limit_per_generator,
+                                  nodeosLogPath=nodeosLogPath, trxGenLogDirPath=trxGenLogDirPath, blockTrxDataPath=blockTrxDataPath, blockDataPath=blockDataPath,
+                                  numBlocksToPrune=args.num_blocks_to_prune, argsDict=dict(item.split("=") for item in f"{args}"[10:-1].split(", ")), completedRun=True)
 
 print(data)
 data.printBlockData()
