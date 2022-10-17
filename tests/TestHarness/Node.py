@@ -498,21 +498,21 @@ class Node(object):
                     transIds.pop(trx['id'])
         return transIds
 
-    def waitOnBlockTransactions(self, transIds, startBlock=2, timeout=30):
+    def waitForTransactionsInBlockRange(self, transIds, startBlock=2, maxFutureBlocks=60):
         lastBlockProcessed = startBlock
-        finalBlock = sys.maxsize
-        if timeout is not None:
-            finalBlock = self.getHeadBlockNum() + timeout * 2
+        overallFinalBlock = sys.maxsize
+        if maxFutureBlocks is not None:
+            overallFinalBlock = self.getHeadBlockNum() + maxFutureBlocks
         while len(transIds) > 0:
-            endBlock = self.getHeadBlockNum()
-            if endBlock >  finalBlock:
-                endBlock = finalBlock
-            for blockNum in range(endBlock, lastBlockProcessed - 1, -1):
+            currentLoopEndBlock = self.getHeadBlockNum()
+            if currentLoopEndBlock >  overallFinalBlock:
+                currentLoopEndBlock = overallFinalBlock
+            for blockNum in range(currentLoopEndBlock, lastBlockProcessed - 1, -1):
                 transIds = self.checkBlockForTransactions(transIds, blockNum)
                 if len(transIds) == 0:
                     return transIds
-            lastBlockProcessed = endBlock
-            if endBlock == finalBlock:
+            lastBlockProcessed = currentLoopEndBlock
+            if currentLoopEndBlock == overallFinalBlock:
                 Utils.Print("ERROR: Transactions were missing upon expiration of waitOnblockTransactions")
                 break
             self.waitForHeadToAdvance()
