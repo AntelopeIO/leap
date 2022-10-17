@@ -150,19 +150,17 @@ sudo apt-get install   \
 ```
 You need to build Boost from source on this distribution.
 ```bash
-curl -L https://boostorg.jfrog.io/artifactory/main/release/1.79.0/source/boost_1_79_0.tar.bz2 | tar jx && \
-   cd boost_1_79_0 &&                                                                                     \
-   ./bootstrap.sh --prefix="$HOME/boost1.79" &&                                                             \
-   ./b2 --with-iostreams --with-date_time --with-filesystem --with-system                                 \
-        --with-program_options --with-chrono --with-test -j "$(( $(nproc) - 2 ))" install &&                            \
-   cd ..
+curl -L https://boostorg.jfrog.io/artifactory/main/release/1.79.0/source/boost_1_79_0.tar.bz2 | tar jx
+cd boost_1_79_0
+./bootstrap.sh --prefix="$HOME/boost1.79"
+./b2 --with-iostreams --with-date_time --with-filesystem --with-system --with-program_options --with-chrono --with-test -j "$(( $(nproc) - 2 ))" install
+cd ..
 ```
 and perform the build:
 ```bash
 mkdir -p build
 cd build
-cmake -DCMAKE_C_COMPILER=gcc-8 -DCMAKE_CXX_COMPILER=g++-8 \
-      -DCMAKE_PREFIX_PATH="$HOME/boost1.79;/usr/lib/llvm-7/"  -DCMAKE_BUILD_TYPE=Release .. \
+cmake -DCMAKE_C_COMPILER=gcc-8 -DCMAKE_CXX_COMPILER=g++-8 -DCMAKE_PREFIX_PATH="$HOME/boost1.79;/usr/lib/llvm-7/" -DCMAKE_BUILD_TYPE=Release ..
 make -j "$(( $(nproc) - 2 ))" package
 ```
 After building, you may remove the `~/boost1.79` directory or you may keep it around for your next build.
