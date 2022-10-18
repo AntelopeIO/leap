@@ -78,6 +78,9 @@ try:
     walletMgr.cleanup()
 
     specificExtraNodeosArgs={}
+    shipNodeNum = total_nodes - 1
+    specificExtraNodeosArgs[shipNodeNum]="--plugin eosio::state_history_plugin --state-history-endpoint 127.0.0.1:8999 --trace-history --chain-state-history --disable-replay-opts  "
+
     extraNodeosArgs="--contracts-console"
 
     Print("Stand up cluster")
