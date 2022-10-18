@@ -138,7 +138,7 @@ From a terminal in the root of the `leap` repo, build.
 mkdir -p build
 cd build
 cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/usr/lib/llvm-11 ..
-make -j "$(( $(nproc) - 2 ))" package
+make -j $(nproc) package
 ```
 </details>
 
@@ -169,7 +169,7 @@ curl -fL https://boostorg.jfrog.io/artifactory/main/release/1.79.0/source/boost_
 tar -jvxf ~/Downloads/boost_1_79_0.tar.bz2 -C ~/Downloads/
 pushd ~/Downloads/boost_1_79_0
 ./bootstrap.sh --prefix="$HOME/boost1.79"
-./b2 --with-iostreams --with-date_time --with-filesystem --with-system --with-program_options --with-chrono --with-test -j "$(( $(nproc) - 2 ))" install
+./b2 --with-iostreams --with-date_time --with-filesystem --with-system --with-program_options --with-chrono --with-test -j "$(nproc)" install
 popd
 ```
 The Boost `*.tar.bz2` download and `boost_1_79_0` folder can be removed now if you want more space.
@@ -181,7 +181,7 @@ From a terminal in the root of the `leap` repo, build.
 mkdir -p build
 cd build
 cmake -DCMAKE_C_COMPILER=gcc-8 -DCMAKE_CXX_COMPILER=g++-8 -DCMAKE_PREFIX_PATH="$HOME/boost1.79;/usr/lib/llvm-7/" -DCMAKE_BUILD_TYPE=Release ..
-make -j "$(( $(nproc) - 2 ))" package
+make -j "$(nproc)" package
 ```
 After building, you may remove the `~/boost1.79` directory or you may keep it around for your next build.
 </details>
