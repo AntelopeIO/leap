@@ -235,7 +235,14 @@ ctest -L "long_running_tests"
 ### Install
 Once you have [built](#build) Leap and [tested](#test) your build, you can install Leap to your system.
 
-Navigate to your Leap build directory and run this command.
+We recommend installing the binary package you just built. Navigate to your Leap build directory in a terminal and run this command.
+```bash
+sudo apt-get update
+sudo apt-get install -y ./leap_*.deb
+```
+- If you are in an Ubuntu docker container, omit `sudo` because you run as `root` by default.
+
+It is also possible to install using `make`.
 ```bash
 sudo make install
 ```
