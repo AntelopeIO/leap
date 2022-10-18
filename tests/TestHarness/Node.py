@@ -6,6 +6,7 @@ import os
 import re
 import json
 import signal
+import sys
 
 from datetime import datetime
 from datetime import timedelta
@@ -488,6 +489,34 @@ class Node(object):
         lam = lambda: self.isTransInAnyBlock(transId)
         ret=Utils.waitForBool(lam, timeout)
         return ret
+
+    def checkBlockForTransactions(self, transIds, blockNum):
+        block = self.processCurlCmd("trace_api", "get_block", f'{{"block_num":{blockNum}}}', silentErrors=False, exitOnError=True)
+        if block['transactions']:
+            for trx in block['transactions']:
+                if trx['id'] in transIds:
+                    transIds.pop(trx['id'])
+        return transIds
+
+    def waitForTransactionsInBlockRange(self, transIds, startBlock=2, maxFutureBlocks=None):
+        lastBlockProcessed = startBlock
+        overallFinalBlock = self.getHeadBlockNum()
+        if maxFutureBlocks is not None:
+            overallFinalBlock = overallFinalBlock + maxFutureBlocks
+        while len(transIds) > 0:
+            currentLoopEndBlock = self.getHeadBlockNum()
+            if currentLoopEndBlock >  overallFinalBlock:
+                currentLoopEndBlock = overallFinalBlock
+            for blockNum in range(currentLoopEndBlock, lastBlockProcessed - 1, -1):
+                transIds = self.checkBlockForTransactions(transIds, blockNum)
+                if len(transIds) == 0:
+                    return transIds
+            lastBlockProcessed = currentLoopEndBlock
+            if currentLoopEndBlock == overallFinalBlock:
+                Utils.Print("ERROR: Transactions were missing upon expiration of waitOnblockTransactions")
+                break
+            self.waitForHeadToAdvance()
+        return transIds
 
     def waitForTransFinalization(self, transId, timeout=None):
         """Wait for trans id to be finalized."""
