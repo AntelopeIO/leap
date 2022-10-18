@@ -77,10 +77,10 @@ An HTTPS and SSH clone both result in the same thing, a folder named `leap` cont
 ```bash
 cd leap
 ```
-Choose which [release tag](https://github.com/AntelopeIO/leap/releases) or [branch](#branches) you would like to build and check it out. If you don't know, use the [latest release](https://github.com/AntelopeIO/leap/releases/latest). For example, if you want to build release 3.1.2, you would check it out using its tag.
+Choose which [release tag](https://github.com/AntelopeIO/leap/releases) or [branch](#branches) you would like to build and check it out. If you don't know, use the [latest release](https://github.com/AntelopeIO/leap/releases/latest). For example, if you want to build release 3.1.2 then you would check it out using its tag, `v3.1.2`.
 ```bash
 git fetch
-git checkout v3.1.2
+git checkout v0.0.0
 ```
 
 Once you are on the branch or tag (release) you want to build, make sure everything is up-to-date.
