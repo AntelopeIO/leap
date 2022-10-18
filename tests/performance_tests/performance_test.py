@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import math
 import os
 import sys
 import json
@@ -46,14 +47,13 @@ def performPtbBinarySearch(tpsTestFloor: int, tpsTestCeiling: int, minStep: int,
     floor = tpsTestFloor
     ceiling = tpsTestCeiling
     binSearchTarget = 0
-    lastRun = False
 
     maxTpsAchieved = 0
     maxTpsReport = {}
     searchResults = []
 
-    while floor < ceiling:
-        binSearchTarget = round(((ceiling + floor) // 2) / 100) * 100
+    while ceiling >= floor:
+        binSearchTarget = floor + (math.ceil(((ceiling - floor) / minStep) / 2) * minStep)
         print(f"Running scenario: floor {floor} binSearchTarget {binSearchTarget} ceiling {ceiling}")
         ptbResult = PerfTestBasicResult()
         scenarioResult = PerfTestSearchIndivResult(success=False, searchTarget=binSearchTarget, searchFloor=floor, searchCeiling=ceiling, basicTestResult=ptbResult)
@@ -62,22 +62,17 @@ def performPtbBinarySearch(tpsTestFloor: int, tpsTestCeiling: int, minStep: int,
                                     testTrxGenDurationSec=testDurationSec, tpsLimitPerGenerator=tpsLimitPerGenerator,
                                     numAddlBlocksToPrune=numAddlBlocksToPrune, rootLogDir=testLogDir, saveJsonReport=saveJson)
         testSuccessful = myTest.runTest()
-
         if evaluateSuccess(myTest, testSuccessful, ptbResult):
             maxTpsAchieved = binSearchTarget
             maxTpsReport = json.loads(myTest.report)
-            floor = binSearchTarget
+            floor = binSearchTarget + minStep
             scenarioResult.success = True
         else:
-            ceiling = binSearchTarget
+            ceiling = binSearchTarget - minStep
 
         scenarioResult.basicTestResult = ptbResult
         searchResults.append(scenarioResult)
         print(f"searchResult: {binSearchTarget} : {searchResults[-1]}")
-        if lastRun:
-            break
-        if ceiling - floor <= minStep:
-            lastRun = True
 
     return PerfTestBinSearchResults(maxTpsAchieved=maxTpsAchieved, searchResults=searchResults, maxTpsReport=maxTpsReport)
 
