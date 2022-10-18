@@ -201,13 +201,10 @@ class PerformanceBasicTest():
         args = {}
         args.update(asdict(self.testHelperConfig))
         args.update(asdict(self.clusterConfig))
-        args["targetTps"] = self.targetTps
-        args["testTrxGenDurationSec"] = self.testTrxGenDurationSec
-        args["tpsLimitPerGenerator"] = self.tpsLimitPerGenerator
-        args["expectedTransactionsSent"] = self.expectedTransactionsSent
-        args["saveJsonReport"] = self.saveJsonReport
-        args["numAddlBlocksToPrune"] = self.numAddlBlocksToPrune
+        args.update({key:val for key, val in self.__class__.__dict__.items() if key in set(['targetTps', 'testTrxGenDurationSec', 'tpsLimitPerGenerator',
+                                                                                            'expectedTransactionsSent', 'saveJsonReport', 'numAddlBlocksToPrune'])})
         return args
+
 
     def analyzeResultsAndReport(self, completedRun):
         args = self.prepArgs()

@@ -145,20 +145,13 @@ def testDirsSetup(rootLogDir, testTimeStampDirPath, ptbLogsDirPath):
     except OSError as error:
         print(error)
 
-def prepArgsDict(testDurationSec, finalDurationSec, testTimeStampDirPath, maxTpsToTest, testIterationMinStep,
+def prepArgsDict(testDurationSec, finalDurationSec, logsDir, maxTpsToTest, testIterationMinStep,
              tpsLimitPerGenerator, saveJsonReport, saveTestJsonReports, numAddlBlocksToPrune, testHelperConfig, testClusterConfig) -> dict:
     argsDict = {}
     argsDict.update(asdict(testHelperConfig))
     argsDict.update(asdict(testClusterConfig))
-    argsDict["testDurationSec"] = testDurationSec
-    argsDict["finalDurationSec"] = finalDurationSec
-    argsDict["maxTpsToTest"] = maxTpsToTest
-    argsDict["testIterationMinStep"] = testIterationMinStep
-    argsDict["tpsLimitPerGenerator"] = tpsLimitPerGenerator
-    argsDict["saveJsonReport"] = saveJsonReport
-    argsDict["saveTestJsonReports"] = saveTestJsonReports
-    argsDict["numAddlBlocksToPrune"] = numAddlBlocksToPrune
-    argsDict["logsDir"] = testTimeStampDirPath
+    argsDict.update({key:val for key, val in locals().items() if key in set(['testDurationSec', 'finalDurationSec', 'maxTpsToTest', 'testIterationMinStep', 'tpsLimitPerGenerator',
+                                                                                  'saveJsonReport', 'saveTestJsonReports', 'numAddlBlocksToPrune', 'logsDir'])})
     return argsDict
 
 def parseArgs():
@@ -213,7 +206,7 @@ def main():
 
     testClusterConfig = PerformanceBasicTest.ClusterConfig(pnodes=pnodes, totalNodes=totalNodes, topo=topo, genesisPath=genesisPath)
 
-    argsDict = prepArgsDict(testDurationSec=testDurationSec, finalDurationSec=finalDurationSec, testTimeStampDirPath=testTimeStampDirPath,
+    argsDict = prepArgsDict(testDurationSec=testDurationSec, finalDurationSec=finalDurationSec, logsDir=testTimeStampDirPath,
                         maxTpsToTest=maxTpsToTest, testIterationMinStep=testIterationMinStep, tpsLimitPerGenerator=tpsLimitPerGenerator,
                         saveJsonReport=saveJsonReport, saveTestJsonReports=saveTestJsonReports, numAddlBlocksToPrune=numAddlBlocksToPrune, testHelperConfig=testHelperConfig, testClusterConfig=testClusterConfig)
 
