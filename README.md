@@ -79,6 +79,7 @@ cd leap
 ```
 Choose which [release tag](https://github.com/AntelopeIO/leap/releases) or [branch](#branches) you would like to build and check it out. If you don't know, use the [latest release](https://github.com/AntelopeIO/leap/releases/latest). For example, if you want to build release 3.1.2, you would check it out using its tag.
 ```bash
+git fetch
 git checkout v3.1.2
 ```
 
