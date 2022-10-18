@@ -390,7 +390,7 @@ class state_history_log {
             index.skip(-sizeof(uint64_t));
 
             if (!(remaining % 10000))
-               ilog("${remaining} blocks remaining, log pos = ${pos}", ("num_found", remaining)("pos", pos));
+               ilog("${r} blocks remaining, log pos = ${pos}", ("r", remaining)("pos", pos));
          }
       }
 
