@@ -86,50 +86,34 @@ class PerformanceBasicTest():
 
     def testDirsCleanup(self, saveJsonReport: bool=False):
         try:
-            if saveJsonReport:
-                print(f"Checking if test artifacts dir exists: {self.trxGenLogDirPath}")
-                if os.path.isdir(f"{self.trxGenLogDirPath}"):
-                    print(f"Cleaning up test artifacts dir and all contents of: {self.trxGenLogDirPath}")
-                    shutil.rmtree(f"{self.trxGenLogDirPath}")
+            def removeArtifacts(path):
+                print(f"Checking if test artifacts dir exists: {path}")
+                if os.path.isdir(f"{path}"):
+                    print(f"Cleaning up test artifacts dir and all contents of: {path}")
+                    shutil.rmtree(f"{path}")
 
-                print(f"Checking if test artifacts dir exists: {self.blockDataLogDirPath}")
-                if os.path.isdir(f"{self.blockDataLogDirPath}"):
-                    print(f"Cleaning up test artifacts dir and all contents of: {self.blockDataLogDirPath}")
-                    shutil.rmtree(f"{self.blockDataLogDirPath}")
+            if saveJsonReport:
+                removeArtifacts(self.trxGenLogDirPath)
+                removeArtifacts(self.blockDataLogDirPath)
             else:
-                print(f"Checking if test artifacts dir exists: {self.testTimeStampDirPath}")
-                if os.path.isdir(f"{self.testTimeStampDirPath}"):
-                    print(f"Cleaning up test artifacts dir and all contents of: {self.testTimeStampDirPath}")
-                    shutil.rmtree(f"{self.testTimeStampDirPath}")
+                removeArtifacts(self.testTimeStampDirPath)
         except OSError as error:
             print(error)
 
     def testDirsSetup(self):
         try:
-            print(f"Checking if root log dir exists: {self.rootLogDir}")
-            if not os.path.isdir(f"{self.rootLogDir}"):
-                print(f"Creating root log dir: {self.rootLogDir}")
-                os.mkdir(f"{self.rootLogDir}")
+            def createArtifactsDir(path):
+                print(f"Checking if test artifacts dir exists: {path}")
+                if not os.path.isdir(f"{path}"):
+                    print(f"Creating test artifacts dir: {path}")
+                    os.mkdir(f"{path}")
 
-            print(f"Checking if test artifacts dir exists: {self.ptbLogDir}")
-            if not os.path.isdir(f"{self.ptbLogDir}"):
-                print(f"Creating test artifacts dir: {self.ptbLogDir}")
-                os.mkdir(f"{self.ptbLogDir}")
+            createArtifactsDir(self.rootLogDir)
+            createArtifactsDir(self.ptbLogDir)
+            createArtifactsDir(self.testTimeStampDirPath)
+            createArtifactsDir(self.trxGenLogDirPath)
+            createArtifactsDir(self.blockDataLogDirPath)
 
-            print(f"Checking if logs dir exists: {self.testTimeStampDirPath}")
-            if not os.path.isdir(f"{self.testTimeStampDirPath}"):
-                print(f"Creating logs dir: {self.testTimeStampDirPath}")
-                os.mkdir(f"{self.testTimeStampDirPath}")
-
-            print(f"Checking if logs dir exists: {self.trxGenLogDirPath}")
-            if not os.path.isdir(f"{self.trxGenLogDirPath}"):
-                print(f"Creating logs dir: {self.trxGenLogDirPath}")
-                os.mkdir(f"{self.trxGenLogDirPath}")
-
-            print(f"Checking if logs dir exists: {self.blockDataLogDirPath}")
-            if not os.path.isdir(f"{self.blockDataLogDirPath}"):
-                print(f"Creating logs dir: {self.blockDataLogDirPath}")
-                os.mkdir(f"{self.blockDataLogDirPath}")
         except OSError as error:
             print(error)
 

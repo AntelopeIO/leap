@@ -117,35 +117,30 @@ def exportReportAsJSON(report: json, exportPath):
 
 def testDirsCleanup(saveJsonReport, testTimeStampDirPath, ptbLogsDirPath):
     try:
+        def removeArtifacts(path):
+            print(f"Checking if test artifacts dir exists: {path}")
+            if os.path.isdir(f"{path}"):
+                print(f"Cleaning up test artifacts dir and all contents of: {path}")
+                shutil.rmtree(f"{path}")
+
         if saveJsonReport:
-            print(f"Checking if test artifacts dir exists: {ptbLogsDirPath}")
-            if os.path.isdir(f"{ptbLogsDirPath}"):
-                print(f"Cleaning up test artifacts dir and all contents of: {ptbLogsDirPath}")
-                shutil.rmtree(f"{ptbLogsDirPath}")
+            removeArtifacts(ptbLogsDirPath)
         else:
-            print(f"Checking if test artifacts dir exists: {testTimeStampDirPath}")
-            if os.path.isdir(f"{testTimeStampDirPath}"):
-                print(f"Cleaning up test artifacts dir and all contents of: {testTimeStampDirPath}")
-                shutil.rmtree(f"{testTimeStampDirPath}")
+            removeArtifacts(testTimeStampDirPath)
     except OSError as error:
         print(error)
 
 def testDirsSetup(rootLogDir, testTimeStampDirPath, ptbLogsDirPath):
     try:
-        print(f"Checking if test artifacts dir exists: {rootLogDir}")
-        if not os.path.isdir(f"{rootLogDir}"):
-            print(f"Creating test artifacts dir: {rootLogDir}")
-            os.mkdir(f"{rootLogDir}")
+        def createArtifactsDir(path):
+            print(f"Checking if test artifacts dir exists: {path}")
+            if not os.path.isdir(f"{path}"):
+                print(f"Creating test artifacts dir: {path}")
+                os.mkdir(f"{path}")
 
-        print(f"Checking if logs dir exists: {testTimeStampDirPath}")
-        if not os.path.isdir(f"{testTimeStampDirPath}"):
-            print(f"Creating logs dir: {testTimeStampDirPath}")
-            os.mkdir(f"{testTimeStampDirPath}")
-
-        print(f"Checking if logs dir exists: {ptbLogsDirPath}")
-        if not os.path.isdir(f"{ptbLogsDirPath}"):
-            print(f"Creating logs dir: {ptbLogsDirPath}")
-            os.mkdir(f"{ptbLogsDirPath}")
+        createArtifactsDir(rootLogDir)
+        createArtifactsDir(testTimeStampDirPath)
+        createArtifactsDir(ptbLogsDirPath)
 
     except OSError as error:
         print(error)
