@@ -498,11 +498,11 @@ class Node(object):
                     transIds.pop(trx['id'])
         return transIds
 
-    def waitForTransactionsInBlockRange(self, transIds, startBlock=2, maxFutureBlocks=60):
+    def waitForTransactionsInBlockRange(self, transIds, startBlock=2, maxFutureBlocks=None):
         lastBlockProcessed = startBlock
-        overallFinalBlock = sys.maxsize
+        overallFinalBlock = self.getHeadBlockNum()
         if maxFutureBlocks is not None:
-            overallFinalBlock = self.getHeadBlockNum() + maxFutureBlocks
+            overallFinalBlock = overallFinalBlock + maxFutureBlocks
         while len(transIds) > 0:
             currentLoopEndBlock = self.getHeadBlockNum()
             if currentLoopEndBlock >  overallFinalBlock:
