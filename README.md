@@ -105,7 +105,7 @@ sudo scripts/install_deps.sh
 
 Next, call our pinned build script. You have to give it three arguments, a folder for dependencies, a build folder, and [the number of jobs or CPU cores/threads to use](#jobs-flag). This command uses a `deps` and `build` folder in the root of the Leap repo for the first two arguments, then builds using all but two of your computer's CPU threads.
 ```bash
-scripts/pinned_build.sh deps build "$(( $(nproc) - 2 ))"
+scripts/pinned_build.sh deps build "$(nproc)"
 ```
 - You don't need `sudo` for this command.
 
