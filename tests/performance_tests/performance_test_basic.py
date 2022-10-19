@@ -5,228 +5,309 @@ import sys
 import subprocess
 import shutil
 import signal
-import time
-from datetime import datetime
+import log_reader
+import inspect
 
 harnessPath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(harnessPath)
 
 from TestHarness import Cluster, TestHelper, Utils, WalletMgr
 from TestHarness.TestHelper import AppArgs
-import log_reader
+from dataclasses import dataclass, asdict
+from datetime import datetime
 
-Print = Utils.Print
-errorExit = Utils.errorExit
-cmdError = Utils.cmdError
-relaunchTimeout = 30
-emptyBlockGoal = 5
+class PerformanceBasicTest():
+    @dataclass
+    class TestHelperConfig():
+        killAll: bool = True # clean_run
+        dontKill: bool = False # leave_running
+        keepLogs: bool = False
+        dumpErrorDetails: bool = False
+        delay: int = 1
+        nodesFile: str = None
+        verbose: bool = False
+        _killEosInstances: bool = True
+        _killWallet: bool = True
 
-def fileOpenMode(filePath) -> str:
+        def __post_init__(self):
+            self._killEosInstances = not self.dontKill
+            self._killWallet = not self.dontKill
+
+    @dataclass
+    class ClusterConfig():
+        pnodes: int = 1
+        totalNodes: int = 2
+        topo: str = "mesh"
+        extraNodeosArgs: str = ' --http-max-response-time-ms 990000 --disable-subjective-api-billing true '
+        useBiosBootFile: bool = False
+        genesisPath: str = "tests/performance_tests/genesis.json"
+        maximumP2pPerHost: int = 5000
+        maximumClients: int = 0
+        loggingDict = { "bios": "off" }
+        _totalNodes: int = 2
+
+        def __post_init__(self):
+            self._totalNodes = max(2, self.pnodes if self.totalNodes < self.pnodes else self.totalNodes)
+
+    def __init__(self, testHelperConfig: TestHelperConfig=TestHelperConfig(), clusterConfig: ClusterConfig=ClusterConfig(), targetTps: int=8000,
+                 testTrxGenDurationSec: int=30, tpsLimitPerGenerator: int=4000, numAddlBlocksToPrune: int=2,
+                 rootLogDir: str=".", saveJsonReport: bool=False):
+        self.testHelperConfig = testHelperConfig
+        self.clusterConfig = clusterConfig
+        self.targetTps = targetTps
+        self.testTrxGenDurationSec = testTrxGenDurationSec
+        self.tpsLimitPerGenerator = tpsLimitPerGenerator
+        self.expectedTransactionsSent = self.testTrxGenDurationSec * self.targetTps
+        self.saveJsonReport = saveJsonReport
+        self.numAddlBlocksToPrune = numAddlBlocksToPrune
+        self.saveJsonReport = saveJsonReport
+
+        Utils.Debug = self.testHelperConfig.verbose
+        self.errorExit = Utils.errorExit
+        self.emptyBlockGoal = 5
+
+        self.rootLogDir = rootLogDir
+        self.ptbLogDir = f"{self.rootLogDir}/{os.path.splitext(os.path.basename(__file__))[0]}"
+        self.testTimeStampDirPath = f"{self.ptbLogDir}/{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
+        self.trxGenLogDirPath = f"{self.testTimeStampDirPath}/trxGenLogs"
+        self.blockDataLogDirPath = f"{self.testTimeStampDirPath}/blockDataLogs"
+        self.blockDataPath = f"{self.blockDataLogDirPath}/blockData.txt"
+        self.blockTrxDataPath = f"{self.blockDataLogDirPath}/blockTrxData.txt"
+        self.reportPath = f"{self.testTimeStampDirPath}/data.json"
+        self.nodeosLogPath = "var/lib/node_01/stderr.txt"
+
+        # Setup cluster and its wallet manager
+        self.walletMgr=WalletMgr(True)
+        self.cluster=Cluster(walletd=True, loggingLevel="info", loggingLevelDict=self.clusterConfig.loggingDict)
+        self.cluster.setWalletMgr(self.walletMgr)
+
+    def cleanupOldClusters(self):
+        self.cluster.killall(allInstances=self.testHelperConfig.killAll)
+        self.cluster.cleanup()
+
+    def testDirsCleanup(self, saveJsonReport: bool=False):
+        try:
+            def removeArtifacts(path):
+                print(f"Checking if test artifacts dir exists: {path}")
+                if os.path.isdir(f"{path}"):
+                    print(f"Cleaning up test artifacts dir and all contents of: {path}")
+                    shutil.rmtree(f"{path}")
+
+            if saveJsonReport:
+                removeArtifacts(self.trxGenLogDirPath)
+                removeArtifacts(self.blockDataLogDirPath)
+            else:
+                removeArtifacts(self.testTimeStampDirPath)
+        except OSError as error:
+            print(error)
+
+    def testDirsSetup(self):
+        try:
+            def createArtifactsDir(path):
+                print(f"Checking if test artifacts dir exists: {path}")
+                if not os.path.isdir(f"{path}"):
+                    print(f"Creating test artifacts dir: {path}")
+                    os.mkdir(f"{path}")
+
+            createArtifactsDir(self.rootLogDir)
+            createArtifactsDir(self.ptbLogDir)
+            createArtifactsDir(self.testTimeStampDirPath)
+            createArtifactsDir(self.trxGenLogDirPath)
+            createArtifactsDir(self.blockDataLogDirPath)
+
+        except OSError as error:
+            print(error)
+
+    def fileOpenMode(self, filePath) -> str:
         if os.path.exists(filePath):
             append_write = 'a'
         else:
             append_write = 'w'
         return append_write
 
-def queryBlockTrxData(node, blockDataPath, blockTrxDataPath, startBlockNum, endBlockNum):
-    for blockNum in range(startBlockNum, endBlockNum):
-        block = node.processCurlCmd("trace_api", "get_block", f'{{"block_num":{blockNum}}}', silentErrors=False, exitOnError=True)
+    def queryBlockTrxData(self, node, blockDataPath, blockTrxDataPath, startBlockNum, endBlockNum):
+        for blockNum in range(startBlockNum, endBlockNum):
+            block = node.processCurlCmd("trace_api", "get_block", f'{{"block_num":{blockNum}}}', silentErrors=False, exitOnError=True)
 
-        btdf_append_write = fileOpenMode(blockTrxDataPath)
-        with open(blockTrxDataPath, btdf_append_write) as trxDataFile:
-            [trxDataFile.write(f"{trx['id']},{trx['block_num']},{trx['cpu_usage_us']},{trx['net_usage_words']}\n") for trx in block['transactions'] if block['transactions']]
-        trxDataFile.close()
+            btdf_append_write = self.fileOpenMode(blockTrxDataPath)
+            with open(blockTrxDataPath, btdf_append_write) as trxDataFile:
+                [trxDataFile.write(f"{trx['id']},{trx['block_num']},{trx['cpu_usage_us']},{trx['net_usage_words']}\n") for trx in block['transactions'] if block['transactions']]
+            trxDataFile.close()
 
-        bdf_append_write = fileOpenMode(blockDataPath)
-        with open(blockDataPath, bdf_append_write) as blockDataFile:
-            blockDataFile.write(f"{block['number']},{block['id']},{block['producer']},{block['status']},{block['timestamp']}\n")
-        blockDataFile.close()
+            bdf_append_write = self.fileOpenMode(blockDataPath)
+            with open(blockDataPath, bdf_append_write) as blockDataFile:
+                blockDataFile.write(f"{block['number']},{block['id']},{block['producer']},{block['status']},{block['timestamp']}\n")
+            blockDataFile.close()
 
-def waitForEmptyBlocks(node):
-    emptyBlocks = 0
-    while emptyBlocks < emptyBlockGoal:
-        headBlock = node.getHeadBlockNum()
-        block = node.processCurlCmd("chain", "get_block_info", f'{{"block_num":{headBlock}}}', silentErrors=False, exitOnError=True)
-        node.waitForHeadToAdvance()
-        if block['transaction_mroot'] == "0000000000000000000000000000000000000000000000000000000000000000":
-            emptyBlocks += 1
-        else:
-            emptyBlocks = 0
-    return node.getHeadBlockNum()
+    def waitForEmptyBlocks(self, node, numEmptyToWaitOn):
+        emptyBlocks = 0
+        while emptyBlocks < numEmptyToWaitOn:
+            headBlock = node.getHeadBlockNum()
+            block = node.processCurlCmd("chain", "get_block_info", f'{{"block_num":{headBlock}}}', silentErrors=False, exitOnError=True)
+            node.waitForHeadToAdvance()
+            if block['transaction_mroot'] == "0000000000000000000000000000000000000000000000000000000000000000":
+                emptyBlocks += 1
+            else:
+                emptyBlocks = 0
+        return node.getHeadBlockNum()
 
-def testDirsCleanup(rootDir):
-    try:
-        print(f"Checking if test artifacts dir exists: {rootDir}")
-        if os.path.isdir(f"{rootDir}"):
-            print(f"Cleaning up test artifacts dir and all contents of: {rootDir}")
-            shutil.rmtree(f"{rootDir}")
-    except OSError as error:
-        print(error)
+    def launchCluster(self):
+        return self.cluster.launch(
+            pnodes=self.clusterConfig.pnodes,
+            totalNodes=self.clusterConfig._totalNodes,
+            useBiosBootFile=self.clusterConfig.useBiosBootFile,
+            topo=self.clusterConfig.topo,
+            genesisPath=self.clusterConfig.genesisPath,
+            maximumP2pPerHost=self.clusterConfig.maximumP2pPerHost,
+            maximumClients=self.clusterConfig.maximumClients,
+            extraNodeosArgs=self.clusterConfig.extraNodeosArgs
+            )
 
-def testDirsSetup(scriptName, testRunTimestamp, trxGenLogDir, blockDataLogDir):
-    try:
-        print(f"Checking if test artifacts dir exists: {scriptName}")
-        if not os.path.isdir(f"{scriptName}"):
-            print(f"Creating test artifacts dir: {scriptName}")
-            os.mkdir(f"{scriptName}")
+    def setupWalletAndAccounts(self):
+        self.wallet = self.walletMgr.create('default')
+        self.cluster.populateWallet(2, self.wallet)
+        self.cluster.createAccounts(self.cluster.eosioAccount, stakedDeposit=0)
 
-        print(f"Checking if logs dir exists: {testRunTimestamp}")
-        if not os.path.isdir(f"{testRunTimestamp}"):
-            print(f"Creating logs dir: {testRunTimestamp}")
-            os.mkdir(f"{testRunTimestamp}")
+        self.account1Name = self.cluster.accounts[0].name
+        self.account2Name = self.cluster.accounts[1].name
 
-        print(f"Checking if logs dir exists: {trxGenLogDir}")
-        if not os.path.isdir(f"{trxGenLogDir}"):
-            print(f"Creating logs dir: {trxGenLogDir}")
-            os.mkdir(f"{trxGenLogDir}")
+        self.account1PrivKey = self.cluster.accounts[0].activePrivateKey
+        self.account2PrivKey = self.cluster.accounts[1].activePrivateKey
 
-        print(f"Checking if logs dir exists: {blockDataLogDir}")
-        if not os.path.isdir(f"{blockDataLogDir}"):
-            print(f"Creating logs dir: {blockDataLogDir}")
-            os.mkdir(f"{blockDataLogDir}")
-    except OSError as error:
-        print(error)
+    def runTpsTest(self) -> bool:
+        self.producerNode = self.cluster.getNode(0)
+        self.validationNode = self.cluster.getNode(1)
+        info = self.producerNode.getInfo()
+        chainId = info['chain_id']
+        lib_id = info['last_irreversible_block_id']
+        self.data = log_reader.chainData()
 
-appArgs=AppArgs()
-appArgs.add(flag="--target-tps", type=int, help="The target transfers per second to send during test", default=8000)
-appArgs.add(flag="--tps-limit-per-generator", type=int, help="Maximum amount of transactions per second a single generator can have.", default=4000)
-appArgs.add(flag="--test-duration-sec", type=int, help="The duration of transfer trx generation for the test in seconds", default=30)
-appArgs.add(flag="--genesis", type=str, help="Path to genesis.json", default="tests/performance_tests/genesis.json")
-appArgs.add(flag="--num-blocks-to-prune", type=int, help="The number of potentially non-empty blocks, in addition to leading and trailing size 0 blocks, to prune from the beginning and end of the range of blocks of interest for evaluation.", default=2)
-appArgs.add(flag="--save-json", type=bool, help="Whether to save json output of stats", default=False)
-appArgs.add(flag="--json-path", type=str, help="Path to save json output", default="data.json")
-args=TestHelper.parse_args({"-p","-n","-d","-s","--nodes-file"
-                            ,"--dump-error-details","-v","--leave-running"
-                            ,"--clean-run","--keep-logs"}, applicationSpecificArgs=appArgs)
+        self.cluster.biosNode.kill(signal.SIGTERM)
 
-pnodes=args.p
-topo=args.s
-delay=args.d
-total_nodes = max(2, pnodes if args.n < pnodes else args.n)
-Utils.Debug = args.v
-killAll=args.clean_run
-dumpErrorDetails=args.dump_error_details
-dontKill=args.leave_running
-killEosInstances = not dontKill
-killWallet=not dontKill
-keepLogs=args.keep_logs
-testGenerationDurationSec = args.test_duration_sec
-targetTps = args.target_tps
-genesisJsonFile = args.genesis
-tpsLimitPerGenerator = args.tps_limit_per_generator
-numAddlBlocksToPrune = args.num_blocks_to_prune
-logging_dict = {
-    "bios": "off"
-}
+        self.data.startBlock = self.waitForEmptyBlocks(self.validationNode, self.emptyBlockGoal)
 
-# Setup cluster and its wallet manager
-walletMgr=WalletMgr(True)
-cluster=Cluster(walletd=True, loggingLevel="info", loggingLevelDict=logging_dict)
-cluster.setWalletMgr(walletMgr)
+        subprocess.run([
+            f"./tests/performance_tests/launch_transaction_generators.py",
+            f"{chainId}", f"{lib_id}", f"{self.cluster.eosioAccount.name}",
+            f"{self.account1Name}", f"{self.account2Name}", f"{self.account1PrivKey}", f"{self.account2PrivKey}",
+            f"{self.testTrxGenDurationSec}", f"{self.targetTps}", f"{self.tpsLimitPerGenerator}", f"{self.trxGenLogDirPath}"
+            ])
 
-testSuccessful = False
-completedRun = False
+        # Get stats after transaction generation stops
+        self.data.ceaseBlock = self.waitForEmptyBlocks(self.validationNode, self.emptyBlockGoal) - self.emptyBlockGoal + 1
 
-try:
-    # Kill any existing instances and launch cluster
-    TestHelper.printSystemInfo("BEGIN")
-    cluster.killall(allInstances=killAll)
-    cluster.cleanup()
+        return True
 
-    scriptName  = os.path.splitext(os.path.basename(__file__))[0]
-    testTimeStampDirPath = f"{scriptName}/{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
-    trxGenLogDirPath = f"{testTimeStampDirPath}/trxGenLogs"
-    blockDataLogDirPath = f"{testTimeStampDirPath}/blockDataLogs"
+    def prepArgs(self) -> dict:
+        args = {}
+        args.update(asdict(self.testHelperConfig))
+        args.update(asdict(self.clusterConfig))
+        args.update({key:val for key, val in inspect.getmembers(self) if key in set(['targetTps', 'testTrxGenDurationSec', 'tpsLimitPerGenerator',
+                                                                                     'expectedTransactionsSent', 'saveJsonReport', 'numAddlBlocksToPrune'])})
+        return args
 
-    testDirsCleanup(testTimeStampDirPath)
 
-    testDirsSetup(scriptName, testTimeStampDirPath, trxGenLogDirPath, blockDataLogDirPath)
+    def analyzeResultsAndReport(self, completedRun):
+        args = self.prepArgs()
+        self.report = log_reader.calcAndReport(data=self.data, targetTps=self.targetTps, testDurationSec=self.testTrxGenDurationSec, tpsLimitPerGenerator=self.tpsLimitPerGenerator,
+                                               nodeosLogPath=self.nodeosLogPath, trxGenLogDirPath=self.trxGenLogDirPath, blockTrxDataPath=self.blockTrxDataPath,
+                                               blockDataPath=self.blockDataPath, numBlocksToPrune=self.numAddlBlocksToPrune, argsDict=args, completedRun=completedRun)
 
-    extraNodeosArgs=' --http-max-response-time-ms 990000 --disable-subjective-api-billing true '
-    if cluster.launch(
-       pnodes=pnodes,
-       totalNodes=total_nodes,
-       useBiosBootFile=False,
-       topo=topo,
-       genesisPath=genesisJsonFile,
-       maximumP2pPerHost=5000,
-       maximumClients=0,
-       extraNodeosArgs=extraNodeosArgs
-    ) == False:
-        errorExit('Failed to stand up cluster.')
+        print(self.data)
 
-    wallet = walletMgr.create('default')
-    cluster.populateWallet(2, wallet)
-    cluster.createAccounts(cluster.eosioAccount, stakedDeposit=0)
+        print("Report:")
+        print(self.report)
 
-    account1Name = cluster.accounts[0].name
-    account2Name = cluster.accounts[1].name
+        if self.saveJsonReport:
+            log_reader.exportReportAsJSON(self.report, self.reportPath)
 
-    account1PrivKey = cluster.accounts[0].activePrivateKey
-    account2PrivKey = cluster.accounts[1].activePrivateKey
+    def preTestSpinup(self):
+        self.cleanupOldClusters()
+        self.testDirsCleanup()
+        self.testDirsSetup()
 
-    producerNode = cluster.getNode(0)
-    validationNode = cluster.getNode(1)
-    info = producerNode.getInfo()
-    chainId = info['chain_id']
-    lib_id = info['last_irreversible_block_id']
-    cluster.biosNode.kill(signal.SIGTERM)
+        if self.launchCluster() == False:
+            self.errorExit('Failed to stand up cluster.')
 
-    transactionsSent = testGenerationDurationSec * targetTps
-    data = log_reader.chainData()
+        self.setupWalletAndAccounts()
 
-    data.startBlock = waitForEmptyBlocks(validationNode)
+    def postTpsTestSteps(self):
+        self.queryBlockTrxData(self.validationNode, self.blockDataPath, self.blockTrxDataPath, self.data.startBlock, self.data.ceaseBlock)
 
-    subprocess.run([
-       f"./tests/performance_tests/launch_transaction_generators.py",
-       f"{chainId}", f"{lib_id}", f"{cluster.eosioAccount.name}",
-       f"{account1Name}", f"{account2Name}", f"{account1PrivKey}", f"{account2PrivKey}",
-       f"{testGenerationDurationSec}", f"{targetTps}", f"{tpsLimitPerGenerator}", f"{trxGenLogDirPath}"
-    ])
-    # Get stats after transaction generation stops
-    data.ceaseBlock = waitForEmptyBlocks(validationNode) - emptyBlockGoal + 1
-    completedRun = True
+    def runTest(self) -> bool:
+        testSuccessful = False
+        completedRun = False
 
-    blockDataPath = f"{blockDataLogDirPath}/blockData.txt"
-    blockTrxDataPath = f"{blockDataLogDirPath}/blockTrxData.txt"
+        try:
+            # Kill any existing instances and launch cluster
+            TestHelper.printSystemInfo("BEGIN")
+            self.preTestSpinup()
 
-    queryBlockTrxData(validationNode, blockDataPath, blockTrxDataPath, data.startBlock, data.ceaseBlock)
+            completedRun = self.runTpsTest()
+            self.postTpsTestSteps()
 
-except subprocess.CalledProcessError as err:
-    print(f"trx_generator return error code: {err.returncode}.  Test aborted.")
-finally:
-    TestHelper.shutdown(
-       cluster,
-       walletMgr,
-       testSuccessful,
-       killEosInstances,
-       killWallet,
-       keepLogs,
-       killAll,
-       dumpErrorDetails
-    )
+            testSuccessful = True
 
-    report = log_reader.calcAndReport(data, "var/lib/node_01/stderr.txt", trxGenLogDirPath, blockTrxDataPath, blockDataPath, args, completedRun)
+            self.analyzeResultsAndReport(completedRun)
 
-    print(data)
+        except subprocess.CalledProcessError as err:
+            print(f"trx_generator return error code: {err.returncode}.  Test aborted.")
+        finally:
+            TestHelper.shutdown(
+                self.cluster,
+                self.walletMgr,
+                testSuccessful,
+                self.testHelperConfig._killEosInstances,
+                self.testHelperConfig._killWallet,
+                self.testHelperConfig.keepLogs,
+                self.testHelperConfig.killAll,
+                self.testHelperConfig.dumpErrorDetails
+                )
 
-    print("Report:")
-    print(report)
+            if not completedRun:
+                os.system("pkill trx_generator")
+                print("Test run cancelled early via SIGINT")
 
-    if args.save_json:
-        log_reader.exportAsJSON(report, args)
+            if not self.testHelperConfig.keepLogs:
+                print(f"Cleaning up logs directory: {self.testTimeStampDirPath}")
+                self.testDirsCleanup(self.saveJsonReport)
 
-    if completedRun:
-        assert transactionsSent == data.totalTransactions , f"Error: Transactions received: {data.totalTransactions} did not match expected total: {transactionsSent}"
-    else:
-        os.system("pkill trx_generator")
-        print("Test run cancelled early via SIGINT")
+            return testSuccessful
 
-    if not keepLogs:
-        print(f"Cleaning up logs directory: {testTimeStampDirPath}")
-        testDirsCleanup(testTimeStampDirPath)
+def parseArgs():
+    appArgs=AppArgs()
+    appArgs.add(flag="--target-tps", type=int, help="The target transfers per second to send during test", default=8000)
+    appArgs.add(flag="--tps-limit-per-generator", type=int, help="Maximum amount of transactions per second a single generator can have.", default=4000)
+    appArgs.add(flag="--test-duration-sec", type=int, help="The duration of transfer trx generation for the test in seconds", default=30)
+    appArgs.add(flag="--genesis", type=str, help="Path to genesis.json", default="tests/performance_tests/genesis.json")
+    appArgs.add(flag="--num-blocks-to-prune", type=int, help=("The number of potentially non-empty blocks, in addition to leading and trailing size 0 blocks, "
+                "to prune from the beginning and end of the range of blocks of interest for evaluation."), default=2)
+    appArgs.add(flag="--save-json", type=bool, help="Whether to save json output of stats", default=False)
+    args=TestHelper.parse_args({"-p","-n","-d","-s","--nodes-file"
+                                ,"--dump-error-details","-v","--leave-running"
+                                ,"--clean-run","--keep-logs"}, applicationSpecificArgs=appArgs)
+    return args
 
-    testSuccessful = True
+def main():
 
-exitCode = 0 if testSuccessful else 1
-exit(exitCode)
+    args = parseArgs()
+    Utils.Debug = args.v
+
+    testHelperConfig = PerformanceBasicTest.TestHelperConfig(killAll=args.clean_run, dontKill=args.leave_running, keepLogs=args.keep_logs,
+                                                             dumpErrorDetails=args.dump_error_details, delay=args.d, nodesFile=args.nodes_file, verbose=args.v)
+    testClusterConfig = PerformanceBasicTest.ClusterConfig(pnodes=args.p, totalNodes=args.n, topo=args.s, genesisPath=args.genesis)
+
+    myTest = PerformanceBasicTest(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, targetTps=args.target_tps,
+                                  testTrxGenDurationSec=args.test_duration_sec, tpsLimitPerGenerator=args.tps_limit_per_generator,
+                                  numAddlBlocksToPrune=args.num_blocks_to_prune, saveJsonReport=args.save_json)
+    testSuccessful = myTest.runTest()
+
+    if testSuccessful:
+        assert myTest.expectedTransactionsSent == myTest.data.totalTransactions , \
+        f"Error: Transactions received: {myTest.data.totalTransactions} did not match expected total: {myTest.expectedTransactionsSent}"
+
+    exitCode = 0 if testSuccessful else 1
+    exit(exitCode)
+
+if __name__ == '__main__':
+    main()
