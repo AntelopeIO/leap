@@ -48,7 +48,8 @@ apt-get update && apt-get install   \
         libboost-all-dev            \
         libgmp-dev                  \
         libssl-dev                  \
-        llvm-11-dev
+        llvm-11-dev                 \
+        python3-numpy
 ```
 and perform the build:
 ```
@@ -75,7 +76,11 @@ apt-get update && apt-get install   \
         libssl-dev                  \
         llvm-7-dev                  \
         python3                     \
+        python3-numpy               \
+        python3-pip                 \
         zlib1g-dev
+
+python3 -m pip install dataclasses
         
 curl -L https://boostorg.jfrog.io/artifactory/main/release/1.79.0/source/boost_1_79_0.tar.bz2 | tar jx && \
    cd boost_1_79_0 &&                                                                                     \
