@@ -104,7 +104,7 @@ Next, call our pinned build script. You have to give it three arguments, a tempo
 ```bash
 scripts/pinned_build.sh deps build "$(nproc)"
 ```
-The binaries will be in the Leap build directory you passed to the build script. For example, the command above leaves them in `build/bin` from the root of the Leap repository.
+The `*.deb` binary packages you can [install](#install) will be in the root of your build directory.
 
 #### Unpinned Build
 These instructions are valid for this branch. Other release branches may have different requirements so ensure you follow the directions in the branch or release you intend to build. If you are in an Ubuntu docker container, omit `sudo` because you run as `root` by default.
