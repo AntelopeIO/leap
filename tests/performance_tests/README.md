@@ -2,11 +2,11 @@
 
 The `performance_test.py` script performs a binary search of EOS Token Transfers Per Second (TPS) range at configurable low test duration scoring each individual test scenario to find where TPS seems to be topping out. It does this by iteratively configuring and running `performance_test_basic.py` tests and analyzing the output to determine a success metric to continue the search.  The script then proceeds to conduct an additional search with longer duration test runs at a narrowed TPS window around the discovered maximum TPS throughput. Finally it produces a report on the entire performance run, summarizing each individual test scenario, results, and full report details on the tests when maximum TPS was achieved ([Performance Test Report](#performance-test))
 
-The `performance_test_basic.py` script performs a single basic performance test that targets a configurable TPS target and, if successful, reports statistics on perfomance metrics measured during the test.  It configures and launches a blockchain test environment, creates wallets and accounts for testing, configures and launches transaction generators for creating specific transaction load in the ecosystem.  Finally it analyzes the performance of the system under the configuration through log analysis and chain queries and produces a [Performance Test Basic Report](#performance-test-basic).
+The `performance_test_basic.py` support script performs a single basic performance test that targets a configurable TPS target and, if successful, reports statistics on perfomance metrics measured during the test.  It configures and launches a blockchain test environment, creates wallets and accounts for testing, configures and launches transaction generators for creating specific transaction load in the ecosystem.  Finally it analyzes the performance of the system under the configuration through log analysis and chain queries and produces a [Performance Test Basic Report](#performance-test-basic).
 
-The `launch_generators.py` script provides a means to easily calculate and spawn the number of transactions generator instances to generate a given target TPS, distributing generation load between the instances in a fair manner such that the aggregate load meets the requested test load.
+The `launch_generators.py` support script provides a means to easily calculate and spawn the number of transactions generator instances to generate a given target TPS, distributing generation load between the instances in a fair manner such that the aggregate load meets the requested test load.
 
-The `log_reader.py` script is used primarily to analyze `nodeos` log files to glean information about generated blocks and transactions within those blocks after a test has concluded.  This information is used to produce the performance test report. In similar fashion, `read_log_data.py` allows for recreating a report from the configuration and log files without needing to rerun the test.
+The `log_reader.py` support script is used primarily to analyze `nodeos` log files to glean information about generated blocks and transactions within those blocks after a test has concluded.  This information is used to produce the performance test report. In similar fashion, `read_log_data.py` allows for recreating a report from the configuration and log files without needing to rerun the test.
 
 ## Prerequisites
 
@@ -16,11 +16,11 @@ Please refer to [Leap: Software Installation](https://github.com/AntelopeIO/leap
 
 1. Install Leap. For complete instructions on obtaining compiled binaries or building from source please refer to [Leap: Building From Source](https://github.com/AntelopeIO/leap#building-from-source)
 2. Run Tests
-    1. Full Performance Test Run:
+    1. Full Performance Test Run (Standard):
         ``` bash
         ./build/tests/performance_tests/performance_test.py
         ```
-    2. Single Performance Test Basic Run:
+    2. Single Performance Test Basic Run (Manually run one-off test):
         ```bash
         ./build/tests/performance_tests/performance_test_basic.py
         ```
@@ -53,11 +53,11 @@ Please refer to [Leap: Software Installation](https://github.com/AntelopeIO/leap
                             └── trx_data_output_10745.txt
         ```
 
-## Configuring Performance Tests
+## Configuring Performance Harness Tests
 
 ### Performance Test
 
-`performance_test.py` can be configured using the following command line arguments:
+The Performance Harness main script `performance_test.py` can be configured using the following command line arguments:
 
 <details open>
     <summary>Expand Argument List</summary>
@@ -98,7 +98,11 @@ Please refer to [Leap: Software Installation](https://github.com/AntelopeIO/leap
                     Whether to save json reports from each test scenario. (default: False)
 </details>
 
-### Performance Test Basic
+### Support Scripts
+
+The following scripts are typically used by the Performance Harness main script `performance_test.py` to perform specific tasks as delegated and configured by the main script.  However, there may be applications in certain use cases where running a single one-off test or transaction generator is desired.  In those situations, the following argument details might be useful to understanding how to run these utilities in stand-alone mode.  The argument breakdown may also be useful in understanding how the Performance Harness main script's arguments are being passed through to configure lower-level entities.
+
+#### Performance Test Basic
 
 `performance_test_basic.py` can be configured using the following command line arguments:
 
@@ -130,7 +134,7 @@ Please refer to [Leap: Software Installation](https://github.com/AntelopeIO/leap
                     Whether to save json output of stats (default: False)
 </details>
 
-### Launch Transaction Generators
+#### Launch Transaction Generators
 
 `launch_transaction_generators.py` can be configured using the following command line arguments:
 
@@ -150,7 +154,7 @@ Please refer to [Leap: Software Installation](https://github.com/AntelopeIO/leap
 * `log_dir`                     set the logs directory
 </details>
 
-### Transaction Generator
+#### Transaction Generator
 `./build/tests/trx_generator/trx_generator` can be configured using the following command line arguments:
 
 <details>
@@ -193,6 +197,8 @@ Please refer to [Leap: Software Installation](https://github.com/AntelopeIO/leap
 ## Result Reports
 
 ### Performance Test
+
+The Performance Harness generates a report to summarize results of test scenarios as well as overarching results of the performance harness run.  If run with `--save-json` the report described below will be written to the top level timestamped directory for the performance run with the file name `report.json`.
 
 Command used to run test and generate report:
 
@@ -507,6 +513,8 @@ Finally, the full detail test report for each of the determined max TPS throughp
 
 
 ### Performance Test Basic
+
+The Performance Test Basic generates a report to detail results of test, statistics around metrics of interest, as well as diagnostic information about the test run.  If `performance_test.py` is run with `--save-test-json`, or `performance_test_basic.py` is run with `--save-json`, the report described below will be written to the timestamped directory within the `performance_test_basic` log directory for the test run with the file name `data.json`.
 
 <details>
     <summary>Expand for full report</summary>
