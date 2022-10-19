@@ -6,6 +6,7 @@ import subprocess
 import shutil
 import signal
 import log_reader
+import inspect
 
 harnessPath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(harnessPath)
@@ -201,8 +202,8 @@ class PerformanceBasicTest():
         args = {}
         args.update(asdict(self.testHelperConfig))
         args.update(asdict(self.clusterConfig))
-        args.update({key:val for key, val in self.__class__.__dict__.items() if key in set(['targetTps', 'testTrxGenDurationSec', 'tpsLimitPerGenerator',
-                                                                                            'expectedTransactionsSent', 'saveJsonReport', 'numAddlBlocksToPrune'])})
+        args.update({key:val for key, val in inspect.getmembers(self) if key in set(['targetTps', 'testTrxGenDurationSec', 'tpsLimitPerGenerator',
+                                                                                     'expectedTransactionsSent', 'saveJsonReport', 'numAddlBlocksToPrune'])})
         return args
 
 
