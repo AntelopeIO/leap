@@ -60,7 +60,7 @@ struct abstract_conn {
    virtual bool verify_max_requests_in_flight() = 0;
    virtual void handle_exception() = 0;
 
-   virtual void send_response(std::optional<std::string> body, int code) = 0;
+   virtual void send_response(std::string json_body, unsigned int code) = 0;
 };
 
 using abstract_conn_ptr = std::shared_ptr<abstract_conn>;
@@ -233,7 +233,7 @@ auto make_http_response_handler(std::shared_ptr<http_plugin_state> plugin_state,
                                  auto tracked_json = make_in_flight(std::move(json), plugin_state);
                                  session_ptr->send_response(std::move(tracked_json->obj()), code);
                               } else {
-                                 session_ptr->send_response({}, code);
+                                 session_ptr->send_response("{}", code);
                               }
                            } catch(...) {
                               session_ptr->handle_exception();

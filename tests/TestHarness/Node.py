@@ -385,7 +385,7 @@ class Node(object):
         transId=Node.getTransId(trans)
 
         if stakedDeposit > 0:
-            self.waitForTransInBlock(transId) # seems like account creation needs to be finalized before transfer can happen
+            self.waitForTransactionInBlock(transId) # seems like account creation needs to be finalized before transfer can happen
             trans = self.transferFunds(creatorAccount, account, Node.currencyIntToStr(stakedDeposit, CORE_SYMBOL), "init")
             transId=Node.getTransId(trans)
 
@@ -404,7 +404,7 @@ class Node(object):
         transId=Node.getTransId(trans)
 
         if stakedDeposit > 0:
-            self.waitForTransInBlock(transId) # seems like account creation needs to be finlized before transfer can happen
+            self.waitForTransactionInBlock(transId) # seems like account creation needs to be finlized before transfer can happen
             trans = self.transferFunds(creatorAccount, account, "%0.04f %s" % (stakedDeposit/10000, CORE_SYMBOL), "init")
             self.trackCmdTransaction(trans)
             transId=Node.getTransId(trans)
@@ -483,7 +483,7 @@ class Node(object):
 
         return None
 
-    def waitForTransInBlock(self, transId, timeout=None):
+    def waitForTransactionInBlock(self, transId, timeout=None):
         """Wait for trans id to be finalized."""
         assert(isinstance(transId, str))
         lam = lambda: self.isTransInAnyBlock(transId)
@@ -517,6 +517,10 @@ class Node(object):
                 break
             self.waitForHeadToAdvance()
         return transIds
+
+    def waitForTransactionsInBlock(self, transIds, timeout=None):
+        for transId in transIds:
+            self.waitForTransactionInBlock(transId, timeout)
 
     def waitForTransFinalization(self, transId, timeout=None):
         """Wait for trans id to be finalized."""
@@ -1108,7 +1112,7 @@ class Node(object):
             return trans
 
         transId=Node.getTransId(trans)
-        if not self.waitForTransInBlock(transId):
+        if not self.waitForTransactionInBlock(transId):
             if exitOnError:
                 Utils.cmdError("transaction with id %s never made it to a block" % (transId))
                 Utils.errorExit("Failed to find transaction with id %s in a block before timeout" % (transId))
