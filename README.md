@@ -40,7 +40,7 @@ You should see a [semantic version](https://semver.org) string followed by a `gi
 v3.1.2-0b64f879e3ebe2e4df09d2e62f1fc164cc1125d1
 ```
 
-## Source Installation
+## Build and Install from Source
 You can also build and install Leap from source.
 
 ### Prerequisites
