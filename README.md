@@ -100,7 +100,7 @@ sudo scripts/install_deps.sh
 ```
 If you are in an Ubuntu docker container, omit `sudo` because you run as `root` by default.
 
-Next, call our pinned build script. You have to give it three arguments, a folder for dependencies, a build folder, and [the number of jobs or CPU cores/threads to use](#jobs-flag). This command uses a `deps` and `build` folder in the root of the Leap repo for the first two arguments, then builds using all of your computer's CPU threads. You don't need `sudo` for this command.
+Next, call our pinned build script. You have to give it three arguments, a temporary folder for C++ dependencies that need to be built from source, a build folder, and [the number of jobs or CPU cores/threads to use](#jobs-flag). This command uses a `deps` and `build` folder in the root of the Leap repo for the first two arguments, then builds using all of your computer's CPU threads. You don't need `sudo` for this command.
 ```bash
 scripts/pinned_build.sh deps build "$(nproc)"
 ```
