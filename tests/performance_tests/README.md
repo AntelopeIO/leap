@@ -1,6 +1,6 @@
 # Performance Harness Tests
 
-The `performance_test.py` script performs a binary search of EOS Token Transfers Per Second (TPS) range at configurable low test duration scoring each individual test scenario to find where TPS seems to be topping out. It does this by iteratively configuring and running `performance_test_basic.py` tests and analyzing the output to determine a success metric to continue the search.  The script then proceeds to conduct an additional search with longer duration test runs at a narrowed TPS window around the discovered maximum TPS throughput. Finally it produces a report on the entire performance run, summarizing each individual test scenario, results, and full report details on the tests when maximum TPS was achieved ([Performance Test Report](#performance-test))
+The Performance Harness is configured and run through the main `performance_test.py` script.  The script's main goal is to measure current peak performance metrics through iteratively tuning and running basic performance tests. The current basic test works to determine the maximum throughput of EOS Token Transfers the system can sustain.  It does this by conducting a binary search of possible EOS Token Transfers Per Second (TPS) configurations, testing each configuration in a short duration test and scoring its result. The search algorithm iteratively configures and runs `performance_test_basic.py` tests and analyzes the output to determine a success metric used to continue the search.  When the search completes, a max TPS throughput value is reported (along with other performance metrics from that run).  The script then proceeds to conduct an additional search with longer duration test runs within a narrowed TPS configuration range to determine the sustainable max TPS. Finally it produces a report on the entire performance run, summarizing each individual test scenario, results, and full report details on the tests when maximum TPS was achieved ([Performance Test Report](#performance-test))
 
 The `performance_test_basic.py` support script performs a single basic performance test that targets a configurable TPS target and, if successful, reports statistics on perfomance metrics measured during the test.  It configures and launches a blockchain test environment, creates wallets and accounts for testing, configures and launches transaction generators for creating specific transaction load in the ecosystem.  Finally it analyzes the performance of the system under the configuration through log analysis and chain queries and produces a [Performance Test Basic Report](#performance-test-basic).
 
@@ -10,13 +10,13 @@ The `log_reader.py` support script is used primarily to analyze `nodeos` log fil
 
 ## Prerequisites
 
-Please refer to [Leap: Software Installation](https://github.com/AntelopeIO/leap#software-installation)
+Please refer to [Leap: Building From Source](https://github.com/AntelopeIO/leap#building-from-source) for a full list of prerequisites.
 
 ## Steps
 
-1. Install Leap. For complete instructions on obtaining compiled binaries or building from source please refer to [Leap: Building From Source](https://github.com/AntelopeIO/leap#building-from-source)
-2. Run Tests
-    1. Full Performance Test Run (Standard):
+1. Build Leap. For complete instructions on building from source please refer to [Leap: Building From Source](https://github.com/AntelopeIO/leap#building-from-source)
+2. Run Performance Tests
+    1. Full Performance Harness Test Run (Standard):
         ``` bash
         ./build/tests/performance_tests/performance_test.py
         ```
@@ -29,7 +29,7 @@ Please refer to [Leap: Software Installation](https://github.com/AntelopeIO/leap
         ```bash
         cd ./build/performance_test/
         ```
-    2. Log Directory Structure is hierarchical with each run of the `performance_test.py` reporting into a timestamped directory where it includes the full performance report as well as a directory containing output from each test type run (here, `performance_test_basic.py`) and each individual test run outputs into a timestamped directory that may contain block data loggs and transaction generator logs as well as the test's basic report.  An example directory structure could look like:
+    2. Log Directory Structure is hierarchical with each run of the `performance_test.py` reporting into a timestamped directory where it includes the full performance report as well as a directory containing output from each test type run (here, `performance_test_basic.py`) and each individual test run outputs into a timestamped directory that may contain block data logs and transaction generator logs as well as the test's basic report.  An example directory structure follows:
         ``` bash
         performance_test/
         └── 2022-10-19_10-23-10
@@ -68,9 +68,9 @@ The Performance Harness main script `performance_test.py` can be configured usin
 * `--nodes-file NODES_FILE`
                     File containing nodes info in JSON format. (default: None)
 * `-s {mesh}`             topology (default: mesh)
-* `--dump-error-details`  Upon error print etc/eosio/node_*/config.ini and var/lib/node_*/stderr.log to stdout (default:
+* `--dump-error-details`  Upon error print `etc/eosio/node_*/config.ini` and `var/lib/node_*/stderr.log` to stdout (default:
                     False)
-* `--keep-logs`           Don't delete var/lib/node_* folders, or other test specific log directories, upon test
+* `--keep-logs`           Don't delete `var/lib/node_*` folders, or other test specific log directories, upon test
                     completion (default: False)
 * `-v`                    verbose logging (default: False)
 * `--leave-running`       Leave cluster running after test finishes (default: False)
@@ -115,8 +115,8 @@ The following scripts are typically used by the Performance Harness main script 
 * `--nodes-file NODES_FILE`
                     File containing nodes info in JSON format. (default: None)
 * `-s {mesh}`             topology (default: mesh)
-* `--dump-error-details`  Upon error print etc/eosio/node_*/config.ini and var/lib/node_*/stderr.log to stdout (default: False)
-* `--keep-logs`           Don't delete var/lib/node_* folders, or other test specific log directories, upon test completion (default: False)
+* `--dump-error-details`  Upon error print `etc/eosio/node_*/config.ini` and `var/lib/node_*/stderr.log` to stdout (default: False)
+* `--keep-logs`           Don't delete `var/lib/node_*` folders, or other test specific log directories, upon test completion (default: False)
 * `-v`                    verbose logging (default: False)
 * `--leave-running`       Leave cluster running after test finishes (default: False)
 * `--clean-run`           Kill all nodeos and kleos instances (default: False)
@@ -206,10 +206,13 @@ Command used to run test and generate report:
 .build/tests/performance_tests/performance_test.py --test-iteration-duration-sec 10 --final-iterations-duration-sec 30 --save-json True
 ```
 
-`InitialMaxTpsAchieved` - the max TPS throughput achieved during initial, short duration test scenarios to narrow search window
-`LongRunningMaxTpsAchieved` - the max TPS throughput achieved during final, longer duration test scenarios to zero in on sustainable max TPS
+#### Report Breakdown
+The report begins by delivering the max TPS results of the performance run.
 
-A summary of search scenario conducted and respective results are included.  Each summary includes information on the current state of the overarching search as well as basic results of the individual test that are used to determine whether the basic test was considered successful.
+    * `InitialMaxTpsAchieved` - the max TPS throughput achieved during initial, short duration test scenarios to narrow search window
+    * `LongRunningMaxTpsAchieved` - the max TPS throughput achieved during final, longer duration test scenarios to zero in on sustainable max TPS
+
+Next, a summary of the search scenario conducted and respective results is included.  Each summary includes information on the current state of the overarching search as well as basic results of the individual test that are used to determine whether the basic test was considered successful. The list of summary results are included in `InitialSearchResults` and `LongRunningSearchResults`. The number of entries in each list will vary depending on the TPS range tested (`--max-tps-to-test`) and the configured `--test-iteration-min-step`.
 <details>
     <summary>Expand Search Scenario Summary Example</summary>
 
@@ -233,7 +236,7 @@ A summary of search scenario conducted and respective results are included.  Eac
 ```
 </details>
 
-Finally, the full detail test report for each of the determined max TPS throughput (`InitialMaxTpsAchieved` and `LongRunningMaxTpsAchieved`) runs is included in the full report.  **Note:** In the example full report below, these have been truncated as they are single performance test basic run reports as detailed in the following section [Performance Test Basic Report](#performance-test-basic).  Herein these truncated reports appear like:
+Finally, the full detail test report for each of the determined max TPS throughput (`InitialMaxTpsAchieved` and `LongRunningMaxTpsAchieved`) runs is included after each scenario summary list in the full report.  **Note:** In the example full report below, these have been truncated as they are single performance test basic run reports as detailed in the following section [Performance Test Basic Report](#performance-test-basic).  Herein these truncated reports appear as:
 
 <details>
     <summary>Expand Truncated Report Example</summary>
@@ -252,7 +255,7 @@ Finally, the full detail test report for each of the determined max TPS throughp
 </details>
 
 <details>
-    <summary>Expand for full Performance Test Report</summary>
+    <summary>Expand for full sample Performance Test Report</summary>
 
 ``` json
 {
@@ -517,7 +520,7 @@ Finally, the full detail test report for each of the determined max TPS throughp
 The Performance Test Basic generates a report to detail results of test, statistics around metrics of interest, as well as diagnostic information about the test run.  If `performance_test.py` is run with `--save-test-json`, or `performance_test_basic.py` is run with `--save-json`, the report described below will be written to the timestamped directory within the `performance_test_basic` log directory for the test run with the file name `data.json`.
 
 <details>
-    <summary>Expand for full report</summary>
+    <summary>Expand for full sample report</summary>
     
 ``` json
 {
