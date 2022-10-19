@@ -235,7 +235,7 @@ Once you have [built](#build) Leap and [tested](#test) your build, you can insta
 We recommend installing the binary package you just built. Navigate to your Leap build directory in a terminal and run this command.
 ```bash
 sudo apt-get update
-sudo apt-get install -y ./leap_*.deb
+sudo apt-get install -y ./leap[-_][0-9]*.deb
 ```
 - If you are in an Ubuntu docker container, omit `sudo` because you run as `root` by default.
 
