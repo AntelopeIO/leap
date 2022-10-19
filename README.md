@@ -4,24 +4,22 @@ Leap is blockchain node software and supporting tools that implement the [Antelo
 ## Branches
 The `main` branch is the development branch, do not use it for production. Refer to the [release page](https://github.com/AntelopeIO/leap/releases) for current information on releases, pre-releases, and obsolete releases, as well as the corresponding tags for those releases.
 
-## Binary Installation
-This is the fastest way to get started. Download a binary for the [latest](https://github.com/AntelopeIO/leap/releases/latest) release, or visit the [releases](https://github.com/AntelopeIO/leap/releases) page to download a binary for a specific version of Leap.
+## Supported Operating Systems
+We currently support the following operating systems.
+- Ubuntu 22.04 Jammy
+- Ubuntu 20.04 Focal
+- Ubuntu 18.04 Bionic
 
-We currently only support Ubuntu. If you aren't using Ubuntu, please visit [this page](./docs/00_install/01_build-from-source/00_build-unsupported-os.md) to explore your options.
+Other Unix derivatives such as macOS are tended to on a best-effort basis and may not be full featured. If you aren't using Ubuntu, please visit [this page](./docs/00_install/01_build-from-source/00_build-unsupported-os.md) to explore your options.
 
-You will need to know your version of Ubuntu to download the right binary. You can find this by going to Start/Windows/Super key > Settings > About > OS Name, or by running the following in your terminal.
-```bash
-lsb_release -a
-```
-
-<details> <summary>Ubuntu derivatives</summary>
-
-We currently only support Ubuntu but, if you want to try running our software on an Ubuntu derivative such as Linux Mint, you can determine the version of Ubuntu it was built from using the following command.
+If you are running an unsupported Ubuntu derivative, such as Linux Mint, you can find the version of Ubuntu your distribution was based on using this command.
 ```bash
 cat /etc/upstream-release/lsb-release
 ```
+Your best bet is to follow the instructions for your Ubuntu base, but we make no guarantees.
 
-</details>
+## Binary Installation
+This is the fastest way to get started. Download a binary for one of our [supported operating systems](#supported-operating-systems) on the [latest](https://github.com/AntelopeIO/leap/releases/latest) release, or visit the [releases](https://github.com/AntelopeIO/leap/releases) page to download a binary for a specific version of Leap.
 
 Once you have a `*.deb` file downloaded for your version of Ubuntu, you can install it as follows.
 ```bash
@@ -44,7 +42,7 @@ v3.1.2-0b64f879e3ebe2e4df09d2e62f1fc164cc1125d1
 You can also build and install Leap from source.
 
 ### Prerequisites
-Recent Ubuntu LTS releases are the only operating systems that we support. Other Unix derivatives such as macOS are tended to on a best-effort basis and may not be full featured. If you aren't using Ubuntu, please visit [this page](./docs/00_install/01_build-from-source/00_build-unsupported-os.md) to explore your options.
+You will need to build on a [supported operating system](#supported-operating-systems).
 
 Requirements to build:
 - C++17 compiler and standard library
