@@ -26,8 +26,7 @@ Once you have a `*.deb` file downloaded for your version of Ubuntu, you can inst
 sudo apt-get update
 sudo apt-get install -y ~/Downloads/leap*.deb
 ```
-Your download path may vary.
-- If you are in an Ubuntu docker container, omit `sudo` because you run as `root` by default.
+Your download path may vary. If you are in an Ubuntu docker container, omit `sudo` because you run as `root` by default.
 
 Finally, verify Leap was installed correctly.
 ```bash
@@ -99,18 +98,16 @@ From a terminal in the root of the `leap` repo, run our script to install depend
 ```bash
 sudo scripts/install_deps.sh
 ```
-- If you are in an Ubuntu docker container, omit `sudo` because you run as `root` by default.
+If you are in an Ubuntu docker container, omit `sudo` because you run as `root` by default.
 
-Next, call our pinned build script. You have to give it three arguments, a folder for dependencies, a build folder, and [the number of jobs or CPU cores/threads to use](#jobs-flag). This command uses a `deps` and `build` folder in the root of the Leap repo for the first two arguments, then builds using all but two of your computer's CPU threads.
+Next, call our pinned build script. You have to give it three arguments, a folder for dependencies, a build folder, and [the number of jobs or CPU cores/threads to use](#jobs-flag). This command uses a `deps` and `build` folder in the root of the Leap repo for the first two arguments, then builds using all but two of your computer's CPU threads. You don't need `sudo` for this command.
 ```bash
 scripts/pinned_build.sh deps build "$(nproc)"
 ```
-- You don't need `sudo` for this command.
-
 The binaries will be in the Leap build directory you passed to the build script. For example, the command above leaves them in `build/bin` from the root of the Leap repository.
 
 #### Unpinned Build
-These instructions are valid for this branch. Other release branches may have different requirements so ensure you follow the directions in the branch or release you intend to build.
+These instructions are valid for this branch. Other release branches may have different requirements so ensure you follow the directions in the branch or release you intend to build. If you are in an Ubuntu docker container, omit `sudo` because you run as `root` by default.
 
 <details> <summary>Ubuntu 22.04 Jammy & Ubuntu 20.04 Focal</summary>
 
@@ -130,7 +127,6 @@ sudo apt-get install -y \
         llvm-11-dev \
         pkg-config
 ```
-- If you are in an Ubuntu docker container, omit `sudo` because you run as `root` by default.
 From a terminal in the root of the `leap` repo, build.
 ```bash
 mkdir -p build
@@ -160,7 +156,6 @@ sudo apt-get install -y \
         python3 \
         zlib1g-dev
 ```
-- If you are in an Ubuntu docker container, omit `sudo` because you run as `root` by default.
 You need to build Boost from source on this distribution.
 ```bash
 curl -fL https://boostorg.jfrog.io/artifactory/main/release/1.79.0/source/boost_1_79_0.tar.bz2 -o ~/Downloads/boost_1_79_0.tar.bz2
@@ -230,17 +225,15 @@ ctest -L "long_running_tests"
 ```
 
 ### Install
-Once you have [built](#build) Leap and [tested](#test) your build, you can install Leap to your system.
+Once you have [built](#build) Leap and [tested](#test) your build, you can install Leap to your system. Don't forget to omit `sudo` if you are running in a docker container.
 
 We recommend installing the binary package you just built. Navigate to your Leap build directory in a terminal and run this command.
 ```bash
 sudo apt-get update
 sudo apt-get install -y ./leap[-_][0-9]*.deb
 ```
-- If you are in an Ubuntu docker container, omit `sudo` because you run as `root` by default.
 
 It is also possible to install using `make`.
 ```bash
 sudo make install
 ```
-- If you are in an Ubuntu docker container, omit `sudo` because you run as `root` by default.
