@@ -80,8 +80,7 @@ Navigate into that folder:
 cd leap
 ```
 
-### Step 2. Select release tag or branch
-
+### Step 2. Checkout Release Tag or Branch
 Choose which [release tag](https://github.com/AntelopeIO/leap/releases) or [branch](#branches) you would like to build, then check it out. If you are not sure, use the [latest release](https://github.com/AntelopeIO/leap/releases/latest). For example, if you want to build release 3.1.2 then you would check it out using its tag, `v3.1.2`. In the example below, replace `v0.0.0` with your selected release tag accordingly:
 ```bash
 git fetch --all --tags
