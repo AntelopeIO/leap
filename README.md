@@ -81,21 +81,23 @@ Navigate into that folder:
 cd leap
 ```
 
-Choose which [release tag](https://github.com/AntelopeIO/leap/releases) or [branch](#branches) you would like to build and check it out. If you don't know, use the [latest release](https://github.com/AntelopeIO/leap/releases/latest). For example, if you want to build release 3.1.2 then you would check it out using its tag, `v3.1.2`.
+### Step 2. Select release tag or branch
+
+Choose which [release tag](https://github.com/AntelopeIO/leap/releases) or [branch](#branches) you would like to build, then check it out. If you are not sure, use the [latest release](https://github.com/AntelopeIO/leap/releases/latest). For example, if you want to build release 3.1.2 then you would check it out using its tag, `v3.1.2`. In the example below, replace `v0.0.0` with your selected release tag accordingly:
 ```bash
 git fetch --all --tags
 git checkout v0.0.0
 ```
 
-Once you are on the branch or tag (release) you want to build, make sure everything is up-to-date.
+Once you are on the branch or release tag you want to build, make sure everything is up-to-date:
 ```bash
 git pull
 git submodule update --init --recursive
 ```
 
 #### Jobs Flag
-⚠️ **A Warning On Parallel Compilation Jobs (`-j` flag)** ⚠️
-When building C/C++ software, often the build is performed in parallel via a command such as `make -j "$(nproc)"` which uses all available CPU threads. However, be aware that some compilation units (`*.cpp` files) in Leap will consume nearly 4GB of memory to compile. Failures due to memory exhaustion will typically, but not always, manifest as compiler crashes. Using all available CPU threads may also prevent you from doing other things on your computer during compilation. Consider adjusting parallelization for these reasons.
+⚠️ **A Warning On Parallel Compilation Jobs (`-j` flag)** ⚠️  
+When building C/C++ software, often the build is performed in parallel via a command such as `make -j "$(nproc)"` which uses all available CPU threads. However, be aware that some compilation units (`*.cpp` files) in Leap will consume nearly 4GB of memory to compile. Failures due to memory exhaustion will typically, but not always, manifest as compiler crashes. Using all available CPU threads may also prevent you from doing other things on your computer during compilation. For these reasons, consider adjusting parallelization.
 
 ### Build
 We have two types of builds for Leap, "pinned" and "unpinned." The only difference is that pinned builds use specific versions for some dependencies hand-picked by Leap engineers and "pinned" to those versions, whereas unpinned builds use the default dependency versions available on the build system at the time. We recommend performing a pinned build to ensure the compiler and boost version remain the same between builds of different Leap versions. Leap requires these versions to remain the same, otherwise its state needs to be recovered from a portable snapshot or the chain needs to be replayed.
