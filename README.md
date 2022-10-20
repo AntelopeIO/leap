@@ -243,16 +243,16 @@ You can invoke them by running `ctest` from a terminal in your Leap build direct
 ctest -L "long_running_tests"
 ```
 
-### Install
-Once you have [built](#build) Leap and [tested](#test) your build, you can install Leap to your system. Don't forget to omit `sudo` if you are running in a docker container.
+### Step 5. Install
+Once you have [built](#step-3-build-the-source-code) Leap and [tested](#step-4-test) your build, you can install Leap on your system. Don't forget to omit `sudo` if you are running in a docker container.
 
-We recommend installing the binary package you just built. Navigate to your Leap build directory in a terminal and run this command.
+We recommend installing the binary package you just built. Navigate to your Leap build directory in a terminal and run this command:
 ```bash
 sudo apt-get update
 sudo apt-get install -y ./leap[-_][0-9]*.deb
 ```
 
-It is also possible to install using `make`.
+It is also possible to install using `make` instead:
 ```bash
 sudo make install
 ```
