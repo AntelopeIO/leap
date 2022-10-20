@@ -337,10 +337,12 @@ def calcTrxLatencyCpuNetStats(trxDict : dict, blockDict: dict):
            basicStats(float(np.min(npLatencyCpuNetList[:,2])), float(np.max(npLatencyCpuNetList[:,2])), float(np.average(npLatencyCpuNetList[:,2])), float(np.std(npLatencyCpuNetList[:,2])), len(npLatencyCpuNetList))
 
 def createJSONReport(guide: chainBlocksGuide, targetTps: int, testDurationSec: int, tpsLimitPerGenerator: int, tpsStats: stats, blockSizeStats: stats,
-                     trxLatencyStats: basicStats, trxCpuStats: basicStats, trxNetStats: basicStats, argsDict, completedRun) -> json:
+                     trxLatencyStats: basicStats, trxCpuStats: basicStats, trxNetStats: basicStats, testStart, testFinish, argsDict, completedRun) -> json:
     numGenerators = math.ceil(targetTps / tpsLimitPerGenerator)
     js = {}
     js['completedRun'] = completedRun
+    js['testStart'] = testStart
+    js['testFinish'] = testFinish
     js['nodeosVersion'] = Utils.getNodeosVersion()
     js['env'] = {'system': system(), 'os': os.name, 'release': release(), 'logical_cpu_count': os.cpu_count()}
     js['args'] =  argsDict
@@ -357,7 +359,8 @@ def createJSONReport(guide: chainBlocksGuide, targetTps: int, testDurationSec: i
     js['Analysis']['TrxNet'] = asdict(trxNetStats)
     return json.dumps(js, sort_keys=True, indent=2)
 
-def calcAndReport(data, targetTps, testDurationSec, tpsLimitPerGenerator, nodeosLogPath, trxGenLogDirPath, blockTrxDataPath, blockDataPath, numBlocksToPrune, argsDict, completedRun) -> json:
+def calcAndReport(data, targetTps, testDurationSec, tpsLimitPerGenerator, nodeosLogPath, trxGenLogDirPath, blockTrxDataPath, blockDataPath,
+                  numBlocksToPrune, argsDict, testStart, completedRun) -> json:
     scrapeLog(data, nodeosLogPath)
 
     trxSent = {}
@@ -382,9 +385,15 @@ def calcAndReport(data, targetTps, testDurationSec, tpsLimitPerGenerator, nodeos
 
     print(f"Blocks Guide: {guide}\nTPS: {tpsStats}\nBlock Size: {blkSizeStats}\nTrx Latency: {trxLatencyStats}\nTrx CPU: {trxCpuStats}\nTrx Net: {trxNetStats}")
 
-    report = createJSONReport(guide=guide, targetTps=targetTps, testDurationSec=testDurationSec, tpsLimitPerGenerator=tpsLimitPerGenerator, tpsStats=tpsStats, blockSizeStats=blkSizeStats,
-                              trxLatencyStats=trxLatencyStats, trxCpuStats=trxCpuStats, trxNetStats=trxNetStats, argsDict=argsDict, completedRun=completedRun)
+    start = "UNKNOWN"
+    finish = "UNKNOWN"
+    if testStart is not None:
+        start = testStart
+        finish = datetime.utcnow().isoformat()
 
+    report = createJSONReport(guide=guide, targetTps=targetTps, testDurationSec=testDurationSec, tpsLimitPerGenerator=tpsLimitPerGenerator, tpsStats=tpsStats,
+                              blockSizeStats=blkSizeStats, trxLatencyStats=trxLatencyStats, trxCpuStats=trxCpuStats, trxNetStats=trxNetStats, testStart=start,
+                              testFinish=finish, argsDict=argsDict, completedRun=completedRun)
     return report
 
 def exportReportAsJSON(report: json, exportPath):

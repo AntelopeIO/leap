@@ -68,7 +68,7 @@ class PerformanceBasicTest():
 
         self.rootLogDir = rootLogDir
         self.ptbLogDir = f"{self.rootLogDir}/{os.path.splitext(os.path.basename(__file__))[0]}"
-        self.testTimeStampDirPath = f"{self.ptbLogDir}/{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
+        self.testTimeStampDirPath = f"{self.ptbLogDir}/{datetime.utcnow().strftime('%Y-%m-%d_%H-%M-%S')}"
         self.trxGenLogDirPath = f"{self.testTimeStampDirPath}/trxGenLogs"
         self.blockDataLogDirPath = f"{self.testTimeStampDirPath}/blockDataLogs"
         self.blockDataPath = f"{self.blockDataLogDirPath}/blockData.txt"
@@ -211,7 +211,8 @@ class PerformanceBasicTest():
         args = self.prepArgs()
         self.report = log_reader.calcAndReport(data=self.data, targetTps=self.targetTps, testDurationSec=self.testTrxGenDurationSec, tpsLimitPerGenerator=self.tpsLimitPerGenerator,
                                                nodeosLogPath=self.nodeosLogPath, trxGenLogDirPath=self.trxGenLogDirPath, blockTrxDataPath=self.blockTrxDataPath,
-                                               blockDataPath=self.blockDataPath, numBlocksToPrune=self.numAddlBlocksToPrune, argsDict=args, completedRun=completedRun)
+                                               blockDataPath=self.blockDataPath, numBlocksToPrune=self.numAddlBlocksToPrune, argsDict=args, testStart=self.testStart,
+                                               completedRun=completedRun)
 
         print(self.data)
 
@@ -241,6 +242,7 @@ class PerformanceBasicTest():
         try:
             # Kill any existing instances and launch cluster
             TestHelper.printSystemInfo("BEGIN")
+            self.testStart = datetime.utcnow().isoformat()
             self.preTestSpinup()
 
             completedRun = self.runTpsTest()

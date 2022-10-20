@@ -26,7 +26,8 @@ blockDataPath = f"{blockDataLogDirPath}/blockData.txt"
 blockTrxDataPath = f"{blockDataLogDirPath}/blockTrxData.txt"
 report = log_reader.calcAndReport(data=data, targetTps=args.target_tps, testDurationSec=args.test_duration_sec, tpsLimitPerGenerator=args.tps_limit_per_generator,
                                   nodeosLogPath=nodeosLogPath, trxGenLogDirPath=trxGenLogDirPath, blockTrxDataPath=blockTrxDataPath, blockDataPath=blockDataPath,
-                                  numBlocksToPrune=args.num_blocks_to_prune, argsDict=dict(item.split("=") for item in f"{args}"[10:-1].split(", ")), completedRun=True)
+                                  numBlocksToPrune=args.num_blocks_to_prune, argsDict=dict(item.split("=") for item in f"{args}"[10:-1].split(", ")), testStart=None,
+                                  completedRun=True)
 
 print(data)
 data.printBlockData()
