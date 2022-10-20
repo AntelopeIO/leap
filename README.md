@@ -58,22 +58,29 @@ Requirements to build:
 - Python 3
 - zlib
 
-If you don't already have the Leap repo cloned to your computer, [open a terminal](https://itsfoss.com/open-terminal-ubuntu) and navigate to the folder you want the Leap source code to live in.
+### Step 1. Clone the Leap repository
+
+If you don't have the Leap repo cloned to your computer yet, [open a terminal](https://itsfoss.com/open-terminal-ubuntu) and navigate to the folder where you want to clone the Leap repository:
 ```bash
 cd ~/Downloads
 ```
-Clone Leap using HTTPS...
+Clone Leap using either HTTPS:
 ```bash
 git clone --recursive https://github.com/AntelopeIO/leap.git
 ```
-...or SSH.
+or SSH:
 ```bash
 git clone --recursive git@github.com:AntelopeIO/leap.git
 ```
-An HTTPS and SSH clone both result in the same thing, a folder named `leap` containg our source code, it doesn't matter which one you use. Navigate into that folder.
+
+> ℹ️ **HTTPS or SSH git clone** ℹ️  
+Both an HTTPS or SSH git clone will yield the same result: a folder named `leap` containg our source. It doesn't matter which type you use (unless you need to push to remote).
+
+Navigate into that folder:
 ```bash
 cd leap
 ```
+
 Choose which [release tag](https://github.com/AntelopeIO/leap/releases) or [branch](#branches) you would like to build and check it out. If you don't know, use the [latest release](https://github.com/AntelopeIO/leap/releases/latest). For example, if you want to build release 3.1.2 then you would check it out using its tag, `v3.1.2`.
 ```bash
 git fetch --all --tags
