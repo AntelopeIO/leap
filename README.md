@@ -26,7 +26,7 @@ Once you have a `*.deb` file downloaded for your version of Ubuntu, you can inst
 sudo apt-get update
 sudo apt-get install -y ~/Downloads/leap*.deb
 ```
-Your download path may vary. If you are in a Ubuntu docker container, omit `sudo` because you run as `root` by default.
+Your download path may vary. If you are in an Ubuntu docker container, omit `sudo` because you run as `root` by default.
 
 Finally, verify Leap was installed correctly:
 ```bash
