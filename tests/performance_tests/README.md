@@ -517,7 +517,7 @@ Finally, the full detail test report for each of the determined max TPS throughp
 
 ### Performance Test Basic
 
-The Performance Test Basic generates a report to detail results of test, statistics around metrics of interest, as well as diagnostic information about the test run.  If `performance_test.py` is run with `--save-test-json`, or `performance_test_basic.py` is run with `--save-json`, the report described below will be written to the timestamped directory within the `performance_test_basic` log directory for the test run with the file name `data.json`.
+The Performance Test Basic generates a report that details results of the test, statistics around metrics of interest, as well as diagnostic information about the test run.  If `performance_test.py` is run with `--save-test-json`, or `performance_test_basic.py` is run with `--save-json`, the report described below will be written to the timestamped directory within the `performance_test_basic` log directory for the test run with the file name `data.json`.
 
 <details>
     <summary>Expand for full sample report</summary>
