@@ -64,11 +64,11 @@ If you don't have the Leap repo cloned to your computer yet, [open a terminal](h
 ```bash
 cd ~/Downloads
 ```
-Clone Leap using either HTTPS:
+Clone Leap using either HTTPS...
 ```bash
 git clone --recursive https://github.com/AntelopeIO/leap.git
 ```
-or SSH:
+...or SSH:
 ```bash
 git clone --recursive git@github.com:AntelopeIO/leap.git
 ```
