@@ -10,7 +10,7 @@ We currently support the following operating systems.
 - Ubuntu 20.04 Focal
 - Ubuntu 18.04 Bionic
 
-Other Unix derivatives such as macOS are tended to on a best-effort basis and may not be full featured. If you aren't using Ubuntu, please visit the [Build Unsupported OS](./docs/00_install/01_build-from-source/00_build-unsupported-os.md) page to explore your options.
+Other Unix derivatives such as macOS are tended to on a best-effort basis and may not be full featured. If you aren't using Ubuntu, please visit the "[Build Unsupported OS](./docs/00_install/01_build-from-source/00_build-unsupported-os.md)" page to explore your options.
 
 If you are running an unsupported Ubuntu derivative, such as Linux Mint, you can find the version of Ubuntu your distribution was based on by using this command:
 ```bash
@@ -19,7 +19,7 @@ cat /etc/upstream-release/lsb-release
 Your best bet is to follow the instructions for your Ubuntu base, but we make no guarantees.
 
 ## Binary Installation
-This is the fastest way to get started. From the latest [Release](https://github.com/AntelopeIO/leap/releases/latest) page, download a binary for one of our [Supported Operating Systems](#supported-operating-systems), or visit the [Release Tags](https://github.com/AntelopeIO/leap/releases) page to download a binary for a specific version of Leap.
+This is the fastest way to get started. From the [latest release](https://github.com/AntelopeIO/leap/releases/latest) page, download a binary for one of our [supported operating systems](#supported-operating-systems), or visit the [release tags](https://github.com/AntelopeIO/leap/releases) page to download a binary for a specific version of Leap.
 
 Once you have a `*.deb` file downloaded for your version of Ubuntu, you can install it as follows:
 ```bash
@@ -100,7 +100,7 @@ git submodule update --init --recursive
 When building C/C++ software, often the build is performed in parallel via a command such as `make -j "$(nproc)"` which uses all available CPU threads. However, be aware that some compilation units (`*.cpp` files) in Leap will consume nearly 4GB of memory to compile. Failures due to memory exhaustion will typically, but not always, manifest as compiler crashes. Using all available CPU threads may also prevent you from doing other things on your computer during compilation. For these reasons, consider adjusting parallelization.
 
 ### Step 3. Build the source code
-Select build instructions below for a [Pinned Build](#pinned-build) (preferred) or an [Unpinned Build](#unpinned-build).
+Select build instructions below for a [pinned build](#pinned-build) (preferred) or an [unpinned build](#unpinned-build).
 
 ℹ️ **Pinned Build vs. Unpinned Build** ℹ️  
 We have two types of builds for Leap: "pinned" and "unpinned." The only difference is that pinned builds use specific versions for some dependencies hand-picked by the Leap engineers - they are "pinned" to those versions. In contrast, unpinned builds use the default dependency versions available on the build system at the time. We recommend performing a "pinned" build to ensure the compiler and boost versions remain the same between builds of different Leap versions. Leap requires these versions to remain the same, otherwise its state might need to be recovered from a portable snapshot or the chain needs to be replayed.
@@ -115,7 +115,7 @@ If you are in an Ubuntu docker container, omit `sudo` because you run as `root` 
 Next, run the pinned build script. You have to give it three arguments, in the following order:
   - A temporary folder, for all dependencies that need to be built from source.
   - A build folder, where the binaries you need to install will be built to.
-  - The number of jobs or CPU cores/threads to use (Note: check the [Jobs Flag](#jobs-flag) warning above).
+  - The number of jobs or CPU cores/threads to use (Note: check the [jobs flag](#jobs-flag) warning above).
 
 The following command runs the `pinned_build.sh` script, specifies a `deps` and `build` folder in the root of the Leap repo for the first two arguments, then builds the packages using all of your computer's CPU threads (Note: you don't need `sudo` for this command):
 ```bash
