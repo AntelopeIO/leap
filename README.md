@@ -19,16 +19,16 @@ cat /etc/upstream-release/lsb-release
 Your best bet is to follow the instructions for your Ubuntu base, but we make no guarantees.
 
 ## Binary Installation
-This is the fastest way to get started. Download a binary for one of our [supported operating systems](#supported-operating-systems) on the [latest](https://github.com/AntelopeIO/leap/releases/latest) release, or visit the [releases](https://github.com/AntelopeIO/leap/releases) page to download a binary for a specific version of Leap.
+This is the fastest way to get started. From the latest [Release](https://github.com/AntelopeIO/leap/releases/latest) page, download a binary for one of our [Supported Operating Systems](#supported-operating-systems), or visit the [Release Tags](https://github.com/AntelopeIO/leap/releases) page to download a binary for a specific version of Leap.
 
-Once you have a `*.deb` file downloaded for your version of Ubuntu, you can install it as follows.
+Once you have a `*.deb` file downloaded for your version of Ubuntu, you can install it as follows:
 ```bash
 sudo apt-get update
 sudo apt-get install -y ~/Downloads/leap*.deb
 ```
-Your download path may vary. If you are in an Ubuntu docker container, omit `sudo` because you run as `root` by default.
+Your download path may vary. If you are in a Ubuntu docker container, omit `sudo` because you run as `root` by default.
 
-Finally, verify Leap was installed correctly.
+Finally, verify Leap was installed correctly:
 ```bash
 nodeos --full-version
 ```
