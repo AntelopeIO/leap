@@ -10,9 +10,9 @@ We currently support the following operating systems.
 - Ubuntu 20.04 Focal
 - Ubuntu 18.04 Bionic
 
-Other Unix derivatives such as macOS are tended to on a best-effort basis and may not be full featured. If you aren't using Ubuntu, please visit [this page](./docs/00_install/01_build-from-source/00_build-unsupported-os.md) to explore your options.
+Other Unix derivatives such as macOS are tended to on a best-effort basis and may not be full featured. If you aren't using Ubuntu, please visit the [Build Unsupported OS](./docs/00_install/01_build-from-source/00_build-unsupported-os.md) page to explore your options.
 
-If you are running an unsupported Ubuntu derivative, such as Linux Mint, you can find the version of Ubuntu your distribution was based on using this command.
+If you are running an unsupported Ubuntu derivative, such as Linux Mint, you can find the version of Ubuntu your distribution was based on by using this command:
 ```bash
 cat /etc/upstream-release/lsb-release
 ```
