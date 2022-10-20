@@ -124,11 +124,11 @@ scripts/pinned_build.sh deps build "$(nproc)"
 Now you can optionally [test](#step-4-test) your build, or [install](#step-5-install) the `*.deb` binary packages, which will be in the root of your build directory.
 
 #### Unpinned Build
-These instructions are valid for this branch. Other release branches may have different requirements so ensure you follow the directions in the branch or release you intend to build. If you are in an Ubuntu docker container, omit `sudo` because you run as `root` by default.
+The following instructions are valid for this branch. Other release branches may have different requirements, so ensure you follow the directions in the branch or release you intend to build. If you are in an Ubuntu docker container, omit `sudo` because you run as `root` by default.
 
 <details> <summary>Ubuntu 22.04 Jammy & Ubuntu 20.04 Focal</summary>
 
-Install dependencies.
+Install dependencies:
 ```bash
 sudo apt-get update
 sudo apt-get install -y \
@@ -144,7 +144,7 @@ sudo apt-get install -y \
         llvm-11-dev \
         pkg-config
 ```
-From a terminal in the root of the `leap` repo, build.
+To build, make sure you are in the root of the `leap` repo, then run the following command:
 ```bash
 mkdir -p build
 cd build
@@ -155,7 +155,7 @@ make -j $(nproc) package
 
 <details> <summary>Ubuntu 18.04 Bionic</summary>
 
-Install dependencies.
+Install dependencies:
 ```bash
 sudo apt-get update
 sudo apt-get install -y \
@@ -173,7 +173,7 @@ sudo apt-get install -y \
         python3 \
         zlib1g-dev
 ```
-You need to build Boost from source on this distribution.
+You need to build Boost from source on this distribution:
 ```bash
 curl -fL https://boostorg.jfrog.io/artifactory/main/release/1.79.0/source/boost_1_79_0.tar.bz2 -o ~/Downloads/boost_1_79_0.tar.bz2
 tar -jvxf ~/Downloads/boost_1_79_0.tar.bz2 -C ~/Downloads/
@@ -195,6 +195,8 @@ make -j "$(nproc)" package
 ```
 After building, you may remove the `~/boost1.79` directory or you may keep it around for your next build.
 </details>
+
+Now you can optionally [test](#step-4-test) your build, or [install](#step-5-install) the `*.deb` binary packages, which will be in the root of your build directory.
 
 ### Test
 Leap currently has the following test suites.
