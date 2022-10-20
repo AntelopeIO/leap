@@ -106,17 +106,22 @@ Select build instructions below for a [Pinned Build](#pinned-build) (preferred) 
 We have two types of builds for Leap: "pinned" and "unpinned." The only difference is that pinned builds use specific versions for some dependencies hand-picked by the Leap engineers - they are "pinned" to those versions. In contrast, unpinned builds use the default dependency versions available on the build system at the time. We recommend performing a "pinned" build to ensure the compiler and boost versions remain the same between builds of different Leap versions. Leap requires these versions to remain the same, otherwise its state might need to be recovered from a portable snapshot or the chain needs to be replayed.
 
 #### Pinned Build
-From a terminal in the root of the `leap` repo, run our script to install dependencies.
+Make sure you are in the root of the `leap` repo, then run the `install_depts.sh` script to install dependencies:
 ```bash
 sudo scripts/install_deps.sh
 ```
 If you are in an Ubuntu docker container, omit `sudo` because you run as `root` by default.
 
-Next, call our pinned build script. You have to give it three arguments, a temporary folder for C++ dependencies that need to be built from source, a build folder, and [the number of jobs or CPU cores/threads to use](#jobs-flag). This command uses a `deps` and `build` folder in the root of the Leap repo for the first two arguments, then builds using all of your computer's CPU threads. You don't need `sudo` for this command.
+Next, run the pinned build script. You have to give it three arguments, in the following order:
+  - A temporary folder, for all dependencies that need to be built from source.
+  - A build folder, where the binaries you need to install will be built to.
+  - The number of jobs or CPU cores/threads to use (Note: check the [Jobs Flag](#jobs-flag) warning above).
+
+The following command runs the `pinned_build.sh` script, specifies a `deps` and `build` folder in the root of the Leap repo for the first two arguments, then builds the packages using all of your computer's CPU threads (Note: you don't need `sudo` for this command):
 ```bash
 scripts/pinned_build.sh deps build "$(nproc)"
 ```
-The `*.deb` binary packages you can [install](#install) will be in the root of your build directory.
+Now you can optionally [test](#step-4-test) your build, or [install](#step-5-install) the `*.deb` binary packages, which will be in the root of your build directory.
 
 #### Unpinned Build
 These instructions are valid for this branch. Other release branches may have different requirements so ensure you follow the directions in the branch or release you intend to build. If you are in an Ubuntu docker container, omit `sudo` because you run as `root` by default.
