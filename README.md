@@ -58,7 +58,7 @@ Requirements to build:
 - Python 3
 - zlib
 
-### Step 1. Clone
+### Step 1 - Clone
 If you don't have the Leap repo cloned to your computer yet, [open a terminal](https://itsfoss.com/open-terminal-ubuntu) and navigate to the folder where you want to clone the Leap repository:
 ```bash
 cd ~/Downloads
@@ -80,7 +80,7 @@ Navigate into that folder:
 cd leap
 ```
 
-### Step 2. Checkout Release Tag or Branch
+### Step 2 - Checkout Release Tag or Branch
 Choose which [release tag](https://github.com/AntelopeIO/leap/releases) or [branch](#branches) you would like to build, then check it out. If you are not sure, use the [latest release](https://github.com/AntelopeIO/leap/releases/latest). For example, if you want to build release 3.1.2 then you would check it out using its tag, `v3.1.2`. In the example below, replace `v0.0.0` with your selected release tag accordingly:
 ```bash
 git fetch --all --tags
@@ -93,7 +93,7 @@ git pull
 git submodule update --init --recursive
 ```
 
-### Step 3. Build
+### Step 3 - Build
 Select build instructions below for a [pinned build](#pinned-build) (preferred) or an [unpinned build](#unpinned-build).
 
 > ℹ️ **Pinned vs. Unpinned Build** ℹ️  
@@ -112,13 +112,13 @@ If you are in an Ubuntu docker container, omit `sudo` because you run as `root` 
 Next, run the pinned build script. You have to give it three arguments, in the following order:
   - A temporary folder, for all dependencies that need to be built from source.
   - A build folder, where the binaries you need to install will be built to.
-  - The number of jobs or CPU cores/threads to use (Note: check the [jobs flag](#step-3-build) warning above).
+  - The number of jobs or CPU cores/threads to use (Note: check the [jobs flag](#step-3---build) warning above).
 
 The following command runs the `pinned_build.sh` script, specifies a `deps` and `build` folder in the root of the Leap repo for the first two arguments, then builds the packages using all of your computer's CPU threads (Note: you don't need `sudo` for this command):
 ```bash
 scripts/pinned_build.sh deps build "$(nproc)"
 ```
-Now you can optionally [test](#step-4-test) your build, or [install](#step-5-install) the `*.deb` binary packages, which will be in the root of your build directory.
+Now you can optionally [test](#step-4---test) your build, or [install](#step-5---install) the `*.deb` binary packages, which will be in the root of your build directory.
 
 #### Unpinned Build
 The following instructions are valid for this branch. Other release branches may have different requirements, so ensure you follow the directions in the branch or release you intend to build. If you are in an Ubuntu docker container, omit `sudo` because you run as `root` by default.
@@ -193,9 +193,9 @@ make -j "$(nproc)" package
 After building, you may remove the `~/boost1.79` directory or you may keep it around for your next build.
 </details>
 
-Now you can optionally [test](#step-4-test) your build, or [install](#step-5-install) the `*.deb` binary packages, which will be in the root of your build directory.
+Now you can optionally [test](#step-4---test) your build, or [install](#step-5---install) the `*.deb` binary packages, which will be in the root of your build directory.
 
-### Step 4. Test
+### Step 4 - Test
 Leap supports the following test suites:
 
 Test Suite | Test Type | [Test Size](https://testing.googleblog.com/2010/12/test-sizes.html) | Notes
@@ -240,8 +240,8 @@ You can invoke them by running `ctest` from a terminal in your Leap build direct
 ctest -L "long_running_tests"
 ```
 
-### Step 5. Install
-Once you have [built](#step-3-build-the-source-code) Leap and [tested](#step-4-test) your build, you can install Leap on your system. Don't forget to omit `sudo` if you are running in a docker container.
+### Step 5 - Install
+Once you have [built](#step-3---build-the-source-code) Leap and [tested](#step-4---test) your build, you can install Leap on your system. Don't forget to omit `sudo` if you are running in a docker container.
 
 We recommend installing the binary package you just built. Navigate to your Leap build directory in a terminal and run this command:
 ```bash
