@@ -45,7 +45,7 @@ class PerfTestBinSearchResults:
 
 def performPtbBinarySearch(tpsTestFloor: int, tpsTestCeiling: int, minStep: int, testHelperConfig: PerformanceBasicTest.TestHelperConfig,
                            testClusterConfig: PerformanceBasicTest.ClusterConfig, testDurationSec: int, tpsLimitPerGenerator: int,
-                           numAddlBlocksToPrune: int, testLogDir: str, saveJson: bool) -> PerfTestBinSearchResults:
+                           numAddlBlocksToPrune: int, testLogDir: str, saveJson: bool, quiet: bool) -> PerfTestBinSearchResults:
     floor = tpsTestFloor
     ceiling = tpsTestCeiling
     binSearchTarget = 0
@@ -62,7 +62,7 @@ def performPtbBinarySearch(tpsTestFloor: int, tpsTestCeiling: int, minStep: int,
 
         myTest = PerformanceBasicTest(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, targetTps=binSearchTarget,
                                     testTrxGenDurationSec=testDurationSec, tpsLimitPerGenerator=tpsLimitPerGenerator,
-                                    numAddlBlocksToPrune=numAddlBlocksToPrune, rootLogDir=testLogDir, saveJsonReport=saveJson)
+                                    numAddlBlocksToPrune=numAddlBlocksToPrune, rootLogDir=testLogDir, saveJsonReport=saveJson, quiet=quiet)
         testSuccessful = myTest.runTest()
         if evaluateSuccess(myTest, testSuccessful, ptbResult):
             maxTpsAchieved = binSearchTarget
@@ -74,7 +74,8 @@ def performPtbBinarySearch(tpsTestFloor: int, tpsTestCeiling: int, minStep: int,
 
         scenarioResult.basicTestResult = ptbResult
         searchResults.append(scenarioResult)
-        print(f"searchResult: {binSearchTarget} : {searchResults[-1]}")
+        if not quiet:
+            print(f"searchResult: {binSearchTarget} : {searchResults[-1]}")
 
     return PerfTestBinSearchResults(maxTpsAchieved=maxTpsAchieved, searchResults=searchResults, maxTpsReport=maxTpsReport)
 
@@ -147,12 +148,12 @@ def testDirsSetup(rootLogDir, testTimeStampDirPath, ptbLogsDirPath):
         print(error)
 
 def prepArgsDict(testDurationSec, finalDurationSec, logsDir, maxTpsToTest, testIterationMinStep,
-             tpsLimitPerGenerator, saveJsonReport, saveTestJsonReports, numAddlBlocksToPrune, testHelperConfig, testClusterConfig) -> dict:
+             tpsLimitPerGenerator, saveJsonReport, saveTestJsonReports, numAddlBlocksToPrune, quiet, testHelperConfig, testClusterConfig) -> dict:
     argsDict = {}
     argsDict.update(asdict(testHelperConfig))
     argsDict.update(asdict(testClusterConfig))
     argsDict.update({key:val for key, val in locals().items() if key in set(['testDurationSec', 'finalDurationSec', 'maxTpsToTest', 'testIterationMinStep', 'tpsLimitPerGenerator',
-                                                                                  'saveJsonReport', 'saveTestJsonReports', 'numAddlBlocksToPrune', 'logsDir'])})
+                                                                                  'saveJsonReport', 'saveTestJsonReports', 'numAddlBlocksToPrune', 'logsDir', 'quiet'])})
     return argsDict
 
 def parseArgs():
@@ -166,6 +167,7 @@ def parseArgs():
     appArgs.add(flag="--num-blocks-to-prune", type=int, help="The number of potentially non-empty blocks, in addition to leading and trailing size 0 blocks, to prune from the beginning and end of the range of blocks of interest for evaluation.", default=2)
     appArgs.add(flag="--save-json", type=bool, help="Whether to save overarching performance run report.", default=False)
     appArgs.add(flag="--save-test-json", type=bool, help="Whether to save json reports from each test scenario.", default=False)
+    appArgs.add(flag="--quiet", type=bool, help="Whether to quiet printing intermediate results and reports to stdout", default=False)
     args=TestHelper.parse_args({"-p","-n","-d","-s","--nodes-file"
                                 ,"--dump-error-details","-v","--leave-running"
                                 ,"--clean-run","--keep-logs"}, applicationSpecificArgs=appArgs)
@@ -194,6 +196,7 @@ def main():
     saveJsonReport=args.save_json
     saveTestJsonReports=args.save_test_json
     numAddlBlocksToPrune=args.num_blocks_to_prune
+    quiet=args.quiet
 
     rootLogDir: str=os.path.splitext(os.path.basename(__file__))[0]
     testTimeStampDirPath = f"{rootLogDir}/{datetime.utcnow().strftime('%Y-%m-%d_%H-%M-%S')}"
@@ -209,7 +212,8 @@ def main():
 
     argsDict = prepArgsDict(testDurationSec=testDurationSec, finalDurationSec=finalDurationSec, logsDir=testTimeStampDirPath,
                         maxTpsToTest=maxTpsToTest, testIterationMinStep=testIterationMinStep, tpsLimitPerGenerator=tpsLimitPerGenerator,
-                        saveJsonReport=saveJsonReport, saveTestJsonReports=saveTestJsonReports, numAddlBlocksToPrune=numAddlBlocksToPrune, testHelperConfig=testHelperConfig, testClusterConfig=testClusterConfig)
+                        saveJsonReport=saveJsonReport, saveTestJsonReports=saveTestJsonReports, numAddlBlocksToPrune=numAddlBlocksToPrune,
+                        quiet=quiet, testHelperConfig=testHelperConfig, testClusterConfig=testClusterConfig)
 
     perfRunSuccessful = False
 
@@ -217,34 +221,37 @@ def main():
         testStart = datetime.utcnow().isoformat()
         binSearchResults = performPtbBinarySearch(tpsTestFloor=0, tpsTestCeiling=maxTpsToTest, minStep=testIterationMinStep, testHelperConfig=testHelperConfig,
                            testClusterConfig=testClusterConfig, testDurationSec=testDurationSec, tpsLimitPerGenerator=tpsLimitPerGenerator,
-                           numAddlBlocksToPrune=numAddlBlocksToPrune, testLogDir=ptbLogsDirPath, saveJson=saveTestJsonReports)
+                           numAddlBlocksToPrune=numAddlBlocksToPrune, testLogDir=ptbLogsDirPath, saveJson=saveTestJsonReports, quiet=quiet)
 
         print(f"Successful rate of: {binSearchResults.maxTpsAchieved}")
 
-        print("Search Results:")
-        for i in range(len(binSearchResults.searchResults)):
-            print(f"Search scenario: {i} result: {binSearchResults.searchResults[i]}")
+        if not quiet:
+            print("Search Results:")
+            for i in range(len(binSearchResults.searchResults)):
+                print(f"Search scenario: {i} result: {binSearchResults.searchResults[i]}")
 
         longRunningFloor = binSearchResults.maxTpsAchieved - 3 * testIterationMinStep if binSearchResults.maxTpsAchieved - 3 * testIterationMinStep > 0 else 0
         longRunningCeiling = binSearchResults.maxTpsAchieved + 3 * testIterationMinStep
 
         longRunningBinSearchResults = performPtbBinarySearch(tpsTestFloor=longRunningFloor, tpsTestCeiling=longRunningCeiling, minStep=testIterationMinStep, testHelperConfig=testHelperConfig,
                            testClusterConfig=testClusterConfig, testDurationSec=finalDurationSec, tpsLimitPerGenerator=tpsLimitPerGenerator,
-                           numAddlBlocksToPrune=numAddlBlocksToPrune, testLogDir=ptbLogsDirPath, saveJson=saveTestJsonReports)
+                           numAddlBlocksToPrune=numAddlBlocksToPrune, testLogDir=ptbLogsDirPath, saveJson=saveTestJsonReports, quiet=quiet)
 
         print(f"Long Running Test - Successful rate of: {longRunningBinSearchResults.maxTpsAchieved}")
         perfRunSuccessful = True
 
-        print("Long Running Test - Search Results:")
-        for i in range(len(longRunningBinSearchResults.searchResults)):
-            print(f"Search scenario: {i} result: {longRunningBinSearchResults.searchResults[i]}")
+        if not quiet:
+            print("Long Running Test - Search Results:")
+            for i in range(len(longRunningBinSearchResults.searchResults)):
+                print(f"Search scenario: {i} result: {longRunningBinSearchResults.searchResults[i]}")
 
         testFinish = datetime.utcnow().isoformat()
         fullReport = createJSONReport(maxTpsAchieved=binSearchResults.maxTpsAchieved, searchResults=binSearchResults.searchResults, maxTpsReport=binSearchResults.maxTpsReport,
                                       longRunningMaxTpsAchieved=longRunningBinSearchResults.maxTpsAchieved, longRunningSearchResults=longRunningBinSearchResults.searchResults,
                                       longRunningMaxTpsReport=longRunningBinSearchResults.maxTpsReport, testStart=testStart, testFinish=testFinish, argsDict=argsDict)
 
-        print(f"Full Performance Test Report: {fullReport}")
+        if not quiet:
+            print(f"Full Performance Test Report: {fullReport}")
 
         if saveJsonReport:
             exportReportAsJSON(fullReport, f"{testTimeStampDirPath}/report.json")

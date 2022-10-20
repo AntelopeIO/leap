@@ -198,14 +198,15 @@ def scrapeBlockDataLog(blockDict, path):
     with selectedopen(path, 'rt') as f:
         blockDict.update(dict([(x[0], blkData(x[1], x[2], x[3], x[4])) for x in (line.rstrip('\n').split(',') for line in f)]))
 
-def scrapeTrxGenTrxSentDataLogs(trxSent, trxGenLogDirPath):
+def scrapeTrxGenTrxSentDataLogs(trxSent, trxGenLogDirPath, quiet):
     filesScraped = []
     for fileName in glob.glob(f"{trxGenLogDirPath}/trx_data_output_*.txt"):
         filesScraped.append(fileName)
         scrapeTrxGenLog(trxSent, fileName)
 
-    print("Transaction Log Files Scraped:")
-    print(filesScraped)
+    if not quiet:
+        print("Transaction Log Files Scraped:")
+        print(filesScraped)
 
 def populateTrxSentTimestamp(trxSent: dict, trxDict: dict, notFound):
     for sentTrxId in trxSent.keys():
@@ -360,11 +361,11 @@ def createJSONReport(guide: chainBlocksGuide, targetTps: int, testDurationSec: i
     return json.dumps(js, sort_keys=True, indent=2)
 
 def calcAndReport(data, targetTps, testDurationSec, tpsLimitPerGenerator, nodeosLogPath, trxGenLogDirPath, blockTrxDataPath, blockDataPath,
-                  numBlocksToPrune, argsDict, testStart, completedRun) -> json:
+                  numBlocksToPrune, argsDict, testStart, completedRun, quiet: bool) -> json:
     scrapeLog(data, nodeosLogPath)
 
     trxSent = {}
-    scrapeTrxGenTrxSentDataLogs(trxSent, trxGenLogDirPath)
+    scrapeTrxGenTrxSentDataLogs(trxSent, trxGenLogDirPath, quiet)
 
     trxDict = {}
     scrapeBlockTrxDataLog(trxDict, blockTrxDataPath)
@@ -383,7 +384,8 @@ def calcAndReport(data, targetTps, testDurationSec, tpsLimitPerGenerator, nodeos
     tpsStats = scoreTransfersPerSecond(data, guide)
     blkSizeStats = calcBlockSizeStats(data, guide)
 
-    print(f"Blocks Guide: {guide}\nTPS: {tpsStats}\nBlock Size: {blkSizeStats}\nTrx Latency: {trxLatencyStats}\nTrx CPU: {trxCpuStats}\nTrx Net: {trxNetStats}")
+    if not quiet:
+        print(f"Blocks Guide: {guide}\nTPS: {tpsStats}\nBlock Size: {blkSizeStats}\nTrx Latency: {trxLatencyStats}\nTrx CPU: {trxCpuStats}\nTrx Net: {trxNetStats}")
 
     start = "UNKNOWN"
     finish = "UNKNOWN"

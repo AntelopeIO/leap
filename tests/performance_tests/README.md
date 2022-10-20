@@ -96,6 +96,7 @@ The Performance Harness main script `performance_test.py` can be configured usin
                     Whether to save overarching performance run report. (default: False)
 * `--save-test-json SAVE_TEST_JSON`
                     Whether to save json reports from each test scenario. (default: False)
+* `--quiet QUIET`   Whether to quiet printing intermediate results and reports to stdout (default: False)
 </details>
 
 ### Support Scripts
@@ -132,6 +133,7 @@ The following scripts are typically used by the Performance Harness main script 
                     of the range of blocks of interest for evaluation. (default: 2)
 * `--save-json SAVE_JSON`
                     Whether to save json output of stats (default: False)
+* `--quiet QUIET`   Whether to quiet printing intermediate results and reports to stdout (default: False)
 </details>
 
 #### Launch Transaction Generators
@@ -494,7 +496,8 @@ Finally, the full detail test report for each of the determined max TPS throughp
     "tpsLimitPerGenerator": 4000,
     "saveJsonReport": true,
     "saveTestJsonReports": false,
-    "numAddlBlocksToPrune": 2
+    "numAddlBlocksToPrune": 2,
+    "quiet": false
   },
   "env": {
     "system": "Linux",
@@ -589,6 +592,7 @@ The Performance Test Basic generates a report that details results of the test, 
       "nodesFile": null,
       "numAddlBlocksToPrune": 2,
       "pnodes": 1,
+      "quiet": false,
       "saveJsonReport": false,
       "targetTps": 15000,
       "testTrxGenDurationSec": 10,

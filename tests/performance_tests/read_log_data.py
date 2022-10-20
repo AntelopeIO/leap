@@ -15,6 +15,7 @@ parser.add_argument("--cease-block", type=int, help="Last significant block numb
 parser.add_argument("--num-blocks-to-prune", type=int, default=2, help="The number of potentially non-empty blocks, in addition to leading and trailing size 0 blocks, to prune from the beginning and end of the range of blocks of interest for evaluation.")
 parser.add_argument("--save-json", type=bool, help="Whether to save json output of stats", default=False)
 parser.add_argument("--json-path", type=str, help="Path to save json output", default="data.json")
+parser.add_argument("--quiet", type=bool, help="Whether to quiet printing intermediate results and reports to stdout", default=False)
 args = parser.parse_args()
 nodeosLogPath=args.log_path
 blockDataLogDirPath = args.block_data_logs_dir
@@ -27,13 +28,14 @@ blockTrxDataPath = f"{blockDataLogDirPath}/blockTrxData.txt"
 report = log_reader.calcAndReport(data=data, targetTps=args.target_tps, testDurationSec=args.test_duration_sec, tpsLimitPerGenerator=args.tps_limit_per_generator,
                                   nodeosLogPath=nodeosLogPath, trxGenLogDirPath=trxGenLogDirPath, blockTrxDataPath=blockTrxDataPath, blockDataPath=blockDataPath,
                                   numBlocksToPrune=args.num_blocks_to_prune, argsDict=dict(item.split("=") for item in f"{args}"[10:-1].split(", ")), testStart=None,
-                                  completedRun=True)
+                                  completedRun=True, quiet=args.quiet)
 
-print(data)
-data.printBlockData()
+if not args.quiet:
+    print(data)
+    data.printBlockData()
 
-print("Report:")
-print(report)
+    print("Report:")
+    print(report)
 
 if args.save_json:
     log_reader.exportReportAsJSON(report, args.json_path)
