@@ -102,7 +102,7 @@ When building C/C++ software, often the build is performed in parallel via a com
 ### Step 3. Build the source code
 Select build instructions below for a [pinned build](#pinned-build) (preferred) or an [unpinned build](#unpinned-build).
 
-ℹ️ **Pinned Build vs. Unpinned Build** ℹ️  
+ℹ️ **Pinned vs. Unpinned Build** ℹ️  
 We have two types of builds for Leap: "pinned" and "unpinned." The only difference is that pinned builds use specific versions for some dependencies hand-picked by the Leap engineers - they are "pinned" to those versions. In contrast, unpinned builds use the default dependency versions available on the build system at the time. We recommend performing a "pinned" build to ensure the compiler and boost versions remain the same between builds of different Leap versions. Leap requires these versions to remain the same, otherwise its state might need to be recovered from a portable snapshot or the chain needs to be replayed.
 
 #### Pinned Build
