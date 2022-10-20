@@ -58,8 +58,7 @@ Requirements to build:
 - Python 3
 - zlib
 
-### Step 1. Clone the Leap repository
-
+### Step 1. Clone
 If you don't have the Leap repo cloned to your computer yet, [open a terminal](https://itsfoss.com/open-terminal-ubuntu) and navigate to the folder where you want to clone the Leap repository:
 ```bash
 cd ~/Downloads
