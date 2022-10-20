@@ -74,7 +74,7 @@ git clone --recursive git@github.com:AntelopeIO/leap.git
 ```
 
 > ℹ️ **HTTPS vs. SSH Clone** ℹ️  
-Both an HTTPS or SSH git clone will yield the same result: a folder named `leap` containg our source. It doesn't matter which type you use (unless you need to push to remote).
+Both an HTTPS or SSH git clone will yield the same result: a folder named `leap` containg our source. It doesn't matter which type you use.
 
 Navigate into that folder:
 ```bash
