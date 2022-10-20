@@ -50,6 +50,7 @@ void blocklog_actions::setup(CLI::App& app) {
    // callback helper with error code handling
    auto err_guard = [this](int (blocklog_actions::*fun)()) {
       try {
+         initialize();
          int rc = (this->*fun)();
          if(rc) throw(CLI::RuntimeError(rc));
       } catch(...) {
@@ -146,7 +147,6 @@ void blocklog_actions::initialize() {
 }
 
 int blocklog_actions::make_index() {
-   initialize();
    const bfs::path blocks_dir = opt->blocks_dir;
    bfs::path out_file = blocks_dir / "blocks.index";
    const bfs::path block_file = blocks_dir / "blocks.log";
@@ -163,7 +163,6 @@ int blocklog_actions::make_index() {
 }
 
 int blocklog_actions::trim_blocklog() {
-   initialize();
    if(opt->last_block != std::numeric_limits<uint32_t>::max()) {
       if(trim_blocklog_end(opt->blocks_dir, opt->last_block) != 0) return -1;
    }
@@ -174,14 +173,12 @@ int blocklog_actions::trim_blocklog() {
 }
 
 int blocklog_actions::extract_blocks() {
-   initialize();
    if(!extract_block_range(opt->blocks_dir, opt->output_dir, opt->first_block, opt->last_block))
       return -1;
    return 0;
 }
 
 int blocklog_actions::do_genesis() {
-   initialize();
    std::optional<genesis_state> gs;
    bfs::path bld = opt->blocks_dir;
    auto full_path = (bld / "blocks.log").generic_string();
@@ -257,7 +254,6 @@ bool blocklog_actions::extract_block_range(bfs::path block_dir, bfs::path output
 }
 
 int blocklog_actions::smoke_test() {
-   initialize();
    using namespace std;
    bfs::path block_dir = opt->blocks_dir;
    cout << "\nSmoke test of blocks.log and blocks.index in directory " << block_dir << '\n';
@@ -290,8 +286,6 @@ int blocklog_actions::smoke_test() {
 }
 
 int blocklog_actions::do_vacuum() {
-   initialize();
-
    bfs::path bld = opt->blocks_dir;
    auto full_path = (bld / "blocks.log").generic_string();
 
