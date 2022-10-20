@@ -11,10 +11,10 @@ As an alternative to building from source, try [Docker Utilities for Node Execut
 You can also build and install Leap from source. Instructions for that currently live [here](https://github.com/AntelopeIO/leap/blob/release%2f3.1/README.md#build-and-install-from-source).
 
 #### Building Pinned Build Binary Packages
-The pinned build instructions have moved [here](https://github.com/AntelopeIO/leap/blob/release%2f3.1/README.md#pinned-build). You may want to look at the [prerequisites](https://github.com/AntelopeIO/leap/blob/release%2f3.1/README.md#prerequisites) and our warning on parallelization using the `-j` jobs flag [here](https://github.com/AntelopeIO/leap/blob/release%2f3.1/README.md#jobs-flag) before you build.
+The pinned build instructions have moved [here](https://github.com/AntelopeIO/leap/blob/release%2f3.1/README.md#pinned-build). You may want to look at the [prerequisites](https://github.com/AntelopeIO/leap/blob/release%2f3.1/README.md#prerequisites) and our warning on parallelization using the `-j` jobs flag [here](https://github.com/AntelopeIO/leap/blob/release%2f3.1/README.md#step-3---build) before you build.
 
 #### Manual (non "pinned") Build Instructions
-The unpinned build instructions have moved [here](https://github.com/AntelopeIO/leap/blob/release%2f3.1/README.md#unpinned-build). You may want to look at the [prerequisites](https://github.com/AntelopeIO/leap/blob/release%2f3.1/README.md#prerequisites) and our warning on parallelization using the `-j` jobs flag [here](https://github.com/AntelopeIO/leap/blob/release%2f3.1/README.md#jobs-flag) before you build.
+The unpinned build instructions have moved [here](https://github.com/AntelopeIO/leap/blob/release%2f3.1/README.md#unpinned-build). You may want to look at the [prerequisites](https://github.com/AntelopeIO/leap/blob/release%2f3.1/README.md#prerequisites) and our warning on parallelization using the `-j` jobs flag [here](https://github.com/AntelopeIO/leap/blob/release%2f3.1/README.md#step-3---build) before you build.
 
 ### Running Tests
 Documentation on available test suites and how to run them has moved [here](https://github.com/AntelopeIO/leap/blob/release%2f3.1/README.md#test).
