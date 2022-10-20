@@ -198,22 +198,22 @@ After building, you may remove the `~/boost1.79` directory or you may keep it ar
 
 Now you can optionally [test](#step-4-test) your build, or [install](#step-5-install) the `*.deb` binary packages, which will be in the root of your build directory.
 
-### Test
-Leap currently has the following test suites.
+### Step 4. Test
+Leap supports the following test suites:
 
 Test Suite | Test Type | [Test Size](https://testing.googleblog.com/2010/12/test-sizes.html) | Notes
 ---|:---:|:---:|---
-Parallelizable tests | Unit tests | Small
-WASM spec tests | Unit tests | Small | Unit tests for our WASM runtime, each short but _very_ CPU-intensive
-Serial tests | Component/Integration | Medium
-Long-running tests | Integration | Medium-to-Large | Tests which take an extraordinarily long amount of time to run
+[Parallelizable tests](#parallelizable-tests) | Unit tests | Small
+[WASM spec tests](#wasm-spec-tests) | Unit tests | Small | Unit tests for our WASM runtime, each short but _very_ CPU-intensive
+[Serial tests](#serial-tests) | Component/Integration | Medium
+[Long-running tests](#long-running-tests) | Integration | Medium-to-Large | Tests which take an extraordinarily long amount of time to run
 
-When building from source, we recommended running at least the parallelizable tests.
+When building from source, we recommended running at least the [parallelizable tests](#parallelizable-tests).
 
 #### Parallelizable Tests
-This test suite consits of any test which completes in a short amount of time and does not require shared resources such as file descriptors, specific folders, or ports, and can therefore be run concurrently in different threads without side effects (hence, easily parallelized). These are mostly unit tests and [small tests](https://testing.googleblog.com/2010/12/test-sizes.html).
+This test suite consists of any test that does not require shared resources, such as file descriptors, specific folders, or ports, and can therefore be run concurrently in different threads without side effects (hence, easily parallelized). These are mostly unit tests and [small tests](https://testing.googleblog.com/2010/12/test-sizes.html) which complete in a short amount of time.
 
-You can invoke them using `ctest` from a terminal in your Leap build directory.
+You can invoke them by running `ctest` from a terminal in your Leap build directory and specifying the following arguments:
 ```bash
 ctest -j "$(nproc)" -LE _tests
 ```
@@ -221,16 +221,16 @@ ctest -j "$(nproc)" -LE _tests
 #### WASM Spec Tests
 The WASM spec tests verify that our WASM execution engine is compliant with the web assembly standard. These are very [small](https://testing.googleblog.com/2010/12/test-sizes.html), very fast unit tests. However, there are over a thousand of them so the suite can take a little time to run. These tests are extremely CPU-intensive.
 
-You can invoke them using `ctest` from a terminal in your Leap build directory.
+You can invoke them by running `ctest` from a terminal in your Leap build directory and specifying the following arguments:
 ```bash
 ctest -j "$(nproc)" -L wasm_spec_tests
 ```
 We have observed severe performance issues when multiple virtual machines are running this test suite on the same physical host at the same time, for example in a CICD system. This can be resolved by disabling hyperthreading on the host.
 
 #### Serial Tests
-The serial test suite consists of [medium](https://testing.googleblog.com/2010/12/test-sizes.html) component or integration tests that use specific paths, ports, rely on process names, or similar and cannot be run concurrently with other tests. Serial tests can be sensitive to other software running on the same host and they may `SIGKILL` other `nodeos` processes. These tests take a moderate amount of time to complete, but we recommend running them.
+The serial test suite consists of [medium](https://testing.googleblog.com/2010/12/test-sizes.html) component or integration tests that use specific paths, ports, rely on process names, or similar, and cannot be run concurrently with other tests. Serial tests can be sensitive to other software running on the same host and they may `SIGKILL` other `nodeos` processes. These tests take a moderate amount of time to complete, but we recommend running them.
 
-You can invoke them using `ctest` from a terminal in your Leap build directory.
+You can invoke them by running `ctest` from a terminal in your Leap build directory and specifying the following arguments:
 ```bash
 ctest -L "nonparallelizable_tests"
 ```
@@ -238,7 +238,7 @@ ctest -L "nonparallelizable_tests"
 #### Long-Running Tests
 The long-running tests are [medium-to-large](https://testing.googleblog.com/2010/12/test-sizes.html) integration tests that rely on shared resources and take a very long time to run.
 
-You can invoke them using `ctest` from a terminal in your Leap build directory.
+You can invoke them by running `ctest` from a terminal in your Leap build directory and specifying the following arguments:
 ```bash
 ctest -L "long_running_tests"
 ```
