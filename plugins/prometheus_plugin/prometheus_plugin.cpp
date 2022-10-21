@@ -26,13 +26,7 @@ namespace eosio {
    using namespace prometheus;
    static appbase::abstract_plugin &_prometheus_plugin = app().register_plugin<prometheus_plugin>();
 
-   struct prometheus_plugin_impl {
-      Registry _registry;
-
-      std::mutex _collectables_mutex;
-      std::vector<Collectable> _collectables;
-
-      // metrics for prometheus_plugin itself
+   struct prometheus_plugin_metrics {
       Family<Counter>& _bytes_transferred_family;
       Counter& _bytes_transferred;
       Family<Counter>& _num_scrapes_family;
@@ -40,68 +34,81 @@ namespace eosio {
       Family<Summary>& _request_processing_family;
       Summary& _request_processing;
 
-      prometheus_plugin_impl() :_registry{},
-                                _bytes_transferred_family(
-                                      BuildCounter()
-                                            .Name("exposer_transferred_bytes_total")
-                                            .Help("Transferred bytes to metrics services")
-                                            .Register(_registry)),
-                                _bytes_transferred(_bytes_transferred_family.Add({})),
-                                _num_scrapes_family(BuildCounter()
-                                                          .Name("exposer_scrapes_total")
-                                                          .Help("Number of times metrics were scraped")
-                                                          .Register(_registry)),
-                                _num_scrapes(_num_scrapes_family.Add({})),
-                                _request_processing_family(
-                                      BuildSummary()
-                                            .Name("request_processing_latencies")
-                                            .Help("Processing time of serving scrape requests, in microseconds")
-                                            .Register(_registry)),
-                                _request_processing(_request_processing_family.Add(
-                                      {}, Summary::Quantiles{{0.5, 0.05}, {0.9, 0.01}, {0.99, 0.001}})) {}
+      prometheus_plugin_metrics(Registry& registry) :
+         _bytes_transferred_family(
+         BuildCounter()
+               .Name("exposer_transferred_bytes_total")
+               .Help("Transferred bytes to metrics services")
+               .Register(registry)),
+         _bytes_transferred(_bytes_transferred_family.Add({})),
+         _num_scrapes_family(BuildCounter()
+            .Name("exposer_scrapes_total")
+            .Help("Number of times metrics were scraped")
+            .Register(registry)),
+         _num_scrapes(_num_scrapes_family.Add({})),
+         _request_processing_family(
+         BuildSummary()
+            .Name("request_processing_time")
+            .Help("Processing time of serving scrape requests, in microseconds")
+            .Register(registry)),
+         _request_processing(_request_processing_family.Add(
+            {}, Summary::Quantiles{{0.5, 0.05}, {0.9, 0.01}, {0.99, 0.001}})) {}
+      };
 
-      void initialize_metrics() {
-         // this is where we will set up all non-prometheus_plugin metrics
-      }
+      struct prometheus_plugin_impl {
+         std::mutex _collectables_mutex;
+         std::vector<std::shared_ptr<Collectable>> _collectables;
+         const prometheus::TextSerializer _serializer;
 
-      std::string scrape() {
-         auto start_time_of_request = std::chrono::steady_clock::now();
+         // metrics for prometheus_plugin itself
+         std::unique_ptr<prometheus_plugin_metrics> _metrics;
 
-         std::vector<prometheus::MetricFamily> metrics;
+         prometheus_plugin_impl() { }
 
-         {
-            std::lock_guard<std::mutex> lock{_collectables_mutex};
-            metrics = collect_metrics();
+         void initialize_metrics() {
+            std::shared_ptr<Registry> _registry = std::make_shared<Registry>();
+            _metrics = std::make_unique<prometheus_plugin_metrics>(*_registry);
+            _collectables.push_back(_registry);
+
+            // this is where we will set up all non-prometheus_plugin metrics
          }
 
-         const prometheus::TextSerializer serializer;
+         std::string scrape() {
+            auto start_time_of_request = std::chrono::steady_clock::now();
 
-         std::string body = serializer.Serialize(metrics);
+            std::vector<prometheus::MetricFamily> metrics;
 
-         auto stop_time_of_request = std::chrono::steady_clock::now();
-         auto duration = std::chrono::duration_cast<std::chrono::microseconds>(
-               stop_time_of_request - start_time_of_request);
-         _request_processing.Observe(duration.count());
+            {
+               std::lock_guard<std::mutex> lock{_collectables_mutex};
+               metrics = collect_metrics();
+            }
 
-         _bytes_transferred.Increment(body.length());
-         _num_scrapes.Increment();
+            std::string body = _serializer.Serialize(metrics);
 
-         return body;
-      }
+            auto stop_time_of_request = std::chrono::steady_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::microseconds>(
+                  stop_time_of_request - start_time_of_request);
+            _metrics->_request_processing.Observe(duration.count());
 
-      std::vector<MetricFamily> collect_metrics() {
-         auto collected_metrics = std::vector<MetricFamily>{};
+            _metrics->_bytes_transferred.Increment(body.length());
+            _metrics->_num_scrapes.Increment();
 
-         for (auto&& collectable : _collectables) {
-
-            auto&& metrics = collectable.Collect();
-            collected_metrics.insert(collected_metrics.end(),
-                                     std::make_move_iterator(metrics.begin()),
-                                     std::make_move_iterator(metrics.end()));
+            return body;
          }
 
-         return collected_metrics;
-      }
+         std::vector<MetricFamily> collect_metrics() {
+            auto collected_metrics = std::vector<MetricFamily>{};
+
+            for (auto&& collectable : _collectables) {
+
+               auto&& metrics = collectable->Collect();
+               collected_metrics.insert(collected_metrics.end(),
+                                        std::make_move_iterator(metrics.begin()),
+                                        std::make_move_iterator(metrics.end()));
+            }
+
+            return collected_metrics;
+         }
 
    };
 
@@ -121,7 +128,7 @@ namespace eosio {
    }
 
    void prometheus_plugin::plugin_initialize(const variables_map& options) {
-
+      my->initialize_metrics();
    }
 
    void prometheus_plugin::plugin_startup() {
