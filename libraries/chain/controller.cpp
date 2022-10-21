@@ -238,6 +238,7 @@ struct controller_impl {
    protocol_feature_manager        protocol_features;
    controller::config              conf;
    const chain_id_type             chain_id; // read by thread_pool threads, value will not be changed
+   bool                            replaying = false;
    db_read_mode                    read_mode = db_read_mode::SPECULATIVE;
    bool                            in_trx_requiring_checks = false; ///< if true, checks that are normally skipped on replay (e.g. auth checks) cannot be skipped
    std::optional<fc::microseconds> subjective_cpu_leeway;
@@ -477,6 +478,7 @@ struct controller_impl {
 
       auto blog_head = blog.head();
       auto blog_head_time = blog_head ? blog_head->timestamp.to_time_point() : fork_db.root()->header.timestamp.to_time_point();
+      replaying = true;
       auto start_block_num = head->block_num + 1;
       auto start = fc::time_point::now();
 
@@ -544,6 +546,7 @@ struct controller_impl {
       ilog( "replayed ${n} blocks in ${duration} seconds, ${mspb} ms/block",
             ("n", head->block_num + 1 - start_block_num)("duration", (end-start).count()/1000000)
             ("mspb", ((end-start).count()/1000.0)/(head->block_num-start_block_num)) );
+      replaying = false;
 
       if( except_ptr ) {
          std::rethrow_exception( except_ptr );
@@ -1698,7 +1701,7 @@ struct controller_impl {
          )
          {
             // Promote proposed schedule to pending schedule.
-            if( fc::time_point::now() - when < fc::minutes(5) ) {
+            if( !replaying ) {
                ilog( "promoting proposed schedule (set in block ${proposed_num}) to pending; current block: ${n} lib: ${lib} schedule: ${schedule} ",
                      ("proposed_num", *gpo.proposed_schedule_block_num)("n", pbhs.block_num)
                      ("lib", pbhs.dpos_irreversible_blocknum)
