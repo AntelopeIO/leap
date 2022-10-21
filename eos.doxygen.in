@@ -4,8 +4,8 @@
 # Project related configuration options
 #---------------------------------------------------------------------------
 DOXYFILE_ENCODING      = UTF-8
-PROJECT_NAME           = "ANTELOPE.IO"
-PROJECT_NUMBER         = "LEAP ${DOXY_EOS_VERSION}"
+PROJECT_NAME           = "LEAP"
+PROJECT_NUMBER         = "${DOXY_EOS_VERSION}"
 PROJECT_BRIEF          =
 PROJECT_LOGO           = eos-logo.png
 OUTPUT_DIRECTORY       =
