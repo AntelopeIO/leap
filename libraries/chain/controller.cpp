@@ -238,7 +238,7 @@ struct controller_impl {
    protocol_feature_manager        protocol_features;
    controller::config              conf;
    const chain_id_type             chain_id; // read by thread_pool threads, value will not be changed
-   std::optional<fc::time_point>   replay_head_time;
+   bool                            replaying = false;
    db_read_mode                    read_mode = db_read_mode::SPECULATIVE;
    bool                            in_trx_requiring_checks = false; ///< if true, checks that are normally skipped on replay (e.g. auth checks) cannot be skipped
    std::optional<fc::microseconds> subjective_cpu_leeway;
@@ -478,7 +478,7 @@ struct controller_impl {
 
       auto blog_head = blog.head();
       auto blog_head_time = blog_head ? blog_head->timestamp.to_time_point() : fork_db.root()->header.timestamp.to_time_point();
-      replay_head_time = blog_head_time;
+      replaying = true;
       auto start_block_num = head->block_num + 1;
       auto start = fc::time_point::now();
 
@@ -546,7 +546,7 @@ struct controller_impl {
       ilog( "replayed ${n} blocks in ${duration} seconds, ${mspb} ms/block",
             ("n", head->block_num + 1 - start_block_num)("duration", (end-start).count()/1000000)
             ("mspb", ((end-start).count()/1000.0)/(head->block_num-start_block_num)) );
-      replay_head_time.reset();
+      replaying = false;
 
       if( except_ptr ) {
          std::rethrow_exception( except_ptr );
@@ -1499,10 +1499,8 @@ struct controller_impl {
                trx_context.init_for_implicit_trx();
                trx_context.enforce_whiteblacklist = false;
             } else {
-               bool skip_recording = replay_head_time && (time_point(trn.expiration) < *replay_head_time);
                trx_context.init_for_input_trx( trx->packed_trx()->get_unprunable_size(),
-                                               trx->packed_trx()->get_prunable_size(),
-                                               skip_recording);
+                                               trx->packed_trx()->get_prunable_size() );
             }
 
             trx_context.delay = fc::seconds(trn.delay_sec);
@@ -1700,7 +1698,7 @@ struct controller_impl {
          )
          {
             // Promote proposed schedule to pending schedule.
-            if( !replay_head_time ) {
+            if( !replaying ) {
                ilog( "promoting proposed schedule (set in block ${proposed_num}) to pending; current block: ${n} lib: ${lib} schedule: ${schedule} ",
                      ("proposed_num", *gpo.proposed_schedule_block_num)("n", pbhs.block_num)
                      ("lib", pbhs.dpos_irreversible_blocknum)
