@@ -159,7 +159,7 @@ namespace {
    }
 
    template <typename SNAPSHOT_SUITE>
-   void verify_integrity_hash(const controller& lhs, const controller& rhs) {
+   void verify_integrity_hash(controller& lhs, controller& rhs) {
       const auto lhs_integrity_hash = lhs.calculate_integrity_hash();
       const auto rhs_integrity_hash = rhs.calculate_integrity_hash();
       if (std::is_same_v<SNAPSHOT_SUITE, variant_snapshot_suite> && lhs_integrity_hash.str() != rhs_integrity_hash.str()) {
