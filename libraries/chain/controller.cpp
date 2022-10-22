@@ -477,7 +477,6 @@ struct controller_impl {
       }
 
       auto blog_head = blog.head();
-      auto blog_head_time = blog_head ? blog_head->timestamp.to_time_point() : fork_db.root()->header.timestamp.to_time_point();
       replaying = true;
       auto start_block_num = head->block_num + 1;
       auto start = fc::time_point::now();
