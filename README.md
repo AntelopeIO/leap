@@ -143,7 +143,7 @@ To build, make sure you are in the root of the `leap` repo, then run the followi
 mkdir -p build
 cd build
 cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/usr/lib/llvm-11 ..
-make -j $(nproc) package
+make -j "$(nproc)" package
 ```
 </details>
 
