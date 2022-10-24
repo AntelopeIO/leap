@@ -2760,6 +2760,7 @@ int main( int argc, char** argv ) {
 
    CLI::App app{"Command Line Interface to EOSIO Client"};
    app.set_help_all_flag("--help-all", "Show all help");
+   app.failure_message(CLI::FailureMessage::help);
    app.require_subcommand();
    // Hide obsolete options by putting them into a group with an empty name.
    app.add_option( "-H,--host", obsoleted_option_host_port, localized("The host where ${n} is running", ("n", node_executable_name)) )->group("");
