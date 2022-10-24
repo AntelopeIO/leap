@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
 import argparse
-from dataclasses import dataclass, field
+from dataclasses import InitVar, dataclass, field
+from pathlib import Path
 import os
-import pathlib
 import math
 import string
 import sys
@@ -21,24 +21,49 @@ class KeyStrings(object):
 @dataclass
 class nodeDefinition:
     name: str
-    keys: List[str] = field(init=False)
-    peers: List[str] = field(init=False)
-    producers: List[str] = field(init=False)
+    node_cfg_name: InitVar[str]
+    base_dir: InitVar[str]
+    cfg_name: InitVar[str]
+    data_name: InitVar[str]
+    keys: List[str] = field(default_factory=list)
+    peers: List[str] = field(default_factory=list)
+    producers: List[str] = field(default_factory=list)
     #gelf_endpoint: str
     dont_start: bool = field(init=False, default=False)
     config_dir_name: str = field(init=False)
     data_dir_name: str = field(init=False)
-    p2p_port: int = field(init=False)
-    http_port: int = field(init=False)
+    base_p2p_port: int = 9876
+    base_http_port: int = 8888
     #file_size: int
-    instance_name: str = field(init=False)
+    instance_name: str = field(init=False, repr=False)
     #host: str
-    p2p_endpoint: str = field(init=False)
     host_name: str = 'localhost'
-    public_name: str = field(init=False)
-    listen_addr: str = field(init=False)
+    public_name: str = 'localhost'
+    listen_addr: str = '0.0.0.0'
+    p2p_count: int = field(init=False, repr=False, default=0)
+    http_count: int = field(init=False, repr=False, default=0)
     _dot_label: str = ''
+
+    def __post_init__(self, base_dir, node_cfg_name, cfg_name, data_name):
+        self.config_dir_name = os.path.join(base_dir, cfg_name, node_cfg_name)
+        self.data_dir_name = os.path.join(base_dir, data_name, node_cfg_name)
     
+    @property
+    def p2p_port(self):
+        while True:
+            yield self.base_p2p_port + self.p2p_count
+            self.p2p_count += 1
+
+    @property
+    def http_port(self):
+        while True:
+            yield self.base_http_port + self.http_count
+            self.http_count += 1
+
+    @property
+    def p2p_endpoint(self):
+        return self.public_name + ':' + str(self.p2p_port)
+
     @property
     def dot_label(self):
         if self._dot_label.empty():
@@ -78,6 +103,7 @@ class launcher(object):
         self.next_node = 0
 
         self.define_network()
+        print(self.network)
         self.generate()
 
     def parseArgs(self, args):
@@ -99,8 +125,10 @@ class launcher(object):
         parser.add_argument('--down', type=comma_separated, help='comma-separated list of node numbers that will be shut down')
         parser.add_argument('--bounce', type=comma_separated, help='comma-separated list of node numbers that will be restarted')
         parser.add_argument('--roll', type=comma_separated, help='comma-separated list of host names where the nodes will be rolled to a new version')
-        parser.add_argument('--config-dir', help='directory containing configuration files such as config.ini', default=os.getcwd())
-        parser.add_argument('-c', '--config', type=pathlib.Path, help='configuration file name relative to config-dir', default='config.ini')
+        parser.add_argument('-b', '--base_dir', type=Path, help='base directory where configuration and data files will be written', default=Path('.'))
+        parser.add_argument('--config-dir', type=Path, help='directory containing configuration files such as config.ini', default=Path('etc') / 'eosio')
+        parser.add_argument('--data-dir', type=Path, help='name of subdirectory under base-dir where node data will be written', default=Path('var') / 'lib')
+        parser.add_argument('-c', '--config', type=Path, help='configuration file name relative to config-dir', default='config.ini')
         parser.add_argument('-v', '--version', action='version', version='%(prog)s 1.0')
         
         cfg = parser.add_argument_group(title='optional and config file arguments')
@@ -144,17 +172,19 @@ class launcher(object):
 
     def assign_name(self, is_bios):
         if is_bios:
-            return 'bios'
+            return 'bios', 'node_bios'
         else:
             index = str(self.next_node)
-            self.next_node +=1
-            return self.network.name + index.zfill(2)
+            self.next_node += 1
+            return self.network.name + index.zfill(2), f'node_{index.zfill(2)}'
 
     def define_network(self):
         if self.args.per_host == 0:
             for i in range(self.args.total_nodes):
-                node = nodeDefinition(self.assign_name(i == 0))
+                node_name, cfg_name = self.assign_name(i == 0)
+                node = nodeDefinition(node_name, cfg_name, self.args.base_dir, self.args.config_dir, self.args.data_dir)
                 self.aliases.append(node.name)
+                self.network.nodes[node.name] = node
         else:
             ph_count = 0
             host_ndx = 0
@@ -181,7 +211,7 @@ class launcher(object):
                         ph_count = 1
                     host_ndx += 1
                 lhost.name = self.assign_name(do_bios)
-                self.aliases.push_back(lhost.name)
+                self.aliases.append(lhost.name)
                 do_bios = False
                 ph_count -= 1
 
@@ -194,12 +224,12 @@ class launcher(object):
         i = 0
         producer_number = 0
         to_not_start_node = self.args.total_nodes - self.args.unstarted_nodes - 1
-        for node in self.network.nodes:
-            is_bios = n.name == 'bios'
+        for node_name, node in self.network.nodes.items():
+            is_bios = node_name == 'bios'
             node.keys.append(KeyStrings('EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV',
                                          '5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3'))
             if is_bios:
-                node.producers.push_back('eosio')
+                node.producers.append('eosio')
             else:
                 if i < non_bios:
                     count = per_node
@@ -228,7 +258,7 @@ class launcher(object):
         }.get(self.args.shape, self.make_custom)()
 
         if not self.args.nogen:
-            for node in self.network.nodes:
+            for node_name, node in self.network.nodes.items():
                 self.write_config_file(node)
                 self.write_logging_config_file(node)
                 self.write_genesis_file(node)
@@ -239,7 +269,7 @@ class launcher(object):
         is_bios = node.name == 'bios'
         peers = '\n'.join([f'p2p-peer-address = {self.network.nodes[p].p2p_endpoint}' for p in node.peers])
         if len(node.producers) > 0:
-            producer_keys = 'private-key = ["EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV","5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3"\n'
+            producer_keys = 'private-key = ["EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV","5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3"]\n'
             producer_names = '\n'.join([f'producer-name = {p}' for p in node.producers])
             producer_plugin = 'plugin = eosio::producer_plugin\n'
         else:
@@ -250,7 +280,7 @@ class launcher(object):
 http-server-address = {node.host_name}:{node.http_port}
 http-validate-host = false
 p2p-listen-endpoint = {node.listen_addr}:{node.p2p_port}
-p2p-server-address = {node.public_name}:{node.p2p_port}
+p2p-server-address = {node.p2p_endpoint}
 {"enable-stale-production = true" if is_bios else ""}
 {"p2p-peer-address = %s" % self.network.nodes['bios'].p2p_endpoint if not is_bios else ""}
 {peers}
@@ -369,7 +399,7 @@ plugin = eosio::chain_api_plugin
     def write_dot_file(self):
         with open('testnet.dot', 'w') as f:
             f.write('digraph G\n{\nlayout="circo";\n')
-            for node in self.network.nodes:
+            for node_name, node in self.network.nodes.items():
                 for p in node.peers:
                     pname = ''
                     f.write('"{node.instance.dot_label()}"->"{pname}" [dir="forward"];\n')
