@@ -51,7 +51,6 @@ Requirements to build:
   - newer versions do not work
 - openssl 1.1+
 - curl
-- libusb
 - git
 - GMP
 - Python 3
@@ -137,7 +136,6 @@ sudo apt-get install -y \
         libboost-all-dev \
         libgmp-dev \
         libssl-dev \
-        libusb-1.0-0-dev \
         llvm-11-dev \
         pkg-config
 ```
@@ -163,7 +161,6 @@ sudo apt-get install -y \
         git \
         libgmp-dev \
         libssl-dev \
-        libusb-1.0-0-dev \
         llvm-7-dev \
         pkg-config \
         python3 \
