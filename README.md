@@ -136,8 +136,7 @@ sudo apt-get install -y \
         libboost-all-dev \
         libgmp-dev \
         libssl-dev \
-        llvm-11-dev \
-        pkg-config
+        llvm-11-dev
 ```
 To build, make sure you are in the root of the `leap` repo, then run the following command:
 ```bash
@@ -162,7 +161,6 @@ sudo apt-get install -y \
         libgmp-dev \
         libssl-dev \
         llvm-7-dev \
-        pkg-config \
         python3 \
         zlib1g-dev
 ```
