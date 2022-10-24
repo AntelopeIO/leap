@@ -50,7 +50,6 @@ Requirements to build:
 - LLVM 7 - 11 - for Linux only
   - newer versions do not work
 - openssl 1.1+
-- libcurl
 - curl
 - libusb
 - git
@@ -136,7 +135,6 @@ sudo apt-get install -y \
         curl \
         git \
         libboost-all-dev \
-        libcurl4-openssl-dev \
         libgmp-dev \
         libssl-dev \
         libusb-1.0-0-dev \
@@ -163,7 +161,6 @@ sudo apt-get install -y \
         curl \
         g++-8 \
         git \
-        libcurl4-openssl-dev \
         libgmp-dev \
         libssl-dev \
         libusb-1.0-0-dev \
