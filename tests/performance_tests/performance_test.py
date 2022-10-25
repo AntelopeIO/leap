@@ -26,8 +26,8 @@ class PerfTestBasicResult:
     trxExpectMet: bool = False
     basicTestSuccess: bool = False
     logsDir: str = ""
-    testStart: datetime = ""
-    testEnd: datetime = ""
+    testStart: datetime = None
+    testEnd: datetime = None
 
 @dataclass
 class PerfTestSearchIndivResult:
@@ -66,7 +66,7 @@ def performPtbBinarySearch(tpsTestFloor: int, tpsTestCeiling: int, minStep: int,
         testSuccessful = myTest.runTest()
         if evaluateSuccess(myTest, testSuccessful, ptbResult):
             maxTpsAchieved = binSearchTarget
-            maxTpsReport = json.loads(myTest.report)
+            maxTpsReport = myTest.report
             floor = binSearchTarget + minStep
             scenarioResult.success = True
         else:
@@ -81,9 +81,9 @@ def performPtbBinarySearch(tpsTestFloor: int, tpsTestCeiling: int, minStep: int,
 def evaluateSuccess(test: PerformanceBasicTest, testSuccessful: bool, result: PerfTestBasicResult) -> bool:
     result.targetTPS = test.targetTps
     result.expectedTxns = test.expectedTransactionsSent
-    reportDict = json.loads(test.report)
-    result.testStart = reportDict["testFinish"]
-    result.testEnd = reportDict["testStart"]
+    reportDict = test.report
+    result.testStart = reportDict["testStart"]
+    result.testEnd = reportDict["testFinish"]
     result.resultAvgTps = reportDict["Analysis"]["TPS"]["avg"]
     result.resultTxns = reportDict["Analysis"]["TrxLatency"]["samples"]
     print(f"targetTPS: {result.targetTPS} expectedTxns: {result.expectedTxns} resultAvgTps: {result.resultAvgTps} resultTxns: {result.resultTxns}")
@@ -97,20 +97,30 @@ def evaluateSuccess(test: PerformanceBasicTest, testSuccessful: bool, result: Pe
 
     return result.basicTestSuccess and result.tpsExpectMet and result.trxExpectMet
 
-def createJSONReport(maxTpsAchieved, searchResults, maxTpsReport, longRunningMaxTpsAchieved, longRunningSearchResults, longRunningMaxTpsReport, testStart, testFinish, argsDict) -> json:
-    js = {}
-    js['InitialMaxTpsAchieved'] = maxTpsAchieved
-    js['LongRunningMaxTpsAchieved'] = longRunningMaxTpsAchieved
-    js['testStart'] = testStart
-    js['testFinish'] = testFinish
-    js['InitialSearchResults'] =  {x: asdict(searchResults[x]) for x in range(len(searchResults))}
-    js['InitialMaxTpsReport'] =  maxTpsReport
-    js['LongRunningSearchResults'] =  {x: asdict(longRunningSearchResults[x]) for x in range(len(longRunningSearchResults))}
-    js['LongRunningMaxTpsReport'] =  longRunningMaxTpsReport
-    js['args'] =  argsDict
-    js['env'] = {'system': system(), 'os': os.name, 'release': release()}
-    js['nodeosVersion'] = Utils.getNodeosVersion()
-    return json.dumps(js, indent=2)
+def createReport(maxTpsAchieved, searchResults, maxTpsReport, longRunningMaxTpsAchieved, longRunningSearchResults, longRunningMaxTpsReport, testStart: datetime, testFinish: datetime, argsDict) -> dict:
+    report = {}
+    report['InitialMaxTpsAchieved'] = maxTpsAchieved
+    report['LongRunningMaxTpsAchieved'] = longRunningMaxTpsAchieved
+    report['testStart'] = testStart
+    report['testFinish'] = testFinish
+    report['InitialSearchResults'] =  {x: asdict(searchResults[x]) for x in range(len(searchResults))}
+    report['InitialMaxTpsReport'] =  maxTpsReport
+    report['LongRunningSearchResults'] =  {x: asdict(longRunningSearchResults[x]) for x in range(len(longRunningSearchResults))}
+    report['LongRunningMaxTpsReport'] =  longRunningMaxTpsReport
+    report['args'] =  argsDict
+    report['env'] = {'system': system(), 'os': os.name, 'release': release()}
+    report['nodeosVersion'] = Utils.getNodeosVersion()
+    return report
+
+def createJSONReport(maxTpsAchieved, searchResults, maxTpsReport, longRunningMaxTpsAchieved, longRunningSearchResults, longRunningMaxTpsReport, testStart: datetime, testFinish: datetime, argsDict) -> json:
+    report = createReport(maxTpsAchieved=maxTpsAchieved, searchResults=searchResults, maxTpsReport=maxTpsReport, longRunningMaxTpsAchieved=longRunningMaxTpsAchieved,
+                              longRunningSearchResults=longRunningSearchResults, longRunningMaxTpsReport=longRunningMaxTpsReport, testStart=testStart, testFinish=testFinish, argsDict=argsDict)
+    return reportAsJSON(report)
+
+def reportAsJSON(report: dict) -> json:
+    report['testStart'] = "Unknown" if report['testStart'] is None else report['testStart'].isoformat()
+    report['testFinish'] = "Unknown" if report['testFinish'] is None else report['testFinish'].isoformat()
+    return json.dumps(report, indent=2)
 
 def exportReportAsJSON(report: json, exportPath):
     with open(exportPath, 'wt') as f:
@@ -214,7 +224,7 @@ def main():
     perfRunSuccessful = False
 
     try:
-        testStart = datetime.utcnow().isoformat()
+        testStart = datetime.utcnow()
         binSearchResults = performPtbBinarySearch(tpsTestFloor=0, tpsTestCeiling=maxTpsToTest, minStep=testIterationMinStep, testHelperConfig=testHelperConfig,
                            testClusterConfig=testClusterConfig, testDurationSec=testDurationSec, tpsLimitPerGenerator=tpsLimitPerGenerator,
                            numAddlBlocksToPrune=numAddlBlocksToPrune, testLogDir=ptbLogsDirPath, saveJson=saveTestJsonReports)
@@ -239,7 +249,7 @@ def main():
         for i in range(len(longRunningBinSearchResults.searchResults)):
             print(f"Search scenario: {i} result: {longRunningBinSearchResults.searchResults[i]}")
 
-        testFinish = datetime.utcnow().isoformat()
+        testFinish = datetime.utcnow()
         fullReport = createJSONReport(maxTpsAchieved=binSearchResults.maxTpsAchieved, searchResults=binSearchResults.searchResults, maxTpsReport=binSearchResults.maxTpsReport,
                                       longRunningMaxTpsAchieved=longRunningBinSearchResults.maxTpsAchieved, longRunningSearchResults=longRunningBinSearchResults.searchResults,
                                       longRunningMaxTpsReport=longRunningBinSearchResults.maxTpsReport, testStart=testStart, testFinish=testFinish, argsDict=argsDict)

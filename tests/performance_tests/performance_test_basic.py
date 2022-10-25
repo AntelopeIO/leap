@@ -217,10 +217,10 @@ class PerformanceBasicTest():
         print(self.data)
 
         print("Report:")
-        print(self.report)
+        print(log_reader.reportAsJSON(self.report))
 
         if self.saveJsonReport:
-            log_reader.exportReportAsJSON(self.report, self.reportPath)
+            log_reader.exportReportAsJSON(log_reader.reportAsJSON(self.report), self.reportPath)
 
     def preTestSpinup(self):
         self.cleanupOldClusters()
@@ -242,7 +242,7 @@ class PerformanceBasicTest():
         try:
             # Kill any existing instances and launch cluster
             TestHelper.printSystemInfo("BEGIN")
-            self.testStart = datetime.utcnow().isoformat()
+            self.testStart = datetime.utcnow()
             self.preTestSpinup()
 
             completedRun = self.runTpsTest()
