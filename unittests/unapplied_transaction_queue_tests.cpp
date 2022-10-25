@@ -32,7 +32,7 @@ auto next( unapplied_transaction_queue& q ) {
    return trx;
 }
 
-auto create_test_block_state( std::vector<transaction_metadata_ptr> trx_metas ) {
+auto create_test_block_state( deque<transaction_metadata_ptr> trx_metas ) {
    signed_block_ptr block = std::make_shared<signed_block>();
    for( auto& trx_meta : trx_metas ) {
       block->transactions.emplace_back( *trx_meta->packed_trx() );
@@ -76,6 +76,17 @@ auto create_test_block_state( std::vector<transaction_metadata_ptr> trx_metas ) 
    );
 
    return bsp;
+}
+
+// given a current itr make sure expected number of items are iterated over
+void verify_order( unapplied_transaction_queue& q, unapplied_transaction_queue::iterator itr, size_t expected ) {
+   size_t size = 0;
+   std::set<transaction_id_type> ids;
+   for( ; itr != q.end(); ++itr, ++size ) {
+      ids.insert( itr->id() );
+   }
+   BOOST_TEST( size == expected );
+   BOOST_TEST( ids.size() == expected );
 }
 
 BOOST_AUTO_TEST_CASE( unapplied_transaction_queue_test ) try {
@@ -260,41 +271,64 @@ BOOST_AUTO_TEST_CASE( unapplied_transaction_queue_test ) try {
    q.add_persisted( trx8 );
    q.add_aborted( { trx18, trx19 } );
    q.add_forked( { bs6, bs5, bs4 } );
+   // verify order
+   verify_order( q, q.begin(), 17 );
+   verify_order( q, q.lower_bound(trx16->id()), 17 );
+   // verify type order
    BOOST_CHECK( q.size() == 17 );
    BOOST_REQUIRE( next( q ) == trx16 );
    BOOST_CHECK( q.size() == 16 );
+   verify_order( q, q.lower_bound(trx8->id()), 16 );
    BOOST_REQUIRE( next( q ) == trx8 );
    BOOST_CHECK( q.size() == 15 );
+   verify_order( q, q.lower_bound(trx1->id()), 15 );
    BOOST_REQUIRE( next( q ) == trx1 );
    BOOST_CHECK( q.size() == 14 );
+   verify_order( q, q.lower_bound(trx2->id()), 14 );
    BOOST_REQUIRE( next( q ) == trx2 );
    BOOST_CHECK( q.size() == 13 );
+   verify_order( q, q.lower_bound(trx3->id()), 13 );
+   verify_order( q, q.lower_bound(trx15->id()), 5 );
    BOOST_REQUIRE_EQUAL( next( q ), trx3 );
    BOOST_CHECK( q.size() == 12 );
+   verify_order( q, q.lower_bound(trx4->id()), 12 );
    BOOST_REQUIRE( next( q ) == trx4 );
    BOOST_CHECK( q.size() == 11 );
+   verify_order( q, q.lower_bound(trx5->id()), 11 );
    BOOST_REQUIRE( next( q ) == trx5 );
    BOOST_CHECK( q.size() == 10 );
+   verify_order( q, q.lower_bound(trx6->id()), 10 );
+   verify_order( q, q.lower_bound(trx15->id()), 5 );
    BOOST_REQUIRE( next( q ) == trx6 );
    BOOST_CHECK( q.size() == 9 );
+   verify_order( q, q.lower_bound(trx7->id()), 9 );
    BOOST_REQUIRE( next( q ) == trx7 );
    BOOST_CHECK( q.size() == 8 );
+   verify_order( q, q.lower_bound(trx11->id()), 8 );
    BOOST_REQUIRE( next( q ) == trx11 );
    BOOST_CHECK( q.size() == 7 );
+   verify_order( q, q.lower_bound(trx12->id()), 7 );
    BOOST_REQUIRE_EQUAL( next( q ), trx12 );
    BOOST_CHECK( q.size() == 6 );
+   verify_order( q, q.lower_bound(trx13->id()), 6 );
    BOOST_REQUIRE( next( q ) == trx13 );
    BOOST_CHECK( q.size() == 5 );
+   verify_order( q, q.lower_bound(trx15->id()), 5 );
    BOOST_REQUIRE( next( q ) == trx15 );
    BOOST_CHECK( q.size() == 4 );
+   verify_order( q, q.lower_bound(trx9->id()), 4 );
    BOOST_REQUIRE( next( q ) == trx9 );
    BOOST_CHECK( q.size() == 3 );
+   verify_order( q, q.lower_bound(trx14->id()), 3 );
    BOOST_REQUIRE( next( q ) == trx14 );
    BOOST_CHECK( q.size() == 2 );
+   verify_order( q, q.lower_bound(trx18->id()), 2 );
    BOOST_REQUIRE( next( q ) == trx18 );
    BOOST_CHECK( q.size() == 1 );
+   verify_order( q, q.lower_bound(trx19->id()), 1 );
    BOOST_REQUIRE( next( q ) == trx19 );
    BOOST_CHECK( q.size() == 0 );
+   verify_order( q, q.lower_bound(trx19->id()), 0 );
    BOOST_REQUIRE( next( q ) == nullptr );
    BOOST_CHECK( q.empty() );
 

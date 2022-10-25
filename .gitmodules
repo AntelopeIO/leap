@@ -7,18 +7,24 @@
 [submodule "libraries/eos-vm"]
 	path = libraries/eos-vm
 	url = https://github.com/AntelopeIO/eos-vm
-[submodule "libraries/fc"]
-	path = libraries/fc
-	url = https://github.com/AntelopeIO/fc
 [submodule "libraries/softfloat"]
 	path = libraries/softfloat
 	url = https://github.com/AntelopeIO/berkeley-softfloat-3
+[submodule "libraries/rapidjson"]
+	path = libraries/rapidjson
+	url = https://github.com/Tencent/rapidjson/
 [submodule "libraries/yubihsm"]
 	path = libraries/yubihsm
 	url = https://github.com/Yubico/yubihsm-shell
 [submodule "tests/abieos"]
 	path = tests/abieos
 	url = https://github.com/AntelopeIO/abieos
-[submodule "wasm-spec-tests"]
-	path = wasm-spec-tests
-	url = https://github.com/AntelopeIO/wasm-spec-tests
+[submodule "libraries/libfc/include/fc/crypto/webauthn_json"]
+	path = libraries/libfc/include/fc/crypto/webauthn_json
+	url = https://github.com/Tencent/rapidjson/
+[submodule "libraries/libfc/secp256k1/secp256k1"]
+	path = libraries/libfc/secp256k1/secp256k1
+	url = https://github.com/bitcoin-core/secp256k1
+[submodule "libraries/libfc/libraries/ff"]
+	path = libraries/libfc/libraries/ff
+	url = https://github.com/AntelopeIO/libff

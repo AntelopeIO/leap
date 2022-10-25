@@ -7,13 +7,9 @@ on:
       - "release/*"
   pull_request:
   workflow_dispatch:
-    inputs:
-      run-lr-tests:
-        description: 'Run long running tests'
-        type: boolean
 
 permissions:
-  packages: write
+  packages: read
   contents: read
 
 defaults:
@@ -44,6 +40,9 @@ jobs:
       matrix:
         platform: ${{fromJSON(needs.d.outputs.missing-platforms)}}
     runs-on: ["self-hosted", "enf-x86-beefy"]
+    permissions:
+      packages: write
+      contents: read
     steps:
       - name: Login to Container Registry
         uses: docker/login-action@v2
@@ -57,6 +56,7 @@ jobs:
           push: true
           tags: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
           file: ${{fromJSON(needs.d.outputs.p)[matrix.platform].dockerfile}}
+
   Build:
     needs: [d, build-platforms]
     if: always() && needs.d.result == 'success' && (needs.build-platforms.result == 'success' || needs.build-platforms.result == 'skipped')
@@ -64,8 +64,6 @@ jobs:
       fail-fast: false
       matrix:
         platform: [ubuntu18, ubuntu20, ubuntu22]
-    outputs:
-      lr-tests: ${{steps.build.outputs.lr-tests}}
     runs-on: ["self-hosted", "enf-x86-beefy"]
     container: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
     steps:
@@ -81,25 +79,38 @@ jobs:
             cd build
             cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -GNinja ..
             ninja
-            # the correct approach is by far "--show-only=json-v1 | jq '.tests[].name' | jq -sc"  but that doesn't work on U18's cmake 3.10 since it lacks json-v1
-            echo ::set-output name=lr-tests::$(ctest -L "long_running_tests" --show-only | head -n -1 | cut -d ':' -f 2 -s | jq -cnR '[inputs | select(length>0)[1:]]')
-            tar -pc -C .. --exclude "*.a" --exclude "*.o" build | zstd --long -T0 -9 > ../build.tar.gz
+            tar -pc -C .. --exclude "*.o" build | zstd --long -T0 -9 > ../build.tar.zst
         - name: Upload builddir
-          uses: actions/upload-artifact@v3
+          uses: AntelopeIO/upload-artifact-large-chunks-action@v1
           with:
             name: ${{matrix.platform}}-build
-            path: build.tar.gz
-        - name: Build dev package (Ubuntu 20 only)
-          if: matrix.platform == 'ubuntu20'
-          run: |
-            cd build
-            ninja package
-        - name: Upload dev package (Ubuntu 20 only)
-          if: matrix.platform == 'ubuntu20'
-          uses: actions/upload-artifact@v3
-          with:
-            name: leap-dev-ubuntu20-amd64
-            path: build/leap-dev*.deb
+            path: build.tar.zst
+
+  dev-package:
+    name: Build leap-dev package
+    needs: [d, Build]
+    if: always() && needs.Build.result == 'success'
+    runs-on: ubuntu-latest
+    container: ${{fromJSON(needs.d.outputs.p)['ubuntu20'].image}}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: true
+      - name: Download builddir
+        uses: actions/download-artifact@v3
+        with:
+          name: ubuntu20-build
+      - name: Build dev package
+        run: |
+          zstdcat build.tar.zst | tar x
+          cd build
+          cpack
+      - name: Upload dev package
+        uses: actions/upload-artifact@v3
+        with:
+          name: leap-dev-ubuntu20-amd64
+          path: build/leap-dev*.deb
+
   tests:
     name: Tests
     needs: [d, Build]
@@ -107,13 +118,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [ubuntu20]
-    runs-on: ["self-hosted", "enf-x86-beefy"]
+        platform: [ubuntu20, ubuntu22]
+    runs-on: ["self-hosted", "enf-x86-hightier"]
     container: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
     steps:
       - uses: actions/checkout@v3
-        with:
-          submodules: true
       - name: Download builddir
         uses: actions/download-artifact@v3
         with:
@@ -122,9 +131,13 @@ jobs:
         run: |
           # https://github.com/actions/runner/issues/2033  -- need this because of full version label test looking at git revs
           chown -R $(id -u):$(id -g) $PWD
-          zstdcat build.tar.gz | tar x
+          # jammy's boost 1.74 can stumble on an EXDEV via copy_file_range() it doesn't have a fallback for; re-eval once moving to std::filesystem
+          export TMPDIR="$PWD/tmp"
+          mkdir -p $TMPDIR
+          zstdcat build.tar.zst | tar x
           cd build
           ctest --output-on-failure -j $(nproc) -LE "(nonparallelizable_tests|long_running_tests)"
+
   np-tests:
     name: NP Tests
     needs: [d, Build]
@@ -132,70 +145,62 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [ubuntu20]
-    runs-on: ubuntu-latest
-    container:
-      image: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
-      options: --init
+        platform: [ubuntu18, ubuntu20, ubuntu22]
+    runs-on: ["self-hosted", "enf-x86-midtier"]
     steps:
       - uses: actions/checkout@v3
       - name: Download builddir
         uses: actions/download-artifact@v3
         with:
           name: ${{matrix.platform}}-build
-      - name: Run NP Tests
-        run: |
-          zstdcat build.tar.gz | tar x
-          cd build
-          ctest --output-on-failure -L "nonparallelizable_tests"
-      - name: Bundle logs from failed tests
-        if: failure()
-        run: tar --ignore-failed-read -czf ${{matrix.platform}}-serial-logs.tar.gz build/var build/etc build/leap-ignition-wd
+      - name: Run tests in parallel containers
+        uses: ./.github/actions/parallel-ctest-containers
+        with:
+          container: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
+          error-log-paths: '["build/etc", "build/var", "build/leap-ignition-wd"]'
+          log-tarball-prefix: ${{matrix.platform}}
+          tests-label: nonparallelizable_tests
       - name: Upload logs from failed tests  
         uses: actions/upload-artifact@v3
         if: failure()
         with:
-          name: ${{matrix.platform}}-serial-logs
-          path: ${{matrix.platform}}-serial-logs.tar.gz
+          name: ${{matrix.platform}}-np-logs
+          path: '*-logs.tar.gz'
+
   lr-tests:
     name: LR Tests
     needs: [d, Build]
-    if: always() && needs.Build.result == 'success' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/') || inputs.run-lr-tests)
+    if: always() && needs.Build.result == 'success'
     strategy:
       fail-fast: false
       matrix:
-        platform: [ubuntu20]
-        test-name: ${{fromJSON(needs.Build.outputs.lr-tests)}}
-    runs-on: ubuntu-latest
-    container:
-      image: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
-      options: --init
+        platform: [ubuntu18, ubuntu20, ubuntu22]
+    runs-on: ["self-hosted", "enf-x86-lowtier"]
     steps:
       - uses: actions/checkout@v3
       - name: Download builddir
         uses: actions/download-artifact@v3
         with:
           name: ${{matrix.platform}}-build
-      - name: Run ${{matrix.test-name}} Test
-        run: |
-          zstdcat build.tar.gz | tar x
-          cd build
-          ctest --output-on-failure -R ${{matrix.test-name}}
-      - name: Bundle logs from failed tests
-        if: failure()
-        run: tar --ignore-failed-read -czf ${{matrix.platform}}-${{matrix.test-name}}-logs.tar.gz build/var build/etc build/leap-ignition-wd
-      - name: Upload logs from failed tests  
+      - name: Run tests in parallel containers
+        uses: ./.github/actions/parallel-ctest-containers
+        with:
+          container: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
+          error-log-paths: '["build/etc", "build/var", "build/leap-ignition-wd"]'
+          log-tarball-prefix: ${{matrix.platform}}
+          tests-label: long_running_tests
+      - name: Upload logs from failed tests
         uses: actions/upload-artifact@v3
         if: failure()
         with:
-          name: ${{matrix.platform}}-${{matrix.test-name}}-logs
-          path: ${{matrix.platform}}-${{matrix.test-name}}-logs.tar.gz
+          name: ${{matrix.platform}}-lr-logs
+          path: '*-logs.tar.gz'
 
   all-passing:
     name: All Required Tests Passed
-    needs: [tests, np-tests]
+    needs: [dev-package, tests, np-tests]
     if: always()
     runs-on: ubuntu-latest
     steps:
-      - if: needs.tests.result != 'success' || needs.np-tests.result != 'success'
+      - if: needs.dev-package.result != 'success' || needs.tests.result != 'success' || needs.np-tests.result != 'success'
         run: false

@@ -172,6 +172,9 @@ namespace {
          auto rhs_latest = SNAPSHOT_SUITE::finalize(rhs_latest_writer);
 
          print_variant_diff(lhs_latest, rhs_latest);
+         // more than print the different, also save snapshots json gz files under path build/unittests/snapshots
+         SNAPSHOT_SUITE::write_to_file("snapshot_debug_verify_integrity_hash_lhs", lhs_latest);
+         SNAPSHOT_SUITE::write_to_file("snapshot_debug_verify_integrity_hash_rhs", rhs_latest);
       }
       BOOST_REQUIRE_EQUAL(lhs_integrity_hash.str(), rhs_integrity_hash.str());
    }
@@ -181,11 +184,30 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(test_exhaustive_snapshot, SNAPSHOT_SUITE, snapshot
 {
    tester chain;
 
-   chain.create_account("snapshot"_n);
+   // Create 2 accounts
+   chain.create_accounts({"snapshot"_n, "snapshot1"_n});
+
+   // Set code and increment the first account
    chain.produce_blocks(1);
    chain.set_code("snapshot"_n, contracts::snapshot_test_wasm());
    chain.set_abi("snapshot"_n, contracts::snapshot_test_abi().data());
    chain.produce_blocks(1);
+   chain.push_action("snapshot"_n, "increment"_n, "snapshot"_n, mutable_variant_object()
+         ( "value", 1 )
+   );
+
+   // Set code and increment the second account
+   chain.produce_blocks(1);
+   chain.set_code("snapshot1"_n, contracts::snapshot_test_wasm());
+   chain.set_abi("snapshot1"_n, contracts::snapshot_test_abi().data());
+   chain.produce_blocks(1);
+   // increment the test contract
+   chain.push_action("snapshot1"_n, "increment"_n, "snapshot1"_n, mutable_variant_object()
+         ( "value", 1 )
+   );
+
+   chain.produce_blocks(1);
+
    chain.control->abort_block();
 
    static const int generation_count = 8;
@@ -202,6 +224,9 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(test_exhaustive_snapshot, SNAPSHOT_SUITE, snapshot
 
       // increment the test contract
       chain.push_action("snapshot"_n, "increment"_n, "snapshot"_n, mutable_variant_object()
+         ( "value", 1 )
+      );
+      chain.push_action("snapshot1"_n, "increment"_n, "snapshot1"_n, mutable_variant_object()
          ( "value", 1 )
       );
 
@@ -526,6 +551,70 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(test_restart_with_existing_state_and_truncated_blo
    chain.control->abort_block();
    snap_chain.push_block(block);
    verify_integrity_hash<SNAPSHOT_SUITE>(*chain.control, *snap_chain.control);
+}
+
+BOOST_AUTO_TEST_CASE(json_snapshot_validity_test)
+{
+   auto ordinal = 0;
+   tester chain;
+
+   // prep the chain
+   chain.create_account("snapshot"_n);
+   chain.produce_blocks(1);
+   chain.set_code("snapshot"_n, contracts::snapshot_test_wasm());
+   chain.set_abi("snapshot"_n, contracts::snapshot_test_abi().data());
+   chain.produce_blocks(10);
+   chain.control->abort_block();
+
+   auto pid_string = std::to_string(getpid());
+   auto bin_file = pid_string + "BinSnapshot";
+   auto json_file = pid_string + "JsonSnapshot";
+   auto bin_from_json_file = pid_string + "BinFromJsonSnapshot";
+
+   // create bin snapshot
+   auto writer_bin = buffered_snapshot_suite::get_writer();
+   chain.control->write_snapshot(writer_bin);
+   auto snapshot_bin = buffered_snapshot_suite::finalize(writer_bin);
+   buffered_snapshot_suite::write_to_file(bin_file, snapshot_bin);
+
+   // create json snapshot
+   auto writer_json = json_snapshot_suite::get_writer();
+   chain.control->write_snapshot(writer_json);
+   auto snapshot_json = json_snapshot_suite::finalize(writer_json);
+   json_snapshot_suite::write_to_file(json_file, snapshot_json);
+
+   // load bin snapshot
+   auto snapshot_bin_read = buffered_snapshot_suite::load_from_file(bin_file);
+   auto reader_bin = buffered_snapshot_suite::get_reader(snapshot_bin_read);
+   snapshotted_tester tester_bin(chain.get_config(), reader_bin, ordinal++);
+
+   // load json snapshot
+   auto snapshot_json_read = json_snapshot_suite::load_from_file(json_file);
+   auto reader_json = json_snapshot_suite::get_reader(snapshot_json_read);
+   snapshotted_tester tester_json(chain.get_config(), reader_json, ordinal++);
+
+   // create bin snapshot from loaded json snapshot
+   auto writer_bin_from_json = buffered_snapshot_suite::get_writer();
+   tester_json.control->write_snapshot(writer_bin_from_json);
+   auto snapshot_bin_from_json = buffered_snapshot_suite::finalize(writer_bin_from_json);
+   buffered_snapshot_suite::write_to_file(bin_from_json_file, snapshot_bin_from_json);
+
+   // load new bin snapshot
+   auto snapshot_bin_from_json_read = buffered_snapshot_suite::load_from_file(bin_from_json_file);
+   auto reader_bin_from_json = buffered_snapshot_suite::get_reader(snapshot_bin_from_json_read);
+   snapshotted_tester tester_bin_from_json(chain.get_config(), reader_bin_from_json, ordinal++);
+
+   // ensure all snapshots are equal
+   verify_integrity_hash<buffered_snapshot_suite>(*tester_bin_from_json.control, *tester_bin.control);
+   verify_integrity_hash<buffered_snapshot_suite>(*tester_bin_from_json.control, *tester_json.control);
+   verify_integrity_hash<buffered_snapshot_suite>(*tester_json.control, *tester_bin.control);
+
+   auto bin_snap_path = bfs::path(snapshot_file<snapshot::binary>::base_path) / bin_file;
+   auto bin_from_json_snap_path = bfs::path(snapshot_file<snapshot::binary>::base_path) / bin_from_json_file;
+   auto json_snap_path = bfs::path(snapshot_file<snapshot::json>::base_path) / json_file;
+   remove(bin_snap_path);
+   remove(bin_from_json_snap_path);
+   remove(json_snap_path);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

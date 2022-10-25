@@ -268,8 +268,7 @@ namespace eosio { namespace testing {
       open( make_protocol_feature_set(), expected_chain_id );
    }
 
-   template <typename Lambda>
-   void base_tester::open( protocol_feature_set&& pfs, std::optional<chain_id_type> expected_chain_id, Lambda lambda ) {
+   void base_tester::open( protocol_feature_set&& pfs, std::optional<chain_id_type> expected_chain_id, const std::function<void()>& lambda ) {
       if( !expected_chain_id ) {
          expected_chain_id = controller::extract_chain_id_from_db( cfg.state_dir );
          if( !expected_chain_id ) {
@@ -283,7 +282,7 @@ namespace eosio { namespace testing {
 
       control.reset( new controller(cfg, std::move(pfs), *expected_chain_id) );
       control->add_indices();
-      lambda();
+      if (lambda) lambda();
       chain_transactions.clear();
       control->accepted_block.connect([this]( const block_state_ptr& block_state ){
         FC_ASSERT( block_state->block );
@@ -322,7 +321,8 @@ namespace eosio { namespace testing {
    void base_tester::push_block(signed_block_ptr b) {
       auto bsf = control->create_block_state_future(b->calculate_id(), b);
       unapplied_transactions.add_aborted( control->abort_block() );
-      control->push_block( bsf, [this]( const branch_type& forked_branch ) {
+      controller::block_report br;
+      control->push_block( br, bsf, [this]( const branch_type& forked_branch ) {
          unapplied_transactions.add_forked( forked_branch );
       }, [this]( const transaction_id_type& id ) {
          return unapplied_transactions.get_trx( id );
@@ -428,7 +428,8 @@ namespace eosio { namespace testing {
          }
       });
 
-      control->finalize_block( [&]( digest_type d ) {
+      controller::block_report br;
+      control->finalize_block( br, [&]( digest_type d ) {
          std::vector<signature_type> result;
          result.reserve(signing_keys.size());
          for (const auto& k: signing_keys)
@@ -1050,7 +1051,8 @@ namespace eosio { namespace testing {
             if( block ) { //&& !b.control->is_known_block(block->id()) ) {
                auto bsf = b.control->create_block_state_future( block->calculate_id(), block );
                b.control->abort_block();
-               b.control->push_block(bsf, forked_branch_callback{}, trx_meta_cache_lookup{}); //, eosio::chain::validation_steps::created_block);
+               controller::block_report br;
+               b.control->push_block(br, bsf, forked_branch_callback{}, trx_meta_cache_lookup{}); //, eosio::chain::validation_steps::created_block);
             }
          }
       };

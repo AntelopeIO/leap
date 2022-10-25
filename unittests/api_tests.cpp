@@ -589,10 +589,8 @@ BOOST_AUTO_TEST_CASE(ram_billing_in_notify_tests) { try {
    fc::temp_directory tempdir;
    validating_tester chain( tempdir, true );
    chain.execute_setup_policy( setup_policy::preactivate_feature_and_new_bios );
-   const auto& pfm = chain.control->get_protocol_feature_manager();
-   const auto& d = pfm.get_builtin_digest(builtin_protocol_feature_t::action_return_value); // testapi requires this
-   BOOST_REQUIRE(d);
-   chain.preactivate_protocol_features( {*d} );
+   chain.preactivate_builtin_protocol_features( {builtin_protocol_feature_t::action_return_value} );
+   chain.preactivate_builtin_protocol_features( {builtin_protocol_feature_t::crypto_primitives} );
 
    chain.produce_blocks(2);
    chain.create_account( "testapi"_n );
@@ -848,6 +846,88 @@ BOOST_FIXTURE_TEST_CASE(deferred_cfa_success, TESTER)  try {
          return expect_assert_message(e, "Cannot create account named testapi2, as that name is already taken");
       });
    BOOST_REQUIRE_EQUAL( validate(), true );
+} FC_LOG_AND_RETHROW()
+
+BOOST_AUTO_TEST_CASE(light_validation_skip_cfa) try {
+   tester chain(setup_policy::full);
+
+   std::vector<signed_block_ptr> blocks;
+   blocks.push_back(chain.produce_block());
+
+   chain.create_account( "testapi"_n );
+   chain.create_account( "dummy"_n );
+   blocks.push_back(chain.produce_block());
+   chain.set_code( "testapi"_n, contracts::test_api_wasm() );
+   blocks.push_back(chain.produce_block());
+
+   cf_action cfa;
+   signed_transaction trx;
+   action act({}, cfa);
+   trx.context_free_actions.push_back(act);
+   trx.context_free_data.emplace_back(fc::raw::pack<uint32_t>(100)); // verify payload matches context free data
+   trx.context_free_data.emplace_back(fc::raw::pack<uint32_t>(200));
+   // add a normal action along with cfa
+   dummy_action da = { DUMMY_ACTION_DEFAULT_A, DUMMY_ACTION_DEFAULT_B, DUMMY_ACTION_DEFAULT_C };
+   action act1(vector<permission_level>{{"testapi"_n, config::active_name}}, da);
+   trx.actions.push_back(act1);
+   chain.set_transaction_headers(trx);
+   // run normal passing case
+   auto sigs = trx.sign(chain.get_private_key("testapi"_n, "active"), chain.control->get_chain_id());
+   auto trace = chain.push_transaction(trx);
+   blocks.push_back(chain.produce_block());
+
+   BOOST_REQUIRE(trace->receipt);
+   BOOST_CHECK_EQUAL(trace->receipt->status, transaction_receipt::executed);
+   BOOST_CHECK_EQUAL(2, trace->action_traces.size());
+
+   BOOST_CHECK(trace->action_traces.at(0).context_free); // cfa
+   BOOST_CHECK_EQUAL("test\n", trace->action_traces.at(0).console); // cfa executed
+
+   BOOST_CHECK(!trace->action_traces.at(1).context_free); // non-cfa
+   BOOST_CHECK_EQUAL("", trace->action_traces.at(1).console);
+
+
+   fc::temp_directory tempdir;
+   auto conf_genesis = tester::default_config( tempdir );
+
+   auto& cfg = conf_genesis.first;
+   cfg.trusted_producers = { "eosio"_n }; // light validation
+
+   tester other( conf_genesis.first, conf_genesis.second );
+   other.execute_setup_policy( setup_policy::full );
+
+   transaction_trace_ptr other_trace;
+   auto cc = other.control->applied_transaction.connect( [&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
+      auto& t = std::get<0>(x);
+      if( t && t->id == trace->id ) {
+         other_trace = t;
+      }
+   } );
+
+   for (auto& new_block : blocks) {
+      other.push_block(new_block);
+   }
+   blocks.clear();
+
+   BOOST_REQUIRE(other_trace);
+   BOOST_REQUIRE(other_trace->receipt);
+   BOOST_CHECK_EQUAL(other_trace->receipt->status, transaction_receipt::executed);
+   BOOST_CHECK(*trace->receipt == *other_trace->receipt);
+   BOOST_CHECK_EQUAL(2, other_trace->action_traces.size());
+
+   BOOST_CHECK(other_trace->action_traces.at(0).context_free); // cfa
+   BOOST_CHECK_EQUAL("", other_trace->action_traces.at(0).console); // cfa not executed for light validation (trusted producer)
+   BOOST_CHECK_EQUAL(trace->action_traces.at(0).receipt->global_sequence, other_trace->action_traces.at(0).receipt->global_sequence);
+   BOOST_CHECK_EQUAL(trace->action_traces.at(0).receipt->digest(), other_trace->action_traces.at(0).receipt->digest());
+
+   BOOST_CHECK(!other_trace->action_traces.at(1).context_free); // non-cfa
+   BOOST_CHECK_EQUAL("", other_trace->action_traces.at(1).console);
+   BOOST_CHECK_EQUAL(trace->action_traces.at(1).receipt->global_sequence, other_trace->action_traces.at(1).receipt->global_sequence);
+   BOOST_CHECK_EQUAL(trace->action_traces.at(1).receipt->digest(), other_trace->action_traces.at(1).receipt->digest());
+
+
+   other.close();
+
 } FC_LOG_AND_RETHROW()
 
 /*************************************************************************************
@@ -1178,7 +1258,9 @@ BOOST_FIXTURE_TEST_CASE(checktime_intrinsic, TESTER) { try {
                                           5000, 10, 10 ),
                                deadline_exception, is_deadline_exception );
 
-#warning TODO validate that the contract was successfully cached
+// https://github.com/AntelopeIO/leap/issues/260 was created to track this TODO.
+// Remove those comments after the issue is resolved.
+// #warning TODO validate that the contract was successfully cached
 
         //it will always call
         BOOST_CHECK_EXCEPTION( call_test( *this, test_api_action<TEST_METHOD("doesn't matter", "doesn't matter")>{},
@@ -1215,7 +1297,9 @@ BOOST_FIXTURE_TEST_CASE(checktime_grow_memory, TESTER) { try {
                                           5000, 10, 10 ),
                                deadline_exception, is_deadline_exception );
 
-#warning TODO validate that the contract was successfully cached
+// https://github.com/AntelopeIO/leap/issues/260 was created to track this TODO.
+// Remove those comments after the issue is resolved.
+//#warning TODO validate that the contract was successfully cached
 
         //it will always call
         BOOST_CHECK_EXCEPTION( call_test( *this, test_api_action<TEST_METHOD("doesn't matter", "doesn't matter")>{},
@@ -1235,7 +1319,9 @@ BOOST_FIXTURE_TEST_CASE(checktime_hashing_fail, TESTER) { try {
                                           5000, 3, 3 ),
                                deadline_exception, is_deadline_exception );
 
-#warning TODO validate that the contract was successfully cached
+// https://github.com/AntelopeIO/leap/issues/260 was created to track this TODO.
+// Remove those comments after the issue is resolved.
+//#warning TODO validate that the contract was successfully cached
 
         //the contract should be cached, now we should get deadline_exception because of calls to checktime() from hashing function
         BOOST_CHECK_EXCEPTION( call_test( *this, test_api_action<TEST_METHOD("test_checktime", "checktime_sha1_failure")>{},
@@ -1768,12 +1854,8 @@ BOOST_AUTO_TEST_CASE(more_deferred_transaction_tests) { try {
    fc::temp_directory tempdir;
    validating_tester chain( tempdir, true );
    chain.execute_setup_policy( setup_policy::preactivate_feature_and_new_bios );
-
-   const auto& pfm = chain.control->get_protocol_feature_manager();
-   auto d = pfm.get_builtin_digest( builtin_protocol_feature_t::replace_deferred );
-   BOOST_REQUIRE( d );
-
-   chain.preactivate_protocol_features( {*d} );
+   chain.preactivate_builtin_protocol_features( {builtin_protocol_feature_t::replace_deferred} );
+   chain.preactivate_builtin_protocol_features( {builtin_protocol_feature_t::crypto_primitives} );
    chain.produce_block();
 
    const auto& index = chain.control->db().get_index<generated_transaction_multi_index,by_id>();
@@ -2993,6 +3075,41 @@ BOOST_FIXTURE_TEST_CASE(account_creation_time_tests, TESTER) { try {
    produce_block();
 
    BOOST_REQUIRE_EQUAL( validate(), true );
+} FC_LOG_AND_RETHROW() }
+
+/*************************************************************************************
+ * extended_symbol_api_tests test cases
+ *************************************************************************************/
+BOOST_FIXTURE_TEST_CASE(extended_symbol_api_tests, TESTER) { try {
+   name n0{"1"};
+   name n1{"5"};
+   name n2{"a"};
+   name n3{"z"};
+   name n4{"111111111111j"};
+   name n5{"555555555555j"};
+   name n6{"zzzzzzzzzzzzj"};
+
+   symbol s0{4, ""};
+   symbol s1{5, "Z"};
+   symbol s2{10, "AAAAA"};
+   symbol s3{10, "ZZZZZ"};
+
+   // Test comparison operators
+
+   BOOST_REQUIRE( (extended_symbol{s0, n0} == extended_symbol{s0, n0}) );
+   BOOST_REQUIRE( (extended_symbol{s1, n3} == extended_symbol{s1, n3}) );
+   BOOST_REQUIRE( (extended_symbol{s2, n4} == extended_symbol{s2, n4}) );
+   BOOST_REQUIRE( (extended_symbol{s3, n6} == extended_symbol{s3, n6}) );
+
+   BOOST_REQUIRE( (extended_symbol{s0, n0} != extended_symbol{s1, n0}) );
+   BOOST_REQUIRE( (extended_symbol{s0, n0} != extended_symbol{s0, n1}) );
+   BOOST_REQUIRE( (extended_symbol{s1, n1} != extended_symbol{s2, n2}) );
+
+   BOOST_REQUIRE( (extended_symbol{s0, n0} < extended_symbol{s1, n0}) );
+   BOOST_REQUIRE( (extended_symbol{s0, n0} < extended_symbol{s0, n1}) );
+   BOOST_REQUIRE( (extended_symbol{s0, n5} < extended_symbol{s0, n3}) );
+   BOOST_REQUIRE( (extended_symbol{s2, n0} < extended_symbol{s3, n0}) );
+
 } FC_LOG_AND_RETHROW() }
 
 /*************************************************************************************

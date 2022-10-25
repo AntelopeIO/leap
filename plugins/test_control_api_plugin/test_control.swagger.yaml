@@ -45,7 +45,7 @@ paths:
                   type: object
                   properties:
                     producer:
-                      $ref: 'https://eosio.github.io/schemata/v2.0/oas/Name.yaml'
+                      $ref: 'https://docs.eosnetwork.com/openapi/v2.0/Name.yaml'
                     where_in_sequence:
                       type: integer
                     based_on_lib:

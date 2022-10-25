@@ -24,7 +24,7 @@ using namespace eosio;
    [&api_handle](string, string body, url_response_callback cb) mutable { \
           try { \
              INVOKE \
-             cb(http_response_code, fc::variant(result)); \
+             cb(http_response_code, fc::time_point::maximum(), fc::variant(result)); \
           } catch (...) { \
              http_plugin::handle_exception(#api_name, #call_name, body, cb); \
           } \
@@ -44,7 +44,7 @@ using namespace eosio;
      eosio::detail::net_api_plugin_empty result;
 
 #define INVOKE_V_V(api_handle, call_name) \
-     body = parse_params<std::string, http_params_types::no_params_required>(body); \
+     body = parse_params<std::string, http_params_types::no_params>(body); \
      api_handle.call_name(); \
      eosio::detail::net_api_plugin_empty result;
 

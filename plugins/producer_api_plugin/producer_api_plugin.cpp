@@ -29,10 +29,11 @@ struct async_result_visitor : public fc::visitor<fc::variant> {
 
 #define CALL_WITH_400(api_name, api_handle, call_name, INVOKE, http_response_code) \
 {std::string("/v1/" #api_name "/" #call_name), \
-   [&api_handle](string, string body, url_response_callback cb) mutable { \
+   [&api_handle, http_max_response_time](string, string body, url_response_callback cb) mutable { \
           try { \
+             auto deadline = fc::time_point::now() + http_max_response_time; \
              INVOKE \
-             cb(http_response_code, fc::variant(result)); \
+             cb(http_response_code, deadline, fc::variant(result)); \
           } catch (...) { \
              http_plugin::handle_exception(#api_name, #call_name, body, cb); \
           } \
@@ -50,7 +51,7 @@ struct async_result_visitor : public fc::visitor<fc::variant> {
                http_plugin::handle_exception(#api_name, #call_name, body, cb);\
             }\
          } else {\
-            cb(http_response_code, std::visit(async_result_visitor(), result));\
+            cb(http_response_code, fc::time_point::maximum(), std::visit(async_result_visitor(), result));\
          }\
       };\
       INVOKE\
@@ -64,6 +65,10 @@ struct async_result_visitor : public fc::visitor<fc::variant> {
 #define INVOKE_R_R_II(api_handle, call_name, in_param) \
      auto params = parse_params<in_param, http_params_types::possible_no_params>(body);\
      auto result = api_handle.call_name(std::move(params));
+
+#define INVOKE_R_R_D(api_handle, call_name, in_param) \
+     auto params = parse_params<in_param, http_params_types::possible_no_params>(body);\
+     auto result = api_handle.call_name(std::move(params), deadline);
 
 #define INVOKE_R_V(api_handle, call_name) \
      body = parse_params<std::string, http_params_types::no_params>(body); \
@@ -87,6 +92,8 @@ void producer_api_plugin::plugin_startup() {
    ilog("starting producer_api_plugin");
    // lifetime of plugin is lifetime of application
    auto& producer = app().get_plugin<producer_plugin>();
+   auto& http = app().get_plugin<http_plugin>();
+   fc::microseconds http_max_response_time = http.get_max_response_time();
 
    app().get_plugin<http_plugin>().add_api({
        CALL_WITH_400(producer, producer, pause,
@@ -122,6 +129,8 @@ void producer_api_plugin::plugin_startup() {
                                  producer_plugin::get_supported_protocol_features_params), 201),
        CALL_WITH_400(producer, producer, get_account_ram_corrections,
             INVOKE_R_R(producer, get_account_ram_corrections, producer_plugin::get_account_ram_corrections_params), 201),
+       CALL_WITH_400(producer, producer, get_unapplied_transactions,
+                     INVOKE_R_R_D(producer, get_unapplied_transactions, producer_plugin::get_unapplied_transactions_params), 200),
    }, appbase::priority::medium_high);
 }
 

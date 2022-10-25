@@ -1,16 +1,12 @@
 #!/usr/bin/env python3
 
-from testUtils import Utils
 from datetime import datetime
 from datetime import timedelta
 import time
-from Cluster import Cluster
 import json
-from WalletMgr import WalletMgr
-from Node import Node
-from TestHelper import TestHelper
-
 import signal
+
+from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr
 
 ###############################################################
 # nodeos_forked_chain_test
@@ -162,7 +158,6 @@ try:
     specificExtraNodeosArgs={}
     # producer nodes will be mapped to 0 through totalProducerNodes-1, so the number totalProducerNodes will be the non-producing node
     specificExtraNodeosArgs[totalProducerNodes]="--plugin eosio::test_control_api_plugin"
-    traceNodeosArgs = " --plugin eosio::trace_api_plugin --trace-no-abis "
 
 
     # ***   setup topogrophy   ***
@@ -172,7 +167,7 @@ try:
 
     if cluster.launch(prodCount=prodCount, topo="bridge", pnodes=totalProducerNodes,
                       totalNodes=totalNodes, totalProducers=totalProducers,
-                      useBiosBootFile=False, specificExtraNodeosArgs=specificExtraNodeosArgs, extraNodeosArgs=traceNodeosArgs) is False:
+                      useBiosBootFile=False, specificExtraNodeosArgs=specificExtraNodeosArgs) is False:
         Utils.cmdError("launcher")
         Utils.errorExit("Failed to stand up eos cluster.")
     Print("Validating system accounts after bootstrap")
@@ -300,6 +295,7 @@ try:
     producerToSlot={}
     slot=-1
     inRowCountPerProducer=12
+    minNumBlocksPerProducer=10
     lastTimestamp=timestamp
     headBlockNum=node.getBlockNum()
     firstBlockForWindowMissedSlot=None
@@ -320,6 +316,7 @@ try:
         if firstBlockForWindowMissedSlot is not None:
             missedSlotAfter.append(firstBlockForWindowMissedSlot)
             firstBlockForWindowMissedSlot=None
+
         while blockProducer==lastBlockProducer:
             producerToSlot[blockProducer]["count"]+=1
             blockNum+=1
@@ -340,13 +337,16 @@ try:
                 missedSlotAfter.append("%d (%s)" % (blockNum-1, missed))
             lastTimestamp=timestamp
 
-        if producerToSlot[lastBlockProducer]["count"]!=inRowCountPerProducer:
+        if producerToSlot[lastBlockProducer]["count"] < minNumBlocksPerProducer or producerToSlot[lastBlockProducer]["count"] > inRowCountPerProducer:
             Utils.errorExit("Producer %s, in slot %d, expected to produce %d blocks but produced %d blocks.  At block number %d. " %
                             (lastBlockProducer, slot, inRowCountPerProducer, producerToSlot[lastBlockProducer]["count"], blockNum-1) +
                             "Slots were missed after the following blocks: %s" % (", ".join(missedSlotAfter)))
-        elif len(missedSlotAfter) > 0:
-            # if there was a full round, then the most recent producer missed a slot
-            firstBlockForWindowMissedSlot=missedSlotAfter[0]
+
+        if len(missedSlotAfter) > 0:
+            # it may be the most recent producer missed a slot
+            possibleMissed=missedSlotAfter[-1]
+            if possibleMissed == blockNum - 1:
+                firstBlockForWindowMissedSlot=possibleMissed
 
         if blockProducer==productionCycle[0]:
             break
@@ -396,7 +396,7 @@ try:
     Print("Tracking block producers from %d till divergence or %d. Head block is %d and lowest LIB is %d" % (preKillBlockNum, lastBlockNum, headBlockNum, libNumAroundDivergence))
     transitionCount=0
     missedTransitionBlock=None
-    for blockNum in range(preKillBlockNum,lastBlockNum):
+    for blockNum in range(preKillBlockNum,lastBlockNum + 1):
         #avoiding getting LIB until my current block passes the head from the last time I checked
         if blockNum>headBlockNum:
             (headBlockNum, libNumAroundDivergence)=getMinHeadAndLib(prodNodes)

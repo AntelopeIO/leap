@@ -5,6 +5,7 @@
 #include <eosio/chain/types.hpp>
 #include <eosio/chain/block_state.hpp>
 #include <eosio/chain_plugin/account_query_db.hpp>
+#include <eosio/chain/thread_utils.hpp>
 
 #ifdef NON_VALIDATING_TEST
 #define TESTER tester
@@ -94,6 +95,56 @@ BOOST_FIXTURE_TEST_CASE(updateauth_test, TESTER) { try {
    const auto results = aq_db.get_accounts_by_authorizers(pars);
 
    BOOST_TEST_REQUIRE(find_account_auth(results, tester_account, "role"_n) == true);
+
+} FC_LOG_AND_RETHROW() }
+
+BOOST_FIXTURE_TEST_CASE(updateauth_test_multi_threaded, TESTER) { try {
+
+   // instantiate an account_query_db
+   auto aq_db = account_query_db(*control);
+
+   //link aq_db to the `accepted_block` signal on the controller
+   auto c = control->accepted_block.connect([&](const block_state_ptr& blk) {
+      aq_db.commit_block( blk);
+   });
+
+   produce_blocks(10);
+
+   const auto tester_account = "tester"_n;
+   const string role = "first";
+   produce_block();
+   create_account(tester_account);
+
+   named_thread_pool thread_pool( "test", 5 );
+
+   for( size_t i = 0; i < 100; ++i ) {
+      boost::asio::post( thread_pool.get_executor(), [&aq_db, tester_account, role]() {
+         params pars;
+         pars.keys.emplace_back( get_public_key( tester_account, role ) );
+         const auto results = aq_db.get_accounts_by_authorizers( pars );
+      } );
+   }
+
+   for( size_t i = 0; i < 50; ++i ) {
+      const auto trace_ptr = push_action( config::system_account_name, updateauth::get_name(), tester_account,
+                                          fc::mutable_variant_object()
+                                                ( "account", tester_account )
+                                                ( "permission", "role"_n )
+                                                ( "parent", "active" )
+                                                ( "auth", authority( get_public_key( tester_account, role ), 5 ) )
+      );
+      aq_db.cache_transaction_trace( trace_ptr );
+      produce_block();
+   }
+
+   thread_pool.stop();
+
+   params pars;
+   pars.keys.emplace_back( get_public_key( tester_account, role ) );
+   const auto results = aq_db.get_accounts_by_authorizers( pars );
+   BOOST_TEST_REQUIRE(find_account_auth(results, tester_account, "role"_n) == true);
+
+   thread_pool.stop();
 
 } FC_LOG_AND_RETHROW() }
 

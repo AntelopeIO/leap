@@ -48,6 +48,8 @@ bool include_delta(const chain::account_metadata_object& old, const chain::accou
 }
 
 bool include_delta(const chain::code_object& old, const chain::code_object& curr) { //
+   // code_object data that is exported by SHiP is never modified they are only deleted or created,
+   // see serialization of history_serial_wrapper<eosio::chain::code_object>
    return false;
 }
 
@@ -101,6 +103,10 @@ std::vector<table_delta> create_deltas(const chainbase::database& db, bool full_
             delta.rows.obj.emplace_back(false, pack_row(old));
          for (auto& row : undo.new_values) {
             delta.rows.obj.emplace_back(true, pack_row(row));
+         }
+
+         if(delta.rows.obj.empty()) {
+            deltas.pop_back();
          }
       }
    };

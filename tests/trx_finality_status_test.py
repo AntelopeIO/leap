@@ -1,18 +1,15 @@
 #!/usr/bin/env python3
 
-from testUtils import Utils
 import copy
 import time
-from Cluster import Cluster
-from WalletMgr import WalletMgr
-from Node import BlockType
 import json
 import os
 import signal
 import subprocess
-from TestHelper import AppArgs
-from TestHelper import TestHelper
-from testUtils import Account
+
+from TestHarness import Account, Cluster, TestHelper, Utils, WalletMgr
+from TestHarness.Node import BlockType
+from TestHarness.TestHelper import AppArgs
 
 ########################################################################
 # trx_finality_status_test
@@ -70,7 +67,6 @@ try:
     failure_duration = 40
     extraNodeosArgs=" --transaction-finality-status-max-storage-size-gb 1 " + \
                    f"--transaction-finality-status-success-duration-sec {successDuration} --transaction-finality-status-failure-duration-sec {failure_duration}"
-    extraNodeosArgs+=" --plugin eosio::trace_api_plugin --trace-no-abis"
     extraNodeosArgs+=" --http-max-response-time-ms 990000"
     if cluster.launch(prodCount=prodCount, onlyBios=False, pnodes=pnodes, totalNodes=totalNodes, totalProducers=pnodes*prodCount,
                       useBiosBootFile=False, topo="line", extraNodeosArgs=extraNodeosArgs) is False:

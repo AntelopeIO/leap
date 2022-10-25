@@ -72,6 +72,9 @@ set(CHAIN_WEBASSEMBLY_SOURCES
    webassembly/transaction.cpp
 )
 
+add_library(eosio_rapidjson INTERFACE)
+target_include_directories(eosio_rapidjson INTERFACE ../rapidjson/include)
+
 ## SORT .cpp by most likely to change / break compile
 add_library( eosio_chain
              merkle.cpp
@@ -125,7 +128,7 @@ add_library( eosio_chain
              ${HEADERS}
              )
 
-target_link_libraries( eosio_chain PUBLIC fc chainbase Logging IR WAST WASM Runtime
+target_link_libraries( eosio_chain PUBLIC fc chainbase eosio_rapidjson Logging IR WAST WASM Runtime
                        softfloat builtins ${CHAIN_EOSVM_LIBRARIES} ${LLVM_LIBS} ${CHAIN_RT_LINKAGE}
                      )
 target_include_directories( eosio_chain
@@ -162,6 +165,3 @@ install( DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/eosio/chain/
       FILES_MATCHING PATTERN "*.hpp" PATTERN "*.h" EXCLUDE
 )
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/include/eosio/chain/core_symbol.hpp DESTINATION ${CMAKE_INSTALL_FULL_INCLUDEDIR}/eosio/chain COMPONENT dev EXCLUDE_FROM_ALL)
-#if(MSVC)
-#  set_source_files_properties( db_init.cpp db_block.cpp database.cpp block_log.cpp PROPERTIES COMPILE_FLAGS "/bigobj" )
-#endif(MSVC)
