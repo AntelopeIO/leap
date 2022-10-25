@@ -292,8 +292,8 @@ def parseArgs():
     appArgs.add(flag="--genesis", type=str, help="Path to genesis.json", default="tests/performance_tests/genesis.json")
     appArgs.add(flag="--num-blocks-to-prune", type=int, help=("The number of potentially non-empty blocks, in addition to leading and trailing size 0 blocks, "
                 "to prune from the beginning and end of the range of blocks of interest for evaluation."), default=2)
-    appArgs.add(flag="--save-json", type=bool, help="Whether to save json output of stats", default=False)
-    appArgs.add(flag="--quiet", type=bool, help="Whether to quiet printing intermediate results and reports to stdout", default=False)
+    appArgs.add_bool(flag="--save-json", help="Whether to save json output of stats")
+    appArgs.add_bool(flag="--quiet", help="Whether to quiet printing intermediate results and reports to stdout")
     appArgs.add_bool(flag="--prods-enable-trace-api", help="Determines whether producer nodes should have eosio::trace_api_plugin enabled")
     args=TestHelper.parse_args({"-p","-n","-d","-s","--nodes-file"
                                 ,"--dump-error-details","-v","--leave-running"
