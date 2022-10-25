@@ -168,7 +168,8 @@ class Cluster(object):
     # pylint: disable=too-many-statements
     def launch(self, pnodes=1, unstartedNodes=0, totalNodes=1, prodCount=1, topo="mesh", delay=1, onlyBios=False, dontBootstrap=False,
                totalProducers=None, sharedProducers=0, extraNodeosArgs="", useBiosBootFile=True, specificExtraNodeosArgs=None, onlySetProds=False,
-               pfSetupPolicy=PFSetupPolicy.FULL, alternateVersionLabelsFile=None, associatedNodeLabels=None, loadSystemContract=True, genesisPath=None, maximumP2pPerHost=0, maximumClients=25):
+               pfSetupPolicy=PFSetupPolicy.FULL, alternateVersionLabelsFile=None, associatedNodeLabels=None, loadSystemContract=True, genesisPath=None,
+               maximumP2pPerHost=0, maximumClients=25, prodsEnableTraceApi=True):
         """Launch cluster.
         pnodes: producer nodes count
         unstartedNodes: non-producer nodes that are configured into the launch, but not started.  Should be included in totalNodes.
@@ -193,6 +194,7 @@ class Cluster(object):
         genesisPath: set the path to a specific genesis.json to use
         maximumP2pPerHost:  Maximum number of client nodes from any single IP address. Defaults to totalNodes if not set.
         maximumClients: Maximum number of clients from which connections are accepted, use 0 for no limit. Defaults to 25.
+        prodsEnableTraceApi: Determines whether producer nodes should have eosio::trace_api_plugin enabled. Defaults to True.
         """
         assert(isinstance(topo, str))
         assert PFSetupPolicy.isValid(pfSetupPolicy)
@@ -257,7 +259,8 @@ class Cluster(object):
             nodeosArgs += " --contracts-console"
         if PFSetupPolicy.hasPreactivateFeature(pfSetupPolicy):
             nodeosArgs += " --plugin eosio::producer_api_plugin"
-        nodeosArgs += " --plugin eosio::trace_api_plugin "
+        if prodsEnableTraceApi:
+            nodeosArgs += " --plugin eosio::trace_api_plugin "
         if extraNodeosArgs.find("--trace-rpc-abi") == -1:
             nodeosArgs += " --trace-no-abis "
         httpMaxResponseTimeSet = False
@@ -1562,7 +1565,7 @@ class Cluster(object):
 
 
     # Create accounts and validates that the last transaction is received on root node
-    def createAccounts(self, creator, waitForTransBlock=True, stakedDeposit=1000):
+    def createAccounts(self, creator, waitForTransBlock=True, stakedDeposit=1000, validationNodeIndex=0):
         if self.accounts is None:
             return True
 
@@ -1577,7 +1580,7 @@ class Cluster(object):
             transId=Node.getTransId(trans)
 
         if waitForTransBlock and transId is not None:
-            node=self.nodes[0]
+            node=self.nodes[validationNodeIndex]
             if Utils.Debug: Utils.Print("Wait for transaction id %s on server port %d." % ( transId, node.port))
             if node.waitForTransactionInBlock(transId) is False:
                 Utils.Print("ERROR: Failed to validate transaction %s got rolled into a block on server port %d." % (transId, node.port))

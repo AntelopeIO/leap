@@ -168,6 +168,7 @@ def parseArgs():
     appArgs.add(flag="--save-json", type=bool, help="Whether to save overarching performance run report.", default=False)
     appArgs.add(flag="--save-test-json", type=bool, help="Whether to save json reports from each test scenario.", default=False)
     appArgs.add(flag="--quiet", type=bool, help="Whether to quiet printing intermediate results and reports to stdout", default=False)
+    appArgs.add_bool(flag="--prods-enable-trace-api", help="Determines whether producer nodes should have eosio::trace_api_plugin enabled")
     args=TestHelper.parse_args({"-p","-n","-d","-s","--nodes-file"
                                 ,"--dump-error-details","-v","--leave-running"
                                 ,"--clean-run","--keep-logs"}, applicationSpecificArgs=appArgs)
@@ -197,6 +198,7 @@ def main():
     saveTestJsonReports=args.save_test_json
     numAddlBlocksToPrune=args.num_blocks_to_prune
     quiet=args.quiet
+    prodsEnableTraceApi=args.prods_enable_trace_api
 
     rootLogDir: str=os.path.splitext(os.path.basename(__file__))[0]
     testTimeStampDirPath = f"{rootLogDir}/{datetime.utcnow().strftime('%Y-%m-%d_%H-%M-%S')}"
@@ -208,7 +210,7 @@ def main():
                                                              dumpErrorDetails=dumpErrorDetails, delay=delay, nodesFile=nodesFile,
                                                              verbose=verbose)
 
-    testClusterConfig = PerformanceBasicTest.ClusterConfig(pnodes=pnodes, totalNodes=totalNodes, topo=topo, genesisPath=genesisPath)
+    testClusterConfig = PerformanceBasicTest.ClusterConfig(pnodes=pnodes, totalNodes=totalNodes, topo=topo, genesisPath=genesisPath, prodsEnableTraceApi=prodsEnableTraceApi)
 
     argsDict = prepArgsDict(testDurationSec=testDurationSec, finalDurationSec=finalDurationSec, logsDir=testTimeStampDirPath,
                         maxTpsToTest=maxTpsToTest, testIterationMinStep=testIterationMinStep, tpsLimitPerGenerator=tpsLimitPerGenerator,

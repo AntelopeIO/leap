@@ -1637,6 +1637,11 @@ launcher_def::launch (eosd_def &instance, string &gts) {
      }
   }
 
+  //Always enable the trace_api_plugin on the bios node
+  if (instance.name == "bios") {
+    eosdcmd += "--plugin eosio::trace_api_plugin ";
+  }
+
   if( add_enable_stale_production ) {
     eosdcmd += "--enable-stale-production true ";
     add_enable_stale_production = false;
