@@ -43,7 +43,7 @@ class PerformanceBasicTest:
         genesisPath: str = "tests/performance_tests/genesis.json"
         maximumP2pPerHost: int = 5000
         maximumClients: int = 0
-        loggingDict = { "bios": "off" }
+        loggingDict: dict = field(default_factory=lambda: { "bios": "off" })
         prodsEnableTraceApi: bool = False
         specificExtraNodeosArgs: dict = field(default_factory=dict)
         _totalNodes: int = 2
