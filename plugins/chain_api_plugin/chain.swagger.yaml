@@ -7,7 +7,7 @@ info:
     name: MIT
     url: https://opensource.org/licenses/MIT
   contact:
-    url: https://eos.io
+    url: https://eosnetwork.com
 servers:
   - url: "{protocol}://{host}:{port}/v1/chain"
     variables:
