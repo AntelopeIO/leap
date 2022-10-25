@@ -634,6 +634,7 @@ namespace eosio {
       string                  local_endpoint_port;
 
       std::atomic<uint32_t>   trx_in_progress_size{0};
+      fc::time_point          last_dropped_trx_msg_time;
       const uint32_t          connection_id;
       int16_t                 sent_handshake_count = 0;
       std::atomic<bool>       connecting{true};
@@ -656,7 +657,6 @@ namespace eosio {
       block_id_type                    fork_head;
       uint32_t                         fork_head_num{0};
       fc::time_point                   last_close;
-      fc::time_point                   last_dropped_trx_msg_time;
       string                           remote_endpoint_ip;
 
       connection_status get_status()const;
@@ -2686,7 +2686,7 @@ namespace eosio {
          my_impl->producer_plug->log_failed_transaction(ptr->id(), ptr, reason);
          if (fc::time_point::now() - fc::seconds(1) >= last_dropped_trx_msg_time) {
             last_dropped_trx_msg_time = fc::time_point::now();
-            wlog("Speculative execution is REJECTING transactions, too many trx in progress");
+            wlog(reason);
          }
          return true;
       }
