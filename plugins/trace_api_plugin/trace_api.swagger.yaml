@@ -1,7 +1,7 @@
 openapi: 3.0.0
 info:
   title: Trace API
-  description: See developer documentation at https://docs.eosnetwork.com for information on enabling this plugin.
+  description: Nodeos Trace API Specification. See developer documentation at https://docs.eosnetwork.com for information on enabling this plugin.
   version: 1.0.0
   license:
     name: MIT
