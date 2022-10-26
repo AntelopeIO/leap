@@ -371,11 +371,12 @@ plugin = eosio::chain_api_plugin
 
     def make_line(self, make_ring: bool = True):
         print(f"making {'ring' if make_ring else 'line'}")
+        self.bind_nodes()
         nl = list(self.network.nodes.values())
         for node, nextNode in zip(nl, nl[1:]):
             node.peers.append(nextNode.name)
         if make_ring:
-            nl[-1].peers.append(nl[0].name)
+            nl[-1].peers.append(nl[1].name)
 
     def make_star(self):
         print('making star')
