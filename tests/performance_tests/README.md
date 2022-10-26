@@ -92,11 +92,12 @@ The Performance Harness main script `performance_test.py` can be configured usin
                     The number of potentially non-empty blocks, in addition to leading and trailing size 0 blocks,
                     to prune from the beginning and end of the range of blocks of interest for evaluation.
                     (default: 2)
-* `--save-json SAVE_JSON`
-                    Whether to save overarching performance run report. (default: False)
-* `--save-test-json SAVE_TEST_JSON`
+* `--save-json`     Whether to save overarching performance run report. (default: False)
+* `--save-test-json`
                     Whether to save json reports from each test scenario. (default: False)
-* `--quiet QUIET`   Whether to quiet printing intermediate results and reports to stdout (default: False)
+* `--quiet`         Whether to quiet printing intermediate results and reports to stdout (default: False)
+* `--prods-enable-trace-api`
+                    Determines whether producer nodes should have eosio::trace_api_plugin enabled (default: False)
 </details>
 
 ### Support Scripts
@@ -131,9 +132,10 @@ The following scripts are typically used by the Performance Harness main script 
 * `--num-blocks-to-prune NUM_BLOCKS_TO_PRUNE`
                     The number of potentially non-empty blocks, in addition to leading and trailing size 0 blocks, to prune from the beginning and end
                     of the range of blocks of interest for evaluation. (default: 2)
-* `--save-json SAVE_JSON`
-                    Whether to save json output of stats (default: False)
-* `--quiet QUIET`   Whether to quiet printing intermediate results and reports to stdout (default: False)
+* `--save-json`     Whether to save json output of stats (default: False)
+* `--quiet`         Whether to quiet printing intermediate results and reports to stdout (default: False)
+* `--prods-enable-trace-api`
+                    Determines whether producer nodes should have eosio::trace_api_plugin enabled (default: False)
 </details>
 
 #### Launch Transaction Generators
@@ -205,7 +207,7 @@ The Performance Harness generates a report to summarize results of test scenario
 Command used to run test and generate report:
 
 ``` bash
-.build/tests/performance_tests/performance_test.py --test-iteration-duration-sec 10 --final-iterations-duration-sec 30 --save-json True
+.build/tests/performance_tests/performance_test.py --test-iteration-duration-sec 10 --final-iterations-duration-sec 30 --save-json
 ```
 
 #### Report Breakdown
@@ -487,6 +489,13 @@ Finally, the full detail test report for each of the determined max TPS throughp
     "genesisPath": "tests/performance_tests/genesis.json",
     "maximumP2pPerHost": 5000,
     "maximumClients": 0,
+    "loggingDict": {
+      "bios": "off"
+    },
+    "prodsEnableTraceApi": false,
+    "specificExtraNodeosArgs": {
+      "1": "--plugin eosio::trace_api_plugin"
+    },
     "_totalNodes": 2,
     "testDurationSec": 10,
     "finalDurationSec": 30,
@@ -587,13 +596,20 @@ The Performance Test Basic generates a report that details results of the test, 
       "genesisPath": "tests/performance_tests/genesis.json",
       "keepLogs": false,
       "killAll": false,
+      "loggingDict": {
+        "bios": "off"
+      },
       "maximumClients": 0,
       "maximumP2pPerHost": 5000,
       "nodesFile": null,
       "numAddlBlocksToPrune": 2,
       "pnodes": 1,
+      "prodsEnableTraceApi": false,
       "quiet": false,
       "saveJsonReport": false,
+      "specificExtraNodeosArgs": {
+        "1": "--plugin eosio::trace_api_plugin"
+      },
       "targetTps": 15000,
       "testTrxGenDurationSec": 10,
       "topo": "mesh",
