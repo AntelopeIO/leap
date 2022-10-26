@@ -87,23 +87,25 @@ class nodeDefinition:
     @property
     def dot_label(self):
         if not self._dot_label:
-            self.mk_host_dot_label()
+            self._dot_label = self.mk_dot_label()
         return self._dot_label
     
     def mk_dot_label(self):
-        self._dot_label = self.name + '\nprod='
+        node_name = self.name + '\nprod='
         if len(self.producers) > 0:
-            self._dot_label += ','.join(self.producers)
+            node_name += '\n'.join(self.producers)
         else:
-            self._dot_label += '<none>'
+            node_name += '<none>'
+        return self.mk_host_dot_label() + '\n' + node_name
 
     def mk_host_dot_label(self):
         if not self.public_name:
-            self._dot_label = self.host_name
+            host_label = self.p2p_endpoint
         elif self.public_name == self.host_name:
-            self._dot_label = self.public_name
+            host_label = self.p2p_endpoint
         else:
-            self._dot_label = self.public_name + '/' + self.host_name
+            host_label = self.public_name + '/' + self.host_name
+        return host_label
 
 @dataclass
 class testnetDefinition:
@@ -152,9 +154,9 @@ class launcher(object):
         
         cfg = parser.add_argument_group(title='optional and config file arguments')
         cfg.add_argument('-f', '--force', action='store_true', help='force overwrite of existing configuration files and erase blockchain', default=False)
-        cfg.add_argument('-n', '--nodes', dest='total_nodes', type=int, help='total number of nodes to configure and launch', default=2)
+        cfg.add_argument('-n', '--nodes', dest='total_nodes', type=int, help='total number of nodes to configure and launch', default=1)
         cfg.add_argument('--unstarted-nodes', type=int, help='total number of nodes to configure, but not launch', default=0)
-        cfg.add_argument('-p', '--pnodes', type=int, help='number of nodes that contain one or more producers', default=2)
+        cfg.add_argument('-p', '--pnodes', type=int, help='number of nodes that contain one or more producers', default=1)
         cfg.add_argument('--producers', type=int, help='total number of non-bios and non-shared producer instances in this network', default=21)
         cfg.add_argument('--shared-producers', type=int, help='total number of shared producers on each non-bios node', default=0)
         cfg.add_argument('-m', '--mode', choices=['any', 'producers', 'specified', 'none'], help='connection mode', default='any')
@@ -186,6 +188,8 @@ class launcher(object):
             parser.error(f'Count of uses of --specific-num and --specific-{Utils.EosServerName} must match')
         if len(r.spcfc_inst_nums) != len(getattr(r, f'spcfc_inst_{Utils.EosServerName}es')):
             parser.error(f'Count of uses of --spcfc-inst-num and --spcfc-inst-{Utils.EosServerName} must match')
+        r.pnodes += 1 # add one for the bios node
+        r.total_nodes += 1
         print(r)
         return r
 
@@ -335,7 +339,7 @@ plugin = eosio::chain_api_plugin
             ndx = self.start_ndx()
         else:
             if self.is_bios_ndx(ndx):
-                loop = self.next_ndx(ndx)
+                ndx, loop = self.next_ndx(ndx)
         return ndx, loop
 
     def skip_ndx(self, begin, offset):
@@ -398,7 +402,7 @@ plugin = eosio::chain_api_plugin
         while not loop:
             current = self.network.nodes[self.aliases[i]]
             ndx = i
-            for l in range(1, links):
+            for l in range(1, links+1):
                 ndx = self.skip_ndx(ndx, l * gap)
                 peer = self.aliases[ndx]
                 found = True
@@ -406,13 +410,15 @@ plugin = eosio::chain_api_plugin
                     found = False
                     for p in current.peers:
                         if p == peer:
-                            ndx = self.next_ndx(ndx)
+                            ndx, _ = self.next_ndx(ndx)
                             if ndx == i:
-                                ndx = self.next_ndx(ndx)
+                                ndx, _ = self.next_ndx(ndx)
                             peer = self.aliases[ndx]
                             found = True
                             break
-                current.peers.append(peer)
+                if peer != current.name:
+                    current.peers.append(peer)
+            i, loop = self.next_ndx(i)
 
     def make_mesh(self):
         print('making mesh')
@@ -433,7 +439,7 @@ plugin = eosio::chain_api_plugin
     def write_dot_file(self):
         with open('testnet.dot', 'w') as f:
             f.write('digraph G\n{\nlayout="circo";\n')
-            for node_name, node in self.network.nodes.items():
+            for node in self.network.nodes.values():
                 for p in node.peers:
                     pname = self.network.nodes[p].dot_label
                     f.write(f'"{node.dot_label}"->"{pname}" [dir="forward"];\n')
