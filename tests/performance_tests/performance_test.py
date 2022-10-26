@@ -205,8 +205,10 @@ def main():
     saveTestJsonReports=args.save_test_json
     numAddlBlocksToPrune=args.num_blocks_to_prune
 
+    testStart = datetime.utcnow()
+
     rootLogDir: str=os.path.splitext(os.path.basename(__file__))[0]
-    testTimeStampDirPath = f"{rootLogDir}/{datetime.utcnow().strftime('%Y-%m-%d_%H-%M-%S')}"
+    testTimeStampDirPath = f"{rootLogDir}/{testStart.strftime('%Y-%m-%d_%H-%M-%S')}"
     ptbLogsDirPath = f"{testTimeStampDirPath}/testRunLogs"
 
     testDirsSetup(rootLogDir=rootLogDir, testTimeStampDirPath=testTimeStampDirPath, ptbLogsDirPath=ptbLogsDirPath)
@@ -224,7 +226,6 @@ def main():
     perfRunSuccessful = False
 
     try:
-        testStart = datetime.utcnow()
         binSearchResults = performPtbBinarySearch(tpsTestFloor=0, tpsTestCeiling=maxTpsToTest, minStep=testIterationMinStep, testHelperConfig=testHelperConfig,
                            testClusterConfig=testClusterConfig, testDurationSec=testDurationSec, tpsLimitPerGenerator=tpsLimitPerGenerator,
                            numAddlBlocksToPrune=numAddlBlocksToPrune, testLogDir=ptbLogsDirPath, saveJson=saveTestJsonReports)
