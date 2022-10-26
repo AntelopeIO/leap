@@ -50,9 +50,7 @@ Requirements to build:
 - LLVM 7 - 11 - for Linux only
   - newer versions do not work
 - openssl 1.1+
-- libcurl
 - curl
-- libusb
 - git
 - GMP
 - Python 3
@@ -136,19 +134,16 @@ sudo apt-get install -y \
         curl \
         git \
         libboost-all-dev \
-        libcurl4-openssl-dev \
         libgmp-dev \
         libssl-dev \
-        libusb-1.0-0-dev \
-        llvm-11-dev \
-        pkg-config
+        llvm-11-dev
 ```
 To build, make sure you are in the root of the `leap` repo, then run the following command:
 ```bash
 mkdir -p build
 cd build
 cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/usr/lib/llvm-11 ..
-make -j $(nproc) package
+make -j "$(nproc)" package
 ```
 </details>
 
@@ -163,12 +158,9 @@ sudo apt-get install -y \
         curl \
         g++-8 \
         git \
-        libcurl4-openssl-dev \
         libgmp-dev \
         libssl-dev \
-        libusb-1.0-0-dev \
         llvm-7-dev \
-        pkg-config \
         python3 \
         zlib1g-dev
 ```
