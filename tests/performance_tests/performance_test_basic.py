@@ -182,8 +182,6 @@ class PerformanceBasicTest:
         self.account2PrivKey = self.cluster.accounts[1].activePrivateKey
 
     def runTpsTest(self) -> bool:
-        self.producerNodeId = 0
-        self.validationNodeId = 1
         self.producerNode = self.cluster.getNode(self.producerNodeId)
         self.validationNode = self.cluster.getNode(self.validationNodeId)
         info = self.producerNode.getInfo()
@@ -240,6 +238,8 @@ class PerformanceBasicTest:
         if self.launchCluster() == False:
             self.errorExit('Failed to stand up cluster.')
 
+        self.producerNodeId = 0
+        self.validationNodeId = 1
         self.setupWalletAndAccounts()
 
     def postTpsTestSteps(self):
