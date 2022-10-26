@@ -248,8 +248,8 @@ namespace eosio { namespace chain {
 
          block_id_type get_block_id_for_num( uint32_t block_num )const;
 
-         sha256 calculate_integrity_hash()const;
-         void write_snapshot( const snapshot_writer_ptr& snapshot )const;
+         sha256 calculate_integrity_hash();
+         void write_snapshot( const snapshot_writer_ptr& snapshot );
 
          bool sender_avoids_whitelist_blacklist_enforcement( account_name sender )const;
          void check_actor_list( const flat_set<account_name>& actors )const;
