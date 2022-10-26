@@ -25,6 +25,7 @@ class PerfTestBasicResult:
     tpsExpectMet: bool = False
     trxExpectMet: bool = False
     basicTestSuccess: bool = False
+    testAnalysisBlockCnt: int = 0
     logsDir: str = ""
     testStart: datetime = ""
     testEnd: datetime = ""
@@ -92,6 +93,7 @@ def evaluateSuccess(test: PerformanceBasicTest, testSuccessful: bool, result: Pe
     result.tpsExpectMet = True if result.resultAvgTps >= result.targetTPS else abs(result.targetTPS - result.resultAvgTps) < 100
     result.trxExpectMet = result.expectedTxns == result.resultTxns
     result.basicTestSuccess = testSuccessful
+    result.testAnalysisBlockCnt = reportDict["Analysis"]["BlocksGuide"]["testAnalysisBlockCnt"]
     result.logsDir = test.testTimeStampDirPath
 
     print(f"basicTestSuccess: {result.basicTestSuccess} tpsExpectationMet: {result.tpsExpectMet} trxExpectationMet: {result.trxExpectMet}")
