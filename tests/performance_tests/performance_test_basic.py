@@ -66,9 +66,11 @@ class PerformanceBasicTest():
         self.errorExit = Utils.errorExit
         self.emptyBlockGoal = 5
 
+        self.testStart = datetime.utcnow()
+
         self.rootLogDir = rootLogDir
         self.ptbLogDir = f"{self.rootLogDir}/{os.path.splitext(os.path.basename(__file__))[0]}"
-        self.testTimeStampDirPath = f"{self.ptbLogDir}/{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
+        self.testTimeStampDirPath = f"{self.ptbLogDir}/{self.testStart.strftime('%Y-%m-%d_%H-%M-%S')}"
         self.trxGenLogDirPath = f"{self.testTimeStampDirPath}/trxGenLogs"
         self.blockDataLogDirPath = f"{self.testTimeStampDirPath}/blockDataLogs"
         self.blockDataPath = f"{self.blockDataLogDirPath}/blockData.txt"
@@ -211,15 +213,16 @@ class PerformanceBasicTest():
         args = self.prepArgs()
         self.report = log_reader.calcAndReport(data=self.data, targetTps=self.targetTps, testDurationSec=self.testTrxGenDurationSec, tpsLimitPerGenerator=self.tpsLimitPerGenerator,
                                                nodeosLogPath=self.nodeosLogPath, trxGenLogDirPath=self.trxGenLogDirPath, blockTrxDataPath=self.blockTrxDataPath,
-                                               blockDataPath=self.blockDataPath, numBlocksToPrune=self.numAddlBlocksToPrune, argsDict=args, completedRun=completedRun)
+                                               blockDataPath=self.blockDataPath, numBlocksToPrune=self.numAddlBlocksToPrune, argsDict=args, testStart=self.testStart,
+                                               completedRun=completedRun)
 
         print(self.data)
 
         print("Report:")
-        print(self.report)
+        print(log_reader.reportAsJSON(self.report))
 
         if self.saveJsonReport:
-            log_reader.exportReportAsJSON(self.report, self.reportPath)
+            log_reader.exportReportAsJSON(log_reader.reportAsJSON(self.report), self.reportPath)
 
     def preTestSpinup(self):
         self.cleanupOldClusters()
