@@ -49,7 +49,7 @@ class PerformanceBasicTest:
         _totalNodes: int = 2
 
         def __post_init__(self):
-            self._totalNodes = max(2, self.pnodes if self.totalNodes < self.pnodes else self.totalNodes)
+            self._totalNodes = self.pnodes + 1 if self.totalNodes <= self.pnodes else self.totalNodes
             if not self.prodsEnableTraceApi:
                 self.specificExtraNodeosArgs.update({f"{node}" : "--plugin eosio::trace_api_plugin" for node in range(self.pnodes, self._totalNodes)})
 
@@ -80,6 +80,12 @@ class PerformanceBasicTest:
         self.blockTrxDataPath = f"{self.blockDataLogDirPath}/blockTrxData.txt"
         self.reportPath = f"{self.testTimeStampDirPath}/data.json"
         self.nodeosLogPath = "var/lib/node_01/stderr.txt"
+
+        # Setup Expectations for Producer and Validation Node IDs
+        # Producer Nodes are index [0, pnodes) and validation nodes/non-producer nodes [pnodes, _totalNodes)
+        # Use first producer node and first non-producer node
+        self.producerNodeId = 0
+        self.validationNodeId = self.clusterConfig.pnodes
 
         # Setup cluster and its wallet manager
         self.walletMgr=WalletMgr(True)
@@ -238,8 +244,6 @@ class PerformanceBasicTest:
         if self.launchCluster() == False:
             self.errorExit('Failed to stand up cluster.')
 
-        self.producerNodeId = 0
-        self.validationNodeId = 1
         self.setupWalletAndAccounts()
 
     def postTpsTestSteps(self):
