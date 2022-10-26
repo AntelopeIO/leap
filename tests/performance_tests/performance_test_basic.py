@@ -173,7 +173,7 @@ class PerformanceBasicTest:
     def setupWalletAndAccounts(self):
         self.wallet = self.walletMgr.create('default')
         self.cluster.populateWallet(2, self.wallet)
-        self.cluster.createAccounts(self.cluster.eosioAccount, stakedDeposit=0, validationNodeIndex=1)
+        self.cluster.createAccounts(self.cluster.eosioAccount, stakedDeposit=0, validationNodeIndex=self.validationNodeId)
 
         self.account1Name = self.cluster.accounts[0].name
         self.account2Name = self.cluster.accounts[1].name
@@ -182,8 +182,10 @@ class PerformanceBasicTest:
         self.account2PrivKey = self.cluster.accounts[1].activePrivateKey
 
     def runTpsTest(self) -> bool:
-        self.producerNode = self.cluster.getNode(0)
-        self.validationNode = self.cluster.getNode(1)
+        self.producerNodeId = 0
+        self.validationNodeId = 1
+        self.producerNode = self.cluster.getNode(self.producerNodeId)
+        self.validationNode = self.cluster.getNode(self.validationNodeId)
         info = self.producerNode.getInfo()
         chainId = info['chain_id']
         lib_id = info['last_irreversible_block_id']
