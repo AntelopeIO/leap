@@ -24,7 +24,8 @@ Please refer to [Leap: Building From Source](https://github.com/AntelopeIO/leap#
         ```bash
         ./build/tests/performance_tests/performance_test_basic.py
         ```
-3. Collect Results - If specifying `--keep-logs` and/or `--save-json` and/or `--save-test-json`
+3. Collect Results - By default the Performance Harness will capture and save logs unless explicitly providing arguments to not do so (`--del-perf-logs`)
+).  Additionally final reports will be collected if the following arguments are provided `--save-json` and/or `--save-test-json`.
     1. Navigate to performance test logs directory
         ```bash
         cd ./build/performance_test/
@@ -66,38 +67,35 @@ The Performance Harness main script `performance_test.py` can be configured usin
 * `-n N`                  total nodes (default: 0)
 * `-d D`                  delay between nodes startup (default: 1)
 * `--nodes-file NODES_FILE`
-                    File containing nodes info in JSON format. (default: None)
+                          File containing nodes info in JSON format. (default: None)
 * `-s {mesh}`             topology (default: mesh)
-* `--dump-error-details`  Upon error print `etc/eosio/node_*/config.ini` and `var/lib/node_*/stderr.log` to stdout (default:
-                    False)
-* `--keep-logs`           Don't delete `var/lib/node_*` folders, or other test specific log directories, upon test
-                    completion (default: False)
+* `--dump-error-details`  Upon error print `etc/eosio/node_*/config.ini` and `var/lib/node_*/stderr.log` to stdout (default: False)
+* `--keep-logs`           Don't delete `var/lib/node_*` folders upon test completion (default: False)
 * `-v`                    verbose logging (default: False)
 * `--leave-running`       Leave cluster running after test finishes (default: False)
 * `--clean-run`           Kill all nodeos and keosd instances (default: False)
 * `--max-tps-to-test MAX_TPS_TO_TEST`
-                    The max target transfers realistic as ceiling of test range (default: 50000)
+                          The max target transfers realistic as ceiling of test range (default: 50000)
 * `--test-iteration-duration-sec TEST_ITERATION_DURATION_SEC`
-                    The duration of transfer trx generation for each iteration of the test during the initial
-                    search (seconds) (default: 30)
+                          The duration of transfer trx generation for each iteration of the test during the initial search (seconds) (default: 30)
 * `--test-iteration-min-step TEST_ITERATION_MIN_STEP`
-                    The step size determining granularity of tps result during initial search (default: 500)
+                          The step size determining granularity of tps result during initial search (default: 500)
 * `--final-iterations-duration-sec FINAL_ITERATIONS_DURATION_SEC`
-                    The duration of transfer trx generation for each final longer run iteration of the test during
-                    the final search (seconds) (default: 90)
+                          The duration of transfer trx generation for each final longer run iteration of the test during
+                          the final search (seconds) (default: 90)
 * `--tps-limit-per-generator TPS_LIMIT_PER_GENERATOR`
-                    Maximum amount of transactions per second a single generator can have. (default: 4000)
+                          Maximum amount of transactions per second a single generator can have. (default: 4000)
 * `--genesis GENESIS`     Path to genesis.json (default: tests/performance_tests/genesis.json)
 * `--num-blocks-to-prune NUM_BLOCKS_TO_PRUNE`
-                    The number of potentially non-empty blocks, in addition to leading and trailing size 0 blocks,
-                    to prune from the beginning and end of the range of blocks of interest for evaluation.
-                    (default: 2)
-* `--save-json`     Whether to save overarching performance run report. (default: False)
-* `--save-test-json`
-                    Whether to save json reports from each test scenario. (default: False)
-* `--quiet`         Whether to quiet printing intermediate results and reports to stdout (default: False)
+                          The number of potentially non-empty blocks, in addition to leading and trailing size 0 blocks,
+                          to prune from the beginning and end of the range of blocks of interest for evaluation.
+                          (default: 2)
+* `--del-perf-logs`       Whether to delete performance test specific logs. (default: False)
+* `--save-json`           Whether to save overarching performance run report. (default: False)
+* `--save-test-json`      Whether to save json reports from each test scenario. (default: False)
+* `--quiet`               Whether to quiet printing intermediate results and reports to stdout (default: False)
 * `--prods-enable-trace-api`
-                    Determines whether producer nodes should have eosio::trace_api_plugin enabled (default: False)
+                          Determines whether producer nodes should have eosio::trace_api_plugin enabled (default: False)
 </details>
 
 ### Support Scripts
@@ -115,27 +113,28 @@ The following scripts are typically used by the Performance Harness main script 
 * `-n N`                  total nodes (default: 0)
 * `-d D`                  delay between nodes startup (default: 1)
 * `--nodes-file NODES_FILE`
-                    File containing nodes info in JSON format. (default: None)
+                          File containing nodes info in JSON format. (default: None)
 * `-s {mesh}`             topology (default: mesh)
 * `--dump-error-details`  Upon error print `etc/eosio/node_*/config.ini` and `var/lib/node_*/stderr.log` to stdout (default: False)
-* `--keep-logs`           Don't delete `var/lib/node_*` folders, or other test specific log directories, upon test completion (default: False)
+* `--keep-logs`           Don't delete `var/lib/node_*` folders upon test completion (default: False)
 * `-v`                    verbose logging (default: False)
 * `--leave-running`       Leave cluster running after test finishes (default: False)
 * `--clean-run`           Kill all nodeos and keosd instances (default: False)
 * `--target-tps TARGET_TPS`
-                    The target transfers per second to send during test (default: 8000)
+                          The target transfers per second to send during test (default: 8000)
 * `--tps-limit-per-generator TPS_LIMIT_PER_GENERATOR`
-                    Maximum amount of transactions per second a single generator can have. (default: 4000)
+                          Maximum amount of transactions per second a single generator can have. (default: 4000)
 * `--test-duration-sec TEST_DURATION_SEC`
-                    The duration of transfer trx generation for the test in seconds (default: 30)
+                          The duration of transfer trx generation for the test in seconds (default: 30)
 * `--genesis GENESIS`     Path to genesis.json (default: tests/performance_tests/genesis.json)
 * `--num-blocks-to-prune NUM_BLOCKS_TO_PRUNE`
-                    The number of potentially non-empty blocks, in addition to leading and trailing size 0 blocks, to prune from the beginning and end
-                    of the range of blocks of interest for evaluation. (default: 2)
-* `--save-json`     Whether to save json output of stats (default: False)
-* `--quiet`         Whether to quiet printing intermediate results and reports to stdout (default: False)
+                          The number of potentially non-empty blocks, in addition to leading and trailing size 0 blocks, to prune from the beginning and end
+                          of the range of blocks of interest for evaluation. (default: 2)
+* `--del-perf-logs`       Whether to delete performance test specific logs. (default: False)
+* `--save-json`           Whether to save json output of stats (default: False)
+* `--quiet`               Whether to quiet printing intermediate results and reports to stdout (default: False)
 * `--prods-enable-trace-api`
-                    Determines whether producer nodes should have eosio::trace_api_plugin enabled (default: False)
+                          Determines whether producer nodes should have eosio::trace_api_plugin enabled (default: False)
 </details>
 
 #### Launch Transaction Generators
@@ -517,7 +516,8 @@ Finally, the full detail test report for each of the determined max TPS throughp
     "saveJsonReport": true,
     "saveTestJsonReports": false,
     "numAddlBlocksToPrune": 2,
-    "quiet": false
+    "quiet": false,
+    "delPerfLogs": false,
   },
   "env": {
     "system": "Linux",
@@ -599,6 +599,7 @@ The Performance Test Basic generates a report that details results of the test, 
       "_killEosInstances": true,
       "_killWallet": true,
       "_totalNodes": 2,
+      "delPerfLogs": false,
       "delay": 1,
       "dontKill": false,
       "dumpErrorDetails": false,

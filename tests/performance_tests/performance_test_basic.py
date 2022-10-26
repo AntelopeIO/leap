@@ -55,7 +55,7 @@ class PerformanceBasicTest:
 
     def __init__(self, testHelperConfig: TestHelperConfig=TestHelperConfig(), clusterConfig: ClusterConfig=ClusterConfig(), targetTps: int=8000,
                  testTrxGenDurationSec: int=30, tpsLimitPerGenerator: int=4000, numAddlBlocksToPrune: int=2,
-                 rootLogDir: str=".", saveJsonReport: bool=False, quiet: bool=False):
+                 rootLogDir: str=".", saveJsonReport: bool=False, quiet: bool=False, delPerfLogs: bool=False):
         self.testHelperConfig = testHelperConfig
         self.clusterConfig = clusterConfig
         self.targetTps = targetTps
@@ -66,6 +66,7 @@ class PerformanceBasicTest:
         self.numAddlBlocksToPrune = numAddlBlocksToPrune
         self.saveJsonReport = saveJsonReport
         self.quiet = quiet
+        self.delPerfLogs=delPerfLogs
 
         Utils.Debug = self.testHelperConfig.verbose
         self.errorExit = Utils.errorExit
@@ -218,7 +219,7 @@ class PerformanceBasicTest:
         args.update(asdict(self.testHelperConfig))
         args.update(asdict(self.clusterConfig))
         args.update({key:val for key, val in inspect.getmembers(self) if key in set(['targetTps', 'testTrxGenDurationSec', 'tpsLimitPerGenerator',
-                                                                                     'expectedTransactionsSent', 'saveJsonReport', 'numAddlBlocksToPrune', 'quiet'])})
+                                                                                     'expectedTransactionsSent', 'saveJsonReport', 'numAddlBlocksToPrune', 'quiet', 'delPerfLogs'])})
         return args
 
 
@@ -285,7 +286,7 @@ class PerformanceBasicTest:
                 os.system("pkill trx_generator")
                 print("Test run cancelled early via SIGINT")
 
-            if not self.testHelperConfig.keepLogs:
+            if self.delPerfLogs:
                 print(f"Cleaning up logs directory: {self.testTimeStampDirPath}")
                 self.testDirsCleanup(self.saveJsonReport)
 
@@ -299,6 +300,7 @@ def parseArgs():
     appArgs.add(flag="--genesis", type=str, help="Path to genesis.json", default="tests/performance_tests/genesis.json")
     appArgs.add(flag="--num-blocks-to-prune", type=int, help=("The number of potentially non-empty blocks, in addition to leading and trailing size 0 blocks, "
                 "to prune from the beginning and end of the range of blocks of interest for evaluation."), default=2)
+    appArgs.add_bool(flag="--del-perf-logs", help="Whether to delete performance test specific logs.")
     appArgs.add_bool(flag="--save-json", help="Whether to save json output of stats")
     appArgs.add_bool(flag="--quiet", help="Whether to quiet printing intermediate results and reports to stdout")
     appArgs.add_bool(flag="--prods-enable-trace-api", help="Determines whether producer nodes should have eosio::trace_api_plugin enabled")
@@ -318,7 +320,8 @@ def main():
 
     myTest = PerformanceBasicTest(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, targetTps=args.target_tps,
                                   testTrxGenDurationSec=args.test_duration_sec, tpsLimitPerGenerator=args.tps_limit_per_generator,
-                                  numAddlBlocksToPrune=args.num_blocks_to_prune, saveJsonReport=args.save_json, quiet=args.quiet)
+                                  numAddlBlocksToPrune=args.num_blocks_to_prune, saveJsonReport=args.save_json, quiet=args.quiet,
+                                  delPerfLogs=args.del_perf_logs)
     testSuccessful = myTest.runTest()
 
     if testSuccessful:
