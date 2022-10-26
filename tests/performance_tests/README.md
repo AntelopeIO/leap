@@ -74,7 +74,7 @@ The Performance Harness main script `performance_test.py` can be configured usin
                     completion (default: False)
 * `-v`                    verbose logging (default: False)
 * `--leave-running`       Leave cluster running after test finishes (default: False)
-* `--clean-run`           Kill all nodeos and kleos instances (default: False)
+* `--clean-run`           Kill all nodeos and keosd instances (default: False)
 * `--max-tps-to-test MAX_TPS_TO_TEST`
                     The max target transfers realistic as ceiling of test range (default: 50000)
 * `--test-iteration-duration-sec TEST_ITERATION_DURATION_SEC`
@@ -121,7 +121,7 @@ The following scripts are typically used by the Performance Harness main script 
 * `--keep-logs`           Don't delete `var/lib/node_*` folders, or other test specific log directories, upon test completion (default: False)
 * `-v`                    verbose logging (default: False)
 * `--leave-running`       Leave cluster running after test finishes (default: False)
-* `--clean-run`           Kill all nodeos and kleos instances (default: False)
+* `--clean-run`           Kill all nodeos and keosd instances (default: False)
 * `--target-tps TARGET_TPS`
                     The target transfers per second to send during test (default: 8000)
 * `--tps-limit-per-generator TPS_LIMIT_PER_GENERATOR`
