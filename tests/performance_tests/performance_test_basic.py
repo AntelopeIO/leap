@@ -66,9 +66,11 @@ class PerformanceBasicTest():
         self.errorExit = Utils.errorExit
         self.emptyBlockGoal = 5
 
+        self.testStart = datetime.utcnow()
+
         self.rootLogDir = rootLogDir
         self.ptbLogDir = f"{self.rootLogDir}/{os.path.splitext(os.path.basename(__file__))[0]}"
-        self.testTimeStampDirPath = f"{self.ptbLogDir}/{datetime.utcnow().strftime('%Y-%m-%d_%H-%M-%S')}"
+        self.testTimeStampDirPath = f"{self.ptbLogDir}/{self.testStart.strftime('%Y-%m-%d_%H-%M-%S')}"
         self.trxGenLogDirPath = f"{self.testTimeStampDirPath}/trxGenLogs"
         self.blockDataLogDirPath = f"{self.testTimeStampDirPath}/blockDataLogs"
         self.blockDataPath = f"{self.blockDataLogDirPath}/blockData.txt"
@@ -242,7 +244,6 @@ class PerformanceBasicTest():
         try:
             # Kill any existing instances and launch cluster
             TestHelper.printSystemInfo("BEGIN")
-            self.testStart = datetime.utcnow()
             self.preTestSpinup()
 
             completedRun = self.runTpsTest()
