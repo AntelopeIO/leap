@@ -7,7 +7,7 @@ import os
 import math
 import string
 import sys
-from typing import Dict, List
+from typing import ClassVar, Dict, List
 
 from testUtils import Utils
 
@@ -30,35 +30,55 @@ class nodeDefinition:
     producers: List[str] = field(default_factory=list)
     #gelf_endpoint: str
     dont_start: bool = field(init=False, default=False)
-    config_dir_name: str = field(init=False)
+    config_dir_name: Path = field(init=False)
     data_dir_name: str = field(init=False)
-    base_p2p_port: int = 9876
-    base_http_port: int = 8888
+    p2p_port: int = 0
+    http_port: int = 0
+    base_p2p_port: ClassVar[int] = 9876
+    base_http_port: ClassVar[int] = 8888
     #file_size: int
     instance_name: str = field(init=False, repr=False)
     #host: str
     host_name: str = 'localhost'
     public_name: str = 'localhost'
     listen_addr: str = '0.0.0.0'
-    p2p_count: int = field(init=False, repr=False, default=0)
-    http_count: int = field(init=False, repr=False, default=0)
+    p2p_count: ClassVar[int] = 0
+    http_count: ClassVar[int] = 0
+    p2p_port_generator = None
+    http_port_generator = None
     _dot_label: str = ''
 
-    def __post_init__(self, base_dir, node_cfg_name, cfg_name, data_name):
-        self.config_dir_name = os.path.join(base_dir, cfg_name, node_cfg_name)
+    def __post_init__(self, node_cfg_name, base_dir, cfg_name, data_name):
+        self.config_dir_name = Path(base_dir) / cfg_name / node_cfg_name
         self.data_dir_name = os.path.join(base_dir, data_name, node_cfg_name)
+        if self.p2p_port_generator is None:
+            type(self).p2p_port_generator = self.create_p2p_port_generator()
+        if self.http_port_generator is None:
+            type(self).http_port_generator = self.create_http_port_generator()
     
-    @property
-    def p2p_port(self):
-        while True:
-            yield self.base_p2p_port + self.p2p_count
-            self.p2p_count += 1
+    def set_host(self, is_bios=False):
+        self.p2p_port = self.p2p_bios_port() if is_bios else next(self.p2p_port_generator)
+        self.http_port = self.http_bios_port() if is_bios else next(self.http_port_generator)
 
-    @property
-    def http_port(self):
+    @classmethod
+    def p2p_bios_port(cls):
+        return cls.base_p2p_port - 100
+
+    @classmethod
+    def http_bios_port(cls):
+        return cls.base_http_port - 100
+
+    @classmethod
+    def create_p2p_port_generator(cls):
         while True:
-            yield self.base_http_port + self.http_count
-            self.http_count += 1
+            yield cls.base_p2p_port + cls.p2p_count
+            cls.p2p_count += 1
+
+    @classmethod
+    def create_http_port_generator(cls):
+        while True:
+            yield cls.base_http_port + cls.http_count
+            cls.http_count += 1
 
     @property
     def p2p_endpoint(self):
@@ -66,7 +86,7 @@ class nodeDefinition:
 
     @property
     def dot_label(self):
-        if self._dot_label.empty():
+        if not self._dot_label:
             self.mk_host_dot_label()
         return self._dot_label
     
@@ -78,7 +98,7 @@ class nodeDefinition:
             self._dot_label += '<none>'
 
     def mk_host_dot_label(self):
-        if self.public_name.empty():
+        if not self.public_name:
             self._dot_label = self.host_name
         elif self.public_name == self.host_name:
             self._dot_label = self.public_name
@@ -103,7 +123,6 @@ class launcher(object):
         self.next_node = 0
 
         self.define_network()
-        print(self.network)
         self.generate()
 
     def parseArgs(self, args):
@@ -183,6 +202,7 @@ class launcher(object):
             for i in range(self.args.total_nodes):
                 node_name, cfg_name = self.assign_name(i == 0)
                 node = nodeDefinition(node_name, cfg_name, self.args.base_dir, self.args.config_dir, self.args.data_dir)
+                node.set_host(i == 0)
                 self.aliases.append(node.name)
                 self.network.nodes[node.name] = node
         else:
@@ -192,7 +212,9 @@ class launcher(object):
             num_nonprod_addr = 1
             for i in range(self.args.total_nodes, 0, -1):
                 do_bios = False
-                lhost = nodeDefinition()
+                node_name, cfg_name = self.assign_name(i == 0)
+                lhost = nodeDefinition(node_name, cfg_name, self.args.base_dir, self.args.config_dir, self.args.data_dir)
+                lhost.set_host(i == 0)
                 if ph_count == 0:
                     if host_ndx < num_prod_addr:
                         do_bios = True # servers.producer[host_ndx].has_bios
@@ -259,6 +281,7 @@ class launcher(object):
 
         if not self.args.nogen:
             for node_name, node in self.network.nodes.items():
+                node.config_dir_name.mkdir(parents=True)
                 self.write_config_file(node)
                 self.write_logging_config_file(node)
                 self.write_genesis_file(node)
@@ -290,7 +313,7 @@ p2p-server-address = {node.p2p_endpoint}
 plugin = eosio::net_plugin
 plugin = eosio::chain_api_plugin
 '''
-        with open('config.ini', 'w') as cfg:
+        with open(node.config_dir_name / 'config.ini', 'w') as cfg:
             cfg.write(config)
 
     def write_logging_config_file(self, node):
@@ -324,7 +347,7 @@ plugin = eosio::chain_api_plugin
                 attempts -= 1
         return ndx
 
-    def make_line(self, make_ring: bool = True):
+    def old_make_line(self, make_ring: bool = True):
         print(f"making {'ring' if make_ring else 'line'}")
         self.bind_nodes()
         non_bios = self.args.total_nodes - 1
@@ -342,7 +365,17 @@ plugin = eosio::chain_api_plugin
             n0 = self.start_ndx()
             n1 = n0
             n1 = self.next_ndx(n1)[0]
-            self.network.nodes[self.aliases[n1]].peers.append(self.aliases[n0])
+            self.network.nodes[self.aliases[n0]].peers.append(self.aliases[n1])
+            if make_ring:
+                self.network.nodes[self.aliases[n1]].peers.append(self.aliases[n0])
+
+    def make_line(self, make_ring: bool = True):
+        print(f"making {'ring' if make_ring else 'line'}")
+        nl = list(self.network.nodes.values())
+        for node, nextNode in zip(nl, nl[1:]):
+            node.peers.append(nextNode.name)
+        if make_ring:
+            nl[-1].peers.append(nl[0].name)
 
     def make_star(self):
         print('making star')
@@ -401,8 +434,8 @@ plugin = eosio::chain_api_plugin
             f.write('digraph G\n{\nlayout="circo";\n')
             for node_name, node in self.network.nodes.items():
                 for p in node.peers:
-                    pname = ''
-                    f.write('"{node.instance.dot_label()}"->"{pname}" [dir="forward"];\n')
+                    pname = self.network.nodes[p].dot_label
+                    f.write(f'"{node.dot_label}"->"{pname}" [dir="forward"];\n')
             f.write('}')
 
 if __name__ == '__main__':
