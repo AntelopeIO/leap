@@ -25,6 +25,7 @@ class PerfTestBasicResult:
     tpsExpectMet: bool = False
     trxExpectMet: bool = False
     basicTestSuccess: bool = False
+    testAnalysisBlockCnt: int = 0
     logsDir: str = ""
     testStart: datetime = None
     testEnd: datetime = None
@@ -92,6 +93,7 @@ def evaluateSuccess(test: PerformanceBasicTest, testSuccessful: bool, result: Pe
     result.tpsExpectMet = True if result.resultAvgTps >= result.targetTPS else abs(result.targetTPS - result.resultAvgTps) < 100
     result.trxExpectMet = result.expectedTxns == result.resultTxns
     result.basicTestSuccess = testSuccessful
+    result.testAnalysisBlockCnt = reportDict["Analysis"]["BlocksGuide"]["testAnalysisBlockCnt"]
     result.logsDir = test.testTimeStampDirPath
 
     print(f"basicTestSuccess: {result.basicTestSuccess} tpsExpectationMet: {result.tpsExpectMet} trxExpectationMet: {result.trxExpectMet}")
@@ -169,9 +171,9 @@ def prepArgsDict(testDurationSec, finalDurationSec, logsDir, maxTpsToTest, testI
 def parseArgs():
     appArgs=AppArgs()
     appArgs.add(flag="--max-tps-to-test", type=int, help="The max target transfers realistic as ceiling of test range", default=50000)
-    appArgs.add(flag="--test-iteration-duration-sec", type=int, help="The duration of transfer trx generation for each iteration of the test during the initial search (seconds)", default=30)
+    appArgs.add(flag="--test-iteration-duration-sec", type=int, help="The duration of transfer trx generation for each iteration of the test during the initial search (seconds)", default=150)
     appArgs.add(flag="--test-iteration-min-step", type=int, help="The step size determining granularity of tps result during initial search", default=500)
-    appArgs.add(flag="--final-iterations-duration-sec", type=int, help="The duration of transfer trx generation for each final longer run iteration of the test during the final search (seconds)", default=90)
+    appArgs.add(flag="--final-iterations-duration-sec", type=int, help="The duration of transfer trx generation for each final longer run iteration of the test during the final search (seconds)", default=300)
     appArgs.add(flag="--tps-limit-per-generator", type=int, help="Maximum amount of transactions per second a single generator can have.", default=4000)
     appArgs.add(flag="--genesis", type=str, help="Path to genesis.json", default="tests/performance_tests/genesis.json")
     appArgs.add(flag="--num-blocks-to-prune", type=int, help="The number of potentially non-empty blocks, in addition to leading and trailing size 0 blocks, to prune from the beginning and end of the range of blocks of interest for evaluation.", default=2)
