@@ -51,7 +51,7 @@ class PerformanceBasicTest():
 
     def __init__(self, testHelperConfig: TestHelperConfig=TestHelperConfig(), clusterConfig: ClusterConfig=ClusterConfig(), targetTps: int=8000,
                  testTrxGenDurationSec: int=30, tpsLimitPerGenerator: int=4000, numAddlBlocksToPrune: int=2,
-                 rootLogDir: str=".", saveJsonReport: bool=False):
+                 rootLogDir: str=".", saveJsonReport: bool=False, quiet: bool=False):
         self.testHelperConfig = testHelperConfig
         self.clusterConfig = clusterConfig
         self.targetTps = targetTps
@@ -61,6 +61,7 @@ class PerformanceBasicTest():
         self.saveJsonReport = saveJsonReport
         self.numAddlBlocksToPrune = numAddlBlocksToPrune
         self.saveJsonReport = saveJsonReport
+        self.quiet = quiet
 
         Utils.Debug = self.testHelperConfig.verbose
         self.errorExit = Utils.errorExit
@@ -205,7 +206,7 @@ class PerformanceBasicTest():
         args.update(asdict(self.testHelperConfig))
         args.update(asdict(self.clusterConfig))
         args.update({key:val for key, val in inspect.getmembers(self) if key in set(['targetTps', 'testTrxGenDurationSec', 'tpsLimitPerGenerator',
-                                                                                     'expectedTransactionsSent', 'saveJsonReport', 'numAddlBlocksToPrune'])})
+                                                                                     'expectedTransactionsSent', 'saveJsonReport', 'numAddlBlocksToPrune', 'quiet'])})
         return args
 
 
@@ -214,12 +215,13 @@ class PerformanceBasicTest():
         self.report = log_reader.calcAndReport(data=self.data, targetTps=self.targetTps, testDurationSec=self.testTrxGenDurationSec, tpsLimitPerGenerator=self.tpsLimitPerGenerator,
                                                nodeosLogPath=self.nodeosLogPath, trxGenLogDirPath=self.trxGenLogDirPath, blockTrxDataPath=self.blockTrxDataPath,
                                                blockDataPath=self.blockDataPath, numBlocksToPrune=self.numAddlBlocksToPrune, argsDict=args, testStart=self.testStart,
-                                               completedRun=completedRun)
+                                               completedRun=completedRun, quiet=self.quiet)
 
-        print(self.data)
+        if not self.quiet:
+            print(self.data)
 
-        print("Report:")
-        print(log_reader.reportAsJSON(self.report))
+            print("Report:")
+            print(log_reader.reportAsJSON(self.report))
 
         if self.saveJsonReport:
             log_reader.exportReportAsJSON(log_reader.reportAsJSON(self.report), self.reportPath)
@@ -286,6 +288,7 @@ def parseArgs():
     appArgs.add(flag="--num-blocks-to-prune", type=int, help=("The number of potentially non-empty blocks, in addition to leading and trailing size 0 blocks, "
                 "to prune from the beginning and end of the range of blocks of interest for evaluation."), default=2)
     appArgs.add(flag="--save-json", type=bool, help="Whether to save json output of stats", default=False)
+    appArgs.add(flag="--quiet", type=bool, help="Whether to quiet printing intermediate results and reports to stdout", default=False)
     args=TestHelper.parse_args({"-p","-n","-d","-s","--nodes-file"
                                 ,"--dump-error-details","-v","--leave-running"
                                 ,"--clean-run","--keep-logs"}, applicationSpecificArgs=appArgs)
@@ -302,7 +305,7 @@ def main():
 
     myTest = PerformanceBasicTest(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, targetTps=args.target_tps,
                                   testTrxGenDurationSec=args.test_duration_sec, tpsLimitPerGenerator=args.tps_limit_per_generator,
-                                  numAddlBlocksToPrune=args.num_blocks_to_prune, saveJsonReport=args.save_json)
+                                  numAddlBlocksToPrune=args.num_blocks_to_prune, saveJsonReport=args.save_json, quiet=args.quiet)
     testSuccessful = myTest.runTest()
 
     if testSuccessful:
