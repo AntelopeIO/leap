@@ -49,14 +49,13 @@ def performPtbBinarySearch(tpsTestFloor: int, tpsTestCeiling: int, minStep: int,
                            numAddlBlocksToPrune: int, testLogDir: str, saveJson: bool, quiet: bool) -> PerfTestSearchResults:
     floor = tpsTestFloor
     ceiling = tpsTestCeiling
-    binSearchTarget = 0
+    binSearchTarget = tpsTestCeiling
 
     maxTpsAchieved = 0
     maxTpsReport = {}
     searchResults = []
 
     while ceiling >= floor:
-        binSearchTarget = floor + (math.ceil(((ceiling - floor) / minStep) / 2) * minStep)
         print(f"Running scenario: floor {floor} binSearchTarget {binSearchTarget} ceiling {ceiling}")
         ptbResult = PerfTestBasicResult()
         scenarioResult = PerfTestSearchIndivResult(success=False, searchTarget=binSearchTarget, searchFloor=floor, searchCeiling=ceiling, basicTestResult=ptbResult)
@@ -77,6 +76,8 @@ def performPtbBinarySearch(tpsTestFloor: int, tpsTestCeiling: int, minStep: int,
         searchResults.append(scenarioResult)
         if not quiet:
             print(f"searchResult: {binSearchTarget} : {searchResults[-1]}")
+
+        binSearchTarget = floor + (math.ceil(((ceiling - floor) / minStep) / 2) * minStep)
 
     return PerfTestSearchResults(maxTpsAchieved=maxTpsAchieved, searchResults=searchResults, maxTpsReport=maxTpsReport)
 
