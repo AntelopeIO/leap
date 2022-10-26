@@ -1,6 +1,6 @@
 # Performance Harness Tests
 
-The Performance Harness is configured and run through the main `performance_test.py` script.  The script's main goal is to measure current peak performance metrics through iteratively tuning and running basic performance tests. The current basic test works to determine the maximum throughput of EOS Token Transfers the system can sustain.  It does this by conducting a binary search of possible EOS Token Transfers Per Second (TPS) configurations, testing each configuration in a short duration test and scoring its result. The search algorithm iteratively configures and runs `performance_test_basic.py` tests and analyzes the output to determine a success metric used to continue the search.  When the search completes, a max TPS throughput value is reported (along with other performance metrics from that run).  The script then proceeds to conduct an additional search with longer duration test runs within a narrowed TPS configuration range to determine the sustainable max TPS. Finally it produces a report on the entire performance run, summarizing each individual test scenario, results, and full report details on the tests when maximum TPS was achieved ([Performance Test Report](#performance-test))
+The Performance Harness is configured and run through the main `performance_test.py` script.  The script's main goal is to measure current peak performance metrics through iteratively tuning and running basic performance tests. The current basic test works to determine the maximum throughput of Token Transfers the system can sustain.  It does this by conducting a binary search of possible Token Transfers Per Second (TPS) configurations, testing each configuration in a short duration test and scoring its result. The search algorithm iteratively configures and runs `performance_test_basic.py` tests and analyzes the output to determine a success metric used to continue the search.  When the search completes, a max TPS throughput value is reported (along with other performance metrics from that run).  The script then proceeds to conduct an additional search with longer duration test runs within a narrowed TPS configuration range to determine the sustainable max TPS. Finally it produces a report on the entire performance run, summarizing each individual test scenario, results, and full report details on the tests when maximum TPS was achieved ([Performance Test Report](#performance-test))
 
 The `performance_test_basic.py` support script performs a single basic performance test that targets a configurable TPS target and, if successful, reports statistics on performance metrics measured during the test.  It configures and launches a blockchain test environment, creates wallets and accounts for testing, and configures and launches transaction generators for creating specific transaction load in the ecosystem.  Finally it analyzes the performance of the system under the configuration through log analysis and chain queries and produces a [Performance Test Basic Report](#performance-test-basic).
 
@@ -74,7 +74,7 @@ The Performance Harness main script `performance_test.py` can be configured usin
                     completion (default: False)
 * `-v`                    verbose logging (default: False)
 * `--leave-running`       Leave cluster running after test finishes (default: False)
-* `--clean-run`           Kill all nodeos and kleos instances (default: False)
+* `--clean-run`           Kill all nodeos and keosd instances (default: False)
 * `--max-tps-to-test MAX_TPS_TO_TEST`
                     The max target transfers realistic as ceiling of test range (default: 50000)
 * `--test-iteration-duration-sec TEST_ITERATION_DURATION_SEC`
@@ -92,11 +92,12 @@ The Performance Harness main script `performance_test.py` can be configured usin
                     The number of potentially non-empty blocks, in addition to leading and trailing size 0 blocks,
                     to prune from the beginning and end of the range of blocks of interest for evaluation.
                     (default: 2)
-* `--save-json SAVE_JSON`
-                    Whether to save overarching performance run report. (default: False)
-* `--save-test-json SAVE_TEST_JSON`
+* `--save-json`     Whether to save overarching performance run report. (default: False)
+* `--save-test-json`
                     Whether to save json reports from each test scenario. (default: False)
-* `--quiet QUIET`   Whether to quiet printing intermediate results and reports to stdout (default: False)
+* `--quiet`         Whether to quiet printing intermediate results and reports to stdout (default: False)
+* `--prods-enable-trace-api`
+                    Determines whether producer nodes should have eosio::trace_api_plugin enabled (default: False)
 </details>
 
 ### Support Scripts
@@ -120,7 +121,7 @@ The following scripts are typically used by the Performance Harness main script 
 * `--keep-logs`           Don't delete `var/lib/node_*` folders, or other test specific log directories, upon test completion (default: False)
 * `-v`                    verbose logging (default: False)
 * `--leave-running`       Leave cluster running after test finishes (default: False)
-* `--clean-run`           Kill all nodeos and kleos instances (default: False)
+* `--clean-run`           Kill all nodeos and keosd instances (default: False)
 * `--target-tps TARGET_TPS`
                     The target transfers per second to send during test (default: 8000)
 * `--tps-limit-per-generator TPS_LIMIT_PER_GENERATOR`
@@ -131,9 +132,10 @@ The following scripts are typically used by the Performance Harness main script 
 * `--num-blocks-to-prune NUM_BLOCKS_TO_PRUNE`
                     The number of potentially non-empty blocks, in addition to leading and trailing size 0 blocks, to prune from the beginning and end
                     of the range of blocks of interest for evaluation. (default: 2)
-* `--save-json SAVE_JSON`
-                    Whether to save json output of stats (default: False)
-* `--quiet QUIET`   Whether to quiet printing intermediate results and reports to stdout (default: False)
+* `--save-json`     Whether to save json output of stats (default: False)
+* `--quiet`         Whether to quiet printing intermediate results and reports to stdout (default: False)
+* `--prods-enable-trace-api`
+                    Determines whether producer nodes should have eosio::trace_api_plugin enabled (default: False)
 </details>
 
 #### Launch Transaction Generators
@@ -205,7 +207,7 @@ The Performance Harness generates a report to summarize results of test scenario
 Command used to run test and generate report:
 
 ``` bash
-.build/tests/performance_tests/performance_test.py --test-iteration-duration-sec 10 --final-iterations-duration-sec 30 --save-json True
+.build/tests/performance_tests/performance_test.py --test-iteration-duration-sec 10 --final-iterations-duration-sec 30 --save-json
 ```
 
 #### Report Breakdown
@@ -487,6 +489,13 @@ Finally, the full detail test report for each of the determined max TPS throughp
     "genesisPath": "tests/performance_tests/genesis.json",
     "maximumP2pPerHost": 5000,
     "maximumClients": 0,
+    "loggingDict": {
+      "bios": "off"
+    },
+    "prodsEnableTraceApi": false,
+    "specificExtraNodeosArgs": {
+      "1": "--plugin eosio::trace_api_plugin"
+    },
     "_totalNodes": 2,
     "testDurationSec": 10,
     "finalDurationSec": 30,
@@ -587,13 +596,20 @@ The Performance Test Basic generates a report that details results of the test, 
       "genesisPath": "tests/performance_tests/genesis.json",
       "keepLogs": false,
       "killAll": false,
+      "loggingDict": {
+        "bios": "off"
+      },
       "maximumClients": 0,
       "maximumP2pPerHost": 5000,
       "nodesFile": null,
       "numAddlBlocksToPrune": 2,
       "pnodes": 1,
+      "prodsEnableTraceApi": false,
       "quiet": false,
       "saveJsonReport": false,
+      "specificExtraNodeosArgs": {
+        "1": "--plugin eosio::trace_api_plugin"
+      },
       "targetTps": 15000,
       "testTrxGenDurationSec": 10,
       "topo": "mesh",

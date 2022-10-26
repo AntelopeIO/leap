@@ -13,12 +13,12 @@ sys.path.append(harnessPath)
 
 from TestHarness import Cluster, TestHelper, Utils, WalletMgr
 from TestHarness.TestHelper import AppArgs
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 from datetime import datetime
 
-class PerformanceBasicTest():
+class PerformanceBasicTest:
     @dataclass
-    class TestHelperConfig():
+    class TestHelperConfig:
         killAll: bool = True # clean_run
         dontKill: bool = False # leave_running
         keepLogs: bool = False
@@ -34,7 +34,7 @@ class PerformanceBasicTest():
             self._killWallet = not self.dontKill
 
     @dataclass
-    class ClusterConfig():
+    class ClusterConfig:
         pnodes: int = 1
         totalNodes: int = 2
         topo: str = "mesh"
@@ -43,11 +43,15 @@ class PerformanceBasicTest():
         genesisPath: str = "tests/performance_tests/genesis.json"
         maximumP2pPerHost: int = 5000
         maximumClients: int = 0
-        loggingDict = { "bios": "off" }
+        loggingDict: dict = field(default_factory=lambda: { "bios": "off" })
+        prodsEnableTraceApi: bool = False
+        specificExtraNodeosArgs: dict = field(default_factory=dict)
         _totalNodes: int = 2
 
         def __post_init__(self):
-            self._totalNodes = max(2, self.pnodes if self.totalNodes < self.pnodes else self.totalNodes)
+            self._totalNodes = self.pnodes + 1 if self.totalNodes <= self.pnodes else self.totalNodes
+            if not self.prodsEnableTraceApi:
+                self.specificExtraNodeosArgs.update({f"{node}" : "--plugin eosio::trace_api_plugin" for node in range(self.pnodes, self._totalNodes)})
 
     def __init__(self, testHelperConfig: TestHelperConfig=TestHelperConfig(), clusterConfig: ClusterConfig=ClusterConfig(), targetTps: int=8000,
                  testTrxGenDurationSec: int=30, tpsLimitPerGenerator: int=4000, numAddlBlocksToPrune: int=2,
@@ -78,6 +82,12 @@ class PerformanceBasicTest():
         self.blockTrxDataPath = f"{self.blockDataLogDirPath}/blockTrxData.txt"
         self.reportPath = f"{self.testTimeStampDirPath}/data.json"
         self.nodeosLogPath = "var/lib/node_01/stderr.txt"
+
+        # Setup Expectations for Producer and Validation Node IDs
+        # Producer Nodes are index [0, pnodes) and validation nodes/non-producer nodes [pnodes, _totalNodes)
+        # Use first producer node and first non-producer node
+        self.producerNodeId = 0
+        self.validationNodeId = self.clusterConfig.pnodes
 
         # Setup cluster and its wallet manager
         self.walletMgr=WalletMgr(True)
@@ -163,13 +173,15 @@ class PerformanceBasicTest():
             genesisPath=self.clusterConfig.genesisPath,
             maximumP2pPerHost=self.clusterConfig.maximumP2pPerHost,
             maximumClients=self.clusterConfig.maximumClients,
-            extraNodeosArgs=self.clusterConfig.extraNodeosArgs
+            extraNodeosArgs=self.clusterConfig.extraNodeosArgs,
+            prodsEnableTraceApi=self.clusterConfig.prodsEnableTraceApi,
+            specificExtraNodeosArgs=self.clusterConfig.specificExtraNodeosArgs
             )
 
     def setupWalletAndAccounts(self):
         self.wallet = self.walletMgr.create('default')
         self.cluster.populateWallet(2, self.wallet)
-        self.cluster.createAccounts(self.cluster.eosioAccount, stakedDeposit=0)
+        self.cluster.createAccounts(self.cluster.eosioAccount, stakedDeposit=0, validationNodeIndex=self.validationNodeId)
 
         self.account1Name = self.cluster.accounts[0].name
         self.account2Name = self.cluster.accounts[1].name
@@ -178,8 +190,8 @@ class PerformanceBasicTest():
         self.account2PrivKey = self.cluster.accounts[1].activePrivateKey
 
     def runTpsTest(self) -> bool:
-        self.producerNode = self.cluster.getNode(0)
-        self.validationNode = self.cluster.getNode(1)
+        self.producerNode = self.cluster.getNode(self.producerNodeId)
+        self.validationNode = self.cluster.getNode(self.validationNodeId)
         info = self.producerNode.getInfo()
         chainId = info['chain_id']
         lib_id = info['last_irreversible_block_id']
@@ -287,8 +299,9 @@ def parseArgs():
     appArgs.add(flag="--genesis", type=str, help="Path to genesis.json", default="tests/performance_tests/genesis.json")
     appArgs.add(flag="--num-blocks-to-prune", type=int, help=("The number of potentially non-empty blocks, in addition to leading and trailing size 0 blocks, "
                 "to prune from the beginning and end of the range of blocks of interest for evaluation."), default=2)
-    appArgs.add(flag="--save-json", type=bool, help="Whether to save json output of stats", default=False)
-    appArgs.add(flag="--quiet", type=bool, help="Whether to quiet printing intermediate results and reports to stdout", default=False)
+    appArgs.add_bool(flag="--save-json", help="Whether to save json output of stats")
+    appArgs.add_bool(flag="--quiet", help="Whether to quiet printing intermediate results and reports to stdout")
+    appArgs.add_bool(flag="--prods-enable-trace-api", help="Determines whether producer nodes should have eosio::trace_api_plugin enabled")
     args=TestHelper.parse_args({"-p","-n","-d","-s","--nodes-file"
                                 ,"--dump-error-details","-v","--leave-running"
                                 ,"--clean-run","--keep-logs"}, applicationSpecificArgs=appArgs)
@@ -301,7 +314,7 @@ def main():
 
     testHelperConfig = PerformanceBasicTest.TestHelperConfig(killAll=args.clean_run, dontKill=args.leave_running, keepLogs=args.keep_logs,
                                                              dumpErrorDetails=args.dump_error_details, delay=args.d, nodesFile=args.nodes_file, verbose=args.v)
-    testClusterConfig = PerformanceBasicTest.ClusterConfig(pnodes=args.p, totalNodes=args.n, topo=args.s, genesisPath=args.genesis)
+    testClusterConfig = PerformanceBasicTest.ClusterConfig(pnodes=args.p, totalNodes=args.n, topo=args.s, genesisPath=args.genesis, prodsEnableTraceApi=args.prods_enable_trace_api)
 
     myTest = PerformanceBasicTest(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, targetTps=args.target_tps,
                                   testTrxGenDurationSec=args.test_duration_sec, tpsLimitPerGenerator=args.tps_limit_per_generator,
