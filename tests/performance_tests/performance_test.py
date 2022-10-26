@@ -39,24 +39,23 @@ class PerfTestSearchIndivResult:
     basicTestResult: PerfTestBasicResult = PerfTestBasicResult()
 
 @dataclass
-class PerfTestBinSearchResults:
+class PerfTestSearchResults:
     maxTpsAchieved: int = 0
     searchResults: list = field(default_factory=list) #PerfTestSearchIndivResult list
     maxTpsReport: dict = field(default_factory=dict)
 
 def performPtbBinarySearch(tpsTestFloor: int, tpsTestCeiling: int, minStep: int, testHelperConfig: PerformanceBasicTest.TestHelperConfig,
                            testClusterConfig: PerformanceBasicTest.ClusterConfig, testDurationSec: int, tpsLimitPerGenerator: int,
-                           numAddlBlocksToPrune: int, testLogDir: str, saveJson: bool, quiet: bool) -> PerfTestBinSearchResults:
+                           numAddlBlocksToPrune: int, testLogDir: str, saveJson: bool, quiet: bool) -> PerfTestSearchResults:
     floor = tpsTestFloor
     ceiling = tpsTestCeiling
-    binSearchTarget = 0
+    binSearchTarget = tpsTestCeiling
 
     maxTpsAchieved = 0
     maxTpsReport = {}
     searchResults = []
 
     while ceiling >= floor:
-        binSearchTarget = floor + (math.ceil(((ceiling - floor) / minStep) / 2) * minStep)
         print(f"Running scenario: floor {floor} binSearchTarget {binSearchTarget} ceiling {ceiling}")
         ptbResult = PerfTestBasicResult()
         scenarioResult = PerfTestSearchIndivResult(success=False, searchTarget=binSearchTarget, searchFloor=floor, searchCeiling=ceiling, basicTestResult=ptbResult)
@@ -78,7 +77,48 @@ def performPtbBinarySearch(tpsTestFloor: int, tpsTestCeiling: int, minStep: int,
         if not quiet:
             print(f"searchResult: {binSearchTarget} : {searchResults[-1]}")
 
-    return PerfTestBinSearchResults(maxTpsAchieved=maxTpsAchieved, searchResults=searchResults, maxTpsReport=maxTpsReport)
+        binSearchTarget = floor + (math.ceil(((ceiling - floor) / minStep) / 2) * minStep)
+
+    return PerfTestSearchResults(maxTpsAchieved=maxTpsAchieved, searchResults=searchResults, maxTpsReport=maxTpsReport)
+
+def performPtbReverseLinearSearch(tpsInitial: int, step: int, testHelperConfig: PerformanceBasicTest.TestHelperConfig,
+                                  testClusterConfig: PerformanceBasicTest.ClusterConfig, testDurationSec: int, tpsLimitPerGenerator: int,
+                                  numAddlBlocksToPrune: int, testLogDir: str, saveJson: bool, quiet: bool) -> PerfTestSearchResults:
+
+    # Default - Decrementing Max TPS in range [0, tpsInitial]
+    absFloor = 0
+    absCeiling = tpsInitial
+
+    searchTarget = tpsInitial
+
+    maxTpsAchieved = 0
+    maxTpsReport = {}
+    searchResults = []
+    maxFound = False
+
+    while not maxFound:
+        print(f"Running scenario: floor {absFloor} searchTarget {searchTarget} ceiling {absCeiling}")
+        ptbResult = PerfTestBasicResult()
+        scenarioResult = PerfTestSearchIndivResult(success=False, searchTarget=searchTarget, searchFloor=absFloor, searchCeiling=absCeiling, basicTestResult=ptbResult)
+
+        myTest = PerformanceBasicTest(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, targetTps=searchTarget,
+                                    testTrxGenDurationSec=testDurationSec, tpsLimitPerGenerator=tpsLimitPerGenerator,
+                                    numAddlBlocksToPrune=numAddlBlocksToPrune, rootLogDir=testLogDir, saveJsonReport=saveJson, quiet=quiet)
+        testSuccessful = myTest.runTest()
+        if evaluateSuccess(myTest, testSuccessful, ptbResult):
+            maxTpsAchieved = searchTarget
+            maxTpsReport = myTest.report
+            scenarioResult.success = True
+            maxFound = True
+        else:
+            searchTarget = searchTarget - step
+
+        scenarioResult.basicTestResult = ptbResult
+        searchResults.append(scenarioResult)
+        if not quiet:
+            print(f"searchResult: {searchTarget} : {searchResults[-1]}")
+
+    return PerfTestSearchResults(maxTpsAchieved=maxTpsAchieved, searchResults=searchResults, maxTpsReport=maxTpsReport)
 
 def evaluateSuccess(test: PerformanceBasicTest, testSuccessful: bool, result: PerfTestBasicResult) -> bool:
     result.targetTPS = test.targetTps
@@ -245,25 +285,22 @@ def main():
             for i in range(len(binSearchResults.searchResults)):
                 print(f"Search scenario: {i} result: {binSearchResults.searchResults[i]}")
 
-        longRunningFloor = binSearchResults.maxTpsAchieved - 3 * testIterationMinStep if binSearchResults.maxTpsAchieved - 3 * testIterationMinStep > 0 else 0
-        longRunningCeiling = binSearchResults.maxTpsAchieved + 3 * testIterationMinStep
+        longRunningSearchResults = performPtbReverseLinearSearch(tpsInitial=binSearchResults.maxTpsAchieved, step=testIterationMinStep, testHelperConfig=testHelperConfig,
+                                                                 testClusterConfig=testClusterConfig, testDurationSec=finalDurationSec, tpsLimitPerGenerator=tpsLimitPerGenerator,
+                                                                 numAddlBlocksToPrune=numAddlBlocksToPrune, testLogDir=ptbLogsDirPath, saveJson=saveTestJsonReports, quiet=quiet)
 
-        longRunningBinSearchResults = performPtbBinarySearch(tpsTestFloor=longRunningFloor, tpsTestCeiling=longRunningCeiling, minStep=testIterationMinStep, testHelperConfig=testHelperConfig,
-                           testClusterConfig=testClusterConfig, testDurationSec=finalDurationSec, tpsLimitPerGenerator=tpsLimitPerGenerator,
-                           numAddlBlocksToPrune=numAddlBlocksToPrune, testLogDir=ptbLogsDirPath, saveJson=saveTestJsonReports, quiet=quiet)
-
-        print(f"Long Running Test - Successful rate of: {longRunningBinSearchResults.maxTpsAchieved}")
+        print(f"Long Running Test - Successful rate of: {longRunningSearchResults.maxTpsAchieved}")
         perfRunSuccessful = True
 
         if not quiet:
             print("Long Running Test - Search Results:")
-            for i in range(len(longRunningBinSearchResults.searchResults)):
-                print(f"Search scenario: {i} result: {longRunningBinSearchResults.searchResults[i]}")
+            for i in range(len(longRunningSearchResults.searchResults)):
+                print(f"Search scenario: {i} result: {longRunningSearchResults.searchResults[i]}")
 
         testFinish = datetime.utcnow()
         fullReport = createJSONReport(maxTpsAchieved=binSearchResults.maxTpsAchieved, searchResults=binSearchResults.searchResults, maxTpsReport=binSearchResults.maxTpsReport,
-                                      longRunningMaxTpsAchieved=longRunningBinSearchResults.maxTpsAchieved, longRunningSearchResults=longRunningBinSearchResults.searchResults,
-                                      longRunningMaxTpsReport=longRunningBinSearchResults.maxTpsReport, testStart=testStart, testFinish=testFinish, argsDict=argsDict)
+                                      longRunningMaxTpsAchieved=longRunningSearchResults.maxTpsAchieved, longRunningSearchResults=longRunningSearchResults.searchResults,
+                                      longRunningMaxTpsReport=longRunningSearchResults.maxTpsReport, testStart=testStart, testFinish=testFinish, argsDict=argsDict)
 
         if not quiet:
             print(f"Full Performance Test Report: {fullReport}")

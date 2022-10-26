@@ -344,20 +344,20 @@ def createReport(guide: chainBlocksGuide, targetTps: int, testDurationSec: int, 
     report['completedRun'] = completedRun
     report['testStart'] = testStart
     report['testFinish'] = testFinish
-    report['nodeosVersion'] = Utils.getNodeosVersion()
-    report['env'] = {'system': system(), 'os': os.name, 'release': release(), 'logical_cpu_count': os.cpu_count()}
-    report['args'] =  argsDict
     report['Analysis'] = {}
+    report['Analysis']['BlockSize'] = asdict(blockSizeStats)
     report['Analysis']['BlocksGuide'] = asdict(guide)
     report['Analysis']['TPS'] = asdict(tpsStats)
     report['Analysis']['TPS']['configTps'] = targetTps
     report['Analysis']['TPS']['configTestDuration'] = testDurationSec
     report['Analysis']['TPS']['tpsPerGenerator'] = math.floor(targetTps / numGenerators)
     report['Analysis']['TPS']['generatorCount'] = numGenerators
-    report['Analysis']['BlockSize'] = asdict(blockSizeStats)
     report['Analysis']['TrxCPU'] = asdict(trxCpuStats)
     report['Analysis']['TrxLatency'] = asdict(trxLatencyStats)
     report['Analysis']['TrxNet'] = asdict(trxNetStats)
+    report['args'] =  argsDict
+    report['env'] = {'system': system(), 'os': os.name, 'release': release(), 'logical_cpu_count': os.cpu_count()}
+    report['nodeosVersion'] = Utils.getNodeosVersion()
     return report
 
 def createJSONReport(guide: chainBlocksGuide, targetTps: int, testDurationSec: int, tpsLimitPerGenerator: int, tpsStats: stats, blockSizeStats: stats,
