@@ -212,7 +212,7 @@ class PerformanceBasicTest:
         # Get stats after transaction generation stops
         trxSent = {}
         log_reader.scrapeTrxGenTrxSentDataLogs(trxSent, self.trxGenLogDirPath, self.quiet)
-        blocksToWait = ceil(self.expectedTransactionsSent / min(4000, 0.45 * self.targetTps))
+        blocksToWait = 2 * self.testTrxGenDurationSec + 10
         trxSent = self.validationNode.waitForTransactionsInBlockRange(trxSent, self.data.startBlock, blocksToWait)
         self.data.ceaseBlock = self.validationNode.getHeadBlockNum()
 
