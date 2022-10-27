@@ -500,7 +500,7 @@ class Node(object):
 
     def waitForTransactionsInBlockRange(self, transIds, startBlock=2, maxFutureBlocks=None):
         lastBlockProcessed = startBlock
-        overallFinalBlock = self.getHeadBlockNum()
+        overallFinalBlock = sys.maxsize
         if maxFutureBlocks is not None:
             overallFinalBlock = overallFinalBlock + maxFutureBlocks
         while len(transIds) > 0:
