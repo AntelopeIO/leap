@@ -25,7 +25,7 @@ Please refer to [Leap: Building From Source](https://github.com/AntelopeIO/leap#
         ./build/tests/performance_tests/performance_test_basic.py
         ```
 3. Collect Results - By default the Performance Harness will capture and save logs unless explicitly providing arguments to not do so (`--del-perf-logs`)
-).  Additionally final reports will be collected if the following arguments are provided `--save-json` and/or `--save-test-json`.
+).  Additionally, by default, final reports will be collected.  If not wanting to collect final reports, pass in the following arguments `--del-report` and/or `--del-test-report`.
     1. Navigate to performance test logs directory
         ```bash
         cd ./build/performance_test/
@@ -33,25 +33,152 @@ Please refer to [Leap: Building From Source](https://github.com/AntelopeIO/leap#
     2. Log Directory Structure is hierarchical with each run of the `performance_test.py` reporting into a timestamped directory where it includes the full performance report as well as a directory containing output from each test type run (here, `performance_test_basic.py`) and each individual test run outputs into a timestamped directory that may contain block data logs and transaction generator logs as well as the test's basic report.  An example directory structure follows:
         ``` bash
         performance_test/
-        └── 2022-10-19_10-23-10
+        └── 2022-10-27_15-28-09
             ├── report.json
             └── testRunLogs
                 └── performance_test_basic
-                    ├── 2022-10-19_10-23-10
-                    │   ├── blockDataLogs
-                    │   │   ├── blockData.txt
-                    │   │   └── blockTrxData.txt
-                    │   ├── data.json
-                    │   └── trxGenLogs
-                    │       └── trx_data_output_7612.txt
                     └── 2022-10-19_10-29-07
                         ├── blockDataLogs
                         │   ├── blockData.txt
                         │   └── blockTrxData.txt
                         ├── data.json
-                        └── trxGenLogs
-                            ├── trx_data_output_10744.txt
-                            └── trx_data_output_10745.txt
+                        ├── etc
+                        │   └── eosio
+                        │       ├── launcher
+                        │       │   └── testnet.template
+                        │       ├── node_00
+                        │       │   ├── config.ini
+                        │       │   ├── genesis.json
+                        │       │   ├── logging.json
+                        │       │   └── protocol_features
+                        │       │       ├── BUILTIN-ACTION_RETURN_VALUE.json
+                        │       │       ├── BUILTIN-BLOCKCHAIN_PARAMETERS.json
+                        │       │       ├── BUILTIN-CONFIGURABLE_WASM_LIMITS2.json
+                        │       │       ├── BUILTIN-CRYPTO_PRIMITIVES.json
+                        │       │       ├── BUILTIN-DISALLOW_EMPTY_PRODUCER_SCHEDULE.json
+                        │       │       ├── BUILTIN-FIX_LINKAUTH_RESTRICTION.json
+                        │       │       ├── BUILTIN-FORWARD_SETCODE.json
+                        │       │       ├── BUILTIN-GET_BLOCK_NUM.json
+                        │       │       ├── BUILTIN-GET_CODE_HASH.json
+                        │       │       ├── BUILTIN-GET_SENDER.json
+                        │       │       ├── BUILTIN-NO_DUPLICATE_DEFERRED_ID.json
+                        │       │       ├── BUILTIN-ONLY_BILL_FIRST_AUTHORIZER.json
+                        │       │       ├── BUILTIN-ONLY_LINK_TO_EXISTING_PERMISSION.json
+                        │       │       ├── BUILTIN-PREACTIVATE_FEATURE.json
+                        │       │       ├── BUILTIN-RAM_RESTRICTIONS.json
+                        │       │       ├── BUILTIN-REPLACE_DEFERRED.json
+                        │       │       ├── BUILTIN-RESTRICT_ACTION_TO_SELF.json
+                        │       │       ├── BUILTIN-WEBAUTHN_KEY.json
+                        │       │       └── BUILTIN-WTMSIG_BLOCK_SIGNATURES.json
+                        │       ├── node_01
+                        │       │   ├── config.ini
+                        │       │   ├── genesis.json
+                        │       │   ├── logging.json
+                        │       │   └── protocol_features
+                        │       │       ├── BUILTIN-ACTION_RETURN_VALUE.json
+                        │       │       ├── BUILTIN-BLOCKCHAIN_PARAMETERS.json
+                        │       │       ├── BUILTIN-CONFIGURABLE_WASM_LIMITS2.json
+                        │       │       ├── BUILTIN-CRYPTO_PRIMITIVES.json
+                        │       │       ├── BUILTIN-DISALLOW_EMPTY_PRODUCER_SCHEDULE.json
+                        │       │       ├── BUILTIN-FIX_LINKAUTH_RESTRICTION.json
+                        │       │       ├── BUILTIN-FORWARD_SETCODE.json
+                        │       │       ├── BUILTIN-GET_BLOCK_NUM.json
+                        │       │       ├── BUILTIN-GET_CODE_HASH.json
+                        │       │       ├── BUILTIN-GET_SENDER.json
+                        │       │       ├── BUILTIN-NO_DUPLICATE_DEFERRED_ID.json
+                        │       │       ├── BUILTIN-ONLY_BILL_FIRST_AUTHORIZER.json
+                        │       │       ├── BUILTIN-ONLY_LINK_TO_EXISTING_PERMISSION.json
+                        │       │       ├── BUILTIN-PREACTIVATE_FEATURE.json
+                        │       │       ├── BUILTIN-RAM_RESTRICTIONS.json
+                        │       │       ├── BUILTIN-REPLACE_DEFERRED.json
+                        │       │       ├── BUILTIN-RESTRICT_ACTION_TO_SELF.json
+                        │       │       ├── BUILTIN-WEBAUTHN_KEY.json
+                        │       │       └── BUILTIN-WTMSIG_BLOCK_SIGNATURES.json
+                        │       └── node_bios
+                        │           ├── config.ini
+                        │           ├── genesis.json
+                        │           ├── logging.json
+                        │           └── protocol_features
+                        │               ├── BUILTIN-ACTION_RETURN_VALUE.json
+                        │               ├── BUILTIN-BLOCKCHAIN_PARAMETERS.json
+                        │               ├── BUILTIN-CONFIGURABLE_WASM_LIMITS2.json
+                        │               ├── BUILTIN-CRYPTO_PRIMITIVES.json
+                        │               ├── BUILTIN-DISALLOW_EMPTY_PRODUCER_SCHEDULE.json
+                        │               ├── BUILTIN-FIX_LINKAUTH_RESTRICTION.json
+                        │               ├── BUILTIN-FORWARD_SETCODE.json
+                        │               ├── BUILTIN-GET_BLOCK_NUM.json
+                        │               ├── BUILTIN-GET_CODE_HASH.json
+                        │               ├── BUILTIN-GET_SENDER.json
+                        │               ├── BUILTIN-NO_DUPLICATE_DEFERRED_ID.json
+                        │               ├── BUILTIN-ONLY_BILL_FIRST_AUTHORIZER.json
+                        │               ├── BUILTIN-ONLY_LINK_TO_EXISTING_PERMISSION.json
+                        │               ├── BUILTIN-PREACTIVATE_FEATURE.json
+                        │               ├── BUILTIN-RAM_RESTRICTIONS.json
+                        │               ├── BUILTIN-REPLACE_DEFERRED.json
+                        │               ├── BUILTIN-RESTRICT_ACTION_TO_SELF.json
+                        │               ├── BUILTIN-WEBAUTHN_KEY.json
+                        │               └── BUILTIN-WTMSIG_BLOCK_SIGNATURES.json
+                        ├── trxGenLogs
+                        │   ├── trx_data_output_26451.txt
+                        │   ├── trx_data_output_26452.txt
+                        │   ├── trx_data_output_26453.txt
+                        │   └── trx_data_output_26454.txt
+                        └── var
+                            └── var
+                                ├── lib
+                                │   ├── node_00
+                                │   │   ├── blocks
+                                │   │   │   ├── blocks.index
+                                │   │   │   ├── blocks.log
+                                │   │   │   └── reversible
+                                │   │   ├── nodeos.pid
+                                │   │   ├── snapshots
+                                │   │   ├── state
+                                │   │   │   └── shared_memory.bin
+                                │   │   ├── stderr.2022_10_27_10_49_01.txt
+                                │   │   ├── stderr.txt -> stderr.2022_10_27_10_49_01.txt
+                                │   │   └── stdout.txt
+                                │   ├── node_01
+                                │   │   ├── blocks
+                                │   │   │   ├── blocks.index
+                                │   │   │   ├── blocks.log
+                                │   │   │   └── reversible
+                                │   │   ├── nodeos.pid
+                                │   │   ├── snapshots
+                                │   │   ├── state
+                                │   │   │   └── shared_memory.bin
+                                │   │   ├── stderr.2022_10_27_10_49_01.txt
+                                │   │   ├── stderr.txt -> stderr.2022_10_27_10_49_01.txt
+                                │   │   ├── stdout.txt
+                                │   │   └── traces
+                                │   │       ├── trace_0000000000-0000010000.log
+                                │   │       ├── trace_index_0000000000-0000010000.log
+                                │   │       └── trace_trx_id_0000000000-0000010000.log
+                                │   └── node_bios
+                                │       ├── blocks
+                                │       │   ├── blocks.index
+                                │       │   ├── blocks.log
+                                │       │   └── reversible
+                                │       │       └── fork_db.dat
+                                │       ├── nodeos.pid
+                                │       ├── snapshots
+                                │       ├── state
+                                │       │   └── shared_memory.bin
+                                │       ├── stderr.2022_10_27_10_49_01.txt
+                                │       ├── stderr.txt -> stderr.2022_10_27_10_49_01.txt
+                                │       ├── stdout.txt
+                                │       └── traces
+                                │           ├── trace_0000000000-0000010000.log
+                                │           ├── trace_index_0000000000-0000010000.log
+                                │           └── trace_trx_id_0000000000-0000010000.log
+                                ├── test_keosd_err.log
+                                ├── test_keosd_out.log
+                                └── test_wallet_0
+                                    ├── config.ini
+                                    ├── default.wallet
+                                    ├── ignition.wallet
+                                    ├── keosd.sock
+                                    └── wallet.lock
         ```
 
 ## Configuring Performance Harness Tests
@@ -91,8 +218,8 @@ The Performance Harness main script `performance_test.py` can be configured usin
                           to prune from the beginning and end of the range of blocks of interest for evaluation.
                           (default: 2)
 * `--del-perf-logs`       Whether to delete performance test specific logs. (default: False)
-* `--save-json`           Whether to save overarching performance run report. (default: False)
-* `--save-test-json`      Whether to save json reports from each test scenario. (default: False)
+* `--del-report`          Whether to delete overarching performance run report. (default: False)
+* `--del-test-report`     Whether to save json reports from each test scenario. (default: False)
 * `--quiet`               Whether to quiet printing intermediate results and reports to stdout (default: False)
 * `--prods-enable-trace-api`
                           Determines whether producer nodes should have eosio::trace_api_plugin enabled (default: False)
@@ -131,7 +258,7 @@ The following scripts are typically used by the Performance Harness main script 
                           The number of potentially non-empty blocks, in addition to leading and trailing size 0 blocks, to prune from the beginning and end
                           of the range of blocks of interest for evaluation. (default: 2)
 * `--del-perf-logs`       Whether to delete performance test specific logs. (default: False)
-* `--save-json`           Whether to save json output of stats (default: False)
+* `--del-report`          Whether to delete overarching performance run report. (default: False)
 * `--quiet`               Whether to quiet printing intermediate results and reports to stdout (default: False)
 * `--prods-enable-trace-api`
                           Determines whether producer nodes should have eosio::trace_api_plugin enabled (default: False)
@@ -201,12 +328,12 @@ The following scripts are typically used by the Performance Harness main script 
 
 ### Performance Test
 
-The Performance Harness generates a report to summarize results of test scenarios as well as overarching results of the performance harness run.  If run with `--save-json` the report described below will be written to the top level timestamped directory for the performance run with the file name `report.json`.
+The Performance Harness generates a report to summarize results of test scenarios as well as overarching results of the performance harness run.  By default the report described below will be written to the top level timestamped directory for the performance run with the file name `report.json`. If wishing to not capture the report, use argument `--del-report`.
 
 Command used to run test and generate report:
 
 ``` bash
-.build/tests/performance_tests/performance_test.py --test-iteration-duration-sec 10 --final-iterations-duration-sec 30 --save-json
+.build/tests/performance_tests/performance_test.py --test-iteration-duration-sec 10 --final-iterations-duration-sec 30
 ```
 
 #### Report Breakdown
@@ -249,6 +376,7 @@ Finally, the full detail test report for each of the determined max TPS throughp
 
 ``` json
 "InitialMaxTpsReport": {
+    <truncated>
     "Analysis": {
       <truncated>
     },
@@ -266,30 +394,49 @@ Finally, the full detail test report for each of the determined max TPS throughp
 ``` json
 {
   "InitialMaxTpsAchieved": 16500,
-  "LongRunningMaxTpsAchieved": 15500,
-  "testStart": "2022-10-26T15:01:51.100425",
-  "testFinish": "2022-10-26T15:20:17.514532",
+  "LongRunningMaxTpsAchieved": 15000,
+  "testStart": "2022-10-27T15:28:09.884076",
+  "testFinish": "2022-10-27T15:51:15.055798",
   "InitialSearchResults": {
     "0": {
       "success": false,
-      "searchTarget": 25000,
+      "searchTarget": 50000,
       "searchFloor": 0,
       "searchCeiling": 50000,
       "basicTestResult": {
+        "targetTPS": 50000,
+        "resultAvgTps": 17011.345454545455,
+        "expectedTxns": 500000,
+        "resultTxns": 500000,
+        "tpsExpectMet": false,
+        "trxExpectMet": true,
+        "basicTestSuccess": true,
+        "testAnalysisBlockCnt": 56,
+        "logsDir": "performance_test/2022-10-27_15-28-09/testRunLogs/performance_test_basic/2022-10-27_15-28-09",
+        "testStart": "2022-10-27T15:28:09.884396",
+        "testEnd": "2022-10-27T15:30:23.527806"
+      }
+    },
+    "1": {
+      "success": false,
+      "searchTarget": 25000,
+      "searchFloor": 0,
+      "searchCeiling": 49500,
+      "basicTestResult": {
         "targetTPS": 25000,
-        "resultAvgTps": 17160.4,
+        "resultAvgTps": 16341.961538461539,
         "expectedTxns": 250000,
         "resultTxns": 250000,
         "tpsExpectMet": false,
         "trxExpectMet": true,
         "basicTestSuccess": true,
-        "testAnalysisBlockCnt": 26,
-        "logsDir": "performance_test/2022-10-26_15-01-51/testRunLogs/performance_test_basic/2022-10-26_15-01-51",
-        "testStart": "2022-10-26T15:03:37.764242",
-        "testEnd": "2022-10-26T15:01:51.128328"
+        "testAnalysisBlockCnt": 27,
+        "logsDir": "performance_test/2022-10-27_15-28-09/testRunLogs/performance_test_basic/2022-10-27_15-30-23",
+        "testStart": "2022-10-27T15:30:23.626831",
+        "testEnd": "2022-10-27T15:32:12.578887"
       }
     },
-    "1": {
+    "2": {
       "success": true,
       "searchTarget": 12500,
       "searchFloor": 0,
@@ -303,108 +450,109 @@ Finally, the full detail test report for each of the determined max TPS throughp
         "trxExpectMet": true,
         "basicTestSuccess": true,
         "testAnalysisBlockCnt": 17,
-        "logsDir": "performance_test/2022-10-26_15-01-51/testRunLogs/performance_test_basic/2022-10-26_15-03-37",
-        "testStart": "2022-10-26T15:05:16.234764",
-        "testEnd": "2022-10-26T15:03:37.845998"
+        "logsDir": "performance_test/2022-10-27_15-28-09/testRunLogs/performance_test_basic/2022-10-27_15-32-12",
+        "testStart": "2022-10-27T15:32:12.639907",
+        "testEnd": "2022-10-27T15:33:51.079614"
       }
     },
-    "2": {
+    "3": {
       "success": false,
       "searchTarget": 19000,
       "searchFloor": 13000,
       "searchCeiling": 24500,
       "basicTestResult": {
         "targetTPS": 19000,
-        "resultAvgTps": 17020.055555555555,
+        "resultAvgTps": 16292.05,
         "expectedTxns": 190000,
         "resultTxns": 190000,
         "tpsExpectMet": false,
         "trxExpectMet": true,
         "basicTestSuccess": true,
-        "testAnalysisBlockCnt": 19,
-        "logsDir": "performance_test/2022-10-26_15-01-51/testRunLogs/performance_test_basic/2022-10-26_15-05-16",
-        "testStart": "2022-10-26T15:06:57.688659",
-        "testEnd": "2022-10-26T15:05:16.296740"
+        "testAnalysisBlockCnt": 21,
+        "logsDir": "performance_test/2022-10-27_15-28-09/testRunLogs/performance_test_basic/2022-10-27_15-33-51",
+        "testStart": "2022-10-27T15:33:51.118646",
+        "testEnd": "2022-10-27T15:35:33.082129"
       }
     },
-    "3": {
+    "4": {
       "success": true,
       "searchTarget": 16000,
       "searchFloor": 13000,
       "searchCeiling": 18500,
       "basicTestResult": {
         "targetTPS": 16000,
-        "resultAvgTps": 16002.4,
+        "resultAvgTps": 15962.0625,
         "expectedTxns": 160000,
         "resultTxns": 160000,
         "tpsExpectMet": true,
         "trxExpectMet": true,
         "basicTestSuccess": true,
-        "testAnalysisBlockCnt": 16,
-        "logsDir": "performance_test/2022-10-26_15-01-51/testRunLogs/performance_test_basic/2022-10-26_15-06-57",
-        "testStart": "2022-10-26T15:08:34.876060",
-        "testEnd": "2022-10-26T15:06:57.757636"
+        "testAnalysisBlockCnt": 17,
+        "logsDir": "performance_test/2022-10-27_15-28-09/testRunLogs/performance_test_basic/2022-10-27_15-35-33",
+        "testStart": "2022-10-27T15:35:33.131604",
+        "testEnd": "2022-10-27T15:37:13.597811"
       }
     },
-    "4": {
+    "5": {
       "success": false,
       "searchTarget": 17500,
       "searchFloor": 16500,
       "searchCeiling": 18500,
       "basicTestResult": {
         "targetTPS": 17500,
-        "resultAvgTps": 17016.823529411766,
+        "resultAvgTps": 16492.166666666668,
         "expectedTxns": 175000,
         "resultTxns": 175000,
         "tpsExpectMet": false,
         "trxExpectMet": true,
         "basicTestSuccess": true,
-        "testAnalysisBlockCnt": 18,
-        "logsDir": "performance_test/2022-10-26_15-01-51/testRunLogs/performance_test_basic/2022-10-26_15-08-34",
-        "testStart": "2022-10-26T15:10:15.697125",
-        "testEnd": "2022-10-26T15:08:34.944295"
+        "testAnalysisBlockCnt": 19,
+        "logsDir": "performance_test/2022-10-27_15-28-09/testRunLogs/performance_test_basic/2022-10-27_15-37-13",
+        "testStart": "2022-10-27T15:37:13.642504",
+        "testEnd": "2022-10-27T15:38:54.821892"
       }
     },
-    "5": {
+    "6": {
       "success": false,
       "searchTarget": 17000,
       "searchFloor": 16500,
       "searchCeiling": 17000,
       "basicTestResult": {
         "targetTPS": 17000,
-        "resultAvgTps": 16736.0,
+        "resultAvgTps": 16551.9375,
         "expectedTxns": 170000,
         "resultTxns": 170000,
         "tpsExpectMet": false,
         "trxExpectMet": true,
         "basicTestSuccess": true,
         "testAnalysisBlockCnt": 17,
-        "logsDir": "performance_test/2022-10-26_15-01-51/testRunLogs/performance_test_basic/2022-10-26_15-10-15",
-        "testStart": "2022-10-26T15:11:56.357860",
-        "testEnd": "2022-10-26T15:10:15.771879"
+        "logsDir": "performance_test/2022-10-27_15-28-09/testRunLogs/performance_test_basic/2022-10-27_15-38-54",
+        "testStart": "2022-10-27T15:38:54.868468",
+        "testEnd": "2022-10-27T15:40:35.753910"
       }
     },
-    "6": {
+    "7": {
       "success": true,
       "searchTarget": 16500,
       "searchFloor": 16500,
       "searchCeiling": 16500,
       "basicTestResult": {
         "targetTPS": 16500,
-        "resultAvgTps": 16487.5,
+        "resultAvgTps": 16508.875,
         "expectedTxns": 165000,
         "resultTxns": 165000,
         "tpsExpectMet": true,
         "trxExpectMet": true,
         "basicTestSuccess": true,
         "testAnalysisBlockCnt": 17,
-        "logsDir": "performance_test/2022-10-26_15-01-51/testRunLogs/performance_test_basic/2022-10-26_15-11-56",
-        "testStart": "2022-10-26T15:13:33.622108",
-        "testEnd": "2022-10-26T15:11:56.428977"
+        "logsDir": "performance_test/2022-10-27_15-28-09/testRunLogs/performance_test_basic/2022-10-27_15-40-35",
+        "testStart": "2022-10-27T15:40:35.800607",
+        "testEnd": "2022-10-27T15:42:16.524234"
       }
     }
   },
   "InitialMaxTpsReport": {
+    <truncated>
     "Analysis": {
       <truncated>
     },
@@ -417,62 +565,82 @@ Finally, the full detail test report for each of the determined max TPS throughp
     "0": {
       "success": false,
       "searchTarget": 16500,
-      "searchFloor": 15000,
-      "searchCeiling": 18000,
+      "searchFloor": 0,
+      "searchCeiling": 16500,
       "basicTestResult": {
         "targetTPS": 16500,
-        "resultAvgTps": 16152.396551724138,
+        "resultAvgTps": 15947.758620689656,
         "expectedTxns": 495000,
         "resultTxns": 495000,
         "tpsExpectMet": false,
         "trxExpectMet": true,
         "basicTestSuccess": true,
         "testAnalysisBlockCnt": 59,
-        "logsDir": "performance_test/2022-10-26_15-01-51/testRunLogs/performance_test_basic/2022-10-26_15-13-33",
-        "testStart": "2022-10-26T15:15:48.691120",
-        "testEnd": "2022-10-26T15:13:33.691322"
+        "logsDir": "performance_test/2022-10-27_15-28-09/testRunLogs/performance_test_basic/2022-10-27_15-42-16",
+        "testStart": "2022-10-27T15:42:16.572244",
+        "testEnd": "2022-10-27T15:44:31.876747"
       }
     },
     "1": {
-      "success": true,
-      "searchTarget": 15500,
-      "searchFloor": 15000,
-      "searchCeiling": 16000,
-      "basicTestResult": {
-        "targetTPS": 15500,
-        "resultAvgTps": 15500.80357142857,
-        "expectedTxns": 465000,
-        "resultTxns": 465000,
-        "tpsExpectMet": true,
-        "trxExpectMet": true,
-        "basicTestSuccess": true,
-        "testAnalysisBlockCnt": 57,
-        "logsDir": "performance_test/2022-10-26_15-01-51/testRunLogs/performance_test_basic/2022-10-26_15-15-48",
-        "testStart": "2022-10-26T15:18:02.360396",
-        "testEnd": "2022-10-26T15:15:48.841016"
-      }
-    },
-    "2": {
       "success": false,
       "searchTarget": 16000,
-      "searchFloor": 16000,
-      "searchCeiling": 16000,
+      "searchFloor": 0,
+      "searchCeiling": 16500,
       "basicTestResult": {
         "targetTPS": 16000,
-        "resultAvgTps": 15803.017543859649,
+        "resultAvgTps": 15693.666666666666,
         "expectedTxns": 480000,
         "resultTxns": 480000,
         "tpsExpectMet": false,
         "trxExpectMet": true,
         "basicTestSuccess": true,
         "testAnalysisBlockCnt": 58,
-        "logsDir": "performance_test/2022-10-26_15-01-51/testRunLogs/performance_test_basic/2022-10-26_15-18-02",
-        "testStart": "2022-10-26T15:20:17.364562",
-        "testEnd": "2022-10-26T15:18:02.510826"
+        "logsDir": "performance_test/2022-10-27_15-28-09/testRunLogs/performance_test_basic/2022-10-27_15-44-31",
+        "testStart": "2022-10-27T15:44:31.982870",
+        "testEnd": "2022-10-27T15:46:47.302398"
+      }
+    },
+    "2": {
+      "success": false,
+      "searchTarget": 15500,
+      "searchFloor": 0,
+      "searchCeiling": 16500,
+      "basicTestResult": {
+        "targetTPS": 15500,
+        "resultAvgTps": 15344.807017543859,
+        "expectedTxns": 465000,
+        "resultTxns": 465000,
+        "tpsExpectMet": false,
+        "trxExpectMet": true,
+        "basicTestSuccess": true,
+        "testAnalysisBlockCnt": 58,
+        "logsDir": "performance_test/2022-10-27_15-28-09/testRunLogs/performance_test_basic/2022-10-27_15-46-47",
+        "testStart": "2022-10-27T15:46:47.405846",
+        "testEnd": "2022-10-27T15:49:01.458088"
+      }
+    },
+    "3": {
+      "success": true,
+      "searchTarget": 15000,
+      "searchFloor": 0,
+      "searchCeiling": 16500,
+      "basicTestResult": {
+        "targetTPS": 15000,
+        "resultAvgTps": 15009.357142857143,
+        "expectedTxns": 450000,
+        "resultTxns": 450000,
+        "tpsExpectMet": true,
+        "trxExpectMet": true,
+        "basicTestSuccess": true,
+        "testAnalysisBlockCnt": 57,
+        "logsDir": "performance_test/2022-10-27_15-28-09/testRunLogs/performance_test_basic/2022-10-27_15-49-01",
+        "testStart": "2022-10-27T15:49:01.559500",
+        "testEnd": "2022-10-27T15:51:14.949531"
       }
     }
   },
   "LongRunningMaxTpsReport": {
+    <truncated>
     "Analysis": {
       <truncated>
     },
@@ -509,15 +677,15 @@ Finally, the full detail test report for each of the determined max TPS throughp
     "_totalNodes": 2,
     "testDurationSec": 10,
     "finalDurationSec": 30,
-    "logsDir": "performance_test/2022-10-26_15-01-51",
+    "logsDir": "performance_test/2022-10-27_15-28-09",
     "maxTpsToTest": 50000,
     "testIterationMinStep": 500,
     "tpsLimitPerGenerator": 4000,
-    "saveJsonReport": true,
-    "saveTestJsonReports": false,
+    "delReport": false,
+    "delTestReport": false,
     "numAddlBlocksToPrune": 2,
     "quiet": false,
-    "delPerfLogs": false,
+    "delPerfLogs": false
   },
   "env": {
     "system": "Linux",
@@ -532,114 +700,114 @@ Finally, the full detail test report for each of the determined max TPS throughp
 
 ### Performance Test Basic
 
-The Performance Test Basic generates a report that details results of the test, statistics around metrics of interest, as well as diagnostic information about the test run.  If `performance_test.py` is run with `--save-test-json`, or `performance_test_basic.py` is run with `--save-json`, the report described below will be written to the timestamped directory within the `performance_test_basic` log directory for the test run with the file name `data.json`.
+The Performance Test Basic generates, by default, a report that details results of the test, statistics around metrics of interest, as well as diagnostic information about the test run.  If `performance_test.py` is run with `--del-test-report`, or `performance_test_basic.py` is run with `--del-report`, the report described below will not be written.  Otherwise the report will be written to the timestamped directory within the `performance_test_basic` log directory for the test run with the file name `data.json`.
 
 <details>
     <summary>Expand for full sample report</summary>
     
 ``` json
 {
-    "Analysis": {
-      "BlockSize": {
-        "avg": 1584225.8823529412,
-        "emptyBlocks": 0,
-        "max": 1920768,
-        "min": 1251648,
-        "numBlocks": 17,
-        "sigma": 116058.52769432496
-      },
-      "BlocksGuide": {
-        "configAddlDropCnt": 2,
-        "firstBlockNum": 2,
-        "lastBlockNum": 192,
-        "leadingEmptyBlocksCnt": 1,
-        "setupBlocksCnt": 128,
-        "tearDownBlocksCnt": 15,
-        "testAnalysisBlockCnt": 17,
-        "testEndBlockNum": 177,
-        "testStartBlockNum": 130,
-        "totalBlocks": 191,
-        "trailingEmptyBlocksCnt": 26
-      },
-      "TPS": {
-        "avg": 16487.5,
-        "configTestDuration": 10,
-        "configTps": 16500,
-        "emptyBlocks": 0,
-        "generatorCount": 5,
-        "max": 18282,
-        "min": 14737,
-        "numBlocks": 17,
-        "sigma": 632.3244815757175,
-        "tpsPerGenerator": 3300
-      },
-      "TrxCPU": {
-        "avg": 39.92118181818182,
-        "max": 331.0,
-        "min": 24.0,
-        "samples": 165000,
-        "sigma": 9.812904296105097
-      },
-      "TrxLatency": {
-        "avg": 0.3586312120582118,
-        "max": 0.7090001106262207,
-        "min": 0.10100007057189941,
-        "samples": 165000,
-        "sigma": 0.14619888650487195
-      },
-      "TrxNet": {
-        "avg": 24.0,
-        "max": 24.0,
-        "min": 24.0,
-        "samples": 165000,
-        "sigma": 0.0
-      }
+  "completedRun": true,
+  "testStart": "2022-10-27T15:49:01.559500",
+  "testFinish": "2022-10-27T15:51:14.949531",
+  "Analysis": {
+    "BlockSize": {
+      "min": 1151616,
+      "max": 1793800,
+      "avg": 1471634.105263158,
+      "sigma": 119971.4315329241,
+      "emptyBlocks": 0,
+      "numBlocks": 57
     },
-    "args": {
-      "_killEosInstances": true,
-      "_killWallet": true,
-      "_totalNodes": 2,
-      "delPerfLogs": false,
-      "delay": 1,
-      "dontKill": false,
-      "dumpErrorDetails": false,
-      "expectedTransactionsSent": 165000,
-      "extraNodeosArgs": " --http-max-response-time-ms 990000 --disable-subjective-api-billing true ",
-      "genesisPath": "tests/performance_tests/genesis.json",
-      "keepLogs": false,
-      "killAll": false,
-      "loggingDict": {
-        "bios": "off"
-      },
-      "maximumClients": 0,
-      "maximumP2pPerHost": 5000,
-      "nodesFile": null,
-      "numAddlBlocksToPrune": 2,
-      "pnodes": 1,
-      "prodsEnableTraceApi": false,
-      "quiet": false,
-      "saveJsonReport": false,
-      "specificExtraNodeosArgs": {
-        "1": "--plugin eosio::trace_api_plugin"
-      },
-      "targetTps": 16500,
-      "testTrxGenDurationSec": 10,
-      "topo": "mesh",
-      "totalNodes": 0,
-      "tpsLimitPerGenerator": 4000,
-      "useBiosBootFile": false,
-      "verbose": false
+    "BlocksGuide": {
+      "firstBlockNum": 2,
+      "lastBlockNum": 259,
+      "totalBlocks": 258,
+      "testStartBlockNum": 129,
+      "testEndBlockNum": 222,
+      "setupBlocksCnt": 127,
+      "tearDownBlocksCnt": 37,
+      "leadingEmptyBlocksCnt": 1,
+      "trailingEmptyBlocksCnt": 32,
+      "configAddlDropCnt": 2,
+      "testAnalysisBlockCnt": 57
     },
-    "completedRun": true,
-    "env": {
-      "logical_cpu_count": 16,
-      "os": "posix",
-      "release": "5.10.102.1-microsoft-standard-WSL2",
-      "system": "Linux"
+    "TPS": {
+      "min": 13484,
+      "max": 16544,
+      "avg": 15009.357142857143,
+      "sigma": 596.824616155349,
+      "emptyBlocks": 0,
+      "numBlocks": 57,
+      "configTps": 15000,
+      "configTestDuration": 30,
+      "tpsPerGenerator": 3750,
+      "generatorCount": 4
     },
-    "nodeosVersion": "v4.0.0-dev",
-    "testFinish": "2022-10-26T15:13:33.622108",
-    "testStart": "2022-10-26T15:11:56.428977"
-  }
+    "TrxCPU": {
+      "min": 24.0,
+      "max": 1931.0,
+      "avg": 42.695702222222224,
+      "sigma": 12.312858616376783,
+      "samples": 450000
+    },
+    "TrxLatency": {
+      "min": 0.10100007057189941,
+      "max": 0.7070000171661377,
+      "avg": 0.3626785021718343,
+      "sigma": 0.14715856440937658,
+      "samples": 450000
+    },
+    "TrxNet": {
+      "min": 24.0,
+      "max": 25.0,
+      "avg": 24.555564444444446,
+      "sigma": 0.49690300111146485,
+      "samples": 450000
+    }
+  },
+  "args": {
+    "killAll": false,
+    "dontKill": false,
+    "keepLogs": false,
+    "dumpErrorDetails": false,
+    "delay": 1,
+    "nodesFile": null,
+    "verbose": false,
+    "_killEosInstances": true,
+    "_killWallet": true,
+    "pnodes": 1,
+    "totalNodes": 0,
+    "topo": "mesh",
+    "extraNodeosArgs": " --http-max-response-time-ms 990000 --disable-subjective-api-billing true ",
+    "useBiosBootFile": false,
+    "genesisPath": "tests/performance_tests/genesis.json",
+    "maximumP2pPerHost": 5000,
+    "maximumClients": 0,
+    "loggingDict": {
+      "bios": "off"
+    },
+    "prodsEnableTraceApi": false,
+    "specificExtraNodeosArgs": {
+      "1": "--plugin eosio::trace_api_plugin"
+    },
+    "_totalNodes": 2,
+    "delPerfLogs": false,
+    "delReport": false,
+    "expectedTransactionsSent": 450000,
+    "numAddlBlocksToPrune": 2,
+    "quiet": false,
+    "targetTps": 15000,
+    "testTrxGenDurationSec": 30,
+    "tpsLimitPerGenerator": 4000
+  },
+  "env": {
+    "system": "Linux",
+    "os": "posix",
+    "release": "5.10.102.1-microsoft-standard-WSL2",
+    "logical_cpu_count": 16
+  },
+  "nodeosVersion": "v4.0.0-dev"
+}
 ```
 </details>

@@ -46,7 +46,7 @@ class PerfTestSearchResults:
 
 def performPtbBinarySearch(tpsTestFloor: int, tpsTestCeiling: int, minStep: int, testHelperConfig: PerformanceBasicTest.TestHelperConfig,
                            testClusterConfig: PerformanceBasicTest.ClusterConfig, testDurationSec: int, tpsLimitPerGenerator: int,
-                           numAddlBlocksToPrune: int, testLogDir: str, saveJson: bool, quiet: bool, delPerfLogs: bool) -> PerfTestSearchResults:
+                           numAddlBlocksToPrune: int, testLogDir: str, delReport: bool, quiet: bool, delPerfLogs: bool) -> PerfTestSearchResults:
     floor = tpsTestFloor
     ceiling = tpsTestCeiling
     binSearchTarget = tpsTestCeiling
@@ -62,7 +62,7 @@ def performPtbBinarySearch(tpsTestFloor: int, tpsTestCeiling: int, minStep: int,
 
         myTest = PerformanceBasicTest(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, targetTps=binSearchTarget,
                                     testTrxGenDurationSec=testDurationSec, tpsLimitPerGenerator=tpsLimitPerGenerator,
-                                    numAddlBlocksToPrune=numAddlBlocksToPrune, rootLogDir=testLogDir, saveJsonReport=saveJson, quiet=quiet, delPerfLogs=delPerfLogs)
+                                    numAddlBlocksToPrune=numAddlBlocksToPrune, rootLogDir=testLogDir, delReport=delReport, quiet=quiet, delPerfLogs=delPerfLogs)
         testSuccessful = myTest.runTest()
         if evaluateSuccess(myTest, testSuccessful, ptbResult):
             maxTpsAchieved = binSearchTarget
@@ -83,7 +83,7 @@ def performPtbBinarySearch(tpsTestFloor: int, tpsTestCeiling: int, minStep: int,
 
 def performPtbReverseLinearSearch(tpsInitial: int, step: int, testHelperConfig: PerformanceBasicTest.TestHelperConfig,
                                   testClusterConfig: PerformanceBasicTest.ClusterConfig, testDurationSec: int, tpsLimitPerGenerator: int,
-                                  numAddlBlocksToPrune: int, testLogDir: str, saveJson: bool, quiet: bool, delPerfLogs: bool) -> PerfTestSearchResults:
+                                  numAddlBlocksToPrune: int, testLogDir: str, delReport: bool, quiet: bool, delPerfLogs: bool) -> PerfTestSearchResults:
 
     # Default - Decrementing Max TPS in range [0, tpsInitial]
     absFloor = 0
@@ -103,7 +103,7 @@ def performPtbReverseLinearSearch(tpsInitial: int, step: int, testHelperConfig: 
 
         myTest = PerformanceBasicTest(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, targetTps=searchTarget,
                                     testTrxGenDurationSec=testDurationSec, tpsLimitPerGenerator=tpsLimitPerGenerator,
-                                    numAddlBlocksToPrune=numAddlBlocksToPrune, rootLogDir=testLogDir, saveJsonReport=saveJson, quiet=quiet, delPerfLogs=delPerfLogs)
+                                    numAddlBlocksToPrune=numAddlBlocksToPrune, rootLogDir=testLogDir, delReport=delReport, quiet=quiet, delPerfLogs=delPerfLogs)
         testSuccessful = myTest.runTest()
         if evaluateSuccess(myTest, testSuccessful, ptbResult):
             maxTpsAchieved = searchTarget
@@ -169,7 +169,7 @@ def exportReportAsJSON(report: json, exportPath):
     with open(exportPath, 'wt') as f:
         f.write(report)
 
-def testDirsCleanup(saveJsonReport, testTimeStampDirPath, ptbLogsDirPath):
+def testDirsCleanup(delReport, testTimeStampDirPath, ptbLogsDirPath):
     try:
         def removeArtifacts(path):
             print(f"Checking if test artifacts dir exists: {path}")
@@ -177,7 +177,7 @@ def testDirsCleanup(saveJsonReport, testTimeStampDirPath, ptbLogsDirPath):
                 print(f"Cleaning up test artifacts dir and all contents of: {path}")
                 shutil.rmtree(f"{path}")
 
-        if saveJsonReport:
+        if not delReport:
             removeArtifacts(ptbLogsDirPath)
         else:
             removeArtifacts(testTimeStampDirPath)
@@ -200,12 +200,12 @@ def testDirsSetup(rootLogDir, testTimeStampDirPath, ptbLogsDirPath):
         print(error)
 
 def prepArgsDict(testDurationSec, finalDurationSec, logsDir, maxTpsToTest, testIterationMinStep,
-             tpsLimitPerGenerator, saveJsonReport, saveTestJsonReports, numAddlBlocksToPrune, quiet, delPerfLogs, testHelperConfig, testClusterConfig) -> dict:
+             tpsLimitPerGenerator, delReport, delTestReport, numAddlBlocksToPrune, quiet, delPerfLogs, testHelperConfig, testClusterConfig) -> dict:
     argsDict = {}
     argsDict.update(asdict(testHelperConfig))
     argsDict.update(asdict(testClusterConfig))
     argsDict.update({key:val for key, val in locals().items() if key in set(['testDurationSec', 'finalDurationSec', 'maxTpsToTest', 'testIterationMinStep', 'tpsLimitPerGenerator',
-                                                                                  'saveJsonReport', 'saveTestJsonReports', 'numAddlBlocksToPrune', 'logsDir', 'quiet', 'delPerfLogs'])})
+                                                                             'delReport', 'delTestReport', 'numAddlBlocksToPrune', 'logsDir', 'quiet', 'delPerfLogs'])})
     return argsDict
 
 def parseArgs():
@@ -218,8 +218,8 @@ def parseArgs():
     appArgs.add(flag="--genesis", type=str, help="Path to genesis.json", default="tests/performance_tests/genesis.json")
     appArgs.add(flag="--num-blocks-to-prune", type=int, help="The number of potentially non-empty blocks, in addition to leading and trailing size 0 blocks, to prune from the beginning and end of the range of blocks of interest for evaluation.", default=2)
     appArgs.add_bool(flag="--del-perf-logs", help="Whether to delete performance test specific logs.")
-    appArgs.add_bool(flag="--save-json", help="Whether to save overarching performance run report.")
-    appArgs.add_bool(flag="--save-test-json", help="Whether to save json reports from each test scenario.")
+    appArgs.add_bool(flag="--del-report", help="Whether to delete overarching performance run report.")
+    appArgs.add_bool(flag="--del-test-report", help="Whether to save json reports from each test scenario.")
     appArgs.add_bool(flag="--quiet", help="Whether to quiet printing intermediate results and reports to stdout")
     appArgs.add_bool(flag="--prods-enable-trace-api", help="Determines whether producer nodes should have eosio::trace_api_plugin enabled")
     args=TestHelper.parse_args({"-p","-n","-d","-s","--nodes-file"
@@ -247,8 +247,8 @@ def main():
     maxTpsToTest=args.max_tps_to_test
     testIterationMinStep=args.test_iteration_min_step
     tpsLimitPerGenerator=args.tps_limit_per_generator
-    saveJsonReport=args.save_json
-    saveTestJsonReports=args.save_test_json
+    delReport=args.del_report
+    delTestReport=args.del_test_report
     numAddlBlocksToPrune=args.num_blocks_to_prune
     quiet=args.quiet
     prodsEnableTraceApi=args.prods_enable_trace_api
@@ -269,7 +269,7 @@ def main():
 
     argsDict = prepArgsDict(testDurationSec=testDurationSec, finalDurationSec=finalDurationSec, logsDir=testTimeStampDirPath,
                         maxTpsToTest=maxTpsToTest, testIterationMinStep=testIterationMinStep, tpsLimitPerGenerator=tpsLimitPerGenerator,
-                        saveJsonReport=saveJsonReport, saveTestJsonReports=saveTestJsonReports, numAddlBlocksToPrune=numAddlBlocksToPrune,
+                        delReport=delReport, delTestReport=delTestReport, numAddlBlocksToPrune=numAddlBlocksToPrune,
                         quiet=quiet, delPerfLogs=delPerfLogs, testHelperConfig=testHelperConfig, testClusterConfig=testClusterConfig)
 
     perfRunSuccessful = False
@@ -277,7 +277,7 @@ def main():
     try:
         binSearchResults = performPtbBinarySearch(tpsTestFloor=0, tpsTestCeiling=maxTpsToTest, minStep=testIterationMinStep, testHelperConfig=testHelperConfig,
                            testClusterConfig=testClusterConfig, testDurationSec=testDurationSec, tpsLimitPerGenerator=tpsLimitPerGenerator,
-                           numAddlBlocksToPrune=numAddlBlocksToPrune, testLogDir=ptbLogsDirPath, saveJson=saveTestJsonReports, quiet=quiet, delPerfLogs=delPerfLogs)
+                           numAddlBlocksToPrune=numAddlBlocksToPrune, testLogDir=ptbLogsDirPath, delReport=delTestReport, quiet=quiet, delPerfLogs=delPerfLogs)
 
         print(f"Successful rate of: {binSearchResults.maxTpsAchieved}")
 
@@ -288,7 +288,7 @@ def main():
 
         longRunningSearchResults = performPtbReverseLinearSearch(tpsInitial=binSearchResults.maxTpsAchieved, step=testIterationMinStep, testHelperConfig=testHelperConfig,
                                                                  testClusterConfig=testClusterConfig, testDurationSec=finalDurationSec, tpsLimitPerGenerator=tpsLimitPerGenerator,
-                                                                 numAddlBlocksToPrune=numAddlBlocksToPrune, testLogDir=ptbLogsDirPath, saveJson=saveTestJsonReports, quiet=quiet,
+                                                                 numAddlBlocksToPrune=numAddlBlocksToPrune, testLogDir=ptbLogsDirPath, delReport=delTestReport, quiet=quiet,
                                                                  delPerfLogs=delPerfLogs)
 
         print(f"Long Running Test - Successful rate of: {longRunningSearchResults.maxTpsAchieved}")
@@ -307,14 +307,14 @@ def main():
         if not quiet:
             print(f"Full Performance Test Report: {fullReport}")
 
-        if saveJsonReport:
+        if not delReport:
             exportReportAsJSON(fullReport, f"{testTimeStampDirPath}/report.json")
 
     finally:
 
         if delPerfLogs:
             print(f"Cleaning up logs directory: {testTimeStampDirPath}")
-            testDirsCleanup(saveJsonReport=saveJsonReport, testTimeStampDirPath=testTimeStampDirPath, ptbLogsDirPath=ptbLogsDirPath)
+            testDirsCleanup(delReport=delReport, testTimeStampDirPath=testTimeStampDirPath, ptbLogsDirPath=ptbLogsDirPath)
 
     exitCode = 0 if perfRunSuccessful else 1
     exit(exitCode)
