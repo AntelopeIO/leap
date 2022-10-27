@@ -15,6 +15,7 @@ from TestHarness import Cluster, TestHelper, Utils, WalletMgr
 from TestHarness.TestHelper import AppArgs
 from dataclasses import dataclass, asdict, field
 from datetime import datetime
+from math import ceil
 
 class PerformanceBasicTest:
     @dataclass
@@ -69,7 +70,7 @@ class PerformanceBasicTest:
 
         Utils.Debug = self.testHelperConfig.verbose
         self.errorExit = Utils.errorExit
-        self.emptyBlockGoal = 5
+        self.emptyBlockGoal = 1
 
         self.testStart = datetime.utcnow()
 
@@ -209,7 +210,11 @@ class PerformanceBasicTest:
             ])
 
         # Get stats after transaction generation stops
-        self.data.ceaseBlock = self.waitForEmptyBlocks(self.validationNode, self.emptyBlockGoal) - self.emptyBlockGoal + 1
+        trxSent = {}
+        log_reader.scrapeTrxGenTrxSentDataLogs(trxSent, self.trxGenLogDirPath, self.quiet)
+        blocksToWait = ceil(self.expectedTransactionsSent / min(4000, 0.45 * self.targetTps))
+        trxSent = self.validationNode.waitForTransactionsInBlockRange(trxSent, self.data.startBlock, blocksToWait)
+        self.data.ceaseBlock = self.validationNode.getHeadBlockNum()
 
         return True
 
