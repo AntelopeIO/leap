@@ -1,25 +1,134 @@
 #include <eosio/prometheus_plugin/prometheus_plugin.hpp>
 #include <fc/log/logger.hpp>
+#include <prometheus/metric_family.h>
+#include <prometheus/collectable.h>
+#include <prometheus/counter.h>
+#include <prometheus/summary.h>
+#include <prometheus/text_serializer.h>
+#include <prometheus/registry.h>
+
+#define CALL_WITH_400(api_name, api_handle, call_name, INVOKE, http_response_code) \
+{std::string("/v1/" #api_name "/" #call_name), \
+   [api_handle](string, string body, url_response_callback cb) mutable { \
+          try { \
+             body = parse_params<std::string, http_params_types::no_params>(body); \
+             INVOKE \
+             cb(http_response_code, fc::time_point::maximum(), fc::variant(result)); \
+          } catch (...) { \
+             http_plugin::handle_exception(#api_name, #call_name, body, cb); \
+          } \
+       }}
+
+#define INVOKE_R_V(api_handle, call_name) \
+     auto result = api_handle->call_name();
 
 namespace eosio {
-
+   using namespace prometheus;
    static appbase::abstract_plugin &_prometheus_plugin = app().register_plugin<prometheus_plugin>();
 
-   struct prometheus_plugin_impl {
+   struct prometheus_plugin_metrics {
+      Family<Counter>& _bytes_transferred_family;
+      Counter& _bytes_transferred;
+      Family<Counter>& _num_scrapes_family;
+      Counter& _num_scrapes;
+      Family<Summary>& _request_processing_family;
+      Summary& _request_processing;
+
+      prometheus_plugin_metrics(Registry& registry) :
+         _bytes_transferred_family(
+         BuildCounter()
+               .Name("exposer_transferred_bytes_total")
+               .Help("Transferred bytes to metrics services")
+               .Register(registry)),
+         _bytes_transferred(_bytes_transferred_family.Add({})),
+         _num_scrapes_family(BuildCounter()
+            .Name("exposer_scrapes_total")
+            .Help("Number of times metrics were scraped")
+            .Register(registry)),
+         _num_scrapes(_num_scrapes_family.Add({})),
+         _request_processing_family(
+         BuildSummary()
+            .Name("request_processing_time")
+            .Help("Processing time of serving scrape requests, in microseconds")
+            .Register(registry)),
+         _request_processing(_request_processing_family.Add(
+            {}, Summary::Quantiles{{0.5, 0.05}, {0.9, 0.01}, {0.99, 0.001}})) {}
+      };
+
+      struct prometheus_plugin_impl {
+         std::mutex _collectables_mutex;
+         std::vector<std::shared_ptr<Collectable>> _collectables;
+         const prometheus::TextSerializer _serializer;
+
+         // metrics for prometheus_plugin itself
+         std::unique_ptr<prometheus_plugin_metrics> _metrics;
+
+         prometheus_plugin_impl() { }
+
+         void initialize_metrics() {
+            std::shared_ptr<Registry> _registry = std::make_shared<Registry>();
+            _metrics = std::make_unique<prometheus_plugin_metrics>(*_registry);
+            _collectables.push_back(_registry);
+
+            // this is where we will set up all non-prometheus_plugin metrics
+         }
+
+         std::string scrape() {
+            auto start_time_of_request = std::chrono::steady_clock::now();
+
+            std::vector<prometheus::MetricFamily> metrics;
+
+            {
+               std::lock_guard<std::mutex> lock{_collectables_mutex};
+               metrics = collect_metrics();
+            }
+
+            std::string body = _serializer.Serialize(metrics);
+
+            auto stop_time_of_request = std::chrono::steady_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::microseconds>(
+                  stop_time_of_request - start_time_of_request);
+            _metrics->_request_processing.Observe(duration.count());
+
+            _metrics->_bytes_transferred.Increment(body.length());
+            _metrics->_num_scrapes.Increment();
+
+            return body;
+         }
+
+         std::vector<MetricFamily> collect_metrics() {
+            auto collected_metrics = std::vector<MetricFamily>{};
+
+            for (auto&& collectable : _collectables) {
+
+               auto&& metrics = collectable->Collect();
+               collected_metrics.insert(collected_metrics.end(),
+                                        std::make_move_iterator(metrics.begin()),
+                                        std::make_move_iterator(metrics.end()));
+            }
+
+            return collected_metrics;
+         }
+
    };
 
    prometheus_plugin::prometheus_plugin() {
      my.reset(new prometheus_plugin_impl{});
+
+      app().get_plugin<http_plugin>().add_async_api({
+        CALL_WITH_400(prometheus, this, scrape,  INVOKE_R_V(this, scrape), 200), });
    }
 
    prometheus_plugin::~prometheus_plugin() {}
+
+   std::string prometheus_plugin::scrape() {return my->scrape();}
 
    void prometheus_plugin::set_program_options(options_description&, options_description& cfg) {
 
    }
 
    void prometheus_plugin::plugin_initialize(const variables_map& options) {
-
+      my->initialize_metrics();
    }
 
    void prometheus_plugin::plugin_startup() {
