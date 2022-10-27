@@ -200,7 +200,8 @@ def testDirsSetup(rootLogDir, testTimeStampDirPath, ptbLogsDirPath):
         print(error)
 
 def prepArgsDict(testDurationSec, finalDurationSec, logsDir, maxTpsToTest, testIterationMinStep,
-             tpsLimitPerGenerator, delReport, delTestReport, numAddlBlocksToPrune, quiet, delPerfLogs, testHelperConfig, testClusterConfig) -> dict:
+                 tpsLimitPerGenerator, delReport, delTestReport, numAddlBlocksToPrune, quiet, delPerfLogs,
+                 testHelperConfig, testClusterConfig) -> dict:
     argsDict = {}
     argsDict.update(asdict(testHelperConfig))
     argsDict.update(asdict(testClusterConfig))
@@ -224,7 +225,7 @@ def parseArgs():
     appArgs.add_bool(flag="--prods-enable-trace-api", help="Determines whether producer nodes should have eosio::trace_api_plugin enabled")
     args=TestHelper.parse_args({"-p","-n","-d","-s","--nodes-file"
                                 ,"--dump-error-details","-v","--leave-running"
-                                ,"--clean-run","--keep-logs"}, applicationSpecificArgs=appArgs)
+                                ,"--clean-run"}, applicationSpecificArgs=appArgs)
     return args
 
 def main():
@@ -261,7 +262,7 @@ def main():
 
     testDirsSetup(rootLogDir=rootLogDir, testTimeStampDirPath=testTimeStampDirPath, ptbLogsDirPath=ptbLogsDirPath)
 
-    testHelperConfig = PerformanceBasicTest.TestHelperConfig(killAll=killAll, dontKill=dontKill, keepLogs=args.keep_logs,
+    testHelperConfig = PerformanceBasicTest.TestHelperConfig(killAll=killAll, dontKill=dontKill, keepLogs=not delPerfLogs,
                                                              dumpErrorDetails=dumpErrorDetails, delay=delay, nodesFile=nodesFile,
                                                              verbose=verbose)
 

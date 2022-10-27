@@ -197,7 +197,6 @@ The Performance Harness main script `performance_test.py` can be configured usin
                           File containing nodes info in JSON format. (default: None)
 * `-s {mesh}`             topology (default: mesh)
 * `--dump-error-details`  Upon error print `etc/eosio/node_*/config.ini` and `var/lib/node_*/stderr.log` to stdout (default: False)
-* `--keep-logs`           Don't delete `var/lib/node_*` folders upon test completion (default: False)
 * `-v`                    verbose logging (default: False)
 * `--leave-running`       Leave cluster running after test finishes (default: False)
 * `--clean-run`           Kill all nodeos and keosd instances (default: False)
@@ -243,7 +242,6 @@ The following scripts are typically used by the Performance Harness main script 
                           File containing nodes info in JSON format. (default: None)
 * `-s {mesh}`             topology (default: mesh)
 * `--dump-error-details`  Upon error print `etc/eosio/node_*/config.ini` and `var/lib/node_*/stderr.log` to stdout (default: False)
-* `--keep-logs`           Don't delete `var/lib/node_*` folders upon test completion (default: False)
 * `-v`                    verbose logging (default: False)
 * `--leave-running`       Leave cluster running after test finishes (default: False)
 * `--clean-run`           Kill all nodeos and keosd instances (default: False)
@@ -652,7 +650,7 @@ Finally, the full detail test report for each of the determined max TPS throughp
   "args": {
     "killAll": false,
     "dontKill": false,
-    "keepLogs": false,
+    "keepLogs": true,
     "dumpErrorDetails": false,
     "delay": 1,
     "nodesFile": null,
@@ -769,7 +767,7 @@ The Performance Test Basic generates, by default, a report that details results 
   "args": {
     "killAll": false,
     "dontKill": false,
-    "keepLogs": false,
+    "keepLogs": true,
     "dumpErrorDetails": false,
     "delay": 1,
     "nodesFile": null,

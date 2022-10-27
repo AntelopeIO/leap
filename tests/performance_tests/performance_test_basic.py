@@ -21,7 +21,7 @@ class PerformanceBasicTest:
     class TestHelperConfig:
         killAll: bool = True # clean_run
         dontKill: bool = False # leave_running
-        keepLogs: bool = False
+        keepLogs: bool = True
         dumpErrorDetails: bool = False
         delay: int = 1
         nodesFile: str = None
@@ -66,6 +66,8 @@ class PerformanceBasicTest:
         self.delReport = delReport
         self.quiet = quiet
         self.delPerfLogs=delPerfLogs
+
+        self.testHelperConfig.keepLogs = not self.delPerfLogs
 
         Utils.Debug = self.testHelperConfig.verbose
         self.errorExit = Utils.errorExit
@@ -299,9 +301,6 @@ class PerformanceBasicTest:
 
             self.analyzeResultsAndReport(completedRun)
 
-            if not self.delPerfLogs:
-                self.captureLowLevelArtifacts()
-
         except subprocess.CalledProcessError as err:
             print(f"trx_generator return error code: {err.returncode}.  Test aborted.")
         finally:
@@ -315,6 +314,9 @@ class PerformanceBasicTest:
                 self.testHelperConfig.killAll,
                 self.testHelperConfig.dumpErrorDetails
                 )
+
+            if not self.delPerfLogs:
+                self.captureLowLevelArtifacts()
 
             if not completedRun:
                 os.system("pkill trx_generator")
@@ -340,7 +342,7 @@ def parseArgs():
     appArgs.add_bool(flag="--prods-enable-trace-api", help="Determines whether producer nodes should have eosio::trace_api_plugin enabled")
     args=TestHelper.parse_args({"-p","-n","-d","-s","--nodes-file"
                                 ,"--dump-error-details","-v","--leave-running"
-                                ,"--clean-run","--keep-logs"}, applicationSpecificArgs=appArgs)
+                                ,"--clean-run"}, applicationSpecificArgs=appArgs)
     return args
 
 def main():
@@ -348,7 +350,7 @@ def main():
     args = parseArgs()
     Utils.Debug = args.v
 
-    testHelperConfig = PerformanceBasicTest.TestHelperConfig(killAll=args.clean_run, dontKill=args.leave_running, keepLogs=args.keep_logs,
+    testHelperConfig = PerformanceBasicTest.TestHelperConfig(killAll=args.clean_run, dontKill=args.leave_running, keepLogs=not args.del_perf_logs,
                                                              dumpErrorDetails=args.dump_error_details, delay=args.d, nodesFile=args.nodes_file, verbose=args.v)
     testClusterConfig = PerformanceBasicTest.ClusterConfig(pnodes=args.p, totalNodes=args.n, topo=args.s, genesisPath=args.genesis, prodsEnableTraceApi=args.prods_enable_trace_api)
 
