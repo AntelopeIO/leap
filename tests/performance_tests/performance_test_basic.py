@@ -7,6 +7,7 @@ import shutil
 import signal
 import log_reader
 import inspect
+import launch_transaction_generators as ltg
 
 harnessPath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(harnessPath)
@@ -201,12 +202,12 @@ class PerformanceBasicTest:
 
         self.data.startBlock = self.waitForEmptyBlocks(self.validationNode, self.emptyBlockGoal)
 
-        subprocess.run([
-            f"./tests/performance_tests/launch_transaction_generators.py",
-            f"{chainId}", f"{lib_id}", f"{self.cluster.eosioAccount.name}",
-            f"{self.account1Name},{self.account2Name}", f"{self.account1PrivKey},{self.account2PrivKey}",
-            f"{self.testTrxGenDurationSec}", f"{self.targetTps}", f"{self.tpsLimitPerGenerator}", f"{self.trxGenLogDirPath}"
-            ])
+        trxGenLauncher = ltg.TransactionGeneratorsLauncher(chainId=chainId, lastIrreversibleBlockId=lib_id,
+                                                           handlerAcct=self.cluster.eosioAccount.name, accts=f"{self.account1Name},{self.account2Name}",
+                                                           privateKeys=f"{self.account1PrivKey},{self.account2PrivKey}", trxGenDurationSec=self.testTrxGenDurationSec,
+                                                           targetTps=self.targetTps, tpsLimitPerGenerator=self.tpsLimitPerGenerator, logDir=self.trxGenLogDirPath)
+
+        trxGenLauncherExitCodes = trxGenLauncher.launch()
 
         # Get stats after transaction generation stops
         self.data.ceaseBlock = self.waitForEmptyBlocks(self.validationNode, self.emptyBlockGoal) - self.emptyBlockGoal + 1
