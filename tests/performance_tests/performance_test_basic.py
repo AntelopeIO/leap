@@ -204,7 +204,7 @@ class PerformanceBasicTest:
         subprocess.run([
             f"./tests/performance_tests/launch_transaction_generators.py",
             f"{chainId}", f"{lib_id}", f"{self.cluster.eosioAccount.name}",
-            f"{self.account1Name}", f"{self.account2Name}", f"{self.account1PrivKey}", f"{self.account2PrivKey}",
+            f"{self.account1Name},{self.account2Name}", f"{self.account1PrivKey},{self.account2PrivKey}",
             f"{self.testTrxGenDurationSec}", f"{self.targetTps}", f"{self.tpsLimitPerGenerator}", f"{self.trxGenLogDirPath}"
             ])
 
