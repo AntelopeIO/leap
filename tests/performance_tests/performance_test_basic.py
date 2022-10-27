@@ -78,6 +78,9 @@ class PerformanceBasicTest:
         self.ptbLogDir = f"{self.rootLogDir}/{os.path.splitext(os.path.basename(__file__))[0]}"
         self.testTimeStampDirPath = f"{self.ptbLogDir}/{self.testStart.strftime('%Y-%m-%d_%H-%M-%S')}"
         self.trxGenLogDirPath = f"{self.testTimeStampDirPath}/trxGenLogs"
+        self.varLogsDirPath = f"{self.testTimeStampDirPath}/var"
+        self.etcLogsDirPath = f"{self.testTimeStampDirPath}/etc"
+        self.etcEosioLogsDirPath = f"{self.etcLogsDirPath}/eosio"
         self.blockDataLogDirPath = f"{self.testTimeStampDirPath}/blockDataLogs"
         self.blockDataPath = f"{self.blockDataLogDirPath}/blockData.txt"
         self.blockTrxDataPath = f"{self.blockDataLogDirPath}/blockTrxData.txt"
@@ -110,6 +113,9 @@ class PerformanceBasicTest:
 
             if saveJsonReport:
                 removeArtifacts(self.trxGenLogDirPath)
+                removeArtifacts(self.varLogsDirPath)
+                removeArtifacts(self.etcEosioLogsDirPath)
+                removeArtifacts(self.etcLogsDirPath)
                 removeArtifacts(self.blockDataLogDirPath)
             else:
                 removeArtifacts(self.testTimeStampDirPath)
@@ -128,6 +134,9 @@ class PerformanceBasicTest:
             createArtifactsDir(self.ptbLogDir)
             createArtifactsDir(self.testTimeStampDirPath)
             createArtifactsDir(self.trxGenLogDirPath)
+            createArtifactsDir(self.varLogsDirPath)
+            createArtifactsDir(self.etcLogsDirPath)
+            createArtifactsDir(self.etcEosioLogsDirPath)
             createArtifactsDir(self.blockDataLogDirPath)
 
         except OSError as error:
@@ -223,6 +232,24 @@ class PerformanceBasicTest:
                                                                                      'expectedTransactionsSent', 'saveJsonReport', 'numAddlBlocksToPrune', 'quiet', 'delPerfLogs'])})
         return args
 
+    def captureLowLevelArtifacts(self):
+        try:
+            shutil.move(f"var", f"{self.varLogsDirPath}")
+        except Exception as e:
+            print(f'Exception caught: {type(e)}: {e}')
+
+        etcEosioDir = "etc/eosio"
+        for path in os.listdir(etcEosioDir):
+            try:
+                if path == "launcher":
+                    # Need to copy here since testnet.template is only generated at compile time then reused, therefore
+                    # it needs to remain in etc/eosio/launcher for subsequent tests.
+                    shutil.copytree(f"{etcEosioDir}/{path}", f"{self.etcEosioLogsDirPath}/{path}")
+                else:
+                    shutil.move(f"{etcEosioDir}/{path}", f"{self.etcEosioLogsDirPath}/{path}")
+            except Exception as e:
+                print(f'Exception caught: {type(e)}: {e}')
+
 
     def analyzeResultsAndReport(self, completedRun):
         args = self.prepArgs()
@@ -268,6 +295,9 @@ class PerformanceBasicTest:
             testSuccessful = True
 
             self.analyzeResultsAndReport(completedRun)
+
+            if not self.delPerfLogs:
+                self.captureLowLevelArtifacts()
 
         except subprocess.CalledProcessError as err:
             print(f"trx_generator return error code: {err.returncode}.  Test aborted.")
