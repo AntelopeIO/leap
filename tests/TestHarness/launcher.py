@@ -345,7 +345,7 @@ plugin = eosio::chain_api_plugin
     def skip_ndx(self, begin, offset):
         ndx = (begin + offset) % self.args.total_nodes
         if self.args.total_nodes > 2:
-            attempts = self.args.total_nodes - 2
+            attempts = self.args.total_nodes - 1
             while attempts and (self.is_bios_ndx(ndx) or ndx == begin):
                 ndx, _ = self.next_ndx(ndx)
                 attempts -= 1
@@ -431,7 +431,9 @@ plugin = eosio::chain_api_plugin
             for j in range(1, non_bios):
                 ndx = self.skip_ndx(i,j)
                 peer = self.aliases[ndx]
-                current.peers.append(peer)
+                if peer not in current.peers:
+                    current.peers.append(peer)
+            i, loop = self.next_ndx(i)
 
     def make_custom(self):
         print('making custom')
