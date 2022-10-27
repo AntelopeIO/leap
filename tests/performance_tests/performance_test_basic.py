@@ -82,13 +82,14 @@ class PerformanceBasicTest:
         self.blockDataPath = f"{self.blockDataLogDirPath}/blockData.txt"
         self.blockTrxDataPath = f"{self.blockDataLogDirPath}/blockTrxData.txt"
         self.reportPath = f"{self.testTimeStampDirPath}/data.json"
-        self.nodeosLogPath = "var/lib/node_01/stderr.txt"
 
         # Setup Expectations for Producer and Validation Node IDs
         # Producer Nodes are index [0, pnodes) and validation nodes/non-producer nodes [pnodes, _totalNodes)
         # Use first producer node and first non-producer node
         self.producerNodeId = 0
         self.validationNodeId = self.clusterConfig.pnodes
+
+        self.nodeosLogPath = f"var/lib/node_0{self.validationNodeId}/stderr.txt" if self.validationNodeId < 10 else f"var/lib/node_{self.validationNodeId}/stderr.txt"
 
         # Setup cluster and its wallet manager
         self.walletMgr=WalletMgr(True)
