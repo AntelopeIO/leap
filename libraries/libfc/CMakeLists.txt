@@ -6,6 +6,7 @@ set( USE_ASM OFF CACHE BOOL "" FORCE)
 set( IS_LIBFF_PARENT OFF CACHE BOOL "" FORCE)
 set( FF_INSTALL_COMPONENT "${FC_INSTALL_COMPONENT}")
 add_subdirectory( libraries/ff )
+add_subdirectory( libraries/bn256/src )
 
 set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)
@@ -116,6 +117,11 @@ find_package(Boost 1.66 REQUIRED COMPONENTS
     unit_test_framework
     iostreams)
 
+find_package(PkgConfig)
+pkg_check_modules(GMP REQUIRED gmp)
+target_link_directories(fc PUBLIC ${GMP_LIBRARY_DIRS})
+target_include_directories(fc PRIVATE ${GMP_INCLUDE_DIRS})
+
 # fc picks up a dependency on zlib via Boost::iostreams, however in some versions of cmake/boost (depending on if CMake config
 #  files are used) the Boost::iostreams target does not have a dependency on zlib itself so add it explicitly
 find_package(ZLIB REQUIRED)
@@ -141,7 +147,7 @@ endif()
 target_link_libraries( fc PUBLIC
                                  Boost::date_time Boost::filesystem Boost::chrono Boost::iostreams Threads::Threads
                                  OpenSSL::Crypto OpenSSL::SSL ZLIB::ZLIB ${PLATFORM_SPECIFIC_LIBS} ${CMAKE_DL_LIBS}  ${security_framework} ${corefoundation_framework}
-                          PRIVATE ff secp256k1)
+                          PRIVATE bn256 secp256k1)
 
 # Critically, this ensures that OpenSSL 1.1 & 3.0 both have a variant of BN_zero() with void return value. But it also allows access
 #  to some obsoleted AES functions in 3.0 too, since 3.0's API_COMPAT is effectively 3.0 by default
