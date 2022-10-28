@@ -25,3 +25,6 @@
 [submodule "libraries/libfc/libraries/ff"]
 	path = libraries/libfc/libraries/ff
 	url = https://github.com/AntelopeIO/libff
+[submodule "libraries/libfc/libraries/bn256"]
+	path = libraries/libfc/libraries/bn256
+	url = https://github.com/AntelopeIO/bn256
