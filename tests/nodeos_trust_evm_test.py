@@ -3,6 +3,7 @@
 import random
 import os
 import json
+import time
 
 import rlp
 from ethereum import transactions
@@ -122,6 +123,11 @@ try:
     abiFile="evm_runtime.abi"
     Utils.Print("Publish evm_runtime contract")
     trans = prodNode.publishContract(evmAcc, contractDir, wasmFile, abiFile, waitForTransBlock=True)
+    transId=prodNode.getTransId(trans)
+    blockNum = prodNode.getBlockNumByTransId(transId)
+    block = prodNode.getBlock(blockNum)
+    Utils.Print("Block Id: ", block["id"])
+    Utils.Print("Block timestamp", block["timestamp"])
 
     Utils.Print("Set balance")
     prodNode.pushMessage(evmAcc.name, "setbal", '{"addy":"2787b98fc4e731d0456b3941f0b3fe2e01439961", "bal":"0000000000000000000000000000000100000000000000000000000000000000"}', '-p evmevmevmevm')
@@ -163,25 +169,29 @@ try:
     # }
     retValue = prodNode.pushMessage(evmAcc.name, "updatecode", '{"address":"2787b98fc4e731d0456b3941f0b3fe2e01430000","incarnation":0,"code_hash":"286e3d498e2178afc91275f11d446e62a0d85b060ce66d6ca75f6ec9d874d560","code":"608060405234801561001057600080fd5b50600436106100365760003560e01c80632e64cec11461003b5780636057361d14610059575b600080fd5b610043610075565b60405161005091906100d9565b60405180910390f35b610073600480360381019061006e919061009d565b61007e565b005b60008054905090565b8060008190555050565b60008135905061009781610103565b92915050565b6000602082840312156100b3576100b26100fe565b5b60006100c184828501610088565b91505092915050565b6100d3816100f4565b82525050565b60006020820190506100ee60008301846100ca565b92915050565b6000819050919050565b600080fd5b61010c816100f4565b811461011757600080fd5b5056fea26469706673582212209a159a4f3847890f10bfb87871a61eba91c5dbf5ee3cf6398207e292eee22a1664736f6c63430008070033"}', '-p evmevmevmevm')
 
-    Utils.Print("Execute ETH contract")
-    nonce += 1
-    toAdd = "2787b98fc4e731d0456b3941f0b3fe2e01430000"
-    amount = 0
-    unsignedTrx = transactions.Transaction(
-        nonce,
-        150000000000, #150 GWei
-        100000,       #100k Gas
-        toAdd,
-        amount,
-        unhexlify("6057361d000000000000000000000000000000000000000000000000000000000000007b")
-    )
-    rlptx = rlp.encode(unsignedTrx.sign(evmSendKey, evmChainId), transactions.Transaction)
-    actData = {"ram_payer":"evmevmevmevm", "rlptx":rlptx.hex()}
-    retValue = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p evmevmevmevm')
-    assert retValue[0], "pushtx to ETH contract failed."
-    Utils.Print("\tReturn value:", retValue[1]["processed"]["action_traces"][0]["return_value_data"])
-    row0=prodNode.getTableRow(evmAcc.name, 3, "storage", 0)
-    Utils.Print("\tTable row:", row0)
+    testSuccessful=True
+    while True:
+        Utils.Print("Execute ETH contract")
+        nonce += 1
+        toAdd = "2787b98fc4e731d0456b3941f0b3fe2e01430000"
+        amount = 0
+        unsignedTrx = transactions.Transaction(
+            nonce,
+            150000000000, #150 GWei
+            100000,       #100k Gas
+            toAdd,
+            amount,
+            unhexlify("6057361d000000000000000000000000000000000000000000000000000000000000007b")
+        )
+        rlptx = rlp.encode(unsignedTrx.sign(evmSendKey, evmChainId), transactions.Transaction)
+        actData = {"ram_payer":"evmevmevmevm", "rlptx":rlptx.hex()}
+        retValue = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p evmevmevmevm')
+        assert retValue[0], "pushtx to ETH contract failed."
+        Utils.Print("\tReturn value:", retValue[1]["processed"]["action_traces"][0]["return_value_data"])
+        Utils.Print("\bBlock#", retValue[1]["processed"]["block_num"])
+        row0=prodNode.getTableRow(evmAcc.name, 3, "storage", 0)
+        Utils.Print("\tTable row:", row0)
+        time.sleep(1)
 
     testSuccessful=True
 finally:
