@@ -2,6 +2,7 @@
  
 import argparse
 import log_reader
+import launch_transaction_generators as ltg
 
 parser = argparse.ArgumentParser(add_help=False)
 parser.add_argument("--target-tps", type=int, help="The target transfers per second to send during test", default=8000)
@@ -25,10 +26,16 @@ data.startBlock = args.start_block
 data.ceaseBlock = args.cease_block
 blockDataPath = f"{blockDataLogDirPath}/blockData.txt"
 blockTrxDataPath = f"{blockDataLogDirPath}/blockTrxData.txt"
-report = log_reader.calcAndReport(data=data, targetTps=args.target_tps, testDurationSec=args.test_duration_sec, tpsLimitPerGenerator=args.tps_limit_per_generator,
+tpsLimitPerGenerator=args.tps_limit_per_generator
+targetTps=args.target_tps
+tpsTrxGensConfig = ltg.TpsTrxGensConfig(targetTps=targetTps, tpsLimitPerGenerator=tpsLimitPerGenerator)
+
+
+report = log_reader.calcAndReport(data=data, targetTps=targetTps, testDurationSec=args.test_duration_sec, tpsLimitPerGenerator=tpsLimitPerGenerator,
                                   nodeosLogPath=nodeosLogPath, trxGenLogDirPath=trxGenLogDirPath, blockTrxDataPath=blockTrxDataPath, blockDataPath=blockDataPath,
                                   numBlocksToPrune=args.num_blocks_to_prune, argsDict=dict(item.split("=") for item in f"{args}"[10:-1].split(", ")), testStart=None,
-                                  completedRun=True, quiet=args.quiet)
+                                  completedRun=True, numTrxGensUsed=tpsTrxGensConfig.numGenerators, targetTpsPerGenList=tpsTrxGensConfig.targetTpsPerGenList,
+                                  quiet=args.quiet)
 
 if not args.quiet:
     print(data)

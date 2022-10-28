@@ -338,8 +338,8 @@ def calcTrxLatencyCpuNetStats(trxDict : dict, blockDict: dict):
            basicStats(float(np.min(npLatencyCpuNetList[:,2])), float(np.max(npLatencyCpuNetList[:,2])), float(np.average(npLatencyCpuNetList[:,2])), float(np.std(npLatencyCpuNetList[:,2])), len(npLatencyCpuNetList))
 
 def createReport(guide: chainBlocksGuide, targetTps: int, testDurationSec: int, tpsLimitPerGenerator: int, tpsStats: stats, blockSizeStats: stats,
-                     trxLatencyStats: basicStats, trxCpuStats: basicStats, trxNetStats: basicStats, testStart: datetime, testFinish: datetime, argsDict, completedRun) -> dict:
-    numGenerators = math.ceil(targetTps / tpsLimitPerGenerator)
+                 trxLatencyStats: basicStats, trxCpuStats: basicStats, trxNetStats: basicStats, testStart: datetime, testFinish: datetime,
+                 argsDict: dict, completedRun: bool, numTrxGensUsed: int, targetTpsPerGenList: list) -> dict:
     report = {}
     report['completedRun'] = completedRun
     report['testStart'] = testStart
@@ -350,8 +350,8 @@ def createReport(guide: chainBlocksGuide, targetTps: int, testDurationSec: int, 
     report['Analysis']['TPS'] = asdict(tpsStats)
     report['Analysis']['TPS']['configTps'] = targetTps
     report['Analysis']['TPS']['configTestDuration'] = testDurationSec
-    report['Analysis']['TPS']['tpsPerGenerator'] = math.floor(targetTps / numGenerators)
-    report['Analysis']['TPS']['generatorCount'] = numGenerators
+    report['Analysis']['TPS']['tpsPerGenerator'] = targetTpsPerGenList
+    report['Analysis']['TPS']['generatorCount'] = numTrxGensUsed
     report['Analysis']['TrxCPU'] = asdict(trxCpuStats)
     report['Analysis']['TrxLatency'] = asdict(trxLatencyStats)
     report['Analysis']['TrxNet'] = asdict(trxNetStats)
@@ -366,7 +366,8 @@ def reportAsJSON(report: dict) -> json:
     return json.dumps(report, sort_keys=True, indent=2)
 
 def calcAndReport(data, targetTps, testDurationSec, tpsLimitPerGenerator, nodeosLogPath, trxGenLogDirPath, blockTrxDataPath, blockDataPath,
-                  numBlocksToPrune, argsDict, testStart: datetime, completedRun, quiet: bool) -> dict:
+                  numBlocksToPrune, argsDict: dict, testStart: datetime, completedRun: bool, numTrxGensUsed: int, targetTpsPerGenList: list,
+                  quiet: bool) -> dict:
     scrapeLog(data, nodeosLogPath)
 
     trxSent = {}
@@ -400,7 +401,7 @@ def calcAndReport(data, targetTps, testDurationSec, tpsLimitPerGenerator, nodeos
 
     report = createReport(guide=guide, targetTps=targetTps, testDurationSec=testDurationSec, tpsLimitPerGenerator=tpsLimitPerGenerator, tpsStats=tpsStats,
                               blockSizeStats=blkSizeStats, trxLatencyStats=trxLatencyStats, trxCpuStats=trxCpuStats, trxNetStats=trxNetStats, testStart=start,
-                              testFinish=finish, argsDict=argsDict, completedRun=completedRun)
+                              testFinish=finish, argsDict=argsDict, completedRun=completedRun, numTrxGensUsed=numTrxGensUsed, targetTpsPerGenList=targetTpsPerGenList)
     return report
 
 def exportReportAsJSON(report: json, exportPath):

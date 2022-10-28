@@ -5,6 +5,7 @@ import sys
 import subprocess
 import shutil
 import signal
+from unittest import TestResult
 import log_reader
 import inspect
 import launch_transaction_generators as ltg
@@ -18,6 +19,13 @@ from dataclasses import dataclass, asdict, field
 from datetime import datetime
 
 class PerformanceBasicTest:
+    @dataclass
+    class PbtTpsTestResult:
+        completedRun: bool = False
+        numGeneratorsUsed: int = 0
+        targetTpsPerGenList: list = field(default_factory=list)
+        launcherExitCodes: list = field(default_factory=list)
+
     @dataclass
     class TestHelperConfig:
         killAll: bool = True # clean_run
@@ -190,7 +198,7 @@ class PerformanceBasicTest:
         self.account1PrivKey = self.cluster.accounts[0].activePrivateKey
         self.account2PrivKey = self.cluster.accounts[1].activePrivateKey
 
-    def runTpsTest(self) -> bool:
+    def runTpsTest(self) -> PbtTpsTestResult:
         self.producerNode = self.cluster.getNode(self.producerNodeId)
         self.validationNode = self.cluster.getNode(self.validationNodeId)
         info = self.producerNode.getInfo()
@@ -201,18 +209,19 @@ class PerformanceBasicTest:
         self.cluster.biosNode.kill(signal.SIGTERM)
 
         self.data.startBlock = self.waitForEmptyBlocks(self.validationNode, self.emptyBlockGoal)
-
+        tpsTrxGensConfig = ltg.TpsTrxGensConfig(targetTps=self.targetTps, tpsLimitPerGenerator=self.tpsLimitPerGenerator)
         trxGenLauncher = ltg.TransactionGeneratorsLauncher(chainId=chainId, lastIrreversibleBlockId=lib_id,
                                                            handlerAcct=self.cluster.eosioAccount.name, accts=f"{self.account1Name},{self.account2Name}",
                                                            privateKeys=f"{self.account1PrivKey},{self.account2PrivKey}", trxGenDurationSec=self.testTrxGenDurationSec,
-                                                           targetTps=self.targetTps, tpsLimitPerGenerator=self.tpsLimitPerGenerator, logDir=self.trxGenLogDirPath)
+                                                           logDir=self.trxGenLogDirPath, tpsTrxGensConfig=tpsTrxGensConfig)
 
         trxGenLauncherExitCodes = trxGenLauncher.launch()
 
         # Get stats after transaction generation stops
         self.data.ceaseBlock = self.waitForEmptyBlocks(self.validationNode, self.emptyBlockGoal) - self.emptyBlockGoal + 1
 
-        return True
+        return self.PbtTpsTestResult(completedRun=True, numGeneratorsUsed=tpsTrxGensConfig.numGenerators,
+                                     targetTpsPerGenList=tpsTrxGensConfig.targetTpsPerGenList, launcherExitCodes=trxGenLauncherExitCodes)
 
     def prepArgs(self) -> dict:
         args = {}
@@ -222,13 +231,13 @@ class PerformanceBasicTest:
                                                                                      'expectedTransactionsSent', 'saveJsonReport', 'numAddlBlocksToPrune', 'quiet'])})
         return args
 
-
-    def analyzeResultsAndReport(self, completedRun):
+    def analyzeResultsAndReport(self, testResult: PbtTpsTestResult):
         args = self.prepArgs()
         self.report = log_reader.calcAndReport(data=self.data, targetTps=self.targetTps, testDurationSec=self.testTrxGenDurationSec, tpsLimitPerGenerator=self.tpsLimitPerGenerator,
                                                nodeosLogPath=self.nodeosLogPath, trxGenLogDirPath=self.trxGenLogDirPath, blockTrxDataPath=self.blockTrxDataPath,
                                                blockDataPath=self.blockDataPath, numBlocksToPrune=self.numAddlBlocksToPrune, argsDict=args, testStart=self.testStart,
-                                               completedRun=completedRun, quiet=self.quiet)
+                                               completedRun=testResult.completedRun, numTrxGensUsed=testResult.numGeneratorsUsed, targetTpsPerGenList=testResult.targetTpsPerGenList,
+                                               quiet=self.quiet)
 
         if not self.quiet:
             print(self.data)
@@ -261,12 +270,11 @@ class PerformanceBasicTest:
             TestHelper.printSystemInfo("BEGIN")
             self.preTestSpinup()
 
-            completedRun = self.runTpsTest()
+            ptbTestResult = self.runTpsTest()
             self.postTpsTestSteps()
 
             testSuccessful = True
-
-            self.analyzeResultsAndReport(completedRun)
+            self.analyzeResultsAndReport(ptbTestResult)
 
         except subprocess.CalledProcessError as err:
             print(f"trx_generator return error code: {err.returncode}.  Test aborted.")

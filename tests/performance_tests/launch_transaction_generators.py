@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from dataclasses import dataclass
 import os
 import sys
 import math
@@ -12,33 +13,41 @@ sys.path.append(harnessPath)
 from TestHarness import Utils
 Print = Utils.Print
 
+class TpsTrxGensConfig:
+
+    def __init__(self, targetTps: int, tpsLimitPerGenerator: int):
+        self.targetTps: int = targetTps
+        self.tpsLimitPerGenerator: int = tpsLimitPerGenerator
+
+        self.numGenerators = math.ceil(self.targetTps / self.tpsLimitPerGenerator)
+        self.initialTpsPerGenerator = math.floor(self.targetTps / self.numGenerators)
+        self.modTps = self.targetTps % self.numGenerators
+        self.cleanlyDivisible = self.modTps == 0
+        self.incrementPoint = self.numGenerators + 1 - self.modTps
+
+        self.targetTpsPerGenList = []
+        curTps = self.initialTpsPerGenerator
+        for num in range(1, self.numGenerators + 1):
+            if not self.cleanlyDivisible and num == self.incrementPoint:
+                curTps = curTps + 1
+            self.targetTpsPerGenList.append(curTps)
+
 class TransactionGeneratorsLauncher:
 
     def __init__(self, chainId: int, lastIrreversibleBlockId: int, handlerAcct: str, accts: str, privateKeys: str,
-                 trxGenDurationSec: int, targetTps: int, tpsLimitPerGenerator: int, logDir: str):
+                 trxGenDurationSec: int, logDir: str, tpsTrxGensConfig: TpsTrxGensConfig):
         self.chainId = chainId
         self.lastIrreversibleBlockId = lastIrreversibleBlockId
         self.handlerAcct  = handlerAcct
         self.accts = accts
         self.privateKeys = privateKeys
         self.trxGenDurationSec  = trxGenDurationSec
-        self.targetTps = targetTps
-        self.tpsLimitPerGenerator  = tpsLimitPerGenerator
+        self.tpsTrxGensConfig = tpsTrxGensConfig
         self.logDir = logDir
-
-        self.numGenerators = math.ceil(self.targetTps / self.tpsLimitPerGenerator)
-        self.tpsPerGenerator = math.floor(self.targetTps / self.numGenerators)
-        self.modTps = self.targetTps % self.numGenerators
-        self.cleanlyDivisible = self.modTps == 0
-        self.incrementPoint = self.numGenerators + 1 - self.modTps
-
 
     def launch(self):
         subprocess_ret_codes = []
-        for num in range(1, self.numGenerators + 1):
-            if not self.cleanlyDivisible and num == self.incrementPoint:
-                self.tpsPerGenerator = self.tpsPerGenerator + 1
-
+        for targetTps in self.tpsTrxGensConfig.targetTpsPerGenList:
             if Utils.Debug:
                 Print(
                     f'Running trx_generator: ./tests/trx_generator/trx_generator  '
@@ -48,7 +57,7 @@ class TransactionGeneratorsLauncher:
                     f'--accounts {self.accts} '
                     f'--priv-keys {self.privateKeys} '
                     f'--trx-gen-duration {self.trxGenDurationSec} '
-                    f'--target-tps {self.tpsPerGenerator} '
+                    f'--target-tps {targetTps} '
                     f'--log-dir {self.logDir}'
                 )
             subprocess_ret_codes.append(
@@ -60,12 +69,12 @@ class TransactionGeneratorsLauncher:
                     '--accounts', f'{self.accts}',
                     '--priv-keys', f'{self.privateKeys}',
                     '--trx-gen-duration', f'{self.trxGenDurationSec}',
-                    '--target-tps', f'{self.tpsPerGenerator}',
+                    '--target-tps', f'{targetTps}',
                     '--log-dir', f'{self.logDir}'
                 ])
             )
-        exit_codes = [ret_code.wait() for ret_code in subprocess_ret_codes]
-        return exit_codes
+        exitCodes = [ret_code.wait() for ret_code in subprocess_ret_codes]
+        return exitCodes
 
 def parseArgs():
     parser = argparse.ArgumentParser(add_help=False)
@@ -86,8 +95,8 @@ def main():
 
     trxGenLauncher = TransactionGeneratorsLauncher(chainId=args.chain_id, lastIrreversibleBlockId=args.last_irreversible_block_id,
                                                    handlerAcct=args.handler_account, accts=args.accounts,
-                                                   privateKeys=args.priv_keys, trxGenDurationSec=args.trx_gen_duration,
-                                                   targetTps=args.target_tps, tpsLimitPerGenerator=args.tps_limit_per_generator, logDir=args.log_dir)
+                                                   privateKeys=args.priv_keys, trxGenDurationSec=args.trx_gen_duration, logDir=args.log_dir,
+                                                   tpsTrxGensConfig=TpsTrxGensConfig(targetTps=args.target_tps, tpsLimitPerGenerator=args.tps_limit_per_generator))
 
 
     exit_codes = trxGenLauncher.launch()
