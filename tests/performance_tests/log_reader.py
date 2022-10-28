@@ -360,12 +360,6 @@ def createReport(guide: chainBlocksGuide, targetTps: int, testDurationSec: int, 
     report['nodeosVersion'] = Utils.getNodeosVersion()
     return report
 
-def createJSONReport(guide: chainBlocksGuide, targetTps: int, testDurationSec: int, tpsLimitPerGenerator: int, tpsStats: stats, blockSizeStats: stats,
-                     trxLatencyStats: basicStats, trxCpuStats: basicStats, trxNetStats: basicStats, testStart: datetime, testFinish: datetime, argsDict, completedRun) -> json:
-    report = createReport(guide=guide, targetTps=targetTps, testDurationSec=testDurationSec, tpsLimitPerGenerator=tpsLimitPerGenerator, tpsStats=tpsStats, blockSizeStats=blockSizeStats,
-                     trxLatencyStats=trxLatencyStats, trxCpuStats=trxCpuStats, trxNetStats=trxNetStats, testStart=testStart, testFinish=testFinish, argsDict=argsDict, completedRun=completedRun)
-    return reportAsJSON(report)
-
 def reportAsJSON(report: dict) -> json:
     report['testStart'] = "Unknown" if report['testStart'] is None else report['testStart'].isoformat()
     report['testFinish'] = "Unknown" if report['testFinish'] is None else report['testFinish'].isoformat()
