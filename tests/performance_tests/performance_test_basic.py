@@ -93,7 +93,7 @@ class PerformanceBasicTest:
         self.producerNodeId = 0
         self.validationNodeId = self.clusterConfig.pnodes
 
-        self.nodeosLogPath = f"var/lib/node_0{self.validationNodeId}/stderr.txt" if self.validationNodeId < 10 else f"var/lib/node_{self.validationNodeId}/stderr.txt"
+        self.nodeosLogPath = f'var/lib/node_{str(self.validationNodeId).zfill(2)}/stderr.txt'
 
         # Setup cluster and its wallet manager
         self.walletMgr=WalletMgr(True)
@@ -112,12 +112,15 @@ class PerformanceBasicTest:
                     print(f"Cleaning up test artifacts dir and all contents of: {path}")
                     shutil.rmtree(f"{path}")
 
-            if not delReport:
+            def removeAllArtifactsExceptFinalReport():
                 removeArtifacts(self.trxGenLogDirPath)
                 removeArtifacts(self.varLogsDirPath)
                 removeArtifacts(self.etcEosioLogsDirPath)
                 removeArtifacts(self.etcLogsDirPath)
                 removeArtifacts(self.blockDataLogDirPath)
+
+            if not delReport:
+                removeAllArtifactsExceptFinalReport()
             else:
                 removeArtifacts(self.testTimeStampDirPath)
         except OSError as error:
@@ -237,19 +240,22 @@ class PerformanceBasicTest:
         try:
             shutil.move(f"var", f"{self.varLogsDirPath}")
         except Exception as e:
-            print(f'Exception caught: {type(e)}: {e}')
+            print(f"Failed to move 'var' to '{self.varLogsDirPath}': {type(e)}: {e}")
 
         etcEosioDir = "etc/eosio"
         for path in os.listdir(etcEosioDir):
-            try:
-                if path == "launcher":
+            if path == "launcher":
+                try:
                     # Need to copy here since testnet.template is only generated at compile time then reused, therefore
                     # it needs to remain in etc/eosio/launcher for subsequent tests.
                     shutil.copytree(f"{etcEosioDir}/{path}", f"{self.etcEosioLogsDirPath}/{path}")
-                else:
+                except Exception as e:
+                    print(f"Failed to copy '{etcEosioDir}/{path}' to '{self.etcEosioLogsDirPath}/{path}': {type(e)}: {e}")
+            else:
+                try:
                     shutil.move(f"{etcEosioDir}/{path}", f"{self.etcEosioLogsDirPath}/{path}")
-            except Exception as e:
-                print(f'Exception caught: {type(e)}: {e}')
+                except Exception as e:
+                    print(f"Failed to move '{etcEosioDir}/{path}' to '{self.etcEosioLogsDirPath}/{path}': {type(e)}: {e}")
 
 
     def analyzeResultsAndReport(self, completedRun):

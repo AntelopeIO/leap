@@ -24,8 +24,7 @@ Please refer to [Leap: Building From Source](https://github.com/AntelopeIO/leap#
         ```bash
         ./build/tests/performance_tests/performance_test_basic.py
         ```
-3. Collect Results - By default the Performance Harness will capture and save logs unless explicitly providing arguments to not do so (`--del-perf-logs`)
-).  Additionally, by default, final reports will be collected.  If not wanting to collect final reports, pass in the following arguments `--del-report` and/or `--del-test-report`.
+3. Collect Results - By default the Performance Harness will capture and save logs.  To delete logs, use `--del-perf-logs`.  Additionally, final reports will be collected by default.  To omit final reports, use `--del-report` and/or `--del-test-report`.
     1. Navigate to performance test logs directory
         ```bash
         cd ./build/performance_test/
@@ -326,7 +325,7 @@ The following scripts are typically used by the Performance Harness main script 
 
 ### Performance Test
 
-The Performance Harness generates a report to summarize results of test scenarios as well as overarching results of the performance harness run.  By default the report described below will be written to the top level timestamped directory for the performance run with the file name `report.json`. If wishing to not capture the report, use argument `--del-report`.
+The Performance Harness generates a report to summarize results of test scenarios as well as overarching results of the performance harness run.  By default the report described below will be written to the top level timestamped directory for the performance run with the file name `report.json`. To omit final report, use `--del-report`.
 
 Command used to run test and generate report:
 
