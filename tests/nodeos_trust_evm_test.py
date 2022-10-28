@@ -127,7 +127,7 @@ try:
     blockNum = prodNode.getBlockNumByTransId(transId)
     block = prodNode.getBlock(blockNum)
     Utils.Print("Block Id: ", block["id"])
-    Utils.Print("Block timestamp", block["timestamp"])
+    Utils.Print("Block timestamp: ", block["timestamp"])
 
     Utils.Print("Set balance")
     prodNode.pushMessage(evmAcc.name, "setbal", '{"addy":"2787b98fc4e731d0456b3941f0b3fe2e01439961", "bal":"0000000000000000000000000000000100000000000000000000000000000000"}', '-p evmevmevmevm')
@@ -188,7 +188,7 @@ try:
         retValue = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p evmevmevmevm')
         assert retValue[0], "pushtx to ETH contract failed."
         Utils.Print("\tReturn value:", retValue[1]["processed"]["action_traces"][0]["return_value_data"])
-        Utils.Print("\bBlock#", retValue[1]["processed"]["block_num"])
+        Utils.Print("\tBlock#", retValue[1]["processed"]["block_num"])
         row0=prodNode.getTableRow(evmAcc.name, 3, "storage", 0)
         Utils.Print("\tTable row:", row0)
         time.sleep(1)
