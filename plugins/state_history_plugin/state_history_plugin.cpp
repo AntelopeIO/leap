@@ -160,7 +160,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
          }
          socket_stream.next_layer().set_option(boost::asio::socket_base::send_buffer_size(1024 * 1024));
          socket_stream.next_layer().set_option(boost::asio::socket_base::receive_buffer_size(1024 * 1024));
-        
+
          socket_stream.async_accept([self = this->shared_from_this()](boost::system::error_code ec) {
             self->callback(ec, "async_accept", [self] {
                self->start_read();
@@ -168,7 +168,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
             });
          });
       }
-     
+
 
       void start_read() {
          auto in_buffer = std::make_shared<boost::beast::flat_buffer>();
@@ -186,7 +186,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
              });
       }
 
-     
+
       void send() {
          if (sending)
             return;
@@ -220,7 +220,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
             self->send();
          });
       }
-     
+
       using result_type = void;
       void operator()(get_status_request_v0&) {
          fc_ilog(_log, "got get_status_request_v0");
@@ -254,7 +254,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
                fc_dlog(_log, "block ${block_num} is not available", ("block_num", cp.block_num));
             } else if (*id != cp.block_id) {
                fc_dlog(_log, "the id for block ${block_num} in block request have_positions does not match the existing", ("block_num", cp.block_num));
-            }         
+            }
          }
          req.have_positions.clear();
          fc_dlog(_log, "  get_blocks_request_v0 start_block_num set to ${num}", ("num", req.start_block_num));
@@ -701,18 +701,21 @@ void state_history_plugin::plugin_startup() {
 }
 
 void state_history_plugin::plugin_shutdown() {
-   my->applied_transaction_connection.reset();
-   my->accepted_block_connection.reset();
-   my->block_start_connection.reset();
-   my->sessions.for_each([](auto& s) { s->close(); });
-   my->stopping = true;
-   my->trace_log->stop();
-   my->chain_state_log->stop();
-   if (my->thr.joinable()) {
-      my->work_guard.reset();
-      my->ctx.stop();
-      my->thr.join();
+   try {
+      my->applied_transaction_connection.reset();
+      my->accepted_block_connection.reset();
+      my->block_start_connection.reset();
+      my->sessions.for_each([](auto& s) { s->close(); });
+      my->stopping = true;
+      my->trace_log->stop();
+      my->chain_state_log->stop();
+      if (my->thr.joinable()) {
+         my->work_guard.reset();
+         my->ctx.stop();
+         my->thr.join();
+      }
    }
+   FC_CAPTURE_LOG_AND_RETHROW((""))
 }
 
 void state_history_plugin::handle_sighup() { fc::logger::update(logger_name, _log); }
