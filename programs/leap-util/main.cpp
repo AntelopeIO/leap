@@ -24,6 +24,7 @@ int main(int argc, char** argv) {
    app.formatter(fmt);
 
    app.set_help_all_flag("--help-all", "Show all help");
+   app.failure_message(CLI::FailureMessage::help);
    app.require_subcommand(1, 2);
 
    // generics sc tree
