@@ -87,10 +87,10 @@ try:
     # create accounts via eosio as otherwise a bid is needed
     for account in accounts:
         Print("Create new account %s via %s" % (account.name, cluster.eosioAccount.name))
-        trans=nodes[0].createInitializeAccount(account, cluster.eosioAccount, stakedDeposit=500000, waitForTransBlock=False, stakeNet=50000, stakeCPU=50000, buyRAM=50000, exitOnError=True)
+        trans=nodes[0].createInitializeAccount(account, cluster.eosioAccount, stakedDeposit=500000, waitForTransBlock=True, stakeNet=50000, stakeCPU=50000, buyRAM=50000, exitOnError=True)
         transferAmount="70000000.0000 {0}".format(CORE_SYMBOL)
         Print("Transfer funds %s from account %s to %s" % (transferAmount, cluster.eosioAccount.name, account.name))
-        nodes[0].transferFunds(cluster.eosioAccount, account, transferAmount, "test transfer")
+        nodes[0].transferFunds(cluster.eosioAccount, account, transferAmount, "test transfer", waitForTransBlock=True)
         trans=nodes[0].delegatebw(account, 1000000.0000, 68000000.0000, waitForTransBlock=True, exitOnError=True)
 
     contractAccount=cluster.createAccountKeys(1)[0]
