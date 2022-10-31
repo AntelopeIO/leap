@@ -133,10 +133,11 @@ namespace eosio { namespace chain { namespace webassembly {
 
    int32_t interface::alt_bn128_pair(span<const char> g1_g2_pairs) const {
       auto checktime = [this]() { context.trx_context.checktime(); };
-      if (auto res = bn256::pairing_check({(const uint8_t*)g1_g2_pairs.data(), g1_g2_pairs.size()} , checktime) == -1)
+      auto res = bn256::pairing_check({(const uint8_t*)g1_g2_pairs.data(), g1_g2_pairs.size()} , checktime);
+      if (res == -1)
          return return_code::failure;
       else
-         return !(res);
+         return res? 0 : 1;
    }
 
    int32_t interface::mod_exp(span<const char> base,
