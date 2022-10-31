@@ -1,11 +1,11 @@
 add_subdirectory( secp256k1 )
 
 set( WITH_PROCPS OFF CACHE BOOL "" FORCE)
-set( CURVE "ALT_BN128" CACHE STRING "" FORCE)
+# set( CURVE "ALT_BN128" CACHE STRING "" FORCE)
 set( USE_ASM OFF CACHE BOOL "" FORCE)
 set( IS_LIBFF_PARENT OFF CACHE BOOL "" FORCE)
 set( FF_INSTALL_COMPONENT "${FC_INSTALL_COMPONENT}")
-add_subdirectory( libraries/ff )
+# add_subdirectory( libraries/ff )
 add_subdirectory( libraries/bn256/src )
 
 set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
@@ -65,7 +65,7 @@ set( fc_sources
      src/crypto/public_key.cpp
      src/crypto/private_key.cpp
      src/crypto/signature.cpp
-     src/crypto/alt_bn128.cpp
+    #  src/crypto/alt_bn128.cpp
      src/crypto/modular_arithmetic.cpp
      src/crypto/blake2.cpp
      src/crypto/k1_recover.cpp
