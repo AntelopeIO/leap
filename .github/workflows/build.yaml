@@ -39,7 +39,7 @@ jobs:
       fail-fast: false
       matrix:
         platform: ${{fromJSON(needs.d.outputs.missing-platforms)}}
-    runs-on: ["self-hosted", "enf-x86-beefy"]
+    runs-on: ${{github.repository_owner == 'AntelopeIO' && fromJSON('["self-hosted", "enf-x86-beefy"]') || 'ubuntu-latest'}}
     permissions:
       packages: write
       contents: read
@@ -64,7 +64,7 @@ jobs:
       fail-fast: false
       matrix:
         platform: [ubuntu18, ubuntu20, ubuntu22]
-    runs-on: ["self-hosted", "enf-x86-beefy"]
+    runs-on: ${{github.repository_owner == 'AntelopeIO' && fromJSON('["self-hosted", "enf-x86-beefy"]') || 'ubuntu-latest'}}
     container: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
     steps:
         - uses: actions/checkout@v3
@@ -119,7 +119,7 @@ jobs:
       fail-fast: false
       matrix:
         platform: [ubuntu20, ubuntu22]
-    runs-on: ["self-hosted", "enf-x86-hightier"]
+    runs-on: ${{github.repository_owner == 'AntelopeIO' && fromJSON('["self-hosted", "enf-x86-hightier"]') || 'ubuntu-latest'}}
     container: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
     steps:
       - uses: actions/checkout@v3
@@ -146,7 +146,7 @@ jobs:
       fail-fast: false
       matrix:
         platform: [ubuntu18, ubuntu20, ubuntu22]
-    runs-on: ["self-hosted", "enf-x86-midtier"]
+    runs-on: ${{github.repository_owner == 'AntelopeIO' && fromJSON('["self-hosted", "enf-x86-midtier"]') || 'ubuntu-latest'}}
     steps:
       - uses: actions/checkout@v3
       - name: Download builddir
@@ -175,7 +175,7 @@ jobs:
       fail-fast: false
       matrix:
         platform: [ubuntu18, ubuntu20, ubuntu22]
-    runs-on: ["self-hosted", "enf-x86-lowtier"]
+    runs-on: ${{github.repository_owner == 'AntelopeIO' && fromJSON('["self-hosted", "enf-x86-lowtier"]') || 'ubuntu-latest'}}
     steps:
       - uses: actions/checkout@v3
       - name: Download builddir
