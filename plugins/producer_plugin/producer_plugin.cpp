@@ -316,7 +316,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       uint32_t                                                  _max_block_cpu_usage_threshold_us = 0;
       uint32_t                                                  _max_block_net_usage_threshold_bytes = 0;
       int32_t                                                   _max_scheduled_transaction_time_per_block_ms = 0;
-      bool                                                      _disable_persist_until_expired = false;
+      bool                                                      _disable_persist_until_expired = true;
       bool                                                      _disable_subjective_p2p_billing = true;
       bool                                                      _disable_subjective_api_billing = true;
       fc::time_point                                            _irreversible_block_time;
@@ -912,7 +912,7 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
 
    my->_incoming_defer_ratio = options.at("incoming-defer-ratio").as<double>();
 
-   my->_disable_persist_until_expired = options.at("disable-api-persisted-trx").as<bool>();
+   my->_disable_persist_until_expired = true;
    bool disable_subjective_billing = options.at("disable-subjective-billing").as<bool>();
    my->_disable_subjective_p2p_billing = options.at("disable-subjective-p2p-billing").as<bool>();
    my->_disable_subjective_api_billing = options.at("disable-subjective-api-billing").as<bool>();
@@ -1020,9 +1020,6 @@ void producer_plugin::plugin_startup()
 
    EOS_ASSERT( my->_producers.empty() || my->chain_plug->accept_transactions(), plugin_config_exception,
               "node cannot have any producer-name configured because no block production is possible with no [api|p2p]-accepted-transactions" );
-
-   // persisting transactions only makes sense for SPECULATIVE mode.
-   if( !my->_disable_persist_until_expired ) my->_disable_persist_until_expired = chain.get_read_mode() != db_read_mode::HEAD;
 
    my->_accepted_block_connection.emplace(chain.accepted_block.connect( [this]( const auto& bsp ){ my->on_block( bsp ); } ));
    my->_accepted_block_header_connection.emplace(chain.accepted_block_header.connect( [this]( const auto& bsp ){ my->on_block_header( bsp ); } ));
