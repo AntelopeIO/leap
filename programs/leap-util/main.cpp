@@ -12,15 +12,13 @@
 
 #include <memory>
 
-#include "leap_formatter.hpp"
-
 int main(int argc, char** argv) {
    fc::logger::get(DEFAULT_LOGGER).set_log_level(fc::log_level::debug);
 
    CLI::App app{"Leap Command Line Utility"};
 
    // custom leap formatter
-   auto fmt = std::make_shared<leap_formatter>();
+   auto fmt = std::make_shared<CLI::LeapFormatter>();
    app.formatter(fmt);
 
    app.set_help_all_flag("--help-all", "Show all help");
