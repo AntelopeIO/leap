@@ -710,7 +710,6 @@ void state_history_plugin::plugin_shutdown() {
    my->applied_transaction_connection.reset();
    my->accepted_block_connection.reset();
    my->block_start_connection.reset();
-   my->sessions.for_each([](auto& s) { s->close(); });
    my->stopping = true;
    my->trace_log->stop();
    my->chain_state_log->stop();
