@@ -757,8 +757,6 @@ void producer_plugin::set_program_options(
           "ratio between incoming transactions and deferred transactions when both are queued for execution")
          ("incoming-transaction-queue-size-mb", bpo::value<uint16_t>()->default_value( 1024 ),
           "Maximum size (in MiB) of the incoming transaction queue. Exceeding this value will subjectively drop transaction with resource exhaustion.")
-         ("disable-api-persisted-trx", bpo::bool_switch()->default_value(false),
-          "Disable the re-apply of API transactions.")
          ("disable-subjective-billing", bpo::value<bool>()->default_value(true),
           "Disable subjective CPU billing for API/P2P transactions")
          ("disable-subjective-account-billing", boost::program_options::value<vector<string>>()->composing()->multitoken(),
@@ -912,7 +910,6 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
 
    my->_incoming_defer_ratio = options.at("incoming-defer-ratio").as<double>();
 
-   my->_disable_persist_until_expired = true;
    bool disable_subjective_billing = options.at("disable-subjective-billing").as<bool>();
    my->_disable_subjective_p2p_billing = options.at("disable-subjective-p2p-billing").as<bool>();
    my->_disable_subjective_api_billing = options.at("disable-subjective-api-billing").as<bool>();
