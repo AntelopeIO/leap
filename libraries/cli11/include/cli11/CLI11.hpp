@@ -9354,7 +9354,7 @@ inline std::string Formatter::make_expanded(const App *sub, AppFormatMode mode) 
         out << make_subcommands(sub, mode);
     }
 
-    // Drop blank spaces
+    // Drop blank lines
     tmp = detail::find_and_replace(out.str(), "\n\n", "\n");
     tmp = tmp.substr(0, tmp.size() - 1);  // Remove the final '\n'
 
@@ -9531,7 +9531,7 @@ public:
          out << make_subcommands(sub, mode);
       }
 
-      // Drop blank spaces
+      // Drop blank lines
       tmp = detail::find_and_replace(out.str(), "\n\n", "\n");
       tmp = tmp.substr(0, tmp.size() - 1);// Remove the final '\n'
 
