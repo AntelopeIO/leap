@@ -1012,8 +1012,8 @@ void producer_plugin::plugin_startup()
    ilog("producer plugin:  plugin_startup() begin");
 
    chain::controller& chain = my->chain_plug->chain();
-   EOS_ASSERT( my->_producers.empty() || chain.get_read_mode() == chain::db_read_mode::SPECULATIVE, plugin_config_exception,
-              "node cannot have any producer-name configured because block production is impossible when read_mode is not \"speculative\"" );
+   EOS_ASSERT( my->_producers.empty() || chain.get_read_mode() != chain::db_read_mode::IRREVERSIBLE, plugin_config_exception,
+              "node cannot have any producer-name configured because block production is impossible when read_mode is \"irreversible\"" );
 
    EOS_ASSERT( my->_producers.empty() || chain.get_validation_mode() == chain::validation_mode::FULL, plugin_config_exception,
               "node cannot have any producer-name configured because block production is not safe when validation_mode is not \"full\"" );
@@ -1022,7 +1022,7 @@ void producer_plugin::plugin_startup()
               "node cannot have any producer-name configured because no block production is possible with no [api|p2p]-accepted-transactions" );
 
    // persisting transactions only makes sense for SPECULATIVE mode.
-   if( !my->_disable_persist_until_expired ) my->_disable_persist_until_expired = chain.get_read_mode() != db_read_mode::SPECULATIVE;
+   if( !my->_disable_persist_until_expired ) my->_disable_persist_until_expired = chain.get_read_mode() != db_read_mode::HEAD;
 
    my->_accepted_block_connection.emplace(chain.accepted_block.connect( [this]( const auto& bsp ){ my->on_block( bsp ); } ));
    my->_accepted_block_header_connection.emplace(chain.accepted_block_header.connect( [this]( const auto& bsp ){ my->on_block_header( bsp ); } ));
@@ -1750,7 +1750,9 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
          }
       }
 
-      chain.start_block( block_time, blocks_to_confirm, features_to_activate, preprocess_deadline );
+      controller::block_status bs = _pending_block_mode == pending_block_mode::producing ?
+            controller::block_status::incomplete : controller::block_status::ephemeral;
+      chain.start_block( block_time, blocks_to_confirm, features_to_activate, bs, preprocess_deadline );
    } LOG_AND_DROP();
 
    if( chain.is_building_block() ) {
@@ -2077,7 +2079,7 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
          // if db_read_mode SPECULATIVE then trx is in the pending block and not immediately reverted
          if (!disable_subjective_billing)
             _subjective_billing.subjective_bill( trx->id(), trx->packed_trx()->expiration(), first_auth, trace->elapsed,
-                                                 chain.get_read_mode() == chain::db_read_mode::SPECULATIVE );
+                                                 _pending_block_mode == pending_block_mode::producing );
       }
       if( next ) next( trace );
    }
