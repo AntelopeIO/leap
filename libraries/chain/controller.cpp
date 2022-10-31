@@ -1339,7 +1339,7 @@ struct controller_impl {
       try {
          trx_context.init_for_deferred_trx( gtrx.published );
 
-         if( trx_context.enforce_whiteblacklist && pending->_block_status == controller::block_status::incomplete ) {
+         if( trx_context.enforce_whiteblacklist && self.is_speculative_block() ) {
             flat_set<account_name> actors;
             for( const auto& act : trx->packed_trx()->get_transaction().actions ) {
                for( const auto& auth : act.authorization ) {
@@ -1528,7 +1528,7 @@ struct controller_impl {
          const signed_transaction& trn = trx->packed_trx()->get_signed_transaction();
          transaction_checktime_timer trx_timer(timer);
          transaction_context trx_context(self, *trx->packed_trx(), std::move(trx_timer), start, trx->read_only);
-         if ((bool)subjective_cpu_leeway && pending->_block_status == controller::block_status::incomplete) {
+         if ((bool)subjective_cpu_leeway && self.is_speculative_block()) {
             trx_context.leeway = *subjective_cpu_leeway;
          }
          trx_context.block_deadline = block_deadline;
