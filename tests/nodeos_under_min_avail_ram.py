@@ -97,10 +97,10 @@ try:
     contractAccount.name="contracttest"
     walletMgr.importKey(contractAccount, testWallet)
     Print("Create new account %s via %s" % (contractAccount.name, cluster.eosioAccount.name))
-    trans=nodes[0].createInitializeAccount(contractAccount, cluster.eosioAccount, stakedDeposit=500000, waitForTransBlock=False, stakeNet=50000, stakeCPU=50000, buyRAM=50000, exitOnError=True)
+    trans=nodes[0].createInitializeAccount(contractAccount, cluster.eosioAccount, stakedDeposit=500000, waitForTransBlock=True, stakeNet=50000, stakeCPU=50000, buyRAM=50000, exitOnError=True)
     transferAmount="90000000.0000 {0}".format(CORE_SYMBOL)
     Print("Transfer funds %s from account %s to %s" % (transferAmount, cluster.eosioAccount.name, contractAccount.name))
-    nodes[0].transferFunds(cluster.eosioAccount, contractAccount, transferAmount, "test transfer")
+    nodes[0].transferFunds(cluster.eosioAccount, contractAccount, transferAmount, "test transfer", waitForTransBlock=True)
     trans=nodes[0].delegatebw(contractAccount, 1000000.0000, 88000000.0000, waitForTransBlock=True, exitOnError=True)
 
     contractDir="unittests/test-contracts/integration_test"
