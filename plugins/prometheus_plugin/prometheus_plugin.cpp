@@ -59,22 +59,54 @@ namespace eosio {
          std::mutex _collectables_mutex;
          std::vector<std::shared_ptr<Collectable>> _collectables;
          const prometheus::TextSerializer _serializer;
+         std::shared_ptr<Registry> _registry;
+
+         std::vector<std::tuple<Family<Gauge>&, Gauge&, runtime_metric*>> _runtime_metrics;
 
          // metrics for prometheus_plugin itself
          std::unique_ptr<prometheus_plugin_metrics> _metrics;
 
          prometheus_plugin_impl() { }
 
+         void add_plugin_metrics(std::shared_ptr<vector<runtime_metric*>> metrics) {
+            for (auto m : *metrics) {
+               auto& gauge_family = BuildGauge()
+                  .Name(m->family)
+                  .Help("")
+                  .Register(*_registry);
+               auto& gauge = gauge_family.Add({});
+               _runtime_metrics.push_back(std::tuple<Family<Gauge>&, Gauge&, runtime_metric*>(gauge_family, gauge, m));
+
+               ilog("Added metric ${f}:${l}", ("f", m->family) ("l", m->label));
+            }
+         }
+
+         void update_plugin_metrics() {
+            for (auto& rtm : _runtime_metrics) {
+               auto new_val = static_cast<double>(std::get<2>(rtm)->value);
+               std::get<1>(rtm).Set(new_val);
+            }
+         }
+
          void initialize_metrics() {
-            std::shared_ptr<Registry> _registry = std::make_shared<Registry>();
+            _registry = std::make_shared<Registry>();
             _metrics = std::make_unique<prometheus_plugin_metrics>(*_registry);
             _collectables.push_back(_registry);
 
             // this is where we will set up all non-prometheus_plugin metrics
+
+            net_plugin* np = app().find_plugin<net_plugin>();
+            if (nullptr != np) {
+               add_plugin_metrics(np->metrics());
+            } else {
+               dlog("net_plugin not found -- metrics not added");
+            }
          }
 
          std::string scrape() {
             auto start_time_of_request = std::chrono::steady_clock::now();
+
+            update_plugin_metrics();
 
             std::vector<prometheus::MetricFamily> metrics;
 
