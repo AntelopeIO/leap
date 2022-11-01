@@ -2759,8 +2759,16 @@ int main( int argc, char** argv ) {
    wallet_url = default_wallet_url;
 
    CLI::App app{"Command Line Interface to EOSIO Client"};
+
+   // custom leap formatter
+   auto fmt = std::make_shared<CLI::LeapFormatter>();
+   app.formatter(fmt);
+
+   // enable help-all, display help on error
    app.set_help_all_flag("--help-all", "Show all help");
+   app.failure_message(CLI::FailureMessage::help);
    app.require_subcommand();
+
    // Hide obsolete options by putting them into a group with an empty name.
    app.add_option( "-H,--host", obsoleted_option_host_port, localized("The host where ${n} is running", ("n", node_executable_name)) )->group("");
    app.add_option( "-p,--port", obsoleted_option_host_port, localized("The port where ${n} is running", ("n", node_executable_name)) )->group("");
