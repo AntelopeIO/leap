@@ -181,8 +181,8 @@ class launcher(object):
         cfg.add_argument('--gelf-endpoint', help='hostname:port or ip:port of GELF endpoint', default='128.0.0.1:12201')
         cfg.add_argument('--template', help='the startup script template')
         cfg.add_argument('--script', help='the optionally generated startup script name', default='bios_boot.sh')
-        cfg.add_argument('--max-block-cpu-usage', type=int, help='the "max-block-cpu-usage" value to use in the genesis.json file')
-        cfg.add_argument('--max-transaction-cpu-usage', type=int, help='the "max-transaction-cpu-usage" value to use in the genesis.json file')
+        cfg.add_argument('--max-block-cpu-usage', type=int, help='the "max-block-cpu-usage" value to use in the genesis.json file', default=200000)
+        cfg.add_argument('--max-transaction-cpu-usage', type=int, help='the "max-transaction-cpu-usage" value to use in the genesis.json file', default=150000)
         r = parser.parse_args(args)
         if r.shape not in ['star', 'mesh', 'ring', 'line'] and not pathlib.Path(r.shape).is_file():
             parser.error('-s, --shape must be one of "star", "mesh", "ring", "line", or a file')
@@ -336,9 +336,9 @@ plugin = eosio::chain_api_plugin
                         'net_usage_leeway': 500,
                         'context_free_discount_net_usage_num': 20,
                         'context_free_discount_net_usage_den': 100,
-                        'max_block_cpu_usage': 200000,
+                        'max_block_cpu_usage': self.args.max_block_cpu_usage,
                         'target_block_cpu_usage_pct': 1000,
-                        'max_transaction_cpu_usage': 150000,
+                        'max_transaction_cpu_usage': self.args.max_transaction_cpu_usage,
                         'min_transaction_cpu_usage': 100,
                         'max_transaction_lifetime': 3600,
                         'deferred_trx_expiration_window': 600,
