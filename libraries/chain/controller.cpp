@@ -1603,9 +1603,11 @@ struct controller_impl {
             }
 
 
-            if ( pending->_block_status == controller::block_status::ephemeral || trx->read_only ) {
-               //this may happen automatically in destructor, but I prefer make it more explicit
-               trx_context.undo();
+            if ( trx->read_only ) {
+               trx_context.undo(); // this will happen automatically in destructor, but make it more explicit
+            } else if ( pending->_block_status == controller::block_status::ephemeral ) {
+               restore.cancel();   // maintain trx metas for abort block
+               trx_context.undo(); // this will happen automatically in destructor, but make it more explicit
             } else {
                restore.cancel();
                trx_context.squash();
