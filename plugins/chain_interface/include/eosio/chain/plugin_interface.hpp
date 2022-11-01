@@ -12,6 +12,12 @@ namespace eosio { namespace chain { namespace plugin_interface {
    using namespace eosio::chain;
    using namespace appbase;
 
+   struct runtime_metric {
+      const std::string family;
+      const std::string label;
+      std::atomic<int> value;
+   };
+
    template<typename T>
    using next_function = std::function<void(const std::variant<fc::exception_ptr, T>&)>;
 
