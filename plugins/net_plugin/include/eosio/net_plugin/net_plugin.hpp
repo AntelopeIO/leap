@@ -13,6 +13,8 @@ namespace eosio {
       handshake_message last_handshake;
    };
 
+   using runtime_metric=plugin_interface::runtime_metric;
+
    class net_plugin : public appbase::plugin<net_plugin>
    {
       public:
@@ -31,6 +33,8 @@ namespace eosio {
         string                            disconnect( const string& endpoint );
         std::optional<connection_status>  status( const string& endpoint )const;
         vector<connection_status>         connections()const;
+
+        std::shared_ptr<vector<runtime_metric*>> metrics();
 
       private:
         std::shared_ptr<class net_plugin_impl> my;

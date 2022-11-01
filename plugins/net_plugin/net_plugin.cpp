@@ -215,6 +215,13 @@ namespace eosio {
    constexpr uint32_t signed_block_which       = fc::get_index<net_message, signed_block>();       // see protocol net_message
    constexpr uint32_t packed_transaction_which = fc::get_index<net_message, packed_transaction>(); // see protocol net_message
 
+   using runtime_metrics=eosio::chain::plugin_interface::runtime_metric;
+
+   struct net_plugin_metrics {
+      runtime_metric num_peers{"net_plugin", "num_peers", 0};
+      runtime_metric num_clients{"net_plugin", "num_clients", 0};
+   };
+
    class net_plugin_impl : public std::enable_shared_from_this<net_plugin_impl> {
    public:
       unique_ptr<tcp::acceptor>        acceptor;
@@ -285,6 +292,7 @@ namespace eosio {
 
       uint16_t                                       thread_pool_size = 2;
       std::optional<eosio::chain::named_thread_pool> thread_pool;
+      net_plugin_metrics metrics;
 
    private:
       mutable std::mutex            chain_info_mtx; // protects chain_*
@@ -3338,6 +3346,10 @@ namespace eosio {
          ++it;
       }
       g.unlock();
+
+      metrics.num_clients.value = num_clients;
+      metrics.num_peers.value = num_peers;
+      
       if( num_clients > 0 || num_peers > 0 )
          fc_ilog( logger, "p2p client connections: ${num}/${max}, peer connections: ${pnum}/${pmax}",
                   ("num", num_clients)("max", max_client_count)("pnum", num_peers)("pmax", supplied_peers.size()) );
@@ -3816,6 +3828,13 @@ namespace eosio {
          fc_ilog( logger, "exit shutdown" );
       }
       FC_CAPTURE_AND_RETHROW()
+   }
+
+   std::shared_ptr<vector<runtime_metric *>> net_plugin::metrics() {
+      auto net_plugin_metrics = std::make_shared<vector<runtime_metric *>>();
+      net_plugin_metrics->push_back(&my->metrics.num_clients);
+      net_plugin_metrics->push_back(&my->metrics.num_peers);
+      return net_plugin_metrics;
    }
 
    /**
