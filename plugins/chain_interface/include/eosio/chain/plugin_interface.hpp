@@ -15,8 +15,11 @@ namespace eosio { namespace chain { namespace plugin_interface {
    struct runtime_metric {
       const std::string family;
       const std::string label;
-      std::atomic<int> value;
+      std::atomic<int64_t> value;
    };
+
+   using metric_collection = std::vector<runtime_metric*>;
+   using metric_collection_ptr = std::shared_ptr<metric_collection>;
 
    template<typename T>
    using next_function = std::function<void(const std::variant<fc::exception_ptr, T>&)>;
