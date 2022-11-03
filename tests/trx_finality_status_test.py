@@ -146,7 +146,7 @@ try:
     state = getState(retStatus)
 
     assert (state == localState or state == inBlockState), \
-        f"ERROR: getTransactionStatus didn't return \"{localState}\" state.\n\nstatus: {json.dumps(retStatus, indent=1)}"
+        f"ERROR: getTransactionStatus didn't return \"{localState}\" or \"{inBlockState}\" state.\n\nstatus: {json.dumps(retStatus, indent=1)}"
     status.append(copy.copy(retStatus))
     startingBlockNum=testNode.getInfo()["head_block_num"]
 
