@@ -163,7 +163,7 @@ try:
         packedTrx["packed_trx"] = packed_trx_param + "00000000"
 
         exitMsg = "failed to send packed transaction: %s" % (packedTrx)
-        sentTrx = node.processCurlCmd("chain", "send_transaction", json.dumps(packedTrx), silentErrors=False, exitOnError=True, exitMsg=exitMsg)
+        sentTrx = node.processUrllibRequest("chain", "send_transaction", packedTrx, silentErrors=False, exitOnError=True, exitMsg=exitMsg)
         Print("sent transaction json: %s" % (sentTrx))
         trx_id = sentTrx["transaction_id"]
         postedTrxs.append(trx_id)

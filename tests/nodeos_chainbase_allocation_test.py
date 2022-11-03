@@ -86,7 +86,7 @@ try:
             return producerNode.getIrreversibleBlockNum() >= setProdsBlockNum
     Utils.waitForBool(isSetProdsBlockNumIrr, timeout=30, sleepTime=0.1)
     # Once it is irreversible, immediately pause the producer so the promoted producer schedule is not cleared
-    producerNode.processCurlCmd("producer", "pause", "")
+    producerNode.processUrllibRequest("producer", "pause")
 
     producerNode.kill(signal.SIGTERM)
 
