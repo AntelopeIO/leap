@@ -5,8 +5,10 @@ import sys
 import subprocess
 import shutil
 import signal
+from unittest import TestResult
 import log_reader
 import inspect
+import launch_transaction_generators as ltg
 
 harnessPath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(harnessPath)
@@ -18,6 +20,13 @@ from datetime import datetime
 from math import ceil
 
 class PerformanceBasicTest:
+    @dataclass
+    class PbtTpsTestResult:
+        completedRun: bool = False
+        numGeneratorsUsed: int = 0
+        targetTpsPerGenList: list = field(default_factory=list)
+        launcherExitCodes: list = field(default_factory=list)
+
     @dataclass
     class TestHelperConfig:
         killAll: bool = True # clean_run
@@ -205,7 +214,7 @@ class PerformanceBasicTest:
         self.account1PrivKey = self.cluster.accounts[0].activePrivateKey
         self.account2PrivKey = self.cluster.accounts[1].activePrivateKey
 
-    def runTpsTest(self) -> bool:
+    def runTpsTest(self) -> PbtTpsTestResult:
         self.producerNode = self.cluster.getNode(self.producerNodeId)
         self.validationNode = self.cluster.getNode(self.validationNodeId)
         info = self.producerNode.getInfo()
@@ -216,13 +225,13 @@ class PerformanceBasicTest:
         self.cluster.biosNode.kill(signal.SIGTERM)
 
         self.data.startBlock = self.waitForEmptyBlocks(self.validationNode, self.emptyBlockGoal)
+        tpsTrxGensConfig = ltg.TpsTrxGensConfig(targetTps=self.targetTps, tpsLimitPerGenerator=self.tpsLimitPerGenerator)
+        trxGenLauncher = ltg.TransactionGeneratorsLauncher(chainId=chainId, lastIrreversibleBlockId=lib_id,
+                                                           handlerAcct=self.cluster.eosioAccount.name, accts=f"{self.account1Name},{self.account2Name}",
+                                                           privateKeys=f"{self.account1PrivKey},{self.account2PrivKey}", trxGenDurationSec=self.testTrxGenDurationSec,
+                                                           logDir=self.trxGenLogDirPath, tpsTrxGensConfig=tpsTrxGensConfig)
 
-        subprocess.run([
-            f"./tests/performance_tests/launch_transaction_generators.py",
-            f"{chainId}", f"{lib_id}", f"{self.cluster.eosioAccount.name}",
-            f"{self.account1Name}", f"{self.account2Name}", f"{self.account1PrivKey}", f"{self.account2PrivKey}",
-            f"{self.testTrxGenDurationSec}", f"{self.targetTps}", f"{self.tpsLimitPerGenerator}", f"{self.trxGenLogDirPath}"
-            ])
+        trxGenLauncherExitCodes = trxGenLauncher.launch()
 
         # Get stats after transaction generation stops
         trxSent = {}
@@ -231,7 +240,8 @@ class PerformanceBasicTest:
         trxSent = self.validationNode.waitForTransactionsInBlockRange(trxSent, self.data.startBlock, blocksToWait)
         self.data.ceaseBlock = self.validationNode.getHeadBlockNum()
 
-        return True
+        return self.PbtTpsTestResult(completedRun=True, numGeneratorsUsed=tpsTrxGensConfig.numGenerators,
+                                     targetTpsPerGenList=tpsTrxGensConfig.targetTpsPerGenList, launcherExitCodes=trxGenLauncherExitCodes)
 
     def prepArgs(self) -> dict:
         args = {}
@@ -263,12 +273,13 @@ class PerformanceBasicTest:
                     print(f"Failed to move '{etcEosioDir}/{path}' to '{self.etcEosioLogsDirPath}/{path}': {type(e)}: {e}")
 
 
-    def analyzeResultsAndReport(self, completedRun):
+    def analyzeResultsAndReport(self, testResult: PbtTpsTestResult):
         args = self.prepArgs()
         self.report = log_reader.calcAndReport(data=self.data, targetTps=self.targetTps, testDurationSec=self.testTrxGenDurationSec, tpsLimitPerGenerator=self.tpsLimitPerGenerator,
                                                nodeosLogPath=self.nodeosLogPath, trxGenLogDirPath=self.trxGenLogDirPath, blockTrxDataPath=self.blockTrxDataPath,
                                                blockDataPath=self.blockDataPath, numBlocksToPrune=self.numAddlBlocksToPrune, argsDict=args, testStart=self.testStart,
-                                               completedRun=completedRun, quiet=self.quiet)
+                                               completedRun=testResult.completedRun, numTrxGensUsed=testResult.numGeneratorsUsed, targetTpsPerGenList=testResult.targetTpsPerGenList,
+                                               quiet=self.quiet)
 
         jsonReport = None
         if not self.quiet or not self.delReport:
@@ -305,12 +316,11 @@ class PerformanceBasicTest:
             TestHelper.printSystemInfo("BEGIN")
             self.preTestSpinup()
 
-            completedRun = self.runTpsTest()
+            ptbTestResult = self.runTpsTest()
             self.postTpsTestSteps()
 
             testSuccessful = True
-
-            self.analyzeResultsAndReport(completedRun)
+            self.analyzeResultsAndReport(ptbTestResult)
 
         except subprocess.CalledProcessError as err:
             print(f"trx_generator return error code: {err.returncode}.  Test aborted.")
