@@ -150,16 +150,21 @@ try:
     status.append(copy.copy(retStatus))
     startingBlockNum=testNode.getInfo()["head_block_num"]
 
-    def validateTrxState(status, present):
+    def validateTrxState(status):
+        Print(f"status: {status}")
+        present = True
+        state = getState(status)
+        if state == localState or state == unknownState:
+            present = False
         bnPresent = "block_number" in status
         biPresent = "block_id" in status
         btPresent = "block_timestamp" in status
-        desc = "" if present else "not "
+        desc = "" if present else " not"
         group = bnPresent and biPresent and btPresent if present else not bnPresent and not biPresent and not btPresent
         assert group, \
             f"ERROR: getTransactionStatus should{desc} contain \"block_number\", \"block_id\", or \"block_timestamp\" since state was \"{getState(status)}\".\nstatus: {json.dumps(status, indent=1)}"
 
-    validateTrxState(status[0], present=False)
+    validateTrxState(status[0])
 
     def validate(status, knownTrx=True):
         assert "head_number" in status and "head_id" in status and "head_timestamp" in status, \
@@ -185,7 +190,7 @@ try:
     state = getState(status[1])
     assert state == inBlockState, f"ERROR: getTransactionStatus never returned a \"{inBlockState}\" state"
 
-    validateTrxState(status[1], present=True)
+    validateTrxState(status[1])
 
     validate(status[1])
 
@@ -212,7 +217,7 @@ try:
     state = getState(retStatus)
     assert state == unknownState, \
         f"ERROR: Calling getTransactionStatus after the success_duration should have resulted in an \"{irreversibleState}\" state.\nstatus: {json.dumps(retStatus, indent=1)}"
-    validateTrxState(retStatus, present=False)
+    validateTrxState(retStatus)
     validate(retStatus, knownTrx=False)
     assert recentBlockNum <= retStatus["head_number"], \
         "ERROR: Expected call to getTransactionStatus to return increasing values for \"head_number\" beyond previous known recent block number."
