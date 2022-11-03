@@ -146,7 +146,7 @@ try:
     state = getState(retStatus)
 
     assert (state == localState or state == inBlockState), \
-        f"ERROR: getTransactionStatus didn't return \"{localState}\" state.\n\nstatus: {json.dumps(retStatus, indent=1)}"
+        f"ERROR: getTransactionStatus didn't return \"{localState}\" or \"{inBlockState}\" state.\n\nstatus: {json.dumps(retStatus, indent=1)}"
     status.append(copy.copy(retStatus))
     startingBlockNum=testNode.getInfo()["head_block_num"]
 
@@ -154,12 +154,13 @@ try:
         bnPresent = "block_number" in status
         biPresent = "block_id" in status
         btPresent = "block_timestamp" in status
-        desc = "" if present else "not "
+        desc = "" if present else " not"
         group = bnPresent and biPresent and btPresent if present else not bnPresent and not biPresent and not btPresent
         assert group, \
             f"ERROR: getTransactionStatus should{desc} contain \"block_number\", \"block_id\", or \"block_timestamp\" since state was \"{getState(status)}\".\nstatus: {json.dumps(status, indent=1)}"
 
-    validateTrxState(status[0], present=False)
+    present = True if state == inBlockState else False
+    validateTrxState(status[0], present)
 
     def validate(status, knownTrx=True):
         assert "head_number" in status and "head_id" in status and "head_timestamp" in status, \
