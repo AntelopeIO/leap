@@ -13,7 +13,7 @@ parser.add_argument("--trx-data-logs-dir", type=str, help="Path to trx data logs
 parser.add_argument("--start-block", type=int, help="First significant block number in the log", default=2)
 parser.add_argument("--cease-block", type=int, help="Last significant block number in the log")
 parser.add_argument("--num-blocks-to-prune", type=int, default=2, help="The number of potentially non-empty blocks, in addition to leading and trailing size 0 blocks, to prune from the beginning and end of the range of blocks of interest for evaluation.")
-parser.add_argument("--save-json", type=bool, help="Whether to save json output of stats", default=False)
+parser.add_argument("--del-report", type=bool, help="Whether to delete overarching performance run report.", default=False)
 parser.add_argument("--json-path", type=str, help="Path to save json output", default="data.json")
 parser.add_argument("--quiet", type=bool, help="Whether to quiet printing intermediate results and reports to stdout", default=False)
 args = parser.parse_args()
@@ -37,5 +37,5 @@ if not args.quiet:
     print("Report:")
     print(report)
 
-if args.save_json:
+if not args.del_report:
     log_reader.exportReportAsJSON(report, args.json_path)

@@ -22,7 +22,7 @@ class PerformanceBasicTest:
     class TestHelperConfig:
         killAll: bool = True # clean_run
         dontKill: bool = False # leave_running
-        keepLogs: bool = False
+        keepLogs: bool = True
         dumpErrorDetails: bool = False
         delay: int = 1
         nodesFile: str = None
@@ -56,17 +56,19 @@ class PerformanceBasicTest:
 
     def __init__(self, testHelperConfig: TestHelperConfig=TestHelperConfig(), clusterConfig: ClusterConfig=ClusterConfig(), targetTps: int=8000,
                  testTrxGenDurationSec: int=30, tpsLimitPerGenerator: int=4000, numAddlBlocksToPrune: int=2,
-                 rootLogDir: str=".", saveJsonReport: bool=False, quiet: bool=False):
+                 rootLogDir: str=".", delReport: bool=False, quiet: bool=False, delPerfLogs: bool=False):
         self.testHelperConfig = testHelperConfig
         self.clusterConfig = clusterConfig
         self.targetTps = targetTps
         self.testTrxGenDurationSec = testTrxGenDurationSec
         self.tpsLimitPerGenerator = tpsLimitPerGenerator
         self.expectedTransactionsSent = self.testTrxGenDurationSec * self.targetTps
-        self.saveJsonReport = saveJsonReport
         self.numAddlBlocksToPrune = numAddlBlocksToPrune
-        self.saveJsonReport = saveJsonReport
+        self.delReport = delReport
         self.quiet = quiet
+        self.delPerfLogs=delPerfLogs
+
+        self.testHelperConfig.keepLogs = not self.delPerfLogs
 
         Utils.Debug = self.testHelperConfig.verbose
         self.errorExit = Utils.errorExit
@@ -78,17 +80,21 @@ class PerformanceBasicTest:
         self.ptbLogDir = f"{self.rootLogDir}/{os.path.splitext(os.path.basename(__file__))[0]}"
         self.testTimeStampDirPath = f"{self.ptbLogDir}/{self.testStart.strftime('%Y-%m-%d_%H-%M-%S')}"
         self.trxGenLogDirPath = f"{self.testTimeStampDirPath}/trxGenLogs"
+        self.varLogsDirPath = f"{self.testTimeStampDirPath}/var"
+        self.etcLogsDirPath = f"{self.testTimeStampDirPath}/etc"
+        self.etcEosioLogsDirPath = f"{self.etcLogsDirPath}/eosio"
         self.blockDataLogDirPath = f"{self.testTimeStampDirPath}/blockDataLogs"
         self.blockDataPath = f"{self.blockDataLogDirPath}/blockData.txt"
         self.blockTrxDataPath = f"{self.blockDataLogDirPath}/blockTrxData.txt"
         self.reportPath = f"{self.testTimeStampDirPath}/data.json"
-        self.nodeosLogPath = "var/lib/node_01/stderr.txt"
 
         # Setup Expectations for Producer and Validation Node IDs
         # Producer Nodes are index [0, pnodes) and validation nodes/non-producer nodes [pnodes, _totalNodes)
         # Use first producer node and first non-producer node
         self.producerNodeId = 0
         self.validationNodeId = self.clusterConfig.pnodes
+
+        self.nodeosLogPath = f'var/lib/node_{str(self.validationNodeId).zfill(2)}/stderr.txt'
 
         # Setup cluster and its wallet manager
         self.walletMgr=WalletMgr(True)
@@ -99,7 +105,7 @@ class PerformanceBasicTest:
         self.cluster.killall(allInstances=self.testHelperConfig.killAll)
         self.cluster.cleanup()
 
-    def testDirsCleanup(self, saveJsonReport: bool=False):
+    def testDirsCleanup(self, delReport: bool=False):
         try:
             def removeArtifacts(path):
                 print(f"Checking if test artifacts dir exists: {path}")
@@ -107,9 +113,15 @@ class PerformanceBasicTest:
                     print(f"Cleaning up test artifacts dir and all contents of: {path}")
                     shutil.rmtree(f"{path}")
 
-            if saveJsonReport:
+            def removeAllArtifactsExceptFinalReport():
                 removeArtifacts(self.trxGenLogDirPath)
+                removeArtifacts(self.varLogsDirPath)
+                removeArtifacts(self.etcEosioLogsDirPath)
+                removeArtifacts(self.etcLogsDirPath)
                 removeArtifacts(self.blockDataLogDirPath)
+
+            if not delReport:
+                removeAllArtifactsExceptFinalReport()
             else:
                 removeArtifacts(self.testTimeStampDirPath)
         except OSError as error:
@@ -127,6 +139,9 @@ class PerformanceBasicTest:
             createArtifactsDir(self.ptbLogDir)
             createArtifactsDir(self.testTimeStampDirPath)
             createArtifactsDir(self.trxGenLogDirPath)
+            createArtifactsDir(self.varLogsDirPath)
+            createArtifactsDir(self.etcLogsDirPath)
+            createArtifactsDir(self.etcEosioLogsDirPath)
             createArtifactsDir(self.blockDataLogDirPath)
 
         except OSError as error:
@@ -223,8 +238,29 @@ class PerformanceBasicTest:
         args.update(asdict(self.testHelperConfig))
         args.update(asdict(self.clusterConfig))
         args.update({key:val for key, val in inspect.getmembers(self) if key in set(['targetTps', 'testTrxGenDurationSec', 'tpsLimitPerGenerator',
-                                                                                     'expectedTransactionsSent', 'saveJsonReport', 'numAddlBlocksToPrune', 'quiet'])})
+                                                                                     'expectedTransactionsSent', 'delReport', 'numAddlBlocksToPrune', 'quiet', 'delPerfLogs'])})
         return args
+
+    def captureLowLevelArtifacts(self):
+        try:
+            shutil.move(f"var", f"{self.varLogsDirPath}")
+        except Exception as e:
+            print(f"Failed to move 'var' to '{self.varLogsDirPath}': {type(e)}: {e}")
+
+        etcEosioDir = "etc/eosio"
+        for path in os.listdir(etcEosioDir):
+            if path == "launcher":
+                try:
+                    # Need to copy here since testnet.template is only generated at compile time then reused, therefore
+                    # it needs to remain in etc/eosio/launcher for subsequent tests.
+                    shutil.copytree(f"{etcEosioDir}/{path}", f"{self.etcEosioLogsDirPath}/{path}")
+                except Exception as e:
+                    print(f"Failed to copy '{etcEosioDir}/{path}' to '{self.etcEosioLogsDirPath}/{path}': {type(e)}: {e}")
+            else:
+                try:
+                    shutil.move(f"{etcEosioDir}/{path}", f"{self.etcEosioLogsDirPath}/{path}")
+                except Exception as e:
+                    print(f"Failed to move '{etcEosioDir}/{path}' to '{self.etcEosioLogsDirPath}/{path}': {type(e)}: {e}")
 
 
     def analyzeResultsAndReport(self, completedRun):
@@ -234,14 +270,18 @@ class PerformanceBasicTest:
                                                blockDataPath=self.blockDataPath, numBlocksToPrune=self.numAddlBlocksToPrune, argsDict=args, testStart=self.testStart,
                                                completedRun=completedRun, quiet=self.quiet)
 
+        jsonReport = None
+        if not self.quiet or not self.delReport:
+            jsonReport = log_reader.reportAsJSON(self.report)
+
         if not self.quiet:
             print(self.data)
 
             print("Report:")
-            print(log_reader.reportAsJSON(self.report))
+            print(jsonReport)
 
-        if self.saveJsonReport:
-            log_reader.exportReportAsJSON(log_reader.reportAsJSON(self.report), self.reportPath)
+        if not self.delReport:
+            log_reader.exportReportAsJSON(jsonReport, self.reportPath)
 
     def preTestSpinup(self):
         self.cleanupOldClusters()
@@ -286,13 +326,16 @@ class PerformanceBasicTest:
                 self.testHelperConfig.dumpErrorDetails
                 )
 
+            if not self.delPerfLogs:
+                self.captureLowLevelArtifacts()
+
             if not completedRun:
                 os.system("pkill trx_generator")
                 print("Test run cancelled early via SIGINT")
 
-            if not self.testHelperConfig.keepLogs:
+            if self.delPerfLogs:
                 print(f"Cleaning up logs directory: {self.testTimeStampDirPath}")
-                self.testDirsCleanup(self.saveJsonReport)
+                self.testDirsCleanup(self.delReport)
 
             return testSuccessful
 
@@ -304,12 +347,13 @@ def parseArgs():
     appArgs.add(flag="--genesis", type=str, help="Path to genesis.json", default="tests/performance_tests/genesis.json")
     appArgs.add(flag="--num-blocks-to-prune", type=int, help=("The number of potentially non-empty blocks, in addition to leading and trailing size 0 blocks, "
                 "to prune from the beginning and end of the range of blocks of interest for evaluation."), default=2)
-    appArgs.add_bool(flag="--save-json", help="Whether to save json output of stats")
+    appArgs.add_bool(flag="--del-perf-logs", help="Whether to delete performance test specific logs.")
+    appArgs.add_bool(flag="--del-report", help="Whether to delete overarching performance run report.")
     appArgs.add_bool(flag="--quiet", help="Whether to quiet printing intermediate results and reports to stdout")
     appArgs.add_bool(flag="--prods-enable-trace-api", help="Determines whether producer nodes should have eosio::trace_api_plugin enabled")
     args=TestHelper.parse_args({"-p","-n","-d","-s","--nodes-file"
                                 ,"--dump-error-details","-v","--leave-running"
-                                ,"--clean-run","--keep-logs"}, applicationSpecificArgs=appArgs)
+                                ,"--clean-run"}, applicationSpecificArgs=appArgs)
     return args
 
 def main():
@@ -317,13 +361,14 @@ def main():
     args = parseArgs()
     Utils.Debug = args.v
 
-    testHelperConfig = PerformanceBasicTest.TestHelperConfig(killAll=args.clean_run, dontKill=args.leave_running, keepLogs=args.keep_logs,
+    testHelperConfig = PerformanceBasicTest.TestHelperConfig(killAll=args.clean_run, dontKill=args.leave_running, keepLogs=not args.del_perf_logs,
                                                              dumpErrorDetails=args.dump_error_details, delay=args.d, nodesFile=args.nodes_file, verbose=args.v)
     testClusterConfig = PerformanceBasicTest.ClusterConfig(pnodes=args.p, totalNodes=args.n, topo=args.s, genesisPath=args.genesis, prodsEnableTraceApi=args.prods_enable_trace_api)
 
     myTest = PerformanceBasicTest(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, targetTps=args.target_tps,
                                   testTrxGenDurationSec=args.test_duration_sec, tpsLimitPerGenerator=args.tps_limit_per_generator,
-                                  numAddlBlocksToPrune=args.num_blocks_to_prune, saveJsonReport=args.save_json, quiet=args.quiet)
+                                  numAddlBlocksToPrune=args.num_blocks_to_prune, delReport=args.del_report, quiet=args.quiet,
+                                  delPerfLogs=args.del_perf_logs)
     testSuccessful = myTest.runTest()
 
     if testSuccessful:
