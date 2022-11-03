@@ -1687,7 +1687,8 @@ struct controller_impl {
       auto& bb = std::get<building_block>(pending->_block_stage);
       const auto& pbhs = bb._pending_block_header_state;
 
-      // modify state of speculative block only if we are in speculative mode (otherwise we need clean state for head mode)
+      // block status is either ephemeral or incomplete. Modify state of speculative block only if we are building a
+      // speculative incomplete block (otherwise we need clean state for head mode, ephemeral block)
       if ( pending->_block_status != controller::block_status::ephemeral )
       {
          const auto& pso = db.get<protocol_state_object>();
