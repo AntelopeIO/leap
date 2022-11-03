@@ -130,6 +130,8 @@ struct http_plugin_state {
    bool validate_host = true;
    set<string> valid_hosts;
 
+   string server_header;
+
    url_handlers_type url_handlers;
    bool keep_alive = false;
 
