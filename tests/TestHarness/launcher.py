@@ -163,7 +163,7 @@ class launcher(object):
         cfg.add_argument('--shared-producers', type=int, help='total number of shared producers on each non-bios node', default=0)
         cfg.add_argument('-m', '--mode', choices=['any', 'producers', 'specified', 'none'], help='connection mode', default='any')
         cfg.add_argument('-s', '--shape', help='network topology, use "star", "mesh", "ring", "line" or give a filename for custom', default='star')
-        cfg.add_argument('-g', '--genesis', help='set the path to genesis.json', default='./genesis.json')
+        cfg.add_argument('-g', '--genesis', type=Path, help='set the path to genesis.json', default='./genesis.json')
         cfg.add_argument('--skip-signature', action='store_true', help='do not require transaction signatures', default=False)
         cfg.add_argument('--' + Utils.EosServerName, help=f'forward {Utils.EosServerName} command line argument(s) to each instance of {Utils.EosServerName}; enclose all arg(s) in quotes')
         cfg.add_argument('--specific-num', type=int, action='append', dest='specific_nums', default=[], help=f'forward {Utils.EosServerName} command line argument(s) (using "--specific-{Utils.EosServerName}" flag to this specific instance of {Utils.EosServerName}.  This parameter can be entered multiple times and requires a paired "--specific-{Utils.EosServerName}" flag each time it is used.')
@@ -286,11 +286,12 @@ class launcher(object):
         }.get(self.args.shape, self.make_custom)()
 
         if not self.args.nogen:
+            genesis = self.init_genesis()
             for node_name, node in self.network.nodes.items():
                 node.config_dir_name.mkdir(parents=True)
                 self.write_config_file(node)
                 self.write_logging_config_file(node)
-                self.write_genesis_file(node)
+                self.write_genesis_file(node, genesis)
         
         self.write_dot_file()
 
@@ -325,29 +326,41 @@ plugin = eosio::chain_api_plugin
     def write_logging_config_file(self, node):
         pass
 
-    def write_genesis_file(self, node):
-        genesis = { 'initial_timestamp': datetime.datetime.now().isoformat(),
-                    'initial_key': "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV",
-                    'initial_configuration': {
-                        'max_block_net_usage': 1048576,
-                        'target_block_net_usage_pct': 1000,
-                        'max_transaction_net_usage': 524288,
-                        'base_per_transaction_net_usage': 12,
-                        'net_usage_leeway': 500,
-                        'context_free_discount_net_usage_num': 20,
-                        'context_free_discount_net_usage_den': 100,
-                        'max_block_cpu_usage': self.args.max_block_cpu_usage,
-                        'target_block_cpu_usage_pct': 1000,
-                        'max_transaction_cpu_usage': self.args.max_transaction_cpu_usage,
-                        'min_transaction_cpu_usage': 100,
-                        'max_transaction_lifetime': 3600,
-                        'deferred_trx_expiration_window': 600,
-                        'max_transaction_delay': 3888000,
-                        'max_inline_action_size': 524288,
-                        'max_inline_action_depth': 4,
-                        'max_authority_depth': 6
+    def init_genesis(self):
+        genesis_path = self.args.genesis if self.args.genesis.is_absolute() else Path.cwd() / self.args.genesis
+        genesis = None
+        if not genesis_path.is_file():
+            genesis = { 'initial_timestamp': datetime.datetime.now().isoformat(),
+                        'initial_key': self.network.nodes['bios'].keys[0].pubkey,
+                        'initial_configuration': {
+                            'max_block_net_usage': 1048576,
+                            'target_block_net_usage_pct': 1000,
+                            'max_transaction_net_usage': 524288,
+                            'base_per_transaction_net_usage': 12,
+                            'net_usage_leeway': 500,
+                            'context_free_discount_net_usage_num': 20,
+                            'context_free_discount_net_usage_den': 100,
+                            'max_block_cpu_usage': self.args.max_block_cpu_usage,
+                            'target_block_cpu_usage_pct': 1000,
+                            'max_transaction_cpu_usage': self.args.max_transaction_cpu_usage,
+                            'min_transaction_cpu_usage': 100,
+                            'max_transaction_lifetime': 3600,
+                            'deferred_trx_expiration_window': 600,
+                            'max_transaction_delay': 3888000,
+                            'max_inline_action_size': 524288,
+                            'max_inline_action_depth': 4,
+                            'max_authority_depth': 6
+                        }
                     }
-                  }
+        else:
+            with open(genesis_path, 'r') as f:
+                genesis = json.load(f)
+        genesis['initial_key'] = self.network.nodes['bios'].keys[0].pubkey
+        genesis['max_block_cpu_usage'] = self.args.max_block_cpu_usage
+        genesis['max_transaction_cpu_usage'] = self.args.max_transaction_cpu_usage
+        return genesis
+
+    def write_genesis_file(self, node, genesis):
         with open(node.config_dir_name / 'genesis.json', 'w') as f:
             f.write(json.dumps(genesis, indent=2))
 
