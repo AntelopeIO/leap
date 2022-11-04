@@ -45,6 +45,8 @@ namespace eosio {
       //If non 0, HTTP will be enabled by default on the given port number. If
       // 0, HTTP will not be enabled by default
       uint16_t default_http_port{0};
+      //If set, a Server header will be added to the HTTP reply with this value
+      string server_header;
    };
 
    /**
