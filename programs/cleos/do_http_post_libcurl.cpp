@@ -80,7 +80,7 @@ namespace eosio { namespace client { namespace http {
 
       auto curl = curl_easy_init();
       EOS_ASSERT(curl != 0, chain::http_exception, "curl_easy_init failed");
-      fc::make_scoped_exit([curl]() {
+      auto on_exit = fc::make_scoped_exit([curl]() {
          curl_easy_cleanup(curl);
       });
 
