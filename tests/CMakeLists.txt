@@ -142,6 +142,7 @@ add_test(NAME keosd_auto_launch_test COMMAND tests/keosd_auto_launch_test.py WOR
 set_property(TEST keosd_auto_launch_test PROPERTY LABELS nonparallelizable_tests)
 
 add_test(NAME trx_finality_status_test COMMAND tests/trx_finality_status_test.py -v --clean-run --dump-error-detail WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+set_tests_properties(trx_finality_status_test PROPERTIES TIMEOUT 200)
 set_property(TEST trx_finality_status_test PROPERTY LABELS nonparallelizable_tests)
 
 add_test(NAME trx_finality_status_forked_test COMMAND tests/trx_finality_status_forked_test.py -v --clean-run --dump-error-detail WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
