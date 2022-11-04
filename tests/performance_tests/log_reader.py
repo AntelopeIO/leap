@@ -16,10 +16,28 @@ from TestHarness import Utils
 from dataclasses import dataclass, asdict, field
 from platform import release, system
 from datetime import datetime
+from typing import List
 
 Print = Utils.Print
 errorExit = Utils.errorExit
 cmdError = Utils.cmdError
+
+@dataclass
+class ArtifactPaths:
+    nodeosLogPath: str = ""
+    trxGenLogDirPath: str = ""
+    blockTrxDataPath: str = ""
+    blockDataPath: str = ""
+
+@dataclass
+class TpsTestConfig:
+    targetTps: int = 0
+    testDurationSec: int = 0
+    tpsLimitPerGenerator: int = 0
+    numBlocksToPrune: int = 0
+    numTrxGensUsed: int = 0
+    targetTpsPerGenList: List[int] = field(default_factory=list)
+    quiet: bool = False
 
 @dataclass
 class stats():
@@ -337,9 +355,8 @@ def calcTrxLatencyCpuNetStats(trxDict : dict, blockDict: dict):
            basicStats(float(np.min(npLatencyCpuNetList[:,1])), float(np.max(npLatencyCpuNetList[:,1])), float(np.average(npLatencyCpuNetList[:,1])), float(np.std(npLatencyCpuNetList[:,1])), len(npLatencyCpuNetList)), \
            basicStats(float(np.min(npLatencyCpuNetList[:,2])), float(np.max(npLatencyCpuNetList[:,2])), float(np.average(npLatencyCpuNetList[:,2])), float(np.std(npLatencyCpuNetList[:,2])), len(npLatencyCpuNetList))
 
-def createReport(guide: chainBlocksGuide, targetTps: int, testDurationSec: int, tpsLimitPerGenerator: int, tpsStats: stats, blockSizeStats: stats,
-                 trxLatencyStats: basicStats, trxCpuStats: basicStats, trxNetStats: basicStats, testStart: datetime, testFinish: datetime,
-                 argsDict: dict, completedRun: bool, numTrxGensUsed: int, targetTpsPerGenList: list) -> dict:
+def createReport(guide: chainBlocksGuide, tpsTestConfig: TpsTestConfig, tpsStats: stats, blockSizeStats: stats, trxLatencyStats: basicStats, trxCpuStats: basicStats,
+                 trxNetStats: basicStats, testStart: datetime, testFinish: datetime, argsDict: dict, completedRun: bool) -> dict:
     report = {}
     report['completedRun'] = completedRun
     report['testStart'] = testStart
@@ -348,10 +365,10 @@ def createReport(guide: chainBlocksGuide, targetTps: int, testDurationSec: int, 
     report['Analysis']['BlockSize'] = asdict(blockSizeStats)
     report['Analysis']['BlocksGuide'] = asdict(guide)
     report['Analysis']['TPS'] = asdict(tpsStats)
-    report['Analysis']['TPS']['configTps'] = targetTps
-    report['Analysis']['TPS']['configTestDuration'] = testDurationSec
-    report['Analysis']['TPS']['tpsPerGenerator'] = targetTpsPerGenList
-    report['Analysis']['TPS']['generatorCount'] = numTrxGensUsed
+    report['Analysis']['TPS']['configTps'] = tpsTestConfig.targetTps
+    report['Analysis']['TPS']['configTestDuration'] = tpsTestConfig.testDurationSec
+    report['Analysis']['TPS']['tpsPerGenerator'] = tpsTestConfig.targetTpsPerGenList
+    report['Analysis']['TPS']['generatorCount'] = tpsTestConfig.numTrxGensUsed
     report['Analysis']['TrxCPU'] = asdict(trxCpuStats)
     report['Analysis']['TrxLatency'] = asdict(trxLatencyStats)
     report['Analysis']['TrxNet'] = asdict(trxNetStats)
@@ -365,19 +382,17 @@ def reportAsJSON(report: dict) -> json:
     report['testFinish'] = "Unknown" if report['testFinish'] is None else report['testFinish'].isoformat()
     return json.dumps(report, sort_keys=True, indent=2)
 
-def calcAndReport(data, targetTps, testDurationSec, tpsLimitPerGenerator, nodeosLogPath, trxGenLogDirPath, blockTrxDataPath, blockDataPath,
-                  numBlocksToPrune, argsDict: dict, testStart: datetime, completedRun: bool, numTrxGensUsed: int, targetTpsPerGenList: list,
-                  quiet: bool) -> dict:
-    scrapeLog(data, nodeosLogPath)
+def calcAndReport(data: chainData, tpsTestConfig: TpsTestConfig, artifacts: ArtifactPaths, argsDict: dict, testStart: datetime=None, completedRun: bool=True) -> dict:
+    scrapeLog(data, artifacts.nodeosLogPath)
 
     trxSent = {}
-    scrapeTrxGenTrxSentDataLogs(trxSent, trxGenLogDirPath, quiet)
+    scrapeTrxGenTrxSentDataLogs(trxSent, artifacts.trxGenLogDirPath, tpsTestConfig.quiet)
 
     trxDict = {}
-    scrapeBlockTrxDataLog(trxDict, blockTrxDataPath)
+    scrapeBlockTrxDataLog(trxDict, artifacts.blockTrxDataPath)
 
     blockDict = {}
-    scrapeBlockDataLog(blockDict, blockDataPath)
+    scrapeBlockDataLog(blockDict, artifacts.blockDataPath)
 
     notFound = []
     populateTrxSentTimestamp(trxSent, trxDict, notFound)
@@ -385,12 +400,12 @@ def calcAndReport(data, targetTps, testDurationSec, tpsLimitPerGenerator, nodeos
     if len(notFound) > 0:
         print(f"Transactions logged as sent but NOT FOUND in block!! lost {len(notFound)} out of {len(trxSent)}")
 
-    guide = calcChainGuide(data, numBlocksToPrune)
+    guide = calcChainGuide(data, tpsTestConfig.numBlocksToPrune)
     trxLatencyStats, trxCpuStats, trxNetStats = calcTrxLatencyCpuNetStats(trxDict, blockDict)
     tpsStats = scoreTransfersPerSecond(data, guide)
     blkSizeStats = calcBlockSizeStats(data, guide)
 
-    if not quiet:
+    if not tpsTestConfig.quiet:
         print(f"Blocks Guide: {guide}\nTPS: {tpsStats}\nBlock Size: {blkSizeStats}\nTrx Latency: {trxLatencyStats}\nTrx CPU: {trxCpuStats}\nTrx Net: {trxNetStats}")
 
     start = None
@@ -399,9 +414,8 @@ def calcAndReport(data, targetTps, testDurationSec, tpsLimitPerGenerator, nodeos
         start = testStart
         finish = datetime.utcnow()
 
-    report = createReport(guide=guide, targetTps=targetTps, testDurationSec=testDurationSec, tpsLimitPerGenerator=tpsLimitPerGenerator, tpsStats=tpsStats,
-                              blockSizeStats=blkSizeStats, trxLatencyStats=trxLatencyStats, trxCpuStats=trxCpuStats, trxNetStats=trxNetStats, testStart=start,
-                              testFinish=finish, argsDict=argsDict, completedRun=completedRun, numTrxGensUsed=numTrxGensUsed, targetTpsPerGenList=targetTpsPerGenList)
+    report = createReport(guide=guide, tpsTestConfig=tpsTestConfig, tpsStats=tpsStats, blockSizeStats=blkSizeStats, trxLatencyStats=trxLatencyStats,
+                          trxCpuStats=trxCpuStats, trxNetStats=trxNetStats, testStart=start, testFinish=finish, argsDict=argsDict, completedRun=completedRun)
     return report
 
 def exportReportAsJSON(report: json, exportPath):
