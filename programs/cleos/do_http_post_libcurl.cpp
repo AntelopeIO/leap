@@ -3,7 +3,7 @@
 #include "do_http_post.hpp"
 #include <curl/curl.h>
 #include <eosio/chain/exceptions.hpp>
-#include <fc/scoped_exit.hpp>
+#include <map>
 
 namespace eosio { namespace client { namespace http {
 
@@ -65,6 +65,11 @@ namespace eosio { namespace client { namespace http {
       return 0;
    }
 
+   struct curl_handle : std::unique_ptr<CURL, decltype(&curl_easy_cleanup)> {
+      curl_handle(int) : std::unique_ptr<CURL, decltype(&curl_easy_cleanup)>( curl_easy_init(), &curl_easy_cleanup) {}
+   };
+
+
    std::tuple<unsigned int, std::string> do_http_post(const std::string& base_uri, const std::string& path,
                                                       const std::vector<std::string>& headers,
                                                       const std::string& postjson, bool verify_cert, bool verbose,
@@ -78,11 +83,10 @@ namespace eosio { namespace client { namespace http {
          initialized = true;
       }
 
-      auto curl = curl_easy_init();
+      static std::map<std::string, curl_handle> handles;
+      auto [itr, _] = handles.emplace(base_uri, 0);
+      auto curl = itr->second.get();
       EOS_ASSERT(curl != 0, chain::http_exception, "curl_easy_init failed");
-      auto on_exit = fc::make_scoped_exit([curl]() {
-         curl_easy_cleanup(curl);
-      });
 
       std::string uri;
 
