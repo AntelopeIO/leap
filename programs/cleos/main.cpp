@@ -2745,6 +2745,14 @@ CLI::callback_t abi_files_overide_callback = [](CLI::results_t account_abis) {
    return true;
 };
 
+struct set_url_no_trailing_slash {
+   std::string& url;
+   set_url_no_trailing_slash(std::string& bind_arg) : url(bind_arg) {}
+   void operator()(const std::string& from) const {
+      url = from;
+      if (url.size() && url.back()=='/') url.resize(url.size()-1); // remove trailing slash
+   }
+};
 
 int main( int argc, char** argv ) {
 
@@ -2769,11 +2777,10 @@ int main( int argc, char** argv ) {
    app.add_option( "--wallet-host", obsoleted_option_host_port, localized("The host where ${k} is running", ("k", key_store_executable_name)) )->group("");
    app.add_option( "--wallet-port", obsoleted_option_host_port, localized("The port where ${k} is running", ("k", key_store_executable_name)) )->group("");
 
-   app.add_option_function<std::string>( "-u,--url", [](const std::string& url) {
-      ::default_url = url;
-      if (url.back()=='/') ::default_url.resize(url.size()-1); // remove trailing slash
-   }, localized( "The http/https URL where ${n} is running", ("n", node_executable_name)))->default_str(::default_url);
-   app.add_option( "--wallet-url", wallet_url, localized("The http/https URL where ${k} is running", ("k", key_store_executable_name)))->capture_default_str();
+   app.add_option_function<std::string>( "-u,--url", set_url_no_trailing_slash(::default_url),
+      localized( "The http/https URL where ${n} is running", ("n", node_executable_name)))->default_str(::default_url);
+   app.add_option_function<std::string>( "--wallet-url", set_url_no_trailing_slash(wallet_url),
+      localized("The http/https URL where ${k} is running", ("k", key_store_executable_name)))->default_str(::default_wallet_url);
 
    app.add_option( "--abi-file", abi_files_overide_callback, localized("In form of <contract name>:<abi file path>, use a local abi file for serialization and deserialization instead of getting the abi data from the blockchain; repeat this option to pass multiple abi files for different contracts"))->type_size(0, 1000);
    app.add_option( "-r,--header", header_opt_callback, localized("Pass specific HTTP header; repeat this option to pass multiple headers"));

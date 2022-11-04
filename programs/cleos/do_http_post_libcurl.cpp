@@ -3,6 +3,7 @@
 #include "do_http_post.hpp"
 #include <curl/curl.h>
 #include <eosio/chain/exceptions.hpp>
+#include <fc/scoped_exit.hpp>
 
 namespace eosio { namespace client { namespace http {
 
@@ -13,6 +14,8 @@ namespace eosio { namespace client { namespace http {
       return realsize;
    }
 
+   // the following two functions are directly copy from the libcurl API overview from
+   // https://curl.se/libcurl/c/CURLOPT_DEBUGFUNCTION.html
    void dump(const char* text, FILE* stream, unsigned char* ptr, size_t size) {
       size_t       i;
       size_t       c;
@@ -77,6 +80,9 @@ namespace eosio { namespace client { namespace http {
 
       auto curl = curl_easy_init();
       EOS_ASSERT(curl != 0, chain::http_exception, "curl_easy_init failed");
+      fc::make_scoped_exit([curl]() {
+         curl_easy_cleanup(curl);
+      });
 
       std::string uri;
 
@@ -120,16 +126,10 @@ namespace eosio { namespace client { namespace http {
          curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L);
 
       auto res = curl_easy_perform(curl);
-
-      long http_code = 0;
-      if (res == CURLE_OK) {
-         curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
-      }
-
-      curl_easy_cleanup(curl);
-
       EOS_ASSERT(res == CURLE_OK, chain::http_exception, curl_easy_strerror(res));
 
+      long http_code = 0;
+      curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
       return { http_code, response };
    }
 }}} // namespace eosio::client::http
