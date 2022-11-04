@@ -11,7 +11,9 @@ import string
 import sys
 from typing import ClassVar, Dict, List
 
-from testUtils import Utils
+
+from TestHarness import Cluster
+from TestHarness import Utils
 
 block_dir = 'blocks'
 
@@ -252,13 +254,15 @@ class launcher(object):
         i = 0
         producer_number = 0
         to_not_start_node = self.args.total_nodes - self.args.unstarted_nodes - 1
-        for node_name, node in self.network.nodes.items():
-            is_bios = node_name == 'bios'
-            node.keys.append(KeyStrings('EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV',
-                                         '5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3'))
+        accounts = Cluster.createAccountKeys(len(self.network.nodes.values()))
+        for node, account in zip(self.network.nodes.values(), accounts):
+            is_bios = node.name == 'bios'
             if is_bios:
                 node.producers.append('eosio')
+                node.keys.append(KeyStrings('EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV',
+                                            '5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3'))
             else:
+                node.keys.append(KeyStrings(account.ownerPublicKey, account.ownerPrivateKey))
                 if i < non_bios:
                     count = per_node
                     if extra:
