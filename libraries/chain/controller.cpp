@@ -230,7 +230,7 @@ struct controller_impl {
    protocol_feature_manager        protocol_features;
    controller::config              conf;
    const chain_id_type             chain_id; // read by thread_pool threads, value will not be changed
-   std::optional<fc::time_point>   replay_head_time;
+   bool                            replaying = false;
    db_read_mode                    read_mode = db_read_mode::SPECULATIVE;
    bool                            in_trx_requiring_checks = false; ///< if true, checks that are normally skipped on replay (e.g. auth checks) cannot be skipped
    std::optional<fc::microseconds> subjective_cpu_leeway;
@@ -483,8 +483,7 @@ struct controller_impl {
       }
 
       auto blog_head = blog.head();
-      auto blog_head_time = blog_head ? blog_head->timestamp.to_time_point() : fork_db.root()->header.timestamp.to_time_point();
-      replay_head_time = blog_head_time;
+      replaying = true;
       auto start_block_num = head->block_num + 1;
       auto start = fc::time_point::now();
 
@@ -552,7 +551,7 @@ struct controller_impl {
       ilog( "replayed ${n} blocks in ${duration} seconds, ${mspb} ms/block",
             ("n", head->block_num + 1 - start_block_num)("duration", (end-start).count()/1000000)
             ("mspb", ((end-start).count()/1000.0)/(head->block_num-start_block_num)) );
-      replay_head_time.reset();
+      replaying = false;
 
       if( except_ptr ) {
          std::rethrow_exception( except_ptr );
@@ -821,7 +820,10 @@ struct controller_impl {
       });
    }
 
-   void add_to_snapshot( const snapshot_writer_ptr& snapshot ) const {
+   void add_to_snapshot( const snapshot_writer_ptr& snapshot ) {
+      // clear in case the previous call to clear did not finish in time of deadline
+      clear_expired_input_transactions( fc::time_point::maximum() );
+
       snapshot->write_section<chain_snapshot_header>([this]( auto &section ){
          section.add_row(chain_snapshot_header(), db);
       });
@@ -994,7 +996,7 @@ struct controller_impl {
       );
    }
 
-   sha256 calculate_integrity_hash() const {
+   sha256 calculate_integrity_hash() {
       sha256::encoder enc;
       auto hash_writer = std::make_shared<integrity_hash_snapshot_writer>(enc);
       add_to_snapshot(hash_writer);
@@ -1549,10 +1551,8 @@ struct controller_impl {
                trx_context.init_for_implicit_trx();
                trx_context.enforce_whiteblacklist = false;
             } else {
-               bool skip_recording = replay_head_time && (time_point(trn.expiration) < *replay_head_time);
                trx_context.init_for_input_trx( trx->packed_trx()->get_unprunable_size(),
-                                               trx->packed_trx()->get_prunable_size(),
-                                               skip_recording);
+                                               trx->packed_trx()->get_prunable_size() );
             }
 
             trx_context.delay = fc::seconds(trn.delay_sec);
@@ -1762,7 +1762,7 @@ struct controller_impl {
          )
          {
             // Promote proposed schedule to pending schedule.
-            if( !replay_head_time ) {
+            if( !replaying ) {
                ilog( "promoting proposed schedule (set in block ${proposed_num}) to pending; current block: ${n} lib: ${lib} schedule: ${schedule} ",
                      ("proposed_num", *gpo.proposed_schedule_block_num)("n", pbhs.block_num)
                      ("lib", pbhs.dpos_irreversible_blocknum)
@@ -2422,7 +2422,7 @@ struct controller_impl {
       //Look for expired transactions in the deduplication list, and remove them.
       auto& transaction_idx = db.get_mutable_index<transaction_multi_index>();
       const auto& dedupe_index = transaction_idx.indices().get<by_expiration>();
-      auto now = self.pending_block_time();
+      auto now = self.is_building_block() ? self.pending_block_time() : self.head_block_time();
       const auto total = dedupe_index.size();
       uint32_t num_removed = 0;
       while( (!dedupe_index.empty()) && ( now > fc::time_point(dedupe_index.begin()->expiration) ) ) {
@@ -3134,11 +3134,11 @@ block_id_type controller::get_block_id_for_num( uint32_t block_num )const { try 
    return id;
 } FC_CAPTURE_AND_RETHROW( (block_num) ) }
 
-sha256 controller::calculate_integrity_hash()const { try {
+sha256 controller::calculate_integrity_hash() { try {
    return my->calculate_integrity_hash();
 } FC_LOG_AND_RETHROW() }
 
-void controller::write_snapshot( const snapshot_writer_ptr& snapshot ) const {
+void controller::write_snapshot( const snapshot_writer_ptr& snapshot ) {
    EOS_ASSERT( !my->pending, block_validate_exception, "cannot take a consistent snapshot with a pending block" );
    return my->add_to_snapshot(snapshot);
 }
