@@ -262,6 +262,7 @@ class launcher(object):
                 node.keys.append(KeyStrings('EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV',
                                             '5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3'))
             else:
+                print(account.ownerPublicKey, account.ownerPrivateKey)
                 node.keys.append(KeyStrings(account.ownerPublicKey, account.ownerPrivateKey))
                 if i < non_bios:
                     count = per_node
@@ -292,7 +293,7 @@ class launcher(object):
         if not self.args.nogen:
             genesis = self.init_genesis()
             for node_name, node in self.network.nodes.items():
-                node.config_dir_name.mkdir(parents=True)
+                node.config_dir_name.mkdir(parents=True, exist_ok=True)
                 self.write_config_file(node)
                 self.write_logging_config_file(node)
                 self.write_genesis_file(node, genesis)
@@ -303,7 +304,7 @@ class launcher(object):
         is_bios = node.name == 'bios'
         peers = '\n'.join([f'p2p-peer-address = {self.network.nodes[p].p2p_endpoint}' for p in node.peers])
         if len(node.producers) > 0:
-            producer_keys = 'private-key = ["EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV","5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3"]\n'
+            producer_keys = f'private-key = ["{node.keys[0].pubkey}","{node.keys[0].privkey}"]\n'
             producer_names = '\n'.join([f'producer-name = {p}' for p in node.producers])
             producer_plugin = 'plugin = eosio::producer_plugin\n'
         else:
