@@ -1,4 +1,4 @@
-find_package(CURL REQUIRED)
+find_package(CURL 7.40.0 REQUIRED)
 
 configure_file(help_text.cpp.in help_text.cpp @ONLY)
 configure_file(config.hpp.in config.hpp ESCAPE_QUOTES)
