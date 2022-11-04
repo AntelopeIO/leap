@@ -11,7 +11,8 @@ import string
 import sys
 from typing import ClassVar, Dict, List
 
-from testUtils import Utils
+from TestHarness import Cluster
+from TestHarness import Utils
 
 block_dir = 'blocks'
 
@@ -252,13 +253,15 @@ class launcher(object):
         i = 0
         producer_number = 0
         to_not_start_node = self.args.total_nodes - self.args.unstarted_nodes - 1
-        for node_name, node in self.network.nodes.items():
-            is_bios = node_name == 'bios'
-            node.keys.append(KeyStrings('EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV',
-                                         '5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3'))
+        accounts = Cluster.createAccountKeys(len(self.network.nodes.values()))
+        for account, node in zip(accounts, self.network.nodes.values()):
+            is_bios = node.name == 'bios'
             if is_bios:
+                node.keys.append(KeyStrings('EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV',
+                                            '5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3'))
                 node.producers.append('eosio')
             else:
+                node.keys.append(KeyStrings(account.ownerPublicKey, account.ownerPrivateKey))
                 if i < non_bios:
                     count = per_node
                     if extra:
@@ -288,7 +291,7 @@ class launcher(object):
         if not self.args.nogen:
             genesis = self.init_genesis()
             for node_name, node in self.network.nodes.items():
-                node.config_dir_name.mkdir(parents=True)
+                node.config_dir_name.mkdir(parents=True, exist_ok=True)
                 self.write_config_file(node)
                 self.write_logging_config_file(node)
                 self.write_genesis_file(node, genesis)
@@ -296,17 +299,19 @@ class launcher(object):
         self.write_dot_file()
 
     def write_config_file(self, node):
-        is_bios = node.name == 'bios'
-        peers = '\n'.join([f'p2p-peer-address = {self.network.nodes[p].p2p_endpoint}' for p in node.peers])
-        if len(node.producers) > 0:
-            producer_keys = 'private-key = ["EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV","5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3"]\n'
-            producer_names = '\n'.join([f'producer-name = {p}' for p in node.producers])
-            producer_plugin = 'plugin = eosio::producer_plugin\n'
-        else:
-            producer_keys = ''
-            producer_names = ''
-            producer_plugin = ''
-        config = f'''blocks-dir = {block_dir}
+        with open(node.config_dir_name / 'config.ini', 'w') as cfg:
+            is_bios = node.name == 'bios'
+            peers = '\n'.join([f'p2p-peer-address = {self.network.nodes[p].p2p_endpoint}' for p in node.peers])
+            if len(node.producers) > 0:
+                producer_keys = f'private-key = ["{node.keys[0].pubkey}","{node.keys[0].privkey}"]\n'
+                producer_names = '\n'.join([f'producer-name = {p}' for p in node.producers])
+                producer_plugin = 'plugin = eosio::producer_plugin\n'
+            else:
+                producer_keys = ''
+                producer_names = ''
+                producer_plugin = ''
+            config = \
+f'''blocks-dir = {block_dir}
 http-server-address = {node.host_name}:{node.http_port}
 http-validate-host = false
 p2p-listen-endpoint = {node.listen_addr}:{node.p2p_port}
@@ -320,7 +325,6 @@ p2p-server-address = {node.p2p_endpoint}
 plugin = eosio::net_plugin
 plugin = eosio::chain_api_plugin
 '''
-        with open(node.config_dir_name / 'config.ini', 'w') as cfg:
             cfg.write(config)
 
     def write_logging_config_file(self, node):
