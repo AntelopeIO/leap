@@ -299,10 +299,8 @@ The following scripts are typically used by the Performance Harness main script 
 * `chain_id`                    set the chain id
 * `last_irreversible_block_id`  Current last-irreversible-block-id (LIB ID) to use for transactions.
 * `handler_account`             Account name of the handler account for the transfer actions
-* `account_1_name`              First accounts that will be used for transfers.
-* `account_2_name`              Second accounts that will be used for transfers.
-* `account_1_priv_key`          First account's private key that will be used to sign transactions
-* `account_2_priv_key`          Second account's private key that will be used to sign transactions
+* `accounts`                    Comma separated list of account names
+* `priv_keys`                   Comma separated list of private keys.
 * `trx_gen_duration`            Transaction generation duration (seconds). Defaults to 60 seconds.
 * `target_tps`                  Target transactions per second to generate/send.
 * `tps_limit_per_generator`     Maximum amount of transactions per second a single generator can have.
