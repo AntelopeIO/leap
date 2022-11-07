@@ -61,7 +61,7 @@ namespace eosio {
          const prometheus::TextSerializer _serializer;
          std::shared_ptr<Registry> _registry;
 
-         std::vector<std::tuple<Family<Gauge>&, Gauge&, runtime_metric*>> _runtime_metrics;
+         std::vector<std::tuple<Family<Gauge>&, Gauge&, runtime_metric&>> _runtime_metrics;
 
          // metrics for prometheus_plugin itself
          std::unique_ptr<prometheus_plugin_metrics> _metrics;
@@ -71,24 +71,24 @@ namespace eosio {
 
          prometheus_plugin_impl() { }
 
-         void add_plugin_metric(runtime_metric* plugin_metric) {
+         void add_plugin_metric(runtime_metric& plugin_metric) {
             auto& gauge_family = BuildGauge()
-                  .Name(plugin_metric->family)
+                  .Name(plugin_metric.family)
                   .Help("")
                   .Register(*_registry);
             auto& gauge = gauge_family.Add({});
-            _runtime_metrics.push_back(std::tuple<Family<Gauge>&, Gauge&, runtime_metric*>(gauge_family, gauge, plugin_metric));
-            ilog("Added metric ${f}:${l}", ("f", plugin_metric->family) ("l", plugin_metric->label));
+            _runtime_metrics.push_back(std::tuple<Family<Gauge>&, Gauge&, runtime_metric&>(gauge_family, gauge, plugin_metric));
+            ilog("Added metric ${f}:${l}", ("f", plugin_metric.family) ("l", plugin_metric.label));
          }
 
          void add_plugin_metrics(std::shared_ptr<net_plugin_metrics> metrics) {
-            add_plugin_metric(&metrics->num_clients);
-            add_plugin_metric(&metrics->num_peers);
+            add_plugin_metric(metrics->num_clients);
+            add_plugin_metric(metrics->num_peers);
          }
 
          void update_plugin_metrics() {
             for (auto& rtm : _runtime_metrics) {
-               auto new_val = static_cast<double>(std::get<2>(rtm)->value);
+               auto new_val = static_cast<double>(std::get<2>(rtm).value);
                std::get<1>(rtm).Set(new_val);
             }
          }
