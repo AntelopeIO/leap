@@ -66,19 +66,24 @@ namespace eosio {
          // metrics for prometheus_plugin itself
          std::unique_ptr<prometheus_plugin_metrics> _metrics;
 
+         // hold onto other plugin metrics
+         std::shared_ptr<net_plugin_metrics> net_plugin_metrics_ptr;
+
          prometheus_plugin_impl() { }
 
-         void add_plugin_metrics(std::shared_ptr<vector<runtime_metric*>> metrics) {
-            for (auto m : *metrics) {
-               auto& gauge_family = BuildGauge()
-                  .Name(m->family)
+         void add_plugin_metric(runtime_metric* plugin_metric) {
+            auto& gauge_family = BuildGauge()
+                  .Name(plugin_metric->family)
                   .Help("")
                   .Register(*_registry);
-               auto& gauge = gauge_family.Add({});
-               _runtime_metrics.push_back(std::tuple<Family<Gauge>&, Gauge&, runtime_metric*>(gauge_family, gauge, m));
+            auto& gauge = gauge_family.Add({});
+            _runtime_metrics.push_back(std::tuple<Family<Gauge>&, Gauge&, runtime_metric*>(gauge_family, gauge, plugin_metric));
+            ilog("Added metric ${f}:${l}", ("f", plugin_metric->family) ("l", plugin_metric->label));
+         }
 
-               ilog("Added metric ${f}:${l}", ("f", m->family) ("l", m->label));
-            }
+         void add_plugin_metrics(std::shared_ptr<net_plugin_metrics> metrics) {
+            add_plugin_metric(&metrics->num_clients);
+            add_plugin_metric(&metrics->num_peers);
          }
 
          void update_plugin_metrics() {
@@ -97,7 +102,8 @@ namespace eosio {
 
             net_plugin* np = app().find_plugin<net_plugin>();
             if (nullptr != np) {
-               add_plugin_metrics(np->metrics());
+               net_plugin_metrics_ptr = np->metrics();
+               add_plugin_metrics(net_plugin_metrics_ptr);
             } else {
                dlog("net_plugin not found -- metrics not added");
             }

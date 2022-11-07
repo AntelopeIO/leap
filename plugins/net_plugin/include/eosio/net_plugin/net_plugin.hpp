@@ -15,6 +15,11 @@ namespace eosio {
 
    using namespace plugin_interface;
 
+   struct net_plugin_metrics {
+      runtime_metric num_peers{"net_plugin", "num_peers", 0};
+      runtime_metric num_clients{"net_plugin", "num_clients", 0};
+   };
+
    class net_plugin : public appbase::plugin<net_plugin>
    {
       public:
@@ -34,7 +39,7 @@ namespace eosio {
         std::optional<connection_status>  status( const string& endpoint )const;
         vector<connection_status>         connections()const;
 
-        metric_collection_ptr metrics();
+        std::shared_ptr<net_plugin_metrics> metrics();
 
       private:
         std::shared_ptr<class net_plugin_impl> my;
