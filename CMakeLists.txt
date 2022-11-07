@@ -26,11 +26,8 @@ endif()
 
 
 # Options
-option(ENABLE_WMAX   "Enable `-Werror`, `-Wextra`, and other compilation flags." Off)
 option(ENABLE_WERROR "Enable `-Werror` compilation flag." ${ENABLE_WMAX})
 option(ENABLE_WEXTRA "Enable `-Wextra` compilation flag." ${ENABLE_WMAX})
-
-
 
 
 set( CLI_CLIENT_EXECUTABLE_NAME cleos )
@@ -136,9 +133,11 @@ else()
 endif()
 
 if(ENABLE_WERROR)
+  set( CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   -Werror" )
   set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror" )
 endif()
 if(ENABLE_WEXTRA)
+  set( CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   -Wextra" )
   set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wextra" )
 endif()
 
