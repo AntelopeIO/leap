@@ -22,13 +22,13 @@ using namespace eosio::chain;
 namespace bfs = boost::filesystem;
 
 void snapshot_actions::setup(CLI::App& app) {
-   auto* sub = app.add_subcommand("snapshot", "snapshot utility");
+   auto* sub = app.add_subcommand("snapshot", "Snapshot utility");
    sub->require_subcommand(1);
 
    // subcommand -convert snapshot to json
-   auto to_json = sub->add_subcommand("to-json", "convert snapshot file to json format");
-   to_json->add_option("--input-file,-i", opt->input_file, "snapshot file to convert to json format, writes to <file>.json if output file not specified (tmp state dir used), and exit.")->required();
-   to_json->add_option("--output-file,-o", opt->output_file, "the file to write the output to (absolute or relative path).  if not specified then output is to stdout.");
+   auto to_json = sub->add_subcommand("to-json", "Convert snapshot file to json format");
+   to_json->add_option("--input-file,-i", opt->input_file, "Snapshot file to convert to json format, writes to <file>.json if output file not specified (tmp state dir used).")->required();
+   to_json->add_option("--output-file,-o", opt->output_file, "The file to write the output to (absolute or relative path).  If not specified then output is to <input-file>.json.");
 
    to_json->callback([this]() {
       try {
