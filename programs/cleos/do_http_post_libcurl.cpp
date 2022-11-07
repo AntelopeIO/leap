@@ -118,6 +118,7 @@ namespace eosio { namespace client { namespace http {
 
       for (auto& h : headers) list = curl_slist_append(list, h.c_str());
 
+      list = curl_slist_append(list, "Expect:");
       list = curl_slist_append(list, "Content-Type: application/json");
 
       curl_easy_setopt(curl, CURLOPT_HTTPHEADER, list);

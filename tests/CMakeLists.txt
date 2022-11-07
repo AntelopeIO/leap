@@ -142,7 +142,6 @@ add_test(NAME keosd_auto_launch_test COMMAND tests/keosd_auto_launch_test.py WOR
 set_property(TEST keosd_auto_launch_test PROPERTY LABELS nonparallelizable_tests)
 
 add_test(NAME trx_finality_status_test COMMAND tests/trx_finality_status_test.py -v --clean-run --dump-error-detail WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
-set_tests_properties(trx_finality_status_test PROPERTIES TIMEOUT 200)
 set_property(TEST trx_finality_status_test PROPERTY LABELS nonparallelizable_tests)
 
 add_test(NAME trx_finality_status_forked_test COMMAND tests/trx_finality_status_forked_test.py -v --clean-run --dump-error-detail WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
@@ -225,7 +224,7 @@ set_tests_properties(plugin_http_api_test PROPERTIES TIMEOUT 40)
 set_property(TEST plugin_http_api_test PROPERTY LABELS nonparallelizable_tests)
 
 add_test(NAME trace_plugin_test COMMAND tests/trace_plugin_test.py WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
-set_tests_properties(trace_plugin_test PROPERTIES TIMEOUT 200)
+set_tests_properties(trace_plugin_test PROPERTIES TIMEOUT 100)
 set_property(TEST trace_plugin_test PROPERTY LABELS nonparallelizable_tests)
 
 add_test(NAME resource_monitor_plugin_test COMMAND tests/resource_monitor_plugin_test.py WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
