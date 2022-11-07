@@ -359,6 +359,8 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
             }
          }
 
+         my->plugin_state->server_header = current_http_plugin_defaults.server_header;
+
          
          //watch out for the returns above when adding new code here
       } FC_LOG_AND_RETHROW()
