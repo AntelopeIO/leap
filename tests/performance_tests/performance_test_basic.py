@@ -56,14 +56,14 @@ class PerformanceBasicTest:
 
             @dataclass
             class ExtraNodeosProducerPluginArgs:
-                disableSubjectiveApiBilling: bool = True
+                disableSubjectiveBilling: bool = True
                 lastBlockTimeOffsetUs: int = 0
                 produceTimeOffsetUs: int = 0
                 cpuEffortPercent: int = 100
                 lastBlockCpuEffortPercent: int = 100
 
                 def argsStr(self) -> str:
-                    return f"--disable-subjective-api-billing {self.disableSubjectiveApiBilling} \
+                    return f"--disable-subjective-billing {self.disableSubjectiveBilling} \
                              --last-block-time-offset-us {self.lastBlockTimeOffsetUs} \
                              --produce-time-offset-us {self.produceTimeOffsetUs} \
                              --cpu-effort-percent {self.cpuEffortPercent} \
@@ -396,7 +396,7 @@ def parseArgs():
     appArgs.add(flag="--num-blocks-to-prune", type=int, help=("The number of potentially non-empty blocks, in addition to leading and trailing size 0 blocks, "
                 "to prune from the beginning and end of the range of blocks of interest for evaluation."), default=2)
     appArgs.add(flag="--signature-cpu-billable-pct", type=int, help="Percentage of actual signature recovery cpu to bill. Whole number percentages, e.g. 50 for 50%%", default=0)
-    appArgs.add(flag="--disable-subjective-api-billing", type=bool, help="Disable subjective CPU billing for API transactions", default=True)
+    appArgs.add(flag="--disable-subjective-billing", type=bool, help="Disable subjective CPU billing for API/P2P transactions", default=True)
     appArgs.add(flag="--last-block-time-offset-us", type=int, help="Offset of last block producing time in microseconds. Valid range 0 .. -block_time_interval.", default=0)
     appArgs.add(flag="--produce-time-offset-us", type=int, help="Offset of non last block producing time in microseconds. Valid range 0 .. -block_time_interval.", default=0)
     appArgs.add(flag="--cpu-effort-percent", type=int, help="Percentage of cpu block production time used to produce block. Whole number percentages, e.g. 80 for 80%%", default=100)
@@ -420,7 +420,7 @@ def main():
                                                              dumpErrorDetails=args.dump_error_details, delay=args.d, nodesFile=args.nodes_file, verbose=args.v)
 
     extraNodeosChainPluginArgs = PerformanceBasicTest.ClusterConfig.ExtraNodeosArgs.ExtraNodeosChainPluginArgs(signatureCpuBillablePct=args.signature_cpu_billable_pct)
-    extraNodeosProducerPluginArgs = PerformanceBasicTest.ClusterConfig.ExtraNodeosArgs.ExtraNodeosProducerPluginArgs(disableSubjectiveApiBilling=args.disable_subjective_api_billing,
+    extraNodeosProducerPluginArgs = PerformanceBasicTest.ClusterConfig.ExtraNodeosArgs.ExtraNodeosProducerPluginArgs(disableSubjectiveBilling=args.disable_subjective_billing,
                 lastBlockTimeOffsetUs=args.last_block_time_offset_us, produceTimeOffsetUs=args.produce_time_offset_us, cpuEffortPercent=args.cpu_effort_percent,
                 lastBlockCpuEffortPercent=args.last_block_cpu_effort_percent)
     extraNodeosHttpPluginArgs = PerformanceBasicTest.ClusterConfig.ExtraNodeosArgs.ExtraNodeosHttpPluginArgs(httpMaxResponseTimeMs=args.http_max_response_time_ms)

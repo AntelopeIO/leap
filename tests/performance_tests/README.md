@@ -217,8 +217,8 @@ The Performance Harness main script `performance_test.py` can be configured usin
                           (default: 2)
 * `--signature-cpu-billable-pct SIGNATURE_CPU_BILLABLE_PCT`
                           Percentage of actual signature recovery cpu to bill. Whole number percentages, e.g. 50 for 50% (default: 0)
-* `--disable-subjective-api-billing DISABLE_SUBJECTIVE_API_BILLING`
-                          Disable subjective CPU billing for API transactions (default: True)
+* `--disable-subjective-billing DISABLE_SUBJECTIVE_BILLING`
+                          Disable subjective CPU billing for API/P2P transactions (default: True)
 * `--last-block-time-offset-us LAST_BLOCK_TIME_OFFSET_US`
                           Offset of last block producing time in microseconds. Valid range 0 .. -block_time_interval. (default: 0)
 * `--produce-time-offset-us PRODUCE_TIME_OFFSET_US`
@@ -270,8 +270,8 @@ The following scripts are typically used by the Performance Harness main script 
                           of the range of blocks of interest for evaluation. (default: 2)
 * `--signature-cpu-billable-pct SIGNATURE_CPU_BILLABLE_PCT`
                           Percentage of actual signature recovery cpu to bill. Whole number percentages, e.g. 50 for 50% (default: 0)
-* `--disable-subjective-api-billing DISABLE_SUBJECTIVE_API_BILLING`
-                          Disable subjective CPU billing for API transactions (default: True)
+* `--disable-subjective-billing DISABLE_SUBJECTIVE_BILLING`
+                          Disable subjective CPU billing for API/P2P transactions (default: True)
 * `--last-block-time-offset-us LAST_BLOCK_TIME_OFFSET_US`
                           Offset of last block producing time in microseconds. Valid range 0 .. -block_time_interval. (default: 0)
 * `--produce-time-offset-us PRODUCE_TIME_OFFSET_US`
@@ -680,7 +680,7 @@ Finally, the full detail test report for each of the determined max TPS throughp
         "signatureCpuBillablePct": 0
       },
       "producerPluginArgs": {
-        "disableSubjectiveApiBilling": true,
+        "disableSubjectiveBilling": true,
         "lastBlockTimeOffsetUs": 0,
         "produceTimeOffsetUs": 0,
         "cpuEffortPercent": 100,
@@ -816,7 +816,7 @@ The Performance Test Basic generates, by default, a report that details results 
         "signatureCpuBillablePct": 0
       },
       "producerPluginArgs": {
-        "disableSubjectiveApiBilling": true,
+        "disableSubjectiveBilling": true,
         "lastBlockTimeOffsetUs": 0,
         "produceTimeOffsetUs": 0,
         "cpuEffortPercent": 100,
