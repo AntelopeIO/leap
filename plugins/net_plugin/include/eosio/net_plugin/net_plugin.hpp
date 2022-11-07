@@ -18,6 +18,7 @@ namespace eosio {
    struct net_plugin_metrics {
       runtime_metric num_peers{"net_plugin", "num_peers", 0};
       runtime_metric num_clients{"net_plugin", "num_clients", 0};
+      runtime_metric dropped_trxs{"net_plugin", "dropped_trxs", 0};
    };
 
    class net_plugin : public appbase::plugin<net_plugin>

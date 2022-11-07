@@ -84,6 +84,7 @@ namespace eosio {
          void add_plugin_metrics(std::shared_ptr<net_plugin_metrics> metrics) {
             add_plugin_metric(metrics->num_clients);
             add_plugin_metric(metrics->num_peers);
+            add_plugin_metric(metrics->dropped_trxs);
          }
 
          void update_plugin_metrics() {
