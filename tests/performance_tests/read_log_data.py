@@ -30,12 +30,11 @@ tpsLimitPerGenerator=args.tps_limit_per_generator
 targetTps=args.target_tps
 tpsTrxGensConfig = ltg.TpsTrxGensConfig(targetTps=targetTps, tpsLimitPerGenerator=tpsLimitPerGenerator)
 
-
-report = log_reader.calcAndReport(data=data, targetTps=targetTps, testDurationSec=args.test_duration_sec, tpsLimitPerGenerator=tpsLimitPerGenerator,
-                                  nodeosLogPath=nodeosLogPath, trxGenLogDirPath=trxGenLogDirPath, blockTrxDataPath=blockTrxDataPath, blockDataPath=blockDataPath,
-                                  numBlocksToPrune=args.num_blocks_to_prune, argsDict=dict(item.split("=") for item in f"{args}"[10:-1].split(", ")), testStart=None,
-                                  completedRun=True, numTrxGensUsed=tpsTrxGensConfig.numGenerators, targetTpsPerGenList=tpsTrxGensConfig.targetTpsPerGenList,
-                                  quiet=args.quiet)
+artifactsLocate = log_reader.ArtifactPaths(nodeosLogPath=nodeosLogPath, trxGenLogDirPath=trxGenLogDirPath, blockTrxDataPath=blockTrxDataPath, blockDataPath=blockDataPath)
+tpsTestConfig = log_reader.TpsTestConfig(targetTps=targetTps, testDurationSec=args.test_duration_sec, tpsLimitPerGenerator=tpsLimitPerGenerator,
+                                         numBlocksToPrune=args.num_blocks_to_prune, numTrxGensUsed=tpsTrxGensConfig.numGenerators,
+                                         targetTpsPerGenList=tpsTrxGensConfig.targetTpsPerGenList, quiet=args.quiet)
+report = log_reader.calcAndReport(data=data, tpsTestConfig=tpsTestConfig, artifacts=artifactsLocate, argsDict=dict(item.split("=") for item in f"{args}"[10:-1].split(", ")))
 
 if not args.quiet:
     print(data)

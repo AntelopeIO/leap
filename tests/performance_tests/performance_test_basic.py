@@ -313,11 +313,13 @@ class PerformanceBasicTest:
 
     def analyzeResultsAndReport(self, testResult: PbtTpsTestResult):
         args = self.prepArgs()
-        self.report = log_reader.calcAndReport(data=self.data, targetTps=self.targetTps, testDurationSec=self.testTrxGenDurationSec, tpsLimitPerGenerator=self.tpsLimitPerGenerator,
-                                               nodeosLogPath=self.nodeosLogPath, trxGenLogDirPath=self.trxGenLogDirPath, blockTrxDataPath=self.blockTrxDataPath,
-                                               blockDataPath=self.blockDataPath, numBlocksToPrune=self.numAddlBlocksToPrune, argsDict=args, testStart=self.testStart,
-                                               completedRun=testResult.completedRun, numTrxGensUsed=testResult.numGeneratorsUsed, targetTpsPerGenList=testResult.targetTpsPerGenList,
-                                               quiet=self.quiet)
+        artifactsLocate = log_reader.ArtifactPaths(nodeosLogPath=self.nodeosLogPath, trxGenLogDirPath=self.trxGenLogDirPath, blockTrxDataPath=self.blockTrxDataPath,
+                                                   blockDataPath=self.blockDataPath)
+        tpsTestConfig = log_reader.TpsTestConfig(targetTps=self.targetTps, testDurationSec=self.testTrxGenDurationSec, tpsLimitPerGenerator=self.tpsLimitPerGenerator,
+                                                 numBlocksToPrune=self.numAddlBlocksToPrune, numTrxGensUsed=testResult.numGeneratorsUsed,
+                                                 targetTpsPerGenList=testResult.targetTpsPerGenList, quiet=self.quiet)
+        self.report = log_reader.calcAndReport(data=self.data, tpsTestConfig=tpsTestConfig, artifacts=artifactsLocate, argsDict=args, testStart=self.testStart,
+                                               completedRun=testResult.completedRun)
 
         jsonReport = None
         if not self.quiet or not self.delReport:
