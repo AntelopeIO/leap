@@ -6,6 +6,7 @@ set( USE_ASM OFF CACHE BOOL "" FORCE)
 set( IS_LIBFF_PARENT OFF CACHE BOOL "" FORCE)
 set( FF_INSTALL_COMPONENT "${FC_INSTALL_COMPONENT}")
 add_subdirectory( libraries/ff )
+add_subdirectory( libraries/bls-signatures )
 
 set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)
@@ -64,6 +65,9 @@ set( fc_sources
      src/crypto/public_key.cpp
      src/crypto/private_key.cpp
      src/crypto/signature.cpp
+     src/crypto/bls_private_key.cpp
+     src/crypto/bls_public_key.cpp
+     src/crypto/bls_signature.cpp
      src/crypto/alt_bn128.cpp
      src/crypto/modular_arithmetic.cpp
      src/crypto/blake2.cpp
@@ -138,7 +142,7 @@ if(APPLE)
   find_library(security_framework Security)
   find_library(corefoundation_framework CoreFoundation)
 endif()
-target_link_libraries( fc PUBLIC ff
+target_link_libraries( fc PUBLIC ff bls 
                                  Boost::date_time Boost::filesystem Boost::chrono Boost::iostreams Threads::Threads
                                  OpenSSL::Crypto OpenSSL::SSL ZLIB::ZLIB ${PLATFORM_SPECIFIC_LIBS} ${CMAKE_DL_LIBS} secp256k1 ${security_framework} ${corefoundation_framework} )
 

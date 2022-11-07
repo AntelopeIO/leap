@@ -629,6 +629,13 @@ REGISTER_CF_HOST_FUNCTION( blake2_f );
 REGISTER_CF_HOST_FUNCTION( sha3 );
 REGISTER_CF_HOST_FUNCTION( k1_recover );
 
+// aggregate_signatures protocol feature
+REGISTER_CF_HOST_FUNCTION( bls_verify );
+REGISTER_CF_HOST_FUNCTION( bls_aggregate_pubkeys );
+REGISTER_CF_HOST_FUNCTION( bls_aggregate_sigs );
+REGISTER_CF_HOST_FUNCTION( bls_aggregate_verify );
+
+
 } // namespace webassembly
 } // namespace chain
 } // namespace eosio
