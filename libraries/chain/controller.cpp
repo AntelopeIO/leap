@@ -1604,8 +1604,13 @@ struct controller_impl {
 
 
             if ( trx->read_only ) {
+               // remove trx from pending block by not canceling 'restore'
                trx_context.undo(); // this will happen automatically in destructor, but make it more explicit
             } else if ( pending->_block_status == controller::block_status::ephemeral ) {
+               // An ephemeral block will never become a full block, but on a producer node the trxs should be saved
+               // in the un-applied transaction queue for execution during block production. For a non-producer node
+               // save the trxs in the un-applied transaction queue for use during block validation to skip signature
+               // recovery.
                restore.cancel();   // maintain trx metas for abort block
                trx_context.undo(); // this will happen automatically in destructor, but make it more explicit
             } else {
