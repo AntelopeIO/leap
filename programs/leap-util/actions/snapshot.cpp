@@ -29,9 +29,8 @@ void snapshot_actions::setup(CLI::App& app) {
    auto to_json = sub->add_subcommand("to-json", "Convert snapshot file to json format");
    to_json->add_option("--input-file,-i", opt->input_file, "Snapshot file to convert to json format, writes to <file>.json if output file not specified (tmp state dir used).")->required();
    to_json->add_option("--output-file,-o", opt->output_file, "The file to write the output to (absolute or relative path).  If not specified then output is to <input-file>.json.");
-   to_json->add_option("--chain-id", opt->chain_id, "Specify a chain id in case it is not included in a snapshot (for legacy snapshots).");
+   to_json->add_option("--chain-id", opt->chain_id, "Specify a chain id in case it is not included in a snapshot or you want to override it.");
    to_json->add_option("--db-size", opt->db_size, "Maximum size (in MiB) of the chain state database")->capture_default_str();
-   to_json->add_option("--guard-size", opt->guard_size, "Safely shut down node when free space remaining in the chain state database drops below this size (in MiB).")->capture_default_str();
 
    to_json->callback([this]() {
       try {
@@ -57,17 +56,18 @@ int snapshot_actions::run_subcommand() {
    bfs::path json_path = opt->output_file.empty()
                                ? snapshot_path.generic_string() + ".json"
                                : opt->output_file;
-   // pull chain id
-   auto infile = std::ifstream(snapshot_path.generic_string(),
-                               (std::ios::in | std::ios::binary));
-   istream_snapshot_reader reader(infile);
-   reader.validate();
-   auto chain_id = controller::extract_chain_id(reader);
-   infile.close();
-
-   // override chain id (for legacy snapshot)
-   if(!opt->chain_id.empty()) {
+   // determine chain id
+   auto chain_id = chain_id_type("");
+   if(!opt->chain_id.empty()) { // override it
       chain_id = chain_id_type(opt->chain_id);
+   }
+   else { // try to retrieve it
+      auto infile = std::ifstream(snapshot_path.generic_string(),
+                               (std::ios::in | std::ios::binary));
+      istream_snapshot_reader reader(infile);
+      reader.validate();
+      chain_id = controller::extract_chain_id(reader);
+      infile.close();
    }
 
    // setup controller
