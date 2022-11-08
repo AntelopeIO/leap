@@ -79,17 +79,6 @@ set_property(TEST block_log_util_test PROPERTY LABELS nonparallelizable_tests)
 add_test(NAME block_log_retain_blocks_test COMMAND tests/block_log_retain_blocks_test.py -v --clean-run WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST block_log_retain_blocks_test PROPERTY LABELS nonparallelizable_tests)
 
-option(ABIEOS_ONLY_LIBRARY "define and build the ABIEOS library" ON)
-set(ABIEOS_INSTALL_COMPONENT "dev")
-set(SKIP_SUBMODULE_TEST ON)
-if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
-   set(CMAKE_BUILD_TYPE "StopAbieosFromTouchingThis")
-   add_subdirectory(abieos)
-   unset(CMAKE_BUILD_TYPE)
-else()
-   add_subdirectory(abieos)
-endif()
-
 add_subdirectory( TestHarness )
 
 find_package(Threads)
