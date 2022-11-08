@@ -218,7 +218,6 @@ configure_file(libraries/softfloat/COPYING.txt                             licen
 configure_file(libraries/wasm-jit/LICENSE                                  licenses/leap/LICENSE.wavm      COPYONLY)
 configure_file(libraries/libfc/secp256k1/secp256k1/COPYING                 licenses/leap/LICENSE.secp256k1 COPYONLY)
 configure_file(libraries/libfc/include/fc/crypto/webauthn_json/license.txt licenses/leap/LICENSE.rapidjson COPYONLY)
-configure_file(libraries/libfc/src/network/LICENSE.go                      licenses/leap/LICENSE.go        COPYONLY)
 configure_file(libraries/eos-vm/LICENSE                                    licenses/leap/LICENSE.eos-vm    COPYONLY)
 configure_file(libraries/libfc/libraries/ff/LICENSE                        licenses/leap/LICENSE.libff     COPYONLY)
 configure_file(programs/cleos/LICENSE.CLI11                                licenses/leap/LICENSE.CLI11     COPYONLY)
