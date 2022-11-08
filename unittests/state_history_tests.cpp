@@ -12,7 +12,7 @@
 #include <boost/filesystem.hpp>
 
 #include <eosio/stream.hpp>
-#include <eosio/ship_protocol.hpp>
+#include <eosio/state_history/ship_protocol.hpp>
 
 using namespace eosio::chain;
 using namespace eosio::testing;
