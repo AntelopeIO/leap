@@ -29,6 +29,9 @@ void snapshot_actions::setup(CLI::App& app) {
    auto to_json = sub->add_subcommand("to-json", "Convert snapshot file to json format");
    to_json->add_option("--input-file,-i", opt->input_file, "Snapshot file to convert to json format, writes to <file>.json if output file not specified (tmp state dir used).")->required();
    to_json->add_option("--output-file,-o", opt->output_file, "The file to write the output to (absolute or relative path).  If not specified then output is to <input-file>.json.");
+   to_json->add_option("--chain-id", opt->chain_id, "Specify a chain id in case it is not included in a snapshot (for legacy snapshots).");
+   to_json->add_option("--db-size", opt->db_size, "Maximum size (in MiB) of the chain state database")->capture_default_str();
+   to_json->add_option("--guard-size", opt->guard_size, "Safely shut down node when free space remaining in the chain state database drops below this size (in MiB).")->capture_default_str();
 
    to_json->callback([this]() {
       try {
@@ -62,6 +65,11 @@ int snapshot_actions::run_subcommand() {
    auto chain_id = controller::extract_chain_id(reader);
    infile.close();
 
+   // override chain id (for legacy snapshot)
+   if(!opt->chain_id.empty()) {
+      chain_id = chain_id_type(opt->chain_id);
+   }
+
    // setup controller
    bfs::path temp_dir = boost::filesystem::temp_directory_path() /
                         boost::filesystem::unique_path();
@@ -72,14 +80,20 @@ int snapshot_actions::run_subcommand() {
    controller::config cfg;
    cfg.blocks_dir = blocks_dir;
    cfg.state_dir = state_dir;
+   cfg.state_size = opt->db_size * 1024 * 1024;
+   cfg.state_guard_size = opt->guard_size * 1024 * 1024;
 
    try {
       auto infile = std::ifstream(snapshot_path.generic_string(),
                                   (std::ios::in | std::ios::binary));
       auto reader = std::make_shared<istream_snapshot_reader>(infile);
+
+      auto check_shutdown = []() { return false; };
+      auto shutdown = []() { throw; };
+
       control.reset(new controller(cfg, std::move(pfs), chain_id));
       control->add_indices();
-      control->startup([]() {}, []() { return false; }, reader);
+      control->startup(shutdown, check_shutdown, reader);
       infile.close();
 
       ilog("Writing snapshot: ${s}", ("s", json_path.generic_string()));
@@ -90,6 +104,7 @@ int snapshot_actions::run_subcommand() {
       snap_out.flush();
       snap_out.close();
    } catch(const database_guard_exception& e) {
+      std::cerr << "Database is not configured to have enough storage to handle provided snapshot, please increase storage and try aagain" << std::endl;
       control.reset();
       fc::remove_all(temp_dir);
       throw;
