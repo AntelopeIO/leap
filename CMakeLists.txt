@@ -26,8 +26,8 @@ endif()
 
 
 # Options
-option(ENABLE_WERROR "Enable `-Werror` compilation flag." ${ENABLE_WMAX})
-option(ENABLE_WEXTRA "Enable `-Wextra` compilation flag." ${ENABLE_WMAX})
+option(ENABLE_WERROR "Enable `-Werror` compilation flag." Off)
+option(ENABLE_WEXTRA "Enable `-Wextra` compilation flag." Off)
 
 
 set( CLI_CLIENT_EXECUTABLE_NAME cleos )
