@@ -11,7 +11,7 @@ using namespace fc;
 BOOST_AUTO_TEST_SUITE(variant_estimated_size_suite)
 BOOST_AUTO_TEST_CASE(null_variant_estimated_size_test)
 {
-   nullptr_t np;
+   constexpr nullptr_t np=nullptr;
 
    variant v;
    variant v_nullptr(np);
