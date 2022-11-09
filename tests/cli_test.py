@@ -45,7 +45,7 @@ def cli11_bugfix_test():
 
     # Make sure that the command failed because of the connection error,
     # not the command line parsing error.
-    assert(b'Connection refused' in completed_process.stderr)
+    assert(b'Connection refused' in completed_process.stderr or b'illegal format or missing URL' in completed_process.stderr)
 
 
 def cli11_optional_option_arg_test():
