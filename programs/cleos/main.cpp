@@ -324,8 +324,8 @@ fc::variant call( const std::string& url,
          exec_name = key_store_executable_name;
       }
       std::cerr << localized( "Failed http request to ${n} at ${u}; is ${n} running?\n"
-                              "  Error: Connection refused",
-                              ("n", exec_name)("u", url)) << std::endl;
+                              "  Error: ${e}",
+                              ("n", exec_name)("u", url)("e", e.to_detail_string())) << std::endl;
       throw;
    }
 }
