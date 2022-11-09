@@ -45,16 +45,12 @@ eosio::chain::deep_mind_handler _deep_mind_log;
 
 namespace eosio {
 
-//declare operator<< and validate funciton for read_mode in the same namespace as read_mode itself
+//declare operator<< and validate function for read_mode in the same namespace as read_mode itself
 namespace chain {
 
 std::ostream& operator<<(std::ostream& osm, eosio::chain::db_read_mode m) {
-   if ( m == eosio::chain::db_read_mode::SPECULATIVE ) {
-      osm << "speculative";
-   } else if ( m == eosio::chain::db_read_mode::HEAD ) {
+   if ( m == eosio::chain::db_read_mode::HEAD ) {
       osm << "head";
-   } else if ( m == eosio::chain::db_read_mode::READ_ONLY ) { // deprecated
-      osm << "read-only";
    } else if ( m == eosio::chain::db_read_mode::IRREVERSIBLE ) {
       osm << "irreversible";
    }
@@ -76,12 +72,8 @@ void validate(boost::any& v,
   // one string, it's an error, and exception will be thrown.
   std::string const& s = validators::get_single_string(values);
 
-  if ( s == "speculative" ) {
-     v = boost::any(eosio::chain::db_read_mode::SPECULATIVE);
-  } else if ( s == "head" ) {
+ if ( s == "head" ) {
      v = boost::any(eosio::chain::db_read_mode::HEAD);
-  } else if ( s == "read-only" ) {
-     v = boost::any(eosio::chain::db_read_mode::READ_ONLY);
   } else if ( s == "irreversible" ) {
      v = boost::any(eosio::chain::db_read_mode::IRREVERSIBLE);
   } else {
@@ -278,12 +270,11 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
           "Public key added to blacklist of keys that should not be included in authorities (may specify multiple times)")
          ("sender-bypass-whiteblacklist", boost::program_options::value<vector<string>>()->composing()->multitoken(),
           "Deferred transactions sent by accounts in this list do not have any of the subjective whitelist/blacklist checks applied to them (may specify multiple times)")
-         ("read-mode", boost::program_options::value<eosio::chain::db_read_mode>()->default_value(eosio::chain::db_read_mode::SPECULATIVE),
-          "Database read mode (\"speculative\", \"head\", \"read-only\", \"irreversible\").\n"
-          "In \"speculative\" mode: database contains state changes by transactions in the blockchain up to the head block as well as some transactions not yet included in the blockchain.\n"
-          "In \"head\" mode: database contains state changes by only transactions in the blockchain up to the head block; transactions received by the node are relayed if valid.\n"
-          "In \"read-only\" mode: (DEPRECATED: see p2p-accept-transactions & api-accept-transactions) database contains state changes by only transactions in the blockchain up to the head block; transactions received via the P2P network are not relayed and transactions cannot be pushed via the chain API.\n"
-          "In \"irreversible\" mode: database contains state changes by only transactions in the blockchain up to the last irreversible block; transactions received via the P2P network are not relayed and transactions cannot be pushed via the chain API.\n"
+         ("read-mode", boost::program_options::value<eosio::chain::db_read_mode>()->default_value(eosio::chain::db_read_mode::HEAD),
+          "Database read mode (\"head\", \"irreversible\").\n"
+          "In \"head\" mode: database contains state changes up to the head block; transactions received by the node are relayed if valid.\n"
+          "In \"irreversible\" mode: database contains state changes up to the last irreversible block; "
+          "transactions received via the P2P network are not relayed and transactions cannot be pushed via the chain API.\n"
           )
          ( "api-accept-transactions", bpo::value<bool>()->default_value(true), "Allow API transactions to be evaluated and relayed if valid.")
          ("validation-mode", boost::program_options::value<eosio::chain::validation_mode>()->default_value(eosio::chain::validation_mode::FULL),
@@ -1057,14 +1048,10 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
       }
       my->api_accept_transactions = options.at( "api-accept-transactions" ).as<bool>();
 
-      if( my->chain_config->read_mode == db_read_mode::IRREVERSIBLE || my->chain_config->read_mode == db_read_mode::READ_ONLY ) {
-         if( my->chain_config->read_mode == db_read_mode::READ_ONLY ) {
-            wlog( "read-mode = read-only is deprecated use p2p-accept-transactions = false, api-accept-transactions = false instead." );
-         }
+      if( my->chain_config->read_mode == db_read_mode::IRREVERSIBLE ) {
          if( my->api_accept_transactions ) {
             my->api_accept_transactions = false;
-            std::stringstream ss; ss << my->chain_config->read_mode;
-            wlog( "api-accept-transactions set to false due to read-mode: ${m}", ("m", ss.str()) );
+            wlog( "api-accept-transactions set to false due to read-mode: irreversible" );
          }
       }
       if( my->api_accept_transactions ) {
