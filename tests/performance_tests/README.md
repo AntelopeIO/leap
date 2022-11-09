@@ -10,11 +10,11 @@ The `log_reader.py` support script is used primarily to analyze `nodeos` log fil
 
 ## Prerequisites
 
-Please refer to [Leap: Building From Source](https://github.com/AntelopeIO/leap#building-from-source) for a full list of prerequisites.
+Please refer to [Leap: Build and Install from Source](https://github.com/AntelopeIO/leap/#build-and-install-from-source) for a full list of prerequisites.
 
 ## Steps
 
-1. Build Leap. For complete instructions on building from source please refer to [Leap: Building From Source](https://github.com/AntelopeIO/leap#building-from-source)
+1. Build Leap. For complete instructions on building from source please refer to [Leap: Build and Install from Source](https://github.com/AntelopeIO/leap/#build-and-install-from-source)
 2. Run Performance Tests
     1. Full Performance Harness Test Run (Standard):
         ``` bash
