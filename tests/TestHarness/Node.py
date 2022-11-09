@@ -1020,7 +1020,7 @@ class Node(object):
         assert(isinstance(blockType, BlockType))
         assert(isinstance(returnType, ReturnType))
         basedOnLib="true" if blockType==BlockType.lib else "false"
-        payload="{ \"producer\":\"%s\", \"where_in_sequence\":%d, \"based_on_lib\":\"%s\" }" % (producer, whereInSequence, basedOnLib)
+        payload={ "producer":producer, "where_in_sequence":whereInSequence, "based_on_lib":basedOnLib }
         return self.processUrllibRequest("test_control", "kill_node_on_producer", payload, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=exitMsg, returnType=returnType)
 
     def processUrllibRequest(self, resource, command, payload={}, silentErrors=True, exitOnError=False, exitMsg=None, returnType=ReturnType.json, endpoint=None):
