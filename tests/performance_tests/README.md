@@ -30,6 +30,9 @@ Please refer to [Leap: Build and Install from Source](https://github.com/Antelop
         cd ./build/performance_test/
         ```
     2. Log Directory Structure is hierarchical with each run of the `performance_test.py` reporting into a timestamped directory where it includes the full performance report as well as a directory containing output from each test type run (here, `performance_test_basic.py`) and each individual test run outputs into a timestamped directory that may contain block data logs and transaction generator logs as well as the test's basic report.  An example directory structure follows:
+        <details>
+            <summary>Expand Example Directory Structure</summary>
+
         ``` bash
         performance_test/
         └── 2022-10-27_15-28-09
@@ -179,6 +182,7 @@ Please refer to [Leap: Build and Install from Source](https://github.com/Antelop
                                     ├── keosd.sock
                                     └── wallet.lock
         ```
+        </details>
 
 ## Configuring Performance Harness Tests
 
