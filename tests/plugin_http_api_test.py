@@ -1225,7 +1225,7 @@ class PluginHttpTest(unittest.TestCase):
         self.assertEqual(ret_json["code"], 500)
 
         # create_key with empty parameter
-        command = "remove_key"
+        command = "create_key"
         ret_json = self.nodeos.processUrllibRequest(resource, command, endpoint=endpoint)
         self.assertEqual(ret_json["code"], 400)
         self.assertEqual(ret_json["error"]["code"], 3200006)
@@ -1238,7 +1238,7 @@ class PluginHttpTest(unittest.TestCase):
         self.assertEqual(ret_json["code"], 400)
         self.assertEqual(ret_json["error"]["code"], 3200006)
         # create_key with valid parameter
-        payload = ["auser", "none", "none"]
+        payload = ["auser", "none"]
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload, endpoint=endpoint)
         self.assertEqual(ret_json["code"], 500)
 
