@@ -155,7 +155,7 @@ struct pending_state {
 
    maybe_session                      _db_session;
    block_stage_type                   _block_stage;
-   controller::block_status           _block_status = controller::block_status::incomplete;
+   controller::block_status           _block_status = controller::block_status::ephemeral;
    std::optional<block_id_type>       _producer_block_id;
    controller::block_report           _block_report{};
 
@@ -231,7 +231,7 @@ struct controller_impl {
    controller::config              conf;
    const chain_id_type             chain_id; // read by thread_pool threads, value will not be changed
    bool                            replaying = false;
-   db_read_mode                    read_mode = db_read_mode::SPECULATIVE;
+   db_read_mode                    read_mode = db_read_mode::HEAD;
    bool                            in_trx_requiring_checks = false; ///< if true, checks that are normally skipped on replay (e.g. auth checks) cannot be skipped
    std::optional<fc::microseconds> subjective_cpu_leeway;
    bool                            trusted_producer_light_validation = false;
@@ -256,7 +256,7 @@ struct controller_impl {
          prev = fork_db.root();
       }
 
-      if ( read_mode == db_read_mode::SPECULATIVE ) {
+      if ( read_mode == db_read_mode::HEAD ) {
          EOS_ASSERT( head->block, block_validate_exception, "attempting to pop a block that was sparsely loaded from a snapshot");
       }
 
@@ -483,7 +483,6 @@ struct controller_impl {
       }
 
       auto blog_head = blog.head();
-      auto blog_head_time = blog_head ? blog_head->timestamp.to_time_point() : fork_db.root()->header.timestamp.to_time_point();
       replaying = true;
       auto start_block_num = head->block_num + 1;
       auto start = fc::time_point::now();
@@ -821,7 +820,10 @@ struct controller_impl {
       });
    }
 
-   void add_to_snapshot( const snapshot_writer_ptr& snapshot ) const {
+   void add_to_snapshot( const snapshot_writer_ptr& snapshot ) {
+      // clear in case the previous call to clear did not finish in time of deadline
+      clear_expired_input_transactions( fc::time_point::maximum() );
+
       snapshot->write_section<chain_snapshot_header>([this]( auto &section ){
          section.add_row(chain_snapshot_header(), db);
       });
@@ -994,7 +996,7 @@ struct controller_impl {
       );
    }
 
-   sha256 calculate_integrity_hash() const {
+   sha256 calculate_integrity_hash() {
       sha256::encoder enc;
       auto hash_writer = std::make_shared<integrity_hash_snapshot_writer>(enc);
       add_to_snapshot(hash_writer);
@@ -1254,7 +1256,7 @@ struct controller_impl {
    { try {
 
       auto start = fc::time_point::now();
-      const bool validating = !self.is_producing_block();
+      const bool validating = !self.is_speculative_block();
       EOS_ASSERT( !validating || explicit_billed_cpu_time, transaction_exception, "validating requires explicit billing" );
 
       maybe_session undo_session;
@@ -1337,7 +1339,7 @@ struct controller_impl {
       try {
          trx_context.init_for_deferred_trx( gtrx.published );
 
-         if( trx_context.enforce_whiteblacklist && pending->_block_status == controller::block_status::incomplete ) {
+         if( trx_context.enforce_whiteblacklist && self.is_speculative_block() ) {
             flat_set<account_name> actors;
             for( const auto& act : trx->packed_trx()->get_transaction().actions ) {
                for( const auto& auth : act.authorization ) {
@@ -1526,7 +1528,7 @@ struct controller_impl {
          const signed_transaction& trn = trx->packed_trx()->get_signed_transaction();
          transaction_checktime_timer trx_timer(timer);
          transaction_context trx_context(self, *trx->packed_trx(), std::move(trx_timer), start, trx->read_only);
-         if ((bool)subjective_cpu_leeway && pending->_block_status == controller::block_status::incomplete) {
+         if ((bool)subjective_cpu_leeway && self.is_speculative_block()) {
             trx_context.leeway = *subjective_cpu_leeway;
          }
          trx_context.block_deadline = block_deadline;
@@ -1601,9 +1603,16 @@ struct controller_impl {
             }
 
 
-            if ( (read_mode != db_read_mode::SPECULATIVE && pending->_block_status == controller::block_status::incomplete) || trx->read_only ) {
-               //this may happen automatically in destructor, but I prefer make it more explicit
-               trx_context.undo();
+            if ( trx->read_only ) {
+               // remove trx from pending block by not canceling 'restore'
+               trx_context.undo(); // this will happen automatically in destructor, but make it more explicit
+            } else if ( pending->_block_status == controller::block_status::ephemeral ) {
+               // An ephemeral block will never become a full block, but on a producer node the trxs should be saved
+               // in the un-applied transaction queue for execution during block production. For a non-producer node
+               // save the trxs in the un-applied transaction queue for use during block validation to skip signature
+               // recovery.
+               restore.cancel();   // maintain trx metas for abort block
+               trx_context.undo(); // this will happen automatically in destructor, but make it more explicit
             } else {
                restore.cancel();
                trx_context.squash();
@@ -1683,8 +1692,9 @@ struct controller_impl {
       auto& bb = std::get<building_block>(pending->_block_stage);
       const auto& pbhs = bb._pending_block_header_state;
 
-      // modify state of speculative block only if we are in speculative read mode (otherwise we need clean state for head or read-only modes)
-      if ( read_mode == db_read_mode::SPECULATIVE || pending->_block_status != controller::block_status::incomplete )
+      // block status is either ephemeral or incomplete. Modify state of speculative block only if we are building a
+      // speculative incomplete block (otherwise we need clean state for head mode, ephemeral block)
+      if ( pending->_block_status != controller::block_status::ephemeral )
       {
          const auto& pso = db.get<protocol_state_object>();
 
@@ -2420,7 +2430,7 @@ struct controller_impl {
       //Look for expired transactions in the deduplication list, and remove them.
       auto& transaction_idx = db.get_mutable_index<transaction_multi_index>();
       const auto& dedupe_index = transaction_idx.indices().get<by_expiration>();
-      auto now = self.pending_block_time();
+      auto now = self.is_building_block() ? self.pending_block_time() : self.head_block_time();
       const auto total = dedupe_index.size();
       uint32_t num_removed = 0;
       while( (!dedupe_index.empty()) && ( now > fc::time_point(dedupe_index.begin()->expiration) ) ) {
@@ -2696,7 +2706,7 @@ void controller::preactivate_feature( const digest_type& feature_digest ) {
    auto status = pfs.is_recognized( feature_digest, cur_time );
    switch( status ) {
       case protocol_feature_set::recognized_t::unrecognized:
-         if( is_producing_block() ) {
+         if( is_speculative_block() ) {
             EOS_THROW( subjective_block_production_exception,
                        "protocol feature with digest '${digest}' is unrecognized", ("digest", feature_digest) );
          } else {
@@ -2705,7 +2715,7 @@ void controller::preactivate_feature( const digest_type& feature_digest ) {
          }
       break;
       case protocol_feature_set::recognized_t::disabled:
-         if( is_producing_block() ) {
+         if( is_speculative_block() ) {
             EOS_THROW( subjective_block_production_exception,
                        "protocol feature with digest '${digest}' is disabled", ("digest", feature_digest) );
          } else {
@@ -2714,7 +2724,7 @@ void controller::preactivate_feature( const digest_type& feature_digest ) {
          }
       break;
       case protocol_feature_set::recognized_t::too_early:
-         if( is_producing_block() ) {
+         if( is_speculative_block() ) {
             EOS_THROW( subjective_block_production_exception,
                        "${timestamp} is too early for the earliest allowed activation time of the protocol feature with digest '${digest}'", ("digest", feature_digest)("timestamp", cur_time) );
          } else {
@@ -2725,7 +2735,7 @@ void controller::preactivate_feature( const digest_type& feature_digest ) {
       case protocol_feature_set::recognized_t::ready:
       break;
       default:
-         if( is_producing_block() ) {
+         if( is_speculative_block() ) {
             EOS_THROW( subjective_block_production_exception, "unexpected recognized_t status" );
          } else {
             EOS_THROW( protocol_feature_bad_block_exception, "unexpected recognized_t status" );
@@ -2817,32 +2827,10 @@ void controller::validate_protocol_features( const vector<digest_type>& features
                                 features_to_activate );
 }
 
-void controller::start_block( block_timestamp_type when, uint16_t confirm_block_count )
-{
-   validate_db_available_size();
-
-   EOS_ASSERT( !my->pending, block_validate_exception, "pending block already exists" );
-
-   vector<digest_type> new_protocol_feature_activations;
-
-   const auto& pso = my->db.get<protocol_state_object>();
-   if( pso.preactivated_protocol_features.size() > 0 ) {
-      for( const auto& f : pso.preactivated_protocol_features ) {
-         new_protocol_feature_activations.emplace_back( f );
-      }
-   }
-
-   if( new_protocol_feature_activations.size() > 0 ) {
-      validate_protocol_features( new_protocol_feature_activations );
-   }
-
-   my->start_block( when, confirm_block_count, new_protocol_feature_activations,
-                    block_status::incomplete, std::optional<block_id_type>(), fc::time_point::maximum() );
-}
-
 void controller::start_block( block_timestamp_type when,
                               uint16_t confirm_block_count,
                               const vector<digest_type>& new_protocol_feature_activations,
+                              block_status bs,
                               const fc::time_point& deadline )
 {
    validate_db_available_size();
@@ -2851,8 +2839,10 @@ void controller::start_block( block_timestamp_type when,
       validate_protocol_features( new_protocol_feature_activations );
    }
 
+   EOS_ASSERT( bs == block_status::incomplete || bs == block_status::ephemeral, block_validate_exception, "speculative block type required" );
+
    my->start_block( when, confirm_block_count, new_protocol_feature_activations,
-                    block_status::incomplete, std::optional<block_id_type>(), deadline );
+                    bs, std::optional<block_id_type>(), deadline );
 }
 
 block_state_ptr controller::finalize_block( block_report& br, const signer_callback_type& signer_callback ) {
@@ -3132,11 +3122,11 @@ block_id_type controller::get_block_id_for_num( uint32_t block_num )const { try 
    return id;
 } FC_CAPTURE_AND_RETHROW( (block_num) ) }
 
-sha256 controller::calculate_integrity_hash()const { try {
+sha256 controller::calculate_integrity_hash() { try {
    return my->calculate_integrity_hash();
 } FC_LOG_AND_RETHROW() }
 
-void controller::write_snapshot( const snapshot_writer_ptr& snapshot ) const {
+void controller::write_snapshot( const snapshot_writer_ptr& snapshot ) {
    EOS_ASSERT( !my->pending, block_validate_exception, "cannot take a consistent snapshot with a pending block" );
    return my->add_to_snapshot(snapshot);
 }
@@ -3345,14 +3335,14 @@ bool controller::is_building_block()const {
    return my->pending.has_value();
 }
 
-bool controller::is_producing_block()const {
+bool controller::is_speculative_block()const {
    if( !my->pending ) return false;
 
-   return (my->pending->_block_status == block_status::incomplete);
+   return (my->pending->_block_status == block_status::incomplete || my->pending->_block_status == block_status::ephemeral );
 }
 
 bool controller::is_ram_billing_in_notify_allowed()const {
-   return my->conf.disable_all_subjective_mitigations || !is_producing_block() || my->conf.allow_ram_billing_in_notify;
+   return my->conf.disable_all_subjective_mitigations || !is_speculative_block() || my->conf.allow_ram_billing_in_notify;
 }
 
 uint32_t controller::configured_subjective_signature_length_limit()const {

@@ -634,6 +634,7 @@ namespace eosio {
       string                  local_endpoint_port;
 
       std::atomic<uint32_t>   trx_in_progress_size{0};
+      fc::time_point          last_dropped_trx_msg_time;
       const uint32_t          connection_id;
       int16_t                 sent_handshake_count = 0;
       std::atomic<bool>       connecting{true};
@@ -2683,6 +2684,10 @@ namespace eosio {
          char reason[72];
          snprintf(reason, 72, "Dropping trx, too many trx in progress %lu bytes", trx_in_progress_sz);
          my_impl->producer_plug->log_failed_transaction(ptr->id(), ptr, reason);
+         if (fc::time_point::now() - fc::seconds(1) >= last_dropped_trx_msg_time) {
+            last_dropped_trx_msg_time = fc::time_point::now();
+            wlog(reason);
+         }
          return true;
       }
       bool have_trx = my_impl->dispatcher->have_txn( ptr->id() );
@@ -3655,11 +3660,10 @@ namespace eosio {
          fc::rand_pseudo_bytes( my->node_id.data(), my->node_id.data_size());
          const controller& cc = my->chain_plug->chain();
 
-         if( cc.get_read_mode() == db_read_mode::IRREVERSIBLE || cc.get_read_mode() == db_read_mode::READ_ONLY ) {
+         if( cc.get_read_mode() == db_read_mode::IRREVERSIBLE ) {
             if( my->p2p_accept_transactions ) {
                my->p2p_accept_transactions = false;
-               string m = cc.get_read_mode() == db_read_mode::IRREVERSIBLE ? "irreversible" : "read-only";
-               wlog( "p2p-accept-transactions set to false due to read-mode: ${m}", ("m", m) );
+               wlog( "p2p-accept-transactions set to false due to read-mode: irreversible" );
             }
          }
          if( my->p2p_accept_transactions ) {

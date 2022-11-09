@@ -12,18 +12,17 @@
 
 #include <memory>
 
-#include "leap_formatter.hpp"
-
 int main(int argc, char** argv) {
    fc::logger::get(DEFAULT_LOGGER).set_log_level(fc::log_level::debug);
 
    CLI::App app{"Leap Command Line Utility"};
 
    // custom leap formatter
-   auto fmt = std::make_shared<leap_formatter>();
+   auto fmt = std::make_shared<CLI::LeapFormatter>();
    app.formatter(fmt);
 
    app.set_help_all_flag("--help-all", "Show all help");
+   app.failure_message(CLI::FailureMessage::help);
    app.require_subcommand(1, 2);
 
    // generics sc tree
@@ -34,9 +33,9 @@ int main(int argc, char** argv) {
    auto blocklog_subcommand = std::make_shared<blocklog_actions>();
    blocklog_subcommand->setup(app);
 
-   // snapshot sc tree, reserved
-   // auto snapshot_subcommand = std::make_shared<snapshot_actions>();
-   // snapshot_subcommand->setup(app);
+   // snapshot sc tree
+   auto snapshot_subcommand = std::make_shared<snapshot_actions>();
+   snapshot_subcommand->setup(app);
 
    // chain subcommand from nodeos chain_plugin
    auto chain_subcommand = std::make_shared<chain_actions>();

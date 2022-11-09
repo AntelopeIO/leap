@@ -106,7 +106,8 @@ protected:
       res_->version(req.version());
       res_->set(http::field::content_type, "application/json");
       res_->keep_alive(req.keep_alive());
-      res_->set(http::field::server, BOOST_BEAST_VERSION_STRING);
+      if(plugin_state_->server_header.size())
+         res_->set(http::field::server, plugin_state_->server_header);
 
       // Request path must be absolute and not contain "..".
       if(req.target().empty() || req.target()[0] != '/' || req.target().find("..") != beast::string_view::npos) {

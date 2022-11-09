@@ -349,7 +349,13 @@ auto fn(A... a) {
                       : "cc");
       }
       using native_args = vm::flatten_parameters_t<AUTO_PARAM_WORKAROUND(F)>;
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-value"
+      // If a is unpopulated, this reports "statement has no effect [-Werror=unused-value]"
       eosio::vm::native_value stack[] = { a... };
+#pragma GCC diagnostic pop
+
       constexpr int cb_ctx_ptr_offset = OFFSET_OF_CONTROL_BLOCK_MEMBER(ctx);
       apply_context* ctx;
       asm("mov %%gs:%c[applyContextOffset], %[cPtr]\n"
@@ -385,7 +391,7 @@ void register_eosvm_oc(Name n) {
    if(n == BOOST_HANA_STRING("env.eosio_exit")) return;
    constexpr auto fn = create_function<F, Preconditions, injected>();
    constexpr auto index = find_intrinsic_index(n.c_str());
-   intrinsic the_intrinsic(
+   [[maybe_unused]] intrinsic the_intrinsic(
       n.c_str(),
       wasm_function_type_provider<std::remove_pointer_t<decltype(fn)>>::type(),
       reinterpret_cast<void*>(fn),
