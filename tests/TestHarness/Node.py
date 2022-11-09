@@ -1023,7 +1023,7 @@ class Node(object):
         payload="{ \"producer\":\"%s\", \"where_in_sequence\":%d, \"based_on_lib\":\"%s\" }" % (producer, whereInSequence, basedOnLib)
         return self.processUrllibRequest("test_control", "kill_node_on_producer", payload, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=exitMsg, returnType=returnType)
 
-    def processUrllibRequest(self, resource, command, payload={}, silentErrors=False, exitOnError=False, exitMsg=None, returnType=ReturnType.json, endpoint=None):
+    def processUrllibRequest(self, resource, command, payload={}, silentErrors=True, exitOnError=False, exitMsg=None, returnType=ReturnType.json, endpoint=None):
         if not endpoint:
             endpoint = self.endpointHttp
         cmd = "%s/v1/%s/%s" % (endpoint, resource, command)
@@ -1083,7 +1083,7 @@ class Node(object):
         assert(isinstance(genKey, str))
         assert(isinstance(returnType, ReturnType))
 
-        payload="[ \"%s\", \"%s\" ]" % (genAccount, genKey)
+        payload=[ genAccount, genKey ]
         return self.processUrllibRequest("txn_test_gen", "create_test_accounts", payload, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=exitMsg, returnType=returnType)
 
     def txnGenStart(self, salt, period, batchSize, silentErrors=True, exitOnError=False, exitMsg=None, returnType=ReturnType.json):
@@ -1092,7 +1092,7 @@ class Node(object):
         assert(isinstance(batchSize, int))
         assert(isinstance(returnType, ReturnType))
 
-        payload="[ \"%s\", %d, %d ]" % (salt, period, batchSize)
+        payload=[ salt, period, batchSize ]
         return self.processUrllibRequest("txn_test_gen", "start_generation", payload, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=exitMsg, returnType=returnType)
 
     def waitForTransBlockIfNeeded(self, trans, waitForTransBlock, exitOnError=False):
