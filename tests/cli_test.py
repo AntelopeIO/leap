@@ -45,7 +45,7 @@ def cli11_bugfix_test():
 
     # Make sure that the command failed because of the connection error,
     # not the command line parsing error.
-    assert(b'http exception' in completed_process.stderr)
+    assert(b'Connection refused' in completed_process.stderr)
 
 
 def cli11_optional_option_arg_test():
@@ -164,7 +164,7 @@ def cleos_abi_file_test():
     # use URL http://127.0.0.1:12345 to make sure cleos not to connect to any running nodeos
     cmd = ['./programs/cleos/cleos', '-u', 'http://127.0.0.1:12345', 'convert', 'pack_action_data', account, action, unpacked_action_data]
     outs, errs = processCleosCommand(cmd)
-    assert(b'http exception' in errs)
+    assert(b'Connection refused' in errs)
 
     # invalid option --abi-file
     invalid_abi_arg = 'eosio.token' + ' ' + token_abi_path

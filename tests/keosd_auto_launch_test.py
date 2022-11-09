@@ -40,7 +40,7 @@ def keosd_auto_launch_test():
     # cleos.
     completed_process = run_cleos_wallet_command('list', no_auto_keosd=True)
     assert completed_process.returncode != 0
-    check_cleos_stderr(completed_process.stderr, b'http exception')
+    check_cleos_stderr(completed_process.stderr, b'Failed http request to keosd')
 
     # Verify that keosd auto-launching works.
     completed_process = run_cleos_wallet_command('list', no_auto_keosd=False)

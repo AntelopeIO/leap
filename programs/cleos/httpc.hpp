@@ -3,7 +3,7 @@
 #include <fc/variant.hpp>
 #include <string>
 #include <vector>
-
+#include "do_http_post.hpp"
 namespace eosio { namespace client { namespace http {
    using std::string;
 
@@ -80,5 +80,4 @@ namespace eosio { namespace client { namespace http {
    const string producer_func_base = "/v1/producer";
    const string producer_get_supported_protocol_features_func = producer_func_base + "/get_supported_protocol_features";
 
-   FC_DECLARE_EXCEPTION( connection_exception, 1100000, "Connection Exception" );
  }}}

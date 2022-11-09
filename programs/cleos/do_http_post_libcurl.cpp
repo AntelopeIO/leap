@@ -131,6 +131,8 @@ namespace eosio { namespace client { namespace http {
          curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L);
 
       auto res = curl_easy_perform(curl);
+      if (res == CURLE_COULDNT_CONNECT)
+         throw connection_exception(fc::log_messages{FC_LOG_MESSAGE(error, curl_easy_strerror(res))});
       EOS_ASSERT(res == CURLE_OK, chain::http_exception, curl_easy_strerror(res));
 
       long http_code = 0;

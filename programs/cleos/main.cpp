@@ -316,7 +316,7 @@ fc::variant call( const std::string& url,
    try {
       return eosio::client::http::do_http_call(http_config, url, path, fc::variant(v));
    }
-   catch(boost::system::system_error& e) {
+   catch(connection_exception& e) {
       std::string exec_name;
       if(url == ::default_url) {
          exec_name = node_executable_name;
@@ -324,9 +324,9 @@ fc::variant call( const std::string& url,
          exec_name = key_store_executable_name;
       }
       std::cerr << localized( "Failed http request to ${n} at ${u}; is ${n} running?\n"
-                              "  Error: ${e}",
-                              ("n", exec_name)("u", url)("e", e.what()) ) << std::endl;
-      throw connection_exception(fc::log_messages{FC_LOG_MESSAGE(error, e.what())});
+                              "  Error: Connection refused",
+                              ("n", exec_name)("u", url)) << std::endl;
+      throw;
    }
 }
 
