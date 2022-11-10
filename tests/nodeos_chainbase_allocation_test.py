@@ -101,7 +101,7 @@ try:
     isRelaunchSuccess = irrNode.relaunch(timeout=5, cachePopen=True)
     assert isRelaunchSuccess, "Fail to relaunch"
     res = irrNode.createSnapshot()
-    afterShutdownSnapshotPath = res["snapshot_name"]
+    afterShutdownSnapshotPath = res["payload"]["snapshot_name"]
     assert filecmp.cmp(beforeShutdownSnapshotPath, afterShutdownSnapshotPath), "snapshot is not identical"
 
     testSuccessful = True
