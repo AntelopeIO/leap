@@ -92,7 +92,7 @@ try:
 
     # Create the snapshot and rename it to avoid name conflict later on
     res = irrNode.createSnapshot()
-    beforeShutdownSnapshotPath = res["snapshot_name"]
+    beforeShutdownSnapshotPath = res["payload"]["snapshot_name"]
     snapshotPathWithoutExt, snapshotExt = os.path.splitext(beforeShutdownSnapshotPath)
     os.rename(beforeShutdownSnapshotPath, snapshotPathWithoutExt + "_before_shutdown" + snapshotExt)
 

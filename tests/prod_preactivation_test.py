@@ -86,8 +86,8 @@ try:
         errorExit("No supported feature list")
 
     digest = ""
-    for i in range(0, len(feature0)):
-       feature = feature0[i]
+    for i in range(0, len(feature0["payload"])):
+       feature = feature0["payload"][i]
        if feature["specification"][0]["value"] != "PREACTIVATE_FEATURE":
            continue
        else:
@@ -140,7 +140,7 @@ try:
     Print("try to preactivate feature on node 1, cmd: /v1/%s/%s %s" % (resource, command, payload))
     result = node.processUrllibRequest(resource, command, payload)
 
-    if result["result"] != "ok":
+    if result["payload"]["result"] != "ok":
         errorExit("failed to preactivate feature from producer plugin on node 1")
     else:
         Print("feature PREACTIVATE_FEATURE (%s) preactivation success" % (digest))

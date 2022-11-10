@@ -85,9 +85,9 @@ class TraceApiPluginTest(unittest.TestCase):
 
         # verify trans via trace_api by calling get_block RPC
         blockFromTraceApi = self.get_block(blockNum, node)
-        self.assertIn("transactions", blockFromTraceApi)
+        self.assertIn("transactions", blockFromTraceApi["payload"])
         isTrxInBlockFromTraceApi = False
-        for trx in blockFromTraceApi["transactions"]:
+        for trx in blockFromTraceApi["payload"]["transactions"]:
             self.assertIn("id", trx)
             if (trx["id"] == transId) :
                 isTrxInBlockFromTraceApi = True
