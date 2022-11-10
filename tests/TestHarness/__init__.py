@@ -1,4 +1,4 @@
-__all__ = ['Node', 'Cluster', 'WalletMgr', 'testUtils', 'TestHelper']
+__all__ = ['Node', 'Cluster', 'WalletMgr', 'testUtils', 'TestHelper', 'queries']
 
 from .Cluster import Cluster
 from .Node import Node
