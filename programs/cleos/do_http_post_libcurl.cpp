@@ -108,7 +108,6 @@ namespace eosio { namespace client { namespace http {
 
       if (trace) {
          curl_easy_setopt(curl, CURLOPT_DEBUGFUNCTION, my_trace);
-         curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
       }
 
       if (verbose || trace)
@@ -127,8 +126,8 @@ namespace eosio { namespace client { namespace http {
       std::string response;
 
       curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void*)&response);
-      if (verify_cert)
-         curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L);
+      if (!verify_cert)
+         curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
 
       auto res = curl_easy_perform(curl);
       if (res == CURLE_COULDNT_CONNECT || res == CURLE_URL_MALFORMAT)
