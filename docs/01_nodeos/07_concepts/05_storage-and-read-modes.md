@@ -27,37 +27,16 @@ The `nodeos` service provides query access to the chain database via the HTTP [R
 
 The `nodeos` service can be run in different "read" modes. These modes control how the node operates and how it processes blocks and transactions:
 
-- `speculative`: this includes the side effects of confirmed and unconfirmed transactions.
 - `head`: this only includes the side effects of confirmed transactions, this mode processes unconfirmed transactions but does not include them.
-- `read-only`: this mode is deprecated. Similar functionality can be achieved by combining options: `read-mode = head`, `p2p-accept-transactions = false`, `api-accept-transactions = false`. When these options are set, the local database will contain state changes made by transactions in the chain up to the head block. Also, transactions received via the P2P network are not relayed and transactions cannot be pushed via the chain API.
 - `irreversible`: this mode also includes confirmed transactions only up to those included in the last irreversible block.
 
 A transaction is considered confirmed when a `nodeos` instance has received, processed, and written it to a block on the blockchain, i.e. it is in the head block or an earlier block.
 
-### Speculative Mode
-
-Clients such as `cleos` and the RPC API, will see database state as of the current head block plus changes made by all transactions known to this node but potentially not included in the chain, unconfirmed transactions for example.
-
-Speculative mode is low latency but fragile, there is no guarantee that the transactions reflected in the state will be included in the chain OR that they will reflected in the same order the state implies.  
-
-This mode features the lowest latency, but is the least consistent.
-
-In speculative mode `nodeos` is able to execute transactions which have TaPoS (Transaction as Proof of Stake) pointing to any valid block in a fork considered to be the best fork by this node.
-
 ### Head Mode
 
-Clients such as `cleos` and the RPC API will see database state as of the current head block of the chain.  Since current head block is not yet irreversible and short-lived forks are possible, state read in this mode may become inaccurate  if `nodeos` switches to a better fork.  Note that this is also true of speculative mode.  
-
-This mode represents a good trade-off between highly consistent views of the data and latency.
+Clients such as `cleos` and the RPC API will see database state as of the current head block of the chain.  Since current head block is not yet irreversible and short-lived forks are possible, state read in this mode may become inaccurate  if `nodeos` switches to a better fork.  
 
 In this mode `nodeos` is able to execute transactions which have TaPoS pointing to any valid block in a fork considered to be the best fork by this node.
-
-### Read-Only Mode
-
-[[caution | Deprecation Notice]]
-| The explicit `read-mode = read-only` mode is deprecated. Similar functionality can now be achieved in `head` mode by combining options: `read-mode = head`, `p2p-accept-transactions = false`, `api-accept-transactions = false`.
-
-Clients such as `cleos` and the RPC API will see database state as of the current head block of the chain. It **will not** include changes made by transactions known to this node but not included in the chain, such as unconfirmed transactions.
 
 ### Irreversible Mode
 

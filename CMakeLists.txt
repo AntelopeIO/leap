@@ -24,6 +24,12 @@ else()
     set(VERSION_FULL "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")
 endif()
 
+
+# Options
+option(ENABLE_WERROR "Enable `-Werror` compilation flag." Off)
+option(ENABLE_WEXTRA "Enable `-Wextra` compilation flag." Off)
+
+
 set( CLI_CLIENT_EXECUTABLE_NAME cleos )
 set( NODE_EXECUTABLE_NAME nodeos )
 set( KEY_STORE_EXECUTABLE_NAME keosd )
@@ -125,6 +131,16 @@ else()
         endif()
     endif()
 endif()
+
+if(ENABLE_WERROR)
+  set( CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   -Werror" )
+  set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror" )
+endif()
+if(ENABLE_WEXTRA)
+  set( CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   -Wextra" )
+  set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wextra" )
+endif()
+
 
 option(EOSIO_ENABLE_DEVELOPER_OPTIONS "enable developer options for Leap" OFF)
 
