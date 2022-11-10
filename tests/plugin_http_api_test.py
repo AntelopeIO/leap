@@ -96,10 +96,10 @@ class PluginHttpTest(unittest.TestCase):
         command = "get_info"
         # get_info without parameter
         ret_json = self.nodeos.processUrllibRequest(resource, command)
-        self.assertIn("server_version", ret_json)
+        self.assertIn("server_version", ret_json["payload"])
         # get_info with empty content parameter
         ret_json = self.nodeos.processUrllibRequest(resource, command, self.empty_content_dict)
-        self.assertIn("server_version", ret_json)
+        self.assertIn("server_version", ret_json["payload"])
         # get_info with invalid parameter
         ret_json = self.nodeos.processUrllibRequest(resource, command, self.http_post_invalid_param)
         self.assertEqual(ret_json["code"], 400)
@@ -107,9 +107,9 @@ class PluginHttpTest(unittest.TestCase):
         # activate the builtin protocol features and get some useful data
         self.activateAllBuiltinProtocolFeatures()
         allProtocolFeatures = self.nodeos.getSupportedProtocolFeatures()
-        allFeatureDigests = [d['feature_digest'] for d in allProtocolFeatures]
+        allFeatureDigests = [d['feature_digest'] for d in allProtocolFeatures["payload"]]
         allFeatureCodenames = []
-        for s in allProtocolFeatures:
+        for s in allProtocolFeatures["payload"]:
            if 'specification' in s and len(s['specification']) > 0 and 'name' in s['specification'][0] and s['specification'][0]['name'] == 'builtin_feature_codename':
               allFeatureCodenames.append(s['specification'][0]['value'])
         self.assertEqual(len(allFeatureDigests), len(allFeatureCodenames))
@@ -126,12 +126,12 @@ class PluginHttpTest(unittest.TestCase):
         # get_consensus_parameters without parameter
         command = "get_consensus_parameters"
         ret_json = self.nodeos.processUrllibRequest(resource, command)
-        self.assertIn("chain_config", ret_json)
-        self.assertIn("wasm_config", ret_json)
+        self.assertIn("chain_config", ret_json["payload"])
+        self.assertIn("wasm_config", ret_json["payload"])
         # get_consensus_parameters with empty content parameter
         ret_json = self.nodeos.processUrllibRequest(resource, command, self.empty_content_dict)
-        self.assertIn("chain_config", ret_json)
-        self.assertIn("wasm_config", ret_json)
+        self.assertIn("chain_config", ret_json["payload"])
+        self.assertIn("wasm_config", ret_json["payload"])
         # get_consensus_parameters with invalid parameter
         ret_json = self.nodeos.processUrllibRequest(resource, command, self.http_post_invalid_param)
         self.assertEqual(ret_json["code"], 400)
@@ -139,20 +139,20 @@ class PluginHttpTest(unittest.TestCase):
         # get_activated_protocol_features without parameter
         command = "get_activated_protocol_features"
         ret_json = self.nodeos.processUrllibRequest(resource, command)
-        self.assertEqual(type(ret_json["activated_protocol_features"]), list)
-        self.assertEqual(len(ret_json["activated_protocol_features"]), ACT_FEATURE_DEFAULT_LIMIT)
-        for dict_feature in ret_json["activated_protocol_features"]:
+        self.assertEqual(type(ret_json["payload"]["activated_protocol_features"]), list)
+        self.assertEqual(len(ret_json["payload"]["activated_protocol_features"]), ACT_FEATURE_DEFAULT_LIMIT)
+        for dict_feature in ret_json["payload"]["activated_protocol_features"]:
             self.assertTrue(dict_feature['feature_digest'] in allFeatureDigests)
 
         # get_activated_protocol_features with empty content parameter
         ret_json = self.nodeos.processUrllibRequest(resource, command, self.empty_content_dict)
-        self.assertEqual(type(ret_json["activated_protocol_features"]), list)
-        self.assertEqual(len(ret_json["activated_protocol_features"]), ACT_FEATURE_DEFAULT_LIMIT)
-        for dict_feature in ret_json["activated_protocol_features"]:
+        self.assertEqual(type(ret_json["payload"]["activated_protocol_features"]), list)
+        self.assertEqual(len(ret_json["payload"]["activated_protocol_features"]), ACT_FEATURE_DEFAULT_LIMIT)
+        for dict_feature in ret_json["payload"]["activated_protocol_features"]:
             self.assertTrue(dict_feature['feature_digest'] in allFeatureDigests)
-        for index, _ in enumerate(ret_json["activated_protocol_features"]):
+        for index, _ in enumerate(ret_json["payload"]["activated_protocol_features"]):
             if index - 1 >= 0:
-                self.assertTrue(ret_json["activated_protocol_features"][index - 1]["activation_ordinal"] < ret_json["activated_protocol_features"][index]["activation_ordinal"])
+                self.assertTrue(ret_json["payload"]["activated_protocol_features"][index - 1]["activation_ordinal"] < ret_json["payload"]["activated_protocol_features"][index]["activation_ordinal"])
 
         # get_activated_protocol_features with invalid parameter
         ret_json = self.nodeos.processUrllibRequest(resource, command, self.http_post_invalid_param)
@@ -161,75 +161,75 @@ class PluginHttpTest(unittest.TestCase):
         # get_activated_protocol_features with 1st param
         payload = {"lower_bound":1}
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
-        self.assertEqual(type(ret_json["activated_protocol_features"]), list)
-        self.assertEqual(len(ret_json["activated_protocol_features"]), ACT_FEATURE_DEFAULT_LIMIT)
-        for dict_feature in ret_json["activated_protocol_features"]:
+        self.assertEqual(type(ret_json["payload"]["activated_protocol_features"]), list)
+        self.assertEqual(len(ret_json["payload"]["activated_protocol_features"]), ACT_FEATURE_DEFAULT_LIMIT)
+        for dict_feature in ret_json["payload"]["activated_protocol_features"]:
             self.assertTrue(dict_feature['feature_digest'] in allFeatureDigests)
 
         # get_activated_protocol_features with 2nd param
         payload = {"upper_bound":1000}
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
-        self.assertEqual(type(ret_json["activated_protocol_features"]), list)
-        self.assertEqual(len(ret_json["activated_protocol_features"]), ACT_FEATURE_DEFAULT_LIMIT)
-        for dict_feature in ret_json["activated_protocol_features"]:
+        self.assertEqual(type(ret_json["payload"]["activated_protocol_features"]), list)
+        self.assertEqual(len(ret_json["payload"]["activated_protocol_features"]), ACT_FEATURE_DEFAULT_LIMIT)
+        for dict_feature in ret_json["payload"]["activated_protocol_features"]:
             self.assertTrue(dict_feature['feature_digest'] in allFeatureDigests)
 
         # get_activated_protocol_features with 2nd param
         upper_bound_param = 7
         payload = {"upper_bound":upper_bound_param}
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
-        self.assertEqual(type(ret_json["activated_protocol_features"]), list)
-        for dict_feature in ret_json["activated_protocol_features"]:
+        self.assertEqual(type(ret_json["payload"]["activated_protocol_features"]), list)
+        for dict_feature in ret_json["payload"]["activated_protocol_features"]:
             self.assertTrue(dict_feature['feature_digest'] in allFeatureDigests)
             self.assertTrue(dict_feature['activation_ordinal'] <= upper_bound_param)
 
         # get_activated_protocol_features with 3rd param
         payload = {"limit":1}
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
-        self.assertEqual(type(ret_json["activated_protocol_features"]), list)
-        self.assertEqual(len(ret_json["activated_protocol_features"]), 1)
-        for dict_feature in ret_json["activated_protocol_features"]:
+        self.assertEqual(type(ret_json["payload"]["activated_protocol_features"]), list)
+        self.assertEqual(len(ret_json["payload"]["activated_protocol_features"]), 1)
+        for dict_feature in ret_json["payload"]["activated_protocol_features"]:
             self.assertTrue(dict_feature['feature_digest'] in allFeatureDigests)
 
         # get_activated_protocol_features with 3rd param to get expected full list of activated features
         payload = {"limit":ACT_FEATURE_CURRENT_EXPECTED_TOTAL}
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
-        self.assertEqual(type(ret_json["activated_protocol_features"]), list)
-        self.assertEqual(len(ret_json["activated_protocol_features"]), ACT_FEATURE_CURRENT_EXPECTED_TOTAL)
-        for dict_feature in ret_json["activated_protocol_features"]:
+        self.assertEqual(type(ret_json["payload"]["activated_protocol_features"]), list)
+        self.assertEqual(len(ret_json["payload"]["activated_protocol_features"]), ACT_FEATURE_CURRENT_EXPECTED_TOTAL)
+        for dict_feature in ret_json["payload"]["activated_protocol_features"]:
             self.assertTrue(dict_feature['feature_digest'] in allFeatureDigests)
         for feature in allFeatureCodenames:
-            assert feature in str(ret_json["activated_protocol_features"]), f"ERROR: Expected active feature \'{feature}\' not found in returned list."
+            assert feature in str(ret_json["payload"]["activated_protocol_features"]), f"ERROR: Expected active feature \'{feature}\' not found in returned list."
         for digest in allFeatureDigests:
-            assert digest in str(ret_json["activated_protocol_features"]), f"ERROR: Expected active feature \'{feature}\' not found in returned list."
+            assert digest in str(ret_json["payload"]["activated_protocol_features"]), f"ERROR: Expected active feature \'{feature}\' not found in returned list."
 
         # get_activated_protocol_features with 3rd param set extremely high to attempt to catch the
         # addition of new features and fail and cause this test to be updated.
         payload = {"limit":ACT_FEATURE_EXTREME}
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
-        self.assertEqual(type(ret_json["activated_protocol_features"]), list)
-        self.assertEqual(len(ret_json["activated_protocol_features"]), ACT_FEATURE_CURRENT_EXPECTED_TOTAL)
-        for dict_feature in ret_json["activated_protocol_features"]:
+        self.assertEqual(type(ret_json["payload"]["activated_protocol_features"]), list)
+        self.assertEqual(len(ret_json["payload"]["activated_protocol_features"]), ACT_FEATURE_CURRENT_EXPECTED_TOTAL)
+        for dict_feature in ret_json["payload"]["activated_protocol_features"]:
             self.assertTrue(dict_feature['feature_digest'] in allFeatureDigests)
 
         # get_activated_protocol_features with 4th param
         payload = {"search_by_block_num":"true"}
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
-        self.assertEqual(type(ret_json["activated_protocol_features"]), list)
-        self.assertEqual(len(ret_json["activated_protocol_features"]), ACT_FEATURE_DEFAULT_LIMIT)
-        for dict_feature in ret_json["activated_protocol_features"]:
+        self.assertEqual(type(ret_json["payload"]["activated_protocol_features"]), list)
+        self.assertEqual(len(ret_json["payload"]["activated_protocol_features"]), ACT_FEATURE_DEFAULT_LIMIT)
+        for dict_feature in ret_json["payload"]["activated_protocol_features"]:
             self.assertTrue(dict_feature['feature_digest'] in allFeatureDigests)
 
         # get_activated_protocol_features with 5th param
         payload = {"reverse":"true"}
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
-        self.assertEqual(type(ret_json["activated_protocol_features"]), list)
-        self.assertEqual(len(ret_json["activated_protocol_features"]), ACT_FEATURE_DEFAULT_LIMIT)
-        for dict_feature in ret_json["activated_protocol_features"]:
+        self.assertEqual(type(ret_json["payload"]["activated_protocol_features"]), list)
+        self.assertEqual(len(ret_json["payload"]["activated_protocol_features"]), ACT_FEATURE_DEFAULT_LIMIT)
+        for dict_feature in ret_json["payload"]["activated_protocol_features"]:
             self.assertTrue(dict_feature['feature_digest'] in allFeatureDigests)
-        for index, _ in enumerate(ret_json["activated_protocol_features"]):
+        for index, _ in enumerate(ret_json["payload"]["activated_protocol_features"]):
             if index - 1 >= 0:
-                self.assertTrue(ret_json["activated_protocol_features"][index - 1]["activation_ordinal"] > ret_json["activated_protocol_features"][index]["activation_ordinal"])
+                self.assertTrue(ret_json["payload"]["activated_protocol_features"][index - 1]["activation_ordinal"] > ret_json["payload"]["activated_protocol_features"][index]["activation_ordinal"])
 
         # get_activated_protocol_features with valid parameter
         payload = {"lower_bound":1,
@@ -238,8 +238,8 @@ class PluginHttpTest(unittest.TestCase):
                    "search_by_block_num":"true",
                    "reverse":"true"}
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
-        self.assertEqual(type(ret_json["activated_protocol_features"]), list)
-        for dict_feature in ret_json["activated_protocol_features"]:
+        self.assertEqual(type(ret_json["payload"]["activated_protocol_features"]), list)
+        for dict_feature in ret_json["payload"]["activated_protocol_features"]:
             self.assertTrue(dict_feature['feature_digest'] in allFeatureDigests)
 
         # get_block with empty parameter
@@ -255,7 +255,7 @@ class PluginHttpTest(unittest.TestCase):
         # get_block with valid parameter
         payload = {"block_num_or_id":1}
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
-        self.assertEqual(ret_json["block_num"], 1)
+        self.assertEqual(ret_json["payload"]["block_num"], 1)
 
         # get_block_info with empty parameter
         command =  "get_block_info"
@@ -270,7 +270,7 @@ class PluginHttpTest(unittest.TestCase):
         # get_block_info with valid parameter
         payload = {"block_num":1}
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
-        self.assertEqual(ret_json["block_num"], 1)
+        self.assertEqual(ret_json["payload"]["block_num"], 1)
 
         # get_block_header_state with empty parameter
         command = "get_block_header_state"
@@ -498,15 +498,15 @@ class PluginHttpTest(unittest.TestCase):
         # get_producers with valid parameter
         payload = {"json":"true","lower_bound":""}
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
-        self.assertEqual(type(ret_json["rows"]), list)
+        self.assertEqual(type(ret_json["payload"]["rows"]), list)
 
         # get_producer_schedule with empty parameter
         command = "get_producer_schedule"
         ret_json = self.nodeos.processUrllibRequest(resource, command)
-        self.assertEqual(type(ret_json["active"]), dict)
+        self.assertEqual(type(ret_json["payload"]["active"]), dict)
         # get_producer_schedule with empty content parameter
         ret_json = self.nodeos.processUrllibRequest(resource, command, self.empty_content_dict)
-        self.assertEqual(type(ret_json["active"]), dict)
+        self.assertEqual(type(ret_json["payload"]["active"]), dict)
         # get_producer_schedule with invalid parameter
         ret_json = self.nodeos.processUrllibRequest(resource, command, self.http_post_invalid_param)
         self.assertEqual(ret_json["code"], 400)
@@ -528,7 +528,7 @@ class PluginHttpTest(unittest.TestCase):
         # get_scheduled_transactions with valid parameter
         payload = {"json":"true","lower_bound":""}
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
-        self.assertEqual(type(ret_json["transactions"]), list)
+        self.assertEqual(type(ret_json["payload"]["transactions"]), list)
 
         # abi_json_to_bin with empty parameter
         command = "abi_json_to_bin"
@@ -641,7 +641,7 @@ class PluginHttpTest(unittest.TestCase):
         # push_block with valid parameter
         payload = {"block":"signed_block"}
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
-        self.assertEqual(len(ret_json), 0)
+        self.assertEqual(len(ret_json["payload"]), 0)
 
         # push_transaction with empty parameter
         command = "push_transaction"
@@ -683,7 +683,7 @@ class PluginHttpTest(unittest.TestCase):
                     "packed_context_free_data": "context_free_data",
                     "packed_trx": "packed_trx"}]
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
-        self.assertIn("transaction_id", ret_json[0])
+        self.assertIn("transaction_id", ret_json["payload"][0])
 
         # send_transaction with empty parameter
         command = "send_transaction"
@@ -771,10 +771,10 @@ class PluginHttpTest(unittest.TestCase):
         # pause with empty parameter
         command = "pause"
         ret_json = self.nodeos.processUrllibRequest(resource, command)
-        self.assertEqual(ret_json["result"], "ok")
+        self.assertEqual(ret_json["payload"]["result"], "ok")
         # pause with empty content parameter
         ret_json = self.nodeos.processUrllibRequest(resource, command, self.empty_content_dict)
-        self.assertEqual(ret_json["result"], "ok")
+        self.assertEqual(ret_json["payload"]["result"], "ok")
         # pause with invalid parameter
         ret_json = self.nodeos.processUrllibRequest(resource, command, self.http_post_invalid_param)
         self.assertEqual(ret_json["code"], 400)
@@ -783,10 +783,10 @@ class PluginHttpTest(unittest.TestCase):
         # resume with empty parameter
         command = "resume"
         ret_json = self.nodeos.processUrllibRequest(resource, command)
-        self.assertEqual(ret_json["result"], "ok")
+        self.assertEqual(ret_json["payload"]["result"], "ok")
         # resume with empty content parameter
         ret_json = self.nodeos.processUrllibRequest(resource, command, self.empty_content_dict)
-        self.assertEqual(ret_json["result"], "ok")
+        self.assertEqual(ret_json["payload"]["result"], "ok")
         # resume with invalid parameter
         ret_json = self.nodeos.processUrllibRequest(resource, command, self.http_post_invalid_param)
         self.assertEqual(ret_json["code"], 400)
@@ -807,10 +807,10 @@ class PluginHttpTest(unittest.TestCase):
         # get_runtime_options with empty parameter
         command = "get_runtime_options"
         ret_json = self.nodeos.processUrllibRequest(resource, command)
-        self.assertIn("max_transaction_time", ret_json)
+        self.assertIn("max_transaction_time", ret_json["payload"])
         # get_runtime_options with empty content parameter
         ret_json = self.nodeos.processUrllibRequest(resource, command, self.empty_content_dict)
-        self.assertIn("max_transaction_time", ret_json)
+        self.assertIn("max_transaction_time", ret_json["payload"])
         # get_runtime_options with invalid parameter
         ret_json = self.nodeos.processUrllibRequest(resource, command, self.http_post_invalid_param)
         self.assertEqual(ret_json["code"], 400)
@@ -839,7 +839,7 @@ class PluginHttpTest(unittest.TestCase):
                    "incoming_defer_ratio":1.0,
                    "greylist_limit":100}
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
-        self.assertIn(ret_json["result"], "ok")
+        self.assertIn(ret_json["payload"]["result"], "ok")
 
         # add_greylist_accounts with empty parameter
         command = "add_greylist_accounts"
@@ -857,7 +857,7 @@ class PluginHttpTest(unittest.TestCase):
         # add_greylist_accounts with valid parameter
         payload = {"accounts":["test1", "test2"]}
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
-        self.assertIn(ret_json["result"], "ok")
+        self.assertIn(ret_json["payload"]["result"], "ok")
 
         # remove_greylist_accounts with empty parameter
         command = "remove_greylist_accounts"
@@ -875,15 +875,15 @@ class PluginHttpTest(unittest.TestCase):
         # remove_greylist_accounts with valid parameter
         payload = {"accounts":["test1", "test2"]}
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
-        self.assertIn(ret_json["result"], "ok")
+        self.assertIn(ret_json["payload"]["result"], "ok")
 
         # get_greylist with empty parameter
         command = "get_greylist"
         ret_json = self.nodeos.processUrllibRequest(resource, command)
-        self.assertIn("accounts", ret_json)
+        self.assertIn("accounts", ret_json["payload"])
         # get_greylist with empty content parameter
         ret_json = self.nodeos.processUrllibRequest(resource, command, self.empty_content_dict)
-        self.assertIn("accounts", ret_json)
+        self.assertIn("accounts", ret_json["payload"])
         # get_greylist with invalid parameter
         ret_json = self.nodeos.processUrllibRequest(resource, command, self.http_post_invalid_param)
         self.assertEqual(ret_json["code"], 400)
@@ -892,20 +892,20 @@ class PluginHttpTest(unittest.TestCase):
         # get_whitelist_blacklist with empty parameter
         command = "get_whitelist_blacklist"
         ret_json = self.nodeos.processUrllibRequest(resource, command)
-        self.assertIn("actor_whitelist", ret_json)
-        self.assertIn("actor_blacklist", ret_json)
-        self.assertIn("contract_whitelist", ret_json)
-        self.assertIn("contract_blacklist", ret_json)
-        self.assertIn("action_blacklist", ret_json)
-        self.assertIn("key_blacklist", ret_json)
+        self.assertIn("actor_whitelist", ret_json["payload"])
+        self.assertIn("actor_blacklist", ret_json["payload"])
+        self.assertIn("contract_whitelist", ret_json["payload"])
+        self.assertIn("contract_blacklist", ret_json["payload"])
+        self.assertIn("action_blacklist", ret_json["payload"])
+        self.assertIn("key_blacklist", ret_json["payload"])
         # get_whitelist_blacklist with empty content parameter
         ret_json = self.nodeos.processUrllibRequest(resource, command, self.empty_content_dict)
-        self.assertIn("actor_whitelist", ret_json)
-        self.assertIn("actor_blacklist", ret_json)
-        self.assertIn("contract_whitelist", ret_json)
-        self.assertIn("contract_blacklist", ret_json)
-        self.assertIn("action_blacklist", ret_json)
-        self.assertIn("key_blacklist", ret_json)
+        self.assertIn("actor_whitelist", ret_json["payload"])
+        self.assertIn("actor_blacklist", ret_json["payload"])
+        self.assertIn("contract_whitelist", ret_json["payload"])
+        self.assertIn("contract_blacklist", ret_json["payload"])
+        self.assertIn("action_blacklist", ret_json["payload"])
+        self.assertIn("key_blacklist", ret_json["payload"])
         # get_whitelist_blacklist with invalid parameter
         ret_json = self.nodeos.processUrllibRequest(resource, command, self.http_post_invalid_param)
         self.assertEqual(ret_json["code"], 400)
@@ -932,17 +932,17 @@ class PluginHttpTest(unittest.TestCase):
                    "action_blacklist":[],
                    "key_blacklist":[]}
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
-        self.assertIn(ret_json["result"], "ok")
+        self.assertIn(ret_json["payload"]["result"], "ok")
 
         # get_integrity_hash with empty parameter
         command = "get_integrity_hash"
         ret_json = self.nodeos.processUrllibRequest(resource, command)
-        self.assertIn("head_block_id", ret_json)
-        self.assertIn("integrity_hash", ret_json)
+        self.assertIn("head_block_id", ret_json["payload"])
+        self.assertIn("integrity_hash", ret_json["payload"])
         # get_integrity_hash with empty content parameter
         ret_json = self.nodeos.processUrllibRequest(resource, command, self.empty_content_dict)
-        self.assertIn("head_block_id", ret_json)
-        self.assertIn("integrity_hash", ret_json)
+        self.assertIn("head_block_id", ret_json["payload"])
+        self.assertIn("integrity_hash", ret_json["payload"])
         # get_integrity_hash with invalid parameter
         ret_json = self.nodeos.processUrllibRequest(resource, command, self.http_post_invalid_param)
         self.assertEqual(ret_json["code"], 400)
@@ -951,16 +951,16 @@ class PluginHttpTest(unittest.TestCase):
         # create_snapshot with empty parameter
         command = "create_snapshot"
         ret_json = self.nodeos.processUrllibRequest(resource, command)
-        self.assertIn("head_block_id", ret_json)
-        self.assertIn("snapshot_name", ret_json)
+        self.assertIn("head_block_id", ret_json["payload"])
+        self.assertIn("snapshot_name", ret_json["payload"])
 
         # get_scheduled_protocol_feature_activations with empty parameter
         command = "get_scheduled_protocol_feature_activations"
         ret_json = self.nodeos.processUrllibRequest(resource, command)
-        self.assertIn("protocol_features_to_activate", ret_json)
+        self.assertIn("protocol_features_to_activate", ret_json["payload"])
         # get_scheduled_protocol_feature_activations with empty content parameter
         ret_json = self.nodeos.processUrllibRequest(resource, command, self.empty_content_dict)
-        self.assertIn("protocol_features_to_activate", ret_json)
+        self.assertIn("protocol_features_to_activate", ret_json["payload"])
         # get_scheduled_protocol_feature_activations with invalid parameter
         ret_json = self.nodeos.processUrllibRequest(resource, command, self.http_post_invalid_param)
         self.assertEqual(ret_json["code"], 400)
@@ -982,17 +982,17 @@ class PluginHttpTest(unittest.TestCase):
         # schedule_protocol_feature_activations with valid parameter
         payload = {"protocol_features_to_activate":[]}
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
-        self.assertIn(ret_json["result"], "ok")
+        self.assertIn(ret_json["payload"]["result"], "ok")
 
         # get_supported_protocol_features with empty parameter
         command = "get_supported_protocol_features"
         ret_json = self.nodeos.processUrllibRequest(resource, command)
-        self.assertIn("feature_digest", ret_json[0])
-        self.assertIn("subjective_restrictions", ret_json[0])
+        self.assertIn("feature_digest", ret_json["payload"][0])
+        self.assertIn("subjective_restrictions", ret_json["payload"][0])
         # get_supported_protocol_features with empty content parameter
         ret_json = self.nodeos.processUrllibRequest(resource, command, self.empty_content_dict)
-        self.assertIn("feature_digest", ret_json[0])
-        self.assertIn("subjective_restrictions", ret_json[0])
+        self.assertIn("feature_digest", ret_json["payload"][0])
+        self.assertIn("subjective_restrictions", ret_json["payload"][0])
         # get_supported_protocol_features with invalid parameter
         ret_json = self.nodeos.processUrllibRequest(resource, command, self.http_post_invalid_param)
         self.assertEqual(ret_json["code"], 400)
@@ -1000,18 +1000,18 @@ class PluginHttpTest(unittest.TestCase):
         # get_supported_protocol_features with 1st parameter
         payload = {"exclude_disabled":"true"}
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
-        self.assertIn("feature_digest", ret_json[0])
-        self.assertIn("subjective_restrictions", ret_json[0])
+        self.assertIn("feature_digest", ret_json["payload"][0])
+        self.assertIn("subjective_restrictions", ret_json["payload"][0])
         # get_supported_protocol_features with 2nd parameter
         payload = {"exclude_unactivatable":"true"}
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
-        self.assertIn("feature_digest", ret_json[0])
-        self.assertIn("subjective_restrictions", ret_json[0])
+        self.assertIn("feature_digest", ret_json["payload"][0])
+        self.assertIn("subjective_restrictions", ret_json["payload"][0])
         # get_supported_protocol_features with valid parameter
         payload = {"exclude_disabled":"true", "exclude_unactivatable":"true"}
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
-        self.assertIn("feature_digest", ret_json[0])
-        self.assertIn("subjective_restrictions", ret_json[0])
+        self.assertIn("feature_digest", ret_json["payload"][0])
+        self.assertIn("subjective_restrictions", ret_json["payload"][0])
 
         # get_account_ram_corrections with empty parameter
         command = "get_account_ram_corrections"
@@ -1029,17 +1029,17 @@ class PluginHttpTest(unittest.TestCase):
         # get_account_ram_corrections with valid parameter
         payload = {"lower_bound":"", "upper_bound":"", "limit":1, "reverse":"false"}
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
-        self.assertIn("rows", ret_json)
+        self.assertIn("rows", ret_json["payload"])
 
         # get_unapplied_transactions with empty parameter
         command = "get_unapplied_transactions"
         ret_json = self.nodeos.processUrllibRequest(resource, command)
-        self.assertIn("size", ret_json)
-        self.assertIn("incoming_size", ret_json)
+        self.assertIn("size", ret_json["payload"])
+        self.assertIn("incoming_size", ret_json["payload"])
         # get_unapplied_transactions with empty content parameter
         ret_json = self.nodeos.processUrllibRequest(resource, command, self.empty_content_dict)
-        self.assertIn("size", ret_json)
-        self.assertIn("incoming_size", ret_json)
+        self.assertIn("size", ret_json["payload"])
+        self.assertIn("incoming_size", ret_json["payload"])
         # get_unapplied_transactions with invalid parameter
         ret_json = self.nodeos.processUrllibRequest(resource, command, self.http_post_invalid_param)
         self.assertEqual(ret_json["code"], 400)
@@ -1047,7 +1047,7 @@ class PluginHttpTest(unittest.TestCase):
         # get_unapplied_transactions with valid parameter
         payload = {"lower_bound":"", "limit":1, "time_limit_ms":500}
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
-        self.assertIn("trxs", ret_json)
+        self.assertIn("trxs", ret_json["payload"])
 
     # test all wallet api
     def test_WalletApi(self) :
@@ -1245,10 +1245,10 @@ class PluginHttpTest(unittest.TestCase):
         # list_wallets with empty parameter
         command = "list_wallets"
         ret_json = self.nodeos.processUrllibRequest(resource, command, endpoint=endpoint)
-        self.assertEqual(type(ret_json), list)
+        self.assertEqual(type(ret_json["payload"]), list)
         # list_wallets with empty content parameter
         ret_json = self.nodeos.processUrllibRequest(resource, command, self.empty_content_dict, endpoint=endpoint)
-        self.assertEqual(type(ret_json), list)
+        self.assertEqual(type(ret_json["payload"]), list)
         # list_wallets with invalid parameter
         ret_json = self.nodeos.processUrllibRequest(resource, command, self.http_post_invalid_param, endpoint=endpoint)
         self.assertEqual(ret_json["code"], 400)
@@ -1275,10 +1275,10 @@ class PluginHttpTest(unittest.TestCase):
         # get_public_keys with empty parameter
         command = "get_public_keys"
         ret_json = self.nodeos.processUrllibRequest(resource, command, endpoint=endpoint)
-        self.assertEqual(type(ret_json), dict)
+        self.assertEqual(ret_json["code"], 500)
         # get_public_keys with empty content parameter
         ret_json = self.nodeos.processUrllibRequest(resource, command, self.empty_content_dict, endpoint=endpoint)
-        self.assertEqual(type(ret_json), dict)
+        self.assertEqual(ret_json["code"], 500)
         # list_wallets with invalid parameter
         ret_json = self.nodeos.processUrllibRequest(resource, command, self.http_post_invalid_param, endpoint=endpoint)
         self.assertEqual(ret_json["code"], 400)
@@ -1333,16 +1333,16 @@ class PluginHttpTest(unittest.TestCase):
         # get with empty parameter
         command = "get"
         ret_json = self.nodeos.processUrllibRequest(resource, command)
-        self.assertIn("free_bytes", ret_json)
-        self.assertIn("used_bytes", ret_json)
-        self.assertIn("size", ret_json)
-        self.assertIn("indices", ret_json)
+        self.assertIn("free_bytes", ret_json["payload"])
+        self.assertIn("used_bytes", ret_json["payload"])
+        self.assertIn("size", ret_json["payload"])
+        self.assertIn("indices", ret_json["payload"])
         # get with empty content parameter
         ret_json = self.nodeos.processUrllibRequest(resource, command, self.empty_content_dict)
-        self.assertIn("free_bytes", ret_json)
-        self.assertIn("used_bytes", ret_json)
-        self.assertIn("size", ret_json)
-        self.assertIn("indices", ret_json)
+        self.assertIn("free_bytes", ret_json["payload"])
+        self.assertIn("used_bytes", ret_json["payload"])
+        self.assertIn("size", ret_json["payload"])
+        self.assertIn("indices", ret_json["payload"])
         # get with invalid parameter
         ret_json = self.nodeos.processUrllibRequest(resource, command, self.http_post_invalid_param)
         self.assertEqual(ret_json["code"], 400)

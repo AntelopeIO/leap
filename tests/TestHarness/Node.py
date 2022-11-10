@@ -1038,7 +1038,9 @@ class Node(object):
         try:
             response = urllib.request.urlopen(req, data=data)
             if returnType==ReturnType.json:
-                rtn = json.load(response)
+                rtn = {}
+                rtn["payload"] = json.load(response)
+                rtn["code"] = response.getcode()
             elif returnType==ReturnType.raw:
                 rtn = response.read()
             else:
@@ -1444,7 +1446,7 @@ class Node(object):
     def getSupportedProtocolFeatureDict(self, excludeDisabled=False, excludeUnactivatable=False):
         protocolFeatureDigestDict = {}
         supportedProtocolFeatures = self.getSupportedProtocolFeatures(excludeDisabled, excludeUnactivatable)
-        for protocolFeature in supportedProtocolFeatures:
+        for protocolFeature in supportedProtocolFeatures["payload"]:
             for spec in protocolFeature["specification"]:
                 if (spec["name"] == "builtin_feature_codename"):
                     codename = spec["value"]
@@ -1495,7 +1497,7 @@ class Node(object):
     def getAllBuiltinFeatureDigestsToPreactivate(self):
         protocolFeatures = []
         supportedProtocolFeatures = self.getSupportedProtocolFeatures()
-        for protocolFeature in supportedProtocolFeatures:
+        for protocolFeature in supportedProtocolFeatures["payload"]:
             for spec in protocolFeature["specification"]:
                 if (spec["name"] == "builtin_feature_codename"):
                     codename = spec["value"]
