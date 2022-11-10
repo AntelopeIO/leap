@@ -1023,7 +1023,7 @@ class Node(object):
         payload={ "producer":producer, "where_in_sequence":whereInSequence, "based_on_lib":basedOnLib }
         return self.processUrllibRequest("test_control", "kill_node_on_producer", payload, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=exitMsg, returnType=returnType)
 
-    def processUrllibRequest(self, resource, command, payload={}, silentErrors=True, exitOnError=False, exitMsg=None, returnType=ReturnType.json, endpoint=None):
+    def processUrllibRequest(self, resource, command, payload={}, silentErrors=False, exitOnError=False, exitMsg=None, returnType=ReturnType.json, endpoint=None):
         if not endpoint:
             endpoint = self.endpointHttp
         cmd = "%s/v1/%s/%s" % (endpoint, resource, command)
