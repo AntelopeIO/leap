@@ -875,8 +875,12 @@ class Node(object):
             return (False, msg)
 
     # returns tuple with transaction execution status and transaction
-    def pushMessage(self, account, action, data, opts, silentErrors=False, signatures=None, expectTrxTrace=True, force=False):
-        cmd="%s %s push action -j %s %s" % (Utils.EosClientPath, self.eosClientArgs(), account, action)
+    def pushMessage(self, account, action, data, opts, silentErrors=False, signatures=None, expectTrxTrace=True, force=False, expiration=None):
+        expirationStr = ""
+        if expiration is not None:
+            expirationStr = "--expiration %d " % (expiration)
+
+        cmd="%s %s push action -j %s %s %s" % (Utils.EosClientPath, self.eosClientArgs(), expirationStr, account, action)
         cmdArr=cmd.split()
         # not using __sign_str, since cmdArr messes up the string
         if signatures is not None:
@@ -903,7 +907,7 @@ class Node(object):
             if not silentErrors:
                 end=time.perf_counter()
                 Utils.Print("ERROR: Exception during push message. stderr: %s. stdout: %s.  cmd Duration=%.3f sec." % (msg, output, end - start))
-            return (False, msg)
+            return (False, output)
 
     @staticmethod
     def __sign_str(sign, keys):
