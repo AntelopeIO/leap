@@ -65,11 +65,6 @@ namespace eosio { namespace client { namespace http {
       return 0;
    }
 
-   struct curl_handle : std::unique_ptr<CURL, decltype(&curl_easy_cleanup)> {
-      curl_handle(int) : std::unique_ptr<CURL, decltype(&curl_easy_cleanup)>( curl_easy_init(), &curl_easy_cleanup) {}
-   };
-
-
    std::tuple<unsigned int, std::string> do_http_post(const std::string& base_uri, const std::string& path,
                                                       const std::vector<std::string>& headers,
                                                       const std::string& postjson, bool verify_cert, bool verbose,
@@ -83,9 +78,9 @@ namespace eosio { namespace client { namespace http {
          initialized = true;
       }
 
-      static std::map<std::string, curl_handle> handles;
-      auto [itr, _] = handles.emplace(base_uri, 0);
-      auto curl = itr->second.get();
+      static std::unique_ptr<CURL, decltype(&curl_easy_cleanup)> handle(nullptr, &curl_easy_cleanup);
+      if (!handle) handle.reset(curl_easy_init());
+      auto curl = handle.get();
       EOS_ASSERT(curl != 0, chain::http_exception, "curl_easy_init failed");
 
       std::string uri;
