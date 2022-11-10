@@ -1,4 +1,4 @@
-add_executable( ${LEAP_UTIL_EXECUTABLE_NAME} main.cpp actions/generic.cpp actions/blocklog.cpp actions/snapshot.cpp actions/chain.cpp)
+add_executable( ${LEAP_UTIL_EXECUTABLE_NAME} main.cpp actions/subcommand.cpp actions/generic.cpp actions/blocklog.cpp actions/snapshot.cpp actions/chain.cpp)
 
 if( UNIX AND NOT APPLE )
   set(rt_library rt )

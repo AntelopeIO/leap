@@ -61,6 +61,11 @@ struct sha3_impl {
 	static constexpr uint8_t rot_constants[number_of_rounds] = {1, 3, 6, 10, 15, 21, 28, 36, 45, 55, 2, 14, 27, 41, 56, 8, 25, 43, 62, 18, 39, 61, 20, 44};
 	static constexpr uint8_t pi_lanes[number_of_rounds] = {10, 7, 11, 17, 18, 3, 5, 16, 8, 21, 24, 4, 15, 23, 19, 13, 12, 2, 20, 14, 22, 9, 6, 1};
 
+// Disable  "-Wpass-failed=loop-vectorize" for `rho pi` and `chi` loops
+#if defined(__clang__)
+# pragma clang diagnostic push
+# pragma clang diagnostic ignored "-Wpass-failed"
+#endif  
 	void update_step()
 	{
 		uint64_t bc[5];
@@ -136,6 +141,10 @@ struct sha3_impl {
 			}
 		}
 	}
+// Re-enable disabled warnings
+#if defined(__clang__)
+# pragma clang diagnostic pop
+#endif
 
 	void init() {
 		memset((char *)this, 0, sizeof(*this));

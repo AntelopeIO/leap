@@ -391,7 +391,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(test_compatible_versions, SNAPSHOT_SUITE, snapshot
    if (generate_log) {
       ///< Begin deterministic code to generate blockchain for comparison
 
-      tester chain(setup_policy::none, db_read_mode::SPECULATIVE, {legacy_default_max_inline_action_size});
+      tester chain(setup_policy::none, db_read_mode::HEAD, {legacy_default_max_inline_action_size});
       chain.create_account("snapshot"_n);
       chain.produce_blocks(1);
       chain.set_code("snapshot"_n, contracts::snapshot_test_wasm());

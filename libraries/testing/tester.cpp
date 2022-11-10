@@ -406,7 +406,8 @@ namespace eosio { namespace testing {
          preactivated_protocol_features.end()
       );
 
-      control->start_block( block_time, head_block_number - last_produced_block_num, feature_to_be_activated );
+      control->start_block( block_time, head_block_number - last_produced_block_num, feature_to_be_activated,
+                            controller::block_status::incomplete );
 
       // Clear the list, if start block finishes successfuly, the protocol features should be assumed to be activated
       protocol_features_to_be_activated_wo_preactivation.clear();
