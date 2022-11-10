@@ -3660,11 +3660,10 @@ namespace eosio {
          fc::rand_pseudo_bytes( my->node_id.data(), my->node_id.data_size());
          const controller& cc = my->chain_plug->chain();
 
-         if( cc.get_read_mode() == db_read_mode::IRREVERSIBLE || cc.get_read_mode() == db_read_mode::READ_ONLY ) {
+         if( cc.get_read_mode() == db_read_mode::IRREVERSIBLE ) {
             if( my->p2p_accept_transactions ) {
                my->p2p_accept_transactions = false;
-               string m = cc.get_read_mode() == db_read_mode::IRREVERSIBLE ? "irreversible" : "read-only";
-               wlog( "p2p-accept-transactions set to false due to read-mode: ${m}", ("m", m) );
+               wlog( "p2p-accept-transactions set to false due to read-mode: irreversible" );
             }
          }
          if( my->p2p_accept_transactions ) {

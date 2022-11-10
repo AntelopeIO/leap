@@ -77,8 +77,7 @@ witness_node_data_dir
 
 Testing/*
 build.tar.gz
-build/*
-build-debug/*
+[Bb]uild*/*
 deps/*
 dependencies/*
 
@@ -88,6 +87,7 @@ var/lib/node_*
 .idea/
 *.iws
 .DS_Store
+CMakeLists.txt.user
 
 !*.swagger.*
 
