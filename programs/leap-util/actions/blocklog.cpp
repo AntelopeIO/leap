@@ -104,22 +104,6 @@ void blocklog_actions::setup(CLI::App& app) {
    genesis->add_option("--output-file,-o", opt->output_file, "The file to write the output to (absolute or relative path).  If not specified then output is to stdout.");
 }
 
-void blocklog_actions::print_exception() noexcept {
-   try {
-      throw;
-   } catch(const fc::exception& e) {
-      elog("${e}", ("e", e.to_detail_string()));
-   } catch(const boost::exception& e) {
-      elog("${e}", ("e", boost::diagnostic_information(e)));
-   } catch(const CLI::RuntimeError& e) {
-      // avoid reporting it twice, RuntimeError is only for cli11
-   } catch(const std::exception& e) {
-      elog("${e}", ("e", e.what()));
-   } catch(...) {
-      elog("unknown exception");
-   }
-}
-
 void blocklog_actions::initialize() {
    try {
       bfs::path bld = opt->blocks_dir;

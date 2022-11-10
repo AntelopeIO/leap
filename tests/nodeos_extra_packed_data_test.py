@@ -133,7 +133,7 @@ try:
     transId=node.createInitializeAccount(testeraAccount, cluster.defproduceraAccount, stakedDeposit=0, waitForTransBlock=False, exitOnError=True)
 
     Print("Create new account %s via %s" % (testerbAccount.name, cluster.defproduceraAccount.name))
-    transId=node.createInitializeAccount(testerbAccount, cluster.defproduceraAccount, stakedDeposit=0, waitForTransBlock=False, exitOnError=True)
+    transId=node.createInitializeAccount(testerbAccount, cluster.defproduceraAccount, stakedDeposit=0, waitForTransBlock=True, exitOnError=True)
 
     Print("Validating accounts after user accounts creation")
     accounts=[testeraAccount, testerbAccount]

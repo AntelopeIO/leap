@@ -77,10 +77,10 @@ try:
     Print("Stand up cluster")
 
     specificExtraNodeosArgs={
-        3:"--transaction-retry-max-storage-size-gb 5 --disable-api-persisted-trx", # api node
-        4:"--disable-api-persisted-trx",                                           # relay only, will be killed
-        5:"--transaction-retry-max-storage-size-gb 5",                             # api node, will be isolated
-        6:"--disable-api-persisted-trx"                                            # relay only, will be killed
+        3:"--transaction-retry-max-storage-size-gb 5", # api node
+        4:"",                                          # relay only, will be killed
+        5:"--transaction-retry-max-storage-size-gb 5", # api node, will be isolated
+        6:""                                           # relay only, will be killed
     }
 
     # topo=ring all nodes are connected in a ring but also to the bios node

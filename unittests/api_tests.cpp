@@ -1538,8 +1538,8 @@ BOOST_FIXTURE_TEST_CASE(transaction_tests, TESTER) { try {
  *************************************************************************************/
 BOOST_AUTO_TEST_CASE(inline_action_subjective_limit) { try {
    const uint32_t _4k = 4 * 1024;
-   tester chain(setup_policy::full, db_read_mode::SPECULATIVE, {_4k + 100}, {_4k + 1});
-   tester chain2(setup_policy::full, db_read_mode::SPECULATIVE, {_4k + 100}, {_4k});
+   tester chain(setup_policy::full, db_read_mode::HEAD, {_4k + 100}, {_4k + 1});
+   tester chain2(setup_policy::full, db_read_mode::HEAD, {_4k + 100}, {_4k});
    signed_block_ptr block;
    for (int n=0; n < 2; ++n) {
       block = chain.produce_block();
@@ -1566,7 +1566,7 @@ BOOST_AUTO_TEST_CASE(inline_action_subjective_limit) { try {
  *************************************************************************************/
 BOOST_AUTO_TEST_CASE(inline_action_objective_limit) { try {
    const uint32_t _4k = 4 * 1024;
-   tester chain(setup_policy::full, db_read_mode::SPECULATIVE, {_4k}, {_4k - 1});
+   tester chain(setup_policy::full, db_read_mode::HEAD, {_4k}, {_4k - 1});
    chain.produce_blocks(2);
    chain.create_account( "testapi"_n );
    chain.produce_blocks(100);
@@ -1588,7 +1588,7 @@ BOOST_AUTO_TEST_CASE(inline_action_objective_limit) { try {
 
 BOOST_AUTO_TEST_CASE(deferred_inline_action_subjective_limit_failure) { try {
    const uint32_t _4k = 4 * 1024;
-   tester chain(setup_policy::full, db_read_mode::SPECULATIVE, {_4k + 100}, {_4k});
+   tester chain(setup_policy::full, db_read_mode::HEAD, {_4k + 100}, {_4k});
    chain.produce_blocks(2);
    chain.create_accounts( {"testapi"_n, "testapi2"_n, "alice"_n} );
    chain.set_code( "testapi"_n, contracts::test_api_wasm() );
@@ -1620,8 +1620,8 @@ BOOST_AUTO_TEST_CASE(deferred_inline_action_subjective_limit_failure) { try {
 
 BOOST_AUTO_TEST_CASE(deferred_inline_action_subjective_limit) { try {
    const uint32_t _4k = 4 * 1024;
-   tester chain(setup_policy::full, db_read_mode::SPECULATIVE, {_4k + 100}, {_4k + 1});
-   tester chain2(setup_policy::full, db_read_mode::SPECULATIVE, {_4k + 100}, {_4k});
+   tester chain(setup_policy::full, db_read_mode::HEAD, {_4k + 100}, {_4k + 1});
+   tester chain2(setup_policy::full, db_read_mode::HEAD, {_4k + 100}, {_4k});
    signed_block_ptr block;
    for (int n=0; n < 2; ++n) {
       block = chain.produce_block();
