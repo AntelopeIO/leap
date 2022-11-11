@@ -99,6 +99,88 @@ class Node(Transactions):
                 Utils.Print("account validation failed. account: %s" % (account.name))
                 raise
 
+    def waitForTransInBlock(self, transId, timeout=None):
+        """Wait for trans id to be finalized."""
+        assert(isinstance(transId, str))
+        lam = lambda: self.isTransInAnyBlock(transId)
+        ret=Utils.waitForBool(lam, timeout)
+        return ret
+
+    def waitForTransFinalization(self, transId, timeout=None):
+        """Wait for trans id to be finalized."""
+        assert(isinstance(transId, str))
+        lam = lambda: self.isTransFinalized(transId)
+        ret=Utils.waitForBool(lam, timeout)
+        return ret
+
+    def waitForNextBlock(self, timeout=None, blockType=BlockType.head):
+        num=self.getBlockNum(blockType=blockType)
+        lam = lambda: self.getBlockNum(blockType=blockType) > num
+        ret=Utils.waitForBool(lam, timeout)
+        return ret
+
+    def waitForBlock(self, blockNum, timeout=None, blockType=BlockType.head, reportInterval=None):
+        lam = lambda: self.getBlockNum(blockType=blockType) > blockNum
+        blockDesc = "head" if blockType == BlockType.head else "LIB"
+        count = 0
+
+        class WaitReporter:
+            def __init__(self, node, reportInterval):
+                self.count = 0
+                self.node = node
+                self.reportInterval = reportInterval
+
+            def __call__(self):
+                self.count += 1
+                if self.count % self.reportInterval == 0:
+                    info = self.node.getInfo()
+                    Utils.Print("Waiting on %s block num %d, get info = {\n%s\n}" % (blockDesc, blockNum, info))
+
+        reporter = WaitReporter(self, reportInterval) if reportInterval is not None else None
+        ret=Utils.waitForBool(lam, timeout, reporter=reporter)
+        return ret
+
+    def waitForIrreversibleBlock(self, blockNum, timeout=None, reportInterval=None):
+        return self.waitForBlock(blockNum, timeout=timeout, blockType=BlockType.lib, reportInterval=reportInterval)
+
+    def waitForTransBlockIfNeeded(self, trans, waitForTransBlock, exitOnError=False):
+        if not waitForTransBlock:
+            return trans
+
+        transId=Queries.getTransId(trans)
+        if not self.waitForTransInBlock(transId):
+            if exitOnError:
+                Utils.cmdError("transaction with id %s never made it to a block" % (transId))
+                Utils.errorExit("Failed to find transaction with id %s in a block before timeout" % (transId))
+            return None
+        return trans
+
+    def waitForHeadToAdvance(self, blocksToAdvance=1, timeout=None):
+        currentHead = self.getHeadBlockNum()
+        if timeout is None:
+            timeout = 6 + blocksToAdvance / 2
+        def isHeadAdvancing():
+            return self.getHeadBlockNum() >= currentHead + blocksToAdvance
+        return Utils.waitForBool(isHeadAdvancing, timeout)
+
+    def waitForLibToAdvance(self, timeout=30):
+        currentLib = self.getIrreversibleBlockNum()
+        def isLibAdvancing():
+            return self.getIrreversibleBlockNum() > currentLib
+        return Utils.waitForBool(isLibAdvancing, timeout)
+
+    def waitForProducer(self, producer, timeout=None, exitOnError=False):
+        if timeout is None:
+            # default to the typical configuration of 21 producers, each producing 12 blocks in a row (ever 1/2 second)
+            timeout = 21 * 6;
+        start=time.perf_counter()
+        initialProducer=self.getInfo()["head_block_producer"]
+        def isProducer():
+            return self.getInfo()["head_block_producer"] == producer;
+        found = Utils.waitForBool(isProducer, timeout)
+        assert not exitOnError or found, \
+            f"Waited for {time.perf_counter()-start} sec but never found producer: {producer}. Started with {initialProducer} and ended with {self.getInfo()['head_block_producer']}"
+        return found
 
     def killNodeOnProducer(self, producer, whereInSequence, blockType=BlockType.head, silentErrors=True, exitOnError=False, exitMsg=None, returnType=ReturnType.json):
         assert(isinstance(producer, str))
