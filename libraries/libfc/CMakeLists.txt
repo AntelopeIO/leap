@@ -1,11 +1,4 @@
 add_subdirectory( secp256k1 )
-
-set( WITH_PROCPS OFF CACHE BOOL "" FORCE)
-# set( CURVE "ALT_BN128" CACHE STRING "" FORCE)
-set( USE_ASM OFF CACHE BOOL "" FORCE)
-set( IS_LIBFF_PARENT OFF CACHE BOOL "" FORCE)
-set( FF_INSTALL_COMPONENT "${FC_INSTALL_COMPONENT}")
-# add_subdirectory( libraries/ff )
 add_subdirectory( libraries/bn256/src )
 
 set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
@@ -65,7 +58,6 @@ set( fc_sources
      src/crypto/public_key.cpp
      src/crypto/private_key.cpp
      src/crypto/signature.cpp
-    #  src/crypto/alt_bn128.cpp
      src/crypto/modular_arithmetic.cpp
      src/crypto/blake2.cpp
      src/crypto/k1_recover.cpp
@@ -155,9 +147,8 @@ if(APPLE)
   find_library(security_framework Security)
   find_library(corefoundation_framework CoreFoundation)
 endif()
-target_link_libraries( fc PUBLIC bn256
-                                 Boost::date_time Boost::filesystem Boost::chrono Boost::iostreams Threads::Threads
-                                 OpenSSL::Crypto OpenSSL::SSL ZLIB::ZLIB ${PLATFORM_SPECIFIC_LIBS} ${CMAKE_DL_LIBS} secp256k1 ${security_framework} ${corefoundation_framework} ${GMP_LIBRARIES})
+target_link_libraries( fc PUBLIC Boost::date_time Boost::filesystem Boost::chrono Boost::iostreams Threads::Threads
+                                 OpenSSL::Crypto OpenSSL::SSL ZLIB::ZLIB ${PLATFORM_SPECIFIC_LIBS} ${CMAKE_DL_LIBS} secp256k1 ${security_framework} ${corefoundation_framework})
 
 # Critically, this ensures that OpenSSL 1.1 & 3.0 both have a variant of BN_zero() with void return value. But it also allows access
 #  to some obsoleted AES functions in 3.0 too, since 3.0's API_COMPAT is effectively 3.0 by default
