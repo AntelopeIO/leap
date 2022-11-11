@@ -217,11 +217,6 @@ namespace eosio {
 
    using runtime_metrics=eosio::chain::plugin_interface::runtime_metric;
 
-   struct net_plugin_metrics {
-      runtime_metric num_peers{"net_plugin", "num_peers", 0};
-      runtime_metric num_clients{"net_plugin", "num_clients", 0};
-   };
-
    class net_plugin_impl : public std::enable_shared_from_this<net_plugin_impl> {
    public:
       unique_ptr<tcp::acceptor>        acceptor;
@@ -292,7 +287,7 @@ namespace eosio {
 
       uint16_t                                       thread_pool_size = 2;
       std::optional<eosio::chain::named_thread_pool> thread_pool;
-      net_plugin_metrics metrics;
+      std::shared_ptr<net_plugin_metrics> metrics;
 
    private:
       mutable std::mutex            chain_info_mtx; // protects chain_*
@@ -2688,6 +2683,7 @@ namespace eosio {
       shared_ptr<packed_transaction> ptr = std::make_shared<packed_transaction>();
       fc::raw::unpack( ds, *ptr );
       if( trx_in_progress_sz > def_max_trx_in_progress_size) {
+         my_impl->metrics->dropped_trxs.value++;
          char reason[72];
          snprintf(reason, 72, "Dropping trx, too many trx in progress %lu bytes", trx_in_progress_sz);
          my_impl->producer_plug->log_failed_transaction(ptr->id(), ptr, reason);
@@ -3347,8 +3343,8 @@ namespace eosio {
       }
       g.unlock();
 
-      metrics.num_clients.value = num_clients;
-      metrics.num_peers.value = num_peers;
+      metrics->num_clients.value = num_clients;
+      metrics->num_peers.value = num_peers;
       
       if( num_clients > 0 || num_peers > 0 )
          fc_ilog( logger, "p2p client connections: ${num}/${max}, peer connections: ${pnum}/${pmax}",
@@ -3678,6 +3674,8 @@ namespace eosio {
             my->chain_plug->enable_accept_transactions();
          }
 
+         my->metrics = std::make_shared<net_plugin_metrics>();
+
       } FC_LOG_AND_RETHROW()
    }
 
@@ -3830,11 +3828,8 @@ namespace eosio {
       FC_CAPTURE_AND_RETHROW()
    }
 
-   std::shared_ptr<vector<runtime_metric *>> net_plugin::metrics() {
-      auto net_plugin_metrics = std::make_shared<vector<runtime_metric *>>();
-      net_plugin_metrics->push_back(&my->metrics.num_clients);
-      net_plugin_metrics->push_back(&my->metrics.num_peers);
-      return net_plugin_metrics;
+   std::shared_ptr<net_plugin_metrics> net_plugin::metrics() {
+      return my->metrics;
    }
 
    /**
