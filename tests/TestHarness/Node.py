@@ -1026,7 +1026,7 @@ class Node(object):
     def processUrllibRequest(self, resource, command, payload={}, silentErrors=False, exitOnError=False, exitMsg=None, returnType=ReturnType.json, endpoint=None):
         if not endpoint:
             endpoint = self.endpointHttp
-        cmd = "%s/v1/%s/%s" % (endpoint, resource, command)
+        cmd = f"{endpoint}/v1/{resource}/{command}"
         req = urllib.request.Request(cmd, method="POST")
         req.add_header('Content-Type', 'application/json')
         data = payload

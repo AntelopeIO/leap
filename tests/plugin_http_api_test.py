@@ -12,7 +12,7 @@ from TestHarness import Account, Node, TestHelper, Utils, WalletMgr, ReturnType
 
 class PluginHttpTest(unittest.TestCase):
     sleep_s = 2
-    base_wallet_cmd_str = ("http://%s:%s") % (TestHelper.LOCAL_HOST, TestHelper.DEFAULT_WALLET_PORT)
+    base_wallet_cmd_str = f"http://{TestHelper.LOCAL_HOST}:{TestHelper.DEFAULT_WALLET_PORT}"
     keosd = WalletMgr(True, TestHelper.DEFAULT_PORT, TestHelper.LOCAL_HOST, TestHelper.DEFAULT_WALLET_PORT, TestHelper.LOCAL_HOST)
     node_id = 1
     nodeos = Node(TestHelper.LOCAL_HOST, TestHelper.DEFAULT_PORT, node_id, walletMgr=keosd)
@@ -545,8 +545,8 @@ class PluginHttpTest(unittest.TestCase):
         self.assertEqual(ret_json["error"]["code"], 3200006)
         # abi_json_to_bin with valid parameter
         payload = {"code":"eosio.token",
-                     "action":"issue",
-                     "args":{"to":"eosio.token", "quantity":"1.0000\%20EOS","memo":"m"}}
+                   "action":"issue",
+                   "args":{"to":"eosio.token", "quantity":"1.0000\%20EOS","memo":"m"}}
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
         self.assertEqual(ret_json["code"], 500)
 
@@ -565,8 +565,8 @@ class PluginHttpTest(unittest.TestCase):
         self.assertEqual(ret_json["error"]["code"], 3200006)
         # abi_bin_to_json with valid parameter
         payload = {"code":"eosio.token",
-                     "action":"issue",
-                     "args":"ee6fff5a5c02c55b6304000000000100a6823403ea3055000000572d3ccdcd0100000000007015d600000000a8ed32322a00000000007015d6000000005c95b1ca102700000000000004454f53000000000968656c6c6f206d616e00"}
+                   "action":"issue",
+                   "args":"ee6fff5a5c02c55b6304000000000100a6823403ea3055000000572d3ccdcd0100000000007015d600000000a8ed32322a00000000007015d6000000005c95b1ca102700000000000004454f53000000000968656c6c6f206d616e00"}
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
         self.assertEqual(ret_json["code"], 500)
 
@@ -585,15 +585,15 @@ class PluginHttpTest(unittest.TestCase):
         self.assertEqual(ret_json["error"]["code"], 3200006)
         # get_required_keys with valid parameter
         payload = {"ref_block_num":"100",
-                     "ref_block_prefix": "137469861",
-                     "expiration": "2020-09-25T06:28:49",
-                     "scope":["initb", "initc"],
-                     "actions": [{"code": "currency","type":"transfer","recipients": ["initb", "initc"],"authorization": [{"account": "initb", "permission": "active"}],"data":"000000000041934b000000008041934be803000000000000"}],
-                     "signatures": [],
-                     "authorizations": [],
-                     "available_keys":["EOS4toFS3YXEQCkuuw1aqDLrtHim86Gz9u3hBdcBw5KNPZcursVHq",
-                     "EOS7d9A3uLe6As66jzN8j44TXJUqJSK3bFjjEEqR4oTvNAB3iM9SA",
-                     "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"]}
+                   "ref_block_prefix": "137469861",
+                   "expiration": "2020-09-25T06:28:49",
+                   "scope":["initb", "initc"],
+                   "actions": [{"code": "currency","type":"transfer","recipients": ["initb", "initc"],"authorization": [{"account": "initb", "permission": "active"}],"data":"000000000041934b000000008041934be803000000000000"}],
+                   "signatures": [],
+                   "authorizations": [],
+                   "available_keys":["EOS4toFS3YXEQCkuuw1aqDLrtHim86Gz9u3hBdcBw5KNPZcursVHq",
+                   "EOS7d9A3uLe6As66jzN8j44TXJUqJSK3bFjjEEqR4oTvNAB3iM9SA",
+                   "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"]}
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
         self.assertEqual(ret_json["code"], 500)
 
@@ -612,16 +612,16 @@ class PluginHttpTest(unittest.TestCase):
         self.assertEqual(ret_json["error"]["code"], 3200006)
         # get_transaction_id with valid parameter
         payload = {"expiration":"2020-08-01T07:15:49",
-                     "ref_block_num": 34881,
-                     "ref_block_prefix":2972818865,
-                     "max_net_usage_words":0,
-                     "max_cpu_usage_ms":0,
-                     "delay_sec":0,
-                     "context_free_actions":[],
-                     "actions":[{"account":"eosio.token","name": "transfer","authorization": [{"actor": "han","permission": "active"}],"data": "000000000000a6690000000000ea305501000000000000000453595300000000016d"}],
-                     "transaction_extensions": [],
-                     "signatures": ["SIG_K1_KeqfqiZu1GwUxQb7jzK9Fdks6HFaVBQ9AJtCZZj56eG9qGgvVMVtx8EerBdnzrhFoX437sgwtojf2gfz6S516Ty7c22oEp"],
-                     "context_free_data": []}
+                   "ref_block_num": 34881,
+                   "ref_block_prefix":2972818865,
+                   "max_net_usage_words":0,
+                   "max_cpu_usage_ms":0,
+                   "delay_sec":0,
+                   "context_free_actions":[],
+                   "actions":[{"account":"eosio.token","name": "transfer","authorization": [{"actor": "han","permission": "active"}],"data": "000000000000a6690000000000ea305501000000000000000453595300000000016d"}],
+                   "transaction_extensions": [],
+                   "signatures": ["SIG_K1_KeqfqiZu1GwUxQb7jzK9Fdks6HFaVBQ9AJtCZZj56eG9qGgvVMVtx8EerBdnzrhFoX437sgwtojf2gfz6S516Ty7c22oEp"],
+                   "context_free_data": []}
         ret_str = self.nodeos.processUrllibRequest(resource, command, payload, returnType=ReturnType.raw).decode('ascii')
         self.assertEqual(ret_str, "\"0be762a6406bab15530e87f21e02d1c58e77944ee55779a76f4112e3b65cac48\"")
 
@@ -658,9 +658,9 @@ class PluginHttpTest(unittest.TestCase):
         self.assertEqual(ret_json["error"]["code"], 3200006)
         # push_transaction with valid parameter
         payload = {"signatures":["SIG_K1_KeqfqiZu1GwUxQb7jzK9Fdks6HFaVBQ9AJtCZZj56eG9qGgvVMVtx8EerBdnzrhFoX437sgwtojf2gfz6S516Ty7c22oEp"],
-                     "compression": "true",
-                     "packed_context_free_data": "context_free_data",
-                     "packed_trx": "packed_trx"}
+                   "compression": "true",
+                   "packed_context_free_data": "context_free_data",
+                   "packed_trx": "packed_trx"}
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
         self.assertEqual(ret_json["code"], 500)
 
@@ -1098,8 +1098,8 @@ class PluginHttpTest(unittest.TestCase):
                               "signatures": ["SIG_K1_KeqfqiZu1GwUxQb7jzK9Fdks6HFaVBQ9AJtCZZj56eG9qGgvVMVtx8EerBdnzrhFoX437sgwtojf2gfz6S516Ty7c22oEp"],
                               "context_free_data": []}
         payload = [signed_transaction,
-                     ["EOS696giL6VxeJhtEgKtWPK8aQeT8YXNjw2a7vE5wHunffhfa5QSQ"],
-                     "cf057bbfb72640471fd910bcb67639c22df9f92470936cddc1ade0e2f2e7dc4f"]
+                   ["EOS696giL6VxeJhtEgKtWPK8aQeT8YXNjw2a7vE5wHunffhfa5QSQ"],
+                   "cf057bbfb72640471fd910bcb67639c22df9f92470936cddc1ade0e2f2e7dc4f"]
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload, endpoint=endpoint)
         self.assertEqual(ret_json["code"], 500)
         self.assertEqual(ret_json["error"]["code"], 3120004)
