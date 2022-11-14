@@ -509,7 +509,7 @@ BOOST_AUTO_TEST_CASE( producer_watermark_test ) try {
    auto carol_block_time = c.control->head_block_time() + fc::milliseconds(config::block_interval_ms);
    auto confirmed = carol_block_num - carol_last_produced_block_num - 1;
 
-   c.control->start_block( carol_block_time, confirmed );
+   c.control->start_block( carol_block_time, confirmed, {}, controller::block_status::incomplete );
    BOOST_CHECK_EQUAL( c.control->pending_block_producer(), "carol"_n );
    c.produce_block();
    auto h = c.control->head_block_header();

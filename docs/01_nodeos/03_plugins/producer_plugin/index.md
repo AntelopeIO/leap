@@ -135,8 +135,6 @@ Config Options for eosio::producer_plugin:
                                         transaction queue. Exceeding this value
                                         will subjectively drop transaction with
                                         resource exhaustion.
-  --disable-api-persisted-trx           Disable the re-apply of API
-                                        transactions.
   --disable-subjective-billing arg (=1) Disable subjective CPU billing for
                                         API/P2P transactions
   --disable-subjective-account-billing arg

@@ -10,9 +10,9 @@ The best way to install and use the Antelope software is to build it from source
 
 Antelope currently supports the following operating systems:
 
-1. Ubuntu 18.04
-2. Ubuntu 20.04
-3. Ubuntu 22.04
+1. Ubuntu 22.04 Jammy
+2. Ubuntu 20.04 Focal
+3. Ubuntu 18.04 Bionic
 
 [[info | Note]]
 | It may be possible to build and install Antelope on other Unix-based operating systems. We gathered helpful information on the following page but please keep in mind that it is experimental and not officially supported. 

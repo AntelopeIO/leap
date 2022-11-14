@@ -58,19 +58,13 @@ try:
     walletMgr.killall(allInstances=killAll)
     walletMgr.cleanup()
 
-    # set the last two nodes as speculative
-    specificExtraNodeosArgs={}
-    specificExtraNodeosArgs[1]="--read-mode speculative "
-    specificExtraNodeosArgs[2]="--read-mode speculative "
-
     Print("Stand up cluster")
     if cluster.launch(
             pnodes=pnodes,
             totalNodes=total_nodes,
             totalProducers=1,
             useBiosBootFile=False,
-            topo="mesh",
-            specificExtraNodeosArgs=specificExtraNodeosArgs) is False:
+            topo="mesh") is False:
         errorExit("Failed to stand up eos cluster.")
 
     producingNode=cluster.getNode(0)

@@ -91,11 +91,6 @@ Config Options for eosio::wallet_plugin:
                                         number of seconds of inactivity.
                                         Activity is defined as any wallet
                                         command e.g. list-wallets.
-  --yubihsm-url URL                     Override default URL of
-                                        http://localhost:12345 for connecting
-                                        to yubihsm-connector
-  --yubihsm-authkey key_num             Enables YubiHSM support using given
-                                        Authkey
 
 Application Config Options:
   --plugin arg                          Plugin(s) to enable, may be specified

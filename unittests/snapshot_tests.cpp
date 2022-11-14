@@ -159,7 +159,7 @@ namespace {
    }
 
    template <typename SNAPSHOT_SUITE>
-   void verify_integrity_hash(const controller& lhs, const controller& rhs) {
+   void verify_integrity_hash(controller& lhs, controller& rhs) {
       const auto lhs_integrity_hash = lhs.calculate_integrity_hash();
       const auto rhs_integrity_hash = rhs.calculate_integrity_hash();
       if (std::is_same_v<SNAPSHOT_SUITE, variant_snapshot_suite> && lhs_integrity_hash.str() != rhs_integrity_hash.str()) {
@@ -391,7 +391,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(test_compatible_versions, SNAPSHOT_SUITE, snapshot
    if (generate_log) {
       ///< Begin deterministic code to generate blockchain for comparison
 
-      tester chain(setup_policy::none, db_read_mode::SPECULATIVE, {legacy_default_max_inline_action_size});
+      tester chain(setup_policy::none, db_read_mode::HEAD, {legacy_default_max_inline_action_size});
       chain.create_account("snapshot"_n);
       chain.produce_blocks(1);
       chain.set_code("snapshot"_n, contracts::snapshot_test_wasm());

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <eosio/http_plugin/common.hpp>
+#include <fc/io/json.hpp>
 
 #include <memory>
 #include <string>
@@ -105,27 +106,16 @@ protected:
       res_->version(req.version());
       res_->set(http::field::content_type, "application/json");
       res_->keep_alive(req.keep_alive());
-      res_->set(http::field::server, BOOST_BEAST_VERSION_STRING);
-
-      // Returns a bad request response
-      auto const bad_request =
-            [](const beast::string_view& why, detail::abstract_conn& conn) {
-               conn.send_response(std::string(why),
-                                  static_cast<int>(http::status::bad_request));
-            };
-
-      // Returns a not found response
-      auto const not_found =
-            [](const std::string& target, detail::abstract_conn& conn) {
-               conn.send_response("The resource '" + target + "' was not found.",
-                                  static_cast<int>(http::status::not_found));
-            };
+      if(plugin_state_->server_header.size())
+         res_->set(http::field::server, plugin_state_->server_header);
 
       // Request path must be absolute and not contain "..".
-      if(req.target().empty() ||
-         req.target()[0] != '/' ||
-         req.target().find("..") != beast::string_view::npos)
-         return bad_request("Illegal request-target", *this);
+      if(req.target().empty() || req.target()[0] != '/' || req.target().find("..") != beast::string_view::npos) {
+         error_results results{static_cast<uint16_t>(http::status::bad_request), "Illegal request-target"};
+         send_response( fc::json::to_string( results, fc::time_point::maximum() ),
+                        static_cast<unsigned int>(http::status::bad_request) );
+         return;
+      }
 
       try {
          if(!derived().allow_host(req))
@@ -146,7 +136,7 @@ protected:
 
          // Respond to options request
          if(req.method() == http::verb::options) {
-            send_response("", static_cast<int>(http::status::ok));
+            send_response("{}", static_cast<unsigned int>(http::status::ok));
             return;
          }
 
@@ -154,7 +144,7 @@ protected:
          if(!verify_max_bytes_in_flight()) return;
 
          std::string resource = std::string(req.target());
-         // look for the URL handler to handle this reosouce
+         // look for the URL handler to handle this resource
          auto handler_itr = plugin_state_->url_handlers.find(resource);
          if(handler_itr != plugin_state_->url_handlers.end()) {
             if(plugin_state_->logger.is_enabled(fc::log_level::all))
@@ -165,17 +155,16 @@ protected:
                                 std::move(body),
                                 make_http_response_handler(plugin_state_, derived().shared_from_this()));
          } else {
-            fc_dlog(plugin_state_->logger, "404 - not found: ${ep}", ("ep", resource));
-            not_found(resource, *this);
+            fc_dlog( plugin_state_->logger, "404 - not found: ${ep}", ("ep", resource) );
+            error_results results{static_cast<uint16_t>(http::status::not_found), "Not Found",
+                                  error_results::error_info( fc::exception( FC_LOG_MESSAGE( error, "Unknown Endpoint" ) ),
+                                                             http_plugin::verbose_errors() )};
+            send_response( fc::json::to_string( results, fc::time_point::now() + plugin_state_->max_response_time ),
+                           static_cast<unsigned int>(http::status::not_found) );
          }
       } catch(...) {
          handle_exception();
       }
-   }
-
-   void report_429_error(std::string what) {
-      send_response(std::move(what),
-                    static_cast<int>(http::status::too_many_requests));
    }
 
 public:
@@ -183,9 +172,12 @@ public:
       auto bytes_in_flight_size = plugin_state_->bytes_in_flight.load();
       if(bytes_in_flight_size > plugin_state_->max_bytes_in_flight) {
          fc_dlog(plugin_state_->logger, "429 - too many bytes in flight: ${bytes}", ("bytes", bytes_in_flight_size));
-         std::string what = "Too many bytes in flight: " + std::to_string(bytes_in_flight_size) + ". Try again later.";
-         ;
-         report_429_error(std::move(what));
+         error_results::error_info ei;
+         ei.code = static_cast<int64_t>(http::status::too_many_requests);
+         ei.name = "Busy";
+         ei.what = "Too many bytes in flight: " + std::to_string( bytes_in_flight_size );
+         error_results results{static_cast<uint16_t>(http::status::too_many_requests), "Busy", ei};
+         send_response( fc::json::to_string( results, fc::time_point::maximum() ), static_cast<unsigned int>(http::status::too_many_requests) );
          return false;
       }
       return true;
@@ -198,8 +190,12 @@ public:
       auto requests_in_flight_num = plugin_state_->requests_in_flight.load();
       if(requests_in_flight_num > plugin_state_->max_requests_in_flight) {
          fc_dlog(plugin_state_->logger, "429 - too many requests in flight: ${requests}", ("requests", requests_in_flight_num));
-         std::string what = "Too many requests in flight: " + std::to_string(requests_in_flight_num) + ". Try again later.";
-         report_429_error(std::move(what));
+         error_results::error_info ei;
+         ei.code = static_cast<int64_t>(http::status::too_many_requests);
+         ei.name = "Busy";
+         ei.what = "Too many requests in flight: " + std::to_string( requests_in_flight_num );
+         error_results results{static_cast<uint16_t>(http::status::too_many_requests), "Busy", ei};
+         send_response( fc::json::to_string( results, fc::time_point::maximum() ), static_cast<unsigned int>(http::status::too_many_requests) );
          return false;
       }
       return true;
@@ -310,38 +306,59 @@ public:
    virtual void handle_exception() override {
       std::string err_str;
       try {
-         throw;
-      } catch(const fc::exception& e) {
-         err_str = e.to_detail_string();
-         fc_elog(plugin_state_->logger, "fc::exception: ${w}", ("w", err_str));
-      } catch(std::exception& e) {
-         err_str = e.what();
-         fc_elog(plugin_state_->logger, "std::exception: ${w}", ("w", err_str));
-      } catch(...) {
-         err_str = "unknown";
-         fc_elog(plugin_state_->logger, "unkonwn exception");
+         try {
+            throw;
+         } catch(const fc::exception& e) {
+            err_str = e.to_detail_string();
+            fc_elog(plugin_state_->logger, "fc::exception: ${w}", ("w", err_str));
+            error_results results{static_cast<uint16_t>(http::status::internal_server_error),
+                                  "Internal Service Error",
+                                  error_results::error_info( e, http_plugin::verbose_errors() )};
+            err_str = fc::json::to_string( results, fc::time_point::now() + plugin_state_->max_response_time );
+         } catch(std::exception& e) {
+            err_str = e.what();
+            fc_elog(plugin_state_->logger, "std::exception: ${w}", ("w", err_str));
+            error_results results{static_cast<uint16_t>(http::status::internal_server_error),
+                                  "Internal Service Error",
+                                  error_results::error_info( fc::exception( FC_LOG_MESSAGE( error, err_str )),
+                                                             http_plugin::verbose_errors() )};
+            err_str = fc::json::to_string( results, fc::time_point::now() + plugin_state_->max_response_time );
+         } catch(...) {
+            err_str = "Unknown exception";
+            fc_elog(plugin_state_->logger, err_str);
+            error_results results{static_cast<uint16_t>(http::status::internal_server_error),
+                                  "Internal Service Error",
+                                  error_results::error_info(
+                                        fc::exception( FC_LOG_MESSAGE( error, err_str )),
+                                        http_plugin::verbose_errors() )};
+            err_str = fc::json::to_string( results, fc::time_point::now() + plugin_state_->max_response_time );
+         }
+      } catch (fc::timeout_exception& e) {
+         fc_elog( plugin_state_->logger, "Timeout exception ${te} attempting to handle exception: ${e}", ("te", e.to_detail_string())("e", err_str) );
+         err_str = R"xxx({"message": "Internal Server Error"})xxx";
+      } catch (...) {
+         fc_elog( plugin_state_->logger, "Exception attempting to handle exception: ${e}", ("e", err_str) );
+         err_str = R"xxx({"message": "Internal Server Error"})xxx";
       }
 
+
       if(is_send_exception_response_) {
-         res_->set(http::field::content_type, "text/plain");
+         res_->set(http::field::content_type, "application/json");
          res_->keep_alive(false);
          res_->set(http::field::server, BOOST_BEAST_VERSION_STRING);
 
-         http::status stat = http::status::internal_server_error;
-         auto resp_str = "Internal Server Error\n\nUnhandled Exception: " + err_str;
-         send_response(resp_str, static_cast<int>(stat));
+         send_response(std::move(err_str), static_cast<unsigned int>(http::status::internal_server_error));
          derived().do_eof();
       }
    }
 
-   virtual void send_response(std::optional<std::string> body, int code) override {
+   virtual void send_response(std::string json_body, unsigned int code) override {
       write_begin_ = steady_clock::now();
       auto dt = write_begin_ - handle_begin_;
       handle_time_us_ += std::chrono::duration_cast<std::chrono::microseconds>(dt).count();
 
       res_->result(code);
-      if(body.has_value())
-         res_->body() = *body;
+      res_->body() = std::move(json_body);
 
       res_->prepare_payload();
 

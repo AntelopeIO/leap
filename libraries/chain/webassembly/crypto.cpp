@@ -36,7 +36,7 @@ namespace eosio { namespace chain { namespace webassembly {
       EOS_ASSERT(p.which() < context.db.get<protocol_state_object>().num_supported_key_types, unactivated_key_type,
         "Unactivated key type used when creating assert_recover_key");
 
-      if(context.control.is_producing_block())
+      if(context.control.is_speculative_block())
          EOS_ASSERT(s.variable_size() <= context.control.configured_subjective_signature_length_limit(),
                     sig_variable_size_limit_exception, "signature variable length component size greater than subjective maximum");
 
@@ -54,7 +54,7 @@ namespace eosio { namespace chain { namespace webassembly {
       EOS_ASSERT(s.which() < context.db.get<protocol_state_object>().num_supported_key_types, unactivated_signature_type,
                  "Unactivated signature type used during recover_key");
 
-      if(context.control.is_producing_block())
+      if(context.control.is_speculative_block())
          EOS_ASSERT(s.variable_size() <= context.control.configured_subjective_signature_length_limit(),
                     sig_variable_size_limit_exception, "signature variable length component size greater than subjective maximum");
 
@@ -168,7 +168,7 @@ namespace eosio { namespace chain { namespace webassembly {
                               span<const char> exp,
                               span<const char> modulus,
                               span<char> out) const {
-      if (context.control.is_producing_block()) {
+      if (context.control.is_speculative_block()) {
          unsigned int base_modulus_size = std::max(base.size(), modulus.size());
 
          if (base_modulus_size < exp.size()) {

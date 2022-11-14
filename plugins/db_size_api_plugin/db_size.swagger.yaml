@@ -1,12 +1,13 @@
 openapi: 3.0.0
 info:
   title: DB Size API
+  description: Nodeos DB Size API Specification. See developer documentation at https://docs.eosnetwork.com for information on enabling this plugin.
   version: 1.0.0
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT
   contact:
-    url: https://eos.io
+    url: https://eosnetwork.com
 servers:
   - url: '{protocol}://{host}:{port}/v1/'
     variables:

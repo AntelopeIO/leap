@@ -59,7 +59,8 @@ namespace eosio::resource_monitor {
 
             if ( info.available < fs.shutdown_available ) {
                if (output_threshold_warning) {
-                  wlog("Space usage warning: ${path}'s file system exceeded threshold ${threshold}%, available: ${available}, Capacity: ${capacity}, shutdown_available: ${shutdown_available}", ("path", fs.path_name.string()) ("threshold", shutdown_threshold) ("available", info.available) ("capacity", info.capacity) ("shutdown_available", fs.shutdown_available));
+                  elog("Space usage warning: ${path}'s file system exceeded threshold ${threshold}%, available: ${available}, Capacity: ${capacity}, shutdown_available: ${shutdown_available}",
+                       ("path", fs.path_name.string())("threshold", shutdown_threshold)("available", info.available)("capacity", info.capacity)("shutdown_available", fs.shutdown_available));
                }
                return true;
             } else if ( info.available < fs.warning_available && output_threshold_warning ) {
@@ -114,7 +115,7 @@ namespace eosio::resource_monitor {
    
    void space_monitor_loop() {
       if ( is_threshold_exceeded() && shutdown_on_exceeded ) {
-         wlog("Shutting down");
+         elog("Shutting down, file system exceeded threshold");
          appbase::app().quit(); // This will gracefully stop Nodeos
          return;
       }
