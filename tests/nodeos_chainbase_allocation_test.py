@@ -86,13 +86,13 @@ try:
             return producerNode.getIrreversibleBlockNum() >= setProdsBlockNum
     Utils.waitForBool(isSetProdsBlockNumIrr, timeout=30, sleepTime=0.1)
     # Once it is irreversible, immediately pause the producer so the promoted producer schedule is not cleared
-    producerNode.processCurlCmd("producer", "pause", "")
+    producerNode.processUrllibRequest("producer", "pause")
 
     producerNode.kill(signal.SIGTERM)
 
     # Create the snapshot and rename it to avoid name conflict later on
     res = irrNode.createSnapshot()
-    beforeShutdownSnapshotPath = res["snapshot_name"]
+    beforeShutdownSnapshotPath = res["payload"]["snapshot_name"]
     snapshotPathWithoutExt, snapshotExt = os.path.splitext(beforeShutdownSnapshotPath)
     os.rename(beforeShutdownSnapshotPath, snapshotPathWithoutExt + "_before_shutdown" + snapshotExt)
 
@@ -101,7 +101,7 @@ try:
     isRelaunchSuccess = irrNode.relaunch(timeout=5, cachePopen=True)
     assert isRelaunchSuccess, "Fail to relaunch"
     res = irrNode.createSnapshot()
-    afterShutdownSnapshotPath = res["snapshot_name"]
+    afterShutdownSnapshotPath = res["payload"]["snapshot_name"]
     assert filecmp.cmp(beforeShutdownSnapshotPath, afterShutdownSnapshotPath), "snapshot is not identical"
 
     testSuccessful = True
