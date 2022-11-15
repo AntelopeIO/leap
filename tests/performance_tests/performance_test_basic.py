@@ -56,6 +56,13 @@ class PerformanceBasicTest:
                     return f"--signature-cpu-billable-pct {self.signatureCpuBillablePct} --chain-threads {self.chainThreads}"
 
             @dataclass
+            class ExtraNodeosNetPluginArgs:
+                netThreads: int = 2
+
+                def argsStr(self) -> str:
+                    return f"--net-threads {self.netThreads}"
+
+            @dataclass
             class ExtraNodeosProducerPluginArgs:
                 disableSubjectiveBilling: bool = True
                 lastBlockTimeOffsetUs: int = 0
@@ -80,9 +87,10 @@ class PerformanceBasicTest:
             chainPluginArgs: ExtraNodeosChainPluginArgs = ExtraNodeosChainPluginArgs()
             producerPluginArgs: ExtraNodeosProducerPluginArgs = ExtraNodeosProducerPluginArgs()
             httpPluginArgs: ExtraNodeosHttpPluginArgs = ExtraNodeosHttpPluginArgs()
+            netPluginArgs: ExtraNodeosNetPluginArgs = ExtraNodeosNetPluginArgs()
 
             def argsStr(self) -> str:
-                return f" {self.httpPluginArgs.argsStr()} {self.producerPluginArgs.argsStr()} {self.chainPluginArgs.argsStr()}"
+                return f" {self.httpPluginArgs.argsStr()} {self.producerPluginArgs.argsStr()} {self.chainPluginArgs.argsStr()} {self.netPluginArgs.argsStr()}"
 
         pnodes: int = 1
         totalNodes: int = 2
@@ -400,6 +408,7 @@ def parseArgs():
                 "to prune from the beginning and end of the range of blocks of interest for evaluation."), default=2)
     appArgs.add(flag="--signature-cpu-billable-pct", type=int, help="Percentage of actual signature recovery cpu to bill. Whole number percentages, e.g. 50 for 50%%", default=0)
     appArgs.add(flag="--chain-threads", type=int, help="Number of worker threads in controller thread pool", default=2)
+    appArgs.add(flag="--net-threads", type=int, help="Number of worker threads in net_plugin thread pool", default=2)
     appArgs.add(flag="--disable-subjective-billing", type=bool, help="Disable subjective CPU billing for API/P2P transactions", default=True)
     appArgs.add(flag="--last-block-time-offset-us", type=int, help="Offset of last block producing time in microseconds. Valid range 0 .. -block_time_interval.", default=0)
     appArgs.add(flag="--produce-time-offset-us", type=int, help="Offset of non last block producing time in microseconds. Valid range 0 .. -block_time_interval.", default=0)
@@ -428,7 +437,8 @@ def main():
                 lastBlockTimeOffsetUs=args.last_block_time_offset_us, produceTimeOffsetUs=args.produce_time_offset_us, cpuEffortPercent=args.cpu_effort_percent,
                 lastBlockCpuEffortPercent=args.last_block_cpu_effort_percent)
     extraNodeosHttpPluginArgs = PerformanceBasicTest.ClusterConfig.ExtraNodeosArgs.ExtraNodeosHttpPluginArgs(httpMaxResponseTimeMs=args.http_max_response_time_ms)
-    extraNodeosArgs = PerformanceBasicTest.ClusterConfig.ExtraNodeosArgs(chainPluginArgs=extraNodeosChainPluginArgs, httpPluginArgs=extraNodeosHttpPluginArgs, producerPluginArgs=extraNodeosProducerPluginArgs)
+    extraNodeosNetPluginArgs = PerformanceBasicTest.ClusterConfig.ExtraNodeosArgs.ExtraNodeosNetPluginArgs(netThreads=args.net_threads)
+    extraNodeosArgs = PerformanceBasicTest.ClusterConfig.ExtraNodeosArgs(chainPluginArgs=extraNodeosChainPluginArgs, httpPluginArgs=extraNodeosHttpPluginArgs, producerPluginArgs=extraNodeosProducerPluginArgs, netPluginArgs=extraNodeosNetPluginArgs)
     testClusterConfig = PerformanceBasicTest.ClusterConfig(pnodes=args.p, totalNodes=args.n, topo=args.s, genesisPath=args.genesis, prodsEnableTraceApi=args.prods_enable_trace_api, extraNodeosArgs=extraNodeosArgs)
 
     myTest = PerformanceBasicTest(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, targetTps=args.target_tps,
