@@ -110,7 +110,7 @@ namespace eosio {
             }
          }
 
-         std::string scrape() {
+         std::string metrics() {
             auto start_time_of_request = std::chrono::steady_clock::now();
 
             update_plugin_metrics();
@@ -155,12 +155,12 @@ namespace eosio {
      my.reset(new prometheus_plugin_impl{});
 
       app().get_plugin<http_plugin>().add_async_api({
-        CALL_WITH_400(prometheus, this, scrape,  INVOKE_R_V(this, scrape), 200), }, http_content_type::plaintext);
+        CALL_WITH_400(prometheus, this, metrics,  INVOKE_R_V(this, metrics), 200), }, http_content_type::plaintext);
    }
 
    prometheus_plugin::~prometheus_plugin() {}
 
-   std::string prometheus_plugin::scrape() {return my->scrape();}
+   std::string prometheus_plugin::metrics() {return my->metrics();}
 
    void prometheus_plugin::set_program_options(options_description&, options_description& cfg) {
 
