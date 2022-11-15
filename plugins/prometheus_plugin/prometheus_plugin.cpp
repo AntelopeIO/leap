@@ -155,7 +155,7 @@ namespace eosio {
      my.reset(new prometheus_plugin_impl{});
 
       app().get_plugin<http_plugin>().add_async_api({
-        CALL_WITH_400(prometheus, this, scrape,  INVOKE_R_V(this, scrape), 200), });
+        CALL_WITH_400(prometheus, this, scrape,  INVOKE_R_V(this, scrape), 200), }, http_content_type::plaintext);
    }
 
    prometheus_plugin::~prometheus_plugin() {}
