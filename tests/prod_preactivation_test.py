@@ -9,8 +9,8 @@ from TestHarness.Cluster import PFSetupPolicy
 
 ###############################################################
 # prod_preactivation_test
-# --dump-error-details <Upon error print etc/eosio/node_*/config.ini and var/lib/node_*/stderr.log to stdout>
-# --keep-logs <Don't delete var/lib/node_* folders upon test completion>
+# --dump-error-details <Upon error print etc/eosio/node_*/config.ini and prod_preactivation_test.py/lib/node_*/stderr.log to stdout>
+# --keep-logs <Don't delete prod_preactivation_test.py/lib/node_* folders upon test completion>
 ###############################################################
 
 Print=Utils.Print

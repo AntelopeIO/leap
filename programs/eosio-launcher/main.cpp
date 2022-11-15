@@ -506,6 +506,7 @@ launcher_def::set_options (bpo::options_description &cfg) {
     ("script",bpo::value<string>(&start_script)->default_value("bios_boot.sh"),"the generated startup script name")
     ("max-block-cpu-usage",bpo::value<uint32_t>(),"Provide the \"max-block-cpu-usage\" value to use in the genesis.json file")
     ("max-transaction-cpu-usage",bpo::value<uint32_t>(),"Provide the \"max-transaction-cpu-usage\" value to use in the genesis.json file")
+    ("nodeos-log-path",bpo::value<string>(),"Path to nodeos log directory ")
         ;
 }
 
@@ -611,7 +612,9 @@ launcher_def::initialize (const variables_map &vmap) {
   }
 
   config_dir_base = "etc/eosio";
-  data_dir_base = "var/lib";
+  if (vmap.count("nodeos-log-path")) {
+    data_dir_base = vmap["nodeos-log-path"].as<string>();
+  }
   next_node = 0;
   ++prod_nodes; // add one for the bios node
   ++total_nodes;

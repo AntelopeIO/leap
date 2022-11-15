@@ -15,6 +15,7 @@ from sys import stdout
 from sys import exit
 import traceback
 import shutil
+import sys
 
 ###########################################################################################
 
@@ -69,7 +70,7 @@ class Utils:
     EosBlockLogPath="programs/eosio-blocklog/eosio-blocklog"
 
     FileDivider="================================================================="
-    DataRoot="var"
+    DataRoot=os.path.basename(sys.argv[0])
     DataDir="%s/lib/" % (DataRoot)
     ConfigDir="etc/eosio/"
 
