@@ -75,6 +75,7 @@ bool allow_host(const http::request<http::string_body>& req, T& session,
    return true;
 }
 
+
 // Handle HTTP conneciton using boost::beast for TCP communication
 // Subclasses of this class (plain_session, ssl_session, etc.)
 // use the Curiously Recurring Template Pattern so that
@@ -98,6 +99,19 @@ protected:
 
    // whether response should be sent back to client when an exception occurs
    bool is_send_exception_response_ = true;
+   http_content_type content_type_ = http_content_type::json; // default to json
+
+   void set_content_type_header() {
+      switch (content_type_) {
+         case http_content_type::plaintext:
+            res_->set(http::field::content_type, "text/plain");
+            break;
+
+         case http_content_type::json:
+         default:
+            res_->set(http::field::content_type, "application/json");
+      }
+   }
 
    template<
          class Body, class Allocator>
@@ -150,10 +164,12 @@ protected:
             if(plugin_state_->logger.is_enabled(fc::log_level::all))
                plugin_state_->logger.log(FC_LOG_MESSAGE(all, "resource: ${ep}", ("ep", resource)));
             std::string body = req.body();
-            handler_itr->second(derived().shared_from_this(),
+            content_type_ = handler_itr->second.content_type;
+            set_content_type_header();
+            handler_itr->second.fn(derived().shared_from_this(),
                                 std::move(resource),
                                 std::move(body),
-                                make_http_response_handler(plugin_state_, derived().shared_from_this()));
+                                make_http_response_handler(plugin_state_, derived().shared_from_this(), content_type_));
          } else {
             fc_dlog( plugin_state_->logger, "404 - not found: ${ep}", ("ep", resource) );
             error_results results{static_cast<uint16_t>(http::status::not_found), "Not Found",
@@ -343,7 +359,7 @@ public:
 
 
       if(is_send_exception_response_) {
-         res_->set(http::field::content_type, "application/json");
+         set_content_type_header();
          res_->keep_alive(false);
          res_->set(http::field::server, BOOST_BEAST_VERSION_STRING);
 
@@ -352,13 +368,13 @@ public:
       }
    }
 
-   virtual void send_response(std::string json_body, unsigned int code) override {
+   virtual void send_response(std::string body, unsigned int code) override {
       write_begin_ = steady_clock::now();
       auto dt = write_begin_ - handle_begin_;
       handle_time_us_ += std::chrono::duration_cast<std::chrono::microseconds>(dt).count();
 
       res_->result(code);
-      res_->body() = std::move(json_body);
+      res_->body() = std::move(body);
 
       res_->prepare_payload();
 
@@ -492,6 +508,7 @@ public:
    static constexpr auto name() {
       return "ssl_session";
    }
+
 };// end class ssl_session
 
 
