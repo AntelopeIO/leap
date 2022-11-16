@@ -221,6 +221,8 @@ The Performance Harness main script `performance_test.py` can be configured usin
                           (default: 2)
 * `--signature-cpu-billable-pct SIGNATURE_CPU_BILLABLE_PCT`
                           Percentage of actual signature recovery cpu to bill. Whole number percentages, e.g. 50 for 50% (default: 0)
+* `--chain-state-db-size-mb CHAIN_STATE_DB_SIZE_MB`
+                          Maximum size (in MiB) of the chain state database (default: 10240)
 * `--disable-subjective-billing DISABLE_SUBJECTIVE_BILLING`
                           Disable subjective CPU billing for API/P2P transactions (default: True)
 * `--last-block-time-offset-us LAST_BLOCK_TIME_OFFSET_US`
@@ -274,6 +276,8 @@ The following scripts are typically used by the Performance Harness main script 
                           of the range of blocks of interest for evaluation. (default: 2)
 * `--signature-cpu-billable-pct SIGNATURE_CPU_BILLABLE_PCT`
                           Percentage of actual signature recovery cpu to bill. Whole number percentages, e.g. 50 for 50% (default: 0)
+* `--chain-state-db-size-mb CHAIN_STATE_DB_SIZE_MB`
+                          Maximum size (in MiB) of the chain state database (default: 10240)
 * `--disable-subjective-billing DISABLE_SUBJECTIVE_BILLING`
                           Disable subjective CPU billing for API/P2P transactions (default: True)
 * `--last-block-time-offset-us LAST_BLOCK_TIME_OFFSET_US`
