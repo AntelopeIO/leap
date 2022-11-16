@@ -18,7 +18,7 @@ struct blocklog_options {
    bool no_pretty_print = false;
    bool as_json_array = false;
 
-   std::optional<block_log_prune_config> blog_keep_prune_conf;
+   block_log_config blog_conf;
 };
 
 class blocklog_actions : public sub_command<blocklog_options> {
