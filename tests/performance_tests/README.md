@@ -221,6 +221,10 @@ The Performance Harness main script `performance_test.py` can be configured usin
                           (default: 2)
 * `--signature-cpu-billable-pct SIGNATURE_CPU_BILLABLE_PCT`
                           Percentage of actual signature recovery cpu to bill. Whole number percentages, e.g. 50 for 50% (default: 0)
+* `--chain-threads CHAIN_THREADS`
+                          Number of worker threads in controller thread pool (default: 2)
+* `--net-threads NET_THREADS`
+                          Number of worker threads in net_plugin thread pool (default: 2)
 * `--disable-subjective-billing DISABLE_SUBJECTIVE_BILLING`
                           Disable subjective CPU billing for API/P2P transactions (default: True)
 * `--last-block-time-offset-us LAST_BLOCK_TIME_OFFSET_US`
@@ -231,6 +235,8 @@ The Performance Harness main script `performance_test.py` can be configured usin
                           Percentage of cpu block production time used to produce block. Whole number percentages, e.g. 80 for 80% (default: 100)
 * `--last-block-cpu-effort-percent LAST_BLOCK_CPU_EFFORT_PERCENT`
                           Percentage of cpu block production time used to produce last block. Whole number percentages, e.g. 80 for 80% (default: 100)
+* `--producer-threads PRODUCER_THREADS`
+                          Number of worker threads in producer thread pool (default: 2)
 * `--http-max-response-time-ms HTTP_MAX_RESPONSE_TIME_MS`
                           Maximum time for processing a request, -1 for unlimited (default: 990000)
 * `--del-perf-logs`       Whether to delete performance test specific logs. (default: False)
@@ -274,6 +280,10 @@ The following scripts are typically used by the Performance Harness main script 
                           of the range of blocks of interest for evaluation. (default: 2)
 * `--signature-cpu-billable-pct SIGNATURE_CPU_BILLABLE_PCT`
                           Percentage of actual signature recovery cpu to bill. Whole number percentages, e.g. 50 for 50% (default: 0)
+* `--chain-threads CHAIN_THREADS`
+                          Number of worker threads in controller thread pool (default: 2)
+* `--net-threads NET_THREADS`
+                          Number of worker threads in net_plugin thread pool (default: 2)
 * `--disable-subjective-billing DISABLE_SUBJECTIVE_BILLING`
                           Disable subjective CPU billing for API/P2P transactions (default: True)
 * `--last-block-time-offset-us LAST_BLOCK_TIME_OFFSET_US`
@@ -284,6 +294,8 @@ The following scripts are typically used by the Performance Harness main script 
                           Percentage of cpu block production time used to produce block. Whole number percentages, e.g. 80 for 80% (default: 100)
 * `--last-block-cpu-effort-percent LAST_BLOCK_CPU_EFFORT_PERCENT`
                           Percentage of cpu block production time used to produce last block. Whole number percentages, e.g. 80 for 80% (default: 100)
+* `--producer-threads PRODUCER_THREADS`
+                          Number of worker threads in producer thread pool (default: 2)
 * `--http-max-response-time-ms HTTP_MAX_RESPONSE_TIME_MS`
                           Maximum time for processing a request, -1 for unlimited (default: 990000)
 * `--del-perf-logs`       Whether to delete performance test specific logs. (default: False)
