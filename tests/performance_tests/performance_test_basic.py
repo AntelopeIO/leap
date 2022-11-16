@@ -51,9 +51,12 @@ class PerformanceBasicTest:
             class ChainPluginArgs:
                 signatureCpuBillablePct: int = 0
                 chainThreads: int = 2
+                databaseMapMode: str = "mapped"
 
                 def __str__(self) -> str:
-                    return f"--signature-cpu-billable-pct {self.signatureCpuBillablePct} --chain-threads {self.chainThreads}"
+                    return f"--signature-cpu-billable-pct {self.signatureCpuBillablePct} \
+                             --chain-threads {self.chainThreads} \
+                             --database-map-mode {self.databaseMapMode}"
 
             @dataclass
             class NetPluginArgs:
@@ -410,6 +413,11 @@ def parseArgs():
                 "to prune from the beginning and end of the range of blocks of interest for evaluation."), default=2)
     appArgs.add(flag="--signature-cpu-billable-pct", type=int, help="Percentage of actual signature recovery cpu to bill. Whole number percentages, e.g. 50 for 50%%", default=0)
     appArgs.add(flag="--chain-threads", type=int, help="Number of worker threads in controller thread pool", default=2)
+    appArgs.add(flag="--database-map-mode", type=str, help="Database map mode (\"mapped\", \"heap\", or \"locked\"). \
+                                                            In \"mapped\" mode database is memory mapped as a file. \
+                                                            In \"heap\" mode database is preloaded in to swappable memory and will use huge pages if available. \
+                                                            In \"locked\" mode database is preloaded, locked in to memory, and will use huge pages if available.",
+                                                            choices=["mapped", "heap", "locked"], default="mapped")
     appArgs.add(flag="--net-threads", type=int, help="Number of worker threads in net_plugin thread pool", default=2)
     appArgs.add(flag="--disable-subjective-billing", type=bool, help="Disable subjective CPU billing for API/P2P transactions", default=True)
     appArgs.add(flag="--last-block-time-offset-us", type=int, help="Offset of last block producing time in microseconds. Valid range 0 .. -block_time_interval.", default=0)
@@ -435,14 +443,18 @@ def main():
     testHelperConfig = PerformanceBasicTest.TestHelperConfig(killAll=args.clean_run, dontKill=args.leave_running, keepLogs=not args.del_perf_logs,
                                                              dumpErrorDetails=args.dump_error_details, delay=args.d, nodesFile=args.nodes_file, verbose=args.v)
 
-    extraNodeosChainPluginArgs = PerformanceBasicTest.ClusterConfig.ExtraNodeosArgs.ChainPluginArgs(signatureCpuBillablePct=args.signature_cpu_billable_pct, chainThreads=args.chain_threads)
-    extraNodeosProducerPluginArgs = PerformanceBasicTest.ClusterConfig.ExtraNodeosArgs.ProducerPluginArgs(disableSubjectiveBilling=args.disable_subjective_billing,
-                lastBlockTimeOffsetUs=args.last_block_time_offset_us, produceTimeOffsetUs=args.produce_time_offset_us, cpuEffortPercent=args.cpu_effort_percent,
-                lastBlockCpuEffortPercent=args.last_block_cpu_effort_percent, producerThreads=args.producer_threads)
-    extraNodeosHttpPluginArgs = PerformanceBasicTest.ClusterConfig.ExtraNodeosArgs.HttpPluginArgs(httpMaxResponseTimeMs=args.http_max_response_time_ms)
-    extraNodeosNetPluginArgs = PerformanceBasicTest.ClusterConfig.ExtraNodeosArgs.NetPluginArgs(netThreads=args.net_threads)
-    extraNodeosArgs = PerformanceBasicTest.ClusterConfig.ExtraNodeosArgs(chainPluginArgs=extraNodeosChainPluginArgs, httpPluginArgs=extraNodeosHttpPluginArgs, producerPluginArgs=extraNodeosProducerPluginArgs, netPluginArgs=extraNodeosNetPluginArgs)
-    testClusterConfig = PerformanceBasicTest.ClusterConfig(pnodes=args.p, totalNodes=args.n, topo=args.s, genesisPath=args.genesis, prodsEnableTraceApi=args.prods_enable_trace_api, extraNodeosArgs=extraNodeosArgs)
+    ENA = PerformanceBasicTest.ClusterConfig.ExtraNodeosArgs
+    chainPluginArgs = ENA.ChainPluginArgs(signatureCpuBillablePct=args.signature_cpu_billable_pct,
+                                          chainThreads=args.chain_threads, databaseMapMode=args.database_map_mode)
+    producerPluginArgs = ENA.ProducerPluginArgs(disableSubjectiveBilling=args.disable_subjective_billing,
+                                                lastBlockTimeOffsetUs=args.last_block_time_offset_us, produceTimeOffsetUs=args.produce_time_offset_us,
+                                                cpuEffortPercent=args.cpu_effort_percent, lastBlockCpuEffortPercent=args.last_block_cpu_effort_percent,
+                                                producerThreads=args.producer_threads)
+    httpPluginArgs = ENA.HttpPluginArgs(httpMaxResponseTimeMs=args.http_max_response_time_ms)
+    netPluginArgs = ENA.NetPluginArgs(netThreads=args.net_threads)
+    extraNodeosArgs = ENA(chainPluginArgs=chainPluginArgs, httpPluginArgs=httpPluginArgs, producerPluginArgs=producerPluginArgs, netPluginArgs=netPluginArgs)
+    testClusterConfig = PerformanceBasicTest.ClusterConfig(pnodes=args.p, totalNodes=args.n, topo=args.s, genesisPath=args.genesis,
+                                                           prodsEnableTraceApi=args.prods_enable_trace_api, extraNodeosArgs=extraNodeosArgs)
 
     myTest = PerformanceBasicTest(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, targetTps=args.target_tps,
                                   testTrxGenDurationSec=args.test_duration_sec, tpsLimitPerGenerator=args.tps_limit_per_generator,
