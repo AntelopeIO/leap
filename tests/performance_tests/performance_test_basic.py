@@ -48,7 +48,7 @@ class PerformanceBasicTest:
         @dataclass
         class ExtraNodeosArgs:
             @dataclass
-            class ExtraNodeosChainPluginArgs:
+            class ChainPluginArgs:
                 signatureCpuBillablePct: int = 0
                 chainThreads: int = 2
 
@@ -56,14 +56,14 @@ class PerformanceBasicTest:
                     return f"--signature-cpu-billable-pct {self.signatureCpuBillablePct} --chain-threads {self.chainThreads}"
 
             @dataclass
-            class ExtraNodeosNetPluginArgs:
+            class NetPluginArgs:
                 netThreads: int = 2
 
                 def argsStr(self) -> str:
                     return f"--net-threads {self.netThreads}"
 
             @dataclass
-            class ExtraNodeosProducerPluginArgs:
+            class ProducerPluginArgs:
                 disableSubjectiveBilling: bool = True
                 lastBlockTimeOffsetUs: int = 0
                 produceTimeOffsetUs: int = 0
@@ -80,16 +80,16 @@ class PerformanceBasicTest:
                              --producer-threads {self.producerThreads}"
 
             @dataclass
-            class ExtraNodeosHttpPluginArgs:
+            class HttpPluginArgs:
                 httpMaxResponseTimeMs: int = 990000
 
                 def argsStr(self) -> str:
                     return f"--http-max-response-time-ms {self.httpMaxResponseTimeMs}"
 
-            chainPluginArgs: ExtraNodeosChainPluginArgs = ExtraNodeosChainPluginArgs()
-            producerPluginArgs: ExtraNodeosProducerPluginArgs = ExtraNodeosProducerPluginArgs()
-            httpPluginArgs: ExtraNodeosHttpPluginArgs = ExtraNodeosHttpPluginArgs()
-            netPluginArgs: ExtraNodeosNetPluginArgs = ExtraNodeosNetPluginArgs()
+            chainPluginArgs: ChainPluginArgs = ChainPluginArgs()
+            producerPluginArgs: ProducerPluginArgs = ProducerPluginArgs()
+            httpPluginArgs: HttpPluginArgs = HttpPluginArgs()
+            netPluginArgs: NetPluginArgs = NetPluginArgs()
 
             def argsStr(self) -> str:
                 return f" {self.httpPluginArgs.argsStr()} {self.producerPluginArgs.argsStr()} {self.chainPluginArgs.argsStr()} {self.netPluginArgs.argsStr()}"
@@ -435,12 +435,12 @@ def main():
     testHelperConfig = PerformanceBasicTest.TestHelperConfig(killAll=args.clean_run, dontKill=args.leave_running, keepLogs=not args.del_perf_logs,
                                                              dumpErrorDetails=args.dump_error_details, delay=args.d, nodesFile=args.nodes_file, verbose=args.v)
 
-    extraNodeosChainPluginArgs = PerformanceBasicTest.ClusterConfig.ExtraNodeosArgs.ExtraNodeosChainPluginArgs(signatureCpuBillablePct=args.signature_cpu_billable_pct, chainThreads=args.chain_threads)
-    extraNodeosProducerPluginArgs = PerformanceBasicTest.ClusterConfig.ExtraNodeosArgs.ExtraNodeosProducerPluginArgs(disableSubjectiveBilling=args.disable_subjective_billing,
+    extraNodeosChainPluginArgs = PerformanceBasicTest.ClusterConfig.ExtraNodeosArgs.ChainPluginArgs(signatureCpuBillablePct=args.signature_cpu_billable_pct, chainThreads=args.chain_threads)
+    extraNodeosProducerPluginArgs = PerformanceBasicTest.ClusterConfig.ExtraNodeosArgs.ProducerPluginArgs(disableSubjectiveBilling=args.disable_subjective_billing,
                 lastBlockTimeOffsetUs=args.last_block_time_offset_us, produceTimeOffsetUs=args.produce_time_offset_us, cpuEffortPercent=args.cpu_effort_percent,
                 lastBlockCpuEffortPercent=args.last_block_cpu_effort_percent, producerThreads=args.producer_threads)
-    extraNodeosHttpPluginArgs = PerformanceBasicTest.ClusterConfig.ExtraNodeosArgs.ExtraNodeosHttpPluginArgs(httpMaxResponseTimeMs=args.http_max_response_time_ms)
-    extraNodeosNetPluginArgs = PerformanceBasicTest.ClusterConfig.ExtraNodeosArgs.ExtraNodeosNetPluginArgs(netThreads=args.net_threads)
+    extraNodeosHttpPluginArgs = PerformanceBasicTest.ClusterConfig.ExtraNodeosArgs.HttpPluginArgs(httpMaxResponseTimeMs=args.http_max_response_time_ms)
+    extraNodeosNetPluginArgs = PerformanceBasicTest.ClusterConfig.ExtraNodeosArgs.NetPluginArgs(netThreads=args.net_threads)
     extraNodeosArgs = PerformanceBasicTest.ClusterConfig.ExtraNodeosArgs(chainPluginArgs=extraNodeosChainPluginArgs, httpPluginArgs=extraNodeosHttpPluginArgs, producerPluginArgs=extraNodeosProducerPluginArgs, netPluginArgs=extraNodeosNetPluginArgs)
     testClusterConfig = PerformanceBasicTest.ClusterConfig(pnodes=args.p, totalNodes=args.n, topo=args.s, genesisPath=args.genesis, prodsEnableTraceApi=args.prods_enable_trace_api, extraNodeosArgs=extraNodeosArgs)
 
