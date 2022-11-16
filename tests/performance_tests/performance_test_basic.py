@@ -50,9 +50,10 @@ class PerformanceBasicTest:
             @dataclass
             class ExtraNodeosChainPluginArgs:
                 signatureCpuBillablePct: int = 0
+                chainStateDbSizeMb: int = 10 * 1024
 
                 def argsStr(self) -> str:
-                    return f"--signature-cpu-billable-pct {self.signatureCpuBillablePct}"
+                    return f"--signature-cpu-billable-pct {self.signatureCpuBillablePct} --chain-state-db-size-mb {self.chainStateDbSizeMb}"
 
             @dataclass
             class ExtraNodeosProducerPluginArgs:
@@ -398,6 +399,7 @@ def parseArgs():
     appArgs.add(flag="--num-blocks-to-prune", type=int, help=("The number of potentially non-empty blocks, in addition to leading and trailing size 0 blocks, "
                 "to prune from the beginning and end of the range of blocks of interest for evaluation."), default=2)
     appArgs.add(flag="--signature-cpu-billable-pct", type=int, help="Percentage of actual signature recovery cpu to bill. Whole number percentages, e.g. 50 for 50%%", default=0)
+    appArgs.add(flag="--chain-state-db-size-mb", type=int, help="Maximum size (in MiB) of the chain state database", default=10*1024)
     appArgs.add(flag="--disable-subjective-billing", type=bool, help="Disable subjective CPU billing for API/P2P transactions", default=True)
     appArgs.add(flag="--last-block-time-offset-us", type=int, help="Offset of last block producing time in microseconds. Valid range 0 .. -block_time_interval.", default=0)
     appArgs.add(flag="--produce-time-offset-us", type=int, help="Offset of non last block producing time in microseconds. Valid range 0 .. -block_time_interval.", default=0)
@@ -421,7 +423,7 @@ def main():
     testHelperConfig = PerformanceBasicTest.TestHelperConfig(killAll=args.clean_run, dontKill=args.leave_running, keepLogs=not args.del_perf_logs,
                                                              dumpErrorDetails=args.dump_error_details, delay=args.d, nodesFile=args.nodes_file, verbose=args.v)
 
-    extraNodeosChainPluginArgs = PerformanceBasicTest.ClusterConfig.ExtraNodeosArgs.ExtraNodeosChainPluginArgs(signatureCpuBillablePct=args.signature_cpu_billable_pct)
+    extraNodeosChainPluginArgs = PerformanceBasicTest.ClusterConfig.ExtraNodeosArgs.ExtraNodeosChainPluginArgs(signatureCpuBillablePct=args.signature_cpu_billable_pct, chainStateDbSizeMb=args.chain_state_db_size_mb)
     extraNodeosProducerPluginArgs = PerformanceBasicTest.ClusterConfig.ExtraNodeosArgs.ExtraNodeosProducerPluginArgs(disableSubjectiveBilling=args.disable_subjective_billing,
                 lastBlockTimeOffsetUs=args.last_block_time_offset_us, produceTimeOffsetUs=args.produce_time_offset_us, cpuEffortPercent=args.cpu_effort_percent,
                 lastBlockCpuEffortPercent=args.last_block_cpu_effort_percent)
