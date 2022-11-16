@@ -52,14 +52,14 @@ class PerformanceBasicTest:
                 signatureCpuBillablePct: int = 0
                 chainThreads: int = 2
 
-                def argsStr(self) -> str:
+                def __str__(self) -> str:
                     return f"--signature-cpu-billable-pct {self.signatureCpuBillablePct} --chain-threads {self.chainThreads}"
 
             @dataclass
             class NetPluginArgs:
                 netThreads: int = 2
 
-                def argsStr(self) -> str:
+                def __str__(self) -> str:
                     return f"--net-threads {self.netThreads}"
 
             @dataclass
@@ -71,7 +71,7 @@ class PerformanceBasicTest:
                 lastBlockCpuEffortPercent: int = 100
                 producerThreads: int = 2
 
-                def argsStr(self) -> str:
+                def __str__(self) -> str:
                     return f"--disable-subjective-billing {self.disableSubjectiveBilling} \
                              --last-block-time-offset-us {self.lastBlockTimeOffsetUs} \
                              --produce-time-offset-us {self.produceTimeOffsetUs} \
@@ -83,7 +83,7 @@ class PerformanceBasicTest:
             class HttpPluginArgs:
                 httpMaxResponseTimeMs: int = 990000
 
-                def argsStr(self) -> str:
+                def __str__(self) -> str:
                     return f"--http-max-response-time-ms {self.httpMaxResponseTimeMs}"
 
             chainPluginArgs: ChainPluginArgs = ChainPluginArgs()
@@ -91,8 +91,8 @@ class PerformanceBasicTest:
             httpPluginArgs: HttpPluginArgs = HttpPluginArgs()
             netPluginArgs: NetPluginArgs = NetPluginArgs()
 
-            def argsStr(self) -> str:
-                return f" {self.httpPluginArgs.argsStr()} {self.producerPluginArgs.argsStr()} {self.chainPluginArgs.argsStr()} {self.netPluginArgs.argsStr()}"
+            def __str__(self) -> str:
+                return f" {self.httpPluginArgs} {self.producerPluginArgs} {self.chainPluginArgs} {self.netPluginArgs}"
 
         pnodes: int = 1
         totalNodes: int = 2
@@ -247,7 +247,7 @@ class PerformanceBasicTest:
             genesisPath=self.clusterConfig.genesisPath,
             maximumP2pPerHost=self.clusterConfig.maximumP2pPerHost,
             maximumClients=self.clusterConfig.maximumClients,
-            extraNodeosArgs=self.clusterConfig.extraNodeosArgs.argsStr(),
+            extraNodeosArgs=str(self.clusterConfig.extraNodeosArgs),
             prodsEnableTraceApi=self.clusterConfig.prodsEnableTraceApi,
             specificExtraNodeosArgs=self.clusterConfig.specificExtraNodeosArgs
             )
