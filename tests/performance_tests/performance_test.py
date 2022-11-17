@@ -151,7 +151,7 @@ def createReport(maxTpsAchieved, searchResults, maxTpsReport, longRunningMaxTpsA
     report['LongRunningSearchResults'] =  {x: asdict(longRunningSearchResults[x]) for x in range(len(longRunningSearchResults))}
     report['LongRunningMaxTpsReport'] =  longRunningMaxTpsReport
     report['args'] =  argsDict
-    report['env'] = {'system': system(), 'os': os.name, 'release': release()}
+    report['env'] = {'system': system(), 'os': os.name, 'release': release(), 'logical_cpu_count': os.cpu_count()}
     report['nodeosVersion'] = Utils.getNodeosVersion()
     return report
 
