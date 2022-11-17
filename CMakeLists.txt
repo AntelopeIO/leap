@@ -252,8 +252,7 @@ set(TESTER_TARGETS fc secp256k1 ff chainbase builtins softfloat Logging IR WAST 
 
 install(TARGETS ${TESTER_TARGETS}
   EXPORT tester
-	INCLUDES COMPONENT dev EXCLUDE_FROM_ALL
-	ARCHIVE  COMPONENT dev EXCLUDE_FROM_ALL
+	COMPONENT dev EXCLUDE_FROM_ALL
 )
 
 install(EXPORT tester
@@ -273,6 +272,22 @@ export(TARGETS ${TESTER_TARGETS}
 
 export(TARGETS ${TESTER_TARGETS}
        FILE ${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/eosio/tester-targets.cmake)
+
+set(SHIP_TARGETS ship_protocol abieos)
+
+install(TARGETS ${SHIP_TARGETS}
+  EXPORT ship
+	COMPONENT dev EXCLUDE_FROM_ALL
+)
+
+install(EXPORT ship
+  DESTINATION "lib/cmake/leap"
+  FILE ship-targets.cmake
+  COMPONENT dev EXCLUDE_FROM_ALL
+)
+
+export(TARGETS ${SHIP_TARGETS}
+       FILE ${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/leap/ship-targets.cmake)
 
 add_custom_target(dev-install
   COMMAND "${CMAKE_COMMAND}" --build "${CMAKE_BINARY_DIR}"

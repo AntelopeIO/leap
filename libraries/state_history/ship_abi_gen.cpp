@@ -1,5 +1,5 @@
 #include <eosio/abi.hpp>
-#include <eosio/state_history/ship_protocol.hpp>
+#include <eosio/ship_protocol.hpp>
 #include <iostream>
 #include <iterator>
 #include <regex>
