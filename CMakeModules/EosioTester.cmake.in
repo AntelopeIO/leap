@@ -9,9 +9,6 @@ set(EOSIO_VERSION "@VERSION_FULL@")
 
 enable_testing()
 
-set(LLVM_DIR @LLVM_CMAKE_DIR@)
-set(BOOST_ROOT @BOOST_ROOT@)
-
 set( CMAKE_CXX_STANDARD 17 )
 set( CMAKE_CXX_EXTENSIONS ON )
 set( CXX_STANDARD_REQUIRED ON )
@@ -19,11 +16,22 @@ set( CXX_STANDARD_REQUIRED ON )
 #adds -pthread. Ubuntu eosio.contracts build breaks without this flag specified
 set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)
+
 include(CMakeFindDependencyMacro)
 
-find_dependency(LLVM)
-find_dependency(Threads)
+set(LLVM_DIR @LLVM_CMAKE_DIR@)
+if (LLVM_DIR)
+   find_dependency(LLVM)
+endif()
+
+get_filename_component(BOOST_ROOT @Boost_INCLUDE_DIR@ DIRECTORY)
 find_dependency(Boost)
+
+get_filename_component(OPENSSL_ROOT_DIR @OPENSSL_INCLUDE_DIR@ DIRECTORY)
+find_dependency(OpenSSL)
+
+find_dependency(Threads)
+include(${CMAKE_CURRENT_LIST_DIR}/tester-targets.cmake)
 
 if ( APPLE )
    set( CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} ${CMAKE_CXX_FLAGS} -Wall -Wno-deprecated-declarations" )
@@ -31,19 +39,14 @@ else ( APPLE )
    set( CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} ${CMAKE_CXX_FLAGS} -Wall")
 endif ( APPLE )
 
-include(${CMAKE_CURRENT_LIST_DIR}/tester-targets.cmake)
-
 set(EOSIO_WASM_RUNTIMES @EOSIO_WASM_RUNTIMES@)
 if("eos-vm-oc" IN_LIST EOSIO_WASM_RUNTIMES)
-   set(WRAP_MAIN "-Wl,-wrap=main")
+   target_link_options(eosio_testing PRIVATE "-Wl,-wrap=main")
 endif()
 
 macro(add_eosio_test_executable test_name)
    add_executable( ${test_name} ${ARGN} )
-   target_link_libraries( ${test_name} PRIVATE
-       eosio_testing
-       ${WRAP_MAIN}
-   )
+   target_link_libraries( ${test_name} PRIVATE eosio_testing)
 endmacro()
 
 macro(add_eosio_test test_name)
