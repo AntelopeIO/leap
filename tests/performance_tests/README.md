@@ -223,6 +223,11 @@ The Performance Harness main script `performance_test.py` can be configured usin
                           Percentage of actual signature recovery cpu to bill. Whole number percentages, e.g. 50 for 50% (default: 0)
 * `--chain-threads CHAIN_THREADS`
                           Number of worker threads in controller thread pool (default: 2)
+* `--database-map-mode {mapped,heap,locked}`
+                          Database map mode ("mapped", "heap", or "locked").
+                          In "mapped" mode database is memory mapped as a file.
+                          In "heap" mode database is preloaded in to swappable memory and will use huge pages if available.
+                          In "locked" mode database is preloaded, locked in to memory, and will use huge pages if available. (default: mapped)
 * `--net-threads NET_THREADS`
                           Number of worker threads in net_plugin thread pool (default: 2)
 * `--disable-subjective-billing DISABLE_SUBJECTIVE_BILLING`
@@ -282,6 +287,11 @@ The following scripts are typically used by the Performance Harness main script 
                           Percentage of actual signature recovery cpu to bill. Whole number percentages, e.g. 50 for 50% (default: 0)
 * `--chain-threads CHAIN_THREADS`
                           Number of worker threads in controller thread pool (default: 2)
+* `--database-map-mode {mapped,heap,locked}`
+                          Database map mode ("mapped", "heap", or "locked").
+                          In "mapped" mode database is memory mapped as a file.
+                          In "heap" mode database is preloaded in to swappable memory and will use huge pages if available.
+                          In "locked" mode database is preloaded, locked in to memory, and will use huge pages if available. (default: mapped)
 * `--net-threads NET_THREADS`
                           Number of worker threads in net_plugin thread pool (default: 2)
 * `--disable-subjective-billing DISABLE_SUBJECTIVE_BILLING`
