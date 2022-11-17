@@ -25,7 +25,7 @@ class PerformanceBasicTest:
         completedRun: bool = False
         numGeneratorsUsed: int = 0
         targetTpsPerGenList: list = field(default_factory=list)
-        launcherExitCodes: list = field(default_factory=list)
+        trxGenExitCodes: list = field(default_factory=list)
 
     @dataclass
     class TestHelperConfig:
@@ -253,6 +253,7 @@ class PerformanceBasicTest:
         self.account2PrivKey = self.cluster.accounts[1].activePrivateKey
 
     def runTpsTest(self) -> PbtTpsTestResult:
+        completedRun = False
         self.producerNode = self.cluster.getNode(self.producerNodeId)
         self.validationNode = self.cluster.getNode(self.validationNodeId)
         info = self.producerNode.getInfo()
@@ -269,7 +270,14 @@ class PerformanceBasicTest:
                                                            privateKeys=f"{self.account1PrivKey},{self.account2PrivKey}", trxGenDurationSec=self.testTrxGenDurationSec,
                                                            logDir=self.trxGenLogDirPath, tpsTrxGensConfig=tpsTrxGensConfig)
 
-        trxGenLauncherExitCodes = trxGenLauncher.launch()
+        trxGenExitCodes = trxGenLauncher.launch()
+        print(f"Transaction Generator exit codes: {trxGenExitCodes}")
+        for exitCode in trxGenExitCodes:
+            if exitCode != 0:
+                completedRun = False
+                break
+        else:
+            completedRun = True
 
         # Get stats after transaction generation stops
         trxSent = {}
@@ -278,8 +286,8 @@ class PerformanceBasicTest:
         trxSent = self.validationNode.waitForTransactionsInBlockRange(trxSent, self.data.startBlock, blocksToWait)
         self.data.ceaseBlock = self.validationNode.getHeadBlockNum()
 
-        return self.PbtTpsTestResult(completedRun=True, numGeneratorsUsed=tpsTrxGensConfig.numGenerators,
-                                     targetTpsPerGenList=tpsTrxGensConfig.targetTpsPerGenList, launcherExitCodes=trxGenLauncherExitCodes)
+        return PerformanceBasicTest.PbtTpsTestResult(completedRun=completedRun, numGeneratorsUsed=tpsTrxGensConfig.numGenerators,
+                                                     targetTpsPerGenList=tpsTrxGensConfig.targetTpsPerGenList, trxGenExitCodes=trxGenExitCodes)
 
     def prepArgs(self) -> dict:
         args = {}
@@ -328,8 +336,7 @@ class PerformanceBasicTest:
         if not self.quiet:
             print(self.data)
 
-            print("Report:")
-            print(jsonReport)
+            print(f"Report:\n{jsonReport}")
 
         if not self.delReport:
             log_reader.exportReportAsJSON(jsonReport, self.reportPath)
@@ -356,14 +363,23 @@ class PerformanceBasicTest:
             TestHelper.printSystemInfo("BEGIN")
             self.preTestSpinup()
 
-            ptbTestResult = self.runTpsTest()
+            self.ptbTestResult = self.runTpsTest()
+
             self.postTpsTestSteps()
 
-            testSuccessful = True
-            self.analyzeResultsAndReport(ptbTestResult)
+            self.analyzeResultsAndReport(self.ptbTestResult)
 
-        except subprocess.CalledProcessError as err:
-            print(f"trx_generator return error code: {err.returncode}.  Test aborted.")
+            testSuccessful = self.ptbTestResult.completedRun
+
+            if not self.PbtTpsTestResult.completedRun:
+                for exitCode in self.ptbTestResult.trxGenExitCodes:
+                    if exitCode != 0:
+                        print(f"Error: Transaction Generator exited with error {exitCode}")
+
+            if testSuccessful and self.expectedTransactionsSent != self.data.totalTransactions:
+                testSuccessful = False
+                print(f"Error: Transactions received: {self.data.totalTransactions} did not match expected total: {self.expectedTransactionsSent}")
+
         finally:
             TestHelper.shutdown(
                 self.cluster,
@@ -396,7 +412,7 @@ def parseArgs():
     appArgs.add(flag="--test-duration-sec", type=int, help="The duration of transfer trx generation for the test in seconds", default=90)
     appArgs.add(flag="--genesis", type=str, help="Path to genesis.json", default="tests/performance_tests/genesis.json")
     appArgs.add(flag="--num-blocks-to-prune", type=int, help=("The number of potentially non-empty blocks, in addition to leading and trailing size 0 blocks, "
-                "to prune from the beginning and end of the range of blocks of interest for evaluation."), default=2)
+                                                              "to prune from the beginning and end of the range of blocks of interest for evaluation."), default=2)
     appArgs.add(flag="--signature-cpu-billable-pct", type=int, help="Percentage of actual signature recovery cpu to bill. Whole number percentages, e.g. 50 for 50%%", default=0)
     appArgs.add(flag="--chain-state-db-size-mb", type=int, help="Maximum size (in MiB) of the chain state database", default=10*1024)
     appArgs.add(flag="--disable-subjective-billing", type=bool, help="Disable subjective CPU billing for API/P2P transactions", default=True)
@@ -435,10 +451,6 @@ def main():
                                   numAddlBlocksToPrune=args.num_blocks_to_prune, delReport=args.del_report, quiet=args.quiet,
                                   delPerfLogs=args.del_perf_logs)
     testSuccessful = myTest.runTest()
-
-    if testSuccessful:
-        assert myTest.expectedTransactionsSent == myTest.data.totalTransactions , \
-        f"Error: Transactions received: {myTest.data.totalTransactions} did not match expected total: {myTest.expectedTransactionsSent}"
 
     exitCode = 0 if testSuccessful else 1
     exit(exitCode)
