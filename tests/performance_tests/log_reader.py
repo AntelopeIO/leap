@@ -223,8 +223,7 @@ def scrapeTrxGenTrxSentDataLogs(trxSent, trxGenLogDirPath, quiet):
         scrapeTrxGenLog(trxSent, fileName)
 
     if not quiet:
-        print("Transaction Log Files Scraped:")
-        print(filesScraped)
+        print(f"Transaction Log Files Scraped: {filesScraped}")
 
 def populateTrxSentTimestamp(trxSent: dict, trxDict: dict, notFound):
     for sentTrxId in trxSent.keys():
