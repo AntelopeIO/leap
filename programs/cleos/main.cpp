@@ -454,7 +454,7 @@ fc::variant push_transaction( signed_transaction& trx, const std::vector<public_
    };
    if (!tx_skip_sign) {
       // sign dry-run transactions only when explcitly requested
-      if ( tx_dry_run || tx_read_only ) {
+      if ( tx_dry_run ) {
          if ( signing_keys.size() > 0 ) {
             sign_trx();
          }
