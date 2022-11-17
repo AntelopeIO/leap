@@ -141,7 +141,7 @@ class PerformanceBasicTest:
 
         self.rootLogDir = rootLogDir
         self.ptbLogDir = f"{self.rootLogDir}/{os.path.splitext(os.path.basename(__file__))[0]}"
-        self.testTimeStampDirPath = f"{self.ptbLogDir}/{self.testStart.strftime('%Y-%m-%d_%H-%M-%S')}"
+        self.testTimeStampDirPath = f"{self.ptbLogDir}/{self.testStart.strftime('%Y-%m-%d_%H-%M-%S')}-{self.targetTps}"
         self.trxGenLogDirPath = f"{self.testTimeStampDirPath}/trxGenLogs"
         self.varLogsDirPath = f"{self.testTimeStampDirPath}/var"
         self.etcLogsDirPath = f"{self.testTimeStampDirPath}/etc"
