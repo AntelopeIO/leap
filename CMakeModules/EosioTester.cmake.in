@@ -25,12 +25,28 @@ if (LLVM_DIR)
 endif()
 
 get_filename_component(BOOST_ROOT @Boost_INCLUDE_DIR@ DIRECTORY)
-find_dependency(Boost)
+find_dependency(Boost COMPONENTS date_time filesystem chrono iostreams)
 
 get_filename_component(OPENSSL_ROOT_DIR @OPENSSL_INCLUDE_DIR@ DIRECTORY)
 find_dependency(OpenSSL)
 
 find_dependency(Threads)
+find_dependency(ZLIB)
+
+find_path(GMP_INCLUDE_DIR NAMES gmp.h)
+find_library(GMP_LIBRARY gmp)
+if(NOT GMP_LIBRARY MATCHES ${CMAKE_SHARED_LIBRARY_SUFFIX})
+  message( FATAL_ERROR "GMP shared library not found" )
+endif()
+set(gmp_library_type SHARED)
+message(STATUS "GMP: ${GMP_LIBRARY}, ${GMP_INCLUDE_DIR}")
+add_library(GMP::gmp ${gmp_library_type} IMPORTED)
+set_target_properties(
+  GMP::gmp PROPERTIES
+  IMPORTED_LOCATION ${GMP_LIBRARY}
+  INTERFACE_INCLUDE_DIRECTORIES ${GMP_INCLUDE_DIR}
+)
+
 include(${CMAKE_CURRENT_LIST_DIR}/tester-targets.cmake)
 
 if ( APPLE )
@@ -41,12 +57,12 @@ endif ( APPLE )
 
 set(EOSIO_WASM_RUNTIMES @EOSIO_WASM_RUNTIMES@)
 if("eos-vm-oc" IN_LIST EOSIO_WASM_RUNTIMES)
-   target_link_options(eosio_testing PRIVATE "-Wl,-wrap=main")
+   target_link_options(eosio_testlib INTERFACE "-Wl,-wrap=main")
 endif()
 
 macro(add_eosio_test_executable test_name)
    add_executable( ${test_name} ${ARGN} )
-   target_link_libraries( ${test_name} PRIVATE eosio_testing)
+   target_link_libraries( ${test_name} PRIVATE eosio_testlib)
 endmacro()
 
 macro(add_eosio_test test_name)
