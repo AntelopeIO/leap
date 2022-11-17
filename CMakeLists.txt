@@ -248,7 +248,7 @@ configure_file(${CMAKE_SOURCE_DIR}/libraries/cli11/bash-completion/completions/c
 install(FILES libraries/cli11/bash-completion/completions/leap-util DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/bash-completion/completions COMPONENT base)
 install(FILES libraries/cli11/bash-completion/completions/cleos DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/bash-completion/completions COMPONENT base)
 
-set(TESTER_TARGETS fc secp256k1 ff chainbase builtins softfloat Logging IR WAST WASM Runtime eosio_chain eos-vm eosio_testing)
+set(TESTER_TARGETS fc secp256k1 ff chainbase builtins softfloat Logging IR WAST WASM Runtime eosio_chain eos-vm eosio_testlib)
 
 install(TARGETS ${TESTER_TARGETS}
   EXPORT tester

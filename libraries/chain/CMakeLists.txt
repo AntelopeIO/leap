@@ -131,8 +131,8 @@ target_link_libraries( eosio_chain PUBLIC fc chainbase  Logging IR WAST WASM Run
 target_include_directories( eosio_chain
                             PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
                                    "$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>"
+                                   "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../wasm-jit/Include>"
                             PRIVATE
-                                   "${CMAKE_CURRENT_SOURCE_DIR}/../wasm-jit/Include"
                                    "${CMAKE_CURRENT_SOURCE_DIR}/../rapidjson/include"
                             )
 
