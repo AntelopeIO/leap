@@ -8,6 +8,10 @@ import json
 import signal
 import sys
 
+import urllib.request
+import urllib.parse
+import urllib.error
+
 from datetime import datetime
 from datetime import timedelta
 from core_symbol import CORE_SYMBOL
@@ -491,9 +495,9 @@ class Node(object):
         return ret
 
     def checkBlockForTransactions(self, transIds, blockNum):
-        block = self.processCurlCmd("trace_api", "get_block", f'{{"block_num":{blockNum}}}', silentErrors=False, exitOnError=True)
-        if block['transactions']:
-            for trx in block['transactions']:
+        block = self.processUrllibRequest("trace_api", "get_block", {"block_num":blockNum}, silentErrors=False, exitOnError=True)
+        if block['payload']['transactions']:
+            for trx in block['payload']['transactions']:
                 if trx['id'] in transIds:
                     transIds.pop(trx['id'])
         return transIds
@@ -1044,20 +1048,29 @@ class Node(object):
         assert(isinstance(blockType, BlockType))
         assert(isinstance(returnType, ReturnType))
         basedOnLib="true" if blockType==BlockType.lib else "false"
-        payload="{ \"producer\":\"%s\", \"where_in_sequence\":%d, \"based_on_lib\":\"%s\" }" % (producer, whereInSequence, basedOnLib)
-        return self.processCurlCmd("test_control", "kill_node_on_producer", payload, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=exitMsg, returnType=returnType)
+        payload={ "producer":producer, "where_in_sequence":whereInSequence, "based_on_lib":basedOnLib }
+        return self.processUrllibRequest("test_control", "kill_node_on_producer", payload, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=exitMsg, returnType=returnType)
 
-    def processCurlCmd(self, resource, command, payload, silentErrors=True, exitOnError=False, exitMsg=None, returnType=ReturnType.json):
-        cmd="curl %s/v1/%s/%s -d '%s' -X POST -H \"Content-Type: application/json\"" % \
-            (self.endpointHttp, resource, command, payload)
+    def processUrllibRequest(self, resource, command, payload={}, silentErrors=False, exitOnError=False, exitMsg=None, returnType=ReturnType.json, endpoint=None):
+        if not endpoint:
+            endpoint = self.endpointHttp
+        cmd = f"{endpoint}/v1/{resource}/{command}"
+        req = urllib.request.Request(cmd, method="POST")
+        req.add_header('Content-Type', 'application/json')
+        data = payload
+        data = json.dumps(data)
+        data = data.encode()
         if Utils.Debug: Utils.Print("cmd: %s" % (cmd))
         rtn=None
         start=time.perf_counter()
         try:
+            response = urllib.request.urlopen(req, data=data)
             if returnType==ReturnType.json:
-                rtn=Utils.runCmdReturnJson(cmd, silentErrors=silentErrors)
+                rtn = {}
+                rtn["payload"] = json.load(response)
+                rtn["code"] = response.getcode()
             elif returnType==ReturnType.raw:
-                rtn=Utils.runCmdReturnStr(cmd)
+                rtn = response.read()
             else:
                 unhandledEnumType(returnType)
 
@@ -1066,17 +1079,24 @@ class Node(object):
                 Utils.Print("cmd Duration: %.3f sec" % (end-start))
                 printReturn=json.dumps(rtn) if returnType==ReturnType.json else rtn
                 Utils.Print("cmd returned: %s" % (printReturn))
-        except subprocess.CalledProcessError as ex:
+        except urllib.error.HTTPError as ex:
             if not silentErrors:
                 end=time.perf_counter()
-                msg=ex.stderr.decode("utf-8")
+                msg=ex.msg
                 errorMsg="Exception during \"%s\". %s.  cmd Duration=%.3f sec." % (cmd, msg, end-start)
                 if exitOnError:
                     Utils.cmdError(errorMsg)
                     Utils.errorExit(errorMsg)
                 else:
                     Utils.Print("ERROR: %s" % (errorMsg))
-            return None
+                    if returnType==ReturnType.json:
+                        rtn = json.load(ex)
+                    elif returnType==ReturnType.raw:
+                        rtn = ex.read()
+                    else:
+                        unhandledEnumType(returnType)
+            else:
+                return None
 
         if exitMsg is not None:
             exitMsg=": " + exitMsg
@@ -1093,8 +1113,8 @@ class Node(object):
         assert(isinstance(genKey, str))
         assert(isinstance(returnType, ReturnType))
 
-        payload="[ \"%s\", \"%s\" ]" % (genAccount, genKey)
-        return self.processCurlCmd("txn_test_gen", "create_test_accounts", payload, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=exitMsg, returnType=returnType)
+        payload=[ genAccount, genKey ]
+        return self.processUrllibRequest("txn_test_gen", "create_test_accounts", payload, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=exitMsg, returnType=returnType)
 
     def txnGenStart(self, salt, period, batchSize, silentErrors=True, exitOnError=False, exitMsg=None, returnType=ReturnType.json):
         assert(isinstance(salt, str))
@@ -1102,8 +1122,8 @@ class Node(object):
         assert(isinstance(batchSize, int))
         assert(isinstance(returnType, ReturnType))
 
-        payload="[ \"%s\", %d, %d ]" % (salt, period, batchSize)
-        return self.processCurlCmd("txn_test_gen", "start_generation", payload, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=exitMsg, returnType=returnType)
+        payload=[ salt, period, batchSize ]
+        return self.processUrllibRequest("txn_test_gen", "start_generation", payload, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=exitMsg, returnType=returnType)
 
     def waitForTransBlockIfNeeded(self, trans, waitForTransBlock, exitOnError=False):
         if not waitForTransBlock:
@@ -1434,7 +1454,7 @@ class Node(object):
     # Require producer_api_plugin
     def scheduleProtocolFeatureActivations(self, featureDigests=[]):
         param = { "protocol_features_to_activate": featureDigests }
-        self.processCurlCmd("producer", "schedule_protocol_feature_activations", json.dumps(param))
+        self.processUrllibRequest("producer", "schedule_protocol_feature_activations", param)
 
     # Require producer_api_plugin
     def getSupportedProtocolFeatures(self, excludeDisabled=False, excludeUnactivatable=False):
@@ -1442,7 +1462,7 @@ class Node(object):
            "exclude_disabled": excludeDisabled,
            "exclude_unactivatable": excludeUnactivatable
         }
-        res = self.processCurlCmd("producer", "get_supported_protocol_features", json.dumps(param))
+        res = self.processUrllibRequest("producer", "get_supported_protocol_features", param)
         return res
 
     # This will return supported protocol features in a dict (feature codename as the key), i.e.
@@ -1454,7 +1474,7 @@ class Node(object):
     def getSupportedProtocolFeatureDict(self, excludeDisabled=False, excludeUnactivatable=False):
         protocolFeatureDigestDict = {}
         supportedProtocolFeatures = self.getSupportedProtocolFeatures(excludeDisabled, excludeUnactivatable)
-        for protocolFeature in supportedProtocolFeatures:
+        for protocolFeature in supportedProtocolFeatures["payload"]:
             for spec in protocolFeature["specification"]:
                 if (spec["name"] == "builtin_feature_codename"):
                     codename = spec["value"]
@@ -1505,7 +1525,7 @@ class Node(object):
     def getAllBuiltinFeatureDigestsToPreactivate(self):
         protocolFeatures = []
         supportedProtocolFeatures = self.getSupportedProtocolFeatures()
-        for protocolFeature in supportedProtocolFeatures:
+        for protocolFeature in supportedProtocolFeatures["payload"]:
             for spec in protocolFeature["specification"]:
                 if (spec["name"] == "builtin_feature_codename"):
                     codename = spec["value"]
@@ -1555,8 +1575,7 @@ class Node(object):
 
     # Require producer_api_plugin
     def createSnapshot(self):
-        param = { }
-        return self.processCurlCmd("producer", "create_snapshot", json.dumps(param))
+        return self.processUrllibRequest("producer", "create_snapshot")
 
     # kill all existing nodeos in case lingering from previous test
     @staticmethod
