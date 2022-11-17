@@ -3443,9 +3443,9 @@ int main( int argc, char** argv ) {
         fc::path cpath = fc::canonical(fc::path(contractPath));
 
         if( wasmPath.empty() ) {
-           wasmPath = (cpath / (cpath.filename().generic_string()+".wasm")).generic_string();
+           wasmPath = (cpath / fc::path(cpath.filename().generic_string()+".wasm")).generic_string();
         } else if ( boost::filesystem::path(wasmPath).is_relative() ) {
-           wasmPath = (cpath / wasmPath).generic_string();
+           wasmPath = (cpath / fc::path(wasmPath)).generic_string();
         }
 
         std::cerr << localized(("Reading WASM from " + wasmPath + "...").c_str()) << std::endl;
@@ -3499,9 +3499,9 @@ int main( int argc, char** argv ) {
         fc::path cpath = fc::canonical(fc::path(contractPath));
 
         if( abiPath.empty() ) {
-           abiPath = (cpath / (cpath.filename().generic_string()+".abi")).generic_string();
+           abiPath = (cpath / fc::path(cpath.filename().generic_string()+".abi")).generic_string();
         } else if ( boost::filesystem::path(abiPath).is_relative() ) {
-           abiPath = (cpath / abiPath).generic_string();
+           abiPath = (cpath / fc::path(abiPath)).generic_string();
         }
 
         EOS_ASSERT( fc::exists( abiPath ), abi_file_not_found, "no abi file found ${f}", ("f", abiPath)  );
