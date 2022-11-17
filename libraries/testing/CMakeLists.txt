@@ -14,11 +14,14 @@ add_library( eosio_testing
              ${HEADERS}
         )
 
-target_link_libraries( eosio_testing eosio_testing_contracts eosio_chain fc chainbase Logging IR WAST WASM Runtime )
+target_link_libraries( eosio_testing PUBLIC eosio_chain fc chainbase Logging IR WAST WASM Runtime )
 target_include_directories( eosio_testing
-                            PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" "${CMAKE_CURRENT_BINARY_DIR}/include"
-                                   "${CMAKE_CURRENT_SOURCE_DIR}/../wasm-jit/Include"
-                                   "${CMAKE_BINARY_DIR}/unittests/include"
+                            PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
+                                   "$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>"
+                                   "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../wasm-jit/Include>"
+                                   "$<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/unittests/include>"
+                                   "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
+                            PRIVATE "$<TARGET_PROPERTY:eosio_testing_contracts,INTERFACE_INCLUDE_DIRECTORIES>"
                             )
 
 set_target_properties( eosio_testing PROPERTIES PUBLIC_HEADER "${HEADERS}" )

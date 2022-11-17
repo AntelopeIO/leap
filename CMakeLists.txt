@@ -249,6 +249,23 @@ configure_file(${CMAKE_SOURCE_DIR}/libraries/cli11/bash-completion/completions/c
 install(FILES libraries/cli11/bash-completion/completions/leap-util DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/bash-completion/completions COMPONENT base)
 install(FILES libraries/cli11/bash-completion/completions/cleos DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/bash-completion/completions COMPONENT base)
 
+set(TESTER_TARGETS fc secp256k1 ff chainbase builtins softfloat Logging IR WAST WASM Runtime eosio_chain eos-vm eosio_testing)
+
+install(TARGETS ${TESTER_TARGETS}
+  EXPORT tester
+	INCLUDES COMPONENT dev EXCLUDE_FROM_ALL
+	ARCHIVE  COMPONENT dev EXCLUDE_FROM_ALL
+)
+
+install(EXPORT tester
+  DESTINATION "lib/cmake/leap"
+  FILE tester-targets.cmake
+  COMPONENT dev EXCLUDE_FROM_ALL
+)
+
+export(TARGETS ${TESTER_TARGETS}
+       FILE ${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/leap/tester-targets.cmake)
+
 add_custom_target(dev-install
   COMMAND "${CMAKE_COMMAND}" --build "${CMAKE_BINARY_DIR}"
   COMMAND "${CMAKE_COMMAND}" --install "${CMAKE_BINARY_DIR}"

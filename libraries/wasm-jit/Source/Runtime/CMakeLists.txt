@@ -17,12 +17,11 @@ add_library(Runtime STATIC ${Sources} ${PublicHeaders})
 
 add_definitions(-DRUNTIME_API=DLL_EXPORT)
 
-target_include_directories( Runtime PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/../../../chain/include )
+target_include_directories( Runtime PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../../../chain/include )
 
 # Link against the LLVM libraries
 target_link_libraries(Runtime Logging IR)
 
-install(TARGETS Runtime 
+install(TARGETS Runtime
    LIBRARY DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR} COMPONENT dev EXCLUDE_FROM_ALL
    ARCHIVE DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR} COMPONENT dev EXCLUDE_FROM_ALL)
-
