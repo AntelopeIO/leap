@@ -1,7 +1,6 @@
 cmake_minimum_required( VERSION 3.5 )
 message(STATUS "Setting up Eosio Tester @VERSION_FULL@ at @EOS_ROOT_DIR@")
 
-SET(CMAKE_INSTALL_RPATH "${HOME}/lib;${HOME}/lib64")
 
 set(CMAKE_CXX_COMPILER @CMAKE_CXX_COMPILER@)
 set(CMAKE_C_COMPILER   @CMAKE_C_COMPILER@)
@@ -10,21 +9,8 @@ set(EOSIO_VERSION "@VERSION_FULL@")
 
 enable_testing()
 
-if (LLVM_DIR STREQUAL "" OR NOT LLVM_DIR)
-   set(LLVM_DIR @LLVM_DIR@)
-endif()
-
-find_package( Gperftools QUIET )
-if( GPERFTOOLS_FOUND )
-    message( STATUS "Found gperftools; compiling tests with TCMalloc")
-    list( APPEND PLATFORM_SPECIFIC_LIBS tcmalloc )
-endif()
-
-if(NOT "@LLVM_FOUND@" STREQUAL "")
-   find_package(LLVM @LLVM_VERSION@ EXACT REQUIRED CONFIG)
-   llvm_map_components_to_libnames(LLVM_LIBS support core passes mcjit native DebugInfoDWARF orcjit)
-   link_directories(${LLVM_LIBRARY_DIR})
-endif()
+set(LLVM_DIR @LLVM_CMAKE_DIR@)
+set(BOOST_ROOT @BOOST_ROOT@)
 
 set( CMAKE_CXX_STANDARD 17 )
 set( CMAKE_CXX_EXTENSIONS ON )
@@ -33,7 +19,11 @@ set( CXX_STANDARD_REQUIRED ON )
 #adds -pthread. Ubuntu eosio.contracts build breaks without this flag specified
 set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)
-find_package(Threads)
+include(CMakeFindDependencyMacro)
+
+find_dependency(LLVM)
+find_dependency(Threads)
+find_dependency(Boost)
 
 if ( APPLE )
    set( CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} ${CMAKE_CXX_FLAGS} -Wall -Wno-deprecated-declarations" )
@@ -41,40 +31,7 @@ else ( APPLE )
    set( CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} ${CMAKE_CXX_FLAGS} -Wall")
 endif ( APPLE )
 
-### Remove after Boost 1.70 CMake fixes are in place
-set( Boost_NO_BOOST_CMAKE ON CACHE STRING "ON or OFF" )
-set( Boost_USE_STATIC_LIBS ON CACHE STRING "ON or OFF" )
-find_package(Boost @Boost_MAJOR_VERSION@.@Boost_MINOR_VERSION@ EXACT REQUIRED COMPONENTS
-   date_time
-   filesystem
-   system
-   chrono
-   iostreams
-   unit_test_framework)
-
-find_library(libtester eosio_testing @CMAKE_INSTALL_FULL_LIBDIR@ NO_DEFAULT_PATH)
-find_library(libchain eosio_chain @CMAKE_INSTALL_FULL_LIBDIR@ NO_DEFAULT_PATH)
-find_library(libfc fc @CMAKE_INSTALL_FULL_LIBDIR@ NO_DEFAULT_PATH)
-find_library(libsecp256k1 secp256k1 @CMAKE_INSTALL_FULL_LIBDIR@ NO_DEFAULT_PATH)
-
-find_library(libff ff @CMAKE_INSTALL_FULL_LIBDIR@ NO_DEFAULT_PATH)
-find_library(libwasm WASM @CMAKE_INSTALL_FULL_LIBDIR@ NO_DEFAULT_PATH)
-find_library(libwast WAST @CMAKE_INSTALL_FULL_LIBDIR@ NO_DEFAULT_PATH)
-find_library(libir IR     @CMAKE_INSTALL_FULL_LIBDIR@ NO_DEFAULT_PATH)
-find_library(liblogging Logging @CMAKE_INSTALL_FULL_LIBDIR@ NO_DEFAULT_PATH)
-find_library(libruntime Runtime @CMAKE_INSTALL_FULL_LIBDIR@ NO_DEFAULT_PATH)
-find_library(libsoftfloat softfloat @CMAKE_INSTALL_FULL_LIBDIR@ NO_DEFAULT_PATH)
-get_filename_component(cryptodir @OPENSSL_CRYPTO_LIBRARY@ DIRECTORY)
-find_library(liboscrypto crypto "${cryptodir}" NO_DEFAULT_PATH)
-get_filename_component(ssldir @OPENSSL_SSL_LIBRARY@ DIRECTORY)
-find_library(libosssl ssl "${ssldir}" NO_DEFAULT_PATH)
-find_library(libchainbase chainbase @CMAKE_INSTALL_FULL_LIBDIR@ NO_DEFAULT_PATH)
-find_library(libbuiltins builtins @CMAKE_INSTALL_FULL_LIBDIR@ NO_DEFAULT_PATH)
-
-#Ubuntu build requires rt library to be specified explicitly
-if(UNIX AND NOT APPLE)
-  find_library(LIBRT rt)
-endif()
+include(${CMAKE_CURRENT_LIST_DIR}/tester-targets.cmake)
 
 set(EOSIO_WASM_RUNTIMES @EOSIO_WASM_RUNTIMES@)
 if("eos-vm-oc" IN_LIST EOSIO_WASM_RUNTIMES)
@@ -83,52 +40,10 @@ endif()
 
 macro(add_eosio_test_executable test_name)
    add_executable( ${test_name} ${ARGN} )
-   target_link_libraries( ${test_name}
-       ${libtester}
-       ${libchain}
-       ${libfc}
-       ${libwast}
-       ${libwasm}
-       ${libruntime}
-       ${libir}
-       ${libsoftfloat}
-       ${liboscrypto}
-       ${libosssl}
-       ${liblogging}
-       ${libchainbase}
-       ${libbuiltins}
-       ${libsecp256k1}
-       ${libff}
-       @GMP_LIBRARY@
-
-       ${Boost_FILESYSTEM_LIBRARY}
-       ${Boost_SYSTEM_LIBRARY}
-       ${Boost_CHRONO_LIBRARY}
-       ${Boost_IOSTREAMS_LIBRARY}
-       "-lz" # Needed by Boost iostreams
-       ${Boost_DATE_TIME_LIBRARY}
-
-       ${LLVM_LIBS}
-
-       ${PLATFORM_SPECIFIC_LIBS}
-
+   target_link_libraries( ${test_name} PRIVATE
+       eosio_testing
        ${WRAP_MAIN}
-       Threads::Threads
-      )
-   
-   #adds -ltr. Ubuntu eosio.contracts build breaks without this
-   if(UNIX AND NOT APPLE)
-      target_link_libraries(${test_name} ${LIBRT})
-   endif()
-
-   target_include_directories( ${test_name} PUBLIC
-                               ${Boost_INCLUDE_DIRS}
-                               @OPENSSL_INCLUDE_DIR@
-                               @CMAKE_INSTALL_PREFIX@
-                               @CMAKE_INSTALL_FULL_INCLUDEDIR@
-                               @CMAKE_INSTALL_FULL_INCLUDEDIR@/wasm-jit
-                               @CMAKE_INSTALL_FULL_INCLUDEDIR@/softfloat )
-
+   )
 endmacro()
 
 macro(add_eosio_test test_name)
