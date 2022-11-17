@@ -221,6 +221,8 @@ The Performance Harness main script `performance_test.py` can be configured usin
                           (default: 2)
 * `--signature-cpu-billable-pct SIGNATURE_CPU_BILLABLE_PCT`
                           Percentage of actual signature recovery cpu to bill. Whole number percentages, e.g. 50 for 50% (default: 0)
+* `--chain-state-db-size-mb CHAIN_STATE_DB_SIZE_MB`
+                          Maximum size (in MiB) of the chain state database (default: 10240)
 * `--chain-threads CHAIN_THREADS`
                           Number of worker threads in controller thread pool (default: 2)
 * `--database-map-mode {mapped,heap,locked}`
@@ -285,6 +287,8 @@ The following scripts are typically used by the Performance Harness main script 
                           of the range of blocks of interest for evaluation. (default: 2)
 * `--signature-cpu-billable-pct SIGNATURE_CPU_BILLABLE_PCT`
                           Percentage of actual signature recovery cpu to bill. Whole number percentages, e.g. 50 for 50% (default: 0)
+* `--chain-state-db-size-mb CHAIN_STATE_DB_SIZE_MB`
+                          Maximum size (in MiB) of the chain state database (default: 10240)
 * `--chain-threads CHAIN_THREADS`
                           Number of worker threads in controller thread pool (default: 2)
 * `--database-map-mode {mapped,heap,locked}`

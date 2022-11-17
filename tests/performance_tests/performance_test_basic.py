@@ -50,11 +50,13 @@ class PerformanceBasicTest:
             @dataclass
             class ChainPluginArgs:
                 signatureCpuBillablePct: int = 0
+                chainStateDbSizeMb: int = 10 * 1024
                 chainThreads: int = 2
                 databaseMapMode: str = "mapped"
 
                 def __str__(self) -> str:
                     return f"--signature-cpu-billable-pct {self.signatureCpuBillablePct} \
+                             --chain-state-db-size-mb {self.chainStateDbSizeMb} \
                              --chain-threads {self.chainThreads} \
                              --database-map-mode {self.databaseMapMode}"
 
@@ -217,25 +219,24 @@ class PerformanceBasicTest:
 
     def queryBlockTrxData(self, node, blockDataPath, blockTrxDataPath, startBlockNum, endBlockNum):
         for blockNum in range(startBlockNum, endBlockNum):
-            block = node.processCurlCmd("trace_api", "get_block", f'{{"block_num":{blockNum}}}', silentErrors=False, exitOnError=True)
-
+            block = node.processUrllibRequest("trace_api", "get_block", {"block_num":blockNum}, silentErrors=False, exitOnError=True)
             btdf_append_write = self.fileOpenMode(blockTrxDataPath)
             with open(blockTrxDataPath, btdf_append_write) as trxDataFile:
-                [trxDataFile.write(f"{trx['id']},{trx['block_num']},{trx['cpu_usage_us']},{trx['net_usage_words']}\n") for trx in block['transactions'] if block['transactions']]
+                [trxDataFile.write(f"{trx['id']},{trx['block_num']},{trx['cpu_usage_us']},{trx['net_usage_words']}\n") for trx in block['payload']['transactions'] if block['payload']['transactions']]
             trxDataFile.close()
 
             bdf_append_write = self.fileOpenMode(blockDataPath)
             with open(blockDataPath, bdf_append_write) as blockDataFile:
-                blockDataFile.write(f"{block['number']},{block['id']},{block['producer']},{block['status']},{block['timestamp']}\n")
+                blockDataFile.write(f"{block['payload']['number']},{block['payload']['id']},{block['payload']['producer']},{block['payload']['status']},{block['payload']['timestamp']}\n")
             blockDataFile.close()
 
     def waitForEmptyBlocks(self, node, numEmptyToWaitOn):
         emptyBlocks = 0
         while emptyBlocks < numEmptyToWaitOn:
             headBlock = node.getHeadBlockNum()
-            block = node.processCurlCmd("chain", "get_block_info", f'{{"block_num":{headBlock}}}', silentErrors=False, exitOnError=True)
+            block = node.processUrllibRequest("chain", "get_block_info", {"block_num":headBlock}, silentErrors=False, exitOnError=True)
             node.waitForHeadToAdvance()
-            if block['transaction_mroot'] == "0000000000000000000000000000000000000000000000000000000000000000":
+            if block['payload']['transaction_mroot'] == "0000000000000000000000000000000000000000000000000000000000000000":
                 emptyBlocks += 1
             else:
                 emptyBlocks = 0
@@ -412,6 +413,7 @@ def parseArgs():
     appArgs.add(flag="--num-blocks-to-prune", type=int, help=("The number of potentially non-empty blocks, in addition to leading and trailing size 0 blocks, "
                 "to prune from the beginning and end of the range of blocks of interest for evaluation."), default=2)
     appArgs.add(flag="--signature-cpu-billable-pct", type=int, help="Percentage of actual signature recovery cpu to bill. Whole number percentages, e.g. 50 for 50%%", default=0)
+    appArgs.add(flag="--chain-state-db-size-mb", type=int, help="Maximum size (in MiB) of the chain state database", default=10*1024)
     appArgs.add(flag="--chain-threads", type=int, help="Number of worker threads in controller thread pool", default=2)
     appArgs.add(flag="--database-map-mode", type=str, help="Database map mode (\"mapped\", \"heap\", or \"locked\"). \
                                                             In \"mapped\" mode database is memory mapped as a file. \
@@ -444,7 +446,7 @@ def main():
                                                              dumpErrorDetails=args.dump_error_details, delay=args.d, nodesFile=args.nodes_file, verbose=args.v)
 
     ENA = PerformanceBasicTest.ClusterConfig.ExtraNodeosArgs
-    chainPluginArgs = ENA.ChainPluginArgs(signatureCpuBillablePct=args.signature_cpu_billable_pct,
+    chainPluginArgs = ENA.ChainPluginArgs(signatureCpuBillablePct=args.signature_cpu_billable_pct, chainStateDbSizeMb=args.chain_state_db_size_mb,
                                           chainThreads=args.chain_threads, databaseMapMode=args.database_map_mode)
     producerPluginArgs = ENA.ProducerPluginArgs(disableSubjectiveBilling=args.disable_subjective_billing,
                                                 lastBlockTimeOffsetUs=args.last_block_time_offset_us, produceTimeOffsetUs=args.produce_time_offset_us,

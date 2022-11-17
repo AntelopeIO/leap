@@ -219,6 +219,7 @@ def parseArgs():
     appArgs.add(flag="--genesis", type=str, help="Path to genesis.json", default="tests/performance_tests/genesis.json")
     appArgs.add(flag="--num-blocks-to-prune", type=int, help="The number of potentially non-empty blocks, in addition to leading and trailing size 0 blocks, to prune from the beginning and end of the range of blocks of interest for evaluation.", default=2)
     appArgs.add(flag="--signature-cpu-billable-pct", type=int, help="Percentage of actual signature recovery cpu to bill. Whole number percentages, e.g. 50 for 50%%", default=0)
+    appArgs.add(flag="--chain-state-db-size-mb", type=int, help="Maximum size (in MiB) of the chain state database", default=10*1024)
     appArgs.add(flag="--chain-threads", type=int, help="Number of worker threads in controller thread pool", default=2)
     appArgs.add(flag="--database-map-mode", type=str, help="Database map mode (\"mapped\", \"heap\", or \"locked\"). \
                                                             In \"mapped\" mode database is memory mapped as a file. \
@@ -282,7 +283,7 @@ def main():
                                                              verbose=verbose)
 
     ENA = PerformanceBasicTest.ClusterConfig.ExtraNodeosArgs
-    chainPluginArgs = ENA.ChainPluginArgs(signatureCpuBillablePct=args.signature_cpu_billable_pct,
+    chainPluginArgs = ENA.ChainPluginArgs(signatureCpuBillablePct=args.signature_cpu_billable_pct, chainStateDbSizeMb=args.chain_state_db_size_mb,
                                           chainThreads=args.chain_threads, databaseMapMode=args.database_map_mode)
     producerPluginArgs = ENA.ProducerPluginArgs(disableSubjectiveBilling=args.disable_subjective_billing,
                                                 lastBlockTimeOffsetUs=args.last_block_time_offset_us, produceTimeOffsetUs=args.produce_time_offset_us,

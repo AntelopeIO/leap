@@ -111,11 +111,11 @@ try:
 
     def pauseBlockProductions():
         for node in allNodes:
-            if not node.killed: node.processCurlCmd("producer", "pause", "")
+            if not node.killed: node.processUrllibRequest("producer", "pause")
 
     def resumeBlockProductions():
         for node in allNodes:
-            if not node.killed: node.processCurlCmd("producer", "resume", "")
+            if not node.killed: node.processUrllibRequest("producer", "resume")
 
     def areNodesInSync(nodes:[Node]):
         # Pause all block production to ensure the head is not moving
