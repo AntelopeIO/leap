@@ -37,6 +37,7 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_protocol_feature_test.py ${CMA
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_multiple_version_protocol_feature_test.py ${CMAKE_CURRENT_BINARY_DIR}/nodeos_multiple_version_protocol_feature_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_extra_packed_data_test.py ${CMAKE_CURRENT_BINARY_DIR}/nodeos_extra_packed_data_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_trust_evm_test.py ${CMAKE_CURRENT_BINARY_DIR}/nodeos_trust_evm_test.py COPYONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_trust_evm_server.py ${CMAKE_CURRENT_BINARY_DIR}/nodeos_trust_evm_server.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_trust_evm_forked_chain_test.py ${CMAKE_CURRENT_BINARY_DIR}/nodeos_trust_evm_forked_chain_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/validate-dirty-db.py ${CMAKE_CURRENT_BINARY_DIR}/validate-dirty-db.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/launcher_test.py ${CMAKE_CURRENT_BINARY_DIR}/launcher_test.py COPYONLY)
