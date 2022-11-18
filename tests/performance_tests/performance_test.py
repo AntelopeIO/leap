@@ -59,10 +59,10 @@ def performPtbBinarySearch(tpsTestFloor: int, tpsTestCeiling: int, minStep: int,
         print(f"Running scenario: floor {floor} binSearchTarget {binSearchTarget} ceiling {ceiling}")
         ptbResult = PerfTestBasicResult()
         scenarioResult = PerfTestSearchIndivResult(success=False, searchTarget=binSearchTarget, searchFloor=floor, searchCeiling=ceiling, basicTestResult=ptbResult)
+        ptbConfig = PerformanceTestBasic.PtbConfig(targetTps=binSearchTarget, testTrxGenDurationSec=testDurationSec, tpsLimitPerGenerator=tpsLimitPerGenerator,
+                                                   numAddlBlocksToPrune=numAddlBlocksToPrune, logDirRoot=testLogDir, delReport=delReport, quiet=quiet, delPerfLogs=delPerfLogs)
 
-        myTest = PerformanceTestBasic(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, targetTps=binSearchTarget,
-                                    testTrxGenDurationSec=testDurationSec, tpsLimitPerGenerator=tpsLimitPerGenerator,
-                                    numAddlBlocksToPrune=numAddlBlocksToPrune, rootLogDir=testLogDir, delReport=delReport, quiet=quiet, delPerfLogs=delPerfLogs)
+        myTest = PerformanceTestBasic(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, ptbConfig=ptbConfig)
         testSuccessful = myTest.runTest()
         if evaluateSuccess(myTest, testSuccessful, ptbResult):
             maxTpsAchieved = binSearchTarget
@@ -100,10 +100,10 @@ def performPtbReverseLinearSearch(tpsInitial: int, step: int, testHelperConfig: 
         print(f"Running scenario: floor {absFloor} searchTarget {searchTarget} ceiling {absCeiling}")
         ptbResult = PerfTestBasicResult()
         scenarioResult = PerfTestSearchIndivResult(success=False, searchTarget=searchTarget, searchFloor=absFloor, searchCeiling=absCeiling, basicTestResult=ptbResult)
+        ptbConfig = PerformanceTestBasic.PtbConfig(targetTps=searchTarget, testTrxGenDurationSec=testDurationSec, tpsLimitPerGenerator=tpsLimitPerGenerator,
+                                                   numAddlBlocksToPrune=numAddlBlocksToPrune, logDirRoot=testLogDir, delReport=delReport, quiet=quiet, delPerfLogs=delPerfLogs)
 
-        myTest = PerformanceTestBasic(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, targetTps=searchTarget,
-                                    testTrxGenDurationSec=testDurationSec, tpsLimitPerGenerator=tpsLimitPerGenerator,
-                                    numAddlBlocksToPrune=numAddlBlocksToPrune, rootLogDir=testLogDir, delReport=delReport, quiet=quiet, delPerfLogs=delPerfLogs)
+        myTest = PerformanceTestBasic(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, ptbConfig=ptbConfig)
         testSuccessful = myTest.runTest()
         if evaluateSuccess(myTest, testSuccessful, ptbResult):
             maxTpsAchieved = searchTarget
@@ -121,8 +121,8 @@ def performPtbReverseLinearSearch(tpsInitial: int, step: int, testHelperConfig: 
     return PerfTestSearchResults(maxTpsAchieved=maxTpsAchieved, searchResults=searchResults, maxTpsReport=maxTpsReport)
 
 def evaluateSuccess(test: PerformanceTestBasic, testSuccessful: bool, result: PerfTestBasicResult) -> bool:
-    result.targetTPS = test.targetTps
-    result.expectedTxns = test.expectedTransactionsSent
+    result.targetTPS = test.ptbConfig.targetTps
+    result.expectedTxns = test.ptbConfig.expectedTransactionsSent
     reportDict = test.report
     result.testStart = reportDict["testStart"]
     result.testEnd = reportDict["testFinish"]
@@ -134,7 +134,7 @@ def evaluateSuccess(test: PerformanceTestBasic, testSuccessful: bool, result: Pe
     result.trxExpectMet = result.expectedTxns == result.resultTxns
     result.basicTestSuccess = testSuccessful
     result.testAnalysisBlockCnt = reportDict["Analysis"]["BlocksGuide"]["testAnalysisBlockCnt"]
-    result.logsDir = test.testTimeStampDirPath
+    result.logsDir = test.loggingConfig.logDirPath
 
     print(f"basicTestSuccess: {result.basicTestSuccess} tpsExpectationMet: {result.tpsExpectMet} trxExpectationMet: {result.trxExpectMet}")
 
@@ -201,7 +201,7 @@ def testDirsSetup(rootLogDir, testTimeStampDirPath, ptbLogsDirPath):
 
 def prepArgsDict(testDurationSec, finalDurationSec, logsDir, maxTpsToTest, testIterationMinStep,
                  tpsLimitPerGenerator, delReport, delTestReport, numAddlBlocksToPrune, quiet, delPerfLogs,
-                 testHelperConfig, testClusterConfig) -> dict:
+                 testHelperConfig: PerformanceTestBasic.TestHelperConfig, testClusterConfig: PerformanceTestBasic.ClusterConfig) -> dict:
     argsDict = {}
     argsDict.update(asdict(testHelperConfig))
     argsDict.update(asdict(testClusterConfig))
@@ -294,7 +294,6 @@ def main():
     extraNodeosArgs = ENA(chainPluginArgs=chainPluginArgs, httpPluginArgs=httpPluginArgs, producerPluginArgs=producerPluginArgs, netPluginArgs=netPluginArgs)
     testClusterConfig = PerformanceTestBasic.ClusterConfig(pnodes=args.p, totalNodes=args.n, topo=args.s, genesisPath=args.genesis,
                                                            prodsEnableTraceApi=args.prods_enable_trace_api, extraNodeosArgs=extraNodeosArgs)
-
     argsDict = prepArgsDict(testDurationSec=testDurationSec, finalDurationSec=finalDurationSec, logsDir=testTimeStampDirPath,
                         maxTpsToTest=maxTpsToTest, testIterationMinStep=testIterationMinStep, tpsLimitPerGenerator=tpsLimitPerGenerator,
                         delReport=delReport, delTestReport=delTestReport, numAddlBlocksToPrune=numAddlBlocksToPrune,
