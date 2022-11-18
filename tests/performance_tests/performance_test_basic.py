@@ -19,9 +19,9 @@ from dataclasses import dataclass, asdict, field
 from datetime import datetime
 from math import ceil
 
-class PerformanceBasicTest:
+class PerformanceTestBasic:
     @dataclass
-    class PbtTpsTestResult:
+    class PtbTpsTestResult:
         completedRun: bool = False
         numGeneratorsUsed: int = 0
         targetTpsPerGenList: list = field(default_factory=list)
@@ -267,7 +267,7 @@ class PerformanceBasicTest:
         self.account1PrivKey = self.cluster.accounts[0].activePrivateKey
         self.account2PrivKey = self.cluster.accounts[1].activePrivateKey
 
-    def runTpsTest(self) -> PbtTpsTestResult:
+    def runTpsTest(self) -> PtbTpsTestResult:
         completedRun = False
         self.producerNode = self.cluster.getNode(self.producerNodeId)
         self.validationNode = self.cluster.getNode(self.validationNodeId)
@@ -301,7 +301,7 @@ class PerformanceBasicTest:
         trxSent = self.validationNode.waitForTransactionsInBlockRange(trxSent, self.data.startBlock, blocksToWait)
         self.data.ceaseBlock = self.validationNode.getHeadBlockNum()
 
-        return PerformanceBasicTest.PbtTpsTestResult(completedRun=completedRun, numGeneratorsUsed=tpsTrxGensConfig.numGenerators,
+        return PerformanceTestBasic.PtbTpsTestResult(completedRun=completedRun, numGeneratorsUsed=tpsTrxGensConfig.numGenerators,
                                                      targetTpsPerGenList=tpsTrxGensConfig.targetTpsPerGenList, trxGenExitCodes=trxGenExitCodes)
 
     def prepArgs(self) -> dict:
@@ -334,7 +334,7 @@ class PerformanceBasicTest:
                     print(f"Failed to move '{etcEosioDir}/{path}' to '{self.etcEosioLogsDirPath}/{path}': {type(e)}: {e}")
 
 
-    def analyzeResultsAndReport(self, testResult: PbtTpsTestResult):
+    def analyzeResultsAndReport(self, testResult: PtbTpsTestResult):
         args = self.prepArgs()
         artifactsLocate = log_reader.ArtifactPaths(nodeosLogPath=self.nodeosLogPath, trxGenLogDirPath=self.trxGenLogDirPath, blockTrxDataPath=self.blockTrxDataPath,
                                                    blockDataPath=self.blockDataPath)
@@ -386,7 +386,7 @@ class PerformanceBasicTest:
 
             testSuccessful = self.ptbTestResult.completedRun
 
-            if not self.PbtTpsTestResult.completedRun:
+            if not self.PtbTpsTestResult.completedRun:
                 for exitCode in self.ptbTestResult.trxGenExitCodes:
                     if exitCode != 0:
                         print(f"Error: Transaction Generator exited with error {exitCode}")
@@ -458,10 +458,10 @@ def main():
     args = parseArgs()
     Utils.Debug = args.v
 
-    testHelperConfig = PerformanceBasicTest.TestHelperConfig(killAll=args.clean_run, dontKill=args.leave_running, keepLogs=not args.del_perf_logs,
+    testHelperConfig = PerformanceTestBasic.TestHelperConfig(killAll=args.clean_run, dontKill=args.leave_running, keepLogs=not args.del_perf_logs,
                                                              dumpErrorDetails=args.dump_error_details, delay=args.d, nodesFile=args.nodes_file, verbose=args.v)
 
-    ENA = PerformanceBasicTest.ClusterConfig.ExtraNodeosArgs
+    ENA = PerformanceTestBasic.ClusterConfig.ExtraNodeosArgs
     chainPluginArgs = ENA.ChainPluginArgs(signatureCpuBillablePct=args.signature_cpu_billable_pct, chainStateDbSizeMb=args.chain_state_db_size_mb,
                                           chainThreads=args.chain_threads, databaseMapMode=args.database_map_mode)
     producerPluginArgs = ENA.ProducerPluginArgs(disableSubjectiveBilling=args.disable_subjective_billing,
@@ -471,10 +471,10 @@ def main():
     httpPluginArgs = ENA.HttpPluginArgs(httpMaxResponseTimeMs=args.http_max_response_time_ms)
     netPluginArgs = ENA.NetPluginArgs(netThreads=args.net_threads)
     extraNodeosArgs = ENA(chainPluginArgs=chainPluginArgs, httpPluginArgs=httpPluginArgs, producerPluginArgs=producerPluginArgs, netPluginArgs=netPluginArgs)
-    testClusterConfig = PerformanceBasicTest.ClusterConfig(pnodes=args.p, totalNodes=args.n, topo=args.s, genesisPath=args.genesis,
+    testClusterConfig = PerformanceTestBasic.ClusterConfig(pnodes=args.p, totalNodes=args.n, topo=args.s, genesisPath=args.genesis,
                                                            prodsEnableTraceApi=args.prods_enable_trace_api, extraNodeosArgs=extraNodeosArgs)
 
-    myTest = PerformanceBasicTest(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, targetTps=args.target_tps,
+    myTest = PerformanceTestBasic(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, targetTps=args.target_tps,
                                   testTrxGenDurationSec=args.test_duration_sec, tpsLimitPerGenerator=args.tps_limit_per_generator,
                                   numAddlBlocksToPrune=args.num_blocks_to_prune, delReport=args.del_report, quiet=args.quiet,
                                   delPerfLogs=args.del_perf_logs)

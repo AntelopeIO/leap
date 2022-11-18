@@ -11,7 +11,7 @@ sys.path.append(harnessPath)
 
 from TestHarness import TestHelper, Utils
 from TestHarness.TestHelper import AppArgs
-from performance_test_basic import PerformanceBasicTest
+from performance_test_basic import PerformanceTestBasic
 from platform import release, system
 from dataclasses import dataclass, asdict, field
 from datetime import datetime
@@ -44,8 +44,8 @@ class PerfTestSearchResults:
     searchResults: list = field(default_factory=list) #PerfTestSearchIndivResult list
     maxTpsReport: dict = field(default_factory=dict)
 
-def performPtbBinarySearch(tpsTestFloor: int, tpsTestCeiling: int, minStep: int, testHelperConfig: PerformanceBasicTest.TestHelperConfig,
-                           testClusterConfig: PerformanceBasicTest.ClusterConfig, testDurationSec: int, tpsLimitPerGenerator: int,
+def performPtbBinarySearch(tpsTestFloor: int, tpsTestCeiling: int, minStep: int, testHelperConfig: PerformanceTestBasic.TestHelperConfig,
+                           testClusterConfig: PerformanceTestBasic.ClusterConfig, testDurationSec: int, tpsLimitPerGenerator: int,
                            numAddlBlocksToPrune: int, testLogDir: str, delReport: bool, quiet: bool, delPerfLogs: bool) -> PerfTestSearchResults:
     floor = tpsTestFloor
     ceiling = tpsTestCeiling
@@ -60,7 +60,7 @@ def performPtbBinarySearch(tpsTestFloor: int, tpsTestCeiling: int, minStep: int,
         ptbResult = PerfTestBasicResult()
         scenarioResult = PerfTestSearchIndivResult(success=False, searchTarget=binSearchTarget, searchFloor=floor, searchCeiling=ceiling, basicTestResult=ptbResult)
 
-        myTest = PerformanceBasicTest(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, targetTps=binSearchTarget,
+        myTest = PerformanceTestBasic(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, targetTps=binSearchTarget,
                                     testTrxGenDurationSec=testDurationSec, tpsLimitPerGenerator=tpsLimitPerGenerator,
                                     numAddlBlocksToPrune=numAddlBlocksToPrune, rootLogDir=testLogDir, delReport=delReport, quiet=quiet, delPerfLogs=delPerfLogs)
         testSuccessful = myTest.runTest()
@@ -81,8 +81,8 @@ def performPtbBinarySearch(tpsTestFloor: int, tpsTestCeiling: int, minStep: int,
 
     return PerfTestSearchResults(maxTpsAchieved=maxTpsAchieved, searchResults=searchResults, maxTpsReport=maxTpsReport)
 
-def performPtbReverseLinearSearch(tpsInitial: int, step: int, testHelperConfig: PerformanceBasicTest.TestHelperConfig,
-                                  testClusterConfig: PerformanceBasicTest.ClusterConfig, testDurationSec: int, tpsLimitPerGenerator: int,
+def performPtbReverseLinearSearch(tpsInitial: int, step: int, testHelperConfig: PerformanceTestBasic.TestHelperConfig,
+                                  testClusterConfig: PerformanceTestBasic.ClusterConfig, testDurationSec: int, tpsLimitPerGenerator: int,
                                   numAddlBlocksToPrune: int, testLogDir: str, delReport: bool, quiet: bool, delPerfLogs: bool) -> PerfTestSearchResults:
 
     # Default - Decrementing Max TPS in range [0, tpsInitial]
@@ -101,7 +101,7 @@ def performPtbReverseLinearSearch(tpsInitial: int, step: int, testHelperConfig: 
         ptbResult = PerfTestBasicResult()
         scenarioResult = PerfTestSearchIndivResult(success=False, searchTarget=searchTarget, searchFloor=absFloor, searchCeiling=absCeiling, basicTestResult=ptbResult)
 
-        myTest = PerformanceBasicTest(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, targetTps=searchTarget,
+        myTest = PerformanceTestBasic(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, targetTps=searchTarget,
                                     testTrxGenDurationSec=testDurationSec, tpsLimitPerGenerator=tpsLimitPerGenerator,
                                     numAddlBlocksToPrune=numAddlBlocksToPrune, rootLogDir=testLogDir, delReport=delReport, quiet=quiet, delPerfLogs=delPerfLogs)
         testSuccessful = myTest.runTest()
@@ -120,7 +120,7 @@ def performPtbReverseLinearSearch(tpsInitial: int, step: int, testHelperConfig: 
 
     return PerfTestSearchResults(maxTpsAchieved=maxTpsAchieved, searchResults=searchResults, maxTpsReport=maxTpsReport)
 
-def evaluateSuccess(test: PerformanceBasicTest, testSuccessful: bool, result: PerfTestBasicResult) -> bool:
+def evaluateSuccess(test: PerformanceTestBasic, testSuccessful: bool, result: PerfTestBasicResult) -> bool:
     result.targetTPS = test.targetTps
     result.expectedTxns = test.expectedTransactionsSent
     reportDict = test.report
@@ -278,11 +278,11 @@ def main():
 
     testDirsSetup(rootLogDir=rootLogDir, testTimeStampDirPath=testTimeStampDirPath, ptbLogsDirPath=ptbLogsDirPath)
 
-    testHelperConfig = PerformanceBasicTest.TestHelperConfig(killAll=killAll, dontKill=dontKill, keepLogs=not delPerfLogs,
+    testHelperConfig = PerformanceTestBasic.TestHelperConfig(killAll=killAll, dontKill=dontKill, keepLogs=not delPerfLogs,
                                                              dumpErrorDetails=dumpErrorDetails, delay=delay, nodesFile=nodesFile,
                                                              verbose=verbose)
 
-    ENA = PerformanceBasicTest.ClusterConfig.ExtraNodeosArgs
+    ENA = PerformanceTestBasic.ClusterConfig.ExtraNodeosArgs
     chainPluginArgs = ENA.ChainPluginArgs(signatureCpuBillablePct=args.signature_cpu_billable_pct, chainStateDbSizeMb=args.chain_state_db_size_mb,
                                           chainThreads=args.chain_threads, databaseMapMode=args.database_map_mode)
     producerPluginArgs = ENA.ProducerPluginArgs(disableSubjectiveBilling=args.disable_subjective_billing,
@@ -292,7 +292,7 @@ def main():
     httpPluginArgs = ENA.HttpPluginArgs(httpMaxResponseTimeMs=args.http_max_response_time_ms)
     netPluginArgs = ENA.NetPluginArgs(netThreads=args.net_threads)
     extraNodeosArgs = ENA(chainPluginArgs=chainPluginArgs, httpPluginArgs=httpPluginArgs, producerPluginArgs=producerPluginArgs, netPluginArgs=netPluginArgs)
-    testClusterConfig = PerformanceBasicTest.ClusterConfig(pnodes=args.p, totalNodes=args.n, topo=args.s, genesisPath=args.genesis,
+    testClusterConfig = PerformanceTestBasic.ClusterConfig(pnodes=args.p, totalNodes=args.n, topo=args.s, genesisPath=args.genesis,
                                                            prodsEnableTraceApi=args.prods_enable_trace_api, extraNodeosArgs=extraNodeosArgs)
 
     argsDict = prepArgsDict(testDurationSec=testDurationSec, finalDurationSec=finalDurationSec, logsDir=testTimeStampDirPath,
