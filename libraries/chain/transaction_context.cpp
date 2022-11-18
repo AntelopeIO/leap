@@ -48,14 +48,14 @@ namespace eosio { namespace chain {
                                              const packed_transaction& t,
                                              transaction_checktime_timer&& tmr,
                                              fc::time_point s,
-                                             bool read_only)
+                                             transaction_metadata::trx_type type)
    :control(c)
    ,packed_trx(t)
    ,undo_session()
    ,trace(std::make_shared<transaction_trace>())
    ,start(s)
    ,transaction_timer(std::move(tmr))
-   ,is_read_only(read_only)
+   ,trx_type(type)
    ,net_usage(trace->net_usage)
    ,pseudo_start(s)
    {
@@ -769,7 +769,7 @@ namespace eosio { namespace chain {
                actors.insert( auth.actor );
          }
       }
-      EOS_ASSERT( one_auth || is_read_only, tx_no_auths, "transaction must have at least one authorization" );
+      EOS_ASSERT( one_auth || is_dry_run(), tx_no_auths, "transaction must have at least one authorization" );
 
       if( enforce_actor_whitelist_blacklist ) {
          control.check_actor_list( actors );

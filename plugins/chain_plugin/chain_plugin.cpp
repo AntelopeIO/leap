@@ -1337,7 +1337,7 @@ bool chain_plugin::accept_block(const signed_block_ptr& block, const block_id_ty
 }
 
 void chain_plugin::accept_transaction(const chain::packed_transaction_ptr& trx, next_function<chain::transaction_trace_ptr> next) {
-   my->incoming_transaction_async_method(trx, false, false, false, std::move(next));
+   my->incoming_transaction_async_method(trx, false, transaction_metadata::trx_type::input, false, std::move(next));
 }
 
 controller& chain_plugin::chain() { return *my->chain; }
@@ -2169,7 +2169,7 @@ void read_write::push_transaction(const read_write::push_transaction_params& par
          abi_serializer::from_variant(params, *pretty_input, std::move( resolver ), abi_serializer::create_yield_function( abi_serializer_max_time ));
       } EOS_RETHROW_EXCEPTIONS(chain::packed_transaction_type_exception, "Invalid packed transaction")
 
-      app().get_method<incoming::methods::transaction_async>()(pretty_input, true, false, false,
+      app().get_method<incoming::methods::transaction_async>()(pretty_input, true, transaction_metadata::trx_type::input, false,
             [this, next](const std::variant<fc::exception_ptr, transaction_trace_ptr>& result) -> void {
          if (std::holds_alternative<fc::exception_ptr>(result)) {
             next(std::get<fc::exception_ptr>(result));
@@ -2288,7 +2288,7 @@ void read_write::send_transaction(const read_write::send_transaction_params& par
          abi_serializer::from_variant(params, *pretty_input, resolver, abi_serializer::create_yield_function( abi_serializer_max_time ));
       } EOS_RETHROW_EXCEPTIONS(chain::packed_transaction_type_exception, "Invalid packed transaction")
 
-      app().get_method<incoming::methods::transaction_async>()(pretty_input, true, false, false,
+      app().get_method<incoming::methods::transaction_async>()(pretty_input, true, transaction_metadata::trx_type::input, false,
             [this, next](const std::variant<fc::exception_ptr, transaction_trace_ptr>& result) -> void {
          if (std::holds_alternative<fc::exception_ptr>(result)) {
             next(std::get<fc::exception_ptr>(result));
@@ -2331,7 +2331,7 @@ void read_write::send_transaction2(const read_write::send_transaction2_params& p
                   "retry transaction expiration ${e} larger than allowed ${m}",
                   ("e", ptrx->expiration())("m", trx_retry->get_max_expiration_time()) );
 
-      app().get_method<incoming::methods::transaction_async>()(ptrx, true, false, static_cast<bool>(params.return_failure_trace),
+      app().get_method<incoming::methods::transaction_async>()(ptrx, true, transaction_metadata::trx_type::input, static_cast<bool>(params.return_failure_trace),
          [this, ptrx, next, retry, retry_num_blocks](const std::variant<fc::exception_ptr, transaction_trace_ptr>& result) -> void {
             if( std::holds_alternative<fc::exception_ptr>( result ) ) {
                next( std::get<fc::exception_ptr>( result ) );
@@ -2685,7 +2685,7 @@ void read_only::compute_transaction(const compute_transaction_params& params, ne
             abi_serializer::from_variant(params.transaction, *pretty_input, resolver, abi_serializer::create_yield_function( abi_serializer_max_time ));
         } EOS_RETHROW_EXCEPTIONS(chain::packed_transaction_type_exception, "Invalid packed transaction")
 
-        app().get_method<incoming::methods::transaction_async>()(pretty_input, false, true, true,
+        app().get_method<incoming::methods::transaction_async>()(pretty_input, false, transaction_metadata::trx_type::dry_run, true,
              [this, next](const std::variant<fc::exception_ptr, transaction_trace_ptr>& result) -> void {
                  if (std::holds_alternative<fc::exception_ptr>(result)) {
                      next(std::get<fc::exception_ptr>(result));
