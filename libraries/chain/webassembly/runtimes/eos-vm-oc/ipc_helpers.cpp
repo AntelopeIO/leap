@@ -89,7 +89,7 @@ bool write_message_with_fds(int fd_to_send_to, const eosvmoc_message& message, c
       .iov_len = sz
    };
    union {
-      char buf[CMSG_SPACE(max_num_fds * sizeof(int))];
+      char buf[CMSG_SPACE(max_num_fds * sizeof(int))] = {};
       struct cmsghdr align;
    } u;
 

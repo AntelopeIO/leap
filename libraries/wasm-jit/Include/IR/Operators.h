@@ -14,60 +14,60 @@ namespace IR
 
 	struct ControlStructureImm
 	{
-		ResultType resultType;
+		ResultType resultType{};
 	};
 
 	struct BranchImm
 	{
-		U32 targetDepth;
+		U32 targetDepth{};
 	};
 
 	struct BranchTableImm
 	{
-		Uptr defaultTargetDepth;
-		Uptr branchTableIndex; // An index into the FunctionDef's branchTables array.
+		Uptr defaultTargetDepth{};
+		Uptr branchTableIndex{}; // An index into the FunctionDef's branchTables array.
 	};
 
 	template<typename Value>
 	struct LiteralImm
 	{
-		Value value;
+		Value value{};
 	};
 
 	template<bool isGlobal>
 	struct GetOrSetVariableImm
 	{
-		U32 variableIndex;
+		U32 variableIndex{};
 	};
 
 	struct CallImm
 	{
-		U32 functionIndex;
+		U32 functionIndex{};
 	};
 
 	struct CallIndirectImm
 	{
-		IndexedFunctionType type;
+		IndexedFunctionType type{};
 	};
 
 	template<Uptr naturalAlignmentLog2>
 	struct LoadOrStoreImm
 	{
-		U8 alignmentLog2;
-		U32 offset;
+		U8 alignmentLog2{};
+		U32 offset{};
 	};
 
 	#if ENABLE_SIMD_PROTOTYPE
 	template<Uptr numLanes>
 	struct LaneIndexImm
 	{
-		U8 laneIndex;
+		U8 laneIndex{};
 	};
 	
 	template<Uptr numLanes>
 	struct ShuffleImm
 	{
-		U8 laneIndices[numLanes];
+		U8 laneIndices[numLanes] = {};
 	};
 	#endif
 
