@@ -114,16 +114,9 @@ find_library(GMP_LIBRARY gmp)
 if(NOT GMP_LIBRARY MATCHES ${CMAKE_SHARED_LIBRARY_SUFFIX})
   message( FATAL_ERROR "GMP shared library not found" )
 endif()
-set(gmp_library_type SHARED)
-message(STATUS "GMP: ${GMP_LIBRARY}, ${GMP_INCLUDE_DIR}")
-add_library(GMP::gmp ${gmp_library_type} IMPORTED)
-set_target_properties(
-  GMP::gmp PROPERTIES
-  IMPORTED_LOCATION ${GMP_LIBRARY}
-  INTERFACE_INCLUDE_DIRECTORIES ${GMP_INCLUDE_DIR}
-)
 
-target_link_libraries(fc PUBLIC GMP::gmp)
+target_link_libraries(fc PRIVATE ${GMP_LIBRARY})
+target_include_directories(fc PRIVATE ${GMP_INCLUDE_DIR})
 
 # fc picks up a dependency on zlib via Boost::iostreams, however in some versions of cmake/boost (depending on if CMake config
 #  files are used) the Boost::iostreams target does not have a dependency on zlib itself so add it explicitly

@@ -1,6 +1,6 @@
 #include <iostream>
 
-#include <bn256.h>
+#include <bn256/bn256.h>
 
 #include <benchmark.hpp>
 
