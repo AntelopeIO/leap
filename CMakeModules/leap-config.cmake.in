@@ -1,4 +1,4 @@
 list(APPEND CMAKE_MODULE_PATH @EOS_ROOT_DIR@/cmake/leap)
 include(EosioTester)
-inlcude(${CMAKE_CURRENT_LIST_DIR}/ship-targets.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/ship-targets.cmake)
 include(EosioCheckVersion)

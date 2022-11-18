@@ -50,7 +50,10 @@ endif()
 
 add_library(ship_protocol INTERFACE)
 target_link_libraries(ship_protocol INTERFACE abieos)
-target_include_directories(ship_protocol INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
+target_include_directories(ship_protocol INTERFACE
+  "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
+  "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
+)
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/include/eosio/ship_protocol.hpp
         DESTINATION ${CMAKE_INSTALL_FULL_INCLUDEDIR}/eosio/
         COMPONENT dev EXCLUDE_FROM_ALL)

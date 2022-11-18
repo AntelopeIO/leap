@@ -22,14 +22,15 @@ add_library(secp256k1 STATIC
 
 target_include_directories(secp256k1
     PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/secp256k1>
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/secp256k1/include>
+    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/secp256k1>"
+    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/secp256k1/include>"
+    "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
 )
 
+# workaround to avoid secp256k1-internal is required to be exported when secp256k1 is exported.
 target_include_directories(secp256k1 PRIVATE $<TARGET_PROPERTY:secp256k1-internal,INTERFACE_INCLUDE_DIRECTORIES>)
 target_compile_definitions(secp256k1 PRIVATE $<TARGET_PROPERTY:secp256k1-internal,INTERFACE_COMPILE_DEFINITIONS>)
 target_compile_options(secp256k1 PRIVATE $<TARGET_PROPERTY:secp256k1-internal,INTERFACE_COMPILE_OPTIONS>)
-#target_link_libraries(secp256k1 PRIVATE "$<BUILD_INTERFACE:secp256k1-internal>")
 
 install( TARGETS secp256k1
    RUNTIME DESTINATION ${CMAKE_INSTALL_FULL_BINDIR} COMPONENT dev EXCLUDE_FROM_ALL

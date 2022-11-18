@@ -7,9 +7,6 @@ target_link_libraries( test_webauthn fc )
 add_executable( test_hash_functions test_hash_functions.cpp )
 target_link_libraries( test_hash_functions fc )
 
-# add_executable( test_alt_bn128 test_alt_bn128.cpp )
-# target_link_libraries( test_alt_bn128 fc )
-
 add_executable( test_blake2 test_blake2.cpp )
 target_link_libraries( test_blake2 fc )
 

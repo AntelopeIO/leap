@@ -21,6 +21,7 @@ target_include_directories( Runtime PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../../..
 
 # Link against the LLVM libraries
 target_link_libraries(Runtime Logging IR)
+target_include_directories(Runtime PUBLIC $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/wasm-jit>)
 
 install(TARGETS Runtime
    LIBRARY DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR} COMPONENT dev EXCLUDE_FROM_ALL

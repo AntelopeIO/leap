@@ -22,7 +22,7 @@ file ( GLOB builtins_headers "${CMAKE_CURRENT_SOURCE_DIR}*.h" )
 list( APPEND builtins_sources ${builtins_headers} )
 add_library ( builtins STATIC ${builtins_sources} )
 target_include_directories( builtins PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
-                                             "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../softfloat/source/include>" )
+                                            "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../softfloat/source/include>" )
 
 install ( TARGETS
    builtins

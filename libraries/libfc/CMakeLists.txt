@@ -74,7 +74,7 @@ set( fc_sources
 
 file( GLOB_RECURSE fc_headers ${CMAKE_CURRENT_SOURCE_DIR} *.hpp *.h )
 
-add_library(fc STATIC ${fc_sources} ${fc_headers})
+add_library(fc ${fc_sources} ${fc_headers})
 
 function(detect_thread_name)
   include(CheckSymbolExists)

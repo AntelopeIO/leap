@@ -12,9 +12,8 @@ add_library(Logging STATIC ${Sources} ${PublicHeaders})
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 	target_link_libraries(Logging dl pthread)
 endif()
-
+target_include_directories(Logging PUBLIC $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/wasm-jit>)
 install(TARGETS Logging
    LIBRARY DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}
    ARCHIVE DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}
    COMPONENT dev EXCLUDE_FROM_ALL)
-
