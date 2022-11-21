@@ -1124,6 +1124,13 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
          // For the time being, when `deep-mind = true` is activated, we set `stdout` here to
          // be an unbuffered I/O stream.
          setbuf(stdout, NULL);
+         
+         //verify configuration is correct
+         EOS_ASSERT( options.at("api-accept-transactions").as<bool>() == false, plugin_config_exception,
+            "api-accept-transactions must be set to false in order to enable deep-mind logging.");
+
+         EOS_ASSERT( options.at("p2p-accept-transactions").as<bool>() == false, plugin_config_exception,
+            "p2p-accept-transactions must be set to false in order to enable deep-mind logging.");
 
          my->chain->enable_deep_mind( &_deep_mind_log );
       }
