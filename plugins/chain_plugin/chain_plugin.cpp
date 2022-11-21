@@ -1126,9 +1126,6 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
          // be an unbuffered I/O stream.
 
          //verify configuration is correct
-         EOS_ASSERT( my->chain_config->read_mode == db_read_mode::HEAD, plugin_config_exception, 
-            "read-mode must be set to head in order to enable deep-mind logging.");
-
          EOS_ASSERT( options.at("api-accept-transactions").as<bool>() == false, plugin_config_exception,
             "api-accept-transactions must be set to false in order to enable deep-mind logging.");
 
