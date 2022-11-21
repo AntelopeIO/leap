@@ -154,6 +154,7 @@ public:
    fc::microseconds                  abi_serializer_max_time_us;
    std::optional<bfs::path>          snapshot_path;
 
+   std::shared_ptr<chain_plugin_metrics> chain_metrics;
 
    // retained references to channels for easy publication
    channels::pre_accepted_block::channel_type&     pre_accepted_block_channel;
@@ -758,6 +759,7 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
       my->chain_config->blocks_dir = my->blocks_dir;
       my->chain_config->state_dir = app().data_dir() / config::default_state_dir_name;
       my->chain_config->read_only = my->readonly;
+      my->chain_metrics = std::make_shared<chain_plugin_metrics>();
 
       if (auto resmon_plugin = app().find_plugin<resource_monitor_plugin>()) {
         resmon_plugin->monitor_directory(my->chain_config->blocks_dir);
@@ -2796,6 +2798,10 @@ fc::variant chain_plugin::get_log_trx(const transaction& trx) const {
         pretty_output = trx;
     }
     return pretty_output;
+}
+
+std::shared_ptr<chain_plugin_metrics> chain_plugin::metrics() {
+   return my->chain_metrics;
 }
 } // namespace eosio
 
