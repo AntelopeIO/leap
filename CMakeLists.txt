@@ -249,23 +249,6 @@ install(FILES libraries/cli11/bash-completion/completions/cleos DESTINATION ${CM
 
 set(TESTER_TARGETS fc secp256k1 bn256 chainbase builtins softfloat Logging IR WAST WASM Runtime eosio_chain eos-vm eosio_testlib)
 
-install(TARGETS ${TESTER_TARGETS}
-  EXPORT tester
-  COMPONENT dev EXCLUDE_FROM_ALL
-)
-
-install(EXPORT tester
-  DESTINATION "lib/cmake/leap"
-  FILE tester-targets.cmake
-  COMPONENT dev EXCLUDE_FROM_ALL
-)
-
-install(EXPORT tester
-  DESTINATION "lib/cmake/eosio"
-  FILE tester-targets.cmake
-  COMPONENT dev EXCLUDE_FROM_ALL
-)
-
 export(TARGETS ${TESTER_TARGETS}
        FILE ${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/leap/tester-targets.cmake)
 
@@ -273,20 +256,21 @@ export(TARGETS ${TESTER_TARGETS}
        FILE ${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/eosio/tester-targets.cmake)
 
 set(SHIP_TARGETS ship_protocol abieos)
-
-install(TARGETS ${SHIP_TARGETS}
-  EXPORT ship
-  COMPONENT dev EXCLUDE_FROM_ALL
-)
-
-install(EXPORT ship
-  DESTINATION "lib/cmake/leap"
-  FILE ship-targets.cmake
-  COMPONENT dev EXCLUDE_FROM_ALL
-)
-
 export(TARGETS ${SHIP_TARGETS}
-       FILE ${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/leap/ship-targets.cmake)
+      FILE ${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/leap/ship-targets.cmake)
+
+include(CMakeModules/install_export_target.cmake)
+
+install_export_targets(TARGETS ${TESTER_TARGETS}
+                       EXPORT tester
+                       DESTINATIONS ${CMAKE_INSTALL_FULL_LIBDIR}/cmake/leap
+                                    ${CMAKE_INSTALL_FULL_LIBDIR}/cmake/eosio
+                       COMPONENT dev EXCLUDE_FROM_ALL)
+
+install_export_targets(TARGETS ${SHIP_TARGETS}
+                       EXPORT ship
+                       DESTINATIONS ${CMAKE_INSTALL_FULL_LIBDIR}/cmake/leap
+                       COMPONENT dev EXCLUDE_FROM_ALL)
 
 add_custom_target(dev-install
   COMMAND "${CMAKE_COMMAND}" --build "${CMAKE_BINARY_DIR}"
