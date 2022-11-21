@@ -31,7 +31,7 @@ class transaction_metadata {
       const packed_transaction_ptr                               _packed_trx;
       const fc::microseconds                                     _sig_cpu_usage;
       const flat_set<public_key_type>                            _recovered_pub_keys;
-      const trx_type                                           _trx_type;
+      const trx_type                                             _trx_type;
 
    public:
       bool                                                       accepted = false;       // not thread safe
@@ -69,10 +69,10 @@ class transaction_metadata {
       fc::microseconds signature_cpu_usage()const { return _sig_cpu_usage; }
       const flat_set<public_key_type>& recovered_keys()const { return _recovered_pub_keys; }
       size_t get_estimated_size() const;
-      const trx_type get_trx_type() const { return _trx_type; };
-      const bool implicit() const { return _trx_type == trx_type::implicit; };
-      const bool scheduled() const { return _trx_type == trx_type::scheduled; };
-      const bool is_dry_run() const { return _trx_type == trx_type::dry_run; };
+      trx_type get_trx_type() const { return _trx_type; };
+      bool implicit() const { return _trx_type == trx_type::implicit; };
+      bool scheduled() const { return _trx_type == trx_type::scheduled; };
+      bool is_dry_run() const { return _trx_type == trx_type::dry_run; };
 
       /// Thread safe.
       /// @returns transaction_metadata_ptr or exception via future

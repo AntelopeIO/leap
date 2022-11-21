@@ -83,7 +83,7 @@ namespace eosio { namespace chain {
 
          void validate_referenced_accounts( const transaction& trx, bool enforce_actor_whitelist_blacklist )const;
 
-         const bool is_dry_run()const { return trx_type == transaction_metadata::trx_type::dry_run; };
+         bool is_dry_run()const { return trx_type == transaction_metadata::trx_type::dry_run; };
 
       private:
 
