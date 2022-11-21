@@ -16,198 +16,286 @@ from platform import release, system
 from dataclasses import dataclass, asdict, field
 from datetime import datetime
 
-@dataclass
-class PerfTestBasicResult:
-    targetTPS: int = 0
-    resultAvgTps: float = 0
-    expectedTxns: int = 0
-    resultTxns: int = 0
-    tpsExpectMet: bool = False
-    trxExpectMet: bool = False
-    basicTestSuccess: bool = False
-    testAnalysisBlockCnt: int = 0
-    logsDir: str = ""
-    testStart: datetime = None
-    testEnd: datetime = None
+class PerformanceTest:
 
-@dataclass
-class PerfTestSearchIndivResult:
-    success: bool = False
-    searchTarget: int = 0
-    searchFloor: int = 0
-    searchCeiling: int = 0
-    basicTestResult: PerfTestBasicResult = PerfTestBasicResult()
+    @dataclass
+    class PerfTestSearchIndivResult:
+        @dataclass
+        class PerfTestBasicResult:
+            targetTPS: int = 0
+            resultAvgTps: float = 0
+            expectedTxns: int = 0
+            resultTxns: int = 0
+            tpsExpectMet: bool = False
+            trxExpectMet: bool = False
+            basicTestSuccess: bool = False
+            testAnalysisBlockCnt: int = 0
+            logsDir: str = ""
+            testStart: datetime = None
+            testEnd: datetime = None
 
-@dataclass
-class PerfTestSearchResults:
-    maxTpsAchieved: int = 0
-    searchResults: list = field(default_factory=list) #PerfTestSearchIndivResult list
-    maxTpsReport: dict = field(default_factory=dict)
+        success: bool = False
+        searchTarget: int = 0
+        searchFloor: int = 0
+        searchCeiling: int = 0
+        basicTestResult: PerfTestBasicResult = PerfTestBasicResult()
 
-def performPtbBinarySearch(tpsTestFloor: int, tpsTestCeiling: int, minStep: int, testHelperConfig: PerformanceTestBasic.TestHelperConfig,
-                           testClusterConfig: PerformanceTestBasic.ClusterConfig, testDurationSec: int, tpsLimitPerGenerator: int,
-                           numAddlBlocksToPrune: int, testLogDir: str, delReport: bool, quiet: bool, delPerfLogs: bool) -> PerfTestSearchResults:
-    floor = tpsTestFloor
-    ceiling = tpsTestCeiling
-    binSearchTarget = tpsTestCeiling
+    @dataclass
+    class PtConfig:
+        testDurationSec: int=150
+        finalDurationSec: int=300
+        delPerfLogs: bool=False
+        maxTpsToTest: int=50000
+        testIterationMinStep: int=500
+        tpsLimitPerGenerator: int=4000
+        delReport: bool=False
+        delTestReport: bool=False
+        numAddlBlocksToPrune: int=2
+        quiet: bool=False
+        logDirRoot: str="."
 
-    maxTpsAchieved = 0
-    maxTpsReport = {}
-    searchResults = []
+    @dataclass
+    class PerfTestSearchResults:
+        maxTpsAchieved: int = 0
+        searchResults: list = field(default_factory=list) #PerfTestSearchIndivResult list
+        maxTpsReport: dict = field(default_factory=dict)
 
-    while ceiling >= floor:
-        print(f"Running scenario: floor {floor} binSearchTarget {binSearchTarget} ceiling {ceiling}")
-        ptbResult = PerfTestBasicResult()
-        scenarioResult = PerfTestSearchIndivResult(success=False, searchTarget=binSearchTarget, searchFloor=floor, searchCeiling=ceiling, basicTestResult=ptbResult)
-        ptbConfig = PerformanceTestBasic.PtbConfig(targetTps=binSearchTarget, testTrxGenDurationSec=testDurationSec, tpsLimitPerGenerator=tpsLimitPerGenerator,
-                                                   numAddlBlocksToPrune=numAddlBlocksToPrune, logDirRoot=testLogDir, delReport=delReport, quiet=quiet, delPerfLogs=delPerfLogs)
+    @dataclass
+    class LoggingConfig:
+        logDirBase: str = f"./{os.path.splitext(os.path.basename(__file__))[0]}"
+        logDirTimestamp: str = f"{datetime.utcnow().strftime('%Y-%m-%d_%H-%M-%S')}"
+        logDirPath: str = field(default_factory=str, init=False)
+        ptbLogsDirPath: str = field(default_factory=str, init=False)
 
-        myTest = PerformanceTestBasic(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, ptbConfig=ptbConfig)
-        testSuccessful = myTest.runTest()
-        if evaluateSuccess(myTest, testSuccessful, ptbResult):
-            maxTpsAchieved = binSearchTarget
-            maxTpsReport = myTest.report
-            floor = binSearchTarget + minStep
-            scenarioResult.success = True
-        else:
-            ceiling = binSearchTarget - minStep
+        def __post_init__(self):
+            self.logDirPath = f"{self.logDirBase}/{self.logDirTimestamp}"
+            self.ptbLogsDirPath = f"{self.logDirPath}/testRunLogs"
 
-        scenarioResult.basicTestResult = ptbResult
-        searchResults.append(scenarioResult)
-        if not quiet:
-            print(f"searchResult: {binSearchTarget} : {searchResults[-1]}")
+    def __init__(self, testHelperConfig: PerformanceTestBasic.TestHelperConfig=PerformanceTestBasic.TestHelperConfig(),
+                 clusterConfig: PerformanceTestBasic.ClusterConfig=PerformanceTestBasic.ClusterConfig(), ptConfig=PtConfig()):
+        self.testHelperConfig = testHelperConfig
+        self.clusterConfig = clusterConfig
+        self.ptConfig = ptConfig
 
-        binSearchTarget = floor + (math.ceil(((ceiling - floor) / minStep) / 2) * minStep)
+        self.testStart = datetime.utcnow()
 
-    return PerfTestSearchResults(maxTpsAchieved=maxTpsAchieved, searchResults=searchResults, maxTpsReport=maxTpsReport)
+        self.loggingConfig = PerformanceTest.LoggingConfig(logDirBase=f"{self.ptConfig.logDirRoot}/{os.path.splitext(os.path.basename(__file__))[0]}",
+                                                           logDirTimestamp=f"{self.testStart.strftime('%Y-%m-%d_%H-%M-%S')}")
 
-def performPtbReverseLinearSearch(tpsInitial: int, step: int, testHelperConfig: PerformanceTestBasic.TestHelperConfig,
-                                  testClusterConfig: PerformanceTestBasic.ClusterConfig, testDurationSec: int, tpsLimitPerGenerator: int,
-                                  numAddlBlocksToPrune: int, testLogDir: str, delReport: bool, quiet: bool, delPerfLogs: bool) -> PerfTestSearchResults:
+    def performPtbBinarySearch(self) -> PerfTestSearchResults:
+        floor = 0
+        ceiling = self.ptConfig.maxTpsToTest
+        binSearchTarget = self.ptConfig.maxTpsToTest
+        minStep = self.ptConfig.testIterationMinStep
 
-    # Default - Decrementing Max TPS in range [0, tpsInitial]
-    absFloor = 0
-    absCeiling = tpsInitial
+        maxTpsAchieved = 0
+        maxTpsReport = {}
+        searchResults = []
 
-    searchTarget = tpsInitial
+        while ceiling >= floor:
+            print(f"Running scenario: floor {floor} binSearchTarget {binSearchTarget} ceiling {ceiling}")
+            ptbResult = PerformanceTest.PerfTestSearchIndivResult.PerfTestBasicResult()
+            scenarioResult = PerformanceTest.PerfTestSearchIndivResult(success=False, searchTarget=binSearchTarget, searchFloor=floor, searchCeiling=ceiling, basicTestResult=ptbResult)
+            ptbConfig = PerformanceTestBasic.PtbConfig(targetTps=binSearchTarget, testTrxGenDurationSec=self.ptConfig.testDurationSec, tpsLimitPerGenerator=self.ptConfig.tpsLimitPerGenerator,
+                                                    numAddlBlocksToPrune=self.ptConfig.numAddlBlocksToPrune, logDirRoot=self.loggingConfig.ptbLogsDirPath, delReport=self.ptConfig.delReport, quiet=self.ptConfig.quiet,
+                                                    delPerfLogs=self.ptConfig.delPerfLogs)
 
-    maxTpsAchieved = 0
-    maxTpsReport = {}
-    searchResults = []
-    maxFound = False
+            myTest = PerformanceTestBasic(testHelperConfig=self.testHelperConfig, clusterConfig=self.clusterConfig, ptbConfig=ptbConfig)
+            testSuccessful = myTest.runTest()
+            if self.evaluateSuccess(myTest, testSuccessful, ptbResult):
+                maxTpsAchieved = binSearchTarget
+                maxTpsReport = myTest.report
+                floor = binSearchTarget + minStep
+                scenarioResult.success = True
+            else:
+                ceiling = binSearchTarget - minStep
 
-    while not maxFound:
-        print(f"Running scenario: floor {absFloor} searchTarget {searchTarget} ceiling {absCeiling}")
-        ptbResult = PerfTestBasicResult()
-        scenarioResult = PerfTestSearchIndivResult(success=False, searchTarget=searchTarget, searchFloor=absFloor, searchCeiling=absCeiling, basicTestResult=ptbResult)
-        ptbConfig = PerformanceTestBasic.PtbConfig(targetTps=searchTarget, testTrxGenDurationSec=testDurationSec, tpsLimitPerGenerator=tpsLimitPerGenerator,
-                                                   numAddlBlocksToPrune=numAddlBlocksToPrune, logDirRoot=testLogDir, delReport=delReport, quiet=quiet, delPerfLogs=delPerfLogs)
+            scenarioResult.basicTestResult = ptbResult
+            searchResults.append(scenarioResult)
+            if not self.ptConfig.quiet:
+                print(f"searchResult: {binSearchTarget} : {searchResults[-1]}")
 
-        myTest = PerformanceTestBasic(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, ptbConfig=ptbConfig)
-        testSuccessful = myTest.runTest()
-        if evaluateSuccess(myTest, testSuccessful, ptbResult):
-            maxTpsAchieved = searchTarget
-            maxTpsReport = myTest.report
-            scenarioResult.success = True
-            maxFound = True
-        else:
-            searchTarget = searchTarget - step
+            binSearchTarget = floor + (math.ceil(((ceiling - floor) / minStep) / 2) * minStep)
 
-        scenarioResult.basicTestResult = ptbResult
-        searchResults.append(scenarioResult)
-        if not quiet:
-            print(f"searchResult: {searchTarget} : {searchResults[-1]}")
+        return PerformanceTest.PerfTestSearchResults(maxTpsAchieved=maxTpsAchieved, searchResults=searchResults, maxTpsReport=maxTpsReport)
 
-    return PerfTestSearchResults(maxTpsAchieved=maxTpsAchieved, searchResults=searchResults, maxTpsReport=maxTpsReport)
+    def performPtbReverseLinearSearch(self, tpsInitial: int) -> PerfTestSearchResults:
 
-def evaluateSuccess(test: PerformanceTestBasic, testSuccessful: bool, result: PerfTestBasicResult) -> bool:
-    result.targetTPS = test.ptbConfig.targetTps
-    result.expectedTxns = test.ptbConfig.expectedTransactionsSent
-    reportDict = test.report
-    result.testStart = reportDict["testStart"]
-    result.testEnd = reportDict["testFinish"]
-    result.resultAvgTps = reportDict["Analysis"]["TPS"]["avg"]
-    result.resultTxns = reportDict["Analysis"]["TrxLatency"]["samples"]
-    print(f"targetTPS: {result.targetTPS} expectedTxns: {result.expectedTxns} resultAvgTps: {result.resultAvgTps} resultTxns: {result.resultTxns}")
+        # Default - Decrementing Max TPS in range [0, tpsInitial]
+        absFloor = 0
+        absCeiling = tpsInitial
 
-    result.tpsExpectMet = True if result.resultAvgTps >= result.targetTPS else abs(result.targetTPS - result.resultAvgTps) < 100
-    result.trxExpectMet = result.expectedTxns == result.resultTxns
-    result.basicTestSuccess = testSuccessful
-    result.testAnalysisBlockCnt = reportDict["Analysis"]["BlocksGuide"]["testAnalysisBlockCnt"]
-    result.logsDir = test.loggingConfig.logDirPath
+        step = self.ptConfig.testIterationMinStep
 
-    print(f"basicTestSuccess: {result.basicTestSuccess} tpsExpectationMet: {result.tpsExpectMet} trxExpectationMet: {result.trxExpectMet}")
+        searchTarget = tpsInitial
 
-    return result.basicTestSuccess and result.tpsExpectMet and result.trxExpectMet
+        maxTpsAchieved = 0
+        maxTpsReport = {}
+        searchResults = []
+        maxFound = False
 
-def createReport(maxTpsAchieved, searchResults, maxTpsReport, longRunningMaxTpsAchieved, longRunningSearchResults, longRunningMaxTpsReport, testStart: datetime, testFinish: datetime, argsDict) -> dict:
-    report = {}
-    report['InitialMaxTpsAchieved'] = maxTpsAchieved
-    report['LongRunningMaxTpsAchieved'] = longRunningMaxTpsAchieved
-    report['testStart'] = testStart
-    report['testFinish'] = testFinish
-    report['InitialSearchResults'] =  {x: asdict(searchResults[x]) for x in range(len(searchResults))}
-    report['InitialMaxTpsReport'] =  maxTpsReport
-    report['LongRunningSearchResults'] =  {x: asdict(longRunningSearchResults[x]) for x in range(len(longRunningSearchResults))}
-    report['LongRunningMaxTpsReport'] =  longRunningMaxTpsReport
-    report['args'] =  argsDict
-    report['env'] = {'system': system(), 'os': os.name, 'release': release(), 'logical_cpu_count': os.cpu_count()}
-    report['nodeosVersion'] = Utils.getNodeosVersion()
-    return report
+        while not maxFound:
+            print(f"Running scenario: floor {absFloor} searchTarget {searchTarget} ceiling {absCeiling}")
+            ptbResult = PerformanceTest.PerfTestSearchIndivResult.PerfTestBasicResult()
+            scenarioResult = PerformanceTest.PerfTestSearchIndivResult(success=False, searchTarget=searchTarget, searchFloor=absFloor, searchCeiling=absCeiling, basicTestResult=ptbResult)
+            ptbConfig = PerformanceTestBasic.PtbConfig(targetTps=searchTarget, testTrxGenDurationSec=self.ptConfig.testDurationSec, tpsLimitPerGenerator=self.ptConfig.tpsLimitPerGenerator,
+                                                    numAddlBlocksToPrune=self.ptConfig.numAddlBlocksToPrune, logDirRoot=self.loggingConfig.ptbLogsDirPath, delReport=self.ptConfig.delReport, quiet=self.ptConfig.quiet, delPerfLogs=self.ptConfig.delPerfLogs)
 
-def createJSONReport(maxTpsAchieved, searchResults, maxTpsReport, longRunningMaxTpsAchieved, longRunningSearchResults, longRunningMaxTpsReport, testStart: datetime, testFinish: datetime, argsDict) -> json:
-    report = createReport(maxTpsAchieved=maxTpsAchieved, searchResults=searchResults, maxTpsReport=maxTpsReport, longRunningMaxTpsAchieved=longRunningMaxTpsAchieved,
-                              longRunningSearchResults=longRunningSearchResults, longRunningMaxTpsReport=longRunningMaxTpsReport, testStart=testStart, testFinish=testFinish, argsDict=argsDict)
-    return reportAsJSON(report)
+            myTest = PerformanceTestBasic(testHelperConfig=self.testHelperConfig, clusterConfig=self.clusterConfig, ptbConfig=ptbConfig)
+            testSuccessful = myTest.runTest()
+            if self.evaluateSuccess(myTest, testSuccessful, ptbResult):
+                maxTpsAchieved = searchTarget
+                maxTpsReport = myTest.report
+                scenarioResult.success = True
+                maxFound = True
+            else:
+                searchTarget = searchTarget - step
 
-def reportAsJSON(report: dict) -> json:
-    report['testStart'] = "Unknown" if report['testStart'] is None else report['testStart'].isoformat()
-    report['testFinish'] = "Unknown" if report['testFinish'] is None else report['testFinish'].isoformat()
-    return json.dumps(report, indent=2)
+            scenarioResult.basicTestResult = ptbResult
+            searchResults.append(scenarioResult)
+            if not self.ptConfig.quiet:
+                print(f"searchResult: {searchTarget} : {searchResults[-1]}")
 
-def exportReportAsJSON(report: json, exportPath):
-    with open(exportPath, 'wt') as f:
-        f.write(report)
+        return PerformanceTest.PerfTestSearchResults(maxTpsAchieved=maxTpsAchieved, searchResults=searchResults, maxTpsReport=maxTpsReport)
 
-def testDirsCleanup(delReport, testTimeStampDirPath, ptbLogsDirPath):
-    try:
-        def removeArtifacts(path):
-            print(f"Checking if test artifacts dir exists: {path}")
-            if os.path.isdir(f"{path}"):
-                print(f"Cleaning up test artifacts dir and all contents of: {path}")
-                shutil.rmtree(f"{path}")
+    def evaluateSuccess(self, test: PerformanceTestBasic, testSuccessful: bool, result: PerfTestSearchIndivResult.PerfTestBasicResult) -> bool:
+        result.targetTPS = test.ptbConfig.targetTps
+        result.expectedTxns = test.ptbConfig.expectedTransactionsSent
+        reportDict = test.report
+        result.testStart = reportDict["testStart"]
+        result.testEnd = reportDict["testFinish"]
+        result.resultAvgTps = reportDict["Analysis"]["TPS"]["avg"]
+        result.resultTxns = reportDict["Analysis"]["TrxLatency"]["samples"]
+        print(f"targetTPS: {result.targetTPS} expectedTxns: {result.expectedTxns} resultAvgTps: {result.resultAvgTps} resultTxns: {result.resultTxns}")
 
-        if not delReport:
-            removeArtifacts(ptbLogsDirPath)
-        else:
-            removeArtifacts(testTimeStampDirPath)
-    except OSError as error:
-        print(error)
+        result.tpsExpectMet = True if result.resultAvgTps >= result.targetTPS else abs(result.targetTPS - result.resultAvgTps) < 100
+        result.trxExpectMet = result.expectedTxns == result.resultTxns
+        result.basicTestSuccess = testSuccessful
+        result.testAnalysisBlockCnt = reportDict["Analysis"]["BlocksGuide"]["testAnalysisBlockCnt"]
+        result.logsDir = test.loggingConfig.logDirPath
 
-def testDirsSetup(rootLogDir, testTimeStampDirPath, ptbLogsDirPath):
-    try:
-        def createArtifactsDir(path):
-            print(f"Checking if test artifacts dir exists: {path}")
-            if not os.path.isdir(f"{path}"):
-                print(f"Creating test artifacts dir: {path}")
-                os.mkdir(f"{path}")
+        print(f"basicTestSuccess: {result.basicTestSuccess} tpsExpectationMet: {result.tpsExpectMet} trxExpectationMet: {result.trxExpectMet}")
 
-        createArtifactsDir(rootLogDir)
-        createArtifactsDir(testTimeStampDirPath)
-        createArtifactsDir(ptbLogsDirPath)
+        return result.basicTestSuccess and result.tpsExpectMet and result.trxExpectMet
 
-    except OSError as error:
-        print(error)
+    def createReport(self, maxTpsAchieved, searchResults, maxTpsReport, longRunningMaxTpsAchieved, longRunningSearchResults, longRunningMaxTpsReport, testStart: datetime, testFinish: datetime, argsDict) -> dict:
+        report = {}
+        report['InitialMaxTpsAchieved'] = maxTpsAchieved
+        report['LongRunningMaxTpsAchieved'] = longRunningMaxTpsAchieved
+        report['testStart'] = testStart
+        report['testFinish'] = testFinish
+        report['InitialSearchResults'] =  {x: asdict(searchResults[x]) for x in range(len(searchResults))}
+        report['InitialMaxTpsReport'] =  maxTpsReport
+        report['LongRunningSearchResults'] =  {x: asdict(longRunningSearchResults[x]) for x in range(len(longRunningSearchResults))}
+        report['LongRunningMaxTpsReport'] =  longRunningMaxTpsReport
+        report['args'] =  argsDict
+        report['env'] = {'system': system(), 'os': os.name, 'release': release(), 'logical_cpu_count': os.cpu_count()}
+        report['nodeosVersion'] = Utils.getNodeosVersion()
+        return report
 
-def prepArgsDict(testDurationSec, finalDurationSec, logsDir, maxTpsToTest, testIterationMinStep,
-                 tpsLimitPerGenerator, delReport, delTestReport, numAddlBlocksToPrune, quiet, delPerfLogs,
-                 testHelperConfig: PerformanceTestBasic.TestHelperConfig, testClusterConfig: PerformanceTestBasic.ClusterConfig) -> dict:
-    argsDict = {}
-    argsDict.update(asdict(testHelperConfig))
-    argsDict.update(asdict(testClusterConfig))
-    argsDict.update({key:val for key, val in locals().items() if key in set(['testDurationSec', 'finalDurationSec', 'maxTpsToTest', 'testIterationMinStep', 'tpsLimitPerGenerator',
-                                                                             'delReport', 'delTestReport', 'numAddlBlocksToPrune', 'logsDir', 'quiet', 'delPerfLogs'])})
-    return argsDict
+    def createJSONReport(self, maxTpsAchieved, searchResults, maxTpsReport, longRunningMaxTpsAchieved, longRunningSearchResults, longRunningMaxTpsReport, testStart: datetime, testFinish: datetime, argsDict) -> json:
+        report = self.createReport(maxTpsAchieved=maxTpsAchieved, searchResults=searchResults, maxTpsReport=maxTpsReport, longRunningMaxTpsAchieved=longRunningMaxTpsAchieved,
+                                longRunningSearchResults=longRunningSearchResults, longRunningMaxTpsReport=longRunningMaxTpsReport, testStart=testStart, testFinish=testFinish, argsDict=argsDict)
+        return self.reportAsJSON(report)
+
+    def reportAsJSON(self, report: dict) -> json:
+        report['testStart'] = "Unknown" if report['testStart'] is None else report['testStart'].isoformat()
+        report['testFinish'] = "Unknown" if report['testFinish'] is None else report['testFinish'].isoformat()
+        return json.dumps(report, indent=2)
+
+    def exportReportAsJSON(self, report: json, exportPath):
+        with open(exportPath, 'wt') as f:
+            f.write(report)
+
+    def testDirsCleanup(self):
+        try:
+            def removeArtifacts(path):
+                print(f"Checking if test artifacts dir exists: {path}")
+                if os.path.isdir(f"{path}"):
+                    print(f"Cleaning up test artifacts dir and all contents of: {path}")
+                    shutil.rmtree(f"{path}")
+
+            if not self.ptConfig.delReport:
+                removeArtifacts(self.loggingConfig.ptbLogsDirPath)
+            else:
+                removeArtifacts(self.loggingConfig.logDirPath)
+        except OSError as error:
+            print(error)
+
+    def testDirsSetup(self):
+        try:
+            def createArtifactsDir(path):
+                print(f"Checking if test artifacts dir exists: {path}")
+                if not os.path.isdir(f"{path}"):
+                    print(f"Creating test artifacts dir: {path}")
+                    os.mkdir(f"{path}")
+
+            createArtifactsDir(self.loggingConfig.logDirBase)
+            createArtifactsDir(self.loggingConfig.logDirPath)
+            createArtifactsDir(self.loggingConfig.ptbLogsDirPath)
+
+        except OSError as error:
+            print(error)
+
+    def prepArgsDict(self) -> dict:
+        argsDict = {}
+        argsDict.update(asdict(self.testHelperConfig))
+        argsDict.update(asdict(self.clusterConfig))
+        argsDict.update(asdict(self.ptConfig))
+        argsDict.update(asdict(self.loggingConfig))
+        return argsDict
+
+    def performTpsTest(self):
+        perfRunSuccessful = False
+
+        try:
+            binSearchResults = self.performPtbBinarySearch()
+
+            print(f"Successful rate of: {binSearchResults.maxTpsAchieved}")
+
+            if not self.ptConfig.quiet:
+                print("Search Results:")
+                for i in range(len(binSearchResults.searchResults)):
+                    print(f"Search scenario: {i} result: {binSearchResults.searchResults[i]}")
+
+            longRunningSearchResults = self.performPtbReverseLinearSearch(tpsInitial=binSearchResults.maxTpsAchieved)
+
+            print(f"Long Running Test - Successful rate of: {longRunningSearchResults.maxTpsAchieved}")
+            perfRunSuccessful = True
+
+            if not self.ptConfig.quiet:
+                print("Long Running Test - Search Results:")
+                for i in range(len(longRunningSearchResults.searchResults)):
+                    print(f"Search scenario: {i} result: {longRunningSearchResults.searchResults[i]}")
+
+            testFinish = datetime.utcnow()
+            argsDict = self.prepArgsDict()
+            fullReport = self.createJSONReport(maxTpsAchieved=binSearchResults.maxTpsAchieved, searchResults=binSearchResults.searchResults, maxTpsReport=binSearchResults.maxTpsReport,
+                                        longRunningMaxTpsAchieved=longRunningSearchResults.maxTpsAchieved, longRunningSearchResults=longRunningSearchResults.searchResults,
+                                        longRunningMaxTpsReport=longRunningSearchResults.maxTpsReport, testStart=self.testStart, testFinish=testFinish, argsDict=argsDict)
+
+            if not self.ptConfig.quiet:
+                print(f"Full Performance Test Report: {fullReport}")
+
+            if not self.ptConfig.delReport:
+                self.exportReportAsJSON(fullReport, f"{self.loggingConfig.logDirPath}/report.json")
+
+        finally:
+
+            if self.ptConfig.delPerfLogs:
+                print(f"Cleaning up logs directory: {self.loggingConfig.logDirPath}")
+                self.testDirsCleanup()
+
+        return perfRunSuccessful
+
+    def runTest(self):
+
+        TestHelper.printSystemInfo("BEGIN")
+        self.testDirsSetup()
+
+        testSuccessful = self.performTpsTest()
+
+        return testSuccessful
 
 def parseArgs():
     appArgs=AppArgs()
@@ -248,39 +336,10 @@ def main():
 
     args = parseArgs()
     Utils.Debug = args.v
-    testDurationSec=args.test_iteration_duration_sec
-    finalDurationSec=args.final_iterations_duration_sec
-    killAll=args.clean_run
-    dontKill=args.leave_running
-    delPerfLogs=args.del_perf_logs
-    dumpErrorDetails=args.dump_error_details
-    delay=args.d
-    nodesFile=args.nodes_file
-    verbose=args.v
-    pnodes=args.p
-    totalNodes=args.n
-    topo=args.s
-    genesisPath=args.genesis
-    maxTpsToTest=args.max_tps_to_test
-    testIterationMinStep=args.test_iteration_min_step
-    tpsLimitPerGenerator=args.tps_limit_per_generator
-    delReport=args.del_report
-    delTestReport=args.del_test_report
-    numAddlBlocksToPrune=args.num_blocks_to_prune
-    quiet=args.quiet
-    prodsEnableTraceApi=args.prods_enable_trace_api
 
-    testStart = datetime.utcnow()
-
-    rootLogDir: str=os.path.splitext(os.path.basename(__file__))[0]
-    testTimeStampDirPath = f"{rootLogDir}/{testStart.strftime('%Y-%m-%d_%H-%M-%S')}"
-    ptbLogsDirPath = f"{testTimeStampDirPath}/testRunLogs"
-
-    testDirsSetup(rootLogDir=rootLogDir, testTimeStampDirPath=testTimeStampDirPath, ptbLogsDirPath=ptbLogsDirPath)
-
-    testHelperConfig = PerformanceTestBasic.TestHelperConfig(killAll=killAll, dontKill=dontKill, keepLogs=not delPerfLogs,
-                                                             dumpErrorDetails=dumpErrorDetails, delay=delay, nodesFile=nodesFile,
-                                                             verbose=verbose)
+    testHelperConfig = PerformanceTestBasic.TestHelperConfig(killAll=args.clean_run, dontKill=args.leave_running, keepLogs=not args.del_perf_logs,
+                                                             dumpErrorDetails=args.dump_error_details, delay=args.d, nodesFile=args.nodes_file,
+                                                             verbose=args.v)
 
     ENA = PerformanceTestBasic.ClusterConfig.ExtraNodeosArgs
     chainPluginArgs = ENA.ChainPluginArgs(signatureCpuBillablePct=args.signature_cpu_billable_pct, chainStateDbSizeMb=args.chain_state_db_size_mb,
@@ -294,54 +353,21 @@ def main():
     extraNodeosArgs = ENA(chainPluginArgs=chainPluginArgs, httpPluginArgs=httpPluginArgs, producerPluginArgs=producerPluginArgs, netPluginArgs=netPluginArgs)
     testClusterConfig = PerformanceTestBasic.ClusterConfig(pnodes=args.p, totalNodes=args.n, topo=args.s, genesisPath=args.genesis,
                                                            prodsEnableTraceApi=args.prods_enable_trace_api, extraNodeosArgs=extraNodeosArgs)
-    argsDict = prepArgsDict(testDurationSec=testDurationSec, finalDurationSec=finalDurationSec, logsDir=testTimeStampDirPath,
-                        maxTpsToTest=maxTpsToTest, testIterationMinStep=testIterationMinStep, tpsLimitPerGenerator=tpsLimitPerGenerator,
-                        delReport=delReport, delTestReport=delTestReport, numAddlBlocksToPrune=numAddlBlocksToPrune,
-                        quiet=quiet, delPerfLogs=delPerfLogs, testHelperConfig=testHelperConfig, testClusterConfig=testClusterConfig)
 
-    perfRunSuccessful = False
+    ptConfig = PerformanceTest.PtConfig(testDurationSec=args.test_iteration_duration_sec,
+                                        finalDurationSec=args.final_iterations_duration_sec,
+                                        delPerfLogs=args.del_perf_logs,
+                                        maxTpsToTest=args.max_tps_to_test,
+                                        testIterationMinStep=args.test_iteration_min_step,
+                                        tpsLimitPerGenerator=args.tps_limit_per_generator,
+                                        delReport=args.del_report,
+                                        delTestReport=args.del_test_report,
+                                        numAddlBlocksToPrune=args.num_blocks_to_prune,
+                                        quiet=args.quiet,
+                                        logDirRoot=".")
 
-    try:
-        binSearchResults = performPtbBinarySearch(tpsTestFloor=0, tpsTestCeiling=maxTpsToTest, minStep=testIterationMinStep, testHelperConfig=testHelperConfig,
-                           testClusterConfig=testClusterConfig, testDurationSec=testDurationSec, tpsLimitPerGenerator=tpsLimitPerGenerator,
-                           numAddlBlocksToPrune=numAddlBlocksToPrune, testLogDir=ptbLogsDirPath, delReport=delTestReport, quiet=quiet, delPerfLogs=delPerfLogs)
-
-        print(f"Successful rate of: {binSearchResults.maxTpsAchieved}")
-
-        if not quiet:
-            print("Search Results:")
-            for i in range(len(binSearchResults.searchResults)):
-                print(f"Search scenario: {i} result: {binSearchResults.searchResults[i]}")
-
-        longRunningSearchResults = performPtbReverseLinearSearch(tpsInitial=binSearchResults.maxTpsAchieved, step=testIterationMinStep, testHelperConfig=testHelperConfig,
-                                                                 testClusterConfig=testClusterConfig, testDurationSec=finalDurationSec, tpsLimitPerGenerator=tpsLimitPerGenerator,
-                                                                 numAddlBlocksToPrune=numAddlBlocksToPrune, testLogDir=ptbLogsDirPath, delReport=delTestReport, quiet=quiet,
-                                                                 delPerfLogs=delPerfLogs)
-
-        print(f"Long Running Test - Successful rate of: {longRunningSearchResults.maxTpsAchieved}")
-        perfRunSuccessful = True
-
-        if not quiet:
-            print("Long Running Test - Search Results:")
-            for i in range(len(longRunningSearchResults.searchResults)):
-                print(f"Search scenario: {i} result: {longRunningSearchResults.searchResults[i]}")
-
-        testFinish = datetime.utcnow()
-        fullReport = createJSONReport(maxTpsAchieved=binSearchResults.maxTpsAchieved, searchResults=binSearchResults.searchResults, maxTpsReport=binSearchResults.maxTpsReport,
-                                      longRunningMaxTpsAchieved=longRunningSearchResults.maxTpsAchieved, longRunningSearchResults=longRunningSearchResults.searchResults,
-                                      longRunningMaxTpsReport=longRunningSearchResults.maxTpsReport, testStart=testStart, testFinish=testFinish, argsDict=argsDict)
-
-        if not quiet:
-            print(f"Full Performance Test Report: {fullReport}")
-
-        if not delReport:
-            exportReportAsJSON(fullReport, f"{testTimeStampDirPath}/report.json")
-
-    finally:
-
-        if delPerfLogs:
-            print(f"Cleaning up logs directory: {testTimeStampDirPath}")
-            testDirsCleanup(delReport=delReport, testTimeStampDirPath=testTimeStampDirPath, ptbLogsDirPath=ptbLogsDirPath)
+    myTest = PerformanceTest(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, ptConfig=ptConfig)
+    perfRunSuccessful = myTest.runTest()
 
     exitCode = 0 if perfRunSuccessful else 1
     exit(exitCode)
