@@ -12,7 +12,13 @@ namespace eosio { namespace chain { namespace plugin_interface {
    using namespace eosio::chain;
    using namespace appbase;
 
+   enum class metric_type {
+      gauge = 1,
+      counter = 2
+   };
+
    struct runtime_metric {
+      metric_type type;
       const std::string family;
       const std::string label;
       std::atomic<int64_t> value;
