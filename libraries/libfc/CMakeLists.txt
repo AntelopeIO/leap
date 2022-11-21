@@ -30,7 +30,6 @@ set( fc_sources
      src/io/console.cpp
      src/filesystem.cpp
      src/interprocess/file_mapping.cpp
-     src/interprocess/mmap_struct.cpp
      src/log/log_message.cpp
      src/log/logger.cpp
      src/log/appender.cpp
@@ -41,8 +40,6 @@ set( fc_sources
      src/crypto/aes.cpp
      src/crypto/crc.cpp
      src/crypto/city.cpp
-#     src/crypto/base32.cpp
-     src/crypto/base36.cpp
      src/crypto/base58.cpp
      src/crypto/base64.cpp
      src/crypto/bigint.cpp
@@ -53,8 +50,6 @@ set( fc_sources
      src/crypto/sha256.cpp
      src/crypto/sha224.cpp
      src/crypto/sha512.cpp
-     src/crypto/dh.cpp
-     src/crypto/blowfish.cpp
      src/crypto/elliptic_common.cpp
      src/crypto/elliptic_impl_priv.cpp
      src/crypto/elliptic_secp256k1.cpp
@@ -73,7 +68,6 @@ set( fc_sources
      src/network/udp_socket.cpp
      src/network/url.cpp
      src/network/http/http_client.cpp
-     src/compress/smaz.cpp
      src/compress/zlib.cpp
      src/log/gelf_appender.cpp
      src/log/zipkin.cpp
