@@ -342,6 +342,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       std::optional<scoped_connection>                          _accepted_block_header_connection;
       std::optional<scoped_connection>                          _irreversible_block_connection;
 
+      std::shared_ptr<producer_plugin_metrics>                  _metrics;
       /*
        * HACK ALERT
        * Boost timers can be in a state where a handler has not yet executed but is not abortable.
@@ -816,6 +817,7 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
    LOAD_VALUE_SET(options, "producer-name", my->_producers)
 
    chain::controller& chain = my->chain_plug->chain();
+   my->_metrics = std::make_shared<producer_plugin_metrics>();
 
    if( options.count("private-key") )
    {
@@ -1817,6 +1819,8 @@ bool producer_plugin_impl::remove_expired_trxs( const fc::time_point& deadline )
             ++num_expired;
    });
 
+   _metrics->unapplied_transactions.value = orig_count - num_expired;
+
    if( exhausted ) {
       fc_wlog( _log, "Unable to process all expired transactions of the ${n} transactions in the unapplied queue before deadline, "
                      "Expired ${expired}", ("n", orig_count)("expired", num_expired) );
@@ -1847,6 +1851,8 @@ bool producer_plugin_impl::remove_expired_blacklisted_trxs( const fc::time_point
          blacklist_by_expiry.erase(blacklist_by_expiry.begin());
          num_expired++;
       }
+
+      _metrics->blacklisted_transactions.value = orig_count - num_expired;
 
       fc_dlog(_log, "Processed ${n} blacklisted transactions, Expired ${expired}",
               ("n", orig_count)("expired", num_expired));
@@ -2101,6 +2107,7 @@ bool producer_plugin_impl::process_unapplied_trxs( const fc::time_point& deadlin
          ++itr;
       }
 
+      _metrics->unapplied_transactions.value = _unapplied_transactions.size();
       fc_dlog( _log, "Processed ${m} of ${n} previously applied transactions, Applied ${applied}, Failed/Dropped ${failed}",
                ("m", num_processed)( "n", unapplied_trxs_size )("applied", num_applied)("failed", num_failed) );
    }
@@ -2486,6 +2493,11 @@ void producer_plugin_impl::produce_block() {
 
    br.total_time += fc::time_point::now() - start;
 
+   _metrics->blocks_produced.value++;
+   _metrics->trxs_produced.value += new_bs->block->transactions.size();
+   _metrics->block_num.value = new_bs->block_num;
+   _metrics->last_irreversible.value = chain.last_irreversible_block_num();
+
    ilog("Produced block ${id}... #${n} @ ${t} signed by ${p} "
         "[trxs: ${count}, lib: ${lib}, confirmed: ${confs}, net: ${net}, cpu: ${cpu}, elapsed: ${et}, time: ${tt}]",
         ("p",new_bs->header.producer)("id",new_bs->id.str().substr(8,16))
@@ -2504,4 +2516,7 @@ void producer_plugin::log_failed_transaction(const transaction_id_type& trx_id, 
             ("entire_trx", packed_trx_ptr ? my->chain_plug->get_log_trx(packed_trx_ptr->get_transaction()) : fc::variant{trx_id}));
 }
 
+std::shared_ptr<producer_plugin_metrics> producer_plugin::metrics() {
+   return my->_metrics;
+}
 } // namespace eosio
