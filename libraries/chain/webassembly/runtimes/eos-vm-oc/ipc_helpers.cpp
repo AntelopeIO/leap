@@ -108,7 +108,6 @@ bool write_message_with_fds(int fd_to_send_to, const eosvmoc_message& message, c
          memcpy(p, &thisfd, sizeof(thisfd));
          p += sizeof(thisfd);
       }
-      msg.msg_controllen = cmsg->cmsg_len;
    }
 
    int wrote;
