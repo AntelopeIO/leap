@@ -1,12 +1,13 @@
 openapi: 3.0.0
 info:
   title: Test Control API
+  description: Nodeos Test Control API Specification. See developer documentation at https://docs.eosnetwork.com for information on enabling this plugin.
   version: 1.0.0
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT
   contact:
-    url: https://eos.io
+    url: https://eosnetwork.com
 tags:
   - name: eosio
 servers:
@@ -44,7 +45,7 @@ paths:
                   type: object
                   properties:
                     producer:
-                      $ref: 'https://eosio.github.io/schemata/v2.0/oas/Name.yaml'
+                      $ref: 'https://docs.eosnetwork.com/openapi/v2.0/Name.yaml'
                     where_in_sequence:
                       type: integer
                     based_on_lib:

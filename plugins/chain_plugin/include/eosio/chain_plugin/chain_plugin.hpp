@@ -479,7 +479,7 @@ public:
    get_scheduled_transactions_result get_scheduled_transactions( const get_scheduled_transactions_params& params, const fc::time_point& deadline ) const;
    struct compute_transaction_results {
        chain::transaction_id_type  transaction_id;
-       fc::variant                 processed;
+       fc::variant                 processed; // "processed" is expected JSON for trxs in cleos
     };
 
    struct compute_transaction_params {
@@ -738,7 +738,7 @@ public:
    using push_transaction_params = fc::variant_object;
    struct push_transaction_results {
       chain::transaction_id_type  transaction_id;
-      fc::variant                 processed;
+      fc::variant                 processed; // "processed" is expected JSON for trxs in cleos
    };
    void push_transaction(const push_transaction_params& params, chain::plugin_interface::next_function<push_transaction_results> next);
 

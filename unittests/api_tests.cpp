@@ -333,7 +333,7 @@ BOOST_FIXTURE_TEST_CASE(action_receipt_tests, TESTER) { try {
                      != result->action_traces[0].receipt->auth_sequence.end() );
    auto base_global_sequence_num = result->action_traces[0].receipt->global_sequence;
    auto base_system_recv_seq_num = result->action_traces[0].receipt->recv_sequence;
-   auto base_system_auth_seq_num = result->action_traces[0].receipt->auth_sequence[config::system_account_name];
+                                   result->action_traces[0].receipt->auth_sequence[config::system_account_name];
    auto base_system_code_seq_num = result->action_traces[0].receipt->code_sequence.value;
    auto base_system_abi_seq_num  = result->action_traces[0].receipt->abi_sequence.value;
 
@@ -1152,8 +1152,8 @@ BOOST_AUTO_TEST_CASE(checktime_pause_block_deadline_not_extended_test) { try {
    dlog("elapsed ${e}us", ("e", dur) );
    BOOST_CHECK( dur >= 75'000 ); // should never fail
    // If this check fails but duration is >= 75'000 (previous check did not fail), then the check here is likely
-   // because it took longer than 2 ms for checktime to trigger, trace to be created, and to get to the now() call.
-   BOOST_CHECK_MESSAGE( dur < 77'000, "elapsed " << dur << "us" );
+   // because it took longer than 10 ms for checktime to trigger, trace to be created, and to get to the now() call.
+   BOOST_CHECK_MESSAGE( dur < 85'000, "elapsed " << dur << "us" );
 
    BOOST_REQUIRE_EQUAL( t.validate(), true );
 } FC_LOG_AND_RETHROW() }
@@ -1258,7 +1258,9 @@ BOOST_FIXTURE_TEST_CASE(checktime_intrinsic, TESTER) { try {
                                           5000, 10, 10 ),
                                deadline_exception, is_deadline_exception );
 
-#warning TODO validate that the contract was successfully cached
+// https://github.com/AntelopeIO/leap/issues/260 was created to track this TODO.
+// Remove those comments after the issue is resolved.
+// #warning TODO validate that the contract was successfully cached
 
         //it will always call
         BOOST_CHECK_EXCEPTION( call_test( *this, test_api_action<TEST_METHOD("doesn't matter", "doesn't matter")>{},
@@ -1295,7 +1297,9 @@ BOOST_FIXTURE_TEST_CASE(checktime_grow_memory, TESTER) { try {
                                           5000, 10, 10 ),
                                deadline_exception, is_deadline_exception );
 
-#warning TODO validate that the contract was successfully cached
+// https://github.com/AntelopeIO/leap/issues/260 was created to track this TODO.
+// Remove those comments after the issue is resolved.
+//#warning TODO validate that the contract was successfully cached
 
         //it will always call
         BOOST_CHECK_EXCEPTION( call_test( *this, test_api_action<TEST_METHOD("doesn't matter", "doesn't matter")>{},
@@ -1315,7 +1319,9 @@ BOOST_FIXTURE_TEST_CASE(checktime_hashing_fail, TESTER) { try {
                                           5000, 3, 3 ),
                                deadline_exception, is_deadline_exception );
 
-#warning TODO validate that the contract was successfully cached
+// https://github.com/AntelopeIO/leap/issues/260 was created to track this TODO.
+// Remove those comments after the issue is resolved.
+//#warning TODO validate that the contract was successfully cached
 
         //the contract should be cached, now we should get deadline_exception because of calls to checktime() from hashing function
         BOOST_CHECK_EXCEPTION( call_test( *this, test_api_action<TEST_METHOD("test_checktime", "checktime_sha1_failure")>{},
@@ -1532,8 +1538,8 @@ BOOST_FIXTURE_TEST_CASE(transaction_tests, TESTER) { try {
  *************************************************************************************/
 BOOST_AUTO_TEST_CASE(inline_action_subjective_limit) { try {
    const uint32_t _4k = 4 * 1024;
-   tester chain(setup_policy::full, db_read_mode::SPECULATIVE, {_4k + 100}, {_4k + 1});
-   tester chain2(setup_policy::full, db_read_mode::SPECULATIVE, {_4k + 100}, {_4k});
+   tester chain(setup_policy::full, db_read_mode::HEAD, {_4k + 100}, {_4k + 1});
+   tester chain2(setup_policy::full, db_read_mode::HEAD, {_4k + 100}, {_4k});
    signed_block_ptr block;
    for (int n=0; n < 2; ++n) {
       block = chain.produce_block();
@@ -1560,7 +1566,7 @@ BOOST_AUTO_TEST_CASE(inline_action_subjective_limit) { try {
  *************************************************************************************/
 BOOST_AUTO_TEST_CASE(inline_action_objective_limit) { try {
    const uint32_t _4k = 4 * 1024;
-   tester chain(setup_policy::full, db_read_mode::SPECULATIVE, {_4k}, {_4k - 1});
+   tester chain(setup_policy::full, db_read_mode::HEAD, {_4k}, {_4k - 1});
    chain.produce_blocks(2);
    chain.create_account( "testapi"_n );
    chain.produce_blocks(100);
@@ -1582,7 +1588,7 @@ BOOST_AUTO_TEST_CASE(inline_action_objective_limit) { try {
 
 BOOST_AUTO_TEST_CASE(deferred_inline_action_subjective_limit_failure) { try {
    const uint32_t _4k = 4 * 1024;
-   tester chain(setup_policy::full, db_read_mode::SPECULATIVE, {_4k + 100}, {_4k});
+   tester chain(setup_policy::full, db_read_mode::HEAD, {_4k + 100}, {_4k});
    chain.produce_blocks(2);
    chain.create_accounts( {"testapi"_n, "testapi2"_n, "alice"_n} );
    chain.set_code( "testapi"_n, contracts::test_api_wasm() );
@@ -1614,8 +1620,8 @@ BOOST_AUTO_TEST_CASE(deferred_inline_action_subjective_limit_failure) { try {
 
 BOOST_AUTO_TEST_CASE(deferred_inline_action_subjective_limit) { try {
    const uint32_t _4k = 4 * 1024;
-   tester chain(setup_policy::full, db_read_mode::SPECULATIVE, {_4k + 100}, {_4k + 1});
-   tester chain2(setup_policy::full, db_read_mode::SPECULATIVE, {_4k + 100}, {_4k});
+   tester chain(setup_policy::full, db_read_mode::HEAD, {_4k + 100}, {_4k + 1});
+   tester chain2(setup_policy::full, db_read_mode::HEAD, {_4k + 100}, {_4k});
    signed_block_ptr block;
    for (int n=0; n < 2; ++n) {
       block = chain.produce_block();

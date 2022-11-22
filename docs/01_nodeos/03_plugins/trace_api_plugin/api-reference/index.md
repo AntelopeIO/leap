@@ -1,1 +1,1 @@
-<!-- THIS IS A PLACEHOLDER, WILL BE REPLACED BY REDOC INSTANCE -->
+[Trace API Reference](https://docs.eosnetwork.com/leap-plugins/latest/trace.api/)

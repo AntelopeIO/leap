@@ -689,7 +689,7 @@ class Queries:
            "exclude_disabled": excludeDisabled,
            "exclude_unactivatable": excludeUnactivatable
         }
-        res = self.processCurlCmd("producer", "get_supported_protocol_features", json.dumps(param))
+        res = self.processUrllibRequest("producer", "get_supported_protocol_features", param)
         return res
 
     # This will return supported protocol features in a dict (feature codename as the key), i.e.
@@ -701,7 +701,7 @@ class Queries:
     def getSupportedProtocolFeatureDict(self, excludeDisabled=False, excludeUnactivatable=False):
         protocolFeatureDigestDict = {}
         supportedProtocolFeatures = self.getSupportedProtocolFeatures(excludeDisabled, excludeUnactivatable)
-        for protocolFeature in supportedProtocolFeatures:
+        for protocolFeature in supportedProtocolFeatures["payload"]:
             for spec in protocolFeature["specification"]:
                 if (spec["name"] == "builtin_feature_codename"):
                     codename = spec["value"]

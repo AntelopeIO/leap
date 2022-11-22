@@ -141,7 +141,6 @@ class state_history_log {
             eptr                       = std::current_exception();
             write_thread_has_exception = true;
          }
-         elog("${name} thread ended", ("name", this->name));
       });
    }
 
@@ -344,7 +343,7 @@ class state_history_log {
             break;
          pos = pos + state_history_log_header_serial_size + header.payload_size + sizeof(suffix);
          if (!(++num_found % 10000)) {
-            dlog("${num_found} blocks found, log pos = ${pos}", ("num_found", num_found)("pos", pos));
+            ilog("${num_found} blocks found, log pos = ${pos}", ("num_found", num_found)("pos", pos));
          }
       }
       log.flush();
@@ -440,7 +439,7 @@ class state_history_log {
             index.skip(-sizeof(uint64_t));
 
             if (!(remaining % 10000))
-               dlog("${remaining} blocks remaining, log pos = ${pos}", ("num_found", remaining)("pos", pos));
+               ilog("${r} blocks remaining, log pos = ${pos}", ("r", remaining)("pos", pos));
          }
       }
 

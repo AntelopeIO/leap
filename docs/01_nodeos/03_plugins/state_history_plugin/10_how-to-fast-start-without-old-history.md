@@ -8,7 +8,7 @@ This procedure records the current chain state and future history, without previ
 
 ## Before you begin
 
-* Make sure [EOSIO is installed](../../../00_install/index.md).
+* Make sure [Antelope is installed](../../../00_install/index.md).
 * Learn about [Using Nodeos](../../02_usage/index.md).
 * Get familiar with [state_history_plugin](../../03_plugins/state_history_plugin/index.md).
 

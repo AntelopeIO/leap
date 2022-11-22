@@ -121,25 +121,7 @@ namespace WAST
 			addLiteralToNFA(literalString,nfaBuilder,0,finalState);
 		}
 
-		#ifndef _DEBUG
-		if(false)
-		#endif
-		{
-			std::ofstream debugGraphStream("nfaGraph.dot");
-			debugGraphStream << NFA::dumpNFAGraphViz(nfaBuilder).c_str();
-			debugGraphStream.close();
-		}
-
 		nfaMachine = NFA::Machine(nfaBuilder);
-
-		#ifndef _DEBUG
-		if(false)
-		#endif
-		{
-			std::ofstream debugGraphStream("dfaGraph.dot");
-			debugGraphStream << nfaMachine.dumpDFAGraphViz().c_str();
-			debugGraphStream.close();
-		}
 
 		Timing::logTimer("built lexer tables",timer);
 	}

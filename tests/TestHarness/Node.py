@@ -6,6 +6,9 @@ import os
 import re
 import json
 import signal
+import urllib.request
+import urllib.parse
+import urllib.error
 
 from datetime import datetime
 from datetime import timedelta
@@ -66,7 +69,7 @@ class Node(Transactions):
             outs,errs=popen.communicate(input=subcommand.encode("utf-8"))
             ret=popen.wait()
         except subprocess.CalledProcessError as ex:
-            msg=ex.output
+            msg=ex.stderr
             return (ex.returncode, msg, None)
 
         return (ret, outs, errs)
@@ -99,12 +102,16 @@ class Node(Transactions):
                 Utils.Print("account validation failed. account: %s" % (account.name))
                 raise
 
-    def waitForTransInBlock(self, transId, timeout=None):
+    def waitForTransactionInBlock(self, transId, timeout=None):
         """Wait for trans id to be finalized."""
         assert(isinstance(transId, str))
         lam = lambda: self.isTransInAnyBlock(transId)
         ret=Utils.waitForBool(lam, timeout)
         return ret
+
+    def waitForTransactionsInBlock(self, transIds, timeout=None):
+        for transId in transIds:
+            self.waitForTransactionInBlock(transId, timeout)
 
     def waitForTransFinalization(self, transId, timeout=None):
         """Wait for trans id to be finalized."""
@@ -148,7 +155,7 @@ class Node(Transactions):
             return trans
 
         transId=Queries.getTransId(trans)
-        if not self.waitForTransInBlock(transId):
+        if not self.waitForTransactionInBlock(transId):
             if exitOnError:
                 Utils.cmdError("transaction with id %s never made it to a block" % (transId))
                 Utils.errorExit("Failed to find transaction with id %s in a block before timeout" % (transId))
@@ -188,20 +195,29 @@ class Node(Transactions):
         assert(isinstance(blockType, BlockType))
         assert(isinstance(returnType, ReturnType))
         basedOnLib="true" if blockType==BlockType.lib else "false"
-        payload="{ \"producer\":\"%s\", \"where_in_sequence\":%d, \"based_on_lib\":\"%s\" }" % (producer, whereInSequence, basedOnLib)
-        return self.processCurlCmd("test_control", "kill_node_on_producer", payload, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=exitMsg, returnType=returnType)
+        payload={ "producer":producer, "where_in_sequence":whereInSequence, "based_on_lib":basedOnLib }
+        return self.processUrllibRequest("test_control", "kill_node_on_producer", payload, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=exitMsg, returnType=returnType)
 
-    def processCurlCmd(self, resource, command, payload, silentErrors=True, exitOnError=False, exitMsg=None, returnType=ReturnType.json):
-        cmd="curl %s/v1/%s/%s -d '%s' -X POST -H \"Content-Type: application/json\"" % \
-            (self.endpointHttp, resource, command, payload)
+    def processUrllibRequest(self, resource, command, payload={}, silentErrors=False, exitOnError=False, exitMsg=None, returnType=ReturnType.json, endpoint=None):
+        if not endpoint:
+            endpoint = self.endpointHttp
+        cmd = f"{endpoint}/v1/{resource}/{command}"
+        req = urllib.request.Request(cmd, method="POST")
+        req.add_header('Content-Type', 'application/json')
+        data = payload
+        data = json.dumps(data)
+        data = data.encode()
         if Utils.Debug: Utils.Print("cmd: %s" % (cmd))
         rtn=None
         start=time.perf_counter()
         try:
+            response = urllib.request.urlopen(req, data=data)
             if returnType==ReturnType.json:
-                rtn=Utils.runCmdReturnJson(cmd, silentErrors=silentErrors)
+                rtn = {}
+                rtn["payload"] = json.load(response)
+                rtn["code"] = response.getcode()
             elif returnType==ReturnType.raw:
-                rtn=Utils.runCmdReturnStr(cmd)
+                rtn = response.read()
             else:
                 unhandledEnumType(returnType)
 
@@ -210,17 +226,24 @@ class Node(Transactions):
                 Utils.Print("cmd Duration: %.3f sec" % (end-start))
                 printReturn=json.dumps(rtn) if returnType==ReturnType.json else rtn
                 Utils.Print("cmd returned: %s" % (printReturn))
-        except subprocess.CalledProcessError as ex:
+        except urllib.error.HTTPError as ex:
             if not silentErrors:
                 end=time.perf_counter()
-                msg=ex.output.decode("utf-8")
+                msg=ex.msg
                 errorMsg="Exception during \"%s\". %s.  cmd Duration=%.3f sec." % (cmd, msg, end-start)
                 if exitOnError:
                     Utils.cmdError(errorMsg)
                     Utils.errorExit(errorMsg)
                 else:
                     Utils.Print("ERROR: %s" % (errorMsg))
-            return None
+                    if returnType==ReturnType.json:
+                        rtn = json.load(ex)
+                    elif returnType==ReturnType.raw:
+                        rtn = ex.read()
+                    else:
+                        unhandledEnumType(returnType)
+            else:
+                return None
 
         if exitMsg is not None:
             exitMsg=": " + exitMsg
@@ -237,8 +260,8 @@ class Node(Transactions):
         assert(isinstance(genKey, str))
         assert(isinstance(returnType, ReturnType))
 
-        payload="[ \"%s\", \"%s\" ]" % (genAccount, genKey)
-        return self.processCurlCmd("txn_test_gen", "create_test_accounts", payload, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=exitMsg, returnType=returnType)
+        payload=[ genAccount, genKey ]
+        return self.processUrllibRequest("txn_test_gen", "create_test_accounts", payload, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=exitMsg, returnType=returnType)
 
     def txnGenStart(self, salt, period, batchSize, silentErrors=True, exitOnError=False, exitMsg=None, returnType=ReturnType.json):
         assert(isinstance(salt, str))
@@ -246,8 +269,8 @@ class Node(Transactions):
         assert(isinstance(batchSize, int))
         assert(isinstance(returnType, ReturnType))
 
-        payload="[ \"%s\", %d, %d ]" % (salt, period, batchSize)
-        return self.processCurlCmd("txn_test_gen", "start_generation", payload, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=exitMsg, returnType=returnType)
+        payload=[ salt, period, batchSize ]
+        return self.processUrllibRequest("txn_test_gen", "start_generation", payload, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=exitMsg, returnType=returnType)
 
     def kill(self, killSignal):
         if Utils.Debug: Utils.Print("Killing node: %s" % (self.cmd))
@@ -469,7 +492,7 @@ class Node(Transactions):
     # Require producer_api_plugin
     def scheduleProtocolFeatureActivations(self, featureDigests=[]):
         param = { "protocol_features_to_activate": featureDigests }
-        self.processCurlCmd("producer", "schedule_protocol_feature_activations", json.dumps(param))
+        self.processUrllibRequest("producer", "schedule_protocol_feature_activations", param)
 
     def modifyBuiltinPFSubjRestrictions(self, featureCodename, subjectiveRestriction={}):
         jsonPath = os.path.join(Utils.getNodeConfigDir(self.nodeId),
@@ -484,8 +507,7 @@ class Node(Transactions):
 
     # Require producer_api_plugin
     def createSnapshot(self):
-        param = { }
-        return self.processCurlCmd("producer", "create_snapshot", json.dumps(param))
+        return self.processUrllibRequest("producer", "create_snapshot")
 
     # kill all existing nodeos in case lingering from previous test
     @staticmethod

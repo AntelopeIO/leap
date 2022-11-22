@@ -1,6 +1,6 @@
 ## Overview
 
-This how-to guide provides instructions on how to list all public keys and public/private key pairs within the `keosd` default wallet. You can use the public and private keys to authorize transactions in an EOSIO blockchain.
+This how-to guide provides instructions on how to list all public keys and public/private key pairs within the `keosd` default wallet. You can use the public and private keys to authorize transactions in an Antelope blockchain.
 
 The example in this how-to guide displays all public keys and public/private key pairs stored within the existing default wallet.
 
@@ -13,7 +13,7 @@ Make sure you meet the following requirements:
 * Familiarize with the [`cleos wallet`](../03_command-reference/wallet/index.md) commands.
 * Install the currently supported version of `cleos`.
 [[info | Note]]
-| `cleos` is bundled with the EOSIO software. [Installing EOSIO](../../00_install/index.md) will also install `cleos`.
+| `cleos` is bundled with the Antelope software. [Installing Antelope](../../00_install/index.md) will also install `cleos`.
 * Understand what a [public key](/glossary.md#public-key) and [private key](/glossary.md#private-key) is.
 
 ## Command Reference

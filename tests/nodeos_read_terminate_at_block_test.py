@@ -10,7 +10,7 @@ from TestHarness import Cluster, TestHelper, Utils, WalletMgr
 # nodeos_read_terminate_at_block_test
 #
 # A few tests centered around read mode of irreversible,
-# speculative and head with terminate-at-block set
+# and head with terminate-at-block set
 #
 ###############################################################
 
@@ -212,7 +212,7 @@ try:
     specificNodeosArgs = {
         0 : "--enable-stale-production",
         1 : "--read-mode irreversible --terminate-at-block=250",
-        2 : "--read-mode speculative --terminate-at-block=550",
+        2 : "--read-mode head --terminate-at-block=550",
         3 : "--read-mode head --terminate-at-block=850",
     }
 

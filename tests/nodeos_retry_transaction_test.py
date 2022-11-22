@@ -77,10 +77,10 @@ try:
     Print("Stand up cluster")
 
     specificExtraNodeosArgs={
-        3:"--transaction-retry-max-storage-size-gb 5 --disable-api-persisted-trx", # api node
-        4:"--disable-api-persisted-trx",                                           # relay only, will be killed
-        5:"--transaction-retry-max-storage-size-gb 5",                             # api node, will be isolated
-        6:"--disable-api-persisted-trx"                                            # relay only, will be killed
+        3:"--transaction-retry-max-storage-size-gb 5", # api node
+        4:"",                                          # relay only, will be killed
+        5:"--transaction-retry-max-storage-size-gb 5", # api node, will be isolated
+        6:""                                           # relay only, will be killed
     }
 
     # topo=ring all nodes are connected in a ring but also to the bios node
@@ -175,7 +175,7 @@ try:
     overdrawTransferAmount = "1001.0000 {0}".format(CORE_SYMBOL)
     Print("Transfer funds %s from account %s to %s" % (overdrawTransferAmount, overdrawAccount.name, cluster.eosioAccount.name))
     overdrawtrans = node.transferFunds(overdrawAccount, cluster.eosioAccount, overdrawTransferAmount, "test overdraw transfer", exitOnError=False, reportStatus=False, retry=1)
-    assert "overdrawn balance" in str(overdrawtrans), "ERROR: Overdraw transaction attempt should have failed with overdrawn balance."
+    assert overdrawtrans is None, f"ERROR: Overdraw transaction attempt should have failed with overdrawn balance: {overdrawtrans}"
 
     def cacheTransIdInBlock(transId, transToBlock, node):
         global lastIrreversibleBlockNum
@@ -192,7 +192,7 @@ try:
                         Print("Transaction not found for trans id: %s. Will wait %d seconds to see if it arrives in a block." %
                               (transId, args.transaction_time_delta))
                     transTimeDelayed = True
-                    node.waitForTransInBlock(transId, timeout = args.transaction_time_delta)
+                    node.waitForTransactionInBlock(transId, timeout = args.transaction_time_delta)
                     continue
 
             lastIrreversibleBlockNum = node.getIrreversibleBlockNum()

@@ -105,7 +105,7 @@ void chain_api_plugin::plugin_startup() {
    auto rw_api = chain.get_read_write_api(max_response_time);
 
    auto& _http_plugin = app().get_plugin<http_plugin>();
-   ro_api.set_shorten_abi_errors( !_http_plugin.verbose_errors() );
+   ro_api.set_shorten_abi_errors( !http_plugin::verbose_errors() );
 
    _http_plugin.add_api( {
       CHAIN_RO_CALL(get_info, 200, http_params_types::no_params)}, appbase::priority::medium_high);

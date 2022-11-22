@@ -21,23 +21,22 @@ using namespace boost::multi_index;
 
 enum class trx_enum_type {
    unknown = 0,
-   persisted = 1,
-   forked = 2,
-   aborted = 3,
-   incoming_persisted = 4,
-   incoming = 5 // incoming_end() needs to be updated if this changes
+   forked = 1,
+   aborted = 2,
+   incoming_api = 3,
+   incoming_p2p = 4 // incoming_end() needs to be updated if this changes
 };
 
 using next_func_t = std::function<void(const std::variant<fc::exception_ptr, transaction_trace_ptr>&)>;
 
 struct unapplied_transaction {
    const transaction_metadata_ptr trx_meta;
-   const fc::time_point           expiry;
    trx_enum_type                  trx_type = trx_enum_type::unknown;
    bool                           return_failure_trace = false;
    next_func_t                    next;
 
    const transaction_id_type& id()const { return trx_meta->id(); }
+   fc::time_point_sec expiration()const { return trx_meta->packed_trx()->expiration(); }
 
    unapplied_transaction(const unapplied_transaction&) = delete;
    unapplied_transaction() = delete;
@@ -46,8 +45,7 @@ struct unapplied_transaction {
 };
 
 /**
- * Track unapplied transactions for persisted, forked blocks, and aborted blocks.
- * Persisted are first so that they can be applied in each block until expired.
+ * Track unapplied transactions for incoming, forked blocks, and aborted blocks.
  */
 class unapplied_transaction_queue {
 private:
@@ -61,7 +59,7 @@ private:
                const_mem_fun<unapplied_transaction, const transaction_id_type&, &unapplied_transaction::id>
          >,
          ordered_non_unique< tag<by_type>, member<unapplied_transaction, trx_enum_type, &unapplied_transaction::trx_type> >,
-         ordered_non_unique< tag<by_expiry>, member<unapplied_transaction, const fc::time_point, &unapplied_transaction::expiry> >
+         ordered_non_unique< tag<by_expiry>, const_mem_fun<unapplied_transaction, fc::time_point_sec, &unapplied_transaction::expiration> >
       >
    > unapplied_trx_queue_type;
 
@@ -101,7 +99,7 @@ public:
       auto& persisted_by_expiry = queue.get<by_expiry>();
       while( !persisted_by_expiry.empty() ) {
          const auto& itr = persisted_by_expiry.begin();
-         if( itr->expiry > pending_block_time ) {
+         if( itr->expiration() > pending_block_time ) {
             break;
          }
          if( deadline <= fc::time_point::now() ) {
@@ -146,8 +144,7 @@ public:
          const block_state_ptr& bsptr = *ritr;
          for( auto itr = bsptr->trxs_metas().begin(), end = bsptr->trxs_metas().end(); itr != end; ++itr ) {
             const auto& trx = *itr;
-            fc::time_point expiry = trx->packed_trx()->expiration();
-            auto insert_itr = queue.insert( { trx, expiry, trx_enum_type::forked } );
+            auto insert_itr = queue.insert( { trx, trx_enum_type::forked } );
             if( insert_itr.second ) added( insert_itr.first );
          }
       }
@@ -155,34 +152,16 @@ public:
 
    void add_aborted( deque<transaction_metadata_ptr> aborted_trxs ) {
       for( auto& trx : aborted_trxs ) {
-         fc::time_point expiry = trx->packed_trx()->expiration();
-         auto insert_itr = queue.insert( { std::move( trx ), expiry, trx_enum_type::aborted } );
+         auto insert_itr = queue.insert( { std::move( trx ), trx_enum_type::aborted } );
          if( insert_itr.second ) added( insert_itr.first );
       }
    }
 
-   void add_persisted( const transaction_metadata_ptr& trx ) {
+   void add_incoming( const transaction_metadata_ptr& trx, bool api_trx, bool return_failure_trace, next_func_t next ) {
       auto itr = queue.get<by_trx_id>().find( trx->id() );
       if( itr == queue.get<by_trx_id>().end() ) {
-         fc::time_point expiry = trx->packed_trx()->expiration();
-         auto insert_itr = queue.insert( { trx, expiry, trx_enum_type::persisted } );
-         if( insert_itr.second ) added( insert_itr.first );
-      } else if( itr->trx_type != trx_enum_type::persisted ) {
-         if (itr->trx_type == trx_enum_type::incoming || itr->trx_type == trx_enum_type::incoming_persisted)
-            --incoming_count;
-         queue.get<by_trx_id>().modify( itr, [](auto& un){
-            un.trx_type = trx_enum_type::persisted;
-            un.next = nullptr; // persisted already have ack'ed initial trace
-         } );
-      }
-   }
-
-   void add_incoming( const transaction_metadata_ptr& trx, bool persist_until_expired, bool return_failure_trace, next_func_t next ) {
-      auto itr = queue.get<by_trx_id>().find( trx->id() );
-      if( itr == queue.get<by_trx_id>().end() ) {
-         fc::time_point expiry = trx->packed_trx()->expiration();
          auto insert_itr = queue.insert(
-               { trx, expiry, persist_until_expired ? trx_enum_type::incoming_persisted : trx_enum_type::incoming, return_failure_trace, std::move( next ) } );
+               { trx, api_trx ? trx_enum_type::incoming_api : trx_enum_type::incoming_p2p, return_failure_trace, std::move( next ) } );
          if( insert_itr.second ) added( insert_itr.first );
       } else {
          if( itr->trx_meta == trx ) return; // same trx meta pointer
@@ -198,15 +177,18 @@ public:
    iterator begin() { return queue.get<by_type>().begin(); }
    iterator end() { return queue.get<by_type>().end(); }
 
-   // persisted, forked, aborted
+   // forked, aborted
    iterator unapplied_begin() { return queue.get<by_type>().begin(); }
    iterator unapplied_end() { return queue.get<by_type>().upper_bound( trx_enum_type::aborted ); }
 
-   iterator persisted_begin() { return queue.get<by_type>().lower_bound( trx_enum_type::persisted ); }
-   iterator persisted_end() { return queue.get<by_type>().upper_bound( trx_enum_type::persisted ); }
-
-   iterator incoming_begin() { return queue.get<by_type>().lower_bound( trx_enum_type::incoming_persisted ); }
+   iterator incoming_begin() { return queue.get<by_type>().lower_bound( trx_enum_type::incoming_api ); }
    iterator incoming_end() { return queue.get<by_type>().end(); } // if changed to upper_bound, verify usage performance
+
+   iterator lower_bound( const transaction_id_type& id ) {
+      auto itr = queue.get<by_trx_id>().find( id );
+      if( itr == queue.get<by_trx_id>().end() ) return queue.get<by_type>().end();
+      return queue.project<by_type>(itr);
+   }
 
    /// caller's responsibility to call next() if applicable
    iterator erase( iterator itr ) {
@@ -218,7 +200,7 @@ private:
    template<typename Itr>
    void added( Itr itr ) {
       auto size = calc_size( itr->trx_meta );
-      if( itr->trx_type == trx_enum_type::incoming || itr->trx_type == trx_enum_type::incoming_persisted ) {
+      if( itr->trx_type == trx_enum_type::incoming_p2p || itr->trx_type == trx_enum_type::incoming_api ) {
          ++incoming_count;
          EOS_ASSERT( size_in_bytes + size < max_transaction_queue_size, tx_resource_exhaustion,
                      "Transaction ${id}, size ${s} bytes would exceed configured "
@@ -231,7 +213,7 @@ private:
 
    template<typename Itr>
    void removed( Itr itr ) {
-      if( itr->trx_type == trx_enum_type::incoming || itr->trx_type == trx_enum_type::incoming_persisted ) {
+      if( itr->trx_type == trx_enum_type::incoming_p2p || itr->trx_type == trx_enum_type::incoming_api ) {
          --incoming_count;
       }
       size_in_bytes -= calc_size( itr->trx_meta );
