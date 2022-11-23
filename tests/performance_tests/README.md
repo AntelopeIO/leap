@@ -229,7 +229,7 @@ The Performance Harness main script `performance_test.py` can be configured usin
 * `--chain-state-db-size-mb CHAIN_STATE_DB_SIZE_MB`
                           Maximum size (in MiB) of the chain state database (default: 10240)
 * `--chain-threads CHAIN_THREADS`
-                          Number of worker threads in controller thread pool (default: 2)
+                          Number of worker threads in controller thread pool (default: 3)
 * `--database-map-mode {mapped,heap,locked}`
                           Database map mode ("mapped", "heap", or "locked").
                           In "mapped" mode database is memory mapped as a file.
@@ -248,7 +248,7 @@ The Performance Harness main script `performance_test.py` can be configured usin
 * `--last-block-cpu-effort-percent LAST_BLOCK_CPU_EFFORT_PERCENT`
                           Percentage of cpu block production time used to produce last block. Whole number percentages, e.g. 80 for 80% (default: 100)
 * `--producer-threads PRODUCER_THREADS`
-                          Number of worker threads in producer thread pool (default: 2)
+                          Number of worker threads in producer thread pool (default: 6)
 * `--http-max-response-time-ms HTTP_MAX_RESPONSE_TIME_MS`
                           Maximum time for processing a request, -1 for unlimited (default: 990000)
 * `--del-perf-logs`       Whether to delete performance test specific logs. (default: False)
@@ -311,7 +311,7 @@ The following scripts are typically used by the Performance Harness main script 
 * `--chain-state-db-size-mb CHAIN_STATE_DB_SIZE_MB`
                           Maximum size (in MiB) of the chain state database (default: 10240)
 * `--chain-threads CHAIN_THREADS`
-                          Number of worker threads in controller thread pool (default: 2)
+                          Number of worker threads in controller thread pool (default: 3)
 * `--database-map-mode {mapped,heap,locked}`
                           Database map mode ("mapped", "heap", or "locked").
                           In "mapped" mode database is memory mapped as a file.
@@ -330,7 +330,7 @@ The following scripts are typically used by the Performance Harness main script 
 * `--last-block-cpu-effort-percent LAST_BLOCK_CPU_EFFORT_PERCENT`
                           Percentage of cpu block production time used to produce last block. Whole number percentages, e.g. 80 for 80% (default: 100)
 * `--producer-threads PRODUCER_THREADS`
-                          Number of worker threads in producer thread pool (default: 2)
+                          Number of worker threads in producer thread pool (default: 6)
 * `--http-max-response-time-ms HTTP_MAX_RESPONSE_TIME_MS`
                           Maximum time for processing a request, -1 for unlimited (default: 990000)
 * `--del-perf-logs`       Whether to delete performance test specific logs. (default: False)

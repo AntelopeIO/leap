@@ -51,7 +51,7 @@ class PerformanceTestBasic:
             class ChainPluginArgs:
                 signatureCpuBillablePct: int = 0
                 chainStateDbSizeMb: int = 10 * 1024
-                chainThreads: int = 2
+                chainThreads: int = 3
                 databaseMapMode: str = "mapped"
 
                 def __str__(self) -> str:
@@ -74,7 +74,7 @@ class PerformanceTestBasic:
                 produceTimeOffsetUs: int = 0
                 cpuEffortPercent: int = 100
                 lastBlockCpuEffortPercent: int = 100
-                producerThreads: int = 2
+                producerThreads: int = 6
 
                 def __str__(self) -> str:
                     return f"--disable-subjective-billing {self.disableSubjectiveBilling} \
