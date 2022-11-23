@@ -52,7 +52,7 @@ task("send-loop", "Send ERC20 token in a loop")
     while(true) {
       const destination = accounts[parseInt(Math.random()*accounts.length)];
       const amount = ethers.utils.parseEther((1+Math.random()*3).toString());
-      const res = await token.transfer(destination, amount, {gasLimit:50000})
+      const res = await token.transfer(destination, amount)
       console.log(res);
       console.log("############################################ SENT #######");
     }
