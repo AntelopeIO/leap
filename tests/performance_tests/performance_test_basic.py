@@ -119,7 +119,7 @@ class PerformanceTestBasic:
 
     @dataclass
     class PtbConfig:
-        targetTps: int=8000,
+        targetTps: int=8000
         testTrxGenDurationSec: int=30
         tpsLimitPerGenerator: int=4000
         numAddlBlocksToPrune: int=2
