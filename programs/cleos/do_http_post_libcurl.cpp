@@ -78,7 +78,7 @@ namespace eosio { namespace client { namespace http {
          initialized = true;
       }
 
-      std::unique_ptr<CURL, decltype(&curl_easy_cleanup)> handle(nullptr, &curl_easy_cleanup);
+      static std::unique_ptr<CURL, decltype(&curl_easy_cleanup)> handle(nullptr, &curl_easy_cleanup);
       if (!handle) handle.reset(curl_easy_init());
       auto curl = handle.get();
       EOS_ASSERT(curl != 0, chain::http_exception, "curl_easy_init failed");
@@ -92,6 +92,8 @@ namespace eosio { namespace client { namespace http {
          curl_easy_setopt(curl, CURLOPT_UNIX_SOCKET_PATH, base_uri.c_str() + unix_socket_prefix_len);
          uri = "http://localhost" + path;
       } else {
+         // Disable use of unix domain in case it was enabled in the previous call
+         curl_easy_setopt(curl, CURLOPT_UNIX_SOCKET_PATH, nullptr);
          uri = base_uri + path;
       }
 
