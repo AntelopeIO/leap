@@ -78,7 +78,7 @@ namespace eosio { namespace client { namespace http {
          initialized = true;
       }
 
-      static std::unique_ptr<CURL, decltype(&curl_easy_cleanup)> handle(nullptr, &curl_easy_cleanup);
+      std::unique_ptr<CURL, decltype(&curl_easy_cleanup)> handle(nullptr, &curl_easy_cleanup);
       if (!handle) handle.reset(curl_easy_init());
       auto curl = handle.get();
       EOS_ASSERT(curl != 0, chain::http_exception, "curl_easy_init failed");
