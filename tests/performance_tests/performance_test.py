@@ -423,7 +423,7 @@ class PerformanceTest:
             print(f"Producer Thread Optimization results: {prodResults}")
             self.clusterConfig.extraNodeosArgs.producerPluginArgs.producerThreads = prodResults.recommendedThreadCount
 
-        if self.ptConfig.calcChainThreads:
+        if self.ptConfig.calcChainThreads != "none":
             print(f"Performing Chain Thread Optimization Tests")
             if self.ptConfig.calcChainThreads == "full":
                 optType = PerformanceTest.PluginThreadOptRunType.FULL
@@ -433,7 +433,7 @@ class PerformanceTest:
             print(f"Chain Thread Optimization results: {chainResults}")
             self.clusterConfig.extraNodeosArgs.chainPluginArgs.chainThreads = chainResults.recommendedThreadCount
 
-        if self.ptConfig.calcNetThreads:
+        if self.ptConfig.calcNetThreads != "none":
             print(f"Performing Net Thread Optimization Tests")
             if self.ptConfig.calcNetThreads == "full":
                 optType = PerformanceTest.PluginThreadOptRunType.FULL
