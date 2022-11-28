@@ -413,6 +413,7 @@ class PerformanceTest:
         self.testDirsCleanup()
         self.testDirsSetup()
 
+        prodResults = None
         if self.ptConfig.calcProducerThreads != "none":
             print(f"Performing Producer Thread Optimization Tests")
             if self.ptConfig.calcProducerThreads == "full":
@@ -423,6 +424,7 @@ class PerformanceTest:
             print(f"Producer Thread Optimization results: {prodResults}")
             self.clusterConfig.extraNodeosArgs.producerPluginArgs.producerThreads = prodResults.recommendedThreadCount
 
+        chainResults = None
         if self.ptConfig.calcChainThreads != "none":
             print(f"Performing Chain Thread Optimization Tests")
             if self.ptConfig.calcChainThreads == "full":
@@ -433,6 +435,7 @@ class PerformanceTest:
             print(f"Chain Thread Optimization results: {chainResults}")
             self.clusterConfig.extraNodeosArgs.chainPluginArgs.chainThreads = chainResults.recommendedThreadCount
 
+        netResults = None
         if self.ptConfig.calcNetThreads != "none":
             print(f"Performing Net Thread Optimization Tests")
             if self.ptConfig.calcNetThreads == "full":
@@ -443,6 +446,7 @@ class PerformanceTest:
             print(f"Net Thread Optimization results: {netResults}")
             self.clusterConfig.extraNodeosArgs.netPluginArgs.netThreads = netResults.recommendedThreadCount
 
+        tpsTestResult = None
         if not self.ptConfig.skipTpsTests:
             print(f"Performing TPS Performance Tests")
             testSuccessful = False
