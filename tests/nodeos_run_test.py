@@ -737,7 +737,7 @@ try:
 
     if localTest:
         p = re.compile('Assert')
-        errFileName="nodeos_run_test.py/lib/node_00/stderr.txt"
+        errFileName=f"TestLogs/nodeos_run_test.py{os.getpid()}/lib/node_00/stderr.txt"
         assertionsFound=False
         with open(errFileName) as errFile:
             for line in errFile:
@@ -747,7 +747,7 @@ try:
         if assertionsFound:
             # Too many assertion logs, hard to validate how many are genuine. Make this a warning
             #  for now, hopefully the logs will get cleaned up in future.
-            Print("WARNING: Asserts in nodeos_run_test.py/lib/node_00/stderr.txt")
+            Print(f"WARNING: Asserts in TestLogs/nodeos_run_test.py{os.getpid()}/lib/node_00/stderr.txt")
             #errorExit("FAILURE - Assert in nodeos_run_test.py/lib/node_00/stderr.txt")
 
     Print("Validating accounts at end of test")

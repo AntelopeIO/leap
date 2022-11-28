@@ -8,6 +8,7 @@ import re
 
 from TestHarness import Cluster, TestHelper, Utils, WalletMgr
 from TestHarness.testUtils import WaitSpec
+from os import getpid
 
 ###############################################################
 # p2p connection in high latency network for one producer and one syning node cluster.
@@ -20,7 +21,7 @@ from TestHarness.testUtils import WaitSpec
 ###############################################################
 
 def readlogs(node_num, net_latency):
-    filename = 'p2p_high_latency_test.py/lib/node_0{}/stderr.txt'.format(node_num)
+    filename = f'TestLogs/p2p_high_latency_test.py{getpid()}/lib/node_0/stderr.txt'.format(node_num)
     f = subprocess.Popen(['tail','-F',filename], \
                          stdout=subprocess.PIPE,stderr=subprocess.PIPE)
     latRegex = re.compile(r'\d+ms')

@@ -10,7 +10,7 @@ from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr
 ###############################################################
 # nodeos_producer_watermark_test
 # --dump-error-details <Upon error print etc/eosio/node_*/config.ini and nodeos_producer_watermark_test.py/lib/node_*/stderr.log to stdout>
-# --keep-logs <Don't delete nodeos_producer_watermark_test.py/lib/node_* folders upon test completion>
+# --keep-logs <Don't delete TestLogs/nodeos_producer_watermark_test.py<pid>/lib/node_* folders upon test completion>
 ###############################################################
 def isValidBlockProducer(prodsActive, blockNum, node):
     blockProducer=node.getBlockProducerByNum(blockNum)
