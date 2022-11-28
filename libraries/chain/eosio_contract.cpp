@@ -54,7 +54,7 @@ void validate_authority_precondition( const apply_context& context, const author
       }
    }
 
-   if( context.trx_context.enforce_whiteblacklist && context.control.is_producing_block() ) {
+   if( context.trx_context.enforce_whiteblacklist && context.control.is_speculative_block() ) {
       for( const auto& p : auth.keys ) {
          context.control.check_key_list( p.key );
       }
@@ -93,7 +93,7 @@ void apply_eosio_newaccount(apply_context& context) {
               "Cannot create account named ${name}, as that name is already taken",
               ("name", create.name));
 
-   const auto& new_account = db.create<account_object>([&](auto& a) {
+   db.create<account_object>([&](auto& a) {
       a.name = create.name;
       a.creation_date = context.control.pending_block_time();
    });
@@ -127,8 +127,6 @@ void apply_eosio_newaccount(apply_context& context) {
 } FC_CAPTURE_AND_RETHROW( (create) ) }
 
 void apply_eosio_setcode(apply_context& context) {
-   const auto& cfg = context.control.get_global_properties().configuration;
-
    auto& db = context.db;
    auto  act = context.get_action().data_as<setcode>();
    context.require_authorization(act.account);

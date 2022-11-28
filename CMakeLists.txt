@@ -13,8 +13,8 @@ set( CMAKE_CXX_STANDARD 17 )
 set( CMAKE_CXX_EXTENSIONS ON )
 set( CXX_STANDARD_REQUIRED ON)
 
-set(VERSION_MAJOR 3)
-set(VERSION_MINOR 2)
+set(VERSION_MAJOR 4)
+set(VERSION_MINOR 0)
 set(VERSION_PATCH 0)
 set(VERSION_SUFFIX dev)
 
@@ -24,9 +24,16 @@ else()
     set(VERSION_FULL "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")
 endif()
 
+
+# Options
+option(ENABLE_WERROR "Enable `-Werror` compilation flag." Off)
+option(ENABLE_WEXTRA "Enable `-Wextra` compilation flag." Off)
+
+
 set( CLI_CLIENT_EXECUTABLE_NAME cleos )
 set( NODE_EXECUTABLE_NAME nodeos )
 set( KEY_STORE_EXECUTABLE_NAME keosd )
+set( LEAP_UTIL_EXECUTABLE_NAME leap-util )
 
 # http://stackoverflow.com/a/18369825
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
@@ -59,8 +66,6 @@ if(APPLE AND UNIX AND "${OPENSSL_ROOT_DIR}" STREQUAL "")
       set(OPENSSL_ROOT_DIR "/usr/local/opt/openssl@3;/usr/local/opt/openssl@1.1")
    endif()
 endif()
-# fc also adds these definitions to its public interface. once fc becomes the sole importer of openssl, this should be removed
-add_definitions(-DOPENSSL_API_COMPAT=0x10100000L -DOPENSSL_NO_DEPRECATED)
 
 option(ENABLE_OC "Enable eosvm-oc on supported platforms" ON)
 
@@ -127,6 +132,16 @@ else()
     endif()
 endif()
 
+if(ENABLE_WERROR)
+  set( CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   -Werror" )
+  set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror" )
+endif()
+if(ENABLE_WEXTRA)
+  set( CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   -Wextra" )
+  set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wextra" )
+endif()
+
+
 option(EOSIO_ENABLE_DEVELOPER_OPTIONS "enable developer options for Leap" OFF)
 
 # based on http://www.delorie.com/gnu/docs/gdb/gdb_70.html
@@ -185,10 +200,6 @@ add_subdirectory( benchmark )
 
 option(DISABLE_WASM_SPEC_TESTS "disable building of wasm spec unit tests" OFF)
 
-if (NOT DISABLE_WASM_SPEC_TESTS)
-add_subdirectory( wasm-spec-tests/generated-tests )
-endif()
-
 install(FILES testnet.template DESTINATION ${CMAKE_INSTALL_FULL_SYSCONFDIR}/eosio/launcher COMPONENT dev EXCLUDE_FROM_ALL)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/testnet.template ${CMAKE_CURRENT_BINARY_DIR}/etc/eosio/launcher/testnet.template COPYONLY)
 
@@ -218,18 +229,24 @@ install(FILES ${CMAKE_BINARY_DIR}/modules/leap-config.cmake DESTINATION ${CMAKE_
 install(FILES ${CMAKE_BINARY_DIR}/modules/EosioTester.cmake DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}/cmake/leap COMPONENT dev EXCLUDE_FROM_ALL)
 install(FILES ${CMAKE_SOURCE_DIR}/CMakeModules/EosioCheckVersion.cmake DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}/cmake/leap COMPONENT dev EXCLUDE_FROM_ALL)
 
-configure_file(LICENSE                                                  licenses/leap/LICENSE           COPYONLY)
-configure_file(libraries/softfloat/COPYING.txt                          licenses/leap/LICENSE.softfloat COPYONLY)
-configure_file(libraries/wasm-jit/LICENSE                               licenses/leap/LICENSE.wavm      COPYONLY)
-configure_file(libraries/fc/secp256k1/secp256k1/COPYING                 licenses/leap/LICENSE.secp256k1 COPYONLY)
-configure_file(libraries/fc/include/fc/crypto/webauthn_json/license.txt licenses/leap/LICENSE.rapidjson COPYONLY)
-configure_file(libraries/fc/src/network/LICENSE.go                      licenses/leap/LICENSE.go        COPYONLY)
-configure_file(libraries/eos-vm/LICENSE                                 licenses/leap/LICENSE.eos-vm    COPYONLY)
-configure_file(libraries/fc/libraries/ff/LICENSE                        licenses/leap/LICENSE.libff     COPYONLY)
-configure_file(programs/cleos/LICENSE.CLI11                             licenses/leap/LICENSE.CLI11     COPYONLY)
-configure_file(libraries/yubihsm/LICENSE                                licenses/leap/LICENSE.yubihsm   COPYONLY)
+configure_file(LICENSE                                                     licenses/leap/LICENSE           COPYONLY)
+configure_file(libraries/softfloat/COPYING.txt                             licenses/leap/LICENSE.softfloat COPYONLY)
+configure_file(libraries/wasm-jit/LICENSE                                  licenses/leap/LICENSE.wavm      COPYONLY)
+configure_file(libraries/libfc/secp256k1/secp256k1/COPYING                 licenses/leap/LICENSE.secp256k1 COPYONLY)
+configure_file(libraries/libfc/include/fc/crypto/webauthn_json/license.txt licenses/leap/LICENSE.rapidjson COPYONLY)
+configure_file(libraries/eos-vm/LICENSE                                    licenses/leap/LICENSE.eos-vm    COPYONLY)
+configure_file(libraries/libfc/libraries/ff/LICENSE                        licenses/leap/LICENSE.libff     COPYONLY)
+configure_file(programs/cleos/LICENSE.CLI11                                licenses/leap/LICENSE.CLI11     COPYONLY)
 
 install(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/licenses/leap" DESTINATION "${CMAKE_INSTALL_FULL_DATAROOTDIR}/licenses/" COMPONENT base)
+
+configure_file(${CMAKE_SOURCE_DIR}/libraries/cli11/bash-completion/completions/leap-util
+               ${CMAKE_BINARY_DIR}/programs/leap-util/bash-completion/completions/leap-util COPYONLY)
+configure_file(${CMAKE_SOURCE_DIR}/libraries/cli11/bash-completion/completions/cleos
+               ${CMAKE_BINARY_DIR}/programs/cleos/bash-completion/completions/cleos COPYONLY)
+
+install(FILES libraries/cli11/bash-completion/completions/leap-util DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/bash-completion/completions COMPONENT base)
+install(FILES libraries/cli11/bash-completion/completions/cleos DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/bash-completion/completions COMPONENT base)
 
 add_custom_target(dev-install
   COMMAND "${CMAKE_COMMAND}" --build "${CMAKE_BINARY_DIR}"
@@ -237,9 +254,6 @@ add_custom_target(dev-install
   COMMAND "${CMAKE_COMMAND}" --install "${CMAKE_BINARY_DIR}" --component dev
   USES_TERMINAL
 )
-
-get_property(_CTEST_CUSTOM_TESTS_IGNORE GLOBAL PROPERTY CTEST_CUSTOM_TESTS_IGNORE)
-file(WRITE "${CMAKE_BINARY_DIR}/CTestCustom.cmake" "SET(CTEST_CUSTOM_TESTS_IGNORE ${_CTEST_CUSTOM_TESTS_IGNORE})")
 
 include(doxygen)
 

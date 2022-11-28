@@ -80,7 +80,7 @@ class WalletMgr(object):
                     statusMsg+=" port %d is NOT available." % (self.port)
                 Utils.Print("Launching %s, note similar processes running. %s" % (Utils.EosWalletName, statusMsg))
 
-        cmd="%s --data-dir %s --config-dir %s --http-server-address=%s:%d --verbose-http-errors" % (
+        cmd="%s --data-dir %s --config-dir %s --http-server-address=%s:%d --http-max-response-time-ms 99999 --verbose-http-errors" % (
             Utils.EosWalletPath, WalletMgr.__walletDataDir, WalletMgr.__walletDataDir, self.host, self.port)
         if Utils.Debug: Utils.Print("cmd: %s" % (cmd))
         with open(WalletMgr.__walletLogOutFile, 'w') as sout, open(WalletMgr.__walletLogErrFile, 'w') as serr:
@@ -95,6 +95,8 @@ class WalletMgr(object):
             psOut=Utils.checkOutput(pgrepCmd.split())
             if Utils.Debug: Utils.Print("Launched %s. {%s}" % (Utils.EosWalletName, psOut))
         except subprocess.CalledProcessError as ex:
+            Utils.Print(f"STDOUT: {ex.output}")
+            Utils.Print(f"STDERR: {ex.stderr}")
             Utils.errorExit("Failed to launch the wallet manager")
 
         return True
@@ -131,7 +133,7 @@ class WalletMgr(object):
                     time.sleep(delay)
                     continue
 
-                msg=ex.output.decode("utf-8")
+                msg=ex.stderr.decode("utf-8")
                 errorMsg="ERROR: Failed to create wallet - %s. %s" % (name, msg)
                 if exitOnError:
                     Utils.errorExit("%s" % (errorMsg))
@@ -170,7 +172,7 @@ class WalletMgr(object):
         try:
             Utils.checkOutput(cmd.split())
         except subprocess.CalledProcessError as ex:
-            msg=ex.output.decode("utf-8")
+            msg=ex.stderr.decode("utf-8")
             if warningMsg in msg:
                 if not ignoreDupKeyWarning:
                     Utils.Print("WARNING: This key is already imported into the wallet.")
@@ -187,7 +189,7 @@ class WalletMgr(object):
             try:
                 Utils.checkOutput(cmd.split())
             except subprocess.CalledProcessError as ex:
-                msg=ex.output.decode("utf-8")
+                msg=ex.stderr.decode("utf-8")
                 if warningMsg in msg:
                     if not ignoreDupKeyWarning:
                         Utils.Print("WARNING: This key is already imported into the wallet.")
@@ -237,7 +239,7 @@ class WalletMgr(object):
         try:
             retStr=Utils.checkOutput(cmd.split())
         except subprocess.CalledProcessError as ex:
-            msg=ex.output.decode("utf-8")
+            msg=ex.stderr.decode("utf-8")
             Utils.Print("ERROR: Failed to open wallets. %s" % (msg))
             return False
 
@@ -259,7 +261,7 @@ class WalletMgr(object):
         try:
             retStr=Utils.checkOutput(cmd.split())
         except subprocess.CalledProcessError as ex:
-            msg=ex.output.decode("utf-8")
+            msg=ex.stderr.decode("utf-8")
             Utils.Print("ERROR: Failed to get keys. %s" % (msg))
             return False
         m=p.findall(retStr)

@@ -10,11 +10,7 @@ namespace Log
 	static bool categoryEnabled[(Uptr)Category::num] =
 	{
 		true, // error
-		#ifdef _DEBUG // debug
-			true,
-		#else
-			false,
-		#endif
+		false,// debug
 		WAVM_METRICS_OUTPUT != 0 // metrics
 	};
 	void setCategoryEnabled(Category category,bool enable)

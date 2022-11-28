@@ -26,7 +26,7 @@ class Transactions(Queries):
         transId=Queries.getTransId(trans)
 
         if stakedDeposit > 0:
-            self.waitForTransInBlock(transId) # seems like account creation needs to be finalized before transfer can happen
+            self.waitForTransactionInBlock(transId) # seems like account creation needs to be finalized before transfer can happen
             trans = self.transferFunds(creatorAccount, account, Queries.currencyIntToStr(stakedDeposit, CORE_SYMBOL), "init")
             transId=Queries.getTransId(trans)
 
@@ -45,7 +45,7 @@ class Transactions(Queries):
         transId=Queries.getTransId(trans)
 
         if stakedDeposit > 0:
-            self.waitForTransInBlock(transId) # seems like account creation needs to be finlized before transfer can happen
+            self.waitForTransactionInBlock(transId) # seems like account creation needs to be finlized before transfer can happen
             trans = self.transferFunds(creatorAccount, account, "%0.04f %s" % (stakedDeposit/10000, CORE_SYMBOL), "init")
             self.trackCmdTransaction(trans)
             transId=Queries.getTransId(trans)
@@ -325,7 +325,7 @@ class Transactions(Queries):
     def getAllBuiltinFeatureDigestsToPreactivate(self):
         protocolFeatures = []
         supportedProtocolFeatures = self.getSupportedProtocolFeatures()
-        for protocolFeature in supportedProtocolFeatures:
+        for protocolFeature in supportedProtocolFeatures["payload"]:
             for spec in protocolFeature["specification"]:
                 if (spec["name"] == "builtin_feature_codename"):
                     codename = spec["value"]

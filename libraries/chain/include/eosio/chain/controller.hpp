@@ -48,9 +48,7 @@ namespace eosio { namespace chain {
    class fork_database;
 
    enum class db_read_mode {
-      SPECULATIVE,
       HEAD,
-      READ_ONLY,
       IRREVERSIBLE
    };
 
@@ -92,7 +90,7 @@ namespace eosio { namespace chain {
             eosvmoc::config          eosvmoc_config;
             bool                     eosvmoc_tierup         = false;
 
-            db_read_mode             read_mode              = db_read_mode::SPECULATIVE;
+            db_read_mode             read_mode              = db_read_mode::HEAD;
             validation_mode          block_validation_mode  = validation_mode::FULL;
 
             pinnable_mapped_file::map_mode db_map_mode      = pinnable_mapped_file::map_mode::mapped;
@@ -108,7 +106,8 @@ namespace eosio { namespace chain {
             irreversible = 0, ///< this block has already been applied before by this node and is considered irreversible
             validated   = 1, ///< this is a complete block signed by a valid producer and has been previously applied by this node and therefore validated but it is not yet irreversible
             complete   = 2, ///< this is a complete block signed by a valid producer but is not yet irreversible nor has it yet been applied by this node
-            incomplete  = 3, ///< this is an incomplete block (either being produced by a producer or speculatively produced by a node)
+            incomplete  = 3, ///< this is an incomplete block being produced by a producer
+            ephemeral = 4  ///< this is an incomplete block created for speculative execution of trxs, will always be aborted
          };
 
          controller( const config& cfg, const chain_id_type& chain_id );
@@ -127,20 +126,12 @@ namespace eosio { namespace chain {
          void validate_protocol_features( const vector<digest_type>& features_to_activate )const;
 
          /**
-          *  Starts a new pending block session upon which new transactions can
-          *  be pushed.
-          *
-          *  Will only activate protocol features that have been pre-activated.
-          */
-         void start_block( block_timestamp_type time = block_timestamp_type(), uint16_t confirm_block_count = 0 );
-
-         /**
-          * Starts a new pending block session upon which new transactions can
-          * be pushed.
+          * Starts a new pending block session upon which new transactions can be pushed.
           */
          void start_block( block_timestamp_type time,
                            uint16_t confirm_block_count,
                            const vector<digest_type>& new_protocol_feature_activations,
+                           block_status bs,
                            const fc::time_point& deadline = fc::time_point::maximum() );
 
          /**
@@ -164,18 +155,19 @@ namespace eosio { namespace chain {
                                                            fc::time_point block_deadline, fc::microseconds max_transaction_time,
                                                            uint32_t billed_cpu_time_us, bool explicit_billed_cpu_time );
 
-         block_state_ptr finalize_block( const signer_callback_type& signer_callback );
-         void sign_block( const signer_callback_type& signer_callback );
-         void commit_block();
-
-         std::future<block_state_ptr> create_block_state_future( const block_id_type& id, const signed_block_ptr& b );
-
          struct block_report {
             size_t             total_net_usage = 0;
             size_t             total_cpu_usage_us = 0;
             fc::microseconds   total_elapsed_time{};
             fc::microseconds   total_time{};
          };
+
+         block_state_ptr finalize_block( block_report& br, const signer_callback_type& signer_callback );
+         void sign_block( const signer_callback_type& signer_callback );
+         void commit_block();
+
+         std::future<block_state_ptr> create_block_state_future( const block_id_type& id, const signed_block_ptr& b );
+
          /**
           * @param br returns statistics for block
           * @param block_state_future provide from call to create_block_state_future
@@ -256,8 +248,8 @@ namespace eosio { namespace chain {
 
          block_id_type get_block_id_for_num( uint32_t block_num )const;
 
-         sha256 calculate_integrity_hash()const;
-         void write_snapshot( const snapshot_writer_ptr& snapshot )const;
+         sha256 calculate_integrity_hash();
+         void write_snapshot( const snapshot_writer_ptr& snapshot );
 
          bool sender_avoids_whitelist_blacklist_enforcement( account_name sender )const;
          void check_actor_list( const flat_set<account_name>& actors )const;
@@ -265,7 +257,7 @@ namespace eosio { namespace chain {
          void check_action_list( account_name code, action_name action )const;
          void check_key_list( const public_key_type& key )const;
          bool is_building_block()const;
-         bool is_producing_block()const;
+         bool is_speculative_block()const;
 
          bool is_ram_billing_in_notify_allowed()const;
 

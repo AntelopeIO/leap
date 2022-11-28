@@ -283,8 +283,6 @@ namespace eosio { namespace chain {
    }
 
    block_header_state_ptr fork_database::get_block_header( const block_id_type& id )const {
-      const auto& by_id_idx = my->index.get<by_block_id>();
-
       if( my->root->id == id ) {
          return my->root;
       }

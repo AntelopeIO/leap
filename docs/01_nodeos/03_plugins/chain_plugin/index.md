@@ -1,6 +1,6 @@
 ## Description
 
-The `chain_plugin` is a core plugin required to process and aggregate chain data on an EOSIO node.
+The `chain_plugin` is a core plugin required to process and aggregate chain data on an Antelope node.
 
 ## Usage
 
@@ -114,35 +114,18 @@ Config Options for eosio::chain_plugin:
                                         subjective whitelist/blacklist checks 
                                         applied to them (may specify multiple 
                                         times)
-  --read-mode arg (=speculative)        Database read mode ("speculative", 
-                                        "head", "read-only", "irreversible").
-                                        In "speculative" mode: database 
-                                        contains state changes by transactions 
-                                        in the blockchain up to the head block 
-                                        as well as some transactions not yet 
-                                        included in the blockchain.
+  --read-mode arg (=head)               Database read mode ("head",
+                                        "irreversible").
                                         In "head" mode: database contains state
-                                        changes by only transactions in the 
-                                        blockchain up to the head block; 
-                                        transactions received by the node are 
+                                        changes up to the head block;
+                                        transactions received by the node are
                                         relayed if valid.
-                                        In "read-only" mode: (DEPRECATED: see 
-                                        p2p-accept-transactions & 
-                                        api-accept-transactions) database 
-                                        contains state changes by only 
-                                        transactions in the blockchain up to 
-                                        the head block; transactions received 
-                                        via the P2P network are not relayed and
-                                        transactions cannot be pushed via the 
-                                        chain API.
-                                        In "irreversible" mode: database 
-                                        contains state changes by only 
-                                        transactions in the blockchain up to 
-                                        the last irreversible block; 
-                                        transactions received via the P2P 
-                                        network are not relayed and 
-                                        transactions cannot be pushed via the 
-                                        chain API.
+                                        In "irreversible" mode: database
+                                        contains state changes up to the last
+                                        irreversible block; transactions
+                                        received via the P2P network are not
+                                        relayed and transactions cannot be
+                                        pushed via the chain API.                                        
                                         
   --api-accept-transactions arg (=1)    Allow API transactions to be evaluated 
                                         and relayed if valid.
