@@ -45,16 +45,12 @@ eosio::chain::deep_mind_handler _deep_mind_log;
 
 namespace eosio {
 
-//declare operator<< and validate funciton for read_mode in the same namespace as read_mode itself
+//declare operator<< and validate function for read_mode in the same namespace as read_mode itself
 namespace chain {
 
 std::ostream& operator<<(std::ostream& osm, eosio::chain::db_read_mode m) {
-   if ( m == eosio::chain::db_read_mode::SPECULATIVE ) {
-      osm << "speculative";
-   } else if ( m == eosio::chain::db_read_mode::HEAD ) {
+   if ( m == eosio::chain::db_read_mode::HEAD ) {
       osm << "head";
-   } else if ( m == eosio::chain::db_read_mode::READ_ONLY ) { // deprecated
-      osm << "read-only";
    } else if ( m == eosio::chain::db_read_mode::IRREVERSIBLE ) {
       osm << "irreversible";
    }
@@ -76,12 +72,8 @@ void validate(boost::any& v,
   // one string, it's an error, and exception will be thrown.
   std::string const& s = validators::get_single_string(values);
 
-  if ( s == "speculative" ) {
-     v = boost::any(eosio::chain::db_read_mode::SPECULATIVE);
-  } else if ( s == "head" ) {
+ if ( s == "head" ) {
      v = boost::any(eosio::chain::db_read_mode::HEAD);
-  } else if ( s == "read-only" ) {
-     v = boost::any(eosio::chain::db_read_mode::READ_ONLY);
   } else if ( s == "irreversible" ) {
      v = boost::any(eosio::chain::db_read_mode::IRREVERSIBLE);
   } else {
@@ -278,12 +270,11 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
           "Public key added to blacklist of keys that should not be included in authorities (may specify multiple times)")
          ("sender-bypass-whiteblacklist", boost::program_options::value<vector<string>>()->composing()->multitoken(),
           "Deferred transactions sent by accounts in this list do not have any of the subjective whitelist/blacklist checks applied to them (may specify multiple times)")
-         ("read-mode", boost::program_options::value<eosio::chain::db_read_mode>()->default_value(eosio::chain::db_read_mode::SPECULATIVE),
-          "Database read mode (\"speculative\", \"head\", \"read-only\", \"irreversible\").\n"
-          "In \"speculative\" mode: database contains state changes by transactions in the blockchain up to the head block as well as some transactions not yet included in the blockchain.\n"
-          "In \"head\" mode: database contains state changes by only transactions in the blockchain up to the head block; transactions received by the node are relayed if valid.\n"
-          "In \"read-only\" mode: (DEPRECATED: see p2p-accept-transactions & api-accept-transactions) database contains state changes by only transactions in the blockchain up to the head block; transactions received via the P2P network are not relayed and transactions cannot be pushed via the chain API.\n"
-          "In \"irreversible\" mode: database contains state changes by only transactions in the blockchain up to the last irreversible block; transactions received via the P2P network are not relayed and transactions cannot be pushed via the chain API.\n"
+         ("read-mode", boost::program_options::value<eosio::chain::db_read_mode>()->default_value(eosio::chain::db_read_mode::HEAD),
+          "Database read mode (\"head\", \"irreversible\").\n"
+          "In \"head\" mode: database contains state changes up to the head block; transactions received by the node are relayed if valid.\n"
+          "In \"irreversible\" mode: database contains state changes up to the last irreversible block; "
+          "transactions received via the P2P network are not relayed and transactions cannot be pushed via the chain API.\n"
           )
          ( "api-accept-transactions", bpo::value<bool>()->default_value(true), "Allow API transactions to be evaluated and relayed if valid.")
          ("validation-mode", boost::program_options::value<eosio::chain::validation_mode>()->default_value(eosio::chain::validation_mode::FULL),
@@ -556,8 +547,6 @@ protocol_feature_set initialize_protocol_features( const fc::path& p, bool popul
    }
 
    auto output_protocol_feature = [&p]( const builtin_protocol_feature& f, const digest_type& feature_digest ) {
-      static constexpr int max_tries = 10;
-
       string filename( "BUILTIN-" );
       filename += builtin_protocol_feature_codename( f.get_codename() );
       filename += ".json";
@@ -1059,14 +1048,10 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
       }
       my->api_accept_transactions = options.at( "api-accept-transactions" ).as<bool>();
 
-      if( my->chain_config->read_mode == db_read_mode::IRREVERSIBLE || my->chain_config->read_mode == db_read_mode::READ_ONLY ) {
-         if( my->chain_config->read_mode == db_read_mode::READ_ONLY ) {
-            wlog( "read-mode = read-only is deprecated use p2p-accept-transactions = false, api-accept-transactions = false instead." );
-         }
+      if( my->chain_config->read_mode == db_read_mode::IRREVERSIBLE ) {
          if( my->api_accept_transactions ) {
             my->api_accept_transactions = false;
-            std::stringstream ss; ss << my->chain_config->read_mode;
-            wlog( "api-accept-transactions set to false due to read-mode: ${m}", ("m", ss.str()) );
+            wlog( "api-accept-transactions set to false due to read-mode: irreversible" );
          }
       }
       if( my->api_accept_transactions ) {
@@ -1140,6 +1125,13 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
          // For the time being, when `deep-mind = true` is activated, we set `stdout` here to
          // be an unbuffered I/O stream.
          setbuf(stdout, NULL);
+         
+         //verify configuration is correct
+         EOS_ASSERT( options.at("api-accept-transactions").as<bool>() == false, plugin_config_exception,
+            "api-accept-transactions must be set to false in order to enable deep-mind logging.");
+
+         EOS_ASSERT( options.at("p2p-accept-transactions").as<bool>() == false, plugin_config_exception,
+            "p2p-accept-transactions must be set to false in order to enable deep-mind logging.");
 
          my->chain->enable_deep_mind( &_deep_mind_log );
       }
@@ -1352,7 +1344,7 @@ bool chain_plugin::accept_block(const signed_block_ptr& block, const block_id_ty
 }
 
 void chain_plugin::accept_transaction(const chain::packed_transaction_ptr& trx, next_function<chain::transaction_trace_ptr> next) {
-   my->incoming_transaction_async_method(trx, false, false, false, std::move(next));
+   my->incoming_transaction_async_method(trx, false, transaction_metadata::trx_type::input, false, std::move(next));
 }
 
 controller& chain_plugin::chain() { return *my->chain; }
@@ -1706,8 +1698,6 @@ string get_table_type( const abi_def& abi, const name& table_name ) {
 
 read_only::get_table_rows_result read_only::get_table_rows( const read_only::get_table_rows_params& p, const fc::time_point& deadline )const {
    const abi_def abi = eosio::chain_apis::get_abi( db, p.code );
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wstrict-aliasing"
    bool primary = false;
    auto table_with_index = get_table_index_name( p, primary );
    if( primary ) {
@@ -1740,18 +1730,22 @@ read_only::get_table_rows_result read_only::get_table_rows( const read_only::get
       }
       else if (p.key_type == chain_apis::float64) {
          return get_table_rows_by_seckey<index_double_index, double>(p, abi, deadline, [](double v)->float64_t {
-            float64_t f = *(float64_t *)&v;
+            float64_t f;
+            double_to_float64(v, f);
             return f;
          });
       }
       else if (p.key_type == chain_apis::float128) {
          if ( p.encode_type == chain_apis::hex) {
             return get_table_rows_by_seckey<index_long_double_index, uint128_t>(p, abi, deadline, [](uint128_t v)->float128_t{
-               return *reinterpret_cast<float128_t *>(&v);
+               float128_t f;
+               uint128_to_float128(v, f);
+               return f;
             });
          }
          return get_table_rows_by_seckey<index_long_double_index, double>(p, abi, deadline, [](double v)->float128_t{
-            float64_t f = *(float64_t *)&v;
+            float64_t f;
+            double_to_float64(v, f);
             float128_t f128;
             f64_to_f128M(f, &f128);
             return f128;
@@ -1767,7 +1761,6 @@ read_only::get_table_rows_result read_only::get_table_rows( const read_only::get
       }
       EOS_ASSERT(false, chain::contract_table_query_exception,  "Unsupported secondary index type: ${t}", ("t", p.key_type));
    }
-#pragma GCC diagnostic pop
 }
 
 read_only::get_table_by_scope_result read_only::get_table_by_scope( const read_only::get_table_by_scope_params& p,
@@ -2183,7 +2176,7 @@ void read_write::push_transaction(const read_write::push_transaction_params& par
          abi_serializer::from_variant(params, *pretty_input, std::move( resolver ), abi_serializer::create_yield_function( abi_serializer_max_time ));
       } EOS_RETHROW_EXCEPTIONS(chain::packed_transaction_type_exception, "Invalid packed transaction")
 
-      app().get_method<incoming::methods::transaction_async>()(pretty_input, true, false, false,
+      app().get_method<incoming::methods::transaction_async>()(pretty_input, true, transaction_metadata::trx_type::input, false,
             [this, next](const std::variant<fc::exception_ptr, transaction_trace_ptr>& result) -> void {
          if (std::holds_alternative<fc::exception_ptr>(result)) {
             next(std::get<fc::exception_ptr>(result));
@@ -2302,7 +2295,7 @@ void read_write::send_transaction(const read_write::send_transaction_params& par
          abi_serializer::from_variant(params, *pretty_input, resolver, abi_serializer::create_yield_function( abi_serializer_max_time ));
       } EOS_RETHROW_EXCEPTIONS(chain::packed_transaction_type_exception, "Invalid packed transaction")
 
-      app().get_method<incoming::methods::transaction_async>()(pretty_input, true, false, false,
+      app().get_method<incoming::methods::transaction_async>()(pretty_input, true, transaction_metadata::trx_type::input, false,
             [this, next](const std::variant<fc::exception_ptr, transaction_trace_ptr>& result) -> void {
          if (std::holds_alternative<fc::exception_ptr>(result)) {
             next(std::get<fc::exception_ptr>(result));
@@ -2345,7 +2338,7 @@ void read_write::send_transaction2(const read_write::send_transaction2_params& p
                   "retry transaction expiration ${e} larger than allowed ${m}",
                   ("e", ptrx->expiration())("m", trx_retry->get_max_expiration_time()) );
 
-      app().get_method<incoming::methods::transaction_async>()(ptrx, true, false, static_cast<bool>(params.return_failure_trace),
+      app().get_method<incoming::methods::transaction_async>()(ptrx, true, transaction_metadata::trx_type::input, static_cast<bool>(params.return_failure_trace),
          [this, ptrx, next, retry, retry_num_blocks](const std::variant<fc::exception_ptr, transaction_trace_ptr>& result) -> void {
             if( std::holds_alternative<fc::exception_ptr>( result ) ) {
                next( std::get<fc::exception_ptr>( result ) );
@@ -2699,7 +2692,7 @@ void read_only::compute_transaction(const compute_transaction_params& params, ne
             abi_serializer::from_variant(params.transaction, *pretty_input, resolver, abi_serializer::create_yield_function( abi_serializer_max_time ));
         } EOS_RETHROW_EXCEPTIONS(chain::packed_transaction_type_exception, "Invalid packed transaction")
 
-        app().get_method<incoming::methods::transaction_async>()(pretty_input, false, true, true,
+        app().get_method<incoming::methods::transaction_async>()(pretty_input, false, transaction_metadata::trx_type::dry_run, true,
              [this, next](const std::variant<fc::exception_ptr, transaction_trace_ptr>& result) -> void {
                  if (std::holds_alternative<fc::exception_ptr>(result)) {
                      next(std::get<fc::exception_ptr>(result));

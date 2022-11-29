@@ -49,7 +49,7 @@ Config Options for eosio::producer_plugin:
                                         <public-key>=<provider-spec>
                                         Where:
                                            <public-key>    is a string form of
-                                                           a vaild EOSIO public
+                                                           a vaild Antelope public
                                                            key
 
                                            <provider-spec> is a string in the
@@ -59,7 +59,7 @@ Config Options for eosio::producer_plugin:
                                            <provider-type> is KEY, or KEOSD
 
                                            KEY:<data>      is a string form of
-                                                           a valid EOSIO
+                                                           a valid Antelope
                                                            private key which
                                                            maps to the provided
                                                            public key
@@ -135,8 +135,6 @@ Config Options for eosio::producer_plugin:
                                         transaction queue. Exceeding this value
                                         will subjectively drop transaction with
                                         resource exhaustion.
-  --disable-api-persisted-trx           Disable the re-apply of API
-                                        transactions.
   --disable-subjective-billing arg (=1) Disable subjective CPU billing for
                                         API/P2P transactions
   --disable-subjective-account-billing arg

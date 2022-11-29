@@ -28,7 +28,7 @@ Command Line Options for eosio::chain_plugin:
 
 Start `nodeos` with `--shared-memory-size-mb 1024`. A 1 GB shared memory file allows approximately half a million transactions.
 
-### What version of EOSIO am I running/connecting to?
+### What version of Antelope am I running/connecting to?
 
 If defaults can be used, then `cleos get info` will output a block that contains a field called `server_version`.  If your `nodeos` is not using the defaults, then you need to know the URL of the `nodeos`. In that case, use the following with your `nodeos` URL:
 
@@ -44,4 +44,4 @@ cleos --url http://localhost:8888 get info | grep server_version
 
 ### Error 3070000: WASM Exception Error
 
-If you try to deploy the `eosio.bios` contract or `eosio.system` contract in an attempt to boot an EOSIO-based blockchain and you get the following error or similar: `Publishing contract... Error 3070000: WASM Exception Error Details: env.set_proposed_producers_ex unresolveable`, it is because you have to activate the `PREACTIVATE_FEATURE` protocol first. 
+If you try to deploy the `eosio.bios` contract or `eosio.system` contract in an attempt to boot an Antelope-based blockchain and you get the following error or similar: `Publishing contract... Error 3070000: WASM Exception Error Details: env.set_proposed_producers_ex unresolveable`, it is because you have to activate the `PREACTIVATE_FEATURE` protocol first. 

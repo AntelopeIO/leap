@@ -45,7 +45,7 @@ def cli11_bugfix_test():
 
     # Make sure that the command failed because of the connection error,
     # not the command line parsing error.
-    assert(b'Connection refused' in completed_process.stderr)
+    assert(b'Failed http request to nodeos' in completed_process.stderr)
 
 
 def cli11_optional_option_arg_test():
@@ -119,7 +119,8 @@ def cleos_sign_test():
         outs,errs=popen.communicate()
         popen.wait()
     except subprocess.CalledProcessError as ex:
-        print(ex.output)
+        print(f"STDOUT: {ex.output}")
+        print(f"STDERR: {ex.stderr}")
     # make sure fields are unpacked
     assert(b'"expiration": "2019-08-01T07:15:49"' in errs)
     assert(b'"ref_block_num": 34881' in errs)
@@ -145,7 +146,8 @@ def processCleosCommand(cmd):
         outs, errs = popen.communicate()
         popen.wait()
     except subprocess.CalledProcessError as ex:
-        print(ex.output)
+        print(f"STDOUT: {ex.output}")
+        print(f"STDERR: {ex.stderr}")
     return outs, errs
 
 def cleos_abi_file_test():
@@ -162,7 +164,7 @@ def cleos_abi_file_test():
     # use URL http://127.0.0.1:12345 to make sure cleos not to connect to any running nodeos
     cmd = ['./programs/cleos/cleos', '-u', 'http://127.0.0.1:12345', 'convert', 'pack_action_data', account, action, unpacked_action_data]
     outs, errs = processCleosCommand(cmd)
-    assert(b'Connection refused' in errs)
+    assert(b'Failed http request to nodeos' in errs)
 
     # invalid option --abi-file
     invalid_abi_arg = 'eosio.token' + ' ' + token_abi_path

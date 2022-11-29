@@ -498,7 +498,6 @@ BOOST_AUTO_TEST_SUITE(slice_tests)
       const auto be1_size = data.size();
       BOOST_REQUIRE_EQUAL(header_size + be1_size, slice.tellp());
       BOOST_REQUIRE_EQUAL(bfs::file_size(fp), slice.tellp());
-      uint64_t index_file_size = bfs::file_size(fp);
       slice.close();
 
       found = sd.find_or_create_index_slice(1, open_state::read, slice);

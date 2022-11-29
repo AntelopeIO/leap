@@ -27,7 +27,7 @@ Make sure you meet the following requirements:
 
 * Install the currently supported version of `cleos`.
 [[info | Note]]
-| `cleos` is bundled with the EOSIO software. [Installing EOSIO](../../../00_install/index.md) will also install the `cleos` and `keosd` command line tools.
+| `cleos` is bundled with the Antelope software. [Installing Antelope](../../../00_install/index.md) will also install the `cleos` and `keosd` command line tools.
 * You have access to a producing node instance with the [`net_api_plugin`](../../../01_nodeos/03_plugins/net_api_plugin/index.md) loaded.
 
 ## Examples

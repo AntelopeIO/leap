@@ -570,14 +570,14 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
          return;
       bool fresh = chain_state_log->begin_block() == chain_state_log->end_block();
       if (fresh)
-         fc_ilog(_log, "Placing initial state in block ${n}", ("n", block_state->block->block_num()));
+         fc_ilog(_log, "Placing initial state in block ${n}", ("n", block_state->block_num));
 
       std::vector<table_delta> deltas     = state_history::create_deltas(chain_plug->chain().db(), fresh);
       auto                     deltas_bin = state_history::zlib_compress_bytes(fc::raw::pack(deltas));
       state_history_log_header header{.magic        = ship_magic(ship_current_version, 0),
                                       .block_id     = block_state->id,
                                       .payload_size = sizeof(uint32_t) + deltas_bin.size()};
-      chain_state_log->write_entry(header, block_state->block->previous, [&](auto& stream) {
+      chain_state_log->write_entry(header, block_state->header.previous, [&](auto& stream) {
          // Compressed deltas now exceeds 4GB on one of the public chains. This length prefix
          // was intended to support adding additional fields in the future after the
          // packed deltas. For now we're going to ignore on read. The 0 is an attempt to signal
@@ -694,6 +694,12 @@ void state_history_plugin::plugin_startup() {
 
    try {
       my->thr = std::thread([ptr = my.get()] { ptr->ctx.run(); });
+      auto bsp = my->chain_plug->chain().head_block_state();
+      if( bsp && my->chain_state_log && my->chain_state_log->begin_block() == my->chain_state_log->end_block() ) {
+         fc_ilog( _log, "Storing initial state on startup, this can take a considerable amount of time" );
+         my->store_chain_state( bsp );
+         fc_ilog( _log, "Done storing initial state on startup" );
+      }
       my->listen();
    } catch (std::exception& ex) {
       appbase::app().quit();
@@ -704,7 +710,6 @@ void state_history_plugin::plugin_shutdown() {
    my->applied_transaction_connection.reset();
    my->accepted_block_connection.reset();
    my->block_start_connection.reset();
-   my->sessions.for_each([](auto& s) { s->close(); });
    my->stopping = true;
    my->trace_log->stop();
    my->chain_state_log->stop();

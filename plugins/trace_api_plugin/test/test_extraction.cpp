@@ -122,9 +122,7 @@ struct extraction_test_fixture {
       }
 
       void append_trx_ids(const block_trxs_entry& tt){
-         for (const auto& id : tt.ids) {
-             fixture.id_log[tt.block_num] = tt.ids;
-         }
+         fixture.id_log[tt.block_num] = tt.ids;
       }
 
       extraction_test_fixture& fixture;
@@ -175,8 +173,6 @@ BOOST_AUTO_TEST_SUITE(block_extraction)
             { chain::packed_transaction(ptrx1) } );
       signal_accepted_block( bsp1 );
       
-      const uint32_t expected_lib = 0;
-
       const std::vector<action_trace_v1> expected_action_traces {
          {
             {
@@ -268,8 +264,6 @@ BOOST_AUTO_TEST_SUITE(block_extraction)
       auto bsp1 = make_block_state( chain::block_id_type(), 1, 1, "bp.one"_n,
             { chain::packed_transaction(ptrx1), chain::packed_transaction(ptrx2), chain::packed_transaction(ptrx3) } );
       signal_accepted_block( bsp1 );
-
-      const uint32_t expected_lib = 0;
 
       const std::vector<action_trace_v1> expected_action_trace1 {
          {
@@ -382,8 +376,6 @@ BOOST_AUTO_TEST_SUITE(block_extraction)
       auto bsp1 = make_block_state( chain::block_id_type(), 1, 1, "bp.one"_n,
             { chain::packed_transaction(transfer_trx) } );
       signal_accepted_block( bsp1 );
-
-      const uint32_t expected_lib = 0;
 
       const std::vector<action_trace_v1> expected_action_trace {
          {

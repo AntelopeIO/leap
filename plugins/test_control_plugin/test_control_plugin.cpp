@@ -1,5 +1,4 @@
 #include <eosio/test_control_plugin/test_control_plugin.hpp>
-#include <atomic>
 
 namespace fc { class variant; }
 
@@ -9,7 +8,7 @@ static appbase::abstract_plugin& _test_control_plugin = app().register_plugin<te
 
 class test_control_plugin_impl {
 public:
-   test_control_plugin_impl(chain::controller& c) : _chain(c) {}
+   explicit test_control_plugin_impl(chain::controller& c) : _chain(c) {}
    void connect();
    void disconnect();
    void kill_on_lib(account_name prod, uint32_t where_in_seq);
@@ -24,12 +23,11 @@ private:
    std::optional<boost::signals2::scoped_connection> _irreversible_block_connection;
    chain::controller&  _chain;
    account_name        _producer;
-   int32_t             _where_in_sequence{-1};
-   int32_t             _producer_sequence{-1};
-   uint32_t            _first_sequence_timeslot{0};
+   uint32_t            _where_in_sequence{};
    bool                _clean_producer_sequence{false};
-   std::atomic_bool    _track_lib;
-   std::atomic_bool    _track_head;
+   bool                _started_production_round{false};
+   bool                _track_lib{false};
+   bool                _track_head{false};
 };
 
 void test_control_plugin_impl::connect() {
@@ -59,68 +57,54 @@ void test_control_plugin_impl::accepted_block(const chain::block_state_ptr& bsp)
 }
 
 void test_control_plugin_impl::process_next_block_state(const chain::block_state_ptr& bsp) {
+   // Tests expect the shutdown only after signaling a producer shutdown and seeing a full production cycle
    const auto block_time = _chain.head_block_time() + fc::microseconds(chain::config::block_interval_us);
    const auto& producer_authority = bsp->get_scheduled_producer(block_time);
    const auto producer_name = producer_authority.producer_name;
-   if (_producer != account_name())
-      ilog("producer ${cprod}, looking for ${lprod}", ("cprod", producer_name.to_string())("lprod", _producer.to_string()));
-
-   // start counting sequences for this producer (once we have a sequence that we saw the initial block for that producer)
-   if (producer_name == _producer && _clean_producer_sequence) {
-      auto slot = bsp->block->timestamp.slot;
-      _producer_sequence += 1;
-      ilog("producer ${prod} seq: ${seq} slot: ${slot}", 
-           ("prod", producer_name.to_string())
-           ("seq", _producer_sequence+1) // _producer_sequence is index, aligning it with slot number
-           ("slot", slot - _first_sequence_timeslot));
-
-      bool last_slot = false;
-      if (_where_in_sequence + 1 == chain::config::producer_repetitions){
-         auto last_slot_time = _first_sequence_timeslot + chain::config::producer_repetitions;
-         last_slot = slot == last_slot_time;
+   const auto slot = bsp->block->timestamp.slot % chain::config::producer_repetitions;
+   if (_producer != account_name()) {
+      if( _producer != producer_name ) _clean_producer_sequence = true;
+      if( _clean_producer_sequence ) {
+         ilog( "producer ${cprod} slot ${pslot}, looking for ${lprod} slot ${slot}",
+               ("cprod", producer_name)("pslot", slot)("lprod", _producer)("slot", _where_in_sequence) );
+      } else {
+         ilog( "producer ${cprod} slot ${pslot}, looking for start of ${lprod} production round",
+               ("cprod", producer_name)("pslot", slot)("lprod", _producer) );
       }
+   }
 
-      if (_producer_sequence >= _where_in_sequence || last_slot) {
-         int32_t slot_index = slot - _first_sequence_timeslot;
-         if (last_slot && slot_index > _producer_sequence + 1){
-            wlog("Producer produced less than ${n} blocks, ${l}th block is last in sequence. Likely performance issue, check timing",
-                 ("n", chain::config::producer_repetitions)("l", _producer_sequence + 1));
-         }
+   // check started_production_round in case where producer does not produce a full round, still want to shut down
+   if( _clean_producer_sequence && (producer_name == _producer || _started_production_round) ) {
+      _started_production_round = true;
+      const auto current_slot = chain::block_timestamp_type( block_time ).slot % chain::config::producer_repetitions;
+      ilog( "producer ${prod} slot: ${slot}", ("prod", producer_name)("slot", slot) );
+
+      if( current_slot >= _where_in_sequence || producer_name != _producer ) {
          ilog("shutting down");
          app().quit();
       }
-   } else if (producer_name != _producer) {
-      if (_producer_sequence != -1)
-         ilog("producer changed, restarting");
-      _producer_sequence = -1;
-      // can now guarantee we are at the start of the producer
-      _clean_producer_sequence = true;
-
-      _first_sequence_timeslot = bsp->block->timestamp.slot;
    }
 }
 
 void test_control_plugin_impl::kill_on_lib(account_name prod, uint32_t where_in_seq) {
    _track_head = false;
    _producer = prod;
-   _where_in_sequence = static_cast<uint32_t>(where_in_seq);
-   _producer_sequence = -1;
+   _where_in_sequence = where_in_seq;
    _clean_producer_sequence = false;
+   _started_production_round = false;
    _track_lib = true;
 }
 
 void test_control_plugin_impl::kill_on_head(account_name prod, uint32_t where_in_seq) {
    _track_lib = false;
    _producer = prod;
-   _where_in_sequence = static_cast<uint32_t>(where_in_seq);
-   _producer_sequence = -1;
+   _where_in_sequence = where_in_seq;
    _clean_producer_sequence = false;
+   _started_production_round = false;
    _track_head = true;
 }
 
-test_control_plugin::test_control_plugin()
-{
-}
+test_control_plugin::test_control_plugin() = default;
 
 void test_control_plugin::set_program_options(options_description& cli, options_description& cfg) {
 }

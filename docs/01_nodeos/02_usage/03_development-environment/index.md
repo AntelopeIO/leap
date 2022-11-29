@@ -19,11 +19,11 @@ While this option can technically be used for smart contract development, it may
 
 ## Official Testing Node
 
-Try [Docker Utilities for Node Execution](https://github.com/eosnetworkfoundation/DUNE) for the easiest way to get started, and for multi-platform support.  
+Try [Docker Utilities for Node Execution](https://github.com/AntelopeIO/DUNE) for the easiest way to get started, and for multi-platform support.  
 
 ## Third-Party Testnets
 
-The following third-party testnets are available for testing EOSIO dApps and smart contracts:
+The following third-party testnets are available for testing Antelope dApps and smart contracts:
 
 * Jungle Testnet [monitor](https://monitor.jungletestnet.io/), [website](https://jungletestnet.io/)
 * [CryptoKylin Testnet](https://www.cryptokylin.io/)

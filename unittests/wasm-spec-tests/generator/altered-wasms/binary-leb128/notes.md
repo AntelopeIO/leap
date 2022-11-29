@@ -1,0 +1,13 @@
+## Changes
+- binary_leb128.4:
+    - Change to start with one page of memory
+        - This is necessary because of the data section added by our test harness setup.
+- binary_leb128.10:
+    - Change to import `printi` from `env`
+    - Add new type for `param i64` and update import to use it
+- binary_leb128.11:
+    - Change to import `printi` from `env`
+    - Add new type for `param i64` and update import to use it
+- binary_leb128.12:
+    - Change to import `printi` from `env`
+    - Add new type for `param i64` and update import to use it

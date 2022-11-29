@@ -359,6 +359,8 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
             }
          }
 
+         my->plugin_state->server_header = current_http_plugin_defaults.server_header;
+
          
          //watch out for the returns above when adding new code here
       } FC_LOG_AND_RETHROW()
@@ -515,9 +517,8 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
          } catch (std::exception& e) {
             error_results results{500, "Internal Service Error", error_results::error_info(fc::exception( FC_LOG_MESSAGE( error, e.what())), verbose_http_errors)};
             cb( 500, fc::time_point::maximum(), fc::variant( results ));
-            fc_elog( logger(), "STD Exception encountered while processing ${api}.${call}",
-                     ("api", api_name)( "call", call_name ) );
-            fc_dlog( logger(), "Exception Details: ${e}", ("e", e.what()) );
+            fc_dlog( logger(), "STD Exception encountered while processing ${api}.${call}: ${e}",
+                     ("api", api_name)("call", call_name)("e", e.what()) );
          } catch (...) {
             error_results results{500, "Internal Service Error",
                error_results::error_info(fc::exception( FC_LOG_MESSAGE( error, "Unknown Exception" )), verbose_http_errors)};
@@ -538,7 +539,7 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
       return (!my->listen_endpoint || my->listen_endpoint->address().is_loopback());
    }
 
-   bool http_plugin::verbose_errors()const {
+   bool http_plugin::verbose_errors() {
       return verbose_http_errors;
    }
 

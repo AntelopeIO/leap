@@ -1,13 +1,13 @@
 openapi: 3.0.0
 info:
   title: Chain API
-  description: "OAS 3.0 Nodeos Chain API Specification\r"
+  description: Nodeos Chain API Specification. See developer documentation at https://docs.eosnetwork.com for information on enabling this plugin.
   version: 1.0.0
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT
   contact:
-    url: https://eos.io
+    url: https://eosnetwork.com
 servers:
   - url: "{protocol}://{host}:{port}/v1/chain"
     variables:
@@ -37,14 +37,14 @@ paths:
                 - account_name
               properties:
                 account_name:
-                  $ref: "https://eosio.github.io/schemata/v2.0/oas/Name.yaml"
+                  $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
       responses:
         "200":
           description: OK
           content:
             application/json:
               schema:
-                $ref: "https://eosio.github.io/schemata/v2.0/oas/Account.yaml"
+                $ref: "https://docs.eosnetwork.com/openapi/v2.0/Account.yaml"
   /get_block:
     post:
       description: Returns an object containing various details about a specific block on the blockchain.
@@ -66,7 +66,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "https://eosio.github.io/schemata/v2.0/oas/Block.yaml"
+                $ref: "https://docs.eosnetwork.com/openapi/v2.0/Block.yaml"
   /get_block_info:
     post:
       description: Similar to `get_block` but returns a fixed-size smaller subset of the block data.
@@ -100,7 +100,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "https://eosio.github.io/schemata/v2.0/oas/Info.yaml"
+                $ref: "https://docs.eosnetwork.com/openapi/v2.0/Info.yaml"
 
   /push_transaction:
     post:
@@ -116,7 +116,7 @@ paths:
                   type: array
                   description: array of signatures required to authorize transaction
                   items:
-                    $ref: "https://eosio.github.io/schemata/v2.0/oas/Signature.yaml"
+                    $ref: "https://docs.eosnetwork.com/openapi/v2.0/Signature.yaml"
                 compression:
                   type: boolean
                   description: Compression used, usually false
@@ -148,7 +148,7 @@ paths:
                   type: array
                   description: array of signatures required to authorize transaction
                   items:
-                    $ref: "https://eosio.github.io/schemata/v2.0/oas/Signature.yaml"
+                    $ref: "https://docs.eosnetwork.com/openapi/v2.0/Signature.yaml"
                 compression:
                   type: boolean
                   description: Compression used, usually false
@@ -177,7 +177,7 @@ paths:
             schema:
               type: array
               items:
-                $ref: "https://eosio.github.io/schemata/v2.0/oas/Transaction.yaml"
+                $ref: "https://docs.eosnetwork.com/openapi/v2.0/Transaction.yaml"
       responses:
         "200":
           description: OK
@@ -208,7 +208,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "https://eosio.github.io/schemata/v2.0/oas/BlockHeaderState.yaml"
+                $ref: "https://docs.eosnetwork.com/openapi/v2.0/BlockHeaderState.yaml"
 
   /get_abi:
     post:
@@ -223,14 +223,14 @@ paths:
                 - account_name
               properties:
                 account_name:
-                  $ref: "https://eosio.github.io/schemata/v2.0/oas/Name.yaml"
+                  $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
       responses:
         "200":
           description: OK
           content:
             application/json:
               schema:
-                $ref: "https://eosio.github.io/schemata/v2.0/oas/Abi.yaml"
+                $ref: "https://docs.eosnetwork.com/openapi/v2.0/Abi.yaml"
   /get_currency_balance:
     post:
       description: Retrieves the current balance
@@ -246,11 +246,11 @@ paths:
                 - symbol
               properties:
                 code:
-                  $ref: "https://eosio.github.io/schemata/v2.0/oas/Name.yaml"
+                  $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
                 account:
-                  $ref: "https://eosio.github.io/schemata/v2.0/oas/Name.yaml"
+                  $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
                 symbol:
-                  $ref: "https://eosio.github.io/schemata/v2.0/oas/Symbol.yaml"
+                  $ref: "https://docs.eosnetwork.com/openapi/v2.0/Symbol.yaml"
 
       responses:
         "200":
@@ -260,7 +260,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: "https://eosio.github.io/schemata/v2.0/oas/Symbol.yaml"
+                  $ref: "https://docs.eosnetwork.com/openapi/v2.0/Symbol.yaml"
 
   /get_currency_stats:
     post:
@@ -273,9 +273,9 @@ paths:
               type: object
               properties:
                 code:
-                  $ref: "https://eosio.github.io/schemata/v2.0/oas/Name.yaml"
+                  $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
                 symbol:
-                  $ref: "https://eosio.github.io/schemata/v2.0/oas/Symbol.yaml"
+                  $ref: "https://docs.eosnetwork.com/openapi/v2.0/Symbol.yaml"
 
       responses:
         "200":
@@ -299,12 +299,12 @@ paths:
                 - available_keys
               properties:
                 transaction:
-                  $ref: "https://eosio.github.io/schemata/v2.0/oas/Transaction.yaml"
+                  $ref: "https://docs.eosnetwork.com/openapi/v2.0/Transaction.yaml"
                 available_keys:
                   type: array
                   description: Provide the available keys
                   items:
-                    $ref: "https://eosio.github.io/schemata/v2.0/oas/PublicKey.yaml"
+                    $ref: "https://docs.eosnetwork.com/openapi/v2.0/PublicKey.yaml"
       responses:
         "200":
           description: OK
@@ -356,17 +356,17 @@ paths:
                     type: array
                     nullable: true
                     items:
-                      $ref: "https://eosio.github.io/schemata/v2.0/oas/ProducerSchedule.yaml"
+                      $ref: "https://docs.eosnetwork.com/openapi/v2.0/ProducerSchedule.yaml"
                   pending:
                     type: array
                     nullable: true
                     items:
-                      $ref: "https://eosio.github.io/schemata/v2.0/oas/ProducerSchedule.yaml"
+                      $ref: "https://docs.eosnetwork.com/openapi/v2.0/ProducerSchedule.yaml"
                   proposed:
                     type: array
                     nullable: true
                     items:
-                      $ref: "https://eosio.github.io/schemata/v2.0/oas/ProducerSchedule.yaml"
+                      $ref: "https://docs.eosnetwork.com/openapi/v2.0/ProducerSchedule.yaml"
 
 
   /get_raw_code_and_abi:
@@ -382,7 +382,7 @@ paths:
                 - account_name
               properties:
                 account_name:
-                  $ref: "https://eosio.github.io/schemata/v2.0/oas/Name.yaml"
+                  $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
 
       responses:
         "200":
@@ -393,7 +393,7 @@ paths:
                 type: object
                 properties:
                   account_name:
-                    $ref: "https://eosio.github.io/schemata/v2.0/oas/Name.yaml"
+                    $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
                   wasm:
                     type: string
                     description: base64 encoded wasm
@@ -412,7 +412,7 @@ paths:
               type: object
               properties:
                 lower_bound:
-                  $ref: "https://eosio.github.io/schemata/v2.0/oas/DateTimeSeconds.yaml"
+                  $ref: "https://docs.eosnetwork.com/openapi/v2.0/DateTimeSeconds.yaml"
                 limit:
                   description: The maximum number of transactions to return
                   type: integer
@@ -430,7 +430,7 @@ paths:
                   transactions:
                     type: array
                     items:
-                      $ref: "https://eosio.github.io/schemata/v2.0/oas/Transaction.yaml"
+                      $ref: "https://docs.eosnetwork.com/openapi/v2.0/Transaction.yaml"
 
 
   /get_table_by_scope:
@@ -481,9 +481,9 @@ paths:
                   rows:
                     type: array
                     items:
-                      $ref: "https://eosio.github.io/schemata/v2.0/oas/TableScope.yaml"
+                      $ref: "https://docs.eosnetwork.com/openapi/v2.0/TableScope.yaml"
                   more:
-                    $ref: "https://eosio.github.io/schemata/v2.0/oas/Name.yaml"
+                    $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
 
   /get_table_rows:
     post:
@@ -563,9 +563,9 @@ paths:
                 - args
               properties:
                 code:
-                  $ref: "https://eosio.github.io/schemata/v2.0/oas/Name.yaml"
+                  $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
                 action:
-                  $ref: "https://eosio.github.io/schemata/v2.0/oas/Name.yaml"
+                  $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
                 args:
                   type: object
                   description: json object of the action parameters that will be serialized.
@@ -579,7 +579,7 @@ paths:
                 type: object
                 properties:
                   binargs:
-                    $ref: "https://eosio.github.io/schemata/v2.0/oas/Hex.yaml"
+                    $ref: "https://docs.eosnetwork.com/openapi/v2.0/Hex.yaml"
 
   /abi_bin_to_json:
     post:
@@ -597,11 +597,11 @@ paths:
                 - binargs
               properties:
                 code:
-                  $ref: "https://eosio.github.io/schemata/v2.0/oas/Name.yaml"
+                  $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
                 action:
-                  $ref: "https://eosio.github.io/schemata/v2.0/oas/Name.yaml"
+                  $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
                 binargs:
-                  $ref: "https://eosio.github.io/schemata/v2.0/oas/Hex.yaml"
+                  $ref: "https://docs.eosnetwork.com/openapi/v2.0/Hex.yaml"
       responses:
         "200":
           description: OK
@@ -624,7 +624,7 @@ paths:
                 - code_as_wasm
               properties:
                 account_name:
-                  $ref: "https://eosio.github.io/schemata/v2.0/oas/Name.yaml"
+                  $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
                 code_as_wasm:
                   type: integer
                   default: 1
@@ -639,15 +639,15 @@ paths:
                 title: GetCodeResponse.yaml
                 properties:
                   name:
-                    $ref: "https://eosio.github.io/schemata/v2.0/oas/Name.yaml"
+                    $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
                   code_hash:
-                    $ref: "https://eosio.github.io/schemata/v2.0/oas/Sha256.yaml"
+                    $ref: "https://docs.eosnetwork.com/openapi/v2.0/Sha256.yaml"
                   wast:
                     type: string
                   wasm:
                     type: string
                   abi:
-                    $ref: "https://eosio.github.io/schemata/v2.0/oas/Abi.yaml"
+                    $ref: "https://docs.eosnetwork.com/openapi/v2.0/Abi.yaml"
 
   /get_raw_abi:
     post:
@@ -662,7 +662,7 @@ paths:
                 - account_name
               properties:
                 account_name:
-                  $ref: "https://eosio.github.io/schemata/v2.0/oas/Name.yaml"
+                  $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
       responses:
         "200":
           description: OK
@@ -672,12 +672,12 @@ paths:
                 type: object
                 properties:
                   account_name:
-                    $ref: "https://eosio.github.io/schemata/v2.0/oas/Name.yaml"
+                    $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
                   code_hash:
-                    $ref: "https://eosio.github.io/schemata/v2.0/oas/Sha256.yaml"
+                    $ref: "https://docs.eosnetwork.com/openapi/v2.0/Sha256.yaml"
                   abi_hash:
                     allOf:
-                      - $ref: "https://eosio.github.io/schemata/v2.0/oas/Sha256.yaml"
+                      - $ref: "https://docs.eosnetwork.com/openapi/v2.0/Sha256.yaml"
                   abi:
                     type: string
 
@@ -741,13 +741,13 @@ paths:
                   description: List of authorizing accounts and/or actor/permissions
                   items:
                     anyOf:
-                      - $ref: "https://eosio.github.io/schemata/v2.0/oas/Name.yaml"
-                      - $ref: "https://eosio.github.io/schemata/v2.0/oas/Authority.yaml"
+                      - $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
+                      - $ref: "https://docs.eosnetwork.com/openapi/v2.0/Authority.yaml"
                 keys:
                   type: array
                   description: List of authorizing keys
                   items:
-                    $ref: "https://eosio.github.io/schemata/v2.0/oas/PublicKey.yaml"
+                    $ref: "https://docs.eosnetwork.com/openapi/v2.0/PublicKey.yaml"
       responses:
         "200":
           description: OK
@@ -773,13 +773,13 @@ paths:
                         - threshold
                       properties:
                         account_name:
-                          $ref: "https://eosio.github.io/schemata/v2.0/oas/Name.yaml"
+                          $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
                         permission_name:
-                          $ref: "https://eosio.github.io/schemata/v2.0/oas/Name.yaml"
+                          $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
                         authorizer:
                           oneOf:
-                            - $ref: "https://eosio.github.io/schemata/v2.0/oas/PublicKey.yaml"
-                            - $ref: "https://eosio.github.io/schemata/v2.0/oas/Authority.yaml"
+                            - $ref: "https://docs.eosnetwork.com/openapi/v2.0/PublicKey.yaml"
+                            - $ref: "https://docs.eosnetwork.com/openapi/v2.0/Authority.yaml"
                         weight:
                           type: "integer"
                           description: the weight that this authorizer adds to satisfy the permission

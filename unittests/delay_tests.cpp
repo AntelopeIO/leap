@@ -1621,8 +1621,6 @@ BOOST_AUTO_TEST_CASE( link_delay_link_change_heirarchy_test ) { try {
 BOOST_AUTO_TEST_CASE( mindelay_test ) { try {
    TESTER chain;
 
-   const auto& tester_account = "tester"_n;
-
    chain.produce_blocks();
    chain.create_account("eosio.token"_n);
    chain.produce_blocks(10);
