@@ -277,7 +277,7 @@ try:
         cmdError("FAILURE - transfer failed")
         errorExit("Transfer verification failed. Excepted %s, actual: %s" % (expectedAmount, actualAmount))
 
-    node.waitForTransInBlock(transId)
+    node.waitForTransactionInBlock(transId)
 
     transaction=node.getTransaction(transId, exitOnError=True, delayedRetry=False)
 
@@ -417,7 +417,7 @@ try:
         errorExit("Failed to reject duplicate message for currency1111 contract")
 
     Print("verify transaction exists")
-    if not node.waitForTransInBlock(transId):
+    if not node.waitForTransactionInBlock(transId):
         cmdError("%s get transaction trans_id" % (ClientName))
         errorExit("Failed to verify push message transaction id.")
 

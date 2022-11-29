@@ -48,14 +48,14 @@ namespace eosio { namespace chain {
                                              const packed_transaction& t,
                                              transaction_checktime_timer&& tmr,
                                              fc::time_point s,
-                                             bool read_only)
+                                             transaction_metadata::trx_type type)
    :control(c)
    ,packed_trx(t)
    ,undo_session()
    ,trace(std::make_shared<transaction_trace>())
    ,start(s)
    ,transaction_timer(std::move(tmr))
-   ,is_read_only(read_only)
+   ,trx_type(type)
    ,net_usage(trace->net_usage)
    ,pseudo_start(s)
    {
@@ -82,7 +82,7 @@ namespace eosio { namespace chain {
    }
 
    void transaction_context::disallow_transaction_extensions( const char* error_msg )const {
-      if( control.is_producing_block() ) {
+      if( control.is_speculative_block() ) {
          EOS_THROW( subjective_block_production_exception, error_msg );
       } else {
          EOS_THROW( disallowed_transaction_extensions_bad_block_exception, error_msg );
@@ -234,8 +234,7 @@ namespace eosio { namespace chain {
    }
 
    void transaction_context::init_for_input_trx( uint64_t packed_trx_unprunable_size,
-                                                 uint64_t packed_trx_prunable_size,
-                                                 bool skip_recording )
+                                                 uint64_t packed_trx_prunable_size )
    {
       const transaction& trx = packed_trx.get_transaction();
       if( trx.transaction_extensions.size() > 0 ) {
@@ -269,11 +268,10 @@ namespace eosio { namespace chain {
       if (!control.skip_trx_checks()) {
          control.validate_expiration(trx);
          control.validate_tapos(trx);
-         validate_referenced_accounts( trx, enforce_whiteblacklist && control.is_producing_block() );
+         validate_referenced_accounts( trx, enforce_whiteblacklist && control.is_speculative_block() );
       }
       init( initial_net_usage);
-      if (!skip_recording)
-         record_transaction( packed_trx.id(), trx.expiration ); /// checks for dupes
+      record_transaction( packed_trx.id(), trx.expiration ); /// checks for dupes
    }
 
    void transaction_context::init_for_deferred_trx( fc::time_point p )
@@ -587,7 +585,7 @@ namespace eosio { namespace chain {
       uint32_t specified_greylist_limit = control.get_greylist_limit();
       for( const auto& a : bill_to_accounts ) {
          uint32_t greylist_limit = config::maximum_elastic_resource_multiplier;
-         if( !force_elastic_limits && control.is_producing_block() ) {
+         if( !force_elastic_limits && control.is_speculative_block() ) {
             if( control.is_resource_greylisted(a) ) {
                greylist_limit = 1;
             } else {
@@ -606,7 +604,7 @@ namespace eosio { namespace chain {
          }
       }
 
-      EOS_ASSERT( (!force_elastic_limits && control.is_producing_block()) || (!greylisted_cpu && !greylisted_net),
+      EOS_ASSERT( (!force_elastic_limits && control.is_speculative_block()) || (!greylisted_cpu && !greylisted_net),
                   transaction_exception, "greylisted when not producing block" );
 
       return std::make_tuple(account_net_limit, account_cpu_limit, greylisted_net, greylisted_cpu);
@@ -771,7 +769,7 @@ namespace eosio { namespace chain {
                actors.insert( auth.actor );
          }
       }
-      EOS_ASSERT( one_auth || is_read_only, tx_no_auths, "transaction must have at least one authorization" );
+      EOS_ASSERT( one_auth || is_dry_run(), tx_no_auths, "transaction must have at least one authorization" );
 
       if( enforce_actor_whitelist_blacklist ) {
          control.check_actor_list( actors );

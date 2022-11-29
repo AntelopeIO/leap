@@ -71,7 +71,9 @@ wcmd () {
 
 cacmd () {
     programs/cleos/cleos  --wallet-url $wdurl --url http://$bioshost:$biosport system newaccount --transfer --stake-net "10000000.0000 "$bioscurrencysymbol --stake-cpu "10000000.0000 "$bioscurrencysymbol  --buy-ram "10000000.0000 "$bioscurrencysymbol eosio $* >> $logfile 2>&1
+    sleep 1 # tmp fix until this is part of python regression test framework at which time it should use wait for trx in block
     ecmd system regproducer $1 $2
+    sleep 1 # tmp fix until this is part of python regression test framework at which time it should use wait for trx in block
     ecmd system voteproducer prods $1 $1
 }
 

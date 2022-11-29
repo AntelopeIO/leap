@@ -13,7 +13,6 @@ For information on specific plugins, just select from the list below:
 * [`db_size_api_plugin`](db_size_api_plugin/index.md)
 * [`http_client_plugin`](http_client_plugin/index.md)
 * [`http_plugin`](http_plugin/index.md)
-* [`login_plugin`](login_plugin/index.md)
 * [`net_api_plugin`](net_api_plugin/index.md)
 * [`net_plugin`](net_plugin/index.md)
 * [`producer_plugin`](producer_plugin/index.md)

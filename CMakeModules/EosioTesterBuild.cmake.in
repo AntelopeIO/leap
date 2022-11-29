@@ -51,16 +51,10 @@ find_package(Boost @Boost_MAJOR_VERSION@.@Boost_MINOR_VERSION@ EXACT REQUIRED CO
 
 find_library(libtester eosio_testing @CMAKE_BINARY_DIR@/libraries/testing NO_DEFAULT_PATH)
 find_library(libchain eosio_chain @CMAKE_BINARY_DIR@/libraries/chain NO_DEFAULT_PATH)
-if ( "${CMAKE_BUILD_TYPE}" STREQUAL "Debug" )
-   find_library(libfc fc_debug @CMAKE_BINARY_DIR@/libraries/fc NO_DEFAULT_PATH)
-   find_library(libsecp256k1 secp256k1_debug @CMAKE_BINARY_DIR@/libraries/fc/secp256k1 NO_DEFAULT_PATH)
+find_library(libfc fc @CMAKE_BINARY_DIR@/libraries/libfc NO_DEFAULT_PATH)
+find_library(libsecp256k1 secp256k1 @CMAKE_BINARY_DIR@/libraries/libfc/secp256k1 NO_DEFAULT_PATH)
 
-else()
-   find_library(libfc fc @CMAKE_BINARY_DIR@/libraries/fc NO_DEFAULT_PATH)
-   find_library(libsecp256k1 secp256k1 @CMAKE_BINARY_DIR@/libraries/fc/secp256k1 NO_DEFAULT_PATH)
-endif()
-
-find_library(libff ff @CMAKE_BINARY_DIR@/libraries/fc/libraries/ff/libff NO_DEFAULT_PATH)
+find_library(libff ff @CMAKE_BINARY_DIR@/libraries/libfc/libraries/ff/libff NO_DEFAULT_PATH)
 find_library(libwasm WASM @CMAKE_BINARY_DIR@/libraries/wasm-jit/Source/WASM NO_DEFAULT_PATH)
 find_library(libwast WAST @CMAKE_BINARY_DIR@/libraries/wasm-jit/Source/WAST NO_DEFAULT_PATH)
 find_library(libir IR     @CMAKE_BINARY_DIR@/libraries/wasm-jit/Source/IR NO_DEFAULT_PATH)
@@ -129,7 +123,7 @@ macro(add_eosio_test_executable test_name)
                                @OPENSSL_INCLUDE_DIR@
                                @CMAKE_SOURCE_DIR@/libraries/chain/include
                                @CMAKE_BINARY_DIR@/libraries/chain/include
-                               @CMAKE_SOURCE_DIR@/libraries/fc/include
+                               @CMAKE_SOURCE_DIR@/libraries/libfc/include
                                @CMAKE_SOURCE_DIR@/libraries/softfloat/source/include
                                @CMAKE_SOURCE_DIR@/libraries/appbase/include
                                @CMAKE_SOURCE_DIR@/libraries/chainbase/include
@@ -176,7 +170,7 @@ if(ENABLE_COVERAGE_TESTING)
 
     COMMAND ${LCOV_PATH} --directory . --capture --gcov-tool ${CMAKE_SOURCE_DIR}/tools/llvm-gcov.sh --output-file ${Coverage_NAME}.info
 
-    COMMAND ${LCOV_PATH} -remove ${Coverage_NAME}.info '*/boost/*' '/usr/lib/*' '/usr/include/*' '*/externals/*' '*/fc/*' '*/wasm-jit/*' --output-file ${Coverage_NAME}_filtered.info
+    COMMAND ${LCOV_PATH} -remove ${Coverage_NAME}.info '*/boost/*' '/usr/lib/*' '/usr/include/*' '*/externals/*' '*/libfc/*' '*/wasm-jit/*' --output-file ${Coverage_NAME}_filtered.info
 
     COMMAND ${GENHTML_PATH} -o ${Coverage_NAME} ${PROJECT_BINARY_DIR}/${Coverage_NAME}_filtered.info
 

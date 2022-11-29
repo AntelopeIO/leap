@@ -626,7 +626,7 @@ class Cluster(object):
             verStr=m.group(1)
             return verStr
         except subprocess.CalledProcessError as ex:
-            msg=ex.output.decode("utf-8")
+            msg=ex.stderr.decode("utf-8")
             Utils.Print("ERROR: Exception during client version query. %s" % (msg))
             raise
 
@@ -668,7 +668,7 @@ class Cluster(object):
                 if Utils.Debug: Utils.Print("name: %s, key(owner): ['%s', '%s], key(active): ['%s', '%s']" % (name, ownerPublic, ownerPrivate, activePublic, activePrivate))
 
             except subprocess.CalledProcessError as ex:
-                msg=ex.output.decode("utf-8")
+                msg=ex.stderr.decode("utf-8")
                 Utils.Print("ERROR: Exception during key creation. %s" % (msg))
                 break
 
@@ -785,7 +785,7 @@ class Cluster(object):
             #Utils.Print("nextEosIdx: %d, count: %d" % (nextEosIdx, count))
             node=self.nodes[nextEosIdx]
             if Utils.Debug: Utils.Print("Wait for transaction id %s on node port %d" % (transId, node.port))
-            if node.waitForTransInBlock(transId) is False:
+            if node.waitForTransactionInBlock(transId) is False:
                 Utils.Print("ERROR: Failed to validate transaction %s got rolled into a block on server port %d." % (transId, node.port))
                 return False
 
@@ -806,7 +806,7 @@ class Cluster(object):
         # As an extra step wait for last transaction on the root node
         node=self.nodes[0]
         if Utils.Debug: Utils.Print("Wait for transaction id %s on node port %d" % (transId, node.port))
-        if node.waitForTransInBlock(transId) is False:
+        if node.waitForTransactionInBlock(transId) is False:
             Utils.Print("ERROR: Failed to validate transaction %s got rolled into a block on server port %d." % (transId, node.port))
             return False
 
@@ -1064,7 +1064,7 @@ class Cluster(object):
 
         Utils.Print("Wait for last transfer transaction to become finalized.")
         transId=Node.getTransId(trans[1])
-        if not biosNode.waitForTransInBlock(transId):
+        if not biosNode.waitForTransactionInBlock(transId):
             Utils.Print("ERROR: Failed to validate transaction %s got rolled into a block on server port %d." % (transId, biosNode.port))
             return None
 
@@ -1148,7 +1148,7 @@ class Cluster(object):
             accounts.append(initx)
 
         transId=Node.getTransId(trans)
-        if not biosNode.waitForTransInBlock(transId):
+        if not biosNode.waitForTransactionInBlock(transId):
             Utils.Print("ERROR: Failed to validate transaction %s got rolled into a block on server port %d." % (transId, biosNode.port))
             return None
 
@@ -1197,7 +1197,7 @@ class Cluster(object):
 
             trans=trans[1]
             transId=Node.getTransId(trans)
-            if not biosNode.waitForTransInBlock(transId):
+            if not biosNode.waitForTransactionInBlock(transId):
                 Utils.Print("ERROR: Failed to validate transaction %s got rolled into a block on server port %d." % (transId, biosNode.port))
                 return None
 
@@ -1240,7 +1240,7 @@ class Cluster(object):
 
         Node.validateTransaction(trans)
         transId=Node.getTransId(trans)
-        if not biosNode.waitForTransInBlock(transId):
+        if not biosNode.waitForTransactionInBlock(transId):
             Utils.Print("ERROR: Failed to validate transaction %s got rolled into a block on server port %d." % (transId, biosNode.port))
             return None
 
@@ -1267,7 +1267,7 @@ class Cluster(object):
 
         Node.validateTransaction(trans[1])
         transId=Node.getTransId(trans[1])
-        if not biosNode.waitForTransInBlock(transId):
+        if not biosNode.waitForTransactionInBlock(transId):
             Utils.Print("ERROR: Failed to validate transaction %s got rolled into a block on server port %d." % (transId, biosNode.port))
             return None
 
@@ -1284,7 +1284,7 @@ class Cluster(object):
         Node.validateTransaction(trans[1])
         Utils.Print("Wait for issue action transaction to become finalized.")
         transId=Node.getTransId(trans[1])
-        # biosNode.waitForTransInBlock(transId)
+        # biosNode.waitForTransactionInBlock(transId)
         # guesstimating block finalization timeout. Two production rounds of 12 blocks per node, plus 60 seconds buffer
         timeout = .5 * 12 * 2 * len(producerKeys) + 60
         if not biosNode.waitForTransFinalization(transId, timeout=timeout):
@@ -1329,7 +1329,7 @@ class Cluster(object):
 
         Utils.Print("Wait for last transfer transaction to become finalized.")
         transId=Node.getTransId(trans[1])
-        if not biosNode.waitForTransInBlock(transId):
+        if not biosNode.waitForTransactionInBlock(transId):
             Utils.Print("ERROR: Failed to validate transaction %s got rolled into a block on server port %d." % (transId, biosNode.port))
             return None
 
@@ -1339,6 +1339,11 @@ class Cluster(object):
             data="{\"version\":0,\"core\":\"4,%s\"}" % (CORE_SYMBOL)
             opts="--permission %s@active" % (eosioAccount.name)
             trans=biosNode.pushMessage(eosioAccount.name, action, data, opts)
+            transId=Node.getTransId(trans[1])
+            Utils.Print("Wait for system init transaction to be in a block.")
+            if not biosNode.waitForTransactionInBlock(transId):
+                Utils.Print("ERROR: Failed to validate transaction %s in block on server port %d." % (transId, biosNode.port))
+                return None
 
         Utils.Print("Cluster bootstrap done.")
 
@@ -1355,7 +1360,7 @@ class Cluster(object):
                 psOut=Utils.checkOutput(cmd.split())
                 return psOut
             except subprocess.CalledProcessError as ex:
-                msg=ex.output.decode("utf-8")
+                msg=ex.stderr.decode("utf-8")
                 Utils.Print("ERROR: call of \"%s\" failed. %s" % (cmd, msg))
                 return None
             return None
@@ -1563,7 +1568,7 @@ class Cluster(object):
         if waitForTransBlock and transId is not None:
             node=self.nodes[0]
             if Utils.Debug: Utils.Print("Wait for transaction id %s on server port %d." % ( transId, node.port))
-            if node.waitForTransInBlock(transId) is False:
+            if node.waitForTransactionInBlock(transId) is False:
                 Utils.Print("ERROR: Failed to validate transaction %s got rolled into a block on server port %d." % (transId, node.port))
                 return False
 

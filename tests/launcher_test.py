@@ -180,7 +180,7 @@ try:
         cmdError("FAILURE - transfer failed")
         errorExit("Transfer verification failed. Excepted %s, actual: %s" % (expectedAmount, actualAmount))
 
-    node.waitForTransInBlock(transId)
+    node.waitForTransactionInBlock(transId)
 
     transaction=node.getTransaction(transId, exitOnError=True, delayedRetry=False)
 

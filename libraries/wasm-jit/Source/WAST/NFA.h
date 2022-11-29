@@ -30,9 +30,6 @@ namespace NFA
 	void addEpsilonEdge(Builder* builder,StateIndex initialState,StateIndex nextState);
 	StateIndex getNonTerminalEdge(Builder* builder,StateIndex initialState,char c);
 
-	// Dumps the NFA's states and edges to the GraphViz .dot format.
-	std::string dumpNFAGraphViz(const Builder* builder);
-
 	// Encapsulates a NFA that has been translated into a DFA that can be efficiently executed.
 	struct Machine
 	{
@@ -70,9 +67,6 @@ namespace NFA
 			}
 			return (StateIndex)state;
 		}
-
-		// Dumps the DFA's states and edges to the GraphViz .dot format.
-		std::string dumpDFAGraphViz() const;
 
 	private:
 
