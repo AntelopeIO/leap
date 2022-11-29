@@ -39,7 +39,7 @@ namespace eosio { namespace chain {
                               const packed_transaction& t,
                               transaction_checktime_timer&& timer,
                               fc::time_point start = fc::time_point::now(),
-                              bool read_only=false);
+                              transaction_metadata::trx_type type = transaction_metadata::trx_type::input);
          ~transaction_context();
 
          void init_for_implicit_trx( uint64_t initial_net_usage = 0 );
@@ -82,6 +82,8 @@ namespace eosio { namespace chain {
          std::tuple<int64_t, int64_t, bool, bool> max_bandwidth_billed_accounts_can_pay( bool force_elastic_limits = false )const;
 
          void validate_referenced_accounts( const transaction& trx, bool enforce_actor_whitelist_blacklist )const;
+
+         bool is_dry_run()const { return trx_type == transaction_metadata::trx_type::dry_run; };
 
       private:
 
@@ -148,9 +150,9 @@ namespace eosio { namespace chain {
 
          transaction_checktime_timer   transaction_timer;
 
-         const bool                    is_read_only;
    private:
          bool                          is_initialized = false;
+         transaction_metadata::trx_type trx_type;
 
          uint64_t                      net_limit = 0;
          bool                          net_limit_due_to_block = true;
