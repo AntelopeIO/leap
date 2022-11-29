@@ -1,11 +1,11 @@
 #include <fc/crypto/bigint.hpp>
 #include <fc/utility.hpp>
 #include <openssl/bn.h>
+#include <fc/byteswap.hpp>
 #include <fc/variant.hpp>
 #include <fc/crypto/base64.hpp>
 
 #include <fc/exception/exception.hpp>
-#include "../byteswap.hpp"
 
 namespace fc {
       bigint::bigint( const char* bige, uint32_t l ) {

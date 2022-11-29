@@ -92,6 +92,8 @@ namespace eosio { namespace client { namespace http {
          curl_easy_setopt(curl, CURLOPT_UNIX_SOCKET_PATH, base_uri.c_str() + unix_socket_prefix_len);
          uri = "http://localhost" + path;
       } else {
+         // Disable use of unix domain in case it was enabled in the previous call
+         curl_easy_setopt(curl, CURLOPT_UNIX_SOCKET_PATH, nullptr);
          uri = base_uri + path;
       }
 

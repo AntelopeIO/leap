@@ -43,41 +43,21 @@ namespace eosio::testing {
       std::vector<signed_transaction_w_signer> trxs;
       trxs.reserve(2 * action_pairs_vector.size());
 
-      try {
-         for(action_pair_w_keys ap: action_pairs_vector) {
-            trxs.emplace_back(std::move(create_transfer_trx_w_signer(ap._first_act, ap._first_act_priv_key, nonce_prefix, nonce, trx_expiration, chain_id, last_irr_block_id)));
-            trxs.emplace_back(std::move(create_transfer_trx_w_signer(ap._second_act, ap._second_act_priv_key, nonce_prefix, nonce, trx_expiration, chain_id, last_irr_block_id)));
-         }
-      } catch(const std::bad_alloc&) {
-         throw;
-      } catch(const boost::interprocess::bad_alloc&) {
-         throw;
-      } catch(const fc::exception&) {
-         throw;
-      } catch(const std::exception&) {
-         throw;
+      for(action_pair_w_keys ap: action_pairs_vector) {
+         trxs.emplace_back(std::move(create_transfer_trx_w_signer(ap._first_act, ap._first_act_priv_key, nonce_prefix, nonce, trx_expiration, chain_id, last_irr_block_id)));
+         trxs.emplace_back(std::move(create_transfer_trx_w_signer(ap._second_act, ap._second_act_priv_key, nonce_prefix, nonce, trx_expiration, chain_id, last_irr_block_id)));
       }
 
       return trxs;
    }
 
    void update_resign_transaction(signed_transaction& trx, fc::crypto::private_key priv_key, uint64_t& nonce_prefix, uint64_t& nonce, const fc::microseconds& trx_expiration, const chain_id_type& chain_id, const block_id_type& last_irr_block_id) {
-      try {
-         trx.context_free_actions.clear();
-         trx.context_free_actions.emplace_back(action({}, config::null_account_name, name("nonce"), fc::raw::pack(std::to_string(nonce_prefix) + ":" + std::to_string(++nonce) + ":" + fc::time_point::now().time_since_epoch().count())));
-         trx.set_reference_block(last_irr_block_id);
-         trx.expiration = fc::time_point::now() + trx_expiration;
-         trx.signatures.clear();
-         trx.sign(priv_key, chain_id);
-      } catch(const std::bad_alloc&) {
-         throw;
-      } catch(const boost::interprocess::bad_alloc&) {
-         throw;
-      } catch(const fc::exception&) {
-         throw;
-      } catch(const std::exception&) {
-         throw;
-      }
+      trx.context_free_actions.clear();
+      trx.context_free_actions.emplace_back(action({}, config::null_account_name, name("nonce"), fc::raw::pack(std::to_string(nonce_prefix) + ":" + std::to_string(++nonce) + ":" + fc::time_point::now().time_since_epoch().count())));
+      trx.set_reference_block(last_irr_block_id);
+      trx.expiration = fc::time_point::now() + trx_expiration;
+      trx.signatures.clear();
+      trx.sign(priv_key, chain_id);
    }
 
    chain::bytes make_transfer_data(const chain::name& from, const chain::name& to, const chain::asset& quantity, const std::string&& memo) {
