@@ -485,7 +485,7 @@ class PtbArgumentsHandler(object):
         ptbGrpTitle="Performance Test Basic Single Test"
         ptbGrpDescription="Performance Test Basic single test configuration items. Useful for running a single test directly. \
                            These items may not be directly configurable from higher level scripts as the scripts themselves may configure these internally."
-        ptbParserGroup = ptbBaseParser.add_argument_group(title=ptbGrpTitle, description=ptbGrpDescription)
+        ptbParserGroup = ptbParser.add_argument_group(title=ptbGrpTitle, description=ptbGrpDescription)
 
         ptbParserGroup.add_argument("--target-tps", type=int, help="The target transfers per second to send during test", default=8000)
         ptbParserGroup.add_argument("--test-duration-sec", type=int, help="The duration of transfer trx generation for the test in seconds", default=90)
