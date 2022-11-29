@@ -115,14 +115,15 @@ class TestHelper(object):
         if "--alternate-version-labels-file" in includeArgs:
             thGrp.add_argument("--alternate-version-labels-file", type=str, help="Provide a file to define the labels that can be used in the test and the path to the version installation associated with that.")
 
-        appArgsGrpTitle="Application Specific Arguments"
-        appArgsGrpdescription="Test Helper configuration items used to configure and spin up the regression test framework and blockchain environment."
-        appArgsGrp = thParser.add_argument_group(title=appArgsGrpTitle, description=appArgsGrpdescription)
-        for arg in applicationSpecificArgs.args:
-            if arg.type is not None:
-                appArgsGrp.add_argument(arg.flag, type=arg.type, help=arg.help, choices=arg.choices, default=arg.default)
-            else:
-                appArgsGrp.add_argument(arg.flag, help=arg.help, action=arg.action)
+        if len(applicationSpecificArgs.args) > 0:
+            appArgsGrpTitle="Application Specific Arguments"
+            appArgsGrpdescription="Test Helper configuration items used to configure and spin up the regression test framework and blockchain environment."
+            appArgsGrp = thParser.add_argument_group(title=appArgsGrpTitle, description=appArgsGrpdescription)
+            for arg in applicationSpecificArgs.args:
+                if arg.type is not None:
+                    appArgsGrp.add_argument(arg.flag, type=arg.type, help=arg.help, choices=arg.choices, default=arg.default)
+                else:
+                    appArgsGrp.add_argument(arg.flag, help=arg.help, action=arg.action)
 
         return thParser
 
