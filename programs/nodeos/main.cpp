@@ -120,7 +120,8 @@ int main(int argc, char** argv)
       app().set_default_config_dir(root / "eosio" / nodeos::config::node_executable_name / "config" );
       http_plugin::set_defaults({
          .default_unix_socket_path = "",
-         .default_http_port = 8888
+         .default_http_port = 8888,
+         .server_header = nodeos::config::node_executable_name + "/" + app().version_string()
       });
       if(!app().initialize<chain_plugin, net_plugin, producer_plugin, resource_monitor_plugin>(argc, argv)) {
          const auto& opts = app().get_options();

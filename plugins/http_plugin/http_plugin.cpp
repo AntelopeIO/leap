@@ -359,6 +359,8 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
             }
          }
 
+         my->plugin_state->server_header = current_http_plugin_defaults.server_header;
+
          
          //watch out for the returns above when adding new code here
       } FC_LOG_AND_RETHROW()
@@ -537,7 +539,7 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
       return (!my->listen_endpoint || my->listen_endpoint->address().is_loopback());
    }
 
-   bool http_plugin::verbose_errors()const {
+   bool http_plugin::verbose_errors() {
       return verbose_http_errors;
    }
 

@@ -510,7 +510,6 @@ BOOST_AUTO_TEST_CASE(test_deltas_resources_history) {
 
       result = chain.find_table_delta("contract_row");
       BOOST_REQUIRE(result.first);
-      auto &it_contract_row_after_delete = result.second;
       BOOST_REQUIRE_EQUAL(it_contract_row->rows.obj.size(), 2);
       contract_rows = chain.deserialize_data<eosio::ship_protocol::contract_row_v0, eosio::ship_protocol::contract_row>(it_contract_row);
 
