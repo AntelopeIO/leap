@@ -57,6 +57,8 @@ class Utils:
     EosClientPath="programs/cleos/cleos"
     MiscEosClientArgs="--no-auto-keosd"
 
+    LeapClientPath="programs/leap-util/leap-util"
+
     EosWalletName="keosd"
     EosWalletPath="programs/keosd/"+ EosWalletName
 
@@ -318,6 +320,40 @@ class Utils:
     def runCmdReturnJson(cmd, trace=False, silentErrors=False):
         cmdArr=shlex.split(cmd)
         return Utils.runCmdArrReturnJson(cmdArr, trace=trace, silentErrors=silentErrors)
+
+    @staticmethod
+    def processLeapUtilCmd(cmd, cmdDesc, silentErrors=True, exitOnError=False, exitMsg=None):
+        cmd="%s %s" % (Utils.LeapClientPath, cmd)
+        if Utils.Debug: Utils.Print("cmd: %s" % (cmd))
+        if exitMsg is not None:
+            exitMsg="Context: " + exitMsg
+        else:
+            exitMsg=""
+        output=None
+        start=time.perf_counter()
+        try:
+            output=Utils.runCmdReturnStr(cmd)
+
+            if Utils.Debug:
+                end=time.perf_counter()
+                Utils.Print("cmd Duration: %.3f sec" % (end-start))
+        except subprocess.CalledProcessError as ex:
+            if not silentErrors:
+                end=time.perf_counter()
+                msg=ex.stderr.decode("utf-8")
+                errorMsg="Exception during \"%s\". Exception message: %s.  cmd Duration=%.3f sec. %s" % (cmdDesc, msg, end-start, exitMsg)
+                if exitOnError:
+                    Utils.cmdError(errorMsg)
+                    Utils.errorExit(errorMsg)
+                else:
+                    Utils.Print("ERROR: %s" % (errorMsg))
+            return None
+
+        if exitOnError and output is None:
+            Utils.cmdError("could not \"%s\". %s" % (cmdDesc,exitMsg))
+            Utils.errorExit("Failed to \"%s\"" % (cmdDesc))
+
+        return output
 
     @staticmethod
     def arePortsAvailable(ports):

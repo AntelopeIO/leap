@@ -144,7 +144,7 @@ try:
     Print("Create snapshot")
     ret = nodeSnap.createSnapshot()
     assert ret is not None, "Snapshot creation failed"
-    ret_head_block_num = ret["head_block_num"]
+    ret_head_block_num = ret["payload"]["head_block_num"]
     Print(f"Snapshot head block number {ret_head_block_num}")
 
     Print("Wait for snapshot node lib to advance")
@@ -155,7 +155,7 @@ try:
 
     Print("Convert snapshot to JSON")
     snapshotFile = getLatestSnapshot(snapshotNodeId)
-    nodeSnap.relaunch(chainArg="--snapshot-to-json {}".format(snapshotFile), timeout=relaunchTimeout)
+    Utils.processLeapUtilCmd("snapshot to-json --input-file {}".format(snapshotFile), "snapshot to-json", silentErrors=False)
     snapshotFile = snapshotFile + ".json"
 
     Print("Trim irreversible blocklog to snapshot head block num")
@@ -172,7 +172,7 @@ try:
     Print("Create snapshot from irreversible")
     ret = nodeIrr.createSnapshot()
     assert ret is not None, "Snapshot creation failed"
-    ret_irr_head_block_num = ret["head_block_num"]
+    ret_irr_head_block_num = ret["payload"]["head_block_num"]
     Print(f"Snapshot head block number {ret_irr_head_block_num}")
     assert ret_irr_head_block_num == ret_head_block_num, f"Snapshot head block numbers do not match: {ret_irr_head_block_num} != {ret_head_block_num}"
 
@@ -181,7 +181,7 @@ try:
 
     Print("Convert snapshot to JSON")
     irrSnapshotFile = getLatestSnapshot(irrNodeId)
-    nodeIrr.relaunch(chainArg="--snapshot-to-json {}".format(irrSnapshotFile), timeout=relaunchTimeout)
+    Utils.processLeapUtilCmd("snapshot to-json --input-file {}".format(irrSnapshotFile), "snapshot to-json", silentErrors=False)
     irrSnapshotFile = irrSnapshotFile + ".json"
 
     assert Utils.compareFiles(snapshotFile, irrSnapshotFile), f"Snapshot files differ {snapshotFile} != {irrSnapshotFile}"
