@@ -501,7 +501,7 @@ class PerfTestArgumentsHandler(object):
                                                                     choices=["none", "lmax", "full"], default="none")
         ptParserGroup.add_argument("--del-test-report", help="Whether to save json reports from each test scenario.", action='store_true')
 
-        ptTpsGrpTitle="TPS Test Config"
+        ptTpsGrpTitle="Performance Harness - TPS Test Config"
         ptTpsGrpDescription="TPS Performance Test configuration items."
         ptTpsParserGroup = ptParser.add_argument_group(title=ptTpsGrpTitle, description=ptTpsGrpDescription)
 
