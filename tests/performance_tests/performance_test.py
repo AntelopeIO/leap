@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import argparse
 import copy
 import math
 import os
@@ -12,7 +13,7 @@ sys.path.append(harnessPath)
 
 from TestHarness import TestHelper, Utils
 from TestHarness.TestHelper import AppArgs
-from performance_test_basic import PerformanceTestBasic
+from performance_test_basic import PerformanceTestBasic, PtbArgumentsHandler
 from platform import release, system
 from dataclasses import dataclass, asdict, field
 from datetime import datetime
@@ -470,63 +471,56 @@ class PerformanceTest:
 
         return testSuccessful
 
-def parseArgs():
-    appArgs=AppArgs()
-    appArgs.add(flag="--max-tps-to-test", type=int, help="The max target transfers realistic as ceiling of test range", default=50000)
-    appArgs.add(flag="--test-iteration-duration-sec", type=int, help="The duration of transfer trx generation for each iteration of the test during the initial search (seconds)", default=150)
-    appArgs.add(flag="--test-iteration-min-step", type=int, help="The step size determining granularity of tps result during initial search", default=500)
-    appArgs.add(flag="--final-iterations-duration-sec", type=int, help="The duration of transfer trx generation for each final longer run iteration of the test during the final search (seconds)", default=300)
-    appArgs.add(flag="--tps-limit-per-generator", type=int, help="Maximum amount of transactions per second a single generator can have.", default=4000)
-    appArgs.add(flag="--genesis", type=str, help="Path to genesis.json", default="tests/performance_tests/genesis.json")
-    appArgs.add(flag="--num-blocks-to-prune", type=int, help="The number of potentially non-empty blocks, in addition to leading and trailing size 0 blocks, to prune from the beginning and end of the range of blocks of interest for evaluation.", default=2)
-    appArgs.add(flag="--signature-cpu-billable-pct", type=int, help="Percentage of actual signature recovery cpu to bill. Whole number percentages, e.g. 50 for 50%%", default=0)
-    appArgs.add(flag="--chain-state-db-size-mb", type=int, help="Maximum size (in MiB) of the chain state database", default=10*1024)
-    appArgs.add(flag="--chain-threads", type=int, help="Number of worker threads in controller thread pool", default=2)
-    appArgs.add(flag="--database-map-mode", type=str, help="Database map mode (\"mapped\", \"heap\", or \"locked\"). \
-                                                            In \"mapped\" mode database is memory mapped as a file. \
-                                                            In \"heap\" mode database is preloaded in to swappable memory and will use huge pages if available. \
-                                                            In \"locked\" mode database is preloaded, locked in to memory, and will use huge pages if available.",
-                                                            choices=["mapped", "heap", "locked"], default="mapped")
-    appArgs.add(flag="--net-threads", type=int, help="Number of worker threads in net_plugin thread pool", default=2)
-    appArgs.add(flag="--disable-subjective-billing", type=bool, help="Disable subjective CPU billing for API/P2P transactions", default=True)
-    appArgs.add(flag="--last-block-time-offset-us", type=int, help="Offset of last block producing time in microseconds. Valid range 0 .. -block_time_interval.", default=0)
-    appArgs.add(flag="--produce-time-offset-us", type=int, help="Offset of non last block producing time in microseconds. Valid range 0 .. -block_time_interval.", default=0)
-    appArgs.add(flag="--cpu-effort-percent", type=int, help="Percentage of cpu block production time used to produce block. Whole number percentages, e.g. 80 for 80%%", default=100)
-    appArgs.add(flag="--last-block-cpu-effort-percent", type=int, help="Percentage of cpu block production time used to produce last block. Whole number percentages, e.g. 80 for 80%%", default=100)
-    appArgs.add(flag="--producer-threads", type=int, help="Number of worker threads in producer thread pool", default=2)
-    appArgs.add(flag="--http-max-response-time-ms", type=int, help="Maximum time for processing a request, -1 for unlimited", default=990000)
-    appArgs.add_bool(flag="--del-perf-logs", help="Whether to delete performance test specific logs.")
-    appArgs.add_bool(flag="--del-report", help="Whether to delete overarching performance run report.")
-    appArgs.add_bool(flag="--del-test-report", help="Whether to save json reports from each test scenario.")
-    appArgs.add_bool(flag="--quiet", help="Whether to quiet printing intermediate results and reports to stdout")
-    appArgs.add_bool(flag="--prods-enable-trace-api", help="Determines whether producer nodes should have eosio::trace_api_plugin enabled")
-    appArgs.add_bool(flag="--skip-tps-test", help="Determines whether to skip the max TPS measurement tests")
-    appArgs.add(flag="--calc-producer-threads", type=str, help="Determines whether to calculate number of worker threads to use in producer thread pool (\"none\", \"lmax\", or \"full\"). \
-                                                                In \"none\" mode, the default, no calculation will be attempted and default configured --producer-threads value will be used. \
-                                                                In \"lmax\" mode, producer threads will incrementally be tested until the performance rate ceases to increase with the addition of additional threads. \
-                                                                In \"full\" mode producer threads will incrementally be tested from 2..num logical processors, recording each performance and choosing the local max performance (same value as would be discovered in \"lmax\" mode). \
-                                                                Useful for graphing the full performance impact of each available thread.",
-                                                                choices=["none", "lmax", "full"], default="none")
-    appArgs.add(flag="--calc-chain-threads", type=str, help="Determines whether to calculate number of worker threads to use in chain thread pool (\"none\", \"lmax\", or \"full\"). \
-                                                                In \"none\" mode, the default, no calculation will be attempted and default configured --chain-threads value will be used. \
-                                                                In \"lmax\" mode, producer threads will incrementally be tested until the performance rate ceases to increase with the addition of additional threads. \
-                                                                In \"full\" mode producer threads will incrementally be tested from 2..num logical processors, recording each performance and choosing the local max performance (same value as would be discovered in \"lmax\" mode). \
-                                                                Useful for graphing the full performance impact of each available thread.",
-                                                                choices=["none", "lmax", "full"], default="none")
-    appArgs.add(flag="--calc-net-threads", type=str, help="Determines whether to calculate number of worker threads to use in net thread pool (\"none\", \"lmax\", or \"full\"). \
-                                                                In \"none\" mode, the default, no calculation will be attempted and default configured --net-threads value will be used. \
-                                                                In \"lmax\" mode, producer threads will incrementally be tested until the performance rate ceases to increase with the addition of additional threads. \
-                                                                In \"full\" mode producer threads will incrementally be tested from 2..num logical processors, recording each performance and choosing the local max performance (same value as would be discovered in \"lmax\" mode). \
-                                                                Useful for graphing the full performance impact of each available thread.",
-                                                                choices=["none", "lmax", "full"], default="none")
-    args=TestHelper.parse_args({"-p","-n","-d","-s","--nodes-file"
-                                ,"--dump-error-details","-v","--leave-running"
-                                ,"--clean-run"}, applicationSpecificArgs=appArgs)
-    return args
+class PerfTestArgumentsHandler(object):
+    @staticmethod
+    def createArgumentParser():
+        ptbArgParser = PtbArgumentsHandler.createBaseArgumentParser()
+        ptParser = argparse.ArgumentParser(parents=[ptbArgParser], add_help=False, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+        ptGrpTitle="Performance Harness"
+        ptGrpDescription="Performance Harness testing configuration items."
+        ptParserGroup = ptParser.add_argument_group(title=ptGrpTitle, description=ptGrpDescription)
+        ptParserGroup.add_argument("--skip-tps-test", help="Determines whether to skip the max TPS measurement tests", action='store_true')
+        ptParserGroup.add_argument("--calc-producer-threads", type=str, help="Determines whether to calculate number of worker threads to use in producer thread pool (\"none\", \"lmax\", or \"full\"). \
+                                                                    In \"none\" mode, the default, no calculation will be attempted and default configured --producer-threads value will be used. \
+                                                                    In \"lmax\" mode, producer threads will incrementally be tested until the performance rate ceases to increase with the addition of additional threads. \
+                                                                    In \"full\" mode producer threads will incrementally be tested from 2..num logical processors, recording each performance and choosing the local max performance (same value as would be discovered in \"lmax\" mode). \
+                                                                    Useful for graphing the full performance impact of each available thread.",
+                                                                    choices=["none", "lmax", "full"], default="none")
+        ptParserGroup.add_argument("--calc-chain-threads", type=str, help="Determines whether to calculate number of worker threads to use in chain thread pool (\"none\", \"lmax\", or \"full\"). \
+                                                                    In \"none\" mode, the default, no calculation will be attempted and default configured --chain-threads value will be used. \
+                                                                    In \"lmax\" mode, producer threads will incrementally be tested until the performance rate ceases to increase with the addition of additional threads. \
+                                                                    In \"full\" mode producer threads will incrementally be tested from 2..num logical processors, recording each performance and choosing the local max performance (same value as would be discovered in \"lmax\" mode). \
+                                                                    Useful for graphing the full performance impact of each available thread.",
+                                                                    choices=["none", "lmax", "full"], default="none")
+        ptParserGroup.add_argument("--calc-net-threads", type=str, help="Determines whether to calculate number of worker threads to use in net thread pool (\"none\", \"lmax\", or \"full\"). \
+                                                                    In \"none\" mode, the default, no calculation will be attempted and default configured --net-threads value will be used. \
+                                                                    In \"lmax\" mode, producer threads will incrementally be tested until the performance rate ceases to increase with the addition of additional threads. \
+                                                                    In \"full\" mode producer threads will incrementally be tested from 2..num logical processors, recording each performance and choosing the local max performance (same value as would be discovered in \"lmax\" mode). \
+                                                                    Useful for graphing the full performance impact of each available thread.",
+                                                                    choices=["none", "lmax", "full"], default="none")
+        ptParserGroup.add_argument("--del-test-report", help="Whether to save json reports from each test scenario.", action='store_true')
+
+        ptTpsGrpTitle="TPS Test Config"
+        ptTpsGrpDescription="TPS Performance Test configuration items."
+        ptTpsParserGroup = ptParser.add_argument_group(title=ptTpsGrpTitle, description=ptTpsGrpDescription)
+
+        ptTpsParserGroup.add_argument("--max-tps-to-test", type=int, help="The max target transfers realistic as ceiling of test range", default=50000)
+        ptTpsParserGroup.add_argument("--test-iteration-duration-sec", type=int, help="The duration of transfer trx generation for each iteration of the test during the initial search (seconds)", default=150)
+        ptTpsParserGroup.add_argument("--test-iteration-min-step", type=int, help="The step size determining granularity of tps result during initial search", default=500)
+        ptTpsParserGroup.add_argument("--final-iterations-duration-sec", type=int, help="The duration of transfer trx generation for each final longer run iteration of the test during the final search (seconds)", default=300)
+
+        return ptParser
+
+    @staticmethod
+    def parseArgs():
+        ptParser=PerfTestArgumentsHandler.createArgumentParser()
+        args=ptParser.parse_args()
+        return args
 
 def main():
 
-    args = parseArgs()
+    args = PerfTestArgumentsHandler.parseArgs()
     Utils.Debug = args.v
 
     testHelperConfig = PerformanceTestBasic.TestHelperConfig(killAll=args.clean_run, dontKill=args.leave_running, keepLogs=not args.del_perf_logs,

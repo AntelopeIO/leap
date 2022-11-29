@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import argparse
 import os
 import sys
 import subprocess
@@ -437,42 +438,68 @@ class PerformanceTestBasic:
 
             return testSuccessful
 
-def parseArgs():
-    appArgs=AppArgs()
-    appArgs.add(flag="--target-tps", type=int, help="The target transfers per second to send during test", default=8000)
-    appArgs.add(flag="--tps-limit-per-generator", type=int, help="Maximum amount of transactions per second a single generator can have.", default=4000)
-    appArgs.add(flag="--test-duration-sec", type=int, help="The duration of transfer trx generation for the test in seconds", default=90)
-    appArgs.add(flag="--genesis", type=str, help="Path to genesis.json", default="tests/performance_tests/genesis.json")
-    appArgs.add(flag="--num-blocks-to-prune", type=int, help=("The number of potentially non-empty blocks, in addition to leading and trailing size 0 blocks, "
-                                                              "to prune from the beginning and end of the range of blocks of interest for evaluation."), default=2)
-    appArgs.add(flag="--signature-cpu-billable-pct", type=int, help="Percentage of actual signature recovery cpu to bill. Whole number percentages, e.g. 50 for 50%%", default=0)
-    appArgs.add(flag="--chain-state-db-size-mb", type=int, help="Maximum size (in MiB) of the chain state database", default=10*1024)
-    appArgs.add(flag="--chain-threads", type=int, help="Number of worker threads in controller thread pool", default=2)
-    appArgs.add(flag="--database-map-mode", type=str, help="Database map mode (\"mapped\", \"heap\", or \"locked\"). \
-                                                            In \"mapped\" mode database is memory mapped as a file. \
-                                                            In \"heap\" mode database is preloaded in to swappable memory and will use huge pages if available. \
-                                                            In \"locked\" mode database is preloaded, locked in to memory, and will use huge pages if available.",
-                                                            choices=["mapped", "heap", "locked"], default="mapped")
-    appArgs.add(flag="--net-threads", type=int, help="Number of worker threads in net_plugin thread pool", default=2)
-    appArgs.add(flag="--disable-subjective-billing", type=bool, help="Disable subjective CPU billing for API/P2P transactions", default=True)
-    appArgs.add(flag="--last-block-time-offset-us", type=int, help="Offset of last block producing time in microseconds. Valid range 0 .. -block_time_interval.", default=0)
-    appArgs.add(flag="--produce-time-offset-us", type=int, help="Offset of non last block producing time in microseconds. Valid range 0 .. -block_time_interval.", default=0)
-    appArgs.add(flag="--cpu-effort-percent", type=int, help="Percentage of cpu block production time used to produce block. Whole number percentages, e.g. 80 for 80%%", default=100)
-    appArgs.add(flag="--last-block-cpu-effort-percent", type=int, help="Percentage of cpu block production time used to produce last block. Whole number percentages, e.g. 80 for 80%%", default=100)
-    appArgs.add(flag="--producer-threads", type=int, help="Number of worker threads in producer thread pool", default=2)
-    appArgs.add(flag="--http-max-response-time-ms", type=int, help="Maximum time for processing a request, -1 for unlimited", default=990000)
-    appArgs.add_bool(flag="--del-perf-logs", help="Whether to delete performance test specific logs.")
-    appArgs.add_bool(flag="--del-report", help="Whether to delete overarching performance run report.")
-    appArgs.add_bool(flag="--quiet", help="Whether to quiet printing intermediate results and reports to stdout")
-    appArgs.add_bool(flag="--prods-enable-trace-api", help="Determines whether producer nodes should have eosio::trace_api_plugin enabled")
-    args=TestHelper.parse_args({"-p","-n","-d","-s","--nodes-file"
-                                ,"--dump-error-details","-v","--leave-running"
-                                ,"--clean-run"}, applicationSpecificArgs=appArgs)
-    return args
+class PtbArgumentsHandler(object):
+    @staticmethod
+    def createBaseArgumentParser():
+        testHelperArgParser=TestHelper.createArgumentParser(includeArgs={"-p","-n","-d","-s","--nodes-file"
+                                                        ,"--dump-error-details","-v","--leave-running"
+                                                        ,"--clean-run"})
+        ptbBaseParser = argparse.ArgumentParser(parents=[testHelperArgParser], add_help=False, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+        ptbBaseGrpTitle="Performance Test Basic Base"
+        ptbBaseGrpDescription="Performance Test Basic base configuration items."
+        ptbBaseParserGroup = ptbBaseParser.add_argument_group(title=ptbBaseGrpTitle, description=ptbBaseGrpDescription)
+
+        ptbBaseParserGroup.add_argument("--tps-limit-per-generator", type=int, help="Maximum amount of transactions per second a single generator can have.", default=4000)
+        ptbBaseParserGroup.add_argument("--genesis", type=str, help="Path to genesis.json", default="tests/performance_tests/genesis.json")
+        ptbBaseParserGroup.add_argument("--num-blocks-to-prune", type=int, help=("The number of potentially non-empty blocks, in addition to leading and trailing size 0 blocks, "
+                                                                "to prune from the beginning and end of the range of blocks of interest for evaluation."), default=2)
+        ptbBaseParserGroup.add_argument("--signature-cpu-billable-pct", type=int, help="Percentage of actual signature recovery cpu to bill. Whole number percentages, e.g. 50 for 50%%", default=0)
+        ptbBaseParserGroup.add_argument("--chain-state-db-size-mb", type=int, help="Maximum size (in MiB) of the chain state database", default=10*1024)
+        ptbBaseParserGroup.add_argument("--chain-threads", type=int, help="Number of worker threads in controller thread pool", default=2)
+        ptbBaseParserGroup.add_argument("--database-map-mode", type=str, help="Database map mode (\"mapped\", \"heap\", or \"locked\"). \
+                                                                In \"mapped\" mode database is memory mapped as a file. \
+                                                                In \"heap\" mode database is preloaded in to swappable memory and will use huge pages if available. \
+                                                                In \"locked\" mode database is preloaded, locked in to memory, and will use huge pages if available.",
+                                                                choices=["mapped", "heap", "locked"], default="mapped")
+        ptbBaseParserGroup.add_argument("--net-threads", type=int, help="Number of worker threads in net_plugin thread pool", default=2)
+        ptbBaseParserGroup.add_argument("--disable-subjective-billing", type=bool, help="Disable subjective CPU billing for API/P2P transactions", default=True)
+        ptbBaseParserGroup.add_argument("--last-block-time-offset-us", type=int, help="Offset of last block producing time in microseconds. Valid range 0 .. -block_time_interval.", default=0)
+        ptbBaseParserGroup.add_argument("--produce-time-offset-us", type=int, help="Offset of non last block producing time in microseconds. Valid range 0 .. -block_time_interval.", default=0)
+        ptbBaseParserGroup.add_argument("--cpu-effort-percent", type=int, help="Percentage of cpu block production time used to produce block. Whole number percentages, e.g. 80 for 80%%", default=100)
+        ptbBaseParserGroup.add_argument("--last-block-cpu-effort-percent", type=int, help="Percentage of cpu block production time used to produce last block. Whole number percentages, e.g. 80 for 80%%", default=100)
+        ptbBaseParserGroup.add_argument("--producer-threads", type=int, help="Number of worker threads in producer thread pool", default=2)
+        ptbBaseParserGroup.add_argument("--http-max-response-time-ms", type=int, help="Maximum time for processing a request, -1 for unlimited", default=990000)
+        ptbBaseParserGroup.add_argument("--del-perf-logs", help="Whether to delete performance test specific logs.", action='store_true')
+        ptbBaseParserGroup.add_argument("--del-report", help="Whether to delete overarching performance run report.", action='store_true')
+        ptbBaseParserGroup.add_argument("--quiet", help="Whether to quiet printing intermediate results and reports to stdout", action='store_true')
+        ptbBaseParserGroup.add_argument("--prods-enable-trace-api", help="Determines whether producer nodes should have eosio::trace_api_plugin enabled", action='store_true')
+        return ptbBaseParser
+
+    @staticmethod
+    def createArgumentParser():
+        ptbBaseParser = PtbArgumentsHandler.createBaseArgumentParser()
+
+        ptbParser = argparse.ArgumentParser(parents=[ptbBaseParser], add_help=False, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+        ptbGrpTitle="Performance Test Basic Single Test"
+        ptbGrpDescription="Performance Test Basic single test configuration items. Useful for running a single test directly. \
+                           These items may not be directly configurable from higher level scripts as the scripts themselves may configure these internally."
+        ptbParserGroup = ptbBaseParser.add_argument_group(title=ptbGrpTitle, description=ptbGrpDescription)
+
+        ptbParserGroup.add_argument("--target-tps", type=int, help="The target transfers per second to send during test", default=8000)
+        ptbParserGroup.add_argument("--test-duration-sec", type=int, help="The duration of transfer trx generation for the test in seconds", default=90)
+        return ptbParser
+
+    @staticmethod
+    def parseArgs():
+        ptbParser=PtbArgumentsHandler.createArgumentParser()
+        args=ptbParser.parse_args()
+        return args
 
 def main():
 
-    args = parseArgs()
+    args = PtbArgumentsHandler.parseArgs()
     Utils.Debug = args.v
 
     testHelperConfig = PerformanceTestBasic.TestHelperConfig(killAll=args.clean_run, dontKill=args.leave_running, keepLogs=not args.del_perf_logs,
