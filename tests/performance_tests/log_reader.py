@@ -376,10 +376,16 @@ def createReport(guide: chainBlocksGuide, tpsTestConfig: TpsTestConfig, tpsStats
     report['nodeosVersion'] = Utils.getNodeosVersion()
     return report
 
+class LogReaderEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        if obj is None:
+            return "Unknown"
+        return json.JSONEncoder.default(self, obj)
+
 def reportAsJSON(report: dict) -> json:
-    report['testStart'] = "Unknown" if report['testStart'] is None else report['testStart'].isoformat()
-    report['testFinish'] = "Unknown" if report['testFinish'] is None else report['testFinish'].isoformat()
-    return json.dumps(report, sort_keys=True, indent=2)
+    return json.dumps(report, sort_keys=True, indent=2, cls=LogReaderEncoder)
 
 def calcAndReport(data: chainData, tpsTestConfig: TpsTestConfig, artifacts: ArtifactPaths, argsDict: dict, testStart: datetime=None, completedRun: bool=True) -> dict:
     scrapeLog(data, artifacts.nodeosLogPath)

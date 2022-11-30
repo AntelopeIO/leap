@@ -300,26 +300,16 @@ class PerformanceTest:
         report['nodeosVersion'] = Utils.getNodeosVersion()
         return report
 
+    class PtReportEncoder(json.JSONEncoder):
+        def default(self, obj):
+            if isinstance(obj, datetime):
+                return obj.isoformat()
+            if obj is None:
+                return "Unknown"
+            return json.JSONEncoder.default(self, obj)
+
     def reportAsJSON(self, report: dict) -> json:
-        if 'ProducerThreadAnalysis' in report:
-            report['ProducerThreadAnalysis']['analysisStart'] = report['ProducerThreadAnalysis']['analysisStart'].isoformat()
-            report['ProducerThreadAnalysis']['analysisFinish'] = report['ProducerThreadAnalysis']['analysisFinish'].isoformat()
-        if 'ChainThreadAnalysis' in report:
-            report['ChainThreadAnalysis']['analysisStart'] = report['ChainThreadAnalysis']['analysisStart'].isoformat()
-            report['ChainThreadAnalysis']['analysisFinish'] = report['ChainThreadAnalysis']['analysisFinish'].isoformat()
-        if 'NetThreadAnalysis' in report:
-            report['NetThreadAnalysis']['analysisStart'] = report['NetThreadAnalysis']['analysisStart'].isoformat()
-            report['NetThreadAnalysis']['analysisFinish'] = report['NetThreadAnalysis']['analysisFinish'].isoformat()
-
-        if 'tpsTestStart' in report:
-            report['tpsTestStart'] = report['tpsTestStart'].isoformat()
-        if 'tpsTestFinish' in report:
-            report['tpsTestFinish'] = report['tpsTestFinish'].isoformat()
-
-        report['perfTestsBegin'] = report['perfTestsBegin'].isoformat()
-        report['perfTestsFinish'] = report['perfTestsFinish'].isoformat()
-
-        return json.dumps(report, indent=2)
+        return json.dumps(report, indent=2, cls=PerformanceTest.PtReportEncoder)
 
     def exportReportAsJSON(self, report: json, exportPath):
         with open(exportPath, 'wt') as f:
