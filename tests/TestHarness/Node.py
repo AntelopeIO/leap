@@ -1067,8 +1067,8 @@ class Node(object):
             response = urllib.request.urlopen(req, data=data)
             if returnType==ReturnType.json:
                 rtn = {}
-                rtn["payload"] = json.load(response)
                 rtn["code"] = response.getcode()
+                rtn["payload"] = json.load(response)
             elif returnType==ReturnType.raw:
                 rtn = response.read()
             else:
@@ -1078,7 +1078,7 @@ class Node(object):
                 end=time.perf_counter()
                 Utils.Print("cmd Duration: %.3f sec" % (end-start))
                 printReturn=json.dumps(rtn) if returnType==ReturnType.json else rtn
-                Utils.Print("cmd returned: %s" % (printReturn))
+                Utils.Print("cmd returned: %s" % (printReturn[:1024]))
         except urllib.error.HTTPError as ex:
             if not silentErrors:
                 end=time.perf_counter()
