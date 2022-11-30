@@ -19,9 +19,9 @@ from dataclasses import dataclass, asdict, field
 from datetime import datetime
 from math import ceil
 
-class PerformanceBasicTest:
+class PerformanceTestBasic:
     @dataclass
-    class PbtTpsTestResult:
+    class PtbTpsTestResult:
         completedRun: bool = False
         numGeneratorsUsed: int = 0
         targetTpsPerGenList: list = field(default_factory=list)
@@ -51,21 +51,21 @@ class PerformanceBasicTest:
             class ChainPluginArgs:
                 signatureCpuBillablePct: int = 0
                 chainStateDbSizeMb: int = 10 * 1024
-                chainThreads: int = 2
+                threads: int = 3
                 databaseMapMode: str = "mapped"
 
                 def __str__(self) -> str:
                     return f"--signature-cpu-billable-pct {self.signatureCpuBillablePct} \
                              --chain-state-db-size-mb {self.chainStateDbSizeMb} \
-                             --chain-threads {self.chainThreads} \
+                             --chain-threads {self.threads} \
                              --database-map-mode {self.databaseMapMode}"
 
             @dataclass
             class NetPluginArgs:
-                netThreads: int = 2
+                threads: int = 2
 
                 def __str__(self) -> str:
-                    return f"--net-threads {self.netThreads}"
+                    return f"--net-threads {self.threads}"
 
             @dataclass
             class ProducerPluginArgs:
@@ -74,7 +74,7 @@ class PerformanceBasicTest:
                 produceTimeOffsetUs: int = 0
                 cpuEffortPercent: int = 100
                 lastBlockCpuEffortPercent: int = 100
-                producerThreads: int = 2
+                threads: int = 6
 
                 def __str__(self) -> str:
                     return f"--disable-subjective-billing {self.disableSubjectiveBilling} \
@@ -82,7 +82,7 @@ class PerformanceBasicTest:
                              --produce-time-offset-us {self.produceTimeOffsetUs} \
                              --cpu-effort-percent {self.cpuEffortPercent} \
                              --last-block-cpu-effort-percent {self.lastBlockCpuEffortPercent} \
-                             --producer-threads {self.producerThreads}"
+                             --producer-threads {self.threads}"
 
             @dataclass
             class HttpPluginArgs:
@@ -117,21 +117,37 @@ class PerformanceBasicTest:
             if not self.prodsEnableTraceApi:
                 self.specificExtraNodeosArgs.update({f"{node}" : "--plugin eosio::trace_api_plugin" for node in range(self.pnodes, self._totalNodes)})
 
-    def __init__(self, testHelperConfig: TestHelperConfig=TestHelperConfig(), clusterConfig: ClusterConfig=ClusterConfig(), targetTps: int=8000,
-                 testTrxGenDurationSec: int=30, tpsLimitPerGenerator: int=4000, numAddlBlocksToPrune: int=2,
-                 rootLogDir: str=".", delReport: bool=False, quiet: bool=False, delPerfLogs: bool=False):
+    @dataclass
+    class PtbConfig:
+        targetTps: int=8000
+        testTrxGenDurationSec: int=30
+        tpsLimitPerGenerator: int=4000
+        numAddlBlocksToPrune: int=2
+        logDirRoot: str="."
+        delReport: bool=False
+        quiet: bool=False
+        delPerfLogs: bool=False
+        expectedTransactionsSent: int = field(default_factory=int, init=False)
+
+        def __post_init__(self):
+            self.expectedTransactionsSent = self.testTrxGenDurationSec * self.targetTps
+
+    @dataclass
+    class LoggingConfig:
+        logDirBase: str = f"./{os.path.splitext(os.path.basename(__file__))[0]}"
+        logDirTimestamp: str = f"{datetime.utcnow().strftime('%Y-%m-%d_%H-%M-%S')}"
+        logDirTimestampedOptSuffix: str = ""
+        logDirPath: str = field(default_factory=str, init=False)
+
+        def __post_init__(self):
+            self.logDirPath = f"{self.logDirBase}/{self.logDirTimestamp}{self.logDirTimestampedOptSuffix}"
+
+    def __init__(self, testHelperConfig: TestHelperConfig=TestHelperConfig(), clusterConfig: ClusterConfig=ClusterConfig(), ptbConfig=PtbConfig()):
         self.testHelperConfig = testHelperConfig
         self.clusterConfig = clusterConfig
-        self.targetTps = targetTps
-        self.testTrxGenDurationSec = testTrxGenDurationSec
-        self.tpsLimitPerGenerator = tpsLimitPerGenerator
-        self.expectedTransactionsSent = self.testTrxGenDurationSec * self.targetTps
-        self.numAddlBlocksToPrune = numAddlBlocksToPrune
-        self.delReport = delReport
-        self.quiet = quiet
-        self.delPerfLogs=delPerfLogs
+        self.ptbConfig = ptbConfig
 
-        self.testHelperConfig.keepLogs = not self.delPerfLogs
+        self.testHelperConfig.keepLogs = not self.ptbConfig.delPerfLogs
 
         Utils.Debug = self.testHelperConfig.verbose
         self.errorExit = Utils.errorExit
@@ -139,17 +155,18 @@ class PerformanceBasicTest:
 
         self.testStart = datetime.utcnow()
 
-        self.rootLogDir = rootLogDir
-        self.ptbLogDir = f"{self.rootLogDir}/{os.path.splitext(os.path.basename(__file__))[0]}"
-        self.testTimeStampDirPath = f"{self.ptbLogDir}/{self.testStart.strftime('%Y-%m-%d_%H-%M-%S')}-{self.targetTps}"
-        self.trxGenLogDirPath = f"{self.testTimeStampDirPath}/trxGenLogs"
-        self.varLogsDirPath = f"{self.testTimeStampDirPath}/var"
-        self.etcLogsDirPath = f"{self.testTimeStampDirPath}/etc"
+        self.loggingConfig = PerformanceTestBasic.LoggingConfig(logDirBase=f"{self.ptbConfig.logDirRoot}/{os.path.splitext(os.path.basename(__file__))[0]}",
+                                                                logDirTimestamp=f"{self.testStart.strftime('%Y-%m-%d_%H-%M-%S')}",
+                                                                logDirTimestampedOptSuffix = f"-{self.ptbConfig.targetTps}")
+
+        self.trxGenLogDirPath = f"{self.loggingConfig.logDirPath}/trxGenLogs"
+        self.varLogsDirPath = f"{self.loggingConfig.logDirPath}/var"
+        self.etcLogsDirPath = f"{self.loggingConfig.logDirPath}/etc"
         self.etcEosioLogsDirPath = f"{self.etcLogsDirPath}/eosio"
-        self.blockDataLogDirPath = f"{self.testTimeStampDirPath}/blockDataLogs"
+        self.blockDataLogDirPath = f"{self.loggingConfig.logDirPath}/blockDataLogs"
         self.blockDataPath = f"{self.blockDataLogDirPath}/blockData.txt"
         self.blockTrxDataPath = f"{self.blockDataLogDirPath}/blockTrxData.txt"
-        self.reportPath = f"{self.testTimeStampDirPath}/data.json"
+        self.reportPath = f"{self.loggingConfig.logDirPath}/data.json"
 
         # Setup Expectations for Producer and Validation Node IDs
         # Producer Nodes are index [0, pnodes) and validation nodes/non-producer nodes [pnodes, _totalNodes)
@@ -186,7 +203,7 @@ class PerformanceBasicTest:
             if not delReport:
                 removeAllArtifactsExceptFinalReport()
             else:
-                removeArtifacts(self.testTimeStampDirPath)
+                removeArtifacts(self.loggingConfig.logDirPath)
         except OSError as error:
             print(error)
 
@@ -198,9 +215,9 @@ class PerformanceBasicTest:
                     print(f"Creating test artifacts dir: {path}")
                     os.mkdir(f"{path}")
 
-            createArtifactsDir(self.rootLogDir)
-            createArtifactsDir(self.ptbLogDir)
-            createArtifactsDir(self.testTimeStampDirPath)
+            createArtifactsDir(self.ptbConfig.logDirRoot)
+            createArtifactsDir(self.loggingConfig.logDirBase)
+            createArtifactsDir(self.loggingConfig.logDirPath)
             createArtifactsDir(self.trxGenLogDirPath)
             createArtifactsDir(self.varLogsDirPath)
             createArtifactsDir(self.etcLogsDirPath)
@@ -223,12 +240,10 @@ class PerformanceBasicTest:
             btdf_append_write = self.fileOpenMode(blockTrxDataPath)
             with open(blockTrxDataPath, btdf_append_write) as trxDataFile:
                 [trxDataFile.write(f"{trx['id']},{trx['block_num']},{trx['cpu_usage_us']},{trx['net_usage_words']}\n") for trx in block['payload']['transactions'] if block['payload']['transactions']]
-            trxDataFile.close()
 
             bdf_append_write = self.fileOpenMode(blockDataPath)
             with open(blockDataPath, bdf_append_write) as blockDataFile:
                 blockDataFile.write(f"{block['payload']['number']},{block['payload']['id']},{block['payload']['producer']},{block['payload']['status']},{block['payload']['timestamp']}\n")
-            blockDataFile.close()
 
     def waitForEmptyBlocks(self, node, numEmptyToWaitOn):
         emptyBlocks = 0
@@ -267,7 +282,7 @@ class PerformanceBasicTest:
         self.account1PrivKey = self.cluster.accounts[0].activePrivateKey
         self.account2PrivKey = self.cluster.accounts[1].activePrivateKey
 
-    def runTpsTest(self) -> PbtTpsTestResult:
+    def runTpsTest(self) -> PtbTpsTestResult:
         completedRun = False
         self.producerNode = self.cluster.getNode(self.producerNodeId)
         self.validationNode = self.cluster.getNode(self.validationNodeId)
@@ -279,10 +294,10 @@ class PerformanceBasicTest:
         self.cluster.biosNode.kill(signal.SIGTERM)
 
         self.data.startBlock = self.waitForEmptyBlocks(self.validationNode, self.emptyBlockGoal)
-        tpsTrxGensConfig = ltg.TpsTrxGensConfig(targetTps=self.targetTps, tpsLimitPerGenerator=self.tpsLimitPerGenerator)
+        tpsTrxGensConfig = ltg.TpsTrxGensConfig(targetTps=self.ptbConfig.targetTps, tpsLimitPerGenerator=self.ptbConfig.tpsLimitPerGenerator)
         trxGenLauncher = ltg.TransactionGeneratorsLauncher(chainId=chainId, lastIrreversibleBlockId=lib_id,
                                                            handlerAcct=self.cluster.eosioAccount.name, accts=f"{self.account1Name},{self.account2Name}",
-                                                           privateKeys=f"{self.account1PrivKey},{self.account2PrivKey}", trxGenDurationSec=self.testTrxGenDurationSec,
+                                                           privateKeys=f"{self.account1PrivKey},{self.account2PrivKey}", trxGenDurationSec=self.ptbConfig.testTrxGenDurationSec,
                                                            logDir=self.trxGenLogDirPath, tpsTrxGensConfig=tpsTrxGensConfig)
 
         trxGenExitCodes = trxGenLauncher.launch()
@@ -296,20 +311,20 @@ class PerformanceBasicTest:
 
         # Get stats after transaction generation stops
         trxSent = {}
-        log_reader.scrapeTrxGenTrxSentDataLogs(trxSent, self.trxGenLogDirPath, self.quiet)
-        blocksToWait = 2 * self.testTrxGenDurationSec + 10
+        log_reader.scrapeTrxGenTrxSentDataLogs(trxSent, self.trxGenLogDirPath, self.ptbConfig.quiet)
+        blocksToWait = 2 * self.ptbConfig.testTrxGenDurationSec + 10
         trxSent = self.validationNode.waitForTransactionsInBlockRange(trxSent, self.data.startBlock, blocksToWait)
         self.data.ceaseBlock = self.validationNode.getHeadBlockNum()
 
-        return PerformanceBasicTest.PbtTpsTestResult(completedRun=completedRun, numGeneratorsUsed=tpsTrxGensConfig.numGenerators,
+        return PerformanceTestBasic.PtbTpsTestResult(completedRun=completedRun, numGeneratorsUsed=tpsTrxGensConfig.numGenerators,
                                                      targetTpsPerGenList=tpsTrxGensConfig.targetTpsPerGenList, trxGenExitCodes=trxGenExitCodes)
 
     def prepArgs(self) -> dict:
         args = {}
         args.update(asdict(self.testHelperConfig))
         args.update(asdict(self.clusterConfig))
-        args.update({key:val for key, val in inspect.getmembers(self) if key in set(['targetTps', 'testTrxGenDurationSec', 'tpsLimitPerGenerator',
-                                                                                     'expectedTransactionsSent', 'delReport', 'numAddlBlocksToPrune', 'quiet', 'delPerfLogs'])})
+        args.update(asdict(self.ptbConfig))
+        args.update(asdict(self.loggingConfig))
         return args
 
     def captureLowLevelArtifacts(self):
@@ -334,26 +349,26 @@ class PerformanceBasicTest:
                     print(f"Failed to move '{etcEosioDir}/{path}' to '{self.etcEosioLogsDirPath}/{path}': {type(e)}: {e}")
 
 
-    def analyzeResultsAndReport(self, testResult: PbtTpsTestResult):
+    def analyzeResultsAndReport(self, testResult: PtbTpsTestResult):
         args = self.prepArgs()
         artifactsLocate = log_reader.ArtifactPaths(nodeosLogPath=self.nodeosLogPath, trxGenLogDirPath=self.trxGenLogDirPath, blockTrxDataPath=self.blockTrxDataPath,
                                                    blockDataPath=self.blockDataPath)
-        tpsTestConfig = log_reader.TpsTestConfig(targetTps=self.targetTps, testDurationSec=self.testTrxGenDurationSec, tpsLimitPerGenerator=self.tpsLimitPerGenerator,
-                                                 numBlocksToPrune=self.numAddlBlocksToPrune, numTrxGensUsed=testResult.numGeneratorsUsed,
-                                                 targetTpsPerGenList=testResult.targetTpsPerGenList, quiet=self.quiet)
+        tpsTestConfig = log_reader.TpsTestConfig(targetTps=self.ptbConfig.targetTps, testDurationSec=self.ptbConfig.testTrxGenDurationSec, tpsLimitPerGenerator=self.ptbConfig.tpsLimitPerGenerator,
+                                                 numBlocksToPrune=self.ptbConfig.numAddlBlocksToPrune, numTrxGensUsed=testResult.numGeneratorsUsed,
+                                                 targetTpsPerGenList=testResult.targetTpsPerGenList, quiet=self.ptbConfig.quiet)
         self.report = log_reader.calcAndReport(data=self.data, tpsTestConfig=tpsTestConfig, artifacts=artifactsLocate, argsDict=args, testStart=self.testStart,
                                                completedRun=testResult.completedRun)
 
         jsonReport = None
-        if not self.quiet or not self.delReport:
+        if not self.ptbConfig.quiet or not self.ptbConfig.delReport:
             jsonReport = log_reader.reportAsJSON(self.report)
 
-        if not self.quiet:
+        if not self.ptbConfig.quiet:
             print(self.data)
 
             print(f"Report:\n{jsonReport}")
 
-        if not self.delReport:
+        if not self.ptbConfig.delReport:
             log_reader.exportReportAsJSON(jsonReport, self.reportPath)
 
     def preTestSpinup(self):
@@ -386,14 +401,14 @@ class PerformanceBasicTest:
 
             testSuccessful = self.ptbTestResult.completedRun
 
-            if not self.PbtTpsTestResult.completedRun:
+            if not self.PtbTpsTestResult.completedRun:
                 for exitCode in self.ptbTestResult.trxGenExitCodes:
                     if exitCode != 0:
                         print(f"Error: Transaction Generator exited with error {exitCode}")
 
-            if testSuccessful and self.expectedTransactionsSent != self.data.totalTransactions:
+            if testSuccessful and self.ptbConfig.expectedTransactionsSent != self.data.totalTransactions:
                 testSuccessful = False
-                print(f"Error: Transactions received: {self.data.totalTransactions} did not match expected total: {self.expectedTransactionsSent}")
+                print(f"Error: Transactions received: {self.data.totalTransactions} did not match expected total: {self.ptbConfig.expectedTransactionsSent}")
 
         finally:
             TestHelper.shutdown(
@@ -407,16 +422,16 @@ class PerformanceBasicTest:
                 self.testHelperConfig.dumpErrorDetails
                 )
 
-            if not self.delPerfLogs:
+            if not self.ptbConfig.delPerfLogs:
                 self.captureLowLevelArtifacts()
 
             if not completedRun:
                 os.system("pkill trx_generator")
                 print("Test run cancelled early via SIGINT")
 
-            if self.delPerfLogs:
-                print(f"Cleaning up logs directory: {self.testTimeStampDirPath}")
-                self.testDirsCleanup(self.delReport)
+            if self.ptbConfig.delPerfLogs:
+                print(f"Cleaning up logs directory: {self.loggingConfig.logDirPath}")
+                self.testDirsCleanup(self.ptbConfig.delReport)
 
             return testSuccessful
 
@@ -458,26 +473,24 @@ def main():
     args = parseArgs()
     Utils.Debug = args.v
 
-    testHelperConfig = PerformanceBasicTest.TestHelperConfig(killAll=args.clean_run, dontKill=args.leave_running, keepLogs=not args.del_perf_logs,
+    testHelperConfig = PerformanceTestBasic.TestHelperConfig(killAll=args.clean_run, dontKill=args.leave_running, keepLogs=not args.del_perf_logs,
                                                              dumpErrorDetails=args.dump_error_details, delay=args.d, nodesFile=args.nodes_file, verbose=args.v)
 
-    ENA = PerformanceBasicTest.ClusterConfig.ExtraNodeosArgs
+    ENA = PerformanceTestBasic.ClusterConfig.ExtraNodeosArgs
     chainPluginArgs = ENA.ChainPluginArgs(signatureCpuBillablePct=args.signature_cpu_billable_pct, chainStateDbSizeMb=args.chain_state_db_size_mb,
-                                          chainThreads=args.chain_threads, databaseMapMode=args.database_map_mode)
+                                          threads=args.chain_threads, databaseMapMode=args.database_map_mode)
     producerPluginArgs = ENA.ProducerPluginArgs(disableSubjectiveBilling=args.disable_subjective_billing,
                                                 lastBlockTimeOffsetUs=args.last_block_time_offset_us, produceTimeOffsetUs=args.produce_time_offset_us,
                                                 cpuEffortPercent=args.cpu_effort_percent, lastBlockCpuEffortPercent=args.last_block_cpu_effort_percent,
-                                                producerThreads=args.producer_threads)
+                                                threads=args.producer_threads)
     httpPluginArgs = ENA.HttpPluginArgs(httpMaxResponseTimeMs=args.http_max_response_time_ms)
-    netPluginArgs = ENA.NetPluginArgs(netThreads=args.net_threads)
+    netPluginArgs = ENA.NetPluginArgs(threads=args.net_threads)
     extraNodeosArgs = ENA(chainPluginArgs=chainPluginArgs, httpPluginArgs=httpPluginArgs, producerPluginArgs=producerPluginArgs, netPluginArgs=netPluginArgs)
-    testClusterConfig = PerformanceBasicTest.ClusterConfig(pnodes=args.p, totalNodes=args.n, topo=args.s, genesisPath=args.genesis,
+    testClusterConfig = PerformanceTestBasic.ClusterConfig(pnodes=args.p, totalNodes=args.n, topo=args.s, genesisPath=args.genesis,
                                                            prodsEnableTraceApi=args.prods_enable_trace_api, extraNodeosArgs=extraNodeosArgs)
-
-    myTest = PerformanceBasicTest(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, targetTps=args.target_tps,
-                                  testTrxGenDurationSec=args.test_duration_sec, tpsLimitPerGenerator=args.tps_limit_per_generator,
-                                  numAddlBlocksToPrune=args.num_blocks_to_prune, delReport=args.del_report, quiet=args.quiet,
-                                  delPerfLogs=args.del_perf_logs)
+    ptbConfig = PerformanceTestBasic.PtbConfig(targetTps=args.target_tps, testTrxGenDurationSec=args.test_duration_sec, tpsLimitPerGenerator=args.tps_limit_per_generator,
+                                  numAddlBlocksToPrune=args.num_blocks_to_prune, logDirRoot=".", delReport=args.del_report, quiet=args.quiet, delPerfLogs=args.del_perf_logs)
+    myTest = PerformanceTestBasic(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, ptbConfig=ptbConfig)
     testSuccessful = myTest.runTest()
 
     exitCode = 0 if testSuccessful else 1

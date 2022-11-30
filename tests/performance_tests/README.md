@@ -37,6 +37,11 @@ Please refer to [Leap: Build and Install from Source](https://github.com/Antelop
         performance_test/
         └── 2022-10-27_15-28-09
             ├── report.json
+            ├── pluginThreadOptRunLogs
+            │   ├── performance_test_basic
+            │   ├── chainThreadResults.txt
+            │   ├── netThreadResults.txt
+            │   └── producerThreadResults.txt
             └── testRunLogs
                 └── performance_test_basic
                     └── 2022-10-19_10-29-07
@@ -224,7 +229,7 @@ The Performance Harness main script `performance_test.py` can be configured usin
 * `--chain-state-db-size-mb CHAIN_STATE_DB_SIZE_MB`
                           Maximum size (in MiB) of the chain state database (default: 10240)
 * `--chain-threads CHAIN_THREADS`
-                          Number of worker threads in controller thread pool (default: 2)
+                          Number of worker threads in controller thread pool (default: 3)
 * `--database-map-mode {mapped,heap,locked}`
                           Database map mode ("mapped", "heap", or "locked").
                           In "mapped" mode database is memory mapped as a file.
@@ -243,7 +248,7 @@ The Performance Harness main script `performance_test.py` can be configured usin
 * `--last-block-cpu-effort-percent LAST_BLOCK_CPU_EFFORT_PERCENT`
                           Percentage of cpu block production time used to produce last block. Whole number percentages, e.g. 80 for 80% (default: 100)
 * `--producer-threads PRODUCER_THREADS`
-                          Number of worker threads in producer thread pool (default: 2)
+                          Number of worker threads in producer thread pool (default: 6)
 * `--http-max-response-time-ms HTTP_MAX_RESPONSE_TIME_MS`
                           Maximum time for processing a request, -1 for unlimited (default: 990000)
 * `--del-perf-logs`       Whether to delete performance test specific logs. (default: False)
@@ -252,6 +257,22 @@ The Performance Harness main script `performance_test.py` can be configured usin
 * `--quiet`               Whether to quiet printing intermediate results and reports to stdout (default: False)
 * `--prods-enable-trace-api`
                           Determines whether producer nodes should have eosio::trace_api_plugin enabled (default: False)
+* `--skip-tps-test`       Determines whether to skip the max TPS measurement tests (default: False)
+* `--calc-producer-threads {none,lmax,full}`
+                          Determines whether to calculate number of worker threads to use in producer thread pool ("none", "lmax", or "full").
+                          In "none" mode, the default, no calculation will be attempted and default configured --producer-threads value will be used.
+                          In "lmax" mode, producer threads will incrementally be tested until the performance rate ceases to increase with the addition of additional threads.
+                          In "full" mode producer threads will incrementally be tested from 2..num logical processors, recording each performance and choosing the local max performance (same value as would be discovered in "lmax" mode). Useful for graphing the full performance impact of each available thread. (default: none)
+* `--calc-chain-threads {none,lmax,full}`
+                          Determines whether to calculate number of worker threads to use in chain thread pool ("none", "lmax", or "full").
+                          In "none" mode, the default, no calculation will be attempted and default configured --chain-threads value will be used.
+                          In "lmax" mode, producer threads will incrementally be tested until the performance rate ceases to increase with the addition of additional threads.
+                          In "full" mode producer threads will incrementally be tested from 2..num logical processors, recording each performance and choosing the local max performance (same value as would be discovered in "lmax" mode). Useful for graphing the full performance impact of each available thread. (default: none)
+* `--calc-net-threads {none,lmax,full}`
+                          Determines whether to calculate number of worker threads to use in net thread pool ("none", "lmax", or "full").
+                          In "none" mode, the default, no calculation will be attempted and default configured --net-threads value will be used.
+                          In "lmax" mode, producer threads will incrementally be tested until the performance rate ceases to increase with the addition of additional threads.
+                          In "full" mode producer threads will incrementally be tested from 2..num logical processors, recording each performance and choosing the local max performance (same value as would be discovered in "lmax" mode). Useful for graphing the full performance impact of each available thread. (default: none)
 </details>
 
 ### Support Scripts
@@ -290,7 +311,7 @@ The following scripts are typically used by the Performance Harness main script 
 * `--chain-state-db-size-mb CHAIN_STATE_DB_SIZE_MB`
                           Maximum size (in MiB) of the chain state database (default: 10240)
 * `--chain-threads CHAIN_THREADS`
-                          Number of worker threads in controller thread pool (default: 2)
+                          Number of worker threads in controller thread pool (default: 3)
 * `--database-map-mode {mapped,heap,locked}`
                           Database map mode ("mapped", "heap", or "locked").
                           In "mapped" mode database is memory mapped as a file.
@@ -309,7 +330,7 @@ The following scripts are typically used by the Performance Harness main script 
 * `--last-block-cpu-effort-percent LAST_BLOCK_CPU_EFFORT_PERCENT`
                           Percentage of cpu block production time used to produce last block. Whole number percentages, e.g. 80 for 80% (default: 100)
 * `--producer-threads PRODUCER_THREADS`
-                          Number of worker threads in producer thread pool (default: 2)
+                          Number of worker threads in producer thread pool (default: 6)
 * `--http-max-response-time-ms HTTP_MAX_RESPONSE_TIME_MS`
                           Maximum time for processing a request, -1 for unlimited (default: 990000)
 * `--del-perf-logs`       Whether to delete performance test specific logs. (default: False)
@@ -386,7 +407,7 @@ The Performance Harness generates a report to summarize results of test scenario
 Command used to run test and generate report:
 
 ``` bash
-.build/tests/performance_tests/performance_test.py --test-iteration-duration-sec 10 --final-iterations-duration-sec 30
+.build/tests/performance_tests/performance_test.py --test-iteration-duration-sec 10 --final-iterations-duration-sec 30 --calc-producer-threads lmax --calc-chain-threads lmax --calc-net-threads lmax
 ```
 
 #### Report Breakdown
@@ -400,23 +421,23 @@ Next, a summary of the search scenario conducted and respective results is inclu
     <summary>Expand Search Scenario Summary Example</summary>
 
 ``` json
-    "0": {
-      "success": false,
-      "searchTarget": 25000,
+    "1": {
+      "success": true,
+      "searchTarget": 26000,
       "searchFloor": 0,
-      "searchCeiling": 50000,
+      "searchCeiling": 26500,
       "basicTestResult": {
-        "targetTPS": 25000,
-        "resultAvgTps": 17160.4,
-        "expectedTxns": 250000,
-        "resultTxns": 250000,
-        "tpsExpectMet": false,
+        "targetTPS": 26000,
+        "resultAvgTps": 25986.9375,
+        "expectedTxns": 260000,
+        "resultTxns": 260000,
+        "tpsExpectMet": true,
         "trxExpectMet": true,
         "basicTestSuccess": true,
-        "testAnalysisBlockCnt": 26,
-        "logsDir": "performance_test/2022-10-26_15-01-51/testRunLogs/performance_test_basic/2022-10-26_15-01-51",
-        "testStart": "2022-10-26T15:03:37.764242",
-        "testEnd": "2022-10-26T15:01:51.128328"
+        "testAnalysisBlockCnt": 17,
+        "logsDir": "./performance_test/2022-11-23_12-56-58/testRunLogs/performance_test_basic/2022-11-23_15-18-52-26000",
+        "testStart": "2022-11-23T15:18:52.115767",
+        "testEnd": "2022-11-23T15:20:16.911367"
       }
     }
 ```
@@ -449,10 +470,12 @@ Finally, the full detail test report for each of the determined max TPS throughp
 
 ``` json
 {
-  "InitialMaxTpsAchieved": 16000,
-  "LongRunningMaxTpsAchieved": 15000,
-  "testStart": "2022-11-04T19:31:40.539240",
-  "testFinish": "2022-11-04T19:48:53.096915",
+  "perfTestsBegin": "2022-11-23T12:56:58.699686",
+  "perfTestsFinish": "2022-11-23T15:20:16.979815",
+  "InitialMaxTpsAchieved": 26500,
+  "LongRunningMaxTpsAchieved": 26000,
+  "tpsTestStart": "2022-11-23T15:05:42.005050",
+  "tpsTestFinish": "2022-11-23T15:20:16.979800",
   "InitialSearchResults": {
     "0": {
       "success": false,
@@ -461,149 +484,149 @@ Finally, the full detail test report for each of the determined max TPS throughp
       "searchCeiling": 50000,
       "basicTestResult": {
         "targetTPS": 50000,
-        "resultAvgTps": 15312.09090909091,
+        "resultAvgTps": 23784.324324324323,
         "expectedTxns": 500000,
-        "resultTxns": 362075,
+        "resultTxns": 500000,
         "tpsExpectMet": false,
-        "trxExpectMet": false,
+        "trxExpectMet": true,
         "basicTestSuccess": true,
-        "testAnalysisBlockCnt": 45,
-        "logsDir": "performance_test/2022-11-04_19-31-40/testRunLogs/performance_test_basic/2022-11-04_19-31-40",
-        "testStart": "2022-11-04T19:31:40.539927",
-        "testEnd": "2022-11-04T19:33:16.377065"
+        "testAnalysisBlockCnt": 38,
+        "logsDir": "./performance_test/2022-11-23_12-56-58/testRunLogs/performance_test_basic/2022-11-23_15-05-42-50000",
+        "testStart": "2022-11-23T15:05:42.005080",
+        "testEnd": "2022-11-23T15:07:24.111044"
       }
     },
     "1": {
-      "success": false,
+      "success": true,
       "searchTarget": 25000,
       "searchFloor": 0,
       "searchCeiling": 49500,
       "basicTestResult": {
         "targetTPS": 25000,
-        "resultAvgTps": 15098.241379310344,
+        "resultAvgTps": 25013.3125,
         "expectedTxns": 250000,
         "resultTxns": 250000,
-        "tpsExpectMet": false,
-        "trxExpectMet": true,
-        "basicTestSuccess": true,
-        "testAnalysisBlockCnt": 30,
-        "logsDir": "performance_test/2022-11-04_19-31-40/testRunLogs/performance_test_basic/2022-11-04_19-33-16",
-        "testStart": "2022-11-04T19:33:16.471198",
-        "testEnd": "2022-11-04T19:34:45.441319"
-      }
-    },
-    "2": {
-      "success": true,
-      "searchTarget": 12500,
-      "searchFloor": 0,
-      "searchCeiling": 24500,
-      "basicTestResult": {
-        "targetTPS": 12500,
-        "resultAvgTps": 12500.0625,
-        "expectedTxns": 125000,
-        "resultTxns": 125000,
         "tpsExpectMet": true,
         "trxExpectMet": true,
         "basicTestSuccess": true,
         "testAnalysisBlockCnt": 17,
-        "logsDir": "performance_test/2022-11-04_19-31-40/testRunLogs/performance_test_basic/2022-11-04_19-34-45",
-        "testStart": "2022-11-04T19:34:45.507994",
-        "testEnd": "2022-11-04T19:36:01.234060"
+        "logsDir": "./performance_test/2022-11-23_12-56-58/testRunLogs/performance_test_basic/2022-11-23_15-07-24-25000",
+        "testStart": "2022-11-23T15:07:24.225706",
+        "testEnd": "2022-11-23T15:08:47.510691"
+      }
+    },
+    "2": {
+      "success": false,
+      "searchTarget": 37500,
+      "searchFloor": 25500,
+      "searchCeiling": 49500,
+      "basicTestResult": {
+        "targetTPS": 37500,
+        "resultAvgTps": 24912.576923076922,
+        "expectedTxns": 375000,
+        "resultTxns": 375000,
+        "tpsExpectMet": false,
+        "trxExpectMet": true,
+        "basicTestSuccess": true,
+        "testAnalysisBlockCnt": 27,
+        "logsDir": "./performance_test/2022-11-23_12-56-58/testRunLogs/performance_test_basic/2022-11-23_15-08-47-37500",
+        "testStart": "2022-11-23T15:08:47.579754",
+        "testEnd": "2022-11-23T15:10:23.342881"
       }
     },
     "3": {
       "success": false,
-      "searchTarget": 19000,
-      "searchFloor": 13000,
-      "searchCeiling": 24500,
+      "searchTarget": 31500,
+      "searchFloor": 25500,
+      "searchCeiling": 37000,
       "basicTestResult": {
-        "targetTPS": 19000,
-        "resultAvgTps": 15454.0,
-        "expectedTxns": 190000,
-        "resultTxns": 190000,
+        "targetTPS": 31500,
+        "resultAvgTps": 24525.095238095237,
+        "expectedTxns": 315000,
+        "resultTxns": 315000,
         "tpsExpectMet": false,
         "trxExpectMet": true,
         "basicTestSuccess": true,
         "testAnalysisBlockCnt": 22,
-        "logsDir": "performance_test/2022-11-04_19-31-40/testRunLogs/performance_test_basic/2022-11-04_19-36-01",
-        "testStart": "2022-11-04T19:36:01.277926",
-        "testEnd": "2022-11-04T19:37:23.028124"
+        "logsDir": "./performance_test/2022-11-23_12-56-58/testRunLogs/performance_test_basic/2022-11-23_15-10-23-31500",
+        "testStart": "2022-11-23T15:10:23.432821",
+        "testEnd": "2022-11-23T15:11:53.366694"
       }
     },
     "4": {
-      "success": true,
-      "searchTarget": 16000,
-      "searchFloor": 13000,
-      "searchCeiling": 18500,
+      "success": false,
+      "searchTarget": 28500,
+      "searchFloor": 25500,
+      "searchCeiling": 31000,
       "basicTestResult": {
-        "targetTPS": 16000,
-        "resultAvgTps": 15900.625,
-        "expectedTxns": 160000,
-        "resultTxns": 160000,
-        "tpsExpectMet": true,
+        "targetTPS": 28500,
+        "resultAvgTps": 25896.666666666668,
+        "expectedTxns": 285000,
+        "resultTxns": 285000,
+        "tpsExpectMet": false,
         "trxExpectMet": true,
         "basicTestSuccess": true,
-        "testAnalysisBlockCnt": 17,
-        "logsDir": "performance_test/2022-11-04_19-31-40/testRunLogs/performance_test_basic/2022-11-04_19-37-23",
-        "testStart": "2022-11-04T19:37:23.085923",
-        "testEnd": "2022-11-04T19:38:41.744418"
+        "testAnalysisBlockCnt": 19,
+        "logsDir": "./performance_test/2022-11-23_12-56-58/testRunLogs/performance_test_basic/2022-11-23_15-11-53-28500",
+        "testStart": "2022-11-23T15:11:53.448449",
+        "testEnd": "2022-11-23T15:13:17.714663"
       }
     },
     "5": {
       "success": false,
-      "searchTarget": 17500,
-      "searchFloor": 16500,
-      "searchCeiling": 18500,
+      "searchTarget": 27000,
+      "searchFloor": 25500,
+      "searchCeiling": 28000,
       "basicTestResult": {
-        "targetTPS": 17500,
-        "resultAvgTps": 15271.526315789473,
-        "expectedTxns": 175000,
-        "resultTxns": 175000,
+        "targetTPS": 27000,
+        "resultAvgTps": 26884.625,
+        "expectedTxns": 270000,
+        "resultTxns": 270000,
         "tpsExpectMet": false,
         "trxExpectMet": true,
         "basicTestSuccess": true,
-        "testAnalysisBlockCnt": 20,
-        "logsDir": "performance_test/2022-11-04_19-31-40/testRunLogs/performance_test_basic/2022-11-04_19-38-41",
-        "testStart": "2022-11-04T19:38:41.796745",
-        "testEnd": "2022-11-04T19:40:02.097920"
+        "testAnalysisBlockCnt": 17,
+        "logsDir": "./performance_test/2022-11-23_12-56-58/testRunLogs/performance_test_basic/2022-11-23_15-13-17-27000",
+        "testStart": "2022-11-23T15:13:17.787205",
+        "testEnd": "2022-11-23T15:14:40.753850"
       }
     },
     "6": {
-      "success": false,
-      "searchTarget": 17000,
-      "searchFloor": 16500,
-      "searchCeiling": 17000,
+      "success": true,
+      "searchTarget": 26000,
+      "searchFloor": 25500,
+      "searchCeiling": 26500,
       "basicTestResult": {
-        "targetTPS": 17000,
-        "resultAvgTps": 15876.176470588236,
-        "expectedTxns": 170000,
-        "resultTxns": 170000,
-        "tpsExpectMet": false,
+        "targetTPS": 26000,
+        "resultAvgTps": 25959.0,
+        "expectedTxns": 260000,
+        "resultTxns": 260000,
+        "tpsExpectMet": true,
         "trxExpectMet": true,
         "basicTestSuccess": true,
-        "testAnalysisBlockCnt": 18,
-        "logsDir": "performance_test/2022-11-04_19-31-40/testRunLogs/performance_test_basic/2022-11-04_19-40-02",
-        "testStart": "2022-11-04T19:40:02.150305",
-        "testEnd": "2022-11-04T19:41:21.802272"
+        "testAnalysisBlockCnt": 17,
+        "logsDir": "./performance_test/2022-11-23_12-56-58/testRunLogs/performance_test_basic/2022-11-23_15-14-40-26000",
+        "testStart": "2022-11-23T15:14:40.823681",
+        "testEnd": "2022-11-23T15:16:02.884525"
       }
     },
     "7": {
-      "success": false,
-      "searchTarget": 16500,
-      "searchFloor": 16500,
-      "searchCeiling": 16500,
+      "success": true,
+      "searchTarget": 26500,
+      "searchFloor": 26500,
+      "searchCeiling": 26500,
       "basicTestResult": {
-        "targetTPS": 16500,
-        "resultAvgTps": 16096.823529411764,
-        "expectedTxns": 165000,
-        "resultTxns": 165000,
-        "tpsExpectMet": false,
+        "targetTPS": 26500,
+        "resultAvgTps": 26400.5625,
+        "expectedTxns": 265000,
+        "resultTxns": 265000,
+        "tpsExpectMet": true,
         "trxExpectMet": true,
         "basicTestSuccess": true,
-        "testAnalysisBlockCnt": 18,
-        "logsDir": "performance_test/2022-11-04_19-31-40/testRunLogs/performance_test_basic/2022-11-04_19-41-21",
-        "testStart": "2022-11-04T19:41:21.851918",
-        "testEnd": "2022-11-04T19:42:40.991794"
+        "testAnalysisBlockCnt": 17,
+        "logsDir": "./performance_test/2022-11-23_12-56-58/testRunLogs/performance_test_basic/2022-11-23_15-16-02-26500",
+        "testStart": "2022-11-23T15:16:02.953195",
+        "testEnd": "2022-11-23T15:17:28.412837"
       }
     }
   },
@@ -623,59 +646,40 @@ Finally, the full detail test report for each of the determined max TPS throughp
   "LongRunningSearchResults": {
     "0": {
       "success": false,
-      "searchTarget": 16000,
+      "searchTarget": 26500,
       "searchFloor": 0,
-      "searchCeiling": 16000,
+      "searchCeiling": 26500,
       "basicTestResult": {
-        "targetTPS": 16000,
-        "resultAvgTps": 14954.266666666666,
-        "expectedTxns": 480000,
-        "resultTxns": 480000,
+        "targetTPS": 26500,
+        "resultAvgTps": 22554.42105263158,
+        "expectedTxns": 265000,
+        "resultTxns": 265000,
         "tpsExpectMet": false,
         "trxExpectMet": true,
         "basicTestSuccess": true,
-        "testAnalysisBlockCnt": 61,
-        "logsDir": "performance_test/2022-11-04_19-31-40/testRunLogs/performance_test_basic/2022-11-04_19-42-41",
-        "testStart": "2022-11-04T19:42:41.051468",
-        "testEnd": "2022-11-04T19:44:47.365905"
+        "testAnalysisBlockCnt": 20,
+        "logsDir": "./performance_test/2022-11-23_12-56-58/testRunLogs/performance_test_basic/2022-11-23_15-17-28-26500",
+        "testStart": "2022-11-23T15:17:28.483195",
+        "testEnd": "2022-11-23T15:18:52.048868"
       }
     },
     "1": {
-      "success": false,
-      "searchTarget": 15500,
-      "searchFloor": 0,
-      "searchCeiling": 16000,
-      "basicTestResult": {
-        "targetTPS": 15500,
-        "resultAvgTps": 15001.827586206897,
-        "expectedTxns": 465000,
-        "resultTxns": 465000,
-        "tpsExpectMet": false,
-        "trxExpectMet": true,
-        "basicTestSuccess": true,
-        "testAnalysisBlockCnt": 59,
-        "logsDir": "performance_test/2022-11-04_19-31-40/testRunLogs/performance_test_basic/2022-11-04_19-44-47",
-        "testStart": "2022-11-04T19:44:47.472961",
-        "testEnd": "2022-11-04T19:46:52.818564"
-      }
-    },
-    "2": {
       "success": true,
-      "searchTarget": 15000,
+      "searchTarget": 26000,
       "searchFloor": 0,
-      "searchCeiling": 16000,
+      "searchCeiling": 26500,
       "basicTestResult": {
-        "targetTPS": 15000,
-        "resultAvgTps": 15023.464285714286,
-        "expectedTxns": 450000,
-        "resultTxns": 450000,
+        "targetTPS": 26000,
+        "resultAvgTps": 25986.9375,
+        "expectedTxns": 260000,
+        "resultTxns": 260000,
         "tpsExpectMet": true,
         "trxExpectMet": true,
         "basicTestSuccess": true,
-        "testAnalysisBlockCnt": 57,
-        "logsDir": "performance_test/2022-11-04_19-31-40/testRunLogs/performance_test_basic/2022-11-04_19-46-52",
-        "testStart": "2022-11-04T19:46:52.960531",
-        "testEnd": "2022-11-04T19:48:52.989694"
+        "testAnalysisBlockCnt": 17,
+        "logsDir": "./performance_test/2022-11-23_12-56-58/testRunLogs/performance_test_basic/2022-11-23_15-18-52-26000",
+        "testStart": "2022-11-23T15:18:52.115767",
+        "testEnd": "2022-11-23T15:20:16.911367"
       }
     }
   },
@@ -692,6 +696,38 @@ Finally, the full detail test report for each of the determined max TPS throughp
     },
     <truncated>
   },
+  "ProducerThreadAnalysis": {
+    "recommendedThreadCount": 6,
+    "threadToMaxTpsDict": {
+      "2": 16000,
+      "3": 21000,
+      "4": 24000,
+      "5": 25500,
+      "6": 27000,
+      "7": 26000
+    },
+    "analysisStart": "2022-11-23T12:56:58.730271",
+    "analysisFinish": "2022-11-23T14:05:45.727625"
+  },
+  "ChainThreadAnalysis": {
+    "recommendedThreadCount": 3,
+    "threadToMaxTpsDict": {
+      "2": 25000,
+      "3": 26500,
+      "4": 26500
+    },
+    "analysisStart": "2022-11-23T14:05:45.728348",
+    "analysisFinish": "2022-11-23T14:41:43.721885"
+  },
+  "NetThreadAnalysis": {
+    "recommendedThreadCount": 2,
+    "threadToMaxTpsDict": {
+      "2": 25500,
+      "3": 25000
+    },
+    "analysisStart": "2022-11-23T14:41:43.722862",
+    "analysisFinish": "2022-11-23T15:05:42.004421"
+  },
   "args": {
     "killAll": false,
     "dontKill": false,
@@ -707,17 +743,24 @@ Finally, the full detail test report for each of the determined max TPS throughp
     "topo": "mesh",
     "extraNodeosArgs": {
       "chainPluginArgs": {
-        "signatureCpuBillablePct": 0
+        "signatureCpuBillablePct": 0,
+        "chainStateDbSizeMb": 10240,
+        "chainThreads": 3,
+        "databaseMapMode": "mapped"
       },
       "producerPluginArgs": {
         "disableSubjectiveBilling": true,
         "lastBlockTimeOffsetUs": 0,
         "produceTimeOffsetUs": 0,
         "cpuEffortPercent": 100,
-        "lastBlockCpuEffortPercent": 100
+        "lastBlockCpuEffortPercent": 100,
+        "producerThreads": 6
       },
       "httpPluginArgs": {
         "httpMaxResponseTimeMs": 990000
+      },
+      "netPluginArgs": {
+        "netThreads": 2
       }
     },
     "useBiosBootFile": false,
@@ -734,7 +777,7 @@ Finally, the full detail test report for each of the determined max TPS throughp
     "_totalNodes": 2,
     "testDurationSec": 10,
     "finalDurationSec": 30,
-    "logsDir": "performance_test/2022-11-04_19-31-40",
+    "delPerfLogs": false,
     "maxTpsToTest": 50000,
     "testIterationMinStep": 500,
     "tpsLimitPerGenerator": 4000,
@@ -742,12 +785,22 @@ Finally, the full detail test report for each of the determined max TPS throughp
     "delTestReport": false,
     "numAddlBlocksToPrune": 2,
     "quiet": false,
-    "delPerfLogs": false
+    "logDirRoot": ".",
+    "skipTpsTests": false,
+    "calcProducerThreads": "lmax",
+    "calcChainThreads": "lmax",
+    "calcNetThreads": "lmax",
+    "logDirBase": "./performance_test",
+    "logDirTimestamp": "2022-11-23_12-56-58",
+    "logDirPath": "./performance_test/2022-11-23_12-56-58",
+    "ptbLogsDirPath": "./performance_test/2022-11-23_12-56-58/testRunLogs",
+    "pluginThreadOptLogsDirPath": "./performance_test/2022-11-23_12-56-58/pluginThreadOptRunLogs"
   },
   "env": {
     "system": "Linux",
     "os": "posix",
-    "release": "5.10.102.1-microsoft-standard-WSL2"
+    "release": "5.15.74.2-microsoft-standard-WSL2",
+    "logical_cpu_count": 16
   },
   "nodeosVersion": "v4.0.0-dev"
 }
@@ -765,67 +818,70 @@ The Performance Test Basic generates, by default, a report that details results 
 ``` json
 {
   "completedRun": true,
-  "testStart": "2022-11-04T19:46:52.960531",
-  "testFinish": "2022-11-04T19:48:52.989694",
+  "testStart": "2022-11-23T15:18:52.115767",
+  "testFinish": "2022-11-23T15:20:16.911367",
   "Analysis": {
     "BlockSize": {
-      "min": 1389312,
-      "max": 1575800,
-      "avg": 1474814.3157894737,
-      "sigma": 40921.65290309434,
+      "min": 1937088,
+      "max": 2971200,
+      "avg": 2493345.882352941,
+      "sigma": 186567.07030350564,
       "emptyBlocks": 0,
-      "numBlocks": 57
+      "numBlocks": 17
     },
     "BlocksGuide": {
       "firstBlockNum": 2,
-      "lastBlockNum": 232,
-      "totalBlocks": 231,
-      "testStartBlockNum": 105,
-      "testEndBlockNum": 199,
-      "setupBlocksCnt": 103,
-      "tearDownBlocksCnt": 33,
+      "lastBlockNum": 165,
+      "totalBlocks": 164,
+      "testStartBlockNum": 106,
+      "testEndBlockNum": 149,
+      "setupBlocksCnt": 104,
+      "tearDownBlocksCnt": 16,
       "leadingEmptyBlocksCnt": 1,
-      "trailingEmptyBlocksCnt": 33,
+      "trailingEmptyBlocksCnt": 22,
       "configAddlDropCnt": 2,
-      "testAnalysisBlockCnt": 57
+      "testAnalysisBlockCnt": 17
     },
     "TPS": {
-      "min": 14532,
-      "max": 15477,
-      "avg": 15023.464285714286,
-      "sigma": 178.66938384762454,
+      "min": 23164,
+      "max": 28791,
+      "avg": 25986.9375,
+      "sigma": 1033.1693634606816,
       "emptyBlocks": 0,
-      "numBlocks": 57,
-      "configTps": 15000,
-      "configTestDuration": 30,
+      "numBlocks": 17,
+      "configTps": 26000,
+      "configTestDuration": 10,
       "tpsPerGenerator": [
-        3750,
-        3750,
-        3750,
-        3750
+        3714,
+        3714,
+        3714,
+        3714,
+        3714,
+        3715,
+        3715
       ],
-      "generatorCount": 4
+      "generatorCount": 7
     },
     "TrxCPU": {
       "min": 7.0,
-      "max": 2647.0,
-      "avg": 23.146035555555557,
-      "sigma": 11.415769514864671,
-      "samples": 450000
+      "max": 10893.0,
+      "avg": 17.314342307692307,
+      "sigma": 41.16144172726996,
+      "samples": 260000
     },
     "TrxLatency": {
       "min": 0.0009999275207519531,
-      "max": 0.5539999008178711,
-      "avg": 0.2614889088874393,
-      "sigma": 0.1450651327531534,
-      "samples": 450000
+      "max": 0.6380000114440918,
+      "avg": 0.26549454224201346,
+      "sigma": 0.14674558675649374,
+      "samples": 260000
     },
     "TrxNet": {
       "min": 24.0,
-      "max": 25.0,
-      "avg": 24.555564444444446,
-      "sigma": 0.49690300111146485,
-      "samples": 450000
+      "max": 24.0,
+      "avg": 24.0,
+      "sigma": 0.0,
+      "samples": 260000
     }
   },
   "args": {
@@ -843,17 +899,24 @@ The Performance Test Basic generates, by default, a report that details results 
     "topo": "mesh",
     "extraNodeosArgs": {
       "chainPluginArgs": {
-        "signatureCpuBillablePct": 0
+        "signatureCpuBillablePct": 0,
+        "chainStateDbSizeMb": 10240,
+        "chainThreads": 3,
+        "databaseMapMode": "mapped"
       },
       "producerPluginArgs": {
         "disableSubjectiveBilling": true,
         "lastBlockTimeOffsetUs": 0,
         "produceTimeOffsetUs": 0,
         "cpuEffortPercent": 100,
-        "lastBlockCpuEffortPercent": 100
+        "lastBlockCpuEffortPercent": 100,
+        "producerThreads": 6
       },
       "httpPluginArgs": {
         "httpMaxResponseTimeMs": 990000
+      },
+      "netPluginArgs": {
+        "netThreads": 2
       }
     },
     "useBiosBootFile": false,
@@ -868,19 +931,24 @@ The Performance Test Basic generates, by default, a report that details results 
       "1": "--plugin eosio::trace_api_plugin"
     },
     "_totalNodes": 2,
-    "delPerfLogs": false,
-    "delReport": false,
-    "expectedTransactionsSent": 450000,
+    "targetTps": 26000,
+    "testTrxGenDurationSec": 10,
+    "tpsLimitPerGenerator": 4000,
     "numAddlBlocksToPrune": 2,
+    "logDirRoot": "./performance_test/2022-11-23_12-56-58/testRunLogs",
+    "delReport": false,
     "quiet": false,
-    "targetTps": 15000,
-    "testTrxGenDurationSec": 30,
-    "tpsLimitPerGenerator": 4000
+    "delPerfLogs": false,
+    "expectedTransactionsSent": 260000,
+    "logDirBase": "./performance_test/2022-11-23_12-56-58/testRunLogs/performance_test_basic",
+    "logDirTimestamp": "2022-11-23_15-18-52",
+    "logDirTimestampedOptSuffix": "-26000",
+    "logDirPath": "./performance_test/2022-11-23_12-56-58/testRunLogs/performance_test_basic/2022-11-23_15-18-52-26000"
   },
   "env": {
     "system": "Linux",
     "os": "posix",
-    "release": "5.10.102.1-microsoft-standard-WSL2",
+    "release": "5.15.74.2-microsoft-standard-WSL2",
     "logical_cpu_count": 16
   },
   "nodeosVersion": "v4.0.0-dev"
