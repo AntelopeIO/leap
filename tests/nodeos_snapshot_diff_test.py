@@ -142,7 +142,7 @@ try:
     Print("Validate transactions are generating")
     minReqPctLeeway=0.9
     minRequiredTransactions=minReqPctLeeway*transactionsPerBlock
-    assert steadyStateAvg>minRequiredTransactions, "Expected to at least receive %s transactions per block, but only getting %s" % (minRequiredTransactions, steadyStateAvg)
+    assert steadyStateAvg>=minRequiredTransactions, "Expected to at least receive %s transactions per block, but only getting %s" % (minRequiredTransactions, steadyStateAvg)
 
     Print("Create snapshot")
     ret = nodeSnap.createSnapshot()
