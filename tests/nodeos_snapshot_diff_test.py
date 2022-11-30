@@ -115,7 +115,7 @@ try:
 
     Print("Startup txn generation")
     period=30
-    transPerPeriod=20
+    transPerPeriod=5
     for genNum in range(0, len(txnGenNodes)):
         salt="%d" % genNum
         txnGenNodes[genNum].txnGenStart(salt, period, transPerPeriod)
