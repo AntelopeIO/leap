@@ -17,6 +17,7 @@ from platform import release, system
 from dataclasses import dataclass, asdict, field
 from datetime import datetime
 from enum import Enum
+from log_reader import LogReaderEncoder
 
 class PerformanceTest:
 
@@ -298,16 +299,8 @@ class PerformanceTest:
         report['nodeosVersion'] = Utils.getNodeosVersion()
         return report
 
-    class PtReportEncoder(json.JSONEncoder):
-        def default(self, obj):
-            if isinstance(obj, datetime):
-                return obj.isoformat()
-            if obj is None:
-                return "Unknown"
-            return json.JSONEncoder.default(self, obj)
-
     def reportAsJSON(self, report: dict) -> json:
-        return json.dumps(report, indent=2, cls=PerformanceTest.PtReportEncoder)
+        return json.dumps(report, indent=2, cls=LogReaderEncoder)
 
     def exportReportAsJSON(self, report: json, exportPath):
         with open(exportPath, 'wt') as f:
