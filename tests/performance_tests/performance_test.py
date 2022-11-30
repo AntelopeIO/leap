@@ -223,7 +223,6 @@ class PerformanceTest:
 
         with open(resultsFile, 'w') as log:
             log.write(f"{optPlugin.value}Threads, maxTpsAchieved\n")
-        log.close()
 
         lastMaxTpsAchieved = 0
         for threadCount in range(minThreadCount, maxThreadCount+1):
@@ -242,7 +241,6 @@ class PerformanceTest:
 
             with open(resultsFile, 'a') as log:
                 log.write(f"{threadCount},{binSearchResults.maxTpsAchieved}\n")
-            log.close()
 
             if optType == PerformanceTest.PluginThreadOptRunType.LOCAL_MAX:
                 if binSearchResults.maxTpsAchieved <= lastMaxTpsAchieved:
