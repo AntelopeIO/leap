@@ -196,9 +196,9 @@ class PerformanceTest:
         return result.basicTestSuccess and result.tpsExpectMet and result.trxExpectMet
 
     class PluginThreadOpt(Enum):
-        PRODUCER = 1
-        CHAIN = 2
-        NET = 3
+        PRODUCER = "producer"
+        CHAIN = "chain"
+        NET = "net"
 
     class PluginThreadOptRunType(Enum):
         FULL = 1
@@ -214,14 +214,7 @@ class PerformanceTest:
     def optimizePluginThreadCount(self,  optPlugin: PluginThreadOpt, optType: PluginThreadOptRunType=PluginThreadOptRunType.LOCAL_MAX,
                                   minThreadCount: int=2, maxThreadCount: int=os.cpu_count()) -> PluginThreadOptResult:
 
-        if optPlugin == PerformanceTest.PluginThreadOpt.PRODUCER:
-            fileName = "producerThreadResults.txt"
-        elif optPlugin == PerformanceTest.PluginThreadOpt.CHAIN:
-            fileName = "chainThreadResults.txt"
-        else:
-            fileName = "netThreadResults.txt"
-
-        resultsFile = f"{self.loggingConfig.pluginThreadOptLogsDirPath}/{fileName}"
+        resultsFile = f"{self.loggingConfig.pluginThreadOptLogsDirPath}/{optPlugin.value}ThreadResults.txt"
 
         threadToMaxTpsDict: dict = {}
 
@@ -229,19 +222,14 @@ class PerformanceTest:
         analysisStart = datetime.utcnow()
 
         with open(resultsFile, 'w') as log:
-            log.write(f"{optPlugin.name.lower()}Threads, maxTpsAchieved\n")
+            log.write(f"{optPlugin.value}Threads, maxTpsAchieved\n")
         log.close()
 
         lastMaxTpsAchieved = 0
         for threadCount in range(minThreadCount, maxThreadCount+1):
-            print(f"Running {optPlugin.name.lower()} thread count optimization check with {threadCount} {optPlugin.name.lower()} threads")
+            print(f"Running {optPlugin.value} thread count optimization check with {threadCount} {optPlugin.value} threads")
 
-            if optPlugin == PerformanceTest.PluginThreadOpt.PRODUCER:
-                clusterConfig.extraNodeosArgs.producerPluginArgs.producerThreads = threadCount
-            elif optPlugin == PerformanceTest.PluginThreadOpt.CHAIN:
-                clusterConfig.extraNodeosArgs.chainPluginArgs.chainThreads = threadCount
-            else:
-                clusterConfig.extraNodeosArgs.netPluginArgs.netThreads = threadCount
+            getattr(clusterConfig.extraNodeosArgs, optPlugin.value + 'PluginArgs').threads = threadCount
 
             binSearchResults = self.performPtbBinarySearch(clusterConfig=clusterConfig, logDirRoot=self.loggingConfig.pluginThreadOptLogsDirPath,
                                                             delReport=True, quiet=False, delPerfLogs=True)
@@ -250,7 +238,7 @@ class PerformanceTest:
             if not self.ptConfig.quiet:
                 print("Search Results:")
                 for i in range(len(binSearchResults.searchResults)):
-                    print(f"Search scenario {optPlugin.name} thread count {threadCount}: {i} result: {binSearchResults.searchResults[i]}")
+                    print(f"Search scenario {optPlugin.value} thread count {threadCount}: {i} result: {binSearchResults.searchResults[i]}")
 
             with open(resultsFile, 'a') as log:
                 log.write(f"{threadCount},{binSearchResults.maxTpsAchieved}\n")
@@ -422,7 +410,7 @@ class PerformanceTest:
                 optType = PerformanceTest.PluginThreadOptRunType.LOCAL_MAX
             prodResults = self.optimizePluginThreadCount(optPlugin=PerformanceTest.PluginThreadOpt.PRODUCER, optType=optType)
             print(f"Producer Thread Optimization results: {prodResults}")
-            self.clusterConfig.extraNodeosArgs.producerPluginArgs.producerThreads = prodResults.recommendedThreadCount
+            self.clusterConfig.extraNodeosArgs.producerPluginArgs.threads = prodResults.recommendedThreadCount
 
         chainResults = None
         if self.ptConfig.calcChainThreads != "none":
@@ -433,7 +421,7 @@ class PerformanceTest:
                 optType = PerformanceTest.PluginThreadOptRunType.LOCAL_MAX
             chainResults = self.optimizePluginThreadCount(optPlugin=PerformanceTest.PluginThreadOpt.CHAIN, optType=optType)
             print(f"Chain Thread Optimization results: {chainResults}")
-            self.clusterConfig.extraNodeosArgs.chainPluginArgs.chainThreads = chainResults.recommendedThreadCount
+            self.clusterConfig.extraNodeosArgs.chainPluginArgs.threads = chainResults.recommendedThreadCount
 
         netResults = None
         if self.ptConfig.calcNetThreads != "none":
@@ -444,7 +432,7 @@ class PerformanceTest:
                 optType = PerformanceTest.PluginThreadOptRunType.LOCAL_MAX
             netResults = self.optimizePluginThreadCount(optPlugin=PerformanceTest.PluginThreadOpt.NET, optType=optType)
             print(f"Net Thread Optimization results: {netResults}")
-            self.clusterConfig.extraNodeosArgs.netPluginArgs.netThreads = netResults.recommendedThreadCount
+            self.clusterConfig.extraNodeosArgs.netPluginArgs.threads = netResults.recommendedThreadCount
 
         tpsTestResult = None
         if not self.ptConfig.skipTpsTests:
@@ -535,13 +523,13 @@ def main():
 
     ENA = PerformanceTestBasic.ClusterConfig.ExtraNodeosArgs
     chainPluginArgs = ENA.ChainPluginArgs(signatureCpuBillablePct=args.signature_cpu_billable_pct, chainStateDbSizeMb=args.chain_state_db_size_mb,
-                                          chainThreads=args.chain_threads, databaseMapMode=args.database_map_mode)
+                                          threads=args.chain_threads, databaseMapMode=args.database_map_mode)
     producerPluginArgs = ENA.ProducerPluginArgs(disableSubjectiveBilling=args.disable_subjective_billing,
                                                 lastBlockTimeOffsetUs=args.last_block_time_offset_us, produceTimeOffsetUs=args.produce_time_offset_us,
                                                 cpuEffortPercent=args.cpu_effort_percent, lastBlockCpuEffortPercent=args.last_block_cpu_effort_percent,
-                                                producerThreads=args.producer_threads)
+                                                threads=args.producer_threads)
     httpPluginArgs = ENA.HttpPluginArgs(httpMaxResponseTimeMs=args.http_max_response_time_ms)
-    netPluginArgs = ENA.NetPluginArgs(netThreads=args.net_threads)
+    netPluginArgs = ENA.NetPluginArgs(threads=args.net_threads)
     extraNodeosArgs = ENA(chainPluginArgs=chainPluginArgs, httpPluginArgs=httpPluginArgs, producerPluginArgs=producerPluginArgs, netPluginArgs=netPluginArgs)
     testClusterConfig = PerformanceTestBasic.ClusterConfig(pnodes=args.p, totalNodes=args.n, topo=args.s, genesisPath=args.genesis,
                                                            prodsEnableTraceApi=args.prods_enable_trace_api, extraNodeosArgs=extraNodeosArgs)
