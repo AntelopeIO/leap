@@ -155,16 +155,10 @@ class Node(object):
         # could be a transaction response
         if cntxt.hasKey("processed"):
             cntxt.add("processed")
-            cntxt.add("action_traces")
-            # action_traces could be empty when an exception happened in the transaction
-            # cntxt.index(0) below will crash action_traces is empty
-            cur=cntxt.getCurrent()
-            assert isinstance(cur, list), f"ERROR: action_traces is not a list."
-            if len(cur) == 0:
-                return "no_block"
-            cntxt.index(0)
             if not cntxt.isSectionNull("except"):
                 return "no_block"
+            cntxt.add("action_traces")
+            cntxt.index(0)
             return cntxt.add("block_num")
 
         # or what the trace api plugin returns
