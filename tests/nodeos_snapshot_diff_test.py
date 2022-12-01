@@ -140,7 +140,7 @@ try:
     steadyStateAvg=steadyStateWindowTrxs / steadyStateWindowBlks
 
     Print("Validate transactions are generating")
-    minReqPctLeeway=0.9
+    minReqPctLeeway=0.75
     minRequiredTransactions=minReqPctLeeway*transactionsPerBlock
     assert steadyStateAvg>=minRequiredTransactions, "Expected to at least receive %s transactions per block, but only getting %s" % (minRequiredTransactions, steadyStateAvg)
 
