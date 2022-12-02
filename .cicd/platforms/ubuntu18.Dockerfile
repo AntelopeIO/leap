@@ -7,6 +7,7 @@ RUN apt-get update && apt-get upgrade -y && \
                                                       g++-8                       \
                                                       git                         \
                                                       jq                          \
+                                                      libcurl4-openssl-dev        \
                                                       libgmp-dev                  \
                                                       libssl-dev                  \
                                                       llvm-7-dev                  \
