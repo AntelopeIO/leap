@@ -230,43 +230,23 @@ auto make_http_response_handler(std::shared_ptr<http_plugin_state> plugin_state,
          deadline = start + plugin_state->max_response_time;
       }
 
-      if (content_type == http_content_type::plaintext) {
-         // post back to an HTTP thread to allow the response handler to be called from any thread
-         boost::asio::post(plugin_state->thread_pool->get_executor(),
-                           [plugin_state, session_ptr, code, deadline, start,
-                                 tracked_response = std::move(tracked_response), content_type]() {
-                              try {
-                                 if (tracked_response->obj().has_value()) {
-                                       auto tracked_text = make_in_flight(
-                                             std::move(tracked_response->obj()->as_string()), plugin_state);
-                                       session_ptr->send_response(std::move(tracked_text->obj()), code);
-                                 } else {
-                                    session_ptr->send_response("{}", code);
-                                 }
-                              } catch (...) {
-                                 session_ptr->handle_exception();
+      boost::asio::post(plugin_state->thread_pool->get_executor(),
+                        [plugin_state, session_ptr, code, deadline, start,
+                              tracked_response = std::move(tracked_response), content_type]() {
+                           try {
+                              if (tracked_response->obj().has_value()) {
+                                 std::string str = (content_type == http_content_type::plaintext) ? tracked_response->obj()->as_string() : fc::json::to_string(*tracked_response->obj(),
+                                                                                                                                                              deadline +
+                                                                                                                                                              (fc::time_point::now() - start));
+                                 in_flight<std::string> tracked_text(std::move(str), plugin_state);
+                                 session_ptr->send_response(std::move(tracked_text.obj()), code);
+                              } else {
+                                 session_ptr->send_response("{}", code);
                               }
-                           });
-         } else{
-            boost::asio::post(plugin_state->thread_pool->get_executor(),
-                           [plugin_state, session_ptr, code, deadline, start,
-                                 tracked_response = std::move(tracked_response), content_type]() {
-                              try {
-                                 if (tracked_response->obj().has_value()) {
-                                       std::string json = fc::json::to_string(*tracked_response->obj(),
-                                                                              deadline +
-                                                                              (fc::time_point::now() - start));
-                                       auto tracked_json = make_in_flight(std::move(json), plugin_state);
-                                       session_ptr->send_response(std::move(tracked_json->obj()), code);
-                                 } else {
-                                    session_ptr->send_response("{}", code);
-                                 }
-                              } catch (...) {
-                                 session_ptr->handle_exception();
-                              }
-                           });
-
-         }
+                           } catch (...) {
+                              session_ptr->handle_exception();
+                           }
+                        });
       };// end lambda
 
 }
