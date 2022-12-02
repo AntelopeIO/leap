@@ -3,6 +3,7 @@ import random
 import os
 import json
 import time
+import signal
 import calendar
 from datetime import datetime
 
@@ -19,19 +20,32 @@ from core_symbol import CORE_SYMBOL
 
 
 ###############################################################
-# nodeos_trust_evm_server
+# nodeos_trust_evm_fork_server
 #
 # Set up a TrustEVM env
+#
+# This test sets up 2 producing nodes and one "bridge" node using test_control_api_plugin.
+#   One producing node has 3 of the elected producers and the other has 1 of the elected producers.
+#   All the producers are named in alphabetical order, so that the 3 producers, in the one production node, are
+#       scheduled first, followed by the 1 producer in the other producer node. Each producing node is only connected
+#       to the other producing node via the "bridge" node.
+#   The bridge node has the test_control_api_plugin, which exposes a restful interface that the test script uses to kill
+#       the "bridge" node when /fork endpoint called.
 #
 # --trust-evm-contract-root should point to root of TrustEVM contract build dir
 # --genesis-json file to save generated EVM genesis json
 # --read-endpoint trustnode-rpc endpoint (read endpoint)
 #
 # Example:
-#  ./tests/nodeos_trust_evm_no_txs.py --trust-evm-contract-root ~/ext/TrustEVM/contract/build --leave-running
+#  ./tests/nodeos_trust_fork_server.py --trust-evm-contract-root ~/ext/TrustEVM/contract/build --leave-running
 #
 #  Launches wallet at port: 9899
 #    Example: bin/cleos --wallet-url http://127.0.0.1:9899 ...
+#
+#  Sets up endpoint on port 5000
+#    /            - for req['method'] == "eth_sendRawTransaction"
+#    /fork        - create forked chain, does not return until a fork has started
+#    /restore     - resolve fork and stabilize chain
 #
 # Dependencies:
 #    pip install eth-hash requests flask flask-cors
@@ -57,6 +71,12 @@ readEndpoint=args.read_endpoint
 
 assert trustEvmContractRoot is not None, "--trust-evm-contract-root is required"
 
+totalProducerNodes=2
+totalNonProducerNodes=1
+totalNodes=totalProducerNodes+totalNonProducerNodes
+maxActiveProducers=21
+totalProducers=maxActiveProducers
+
 seed=1
 Utils.Debug=debug
 testSuccessful=False
@@ -65,30 +85,37 @@ random.seed(seed) # Use a fixed seed for repeatability.
 cluster=Cluster(walletd=True)
 walletMgr=WalletMgr(True)
 
-pnodes=1
-total_nodes=pnodes + 2
 
 try:
     TestHelper.printSystemInfo("BEGIN")
 
     cluster.setWalletMgr(walletMgr)
-
     cluster.killall(allInstances=killAll)
     cluster.cleanup()
     walletMgr.killall(allInstances=killAll)
     walletMgr.cleanup()
 
-    specificExtraNodeosArgs={}
-    shipNodeNum = total_nodes - 1
-    specificExtraNodeosArgs[shipNodeNum]="--plugin eosio::state_history_plugin --state-history-endpoint 127.0.0.1:8999 --trace-history --chain-state-history --disable-replay-opts  "
+    # ***   setup topogrophy   ***
 
-    extraNodeosArgs=""
-    if not Utils.Debug: # added by launch when debug set
-        extraNodeosArgs="--contracts-console"
+    # "bridge" shape connects defprocera through defproducerc (3 in node0) to each other and defproduceru (1 in node01)
+    # and the only connection between those 2 groups is through the bridge node
+
+    specificExtraNodeosArgs={}
+    # Connect SHiP to node01 so it will switch forks as they are resolved
+    specificExtraNodeosArgs[1]="--plugin eosio::state_history_plugin --state-history-endpoint 127.0.0.1:8999 --trace-history --chain-state-history --disable-replay-opts  "
+    # producer nodes will be mapped to 0 through totalProducerNodes-1, so the number totalProducerNodes will be the non-producing node
+    specificExtraNodeosArgs[totalProducerNodes]="--plugin eosio::test_control_api_plugin  "
+    extraNodeosArgs="--contracts-console"
 
     Print("Stand up cluster")
-    if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, extraNodeosArgs=extraNodeosArgs, specificExtraNodeosArgs=specificExtraNodeosArgs) is False:
-        errorExit("Failed to stand up eos cluster.")
+    if cluster.launch(topo="bridge", pnodes=totalProducerNodes,
+                      totalNodes=totalNodes, totalProducers=totalProducers,
+                      useBiosBootFile=False, extraNodeosArgs=extraNodeosArgs, specificExtraNodeosArgs=specificExtraNodeosArgs) is False:
+        Utils.cmdError("launcher")
+        Utils.errorExit("Failed to stand up eos cluster.")
+
+    Print("Validating system accounts after bootstrap")
+    cluster.validateAccounts(None)
 
     Print ("Wait for Cluster stabilization")
     # wait for cluster to start producing blocks
@@ -97,9 +124,11 @@ try:
     Print ("Cluster stabilized")
 
     prodNode = cluster.getNode(0)
-    nonProdNode = cluster.getNode(1)
+    prodNode0 = prodNode
+    prodNode1 = cluster.getNode(1)
+    nonProdNode = cluster.getNode(2)
 
-    accounts=cluster.createAccountKeys(1)
+    accounts=cluster.createAccountKeys(6)
     if accounts is None:
         Utils.errorExit("FAILURE - create keys")
 
@@ -107,11 +136,29 @@ try:
     evmAcc.name = "evmevmevmevm"
     evmAcc.activePrivateKey="5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3"
     evmAcc.activePublicKey="EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
+    accounts[1].name="tester111111" # needed for voting
+    accounts[2].name="tester222222" # needed for voting
+    accounts[3].name="tester333333" # needed for voting
+    accounts[4].name="tester444444" # needed for voting
+    accounts[5].name="tester555555" # needed for voting
 
     testWalletName="test"
 
     Print("Creating wallet \"%s\"." % (testWalletName))
-    testWallet=walletMgr.create(testWalletName, [cluster.eosioAccount,accounts[0]])
+    testWallet=walletMgr.create(testWalletName, [cluster.eosioAccount,accounts[0],accounts[1],accounts[2],accounts[3],accounts[4],accounts[5]])
+
+    for _, account in cluster.defProducerAccounts.items():
+        walletMgr.importKey(account, testWallet, ignoreDupKeyWarning=True)
+
+    for i in range(0, totalNodes):
+        node=cluster.getNode(i)
+        node.producers=Cluster.parseProducers(i)
+        numProducers=len(node.producers)
+        for prod in node.producers:
+            prodName = cluster.defProducerAccounts[prod].name
+            if prodName == "defproducera" or prodName == "defproducerb" or prodName == "defproducerc" or prodName == "defproduceru":
+                Print("Register producer %s" % cluster.defProducerAccounts[prod].name)
+                trans=node.regproducer(cluster.defProducerAccounts[prod], "http::/mysite.com", 0, waitForTransBlock=False, exitOnError=True)
 
     # create accounts via eosio as otherwise a bid is needed
     for account in accounts:
@@ -120,7 +167,28 @@ try:
         transferAmount="100000000.0000 {0}".format(CORE_SYMBOL)
         Print("Transfer funds %s from account %s to %s" % (transferAmount, cluster.eosioAccount.name, account.name))
         nonProdNode.transferFunds(cluster.eosioAccount, account, transferAmount, "test transfer", waitForTransBlock=True)
-        trans=nonProdNode.delegatebw(account, 20000000.0000, 20000000.0000, waitForTransBlock=True, exitOnError=True)
+        trans=nonProdNode.delegatebw(account, 20000000.0000, 20000000.0000, waitForTransBlock=False, exitOnError=True)
+
+    # ***   vote using accounts   ***
+
+    cluster.waitOnClusterSync(blockAdvancing=3)
+
+    # vote a,b,c  u
+    voteProducers=[]
+    voteProducers.append("defproducera")
+    voteProducers.append("defproducerb")
+    voteProducers.append("defproducerc")
+    voteProducers.append("defproduceru")
+    for account in accounts:
+        Print("Account %s vote for producers=%s" % (account.name, voteProducers))
+        trans=prodNode.vote(account, voteProducers, exitOnError=True, waitForTransBlock=False)
+
+    #verify nodes are in sync and advancing
+    cluster.waitOnClusterSync(blockAdvancing=3)
+    Print("Shutdown unneeded bios node")
+    cluster.biosNode.kill(signal.SIGTERM)
+
+    # setup evm
 
     contractDir=trustEvmContractRoot + "/evm_runtime"
     wasmFile="evm_runtime.wasm"
@@ -207,6 +275,40 @@ try:
 
     app = Flask(__name__)
     CORS(app)
+
+    @app.route("/fork", methods=["POST"])
+    def fork():
+        Print("Sending command to kill bridge node to separate the 2 producer groups.")
+        forkAtProducer="defproducera"
+        prodNode1Prod="defproduceru"
+        preKillBlockNum=nonProdNode.getBlockNum()
+        preKillBlockProducer=nonProdNode.getBlockProducerByNum(preKillBlockNum)
+        nonProdNode.killNodeOnProducer(producer=forkAtProducer, whereInSequence=1)
+        Print("Current block producer %s fork will be at producer %s" % (preKillBlockProducer, forkAtProducer))
+        prodNode0.waitForProducer(forkAtProducer)
+        prodNode1.waitForProducer(prodNode1Prod)
+        if nonProdNode.verifyAlive(): # if on defproducera, need to wait again
+            prodNode0.waitForProducer(forkAtProducer)
+            prodNode1.waitForProducer(prodNode1Prod)
+
+        if nonProdNode.verifyAlive():
+            Print("Bridge did not shutdown")
+            return "Bridge did not shutdown"
+
+        Print("Fork started")
+        return "Fork started"
+
+    @app.route("/restore", methods=["POST"])
+    def restore():
+        Print("Relaunching the non-producing bridge node to connect the producing nodes again")
+
+        if nonProdNode.verifyAlive():
+            return "bridge is already running"
+
+        if not nonProdNode.relaunch():
+            Utils.errorExit("Failure - (non-production) node %d should have restarted" % (nonProdNode.nodeNum))
+
+        return "restored fork should resolve"
 
     @app.route("/", methods=["POST"])
     def default():
