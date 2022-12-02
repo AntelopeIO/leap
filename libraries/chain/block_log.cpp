@@ -90,6 +90,7 @@ namespace eosio { namespace chain {
 
       template <typename Stream>
       void write_exclude_version(Stream& ds) const {
+         // write the rest of header without the leading version field
          if (version() != initial_version) {
             ds.write(reinterpret_cast<const char*>(&first_block_num), sizeof(first_block_num));
 
@@ -477,6 +478,7 @@ namespace eosio { namespace chain {
 
       uint32_t block_log_impl::default_initial_version = block_log::max_supported_version;
 
+      /// Would remove pre-existing block log and index, never write blocks into disk.
       struct empty_block_log : block_log_impl {
          explicit empty_block_log(bfs::path log_dir) {
             fc::remove(log_dir / "blocks.log");
@@ -641,6 +643,8 @@ namespace eosio { namespace chain {
 
                block_log_data log_data(block_file.get_file_path());
                preamble = log_data.get_preamble();
+               // genesis state is not going to be useful afterwards, just convert it to chain id to save space
+               preamble.chain_context = preamble.chain_id();
 
                genesis_written_to_block_log = true; // Assume it was constructed properly.
 
@@ -712,6 +716,9 @@ namespace eosio { namespace chain {
             preamble.chain_context   = std::move(chain_context);
             preamble.write_to(block_file);
             block_file.flush();
+
+            // genesis state is not going to be useful afterwards, just convert it to chain id to save space
+            preamble.chain_context = preamble.chain_id();
 
             genesis_written_to_block_log = true;
             static_assert(block_log::max_supported_version > 0, "a version number of zero is not supported");
@@ -1449,10 +1456,6 @@ namespace eosio { namespace chain {
          log_bundle.log_data.light_validate_block_entry_at(*pos_itr, expected_block_num);
       }
    }
-
-   // bool block_log::exists(const fc::path& data_dir, bool check_index) {
-   //    return fc::exists(data_dir / "blocks.log") && (!check_index || fc::exists(data_dir / "blocks.index"));
-   // }
 
    std::pair<fc::path, fc::path> blocklog_files(const fc::path& dir, uint32_t start_block_num, uint32_t num_blocks) {
       const int bufsize = 64;

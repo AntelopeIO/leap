@@ -643,7 +643,7 @@ BOOST_DATA_TEST_CASE(empty_prune_to_partitioned_transitions, bdata::xrange(2) * 
    for (int i = 0; i < 10; ++i )
       t.add(next_block_num + i, payload_size(), 'A');
 
-   uint32_t last_block_num = starting_block + 10;
+   uint32_t last_block_num = next_block_num + 10 - 1;
    uint32_t expected_smallest_block_num = ((last_block_num - stride)/stride)*stride + 1;
    t.check_range_present(expected_smallest_block_num, last_block_num);
    t.check_not_present(expected_smallest_block_num-1);

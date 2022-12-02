@@ -238,10 +238,10 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
           "the maximum number of blocks files to retain so that the blocks in those files can be queried.\n"
           "When the number is reached, the oldest block file would be moved to archive dir or deleted if the archive dir is empty.\n"
           "The retained block log files should not be manipulated by users." )
-         ("blocks-retained-dir", bpo::value<bfs::path>()->default_value(""),
+         ("blocks-retained-dir", bpo::value<bfs::path>(),
           "the location of the blocks retained directory (absolute path or relative to blocks dir).\n"
           "If the value is empty, it is set to the value of blocks dir.")
-         ("blocks-archive-dir",
+         ("blocks-archive-dir", bpo::value<bfs::path>(),
           "the location of the blocks archive directory (absolute path or relative to blocks dir).\n"
           "If the value is empty, blocks files beyond the retained limit will be deleted.\n"
           "All files in the archive directory are completely under user's control, i.e. they won't be accessed by nodeos anymore.")
