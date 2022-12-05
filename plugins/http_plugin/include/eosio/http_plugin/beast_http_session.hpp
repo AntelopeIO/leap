@@ -64,7 +64,7 @@ bool allow_host(const http::request<http::string_body>& req, T& session,
 #endif
    auto local_endpoint = lowest_layer.local_endpoint();
    auto local_socket_host_port = local_endpoint.address().to_string() + ":" + std::to_string(local_endpoint.port());
-   const auto& host_str = req["Host"].to_string();
+   const std::string host_str(req["host"]);
    if(host_str.empty() || !host_is_valid(*plugin_state,
                                          host_str,
                                          local_socket_host_port,

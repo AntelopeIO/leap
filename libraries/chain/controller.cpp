@@ -1500,7 +1500,7 @@ struct controller_impl {
       transaction_trace_ptr trace;
       try {
          auto start = fc::time_point::now();
-         const bool check_auth = !self.skip_auth_check() && !trx->implicit;
+         const bool check_auth = !self.skip_auth_check() && !trx->implicit();
          const fc::microseconds sig_cpu_usage = trx->signature_cpu_usage();
 
          if( !explicit_billed_cpu_time ) {
@@ -1515,7 +1515,7 @@ struct controller_impl {
 
          const signed_transaction& trn = trx->packed_trx()->get_signed_transaction();
          transaction_checktime_timer trx_timer(timer);
-         transaction_context trx_context(self, *trx->packed_trx(), std::move(trx_timer), start, trx->read_only);
+         transaction_context trx_context(self, *trx->packed_trx(), std::move(trx_timer), start, trx->get_trx_type());
          if ((bool)subjective_cpu_leeway && self.is_speculative_block()) {
             trx_context.leeway = *subjective_cpu_leeway;
          }
@@ -1535,7 +1535,7 @@ struct controller_impl {
          };
 
          try {
-            if( trx->implicit ) {
+            if( trx->implicit() ) {
                trx_context.init_for_implicit_trx();
                trx_context.enforce_whiteblacklist = false;
             } else {
@@ -1553,7 +1553,7 @@ struct controller_impl {
                        trx_context.delay,
                        [&trx_context](){ trx_context.checktime(); },
                        false,
-                       trx->read_only
+                       trx->is_dry_run()
                );
             }
             trx_context.exec();
@@ -1561,7 +1561,7 @@ struct controller_impl {
 
             auto restore = make_block_restore_point();
 
-            if (!trx->implicit) {
+            if (!trx->implicit()) {
                transaction_receipt::status_enum s = (trx_context.delay == fc::seconds(0))
                                                     ? transaction_receipt::executed
                                                     : transaction_receipt::delayed;
@@ -1580,7 +1580,7 @@ struct controller_impl {
                              std::move(trx_context.executed_action_receipt_digests) );
 
             // call the accept signal but only once for this transaction
-            if (!trx->read_only) {
+            if (!trx->is_dry_run()) {
                 if (!trx->accepted) {
                     trx->accepted = true;
                     emit(self.accepted_transaction, trx);
@@ -1591,7 +1591,7 @@ struct controller_impl {
             }
 
 
-            if ( trx->read_only ) {
+            if ( trx->is_dry_run() ) {
                // remove trx from pending block by not canceling 'restore'
                trx_context.undo(); // this will happen automatically in destructor, but make it more explicit
             } else if ( pending->_block_status == controller::block_status::ephemeral ) {
@@ -1606,7 +1606,7 @@ struct controller_impl {
                trx_context.squash();
             }
 
-            if( !trx->read_only ) {
+            if( !trx->is_dry_run() ) {
                pending->_block_report.total_net_usage += trace->net_usage;
                pending->_block_report.total_cpu_usage_us += trace->receipt->cpu_usage_us;
                pending->_block_report.total_elapsed_time += trace->elapsed;
@@ -1629,7 +1629,7 @@ struct controller_impl {
            handle_exception(wrapper);
          }
 
-         if (!trx->read_only) {
+         if (!trx->is_dry_run()) {
             emit(self.accepted_transaction, trx);
             dmlog_applied_transaction(trace);
             emit(self.applied_transaction, std::tie(trace, trx->packed_trx()));
@@ -2890,7 +2890,7 @@ transaction_trace_ptr controller::push_transaction( const transaction_metadata_p
                                                     int64_t subjective_cpu_bill_us ) {
    validate_db_available_size();
    EOS_ASSERT( get_read_mode() != db_read_mode::IRREVERSIBLE, transaction_type_exception, "push transaction not allowed in irreversible mode" );
-   EOS_ASSERT( trx && !trx->implicit && !trx->scheduled, transaction_type_exception, "Implicit/Scheduled transaction not allowed" );
+   EOS_ASSERT( trx && !trx->implicit() && !trx->scheduled(), transaction_type_exception, "Implicit/Scheduled transaction not allowed" );
    return my->push_transaction(trx, block_deadline, max_transaction_time, billed_cpu_time_us, explicit_billed_cpu_time, subjective_cpu_bill_us );
 }
 

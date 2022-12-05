@@ -135,6 +135,7 @@ sudo apt-get install -y \
         curl \
         git \
         libboost-all-dev \
+        libcurl4-openssl-dev \
         libgmp-dev \
         libssl-dev \
         llvm-11-dev
@@ -159,6 +160,7 @@ sudo apt-get install -y \
         curl \
         g++-8 \
         git \
+        libcurl4-openssl-dev \
         libgmp-dev \
         libssl-dev \
         llvm-7-dev \
