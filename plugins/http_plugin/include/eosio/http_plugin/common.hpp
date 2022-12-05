@@ -50,6 +50,8 @@ namespace ssl = boost::asio::ssl;
 using boost::asio::ip::tcp;// from <boost/asio/ip/tcp.hpp>
 
 
+template<typename T> struct in_flight; // forward declaration
+    
 namespace detail {
 /**
 * virtualized wrapper for the various underlying connection functions needed in req/resp processng
@@ -60,7 +62,7 @@ struct abstract_conn {
    virtual bool verify_max_requests_in_flight() = 0;
    virtual void handle_exception() = 0;
 
-   virtual void send_response(std::string json_body, unsigned int code) = 0;
+   virtual void send_response(std::shared_ptr<in_flight<std::string>> json_body, unsigned int code) = 0;
 };
 
 using abstract_conn_ptr = std::shared_ptr<abstract_conn>;
@@ -153,7 +155,7 @@ struct http_plugin_state {
 template<typename T>
 struct in_flight {
    in_flight(T&& object, std::shared_ptr<http_plugin_state> plugin_state)
-       : _object(std::move(object)), _plugin_state(std::move(plugin_state)) {
+      : _object(std::forward<T>(object)), _plugin_state(std::move(plugin_state)) {
       _count = detail::in_flight_sizeof(_object);
       _plugin_state->bytes_in_flight += _count;
    }
@@ -233,9 +235,9 @@ auto make_http_response_handler(std::shared_ptr<http_plugin_state> plugin_state,
                               if(tracked_response->obj().has_value()) {
                                  std::string json = fc::json::to_string(*tracked_response->obj(), deadline + (fc::time_point::now() - start));
                                  auto tracked_json = make_in_flight(std::move(json), plugin_state);
-                                 session_ptr->send_response(std::move(tracked_json->obj()), code);
+                                 session_ptr->send_response(std::move(tracked_json), code);
                               } else {
-                                 session_ptr->send_response("{}", code);
+                                 session_ptr->send_response(make_in_flight(std::string("{}"), plugin_state), code);
                               }
                            } catch(...) {
                               session_ptr->handle_exception();

@@ -75,7 +75,7 @@ bool allow_host(const http::request<http::string_body>& req, T& session,
    return true;
 }
 
-// Handle HTTP conneciton using boost::beast for TCP communication
+// Handle HTTP connection using boost::beast for TCP communication
 // Subclasses of this class (plain_session, ssl_session, etc.)
 // use the Curiously Recurring Template Pattern so that
 // the same code works with both SSL streams, regular TCP sockets and UNIX sockets
@@ -112,8 +112,8 @@ protected:
       // Request path must be absolute and not contain "..".
       if(req.target().empty() || req.target()[0] != '/' || req.target().find("..") != beast::string_view::npos) {
          error_results results{static_cast<uint16_t>(http::status::bad_request), "Illegal request-target"};
-         send_response( fc::json::to_string( results, fc::time_point::maximum() ),
-                        static_cast<unsigned int>(http::status::bad_request) );
+         auto tracked_json = make_in_flight(fc::json::to_string(results, fc::time_point::maximum()), plugin_state_);
+         send_response(std::move(tracked_json), static_cast<unsigned int>(http::status::bad_request) );
          return;
       }
 
@@ -136,7 +136,7 @@ protected:
 
          // Respond to options request
          if(req.method() == http::verb::options) {
-            send_response("{}", static_cast<unsigned int>(http::status::ok));
+            send_response(make_in_flight(std::string("{}"), plugin_state_), static_cast<unsigned int>(http::status::ok));
             return;
          }
 
@@ -159,8 +159,8 @@ protected:
             error_results results{static_cast<uint16_t>(http::status::not_found), "Not Found",
                                   error_results::error_info( fc::exception( FC_LOG_MESSAGE( error, "Unknown Endpoint" ) ),
                                                              http_plugin::verbose_errors() )};
-            send_response( fc::json::to_string( results, fc::time_point::maximum() ),
-                           static_cast<unsigned int>(http::status::not_found) );
+            auto tracked_json = make_in_flight(fc::json::to_string( results, fc::time_point::maximum(), plugin_state_);
+            send_response(std::move(tracked_json), static_cast<unsigned int>(http::status::not_found) );
          }
       } catch(...) {
          handle_exception();
@@ -177,7 +177,8 @@ public:
          ei.name = "Busy";
          ei.what = "Too many bytes in flight: " + std::to_string( bytes_in_flight_size );
          error_results results{static_cast<uint16_t>(http::status::too_many_requests), "Busy", ei};
-         send_response( fc::json::to_string( results, fc::time_point::maximum() ), static_cast<unsigned int>(http::status::too_many_requests) );
+         auto tracked_json = make_in_flight(fc::json::to_string(results, fc::time_point::maximum()), plugin_state_);
+         send_response(std::move(tracked_json), static_cast<unsigned int>(http::status::too_many_requests) );
          return false;
       }
       return true;
@@ -195,7 +196,8 @@ public:
          ei.name = "Busy";
          ei.what = "Too many requests in flight: " + std::to_string( requests_in_flight_num );
          error_results results{static_cast<uint16_t>(http::status::too_many_requests), "Busy", ei};
-         send_response( fc::json::to_string( results, fc::time_point::maximum() ), static_cast<unsigned int>(http::status::too_many_requests) );
+         auto tracked_json = make_in_flight(fc::json::to_string(results, fc::time_point::maximum()), plugin_state_);
+         send_response(std::move(tracked_json), static_cast<unsigned int>(http::status::too_many_requests) );
          return false;
       }
       return true;
@@ -352,19 +354,19 @@ public:
          res_->set(http::field::content_type, "application/json");
          res_->keep_alive(false);
          res_->set(http::field::server, BOOST_BEAST_VERSION_STRING);
-
-         send_response(std::move(err_str), static_cast<unsigned int>(http::status::internal_server_error));
+         
+         send_response(make_in_flight(std::move(err_str), plugin_state_), static_cast<unsigned int>(http::status::internal_server_error));
          derived().do_eof();
       }
    }
 
-   virtual void send_response(std::string json_body, unsigned int code) override {
+   virtual void send_response(std::shared_ptr<in_flight<std::string>> json_body, unsigned int code) final {
       write_begin_ = steady_clock::now();
       auto dt = write_begin_ - handle_begin_;
       handle_time_us_ += std::chrono::duration_cast<std::chrono::microseconds>(dt).count();
 
       res_->result(code);
-      res_->body() = std::move(json_body);
+      res_->body() = std::move(json_body->obj());
 
       res_->prepare_payload();
 
@@ -376,7 +378,7 @@ public:
       http::async_write(
             derived().stream(),
             *res_,
-            [self, close](beast::error_code ec, std::size_t bytes_transferred) {
+            [self, close, json_body = std::move(json_body)](beast::error_code ec, std::size_t bytes_transferred) {
                self->on_write(ec, bytes_transferred, close);
             });
    }
