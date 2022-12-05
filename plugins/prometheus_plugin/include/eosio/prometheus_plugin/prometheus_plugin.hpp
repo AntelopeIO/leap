@@ -22,7 +22,7 @@ namespace eosio {
       void plugin_startup();
       void plugin_shutdown();
 
-      std::string scrape();
+      std::string metrics();
 
    private:
       std::unique_ptr<struct prometheus_plugin_impl> my;
