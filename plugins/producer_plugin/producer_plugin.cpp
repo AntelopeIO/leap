@@ -508,8 +508,10 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                     ("elapsed", br.total_elapsed_time)("time", br.total_time)
                     ("latency", (now - hbs->block->timestamp).count()/1000 ) );
             }
+
          }
 
+         _metrics->last_irreversible.value = hbs->dpos_irreversible_blocknum;
          return true;
       }
 
@@ -2065,6 +2067,9 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
       if( next ) next( trace );
    }
 
+   _metrics->subjective_bill_account_size.value = _subjective_billing.get_account_cache_size();
+   _metrics->subjective_bill_block_size.value = _subjective_billing.get_block_cache_size();
+
    return pr;
 }
 
@@ -2244,6 +2249,9 @@ void producer_plugin_impl::process_scheduled_and_incoming_trxs( const fc::time_p
                "Processed ${m} of ${n} scheduled transactions, Applied ${applied}, Failed/Dropped ${failed}",
                ( "m", num_processed )( "n", scheduled_trxs_size )( "applied", num_applied )( "failed", num_failed ) );
    }
+
+
+   _metrics->scheduled_trxs.value = sch_idx.size();
 }
 
 bool producer_plugin_impl::process_incoming_trxs( const fc::time_point& deadline, unapplied_transaction_queue::iterator& itr )

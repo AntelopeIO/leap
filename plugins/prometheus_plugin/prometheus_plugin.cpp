@@ -120,12 +120,15 @@ namespace eosio {
          }
 
          void add_plugin_metrics(std::shared_ptr<producer_plugin_metrics> metrics) {
-            add_plugin_metric(metrics->block_num);
+            add_plugin_metric(metrics->unapplied_transactions);
             add_plugin_metric(metrics->blacklisted_transactions);
             add_plugin_metric(metrics->blocks_produced);
-            add_plugin_metric(metrics->last_irreversible);
             add_plugin_metric(metrics->trxs_produced);
-            add_plugin_metric(metrics->unapplied_transactions);
+            add_plugin_metric(metrics->last_irreversible);
+            add_plugin_metric(metrics->block_num);
+            add_plugin_metric(metrics->subjective_bill_account_size);
+            add_plugin_metric(metrics->subjective_bill_block_size);
+            add_plugin_metric(metrics->scheduled_trxs);
          }
 
          void update_plugin_metrics() {
