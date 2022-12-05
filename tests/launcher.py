@@ -7,12 +7,16 @@ import json
 from pathlib import Path
 import os
 import math
+import shlex
 import string
+import subprocess
 import sys
 from typing import ClassVar, Dict, List
 
 from TestHarness import Cluster
 from TestHarness import Utils
+
+from libc import unshare, CLONE_NEWNET
 
 block_dir = 'blocks'
 
@@ -23,6 +27,7 @@ class KeyStrings(object):
 
 @dataclass
 class nodeDefinition:
+    index: int
     name: str
     node_cfg_name: InitVar[str]
     base_dir: InitVar[str]
@@ -53,7 +58,7 @@ class nodeDefinition:
 
     def __post_init__(self, node_cfg_name, base_dir, cfg_name, data_name):
         self.config_dir_name = Path(base_dir) / cfg_name / node_cfg_name
-        self.data_dir_name = os.path.join(base_dir, data_name, node_cfg_name)
+        self.data_dir_name = Path(base_dir) / data_name / node_cfg_name
         if self.p2p_port_generator is None:
             type(self).p2p_port_generator = self.create_p2p_port_generator()
         if self.http_port_generator is None:
@@ -127,6 +132,8 @@ class launcher(object):
         self.aliases: List[str] = []
         self.next_node = 0
 
+        self.launch_time = datetime.datetime.now().strftime('%Y_%m_%d_%H_%M_%S')
+
         self.define_network()
         self.generate()
 
@@ -185,7 +192,7 @@ class launcher(object):
         cfg.add_argument('--max-block-cpu-usage', type=int, help='the "max-block-cpu-usage" value to use in the genesis.json file', default=200000)
         cfg.add_argument('--max-transaction-cpu-usage', type=int, help='the "max-transaction-cpu-usage" value to use in the genesis.json file', default=150000)
         r = parser.parse_args(args)
-        if r.shape not in ['star', 'mesh', 'ring', 'line'] and not pathlib.Path(r.shape).is_file():
+        if r.shape not in ['star', 'mesh', 'ring', 'line'] and not Path(r.shape).is_file():
             parser.error('-s, --shape must be one of "star", "mesh", "ring", "line", or a file')
         if len(r.specific_nums) != len(getattr(r, f'specific_{Utils.EosServerName}es')):
             parser.error(f'Count of uses of --specific-num and --specific-{Utils.EosServerName} must match')
@@ -198,17 +205,18 @@ class launcher(object):
 
     def assign_name(self, is_bios):
         if is_bios:
-            return 'bios', 'node_bios'
+            return -1, 'bios', 'node_bios'
         else:
-            index = str(self.next_node)
+            index = self.next_node
+            indexStr = str(self.next_node)
             self.next_node += 1
-            return self.network.name + index.zfill(2), f'node_{index.zfill(2)}'
+            return index, self.network.name + indexStr.zfill(2), f'node_{indexStr.zfill(2)}'
 
     def define_network(self):
         if self.args.per_host == 0:
             for i in range(self.args.total_nodes):
-                node_name, cfg_name = self.assign_name(i == 0)
-                node = nodeDefinition(node_name, cfg_name, self.args.base_dir, self.args.config_dir, self.args.data_dir)
+                index, node_name, cfg_name = self.assign_name(i == 0)
+                node = nodeDefinition(index, node_name, cfg_name, self.args.base_dir, self.args.config_dir, self.args.data_dir)
                 node.set_host(i == 0)
                 self.aliases.append(node.name)
                 self.network.nodes[node.name] = node
@@ -219,8 +227,8 @@ class launcher(object):
             num_nonprod_addr = 1
             for i in range(self.args.total_nodes, 0, -1):
                 do_bios = False
-                node_name, cfg_name = self.assign_name(i == 0)
-                lhost = nodeDefinition(node_name, cfg_name, self.args.base_dir, self.args.config_dir, self.args.data_dir)
+                index, node_name, cfg_name = self.assign_name(i == 0)
+                lhost = nodeDefinition(index, node_name, cfg_name, self.args.base_dir, self.args.config_dir, self.args.data_dir)
                 lhost.set_host(i == 0)
                 if ph_count == 0:
                     if host_ndx < num_prod_addr:
@@ -295,6 +303,7 @@ class launcher(object):
                 self.write_config_file(node)
                 self.write_logging_config_file(node)
                 self.write_genesis_file(node, genesis)
+                node.data_dir_name.mkdir(parents=True, exist_ok=True)
         
         self.write_dot_file()
 
@@ -479,6 +488,58 @@ plugin = eosio::chain_api_plugin
 
     def make_custom(self):
         print('making custom')
+
+    def launch(self, instance: nodeDefinition):
+        dd = Path(instance.data_dir_name)
+        out = dd / 'stdout.txt'
+        err_sl = dd / 'stderr.txt'
+        err = dd / Path(f'stderr.{self.launch_time}.txt')
+        pidf = dd / Path(f'{Utils.EosServerName}.pid')
+
+        eosdcmd = [Utils.EosServerPath]
+        if self.args.skip_signature:
+            eosdcmd.append('--skip-transaction-signatures')
+        if getattr(self.args, Utils.EosServerName):
+            eosdcmd.extend(shlex.split(getattr(self.args, Utils.EosServerName)))
+        if instance.index in self.args.specific_nums:
+            i = self.args.specific_nums.index(instance.index)
+            eosdcmd.extend(shlex.split(getattr(self.args, f'specific_{Utils.EosServerName}es')[i]))
+        eosdcmd.append('--config-dir')
+        eosdcmd.append(str(instance.config_dir_name))
+        eosdcmd.append('--data-dir')
+        eosdcmd.append(str(instance.data_dir_name))
+        eosdcmd.append('--genesis-json')
+        eosdcmd.append(f'{instance.config_dir_name}/genesis.json')
+        if self.args.timestamp:
+            eosdcmd.append('--genesis-timestamp')
+            eosdcmd.append(self.args.timestamp)
+
+        if 'eosio::history_api_plugin' in eosdcmd and 'eosio::trace_api_plugin' in eosdcmd:
+            eosdcmd.remove('--trace-no-abis')
+            eosdcmd.remove('--trace-rpc-abi')
+            i = eosdcmd.index('eosio::trace_api_plugin')
+            eosdcmd.pop(i)
+            i -= 1
+            eosdcmd.pop(i)
+
+        if not instance.dont_start:
+            Utils.Print(f'spawning child: {" ".join(eosdcmd)}')
+
+            stdout = open(out, 'w')
+            stderr = open(err, 'w')
+            c = subprocess.Popen(eosdcmd, stdout=stdout, stderr=stderr)
+            with pidf.open('w') as pidout:
+                pidout.write(str(c.pid))
+            try:
+                err_sl.unlink()
+            except FileNotFoundError:
+                pass
+            err_sl.symlink_to(err.name)
+
+    def start_all(self):
+        unshare(CLONE_NEWNET)
+        for instance in self.network.nodes.values():
+            self.launch(instance)
     
     def write_dot_file(self):
         with open('testnet.dot', 'w') as f:
@@ -491,3 +552,4 @@ plugin = eosio::chain_api_plugin
 
 if __name__ == '__main__':
     l = launcher(sys.argv[1:])
+    l.start_all()
