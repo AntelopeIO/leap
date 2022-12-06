@@ -60,7 +60,7 @@ struct augmented_transaction_trace {
        , partial{std::make_shared<partial_transaction>(t)} {}
 
    augmented_transaction_trace& operator=(const augmented_transaction_trace&) = default;
-   augmented_transaction_trace& operator=(augmented_transaction_trace&&) = default;
+   augmented_transaction_trace& operator=(augmented_transaction_trace&&)      = default;
 };
 
 struct table_delta {

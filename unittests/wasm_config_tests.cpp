@@ -26,33 +26,44 @@ namespace data = boost::unit_test::data;
 #endif
 
 namespace {
-struct wasm_config_tester : TESTER {
-   wasm_config_tester() {
+struct wasm_config_tester : TESTER
+{
+   wasm_config_tester()
+   {
       set_abi(config::system_account_name, contracts::wasm_config_bios_abi().data());
       set_code(config::system_account_name, contracts::wasm_config_bios_wasm());
       bios_abi_ser = *get_resolver()(config::system_account_name);
    }
-   void set_wasm_params(const wasm_config& params) {
+   void set_wasm_params(const wasm_config& params)
+   {
       signed_transaction trx;
-      trx.actions.emplace_back(vector<permission_level>{{"eosio"_n,config::active_name}}, "eosio"_n, "setwparams"_n,
-                               bios_abi_ser.variant_to_binary("setwparams", fc::mutable_variant_object()("cfg", params),
-                                                              abi_serializer::create_yield_function( abi_serializer_max_time )));
-      trx.actions[0].authorization = vector<permission_level>{{"eosio"_n,config::active_name}};
+      trx.actions.emplace_back(
+         vector<permission_level>{
+            {"eosio"_n, config::active_name}
+      },
+         "eosio"_n,
+         "setwparams"_n,
+         bios_abi_ser.variant_to_binary("setwparams",
+                                        fc::mutable_variant_object()("cfg", params),
+                                        abi_serializer::create_yield_function(abi_serializer_max_time)));
+      trx.actions[0].authorization = vector<permission_level>{
+         {"eosio"_n, config::active_name}
+      };
       set_transaction_headers(trx);
       trx.sign(get_private_key("eosio"_n, "active"), control->get_chain_id());
       push_transaction(trx);
    }
    // Pushes an empty action
-   void push_action(account_name account) {
-       signed_transaction trx;
-       trx.actions.push_back({{{account,config::active_name}}, account, name(), {}});
-       set_transaction_headers(trx);
-       trx.sign(get_private_key( account, "active" ), control->get_chain_id());
-       push_transaction(trx);
+   void push_action(account_name account)
+   {
+      signed_transaction trx;
+      trx.actions.push_back({ { { account, config::active_name } }, account, name(), {} });
+      set_transaction_headers(trx);
+      trx.sign(get_private_key(account, "active"), control->get_chain_id());
+      push_transaction(trx);
    }
    chain::abi_serializer bios_abi_ser;
 };
-
 
 std::string make_locals_wasm(int n_params, int n_locals, int n_stack)
 {
@@ -60,13 +71,13 @@ std::string make_locals_wasm(int n_params, int n_locals, int n_stack)
    ss << "(module ";
    ss << " (func (export \"apply\") (param i64 i64 i64))";
    ss << " (func ";
-   for(int i = 0; i < n_params; i+=8)
+   for (int i = 0; i < n_params; i += 8)
       ss << "(param i64)";
-   for(int i = 0; i < n_locals; i+=8)
+   for (int i = 0; i < n_locals; i += 8)
       ss << "(local i64)";
-   for(int i = 0; i < n_stack; i+=8)
+   for (int i = 0; i < n_stack; i += 8)
       ss << "(i64.const 0)";
-   for(int i = 0; i < n_stack; i+=8)
+   for (int i = 0; i < n_stack; i += 8)
       ss << "(drop)";
    ss << " )";
    ss << ")";
@@ -77,16 +88,25 @@ std::string make_locals_wasm(int n_params, int n_locals, int n_stack)
 
 BOOST_AUTO_TEST_SUITE(wasm_config_tests)
 
-struct old_wasm_tester : tester {
-   old_wasm_tester() : tester{setup_policy::old_wasm_parser} {}
+struct old_wasm_tester : tester
+{
+   old_wasm_tester()
+      : tester{ setup_policy::old_wasm_parser }
+   {
+   }
 };
 
-BOOST_DATA_TEST_CASE_F(wasm_config_tester, max_mutable_global_bytes, data::make({ 4096, 8192 , 16384 }) * data::make({0, 1}), n_globals, oversize) {
+BOOST_DATA_TEST_CASE_F(wasm_config_tester,
+                       max_mutable_global_bytes,
+                       data::make({ 4096, 8192, 16384 }) * data::make({ 0, 1 }),
+                       n_globals,
+                       oversize)
+{
    produce_block();
-   create_accounts({"globals"_n});
+   create_accounts({ "globals"_n });
    produce_block();
 
-   auto params = genesis_state::default_initial_wasm_configuration;
+   auto params                     = genesis_state::default_initial_wasm_configuration;
    params.max_mutable_global_bytes = n_globals;
    set_wasm_params(params);
 
@@ -95,17 +115,18 @@ BOOST_DATA_TEST_CASE_F(wasm_config_tester, max_mutable_global_bytes, data::make(
       ss << "(module ";
       ss << " (func $eosio_assert (import \"env\" \"eosio_assert\") (param i32 i32))";
       ss << " (memory 1)";
-      for(int i = 0; i < n_globals + oversize; i += 4)
+      for (int i = 0; i < n_globals + oversize; i += 4)
          ss << "(global (mut i32) (i32.const " << i << "))";
       ss << " (func (export \"apply\") (param i64 i64 i64)";
-      for(int i = 0; i < n_globals + oversize; i += 4)
-         ss << "(call $eosio_assert (i32.eq (get_global " << i/4 << ") (i32.const " << i << ")) (i32.const 0))";
+      for (int i = 0; i < n_globals + oversize; i += 4)
+         ss << "(call $eosio_assert (i32.eq (get_global " << i / 4 << ") (i32.const " << i
+            << ")) (i32.const 0))";
       ss << " )";
       ss << ")";
       return ss.str();
    }();
 
-   if(oversize) {
+   if (oversize) {
       BOOST_CHECK_THROW(set_code("globals"_n, code.c_str()), wasm_exception);
       produce_block();
    } else {
@@ -118,14 +139,13 @@ BOOST_DATA_TEST_CASE_F(wasm_config_tester, max_mutable_global_bytes, data::make(
    }
 }
 
-
 static const char many_funcs_wast[] = R"=====(
 (module
   (export "apply" (func 0))
   ${SECTION}
 )
 )=====";
-static const char one_func[] =  "(func (param i64 i64 i64))";
+static const char one_func[]        = "(func (param i64 i64 i64))";
 
 static const char many_types_wast[] = R"=====(
 (module
@@ -134,7 +154,7 @@ static const char many_types_wast[] = R"=====(
   (func (type 0))
 )
 )=====";
-static const char one_type[] =  "(type (func (param i64 i64 i64)))";
+static const char one_type[]        = "(type (func (param i64 i64 i64)))";
 
 static const char many_imports_wast[] = R"=====(
 (module
@@ -142,7 +162,7 @@ static const char many_imports_wast[] = R"=====(
   (func (export "apply") (param i64 i64 i64))
 )
 )=====";
-static const char one_import[] =  "(func (import \"env\" \"abort\"))";
+static const char one_import[]        = "(func (import \"env\" \"abort\"))";
 
 static const char many_globals_wast[] = R"=====(
 (module
@@ -150,7 +170,7 @@ static const char many_globals_wast[] = R"=====(
   (func (export "apply") (param i64 i64 i64))
 )
 )=====";
-static const char one_global[] =  "(global i32 (i32.const 0))";
+static const char one_global[]        = "(global i32 (i32.const 0))";
 
 static const char many_exports_wast[] = R"=====(
 (module
@@ -158,7 +178,7 @@ static const char many_exports_wast[] = R"=====(
   (func (export "apply") (param i64 i64 i64))
 )
 )=====";
-//static const char one_export[] =  "(export \"fn${N}\" (func 0))";
+// static const char one_export[] =  "(export \"fn${N}\" (func 0))";
 
 static const char many_elem_wast[] = R"=====(
 (module
@@ -167,7 +187,7 @@ static const char many_elem_wast[] = R"=====(
   (func (export "apply") (param i64 i64 i64))
 )
 )=====";
-static const char one_elem[] =  "(elem (i32.const 0))";
+static const char one_elem[]       = "(elem (i32.const 0))";
 
 static const char many_data_wast[] = R"=====(
 (module
@@ -176,28 +196,38 @@ static const char many_data_wast[] = R"=====(
   (func (export "apply") (param i64 i64 i64))
 )
 )=====";
-static const char one_data[] =  "(data (i32.const 0))";
+static const char one_data[]       = "(data (i32.const 0))";
 
-BOOST_DATA_TEST_CASE_F(wasm_config_tester, max_section_elements,
-                       data::make({1024, 8192, 16384}) * data::make({0, 1}) *
-                       (data::make({many_funcs_wast, many_types_wast, many_imports_wast, many_globals_wast, many_elem_wast, many_data_wast}) ^
-                        data::make({one_func       , one_type       , one_import,        one_global       , one_elem      , one_data})),
-                       n_elements, oversize, wast, one_element) {
+BOOST_DATA_TEST_CASE_F(wasm_config_tester,
+                       max_section_elements,
+                       data::make({ 1024, 8192, 16384 }) * data::make({ 0, 1 }) *
+                          (data::make({ many_funcs_wast,
+                                        many_types_wast,
+                                        many_imports_wast,
+                                        many_globals_wast,
+                                        many_elem_wast,
+                                        many_data_wast }) ^
+                           data::make({ one_func, one_type, one_import, one_global, one_elem, one_data })),
+                       n_elements,
+                       oversize,
+                       wast,
+                       one_element)
+{
    produce_blocks(2);
-   create_accounts({"section"_n});
+   create_accounts({ "section"_n });
    produce_block();
 
    std::string buf;
-   for(int i = 0; i < n_elements + oversize; ++i) {
+   for (int i = 0; i < n_elements + oversize; ++i) {
       buf += one_element;
    }
    std::string code = fc::format_string(wast, fc::mutable_variant_object("SECTION", buf));
 
-   auto params = genesis_state::default_initial_wasm_configuration;
+   auto params                 = genesis_state::default_initial_wasm_configuration;
    params.max_section_elements = n_elements;
    set_wasm_params(params);
 
-   if(oversize) {
+   if (oversize) {
       BOOST_CHECK_THROW(set_code("section"_n, code.c_str()), wasm_exception);
    } else {
       set_code("section"_n, code.c_str());
@@ -214,26 +244,29 @@ BOOST_DATA_TEST_CASE_F(wasm_config_tester, max_section_elements,
 
 // export has to be formatted slightly differently because export names
 // must be unique and apply must be one of the exports.
-BOOST_DATA_TEST_CASE_F(wasm_config_tester, max_section_elements_export,
-                       data::make({1024, 8192, 16384}) * data::make({0, 1}),
-                       n_elements, oversize) {
+BOOST_DATA_TEST_CASE_F(wasm_config_tester,
+                       max_section_elements_export,
+                       data::make({ 1024, 8192, 16384 }) * data::make({ 0, 1 }),
+                       n_elements,
+                       oversize)
+{
    produce_blocks(2);
-   create_accounts({"section"_n});
+   create_accounts({ "section"_n });
    produce_block();
 
    std::string buf;
-   for(int i = 0; i < n_elements + oversize - 1; ++i) {
+   for (int i = 0; i < n_elements + oversize - 1; ++i) {
       buf += "(export \"fn$";
       buf += std::to_string(i);
       buf += "\" (func 0))";
    }
    std::string code = fc::format_string(many_exports_wast, fc::mutable_variant_object("SECTION", buf));
 
-   auto params = genesis_state::default_initial_wasm_configuration;
+   auto params                 = genesis_state::default_initial_wasm_configuration;
    params.max_section_elements = n_elements;
    set_wasm_params(params);
 
-   if(oversize) {
+   if (oversize) {
       BOOST_CHECK_THROW(set_code("section"_n, code.c_str()), wasm_exception);
    } else {
       set_code("section"_n, code.c_str());
@@ -259,20 +292,24 @@ static const char max_linear_memory_wast[] = R"=====(
 )
 )=====";
 
-BOOST_DATA_TEST_CASE_F(wasm_config_tester, max_linear_memory_init,
-                       data::make({32768, 65536, 86513, 131072}) * data::make({0, 1}),
-                       n_init, oversize) {
+BOOST_DATA_TEST_CASE_F(wasm_config_tester,
+                       max_linear_memory_init,
+                       data::make({ 32768, 65536, 86513, 131072 }) * data::make({ 0, 1 }),
+                       n_init,
+                       oversize)
+{
    produce_blocks(2);
-   create_accounts({"initdata"_n});
+   create_accounts({ "initdata"_n });
    produce_block();
 
-   std::string code = fc::format_string(max_linear_memory_wast, fc::mutable_variant_object("OFFSET", n_init + oversize - 4));
+   std::string code =
+      fc::format_string(max_linear_memory_wast, fc::mutable_variant_object("OFFSET", n_init + oversize - 4));
 
-   auto params = genesis_state::default_initial_wasm_configuration;
+   auto params                   = genesis_state::default_initial_wasm_configuration;
    params.max_linear_memory_init = n_init;
    set_wasm_params(params);
 
-   if(oversize) {
+   if (oversize) {
       BOOST_CHECK_THROW(set_code("initdata"_n, code.c_str()), wasm_exception);
    } else {
       set_code("initdata"_n, code.c_str());
@@ -288,52 +325,70 @@ BOOST_DATA_TEST_CASE_F(wasm_config_tester, max_linear_memory_init,
 }
 
 static const std::vector<std::tuple<int, int, bool, bool>> func_local_params = {
-   // Default value of max_func_local_bytes
-   {8192, 0, false, true}, {4096, 4096, false, true}, {0, 8192, false, true},
-   {8192 + 1, 0, false, false}, {4096 + 1, 4096, false, false}, {0, 8192 + 1, false, false},
-   // Larger than the default
-   {16384, 0, true, true}, {8192, 8192, true, true}, {0, 16384, true, true},
-   {16384 + 1, 0, true, false}, {8192 + 1, 8192, true, false}, {0, 16384 + 1, true, false}
+  // Default value of max_func_local_bytes
+   {8192,       0,         false, true },
+   { 4096,      4096,      false, true },
+   { 0,         8192,      false, true },
+   { 8192 + 1,  0,         false, false},
+   { 4096 + 1,  4096,      false, false},
+   { 0,         8192 + 1,  false, false},
+ // Larger than the default
+   { 16384,     0,         true,  true },
+   { 8192,      8192,      true,  true },
+   { 0,         16384,     true,  true },
+   { 16384 + 1, 0,         true,  false},
+   { 8192 + 1,  8192,      true,  false},
+   { 0,         16384 + 1, true,  false}
 };
 
-BOOST_DATA_TEST_CASE_F(wasm_config_tester, max_func_local_bytes, data::make({0, 8192, 16384}) * data::make(func_local_params), n_params, n_locals, n_stack, set_high, expect_success) {
+BOOST_DATA_TEST_CASE_F(wasm_config_tester,
+                       max_func_local_bytes,
+                       data::make({ 0, 8192, 16384 }) * data::make(func_local_params),
+                       n_params,
+                       n_locals,
+                       n_stack,
+                       set_high,
+                       expect_success)
+{
    produce_blocks(2);
-   create_accounts({"stackz"_n});
+   create_accounts({ "stackz"_n });
    produce_block();
 
-   auto def_params = genesis_state::default_initial_wasm_configuration;
-   auto high_params = def_params;
+   auto def_params                  = genesis_state::default_initial_wasm_configuration;
+   auto high_params                 = def_params;
    high_params.max_func_local_bytes = 16384;
-   auto low_params = def_params;
-   low_params.max_func_local_bytes = 4096;
+   auto low_params                  = def_params;
+   low_params.max_func_local_bytes  = 4096;
 
-   if(set_high) {
+   if (set_high) {
       set_wasm_params(high_params);
       produce_block();
    }
 
    auto pushit = [&]() {
       action act;
-      act.account = "stackz"_n;
-      act.name = name();
-      act.authorization = vector<permission_level>{{"stackz"_n,config::active_name}};
+      act.account       = "stackz"_n;
+      act.name          = name();
+      act.authorization = vector<permission_level>{
+         {"stackz"_n, config::active_name}
+      };
       signed_transaction trx;
       trx.actions.push_back(act);
 
       set_transaction_headers(trx);
-      trx.sign(get_private_key( "stackz"_n, "active" ), control->get_chain_id());
+      trx.sign(get_private_key("stackz"_n, "active"), control->get_chain_id());
       push_transaction(trx);
    };
 
    std::string code = make_locals_wasm(n_params, n_locals, n_stack);
 
-   if(expect_success) {
+   if (expect_success) {
       set_code("stackz"_n, code.c_str());
       produce_block();
       pushit();
       set_wasm_params(low_params);
       produce_block();
-      pushit(); // Only checked at set_code.
+      pushit();                                // Only checked at set_code.
       set_code("stackz"_n, vector<uint8_t>{}); // clear existing code
       BOOST_CHECK_THROW(set_code("stackz"_n, code.c_str()), wasm_exception);
       produce_block();
@@ -343,9 +398,10 @@ BOOST_DATA_TEST_CASE_F(wasm_config_tester, max_func_local_bytes, data::make({0, 
    }
 }
 
-BOOST_FIXTURE_TEST_CASE(max_func_local_bytes_mixed, wasm_config_tester) {
+BOOST_FIXTURE_TEST_CASE(max_func_local_bytes_mixed, wasm_config_tester)
+{
    produce_blocks(2);
-   create_accounts({"stackz"_n});
+   create_accounts({ "stackz"_n });
    produce_block();
 
    std::string code;
@@ -355,24 +411,24 @@ BOOST_FIXTURE_TEST_CASE(max_func_local_bytes_mixed, wasm_config_tester) {
       ss << " (func (export \"apply\") (param i64 i64 i64))";
       ss << " (func ";
       ss << "   (local i32 i64 i64 f32 f32 f32 f32 f64 f64 f64 f64 f64 f64 f64 f64)";
-      for(int i = 0; i < 16; ++i)
+      for (int i = 0; i < 16; ++i)
          ss << "(i32.const 0)";
-      for(int i = 0; i < 32; ++i)
+      for (int i = 0; i < 32; ++i)
          ss << "(i64.const 0)";
-      for(int i = 0; i < 64; ++i)
+      for (int i = 0; i < 64; ++i)
          ss << "(f32.const 0)";
-      for(int i = 0; i < 128; ++i)
+      for (int i = 0; i < 128; ++i)
          ss << "(f64.const 0)";
       ss << "(drop)(f64.const 0)";
       ss << "(return)";
-      for(int i = 0; i < 8192; ++i)
+      for (int i = 0; i < 8192; ++i)
          ss << "(i64.const 0)";
       ss << "(return)";
       ss << " )";
       ss << ")";
       code = ss.str();
    }
-   auto params = genesis_state::default_initial_wasm_configuration;
+   auto params                 = genesis_state::default_initial_wasm_configuration;
    params.max_func_local_bytes = 4 + 16 + 16 + 64 + 64 + 256 + 256 + 1024;
    set_code("stackz"_n, code.c_str());
    set_code("stackz"_n, std::vector<uint8_t>{});
@@ -383,31 +439,44 @@ BOOST_FIXTURE_TEST_CASE(max_func_local_bytes_mixed, wasm_config_tester) {
 }
 
 static const std::vector<std::tuple<int, int, bool>> old_func_local_params = {
-   {8192, 0, true}, {4096, 4096, true}, {0, 8192, true},
-   {8192 + 1, 0, false}, {4096 + 1, 4096, false}, {0, 8192 + 1, false},
+   {8192,      0,        true },
+   { 4096,     4096,     true },
+   { 0,        8192,     true },
+   { 8192 + 1, 0,        false},
+   { 4096 + 1, 4096,     false},
+   { 0,        8192 + 1, false},
 };
 
-BOOST_DATA_TEST_CASE_F(old_wasm_tester, max_func_local_bytes_old, data::make({0, 8192, 16384}) * data::make(old_func_local_params), n_stack, n_params, n_locals, expect_success) {
+BOOST_DATA_TEST_CASE_F(old_wasm_tester,
+                       max_func_local_bytes_old,
+                       data::make({ 0, 8192, 16384 }) * data::make(old_func_local_params),
+                       n_stack,
+                       n_params,
+                       n_locals,
+                       expect_success)
+{
    produce_blocks(2);
-   create_accounts({"stackz"_n});
+   create_accounts({ "stackz"_n });
    produce_block();
 
    auto pushit = [&]() {
       action act;
-      act.account = "stackz"_n;
-      act.name = name();
-      act.authorization = vector<permission_level>{{"stackz"_n,config::active_name}};
+      act.account       = "stackz"_n;
+      act.name          = name();
+      act.authorization = vector<permission_level>{
+         {"stackz"_n, config::active_name}
+      };
       signed_transaction trx;
       trx.actions.push_back(act);
 
       set_transaction_headers(trx);
-      trx.sign(get_private_key( "stackz"_n, "active" ), control->get_chain_id());
+      trx.sign(get_private_key("stackz"_n, "active"), control->get_chain_id());
       push_transaction(trx);
    };
 
    std::string code = make_locals_wasm(n_params, n_locals, n_stack);
 
-   if(expect_success) {
+   if (expect_success) {
       set_code("stackz"_n, code.c_str());
       produce_block();
       pushit();
@@ -419,9 +488,10 @@ BOOST_DATA_TEST_CASE_F(old_wasm_tester, max_func_local_bytes_old, data::make({0,
 }
 
 // Combines max_call_depth and max_func_local_bytes
-BOOST_FIXTURE_TEST_CASE(max_stack, wasm_config_tester) {
+BOOST_FIXTURE_TEST_CASE(max_stack, wasm_config_tester)
+{
    produce_blocks();
-   create_accounts({"stackz"_n});
+   create_accounts({ "stackz"_n });
    produce_block();
    std::string code;
    {
@@ -429,7 +499,7 @@ BOOST_FIXTURE_TEST_CASE(max_stack, wasm_config_tester) {
       ss << "(module ";
       ss << " (func (export \"apply\") (param i64 i64 i64)";
       // pad to 8192 bytes
-      for(int i = 0; i < 2046; ++i)
+      for (int i = 0; i < 2046; ++i)
          ss << "(local i32)";
       ss << "   (get_local 2)"
          << "   (i32.wrap/i64)"
@@ -438,7 +508,7 @@ BOOST_FIXTURE_TEST_CASE(max_stack, wasm_config_tester) {
       ss << " (func ";
       ss << "   (param i32 i32)";
       // pad to 8192 bytes
-      for(int i = 0; i < 2046; ++i)
+      for (int i = 0; i < 2046; ++i)
          ss << "(local i32)";
       ss << "   (if (get_local 0)"
          << "     (then"
@@ -455,11 +525,12 @@ BOOST_FIXTURE_TEST_CASE(max_stack, wasm_config_tester) {
    produce_block();
 
    auto params = genesis_state::default_initial_wasm_configuration;
-   auto pushit = [&]{
+   auto pushit = [&] {
       signed_transaction trx;
-      trx.actions.push_back({{{"stackz"_n,config::active_name}}, "stackz"_n, name(params.max_call_depth - 2), {}});
+      trx.actions.push_back(
+         { { { "stackz"_n, config::active_name } }, "stackz"_n, name(params.max_call_depth - 2), {} });
       set_transaction_headers(trx);
-      trx.sign(get_private_key( "stackz"_n, "active" ), control->get_chain_id());
+      trx.sign(get_private_key("stackz"_n, "active"), control->get_chain_id());
       push_transaction(trx);
    };
    pushit();
@@ -468,9 +539,10 @@ BOOST_FIXTURE_TEST_CASE(max_stack, wasm_config_tester) {
    pushit();
 }
 
-BOOST_FIXTURE_TEST_CASE(max_stack_old, old_wasm_tester) {
+BOOST_FIXTURE_TEST_CASE(max_stack_old, old_wasm_tester)
+{
    produce_blocks();
-   create_accounts({"stackz"_n});
+   create_accounts({ "stackz"_n });
    produce_block();
    std::string code;
    {
@@ -478,13 +550,13 @@ BOOST_FIXTURE_TEST_CASE(max_stack_old, old_wasm_tester) {
       ss << "(module ";
       ss << " (func (export \"apply\") (param i64 i64 i64)";
       // pad to 8192 bytes
-      for(int i = 0; i < 2042; ++i)
+      for (int i = 0; i < 2042; ++i)
          ss << "(local i32)";
       ss << " (call 1 (i32.const 249)))";
       ss << " (func ";
       ss << "   (param i32)";
       // pad to 8192 bytes
-      for(int i = 0; i < 2047; ++i)
+      for (int i = 0; i < 2047; ++i)
          ss << "(local i32)";
       ss << "   (if (get_local 0) (call 1 (i32.sub (get_local 0) (i32.const 1))))";
       ss << " )";
@@ -494,19 +566,20 @@ BOOST_FIXTURE_TEST_CASE(max_stack_old, old_wasm_tester) {
    set_code("stackz"_n, code.c_str());
    produce_block();
 
-   auto pushit = [&]{
+   auto pushit = [&] {
       signed_transaction trx;
-      trx.actions.push_back({{{"stackz"_n,config::active_name}}, "stackz"_n, name(), {}});
+      trx.actions.push_back({ { { "stackz"_n, config::active_name } }, "stackz"_n, name(), {} });
       set_transaction_headers(trx);
-      trx.sign(get_private_key( "stackz"_n, "active" ), control->get_chain_id());
+      trx.sign(get_private_key("stackz"_n, "active"), control->get_chain_id());
       push_transaction(trx);
    };
    pushit();
 }
 
-BOOST_FIXTURE_TEST_CASE(max_func_local_bytes_mixed_old, old_wasm_tester) {
+BOOST_FIXTURE_TEST_CASE(max_func_local_bytes_mixed_old, old_wasm_tester)
+{
    produce_blocks(2);
-   create_accounts({"stackz"_n});
+   create_accounts({ "stackz"_n });
    produce_block();
 
    std::string code;
@@ -516,16 +589,16 @@ BOOST_FIXTURE_TEST_CASE(max_func_local_bytes_mixed_old, old_wasm_tester) {
       ss << " (func (export \"apply\") (param i64 i64 i64))";
       ss << " (func ";
       ss << "   (param i32 i64 i64 f32 f32 f32 f32 f64 f64 f64 f64 f64 f64 f64 f64)";
-      for(int i = 0; i < 16; ++i)
+      for (int i = 0; i < 16; ++i)
          ss << "(local i32)";
-      for(int i = 0; i < 32; ++i)
+      for (int i = 0; i < 32; ++i)
          ss << "(local i64)";
-      for(int i = 0; i < 64; ++i)
+      for (int i = 0; i < 64; ++i)
          ss << "(local f32)";
-      for(int i = 0; i < 128; ++i)
+      for (int i = 0; i < 128; ++i)
          ss << "(local f64)";
       // pad to 8192 bytes
-      for(int i = 0; i < 1623; ++i)
+      for (int i = 0; i < 1623; ++i)
          ss << "(local i32)";
       ss << " )";
       ss << ")";
@@ -538,25 +611,33 @@ BOOST_FIXTURE_TEST_CASE(max_func_local_bytes_mixed_old, old_wasm_tester) {
    BOOST_CHECK_THROW(set_code("stackz"_n, code.c_str()), wasm_exception);
 }
 
-BOOST_DATA_TEST_CASE_F(wasm_config_tester, max_table_elements, data::make({512, 2048}) * data::make({0, 1}), max_table_elements, oversize) {
+BOOST_DATA_TEST_CASE_F(wasm_config_tester,
+                       max_table_elements,
+                       data::make({ 512, 2048 }) * data::make({ 0, 1 }),
+                       max_table_elements,
+                       oversize)
+{
    produce_block();
-   create_accounts( { "table"_n } );
+   create_accounts({ "table"_n });
    produce_block();
 
-   auto pushit = [&]{
+   auto pushit = [&] {
       signed_transaction trx;
-      trx.actions.push_back({{{"table"_n,config::active_name}}, "table"_n, name(), {}});
+      trx.actions.push_back({ { { "table"_n, config::active_name } }, "table"_n, name(), {} });
       set_transaction_headers(trx);
-      trx.sign(get_private_key( "table"_n, "active" ), control->get_chain_id());
+      trx.sign(get_private_key("table"_n, "active"), control->get_chain_id());
       push_transaction(trx);
    };
 
-   auto params = genesis_state::default_initial_wasm_configuration;
+   auto params               = genesis_state::default_initial_wasm_configuration;
    params.max_table_elements = max_table_elements;
    set_wasm_params(params);
 
-   std::string code = fc::format_string(variable_table, fc::mutable_variant_object()("TABLE_SIZE", max_table_elements + oversize)("TABLE_OFFSET", max_table_elements - 2));
-   if(!oversize) {
+   std::string code =
+      fc::format_string(variable_table,
+                        fc::mutable_variant_object()("TABLE_SIZE", max_table_elements + oversize)(
+                           "TABLE_OFFSET", max_table_elements - 2));
+   if (!oversize) {
       set_code("table"_n, code.c_str());
       pushit();
       produce_block();
@@ -569,31 +650,34 @@ BOOST_DATA_TEST_CASE_F(wasm_config_tester, max_table_elements, data::make({512, 
    }
 }
 
-BOOST_DATA_TEST_CASE_F(wasm_config_tester, max_nested_structures,
-                       data::make({512, 1024, 2048}) * data::make({0, 1}),
-                       n_nesting, oversize) {
+BOOST_DATA_TEST_CASE_F(wasm_config_tester,
+                       max_nested_structures,
+                       data::make({ 512, 1024, 2048 }) * data::make({ 0, 1 }),
+                       n_nesting,
+                       oversize)
+{
    produce_block();
-   create_accounts( { "nested"_n } );
+   create_accounts({ "nested"_n });
    produce_block();
 
-   std::string code = [&]{
+   std::string code = [&] {
       std::ostringstream ss;
       ss << "(module ";
       ss << " (func (export \"apply\") (param i64 i64 i64) ";
-      for(int i = 0; i < n_nesting + oversize - 1; ++i)
+      for (int i = 0; i < n_nesting + oversize - 1; ++i)
          ss << "(block ";
-      for(int i = 0; i < n_nesting + oversize - 1; ++i)
+      for (int i = 0; i < n_nesting + oversize - 1; ++i)
          ss << ")";
       ss << " )";
       ss << ")";
       return ss.str();
    }();
 
-   auto params = genesis_state::default_initial_wasm_configuration;
+   auto params                  = genesis_state::default_initial_wasm_configuration;
    params.max_nested_structures = n_nesting;
    set_wasm_params(params);
 
-   if(oversize) {
+   if (oversize) {
       BOOST_CHECK_THROW(set_code("nested"_n, code.c_str()), wasm_exception);
    } else {
       set_code("nested"_n, code.c_str());
@@ -636,21 +720,29 @@ static const char max_symbol_table_wast[] = R"=====(
 )
 )=====";
 
-BOOST_DATA_TEST_CASE_F( wasm_config_tester, max_symbol_bytes_export, data::make({4096, 8192, 16384}) * data::make({0, 1}) *
-                        data::make({max_symbol_func_wast, max_symbol_global_wast, max_symbol_memory_wast, max_symbol_table_wast}),
-                        n_symbol, oversize, wast ) {
+BOOST_DATA_TEST_CASE_F(wasm_config_tester,
+                       max_symbol_bytes_export,
+                       data::make({ 4096, 8192, 16384 }) * data::make({ 0, 1 }) *
+                          data::make({ max_symbol_func_wast,
+                                       max_symbol_global_wast,
+                                       max_symbol_memory_wast,
+                                       max_symbol_table_wast }),
+                       n_symbol,
+                       oversize,
+                       wast)
+{
    produce_blocks(2);
 
-   create_accounts({"bigname"_n});
+   create_accounts({ "bigname"_n });
 
    std::string name(n_symbol + oversize, 'x');
    std::string code = fc::format_string(wast, fc::mutable_variant_object("NAME", name));
 
-   auto params = genesis_state::default_initial_wasm_configuration;
+   auto params             = genesis_state::default_initial_wasm_configuration;
    params.max_symbol_bytes = n_symbol;
    set_wasm_params(params);
 
-   if(oversize) {
+   if (oversize) {
       BOOST_CHECK_THROW(set_code("bigname"_n, code.c_str()), wasm_exception);
    } else {
       set_code("bigname"_n, code.c_str());
@@ -672,13 +764,14 @@ static const char max_symbol_import_wast[] = R"=====(
 )
 )=====";
 
-BOOST_FIXTURE_TEST_CASE( max_symbol_bytes_import, wasm_config_tester ) {
+BOOST_FIXTURE_TEST_CASE(max_symbol_bytes_import, wasm_config_tester)
+{
    produce_blocks(2);
-   create_accounts({"bigname"_n});
+   create_accounts({ "bigname"_n });
 
    constexpr int n_symbol = 33;
 
-   auto params = genesis_state::default_initial_wasm_configuration;
+   auto params             = genesis_state::default_initial_wasm_configuration;
    params.max_symbol_bytes = n_symbol;
    set_wasm_params(params);
 
@@ -694,34 +787,31 @@ BOOST_FIXTURE_TEST_CASE( max_symbol_bytes_import, wasm_config_tester ) {
 }
 
 static const std::vector<uint8_t> small_contract_wasm{
-   0x00, 'a', 's', 'm', 0x01, 0x00, 0x00, 0x00,
-   0x01, 0x07, 0x01, 0x60, 0x03, 0x7e, 0x7e, 0x7e, 0x00,
-   0x03, 0x02, 0x01, 0x00,
-   0x07, 0x09, 0x01, 0x05, 'a', 'p', 'p', 'l', 'y', 0x00, 0x00,
-   0x0a, 0xE3, 0x01, 0x01, 0xE0, 0x01,
-   0x00, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
-   0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
-   0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
-   0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
-   0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
-   0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
-   0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
-   0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
-   0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
-   0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
-   0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
-   0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
-   0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
-   0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x0b
+   0x00, 'a',  's',  'm',  0x01, 0x00, 0x00, 0x00, 0x01, 0x07, 0x01, 0x60, 0x03, 0x7e, 0x7e, 0x7e, 0x00, 0x03,
+   0x02, 0x01, 0x00, 0x07, 0x09, 0x01, 0x05, 'a',  'p',  'p',  'l',  'y',  0x00, 0x00, 0x0a, 0xE3, 0x01, 0x01,
+   0xE0, 0x01, 0x00, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+   0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+   0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+   0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+   0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+   0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+   0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+   0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+   0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+   0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+   0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+   0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+   0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x0b
 };
 
-BOOST_FIXTURE_TEST_CASE( max_module_bytes, wasm_config_tester ) {
+BOOST_FIXTURE_TEST_CASE(max_module_bytes, wasm_config_tester)
+{
    produce_blocks(2);
-   create_accounts({"bigmodule"_n});
+   create_accounts({ "bigmodule"_n });
 
    const int n_module = small_contract_wasm.size();
 
-   auto params = genesis_state::default_initial_wasm_configuration;
+   auto params             = genesis_state::default_initial_wasm_configuration;
    params.max_module_bytes = n_module;
    set_wasm_params(params);
 
@@ -736,13 +826,14 @@ BOOST_FIXTURE_TEST_CASE( max_module_bytes, wasm_config_tester ) {
    BOOST_CHECK_THROW(set_code("bigmodule"_n, small_contract_wasm), wasm_exception);
 }
 
-BOOST_FIXTURE_TEST_CASE( max_code_bytes, wasm_config_tester ) {
+BOOST_FIXTURE_TEST_CASE(max_code_bytes, wasm_config_tester)
+{
    produce_blocks(2);
-   create_accounts({"bigcode"_n});
+   create_accounts({ "bigcode"_n });
 
    constexpr int n_code = 224;
 
-   auto params = genesis_state::default_initial_wasm_configuration;
+   auto params           = genesis_state::default_initial_wasm_configuration;
    params.max_code_bytes = n_code;
    set_wasm_params(params);
 
@@ -778,65 +869,71 @@ static const char intrinsic_biggest_memory_wast[] = R"=====(
 )
 )=====";
 
-BOOST_FIXTURE_TEST_CASE( max_pages, wasm_config_tester ) try {
+BOOST_FIXTURE_TEST_CASE(max_pages, wasm_config_tester)
+try {
    produce_blocks(2);
 
-   create_accounts( { "bigmem"_n, "accessmem"_n, "intrinsicmem"_n } );
+   create_accounts({ "bigmem"_n, "accessmem"_n, "intrinsicmem"_n });
    set_code("accessmem"_n, access_biggest_memory_wast);
    set_code("intrinsicmem"_n, intrinsic_biggest_memory_wast);
    produce_block();
    auto params = genesis_state::default_initial_wasm_configuration;
-   for(uint64_t max_pages : {600, 400}) { // above and below the default limit
+   for (uint64_t max_pages : { 600, 400 }) { // above and below the default limit
       params.max_pages = max_pages;
       set_wasm_params(params);
       produce_block();
 
-      string biggest_memory_wast_f = fc::format_string(biggest_memory_variable_wast, fc::mutable_variant_object(
-                                                       "MAX_WASM_PAGES", params.max_pages - 1));
+      string biggest_memory_wast_f = fc::format_string(
+         biggest_memory_variable_wast, fc::mutable_variant_object("MAX_WASM_PAGES", params.max_pages - 1));
 
       set_code("bigmem"_n, biggest_memory_wast_f.c_str());
       produce_blocks(1);
 
       auto pushit = [&](uint64_t extra_pages) {
          action act;
-         act.account = "bigmem"_n;
-         act.name = name(extra_pages);
-         act.authorization = vector<permission_level>{{"bigmem"_n,config::active_name}};
+         act.account       = "bigmem"_n;
+         act.name          = name(extra_pages);
+         act.authorization = vector<permission_level>{
+            {"bigmem"_n, config::active_name}
+         };
          signed_transaction trx;
          trx.actions.push_back(act);
 
          set_transaction_headers(trx);
-         trx.sign(get_private_key( "bigmem"_n, "active" ), control->get_chain_id());
-         //but should not be able to grow beyond largest page
+         trx.sign(get_private_key("bigmem"_n, "active"), control->get_chain_id());
+         // but should not be able to grow beyond largest page
          push_transaction(trx);
       };
 
       // verify that page accessibility cannot leak across wasm executions
       auto checkaccess = [&](uint64_t pagenum) {
          action act;
-         act.account = "accessmem"_n;
-         act.name = name(pagenum);
-         act.authorization = vector<permission_level>{{"accessmem"_n,config::active_name}};
+         act.account       = "accessmem"_n;
+         act.name          = name(pagenum);
+         act.authorization = vector<permission_level>{
+            {"accessmem"_n, config::active_name}
+         };
          signed_transaction trx;
          trx.actions.push_back(act);
 
          set_transaction_headers(trx);
-         trx.sign(get_private_key( "accessmem"_n, "active" ), control->get_chain_id());
+         trx.sign(get_private_key("accessmem"_n, "active"), control->get_chain_id());
          BOOST_CHECK_THROW(push_transaction(trx), eosio::chain::wasm_exception);
       };
-
 
       // verify checking of intrinsic arguments
       auto pushintrinsic = [&](uint64_t pages) {
          action act;
-         act.account = "intrinsicmem"_n;
-         act.name = name(pages);
-         act.authorization = vector<permission_level>{{"intrinsicmem"_n,config::active_name}};
+         act.account       = "intrinsicmem"_n;
+         act.name          = name(pages);
+         act.authorization = vector<permission_level>{
+            {"intrinsicmem"_n, config::active_name}
+         };
          signed_transaction trx;
          trx.actions.push_back(act);
 
          set_transaction_headers(trx);
-         trx.sign(get_private_key( "intrinsicmem"_n, "active" ), control->get_chain_id());
+         trx.sign(get_private_key("intrinsicmem"_n, "active"), control->get_chain_id());
          BOOST_CHECK_THROW(push_transaction(trx), eosio::chain::wasm_exception);
       };
 
@@ -866,14 +963,15 @@ BOOST_FIXTURE_TEST_CASE( max_pages, wasm_config_tester ) try {
 
       params.max_pages = max_pages;
       set_wasm_params(params);
-      string too_big_memory_wast_f = fc::format_string(too_big_memory_wast, fc::mutable_variant_object(
-                                                       "MAX_WASM_PAGES_PLUS_ONE", params.max_pages+1));
+      string too_big_memory_wast_f = fc::format_string(
+         too_big_memory_wast, fc::mutable_variant_object("MAX_WASM_PAGES_PLUS_ONE", params.max_pages + 1));
       BOOST_CHECK_THROW(set_code("bigmem"_n, too_big_memory_wast_f.c_str()), eosio::chain::wasm_exception);
 
       // Check that the max memory defined by the contract is respected
-      string memory_over_max_wast = fc::format_string(max_memory_wast, fc::mutable_variant_object()
-                                                      ("INIT_WASM_PAGES", params.max_pages - 3)
-                                                      ("MAX_WASM_PAGES", params.max_pages - 1));
+      string memory_over_max_wast =
+         fc::format_string(max_memory_wast,
+                           fc::mutable_variant_object()("INIT_WASM_PAGES", params.max_pages - 3)(
+                              "MAX_WASM_PAGES", params.max_pages - 1));
       set_code("bigmem"_n, memory_over_max_wast.c_str());
       produce_block();
       pushit(2);
@@ -890,24 +988,34 @@ BOOST_FIXTURE_TEST_CASE( max_pages, wasm_config_tester ) try {
       produce_block();
       pushit(2);
    }
-} FC_LOG_AND_RETHROW()
+}
+FC_LOG_AND_RETHROW()
 
-BOOST_FIXTURE_TEST_CASE( call_depth, wasm_config_tester ) try {
+BOOST_FIXTURE_TEST_CASE(call_depth, wasm_config_tester)
+try {
    produce_block();
-   create_accounts( {"depth"_n} );
+   create_accounts({ "depth"_n });
    produce_block();
 
-   uint32_t max_call_depth = 150;
-   auto high_params = genesis_state::default_initial_wasm_configuration;
+   uint32_t max_call_depth    = 150;
+   auto     high_params       = genesis_state::default_initial_wasm_configuration;
    high_params.max_call_depth = max_call_depth + 1;
-   wasm_config low_params = high_params;
-   low_params.max_call_depth = 50;
+   wasm_config low_params     = high_params;
+   low_params.max_call_depth  = 50;
    set_wasm_params(high_params);
    produce_block();
 
    signed_transaction trx;
-   trx.actions.emplace_back(vector<permission_level>{{"depth"_n,config::active_name}}, "depth"_n, ""_n, bytes{});
-   trx.actions[0].authorization = vector<permission_level>{{"depth"_n,config::active_name}};
+   trx.actions.emplace_back(
+      vector<permission_level>{
+         {"depth"_n, config::active_name}
+   },
+      "depth"_n,
+      ""_n,
+      bytes{});
+   trx.actions[0].authorization = vector<permission_level>{
+      {"depth"_n, config::active_name}
+   };
 
    auto pushit = [&]() {
       produce_block();
@@ -917,9 +1025,9 @@ BOOST_FIXTURE_TEST_CASE( call_depth, wasm_config_tester ) try {
       push_transaction(trx);
    };
 
-   //strictly wasm recursion to maximum_call_depth & maximum_call_depth+1
-   string wasm_depth_okay = fc::format_string(depth_assert_wasm, fc::mutable_variant_object()
-                                              ("MAX_DEPTH", max_call_depth));
+   // strictly wasm recursion to maximum_call_depth & maximum_call_depth+1
+   string wasm_depth_okay =
+      fc::format_string(depth_assert_wasm, fc::mutable_variant_object()("MAX_DEPTH", max_call_depth));
    set_code("depth"_n, wasm_depth_okay.c_str());
    pushit();
 
@@ -931,34 +1039,34 @@ BOOST_FIXTURE_TEST_CASE( call_depth, wasm_config_tester ) try {
    pushit();
    produce_block();
 
-   string wasm_depth_one_over = fc::format_string(depth_assert_wasm, fc::mutable_variant_object()
-                                              ("MAX_DEPTH", max_call_depth+1));
+   string wasm_depth_one_over =
+      fc::format_string(depth_assert_wasm, fc::mutable_variant_object()("MAX_DEPTH", max_call_depth + 1));
    set_code("depth"_n, wasm_depth_one_over.c_str());
    BOOST_CHECK_THROW(pushit(), wasm_execution_error);
 
-   //wasm recursion but call an intrinsic as the last function instead
-   string intrinsic_depth_okay = fc::format_string(depth_assert_intrinsic, fc::mutable_variant_object()
-                                              ("MAX_DEPTH", max_call_depth));
+   // wasm recursion but call an intrinsic as the last function instead
+   string intrinsic_depth_okay =
+      fc::format_string(depth_assert_intrinsic, fc::mutable_variant_object()("MAX_DEPTH", max_call_depth));
    set_code("depth"_n, intrinsic_depth_okay.c_str());
    pushit();
 
-   string intrinsic_depth_one_over = fc::format_string(depth_assert_intrinsic, fc::mutable_variant_object()
-                                              ("MAX_DEPTH", max_call_depth+1));
+   string intrinsic_depth_one_over = fc::format_string(
+      depth_assert_intrinsic, fc::mutable_variant_object()("MAX_DEPTH", max_call_depth + 1));
    set_code("depth"_n, intrinsic_depth_one_over.c_str());
    BOOST_CHECK_THROW(pushit(), wasm_execution_error);
 
-   //add a float operation in the mix to ensure any injected softfloat call doesn't count against limit
-   string wasm_float_depth_okay = fc::format_string(depth_assert_wasm_float, fc::mutable_variant_object()
-                                              ("MAX_DEPTH", max_call_depth));
+   // add a float operation in the mix to ensure any injected softfloat call doesn't count against limit
+   string wasm_float_depth_okay =
+      fc::format_string(depth_assert_wasm_float, fc::mutable_variant_object()("MAX_DEPTH", max_call_depth));
    set_code("depth"_n, wasm_float_depth_okay.c_str());
    pushit();
 
-   string wasm_float_depth_one_over = fc::format_string(depth_assert_wasm_float, fc::mutable_variant_object()
-                                              ("MAX_DEPTH", max_call_depth+1));
+   string wasm_float_depth_one_over = fc::format_string(
+      depth_assert_wasm_float, fc::mutable_variant_object()("MAX_DEPTH", max_call_depth + 1));
    set_code("depth"_n, wasm_float_depth_one_over.c_str());
    BOOST_CHECK_THROW(pushit(), wasm_execution_error);
-
-} FC_LOG_AND_RETHROW()
+}
+FC_LOG_AND_RETHROW()
 
 // This contract is one of the smallest that can be used to reset
 // the wasm parameters.  It should be impossible to set parameters
@@ -976,22 +1084,21 @@ static const char min_set_parameters_wast[] = R"======(
 )
 )======";
 
-BOOST_FIXTURE_TEST_CASE(reset_chain_tests, wasm_config_tester) {
+BOOST_FIXTURE_TEST_CASE(reset_chain_tests, wasm_config_tester)
+{
    produce_block();
 
-   wasm_config min_params = {
-      .max_mutable_global_bytes = 0,
-      .max_table_elements       = 0,
-      .max_section_elements     = 4,
-      .max_linear_memory_init   = 0,
-      .max_func_local_bytes     = 8,
-      .max_nested_structures    = 1,
-      .max_symbol_bytes         = 32,
-      .max_module_bytes         = 256,
-      .max_code_bytes           = 32,
-      .max_pages                = 1,
-      .max_call_depth           = 2
-   };
+   wasm_config min_params = { .max_mutable_global_bytes = 0,
+                              .max_table_elements       = 0,
+                              .max_section_elements     = 4,
+                              .max_linear_memory_init   = 0,
+                              .max_func_local_bytes     = 8,
+                              .max_nested_structures    = 1,
+                              .max_symbol_bytes         = 32,
+                              .max_module_bytes         = 256,
+                              .max_code_bytes           = 32,
+                              .max_pages                = 1,
+                              .max_call_depth           = 2 };
 
    auto check_minimal = [&](auto& member) {
       if (member > 0) {
@@ -1018,12 +1125,17 @@ BOOST_FIXTURE_TEST_CASE(reset_chain_tests, wasm_config_tester) {
    // Reset parameters and system contract
    {
       signed_transaction trx;
-      auto make_setcode = [](const std::vector<uint8_t>& code) {
+      auto               make_setcode = [](const std::vector<uint8_t>& code) {
          return setcode{ "eosio"_n, 0, 0, bytes(code.begin(), code.end()) };
       };
-      trx.actions.push_back({ { { "eosio"_n, config::active_name} }, make_setcode(wast_to_wasm(min_set_parameters_wast)) });
-      trx.actions.push_back({ { { "eosio"_n, config::active_name} }, "eosio"_n, ""_n, fc::raw::pack(genesis_state::default_initial_wasm_configuration) });
-      trx.actions.push_back({ { { "eosio"_n, config::active_name} }, make_setcode(contracts::eosio_bios_wasm()) });
+      trx.actions.push_back(
+         { { { "eosio"_n, config::active_name } }, make_setcode(wast_to_wasm(min_set_parameters_wast)) });
+      trx.actions.push_back({ { { "eosio"_n, config::active_name } },
+                              "eosio"_n,
+                              ""_n,
+                              fc::raw::pack(genesis_state::default_initial_wasm_configuration) });
+      trx.actions.push_back(
+         { { { "eosio"_n, config::active_name } }, make_setcode(contracts::eosio_bios_wasm()) });
       set_transaction_headers(trx);
       trx.sign(get_private_key("eosio"_n, "active"), control->get_chain_id());
       push_transaction(trx);
@@ -1060,90 +1172,107 @@ static const char check_get_wasm_parameters_wast[] = R"======(
 )
 )======";
 
-BOOST_FIXTURE_TEST_CASE(get_wasm_parameters_test, TESTER) {
+BOOST_FIXTURE_TEST_CASE(get_wasm_parameters_test, TESTER)
+{
    produce_block();
 
-   create_account( "test"_n );
+   create_account("test"_n);
 
    produce_block();
 
-   wasm_config original_params = {
-         .max_mutable_global_bytes = 1024,
-         .max_table_elements       = 1024,
-         .max_section_elements     = 8192,
-         .max_linear_memory_init   = 65536,
-         .max_func_local_bytes     = 8192,
-         .max_nested_structures    = 1024,
-         .max_symbol_bytes         = 8192,
-         .max_module_bytes         = 20971520,
-         .max_code_bytes           = 20971520,
-         .max_pages                = 528,
-         .max_call_depth           = 251
-   };
+   wasm_config original_params = { .max_mutable_global_bytes = 1024,
+                                   .max_table_elements       = 1024,
+                                   .max_section_elements     = 8192,
+                                   .max_linear_memory_init   = 65536,
+                                   .max_func_local_bytes     = 8192,
+                                   .max_nested_structures    = 1024,
+                                   .max_symbol_bytes         = 8192,
+                                   .max_module_bytes         = 20971520,
+                                   .max_code_bytes           = 20971520,
+                                   .max_pages                = 528,
+                                   .max_call_depth           = 251 };
 
    set_code("test"_n, check_get_wasm_parameters_wast);
    produce_block();
 
-   auto check_wasm_params = [&](const std::vector<char>& params){
+   auto check_wasm_params = [&](const std::vector<char>& params) {
       signed_transaction trx;
-      trx.actions.emplace_back(vector<permission_level>{{"test"_n,config::active_name}}, "test"_n, ""_n,
-                               params);
+      trx.actions.emplace_back(
+         vector<permission_level>{
+            {"test"_n, config::active_name}
+      },
+         "test"_n,
+         ""_n,
+         params);
       set_transaction_headers(trx);
       trx.sign(get_private_key("test"_n, "active"), control->get_chain_id());
       push_transaction(trx);
    };
 
-   BOOST_CHECK_THROW(check_wasm_params(fc::raw::pack(uint32_t{0}, wasm_config(original_params))), unaccessible_api);
+   BOOST_CHECK_THROW(check_wasm_params(fc::raw::pack(uint32_t{ 0 }, wasm_config(original_params))),
+                     unaccessible_api);
 
-   push_action( config::system_account_name, "setpriv"_n, config::system_account_name,
-                fc::mutable_variant_object()("account", "test"_n)("is_priv", true) );
+   push_action(config::system_account_name,
+               "setpriv"_n,
+               config::system_account_name,
+               fc::mutable_variant_object()("account", "test"_n)("is_priv", true));
 
-   check_wasm_params(fc::raw::pack(uint32_t{0}, wasm_config(original_params)));
+   check_wasm_params(fc::raw::pack(uint32_t{ 0 }, wasm_config(original_params)));
    // Extra space is left unmodified
-   check_wasm_params(fc::raw::pack(uint32_t{0}, wasm_config(original_params), static_cast<unsigned char>(0xFF)));
+   check_wasm_params(
+      fc::raw::pack(uint32_t{ 0 }, wasm_config(original_params), static_cast<unsigned char>(0xFF)));
    // Does nothing if the buffer is too small
-   check_wasm_params(std::vector<char>(fc::raw::pack_size(uint32_t{0}) + fc::raw::pack_size(original_params) - 1, '\xFF'));
+   check_wasm_params(
+      std::vector<char>(fc::raw::pack_size(uint32_t{ 0 }) + fc::raw::pack_size(original_params) - 1, '\xFF'));
 
    // Test case sanity check
-   BOOST_CHECK_THROW(check_wasm_params(fc::raw::pack(uint32_t{0}, wasm_config{ 0,0,0,0,0,0,0,0,0,0,0 })), fc::exception);
+   BOOST_CHECK_THROW(
+      check_wasm_params(fc::raw::pack(uint32_t{ 0 }, wasm_config{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 })),
+      fc::exception);
 }
 
 // Uses a custom section with large size
 BOOST_FIXTURE_TEST_CASE(large_custom_section, old_wasm_tester)
 {
-   create_account( "hugecustom"_n );
+   create_account("hugecustom"_n);
 
    std::vector<uint8_t> custom_section_wasm{
-      0x00, 'a', 's', 'm', 0x01, 0x00, 0x00, 0x00,
-      0x01, 0x07, 0x01, 0x60, 0x03, 0x7e, 0x7e, 0x7e, 0x00,            //type section containing a function as void(i64,i64,i64)
-      0x03, 0x02, 0x01, 0x00,                                          //a function
+      0x00, 'a',  's',  'm',  0x01, 0x00, 0x00, 0x00, 0x01, 0x07, 0x01,
+      0x60, 0x03, 0x7e, 0x7e, 0x7e, 0x00, // type section containing a function as void(i64,i64,i64)
+      0x03, 0x02, 0x01, 0x00,             // a function
 
-      0x07, 0x09, 0x01, 0x05, 'a', 'p', 'p', 'l', 'y', 0x00, 0x00,     //export function 0 as "apply"
-      0x0a, 0x04, 0x01,                                                //code section
-      0x02, 0x00,                                                      //function body start with length 3; no locals
-      0x0b,                                                            //end
-      0x00,                                                            //custom section
-      0x85, 0x80, 0x04,                                                //size  2^16 + 5
-      0x04, 'h', 'u', 'g', 'e'                                         //name
+      0x07, 0x09, 0x01, 0x05, 'a',  'p',  'p',  'l',  'y',  0x00, 0x00, // export function 0 as "apply"
+      0x0a, 0x04, 0x01,                                                 // code section
+      0x02, 0x00,                 // function body start with length 3; no locals
+      0x0b,                       // end
+      0x00,                       // custom section
+      0x85, 0x80, 0x04,           // size  2^16 + 5
+      0x04, 'h',  'u',  'g',  'e' // name
    };
 
    custom_section_wasm.resize(custom_section_wasm.size() + 65536);
-   BOOST_CHECK_THROW(set_code( "hugecustom"_n, custom_section_wasm ), wasm_serialization_error);
+   BOOST_CHECK_THROW(set_code("hugecustom"_n, custom_section_wasm), wasm_serialization_error);
 
    // One byte less and it should pass
    auto okay_custom = custom_section_wasm;
    --okay_custom[okay_custom.size() - 65536 - 5 - 3];
    okay_custom.pop_back();
-   set_code( "hugecustom"_n, okay_custom );
+   set_code("hugecustom"_n, okay_custom);
 
    // It's also okay once CONFIGURABLE_WASM_LIMITS is activated
-   preactivate_builtin_protocol_features({builtin_protocol_feature_t::configurable_wasm_limits});
+   preactivate_builtin_protocol_features({ builtin_protocol_feature_t::configurable_wasm_limits });
    produce_block();
 
-   set_code( "hugecustom"_n, custom_section_wasm );
+   set_code("hugecustom"_n, custom_section_wasm);
 
    signed_transaction trx;
-   trx.actions.emplace_back(vector<permission_level>{{"hugecustom"_n,config::active_name}}, "hugecustom"_n, ""_n, std::vector<char>{});
+   trx.actions.emplace_back(
+      vector<permission_level>{
+         {"hugecustom"_n, config::active_name}
+   },
+      "hugecustom"_n,
+      ""_n,
+      std::vector<char>{});
    set_transaction_headers(trx);
    trx.sign(get_private_key("hugecustom"_n, "active"), control->get_chain_id());
    push_transaction(trx);

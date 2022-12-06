@@ -4,80 +4,91 @@
 #include "../capi/eosio/types.h"
 #include "test_api_common.hpp"
 
-namespace eosio { class transaction; }
+namespace eosio {
+class transaction;
+}
 
-// NOTE: including eosiolib/transaction.hpp here causes !"unresolvable": env._ZNKSt3__120__vector_base_commonILb1EE20__throw_length_errorEv
+// NOTE: including eosiolib/transaction.hpp here causes !"unresolvable":
+// env._ZNKSt3__120__vector_base_commonILb1EE20__throw_length_errorEv
 //       errors in api_tests/memory_tests
 
-#define WASM_TEST_HANDLER(CLASS, METHOD) \
-  if( action == WASM_TEST_ACTION(#CLASS, #METHOD) ) { \
-     CLASS::METHOD(); \
-     return; \
-  }
+#define WASM_TEST_HANDLER(CLASS, METHOD)                                                                     \
+   if (action == WASM_TEST_ACTION(#CLASS, #METHOD)) {                                                        \
+      CLASS::METHOD();                                                                                       \
+      return;                                                                                                \
+   }
 
-#define WASM_TEST_HANDLER_EX(CLASS, METHOD) \
-  if( action == WASM_TEST_ACTION(#CLASS, #METHOD) ) { \
-     CLASS::METHOD(receiver, code, action); \
-     return; \
-  }
+#define WASM_TEST_HANDLER_EX(CLASS, METHOD)                                                                  \
+   if (action == WASM_TEST_ACTION(#CLASS, #METHOD)) {                                                        \
+      CLASS::METHOD(receiver, code, action);                                                                 \
+      return;                                                                                                \
+   }
 
-#define WASM_TEST_ERROR_HANDLER(CALLED_CLASS_STR, CALLED_METHOD_STR, HANDLER_CLASS, HANDLER_METHOD) \
-   if( error_action == name{WASM_TEST_ACTION(CALLED_CLASS_STR, CALLED_METHOD_STR)} ) { \
-   HANDLER_CLASS::HANDLER_METHOD(error_trx); \
-   return; \
+#define WASM_TEST_ERROR_HANDLER(CALLED_CLASS_STR, CALLED_METHOD_STR, HANDLER_CLASS, HANDLER_METHOD)          \
+   if (error_action == name{ WASM_TEST_ACTION(CALLED_CLASS_STR, CALLED_METHOD_STR) }) {                      \
+      HANDLER_CLASS::HANDLER_METHOD(error_trx);                                                              \
+      return;                                                                                                \
+   }
+
+extern "C"
+{
+   __attribute__((eosio_wasm_import)) void set_action_return_value(const char*, size_t);
+
+   __attribute__((eosio_wasm_import)) void eosio_assert(uint32_t test, const char* msg);
+
+   __attribute__((eosio_wasm_import)) void eosio_assert_code(uint32_t test, uint64_t code);
+
+   __attribute__((eosio_wasm_import)) uint64_t current_time();
+
+   __attribute__((eosio_wasm_import)) int get_action(uint32_t type, uint32_t index, char* buff, size_t size);
+
+   // db.h
+   __attribute__((eosio_wasm_import)) int32_t db_store_i64(uint64_t    scope,
+                                                           capi_name   table,
+                                                           capi_name   payer,
+                                                           uint64_t    id,
+                                                           const void* data,
+                                                           uint32_t    len);
+
+   __attribute__((eosio_wasm_import)) int32_t db_find_i64(capi_name code,
+                                                          uint64_t  scope,
+                                                          capi_name table,
+                                                          uint64_t  id);
+
+   __attribute__((eosio_wasm_import)) int32_t db_idx64_store(uint64_t        scope,
+                                                             capi_name       table,
+                                                             capi_name       payer,
+                                                             uint64_t        id,
+                                                             const uint64_t* secondary);
+
+   __attribute__((eosio_wasm_import)) void db_remove_i64(int32_t iterator);
+
+   __attribute__((eosio_wasm_import)) int32_t db_lowerbound_i64(capi_name code,
+                                                                uint64_t  scope,
+                                                                capi_name table,
+                                                                uint64_t  id);
+
+   __attribute__((eosio_wasm_import)) void db_update_i64(int32_t     iterator,
+                                                         capi_name   payer,
+                                                         const void* data,
+                                                         uint32_t    len);
+
+   // privilege.h
+   __attribute__((eosio_wasm_import)) bool is_privileged(capi_name account);
+
+   // chain.h
+   __attribute__((eosio_wasm_import)) uint32_t get_active_producers(capi_name* producers, uint32_t datalen);
 }
 
-extern "C" {
-    __attribute__((eosio_wasm_import))
-    void set_action_return_value(const char*, size_t);
-
-    __attribute__((eosio_wasm_import))
-    void  eosio_assert( uint32_t test, const char* msg );
-
-    __attribute__((eosio_wasm_import))
-    void  eosio_assert_code( uint32_t test, uint64_t code );
-
-    __attribute__((eosio_wasm_import))
-    uint64_t  current_time();
-
-    __attribute__((eosio_wasm_import))
-    int get_action( uint32_t type, uint32_t index, char* buff, size_t size );
-
-    //db.h
-    __attribute__((eosio_wasm_import))
-    int32_t db_store_i64(uint64_t scope, capi_name table, capi_name payer, uint64_t id,  const void* data, uint32_t len);
-
-    __attribute__((eosio_wasm_import))
-    int32_t db_find_i64(capi_name code, uint64_t scope, capi_name table, uint64_t id);
-
-    __attribute__((eosio_wasm_import))
-    int32_t db_idx64_store(uint64_t scope, capi_name table, capi_name payer, uint64_t id, const uint64_t* secondary);
-
-    __attribute__((eosio_wasm_import))
-    void db_remove_i64(int32_t iterator);
-
-    __attribute__((eosio_wasm_import))
-    int32_t db_lowerbound_i64(capi_name code, uint64_t scope, capi_name table, uint64_t id);
-
-    __attribute__((eosio_wasm_import))
-    void db_update_i64(int32_t iterator, capi_name payer, const void* data, uint32_t len);
-
-    //privilege.h
-    __attribute__((eosio_wasm_import))
-    bool is_privileged( capi_name account );
-
-    // chain.h
-    __attribute__((eosio_wasm_import))
-    uint32_t get_active_producers( capi_name* producers, uint32_t datalen );
-}
-
-struct test_types {
+struct test_types
+{
    static void types_size();
    static void char_to_symbol();
    static void string_to_name();
 };
 
-struct test_print {
+struct test_print
+{
    static void test_prints();
    static void test_prints_l();
    static void test_printi();
@@ -91,7 +102,8 @@ struct test_print {
    static void test_print_simple();
 };
 
-struct test_action {
+struct test_action
+{
    static void read_action_normal();
    static void read_action_to_0();
    static void read_action_to_64k();
@@ -104,7 +116,7 @@ struct test_action {
    static void assert_true();
    static void assert_true_cf();
    static void test_current_time();
-   static void test_abort() __attribute__ ((noreturn)) ;
+   static void test_abort() __attribute__((noreturn));
    static void test_current_receiver(uint64_t receiver, uint64_t code, uint64_t action);
    static void test_publication_time();
    static void test_assert_code();
@@ -117,7 +129,8 @@ struct test_action {
    static void test_action_ordinal_bar(uint64_t receiver, uint64_t code, uint64_t action);
 };
 
-struct test_db {
+struct test_db
+{
    static void primary_i64_general(uint64_t receiver, uint64_t code, uint64_t action);
    static void primary_i64_lowerbound(uint64_t receiver, uint64_t code, uint64_t action);
    static void primary_i64_upperbound(uint64_t receiver, uint64_t code, uint64_t action);
@@ -135,7 +148,8 @@ struct test_db {
    static void misaligned_secondary_key256_tests(uint64_t, uint64_t, uint64_t);
 };
 
-struct test_multi_index {
+struct test_multi_index
+{
    static void idx64_general(uint64_t receiver, uint64_t code, uint64_t action);
    static void idx64_store_only(uint64_t receiver, uint64_t code, uint64_t action);
    static void idx64_check_without_storing(uint64_t receiver, uint64_t code, uint64_t action);
@@ -170,7 +184,8 @@ struct test_multi_index {
    static void idx64_pk_cache_sk_lookup(uint64_t receiver, uint64_t code, uint64_t action);
 };
 
-struct test_crypto {
+struct test_crypto
+{
    static void test_recover_key();
    static void test_recover_key_partial();
    static void test_recover_key_assert_true();
@@ -194,7 +209,8 @@ struct test_crypto {
    static void assert_ripemd160_true();
 };
 
-struct test_transaction {
+struct test_transaction
+{
    static void test_tapos_block_num();
    static void test_tapos_block_prefix();
    static void send_action();
@@ -227,11 +243,13 @@ struct test_transaction {
    static void repeat_deferred_transaction(uint64_t receiver, uint64_t code, uint64_t action);
 };
 
-struct test_chain {
+struct test_chain
+{
    static void test_activeprods();
 };
 
-struct test_fixedpoint {
+struct test_fixedpoint
+{
    static void create_instances();
    static void test_addition();
    static void test_subtraction();
@@ -240,7 +258,8 @@ struct test_fixedpoint {
    static void test_division_by_0();
 };
 
-struct test_compiler_builtins {
+struct test_compiler_builtins
+{
    static void test_multi3();
    static void test_divti3();
    static void test_divti3_by_0();
@@ -256,14 +275,16 @@ struct test_compiler_builtins {
    static void test_ashrti3();
 };
 
-struct test_extended_memory {
+struct test_extended_memory
+{
    static void test_initial_buffer();
    static void test_page_memory();
    static void test_page_memory_exceeded();
    static void test_page_memory_negative_bytes();
 };
 
-struct test_memory {
+struct test_memory
+{
    static void test_memory_allocs();
    static void test_memory_hunk();
    static void test_memory_hunks();
@@ -288,7 +309,8 @@ struct test_memory {
    static void test_outofbound_13();
 };
 
-struct test_checktime {
+struct test_checktime
+{
    static void checktime_pass();
    static void checktime_failure();
    static void checktime_sha1_failure();
@@ -303,12 +325,14 @@ struct test_checktime {
    static int i;
 };
 
-struct test_permission {
+struct test_permission
+{
    static void check_authorization(uint64_t receiver, uint64_t code, uint64_t action);
    static void test_permission_last_used(uint64_t receiver, uint64_t code, uint64_t action);
    static void test_account_creation_time(uint64_t receiver, uint64_t code, uint64_t action);
 };
 
-struct test_datastream {
+struct test_datastream
+{
    static void test_basic();
 };

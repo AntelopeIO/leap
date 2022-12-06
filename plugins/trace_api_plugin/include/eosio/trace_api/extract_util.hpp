@@ -1,79 +1,81 @@
 #pragma once
 
-#include <eosio/trace_api/trace.hpp>
 #include <eosio/chain/block_state.hpp>
+#include <eosio/trace_api/trace.hpp>
 
-namespace eosio { namespace trace_api {
+namespace eosio {
+namespace trace_api {
 
 /// Used by to_transaction_trace  for creation of action_trace_v0 or action_trace_v1
-template<typename ActionTrace>
-inline ActionTrace to_action_trace( const chain::action_trace& at ) {
+template <typename ActionTrace>
+inline ActionTrace to_action_trace(const chain::action_trace& at) {
    ActionTrace r;
    r.receiver = at.receiver;
-   r.account = at.act.account;
-   r.action = at.act.name;
-   r.data = at.act.data;
-   if constexpr(std::is_same_v<ActionTrace, action_trace_v1>) {
+   r.account  = at.act.account;
+   r.action   = at.act.name;
+   r.data     = at.act.data;
+   if constexpr (std::is_same_v<ActionTrace, action_trace_v1>) {
       r.return_value = at.return_value;
    }
-   if( at.receipt ) {
+   if (at.receipt) {
       r.global_sequence = at.receipt->global_sequence;
    }
-   r.authorization.reserve( at.act.authorization.size());
-   for( const auto& auth : at.act.authorization ) {
-      r.authorization.emplace_back( authorization_trace_v0{auth.actor, auth.permission} );
+   r.authorization.reserve(at.act.authorization.size());
+   for (const auto& auth : at.act.authorization) {
+      r.authorization.emplace_back(authorization_trace_v0{auth.actor, auth.permission});
    }
    return r;
 }
 
-template<typename TransactionTrace>
-inline TransactionTrace to_transaction_trace( const cache_trace& t ) {
+template <typename TransactionTrace>
+inline TransactionTrace to_transaction_trace(const cache_trace& t) {
    TransactionTrace r;
-   if( !t.trace->failed_dtrx_trace ) {
+   if (!t.trace->failed_dtrx_trace) {
       r.id = t.trace->id;
    } else {
       r.id = t.trace->failed_dtrx_trace->id; // report the failed trx id since that is the id known to user
    }
-   if constexpr(std::is_same_v<TransactionTrace, transaction_trace_v1>  ||
-                std::is_same_v<TransactionTrace, transaction_trace_v2>  ||
-                std::is_same_v<TransactionTrace, transaction_trace_v3>) {
+   if constexpr (std::is_same_v<TransactionTrace, transaction_trace_v1> ||
+                 std::is_same_v<TransactionTrace, transaction_trace_v2> ||
+                 std::is_same_v<TransactionTrace, transaction_trace_v3>) {
       if (t.trace->receipt) {
-         r.status = t.trace->receipt->status;
-         r.cpu_usage_us = t.trace->receipt->cpu_usage_us;
+         r.status          = t.trace->receipt->status;
+         r.cpu_usage_us    = t.trace->receipt->cpu_usage_us;
          r.net_usage_words = t.trace->receipt->net_usage_words;
       }
       r.signatures = t.trx->get_signatures();
-      r.trx_header = static_cast<const chain::transaction_header&>( t.trx->get_transaction() );
+      r.trx_header = static_cast<const chain::transaction_header&>(t.trx->get_transaction());
 
-      r.block_num = t.trace->block_num;
-      r.block_time = t.trace->block_time;
+      r.block_num         = t.trace->block_num;
+      r.block_time        = t.trace->block_time;
       r.producer_block_id = t.trace->producer_block_id;
    }
 
    using action_trace_t = std::conditional_t<std::is_same_v<TransactionTrace, transaction_trace_v2> ||
-                                             std::is_same_v<TransactionTrace, transaction_trace_v3>
-                                             , action_trace_v1, action_trace_v0>;
-   r.actions = std::vector<action_trace_t>();
-   std::get<std::vector<action_trace_t>>(r.actions).reserve( t.trace->action_traces.size());
-   for( const auto& at : t.trace->action_traces ) {
-      if( !at.context_free ) { // not including CFA at this time
-         std::get<std::vector<action_trace_t>>(r.actions).emplace_back( to_action_trace<action_trace_t>(at) );
+                                                 std::is_same_v<TransactionTrace, transaction_trace_v3>,
+                                             action_trace_v1, action_trace_v0>;
+   r.actions            = std::vector<action_trace_t>();
+   std::get<std::vector<action_trace_t>>(r.actions).reserve(t.trace->action_traces.size());
+   for (const auto& at : t.trace->action_traces) {
+      if (!at.context_free) { // not including CFA at this time
+         std::get<std::vector<action_trace_t>>(r.actions).emplace_back(to_action_trace<action_trace_t>(at));
       }
    }
    return r;
 }
 
-inline block_trace_v2 create_block_trace( const chain::block_state_ptr& bsp ) {
+inline block_trace_v2 create_block_trace(const chain::block_state_ptr& bsp) {
    block_trace_v2 r;
-   r.id = bsp->id;
-   r.number = bsp->block_num;
-   r.previous_id = bsp->block->previous;
-   r.timestamp = bsp->block->timestamp;
-   r.producer = bsp->block->producer;
-   r.schedule_version = bsp->block->schedule_version;
+   r.id                = bsp->id;
+   r.number            = bsp->block_num;
+   r.previous_id       = bsp->block->previous;
+   r.timestamp         = bsp->block->timestamp;
+   r.producer          = bsp->block->producer;
+   r.schedule_version  = bsp->block->schedule_version;
    r.transaction_mroot = bsp->block->transaction_mroot;
-   r.action_mroot = bsp->block->action_mroot;
+   r.action_mroot      = bsp->block->action_mroot;
    return r;
 }
 
-} }
+} // namespace trace_api
+} // namespace eosio

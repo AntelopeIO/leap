@@ -11,10 +11,11 @@
 
 using namespace std;
 
-const set<string> blacklist_memory_clearing = { "address.0",      "address.2",      "address.3",      "address.4",
-                                                "float_exprs.59", "float_exprs.60", "float_memory.0", "float_memory.1",
-                                                "float_memory.2", "float_memory.3", "float_memory.4", "float_memory.5",
-                                                "memory.25",      "memory_trap.1",  "start.3",        "start.4" };
+const set<string> blacklist_memory_clearing = {
+   "address.0",      "address.2",      "address.3",      "address.4",      "float_exprs.59", "float_exprs.60",
+   "float_memory.0", "float_memory.1", "float_memory.2", "float_memory.3", "float_memory.4", "float_memory.5",
+   "memory.25",      "memory_trap.1",  "start.3",        "start.4"
+};
 
 const set<string> whitelist_force_check_throw = { "memory.6", "memory.7" };
 
@@ -26,13 +27,15 @@ const string mem_clear     = "      volatile uint64_t* r = (uint64_t*)0;\n      
 // NOTE: Changing this will likely break one or more tests.
 const int NUM_TESTS_PER_SUB_APPLY = 100;
 
-struct spec_test_function_state {
+struct spec_test_function_state
+{
    set<string>      already_written_funcs;
    map<string, int> name_to_index;
    int              index = 0;
 };
 
-void write_file(ofstream& file, string test_name, string funcs, string sub_applies, string apply) {
+void write_file(ofstream& file, string test_name, string funcs, string sub_applies, string apply)
+{
    stringstream out;
    string       end_brace = "}";
 
@@ -52,7 +55,8 @@ void write_file(ofstream& file, string test_name, string funcs, string sub_appli
    out.str("");
 }
 
-void write_map_file(ofstream& file, spec_test_function_state& func_state) {
+void write_map_file(ofstream& file, spec_test_function_state& func_state)
+{
    stringstream out;
 
    out << "{\n";
@@ -72,7 +76,8 @@ void write_map_file(ofstream& file, spec_test_function_state& func_state) {
    out.str("");
 }
 
-string c_type(string wasm_type) {
+string c_type(string wasm_type)
+{
    string c_type = "";
    if (wasm_type == "i32") {
       c_type = "int32_t";
@@ -89,7 +94,8 @@ string c_type(string wasm_type) {
    return c_type;
 }
 
-vector<pair<string, string>> get_params(picojson::object action) {
+vector<pair<string, string>> get_params(picojson::object action)
+{
    vector<pair<string, string>> params = {};
 
    auto args = action["args"].get<picojson::array>();
@@ -102,7 +108,8 @@ vector<pair<string, string>> get_params(picojson::object action) {
    return params;
 }
 
-pair<string, string> get_expected_return(picojson::object test) {
+pair<string, string> get_expected_return(picojson::object test)
+{
    pair<string, string> expected_return;
 
    auto expecteds = test["expected"].get<picojson::array>();
@@ -116,7 +123,8 @@ pair<string, string> get_expected_return(picojson::object test) {
    return expected_return;
 }
 
-string write_test_function(string function_name, picojson::object test, spec_test_function_state& func_state) {
+string write_test_function(string function_name, picojson::object test, spec_test_function_state& func_state)
+{
    stringstream out;
 
    auto action = test["action"].get<picojson::object>();
@@ -163,7 +171,8 @@ string write_test_function(string function_name, picojson::object test, spec_tes
    return out.str();
 }
 
-string write_test_function_call(string function_name, picojson::object test, int var_index) {
+string write_test_function_call(string function_name, picojson::object test, int var_index)
+{
    stringstream out;
    stringstream func_call;
    string       return_cast = "";
@@ -265,13 +274,15 @@ string write_test_function_call(string function_name, picojson::object test, int
    return out.str();
 }
 
-void usage(const char* name) {
+void usage(const char* name)
+{
    std::cerr << "Usage:\n"
              << "  " << name << " [json file created by wast2json]\n";
    std::exit(2);
 }
 
-map<string, vector<picojson::object>> get_file_func_mappings(picojson::value v) {
+map<string, vector<picojson::object>> get_file_func_mappings(picojson::value v)
+{
    map<string, vector<picojson::object>> file_func_mappings;
    auto&                                 o        = v.get<picojson::object>();
    string                                filename = "";
@@ -287,9 +298,10 @@ map<string, vector<picojson::object>> get_file_func_mappings(picojson::value v) 
                file_func_mappings[filename] = {};
             }
             if (obj["type"].to_str() == "assert_return" || obj["type"].to_str() == "action" ||
-                obj["type"].to_str() == "assert_exhaustion" || obj["type"].to_str() == "assert_return_canonical_nan" ||
-                obj["type"].to_str() == "assert_return_arithmetic_nan" || obj["type"].to_str() == "assert_exhaustion" ||
-                obj["type"].to_str() == "assert_trap") {
+                obj["type"].to_str() == "assert_exhaustion" ||
+                obj["type"].to_str() == "assert_return_canonical_nan" ||
+                obj["type"].to_str() == "assert_return_arithmetic_nan" ||
+                obj["type"].to_str() == "assert_exhaustion" || obj["type"].to_str() == "assert_trap") {
                file_func_mappings[filename].push_back(obj);
             }
          }
@@ -299,7 +311,8 @@ map<string, vector<picojson::object>> get_file_func_mappings(picojson::value v) 
    return file_func_mappings;
 }
 
-string create_sub_apply(string func_calls, string name) {
+string create_sub_apply(string func_calls, string name)
+{
    stringstream ss;
    ss << "   void " << name << "() {\n";
    ss << func_calls;
@@ -307,7 +320,8 @@ string create_sub_apply(string func_calls, string name) {
    return ss.str();
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv)
+{
    ifstream     ifs;
    stringstream ss;
    if (argc != 2 || !strcmp(argv[1], "-h") || !strcmp(argv[1], "--help")) {
@@ -319,7 +333,9 @@ int main(int argc, char** argv) {
       return EXIT_FAILURE;
    }
    string s;
-   while (getline(ifs, s)) { ss << s; }
+   while (getline(ifs, s)) {
+      ss << s;
+   }
    ifs.close();
 
    picojson::value v;
@@ -410,7 +426,8 @@ int main(int argc, char** argv) {
          ++i;
       }
 
-      spec_tests.push_back(spec_test{ test_name, 0, assert_trap_end_index, assert_trap_end_index, sub_apply_index });
+      spec_tests.push_back(
+         spec_test{ test_name, 0, assert_trap_end_index, assert_trap_end_index, sub_apply_index });
 
       int index = 0;
       apply_func << "      switch(test_to_run) {\n";

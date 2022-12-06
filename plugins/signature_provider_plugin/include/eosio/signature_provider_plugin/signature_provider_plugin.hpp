@@ -7,7 +7,8 @@ namespace eosio {
 
 using namespace appbase;
 
-class signature_provider_plugin : public appbase::plugin<signature_provider_plugin> {
+class signature_provider_plugin : public appbase::plugin<signature_provider_plugin>
+{
 public:
    signature_provider_plugin();
    virtual ~signature_provider_plugin();
@@ -23,7 +24,8 @@ public:
 
    using signature_provider_type = std::function<chain::signature_type(chain::digest_type)>;
 
-   std::pair<chain::public_key_type,signature_provider_type> signature_provider_for_specification(const std::string& spec) const;
+   std::pair<chain::public_key_type, signature_provider_type> signature_provider_for_specification(
+      const std::string& spec) const;
    signature_provider_type signature_provider_for_private_key(const chain::private_key_type priv) const;
 
 private:

@@ -23,41 +23,41 @@ namespace bfs = boost::filesystem;
 using namespace eosio;
 using namespace eosio::chain;
 
-
 // reflect chainbase::environment for --print-build-info option
-FC_REFLECT_ENUM(chainbase::environment::os_t,
-                (OS_LINUX) (OS_MACOS) (OS_WINDOWS) (OS_OTHER))
-FC_REFLECT_ENUM(chainbase::environment::arch_t,
-                (ARCH_X86_64) (ARCH_ARM) (ARCH_RISCV) (ARCH_OTHER))
-FC_REFLECT(chainbase::environment, (debug) (os) (arch) (boost_version) (compiler))
+FC_REFLECT_ENUM(chainbase::environment::os_t, (OS_LINUX)(OS_MACOS)(OS_WINDOWS)(OS_OTHER))
+FC_REFLECT_ENUM(chainbase::environment::arch_t, (ARCH_X86_64)(ARCH_ARM)(ARCH_RISCV)(ARCH_OTHER))
+FC_REFLECT(chainbase::environment, (debug)(os)(arch)(boost_version)(compiler))
 
-
-void chain_actions::setup(CLI::App& app) {
+void chain_actions::setup(CLI::App& app)
+{
    auto* sub = app.add_subcommand("chain-state", "chain utility");
    sub->require_subcommand(1);
 
    auto* build = sub->add_subcommand("build-info", "extract build environment information as JSON");
-   build->add_option("--output-file,-o", opt->build_output_file, "write into specified file")->capture_default_str();
+   build->add_option("--output-file,-o", opt->build_output_file, "write into specified file")
+      ->capture_default_str();
    build->add_flag("--print,-p", opt->build_just_print, "print to console");
    build->require_option(1);
 
    build->callback([&]() {
       int rc = run_subcommand_build();
       // properly return err code in main
-      if(rc) throw(CLI::RuntimeError(rc));
+      if (rc)
+         throw(CLI::RuntimeError(rc));
    });
 }
 
-int chain_actions::run_subcommand_build() {
-   if(!opt->build_output_file.empty()) {
+int chain_actions::run_subcommand_build()
+{
+   if (!opt->build_output_file.empty()) {
       bfs::path p = opt->build_output_file;
-      if(p.is_relative()) {
+      if (p.is_relative()) {
          p = bfs::current_path() / p;
       }
       fc::json::save_to_file(chainbase::environment(), p, true);
-      std::cout << "Saved build info JSON to '" <<  p.generic_string() << "'" << std::endl;
+      std::cout << "Saved build info JSON to '" << p.generic_string() << "'" << std::endl;
    }
-   if(opt->build_just_print) {
+   if (opt->build_just_print) {
       std::cout << fc::json::to_pretty_string(chainbase::environment()) << std::endl;
    }
 

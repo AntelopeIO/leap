@@ -105,7 +105,7 @@ std::vector<table_delta> create_deltas(const chainbase::database& db, bool full_
             delta.rows.obj.emplace_back(true, pack_row(row));
          }
 
-         if(delta.rows.obj.empty()) {
+         if (delta.rows.obj.empty()) {
             deltas.pop_back();
          }
       }

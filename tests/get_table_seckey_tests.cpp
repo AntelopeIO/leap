@@ -34,49 +34,50 @@ using namespace fc;
 
 BOOST_AUTO_TEST_SUITE(get_table_seckey_tests)
 
-BOOST_FIXTURE_TEST_CASE( get_table_next_key_test, TESTER ) try {
+BOOST_FIXTURE_TEST_CASE(get_table_next_key_test, TESTER)
+try {
    create_account("test"_n);
 
    // setup contract and abi
-   set_code( "test"_n, contracts::get_table_seckey_test_wasm() );
-   set_abi( "test"_n, contracts::get_table_seckey_test_abi().data() );
+   set_code("test"_n, contracts::get_table_seckey_test_wasm());
+   set_abi("test"_n, contracts::get_table_seckey_test_abi().data());
    produce_block();
 
-   chain_apis::read_only plugin(*(this->control), {}, fc::microseconds::maximum(), fc::microseconds::maximum(), {}, {});
-   chain_apis::read_only::get_table_rows_params params = []{
+   chain_apis::read_only plugin(
+      *(this->control), {}, fc::microseconds::maximum(), fc::microseconds::maximum(), {}, {});
+   chain_apis::read_only::get_table_rows_params params = [] {
       chain_apis::read_only::get_table_rows_params params{};
-      params.json=true;
-      params.code="test"_n;
-      params.scope="test";
-      params.limit=1;
+      params.json  = true;
+      params.code  = "test"_n;
+      params.scope = "test";
+      params.limit = 1;
       return params;
    }();
 
    params.table = "numobjs"_n;
-
 
    // name secondary key type
    push_action("test"_n, "addnumobj"_n, "test"_n, mutable_variant_object()("input", 2)("nm", "a"));
    push_action("test"_n, "addnumobj"_n, "test"_n, mutable_variant_object()("input", 5)("nm", "b"));
    push_action("test"_n, "addnumobj"_n, "test"_n, mutable_variant_object()("input", 7)("nm", "c"));
 
-   params.table = "numobjs"_n;
-   params.key_type = "name";
-   params.limit = 10;
+   params.table          = "numobjs"_n;
+   params.key_type       = "name";
+   params.limit          = 10;
    params.index_position = "6";
-   params.lower_bound = "a";
-   params.upper_bound = "a";
-   auto res_nm = plugin.get_table_rows(params, fc::time_point::maximum());
+   params.lower_bound    = "a";
+   params.upper_bound    = "a";
+   auto res_nm           = plugin.get_table_rows(params, fc::time_point::maximum());
    BOOST_REQUIRE(res_nm.rows.size() == 1);
 
    params.lower_bound = "a";
    params.upper_bound = "b";
-   res_nm = plugin.get_table_rows(params, fc::time_point::maximum());
+   res_nm             = plugin.get_table_rows(params, fc::time_point::maximum());
    BOOST_REQUIRE(res_nm.rows.size() == 2);
 
    params.lower_bound = "a";
    params.upper_bound = "c";
-   res_nm = plugin.get_table_rows(params, fc::time_point::maximum());
+   res_nm             = plugin.get_table_rows(params, fc::time_point::maximum());
    BOOST_REQUIRE(res_nm.rows.size() == 3);
 
    push_action("test"_n, "addnumobj"_n, "test"_n, mutable_variant_object()("input", 8)("nm", "1111"));
@@ -85,14 +86,14 @@ BOOST_FIXTURE_TEST_CASE( get_table_next_key_test, TESTER ) try {
 
    params.lower_bound = "1111";
    params.upper_bound = "3333";
-   res_nm = plugin.get_table_rows(params, fc::time_point::maximum());
+   res_nm             = plugin.get_table_rows(params, fc::time_point::maximum());
    BOOST_REQUIRE(res_nm.rows.size() == 3);
 
    params.lower_bound = "2222";
    params.upper_bound = "3333";
-   res_nm = plugin.get_table_rows(params, fc::time_point::maximum());
+   res_nm             = plugin.get_table_rows(params, fc::time_point::maximum());
    BOOST_REQUIRE(res_nm.rows.size() == 2);
-
-} FC_LOG_AND_RETHROW() /// get_table_next_key_test
+}
+FC_LOG_AND_RETHROW() /// get_table_next_key_test
 
 BOOST_AUTO_TEST_SUITE_END()

@@ -12,10 +12,11 @@
 
 #include <memory>
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv)
+{
    fc::logger::get(DEFAULT_LOGGER).set_log_level(fc::log_level::debug);
 
-   CLI::App app{"Leap Command Line Utility"};
+   CLI::App app{ "Leap Command Line Utility" };
 
    // custom leap formatter
    auto fmt = std::make_shared<CLI::LeapFormatter>();

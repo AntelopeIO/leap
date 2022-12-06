@@ -1,8 +1,8 @@
 #include <eosio/trace_api/trace_api_plugin.hpp>
 
 #include <eosio/trace_api/abi_data_handler.hpp>
-#include <eosio/trace_api/request_handler.hpp>
 #include <eosio/trace_api/chain_extraction.hpp>
+#include <eosio/trace_api/request_handler.hpp>
 #include <eosio/trace_api/store_provider.hpp>
 
 #include <eosio/trace_api/configuration_utils.hpp>
@@ -16,84 +16,73 @@ using namespace eosio::trace_api::configuration_utils;
 using boost::signals2::scoped_connection;
 
 namespace {
-   appbase::abstract_plugin& plugin_reg = app().register_plugin<trace_api_plugin>();
+appbase::abstract_plugin& plugin_reg = app().register_plugin<trace_api_plugin>();
 
-   const std::string logger_name("trace_api");
-   fc::logger _log;
+const std::string logger_name("trace_api");
+fc::logger        _log;
 
-   std::string to_detail_string(const std::exception_ptr& e) {
-      try {
-         std::rethrow_exception(e);
-      } catch (fc::exception& er) {
-         return er.to_detail_string();
-      } catch (const std::exception& e) {
-         fc::exception fce(
-               FC_LOG_MESSAGE(warn, "std::exception: ${what}: ", ("what", e.what())),
-               fc::std_exception_code,
-               BOOST_CORE_TYPEID(e).name(),
-               e.what());
-         return fce.to_detail_string();
-      } catch (...) {
-         fc::unhandled_exception ue(
-               FC_LOG_MESSAGE(warn, "unknown: ",),
-               std::current_exception());
-         return ue.to_detail_string();
-      }
+std::string to_detail_string(const std::exception_ptr& e) {
+   try {
+      std::rethrow_exception(e);
+   } catch (fc::exception& er) {
+      return er.to_detail_string();
+   } catch (const std::exception& e) {
+      fc::exception fce(FC_LOG_MESSAGE(warn, "std::exception: ${what}: ", ("what", e.what())), fc::std_exception_code,
+                        BOOST_CORE_TYPEID(e).name(), e.what());
+      return fce.to_detail_string();
+   } catch (...) {
+      fc::unhandled_exception ue(FC_LOG_MESSAGE(warn, "unknown: ", ), std::current_exception());
+      return ue.to_detail_string();
    }
-
-   void log_exception( const exception_with_context& e, fc::log_level level ) {
-      if( _log.is_enabled( level ) ) {
-         auto detail_string = to_detail_string(std::get<0>(e));
-         auto context = fc::log_context( level, std::get<1>(e), std::get<2>(e), std::get<3>(e) );
-         _log.log(fc::log_message( context, detail_string ));
-      }
-   }
-
-   /**
-    * The exception_handler provided to the extraction sub-system throws `yield_exception` as a signal that
-    * Something has gone wrong and the extraction process needs to terminate immediately
-    *
-    * This templated method is used to wrap signal handlers for `chain_controller` so that the plugin-internal
-    * `yield_exception` can be translated to a `chain::controller_emit_signal_exception`.
-    *
-    * The goal is that the currently applied block will be rolled-back before the shutdown takes effect leaving
-    * the system in a better state for restart.
-    */
-   template<typename F>
-   void emit_killer(F&& f) {
-      try {
-         f();
-      } catch (const yield_exception& ) {
-         EOS_THROW(chain::controller_emit_signal_exception, "Trace API encountered an Error which it cannot recover from.  Please resolve the error and relaunch the process")
-      }
-   }
-
-   template<typename Store>
-   struct shared_store_provider {
-      shared_store_provider(const std::shared_ptr<Store>& store)
-      :store(store)
-      {}
-
-      template <typename BlockTrace>
-      void append( const BlockTrace& trace ) {
-         store->append(trace);
-      }
-
-      void append_lib( uint32_t new_lib ) {
-         store->append_lib(new_lib);
-      }
-
-      get_block_t get_block(uint32_t height, const yield_function& yield) {
-         return store->get_block(height, yield);
-      }
-
-      void append_trx_ids(block_trxs_entry tt){
-         store->append_trx_ids(std::move(tt));
-      }
-
-      std::shared_ptr<Store> store;
-   };
 }
+
+void log_exception(const exception_with_context& e, fc::log_level level) {
+   if (_log.is_enabled(level)) {
+      auto detail_string = to_detail_string(std::get<0>(e));
+      auto context       = fc::log_context(level, std::get<1>(e), std::get<2>(e), std::get<3>(e));
+      _log.log(fc::log_message(context, detail_string));
+   }
+}
+
+/**
+ * The exception_handler provided to the extraction sub-system throws `yield_exception` as a signal that
+ * Something has gone wrong and the extraction process needs to terminate immediately
+ *
+ * This templated method is used to wrap signal handlers for `chain_controller` so that the plugin-internal
+ * `yield_exception` can be translated to a `chain::controller_emit_signal_exception`.
+ *
+ * The goal is that the currently applied block will be rolled-back before the shutdown takes effect leaving
+ * the system in a better state for restart.
+ */
+template <typename F>
+void emit_killer(F&& f) {
+   try {
+      f();
+   } catch (const yield_exception&) {
+      EOS_THROW(chain::controller_emit_signal_exception, "Trace API encountered an Error which it cannot recover from. "
+                                                         " Please resolve the error and relaunch the process")
+   }
+}
+
+template <typename Store>
+struct shared_store_provider {
+   shared_store_provider(const std::shared_ptr<Store>& store)
+       : store(store) {}
+
+   template <typename BlockTrace>
+   void append(const BlockTrace& trace) {
+      store->append(trace);
+   }
+
+   void append_lib(uint32_t new_lib) { store->append_lib(new_lib); }
+
+   get_block_t get_block(uint32_t height, const yield_function& yield) { return store->get_block(height, yield); }
+
+   void append_trx_ids(block_trxs_entry tt) { store->append_trx_ids(std::move(tt)); }
+
+   std::shared_ptr<Store> store;
+};
+} // namespace
 
 namespace eosio {
 
@@ -107,11 +96,15 @@ struct trace_api_common_impl {
                   "the location of the trace directory (absolute path or relative to application data dir)");
       cfg_options("trace-slice-stride", bpo::value<uint32_t>()->default_value(10'000),
                   "the number of blocks each \"slice\" of trace data will contain on the filesystem");
-      cfg_options("trace-minimum-irreversible-history-blocks", boost::program_options::value<int32_t>()->default_value(-1),
-                  "Number of blocks to ensure are kept past LIB for retrieval before \"slice\" files can be automatically removed.\n"
+      cfg_options("trace-minimum-irreversible-history-blocks",
+                  boost::program_options::value<int32_t>()->default_value(-1),
+                  "Number of blocks to ensure are kept past LIB for retrieval before \"slice\" files can be "
+                  "automatically removed.\n"
                   "A value of -1 indicates that automatic removal of \"slice\" files will be turned off.");
-      cfg_options("trace-minimum-uncompressed-irreversible-history-blocks", boost::program_options::value<int32_t>()->default_value(-1),
-                  "Number of blocks to ensure are uncompressed past LIB. Compressed \"slice\" files are still accessible but may carry a performance loss on retrieval\n"
+      cfg_options("trace-minimum-uncompressed-irreversible-history-blocks",
+                  boost::program_options::value<int32_t>()->default_value(-1),
+                  "Number of blocks to ensure are uncompressed past LIB. Compressed \"slice\" files are still "
+                  "accessible but may carry a performance loss on retrieval\n"
                   "A value of -1 indicates that automatic compression of \"slice\" files will be turned off.");
    }
 
@@ -122,7 +115,7 @@ struct trace_api_common_impl {
       else
          trace_dir = dir_option;
       if (auto resmon_plugin = app().find_plugin<resource_monitor_plugin>())
-        resmon_plugin->monitor_directory(trace_dir);
+         resmon_plugin->monitor_directory(trace_dir);
 
       slice_stride = options.at("trace-slice-stride").as<uint32_t>();
 
@@ -133,7 +126,8 @@ struct trace_api_common_impl {
          minimum_irreversible_history_blocks = blocks;
       }
 
-      const int32_t uncompressed_blocks = options.at("trace-minimum-uncompressed-irreversible-history-blocks").as<int32_t>();
+      const int32_t uncompressed_blocks =
+          options.at("trace-minimum-uncompressed-irreversible-history-blocks").as<int32_t>();
       EOS_ASSERT(uncompressed_blocks >= -1, chain::plugin_config_exception,
                  "\"trace-minimum-uncompressed-irreversible-history-blocks\" must be greater to or equal to -1.");
 
@@ -141,33 +135,25 @@ struct trace_api_common_impl {
          minimum_uncompressed_irreversible_history_blocks = uncompressed_blocks;
       }
 
-      store = std::make_shared<store_provider>(
-         trace_dir,
-         slice_stride,
-         minimum_irreversible_history_blocks,
-         minimum_uncompressed_irreversible_history_blocks,
-         compression_seek_point_stride
-      );
+      store = std::make_shared<store_provider>(trace_dir, slice_stride, minimum_irreversible_history_blocks,
+                                               minimum_uncompressed_irreversible_history_blocks,
+                                               compression_seek_point_stride);
    }
 
    void plugin_startup() {
-      store->start_maintenance_thread([](const std::string& msg ){
-         fc_dlog( _log, msg );
-      });
+      store->start_maintenance_thread([](const std::string& msg) { fc_dlog(_log, msg); });
    }
 
-   void plugin_shutdown() {
-      store->stop_maintenance_thread();
-   }
+   void plugin_shutdown() { store->stop_maintenance_thread(); }
 
    // common configuration paramters
    boost::filesystem::path trace_dir;
-   uint32_t slice_stride = 0;
+   uint32_t                slice_stride = 0;
 
    std::optional<uint32_t> minimum_irreversible_history_blocks;
    std::optional<uint32_t> minimum_uncompressed_irreversible_history_blocks;
 
-   static constexpr int32_t manual_slice_file_value = -1;
+   static constexpr int32_t  manual_slice_file_value       = -1;
    static constexpr uint32_t compression_seek_point_stride = 6 * 1024 * 1024; // 6 MiB strides for clog seek points
 
    std::shared_ptr<store_provider> store;
@@ -176,10 +162,9 @@ struct trace_api_common_impl {
 /**
  * Interface with the RPC process
  */
-struct trace_api_rpc_plugin_impl : public std::enable_shared_from_this<trace_api_rpc_plugin_impl>
-{
-   trace_api_rpc_plugin_impl( const std::shared_ptr<trace_api_common_impl>& common )
-   :common(common) {}
+struct trace_api_rpc_plugin_impl : public std::enable_shared_from_this<trace_api_rpc_plugin_impl> {
+   trace_api_rpc_plugin_impl(const std::shared_ptr<trace_api_common_impl>& common)
+       : common(common) {}
 
    static void set_program_options(appbase::options_description& cli, appbase::options_description& cfg) {
       auto cfg_options = cfg.add_options();
@@ -189,30 +174,28 @@ struct trace_api_rpc_plugin_impl : public std::enable_shared_from_this<trace_api
                   "ABIs are specified as \"Key=Value\" pairs in the form <account-name>=<abi-def>\n"
                   "Where <abi-def> can be:\n"
                   "   an absolute path to a file containing a valid JSON-encoded ABI\n"
-                  "   a relative path from `data-dir` to a file containing a valid JSON-encoded ABI\n"
-                  );
-      cfg_options("trace-no-abis",
-            "Use to indicate that the RPC responses will not use ABIs.\n"
-            "Failure to specify this option when there are no trace-rpc-abi configuations will result in an Error.\n"
-            "This option is mutually exclusive with trace-rpc-api"
-      );
+                  "   a relative path from `data-dir` to a file containing a valid JSON-encoded ABI\n");
+      cfg_options(
+          "trace-no-abis",
+          "Use to indicate that the RPC responses will not use ABIs.\n"
+          "Failure to specify this option when there are no trace-rpc-abi configuations will result in an Error.\n"
+          "This option is mutually exclusive with trace-rpc-api");
    }
 
    void plugin_initialize(const appbase::variables_map& options) {
       ilog("initializing trace api rpc plugin");
-      std::shared_ptr<abi_data_handler> data_handler = std::make_shared<abi_data_handler>([](const exception_with_context& e){
-         log_exception(e, fc::log_level::debug);
-      });
+      std::shared_ptr<abi_data_handler> data_handler = std::make_shared<abi_data_handler>(
+          [](const exception_with_context& e) { log_exception(e, fc::log_level::debug); });
 
-      if( options.count("trace-rpc-abi") ) {
+      if (options.count("trace-rpc-abi")) {
          EOS_ASSERT(options.count("trace-no-abis") == 0, chain::plugin_config_exception,
                     "Trace API is configured with ABIs however trace-no-abis is set");
          const std::vector<std::string> key_value_pairs = options["trace-rpc-abi"].as<std::vector<std::string>>();
          for (const auto& entry : key_value_pairs) {
             try {
-               auto kv = parse_kv_pairs(entry);
+               auto kv      = parse_kv_pairs(entry);
                auto account = chain::name(kv.first);
-               auto abi = abi_def_from_file(kv.second, app().data_dir());
+               auto abi     = abi_def_from_file(kv.second, app().data_dir());
                data_handler->add_abi(account, abi);
             } catch (...) {
                elog("Malformed trace-rpc-abi provider: \"${val}\"", ("val", entry));
@@ -224,18 +207,14 @@ struct trace_api_rpc_plugin_impl : public std::enable_shared_from_this<trace_api
                     "Trace API is not configured with ABIs and trace-no-abis is not set");
       }
 
-      req_handler = std::make_shared<request_handler_t>(
-         shared_store_provider<store_provider>(common->store),
-         abi_data_handler::shared_provider(data_handler),
-         [](const std::string& msg ) {
-            fc_dlog( _log, msg );
-         }
-      );
+      req_handler = std::make_shared<request_handler_t>(shared_store_provider<store_provider>(common->store),
+                                                        abi_data_handler::shared_provider(data_handler),
+                                                        [](const std::string& msg) { fc_dlog(_log, msg); });
    }
 
-   fc::time_point calc_deadline( const fc::microseconds& max_serialization_time ) {
+   fc::time_point calc_deadline(const fc::microseconds& max_serialization_time) {
       fc::time_point deadline = fc::time_point::now();
-      if( max_serialization_time > fc::microseconds::maximum() - deadline.time_since_epoch() ) {
+      if (max_serialization_time > fc::microseconds::maximum() - deadline.time_since_epoch()) {
          deadline = fc::time_point::maximum();
       } else {
          deadline += max_serialization_time;
@@ -244,18 +223,17 @@ struct trace_api_rpc_plugin_impl : public std::enable_shared_from_this<trace_api
    }
 
    void plugin_startup() {
-      auto& http = app().get_plugin<http_plugin>();
+      auto&            http              = app().get_plugin<http_plugin>();
       fc::microseconds max_response_time = http.get_max_response_time();
 
-      http.add_async_handler("/v1/trace_api/get_block",
-            [wthis=weak_from_this(), max_response_time](std::string, std::string body, url_response_callback cb)
-      {
+      http.add_async_handler("/v1/trace_api/get_block", [wthis = weak_from_this(), max_response_time](
+                                                            std::string, std::string body, url_response_callback cb) {
          auto that = wthis.lock();
          if (!that) {
             return;
          }
 
-         const auto deadline = that->calc_deadline( max_response_time );
+         const auto deadline = that->calc_deadline(max_response_time);
 
          auto block_number = ([&body]() -> std::optional<uint32_t> {
             if (body.empty()) {
@@ -263,7 +241,7 @@ struct trace_api_rpc_plugin_impl : public std::enable_shared_from_this<trace_api
             }
 
             try {
-               auto input = fc::json::from_string(body);
+               auto input     = fc::json::from_string(body);
                auto block_num = input.get_object()["block_num"].as_uint64();
                if (block_num > std::numeric_limits<uint32_t>::max()) {
                   return {};
@@ -276,80 +254,82 @@ struct trace_api_rpc_plugin_impl : public std::enable_shared_from_this<trace_api
 
          if (!block_number) {
             error_results results{400, "Bad or missing block_num"};
-            cb( 400, deadline, fc::variant( results ));
+            cb(400, deadline, fc::variant(results));
             return;
          }
 
          try {
 
-            auto resp = that->req_handler->get_block_trace(*block_number, [deadline]() { FC_CHECK_DEADLINE(deadline); });
+            auto resp =
+                that->req_handler->get_block_trace(*block_number, [deadline]() { FC_CHECK_DEADLINE(deadline); });
             if (resp.is_null()) {
                error_results results{404, "Trace API: block trace missing"};
-               cb( 404, deadline, fc::variant( results ));
+               cb(404, deadline, fc::variant(results));
             } else {
-               cb( 200, deadline, std::move(resp) );
+               cb(200, deadline, std::move(resp));
             }
          } catch (...) {
             http_plugin::handle_exception("trace_api", "get_block", body, cb);
          }
       });
 
+      http.add_async_handler(
+          "/v1/trace_api/get_transaction_trace",
+          [wthis = weak_from_this(), max_response_time, this](std::string, std::string body, url_response_callback cb) {
+             auto that = wthis.lock();
+             if (!that) {
+                return;
+             }
 
-      http.add_async_handler("/v1/trace_api/get_transaction_trace",
-            [wthis=weak_from_this(), max_response_time, this](std::string, std::string body, url_response_callback cb)
-      {
-         auto that = wthis.lock();
-         if (!that) {
-            return;
-         }
+             const auto deadline = that->calc_deadline(max_response_time);
 
-         const auto deadline = that->calc_deadline( max_response_time );
+             auto trx_id = ([&body]() -> std::optional<transaction_id_type> {
+                if (body.empty()) {
+                   return {};
+                }
+                try {
+                   auto input = fc::json::from_string(body);
+                   auto trxid = input.get_object()["id"].as_string();
+                   if (trxid.size() < 8 || trxid.size() > 64) {
+                      return {};
+                   }
+                   return transaction_id_type(trxid);
+                } catch (...) {
+                   return {};
+                }
+             })();
 
-         auto trx_id = ([&body]() -> std::optional<transaction_id_type> {
-            if (body.empty()) {
-               return {};
-            }
-            try {
-               auto input = fc::json::from_string(body);
-               auto trxid = input.get_object()["id"].as_string();
-               if (trxid.size() < 8 || trxid.size() > 64) {
-                  return {};
-               }
-               return transaction_id_type(trxid);
-            } catch (...) {
-               return {};
-            }
-         })();
+             if (!trx_id) {
+                error_results results{400, "Bad or missing transaction ID"};
+                cb(400, deadline, fc::variant(results));
+                return;
+             }
 
-         if (!trx_id) {
-            error_results results{400, "Bad or missing transaction ID"};
-            cb( 400, deadline, fc::variant( results ));
-            return;
-         }
-
-         try {
-            // search for the block that contains the transaction
-            get_block_n blk_num = common->store->get_trx_block_number(*trx_id, common->minimum_irreversible_history_blocks, [deadline]() { FC_CHECK_DEADLINE(deadline); });
-            if (!blk_num.has_value()){
-               error_results results{404, "Trace API: transaction id missing in the transaction id log files"};
-               cb( 404, deadline, fc::variant( results ));
-            } else {
-               auto resp = that->req_handler->get_transaction_trace(*trx_id, *blk_num, [deadline]() { FC_CHECK_DEADLINE(deadline); });
-               if (resp.is_null()) {
-                  error_results results{404, "Trace API: transaction trace missing"};
-                  cb( 404, deadline, fc::variant( results ));
-               } else {
-                  cb( 200, deadline, std::move(resp) );
-               }
-            }
-          } catch (...) {
-             http_plugin::handle_exception("trace_api", "get_transaction", body, cb);
-          }
-      });
+             try {
+                // search for the block that contains the transaction
+                get_block_n blk_num =
+                    common->store->get_trx_block_number(*trx_id, common->minimum_irreversible_history_blocks,
+                                                        [deadline]() { FC_CHECK_DEADLINE(deadline); });
+                if (!blk_num.has_value()) {
+                   error_results results{404, "Trace API: transaction id missing in the transaction id log files"};
+                   cb(404, deadline, fc::variant(results));
+                } else {
+                   auto resp = that->req_handler->get_transaction_trace(*trx_id, *blk_num,
+                                                                        [deadline]() { FC_CHECK_DEADLINE(deadline); });
+                   if (resp.is_null()) {
+                      error_results results{404, "Trace API: transaction trace missing"};
+                      cb(404, deadline, fc::variant(results));
+                   } else {
+                      cb(200, deadline, std::move(resp));
+                   }
+                }
+             } catch (...) {
+                http_plugin::handle_exception("trace_api", "get_transaction", body, cb);
+             }
+          });
    }
 
-   void plugin_shutdown() {
-   }
+   void plugin_shutdown() {}
 
    std::shared_ptr<trace_api_common_impl> common;
 
@@ -358,8 +338,8 @@ struct trace_api_rpc_plugin_impl : public std::enable_shared_from_this<trace_api
 };
 
 struct trace_api_plugin_impl {
-   trace_api_plugin_impl( const std::shared_ptr<trace_api_common_impl>& common )
-   :common(common) {}
+   trace_api_plugin_impl(const std::shared_ptr<trace_api_common_impl>& common)
+       : common(common) {}
 
    void plugin_initialize(const appbase::variables_map& options) {
       ilog("initializing trace api plugin");
@@ -368,64 +348,45 @@ struct trace_api_plugin_impl {
          app().quit();
          throw yield_exception("shutting down");
       };
-      extraction = std::make_shared<chain_extraction_t>(shared_store_provider<store_provider>(common->store), log_exceptions_and_shutdown);
+      extraction = std::make_shared<chain_extraction_t>(shared_store_provider<store_provider>(common->store),
+                                                        log_exceptions_and_shutdown);
 
       auto& chain = app().find_plugin<chain_plugin>()->chain();
 
-      applied_transaction_connection.emplace(
-         chain.applied_transaction.connect([this](std::tuple<const chain::transaction_trace_ptr&, const chain::packed_transaction_ptr&> t) {
-            emit_killer([&](){
-               extraction->signal_applied_transaction(std::get<0>(t), std::get<1>(t));
-            });
-         }));
+      applied_transaction_connection.emplace(chain.applied_transaction.connect(
+          [this](std::tuple<const chain::transaction_trace_ptr&, const chain::packed_transaction_ptr&> t) {
+             emit_killer([&]() { extraction->signal_applied_transaction(std::get<0>(t), std::get<1>(t)); });
+          }));
 
-      block_start_connection.emplace(
-            chain.block_start.connect([this](uint32_t block_num) {
-               emit_killer([&](){
-                  extraction->signal_block_start(block_num);
-               });
-            }));
+      block_start_connection.emplace(chain.block_start.connect(
+          [this](uint32_t block_num) { emit_killer([&]() { extraction->signal_block_start(block_num); }); }));
 
-      accepted_block_connection.emplace(
-         chain.accepted_block.connect([this](const chain::block_state_ptr& p) {
-            emit_killer([&](){
-               extraction->signal_accepted_block(p);
-            });
-         }));
+      accepted_block_connection.emplace(chain.accepted_block.connect(
+          [this](const chain::block_state_ptr& p) { emit_killer([&]() { extraction->signal_accepted_block(p); }); }));
 
-      irreversible_block_connection.emplace(
-         chain.irreversible_block.connect([this](const chain::block_state_ptr& p) {
-            emit_killer([&](){
-               extraction->signal_irreversible_block(p);
-            });
-         }));
-
+      irreversible_block_connection.emplace(chain.irreversible_block.connect([this](const chain::block_state_ptr& p) {
+         emit_killer([&]() { extraction->signal_irreversible_block(p); });
+      }));
    }
 
-   void plugin_startup() {
-      common->plugin_startup();
-   }
+   void plugin_startup() { common->plugin_startup(); }
 
-   void plugin_shutdown() {
-      common->plugin_shutdown();
-   }
+   void plugin_shutdown() { common->plugin_shutdown(); }
 
    std::shared_ptr<trace_api_common_impl> common;
 
    using chain_extraction_t = chain_extraction_impl_type<shared_store_provider<store_provider>>;
    std::shared_ptr<chain_extraction_t> extraction;
 
-   std::optional<scoped_connection>                            applied_transaction_connection;
-   std::optional<scoped_connection>                            block_start_connection;
-   std::optional<scoped_connection>                            accepted_block_connection;
-   std::optional<scoped_connection>                            irreversible_block_connection;
+   std::optional<scoped_connection> applied_transaction_connection;
+   std::optional<scoped_connection> block_start_connection;
+   std::optional<scoped_connection> accepted_block_connection;
+   std::optional<scoped_connection> irreversible_block_connection;
 };
 
-trace_api_plugin::trace_api_plugin()
-{}
+trace_api_plugin::trace_api_plugin() {}
 
-trace_api_plugin::~trace_api_plugin()
-{}
+trace_api_plugin::~trace_api_plugin() {}
 
 void trace_api_plugin::set_program_options(appbase::options_description& cli, appbase::options_description& cfg) {
    trace_api_common_impl::set_program_options(cli, cfg);
@@ -455,15 +416,11 @@ void trace_api_plugin::plugin_shutdown() {
    rpc->plugin_shutdown();
 }
 
-void trace_api_plugin::handle_sighup() {
-   fc::logger::update( logger_name, _log );
-}
+void trace_api_plugin::handle_sighup() { fc::logger::update(logger_name, _log); }
 
-trace_api_rpc_plugin::trace_api_rpc_plugin()
-{}
+trace_api_rpc_plugin::trace_api_rpc_plugin() {}
 
-trace_api_rpc_plugin::~trace_api_rpc_plugin()
-{}
+trace_api_rpc_plugin::~trace_api_rpc_plugin() {}
 
 void trace_api_rpc_plugin::set_program_options(appbase::options_description& cli, appbase::options_description& cfg) {
    trace_api_common_impl::set_program_options(cli, cfg);
@@ -478,16 +435,10 @@ void trace_api_rpc_plugin::plugin_initialize(const appbase::variables_map& optio
    rpc->plugin_initialize(options);
 }
 
-void trace_api_rpc_plugin::plugin_startup() {
-   rpc->plugin_startup();
-}
+void trace_api_rpc_plugin::plugin_startup() { rpc->plugin_startup(); }
 
-void trace_api_rpc_plugin::plugin_shutdown() {
-   rpc->plugin_shutdown();
-}
+void trace_api_rpc_plugin::plugin_shutdown() { rpc->plugin_shutdown(); }
 
-void trace_api_rpc_plugin::handle_sighup() {
-   fc::logger::update( logger_name, _log );
-}
+void trace_api_rpc_plugin::handle_sighup() { fc::logger::update(logger_name, _log); }
 
-}
+} // namespace eosio

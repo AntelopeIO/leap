@@ -9,10 +9,10 @@
 namespace benchmark {
 using bytes = std::vector<char>;
 
-void set_num_runs(uint32_t runs);
+void                                         set_num_runs(uint32_t runs);
 std::map<std::string, std::function<void()>> get_features();
-void print_header();
-bytes to_bytes(const std::string& source);
+void                                         print_header();
+bytes                                        to_bytes(const std::string& source);
 
 void alt_bn_128_benchmarking();
 void modexp_benchmarking();

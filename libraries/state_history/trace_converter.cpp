@@ -4,7 +4,8 @@
 namespace eosio {
 namespace state_history {
 
-void trace_converter::add_transaction(const transaction_trace_ptr& trace, const chain::packed_transaction_ptr& transaction) {
+void trace_converter::add_transaction(const transaction_trace_ptr&         trace,
+                                      const chain::packed_transaction_ptr& transaction) {
    if (trace->receipt) {
       if (chain::is_onblock(*trace))
          onblock_trace.emplace(trace, transaction);

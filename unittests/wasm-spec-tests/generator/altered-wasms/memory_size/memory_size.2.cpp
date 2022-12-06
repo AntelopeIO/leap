@@ -1,15 +1,19 @@
 #include <eosio/eosio.hpp>
 
-extern "C" {
-   int32_t _size() {
+extern "C"
+{
+   int32_t _size()
+   {
       return 0;
    }
 
-   void _grow(int32_t) {
+   void _grow(int32_t)
+   {
       return;
    }
 
-   void sub_apply_0() {
+   void sub_apply_0()
+   {
       int32_t x1 = _size();
       eosio::check(x1 == (int32_t)1, "_size fail 1");
 
@@ -37,15 +41,13 @@ extern "C" {
 
       int32_t x11 = _size();
       eosio::check(x11 == (int32_t)3, "_size fail 11");
-
    }
-   void apply(uint64_t, uint64_t, uint64_t test_to_run) {
+   void apply(uint64_t, uint64_t, uint64_t test_to_run)
+   {
       volatile uint64_t* r = (uint64_t*)0;
-      *r = 0;
-      switch(test_to_run) {
-         case 0:
-            sub_apply_0();
-            break;
+      *r                   = 0;
+      switch (test_to_run) {
+         case 0: sub_apply_0(); break;
       }
    }
 }

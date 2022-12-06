@@ -1,275 +1,344 @@
 #include <eosio/eosio.hpp>
 
-extern "C" {
-   void _type_i32() {
+extern "C"
+{
+   void _type_i32()
+   {
       return;
    }
 
-   void _type_i64() {
+   void _type_i64()
+   {
       return;
    }
 
-   void _type_f32() {
+   void _type_f32()
+   {
       return;
    }
 
-   void _type_f64() {
+   void _type_f64()
+   {
       return;
    }
 
-   int32_t _type_i32_value() {
+   int32_t _type_i32_value()
+   {
       return 0;
    }
 
-   int64_t _type_i64_value() {
+   int64_t _type_i64_value()
+   {
       return 0;
    }
 
-   float _type_f32_value() {
+   float _type_f32_value()
+   {
       return 0.0f;
    }
 
-   double _type_f64_value() {
+   double _type_f64_value()
+   {
       return 0.0f;
    }
 
-   int32_t _empty(int32_t) {
+   int32_t _empty(int32_t)
+   {
       return 0;
    }
 
-   int32_t _empty_value(int32_t) {
+   int32_t _empty_value(int32_t)
+   {
       return 0;
    }
 
-   int32_t _singleton(int32_t) {
+   int32_t _singleton(int32_t)
+   {
       return 0;
    }
 
-   int32_t _singleton_value(int32_t) {
+   int32_t _singleton_value(int32_t)
+   {
       return 0;
    }
 
-   int32_t _multiple(int32_t) {
+   int32_t _multiple(int32_t)
+   {
       return 0;
    }
 
-   int32_t _multiple_value(int32_t) {
+   int32_t _multiple_value(int32_t)
+   {
       return 0;
    }
 
-   int32_t _large(int32_t) {
+   int32_t _large(int32_t)
+   {
       return 0;
    }
 
-   void _as_block_first() {
+   void _as_block_first()
+   {
       return;
    }
 
-   void _as_block_mid() {
+   void _as_block_mid()
+   {
       return;
    }
 
-   void _as_block_last() {
+   void _as_block_last()
+   {
       return;
    }
 
-   int32_t _as_block_value() {
+   int32_t _as_block_value()
+   {
       return 0;
    }
 
-   int32_t _as_loop_first() {
+   int32_t _as_loop_first()
+   {
       return 0;
    }
 
-   int32_t _as_loop_mid() {
+   int32_t _as_loop_mid()
+   {
       return 0;
    }
 
-   int32_t _as_loop_last() {
+   int32_t _as_loop_last()
+   {
       return 0;
    }
 
-   int32_t _as_br_value() {
+   int32_t _as_br_value()
+   {
       return 0;
    }
 
-   void _as_br_if_cond() {
+   void _as_br_if_cond()
+   {
       return;
    }
 
-   int32_t _as_br_if_value() {
+   int32_t _as_br_if_value()
+   {
       return 0;
    }
 
-   int32_t _as_br_if_value_cond() {
+   int32_t _as_br_if_value_cond()
+   {
       return 0;
    }
 
-   void _as_br_table_index() {
+   void _as_br_table_index()
+   {
       return;
    }
 
-   int32_t _as_br_table_value() {
+   int32_t _as_br_table_value()
+   {
       return 0;
    }
 
-   int32_t _as_br_table_value_index() {
+   int32_t _as_br_table_value_index()
+   {
       return 0;
    }
 
-   int64_t _as_return_value() {
+   int64_t _as_return_value()
+   {
       return 0;
    }
 
-   int32_t _as_if_cond() {
+   int32_t _as_if_cond()
+   {
       return 0;
    }
 
-   int32_t _as_if_then(int32_t, int32_t) {
+   int32_t _as_if_then(int32_t, int32_t)
+   {
       return 0;
    }
 
-   int32_t _as_if_else(int32_t, int32_t) {
+   int32_t _as_if_else(int32_t, int32_t)
+   {
       return 0;
    }
 
-   int32_t _as_select_first(int32_t, int32_t) {
+   int32_t _as_select_first(int32_t, int32_t)
+   {
       return 0;
    }
 
-   int32_t _as_select_second(int32_t, int32_t) {
+   int32_t _as_select_second(int32_t, int32_t)
+   {
       return 0;
    }
 
-   int32_t _as_select_cond() {
+   int32_t _as_select_cond()
+   {
       return 0;
    }
 
-   int32_t _as_call_first() {
+   int32_t _as_call_first()
+   {
       return 0;
    }
 
-   int32_t _as_call_mid() {
+   int32_t _as_call_mid()
+   {
       return 0;
    }
 
-   int32_t _as_call_last() {
+   int32_t _as_call_last()
+   {
       return 0;
    }
 
-   int32_t _as_call_indirect_first() {
+   int32_t _as_call_indirect_first()
+   {
       return 0;
    }
 
-   int32_t _as_call_indirect_mid() {
+   int32_t _as_call_indirect_mid()
+   {
       return 0;
    }
 
-   int32_t _as_call_indirect_last() {
+   int32_t _as_call_indirect_last()
+   {
       return 0;
    }
 
-   int32_t _as_call_indirect_func() {
+   int32_t _as_call_indirect_func()
+   {
       return 0;
    }
 
-   int32_t _as_local_set_value() {
+   int32_t _as_local_set_value()
+   {
       return 0;
    }
 
-   int32_t _as_local_tee_value() {
+   int32_t _as_local_tee_value()
+   {
       return 0;
    }
 
-   int32_t _as_global_set_value() {
+   int32_t _as_global_set_value()
+   {
       return 0;
    }
 
-   float _as_load_address() {
+   float _as_load_address()
+   {
       return 0.0f;
    }
 
-   int64_t _as_loadN_address() {
+   int64_t _as_loadN_address()
+   {
       return 0;
    }
 
-   int32_t _as_store_address() {
+   int32_t _as_store_address()
+   {
       return 0;
    }
 
-   int32_t _as_store_value() {
+   int32_t _as_store_value()
+   {
       return 0;
    }
 
-   int32_t _as_storeN_address() {
+   int32_t _as_storeN_address()
+   {
       return 0;
    }
 
-   int32_t _as_storeN_value() {
+   int32_t _as_storeN_value()
+   {
       return 0;
    }
 
-   float _as_unary_operand() {
+   float _as_unary_operand()
+   {
       return 0.0f;
    }
 
-   int32_t _as_binary_left() {
+   int32_t _as_binary_left()
+   {
       return 0;
    }
 
-   int64_t _as_binary_right() {
+   int64_t _as_binary_right()
+   {
       return 0;
    }
 
-   int32_t _as_test_operand() {
+   int32_t _as_test_operand()
+   {
       return 0;
    }
 
-   int32_t _as_compare_left() {
+   int32_t _as_compare_left()
+   {
       return 0;
    }
 
-   int32_t _as_compare_right() {
+   int32_t _as_compare_right()
+   {
       return 0;
    }
 
-   int32_t _as_convert_operand() {
+   int32_t _as_convert_operand()
+   {
       return 0;
    }
 
-   int32_t _as_memory_grow_size() {
+   int32_t _as_memory_grow_size()
+   {
       return 0;
    }
 
-   int32_t _nested_block_value(int32_t) {
+   int32_t _nested_block_value(int32_t)
+   {
       return 0;
    }
 
-   int32_t _nested_br_value(int32_t) {
+   int32_t _nested_br_value(int32_t)
+   {
       return 0;
    }
 
-   int32_t _nested_br_if_value(int32_t) {
+   int32_t _nested_br_if_value(int32_t)
+   {
       return 0;
    }
 
-   int32_t _nested_br_if_value_cond(int32_t) {
+   int32_t _nested_br_if_value_cond(int32_t)
+   {
       return 0;
    }
 
-   int32_t _nested_br_table_value(int32_t) {
+   int32_t _nested_br_table_value(int32_t)
+   {
       return 0;
    }
 
-   int32_t _nested_br_table_value_index(int32_t) {
+   int32_t _nested_br_table_value_index(int32_t)
+   {
       return 0;
    }
 
-   int32_t _nested_br_table_loop_block(int32_t) {
+   int32_t _nested_br_table_loop_block(int32_t)
+   {
       return 0;
    }
 
-   void sub_apply_0() {
+   void sub_apply_0()
+   {
       _type_i32();
 
       _type_i64();
@@ -489,28 +558,28 @@ extern "C" {
       int32_t x76 = _as_if_cond();
       eosio::check(x76 == (int32_t)2, "_as_if_cond fail 76");
 
-      int32_t x77 = _as_if_then((int32_t) 1, (int32_t)6);
+      int32_t x77 = _as_if_then((int32_t)1, (int32_t)6);
       eosio::check(x77 == (int32_t)3, "_as_if_then fail 77");
 
-      int32_t x78 = _as_if_then((int32_t) 0, (int32_t)6);
+      int32_t x78 = _as_if_then((int32_t)0, (int32_t)6);
       eosio::check(x78 == (int32_t)6, "_as_if_then fail 78");
 
-      int32_t x79 = _as_if_else((int32_t) 0, (int32_t)6);
+      int32_t x79 = _as_if_else((int32_t)0, (int32_t)6);
       eosio::check(x79 == (int32_t)4, "_as_if_else fail 79");
 
-      int32_t x80 = _as_if_else((int32_t) 1, (int32_t)6);
+      int32_t x80 = _as_if_else((int32_t)1, (int32_t)6);
       eosio::check(x80 == (int32_t)6, "_as_if_else fail 80");
 
-      int32_t x81 = _as_select_first((int32_t) 0, (int32_t)6);
+      int32_t x81 = _as_select_first((int32_t)0, (int32_t)6);
       eosio::check(x81 == (int32_t)5, "_as_select_first fail 81");
 
-      int32_t x82 = _as_select_first((int32_t) 1, (int32_t)6);
+      int32_t x82 = _as_select_first((int32_t)1, (int32_t)6);
       eosio::check(x82 == (int32_t)5, "_as_select_first fail 82");
 
-      int32_t x83 = _as_select_second((int32_t) 0, (int32_t)6);
+      int32_t x83 = _as_select_second((int32_t)0, (int32_t)6);
       eosio::check(x83 == (int32_t)6, "_as_select_second fail 83");
 
-      int32_t x84 = _as_select_second((int32_t) 1, (int32_t)6);
+      int32_t x84 = _as_select_second((int32_t)1, (int32_t)6);
       eosio::check(x84 == (int32_t)6, "_as_select_second fail 84");
 
       int32_t x85 = _as_select_cond();
@@ -560,9 +629,9 @@ extern "C" {
 
       int32_t x100 = _as_storeN_address();
       eosio::check(x100 == (int32_t)32, "_as_storeN_address fail 100");
-
    }
-   void sub_apply_1() {
+   void sub_apply_1()
+   {
       int32_t x101 = _as_storeN_value();
       eosio::check(x101 == (int32_t)33, "_as_storeN_value fail 101");
 
@@ -700,18 +769,14 @@ extern "C" {
 
       int32_t x146 = _nested_br_table_loop_block((int32_t)1);
       eosio::check(x146 == (int32_t)3, "_nested_br_table_loop_block fail 146");
-
    }
-   void apply(uint64_t, uint64_t, uint64_t test_to_run) {
+   void apply(uint64_t, uint64_t, uint64_t test_to_run)
+   {
       volatile uint64_t* r = (uint64_t*)0;
-      *r = 0;
-      switch(test_to_run) {
-         case 0:
-            sub_apply_0();
-            break;
-         case 1:
-            sub_apply_1();
-            break;
+      *r                   = 0;
+      switch (test_to_run) {
+         case 0: sub_apply_0(); break;
+         case 1: sub_apply_1(); break;
       }
    }
 }

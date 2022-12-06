@@ -1,12 +1,15 @@
 #pragma once
 #include <eosio/testing/tester.hpp>
 
-struct dummy_action {
-   static eosio::chain::name get_name() {
+struct dummy_action
+{
+   static eosio::chain::name get_name()
+   {
       using namespace eosio::chain::literals;
       return "dummyaction"_n;
    }
-   static eosio::chain::name get_account() {
+   static eosio::chain::name get_account()
+   {
       using namespace eosio::chain::literals;
       return "testapi"_n;
    }
@@ -16,12 +19,15 @@ struct dummy_action {
    int32_t  c; // 4
 };
 
-struct cf_action {
-   static eosio::chain::name get_name() {
+struct cf_action
+{
+   static eosio::chain::name get_name()
+   {
       using namespace eosio::chain::literals;
       return "cfaction"_n;
    }
-   static eosio::chain::name get_account() {
+   static eosio::chain::name get_account()
+   {
       using namespace eosio::chain::literals;
       return "testapi"_n;
    }
@@ -38,17 +44,17 @@ FC_REFLECT(cf_action, (payload)(cfd_idx))
 #define DUMMY_ACTION_DEFAULT_C 0x7451ae12
 
 std::vector<eosio::chain::signed_block_ptr> deploy_test_api(eosio::testing::tester& chain);
-eosio::chain::transaction_trace_ptr push_test_cfd_transaction(eosio::testing::tester& chain);
+eosio::chain::transaction_trace_ptr         push_test_cfd_transaction(eosio::testing::tester& chain);
 
-struct scoped_temp_path {
+struct scoped_temp_path
+{
    boost::filesystem::path path;
-   scoped_temp_path() {
+   scoped_temp_path()
+   {
       path = boost::filesystem::unique_path();
       if (boost::unit_test::framework::master_test_suite().argc >= 2) {
          path += boost::unit_test::framework::master_test_suite().argv[1];
       }
    }
-   ~scoped_temp_path() {
-      boost::filesystem::remove_all(path);
-   }
+   ~scoped_temp_path() { boost::filesystem::remove_all(path); }
 };

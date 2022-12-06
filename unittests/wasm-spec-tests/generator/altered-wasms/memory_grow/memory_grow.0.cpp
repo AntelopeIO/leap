@@ -1,55 +1,63 @@
 #include <eosio/eosio.hpp>
 
-extern "C" {
-   int32_t _size() {
+extern "C"
+{
+   int32_t _size()
+   {
       return 0;
    }
 
-   void _store_at_zero() {
+   void _store_at_zero()
+   {
       return;
    }
 
-   int32_t _load_at_zero() {
+   int32_t _load_at_zero()
+   {
       return 0;
    }
 
-   void _store_at_page_size() {
+   void _store_at_page_size()
+   {
       return;
    }
 
-   int32_t _load_at_page_size() {
+   int32_t _load_at_page_size()
+   {
       return 0;
    }
 
-   int32_t _grow(int32_t) {
+   int32_t _grow(int32_t)
+   {
       return 0;
    }
 
-   void sub_apply_0() {
+   void sub_apply_0()
+   {
       _store_at_zero();
-
    }
-   void sub_apply_1() {
+   void sub_apply_1()
+   {
       _load_at_zero();
-
    }
-   void sub_apply_2() {
+   void sub_apply_2()
+   {
       _store_at_page_size();
-
    }
-   void sub_apply_3() {
+   void sub_apply_3()
+   {
       _load_at_page_size();
-
    }
-   void sub_apply_4() {
+   void sub_apply_4()
+   {
       _store_at_page_size();
-
    }
-   void sub_apply_5() {
+   void sub_apply_5()
+   {
       _load_at_page_size();
-
    }
-   void sub_apply_6() {
+   void sub_apply_6()
+   {
       int32_t x1 = _size();
       eosio::check(x1 == (int32_t)1, "_size fail 1");
 
@@ -88,33 +96,19 @@ extern "C" {
 
       int32_t x14 = _load_at_page_size();
       eosio::check(x14 == (int32_t)3, "_load_at_page_size fail 14");
-
    }
-   void apply(uint64_t, uint64_t, uint64_t test_to_run) {
+   void apply(uint64_t, uint64_t, uint64_t test_to_run)
+   {
       volatile uint64_t* r = (uint64_t*)0;
-      *r = 0;
-      switch(test_to_run) {
-         case 0:
-            sub_apply_0();
-            break;
-         case 1:
-            sub_apply_1();
-            break;
-         case 2:
-            sub_apply_2();
-            break;
-         case 3:
-            sub_apply_3();
-            break;
-         case 4:
-            sub_apply_4();
-            break;
-         case 5:
-            sub_apply_5();
-            break;
-         case 6:
-            sub_apply_6();
-            break;
+      *r                   = 0;
+      switch (test_to_run) {
+         case 0: sub_apply_0(); break;
+         case 1: sub_apply_1(); break;
+         case 2: sub_apply_2(); break;
+         case 3: sub_apply_3(); break;
+         case 4: sub_apply_4(); break;
+         case 5: sub_apply_5(); break;
+         case 6: sub_apply_6(); break;
       }
    }
 }

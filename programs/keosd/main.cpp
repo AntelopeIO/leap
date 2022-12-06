@@ -16,7 +16,8 @@
 using namespace appbase;
 using namespace eosio;
 
-void configure_logging(const bfs::path& config_path) {
+void configure_logging(const bfs::path& config_path)
+{
    try {
       try {
          fc::configure_logging(config_path);
@@ -35,7 +36,8 @@ void configure_logging(const bfs::path& config_path) {
    }
 }
 
-void logging_conf_handler() {
+void logging_conf_handler()
+{
    auto config_path = app().get_logging_conf();
    if (fc::exists(config_path)) {
       ilog("Received HUP.  Reloading logging configuration from ${p}.", ("p", config_path.string()));
@@ -46,7 +48,8 @@ void logging_conf_handler() {
    fc::log_config::initialize_appenders(app().get_io_service());
 }
 
-void initialize_logging() {
+void initialize_logging()
+{
    auto config_path = app().get_logging_conf();
    if (fc::exists(config_path))
       fc::configure_logging(config_path); // intentionally allowing exceptions to escape
@@ -55,18 +58,16 @@ void initialize_logging() {
    app().set_sighup_callback(logging_conf_handler);
 }
 
-
 bfs::path determine_home_directory()
 {
-   bfs::path home;
+   bfs::path      home;
    struct passwd* pwd = getpwuid(getuid());
-   if(pwd) {
+   if (pwd) {
       home = pwd->pw_dir;
-   }
-   else {
+   } else {
       home = getenv("HOME");
    }
-   if(home.empty())
+   if (home.empty())
       home = "./";
    return home;
 }
@@ -79,14 +80,13 @@ int main(int argc, char** argv)
       bfs::path home = determine_home_directory();
       app().set_default_data_dir(home / "eosio-wallet");
       app().set_default_config_dir(home / "eosio-wallet");
-      http_plugin::set_defaults({
-         .default_unix_socket_path = keosd::config::key_store_executable_name + ".sock",
-         .default_http_port = 0,
-         .server_header = keosd::config::key_store_executable_name + "/" + app().version_string()
-      });
+      http_plugin::set_defaults(
+         { .default_unix_socket_path = keosd::config::key_store_executable_name + ".sock",
+           .default_http_port        = 0,
+           .server_header = keosd::config::key_store_executable_name + "/" + app().version_string() });
       app().register_plugin<wallet_api_plugin>();
-      if(!app().initialize<wallet_plugin, wallet_api_plugin, http_plugin>(argc, argv)) {
-         const auto &opts = app().get_options();
+      if (!app().initialize<wallet_plugin, wallet_api_plugin, http_plugin>(argc, argv)) {
+         const auto& opts = app().get_options();
          if (opts.count("help") || opts.count("version") || opts.count("full-version") ||
              opts.count("print-default-config")) {
             return 0;
@@ -95,18 +95,18 @@ int main(int argc, char** argv)
       initialize_logging();
       auto& http = app().get_plugin<http_plugin>();
       http.add_handler("/v1/" + keosd::config::key_store_executable_name + "/stop",
-                       [&a=app()](string, string, url_response_callback cb) {
-         cb(200, fc::time_point::maximum(), fc::variant(fc::variant_object()));
-         a.quit();
-      } );
+                       [&a = app()](string, string, url_response_callback cb) {
+                          cb(200, fc::time_point::maximum(), fc::variant(fc::variant_object()));
+                          a.quit();
+                       });
       app().startup();
       app().exec();
    } catch (const fc::exception& e) {
-      elog("${e}", ("e",e.to_detail_string()));
+      elog("${e}", ("e", e.to_detail_string()));
    } catch (const boost::exception& e) {
-      elog("${e}", ("e",boost::diagnostic_information(e)));
+      elog("${e}", ("e", boost::diagnostic_information(e)));
    } catch (const std::exception& e) {
-      elog("${e}", ("e",e.what()));
+      elog("${e}", ("e", e.what()));
    } catch (...) {
       elog("unknown exception");
    }

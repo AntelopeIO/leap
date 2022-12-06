@@ -8,18 +8,23 @@ namespace bpo = boost::program_options;
 using bpo::options_description;
 using bpo::variables_map;
 
-int main(int argc, char* argv[]) {
-   uint32_t num_runs = 1;
+int main(int argc, char* argv[])
+{
+   uint32_t    num_runs = 1;
    std::string feature_name;
 
    auto features = benchmark::get_features();
 
-   options_description cli ("benchmark command line options");
-   cli.add_options()
-      ("feature,f", bpo::value<std::string>(), "feature to be benchmarked; if this option is not present, all features are benchmarked.")
-      ("list,l", "list of supported features")
-      ("runs,r", bpo::value<uint32_t>(&num_runs)->default_value(1000), "the number of times running a function during benchmarking")
-      ("help,h", "benchmark functions, and report average, minimum, and maximum execution time in nanoseconds");
+   options_description cli("benchmark command line options");
+   cli.add_options()(
+      "feature,f",
+      bpo::value<std::string>(),
+      "feature to be benchmarked; if this option is not present, all features are benchmarked.")(
+      "list,l", "list of supported features")("runs,r",
+                                              bpo::value<uint32_t>(&num_runs)->default_value(1000),
+                                              "the number of times running a function during benchmarking")(
+      "help,h",
+      "benchmark functions, and report average, minimum, and maximum execution time in nanoseconds");
 
    variables_map vmap;
    try {
@@ -34,7 +39,7 @@ int main(int argc, char* argv[]) {
       if (vmap.count("list") > 0) {
          auto first = true;
          std::cout << "Supported features are ";
-         for (auto& [name, f]: features) {
+         for (auto& [name, f] : features) {
             if (first) {
                first = false;
             } else {
@@ -53,11 +58,11 @@ int main(int argc, char* argv[]) {
             return 1;
          }
       }
-   } catch (bpo::unknown_option &ex) {
+   } catch (bpo::unknown_option& ex) {
       std::cerr << ex.what() << std::endl;
-      cli.print (std::cerr);
+      cli.print(std::cerr);
       return 1;
-   } catch( ... ) {
+   } catch (...) {
       std::cerr << "unknown exception" << std::endl;
    }
 
@@ -65,7 +70,7 @@ int main(int argc, char* argv[]) {
    benchmark::print_header();
 
    if (feature_name.empty()) {
-      for (auto& [name, f]: features) {
+      for (auto& [name, f] : features) {
          std::cout << name << ":" << std::endl;
          f();
          std::cout << std::endl;
