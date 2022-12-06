@@ -101,6 +101,7 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
                // sole ownership of the tracked body and the passed in parameters
                app().post( priority, [next_ptr, conn=std::move(conn), r=std::move(r), tracked_b, wrapped_then=std::move(wrapped_then)]() mutable {
                   try {
+                     if( app().is_quiting() ) return; // http_plugin shutting down, do not call callback
                      // call the `next` url_handler and wrap the response handler
                      (*next_ptr)( std::move( r ), std::move(tracked_b->obj()), std::move(wrapped_then)) ;
                   } catch( ... ) {
@@ -474,8 +475,6 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
 
       // release http_plugin_impl_ptr shared_ptrs captured in url handlers
       my->plugin_state->url_handlers.clear();
-
-      app().post( 0, [me = my](){} ); // keep my pointer alive until queue is drained
    }
 
    void http_plugin::add_handler(const string& url, const url_handler& handler, int priority) {
