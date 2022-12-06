@@ -111,6 +111,8 @@ class TestHelper(object):
             parser.add_argument("--sanity-test", help="Validates nodeos and kleos are in path and can be started up.", action='store_true')
         if "--alternate-version-labels-file" in includeArgs:
             parser.add_argument("--alternate-version-labels-file", type=str, help="Provide a file to define the labels that can be used in the test and the path to the version installation associated with that.")
+        if "--error-log-path" in includeArgs:
+            parser.add_argument("--error-log-path", type=str, help="Provide path to error file for use when remotely running a test from another test.")
 
         for arg in applicationSpecificArgs.args:
             if arg.type is not None:

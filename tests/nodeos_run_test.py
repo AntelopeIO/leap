@@ -22,7 +22,7 @@ from core_symbol import CORE_SYMBOL
 
 args = TestHelper.parse_args({"--host","--port","--prod-count","--defproducera_prvt_key","--defproducerb_prvt_key"
                               ,"--dump-error-details","--dont-launch","--keep-logs","-v","--leave-running","--only-bios","--clean-run"
-                              ,"--sanity-test","--wallet-port"})
+                              ,"--sanity-test","--wallet-port", "--error-log-path"})
 server=args.host
 port=args.port
 debug=args.v
@@ -37,6 +37,9 @@ onlyBios=args.only_bios
 killAll=args.clean_run
 sanityTest=args.sanity_test
 walletPort=args.wallet_port
+errFileName=f"TestLogs/nodeos_run_test.py{os.getpid()}/lib/node_00/stderr.txt"
+if args.error_log_path:
+    errFileName=args.error_log_path
 
 Utils.Debug=debug
 localTest=True if server == TestHelper.LOCAL_HOST else False
@@ -737,7 +740,6 @@ try:
 
     if localTest:
         p = re.compile('Assert')
-        errFileName=f"TestLogs/nodeos_run_test.py{os.getpid()}/lib/node_00/stderr.txt"
         assertionsFound=False
         with open(errFileName) as errFile:
             for line in errFile:
@@ -747,7 +749,7 @@ try:
         if assertionsFound:
             # Too many assertion logs, hard to validate how many are genuine. Make this a warning
             #  for now, hopefully the logs will get cleaned up in future.
-            Print(f"WARNING: Asserts in TestLogs/nodeos_run_test.py{os.getpid()}/lib/node_00/stderr.txt")
+            Print(f"WARNING: Asserts in {errFileName}")
             #errorExit("FAILURE - Assert in nodeos_run_test.py/lib/node_00/stderr.txt")
 
     Print("Validating accounts at end of test")
