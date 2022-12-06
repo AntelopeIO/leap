@@ -322,6 +322,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       std::optional<named_thread_pool>                          _thread_pool;
 
       std::atomic<int32_t>                                      _max_transaction_time_ms; // modified by app thread, read by net_plugin thread pool
+      std::atomic<bool>                                         _received_block{false}; // modified by net_plugin thread pool and app thread
       fc::microseconds                                          _max_irreversible_block_age_us;
       int32_t                                                   _produce_time_offset_us = 0;
       int32_t                                                   _last_block_time_offset_us = 0;
@@ -1854,16 +1855,23 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
       }
 
       try {
+         _account_fails.clear();
+
+         if( _pending_block_mode == pending_block_mode::speculating && _received_block )
+            return start_block_result::exhausted;
          if( !remove_expired_trxs( preprocess_deadline ) )
             return start_block_result::exhausted;
+         if( _pending_block_mode == pending_block_mode::speculating && _received_block )
+            return start_block_result::exhausted;
          if( !remove_expired_blacklisted_trxs( preprocess_deadline ) )
+            return start_block_result::exhausted;
+         if( _pending_block_mode == pending_block_mode::speculating && _received_block )
             return start_block_result::exhausted;
          if( !_subjective_billing.remove_expired( _log, chain.pending_block_time(), fc::time_point::now(), preprocess_deadline ) )
             return start_block_result::exhausted;
 
          // limit execution of pending incoming to once per block
          size_t pending_incoming_process_limit = _unapplied_transactions.incoming_size();
-         _account_fails.clear();
 
          if( !process_unapplied_trxs( preprocess_deadline ) )
             return start_block_result::exhausted;
@@ -2009,7 +2017,7 @@ bool producer_plugin_impl::process_unapplied_trxs( const fc::time_point& deadlin
       auto end_itr = (_pending_block_mode == pending_block_mode::producing) ?
                      _unapplied_transactions.unapplied_end()   : _unapplied_transactions.persisted_end();
       while( itr != end_itr ) {
-         if( deadline <= fc::time_point::now() ) {
+         if( deadline <= fc::time_point::now() || (_pending_block_mode == pending_block_mode::speculating && _received_block) ) {
             exhausted = true;
             break;
          }
@@ -2210,7 +2218,7 @@ bool producer_plugin_impl::process_incoming_trxs( const fc::time_point& deadline
       auto itr = _unapplied_transactions.incoming_begin();
       auto end = _unapplied_transactions.incoming_end();
       while( pending_incoming_process_limit && itr != end ) {
-         if (deadline <= fc::time_point::now()) {
+         if (deadline <= fc::time_point::now() || (_pending_block_mode == pending_block_mode::speculating && _received_block) ) {
             exhausted = true;
             break;
          }
@@ -2250,6 +2258,7 @@ bool producer_plugin_impl::block_is_exhausted() const {
 // -> Idle
 // --> Start block B (block time y.000) at time x.500
 void producer_plugin_impl::schedule_production_loop() {
+   _received_block = false;
    _timer.cancel();
 
    auto result = start_block();
@@ -2445,6 +2454,10 @@ void producer_plugin_impl::produce_block() {
         ("n",new_bs->block_num)("t",new_bs->header.timestamp)
         ("count",new_bs->block->transactions.size())("lib",chain.last_irreversible_block_num())("confs", new_bs->header.confirmed));
 
+}
+
+void producer_plugin::received_block() {
+   my->_received_block = true;
 }
 
 void producer_plugin::log_failed_transaction(const transaction_id_type& trx_id, const packed_transaction_ptr& packed_trx_ptr, const char* reason) const {
