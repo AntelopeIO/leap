@@ -343,9 +343,7 @@ public:
 
 
       if(is_send_exception_response_) {
-         res_->set(http::field::content_type, "application/json");
          res_->keep_alive(false);
-         res_->set(http::field::server, BOOST_BEAST_VERSION_STRING);
 
          send_response(std::move(err_str), static_cast<unsigned int>(http::status::internal_server_error));
          derived().do_eof();
