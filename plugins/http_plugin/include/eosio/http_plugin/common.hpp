@@ -155,7 +155,7 @@ struct http_plugin_state {
 template<typename T>
 struct in_flight {
    in_flight(T&& object, std::shared_ptr<http_plugin_state> plugin_state)
-      : _object(std::forward<T>(object)), _plugin_state(std::move(plugin_state)) {
+      : _object(std::move(object)), _plugin_state(std::move(plugin_state)) {
       _count = detail::in_flight_sizeof(_object);
       _plugin_state->bytes_in_flight += _count;
    }
