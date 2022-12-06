@@ -1,24 +1,30 @@
 #!/usr/bin/env python3
 
 import argparse
+import dataclasses
 import os
+import re
 import sys
-import subprocess
 import shutil
 import signal
-from unittest import TestResult
 import log_reader
-import inspect
 import launch_transaction_generators as ltg
 
 harnessPath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(harnessPath)
 
+from ChainPluginArgs import ChainPluginArgs
+from HttpClientPluginArgs import HttpClientPluginArgs
+from HttpPluginArgs import HttpPluginArgs
+from NetPluginArgs import NetPluginArgs
+from ProducerPluginArgs import ProducerPluginArgs
+from ResourceMonitorPluginArgs import ResourceMonitorPluginArgs
+from SignatureProviderPluginArgs import SignatureProviderPluginArgs
+from StateHistoryPluginArgs import StateHistoryPluginArgs
+from TraceApiPluginArgs import TraceApiPluginArgs
 from TestHarness import Cluster, TestHelper, Utils, WalletMgr
-from TestHarness.TestHelper import AppArgs
 from dataclasses import dataclass, asdict, field
 from datetime import datetime
-from math import ceil
 
 class PerformanceTestBasic:
     @dataclass
@@ -48,57 +54,24 @@ class PerformanceTestBasic:
     class ClusterConfig:
         @dataclass
         class ExtraNodeosArgs:
-            @dataclass
-            class ChainPluginArgs:
-                signatureCpuBillablePct: int = 0
-                chainStateDbSizeMb: int = 10 * 1024
-                threads: int = 3
-                databaseMapMode: str = "mapped"
-
-                def __str__(self) -> str:
-                    return f"--signature-cpu-billable-pct {self.signatureCpuBillablePct} \
-                             --chain-state-db-size-mb {self.chainStateDbSizeMb} \
-                             --chain-threads {self.threads} \
-                             --database-map-mode {self.databaseMapMode}"
-
-            @dataclass
-            class NetPluginArgs:
-                threads: int = 2
-
-                def __str__(self) -> str:
-                    return f"--net-threads {self.threads}"
-
-            @dataclass
-            class ProducerPluginArgs:
-                disableSubjectiveBilling: bool = True
-                lastBlockTimeOffsetUs: int = 0
-                produceTimeOffsetUs: int = 0
-                cpuEffortPercent: int = 100
-                lastBlockCpuEffortPercent: int = 100
-                threads: int = 6
-
-                def __str__(self) -> str:
-                    return f"--disable-subjective-billing {self.disableSubjectiveBilling} \
-                             --last-block-time-offset-us {self.lastBlockTimeOffsetUs} \
-                             --produce-time-offset-us {self.produceTimeOffsetUs} \
-                             --cpu-effort-percent {self.cpuEffortPercent} \
-                             --last-block-cpu-effort-percent {self.lastBlockCpuEffortPercent} \
-                             --producer-threads {self.threads}"
-
-            @dataclass
-            class HttpPluginArgs:
-                httpMaxResponseTimeMs: int = 990000
-
-                def __str__(self) -> str:
-                    return f"--http-max-response-time-ms {self.httpMaxResponseTimeMs}"
 
             chainPluginArgs: ChainPluginArgs = ChainPluginArgs()
-            producerPluginArgs: ProducerPluginArgs = ProducerPluginArgs()
+            httpClientPluginArgs: HttpClientPluginArgs = HttpClientPluginArgs()
             httpPluginArgs: HttpPluginArgs = HttpPluginArgs()
             netPluginArgs: NetPluginArgs = NetPluginArgs()
+            producerPluginArgs: ProducerPluginArgs = ProducerPluginArgs()
+            resourceMonitorPluginArgs: ResourceMonitorPluginArgs = ResourceMonitorPluginArgs()
+            signatureProviderPluginArgs: SignatureProviderPluginArgs = SignatureProviderPluginArgs()
+            stateHistoryPluginArgs: StateHistoryPluginArgs = StateHistoryPluginArgs()
+            traceApiPluginArgs: TraceApiPluginArgs = TraceApiPluginArgs()
 
             def __str__(self) -> str:
-                return f" {self.httpPluginArgs} {self.producerPluginArgs} {self.chainPluginArgs} {self.netPluginArgs}"
+                args = []
+                for field in dataclasses.fields(self):
+                    match = re.search("\w*PluginArgs", field.name)
+                    if match is not None:
+                        args.append(f"{getattr(self, field.name)}")
+                return " ".join(args)
 
         pnodes: int = 1
         totalNodes: int = 2
@@ -503,15 +476,15 @@ def main():
     testHelperConfig = PerformanceTestBasic.TestHelperConfig(killAll=args.clean_run, dontKill=args.leave_running, keepLogs=not args.del_perf_logs,
                                                              dumpErrorDetails=args.dump_error_details, delay=args.d, nodesFile=args.nodes_file, verbose=args.v)
 
+    chainPluginArgs = ChainPluginArgs(signatureCpuBillablePct=args.signature_cpu_billable_pct, chainStateDbSizeMb=args.chain_state_db_size_mb,
+                                      chainThreads=args.chain_threads, databaseMapMode=args.database_map_mode)
+    producerPluginArgs = ProducerPluginArgs(disableSubjectiveBilling=args.disable_subjective_billing,
+                                            lastBlockTimeOffsetUs=args.last_block_time_offset_us, produceTimeOffsetUs=args.produce_time_offset_us,
+                                            cpuEffortPercent=args.cpu_effort_percent, lastBlockCpuEffortPercent=args.last_block_cpu_effort_percent,
+                                            producerThreads=args.producer_threads)
+    httpPluginArgs = HttpPluginArgs(httpMaxResponseTimeMs=args.http_max_response_time_ms)
+    netPluginArgs = NetPluginArgs(netThreads=args.net_threads)
     ENA = PerformanceTestBasic.ClusterConfig.ExtraNodeosArgs
-    chainPluginArgs = ENA.ChainPluginArgs(signatureCpuBillablePct=args.signature_cpu_billable_pct, chainStateDbSizeMb=args.chain_state_db_size_mb,
-                                          threads=args.chain_threads, databaseMapMode=args.database_map_mode)
-    producerPluginArgs = ENA.ProducerPluginArgs(disableSubjectiveBilling=args.disable_subjective_billing,
-                                                lastBlockTimeOffsetUs=args.last_block_time_offset_us, produceTimeOffsetUs=args.produce_time_offset_us,
-                                                cpuEffortPercent=args.cpu_effort_percent, lastBlockCpuEffortPercent=args.last_block_cpu_effort_percent,
-                                                threads=args.producer_threads)
-    httpPluginArgs = ENA.HttpPluginArgs(httpMaxResponseTimeMs=args.http_max_response_time_ms)
-    netPluginArgs = ENA.NetPluginArgs(threads=args.net_threads)
     extraNodeosArgs = ENA(chainPluginArgs=chainPluginArgs, httpPluginArgs=httpPluginArgs, producerPluginArgs=producerPluginArgs, netPluginArgs=netPluginArgs)
     testClusterConfig = PerformanceTestBasic.ClusterConfig(pnodes=args.p, totalNodes=args.n, topo=args.s, genesisPath=args.genesis,
                                                            prodsEnableTraceApi=args.prods_enable_trace_api, extraNodeosArgs=extraNodeosArgs)

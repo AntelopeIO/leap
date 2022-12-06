@@ -11,8 +11,11 @@ import shutil
 harnessPath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(harnessPath)
 
+from ChainPluginArgs import ChainPluginArgs
+from HttpPluginArgs import HttpPluginArgs
+from NetPluginArgs import NetPluginArgs
+from ProducerPluginArgs import ProducerPluginArgs
 from TestHarness import TestHelper, Utils
-from TestHarness.TestHelper import AppArgs
 from performance_test_basic import PerformanceTestBasic, PtbArgumentsHandler
 from platform import release, system
 from dataclasses import dataclass, asdict, field
@@ -230,7 +233,7 @@ class PerformanceTest:
         for threadCount in range(minThreadCount, maxThreadCount+1):
             print(f"Running {optPlugin.value} thread count optimization check with {threadCount} {optPlugin.value} threads")
 
-            getattr(clusterConfig.extraNodeosArgs, optPlugin.value + 'PluginArgs').threads = threadCount
+            getattr(clusterConfig.extraNodeosArgs, optPlugin.value + 'PluginArgs').threads(threadCount)
 
             binSearchResults = self.performPtbBinarySearch(clusterConfig=clusterConfig, logDirRoot=self.loggingConfig.pluginThreadOptLogsDirPath,
                                                             delReport=True, quiet=False, delPerfLogs=True)
@@ -497,14 +500,14 @@ def main():
                                                              verbose=args.v)
 
     ENA = PerformanceTestBasic.ClusterConfig.ExtraNodeosArgs
-    chainPluginArgs = ENA.ChainPluginArgs(signatureCpuBillablePct=args.signature_cpu_billable_pct, chainStateDbSizeMb=args.chain_state_db_size_mb,
-                                          threads=args.chain_threads, databaseMapMode=args.database_map_mode)
-    producerPluginArgs = ENA.ProducerPluginArgs(disableSubjectiveBilling=args.disable_subjective_billing,
-                                                lastBlockTimeOffsetUs=args.last_block_time_offset_us, produceTimeOffsetUs=args.produce_time_offset_us,
-                                                cpuEffortPercent=args.cpu_effort_percent, lastBlockCpuEffortPercent=args.last_block_cpu_effort_percent,
-                                                threads=args.producer_threads)
-    httpPluginArgs = ENA.HttpPluginArgs(httpMaxResponseTimeMs=args.http_max_response_time_ms)
-    netPluginArgs = ENA.NetPluginArgs(threads=args.net_threads)
+    chainPluginArgs = ChainPluginArgs(signatureCpuBillablePct=args.signature_cpu_billable_pct, chainStateDbSizeMb=args.chain_state_db_size_mb,
+                                      chainThreads=args.chain_threads, databaseMapMode=args.database_map_mode)
+    producerPluginArgs = ProducerPluginArgs(disableSubjectiveBilling=args.disable_subjective_billing,
+                                            lastBlockTimeOffsetUs=args.last_block_time_offset_us, produceTimeOffsetUs=args.produce_time_offset_us,
+                                            cpuEffortPercent=args.cpu_effort_percent, lastBlockCpuEffortPercent=args.last_block_cpu_effort_percent,
+                                            producerThreads=args.producer_threads)
+    httpPluginArgs = HttpPluginArgs(httpMaxResponseTimeMs=args.http_max_response_time_ms)
+    netPluginArgs = NetPluginArgs(netThreads=args.net_threads)
     extraNodeosArgs = ENA(chainPluginArgs=chainPluginArgs, httpPluginArgs=httpPluginArgs, producerPluginArgs=producerPluginArgs, netPluginArgs=netPluginArgs)
     testClusterConfig = PerformanceTestBasic.ClusterConfig(pnodes=args.p, totalNodes=args.n, topo=args.s, genesisPath=args.genesis,
                                                            prodsEnableTraceApi=args.prods_enable_trace_api, extraNodeosArgs=extraNodeosArgs)
