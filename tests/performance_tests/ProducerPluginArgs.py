@@ -7,8 +7,8 @@ from dataclasses import dataclass
 
 @dataclass
 class ProducerPluginArgs:
-    _pluginNamespace: str = "eosio"
-    _pluginName: str = "producer_plugin"
+    _pluginNamespace: str="eosio"
+    _pluginName: str="producer_plugin"
     enableStaleProduction: bool=None
     _enableStaleProductionNodeosDefault: bool=False
     _enableStaleProductionNodeosArg: str="--enable-stale-production"

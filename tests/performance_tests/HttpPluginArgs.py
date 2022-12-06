@@ -25,7 +25,7 @@ class HttpPluginArgs:
     _httpsPrivateKeyFileNodeosDefault: str=None
     _httpsPrivateKeyFileNodeosArg: str="--https-private-key-file"
     httpsEcdhCurve: str=None
-    _httpsEcdhCurveNodeosDefault: str='secp384r1'
+    _httpsEcdhCurveNodeosDefault: str="secp384r1"
     _httpsEcdhCurveNodeosArg: str="--https-ecdh-curve"
     accessControlAllowOrigin: str=None
     _accessControlAllowOriginNodeosDefault: str=None

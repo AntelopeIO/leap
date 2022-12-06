@@ -7,8 +7,8 @@ from dataclasses import dataclass
 
 @dataclass
 class HttpClientPluginArgs:
-    _pluginNamespace: str = "eosio"
-    _pluginName: str = "http_client_plugin"
+    _pluginNamespace: str="eosio"
+    _pluginName: str="http_client_plugin"
     httpsClientRootCert: str=None
     _httpsClientRootCertNodeosDefault: str=None
     _httpsClientRootCertNodeosArg: str="--https-client-root-cert"

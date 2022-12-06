@@ -7,8 +7,8 @@ from dataclasses import dataclass
 
 @dataclass
 class NetPluginArgs:
-    _pluginNamespace: str = "eosio"
-    _pluginName: str = "net_plugin"
+    _pluginNamespace: str="eosio"
+    _pluginName: str="net_plugin"
     p2pListenEndpoint: str=None
     _p2pListenEndpointNodeosDefault: str="0.0.0.0:9876"
     _p2pListenEndpointNodeosArg: str="--p2p-listen-endpoint"
@@ -25,10 +25,10 @@ class NetPluginArgs:
     _p2pAcceptTransactionsNodeosDefault: int=1
     _p2pAcceptTransactionsNodeosArg: str="--p2p-accept-transactions"
     agentName: str=None
-    _agentNameNodeosDefault: str='EOS Test Agent'
+    _agentNameNodeosDefault: str="EOS Test Agent"
     _agentNameNodeosArg: str="--agent-name"
     allowedConnection: str=None
-    _allowedConnectionNodeosDefault: str='any'
+    _allowedConnectionNodeosDefault: str="any"
     _allowedConnectionNodeosArg: str="--allowed-connection"
     peerKey: str=None
     _peerKeyNodeosDefault: str=None
@@ -58,7 +58,7 @@ class NetPluginArgs:
     _useSocketReadWatermarkNodeosDefault: int=0
     _useSocketReadWatermarkNodeosArg: str="--use-socket-read-watermark"
     peerLogFormat: str=None
-    _peerLogFormatNodeosDefault: str="[\"${_name}\" - ${_cid} ${_ip}:${_port}] "
+    _peerLogFormatNodeosDefault: str="["${_name}" - ${_cid} ${_ip}:${_port}] "
     _peerLogFormatNodeosArg: str="--peer-log-format"
     p2pKeepaliveIntervalMs: int=None
     _p2pKeepaliveIntervalMsNodeosDefault: int=10000

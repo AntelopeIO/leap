@@ -7,8 +7,8 @@ from dataclasses import dataclass
 
 @dataclass
 class ResourceMonitorPluginArgs:
-    _pluginNamespace: str = "eosio"
-    _pluginName: str = "resource_monitor_plugin"
+    _pluginNamespace: str="eosio"
+    _pluginName: str="resource_monitor_plugin"
     resourceMonitorIntervalSeconds: int=None
     _resourceMonitorIntervalSecondsNodeosDefault: int=2
     _resourceMonitorIntervalSecondsNodeosArg: str="--resource-monitor-interval-seconds"

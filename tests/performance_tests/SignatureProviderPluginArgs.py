@@ -7,8 +7,8 @@ from dataclasses import dataclass
 
 @dataclass
 class SignatureProviderPluginArgs:
-    _pluginNamespace: str = "eosio"
-    _pluginName: str = "signature_provider_plugin"
+    _pluginNamespace: str="eosio"
+    _pluginName: str="signature_provider_plugin"
     keosdProviderTimeout: int=None
     _keosdProviderTimeoutNodeosDefault: int=5
     _keosdProviderTimeoutNodeosArg: str="--keosd-provider-timeout"

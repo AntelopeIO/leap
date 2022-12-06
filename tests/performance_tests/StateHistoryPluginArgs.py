@@ -7,8 +7,8 @@ from dataclasses import dataclass
 
 @dataclass
 class StateHistoryPluginArgs:
-    _pluginNamespace: str = "eosio"
-    _pluginName: str = "state_history_plugin"
+    _pluginNamespace: str="eosio"
+    _pluginName: str="state_history_plugin"
     stateHistoryDir: str=None
     _stateHistoryDirNodeosDefault: str='"state-history"'
     _stateHistoryDirNodeosArg: str="--state-history-dir"
@@ -27,8 +27,8 @@ class StateHistoryPluginArgs:
     traceHistoryDebugMode: bool=None
     _traceHistoryDebugModeNodeosDefault: bool=False
     _traceHistoryDebugModeNodeosArg: str="--trace-history-debug-mode"
-    stateHistoryLogRetainBlocks: bool=None
-    _stateHistoryLogRetainBlocksNodeosDefault: bool=False
+    stateHistoryLogRetainBlocks: int=None
+    _stateHistoryLogRetainBlocksNodeosDefault: int=None
     _stateHistoryLogRetainBlocksNodeosArg: str="--state-history-log-retain-blocks"
     deleteStateHistory: bool=None
     _deleteStateHistoryNodeosDefault: bool=False

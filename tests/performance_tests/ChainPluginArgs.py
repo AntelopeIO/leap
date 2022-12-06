@@ -7,8 +7,8 @@ from dataclasses import dataclass
 
 @dataclass
 class ChainPluginArgs:
-    _pluginNamespace: str = "eosio"
-    _pluginName: str = "chain_plugin"
+    _pluginNamespace: str="eosio"
+    _pluginName: str="chain_plugin"
     blocksDir: str=None
     _blocksDirNodeosDefault: str='"blocks"'
     _blocksDirNodeosArg: str="--blocks-dir"
@@ -19,7 +19,7 @@ class ChainPluginArgs:
     _checkpointNodeosDefault: str=None
     _checkpointNodeosArg: str="--checkpoint"
     wasmRuntime: str=None
-    _wasmRuntimeNodeosDefault: str='eos-vm-jit'
+    _wasmRuntimeNodeosDefault: str="eos-vm-jit"
     _wasmRuntimeNodeosArg: str="--wasm-runtime"
     profileAccount: str=None
     _profileAccountNodeosDefault: str=None
@@ -67,13 +67,13 @@ class ChainPluginArgs:
     _senderBypassWhiteblacklistNodeosDefault: str=None
     _senderBypassWhiteblacklistNodeosArg: str="--sender-bypass-whiteblacklist"
     readMode: str=None
-    _readModeNodeosDefault: str='head'
+    _readModeNodeosDefault: str="head"
     _readModeNodeosArg: str="--read-mode"
     apiAcceptTransactions: int=None
     _apiAcceptTransactionsNodeosDefault: int=1
     _apiAcceptTransactionsNodeosArg: str="--api-accept-transactions"
     validationMode: str=None
-    _validationModeNodeosDefault: str='full'
+    _validationModeNodeosDefault: str="full"
     _validationModeNodeosArg: str="--validation-mode"
     disableRamBillingNotifyChecks: bool=None
     _disableRamBillingNotifyChecksNodeosDefault: bool=False
@@ -85,7 +85,7 @@ class ChainPluginArgs:
     _trustedProducerNodeosDefault: str=None
     _trustedProducerNodeosArg: str="--trusted-producer"
     databaseMapMode: str=None
-    _databaseMapModeNodeosDefault: str='mapped'
+    _databaseMapModeNodeosDefault: str="mapped"
     _databaseMapModeNodeosArg: str="--database-map-mode"
     eosVmOcCacheSizeMb: int=None
     _eosVmOcCacheSizeMbNodeosDefault: int=1024
@@ -127,7 +127,7 @@ class ChainPluginArgs:
     _integrityHashOnStopNodeosDefault: bool=False
     _integrityHashOnStopNodeosArg: str="--integrity-hash-on-stop"
     blockLogRetainBlocks: int=None
-    _blockLogRetainBlocksNodeosDefault: int=False
+    _blockLogRetainBlocksNodeosDefault: int=None
     _blockLogRetainBlocksNodeosArg: str="--block-log-retain-blocks"
     genesisJson: str=None
     _genesisJsonNodeosDefault: str=None
@@ -138,14 +138,14 @@ class ChainPluginArgs:
     printGenesisJson: bool=None
     _printGenesisJsonNodeosDefault: bool=False
     _printGenesisJsonNodeosArg: str="--print-genesis-json"
-    extractGenesisJson: bool=None
-    _extractGenesisJsonNodeosDefault: bool=False
+    extractGenesisJson: str=None
+    _extractGenesisJsonNodeosDefault: str=None
     _extractGenesisJsonNodeosArg: str="--extract-genesis-json"
     printBuildInfo: bool=None
     _printBuildInfoNodeosDefault: bool=False
     _printBuildInfoNodeosArg: str="--print-build-info"
-    extractBuildInfo=None
-    _extractBuildInfoNodeosDefault=None
+    extractBuildInfo: str=None
+    _extractBuildInfoNodeosDefault: str=None
     _extractBuildInfoNodeosArg: str="--extract-build-info"
     forceAllChecks: bool=None
     _forceAllChecksNodeosDefault: bool=False
