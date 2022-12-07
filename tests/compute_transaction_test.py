@@ -190,7 +190,7 @@ try:
     wasmFile="payloadless.wasm"
     abiFile="payloadless.abi"
     Print("Publish payloadless contract")
-    node.publishContract(payloadless, contractDir, wasmFile, abiFile,waitForTransBlock=True)
+    node.publishContract(payloadless.name, contractDir, wasmFile, abiFile, waitForTransBlock=True)
 
     # test a transaction without authorization works
     trx4 = { "actions": [{"account": "payloadless", "name": "doit", "authorization": [], "data": ""}] };
