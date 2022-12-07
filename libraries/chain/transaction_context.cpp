@@ -145,8 +145,9 @@ namespace eosio { namespace chain {
          // first_authorizer can be empty in read only and dry run transactions.
          // Empty account name in bill_to_accounts will cause unintended
          // assert violation later
-         if ( trx.first_authorizer().good() ) {
-            bill_to_accounts.insert( trx.first_authorizer() );
+         auto first_authorizer = trx.first_authorizer();
+         if ( first_authorizer.good() ) {
+            bill_to_accounts.insert( first_authorizer );
          }
       } else {
          for( const auto& act : trx.actions ) {
