@@ -89,7 +89,7 @@ def main():
                         dataclassFile.write(f"    _{newKey}NodeosArg: str=\"{key}\"\n")
                     except ValueError:
                         strValue = str(value)
-                        quote = "\'" if strValue[0] == "\"" else "\""
+                        quote = "\'" if re.search("\"", strValue) else "\""
                         dataclassFile.write(f"    {newKey}: str=None\n")
                         dataclassFile.write(f"    _{newKey}NodeosDefault: str={quote}{strValue}{quote}\n")
                         dataclassFile.write(f"    _{newKey}NodeosArg: str=\"{key}\"\n")
@@ -172,29 +172,6 @@ if __name__ == '__main__':\n\
 
             def writeHelpers(pluginName: str) -> str:
                 return "\n" + writeThreadSetter(pluginName) + writeSupportedNodeosArgs() + writeStrFxn() + writeMainFxn(pluginName)
-    #             return f"""\n    def supportedNodeosArgs(self) -> list:\n\
-    #     args = []\n\
-    #     for field in dataclasses.fields(self):\n\
-    #         match = re.search("\w*NodeosArg", field.name)\n\
-    #         if match is not None:\n\
-    #             args.append(getattr(self, field.name))\n\
-    #     return args\n\n\
-    # def __str__(self) -> str:\n\
-    #     args = [] \n\
-    #     for field in dataclasses.fields(self):\n\
-    #         match = re.search("[^_]", field.name[0])\n\
-    #         if match is not None:\n\
-    #             default = getattr(self, f"_{{field.name}}NodeosDefault")\n\
-    #             current = getattr(self, field.name)\n\
-    #             if current is not None and current != default:\n\
-    #                 args.append(f"{{getattr(self, f'_{{field.name}}NodeosArg')}} {{getattr(self, field.name)}}")\n\
-    #     return " ".join(args)\n\n\
-    # def main():\n\
-    #     pluginArgs = {pluginName}()\n\
-    #     print(pluginArgs.supportedNodeosArgs())\n\
-    #     exit(0)\n\n\
-    # if __name__ == '__main__':\n\
-    #     main()\n"""
 
             dataclassFile.write(writeHelpers(f"{newPlugin}Args"))
     
