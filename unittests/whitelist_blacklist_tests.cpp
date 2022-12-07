@@ -22,13 +22,11 @@ using namespace eosio::testing;
 using mvo = fc::mutable_variant_object;
 
 template<class Tester = TESTER>
-class whitelist_blacklist_tester
-{
+class whitelist_blacklist_tester {
 public:
    whitelist_blacklist_tester() {}
 
-   void init(bool bootstrap = true)
-   {
+   void init(bool bootstrap = true) {
       FC_ASSERT(!chain, "chain is already up");
 
       chain.emplace(
@@ -62,8 +60,7 @@ public:
       chain->produce_blocks();
    }
 
-   void shutdown()
-   {
+   void shutdown() {
       FC_ASSERT(chain, "chain is not up");
       last_produced_block = chain->get_last_produced_block_map();
       wdump((last_produced_block));
@@ -71,8 +68,7 @@ public:
       shutdown_called = true;
    }
 
-   transaction_trace_ptr transfer(account_name from, account_name to, string quantity = "1.00 TOK")
-   {
+   transaction_trace_ptr transfer(account_name from, account_name to, string quantity = "1.00 TOK") {
       return chain->push_action("eosio.token"_n,
                                 "transfer"_n,
                                 from,
@@ -93,8 +89,7 @@ public:
    bool                                      shutdown_called = false;
 };
 
-struct transfer_args
-{
+struct transfer_args {
    account_name from;
    account_name to;
    asset        quantity;
@@ -105,8 +100,7 @@ FC_REFLECT(transfer_args, (from)(to)(quantity)(memo))
 
 BOOST_AUTO_TEST_SUITE(whitelist_blacklist_tests)
 
-BOOST_AUTO_TEST_CASE(actor_whitelist)
-{
+BOOST_AUTO_TEST_CASE(actor_whitelist) {
    try {
       whitelist_blacklist_tester<> test;
       test.actor_whitelist = { config::system_account_name, "eosio.token"_n, "alice"_n };
@@ -144,8 +138,7 @@ BOOST_AUTO_TEST_CASE(actor_whitelist)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(actor_blacklist)
-{
+BOOST_AUTO_TEST_CASE(actor_blacklist) {
    try {
       whitelist_blacklist_tester<> test;
       test.actor_blacklist = { "bob"_n };
@@ -182,8 +175,7 @@ BOOST_AUTO_TEST_CASE(actor_blacklist)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(contract_whitelist)
-{
+BOOST_AUTO_TEST_CASE(contract_whitelist) {
    try {
       whitelist_blacklist_tester<> test;
       test.contract_whitelist = { config::system_account_name, "eosio.token"_n, "bob"_n };
@@ -231,8 +223,7 @@ BOOST_AUTO_TEST_CASE(contract_whitelist)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(contract_blacklist)
-{
+BOOST_AUTO_TEST_CASE(contract_blacklist) {
    try {
       whitelist_blacklist_tester<> test;
       test.contract_blacklist = { "charlie"_n };
@@ -280,8 +271,7 @@ BOOST_AUTO_TEST_CASE(contract_blacklist)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(action_blacklist)
-{
+BOOST_AUTO_TEST_CASE(action_blacklist) {
    try {
       whitelist_blacklist_tester<> test;
       test.contract_whitelist = { config::system_account_name, "eosio.token"_n, "bob"_n, "charlie"_n };
@@ -323,8 +313,7 @@ BOOST_AUTO_TEST_CASE(action_blacklist)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(blacklist_eosio)
-{
+BOOST_AUTO_TEST_CASE(blacklist_eosio) {
    try {
       whitelist_blacklist_tester<tester> tester1;
       tester1.init();
@@ -353,8 +342,7 @@ BOOST_AUTO_TEST_CASE(blacklist_eosio)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(deferred_blacklist_failure)
-{
+BOOST_AUTO_TEST_CASE(deferred_blacklist_failure) {
    try {
       whitelist_blacklist_tester<tester> tester1;
       tester1.init();
@@ -407,8 +395,7 @@ BOOST_AUTO_TEST_CASE(deferred_blacklist_failure)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(blacklist_onerror)
-{
+BOOST_AUTO_TEST_CASE(blacklist_onerror) {
    try {
       whitelist_blacklist_tester<TESTER> tester1;
       tester1.init();
@@ -448,8 +435,7 @@ BOOST_AUTO_TEST_CASE(blacklist_onerror)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(actor_blacklist_inline_deferred)
-{
+BOOST_AUTO_TEST_CASE(actor_blacklist_inline_deferred) {
    try {
       whitelist_blacklist_tester<tester> tester1;
       tester1.init();
@@ -617,8 +603,7 @@ BOOST_AUTO_TEST_CASE(actor_blacklist_inline_deferred)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(blacklist_sender_bypass)
-{
+BOOST_AUTO_TEST_CASE(blacklist_sender_bypass) {
    try {
       whitelist_blacklist_tester<tester> tester1;
       tester1.init();
@@ -784,8 +769,7 @@ BOOST_AUTO_TEST_CASE(blacklist_sender_bypass)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(greylist_limit_tests)
-{
+BOOST_AUTO_TEST_CASE(greylist_limit_tests) {
    try {
       fc::temp_directory tempdir;
       auto               conf_genesis = tester::default_config(tempdir);

@@ -4,8 +4,7 @@
 
 namespace fc {
 
-class sha1
-{
+class sha1 {
 public:
    sha1();
    explicit sha1(const string& hex_str);
@@ -21,15 +20,13 @@ public:
    static sha1 hash(const string&);
 
    template<typename T>
-   static sha1 hash(const T& t)
-   {
+   static sha1 hash(const T& t) {
       sha1::encoder e;
       e << t;
       return e.result();
    }
 
-   class encoder
-   {
+   class encoder {
    public:
       encoder();
       ~encoder();
@@ -45,15 +42,13 @@ public:
    };
 
    template<typename T>
-   inline friend T& operator<<(T& ds, const sha1& ep)
-   {
+   inline friend T& operator<<(T& ds, const sha1& ep) {
       ds.write(ep.data(), sizeof(ep));
       return ds;
    }
 
    template<typename T>
-   inline friend T& operator>>(T& ds, sha1& ep)
-   {
+   inline friend T& operator>>(T& ds, sha1& ep) {
       ds.read(ep.data(), sizeof(ep));
       return ds;
    }
@@ -76,8 +71,7 @@ void from_variant(const variant& v, sha1& bi);
 
 namespace std {
 template<>
-struct hash<fc::sha1>
-{
+struct hash<fc::sha1> {
    size_t operator()(const fc::sha1& s) const { return *((size_t*)&s); }
 };
 }

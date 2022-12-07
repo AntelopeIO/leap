@@ -9,8 +9,7 @@
 using namespace fc;
 
 BOOST_AUTO_TEST_SUITE(variant_test_suite)
-BOOST_AUTO_TEST_CASE(mutable_variant_object_test)
-{
+BOOST_AUTO_TEST_CASE(mutable_variant_object_test) {
    // no BOOST_CHECK / BOOST_REQUIRE, just see that this compiles on all supported platforms
    try {
       variant                v(42);
@@ -31,8 +30,7 @@ BOOST_AUTO_TEST_CASE(mutable_variant_object_test)
    FC_LOG_AND_RETHROW();
 }
 
-BOOST_AUTO_TEST_CASE(variant_format_string_limited)
-{
+BOOST_AUTO_TEST_CASE(variant_format_string_limited) {
    constexpr size_t  long_rep_char_num = 1024;
    const std::string a_long_list       = std::string(long_rep_char_num, 'a');
    const std::string b_long_list       = std::string(long_rep_char_num, 'b');

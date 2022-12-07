@@ -22,13 +22,10 @@ namespace eosio::test::detail {
 using namespace eosio::chain;
 using namespace eosio::chain::literals;
 
-struct testit
-{
+struct testit {
    uint64_t id;
    testit(uint64_t id = 0)
-      : id(id)
-   {
-   }
+      : id(id) {}
 
    static account_name get_account() { return chain::config::system_account_name; }
    static action_name  get_name() { return "testit"_n; }
@@ -44,19 +41,16 @@ using namespace eosio::chain;
 using namespace eosio::chain_apis;
 using namespace eosio::test::detail;
 
-auto get_private_key(chain::name keyname, std::string role = "owner")
-{
+auto get_private_key(chain::name keyname, std::string role = "owner") {
    auto secret = fc::sha256::hash(keyname.to_string() + role);
    return chain::private_key_type::regenerate<fc::ecc::private_key_shim>(secret);
 }
 
-auto get_public_key(chain::name keyname, std::string role = "owner")
-{
+auto get_public_key(chain::name keyname, std::string role = "owner") {
    return get_private_key(keyname, role).get_public_key();
 }
 
-auto make_unique_trx(const fc::microseconds& expiration)
-{
+auto make_unique_trx(const fc::microseconds& expiration) {
 
    static uint64_t unique_id = 0;
    ++unique_id;
@@ -77,20 +71,18 @@ auto make_unique_trx(const fc::microseconds& expiration)
    return std::make_shared<packed_transaction>(std::move(trx), packed_transaction::compression_type::none);
 }
 
-chain::block_id_type make_block_id(uint32_t block_num)
-{
+chain::block_id_type make_block_id(uint32_t block_num) {
    chain::block_id_type block_id;
    block_id._hash[0] &= 0xffffffff00000000;
    block_id._hash[0] += fc::endian_reverse_u32(block_num);
    return block_id;
 }
 
-chain::transaction_trace_ptr make_transaction_trace(
-   const packed_transaction_ptr                   trx,
-   uint32_t                                       block_number,
-   const eosio::chain::block_state_ptr&           bs_ptr,
-   chain::transaction_receipt_header::status_enum status = eosio::chain::transaction_receipt_header::executed)
-{
+chain::transaction_trace_ptr make_transaction_trace(const packed_transaction_ptr         trx,
+                                                    uint32_t                             block_number,
+                                                    const eosio::chain::block_state_ptr& bs_ptr,
+                                                    chain::transaction_receipt_header::status_enum status =
+                                                       eosio::chain::transaction_receipt_header::executed) {
    return std::make_shared<chain::transaction_trace>(
       chain::transaction_trace{ trx->id(),
                                 block_number,
@@ -108,8 +100,7 @@ chain::transaction_trace_ptr make_transaction_trace(
                                 {} });
 }
 
-auto make_block_state(uint32_t block_num)
-{
+auto make_block_state(uint32_t block_num) {
    static uint64_t unique_num = 0;
    ++unique_num;
    chain::block_id_type block_id    = make_block_id(block_num);
@@ -166,8 +157,7 @@ auto make_block_state(uint32_t block_num)
    return bsp;
 }
 
-std::string set_now(const char* date, const char* time)
-{
+std::string set_now(const char* date, const char* time) {
    std::string date_time = std::string(date) + " " + time;
    auto        pnow      = boost::posix_time::time_from_string(date_time);
    fc::mock_time_traits::set_now(pnow);
@@ -178,8 +168,7 @@ std::string set_now(const char* date, const char* time)
 
 BOOST_AUTO_TEST_SUITE(trx_finality_status_processing_test)
 
-BOOST_AUTO_TEST_CASE(trx_finality_status_logic)
-{
+BOOST_AUTO_TEST_CASE(trx_finality_status_logic) {
    try {
       const auto                     pre_block_20_time    = set_now("2022-04-04", "04:44:44.450");
       fc::microseconds               max_success_duration = fc::seconds(25);
@@ -837,8 +826,7 @@ namespace {
 using trx_deque = eosio::chain::deque<std::tuple<chain::transaction_trace_ptr, packed_transaction_ptr>>;
 const eosio::chain::block_state_ptr no_bs;
 
-struct block_frame
-{
+struct block_frame {
    static uint32_t                 last_used_block_num;
    static const uint32_t           num = 5;
    trx_finality_status_processing& status;
@@ -854,8 +842,7 @@ struct block_frame
                uint32_t                        block_num = 0)
       : status(finality_status)
       , bn(block_num == 0 ? block_frame::last_used_block_num + 1 : block_num)
-      , time(set_now("2022-04-04", block_time))
-   {
+      , time(set_now("2022-04-04", block_time)) {
       block_frame::last_used_block_num = bn;
       for (uint32_t i = 0; i < block_frame::num; ++i) {
          auto trx   = make_unique_trx(fc::seconds(30));
@@ -872,32 +859,27 @@ struct block_frame
       }
    }
 
-   void verify_block(uint32_t begin = 0, uint32_t end = std::numeric_limits<uint32_t>::max())
-   {
+   void verify_block(uint32_t begin = 0, uint32_t end = std::numeric_limits<uint32_t>::max()) {
       context = "verify_block";
       verify(block, bs, begin, end);
    }
 
-   void verify_block_not_there(uint32_t begin = 0, uint32_t end = std::numeric_limits<uint32_t>::max())
-   {
+   void verify_block_not_there(uint32_t begin = 0, uint32_t end = std::numeric_limits<uint32_t>::max()) {
       context = "verify_block_not_there";
       verify_not_there(block, begin, end);
    }
 
-   void verify_spec_block(uint32_t begin = 0, uint32_t end = std::numeric_limits<uint32_t>::max())
-   {
+   void verify_spec_block(uint32_t begin = 0, uint32_t end = std::numeric_limits<uint32_t>::max()) {
       context = "verify_spec_block";
       verify(pre_block, no_bs, begin, end);
    }
 
-   void verify_spec_block_not_there(uint32_t begin = 0, uint32_t end = std::numeric_limits<uint32_t>::max())
-   {
+   void verify_spec_block_not_there(uint32_t begin = 0, uint32_t end = std::numeric_limits<uint32_t>::max()) {
       context = "verify_spec_block_not_there";
       verify_not_there(pre_block, begin, end);
    }
 
-   void send_block()
-   {
+   void send_block() {
       status.signal_block_start(bn);
 
       for (const auto& trx_tuple : block) {
@@ -910,8 +892,7 @@ struct block_frame
       status.signal_accepted_block(bs);
    }
 
-   void send_spec_block()
-   {
+   void send_spec_block() {
       status.signal_block_start(bn);
 
       for (const auto& trx_tuple : pre_block) {
@@ -923,8 +904,7 @@ struct block_frame
    }
 
 private:
-   void verify(const trx_deque& trx_pairs, const chain::block_state_ptr& bs, uint32_t begin, uint32_t end)
-   {
+   void verify(const trx_deque& trx_pairs, const chain::block_state_ptr& bs, uint32_t begin, uint32_t end) {
       if (end == std::numeric_limits<uint32_t>::max()) {
          end = block.size();
       }
@@ -938,8 +918,7 @@ private:
          BOOST_CHECK_MESSAGE(ts->block_id == id, msg);
       }
    }
-   void verify_not_there(const trx_deque& trx_pairs, uint32_t begin, uint32_t end)
-   {
+   void verify_not_there(const trx_deque& trx_pairs, uint32_t begin, uint32_t end) {
       if (end == std::numeric_limits<uint32_t>::max()) {
          end = block.size();
       }
@@ -954,8 +933,7 @@ private:
 uint32_t block_frame::last_used_block_num = 0;
 }
 
-BOOST_AUTO_TEST_CASE(trx_finality_status_storage_reduction)
-{
+BOOST_AUTO_TEST_CASE(trx_finality_status_storage_reduction) {
    try {
       set_now("2022-04-04", "04:44:44.450");
       fc::microseconds               max_success_duration = fc::seconds(25);
@@ -1116,8 +1094,7 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_storage_reduction)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(trx_finality_status_lifespan)
-{
+BOOST_AUTO_TEST_CASE(trx_finality_status_lifespan) {
    try {
       set_now("2022-04-04", "04:44:44.450");
       fc::microseconds               max_success_duration = fc::seconds(25);

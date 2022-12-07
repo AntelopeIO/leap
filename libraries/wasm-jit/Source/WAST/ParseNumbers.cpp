@@ -52,8 +52,7 @@ using namespace WAST;
 
 // Parses an optional + or - sign and returns true if a - sign was parsed.
 // If either a + or - sign is parsed, nextChar is advanced past it.
-static bool parseSign(const char*& nextChar)
-{
+static bool parseSign(const char*& nextChar) {
    if (*nextChar == '-') {
       ++nextChar;
       return true;
@@ -65,8 +64,7 @@ static bool parseSign(const char*& nextChar)
 
 // Parses an unsigned integer from hexits, starting with "0x", and advancing nextChar past the parsed hexits.
 // be called for input that's already been accepted by the lexer as a hexadecimal integer.
-static U64 parseHexUnsignedInt(const char*& nextChar, ParseState& state, U64 maxValue)
-{
+static U64 parseHexUnsignedInt(const char*& nextChar, ParseState& state, U64 maxValue) {
    const char* firstHexit = nextChar;
    WAVM_ASSERT_THROW(nextChar[0] == '0' && (nextChar[1] == 'x' || nextChar[1] == 'X'));
    nextChar += 2;
@@ -98,8 +96,7 @@ static U64 parseHexUnsignedInt(const char*& nextChar, ParseState& state, U64 max
 static U64 parseDecimalUnsignedInt(const char*& nextChar,
                                    ParseState&  state,
                                    U64          maxValue,
-                                   const char*  context)
-{
+                                   const char*  context) {
    U64         result     = 0;
    const char* firstDigit = nextChar;
    while (true) {
@@ -131,8 +128,7 @@ static U64 parseDecimalUnsignedInt(const char*& nextChar,
 // Parses a floating-point NaN, advancing nextChar past the parsed characters.
 // Assumes it will only be called for input that's already been accepted by the lexer as a literal NaN.
 template<typename Float>
-Float parseNaN(const char*& nextChar, ParseState& state)
-{
+Float parseNaN(const char*& nextChar, ParseState& state) {
    typedef typename Floats::FloatComponents<Float> FloatComponents;
    FloatComponents                                 resultComponents;
    resultComponents.bits.sign     = parseSign(nextChar) ? 1 : 0;
@@ -158,8 +154,7 @@ Float parseNaN(const char*& nextChar, ParseState& state)
 // Parses a floating-point infinity. Does not advance nextChar.
 // Assumes it will only be called for input that's already been accepted by the lexer as a literal infinity.
 template<typename Float>
-Float parseInfinity(const char* nextChar)
-{
+Float parseInfinity(const char* nextChar) {
    // Floating point infinite is represented by max exponent with a zero significand.
    typedef typename Floats::FloatComponents<Float> FloatComponents;
    FloatComponents                                 resultComponents;
@@ -173,8 +168,7 @@ Float parseInfinity(const char* nextChar)
 // Assumes it will only be called for input that's already been accepted by the lexer as a decimal float
 // literal.
 template<typename Float>
-Float parseFloat(const char*& nextChar, ParseState& state)
-{
+Float parseFloat(const char*& nextChar, ParseState& state) {
    // Scan the token's characters for underscores, and make a copy of it without the underscores for strtod.
    const char* firstChar = nextChar;
    std::string noUnderscoreString;
@@ -252,8 +246,7 @@ Float parseFloat(const char*& nextChar, ParseState& state)
 // Tries to parse an numeric literal token as an integer, advancing state.nextToken.
 // Returns true if it matched a token.
 template<typename UnsignedInt>
-bool tryParseInt(ParseState& state, UnsignedInt& outUnsignedInt, I64 minSignedValue, U64 maxUnsignedValue)
-{
+bool tryParseInt(ParseState& state, UnsignedInt& outUnsignedInt, I64 minSignedValue, U64 maxUnsignedValue) {
    bool isNegative = false;
    U64  u64        = 0;
 
@@ -282,8 +275,7 @@ bool tryParseInt(ParseState& state, UnsignedInt& outUnsignedInt, I64 minSignedVa
 // Tries to parse a numeric literal literal token as a float, advancing state.nextToken.
 // Returns true if it matched a token.
 template<typename Float>
-bool tryParseFloat(ParseState& state, Float& outFloat)
-{
+bool tryParseFloat(ParseState& state, Float& outFloat) {
    const char* nextChar = state.string + state.nextToken->begin;
    switch (state.nextToken->type) {
       case t_decimalInt:
@@ -302,18 +294,15 @@ bool tryParseFloat(ParseState& state, Float& outFloat)
 }
 
 namespace WAST {
-bool tryParseI32(ParseState& state, U32& outI32)
-{
+bool tryParseI32(ParseState& state, U32& outI32) {
    return tryParseInt<U32>(state, outI32, INT32_MIN, UINT32_MAX);
 }
 
-bool tryParseI64(ParseState& state, U64& outI64)
-{
+bool tryParseI64(ParseState& state, U64& outI64) {
    return tryParseInt<U64>(state, outI64, INT64_MIN, UINT64_MAX);
 }
 
-U8 parseI8(ParseState& state)
-{
+U8 parseI8(ParseState& state) {
    U32 result;
    if (!tryParseInt<U32>(state, result, INT8_MIN, UINT8_MAX)) {
       parseErrorf(state, state.nextToken, "expected i8 literal");
@@ -322,8 +311,7 @@ U8 parseI8(ParseState& state)
    return U8(result);
 }
 
-U32 parseI32(ParseState& state)
-{
+U32 parseI32(ParseState& state) {
    U32 result;
    if (!tryParseI32(state, result)) {
       parseErrorf(state, state.nextToken, "expected i32 literal");
@@ -332,8 +320,7 @@ U32 parseI32(ParseState& state)
    return result;
 }
 
-U64 parseI64(ParseState& state)
-{
+U64 parseI64(ParseState& state) {
    U64 result;
    if (!tryParseI64(state, result)) {
       parseErrorf(state, state.nextToken, "expected i64 literal");
@@ -342,8 +329,7 @@ U64 parseI64(ParseState& state)
    return result;
 }
 
-F32 parseF32(ParseState& state)
-{
+F32 parseF32(ParseState& state) {
    F32 result;
    if (!tryParseFloat(state, result)) {
       parseErrorf(state, state.nextToken, "expected f32 literal");
@@ -352,8 +338,7 @@ F32 parseF32(ParseState& state)
    return result;
 }
 
-F64 parseF64(ParseState& state)
-{
+F64 parseF64(ParseState& state) {
    F64 result;
    if (!tryParseFloat(state, result)) {
       parseErrorf(state, state.nextToken, "expected f64 literal");

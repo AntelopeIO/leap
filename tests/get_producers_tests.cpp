@@ -13,8 +13,7 @@ using namespace eosio::testing;
 
 // this test verifies the exception case of get_producer, where it is populated by the active schedule of
 // producers
-BOOST_AUTO_TEST_CASE(get_producers)
-{
+BOOST_AUTO_TEST_CASE(get_producers) {
    try {
       tester chain;
 
@@ -53,8 +52,7 @@ BOOST_AUTO_TEST_CASE(get_producers)
 
 // this test verifies the normal case of get_producer, where the contents of the system contract's producers
 // table is used
-BOOST_AUTO_TEST_CASE(get_producers_from_table)
-{
+BOOST_AUTO_TEST_CASE(get_producers_from_table) {
    try {
       eosio_system::eosio_system_tester chain;
 

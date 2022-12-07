@@ -22,8 +22,7 @@ using namespace fc;
 
 using mvo = fc::mutable_variant_object;
 
-struct genesis_account
-{
+struct genesis_account {
    account_name aname;
    uint64_t     initial_balance;
 };
@@ -63,11 +62,9 @@ std::vector<genesis_account> test_genesis({
    { "masses"_n,    800'000'000'0000ll}
 });
 
-class bootseq_tester : public TESTER
-{
+class bootseq_tester : public TESTER {
 public:
-   void deploy_contract(bool call_init = true)
-   {
+   void deploy_contract(bool call_init = true) {
       set_code(config::system_account_name, contracts::eosio_system_wasm());
       set_abi(config::system_account_name, contracts::eosio_system_abi().data());
       if (call_init) {
@@ -82,8 +79,7 @@ public:
       abi_ser.set_abi(abi, abi_serializer::create_yield_function(abi_serializer_max_time));
    }
 
-   fc::variant get_global_state()
-   {
+   fc::variant get_global_state() {
       vector<char> data =
          get_row_by_account(config::system_account_name, config::system_account_name, "global"_n, "global"_n);
       if (data.empty())
@@ -95,8 +91,7 @@ public:
                                             abi_serializer::create_yield_function(abi_serializer_max_time));
    }
 
-   auto buyram(name payer, name receiver, asset ram)
-   {
+   auto buyram(name payer, name receiver, asset ram) {
       auto r = base_tester::push_action(config::system_account_name,
                                         "buyram"_n,
                                         payer,
@@ -105,8 +100,7 @@ public:
       return r;
    }
 
-   auto delegate_bandwidth(name from, name receiver, asset net, asset cpu, uint8_t transfer = 1)
-   {
+   auto delegate_bandwidth(name from, name receiver, asset net, asset cpu, uint8_t transfer = 1) {
       auto r = base_tester::push_action(config::system_account_name,
                                         "delegatebw"_n,
                                         from,
@@ -119,31 +113,27 @@ public:
    void create_currency(name                    contract,
                         name                    manager,
                         asset                   maxsupply,
-                        const private_key_type* signer = nullptr)
-   {
+                        const private_key_type* signer = nullptr) {
       auto act = mutable_variant_object()("issuer", manager)("maximum_supply", maxsupply);
 
       base_tester::push_action(contract, "create"_n, contract, act);
    }
 
-   auto issue(name contract, name manager, name to, asset amount)
-   {
+   auto issue(name contract, name manager, name to, asset amount) {
       auto r = base_tester::push_action(
          contract, "issue"_n, manager, mutable_variant_object()("to", to)("quantity", amount)("memo", ""));
       produce_block();
       return r;
    }
 
-   auto claim_rewards(name owner)
-   {
+   auto claim_rewards(name owner) {
       auto r = base_tester::push_action(
          config::system_account_name, "claimrewards"_n, owner, mvo()("owner", owner));
       produce_block();
       return r;
    }
 
-   auto set_privileged(name account)
-   {
+   auto set_privileged(name account) {
       auto r = base_tester::push_action(config::system_account_name,
                                         "setpriv"_n,
                                         config::system_account_name,
@@ -152,8 +142,7 @@ public:
       return r;
    }
 
-   auto register_producer(name producer)
-   {
+   auto register_producer(name producer) {
       auto r = base_tester::push_action(
          config::system_account_name,
          "regproducer"_n,
@@ -164,8 +153,7 @@ public:
       return r;
    }
 
-   auto undelegate_bandwidth(name from, name receiver, asset net, asset cpu)
-   {
+   auto undelegate_bandwidth(name from, name receiver, asset net, asset cpu) {
       auto r = base_tester::push_action(
          config::system_account_name,
          "undelegatebw"_n,
@@ -175,16 +163,14 @@ public:
       return r;
    }
 
-   asset get_balance(const account_name& act)
-   {
+   asset get_balance(const account_name& act) {
       return get_currency_balance("eosio.token"_n, symbol(CORE_SYMBOL), act);
    }
 
    void set_code_abi(const account_name&     account,
                      const vector<uint8_t>&  wasm,
                      const char*             abi,
-                     const private_key_type* signer = nullptr)
-   {
+                     const private_key_type* signer = nullptr) {
       wdump((account));
       set_code(account, wasm, signer);
       set_abi(account, abi, signer);
@@ -202,8 +188,7 @@ public:
 
 BOOST_AUTO_TEST_SUITE(bootseq_tests)
 
-BOOST_FIXTURE_TEST_CASE(bootseq_test, bootseq_tester)
-{
+BOOST_FIXTURE_TEST_CASE(bootseq_test, bootseq_tester) {
    try {
 
       // Create eosio.msig and eosio.token

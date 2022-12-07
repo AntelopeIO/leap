@@ -6,8 +6,7 @@ namespace fc {
 #ifdef WIN32
 #include <windows.h>
 
-void set_console_echo(bool enable_echo)
-{
+void set_console_echo(bool enable_echo) {
    auto  stdin_handle = GetStdHandle(STD_INPUT_HANDLE);
    DWORD mode         = 0;
    GetConsoleMode(stdin_handle, &mode);
@@ -22,8 +21,7 @@ void set_console_echo(bool enable_echo)
 #include <termios.h>
 #include <unistd.h>
 
-void set_console_echo(bool enable_echo)
-{
+void set_console_echo(bool enable_echo) {
    termios oldt;
    tcgetattr(STDIN_FILENO, &oldt);
    termios newt = oldt;

@@ -7,8 +7,7 @@ using namespace chain;
 
 BOOST_AUTO_TEST_SUITE(block_tests)
 
-BOOST_AUTO_TEST_CASE(block_with_invalid_tx_test)
-{
+BOOST_AUTO_TEST_CASE(block_with_invalid_tx_test) {
    tester main;
 
    // First we create a valid block with valid transaction
@@ -55,8 +54,7 @@ BOOST_AUTO_TEST_CASE(block_with_invalid_tx_test)
       [](const fc::exception& e) -> bool { return e.code() == account_name_exists_exception::code_value; });
 }
 
-BOOST_AUTO_TEST_CASE(block_with_invalid_tx_mroot_test)
-{
+BOOST_AUTO_TEST_CASE(block_with_invalid_tx_mroot_test) {
    tester main;
 
    // First we create a valid block with valid transaction
@@ -99,8 +97,7 @@ BOOST_AUTO_TEST_CASE(block_with_invalid_tx_mroot_test)
 }
 
 std::pair<signed_block_ptr, signed_block_ptr> corrupt_trx_in_block(validating_tester& main,
-                                                                   account_name       act_name)
-{
+                                                                   account_name       act_name) {
    // First we create a valid block with valid transaction
    main.create_account(act_name);
    signed_block_ptr b = main.produce_block_no_validation();
@@ -135,8 +132,7 @@ std::pair<signed_block_ptr, signed_block_ptr> corrupt_trx_in_block(validating_te
 
 // verify that a block with a transaction with an incorrect signature, is blindly accepted from a trusted
 // producer
-BOOST_AUTO_TEST_CASE(trusted_producer_test)
-{
+BOOST_AUTO_TEST_CASE(trusted_producer_test) {
    flat_set<account_name> trusted_producers = { "defproducera"_n, "defproducerc"_n };
    validating_tester      main(trusted_producers);
    // only using validating_tester to keep the 2 chains in sync, not to validate that the validating_node
@@ -163,8 +159,7 @@ BOOST_AUTO_TEST_CASE(trusted_producer_test)
 }
 
 // like trusted_producer_test, except verify that any entry in the trusted_producer list is accepted
-BOOST_AUTO_TEST_CASE(trusted_producer_verify_2nd_test)
-{
+BOOST_AUTO_TEST_CASE(trusted_producer_verify_2nd_test) {
    flat_set<account_name> trusted_producers = { "defproducera"_n, "defproducerc"_n };
    validating_tester      main(trusted_producers);
    // only using validating_tester to keep the 2 chains in sync, not to validate that the validating_node
@@ -192,8 +187,7 @@ BOOST_AUTO_TEST_CASE(trusted_producer_verify_2nd_test)
 
 // verify that a block with a transaction with an incorrect signature, is rejected if it is not from a trusted
 // producer
-BOOST_AUTO_TEST_CASE(untrusted_producer_test)
-{
+BOOST_AUTO_TEST_CASE(untrusted_producer_test) {
    flat_set<account_name> trusted_producers = { "defproducera"_n, "defproducerc"_n };
    validating_tester      main(trusted_producers);
    // only using validating_tester to keep the 2 chains in sync, not to validate that the validating_node
@@ -225,8 +219,7 @@ BOOST_AUTO_TEST_CASE(untrusted_producer_test)
 /**
  * Ensure that the block broadcasted by producing node and receiving node is identical
  */
-BOOST_AUTO_TEST_CASE(broadcasted_block_test)
-{
+BOOST_AUTO_TEST_CASE(broadcasted_block_test) {
 
    tester producer_node;
    tester receiving_node;
@@ -252,8 +245,7 @@ BOOST_AUTO_TEST_CASE(broadcasted_block_test)
 /**
  * Verify abort block returns applied transactions in block
  */
-BOOST_FIXTURE_TEST_CASE(abort_block_transactions, validating_tester)
-{
+BOOST_FIXTURE_TEST_CASE(abort_block_transactions, validating_tester) {
    try {
 
       produce_blocks(2);
@@ -301,8 +293,7 @@ BOOST_FIXTURE_TEST_CASE(abort_block_transactions, validating_tester)
 /**
  * Verify abort block returns applied transactions in block
  */
-BOOST_FIXTURE_TEST_CASE(abort_block_transactions_tester, validating_tester)
-{
+BOOST_FIXTURE_TEST_CASE(abort_block_transactions_tester, validating_tester) {
    try {
 
       produce_blocks(2);

@@ -5,28 +5,23 @@
 #include <stdint.h>
 
 namespace fc {
-uint64_t real128::to_uint64() const
-{
+uint64_t real128::to_uint64() const {
    return (fixed / FC_REAL128_PRECISION).to_uint64();
 }
 
-real128::real128(uint64_t integer)
-{
+real128::real128(uint64_t integer) {
    fixed = uint128(integer) * FC_REAL128_PRECISION;
 }
-real128& real128::operator+=(const real128& o)
-{
+real128& real128::operator+=(const real128& o) {
    fixed += o.fixed;
    return *this;
 }
-real128& real128::operator-=(const real128& o)
-{
+real128& real128::operator-=(const real128& o) {
    fixed -= o.fixed;
    return *this;
 }
 
-real128& real128::operator/=(const real128& o)
-{
+real128& real128::operator/=(const real128& o) {
    try {
       FC_ASSERT(o.fixed > uint128(0), "Divide by Zero");
 
@@ -41,8 +36,7 @@ real128& real128::operator/=(const real128& o)
    FC_CAPTURE_AND_RETHROW((*this)(o))
 }
 
-real128& real128::operator*=(const real128& o)
-{
+real128& real128::operator*=(const real128& o) {
    try {
       fc::bigint self(fixed);
       fc::bigint other(o.fixed);
@@ -54,8 +48,7 @@ real128& real128::operator*=(const real128& o)
    FC_CAPTURE_AND_RETHROW((*this)(o))
 }
 
-real128::real128(const std::string& ratio_str)
-{
+real128::real128(const std::string& ratio_str) {
    const char* c     = ratio_str.c_str();
    int         digit = *c - '0';
    if (digit >= 0 && digit <= 9) {
@@ -93,8 +86,7 @@ real128::real128(const std::string& ratio_str)
       }
    }
 }
-real128::operator std::string() const
-{
+real128::operator std::string() const {
    std::stringstream ss;
    ss << std::string(fixed / FC_REAL128_PRECISION);
    ss << '.';
@@ -108,19 +100,16 @@ real128::operator std::string() const
    return number;
 }
 
-real128 real128::from_fixed(const uint128& fixed)
-{
+real128 real128::from_fixed(const uint128& fixed) {
    real128 result;
    result.fixed = fixed;
    return result;
 }
 
-void to_variant(const real128& var, variant& vo)
-{
+void to_variant(const real128& var, variant& vo) {
    vo = std::string(var);
 }
-void from_variant(const variant& var, real128& vo)
-{
+void from_variant(const variant& var, real128& vo) {
    vo = real128(var.as_string());
 }
 

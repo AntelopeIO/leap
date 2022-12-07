@@ -18,12 +18,9 @@ namespace fc {
 class path;
 
 template<typename ssl_type>
-struct ssl_wrapper
-{
+struct ssl_wrapper {
    ssl_wrapper(ssl_type* obj)
-      : obj(obj)
-   {
-   }
+      : obj(obj) {}
 
                    operator ssl_type*() { return obj; }
                    operator const ssl_type*() const { return obj; }
@@ -34,14 +31,10 @@ struct ssl_wrapper
 };
 
 #define SSL_TYPE(name, ssl_type, free_func)                                                                  \
-   struct name : public ssl_wrapper<ssl_type>                                                                \
-   {                                                                                                         \
+   struct name : public ssl_wrapper<ssl_type> {                                                              \
       name(ssl_type* obj = nullptr)                                                                          \
-         : ssl_wrapper(obj)                                                                                  \
-      {                                                                                                      \
-      }                                                                                                      \
-      ~name()                                                                                                \
-      {                                                                                                      \
+         : ssl_wrapper(obj) {}                                                                               \
+      ~name() {                                                                                              \
          if (obj != nullptr)                                                                                 \
             free_func(obj);                                                                                  \
       }                                                                                                      \
@@ -55,12 +48,9 @@ SSL_TYPE(evp_cipher_ctx, EVP_CIPHER_CTX, EVP_CIPHER_CTX_free)
 SSL_TYPE(ec_key, EC_KEY, EC_KEY_free)
 
 /** allocates a bignum by default.. */
-struct ssl_bignum : public ssl_wrapper<BIGNUM>
-{
+struct ssl_bignum : public ssl_wrapper<BIGNUM> {
    ssl_bignum()
-      : ssl_wrapper(BN_new())
-   {
-   }
+      : ssl_wrapper(BN_new()) {}
    ~ssl_bignum() { BN_free(obj); }
 };
 

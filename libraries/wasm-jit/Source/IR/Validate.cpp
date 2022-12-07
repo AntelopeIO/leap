@@ -17,43 +17,37 @@ namespace IR {
 
 #define VALIDATE_INDEX(index, arraySize) VALIDATE_UNLESS("invalid index: ", index >= arraySize)
 
-void validate(ValueType valueType)
-{
+void validate(ValueType valueType) {
    if (valueType == ValueType::any || valueType > ValueType::max) {
       throw ValidationException("invalid value type (" + std::to_string((Uptr)valueType) + ")");
    }
 }
 
-void validate(ResultType returnType)
-{
+void validate(ResultType returnType) {
    if (returnType > ResultType::max) {
       throw ValidationException("invalid return type (" + std::to_string((Uptr)returnType) + ")");
    }
 }
 
-void validate(ObjectKind kind)
-{
+void validate(ObjectKind kind) {
    if (kind > ObjectKind::max) {
       throw ValidationException("invalid external kind (" + std::to_string((Uptr)kind) + ")");
    }
 }
 
-void validate(SizeConstraints size, Uptr maxMax)
-{
+void validate(SizeConstraints size, Uptr maxMax) {
    U64 max = size.max == UINT64_MAX ? maxMax : size.max;
    VALIDATE_UNLESS("disjoint size bounds: ", size.min > max);
    VALIDATE_UNLESS("maximum size exceeds limit: ", max > maxMax);
 }
 
-void validate(TableElementType type)
-{
+void validate(TableElementType type) {
    if (type != TableElementType::anyfunc) {
       throw ValidationException("invalid table element type (" + std::to_string((Uptr)type) + ")");
    }
 }
 
-void validate(TableType type)
-{
+void validate(TableType type) {
    validate(type.elementType);
    validate(type.size, UINT32_MAX);
    if (ENABLE_THREADING_PROTOTYPE) {
@@ -62,8 +56,7 @@ void validate(TableType type)
    }
 }
 
-void validate(MemoryType type)
-{
+void validate(MemoryType type) {
    validate(type.size, IR::maxMemoryPages);
    if (ENABLE_THREADING_PROTOTYPE) {
       VALIDATE_UNLESS("shared tables must have a maximum size: ",
@@ -71,28 +64,24 @@ void validate(MemoryType type)
    }
 }
 
-void validate(GlobalType type)
-{
+void validate(GlobalType type) {
    validate(type.valueType);
 }
 
-void validateImportKind(ObjectType importType, ObjectKind expectedKind)
-{
+void validateImportKind(ObjectType importType, ObjectKind expectedKind) {
    if (importType.kind != expectedKind) {
       throw ValidationException("incorrect kind");
    }
 }
 
 template<typename Type>
-void validateType(Type expectedType, Type actualType, const char* context)
-{
+void validateType(Type expectedType, Type actualType, const char* context) {
    if (expectedType != actualType) {
       throw ValidationException(std::string("type mismatch: expected in ") + context);
    }
 }
 
-void validateOperandType(ValueType expectedType, ValueType actualType, const char* context)
-{
+void validateOperandType(ValueType expectedType, ValueType actualType, const char* context) {
    // Handle polymorphic values popped off the operand stack after unconditional branches.
    if (expectedType != actualType && expectedType != ValueType::any && actualType != ValueType::any) {
       throw ValidationException("type mismatch");
@@ -104,8 +93,7 @@ ValueType validateGlobalIndex(const Module& module,
                               bool          mustBeMutable,
                               bool          mustBeImmutable,
                               bool          mustBeImport,
-                              const char*   context)
-{
+                              const char*   context) {
    VALIDATE_INDEX(globalIndex, module.globals.size());
    const GlobalType& globalType = module.globals.getType(globalIndex);
    if (mustBeMutable && !globalType.isMutable) {
@@ -118,8 +106,7 @@ ValueType validateGlobalIndex(const Module& module,
    return globalType.valueType;
 }
 
-const FunctionType* validateFunctionIndex(const Module& module, Uptr functionIndex)
-{
+const FunctionType* validateFunctionIndex(const Module& module, Uptr functionIndex) {
    VALIDATE_INDEX(functionIndex, module.functions.size());
    return module.types[module.functions.getType(functionIndex).index];
 }
@@ -127,8 +114,7 @@ const FunctionType* validateFunctionIndex(const Module& module, Uptr functionInd
 void validateInitializer(const Module&                module,
                          const InitializerExpression& expression,
                          ValueType                    expectedType,
-                         const char*                  context)
-{
+                         const char*                  context) {
    switch (expression.type) {
       case InitializerExpression::Type::i32_const: validateType(expectedType, ValueType::i32, context); break;
       case InitializerExpression::Type::i64_const: validateType(expectedType, ValueType::i64, context); break;
@@ -144,13 +130,11 @@ void validateInitializer(const Module&                module,
    };
 }
 
-struct FunctionValidationContext
-{
+struct FunctionValidationContext {
    FunctionValidationContext(const Module& inModule, const FunctionDef& inFunctionDef)
       : module(inModule)
       , functionDef(inFunctionDef)
-      , functionType(inModule.types[inFunctionDef.type.index])
-   {
+      , functionType(inModule.types[inFunctionDef.type.index]) {
       // Initialize the local types.
       locals.reserve(functionType->parameters.size() + functionDef.nonParameterLocalTypes.size());
       locals = functionType->parameters;
@@ -163,8 +147,7 @@ struct FunctionValidationContext
 
    Uptr getControlStackSize() { return controlStack.size(); }
 
-   void logOperator(const std::string& operatorDescription)
-   {
+   void logOperator(const std::string& operatorDescription) {
       if (ENABLE_LOGGING) {
          std::string controlStackString;
          for (Uptr stackIndex = 0; stackIndex < controlStack.size(); ++stackIndex) {
@@ -206,54 +189,45 @@ struct FunctionValidationContext
    }
 
    // Operation dispatch methods.
-   void unknown(Opcode opcode)
-   {
+   void unknown(Opcode opcode) {
       throw ValidationException("Unknown opcode: " + std::to_string((Uptr)opcode));
    }
-   void block(ControlStructureImm imm)
-   {
+   void block(ControlStructureImm imm) {
       validate(imm.resultType);
       pushControlStack(ControlContext::Type::block, imm.resultType, imm.resultType);
    }
-   void loop(ControlStructureImm imm)
-   {
+   void loop(ControlStructureImm imm) {
       validate(imm.resultType);
       pushControlStack(ControlContext::Type::loop, ResultType::none, imm.resultType);
    }
-   void if_(ControlStructureImm imm)
-   {
+   void if_(ControlStructureImm imm) {
       validate(imm.resultType);
       popAndValidateOperand("if condition", ValueType::i32);
       pushControlStack(ControlContext::Type::ifThen, imm.resultType, imm.resultType);
    }
-   void else_(NoImm imm)
-   {
+   void else_(NoImm imm) {
       if (controlStack.size() == 0)
          throw ValidationException("control stack empty");
       popAndValidateResultType("if result", controlStack.back().resultType);
       popControlStack(true);
    }
-   void end(NoImm)
-   {
+   void end(NoImm) {
       if (controlStack.size() == 0)
          throw ValidationException("control stack empty");
       popAndValidateResultType("end result", controlStack.back().resultType);
       popControlStack();
    }
 
-   void return_(NoImm)
-   {
+   void return_(NoImm) {
       popAndValidateResultType("ret", functionType->ret);
       enterUnreachable();
    }
 
-   void br(BranchImm imm)
-   {
+   void br(BranchImm imm) {
       popAndValidateResultType("br argument", getBranchTargetByDepth(imm.targetDepth).branchArgumentType);
       enterUnreachable();
    }
-   void br_table(BranchTableImm imm)
-   {
+   void br_table(BranchTableImm imm) {
       popAndValidateOperand("br_table index", ValueType::i32);
       const ResultType defaultTargetArgumentType =
          getBranchTargetByDepth(imm.defaultTargetDepth).branchArgumentType;
@@ -270,8 +244,7 @@ struct FunctionValidationContext
 
       enterUnreachable();
    }
-   void br_if(BranchImm imm)
-   {
+   void br_if(BranchImm imm) {
       popAndValidateOperand("br_if condition", ValueType::i32);
       popAndValidateResultType("br_if argument", getBranchTargetByDepth(imm.targetDepth).branchArgumentType);
       pushOperand(getBranchTargetByDepth(imm.targetDepth).branchArgumentType);
@@ -280,8 +253,7 @@ struct FunctionValidationContext
    void unreachable(NoImm) { enterUnreachable(); }
    void drop(NoImm) { popOperand(); }
 
-   void select(NoImm)
-   {
+   void select(NoImm) {
       const ValueType condition = popOperand();
       const ValueType falseType = popOperand();
       const ValueType trueType  = popOperand();
@@ -291,36 +263,30 @@ struct FunctionValidationContext
    }
 
    void get_local(GetOrSetVariableImm<false> imm) { pushOperand(validateLocalIndex(imm.variableIndex)); }
-   void set_local(GetOrSetVariableImm<false> imm)
-   {
+   void set_local(GetOrSetVariableImm<false> imm) {
       popAndValidateOperand("set_local", validateLocalIndex(imm.variableIndex));
    }
-   void tee_local(GetOrSetVariableImm<false> imm)
-   {
+   void tee_local(GetOrSetVariableImm<false> imm) {
       const ValueType localType = validateLocalIndex(imm.variableIndex);
       popAndValidateOperand("tee_local", localType);
       pushOperand(localType);
    }
 
-   void get_global(GetOrSetVariableImm<true> imm)
-   {
+   void get_global(GetOrSetVariableImm<true> imm) {
       pushOperand(validateGlobalIndex(module, imm.variableIndex, false, false, false, "get_global"));
    }
-   void set_global(GetOrSetVariableImm<true> imm)
-   {
+   void set_global(GetOrSetVariableImm<true> imm) {
       popAndValidateOperand("set_global",
                             validateGlobalIndex(module, imm.variableIndex, true, false, false, "set_global"));
    }
 
-   void call(CallImm imm)
-   {
+   void call(CallImm imm) {
       const FunctionType* calleeType = validateFunctionIndex(module, imm.functionIndex);
       popAndValidateOperands(
          "call arguments", calleeType->parameters.data(), (Uptr)calleeType->parameters.size());
       pushOperand(calleeType->ret);
    }
-   void call_indirect(CallIndirectImm imm)
-   {
+   void call_indirect(CallIndirectImm imm) {
       VALIDATE_INDEX(imm.type.index, module.types.size());
       VALIDATE_UNLESS("call_indirect is only valid if there is a default function table: ",
                       module.tables.size() == 0);
@@ -334,34 +300,28 @@ struct FunctionValidationContext
    void validateImm(NoImm) {}
 
    template<typename nativeType>
-   void validateImm(LiteralImm<nativeType> imm)
-   {
-   }
+   void validateImm(LiteralImm<nativeType> imm) {}
 
    template<Uptr naturalAlignmentLog2>
-   void validateImm(LoadOrStoreImm<naturalAlignmentLog2> imm)
-   {
+   void validateImm(LoadOrStoreImm<naturalAlignmentLog2> imm) {
       VALIDATE_UNLESS("load or store alignment greater than natural alignment: ",
                       imm.alignmentLog2 > naturalAlignmentLog2);
       VALIDATE_UNLESS("load or store in module without default memory: ", module.memories.size() == 0);
    }
 
-   void validateImm(MemoryImm)
-   {
+   void validateImm(MemoryImm) {
       VALIDATE_UNLESS("current_memory and grow_memory are only valid if there is a default memory",
                       module.memories.size() == 0);
    }
 
 #if ENABLE_SIMD_PROTOTYPE
    template<Uptr numLanes>
-   void validateImm(LaneIndexImm<numLanes> imm)
-   {
+   void validateImm(LaneIndexImm<numLanes> imm) {
       VALIDATE_UNLESS("swizzle invalid lane index", imm.laneIndex >= numLanes);
    }
 
    template<Uptr numLanes>
-   void validateImm(ShuffleImm<numLanes> imm)
-   {
+   void validateImm(ShuffleImm<numLanes> imm) {
       for (Uptr laneIndex = 0; laneIndex < numLanes; ++laneIndex) {
          VALIDATE_UNLESS("shuffle invalid lane index", imm.laneIndices[laneIndex] >= numLanes * 2);
       }
@@ -369,13 +329,11 @@ struct FunctionValidationContext
 #endif
 
 #if ENABLE_THREADING_PROTOTYPE
-   void validateImm(LaunchThreadImm)
-   {
+   void validateImm(LaunchThreadImm) {
       VALIDATE_UNLESS("launch_thread is only valid if there is a default table", module.tables.size() == 0);
    }
    template<Uptr naturalAlignmentLog2>
-   void validateImm(AtomicLoadOrStoreImm<naturalAlignmentLog2> imm)
-   {
+   void validateImm(AtomicLoadOrStoreImm<naturalAlignmentLog2> imm) {
       VALIDATE_UNLESS("atomic memory operator in module without default memory: ",
                       module.memories.size() == 0);
       if (requireSharedFlagForAtomicOperators) {
@@ -423,8 +381,7 @@ struct FunctionValidationContext
 #endif
 
 #define VALIDATE_OP(opcode, name, nameString, Imm, validateOperands)                                         \
-   void name(Imm imm)                                                                                        \
-   {                                                                                                         \
+   void name(Imm imm) {                                                                                      \
       const char* operatorName = nameString;                                                                 \
       SUPPRESS_UNUSED(operatorName);                                                                         \
       validateImm(imm);                                                                                      \
@@ -434,17 +391,8 @@ struct FunctionValidationContext
 #undef VALIDATE_OP
 
 private:
-   struct ControlContext
-   {
-      enum class Type : U8
-      {
-         function,
-         block,
-         ifWithoutElse,
-         ifThen,
-         ifElse,
-         loop
-      };
+   struct ControlContext {
+      enum class Type : U8 { function, block, ifWithoutElse, ifThen, ifElse, loop };
 
       Type type;
       Uptr outerStackSize;
@@ -462,13 +410,11 @@ private:
    std::vector<ControlContext> controlStack;
    std::vector<ValueType>      stack;
 
-   void pushControlStack(ControlContext::Type type, ResultType branchArgumentType, ResultType resultType)
-   {
+   void pushControlStack(ControlContext::Type type, ResultType branchArgumentType, ResultType resultType) {
       controlStack.push_back({ type, stack.size(), branchArgumentType, resultType, true });
    }
 
-   void popControlStack(bool isElse = false)
-   {
+   void popControlStack(bool isElse = false) {
       if (!controlStack.size())
          throw ValidationException("control stack empty");
       VALIDATE_UNLESS("stack was not empty at end of control structure: ",
@@ -490,36 +436,31 @@ private:
       }
    }
 
-   void enterUnreachable()
-   {
+   void enterUnreachable() {
       if (!controlStack.size())
          throw ValidationException("invalid control stack depth");
       stack.resize(controlStack.back().outerStackSize);
       controlStack.back().isReachable = false;
    }
 
-   void validateBranchDepth(Uptr depth) const
-   {
+   void validateBranchDepth(Uptr depth) const {
       VALIDATE_INDEX(depth, controlStack.size());
       if (depth >= controlStack.size()) {
          throw ValidationException("invalid branch depth");
       }
    }
 
-   const ControlContext& getBranchTargetByDepth(Uptr depth) const
-   {
+   const ControlContext& getBranchTargetByDepth(Uptr depth) const {
       validateBranchDepth(depth);
       return controlStack[controlStack.size() - depth - 1];
    }
 
-   ValueType validateLocalIndex(Uptr localIndex)
-   {
+   ValueType validateLocalIndex(Uptr localIndex) {
       VALIDATE_INDEX(localIndex, locals.size());
       return locals[localIndex];
    }
 
-   ValueType popOperand()
-   {
+   ValueType popOperand() {
       if (controlStack.empty()) {
          throw ValidationException("control stack empty");
       } else if (stack.size() > controlStack.back().outerStackSize) {
@@ -533,8 +474,7 @@ private:
       }
    }
 
-   void popAndValidateOperands(const char* context, const ValueType* expectedTypes, Uptr num)
-   {
+   void popAndValidateOperands(const char* context, const ValueType* expectedTypes, Uptr num) {
       for (Uptr operandIndexFromEnd = 0; operandIndexFromEnd < num; ++operandIndexFromEnd) {
          const Uptr      operandIndex = num - operandIndexFromEnd - 1;
          const ValueType actualType   = popOperand();
@@ -543,45 +483,38 @@ private:
    }
 
    template<Uptr num>
-   void popAndValidateOperands(const char* context, const ValueType (&expectedTypes)[num])
-   {
+   void popAndValidateOperands(const char* context, const ValueType (&expectedTypes)[num]) {
       popAndValidateOperands(context, expectedTypes, num);
    }
 
    template<typename... OperandTypes>
-   void popAndValidateOperands(const char* context, OperandTypes... operands)
-   {
+   void popAndValidateOperands(const char* context, OperandTypes... operands) {
       ValueType operandTypes[] = { operands... };
       popAndValidateOperands(context, operandTypes);
    }
 
-   void popAndValidateOperand(const char* context, const ValueType expectedType)
-   {
+   void popAndValidateOperand(const char* context, const ValueType expectedType) {
       const ValueType actualType = popOperand();
       validateOperandType(expectedType, actualType, context);
    }
 
-   void popAndValidateResultType(const char* context, ResultType expectedType)
-   {
+   void popAndValidateResultType(const char* context, ResultType expectedType) {
       if (expectedType != ResultType::none) {
          popAndValidateOperand(context, asValueType(expectedType));
       }
    }
 
-   void pushOperand(ValueType type)
-   {
+   void pushOperand(ValueType type) {
       stack.push_back(type);
    }
-   void pushOperand(ResultType type)
-   {
+   void pushOperand(ResultType type) {
       if (type != ResultType::none) {
          pushOperand(asValueType(type));
       }
    }
 };
 
-void validateDefinitions(const Module& module)
-{
+void validateDefinitions(const Module& module) {
    Timing::Timer timer;
 
    for (Uptr typeIndex = 0; typeIndex < module.types.size(); ++typeIndex) {
@@ -672,39 +605,32 @@ void validateDefinitions(const Module& module)
                timer.getMilliseconds());
 }
 
-struct CodeValidationStreamImpl
-{
+struct CodeValidationStreamImpl {
    FunctionValidationContext functionContext;
    OperatorPrinter           operatorPrinter;
 
    CodeValidationStreamImpl(const Module& module, const FunctionDef& functionDef)
       : functionContext(module, functionDef)
-      , operatorPrinter(module, functionDef)
-   {
-   }
+      , operatorPrinter(module, functionDef) {}
 };
 
-CodeValidationStream::CodeValidationStream(const Module& module, const FunctionDef& functionDef)
-{
+CodeValidationStream::CodeValidationStream(const Module& module, const FunctionDef& functionDef) {
    impl = new CodeValidationStreamImpl(module, functionDef);
 }
 
-CodeValidationStream::~CodeValidationStream()
-{
+CodeValidationStream::~CodeValidationStream() {
    delete impl;
    impl = nullptr;
 }
 
-void CodeValidationStream::finish()
-{
+void CodeValidationStream::finish() {
    if (impl->functionContext.getControlStackSize()) {
       throw ValidationException("end of code reached before end of function");
    }
 }
 
 #define VISIT_OPCODE(_, name, nameString, Imm, ...)                                                          \
-   void CodeValidationStream::name(Imm imm)                                                                  \
-   {                                                                                                         \
+   void CodeValidationStream::name(Imm imm) {                                                                \
       if (ENABLE_LOGGING) {                                                                                  \
          impl->functionContext.logOperator(impl->operatorPrinter.name(imm));                                 \
       }                                                                                                      \

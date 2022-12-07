@@ -20,20 +20,17 @@ struct snapshot_global_property_object_v3;
 struct snapshot_global_property_object_v4;
 }
 
-struct chain_id_type : public fc::sha256
-{
+struct chain_id_type : public fc::sha256 {
    using fc::sha256::sha256;
 
    template<typename T>
-   inline friend T& operator<<(T& ds, const chain_id_type& cid)
-   {
+   inline friend T& operator<<(T& ds, const chain_id_type& cid) {
       ds.write(cid.data(), cid.data_size());
       return ds;
    }
 
    template<typename T>
-   inline friend T& operator>>(T& ds, chain_id_type& cid)
-   {
+   inline friend T& operator>>(T& ds, chain_id_type& cid) {
       ds.read(cid.data(), cid.data_size());
       return ds;
    }

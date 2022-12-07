@@ -2,10 +2,8 @@
 namespace fc {
 
 template<unsigned int S, typename T = double>
-struct aligned
-{
-   union
-   {
+struct aligned {
+   union {
       T    _align;
       char _data[S];
    } _store;

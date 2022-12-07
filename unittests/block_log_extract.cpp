@@ -7,10 +7,8 @@
 
 using namespace eosio::chain;
 
-struct block_log_extract_fixture
-{
-   block_log_extract_fixture()
-   {
+struct block_log_extract_fixture {
+   block_log_extract_fixture() {
       log.emplace(dir.path(), std::optional<block_log_prune_config>());
       log->reset(genesis_state(), std::make_shared<signed_block>());
       BOOST_REQUIRE_EQUAL(log->first_block_num(), 1);
@@ -21,8 +19,7 @@ struct block_log_extract_fixture
       BOOST_REQUIRE_EQUAL(log->head()->block_num(), 12);
    };
 
-   void add(uint32_t index)
-   {
+   void add(uint32_t index) {
       signed_block_ptr p   = std::make_shared<signed_block>();
       p->previous._hash[0] = fc::endian_reverse_u32(index - 1);
       log->append(p, p->calculate_id());
@@ -35,8 +32,7 @@ struct block_log_extract_fixture
 
 BOOST_AUTO_TEST_SUITE(block_log_extraction_tests)
 
-BOOST_FIXTURE_TEST_CASE(extract_from_middle, block_log_extract_fixture)
-try {
+BOOST_FIXTURE_TEST_CASE(extract_from_middle, block_log_extract_fixture) try {
 
    fc::temp_directory output_dir;
    block_num_type     start = 3, end = 7;
@@ -51,8 +47,7 @@ try {
 }
 FC_LOG_AND_RETHROW()
 
-BOOST_FIXTURE_TEST_CASE(extract_from_start, block_log_extract_fixture)
-try {
+BOOST_FIXTURE_TEST_CASE(extract_from_start, block_log_extract_fixture) try {
 
    fc::temp_directory output_dir;
    block_num_type     start = 0, end = 7;
@@ -67,8 +62,7 @@ try {
 }
 FC_LOG_AND_RETHROW()
 
-BOOST_FIXTURE_TEST_CASE(reextract_from_start, block_log_extract_fixture)
-try {
+BOOST_FIXTURE_TEST_CASE(reextract_from_start, block_log_extract_fixture) try {
 
    fc::temp_directory output_dir;
    block_num_type     start = 0, end = 9;
@@ -87,8 +81,7 @@ try {
 }
 FC_LOG_AND_RETHROW()
 
-BOOST_FIXTURE_TEST_CASE(extract_to_end, block_log_extract_fixture)
-try {
+BOOST_FIXTURE_TEST_CASE(extract_to_end, block_log_extract_fixture) try {
 
    fc::temp_directory output_dir;
    block_num_type     start = 5, end = std::numeric_limits<block_num_type>::max();

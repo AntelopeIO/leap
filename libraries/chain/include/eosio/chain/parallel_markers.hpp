@@ -23,8 +23,7 @@ namespace chain {
  * @endcode
  */
 template<typename DataRange, typename MarkerRange, typename Marker>
-DataRange filter_data_by_marker(DataRange data, MarkerRange markers, const Marker& markerValue)
-{
+DataRange filter_data_by_marker(DataRange data, MarkerRange markers, const Marker& markerValue) {
    auto remove_mismatched_markers = boost::adaptors::filtered(
       [&markerValue](const auto& tuple) { return boost::get<0>(tuple) == markerValue; });
    auto ToData = boost::adaptors::transformed([](const auto& tuple) { return boost::get<1>(tuple); });

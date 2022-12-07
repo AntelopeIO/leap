@@ -8,8 +8,7 @@
 namespace eosio {
 namespace chain {
 
-struct block_state : public block_header_state
-{
+struct block_state : public block_header_state {
    block_state(
       const block_header_state&   prev,
       signed_block_ptr            b,
@@ -43,15 +42,13 @@ private: // internal use only, not thread safe
    bool is_valid() const { return validated; }
    bool is_pub_keys_recovered() const { return _pub_keys_recovered; }
 
-   deque<transaction_metadata_ptr> extract_trxs_metas()
-   {
+   deque<transaction_metadata_ptr> extract_trxs_metas() {
       _pub_keys_recovered = false;
       auto result         = std::move(_cached_trxs);
       _cached_trxs.clear();
       return result;
    }
-   void set_trxs_metas(deque<transaction_metadata_ptr>&& trxs_metas, bool keys_recovered)
-   {
+   void set_trxs_metas(deque<transaction_metadata_ptr>&& trxs_metas, bool keys_recovered) {
       _pub_keys_recovered = keys_recovered;
       _cached_trxs        = std::move(trxs_metas);
    }

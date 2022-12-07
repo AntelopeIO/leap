@@ -7,8 +7,7 @@
 namespace eosio {
 namespace chain {
 
-struct transaction_checktime_timer
-{
+struct transaction_checktime_timer {
 public:
    transaction_checktime_timer()                                   = delete;
    transaction_checktime_timer(const transaction_checktime_timer&) = delete;
@@ -32,8 +31,7 @@ private:
    friend controller_impl;
 };
 
-class transaction_context
-{
+class transaction_context {
 private:
    void init(uint64_t initial_net_usage);
 
@@ -56,8 +54,7 @@ public:
    void squash();
    void undo();
 
-   inline void add_net_usage(uint64_t u)
-   {
+   inline void add_net_usage(uint64_t u) {
       net_usage += u;
       check_net_usage();
    }
@@ -67,8 +64,7 @@ public:
    void checktime() const;
 
    template<typename DigestType>
-   inline DigestType hash_with_checktime(const char* data, uint32_t datalen) const
-   {
+   inline DigestType hash_with_checktime(const char* data, uint32_t datalen) const {
       const size_t                 bs = eosio::chain::config::hashing_checktime_block_size;
       typename DigestType::encoder enc;
       while (datalen > bs) {

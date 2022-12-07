@@ -11,8 +11,7 @@ extern "C" void eosvmoc_switch_stack(void* stack, void (*fn)(void*), void* data)
 // Allows wasm code to run with a stack whose size can be adjusted based
 // on the configurable max_call_depth.  It is assumed that max_call_depth
 // is rarely changed.
-struct execution_stack
-{
+struct execution_stack {
    // Must match the limit enforced by codegen.
    static constexpr std::size_t max_bytes_per_frame = 16 * 1024;
 
@@ -29,8 +28,7 @@ struct execution_stack
    void reset();
 
    template<typename F>
-   void run(F&& f)
-   {
+   void run(F&& f) {
       if (stack_top) {
          eosvmoc_switch_stack(
             stack_top, [](void* data) { (*static_cast<F*>(data))(); }, &f);

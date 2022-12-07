@@ -15,8 +15,7 @@ namespace fc {
 
 namespace detail {
 // data about a read or write we're managing
-class rate_limited_operation
-{
+class rate_limited_operation {
 public:
    size_t               length;
    size_t               offset;
@@ -27,15 +26,12 @@ public:
       : length(length)
       , offset(offset)
       , permitted_length(0)
-      , completion_promise(completion_promise)
-   {
-   }
+      , completion_promise(completion_promise) {}
 
    virtual void perform_operation() = 0;
 };
 
-class rate_limited_tcp_write_operation : public rate_limited_operation
-{
+class rate_limited_tcp_write_operation : public rate_limited_operation {
 public:
    boost::asio::ip::tcp::socket& socket;
    const char*                   raw_buffer;
@@ -65,11 +61,8 @@ public:
       : rate_limited_operation(length, offset, std::move(completion_promise))
       , socket(socket)
       , raw_buffer(nullptr)
-      , shared_buffer(buffer)
-   {
-   }
-   virtual void perform_operation() override
-   {
+      , shared_buffer(buffer) {}
+   virtual void perform_operation() override {
       if (raw_buffer)
          asio::async_write_some(socket, raw_buffer, permitted_length, completion_promise);
       else
@@ -77,8 +70,7 @@ public:
    }
 };
 
-class rate_limited_tcp_read_operation : public rate_limited_operation
-{
+class rate_limited_tcp_read_operation : public rate_limited_operation {
 public:
    boost::asio::ip::tcp::socket& socket;
    char*                         raw_buffer;
@@ -91,9 +83,7 @@ public:
                                    promise<size_t>::ptr          completion_promise)
       : rate_limited_operation(length, offset, std::move(completion_promise))
       , socket(socket)
-      , raw_buffer(buffer)
-   {
-   }
+      , raw_buffer(buffer) {}
    rate_limited_tcp_read_operation(boost::asio::ip::tcp::socket& socket,
                                    const std::shared_ptr<char>&  buffer,
                                    size_t                        length,
@@ -102,11 +92,8 @@ public:
       : rate_limited_operation(length, offset, std::move(completion_promise))
       , socket(socket)
       , raw_buffer(nullptr)
-      , shared_buffer(buffer)
-   {
-   }
-   virtual void perform_operation() override
-   {
+      , shared_buffer(buffer) {}
+   virtual void perform_operation() override {
       if (raw_buffer)
          asio::async_read_some(socket, raw_buffer, permitted_length, completion_promise);
       else
@@ -114,17 +101,14 @@ public:
    }
 };
 
-struct is_operation_shorter
-{
+struct is_operation_shorter {
    // less than operator designed to bring the shortest operations to the end
-   bool operator()(const rate_limited_operation* lhs, const rate_limited_operation* rhs)
-   {
+   bool operator()(const rate_limited_operation* lhs, const rate_limited_operation* rhs) {
       return lhs->length > rhs->length;
    }
 };
 
-class average_rate_meter
-{
+class average_rate_meter {
 private:
    mutable double     _average_rate;
    mutable uint32_t   _unaccounted_bytes;
@@ -143,19 +127,14 @@ average_rate_meter::average_rate_meter(const microseconds& time_constant)
    : _average_rate(0.)
    , _unaccounted_bytes(0)
    , _last_update_time(time_point_sec::min())
-   , _time_constant(time_constant)
-{
-}
-void average_rate_meter::set_time_constant(const microseconds& time_constant)
-{
+   , _time_constant(time_constant) {}
+void average_rate_meter::set_time_constant(const microseconds& time_constant) {
    _time_constant = time_constant;
 }
-void average_rate_meter::update(uint32_t bytes_transferred /* = 0 */)
-{
+void average_rate_meter::update(uint32_t bytes_transferred /* = 0 */) {
    update_const(bytes_transferred);
 }
-void average_rate_meter::update_const(uint32_t bytes_transferred /* = 0 */) const
-{
+void average_rate_meter::update_const(uint32_t bytes_transferred /* = 0 */) const {
    time_point now = time_point::now();
    if (now <= _last_update_time)
       _unaccounted_bytes += bytes_transferred;
@@ -174,14 +153,12 @@ void average_rate_meter::update_const(uint32_t bytes_transferred /* = 0 */) cons
       _unaccounted_bytes = 0;
    }
 }
-uint32_t average_rate_meter::get_average_rate() const
-{
+uint32_t average_rate_meter::get_average_rate() const {
    update_const();
    return (uint32_t)_average_rate;
 }
 
-class rate_limiting_group_impl : public tcp_socket_io_hooks
-{
+class rate_limiting_group_impl : public tcp_socket_io_hooks {
 public:
    uint32_t _upload_bytes_per_second;
    uint32_t _download_bytes_per_second;
@@ -258,32 +235,25 @@ rate_limiting_group_impl::rate_limiting_group_impl(uint32_t upload_bytes_per_sec
    , _read_tokens(_download_bytes_per_second)
    , _unused_read_tokens(0)
    , _write_tokens(_upload_bytes_per_second)
-   , _unused_write_tokens(0)
-{
-}
+   , _unused_write_tokens(0) {}
 
-rate_limiting_group_impl::~rate_limiting_group_impl()
-{
+rate_limiting_group_impl::~rate_limiting_group_impl() {
    try {
       _process_pending_reads_loop_complete.cancel_and_wait();
-   } catch (...) {
-   }
+   } catch (...) {}
    try {
       _process_pending_writes_loop_complete.cancel_and_wait();
-   } catch (...) {
-   }
+   } catch (...) {}
 }
 
 size_t rate_limiting_group_impl::readsome(boost::asio::ip::tcp::socket& socket,
                                           const std::shared_ptr<char>&  buffer,
                                           size_t                        length,
-                                          size_t                        offset)
-{
+                                          size_t                        offset) {
    return readsome_impl(socket, buffer, length, offset);
 }
 
-size_t rate_limiting_group_impl::readsome(boost::asio::ip::tcp::socket& socket, char* buffer, size_t length)
-{
+size_t rate_limiting_group_impl::readsome(boost::asio::ip::tcp::socket& socket, char* buffer, size_t length) {
    return readsome_impl(socket, buffer, length, 0);
 }
 
@@ -291,8 +261,7 @@ template<typename BufferType>
 size_t rate_limiting_group_impl::readsome_impl(boost::asio::ip::tcp::socket& socket,
                                                const BufferType&             buffer,
                                                size_t                        length,
-                                               size_t                        offset)
-{
+                                               size_t                        offset) {
    size_t bytes_read;
    if (_download_bytes_per_second) {
       promise<size_t>::ptr completion_promise(new promise<size_t>("rate_limiting_group_impl::readsome"));
@@ -324,16 +293,14 @@ size_t rate_limiting_group_impl::readsome_impl(boost::asio::ip::tcp::socket& soc
 
 size_t rate_limiting_group_impl::writesome(boost::asio::ip::tcp::socket& socket,
                                            const char*                   buffer,
-                                           size_t                        length)
-{
+                                           size_t                        length) {
    return writesome_impl(socket, buffer, length, 0);
 }
 
 size_t rate_limiting_group_impl::writesome(boost::asio::ip::tcp::socket&      socket,
                                            const std::shared_ptr<const char>& buffer,
                                            size_t                             length,
-                                           size_t                             offset)
-{
+                                           size_t                             offset) {
    return writesome_impl(socket, buffer, length, offset);
 }
 
@@ -341,8 +308,7 @@ template<typename BufferType>
 size_t rate_limiting_group_impl::writesome_impl(boost::asio::ip::tcp::socket& socket,
                                                 const BufferType&             buffer,
                                                 size_t                        length,
-                                                size_t                        offset)
-{
+                                                size_t                        offset) {
    size_t bytes_written;
    if (_upload_bytes_per_second) {
       promise<size_t>::ptr completion_promise(new promise<size_t>("rate_limiting_group_impl::writesome"));
@@ -372,8 +338,7 @@ size_t rate_limiting_group_impl::writesome_impl(boost::asio::ip::tcp::socket& so
    return bytes_written;
 }
 
-void rate_limiting_group_impl::process_pending_reads()
-{
+void rate_limiting_group_impl::process_pending_reads() {
    for (;;) {
       process_pending_operations(_last_read_iteration_time,
                                  _download_bytes_per_second,
@@ -389,13 +354,11 @@ void rate_limiting_group_impl::process_pending_reads()
             _new_read_operation_available_promise->wait();
          else
             _new_read_operation_available_promise->wait(_granularity);
-      } catch (const timeout_exception&) {
-      }
+      } catch (const timeout_exception&) {}
       _new_read_operation_available_promise.reset();
    }
 }
-void rate_limiting_group_impl::process_pending_writes()
-{
+void rate_limiting_group_impl::process_pending_writes() {
    for (;;) {
       process_pending_operations(_last_write_iteration_time,
                                  _upload_bytes_per_second,
@@ -411,8 +374,7 @@ void rate_limiting_group_impl::process_pending_writes()
             _new_write_operation_available_promise->wait();
          else
             _new_write_operation_available_promise->wait(_granularity);
-      } catch (const timeout_exception&) {
-      }
+      } catch (const timeout_exception&) {}
       _new_write_operation_available_promise.reset();
    }
 }
@@ -422,8 +384,7 @@ void rate_limiting_group_impl::process_pending_operations(
    rate_limited_operation_list& operations_in_progress,
    rate_limited_operation_list& operations_for_next_iteration,
    uint32_t&                    tokens,
-   uint32_t&                    unused_tokens)
-{
+   uint32_t&                    unused_tokens) {
    // lock here for multithreaded
    std::copy(operations_for_next_iteration.begin(),
              operations_for_next_iteration.end(),
@@ -499,55 +460,44 @@ rate_limiting_group::rate_limiting_group(uint32_t upload_bytes_per_second,
                                          uint32_t burstiness_in_seconds /* = 1 */)
    : my(new detail::rate_limiting_group_impl(upload_bytes_per_second,
                                              download_bytes_per_second,
-                                             burstiness_in_seconds))
-{
-}
+                                             burstiness_in_seconds)) {}
 
 rate_limiting_group::~rate_limiting_group() {}
 
-uint32_t rate_limiting_group::get_actual_upload_rate() const
-{
+uint32_t rate_limiting_group::get_actual_upload_rate() const {
    return my->_actual_upload_rate.get_average_rate();
 }
 
-uint32_t rate_limiting_group::get_actual_download_rate() const
-{
+uint32_t rate_limiting_group::get_actual_download_rate() const {
    return my->_actual_download_rate.get_average_rate();
 }
 
-void rate_limiting_group::set_actual_rate_time_constant(microseconds time_constant)
-{
+void rate_limiting_group::set_actual_rate_time_constant(microseconds time_constant) {
    my->_actual_upload_rate.set_time_constant(time_constant);
    my->_actual_download_rate.set_time_constant(time_constant);
 }
 
-void rate_limiting_group::set_upload_limit(uint32_t upload_bytes_per_second)
-{
+void rate_limiting_group::set_upload_limit(uint32_t upload_bytes_per_second) {
    my->_upload_bytes_per_second = upload_bytes_per_second;
 }
 
-uint32_t rate_limiting_group::get_upload_limit() const
-{
+uint32_t rate_limiting_group::get_upload_limit() const {
    return my->_upload_bytes_per_second;
 }
 
-void rate_limiting_group::set_download_limit(uint32_t download_bytes_per_second)
-{
+void rate_limiting_group::set_download_limit(uint32_t download_bytes_per_second) {
    my->_download_bytes_per_second = download_bytes_per_second;
 }
 
-uint32_t rate_limiting_group::get_download_limit() const
-{
+uint32_t rate_limiting_group::get_download_limit() const {
    return my->_download_bytes_per_second;
 }
 
-void rate_limiting_group::add_tcp_socket(tcp_socket* tcp_socket_to_limit)
-{
+void rate_limiting_group::add_tcp_socket(tcp_socket* tcp_socket_to_limit) {
    tcp_socket_to_limit->set_io_hooks(my.get());
 }
 
-void rate_limiting_group::remove_tcp_socket(tcp_socket* tcp_socket_to_stop_limiting)
-{
+void rate_limiting_group::remove_tcp_socket(tcp_socket* tcp_socket_to_stop_limiting) {
    tcp_socket_to_stop_limiting->set_io_hooks(NULL);
 }
 

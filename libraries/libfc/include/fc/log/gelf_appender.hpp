@@ -9,11 +9,9 @@
 namespace fc {
 // Log appender that sends log messages in JSON format over UDP
 // https://www.graylog2.org/resources/gelf/specification
-class gelf_appender final : public appender
-{
+class gelf_appender final : public appender {
 public:
-   struct config
-   {
+   struct config {
       static const std::vector<std::string> reserved_field_names;
       static const std::regex               user_field_name_pattern;
       string                                endpoint = "127.0.0.1:12201";

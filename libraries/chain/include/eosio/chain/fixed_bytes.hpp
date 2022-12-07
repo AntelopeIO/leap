@@ -54,8 +54,7 @@ bool operator<=(const fixed_bytes<Size>& c1, const fixed_bytes<Size>& c2);
  *  @tparam Size - Size of the fixed_bytes object
  */
 template<size_t Size>
-class fixed_bytes
-{
+class fixed_bytes {
 private:
    template<bool...>
    struct bool_pack;
@@ -63,8 +62,7 @@ private:
    using all_true = std::is_same<bool_pack<bs..., true>, bool_pack<true, bs...>>;
 
    template<typename Word, size_t NumWords>
-   static void set_from_word_sequence(const Word* arr_begin, const Word* arr_end, fixed_bytes<Size>& key)
-   {
+   static void set_from_word_sequence(const Word* arr_begin, const Word* arr_end, fixed_bytes<Size>& key) {
       auto         itr            = key._data.begin();
       word_t       temp_word      = 0;
       const size_t sub_word_shift = 8 * sizeof(Word);
@@ -112,17 +110,14 @@ public:
     * Default constructor to fixed_bytes object which initializes all bytes to zero
     */
    constexpr fixed_bytes()
-      : _data()
-   {
-   }
+      : _data() {}
 
    /**
     * Constructor to fixed_bytes object from std::array of num_words() word_t types
     *
     * @param arr    data
     */
-   fixed_bytes(const std::array<word_t, num_words()>& arr)
-   {
+   fixed_bytes(const std::array<word_t, num_words()>& arr) {
       std::copy(arr.begin(), arr.end(), _data.begin());
    }
 
@@ -136,8 +131,7 @@ public:
             typename Enable = typename std::enable_if<
                std::is_integral<Word>::value && std::is_unsigned<Word>::value &&
                !std::is_same<Word, bool>::value && std::less<size_t>{}(sizeof(Word), sizeof(word_t))>::type>
-   fixed_bytes(const std::array<Word, NumWords>& arr)
-   {
+   fixed_bytes(const std::array<Word, NumWords>& arr) {
       static_assert(sizeof(word_t) == (sizeof(word_t) / sizeof(Word)) * sizeof(Word),
                     "size of the backing word size is not divisible by the size of the array element");
       static_assert(sizeof(Word) * NumWords <= Size, "too many words supplied to fixed_bytes constructor");
@@ -155,8 +149,7 @@ public:
             typename Enable = typename std::enable_if<
                std::is_integral<Word>::value && std::is_unsigned<Word>::value &&
                !std::is_same<Word, bool>::value && std::less<size_t>{}(sizeof(Word), sizeof(word_t))>::type>
-   fixed_bytes(const Word (&arr)[NumWords])
-   {
+   fixed_bytes(const Word (&arr)[NumWords]) {
       static_assert(sizeof(word_t) == (sizeof(word_t) / sizeof(Word)) * sizeof(Word),
                     "size of the backing word size is not divisible by the size of the array element");
       static_assert(sizeof(Word) * NumWords <= Size, "too many words supplied to fixed_bytes constructor");
@@ -179,8 +172,7 @@ public:
                                  sizeof(FirstWord) <= sizeof(word_t) &&
                                  all_true<(std::is_same<FirstWord, Rest>::value)...>::value,
                               FirstWord>::type first_word,
-      Rest... rest)
-   {
+      Rest... rest) {
       static_assert(
          sizeof(word_t) == (sizeof(word_t) / sizeof(FirstWord)) * sizeof(FirstWord),
          "size of the backing word size is not divisible by the size of the words supplied as arguments");
@@ -224,8 +216,7 @@ public:
     *
     * @return - the extracted data as array of bytes
     */
-   std::array<uint8_t, Size> extract_as_byte_array() const
-   {
+   std::array<uint8_t, Size> extract_as_byte_array() const {
       std::array<uint8_t, Size> arr;
 
       const size_t num_sub_words = sizeof(word_t);
@@ -256,8 +247,7 @@ public:
     *
     * @param val to be printed
     */
-   inline void print() const
-   {
+   inline void print() const {
       auto arr = extract_as_byte_array();
       printhex(static_cast<const void*>(arr.data()), arr.size());
    }
@@ -292,8 +282,7 @@ private:
  * @return if c1 == c2, return true, otherwise false
  */
 template<size_t Size>
-bool operator==(const fixed_bytes<Size>& c1, const fixed_bytes<Size>& c2)
-{
+bool operator==(const fixed_bytes<Size>& c1, const fixed_bytes<Size>& c2) {
    return c1._data == c2._data;
 }
 
@@ -305,8 +294,7 @@ bool operator==(const fixed_bytes<Size>& c1, const fixed_bytes<Size>& c2)
  * @return if c1 != c2, return true, otherwise false
  */
 template<size_t Size>
-bool operator!=(const fixed_bytes<Size>& c1, const fixed_bytes<Size>& c2)
-{
+bool operator!=(const fixed_bytes<Size>& c1, const fixed_bytes<Size>& c2) {
    return c1._data != c2._data;
 }
 
@@ -318,8 +306,7 @@ bool operator!=(const fixed_bytes<Size>& c1, const fixed_bytes<Size>& c2)
  * @return if c1 > c2, return true, otherwise false
  */
 template<size_t Size>
-bool operator>(const fixed_bytes<Size>& c1, const fixed_bytes<Size>& c2)
-{
+bool operator>(const fixed_bytes<Size>& c1, const fixed_bytes<Size>& c2) {
    return c1._data > c2._data;
 }
 
@@ -331,8 +318,7 @@ bool operator>(const fixed_bytes<Size>& c1, const fixed_bytes<Size>& c2)
  * @return if c1 < c2, return true, otherwise false
  */
 template<size_t Size>
-bool operator<(const fixed_bytes<Size>& c1, const fixed_bytes<Size>& c2)
-{
+bool operator<(const fixed_bytes<Size>& c1, const fixed_bytes<Size>& c2) {
    return c1._data < c2._data;
 }
 
@@ -344,8 +330,7 @@ bool operator<(const fixed_bytes<Size>& c1, const fixed_bytes<Size>& c2)
  * @return if c1 >= c2, return true, otherwise false
  */
 template<size_t Size>
-bool operator>=(const fixed_bytes<Size>& c1, const fixed_bytes<Size>& c2)
-{
+bool operator>=(const fixed_bytes<Size>& c1, const fixed_bytes<Size>& c2) {
    return c1._data >= c2._data;
 }
 
@@ -357,8 +342,7 @@ bool operator>=(const fixed_bytes<Size>& c1, const fixed_bytes<Size>& c2)
  * @return if c1 <= c2, return true, otherwise false
  */
 template<size_t Size>
-bool operator<=(const fixed_bytes<Size>& c1, const fixed_bytes<Size>& c2)
-{
+bool operator<=(const fixed_bytes<Size>& c1, const fixed_bytes<Size>& c2) {
    return c1._data <= c2._data;
 }
 
@@ -376,8 +360,7 @@ using checksum512 = fixed_bytes<64>;
  *  @return DataStream& - Reference to the datastream
  */
 template<typename DataStream, size_t Size>
-inline DataStream& operator<<(DataStream& ds, const fixed_bytes<Size>& d)
-{
+inline DataStream& operator<<(DataStream& ds, const fixed_bytes<Size>& d) {
    auto arr = d.extract_as_byte_array();
    ds.write((const char*)arr.data(), arr.size());
    return ds;
@@ -393,8 +376,7 @@ inline DataStream& operator<<(DataStream& ds, const fixed_bytes<Size>& d)
  *  @return DataStream& - Reference to the datastream
  */
 template<typename DataStream, size_t Size>
-inline DataStream& operator>>(DataStream& ds, fixed_bytes<Size>& d)
-{
+inline DataStream& operator>>(DataStream& ds, fixed_bytes<Size>& d) {
    std::array<uint8_t, Size> arr;
    ds.read((char*)arr.data(), arr.size());
    d = fixed_bytes<Size>(arr);

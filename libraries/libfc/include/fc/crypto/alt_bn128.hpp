@@ -9,8 +9,7 @@
 namespace fc {
 using bytes = std::vector<char>;
 
-enum class alt_bn128_error : int32_t
-{
+enum class alt_bn128_error : int32_t {
    operand_component_invalid,
    operand_not_in_curve,
    pairing_list_size_error,

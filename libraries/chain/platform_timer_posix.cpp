@@ -15,20 +15,17 @@ namespace chain {
 
 static_assert(std::atomic_bool::is_always_lock_free, "Only lock-free atomics AS-safe.");
 
-struct platform_timer::impl
-{
+struct platform_timer::impl {
    timer_t timerid;
 
-   static void sig_handler(int, siginfo_t* si, void*)
-   {
+   static void sig_handler(int, siginfo_t* si, void*) {
       platform_timer* self = (platform_timer*)si->si_value.sival_ptr;
       self->expired        = 1;
       self->call_expiration_callback();
    }
 };
 
-platform_timer::platform_timer()
-{
+platform_timer::platform_timer() {
    static_assert(sizeof(impl) <= fwd_size);
 
    static bool       initialized;
@@ -53,13 +50,11 @@ platform_timer::platform_timer()
    compute_and_print_timer_accuracy(*this);
 }
 
-platform_timer::~platform_timer()
-{
+platform_timer::~platform_timer() {
    timer_delete(my->timerid);
 }
 
-void platform_timer::start(fc::time_point tp)
-{
+void platform_timer::start(fc::time_point tp) {
    if (tp == fc::time_point::maximum()) {
       expired = 0;
       return;
@@ -80,8 +75,7 @@ void platform_timer::start(fc::time_point tp)
    }
 }
 
-void platform_timer::stop()
-{
+void platform_timer::stop() {
    if (expired)
       return;
    struct itimerspec disable = {

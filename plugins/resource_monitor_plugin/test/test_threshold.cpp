@@ -9,19 +9,14 @@ using namespace eosio;
 using namespace eosio::resource_monitor;
 using namespace boost::system;
 
-struct threshold_fixture
-{
-   struct mock_space_provider
-   {
+struct threshold_fixture {
+   struct mock_space_provider {
       mock_space_provider(threshold_fixture& fixture)
-         : fixture(fixture)
-      {
-      }
+         : fixture(fixture) {}
 
       int get_stat(const char* path, struct stat* buf) const { return fixture.mock_get_stat(path, buf); }
 
-      bfs::space_info get_space(const bfs::path& p, boost::system::error_code& ec) const
-      {
+      bfs::space_info get_space(const bfs::path& p, boost::system::error_code& ec) const {
          return fixture.mock_get_space(p, ec);
       }
 
@@ -32,28 +27,23 @@ struct threshold_fixture
 
    using file_space_handler_t = file_space_handler<mock_space_provider>;
    threshold_fixture()
-      : space_handler(mock_space_provider(*this), ctx)
-   {
-   }
+      : space_handler(mock_space_provider(*this), ctx) {}
 
    void add_file_system(const bfs::path& path_name) { space_handler.add_file_system(path_name); }
 
-   void set_threshold(uint32_t threshold, uint32_t warning_threshold)
-   {
+   void set_threshold(uint32_t threshold, uint32_t warning_threshold) {
       space_handler.set_threshold(threshold, warning_threshold);
    }
 
    bool is_threshold_exceeded() { return space_handler.is_threshold_exceeded(); }
 
-   void set_shutdown_on_exceeded(bool shutdown_on_exceeded)
-   {
+   void set_shutdown_on_exceeded(bool shutdown_on_exceeded) {
       space_handler.set_shutdown_on_exceeded(shutdown_on_exceeded);
    }
 
    bool test_threshold_common(std::map<bfs::path, uintmax_t>& available,
                               std::map<bfs::path, int>&       dev,
-                              uint32_t                        warning_threshold = 75)
-   {
+                              uint32_t                        warning_threshold = 75) {
       mock_get_space = [available](const bfs::path&           p,
                                    boost::system::error_code& ec) mutable -> bfs::space_info {
          ec = boost::system::errc::make_error_code(errc::success);
@@ -90,8 +80,7 @@ struct threshold_fixture
 };
 
 BOOST_AUTO_TEST_SUITE(threshol_tests)
-BOOST_FIXTURE_TEST_CASE(equal_to_threshold, threshold_fixture)
-{
+BOOST_FIXTURE_TEST_CASE(equal_to_threshold, threshold_fixture) {
    std::map<bfs::path, uintmax_t> availables{
       {"/test0", 200000}
    };
@@ -102,8 +91,7 @@ BOOST_FIXTURE_TEST_CASE(equal_to_threshold, threshold_fixture)
    BOOST_TEST(!test_threshold_common(availables, devs));
 }
 
-BOOST_FIXTURE_TEST_CASE(above_threshold_1_byte, threshold_fixture)
-{
+BOOST_FIXTURE_TEST_CASE(above_threshold_1_byte, threshold_fixture) {
    std::map<bfs::path, uintmax_t> availables{
       {"/test0", 199999}
    };
@@ -114,8 +102,7 @@ BOOST_FIXTURE_TEST_CASE(above_threshold_1_byte, threshold_fixture)
    BOOST_TEST(test_threshold_common(availables, devs));
 }
 
-BOOST_FIXTURE_TEST_CASE(above_threshold_1000_byte, threshold_fixture)
-{
+BOOST_FIXTURE_TEST_CASE(above_threshold_1000_byte, threshold_fixture) {
    std::map<bfs::path, uintmax_t> availables{
       {"/test0", 199000}
    };
@@ -126,8 +113,7 @@ BOOST_FIXTURE_TEST_CASE(above_threshold_1000_byte, threshold_fixture)
    BOOST_TEST(test_threshold_common(availables, devs));
 }
 
-BOOST_FIXTURE_TEST_CASE(within_warning, threshold_fixture)
-{
+BOOST_FIXTURE_TEST_CASE(within_warning, threshold_fixture) {
    std::map<bfs::path, uintmax_t> availables{
       {"/test0", 249999}
    };
@@ -138,8 +124,7 @@ BOOST_FIXTURE_TEST_CASE(within_warning, threshold_fixture)
    BOOST_TEST(!test_threshold_common(availables, devs));
 }
 
-BOOST_FIXTURE_TEST_CASE(not_yet_warning, threshold_fixture)
-{
+BOOST_FIXTURE_TEST_CASE(not_yet_warning, threshold_fixture) {
    std::map<bfs::path, uintmax_t> availables{
       {"/test0", 250001}
    };
@@ -150,8 +135,7 @@ BOOST_FIXTURE_TEST_CASE(not_yet_warning, threshold_fixture)
    BOOST_TEST(!test_threshold_common(availables, devs));
 }
 
-BOOST_FIXTURE_TEST_CASE(below_threshold_1_byte, threshold_fixture)
-{
+BOOST_FIXTURE_TEST_CASE(below_threshold_1_byte, threshold_fixture) {
    std::map<bfs::path, uintmax_t> availables{
       {"/test0", 200001}
    };
@@ -162,8 +146,7 @@ BOOST_FIXTURE_TEST_CASE(below_threshold_1_byte, threshold_fixture)
    BOOST_TEST(!test_threshold_common(availables, devs));
 }
 
-BOOST_FIXTURE_TEST_CASE(below_threshold_500_byte, threshold_fixture)
-{
+BOOST_FIXTURE_TEST_CASE(below_threshold_500_byte, threshold_fixture) {
    std::map<bfs::path, uintmax_t> availables{
       {"/test0", 200500}
    };
@@ -174,8 +157,7 @@ BOOST_FIXTURE_TEST_CASE(below_threshold_500_byte, threshold_fixture)
    BOOST_TEST(!test_threshold_common(availables, devs));
 }
 
-BOOST_FIXTURE_TEST_CASE(first_file_system_over_threshold, threshold_fixture)
-{
+BOOST_FIXTURE_TEST_CASE(first_file_system_over_threshold, threshold_fixture) {
    std::map<bfs::path, uintmax_t> availables{
       {"/test0",  199999},
       { "/test1", 200500}
@@ -188,8 +170,7 @@ BOOST_FIXTURE_TEST_CASE(first_file_system_over_threshold, threshold_fixture)
    BOOST_TEST(test_threshold_common(availables, devs));
 }
 
-BOOST_FIXTURE_TEST_CASE(second_file_system_over_threshold, threshold_fixture)
-{
+BOOST_FIXTURE_TEST_CASE(second_file_system_over_threshold, threshold_fixture) {
    std::map<bfs::path, uintmax_t> availables{
       {"/test0",  300000},
       { "/test1", 100000}
@@ -202,8 +183,7 @@ BOOST_FIXTURE_TEST_CASE(second_file_system_over_threshold, threshold_fixture)
    BOOST_TEST(test_threshold_common(availables, devs));
 }
 
-BOOST_FIXTURE_TEST_CASE(no_file_system_over_threshold, threshold_fixture)
-{
+BOOST_FIXTURE_TEST_CASE(no_file_system_over_threshold, threshold_fixture) {
    std::map<bfs::path, uintmax_t> availables{
       {"/test0",  300000},
       { "/test1", 200000}
@@ -216,8 +196,7 @@ BOOST_FIXTURE_TEST_CASE(no_file_system_over_threshold, threshold_fixture)
    BOOST_TEST(!test_threshold_common(availables, devs));
 }
 
-BOOST_FIXTURE_TEST_CASE(both_file_systems_over_threshold, threshold_fixture)
-{
+BOOST_FIXTURE_TEST_CASE(both_file_systems_over_threshold, threshold_fixture) {
    std::map<bfs::path, uintmax_t> availables{
       {"/test0",  150000},
       { "/test1", 100000}
@@ -230,8 +209,7 @@ BOOST_FIXTURE_TEST_CASE(both_file_systems_over_threshold, threshold_fixture)
    BOOST_TEST(test_threshold_common(availables, devs));
 }
 
-BOOST_FIXTURE_TEST_CASE(one_of_three_over_threshold, threshold_fixture)
-{
+BOOST_FIXTURE_TEST_CASE(one_of_three_over_threshold, threshold_fixture) {
    std::map<bfs::path, uintmax_t> availables{
       {"/test0",  300000},
       { "/test1", 199999},
@@ -246,8 +224,7 @@ BOOST_FIXTURE_TEST_CASE(one_of_three_over_threshold, threshold_fixture)
    BOOST_TEST(test_threshold_common(availables, devs));
 }
 
-BOOST_FIXTURE_TEST_CASE(one_of_three_over_threshold_dup, threshold_fixture)
-{
+BOOST_FIXTURE_TEST_CASE(one_of_three_over_threshold_dup, threshold_fixture) {
    std::map<bfs::path, uintmax_t> availables{
       {"/test0",  100000},
       { "/test1", 250000},
@@ -262,8 +239,7 @@ BOOST_FIXTURE_TEST_CASE(one_of_three_over_threshold_dup, threshold_fixture)
    BOOST_TEST(test_threshold_common(availables, devs));
 }
 
-BOOST_FIXTURE_TEST_CASE(none_of_three_over_threshold, threshold_fixture)
-{
+BOOST_FIXTURE_TEST_CASE(none_of_three_over_threshold, threshold_fixture) {
    std::map<bfs::path, uintmax_t> availables{
       {"/test0",  300000},
       { "/test1", 200000},
@@ -278,8 +254,7 @@ BOOST_FIXTURE_TEST_CASE(none_of_three_over_threshold, threshold_fixture)
    BOOST_TEST(!test_threshold_common(availables, devs));
 }
 
-BOOST_FIXTURE_TEST_CASE(none_of_three_over_threshold_dup, threshold_fixture)
-{
+BOOST_FIXTURE_TEST_CASE(none_of_three_over_threshold_dup, threshold_fixture) {
    std::map<bfs::path, uintmax_t> availables{
       {"/test0",  800000},
       { "/test1", 550000},
@@ -294,8 +269,7 @@ BOOST_FIXTURE_TEST_CASE(none_of_three_over_threshold_dup, threshold_fixture)
    BOOST_TEST(!test_threshold_common(availables, devs));
 }
 
-BOOST_FIXTURE_TEST_CASE(warning_threshold_equal_to_threshold, threshold_fixture)
-{
+BOOST_FIXTURE_TEST_CASE(warning_threshold_equal_to_threshold, threshold_fixture) {
    std::map<bfs::path, uintmax_t> availables{
       {"/test0", 150000}
    };
@@ -306,8 +280,7 @@ BOOST_FIXTURE_TEST_CASE(warning_threshold_equal_to_threshold, threshold_fixture)
    BOOST_REQUIRE_THROW(test_threshold_common(availables, devs, 80), chain::plugin_config_exception);
 }
 
-BOOST_FIXTURE_TEST_CASE(warning_threshold_greater_than_threshold, threshold_fixture)
-{
+BOOST_FIXTURE_TEST_CASE(warning_threshold_greater_than_threshold, threshold_fixture) {
    std::map<bfs::path, uintmax_t> availables{
       {"/test0", 150000}
    };
@@ -318,8 +291,7 @@ BOOST_FIXTURE_TEST_CASE(warning_threshold_greater_than_threshold, threshold_fixt
    BOOST_REQUIRE_THROW(test_threshold_common(availables, devs, 85), chain::plugin_config_exception);
 }
 
-BOOST_FIXTURE_TEST_CASE(warning_threshold_less_than_threshold, threshold_fixture)
-{
+BOOST_FIXTURE_TEST_CASE(warning_threshold_less_than_threshold, threshold_fixture) {
    std::map<bfs::path, uintmax_t> availables{
       {"/test0", 200000}
    };
@@ -330,8 +302,7 @@ BOOST_FIXTURE_TEST_CASE(warning_threshold_less_than_threshold, threshold_fixture
    BOOST_TEST(!test_threshold_common(availables, devs, 70));
 }
 
-BOOST_FIXTURE_TEST_CASE(get_space_failure_in_middle, threshold_fixture)
-{
+BOOST_FIXTURE_TEST_CASE(get_space_failure_in_middle, threshold_fixture) {
    mock_get_space = [i = 0](const bfs::path& p, boost::system::error_code& ec) mutable -> bfs::space_info {
       if (i == 3) {
          ec = boost::system::errc::make_error_code(errc::no_such_file_or_directory);

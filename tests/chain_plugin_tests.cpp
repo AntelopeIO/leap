@@ -35,8 +35,7 @@ using namespace fc;
 
 BOOST_AUTO_TEST_SUITE(chain_plugin_tests)
 
-BOOST_FIXTURE_TEST_CASE(get_block_with_invalid_abi, TESTER)
-try {
+BOOST_FIXTURE_TEST_CASE(get_block_with_invalid_abi, TESTER) try {
    produce_blocks(2);
 
    create_accounts({ "asserter"_n });
@@ -115,8 +114,7 @@ try {
 }
 FC_LOG_AND_RETHROW() /// get_block_with_invalid_abi
 
-BOOST_FIXTURE_TEST_CASE(get_consensus_parameters, TESTER)
-try {
+BOOST_FIXTURE_TEST_CASE(get_consensus_parameters, TESTER) try {
    produce_blocks(1);
 
    chain_apis::read_only plugin(
@@ -187,8 +185,7 @@ try {
 }
 FC_LOG_AND_RETHROW() // get_consensus_parameters
 
-BOOST_FIXTURE_TEST_CASE(get_account, TESTER)
-try {
+BOOST_FIXTURE_TEST_CASE(get_account, TESTER) try {
    produce_blocks(2);
 
    std::vector<account_name> accs{

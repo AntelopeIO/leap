@@ -18,13 +18,11 @@ static unsigned                                 refcount;
 static std::thread                              checktime_thread;
 static std::unique_ptr<boost::asio::io_service> checktime_ios;
 
-struct platform_timer::impl
-{
+struct platform_timer::impl {
    std::unique_ptr<boost::asio::high_resolution_timer> timer;
 };
 
-platform_timer::platform_timer()
-{
+platform_timer::platform_timer() {
    static_assert(sizeof(impl) <= fwd_size);
 
    std::lock_guard guard(timer_ref_mutex);
@@ -48,8 +46,7 @@ platform_timer::platform_timer()
    // compute_and_print_timer_accuracy(*this);
 }
 
-platform_timer::~platform_timer()
-{
+platform_timer::~platform_timer() {
    stop();
    if (std::lock_guard guard(timer_ref_mutex); --refcount == 0) {
       checktime_ios->stop();
@@ -58,8 +55,7 @@ platform_timer::~platform_timer()
    }
 }
 
-void platform_timer::start(fc::time_point tp)
-{
+void platform_timer::start(fc::time_point tp) {
    if (tp == fc::time_point::maximum()) {
       expired = 0;
       return;
@@ -88,8 +84,7 @@ void platform_timer::start(fc::time_point tp)
    }
 }
 
-void platform_timer::stop()
-{
+void platform_timer::stop() {
    if (expired)
       return;
 

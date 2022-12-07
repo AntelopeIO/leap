@@ -14,8 +14,7 @@
 using boost::multi_index_container;
 using namespace boost::multi_index;
 
-struct test_size
-{
+struct test_size {
    uint64_t key = 0;
    uint64_t s   = 0;
 };
@@ -28,8 +27,7 @@ typedef multi_index_container<
    indexed_by<hashed_unique<tag<by_key>, member<test_size, uint64_t, &test_size::key>, std::hash<uint64_t>>>>
    test_size_container;
 
-struct test_size2
-{
+struct test_size2 {
    uint64_t       key = 0;
    fc::time_point time;
    uint64_t       s = 0;
@@ -39,14 +37,12 @@ FC_REFLECT(test_size2, (key)(time)(s))
 
 namespace fc::tracked {
 template<>
-size_t memory_size(const test_size& t)
-{
+size_t memory_size(const test_size& t) {
    return t.s;
 }
 
 template<>
-size_t memory_size(const test_size2& t)
-{
+size_t memory_size(const test_size2& t) {
    return t.s;
 }
 }
@@ -60,8 +56,7 @@ typedef multi_index_container<
 
 BOOST_AUTO_TEST_SUITE(tracked_storage_tests)
 
-BOOST_AUTO_TEST_CASE(track_storage_test)
-{
+BOOST_AUTO_TEST_CASE(track_storage_test) {
    fc::tracked_storage<test_size_container> storage;
    BOOST_CHECK(storage.insert(test_size{ 0, 5 }).second);
    BOOST_CHECK_EQUAL(storage.memory_size(), 5);
@@ -89,8 +84,7 @@ BOOST_AUTO_TEST_CASE(track_storage_test)
    BOOST_CHECK_EQUAL(storage.memory_size(), 0);
 }
 
-BOOST_AUTO_TEST_CASE(simple_write_read_file_storage_test)
-{
+BOOST_AUTO_TEST_CASE(simple_write_read_file_storage_test) {
    using tracked_storage1 = fc::tracked_storage<test_size_container>;
    tracked_storage1 storage1_1;
    BOOST_CHECK_EQUAL(storage1_1.memory_size(), 0);
@@ -117,8 +111,7 @@ BOOST_AUTO_TEST_CASE(simple_write_read_file_storage_test)
    BOOST_CHECK_EQUAL(content.tellp(), tellp);
 }
 
-BOOST_AUTO_TEST_CASE(single_write_read_file_storage_test)
-{
+BOOST_AUTO_TEST_CASE(single_write_read_file_storage_test) {
    try {
       using tracked_storage1 = fc::tracked_storage<test_size_container>;
       tracked_storage1 storage1_1;
@@ -152,8 +145,7 @@ BOOST_AUTO_TEST_CASE(single_write_read_file_storage_test)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(write_read_file_storage_test)
-{
+BOOST_AUTO_TEST_CASE(write_read_file_storage_test) {
    using tracked_storage1 = fc::tracked_storage<test_size_container>;
    tracked_storage1 storage1_1;
    storage1_1.insert(test_size{ 0, 6 });

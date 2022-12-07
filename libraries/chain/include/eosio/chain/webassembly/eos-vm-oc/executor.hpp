@@ -22,8 +22,7 @@ class code_cache_base;
 class memory;
 struct code_descriptor;
 
-class executor
-{
+class executor {
 public:
    executor(const code_cache_base& cc);
    ~executor();

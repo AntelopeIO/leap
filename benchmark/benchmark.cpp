@@ -25,18 +25,15 @@ constexpr auto ns_width   = 2;
 
 uint32_t num_runs = 1;
 
-std::map<std::string, std::function<void()>> get_features()
-{
+std::map<std::string, std::function<void()>> get_features() {
    return features;
 }
 
-void set_num_runs(uint32_t runs)
-{
+void set_num_runs(uint32_t runs) {
    num_runs = runs;
 }
 
-void print_header()
-{
+void print_header() {
    std::cout << std::left << std::setw(name_width) << "function" << std::setw(runs_width) << "runs"
              << std::setw(time_width + ns_width) << std::right << "average"
              << std::setw(time_width + ns_width) << "minimum" << std::setw(time_width + ns_width) << "maximum"
@@ -44,8 +41,7 @@ void print_header()
              << std::endl;
 }
 
-void print_results(std::string name, uint32_t runs, uint64_t total, uint64_t min, uint64_t max)
-{
+void print_results(std::string name, uint32_t runs, uint64_t total, uint64_t min, uint64_t max) {
    std::cout.imbue(std::locale(""));
    std::cout << std::setw(name_width) << std::left << name << std::setw(runs_width)
              << runs
@@ -56,15 +52,13 @@ void print_results(std::string name, uint32_t runs, uint64_t total, uint64_t min
              << std::setw(time_width) << max << std::setw(ns_width) << " ns" << std::endl;
 }
 
-bytes to_bytes(const std::string& source)
-{
+bytes to_bytes(const std::string& source) {
    bytes output(source.length() / 2);
    fc::from_hex(source, output.data(), output.size());
    return output;
 };
 
-void benchmarking(std::string name, const std::function<void()>& func)
-{
+void benchmarking(std::string name, const std::function<void()>& func) {
    uint64_t total{ 0 }, min{ std::numeric_limits<uint64_t>::max() }, max{ 0 };
 
    for (auto i = 0U; i < num_runs; ++i) {

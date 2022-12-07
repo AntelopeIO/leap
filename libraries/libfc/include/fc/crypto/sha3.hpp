@@ -7,8 +7,7 @@
 
 namespace fc {
 
-class sha3
-{
+class sha3 {
 public:
    sha3();
    ~sha3() {}
@@ -22,8 +21,7 @@ public:
    char*       data();
    size_t      data_size() const { return 256 / 8; }
 
-   static sha3 hash(const char* d, uint32_t dlen, bool is_nist = true)
-   {
+   static sha3 hash(const char* d, uint32_t dlen, bool is_nist = true) {
       encoder e;
       e.write(d, dlen);
       const auto& sha = e.result(is_nist);
@@ -33,15 +31,13 @@ public:
    static sha3 hash(const sha3& s, bool is_nist = true) { return hash(s.data(), sizeof(s._hash), is_nist); }
 
    template<typename T>
-   static sha3 hash(const T& t, bool is_nist = true)
-   {
+   static sha3 hash(const T& t, bool is_nist = true) {
       sha3::encoder e;
       fc::raw::pack(e, t);
       return e.result(is_nist);
    }
 
-   class encoder
-   {
+   class encoder {
    public:
       encoder();
       ~encoder();
@@ -57,15 +53,13 @@ public:
    };
 
    template<typename T>
-   inline friend T& operator<<(T& ds, const sha3& ep)
-   {
+   inline friend T& operator<<(T& ds, const sha3& ep) {
       ds.write(ep.data(), sizeof(ep));
       return ds;
    }
 
    template<typename T>
-   inline friend T& operator>>(T& ds, sha3& ep)
-   {
+   inline friend T& operator>>(T& ds, sha3& ep) {
       ds.read(ep.data(), sizeof(ep));
       return ds;
    }
@@ -89,8 +83,7 @@ void from_variant(const variant& v, sha3& bi);
 
 namespace std {
 template<>
-struct hash<fc::sha3>
-{
+struct hash<fc::sha3> {
    size_t operator()(const fc::sha3& s) const { return *((size_t*)&s); }
 };
 
@@ -98,10 +91,8 @@ struct hash<fc::sha3>
 
 namespace boost {
 template<>
-struct hash<fc::sha3>
-{
-   size_t operator()(const fc::sha3& s) const
-   {
+struct hash<fc::sha3> {
+   size_t operator()(const fc::sha3& s) const {
       return s._hash[3]; //*((size_t*)&s);
    }
 };

@@ -26,13 +26,11 @@ using namespace eosio::chain;
 using namespace eosio::testing;
 using namespace fc;
 
-class payloadless_tester : public TESTER
-{};
+class payloadless_tester : public TESTER {};
 
 BOOST_AUTO_TEST_SUITE(payloadless_tests)
 
-BOOST_FIXTURE_TEST_CASE(test_doit, payloadless_tester)
-{
+BOOST_FIXTURE_TEST_CASE(test_doit, payloadless_tester) {
 
    create_accounts({ "payloadless"_n });
    set_code("payloadless"_n, contracts::payloadless_wasm());
@@ -45,8 +43,7 @@ BOOST_FIXTURE_TEST_CASE(test_doit, payloadless_tester)
 
 // test GH#3916 - contract api action with no parameters fails when called from cleos
 // abi_serializer was failing when action data was empty.
-BOOST_FIXTURE_TEST_CASE(test_abi_serializer, payloadless_tester)
-{
+BOOST_FIXTURE_TEST_CASE(test_abi_serializer, payloadless_tester) {
 
    create_accounts({ "payloadless"_n });
    set_code("payloadless"_n, contracts::payloadless_wasm());

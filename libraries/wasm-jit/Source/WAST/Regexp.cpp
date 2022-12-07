@@ -5,8 +5,7 @@
 
 #include <assert.h>
 
-enum class NodeType : U8
-{
+enum class NodeType : U8 {
    lit,
    zeroOrMore,
    oneOrMore,
@@ -14,48 +13,35 @@ enum class NodeType : U8
    alt,
    seq,
 };
-struct Node
-{
+struct Node {
    const NodeType type;
    Node(NodeType inType)
-      : type(inType)
-   {
-   }
+      : type(inType) {}
    virtual ~Node() {}
 };
-struct Lit : Node
-{
+struct Lit : Node {
    NFA::CharSet charSet;
    Lit(const NFA::CharSet& inCharSet)
       : Node(NodeType::lit)
-      , charSet(inCharSet)
-   {
-   }
+      , charSet(inCharSet) {}
 };
 template<NodeType inType>
-struct Unary : Node
-{
+struct Unary : Node {
    Node* child;
    Unary(Node* inChild)
       : Node(inType)
-      , child(inChild)
-   {
-   }
+      , child(inChild) {}
    ~Unary() { delete child; }
 };
 template<NodeType inType>
-struct Binary : Node
-{
+struct Binary : Node {
    Node* firstChild;
    Node* secondChild;
    Binary(Node* inFirstChild, Node* inSecondChild)
       : Node(inType)
       , firstChild(inFirstChild)
-      , secondChild(inSecondChild)
-   {
-   }
-   ~Binary()
-   {
+      , secondChild(inSecondChild) {}
+   ~Binary() {
       delete firstChild;
       delete secondChild;
    }
@@ -67,8 +53,7 @@ typedef Binary<NodeType::alt>       Alt;
 typedef Binary<NodeType::seq>       Seq;
 
 template<bool inSet>
-static bool isMetachar(char c)
-{
+static bool isMetachar(char c) {
    switch (c) {
       case '^':
       case '\\': return true;
@@ -89,8 +74,7 @@ static bool isMetachar(char c)
 }
 
 template<bool inSet>
-static char parseChar(const char*& nextChar)
-{
+static char parseChar(const char*& nextChar) {
    if (*nextChar == '\\') {
       ++nextChar;
       if (!isMetachar<inSet>(*nextChar)) {
@@ -105,8 +89,7 @@ static char parseChar(const char*& nextChar)
 }
 
 template<bool inSet>
-static NFA::CharSet parseLit(const char*& nextChar)
-{
+static NFA::CharSet parseLit(const char*& nextChar) {
    NFA::CharSet result;
    const char   c = parseChar<inSet>(nextChar);
    if (inSet && *nextChar == '-') {
@@ -120,8 +103,7 @@ static NFA::CharSet parseLit(const char*& nextChar)
 }
 
 template<bool inSet>
-static NFA::CharSet parseCharClass(const char*& nextChar)
-{
+static NFA::CharSet parseCharClass(const char*& nextChar) {
    if (*nextChar != '\\') {
       return parseLit<inSet>(nextChar);
    } else {
@@ -153,8 +135,7 @@ static NFA::CharSet parseCharClass(const char*& nextChar)
    }
 }
 
-static NFA::CharSet parseSet(const char*& nextChar)
-{
+static NFA::CharSet parseSet(const char*& nextChar) {
    NFA::CharSet result;
 
    WAVM_ASSERT_THROW(*nextChar == '[');
@@ -179,8 +160,7 @@ static NFA::CharSet parseSet(const char*& nextChar)
    return result;
 }
 
-static Node* parseElementary(const char*& nextChar, Uptr groupDepth)
-{
+static Node* parseElementary(const char*& nextChar, Uptr groupDepth) {
    NFA::CharSet charSet;
    switch (*nextChar) {
       case '[': {
@@ -206,8 +186,7 @@ static Node* parseElementary(const char*& nextChar, Uptr groupDepth)
 }
 
 static Node* parseUnion(const char*& nextChar, Uptr groupDepth);
-static Node* parseGroup(const char*& nextChar, Uptr groupDepth)
-{
+static Node* parseGroup(const char*& nextChar, Uptr groupDepth) {
    if (*nextChar != '(') {
       return parseElementary(nextChar, groupDepth);
    } else {
@@ -219,8 +198,7 @@ static Node* parseGroup(const char*& nextChar, Uptr groupDepth)
    }
 }
 
-static Node* parseQuantifier(const char*& nextChar, Uptr groupDepth)
-{
+static Node* parseQuantifier(const char*& nextChar, Uptr groupDepth) {
    Node* result = parseGroup(nextChar, groupDepth);
 
    switch (*nextChar) {
@@ -241,8 +219,7 @@ static Node* parseQuantifier(const char*& nextChar, Uptr groupDepth)
    return result;
 }
 
-static Node* parseSeq(const char*& nextChar, Uptr groupDepth)
-{
+static Node* parseSeq(const char*& nextChar, Uptr groupDepth) {
    Node* result = nullptr;
    while (true) {
       Node* newNode = parseQuantifier(nextChar, groupDepth);
@@ -264,8 +241,7 @@ static Node* parseSeq(const char*& nextChar, Uptr groupDepth)
    };
 }
 
-static Node* parseUnion(const char*& nextChar, Uptr groupDepth)
-{
+static Node* parseUnion(const char*& nextChar, Uptr groupDepth) {
    Node* result = nullptr;
    while (true) {
       Node* newNode = parseSeq(nextChar, groupDepth);
@@ -288,8 +264,7 @@ static Node* parseUnion(const char*& nextChar, Uptr groupDepth)
    };
 }
 
-static Node* parse(const char* string)
-{
+static Node* parse(const char* string) {
    const char* nextChar = string;
    Node*       node     = parseUnion(nextChar, 0);
    if (*nextChar != 0) {
@@ -301,8 +276,7 @@ static Node* parse(const char* string)
 static void createNFA(NFA::Builder*   nfaBuilder,
                       Node*           node,
                       NFA::StateIndex initialState,
-                      NFA::StateIndex finalState)
-{
+                      NFA::StateIndex finalState) {
    switch (node->type) {
       case NodeType::lit: {
          auto lit = (Lit*)node;
@@ -350,8 +324,7 @@ namespace Regexp {
 void addToNFA(const char*     regexpString,
               NFA::Builder*   nfaBuilder,
               NFA::StateIndex initialState,
-              NFA::StateIndex finalState)
-{
+              NFA::StateIndex finalState) {
    Node* rootNode = parse(regexpString);
    createNFA(nfaBuilder, rootNode, initialState, finalState);
    delete rootNode;

@@ -8,10 +8,10 @@
 
 namespace fc {
 
+using boost::container::flat_set;
+using boost::container::flat_multiset;
 using boost::container::flat_map;
 using boost::container::flat_multimap;
-using boost::container::flat_multiset;
-using boost::container::flat_set;
 
 namespace raw {
 

@@ -7,8 +7,7 @@
 namespace eosio {
 namespace chain {
 
-class code_object : public chainbase::object<code_object_type, code_object>
-{
+class code_object : public chainbase::object<code_object_type, code_object> {
    OBJECT_CTOR(code_object, (code))
 
    id_type     id;

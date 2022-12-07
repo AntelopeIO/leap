@@ -6,8 +6,7 @@
 
 namespace eosio::chain {
 
-void name::set(std::string_view str)
-{
+void name::set(std::string_view str) {
    const auto len = str.size();
    EOS_ASSERT(len <= 13,
               name_type_exception,
@@ -21,8 +20,7 @@ void name::set(std::string_view str)
 }
 
 // keep in sync with name::to_string() in contract definition for name
-std::string name::to_string() const
-{
+std::string name::to_string() const {
    static const char* charmap = ".12345abcdefghijklmnopqrstuvwxyz";
 
    std::string str(13, '.');
@@ -41,12 +39,10 @@ std::string name::to_string() const
 } // eosio::chain
 
 namespace fc {
-void to_variant(const eosio::chain::name& c, fc::variant& v)
-{
+void to_variant(const eosio::chain::name& c, fc::variant& v) {
    v = c.to_string();
 }
-void from_variant(const fc::variant& v, eosio::chain::name& check)
-{
+void from_variant(const fc::variant& v, eosio::chain::name& check) {
    check.set(v.get_string());
 }
 } // fc

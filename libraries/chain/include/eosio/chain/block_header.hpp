@@ -10,8 +10,7 @@ namespace chain {
 
 namespace detail {
 template<typename... Ts>
-struct block_header_extension_types
-{
+struct block_header_extension_types {
    using block_header_extension_t = std::variant<Ts...>;
    using decompose_t              = decompose<Ts...>;
 };
@@ -22,8 +21,7 @@ using block_header_extension_types =
 
 using block_header_extension = block_header_extension_types::block_header_extension_t;
 
-struct block_header
-{
+struct block_header {
    block_timestamp_type timestamp;
    account_name         producer;
 
@@ -69,8 +67,7 @@ struct block_header
    flat_multimap<uint16_t, block_header_extension> validate_and_extract_header_extensions() const;
 };
 
-struct signed_block_header : public block_header
-{
+struct signed_block_header : public block_header {
    signature_type producer_signature;
 };
 

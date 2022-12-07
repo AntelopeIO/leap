@@ -8,8 +8,7 @@ using namespace appbase;
 /**
  *  This is a template plugin, intended to serve as a starting point for making new plugins
  */
-class template_plugin : public appbase::plugin<template_plugin>
-{
+class template_plugin : public appbase::plugin<template_plugin> {
 public:
    template_plugin();
    virtual ~template_plugin();

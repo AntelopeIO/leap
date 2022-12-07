@@ -3,8 +3,7 @@
 #include <eosio/eosio.hpp>
 #include <vector>
 
-class [[eosio::contract]] deferred_test : public eosio::contract
-{
+class [[eosio::contract]] deferred_test : public eosio::contract {
 public:
    using eosio::contract::contract;
 

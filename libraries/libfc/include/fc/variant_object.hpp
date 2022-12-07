@@ -16,12 +16,10 @@ class mutable_variant_object;
  *  @note This class is not optimized for random-access on large
  *        sets of key-value pairs.
  */
-class variant_object
-{
+class variant_object {
 public:
    /** @brief a key/value pair */
-   class entry
-   {
+   class entry {
    public:
       entry();
       entry(string k, variant v);
@@ -36,8 +34,7 @@ public:
 
       variant& value();
 
-      friend bool operator==(const entry& a, const entry& b)
-      {
+      friend bool operator==(const entry& a, const entry& b) {
          return a._key == b._key && a._value == b._value;
       }
       friend bool operator!=(const entry& a, const entry& b) { return !(a == b); }
@@ -73,8 +70,7 @@ public:
 
    template<typename T>
    variant_object(string key, T&& val)
-      : _key_value(std::make_shared<std::vector<entry>>())
-   {
+      : _key_value(std::make_shared<std::vector<entry>>()) {
       *this = variant_object(std::move(key), variant(forward<T>(val)));
    }
    variant_object(const variant_object&);
@@ -111,8 +107,7 @@ void from_variant(const variant& var, variant_object& vo);
  *  @note This class is not optimized for random-access on large
  *        sets of key-value pairs.
  */
-class mutable_variant_object
-{
+class mutable_variant_object {
 public:
    /** @brief a key/value pair */
    typedef variant_object::entry entry;
@@ -178,14 +173,12 @@ public:
    mutable_variant_object& operator()(string key, variant var) &;
    mutable_variant_object  operator()(string key, variant var) &&;
    template<typename T>
-   mutable_variant_object& operator()(string key, T&& var) &
-   {
+   mutable_variant_object& operator()(string key, T&& var) & {
       set(std::move(key), variant(fc::forward<T>(var)));
       return *this;
    }
    template<typename T>
-   mutable_variant_object operator()(string key, T&& var) &&
-   {
+   mutable_variant_object operator()(string key, T&& var) && {
       set(std::move(key), variant(fc::forward<T>(var)));
       return std::move(*this);
    }
@@ -204,8 +197,7 @@ public:
    template<typename T,
             typename = std::enable_if_t<!std::is_base_of<mutable_variant_object, std::decay_t<T>>::value>>
    explicit mutable_variant_object(T&& v)
-      : _key_value(new std::vector<entry>())
-   {
+      : _key_value(new std::vector<entry>()) {
       *this = variant(fc::forward<T>(v)).get_object();
    }
 
@@ -215,8 +207,7 @@ public:
    mutable_variant_object(string key, variant val);
    template<typename T>
    mutable_variant_object(string key, T&& val)
-      : _key_value(new std::vector<entry>())
-   {
+      : _key_value(new std::vector<entry>()) {
       set(std::move(key), variant(forward<T>(val)));
    }
 

@@ -16,14 +16,12 @@ class deep_mind_handler;
 namespace resource_limits {
 namespace impl {
 template<typename T>
-struct ratio
-{
+struct ratio {
    static_assert(std::is_integral<T>::value, "ratios must have integral types");
    T numerator;
    T denominator;
 
-   friend inline bool operator==(const ratio& lhs, const ratio& rhs)
-   {
+   friend inline bool operator==(const ratio& lhs, const ratio& rhs) {
       return std::tie(lhs.numerator, lhs.denominator) == std::tie(rhs.numerator, rhs.denominator);
    }
 
@@ -33,8 +31,7 @@ struct ratio
 
 using ratio = impl::ratio<uint64_t>;
 
-struct elastic_limit_parameters
-{
+struct elastic_limit_parameters {
    uint64_t target;  // the desired usage
    uint64_t max;     // the maximum usage
    uint32_t periods; // the number of aggregation periods that contribute to the average usage
@@ -45,22 +42,19 @@ struct elastic_limit_parameters
 
    void validate() const; // throws if the parameters do not satisfy basic sanity checks
 
-   friend inline bool operator==(const elastic_limit_parameters& lhs, const elastic_limit_parameters& rhs)
-   {
+   friend inline bool operator==(const elastic_limit_parameters& lhs, const elastic_limit_parameters& rhs) {
       return std::tie(
                 lhs.target, lhs.max, lhs.periods, lhs.max_multiplier, lhs.contract_rate, lhs.expand_rate) ==
              std::tie(
                 rhs.target, rhs.max, rhs.periods, rhs.max_multiplier, rhs.contract_rate, rhs.expand_rate);
    }
 
-   friend inline bool operator!=(const elastic_limit_parameters& lhs, const elastic_limit_parameters& rhs)
-   {
+   friend inline bool operator!=(const elastic_limit_parameters& lhs, const elastic_limit_parameters& rhs) {
       return !(lhs == rhs);
    }
 };
 
-struct account_resource_limit
-{
+struct account_resource_limit {
    int64_t used      = 0; ///< quantity used in current window
    int64_t available = 0; ///< quantity available in current window (based upon fractional reserve)
    int64_t max       = 0; ///< max per window under current congestion
@@ -68,15 +62,12 @@ struct account_resource_limit
    int64_t              current_used = 0;       ///< current usage according to the given timestamp
 };
 
-class resource_limits_manager
-{
+class resource_limits_manager {
 public:
    explicit resource_limits_manager(chainbase::database&                db,
                                     std::function<deep_mind_handler*()> get_deep_mind_logger)
       : _db(db)
-      , _get_deep_mind_logger(get_deep_mind_logger)
-   {
-   }
+      , _get_deep_mind_logger(get_deep_mind_logger) {}
 
    void add_indices();
    void initialize_database();

@@ -29,8 +29,7 @@ using namespace eosio::chain::eosvmoc;
 
 class eosvmoc_instantiated_module;
 
-class eosvmoc_runtime : public eosio::chain::wasm_runtime_interface
-{
+class eosvmoc_runtime : public eosio::chain::wasm_runtime_interface {
 public:
    eosvmoc_runtime(const boost::filesystem::path data_dir,
                    const eosvmoc::config&        eosvmoc_config,
@@ -76,8 +75,7 @@ public:
  * case.
  */
 template<typename T>
-inline void* array_ptr_impl(size_t ptr, size_t length)
-{
+inline void* array_ptr_impl(size_t ptr, size_t length) {
    constexpr int cb_full_linear_memory_start_segment_offset =
       OFFSET_OF_CONTROL_BLOCK_MEMBER(full_linear_memory_start);
    constexpr int cb_first_invalid_memory_address_segment_offset =
@@ -104,8 +102,7 @@ inline void* array_ptr_impl(size_t ptr, size_t length)
 /**
  * validate an in-wasm-memory char array that must be null terminated
  */
-inline char* null_terminated_ptr_impl(uint64_t ptr)
-{
+inline char* null_terminated_ptr_impl(uint64_t ptr) {
    constexpr int cb_full_linear_memory_start_segment_offset =
       OFFSET_OF_CONTROL_BLOCK_MEMBER(full_linear_memory_start);
    constexpr int cb_first_invalid_memory_address_segment_offset =
@@ -133,8 +130,7 @@ inline char* null_terminated_ptr_impl(uint64_t ptr)
    return (char*)ptr;
 }
 
-inline auto convert_native_to_wasm(char* ptr)
-{
+inline auto convert_native_to_wasm(char* ptr) {
    constexpr int cb_full_linear_memory_start_offset =
       OFFSET_OF_CONTROL_BLOCK_MEMBER(full_linear_memory_start);
    char* full_linear_memory_start;
@@ -149,24 +145,20 @@ template<typename T>
 struct wasm_to_value_type;
 
 template<>
-struct wasm_to_value_type<F32>
-{
+struct wasm_to_value_type<F32> {
    static constexpr auto value = ValueType::f32;
 };
 
 template<>
-struct wasm_to_value_type<F64>
-{
+struct wasm_to_value_type<F64> {
    static constexpr auto value = ValueType::f64;
 };
 template<>
-struct wasm_to_value_type<U32>
-{
+struct wasm_to_value_type<U32> {
    static constexpr auto value = ValueType::i32;
 };
 template<>
-struct wasm_to_value_type<U64>
-{
+struct wasm_to_value_type<U64> {
    static constexpr auto value = ValueType::i64;
 };
 
@@ -176,28 +168,23 @@ constexpr auto wasm_to_value_type_v = wasm_to_value_type<T>::value;
 template<typename T>
 struct wasm_to_rvalue_type;
 template<>
-struct wasm_to_rvalue_type<F32>
-{
+struct wasm_to_rvalue_type<F32> {
    static constexpr auto value = ResultType::f32;
 };
 template<>
-struct wasm_to_rvalue_type<F64>
-{
+struct wasm_to_rvalue_type<F64> {
    static constexpr auto value = ResultType::f64;
 };
 template<>
-struct wasm_to_rvalue_type<U32>
-{
+struct wasm_to_rvalue_type<U32> {
    static constexpr auto value = ResultType::i32;
 };
 template<>
-struct wasm_to_rvalue_type<U64>
-{
+struct wasm_to_rvalue_type<U64> {
    static constexpr auto value = ResultType::i64;
 };
 template<>
-struct wasm_to_rvalue_type<void>
-{
+struct wasm_to_rvalue_type<void> {
    static constexpr auto value = ResultType::none;
 };
 
@@ -214,80 +201,69 @@ struct wasm_function_type_provider;
  * specialization to destructure return and arguments
  */
 template<typename Ret, typename... Args>
-struct wasm_function_type_provider<Ret(Args...)>
-{
-   static const FunctionType* type()
-   {
+struct wasm_function_type_provider<Ret(Args...)> {
+   static const FunctionType* type() {
       return FunctionType::get(wasm_to_rvalue_type_v<Ret>, { wasm_to_value_type_v<Args>... });
    }
 };
 
-struct eos_vm_oc_execution_interface
-{
+struct eos_vm_oc_execution_interface {
    inline const auto&       operand_from_back(std::size_t index) const { return *(os - index - 1); }
    eosio::vm::native_value* os;
 };
 
 struct eos_vm_oc_type_converter
-   : public eosio::vm::type_converter<webassembly::interface, eos_vm_oc_execution_interface>
-{
+   : public eosio::vm::type_converter<webassembly::interface, eos_vm_oc_execution_interface> {
    using base_type = eosio::vm::type_converter<webassembly::interface, eos_vm_oc_execution_interface>;
+   using base_type::type_converter;
+   using base_type::to_wasm;
    using base_type::as_result;
    using base_type::get_host;
-   using base_type::to_wasm;
-   using base_type::type_converter;
 
    EOS_VM_FROM_WASM(bool, (uint32_t value)) { return value ? 1 : 0; }
 
-   EOS_VM_FROM_WASM(memcpy_params, (vm::wasm_ptr_t dst, vm::wasm_ptr_t src, vm::wasm_size_t size))
-   {
+   EOS_VM_FROM_WASM(memcpy_params, (vm::wasm_ptr_t dst, vm::wasm_ptr_t src, vm::wasm_size_t size)) {
       auto d = array_ptr_impl<char>(dst, size);
       auto s = array_ptr_impl<char>(src, size);
       array_ptr_impl<char>(dst, 1);
       return { d, s, size };
    }
 
-   EOS_VM_FROM_WASM(memcmp_params, (vm::wasm_ptr_t lhs, vm::wasm_ptr_t rhs, vm::wasm_size_t size))
-   {
+   EOS_VM_FROM_WASM(memcmp_params, (vm::wasm_ptr_t lhs, vm::wasm_ptr_t rhs, vm::wasm_size_t size)) {
       auto l = array_ptr_impl<char>(lhs, size);
       auto r = array_ptr_impl<char>(rhs, size);
       return { l, r, size };
    }
 
-   EOS_VM_FROM_WASM(memset_params, (vm::wasm_ptr_t dst, int32_t val, vm::wasm_size_t size))
-   {
+   EOS_VM_FROM_WASM(memset_params, (vm::wasm_ptr_t dst, int32_t val, vm::wasm_size_t size)) {
       auto d = array_ptr_impl<char>(dst, size);
       array_ptr_impl<char>(dst, 1);
       return { d, val, size };
    }
 
    template<typename T>
-   auto from_wasm(vm::wasm_ptr_t ptr) const -> std::enable_if_t<std::is_pointer_v<T>, vm::argument_proxy<T>>
-   {
+   auto from_wasm(vm::wasm_ptr_t ptr) const -> std::enable_if_t<std::is_pointer_v<T>, vm::argument_proxy<T>> {
       void* p = array_ptr_impl<std::remove_pointer_t<T>>(ptr, 1);
       return { p };
    }
 
    template<typename T>
    auto from_wasm(vm::wasm_ptr_t ptr, vm::wasm_size_t len, vm::tag<T> = {}) const
-      -> std::enable_if_t<vm::is_span_type_v<T>, T>
-   {
+      -> std::enable_if_t<vm::is_span_type_v<T>, T> {
       void* p = array_ptr_impl<typename T::value_type>(ptr, len);
       return { static_cast<typename T::pointer>(p), len };
    }
 
    template<typename T>
    auto from_wasm(vm::wasm_ptr_t ptr, vm::wasm_size_t len, vm::tag<T> = {}) const
-      -> std::enable_if_t<vm::is_argument_proxy_type_v<T> && vm::is_span_type_v<typename T::proxy_type>, T>
-   {
+      -> std::enable_if_t<vm::is_argument_proxy_type_v<T> && vm::is_span_type_v<typename T::proxy_type>, T> {
       void* p = array_ptr_impl<typename T::pointee_type>(ptr, len);
       return { p, len };
    }
 
    template<typename T>
    auto from_wasm(vm::wasm_ptr_t ptr, vm::tag<T> = {}) const
-      -> std::enable_if_t<vm::is_argument_proxy_type_v<T> && std::is_pointer_v<typename T::proxy_type>, T>
-   {
+      -> std::enable_if_t<vm::is_argument_proxy_type_v<T> && std::is_pointer_v<typename T::proxy_type>, T> {
       if constexpr (T::is_legacy()) {
          EOS_ASSERT(ptr != 0, wasm_execution_error, "references cannot be created for null pointers");
       }
@@ -295,8 +271,7 @@ struct eos_vm_oc_type_converter
       return { p };
    }
 
-   EOS_VM_FROM_WASM(null_terminated_ptr, (vm::wasm_ptr_t ptr))
-   {
+   EOS_VM_FROM_WASM(null_terminated_ptr, (vm::wasm_ptr_t ptr)) {
       auto p = null_terminated_ptr_impl(ptr);
       return { static_cast<const char*>(p) };
    }
@@ -307,8 +282,7 @@ struct eos_vm_oc_type_converter
    EOS_VM_FROM_WASM(float64_t, (double f)) { return ::to_softfloat64(f); }
 
    template<typename T>
-   inline decltype(auto) as_value(const vm::native_value& val) const
-   {
+   inline decltype(auto) as_value(const vm::native_value& val) const {
       if constexpr (std::is_integral_v<T> && sizeof(T) == 4)
          return static_cast<T>(val.i32);
       else if constexpr (std::is_integral_v<T> && sizeof(T) == 8)
@@ -326,33 +300,27 @@ struct eos_vm_oc_type_converter
 template<typename Args, std::size_t... Is>
 auto get_ct_args(std::index_sequence<Is...>);
 
-inline uint32_t make_native_type(vm::i32_const_t x)
-{
+inline uint32_t make_native_type(vm::i32_const_t x) {
    return x.data.ui;
 }
-inline uint64_t make_native_type(vm::i64_const_t x)
-{
+inline uint64_t make_native_type(vm::i64_const_t x) {
    return x.data.ui;
 }
-inline float make_native_type(vm::f32_const_t x)
-{
+inline float make_native_type(vm::f32_const_t x) {
    return x.data.f;
 }
-inline double make_native_type(vm::f64_const_t x)
-{
+inline double make_native_type(vm::f64_const_t x) {
    return x.data.f;
 }
 
 template<typename TC, typename Args, std::size_t... Is>
-auto get_ct_args_one(std::index_sequence<Is...>)
-{
+auto get_ct_args_one(std::index_sequence<Is...>) {
    return std::tuple<decltype(make_native_type(
       std::declval<TC>().as_result(std::declval<std::tuple_element_t<Is, Args>>())))...>();
 }
 
 template<typename TC, typename T>
-auto get_ct_args_i()
-{
+auto get_ct_args_i() {
    if constexpr (vm::detail::has_from_wasm_v<T, TC>) {
       using args_tuple = vm::detail::from_wasm_type_deducer_t<TC, T>;
       return get_ct_args_one<TC, args_tuple>(std::make_index_sequence<std::tuple_size_v<args_tuple>>());
@@ -362,29 +330,23 @@ auto get_ct_args_i()
 }
 
 template<typename Args, std::size_t... Is>
-auto get_ct_args(std::index_sequence<Is...>)
-{
+auto get_ct_args(std::index_sequence<Is...>) {
    return std::tuple_cat(get_ct_args_i<eos_vm_oc_type_converter, std::tuple_element_t<Is, Args>>()...);
 }
 
-struct result_resolver
-{
+struct result_resolver {
    // Suppress "expression result unused" warnings
    result_resolver(eos_vm_oc_type_converter& tc)
-      : tc(tc)
-   {
-   }
+      : tc(tc) {}
    template<typename T>
-   auto operator,(T&& res)
-   {
+   auto operator,(T&& res) {
       return make_native_type(vm::detail::resolve_result(tc, static_cast<T&&>(res)));
    }
    eos_vm_oc_type_converter& tc;
 };
 
 template<auto F, typename Interface, typename Preconditions, bool is_injected, typename... A>
-auto fn(A... a)
-{
+auto fn(A... a) {
    try {
       if constexpr (!is_injected) {
          constexpr int cb_current_call_depth_remaining_segment_offset =
@@ -426,14 +388,12 @@ auto fn(A... a)
 }
 
 template<auto F, typename Preconditions, typename Args, bool is_injected, std::size_t... Is>
-constexpr auto create_function(std::index_sequence<Is...>)
-{
+constexpr auto create_function(std::index_sequence<Is...>) {
    return &fn<F, webassembly::interface, Preconditions, is_injected, std::tuple_element_t<Is, Args>...>;
 }
 
 template<auto F, typename Preconditions, bool is_injected>
-constexpr auto create_function()
-{
+constexpr auto create_function() {
    using native_args = vm::flatten_parameters_t<AUTO_PARAM_WORKAROUND(F)>;
    using wasm_args =
       decltype(get_ct_args<native_args>(std::make_index_sequence<std::tuple_size_v<native_args>>()));
@@ -442,8 +402,7 @@ constexpr auto create_function()
 }
 
 template<auto F, bool injected, typename Preconditions, typename Name>
-void register_eosvm_oc(Name n)
-{
+void register_eosvm_oc(Name n) {
    // Has special handling
    if (n == BOOST_HANA_STRING("env.eosio_exit"))
       return;

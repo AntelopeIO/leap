@@ -8,8 +8,7 @@
 
 namespace eosio {
 namespace detail {
-struct producer_api_plugin_response
-{
+struct producer_api_plugin_response {
    std::string result;
 };
 }
@@ -23,11 +22,9 @@ static appbase::abstract_plugin& _producer_api_plugin = app().register_plugin<pr
 
 using namespace eosio;
 
-struct async_result_visitor : public fc::visitor<fc::variant>
-{
+struct async_result_visitor : public fc::visitor<fc::variant> {
    template<typename T>
-   fc::variant operator()(const T& v) const
-   {
+   fc::variant operator()(const T& v) const {
       return fc::variant(v);
    }
 };
@@ -97,8 +94,7 @@ struct async_result_visitor : public fc::visitor<fc::variant>
    api_handle.call_name();                                                                                   \
    eosio::detail::producer_api_plugin_response result{ "ok" };
 
-void producer_api_plugin::plugin_startup()
-{
+void producer_api_plugin::plugin_startup() {
    ilog("starting producer_api_plugin");
    // lifetime of plugin is lifetime of application
    auto&            producer               = app().get_plugin<producer_plugin>();
@@ -179,8 +175,7 @@ void producer_api_plugin::plugin_startup()
       appbase::priority::medium_high);
 }
 
-void producer_api_plugin::plugin_initialize(const variables_map& options)
-{
+void producer_api_plugin::plugin_initialize(const variables_map& options) {
    try {
       const auto& _http_plugin = app().get_plugin<http_plugin>();
       if (!_http_plugin.is_on_loopback()) {

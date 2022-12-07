@@ -11,8 +11,7 @@
 namespace Runtime {
 RUNTIME_API IntrinsicResolver IntrinsicResolver::singleton;
 
-bool isA(ObjectInstance* object, const ObjectType& type)
-{
+bool isA(ObjectInstance* object, const ObjectType& type) {
    if (type.kind != object->kind) {
       return false;
    }
@@ -29,8 +28,7 @@ bool isA(ObjectInstance* object, const ObjectType& type)
 bool IntrinsicResolver::resolve(const std::string& moduleName,
                                 const std::string& exportName,
                                 ObjectType         type,
-                                ObjectInstance*&   outObject)
-{
+                                ObjectInstance*&   outObject) {
    // Make sure the wavmIntrinsics module can't be directly imported.
    if (moduleName == "wavmIntrinsics") {
       return false;
@@ -40,20 +38,16 @@ bool IntrinsicResolver::resolve(const std::string& moduleName,
    return outObject != nullptr;
 }
 
-const FunctionType* resolveImportType(const IR::Module& module, IndexedFunctionType type)
-{
+const FunctionType* resolveImportType(const IR::Module& module, IndexedFunctionType type) {
    return module.types[type.index];
 }
-TableType resolveImportType(const IR::Module& module, TableType type)
-{
+TableType resolveImportType(const IR::Module& module, TableType type) {
    return type;
 }
-MemoryType resolveImportType(const IR::Module& module, MemoryType type)
-{
+MemoryType resolveImportType(const IR::Module& module, MemoryType type) {
    return type;
 }
-GlobalType resolveImportType(const IR::Module& module, GlobalType type)
-{
+GlobalType resolveImportType(const IR::Module& module, GlobalType type) {
    return type;
 }
 
@@ -62,8 +56,7 @@ void linkImport(const IR::Module&       module,
                 const Import<Type>&     import,
                 Resolver&               resolver,
                 LinkResult&             linkResult,
-                std::vector<Instance*>& resolvedImports)
-{
+                std::vector<Instance*>& resolvedImports) {
    // Ask the resolver for a value for this import.
    ObjectInstance* importValue;
    if (resolver.resolve(
@@ -77,8 +70,7 @@ void linkImport(const IR::Module&       module,
    }
 }
 
-LinkResult linkModule(const IR::Module& module, Resolver& resolver)
-{
+LinkResult linkModule(const IR::Module& module, Resolver& resolver) {
    LinkResult linkResult;
    for (const auto& import : module.functions.imports) {
       linkImport(module, import, resolver, linkResult, linkResult.resolvedImports.functions);

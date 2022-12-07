@@ -4,13 +4,10 @@
 #include <vector>
 
 namespace fc {
-class console_appender final : public appender
-{
+class console_appender final : public appender {
 public:
-   struct color
-   {
-      enum type
-      {
+   struct color {
+      enum type {
          red,
          green,
          brown,
@@ -22,35 +19,24 @@ public:
       };
    };
 
-   struct stream
-   {
-      enum type
-      {
-         std_out,
-         std_error
-      };
+   struct stream {
+      enum type { std_out, std_error };
    };
 
-   struct level_color
-   {
+   struct level_color {
       level_color(log_level l = log_level::all, color::type c = color::console_default)
          : level(l)
-         , color(c)
-      {
-      }
+         , color(c) {}
 
       log_level                     level;
       console_appender::color::type color;
    };
 
-   struct config
-   {
+   struct config {
       config()
          : format("${timestamp} ${thread_name} ${context} ${file}:${line} ${method} ${level}]  ${message}")
          , stream(console_appender::stream::std_error)
-         , flush(true)
-      {
-      }
+         , flush(true) {}
 
       fc::string                     format;
       console_appender::stream::type stream;

@@ -6,8 +6,7 @@
 namespace eosio {
 namespace chain {
 
-struct deferred_transaction_generation_context : fc::reflect_init
-{
+struct deferred_transaction_generation_context : fc::reflect_init {
    static constexpr uint16_t extension_id() { return 0; }
    static constexpr bool     enforce_unique() { return true; }
 
@@ -18,9 +17,7 @@ struct deferred_transaction_generation_context : fc::reflect_init
                                            account_name               sender)
       : sender_trx_id(sender_trx_id)
       , sender_id(sender_id)
-      , sender(sender)
-   {
-   }
+      , sender(sender) {}
 
    void reflector_init();
 
@@ -31,8 +28,7 @@ struct deferred_transaction_generation_context : fc::reflect_init
 
 namespace detail {
 template<typename... Ts>
-struct transaction_extension_types
-{
+struct transaction_extension_types {
    using transaction_extension_t = std::variant<Ts...>;
    using decompose_t             = decompose<Ts...>;
 };
@@ -55,8 +51,7 @@ using transaction_extension = transaction_extension_types::transaction_extension
  *  deemed irreversible, then a user can safely trust the transaction
  *  will never be included.
  */
-struct transaction_header
-{
+struct transaction_header {
    time_point_sec expiration;             ///< the time at which a transaction expires
    uint16_t       ref_block_num    = 0U;  ///< specifies a block num in the last 2^16 blocks.
    uint32_t       ref_block_prefix = 0UL; ///< specifies the lower 32 bits of the blockid at get_ref_blocknum
@@ -69,8 +64,7 @@ struct transaction_header
    /**
     * @return the absolute block number given the relative ref_block_num
     */
-   block_num_type get_ref_blocknum(block_num_type head_blocknum) const
-   {
+   block_num_type get_ref_blocknum(block_num_type head_blocknum) const {
       return ((head_blocknum / 0xffff) * 0xffff) + head_blocknum % 0xffff;
    }
    void set_reference_block(const block_id_type& reference_block);
@@ -83,8 +77,7 @@ struct transaction_header
  *  all are rejected. These messages have access to data within the given
  *  read and write scopes.
  */
-struct transaction : public transaction_header
-{
+struct transaction : public transaction_header {
    vector<action>  context_free_actions;
    vector<action>  actions;
    extensions_type transaction_extensions;
@@ -100,8 +93,7 @@ struct transaction : public transaction_header
 
    uint32_t total_actions() const { return context_free_actions.size() + actions.size(); }
 
-   account_name first_authorizer() const
-   {
+   account_name first_authorizer() const {
       for (const auto& a : actions) {
          for (const auto& u : a.authorization)
             return u.actor;
@@ -112,8 +104,7 @@ struct transaction : public transaction_header
    flat_multimap<uint16_t, transaction_extension> validate_and_extract_extensions() const;
 };
 
-struct signed_transaction : public transaction
-{
+struct signed_transaction : public transaction {
    signed_transaction() = default;
    //      signed_transaction( const signed_transaction& ) = default;
    //      signed_transaction( signed_transaction&& ) = default;
@@ -122,17 +113,13 @@ struct signed_transaction : public transaction
                       const vector<bytes>&          context_free_data)
       : transaction(std::move(trx))
       , signatures(signatures)
-      , context_free_data(context_free_data)
-   {
-   }
+      , context_free_data(context_free_data) {}
    signed_transaction(transaction&&                 trx,
                       const vector<signature_type>& signatures,
                       vector<bytes>&&               context_free_data)
       : transaction(std::move(trx))
       , signatures(signatures)
-      , context_free_data(std::move(context_free_data))
-   {
-   }
+      , context_free_data(std::move(context_free_data)) {}
 
    vector<signature_type> signatures;
    vector<bytes>          context_free_data; ///< for each context-free action, there is an entry here
@@ -145,10 +132,8 @@ struct signed_transaction : public transaction
                                             bool                       allow_duplicate_keys = false) const;
 };
 
-struct packed_transaction : fc::reflect_init
-{
-   enum class compression_type
-   {
+struct packed_transaction : fc::reflect_init {
+   enum class compression_type {
       none = 0,
       zlib = 1,
    };
@@ -164,8 +149,7 @@ struct packed_transaction : fc::reflect_init
       : signatures(t.signatures)
       , compression(_compression)
       , unpacked_trx(t)
-      , trx_id(unpacked_trx.id())
-   {
+      , trx_id(unpacked_trx.id()) {
       local_pack_transaction();
       local_pack_context_free_data();
    }
@@ -174,8 +158,7 @@ struct packed_transaction : fc::reflect_init
       : signatures(t.signatures)
       , compression(_compression)
       , unpacked_trx(std::move(t))
-      , trx_id(unpacked_trx.id())
-   {
+      , trx_id(unpacked_trx.id()) {
       local_pack_transaction();
       local_pack_context_free_data();
    }
@@ -194,13 +177,11 @@ struct packed_transaction : fc::reflect_init
                       bytes&&                  packed_cfd,
                       compression_type         _compression);
 
-   friend bool operator==(const packed_transaction& lhs, const packed_transaction& rhs)
-   {
+   friend bool operator==(const packed_transaction& lhs, const packed_transaction& rhs) {
       return std::tie(lhs.signatures, lhs.compression, lhs.packed_context_free_data, lhs.packed_trx) ==
              std::tie(rhs.signatures, rhs.compression, rhs.packed_context_free_data, rhs.packed_trx);
    }
-   friend bool operator!=(const packed_transaction& lhs, const packed_transaction& rhs)
-   {
+   friend bool operator!=(const packed_transaction& lhs, const packed_transaction& rhs) {
       return !(lhs == rhs);
    }
 

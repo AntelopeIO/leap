@@ -28,8 +28,7 @@
 
 namespace fc {
 // when converting to and from a variant, store utf-8 in the variant
-void to_variant(const fc::path& path_to_convert, variant& variant_output)
-{
+void to_variant(const fc::path& path_to_convert, variant& variant_output) {
    std::wstring wide_string = path_to_convert.generic_wstring();
    std::string  utf8_string;
    fc::encodeUtf8(wide_string, &utf8_string);
@@ -40,8 +39,7 @@ void to_variant(const fc::path& path_to_convert, variant& variant_output)
    // v = path;
 }
 
-void from_variant(const fc::variant& variant_to_convert, fc::path& path_output)
-{
+void from_variant(const fc::variant& variant_to_convert, fc::path& path_output) {
    std::wstring wide_string;
    fc::decodeUtf8(variant_to_convert.as_string(), &wide_string);
    path_output = path(wide_string);
@@ -53,105 +51,78 @@ char path::separator_char = static_cast<char>(boost::filesystem::path("/").make_
 path::path() {}
 path::~path(){};
 path::path(const boost::filesystem::path& p)
-   : _p(p)
-{
-}
+   : _p(p) {}
 
 path::path(const char* p)
-   : _p(p)
-{
-}
+   : _p(p) {}
 path::path(const fc::string& p)
-   : _p(p.c_str())
-{
-}
+   : _p(p.c_str()) {}
 
 path::path(const std::wstring& p)
-   : _p(p)
-{
-}
+   : _p(p) {}
 
 path::path(const path& p)
-   : _p(p)
-{
-}
+   : _p(p) {}
 
 path::path(path&& p)
-   : _p(std::move(p))
-{
-}
+   : _p(std::move(p)) {}
 
-path& path::operator=(const path& p)
-{
+path& path::operator=(const path& p) {
    *_p = *p._p;
    return *this;
 }
-path& path::operator=(path&& p)
-{
+path& path::operator=(path&& p) {
    *_p = fc::move(*p._p);
    return *this;
 }
 
-bool operator<(const fc::path& l, const fc::path& r)
-{
+bool operator<(const fc::path& l, const fc::path& r) {
    return *l._p < *r._p;
 }
-bool operator==(const fc::path& l, const fc::path& r)
-{
+bool operator==(const fc::path& l, const fc::path& r) {
    return *l._p == *r._p;
 }
-bool operator!=(const fc::path& l, const fc::path& r)
-{
+bool operator!=(const fc::path& l, const fc::path& r) {
    return *l._p != *r._p;
 }
 
-path& path::operator/=(const fc::path& p)
-{
+path& path::operator/=(const fc::path& p) {
    *_p /= *p._p;
    return *this;
 }
-path operator/(const fc::path& p, const fc::path& o)
-{
+path operator/(const fc::path& p, const fc::path& o) {
    path tmp;
    tmp = *p._p / *o._p;
    return tmp;
 }
 
-path::operator boost::filesystem::path&()
-{
+path::operator boost::filesystem::path&() {
    return *_p;
 }
-path::operator const boost::filesystem::path&() const
-{
+path::operator const boost::filesystem::path&() const {
    return *_p;
 }
-fc::string path::generic_string() const
-{
+fc::string path::generic_string() const {
    return _p->generic_string();
 }
 
-fc::string path::preferred_string() const
-{
+fc::string path::preferred_string() const {
    return boost::filesystem::path(*_p).make_preferred().string();
 }
 
-std::wstring path::wstring() const
-{
+std::wstring path::wstring() const {
    return _p->wstring();
 }
 
-std::wstring path::generic_wstring() const
-{
+std::wstring path::generic_wstring() const {
    return _p->generic_wstring();
 }
 
-std::wstring path::preferred_wstring() const
-{
+std::wstring path::preferred_wstring() const {
    return boost::filesystem::path(*_p).make_preferred().wstring();
 }
 
-std::string path::to_native_ansi_path() const
-{
+std::string path::to_native_ansi_path() const {
    std::wstring path = generic_wstring();
 
 #ifdef WIN32
@@ -173,155 +144,122 @@ std::string path::to_native_ansi_path() const
  *  @todo use iterators instead of indexes for
  *  faster performance
  */
-fc::string path::windows_string() const
-{
+fc::string path::windows_string() const {
    std::string result = _p->generic_string();
    std::replace(result.begin(), result.end(), '/', '\\');
    return result;
 }
 
-fc::string path::string() const
-{
+fc::string path::string() const {
    return _p->string();
 }
-fc::path path::filename() const
-{
+fc::path path::filename() const {
    return _p->filename();
 }
-void path::replace_extension(const fc::path& e)
-{
+void path::replace_extension(const fc::path& e) {
    _p->replace_extension(e);
 }
-fc::path path::extension() const
-{
+fc::path path::extension() const {
    return _p->extension();
 }
-fc::path path::stem() const
-{
+fc::path path::stem() const {
    return _p->stem();
 }
-fc::path path::parent_path() const
-{
+fc::path path::parent_path() const {
    return _p->parent_path();
 }
-bool path::is_relative() const
-{
+bool path::is_relative() const {
    return _p->is_relative();
 }
-bool path::is_absolute() const
-{
+bool path::is_absolute() const {
    return _p->is_absolute();
 }
 
-bool path::empty() const
-{
+bool path::empty() const {
    return _p->empty();
 }
 
 directory_iterator::directory_iterator(const fc::path& p)
-   : _p(p)
-{
-}
+   : _p(p) {}
 
 directory_iterator::directory_iterator() {}
 directory_iterator::~directory_iterator() {}
 
-fc::path directory_iterator::operator*() const
-{
+fc::path directory_iterator::operator*() const {
    return boost::filesystem::path(*(*_p));
 }
-detail::path_wrapper directory_iterator::operator->() const
-{
+detail::path_wrapper directory_iterator::operator->() const {
    return detail::path_wrapper(boost::filesystem::path(*(*_p)));
 }
-directory_iterator& directory_iterator::operator++(int)
-{
+directory_iterator& directory_iterator::operator++(int) {
    (*_p)++;
    return *this;
 }
-directory_iterator& directory_iterator::operator++()
-{
+directory_iterator& directory_iterator::operator++() {
    (*_p)++;
    return *this;
 }
 
-bool operator==(const directory_iterator& r, const directory_iterator& l)
-{
+bool operator==(const directory_iterator& r, const directory_iterator& l) {
    return *r._p == *l._p;
 }
-bool operator!=(const directory_iterator& r, const directory_iterator& l)
-{
+bool operator!=(const directory_iterator& r, const directory_iterator& l) {
    return *r._p != *l._p;
 }
 
 recursive_directory_iterator::recursive_directory_iterator(const fc::path& p)
-   : _p(p)
-{
-}
+   : _p(p) {}
 
 recursive_directory_iterator::recursive_directory_iterator() {}
 recursive_directory_iterator::~recursive_directory_iterator() {}
 
-fc::path recursive_directory_iterator::operator*() const
-{
+fc::path recursive_directory_iterator::operator*() const {
    return boost::filesystem::path(*(*_p));
 }
-recursive_directory_iterator& recursive_directory_iterator::operator++(int)
-{
+recursive_directory_iterator& recursive_directory_iterator::operator++(int) {
    (*_p)++;
    return *this;
 }
-recursive_directory_iterator& recursive_directory_iterator::operator++()
-{
+recursive_directory_iterator& recursive_directory_iterator::operator++() {
    (*_p)++;
    return *this;
 }
 
-void recursive_directory_iterator::pop()
-{
+void recursive_directory_iterator::pop() {
    (*_p).pop();
 }
-int recursive_directory_iterator::level()
-{
+int recursive_directory_iterator::level() {
    return _p->level();
 }
 
-bool operator==(const recursive_directory_iterator& r, const recursive_directory_iterator& l)
-{
+bool operator==(const recursive_directory_iterator& r, const recursive_directory_iterator& l) {
    return *r._p == *l._p;
 }
-bool operator!=(const recursive_directory_iterator& r, const recursive_directory_iterator& l)
-{
+bool operator!=(const recursive_directory_iterator& r, const recursive_directory_iterator& l) {
    return *r._p != *l._p;
 }
 
-bool exists(const path& p)
-{
+bool exists(const path& p) {
    return boost::filesystem::exists(p);
 }
-void create_directories(const path& p)
-{
+void create_directories(const path& p) {
    try {
       boost::filesystem::create_directories(p);
    } catch (...) {
       FC_THROW("Unable to create directories ${path}", ("path", p)("inner", fc::except_str()));
    }
 }
-bool is_directory(const path& p)
-{
+bool is_directory(const path& p) {
    return boost::filesystem::is_directory(p);
 }
-bool is_regular_file(const path& p)
-{
+bool is_regular_file(const path& p) {
    return boost::filesystem::is_regular_file(p);
 }
-uint64_t file_size(const path& p)
-{
+uint64_t file_size(const path& p) {
    return boost::filesystem::file_size(p);
 }
 
-uint64_t directory_size(const path& p)
-{
+uint64_t directory_size(const path& p) {
    try {
       FC_ASSERT(is_directory(p));
 
@@ -338,12 +276,10 @@ uint64_t directory_size(const path& p)
    }
 }
 
-void remove_all(const path& p)
-{
+void remove_all(const path& p) {
    boost::filesystem::remove_all(p);
 }
-void copy(const path& f, const path& t)
-{
+void copy(const path& f, const path& t) {
    boost::system::error_code ec;
    try {
 #if BOOST_VERSION > 107300
@@ -377,8 +313,7 @@ void copy(const path& f, const path& t)
                ("srcfile", f)("dstfile", t)("reason", ec.message())("cat", ec.category().name()));
    }
 }
-void resize_file(const path& f, size_t t)
-{
+void resize_file(const path& f, size_t t) {
    try {
       boost::filesystem::resize_file(f, t);
    } catch (boost::system::system_error& e) {
@@ -392,8 +327,7 @@ void resize_file(const path& f, size_t t)
 // setuid, setgid not implemented.
 // translates octal permission like 0755 to S_ stuff defined in sys/stat.h
 // no-op on Windows.
-void chmod(const path& p, int perm)
-{
+void chmod(const path& p, int perm) {
 #ifndef WIN32
    mode_t actual_perm =
       ((perm & 0400) ? S_IRUSR : 0) | ((perm & 0200) ? S_IWUSR : 0) | ((perm & 0100) ? S_IXUSR : 0)
@@ -409,8 +343,7 @@ void chmod(const path& p, int perm)
    return;
 }
 
-void rename(const path& f, const path& t)
-{
+void rename(const path& f, const path& t) {
    try {
       boost::filesystem::rename(boost::filesystem::path(f), boost::filesystem::path(t));
    } catch (boost::system::system_error&) {
@@ -426,8 +359,7 @@ void rename(const path& f, const path& t)
                ("srcfile", f)("dstfile", t)("inner", fc::except_str()));
    }
 }
-void create_hard_link(const path& f, const path& t)
-{
+void create_hard_link(const path& f, const path& t) {
    try {
       boost::filesystem::create_hard_link(f, t);
    } catch (...) {
@@ -435,38 +367,32 @@ void create_hard_link(const path& f, const path& t)
                ("from", f)("to", t)("exception", fc::except_str()));
    }
 }
-bool remove(const path& f)
-{
+bool remove(const path& f) {
    try {
       return boost::filesystem::remove(f);
    } catch (...) {
       FC_THROW("Unable to remove '${path}'", ("path", f)("exception", fc::except_str()));
    }
 }
-fc::path canonical(const fc::path& p)
-{
+fc::path canonical(const fc::path& p) {
    try {
       return boost::filesystem::canonical(p);
    } catch (...) {
       FC_THROW("Unable to resolve path '${path}'", ("path", p)("exception", fc::except_str()));
    }
 }
-fc::path absolute(const fc::path& p)
-{
+fc::path absolute(const fc::path& p) {
    return boost::filesystem::absolute(p);
 }
-path unique_path()
-{
+path unique_path() {
    return boost::filesystem::unique_path();
 }
-path temp_directory_path()
-{
+path temp_directory_path() {
    return boost::filesystem::temp_directory_path();
 }
 
 // Return path when appended to a_From will resolve to same as a_To
-fc::path make_relative(const fc::path& from, const fc::path& to)
-{
+fc::path make_relative(const fc::path& from, const fc::path& to) {
    boost::filesystem::path                 a_From = boost::filesystem::absolute(from);
    boost::filesystem::path                 a_To   = boost::filesystem::absolute(to);
    boost::filesystem::path                 ret;
@@ -488,8 +414,7 @@ fc::path make_relative(const fc::path& from, const fc::path& to)
 }
 
 temp_file::temp_file(const fc::path& p, bool create)
-   : temp_file_base(p / fc::unique_path())
-{
+   : temp_file_base(p / fc::unique_path()) {
    if (fc::exists(*_path)) {
       FC_THROW("Name collision: ${path}", ("path", _path->string()));
    }
@@ -500,12 +425,9 @@ temp_file::temp_file(const fc::path& p, bool create)
 }
 
 temp_file::temp_file(temp_file&& other)
-   : temp_file_base(std::move(other._path))
-{
-}
+   : temp_file_base(std::move(other._path)) {}
 
-temp_file& temp_file::operator=(temp_file&& other)
-{
+temp_file& temp_file::operator=(temp_file&& other) {
    if (this != &other) {
       remove();
       _path = std::move(other._path);
@@ -514,8 +436,7 @@ temp_file& temp_file::operator=(temp_file&& other)
 }
 
 temp_directory::temp_directory(const fc::path& p)
-   : temp_file_base(p / fc::unique_path())
-{
+   : temp_file_base(p / fc::unique_path()) {
    if (fc::exists(*_path)) {
       FC_THROW("Name collision: ${path}", ("path", _path->string()));
    }
@@ -523,12 +444,9 @@ temp_directory::temp_directory(const fc::path& p)
 }
 
 temp_directory::temp_directory(temp_directory&& other)
-   : temp_file_base(std::move(other._path))
-{
-}
+   : temp_file_base(std::move(other._path)) {}
 
-temp_directory& temp_directory::operator=(temp_directory&& other)
-{
+temp_directory& temp_directory::operator=(temp_directory&& other) {
    if (this != &other) {
       remove();
       _path = std::move(other._path);
@@ -536,16 +454,14 @@ temp_directory& temp_directory::operator=(temp_directory&& other)
    return *this;
 }
 
-const fc::path& temp_file_base::path() const
-{
+const fc::path& temp_file_base::path() const {
    if (!_path) {
       FC_THROW("Temporary directory has been released.");
    }
    return *_path;
 }
 
-void temp_file_base::remove()
-{
+void temp_file_base::remove() {
    if (_path) {
       try {
          fc::remove_all(*_path);
@@ -556,13 +472,11 @@ void temp_file_base::remove()
    }
 }
 
-void temp_file_base::release()
-{
+void temp_file_base::release() {
    _path = std::optional<fc::path>();
 }
 
-const fc::path& home_path()
-{
+const fc::path& home_path() {
    static fc::path p = []() {
 #ifdef WIN32
       HANDLE access_token;
@@ -590,8 +504,7 @@ const fc::path& home_path()
    return p;
 }
 
-const fc::path& app_path()
-{
+const fc::path& app_path() {
 #ifdef __APPLE__
    static fc::path appdir = []() { return home_path() / "Library" / "Application Support"; }();
 #elif defined(WIN32)
@@ -608,15 +521,13 @@ const fc::path& app_path()
    return appdir;
 }
 
-const fc::path& current_path()
-{
+const fc::path& current_path() {
    static fc::path appCurrentPath = boost::filesystem::current_path();
    return appCurrentPath;
 }
 
 #ifdef FC_HAS_SIMPLE_FILE_LOCK
-class simple_lock_file::impl
-{
+class simple_lock_file::impl {
 public:
 #ifdef _WIN32
    HANDLE file_handle;
@@ -643,17 +554,14 @@ simple_lock_file::impl::impl(const path& lock_file_path)
    ,
 #endif
    is_locked(false)
-   , lock_file_path(lock_file_path)
-{
+   , lock_file_path(lock_file_path) {
 }
 
-simple_lock_file::impl::~impl()
-{
+simple_lock_file::impl::~impl() {
    unlock();
 }
 
-bool simple_lock_file::impl::try_lock()
-{
+bool simple_lock_file::impl::try_lock() {
 #ifdef _WIN32
    HANDLE fh = CreateFileA(
       lock_file_path.to_native_ansi_path().c_str(), GENERIC_READ | GENERIC_WRITE, 0, 0, OPEN_ALWAYS, 0, NULL);
@@ -676,8 +584,7 @@ bool simple_lock_file::impl::try_lock()
 #endif
 }
 
-void simple_lock_file::impl::unlock()
-{
+void simple_lock_file::impl::unlock() {
 #ifdef WIN32
    CloseHandle(file_handle);
    file_handle = INVALID_HANDLE_VALUE;
@@ -691,19 +598,15 @@ void simple_lock_file::impl::unlock()
 }
 
 simple_lock_file::simple_lock_file(const path& lock_file_path)
-   : my(new impl(lock_file_path))
-{
-}
+   : my(new impl(lock_file_path)) {}
 
 simple_lock_file::~simple_lock_file() {}
 
-bool simple_lock_file::try_lock()
-{
+bool simple_lock_file::try_lock() {
    return my->try_lock();
 }
 
-void simple_lock_file::unlock()
-{
+void simple_lock_file::unlock() {
    my->unlock();
 }
 #endif // FC_HAS_SIMPLE_FILE_LOCK

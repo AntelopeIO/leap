@@ -11,8 +11,7 @@ using namespace std::literals;
 
 namespace benchmark {
 
-void k1_sign_benchmarking()
-{
+void k1_sign_benchmarking() {
    auto payload            = "Test Cases";
    auto digest             = sha256::hash(payload, const_strlen(payload));
    auto private_key_string = std::string("5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3");
@@ -22,8 +21,7 @@ void k1_sign_benchmarking()
    benchmarking("k1_sign_non_canonical", sign_non_canonical_f);
 }
 
-void k1_recover_benchmarking()
-{
+void k1_recover_benchmarking() {
    auto signature = to_bytes("1b323dd47a1dd5592c296ee2ee12e0af38974087a475e99098a440284f19c1f7642fa0baa10a8a3"
                              "ab800dfdbe987dee68a09b6fa3db45a5cc4f3a5835a1671d4dd");
    auto digest    = to_bytes("92390316873c5a9d520b28aba61e7a8f00025ac069acd9c4d2a71d775a55fa5f");
@@ -32,14 +30,12 @@ void k1_recover_benchmarking()
    benchmarking("k1_recover", recover_f);
 }
 
-void k1_benchmarking()
-{
+void k1_benchmarking() {
    k1_sign_benchmarking();
    k1_recover_benchmarking();
 }
 
-void r1_benchmarking()
-{
+void r1_benchmarking() {
    auto payload = "Test Cases";
    auto digest  = sha256::hash(payload, const_strlen(payload));
    auto key     = private_key::generate<r1::private_key_shim>();
@@ -57,8 +53,7 @@ void r1_benchmarking()
 
 static fc::crypto::webauthn::signature make_webauthn_sig(const fc::crypto::r1::private_key& priv_key,
                                                          std::vector<uint8_t>&              auth_data,
-                                                         const std::string&                 json)
-{
+                                                         const std::string&                 json) {
 
    // webauthn signature is sha256(auth_data || client_data_hash)
    fc::sha256          client_data_hash = fc::sha256::hash(json);
@@ -81,8 +76,7 @@ static fc::crypto::webauthn::signature make_webauthn_sig(const fc::crypto::r1::p
    return ret;
 }
 
-void wa_benchmarking()
-{
+void wa_benchmarking() {
    static const r1::private_key priv        = fc::crypto::r1::private_key::generate();
    static const fc::sha256      d           = fc::sha256::hash("sup"s);
    static const fc::sha256      origin_hash = fc::sha256::hash("fctesting.invalid"s);
@@ -100,8 +94,7 @@ void wa_benchmarking()
    benchmarking("webauthn_recover", recover);
 }
 
-void key_benchmarking()
-{
+void key_benchmarking() {
    k1_benchmarking();
    r1_benchmarking();
    wa_benchmarking();

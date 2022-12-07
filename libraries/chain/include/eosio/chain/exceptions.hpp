@@ -17,33 +17,27 @@
  * This macro will rethrow the exception as the specified "exception_type"
  */
 #define EOS_RETHROW_EXCEPTIONS(exception_type, FORMAT, ...)                                                  \
-   catch (const std::bad_alloc&)                                                                             \
-   {                                                                                                         \
+   catch (const std::bad_alloc&) {                                                                           \
       throw;                                                                                                 \
    }                                                                                                         \
-   catch (const boost::interprocess::bad_alloc&)                                                             \
-   {                                                                                                         \
+   catch (const boost::interprocess::bad_alloc&) {                                                           \
       throw;                                                                                                 \
    }                                                                                                         \
-   catch (eosio::chain::chain_exception & e)                                                                 \
-   {                                                                                                         \
+   catch (eosio::chain::chain_exception & e) {                                                               \
       FC_RETHROW_EXCEPTION(e, warn, FORMAT, __VA_ARGS__);                                                    \
    }                                                                                                         \
-   catch (fc::exception & e)                                                                                 \
-   {                                                                                                         \
+   catch (fc::exception & e) {                                                                               \
       exception_type new_exception(FC_LOG_MESSAGE(warn, FORMAT, __VA_ARGS__));                               \
       for (const auto& log : e.get_log()) {                                                                  \
          new_exception.append_log(log);                                                                      \
       }                                                                                                      \
       throw new_exception;                                                                                   \
    }                                                                                                         \
-   catch (const std::exception& e)                                                                           \
-   {                                                                                                         \
+   catch (const std::exception& e) {                                                                         \
       exception_type fce(FC_LOG_MESSAGE(warn, FORMAT " (${what})", __VA_ARGS__("what", e.what())));          \
       throw fce;                                                                                             \
    }                                                                                                         \
-   catch (...)                                                                                               \
-   {                                                                                                         \
+   catch (...) {                                                                                             \
       throw fc::unhandled_exception(FC_LOG_MESSAGE(warn, FORMAT, __VA_ARGS__), std::current_exception());    \
    }
 
@@ -53,25 +47,20 @@
  * This macro will rethrow the exception as the specified "exception_type"
  */
 #define EOS_CAPTURE_AND_RETHROW(exception_type, ...)                                                         \
-   catch (const std::bad_alloc&)                                                                             \
-   {                                                                                                         \
+   catch (const std::bad_alloc&) {                                                                           \
       throw;                                                                                                 \
    }                                                                                                         \
-   catch (const boost::interprocess::bad_alloc&)                                                             \
-   {                                                                                                         \
+   catch (const boost::interprocess::bad_alloc&) {                                                           \
       throw;                                                                                                 \
    }                                                                                                         \
-   catch (eosio::chain::chain_exception & e)                                                                 \
-   {                                                                                                         \
+   catch (eosio::chain::chain_exception & e) {                                                               \
       FC_RETHROW_EXCEPTION(e, warn, "", FC_FORMAT_ARG_PARAMS(__VA_ARGS__));                                  \
    }                                                                                                         \
-   catch (fc::exception & e)                                                                                 \
-   {                                                                                                         \
+   catch (fc::exception & e) {                                                                               \
       exception_type new_exception(e.get_log());                                                             \
       throw new_exception;                                                                                   \
    }                                                                                                         \
-   catch (const std::exception& e)                                                                           \
-   {                                                                                                         \
+   catch (const std::exception& e) {                                                                         \
       exception_type fce(                                                                                    \
          FC_LOG_MESSAGE(warn, "${what}: ", FC_FORMAT_ARG_PARAMS(__VA_ARGS__)("what", e.what())),             \
          fc::std_exception_code,                                                                             \
@@ -79,8 +68,7 @@
          e.what());                                                                                          \
       throw fce;                                                                                             \
    }                                                                                                         \
-   catch (...)                                                                                               \
-   {                                                                                                         \
+   catch (...) {                                                                                             \
       throw fc::unhandled_exception(FC_LOG_MESSAGE(warn, "", FC_FORMAT_ARG_PARAMS(__VA_ARGS__)),             \
                                     std::current_exception());                                               \
    }
@@ -89,95 +77,67 @@
  * Capture all exceptions and pass to NEXT function
  */
 #define CATCH_AND_CALL(NEXT)                                                                                 \
-   catch (const fc::exception& err)                                                                          \
-   {                                                                                                         \
+   catch (const fc::exception& err) {                                                                        \
       NEXT(err.dynamic_copy_exception());                                                                    \
    }                                                                                                         \
-   catch (const std::exception& e)                                                                           \
-   {                                                                                                         \
+   catch (const std::exception& e) {                                                                         \
       fc::exception fce(FC_LOG_MESSAGE(warn, "rethrow ${what}: ", ("what", e.what())),                       \
                         fc::std_exception_code,                                                              \
                         BOOST_CORE_TYPEID(e).name(),                                                         \
                         e.what());                                                                           \
       NEXT(fce.dynamic_copy_exception());                                                                    \
    }                                                                                                         \
-   catch (...)                                                                                               \
-   {                                                                                                         \
+   catch (...) {                                                                                             \
       fc::unhandled_exception e(FC_LOG_MESSAGE(warn, "rethrow"), std::current_exception());                  \
       NEXT(e.dynamic_copy_exception());                                                                      \
    }
 
 #define EOS_RECODE_EXC(cause_type, effect_type)                                                              \
-   catch (const cause_type& e)                                                                               \
-   {                                                                                                         \
+   catch (const cause_type& e) {                                                                             \
       throw(effect_type(e.what(), e.get_log()));                                                             \
    }
 
 #define FC_DECLARE_DERIVED_EXCEPTION_WITH_ERROR_CODE(TYPE, BASE, CODE, WHAT)                                 \
-   class TYPE : public BASE                                                                                  \
-   {                                                                                                         \
+   class TYPE : public BASE {                                                                                \
    public:                                                                                                   \
-      enum code_enum                                                                                         \
-      {                                                                                                      \
+      enum code_enum {                                                                                       \
          code_value = CODE,                                                                                  \
       };                                                                                                     \
       explicit TYPE(int64_t code, const std::string& name_value, const std::string& what_value)              \
-         : BASE(code, name_value, what_value)                                                                \
-      {                                                                                                      \
-      }                                                                                                      \
+         : BASE(code, name_value, what_value) {}                                                             \
       explicit TYPE(fc::log_message&&  m,                                                                    \
                     int64_t            code,                                                                 \
                     const std::string& name_value,                                                           \
                     const std::string& what_value)                                                           \
-         : BASE(std::move(m), code, name_value, what_value)                                                  \
-      {                                                                                                      \
-      }                                                                                                      \
+         : BASE(std::move(m), code, name_value, what_value) {}                                               \
       explicit TYPE(fc::log_messages&& m,                                                                    \
                     int64_t            code,                                                                 \
                     const std::string& name_value,                                                           \
                     const std::string& what_value)                                                           \
-         : BASE(std::move(m), code, name_value, what_value)                                                  \
-      {                                                                                                      \
-      }                                                                                                      \
+         : BASE(std::move(m), code, name_value, what_value) {}                                               \
       explicit TYPE(const fc::log_messages& m,                                                               \
                     int64_t                 code,                                                            \
                     const std::string&      name_value,                                                      \
                     const std::string&      what_value)                                                      \
-         : BASE(m, code, name_value, what_value)                                                             \
-      {                                                                                                      \
-      }                                                                                                      \
+         : BASE(m, code, name_value, what_value) {}                                                          \
       TYPE(const std::string& what_value, const fc::log_messages& m)                                         \
-         : BASE(m, CODE, BOOST_PP_STRINGIZE(TYPE), what_value)                                               \
-      {                                                                                                      \
-      }                                                                                                      \
+         : BASE(m, CODE, BOOST_PP_STRINGIZE(TYPE), what_value) {}                                            \
       TYPE(fc::log_message&& m)                                                                              \
-         : BASE(fc::move(m), CODE, BOOST_PP_STRINGIZE(TYPE), WHAT)                                           \
-      {                                                                                                      \
-      }                                                                                                      \
+         : BASE(fc::move(m), CODE, BOOST_PP_STRINGIZE(TYPE), WHAT) {}                                        \
       TYPE(fc::log_messages msgs)                                                                            \
-         : BASE(fc::move(msgs), CODE, BOOST_PP_STRINGIZE(TYPE), WHAT)                                        \
-      {                                                                                                      \
-      }                                                                                                      \
+         : BASE(fc::move(msgs), CODE, BOOST_PP_STRINGIZE(TYPE), WHAT) {}                                     \
       TYPE(const TYPE& c)                                                                                    \
          : BASE(c)                                                                                           \
-         , error_code(c.error_code)                                                                          \
-      {                                                                                                      \
-      }                                                                                                      \
+         , error_code(c.error_code) {}                                                                       \
       TYPE(const BASE& c)                                                                                    \
-         : BASE(c)                                                                                           \
-      {                                                                                                      \
-      }                                                                                                      \
+         : BASE(c) {}                                                                                        \
       TYPE()                                                                                                 \
-         : BASE(CODE, BOOST_PP_STRINGIZE(TYPE), WHAT)                                                        \
-      {                                                                                                      \
-      }                                                                                                      \
+         : BASE(CODE, BOOST_PP_STRINGIZE(TYPE), WHAT) {}                                                     \
                                                                                                              \
-      virtual std::shared_ptr<fc::exception> dynamic_copy_exception() const                                  \
-      {                                                                                                      \
+      virtual std::shared_ptr<fc::exception> dynamic_copy_exception() const {                                \
          return std::make_shared<TYPE>(*this);                                                               \
       }                                                                                                      \
-      virtual NO_RETURN void dynamic_rethrow_exception() const                                               \
-      {                                                                                                      \
+      virtual NO_RETURN void dynamic_rethrow_exception() const {                                             \
          if (code() == CODE)                                                                                 \
             throw *this;                                                                                     \
          else                                                                                                \
@@ -189,8 +149,7 @@
 namespace eosio {
 namespace chain {
 
-enum class system_error_code : uint64_t
-{
+enum class system_error_code : uint64_t {
    generic_system_error = 10000000000000000000ULL,
    contract_restricted_error_code, //< contract used an error code reserved for system usage
 };

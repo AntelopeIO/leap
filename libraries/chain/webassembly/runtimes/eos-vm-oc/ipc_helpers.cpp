@@ -9,13 +9,11 @@ static constexpr size_t max_message_size = 8192;
 static constexpr size_t max_num_fds      = 4;
 
 std::tuple<bool, eosvmoc_message, std::vector<wrapped_fd>> read_message_with_fds(
-   boost::asio::local::datagram_protocol::socket& s)
-{
+   boost::asio::local::datagram_protocol::socket& s) {
    return read_message_with_fds(s.native_handle());
 }
 
-std::tuple<bool, eosvmoc_message, std::vector<wrapped_fd>> read_message_with_fds(int fd)
-{
+std::tuple<bool, eosvmoc_message, std::vector<wrapped_fd>> read_message_with_fds(int fd) {
    char buff[max_message_size];
 
    struct msghdr   msg = {};
@@ -25,8 +23,7 @@ std::tuple<bool, eosvmoc_message, std::vector<wrapped_fd>> read_message_with_fds
    std::vector<wrapped_fd> fds;
 
    struct iovec io = { .iov_base = buff, .iov_len = sizeof(buff) };
-   union
-   {
+   union {
       char           buf[CMSG_SPACE(max_num_fds * sizeof(int))];
       struct cmsghdr align;
    } u;
@@ -65,15 +62,13 @@ std::tuple<bool, eosvmoc_message, std::vector<wrapped_fd>> read_message_with_fds
 
 bool write_message_with_fds(boost::asio::local::datagram_protocol::socket& s,
                             const eosvmoc_message&                         message,
-                            const std::vector<wrapped_fd>&                 fds)
-{
+                            const std::vector<wrapped_fd>&                 fds) {
    return write_message_with_fds(s.native_handle(), message, fds);
 }
 
 bool write_message_with_fds(int                            fd_to_send_to,
                             const eosvmoc_message&         message,
-                            const std::vector<wrapped_fd>& fds)
-{
+                            const std::vector<wrapped_fd>& fds) {
    struct msghdr   msg = {};
    struct cmsghdr* cmsg;
 
@@ -92,8 +87,7 @@ bool write_message_with_fds(int                            fd_to_send_to,
       return false;
 
    struct iovec io = { .iov_base = buff, .iov_len = sz };
-   union
-   {
+   union {
       char           buf[CMSG_SPACE(max_num_fds * sizeof(int))];
       struct cmsghdr align;
    } u;
@@ -123,8 +117,7 @@ bool write_message_with_fds(int                            fd_to_send_to,
    return wrote >= 0;
 }
 
-std::vector<uint8_t> vector_for_memfd(const wrapped_fd& memfd)
-{
+std::vector<uint8_t> vector_for_memfd(const wrapped_fd& memfd) {
    struct stat st;
    FC_ASSERT(fstat(memfd, &st) == 0, "failed to get memfd size");
 

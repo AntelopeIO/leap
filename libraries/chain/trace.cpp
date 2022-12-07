@@ -19,9 +19,7 @@ action_trace::action_trace(const transaction_trace& trace,
    , trx_id(trace.id)
    , block_num(trace.block_num)
    , block_time(trace.block_time)
-   , producer_block_id(trace.producer_block_id)
-{
-}
+   , producer_block_id(trace.producer_block_id) {}
 
 action_trace::action_trace(const transaction_trace& trace,
                            action&&                 act,
@@ -39,9 +37,7 @@ action_trace::action_trace(const transaction_trace& trace,
    , trx_id(trace.id)
    , block_num(trace.block_num)
    , block_time(trace.block_time)
-   , producer_block_id(trace.producer_block_id)
-{
-}
+   , producer_block_id(trace.producer_block_id) {}
 
 }
 } // eosio::chain

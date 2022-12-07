@@ -21,15 +21,13 @@ static unsigned    refcount;
 static int         kqueue_fd;
 static std::thread kevent_thread;
 
-struct platform_timer::impl
-{
+struct platform_timer::impl {
    uint64_t timerid;
 
    constexpr static uint64_t quit_event_id = 1;
 };
 
-platform_timer::platform_timer()
-{
+platform_timer::platform_timer() {
    static_assert(sizeof(impl) <= fwd_size);
 
    std::lock_guard guard(timer_ref_mutex);
@@ -70,8 +68,7 @@ platform_timer::platform_timer()
    compute_and_print_timer_accuracy(*this);
 }
 
-platform_timer::~platform_timer()
-{
+platform_timer::~platform_timer() {
    stop();
    if (std::lock_guard guard(timer_ref_mutex); --refcount == 0) {
       struct kevent64_s signal_quit_event;
@@ -83,8 +80,7 @@ platform_timer::~platform_timer()
    }
 }
 
-void platform_timer::start(fc::time_point tp)
-{
+void platform_timer::start(fc::time_point tp) {
    if (tp == fc::time_point::maximum()) {
       expired = 0;
       return;
@@ -110,8 +106,7 @@ void platform_timer::start(fc::time_point tp)
    }
 }
 
-void platform_timer::stop()
-{
+void platform_timer::stop() {
    if (expired)
       return;
 

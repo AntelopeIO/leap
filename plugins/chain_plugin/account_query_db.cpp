@@ -26,8 +26,7 @@ namespace {
  * index over `last_updated_height` (which is truncated at the LIB during initialization) for roll-back
  * support
  */
-struct permission_info
-{
+struct permission_info {
    // indexed data
    chain::name owner;
    chain::name name;
@@ -59,8 +58,7 @@ using permission_info_index_t = multi_index_container<
  * @param p
  * @return
  */
-bool is_onblock(const chain::transaction_trace_ptr& p)
-{
+bool is_onblock(const chain::transaction_trace_ptr& p) {
    if (p->action_traces.empty())
       return false;
    const auto& act = p->action_traces[0].act;
@@ -73,25 +71,21 @@ bool is_onblock(const chain::transaction_trace_ptr& p)
 }
 
 template<typename T>
-struct weighted
-{
+struct weighted {
    T                  value;
    chain::weight_type weight;
 
-   static weighted lower_bound_for(const T& value)
-   {
+   static weighted lower_bound_for(const T& value) {
       return { value, std::numeric_limits<chain::weight_type>::min() };
    }
 
-   static weighted upper_bound_for(const T& value)
-   {
+   static weighted upper_bound_for(const T& value) {
       return { value, std::numeric_limits<chain::weight_type>::max() };
    }
 };
 
 template<typename Output, typename Input>
-auto make_optional_authorizer(const Input& authorizer) -> std::optional<Output>
-{
+auto make_optional_authorizer(const Input& authorizer) -> std::optional<Output> {
    if constexpr (std::is_same_v<Input, Output>) {
       return authorizer;
    } else {
@@ -105,10 +99,8 @@ namespace std {
  * support for using `permission_info::cref` in ordered containers
  */
 template<>
-struct less<permission_info::cref>
-{
-   bool operator()(const permission_info::cref& lhs, const permission_info::cref& rhs) const
-   {
+struct less<permission_info::cref> {
+   bool operator()(const permission_info::cref& lhs, const permission_info::cref& rhs) const {
       return std::uintptr_t(&lhs.get()) < std::uintptr_t(&rhs.get());
    }
 };
@@ -117,10 +109,8 @@ struct less<permission_info::cref>
  * support for using `weighted<T>` in ordered containers
  */
 template<typename T>
-struct less<weighted<T>>
-{
-   bool operator()(const weighted<T>& lhs, const weighted<T>& rhs) const
-   {
+struct less<weighted<T>> {
+   bool operator()(const weighted<T>& lhs, const weighted<T>& rhs) const {
       return std::tie(lhs.value, lhs.weight) < std::tie(rhs.value, rhs.weight);
    }
 };
@@ -131,19 +121,15 @@ namespace eosio::chain_apis {
 /**
  * Implementation details of the account query DB
  */
-struct account_query_db_impl
-{
+struct account_query_db_impl {
    account_query_db_impl(const chain::controller& controller)
-      : controller(controller)
-   {
-   }
+      : controller(controller) {}
 
    /**
     * Build the initial database from the chain controller by extracting the information contained in the
     * blockchain state at the current HEAD
     */
-   void build_account_query_map()
-   {
+   void build_account_query_map() {
       std::unique_lock write_lock(rw_mutex);
 
       ilog("Building account query DB");
@@ -180,8 +166,7 @@ struct account_query_db_impl
     * @param pi - the ephemeral permission info structure being added
     * @param po - the chain data associted with this permission
     */
-   void add_to_bimaps(const permission_info& pi, const chain::permission_object& po)
-   {
+   void add_to_bimaps(const permission_info& pi, const chain::permission_object& po) {
       // For each account, add this permission info's non-owning reference to the bimap for accounts
       for (const auto& a : po.auth.accounts) {
          name_bimap.insert(name_bimap_t::value_type{
@@ -204,8 +189,7 @@ struct account_query_db_impl
     * Remove a permission from the bimaps for keys and accounts
     * @param pi - the ephemeral permission info structure being removed
     */
-   void remove_from_bimaps(const permission_info& pi)
-   {
+   void remove_from_bimaps(const permission_info& pi) {
       // remove all entries from the name bimap that refer to this permission_info's reference
       const auto name_range = name_bimap.right.equal_range(pi);
       name_bimap.right.erase(name_range.first, name_range.second);
@@ -215,8 +199,7 @@ struct account_query_db_impl
       key_bimap.right.erase(key_range.first, key_range.second);
    }
 
-   bool is_rollback_required(const chain::block_state_ptr& bsp) const
-   {
+   bool is_rollback_required(const chain::block_state_ptr& bsp) const {
       std::shared_lock read_lock(rw_mutex);
       const auto       bnum  = bsp->block->block_num();
       const auto&      index = permission_info_index.get<by_last_updated_height>();
@@ -233,8 +216,7 @@ struct account_query_db_impl
       return true;
    }
 
-   uint32_t last_updated_time_to_height(const fc::time_point& last_updated)
-   {
+   uint32_t last_updated_time_to_height(const fc::time_point& last_updated) {
       const auto lib_num  = controller.last_irreversible_block_num();
       const auto lib_time = controller.last_irreversible_block_time();
 
@@ -259,8 +241,7 @@ struct account_query_db_impl
     * permission at the HEAD state of the chain.
     * @param bsp - the block to rollback before
     */
-   void rollback_to_before(const chain::block_state_ptr& bsp)
-   {
+   void rollback_to_before(const chain::block_state_ptr& bsp) {
       const auto  bnum  = bsp->block->block_num();
       auto&       index = permission_info_index.get<by_last_updated_height>();
       const auto& permission_by_owner =
@@ -312,8 +293,7 @@ struct account_query_db_impl
     * committed to by a block
     * @param trace
     */
-   void cache_transaction_trace(const chain::transaction_trace_ptr& trace)
-   {
+   void cache_transaction_trace(const chain::transaction_trace_ptr& trace) {
       if (!trace->receipt)
          return;
       // include only executed transactions; soft_fail included so that onerror (and any inlines via onerror)
@@ -337,8 +317,7 @@ struct account_query_db_impl
     * the thread-safe data set
     * @param bsp
     */
-   auto commit_block_prelock(const chain::block_state_ptr& bsp) const
-   {
+   auto commit_block_prelock(const chain::block_state_ptr& bsp) const {
       permission_set_t updated;
       permission_set_t deleted;
 
@@ -394,8 +373,7 @@ struct account_query_db_impl
     * transaction traces need to be in the cache prior to this call
     * @param bsp
     */
-   void commit_block(const chain::block_state_ptr& bsp)
-   {
+   void commit_block(const chain::block_state_ptr& bsp) {
       permission_set_t updated;
       permission_set_t deleted;
       bool             rollback_required = false;
@@ -454,8 +432,7 @@ struct account_query_db_impl
    }
 
    account_query_db::get_accounts_by_authorizers_result get_accounts_by_authorizers(
-      const account_query_db::get_accounts_by_authorizers_params& args) const
-   {
+      const account_query_db::get_accounts_by_authorizers_params& args) const {
       std::shared_lock read_lock(rw_mutex);
 
       using result_t = account_query_db::get_accounts_by_authorizers_result;
@@ -546,24 +523,21 @@ struct account_query_db_impl
 };
 
 account_query_db::account_query_db(const chain::controller& controller)
-   : _impl(std::make_unique<account_query_db_impl>(controller))
-{
+   : _impl(std::make_unique<account_query_db_impl>(controller)) {
    _impl->build_account_query_map();
 }
 
 account_query_db::~account_query_db()                             = default;
 account_query_db& account_query_db::operator=(account_query_db&&) = default;
 
-void account_query_db::cache_transaction_trace(const chain::transaction_trace_ptr& trace)
-{
+void account_query_db::cache_transaction_trace(const chain::transaction_trace_ptr& trace) {
    try {
       _impl->cache_transaction_trace(trace);
    }
    FC_LOG_AND_DROP(("ACCOUNT DB cache_transaction_trace ERROR"));
 }
 
-void account_query_db::commit_block(const chain::block_state_ptr& block)
-{
+void account_query_db::commit_block(const chain::block_state_ptr& block) {
    try {
       _impl->commit_block(block);
    }
@@ -571,8 +545,7 @@ void account_query_db::commit_block(const chain::block_state_ptr& block)
 }
 
 account_query_db::get_accounts_by_authorizers_result account_query_db::get_accounts_by_authorizers(
-   const account_query_db::get_accounts_by_authorizers_params& args) const
-{
+   const account_query_db::get_accounts_by_authorizers_params& args) const {
    return _impl->get_accounts_by_authorizers(args);
 }
 

@@ -5,8 +5,7 @@
 #include <fc/variant.hpp>
 
 BOOST_AUTO_TEST_SUITE(static_variant_test_suite)
-BOOST_AUTO_TEST_CASE(to_from_fc_variant)
-{
+BOOST_AUTO_TEST_CASE(to_from_fc_variant) {
    using variant_type = std::variant<int32_t, bool>;
    auto std_variant_1 = variant_type{ false };
    auto fc_variant    = fc::variant{};
@@ -19,8 +18,7 @@ BOOST_AUTO_TEST_CASE(to_from_fc_variant)
    BOOST_REQUIRE(std_variant_1 == std_variant_2);
 }
 
-BOOST_AUTO_TEST_CASE(get)
-{
+BOOST_AUTO_TEST_CASE(get) {
    using variant_type = std::variant<int32_t, bool, std::string>;
 
    auto v1 = variant_type{ std::string{ "hello world" } };
@@ -34,8 +32,7 @@ BOOST_AUTO_TEST_CASE(get)
    BOOST_REQUIRE(result2 == std::string{ "hello world" });
 }
 
-BOOST_AUTO_TEST_CASE(static_variant_from_index)
-{
+BOOST_AUTO_TEST_CASE(static_variant_from_index) {
    using variant_type = std::variant<int32_t, bool, std::string>;
    auto v             = variant_type{};
 
@@ -47,8 +44,7 @@ BOOST_AUTO_TEST_CASE(static_variant_from_index)
    BOOST_REQUIRE(std::string{} == std::get<std::string>(v));
 }
 
-BOOST_AUTO_TEST_CASE(static_variant_get_index)
-{
+BOOST_AUTO_TEST_CASE(static_variant_get_index) {
    using variant_type = std::variant<int32_t, bool, std::string>;
    BOOST_REQUIRE((fc::get_index<variant_type, int32_t>() == 0));
    BOOST_REQUIRE((fc::get_index<variant_type, bool>() == 1));

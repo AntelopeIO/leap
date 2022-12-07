@@ -37,9 +37,9 @@ class resource_limits_manager;
 };
 
 struct controller_impl;
-using boost::signals2::signal;
 using chainbase::database;
 using chainbase::pinnable_mapped_file;
+using boost::signals2::signal;
 
 class dynamic_global_property_object;
 class global_property_object;
@@ -54,23 +54,13 @@ using trx_meta_cache_lookup = std::function<transaction_metadata_ptr(const trans
 
 class fork_database;
 
-enum class db_read_mode
-{
-   HEAD,
-   IRREVERSIBLE
-};
+enum class db_read_mode { HEAD, IRREVERSIBLE };
 
-enum class validation_mode
-{
-   FULL,
-   LIGHT
-};
+enum class validation_mode { FULL, LIGHT };
 
-class controller
-{
+class controller {
 public:
-   struct config
-   {
+   struct config {
       flat_set<account_name>                    sender_bypass_whiteblacklist;
       flat_set<account_name>                    actor_whitelist;
       flat_set<account_name>                    actor_blacklist;
@@ -116,8 +106,7 @@ public:
       flat_set<account_name> profile_accounts;
    };
 
-   enum class block_status
-   {
+   enum class block_status {
       irreversible =
          0, ///< this block has already been applied before by this node and is considered irreversible
       validated = 1,  ///< this is a complete block signed by a valid producer and has been previously applied
@@ -182,8 +171,7 @@ public:
                                                     uint32_t                   billed_cpu_time_us,
                                                     bool                       explicit_billed_cpu_time);
 
-   struct block_report
-   {
+   struct block_report {
       size_t           total_net_usage    = 0;
       size_t           total_cpu_usage_us = 0;
       fc::microseconds total_elapsed_time{};
@@ -368,8 +356,7 @@ public:
    wasm_interface&      get_wasm_interface();
 
    std::optional<abi_serializer> get_abi_serializer(account_name                            n,
-                                                    const abi_serializer::yield_function_t& yield) const
-   {
+                                                    const abi_serializer::yield_function_t& yield) const {
       if (n.good()) {
          try {
             const auto& a = get_account(n);
@@ -383,8 +370,7 @@ public:
    }
 
    template<typename T>
-   fc::variant to_variant_with_abi(const T& obj, const abi_serializer::yield_function_t& yield) const
-   {
+   fc::variant to_variant_with_abi(const T& obj, const abi_serializer::yield_function_t& yield) const {
       fc::variant pretty_output;
       abi_serializer::to_variant(
          obj, pretty_output, [&](account_name n) { return get_abi_serializer(n, yield); }, yield);

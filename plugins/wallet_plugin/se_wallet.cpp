@@ -18,17 +18,14 @@ using namespace fc::crypto::r1;
 
 namespace detail {
 
-static void auth_callback(int success, void* data)
-{
+static void auth_callback(int success, void* data) {
    promise<bool>* prom = (promise<bool>*)data;
    prom->set_value(success);
 }
 
-struct se_wallet_impl
-{
+struct se_wallet_impl {
 
-   static public_key_data get_public_key_data(SecKeyRef key)
-   {
+   static public_key_data get_public_key_data(SecKeyRef key) {
       SecKeyRef pubkey = SecKeyCopyPublicKey(key);
 
       CFErrorRef error  = nullptr;
@@ -56,8 +53,7 @@ struct se_wallet_impl
       return pub_key_data;
    }
 
-   static public_key_type get_public_key(SecKeyRef key)
-   {
+   static public_key_type get_public_key(SecKeyRef key) {
       char serialized_pub_key[sizeof(public_key_data) + 1];
       serialized_pub_key[0] = 0x01;
 
@@ -71,8 +67,7 @@ struct se_wallet_impl
       return pub_key;
    }
 
-   static string string_for_cferror(CFErrorRef error)
-   {
+   static string string_for_cferror(CFErrorRef error) {
       CFStringRef errorString = CFCopyDescription(error);
       char        buff[CFStringGetLength(errorString) + 1];
       string      ret;
@@ -87,8 +82,7 @@ struct se_wallet_impl
 #define XSTR(A) STR(A)
 #define STR(A) #A
 
-   void populate_existing_keys()
-   {
+   void populate_existing_keys() {
       const void* keyAttrKeys[]   = { kSecClass,     kSecAttrKeyClass, kSecMatchLimit,
                                       kSecReturnRef, kSecAttrTokenID,  kSecAttrAccessGroup };
       const void* keyAttrValues[] = { kSecClassKey,
@@ -119,15 +113,13 @@ struct se_wallet_impl
          try {
             SecKeyRef key              = (SecKeyRef)CFRetain(CFArrayGetValueAtIndex(keyRefs, i));
             _keys[get_public_key(key)] = key;
-         } catch (chain::wallet_exception&) {
-         }
+         } catch (chain::wallet_exception&) {}
       }
       CFRelease(keyRefs);
       CFRelease(keyAttrDic);
    }
 
-   public_key_type create()
-   {
+   public_key_type create() {
       SecAccessControlRef accessControlRef = SecAccessControlCreateWithFlags(
          nullptr, kSecAttrAccessibleWhenUnlockedThisDeviceOnly, kSecAccessControlPrivateKeyUsage, nullptr);
 
@@ -190,8 +182,7 @@ struct se_wallet_impl
       return pub;
    }
 
-   std::optional<signature_type> try_sign_digest(const digest_type d, const public_key_type public_key)
-   {
+   std::optional<signature_type> try_sign_digest(const digest_type d, const public_key_type public_key) {
       auto it = _keys.find(public_key);
       if (it == _keys.end())
          return std::optional<signature_type>{};
@@ -239,8 +230,7 @@ struct se_wallet_impl
       return final_signature;
    }
 
-   bool remove_key(string public_key)
-   {
+   bool remove_key(string public_key) {
       auto it = _keys.find(public_key_type{ public_key });
       if (it == _keys.end())
          FC_THROW_EXCEPTION(chain::wallet_exception,
@@ -271,8 +261,7 @@ struct se_wallet_impl
       return true;
    }
 
-   ~se_wallet_impl()
-   {
+   ~se_wallet_impl() {
       for (auto& k : _keys)
          CFRelease(k.second);
    }
@@ -282,8 +271,7 @@ struct se_wallet_impl
    bool                            locked = true;
 };
 
-static void check_signed()
-{
+static void check_signed() {
    OSStatus        is_valid{ 0 };
    pid_t           pid       = getpid();
    SecCodeRef      code      = nullptr;
@@ -314,8 +302,7 @@ static void check_signed()
 }
 
 se_wallet::se_wallet()
-   : my(new detail::se_wallet_impl())
-{
+   : my(new detail::se_wallet_impl()) {
    detail::check_signed();
 
    // How to figure out of SE is available?!
@@ -356,24 +343,20 @@ se_wallet::se_wallet()
 
 se_wallet::~se_wallet() {}
 
-private_key_type se_wallet::get_private_key(public_key_type pubkey) const
-{
+private_key_type se_wallet::get_private_key(public_key_type pubkey) const {
    FC_THROW_EXCEPTION(chain::wallet_exception,
                       "Obtaining private key for a key stored in Secure Enclave is impossible");
 }
 
-bool se_wallet::is_locked() const
-{
+bool se_wallet::is_locked() const {
    return my->locked;
 }
-void se_wallet::lock()
-{
+void se_wallet::lock() {
    EOS_ASSERT(!is_locked(), wallet_locked_exception, "You can not lock an already locked wallet");
    my->locked = true;
 }
 
-void se_wallet::unlock(string password)
-{
+void se_wallet::unlock(string password) {
    promise<bool> prom;
    future<bool>  fut = prom.get_future();
    macos_user_auth(detail::auth_callback, &prom, CFSTR("unlock your EOSIO wallet"));
@@ -381,50 +364,42 @@ void se_wallet::unlock(string password)
       FC_THROW_EXCEPTION(chain::wallet_invalid_password_exception, "Local user authentication failed");
    my->locked = false;
 }
-void se_wallet::check_password(string password)
-{
+void se_wallet::check_password(string password) {
    // just leave this as a noop for now; remove_key from wallet_mgr calls through here
 }
-void se_wallet::set_password(string password)
-{
+void se_wallet::set_password(string password) {
    FC_THROW_EXCEPTION(chain::wallet_exception, "Secure Enclave wallet cannot have a password set");
 }
 
-map<public_key_type, private_key_type> se_wallet::list_keys()
-{
+map<public_key_type, private_key_type> se_wallet::list_keys() {
    FC_THROW_EXCEPTION(chain::wallet_exception,
                       "Getting the private keys from the Secure Enclave wallet is impossible");
 }
-flat_set<public_key_type> se_wallet::list_public_keys()
-{
+flat_set<public_key_type> se_wallet::list_public_keys() {
    flat_set<public_key_type> keys;
    boost::copy(my->_keys | boost::adaptors::map_keys, std::inserter(keys, keys.end()));
    return keys;
 }
 
-bool se_wallet::import_key(string wif_key)
-{
+bool se_wallet::import_key(string wif_key) {
    FC_THROW_EXCEPTION(chain::wallet_exception,
                       "It is not possible to import a key in to the Secure Enclave wallet");
 }
 
-string se_wallet::create_key(string key_type)
-{
+string se_wallet::create_key(string key_type) {
    EOS_ASSERT(key_type.empty() || key_type == "R1",
               chain::unsupported_key_type_exception,
               "Secure Enclave wallet only supports R1 keys");
    return my->create().to_string();
 }
 
-bool se_wallet::remove_key(string key)
-{
+bool se_wallet::remove_key(string key) {
    EOS_ASSERT(!is_locked(), wallet_locked_exception, "You can not remove a key from a locked wallet");
    return my->remove_key(key);
 }
 
 std::optional<signature_type> se_wallet::try_sign_digest(const digest_type     digest,
-                                                         const public_key_type public_key)
-{
+                                                         const public_key_type public_key) {
    return my->try_sign_digest(digest, public_key);
 }
 

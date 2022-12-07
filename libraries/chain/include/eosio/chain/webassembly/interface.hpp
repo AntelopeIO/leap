@@ -11,12 +11,10 @@ namespace chain {
 class apply_context;
 namespace webassembly {
 
-class interface
-{
+class interface {
 public:
    interface(apply_context& ctx)
-      : context(ctx)
-   {}
+      : context(ctx) {}
 
    inline apply_context&       get_context() { return context; }
    inline const apply_context& get_context() const { return context; }

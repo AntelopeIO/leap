@@ -19,8 +19,7 @@ namespace chain {
 
 namespace bacc = boost::accumulators;
 
-void compute_and_print_timer_accuracy(platform_timer& timer)
-{
+void compute_and_print_timer_accuracy(platform_timer& timer) {
    static std::mutex m;
    static bool       once_is_enough;
 

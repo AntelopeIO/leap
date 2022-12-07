@@ -8,13 +8,10 @@ namespace eosio {
 
 static appbase::abstract_plugin& _test_control_plugin = app().register_plugin<test_control_plugin>();
 
-class test_control_plugin_impl
-{
+class test_control_plugin_impl {
 public:
    explicit test_control_plugin_impl(chain::controller& c)
-      : _chain(c)
-   {
-   }
+      : _chain(c) {}
    void connect();
    void disconnect();
    void kill_on_lib(account_name prod, uint32_t where_in_seq);
@@ -36,34 +33,29 @@ private:
    bool                                              _track_head{ false };
 };
 
-void test_control_plugin_impl::connect()
-{
+void test_control_plugin_impl::connect() {
    _irreversible_block_connection.emplace(_chain.irreversible_block.connect(
       [&](const chain::block_state_ptr& bs) { applied_irreversible_block(bs); }));
    _accepted_block_connection =
       _chain.accepted_block.connect([&](const chain::block_state_ptr& bs) { accepted_block(bs); });
 }
 
-void test_control_plugin_impl::disconnect()
-{
+void test_control_plugin_impl::disconnect() {
    _accepted_block_connection.reset();
    _irreversible_block_connection.reset();
 }
 
-void test_control_plugin_impl::applied_irreversible_block(const chain::block_state_ptr& bsp)
-{
+void test_control_plugin_impl::applied_irreversible_block(const chain::block_state_ptr& bsp) {
    if (_track_lib)
       process_next_block_state(bsp);
 }
 
-void test_control_plugin_impl::accepted_block(const chain::block_state_ptr& bsp)
-{
+void test_control_plugin_impl::accepted_block(const chain::block_state_ptr& bsp) {
    if (_track_head)
       process_next_block_state(bsp);
 }
 
-void test_control_plugin_impl::process_next_block_state(const chain::block_state_ptr& bsp)
-{
+void test_control_plugin_impl::process_next_block_state(const chain::block_state_ptr& bsp) {
    // Tests expect the shutdown only after signaling a producer shutdown and seeing a full production cycle
    const auto  block_time = _chain.head_block_time() + fc::microseconds(chain::config::block_interval_us);
    const auto& producer_authority = bsp->get_scheduled_producer(block_time);
@@ -96,8 +88,7 @@ void test_control_plugin_impl::process_next_block_state(const chain::block_state
    }
 }
 
-void test_control_plugin_impl::kill_on_lib(account_name prod, uint32_t where_in_seq)
-{
+void test_control_plugin_impl::kill_on_lib(account_name prod, uint32_t where_in_seq) {
    _track_head               = false;
    _producer                 = prod;
    _where_in_sequence        = where_in_seq;
@@ -106,8 +97,7 @@ void test_control_plugin_impl::kill_on_lib(account_name prod, uint32_t where_in_
    _track_lib                = true;
 }
 
-void test_control_plugin_impl::kill_on_head(account_name prod, uint32_t where_in_seq)
-{
+void test_control_plugin_impl::kill_on_head(account_name prod, uint32_t where_in_seq) {
    _track_lib                = false;
    _producer                 = prod;
    _where_in_sequence        = where_in_seq;
@@ -122,23 +112,20 @@ void test_control_plugin::set_program_options(options_description& cli, options_
 
 void test_control_plugin::plugin_initialize(const variables_map& options) {}
 
-void test_control_plugin::plugin_startup()
-{
+void test_control_plugin::plugin_startup() {
    ilog("test_control_plugin starting up");
    my.reset(new test_control_plugin_impl(app().get_plugin<chain_plugin>().chain()));
    my->connect();
 }
 
-void test_control_plugin::plugin_shutdown()
-{
+void test_control_plugin::plugin_shutdown() {
    my->disconnect();
    ilog("test_control_plugin shutting down");
 }
 
 namespace test_control_apis {
 read_write::kill_node_on_producer_results read_write::kill_node_on_producer(
-   const read_write::kill_node_on_producer_params& params) const
-{
+   const read_write::kill_node_on_producer_params& params) const {
 
    if (params.based_on_lib) {
       ilog("kill on lib for producer: ${p} at their ${s} slot in sequence",

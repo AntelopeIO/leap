@@ -9,8 +9,7 @@ namespace eosio {
 
 using namespace appbase;
 
-class producer_api_plugin : public plugin<producer_api_plugin>
-{
+class producer_api_plugin : public plugin<producer_api_plugin> {
 public:
    APPBASE_PLUGIN_REQUIRES((producer_plugin)(http_plugin))
 

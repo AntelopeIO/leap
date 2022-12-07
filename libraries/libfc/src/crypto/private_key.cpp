@@ -6,31 +6,24 @@ namespace fc {
 namespace crypto {
 using namespace std;
 
-struct public_key_visitor : visitor<public_key::storage_type>
-{
+struct public_key_visitor : visitor<public_key::storage_type> {
    template<typename KeyType>
-   public_key::storage_type operator()(const KeyType& key) const
-   {
+   public_key::storage_type operator()(const KeyType& key) const {
       return public_key::storage_type(key.get_public_key());
    }
 };
 
-public_key private_key::get_public_key() const
-{
+public_key private_key::get_public_key() const {
    return public_key(std::visit(public_key_visitor(), _storage));
 }
 
-struct sign_visitor : visitor<signature::storage_type>
-{
+struct sign_visitor : visitor<signature::storage_type> {
    sign_visitor(const sha256& digest, bool require_canonical)
       : _digest(digest)
-      , _require_canonical(require_canonical)
-   {
-   }
+      , _require_canonical(require_canonical) {}
 
    template<typename KeyType>
-   signature::storage_type operator()(const KeyType& key) const
-   {
+   signature::storage_type operator()(const KeyType& key) const {
       return signature::storage_type(key.sign(_digest, _require_canonical));
    }
 
@@ -38,21 +31,16 @@ struct sign_visitor : visitor<signature::storage_type>
    bool          _require_canonical;
 };
 
-signature private_key::sign(const sha256& digest, bool require_canonical) const
-{
+signature private_key::sign(const sha256& digest, bool require_canonical) const {
    return signature(std::visit(sign_visitor(digest, require_canonical), _storage));
 }
 
-struct generate_shared_secret_visitor : visitor<sha512>
-{
+struct generate_shared_secret_visitor : visitor<sha512> {
    generate_shared_secret_visitor(const public_key::storage_type& pub_storage)
-      : _pub_storage(pub_storage)
-   {
-   }
+      : _pub_storage(pub_storage) {}
 
    template<typename KeyType>
-   sha512 operator()(const KeyType& key) const
-   {
+   sha512 operator()(const KeyType& key) const {
       using PublicKeyType = typename KeyType::public_key_type;
       return key.generate_shared_secret(std::template get<PublicKeyType>(_pub_storage));
    }
@@ -60,14 +48,12 @@ struct generate_shared_secret_visitor : visitor<sha512>
    const public_key::storage_type& _pub_storage;
 };
 
-sha512 private_key::generate_shared_secret(const public_key& pub) const
-{
+sha512 private_key::generate_shared_secret(const public_key& pub) const {
    return std::visit(generate_shared_secret_visitor(pub._storage), _storage);
 }
 
 template<typename Data>
-string to_wif(const Data& secret, const fc::yield_function_t& yield)
-{
+string to_wif(const Data& secret, const fc::yield_function_t& yield) {
    const size_t size_of_data_to_hash = sizeof(typename Data::data_type) + 1;
    const size_t size_of_hash_bytes   = 4;
    char         data[size_of_data_to_hash + size_of_hash_bytes];
@@ -80,8 +66,7 @@ string to_wif(const Data& secret, const fc::yield_function_t& yield)
 }
 
 template<typename Data>
-Data from_wif(const string& wif_key)
-{
+Data from_wif(const string& wif_key) {
    auto wif_bytes = from_base58(wif_key);
    FC_ASSERT(wif_bytes.size() >= 5);
    auto       key_bytes = vector<char>(wif_bytes.begin() + 1, wif_bytes.end() - 4);
@@ -94,8 +79,7 @@ Data from_wif(const string& wif_key)
    return Data(fc::variant(key_bytes).as<typename Data::data_type>());
 }
 
-static private_key::storage_type priv_parse_base58(const string& base58str)
-{
+static private_key::storage_type priv_parse_base58(const string& base58str) {
    const auto pivot = base58str.find('_');
 
    if (pivot == std::string::npos) {
@@ -116,12 +100,9 @@ static private_key::storage_type priv_parse_base58(const string& base58str)
 }
 
 private_key::private_key(const std::string& base58str)
-   : _storage(priv_parse_base58(base58str))
-{
-}
+   : _storage(priv_parse_base58(base58str)) {}
 
-std::string private_key::to_string(const fc::yield_function_t& yield) const
-{
+std::string private_key::to_string(const fc::yield_function_t& yield) const {
    auto which = _storage.index();
 
    if (which == 0) {
@@ -133,32 +114,27 @@ std::string private_key::to_string(const fc::yield_function_t& yield) const
    return std::string(config::private_key_base_prefix) + "_" + data_str;
 }
 
-std::ostream& operator<<(std::ostream& s, const private_key& k)
-{
+std::ostream& operator<<(std::ostream& s, const private_key& k) {
    s << "private_key(" << k.to_string() << ')';
    return s;
 }
 
-bool operator==(const private_key& p1, const private_key& p2)
-{
+bool operator==(const private_key& p1, const private_key& p2) {
    return eq_comparator<private_key::storage_type>::apply(p1._storage, p2._storage);
 }
 
-bool operator<(const private_key& p1, const private_key& p2)
-{
+bool operator<(const private_key& p1, const private_key& p2) {
    return less_comparator<private_key::storage_type>::apply(p1._storage, p2._storage);
 }
 }
 } // fc::crypto
 
 namespace fc {
-void to_variant(const fc::crypto::private_key& var, variant& vo, const fc::yield_function_t& yield)
-{
+void to_variant(const fc::crypto::private_key& var, variant& vo, const fc::yield_function_t& yield) {
    vo = var.to_string(yield);
 }
 
-void from_variant(const variant& var, fc::crypto::private_key& vo)
-{
+void from_variant(const variant& var, fc::crypto::private_key& vo) {
    vo = fc::crypto::private_key(var.as_string());
 }
 

@@ -11,33 +11,28 @@ namespace fc {
  *  against or overload than T[N].
  */
 template<typename T, size_t N>
-class array
-{
+class array {
 public:
    /**
     *  Checked indexing (when in debug build) that also simplifies dereferencing
     *  when you have an array<T,N>*.
     */
    ///@{
-   T& at(size_t pos)
-   {
+   T& at(size_t pos) {
       FC_ASSERT(pos < N, "array out-of-bounds");
       return data[pos];
    }
-   const T& at(size_t pos) const
-   {
+   const T& at(size_t pos) const {
       FC_ASSERT(pos < N, "array out-of-bounds");
       return data[pos];
    }
    ///@}
 
-   T& operator[](size_t pos)
-   {
+   T& operator[](size_t pos) {
       FC_ASSERT(pos < N, "array out-of-bounds");
       return data[pos];
    }
-   const T& operator[](size_t pos) const
-   {
+   const T& operator[](size_t pos) const {
       FC_ASSERT(pos < N, "array out-of-bounds");
       return data[pos];
    }
@@ -55,8 +50,7 @@ public:
 
 /** provided for default 0 init */
 template<size_t N>
-class array<unsigned char, N>
-{
+class array<unsigned char, N> {
 public:
    typedef unsigned char T;
    array() { memset(data, 0, sizeof(data)); }
@@ -65,13 +59,11 @@ public:
     *  when you have an array<T,N>*.
     */
    ///@{
-   T& at(size_t pos)
-   {
+   T& at(size_t pos) {
       FC_ASSERT(pos < N, "array out-of-bounds");
       return data[pos];
    }
-   const T& at(size_t pos) const
-   {
+   const T& at(size_t pos) const {
       FC_ASSERT(pos < N, "array out-of-bounds");
       return data[pos];
    }
@@ -88,8 +80,7 @@ public:
 
 /** provided for default 0 init */
 template<size_t N>
-class array<char, N>
-{
+class array<char, N> {
 public:
    typedef char T;
    array() { memset(data, 0, sizeof(data)); }
@@ -98,13 +89,11 @@ public:
     *  when you have an array<T,N>*.
     */
    ///@{
-   T& at(size_t pos)
-   {
+   T& at(size_t pos) {
       FC_ASSERT(pos < N, "array out-of-bounds");
       return data[pos];
    }
-   const T& at(size_t pos) const
-   {
+   const T& at(size_t pos) const {
       FC_ASSERT(pos < N, "array out-of-bounds");
       return data[pos];
    }
@@ -120,36 +109,30 @@ public:
 };
 
 template<typename T, size_t N>
-bool operator==(const array<T, N>& a, const array<T, N>& b)
-{
+bool operator==(const array<T, N>& a, const array<T, N>& b) {
    return 0 == memcmp(a.data, b.data, N * sizeof(T));
 }
 template<typename T, size_t N>
-bool operator<(const array<T, N>& a, const array<T, N>& b)
-{
+bool operator<(const array<T, N>& a, const array<T, N>& b) {
    return memcmp(a.data, b.data, N * sizeof(T)) < 0;
 }
 
 template<typename T, size_t N>
-bool operator>(const array<T, N>& a, const array<T, N>& b)
-{
+bool operator>(const array<T, N>& a, const array<T, N>& b) {
    return memcmp(a.data, b.data, N * sizeof(T)) > 0;
 }
 
 template<typename T, size_t N>
-bool operator!=(const array<T, N>& a, const array<T, N>& b)
-{
+bool operator!=(const array<T, N>& a, const array<T, N>& b) {
    return 0 != memcmp(a.data, b.data, N * sizeof(T));
 }
 
 template<typename T, size_t N>
-void to_variant(const array<T, N>& bi, variant& v)
-{
+void to_variant(const array<T, N>& bi, variant& v) {
    v = std::vector<char>((const char*)&bi, ((const char*)&bi) + sizeof(bi));
 }
 template<typename T, size_t N>
-void from_variant(const variant& v, array<T, N>& bi)
-{
+void from_variant(const variant& v, array<T, N>& bi) {
    std::vector<char> ve = v.as<std::vector<char>>();
    if (ve.size()) {
       memcpy(bi.begin(), ve.data(), fc::min<size_t>(ve.size(), sizeof(bi)));
@@ -158,10 +141,8 @@ void from_variant(const variant& v, array<T, N>& bi)
 }
 
 template<typename T, size_t N>
-struct get_typename<fc::array<T, N>>
-{
-   static const char* name()
-   {
+struct get_typename<fc::array<T, N>> {
+   static const char* name() {
       static std::string _name =
          std::string("fc::array<") + std::string(fc::get_typename<T>::name()) + "," + fc::to_string(N) + ">";
       return _name.c_str();
@@ -173,8 +154,7 @@ struct get_typename<fc::array<T, N>>
 #include <fc/crypto/city.hpp>
 namespace std {
 template<typename T, size_t N>
-struct hash<fc::array<T, N>>
-{
+struct hash<fc::array<T, N>> {
    size_t operator()(const fc::array<T, N>& e) const { return fc::city_hash_size_t((char*)&e, sizeof(e)); }
 };
 }

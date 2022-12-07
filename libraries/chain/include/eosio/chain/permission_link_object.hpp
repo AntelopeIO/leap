@@ -25,8 +25,7 @@ namespace chain {
  * no such link is found, but a link is found for {account, code, ""}, then the required_permission from that
  * link is used. If no such link is found, account's active authority is used.
  */
-class permission_link_object : public chainbase::object<permission_link_object_type, permission_link_object>
-{
+class permission_link_object : public chainbase::object<permission_link_object_type, permission_link_object> {
    OBJECT_CTOR(permission_link_object)
 
    id_type id;
@@ -65,8 +64,7 @@ using permission_link_index = chainbase::shared_multi_index_container<
 
 namespace config {
 template<>
-struct billable_size<permission_link_object>
-{
+struct billable_size<permission_link_object> {
    static const uint64_t overhead =
       overhead_per_row_per_index_ram_bytes * 3; ///< 3x indices id, action, permission
    static const uint64_t value = 40 + overhead; ///< fixed field + overhead

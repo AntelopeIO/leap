@@ -22,8 +22,7 @@ namespace chain {
  * version 2 snapshots and before
  */
 namespace legacy {
-struct snapshot_global_property_object_v2
-{
+struct snapshot_global_property_object_v2 {
    static constexpr uint32_t minimum_version = 0;
    static constexpr uint32_t maximum_version = 2;
    static_assert(chain_snapshot_header::minimum_compatible_version <= maximum_version,
@@ -33,8 +32,7 @@ struct snapshot_global_property_object_v2
    producer_schedule_type        proposed_schedule;
    chain_config_v0               configuration;
 };
-struct snapshot_global_property_object_v3
-{
+struct snapshot_global_property_object_v3 {
    static constexpr uint32_t minimum_version = 3;
    static constexpr uint32_t maximum_version = 3;
    static_assert(chain_snapshot_header::minimum_compatible_version <= maximum_version,
@@ -45,8 +43,7 @@ struct snapshot_global_property_object_v3
    chain_config_v0               configuration;
    chain_id_type                 chain_id;
 };
-struct snapshot_global_property_object_v4
-{
+struct snapshot_global_property_object_v4 {
    static constexpr uint32_t minimum_version = 4;
    static constexpr uint32_t maximum_version = 4;
    static_assert(chain_snapshot_header::minimum_compatible_version <= maximum_version,
@@ -67,8 +64,7 @@ struct snapshot_global_property_object_v4
  * @ingroup object
  * @ingroup implementation
  */
-class global_property_object : public chainbase::object<global_property_object_type, global_property_object>
-{
+class global_property_object : public chainbase::object<global_property_object_type, global_property_object> {
    OBJECT_CTOR(global_property_object, (proposed_schedule))
 
 public:
@@ -83,8 +79,7 @@ public:
    void initalize_from(const legacy::snapshot_global_property_object_v2& legacy,
                        const chain_id_type&                              chain_id_val,
                        const kv_database_config&                         kv_config_val,
-                       const wasm_config&                                wasm_config_val)
-   {
+                       const wasm_config&                                wasm_config_val) {
       proposed_schedule_block_num = legacy.proposed_schedule_block_num;
       proposed_schedule           = producer_authority_schedule(legacy.proposed_schedule)
                              .to_shared(proposed_schedule.producers.get_allocator());
@@ -96,8 +91,7 @@ public:
 
    void initalize_from(const legacy::snapshot_global_property_object_v3& legacy,
                        const kv_database_config&                         kv_config_val,
-                       const wasm_config&                                wasm_config_val)
-   {
+                       const wasm_config&                                wasm_config_val) {
       proposed_schedule_block_num = legacy.proposed_schedule_block_num;
       proposed_schedule  = legacy.proposed_schedule.to_shared(proposed_schedule.producers.get_allocator());
       configuration      = legacy.configuration;
@@ -106,8 +100,7 @@ public:
       wasm_configuration = wasm_config_val;
    }
 
-   void initalize_from(const legacy::snapshot_global_property_object_v4& legacy)
-   {
+   void initalize_from(const legacy::snapshot_global_property_object_v4& legacy) {
       proposed_schedule_block_num = legacy.proposed_schedule_block_num;
       proposed_schedule  = legacy.proposed_schedule.to_shared(proposed_schedule.producers.get_allocator());
       configuration      = legacy.configuration;
@@ -123,8 +116,7 @@ using global_property_multi_index = chainbase::shared_multi_index_container<
       ordered_unique<tag<by_id>,
                      BOOST_MULTI_INDEX_MEMBER(global_property_object, global_property_object::id_type, id)>>>;
 
-struct snapshot_global_property_object
-{
+struct snapshot_global_property_object {
    std::optional<block_num_type> proposed_schedule_block_num;
    producer_authority_schedule   proposed_schedule;
    chain_config                  configuration;
@@ -135,14 +127,12 @@ struct snapshot_global_property_object
 
 namespace detail {
 template<>
-struct snapshot_row_traits<global_property_object>
-{
+struct snapshot_row_traits<global_property_object> {
    using value_type    = global_property_object;
    using snapshot_type = snapshot_global_property_object;
 
    static snapshot_global_property_object to_snapshot_row(const global_property_object& value,
-                                                          const chainbase::database&)
-   {
+                                                          const chainbase::database&) {
       return { value.proposed_schedule_block_num,
                producer_authority_schedule::from_shared(value.proposed_schedule),
                value.configuration,
@@ -153,8 +143,7 @@ struct snapshot_row_traits<global_property_object>
 
    static void from_snapshot_row(snapshot_global_property_object&& row,
                                  global_property_object&           value,
-                                 chainbase::database&)
-   {
+                                 chainbase::database&) {
       value.proposed_schedule_block_num = row.proposed_schedule_block_num;
       value.proposed_schedule =
          row.proposed_schedule.to_shared(value.proposed_schedule.producers.get_allocator());
@@ -173,8 +162,7 @@ struct snapshot_row_traits<global_property_object>
  * @ingroup implementation
  */
 class dynamic_global_property_object
-   : public chainbase::object<dynamic_global_property_object_type, dynamic_global_property_object>
-{
+   : public chainbase::object<dynamic_global_property_object_type, dynamic_global_property_object> {
    OBJECT_CTOR(dynamic_global_property_object)
 
    id_type  id;

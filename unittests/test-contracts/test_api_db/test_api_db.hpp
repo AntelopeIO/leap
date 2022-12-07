@@ -2,8 +2,7 @@
 
 #include <eosio/eosio.hpp>
 
-class [[eosio::contract]] test_api_db : public eosio::contract
-{
+class [[eosio::contract]] test_api_db : public eosio::contract {
 public:
    using eosio::contract::contract;
 

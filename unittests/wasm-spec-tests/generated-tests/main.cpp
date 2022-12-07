@@ -12,14 +12,12 @@
 
 #include <boost/test/included/unit_test.hpp>
 
-void translate_fc_exception(const fc::exception& e)
-{
+void translate_fc_exception(const fc::exception& e) {
    std::cerr << "\033[33m" << e.to_detail_string() << "\033[0m" << std::endl;
    BOOST_TEST_FAIL("Caught Unexpected Exception");
 }
 
-boost::unit_test::test_suite* init_unit_test_suite(int argc, char* argv[])
-{
+boost::unit_test::test_suite* init_unit_test_suite(int argc, char* argv[]) {
    // Turn off blockchain logging if no --verbose parameter is not added
    // To have verbose enabled, call "tests/chain_test -- --verbose"
    bool        is_verbose  = false;

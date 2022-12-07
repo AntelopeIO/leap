@@ -15,8 +15,7 @@
 using namespace IR;
 
 namespace WAST {
-void findClosingParenthesis(ParseState& state, const Token* openingParenthesisToken)
-{
+void findClosingParenthesis(ParseState& state, const Token* openingParenthesisToken) {
    // Skip over tokens until the ')' closing the current parentheses nesting depth is found.
    Uptr depth = 1;
    while (depth > 0) {
@@ -39,8 +38,7 @@ void findClosingParenthesis(ParseState& state, const Token* openingParenthesisTo
    }
 }
 
-void parseErrorf(ParseState& state, Uptr charOffset, const char* messageFormat, va_list messageArguments)
-{
+void parseErrorf(ParseState& state, Uptr charOffset, const char* messageFormat, va_list messageArguments) {
    // Format the message.
    char messageBuffer[1024];
    int  numPrintedChars =
@@ -53,30 +51,26 @@ void parseErrorf(ParseState& state, Uptr charOffset, const char* messageFormat, 
    // Add the error to the state's error list.
    state.errors.emplace_back(charOffset, messageBuffer);
 }
-void parseErrorf(ParseState& state, Uptr charOffset, const char* messageFormat, ...)
-{
+void parseErrorf(ParseState& state, Uptr charOffset, const char* messageFormat, ...) {
    va_list messageArguments;
    va_start(messageArguments, messageFormat);
    parseErrorf(state, charOffset, messageFormat, messageArguments);
    va_end(messageArguments);
 }
-void parseErrorf(ParseState& state, const char* nextChar, const char* messageFormat, ...)
-{
+void parseErrorf(ParseState& state, const char* nextChar, const char* messageFormat, ...) {
    va_list messageArguments;
    va_start(messageArguments, messageFormat);
    parseErrorf(state, nextChar - state.string, messageFormat, messageArguments);
    va_end(messageArguments);
 }
-void parseErrorf(ParseState& state, const Token* nextToken, const char* messageFormat, ...)
-{
+void parseErrorf(ParseState& state, const Token* nextToken, const char* messageFormat, ...) {
    va_list messageArguments;
    va_start(messageArguments, messageFormat);
    parseErrorf(state, nextToken->begin, messageFormat, messageArguments);
    va_end(messageArguments);
 }
 
-void require(ParseState& state, TokenType type)
-{
+void require(ParseState& state, TokenType type) {
    if (state.nextToken->type != type) {
       parseErrorf(state, state.nextToken, "expected %s", describeToken(type));
       throw RecoverParseException();
@@ -84,8 +78,7 @@ void require(ParseState& state, TokenType type)
    ++state.nextToken;
 }
 
-bool tryParseValueType(ParseState& state, ValueType& outValueType)
-{
+bool tryParseValueType(ParseState& state, ValueType& outValueType) {
    switch (state.nextToken->type) {
       case t_i32:
          ++state.nextToken;
@@ -113,13 +106,11 @@ bool tryParseValueType(ParseState& state, ValueType& outValueType)
    };
 }
 
-bool tryParseResultType(ParseState& state, ResultType& outResultType)
-{
+bool tryParseResultType(ParseState& state, ResultType& outResultType) {
    return tryParseValueType(state, *(ValueType*)&outResultType);
 }
 
-ValueType parseValueType(ParseState& state)
-{
+ValueType parseValueType(ParseState& state) {
    ValueType result;
    if (!tryParseValueType(state, result)) {
       parseErrorf(state, state.nextToken, "expected value type");
@@ -130,8 +121,7 @@ ValueType parseValueType(ParseState& state)
 
 const FunctionType* parseFunctionType(ModuleParseState&         state,
                                       NameToIndexMap&           outLocalNameToIndexMap,
-                                      std::vector<std::string>& outLocalDisassemblyNames)
-{
+                                      std::vector<std::string>& outLocalDisassemblyNames) {
    std::vector<ValueType> parameters;
    ResultType             ret = ResultType::none;
 
@@ -175,8 +165,7 @@ const FunctionType* parseFunctionType(ModuleParseState&         state,
 
 UnresolvedFunctionType parseFunctionTypeRefAndOrDecl(ModuleParseState&         state,
                                                      NameToIndexMap&           outLocalNameToIndexMap,
-                                                     std::vector<std::string>& outLocalDisassemblyNames)
-{
+                                                     std::vector<std::string>& outLocalDisassemblyNames) {
    // Parse an optional function type reference.
    Reference functionTypeRef;
    if (state.nextToken[0].type == t_leftParenthesis && state.nextToken[1].type == t_type) {
@@ -199,8 +188,8 @@ UnresolvedFunctionType parseFunctionTypeRefAndOrDecl(ModuleParseState&         s
    return result;
 }
 
-IndexedFunctionType resolveFunctionType(ModuleParseState& state, const UnresolvedFunctionType& unresolvedType)
-{
+IndexedFunctionType resolveFunctionType(ModuleParseState&             state,
+                                        const UnresolvedFunctionType& unresolvedType) {
    if (!unresolvedType.reference) {
       return getUniqueFunctionTypeIndex(state, unresolvedType.explicitType);
    } else {
@@ -226,8 +215,7 @@ IndexedFunctionType resolveFunctionType(ModuleParseState& state, const Unresolve
    }
 }
 
-IndexedFunctionType getUniqueFunctionTypeIndex(ModuleParseState& state, const FunctionType* functionType)
-{
+IndexedFunctionType getUniqueFunctionTypeIndex(ModuleParseState& state, const FunctionType* functionType) {
    // If this type is not in the module's type table yet, add it.
    auto functionTypeToIndexMapIt = state.functionTypeToIndexMap.find(functionType);
    if (functionTypeToIndexMapIt != state.functionTypeToIndexMap.end()) {
@@ -242,15 +230,13 @@ IndexedFunctionType getUniqueFunctionTypeIndex(ModuleParseState& state, const Fu
    }
 }
 
-U32 Name::calcHash(const char* begin, U32 numChars)
-{
+U32 Name::calcHash(const char* begin, U32 numChars) {
    // Use xxHash32 to hash names. xxHash64 is theoretically faster for long strings on 64-bit machines,
    // but I did not find it to be faster for typical name lengths.
    return XXH32(begin, numChars, 0);
 }
 
-bool tryParseName(ParseState& state, Name& outName)
-{
+bool tryParseName(ParseState& state, Name& outName) {
    if (state.nextToken->type != t_name) {
       return false;
    }
@@ -281,8 +267,7 @@ bool tryParseName(ParseState& state, Name& outName)
    return true;
 }
 
-bool tryParseNameOrIndexRef(ParseState& state, Reference& outRef)
-{
+bool tryParseNameOrIndexRef(ParseState& state, Reference& outRef) {
    outRef.token = state.nextToken;
    if (tryParseName(state, outRef.name)) {
       outRef.type = Reference::Type::name;
@@ -297,8 +282,7 @@ bool tryParseNameOrIndexRef(ParseState& state, Reference& outRef)
 U32 parseAndResolveNameOrIndexRef(ParseState&           state,
                                   const NameToIndexMap& nameToIndexMap,
                                   Uptr                  maxIndex,
-                                  const char*           context)
-{
+                                  const char*           context) {
    Reference ref;
 
    if (strcmp(context, "type") == 0 // limits this block strictly to call_indirect
@@ -319,8 +303,7 @@ U32 parseAndResolveNameOrIndexRef(ParseState&           state,
    return resolveRef(state, nameToIndexMap, maxIndex, ref);
 }
 
-void bindName(ParseState& state, NameToIndexMap& nameToIndexMap, const Name& name, Uptr index)
-{
+void bindName(ParseState& state, NameToIndexMap& nameToIndexMap, const Name& name, Uptr index) {
    errorUnless(index <= UINT32_MAX);
 
    if (name) {
@@ -337,8 +320,7 @@ void bindName(ParseState& state, NameToIndexMap& nameToIndexMap, const Name& nam
    }
 }
 
-U32 resolveRef(ParseState& state, const NameToIndexMap& nameToIndexMap, Uptr maxIndex, const Reference& ref)
-{
+U32 resolveRef(ParseState& state, const NameToIndexMap& nameToIndexMap, Uptr maxIndex, const Reference& ref) {
    switch (ref.type) {
       case Reference::Type::index: {
          if (ref.index >= maxIndex) {
@@ -360,8 +342,7 @@ U32 resolveRef(ParseState& state, const NameToIndexMap& nameToIndexMap, Uptr max
    };
 }
 
-bool tryParseHexit(const char*& nextChar, U8& outValue)
-{
+bool tryParseHexit(const char*& nextChar, U8& outValue) {
    if (*nextChar >= '0' && *nextChar <= '9') {
       outValue = *nextChar - '0';
    } else if (*nextChar >= 'a' && *nextChar <= 'f') {
@@ -376,8 +357,7 @@ bool tryParseHexit(const char*& nextChar, U8& outValue)
    return true;
 }
 
-static void parseCharEscapeCode(const char*& nextChar, ParseState& state, std::string& outString)
-{
+static void parseCharEscapeCode(const char*& nextChar, ParseState& state, std::string& outString) {
    U8 firstNibble;
    if (tryParseHexit(nextChar, firstNibble)) {
       // Parse an 8-bit literal from two hexits.
@@ -457,8 +437,7 @@ static void parseCharEscapeCode(const char*& nextChar, ParseState& state, std::s
    }
 }
 
-bool tryParseString(ParseState& state, std::string& outString)
-{
+bool tryParseString(ParseState& state, std::string& outString) {
    if (state.nextToken->type != t_string) {
       return false;
    }
@@ -484,8 +463,7 @@ bool tryParseString(ParseState& state, std::string& outString)
    };
 }
 
-std::string parseUTF8String(ParseState& state)
-{
+std::string parseUTF8String(ParseState& state) {
    const Token* stringToken = state.nextToken;
    std::string  result;
    if (!tryParseString(state, result)) {

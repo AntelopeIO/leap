@@ -7,8 +7,7 @@
 namespace bio = boost::iostreams;
 
 namespace fc {
-string zlib_compress(const string& in)
-{
+string zlib_compress(const string& in) {
    string                 out;
    bio::filtering_ostream comp;
    comp.push(bio::zlib_compressor(bio::zlib::default_compression));

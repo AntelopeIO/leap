@@ -45,8 +45,7 @@ const string      escape_input_str =
 
 } // namespace json_test_util
 
-BOOST_AUTO_TEST_CASE(to_string_test)
-{
+BOOST_AUTO_TEST_CASE(to_string_test) {
    { // to_string( const variant& v, const fc::time_point& deadline, const uint64_t max_len =
      // max_length_limit, output_formatting format = stringify_large_ints_and_doubles);
      { variant v(json_test_util::escape_input_str);
@@ -139,8 +138,7 @@ BOOST_AUTO_TEST_CASE(to_string_test)
 }
 }
 
-BOOST_AUTO_TEST_CASE(to_pretty_string_test)
-{
+BOOST_AUTO_TEST_CASE(to_pretty_string_test) {
    { // to_pretty_string( const variant& v, const fc::time_point& deadline, const uint64_t max_len =
      // max_length_limit, output_formatting format = stringify_large_ints_and_doubles );
      { variant v(json_test_util::escape_input_str);
@@ -233,8 +231,7 @@ BOOST_AUTO_TEST_CASE(to_pretty_string_test)
 }
 }
 
-BOOST_AUTO_TEST_CASE(escape_string_test)
-{
+BOOST_AUTO_TEST_CASE(escape_string_test) {
    std::string escape_out_str;
    escape_out_str = fc::escape_string(json_test_util::escape_input_str, json_test_util::yield_no_limitation);
    BOOST_CHECK_LT(json_test_util::repeat_char_num, json_test_util::escape_input_str.size());

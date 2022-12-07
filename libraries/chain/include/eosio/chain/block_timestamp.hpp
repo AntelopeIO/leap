@@ -16,13 +16,10 @@ namespace chain {
  * and an interval in milliseconds and computes the number of slots.
  **/
 template<uint16_t IntervalMs, uint64_t EpochMs>
-class block_timestamp
-{
+class block_timestamp {
 public:
    explicit block_timestamp(uint32_t s = 0)
-      : slot(s)
-   {
-   }
+      : slot(s) {}
 
    block_timestamp(const fc::time_point& t) { set_time_point(t); }
 
@@ -31,8 +28,7 @@ public:
    static block_timestamp maximum() { return block_timestamp(0xffff); }
    static block_timestamp min() { return block_timestamp(0); }
 
-   block_timestamp next() const
-   {
+   block_timestamp next() const {
       EOS_ASSERT(std::numeric_limits<uint32_t>::max() - slot >= 1,
                  fc::overflow_exception,
                  "block timestamp overflow");
@@ -43,8 +39,7 @@ public:
 
    fc::time_point to_time_point() const { return (fc::time_point)(*this); }
 
-   operator fc::time_point() const
-   {
+   operator fc::time_point() const {
       int64_t msec = slot * (int64_t)IntervalMs;
       msec += EpochMs;
       return fc::time_point(fc::milliseconds(msec));
@@ -61,15 +56,13 @@ public:
    uint32_t slot;
 
 private:
-   void set_time_point(const fc::time_point& t)
-   {
+   void set_time_point(const fc::time_point& t) {
       auto micro_since_epoch = t.time_since_epoch();
       auto msec_since_epoch  = micro_since_epoch.count() / 1000;
       slot                   = (msec_since_epoch - EpochMs) / IntervalMs;
    }
 
-   void set_time_point(const fc::time_point_sec& t)
-   {
+   void set_time_point(const fc::time_point_sec& t) {
       uint64_t sec_since_epoch = t.sec_since_epoch();
       slot                     = (sec_since_epoch * 1000 - EpochMs) / IntervalMs;
    }
@@ -85,14 +78,12 @@ FC_REFLECT(eosio::chain::block_timestamp_type, (slot))
 
 namespace fc {
 template<uint16_t IntervalMs, uint64_t EpochMs>
-void to_variant(const eosio::chain::block_timestamp<IntervalMs, EpochMs>& t, fc::variant& v)
-{
+void to_variant(const eosio::chain::block_timestamp<IntervalMs, EpochMs>& t, fc::variant& v) {
    to_variant((fc::time_point)t, v);
 }
 
 template<uint16_t IntervalMs, uint64_t EpochMs>
-void from_variant(const fc::variant& v, eosio::chain::block_timestamp<IntervalMs, EpochMs>& t)
-{
+void from_variant(const fc::variant& v, eosio::chain::block_timestamp<IntervalMs, EpochMs>& t) {
    t = v.as<fc::time_point>();
 }
 }

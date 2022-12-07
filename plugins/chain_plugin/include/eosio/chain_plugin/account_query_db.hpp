@@ -9,8 +9,7 @@ namespace eosio::chain_apis {
  * There is no persistence and the indices/caches are recreated when the class is instantiated based on the
  * current state of the chain.
  */
-class account_query_db
-{
+class account_query_db {
 public:
    /**
     * Instantiate a new account query DB from the given chain controller
@@ -45,14 +44,12 @@ public:
    /**
     * parameters for the get_accounts_by_authorizers RPC
     */
-   struct get_accounts_by_authorizers_params
-   {
+   struct get_accounts_by_authorizers_params {
       /**
        * This structure is an concrete alias of `chain::permission_level` to facilitate
        * specialized rules when transforming to/from variants.
        */
-      struct permission_level : public chain::permission_level
-      {};
+      struct permission_level : public chain::permission_level {};
 
       std::vector<permission_level>       accounts;
       std::vector<chain::public_key_type> keys;
@@ -61,10 +58,8 @@ public:
    /**
     * Result of the get_accounts_by_authorizers RPC
     */
-   struct get_accounts_by_authorizers_result
-   {
-      struct account_result
-      {
+   struct get_accounts_by_authorizers_result {
+      struct account_result {
          chain::name                            account_name;
          chain::name                            permission_name;
          std::optional<chain::permission_level> authorizing_account;
@@ -98,8 +93,7 @@ using params = eosio::chain_apis::account_query_db::get_accounts_by_authorizers_
  * @param a
  * @param v
  */
-inline void to_variant(const params::permission_level& a, fc::variant& v)
-{
+inline void to_variant(const params::permission_level& a, fc::variant& v) {
    if (a.permission.empty()) {
       v = a.actor.to_string();
    } else {
@@ -113,8 +107,7 @@ inline void to_variant(const params::permission_level& a, fc::variant& v)
  * @param v
  * @param a
  */
-inline void from_variant(const fc::variant& v, params::permission_level& a)
-{
+inline void from_variant(const fc::variant& v, params::permission_level& a) {
    if (v.is_string()) {
       from_variant(v, a.actor);
       a.permission = {};

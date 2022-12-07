@@ -32,8 +32,7 @@ namespace boost {
 namespace fibers {
 namespace asio {
 
-class round_robin : public algo::algorithm
-{
+class round_robin : public algo::algorithm {
 private:
    typedef scheduler::ready_queue_t rqueue_t;
 
@@ -45,16 +44,14 @@ private:
 
 public:
    //[asio_rr_service_top
-   struct service : public boost::asio::io_service::service
-   {
+   struct service : public boost::asio::io_service::service {
       static boost::asio::io_service::id id;
 
       std::unique_ptr<boost::asio::io_service::work> work_;
 
       service(boost::asio::io_service& io_svc)
          : boost::asio::io_service::service(io_svc)
-         , work_{ new boost::asio::io_service::work(io_svc) }
-      {
+         , work_{ new boost::asio::io_service::work(io_svc) } {
          io_svc.post([&io_svc]() {
             //]
             //[asio_rr_service_lambda
@@ -90,8 +87,7 @@ public:
    //[asio_rr_ctor
    round_robin(boost::asio::io_service& io_svc)
       : io_svc_(io_svc)
-      , suspend_timer_(io_svc_)
-   {
+      , suspend_timer_(io_svc_) {
       // We use add_service() very deliberately. This will throw
       // service_already_exists if you pass the same io_service instance to
       // more than one round_robin instance.
@@ -99,14 +95,12 @@ public:
    }
    //]
 
-   void awakened(context* ctx) noexcept
-   {
+   void awakened(context* ctx) noexcept {
       BOOST_ASSERT(nullptr != ctx);
       ctx->ready_link(rqueue_); /*< fiber, enqueue on ready queue >*/
    }
 
-   context* pick_next() noexcept
-   {
+   context* pick_next() noexcept {
       context* ctx(nullptr);
       if (!rqueue_.empty()) { /*<
        pop an item from the ready queue
@@ -122,8 +116,7 @@ public:
    bool has_ready_fibers() const noexcept { return !rqueue_.empty(); }
 
    //[asio_rr_suspend_until
-   void suspend_until(std::chrono::steady_clock::time_point const& abs_time) noexcept
-   {
+   void suspend_until(std::chrono::steady_clock::time_point const& abs_time) noexcept {
       // Set a timer so at least one handler will eventually fire, causing
       // run_one() to eventually return. Set a timer even if abs_time ==
       // time_point::max() so the timer can be canceled by our notify()
@@ -157,8 +150,7 @@ public:
    //]
 
    //[asio_rr_notify
-   void notify() noexcept
-   {
+   void notify() noexcept {
       // Something has happened that should wake one or more fibers BEFORE
       // suspend_timer_ expires. Reset the timer to cause it to fire
       // immediately, causing the run_one() call to return. In theory we

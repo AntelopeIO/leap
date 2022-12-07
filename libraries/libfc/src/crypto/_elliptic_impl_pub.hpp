@@ -12,8 +12,7 @@ namespace detail {
 
 void _init_lib();
 
-class public_key_impl
-{
+class public_key_impl {
 public:
    public_key_impl() BOOST_NOEXCEPT;
    public_key_impl(const public_key_impl& cpy) BOOST_NOEXCEPT;

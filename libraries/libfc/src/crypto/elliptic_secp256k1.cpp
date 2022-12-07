@@ -25,21 +25,18 @@
 namespace fc {
 namespace ecc {
 namespace detail {
-const secp256k1_context* _get_context()
-{
+const secp256k1_context* _get_context() {
    static secp256k1_context* ctx =
       secp256k1_context_create(SECP256K1_CONTEXT_VERIFY | SECP256K1_CONTEXT_SIGN);
    return ctx;
 }
 
-void _init_lib()
-{
+void _init_lib() {
    static const secp256k1_context* ctx = _get_context();
    (void)ctx;
 }
 
-class public_key_impl
-{
+class public_key_impl {
 public:
    public_key_impl() BOOST_NOEXCEPT { _init_lib(); }
 
@@ -59,8 +56,7 @@ const private_key_secret&   get_half_curve_order();
 
 static const public_key_data empty_pub;
 
-fc::sha512 private_key::get_shared_secret(const public_key& other) const
-{
+fc::sha512 private_key::get_shared_secret(const public_key& other) const {
    static const private_key_secret empty_priv;
    FC_ASSERT(my->_key != empty_priv);
    FC_ASSERT(other.my->_key != empty_pub);
@@ -85,48 +81,38 @@ fc::sha512 private_key::get_shared_secret(const public_key& other) const
 public_key::public_key() {}
 
 public_key::public_key(const public_key& pk)
-   : my(pk.my)
-{
-}
+   : my(pk.my) {}
 
 public_key::public_key(public_key&& pk)
-   : my(std::move(pk.my))
-{
-}
+   : my(std::move(pk.my)) {}
 
 public_key::~public_key() {}
 
-public_key& public_key::operator=(const public_key& pk)
-{
+public_key& public_key::operator=(const public_key& pk) {
    my = pk.my;
    return *this;
 }
 
-public_key& public_key::operator=(public_key&& pk)
-{
+public_key& public_key::operator=(public_key&& pk) {
    my = pk.my;
    return *this;
 }
 
-bool public_key::valid() const
-{
+bool public_key::valid() const {
    return my->_key != empty_pub;
 }
 
-std::string public_key::to_base58() const
-{
+std::string public_key::to_base58() const {
    FC_ASSERT(my->_key != empty_pub);
    return to_base58(my->_key);
 }
 
-public_key_data public_key::serialize() const
-{
+public_key_data public_key::serialize() const {
    FC_ASSERT(my->_key != empty_pub);
    return my->_key;
 }
 
-public_key::public_key(const public_key_point_data& dat)
-{
+public_key::public_key(const public_key_point_data& dat) {
    const char* front = &dat.data[0];
    if (*front == 0) {
    } else {
@@ -140,13 +126,11 @@ public_key::public_key(const public_key_point_data& dat)
    }
 }
 
-public_key::public_key(const public_key_data& dat)
-{
+public_key::public_key(const public_key_data& dat) {
    my->_key = dat;
 }
 
-public_key::public_key(const compact_signature& c, const fc::sha256& digest, bool check_canonical)
-{
+public_key::public_key(const compact_signature& c, const fc::sha256& digest, bool check_canonical) {
    int nV = c.data[0];
    if (nV < 27 || nV >= 35)
       FC_THROW_EXCEPTION(exception, "unable to reconstruct public key from signature");

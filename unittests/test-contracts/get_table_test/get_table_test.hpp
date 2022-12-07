@@ -9,72 +9,69 @@
 
 namespace eosio {
 namespace internal_use_do_not_use {
-extern "C"
-{
-   __attribute__((eosio_wasm_import)) int32_t alt_bn128_add(const char* op1_data,
-                                                            uint32_t    op1_length,
-                                                            const char* op2_data,
-                                                            uint32_t    op2_length,
-                                                            char*       result,
-                                                            uint32_t    result_length);
+extern "C" {
+__attribute__((eosio_wasm_import)) int32_t alt_bn128_add(const char* op1_data,
+                                                         uint32_t    op1_length,
+                                                         const char* op2_data,
+                                                         uint32_t    op2_length,
+                                                         char*       result,
+                                                         uint32_t    result_length);
 
-   __attribute__((eosio_wasm_import)) int32_t alt_bn128_mul(const char* op1_data,
-                                                            uint32_t    op1_length,
-                                                            const char* op2_data,
-                                                            uint32_t    op2_length,
-                                                            char*       result,
-                                                            uint32_t    result_length);
+__attribute__((eosio_wasm_import)) int32_t alt_bn128_mul(const char* op1_data,
+                                                         uint32_t    op1_length,
+                                                         const char* op2_data,
+                                                         uint32_t    op2_length,
+                                                         char*       result,
+                                                         uint32_t    result_length);
 
-   __attribute__((eosio_wasm_import)) int32_t alt_bn128_pair(const char* op1_data, uint32_t op1_length);
+__attribute__((eosio_wasm_import)) int32_t alt_bn128_pair(const char* op1_data, uint32_t op1_length);
 
-   __attribute__((eosio_wasm_import)) int32_t mod_exp(const char* base_data,
-                                                      uint32_t    base_length,
-                                                      const char* exp_data,
-                                                      uint32_t    exp_length,
-                                                      const char* mod_data,
-                                                      uint32_t    mod_length,
-                                                      char*       result,
-                                                      uint32_t    result_length);
+__attribute__((eosio_wasm_import)) int32_t mod_exp(const char* base_data,
+                                                   uint32_t    base_length,
+                                                   const char* exp_data,
+                                                   uint32_t    exp_length,
+                                                   const char* mod_data,
+                                                   uint32_t    mod_length,
+                                                   char*       result,
+                                                   uint32_t    result_length);
 
-   __attribute__((eosio_wasm_import)) int32_t blake2_f(uint32_t    rounds,
-                                                       const char* state,
-                                                       uint32_t    len_state,
-                                                       const char* message,
-                                                       uint32_t    len_message,
-                                                       const char* t0_offset,
-                                                       uint32_t    len_t0_offset,
-                                                       const char* t1_offset,
-                                                       uint32_t    len_t1_offset,
-                                                       int32_t     final,
-                                                       char*       result,
-                                                       uint32_t    len_result);
+__attribute__((eosio_wasm_import)) int32_t blake2_f(uint32_t    rounds,
+                                                    const char* state,
+                                                    uint32_t    len_state,
+                                                    const char* message,
+                                                    uint32_t    len_message,
+                                                    const char* t0_offset,
+                                                    uint32_t    len_t0_offset,
+                                                    const char* t1_offset,
+                                                    uint32_t    len_t1_offset,
+                                                    int32_t     final,
+                                                    char*       result,
+                                                    uint32_t    len_result);
 
-   __attribute__((eosio_wasm_import)) void sha3(const char* input_data,
-                                                uint32_t    input_length,
-                                                char*       output_data,
-                                                uint32_t    output_length,
-                                                int32_t     keccak);
+__attribute__((eosio_wasm_import)) void sha3(const char* input_data,
+                                             uint32_t    input_length,
+                                             char*       output_data,
+                                             uint32_t    output_length,
+                                             int32_t     keccak);
 
-   __attribute__((eosio_wasm_import)) int32_t k1_recover(const char* signature_data,
-                                                         uint32_t    signature_length,
-                                                         const char* digest_data,
-                                                         uint32_t    digest_length,
-                                                         char*       output_data,
-                                                         uint32_t    output_length);
+__attribute__((eosio_wasm_import)) int32_t k1_recover(const char* signature_data,
+                                                      uint32_t    signature_length,
+                                                      const char* digest_data,
+                                                      uint32_t    digest_length,
+                                                      char*       output_data,
+                                                      uint32_t    output_length);
 }
 }
 }
 
 using namespace eosio;
 
-class [[eosio::contract]] get_table_test : public eosio::contract
-{
+class [[eosio::contract]] get_table_test : public eosio::contract {
 public:
    using eosio::contract::contract;
 
    // Number object
-   struct [[eosio::table]] numobj
-   {
+   struct [[eosio::table]] numobj {
       uint64_t    key;
       uint64_t    sec64;
       uint128_t   sec128;
@@ -89,8 +86,7 @@ public:
    };
 
    // Hash object
-   struct [[eosio::table]] hashobj
-   {
+   struct [[eosio::table]] hashobj {
       uint64_t    key;
       std::string hash_input;
       checksum256 sec256;

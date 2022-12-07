@@ -32,14 +32,12 @@ using namespace fc;
 
 using mvo = fc::mutable_variant_object;
 
-class chain_plugin_tester : public TESTER
-{
+class chain_plugin_tester : public TESTER {
 public:
    action_result push_action(const account_name&   signer,
                              const action_name&    name,
                              const variant_object& data,
-                             bool                  auth = true)
-   {
+                             bool                  auth = true) {
       string action_type_name = abi_ser.get_action_type(name);
 
       action act;
@@ -55,13 +53,11 @@ public:
                                          .to_uint64_t());
    }
 
-   action_result deposit(const account_name& owner, const asset& amount)
-   {
+   action_result deposit(const account_name& owner, const asset& amount) {
       return push_action(name(owner), "deposit"_n, mvo()("owner", owner)("amount", amount));
    }
 
-   void transfer(name from, name to, const asset& amount, name manager = config::system_account_name)
-   {
+   void transfer(name from, name to, const asset& amount, name manager = config::system_account_name) {
       base_tester::push_action(
          "eosio.token"_n,
          "transfer"_n,
@@ -69,21 +65,18 @@ public:
          mutable_variant_object()("from", from)("to", to)("quantity", amount)("memo", ""));
    }
 
-   action_result stake(const account_name& from, const account_name& to, const asset& net, const asset& cpu)
-   {
+   action_result stake(const account_name& from, const account_name& to, const asset& net, const asset& cpu) {
       return push_action(name(from),
                          "delegatebw"_n,
                          mvo()("from", from)("receiver", to)("stake_net_quantity", net)("stake_cpu_quantity",
                                                                                         cpu)("transfer", 0));
    }
 
-   action_result stake(const account_name& acnt, const asset& net, const asset& cpu)
-   {
+   action_result stake(const account_name& acnt, const asset& net, const asset& cpu) {
       return stake(acnt, acnt, net, cpu);
    }
 
-   asset get_balance(const account_name& act)
-   {
+   asset get_balance(const account_name& act) {
       vector<char> data = get_row_by_account(
          "eosio.token"_n, act, "accounts"_n, name(symbol(CORE_SYMBOL).to_symbol_code().value));
       return data.empty() ? asset(0, symbol(CORE_SYMBOL))
@@ -97,8 +90,7 @@ public:
 
    transaction_trace_ptr create_account_with_resources(account_name a,
                                                        account_name creator,
-                                                       uint32_t     ram_bytes = 8000)
-   {
+                                                       uint32_t     ram_bytes = 8000) {
       signed_transaction trx;
       set_transaction_headers(trx);
 
@@ -139,8 +131,7 @@ public:
                                                        asset        ramfunds,
                                                        bool         multisig,
                                                        asset        net = core_from_string("10.0000"),
-                                                       asset        cpu = core_from_string("10.0000"))
-   {
+                                                       asset        cpu = core_from_string("10.0000")) {
       signed_transaction trx;
       set_transaction_headers(trx);
 
@@ -210,22 +201,19 @@ public:
       return push_transaction(trx);
    }
 
-   void create_currency(name contract, name manager, asset maxsupply)
-   {
+   void create_currency(name contract, name manager, asset maxsupply) {
       auto act = mutable_variant_object()("issuer", manager)("maximum_supply", maxsupply);
 
       base_tester::push_action(contract, "create"_n, contract, act);
    }
 
-   void issue(name to, const asset& amount, name manager = config::system_account_name)
-   {
+   void issue(name to, const asset& amount, name manager = config::system_account_name) {
       base_tester::push_action("eosio.token"_n,
                                "issue"_n,
                                manager,
                                mutable_variant_object()("to", to)("quantity", amount)("memo", ""));
    }
-   void setup_system_accounts()
-   {
+   void setup_system_accounts() {
       create_accounts({ "eosio.token"_n,
                         "eosio.ram"_n,
                         "eosio.ramfee"_n,
@@ -266,8 +254,7 @@ public:
       }
    }
 
-   read_only::get_account_results get_account_info(const account_name acct)
-   {
+   read_only::get_account_results get_account_info(const account_name acct) {
       auto                          account_object = control->get_account(acct);
       read_only::get_account_params params         = { account_object.name };
       chain_apis::read_only         plugin(
@@ -275,8 +262,7 @@ public:
       return plugin.get_account(params, fc::time_point::maximum());
    }
 
-   transaction_trace_ptr setup_producer_accounts(const std::vector<account_name>& accounts)
-   {
+   transaction_trace_ptr setup_producer_accounts(const std::vector<account_name>& accounts) {
       account_name       creator(config::system_account_name);
       signed_transaction trx;
       set_transaction_headers(trx);
@@ -316,8 +302,7 @@ public:
       return push_transaction(trx);
    }
 
-   action_result regproducer(const account_name& acnt, int params_fixture = 1)
-   {
+   action_result regproducer(const account_name& acnt, int params_fixture = 1) {
       action_result r = push_action(
          acnt,
          "regproducer"_n,
@@ -326,21 +311,21 @@ public:
       return r;
    }
 
-   action_result unstake(const account_name& from, const account_name& to, const asset& net, const asset& cpu)
-   {
+   action_result unstake(const account_name& from,
+                         const account_name& to,
+                         const asset&        net,
+                         const asset&        cpu) {
       return push_action(
          name(from),
          "undelegatebw"_n,
          mvo()("from", from)("receiver", to)("unstake_net_quantity", net)("unstake_cpu_quantity", cpu));
    }
 
-   action_result buyram(const account_name& payer, account_name receiver, const asset& eosin)
-   {
+   action_result buyram(const account_name& payer, account_name receiver, const asset& eosin) {
       return push_action(payer, "buyram"_n, mvo()("payer", payer)("receiver", receiver)("quant", eosin));
    }
 
-   vector<name> active_and_vote_producers()
-   {
+   vector<name> active_and_vote_producers() {
       // stake more than 15% of total EOS supply to activate chain
       transfer(name("eosio"), name("alice1111111"), core_from_string("650000000.0000"), name("eosio"));
       BOOST_CHECK_EQUAL(success(),
@@ -411,8 +396,7 @@ public:
       return producer_names;
    }
 
-   action_result buyrex(const name& from, const asset& amount)
-   {
+   action_result buyrex(const name& from, const asset& amount) {
       return push_action(name(from), "buyrex"_n, mvo()("from", from)("amount", amount));
    }
 
@@ -422,8 +406,7 @@ public:
 
 BOOST_AUTO_TEST_SUITE(chain_plugin_tests)
 
-BOOST_FIXTURE_TEST_CASE(account_results_total_resources_test, chain_plugin_tester)
-{
+BOOST_FIXTURE_TEST_CASE(account_results_total_resources_test, chain_plugin_tester) {
    try {
 
       produce_blocks(10);
@@ -442,8 +425,7 @@ BOOST_FIXTURE_TEST_CASE(account_results_total_resources_test, chain_plugin_teste
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_FIXTURE_TEST_CASE(account_results_self_delegated_bandwidth_test, chain_plugin_tester)
-{
+BOOST_FIXTURE_TEST_CASE(account_results_self_delegated_bandwidth_test, chain_plugin_tester) {
    try {
 
       produce_blocks(10);
@@ -478,8 +460,7 @@ BOOST_FIXTURE_TEST_CASE(account_results_self_delegated_bandwidth_test, chain_plu
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_FIXTURE_TEST_CASE(account_results_refund_request_test, chain_plugin_tester)
-{
+BOOST_FIXTURE_TEST_CASE(account_results_refund_request_test, chain_plugin_tester) {
    try {
 
       produce_blocks(10);
@@ -539,8 +520,7 @@ BOOST_FIXTURE_TEST_CASE(account_results_refund_request_test, chain_plugin_tester
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_FIXTURE_TEST_CASE(account_results_voter_info_test, chain_plugin_tester)
-{
+BOOST_FIXTURE_TEST_CASE(account_results_voter_info_test, chain_plugin_tester) {
    try {
 
       produce_blocks(10);
@@ -558,8 +538,7 @@ BOOST_FIXTURE_TEST_CASE(account_results_voter_info_test, chain_plugin_tester)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_FIXTURE_TEST_CASE(account_results_rex_info_test, chain_plugin_tester)
-{
+BOOST_FIXTURE_TEST_CASE(account_results_rex_info_test, chain_plugin_tester) {
    try {
 
       produce_blocks(10);

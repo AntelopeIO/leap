@@ -18,8 +18,7 @@ using namespace boost::signals2;
  * on the main fork). After this, whenever any blockchain in the network gets a new block, that block will be
  * pushed to all other blockchains in the network as well.
  */
-class tester_network
-{
+class tester_network {
 public:
    /**
     * @brief Add a new blockchain to the network

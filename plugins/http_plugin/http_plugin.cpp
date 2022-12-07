@@ -16,8 +16,7 @@
 namespace eosio {
 
 namespace {
-inline fc::logger& logger()
-{
+inline fc::logger& logger() {
    static fc::logger log{ "http_plugin" };
    return log;
 }
@@ -25,35 +24,29 @@ inline fc::logger& logger()
 
 static appbase::abstract_plugin& _http_plugin = app().register_plugin<http_plugin>();
 
+using std::map;
+using std::vector;
+using std::set;
+using std::string;
+using std::regex;
 using boost::optional;
+using boost::asio::ip::tcp;
 using boost::asio::ip::address_v4;
 using boost::asio::ip::address_v6;
-using boost::asio::ip::tcp;
-using std::map;
-using std::regex;
-using std::set;
 using std::shared_ptr;
-using std::string;
-using std::vector;
 
-enum https_ecdh_curve_t
-{
-   SECP384R1,
-   PRIME256V1
-};
+enum https_ecdh_curve_t { SECP384R1, PRIME256V1 };
 
 static http_plugin_defaults current_http_plugin_defaults;
 static bool                 verbose_http_errors = false;
 
-void http_plugin::set_defaults(const http_plugin_defaults& config)
-{
+void http_plugin::set_defaults(const http_plugin_defaults& config) {
    current_http_plugin_defaults = config;
 }
 
 using http_plugin_impl_ptr = std::shared_ptr<class http_plugin_impl>;
 
-class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl>
-{
+class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
 public:
    http_plugin_impl() = default;
 
@@ -91,8 +84,7 @@ public:
     */
    static detail::internal_url_handler make_app_thread_url_handler(int                  priority,
                                                                    url_handler          next,
-                                                                   http_plugin_impl_ptr my)
-   {
+                                                                   http_plugin_impl_ptr my) {
       auto next_ptr = std::make_shared<url_handler>(std::move(next));
       return [my = std::move(my), priority, next_ptr = std::move(next_ptr)](
                 detail::abstract_conn_ptr conn, string r, string b, url_response_callback then) {
@@ -132,8 +124,7 @@ public:
     * @param next - the next handler for responses
     * @return the constructed internal_url_handler
     */
-   static detail::internal_url_handler make_http_thread_url_handler(url_handler next)
-   {
+   static detail::internal_url_handler make_http_thread_url_handler(url_handler next) {
       return [next = std::move(next)](
                 const detail::abstract_conn_ptr& conn, string r, string b, url_response_callback then) {
          try {
@@ -144,15 +135,13 @@ public:
       };
    }
 
-   void add_aliases_for_endpoint(const tcp::endpoint& ep, const string& host, const string& port)
-   {
+   void add_aliases_for_endpoint(const tcp::endpoint& ep, const string& host, const string& port) {
       auto resolved_port_str = std::to_string(ep.port());
       plugin_state->valid_hosts.emplace(host + ":" + port);
       plugin_state->valid_hosts.emplace(host + ":" + resolved_port_str);
    }
 
-   void create_beast_server(bool useSSL, bool isUnix = false)
-   {
+   void create_beast_server(bool useSSL, bool isUnix = false) {
       if (useSSL) {
          try {
             plugin_state->ctx.emplace(ssl::context::tlsv12);
@@ -203,14 +192,12 @@ public:
 };
 
 http_plugin::http_plugin()
-   : my(new http_plugin_impl())
-{
+   : my(new http_plugin_impl()) {
    app().register_config_type<https_ecdh_curve_t>();
 }
 http_plugin::~http_plugin() = default;
 
-void http_plugin::set_program_options(options_description&, options_description& cfg)
-{
+void http_plugin::set_program_options(options_description&, options_description& cfg) {
    if (current_http_plugin_defaults.default_unix_socket_path.length())
       cfg.add_options()(
          "unix-socket-path",
@@ -322,8 +309,7 @@ void http_plugin::set_program_options(options_description&, options_description&
                            "If set to false, do not keep HTTP connections alive, even if client requests.");
 }
 
-void http_plugin::plugin_initialize(const variables_map& options)
-{
+void http_plugin::plugin_initialize(const variables_map& options) {
    try {
       my->plugin_state->max_body_size = options.at("max-body-size").as<uint32_t>();
       verbose_http_errors             = options.at("verbose-http-errors").as<bool>();
@@ -432,8 +418,7 @@ void http_plugin::plugin_initialize(const variables_map& options)
    FC_LOG_AND_RETHROW()
 }
 
-void http_plugin::plugin_startup()
-{
+void http_plugin::plugin_startup() {
 
    handle_sighup(); // setup logging
    app().post(appbase::priority::high, [this]() {
@@ -524,14 +509,12 @@ void http_plugin::plugin_startup()
    });
 }
 
-void http_plugin::handle_sighup()
-{
+void http_plugin::handle_sighup() {
    const std::string name = logger().name(); // copy needed as update can destroy logger impl which holds name
    fc::logger::update(name, logger());
 }
 
-void http_plugin::plugin_shutdown()
-{
+void http_plugin::plugin_shutdown() {
    if (my->beast_server)
       my->beast_server->stop_listening();
    if (my->beast_https_server)
@@ -553,14 +536,12 @@ void http_plugin::plugin_shutdown()
    app().post(0, [me = my]() {}); // keep my pointer alive until queue is drained
 }
 
-void http_plugin::add_handler(const string& url, const url_handler& handler, int priority)
-{
+void http_plugin::add_handler(const string& url, const url_handler& handler, int priority) {
    fc_ilog(logger(), "add api url: ${c}", ("c", url));
    my->plugin_state->url_handlers[url] = my->make_app_thread_url_handler(priority, handler, my);
 }
 
-void http_plugin::add_async_handler(const string& url, const url_handler& handler)
-{
+void http_plugin::add_async_handler(const string& url, const url_handler& handler) {
    fc_ilog(logger(), "add api url: ${c}", ("c", url));
    my->plugin_state->url_handlers[url] = my->make_http_thread_url_handler(handler);
 }
@@ -568,8 +549,7 @@ void http_plugin::add_async_handler(const string& url, const url_handler& handle
 void http_plugin::handle_exception(const char*                  api_name,
                                    const char*                  call_name,
                                    const string&                body,
-                                   const url_response_callback& cb)
-{
+                                   const url_response_callback& cb) {
    try {
       try {
          throw;
@@ -627,24 +607,20 @@ void http_plugin::handle_exception(const char*                  api_name,
    }
 }
 
-bool http_plugin::is_on_loopback() const
-{
+bool http_plugin::is_on_loopback() const {
    return (!my->listen_endpoint || my->listen_endpoint->address().is_loopback()) &&
           (!my->https_listen_endpoint || my->https_listen_endpoint->address().is_loopback());
 }
 
-bool http_plugin::is_secure() const
-{
+bool http_plugin::is_secure() const {
    return (!my->listen_endpoint || my->listen_endpoint->address().is_loopback());
 }
 
-bool http_plugin::verbose_errors()
-{
+bool http_plugin::verbose_errors() {
    return verbose_http_errors;
 }
 
-http_plugin::get_supported_apis_result http_plugin::get_supported_apis() const
-{
+http_plugin::get_supported_apis_result http_plugin::get_supported_apis() const {
    get_supported_apis_result result;
 
    for (const auto& handler : my->plugin_state->url_handlers) {
@@ -655,13 +631,11 @@ http_plugin::get_supported_apis_result http_plugin::get_supported_apis() const
    return result;
 }
 
-fc::microseconds http_plugin::get_max_response_time() const
-{
+fc::microseconds http_plugin::get_max_response_time() const {
    return my->plugin_state->max_response_time;
 }
 
-std::istream& operator>>(std::istream& in, https_ecdh_curve_t& curve)
-{
+std::istream& operator>>(std::istream& in, https_ecdh_curve_t& curve) {
    std::string s;
    in >> s;
    if (s == "secp384r1")
@@ -673,8 +647,7 @@ std::istream& operator>>(std::istream& in, https_ecdh_curve_t& curve)
    return in;
 }
 
-std::ostream& operator<<(std::ostream& osm, https_ecdh_curve_t curve)
-{
+std::ostream& operator<<(std::ostream& osm, https_ecdh_curve_t curve) {
    if (curve == SECP384R1) {
       osm << "secp384r1";
    } else if (curve == PRIME256V1) {

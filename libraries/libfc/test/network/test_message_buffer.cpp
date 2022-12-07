@@ -6,8 +6,7 @@
 #include <boost/test/included/unit_test.hpp>
 
 namespace {
-size_t mb_size(boost::asio::mutable_buffer& mb)
-{
+size_t mb_size(boost::asio::mutable_buffer& mb) {
 #if BOOST_VERSION >= 106600
    return mb.size();
 #else
@@ -15,8 +14,7 @@ size_t mb_size(boost::asio::mutable_buffer& mb)
 #endif
 }
 
-void* mb_data(boost::asio::mutable_buffer& mb)
-{
+void* mb_data(boost::asio::mutable_buffer& mb) {
 #if BOOST_VERSION >= 106600
    return mb.data();
 #else
@@ -31,8 +29,7 @@ constexpr size_t def_buffer_size_mb = 4;
 constexpr size_t def_buffer_size    = 1024 * 1024 * def_buffer_size_mb;
 
 /// Test default construction and buffer sequence generation
-BOOST_AUTO_TEST_CASE(message_buffer_construction)
-{
+BOOST_AUTO_TEST_CASE(message_buffer_construction) {
    try {
       fc::message_buffer<def_buffer_size> mb;
       BOOST_CHECK_EQUAL(mb.total_bytes(), def_buffer_size);
@@ -51,8 +48,7 @@ BOOST_AUTO_TEST_CASE(message_buffer_construction)
 }
 
 /// Test buffer growth and shrinking
-BOOST_AUTO_TEST_CASE(message_buffer_growth)
-{
+BOOST_AUTO_TEST_CASE(message_buffer_growth) {
    try {
       fc::message_buffer<def_buffer_size> mb;
       mb.add_buffer_to_chain();
@@ -137,8 +133,7 @@ BOOST_AUTO_TEST_CASE(message_buffer_growth)
 }
 
 /// Test peek and read across multiple buffers
-BOOST_AUTO_TEST_CASE(message_buffer_peek_read)
-{
+BOOST_AUTO_TEST_CASE(message_buffer_peek_read) {
    try {
       {
          const uint32_t            small = 32;
@@ -209,8 +204,7 @@ BOOST_AUTO_TEST_CASE(message_buffer_peek_read)
 }
 
 /// Test automatic allocation when advancing the read_ptr to the end.
-BOOST_AUTO_TEST_CASE(message_buffer_write_ptr_to_end)
-{
+BOOST_AUTO_TEST_CASE(message_buffer_write_ptr_to_end) {
    try {
       {
          const uint32_t            small = 32;
@@ -251,8 +245,7 @@ BOOST_AUTO_TEST_CASE(message_buffer_write_ptr_to_end)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(message_buffer_read_peek_bounds)
-{
+BOOST_AUTO_TEST_CASE(message_buffer_read_peek_bounds) {
    using my_message_buffer_t = fc::message_buffer<1024>;
    my_message_buffer_t mbuff;
    unsigned char       stuff[] = { 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
@@ -280,8 +273,7 @@ BOOST_AUTO_TEST_CASE(message_buffer_read_peek_bounds)
    BOOST_CHECK_THROW(mbuff.read(&throw_away_buffer, 1), fc::out_of_range_exception);
 }
 
-BOOST_AUTO_TEST_CASE(message_buffer_read_peek_bounds_multi)
-{
+BOOST_AUTO_TEST_CASE(message_buffer_read_peek_bounds_multi) {
    using my_message_buffer_t = fc::message_buffer<5>;
    my_message_buffer_t mbuff;
    unsigned char       stuff[] = { 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
@@ -313,8 +305,7 @@ BOOST_AUTO_TEST_CASE(message_buffer_read_peek_bounds_multi)
    BOOST_CHECK_THROW(mbuff.read(&throw_away_buffer, 1), fc::out_of_range_exception);
 }
 
-BOOST_AUTO_TEST_CASE(message_buffer_datastream)
-{
+BOOST_AUTO_TEST_CASE(message_buffer_datastream) {
    using my_message_buffer_t = fc::message_buffer<1024>;
    my_message_buffer_t mbuff;
 
@@ -355,8 +346,7 @@ BOOST_AUTO_TEST_CASE(message_buffer_datastream)
 
 // Make sure that the memory allocation is thread-safe.
 // A previous version used boost::object_pool without synchronization.
-BOOST_AUTO_TEST_CASE(test_message_buffer)
-{
+BOOST_AUTO_TEST_CASE(test_message_buffer) {
    std::vector<std::thread> threads;
    constexpr int            num_threads = 4;
    constexpr int            iterations  = 10000;

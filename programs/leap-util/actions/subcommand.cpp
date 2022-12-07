@@ -3,8 +3,7 @@
 #include <boost/exception_ptr.hpp>
 #include <fc/exception/exception.hpp>
 
-void leap_util_exception_handler::print_exception() noexcept
-{
+void leap_util_exception_handler::print_exception() noexcept {
    try {
       throw;
    } catch (const fc::exception& e) {

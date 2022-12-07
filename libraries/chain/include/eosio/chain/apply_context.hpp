@@ -18,22 +18,18 @@ namespace chain {
 class controller;
 class transaction_context;
 
-class apply_context
-{
+class apply_context {
 private:
    template<typename T>
-   class iterator_cache
-   {
+   class iterator_cache {
    public:
-      iterator_cache()
-      {
+      iterator_cache() {
          _end_iterator_to_table.reserve(8);
          _iterator_to_object.reserve(32);
       }
 
       /// Returns end iterator of the table.
-      int cache_table(const table_id_object& tobj)
-      {
+      int cache_table(const table_id_object& tobj) {
          auto itr = _table_cache.find(tobj.id);
          if (itr != _table_cache.end())
             return itr->second.second;
@@ -44,8 +40,7 @@ private:
          return ei;
       }
 
-      const table_id_object& get_table(table_id_object::id_type i) const
-      {
+      const table_id_object& get_table(table_id_object::id_type i) const {
          auto itr = _table_cache.find(i);
          EOS_ASSERT(itr != _table_cache.end(),
                     table_not_in_cache,
@@ -53,8 +48,7 @@ private:
          return *itr->second.first;
       }
 
-      int get_end_iterator_by_table_id(table_id_object::id_type i) const
-      {
+      int get_end_iterator_by_table_id(table_id_object::id_type i) const {
          auto itr = _table_cache.find(i);
          EOS_ASSERT(itr != _table_cache.end(),
                     table_not_in_cache,
@@ -62,8 +56,7 @@ private:
          return itr->second.second;
       }
 
-      const table_id_object* find_table_by_end_iterator(int ei) const
-      {
+      const table_id_object* find_table_by_end_iterator(int ei) const {
          EOS_ASSERT(ei < -1, invalid_table_iterator, "not an end iterator");
          auto indx = end_iterator_to_index(ei);
          if (indx >= _end_iterator_to_table.size())
@@ -71,8 +64,7 @@ private:
          return _end_iterator_to_table[indx];
       }
 
-      const T& get(int iterator)
-      {
+      const T& get(int iterator) {
          EOS_ASSERT(iterator != -1, invalid_table_iterator, "invalid iterator");
          EOS_ASSERT(iterator >= 0, table_operation_not_permitted, "dereference of end iterator");
          EOS_ASSERT(
@@ -82,8 +74,7 @@ private:
          return *result;
       }
 
-      void remove(int iterator)
-      {
+      void remove(int iterator) {
          EOS_ASSERT(iterator != -1, invalid_table_iterator, "invalid iterator");
          EOS_ASSERT(iterator >= 0, table_operation_not_permitted, "cannot call remove on end iterators");
          EOS_ASSERT(
@@ -96,8 +87,7 @@ private:
          _object_to_iterator.erase(obj_ptr);
       }
 
-      int add(const T& obj)
-      {
+      int add(const T& obj) {
          auto itr = _object_to_iterator.find(&obj);
          if (itr != _object_to_iterator.end())
             return itr->second;
@@ -126,8 +116,7 @@ private:
    struct array_size;
 
    template<typename T, size_t N>
-   struct array_size<std::array<T, N>>
-   {
+   struct array_size<std::array<T, N>> {
       static constexpr size_t size = N;
    };
 
@@ -143,23 +132,19 @@ private:
       SecondaryKeyProxy,
       SecondaryKeyProxyConst,
       typename std::enable_if<
-         std::is_same<SecondaryKey, typename std::decay<SecondaryKeyProxy>::type>::value>::type>
-   {
+         std::is_same<SecondaryKey, typename std::decay<SecondaryKeyProxy>::type>::value>::type> {
    public:
       typedef SecondaryKey secondary_key_type;
 
-      static void set(secondary_key_type& sk_in_table, const secondary_key_type& sk_from_wasm)
-      {
+      static void set(secondary_key_type& sk_in_table, const secondary_key_type& sk_from_wasm) {
          sk_in_table = sk_from_wasm;
       }
 
-      static void get(secondary_key_type& sk_from_wasm, const secondary_key_type& sk_in_table)
-      {
+      static void get(secondary_key_type& sk_from_wasm, const secondary_key_type& sk_in_table) {
          sk_from_wasm = sk_in_table;
       }
 
-      static auto create_tuple(const table_id_object& tab, const secondary_key_type& secondary)
-      {
+      static auto create_tuple(const table_id_object& tab, const secondary_key_type& secondary) {
          return boost::make_tuple(tab.id, secondary);
       }
    };
@@ -171,8 +156,7 @@ private:
       SecondaryKeyProxyConst,
       typename std::enable_if<
          !std::is_same<SecondaryKey, typename std::decay<SecondaryKeyProxy>::type>::value &&
-         std::is_pointer<typename std::decay<SecondaryKeyProxy>::type>::value>::type>
-   {
+         std::is_pointer<typename std::decay<SecondaryKeyProxy>::type>::value>::type> {
    public:
       typedef SecondaryKey           secondary_key_type;
       typedef SecondaryKeyProxy      secondary_key_proxy_type;
@@ -180,18 +164,15 @@ private:
 
       static constexpr size_t N = array_size<SecondaryKey>::size;
 
-      static void set(secondary_key_type& sk_in_table, secondary_key_proxy_const_type sk_from_wasm)
-      {
+      static void set(secondary_key_type& sk_in_table, secondary_key_proxy_const_type sk_from_wasm) {
          std::copy(sk_from_wasm, sk_from_wasm + N, sk_in_table.begin());
       }
 
-      static void get(secondary_key_proxy_type sk_from_wasm, const secondary_key_type& sk_in_table)
-      {
+      static void get(secondary_key_proxy_type sk_from_wasm, const secondary_key_type& sk_in_table) {
          std::copy(sk_in_table.begin(), sk_in_table.end(), sk_from_wasm);
       }
 
-      static auto create_tuple(const table_id_object& tab, secondary_key_proxy_const_type sk_from_wasm)
-      {
+      static auto create_tuple(const table_id_object& tab, secondary_key_proxy_const_type sk_from_wasm) {
          secondary_key_type secondary;
          std::copy(sk_from_wasm, sk_from_wasm + N, secondary.begin());
          return boost::make_tuple(tab.id, secondary);
@@ -204,8 +185,7 @@ public:
                typename std::add_lvalue_reference<typename ObjectType::secondary_key_type>::type,
             typename SecondaryKeyProxyConst = typename std::add_lvalue_reference<
                typename std::add_const<typename ObjectType::secondary_key_type>::type>::type>
-   class generic_index
-   {
+   class generic_index {
    public:
       typedef typename ObjectType::secondary_key_type secondary_key_type;
       typedef SecondaryKeyProxy                       secondary_key_proxy_type;
@@ -215,16 +195,13 @@ public:
          secondary_key_helper<secondary_key_type, secondary_key_proxy_type, secondary_key_proxy_const_type>;
 
       generic_index(apply_context& c)
-         : context(c)
-      {
-      }
+         : context(c) {}
 
       int store(uint64_t                       scope,
                 uint64_t                       table,
                 const account_name&            payer,
                 uint64_t                       id,
-                secondary_key_proxy_const_type value)
-      {
+                secondary_key_proxy_const_type value) {
          EOS_ASSERT(payer != account_name(),
                     invalid_table_payer,
                     "must specify a valid account to pay for new record");
@@ -257,8 +234,7 @@ public:
          return itr_cache.add(obj);
       }
 
-      void remove(int iterator)
-      {
+      void remove(int iterator) {
          const auto& obj = itr_cache.get(iterator);
 
          const auto& table_obj = itr_cache.get_table(obj.t_id);
@@ -287,8 +263,7 @@ public:
          itr_cache.remove(iterator);
       }
 
-      void update(int iterator, account_name payer, secondary_key_proxy_const_type secondary)
-      {
+      void update(int iterator, account_name payer, secondary_key_proxy_const_type secondary) {
          const auto& obj = itr_cache.get(iterator);
 
          const auto& table_obj = itr_cache.get_table(obj.t_id);
@@ -331,8 +306,7 @@ public:
                          uint64_t                       scope,
                          uint64_t                       table,
                          secondary_key_proxy_const_type secondary,
-                         uint64_t&                      primary)
-      {
+                         uint64_t&                      primary) {
          auto tab = context.find_table(name(code), name(scope), name(table));
          if (!tab)
             return -1;
@@ -353,8 +327,7 @@ public:
                                uint64_t                 scope,
                                uint64_t                 table,
                                secondary_key_proxy_type secondary,
-                               uint64_t&                primary)
-      {
+                               uint64_t&                primary) {
          auto tab = context.find_table(name(code), name(scope), name(table));
          if (!tab)
             return -1;
@@ -379,8 +352,7 @@ public:
                                uint64_t                 scope,
                                uint64_t                 table,
                                secondary_key_proxy_type secondary,
-                               uint64_t&                primary)
-      {
+                               uint64_t&                primary) {
          auto tab = context.find_table(name(code), name(scope), name(table));
          if (!tab)
             return -1;
@@ -401,8 +373,7 @@ public:
          return itr_cache.add(*itr);
       }
 
-      int end_secondary(uint64_t code, uint64_t scope, uint64_t table)
-      {
+      int end_secondary(uint64_t code, uint64_t scope, uint64_t table) {
          auto tab = context.find_table(name(code), name(scope), name(table));
          if (!tab)
             return -1;
@@ -410,8 +381,7 @@ public:
          return itr_cache.cache_table(*tab);
       }
 
-      int next_secondary(int iterator, uint64_t& primary)
-      {
+      int next_secondary(int iterator, uint64_t& primary) {
          if (iterator < -1)
             return -1; // cannot increment past end iterator of index
 
@@ -429,8 +399,7 @@ public:
          return itr_cache.add(*itr);
       }
 
-      int previous_secondary(int iterator, uint64_t& primary)
-      {
+      int previous_secondary(int iterator, uint64_t& primary) {
          const auto& idx =
             context.db.get_index<typename chainbase::get_index_type<ObjectType>::type, by_secondary>();
 
@@ -471,8 +440,7 @@ public:
                        uint64_t                 scope,
                        uint64_t                 table,
                        secondary_key_proxy_type secondary,
-                       uint64_t                 primary)
-      {
+                       uint64_t                 primary) {
          auto tab = context.find_table(name(code), name(scope), name(table));
          if (!tab)
             return -1;
@@ -487,8 +455,7 @@ public:
          return itr_cache.add(*obj);
       }
 
-      int lowerbound_primary(uint64_t code, uint64_t scope, uint64_t table, uint64_t primary)
-      {
+      int lowerbound_primary(uint64_t code, uint64_t scope, uint64_t table, uint64_t primary) {
          auto tab = context.find_table(name(code), name(scope), name(table));
          if (!tab)
             return -1;
@@ -506,8 +473,7 @@ public:
          return itr_cache.add(*itr);
       }
 
-      int upperbound_primary(uint64_t code, uint64_t scope, uint64_t table, uint64_t primary)
-      {
+      int upperbound_primary(uint64_t code, uint64_t scope, uint64_t table, uint64_t primary) {
          auto tab = context.find_table(name(code), name(scope), name(table));
          if (!tab)
             return -1;
@@ -526,8 +492,7 @@ public:
          return itr_cache.add(*itr);
       }
 
-      int next_primary(int iterator, uint64_t& primary)
-      {
+      int next_primary(int iterator, uint64_t& primary) {
          if (iterator < -1)
             return -1; // cannot increment past end iterator of table
 
@@ -545,8 +510,7 @@ public:
          return itr_cache.add(*itr);
       }
 
-      int previous_primary(int iterator, uint64_t& primary)
-      {
+      int previous_primary(int iterator, uint64_t& primary) {
          const auto& idx =
             context.db.get_index<typename chainbase::get_index_type<ObjectType>::type, by_primary>();
 
@@ -583,8 +547,7 @@ public:
          return itr_cache.add(*itr);
       }
 
-      void get(int iterator, uint64_t& primary, secondary_key_proxy_type secondary)
-      {
+      void get(int iterator, uint64_t& primary, secondary_key_proxy_type secondary) {
          const auto& obj = itr_cache.get(iterator);
          primary         = obj.primary_key;
          secondary_key_helper_t::get(secondary, obj.secondary_key);
@@ -610,8 +573,7 @@ public:
                                       transaction&&    trx,
                                       bool             replace_existing);
    bool cancel_deferred_transaction(const uint128_t& sender_id, account_name sender);
-   bool cancel_deferred_transaction(const uint128_t& sender_id)
-   {
+   bool cancel_deferred_transaction(const uint128_t& sender_id) {
       return cancel_deferred_transaction(sender_id, receiver);
    }
 

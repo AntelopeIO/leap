@@ -9,8 +9,7 @@
 #include <fc/crypto/k1_recover.hpp>
 
 namespace {
-uint32_t ceil_log2(uint32_t n)
-{
+uint32_t ceil_log2(uint32_t n) {
    if (n <= 1) {
       return 0;
    }
@@ -24,8 +23,7 @@ namespace webassembly {
 
 void interface::assert_recover_key(legacy_ptr<const fc::sha256> digest,
                                    legacy_span<const char>      sig,
-                                   legacy_span<const char>      pub) const
-{
+                                   legacy_span<const char>      pub) const {
    fc::crypto::signature   s;
    fc::crypto::public_key  p;
    datastream<const char*> ds(sig.data(), sig.size());
@@ -52,8 +50,7 @@ void interface::assert_recover_key(legacy_ptr<const fc::sha256> digest,
 
 int32_t interface::recover_key(legacy_ptr<const fc::sha256> digest,
                                legacy_span<const char>      sig,
-                               legacy_span<char>            pub) const
-{
+                               legacy_span<char>            pub) const {
    fc::crypto::signature   s;
    datastream<const char*> ds(sig.data(), sig.size());
    fc::raw::unpack(ds, s);
@@ -89,52 +86,44 @@ int32_t interface::recover_key(legacy_ptr<const fc::sha256> digest,
    }
 }
 
-void interface::assert_sha256(legacy_span<const char> data, legacy_ptr<const fc::sha256> hash_val) const
-{
+void interface::assert_sha256(legacy_span<const char> data, legacy_ptr<const fc::sha256> hash_val) const {
    auto result = context.trx_context.hash_with_checktime<fc::sha256>(data.data(), data.size());
    EOS_ASSERT(result == *hash_val, crypto_api_exception, "hash mismatch");
 }
 
-void interface::assert_sha1(legacy_span<const char> data, legacy_ptr<const fc::sha1> hash_val) const
-{
+void interface::assert_sha1(legacy_span<const char> data, legacy_ptr<const fc::sha1> hash_val) const {
    auto result = context.trx_context.hash_with_checktime<fc::sha1>(data.data(), data.size());
    EOS_ASSERT(result == *hash_val, crypto_api_exception, "hash mismatch");
 }
 
-void interface::assert_sha512(legacy_span<const char> data, legacy_ptr<const fc::sha512> hash_val) const
-{
+void interface::assert_sha512(legacy_span<const char> data, legacy_ptr<const fc::sha512> hash_val) const {
    auto result = context.trx_context.hash_with_checktime<fc::sha512>(data.data(), data.size());
    EOS_ASSERT(result == *hash_val, crypto_api_exception, "hash mismatch");
 }
 
-void interface::assert_ripemd160(legacy_span<const char> data, legacy_ptr<const fc::ripemd160> hash_val) const
-{
+void interface::assert_ripemd160(legacy_span<const char>         data,
+                                 legacy_ptr<const fc::ripemd160> hash_val) const {
    auto result = context.trx_context.hash_with_checktime<fc::ripemd160>(data.data(), data.size());
    EOS_ASSERT(result == *hash_val, crypto_api_exception, "hash mismatch");
 }
 
-void interface::sha1(legacy_span<const char> data, legacy_ptr<fc::sha1> hash_val) const
-{
+void interface::sha1(legacy_span<const char> data, legacy_ptr<fc::sha1> hash_val) const {
    *hash_val = context.trx_context.hash_with_checktime<fc::sha1>(data.data(), data.size());
 }
 
-void interface::sha256(legacy_span<const char> data, legacy_ptr<fc::sha256> hash_val) const
-{
+void interface::sha256(legacy_span<const char> data, legacy_ptr<fc::sha256> hash_val) const {
    *hash_val = context.trx_context.hash_with_checktime<fc::sha256>(data.data(), data.size());
 }
 
-void interface::sha512(legacy_span<const char> data, legacy_ptr<fc::sha512> hash_val) const
-{
+void interface::sha512(legacy_span<const char> data, legacy_ptr<fc::sha512> hash_val) const {
    *hash_val = context.trx_context.hash_with_checktime<fc::sha512>(data.data(), data.size());
 }
 
-void interface::ripemd160(legacy_span<const char> data, legacy_ptr<fc::ripemd160> hash_val) const
-{
+void interface::ripemd160(legacy_span<const char> data, legacy_ptr<fc::ripemd160> hash_val) const {
    *hash_val = context.trx_context.hash_with_checktime<fc::ripemd160>(data.data(), data.size());
 }
 
-int32_t interface::alt_bn128_add(span<const char> op1, span<const char> op2, span<char> result) const
-{
+int32_t interface::alt_bn128_add(span<const char> op1, span<const char> op2, span<char> result) const {
    bytes bop1(op1.data(), op1.data() + op1.size());
    bytes bop2(op2.data(), op2.data() + op2.size());
 
@@ -152,8 +141,9 @@ int32_t interface::alt_bn128_add(span<const char> op1, span<const char> op2, spa
    return return_code::success;
 }
 
-int32_t interface::alt_bn128_mul(span<const char> g1_point, span<const char> scalar, span<char> result) const
-{
+int32_t interface::alt_bn128_mul(span<const char> g1_point,
+                                 span<const char> scalar,
+                                 span<char>       result) const {
    bytes bg1_point(g1_point.data(), g1_point.data() + g1_point.size());
    bytes bscalar(scalar.data(), scalar.data() + scalar.size());
 
@@ -171,8 +161,7 @@ int32_t interface::alt_bn128_mul(span<const char> g1_point, span<const char> sca
    return return_code::success;
 }
 
-int32_t interface::alt_bn128_pair(span<const char> g1_g2_pairs) const
-{
+int32_t interface::alt_bn128_pair(span<const char> g1_g2_pairs) const {
    bytes bg1_g2_pairs(g1_g2_pairs.data(), g1_g2_pairs.data() + g1_g2_pairs.size());
 
    auto checktime = [this]() { context.trx_context.checktime(); };
@@ -187,8 +176,7 @@ int32_t interface::alt_bn128_pair(span<const char> g1_g2_pairs) const
 int32_t interface::mod_exp(span<const char> base,
                            span<const char> exp,
                            span<const char> modulus,
-                           span<char>       out) const
-{
+                           span<char>       out) const {
    if (context.control.is_speculative_block()) {
       unsigned int base_modulus_size = std::max(base.size(), modulus.size());
 
@@ -231,8 +219,7 @@ int32_t interface::blake2_f(uint32_t         rounds,
                             span<const char> t0_offset,
                             span<const char> t1_offset,
                             int32_t          final,
-                            span<char>       out) const
-{
+                            span<char>       out) const {
 
    bool  _final = final == 1;
    bytes bstate(state.data(), state.data() + state.size());
@@ -256,8 +243,7 @@ int32_t interface::blake2_f(uint32_t         rounds,
    return return_code::success;
 }
 
-void interface::sha3(span<const char> input, span<char> output, int32_t keccak) const
-{
+void interface::sha3(span<const char> input, span<char> output, int32_t keccak) const {
    bool              _keccak = keccak == 1;
    const size_t      bs      = eosio::chain::config::hashing_checktime_block_size;
    const char*       data    = input.data();
@@ -276,8 +262,7 @@ void interface::sha3(span<const char> input, span<char> output, int32_t keccak) 
    std::memcpy(output.data(), res.data(), copy_size);
 }
 
-int32_t interface::k1_recover(span<const char> signature, span<const char> digest, span<char> pub) const
-{
+int32_t interface::k1_recover(span<const char> signature, span<const char> digest, span<char> pub) const {
    bytes bsignature(signature.data(), signature.data() + signature.size());
    bytes bdigest(digest.data(), digest.data() + digest.size());
 

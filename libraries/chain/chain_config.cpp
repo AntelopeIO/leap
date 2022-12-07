@@ -5,8 +5,7 @@
 namespace eosio {
 namespace chain {
 
-void chain_config_v0::validate() const
-{
+void chain_config_v0::validate() const {
    EOS_ASSERT(target_block_net_usage_pct <= config::percent_100,
               action_validate_exception,
               "target block net usage percentage cannot exceed 100%");
@@ -55,16 +54,14 @@ void chain_config_v0::validate() const
       1 <= max_authority_depth, action_validate_exception, "max authority depth should be at least 1");
 }
 
-void chain_config_v1::validate() const
-{
+void chain_config_v1::validate() const {
    chain_config_v0::validate();
    EOS_ASSERT(max_action_return_value_size <= MAX_SIZE_OF_BYTE_ARRAYS,
               action_validate_exception,
               "max action return value size should be less than MAX_SIZE_OF_BYTE_ARRAYS");
 }
 
-bool config_entry_validator::operator()(uint32_t id) const
-{
+bool config_entry_validator::operator()(uint32_t id) const {
    bool allowed = true;
    switch (id) {
       case chain_config_v1::max_action_return_value_size_id: {

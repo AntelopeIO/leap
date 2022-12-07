@@ -15,11 +15,9 @@ std::map<std::string, uint32_t>           injector_utils::registered_injected;
 std::map<uint32_t, uint32_t>              injector_utils::injected_index_mapping;
 uint32_t                                  injector_utils::next_injected_index;
 
-void noop_injection_visitor::inject(Module& m)
-{ /* just pass */
+void noop_injection_visitor::inject(Module& m) { /* just pass */
 }
-void noop_injection_visitor::initializer()
-{ /* just pass */
+void noop_injection_visitor::initializer() { /* just pass */
 }
 
 void memories_injection_visitor::inject(Module& m) {}

@@ -19,8 +19,7 @@ using namespace std::literals;
 
 BOOST_AUTO_TEST_SUITE(get_block_num_tests)
 
-BOOST_AUTO_TEST_CASE(get_block_num)
-{
+BOOST_AUTO_TEST_CASE(get_block_num) {
    try {
       tester c(setup_policy::preactivate_feature_and_new_bios);
 

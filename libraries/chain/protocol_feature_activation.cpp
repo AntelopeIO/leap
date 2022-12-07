@@ -6,8 +6,7 @@
 namespace eosio {
 namespace chain {
 
-void protocol_feature_activation::reflector_init()
-{
+void protocol_feature_activation::reflector_init() {
    static_assert(fc::raw::has_feature_reflector_init_on_unpacked_reflected_types,
                  "protocol_feature_activation expects FC to support reflector_init");
 
@@ -29,8 +28,7 @@ void protocol_feature_activation::reflector_init()
 protocol_feature_activation_set::protocol_feature_activation_set(
    const protocol_feature_activation_set& orig_pfa_set,
    vector<digest_type>                    additional_features,
-   bool                                   enforce_disjoint)
-{
+   bool                                   enforce_disjoint) {
    std::sort(additional_features.begin(), additional_features.end());
 
    const auto& s1 = orig_pfa_set.protocol_features;

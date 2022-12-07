@@ -11,8 +11,7 @@ static_assert(sizeof(std::chrono::system_clock::duration::rep) >= 8,
               "system_clock is expected to be at least 64 bits");
 typedef std::chrono::system_clock::duration::rep tstamp;
 
-struct chain_size_message
-{
+struct chain_size_message {
    uint32_t      last_irreversible_block_num = 0;
    block_id_type last_irreversible_block_id;
    uint32_t      head_num = 0;
@@ -26,8 +25,7 @@ struct chain_size_message
 constexpr size_t max_p2p_address_length   = 253 + 6;
 constexpr size_t max_handshake_str_length = 384;
 
-struct handshake_message
-{
+struct handshake_message {
    uint16_t               network_version = 0; ///< incremental value above a computed base
    chain_id_type          chain_id;            ///< used to identify chain
    fc::sha256             node_id;             ///< used to identify peers and prevent self-connect
@@ -45,8 +43,7 @@ struct handshake_message
    int16_t                generation = 0;
 };
 
-enum go_away_reason
-{
+enum go_away_reason {
    no_reason,       ///< no reason to go away
    self,            ///< the connection is to itself
    duplicate,       ///< the connection is redundant
@@ -61,8 +58,7 @@ enum go_away_reason
    authentication   ///< peer failed authenicatio
 };
 
-constexpr auto reason_str(go_away_reason rsn)
-{
+constexpr auto reason_str(go_away_reason rsn) {
    switch (rsn) {
       case no_reason: return "no reason";
       case self: return "self connect";
@@ -80,35 +76,24 @@ constexpr auto reason_str(go_away_reason rsn)
    }
 }
 
-struct go_away_message
-{
+struct go_away_message {
    go_away_message(go_away_reason r = no_reason)
       : reason(r)
-      , node_id()
-   {
-   }
+      , node_id() {}
    go_away_reason reason{ no_reason };
    fc::sha256     node_id; ///< for duplicate notification
 };
 
-struct time_message
-{
+struct time_message {
    tstamp         org{ 0 }; //!< origin timestamp
    tstamp         rec{ 0 }; //!< receive timestamp
    tstamp         xmt{ 0 }; //!< transmit timestamp
    mutable tstamp dst{ 0 }; //!< destination timestamp
 };
 
-enum id_list_modes
-{
-   none,
-   catch_up,
-   last_irr_catch_up,
-   normal
-};
+enum id_list_modes { none, catch_up, last_irr_catch_up, normal };
 
-constexpr auto modes_str(id_list_modes m)
-{
+constexpr auto modes_str(id_list_modes m) {
    switch (m) {
       case none: return "none";
       case catch_up: return "catch up";
@@ -119,14 +104,11 @@ constexpr auto modes_str(id_list_modes m)
 }
 
 template<typename T>
-struct select_ids
-{
+struct select_ids {
    select_ids()
       : mode(none)
       , pending(0)
-      , ids()
-   {
-   }
+      , ids() {}
    id_list_modes mode{ none };
    uint32_t      pending{ 0 };
    vector<T>     ids;
@@ -136,30 +118,23 @@ struct select_ids
 using ordered_txn_ids = select_ids<transaction_id_type>;
 using ordered_blk_ids = select_ids<block_id_type>;
 
-struct notice_message
-{
+struct notice_message {
    notice_message()
       : known_trx()
-      , known_blocks()
-   {
-   }
+      , known_blocks() {}
    ordered_txn_ids known_trx;
    ordered_blk_ids known_blocks;
 };
 
-struct request_message
-{
+struct request_message {
    request_message()
       : req_trx()
-      , req_blocks()
-   {
-   }
+      , req_blocks() {}
    ordered_txn_ids req_trx;
    ordered_blk_ids req_blocks;
 };
 
-struct sync_request_message
-{
+struct sync_request_message {
    uint32_t start_block{ 0 };
    uint32_t end_block{ 0 };
 };

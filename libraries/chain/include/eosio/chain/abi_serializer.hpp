@@ -10,10 +10,10 @@
 namespace eosio {
 namespace chain {
 
-using std::function;
 using std::map;
-using std::pair;
 using std::string;
+using std::function;
+using std::pair;
 using namespace fc;
 
 namespace impl {
@@ -30,8 +30,7 @@ struct variant_to_binary_context;
  *  Describes the binary representation message and table contents so that it can
  *  be converted to and from JSON.
  */
-struct abi_serializer
-{
+struct abi_serializer {
 
    /// passed recursion_depth on each invocation
    using yield_function_t = fc::optional_delegate<void(size_t)>;
@@ -137,14 +136,12 @@ struct abi_serializer
                 const fc::microseconds& max_serialization_time);
 
    template<typename Vec>
-   static bool is_empty_abi(const Vec& abi_vec)
-   {
+   static bool is_empty_abi(const Vec& abi_vec) {
       return abi_vec.size() <= 4;
    }
 
    template<typename Vec>
-   static bool to_abi(const Vec& abi_vec, abi_def& abi)
-   {
+   static bool to_abi(const Vec& abi_vec, abi_def& abi) {
       if (!is_empty_abi(abi_vec)) { /// 4 == packsize of empty Abi
          fc::datastream<const char*> ds(abi_vec.data(), abi_vec.size());
          fc::raw::unpack(ds, abi);
@@ -168,8 +165,7 @@ struct abi_serializer
 
    // create standard yield function that checks for max_serialization_time and max_recursion_depth.
    // now() deadline caputered at time of this call
-   static yield_function_t create_yield_function(const fc::microseconds& max_serialization_time)
-   {
+   static yield_function_t create_yield_function(const fc::microseconds& max_serialization_time) {
       fc::time_point deadline = fc::time_point::now();
       if (max_serialization_time > fc::microseconds::maximum() - deadline.time_since_epoch()) {
          deadline = fc::time_point::maximum();
@@ -232,12 +228,9 @@ private:
 
 namespace impl {
 const static size_t hex_log_max_size = 64;
-struct abi_traverse_context
-{
+struct abi_traverse_context {
    explicit abi_traverse_context(abi_serializer::yield_function_t yield)
-      : yield(std::move(yield))
-   {
-   }
+      : yield(std::move(yield)) {}
 
    void logging() { log = true; } // generate variant for logging
    bool is_logging() const { return log; }
@@ -253,56 +246,46 @@ protected:
    bool                             log             = false;
 };
 
-struct empty_path_root
-{};
+struct empty_path_root {};
 
-struct array_type_path_root
-{};
+struct array_type_path_root {};
 
-struct struct_type_path_root
-{
+struct struct_type_path_root {
    map<type_name, struct_def>::const_iterator struct_itr;
 };
 
-struct variant_type_path_root
-{
+struct variant_type_path_root {
    map<type_name, variant_def>::const_iterator variant_itr;
 };
 
 using path_root =
    std::variant<empty_path_root, array_type_path_root, struct_type_path_root, variant_type_path_root>;
 
-struct empty_path_item
-{};
+struct empty_path_item {};
 
-struct array_index_path_item
-{
+struct array_index_path_item {
    path_root type_hint;
    uint32_t  array_index = 0;
 };
 
-struct field_path_item
-{
+struct field_path_item {
    map<type_name, struct_def>::const_iterator parent_struct_itr;
    uint32_t                                   field_ordinal = 0;
 };
 
-struct variant_path_item
-{
+struct variant_path_item {
    map<type_name, variant_def>::const_iterator variant_itr;
    uint32_t                                    variant_ordinal = 0;
 };
 
 using path_item = std::variant<empty_path_item, array_index_path_item, field_path_item, variant_path_item>;
 
-struct abi_traverse_context_with_path : public abi_traverse_context
-{
+struct abi_traverse_context_with_path : public abi_traverse_context {
    abi_traverse_context_with_path(const abi_serializer&            abis,
                                   abi_serializer::yield_function_t yield,
                                   const std::string_view&          type)
       : abi_traverse_context(std::move(yield))
-      , abis(abis)
-   {
+      , abis(abis) {
       set_path_root(type);
    }
 
@@ -310,8 +293,7 @@ struct abi_traverse_context_with_path : public abi_traverse_context
                                   const abi_traverse_context& ctx,
                                   const std::string_view&     type)
       : abi_traverse_context(ctx)
-      , abis(abis)
-   {
+      , abis(abis) {
       set_path_root(type);
    }
 
@@ -337,13 +319,11 @@ public:
    bool short_path = false;
 };
 
-struct binary_to_variant_context : public abi_traverse_context_with_path
-{
+struct binary_to_variant_context : public abi_traverse_context_with_path {
    using abi_traverse_context_with_path::abi_traverse_context_with_path;
 };
 
-struct variant_to_binary_context : public abi_traverse_context_with_path
-{
+struct variant_to_binary_context : public abi_traverse_context_with_path {
    using abi_traverse_context_with_path::abi_traverse_context_with_path;
 
    fc::scoped_exit<std::function<void()>> disallow_extensions_unless(bool condition);
@@ -362,8 +342,7 @@ string limit_size(const std::string_view& str);
  * @tparam T - the type to check
  */
 template<typename T>
-constexpr bool single_type_requires_abi_v()
-{
+constexpr bool single_type_requires_abi_v() {
    return std::is_base_of<transaction, T>::value || std::is_same<T, packed_transaction>::value ||
           std::is_same<T, transaction_trace>::value || std::is_same<T, transaction_receipt>::value ||
           std::is_same<T, action_trace>::value || std::is_same<T, signed_transaction>::value ||
@@ -375,8 +354,7 @@ constexpr bool single_type_requires_abi_v()
  * @tparam T - the type to check
  */
 template<typename T>
-struct type_requires_abi
-{
+struct type_requires_abi {
    static constexpr bool value() { return single_type_requires_abi_v<T>(); }
 };
 
@@ -385,14 +363,12 @@ struct type_requires_abi
  * @tparam Container - a templated container type whose first argument is the contained type
  */
 template<template<typename...> class Container, typename T, typename... Args>
-struct type_requires_abi<Container<T, Args...>>
-{
+struct type_requires_abi<Container<T, Args...>> {
    static constexpr bool value() { return single_type_requires_abi_v<T>(); }
 };
 
 template<typename T>
-constexpr bool type_requires_abi_v()
-{
+constexpr bool type_requires_abi_v() {
    return type_requires_abi<T>::value();
 }
 
@@ -405,8 +381,7 @@ using not_require_abi_t = std::enable_if_t<!type_requires_abi_v<T>(), int>;
 template<typename T>
 using require_abi_t = std::enable_if_t<type_requires_abi_v<T>(), int>;
 
-struct abi_to_variant
-{
+struct abi_to_variant {
    /**
     * template which overloads add for types which are not relvant to ABI information
     * and can be degraded to the normal ::to_variant(...) processing
@@ -416,8 +391,7 @@ struct abi_to_variant
                    const char*             name,
                    const M&                v,
                    Resolver,
-                   abi_traverse_context& ctx)
-   {
+                   abi_traverse_context& ctx) {
       auto h = ctx.enter_scope();
       mvo(name, v);
    }
@@ -442,8 +416,7 @@ struct abi_to_variant
                    const char*             name,
                    const vector<M>&        v,
                    Resolver                resolver,
-                   abi_traverse_context&   ctx)
-   {
+                   abi_traverse_context&   ctx) {
       auto                h = ctx.enter_scope();
       vector<fc::variant> array;
       array.reserve(v.size());
@@ -465,8 +438,7 @@ struct abi_to_variant
                    const char*             name,
                    const deque<M>&         v,
                    Resolver                resolver,
-                   abi_traverse_context&   ctx)
-   {
+                   abi_traverse_context&   ctx) {
       auto               h = ctx.enter_scope();
       deque<fc::variant> array;
 
@@ -486,8 +458,7 @@ struct abi_to_variant
                    const char*               name,
                    const std::shared_ptr<M>& v,
                    Resolver                  resolver,
-                   abi_traverse_context&     ctx)
-   {
+                   abi_traverse_context&     ctx) {
       auto h = ctx.enter_scope();
       if (!v)
          return;
@@ -497,8 +468,7 @@ struct abi_to_variant
    }
 
    template<typename Resolver>
-   struct add_static_variant
-   {
+   struct add_static_variant {
       mutable_variant_object& obj_mvo;
       Resolver&               resolver;
       abi_traverse_context&   ctx;
@@ -506,14 +476,11 @@ struct abi_to_variant
       add_static_variant(mutable_variant_object& o, Resolver& r, abi_traverse_context& ctx)
          : obj_mvo(o)
          , resolver(r)
-         , ctx(ctx)
-      {
-      }
+         , ctx(ctx) {}
 
       typedef void result_type;
       template<typename T>
-      void operator()(T& v) const
-      {
+      void operator()(T& v) const {
          add(obj_mvo, "_", v, resolver, ctx);
       }
    };
@@ -523,8 +490,7 @@ struct abi_to_variant
                    const char*                  name,
                    const std::variant<Args...>& v,
                    Resolver                     resolver,
-                   abi_traverse_context&        ctx)
-   {
+                   abi_traverse_context&        ctx) {
       auto                         h = ctx.enter_scope();
       mutable_variant_object       obj_mvo;
       add_static_variant<Resolver> adder(obj_mvo, resolver, ctx);
@@ -537,8 +503,7 @@ struct abi_to_variant
                                    const char*             name,
                                    const action&           act,
                                    Resolver&               resolver,
-                                   abi_traverse_context&   ctx)
-   {
+                                   abi_traverse_context&   ctx) {
       if (!ctx.is_logging())
          return false;
 
@@ -554,8 +519,7 @@ struct abi_to_variant
             return false; // still want the hex data included
          }
 
-      } catch (...) {
-      } // return false
+      } catch (...) {} // return false
 
       return false;
    }
@@ -574,8 +538,7 @@ struct abi_to_variant
                    const char*             name,
                    const action&           act,
                    Resolver                resolver,
-                   abi_traverse_context&   ctx)
-   {
+                   abi_traverse_context&   ctx) {
       static_assert(fc::reflector<action>::total_member_count == 4);
       auto                   h = ctx.enter_scope();
       mutable_variant_object mvo;
@@ -645,8 +608,7 @@ struct abi_to_variant
                    const char*             name,
                    const action_trace&     act_trace,
                    Resolver                resolver,
-                   abi_traverse_context&   ctx)
-   {
+                   abi_traverse_context&   ctx) {
       static_assert(fc::reflector<action_trace>::total_member_count == 17);
       auto                   h = ctx.enter_scope();
       mutable_variant_object mvo;
@@ -681,8 +643,7 @@ struct abi_to_variant
                mvo("return_value_data", abi->_binary_to_variant(type, act_trace.return_value, _ctx));
             }
          }
-      } catch (...) {
-      }
+      } catch (...) {}
       out(name, std::move(mvo));
    }
 
@@ -701,8 +662,7 @@ struct abi_to_variant
                    const char*               name,
                    const packed_transaction& ptrx,
                    Resolver                  resolver,
-                   abi_traverse_context&     ctx)
-   {
+                   abi_traverse_context&     ctx) {
       static_assert(fc::reflector<packed_transaction>::total_member_count == 4);
       auto                   h = ctx.enter_scope();
       mutable_variant_object mvo;
@@ -730,8 +690,7 @@ struct abi_to_variant
                    const char*             name,
                    const transaction&      trx,
                    Resolver                resolver,
-                   abi_traverse_context&   ctx)
-   {
+                   abi_traverse_context&   ctx) {
       static_assert(fc::reflector<transaction>::total_member_count == 9);
       auto                   h = ctx.enter_scope();
       mutable_variant_object mvo;
@@ -766,8 +725,7 @@ struct abi_to_variant
                    const char*             name,
                    const signed_block&     block,
                    Resolver                resolver,
-                   abi_traverse_context&   ctx)
-   {
+                   abi_traverse_context&   ctx) {
       static_assert(fc::reflector<signed_block>::total_member_count == 12);
       auto                   h = ctx.enter_scope();
       mutable_variant_object mvo;
@@ -826,8 +784,7 @@ struct abi_to_variant
  * @tparam Reslover - callable with the signature (const name& code_account) -> std::optional<abi_def>
  */
 template<typename T, typename Resolver>
-class abi_to_variant_visitor
-{
+class abi_to_variant_visitor {
 public:
    abi_to_variant_visitor(mutable_variant_object& _mvo,
                           const T&                _val,
@@ -836,9 +793,7 @@ public:
       : _vo(_mvo)
       , _val(_val)
       , _resolver(_resolver)
-      , _ctx(_ctx)
-   {
-   }
+      , _ctx(_ctx) {}
 
    /**
     * Visit a single member and add it to the variant object
@@ -848,8 +803,7 @@ public:
     * @param name - the name of the member
     */
    template<typename Member, class Class, Member(Class::*member)>
-   void operator()(const char* name) const
-   {
+   void operator()(const char* name) const {
       abi_to_variant::add(_vo, name, (_val.*member), _resolver, _ctx);
    }
 
@@ -860,15 +814,13 @@ private:
    abi_traverse_context&   _ctx;
 };
 
-struct abi_from_variant
-{
+struct abi_from_variant {
    /**
     * template which overloads extract for types which are not relvant to ABI information
     * and can be degraded to the normal ::from_variant(...) processing
     */
    template<typename M, typename Resolver, not_require_abi_t<M> = 1>
-   static void extract(const fc::variant& v, M& o, Resolver, abi_traverse_context& ctx)
-   {
+   static void extract(const fc::variant& v, M& o, Resolver, abi_traverse_context& ctx) {
       auto h = ctx.enter_scope();
       from_variant(v, o);
    }
@@ -885,8 +837,7 @@ struct abi_from_variant
     * for these members we call ::extract in order to trigger further processing
     */
    template<typename M, typename Resolver, require_abi_t<M> = 1>
-   static void extract(const fc::variant& v, vector<M>& o, Resolver resolver, abi_traverse_context& ctx)
-   {
+   static void extract(const fc::variant& v, vector<M>& o, Resolver resolver, abi_traverse_context& ctx) {
       auto            h     = ctx.enter_scope();
       const variants& array = v.get_array();
       o.clear();
@@ -903,8 +854,7 @@ struct abi_from_variant
     * for these members we call ::extract in order to trigger further processing
     */
    template<typename M, typename Resolver, require_abi_t<M> = 1>
-   static void extract(const fc::variant& v, deque<M>& o, Resolver resolver, abi_traverse_context& ctx)
-   {
+   static void extract(const fc::variant& v, deque<M>& o, Resolver resolver, abi_traverse_context& ctx) {
       auto            h     = ctx.enter_scope();
       const variants& array = v.get_array();
       o.clear();
@@ -923,8 +873,7 @@ struct abi_from_variant
    static void extract(const fc::variant&    v,
                        std::shared_ptr<M>&   o,
                        Resolver              resolver,
-                       abi_traverse_context& ctx)
-   {
+                       abi_traverse_context& ctx) {
       auto                  h  = ctx.enter_scope();
       const variant_object& vo = v.get_object();
       M                     obj;
@@ -938,8 +887,7 @@ struct abi_from_variant
     * exploded and processed explicitly
     */
    template<typename Resolver>
-   static void extract(const fc::variant& v, action& act, Resolver resolver, abi_traverse_context& ctx)
-   {
+   static void extract(const fc::variant& v, action& act, Resolver resolver, abi_traverse_context& ctx) {
       auto                  h  = ctx.enter_scope();
       const variant_object& vo = v.get_object();
       EOS_ASSERT(vo.contains("account"), packed_transaction_type_exception, "Missing account");
@@ -991,8 +939,7 @@ struct abi_from_variant
    static void extract(const fc::variant&    v,
                        packed_transaction&   ptrx,
                        Resolver              resolver,
-                       abi_traverse_context& ctx)
-   {
+                       abi_traverse_context& ctx) {
       auto                  h  = ctx.enter_scope();
       const variant_object& vo = v.get_object();
       EOS_ASSERT(vo.contains("signatures"), packed_transaction_type_exception, "Missing signatures");
@@ -1050,16 +997,13 @@ struct abi_from_variant
  * @tparam Reslover - callable with the signature (const name& code_account) -> std::optional<abi_def>
  */
 template<typename T, typename Resolver>
-class abi_from_variant_visitor : public reflector_init_visitor<T>
-{
+class abi_from_variant_visitor : public reflector_init_visitor<T> {
 public:
    abi_from_variant_visitor(const variant_object& _vo, T& v, Resolver _resolver, abi_traverse_context& _ctx)
       : reflector_init_visitor<T>(v)
       , _vo(_vo)
       , _resolver(_resolver)
-      , _ctx(_ctx)
-   {
-   }
+      , _ctx(_ctx) {}
 
    /**
     * Visit a single member and extract it from the variant object
@@ -1069,8 +1013,7 @@ public:
     * @param name - the name of the member
     */
    template<typename Member, class Class, Member(Class::*member)>
-   void operator()(const char* name) const
-   {
+   void operator()(const char* name) const {
       auto itr = _vo.find(name);
       if (itr != _vo.end())
          abi_from_variant::extract(itr->value(), this->obj.*member, _resolver, _ctx);
@@ -1087,8 +1030,7 @@ void abi_to_variant::add(mutable_variant_object& mvo,
                          const char*             name,
                          const M&                v,
                          Resolver                resolver,
-                         abi_traverse_context&   ctx)
-{
+                         abi_traverse_context&   ctx) {
    auto                   h = ctx.enter_scope();
    mutable_variant_object member_mvo;
    fc::reflector<M>::visit(impl::abi_to_variant_visitor<M, Resolver>(member_mvo, v, resolver, ctx));
@@ -1096,8 +1038,7 @@ void abi_to_variant::add(mutable_variant_object& mvo,
 }
 
 template<typename M, typename Resolver, require_abi_t<M>>
-void abi_from_variant::extract(const fc::variant& v, M& o, Resolver resolver, abi_traverse_context& ctx)
-{
+void abi_from_variant::extract(const fc::variant& v, M& o, Resolver resolver, abi_traverse_context& ctx) {
    auto                  h  = ctx.enter_scope();
    const variant_object& vo = v.get_object();
    fc::reflector<M>::visit(abi_from_variant_visitor<M, decltype(resolver)>(vo, o, resolver, ctx));
@@ -1105,8 +1046,10 @@ void abi_from_variant::extract(const fc::variant& v, M& o, Resolver resolver, ab
 } /// namespace eosio::chain::impl
 
 template<typename T, typename Resolver>
-void abi_serializer::to_variant(const T& o, fc::variant& vo, Resolver resolver, const yield_function_t& yield)
-try {
+void abi_serializer::to_variant(const T&                o,
+                                fc::variant&            vo,
+                                Resolver                resolver,
+                                const yield_function_t& yield) try {
    mutable_variant_object     mvo;
    impl::abi_traverse_context ctx(yield);
    impl::abi_to_variant::add(mvo, "_", o, resolver, ctx);
@@ -1120,8 +1063,7 @@ template<typename T, typename Resolver>
 void abi_serializer::to_variant(const T&                o,
                                 fc::variant&            vo,
                                 Resolver                resolver,
-                                const fc::microseconds& max_serialization_time)
-{
+                                const fc::microseconds& max_serialization_time) {
    to_variant(o, vo, resolver, create_yield_function(max_serialization_time));
 }
 
@@ -1129,8 +1071,7 @@ template<typename T, typename Resolver>
 void abi_serializer::to_log_variant(const T&                o,
                                     fc::variant&            vo,
                                     Resolver                resolver,
-                                    const yield_function_t& yield)
-try {
+                                    const yield_function_t& yield) try {
    mutable_variant_object     mvo;
    impl::abi_traverse_context ctx(yield);
    ctx.logging();
@@ -1145,8 +1086,7 @@ template<typename T, typename Resolver>
 void abi_serializer::from_variant(const fc::variant&      v,
                                   T&                      o,
                                   Resolver                resolver,
-                                  const yield_function_t& yield)
-try {
+                                  const yield_function_t& yield) try {
    impl::abi_traverse_context ctx(yield);
    impl::abi_from_variant::extract(v, o, resolver, ctx);
 }
@@ -1156,8 +1096,7 @@ template<typename T, typename Resolver>
 void abi_serializer::from_variant(const fc::variant&      v,
                                   T&                      o,
                                   Resolver                resolver,
-                                  const fc::microseconds& max_serialization_time)
-{
+                                  const fc::microseconds& max_serialization_time) {
    from_variant(v, o, resolver, create_yield_function(max_serialization_time));
 }
 

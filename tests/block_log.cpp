@@ -12,8 +12,7 @@
 
 namespace bdata = boost::unit_test::data;
 
-struct block_log_fixture
-{
+struct block_log_fixture {
    block_log_fixture(bool                    enable_read,
                      bool                    reopen_on_mark,
                      bool                    remove_index_on_reopen,
@@ -23,15 +22,13 @@ struct block_log_fixture
       , reopen_on_mark(reopen_on_mark)
       , remove_index_on_reopen(remove_index_on_reopen)
       , vacuum_on_exit_if_small(vacuum_on_exit_if_small)
-      , prune_blocks(prune_blocks)
-   {
+      , prune_blocks(prune_blocks) {
       bounce();
    }
 
    fc::sha256 non_genesis_chain_id = fc::sha256::hash(std::string("spoon was here"));
 
-   void startup(uint32_t first)
-   {
+   void startup(uint32_t first) {
       if (first > 1) {
          // bleh! but don't want to make a new friend in chain_id_type just for this test
          auto* chainid = reinterpret_cast<eosio::chain::chain_id_type*>(&non_genesis_chain_id);
@@ -58,8 +55,7 @@ struct block_log_fixture
       }
    }
 
-   void add(uint32_t index, size_t size, char fillchar)
-   {
+   void add(uint32_t index, size_t size, char fillchar) {
       std::vector<char> a;
       a.assign(size, fillchar);
 
@@ -74,8 +70,7 @@ struct block_log_fixture
       written_data.at(index) = a;
    }
 
-   void check_range_present(uint32_t first, uint32_t last)
-   {
+   void check_range_present(uint32_t first, uint32_t last) {
       BOOST_REQUIRE_EQUAL(log->first_block_num(), first);
       BOOST_REQUIRE_EQUAL(eosio::chain::block_header::num_from_id(log->head_id()), last);
       if (enable_read) {
@@ -92,8 +87,7 @@ struct block_log_fixture
    void check_not_present(uint32_t index) { BOOST_REQUIRE(log->read_block_by_num(index) == nullptr); }
 
    template<typename F>
-   void check_n_bounce(F&& f)
-   {
+   void check_n_bounce(F&& f) {
       f();
       if (reopen_on_mark) {
          bounce();
@@ -110,8 +104,7 @@ struct block_log_fixture
    std::vector<std::vector<char>> written_data;
 
 private:
-   void bounce()
-   {
+   void bounce() {
       log.reset();
       if (remove_index_on_reopen)
          fc::remove(dir.path() / "blocks.index");
@@ -129,8 +122,7 @@ private:
    }
 };
 
-static size_t payload_size()
-{
+static size_t payload_size() {
    fc::temp_file tf;
    fc::cfile     cf;
    cf.set_file_path(tf.path());
@@ -145,8 +137,7 @@ BOOST_DATA_TEST_CASE(basic_prune_test_genesis,
                      enable_read,
                      reopen_on_mark,
                      remove_index_on_reopen,
-                     vacuum_on_exit_if_small)
-{
+                     vacuum_on_exit_if_small) {
    try {
       block_log_fixture t(enable_read, reopen_on_mark, remove_index_on_reopen, vacuum_on_exit_if_small, 4);
 
@@ -178,8 +169,7 @@ BOOST_DATA_TEST_CASE(basic_prune_test_nongenesis,
                      enable_read,
                      reopen_on_mark,
                      remove_index_on_reopen,
-                     vacuum_on_exit_if_small)
-{
+                     vacuum_on_exit_if_small) {
    try {
       block_log_fixture t(enable_read, reopen_on_mark, remove_index_on_reopen, vacuum_on_exit_if_small, 4);
 
@@ -212,8 +202,7 @@ BOOST_DATA_TEST_CASE(single_prune_test_genesis,
                      enable_read,
                      reopen_on_mark,
                      remove_index_on_reopen,
-                     vacuum_on_exit_if_small)
-{
+                     vacuum_on_exit_if_small) {
    try {
       block_log_fixture t(enable_read, reopen_on_mark, remove_index_on_reopen, vacuum_on_exit_if_small, 1);
 
@@ -234,8 +223,7 @@ BOOST_DATA_TEST_CASE(single_prune_test_nongenesis,
                      enable_read,
                      reopen_on_mark,
                      remove_index_on_reopen,
-                     vacuum_on_exit_if_small)
-{
+                     vacuum_on_exit_if_small) {
    try {
       block_log_fixture t(enable_read, reopen_on_mark, remove_index_on_reopen, vacuum_on_exit_if_small, 1);
 
@@ -255,8 +243,7 @@ BOOST_DATA_TEST_CASE(nonprune_test_genesis,
                      bdata::xrange(2) * bdata::xrange(2) * bdata::xrange(2),
                      enable_read,
                      reopen_on_mark,
-                     remove_index_on_reopen)
-{
+                     remove_index_on_reopen) {
    try {
       block_log_fixture t(
          enable_read, reopen_on_mark, remove_index_on_reopen, false, std::optional<uint32_t>());
@@ -288,8 +275,7 @@ BOOST_DATA_TEST_CASE(nonprune_test_nongenesis,
                      bdata::xrange(2) * bdata::xrange(2) * bdata::xrange(2),
                      enable_read,
                      reopen_on_mark,
-                     remove_index_on_reopen)
-{
+                     remove_index_on_reopen) {
    try {
       block_log_fixture t(
          enable_read, reopen_on_mark, remove_index_on_reopen, false, std::optional<uint32_t>());
@@ -324,8 +310,7 @@ BOOST_DATA_TEST_CASE(nonprune_test_nongenesis,
 BOOST_DATA_TEST_CASE(non_prune_to_prune_genesis,
                      bdata::xrange(2) * bdata::xrange(2),
                      enable_read,
-                     remove_index_on_reopen)
-{
+                     remove_index_on_reopen) {
    try {
       block_log_fixture t(enable_read, true, remove_index_on_reopen, false, std::optional<uint32_t>());
 
@@ -417,8 +402,7 @@ BOOST_DATA_TEST_CASE(non_prune_to_prune_genesis,
 BOOST_DATA_TEST_CASE(non_prune_to_prune_nongenesis,
                      bdata::xrange(2) * bdata::xrange(2),
                      enable_read,
-                     remove_index_on_reopen)
-{
+                     remove_index_on_reopen) {
    try {
       block_log_fixture t(enable_read, true, remove_index_on_reopen, false, std::optional<uint32_t>());
 
@@ -502,8 +486,7 @@ BOOST_DATA_TEST_CASE(non_prune_to_prune_nongenesis,
 BOOST_DATA_TEST_CASE(empty_nonprune_to_prune_transitions,
                      bdata::xrange(2) * bdata::xrange(1, 11, 9),
                      remove_index_on_reopen,
-                     starting_block)
-{
+                     starting_block) {
    try {
       // start non pruned
       block_log_fixture t(false, true, remove_index_on_reopen, false, std::optional<uint32_t>());
@@ -533,8 +516,7 @@ BOOST_DATA_TEST_CASE(empty_nonprune_to_prune_transitions,
 BOOST_DATA_TEST_CASE(empty_prune_to_nonprune_transitions,
                      bdata::xrange(2) * bdata::xrange(1, 11, 9),
                      remove_index_on_reopen,
-                     starting_block)
-{
+                     starting_block) {
    try {
       // start pruned
       block_log_fixture t(false, true, remove_index_on_reopen, false, 5);
@@ -567,8 +549,7 @@ BOOST_DATA_TEST_CASE(no_block_log_basic_genesis,
                      enable_read,
                      reopen_on_mark,
                      remove_index_on_reopen,
-                     vacuum_on_exit_if_small)
-{
+                     vacuum_on_exit_if_small) {
    try {
       // set enable_read to false: when it is true, startup calls
       // log->read_block_by_num which always returns null when block log does not exist.
@@ -598,8 +579,7 @@ BOOST_DATA_TEST_CASE(no_block_log_basic_nongenesis,
                      enable_read,
                      reopen_on_mark,
                      remove_index_on_reopen,
-                     vacuum_on_exit_if_small)
-{
+                     vacuum_on_exit_if_small) {
    try {
       block_log_fixture t(enable_read, reopen_on_mark, remove_index_on_reopen, vacuum_on_exit_if_small, 0);
 
@@ -619,8 +599,7 @@ BOOST_DATA_TEST_CASE(no_block_log_basic_nongenesis,
    FC_LOG_AND_RETHROW()
 }
 
-void no_block_log_public_functions_test(block_log_fixture& t)
-{
+void no_block_log_public_functions_test(block_log_fixture& t) {
    BOOST_REQUIRE_NO_THROW(t.log->flush());
    BOOST_REQUIRE(t.log->read_block(1) == nullptr);
    BOOST_REQUIRE_NO_THROW(eosio::chain::block_header bh; t.log->read_block_header(bh, 1););
@@ -636,8 +615,7 @@ BOOST_DATA_TEST_CASE(no_block_log_public_functions_genesis,
                      enable_read,
                      reopen_on_mark,
                      remove_index_on_reopen,
-                     vacuum_on_exit_if_small)
-{
+                     vacuum_on_exit_if_small) {
    try {
       block_log_fixture t(false, false, remove_index_on_reopen, vacuum_on_exit_if_small, 0);
 
@@ -653,8 +631,7 @@ BOOST_DATA_TEST_CASE(no_block_log_public_functions_nogenesis,
                      enable_read,
                      reopen_on_mark,
                      remove_index_on_reopen,
-                     vacuum_on_exit_if_small)
-{
+                     vacuum_on_exit_if_small) {
    try {
       block_log_fixture t(enable_read, reopen_on_mark, remove_index_on_reopen, vacuum_on_exit_if_small, 0);
 

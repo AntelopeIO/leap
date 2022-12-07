@@ -14,8 +14,7 @@ namespace fc {
 
 using Scalar = libff::bigint<libff::alt_bn128_q_limbs>;
 
-void initLibSnark() noexcept
-{
+void initLibSnark() noexcept {
    static bool s_initialized = []() noexcept {
       libff::inhibit_profiling_info     = true;
       libff::inhibit_profiling_counters = true;
@@ -25,8 +24,7 @@ void initLibSnark() noexcept
    (void)s_initialized;
 }
 
-Scalar to_scalar(const bytes& be) noexcept
-{
+Scalar to_scalar(const bytes& be) noexcept {
    mpz_t m;
    mpz_init(m);
    mpz_import(m, be.size(), /*order=*/1, /*size=*/1, /*endian=*/0, /*nails=*/0, &be[0]);
@@ -37,13 +35,11 @@ Scalar to_scalar(const bytes& be) noexcept
 
 // Notation warning: Yellow Paper's p is the same libff's q.
 // Returns x < p (YP notation).
-static bool valid_element_of_fp(const Scalar& x) noexcept
-{
+static bool valid_element_of_fp(const Scalar& x) noexcept {
    return mpn_cmp(x.data, libff::alt_bn128_modulus_q.data, libff::alt_bn128_q_limbs) < 0;
 }
 
-std::variant<alt_bn128_error, libff::alt_bn128_G1> decode_g1_element(const bytes& bytes64_be) noexcept
-{
+std::variant<alt_bn128_error, libff::alt_bn128_G1> decode_g1_element(const bytes& bytes64_be) noexcept {
    if (bytes64_be.size() != 64) {
       return alt_bn128_error::input_len_error;
    }
@@ -69,8 +65,7 @@ std::variant<alt_bn128_error, libff::alt_bn128_G1> decode_g1_element(const bytes
    return point;
 }
 
-std::variant<alt_bn128_error, libff::alt_bn128_Fq2> decode_fp2_element(const bytes& bytes64_be) noexcept
-{
+std::variant<alt_bn128_error, libff::alt_bn128_Fq2> decode_fp2_element(const bytes& bytes64_be) noexcept {
    if (bytes64_be.size() != 64) {
       return alt_bn128_error::input_len_error;
    }
@@ -89,8 +84,7 @@ std::variant<alt_bn128_error, libff::alt_bn128_Fq2> decode_fp2_element(const byt
    return libff::alt_bn128_Fq2{ c0, c1 };
 }
 
-std::variant<alt_bn128_error, libff::alt_bn128_G2> decode_g2_element(const bytes& bytes128_be) noexcept
-{
+std::variant<alt_bn128_error, libff::alt_bn128_G2> decode_g2_element(const bytes& bytes128_be) noexcept {
    if (bytes128_be.size() != 128) {
       return alt_bn128_error::input_len_error;
    }
@@ -127,8 +121,7 @@ std::variant<alt_bn128_error, libff::alt_bn128_G2> decode_g2_element(const bytes
    return point;
 }
 
-bytes encode_g1_element(libff::alt_bn128_G1 p) noexcept
-{
+bytes encode_g1_element(libff::alt_bn128_G1 p) noexcept {
    bytes out(64, '\0');
    if (p.is_zero()) {
       return out;
@@ -146,8 +139,7 @@ bytes encode_g1_element(libff::alt_bn128_G1 p) noexcept
    return out;
 }
 
-std::variant<alt_bn128_error, bytes> alt_bn128_add(const bytes& op1, const bytes& op2)
-{
+std::variant<alt_bn128_error, bytes> alt_bn128_add(const bytes& op1, const bytes& op2) {
    fc::initLibSnark();
 
    auto maybe_x = decode_g1_element(op1);
@@ -167,8 +159,7 @@ std::variant<alt_bn128_error, bytes> alt_bn128_add(const bytes& op1, const bytes
    return encode_g1_element(g1Sum);
 }
 
-std::variant<alt_bn128_error, bytes> alt_bn128_mul(const bytes& g1_point, const bytes& scalar)
-{
+std::variant<alt_bn128_error, bytes> alt_bn128_mul(const bytes& g1_point, const bytes& scalar) {
    initLibSnark();
 
    auto maybe_x = decode_g1_element(g1_point);
@@ -190,8 +181,7 @@ std::variant<alt_bn128_error, bytes> alt_bn128_mul(const bytes& g1_point, const 
 
 static constexpr size_t kSnarkvStride{ 192 };
 
-std::variant<alt_bn128_error, bool> alt_bn128_pair(const bytes& g1_g2_pairs, const yield_function_t& yield)
-{
+std::variant<alt_bn128_error, bool> alt_bn128_pair(const bytes& g1_g2_pairs, const yield_function_t& yield) {
    if (g1_g2_pairs.size() % kSnarkvStride != 0) {
       return alt_bn128_error::pairing_list_size_error;
    }

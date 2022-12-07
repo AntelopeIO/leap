@@ -3,24 +3,18 @@
 
 namespace fc {
 
-struct unsigned_int
-{
+struct unsigned_int {
    unsigned_int(uint32_t v = 0)
-      : value(v)
-   {
-   }
+      : value(v) {}
 
    template<typename T>
    unsigned_int(T v)
-      : value(v)
-   {
-   }
+      : value(v) {}
 
    operator uint32_t() const { return value; }
    // operator uint64_t()const { return value; }
 
-   unsigned_int& operator=(int32_t v)
-   {
+   unsigned_int& operator=(int32_t v) {
       value = v;
       return *this;
    }
@@ -49,22 +43,17 @@ struct unsigned_int
  *
  *  Uses the google protobuf algorithm for seralizing signed numbers
  */
-struct signed_int
-{
+struct signed_int {
    signed_int(int32_t v = 0)
-      : value(v)
-   {
-   }
+      : value(v) {}
    operator int32_t() const { return value; }
    template<typename T>
-   signed_int& operator=(const T& v)
-   {
+   signed_int& operator=(const T& v) {
       value = v;
       return *this;
    }
    signed_int  operator++(int) { return value++; }
-   signed_int& operator++()
-   {
+   signed_int& operator++() {
       ++value;
       return *this;
    }
@@ -100,14 +89,12 @@ void from_variant(const variant& var, unsigned_int& vo);
 #include <unordered_map>
 namespace std {
 template<>
-struct hash<fc::signed_int>
-{
+struct hash<fc::signed_int> {
 public:
    size_t operator()(const fc::signed_int& a) const { return std::hash<int32_t>()(a.value); }
 };
 template<>
-struct hash<fc::unsigned_int>
-{
+struct hash<fc::unsigned_int> {
 public:
    size_t operator()(const fc::signed_int& a) const { return std::hash<uint32_t>()(a.value); }
 };

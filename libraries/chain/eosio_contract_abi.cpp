@@ -4,8 +4,7 @@
 namespace eosio {
 namespace chain {
 
-vector<type_def> common_type_defs()
-{
+vector<type_def> common_type_defs() {
    vector<type_def> types;
 
    types.push_back(type_def{ "account_name", "name" });
@@ -19,8 +18,7 @@ vector<type_def> common_type_defs()
    return types;
 }
 
-abi_def eosio_contract_abi(const abi_def& eosio_system_abi)
-{
+abi_def eosio_contract_abi(const abi_def& eosio_system_abi) {
    abi_def eos_abi(eosio_system_abi);
 
    if (eos_abi.version.size() == 0) {

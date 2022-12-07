@@ -9,8 +9,7 @@ namespace benchmark {
 using bytes     = std::vector<char>;
 using g1g2_pair = std::vector<std::string>;
 
-void add_benchmarking()
-{
+void add_benchmarking() {
    std::vector<unsigned char> point1_raw = {
       12,  175, 215, 144, 98,  95,  151, 228, 179, 85,  31,  170, 172, 159, 40,  255,
       250, 252, 68,  28,  235, 65,  172, 180, 69,  164, 153, 29,  187, 239, 220, 201, // x
@@ -38,8 +37,7 @@ void add_benchmarking()
    benchmarking("alt_bn128_add", f);
 }
 
-void mul_benchmarking()
-{
+void mul_benchmarking() {
    std::vector<unsigned char> point_raw = {
       12,  175, 215, 144, 98,  95,  151, 228, 179, 85,  31,  170, 172, 159, 40,  255,
       250, 252, 68,  28,  235, 65,  172, 180, 69,  164, 153, 29,  187, 239, 220, 201, // x
@@ -65,8 +63,7 @@ void mul_benchmarking()
    benchmarking("alt_bn128_mul", f);
 }
 
-void pair_benchmarking()
-{
+void pair_benchmarking() {
    std::vector<unsigned char> g1_g2_pairs_raw = { /* pair 1 */
                                                   12,
                                                   175,
@@ -2025,8 +2022,7 @@ void pair_benchmarking()
    benchmarking("alt_bn128_pair (10 pairs)", f_10_pairs);
 }
 
-void alt_bn_128_benchmarking()
-{
+void alt_bn_128_benchmarking() {
    add_benchmarking();
    mul_benchmarking();
    pair_benchmarking();

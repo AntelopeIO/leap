@@ -15,8 +15,7 @@
 #include <sstream>
 
 namespace fc {
-class dmlog_appender::impl
-{
+class dmlog_appender::impl {
 public:
    bool  is_stopped = false;
    FILE* out        = nullptr;
@@ -24,8 +23,7 @@ public:
 };
 
 dmlog_appender::dmlog_appender(const std::optional<dmlog_appender::config>& args)
-   : dmlog_appender()
-{
+   : dmlog_appender() {
    if (!args || args->file == "-") {
       my->out = stdout;
    } else {
@@ -40,17 +38,12 @@ dmlog_appender::dmlog_appender(const std::optional<dmlog_appender::config>& args
 }
 
 dmlog_appender::dmlog_appender(const variant& args)
-   : dmlog_appender(args.as<std::optional<config>>())
-{
-}
+   : dmlog_appender(args.as<std::optional<config>>()) {}
 
 dmlog_appender::dmlog_appender()
-   : my(new impl)
-{
-}
+   : my(new impl) {}
 
-dmlog_appender::~dmlog_appender()
-{
+dmlog_appender::~dmlog_appender() {
    if (my->owns_out) {
       std::fclose(my->out);
    }
@@ -58,8 +51,7 @@ dmlog_appender::~dmlog_appender()
 
 void dmlog_appender::initialize(boost::asio::io_service& io_service) {}
 
-void dmlog_appender::log(const log_message& m)
-{
+void dmlog_appender::log(const log_message& m) {
    FILE* out = my->out;
 
    string message = format_string("DMLOG " + m.get_format() + "\n", m.get_data());

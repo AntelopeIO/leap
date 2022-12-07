@@ -10,8 +10,7 @@ namespace fc {
 typedef boost::multiprecision::uint128_t m128;
 
 template<typename T>
-static void divide(const T& numerator, const T& denominator, T& quotient, T& remainder)
-{
+static void divide(const T& numerator, const T& denominator, T& quotient, T& remainder) {
    static const int bits = sizeof(T) * 8; // CHAR_BIT;
 
    if (denominator == 0) {
@@ -44,8 +43,7 @@ static void divide(const T& numerator, const T& denominator, T& quotient, T& rem
 
 uint128::uint128(const std::string& sz)
    : hi(0)
-   , lo(0)
-{
+   , lo(0) {
    // do we have at least one character?
    if (!sz.empty()) {
       // make some reasonable assumptions
@@ -115,19 +113,16 @@ uint128::uint128(const std::string& sz)
    }
 }
 
-uint128::operator bigint() const
-{
+uint128::operator bigint() const {
    auto   tmp = uint128(bswap_64(hi), bswap_64(lo));
    bigint bi((char*)&tmp, sizeof(tmp));
    return bi;
 }
-uint128::uint128(const fc::bigint& bi)
-{
+uint128::uint128(const fc::bigint& bi) {
    *this = uint128(std::string(bi)); // TODO: optimize this...
 }
 
-uint128::operator std::string() const
-{
+uint128::operator std::string() const {
    if (*this == 0) {
       return "0";
    }
@@ -150,8 +145,7 @@ uint128::operator std::string() const
    return &sz[i];
 }
 
-uint128& uint128::operator<<=(const uint128& rhs)
-{
+uint128& uint128::operator<<=(const uint128& rhs) {
    if (rhs >= 128) {
       hi = 0;
       lo = 0;
@@ -182,8 +176,7 @@ uint128& uint128::operator<<=(const uint128& rhs)
    return *this;
 }
 
-uint128& uint128::operator>>=(const uint128& rhs)
-{
+uint128& uint128::operator>>=(const uint128& rhs) {
    if (rhs >= 128) {
       hi = 0;
       lo = 0;
@@ -214,8 +207,7 @@ uint128& uint128::operator>>=(const uint128& rhs)
    return *this;
 }
 
-uint128& uint128::operator/=(const uint128& b)
-{
+uint128& uint128::operator/=(const uint128& b) {
    auto self  = (m128(hi) << 64) + m128(lo);
    auto other = (m128(b.hi) << 64) + m128(b.lo);
    self /= other;
@@ -240,15 +232,13 @@ uint128& uint128::operator/=(const uint128& b)
    return *this;
 }
 
-uint128& uint128::operator%=(const uint128& b)
-{
+uint128& uint128::operator%=(const uint128& b) {
    uint128 quotient;
    divide(*this, b, quotient, *this);
    return *this;
 }
 
-uint128& uint128::operator*=(const uint128& b)
-{
+uint128& uint128::operator*=(const uint128& b) {
    uint64_t a0 = (uint32_t)(this->lo);
    uint64_t a1 = (uint32_t)(this->lo >> 0x20);
    uint64_t a2 = (uint32_t)(this->hi);
@@ -287,8 +277,7 @@ uint128& uint128::operator*=(const uint128& b)
    return *this;
 }
 
-void uint128::full_product(const uint128& a, const uint128& b, uint128& result_hi, uint128& result_lo)
-{
+void uint128::full_product(const uint128& a, const uint128& b, uint128& result_hi, uint128& result_lo) {
    //   (ah * 2**64 + al) * (bh * 2**64 + bl)
    // = (ah * bh * 2**128 + al * bh * 2**64 + ah * bl * 2**64 + al * bl
    // =  P * 2**128 + (Q + R) * 2**64 + S
@@ -341,8 +330,7 @@ void uint128::full_product(const uint128& a, const uint128& b, uint128& result_h
    return;
 }
 
-static uint8_t _popcount_64(uint64_t x)
-{
+static uint8_t _popcount_64(uint64_t x) {
    static const uint64_t m[] = { 0x5555555555555555ULL, 0x3333333333333333ULL, 0x0F0F0F0F0F0F0F0FULL,
                                  0x00FF00FF00FF00FFULL, 0x0000FFFF0000FFFFULL, 0x00000000FFFFFFFFULL };
    // TODO future optimization:  replace slow, portable version
@@ -355,17 +343,14 @@ static uint8_t _popcount_64(uint64_t x)
    return uint8_t(x);
 }
 
-uint8_t uint128::popcount() const
-{
+uint8_t uint128::popcount() const {
    return _popcount_64(lo) + _popcount_64(hi);
 }
 
-void to_variant(const uint128& var, variant& vo)
-{
+void to_variant(const uint128& var, variant& vo) {
    vo = std::string(var);
 }
-void from_variant(const variant& var, uint128& vo)
-{
+void from_variant(const variant& var, uint128& vo) {
    vo = uint128(var.as_string());
 }
 /*

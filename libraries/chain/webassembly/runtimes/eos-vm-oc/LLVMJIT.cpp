@@ -83,8 +83,7 @@ using LegacyIRCompileLayer = IRCompileLayer<A, B>;
 
 #if PRINT_DISASSEMBLY
 #include "llvm-c/Disassembler.h"
-static void disassembleFunction(U8* bytes, Uptr numBytes)
-{
+static void disassembleFunction(U8* bytes, Uptr numBytes) {
    LLVMDisasmContextRef disasmRef =
       LLVMCreateDisasm(llvm::sys::getProcessTriple().c_str(), nullptr, 0, nullptr, nullptr);
 
@@ -118,8 +117,7 @@ namespace LLVMJIT {
 llvm::TargetMachine* targetMachine = nullptr;
 
 // Allocates memory for the LLVM object loader.
-struct UnitMemoryManager : llvm::RTDyldMemoryManager
-{
+struct UnitMemoryManager : llvm::RTDyldMemoryManager {
    UnitMemoryManager() {}
    virtual ~UnitMemoryManager() override {}
 
@@ -132,24 +130,21 @@ struct UnitMemoryManager : llvm::RTDyldMemoryManager
                                        uintptr_t numReadOnlyBytes,
                                        U32       readOnlyAlignment,
                                        uintptr_t numReadWriteBytes,
-                                       U32       readWriteAlignment) override
-   {
+                                       U32       readWriteAlignment) override {
       code = std::make_unique<std::vector<uint8_t>>(numCodeBytes + numReadOnlyBytes + numReadWriteBytes);
       ptr  = code->data();
    }
    virtual U8* allocateCodeSection(uintptr_t       numBytes,
                                    U32             alignment,
                                    U32             sectionID,
-                                   llvm::StringRef sectionName) override
-   {
+                                   llvm::StringRef sectionName) override {
       return get_next_code_ptr(numBytes, alignment);
    }
    virtual U8* allocateDataSection(uintptr_t       numBytes,
                                    U32             alignment,
                                    U32             sectionID,
                                    llvm::StringRef SectionName,
-                                   bool            isReadOnly) override
-   {
+                                   bool            isReadOnly) override {
       if (SectionName == ".eh_frame") {
          dumpster.resize(numBytes);
          return dumpster.data();
@@ -162,8 +157,7 @@ struct UnitMemoryManager : llvm::RTDyldMemoryManager
       return get_next_code_ptr(numBytes, alignment);
    }
 
-   virtual bool finalizeMemory(std::string* ErrMsg = nullptr) override
-   {
+   virtual bool finalizeMemory(std::string* ErrMsg = nullptr) override {
       code->resize(ptr - code->data());
       return true;
    }
@@ -174,8 +168,7 @@ struct UnitMemoryManager : llvm::RTDyldMemoryManager
    std::vector<uint8_t>            dumpster;
    std::list<std::vector<uint8_t>> stack_sizes;
 
-   U8* get_next_code_ptr(uintptr_t numBytes, U32 alignment)
-   {
+   U8* get_next_code_ptr(uintptr_t numBytes, U32 alignment) {
       FC_ASSERT(alignment <= alignof(std::max_align_t), "alignment of section exceeds max_align_t");
       uintptr_t p = (uintptr_t)ptr;
       p += alignment - 1LL;
@@ -191,10 +184,8 @@ struct UnitMemoryManager : llvm::RTDyldMemoryManager
 };
 
 // The JIT compilation unit for a WebAssembly module instance.
-struct JITModule
-{
-   JITModule()
-   {
+struct JITModule {
+   JITModule() {
       objectLayer = std::make_unique<llvm::orc::LegacyRTDyldObjectLinkingLayer>(
          ES,
          [this](llvm::orc::VModuleKey K) {
@@ -263,8 +254,7 @@ private:
 
 static Uptr printedModuleId = 0;
 
-void printModule(const llvm::Module* llvmModule, const char* filename)
-{
+void printModule(const llvm::Module* llvmModule, const char* filename) {
    std::error_code      errorCode;
    std::string          augmentedFilename = std::string(filename) + std::to_string(printedModuleId++) + ".ll";
    llvm::raw_fd_ostream dumpFileStream(augmentedFilename, errorCode, llvm::sys::fs::OpenFlags::F_Text);
@@ -272,8 +262,7 @@ void printModule(const llvm::Module* llvmModule, const char* filename)
    /// Log::printf(Log::Category::debug,"Dumped LLVM module to: %s\n",augmentedFilename.c_str());
 }
 
-void JITModule::compile(llvm::Module* llvmModule)
-{
+void JITModule::compile(llvm::Module* llvmModule) {
    // Get a target machine object for this host, and set the module to use its data layout.
    llvmModule->setDataLayout(targetMachine->createDataLayout());
 
@@ -315,8 +304,7 @@ void JITModule::compile(llvm::Module* llvmModule)
    final_pic_code = std::move(*unitmemorymanager->code);
 }
 
-instantiated_code instantiateModule(const IR::Module& module)
-{
+instantiated_code instantiateModule(const IR::Module& module) {
    static bool inited;
    if (!inited) {
       inited = true;

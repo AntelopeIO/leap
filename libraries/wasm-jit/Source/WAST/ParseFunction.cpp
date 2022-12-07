@@ -14,8 +14,7 @@ using namespace IR;
 
 namespace {
 // State associated with parsing a function.
-struct FunctionParseState : ParseState
-{
+struct FunctionParseState : ParseState {
    const ModuleParseState& moduleState;
    FunctionDef&            functionDef;
 
@@ -41,20 +40,16 @@ struct FunctionParseState : ParseState
                   inModuleState.module.types[inFunctionDef.type.index]->parameters.size())
       , branchTargetDepth(0)
       , operationEncoder(codeByteStream)
-      , validatingCodeStream(inModuleState.module, functionDef, operationEncoder)
-   {
-   }
+      , validatingCodeStream(inModuleState.module, functionDef, operationEncoder) {}
 };
 
 // While in scope, pushes a branch target onto the branch target stack.
 // Also maintains the branchTargetNameToIndexMap
-struct ScopedBranchTarget
-{
+struct ScopedBranchTarget {
    ScopedBranchTarget(FunctionParseState& inState, Name inName)
       : state(inState)
       , name(inName)
-      , previousBranchTargetIndex(UINT32_MAX)
-   {
+      , previousBranchTargetIndex(UINT32_MAX) {
       branchTargetIndex = ++state.branchTargetDepth;
       if (name) {
          auto previousIt = state.branchTargetNameToIndexMap.find(name);
@@ -69,8 +64,7 @@ struct ScopedBranchTarget
       }
    }
 
-   ~ScopedBranchTarget()
-   {
+   ~ScopedBranchTarget() {
       WAVM_ASSERT_TERMINATE(branchTargetIndex == state.branchTargetDepth);
       --state.branchTargetDepth;
       if (name) {
@@ -93,8 +87,7 @@ private:
 };
 }
 
-static bool tryParseAndResolveBranchTargetRef(FunctionParseState& state, U32& outTargetDepth)
-{
+static bool tryParseAndResolveBranchTargetRef(FunctionParseState& state, U32& outTargetDepth) {
    Reference branchTargetRef;
    if (tryParseNameOrIndexRef(state, branchTargetRef)) {
       switch (branchTargetRef.type) {
@@ -119,8 +112,7 @@ static bool tryParseAndResolveBranchTargetRef(FunctionParseState& state, U32& ou
 static void parseAndValidateRedundantBranchTargetName(ParseState& state,
                                                       Name        branchTargetName,
                                                       const char* context,
-                                                      const char* redundantContext)
-{
+                                                      const char* redundantContext) {
    Name redundantName;
    if (tryParseName(state, redundantName) && branchTargetName != redundantName) {
       parseErrorf(state, state.nextToken - 1, "%s label doesn't match %s label", redundantContext, context);
@@ -130,33 +122,27 @@ static void parseAndValidateRedundantBranchTargetName(ParseState& state,
 static void parseImm(FunctionParseState& state, NoImm&) {}
 static void parseImm(FunctionParseState& state, MemoryImm& outImm) {}
 
-static void parseImm(FunctionParseState& state, LiteralImm<I32>& outImm)
-{
+static void parseImm(FunctionParseState& state, LiteralImm<I32>& outImm) {
    outImm.value = (I32)parseI32(state);
 }
-static void parseImm(FunctionParseState& state, LiteralImm<I64>& outImm)
-{
+static void parseImm(FunctionParseState& state, LiteralImm<I64>& outImm) {
    outImm.value = (I64)parseI64(state);
 }
-static void parseImm(FunctionParseState& state, LiteralImm<F32>& outImm)
-{
+static void parseImm(FunctionParseState& state, LiteralImm<F32>& outImm) {
    outImm.value = parseF32(state);
 }
-static void parseImm(FunctionParseState& state, LiteralImm<F64>& outImm)
-{
+static void parseImm(FunctionParseState& state, LiteralImm<F64>& outImm) {
    outImm.value = parseF64(state);
 }
 
-static void parseImm(FunctionParseState& state, BranchImm& outImm)
-{
+static void parseImm(FunctionParseState& state, BranchImm& outImm) {
    if (!tryParseAndResolveBranchTargetRef(state, outImm.targetDepth)) {
       parseErrorf(state, state.nextToken, "expected branch target name or index");
       throw RecoverParseException();
    }
 }
 
-static void parseImm(FunctionParseState& state, BranchTableImm& outImm)
-{
+static void parseImm(FunctionParseState& state, BranchTableImm& outImm) {
    std::vector<U32> targetDepths;
    U32              targetDepth = 0;
    while (tryParseAndResolveBranchTargetRef(state, targetDepth)) {
@@ -175,8 +161,7 @@ static void parseImm(FunctionParseState& state, BranchTableImm& outImm)
 }
 
 template<bool isGlobal>
-static void parseImm(FunctionParseState& state, GetOrSetVariableImm<isGlobal>& outImm)
-{
+static void parseImm(FunctionParseState& state, GetOrSetVariableImm<isGlobal>& outImm) {
    outImm.variableIndex = parseAndResolveNameOrIndexRef(
       state,
       isGlobal ? state.moduleState.globalNameToIndexMap : *state.localNameToIndexMap,
@@ -184,21 +169,18 @@ static void parseImm(FunctionParseState& state, GetOrSetVariableImm<isGlobal>& o
       isGlobal ? "global" : "local");
 }
 
-static void parseImm(FunctionParseState& state, CallImm& outImm)
-{
+static void parseImm(FunctionParseState& state, CallImm& outImm) {
    outImm.functionIndex = parseAndResolveNameOrIndexRef(
       state, state.moduleState.functionNameToIndexMap, state.moduleState.module.functions.size(), "function");
 }
 
-static void parseImm(FunctionParseState& state, CallIndirectImm& outImm)
-{
+static void parseImm(FunctionParseState& state, CallIndirectImm& outImm) {
    outImm.type.index = parseAndResolveNameOrIndexRef(
       state, state.moduleState.typeNameToIndexMap, state.moduleState.module.types.size(), "type");
 }
 
 template<Uptr naturalAlignmentLog2>
-static void parseImm(FunctionParseState& state, LoadOrStoreImm<naturalAlignmentLog2>& outImm)
-{
+static void parseImm(FunctionParseState& state, LoadOrStoreImm<naturalAlignmentLog2>& outImm) {
    outImm.offset = 0;
    if (state.nextToken->type == t_offset) {
       ++state.nextToken;
@@ -226,16 +208,14 @@ static void parseImm(FunctionParseState& state, LoadOrStoreImm<naturalAlignmentL
 
 #if ENABLE_SIMD_PROTOTYPE
 
-static void parseImm(FunctionParseState& state, LiteralImm<V128>& outImm)
-{
+static void parseImm(FunctionParseState& state, LiteralImm<V128>& outImm) {
    for (Uptr laneIndex = 0; laneIndex < 16; ++laneIndex) {
       outImm.value.i8[laneIndex] = parseI8(state);
    }
 }
 
 template<Uptr numLanes>
-static void parseImm(FunctionParseState& state, LaneIndexImm<numLanes>& outImm)
-{
+static void parseImm(FunctionParseState& state, LaneIndexImm<numLanes>& outImm) {
    const U64 u64 = parseI64(state);
    if (u64 > numLanes) {
       parseErrorf(state, state.nextToken - 1, "lane index must be in the range 0..%u", numLanes);
@@ -244,8 +224,7 @@ static void parseImm(FunctionParseState& state, LaneIndexImm<numLanes>& outImm)
 }
 
 template<Uptr numLanes>
-static void parseImm(FunctionParseState& state, ShuffleImm<numLanes>& outImm)
-{
+static void parseImm(FunctionParseState& state, ShuffleImm<numLanes>& outImm) {
    parseParenthesized(state, [&] {
       for (Uptr laneIndex = 0; laneIndex < numLanes; ++laneIndex) {
          const U64 u64 = parseI64(state);
@@ -262,8 +241,7 @@ static void parseImm(FunctionParseState& state, ShuffleImm<numLanes>& outImm)
 static void parseImm(FunctionParseState& state, LaunchThreadImm& outImm) {}
 
 template<Uptr naturalAlignmentLog2>
-static void parseImm(FunctionParseState& state, AtomicLoadOrStoreImm<naturalAlignmentLog2>& outImm)
-{
+static void parseImm(FunctionParseState& state, AtomicLoadOrStoreImm<naturalAlignmentLog2>& outImm) {
    LoadOrStoreImm<naturalAlignmentLog2> loadOrStoreImm;
    parseImm(state, loadOrStoreImm);
    outImm.alignmentLog2 = loadOrStoreImm.alignmentLog2;
@@ -274,8 +252,7 @@ static void parseImm(FunctionParseState& state, AtomicLoadOrStoreImm<naturalAlig
 static void parseInstrSequence(FunctionParseState& state);
 static void parseExpr(FunctionParseState& state);
 
-static void parseControlImm(FunctionParseState& state, Name& outBranchTargetName, ControlStructureImm& imm)
-{
+static void parseControlImm(FunctionParseState& state, Name& outBranchTargetName, ControlStructureImm& imm) {
    tryParseName(state, outBranchTargetName);
 
    imm.resultType = ResultType::none;
@@ -289,8 +266,7 @@ static void parseControlImm(FunctionParseState& state, Name& outBranchTargetName
    }
 }
 
-static void parseBlock(FunctionParseState& state, bool isExpr)
-{
+static void parseBlock(FunctionParseState& state, bool isExpr) {
    Name                branchTargetName;
    ControlStructureImm imm;
    parseControlImm(state, branchTargetName, imm);
@@ -306,8 +282,7 @@ static void parseBlock(FunctionParseState& state, bool isExpr)
    }
 }
 
-static void parseLoop(FunctionParseState& state, bool isExpr)
-{
+static void parseLoop(FunctionParseState& state, bool isExpr) {
    Name                branchTargetName;
    ControlStructureImm imm;
    parseControlImm(state, branchTargetName, imm);
@@ -323,16 +298,14 @@ static void parseLoop(FunctionParseState& state, bool isExpr)
    }
 }
 
-static void parseExprSequence(FunctionParseState& state)
-{
+static void parseExprSequence(FunctionParseState& state) {
    while (state.nextToken->type != t_rightParenthesis) {
       parseExpr(state);
    };
 }
 
 #define VISIT_OP(opcode, name, nameString, Imm, ...)                                                         \
-   static void parseOp_##name(FunctionParseState& state, bool isExpression)                                  \
-   {                                                                                                         \
+   static void parseOp_##name(FunctionParseState& state, bool isExpression) {                                \
       ++state.nextToken;                                                                                     \
       Imm imm;                                                                                               \
       parseImm(state, imm);                                                                                  \
@@ -344,8 +317,7 @@ static void parseExprSequence(FunctionParseState& state)
 ENUM_NONCONTROL_OPERATORS(VISIT_OP)
 #undef VISIT_OP
 
-static void parseExpr(FunctionParseState& state)
-{
+static void parseExpr(FunctionParseState& state) {
    parseParenthesized(state, [&] {
       const Token* opcodeToken = state.nextToken;
       try {
@@ -419,8 +391,7 @@ static void parseExpr(FunctionParseState& state)
    });
 }
 
-static void parseInstrSequence(FunctionParseState& state)
-{
+static void parseInstrSequence(FunctionParseState& state) {
    while (true) {
       const Token* opcodeToken = state.nextToken;
       try {
@@ -485,8 +456,7 @@ static void parseInstrSequence(FunctionParseState& state)
 }
 
 namespace WAST {
-FunctionDef parseFunctionDef(ModuleParseState& state, const Token* funcToken)
-{
+FunctionDef parseFunctionDef(ModuleParseState& state, const Token* funcToken) {
    std::vector<std::string>* localDisassemblyNames = new std::vector<std::string>;
    NameToIndexMap*           localNameToIndexMap   = new NameToIndexMap();
 
@@ -553,8 +523,7 @@ FunctionDef parseFunctionDef(ModuleParseState& state, const Token* funcToken)
          } catch (ValidationException exception) {
             parseErrorf(state, firstBodyToken, "%s", exception.message.c_str());
          } catch (RecoverParseException) {
-         } catch (FatalParseException) {
-         }
+         } catch (FatalParseException) {}
          functionDef.code = std::move(functionState.codeByteStream.getBytes());
       });
    });

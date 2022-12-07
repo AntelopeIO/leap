@@ -10,8 +10,7 @@
 namespace eosio {
 namespace chain {
 
-class account_object : public chainbase::object<account_object_type, account_object>
-{
+class account_object : public chainbase::object<account_object_type, account_object> {
    OBJECT_CTOR(account_object, (abi))
 
    id_type              id;
@@ -19,16 +18,14 @@ class account_object : public chainbase::object<account_object_type, account_obj
    block_timestamp_type creation_date;
    shared_blob          abi;
 
-   void set_abi(const eosio::chain::abi_def& a)
-   {
+   void set_abi(const eosio::chain::abi_def& a) {
       abi.resize_and_fill(fc::raw::pack_size(a), [&a](char* data, std::size_t size) {
          fc::datastream<char*> ds(data, size);
          fc::raw::pack(ds, a);
       });
    }
 
-   eosio::chain::abi_def get_abi() const
-   {
+   eosio::chain::abi_def get_abi() const {
       eosio::chain::abi_def a;
       EOS_ASSERT(abi.size() != 0, abi_not_found_exception, "No ABI set on account ${n}", ("n", name));
 
@@ -47,14 +44,10 @@ using account_index = chainbase::shared_multi_index_container<
       ordered_unique<tag<by_name>, member<account_object, account_name, &account_object::name>>>>;
 
 class account_metadata_object
-   : public chainbase::object<account_metadata_object_type, account_metadata_object>
-{
+   : public chainbase::object<account_metadata_object_type, account_metadata_object> {
    OBJECT_CTOR(account_metadata_object);
 
-   enum class flags_fields : uint32_t
-   {
-      privileged = 1
-   };
+   enum class flags_fields : uint32_t { privileged = 1 };
 
    id_type      id;
    account_name name; //< name should not be changed within a chainbase modifier lambda
@@ -84,8 +77,7 @@ using account_metadata_index = chainbase::shared_multi_index_container<
                      member<account_metadata_object, account_name, &account_metadata_object::name>>>>;
 
 class account_ram_correction_object
-   : public chainbase::object<account_ram_correction_object_type, account_ram_correction_object>
-{
+   : public chainbase::object<account_ram_correction_object_type, account_ram_correction_object> {
    OBJECT_CTOR(account_ram_correction_object);
 
    id_type      id;

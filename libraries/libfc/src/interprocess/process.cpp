@@ -12,8 +12,7 @@ namespace fc {
 namespace bp = boost::process;
 namespace io = boost::iostreams;
 
-fc::path find_executable_in_path(const fc::string name)
-{
+fc::path find_executable_in_path(const fc::string name) {
    try {
       return fc::string(bp::find_executable_in_path(std::string(name), ""));
    } catch (...) {
@@ -24,16 +23,12 @@ fc::path find_executable_in_path(const fc::string name)
    return fc::path();
 }
 
-class process::impl
-{
+class process::impl {
 public:
    impl()
-      : stat(fc::asio::default_io_service())
-   {
-   }
+      : stat(fc::asio::default_io_service()) {}
 
-   ~impl()
-   {
+   ~impl() {
       try {
          if (_in) {
             _in->close();
@@ -64,13 +59,13 @@ public:
 };
 
 process::process()
-   : my(new process::impl())
-{
-}
+   : my(new process::impl()) {}
 process::~process() {}
 
-iprocess& process::exec(const fc::path& exe, std::vector<std::string> args, const fc::path& work_dir, int opt)
-{
+iprocess& process::exec(const fc::path&          exe,
+                        std::vector<std::string> args,
+                        const fc::path&          work_dir,
+                        int                      opt) {
 
    my->pctx.work_dir         = work_dir.string();
    my->pctx.suppress_console = (opt & suppress_console) != 0;
@@ -146,36 +141,31 @@ iprocess& process::exec(const fc::path& exe, std::vector<std::string> args, cons
 /**
  *  Forcefully kills the process.
  */
-void process::kill()
-{
+void process::kill() {
    my->child->terminate();
 }
 
 /**
  *  @brief returns a stream that writes to the process' stdin
  */
-fc::buffered_ostream_ptr process::in_stream()
-{
+fc::buffered_ostream_ptr process::in_stream() {
    return my->_in;
 }
 
 /**
  *  @brief returns a stream that reads from the process' stdout
  */
-fc::buffered_istream_ptr process::out_stream()
-{
+fc::buffered_istream_ptr process::out_stream() {
    return my->_out;
 }
 /**
  *  @brief returns a stream that reads from the process' stderr
  */
-fc::buffered_istream_ptr process::err_stream()
-{
+fc::buffered_istream_ptr process::err_stream() {
    return my->_err;
 }
 
-int process::result(const microseconds& timeout /* = microseconds::maximum() */)
-{
+int process::result(const microseconds& timeout /* = microseconds::maximum() */) {
    return my->_exited.wait(timeout);
 }
 

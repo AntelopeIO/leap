@@ -19,8 +19,7 @@ using namespace eosio::testing;
 
 BOOST_AUTO_TEST_SUITE(delay_tests)
 
-BOOST_FIXTURE_TEST_CASE(delay_create_account, validating_tester)
-{
+BOOST_FIXTURE_TEST_CASE(delay_create_account, validating_tester) {
    try {
 
       produce_blocks(2);
@@ -49,8 +48,7 @@ BOOST_FIXTURE_TEST_CASE(delay_create_account, validating_tester)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_FIXTURE_TEST_CASE(delay_error_create_account, validating_tester)
-{
+BOOST_FIXTURE_TEST_CASE(delay_error_create_account, validating_tester) {
    try {
 
       produce_blocks(2);
@@ -93,16 +91,14 @@ BOOST_FIXTURE_TEST_CASE(delay_error_create_account, validating_tester)
    FC_LOG_AND_RETHROW()
 }
 
-asset get_currency_balance(const TESTER& chain, account_name account)
-{
+asset get_currency_balance(const TESTER& chain, account_name account) {
    return chain.get_currency_balance("eosio.token"_n, symbol(SY(4, CUR)), account);
 }
 
 const std::string eosio_token = name("eosio.token"_n).to_string();
 
 // test link to permission with delay directly on it
-BOOST_AUTO_TEST_CASE(link_delay_direct_test)
-{
+BOOST_AUTO_TEST_CASE(link_delay_direct_test) {
    try {
       TESTER chain;
 
@@ -239,8 +235,7 @@ BOOST_AUTO_TEST_CASE(link_delay_direct_test)
    FC_LOG_AND_RETHROW()
 } /// schedule_test
 
-BOOST_AUTO_TEST_CASE(delete_auth_test)
-{
+BOOST_AUTO_TEST_CASE(delete_auth_test) {
    try {
       TESTER chain;
 
@@ -385,8 +380,7 @@ BOOST_AUTO_TEST_CASE(delete_auth_test)
 
 // test link to permission with delay on permission which is parent of min permission (special logic in
 // permission_object::satisfies)
-BOOST_AUTO_TEST_CASE(link_delay_direct_parent_permission_test)
-{
+BOOST_AUTO_TEST_CASE(link_delay_direct_parent_permission_test) {
    try {
       TESTER chain;
 
@@ -525,8 +519,7 @@ BOOST_AUTO_TEST_CASE(link_delay_direct_parent_permission_test)
 } /// schedule_test
 
 // test link to permission with delay on permission between min permission and authorizing permission it
-BOOST_AUTO_TEST_CASE(link_delay_direct_walk_parent_permissions_test)
-{
+BOOST_AUTO_TEST_CASE(link_delay_direct_walk_parent_permissions_test) {
    try {
       TESTER chain;
 
@@ -671,8 +664,7 @@ BOOST_AUTO_TEST_CASE(link_delay_direct_walk_parent_permissions_test)
 } /// schedule_test
 
 // test removing delay on permission
-BOOST_AUTO_TEST_CASE(link_delay_permission_change_test)
-{
+BOOST_AUTO_TEST_CASE(link_delay_permission_change_test) {
    try {
       TESTER chain;
 
@@ -866,8 +858,7 @@ BOOST_AUTO_TEST_CASE(link_delay_permission_change_test)
 } /// schedule_test
 
 // test removing delay on permission based on heirarchy delay
-BOOST_AUTO_TEST_CASE(link_delay_permission_change_with_delay_heirarchy_test)
-{
+BOOST_AUTO_TEST_CASE(link_delay_permission_change_with_delay_heirarchy_test) {
    try {
       TESTER chain;
 
@@ -1066,8 +1057,7 @@ BOOST_AUTO_TEST_CASE(link_delay_permission_change_with_delay_heirarchy_test)
 } /// schedule_test
 
 // test moving link with delay on permission
-BOOST_AUTO_TEST_CASE(link_delay_link_change_test)
-{
+BOOST_AUTO_TEST_CASE(link_delay_link_change_test) {
    try {
       TESTER chain;
 
@@ -1268,8 +1258,7 @@ BOOST_AUTO_TEST_CASE(link_delay_link_change_test)
 } /// schedule_test
 
 // test link with unlink
-BOOST_AUTO_TEST_CASE(link_delay_unlink_test)
-{
+BOOST_AUTO_TEST_CASE(link_delay_unlink_test) {
    try {
       TESTER chain;
 
@@ -1459,8 +1448,7 @@ BOOST_AUTO_TEST_CASE(link_delay_unlink_test)
 } /// link_delay_unlink_test
 
 // test moving link with delay on permission's parent
-BOOST_AUTO_TEST_CASE(link_delay_link_change_heirarchy_test)
-{
+BOOST_AUTO_TEST_CASE(link_delay_link_change_heirarchy_test) {
    try {
       TESTER chain;
 
@@ -1652,8 +1640,7 @@ BOOST_AUTO_TEST_CASE(link_delay_link_change_heirarchy_test)
 } /// link_delay_link_change_heirarchy_test
 
 // test delay_sec field imposing unneeded delay
-BOOST_AUTO_TEST_CASE(mindelay_test)
-{
+BOOST_AUTO_TEST_CASE(mindelay_test) {
    try {
       TESTER chain;
 
@@ -1781,8 +1768,7 @@ BOOST_AUTO_TEST_CASE(mindelay_test)
 } /// schedule_test
 
 // test canceldelay action cancelling a delayed transaction
-BOOST_AUTO_TEST_CASE(canceldelay_test)
-{
+BOOST_AUTO_TEST_CASE(canceldelay_test) {
    try {
       TESTER                           chain;
       const auto&                      tester_account = "tester"_n;
@@ -2024,8 +2010,7 @@ BOOST_AUTO_TEST_CASE(canceldelay_test)
 }
 
 // test canceldelay action under different permission levels
-BOOST_AUTO_TEST_CASE(canceldelay_test2)
-{
+BOOST_AUTO_TEST_CASE(canceldelay_test2) {
    try {
       TESTER chain;
 
@@ -2321,8 +2306,7 @@ BOOST_AUTO_TEST_CASE(canceldelay_test2)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(max_transaction_delay_create)
-{
+BOOST_AUTO_TEST_CASE(max_transaction_delay_create) {
    try {
       // assuming max transaction delay is 45 days (default in config.hpp)
       TESTER chain;
@@ -2347,8 +2331,7 @@ BOOST_AUTO_TEST_CASE(max_transaction_delay_create)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(max_transaction_delay_execute)
-{
+BOOST_AUTO_TEST_CASE(max_transaction_delay_execute) {
    try {
       // assuming max transaction delay is 45 days (default in config.hpp)
       TESTER chain;
@@ -2431,8 +2414,7 @@ BOOST_AUTO_TEST_CASE(max_transaction_delay_execute)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(test_blockchain_params_enabled)
-{
+BOOST_AUTO_TEST_CASE(test_blockchain_params_enabled) {
    try {
       // since validation_tester activates all features here we will test how setparams works without
       // blockchain_parameters enabled
@@ -2453,8 +2435,7 @@ BOOST_AUTO_TEST_CASE(test_blockchain_params_enabled)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_FIXTURE_TEST_CASE(delay_expired, validating_tester)
-{
+BOOST_FIXTURE_TEST_CASE(delay_expired, validating_tester) {
    try {
 
       produce_blocks(2);

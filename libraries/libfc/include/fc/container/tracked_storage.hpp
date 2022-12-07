@@ -14,8 +14,7 @@ namespace fc {
  */
 namespace tracked {
 template<typename T>
-size_t memory_size(const T& obj)
-{
+size_t memory_size(const T& obj) {
    return obj.memory_size();
 }
 }
@@ -34,8 +33,7 @@ size_t memory_size(const T& obj)
  */
 
 template<typename ContainerType>
-class tracked_storage
-{
+class tracked_storage {
 private:
    size_t        _memory_size = 0;
    ContainerType _index;
@@ -48,8 +46,7 @@ public:
    // read in the contents of a persisted tracked_storage and prevent reading in
    // more stored objects once max_memory is reached.
    // returns true if entire persisted tracked_storage was read
-   bool read(fc::cfile_datastream& ds, size_t max_memory)
-   {
+   bool read(fc::cfile_datastream& ds, size_t max_memory) {
       auto container_size = _index.size();
       fc::raw::unpack(ds, container_size);
       for (size_t i = 0; i < container_size; ++i) {
@@ -64,8 +61,7 @@ public:
       return true;
    }
 
-   void write(fc::cfile& dat_content) const
-   {
+   void write(fc::cfile& dat_content) const {
       const auto container_size = _index.size();
       dat_content.write(reinterpret_cast<const char*>(&container_size), sizeof(container_size));
 
@@ -75,8 +71,7 @@ public:
       }
    }
 
-   std::pair<typename primary_index_type::iterator, bool> insert(typename ContainerType::value_type obj)
-   {
+   std::pair<typename primary_index_type::iterator, bool> insert(typename ContainerType::value_type obj) {
       const auto size   = tracked::memory_size(obj);
       auto       result = _index.insert(std::move(obj));
       if (result.second) {
@@ -86,22 +81,19 @@ public:
    }
 
    template<typename Key>
-   typename primary_index_type::iterator find(const Key& key)
-   {
+   typename primary_index_type::iterator find(const Key& key) {
       primary_index_type& primary_idx = _index.template get<0>();
       return primary_idx.find(key);
    }
 
    template<typename Key>
-   typename primary_index_type::const_iterator find(const Key& key) const
-   {
+   typename primary_index_type::const_iterator find(const Key& key) const {
       const primary_index_type& primary_idx = _index.template get<0>();
       return primary_idx.find(key);
    }
 
    template<typename Lam>
-   void modify(typename primary_index_type::iterator itr, Lam lam)
-   {
+   void modify(typename primary_index_type::iterator itr, Lam lam) {
       _memory_size -= tracked::memory_size(*itr);
       if (_index.modify(itr, std::move(lam))) {
          _memory_size += tracked::memory_size(*itr);
@@ -109,8 +101,7 @@ public:
    }
 
    template<typename Key>
-   void erase(const Key& key)
-   {
+   void erase(const Key& key) {
       auto itr = _index.find(key);
       if (itr == _index.end())
          return;
@@ -119,8 +110,7 @@ public:
       _index.erase(itr);
    }
 
-   void erase(typename primary_index_type::iterator itr)
-   {
+   void erase(typename primary_index_type::iterator itr) {
       _memory_size -= tracked::memory_size(*itr);
       _index.erase(itr);
    }

@@ -2,8 +2,7 @@
 
 #include <eosio/eosio.hpp>
 
-class [[eosio::contract]] test_api_multi_index : public eosio::contract
-{
+class [[eosio::contract]] test_api_multi_index : public eosio::contract {
 public:
    using eosio::contract::contract;
 

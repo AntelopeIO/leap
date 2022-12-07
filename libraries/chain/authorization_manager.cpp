@@ -19,30 +19,24 @@ using authorization_index_set = index_set<permission_index, permission_usage_ind
 
 authorization_manager::authorization_manager(controller& c, database& d)
    : _control(c)
-   , _db(d)
-{
-}
+   , _db(d) {}
 
-void authorization_manager::add_indices()
-{
+void authorization_manager::add_indices() {
    authorization_index_set::add_indices(_db);
 }
 
-void authorization_manager::initialize_database()
-{
+void authorization_manager::initialize_database() {
    _db.create<permission_object>([](auto&) {}); /// reserve perm 0 (used else where)
 }
 
 namespace detail {
 template<>
-struct snapshot_row_traits<permission_object>
-{
+struct snapshot_row_traits<permission_object> {
    using value_type    = permission_object;
    using snapshot_type = snapshot_permission_object;
 
    static snapshot_permission_object to_snapshot_row(const permission_object&   value,
-                                                     const chainbase::database& db)
-   {
+                                                     const chainbase::database& db) {
       snapshot_permission_object res;
       res.name         = value.name;
       res.owner        = value.owner;
@@ -62,8 +56,7 @@ struct snapshot_row_traits<permission_object>
 
    static void from_snapshot_row(snapshot_permission_object&& row,
                                  permission_object&           value,
-                                 chainbase::database&         db)
-   {
+                                 chainbase::database&         db) {
       value.name         = row.name;
       value.owner        = row.owner;
       value.last_updated = row.last_updated;
@@ -112,8 +105,7 @@ struct snapshot_row_traits<permission_object>
 };
 }
 
-void authorization_manager::add_to_snapshot(const snapshot_writer_ptr& snapshot) const
-{
+void authorization_manager::add_to_snapshot(const snapshot_writer_ptr& snapshot) const {
    authorization_index_set::walk_indices([this, &snapshot](auto utils) {
       using section_t = typename decltype(utils)::index_t::value_type;
 
@@ -128,8 +120,7 @@ void authorization_manager::add_to_snapshot(const snapshot_writer_ptr& snapshot)
    });
 }
 
-void authorization_manager::read_from_snapshot(const snapshot_reader_ptr& snapshot)
-{
+void authorization_manager::read_from_snapshot(const snapshot_reader_ptr& snapshot) {
    authorization_index_set::walk_indices([this, &snapshot](auto utils) {
       using section_t = typename decltype(utils)::index_t::value_type;
 
@@ -152,8 +143,7 @@ const permission_object& authorization_manager::create_permission(account_name  
                                                                   permission_name    name,
                                                                   permission_id_type parent,
                                                                   const authority&   auth,
-                                                                  time_point         initial_creation_time)
-{
+                                                                  time_point         initial_creation_time) {
    for (const key_weight& k : auth.keys)
       EOS_ASSERT(k.key.which() < _db.get<protocol_state_object>().num_supported_key_types,
                  unactivated_key_type,
@@ -186,8 +176,7 @@ const permission_object& authorization_manager::create_permission(account_name  
                                                                   permission_name    name,
                                                                   permission_id_type parent,
                                                                   authority&&        auth,
-                                                                  time_point         initial_creation_time)
-{
+                                                                  time_point         initial_creation_time) {
    for (const key_weight& k : auth.keys)
       EOS_ASSERT(k.key.which() < _db.get<protocol_state_object>().num_supported_key_types,
                  unactivated_key_type,
@@ -216,8 +205,7 @@ const permission_object& authorization_manager::create_permission(account_name  
    return perm;
 }
 
-void authorization_manager::modify_permission(const permission_object& permission, const authority& auth)
-{
+void authorization_manager::modify_permission(const permission_object& permission, const authority& auth) {
    for (const key_weight& k : auth.keys)
       EOS_ASSERT(k.key.which() < _db.get<protocol_state_object>().num_supported_key_types,
                  unactivated_key_type,
@@ -240,8 +228,7 @@ void authorization_manager::modify_permission(const permission_object& permissio
    });
 }
 
-void authorization_manager::remove_permission(const permission_object& permission)
-{
+void authorization_manager::remove_permission(const permission_object& permission) {
    const auto& index = _db.template get_index<permission_index, by_parent>();
    auto        range = index.equal_range(permission.id);
    EOS_ASSERT(range.first == range.second,
@@ -257,19 +244,16 @@ void authorization_manager::remove_permission(const permission_object& permissio
    _db.remove(permission);
 }
 
-void authorization_manager::update_permission_usage(const permission_object& permission)
-{
+void authorization_manager::update_permission_usage(const permission_object& permission) {
    const auto& puo = _db.get<permission_usage_object, by_id>(permission.usage_id);
    _db.modify(puo, [&](permission_usage_object& p) { p.last_used = _control.pending_block_time(); });
 }
 
-fc::time_point authorization_manager::get_permission_last_used(const permission_object& permission) const
-{
+fc::time_point authorization_manager::get_permission_last_used(const permission_object& permission) const {
    return _db.get<permission_usage_object, by_id>(permission.usage_id).last_used;
 }
 
-const permission_object* authorization_manager::find_permission(const permission_level& level) const
-{
+const permission_object* authorization_manager::find_permission(const permission_level& level) const {
    try {
       EOS_ASSERT(!level.actor.empty() && !level.permission.empty(), invalid_permission, "Invalid permission");
       return _db.find<permission_object, by_owner>(boost::make_tuple(level.actor, level.permission));
@@ -278,8 +262,7 @@ const permission_object* authorization_manager::find_permission(const permission
       chain::permission_query_exception, "Failed to retrieve permission: ${level}", ("level", level))
 }
 
-const permission_object& authorization_manager::get_permission(const permission_level& level) const
-{
+const permission_object& authorization_manager::get_permission(const permission_level& level) const {
    try {
       EOS_ASSERT(!level.actor.empty() && !level.permission.empty(), invalid_permission, "Invalid permission");
       return _db.get<permission_object, by_owner>(boost::make_tuple(level.actor, level.permission));
@@ -291,8 +274,7 @@ const permission_object& authorization_manager::get_permission(const permission_
 std::optional<permission_name> authorization_manager::lookup_linked_permission(
    account_name authorizer_account,
    account_name scope,
-   action_name  act_name) const
-{
+   action_name  act_name) const {
    try {
       // First look up a specific link for this message act_name
       auto key  = boost::make_tuple(authorizer_account, scope, act_name);
@@ -315,8 +297,7 @@ std::optional<permission_name> authorization_manager::lookup_linked_permission(
 std::optional<permission_name> authorization_manager::lookup_minimum_permission(
    account_name authorizer_account,
    account_name scope,
-   action_name  act_name) const
-{
+   action_name  act_name) const {
    // Special case native actions cannot be linked to a minimum permission, so there is no need to check.
    if (scope == config::system_account_name) {
       EOS_ASSERT(act_name != updateauth::get_name() && act_name != deleteauth::get_name() &&
@@ -342,8 +323,7 @@ std::optional<permission_name> authorization_manager::lookup_minimum_permission(
 }
 
 void authorization_manager::check_updateauth_authorization(const updateauth&               update,
-                                                           const vector<permission_level>& auths) const
-{
+                                                           const vector<permission_level>& auths) const {
    EOS_ASSERT(auths.size() == 1,
               irrelevant_auth_exception,
               "updateauth action should only have one declared authorization");
@@ -364,8 +344,7 @@ void authorization_manager::check_updateauth_authorization(const updateauth&    
 }
 
 void authorization_manager::check_deleteauth_authorization(const deleteauth&               del,
-                                                           const vector<permission_level>& auths) const
-{
+                                                           const vector<permission_level>& auths) const {
    EOS_ASSERT(auths.size() == 1,
               irrelevant_auth_exception,
               "deleteauth action should only have one declared authorization");
@@ -383,8 +362,7 @@ void authorization_manager::check_deleteauth_authorization(const deleteauth&    
 }
 
 void authorization_manager::check_linkauth_authorization(const linkauth&                 link,
-                                                         const vector<permission_level>& auths) const
-{
+                                                         const vector<permission_level>& auths) const {
    EOS_ASSERT(auths.size() == 1,
               irrelevant_auth_exception,
               "link action should only have one declared authorization");
@@ -425,8 +403,7 @@ void authorization_manager::check_linkauth_authorization(const linkauth&        
 }
 
 void authorization_manager::check_unlinkauth_authorization(const unlinkauth&               unlink,
-                                                           const vector<permission_level>& auths) const
-{
+                                                           const vector<permission_level>& auths) const {
    EOS_ASSERT(auths.size() == 1,
               irrelevant_auth_exception,
               "unlink action should only have one declared authorization");
@@ -454,8 +431,7 @@ void authorization_manager::check_unlinkauth_authorization(const unlinkauth&    
 
 fc::microseconds authorization_manager::check_canceldelay_authorization(
    const canceldelay&              cancel,
-   const vector<permission_level>& auths) const
-{
+   const vector<permission_level>& auths) const {
    EOS_ASSERT(auths.size() == 1,
               irrelevant_auth_exception,
               "canceldelay action should only have one declared authorization");
@@ -511,8 +487,7 @@ void authorization_manager::check_authorization(
    const std::function<void()>&      _checktime,
    bool                              allow_unused_keys,
    bool                              check_but_dont_fail,
-   const flat_set<permission_level>& satisfied_authorizations) const
-{
+   const flat_set<permission_level>& satisfied_authorizations) const {
    const auto& checktime = (static_cast<bool>(_checktime) ? _checktime : _noop_checktime);
 
    auto delay_max_limit = fc::seconds(_control.get_global_properties().configuration.max_transaction_delay);
@@ -615,8 +590,7 @@ void authorization_manager::check_authorization(account_name                    
                                                 const flat_set<permission_level>& provided_permissions,
                                                 fc::microseconds                  provided_delay,
                                                 const std::function<void()>&      _checktime,
-                                                bool                              allow_unused_keys) const
-{
+                                                bool                              allow_unused_keys) const {
    const auto& checktime = (static_cast<bool>(_checktime) ? _checktime : _noop_checktime);
 
    auto delay_max_limit = fc::seconds(_control.get_global_properties().configuration.max_transaction_delay);
@@ -650,8 +624,7 @@ void authorization_manager::check_authorization(account_name                    
 flat_set<public_key_type> authorization_manager::get_required_keys(
    const transaction&               trx,
    const flat_set<public_key_type>& candidate_keys,
-   fc::microseconds                 provided_delay) const
-{
+   fc::microseconds                 provided_delay) const {
    auto checker = make_auth_checker([&](const permission_level& p) { return get_permission(p).auth; },
                                     _control.get_global_properties().configuration.max_authority_depth,
                                     candidate_keys,

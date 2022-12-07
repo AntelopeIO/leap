@@ -12,8 +12,7 @@ namespace eosio {
 namespace chain {
 namespace eosvmoc {
 
-class memory
-{
+class memory {
    static constexpr uint64_t intrinsic_count = intrinsic_table_size();
    // warning: changing the following 3 params will invalidate existing PIC
    static constexpr uint64_t mutable_global_size =
@@ -42,8 +41,7 @@ public:
    uint8_t* const zero_page_memory_base() const { return zeropage_base; }
    uint8_t* const full_page_memory_base() const { return fullpage_base; }
 
-   control_block* const get_control_block() const
-   {
+   control_block* const get_control_block() const {
       return reinterpret_cast<control_block* const>(zeropage_base - cb_offset);
    }
 

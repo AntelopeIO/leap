@@ -11,30 +11,25 @@ class variant;
  * with 18 places.
  * Delegates to fc::bigint for multiplication and division.
  */
-class real128
-{
+class real128 {
 public:
    real128(uint64_t integer = 0);
    explicit real128(const std::string& str);
    operator std::string() const;
 
-   friend real128 operator*(real128 a, const real128& b)
-   {
+   friend real128 operator*(real128 a, const real128& b) {
       a *= b;
       return a;
    }
-   friend real128 operator/(real128 a, const real128& b)
-   {
+   friend real128 operator/(real128 a, const real128& b) {
       a /= b;
       return a;
    }
-   friend real128 operator+(real128 a, const real128& b)
-   {
+   friend real128 operator+(real128 a, const real128& b) {
       a += b;
       return a;
    }
-   friend real128 operator-(real128 a, const real128& b)
-   {
+   friend real128 operator-(real128 a, const real128& b) {
       a -= b;
       return a;
    }
@@ -57,13 +52,11 @@ void from_variant(const variant& var, real128& vo);
 
 namespace raw {
 template<typename Stream>
-inline void pack(Stream& s, const real128& value_to_pack)
-{
+inline void pack(Stream& s, const real128& value_to_pack) {
    s.write((char*)&value_to_pack, sizeof(value_to_pack));
 }
 template<typename Stream>
-inline void unpack(Stream& s, real128& value_to_unpack)
-{
+inline void unpack(Stream& s, real128& value_to_unpack) {
    s.read((char*)&value_to_unpack, sizeof(value_to_unpack));
 }
 }

@@ -11,8 +11,7 @@
 
 namespace fc {
 
-void read_file_contents(const fc::path& filename, std::string& result)
-{
+void read_file_contents(const fc::path& filename, std::string& result) {
    const boost::filesystem::path& bfp = filename;
    boost::filesystem::ifstream    f(bfp, std::ios::in | std::ios::binary);
    FC_ASSERT(f, "Failed to open ${filename}", ("filename", filename));

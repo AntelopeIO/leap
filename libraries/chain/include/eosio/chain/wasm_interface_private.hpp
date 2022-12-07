@@ -37,10 +37,8 @@ namespace eosvmoc {
 struct config;
 }
 
-struct wasm_interface_impl
-{
-   struct wasm_cache_entry
-   {
+struct wasm_interface_impl {
+   struct wasm_cache_entry {
       digest_type                                         code_hash;
       uint32_t                                            first_block_num_used;
       uint32_t                                            last_block_num_used;
@@ -53,14 +51,11 @@ struct wasm_interface_impl
    struct by_last_block_num;
 
 #ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
-   struct eosvmoc_tier
-   {
+   struct eosvmoc_tier {
       eosvmoc_tier(const boost::filesystem::path& d, const eosvmoc::config& c, const chainbase::database& db)
          : cc(d, c, db)
          , exec(cc)
-         , mem(wasm_constraints::maximum_linear_memory / wasm_constraints::wasm_page_size)
-      {
-      }
+         , mem(wasm_constraints::maximum_linear_memory / wasm_constraints::wasm_page_size) {}
       eosvmoc::code_cache_async cc;
       eosvmoc::executor         exec;
       eosvmoc::memory           mem;
@@ -74,8 +69,7 @@ struct wasm_interface_impl
                        const eosvmoc::config&        eosvmoc_config,
                        bool                          profile)
       : db(d)
-      , wasm_runtime_time(vm)
-   {
+      , wasm_runtime_time(vm) {
 #ifdef EOSIO_EOS_VM_RUNTIME_ENABLED
       if (vm == wasm_interface::vm_type::eos_vm)
          runtime_interface =
@@ -109,8 +103,7 @@ struct wasm_interface_impl
 #endif
    }
 
-   ~wasm_interface_impl()
-   {
+   ~wasm_interface_impl() {
       if (is_shutting_down)
          for (wasm_cache_index::iterator it = wasm_instantiation_cache.begin();
               it != wasm_instantiation_cache.end();
@@ -119,8 +112,7 @@ struct wasm_interface_impl
                                             [](wasm_cache_entry& e) { e.module.release()->fast_shutdown(); });
    }
 
-   std::vector<uint8_t> parse_initial_memory(const Module& module)
-   {
+   std::vector<uint8_t> parse_initial_memory(const Module& module) {
       std::vector<uint8_t> mem_image;
 
       for (const DataSegment& data_segment : module.dataSegments) {
@@ -142,8 +134,7 @@ struct wasm_interface_impl
    void code_block_num_last_used(const digest_type& code_hash,
                                  const uint8_t&     vm_type,
                                  const uint8_t&     vm_version,
-                                 const uint32_t&    block_num)
-   {
+                                 const uint32_t&    block_num) {
       wasm_cache_index::iterator it =
          wasm_instantiation_cache.find(boost::make_tuple(code_hash, vm_type, vm_version));
       if (it != wasm_instantiation_cache.end())
@@ -151,8 +142,7 @@ struct wasm_interface_impl
             it, [block_num](wasm_cache_entry& e) { e.last_block_num_used = block_num; });
    }
 
-   void current_lib(uint32_t lib)
-   {
+   void current_lib(uint32_t lib) {
       // anything last used before or on the LIB can be evicted
       const auto first_it = wasm_instantiation_cache.get<by_last_block_num>().begin();
       const auto last_it  = wasm_instantiation_cache.get<by_last_block_num>().upper_bound(lib);
@@ -168,8 +158,7 @@ struct wasm_interface_impl
       const digest_type&   code_hash,
       const uint8_t&       vm_type,
       const uint8_t&       vm_version,
-      transaction_context& trx_context)
-   {
+      transaction_context& trx_context) {
       wasm_cache_index::iterator it =
          wasm_instantiation_cache.find(boost::make_tuple(code_hash, vm_type, vm_version));
       const code_object* codeobject = nullptr;

@@ -12,26 +12,22 @@ namespace eosio {
 namespace chain {
 namespace webassembly {
 
-int interface::is_feature_active(int64_t feature_name) const
-{
+int interface::is_feature_active(int64_t feature_name) const {
    return false;
 }
 
-void interface::activate_feature(int64_t feature_name) const
-{
+void interface::activate_feature(int64_t feature_name) const {
    EOS_ASSERT(false, unsupported_feature, "Unsupported Hardfork Detected");
 }
 
-void interface::preactivate_feature(legacy_ptr<const digest_type> feature_digest)
-{
+void interface::preactivate_feature(legacy_ptr<const digest_type> feature_digest) {
    context.control.preactivate_feature(*feature_digest);
 }
 
 void interface::set_resource_limits(account_name account,
                                     int64_t      ram_bytes,
                                     int64_t      net_weight,
-                                    int64_t      cpu_weight)
-{
+                                    int64_t      cpu_weight) {
    EOS_ASSERT(
       ram_bytes >= -1, wasm_execution_error, "invalid value for ram resource limit expected [-1,INT64_MAX]");
    EOS_ASSERT(net_weight >= -1,
@@ -49,8 +45,7 @@ void interface::set_resource_limits(account_name account,
 void interface::get_resource_limits(account_name        account,
                                     legacy_ptr<int64_t> ram_bytes,
                                     legacy_ptr<int64_t> net_weight,
-                                    legacy_ptr<int64_t> cpu_weight) const
-{
+                                    legacy_ptr<int64_t> cpu_weight) const {
    context.control.get_resource_limits_manager().get_account_limits(
       account, *ram_bytes, *net_weight, *cpu_weight);
    (void)legacy_ptr<int64_t>(std::move(ram_bytes));
@@ -60,8 +55,7 @@ void interface::get_resource_limits(account_name        account,
 
 int64_t set_proposed_producers_common(apply_context&               context,
                                       vector<producer_authority>&& producers,
-                                      bool                         validate_keys)
-{
+                                      bool                         validate_keys) {
    EOS_ASSERT(producers.size() <= config::max_producers,
               wasm_execution_error,
               "Producer schedule exceeds the maximum producer count for this chain");
@@ -125,8 +119,7 @@ int64_t set_proposed_producers_common(apply_context&               context,
    return context.control.set_proposed_producers(std::move(producers));
 }
 
-uint32_t interface::get_wasm_parameters_packed(span<char> packed_parameters, uint32_t max_version) const
-{
+uint32_t interface::get_wasm_parameters_packed(span<char> packed_parameters, uint32_t max_version) const {
    auto&    gpo     = context.control.get_global_properties();
    auto&    params  = gpo.wasm_configuration;
    uint32_t version = std::min(max_version, uint32_t(0));
@@ -142,8 +135,7 @@ uint32_t interface::get_wasm_parameters_packed(span<char> packed_parameters, uin
    }
    return s;
 }
-void interface::set_wasm_parameters_packed(span<const char> packed_parameters)
-{
+void interface::set_wasm_parameters_packed(span<const char> packed_parameters) {
    datastream<const char*> ds(packed_parameters.data(), packed_parameters.size());
    uint32_t                version;
    chain::wasm_config      cfg;
@@ -157,8 +149,7 @@ void interface::set_wasm_parameters_packed(span<const char> packed_parameters)
    context.db.modify(context.control.get_global_properties(),
                      [&](auto& gprops) { gprops.wasm_configuration = cfg; });
 }
-int64_t interface::set_proposed_producers(legacy_span<const char> packed_producer_schedule)
-{
+int64_t interface::set_proposed_producers(legacy_span<const char> packed_producer_schedule) {
    datastream<const char*>           ds(packed_producer_schedule.data(), packed_producer_schedule.size());
    std::vector<producer_authority>   producers;
    std::vector<legacy::producer_key> old_version;
@@ -177,8 +168,7 @@ int64_t interface::set_proposed_producers(legacy_span<const char> packed_produce
 }
 
 int64_t interface::set_proposed_producers_ex(uint64_t                packed_producer_format,
-                                             legacy_span<const char> packed_producer_schedule)
-{
+                                             legacy_span<const char> packed_producer_schedule) {
    if (packed_producer_format == 0) {
       return set_proposed_producers(std::move(packed_producer_schedule));
    } else if (packed_producer_format == 1) {
@@ -192,8 +182,7 @@ int64_t interface::set_proposed_producers_ex(uint64_t                packed_prod
    }
 }
 
-uint32_t interface::get_blockchain_parameters_packed(legacy_span<char> packed_blockchain_parameters) const
-{
+uint32_t interface::get_blockchain_parameters_packed(legacy_span<char> packed_blockchain_parameters) const {
    auto& gpo = context.control.get_global_properties();
 
    auto s = fc::raw::pack_size(gpo.configuration.v0());
@@ -208,8 +197,7 @@ uint32_t interface::get_blockchain_parameters_packed(legacy_span<char> packed_bl
    return 0;
 }
 
-void interface::set_blockchain_parameters_packed(legacy_span<const char> packed_blockchain_parameters)
-{
+void interface::set_blockchain_parameters_packed(legacy_span<const char> packed_blockchain_parameters) {
    datastream<const char*> ds(packed_blockchain_parameters.data(), packed_blockchain_parameters.size());
    chain::chain_config_v0  cfg;
    fc::raw::unpack(ds, cfg);
@@ -219,8 +207,7 @@ void interface::set_blockchain_parameters_packed(legacy_span<const char> packed_
 }
 
 uint32_t interface::get_parameters_packed(span<const char> packed_parameter_ids,
-                                          span<char>       packed_parameters) const
-{
+                                          span<char>       packed_parameters) const {
    datastream<const char*> ds_ids(packed_parameter_ids.data(), packed_parameter_ids.size());
 
    chain::chain_config           cfg = context.control.get_global_properties().configuration;
@@ -242,8 +229,7 @@ uint32_t interface::get_parameters_packed(span<const char> packed_parameter_ids,
    return size;
 }
 
-void interface::set_parameters_packed(span<const char> packed_parameters)
-{
+void interface::set_parameters_packed(span<const char> packed_parameters) {
    datastream<const char*> ds(packed_parameters.data(), packed_parameters.size());
 
    chain::chain_config cfg = context.control.get_global_properties().configuration;
@@ -256,13 +242,11 @@ void interface::set_parameters_packed(span<const char> packed_parameters)
                      [&](auto& gprops) { gprops.configuration = config_range.config; });
 }
 
-bool interface::is_privileged(account_name n) const
-{
+bool interface::is_privileged(account_name n) const {
    return context.db.get<account_metadata_object, by_name>(n).is_privileged();
 }
 
-void interface::set_privileged(account_name n, bool is_priv)
-{
+void interface::set_privileged(account_name n, bool is_priv) {
    const auto& a = context.db.get<account_metadata_object, by_name>(n);
    context.db.modify(a, [&](auto& ma) { ma.set_privileged(is_priv); });
 }

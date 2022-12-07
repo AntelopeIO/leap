@@ -37,8 +37,7 @@ using url_handler = std::function<void(string, string, url_response_callback)>;
  */
 using api_description = std::map<string, url_handler>;
 
-struct http_plugin_defaults
-{
+struct http_plugin_defaults {
    // If empty, unix socket support will be completely disabled. If not empty,
    //  unix socket support is enabled with the given default path (treated relative
    //  to the datadir)
@@ -64,8 +63,7 @@ struct http_plugin_defaults
  *  make sure that HTTP request processing does not interfer with other
  *  plugins.
  */
-class http_plugin : public appbase::plugin<http_plugin>
-{
+class http_plugin : public appbase::plugin<http_plugin> {
 public:
    http_plugin();
    ~http_plugin() override;
@@ -82,15 +80,13 @@ public:
    void handle_sighup() override;
 
    void add_handler(const string& url, const url_handler&, int priority = appbase::priority::medium_low);
-   void add_api(const api_description& api, int priority = appbase::priority::medium_low)
-   {
+   void add_api(const api_description& api, int priority = appbase::priority::medium_low) {
       for (const auto& call : api)
          add_handler(call.first, call.second, priority);
    }
 
    void add_async_handler(const string& url, const url_handler& handler);
-   void add_async_api(const api_description& api)
-   {
+   void add_async_api(const api_description& api) {
       for (const auto& call : api)
          add_async_handler(call.first, call.second);
    }
@@ -106,8 +102,7 @@ public:
 
    static bool verbose_errors();
 
-   struct get_supported_apis_result
-   {
+   struct get_supported_apis_result {
       vector<string> apis;
    };
 
@@ -123,19 +118,16 @@ private:
 /**
  * @brief Structure used to create JSON error responses
  */
-struct error_results
-{
+struct error_results {
    uint16_t code{};
    string   message;
 
-   struct error_info
-   {
+   struct error_info {
       int64_t code{};
       string  name;
       string  what;
 
-      struct error_detail
-      {
+      struct error_detail {
          string   message;
          string   file;
          uint64_t line_number{};
@@ -148,8 +140,7 @@ struct error_results
 
       error_info() = default;
 
-      error_info(const fc::exception& exc, bool include_full_log)
-      {
+      error_info(const fc::exception& exc, bool include_full_log) {
          code          = exc.code();
          name          = exc.name();
          what          = exc.what();
@@ -175,8 +166,7 @@ struct error_results
  * @brief Used to trim whitespace from body.
  * Returned string_view valid only for lifetime of body
  */
-inline std::string_view make_trimmed_string_view(const std::string& body)
-{
+inline std::string_view make_trimmed_string_view(const std::string& body) {
    if (body.empty()) {
       return {};
    }
@@ -203,8 +193,7 @@ inline std::string_view make_trimmed_string_view(const std::string& body)
    return std::string_view(body).substr(left, right - left + 1);
 }
 
-inline bool is_empty_content(const std::string& body)
-{
+inline bool is_empty_content(const std::string& body) {
    const auto trimmed_body_view = make_trimmed_string_view(body);
    if (trimmed_body_view.empty()) {
       return true;
@@ -222,16 +211,10 @@ inline bool is_empty_content(const std::string& body)
    return true;
 }
 
-enum class http_params_types
-{
-   no_params          = 0,
-   params_required    = 1,
-   possible_no_params = 2
-};
+enum class http_params_types { no_params = 0, params_required = 1, possible_no_params = 2 };
 
 template<typename T, http_params_types params_type>
-T parse_params(const std::string& body)
-{
+T parse_params(const std::string& body) {
    if constexpr (params_type == http_params_types::params_required) {
       if (is_empty_content(body)) {
          EOS_THROW(chain::invalid_http_request, "A Request body is required");

@@ -8,23 +8,20 @@ namespace chain {
 namespace detail {
 bool is_builtin_activated(const protocol_feature_activation_set_ptr& pfa,
                           const protocol_feature_set&                pfs,
-                          builtin_protocol_feature_t                 feature_codename)
-{
+                          builtin_protocol_feature_t                 feature_codename) {
    auto        digest            = pfs.get_builtin_digest(feature_codename);
    const auto& protocol_features = pfa->protocol_features;
    return digest && protocol_features.find(*digest) != protocol_features.end();
 }
 }
 
-producer_authority block_header_state::get_scheduled_producer(block_timestamp_type t) const
-{
+producer_authority block_header_state::get_scheduled_producer(block_timestamp_type t) const {
    auto index = t.slot % (active_schedule.producers.size() * config::producer_repetitions);
    index /= config::producer_repetitions;
    return active_schedule.producers[index];
 }
 
-uint32_t block_header_state::calc_dpos_last_irreversible(account_name producer_of_next_block) const
-{
+uint32_t block_header_state::calc_dpos_last_irreversible(account_name producer_of_next_block) const {
    vector<uint32_t> blocknums;
    blocknums.reserve(producer_to_last_implied_irb.size());
    for (auto& i : producer_to_last_implied_irb) {
@@ -42,8 +39,7 @@ uint32_t block_header_state::calc_dpos_last_irreversible(account_name producer_o
 }
 
 pending_block_header_state block_header_state::next(block_timestamp_type when,
-                                                    uint16_t             num_prev_blocks_to_confirm) const
-{
+                                                    uint16_t             num_prev_blocks_to_confirm) const {
    pending_block_header_state result;
 
    if (when != block_timestamp_type()) {
@@ -183,8 +179,7 @@ signed_block_header pending_block_header_state::make_block_header(
    const checksum256_type&                           action_mroot,
    const std::optional<producer_authority_schedule>& new_producers,
    vector<digest_type>&&                             new_protocol_feature_activations,
-   const protocol_feature_set&                       pfs) const
-{
+   const protocol_feature_set&                       pfs) const {
    signed_block_header h;
 
    h.timestamp         = timestamp;
@@ -236,8 +231,7 @@ block_header_state pending_block_header_state::_finish_next(
    const std::function<void(block_timestamp_type, const flat_set<digest_type>&, const vector<digest_type>&)>&
       validator
 
-   ) &&
-{
+   ) && {
    EOS_ASSERT(h.timestamp == timestamp, block_validate_exception, "timestamp mismatch");
    EOS_ASSERT(h.previous == previous, unlinkable_block_exception, "previous mismatch");
    EOS_ASSERT(h.confirmed == confirmed, block_validate_exception, "confirmed mismatch");
@@ -354,8 +348,7 @@ block_header_state pending_block_header_state::finish_next(
    const protocol_feature_set& pfs,
    const std::function<void(block_timestamp_type, const flat_set<digest_type>&, const vector<digest_type>&)>&
         validator,
-   bool skip_validate_signee) &&
-{
+   bool skip_validate_signee) && {
    if (!additional_signatures.empty()) {
       bool wtmsig_enabled = detail::is_builtin_activated(
          prev_activated_protocol_features, pfs, builtin_protocol_feature_t::wtmsig_block_signatures);
@@ -385,8 +378,7 @@ block_header_state pending_block_header_state::finish_next(
    const protocol_feature_set& pfs,
    const std::function<void(block_timestamp_type, const flat_set<digest_type>&, const vector<digest_type>&)>&
                                validator,
-   const signer_callback_type& signer) &&
-{
+   const signer_callback_type& signer) && {
    auto pfa = prev_activated_protocol_features;
 
    auto result = std::move(*this)._finish_next(h, pfs, validator);
@@ -418,20 +410,17 @@ block_header_state block_header_state::next(
    const protocol_feature_set& pfs,
    const std::function<void(block_timestamp_type, const flat_set<digest_type>&, const vector<digest_type>&)>&
         validator,
-   bool skip_validate_signee) const
-{
+   bool skip_validate_signee) const {
    return next(h.timestamp, h.confirmed)
       .finish_next(h, std::move(_additional_signatures), pfs, validator, skip_validate_signee);
 }
 
-digest_type block_header_state::sig_digest() const
-{
+digest_type block_header_state::sig_digest() const {
    auto header_bmroot = digest_type::hash(std::make_pair(header.digest(), blockroot_merkle.get_root()));
    return digest_type::hash(std::make_pair(header_bmroot, pending_schedule.schedule_hash));
 }
 
-void block_header_state::sign(const signer_callback_type& signer)
-{
+void block_header_state::sign(const signer_callback_type& signer) {
    auto d    = sig_digest();
    auto sigs = signer(d);
 
@@ -444,8 +433,7 @@ void block_header_state::sign(const signer_callback_type& signer)
    verify_signee();
 }
 
-void block_header_state::verify_signee() const
-{
+void block_header_state::verify_signee() const {
 
    auto num_keys_in_authority =
       std::visit([](const auto& a) { return a.keys.size(); }, valid_block_signing_authority);
@@ -485,8 +473,7 @@ void block_header_state::verify_signee() const
 /**
  *  Reference cannot outlive *this. Assumes header_exts is not mutated after instatiation.
  */
-const vector<digest_type>& block_header_state::get_new_protocol_feature_activations() const
-{
+const vector<digest_type>& block_header_state::get_new_protocol_feature_activations() const {
    static const vector<digest_type> no_activations{};
 
    if (header_exts.count(protocol_feature_activation::extension_id()) == 0)
@@ -497,8 +484,7 @@ const vector<digest_type>& block_header_state::get_new_protocol_feature_activati
       .protocol_features;
 }
 
-block_header_state::block_header_state(legacy::snapshot_block_header_state_v2&& snapshot)
-{
+block_header_state::block_header_state(legacy::snapshot_block_header_state_v2&& snapshot) {
    block_num                           = snapshot.block_num;
    dpos_proposed_irreversible_blocknum = snapshot.dpos_proposed_irreversible_blocknum;
    dpos_irreversible_blocknum          = snapshot.dpos_irreversible_blocknum;

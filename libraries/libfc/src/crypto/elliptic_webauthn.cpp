@@ -20,14 +20,12 @@ namespace webauthn {
 namespace detail {
 using namespace std::literals;
 
-struct webauthn_json_handler : public rapidjson::BaseReaderHandler<rapidjson::UTF8<>, webauthn_json_handler>
-{
+struct webauthn_json_handler : public rapidjson::BaseReaderHandler<rapidjson::UTF8<>, webauthn_json_handler> {
    std::string found_challenge;
    std::string found_origin;
    std::string found_type;
 
-   enum parse_stat_t
-   {
+   enum parse_stat_t {
       EXPECT_FIRST_OBJECT_START,
       EXPECT_FIRST_OBJECT_KEY,
       EXPECT_FIRST_OBJECT_DONTCARE_VALUE,
@@ -38,8 +36,7 @@ struct webauthn_json_handler : public rapidjson::BaseReaderHandler<rapidjson::UT
    } current_state                         = EXPECT_FIRST_OBJECT_START;
    unsigned current_nested_container_depth = 0;
 
-   bool basic_stuff()
-   {
+   bool basic_stuff() {
       if (current_state == IN_NESTED_CONTAINER)
          return true;
       if (current_state == EXPECT_FIRST_OBJECT_DONTCARE_VALUE) {
@@ -57,8 +54,7 @@ struct webauthn_json_handler : public rapidjson::BaseReaderHandler<rapidjson::UT
    bool Uint64(uint64_t) { return basic_stuff(); }
    bool Double(double) { return basic_stuff(); }
 
-   bool String(const char* str, rapidjson::SizeType length, bool copy)
-   {
+   bool String(const char* str, rapidjson::SizeType length, bool copy) {
       switch (current_state) {
          case EXPECT_FIRST_OBJECT_START:
          case EXPECT_FIRST_OBJECT_KEY: return false;
@@ -85,8 +81,7 @@ struct webauthn_json_handler : public rapidjson::BaseReaderHandler<rapidjson::UT
       __builtin_unreachable();
    }
 
-   bool StartObject()
-   {
+   bool StartObject() {
       switch (current_state) {
          case EXPECT_FIRST_OBJECT_START: current_state = EXPECT_FIRST_OBJECT_KEY; return true;
          case EXPECT_FIRST_OBJECT_DONTCARE_VALUE:
@@ -106,8 +101,7 @@ struct webauthn_json_handler : public rapidjson::BaseReaderHandler<rapidjson::UT
       elog("Key: current_state (${current_statea}) out of bound", ("current_state", current_state));
       __builtin_unreachable();
    }
-   bool Key(const char* str, rapidjson::SizeType length, bool copy)
-   {
+   bool Key(const char* str, rapidjson::SizeType length, bool copy) {
       switch (current_state) {
          case EXPECT_FIRST_OBJECT_START:
          case EXPECT_FIRST_OBJECT_DONTCARE_VALUE:
@@ -134,8 +128,7 @@ struct webauthn_json_handler : public rapidjson::BaseReaderHandler<rapidjson::UT
       elog("Key: current_state (${current_statea}) out of bound", ("current_state", current_state));
       __builtin_unreachable();
    }
-   bool EndObject(rapidjson::SizeType memberCount)
-   {
+   bool EndObject(rapidjson::SizeType memberCount) {
       switch (current_state) {
          case EXPECT_FIRST_OBJECT_START:
          case EXPECT_FIRST_OBJECT_DONTCARE_VALUE:
@@ -156,8 +149,7 @@ struct webauthn_json_handler : public rapidjson::BaseReaderHandler<rapidjson::UT
       __builtin_unreachable();
    }
 
-   bool StartArray()
-   {
+   bool StartArray() {
       switch (current_state) {
          case EXPECT_FIRST_OBJECT_DONTCARE_VALUE:
             current_state = IN_NESTED_CONTAINER;
@@ -177,8 +169,7 @@ struct webauthn_json_handler : public rapidjson::BaseReaderHandler<rapidjson::UT
       elog("StartArray: current_state (${current_statea}) out of bound", ("current_state", current_state));
       __builtin_unreachable();
    }
-   bool EndArray(rapidjson::SizeType elementCount)
-   {
+   bool EndArray(rapidjson::SizeType elementCount) {
       switch (current_state) {
          case EXPECT_FIRST_OBJECT_START:
          case EXPECT_FIRST_OBJECT_DONTCARE_VALUE:
@@ -200,8 +191,7 @@ struct webauthn_json_handler : public rapidjson::BaseReaderHandler<rapidjson::UT
 };
 } // detail
 
-public_key::public_key(const signature& c, const fc::sha256& digest, bool)
-{
+public_key::public_key(const signature& c, const fc::sha256& digest, bool) {
    detail::webauthn_json_handler   handler;
    detail::rapidjson::Reader       reader;
    detail::rapidjson::StringStream ss(c.client_json.c_str());
@@ -268,8 +258,7 @@ public_key::public_key(const signature& c, const fc::sha256& digest, bool)
    FC_THROW_EXCEPTION(exception, "unable to reconstruct public key from signature");
 }
 
-void public_key::post_init()
-{
+void public_key::post_init() {
    FC_ASSERT(rpid.length(), "webauthn pubkey must have non empty rpid");
 }
 

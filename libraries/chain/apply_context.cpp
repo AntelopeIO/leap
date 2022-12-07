@@ -18,8 +18,7 @@ using boost::container::flat_set;
 namespace eosio {
 namespace chain {
 
-static inline void print_debug(account_name receiver, const action_trace& ar)
-{
+static inline void print_debug(account_name receiver, const action_trace& ar) {
    if (!ar.console.empty()) {
       auto prefix = fc::format_string(
          "\n[(${a},${n})->${r}]",
@@ -43,16 +42,14 @@ apply_context::apply_context(controller&          con,
    , idx128(*this)
    , idx256(*this)
    , idx_double(*this)
-   , idx_long_double(*this)
-{
+   , idx_long_double(*this) {
    action_trace& trace = trx_ctx.get_action_trace(action_ordinal);
    act                 = &trace.act;
    receiver            = trace.receiver;
    context_free        = trace.context_free;
 }
 
-void apply_context::exec_one()
-{
+void apply_context::exec_one() {
    auto start = fc::time_point::now();
 
    digest_type act_digest;
@@ -95,8 +92,7 @@ void apply_context::exec_one()
                                                      receiver_account->vm_type,
                                                      receiver_account->vm_version,
                                                      *this);
-               } catch (const wasm_exit&) {
-               }
+               } catch (const wasm_exit&) {}
             }
 
             if (!privileged && control.is_builtin_activated(builtin_protocol_feature_t::ram_restrictions)) {
@@ -193,8 +189,7 @@ void apply_context::exec_one()
    }
 }
 
-void apply_context::finalize_trace(action_trace& trace, const fc::time_point& start)
-{
+void apply_context::finalize_trace(action_trace& trace, const fc::time_point& start) {
    trace.account_ram_deltas = std::move(_account_ram_deltas);
    _account_ram_deltas.clear();
 
@@ -204,8 +199,7 @@ void apply_context::finalize_trace(action_trace& trace, const fc::time_point& st
    trace.elapsed = fc::time_point::now() - start;
 }
 
-void apply_context::exec()
-{
+void apply_context::exec() {
    _notified.emplace_back(receiver, action_ordinal);
    exec_one();
    for (uint32_t i = 1; i < _notified.size(); ++i) {
@@ -229,8 +223,7 @@ void apply_context::exec()
 
 } /// exec()
 
-bool apply_context::is_account(const account_name& account) const
-{
+bool apply_context::is_account(const account_name& account) const {
    return nullptr != db.find<account_object, by_name>(account);
 }
 
@@ -238,8 +231,7 @@ void apply_context::get_code_hash(account_name account,
                                   uint64_t&    code_sequence,
                                   fc::sha256&  code_hash,
                                   uint8_t&     vm_type,
-                                  uint8_t&     vm_version) const
-{
+                                  uint8_t&     vm_version) const {
 
    auto obj = db.find<account_metadata_object, by_name>(account);
    if (!obj || obj->code_hash == fc::sha256{}) {
@@ -258,8 +250,7 @@ void apply_context::get_code_hash(account_name account,
    }
 }
 
-void apply_context::require_authorization(const account_name& account)
-{
+void apply_context::require_authorization(const account_name& account) {
    for (uint32_t i = 0; i < act->authorization.size(); i++) {
       if (act->authorization[i].actor == account) {
          return;
@@ -268,16 +259,14 @@ void apply_context::require_authorization(const account_name& account)
    EOS_ASSERT(false, missing_auth_exception, "missing authority of ${account}", ("account", account));
 }
 
-bool apply_context::has_authorization(const account_name& account) const
-{
+bool apply_context::has_authorization(const account_name& account) const {
    for (const auto& auth : act->authorization)
       if (auth.actor == account)
          return true;
    return false;
 }
 
-void apply_context::require_authorization(const account_name& account, const permission_name& permission)
-{
+void apply_context::require_authorization(const account_name& account, const permission_name& permission) {
    for (uint32_t i = 0; i < act->authorization.size(); i++)
       if (act->authorization[i].actor == account) {
          if (act->authorization[i].permission == permission) {
@@ -290,16 +279,14 @@ void apply_context::require_authorization(const account_name& account, const per
               ("account", account)("permission", permission));
 }
 
-bool apply_context::has_recipient(account_name code) const
-{
+bool apply_context::has_recipient(account_name code) const {
    for (const auto& p : _notified)
       if (p.first == code)
          return true;
    return false;
 }
 
-void apply_context::require_recipient(account_name recipient)
-{
+void apply_context::require_recipient(account_name recipient) {
    if (!has_recipient(recipient)) {
       _notified.emplace_back(recipient, schedule_action(action_ordinal, recipient, false));
 
@@ -324,8 +311,7 @@ void apply_context::require_recipient(account_name recipient)
  *   ask the user for permission to take certain actions rather than making it implicit. This way users
  *   can better understand the security risk.
  */
-void apply_context::execute_inline(action&& a)
-{
+void apply_context::execute_inline(action&& a) {
    auto* code = control.db().find<account_object, by_name>(a.account);
    EOS_ASSERT(code != nullptr,
               action_validate_exception,
@@ -427,8 +413,7 @@ void apply_context::execute_inline(action&& a)
    }
 }
 
-void apply_context::execute_context_free_inline(action&& a)
-{
+void apply_context::execute_context_free_inline(action&& a) {
    auto* code = control.db().find<account_object, by_name>(a.account);
    EOS_ASSERT(code != nullptr,
               action_validate_exception,
@@ -459,8 +444,7 @@ void apply_context::execute_context_free_inline(action&& a)
 void apply_context::schedule_deferred_transaction(const uint128_t& sender_id,
                                                   account_name     payer,
                                                   transaction&&    trx,
-                                                  bool             replace_existing)
-{
+                                                  bool             replace_existing) {
    EOS_ASSERT(trx.context_free_actions.size() == 0,
               cfa_inside_generated_tx,
               "context free actions are not currently allowed in generated transactions");
@@ -688,8 +672,7 @@ void apply_context::schedule_deferred_transaction(const uint128_t& sender_id,
    add_ram_usage(payer, (config::billable_size_v<generated_transaction_object> + trx_size));
 }
 
-bool apply_context::cancel_deferred_transaction(const uint128_t& sender_id, account_name sender)
-{
+bool apply_context::cancel_deferred_transaction(const uint128_t& sender_id, account_name sender) {
    auto&       generated_transaction_idx = db.get_mutable_index<generated_transaction_multi_index>();
    const auto* gto =
       db.find<generated_transaction_object, by_sender_id>(boost::make_tuple(sender, sender_id));
@@ -709,8 +692,7 @@ bool apply_context::cancel_deferred_transaction(const uint128_t& sender_id, acco
 
 uint32_t apply_context::schedule_action(uint32_t     ordinal_of_action_to_schedule,
                                         account_name receiver,
-                                        bool         context_free)
-{
+                                        bool         context_free) {
    uint32_t scheduled_action_ordinal = trx_context.schedule_action(
       ordinal_of_action_to_schedule, receiver, context_free, action_ordinal, first_receiver_action_ordinal);
 
@@ -718,8 +700,7 @@ uint32_t apply_context::schedule_action(uint32_t     ordinal_of_action_to_schedu
    return scheduled_action_ordinal;
 }
 
-uint32_t apply_context::schedule_action(action&& act_to_schedule, account_name receiver, bool context_free)
-{
+uint32_t apply_context::schedule_action(action&& act_to_schedule, account_name receiver, bool context_free) {
    uint32_t scheduled_action_ordinal = trx_context.schedule_action(
       std::move(act_to_schedule), receiver, context_free, action_ordinal, first_receiver_action_ordinal);
 
@@ -727,16 +708,14 @@ uint32_t apply_context::schedule_action(action&& act_to_schedule, account_name r
    return scheduled_action_ordinal;
 }
 
-const table_id_object* apply_context::find_table(name code, name scope, name table)
-{
+const table_id_object* apply_context::find_table(name code, name scope, name table) {
    return db.find<table_id_object, by_code_scope_table>(boost::make_tuple(code, scope, table));
 }
 
 const table_id_object& apply_context::find_or_create_table(name                code,
                                                            name                scope,
                                                            name                table,
-                                                           const account_name& payer)
-{
+                                                           const account_name& payer) {
    const auto* existing_tid =
       db.find<table_id_object, by_code_scope_table>(boost::make_tuple(code, scope, table));
    if (existing_tid != nullptr) {
@@ -763,8 +742,7 @@ const table_id_object& apply_context::find_or_create_table(name                c
    });
 }
 
-void apply_context::remove_table(const table_id_object& tid)
-{
+void apply_context::remove_table(const table_id_object& tid) {
    if (auto dm_logger = control.get_deep_mind_logger()) {
       std::string event_id = RAM_EVENT_ID("${code}:${scope}:${table}",
                                           ("code", tid.code)("scope", tid.scope)("table", tid.table));
@@ -780,8 +758,7 @@ void apply_context::remove_table(const table_id_object& tid)
    db.remove(tid);
 }
 
-vector<account_name> apply_context::get_active_producers() const
-{
+vector<account_name> apply_context::get_active_producers() const {
    const auto&          ap = control.active_producers();
    vector<account_name> accounts;
    accounts.reserve(ap.producers.size());
@@ -792,8 +769,7 @@ vector<account_name> apply_context::get_active_producers() const
    return accounts;
 }
 
-void apply_context::update_db_usage(const account_name& payer, int64_t delta)
-{
+void apply_context::update_db_usage(const account_name& payer, int64_t delta) {
    if (delta > 0) {
       if (!(privileged || payer == account_name(receiver) ||
             control.is_builtin_activated(builtin_protocol_feature_t::ram_restrictions))) {
@@ -806,8 +782,7 @@ void apply_context::update_db_usage(const account_name& payer, int64_t delta)
    add_ram_usage(payer, delta);
 }
 
-int apply_context::get_action(uint32_t type, uint32_t index, char* buffer, size_t buffer_size) const
-{
+int apply_context::get_action(uint32_t type, uint32_t index, char* buffer, size_t buffer_size) const {
    const auto&   trx     = trx_context.packed_trx.get_transaction();
    const action* act_ptr = nullptr;
 
@@ -831,8 +806,7 @@ int apply_context::get_action(uint32_t type, uint32_t index, char* buffer, size_
    return ps;
 }
 
-int apply_context::get_context_free_data(uint32_t index, char* buffer, size_t buffer_size) const
-{
+int apply_context::get_context_free_data(uint32_t index, char* buffer, size_t buffer_size) const {
    const auto& trx = trx_context.packed_trx.get_signed_transaction();
 
    if (index >= trx.context_free_data.size())
@@ -853,8 +827,7 @@ int apply_context::db_store_i64(name                scope,
                                 const account_name& payer,
                                 uint64_t            id,
                                 const char*         buffer,
-                                size_t              buffer_size)
-{
+                                size_t              buffer_size) {
    return db_store_i64(receiver, scope, table, payer, id, buffer, buffer_size);
 }
 
@@ -864,8 +837,7 @@ int apply_context::db_store_i64(name                code,
                                 const account_name& payer,
                                 uint64_t            id,
                                 const char*         buffer,
-                                size_t              buffer_size)
-{
+                                size_t              buffer_size) {
    //   require_write_lock( scope );
    const auto& tab     = find_or_create_table(code, scope, table, payer);
    auto        tableid = tab.id;
@@ -901,8 +873,7 @@ int apply_context::db_store_i64(name                code,
    return keyval_cache.add(obj);
 }
 
-void apply_context::db_update_i64(int iterator, account_name payer, const char* buffer, size_t buffer_size)
-{
+void apply_context::db_update_i64(int iterator, account_name payer, const char* buffer, size_t buffer_size) {
    const key_value_object& obj = keyval_cache.get(iterator);
 
    const auto& table_obj = keyval_cache.get_table(obj.t_id);
@@ -955,8 +926,7 @@ void apply_context::db_update_i64(int iterator, account_name payer, const char* 
    });
 }
 
-void apply_context::db_remove_i64(int iterator)
-{
+void apply_context::db_remove_i64(int iterator) {
    const key_value_object& obj = keyval_cache.get(iterator);
 
    const auto& table_obj = keyval_cache.get_table(obj.t_id);
@@ -988,8 +958,7 @@ void apply_context::db_remove_i64(int iterator)
    keyval_cache.remove(iterator);
 }
 
-int apply_context::db_get_i64(int iterator, char* buffer, size_t buffer_size)
-{
+int apply_context::db_get_i64(int iterator, char* buffer, size_t buffer_size) {
    const key_value_object& obj = keyval_cache.get(iterator);
 
    auto s = obj.value.size();
@@ -1002,8 +971,7 @@ int apply_context::db_get_i64(int iterator, char* buffer, size_t buffer_size)
    return copy_size;
 }
 
-int apply_context::db_next_i64(int iterator, uint64_t& primary)
-{
+int apply_context::db_next_i64(int iterator, uint64_t& primary) {
    if (iterator < -1)
       return -1; // cannot increment past end iterator of table
 
@@ -1020,8 +988,7 @@ int apply_context::db_next_i64(int iterator, uint64_t& primary)
    return keyval_cache.add(*itr);
 }
 
-int apply_context::db_previous_i64(int iterator, uint64_t& primary)
-{
+int apply_context::db_previous_i64(int iterator, uint64_t& primary) {
    const auto& idx = db.get_index<key_value_index, by_scope_primary>();
 
    if (iterator < -1) // is end iterator
@@ -1057,8 +1024,7 @@ int apply_context::db_previous_i64(int iterator, uint64_t& primary)
    return keyval_cache.add(*itr);
 }
 
-int apply_context::db_find_i64(name code, name scope, name table, uint64_t id)
-{
+int apply_context::db_find_i64(name code, name scope, name table, uint64_t id) {
    // require_read_lock( code, scope ); // redundant?
 
    const auto* tab = find_table(code, scope, table);
@@ -1074,8 +1040,7 @@ int apply_context::db_find_i64(name code, name scope, name table, uint64_t id)
    return keyval_cache.add(*obj);
 }
 
-int apply_context::db_lowerbound_i64(name code, name scope, name table, uint64_t id)
-{
+int apply_context::db_lowerbound_i64(name code, name scope, name table, uint64_t id) {
    // require_read_lock( code, scope ); // redundant?
 
    const auto* tab = find_table(code, scope, table);
@@ -1094,8 +1059,7 @@ int apply_context::db_lowerbound_i64(name code, name scope, name table, uint64_t
    return keyval_cache.add(*itr);
 }
 
-int apply_context::db_upperbound_i64(name code, name scope, name table, uint64_t id)
-{
+int apply_context::db_upperbound_i64(name code, name scope, name table, uint64_t id) {
    // require_read_lock( code, scope ); // redundant?
 
    const auto* tab = find_table(code, scope, table);
@@ -1114,8 +1078,7 @@ int apply_context::db_upperbound_i64(name code, name scope, name table, uint64_t
    return keyval_cache.add(*itr);
 }
 
-int apply_context::db_end_i64(name code, name scope, name table)
-{
+int apply_context::db_end_i64(name code, name scope, name table) {
    // require_read_lock( code, scope ); // redundant?
 
    const auto* tab = find_table(code, scope, table);
@@ -1125,27 +1088,23 @@ int apply_context::db_end_i64(name code, name scope, name table)
    return keyval_cache.cache_table(*tab);
 }
 
-uint64_t apply_context::next_global_sequence()
-{
+uint64_t apply_context::next_global_sequence() {
    const auto& p = control.get_dynamic_global_properties();
    db.modify(p, [&](auto& dgp) { ++dgp.global_action_sequence; });
    return p.global_action_sequence;
 }
 
-uint64_t apply_context::next_recv_sequence(const account_metadata_object& receiver_account)
-{
+uint64_t apply_context::next_recv_sequence(const account_metadata_object& receiver_account) {
    db.modify(receiver_account, [&](auto& ra) { ++ra.recv_sequence; });
    return receiver_account.recv_sequence;
 }
-uint64_t apply_context::next_auth_sequence(account_name actor)
-{
+uint64_t apply_context::next_auth_sequence(account_name actor) {
    const auto& amo = db.get<account_metadata_object, by_name>(actor);
    db.modify(amo, [&](auto& am) { ++am.auth_sequence; });
    return amo.auth_sequence;
 }
 
-void apply_context::add_ram_usage(account_name account, int64_t ram_delta)
-{
+void apply_context::add_ram_usage(account_name account, int64_t ram_delta) {
    trx_context.add_ram_usage(account, ram_delta);
 
    auto p = _account_ram_deltas.emplace(account, ram_delta);
@@ -1154,8 +1113,7 @@ void apply_context::add_ram_usage(account_name account, int64_t ram_delta)
    }
 }
 
-action_name apply_context::get_sender() const
-{
+action_name apply_context::get_sender() const {
    const action_trace& trace = trx_context.get_action_trace(action_ordinal);
    if (trace.creator_action_ordinal > 0) {
       const action_trace& creator_trace = trx_context.get_action_trace(trace.creator_action_ordinal);

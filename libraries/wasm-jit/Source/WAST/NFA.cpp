@@ -13,8 +13,7 @@ namespace NFA {
 typedef std::vector<StateIndex> StateSet;
 
 template<typename Element>
-void addUnique(std::vector<Element>& vector, const Element& element)
-{
+void addUnique(std::vector<Element>& vector, const Element& element) {
    for (const auto& existingElement : vector) {
       if (existingElement == element) {
          return;
@@ -23,44 +22,37 @@ void addUnique(std::vector<Element>& vector, const Element& element)
    vector.push_back(element);
 }
 
-struct NFAState
-{
+struct NFAState {
    std::map<StateIndex, CharSet> nextStateToPredicateMap;
    std::vector<StateIndex>       epsilonNextStates;
 };
 
-struct Builder
-{
+struct Builder {
    std::vector<NFAState> nfaStates;
 };
 
-Builder* createBuilder()
-{
+Builder* createBuilder() {
    auto builder = new Builder();
    addState(builder);
    return builder;
 }
 
-StateIndex addState(Builder* builder)
-{
+StateIndex addState(Builder* builder) {
    WAVM_ASSERT_THROW(builder->nfaStates.size() < INT16_MAX);
    builder->nfaStates.emplace_back();
    return StateIndex(builder->nfaStates.size() - 1);
 }
 
-void addEdge(Builder* builder, StateIndex initialState, const CharSet& predicate, StateIndex nextState)
-{
+void addEdge(Builder* builder, StateIndex initialState, const CharSet& predicate, StateIndex nextState) {
    CharSet& transitionPredicate = builder->nfaStates[initialState].nextStateToPredicateMap[nextState];
    transitionPredicate          = transitionPredicate | predicate;
 }
 
-void addEpsilonEdge(Builder* builder, StateIndex initialState, StateIndex nextState)
-{
+void addEpsilonEdge(Builder* builder, StateIndex initialState, StateIndex nextState) {
    addUnique(builder->nfaStates[initialState].epsilonNextStates, nextState);
 }
 
-StateIndex getNonTerminalEdge(Builder* builder, StateIndex initialState, char c)
-{
+StateIndex getNonTerminalEdge(Builder* builder, StateIndex initialState, char c) {
    for (const auto& nextStateToPredicatePair : builder->nfaStates[initialState].nextStateToPredicateMap) {
       if (nextStateToPredicatePair.first >= 0 && nextStateToPredicatePair.second.contains((U8)c)) {
          return nextStateToPredicatePair.first;
@@ -70,19 +62,16 @@ StateIndex getNonTerminalEdge(Builder* builder, StateIndex initialState, char c)
    return unmatchedCharacterTerminal;
 }
 
-struct DFAState
-{
+struct DFAState {
    StateIndex nextStateByChar[256];
-   DFAState()
-   {
+   DFAState() {
       for (Uptr charIndex = 0; charIndex < 256; ++charIndex) {
          nextStateByChar[charIndex] = unmatchedCharacterTerminal | edgeDoesntConsumeInputFlag;
       }
    }
 };
 
-std::vector<DFAState> convertToDFA(Builder* builder)
-{
+std::vector<DFAState> convertToDFA(Builder* builder) {
    Timing::Timer timer;
 
    std::vector<DFAState>          dfaStates;
@@ -152,10 +141,7 @@ std::vector<DFAState> convertToDFA(Builder* builder)
          localStateIndexToStateIndexMap.emplace_back(currentTerminalState);
       }
 
-      enum
-      {
-         numSupportedLocalStates = 64
-      };
+      enum { numSupportedLocalStates = 64 };
       typedef DenseStaticIntSet<StateIndex, numSupportedLocalStates> LocalStateSet;
 
       const Uptr numLocalStates = stateIndexToLocalStateIndexMap.size();
@@ -261,55 +247,46 @@ std::vector<DFAState> convertToDFA(Builder* builder)
    return dfaStates;
 }
 
-struct StateTransitionsByChar
-{
+struct StateTransitionsByChar {
    U8          c;
    StateIndex* nextStateByInitialState;
    Uptr        numStates;
    StateTransitionsByChar(U8 inC, Uptr inNumStates)
       : c(inC)
       , nextStateByInitialState(nullptr)
-      , numStates(inNumStates)
-   {
-   }
+      , numStates(inNumStates) {}
    StateTransitionsByChar(StateTransitionsByChar&& inMove)
       : c(inMove.c)
       , nextStateByInitialState(inMove.nextStateByInitialState)
-      , numStates(inMove.numStates)
-   {
+      , numStates(inMove.numStates) {
       inMove.nextStateByInitialState = nullptr;
    }
-   ~StateTransitionsByChar()
-   {
+   ~StateTransitionsByChar() {
       if (nextStateByInitialState) {
          delete[] nextStateByInitialState;
       }
    }
 
-   void operator=(StateTransitionsByChar&& inMove)
-   {
+   void operator=(StateTransitionsByChar&& inMove) {
       c                              = inMove.c;
       nextStateByInitialState        = inMove.nextStateByInitialState;
       numStates                      = inMove.numStates;
       inMove.nextStateByInitialState = nullptr;
    }
 
-   bool operator<(const StateTransitionsByChar& right) const
-   {
+   bool operator<(const StateTransitionsByChar& right) const {
       WAVM_ASSERT_THROW(numStates == right.numStates);
       return memcmp(nextStateByInitialState, right.nextStateByInitialState, sizeof(StateIndex) * numStates) <
              0;
    }
-   bool operator!=(const StateTransitionsByChar& right) const
-   {
+   bool operator!=(const StateTransitionsByChar& right) const {
       WAVM_ASSERT_THROW(numStates == right.numStates);
       return memcmp(nextStateByInitialState, right.nextStateByInitialState, sizeof(StateIndex) * numStates) !=
              0;
    }
 };
 
-Machine::Machine(Builder* builder)
-{
+Machine::Machine(Builder* builder) {
    // Convert the NFA constructed by the builder to a DFA.
    std::vector<DFAState> dfaStates = convertToDFA(builder);
    WAVM_ASSERT_THROW(dfaStates.size() <= internalMaxStates);
@@ -365,16 +342,14 @@ Machine::Machine(Builder* builder)
    Log::printf(Log::Category::metrics, "  reduced DFA character classes to %u\n", numClasses);
 }
 
-Machine::~Machine()
-{
+Machine::~Machine() {
    if (stateAndOffsetToNextStateMap) {
       delete[] stateAndOffsetToNextStateMap;
       stateAndOffsetToNextStateMap = nullptr;
    }
 }
 
-void Machine::moveFrom(Machine&& inMachine)
-{
+void Machine::moveFrom(Machine&& inMachine) {
    memcpy(charToOffsetMap, inMachine.charToOffsetMap, sizeof(charToOffsetMap));
    stateAndOffsetToNextStateMap           = inMachine.stateAndOffsetToNextStateMap;
    inMachine.stateAndOffsetToNextStateMap = nullptr;
@@ -382,13 +357,11 @@ void Machine::moveFrom(Machine&& inMachine)
    numStates                              = inMachine.numStates;
 }
 
-char nibbleToHexChar(U8 value)
-{
+char nibbleToHexChar(U8 value) {
    return value < 10 ? ('0' + value) : 'a' + value - 10;
 }
 
-std::string escapeString(const std::string& string)
-{
+std::string escapeString(const std::string& string) {
    std::string result;
    for (Uptr charIndex = 0; charIndex < string.size(); ++charIndex) {
       auto c = string[charIndex];
@@ -409,8 +382,7 @@ std::string escapeString(const std::string& string)
    return result;
 }
 
-std::string getGraphEdgeCharLabel(Uptr charIndex)
-{
+std::string getGraphEdgeCharLabel(Uptr charIndex) {
    switch (charIndex) {
       case '^': return "\\^";
       case '\f': return "\\f";
@@ -425,8 +397,7 @@ std::string getGraphEdgeCharLabel(Uptr charIndex)
    };
 }
 
-std::string getGraphEdgeLabel(const CharSet& charSet)
-{
+std::string getGraphEdgeLabel(const CharSet& charSet) {
    std::string edgeLabel;
    U8          numSetChars = 0;
    for (Uptr charIndex = 0; charIndex < 256; ++charIndex) {

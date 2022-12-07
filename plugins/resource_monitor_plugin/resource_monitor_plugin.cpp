@@ -37,16 +37,12 @@ namespace bfs = boost::filesystem;
 namespace eosio {
 static appbase::abstract_plugin& _resource_monitor_plugin = app().register_plugin<resource_monitor_plugin>();
 
-class resource_monitor_plugin_impl
-{
+class resource_monitor_plugin_impl {
 public:
    resource_monitor_plugin_impl()
-      : space_handler(system_file_space_provider(), ctx)
-   {
-   }
+      : space_handler(system_file_space_provider(), ctx) {}
 
-   void set_program_options(options_description&, options_description& cfg)
-   {
+   void set_program_options(options_description&, options_description& cfg) {
       cfg.add_options()(
          "resource-monitor-interval-seconds",
          bpo::value<uint32_t>()->default_value(def_interval_in_secs),
@@ -64,8 +60,7 @@ public:
          "Should be between 1 and 450");
    }
 
-   void plugin_initialize(const appbase::variables_map& options)
-   {
+   void plugin_initialize(const appbase::variables_map& options) {
       dlog("plugin_initialize");
 
       auto interval = options.at("resource-monitor-interval-seconds").as<uint32_t>();
@@ -109,8 +104,7 @@ public:
    }
 
    // Start main thread
-   void plugin_startup()
-   {
+   void plugin_startup() {
       ilog("Creating and starting monitor thread");
 
       // By now all plugins are initialized.
@@ -138,8 +132,7 @@ public:
    }
 
    // System is shutting down.
-   void plugin_shutdown()
-   {
+   void plugin_shutdown() {
       ilog("shutdown...");
 
       ctx.stop();
@@ -150,8 +143,7 @@ public:
       ilog("exit shutdown");
    }
 
-   void monitor_directory(const bfs::path& path)
-   {
+   void monitor_directory(const bfs::path& path) {
       dlog("${path} registered to be monitored", ("path", path.string()));
       directories_registered.push_back(path);
    }
@@ -184,34 +176,27 @@ private:
 };
 
 resource_monitor_plugin::resource_monitor_plugin()
-   : my(std::make_unique<resource_monitor_plugin_impl>())
-{
-}
+   : my(std::make_unique<resource_monitor_plugin_impl>()) {}
 
 resource_monitor_plugin::~resource_monitor_plugin() {}
 
-void resource_monitor_plugin::set_program_options(options_description& cli, options_description& cfg)
-{
+void resource_monitor_plugin::set_program_options(options_description& cli, options_description& cfg) {
    my->set_program_options(cli, cfg);
 }
 
-void resource_monitor_plugin::plugin_initialize(const variables_map& options)
-{
+void resource_monitor_plugin::plugin_initialize(const variables_map& options) {
    my->plugin_initialize(options);
 }
 
-void resource_monitor_plugin::plugin_startup()
-{
+void resource_monitor_plugin::plugin_startup() {
    my->plugin_startup();
 }
 
-void resource_monitor_plugin::plugin_shutdown()
-{
+void resource_monitor_plugin::plugin_shutdown() {
    my->plugin_shutdown();
 }
 
-void resource_monitor_plugin::monitor_directory(const bfs::path& path)
-{
+void resource_monitor_plugin::monitor_directory(const bfs::path& path) {
    my->monitor_directory(path);
 }
 

@@ -3,8 +3,7 @@
 const string         wasm_str_store_0 = base_dir + "/store.0.wasm";
 std::vector<uint8_t> wasm_store_0     = read_wasm(wasm_str_store_0.c_str());
 
-BOOST_DATA_TEST_CASE(store_0_pass, boost::unit_test::data::xrange(0, 1), index)
-{
+BOOST_DATA_TEST_CASE(store_0_pass, boost::unit_test::data::xrange(0, 1), index) {
    try {
       TESTER tester;
       tester.produce_block();

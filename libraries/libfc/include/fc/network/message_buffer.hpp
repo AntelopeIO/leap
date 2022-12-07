@@ -22,8 +22,7 @@ class mb_peek_datastream;
  *  helper class.
  */
 template<uint32_t buffer_len>
-class message_buffer
-{
+class message_buffer {
 public:
    /*
     *  index abstraction that references a point in the chain of buffers.
@@ -36,12 +35,9 @@ public:
       : buffers{ malloc() }
       , read_ind{ 0, 0 }
       , write_ind{ 0, 0 }
-      , sanity_check(1)
-   {
-   }
+      , sanity_check(1) {}
 
-   ~message_buffer()
-   {
+   ~message_buffer() {
       while (buffers.size() > 0) {
          free(buffers.back());
          buffers.pop_back();
@@ -76,8 +72,7 @@ public:
     *  Adds an additional buffer of buffer_len to the chain of buffers.
     *  Does not affect the read or write pointer.
     */
-   void add_buffer_to_chain()
-   {
+   void add_buffer_to_chain() {
       sanity_check++;
       buffers.push_back(malloc());
    }
@@ -87,8 +82,7 @@ public:
     *  in order to add at least bytes to the space available.
     *  Does not affect the read or write pointer.
     */
-   void add_space(uint32_t bytes)
-   {
+   void add_space(uint32_t bytes) {
       int buffers_to_add = bytes / buffer_len + 1;
       for (int i = 0; i < buffers_to_add; i++) {
          sanity_check++;
@@ -100,8 +94,7 @@ public:
     *  Resets the message buffer to the initial state. Any unread data is
     *  discarded.
     */
-   void reset()
-   {
+   void reset() {
       // some condition exists that can send *both* buffers.size() and sanity_check to well over 10^6.
       // this seems to be related to some sort of memory overrun possibly. By forcing an exit here, an
       // external watchdog can be used to restart the process and avoid hanging.
@@ -132,8 +125,7 @@ public:
     *  Returns the current number of bytes remaining to be read from a given index
     *  Logically, this is the different between where the given index is and the write pointers.
     */
-   uint32_t bytes_to_read_from_index(const index_t& ind) const
-   {
+   uint32_t bytes_to_read_from_index(const index_t& ind) const {
       return (write_ind.first - ind.first) * buffer_len + write_ind.second - ind.second;
    }
 
@@ -158,8 +150,7 @@ public:
     *  its initial state (one buffer with read and write pointers at the
     *  start).
     */
-   void advance_read_ptr(uint32_t bytes)
-   {
+   void advance_read_ptr(uint32_t bytes) {
       advance_index(read_ind, bytes);
       if (read_ind == write_ind) {
          reset();
@@ -178,8 +169,7 @@ public:
     *  Advances the write pointer/index the supplied number of bytes along
     *  the buffer chain.
     */
-   void advance_write_ptr(uint32_t bytes)
-   {
+   void advance_write_ptr(uint32_t bytes) {
       advance_index(write_ind, bytes);
       while (write_ind.first >= buffers.size()) {
          sanity_check++;
@@ -193,8 +183,7 @@ public:
     *  The beginning of the vector will be the write pointer, which
     *  should be advanced the number of bytes read after the read returns.
     */
-   std::vector<boost::asio::mutable_buffer> get_buffer_sequence_for_boost_async_read()
-   {
+   std::vector<boost::asio::mutable_buffer> get_buffer_sequence_for_boost_async_read() {
       std::vector<boost::asio::mutable_buffer> seq;
       FC_ASSERT(write_ind.first < buffers.size());
       seq.push_back(
@@ -209,8 +198,7 @@ public:
     *  Reads size bytes from the buffer chain starting at the read pointer.
     *  The read pointer is advanced size bytes.
     */
-   bool read(void* s, uint32_t size)
-   {
+   bool read(void* s, uint32_t size) {
       if (bytes_to_read() < size) {
          FC_THROW_EXCEPTION(out_of_range_exception,
                             "tried to read ${r} but only ${s} left",
@@ -232,8 +220,7 @@ public:
     *  Reads size bytes from the buffer chain starting at the supplied index.
     *  The supplied index is advanced, but the read pointer is unaffected.
     */
-   bool peek(void* s, uint32_t size, index_t& index) const
-   {
+   bool peek(void* s, uint32_t size, index_t& index) const {
       if (bytes_to_read_from_index(index) < size) {
          FC_THROW_EXCEPTION(out_of_range_exception,
                             "tried to peek ${r} but only ${s} left",
@@ -255,8 +242,7 @@ public:
     *  Advances the supplied index along the buffer chain the specified
     *  number of bytes.
     */
-   static void advance_index(index_t& index, uint32_t bytes)
-   {
+   static void advance_index(index_t& index, uint32_t bytes) {
       index.first += (bytes + index.second) / buffer_len;
       index.second = (bytes + index.second) % buffer_len;
    }
@@ -296,17 +282,13 @@ private:
  *  This class supports unpack functionality but not pack.
  */
 template<uint32_t buffer_len>
-class mb_datastream
-{
+class mb_datastream {
 public:
    explicit mb_datastream(message_buffer<buffer_len>& m)
-      : mb(m)
-   {
-   }
+      : mb(m) {}
 
    inline void skip(size_t s) { mb.advance_read_ptr(s); }
-   inline bool read(char* d, size_t s)
-   {
+   inline bool read(char* d, size_t s) {
       if (mb.bytes_to_read() >= s) {
          mb.read(d, s);
          return true;
@@ -322,8 +304,7 @@ private:
 };
 
 template<uint32_t buffer_len>
-inline mb_datastream<buffer_len> message_buffer<buffer_len>::create_datastream()
-{
+inline mb_datastream<buffer_len> message_buffer<buffer_len>::create_datastream() {
    return mb_datastream<buffer_len>(*this);
 }
 
@@ -333,19 +314,15 @@ inline mb_datastream<buffer_len> message_buffer<buffer_len>::create_datastream()
  *  This class supports unpack functionality but not pack.
  */
 template<uint32_t buffer_len>
-class mb_peek_datastream
-{
+class mb_peek_datastream {
 public:
    explicit mb_peek_datastream(const message_buffer<buffer_len>& m)
       : mb(m)
-      , index(m.read_index())
-   {
-   }
+      , index(m.read_index()) {}
 
    inline void skip(size_t s) { message_buffer<buffer_len>::advance_index(index, s); }
 
-   inline bool read(char* d, size_t s)
-   {
+   inline bool read(char* d, size_t s) {
       if (mb.bytes_to_read_from_index(index) >= s) {
          mb.peek(d, s, index);
          return true;
@@ -363,8 +340,7 @@ private:
 };
 
 template<uint32_t buffer_len>
-inline mb_peek_datastream<buffer_len> message_buffer<buffer_len>::create_peek_datastream()
-{
+inline mb_peek_datastream<buffer_len> message_buffer<buffer_len>::create_peek_datastream() {
    return mb_peek_datastream<buffer_len>(*this);
 }
 

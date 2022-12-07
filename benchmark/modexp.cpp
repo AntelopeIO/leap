@@ -6,8 +6,7 @@
 
 namespace benchmark {
 
-void modexp_benchmarking()
-{
+void modexp_benchmarking() {
    std::mt19937 r(0x11223344);
 
    auto generate_random_bytes = [](std::mt19937& rand_eng, unsigned int num_bytes) {

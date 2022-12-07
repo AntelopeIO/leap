@@ -17,46 +17,38 @@ namespace wasm_validations {
 
 // module validators
 // effectively do nothing and pass
-struct noop_validation_visitor
-{
+struct noop_validation_visitor {
    static void validate(const IR::Module& m);
 };
 
-struct memories_validation_visitor
-{
+struct memories_validation_visitor {
    static void validate(const IR::Module& m);
 };
 
-struct data_segments_validation_visitor
-{
+struct data_segments_validation_visitor {
    static void validate(const IR::Module& m);
 };
 
-struct tables_validation_visitor
-{
+struct tables_validation_visitor {
    static void validate(const IR::Module& m);
 };
 
-struct globals_validation_visitor
-{
+struct globals_validation_visitor {
    static void validate(const IR::Module& m);
 };
 
-struct maximum_function_stack_visitor
-{
+struct maximum_function_stack_visitor {
    static void validate(const IR::Module& m);
 };
 
-struct ensure_apply_exported_visitor
-{
+struct ensure_apply_exported_visitor {
    static void validate(const IR::Module& m);
 };
 
 using wasm_validate_func = std::function<void(IR::Module&)>;
 
 // just pass
-struct no_constraints_validators
-{
+struct no_constraints_validators {
    static void validate(const IR::Module& m) {}
 };
 
@@ -65,24 +57,20 @@ struct no_constraints_validators
 // used to verify that a given instruction is valid for execution on our platform
 // for validators set kills to true, this eliminates the extraneous building
 // of new code that is going to get thrown away any way
-struct whitelist_validator
-{
+struct whitelist_validator {
    static constexpr bool kills = true;
    static constexpr bool post  = false;
-   static void           accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg)
-   {
-      // just pass
+   static void           accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg) {
+                // just pass
    }
 };
 
 template<typename T>
-struct large_offset_validator
-{
+struct large_offset_validator {
    static constexpr bool kills = true;
    static constexpr bool post  = false;
-   static void           accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg)
-   {
-      // cast to a type that has a memarg field
+   static void           accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg) {
+                // cast to a type that has a memarg field
       T* memarg_instr = reinterpret_cast<T*>(inst);
       if (memarg_instr->field.o >= wasm_constraints::maximum_linear_memory)
          FC_THROW_EXCEPTION(wasm_execution_error,
@@ -90,45 +78,37 @@ struct large_offset_validator
    }
 };
 
-struct debug_printer
-{
+struct debug_printer {
    static constexpr bool kills = false;
    static constexpr bool post  = false;
    static void           init() {}
-   static void           accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg)
-   {
-      std::cout << "INSTRUCTION : " << inst->to_string() << "\n";
+   static void           accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg) {
+                std::cout << "INSTRUCTION : " << inst->to_string() << "\n";
    }
 };
 
-struct wasm_opcode_no_disposition_exception
-{
+struct wasm_opcode_no_disposition_exception {
    std::string opcode_name;
 };
 
-struct blacklist_validator
-{
+struct blacklist_validator {
    static constexpr bool kills = true;
    static constexpr bool post  = false;
-   static void           accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg)
-   {
-      FC_THROW_EXCEPTION(wasm_execution_error, "Error, blacklisted opcode ${op} ", ("op", inst->to_string()));
+   static void           accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg) {
+                FC_THROW_EXCEPTION(wasm_execution_error, "Error, blacklisted opcode ${op} ", ("op", inst->to_string()));
    }
 };
 
-struct nested_validator
-{
+struct nested_validator {
    static constexpr bool kills = false;
    static constexpr bool post  = false;
    static bool           disabled;
    static uint16_t       depth;
-   static void           init(bool disable)
-   {
-      disabled = disable;
-      depth    = 0;
+   static void           init(bool disable) {
+                disabled = disable;
+                depth    = 0;
    }
-   static void accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg)
-   {
+   static void accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg) {
       if (!disabled) {
          if (inst->get_code() == wasm_ops::end_code && depth > 0) {
             depth--;
@@ -142,8 +122,7 @@ struct nested_validator
 
 // add opcode specific constraints here
 // so far we only black list
-struct op_constrainers : wasm_ops::op_types<blacklist_validator>
-{
+struct op_constrainers : wasm_ops::op_types<blacklist_validator> {
    using block_t = wasm_ops::block<whitelist_validator, nested_validator>;
    using loop_t  = wasm_ops::loop<whitelist_validator, nested_validator>;
    using if__t   = wasm_ops::if_<whitelist_validator, nested_validator>;
@@ -358,18 +337,15 @@ struct op_constrainers : wasm_ops::op_types<blacklist_validator>
 }; // op_constrainers
 
 template<typename... Visitors>
-struct constraints_validators
-{
-   static void validate(const IR::Module& m)
-   {
+struct constraints_validators {
+   static void validate(const IR::Module& m) {
       for (auto validator : { Visitors::validate... })
          validator(m);
    }
 };
 
 // inherit from this class and define your own validators
-class wasm_binary_validation
-{
+class wasm_binary_validation {
    using standard_module_constraints_validators = constraints_validators<memories_validation_visitor,
                                                                          data_segments_validation_visitor,
                                                                          tables_validation_visitor,
@@ -379,14 +355,12 @@ class wasm_binary_validation
 
 public:
    wasm_binary_validation(const eosio::chain::controller& control, IR::Module& mod)
-      : _module(&mod)
-   {
+      : _module(&mod) {
       // initialize validators here
       nested_validator::init(!control.is_speculative_block());
    }
 
-   void validate()
-   {
+   void validate() {
       _module_validators.validate(*_module);
       for (auto& fd : _module->functions.defs) {
          wasm_ops::EOSIO_OperatorDecoderStream<op_constrainers> decoder(fd.code);

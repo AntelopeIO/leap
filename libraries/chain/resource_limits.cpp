@@ -21,8 +21,7 @@ static_assert(config::rate_limiting_precision > 0, "config::rate_limiting_precis
 
 static uint64_t update_elastic_limit(uint64_t                        current_limit,
                                      uint64_t                        average_usage,
-                                     const elastic_limit_parameters& params)
-{
+                                     const elastic_limit_parameters& params) {
    uint64_t result = current_limit;
    if (average_usage > params.target) {
       result = result * params.contract_rate;
@@ -32,8 +31,7 @@ static uint64_t update_elastic_limit(uint64_t                        current_lim
    return std::min(std::max(result, params.max), params.max * params.max_multiplier);
 }
 
-void elastic_limit_parameters::validate() const
-{
+void elastic_limit_parameters::validate() const {
    // At the very least ensure parameters are not set to values that will cause divide by zero errors later
    // on. Stricter checks for sensible values can be added later.
    EOS_ASSERT(periods > 0, resource_limit_exception, "elastic limit parameter 'periods' cannot be zero");
@@ -45,27 +43,23 @@ void elastic_limit_parameters::validate() const
               "elastic limit parameter 'expand_rate' is not a well-defined ratio");
 }
 
-void resource_limits_state_object::update_virtual_cpu_limit(const resource_limits_config_object& cfg)
-{
+void resource_limits_state_object::update_virtual_cpu_limit(const resource_limits_config_object& cfg) {
    // idump((average_block_cpu_usage.average()));
    virtual_cpu_limit =
       update_elastic_limit(virtual_cpu_limit, average_block_cpu_usage.average(), cfg.cpu_limit_parameters);
    // idump((virtual_cpu_limit));
 }
 
-void resource_limits_state_object::update_virtual_net_limit(const resource_limits_config_object& cfg)
-{
+void resource_limits_state_object::update_virtual_net_limit(const resource_limits_config_object& cfg) {
    virtual_net_limit =
       update_elastic_limit(virtual_net_limit, average_block_net_usage.average(), cfg.net_limit_parameters);
 }
 
-void resource_limits_manager::add_indices()
-{
+void resource_limits_manager::add_indices() {
    resource_index_set::add_indices(_db);
 }
 
-void resource_limits_manager::initialize_database()
-{
+void resource_limits_manager::initialize_database() {
    const auto& config = _db.create<resource_limits_config_object>([](resource_limits_config_object& config) {
       // see default settings in the declaration
    });
@@ -84,8 +78,7 @@ void resource_limits_manager::initialize_database()
    }
 }
 
-void resource_limits_manager::add_to_snapshot(const snapshot_writer_ptr& snapshot) const
-{
+void resource_limits_manager::add_to_snapshot(const snapshot_writer_ptr& snapshot) const {
    resource_index_set::walk_indices([this, &snapshot](auto utils) {
       snapshot->write_section<typename decltype(utils)::index_t::value_type>([this](auto& section) {
          decltype(utils)::walk(_db, [this, &section](const auto& row) { section.add_row(row, _db); });
@@ -93,8 +86,7 @@ void resource_limits_manager::add_to_snapshot(const snapshot_writer_ptr& snapsho
    });
 }
 
-void resource_limits_manager::read_from_snapshot(const snapshot_reader_ptr& snapshot)
-{
+void resource_limits_manager::read_from_snapshot(const snapshot_reader_ptr& snapshot) {
    resource_index_set::walk_indices([this, &snapshot](auto utils) {
       snapshot->read_section<typename decltype(utils)::index_t::value_type>([this](auto& section) {
          bool more = !section.empty();
@@ -106,8 +98,7 @@ void resource_limits_manager::read_from_snapshot(const snapshot_reader_ptr& snap
    });
 }
 
-void resource_limits_manager::initialize_account(const account_name& account)
-{
+void resource_limits_manager::initialize_account(const account_name& account) {
    const auto& limits =
       _db.create<resource_limits_object>([&](resource_limits_object& bl) { bl.owner = account; });
 
@@ -119,8 +110,7 @@ void resource_limits_manager::initialize_account(const account_name& account)
 }
 
 void resource_limits_manager::set_block_parameters(const elastic_limit_parameters& cpu_limit_parameters,
-                                                   const elastic_limit_parameters& net_limit_parameters)
-{
+                                                   const elastic_limit_parameters& net_limit_parameters) {
    cpu_limit_parameters.validate();
    net_limit_parameters.validate();
    const auto& config = _db.get<resource_limits_config_object>();
@@ -137,8 +127,8 @@ void resource_limits_manager::set_block_parameters(const elastic_limit_parameter
    });
 }
 
-void resource_limits_manager::update_account_usage(const flat_set<account_name>& accounts, uint32_t time_slot)
-{
+void resource_limits_manager::update_account_usage(const flat_set<account_name>& accounts,
+                                                   uint32_t                      time_slot) {
    const auto& config = _db.get<resource_limits_config_object>();
    for (const auto& a : accounts) {
       const auto& usage = _db.get<resource_usage_object, by_owner>(a);
@@ -152,8 +142,7 @@ void resource_limits_manager::update_account_usage(const flat_set<account_name>&
 void resource_limits_manager::add_transaction_usage(const flat_set<account_name>& accounts,
                                                     uint64_t                      cpu_usage,
                                                     uint64_t                      net_usage,
-                                                    uint32_t                      time_slot)
-{
+                                                    uint32_t                      time_slot) {
    const auto& state  = _db.get<resource_limits_state_object>();
    const auto& config = _db.get<resource_limits_config_object>();
 
@@ -226,8 +215,7 @@ void resource_limits_manager::add_transaction_usage(const flat_set<account_name>
               "Block has insufficient net resources");
 }
 
-void resource_limits_manager::add_pending_ram_usage(const account_name account, int64_t ram_delta)
-{
+void resource_limits_manager::add_pending_ram_usage(const account_name account, int64_t ram_delta) {
    if (ram_delta == 0) {
       return;
    }
@@ -250,8 +238,7 @@ void resource_limits_manager::add_pending_ram_usage(const account_name account, 
    });
 }
 
-void resource_limits_manager::verify_account_ram_usage(const account_name account) const
-{
+void resource_limits_manager::verify_account_ram_usage(const account_name account) const {
    int64_t ram_bytes;
    int64_t net_weight;
    int64_t cpu_weight;
@@ -266,16 +253,14 @@ void resource_limits_manager::verify_account_ram_usage(const account_name accoun
    }
 }
 
-int64_t resource_limits_manager::get_account_ram_usage(const account_name& name) const
-{
+int64_t resource_limits_manager::get_account_ram_usage(const account_name& name) const {
    return _db.get<resource_usage_object, by_owner>(name).ram_usage;
 }
 
 bool resource_limits_manager::set_account_limits(const account_name& account,
                                                  int64_t             ram_bytes,
                                                  int64_t             net_weight,
-                                                 int64_t             cpu_weight)
-{
+                                                 int64_t             cpu_weight) {
    // const auto& usage = _db.get<resource_usage_object,by_owner>( account );
    /*
     * Since we need to delay these until the next resource limiting boundary, these are created in a "pending"
@@ -334,8 +319,7 @@ bool resource_limits_manager::set_account_limits(const account_name& account,
 void resource_limits_manager::get_account_limits(const account_name& account,
                                                  int64_t&            ram_bytes,
                                                  int64_t&            net_weight,
-                                                 int64_t&            cpu_weight) const
-{
+                                                 int64_t&            cpu_weight) const {
    const auto* pending_buo = _db.find<resource_limits_object, by_owner>(boost::make_tuple(true, account));
    if (pending_buo) {
       ram_bytes  = pending_buo->ram_bytes;
@@ -349,8 +333,7 @@ void resource_limits_manager::get_account_limits(const account_name& account,
    }
 }
 
-bool resource_limits_manager::is_unlimited_cpu(const account_name& account) const
-{
+bool resource_limits_manager::is_unlimited_cpu(const account_name& account) const {
    const auto* buo = _db.find<resource_limits_object, by_owner>(boost::make_tuple(false, account));
    if (buo) {
       return buo->cpu_weight == -1;
@@ -358,8 +341,7 @@ bool resource_limits_manager::is_unlimited_cpu(const account_name& account) cons
    return false;
 }
 
-void resource_limits_manager::process_account_limit_updates()
-{
+void resource_limits_manager::process_account_limit_updates() {
    auto& multi_index    = _db.get_mutable_index<resource_limits_index>();
    auto& by_owner_index = multi_index.indices().get<by_owner>();
 
@@ -410,8 +392,7 @@ void resource_limits_manager::process_account_limit_updates()
    });
 }
 
-void resource_limits_manager::process_block_usage(uint32_t block_num)
-{
+void resource_limits_manager::process_block_usage(uint32_t block_num) {
    const auto& s      = _db.get<resource_limits_state_object>();
    const auto& config = _db.get<resource_limits_config_object>();
    _db.modify(s, [&](resource_limits_state_object& state) {
@@ -433,47 +414,40 @@ void resource_limits_manager::process_block_usage(uint32_t block_num)
    });
 }
 
-uint64_t resource_limits_manager::get_total_cpu_weight() const
-{
+uint64_t resource_limits_manager::get_total_cpu_weight() const {
    const auto& state = _db.get<resource_limits_state_object>();
    return state.total_cpu_weight;
 }
 
-uint64_t resource_limits_manager::get_total_net_weight() const
-{
+uint64_t resource_limits_manager::get_total_net_weight() const {
    const auto& state = _db.get<resource_limits_state_object>();
    return state.total_net_weight;
 }
 
-uint64_t resource_limits_manager::get_virtual_block_cpu_limit() const
-{
+uint64_t resource_limits_manager::get_virtual_block_cpu_limit() const {
    const auto& state = _db.get<resource_limits_state_object>();
    return state.virtual_cpu_limit;
 }
 
-uint64_t resource_limits_manager::get_virtual_block_net_limit() const
-{
+uint64_t resource_limits_manager::get_virtual_block_net_limit() const {
    const auto& state = _db.get<resource_limits_state_object>();
    return state.virtual_net_limit;
 }
 
-uint64_t resource_limits_manager::get_block_cpu_limit() const
-{
+uint64_t resource_limits_manager::get_block_cpu_limit() const {
    const auto& state  = _db.get<resource_limits_state_object>();
    const auto& config = _db.get<resource_limits_config_object>();
    return config.cpu_limit_parameters.max - state.pending_cpu_usage;
 }
 
-uint64_t resource_limits_manager::get_block_net_limit() const
-{
+uint64_t resource_limits_manager::get_block_net_limit() const {
    const auto& state  = _db.get<resource_limits_state_object>();
    const auto& config = _db.get<resource_limits_config_object>();
    return config.net_limit_parameters.max - state.pending_net_usage;
 }
 
 std::pair<int64_t, bool> resource_limits_manager::get_account_cpu_limit(const account_name& name,
-                                                                        uint32_t greylist_limit) const
-{
+                                                                        uint32_t greylist_limit) const {
    auto [arl, greylisted] = get_account_cpu_limit_ex(name, greylist_limit);
    return { arl.available, greylisted };
 }
@@ -481,8 +455,7 @@ std::pair<int64_t, bool> resource_limits_manager::get_account_cpu_limit(const ac
 std::pair<account_resource_limit, bool> resource_limits_manager::get_account_cpu_limit_ex(
    const account_name&                        name,
    uint32_t                                   greylist_limit,
-   const std::optional<block_timestamp_type>& current_time) const
-{
+   const std::optional<block_timestamp_type>& current_time) const {
 
    const auto& state  = _db.get<resource_limits_state_object>();
    const auto& usage  = _db.get<resource_usage_object, by_owner>(name);
@@ -544,8 +517,7 @@ std::pair<account_resource_limit, bool> resource_limits_manager::get_account_cpu
 }
 
 std::pair<int64_t, bool> resource_limits_manager::get_account_net_limit(const account_name& name,
-                                                                        uint32_t greylist_limit) const
-{
+                                                                        uint32_t greylist_limit) const {
    auto [arl, greylisted] = get_account_net_limit_ex(name, greylist_limit);
    return { arl.available, greylisted };
 }
@@ -553,8 +525,7 @@ std::pair<int64_t, bool> resource_limits_manager::get_account_net_limit(const ac
 std::pair<account_resource_limit, bool> resource_limits_manager::get_account_net_limit_ex(
    const account_name&                        name,
    uint32_t                                   greylist_limit,
-   const std::optional<block_timestamp_type>& current_time) const
-{
+   const std::optional<block_timestamp_type>& current_time) const {
    const auto& config = _db.get<resource_limits_config_object>();
    const auto& state  = _db.get<resource_limits_state_object>();
    const auto& usage  = _db.get<resource_usage_object, by_owner>(name);

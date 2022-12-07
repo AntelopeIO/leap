@@ -9,22 +9,19 @@ namespace eosio {
 
 using namespace appbase;
 
-struct db_size_index_count
-{
+struct db_size_index_count {
    string   index;
    uint64_t row_count = 0;
 };
 
-struct db_size_stats
-{
+struct db_size_stats {
    uint64_t                    free_bytes = 0;
    uint64_t                    used_bytes = 0;
    uint64_t                    size       = 0;
    vector<db_size_index_count> indices;
 };
 
-class db_size_api_plugin : public plugin<db_size_api_plugin>
-{
+class db_size_api_plugin : public plugin<db_size_api_plugin> {
 public:
    APPBASE_PLUGIN_REQUIRES((http_plugin)(chain_plugin))
 

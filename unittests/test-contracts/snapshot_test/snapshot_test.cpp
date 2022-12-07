@@ -2,8 +2,7 @@
 
 using namespace eosio;
 
-void snapshot_test::increment(uint32_t value)
-{
+void snapshot_test::increment(uint32_t value) {
    require_auth(get_self());
 
    data_table data(get_self(), get_self().value);

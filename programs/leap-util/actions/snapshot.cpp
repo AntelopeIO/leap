@@ -21,8 +21,7 @@ using namespace eosio::chain;
 
 namespace bfs = boost::filesystem;
 
-void snapshot_actions::setup(CLI::App& app)
-{
+void snapshot_actions::setup(CLI::App& app) {
    auto* sub = app.add_subcommand("snapshot", "Snapshot utility");
    sub->require_subcommand(1);
 
@@ -57,8 +56,7 @@ void snapshot_actions::setup(CLI::App& app)
    });
 }
 
-int snapshot_actions::run_subcommand()
-{
+int snapshot_actions::run_subcommand() {
    if (!opt->input_file.empty()) {
       if (!fc::exists(opt->input_file)) {
          std::cerr << "cannot load snapshot, " << opt->input_file << " does not exist" << std::endl;

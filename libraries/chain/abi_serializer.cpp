@@ -10,14 +10,13 @@ namespace chain {
 
 const size_t abi_serializer::max_recursion_depth;
 
-using boost::algorithm::ends_with;
 using boost::algorithm::starts_with;
+using boost::algorithm::ends_with;
 using std::string;
 using std::string_view;
 
 template<typename T>
-inline fc::variant variant_from_stream(fc::datastream<const char*>& stream)
-{
+inline fc::variant variant_from_stream(fc::datastream<const char*>& stream) {
    T temp;
    fc::raw::unpack(stream, temp);
    return fc::variant(temp);
@@ -25,8 +24,7 @@ inline fc::variant variant_from_stream(fc::datastream<const char*>& stream)
 
 template<typename T>
 inline fc::variant variant_from_stream(fc::datastream<const char*>&            stream,
-                                       const abi_serializer::yield_function_t& yield)
-{
+                                       const abi_serializer::yield_function_t& yield) {
    fc::yield_function_t y = [&yield]() {
       yield(0);
    }; // create yield function matching fc::variant requirements, 0 for recursive depth
@@ -37,8 +35,7 @@ inline fc::variant variant_from_stream(fc::datastream<const char*>&            s
 }
 
 template<typename T>
-auto pack_function()
-{
+auto pack_function() {
    return [](const fc::variant&                      var,
              fc::datastream<char*>&                  ds,
              bool                                    is_array,
@@ -54,8 +51,7 @@ auto pack_function()
 }
 
 template<typename T>
-auto pack_unpack()
-{
+auto pack_unpack() {
    return std::make_pair<abi_serializer::unpack_function, abi_serializer::pack_function>(
       [](fc::datastream<const char*>&            stream,
          bool                                    is_array,
@@ -71,8 +67,7 @@ auto pack_unpack()
 }
 
 template<typename T>
-auto pack_unpack_deadline()
-{
+auto pack_unpack_deadline() {
    return std::make_pair<abi_serializer::unpack_function, abi_serializer::pack_function>(
       [](fc::datastream<const char*>&            stream,
          bool                                    is_array,
@@ -87,27 +82,23 @@ auto pack_unpack_deadline()
       pack_function<T>());
 }
 
-abi_serializer::abi_serializer(const abi_def& abi, const yield_function_t& yield)
-{
+abi_serializer::abi_serializer(const abi_def& abi, const yield_function_t& yield) {
    configure_built_in_types();
    set_abi(abi, yield);
 }
 
-abi_serializer::abi_serializer(const abi_def& abi, const fc::microseconds& max_serialization_time)
-{
+abi_serializer::abi_serializer(const abi_def& abi, const fc::microseconds& max_serialization_time) {
    configure_built_in_types();
    set_abi(abi, create_yield_function(max_serialization_time));
 }
 
 void abi_serializer::add_specialized_unpack_pack(
    const string&                                                             name,
-   std::pair<abi_serializer::unpack_function, abi_serializer::pack_function> unpack_pack)
-{
+   std::pair<abi_serializer::unpack_function, abi_serializer::pack_function> unpack_pack) {
    built_in_types[name] = std::move(unpack_pack);
 }
 
-void abi_serializer::configure_built_in_types()
-{
+void abi_serializer::configure_built_in_types() {
 
    built_in_types.emplace("bool", pack_unpack<uint8_t>());
    built_in_types.emplace("int8", pack_unpack<int8_t>());
@@ -150,8 +141,7 @@ void abi_serializer::configure_built_in_types()
    built_in_types.emplace("extended_asset", pack_unpack<extended_asset>());
 }
 
-void abi_serializer::set_abi(const abi_def& abi, const yield_function_t& yield)
-{
+void abi_serializer::set_abi(const abi_def& abi, const yield_function_t& yield) {
    impl::abi_traverse_context ctx(yield);
 
    EOS_ASSERT(starts_with(abi.version, "eosio::abi/1."),
@@ -221,23 +211,19 @@ void abi_serializer::set_abi(const abi_def& abi, const yield_function_t& yield)
    validate(ctx);
 }
 
-void abi_serializer::set_abi(const abi_def& abi, const fc::microseconds& max_serialization_time)
-{
+void abi_serializer::set_abi(const abi_def& abi, const fc::microseconds& max_serialization_time) {
    return set_abi(abi, create_yield_function(max_serialization_time));
 }
 
-bool abi_serializer::is_builtin_type(const std::string_view& type) const
-{
+bool abi_serializer::is_builtin_type(const std::string_view& type) const {
    return built_in_types.find(type) != built_in_types.end();
 }
 
-bool abi_serializer::is_integer(const std::string_view& type) const
-{
+bool abi_serializer::is_integer(const std::string_view& type) const {
    return boost::starts_with(type, "uint") || boost::starts_with(type, "int");
 }
 
-int abi_serializer::get_integer_size(const std::string_view& type) const
-{
+int abi_serializer::get_integer_size(const std::string_view& type) const {
    EOS_ASSERT(is_integer(type),
               invalid_type_inside_abi,
               "${type} is not an integer type",
@@ -249,18 +235,15 @@ int abi_serializer::get_integer_size(const std::string_view& type) const
    }
 }
 
-bool abi_serializer::is_struct(const std::string_view& type) const
-{
+bool abi_serializer::is_struct(const std::string_view& type) const {
    return structs.find(resolve_type(type)) != structs.end();
 }
 
-bool abi_serializer::is_array(const string_view& type) const
-{
+bool abi_serializer::is_array(const string_view& type) const {
    return ends_with(type, "[]");
 }
 
-bool abi_serializer::is_szarray(const string_view& type) const
-{
+bool abi_serializer::is_szarray(const string_view& type) const {
    auto pos1 = type.find_last_of('[');
    auto pos2 = type.find_last_of(']');
    if (pos1 == string_view::npos || pos2 == string_view::npos)
@@ -276,25 +259,21 @@ bool abi_serializer::is_szarray(const string_view& type) const
    return true;
 }
 
-bool abi_serializer::is_optional(const string_view& type) const
-{
+bool abi_serializer::is_optional(const string_view& type) const {
    return ends_with(type, "?");
 }
 
-bool abi_serializer::is_type(const std::string_view& type, const yield_function_t& yield) const
-{
+bool abi_serializer::is_type(const std::string_view& type, const yield_function_t& yield) const {
    impl::abi_traverse_context ctx(yield);
    return _is_type(type, ctx);
 }
 
 bool abi_serializer::is_type(const std::string_view& type,
-                             const fc::microseconds& max_serialization_time) const
-{
+                             const fc::microseconds& max_serialization_time) const {
    return is_type(type, create_yield_function(max_serialization_time));
 }
 
-std::string_view abi_serializer::fundamental_type(const std::string_view& type) const
-{
+std::string_view abi_serializer::fundamental_type(const std::string_view& type) const {
    if (is_array(type)) {
       return type.substr(0, type.size() - 2);
    } else if (is_szarray(type)) {
@@ -306,16 +285,14 @@ std::string_view abi_serializer::fundamental_type(const std::string_view& type) 
    }
 }
 
-std::string_view abi_serializer::_remove_bin_extension(const std::string_view& type)
-{
+std::string_view abi_serializer::_remove_bin_extension(const std::string_view& type) {
    if (ends_with(type, "$"))
       return type.substr(0, type.size() - 1);
    else
       return type;
 }
 
-bool abi_serializer::_is_type(const std::string_view& rtype, impl::abi_traverse_context& ctx) const
-{
+bool abi_serializer::_is_type(const std::string_view& rtype, impl::abi_traverse_context& ctx) const {
    auto h    = ctx.enter_scope();
    auto type = fundamental_type(rtype);
    if (built_in_types.find(type) != built_in_types.end())
@@ -329,8 +306,7 @@ bool abi_serializer::_is_type(const std::string_view& rtype, impl::abi_traverse_
    return false;
 }
 
-const struct_def& abi_serializer::get_struct(const std::string_view& type) const
-{
+const struct_def& abi_serializer::get_struct(const std::string_view& type) const {
    auto itr = structs.find(resolve_type(type));
    EOS_ASSERT(itr != structs.end(),
               invalid_type_inside_abi,
@@ -339,8 +315,7 @@ const struct_def& abi_serializer::get_struct(const std::string_view& type) const
    return itr->second;
 }
 
-void abi_serializer::validate(impl::abi_traverse_context& ctx) const
-{
+void abi_serializer::validate(impl::abi_traverse_context& ctx) const {
    for (const auto& t : typedefs) {
       try {
          vector<std::string_view> types_seen{ t.first, t.second };
@@ -443,8 +418,7 @@ void abi_serializer::validate(impl::abi_traverse_context& ctx) const
    }
 }
 
-std::string_view abi_serializer::resolve_type(const std::string_view& type) const
-{
+std::string_view abi_serializer::resolve_type(const std::string_view& type) const {
    auto itr = typedefs.find(type);
    if (itr != typedefs.end()) {
       for (auto i = typedefs.size(); i > 0; --i) { // avoid infinite recursion
@@ -460,8 +434,7 @@ std::string_view abi_serializer::resolve_type(const std::string_view& type) cons
 void abi_serializer::_binary_to_variant(const std::string_view&          type,
                                         fc::datastream<const char*>&     stream,
                                         fc::mutable_variant_object&      obj,
-                                        impl::binary_to_variant_context& ctx) const
-{
+                                        impl::binary_to_variant_context& ctx) const {
    auto h     = ctx.enter_scope();
    auto s_itr = structs.find(type);
    EOS_ASSERT(s_itr != structs.end(),
@@ -513,8 +486,7 @@ void abi_serializer::_binary_to_variant(const std::string_view&          type,
 
 fc::variant abi_serializer::_binary_to_variant(const std::string_view&          type,
                                                fc::datastream<const char*>&     stream,
-                                               impl::binary_to_variant_context& ctx) const
-{
+                                               impl::binary_to_variant_context& ctx) const {
    auto h     = ctx.enter_scope();
    auto rtype = resolve_type(type);
    auto ftype = fundamental_type(rtype);
@@ -594,8 +566,7 @@ fc::variant abi_serializer::_binary_to_variant(const std::string_view&          
 
 fc::variant abi_serializer::_binary_to_variant(const std::string_view&          type,
                                                const bytes&                     binary,
-                                               impl::binary_to_variant_context& ctx) const
-{
+                                               impl::binary_to_variant_context& ctx) const {
    auto                        h = ctx.enter_scope();
    fc::datastream<const char*> ds(binary.data(), binary.size());
    return _binary_to_variant(type, ds, ctx);
@@ -604,8 +575,7 @@ fc::variant abi_serializer::_binary_to_variant(const std::string_view&          
 fc::variant abi_serializer::binary_to_variant(const std::string_view& type,
                                               const bytes&            binary,
                                               const yield_function_t& yield,
-                                              bool                    short_path) const
-{
+                                              bool                    short_path) const {
    impl::binary_to_variant_context ctx(*this, yield, type);
    ctx.short_path = short_path;
    return _binary_to_variant(type, binary, ctx);
@@ -614,16 +584,14 @@ fc::variant abi_serializer::binary_to_variant(const std::string_view& type,
 fc::variant abi_serializer::binary_to_variant(const std::string_view& type,
                                               const bytes&            binary,
                                               const fc::microseconds& max_serialization_time,
-                                              bool                    short_path) const
-{
+                                              bool                    short_path) const {
    return binary_to_variant(type, binary, create_yield_function(max_serialization_time), short_path);
 }
 
 fc::variant abi_serializer::binary_to_variant(const std::string_view&      type,
                                               fc::datastream<const char*>& binary,
                                               const yield_function_t&      yield,
-                                              bool                         short_path) const
-{
+                                              bool                         short_path) const {
    impl::binary_to_variant_context ctx(*this, yield, type);
    ctx.short_path = short_path;
    return _binary_to_variant(type, binary, ctx);
@@ -632,16 +600,14 @@ fc::variant abi_serializer::binary_to_variant(const std::string_view&      type,
 fc::variant abi_serializer::binary_to_variant(const std::string_view&      type,
                                               fc::datastream<const char*>& binary,
                                               const fc::microseconds&      max_serialization_time,
-                                              bool                         short_path) const
-{
+                                              bool                         short_path) const {
    return binary_to_variant(type, binary, create_yield_function(max_serialization_time), short_path);
 }
 
 void abi_serializer::_variant_to_binary(const std::string_view&          type,
                                         const fc::variant&               var,
                                         fc::datastream<char*>&           ds,
-                                        impl::variant_to_binary_context& ctx) const
-{
+                                        impl::variant_to_binary_context& ctx) const {
    try {
       auto h     = ctx.enter_scope();
       auto rtype = resolve_type(type);
@@ -768,8 +734,7 @@ void abi_serializer::_variant_to_binary(const std::string_view&          type,
 
 bytes abi_serializer::_variant_to_binary(const std::string_view&          type,
                                          const fc::variant&               var,
-                                         impl::variant_to_binary_context& ctx) const
-{
+                                         impl::variant_to_binary_context& ctx) const {
    try {
       auto h = ctx.enter_scope();
       if (!_is_type(type, ctx)) {
@@ -788,8 +753,7 @@ bytes abi_serializer::_variant_to_binary(const std::string_view&          type,
 bytes abi_serializer::variant_to_binary(const std::string_view& type,
                                         const fc::variant&      var,
                                         const yield_function_t& yield,
-                                        bool                    short_path) const
-{
+                                        bool                    short_path) const {
    impl::variant_to_binary_context ctx(*this, yield, type);
    ctx.short_path = short_path;
    return _variant_to_binary(type, var, ctx);
@@ -798,8 +762,7 @@ bytes abi_serializer::variant_to_binary(const std::string_view& type,
 bytes abi_serializer::variant_to_binary(const std::string_view& type,
                                         const fc::variant&      var,
                                         const fc::microseconds& max_serialization_time,
-                                        bool                    short_path) const
-{
+                                        bool                    short_path) const {
    return variant_to_binary(type, var, create_yield_function(max_serialization_time), short_path);
 }
 
@@ -807,8 +770,7 @@ void abi_serializer::variant_to_binary(const std::string_view& type,
                                        const fc::variant&      var,
                                        fc::datastream<char*>&  ds,
                                        const yield_function_t& yield,
-                                       bool                    short_path) const
-{
+                                       bool                    short_path) const {
    impl::variant_to_binary_context ctx(*this, yield, type);
    ctx.short_path = short_path;
    _variant_to_binary(type, var, ds, ctx);
@@ -818,36 +780,31 @@ void abi_serializer::variant_to_binary(const std::string_view& type,
                                        const fc::variant&      var,
                                        fc::datastream<char*>&  ds,
                                        const fc::microseconds& max_serialization_time,
-                                       bool                    short_path) const
-{
+                                       bool                    short_path) const {
    variant_to_binary(type, var, create_yield_function(max_serialization_time), short_path);
 }
 
-type_name abi_serializer::get_action_type(name action) const
-{
+type_name abi_serializer::get_action_type(name action) const {
    auto itr = actions.find(action);
    if (itr != actions.end())
       return itr->second;
    return type_name();
 }
-type_name abi_serializer::get_table_type(name action) const
-{
+type_name abi_serializer::get_table_type(name action) const {
    auto itr = tables.find(action);
    if (itr != tables.end())
       return itr->second;
    return type_name();
 }
 
-type_name abi_serializer::get_action_result_type(name action_result) const
-{
+type_name abi_serializer::get_action_result_type(name action_result) const {
    auto itr = action_results.find(action_result);
    if (itr != action_results.end())
       return itr->second;
    return type_name();
 }
 
-std::optional<string> abi_serializer::get_error_message(uint64_t error_code) const
-{
+std::optional<string> abi_serializer::get_error_message(uint64_t error_code) const {
    auto itr = error_messages.find(error_code);
    if (itr == error_messages.end())
       return std::optional<string>();
@@ -857,8 +814,7 @@ std::optional<string> abi_serializer::get_error_message(uint64_t error_code) con
 
 namespace impl {
 
-fc::scoped_exit<std::function<void()>> abi_traverse_context::enter_scope()
-{
+fc::scoped_exit<std::function<void()>> abi_traverse_context::enter_scope() {
    std::function<void()> callback = [old_recursion_depth = recursion_depth, this]() {
       recursion_depth = old_recursion_depth;
    };
@@ -869,8 +825,7 @@ fc::scoped_exit<std::function<void()>> abi_traverse_context::enter_scope()
    return { std::move(callback) };
 }
 
-void abi_traverse_context_with_path::set_path_root(const std::string_view& type)
-{
+void abi_traverse_context_with_path::set_path_root(const std::string_view& type) {
    auto rtype = abis.resolve_type(type);
 
    if (abis.is_array(rtype)) {
@@ -888,8 +843,7 @@ void abi_traverse_context_with_path::set_path_root(const std::string_view& type)
    }
 }
 
-fc::scoped_exit<std::function<void()>> abi_traverse_context_with_path::push_to_path(const path_item& item)
-{
+fc::scoped_exit<std::function<void()>> abi_traverse_context_with_path::push_to_path(const path_item& item) {
    std::function<void()> callback = [this]() {
       EOS_ASSERT(path.size() > 0,
                  abi_exception,
@@ -902,8 +856,7 @@ fc::scoped_exit<std::function<void()>> abi_traverse_context_with_path::push_to_p
    return { std::move(callback) };
 }
 
-void abi_traverse_context_with_path::set_array_index_of_path_back(uint32_t i)
-{
+void abi_traverse_context_with_path::set_array_index_of_path_back(uint32_t i) {
    EOS_ASSERT(path.size() > 0, abi_exception, "path is empty");
 
    auto& b = path.back();
@@ -915,8 +868,7 @@ void abi_traverse_context_with_path::set_array_index_of_path_back(uint32_t i)
    std::get<array_index_path_item>(b).array_index = i;
 }
 
-void abi_traverse_context_with_path::hint_array_type_if_in_array()
-{
+void abi_traverse_context_with_path::hint_array_type_if_in_array() {
    if (path.size() == 0 || !std::holds_alternative<array_index_path_item>(path.back()))
       return;
 
@@ -924,8 +876,7 @@ void abi_traverse_context_with_path::hint_array_type_if_in_array()
 }
 
 void abi_traverse_context_with_path::hint_struct_type_if_in_array(
-   const map<type_name, struct_def>::const_iterator& itr)
-{
+   const map<type_name, struct_def>::const_iterator& itr) {
    if (path.size() == 0 || !std::holds_alternative<array_index_path_item>(path.back()))
       return;
 
@@ -933,21 +884,18 @@ void abi_traverse_context_with_path::hint_struct_type_if_in_array(
 }
 
 void abi_traverse_context_with_path::hint_variant_type_if_in_array(
-   const map<type_name, variant_def>::const_iterator& itr)
-{
+   const map<type_name, variant_def>::const_iterator& itr) {
    if (path.size() == 0 || !std::holds_alternative<array_index_path_item>(path.back()))
       return;
 
    std::get<array_index_path_item>(path.back()).type_hint = variant_type_path_root{ .variant_itr = itr };
 }
 
-constexpr size_t const_strlen(const char* str)
-{
+constexpr size_t const_strlen(const char* str) {
    return (*str == 0) ? 0 : const_strlen(str + 1) + 1;
 }
 
-void output_name(std::ostream& s, const string_view& str, bool shorten, size_t max_length = 64)
-{
+void output_name(std::ostream& s, const string_view& str, bool shorten, size_t max_length = 64) {
    constexpr size_t      min_num_characters_at_ends        = 4;
    constexpr size_t      preferred_num_tail_end_characters = 6;
    constexpr const char* fill_in                           = "...";
@@ -976,15 +924,12 @@ void output_name(std::ostream& s, const string_view& str, bool shorten, size_t m
    s.write(str.data() + (str.size() - actual_num_tail_end_characters), actual_num_tail_end_characters);
 }
 
-struct generate_path_string_visitor
-{
+struct generate_path_string_visitor {
    using result_type = void;
 
    generate_path_string_visitor(bool shorten_names, bool track_only)
       : shorten_names(shorten_names)
-      , track_only(track_only)
-   {
-   }
+      , track_only(track_only) {}
 
    std::stringstream s;
    bool              shorten_names = false;
@@ -995,8 +940,7 @@ struct generate_path_string_visitor
 
    void operator()(const empty_path_item& item) {}
 
-   void operator()(const array_index_path_item& item)
-   {
+   void operator()(const array_index_path_item& item) {
       if (track_only) {
          last_path_item = item;
          return;
@@ -1005,8 +949,7 @@ struct generate_path_string_visitor
       s << "[" << item.array_index << "]";
    }
 
-   void operator()(const field_path_item& item)
-   {
+   void operator()(const field_path_item& item) {
       if (track_only) {
          last_path_item = item;
          return;
@@ -1016,8 +959,7 @@ struct generate_path_string_visitor
       output_name(s, str, shorten_names);
    }
 
-   void operator()(const variant_path_item& item)
-   {
+   void operator()(const variant_path_item& item) {
       if (track_only) {
          last_path_item = item;
          return;
@@ -1033,36 +975,30 @@ struct generate_path_string_visitor
 
    void operator()(const array_type_path_root& item) { s << "ARRAY"; }
 
-   void operator()(const struct_type_path_root& item)
-   {
+   void operator()(const struct_type_path_root& item) {
       const auto& str = item.struct_itr->first;
       output_name(s, str, shorten_names);
    }
 
-   void operator()(const variant_type_path_root& item)
-   {
+   void operator()(const variant_type_path_root& item) {
       const auto& str = item.variant_itr->first;
       output_name(s, str, shorten_names);
    }
 };
 
-struct path_item_type_visitor
-{
+struct path_item_type_visitor {
    using result_type = void;
 
    path_item_type_visitor(std::stringstream& s, bool shorten_names)
       : s(s)
-      , shorten_names(shorten_names)
-   {
-   }
+      , shorten_names(shorten_names) {}
 
    std::stringstream& s;
    bool               shorten_names = false;
 
    void operator()(const empty_path_item& item) {}
 
-   void operator()(const array_index_path_item& item)
-   {
+   void operator()(const array_index_path_item& item) {
       const auto& th = item.type_hint;
       if (std::holds_alternative<struct_type_path_root>(th)) {
          const auto& str = std::get<struct_type_path_root>(th).struct_itr->first;
@@ -1077,21 +1013,18 @@ struct path_item_type_visitor
       }
    }
 
-   void operator()(const field_path_item& item)
-   {
+   void operator()(const field_path_item& item) {
       const auto& str = item.parent_struct_itr->second.fields.at(item.field_ordinal).type;
       output_name(s, str, shorten_names);
    }
 
-   void operator()(const variant_path_item& item)
-   {
+   void operator()(const variant_path_item& item) {
       const auto& str = item.variant_itr->second.types.at(item.variant_ordinal);
       output_name(s, str, shorten_names);
    }
 };
 
-string abi_traverse_context_with_path::get_path_string() const
-{
+string abi_traverse_context_with_path::get_path_string() const {
    bool full_path     = !short_path;
    bool shorten_names = short_path;
 
@@ -1117,8 +1050,7 @@ string abi_traverse_context_with_path::get_path_string() const
    return visitor.s.str();
 }
 
-string abi_traverse_context_with_path::maybe_shorten(const std::string_view& str)
-{
+string abi_traverse_context_with_path::maybe_shorten(const std::string_view& str) {
    if (!short_path)
       return std::string(str);
 
@@ -1127,15 +1059,13 @@ string abi_traverse_context_with_path::maybe_shorten(const std::string_view& str
    return s.str();
 }
 
-string limit_size(const std::string_view& str)
-{
+string limit_size(const std::string_view& str) {
    std::stringstream s;
    output_name(s, str, false);
    return s.str();
 }
 
-fc::scoped_exit<std::function<void()>> variant_to_binary_context::disallow_extensions_unless(bool condition)
-{
+fc::scoped_exit<std::function<void()>> variant_to_binary_context::disallow_extensions_unless(bool condition) {
    std::function<void()> callback = [old_allow_extensions = allow_extensions, this]() {
       allow_extensions = old_allow_extensions;
    };

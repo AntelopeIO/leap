@@ -7,8 +7,7 @@
 using namespace Serialization;
 
 namespace IR {
-void getDisassemblyNames(const Module& module, DisassemblyNames& outNames)
-{
+void getDisassemblyNames(const Module& module, DisassemblyNames& outNames) {
    // Fill in the output with the correct number of blank names.
    for (const auto& functionImport : module.functions.imports) {
       DisassemblyNames::Function functionNames;
@@ -129,8 +128,7 @@ void getDisassemblyNames(const Module& module, DisassemblyNames& outNames)
    }
 }
 
-void setDisassemblyNames(Module& module, const DisassemblyNames& names)
-{
+void setDisassemblyNames(Module& module, const DisassemblyNames& names) {
    // Replace an existing name section if one is present, or create a new section.
    Uptr userSectionIndex = 0;
    if (!findUserSection(module, "name", userSectionIndex)) {

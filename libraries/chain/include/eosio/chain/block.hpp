@@ -10,10 +10,8 @@ namespace chain {
  * describe the state-transition undertaken by the block producer.
  */
 
-struct transaction_receipt_header
-{
-   enum status_enum
-   {
+struct transaction_receipt_header {
+   enum status_enum {
       executed  = 0, ///< succeed, no error handler executed
       soft_fail = 1, ///< objectively failed (not executed), error handler executed
       hard_fail = 2, ///< objectively failed and error handler objectively failed thus no state change
@@ -22,16 +20,12 @@ struct transaction_receipt_header
    };
 
    transaction_receipt_header()
-      : status(hard_fail)
-   {
-   }
+      : status(hard_fail) {}
    explicit transaction_receipt_header(status_enum s)
-      : status(s)
-   {
-   }
+      : status(s) {}
 
-   friend inline bool operator==(const transaction_receipt_header& lhs, const transaction_receipt_header& rhs)
-   {
+   friend inline bool operator==(const transaction_receipt_header& lhs,
+                                 const transaction_receipt_header& rhs) {
       return std::tie(lhs.status, lhs.cpu_usage_us, lhs.net_usage_words) ==
              std::tie(rhs.status, rhs.cpu_usage_us, rhs.net_usage_words);
    }
@@ -42,28 +36,20 @@ struct transaction_receipt_header
                                      ///<  skipping context free data... hard failures...
 };
 
-struct transaction_receipt : public transaction_receipt_header
-{
+struct transaction_receipt : public transaction_receipt_header {
 
    transaction_receipt()
-      : transaction_receipt_header()
-   {
-   }
+      : transaction_receipt_header() {}
    explicit transaction_receipt(const transaction_id_type& tid)
       : transaction_receipt_header(executed)
-      , trx(tid)
-   {
-   }
+      , trx(tid) {}
    explicit transaction_receipt(const packed_transaction& ptrx)
       : transaction_receipt_header(executed)
-      , trx(std::in_place_type<packed_transaction>, ptrx)
-   {
-   }
+      , trx(std::in_place_type<packed_transaction>, ptrx) {}
 
    std::variant<transaction_id_type, packed_transaction> trx;
 
-   digest_type digest() const
-   {
+   digest_type digest() const {
       digest_type::encoder enc;
       fc::raw::pack(enc, status);
       fc::raw::pack(enc, cpu_usage_us);
@@ -76,22 +62,17 @@ struct transaction_receipt : public transaction_receipt_header
    }
 };
 
-struct additional_block_signatures_extension : fc::reflect_init
-{
+struct additional_block_signatures_extension : fc::reflect_init {
    static constexpr uint16_t extension_id() { return 2; }
    static constexpr bool     enforce_unique() { return true; }
 
    additional_block_signatures_extension() = default;
 
    additional_block_signatures_extension(const vector<signature_type>& signatures)
-      : signatures(signatures)
-   {
-   }
+      : signatures(signatures) {}
 
    additional_block_signatures_extension(vector<signature_type>&& signatures)
-      : signatures(std::move(signatures))
-   {
-   }
+      : signatures(std::move(signatures)) {}
 
    void reflector_init();
 
@@ -100,8 +81,7 @@ struct additional_block_signatures_extension : fc::reflect_init
 
 namespace detail {
 template<typename... Ts>
-struct block_extension_types
-{
+struct block_extension_types {
    using block_extension_t = std::variant<Ts...>;
    using decompose_t       = decompose<Ts...>;
 };
@@ -113,17 +93,14 @@ using block_extension = block_extension_types::block_extension_t;
 
 /**
  */
-struct signed_block : public signed_block_header
-{
+struct signed_block : public signed_block_header {
 private:
    signed_block(const signed_block&) = default;
 
 public:
    signed_block() = default;
    explicit signed_block(const signed_block_header& h)
-      : signed_block_header(h)
-   {
-   }
+      : signed_block_header(h) {}
    signed_block(signed_block&&)                 = default;
    signed_block& operator=(const signed_block&) = delete;
    signed_block& operator=(signed_block&&)      = default;
@@ -136,8 +113,7 @@ public:
 };
 using signed_block_ptr = std::shared_ptr<signed_block>;
 
-struct producer_confirmation
-{
+struct producer_confirmation {
    block_id_type  block_id;
    digest_type    block_digest;
    account_name   producer;

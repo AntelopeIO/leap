@@ -40,8 +40,7 @@ static constexpr char base64url_chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 static_assert(sizeof(base64_chars) == sizeof(base64url_chars),
               "base64 and base64url must have the same amount of chars");
 
-static inline void throw_on_nonbase64(unsigned char c, const char* const b64_chars)
-{
+static inline void throw_on_nonbase64(unsigned char c, const char* const b64_chars) {
    FC_ASSERT(isalnum(c) || (c == b64_chars[sizeof(base64_chars) - 3]) ||
                 (c == b64_chars[sizeof(base64_chars) - 2]),
              "encountered non-base64 character");
@@ -49,8 +48,7 @@ static inline void throw_on_nonbase64(unsigned char c, const char* const b64_cha
 
 std::string base64_encode_impl(unsigned char const* bytes_to_encode,
                                unsigned int         in_len,
-                               const char* const    b64_chars)
-{
+                               const char* const    b64_chars) {
 
    std::string   ret;
    int           i = 0;
@@ -91,30 +89,25 @@ std::string base64_encode_impl(unsigned char const* bytes_to_encode,
    return ret;
 }
 
-std::string base64_encode(unsigned char const* bytes_to_encode, unsigned int in_len)
-{
+std::string base64_encode(unsigned char const* bytes_to_encode, unsigned int in_len) {
    return base64_encode_impl(bytes_to_encode, in_len, base64_chars);
 }
 
-std::string base64_encode(const std::string& enc)
-{
+std::string base64_encode(const std::string& enc) {
    char const* s = enc.c_str();
    return base64_encode((unsigned char const*)s, enc.size());
 }
 
-std::string base64url_encode(unsigned char const* bytes_to_encode, unsigned int in_len)
-{
+std::string base64url_encode(unsigned char const* bytes_to_encode, unsigned int in_len) {
    return base64_encode_impl(bytes_to_encode, in_len, base64url_chars);
 }
 
-std::string base64url_encode(const std::string& enc)
-{
+std::string base64url_encode(const std::string& enc) {
    char const* s = enc.c_str();
    return base64url_encode((unsigned char const*)s, enc.size());
 }
 
-std::string base64_decode_impl(std::string const& encoded_string, const char* const b64_chars)
-{
+std::string base64_decode_impl(std::string const& encoded_string, const char* const b64_chars) {
    int           in_len = encoded_string.size();
    int           i      = 0;
    int           j      = 0;
@@ -158,13 +151,11 @@ std::string base64_decode_impl(std::string const& encoded_string, const char* co
    return ret;
 }
 
-std::string base64_decode(std::string const& encoded_string)
-{
+std::string base64_decode(std::string const& encoded_string) {
    return base64_decode_impl(encoded_string, base64_chars);
 }
 
-std::string base64url_decode(std::string const& encoded_string)
-{
+std::string base64url_decode(std::string const& encoded_string) {
    return base64_decode_impl(encoded_string, base64url_chars);
 }
 

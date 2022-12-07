@@ -4,8 +4,7 @@
 #include <string>
 #include <vector>
 
-struct spec_test
-{
+struct spec_test {
    std::string name;
    int         assert_trap_start_index;
    int         assert_trap_end_index;

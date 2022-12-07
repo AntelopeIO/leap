@@ -8,8 +8,7 @@
 using namespace fc;
 
 BOOST_AUTO_TEST_SUITE(hash_functions)
-BOOST_AUTO_TEST_CASE(sha3)
-try {
+BOOST_AUTO_TEST_CASE(sha3) try {
 
    using test_sha3 = std::tuple<std::string, std::string>;
    const std::vector<test_sha3> tests{
@@ -35,8 +34,7 @@ try {
 }
 FC_LOG_AND_RETHROW();
 
-BOOST_AUTO_TEST_CASE(keccak256)
-try {
+BOOST_AUTO_TEST_CASE(keccak256) try {
 
    using test_keccak256 = std::tuple<std::string, std::string>;
    const std::vector<test_keccak256> tests{

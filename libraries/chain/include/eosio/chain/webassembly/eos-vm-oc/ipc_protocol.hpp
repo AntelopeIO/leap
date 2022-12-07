@@ -8,36 +8,30 @@ namespace eosio {
 namespace chain {
 namespace eosvmoc {
 
-struct initialize_message
-{
+struct initialize_message {
    // Two sent fds: 1) communication socket for this instance  2) the cache file
 };
 
-struct initalize_response_message
-{
+struct initalize_response_message {
    std::optional<std::string> error_message; // no error message? everything groovy
 };
 
-struct code_tuple
-{
+struct code_tuple {
    eosio::chain::digest_type code_id;
    uint8_t                   vm_version;
    bool operator==(const code_tuple& o) const { return o.code_id == code_id && o.vm_version == vm_version; }
 };
 
-struct compile_wasm_message
-{
+struct compile_wasm_message {
    code_tuple code;
    // Two sent fd: 1) communication socket for result, 2) the wasm to compile
 };
 
-struct evict_wasms_message
-{
+struct evict_wasms_message {
    std::vector<code_descriptor> codes;
 };
 
-struct code_compilation_result_message
-{
+struct code_compilation_result_message {
    eosvmoc_optional_offset_or_import_t start;
    unsigned                            apply_offset;
    int                                 starting_memory_pages;
@@ -45,17 +39,14 @@ struct code_compilation_result_message
    // Two sent fds: 1) wasm code, 2) initial memory snapshot
 };
 
-struct compilation_result_unknownfailure
-{};
-struct compilation_result_toofull
-{};
+struct compilation_result_unknownfailure {};
+struct compilation_result_toofull {};
 
 using wasm_compilation_result = std::variant<code_descriptor, // a successful compile
                                              compilation_result_unknownfailure,
                                              compilation_result_toofull>;
 
-struct wasm_compilation_result_message
-{
+struct wasm_compilation_result_message {
    code_tuple              code;
    wasm_compilation_result result;
    size_t                  cache_free_bytes;

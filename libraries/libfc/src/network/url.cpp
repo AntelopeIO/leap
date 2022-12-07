@@ -7,11 +7,9 @@
 
 namespace fc {
 namespace detail {
-class url_impl
-{
+class url_impl {
 public:
-   void parse(const fc::string& s)
-   {
+   void parse(const fc::string& s) {
       std::stringstream ss(s);
       std::string       skip, _lpath, _largs, luser, lpass;
       std::getline(ss, _proto, ':');
@@ -75,17 +73,14 @@ public:
 };
 }
 
-void to_variant(const url& u, fc::variant& v)
-{
+void to_variant(const url& u, fc::variant& v) {
    v = fc::string(u);
 }
-void from_variant(const fc::variant& v, url& u)
-{
+void from_variant(const fc::variant& v, url& u) {
    u = url(v.as_string());
 }
 
-url::operator string() const
-{
+url::operator string() const {
    std::stringstream ss;
    ss << my->_proto << "://";
    if (my->_user) {
@@ -108,30 +103,23 @@ url::operator string() const
 }
 
 url::url(const fc::string& u)
-   : my(std::make_shared<detail::url_impl>())
-{
+   : my(std::make_shared<detail::url_impl>()) {
    my->parse(u);
 }
 
-std::shared_ptr<detail::url_impl> get_null_url()
-{
+std::shared_ptr<detail::url_impl> get_null_url() {
    static auto u = std::make_shared<detail::url_impl>();
    return u;
 }
 
 url::url()
-   : my(get_null_url())
-{
-}
+   : my(get_null_url()) {}
 
 url::url(const url& u)
-   : my(u.my)
-{
-}
+   : my(u.my) {}
 
 url::url(url&& u)
-   : my(fc::move(u.my))
-{
+   : my(fc::move(u.my)) {
    u.my = get_null_url();
 }
 
@@ -143,8 +131,7 @@ url::url(const string&                  proto,
          const ostring&                 query,
          const ovariant_object&         args,
          const std::optional<uint16_t>& port)
-   : my(std::make_shared<detail::url_impl>())
-{
+   : my(std::make_shared<detail::url_impl>()) {
    my->_proto = proto;
    my->_host  = host;
    my->_user  = user;
@@ -157,14 +144,12 @@ url::url(const string&                  proto,
 
 url::~url() {}
 
-url& url::operator=(const url& u)
-{
+url& url::operator=(const url& u) {
    my = u.my;
    return *this;
 }
 
-url& url::operator=(url&& u)
-{
+url& url::operator=(url&& u) {
    if (this != &u) {
       my   = fc::move(u.my);
       u.my = get_null_url();
@@ -172,36 +157,28 @@ url& url::operator=(url&& u)
    return *this;
 }
 
-string url::proto() const
-{
+string url::proto() const {
    return my->_proto;
 }
-ostring url::host() const
-{
+ostring url::host() const {
    return my->_host;
 }
-ostring url::user() const
-{
+ostring url::user() const {
    return my->_user;
 }
-ostring url::pass() const
-{
+ostring url::pass() const {
    return my->_pass;
 }
-opath url::path() const
-{
+opath url::path() const {
    return my->_path;
 }
-ostring url::query() const
-{
+ostring url::query() const {
    return my->_query;
 }
-ovariant_object url::args() const
-{
+ovariant_object url::args() const {
    return my->_args;
 }
-std::optional<uint16_t> url::port() const
-{
+std::optional<uint16_t> url::port() const {
    return my->_port;
 }
 

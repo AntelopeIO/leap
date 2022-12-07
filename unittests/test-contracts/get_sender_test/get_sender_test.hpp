@@ -2,8 +2,7 @@
 
 #include <eosio/eosio.hpp>
 
-class [[eosio::contract]] get_sender_test : public eosio::contract
-{
+class [[eosio::contract]] get_sender_test : public eosio::contract {
 public:
    using eosio::contract::contract;
 

@@ -5,8 +5,7 @@
 
 using namespace eosio;
 
-void deferred_test::defercall(name payer, uint64_t sender_id, name contract, uint64_t payload)
-{
+void deferred_test::defercall(name payer, uint64_t sender_id, name contract, uint64_t payload) {
    print("defercall called on ", get_self(), "\n");
    require_auth(payer);
 
@@ -42,8 +41,7 @@ void deferred_test::delayedcall(name     payer,
                                 name     contract,
                                 uint64_t payload,
                                 uint32_t delay_sec,
-                                bool     replace_existing)
-{
+                                bool     replace_existing) {
    print("delayedcall called on ", get_self(), "\n");
    require_auth(payer);
 
@@ -65,24 +63,20 @@ void deferred_test::delayedcall(name     payer,
    trx.send(sender_id, payer, replace_existing);
 }
 
-void deferred_test::deferfunc(uint64_t payload)
-{
+void deferred_test::deferfunc(uint64_t payload) {
    print("deferfunc called on ", get_self(), " with payload = ", payload, "\n");
    check(payload != 13, "value 13 not allowed in payload");
 }
 
-void deferred_test::inlinecall(name contract, name authorizer, uint64_t payload)
-{
+void deferred_test::inlinecall(name contract, name authorizer, uint64_t payload) {
    deferfunc_action a(contract, { authorizer, "active"_n });
    a.send(payload);
 }
 
-void deferred_test::fail()
-{
+void deferred_test::fail() {
    check(false, "fail");
 }
 
-void deferred_test::on_error(uint128_t sender_id, ignore<std::vector<char>> sent_trx)
-{
+void deferred_test::on_error(uint128_t sender_id, ignore<std::vector<char>> sent_trx) {
    print("onerror called on ", get_self(), "\n");
 }

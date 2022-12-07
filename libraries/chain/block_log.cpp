@@ -36,8 +36,7 @@ const uint32_t block_log::max_supported_version = 3;
 namespace detail {
 using unique_file = std::unique_ptr<FILE, decltype(&fclose)>;
 
-class block_log_impl
-{
+class block_log_impl {
 public:
    signed_block_ptr head;
    block_id_type    head_id;
@@ -52,8 +51,7 @@ public:
    bool                                  not_generate_block_log = false;
 
    explicit block_log_impl(std::optional<block_log_prune_config> prune_conf)
-      : prune_config(prune_conf)
-   {
+      : prune_config(prune_conf) {
       if (prune_config) {
          if (prune_config->prune_blocks == 0) {
             // not to generate blocks.log
@@ -70,8 +68,7 @@ public:
       }
    }
 
-   inline void check_open_files()
-   {
+   inline void check_open_files() {
       if (!open_files) {
          reopen();
       }
@@ -81,8 +78,7 @@ public:
 
    // close() is called all over the place. Let's make this an explict call to ensure it only is called when
    //  we really want: when someone is destroying the blog instance
-   void try_exit_vacuum()
-   {
+   void try_exit_vacuum() {
       // for a pruned log that has at least one block, see if we should vacuum it
       if (block_file.is_open() && index_file.is_open() && prune_config && prune_config->vacuum_on_close) {
          if (!head) {
@@ -100,8 +96,7 @@ public:
       }
    }
 
-   void close()
-   {
+   void close() {
       if (block_file.is_open())
          block_file.close();
       if (index_file.is_open())
@@ -138,15 +133,13 @@ public:
 
 constexpr uint32_t pruned_version_flag = 1 << 31;
 
-static bool is_pruned_log_and_mask_version(uint32_t& version)
-{
+static bool is_pruned_log_and_mask_version(uint32_t& version) {
    bool ret = version & pruned_version_flag;
    version &= ~pruned_version_flag;
    return ret;
 }
 
-void detail::block_log_impl::reopen()
-{
+void detail::block_log_impl::reopen() {
    close();
 
    // open to create files if they don't exist
@@ -162,8 +155,7 @@ void detail::block_log_impl::reopen()
    open_files = true;
 }
 
-class reverse_iterator
-{
+class reverse_iterator {
 public:
    reverse_iterator();
    // open a block log file and return the total number of blocks in it
@@ -192,17 +184,14 @@ private:
    constexpr static uint64_t _position_size  = sizeof(_current_position_in_file);
 };
 
-constexpr uint64_t buffer_location_to_file_location(uint32_t buffer_location)
-{
+constexpr uint64_t buffer_location_to_file_location(uint32_t buffer_location) {
    return buffer_location << 3;
 }
-constexpr uint32_t file_location_to_buffer_location(uint32_t file_location)
-{
+constexpr uint32_t file_location_to_buffer_location(uint32_t file_location) {
    return file_location >> 3;
 }
 
-class index_writer
-{
+class index_writer {
 public:
    index_writer(const fc::path& block_index_name, uint32_t blocks_expected);
    void write(uint64_t pos);
@@ -219,17 +208,13 @@ private:
  *
  *  This class supports unpack functionality but not pack.
  */
-class fileptr_datastream
-{
+class fileptr_datastream {
 public:
    explicit fileptr_datastream(FILE* file, const std::string& filename)
       : _file(file)
-      , _filename(filename)
-   {
-   }
+      , _filename(filename) {}
 
-   void skip(size_t s)
-   {
+   void skip(size_t s) {
       auto status = fseek(_file, s, SEEK_CUR);
       EOS_ASSERT(status == 0,
                  block_log_exception,
@@ -238,8 +223,7 @@ public:
                  ("bytes", s)("blocks_log", _filename)("status", status));
    }
 
-   bool read(char* d, size_t s)
-   {
+   bool read(char* d, size_t s) {
       size_t result = fread(d, 1, s, _file);
       EOS_ASSERT(result == s,
                  block_log_exception,
@@ -259,18 +243,15 @@ private:
 }
 
 block_log::block_log(const fc::path& data_dir, std::optional<block_log_prune_config> prune_config)
-   : my(new detail::block_log_impl(prune_config))
-{
+   : my(new detail::block_log_impl(prune_config)) {
    open(data_dir);
 }
 
-block_log::block_log(block_log&& other)
-{
+block_log::block_log(block_log&& other) {
    my = std::move(other.my);
 }
 
-block_log::~block_log()
-{
+block_log::~block_log() {
    if (my) {
       flush();
       my->try_exit_vacuum();
@@ -279,8 +260,7 @@ block_log::~block_log()
    }
 }
 
-void block_log::open(const fc::path& data_dir)
-{
+void block_log::open(const fc::path& data_dir) {
    my->close();
 
    if (!fc::is_directory(data_dir))
@@ -397,22 +377,19 @@ void block_log::open(const fc::path& data_dir)
    }
 }
 
-void block_log::append(const signed_block_ptr& b, const block_id_type& id)
-{
+void block_log::append(const signed_block_ptr& b, const block_id_type& id) {
    my->append(b, id, fc::raw::pack(*b));
 }
 
 void block_log::append(const signed_block_ptr&  b,
                        const block_id_type&     id,
-                       const std::vector<char>& packed_block)
-{
+                       const std::vector<char>& packed_block) {
    my->append(b, id, packed_block);
 }
 
 void detail::block_log_impl::append(const signed_block_ptr&  b,
                                     const block_id_type&     id,
-                                    const std::vector<char>& packed_block)
-{
+                                    const std::vector<char>& packed_block) {
    try {
       EOS_ASSERT(genesis_written_to_block_log,
                  block_log_append_fail,
@@ -457,8 +434,7 @@ void detail::block_log_impl::append(const signed_block_ptr&  b,
    FC_LOG_AND_RETHROW()
 }
 
-void detail::block_log_impl::update_head(const signed_block_ptr& b, const std::optional<block_id_type>& id)
-{
+void detail::block_log_impl::update_head(const signed_block_ptr& b, const std::optional<block_id_type>& id) {
    head = b;
    if (id) {
       head_id = *id;
@@ -471,8 +447,7 @@ void detail::block_log_impl::update_head(const signed_block_ptr& b, const std::o
    }
 }
 
-void detail::block_log_impl::prune(const fc::log_level& loglevel)
-{
+void detail::block_log_impl::prune(const fc::log_level& loglevel) {
    if (!head)
       return;
    const uint32_t head_num = chain::block_header::num_from_id(head_id);
@@ -500,22 +475,19 @@ void detail::block_log_impl::prune(const fc::log_level& loglevel)
                             fc::mutable_variant_object()("b", first_block_num)("e", head_num)));
 }
 
-void block_log::flush()
-{
+void block_log::flush() {
    if (my->not_generate_block_log) {
       return;
    }
    my->flush();
 }
 
-void detail::block_log_impl::flush()
-{
+void detail::block_log_impl::flush() {
    block_file.flush();
    index_file.flush();
 }
 
-size_t detail::block_log_impl::convert_existing_header_to_vacuumed()
-{
+size_t detail::block_log_impl::convert_existing_header_to_vacuumed() {
    uint32_t   old_version;
    uint32_t   old_first_block_num;
    const auto totem = block_log::npos;
@@ -558,8 +530,7 @@ size_t detail::block_log_impl::convert_existing_header_to_vacuumed()
    return block_file.tellp();
 }
 
-void detail::block_log_impl::vacuum()
-{
+void detail::block_log_impl::vacuum() {
    // go ahead and write a new valid header now. if the vacuum fails midway, at least this means maybe the
    //  block recovery can get through some blocks.
    size_t copy_to_pos = convert_existing_header_to_vacuumed();
@@ -631,8 +602,7 @@ void detail::block_log_impl::vacuum()
 }
 
 template<typename T>
-void detail::block_log_impl::reset(const T& t, const signed_block_ptr& first_block, uint32_t first_bnum)
-{
+void detail::block_log_impl::reset(const T& t, const signed_block_ptr& first_block, uint32_t first_bnum) {
    close();
 
    fc::remove_all(block_file.get_file_path());
@@ -679,14 +649,12 @@ void detail::block_log_impl::reset(const T& t, const signed_block_ptr& first_blo
    flush();
 }
 
-void block_log::reset(const genesis_state& gs, const signed_block_ptr& first_block)
-{
+void block_log::reset(const genesis_state& gs, const signed_block_ptr& first_block) {
    // At startup, OK to be called in no blocks.log mode from controller.cpp
    my->reset(gs, first_block, 1);
 }
 
-void block_log::reset(const chain_id_type& chain_id, uint32_t first_block_num)
-{
+void block_log::reset(const chain_id_type& chain_id, uint32_t first_block_num) {
    // At startup, OK to be called in no blocks.log mode from controller.cpp
    EOS_ASSERT(
       first_block_num > 1,
@@ -695,8 +663,7 @@ void block_log::reset(const chain_id_type& chain_id, uint32_t first_block_num)
    my->reset(chain_id, signed_block_ptr(), first_block_num);
 }
 
-void detail::block_log_impl::remove()
-{
+void detail::block_log_impl::remove() {
    close();
 
    fc::remove(block_file.get_file_path());
@@ -706,24 +673,20 @@ void detail::block_log_impl::remove()
         ("l", block_file.get_file_path())("i", index_file.get_file_path()));
 }
 
-void block_log::remove()
-{
+void block_log::remove() {
    my->remove();
 }
 
-void detail::block_log_impl::write(const genesis_state& gs)
-{
+void detail::block_log_impl::write(const genesis_state& gs) {
    auto data = fc::raw::pack(gs);
    block_file.write(data.data(), data.size());
 }
 
-void detail::block_log_impl::write(const chain_id_type& chain_id)
-{
+void detail::block_log_impl::write(const chain_id_type& chain_id) {
    block_file << chain_id;
 }
 
-signed_block_ptr block_log::read_block(uint64_t pos) const
-{
+signed_block_ptr block_log::read_block(uint64_t pos) const {
    if (my->not_generate_block_log) {
       return nullptr;
    }
@@ -737,8 +700,7 @@ signed_block_ptr block_log::read_block(uint64_t pos) const
    return result;
 }
 
-void block_log::read_block_header(block_header& bh, uint64_t pos) const
-{
+void block_log::read_block_header(block_header& bh, uint64_t pos) const {
    if (my->not_generate_block_log) {
       return;
    }
@@ -750,8 +712,7 @@ void block_log::read_block_header(block_header& bh, uint64_t pos) const
    fc::raw::unpack(ds, bh);
 }
 
-signed_block_ptr block_log::read_block_by_num(uint32_t block_num) const
-{
+signed_block_ptr block_log::read_block_by_num(uint32_t block_num) const {
    try {
       signed_block_ptr b;
 
@@ -773,8 +734,7 @@ signed_block_ptr block_log::read_block_by_num(uint32_t block_num) const
    FC_LOG_AND_RETHROW()
 }
 
-block_id_type block_log::read_block_id_by_num(uint32_t block_num) const
-{
+block_id_type block_log::read_block_id_by_num(uint32_t block_num) const {
    try {
       if (my->not_generate_block_log) {
          return {};
@@ -794,8 +754,7 @@ block_id_type block_log::read_block_id_by_num(uint32_t block_num) const
    FC_LOG_AND_RETHROW()
 }
 
-uint64_t detail::block_log_impl::get_block_pos(uint32_t block_num)
-{
+uint64_t detail::block_log_impl::get_block_pos(uint32_t block_num) {
    check_open_files();
    if (!(head && block_num <= block_header::num_from_id(head_id) && block_num >= first_block_num))
       return block_log::npos;
@@ -805,16 +764,14 @@ uint64_t detail::block_log_impl::get_block_pos(uint32_t block_num)
    return pos;
 }
 
-uint64_t block_log::get_block_pos(uint32_t block_num) const
-{
+uint64_t block_log::get_block_pos(uint32_t block_num) const {
    if (my->not_generate_block_log) {
       return block_log::npos;
    }
    return my->get_block_pos(block_num);
 }
 
-signed_block_ptr block_log::read_head() const
-{
+signed_block_ptr block_log::read_head() const {
    if (my->not_generate_block_log) {
       return {};
    }
@@ -845,23 +802,19 @@ signed_block_ptr block_log::read_head() const
    return {};
 }
 
-const signed_block_ptr& block_log::head() const
-{
+const signed_block_ptr& block_log::head() const {
    return my->head;
 }
 
-const block_id_type& block_log::head_id() const
-{
+const block_id_type& block_log::head_id() const {
    return my->head_id;
 }
 
-uint32_t block_log::first_block_num() const
-{
+uint32_t block_log::first_block_num() const {
    return my->first_block_num;
 }
 
-void block_log::construct_index()
-{
+void block_log::construct_index() {
    if (my->not_generate_block_log) {
       ilog("Not need to construct index in no blocks.log mode (block-log-retain-blocks=0)");
       return;
@@ -881,8 +834,7 @@ void block_log::construct_index()
    my->reopen();
 } // construct_index
 
-void block_log::construct_index(const fc::path& block_file_name, const fc::path& index_file_name)
-{
+void block_log::construct_index(const fc::path& block_file_name, const fc::path& index_file_name) {
    detail::reverse_iterator block_log_iter;
 
    ilog("Will read existing blocks.log file ${file}", ("file", block_file_name.generic_string()));
@@ -910,8 +862,7 @@ void block_log::construct_index(const fc::path& block_file_name, const fc::path&
 
 fc::path block_log::repair_log(const fc::path& data_dir,
                                uint32_t        truncate_at_block,
-                               const char*     reversible_block_dir_name)
-{
+                               const char*     reversible_block_dir_name) {
    ilog("Recovering Block Log...");
    EOS_ASSERT(fc::is_directory(data_dir) && fc::is_regular_file(data_dir / "blocks.log"),
               block_log_not_found,
@@ -1120,8 +1071,7 @@ fc::path block_log::repair_log(const fc::path& data_dir,
 
 template<typename ChainContext, typename Lambda>
 std::optional<ChainContext> detail::block_log_impl::extract_chain_context(const fc::path& data_dir,
-                                                                          Lambda&&        lambda)
-{
+                                                                          Lambda&&        lambda) {
    EOS_ASSERT(fc::is_directory(data_dir) && fc::is_regular_file(data_dir / "blocks.log"),
               block_log_not_found,
               "Block log not found in '${blocks_dir}'",
@@ -1148,8 +1098,7 @@ std::optional<ChainContext> detail::block_log_impl::extract_chain_context(const 
    return lambda(block_stream, version, first_block_num);
 }
 
-std::optional<genesis_state> block_log::extract_genesis_state(const fc::path& data_dir)
-{
+std::optional<genesis_state> block_log::extract_genesis_state(const fc::path& data_dir) {
    return detail::block_log_impl::extract_chain_context<genesis_state>(
       data_dir,
       [](std::fstream& block_stream,
@@ -1166,8 +1115,7 @@ std::optional<genesis_state> block_log::extract_genesis_state(const fc::path& da
       });
 }
 
-chain_id_type block_log::extract_chain_id(const fc::path& data_dir)
-{
+chain_id_type block_log::extract_chain_id(const fc::path& data_dir) {
    return *(detail::block_log_impl::extract_chain_context<chain_id_type>(
       data_dir,
       [](std::fstream& block_stream, uint32_t version, uint32_t first_block_num)
@@ -1189,8 +1137,7 @@ chain_id_type block_log::extract_chain_id(const fc::path& data_dir)
       }));
 }
 
-bool block_log::is_pruned_log(const fc::path& data_dir)
-{
+bool block_log::is_pruned_log(const fc::path& data_dir) {
    uint32_t version = 0;
    try {
       fc::cfile log_file;
@@ -1205,14 +1152,11 @@ bool block_log::is_pruned_log(const fc::path& data_dir)
 
 detail::reverse_iterator::reverse_iterator()
    : _file(nullptr, &fclose)
-   , _buffer_ptr(std::make_unique<char[]>(_buf_len))
-{
-}
+   , _buffer_ptr(std::make_unique<char[]>(_buf_len)) {}
 
 uint32_t detail::reverse_iterator::_buf_len = 1U << 24;
 
-uint32_t detail::reverse_iterator::open(const fc::path& block_file_name)
-{
+uint32_t detail::reverse_iterator::open(const fc::path& block_file_name) {
    _block_file_name = block_file_name.generic_string();
    _file.reset(FC_FOPEN(_block_file_name.c_str(), "r"));
    EOS_ASSERT(_file,
@@ -1303,8 +1247,7 @@ uint32_t detail::reverse_iterator::open(const fc::path& block_file_name)
    return _blocks_expected;
 }
 
-uint64_t detail::reverse_iterator::previous()
-{
+uint64_t detail::reverse_iterator::previous() {
    EOS_ASSERT(_current_position_in_file != block_log::npos,
               block_log_exception,
               "Block log file at '${blocks_log}' first block already returned by former call to previous(), "
@@ -1348,8 +1291,7 @@ uint64_t detail::reverse_iterator::previous()
    return block_location_in_file;
 }
 
-void detail::reverse_iterator::update_buffer()
-{
+void detail::reverse_iterator::update_buffer() {
    EOS_ASSERT(
       _current_position_in_file != block_log::npos, block_log_exception, "Block log file not setup properly");
 
@@ -1376,8 +1318,7 @@ void detail::reverse_iterator::update_buffer()
 }
 
 detail::index_writer::index_writer(const fc::path& block_index_name, uint32_t blocks_expected)
-   : _blocks_remaining(blocks_expected)
-{
+   : _blocks_remaining(blocks_expected) {
    const size_t file_sz = blocks_expected * sizeof(uint64_t);
 
    fc::cfile file;
@@ -1390,8 +1331,7 @@ detail::index_writer::index_writer(const fc::path& block_index_name, uint32_t bl
    _mapped_file_region.emplace(*_file, boost::interprocess::read_write);
 }
 
-void detail::index_writer::write(uint64_t pos)
-{
+void detail::index_writer::write(uint64_t pos) {
    EOS_ASSERT(_blocks_remaining, block_log_exception, "No more blocks were expected for the block log index");
 
    char* base = (char*)_mapped_file_region->get_address();
@@ -1403,33 +1343,28 @@ void detail::index_writer::write(uint64_t pos)
            ("blocks_left", _blocks_remaining)("pos", pos));
 }
 
-bool block_log::contains_genesis_state(uint32_t version, uint32_t first_block_num)
-{
+bool block_log::contains_genesis_state(uint32_t version, uint32_t first_block_num) {
    return version <= 2 || first_block_num == 1;
 }
 
-bool block_log::contains_chain_id(uint32_t version, uint32_t first_block_num)
-{
+bool block_log::contains_chain_id(uint32_t version, uint32_t first_block_num) {
    return version >= 3 && first_block_num > 1;
 }
 
-bool block_log::is_supported_version(uint32_t version)
-{
+bool block_log::is_supported_version(uint32_t version) {
    return std::clamp(version, min_supported_version, max_supported_version) == version;
 }
 
 namespace {
 template<typename T>
-T read_buffer(const char* buf)
-{
+T read_buffer(const char* buf) {
    T result;
    memcpy(&result, buf, sizeof(T));
    return result;
 }
 
 template<typename T>
-void write_buffer(char* des, const T* src)
-{
+void write_buffer(char* des, const T* src) {
    memcpy(des, src, sizeof(T));
 }
 }
@@ -1438,8 +1373,7 @@ bool block_log::extract_block_range(const fc::path& block_dir,
                                     const fc::path& output_dir,
                                     block_num_type& start,
                                     block_num_type& end,
-                                    bool            rename_input)
-{
+                                    bool            rename_input) {
    EOS_ASSERT(block_dir != output_dir,
               block_log_exception,
               "block_dir and output_dir need to be different directories");
@@ -1575,8 +1509,7 @@ bool block_log::extract_block_range(const fc::path& block_dir,
    return true;
 }
 
-trim_data::trim_data(fc::path block_dir)
-{
+trim_data::trim_data(fc::path block_dir) {
 
    // code should follow logic in block_log::repair_log
 
@@ -1664,16 +1597,14 @@ trim_data::trim_data(fc::path block_dir)
    ilog("last block= ${last}", ("last", last_block));
 }
 
-trim_data::~trim_data()
-{
+trim_data::~trim_data() {
    if (blk_in != nullptr)
       fclose(blk_in);
    if (ind_in != nullptr)
       fclose(ind_in);
 }
 
-uint64_t trim_data::block_index(uint32_t n) const
-{
+uint64_t trim_data::block_index(uint32_t n) const {
    using namespace std;
    EOS_ASSERT(first_block <= n,
               block_log_exception,
@@ -1686,8 +1617,7 @@ uint64_t trim_data::block_index(uint32_t n) const
    return sizeof(uint64_t) * (n - first_block);
 }
 
-uint64_t trim_data::block_pos(uint32_t n)
-{
+uint64_t trim_data::block_pos(uint32_t n) {
    using namespace std;
    // can indicate the location of the block after the last block
    if (n == last_block + 1) {
@@ -1741,7 +1671,6 @@ uint64_t trim_data::block_pos(uint32_t n)
 } /// eosio::chain
 
 // used only for unit test to adjust the buffer length
-void block_log_set_buff_len(uint64_t len)
-{
+void block_log_set_buff_len(uint64_t len) {
    eosio::chain::detail::reverse_iterator::_buf_len = len;
 }

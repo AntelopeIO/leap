@@ -25,10 +25,8 @@ using namespace eosio::testing;
 
 namespace eosio {
 namespace detail {
-struct txn_test_gen_empty
-{};
-struct txn_test_gen_status
-{
+struct txn_test_gen_empty {};
+struct txn_test_gen_status {
    string status;
 };
 }
@@ -106,8 +104,7 @@ using namespace eosio::chain;
    const auto& vs = fc::json::json::from_string(body).as<fc::variants>();                                    \
    api_handle->call_name(vs.at(0).as<in_param0>(), vs.at(1).as<in_param1>(), result_handler);
 
-struct txn_test_gen_plugin_impl
-{
+struct txn_test_gen_plugin_impl {
 
    uint64_t _total_us = 0;
    uint64_t _txcount  = 0;
@@ -122,8 +119,7 @@ struct txn_test_gen_plugin_impl
    bool                                                stop_on_trx_failed{ true };
 
    void push_next_transaction(const std::shared_ptr<std::vector<signed_transaction>>& trxs,
-                              const std::function<void(const fc::exception_ptr&)>&    next)
-   {
+                              const std::function<void(const fc::exception_ptr&)>&    next) {
       chain_plugin& cp = app().get_plugin<chain_plugin>();
 
       for (size_t i = 0; i < trxs->size(); ++i) {
@@ -152,16 +148,14 @@ struct txn_test_gen_plugin_impl
    }
 
    void push_transactions(std::vector<signed_transaction>&&             trxs,
-                          const std::function<void(fc::exception_ptr)>& next)
-   {
+                          const std::function<void(fc::exception_ptr)>& next) {
       auto trxs_copy = std::make_shared<std::decay_t<decltype(trxs)>>(std::move(trxs));
       app().post(priority::low, [this, trxs_copy, next]() { push_next_transaction(trxs_copy, next); });
    }
 
    void create_test_accounts(const std::string&                                   init_name,
                              const std::string&                                   init_priv_key,
-                             const std::function<void(const fc::exception_ptr&)>& next)
-   {
+                             const std::function<void(const fc::exception_ptr&)>& next) {
       ilog("create_test_accounts");
       std::vector<signed_transaction> trxs;
       trxs.reserve(2);
@@ -347,8 +341,7 @@ struct txn_test_gen_plugin_impl
       push_transactions(std::move(trxs), next);
    }
 
-   string start_generation(const std::string& salt, const uint64_t& period, const uint64_t& batch_size)
-   {
+   string start_generation(const std::string& salt, const uint64_t& period, const uint64_t& batch_size) {
       ilog("Starting transaction test plugin");
       if (running)
          return "start_generation already running";
@@ -410,8 +403,7 @@ struct txn_test_gen_plugin_impl
       return "success";
    }
 
-   void arm_timer(boost::asio::high_resolution_timer::time_point s)
-   {
+   void arm_timer(boost::asio::high_resolution_timer::time_point s) {
       timer->expires_at(s + std::chrono::milliseconds(timer_timeout));
       boost::asio::post(thread_pool->get_executor(), [this]() {
          send_transaction(
@@ -431,8 +423,7 @@ struct txn_test_gen_plugin_impl
       });
    }
 
-   void send_transaction(std::function<void(const fc::exception_ptr&)> next, uint64_t nonce_prefix)
-   {
+   void send_transaction(std::function<void(const fc::exception_ptr&)> next, uint64_t nonce_prefix) {
       std::vector<signed_transaction> trxs;
       trxs.reserve(2 * batch);
 
@@ -503,8 +494,7 @@ struct txn_test_gen_plugin_impl
       push_transactions(std::move(trxs), next);
    }
 
-   void stop_generation()
-   {
+   void stop_generation() {
       if (!running)
          throw fc::exception(fc::invalid_operation_exception_code);
       timer->cancel();
@@ -536,8 +526,7 @@ struct txn_test_gen_plugin_impl
 txn_test_gen_plugin::txn_test_gen_plugin() {}
 txn_test_gen_plugin::~txn_test_gen_plugin() {}
 
-void txn_test_gen_plugin::set_program_options(options_description&, options_description& cfg)
-{
+void txn_test_gen_plugin::set_program_options(options_description&, options_description& cfg) {
    cfg.add_options()("txn-reference-block-lag",
                      bpo::value<int32_t>()->default_value(0),
                      "Lag in number of blocks from the head block when selecting the reference block for "
@@ -556,8 +545,7 @@ void txn_test_gen_plugin::set_program_options(options_description&, options_desc
       "stop generation when pushed transaction failed");
 }
 
-void txn_test_gen_plugin::plugin_initialize(const variables_map& options)
-{
+void txn_test_gen_plugin::plugin_initialize(const variables_map& options) {
    try {
       my.reset(new txn_test_gen_plugin_impl);
       my->txn_reference_block_lag = options.at("txn-reference-block-lag").as<int32_t>();
@@ -581,8 +569,7 @@ void txn_test_gen_plugin::plugin_initialize(const variables_map& options)
    FC_LOG_AND_RETHROW()
 }
 
-void txn_test_gen_plugin::plugin_startup()
-{
+void txn_test_gen_plugin::plugin_startup() {
    app().get_plugin<http_plugin>().add_api(
       { CALL_ASYNC(txn_test_gen,
                    my,
@@ -597,12 +584,10 @@ void txn_test_gen_plugin::plugin_startup()
              200) });
 }
 
-void txn_test_gen_plugin::plugin_shutdown()
-{
+void txn_test_gen_plugin::plugin_shutdown() {
    try {
       my->stop_generation();
-   } catch (const std::exception& e) {
-   }
+   } catch (const std::exception& e) {}
 }
 
 }

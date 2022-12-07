@@ -6,8 +6,7 @@
 using namespace fc;
 
 BOOST_AUTO_TEST_SUITE(cfile_test_suite)
-BOOST_AUTO_TEST_CASE(test_simple)
-{
+BOOST_AUTO_TEST_CASE(test_simple) {
    fc::temp_directory tempdir;
 
    cfile t;
@@ -58,8 +57,7 @@ BOOST_AUTO_TEST_CASE(test_simple)
    BOOST_CHECK(!fc::exists(tempdir.path() / "test"));
 }
 
-BOOST_AUTO_TEST_CASE(test_hole_punching)
-{
+BOOST_AUTO_TEST_CASE(test_hole_punching) {
    if (!cfile::supports_hole_punching())
       return;
 

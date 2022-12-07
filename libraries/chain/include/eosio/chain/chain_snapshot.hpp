@@ -5,8 +5,7 @@
 namespace eosio {
 namespace chain {
 
-struct chain_snapshot_header
-{
+struct chain_snapshot_header {
    /**
     * Version history
     *   1: initial version
@@ -33,8 +32,7 @@ struct chain_snapshot_header
 
    uint32_t version = current_version;
 
-   void validate() const
-   {
+   void validate() const {
       auto min = minimum_compatible_version;
       auto max = current_version;
       EOS_ASSERT(version >= min && version <= max,

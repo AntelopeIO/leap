@@ -28,8 +28,7 @@ namespace http {
 fc::variant do_http_call(const config_t&    config,
                          const std::string& base_uri,
                          const std::string& path,
-                         const fc::variant& postdata)
-{
+                         const fc::variant& postdata) {
    std::string postjson;
    if (!postdata.is_null()) {
       if (config.print_request) {

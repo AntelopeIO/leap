@@ -30,8 +30,7 @@ namespace fc {
  * specialize this class for your type.
  */
 template<typename T>
-struct reflector
-{
+struct reflector {
    typedef T              type;
    typedef fc::false_type is_defined;
    typedef fc::false_type is_enum;
@@ -88,17 +87,14 @@ void throw_bad_enum_cast(int64_t i, const char* e);
 void throw_bad_enum_cast(const char* k, const char* e);
 
 template<typename C>
-struct has_reflector_init
-{
+struct has_reflector_init {
 private:
    template<typename T>
-   static auto test(int) -> decltype(std::declval<T>().reflector_init(), std::true_type())
-   {
+   static auto test(int) -> decltype(std::declval<T>().reflector_init(), std::true_type()) {
       return {};
    }
    template<typename>
-   static std::false_type test(long)
-   {
+   static std::false_type test(long) {
       return {};
    }
 
@@ -106,16 +102,12 @@ public:
    static constexpr bool value = std::is_same<decltype(test<C>(0)), std::true_type>::value;
 };
 
-struct reflect_init
-{};
+struct reflect_init {};
 
 template<typename Class>
-struct reflector_init_visitor
-{
+struct reflector_init_visitor {
    explicit reflector_init_visitor(Class& c)
-      : obj(c)
-   {
-   }
+      : obj(c) {}
 
    void reflector_init() const { reflect_init(obj); }
    void reflector_init() { reflect_init(obj); }
@@ -123,20 +115,16 @@ struct reflector_init_visitor
 private:
    // 0 matches int if Class derived from reflect_init (SFINAE)
    template<class T>
-   typename std::enable_if<std::is_base_of<fc::reflect_init, T>::value>::type init_imp(T& t)
-   {
+   typename std::enable_if<std::is_base_of<fc::reflect_init, T>::value>::type init_imp(T& t) {
       t.reflector_init();
    }
 
    // SFINAE if Class not derived from reflect_init
    template<class T>
-   typename std::enable_if<not std::is_base_of<fc::reflect_init, T>::value>::type init_imp(T& t)
-   {
-   }
+   typename std::enable_if<not std::is_base_of<fc::reflect_init, T>::value>::type init_imp(T& t) {}
 
    template<typename T>
-   auto reflect_init(T& t) -> decltype(init_imp(t), void())
-   {
+   auto reflect_init(T& t) -> decltype(init_imp(t), void()) {
       init_imp(t);
    }
 
@@ -170,14 +158,12 @@ protected:
 
 #define FC_REFLECT_DERIVED_IMPL_INLINE(TYPE, INHERITS, MEMBERS)                                              \
    template<typename Visitor>                                                                                \
-   static inline void visit_base(Visitor&& v)                                                                \
-   {                                                                                                         \
+   static inline void visit_base(Visitor&& v) {                                                              \
       BOOST_PP_SEQ_FOR_EACH(FC_REFLECT_VISIT_BASE, v, INHERITS)                                              \
       BOOST_PP_SEQ_FOR_EACH(FC_REFLECT_VISIT_MEMBER, v, MEMBERS)                                             \
    }                                                                                                         \
    template<typename Visitor>                                                                                \
-   static inline void visit(Visitor&& v)                                                                     \
-   {                                                                                                         \
+   static inline void visit(Visitor&& v) {                                                                   \
       BOOST_PP_SEQ_FOR_EACH(FC_REFLECT_VISIT_BASE, v, INHERITS)                                              \
       BOOST_PP_SEQ_FOR_EACH(FC_REFLECT_VISIT_MEMBER, v, MEMBERS)                                             \
       init(std::forward<Visitor>(v));                                                                        \
@@ -202,40 +188,33 @@ protected:
 #define FC_REFLECT_ENUM(ENUM, FIELDS)                                                                        \
    namespace fc {                                                                                            \
    template<>                                                                                                \
-   struct reflector<ENUM>                                                                                    \
-   {                                                                                                         \
+   struct reflector<ENUM> {                                                                                  \
       typedef fc::true_type is_defined;                                                                      \
       typedef fc::true_type is_enum;                                                                         \
-      static const char*    to_string(ENUM elem)                                                             \
-      {                                                                                                      \
-         switch (elem) {                                                                                     \
-            BOOST_PP_SEQ_FOR_EACH(FC_REFLECT_ENUM_TO_STRING, ENUM, FIELDS)                                   \
-            default:                                                                                         \
-               fc::throw_bad_enum_cast(fc::to_string(int64_t(elem)).c_str(), BOOST_PP_STRINGIZE(ENUM) );     \
-         }                                                                                                   \
-         return nullptr;                                                                                     \
+      static const char*    to_string(ENUM elem) {                                                           \
+            switch (elem) {                                                                                  \
+               BOOST_PP_SEQ_FOR_EACH(FC_REFLECT_ENUM_TO_STRING, ENUM, FIELDS)                                \
+               default:                                                                                      \
+               fc::throw_bad_enum_cast(fc::to_string(int64_t(elem)).c_str(), BOOST_PP_STRINGIZE(ENUM) );  \
+         }                                                                                                \
+            return nullptr;                                                                                  \
       }                                                                                                      \
       static const char* to_string(int64_t i) { return to_string(ENUM(i)); }                                 \
-      static fc::string  to_fc_string(ENUM elem)                                                             \
-      {                                                                                                      \
-         switch (elem) {                                                                                     \
-            BOOST_PP_SEQ_FOR_EACH(FC_REFLECT_ENUM_TO_FC_STRING, ENUM, FIELDS)                                \
-         }                                                                                                   \
-         return fc::to_string(int64_t(elem));                                                                \
+      static fc::string  to_fc_string(ENUM elem) {                                                           \
+          switch (elem) { BOOST_PP_SEQ_FOR_EACH(FC_REFLECT_ENUM_TO_FC_STRING, ENUM, FIELDS) }                \
+          return fc::to_string(int64_t(elem));                                                               \
       }                                                                                                      \
       static fc::string to_fc_string(int64_t i) { return to_fc_string(ENUM(i)); }                            \
-      static ENUM       from_int(int64_t i)                                                                  \
-      {                                                                                                      \
-         ENUM e = ENUM(i);                                                                                   \
-         switch (e) {                                                                                        \
-            BOOST_PP_SEQ_FOR_EACH(FC_REFLECT_ENUM_FROM_STRING_CASE, ENUM, FIELDS)                            \
-            break;                                                                                           \
-            default: fc::throw_bad_enum_cast(i, BOOST_PP_STRINGIZE(ENUM) );                                  \
-         }                                                                                                   \
-         return e;                                                                                           \
+      static ENUM       from_int(int64_t i) {                                                                \
+               ENUM e = ENUM(i);                                                                             \
+               switch (e) {                                                                                  \
+                  BOOST_PP_SEQ_FOR_EACH(FC_REFLECT_ENUM_FROM_STRING_CASE, ENUM, FIELDS)                      \
+                  break;                                                                                     \
+                  default: fc::throw_bad_enum_cast(i, BOOST_PP_STRINGIZE(ENUM) );                            \
+         }                                                                                             \
+               return e;                                                                                     \
       }                                                                                                      \
-      static ENUM from_string(const char* s)                                                                 \
-      {                                                                                                      \
+      static ENUM from_string(const char* s) {                                                               \
          BOOST_PP_SEQ_FOR_EACH(FC_REFLECT_ENUM_FROM_STRING, ENUM, FIELDS)                                    \
          int64_t i = 0;                                                                                      \
          try {                                                                                               \
@@ -246,14 +225,12 @@ protected:
          return from_int(i);                                                                                 \
       }                                                                                                      \
       template<typename Visitor>                                                                             \
-      static void visit(Visitor& v)                                                                          \
-      {                                                                                                      \
+      static void visit(Visitor& v) {                                                                        \
          BOOST_PP_SEQ_FOR_EACH(FC_REFLECT_VISIT_ENUM, ENUM, FIELDS)                                          \
       }                                                                                                      \
    };                                                                                                        \
    template<>                                                                                                \
-   struct get_typename<ENUM>                                                                                 \
-   {                                                                                                         \
+   struct get_typename<ENUM> {                                                                               \
       static const char* name() { return BOOST_PP_STRINGIZE(ENUM); }                                         \
    };                                                                                                        \
    }
@@ -279,32 +256,26 @@ protected:
 #define FC_REFLECT_DERIVED_TEMPLATE(TEMPLATE_ARGS, TYPE, INHERITS, MEMBERS)                                  \
    namespace fc {                                                                                            \
    template<BOOST_PP_SEQ_ENUM(TEMPLATE_ARGS)>                                                                \
-   struct get_typename<TYPE>                                                                                 \
-   {                                                                                                         \
+   struct get_typename<TYPE> {                                                                               \
       static const char* name() { return BOOST_PP_STRINGIZE(TYPE); }                                         \
    };                                                                                                        \
    template<BOOST_PP_SEQ_ENUM(TEMPLATE_ARGS)>                                                                \
-   struct reflector<TYPE>                                                                                    \
-   {                                                                                                         \
+   struct reflector<TYPE> {                                                                                  \
       typedef TYPE           type;                                                                           \
       typedef fc::true_type  is_defined;                                                                     \
       typedef fc::false_type is_enum;                                                                        \
       template<typename Visitor>                                                                             \
-      static auto init_imp(Visitor&& v, int) -> decltype(std::forward<Visitor>(v).reflector_init(), void())  \
-      {                                                                                                      \
+      static auto init_imp(Visitor&& v, int)                                                                 \
+         -> decltype(std::forward<Visitor>(v).reflector_init(), void()) {                                    \
          std::forward<Visitor>(v).reflector_init();                                                          \
       }                                                                                                      \
       template<typename Visitor>                                                                             \
-      static auto init_imp(Visitor&& v, long) -> decltype(v, void())                                         \
-      {                                                                                                      \
-      }                                                                                                      \
+      static auto init_imp(Visitor&& v, long) -> decltype(v, void()) {}                                      \
       template<typename Visitor>                                                                             \
-      static auto init(Visitor&& v) -> decltype(init_imp(std::forward<Visitor>(v), 0), void())               \
-      {                                                                                                      \
+      static auto init(Visitor&& v) -> decltype(init_imp(std::forward<Visitor>(v), 0), void()) {             \
          init_imp(std::forward<Visitor>(v), 0);                                                              \
       }                                                                                                      \
-      enum member_count_enum                                                                                 \
-      {                                                                                                      \
+      enum member_count_enum {                                                                               \
          local_member_count = 0 BOOST_PP_SEQ_FOR_EACH(FC_REFLECT_MEMBER_COUNT, +, MEMBERS),                  \
          total_member_count =                                                                                \
             local_member_count BOOST_PP_SEQ_FOR_EACH(FC_REFLECT_BASE_MEMBER_COUNT, +, INHERITS)              \
@@ -341,8 +312,7 @@ protected:
 #define FC_REFLECT_TYPENAME(TYPE)                                                                            \
    namespace fc {                                                                                            \
    template<>                                                                                                \
-   struct get_typename<TYPE>                                                                                 \
-   {                                                                                                         \
+   struct get_typename<TYPE> {                                                                               \
       static const char* name() { return BOOST_PP_STRINGIZE(TYPE); }                                         \
    };                                                                                                        \
    }

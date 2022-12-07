@@ -8,8 +8,7 @@ namespace eosio {
 namespace chain {
 
 class permission_usage_object
-   : public chainbase::object<permission_usage_object_type, permission_usage_object>
-{
+   : public chainbase::object<permission_usage_object_type, permission_usage_object> {
    OBJECT_CTOR(permission_usage_object)
 
    id_type    id;
@@ -23,8 +22,7 @@ using permission_usage_index = chainbase::shared_multi_index_container<
       tag<by_id>,
       member<permission_usage_object, permission_usage_object::id_type, &permission_usage_object::id>>>>;
 
-class permission_object : public chainbase::object<permission_object_type, permission_object>
-{
+class permission_object : public chainbase::object<permission_object_type, permission_object> {
    OBJECT_CTOR(permission_object, (auth))
 
    id_type                          id;
@@ -47,8 +45,7 @@ class permission_object : public chainbase::object<permission_object_type, permi
     * (capable of satisfying) permission @ref other.
     */
    template<typename Index>
-   bool satisfies(const permission_object& other, const Index& permission_index) const
-   {
+   bool satisfies(const permission_object& other, const Index& permission_index) const {
       // If the owners are not the same, this permission cannot satisfy other
       if (owner != other.owner)
          return false;
@@ -76,8 +73,7 @@ class permission_object : public chainbase::object<permission_object_type, permi
 /**
  * special cased to abstract the foreign keys for usage and the optimization of using OID for the parent
  */
-struct snapshot_permission_object
-{
+struct snapshot_permission_object {
    permission_name parent;       ///< parent permission
    account_name    owner;        ///< the account this permission belongs to
    permission_name name;         ///< human-readable name for the permission
@@ -111,8 +107,8 @@ using permission_index = chainbase::shared_multi_index_container<
 
 namespace config {
 template<>
-struct billable_size<permission_object>
-{ // Also counts memory usage of the associated permission_usage_object
+struct billable_size<permission_object> { // Also counts memory usage of the associated
+                                          // permission_usage_object
    static const uint64_t overhead =
       5 * overhead_per_row_per_index_ram_bytes; ///< 5 indices 2x internal ID, parent, owner, name
    static const uint64_t value =

@@ -10,21 +10,18 @@ namespace eosio {
 static appbase::abstract_plugin& _signature_provider_plugin =
    app().register_plugin<signature_provider_plugin>();
 
-class signature_provider_plugin_impl
-{
+class signature_provider_plugin_impl {
 public:
    fc::microseconds _keosd_provider_timeout_us;
 
    signature_provider_plugin::signature_provider_type make_key_signature_provider(
-      const chain::private_key_type& key) const
-   {
+      const chain::private_key_type& key) const {
       return [key](const chain::digest_type& digest) { return key.sign(digest); };
    }
 
    signature_provider_plugin::signature_provider_type make_keosd_signature_provider(
       const string&                url_str,
-      const chain::public_key_type pubkey) const
-   {
+      const chain::public_key_type pubkey) const {
       fc::url keosd_url;
       if (boost::algorithm::starts_with(url_str, "unix://"))
          // send the entire string after unix:// to http_plugin. It'll auto-detect which part
@@ -54,21 +51,17 @@ public:
 };
 
 signature_provider_plugin::signature_provider_plugin()
-   : my(new signature_provider_plugin_impl())
-{
-}
+   : my(new signature_provider_plugin_impl()) {}
 signature_provider_plugin::~signature_provider_plugin() {}
 
-void signature_provider_plugin::set_program_options(options_description&, options_description& cfg)
-{
+void signature_provider_plugin::set_program_options(options_description&, options_description& cfg) {
    cfg.add_options()("keosd-provider-timeout",
                      boost::program_options::value<int32_t>()->default_value(5),
                      "Limits the maximum time (in milliseconds) that is allowed for sending requests to a "
                      "keosd provider for signing");
 }
 
-const char* const signature_provider_plugin::signature_provider_help_text() const
-{
+const char* const signature_provider_plugin::signature_provider_help_text() const {
    return "Key=Value pairs in the form <public-key>=<provider-spec>\n"
           "Where:\n"
           "   <public-key>    \tis a string form of a vaild EOSIO public key\n\n"
@@ -80,14 +73,12 @@ const char* const signature_provider_plugin::signature_provider_help_text() cons
           "unlocked\n\n";
 }
 
-void signature_provider_plugin::plugin_initialize(const variables_map& options)
-{
+void signature_provider_plugin::plugin_initialize(const variables_map& options) {
    my->_keosd_provider_timeout_us = fc::milliseconds(options.at("keosd-provider-timeout").as<int32_t>());
 }
 
 std::pair<chain::public_key_type, signature_provider_plugin::signature_provider_type>
-signature_provider_plugin::signature_provider_for_specification(const std::string& spec) const
-{
+signature_provider_plugin::signature_provider_for_specification(const std::string& spec) const {
    auto delim = spec.find("=");
    EOS_ASSERT(
       delim != std::string::npos, chain::plugin_config_exception, "Missing \"=\" in the key spec pair");
@@ -115,8 +106,7 @@ signature_provider_plugin::signature_provider_for_specification(const std::strin
 }
 
 signature_provider_plugin::signature_provider_type
-signature_provider_plugin::signature_provider_for_private_key(const chain::private_key_type priv) const
-{
+signature_provider_plugin::signature_provider_for_private_key(const chain::private_key_type priv) const {
    return my->make_key_signature_provider(priv);
 }
 

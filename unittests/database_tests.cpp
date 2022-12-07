@@ -18,8 +18,7 @@ namespace bfs = boost::filesystem;
 BOOST_AUTO_TEST_SUITE(database_tests)
 
 // Simple tests of undo infrastructure
-BOOST_AUTO_TEST_CASE(undo_test)
-{
+BOOST_AUTO_TEST_CASE(undo_test) {
    try {
       TESTER test;
 
@@ -47,8 +46,7 @@ BOOST_AUTO_TEST_CASE(undo_test)
 }
 
 // Test the block fetching methods on database, fetch_bock_by_id, and fetch_block_by_number
-BOOST_AUTO_TEST_CASE(get_blocks)
-{
+BOOST_AUTO_TEST_CASE(get_blocks) {
    try {
       TESTER                test;
       vector<block_id_type> block_ids;

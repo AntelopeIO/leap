@@ -6,39 +6,32 @@
 namespace eosio {
 namespace chain {
 
-struct permission_level
-{
+struct permission_level {
    account_name    actor;
    permission_name permission;
 };
 
-inline bool operator==(const permission_level& lhs, const permission_level& rhs)
-{
+inline bool operator==(const permission_level& lhs, const permission_level& rhs) {
    return std::tie(lhs.actor, lhs.permission) == std::tie(rhs.actor, rhs.permission);
 }
 
-inline bool operator!=(const permission_level& lhs, const permission_level& rhs)
-{
+inline bool operator!=(const permission_level& lhs, const permission_level& rhs) {
    return std::tie(lhs.actor, lhs.permission) != std::tie(rhs.actor, rhs.permission);
 }
 
-inline bool operator<(const permission_level& lhs, const permission_level& rhs)
-{
+inline bool operator<(const permission_level& lhs, const permission_level& rhs) {
    return std::tie(lhs.actor, lhs.permission) < std::tie(rhs.actor, rhs.permission);
 }
 
-inline bool operator<=(const permission_level& lhs, const permission_level& rhs)
-{
+inline bool operator<=(const permission_level& lhs, const permission_level& rhs) {
    return std::tie(lhs.actor, lhs.permission) <= std::tie(rhs.actor, rhs.permission);
 }
 
-inline bool operator>(const permission_level& lhs, const permission_level& rhs)
-{
+inline bool operator>(const permission_level& lhs, const permission_level& rhs) {
    return std::tie(lhs.actor, lhs.permission) > std::tie(rhs.actor, rhs.permission);
 }
 
-inline bool operator>=(const permission_level& lhs, const permission_level& rhs)
-{
+inline bool operator>=(const permission_level& lhs, const permission_level& rhs) {
    return std::tie(lhs.actor, lhs.permission) >= std::tie(rhs.actor, rhs.permission);
 }
 
@@ -61,8 +54,7 @@ inline bool operator>=(const permission_level& lhs, const permission_level& rhs)
  *  application code. An application code will check to see if the required authorization
  *  were properly declared when it executes.
  */
-struct action_base
-{
+struct action_base {
    account_name             account;
    action_name              name;
    vector<permission_level> authorization;
@@ -72,46 +64,36 @@ struct action_base
    action_base(account_name acnt, action_name act, const vector<permission_level>& auth)
       : account(acnt)
       , name(act)
-      , authorization(auth)
-   {
-   }
+      , authorization(auth) {}
    action_base(account_name acnt, action_name act, vector<permission_level>&& auth)
       : account(acnt)
       , name(act)
-      , authorization(std::move(auth))
-   {
-   }
+      , authorization(std::move(auth)) {}
 };
 
-struct action : public action_base
-{
+struct action : public action_base {
    bytes data;
 
    action() = default;
 
    template<typename T, std::enable_if_t<std::is_base_of<bytes, T>::value, int> = 1>
    action(vector<permission_level> auth, const T& value)
-      : action_base(T::get_account(), T::get_name(), std::move(auth))
-   {
+      : action_base(T::get_account(), T::get_name(), std::move(auth)) {
       data.assign(value.data(), value.data() + value.size());
    }
 
    template<typename T, std::enable_if_t<!std::is_base_of<bytes, T>::value, int> = 1>
    action(vector<permission_level> auth, const T& value)
-      : action_base(T::get_account(), T::get_name(), std::move(auth))
-   {
+      : action_base(T::get_account(), T::get_name(), std::move(auth)) {
       data = fc::raw::pack(value);
    }
 
    action(vector<permission_level> auth, account_name account, action_name name, const bytes& data)
       : action_base(account, name, std::move(auth))
-      , data(data)
-   {
-   }
+      , data(data) {}
 
    template<typename T>
-   T data_as() const
-   {
+   T data_as() const {
       EOS_ASSERT(
          account == T::get_account(), action_type_exception, "account is not consistent with action struct");
       EOS_ASSERT(
@@ -121,8 +103,7 @@ struct action : public action_base
 };
 
 template<typename Hasher>
-auto generate_action_digest(Hasher&& hash, const action& act, const vector<char>& action_output)
-{
+auto generate_action_digest(Hasher&& hash, const action& act, const vector<char>& action_output) {
    using hash_type = decltype(hash(nullptr, 0));
    hash_type          hashes[2];
    const action_base* base               = &act;
@@ -153,8 +134,7 @@ auto generate_action_digest(Hasher&& hash, const action& act, const vector<char>
    return hash(buff.data(), hashes_size);
 }
 
-struct action_notice : public action
-{
+struct action_notice : public action {
    account_name receiver;
 };
 

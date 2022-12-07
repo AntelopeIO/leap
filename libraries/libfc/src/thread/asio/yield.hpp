@@ -18,8 +18,7 @@ namespace fibers {
 namespace asio {
 
 //[fibers_asio_yield_t
-class yield_t
-{
+class yield_t {
 public:
    yield_t() = default;
 
@@ -35,8 +34,7 @@ public:
     * @c error_code it might produce into @c myec rather than throwing @c
     * boost::system::system_error.
     */
-   yield_t operator[](boost::system::error_code& ec) const
-   {
+   yield_t operator[](boost::system::error_code& ec) const {
       yield_t tmp;
       tmp.ec_ = &ec;
       return tmp;

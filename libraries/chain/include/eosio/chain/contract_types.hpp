@@ -8,8 +8,7 @@ namespace chain {
 
 using action_name = eosio::chain::action_name;
 
-struct newaccount
-{
+struct newaccount {
    account_name creator;
    account_name name;
    authority    owner;
@@ -20,8 +19,7 @@ struct newaccount
    static action_name get_name() { return "newaccount"_n; }
 };
 
-struct setcode
-{
+struct setcode {
    account_name account;
    uint8_t      vmtype    = 0;
    uint8_t      vmversion = 0;
@@ -32,8 +30,7 @@ struct setcode
    static action_name get_name() { return "setcode"_n; }
 };
 
-struct setabi
-{
+struct setabi {
    account_name account;
    bytes        abi;
 
@@ -42,8 +39,7 @@ struct setabi
    static action_name get_name() { return "setabi"_n; }
 };
 
-struct updateauth
-{
+struct updateauth {
    account_name    account;
    permission_name permission;
    permission_name parent;
@@ -54,14 +50,11 @@ struct updateauth
    static action_name get_name() { return "updateauth"_n; }
 };
 
-struct deleteauth
-{
+struct deleteauth {
    deleteauth() = default;
    deleteauth(const account_name& account, const permission_name& permission)
       : account(account)
-      , permission(permission)
-   {
-   }
+      , permission(permission) {}
 
    account_name    account;
    permission_name permission;
@@ -71,8 +64,7 @@ struct deleteauth
    static action_name get_name() { return "deleteauth"_n; }
 };
 
-struct linkauth
-{
+struct linkauth {
    linkauth() = default;
    linkauth(const account_name&    account,
             const account_name&    code,
@@ -81,9 +73,7 @@ struct linkauth
       : account(account)
       , code(code)
       , type(type)
-      , requirement(requirement)
-   {
-   }
+      , requirement(requirement) {}
 
    account_name    account;
    account_name    code;
@@ -95,15 +85,12 @@ struct linkauth
    static action_name get_name() { return "linkauth"_n; }
 };
 
-struct unlinkauth
-{
+struct unlinkauth {
    unlinkauth() = default;
    unlinkauth(const account_name& account, const account_name& code, const action_name& type)
       : account(account)
       , code(code)
-      , type(type)
-   {
-   }
+      , type(type) {}
 
    account_name account;
    account_name code;
@@ -114,8 +101,7 @@ struct unlinkauth
    static action_name get_name() { return "unlinkauth"_n; }
 };
 
-struct canceldelay
-{
+struct canceldelay {
    permission_level    canceling_auth;
    transaction_id_type trx_id;
 
@@ -124,16 +110,13 @@ struct canceldelay
    static action_name get_name() { return "canceldelay"_n; }
 };
 
-struct onerror
-{
+struct onerror {
    uint128_t sender_id;
    bytes     sent_trx;
 
    onerror(uint128_t sid, const char* data, size_t len)
       : sender_id(sid)
-      , sent_trx(data, data + len)
-   {
-   }
+      , sent_trx(data, data + len) {}
 
    static account_name get_account() { return config::system_account_name; }
 

@@ -34,8 +34,7 @@ using namespace fc;
 
 BOOST_AUTO_TEST_SUITE(get_table_seckey_tests)
 
-BOOST_FIXTURE_TEST_CASE(get_table_next_key_test, TESTER)
-try {
+BOOST_FIXTURE_TEST_CASE(get_table_next_key_test, TESTER) try {
    create_account("test"_n);
 
    // setup contract and abi

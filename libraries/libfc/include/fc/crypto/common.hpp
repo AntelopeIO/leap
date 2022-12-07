@@ -9,14 +9,12 @@
 namespace fc {
 namespace crypto {
 template<typename DataType>
-struct checksummed_data
-{
+struct checksummed_data {
    checksummed_data() {}
    uint32_t check = 0;
    DataType data;
 
-   static auto calculate_checksum(const DataType& data, const char* prefix = nullptr)
-   {
+   static auto calculate_checksum(const DataType& data, const char* prefix = nullptr) {
       auto encoder = ripemd160::encoder();
       raw::pack(encoder, data);
 
@@ -27,8 +25,7 @@ struct checksummed_data
    }
 };
 
-inline bool prefix_matches(const char* prefix, const std::string& str)
-{
+inline bool prefix_matches(const char* prefix, const std::string& str) {
    auto prefix_len = const_strlen(prefix);
    return str.size() > prefix_len && str.substr(0, prefix_len).compare(prefix) == 0;
 }
@@ -37,10 +34,8 @@ template<typename, const char* const*, int, typename...>
 struct base58_str_parser_impl;
 
 template<typename Result, const char* const* Prefixes, int Position, typename KeyType, typename... Rem>
-struct base58_str_parser_impl<Result, Prefixes, Position, KeyType, Rem...>
-{
-   static Result apply(const std::string& prefix_str, const std::string& data_str)
-   {
+struct base58_str_parser_impl<Result, Prefixes, Position, KeyType, Rem...> {
+   static Result apply(const std::string& prefix_str, const std::string& data_str) {
       using data_type       = typename KeyType::data_type;
       using wrapper         = checksummed_data<data_type>;
       constexpr auto prefix = Prefixes[Position];
@@ -61,10 +56,8 @@ struct base58_str_parser_impl<Result, Prefixes, Position, KeyType, Rem...>
 };
 
 template<typename Result, const char* const* Prefixes, int Position>
-struct base58_str_parser_impl<Result, Prefixes, Position>
-{
-   static Result apply(const std::string& prefix_str, const std::string& data_str)
-   {
+struct base58_str_parser_impl<Result, Prefixes, Position> {
+   static Result apply(const std::string& prefix_str, const std::string& data_str) {
       FC_ASSERT(
          false, "No matching suite type for ${prefix}_${data}", ("prefix", prefix_str)("data", data_str));
    }
@@ -80,10 +73,8 @@ struct base58_str_parser;
  * @return
  */
 template<const char* const* Prefixes, typename... Ts>
-struct base58_str_parser<std::variant<Ts...>, Prefixes>
-{
-   static std::variant<Ts...> apply(const std::string& base58str)
-   {
+struct base58_str_parser<std::variant<Ts...>, Prefixes> {
+   static std::variant<Ts...> apply(const std::string& base58str) {
       const auto pivot = base58str.find('_');
       FC_ASSERT(pivot != std::string::npos,
                 "No delimiter in data, cannot determine suite type: ${str}",
@@ -98,13 +89,11 @@ struct base58_str_parser<std::variant<Ts...>, Prefixes>
 };
 
 template<typename Storage, const char* const* Prefixes, int DefaultPosition = -1>
-struct base58str_visitor : public fc::visitor<std::string>
-{
+struct base58str_visitor : public fc::visitor<std::string> {
    explicit base58str_visitor(const fc::yield_function_t& yield)
       : _yield(yield){};
    template<typename KeyType>
-   std::string operator()(const KeyType& key) const
-   {
+   std::string operator()(const KeyType& key) const {
       using data_type           = typename KeyType::data_type;
       constexpr int  position   = fc::get_index<Storage, KeyType>();
       constexpr bool is_default = position == DefaultPosition;
@@ -130,25 +119,19 @@ struct base58str_visitor : public fc::visitor<std::string>
 };
 
 template<typename T>
-struct eq_comparator
-{
+struct eq_comparator {
    static bool apply(const T& a, const T& b) { return a.serialize() == b.serialize(); }
 };
 
 template<typename... Ts>
-struct eq_comparator<std::variant<Ts...>>
-{
+struct eq_comparator<std::variant<Ts...>> {
    using variant_type = std::variant<Ts...>;
-   struct visitor : public fc::visitor<bool>
-   {
+   struct visitor : public fc::visitor<bool> {
       visitor(const variant_type& b)
-         : _b(b)
-      {
-      }
+         : _b(b) {}
 
       template<typename KeyType>
-      bool operator()(const KeyType& a) const
-      {
+      bool operator()(const KeyType& a) const {
          const auto& b = std::template get<KeyType>(_b);
          return eq_comparator<KeyType>::apply(a, b);
       }
@@ -156,32 +139,25 @@ struct eq_comparator<std::variant<Ts...>>
       const variant_type& _b;
    };
 
-   static bool apply(const variant_type& a, const variant_type& b)
-   {
+   static bool apply(const variant_type& a, const variant_type& b) {
       return a.index() == b.index() && std::visit(visitor(b), a);
    }
 };
 
 template<typename T>
-struct less_comparator
-{
+struct less_comparator {
    static bool apply(const T& a, const T& b) { return a.serialize() < b.serialize(); }
 };
 
 template<typename... Ts>
-struct less_comparator<std::variant<Ts...>>
-{
+struct less_comparator<std::variant<Ts...>> {
    using variant_type = std::variant<Ts...>;
-   struct visitor : public fc::visitor<bool>
-   {
+   struct visitor : public fc::visitor<bool> {
       visitor(const variant_type& b)
-         : _b(b)
-      {
-      }
+         : _b(b) {}
 
       template<typename KeyType>
-      bool operator()(const KeyType& a) const
-      {
+      bool operator()(const KeyType& a) const {
          const auto& b = std::template get<KeyType>(_b);
          return less_comparator<KeyType>::apply(a, b);
       }
@@ -189,28 +165,22 @@ struct less_comparator<std::variant<Ts...>>
       const variant_type& _b;
    };
 
-   static bool apply(const variant_type& a, const variant_type& b)
-   {
+   static bool apply(const variant_type& a, const variant_type& b) {
       return a.index() < b.index() || (a.index() == b.index() && std::visit(visitor(b), a));
    }
 };
 
 template<typename Data>
-struct shim
-{
+struct shim {
    using data_type = Data;
 
    shim() {}
 
    shim(data_type&& data)
-      : _data(forward<data_type>(data))
-   {
-   }
+      : _data(forward<data_type>(data)) {}
 
    shim(const data_type& data)
-      : _data(data)
-   {
-   }
+      : _data(data) {}
 
    const data_type& serialize() const { return _data; }
 

@@ -12,16 +12,14 @@ namespace testing {
  * @tparam MAX_SIZE - the maximum size of the chainbase::database
  */
 template<uint64_t MAX_SIZE>
-struct chainbase_fixture
-{
+struct chainbase_fixture {
    chainbase_fixture()
       : _tempdir()
-      , _db(std::make_unique<chainbase::database>(_tempdir.path(), chainbase::database::read_write, MAX_SIZE))
-   {
-   }
+      , _db(std::make_unique<chainbase::database>(_tempdir.path(),
+                                                  chainbase::database::read_write,
+                                                  MAX_SIZE)) {}
 
-   ~chainbase_fixture()
-   {
+   ~chainbase_fixture() {
       _db.reset();
       _tempdir.remove();
    }

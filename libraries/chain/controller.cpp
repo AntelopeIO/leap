@@ -60,40 +60,33 @@ using contract_database_index_set = index_set<key_value_index,
                                               index_double_index,
                                               index_long_double_index>;
 
-class maybe_session
-{
+class maybe_session {
 public:
    maybe_session() = default;
 
    maybe_session(maybe_session&& other)
-      : _session(move(other._session))
-   {
-   }
+      : _session(move(other._session)) {}
 
    explicit maybe_session(database& db) { _session.emplace(db.start_undo_session(true)); }
 
    maybe_session(const maybe_session&) = delete;
 
-   void squash()
-   {
+   void squash() {
       if (_session)
          _session->squash();
    }
 
-   void undo()
-   {
+   void undo() {
       if (_session)
          _session->undo();
    }
 
-   void push()
-   {
+   void push() {
       if (_session)
          _session->push();
    }
 
-   maybe_session& operator=(maybe_session&& mv)
-   {
+   maybe_session& operator=(maybe_session&& mv) {
       if (mv._session) {
          _session.emplace(move(*mv._session));
          mv._session.reset();
@@ -108,17 +101,14 @@ private:
    std::optional<database::session> _session;
 };
 
-struct building_block
-{
+struct building_block {
    building_block(const block_header_state&  prev,
                   block_timestamp_type       when,
                   uint16_t                   num_prev_blocks_to_confirm,
                   const vector<digest_type>& new_protocol_feature_activations)
       : _pending_block_header_state(prev.next(when, num_prev_blocks_to_confirm))
       , _new_protocol_feature_activations(new_protocol_feature_activations)
-      , _trx_mroot_or_receipt_digests(digests_t{})
-   {
-   }
+      , _trx_mroot_or_receipt_digests(digests_t{}) {}
 
    pending_block_header_state                 _pending_block_header_state;
    std::optional<producer_authority_schedule> _new_pending_producer_schedule;
@@ -130,8 +120,7 @@ struct building_block
    digests_t                                 _action_receipt_digests;
 };
 
-struct assembled_block
-{
+struct assembled_block {
    block_id_type                   _id;
    pending_block_header_state      _pending_block_header_state;
    deque<transaction_metadata_ptr> _trx_metas;
@@ -141,24 +130,21 @@ struct assembled_block
    std::optional<producer_authority_schedule> _new_producer_authority_cache;
 };
 
-struct completed_block
-{
+struct completed_block {
    block_state_ptr _block_state;
 };
 
 using block_stage_type = std::variant<building_block, assembled_block, completed_block>;
 
-struct pending_state
-{
+struct pending_state {
    pending_state(maybe_session&&            s,
                  const block_header_state&  prev,
                  block_timestamp_type       when,
                  uint16_t                   num_prev_blocks_to_confirm,
                  const vector<digest_type>& new_protocol_feature_activations)
       : _db_session(move(s))
-      , _block_stage(building_block(prev, when, num_prev_blocks_to_confirm, new_protocol_feature_activations))
-   {
-   }
+      , _block_stage(
+           building_block(prev, when, num_prev_blocks_to_confirm, new_protocol_feature_activations)) {}
 
    maybe_session                _db_session;
    block_stage_type             _block_stage;
@@ -167,16 +153,14 @@ struct pending_state
    controller::block_report     _block_report{};
 
    /** @pre _block_stage cannot hold completed_block alternative */
-   const pending_block_header_state& get_pending_block_header_state() const
-   {
+   const pending_block_header_state& get_pending_block_header_state() const {
       if (std::holds_alternative<building_block>(_block_stage))
          return std::get<building_block>(_block_stage)._pending_block_header_state;
 
       return std::get<assembled_block>(_block_stage)._pending_block_header_state;
    }
 
-   deque<transaction_metadata_ptr> extract_trx_metas()
-   {
+   deque<transaction_metadata_ptr> extract_trx_metas() {
       if (std::holds_alternative<building_block>(_block_stage))
          return std::move(std::get<building_block>(_block_stage)._pending_trx_metas);
 
@@ -186,8 +170,7 @@ struct pending_state
       return std::get<completed_block>(_block_stage)._block_state->extract_trxs_metas();
    }
 
-   bool is_protocol_feature_activated(const digest_type& feature_digest) const
-   {
+   bool is_protocol_feature_activated(const digest_type& feature_digest) const {
       if (std::holds_alternative<building_block>(_block_stage)) {
          auto&       bb = std::get<building_block>(_block_stage);
          const auto& activated_features =
@@ -222,15 +205,12 @@ struct pending_state
    void push() { _db_session.push(); }
 };
 
-struct controller_impl
-{
+struct controller_impl {
 
    // LLVM sets the new handler, we need to reset this to throw a bad_alloc exception so we can possibly exit
    // cleanly and not just abort.
-   struct reset_new_handler
-   {
-      reset_new_handler()
-      {
+   struct reset_new_handler {
+      reset_new_handler() {
          std::set_new_handler([]() { throw std::bad_alloc(); });
       }
    };
@@ -271,8 +251,7 @@ struct controller_impl
                  enum_hash<builtin_protocol_feature_t>>
       protocol_feature_activation_handlers;
 
-   void pop_block()
-   {
+   void pop_block() {
       auto prev = fork_db.get_block(head->header.previous);
 
       if (!prev) {
@@ -299,22 +278,19 @@ struct controller_impl
    void on_activation();
 
    template<builtin_protocol_feature_t F>
-   inline void set_activation_handler()
-   {
+   inline void set_activation_handler() {
       auto res = protocol_feature_activation_handlers.emplace(F, &controller_impl::on_activation<F>);
       EOS_ASSERT(res.second, misc_exception, "attempting to set activation handler twice");
    }
 
-   inline void trigger_activation_handler(builtin_protocol_feature_t f)
-   {
+   inline void trigger_activation_handler(builtin_protocol_feature_t f) {
       auto itr = protocol_feature_activation_handlers.find(f);
       if (itr == protocol_feature_activation_handlers.end())
          return;
       (itr->second)(*this);
    }
 
-   void set_apply_handler(account_name receiver, account_name contract, action_name action, apply_handler v)
-   {
+   void set_apply_handler(account_name receiver, account_name contract, action_name action, apply_handler v) {
       apply_handlers[receiver][make_pair(contract, action)] = v;
    }
 
@@ -343,8 +319,7 @@ struct controller_impl
       , conf(cfg)
       , chain_id(chain_id)
       , read_mode(cfg.read_mode)
-      , thread_pool("chain", cfg.thread_pool_size)
-   {
+      , thread_pool("chain", cfg.thread_pool_size) {
       fork_db.open([this](block_timestamp_type         timestamp,
                           const flat_set<digest_type>& cur_features,
                           const vector<digest_type>&   new_features) {
@@ -398,8 +373,7 @@ struct controller_impl
     *
     */
    template<typename Signal, typename Arg>
-   void emit(const Signal& s, Arg&& a)
-   {
+   void emit(const Signal& s, Arg&& a) {
       try {
          s(std::forward<Arg>(a));
       } catch (std::bad_alloc& e) {
@@ -420,15 +394,13 @@ struct controller_impl
       }
    }
 
-   void dmlog_applied_transaction(const transaction_trace_ptr& t)
-   {
+   void dmlog_applied_transaction(const transaction_trace_ptr& t) {
       if (auto dm_logger = get_deep_mind_logger()) {
          dm_logger->on_applied_transaction(self.head_block_num() + 1, t);
       }
    }
 
-   void log_irreversible()
-   {
+   void log_irreversible() {
       EOS_ASSERT(fork_db.root(), fork_database_exception, "fork database not properly initialized");
 
       const auto& log_head = blog.head();
@@ -504,8 +476,7 @@ struct controller_impl
    /**
     *  Sets fork database head to the genesis state.
     */
-   void initialize_blockchain_state(const genesis_state& genesis)
-   {
+   void initialize_blockchain_state(const genesis_state& genesis) {
       wlog("Initializing new blockchain with genesis state");
       producer_authority_schedule initial_schedule = {
          0,
@@ -535,8 +506,7 @@ struct controller_impl
       initialize_database(genesis);
    }
 
-   void replay(std::function<bool()> check_shutdown)
-   {
+   void replay(std::function<bool()> check_shutdown) {
       if (!blog.head() && !fork_db.root()) {
          fork_db.reset(*head);
          return;
@@ -627,8 +597,7 @@ struct controller_impl
 
    void startup(std::function<void()>      shutdown,
                 std::function<bool()>      check_shutdown,
-                const snapshot_reader_ptr& snapshot)
-   {
+                const snapshot_reader_ptr& snapshot) {
       EOS_ASSERT(snapshot, snapshot_exception, "No snapshot reader provided");
       this->shutdown = shutdown;
       ilog("Starting initialization from snapshot, this may take a significant amount of time");
@@ -661,8 +630,7 @@ struct controller_impl
 
    void startup(std::function<void()> shutdown,
                 std::function<bool()> check_shutdown,
-                const genesis_state&  genesis)
-   {
+                const genesis_state&  genesis) {
       EOS_ASSERT(db.revision() < 1,
                  database_exception,
                  "This version of controller::startup only works with a fresh state database.");
@@ -702,8 +670,7 @@ struct controller_impl
       }
    }
 
-   void startup(std::function<void()> shutdown, std::function<bool()> check_shutdown)
-   {
+   void startup(std::function<void()> shutdown, std::function<bool()> check_shutdown) {
       EOS_ASSERT(db.revision() >= 1,
                  database_exception,
                  "This version of controller::startup does not work with a fresh state database.");
@@ -740,8 +707,7 @@ struct controller_impl
       }
    }
 
-   static auto validate_db_version(const chainbase::database& db)
-   {
+   static auto validate_db_version(const chainbase::database& db) {
       // check database version
       const auto& header_idx = db.get_index<database_header_multi_index>().indices().get<by_id>();
 
@@ -756,8 +722,7 @@ struct controller_impl
       return header_itr;
    }
 
-   void init(std::function<bool()> check_shutdown)
-   {
+   void init(std::function<bool()> check_shutdown) {
       auto header_itr = validate_db_version(db);
 
       {
@@ -827,8 +792,7 @@ struct controller_impl
       }
    }
 
-   ~controller_impl()
-   {
+   ~controller_impl() {
       thread_pool.stop();
       pending.reset();
       // only log this not just if configured to, but also if initialization made it to the point we'd log the
@@ -837,8 +801,7 @@ struct controller_impl
          ilog("chain database stopped with hash: ${hash}", ("hash", calculate_integrity_hash()));
    }
 
-   void add_indices()
-   {
+   void add_indices() {
       controller_index_set::add_indices(db);
       contract_database_index_set::add_indices(db);
 
@@ -846,8 +809,7 @@ struct controller_impl
       resource_limits.add_indices();
    }
 
-   void clear_all_undo()
-   {
+   void clear_all_undo() {
       // Rewind the database to the last irreversible block
       db.undo_all();
       /*
@@ -857,8 +819,7 @@ struct controller_impl
                   */
    }
 
-   void add_contract_tables_to_snapshot(const snapshot_writer_ptr& snapshot) const
-   {
+   void add_contract_tables_to_snapshot(const snapshot_writer_ptr& snapshot) const {
       snapshot->write_section("contract_tables", [this](auto& section) {
          index_utils<table_id_multi_index>::walk(db, [this, &section](const table_id_object& table_row) {
             // add a row for the table
@@ -883,8 +844,7 @@ struct controller_impl
       });
    }
 
-   void read_contract_tables_from_snapshot(const snapshot_reader_ptr& snapshot)
-   {
+   void read_contract_tables_from_snapshot(const snapshot_reader_ptr& snapshot) {
       snapshot->read_section("contract_tables", [this](auto& section) {
          bool more = !section.empty();
          while (more) {
@@ -913,8 +873,7 @@ struct controller_impl
       });
    }
 
-   void add_to_snapshot(const snapshot_writer_ptr& snapshot)
-   {
+   void add_to_snapshot(const snapshot_writer_ptr& snapshot) {
       // clear in case the previous call to clear did not finish in time of deadline
       clear_expired_input_transactions(fc::time_point::maximum());
 
@@ -949,8 +908,7 @@ struct controller_impl
    }
 
    static std::optional<genesis_state> extract_legacy_genesis_state(snapshot_reader& snapshot,
-                                                                    uint32_t         version)
-   {
+                                                                    uint32_t         version) {
       std::optional<genesis_state> genesis;
       using v2 = legacy::snapshot_global_property_object_v2;
 
@@ -962,8 +920,7 @@ struct controller_impl
       return genesis;
    }
 
-   void read_from_snapshot(const snapshot_reader_ptr& snapshot, uint32_t blog_start, uint32_t blog_end)
-   {
+   void read_from_snapshot(const snapshot_reader_ptr& snapshot, uint32_t blog_start, uint32_t blog_end) {
       chain_snapshot_header header;
       snapshot->read_section<chain_snapshot_header>([this, &header](auto& section) {
          section.read_row(header, db);
@@ -1092,8 +1049,7 @@ struct controller_impl
                  ("snapshot_chain_id", gpo.chain_id)("controller_chain_id", chain_id));
    }
 
-   sha256 calculate_integrity_hash()
-   {
+   sha256 calculate_integrity_hash() {
       sha256::encoder enc;
       auto            hash_writer = std::make_shared<integrity_hash_snapshot_writer>(enc);
       add_to_snapshot(hash_writer);
@@ -1106,8 +1062,7 @@ struct controller_impl
                               account_name          name,
                               const authority&      owner,
                               const authority&      active,
-                              bool                  is_privileged = false)
-   {
+                              bool                  is_privileged = false) {
       db.create<account_object>([&](auto& a) {
          a.name          = name;
          a.creation_date = initial_timestamp;
@@ -1143,8 +1098,7 @@ struct controller_impl
       resource_limits.verify_account_ram_usage(name);
    }
 
-   void initialize_database(const genesis_state& genesis)
-   {
+   void initialize_database(const genesis_state& genesis) {
       // create the database header sigil
       db.create<database_header_object>([&](auto& header) {
          // nothing to do for now
@@ -1211,8 +1165,7 @@ struct controller_impl
 
    // The returned scoped_exit should not exceed the lifetime of the pending which existed when
    // make_block_restore_point was called.
-   fc::scoped_exit<std::function<void()>> make_block_restore_point()
-   {
+   fc::scoped_exit<std::function<void()>> make_block_restore_point() {
       auto& bb                           = std::get<building_block>(pending->_block_stage);
       auto  orig_trx_receipts_size       = bb._pending_trx_receipts.size();
       auto  orig_trx_metas_size          = bb._pending_trx_metas.size();
@@ -1243,8 +1196,7 @@ struct controller_impl
                                        uint32_t& cpu_time_to_bill_us, // only set on failure
                                        uint32_t  billed_cpu_time_us,
                                        bool      explicit_billed_cpu_time = false,
-                                       bool      enforce_whiteblacklist   = true)
-   {
+                                       bool      enforce_whiteblacklist   = true) {
       signed_transaction etrx;
       // Deliver onerror action containing the failed deferred transaction directly back to the sender.
       etrx.actions.emplace_back(
@@ -1318,8 +1270,7 @@ struct controller_impl
       return trace;
    }
 
-   int64_t remove_scheduled_transaction(const generated_transaction_object& gto)
-   {
+   int64_t remove_scheduled_transaction(const generated_transaction_object& gto) {
       if (auto dm_logger = get_deep_mind_logger()) {
          dm_logger->on_ram_trace(
             RAM_EVENT_ID("${id}", ("id", gto.id)), "deferred_trx", "remove", "deferred_trx_removed");
@@ -1333,8 +1284,7 @@ struct controller_impl
       return ram_delta;
    }
 
-   bool failure_is_subjective(const fc::exception& e) const
-   {
+   bool failure_is_subjective(const fc::exception& e) const {
       auto code = e.code();
       return (code == subjective_block_production_exception::code_value) ||
              (code == block_net_usage_exceeded::code_value) ||
@@ -1352,8 +1302,7 @@ struct controller_impl
              (code == inline_action_too_big_nonprivileged::code_value);
    }
 
-   bool scheduled_failure_is_subjective(const fc::exception& e) const
-   {
+   bool scheduled_failure_is_subjective(const fc::exception& e) const {
       auto code = e.code();
       return (code == tx_cpu_usage_exceeded::code_value) || failure_is_subjective(e);
    }
@@ -1362,8 +1311,7 @@ struct controller_impl
                                                     fc::time_point             block_deadline,
                                                     fc::microseconds           max_transaction_time,
                                                     uint32_t                   billed_cpu_time_us,
-                                                    bool explicit_billed_cpu_time = false)
-   {
+                                                    bool explicit_billed_cpu_time = false) {
       const auto& idx = db.get_index<generated_transaction_multi_index, by_trx_id>();
       auto        itr = idx.find(trxid);
       EOS_ASSERT(itr != idx.end(), unknown_transaction_exception, "unknown transaction");
@@ -1375,8 +1323,7 @@ struct controller_impl
                                                     fc::time_point                      block_deadline,
                                                     fc::microseconds                    max_transaction_time,
                                                     uint32_t                            billed_cpu_time_us,
-                                                    bool explicit_billed_cpu_time = false)
-   {
+                                                    bool explicit_billed_cpu_time = false) {
       try {
 
          auto       start      = fc::time_point::now();
@@ -1626,8 +1573,7 @@ struct controller_impl
    const transaction_receipt& push_receipt(const T&                                trx,
                                            transaction_receipt_header::status_enum status,
                                            uint64_t                                cpu_usage_us,
-                                           uint64_t                                net_usage)
-   {
+                                           uint64_t                                net_usage) {
       uint64_t net_usage_words = net_usage / 8;
       EOS_ASSERT(net_usage_words * 8 == net_usage, transaction_exception, "net_usage is not divisible by 8");
       auto& receipts = std::get<building_block>(pending->_block_stage)._pending_trx_receipts;
@@ -1652,8 +1598,7 @@ struct controller_impl
                                           fc::microseconds                max_transaction_time,
                                           uint32_t                        billed_cpu_time_us,
                                           bool                            explicit_billed_cpu_time,
-                                          int64_t                         subjective_cpu_bill_us)
-   {
+                                          int64_t                         subjective_cpu_bill_us) {
       EOS_ASSERT(
          block_deadline != fc::time_point(), transaction_exception, "deadline cannot be uninitialized");
 
@@ -1811,8 +1756,7 @@ struct controller_impl
                     const vector<digest_type>&          new_protocol_feature_activations,
                     controller::block_status            s,
                     const std::optional<block_id_type>& producer_block_id,
-                    const fc::time_point&               deadline)
-   {
+                    const fc::time_point&               deadline) {
       EOS_ASSERT(!pending, block_validate_exception, "pending block already exists");
 
       emit(self.block_start, head->block_num + 1);
@@ -1991,8 +1935,7 @@ struct controller_impl
       guard_pending.cancel();
    } /// start_block
 
-   void finalize_block()
-   {
+   void finalize_block() {
       EOS_ASSERT(
          pending, block_validate_exception, "it is not valid to finalize when there is no pending block");
       EOS_ASSERT(std::holds_alternative<building_block>(pending->_block_stage),
@@ -2084,8 +2027,7 @@ struct controller_impl
    /**
     * @post regardless of the success of commit block there is no active pending block
     */
-   void commit_block(bool add_to_fork_db)
-   {
+   void commit_block(bool add_to_fork_db) {
       auto reset_pending_on_exit = fc::make_scoped_exit([this] { pending.reset(); });
 
       try {
@@ -2137,8 +2079,7 @@ struct controller_impl
     */
    void check_protocol_features(block_timestamp_type         timestamp,
                                 const flat_set<digest_type>& currently_activated_protocol_features,
-                                const vector<digest_type>&   new_protocol_features)
-   {
+                                const vector<digest_type>&   new_protocol_features) {
       const auto& pfs = protocol_features.get_protocol_feature_set();
 
       for (auto itr = new_protocol_features.begin(); itr != new_protocol_features.end(); ++itr) {
@@ -2187,8 +2128,7 @@ struct controller_impl
       }
    }
 
-   void report_block_header_diff(const block_header& b, const block_header& ab)
-   {
+   void report_block_header_diff(const block_header& b, const block_header& ab) {
 
 #define EOS_REPORT(DESC, A, B)                                                                               \
    if (A != B) {                                                                                             \
@@ -2211,8 +2151,7 @@ struct controller_impl
    void apply_block(controller::block_report&    br,
                     const block_state_ptr&       bsp,
                     controller::block_status     s,
-                    const trx_meta_cache_lookup& trx_lookup)
-   {
+                    const trx_meta_cache_lookup& trx_lookup) {
       try {
          try {
             auto                    start                = fc::time_point::now();
@@ -2362,8 +2301,8 @@ struct controller_impl
       FC_CAPTURE_AND_RETHROW()
    } /// apply_block
 
-   std::future<block_state_ptr> create_block_state_future(const block_id_type& id, const signed_block_ptr& b)
-   {
+   std::future<block_state_ptr> create_block_state_future(const block_id_type&    id,
+                                                          const signed_block_ptr& b) {
       EOS_ASSERT(b, block_validate_exception, "null block");
 
       // no reason for a block_state if fork_db already knows about block
@@ -2405,8 +2344,7 @@ struct controller_impl
    void push_block(controller::block_report&     br,
                    std::future<block_state_ptr>& block_state_future,
                    const forked_branch_callback& forked_branch_cb,
-                   const trx_meta_cache_lookup&  trx_lookup)
-   {
+                   const trx_meta_cache_lookup&  trx_lookup) {
       controller::block_status s = controller::block_status::complete;
       EOS_ASSERT(
          !pending, block_validate_exception, "it is not valid to push a block when there is a pending block");
@@ -2444,8 +2382,7 @@ struct controller_impl
       FC_LOG_AND_RETHROW()
    }
 
-   void replay_push_block(const signed_block_ptr& b, controller::block_status s)
-   {
+   void replay_push_block(const signed_block_ptr& b, controller::block_status s) {
       self.validate_db_available_size();
 
       EOS_ASSERT(
@@ -2510,8 +2447,7 @@ struct controller_impl
                            const block_state_ptr&        new_head,
                            controller::block_status      s,
                            const forked_branch_callback& forked_branch_cb,
-                           const trx_meta_cache_lookup&  trx_lookup)
-   {
+                           const trx_meta_cache_lookup&  trx_lookup) {
       bool head_changed = true;
       if (new_head->header.previous == head->id) {
          try {
@@ -2611,8 +2547,7 @@ struct controller_impl
 
    } /// push_block
 
-   deque<transaction_metadata_ptr> abort_block()
-   {
+   deque<transaction_metadata_ptr> abort_block() {
       deque<transaction_metadata_ptr> applied_trxs;
       if (pending) {
          applied_trxs = pending->extract_trx_metas();
@@ -2622,8 +2557,7 @@ struct controller_impl
       return applied_trxs;
    }
 
-   static checksum256_type calculate_trx_merkle(const deque<transaction_receipt>& trxs)
-   {
+   static checksum256_type calculate_trx_merkle(const deque<transaction_receipt>& trxs) {
       deque<digest_type> trx_digests;
       for (const auto& a : trxs)
          trx_digests.emplace_back(a.digest());
@@ -2631,8 +2565,7 @@ struct controller_impl
       return merkle(move(trx_digests));
    }
 
-   void update_producers_authority()
-   {
+   void update_producers_authority() {
       const auto& producers = pending->get_pending_block_header_state().active_schedule.producers;
 
       auto update_permission = [&](auto& permission, auto threshold) {
@@ -2669,16 +2602,14 @@ struct controller_impl
       // TODO: Add tests
    }
 
-   void create_block_summary(const block_id_type& id)
-   {
+   void create_block_summary(const block_id_type& id) {
       auto block_num = block_header::num_from_id(id);
       auto sid       = block_num & 0xffff;
       db.modify(db.get<block_summary_object, by_id>(sid),
                 [&](block_summary_object& bso) { bso.block_id = id; });
    }
 
-   void clear_expired_input_transactions(const fc::time_point& deadline)
-   {
+   void clear_expired_input_transactions(const fc::time_point& deadline) {
       // Look for expired transactions in the deduplication list, and remove them.
       auto&       transaction_idx = db.get_mutable_index<transaction_multi_index>();
       const auto& dedupe_index    = transaction_idx.indices().get<by_expiration>();
@@ -2696,8 +2627,7 @@ struct controller_impl
            ("n", num_removed)("t", total)("pt", now));
    }
 
-   bool sender_avoids_whitelist_blacklist_enforcement(account_name sender) const
-   {
+   bool sender_avoids_whitelist_blacklist_enforcement(account_name sender) const {
       if (conf.sender_bypass_whiteblacklist.size() > 0 &&
           (conf.sender_bypass_whiteblacklist.find(sender) != conf.sender_bypass_whiteblacklist.end())) {
          return true;
@@ -2706,8 +2636,7 @@ struct controller_impl
       return false;
    }
 
-   void check_actor_list(const flat_set<account_name>& actors) const
-   {
+   void check_actor_list(const flat_set<account_name>& actors) const {
       if (actors.size() == 0)
          return;
 
@@ -2800,8 +2729,7 @@ struct controller_impl
       }
    }
 
-   void check_contract_list(account_name code) const
-   {
+   void check_contract_list(account_name code) const {
       if (conf.contract_whitelist.size() > 0) {
          EOS_ASSERT(conf.contract_whitelist.find(code) != conf.contract_whitelist.end(),
                     contract_whitelist_exception,
@@ -2815,8 +2743,7 @@ struct controller_impl
       }
    }
 
-   void check_action_list(account_name code, action_name action) const
-   {
+   void check_action_list(account_name code, action_name action) const {
       if (conf.action_blacklist.size() > 0) {
          EOS_ASSERT(conf.action_blacklist.find(std::make_pair(code, action)) == conf.action_blacklist.end(),
                     action_blacklist_exception,
@@ -2825,8 +2752,7 @@ struct controller_impl
       }
    }
 
-   void check_key_list(const public_key_type& key) const
-   {
+   void check_key_list(const public_key_type& key) const {
       if (conf.key_blacklist.size() > 0) {
          EOS_ASSERT(conf.key_blacklist.find(key) == conf.key_blacklist.end(),
                     key_blacklist_exception,
@@ -2855,8 +2781,7 @@ struct controller_impl
     *  At the start of each block we notify the system contract with a transaction that passes in
     *  the block header of the prior block (which is currently our head block)
     */
-   signed_transaction get_on_block_transaction()
-   {
+   signed_transaction get_on_block_transaction() {
       action on_block_act;
       on_block_act.account       = config::system_account_name;
       on_block_act.name          = "onblock"_n;
@@ -2884,58 +2809,45 @@ struct controller_impl
       return trx;
    }
 
-   inline deep_mind_handler* get_deep_mind_logger() const
-   {
+   inline deep_mind_handler* get_deep_mind_logger() const {
       return deep_mind_logger;
    }
 
-   uint32_t earliest_available_block_num() const
-   {
+   uint32_t earliest_available_block_num() const {
       return (blog.first_block_num() != 0) ? blog.first_block_num() : fork_db.root()->block_num;
    }
 
 }; /// controller_impl
 
-const resource_limits_manager& controller::get_resource_limits_manager() const
-{
+const resource_limits_manager& controller::get_resource_limits_manager() const {
    return my->resource_limits;
 }
-resource_limits_manager& controller::get_mutable_resource_limits_manager()
-{
+resource_limits_manager& controller::get_mutable_resource_limits_manager() {
    return my->resource_limits;
 }
 
-const authorization_manager& controller::get_authorization_manager() const
-{
+const authorization_manager& controller::get_authorization_manager() const {
    return my->authorization;
 }
-authorization_manager& controller::get_mutable_authorization_manager()
-{
+authorization_manager& controller::get_mutable_authorization_manager() {
    return my->authorization;
 }
 
-const protocol_feature_manager& controller::get_protocol_feature_manager() const
-{
+const protocol_feature_manager& controller::get_protocol_feature_manager() const {
    return my->protocol_features;
 }
 
-uint32_t controller::get_max_nonprivileged_inline_action_size() const
-{
+uint32_t controller::get_max_nonprivileged_inline_action_size() const {
    return my->conf.max_nonprivileged_inline_action_size;
 }
 
 controller::controller(const controller::config& cfg, const chain_id_type& chain_id)
-   : my(new controller_impl(cfg, *this, protocol_feature_set{}, chain_id))
-{
-}
+   : my(new controller_impl(cfg, *this, protocol_feature_set{}, chain_id)) {}
 
 controller::controller(const config& cfg, protocol_feature_set&& pfs, const chain_id_type& chain_id)
-   : my(new controller_impl(cfg, *this, std::move(pfs), chain_id))
-{
-}
+   : my(new controller_impl(cfg, *this, std::move(pfs), chain_id)) {}
 
-controller::~controller()
-{
+controller::~controller() {
    my->abort_block();
    /* Shouldn't be needed anymore.
    //close fork_db here, because it can generate "irreversible" signal to this controller,
@@ -2945,47 +2857,39 @@ controller::~controller()
    */
 }
 
-void controller::add_indices()
-{
+void controller::add_indices() {
    my->add_indices();
 }
 
 void controller::startup(std::function<void()>      shutdown,
                          std::function<bool()>      check_shutdown,
-                         const snapshot_reader_ptr& snapshot)
-{
+                         const snapshot_reader_ptr& snapshot) {
    my->startup(shutdown, check_shutdown, snapshot);
 }
 
 void controller::startup(std::function<void()> shutdown,
                          std::function<bool()> check_shutdown,
-                         const genesis_state&  genesis)
-{
+                         const genesis_state&  genesis) {
    my->startup(shutdown, check_shutdown, genesis);
 }
 
-void controller::startup(std::function<void()> shutdown, std::function<bool()> check_shutdown)
-{
+void controller::startup(std::function<void()> shutdown, std::function<bool()> check_shutdown) {
    my->startup(shutdown, check_shutdown);
 }
 
-const chainbase::database& controller::db() const
-{
+const chainbase::database& controller::db() const {
    return my->db;
 }
 
-chainbase::database& controller::mutable_db() const
-{
+chainbase::database& controller::mutable_db() const {
    return my->db;
 }
 
-const fork_database& controller::fork_db() const
-{
+const fork_database& controller::fork_db() const {
    return my->fork_db;
 }
 
-void controller::preactivate_feature(const digest_type& feature_digest)
-{
+void controller::preactivate_feature(const digest_type& feature_digest) {
    const auto& pfs      = my->protocol_features.get_protocol_feature_set();
    auto        cur_time = pending_block_time();
 
@@ -3095,8 +2999,7 @@ void controller::preactivate_feature(const digest_type& feature_digest)
    my->db.modify(pso, [&](auto& ps) { ps.preactivated_protocol_features.push_back(feature_digest); });
 }
 
-vector<digest_type> controller::get_preactivated_protocol_features() const
-{
+vector<digest_type> controller::get_preactivated_protocol_features() const {
    const auto& pso = my->db.get<protocol_state_object>();
 
    if (pso.preactivated_protocol_features.size() == 0)
@@ -3111,8 +3014,7 @@ vector<digest_type> controller::get_preactivated_protocol_features() const
    return preactivated_protocol_features;
 }
 
-void controller::validate_protocol_features(const vector<digest_type>& features_to_activate) const
-{
+void controller::validate_protocol_features(const vector<digest_type>& features_to_activate) const {
    my->check_protocol_features(my->head->header.timestamp,
                                my->head->activated_protocol_features->protocol_features,
                                features_to_activate);
@@ -3122,8 +3024,7 @@ void controller::start_block(block_timestamp_type       when,
                              uint16_t                   confirm_block_count,
                              const vector<digest_type>& new_protocol_feature_activations,
                              block_status               bs,
-                             const fc::time_point&      deadline)
-{
+                             const fc::time_point&      deadline) {
    validate_db_available_size();
 
    if (new_protocol_feature_activations.size() > 0) {
@@ -3142,8 +3043,7 @@ void controller::start_block(block_timestamp_type       when,
                    deadline);
 }
 
-block_state_ptr controller::finalize_block(block_report& br, const signer_callback_type& signer_callback)
-{
+block_state_ptr controller::finalize_block(block_report& br, const signer_callback_type& signer_callback) {
    validate_db_available_size();
 
    my->finalize_block();
@@ -3167,33 +3067,28 @@ block_state_ptr controller::finalize_block(block_report& br, const signer_callba
    return bsp;
 }
 
-void controller::commit_block()
-{
+void controller::commit_block() {
    validate_db_available_size();
    my->commit_block(true);
 }
 
-deque<transaction_metadata_ptr> controller::abort_block()
-{
+deque<transaction_metadata_ptr> controller::abort_block() {
    return my->abort_block();
 }
 
-boost::asio::io_context& controller::get_thread_pool()
-{
+boost::asio::io_context& controller::get_thread_pool() {
    return my->thread_pool.get_executor();
 }
 
 std::future<block_state_ptr> controller::create_block_state_future(const block_id_type&    id,
-                                                                   const signed_block_ptr& b)
-{
+                                                                   const signed_block_ptr& b) {
    return my->create_block_state_future(id, b);
 }
 
 void controller::push_block(controller::block_report&     br,
                             std::future<block_state_ptr>& block_state_future,
                             const forked_branch_callback& forked_branch_cb,
-                            const trx_meta_cache_lookup&  trx_lookup)
-{
+                            const trx_meta_cache_lookup&  trx_lookup) {
    validate_db_available_size();
    my->push_block(br, block_state_future, forked_branch_cb, trx_lookup);
 }
@@ -3203,8 +3098,7 @@ transaction_trace_ptr controller::push_transaction(const transaction_metadata_pt
                                                    fc::microseconds                max_transaction_time,
                                                    uint32_t                        billed_cpu_time_us,
                                                    bool                            explicit_billed_cpu_time,
-                                                   int64_t                         subjective_cpu_bill_us)
-{
+                                                   int64_t                         subjective_cpu_bill_us) {
    validate_db_available_size();
    EOS_ASSERT(get_read_mode() != db_read_mode::IRREVERSIBLE,
               transaction_type_exception,
@@ -3224,8 +3118,7 @@ transaction_trace_ptr controller::push_scheduled_transaction(const transaction_i
                                                              fc::time_point             block_deadline,
                                                              fc::microseconds           max_transaction_time,
                                                              uint32_t                   billed_cpu_time_us,
-                                                             bool explicit_billed_cpu_time)
-{
+                                                             bool explicit_billed_cpu_time) {
    EOS_ASSERT(get_read_mode() != db_read_mode::IRREVERSIBLE,
               transaction_type_exception,
               "push scheduled transaction not allowed in irreversible mode");
@@ -3234,49 +3127,38 @@ transaction_trace_ptr controller::push_scheduled_transaction(const transaction_i
       trxid, block_deadline, max_transaction_time, billed_cpu_time_us, explicit_billed_cpu_time);
 }
 
-const flat_set<account_name>& controller::get_actor_whitelist() const
-{
+const flat_set<account_name>& controller::get_actor_whitelist() const {
    return my->conf.actor_whitelist;
 }
-const flat_set<account_name>& controller::get_actor_blacklist() const
-{
+const flat_set<account_name>& controller::get_actor_blacklist() const {
    return my->conf.actor_blacklist;
 }
-const flat_set<account_name>& controller::get_contract_whitelist() const
-{
+const flat_set<account_name>& controller::get_contract_whitelist() const {
    return my->conf.contract_whitelist;
 }
-const flat_set<account_name>& controller::get_contract_blacklist() const
-{
+const flat_set<account_name>& controller::get_contract_blacklist() const {
    return my->conf.contract_blacklist;
 }
-const flat_set<pair<account_name, action_name>>& controller::get_action_blacklist() const
-{
+const flat_set<pair<account_name, action_name>>& controller::get_action_blacklist() const {
    return my->conf.action_blacklist;
 }
-const flat_set<public_key_type>& controller::get_key_blacklist() const
-{
+const flat_set<public_key_type>& controller::get_key_blacklist() const {
    return my->conf.key_blacklist;
 }
 
-void controller::set_actor_whitelist(const flat_set<account_name>& new_actor_whitelist)
-{
+void controller::set_actor_whitelist(const flat_set<account_name>& new_actor_whitelist) {
    my->conf.actor_whitelist = new_actor_whitelist;
 }
-void controller::set_actor_blacklist(const flat_set<account_name>& new_actor_blacklist)
-{
+void controller::set_actor_blacklist(const flat_set<account_name>& new_actor_blacklist) {
    my->conf.actor_blacklist = new_actor_blacklist;
 }
-void controller::set_contract_whitelist(const flat_set<account_name>& new_contract_whitelist)
-{
+void controller::set_contract_whitelist(const flat_set<account_name>& new_contract_whitelist) {
    my->conf.contract_whitelist = new_contract_whitelist;
 }
-void controller::set_contract_blacklist(const flat_set<account_name>& new_contract_blacklist)
-{
+void controller::set_contract_blacklist(const flat_set<account_name>& new_contract_blacklist) {
    my->conf.contract_blacklist = new_contract_blacklist;
 }
-void controller::set_action_blacklist(const flat_set<pair<account_name, action_name>>& new_action_blacklist)
-{
+void controller::set_action_blacklist(const flat_set<pair<account_name, action_name>>& new_action_blacklist) {
    for (auto& act : new_action_blacklist) {
       EOS_ASSERT(act.first != account_name(),
                  name_type_exception,
@@ -3287,78 +3169,62 @@ void controller::set_action_blacklist(const flat_set<pair<account_name, action_n
    }
    my->conf.action_blacklist = new_action_blacklist;
 }
-void controller::set_key_blacklist(const flat_set<public_key_type>& new_key_blacklist)
-{
+void controller::set_key_blacklist(const flat_set<public_key_type>& new_key_blacklist) {
    my->conf.key_blacklist = new_key_blacklist;
 }
 
-uint32_t controller::head_block_num() const
-{
+uint32_t controller::head_block_num() const {
    return my->head->block_num;
 }
-time_point controller::head_block_time() const
-{
+time_point controller::head_block_time() const {
    return my->head->header.timestamp;
 }
-block_id_type controller::head_block_id() const
-{
+block_id_type controller::head_block_id() const {
    return my->head->id;
 }
-account_name controller::head_block_producer() const
-{
+account_name controller::head_block_producer() const {
    return my->head->header.producer;
 }
-const block_header& controller::head_block_header() const
-{
+const block_header& controller::head_block_header() const {
    return my->head->header;
 }
-block_state_ptr controller::head_block_state() const
-{
+block_state_ptr controller::head_block_state() const {
    return my->head;
 }
 
-uint32_t controller::fork_db_head_block_num() const
-{
+uint32_t controller::fork_db_head_block_num() const {
    return my->fork_db.head()->block_num;
 }
 
-block_id_type controller::fork_db_head_block_id() const
-{
+block_id_type controller::fork_db_head_block_id() const {
    return my->fork_db.head()->id;
 }
 
-time_point controller::fork_db_head_block_time() const
-{
+time_point controller::fork_db_head_block_time() const {
    return my->fork_db.head()->header.timestamp;
 }
 
-account_name controller::fork_db_head_block_producer() const
-{
+account_name controller::fork_db_head_block_producer() const {
    return my->fork_db.head()->header.producer;
 }
 
-uint32_t controller::fork_db_pending_head_block_num() const
-{
+uint32_t controller::fork_db_pending_head_block_num() const {
    return my->fork_db.pending_head()->block_num;
 }
 
-block_id_type controller::fork_db_pending_head_block_id() const
-{
+block_id_type controller::fork_db_pending_head_block_id() const {
    return my->fork_db.pending_head()->id;
 }
 
-time_point controller::fork_db_pending_head_block_time() const
-{
+time_point controller::fork_db_pending_head_block_time() const {
    return my->fork_db.pending_head()->header.timestamp;
 }
 
-account_name controller::fork_db_pending_head_block_producer() const
-{
+account_name controller::fork_db_pending_head_block_producer() const {
    return my->fork_db.pending_head()->header.producer;
 }
 
-time_point controller::pending_block_time() const
-{
+time_point controller::pending_block_time() const {
    EOS_ASSERT(my->pending, block_validate_exception, "no pending block");
 
    if (std::holds_alternative<completed_block>(my->pending->_block_stage))
@@ -3367,8 +3233,7 @@ time_point controller::pending_block_time() const
    return my->pending->get_pending_block_header_state().timestamp;
 }
 
-uint32_t controller::pending_block_num() const
-{
+uint32_t controller::pending_block_num() const {
    EOS_ASSERT(my->pending, block_validate_exception, "no pending block");
 
    if (std::holds_alternative<completed_block>(my->pending->_block_stage))
@@ -3377,8 +3242,7 @@ uint32_t controller::pending_block_num() const
    return my->pending->get_pending_block_header_state().block_num;
 }
 
-account_name controller::pending_block_producer() const
-{
+account_name controller::pending_block_producer() const {
    EOS_ASSERT(my->pending, block_validate_exception, "no pending block");
 
    if (std::holds_alternative<completed_block>(my->pending->_block_stage))
@@ -3387,8 +3251,7 @@ account_name controller::pending_block_producer() const
    return my->pending->get_pending_block_header_state().producer;
 }
 
-const block_signing_authority& controller::pending_block_signing_authority() const
-{
+const block_signing_authority& controller::pending_block_signing_authority() const {
    EOS_ASSERT(my->pending, block_validate_exception, "no pending block");
 
    if (std::holds_alternative<completed_block>(my->pending->_block_stage))
@@ -3397,38 +3260,31 @@ const block_signing_authority& controller::pending_block_signing_authority() con
    return my->pending->get_pending_block_header_state().valid_block_signing_authority;
 }
 
-std::optional<block_id_type> controller::pending_producer_block_id() const
-{
+std::optional<block_id_type> controller::pending_producer_block_id() const {
    EOS_ASSERT(my->pending, block_validate_exception, "no pending block");
    return my->pending->_producer_block_id;
 }
 
-uint32_t controller::last_irreversible_block_num() const
-{
+uint32_t controller::last_irreversible_block_num() const {
    return my->fork_db.root()->block_num;
 }
 
-block_id_type controller::last_irreversible_block_id() const
-{
+block_id_type controller::last_irreversible_block_id() const {
    return my->fork_db.root()->id;
 }
 
-time_point controller::last_irreversible_block_time() const
-{
+time_point controller::last_irreversible_block_time() const {
    return my->fork_db.root()->header.timestamp.to_time_point();
 }
 
-const dynamic_global_property_object& controller::get_dynamic_global_properties() const
-{
+const dynamic_global_property_object& controller::get_dynamic_global_properties() const {
    return my->db.get<dynamic_global_property_object>();
 }
-const global_property_object& controller::get_global_properties() const
-{
+const global_property_object& controller::get_global_properties() const {
    return my->db.get<global_property_object>();
 }
 
-signed_block_ptr controller::fetch_block_by_id(block_id_type id) const
-{
+signed_block_ptr controller::fetch_block_by_id(block_id_type id) const {
    auto state = my->fork_db.get_block(id);
    if (state && state->block)
       return state->block;
@@ -3438,8 +3294,7 @@ signed_block_ptr controller::fetch_block_by_id(block_id_type id) const
    return signed_block_ptr();
 }
 
-signed_block_ptr controller::fetch_block_by_number(uint32_t block_num) const
-{
+signed_block_ptr controller::fetch_block_by_number(uint32_t block_num) const {
    try {
       auto blk_state = fetch_block_state_by_number(block_num);
       if (blk_state) {
@@ -3451,14 +3306,12 @@ signed_block_ptr controller::fetch_block_by_number(uint32_t block_num) const
    FC_CAPTURE_AND_RETHROW((block_num))
 }
 
-block_state_ptr controller::fetch_block_state_by_id(block_id_type id) const
-{
+block_state_ptr controller::fetch_block_state_by_id(block_id_type id) const {
    auto state = my->fork_db.get_block(id);
    return state;
 }
 
-block_state_ptr controller::fetch_block_state_by_number(uint32_t block_num) const
-{
+block_state_ptr controller::fetch_block_state_by_number(uint32_t block_num) const {
    try {
       if (my->read_mode == db_read_mode::IRREVERSIBLE) {
          return my->fork_db.search_on_branch(my->fork_db.pending_head()->id, block_num);
@@ -3469,8 +3322,7 @@ block_state_ptr controller::fetch_block_state_by_number(uint32_t block_num) cons
    FC_CAPTURE_AND_RETHROW((block_num))
 }
 
-block_id_type controller::get_block_id_for_num(uint32_t block_num) const
-{
+block_id_type controller::get_block_id_for_num(uint32_t block_num) const {
    try {
       const auto& tapos_block_summary = db().get<block_summary_object>((uint16_t)block_num);
 
@@ -3499,23 +3351,20 @@ block_id_type controller::get_block_id_for_num(uint32_t block_num) const
    FC_CAPTURE_AND_RETHROW((block_num))
 }
 
-sha256 controller::calculate_integrity_hash()
-{
+sha256 controller::calculate_integrity_hash() {
    try {
       return my->calculate_integrity_hash();
    }
    FC_LOG_AND_RETHROW()
 }
 
-void controller::write_snapshot(const snapshot_writer_ptr& snapshot)
-{
+void controller::write_snapshot(const snapshot_writer_ptr& snapshot) {
    EOS_ASSERT(
       !my->pending, block_validate_exception, "cannot take a consistent snapshot with a pending block");
    return my->add_to_snapshot(snapshot);
 }
 
-int64_t controller::set_proposed_producers(vector<producer_authority> producers)
-{
+int64_t controller::set_proposed_producers(vector<producer_authority> producers) {
    const auto& gpo           = get_global_properties();
    auto        cur_block_num = head_block_num() + 1;
 
@@ -3570,8 +3419,7 @@ int64_t controller::set_proposed_producers(vector<producer_authority> producers)
    return version;
 }
 
-const producer_authority_schedule& controller::active_producers() const
-{
+const producer_authority_schedule& controller::active_producers() const {
    if (!(my->pending))
       return my->head->active_schedule;
 
@@ -3581,8 +3429,7 @@ const producer_authority_schedule& controller::active_producers() const
    return my->pending->get_pending_block_header_state().active_schedule;
 }
 
-const producer_authority_schedule& controller::pending_producers() const
-{
+const producer_authority_schedule& controller::pending_producers() const {
    if (!(my->pending))
       return my->head->pending_schedule.schedule;
 
@@ -3605,8 +3452,7 @@ const producer_authority_schedule& controller::pending_producers() const
    return bb._pending_block_header_state.prev_pending_schedule.schedule;
 }
 
-std::optional<producer_authority_schedule> controller::proposed_producers() const
-{
+std::optional<producer_authority_schedule> controller::proposed_producers() const {
    const auto& gpo = get_global_properties();
    if (!gpo.proposed_schedule_block_num)
       return std::optional<producer_authority_schedule>();
@@ -3614,8 +3460,7 @@ std::optional<producer_authority_schedule> controller::proposed_producers() cons
    return producer_authority_schedule::from_shared(gpo.proposed_schedule);
 }
 
-bool controller::light_validation_allowed() const
-{
+bool controller::light_validation_allowed() const {
    if (!my->pending || my->in_trx_requiring_checks) {
       return false;
    }
@@ -3635,24 +3480,20 @@ bool controller::light_validation_allowed() const
    return consider_skipping_on_replay || consider_skipping_on_validate;
 }
 
-bool controller::skip_auth_check() const
-{
+bool controller::skip_auth_check() const {
    return light_validation_allowed();
 }
 
-bool controller::skip_trx_checks() const
-{
+bool controller::skip_trx_checks() const {
    return light_validation_allowed();
 }
 
-bool controller::skip_db_sessions(block_status bs) const
-{
+bool controller::skip_db_sessions(block_status bs) const {
    bool consider_skipping = bs == block_status::irreversible;
    return consider_skipping && !my->conf.disable_replay_opts && !my->in_trx_requiring_checks;
 }
 
-bool controller::skip_db_sessions() const
-{
+bool controller::skip_db_sessions() const {
    if (my->pending) {
       return skip_db_sessions(my->pending->_block_status);
    } else {
@@ -3660,46 +3501,38 @@ bool controller::skip_db_sessions() const
    }
 }
 
-bool controller::is_trusted_producer(const account_name& producer) const
-{
+bool controller::is_trusted_producer(const account_name& producer) const {
    return get_validation_mode() == chain::validation_mode::LIGHT ||
           my->conf.trusted_producers.count(producer);
 }
 
-bool controller::contracts_console() const
-{
+bool controller::contracts_console() const {
    return my->conf.contracts_console;
 }
 
-bool controller::is_profiling(account_name account) const
-{
+bool controller::is_profiling(account_name account) const {
    return my->conf.profile_accounts.find(account) != my->conf.profile_accounts.end();
 }
 
-chain_id_type controller::get_chain_id() const
-{
+chain_id_type controller::get_chain_id() const {
    return my->chain_id;
 }
 
-db_read_mode controller::get_read_mode() const
-{
+db_read_mode controller::get_read_mode() const {
    return my->read_mode;
 }
 
-validation_mode controller::get_validation_mode() const
-{
+validation_mode controller::get_validation_mode() const {
    return my->conf.block_validation_mode;
 }
 
-uint32_t controller::get_terminate_at_block() const
-{
+uint32_t controller::get_terminate_at_block() const {
    return my->conf.terminate_at_block;
 }
 
 const apply_handler* controller::find_apply_handler(account_name receiver,
                                                     account_name scope,
-                                                    action_name  act) const
-{
+                                                    action_name  act) const {
    auto native_handler_scope = my->apply_handlers.find(receiver);
    if (native_handler_scope != my->apply_handlers.end()) {
       auto handler = native_handler_scope->second.find(make_pair(scope, act));
@@ -3708,51 +3541,42 @@ const apply_handler* controller::find_apply_handler(account_name receiver,
    }
    return nullptr;
 }
-wasm_interface& controller::get_wasm_interface()
-{
+wasm_interface& controller::get_wasm_interface() {
    return my->wasmif;
 }
 
-const account_object& controller::get_account(account_name name) const
-{
+const account_object& controller::get_account(account_name name) const {
    try {
       return my->db.get<account_object, by_name>(name);
    }
    FC_CAPTURE_AND_RETHROW((name))
 }
 
-bool controller::sender_avoids_whitelist_blacklist_enforcement(account_name sender) const
-{
+bool controller::sender_avoids_whitelist_blacklist_enforcement(account_name sender) const {
    return my->sender_avoids_whitelist_blacklist_enforcement(sender);
 }
 
-void controller::check_actor_list(const flat_set<account_name>& actors) const
-{
+void controller::check_actor_list(const flat_set<account_name>& actors) const {
    my->check_actor_list(actors);
 }
 
-void controller::check_contract_list(account_name code) const
-{
+void controller::check_contract_list(account_name code) const {
    my->check_contract_list(code);
 }
 
-void controller::check_action_list(account_name code, action_name action) const
-{
+void controller::check_action_list(account_name code, action_name action) const {
    my->check_action_list(code, action);
 }
 
-void controller::check_key_list(const public_key_type& key) const
-{
+void controller::check_key_list(const public_key_type& key) const {
    my->check_key_list(key);
 }
 
-bool controller::is_building_block() const
-{
+bool controller::is_building_block() const {
    return my->pending.has_value();
 }
 
-bool controller::is_speculative_block() const
-{
+bool controller::is_speculative_block() const {
    if (!my->pending)
       return false;
 
@@ -3760,19 +3584,16 @@ bool controller::is_speculative_block() const
            my->pending->_block_status == block_status::ephemeral);
 }
 
-bool controller::is_ram_billing_in_notify_allowed() const
-{
+bool controller::is_ram_billing_in_notify_allowed() const {
    return my->conf.disable_all_subjective_mitigations || !is_speculative_block() ||
           my->conf.allow_ram_billing_in_notify;
 }
 
-uint32_t controller::configured_subjective_signature_length_limit() const
-{
+uint32_t controller::configured_subjective_signature_length_limit() const {
    return my->conf.maximum_variable_signature_length;
 }
 
-void controller::validate_expiration(const transaction& trx) const
-{
+void controller::validate_expiration(const transaction& trx) const {
    try {
       const auto& chain_configuration = get_global_properties().configuration;
 
@@ -3794,8 +3615,7 @@ void controller::validate_expiration(const transaction& trx) const
    FC_CAPTURE_AND_RETHROW((trx))
 }
 
-void controller::validate_tapos(const transaction& trx) const
-{
+void controller::validate_tapos(const transaction& trx) const {
    try {
       const auto& tapos_block_summary = db().get<block_summary_object>((uint16_t)trx.ref_block_num);
 
@@ -3809,8 +3629,7 @@ void controller::validate_tapos(const transaction& trx) const
    FC_CAPTURE_AND_RETHROW()
 }
 
-void controller::validate_db_available_size() const
-{
+void controller::validate_db_available_size() const {
    const auto free  = db().get_segment_manager()->get_free_memory();
    const auto guard = my->conf.state_guard_size;
    EOS_ASSERT(free >= guard,
@@ -3819,8 +3638,7 @@ void controller::validate_db_available_size() const
               ("f", free)("g", guard));
 }
 
-bool controller::is_protocol_feature_activated(const digest_type& feature_digest) const
-{
+bool controller::is_protocol_feature_activated(const digest_type& feature_digest) const {
    if (my->pending)
       return my->pending->is_protocol_feature_activated(feature_digest);
 
@@ -3828,8 +3646,7 @@ bool controller::is_protocol_feature_activated(const digest_type& feature_digest
    return (activated_features.find(feature_digest) != activated_features.end());
 }
 
-bool controller::is_builtin_activated(builtin_protocol_feature_t f) const
-{
+bool controller::is_builtin_activated(builtin_protocol_feature_t f) const {
    uint32_t current_block_num = head_block_num();
 
    if (my->pending) {
@@ -3839,23 +3656,19 @@ bool controller::is_builtin_activated(builtin_protocol_feature_t f) const
    return my->protocol_features.is_builtin_activated(f, current_block_num);
 }
 
-bool controller::is_known_unexpired_transaction(const transaction_id_type& id) const
-{
+bool controller::is_known_unexpired_transaction(const transaction_id_type& id) const {
    return db().find<transaction_object, by_trx_id>(id);
 }
 
-void controller::set_subjective_cpu_leeway(fc::microseconds leeway)
-{
+void controller::set_subjective_cpu_leeway(fc::microseconds leeway) {
    my->subjective_cpu_leeway = leeway;
 }
 
-std::optional<fc::microseconds> controller::get_subjective_cpu_leeway() const
-{
+std::optional<fc::microseconds> controller::get_subjective_cpu_leeway() const {
    return my->subjective_cpu_leeway;
 }
 
-void controller::set_greylist_limit(uint32_t limit)
-{
+void controller::set_greylist_limit(uint32_t limit) {
    EOS_ASSERT(0 < limit && limit <= chain::config::maximum_elastic_resource_multiplier,
               misc_exception,
               "Invalid limit (${limit}) passed into set_greylist_limit. "
@@ -3864,33 +3677,27 @@ void controller::set_greylist_limit(uint32_t limit)
    my->conf.greylist_limit = limit;
 }
 
-uint32_t controller::get_greylist_limit() const
-{
+uint32_t controller::get_greylist_limit() const {
    return my->conf.greylist_limit;
 }
 
-void controller::add_resource_greylist(const account_name& name)
-{
+void controller::add_resource_greylist(const account_name& name) {
    my->conf.resource_greylist.insert(name);
 }
 
-void controller::remove_resource_greylist(const account_name& name)
-{
+void controller::remove_resource_greylist(const account_name& name) {
    my->conf.resource_greylist.erase(name);
 }
 
-bool controller::is_resource_greylisted(const account_name& name) const
-{
+bool controller::is_resource_greylisted(const account_name& name) const {
    return my->conf.resource_greylist.find(name) != my->conf.resource_greylist.end();
 }
 
-const flat_set<account_name>& controller::get_resource_greylist() const
-{
+const flat_set<account_name>& controller::get_resource_greylist() const {
    return my->conf.resource_greylist;
 }
 
-void controller::add_to_ram_correction(account_name account, uint64_t ram_bytes)
-{
+void controller::add_to_ram_correction(account_name account, uint64_t ram_bytes) {
    auto ptr = my->db.find<account_ram_correction_object, by_name>(account);
    if (ptr) {
       my->db.modify<account_ram_correction_object>(*ptr, [&](auto& rco) { rco.ram_correction += ram_bytes; });
@@ -3906,35 +3713,29 @@ void controller::add_to_ram_correction(account_name account, uint64_t ram_bytes)
    }
 }
 
-bool controller::all_subjective_mitigations_disabled() const
-{
+bool controller::all_subjective_mitigations_disabled() const {
    return my->conf.disable_all_subjective_mitigations;
 }
 
-deep_mind_handler* controller::get_deep_mind_logger() const
-{
+deep_mind_handler* controller::get_deep_mind_logger() const {
    return my->get_deep_mind_logger();
 }
 
-void controller::enable_deep_mind(deep_mind_handler* logger)
-{
+void controller::enable_deep_mind(deep_mind_handler* logger) {
    EOS_ASSERT(logger != nullptr, misc_exception, "Invalid logger passed into enable_deep_mind, must be set");
    my->deep_mind_logger = logger;
 }
 
-uint32_t controller::earliest_available_block_num() const
-{
+uint32_t controller::earliest_available_block_num() const {
    return my->earliest_available_block_num();
 }
 #if defined(EOSIO_EOS_VM_RUNTIME_ENABLED) || defined(EOSIO_EOS_VM_JIT_RUNTIME_ENABLED)
-vm::wasm_allocator& controller::get_wasm_allocator()
-{
+vm::wasm_allocator& controller::get_wasm_allocator() {
    return my->wasm_alloc;
 }
 #endif
 
-std::optional<uint64_t> controller::convert_exception_to_error_code(const fc::exception& e)
-{
+std::optional<uint64_t> controller::convert_exception_to_error_code(const fc::exception& e) {
    const chain_exception* e_ptr = dynamic_cast<const chain_exception*>(&e);
 
    if (e_ptr == nullptr)
@@ -3946,8 +3747,7 @@ std::optional<uint64_t> controller::convert_exception_to_error_code(const fc::ex
    return e_ptr->error_code;
 }
 
-chain_id_type controller::extract_chain_id(snapshot_reader& snapshot)
-{
+chain_id_type controller::extract_chain_id(snapshot_reader& snapshot) {
    chain_snapshot_header header;
    snapshot.read_section<chain_snapshot_header>([&header](auto& section) {
       section.read_row(header);
@@ -3981,8 +3781,7 @@ chain_id_type controller::extract_chain_id(snapshot_reader& snapshot)
    return chain_id;
 }
 
-std::optional<chain_id_type> controller::extract_chain_id_from_db(const path& state_dir)
-{
+std::optional<chain_id_type> controller::extract_chain_id_from_db(const path& state_dir) {
    try {
       chainbase::database db(state_dir, chainbase::database::read_only);
 
@@ -4005,8 +3804,7 @@ std::optional<chain_id_type> controller::extract_chain_id_from_db(const path& st
    return {};
 }
 
-void controller::replace_producer_keys(const public_key_type& key)
-{
+void controller::replace_producer_keys(const public_key_type& key) {
    ilog("Replace producer keys with ${k}", ("k", key));
    mutable_db().modify(db().get<global_property_object>(), [&](auto& gp) {
       gp.proposed_schedule_block_num = {};
@@ -4029,8 +3827,7 @@ void controller::replace_producer_keys(const public_key_type& key)
    }
 }
 
-void controller::replace_account_keys(name account, name permission, const public_key_type& key)
-{
+void controller::replace_account_keys(name account, name permission, const public_key_type& key) {
    auto& rlm  = get_mutable_resource_limits_manager();
    auto* perm = db().find<permission_object, by_owner>(boost::make_tuple(account, permission));
    if (!perm)
@@ -4047,8 +3844,7 @@ void controller::replace_account_keys(name account, name permission, const publi
 /// Protocol feature activation handlers:
 
 template<>
-void controller_impl::on_activation<builtin_protocol_feature_t::preactivate_feature>()
-{
+void controller_impl::on_activation<builtin_protocol_feature_t::preactivate_feature>() {
    db.modify(db.get<protocol_state_object>(), [&](auto& ps) {
       add_intrinsic_to_whitelist(ps.whitelisted_intrinsics, "preactivate_feature");
       add_intrinsic_to_whitelist(ps.whitelisted_intrinsics, "is_feature_activated");
@@ -4056,15 +3852,13 @@ void controller_impl::on_activation<builtin_protocol_feature_t::preactivate_feat
 }
 
 template<>
-void controller_impl::on_activation<builtin_protocol_feature_t::get_sender>()
-{
+void controller_impl::on_activation<builtin_protocol_feature_t::get_sender>() {
    db.modify(db.get<protocol_state_object>(),
              [&](auto& ps) { add_intrinsic_to_whitelist(ps.whitelisted_intrinsics, "get_sender"); });
 }
 
 template<>
-void controller_impl::on_activation<builtin_protocol_feature_t::replace_deferred>()
-{
+void controller_impl::on_activation<builtin_protocol_feature_t::replace_deferred>() {
    const auto& indx = db.get_index<account_ram_correction_index, by_id>();
    for (auto itr = indx.begin(); itr != indx.end(); itr = indx.begin()) {
       int64_t current_ram_usage = resource_limits.get_account_ram_usage(itr->name);
@@ -4089,30 +3883,26 @@ void controller_impl::on_activation<builtin_protocol_feature_t::replace_deferred
 }
 
 template<>
-void controller_impl::on_activation<builtin_protocol_feature_t::webauthn_key>()
-{
+void controller_impl::on_activation<builtin_protocol_feature_t::webauthn_key>() {
    db.modify(db.get<protocol_state_object>(), [&](auto& ps) { ps.num_supported_key_types = 3; });
 }
 
 template<>
-void controller_impl::on_activation<builtin_protocol_feature_t::wtmsig_block_signatures>()
-{
+void controller_impl::on_activation<builtin_protocol_feature_t::wtmsig_block_signatures>() {
    db.modify(db.get<protocol_state_object>(), [&](auto& ps) {
       add_intrinsic_to_whitelist(ps.whitelisted_intrinsics, "set_proposed_producers_ex");
    });
 }
 
 template<>
-void controller_impl::on_activation<builtin_protocol_feature_t::action_return_value>()
-{
+void controller_impl::on_activation<builtin_protocol_feature_t::action_return_value>() {
    db.modify(db.get<protocol_state_object>(), [&](auto& ps) {
       add_intrinsic_to_whitelist(ps.whitelisted_intrinsics, "set_action_return_value");
    });
 }
 
 template<>
-void controller_impl::on_activation<builtin_protocol_feature_t::configurable_wasm_limits>()
-{
+void controller_impl::on_activation<builtin_protocol_feature_t::configurable_wasm_limits>() {
    db.modify(db.get<protocol_state_object>(), [&](auto& ps) {
       add_intrinsic_to_whitelist(ps.whitelisted_intrinsics, "set_wasm_parameters_packed");
       add_intrinsic_to_whitelist(ps.whitelisted_intrinsics, "get_wasm_parameters_packed");
@@ -4120,8 +3910,7 @@ void controller_impl::on_activation<builtin_protocol_feature_t::configurable_was
 }
 
 template<>
-void controller_impl::on_activation<builtin_protocol_feature_t::blockchain_parameters>()
-{
+void controller_impl::on_activation<builtin_protocol_feature_t::blockchain_parameters>() {
    db.modify(db.get<protocol_state_object>(), [&](auto& ps) {
       add_intrinsic_to_whitelist(ps.whitelisted_intrinsics, "get_parameters_packed");
       add_intrinsic_to_whitelist(ps.whitelisted_intrinsics, "set_parameters_packed");
@@ -4129,22 +3918,19 @@ void controller_impl::on_activation<builtin_protocol_feature_t::blockchain_param
 }
 
 template<>
-void controller_impl::on_activation<builtin_protocol_feature_t::get_code_hash>()
-{
+void controller_impl::on_activation<builtin_protocol_feature_t::get_code_hash>() {
    db.modify(db.get<protocol_state_object>(),
              [&](auto& ps) { add_intrinsic_to_whitelist(ps.whitelisted_intrinsics, "get_code_hash"); });
 }
 
 template<>
-void controller_impl::on_activation<builtin_protocol_feature_t::get_block_num>()
-{
+void controller_impl::on_activation<builtin_protocol_feature_t::get_block_num>() {
    db.modify(db.get<protocol_state_object>(),
              [&](auto& ps) { add_intrinsic_to_whitelist(ps.whitelisted_intrinsics, "get_block_num"); });
 }
 
 template<>
-void controller_impl::on_activation<builtin_protocol_feature_t::crypto_primitives>()
-{
+void controller_impl::on_activation<builtin_protocol_feature_t::crypto_primitives>() {
    db.modify(db.get<protocol_state_object>(), [&](auto& ps) {
       add_intrinsic_to_whitelist(ps.whitelisted_intrinsics, "alt_bn128_add");
       add_intrinsic_to_whitelist(ps.whitelisted_intrinsics, "alt_bn128_mul");

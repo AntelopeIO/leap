@@ -15,8 +15,7 @@
 
 namespace bpo = boost::program_options;
 
-int main(int argc, char* argv[])
-{
+int main(int argc, char* argv[]) {
    boost::asio::io_context                                       ctx;
    boost::asio::ip::tcp::resolver                                resolver(ctx);
    boost::beast::websocket::stream<boost::asio::ip::tcp::socket> stream(ctx);

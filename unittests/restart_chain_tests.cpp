@@ -15,8 +15,7 @@ using namespace eosio;
 using namespace testing;
 using namespace chain;
 
-void remove_existing_blocks(controller::config& config)
-{
+void remove_existing_blocks(controller::config& config) {
    auto block_log_path = config.blocks_dir / "blocks.log";
    remove(block_log_path);
    auto block_index_path = config.blocks_dir / "blocks.index";
@@ -25,15 +24,13 @@ void remove_existing_blocks(controller::config& config)
 
 void block_log_set_buff_len(uint64_t len);
 
-void remove_existing_states(controller::config& config)
-{
+void remove_existing_states(controller::config& config) {
    auto state_path = config.state_dir;
    remove_all(state_path);
    fc::create_directories(state_path);
 }
 
-struct dummy_action
-{
+struct dummy_action {
    static eosio::chain::name get_name() { return "dummyaction"_n; }
    static eosio::chain::name get_account() { return "testapi"_n; }
 
@@ -42,8 +39,7 @@ struct dummy_action
    int32_t  c; // 4
 };
 
-struct cf_action
-{
+struct cf_action {
    static eosio::chain::name get_name() { return "cfaction"_n; }
    static eosio::chain::name get_account() { return "testapi"_n; }
 
@@ -58,12 +54,10 @@ FC_REFLECT(cf_action, (payload)(cfd_idx))
 #define DUMMY_ACTION_DEFAULT_B 0xab11cd1244556677
 #define DUMMY_ACTION_DEFAULT_C 0x7451ae12
 
-class replay_tester : public base_tester
-{
+class replay_tester : public base_tester {
 public:
    template<typename OnAppliedTrx>
-   replay_tester(controller::config config, const genesis_state& genesis, OnAppliedTrx&& on_applied_trx)
-   {
+   replay_tester(controller::config config, const genesis_state& genesis, OnAppliedTrx&& on_applied_trx) {
       cfg = config;
       base_tester::open(make_protocol_feature_set(),
                         genesis.compute_chain_id(),
@@ -75,14 +69,12 @@ public:
    using base_tester::produce_block;
 
    signed_block_ptr produce_block(
-      fc::microseconds skip_time = fc::milliseconds(config::block_interval_ms)) override
-   {
+      fc::microseconds skip_time = fc::milliseconds(config::block_interval_ms)) override {
       return _produce_block(skip_time, false);
    }
 
    signed_block_ptr produce_empty_block(
-      fc::microseconds skip_time = fc::milliseconds(config::block_interval_ms)) override
-   {
+      fc::microseconds skip_time = fc::milliseconds(config::block_interval_ms)) override {
       unapplied_transactions.add_aborted(control->abort_block());
       return _produce_block(skip_time, true);
    }
@@ -94,8 +86,7 @@ public:
 
 BOOST_AUTO_TEST_SUITE(restart_chain_tests)
 
-BOOST_AUTO_TEST_CASE(test_existing_state_without_block_log)
-{
+BOOST_AUTO_TEST_CASE(test_existing_state_without_block_log) {
    tester chain;
 
    std::vector<signed_block_ptr> blocks;
@@ -125,8 +116,7 @@ BOOST_AUTO_TEST_CASE(test_existing_state_without_block_log)
    }
 }
 
-BOOST_AUTO_TEST_CASE(test_restart_with_different_chain_id)
-{
+BOOST_AUTO_TEST_CASE(test_restart_with_different_chain_id) {
    tester chain;
 
    std::vector<signed_block_ptr> blocks;
@@ -149,8 +139,7 @@ BOOST_AUTO_TEST_CASE(test_restart_with_different_chain_id)
       other.open(chain_id), chain_id_type_exception, fc_exception_message_starts_with("chain ID in state "));
 }
 
-BOOST_AUTO_TEST_CASE(test_restart_from_block_log)
-{
+BOOST_AUTO_TEST_CASE(test_restart_from_block_log) {
    tester chain;
 
    chain.create_account("replay1"_n);
@@ -180,8 +169,7 @@ BOOST_AUTO_TEST_CASE(test_restart_from_block_log)
    BOOST_REQUIRE_NO_THROW(from_block_log_chain.control->get_account("replay3"_n));
 }
 
-BOOST_AUTO_TEST_CASE(test_light_validation_restart_from_block_log)
-{
+BOOST_AUTO_TEST_CASE(test_light_validation_restart_from_block_log) {
    tester chain(setup_policy::full);
 
    chain.create_account("testapi"_n);
@@ -263,11 +251,9 @@ BOOST_AUTO_TEST_CASE(test_light_validation_restart_from_block_log)
 }
 
 namespace {
-struct scoped_temp_path
-{
+struct scoped_temp_path {
    boost::filesystem::path path;
-   scoped_temp_path()
-   {
+   scoped_temp_path() {
       path = boost::filesystem::unique_path();
       if (boost::unit_test::framework::master_test_suite().argc >= 2) {
          path += boost::unit_test::framework::master_test_suite().argv[1];
@@ -277,15 +263,9 @@ struct scoped_temp_path
 };
 }
 
-enum class buf_len_type
-{
-   small,
-   medium,
-   large
-};
+enum class buf_len_type { small, medium, large };
 
-void trim_blocklog_front(uint32_t truncate_at_block, buf_len_type len_type)
-{
+void trim_blocklog_front(uint32_t truncate_at_block, buf_len_type len_type) {
    tester chain;
    chain.produce_blocks(30);
    chain.close();
@@ -323,8 +303,7 @@ void trim_blocklog_front(uint32_t truncate_at_block, buf_len_type len_type)
                old_index_size - sizeof(uint64_t) * num_blocks_trimmed);
 }
 
-BOOST_AUTO_TEST_CASE(test_trim_blocklog_front)
-{
+BOOST_AUTO_TEST_CASE(test_trim_blocklog_front) {
    trim_blocklog_front(5, buf_len_type::small);
    trim_blocklog_front(6, buf_len_type::small);
    trim_blocklog_front(10, buf_len_type::medium);

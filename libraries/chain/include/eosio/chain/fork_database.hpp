@@ -18,8 +18,7 @@ struct fork_database_impl;
  * blocks older than the last irreversible block are freed after emitting the
  * irreversible signal.
  */
-class fork_database
-{
+class fork_database {
 public:
    explicit fork_database(const fc::path& data_dir);
    ~fork_database();

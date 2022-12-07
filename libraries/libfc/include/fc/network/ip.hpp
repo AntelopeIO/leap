@@ -8,8 +8,7 @@
 namespace fc {
 
 namespace ip {
-class address
-{
+class address {
 public:
    address(uint32_t _ip = 0);
    address(const fc::string& s);
@@ -43,8 +42,7 @@ private:
    uint32_t _ip;
 };
 
-class endpoint
-{
+class endpoint {
 public:
    endpoint();
    endpoint(const address& i, uint16_t p = 0);
@@ -84,27 +82,23 @@ void from_variant(const variant& var, ip::address& vo);
 
 namespace raw {
 template<typename Stream>
-inline void pack(Stream& s, const ip::address& v)
-{
+inline void pack(Stream& s, const ip::address& v) {
    fc::raw::pack(s, uint32_t(v));
 }
 template<typename Stream>
-inline void unpack(Stream& s, ip::address& v)
-{
+inline void unpack(Stream& s, ip::address& v) {
    uint32_t _ip;
    fc::raw::unpack(s, _ip);
    v = ip::address(_ip);
 }
 
 template<typename Stream>
-inline void pack(Stream& s, const ip::endpoint& v)
-{
+inline void pack(Stream& s, const ip::endpoint& v) {
    fc::raw::pack(s, v.get_address());
    fc::raw::pack(s, v.port());
 }
 template<typename Stream>
-inline void unpack(Stream& s, ip::endpoint& v)
-{
+inline void unpack(Stream& s, ip::endpoint& v) {
    ip::address a;
    uint16_t    p;
    fc::raw::unpack(s, a);
@@ -118,8 +112,7 @@ FC_REFLECT_TYPENAME(fc::ip::address)
 FC_REFLECT_TYPENAME(fc::ip::endpoint)
 namespace std {
 template<>
-struct hash<fc::ip::endpoint>
-{
+struct hash<fc::ip::endpoint> {
    size_t operator()(const fc::ip::endpoint& e) const { return fc::city_hash_size_t((char*)&e, sizeof(e)); }
 };
 }

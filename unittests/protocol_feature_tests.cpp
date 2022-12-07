@@ -19,8 +19,7 @@ using namespace std::literals;
 
 BOOST_AUTO_TEST_SUITE(protocol_feature_tests)
 
-BOOST_AUTO_TEST_CASE(activate_preactivate_feature)
-try {
+BOOST_AUTO_TEST_CASE(activate_preactivate_feature) try {
    tester      c(setup_policy::none);
    const auto& pfm = c.control->get_protocol_feature_manager();
 
@@ -78,8 +77,7 @@ try {
 }
 FC_LOG_AND_RETHROW()
 
-BOOST_AUTO_TEST_CASE(activate_and_restart)
-try {
+BOOST_AUTO_TEST_CASE(activate_and_restart) try {
    tester      c(setup_policy::none);
    const auto& pfm = c.control->get_protocol_feature_manager();
 
@@ -107,8 +105,7 @@ try {
 }
 FC_LOG_AND_RETHROW()
 
-BOOST_AUTO_TEST_CASE(double_preactivation)
-try {
+BOOST_AUTO_TEST_CASE(double_preactivation) try {
    tester      c(setup_policy::preactivate_feature_and_new_bios);
    const auto& pfm = c.control->get_protocol_feature_manager();
 
@@ -139,8 +136,7 @@ try {
 }
 FC_LOG_AND_RETHROW()
 
-BOOST_AUTO_TEST_CASE(double_activation)
-try {
+BOOST_AUTO_TEST_CASE(double_activation) try {
    tester      c(setup_policy::preactivate_feature_and_new_bios);
    const auto& pfm = c.control->get_protocol_feature_manager();
 
@@ -177,8 +173,7 @@ try {
 }
 FC_LOG_AND_RETHROW()
 
-BOOST_AUTO_TEST_CASE(require_preactivation_test)
-try {
+BOOST_AUTO_TEST_CASE(require_preactivation_test) try {
    tester      c(setup_policy::preactivate_feature_and_new_bios);
    const auto& pfm = c.control->get_protocol_feature_manager();
 
@@ -223,8 +218,7 @@ try {
 }
 FC_LOG_AND_RETHROW()
 
-BOOST_AUTO_TEST_CASE(only_link_to_existing_permission_test)
-try {
+BOOST_AUTO_TEST_CASE(only_link_to_existing_permission_test) try {
    tester      c(setup_policy::preactivate_feature_and_new_bios);
    const auto& pfm = c.control->get_protocol_feature_manager();
 
@@ -281,8 +275,7 @@ try {
 }
 FC_LOG_AND_RETHROW()
 
-BOOST_AUTO_TEST_CASE(subjective_restrictions_test)
-try {
+BOOST_AUTO_TEST_CASE(subjective_restrictions_test) try {
    tester      c(setup_policy::none);
    const auto& pfm = c.control->get_protocol_feature_manager();
 
@@ -388,8 +381,7 @@ try {
 }
 FC_LOG_AND_RETHROW()
 
-BOOST_AUTO_TEST_CASE(replace_deferred_test)
-try {
+BOOST_AUTO_TEST_CASE(replace_deferred_test) try {
    tester c(setup_policy::preactivate_feature_and_new_bios);
 
    c.preactivate_builtin_protocol_features({ builtin_protocol_feature_t::crypto_primitives });
@@ -529,8 +521,7 @@ try {
 }
 FC_LOG_AND_RETHROW()
 
-BOOST_AUTO_TEST_CASE(no_duplicate_deferred_id_test)
-try {
+BOOST_AUTO_TEST_CASE(no_duplicate_deferred_id_test) try {
    tester c(setup_policy::preactivate_feature_and_new_bios);
    tester c2(setup_policy::none);
 
@@ -703,8 +694,7 @@ try {
 }
 FC_LOG_AND_RETHROW()
 
-BOOST_AUTO_TEST_CASE(fix_linkauth_restriction)
-{
+BOOST_AUTO_TEST_CASE(fix_linkauth_restriction) {
    try {
       tester chain(setup_policy::preactivate_feature_and_new_bios);
 
@@ -776,8 +766,7 @@ BOOST_AUTO_TEST_CASE(fix_linkauth_restriction)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(disallow_empty_producer_schedule_test)
-{
+BOOST_AUTO_TEST_CASE(disallow_empty_producer_schedule_test) {
    try {
       tester c(setup_policy::preactivate_feature_and_new_bios);
 
@@ -807,8 +796,7 @@ BOOST_AUTO_TEST_CASE(disallow_empty_producer_schedule_test)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(restrict_action_to_self_test)
-{
+BOOST_AUTO_TEST_CASE(restrict_action_to_self_test) {
    try {
       tester c(setup_policy::preactivate_feature_and_new_bios);
 
@@ -892,8 +880,7 @@ BOOST_AUTO_TEST_CASE(restrict_action_to_self_test)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(only_bill_to_first_authorizer)
-{
+BOOST_AUTO_TEST_CASE(only_bill_to_first_authorizer) {
    try {
       tester chain(setup_policy::preactivate_feature_and_new_bios);
 
@@ -1003,8 +990,7 @@ BOOST_AUTO_TEST_CASE(only_bill_to_first_authorizer)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(forward_setcode_test)
-{
+BOOST_AUTO_TEST_CASE(forward_setcode_test) {
    try {
       tester c(setup_policy::preactivate_feature_only);
 
@@ -1069,8 +1055,7 @@ BOOST_AUTO_TEST_CASE(forward_setcode_test)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(get_sender_test)
-{
+BOOST_AUTO_TEST_CASE(get_sender_test) {
    try {
       tester c(setup_policy::preactivate_feature_and_new_bios);
 
@@ -1130,8 +1115,7 @@ BOOST_AUTO_TEST_CASE(get_sender_test)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(ram_restrictions_test)
-{
+BOOST_AUTO_TEST_CASE(ram_restrictions_test) {
    try {
       tester c(setup_policy::preactivate_feature_and_new_bios);
 
@@ -1373,8 +1357,7 @@ BOOST_AUTO_TEST_CASE(ram_restrictions_test)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(webauthn_producer)
-{
+BOOST_AUTO_TEST_CASE(webauthn_producer) {
    try {
       tester c(setup_policy::preactivate_feature_and_new_bios);
 
@@ -1407,8 +1390,7 @@ BOOST_AUTO_TEST_CASE(webauthn_producer)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(webauthn_create_account)
-{
+BOOST_AUTO_TEST_CASE(webauthn_create_account) {
    try {
       tester c(setup_policy::preactivate_feature_and_new_bios);
 
@@ -1443,8 +1425,7 @@ BOOST_AUTO_TEST_CASE(webauthn_create_account)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(webauthn_update_account_auth)
-{
+BOOST_AUTO_TEST_CASE(webauthn_update_account_auth) {
    try {
       tester c(setup_policy::preactivate_feature_and_new_bios);
 
@@ -1505,8 +1486,7 @@ static const char webauthn_recover_key_wast[] = R"=====(
 )
 )=====";
 
-BOOST_AUTO_TEST_CASE(webauthn_recover_key)
-{
+BOOST_AUTO_TEST_CASE(webauthn_recover_key) {
    try {
       tester c(setup_policy::preactivate_feature_and_new_bios);
 
@@ -1558,8 +1538,7 @@ static const char webauthn_assert_recover_key_wast[] = R"=====(
 )
 )=====";
 
-BOOST_AUTO_TEST_CASE(webauthn_assert_recover_key)
-{
+BOOST_AUTO_TEST_CASE(webauthn_assert_recover_key) {
    try {
       tester c(setup_policy::preactivate_feature_and_new_bios);
 
@@ -1609,8 +1588,7 @@ static const char import_set_proposed_producer_ex_wast[] = R"=====(
 )
 )=====";
 
-BOOST_AUTO_TEST_CASE(set_proposed_producers_ex_test)
-{
+BOOST_AUTO_TEST_CASE(set_proposed_producers_ex_test) {
    try {
       tester c(setup_policy::preactivate_feature_and_new_bios);
 
@@ -1664,8 +1642,7 @@ BOOST_AUTO_TEST_CASE(set_proposed_producers_ex_test)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(producer_schedule_change_extension_test)
-{
+BOOST_AUTO_TEST_CASE(producer_schedule_change_extension_test) {
    try {
       tester c(setup_policy::preactivate_feature_and_new_bios);
 
@@ -1790,8 +1767,7 @@ BOOST_AUTO_TEST_CASE(producer_schedule_change_extension_test)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(wtmsig_block_signing_inflight_legacy_test)
-{
+BOOST_AUTO_TEST_CASE(wtmsig_block_signing_inflight_legacy_test) {
    try {
       tester c(setup_policy::preactivate_feature_and_new_bios);
 
@@ -1831,8 +1807,7 @@ BOOST_AUTO_TEST_CASE(wtmsig_block_signing_inflight_legacy_test)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(wtmsig_block_signing_inflight_extension_test)
-{
+BOOST_AUTO_TEST_CASE(wtmsig_block_signing_inflight_extension_test) {
    try {
       tester c(setup_policy::preactivate_feature_and_new_bios);
 
@@ -1894,8 +1869,7 @@ static const char import_set_action_return_value_wast[] = R"=====(
 )
 )=====";
 
-BOOST_AUTO_TEST_CASE(set_action_return_value_test)
-{
+BOOST_AUTO_TEST_CASE(set_action_return_value_test) {
    try {
       tester c(setup_policy::preactivate_feature_and_new_bios);
 
@@ -1952,8 +1926,7 @@ static const char import_get_parameters_packed_wast[] = R"=====(
 )
 )=====";
 
-BOOST_AUTO_TEST_CASE(get_parameters_packed_test)
-{
+BOOST_AUTO_TEST_CASE(get_parameters_packed_test) {
    try {
       tester c(setup_policy::preactivate_feature_and_new_bios);
 
@@ -2020,8 +1993,7 @@ static const char import_set_parameters_packed_wast[] = R"=====(
 )
 )=====";
 
-BOOST_AUTO_TEST_CASE(set_parameters_packed_test)
-{
+BOOST_AUTO_TEST_CASE(set_parameters_packed_test) {
    try {
       tester c(setup_policy::preactivate_feature_and_new_bios);
 

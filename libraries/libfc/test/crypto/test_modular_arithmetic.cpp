@@ -14,8 +14,7 @@ using namespace fc;
 #include "test_utils.hpp"
 
 namespace std {
-std::ostream& operator<<(std::ostream& st, const std::variant<fc::modular_arithmetic_error, bytes>& err)
-{
+std::ostream& operator<<(std::ostream& st, const std::variant<fc::modular_arithmetic_error, bytes>& err) {
    if (std::holds_alternative<fc::modular_arithmetic_error>(err))
       st << static_cast<int32_t>(std::get<fc::modular_arithmetic_error>(err));
    else
@@ -26,8 +25,7 @@ std::ostream& operator<<(std::ostream& st, const std::variant<fc::modular_arithm
 
 BOOST_AUTO_TEST_SUITE(modular_arithmetic)
 
-BOOST_AUTO_TEST_CASE(modexp)
-try {
+BOOST_AUTO_TEST_CASE(modexp) try {
 
    using modexp_test = std::tuple<std::vector<string>, std::variant<fc::modular_arithmetic_error, bytes>>;
 
@@ -104,8 +102,7 @@ try {
 }
 FC_LOG_AND_RETHROW();
 
-BOOST_AUTO_TEST_CASE(modexp_benchmarking)
-try {
+BOOST_AUTO_TEST_CASE(modexp_benchmarking) try {
 
    std::mt19937 r(0x11223344);
 
@@ -135,8 +132,7 @@ try {
 
    static_assert(start_num_bytes <= end_num_bytes);
 
-   struct statistics
-   {
+   struct statistics {
       unsigned int modulus_bit_size;  // bit size of modulus and base
       unsigned int exponent_bit_size; // bit size of exponent
       int64_t      min_time_ns;

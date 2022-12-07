@@ -3,8 +3,7 @@
 const string         wasm_str_float_misc_0 = base_dir + "/float_misc.0.wasm";
 std::vector<uint8_t> wasm_float_misc_0     = read_wasm(wasm_str_float_misc_0.c_str());
 
-BOOST_DATA_TEST_CASE(float_misc_0_pass, boost::unit_test::data::xrange(0, 5), index)
-{
+BOOST_DATA_TEST_CASE(float_misc_0_pass, boost::unit_test::data::xrange(0, 5), index) {
    try {
       TESTER tester;
       tester.produce_block();

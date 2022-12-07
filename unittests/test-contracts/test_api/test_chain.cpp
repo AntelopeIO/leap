@@ -4,15 +4,13 @@
 #include "test_api.hpp"
 
 #pragma pack(push, 1)
-struct producers
-{
+struct producers {
    char      len;
    capi_name producers[21];
 };
 #pragma pack(pop)
 
-void test_chain::test_activeprods()
-{
+void test_chain::test_activeprods() {
    producers act_prods;
    read_action_data(&act_prods, sizeof(producers));
 

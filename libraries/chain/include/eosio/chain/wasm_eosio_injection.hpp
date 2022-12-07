@@ -22,15 +22,13 @@ namespace wasm_injections {
 using namespace IR;
 // helper functions for injection
 
-struct injector_utils
-{
+struct injector_utils {
    static std::map<std::vector<uint16_t>, uint32_t> type_slots;
    static std::map<std::string, uint32_t>           registered_injected;
    static std::map<uint32_t, uint32_t>              injected_index_mapping;
    static uint32_t                                  next_injected_index;
 
-   static void init(Module& mod)
-   {
+   static void init(Module& mod) {
       type_slots.clear();
       registered_injected.clear();
       injected_index_mapping.clear();
@@ -38,8 +36,7 @@ struct injector_utils
       next_injected_index = 0;
    }
 
-   static void build_type_slots(Module& mod)
-   {
+   static void build_type_slots(Module& mod) {
       // add the module types to the type_slots map
       for (size_t i = 0; i < mod.types.size(); i++) {
          std::vector<uint16_t> type_slot_list = { static_cast<uint16_t>(mod.types[i]->ret) };
@@ -50,8 +47,7 @@ struct injector_utils
    }
 
    template<ResultType Result, ValueType... Params>
-   static void add_type_slot(Module& mod)
-   {
+   static void add_type_slot(Module& mod) {
       if (type_slots.find({ FromResultType<Result>::value, FromValueType<Params>::value... }) ==
           type_slots.end()) {
          type_slots.emplace(
@@ -62,16 +58,14 @@ struct injector_utils
    }
 
    // get the next available index that is greater than the last exported function
-   static void get_next_indices(Module& module, int& next_function_index, int& next_actual_index)
-   {
+   static void get_next_indices(Module& module, int& next_function_index, int& next_actual_index) {
       next_function_index =
          module.functions.imports.size() + module.functions.defs.size() + registered_injected.size();
       next_actual_index = next_injected_index++;
    }
 
    template<ResultType Result, ValueType... Params>
-   static void add_import(Module& module, const char* func_name, int32_t& index)
-   {
+   static void add_import(Module& module, const char* func_name, int32_t& index) {
       if (module.functions.imports.size() == 0 ||
           registered_injected.find(func_name) == registered_injected.end()) {
          add_type_slot<Result, Params...>(module);
@@ -112,38 +106,32 @@ struct injector_utils
    }
 };
 
-struct noop_injection_visitor
-{
+struct noop_injection_visitor {
    static void inject(IR::Module& m);
    static void initializer();
 };
 
-struct memories_injection_visitor
-{
+struct memories_injection_visitor {
    static void inject(IR::Module& m);
    static void initializer();
 };
 
-struct data_segments_injection_visitor
-{
+struct data_segments_injection_visitor {
    static void inject(IR::Module& m);
    static void initializer();
 };
 
-struct tables_injection_visitor
-{
+struct tables_injection_visitor {
    static void inject(IR::Module& m);
    static void initializer();
 };
 
-struct globals_injection_visitor
-{
+struct globals_injection_visitor {
    static void inject(IR::Module& m);
    static void initializer();
 };
 
-struct blacklist_injection_visitor
-{
+struct blacklist_injection_visitor {
    static void inject(IR::Module& m);
    static void initializer();
 };
@@ -151,8 +139,7 @@ struct blacklist_injection_visitor
 using wasm_validate_func = std::function<void(IR::Module&)>;
 
 // just pass
-struct no_injections_injectors
-{
+struct no_injections_injectors {
    static void inject(IR::Module& m) {}
 };
 
@@ -161,34 +148,30 @@ struct no_injections_injectors
 // injector 'interface' :
 //          `kills` -> should this injector kill the original instruction
 //          `post`  -> should this injector inject after the original instruction
-struct pass_injector
-{
+struct pass_injector {
    static constexpr bool kills = false;
    static constexpr bool post  = false;
    static void           accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg) {}
 };
 
-struct fix_call_index
-{
+struct fix_call_index {
    static constexpr bool kills = false;
    static constexpr bool post  = false;
    static void           init() {}
-   static void           accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg)
-   {
-      wasm_ops::op_types<>::call_t* call_inst = reinterpret_cast<wasm_ops::op_types<>::call_t*>(inst);
-      auto mapped_index                       = injector_utils::injected_index_mapping.find(call_inst->field);
+   static void           accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg) {
+                wasm_ops::op_types<>::call_t* call_inst = reinterpret_cast<wasm_ops::op_types<>::call_t*>(inst);
+                auto mapped_index = injector_utils::injected_index_mapping.find(call_inst->field);
 
-      if (mapped_index != injector_utils::injected_index_mapping.end()) {
-         call_inst->field = mapped_index->second;
+                if (mapped_index != injector_utils::injected_index_mapping.end()) {
+                   call_inst->field = mapped_index->second;
       } else {
-         call_inst->field += injector_utils::registered_injected.size();
+                   call_inst->field += injector_utils::registered_injected.size();
       }
    }
 };
 
 // float injections
-constexpr const char* inject_which_op(uint16_t opcode)
-{
+constexpr const char* inject_which_op(uint16_t opcode) {
    switch (opcode) {
       case wasm_ops::f32_add_code: return u8"_eosio_f32_add";
       case wasm_ops::f32_sub_code: return u8"_eosio_f32_sub";
@@ -256,267 +239,234 @@ constexpr const char* inject_which_op(uint16_t opcode)
 }
 
 template<uint16_t Opcode>
-struct f32_binop_injector
-{
+struct f32_binop_injector {
    static constexpr bool kills = true;
    static constexpr bool post  = false;
    static void           init() {}
-   static void           accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg)
-   {
-      int32_t idx;
-      injector_utils::add_import<ResultType::f32, ValueType::f32, ValueType::f32>(
+   static void           accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg) {
+                int32_t idx;
+                injector_utils::add_import<ResultType::f32, ValueType::f32, ValueType::f32>(
          *(arg.module), inject_which_op(Opcode), idx);
-      wasm_ops::op_types<>::call_t f32op;
-      f32op.field = idx;
-      f32op.pack(arg.new_code);
+                wasm_ops::op_types<>::call_t f32op;
+                f32op.field = idx;
+                f32op.pack(arg.new_code);
    }
 };
 
 template<uint16_t Opcode>
-struct f32_unop_injector
-{
+struct f32_unop_injector {
    static constexpr bool kills = true;
    static constexpr bool post  = false;
    static void           init() {}
-   static void           accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg)
-   {
-      int32_t idx;
-      injector_utils::add_import<ResultType::f32, ValueType::f32>(
+   static void           accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg) {
+                int32_t idx;
+                injector_utils::add_import<ResultType::f32, ValueType::f32>(
          *(arg.module), inject_which_op(Opcode), idx);
-      wasm_ops::op_types<>::call_t f32op;
-      f32op.field = idx;
-      f32op.pack(arg.new_code);
+                wasm_ops::op_types<>::call_t f32op;
+                f32op.field = idx;
+                f32op.pack(arg.new_code);
    }
 };
 
 template<uint16_t Opcode>
-struct f32_relop_injector
-{
+struct f32_relop_injector {
    static constexpr bool kills = true;
    static constexpr bool post  = false;
    static void           init() {}
-   static void           accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg)
-   {
-      int32_t idx;
-      injector_utils::add_import<ResultType::i32, ValueType::f32, ValueType::f32>(
+   static void           accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg) {
+                int32_t idx;
+                injector_utils::add_import<ResultType::i32, ValueType::f32, ValueType::f32>(
          *(arg.module), inject_which_op(Opcode), idx);
-      wasm_ops::op_types<>::call_t f32op;
-      f32op.field = idx;
-      f32op.pack(arg.new_code);
+                wasm_ops::op_types<>::call_t f32op;
+                f32op.field = idx;
+                f32op.pack(arg.new_code);
    }
 };
 template<uint16_t Opcode>
-struct f64_binop_injector
-{
+struct f64_binop_injector {
    static constexpr bool kills = true;
    static constexpr bool post  = false;
    static void           init() {}
-   static void           accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg)
-   {
-      int32_t idx;
-      injector_utils::add_import<ResultType::f64, ValueType::f64, ValueType::f64>(
+   static void           accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg) {
+                int32_t idx;
+                injector_utils::add_import<ResultType::f64, ValueType::f64, ValueType::f64>(
          *(arg.module), inject_which_op(Opcode), idx);
-      wasm_ops::op_types<>::call_t f64op;
-      f64op.field = idx;
-      f64op.pack(arg.new_code);
+                wasm_ops::op_types<>::call_t f64op;
+                f64op.field = idx;
+                f64op.pack(arg.new_code);
    }
 };
 
 template<uint16_t Opcode>
-struct f64_unop_injector
-{
+struct f64_unop_injector {
    static constexpr bool kills = true;
    static constexpr bool post  = false;
    static void           init() {}
-   static void           accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg)
-   {
-      int32_t idx;
-      injector_utils::add_import<ResultType::f64, ValueType::f64>(
+   static void           accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg) {
+                int32_t idx;
+                injector_utils::add_import<ResultType::f64, ValueType::f64>(
          *(arg.module), inject_which_op(Opcode), idx);
-      wasm_ops::op_types<>::call_t f64op;
-      f64op.field = idx;
-      f64op.pack(arg.new_code);
+                wasm_ops::op_types<>::call_t f64op;
+                f64op.field = idx;
+                f64op.pack(arg.new_code);
    }
 };
 
 template<uint16_t Opcode>
-struct f64_relop_injector
-{
+struct f64_relop_injector {
    static constexpr bool kills = true;
    static constexpr bool post  = false;
    static void           init() {}
-   static void           accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg)
-   {
-      int32_t idx;
-      injector_utils::add_import<ResultType::i32, ValueType::f64, ValueType::f64>(
+   static void           accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg) {
+                int32_t idx;
+                injector_utils::add_import<ResultType::i32, ValueType::f64, ValueType::f64>(
          *(arg.module), inject_which_op(Opcode), idx);
-      wasm_ops::op_types<>::call_t f64op;
-      f64op.field = idx;
-      f64op.pack(arg.new_code);
+                wasm_ops::op_types<>::call_t f64op;
+                f64op.field = idx;
+                f64op.pack(arg.new_code);
    }
 };
 
 template<uint16_t Opcode>
-struct f32_trunc_i32_injector
-{
+struct f32_trunc_i32_injector {
    static constexpr bool kills = true;
    static constexpr bool post  = false;
    static void           init() {}
-   static void           accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg)
-   {
-      int32_t idx;
-      injector_utils::add_import<ResultType::i32, ValueType::f32>(
+   static void           accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg) {
+                int32_t idx;
+                injector_utils::add_import<ResultType::i32, ValueType::f32>(
          *(arg.module), inject_which_op(Opcode), idx);
-      wasm_ops::op_types<>::call_t f32op;
-      f32op.field = idx;
-      f32op.pack(arg.new_code);
+                wasm_ops::op_types<>::call_t f32op;
+                f32op.field = idx;
+                f32op.pack(arg.new_code);
    }
 };
 template<uint16_t Opcode>
-struct f32_trunc_i64_injector
-{
+struct f32_trunc_i64_injector {
    static constexpr bool kills = true;
    static constexpr bool post  = false;
    static void           init() {}
-   static void           accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg)
-   {
-      int32_t idx;
-      injector_utils::add_import<ResultType::i64, ValueType::f32>(
+   static void           accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg) {
+                int32_t idx;
+                injector_utils::add_import<ResultType::i64, ValueType::f32>(
          *(arg.module), inject_which_op(Opcode), idx);
-      wasm_ops::op_types<>::call_t f32op;
-      f32op.field = idx;
-      f32op.pack(arg.new_code);
+                wasm_ops::op_types<>::call_t f32op;
+                f32op.field = idx;
+                f32op.pack(arg.new_code);
    }
 };
 template<uint16_t Opcode>
-struct f64_trunc_i32_injector
-{
+struct f64_trunc_i32_injector {
    static constexpr bool kills = true;
    static constexpr bool post  = false;
    static void           init() {}
-   static void           accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg)
-   {
-      int32_t idx;
-      injector_utils::add_import<ResultType::i32, ValueType::f64>(
+   static void           accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg) {
+                int32_t idx;
+                injector_utils::add_import<ResultType::i32, ValueType::f64>(
          *(arg.module), inject_which_op(Opcode), idx);
-      wasm_ops::op_types<>::call_t f32op;
-      f32op.field = idx;
-      f32op.pack(arg.new_code);
+                wasm_ops::op_types<>::call_t f32op;
+                f32op.field = idx;
+                f32op.pack(arg.new_code);
    }
 };
 template<uint16_t Opcode>
-struct f64_trunc_i64_injector
-{
+struct f64_trunc_i64_injector {
    static constexpr bool kills = true;
    static constexpr bool post  = false;
    static void           init() {}
-   static void           accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg)
-   {
-      int32_t idx;
-      injector_utils::add_import<ResultType::i64, ValueType::f64>(
+   static void           accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg) {
+                int32_t idx;
+                injector_utils::add_import<ResultType::i64, ValueType::f64>(
          *(arg.module), inject_which_op(Opcode), idx);
-      wasm_ops::op_types<>::call_t f32op;
-      f32op.field = idx;
-      f32op.pack(arg.new_code);
+                wasm_ops::op_types<>::call_t f32op;
+                f32op.field = idx;
+                f32op.pack(arg.new_code);
    }
 };
 template<uint64_t Opcode>
-struct i32_convert_f32_injector
-{
+struct i32_convert_f32_injector {
    static constexpr bool kills = true;
    static constexpr bool post  = false;
    static void           init() {}
-   static void           accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg)
-   {
-      int32_t idx;
-      injector_utils::add_import<ResultType::f32, ValueType::i32>(
+   static void           accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg) {
+                int32_t idx;
+                injector_utils::add_import<ResultType::f32, ValueType::i32>(
          *(arg.module), inject_which_op(Opcode), idx);
-      wasm_ops::op_types<>::call_t f32op;
-      f32op.field = idx;
-      f32op.pack(arg.new_code);
+                wasm_ops::op_types<>::call_t f32op;
+                f32op.field = idx;
+                f32op.pack(arg.new_code);
    }
 };
 template<uint64_t Opcode>
-struct i64_convert_f32_injector
-{
+struct i64_convert_f32_injector {
    static constexpr bool kills = true;
    static constexpr bool post  = false;
    static void           init() {}
-   static void           accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg)
-   {
-      int32_t idx;
-      injector_utils::add_import<ResultType::f32, ValueType::i64>(
+   static void           accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg) {
+                int32_t idx;
+                injector_utils::add_import<ResultType::f32, ValueType::i64>(
          *(arg.module), inject_which_op(Opcode), idx);
-      wasm_ops::op_types<>::call_t f32op;
-      f32op.field = idx;
-      f32op.pack(arg.new_code);
+                wasm_ops::op_types<>::call_t f32op;
+                f32op.field = idx;
+                f32op.pack(arg.new_code);
    }
 };
 template<uint64_t Opcode>
-struct i32_convert_f64_injector
-{
+struct i32_convert_f64_injector {
    static constexpr bool kills = true;
    static constexpr bool post  = false;
    static void           init() {}
-   static void           accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg)
-   {
-      int32_t idx;
-      injector_utils::add_import<ResultType::f64, ValueType::i32>(
+   static void           accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg) {
+                int32_t idx;
+                injector_utils::add_import<ResultType::f64, ValueType::i32>(
          *(arg.module), inject_which_op(Opcode), idx);
-      wasm_ops::op_types<>::call_t f64op;
-      f64op.field = idx;
-      f64op.pack(arg.new_code);
+                wasm_ops::op_types<>::call_t f64op;
+                f64op.field = idx;
+                f64op.pack(arg.new_code);
    }
 };
 template<uint64_t Opcode>
-struct i64_convert_f64_injector
-{
+struct i64_convert_f64_injector {
    static constexpr bool kills = true;
    static constexpr bool post  = false;
    static void           init() {}
-   static void           accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg)
-   {
-      int32_t idx;
-      injector_utils::add_import<ResultType::f64, ValueType::i64>(
+   static void           accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg) {
+                int32_t idx;
+                injector_utils::add_import<ResultType::f64, ValueType::i64>(
          *(arg.module), inject_which_op(Opcode), idx);
-      wasm_ops::op_types<>::call_t f64op;
-      f64op.field = idx;
-      f64op.pack(arg.new_code);
+                wasm_ops::op_types<>::call_t f64op;
+                f64op.field = idx;
+                f64op.pack(arg.new_code);
    }
 };
 
-struct f32_promote_injector
-{
+struct f32_promote_injector {
    static constexpr bool kills = true;
    static constexpr bool post  = false;
    static void           init() {}
-   static void           accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg)
-   {
-      int32_t idx;
-      injector_utils::add_import<ResultType::f64, ValueType::f32>(*(arg.module), u8"_eosio_f32_promote", idx);
-      wasm_ops::op_types<>::call_t f32promote;
-      f32promote.field = idx;
-      f32promote.pack(arg.new_code);
+   static void           accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg) {
+                int32_t idx;
+                injector_utils::add_import<ResultType::f64, ValueType::f32>(*(arg.module), u8"_eosio_f32_promote", idx);
+                wasm_ops::op_types<>::call_t f32promote;
+                f32promote.field = idx;
+                f32promote.pack(arg.new_code);
    }
 };
 
-struct f64_demote_injector
-{
+struct f64_demote_injector {
    static constexpr bool kills = true;
    static constexpr bool post  = false;
    static void           init() {}
-   static void           accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg)
-   {
-      int32_t idx;
-      injector_utils::add_import<ResultType::f32, ValueType::f64>(*(arg.module), u8"_eosio_f64_demote", idx);
-      wasm_ops::op_types<>::call_t f32promote;
-      f32promote.field = idx;
-      f32promote.pack(arg.new_code);
+   static void           accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg) {
+                int32_t idx;
+                injector_utils::add_import<ResultType::f32, ValueType::f64>(*(arg.module), u8"_eosio_f64_demote", idx);
+                wasm_ops::op_types<>::call_t f32promote;
+                f32promote.field = idx;
+                f32promote.pack(arg.new_code);
    }
 };
 
-struct pre_op_injectors : wasm_ops::op_types<pass_injector>
-{
+struct pre_op_injectors : wasm_ops::op_types<pass_injector> {
    // float binops
    using f32_add_t      = wasm_ops::f32_add<f32_binop_injector<wasm_ops::f32_add_code>>;
    using f32_sub_t      = wasm_ops::f32_sub<f32_binop_injector<wasm_ops::f32_sub_code>>;
@@ -603,22 +553,18 @@ struct pre_op_injectors : wasm_ops::op_types<pass_injector>
       wasm_ops::f64_convert_u_i64<i64_convert_f64_injector<wasm_ops::f64_convert_u_i64_code>>;
 }; // pre_op_injectors
 
-struct post_op_injectors : wasm_ops::op_types<pass_injector>
-{
+struct post_op_injectors : wasm_ops::op_types<pass_injector> {
    using call_t = wasm_ops::call<fix_call_index>;
 };
 
 template<typename... Visitors>
-struct module_injectors
-{
-   static void inject(IR::Module& m)
-   {
+struct module_injectors {
+   static void inject(IR::Module& m) {
       for (auto injector : { Visitors::inject... }) {
          injector(m);
       }
    }
-   static void init()
-   {
+   static void init() {
       // place initial values for static fields of injectors here
       for (auto initializer : { Visitors::initializer... }) {
          initializer();
@@ -626,18 +572,15 @@ struct module_injectors
    }
 };
 
-class wasm_binary_injection
-{
+class wasm_binary_injection {
 public:
    wasm_binary_injection(IR::Module& mod)
-      : _module(&mod)
-   {
+      : _module(&mod) {
       // initialize static fields of injectors
       injector_utils::init(mod);
    }
 
-   void inject()
-   {
+   void inject() {
 
       for (auto& fd : _module->functions.defs) {
          wasm_ops::EOSIO_OperatorDecoderStream<pre_op_injectors> pre_decoder(fd.code);

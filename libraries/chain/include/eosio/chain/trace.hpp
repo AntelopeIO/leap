@@ -7,20 +7,16 @@
 namespace eosio {
 namespace chain {
 
-struct account_delta
-{
+struct account_delta {
    account_delta(const account_name& n, int64_t d)
       : account(n)
-      , delta(d)
-   {
-   }
+      , delta(d) {}
    account_delta() {}
 
    account_name account;
    int64_t      delta = 0;
 
-   friend bool operator<(const account_delta& lhs, const account_delta& rhs)
-   {
+   friend bool operator<(const account_delta& lhs, const account_delta& rhs) {
       return lhs.account < rhs.account;
    }
 };
@@ -28,8 +24,7 @@ struct account_delta
 struct transaction_trace;
 using transaction_trace_ptr = std::shared_ptr<transaction_trace>;
 
-struct action_trace
-{
+struct action_trace {
    action_trace(const transaction_trace& trace,
                 const action&            act,
                 account_name             receiver,
@@ -65,8 +60,7 @@ struct action_trace
    std::vector<char>             return_value;
 };
 
-struct transaction_trace
-{
+struct transaction_trace {
    transaction_id_type                       id;
    uint32_t                                  block_num = 0;
    block_timestamp_type                      block_time;
@@ -87,8 +81,7 @@ struct transaction_trace
 /**
  * Deduce if transaction_trace is the trace of an onblock system transaction
  */
-inline bool is_onblock(const transaction_trace& tt)
-{
+inline bool is_onblock(const transaction_trace& tt) {
    if (tt.action_traces.empty())
       return false;
    const auto& act = tt.action_traces[0].act;

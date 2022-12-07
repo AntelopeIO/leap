@@ -22,8 +22,7 @@ BOOST_AUTO_TEST_SUITE(ram_tests)
 /*************************************************************************************
  * ram_tests test case
  *************************************************************************************/
-BOOST_FIXTURE_TEST_CASE(ram_tests, eosio_system::eosio_system_tester)
-{
+BOOST_FIXTURE_TEST_CASE(ram_tests, eosio_system::eosio_system_tester) {
    try {
       auto       init_request_bytes       = 80000 + 7110; // `7110' is for table token row
       const auto increment_contract_bytes = 10000;

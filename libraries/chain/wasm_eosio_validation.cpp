@@ -12,13 +12,11 @@ namespace chain {
 namespace wasm_validations {
 using namespace IR;
 
-void noop_validation_visitor::validate(const Module& m)
-{
+void noop_validation_visitor::validate(const Module& m) {
    // just pass
 }
 
-void memories_validation_visitor::validate(const Module& m)
-{
+void memories_validation_visitor::validate(const Module& m) {
    if (m.memories.defs.size() &&
        m.memories.defs[0].type.size.min > wasm_constraints::maximum_linear_memory / (64 * 1024))
       FC_THROW_EXCEPTION(wasm_execution_error,
@@ -26,8 +24,7 @@ void memories_validation_visitor::validate(const Module& m)
                          ("k", wasm_constraints::maximum_linear_memory / 1024));
 }
 
-void data_segments_validation_visitor::validate(const Module& m)
-{
+void data_segments_validation_visitor::validate(const Module& m) {
    for (const DataSegment& ds : m.dataSegments) {
       if (ds.baseOffset.type != InitializerExpression::Type::i32_const)
          FC_THROW_EXCEPTION(wasm_execution_error, "Smart contract has unexpected memory base offset type");
@@ -40,16 +37,14 @@ void data_segments_validation_visitor::validate(const Module& m)
    }
 }
 
-void tables_validation_visitor::validate(const Module& m)
-{
+void tables_validation_visitor::validate(const Module& m) {
    if (m.tables.defs.size() && m.tables.defs[0].type.size.min > wasm_constraints::maximum_table_elements)
       FC_THROW_EXCEPTION(wasm_execution_error,
                          "Smart contract table limited to ${t} elements",
                          ("t", wasm_constraints::maximum_table_elements));
 }
 
-void globals_validation_visitor::validate(const Module& m)
-{
+void globals_validation_visitor::validate(const Module& m) {
    unsigned mutable_globals_total_size = 0;
    for (const GlobalDef& global_def : m.globals.defs) {
       if (!global_def.type.isMutable)
@@ -71,8 +66,7 @@ void globals_validation_visitor::validate(const Module& m)
                          ("k", wasm_constraints::maximum_mutable_globals));
 }
 
-void maximum_function_stack_visitor::validate(const IR::Module& m)
-{
+void maximum_function_stack_visitor::validate(const IR::Module& m) {
    for (const FunctionDef& func : m.functions.defs) {
       unsigned function_stack_usage = 0;
       for (const ValueType& local : func.nonParameterLocalTypes)
@@ -87,8 +81,7 @@ void maximum_function_stack_visitor::validate(const IR::Module& m)
    }
 }
 
-void ensure_apply_exported_visitor::validate(const IR::Module& m)
-{
+void ensure_apply_exported_visitor::validate(const IR::Module& m) {
    bool found_it = false;
 
    for (const Export& exprt : m.exports) {

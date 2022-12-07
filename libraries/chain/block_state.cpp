@@ -18,8 +18,7 @@ constexpr auto additional_sigs_eid = additional_block_signatures_extension::exte
  */
 vector<signature_type> extract_additional_signatures(const signed_block_ptr&                    b,
                                                      const protocol_feature_set&                pfs,
-                                                     const protocol_feature_activation_set_ptr& pfa)
-{
+                                                     const protocol_feature_activation_set_ptr& pfa) {
    auto exts = b->validate_and_extract_extensions();
 
    if (exts.count(additional_sigs_eid) > 0) {
@@ -52,8 +51,7 @@ template<typename... Extras>
 block_header_state inject_additional_signatures(pending_block_header_state&& cur,
                                                 signed_block&                b,
                                                 const protocol_feature_set&  pfs,
-                                                Extras&&... extras)
-{
+                                                Extras&&... extras) {
    auto               pfa    = cur.prev_activated_protocol_features;
    block_header_state result = std::move(cur).finish_next(b, pfs, std::forward<Extras>(extras)...);
 
@@ -91,9 +89,7 @@ block_state::block_state(
                                   pfs,
                                   validator,
                                   skip_validate_signee))
-   , block(std::move(b))
-{
-}
+   , block(std::move(b)) {}
 
 block_state::block_state(
    pending_block_header_state&&      cur,
@@ -106,9 +102,7 @@ block_state::block_state(
    : block_header_state(inject_additional_signatures(std::move(cur), *b, pfs, validator, signer))
    , block(std::move(b))
    , _pub_keys_recovered(true) // called by produce_block so signature recovery of trxs must have been done
-   , _cached_trxs(std::move(trx_metas))
-{
-}
+   , _cached_trxs(std::move(trx_metas)) {}
 
 }
 } /// eosio::chain

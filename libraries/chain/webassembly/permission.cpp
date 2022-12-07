@@ -6,8 +6,7 @@
 namespace eosio {
 namespace chain {
 namespace webassembly {
-void unpack_provided_keys(flat_set<public_key_type>& keys, const char* pubkeys_data, uint32_t pubkeys_size)
-{
+void unpack_provided_keys(flat_set<public_key_type>& keys, const char* pubkeys_data, uint32_t pubkeys_size) {
    keys.clear();
    if (pubkeys_size == 0)
       return;
@@ -17,8 +16,7 @@ void unpack_provided_keys(flat_set<public_key_type>& keys, const char* pubkeys_d
 
 void unpack_provided_permissions(flat_set<permission_level>& permissions,
                                  const char*                 perms_data,
-                                 uint32_t                    perms_size)
-{
+                                 uint32_t                    perms_size) {
    permissions.clear();
    if (perms_size == 0)
       return;
@@ -28,8 +26,7 @@ void unpack_provided_permissions(flat_set<permission_level>& permissions,
 
 bool interface::check_transaction_authorization(legacy_span<const char> trx_data,
                                                 legacy_span<const char> pubkeys_data,
-                                                legacy_span<const char> perms_data) const
-{
+                                                legacy_span<const char> perms_data) const {
    transaction trx = fc::raw::unpack<transaction>(trx_data.data(), trx_data.size());
 
    flat_set<public_key_type> provided_keys;
@@ -47,8 +44,7 @@ bool interface::check_transaction_authorization(legacy_span<const char> trx_data
          std::bind(&transaction_context::checktime, &context.trx_context),
          false);
       return true;
-   } catch (const authorization_exception& e) {
-   }
+   } catch (const authorization_exception& e) {}
 
    return false;
 }
@@ -57,8 +53,7 @@ bool interface::check_permission_authorization(account_name            account,
                                                permission_name         permission,
                                                legacy_span<const char> pubkeys_data,
                                                legacy_span<const char> perms_data,
-                                               uint64_t                delay_us) const
-{
+                                               uint64_t                delay_us) const {
    EOS_ASSERT(delay_us <= static_cast<uint64_t>(std::numeric_limits<int64_t>::max()),
               action_validate_exception,
               "provided delay is too large");
@@ -79,20 +74,17 @@ bool interface::check_permission_authorization(account_name            account,
          std::bind(&transaction_context::checktime, &context.trx_context),
          false);
       return true;
-   } catch (const authorization_exception& e) {
-   }
+   } catch (const authorization_exception& e) {}
 
    return false;
 }
 
-int64_t interface::get_permission_last_used(account_name account, permission_name permission) const
-{
+int64_t interface::get_permission_last_used(account_name account, permission_name permission) const {
    const auto& am = context.control.get_authorization_manager();
    return am.get_permission_last_used(am.get_permission({ account, permission })).time_since_epoch().count();
 };
 
-int64_t interface::get_account_creation_time(account_name account) const
-{
+int64_t interface::get_account_creation_time(account_name account) const {
    const auto* acct = context.db.find<account_object, by_name>(account);
    EOS_ASSERT(acct != nullptr,
               action_validate_exception,

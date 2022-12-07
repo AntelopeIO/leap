@@ -8,8 +8,7 @@
 namespace fc {
 const string& get_thread_name();
 namespace detail {
-class log_context_impl
-{
+class log_context_impl {
 public:
    log_level  level;
    string     file;
@@ -22,13 +21,10 @@ public:
    time_point timestamp;
 };
 
-class log_message_impl
-{
+class log_message_impl {
 public:
    log_message_impl(log_context&& ctx)
-      : context(std::move(ctx))
-   {
-   }
+      : context(std::move(ctx)) {}
    log_message_impl() {}
 
    log_context    context;
@@ -38,13 +34,10 @@ public:
 }
 
 log_context::log_context()
-   : my(std::make_shared<detail::log_context_impl>())
-{
-}
+   : my(std::make_shared<detail::log_context_impl>()) {}
 
 log_context::log_context(log_level ll, const char* file, uint64_t line, const char* method)
-   : my(std::make_shared<detail::log_context_impl>())
-{
+   : my(std::make_shared<detail::log_context_impl>()) {
    my->level       = ll;
    my->file        = fc::path(file).filename().generic_string(); // TODO truncate filename
    my->line        = line;
@@ -54,8 +47,7 @@ log_context::log_context(log_level ll, const char* file, uint64_t line, const ch
 }
 
 log_context::log_context(const variant& v)
-   : my(std::make_shared<detail::log_context_impl>())
-{
+   : my(std::make_shared<detail::log_context_impl>()) {
    auto obj        = v.get_object();
    my->level       = obj["level"].as<log_level>();
    my->file        = obj["file"].as_string();
@@ -70,13 +62,11 @@ log_context::log_context(const variant& v)
       my->context = obj["context"].as<string>();
 }
 
-fc::string log_context::to_string() const
-{
+fc::string log_context::to_string() const {
    return my->thread_name + "  " + my->file + ":" + fc::to_string(my->line) + " " + my->method;
 }
 
-void log_context::append_context(const fc::string& s)
-{
+void log_context::append_context(const fc::string& s) {
    if (!my->context.empty())
       my->context += " -> ";
    my->context += s;
@@ -84,27 +74,22 @@ void log_context::append_context(const fc::string& s)
 
 log_context::~log_context() {}
 
-void to_variant(const log_context& l, variant& v)
-{
+void to_variant(const log_context& l, variant& v) {
    v = l.to_variant();
 }
 
-void from_variant(const variant& l, log_context& c)
-{
+void from_variant(const variant& l, log_context& c) {
    c = log_context(l);
 }
 
-void from_variant(const variant& l, log_message& c)
-{
+void from_variant(const variant& l, log_message& c) {
    c = log_message(l);
 }
-void to_variant(const log_message& m, variant& v)
-{
+void to_variant(const log_message& m, variant& v) {
    v = m.to_variant();
 }
 
-void to_variant(log_level e, variant& v)
-{
+void to_variant(log_level e, variant& v) {
    switch (e) {
       case log_level::all: v = "all"; return;
       case log_level::debug: v = "debug"; return;
@@ -114,8 +99,7 @@ void to_variant(log_level e, variant& v)
       case log_level::off: v = "off"; return;
    }
 }
-void from_variant(const variant& v, log_level& e)
-{
+void from_variant(const variant& v, log_level& e) {
    try {
       if (v.as_string() == "all")
          e = log_level::all;
@@ -136,8 +120,7 @@ void from_variant(const variant& v, log_level& e)
       error, "Expected 'all|debug|info|warn|error|off', but got '${variant}'", ("variant", v));
 }
 
-string log_level::to_string() const
-{
+string log_level::to_string() const {
    switch (value) {
       case log_level::all: return "all";
       case log_level::debug: return "debug";
@@ -149,45 +132,35 @@ string log_level::to_string() const
    return "unknown";
 }
 
-string log_context::get_file() const
-{
+string log_context::get_file() const {
    return my->file;
 }
-uint64_t log_context::get_line_number() const
-{
+uint64_t log_context::get_line_number() const {
    return my->line;
 }
-string log_context::get_method() const
-{
+string log_context::get_method() const {
    return my->method;
 }
-string log_context::get_thread_name() const
-{
+string log_context::get_thread_name() const {
    return my->thread_name;
 }
-string log_context::get_task_name() const
-{
+string log_context::get_task_name() const {
    return my->task_name;
 }
-string log_context::get_host_name() const
-{
+string log_context::get_host_name() const {
    return my->hostname;
 }
-time_point log_context::get_timestamp() const
-{
+time_point log_context::get_timestamp() const {
    return my->timestamp;
 }
-log_level log_context::get_log_level() const
-{
+log_level log_context::get_log_level() const {
    return my->level;
 }
-string log_context::get_context() const
-{
+string log_context::get_context() const {
    return my->context;
 }
 
-variant log_context::to_variant() const
-{
+variant log_context::to_variant() const {
    mutable_variant_object o;
    o("level", variant(my->level))("file", my->file)("line", my->line)("method", my->method)(
       "hostname", my->hostname)("thread_name", my->thread_name)("timestamp", variant(my->timestamp));
@@ -200,49 +173,39 @@ variant log_context::to_variant() const
 
 log_message::~log_message() {}
 log_message::log_message()
-   : my(std::make_shared<detail::log_message_impl>())
-{
-}
+   : my(std::make_shared<detail::log_message_impl>()) {}
 
 log_message::log_message(log_context ctx, std::string format, variant_object args)
-   : my(std::make_shared<detail::log_message_impl>(std::move(ctx)))
-{
+   : my(std::make_shared<detail::log_message_impl>(std::move(ctx))) {
    my->format = std::move(format);
    my->args   = std::move(args);
 }
 
 log_message::log_message(const variant& v)
-   : my(std::make_shared<detail::log_message_impl>(log_context(v.get_object()["context"])))
-{
+   : my(std::make_shared<detail::log_message_impl>(log_context(v.get_object()["context"]))) {
    my->format = v.get_object()["format"].as_string();
    my->args   = v.get_object()["data"].get_object();
 }
 
-variant log_message::to_variant() const
-{
+variant log_message::to_variant() const {
    return mutable_variant_object("context", my->context)("format", my->format)("data", my->args);
 }
 
-log_context log_message::get_context() const
-{
+log_context log_message::get_context() const {
    return my->context;
 }
-string log_message::get_format() const
-{
+string log_message::get_format() const {
    return my->format;
 }
-variant_object log_message::get_data() const
-{
+variant_object log_message::get_data() const {
    return my->args;
 }
 
-string log_message::get_message() const
-{
+string log_message::get_message() const {
    return format_string(my->format, my->args);
 }
 
-string log_message::get_limited_message() const
-{
+string log_message::get_limited_message() const {
    const bool minimize = true;
    return format_string(my->format, my->args, minimize);
 }

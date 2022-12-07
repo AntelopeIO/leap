@@ -17,8 +17,7 @@ namespace chain {
    where the integer represents number of decimals. Number of decimals must be larger than zero.
  */
 
-static constexpr uint64_t string_to_symbol_c(uint8_t precision, const char* str)
-{
+static constexpr uint64_t string_to_symbol_c(uint8_t precision, const char* str) {
    uint32_t len = 0;
    while (str[len])
       ++len;
@@ -35,8 +34,7 @@ static constexpr uint64_t string_to_symbol_c(uint8_t precision, const char* str)
 
 #define SY(P, X) ::eosio::chain::string_to_symbol_c(P, #X)
 
-static uint64_t string_to_symbol(uint8_t precision, const char* str)
-{
+static uint64_t string_to_symbol(uint8_t precision, const char* str) {
    try {
       uint32_t len = 0;
       while (str[len])
@@ -54,30 +52,25 @@ static uint64_t string_to_symbol(uint8_t precision, const char* str)
    FC_CAPTURE_LOG_AND_RETHROW((str))
 }
 
-struct symbol_code
-{
+struct symbol_code {
    uint64_t value;
 
    operator uint64_t() const { return value; }
 };
 
-class symbol : fc::reflect_init
-{
+class symbol : fc::reflect_init {
 public:
    static constexpr uint8_t max_precision = 18;
 
    explicit symbol(uint8_t p, const char* s)
-      : m_value(string_to_symbol(p, s))
-   {
+      : m_value(string_to_symbol(p, s)) {
       EOS_ASSERT(valid(), symbol_type_exception, "invalid symbol: ${s}", ("s", s));
    }
    explicit symbol(uint64_t v = CORE_SYMBOL)
-      : m_value(v)
-   {
+      : m_value(v) {
       EOS_ASSERT(valid(), symbol_type_exception, "invalid symbol: ${name}", ("name", name()));
    }
-   static symbol from_string(const string& from)
-   {
+   static symbol from_string(const string& from) {
       try {
          string s = fc::trim(from);
          EOS_ASSERT(!s.empty(), symbol_type_exception, "creating symbol from empty string");
@@ -92,19 +85,16 @@ public:
       FC_CAPTURE_LOG_AND_RETHROW((from))
    }
    uint64_t value() const { return m_value; }
-   bool     valid() const
-   {
-      const auto& s = name();
-      return decimals() <= max_precision && valid_name(s);
+   bool     valid() const {
+          const auto& s = name();
+          return decimals() <= max_precision && valid_name(s);
    }
-   static bool valid_name(const string& name)
-   {
+   static bool valid_name(const string& name) {
       return all_of(name.begin(), name.end(), [](char c) -> bool { return (c >= 'A' && c <= 'Z'); });
    }
 
    uint8_t  decimals() const { return m_value & 0xFF; }
-   uint64_t precision() const
-   {
+   uint64_t precision() const {
       EOS_ASSERT(decimals() <= max_precision,
                  symbol_type_exception,
                  "precision ${p} should be <= 18",
@@ -117,8 +107,7 @@ public:
       }
       return p10;
    }
-   string name() const
-   {
+   string name() const {
       uint64_t v = m_value;
       v >>= 8;
       string result;
@@ -132,8 +121,7 @@ public:
 
    symbol_code to_symbol_code() const { return { m_value >> 8 }; }
 
-   explicit operator string() const
-   {
+   explicit operator string() const {
       uint64_t v   = m_value;
       uint8_t  p   = v & 0xFF;
       string   ret = eosio::chain::to_string(p);
@@ -144,13 +132,11 @@ public:
 
    string to_string() const { return string(*this); }
    template<typename DataStream>
-   friend DataStream& operator<<(DataStream& ds, const symbol& s)
-   {
+   friend DataStream& operator<<(DataStream& ds, const symbol& s) {
       return ds << s.to_string();
    }
 
-   void reflector_init() const
-   {
+   void reflector_init() const {
       EOS_ASSERT(decimals() <= max_precision,
                  symbol_type_exception,
                  "precision ${p} should be <= 18",
@@ -163,69 +149,56 @@ private:
    friend struct fc::reflector<symbol>;
 }; // class symbol
 
-struct extended_symbol
-{
+struct extended_symbol {
    symbol       sym;
    account_name contract;
 };
 
-inline bool operator==(const symbol& lhs, const symbol& rhs)
-{
+inline bool operator==(const symbol& lhs, const symbol& rhs) {
    return lhs.value() == rhs.value();
 }
-inline bool operator!=(const symbol& lhs, const symbol& rhs)
-{
+inline bool operator!=(const symbol& lhs, const symbol& rhs) {
    return lhs.value() != rhs.value();
 }
-inline bool operator<(const symbol& lhs, const symbol& rhs)
-{
+inline bool operator<(const symbol& lhs, const symbol& rhs) {
    return lhs.value() < rhs.value();
 }
-inline bool operator>(const symbol& lhs, const symbol& rhs)
-{
+inline bool operator>(const symbol& lhs, const symbol& rhs) {
    return lhs.value() > rhs.value();
 }
 
-inline bool operator==(const extended_symbol& lhs, const extended_symbol& rhs)
-{
+inline bool operator==(const extended_symbol& lhs, const extended_symbol& rhs) {
    return std::tie(lhs.sym, lhs.contract) == std::tie(rhs.sym, rhs.contract);
 }
 
-inline bool operator!=(const extended_symbol& lhs, const extended_symbol& rhs)
-{
+inline bool operator!=(const extended_symbol& lhs, const extended_symbol& rhs) {
    return std::tie(lhs.sym, lhs.contract) != std::tie(rhs.sym, rhs.contract);
 }
 
-inline bool operator<(const extended_symbol& lhs, const extended_symbol& rhs)
-{
+inline bool operator<(const extended_symbol& lhs, const extended_symbol& rhs) {
    return std::tie(lhs.sym, lhs.contract) < std::tie(rhs.sym, rhs.contract);
 }
 
-inline bool operator>(const extended_symbol& lhs, const extended_symbol& rhs)
-{
+inline bool operator>(const extended_symbol& lhs, const extended_symbol& rhs) {
    return std::tie(lhs.sym, lhs.contract) > std::tie(rhs.sym, rhs.contract);
 }
 } // namespace chain
 } // namespace eosio
 
 namespace fc {
-inline void to_variant(const eosio::chain::symbol& var, fc::variant& vo)
-{
+inline void to_variant(const eosio::chain::symbol& var, fc::variant& vo) {
    vo = var.to_string();
 }
-inline void from_variant(const fc::variant& var, eosio::chain::symbol& vo)
-{
+inline void from_variant(const fc::variant& var, eosio::chain::symbol& vo) {
    vo = eosio::chain::symbol::from_string(var.get_string());
 }
 }
 
 namespace fc {
-inline void to_variant(const eosio::chain::symbol_code& var, fc::variant& vo)
-{
+inline void to_variant(const eosio::chain::symbol_code& var, fc::variant& vo) {
    vo = eosio::chain::symbol(var.value << 8).name();
 }
-inline void from_variant(const fc::variant& var, eosio::chain::symbol_code& vo)
-{
+inline void from_variant(const fc::variant& var, eosio::chain::symbol_code& vo) {
    vo = eosio::chain::symbol(0, var.get_string().c_str()).to_symbol_code();
 }
 }

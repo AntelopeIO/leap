@@ -7,8 +7,7 @@
 
 namespace fc {
 
-class sha256
-{
+class sha256 {
 public:
    sha256();
    explicit sha256(const string& hex_str);
@@ -26,15 +25,13 @@ public:
    static sha256 hash(const sha256&);
 
    template<typename T>
-   static sha256 hash(const T& t)
-   {
+   static sha256 hash(const T& t) {
       sha256::encoder e;
       fc::raw::pack(e, t);
       return e.result();
    }
 
-   class encoder
-   {
+   class encoder {
    public:
       encoder();
       ~encoder();
@@ -50,15 +47,13 @@ public:
    };
 
    template<typename T>
-   inline friend T& operator<<(T& ds, const sha256& ep)
-   {
+   inline friend T& operator<<(T& ds, const sha256& ep) {
       ds.write(ep.data(), sizeof(ep));
       return ds;
    }
 
    template<typename T>
-   inline friend T& operator>>(T& ds, sha256& ep)
-   {
+   inline friend T& operator>>(T& ds, sha256& ep) {
       ds.read(ep.data(), sizeof(ep));
       return ds;
    }
@@ -71,8 +66,7 @@ public:
    friend bool   operator>(const sha256& h1, const sha256& h2);
    friend bool   operator<(const sha256& h1, const sha256& h2);
 
-   uint32_t pop_count() const
-   {
+   uint32_t pop_count() const {
       return (uint32_t)(__builtin_popcountll(_hash[0]) + __builtin_popcountll(_hash[1]) +
                         __builtin_popcountll(_hash[2]) + __builtin_popcountll(_hash[3]));
    }
@@ -111,8 +105,7 @@ uint64_t hash64(const char* buf, size_t len);
 
 namespace std {
 template<>
-struct hash<fc::sha256>
-{
+struct hash<fc::sha256> {
    size_t operator()(const fc::sha256& s) const { return *((size_t*)&s); }
 };
 
@@ -120,10 +113,8 @@ struct hash<fc::sha256>
 
 namespace boost {
 template<>
-struct hash<fc::sha256>
-{
-   size_t operator()(const fc::sha256& s) const
-   {
+struct hash<fc::sha256> {
+   size_t operator()(const fc::sha256& s) const {
       return s._hash[3]; //*((size_t*)&s);
    }
 };

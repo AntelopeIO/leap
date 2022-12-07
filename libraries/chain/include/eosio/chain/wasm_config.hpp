@@ -7,8 +7,7 @@
 namespace eosio {
 namespace chain {
 
-struct wasm_config
-{
+struct wasm_config {
    std::uint32_t max_mutable_global_bytes;
    std::uint32_t max_table_elements;
    std::uint32_t max_section_elements;
@@ -23,8 +22,7 @@ struct wasm_config
    void          validate() const;
 };
 
-inline constexpr bool operator==(const wasm_config& lhs, const wasm_config& rhs)
-{
+inline constexpr bool operator==(const wasm_config& lhs, const wasm_config& rhs) {
    return lhs.max_mutable_global_bytes == rhs.max_mutable_global_bytes &&
           lhs.max_table_elements == rhs.max_table_elements &&
           lhs.max_section_elements == rhs.max_section_elements &&
@@ -35,8 +33,7 @@ inline constexpr bool operator==(const wasm_config& lhs, const wasm_config& rhs)
           lhs.max_code_bytes == rhs.max_code_bytes && lhs.max_pages == rhs.max_pages &&
           lhs.max_call_depth == rhs.max_call_depth;
 }
-inline constexpr bool operator!=(const wasm_config& lhs, const wasm_config& rhs)
-{
+inline constexpr bool operator!=(const wasm_config& lhs, const wasm_config& rhs) {
    return !(lhs == rhs);
 }
 

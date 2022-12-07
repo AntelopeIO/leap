@@ -13,8 +13,7 @@ constexpr const char* signature_base_prefix = "SIG";
 constexpr const char* signature_prefix[]    = { "K1", "R1", "WA" };
 };
 
-class signature
-{
+class signature {
 public:
    using storage_type = std::variant<ecc::signature_shim, r1::signature_shim, webauthn::signature>;
 
@@ -35,9 +34,7 @@ private:
    storage_type _storage;
 
    signature(storage_type&& other_storage)
-      : _storage(std::forward<storage_type>(other_storage))
-   {
-   }
+      : _storage(std::forward<storage_type>(other_storage)) {}
 
    friend bool        operator==(const signature& p1, const signature& p2);
    friend bool        operator!=(const signature& p1, const signature& p2);
@@ -63,8 +60,7 @@ void from_variant(const variant& var, crypto::signature& vo);
 
 namespace std {
 template<>
-struct hash<fc::crypto::signature>
-{
+struct hash<fc::crypto::signature> {
    std::size_t operator()(const fc::crypto::signature& k) const { return fc::crypto::hash_value(k); }
 };
 } // std

@@ -21,8 +21,7 @@ const uint32_t fork_database::min_supported_version = 1;
 const uint32_t fork_database::max_supported_version = 1;
 
 // work around block_state::is_valid being private
-inline bool block_state_is_valid(const block_state& bs)
-{
+inline bool block_state_is_valid(const block_state& bs) {
    return bs.is_valid();
 }
 
@@ -58,19 +57,15 @@ typedef multi_index_container<
                                            sha256_less>>>>
    fork_multi_index_type;
 
-bool first_preferred(const block_header_state& lhs, const block_header_state& rhs)
-{
+bool first_preferred(const block_header_state& lhs, const block_header_state& rhs) {
    return std::tie(lhs.dpos_irreversible_blocknum, lhs.block_num) >
           std::tie(rhs.dpos_irreversible_blocknum, rhs.block_num);
 }
 
-struct fork_database_impl
-{
+struct fork_database_impl {
    fork_database_impl(fork_database& self, const fc::path& data_dir)
       : self(self)
-      , datadir(data_dir)
-   {
-   }
+      , datadir(data_dir) {}
 
    fork_database&        self;
    fork_multi_index_type index;
@@ -87,14 +82,11 @@ struct fork_database_impl
 };
 
 fork_database::fork_database(const fc::path& data_dir)
-   : my(new fork_database_impl(*this, data_dir))
-{
-}
+   : my(new fork_database_impl(*this, data_dir)) {}
 
 void fork_database::open(
    const std::function<void(block_timestamp_type, const flat_set<digest_type>&, const vector<digest_type>&)>&
-      validator)
-{
+      validator) {
    if (!fc::is_directory(my->datadir))
       fc::create_directories(my->datadir);
 
@@ -174,8 +166,7 @@ void fork_database::open(
    }
 }
 
-void fork_database::close()
-{
+void fork_database::close() {
    auto fork_db_dat = my->datadir / config::forkdb_filename;
 
    if (!my->root) {
@@ -238,13 +229,11 @@ void fork_database::close()
    my->index.clear();
 }
 
-fork_database::~fork_database()
-{
+fork_database::~fork_database() {
    close();
 }
 
-void fork_database::reset(const block_header_state& root_bhs)
-{
+void fork_database::reset(const block_header_state& root_bhs) {
    my->index.clear();
    my->root                                    = std::make_shared<block_state>();
    static_cast<block_header_state&>(*my->root) = root_bhs;
@@ -252,8 +241,7 @@ void fork_database::reset(const block_header_state& root_bhs)
    my->head                                    = my->root;
 }
 
-void fork_database::rollback_head_to_root()
-{
+void fork_database::rollback_head_to_root() {
    auto& by_id_idx = my->index.get<by_block_id>();
    auto  itr       = by_id_idx.begin();
    while (itr != by_id_idx.end()) {
@@ -263,8 +251,7 @@ void fork_database::rollback_head_to_root()
    my->head = my->root;
 }
 
-void fork_database::advance_root(const block_id_type& id)
-{
+void fork_database::advance_root(const block_id_type& id) {
    EOS_ASSERT(my->root, fork_database_exception, "root not yet set");
 
    auto new_root = get_block(id);
@@ -302,8 +289,7 @@ void fork_database::advance_root(const block_id_type& id)
    my->root = new_root;
 }
 
-block_header_state_ptr fork_database::get_block_header(const block_id_type& id) const
-{
+block_header_state_ptr fork_database::get_block_header(const block_id_type& id) const {
    if (my->root->id == id) {
       return my->root;
    }
@@ -320,8 +306,7 @@ void fork_database_impl::add(
    bool                   ignore_duplicate,
    bool                   validate,
    const std::function<void(block_timestamp_type, const flat_set<digest_type>&, const vector<digest_type>&)>&
-      validator)
-{
+      validator) {
    EOS_ASSERT(root, fork_database_exception, "root not yet set");
    EOS_ASSERT(n, fork_database_exception, "attempt to add null block state");
 
@@ -361,8 +346,7 @@ void fork_database_impl::add(
    }
 }
 
-void fork_database::add(const block_state_ptr& n, bool ignore_duplicate)
-{
+void fork_database::add(const block_state_ptr& n, bool ignore_duplicate) {
    my->add(n,
            ignore_duplicate,
            false,
@@ -371,18 +355,15 @@ void fork_database::add(const block_state_ptr& n, bool ignore_duplicate)
               const vector<digest_type>&   new_features) {});
 }
 
-const block_state_ptr& fork_database::root() const
-{
+const block_state_ptr& fork_database::root() const {
    return my->root;
 }
 
-const block_state_ptr& fork_database::head() const
-{
+const block_state_ptr& fork_database::head() const {
    return my->head;
 }
 
-block_state_ptr fork_database::pending_head() const
-{
+block_state_ptr fork_database::pending_head() const {
    const auto& indx = my->index.get<by_lib_block_num>();
 
    auto itr = indx.lower_bound(false);
@@ -394,8 +375,7 @@ block_state_ptr fork_database::pending_head() const
    return my->head;
 }
 
-branch_type fork_database::fetch_branch(const block_id_type& h, uint32_t trim_after_block_num) const
-{
+branch_type fork_database::fetch_branch(const block_id_type& h, uint32_t trim_after_block_num) const {
    branch_type result;
    for (auto s = get_block(h); s; s = get_block(s->header.previous)) {
       if (s->block_num <= trim_after_block_num)
@@ -405,8 +385,7 @@ branch_type fork_database::fetch_branch(const block_id_type& h, uint32_t trim_af
    return result;
 }
 
-block_state_ptr fork_database::search_on_branch(const block_id_type& h, uint32_t block_num) const
-{
+block_state_ptr fork_database::search_on_branch(const block_id_type& h, uint32_t block_num) const {
    for (auto s = get_block(h); s; s = get_block(s->header.previous)) {
       if (s->block_num == block_num)
          return s;
@@ -420,8 +399,7 @@ block_state_ptr fork_database::search_on_branch(const block_id_type& h, uint32_t
  *  end with a common ancestor (same prior block)
  */
 pair<branch_type, branch_type> fork_database::fetch_branch_from(const block_id_type& first,
-                                                                const block_id_type& second) const
-{
+                                                                const block_id_type& second) const {
    pair<branch_type, branch_type> result;
    auto                           first_branch  = (first == my->root->id) ? my->root : get_block(first);
    auto                           second_branch = (second == my->root->id) ? my->root : get_block(second);
@@ -465,8 +443,7 @@ pair<branch_type, branch_type> fork_database::fetch_branch_from(const block_id_t
 } /// fetch_branch_from
 
 /// remove all of the invalid forks built off of this id including this id
-void fork_database::remove(const block_id_type& id)
-{
+void fork_database::remove(const block_id_type& id) {
    deque<block_id_type> remove_queue{ id };
    const auto&          previdx = my->index.get<by_prev>();
    const auto&          head_id = my->head->id;
@@ -490,8 +467,7 @@ void fork_database::remove(const block_id_type& id)
    }
 }
 
-void fork_database::mark_valid(const block_state_ptr& h)
-{
+void fork_database::mark_valid(const block_state_ptr& h) {
    if (h->validated)
       return;
 
@@ -511,8 +487,7 @@ void fork_database::mark_valid(const block_state_ptr& h)
    }
 }
 
-block_state_ptr fork_database::get_block(const block_id_type& id) const
-{
+block_state_ptr fork_database::get_block(const block_id_type& id) const {
    auto itr = my->index.find(id);
    if (itr != my->index.end())
       return *itr;

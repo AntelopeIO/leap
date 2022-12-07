@@ -5,23 +5,19 @@
 namespace eosio {
 namespace chain {
 
-uint8_t asset::decimals() const
-{
+uint8_t asset::decimals() const {
    return sym.decimals();
 }
 
-string asset::symbol_name() const
-{
+string asset::symbol_name() const {
    return sym.name();
 }
 
-int64_t asset::precision() const
-{
+int64_t asset::precision() const {
    return sym.precision();
 }
 
-string asset::to_string() const
-{
+string asset::to_string() const {
    string  sign       = amount < 0 ? "-" : "";
    int64_t abs_amount = std::abs(amount);
    string  result     = fc::to_string(static_cast<int64_t>(abs_amount) / precision());
@@ -32,8 +28,7 @@ string asset::to_string() const
    return sign + result + " " + symbol_name();
 }
 
-asset asset::from_string(const string& from)
-{
+asset asset::from_string(const string& from) {
    try {
       string s = fc::trim(from);
 

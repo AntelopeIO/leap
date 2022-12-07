@@ -30,13 +30,10 @@ namespace eosio::test::detail {
 using namespace eosio::chain;
 using namespace eosio::chain::literals;
 
-struct testit
-{
+struct testit {
    uint64_t id;
    testit(uint64_t id = 0)
-      : id(id)
-   {
-   }
+      : id(id) {}
 
    static account_name get_account() { return chain::config::system_account_name; }
    static action_name  get_name() { return "testit"_n; }
@@ -54,11 +51,9 @@ using namespace eosio::test::detail;
 
 // simple thread-safe queue
 template<typename T>
-class blocking_queue
-{
+class blocking_queue {
 public:
-   void push(T const& value)
-   {
+   void push(T const& value) {
       {
          std::unique_lock<std::mutex> lock(mtx);
          queue.push_front(value);
@@ -66,8 +61,7 @@ public:
       cond_v.notify_one();
    }
 
-   T pop()
-   {
+   T pop() {
       std::unique_lock<std::mutex> lock(mtx);
       if (!cond_v.wait_for(lock, std::chrono::seconds(10), [&] { return !queue.empty(); })) {
          throw std::runtime_error("timed out, nothing in queue");
@@ -77,8 +71,7 @@ public:
       return r;
    }
 
-   size_t size() const
-   {
+   size_t size() const {
       std::unique_lock<std::mutex> lock(mtx);
       return queue.size();
    }
@@ -89,19 +82,16 @@ private:
    std::deque<T>           queue;
 };
 
-auto get_private_key(chain::name keyname, std::string role = "owner")
-{
+auto get_private_key(chain::name keyname, std::string role = "owner") {
    auto secret = fc::sha256::hash(keyname.to_string() + role);
    return chain::private_key_type::regenerate<fc::ecc::private_key_shim>(secret);
 }
 
-auto get_public_key(chain::name keyname, std::string role = "owner")
-{
+auto get_public_key(chain::name keyname, std::string role = "owner") {
    return get_private_key(keyname, role).get_public_key();
 }
 
-auto make_unique_trx(const chain_id_type& chain_id, const fc::microseconds& expiration, uint64_t id)
-{
+auto make_unique_trx(const chain_id_type& chain_id, const fc::microseconds& expiration, uint64_t id) {
 
    account_name       creator = config::system_account_name;
    signed_transaction trx;
@@ -116,11 +106,10 @@ auto make_unique_trx(const chain_id_type& chain_id, const fc::microseconds& expi
    return std::make_shared<packed_transaction>(std::move(trx), packed_transaction::compression_type::none);
 }
 
-chain::transaction_trace_ptr make_transaction_trace(
-   const packed_transaction_ptr                   trx,
-   uint32_t                                       block_number,
-   chain::transaction_receipt_header::status_enum status = eosio::chain::transaction_receipt_header::executed)
-{
+chain::transaction_trace_ptr make_transaction_trace(const packed_transaction_ptr trx,
+                                                    uint32_t                     block_number,
+                                                    chain::transaction_receipt_header::status_enum status =
+                                                       eosio::chain::transaction_receipt_header::executed) {
    return std::make_shared<chain::transaction_trace>(chain::transaction_trace{
       trx->id(),
       block_number,
@@ -138,19 +127,16 @@ chain::transaction_trace_ptr make_transaction_trace(
       {} });
 }
 
-uint64_t get_id(const transaction& trx)
-{
+uint64_t get_id(const transaction& trx) {
    testit t = trx.actions.at(0).data_as<testit>();
    return t.id;
 }
 
-uint64_t get_id(const packed_transaction_ptr& ptr)
-{
+uint64_t get_id(const packed_transaction_ptr& ptr) {
    return get_id(ptr->get_transaction());
 }
 
-auto make_block_state(uint32_t block_num, std::vector<chain::packed_transaction_ptr> trxs)
-{
+auto make_block_state(uint32_t block_num, std::vector<chain::packed_transaction_ptr> trxs) {
    name                    producer = "kevinh"_n;
    chain::signed_block_ptr block    = std::make_shared<chain::signed_block>();
    for (auto& trx : trxs) {
@@ -212,8 +198,7 @@ auto make_block_state(uint32_t block_num, std::vector<chain::packed_transaction_
 
 BOOST_AUTO_TEST_SUITE(trx_retry_db_test)
 
-BOOST_AUTO_TEST_CASE(trx_retry_logic)
-{
+BOOST_AUTO_TEST_CASE(trx_retry_logic) {
    boost::filesystem::path temp = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
 
    try {

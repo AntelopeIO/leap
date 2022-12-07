@@ -25,13 +25,11 @@
 
 namespace fc {
 
-struct aes_encoder::impl
-{
+struct aes_encoder::impl {
    evp_cipher_ctx ctx;
 };
 
-void aes_encoder::init(const fc::sha256& key, const fc::uint128& init_value)
-{
+void aes_encoder::init(const fc::sha256& key, const fc::uint128& init_value) {
    my->ctx.obj = EVP_CIPHER_CTX_new();
    /* Create and initialise the context */
    if (!my->ctx) {
@@ -54,8 +52,7 @@ void aes_encoder::init(const fc::sha256& key, const fc::uint128& init_value)
    EVP_CIPHER_CTX_set_padding(my->ctx, 0);
 }
 
-uint32_t aes_encoder::encode(const char* plaintxt, uint32_t plaintext_len, char* ciphertxt)
-{
+uint32_t aes_encoder::encode(const char* plaintxt, uint32_t plaintext_len, char* ciphertxt) {
    int ciphertext_len = 0;
    /* Provide the message to be encrypted, and obtain the encrypted output.
     *    * EVP_EncryptUpdate can be called multiple times if necessary
@@ -90,13 +87,11 @@ uint32_t aes_encoder::final_encode( char* ciphertxt )
 }
 #endif
 
-struct aes_decoder::impl
-{
+struct aes_decoder::impl {
    evp_cipher_ctx ctx;
 };
 
-void aes_decoder::init(const fc::sha256& key, const fc::uint128& init_value)
-{
+void aes_decoder::init(const fc::sha256& key, const fc::uint128& init_value) {
    my->ctx.obj = EVP_CIPHER_CTX_new();
    /* Create and initialise the context */
    if (!my->ctx) {
@@ -119,8 +114,7 @@ void aes_decoder::init(const fc::sha256& key, const fc::uint128& init_value)
    EVP_CIPHER_CTX_set_padding(my->ctx, 0);
 }
 
-uint32_t aes_decoder::decode(const char* ciphertxt, uint32_t ciphertxt_len, char* plaintext)
-{
+uint32_t aes_decoder::decode(const char* ciphertxt, uint32_t ciphertxt_len, char* plaintext) {
    int plaintext_len = 0;
    /* Provide the message to be decrypted, and obtain the decrypted output.
     *    * EVP_DecryptUpdate can be called multiple times if necessary
@@ -161,8 +155,7 @@ unsigned aes_encrypt(unsigned char* plaintext,
                      int            plaintext_len,
                      unsigned char* key,
                      unsigned char* iv,
-                     unsigned char* ciphertext)
-{
+                     unsigned char* ciphertext) {
    evp_cipher_ctx ctx(EVP_CIPHER_CTX_new());
 
    int      len            = 0;
@@ -213,8 +206,7 @@ unsigned aes_decrypt(unsigned char* ciphertext,
                      int            ciphertext_len,
                      unsigned char* key,
                      unsigned char* iv,
-                     unsigned char* plaintext)
-{
+                     unsigned char* plaintext) {
    evp_cipher_ctx ctx(EVP_CIPHER_CTX_new());
    int            len           = 0;
    unsigned       plaintext_len = 0;
@@ -265,8 +257,7 @@ unsigned aes_cfb_decrypt(unsigned char* ciphertext,
                          int            ciphertext_len,
                          unsigned char* key,
                          unsigned char* iv,
-                         unsigned char* plaintext)
-{
+                         unsigned char* plaintext) {
    evp_cipher_ctx ctx(EVP_CIPHER_CTX_new());
    int            len           = 0;
    unsigned       plaintext_len = 0;
@@ -313,8 +304,7 @@ unsigned aes_cfb_decrypt(unsigned char* ciphertext,
    return plaintext_len;
 }
 
-std::vector<char> aes_encrypt(const fc::sha512& key, const std::vector<char>& plain_text)
-{
+std::vector<char> aes_encrypt(const fc::sha512& key, const std::vector<char>& plain_text) {
    std::vector<char> cipher_text(plain_text.size() + 16);
    auto              cipher_len = aes_encrypt((unsigned char*)plain_text.data(),
                                  (int)plain_text.size(),
@@ -325,8 +315,7 @@ std::vector<char> aes_encrypt(const fc::sha512& key, const std::vector<char>& pl
    cipher_text.resize(cipher_len);
    return cipher_text;
 }
-std::vector<char> aes_decrypt(const fc::sha512& key, const std::vector<char>& cipher_text)
-{
+std::vector<char> aes_decrypt(const fc::sha512& key, const std::vector<char>& cipher_text) {
    std::vector<char> plain_text(cipher_text.size());
    auto              plain_len = aes_decrypt((unsigned char*)cipher_text.data(),
                                 (int)cipher_text.size(),
@@ -340,8 +329,7 @@ std::vector<char> aes_decrypt(const fc::sha512& key, const std::vector<char>& ci
 /** encrypts plain_text and then includes a checksum that enables us to verify the integrety of
  * the file / key prior to decryption.
  */
-void aes_save(const fc::path& file, const fc::sha512& key, std::vector<char> plain_text)
-{
+void aes_save(const fc::path& file, const fc::sha512& key, std::vector<char> plain_text) {
    try {
       auto                cipher = aes_encrypt(key, plain_text);
       fc::sha512::encoder check_enc;
@@ -359,8 +347,7 @@ void aes_save(const fc::path& file, const fc::sha512& key, std::vector<char> pla
 /**
  *  recovers the plain_text saved via aes_save()
  */
-std::vector<char> aes_load(const fc::path& file, const fc::sha512& key)
-{
+std::vector<char> aes_load(const fc::path& file, const fc::sha512& key) {
    try {
       FC_ASSERT(fc::exists(file));
 

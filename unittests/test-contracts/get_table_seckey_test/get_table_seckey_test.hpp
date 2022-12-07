@@ -9,14 +9,12 @@
 
 using namespace eosio;
 
-class [[eosio::contract]] get_table_seckey_test : public eosio::contract
-{
+class [[eosio::contract]] get_table_seckey_test : public eosio::contract {
 public:
    using eosio::contract::contract;
 
    // Number object
-   struct [[eosio::table]] numobj
-   {
+   struct [[eosio::table]] numobj {
       uint64_t    key;
       uint64_t    sec64;
       uint128_t   sec128;

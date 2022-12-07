@@ -15,13 +15,11 @@
 namespace fc {
 
 template<typename H>
-class hmac
-{
+class hmac {
 public:
    hmac() {}
 
-   H digest(const char* c, uint32_t c_len, const char* d, uint32_t d_len)
-   {
+   H digest(const char* c, uint32_t c_len, const char* d, uint32_t d_len) {
       encoder.reset();
       add_key(c, c_len, 0x36);
       encoder.write(d, d_len);
@@ -34,8 +32,7 @@ public:
    }
 
 private:
-   void add_key(const char* c, const uint32_t c_len, char pad)
-   {
+   void add_key(const char* c, const uint32_t c_len, char pad) {
       if (c_len > internal_block_size()) {
          H hash = H::hash(c, c_len);
          add_key(hash.data(), hash.data_size(), pad);

@@ -7,8 +7,7 @@ namespace eosio {
 
 using namespace appbase;
 
-class signature_provider_plugin : public appbase::plugin<signature_provider_plugin>
-{
+class signature_provider_plugin : public appbase::plugin<signature_provider_plugin> {
 public:
    signature_provider_plugin();
    virtual ~signature_provider_plugin();

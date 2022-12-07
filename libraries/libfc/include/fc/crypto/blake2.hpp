@@ -11,10 +11,7 @@
 namespace fc {
 using bytes = std::vector<char>;
 
-enum class blake2b_error : int32_t
-{
-   input_len_error
-};
+enum class blake2b_error : int32_t { input_len_error };
 
 std::variant<blake2b_error, bytes> blake2b(uint32_t                _rounds,
                                            const bytes&            _h,
@@ -24,20 +21,15 @@ std::variant<blake2b_error, bytes> blake2b(uint32_t                _rounds,
                                            bool                    _f,
                                            const yield_function_t& yield);
 
-struct blake2b_state
-{
+struct blake2b_state {
    uint64_t h[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
    uint64_t t[2] = { 0, 0 };
    uint64_t f[1] = { 0 };
 };
 
-class blake2b_wrapper
-{
+class blake2b_wrapper {
 public:
-   enum blake2b_constant
-   {
-      BLAKE2B_BLOCKBYTES = 128
-   };
+   enum blake2b_constant { BLAKE2B_BLOCKBYTES = 128 };
    void blake2b_compress(blake2b_state*          S,
                          const uint8_t           block[BLAKE2B_BLOCKBYTES],
                          size_t                  r,

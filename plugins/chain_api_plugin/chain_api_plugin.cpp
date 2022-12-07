@@ -9,13 +9,10 @@ static appbase::abstract_plugin& _chain_api_plugin = app().register_plugin<chain
 
 using namespace eosio;
 
-class chain_api_plugin_impl
-{
+class chain_api_plugin_impl {
 public:
    chain_api_plugin_impl(controller& db)
-      : db(db)
-   {
-   }
+      : db(db) {}
 
    controller& db;
 };
@@ -26,11 +23,9 @@ chain_api_plugin::~chain_api_plugin() {}
 void chain_api_plugin::set_program_options(options_description&, options_description&) {}
 void chain_api_plugin::plugin_initialize(const variables_map&) {}
 
-struct async_result_visitor : public fc::visitor<fc::variant>
-{
+struct async_result_visitor : public fc::visitor<fc::variant> {
    template<typename T>
-   fc::variant operator()(const T& v) const
-   {
+   fc::variant operator()(const T& v) const {
       return fc::variant(v);
    }
 };
@@ -39,8 +34,7 @@ struct async_result_visitor : public fc::visitor<fc::variant>
 template<>
 chain_apis::read_only::get_transaction_status_params
 parse_params<chain_apis::read_only::get_transaction_status_params, http_params_types::params_required>(
-   const std::string& body)
-{
+   const std::string& body) {
    if (body.empty()) {
       EOS_THROW(chain::invalid_http_request, "A Request body is required");
    }
@@ -115,8 +109,7 @@ parse_params<chain_apis::read_only::get_transaction_status_params, http_params_t
 #define CHAIN_RO_CALL_WITH_400(call_name, http_response_code, params_type)                                   \
    CALL_WITH_400(chain, ro_api, chain_apis::read_only, call_name, http_response_code, params_type)
 
-void chain_api_plugin::plugin_startup()
-{
+void chain_api_plugin::plugin_startup() {
    ilog("starting chain_api_plugin");
    my.reset(new chain_api_plugin_impl(app().get_plugin<chain_plugin>().chain()));
    auto&            chain             = app().get_plugin<chain_plugin>();

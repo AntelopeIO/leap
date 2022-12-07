@@ -14,42 +14,36 @@
 
 namespace fc {
 
-zipkin_config& zipkin_config::get()
-{
+zipkin_config& zipkin_config::get() {
    static zipkin_config the_one;
    return the_one;
 }
 
-void zipkin_config::init(const std::string& url, const std::string& service_name, uint32_t timeout_us)
-{
+void zipkin_config::init(const std::string& url, const std::string& service_name, uint32_t timeout_us) {
    get().zip = std::make_unique<zipkin>(url, service_name, timeout_us);
 }
 
-zipkin& zipkin_config::get_zipkin()
-{
+zipkin& zipkin_config::get_zipkin() {
    if (!get().zip) {
       FC_THROW_EXCEPTION(fc::assert_exception, "uninitialized zipkin");
    }
    return *get().zip;
 }
 
-void zipkin_config::shutdown()
-{
+void zipkin_config::shutdown() {
    if (zipkin* z = get_zipkin_()) {
       z->shutdown();
    }
 }
 
-uint64_t zipkin_config::get_next_unique_id()
-{
+uint64_t zipkin_config::get_next_unique_id() {
    if (!get().zip) {
       FC_THROW_EXCEPTION(fc::assert_exception, "uninitialized zipkin");
    }
    return get().zip->get_next_unique_id();
 }
 
-class zipkin::impl
-{
+class zipkin::impl {
 public:
    static constexpr uint32_t max_consecutive_errors = 9;
 
@@ -71,9 +65,7 @@ public:
    impl(std::string url, std::string service_name, uint32_t timeout_us)
       : zipkin_url(std::move(url))
       , service_name(std::move(service_name))
-      , timeout_us(timeout_us)
-   {
-   }
+      , timeout_us(timeout_us) {}
 
    void init();
    void shutdown();
@@ -83,8 +75,7 @@ public:
    ~impl();
 };
 
-void zipkin::impl::init()
-{
+void zipkin::impl::init() {
    thread = std::thread([this]() {
       fc::set_os_thread_name("zipkin");
       while (true) {
@@ -97,16 +88,13 @@ void zipkin::impl::init()
    });
 }
 
-zipkin::impl::~impl()
-{
+zipkin::impl::~impl() {
    try {
       shutdown();
-   } catch (...) {
-   }
+   } catch (...) {}
 }
 
-void zipkin::impl::shutdown()
-{
+void zipkin::impl::shutdown() {
    if (stopped ^= 1)
       return;
    work_guard.reset(); // drain the queue
@@ -114,13 +102,11 @@ void zipkin::impl::shutdown()
 }
 
 zipkin::zipkin(const std::string& url, const std::string& service_name, uint32_t timeout_us)
-   : my(new impl(url, service_name, timeout_us))
-{
+   : my(new impl(url, service_name, timeout_us)) {
    my->init();
 }
 
-uint64_t zipkin::get_next_unique_id()
-{
+uint64_t zipkin::get_next_unique_id() {
    std::scoped_lock g(my->mtx);
    if (my->next_id == 0) {
       std::mt19937_64                         engine(std::random_device{}());
@@ -130,13 +116,11 @@ uint64_t zipkin::get_next_unique_id()
    return my->next_id++;
 }
 
-void zipkin::shutdown()
-{
+void zipkin::shutdown() {
    my->shutdown();
 }
 
-fc::variant create_zipkin_variant(zipkin_span::span_data&& span, const std::string& service_name)
-{
+fc::variant create_zipkin_variant(zipkin_span::span_data&& span, const std::string& service_name) {
    // https://zipkin.io/zipkin-api/
    //   std::string traceId;  // [a-f0-9]{16,32} unique id for trace, all children spans shared same id
    //   std::string name;     // logical operation, should have low cardinality
@@ -173,8 +157,7 @@ fc::variant create_zipkin_variant(zipkin_span::span_data&& span, const std::stri
    return result;
 }
 
-void zipkin::log(zipkin_span::span_data&& span)
-{
+void zipkin::log(zipkin_span::span_data&& span) {
    if (my->consecutive_errors > my->max_consecutive_errors || my->stopped)
       return;
 
@@ -182,8 +165,7 @@ void zipkin::log(zipkin_span::span_data&& span)
                      [this, span{ std::move(span) }]() mutable { my->log(std::move(span)); });
 }
 
-void zipkin::impl::log(zipkin_span::span_data&& span)
-{
+void zipkin::impl::log(zipkin_span::span_data&& span) {
    if (consecutive_errors > max_consecutive_errors)
       return;
 
@@ -208,14 +190,12 @@ void zipkin::impl::log(zipkin_span::span_data&& span)
    ++consecutive_errors;
 }
 
-uint64_t zipkin_span::to_id(const fc::sha256& id)
-{
+uint64_t zipkin_span::to_id(const fc::sha256& id) {
    // avoid 0 since id of 0 is used as a flag
    return id._hash[3] == 0 ? 1 : id._hash[3];
 }
 
-zipkin_span::~zipkin_span()
-{
+zipkin_span::~zipkin_span() {
    if (data.id == 0)
       return;
    try {
@@ -223,8 +203,7 @@ zipkin_span::~zipkin_span()
          data.stop = time_point::now();
          zipkin_config::get_zipkin().log(std::move(data));
       }
-   } catch (...) {
-   }
+   } catch (...) {}
 }
 
 } // fc

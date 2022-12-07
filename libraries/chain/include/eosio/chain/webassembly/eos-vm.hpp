@@ -41,14 +41,12 @@ void validate(const bytes& code, const wasm_config& cfg, const whitelisted_intri
 
 struct apply_options;
 
-struct profile_config
-{
+struct profile_config {
    boost::container::flat_set<name> accounts_to_profile;
 };
 
 template<typename Backend>
-class eos_vm_runtime : public eosio::chain::wasm_runtime_interface
-{
+class eos_vm_runtime : public eosio::chain::wasm_runtime_interface {
 public:
    eos_vm_runtime();
    std::unique_ptr<wasm_instantiated_module_interface> instantiate_module(const char* code_bytes,
@@ -70,8 +68,7 @@ private:
    friend class eos_vm_instantiated_module;
 };
 
-class eos_vm_profile_runtime : public eosio::chain::wasm_runtime_interface
-{
+class eos_vm_profile_runtime : public eosio::chain::wasm_runtime_interface {
 public:
    eos_vm_profile_runtime();
    std::unique_ptr<wasm_instantiated_module_interface> instantiate_module(const char* code_bytes,

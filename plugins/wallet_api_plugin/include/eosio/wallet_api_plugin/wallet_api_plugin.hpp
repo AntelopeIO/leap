@@ -9,8 +9,7 @@ namespace eosio {
 
 using namespace appbase;
 
-class wallet_api_plugin : public plugin<wallet_api_plugin>
-{
+class wallet_api_plugin : public plugin<wallet_api_plugin> {
 public:
    APPBASE_PLUGIN_REQUIRES((wallet_plugin)(http_plugin))
 

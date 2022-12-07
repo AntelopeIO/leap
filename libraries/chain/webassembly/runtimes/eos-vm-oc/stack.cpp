@@ -4,8 +4,7 @@
 
 using namespace eosio::chain::eosvmoc;
 
-void execution_stack::reset(std::size_t max_call_depth)
-{
+void execution_stack::reset(std::size_t max_call_depth) {
    if (max_call_depth > call_depth_limit) {
       reset();
       std::size_t new_stack_size = max_call_depth * max_bytes_per_frame + 4 * 1024 * 1024;
@@ -18,8 +17,7 @@ void execution_stack::reset(std::size_t max_call_depth)
    }
 }
 
-void execution_stack::reset()
-{
+void execution_stack::reset() {
    if (stack_top) {
       munmap((char*)stack_top - stack_size, stack_size);
       stack_top        = nullptr;

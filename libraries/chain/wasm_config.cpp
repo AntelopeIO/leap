@@ -3,8 +3,7 @@
 
 using namespace eosio::chain;
 
-void wasm_config::validate() const
-{
+void wasm_config::validate() const {
    EOS_ASSERT(
       max_section_elements >= 4, action_validate_exception, "max_section_elements cannot be less than 4");
    EOS_ASSERT(

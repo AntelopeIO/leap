@@ -12,11 +12,9 @@ namespace fc {
  *   At the very least we have ssh::process and direct child processes, and
  *   there may be other processes that need to implement this protocol.
  */
-class iprocess
-{
+class iprocess {
 public:
-   enum exec_opts
-   {
+   enum exec_opts {
       open_none        = 0,
       open_stdin       = 0x01,
       open_stdout      = 0x02,

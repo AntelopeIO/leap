@@ -12,14 +12,12 @@ namespace resource_limits {
 
 namespace impl {
 template<typename T>
-ratio<T> make_ratio(T n, T d)
-{
+ratio<T> make_ratio(T n, T d) {
    return ratio<T>{ n, d };
 }
 
 template<typename T>
-T operator*(T value, const ratio<T>& r)
-{
+T operator*(T value, const ratio<T>& r) {
    EOS_ASSERT(r.numerator == T(0) || std::numeric_limits<T>::max() / r.numerator >= value,
               rate_limiting_state_inconsistent,
               "Usage exceeds maximum value representable after extending for precision");
@@ -27,8 +25,7 @@ T operator*(T value, const ratio<T>& r)
 }
 
 template<typename UnsignedIntType>
-constexpr UnsignedIntType integer_divide_ceil(UnsignedIntType num, UnsignedIntType den)
-{
+constexpr UnsignedIntType integer_divide_ceil(UnsignedIntType num, UnsignedIntType den) {
    return (num / den) + ((num % den) > 0 ? 1 : 0);
 }
 
@@ -46,8 +43,7 @@ template<typename LesserIntType, typename GreaterIntType>
 constexpr auto downgrade_cast(GreaterIntType val)
    -> std::enable_if_t<is_valid_downgrade_cast<LesserIntType, GreaterIntType> &&
                           std::is_signed<LesserIntType>::value == std::is_signed<GreaterIntType>::value,
-                       LesserIntType>
-{
+                       LesserIntType> {
    const GreaterIntType max = std::numeric_limits<LesserIntType>::max();
    const GreaterIntType min = std::numeric_limits<LesserIntType>::min();
    EOS_ASSERT(val >= min && val <= max,
@@ -65,8 +61,7 @@ template<typename LesserIntType, typename GreaterIntType>
 constexpr auto downgrade_cast(GreaterIntType val)
    -> std::enable_if_t<is_valid_downgrade_cast<LesserIntType, GreaterIntType> &&
                           std::is_signed<LesserIntType>::value != std::is_signed<GreaterIntType>::value,
-                       LesserIntType>
-{
+                       LesserIntType> {
    const GreaterIntType max = std::numeric_limits<LesserIntType>::max();
    const GreaterIntType min = 0;
    EOS_ASSERT(val >= min && val <= max,
@@ -84,17 +79,14 @@ constexpr auto downgrade_cast(GreaterIntType val)
  *  The value stored is Precision times the sum of the inputs.
  */
 template<uint64_t Precision = config::rate_limiting_precision>
-struct exponential_moving_average_accumulator
-{
+struct exponential_moving_average_accumulator {
    static_assert(Precision > 0, "Precision must be positive");
    static constexpr uint64_t max_raw_value = std::numeric_limits<uint64_t>::max() / Precision;
 
    exponential_moving_average_accumulator()
       : last_ordinal(0)
       , value_ex(0)
-      , consumed(0)
-   {
-   }
+      , consumed(0) {}
 
    uint32_t last_ordinal; ///< The ordinal of the last period which has contributed to the average
    uint64_t value_ex;     ///< The current average pre-multiplied by Precision
@@ -105,8 +97,7 @@ struct exponential_moving_average_accumulator
     */
    uint64_t average() const { return integer_divide_ceil(value_ex, Precision); }
 
-   void add(uint64_t units, uint32_t ordinal, uint32_t window_size /* must be positive */)
-   {
+   void add(uint64_t units, uint32_t ordinal, uint32_t window_size /* must be positive */) {
       // check for some numerical limits before doing any state mutations
       EOS_ASSERT(units <= max_raw_value,
                  rate_limiting_state_inconsistent,
@@ -150,16 +141,13 @@ struct exponential_moving_average_accumulator
  *  The value stored is Precision times the sum of the inputs.
  */
 template<uint64_t Precision = config::rate_limiting_precision>
-struct exponential_decay_accumulator
-{
+struct exponential_decay_accumulator {
    static_assert(Precision > 0, "Precision must be positive");
    static constexpr uint64_t max_raw_value = std::numeric_limits<uint64_t>::max() / Precision;
 
    exponential_decay_accumulator()
       : last_ordinal(0)
-      , value_ex(0)
-   {
-   }
+      , value_ex(0) {}
 
    uint32_t last_ordinal; ///< The ordinal of the last period which has contributed to the accumulator
    uint64_t value_ex;     ///< The current accumulated value pre-multiplied by Precision
@@ -167,8 +155,7 @@ struct exponential_decay_accumulator
    /**
     * return the extended value at a current or future ordinal
     */
-   uint64_t value_ex_at(uint32_t ordinal, uint32_t window_size) const
-   {
+   uint64_t value_ex_at(uint32_t ordinal, uint32_t window_size) const {
       if (last_ordinal < ordinal) {
          if ((uint64_t)last_ordinal + window_size > (uint64_t)ordinal) {
             const auto delta = ordinal - last_ordinal; // clearly 0 < delta < window_size
@@ -186,13 +173,11 @@ struct exponential_decay_accumulator
    /**
     * return the value at a current or future ordinal
     */
-   uint64_t value_at(uint32_t ordinal, uint32_t window_size) const
-   {
+   uint64_t value_at(uint32_t ordinal, uint32_t window_size) const {
       return integer_divide_ceil(value_ex_at(ordinal, window_size), Precision);
    }
 
-   void add(uint64_t units, uint32_t ordinal, uint32_t window_size /* must be positive */)
-   {
+   void add(uint64_t units, uint32_t ordinal, uint32_t window_size /* must be positive */) {
       // check for some numerical limits before doing any state mutations
       EOS_ASSERT(units <= max_raw_value,
                  rate_limiting_state_inconsistent,
@@ -218,8 +203,8 @@ using usage_accumulator = impl::exponential_moving_average_accumulator<>;
  * Every account that authorizes a transaction is billed for the full size of that transaction. This object
  * tracks the average usage of that account.
  */
-struct resource_limits_object : public chainbase::object<resource_limits_object_type, resource_limits_object>
-{
+struct resource_limits_object
+   : public chainbase::object<resource_limits_object_type, resource_limits_object> {
 
    OBJECT_CTOR(resource_limits_object)
 
@@ -246,8 +231,7 @@ using resource_limits_index = chainbase::shared_multi_index_container<
                                    BOOST_MULTI_INDEX_MEMBER(resource_limits_object, bool, pending),
                                    BOOST_MULTI_INDEX_MEMBER(resource_limits_object, account_name, owner)>>>>;
 
-struct resource_usage_object : public chainbase::object<resource_usage_object_type, resource_usage_object>
-{
+struct resource_usage_object : public chainbase::object<resource_usage_object_type, resource_usage_object> {
    OBJECT_CTOR(resource_usage_object)
 
    id_type      id;
@@ -268,8 +252,7 @@ using resource_usage_index = chainbase::shared_multi_index_container<
                              member<resource_usage_object, account_name, &resource_usage_object::owner>>>>;
 
 class resource_limits_config_object
-   : public chainbase::object<resource_limits_config_object_type, resource_limits_config_object>
-{
+   : public chainbase::object<resource_limits_config_object_type, resource_limits_config_object> {
    OBJECT_CTOR(resource_limits_config_object);
    id_type id;
 
@@ -310,8 +293,7 @@ using resource_limits_config_index = chainbase::shared_multi_index_container<
                                     &resource_limits_config_object::id>>>>;
 
 class resource_limits_state_object
-   : public chainbase::object<resource_limits_state_object_type, resource_limits_state_object>
-{
+   : public chainbase::object<resource_limits_state_object_type, resource_limits_state_object> {
    OBJECT_CTOR(resource_limits_state_object);
    id_type id;
 

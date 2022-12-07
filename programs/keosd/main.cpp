@@ -16,8 +16,7 @@
 using namespace appbase;
 using namespace eosio;
 
-void configure_logging(const bfs::path& config_path)
-{
+void configure_logging(const bfs::path& config_path) {
    try {
       try {
          fc::configure_logging(config_path);
@@ -36,8 +35,7 @@ void configure_logging(const bfs::path& config_path)
    }
 }
 
-void logging_conf_handler()
-{
+void logging_conf_handler() {
    auto config_path = app().get_logging_conf();
    if (fc::exists(config_path)) {
       ilog("Received HUP.  Reloading logging configuration from ${p}.", ("p", config_path.string()));
@@ -48,8 +46,7 @@ void logging_conf_handler()
    fc::log_config::initialize_appenders(app().get_io_service());
 }
 
-void initialize_logging()
-{
+void initialize_logging() {
    auto config_path = app().get_logging_conf();
    if (fc::exists(config_path))
       fc::configure_logging(config_path); // intentionally allowing exceptions to escape
@@ -58,8 +55,7 @@ void initialize_logging()
    app().set_sighup_callback(logging_conf_handler);
 }
 
-bfs::path determine_home_directory()
-{
+bfs::path determine_home_directory() {
    bfs::path      home;
    struct passwd* pwd = getpwuid(getuid());
    if (pwd) {
@@ -72,8 +68,7 @@ bfs::path determine_home_directory()
    return home;
 }
 
-int main(int argc, char** argv)
-{
+int main(int argc, char** argv) {
    try {
       app().set_version_string(eosio::version::version_client());
       app().set_full_version_string(eosio::version::version_full());

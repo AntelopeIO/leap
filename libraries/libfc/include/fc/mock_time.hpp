@@ -6,8 +6,7 @@
 namespace fc {
 
 /// mock out fc::time_point::now() and provide a mock deadline timer
-class mock_time_traits
-{
+class mock_time_traits {
    typedef boost::asio::deadline_timer::traits_type source_traits;
 
 public:
@@ -31,8 +30,7 @@ public:
    // This function is called by asio to determine how often to check
    // if the timer is ready to fire. By manipulating this function, we
    // can make sure asio detects changes to now_ in a timely fashion.
-   static boost::posix_time::time_duration to_posix_duration(duration_type d)
-   {
+   static boost::posix_time::time_duration to_posix_duration(duration_type d) {
       return d < boost::posix_time::milliseconds(1) ? d : boost::posix_time::milliseconds(1);
    }
 

@@ -46,8 +46,7 @@ std::string pretty_print(const std::string& v, uint8_t indent);
 
 namespace fc {
 template<typename T>
-char parseEscape(T& in)
-{
+char parseEscape(T& in) {
    if (in.peek() == '\\') {
       try {
          in.get();
@@ -65,8 +64,7 @@ char parseEscape(T& in)
 }
 
 template<typename T>
-bool skip_white_space(T& in)
-{
+bool skip_white_space(T& in) {
    bool skipped = false;
    while (true) {
       switch (in.peek()) {
@@ -84,8 +82,7 @@ bool skip_white_space(T& in)
 }
 
 template<typename T>
-std::string stringFromStream(T& in)
-{
+std::string stringFromStream(T& in) {
    std::stringstream token;
    try {
       char c = in.peek();
@@ -111,8 +108,7 @@ std::string stringFromStream(T& in)
    FC_RETHROW_EXCEPTIONS(warn, "while parsing token '${token}'", ("token", token.str()));
 }
 template<typename T>
-std::string stringFromToken(T& in)
-{
+std::string stringFromToken(T& in) {
    std::stringstream token;
    try {
       char c = in.peek();
@@ -143,8 +139,7 @@ std::string stringFromToken(T& in)
 }
 
 template<typename T, json::parse_type parser_type>
-variant_object objectFromStream(T& in, uint32_t max_depth)
-{
+variant_object objectFromStream(T& in, uint32_t max_depth) {
    mutable_variant_object obj;
    try {
       char c = in.peek();
@@ -184,8 +179,7 @@ variant_object objectFromStream(T& in, uint32_t max_depth)
 }
 
 template<typename T, json::parse_type parser_type>
-variants arrayFromStream(T& in, uint32_t max_depth)
-{
+variants arrayFromStream(T& in, uint32_t max_depth) {
    variants ar;
    try {
       if (in.peek() != '[')
@@ -213,8 +207,7 @@ variants arrayFromStream(T& in, uint32_t max_depth)
 }
 
 template<typename T, json::parse_type parser_type>
-variant number_from_stream(T& in)
-{
+variant number_from_stream(T& in) {
    std::stringstream ss;
 
    bool dot = false;
@@ -253,8 +246,7 @@ variant number_from_stream(T& in)
          }
       }
    } catch (fc::eof_exception&) {
-   } catch (const std::ios_base::failure&) {
-   }
+   } catch (const std::ios_base::failure&) {}
    std::string str = ss.str();
    if (str == "-." || str == "." || str == "-") // check the obviously wrong things we could have encountered
       FC_THROW_EXCEPTION(
@@ -267,8 +259,7 @@ variant number_from_stream(T& in)
    return to_uint64(str);
 }
 template<typename T>
-variant token_from_stream(T& in)
-{
+variant token_from_stream(T& in) {
    std::stringstream ss;
    ss.exceptions(std::ifstream::badbit);
    bool received_eof = false;
@@ -324,8 +315,7 @@ variant token_from_stream(T& in)
 }
 
 template<typename T, json::parse_type parser_type>
-variant variant_from_stream(T& in, uint32_t max_depth)
-{
+variant variant_from_stream(T& in, uint32_t max_depth) {
    if (max_depth == 0)
       FC_THROW_EXCEPTION(parse_error_exception, "Too many nested items in JSON input!");
    skip_white_space(in);
@@ -368,8 +358,9 @@ variant variant_from_stream(T& in, uint32_t max_depth)
    return variant();
 }
 
-variant json::from_string(const std::string& utf8_str, const json::parse_type ptype, const uint32_t max_depth)
-{
+variant json::from_string(const std::string&     utf8_str,
+                          const json::parse_type ptype,
+                          const uint32_t         max_depth) {
    try {
       std::stringstream in(utf8_str);
       // in.exceptions( std::ifstream::eofbit );
@@ -391,8 +382,7 @@ variant json::from_string(const std::string& utf8_str, const json::parse_type pt
 
 variants json::variants_from_string(const std::string&     utf8_str,
                                     const json::parse_type ptype,
-                                    const uint32_t         max_depth)
-{
+                                    const uint32_t         max_depth) {
    try {
       variants          result;
       std::stringstream in(utf8_str);
@@ -402,8 +392,7 @@ variants json::variants_from_string(const std::string&     utf8_str,
             // result.push_back( variant_from_stream( in ));
             result.push_back(json_relaxed::variant_from_stream<std::stringstream, false>(in, max_depth));
          }
-      } catch (const fc::eof_exception&) {
-      }
+      } catch (const fc::eof_exception&) {}
       return result;
    }
    FC_RETHROW_EXCEPTIONS(warn, "", ("str", utf8_str))
@@ -430,8 +419,7 @@ void toUTF8( const wchar_t c, std::ostream& os )
  */
 std::string escape_string(const std::string_view&       str,
                           const json::yield_function_t& yield,
-                          bool                          escape_control_chars)
-{
+                          bool                          escape_control_chars) {
    string     r;
    const auto init_size = str.size();
    r.reserve(init_size + 13); // allow for a few escapes
@@ -516,8 +504,7 @@ template<typename T>
 void to_stream(T&                            os,
                const variants&               a,
                const json::yield_function_t& yield,
-               const json::output_formatting format)
-{
+               const json::output_formatting format) {
    yield(os.tellp());
    os << '[';
    auto itr = a.begin();
@@ -535,8 +522,7 @@ template<typename T>
 void to_stream(T&                            os,
                const variant_object&         o,
                const json::yield_function_t& yield,
-               const json::output_formatting format)
-{
+               const json::output_formatting format) {
    yield(os.tellp());
    os << '{';
    auto itr = o.begin();
@@ -556,8 +542,7 @@ template<typename T>
 void to_stream(T&                            os,
                const variant&                v,
                const json::yield_function_t& yield,
-               const json::output_formatting format)
-{
+               const json::output_formatting format) {
    yield(os.tellp());
    switch (v.get_type()) {
       case variant::null_type: os << "null"; return;
@@ -606,16 +591,14 @@ void to_stream(T&                            os,
 
 std::string json::to_string(const variant&                v,
                             const json::yield_function_t& yield,
-                            const json::output_formatting format)
-{
+                            const json::output_formatting format) {
    std::stringstream ss;
    fc::to_stream(ss, v, yield, format);
    yield(ss.tellp());
    return ss.str();
 }
 
-std::string pretty_print(const std::string& v, const uint8_t indent)
-{
+std::string pretty_print(const std::string& v, const uint8_t indent) {
    int               level = 0;
    std::stringstream ss;
    bool              first  = false;
@@ -716,8 +699,7 @@ std::string pretty_print(const std::string& v, const uint8_t indent)
 
 std::string json::to_pretty_string(const variant&                v,
                                    const json::yield_function_t& yield,
-                                   const json::output_formatting format)
-{
+                                   const json::output_formatting format) {
 
    auto s = to_string(v, yield, format);
    return pretty_print(std::move(s), 2);
@@ -726,8 +708,7 @@ std::string json::to_pretty_string(const variant&                v,
 bool json::save_to_file(const variant&                v,
                         const fc::path&               fi,
                         const bool                    pretty,
-                        const json::output_formatting format)
-{
+                        const json::output_formatting format) {
    if (pretty) {
       auto          str = json::to_pretty_string(v, fc::time_point::maximum(), format, max_length_limit);
       std::ofstream o(fi.generic_string().c_str());
@@ -742,8 +723,7 @@ bool json::save_to_file(const variant&                v,
       return o.good();
    }
 }
-variant json::from_file(const fc::path& p, const json::parse_type ptype, const uint32_t max_depth)
-{
+variant json::from_file(const fc::path& p, const json::parse_type ptype, const uint32_t max_depth) {
    // auto tmp = std::make_shared<fc::ifstream>( p, ifstream::binary );
    // auto tmp = std::make_shared<std::ifstream>( p.generic_string().c_str(), std::ios::binary );
    // buffered_istream bi( tmp );
@@ -778,8 +758,7 @@ relaxed_parser: return json_relaxed::variant_from_stream<buffered_istream, false
 }
 */
 
-bool json::is_valid(const std::string& utf8_str, const json::parse_type ptype, const uint32_t max_depth)
-{
+bool json::is_valid(const std::string& utf8_str, const json::parse_type ptype, const uint32_t max_depth) {
    if (utf8_str.size() == 0)
       return false;
    std::stringstream in(utf8_str);

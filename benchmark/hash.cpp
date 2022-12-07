@@ -12,8 +12,7 @@ using namespace fc;
 
 namespace benchmark {
 
-void hash_benchmarking()
-{
+void hash_benchmarking() {
    std::string small_message = "abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ01";
 
    // build a large message

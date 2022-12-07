@@ -12,8 +12,7 @@ using namespace eosio::chain;
 
 BOOST_AUTO_TEST_SUITE(subjective_billing_test)
 
-BOOST_AUTO_TEST_CASE(subjective_bill_test)
-{
+BOOST_AUTO_TEST_CASE(subjective_bill_test) {
 
    fc::logger log;
 

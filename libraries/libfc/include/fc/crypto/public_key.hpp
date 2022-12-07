@@ -15,8 +15,7 @@ constexpr const char* public_key_base_prefix   = "PUB";
 constexpr const char* public_key_prefix[]      = { "K1", "R1", "WA" };
 };
 
-class public_key
-{
+class public_key {
 public:
    using storage_type = std::variant<ecc::public_key_shim, r1::public_key_shim, webauthn::public_key>;
 
@@ -28,9 +27,7 @@ public:
    public_key(const signature& c, const sha256& digest, bool check_canonical = true);
 
    public_key(storage_type&& other_storage)
-      : _storage(forward<storage_type>(other_storage))
-   {
-   }
+      : _storage(forward<storage_type>(other_storage)) {}
 
    bool valid() const;
 

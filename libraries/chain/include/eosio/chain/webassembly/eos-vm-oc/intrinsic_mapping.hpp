@@ -11,14 +11,12 @@ namespace eosvmoc {
 //  table. Adding on the bottom is fine and requires no other updates elsewhere
 namespace detail {
 template<typename... Args>
-inline constexpr auto generate_table(Args&&... args)
-{
+inline constexpr auto generate_table(Args&&... args) {
    return std::array<std::string_view, sizeof...(Args)>{ args... };
 }
 } // ns eosio::chain::eosvmoc::detail
 
-inline constexpr auto get_intrinsic_table()
-{
+inline constexpr auto get_intrinsic_table() {
    return detail::generate_table(
       "eosvmoc_internal.unreachable",
       "eosvmoc_internal.grow_memory",
@@ -274,8 +272,7 @@ inline constexpr auto get_intrinsic_table()
       "env.k1_recover",
       "env.get_block_num");
 }
-inline constexpr std::size_t find_intrinsic_index(std::string_view hf)
-{
+inline constexpr std::size_t find_intrinsic_index(std::string_view hf) {
    constexpr auto hosts = get_intrinsic_table();
    for (std::size_t i = 0; i < hosts.size(); ++i)
       if (hosts[i] == hf)
@@ -283,8 +280,7 @@ inline constexpr std::size_t find_intrinsic_index(std::string_view hf)
    return std::numeric_limits<std::size_t>::max();
 }
 
-inline constexpr std::size_t intrinsic_table_size()
-{
+inline constexpr std::size_t intrinsic_table_size() {
    return std::tuple_size<decltype(get_intrinsic_table())>::value;
 }
 }

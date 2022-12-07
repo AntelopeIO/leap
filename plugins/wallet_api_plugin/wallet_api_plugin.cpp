@@ -10,8 +10,7 @@
 
 namespace eosio {
 namespace detail {
-struct wallet_api_plugin_empty
-{};
+struct wallet_api_plugin_empty {};
 }
 }
 
@@ -87,8 +86,7 @@ using namespace eosio;
    api_handle.call_name();                                                                                   \
    eosio::detail::wallet_api_plugin_empty result;
 
-void wallet_api_plugin::plugin_startup()
-{
+void wallet_api_plugin::plugin_startup() {
    ilog("starting wallet_api_plugin");
    // lifetime of plugin is lifetime of application
    auto& wallet_mgr = app().get_plugin<wallet_plugin>().get_wallet_manager();
@@ -137,8 +135,7 @@ void wallet_api_plugin::plugin_startup()
         CALL_WITH_400(wallet, wallet_mgr, get_public_keys, INVOKE_R_V(wallet_mgr, get_public_keys), 200) });
 }
 
-void wallet_api_plugin::plugin_initialize(const variables_map& options)
-{
+void wallet_api_plugin::plugin_initialize(const variables_map& options) {
    try {
       const auto& _http_plugin = app().get_plugin<http_plugin>();
       if (!_http_plugin.is_on_loopback()) {

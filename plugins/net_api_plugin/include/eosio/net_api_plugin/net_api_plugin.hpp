@@ -9,8 +9,7 @@ namespace eosio {
 
 using namespace appbase;
 
-class net_api_plugin : public plugin<net_api_plugin>
-{
+class net_api_plugin : public plugin<net_api_plugin> {
 public:
    APPBASE_PLUGIN_REQUIRES((net_plugin)(http_plugin))
 

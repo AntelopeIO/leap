@@ -11,8 +11,7 @@ FC_REGISTER_EXCEPTIONS(
       timeout_exception)(file_not_found_exception)(parse_error_exception)(invalid_arg_exception)(invalid_operation_exception)(key_not_found_exception)(bad_cast_exception)(out_of_range_exception)(canceled_exception)(assert_exception)(eof_exception)(unknown_host_exception)(null_optional)(udt_exception)(aes_exception)(overflow_exception)(underflow_exception)(divide_by_zero_exception))
 
 namespace detail {
-class exception_impl
-{
+class exception_impl {
 public:
    std::string  _name;
    std::string  _what;
@@ -24,8 +23,7 @@ exception::exception(log_messages&&     msgs,
                      int64_t            code,
                      const std::string& name_value,
                      const std::string& what_value)
-   : my(new detail::exception_impl())
-{
+   : my(new detail::exception_impl()) {
    my->_code = code;
    my->_what = what_value;
    my->_name = name_value;
@@ -36,8 +34,7 @@ exception::exception(const log_messages& msgs,
                      int64_t             code,
                      const std::string&  name_value,
                      const std::string&  what_value)
-   : my(new detail::exception_impl())
-{
+   : my(new detail::exception_impl()) {
    my->_code = code;
    my->_what = what_value;
    my->_name = name_value;
@@ -45,27 +42,21 @@ exception::exception(const log_messages& msgs,
 }
 
 unhandled_exception::unhandled_exception(log_message&& m, std::exception_ptr e)
-   : exception(fc::move(m))
-{
+   : exception(fc::move(m)) {
    _inner = e;
 }
 unhandled_exception::unhandled_exception(const exception& r)
-   : exception(r)
-{
-}
+   : exception(r) {}
 unhandled_exception::unhandled_exception(log_messages m)
-   : exception()
-{
+   : exception() {
    my->_elog = fc::move(m);
 }
 
-std::exception_ptr unhandled_exception::get_inner_exception() const
-{
+std::exception_ptr unhandled_exception::get_inner_exception() const {
    return _inner;
 }
 
-NO_RETURN void unhandled_exception::dynamic_rethrow_exception() const
-{
+NO_RETURN void unhandled_exception::dynamic_rethrow_exception() const {
    if (!(_inner == std::exception_ptr()))
       std::rethrow_exception(_inner);
    else {
@@ -73,16 +64,14 @@ NO_RETURN void unhandled_exception::dynamic_rethrow_exception() const
    }
 }
 
-std::shared_ptr<exception> unhandled_exception::dynamic_copy_exception() const
-{
+std::shared_ptr<exception> unhandled_exception::dynamic_copy_exception() const {
    auto e    = std::make_shared<unhandled_exception>(*this);
    e->_inner = _inner;
    return e;
 }
 
 exception::exception(int64_t code, const std::string& name_value, const std::string& what_value)
-   : my(new detail::exception_impl())
-{
+   : my(new detail::exception_impl()) {
    my->_code = code;
    my->_what = what_value;
    my->_name = name_value;
@@ -92,43 +81,33 @@ exception::exception(log_message&&      msg,
                      int64_t            code,
                      const std::string& name_value,
                      const std::string& what_value)
-   : my(new detail::exception_impl())
-{
+   : my(new detail::exception_impl()) {
    my->_code = code;
    my->_what = what_value;
    my->_name = name_value;
    my->_elog.push_back(fc::move(msg));
 }
 exception::exception(const exception& c)
-   : my(new detail::exception_impl(*c.my))
-{
-}
+   : my(new detail::exception_impl(*c.my)) {}
 exception::exception(exception&& c)
-   : my(fc::move(c.my))
-{
-}
+   : my(fc::move(c.my)) {}
 
-const char* exception::name() const throw()
-{
+const char* exception::name() const throw() {
    return my->_name.c_str();
 }
-const char* exception::what() const noexcept
-{
+const char* exception::what() const noexcept {
    return my->_what.c_str();
 }
-int64_t exception::code() const throw()
-{
+int64_t exception::code() const throw() {
    return my->_code;
 }
 
 exception::~exception() {}
 
-void to_variant(const exception& e, variant& v)
-{
+void to_variant(const exception& e, variant& v) {
    v = mutable_variant_object("code", e.code())("name", e.name())("message", e.what())("stack", e.get_log());
 }
-void from_variant(const variant& v, exception& ll)
-{
+void from_variant(const variant& v, exception& ll) {
    auto obj = v.get_object();
    if (obj.contains("stack"))
       ll.my->_elog = obj["stack"].as<log_messages>();
@@ -140,12 +119,10 @@ void from_variant(const variant& v, exception& ll)
       ll.my->_what = obj["message"].as_string();
 }
 
-const log_messages& exception::get_log() const
-{
+const log_messages& exception::get_log() const {
    return my->_elog;
 }
-void exception::append_log(log_message m)
-{
+void exception::append_log(log_message m) {
    my->_elog.emplace_back(fc::move(m));
 }
 
@@ -154,8 +131,7 @@ void exception::append_log(log_message m)
  *   and other information that is generally only useful for
  *   developers.
  */
-string exception::to_detail_string(log_level ll) const
-{
+string exception::to_detail_string(log_level ll) const {
    const auto        deadline = fc::time_point::now() + format_time_limit;
    std::stringstream ss;
    try {
@@ -193,8 +169,7 @@ string exception::to_detail_string(log_level ll) const
 /**
  *   Generates a user-friendly error report.
  */
-string exception::to_string(log_level ll) const
-{
+string exception::to_string(log_level ll) const {
    const auto        deadline = fc::time_point::now() + format_time_limit;
    std::stringstream ss;
    try {
@@ -232,8 +207,7 @@ string exception::to_string(log_level ll) const
 /**
  *   Generates a user-friendly error report.
  */
-string exception::top_message() const
-{
+string exception::top_message() const {
    for (auto itr = my->_elog.begin(); itr != my->_elog.end(); ++itr) {
       auto s = fc::format_string(itr->get_format(), itr->get_data());
       if (!s.empty()) {
@@ -243,8 +217,7 @@ string exception::top_message() const
    return string();
 }
 
-void NO_RETURN exception_factory::rethrow(const exception& e) const
-{
+void NO_RETURN exception_factory::rethrow(const exception& e) const {
    auto itr = _registered_exceptions.find(e.code());
    if (itr != _registered_exceptions.end())
       itr->second->rethrow(e);
@@ -255,50 +228,41 @@ void NO_RETURN exception_factory::rethrow(const exception& e) const
  * the error code.  This is used to propagate exception types
  * across conversions to/from JSON
  */
-NO_RETURN void exception::dynamic_rethrow_exception() const
-{
+NO_RETURN void exception::dynamic_rethrow_exception() const {
    exception_factory::instance().rethrow(*this);
 }
 
-exception_ptr exception::dynamic_copy_exception() const
-{
+exception_ptr exception::dynamic_copy_exception() const {
    return std::make_shared<exception>(*this);
 }
 
-fc::string except_str()
-{
+fc::string except_str() {
    return boost::current_exception_diagnostic_information();
 }
 
-void throw_bad_enum_cast(int64_t i, const char* e)
-{
+void throw_bad_enum_cast(int64_t i, const char* e) {
    FC_THROW_EXCEPTION(bad_cast_exception, "invalid index '${key}' in enum '${enum}'", ("key", i)("enum", e));
 }
-void throw_bad_enum_cast(const char* k, const char* e)
-{
+void throw_bad_enum_cast(const char* k, const char* e) {
    FC_THROW_EXCEPTION(bad_cast_exception, "invalid name '${key}' in enum '${enum}'", ("key", k)("enum", e));
 }
 
-bool assert_optional(bool is_valid)
-{
+bool assert_optional(bool is_valid) {
    if (!is_valid)
       throw null_optional();
    return true;
 }
-exception& exception::operator=(const exception& copy)
-{
+exception& exception::operator=(const exception& copy) {
    *my = *copy.my;
    return *this;
 }
 
-exception& exception::operator=(exception&& copy)
-{
+exception& exception::operator=(exception&& copy) {
    my = std::move(copy.my);
    return *this;
 }
 
-void record_assert_trip(const char* filename, uint32_t lineno, const char* expr)
-{
+void record_assert_trip(const char* filename, uint32_t lineno, const char* expr) {
    fc::mutable_variant_object assert_trip_info =
       fc::mutable_variant_object()("source_file", filename)("source_lineno", lineno)("expr", expr);
    /* TODO: restore this later
@@ -315,26 +279,22 @@ std_exception_wrapper::std_exception_wrapper(log_message&&      m,
                                              std::exception_ptr e,
                                              const std::string& name_value,
                                              const std::string& what_value)
-   : exception(fc::move(m), exception_code::std_exception_code, name_value, what_value)
-{
+   : exception(fc::move(m), exception_code::std_exception_code, name_value, what_value) {
    _inner = { std::move(e) };
 }
 
-std_exception_wrapper std_exception_wrapper::from_current_exception(const std::exception& e)
-{
+std_exception_wrapper std_exception_wrapper::from_current_exception(const std::exception& e) {
    return std_exception_wrapper{ FC_LOG_MESSAGE(warn, "rethrow ${what}: ", ("what", e.what())),
                                  std::current_exception(),
                                  BOOST_CORE_TYPEID(e).name(),
                                  e.what() };
 }
 
-std::exception_ptr std_exception_wrapper::get_inner_exception() const
-{
+std::exception_ptr std_exception_wrapper::get_inner_exception() const {
    return _inner;
 }
 
-NO_RETURN void std_exception_wrapper::dynamic_rethrow_exception() const
-{
+NO_RETURN void std_exception_wrapper::dynamic_rethrow_exception() const {
    if (!(_inner == std::exception_ptr()))
       std::rethrow_exception(_inner);
    else {
@@ -342,8 +302,7 @@ NO_RETURN void std_exception_wrapper::dynamic_rethrow_exception() const
    }
 }
 
-std::shared_ptr<exception> std_exception_wrapper::dynamic_copy_exception() const
-{
+std::shared_ptr<exception> std_exception_wrapper::dynamic_copy_exception() const {
    auto e    = std::make_shared<std_exception_wrapper>(*this);
    e->_inner = _inner;
    return e;

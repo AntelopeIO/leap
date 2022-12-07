@@ -24,8 +24,7 @@
 using namespace eosio;
 using namespace chain;
 
-struct act_sig
-{
+struct act_sig {
    eosio::chain::signature_type sig;
 
    static account_name get_account() { return "hello"_n; }
@@ -41,8 +40,7 @@ fc::microseconds max_serialization_time = fc::seconds(1); // some test machines 
 // verify that round trip conversion, via bytes, reproduces the exact same data
 fc::variant verify_byte_round_trip_conversion(const abi_serializer& abis,
                                               const type_name&      type,
-                                              const fc::variant&    var)
-{
+                                              const fc::variant&    var) {
    auto bytes =
       abis.variant_to_binary(type, var, abi_serializer::create_yield_function(max_serialization_time));
 
@@ -63,8 +61,7 @@ void verify_round_trip_conversion(const abi_serializer& abis,
                                   const type_name&      type,
                                   const std::string&    json,
                                   const std::string&    hex,
-                                  const std::string&    expected_json)
-{
+                                  const std::string&    expected_json) {
    auto var = fc::json::from_string(json);
    auto bytes =
       abis.variant_to_binary(type, var, abi_serializer::create_yield_function(max_serialization_time));
@@ -81,13 +78,11 @@ void verify_round_trip_conversion(const abi_serializer& abis,
 void verify_round_trip_conversion(const abi_serializer& abis,
                                   const type_name&      type,
                                   const std::string&    json,
-                                  const std::string&    hex)
-{
+                                  const std::string&    hex) {
    verify_round_trip_conversion(abis, type, json, hex, json);
 }
 
-auto get_resolver(const abi_def& abi = abi_def())
-{
+auto get_resolver(const abi_def& abi = abi_def()) {
    return [&abi](const account_name& name) -> std::optional<abi_serializer> {
       return abi_serializer(eosio_contract_abi(abi),
                             abi_serializer::create_yield_function(max_serialization_time));
@@ -98,8 +93,7 @@ auto get_resolver(const abi_def& abi = abi_def())
 template<typename T>
 fc::variant verify_type_round_trip_conversion(const abi_serializer& abis,
                                               const type_name&      type,
-                                              const fc::variant&    var)
-{
+                                              const fc::variant&    var) {
    try {
 
       auto bytes =
@@ -517,8 +511,7 @@ const char* my_abi = R"=====(
 }
 )=====";
 
-BOOST_AUTO_TEST_CASE(uint_types)
-{
+BOOST_AUTO_TEST_CASE(uint_types) {
    try {
 
       const char* currency_abi = R"=====(
@@ -571,8 +564,7 @@ BOOST_AUTO_TEST_CASE(uint_types)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(general)
-{
+BOOST_AUTO_TEST_CASE(general) {
    try {
 
       auto abi = eosio_contract_abi(fc::json::from_string(my_abi).as<abi_def>());
@@ -782,8 +774,7 @@ BOOST_AUTO_TEST_CASE(general)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(abi_cycle)
-{
+BOOST_AUTO_TEST_CASE(abi_cycle) {
    try {
 
       const char* typedef_cycle_abi = R"=====(
@@ -845,8 +836,7 @@ BOOST_AUTO_TEST_CASE(abi_cycle)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(linkauth_test)
-{
+BOOST_AUTO_TEST_CASE(linkauth_test) {
    try {
 
       abi_serializer abis(eosio_contract_abi(abi_def()),
@@ -882,8 +872,7 @@ BOOST_AUTO_TEST_CASE(linkauth_test)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(unlinkauth_test)
-{
+BOOST_AUTO_TEST_CASE(unlinkauth_test) {
    try {
 
       abi_serializer abis(eosio_contract_abi(abi_def()),
@@ -916,8 +905,7 @@ BOOST_AUTO_TEST_CASE(unlinkauth_test)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(updateauth_test)
-{
+BOOST_AUTO_TEST_CASE(updateauth_test) {
    try {
 
       abi_serializer abis(eosio_contract_abi(abi_def()),
@@ -993,8 +981,7 @@ BOOST_AUTO_TEST_CASE(updateauth_test)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(deleteauth_test)
-{
+BOOST_AUTO_TEST_CASE(deleteauth_test) {
    try {
 
       abi_serializer abis(eosio_contract_abi(abi_def()),
@@ -1024,8 +1011,7 @@ BOOST_AUTO_TEST_CASE(deleteauth_test)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(newaccount_test)
-{
+BOOST_AUTO_TEST_CASE(newaccount_test) {
    try {
 
       abi_serializer abis(eosio_contract_abi(abi_def()),
@@ -1146,8 +1132,7 @@ BOOST_AUTO_TEST_CASE(newaccount_test)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(setcode_test)
-{
+BOOST_AUTO_TEST_CASE(setcode_test) {
    try {
 
       abi_serializer abis(eosio_contract_abi(abi_def()),
@@ -1183,8 +1168,7 @@ BOOST_AUTO_TEST_CASE(setcode_test)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(setabi_test)
-{
+BOOST_AUTO_TEST_CASE(setabi_test) {
    try {
 
       const char* abi_def_abi = R"=====(
@@ -1476,15 +1460,12 @@ BOOST_AUTO_TEST_CASE(setabi_test)
    FC_LOG_AND_RETHROW()
 }
 
-struct action1
-{
+struct action1 {
    action1() = default;
    action1(uint64_t b1, uint32_t b2, uint8_t b3)
       : blah1(b1)
       , blah2(b2)
-      , blah3(b3)
-   {
-   }
+      , blah3(b3) {}
    uint64_t            blah1;
    uint32_t            blah2;
    uint8_t             blah3;
@@ -1492,29 +1473,24 @@ struct action1
    static account_name get_name() { return "action1"_n; }
 
    template<typename Stream>
-   friend Stream& operator<<(Stream& ds, const action1& act)
-   {
+   friend Stream& operator<<(Stream& ds, const action1& act) {
       ds << act.blah1 << act.blah2 << act.blah3;
       return ds;
    }
 
    template<typename Stream>
-   friend Stream& operator>>(Stream& ds, action1& act)
-   {
+   friend Stream& operator>>(Stream& ds, action1& act) {
       ds >> act.blah1 >> act.blah2 >> act.blah3;
       return ds;
    }
 };
 
-struct action2
-{
+struct action2 {
    action2() = default;
    action2(uint32_t b1, uint64_t b2, uint8_t b3)
       : blah1(b1)
       , blah2(b2)
-      , blah3(b3)
-   {
-   }
+      , blah3(b3) {}
    uint32_t            blah1;
    uint64_t            blah2;
    uint8_t             blah3;
@@ -1522,23 +1498,20 @@ struct action2
    static account_name get_name() { return "action2"_n; }
 
    template<typename Stream>
-   friend Stream& operator<<(Stream& ds, const action2& act)
-   {
+   friend Stream& operator<<(Stream& ds, const action2& act) {
       ds << act.blah1 << act.blah2 << act.blah3;
       return ds;
    }
 
    template<typename Stream>
-   friend Stream& operator>>(Stream& ds, action2& act)
-   {
+   friend Stream& operator>>(Stream& ds, action2& act) {
       ds >> act.blah1 >> act.blah2 >> act.blah3;
       return ds;
    }
 };
 
 template<typename T>
-void verify_action_equal(const chain::action& exp, const chain::action& act)
-{
+void verify_action_equal(const chain::action& exp, const chain::action& act) {
    BOOST_REQUIRE_EQUAL(exp.account.to_string(), act.account.to_string());
    BOOST_REQUIRE_EQUAL(exp.name.to_string(), act.name.to_string());
    BOOST_REQUIRE_EQUAL(exp.authorization.size(), act.authorization.size());
@@ -1551,14 +1524,12 @@ void verify_action_equal(const chain::action& exp, const chain::action& act)
    BOOST_REQUIRE(!memcmp(exp.data.data(), act.data.data(), exp.data.size()));
 }
 
-private_key_type get_private_key(name keyname, string role)
-{
+private_key_type get_private_key(name keyname, string role) {
    return private_key_type::regenerate<fc::ecc::private_key_shim>(
       fc::sha256::hash(keyname.to_string() + role));
 }
 
-public_key_type get_public_key(name keyname, string role)
-{
+public_key_type get_public_key(name keyname, string role) {
    return get_private_key(keyname, role).get_public_key();
 }
 
@@ -1566,8 +1537,7 @@ public_key_type get_public_key(name keyname, string role)
 // packed_transaction::data), to be combined with the unpack logic performed using the abi_serializer,
 // and thus the abi_def for non-built-in-types.  This test will expose if any of the transaction and
 // its sub-types have different packing/unpacking orders in FC_REFLECT vs. their abi_def
-BOOST_AUTO_TEST_CASE(packed_transaction)
-{
+BOOST_AUTO_TEST_CASE(packed_transaction) {
    try {
 
       chain::signed_transaction txn;
@@ -1692,8 +1662,7 @@ BOOST_AUTO_TEST_CASE(packed_transaction)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(abi_type_repeat)
-{
+BOOST_AUTO_TEST_CASE(abi_type_repeat) {
    try {
 
       const char* repeat_abi = R"=====(
@@ -1761,8 +1730,7 @@ BOOST_AUTO_TEST_CASE(abi_type_repeat)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(abi_struct_repeat)
-{
+BOOST_AUTO_TEST_CASE(abi_struct_repeat) {
    try {
 
       const char* repeat_abi = R"=====(
@@ -1823,8 +1791,7 @@ BOOST_AUTO_TEST_CASE(abi_struct_repeat)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(abi_action_repeat)
-{
+BOOST_AUTO_TEST_CASE(abi_action_repeat) {
    try {
 
       const char* repeat_abi = R"=====(
@@ -1888,8 +1855,7 @@ BOOST_AUTO_TEST_CASE(abi_action_repeat)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(abi_table_repeat)
-{
+BOOST_AUTO_TEST_CASE(abi_table_repeat) {
    try {
 
       const char* repeat_abi = R"=====(
@@ -1956,8 +1922,7 @@ BOOST_AUTO_TEST_CASE(abi_table_repeat)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(abi_type_def)
-{
+BOOST_AUTO_TEST_CASE(abi_type_def) {
    try {
       // inifinite loop in types
       const char* repeat_abi = R"=====(
@@ -2013,8 +1978,7 @@ BOOST_AUTO_TEST_CASE(abi_type_def)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(abi_type_loop)
-{
+BOOST_AUTO_TEST_CASE(abi_type_loop) {
    try {
       // inifinite loop in types
       const char* repeat_abi = R"=====(
@@ -2065,8 +2029,7 @@ BOOST_AUTO_TEST_CASE(abi_type_loop)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(abi_type_redefine)
-{
+BOOST_AUTO_TEST_CASE(abi_type_redefine) {
    try {
       // inifinite loop in types
       const char* repeat_abi = R"=====(
@@ -2114,8 +2077,7 @@ BOOST_AUTO_TEST_CASE(abi_type_redefine)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(abi_type_redefine_to_name)
-{
+BOOST_AUTO_TEST_CASE(abi_type_redefine_to_name) {
    try {
       // inifinite loop in types
       const char* repeat_abi = R"=====(
@@ -2144,8 +2106,7 @@ BOOST_AUTO_TEST_CASE(abi_type_redefine_to_name)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(abi_type_nested_in_vector)
-{
+BOOST_AUTO_TEST_CASE(abi_type_nested_in_vector) {
    try {
       // inifinite loop in types
       const char* repeat_abi = R"=====(
@@ -2174,8 +2135,7 @@ BOOST_AUTO_TEST_CASE(abi_type_nested_in_vector)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(abi_account_name_in_eosio_abi)
-{
+BOOST_AUTO_TEST_CASE(abi_account_name_in_eosio_abi) {
    try {
       // inifinite loop in types
       const char* repeat_abi = R"=====(
@@ -2224,8 +2184,7 @@ BOOST_AUTO_TEST_CASE(abi_account_name_in_eosio_abi)
 }
 
 // Unlimited array size during abi serialization can exhaust memory and crash the process
-BOOST_AUTO_TEST_CASE(abi_large_array)
-{
+BOOST_AUTO_TEST_CASE(abi_large_array) {
    try {
       const char* abi_str = R"=====(
       {
@@ -2266,8 +2225,7 @@ BOOST_AUTO_TEST_CASE(abi_large_array)
 }
 
 // Infinite recursion of abi_serializer is_type
-BOOST_AUTO_TEST_CASE(abi_is_type_recursion)
-{
+BOOST_AUTO_TEST_CASE(abi_is_type_recursion) {
    try {
       const char* abi_str = R"=====(
       {
@@ -2312,8 +2270,7 @@ BOOST_AUTO_TEST_CASE(abi_is_type_recursion)
 }
 
 // Infinite recursion of abi_serializer in struct definitions
-BOOST_AUTO_TEST_CASE(abi_recursive_structs)
-{
+BOOST_AUTO_TEST_CASE(abi_recursive_structs) {
    try {
       const char* abi_str = R"=====(
       {
@@ -2387,8 +2344,7 @@ BOOST_AUTO_TEST_CASE(abi_recursive_structs)
 }
 
 // Infinite recursion of abi_serializer in struct definitions
-BOOST_AUTO_TEST_CASE(abi_very_deep_structs)
-{
+BOOST_AUTO_TEST_CASE(abi_very_deep_structs) {
    try {
       abi_serializer abis(fc::json::from_string(large_nested_abi).as<abi_def>(),
                           abi_serializer::create_yield_function(max_serialization_time));
@@ -2412,8 +2368,7 @@ BOOST_AUTO_TEST_CASE(abi_very_deep_structs)
 }
 
 // Infinite recursion of abi_serializer in struct definitions
-BOOST_AUTO_TEST_CASE(abi_very_deep_structs_1ms)
-{
+BOOST_AUTO_TEST_CASE(abi_very_deep_structs_1ms) {
    try {
       BOOST_CHECK_THROW(abi_serializer abis(fc::json::from_string(large_nested_abi).as<abi_def>(),
                                             abi_serializer::create_yield_function(fc::microseconds(1))),
@@ -2422,8 +2377,7 @@ BOOST_AUTO_TEST_CASE(abi_very_deep_structs_1ms)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(abi_deep_structs_validate)
-{
+BOOST_AUTO_TEST_CASE(abi_deep_structs_validate) {
    try {
       BOOST_CHECK_THROW(abi_serializer abis(fc::json::from_string(deep_nested_abi).as<abi_def>(),
                                             abi_serializer::create_yield_function(max_serialization_time)),
@@ -2433,8 +2387,7 @@ BOOST_AUTO_TEST_CASE(abi_deep_structs_validate)
 }
 
 // Large signature
-BOOST_AUTO_TEST_CASE(abi_large_signature)
-{
+BOOST_AUTO_TEST_CASE(abi_large_signature) {
    try {
       const char* abi_str = R"=====(
     {
@@ -2510,8 +2463,7 @@ BOOST_AUTO_TEST_CASE(abi_large_signature)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(variants)
-{
+BOOST_AUTO_TEST_CASE(variants) {
    using eosio::testing::fc_exception_message_starts_with;
 
    auto duplicate_variant_abi = R"({
@@ -2614,8 +2566,7 @@ BOOST_AUTO_TEST_CASE(variants)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(aliased_variants)
-{
+BOOST_AUTO_TEST_CASE(aliased_variants) {
    using eosio::testing::fc_exception_message_starts_with;
 
    auto aliased_variant = R"({
@@ -2641,8 +2592,7 @@ BOOST_AUTO_TEST_CASE(aliased_variants)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(variant_of_aliases)
-{
+BOOST_AUTO_TEST_CASE(variant_of_aliases) {
    using eosio::testing::fc_exception_message_starts_with;
 
    auto aliased_variant = R"({
@@ -2669,8 +2619,7 @@ BOOST_AUTO_TEST_CASE(variant_of_aliases)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(extend)
-{
+BOOST_AUTO_TEST_CASE(extend) {
    using eosio::testing::fc_exception_message_starts_with;
 
    auto abi = R"({
@@ -2748,8 +2697,7 @@ BOOST_AUTO_TEST_CASE(extend)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(version)
-{
+BOOST_AUTO_TEST_CASE(version) {
    try {
       BOOST_CHECK_THROW(abi_serializer(fc::json::from_string(R"({})").as<abi_def>(),
                                        abi_serializer::create_yield_function(max_serialization_time)),
@@ -2769,8 +2717,7 @@ BOOST_AUTO_TEST_CASE(version)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(abi_serialize_incomplete_json_array)
-{
+BOOST_AUTO_TEST_CASE(abi_serialize_incomplete_json_array) {
    using eosio::testing::fc_exception_message_starts_with;
 
    auto abi = R"({
@@ -2807,8 +2754,7 @@ BOOST_AUTO_TEST_CASE(abi_serialize_incomplete_json_array)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(abi_serialize_incomplete_json_object)
-{
+BOOST_AUTO_TEST_CASE(abi_serialize_incomplete_json_object) {
    using eosio::testing::fc_exception_message_starts_with;
 
    auto abi = R"({
@@ -2848,8 +2794,7 @@ BOOST_AUTO_TEST_CASE(abi_serialize_incomplete_json_object)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(abi_serialize_json_mismatching_type)
-{
+BOOST_AUTO_TEST_CASE(abi_serialize_json_mismatching_type) {
    using eosio::testing::fc_exception_message_is;
 
    auto abi = R"({
@@ -2882,8 +2827,7 @@ BOOST_AUTO_TEST_CASE(abi_serialize_json_mismatching_type)
 }
 
 // it is a bit odd to have an empty name for a field, but json seems to allow it
-BOOST_AUTO_TEST_CASE(abi_serialize_json_empty_name)
-{
+BOOST_AUTO_TEST_CASE(abi_serialize_json_empty_name) {
    using eosio::testing::fc_exception_message_is;
 
    auto abi = R"({
@@ -2908,8 +2852,7 @@ BOOST_AUTO_TEST_CASE(abi_serialize_json_empty_name)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(abi_serialize_detailed_error_messages)
-{
+BOOST_AUTO_TEST_CASE(abi_serialize_detailed_error_messages) {
    using eosio::testing::fc_exception_message_is;
 
    auto abi = R"({
@@ -3044,8 +2987,7 @@ BOOST_AUTO_TEST_CASE(abi_serialize_detailed_error_messages)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(abi_serialize_short_error_messages)
-{
+BOOST_AUTO_TEST_CASE(abi_serialize_short_error_messages) {
    using eosio::testing::fc_exception_message_is;
 
    auto abi = R"({
@@ -3177,8 +3119,7 @@ BOOST_AUTO_TEST_CASE(abi_serialize_short_error_messages)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(abi_deserialize_detailed_error_messages)
-{
+BOOST_AUTO_TEST_CASE(abi_deserialize_detailed_error_messages) {
    using eosio::testing::fc_exception_message_is;
 
    auto abi = R"({
@@ -3306,8 +3247,7 @@ BOOST_AUTO_TEST_CASE(abi_deserialize_detailed_error_messages)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(serialize_optional_struct_type)
-{
+BOOST_AUTO_TEST_CASE(serialize_optional_struct_type) {
    auto abi = R"({
       "version": "eosio::abi/1.0",
       "structs": [
@@ -3330,8 +3270,7 @@ BOOST_AUTO_TEST_CASE(serialize_optional_struct_type)
 template<class T>
 inline std::pair<action_trace, std::string> generate_action_trace(const std::optional<T>& return_value,
                                                                   const std::string&      return_value_hex,
-                                                                  bool                    parsable = true)
-{
+                                                                  bool                    parsable = true) {
    action_trace at;
    at.action_ordinal                             = 0;
    at.creator_action_ordinal                     = 1;
@@ -3396,13 +3335,11 @@ inline std::pair<action_trace, std::string> generate_action_trace(const std::opt
    return std::make_pair(at, expected_json.str());
 }
 
-inline std::pair<action_trace, std::string> generate_action_trace()
-{
+inline std::pair<action_trace, std::string> generate_action_trace() {
    return generate_action_trace(std::optional<char>(), "");
 }
 
-BOOST_AUTO_TEST_CASE(abi_to_variant__add_action__good_return_value)
-{
+BOOST_AUTO_TEST_CASE(abi_to_variant__add_action__good_return_value) {
    action_trace at;
    std::string  expected_json;
    std::tie(at, expected_json) = generate_action_trace(std::optional<uint16_t>{ 6 }, "0600");
@@ -3433,8 +3370,7 @@ BOOST_AUTO_TEST_CASE(abi_to_variant__add_action__good_return_value)
    BOOST_CHECK_EQUAL(res, expected_json);
 }
 
-BOOST_AUTO_TEST_CASE(abi_to_variant__add_action__bad_return_value)
-{
+BOOST_AUTO_TEST_CASE(abi_to_variant__add_action__bad_return_value) {
    action_trace at;
    std::string  expected_json;
    std::tie(at, expected_json) =
@@ -3460,8 +3396,7 @@ BOOST_AUTO_TEST_CASE(abi_to_variant__add_action__bad_return_value)
    BOOST_CHECK_EQUAL(res, expected_json);
 }
 
-BOOST_AUTO_TEST_CASE(abi_to_variant__add_action__no_return_value)
-{
+BOOST_AUTO_TEST_CASE(abi_to_variant__add_action__no_return_value) {
    action_trace at;
    std::string  expected_json;
    std::tie(at, expected_json) = generate_action_trace();

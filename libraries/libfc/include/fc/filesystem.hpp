@@ -24,8 +24,7 @@ namespace fc {
  *
  *  @note Serializes to a fc::value() as the result of generic_string()
  */
-class path
-{
+class path {
 public:
    path();
    ~path();
@@ -93,13 +92,10 @@ private:
 };
 
 namespace detail {
-class path_wrapper
-{
+class path_wrapper {
 public:
    path_wrapper(path p)
-      : _path(p)
-   {
-   }
+      : _path(p) {}
    const path* operator->() const { return &_path; }
 
 private:
@@ -107,8 +103,7 @@ private:
 };
 }
 
-class directory_iterator
-{
+class directory_iterator {
 public:
    directory_iterator(const fc::path& p);
    directory_iterator();
@@ -125,8 +120,7 @@ public:
 private:
    fwd<boost::filesystem::directory_iterator, 16> _p;
 };
-class recursive_directory_iterator
-{
+class recursive_directory_iterator {
 public:
    recursive_directory_iterator(const fc::path& p);
    recursive_directory_iterator();
@@ -186,16 +180,14 @@ void to_variant(const fc::path&, fc::variant&);
 void from_variant(const fc::variant&, fc::path&);
 
 template<>
-struct get_typename<path>
-{
+struct get_typename<path> {
    static const char* name() { return "path"; }
 };
 
 /**
  * Class which creates a temporary directory inside an existing temporary directory.
  */
-class temp_file_base
-{
+class temp_file_base {
 public:
    inline ~temp_file_base() { remove(); }
    inline          operator bool() const { return _path.has_value(); }
@@ -207,21 +199,16 @@ public:
 protected:
    typedef std::optional<fc::path> path_t;
    inline temp_file_base(const path_t& path)
-      : _path(path)
-   {
-   }
+      : _path(path) {}
    inline temp_file_base(path_t&& path)
-      : _path(std::move(path))
-   {
-   }
+      : _path(std::move(path)) {}
    path_t _path;
 };
 
 /**
  * Class which creates a temporary directory inside an existing temporary directory.
  */
-class temp_file : public temp_file_base
-{
+class temp_file : public temp_file_base {
 public:
    temp_file(temp_file&& other);
    temp_file& operator=(temp_file&& other);
@@ -231,8 +218,7 @@ public:
 /**
  * Class which creates a temporary directory inside an existing temporary directory.
  */
-class temp_directory : public temp_file_base
-{
+class temp_directory : public temp_file_base {
 public:
    temp_directory(temp_directory&& other);
    temp_directory& operator=(temp_directory&& other);
@@ -257,8 +243,7 @@ public:
  *   // do stuff here, file will be unlocked when instance_lock goes out of scope
  * }
  */
-class simple_lock_file
-{
+class simple_lock_file {
 public:
    simple_lock_file(const path& lock_file_path);
    ~simple_lock_file();

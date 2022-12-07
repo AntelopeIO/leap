@@ -23,8 +23,7 @@ class appender;
 class log_message;
 class variant;
 
-class appender_factory
-{
+class appender_factory {
 public:
    typedef std::shared_ptr<appender_factory> ptr;
 
@@ -34,18 +33,15 @@ public:
 
 namespace detail {
 template<typename T>
-class appender_factory_impl : public appender_factory
-{
+class appender_factory_impl : public appender_factory {
 public:
-   virtual std::shared_ptr<appender> create(const variant& args)
-   {
+   virtual std::shared_ptr<appender> create(const variant& args) {
       return std::shared_ptr<appender>(new T(args));
    }
 };
 }
 
-class appender
-{
+class appender {
 public:
    typedef std::shared_ptr<appender> ptr;
 

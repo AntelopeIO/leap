@@ -39,15 +39,13 @@ static const uint8_t blake2b_sigma[12][16] = {
    { 14, 10, 4,  8,  9,  15, 13, 6,  1,  12, 0,  2,  11, 7,  5,  3 }
 };
 
-static inline uint64_t load64(const void* src)
-{
+static inline uint64_t load64(const void* src) {
    uint64_t w;
    memcpy(&w, src, sizeof w);
    return w;
 }
 
-static inline uint64_t rotr64(const uint64_t w, const unsigned c)
-{
+static inline uint64_t rotr64(const uint64_t w, const unsigned c) {
    return (w >> c) | (w << (64 - c));
 }
 
@@ -56,8 +54,7 @@ inline void blake2b_wrapper::G(uint8_t   r,
                                uint64_t& a,
                                uint64_t& b,
                                uint64_t& c,
-                               uint64_t& d) noexcept
-{
+                               uint64_t& d) noexcept {
    a = a + b + m[blake2b_sigma[r][2 * i + 0]];
    d = rotr64(d ^ a, 32);
    c = c + d;
@@ -68,8 +65,7 @@ inline void blake2b_wrapper::G(uint8_t   r,
    b = rotr64(b ^ c, 63);
 }
 
-inline void blake2b_wrapper::ROUND(uint8_t r) noexcept
-{
+inline void blake2b_wrapper::ROUND(uint8_t r) noexcept {
    G(r, 0, v[0], v[4], v[8], v[12]);
    G(r, 1, v[1], v[5], v[9], v[13]);
    G(r, 2, v[2], v[6], v[10], v[14]);
@@ -83,8 +79,7 @@ inline void blake2b_wrapper::ROUND(uint8_t r) noexcept
 void blake2b_wrapper::blake2b_compress(blake2b_state*          S,
                                        const uint8_t           block[BLAKE2B_BLOCKBYTES],
                                        size_t                  r,
-                                       const yield_function_t& yield)
-{
+                                       const yield_function_t& yield) {
    blake2b_compress_init(S, block, r);
 
    for (i = 0; i < r; ++i) {
@@ -99,8 +94,7 @@ void blake2b_wrapper::blake2b_compress(blake2b_state*          S,
 
 void blake2b_wrapper::blake2b_compress_init(blake2b_state* S,
                                             const uint8_t  block[BLAKE2B_BLOCKBYTES],
-                                            size_t         r)
-{
+                                            size_t         r) {
    for (i = 0; i < 16; ++i) {
       m[i] = load64(block + i * sizeof(m[i]));
    }
@@ -119,8 +113,7 @@ void blake2b_wrapper::blake2b_compress_init(blake2b_state* S,
    v[15] = blake2b_IV[7];
 }
 
-void blake2b_wrapper::blake2b_compress_end(blake2b_state* S)
-{
+void blake2b_wrapper::blake2b_compress_end(blake2b_state* S) {
    for (i = 0; i < 8; ++i) {
       S->h[i] = S->h[i] ^ v[i] ^ v[i + 8];
    }
@@ -132,8 +125,7 @@ std::variant<blake2b_error, bytes> blake2b(uint32_t                _rounds,
                                            const bytes&            _t0_offset,
                                            const bytes&            _t1_offset,
                                            bool                    _f,
-                                           const yield_function_t& yield)
-{
+                                           const yield_function_t& yield) {
 
    //  EIP-152 [4 bytes for rounds][64 bytes for h][128 bytes for m][8 bytes for t_0][8 bytes for t_1][1 byte
    //  for f] : 213

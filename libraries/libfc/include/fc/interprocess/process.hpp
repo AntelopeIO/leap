@@ -9,8 +9,7 @@ fc::path find_executable_in_path(const fc::string name);
  *  @brief start and manage an local process
  *  @note this class implements reference semantics.
  */
-class process : public iprocess
-{
+class process : public iprocess {
 public:
    process();
    ~process();

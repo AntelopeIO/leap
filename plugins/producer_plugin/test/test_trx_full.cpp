@@ -15,14 +15,11 @@
 
 namespace eosio::test::detail {
 using namespace eosio::chain::literals;
-struct testit
-{
+struct testit {
    uint64_t id;
 
    testit(uint64_t id = 0)
-      : id(id)
-   {
-   }
+      : id(id) {}
 
    static account_name get_account() { return chain::config::system_account_name; }
 
@@ -37,8 +34,7 @@ using namespace eosio;
 using namespace eosio::chain;
 using namespace eosio::test::detail;
 
-auto make_unique_trx(const chain_id_type& chain_id)
-{
+auto make_unique_trx(const chain_id_type& chain_id) {
 
    static uint64_t nextid = 0;
    ++nextid;
@@ -82,8 +78,7 @@ auto make_unique_trx(const chain_id_type& chain_id)
 
 // verify all trxs are in blocks only once
 bool verify_equal(const std::deque<packed_transaction_ptr>& trxs,
-                  const std::deque<block_state_ptr>&        all_blocks)
-{
+                  const std::deque<block_state_ptr>&        all_blocks) {
    std::set<transaction_id_type> trxs_ids; // trx can appear more than once if they were aborted
    std::set<transaction_id_type> blk_trxs_ids;
 
@@ -112,8 +107,7 @@ BOOST_AUTO_TEST_SUITE(ordered_trxs_full)
 // Integration test of producer_plugin
 // Test verifies that transactions are processed, reported to caller, and not lost
 // even when blocks are aborted and some transactions fail.
-BOOST_AUTO_TEST_CASE(producer)
-{
+BOOST_AUTO_TEST_CASE(producer) {
    boost::filesystem::path temp = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
 
    try {

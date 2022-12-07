@@ -34,8 +34,7 @@ int ECDSA_SIG_recover_key_GFp(EC_KEY*              eckey,
  *  @class public_key
  *  @brief contains only the public point of an elliptic curve key.
  */
-class public_key
-{
+class public_key {
 public:
    public_key();
    public_key(const public_key& k);
@@ -57,12 +56,10 @@ public:
    public_key& operator=(public_key&& pk);
    public_key& operator=(const public_key& pk);
 
-   inline friend bool operator==(const public_key& a, const public_key& b)
-   {
+   inline friend bool operator==(const public_key& a, const public_key& b) {
       return a.serialize() == b.serialize();
    }
-   inline friend bool operator!=(const public_key& a, const public_key& b)
-   {
+   inline friend bool operator!=(const public_key& a, const public_key& b) {
       return a.serialize() != b.serialize();
    }
 
@@ -83,8 +80,7 @@ private:
  *  @class private_key
  *  @brief an elliptic curve private key.
  */
-class private_key
-{
+class private_key {
 public:
    private_key();
    private_key(private_key&& pk);
@@ -120,16 +116,13 @@ public:
 
    public_key get_public_key() const;
 
-   inline friend bool operator==(const private_key& a, const private_key& b)
-   {
+   inline friend bool operator==(const private_key& a, const private_key& b) {
       return a.get_secret() == b.get_secret();
    }
-   inline friend bool operator!=(const private_key& a, const private_key& b)
-   {
+   inline friend bool operator!=(const private_key& a, const private_key& b) {
       return a.get_secret() != b.get_secret();
    }
-   inline friend bool operator<(const private_key& a, const private_key& b)
-   {
+   inline friend bool operator<(const private_key& a, const private_key& b) {
       return a.get_secret() < b.get_secret();
    }
 
@@ -140,42 +133,35 @@ private:
 /**
  * Shims
  */
-struct public_key_shim : public crypto::shim<public_key_data>
-{
+struct public_key_shim : public crypto::shim<public_key_data> {
    using crypto::shim<public_key_data>::shim;
 
    bool valid() const { return public_key(_data).valid(); }
 };
 
-struct signature_shim : public crypto::shim<compact_signature>
-{
+struct signature_shim : public crypto::shim<compact_signature> {
    using public_key_type = public_key_shim;
    using crypto::shim<compact_signature>::shim;
 
-   public_key_type recover(const sha256& digest, bool check_canonical) const
-   {
+   public_key_type recover(const sha256& digest, bool check_canonical) const {
       return public_key_type(public_key(_data, digest, check_canonical).serialize());
    }
 };
 
-struct private_key_shim : public crypto::shim<private_key_secret>
-{
+struct private_key_shim : public crypto::shim<private_key_secret> {
    using crypto::shim<private_key_secret>::shim;
    using signature_type  = signature_shim;
    using public_key_type = public_key_shim;
 
-   signature_type sign(const sha256& digest, bool require_canonical = true) const
-   {
+   signature_type sign(const sha256& digest, bool require_canonical = true) const {
       return signature_type(private_key::regenerate(_data).sign_compact(digest));
    }
 
-   public_key_type get_public_key() const
-   {
+   public_key_type get_public_key() const {
       return public_key_type(private_key::regenerate(_data).get_public_key().serialize());
    }
 
-   sha512 generate_shared_secret(const public_key_type& pub_key) const
-   {
+   sha512 generate_shared_secret(const public_key_type& pub_key) const {
       return private_key::regenerate(_data).get_shared_secret(public_key(pub_key.serialize()));
    }
 
@@ -197,30 +183,26 @@ void from_variant(const variant& var, crypto::r1::public_key& vo);
 
 namespace raw {
 template<typename Stream>
-void unpack(Stream& s, fc::crypto::r1::public_key& pk)
-{
+void unpack(Stream& s, fc::crypto::r1::public_key& pk) {
    crypto::r1::public_key_data ser;
    fc::raw::unpack(s, ser);
    pk = fc::crypto::r1::public_key(ser);
 }
 
 template<typename Stream>
-void pack(Stream& s, const fc::crypto::r1::public_key& pk)
-{
+void pack(Stream& s, const fc::crypto::r1::public_key& pk) {
    fc::raw::pack(s, pk.serialize());
 }
 
 template<typename Stream>
-void unpack(Stream& s, fc::crypto::r1::private_key& pk)
-{
+void unpack(Stream& s, fc::crypto::r1::private_key& pk) {
    fc::sha256 sec;
    unpack(s, sec);
    pk = crypto::r1::private_key::regenerate(sec);
 }
 
 template<typename Stream>
-void pack(Stream& s, const fc::crypto::r1::private_key& pk)
-{
+void pack(Stream& s, const fc::crypto::r1::private_key& pk) {
    fc::raw::pack(s, pk.get_secret());
 }
 

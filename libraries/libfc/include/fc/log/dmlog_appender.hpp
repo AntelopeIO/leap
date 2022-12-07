@@ -9,11 +9,9 @@ namespace fc {
  * through `stdout` correctly formatted for latter consumption by
  * deep mind postprocessing tools from dfuse.
  */
-class dmlog_appender : public appender
-{
+class dmlog_appender : public appender {
 public:
-   struct config
-   {
+   struct config {
       std::string file = "-";
    };
    explicit dmlog_appender(const variant& args);

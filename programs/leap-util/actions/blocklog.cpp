@@ -31,16 +31,12 @@ namespace bpo = boost::program_options;
 using bpo::options_description;
 using bpo::variables_map;
 
-struct report_time
-{
+struct report_time {
    report_time(std::string desc)
       : _start(std::chrono::high_resolution_clock::now())
-      , _desc(desc)
-   {
-   }
+      , _desc(desc) {}
 
-   void report()
-   {
+   void report() {
       const auto duration = std::chrono::duration_cast<std::chrono::microseconds>(
                                std::chrono::high_resolution_clock::now() - _start)
                                .count() /
@@ -52,8 +48,7 @@ struct report_time
    const std::string                                    _desc;
 };
 
-void blocklog_actions::setup(CLI::App& app)
-{
+void blocklog_actions::setup(CLI::App& app) {
    // callback helper with error code handling
    auto err_guard = [this](int (blocklog_actions::*fun)()) {
       try {
@@ -170,8 +165,7 @@ void blocklog_actions::setup(CLI::App& app)
                        "output is to stdout.");
 }
 
-void blocklog_actions::initialize()
-{
+void blocklog_actions::initialize() {
    try {
       bfs::path bld = opt->blocks_dir;
       if (bld.is_relative())
@@ -198,8 +192,7 @@ void blocklog_actions::initialize()
    FC_LOG_AND_RETHROW()
 }
 
-int blocklog_actions::make_index()
-{
+int blocklog_actions::make_index() {
    const bfs::path blocks_dir = opt->blocks_dir;
    bfs::path       out_file   = blocks_dir / "blocks.index";
    const bfs::path block_file = blocks_dir / "blocks.log";
@@ -216,8 +209,7 @@ int blocklog_actions::make_index()
    return 0;
 }
 
-int blocklog_actions::trim_blocklog()
-{
+int blocklog_actions::trim_blocklog() {
    if (opt->last_block != std::numeric_limits<uint32_t>::max()) {
       if (trim_blocklog_end(opt->blocks_dir, opt->last_block) != 0)
          return -1;
@@ -229,15 +221,13 @@ int blocklog_actions::trim_blocklog()
    return 0;
 }
 
-int blocklog_actions::extract_blocks()
-{
+int blocklog_actions::extract_blocks() {
    if (!extract_block_range(opt->blocks_dir, opt->output_dir, opt->first_block, opt->last_block))
       return -1;
    return 0;
 }
 
-int blocklog_actions::do_genesis()
-{
+int blocklog_actions::do_genesis() {
    std::optional<genesis_state> gs;
    bfs::path                    bld       = opt->blocks_dir;
    auto                         full_path = (bld / "blocks.log").generic_string();
@@ -274,8 +264,8 @@ int blocklog_actions::do_genesis()
    return 0;
 }
 
-int blocklog_actions::trim_blocklog_end(bfs::path block_dir, uint32_t n)
-{ // n is last block to keep (remove later blocks)
+int blocklog_actions::trim_blocklog_end(bfs::path block_dir,
+                                        uint32_t  n) { // n is last block to keep (remove later blocks)
    report_time rt("trimming blocklog end");
    using namespace std;
    trim_data td(block_dir);
@@ -299,8 +289,8 @@ int blocklog_actions::trim_blocklog_end(bfs::path block_dir, uint32_t n)
    return 0;
 }
 
-bool blocklog_actions::trim_blocklog_front(bfs::path block_dir, uint32_t n)
-{ // n is first block to keep (remove prior blocks)
+bool blocklog_actions::trim_blocklog_front(bfs::path block_dir,
+                                           uint32_t  n) { // n is first block to keep (remove prior blocks)
    report_time    rt("trimming blocklog start");
    block_num_type end    = std::numeric_limits<block_num_type>::max();
    const bool     status = block_log::extract_block_range(block_dir, block_dir / "old", n, end, true);
@@ -311,8 +301,7 @@ bool blocklog_actions::trim_blocklog_front(bfs::path block_dir, uint32_t n)
 bool blocklog_actions::extract_block_range(bfs::path block_dir,
                                            bfs::path output_dir,
                                            uint32_t  start,
-                                           uint32_t  end)
-{
+                                           uint32_t  end) {
    report_time rt("extracting block range");
    EOS_ASSERT(end > start, block_log_exception, "extract range end must be greater than start");
    const bool status = block_log::extract_block_range(block_dir, output_dir, start, end, false);
@@ -320,8 +309,7 @@ bool blocklog_actions::extract_block_range(bfs::path block_dir,
    return status;
 }
 
-int blocklog_actions::smoke_test()
-{
+int blocklog_actions::smoke_test() {
    using namespace std;
    bfs::path block_dir = opt->blocks_dir;
    cout << "\nSmoke test of blocks.log and blocks.index in directory " << block_dir << '\n';
@@ -363,8 +351,7 @@ int blocklog_actions::smoke_test()
    return 0;
 }
 
-int blocklog_actions::do_vacuum()
-{
+int blocklog_actions::do_vacuum() {
    bfs::path bld       = opt->blocks_dir;
    auto      full_path = (bld / "blocks.log").generic_string();
 
@@ -384,8 +371,7 @@ int blocklog_actions::do_vacuum()
    return 0;
 }
 
-int blocklog_actions::read_log()
-{
+int blocklog_actions::read_log() {
    initialize();
    report_time rt("reading log");
    block_log   block_logger(opt->blocks_dir, opt->blog_keep_prune_conf);

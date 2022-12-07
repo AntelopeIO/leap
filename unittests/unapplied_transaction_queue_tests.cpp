@@ -8,8 +8,7 @@ using namespace eosio::chain;
 
 BOOST_AUTO_TEST_SUITE(unapplied_transaction_queue_tests)
 
-auto unique_trx_meta_data(fc::time_point expire = fc::time_point::now() + fc::seconds(120))
-{
+auto unique_trx_meta_data(fc::time_point expire = fc::time_point::now() + fc::seconds(120)) {
 
    static uint64_t nextid = 0;
    ++nextid;
@@ -26,8 +25,7 @@ auto unique_trx_meta_data(fc::time_point expire = fc::time_point::now() + fc::se
                                                        transaction_metadata::trx_type::input);
 }
 
-auto next(unapplied_transaction_queue& q)
-{
+auto next(unapplied_transaction_queue& q) {
    transaction_metadata_ptr trx;
    auto                     itr = q.begin();
    if (itr != q.end()) {
@@ -37,8 +35,7 @@ auto next(unapplied_transaction_queue& q)
    return trx;
 }
 
-auto create_test_block_state(deque<transaction_metadata_ptr> trx_metas)
-{
+auto create_test_block_state(deque<transaction_metadata_ptr> trx_metas) {
    signed_block_ptr block = std::make_shared<signed_block>();
    for (auto& trx_meta : trx_metas) {
       block->transactions.emplace_back(*trx_meta->packed_trx());
@@ -85,8 +82,9 @@ auto create_test_block_state(deque<transaction_metadata_ptr> trx_metas)
 }
 
 // given a current itr make sure expected number of items are iterated over
-void verify_order(unapplied_transaction_queue& q, unapplied_transaction_queue::iterator itr, size_t expected)
-{
+void verify_order(unapplied_transaction_queue&          q,
+                  unapplied_transaction_queue::iterator itr,
+                  size_t                                expected) {
    size_t                        size = 0;
    std::set<transaction_id_type> ids;
    for (; itr != q.end(); ++itr, ++size) {
@@ -96,8 +94,7 @@ void verify_order(unapplied_transaction_queue& q, unapplied_transaction_queue::i
    BOOST_TEST(ids.size() == expected);
 }
 
-BOOST_AUTO_TEST_CASE(unapplied_transaction_queue_test)
-try {
+BOOST_AUTO_TEST_CASE(unapplied_transaction_queue_test) try {
 
    unapplied_transaction_queue q;
    BOOST_CHECK(q.empty());
@@ -305,8 +302,7 @@ try {
 }
 FC_LOG_AND_RETHROW() /// unapplied_transaction_queue_test
 
-BOOST_AUTO_TEST_CASE(unapplied_transaction_queue_erase_add)
-try {
+BOOST_AUTO_TEST_CASE(unapplied_transaction_queue_erase_add) try {
 
    unapplied_transaction_queue q;
    BOOST_CHECK(q.empty());
@@ -388,8 +384,7 @@ try {
 }
 FC_LOG_AND_RETHROW() /// unapplied_transaction_queue_test
 
-BOOST_AUTO_TEST_CASE(unapplied_transaction_queue_incoming_count)
-try {
+BOOST_AUTO_TEST_CASE(unapplied_transaction_queue_incoming_count) try {
 
    unapplied_transaction_queue q;
    BOOST_CHECK(q.empty());

@@ -3,8 +3,7 @@
 const string         wasm_str_select_0 = base_dir + "/select.0.wasm";
 std::vector<uint8_t> wasm_select_0     = read_wasm(wasm_str_select_0.c_str());
 
-BOOST_DATA_TEST_CASE(select_0_check_throw, boost::unit_test::data::xrange(0, 6), index)
-{
+BOOST_DATA_TEST_CASE(select_0_check_throw, boost::unit_test::data::xrange(0, 6), index) {
    try {
       TESTER tester;
       tester.produce_block();
@@ -27,8 +26,7 @@ BOOST_DATA_TEST_CASE(select_0_check_throw, boost::unit_test::data::xrange(0, 6),
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_DATA_TEST_CASE(select_0_pass, boost::unit_test::data::xrange(6, 7), index)
-{
+BOOST_DATA_TEST_CASE(select_0_pass, boost::unit_test::data::xrange(6, 7), index) {
    try {
       TESTER tester;
       tester.produce_block();

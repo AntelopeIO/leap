@@ -7,8 +7,7 @@ namespace chain {
 namespace webassembly {
 
 template<typename Ctx, typename F>
-inline static void predicated_print(Ctx& context, F&& print_func)
-{
+inline static void predicated_print(Ctx& context, F&& print_func) {
    if (UNLIKELY(context.control.contracts_console()))
       print_func();
 }
@@ -16,18 +15,15 @@ inline static void predicated_print(Ctx& context, F&& print_func)
 // Kept as intrinsic rather than implementing on WASM side (using prints_l and strlen) because strlen is
 // faster on native side.
 // TODO predicate these for ignore
-void interface::prints(null_terminated_ptr str)
-{
+void interface::prints(null_terminated_ptr str) {
    predicated_print(context, [&]() { context.console_append(static_cast<const char*>(str.data())); });
 }
 
-void interface::prints_l(legacy_span<const char> str)
-{
+void interface::prints_l(legacy_span<const char> str) {
    predicated_print(context, [&]() { context.console_append(std::string_view(str.data(), str.size())); });
 }
 
-void interface::printi(int64_t val)
-{
+void interface::printi(int64_t val) {
    predicated_print(context, [&]() {
       std::ostringstream oss;
       oss << val;
@@ -35,8 +31,7 @@ void interface::printi(int64_t val)
    });
 }
 
-void interface::printui(uint64_t val)
-{
+void interface::printui(uint64_t val) {
    predicated_print(context, [&]() {
       std::ostringstream oss;
       oss << val;
@@ -44,8 +39,7 @@ void interface::printui(uint64_t val)
    });
 }
 
-void interface::printi128(legacy_ptr<const __int128> val)
-{
+void interface::printi128(legacy_ptr<const __int128> val) {
    predicated_print(context, [&]() {
       bool              is_negative = (*val < 0);
       unsigned __int128 val_magnitude;
@@ -68,16 +62,14 @@ void interface::printi128(legacy_ptr<const __int128> val)
    });
 }
 
-void interface::printui128(legacy_ptr<const unsigned __int128> val)
-{
+void interface::printui128(legacy_ptr<const unsigned __int128> val) {
    predicated_print(context, [&]() {
       fc::uint128 v(*val >> 64, static_cast<uint64_t>(*val));
       context.console_append(fc::variant(v).get_string());
    });
 }
 
-void interface::printsf(float32_t val)
-{
+void interface::printsf(float32_t val) {
    predicated_print(context, [&]() {
       // Assumes float representation on native side is the same as on the WASM side
       std::ostringstream oss;
@@ -88,8 +80,7 @@ void interface::printsf(float32_t val)
    });
 }
 
-void interface::printdf(float64_t val)
-{
+void interface::printdf(float64_t val) {
    predicated_print(context, [&]() {
       // Assumes double representation on native side is the same as on the WASM side
       std::ostringstream oss;
@@ -100,8 +91,7 @@ void interface::printdf(float64_t val)
    });
 }
 
-void interface::printqf(legacy_ptr<const float128_t> val)
-{
+void interface::printqf(legacy_ptr<const float128_t> val) {
    /*
     * Native-side long double uses an 80-bit extended-precision floating-point number.
     * The easiest solution for now was to use the Berkeley softfloat library to round the 128-bit
@@ -134,13 +124,11 @@ void interface::printqf(legacy_ptr<const float128_t> val)
    });
 }
 
-void interface::printn(name value)
-{
+void interface::printn(name value) {
    predicated_print(context, [&]() { context.console_append(value.to_string()); });
 }
 
-void interface::printhex(legacy_span<const char> data)
-{
+void interface::printhex(legacy_span<const char> data) {
    predicated_print(context, [&]() { context.console_append(fc::to_hex(data.data(), data.size())); });
 }
 }

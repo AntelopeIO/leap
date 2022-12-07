@@ -6,13 +6,10 @@
 namespace eosio {
 
 http_client_plugin::http_client_plugin()
-   : my(new http_client())
-{
-}
+   : my(new http_client()) {}
 http_client_plugin::~http_client_plugin() {}
 
-void http_client_plugin::set_program_options(options_description&, options_description& cfg)
-{
+void http_client_plugin::set_program_options(options_description&, options_description& cfg) {
    cfg.add_options()("https-client-root-cert",
                      boost::program_options::value<vector<string>>()->composing()->multitoken(),
                      "PEM encoded trusted root certificate (or path to file containing one) used to validate "
@@ -22,8 +19,7 @@ void http_client_plugin::set_program_options(options_description&, options_descr
       "true: validate that the peer certificates are valid and trusted, false: ignore cert errors");
 }
 
-void http_client_plugin::plugin_initialize(const variables_map& options)
-{
+void http_client_plugin::plugin_initialize(const variables_map& options) {
    try {
       if (options.count("https-client-root-cert")) {
          const std::vector<std::string> root_pems =

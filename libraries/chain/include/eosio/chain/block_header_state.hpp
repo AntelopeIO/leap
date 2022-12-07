@@ -14,15 +14,13 @@ namespace legacy {
  * a fc::raw::unpack compatible version of the old block_state structure stored in
  * version 2 snapshots
  */
-struct snapshot_block_header_state_v2
-{
+struct snapshot_block_header_state_v2 {
    static constexpr uint32_t minimum_version = 0;
    static constexpr uint32_t maximum_version = 2;
    static_assert(chain_snapshot_header::minimum_compatible_version <= maximum_version,
                  "snapshot_block_header_state_v2 is no longer needed");
 
-   struct schedule_info
-   {
+   struct schedule_info {
       uint32_t               schedule_lib_num = 0; /// last irr block num
       digest_type            schedule_hash;
       producer_schedule_type schedule;
@@ -52,8 +50,7 @@ using signer_callback_type = std::function<std::vector<signature_type>(const dig
 struct block_header_state;
 
 namespace detail {
-struct block_header_state_common
-{
+struct block_header_state_common {
    uint32_t                         block_num                           = 0;
    uint32_t                         dpos_proposed_irreversible_blocknum = 0;
    uint32_t                         dpos_irreversible_blocknum          = 0;
@@ -65,8 +62,7 @@ struct block_header_state_common
    vector<uint8_t>                  confirm_count;
 };
 
-struct schedule_info
-{
+struct schedule_info {
    uint32_t                    schedule_lib_num = 0; /// last irr block num
    digest_type                 schedule_hash;
    producer_authority_schedule schedule;
@@ -77,8 +73,7 @@ bool is_builtin_activated(const protocol_feature_activation_set_ptr& pfa,
                           builtin_protocol_feature_t                 feature_codename);
 }
 
-struct pending_block_header_state : public detail::block_header_state_common
-{
+struct pending_block_header_state : public detail::block_header_state_common {
    protocol_feature_activation_set_ptr prev_activated_protocol_features;
    detail::schedule_info               prev_pending_schedule;
    bool                                was_pending_promoted = false;
@@ -121,8 +116,7 @@ protected:
  *  @struct block_header_state
  *  @brief defines the minimum state necessary to validate transaction headers
  */
-struct block_header_state : public detail::block_header_state_common
-{
+struct block_header_state : public detail::block_header_state_common {
    block_id_type                       id;
    signed_block_header                 header;
    detail::schedule_info               pending_schedule;
@@ -136,9 +130,7 @@ struct block_header_state : public detail::block_header_state_common
    block_header_state() = default;
 
    explicit block_header_state(detail::block_header_state_common&& base)
-      : detail::block_header_state_common(std::move(base))
-   {
-   }
+      : detail::block_header_state_common(std::move(base)) {}
 
    explicit block_header_state(legacy::snapshot_block_header_state_v2&& snapshot);
 

@@ -13,13 +13,11 @@ namespace eosio {
 namespace chain {
 namespace eosvmoc {
 
-struct intrinsic
-{
+struct intrinsic {
    intrinsic(const char* name, const IR::FunctionType* type, void* function_ptr, size_t ordinal);
 };
 
-struct intrinsic_entry
-{
+struct intrinsic_entry {
    const IR::FunctionType* const type;
    const void* const             function_ptr;
    const size_t                  ordinal;

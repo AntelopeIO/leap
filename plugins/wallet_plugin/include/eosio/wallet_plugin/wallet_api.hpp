@@ -9,8 +9,7 @@ using namespace eosio::chain;
 namespace eosio {
 namespace wallet {
 
-class wallet_api
-{
+class wallet_api {
 public:
    virtual ~wallet_api() {}
 

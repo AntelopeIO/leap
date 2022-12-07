@@ -40,8 +40,7 @@ using local_stream =
 //
 //  https://github.com/boostorg/beast/issues/38
 //  https://security.stackexchange.com/questions/91435/how-to-handle-a-malicious-ssl-tls-shutdown
-void fail(beast::error_code ec, char const* what, fc::logger& logger, char const* action)
-{
+void fail(beast::error_code ec, char const* what, fc::logger& logger, char const* action) {
    fc_elog(logger, "${w}: ${m}", ("w", what)("m", ec.message()));
    fc_elog(logger, action);
 }
@@ -49,8 +48,7 @@ void fail(beast::error_code ec, char const* what, fc::logger& logger, char const
 template<class T>
 bool allow_host(const http::request<http::string_body>&   req,
                 T&                                        session,
-                const std::shared_ptr<http_plugin_state>& plugin_state)
-{
+                const std::shared_ptr<http_plugin_state>& plugin_state) {
    auto is_conn_secure = session.is_secure();
 
    auto& socket = session.socket();
@@ -75,8 +73,7 @@ bool allow_host(const http::request<http::string_body>&   req,
 // use the Curiously Recurring Template Pattern so that
 // the same code works with both SSL streams, regular TCP sockets and UNIX sockets
 template<class Derived>
-class beast_http_session : public detail::abstract_conn
-{
+class beast_http_session : public detail::abstract_conn {
 protected:
    beast::flat_buffer buffer_;
 
@@ -96,8 +93,7 @@ protected:
    bool is_send_exception_response_ = true;
 
    template<class Body, class Allocator>
-   void handle_request(http::request<Body, http::basic_fields<Allocator>>&& req)
-   {
+   void handle_request(http::request<Body, http::basic_fields<Allocator>>&& req) {
       res_->version(req.version());
       res_->set(http::field::content_type, "application/json");
       res_->keep_alive(req.keep_alive());
@@ -168,8 +164,7 @@ protected:
    }
 
 public:
-   virtual bool verify_max_bytes_in_flight() override
-   {
+   virtual bool verify_max_bytes_in_flight() override {
       auto bytes_in_flight_size = plugin_state_->bytes_in_flight.load();
       if (bytes_in_flight_size > plugin_state_->max_bytes_in_flight) {
          fc_dlog(plugin_state_->logger,
@@ -187,8 +182,7 @@ public:
       return true;
    }
 
-   virtual bool verify_max_requests_in_flight() override
-   {
+   virtual bool verify_max_requests_in_flight() override {
       if (plugin_state_->max_requests_in_flight < 0)
          return true;
 
@@ -218,8 +212,7 @@ public:
    beast_http_session() = default;
 
    beast_http_session(std::shared_ptr<http_plugin_state> plugin_state)
-      : plugin_state_(std::move(plugin_state))
-   {
+      : plugin_state_(std::move(plugin_state)) {
       plugin_state_->requests_in_flight += 1;
       req_parser_.emplace();
       req_parser_->body_limit(plugin_state_->max_body_size);
@@ -232,8 +225,7 @@ public:
       is_send_exception_response_ = true;
    }
 
-   virtual ~beast_http_session()
-   {
+   virtual ~beast_http_session() {
       is_send_exception_response_ = false;
       plugin_state_->requests_in_flight -= 1;
       if (plugin_state_->logger.is_enabled(fc::log_level::all)) {
@@ -246,8 +238,7 @@ public:
       }
    }
 
-   void do_read()
-   {
+   void do_read() {
       read_begin_ = steady_clock::now();
 
       // Read a request
@@ -260,8 +251,7 @@ public:
                        });
    }
 
-   void on_read(beast::error_code ec, std::size_t bytes_transferred)
-   {
+   void on_read(beast::error_code ec, std::size_t bytes_transferred) {
       boost::ignore_unused(bytes_transferred);
 
       // This means they closed the connection
@@ -282,8 +272,7 @@ public:
       handle_request(std::move(req));
    }
 
-   void on_write(beast::error_code ec, std::size_t bytes_transferred, bool close)
-   {
+   void on_write(beast::error_code ec, std::size_t bytes_transferred, bool close) {
       boost::ignore_unused(bytes_transferred);
 
       if (ec) {
@@ -309,8 +298,7 @@ public:
       do_read();
    }
 
-   virtual void handle_exception() override
-   {
+   virtual void handle_exception() override {
       std::string err_str;
       try {
          try {
@@ -359,8 +347,7 @@ public:
       }
    }
 
-   virtual void send_response(std::string json_body, unsigned int code) override
-   {
+   virtual void send_response(std::string json_body, unsigned int code) override {
       write_begin_ = steady_clock::now();
       auto dt      = write_begin_ - handle_begin_;
       handle_time_us_ += std::chrono::duration_cast<std::chrono::microseconds>(dt).count();
@@ -381,8 +368,7 @@ public:
          });
    }
 
-   void run_session()
-   {
+   void run_session() {
       if (!verify_max_requests_in_flight())
          return derived().do_eof();
 
@@ -393,17 +379,14 @@ public:
 // Handles a plain HTTP connection
 class plain_session
    : public beast_http_session<plain_session>
-   , public std::enable_shared_from_this<plain_session>
-{
+   , public std::enable_shared_from_this<plain_session> {
    tcp_socket_t socket_;
 
 public:
    // Create the session
    plain_session(tcp_socket_t socket, std::shared_ptr<http_plugin_state> plugin_state)
       : beast_http_session<plain_session>(std::move(plugin_state))
-      , socket_(std::move(socket))
-   {
-   }
+      , socket_(std::move(socket)) {}
 
    tcp_socket_t& stream() { return socket_; }
    tcp_socket_t& socket() { return socket_; }
@@ -411,8 +394,7 @@ public:
    // Start the asynchronous operation
    void run() { do_read(); }
 
-   void do_eof()
-   {
+   void do_eof() {
       is_send_exception_response_ = false;
       try {
          // Send a TCP shutdown
@@ -426,8 +408,7 @@ public:
 
    bool is_secure() { return false; };
 
-   bool allow_host(const http::request<http::string_body>& req)
-   {
+   bool allow_host(const http::request<http::string_body>& req) {
       return eosio::allow_host(req, *this, plugin_state_);
    }
 
@@ -437,8 +418,7 @@ public:
 // Handles an SSL HTTP connection
 class ssl_session
    : public beast_http_session<ssl_session>
-   , public std::enable_shared_from_this<ssl_session>
-{
+   , public std::enable_shared_from_this<ssl_session> {
    ssl::stream<tcp_socket_t> stream_;
 
 public:
@@ -446,25 +426,20 @@ public:
 
    ssl_session(tcp_socket_t socket, std::shared_ptr<http_plugin_state> plugin_state)
       : beast_http_session<ssl_session>(std::move(plugin_state))
-      , stream_(std::move(socket), *plugin_state_->ctx)
-   {
-   }
+      , stream_(std::move(socket), *plugin_state_->ctx) {}
 
    ssl::stream<tcp_socket_t>& stream() { return stream_; }
 #if BOOST_VERSION < 107000
-   tcp_socket_t& socket()
-   {
+   tcp_socket_t& socket() {
       return beast::get_lowest_layer<tcp_socket_t&>(stream_);
    }
 #else
-   tcp_socket_t& socket()
-   {
+   tcp_socket_t& socket() {
       return beast::get_lowest_layer(stream_);
    }
 #endif
    // Start the asynchronous operation
-   void run()
-   {
+   void run() {
       auto self = shared_from_this();
       self->stream_.async_handshake(
          ssl::stream_base::server,
@@ -472,8 +447,7 @@ public:
          [self](beast::error_code ec, std::size_t bytes_used) { self->on_handshake(ec, bytes_used); });
    }
 
-   void on_handshake(beast::error_code ec, std::size_t bytes_used)
-   {
+   void on_handshake(beast::error_code ec, std::size_t bytes_used) {
       if (ec)
          return fail(ec, "handshake", plugin_state_->logger, "closing connection");
 
@@ -482,32 +456,27 @@ public:
       do_read();
    }
 
-   void do_eof()
-   {
+   void do_eof() {
       // Perform the SSL shutdown
       auto self = shared_from_this();
       stream_.async_shutdown([self](beast::error_code ec) { self->on_shutdown(ec); });
    }
 
-   void on_shutdown(beast::error_code ec)
-   {
+   void on_shutdown(beast::error_code ec) {
       if (ec)
          return fail(ec, "shutdown", plugin_state_->logger, "closing connection");
       // At this point the connection is closed gracefully
    }
 
-   bool is_secure()
-   {
+   bool is_secure() {
       return true;
    }
 
-   bool allow_host(const http::request<http::string_body>& req)
-   {
+   bool allow_host(const http::request<http::string_body>& req) {
       return eosio::allow_host(req, *this, plugin_state_);
    }
 
-   static constexpr auto name()
-   {
+   static constexpr auto name() {
       return "ssl_session";
    }
 }; // end class ssl_session
@@ -515,8 +484,7 @@ public:
 // unix domain sockets
 class unix_socket_session
    : public std::enable_shared_from_this<unix_socket_session>
-   , public beast_http_session<unix_socket_session>
-{
+   , public beast_http_session<unix_socket_session> {
 
    // The socket used to communicate with the client.
    stream_protocol::socket socket_;
@@ -524,20 +492,16 @@ class unix_socket_session
 public:
    unix_socket_session(stream_protocol::socket sock, std::shared_ptr<http_plugin_state> plugin_state)
       : beast_http_session(std::move(plugin_state))
-      , socket_(std::move(sock))
-   {
-   }
+      , socket_(std::move(sock)) {}
 
    virtual ~unix_socket_session() = default;
 
-   bool allow_host(const http::request<http::string_body>& req)
-   {
+   bool allow_host(const http::request<http::string_body>& req) {
       // always allow local hosts
       return true;
    }
 
-   void do_eof()
-   {
+   void do_eof() {
       is_send_exception_response_ = false;
       try {
          // Send a shutdown signal

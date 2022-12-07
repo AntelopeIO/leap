@@ -26,8 +26,7 @@ class datastream;
 template<typename T>
 class datastream<T,
                  std::enable_if_t<std::is_same_v<T, char*> || std::is_same_v<T, const char*> ||
-                                  std::is_same_v<T, const unsigned char*>>>
-{
+                                  std::is_same_v<T, const unsigned char*>>> {
 public:
    datastream(T start, size_t s)
       : _start(start)
@@ -35,8 +34,7 @@ public:
       , _end(start + s){};
 
    inline void skip(size_t s) { _pos += s; }
-   inline bool read(char* d, size_t s)
-   {
+   inline bool read(char* d, size_t s) {
       if (size_t(_end - _pos) >= (size_t)s) {
          memcpy(d, _pos, s);
          _pos += s;
@@ -45,8 +43,7 @@ public:
       detail::throw_datastream_range_error("read", _end - _start, int64_t(-((_end - _pos) - 1)));
    }
 
-   inline bool write(const char* d, size_t s)
-   {
+   inline bool write(const char* d, size_t s) {
       if (size_t(_end - _pos) >= (size_t)s) {
          memcpy(_pos, d, s);
          _pos += s;
@@ -55,8 +52,7 @@ public:
       detail::throw_datastream_range_error("write", _end - _start, int64_t(-((_end - _pos) - 1)));
    }
 
-   inline bool put(char c)
-   {
+   inline bool put(char c) {
       if (_pos < _end) {
          *_pos = c;
          ++_pos;
@@ -66,8 +62,7 @@ public:
    }
 
    inline bool get(unsigned char& c) { return get(*(char*)&c); }
-   inline bool get(char& c)
-   {
+   inline bool get(char& c) {
       if (_pos < _end) {
          c = *_pos;
          ++_pos;
@@ -78,8 +73,7 @@ public:
 
    T           pos() const { return _pos; }
    inline bool valid() const { return _pos <= _end && _pos >= _start; }
-   inline bool seekp(size_t p)
-   {
+   inline bool seekp(size_t p) {
       _pos = _start + p;
       return _pos <= _end;
    }
@@ -93,29 +87,24 @@ private:
 };
 
 template<>
-class datastream<size_t, void>
-{
+class datastream<size_t, void> {
 public:
    datastream(size_t init_size = 0)
       : _size(init_size){};
-   inline bool skip(size_t s)
-   {
+   inline bool skip(size_t s) {
       _size += s;
       return true;
    }
-   inline bool write(const char*, size_t s)
-   {
+   inline bool write(const char*, size_t s) {
       _size += s;
       return true;
    }
-   inline bool put(char)
-   {
+   inline bool put(char) {
       ++_size;
       return true;
    }
    inline bool valid() const { return true; }
-   inline bool seekp(size_t p)
-   {
+   inline bool seekp(size_t p) {
       _size = p;
       return true;
    }
@@ -127,33 +116,27 @@ private:
 };
 
 template<typename Streambuf>
-class datastream<Streambuf, typename std::enable_if_t<std::is_base_of_v<std::streambuf, Streambuf>>>
-{
+class datastream<Streambuf, typename std::enable_if_t<std::is_base_of_v<std::streambuf, Streambuf>>> {
 private:
    Streambuf buf;
 
 public:
    template<typename... Args>
    datastream(Args&&... args)
-      : buf(std::forward<Args>(args)...)
-   {
-   }
+      : buf(std::forward<Args>(args)...) {}
 
    size_t read(char* data, size_t n) { return buf.sgetn(data, n); }
    size_t write(const char* data, size_t n) { return buf.sputn(data, n); }
    size_t tellp() { return this->pubseekoff(0, std::ios::cur); }
-   bool   skip(size_t p)
-   {
-      this->pubseekoff(p, std::ios::cur);
-      return true;
+   bool   skip(size_t p) {
+        this->pubseekoff(p, std::ios::cur);
+        return true;
    }
-   bool get(char& c)
-   {
+   bool get(char& c) {
       c = buf.sbumpc();
       return true;
    }
-   bool seekp(size_t off)
-   {
+   bool seekp(size_t off) {
       buf.pubseekoff(off, std::ios::beg);
       return true;
    }
@@ -166,8 +149,7 @@ public:
 template<typename Container>
 class datastream<Container,
                  typename std::enable_if_t<(std::is_same_v<std::vector<char>, Container> ||
-                                            std::is_same_v<std::deque<char>, Container>)>>
-{
+                                            std::is_same_v<std::deque<char>, Container>)>> {
 private:
    Container _container;
    size_t    cur;
@@ -176,12 +158,9 @@ public:
    template<typename... Args>
    datastream(Args&&... args)
       : _container(std::forward<Args>(args)...)
-      , cur(0)
-   {
-   }
+      , cur(0) {}
 
-   size_t read(char* s, size_t n)
-   {
+   size_t read(char* s, size_t n) {
       if (cur + n > _container.size()) {
          FC_THROW_EXCEPTION(out_of_range_exception,
                             "read datastream<std::vector<char>> of length ${len} over by ${over}",
@@ -192,29 +171,25 @@ public:
       return n;
    }
 
-   size_t write(const char* s, size_t n)
-   {
+   size_t write(const char* s, size_t n) {
       _container.resize(std::max(cur + n, _container.size()));
       std::copy_n(s, n, _container.begin() + cur);
       cur += n;
       return n;
    }
 
-   bool seekp(size_t off)
-   {
+   bool seekp(size_t off) {
       cur = off;
       return true;
    }
 
    size_t tellp() const { return cur; }
-   bool   skip(size_t p)
-   {
-      cur += p;
-      return true;
+   bool   skip(size_t p) {
+        cur += p;
+        return true;
    }
 
-   bool get(char& c)
-   {
+   bool get(char& c) {
       this->read(&c, 1);
       return true;
    }
@@ -226,139 +201,119 @@ public:
 };
 
 template<typename ST>
-inline datastream<ST>& operator<<(datastream<ST>& ds, const __int128& d)
-{
+inline datastream<ST>& operator<<(datastream<ST>& ds, const __int128& d) {
    ds.write((const char*)&d, sizeof(d));
    return ds;
 }
 
 template<typename ST, typename DATA>
-inline datastream<ST>& operator>>(datastream<ST>& ds, __int128& d)
-{
+inline datastream<ST>& operator>>(datastream<ST>& ds, __int128& d) {
    ds.read((char*)&d, sizeof(d));
    return ds;
 }
 
 template<typename ST>
-inline datastream<ST>& operator<<(datastream<ST>& ds, const unsigned __int128& d)
-{
+inline datastream<ST>& operator<<(datastream<ST>& ds, const unsigned __int128& d) {
    ds.write((const char*)&d, sizeof(d));
    return ds;
 }
 
 template<typename ST, typename DATA>
-inline datastream<ST>& operator>>(datastream<ST>& ds, unsigned __int128& d)
-{
+inline datastream<ST>& operator>>(datastream<ST>& ds, unsigned __int128& d) {
    ds.read((char*)&d, sizeof(d));
    return ds;
 }
 
 template<typename ST>
-inline datastream<ST>& operator<<(datastream<ST>& ds, const int64_t& d)
-{
+inline datastream<ST>& operator<<(datastream<ST>& ds, const int64_t& d) {
    ds.write((const char*)&d, sizeof(d));
    return ds;
 }
 
 template<typename ST, typename DATA>
-inline datastream<ST>& operator>>(datastream<ST>& ds, int64_t& d)
-{
+inline datastream<ST>& operator>>(datastream<ST>& ds, int64_t& d) {
    ds.read((char*)&d, sizeof(d));
    return ds;
 }
 
 template<typename ST>
-inline datastream<ST>& operator<<(datastream<ST>& ds, const uint64_t& d)
-{
+inline datastream<ST>& operator<<(datastream<ST>& ds, const uint64_t& d) {
    ds.write((const char*)&d, sizeof(d));
    return ds;
 }
 
 template<typename ST, typename DATA>
-inline datastream<ST>& operator>>(datastream<ST>& ds, uint64_t& d)
-{
+inline datastream<ST>& operator>>(datastream<ST>& ds, uint64_t& d) {
    ds.read((char*)&d, sizeof(d));
    return ds;
 }
 
 template<typename ST>
-inline datastream<ST>& operator<<(datastream<ST>& ds, const int32_t& d)
-{
+inline datastream<ST>& operator<<(datastream<ST>& ds, const int32_t& d) {
    ds.write((const char*)&d, sizeof(d));
    return ds;
 }
 
 template<typename ST, typename DATA>
-inline datastream<ST>& operator>>(datastream<ST>& ds, int32_t& d)
-{
+inline datastream<ST>& operator>>(datastream<ST>& ds, int32_t& d) {
    ds.read((char*)&d, sizeof(d));
    return ds;
 }
 
 template<typename ST>
-inline datastream<ST>& operator<<(datastream<ST>& ds, const uint32_t& d)
-{
+inline datastream<ST>& operator<<(datastream<ST>& ds, const uint32_t& d) {
    ds.write((const char*)&d, sizeof(d));
    return ds;
 }
 
 template<typename ST, typename DATA>
-inline datastream<ST>& operator>>(datastream<ST>& ds, uint32_t& d)
-{
+inline datastream<ST>& operator>>(datastream<ST>& ds, uint32_t& d) {
    ds.read((char*)&d, sizeof(d));
    return ds;
 }
 
 template<typename ST>
-inline datastream<ST>& operator<<(datastream<ST>& ds, const int16_t& d)
-{
+inline datastream<ST>& operator<<(datastream<ST>& ds, const int16_t& d) {
    ds.write((const char*)&d, sizeof(d));
    return ds;
 }
 
 template<typename ST, typename DATA>
-inline datastream<ST>& operator>>(datastream<ST>& ds, int16_t& d)
-{
+inline datastream<ST>& operator>>(datastream<ST>& ds, int16_t& d) {
    ds.read((char*)&d, sizeof(d));
    return ds;
 }
 
 template<typename ST>
-inline datastream<ST>& operator<<(datastream<ST>& ds, const uint16_t& d)
-{
+inline datastream<ST>& operator<<(datastream<ST>& ds, const uint16_t& d) {
    ds.write((const char*)&d, sizeof(d));
    return ds;
 }
 
 template<typename ST, typename DATA>
-inline datastream<ST>& operator>>(datastream<ST>& ds, uint16_t& d)
-{
+inline datastream<ST>& operator>>(datastream<ST>& ds, uint16_t& d) {
    ds.read((char*)&d, sizeof(d));
    return ds;
 }
 template<typename ST>
-inline datastream<ST>& operator<<(datastream<ST>& ds, const int8_t& d)
-{
+inline datastream<ST>& operator<<(datastream<ST>& ds, const int8_t& d) {
    ds.write((const char*)&d, sizeof(d));
    return ds;
 }
 
 template<typename ST, typename DATA>
-inline datastream<ST>& operator>>(datastream<ST>& ds, int8_t& d)
-{
+inline datastream<ST>& operator>>(datastream<ST>& ds, int8_t& d) {
    ds.read((char*)&d, sizeof(d));
    return ds;
 }
 template<typename ST>
-inline datastream<ST>& operator<<(datastream<ST>& ds, const uint8_t& d)
-{
+inline datastream<ST>& operator<<(datastream<ST>& ds, const uint8_t& d) {
    ds.write((const char*)&d, sizeof(d));
    return ds;
 }
 
 template<typename ST, typename DATA>
-inline datastream<ST>& operator>>(datastream<ST>& ds, uint8_t& d)
-{
+inline datastream<ST>& operator>>(datastream<ST>& ds, uint8_t& d) {
    ds.read((char*)&d, sizeof(d));
    return ds;
 }

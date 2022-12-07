@@ -10,13 +10,11 @@ namespace eosio {
 // to get the path if makes sense, so that we can call ::unlink() before opening socket
 // in beast_http_listener::listen() by tdefault return blank string
 template<typename T>
-std::string get_endpoint_path(const T& endpt)
-{
+std::string get_endpoint_path(const T& endpt) {
    return {};
 }
 
-std::string get_endpoint_path(const stream_protocol::endpoint& endpt)
-{
+std::string get_endpoint_path(const stream_protocol::endpoint& endpt) {
    return endpt.path();
 }
 
@@ -26,8 +24,7 @@ std::string get_endpoint_path(const stream_protocol::endpoint& endpt)
 // socket type must be the socket e.g, boost::asio::ip::tcp::socket
 template<typename session_type, typename protocol_type, typename socket_type>
 class beast_http_listener
-   : public std::enable_shared_from_this<beast_http_listener<session_type, protocol_type, socket_type>>
-{
+   : public std::enable_shared_from_this<beast_http_listener<session_type, protocol_type, socket_type>> {
 private:
    bool is_listening_ = false;
 
@@ -48,20 +45,15 @@ public:
       : is_listening_(false)
       , plugin_state_(std::move(plugin_state))
       , acceptor_(plugin_state_->thread_pool->get_executor())
-      , socket_(plugin_state_->thread_pool->get_executor())
-   {
-   }
+      , socket_(plugin_state_->thread_pool->get_executor()) {}
 
-   virtual ~beast_http_listener()
-   {
+   virtual ~beast_http_listener() {
       try {
          stop_listening();
-      } catch (...) {
-      }
+      } catch (...) {}
    };
 
-   void listen(typename protocol_type::endpoint endpoint)
-   {
+   void listen(typename protocol_type::endpoint endpoint) {
       if (is_listening_)
          return;
 
@@ -104,8 +96,7 @@ public:
    }
 
    // Start accepting incoming connections
-   void start_accept()
-   {
+   void start_accept() {
       if (!is_listening_)
          return;
       do_accept();
@@ -113,8 +104,7 @@ public:
 
    bool is_listening() { return is_listening_; }
 
-   void stop_listening()
-   {
+   void stop_listening() {
       if (is_listening_) {
          plugin_state_->thread_pool->stop();
          is_listening_ = false;
@@ -122,8 +112,7 @@ public:
    }
 
 private:
-   void do_accept()
-   {
+   void do_accept() {
       auto self = this->shared_from_this();
       acceptor_.async_accept(socket_, [self](beast::error_code ec) {
          if (ec) {

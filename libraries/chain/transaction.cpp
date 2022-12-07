@@ -14,8 +14,7 @@
 namespace eosio {
 namespace chain {
 
-void deferred_transaction_generation_context::reflector_init()
-{
+void deferred_transaction_generation_context::reflector_init() {
    static_assert(fc::raw::has_feature_reflector_init_on_unpacked_reflected_types,
                  "deferred_transaction_generation_context expects FC to support reflector_init");
 
@@ -24,34 +23,29 @@ void deferred_transaction_generation_context::reflector_init()
               "Deferred transaction generation context extension must have a non-empty sender account", );
 }
 
-void transaction_header::set_reference_block(const block_id_type& reference_block)
-{
+void transaction_header::set_reference_block(const block_id_type& reference_block) {
    ref_block_num    = fc::endian_reverse_u32(reference_block._hash[0]);
    ref_block_prefix = reference_block._hash[1];
 }
 
-bool transaction_header::verify_reference_block(const block_id_type& reference_block) const
-{
+bool transaction_header::verify_reference_block(const block_id_type& reference_block) const {
    return ref_block_num == (decltype(ref_block_num))fc::endian_reverse_u32(reference_block._hash[0]) &&
           ref_block_prefix == (decltype(ref_block_prefix))reference_block._hash[1];
 }
 
-void transaction_header::validate() const
-{
+void transaction_header::validate() const {
    EOS_ASSERT(max_net_usage_words.value < UINT32_MAX / 8UL,
               transaction_exception,
               "declared max_net_usage_words overflows when expanded to max net usage");
 }
 
-transaction_id_type transaction::id() const
-{
+transaction_id_type transaction::id() const {
    digest_type::encoder enc;
    fc::raw::pack(enc, *this);
    return enc.result();
 }
 
-digest_type transaction::sig_digest(const chain_id_type& chain_id, const vector<bytes>& cfd) const
-{
+digest_type transaction::sig_digest(const chain_id_type& chain_id, const vector<bytes>& cfd) const {
    digest_type::encoder enc;
    fc::raw::pack(enc, chain_id);
    fc::raw::pack(enc, *this);
@@ -68,8 +62,7 @@ fc::microseconds transaction::get_signature_keys(const vector<signature_type>& s
                                                  fc::time_point                deadline,
                                                  const vector<bytes>&          cfd,
                                                  flat_set<public_key_type>&    recovered_pub_keys,
-                                                 bool                          allow_duplicate_keys) const
-{
+                                                 bool                          allow_duplicate_keys) const {
    try {
       auto start = fc::time_point::now();
       recovered_pub_keys.clear();
@@ -94,8 +87,7 @@ fc::microseconds transaction::get_signature_keys(const vector<signature_type>& s
    FC_CAPTURE_AND_RETHROW()
 }
 
-flat_multimap<uint16_t, transaction_extension> transaction::validate_and_extract_extensions() const
-{
+flat_multimap<uint16_t, transaction_extension> transaction::validate_and_extract_extensions() const {
    using decompose_t = transaction_extension_types::decompose_t;
 
    flat_multimap<uint16_t, transaction_extension> results;
@@ -132,44 +124,38 @@ flat_multimap<uint16_t, transaction_extension> transaction::validate_and_extract
    return results;
 }
 
-const signature_type& signed_transaction::sign(const private_key_type& key, const chain_id_type& chain_id)
-{
+const signature_type& signed_transaction::sign(const private_key_type& key, const chain_id_type& chain_id) {
    signatures.push_back(key.sign(sig_digest(chain_id, context_free_data)));
    return signatures.back();
 }
 
-signature_type signed_transaction::sign(const private_key_type& key, const chain_id_type& chain_id) const
-{
+signature_type signed_transaction::sign(const private_key_type& key, const chain_id_type& chain_id) const {
    return key.sign(sig_digest(chain_id, context_free_data));
 }
 
 fc::microseconds signed_transaction::get_signature_keys(const chain_id_type&       chain_id,
                                                         fc::time_point             deadline,
                                                         flat_set<public_key_type>& recovered_pub_keys,
-                                                        bool                       allow_duplicate_keys) const
-{
+                                                        bool allow_duplicate_keys) const {
    return transaction::get_signature_keys(
       signatures, chain_id, deadline, context_free_data, recovered_pub_keys, allow_duplicate_keys);
 }
 
-uint32_t packed_transaction::get_unprunable_size() const
-{
+uint32_t packed_transaction::get_unprunable_size() const {
    uint64_t size = config::fixed_net_overhead_of_packed_trx;
    size += packed_trx.size();
    EOS_ASSERT(size <= std::numeric_limits<uint32_t>::max(), tx_too_big, "packed_transaction is too big");
    return static_cast<uint32_t>(size);
 }
 
-uint32_t packed_transaction::get_prunable_size() const
-{
+uint32_t packed_transaction::get_prunable_size() const {
    uint64_t size = fc::raw::pack_size(signatures);
    size += packed_context_free_data.size();
    EOS_ASSERT(size <= std::numeric_limits<uint32_t>::max(), tx_too_big, "packed_transaction is too big");
    return static_cast<uint32_t>(size);
 }
 
-size_t packed_transaction::get_estimated_size() const
-{
+size_t packed_transaction::get_estimated_size() const {
    // transaction is stored packed (only transaction minus signed_transaction members) and unpacked
    // (signed_transaction), double packed size, packed cfd size, and signature size to account for
    // signed_transaction unpacked_trx size
@@ -177,8 +163,7 @@ size_t packed_transaction::get_estimated_size() const
           packed_context_free_data.size() * 2 + packed_trx.size() * 2;
 }
 
-digest_type packed_transaction::packed_digest() const
-{
+digest_type packed_transaction::packed_digest() const {
    digest_type::encoder prunable;
    fc::raw::pack(prunable, signatures);
    fc::raw::pack(prunable, packed_context_free_data);
@@ -194,14 +179,12 @@ digest_type packed_transaction::packed_digest() const
 namespace bio = boost::iostreams;
 
 template<size_t Limit>
-struct read_limiter
-{
+struct read_limiter {
    using char_type = char;
    using category  = bio::multichar_output_filter_tag;
 
    template<typename Sink>
-   size_t write(Sink& sink, const char* s, size_t count)
-   {
+   size_t write(Sink& sink, const char* s, size_t count) {
       EOS_ASSERT(
          _total + count <= Limit, tx_decompression_error, "Exceeded maximum decompressed transaction size");
       _total += count;
@@ -211,21 +194,18 @@ struct read_limiter
    size_t _total = 0;
 };
 
-static vector<bytes> unpack_context_free_data(const bytes& data)
-{
+static vector<bytes> unpack_context_free_data(const bytes& data) {
    if (data.size() == 0)
       return vector<bytes>();
 
    return fc::raw::unpack<vector<bytes>>(data);
 }
 
-static transaction unpack_transaction(const bytes& data)
-{
+static transaction unpack_transaction(const bytes& data) {
    return fc::raw::unpack<transaction>(data);
 }
 
-static bytes zlib_decompress(const bytes& data)
-{
+static bytes zlib_decompress(const bytes& data) {
    try {
       bytes                  out;
       bio::filtering_ostream decomp;
@@ -244,8 +224,7 @@ static bytes zlib_decompress(const bytes& data)
    }
 }
 
-static vector<bytes> zlib_decompress_context_free_data(const bytes& data)
-{
+static vector<bytes> zlib_decompress_context_free_data(const bytes& data) {
    if (data.size() == 0)
       return vector<bytes>();
 
@@ -253,27 +232,23 @@ static vector<bytes> zlib_decompress_context_free_data(const bytes& data)
    return unpack_context_free_data(out);
 }
 
-static transaction zlib_decompress_transaction(const bytes& data)
-{
+static transaction zlib_decompress_transaction(const bytes& data) {
    bytes out = zlib_decompress(data);
    return unpack_transaction(out);
 }
 
-static bytes pack_transaction(const transaction& t)
-{
+static bytes pack_transaction(const transaction& t) {
    return fc::raw::pack(t);
 }
 
-static bytes pack_context_free_data(const vector<bytes>& cfd)
-{
+static bytes pack_context_free_data(const vector<bytes>& cfd) {
    if (cfd.size() == 0)
       return bytes();
 
    return fc::raw::pack(cfd);
 }
 
-static bytes zlib_compress_context_free_data(const vector<bytes>& cfd)
-{
+static bytes zlib_compress_context_free_data(const vector<bytes>& cfd) {
    if (cfd.size() == 0)
       return bytes();
 
@@ -287,8 +262,7 @@ static bytes zlib_compress_context_free_data(const vector<bytes>& cfd)
    return out;
 }
 
-static bytes zlib_compress_transaction(const transaction& t)
-{
+static bytes zlib_compress_transaction(const transaction& t) {
    bytes                  in = pack_transaction(t);
    bytes                  out;
    bio::filtering_ostream comp;
@@ -299,8 +273,7 @@ static bytes zlib_compress_transaction(const transaction& t)
    return out;
 }
 
-bytes packed_transaction::get_raw_transaction() const
-{
+bytes packed_transaction::get_raw_transaction() const {
    try {
       switch (compression) {
          case compression_type::none: return packed_trx;
@@ -318,8 +291,7 @@ packed_transaction::packed_transaction(bytes&&                  packed_txn,
    : signatures(std::move(sigs))
    , compression(_compression)
    , packed_context_free_data(std::move(packed_cfd))
-   , packed_trx(std::move(packed_txn))
-{
+   , packed_trx(std::move(packed_txn)) {
    local_unpack_transaction({});
    if (!packed_context_free_data.empty()) {
       local_unpack_context_free_data();
@@ -332,8 +304,7 @@ packed_transaction::packed_transaction(bytes&&                  packed_txn,
                                        compression_type         _compression)
    : signatures(std::move(sigs))
    , compression(_compression)
-   , packed_trx(std::move(packed_txn))
-{
+   , packed_trx(std::move(packed_txn)) {
    local_unpack_transaction(std::move(cfd));
    if (!unpacked_trx.context_free_data.empty()) {
       local_pack_context_free_data();
@@ -348,16 +319,14 @@ packed_transaction::packed_transaction(transaction&&            t,
    , compression(_compression)
    , packed_context_free_data(std::move(packed_cfd))
    , unpacked_trx(std::move(t), signatures, {})
-   , trx_id(unpacked_trx.id())
-{
+   , trx_id(unpacked_trx.id()) {
    local_pack_transaction();
    if (!packed_context_free_data.empty()) {
       local_unpack_context_free_data();
    }
 }
 
-void packed_transaction::reflector_init()
-{
+void packed_transaction::reflector_init() {
    // called after construction, but always on the same thread and before packed_transaction passed to any
    // other threads
    static_assert(fc::raw::has_feature_reflector_init_on_unpacked_reflected_types,
@@ -369,8 +338,7 @@ void packed_transaction::reflector_init()
    local_unpack_context_free_data();
 }
 
-void packed_transaction::local_unpack_transaction(vector<bytes>&& context_free_data)
-{
+void packed_transaction::local_unpack_transaction(vector<bytes>&& context_free_data) {
    try {
       switch (compression) {
          case compression_type::none:
@@ -388,8 +356,7 @@ void packed_transaction::local_unpack_transaction(vector<bytes>&& context_free_d
    FC_CAPTURE_AND_RETHROW((compression))
 }
 
-void packed_transaction::local_unpack_context_free_data()
-{
+void packed_transaction::local_unpack_context_free_data() {
    try {
       EOS_ASSERT(unpacked_trx.context_free_data.empty(),
                  tx_decompression_error,
@@ -407,8 +374,7 @@ void packed_transaction::local_unpack_context_free_data()
    FC_CAPTURE_AND_RETHROW((compression))
 }
 
-void packed_transaction::local_pack_transaction()
-{
+void packed_transaction::local_pack_transaction() {
    try {
       switch (compression) {
          case compression_type::none: packed_trx = pack_transaction(unpacked_trx); break;
@@ -419,8 +385,7 @@ void packed_transaction::local_pack_transaction()
    FC_CAPTURE_AND_RETHROW((compression))
 }
 
-void packed_transaction::local_pack_context_free_data()
-{
+void packed_transaction::local_pack_context_free_data() {
    try {
       switch (compression) {
          case compression_type::none:

@@ -10,8 +10,7 @@ namespace fc {
 
 inline constexpr char hex_digits[] = "0123456789abcdef";
 
-bool is_utf8(const std::string& str)
-{
+bool is_utf8(const std::string& str) {
    return utf8::is_valid(str.begin(), str.end());
 }
 
@@ -22,8 +21,7 @@ bool is_utf8(const std::string& str)
 template<typename octet_iterator>
 std::pair<octet_iterator, uint32_t> find_invalid(octet_iterator                       start,
                                                  octet_iterator                       end,
-                                                 const std::pair<uint32_t, uint32_t>& invalid_range)
-{
+                                                 const std::pair<uint32_t, uint32_t>& invalid_range) {
    FC_ASSERT(invalid_range.first <= invalid_range.second);
    octet_iterator result = start;
    uint32_t       value  = UINT32_MAX;
@@ -38,16 +36,14 @@ std::pair<octet_iterator, uint32_t> find_invalid(octet_iterator                 
    return { result, UINT32_MAX };
 }
 
-bool is_valid_utf8(const std::string_view& str)
-{
+bool is_valid_utf8(const std::string_view& str) {
    const auto invalid_range = std::make_pair<uint32_t, uint32_t>(0x80, 0x9F);
    auto [itr, v]            = find_invalid(str.begin(), str.end(), invalid_range);
    return itr == str.end();
 }
 
 // escape 0x80-0x9F C1 control characters
-string prune_invalid_utf8(const std::string_view& str)
-{
+string prune_invalid_utf8(const std::string_view& str) {
    const auto invalid_range = std::make_pair<uint32_t, uint32_t>(0x80, 0x9F);
    auto [itr, v]            = find_invalid(str.begin(), str.end(), invalid_range);
    if (itr == str.end())
@@ -74,15 +70,13 @@ string prune_invalid_utf8(const std::string_view& str)
    return result;
 }
 
-void decodeUtf8(const std::string& input, std::wstring* storage)
-{
+void decodeUtf8(const std::string& input, std::wstring* storage) {
    FC_ASSERT(storage != nullptr);
 
    utf8::utf8to32(input.begin(), input.end(), std::back_inserter(*storage));
 }
 
-void encodeUtf8(const std::wstring& input, std::string* storage)
-{
+void encodeUtf8(const std::wstring& input, std::string* storage) {
    FC_ASSERT(storage != nullptr);
 
    utf8::utf32to8(input.begin(), input.end(), std::back_inserter(*storage));

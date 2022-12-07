@@ -17,10 +17,8 @@
 
 namespace std {
 template<>
-struct hash<eosio::chain::eosvmoc::code_tuple>
-{
-   size_t operator()(const eosio::chain::eosvmoc::code_tuple& ct) const noexcept
-   {
+struct hash<eosio::chain::eosvmoc::code_tuple> {
+   size_t operator()(const eosio::chain::eosvmoc::code_tuple& ct) const noexcept {
       return ct.code_id._hash[0];
    }
 };
@@ -41,8 +39,7 @@ using allocator_t =
 
 struct config;
 
-class code_cache_base
-{
+class code_cache_base {
 public:
    code_cache_base(const bfs::path            data_dir,
                    const eosvmoc::config&     eosvmoc_config,
@@ -91,8 +88,7 @@ protected:
    void serialize_cache_index(fc::datastream<T>& ds);
 };
 
-class code_cache_async : public code_cache_base
-{
+class code_cache_async : public code_cache_base {
 public:
    code_cache_async(const bfs::path            data_dir,
                     const eosvmoc::config&     eosvmoc_config,
@@ -114,8 +110,7 @@ private:
    size_t                                                       _threads;
 };
 
-class code_cache_sync : public code_cache_base
-{
+class code_cache_sync : public code_cache_base {
 public:
    using code_cache_base::code_cache_base;
    ~code_cache_sync();

@@ -13,20 +13,15 @@ using namespace appbase;
 typedef std::shared_ptr<class test_control_plugin_impl> test_control_ptr;
 
 namespace test_control_apis {
-struct empty
-{};
+struct empty {};
 
-class read_write
-{
+class read_write {
 
 public:
    read_write(const test_control_ptr& test_control)
-      : my(test_control)
-   {
-   }
+      : my(test_control) {}
 
-   struct kill_node_on_producer_params
-   {
+   struct kill_node_on_producer_params {
       name     producer;
       uint32_t where_in_sequence;
       bool     based_on_lib;
@@ -40,8 +35,7 @@ private:
 
 } // namespace test_control_apis
 
-class test_control_plugin : public plugin<test_control_plugin>
-{
+class test_control_plugin : public plugin<test_control_plugin> {
 public:
    APPBASE_PLUGIN_REQUIRES((chain_plugin))
 

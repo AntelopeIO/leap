@@ -3,8 +3,7 @@
 const string         wasm_str_func_ptrs_0 = base_dir + "/func_ptrs.0.wasm";
 std::vector<uint8_t> wasm_func_ptrs_0     = read_wasm(wasm_str_func_ptrs_0.c_str());
 
-BOOST_DATA_TEST_CASE(func_ptrs_0_pass, boost::unit_test::data::xrange(0, 1), index)
-{
+BOOST_DATA_TEST_CASE(func_ptrs_0_pass, boost::unit_test::data::xrange(0, 1), index) {
    try {
       TESTER tester;
       tester.produce_block();
@@ -30,8 +29,7 @@ BOOST_DATA_TEST_CASE(func_ptrs_0_pass, boost::unit_test::data::xrange(0, 1), ind
 const string         wasm_str_func_ptrs_8 = base_dir + "/func_ptrs.8.wasm";
 std::vector<uint8_t> wasm_func_ptrs_8     = read_wasm(wasm_str_func_ptrs_8.c_str());
 
-BOOST_DATA_TEST_CASE(func_ptrs_8_check_throw, boost::unit_test::data::xrange(0, 6), index)
-{
+BOOST_DATA_TEST_CASE(func_ptrs_8_check_throw, boost::unit_test::data::xrange(0, 6), index) {
    try {
       TESTER tester;
       tester.produce_block();
@@ -54,8 +52,7 @@ BOOST_DATA_TEST_CASE(func_ptrs_8_check_throw, boost::unit_test::data::xrange(0, 
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_DATA_TEST_CASE(func_ptrs_8_pass, boost::unit_test::data::xrange(6, 7), index)
-{
+BOOST_DATA_TEST_CASE(func_ptrs_8_pass, boost::unit_test::data::xrange(6, 7), index) {
    try {
       TESTER tester;
       tester.produce_block();
@@ -81,8 +78,7 @@ BOOST_DATA_TEST_CASE(func_ptrs_8_pass, boost::unit_test::data::xrange(6, 7), ind
 const string         wasm_str_func_ptrs_9 = base_dir + "/func_ptrs.9.wasm";
 std::vector<uint8_t> wasm_func_ptrs_9     = read_wasm(wasm_str_func_ptrs_9.c_str());
 
-BOOST_DATA_TEST_CASE(func_ptrs_9_pass, boost::unit_test::data::xrange(0, 1), index)
-{
+BOOST_DATA_TEST_CASE(func_ptrs_9_pass, boost::unit_test::data::xrange(0, 1), index) {
    try {
       TESTER tester;
       tester.produce_block();

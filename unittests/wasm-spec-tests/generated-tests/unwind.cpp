@@ -3,8 +3,7 @@
 const string         wasm_str_unwind_0 = base_dir + "/unwind.0.wasm";
 std::vector<uint8_t> wasm_unwind_0     = read_wasm(wasm_str_unwind_0.c_str());
 
-BOOST_DATA_TEST_CASE(unwind_0_check_throw, boost::unit_test::data::xrange(0, 8), index)
-{
+BOOST_DATA_TEST_CASE(unwind_0_check_throw, boost::unit_test::data::xrange(0, 8), index) {
    try {
       TESTER tester;
       tester.produce_block();
@@ -27,8 +26,7 @@ BOOST_DATA_TEST_CASE(unwind_0_check_throw, boost::unit_test::data::xrange(0, 8),
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_DATA_TEST_CASE(unwind_0_pass, boost::unit_test::data::xrange(8, 9), index)
-{
+BOOST_DATA_TEST_CASE(unwind_0_pass, boost::unit_test::data::xrange(8, 9), index) {
    try {
       TESTER tester;
       tester.produce_block();

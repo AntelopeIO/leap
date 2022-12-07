@@ -4,8 +4,7 @@
 
 namespace fc {
 
-class sha512
-{
+class sha512 {
 public:
    sha512();
    explicit sha512(const string& hex_str);
@@ -21,15 +20,13 @@ public:
    static sha512 hash(const string&);
 
    template<typename T>
-   static sha512 hash(const T& t)
-   {
+   static sha512 hash(const T& t) {
       sha512::encoder e;
       e << t;
       return e.result();
    }
 
-   class encoder
-   {
+   class encoder {
    public:
       encoder();
       ~encoder();
@@ -45,15 +42,13 @@ public:
    };
 
    template<typename T>
-   inline friend T& operator<<(T& ds, const sha512& ep)
-   {
+   inline friend T& operator<<(T& ds, const sha512& ep) {
       ds.write(ep.data(), sizeof(ep));
       return ds;
    }
 
    template<typename T>
-   inline friend T& operator>>(T& ds, sha512& ep)
-   {
+   inline friend T& operator>>(T& ds, sha512& ep) {
       ds.read(ep.data(), sizeof(ep));
       return ds;
    }

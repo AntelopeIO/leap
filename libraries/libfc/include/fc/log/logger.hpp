@@ -21,8 +21,7 @@ class appender;
    }
  @endcode
  */
-class logger
-{
+class logger {
 public:
    static logger get(const fc::string& name = DEFAULT_LOGGER);
    static void   update(const fc::string& name, logger& log);

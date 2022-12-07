@@ -9,14 +9,10 @@ namespace chain {
 class deep_mind_handler;
 
 // Values are included in protocol digest, so values must remain constant
-enum class protocol_feature_t : uint32_t
-{
-   builtin
-};
+enum class protocol_feature_t : uint32_t { builtin };
 
 // Values are included in protocol digest, so values must remain constant
-enum class builtin_protocol_feature_t : uint32_t
-{
+enum class builtin_protocol_feature_t : uint32_t {
    preactivate_feature              = 0,
    only_link_to_existing_permission = 1,
    replace_deferred                 = 2,
@@ -41,15 +37,13 @@ enum class builtin_protocol_feature_t : uint32_t
    reserved_private_fork_protocol_features = 500000,
 };
 
-struct protocol_feature_subjective_restrictions
-{
+struct protocol_feature_subjective_restrictions {
    time_point earliest_allowed_activation_time;
    bool       preactivation_required = false;
    bool       enabled                = false;
 };
 
-struct builtin_protocol_feature_spec
-{
+struct builtin_protocol_feature_spec {
    const char*                              codename = nullptr;
    digest_type                              description_digest;
    flat_set<builtin_protocol_feature_t>     builtin_dependencies;
@@ -63,8 +57,7 @@ extern const std::unordered_map<builtin_protocol_feature_t,
 
 const char* builtin_protocol_feature_codename(builtin_protocol_feature_t);
 
-class protocol_feature_base : public fc::reflect_init
-{
+class protocol_feature_base : public fc::reflect_init {
 public:
    protocol_feature_base() = default;
 
@@ -87,8 +80,7 @@ protected:
    protocol_feature_t _type;
 };
 
-class builtin_protocol_feature : public protocol_feature_base
-{
+class builtin_protocol_feature : public protocol_feature_base {
 public:
    static const char* feature_type_string;
 
@@ -114,8 +106,7 @@ protected:
    builtin_protocol_feature_t _codename;
 };
 
-struct protocol_feature
-{
+struct protocol_feature {
    digest_type                               feature_digest;
    digest_type                               description_digest;
    flat_set<digest_type>                     dependencies;
@@ -127,37 +118,27 @@ struct protocol_feature
    fc::variant to_variant(bool                        include_subjective_restrictions = true,
                           fc::mutable_variant_object* additional_fields               = nullptr) const;
 
-   friend bool operator<(const protocol_feature& lhs, const protocol_feature& rhs)
-   {
+   friend bool operator<(const protocol_feature& lhs, const protocol_feature& rhs) {
       return lhs.feature_digest < rhs.feature_digest;
    }
 
-   friend bool operator<(const digest_type& lhs, const protocol_feature& rhs)
-   {
+   friend bool operator<(const digest_type& lhs, const protocol_feature& rhs) {
       return lhs < rhs.feature_digest;
    }
 
-   friend bool operator<(const protocol_feature& lhs, const digest_type& rhs)
-   {
+   friend bool operator<(const protocol_feature& lhs, const digest_type& rhs) {
       return lhs.feature_digest < rhs;
    }
 };
 
-class protocol_feature_set
-{
+class protocol_feature_set {
 protected:
    using protocol_feature_set_type = std::set<protocol_feature, std::less<>>;
 
 public:
    protocol_feature_set();
 
-   enum class recognized_t
-   {
-      unrecognized,
-      disabled,
-      too_early,
-      ready
-   };
+   enum class recognized_t { unrecognized, disabled, too_early, ready };
 
    recognized_t is_recognized(const digest_type& feature_digest, time_point now) const;
 
@@ -174,8 +155,7 @@ public:
 
    const protocol_feature& add_feature(const builtin_protocol_feature& f);
 
-   class const_iterator
-   {
+   class const_iterator {
    public:
       using iterator_category = std::bidirectional_iterator_tag;
       using value_type        = const protocol_feature;
@@ -188,9 +168,7 @@ public:
 
    protected:
       explicit const_iterator(protocol_feature_set_type::const_iterator itr)
-         : _itr(itr)
-      {
-      }
+         : _itr(itr) {}
 
       const protocol_feature* get_pointer() const { return &*_itr; }
 
@@ -199,13 +177,11 @@ public:
    public:
       const_iterator() = default;
 
-      friend bool operator==(const const_iterator& lhs, const const_iterator& rhs)
-      {
+      friend bool operator==(const const_iterator& lhs, const const_iterator& rhs) {
          return (lhs._itr == rhs._itr);
       }
 
-      friend bool operator!=(const const_iterator& lhs, const const_iterator& rhs)
-      {
+      friend bool operator!=(const const_iterator& lhs, const const_iterator& rhs) {
          return (lhs._itr != rhs._itr);
       }
 
@@ -213,27 +189,23 @@ public:
 
       const protocol_feature* operator->() const { return get_pointer(); }
 
-      const_iterator& operator++()
-      {
+      const_iterator& operator++() {
          ++_itr;
          return *this;
       }
 
-      const_iterator& operator--()
-      {
+      const_iterator& operator--() {
          --_itr;
          return *this;
       }
 
-      const_iterator operator++(int)
-      {
+      const_iterator operator++(int) {
          const_iterator result(*this);
          ++(*this);
          return result;
       }
 
-      const_iterator operator--(int)
-      {
+      const_iterator operator--(int) {
          const_iterator result(*this);
          --(*this);
          return result;
@@ -259,20 +231,17 @@ public:
    std::size_t max_size() const { return _recognized_protocol_features.max_size(); }
 
    template<typename K>
-   const_iterator find(const K& x) const
-   {
+   const_iterator find(const K& x) const {
       return const_iterator(_recognized_protocol_features.find(x));
    }
 
    template<typename K>
-   const_iterator lower_bound(const K& x) const
-   {
+   const_iterator lower_bound(const K& x) const {
       return const_iterator(_recognized_protocol_features.lower_bound(x));
    }
 
    template<typename K>
-   const_iterator upper_bound(const K& x) const
-   {
+   const_iterator upper_bound(const K& x) const {
       return const_iterator(_recognized_protocol_features.upper_bound(x));
    }
 
@@ -283,14 +252,12 @@ protected:
    vector<protocol_feature_set_type::const_iterator> _recognized_builtin_protocol_features;
 };
 
-class protocol_feature_manager
-{
+class protocol_feature_manager {
 public:
    protocol_feature_manager(protocol_feature_set&&              pfs,
                             std::function<deep_mind_handler*()> get_deep_mind_logger);
 
-   class const_iterator
-   {
+   class const_iterator {
    public:
       using iterator_category = std::bidirectional_iterator_tag;
       using value_type        = const protocol_feature;
@@ -307,9 +274,7 @@ public:
 
       explicit const_iterator(const protocol_feature_manager* pfm, std::size_t i = end_index)
          : _pfm(pfm)
-         , _index(i)
-      {
-      }
+         , _index(i) {}
 
       const protocol_feature* get_pointer() const;
 
@@ -318,8 +283,7 @@ public:
    public:
       const_iterator() = default;
 
-      friend bool operator==(const const_iterator& lhs, const const_iterator& rhs)
-      {
+      friend bool operator==(const const_iterator& lhs, const const_iterator& rhs) {
          return std::tie(lhs._pfm, lhs._index) == std::tie(rhs._pfm, rhs._index);
       }
 
@@ -337,15 +301,13 @@ public:
 
       const_iterator& operator--();
 
-      const_iterator operator++(int)
-      {
+      const_iterator operator++(int) {
          const_iterator result(*this);
          ++(*this);
          return result;
       }
 
-      const_iterator operator--(int)
-      {
+      const_iterator operator--(int) {
          const_iterator result(*this);
          --(*this);
          return result;
@@ -362,8 +324,7 @@ public:
 
    const protocol_feature_set& get_protocol_feature_set() const { return _protocol_feature_set; }
 
-   std::optional<digest_type> get_builtin_digest(builtin_protocol_feature_t feature_codename) const
-   {
+   std::optional<digest_type> get_builtin_digest(builtin_protocol_feature_t feature_codename) const {
       return _protocol_feature_set.get_builtin_digest(feature_codename);
    }
 
@@ -393,14 +354,12 @@ public:
    void popped_blocks_to(uint32_t block_num);
 
 protected:
-   struct protocol_feature_entry
-   {
+   struct protocol_feature_entry {
       protocol_feature_set::const_iterator iterator_to_protocol_feature;
       uint32_t                             activation_block_num;
    };
 
-   struct builtin_protocol_feature_entry
-   {
+   struct builtin_protocol_feature_entry {
       static constexpr size_t   no_previous = std::numeric_limits<size_t>::max();
       static constexpr uint32_t not_active  = std::numeric_limits<uint32_t>::max();
 

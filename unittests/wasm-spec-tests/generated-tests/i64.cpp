@@ -3,8 +3,7 @@
 const string         wasm_str_i64_0 = base_dir + "/i64.0.wasm";
 std::vector<uint8_t> wasm_i64_0     = read_wasm(wasm_str_i64_0.c_str());
 
-BOOST_DATA_TEST_CASE(i64_0_check_throw, boost::unit_test::data::xrange(0, 9), index)
-{
+BOOST_DATA_TEST_CASE(i64_0_check_throw, boost::unit_test::data::xrange(0, 9), index) {
    try {
       TESTER tester;
       tester.produce_block();
@@ -27,8 +26,7 @@ BOOST_DATA_TEST_CASE(i64_0_check_throw, boost::unit_test::data::xrange(0, 9), in
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_DATA_TEST_CASE(i64_0_pass, boost::unit_test::data::xrange(9, 13), index)
-{
+BOOST_DATA_TEST_CASE(i64_0_pass, boost::unit_test::data::xrange(9, 13), index) {
    try {
       TESTER tester;
       tester.produce_block();

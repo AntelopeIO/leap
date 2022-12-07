@@ -9,8 +9,7 @@ namespace eosio {
 namespace client {
 namespace http {
 
-static size_t write_callback(void* data, size_t size, size_t nmemb, void* userp)
-{
+static size_t write_callback(void* data, size_t size, size_t nmemb, void* userp) {
    size_t       realsize = size * nmemb;
    std::string& mem      = *(std::string*)userp;
    mem.append((const char*)data, realsize);
@@ -19,8 +18,7 @@ static size_t write_callback(void* data, size_t size, size_t nmemb, void* userp)
 
 // the following two functions are directly copy from the libcurl API overview from
 // https://curl.se/libcurl/c/CURLOPT_DEBUGFUNCTION.html
-void dump(const char* text, FILE* stream, unsigned char* ptr, size_t size)
-{
+void dump(const char* text, FILE* stream, unsigned char* ptr, size_t size) {
    size_t       i;
    size_t       c;
    unsigned int width = 0x10;
@@ -48,8 +46,7 @@ void dump(const char* text, FILE* stream, unsigned char* ptr, size_t size)
    }
 }
 
-int my_trace(CURL* handle, curl_infotype type, char* data, size_t size, void* userp)
-{
+int my_trace(CURL* handle, curl_infotype type, char* data, size_t size, void* userp) {
    const char* text;
    (void)handle; /* prevent compiler warning */
    (void)userp;
@@ -76,8 +73,7 @@ std::tuple<unsigned int, std::string> do_http_post(const std::string&           
                                                    const std::string&              postjson,
                                                    bool                            verify_cert,
                                                    bool                            verbose,
-                                                   bool                            trace)
-{
+                                                   bool                            trace) {
 
    static bool initialized = false;
 

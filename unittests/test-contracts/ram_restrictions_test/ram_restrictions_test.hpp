@@ -2,11 +2,9 @@
 
 #include <eosio/eosio.hpp>
 
-class [[eosio::contract]] ram_restrictions_test : public eosio::contract
-{
+class [[eosio::contract]] ram_restrictions_test : public eosio::contract {
 public:
-   struct [[eosio::table]] data
-   {
+   struct [[eosio::table]] data {
       uint64_t          key;
       std::vector<char> value;
 

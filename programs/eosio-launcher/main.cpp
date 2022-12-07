@@ -38,8 +38,8 @@ using namespace std;
 namespace bfs = boost::filesystem;
 namespace bp  = boost::process;
 namespace bpo = boost::program_options;
-using boost::asio::ip::host_name;
 using boost::asio::ip::tcp;
+using boost::asio::ip::host_name;
 using bpo::options_description;
 using bpo::variables_map;
 using public_key_type  = fc::crypto::public_key;
@@ -49,13 +49,11 @@ using namespace eosio::launcher::config;
 const string block_dir      = "blocks";
 const string shared_mem_dir = "state";
 
-struct local_identity
-{
+struct local_identity {
    vector<fc::ip::address> addrs;
    vector<string>          names;
 
-   void initialize()
-   {
+   void initialize() {
       names.push_back("localhost");
       names.push_back("127.0.0.1");
 
@@ -91,8 +89,7 @@ struct local_identity
       }
    }
 
-   bool contains(const string& name) const
-   {
+   bool contains(const string& name) const {
       try {
          fc::ip::address test(name);
          for (const auto& a : addrs) {
@@ -113,8 +110,7 @@ struct local_identity
 
 class eosd_def;
 
-class host_def
-{
+class host_def {
 public:
    host_def()
       : genesis("genesis.json")
@@ -130,9 +126,7 @@ public:
       , instances()
       , p2p_count(0)
       , http_count(0)
-      , dot_label_str()
-   {
-   }
+      , dot_label_str() {}
 
    string           genesis;
    string           ssh_identity;
@@ -156,8 +150,7 @@ public:
 
    bool is_local() const { return local_id.contains(host_name); }
 
-   const string& dot_label()
-   {
+   const string& dot_label() {
       if (dot_label_str.empty()) {
          mk_dot_label();
       }
@@ -170,8 +163,7 @@ private:
    string   dot_label_str;
 
 protected:
-   void mk_dot_label()
-   {
+   void mk_dot_label() {
       if (public_name.empty()) {
          dot_label_str = host_name;
       } else if (boost::iequals(public_name, host_name)) {
@@ -183,8 +175,7 @@ protected:
 
 class tn_node_def;
 
-class eosd_def
-{
+class eosd_def {
 public:
    eosd_def()
       : config_dir_name()
@@ -195,9 +186,7 @@ public:
       , name()
       , node()
       , host()
-      , p2p_endpoint()
-   {
-   }
+      , p2p_endpoint() {}
 
    string       config_dir_name;
    string       data_dir_name;
@@ -211,8 +200,7 @@ public:
 
    void          set_host(host_def* h, bool is_bios);
    void          mk_dot_label();
-   const string& dot_label()
-   {
+   const string& dot_label() {
       if (dot_label_str.empty()) {
          mk_dot_label();
       }
@@ -225,8 +213,7 @@ private:
    string dot_label_str;
 };
 
-class tn_node_def
-{
+class tn_node_def {
 public:
    string                   name;
    vector<private_key_type> keys;
@@ -237,8 +224,7 @@ public:
    bool                     dont_start = false;
 };
 
-void eosd_def::mk_dot_label()
-{
+void eosd_def::mk_dot_label() {
    dot_label_str = name + "\\nprod=";
    if (node == 0 || node->producers.empty()) {
       dot_label_str += "<none>";
@@ -254,8 +240,7 @@ void eosd_def::mk_dot_label()
    }
 }
 
-void eosd_def::set_host(host_def* h, bool is_bios)
-{
+void eosd_def::set_host(host_def* h, bool is_bios) {
    host         = h->host_name;
    p2p_port     = is_bios ? h->p2p_bios_port() : h->p2p_port();
    http_port    = is_bios ? h->http_bios_port() : h->http_port();
@@ -263,8 +248,7 @@ void eosd_def::set_host(host_def* h, bool is_bios)
    p2p_endpoint = h->public_name + ":" + boost::lexical_cast<string, uint16_t>(p2p_port);
 }
 
-struct remote_deploy
-{
+struct remote_deploy {
    string    ssh_cmd = "/usr/bin/ssh";
    string    scp_cmd = "/usr/bin/scp";
    string    ssh_identity;
@@ -272,26 +256,22 @@ struct remote_deploy
    bfs::path local_config_file = "temp_config";
 };
 
-struct testnet_def
-{
+struct testnet_def {
    string                   name;
    remote_deploy            ssh_helper;
    map<string, tn_node_def> nodes;
 };
 
-struct prodkey_def
-{
+struct prodkey_def {
    string          producer_name;
    public_key_type block_signing_key;
 };
 
-struct producer_set_def
-{
+struct producer_set_def {
    vector<prodkey_def> schedule;
 };
 
-struct server_name_def
-{
+struct server_name_def {
    string   ipaddr;
    string   name;
    bool     has_bios;
@@ -302,13 +282,10 @@ struct server_name_def
       , name()
       , has_bios(false)
       , eosio_home()
-      , instances(1)
-   {
-   }
+      , instances(1) {}
 };
 
-struct server_identities
-{
+struct server_identities {
    vector<server_name_def> producer;
    vector<server_name_def> nonprod;
    vector<string>          db;
@@ -316,38 +293,21 @@ struct server_identities
    remote_deploy           ssh;
 };
 
-struct node_rt_info
-{
+struct node_rt_info {
    bool   remote;
    string pid_file;
    string kill_cmd;
 };
 
-struct last_run_def
-{
+struct last_run_def {
    vector<node_rt_info> running_nodes;
 };
 
-enum launch_modes
-{
-   LM_NONE,
-   LM_LOCAL,
-   LM_REMOTE,
-   LM_NAMED,
-   LM_ALL,
-   LM_VERIFY
-};
+enum launch_modes { LM_NONE, LM_LOCAL, LM_REMOTE, LM_NAMED, LM_ALL, LM_VERIFY };
 
-enum allowed_connection : char
-{
-   PC_NONE      = 0,
-   PC_PRODUCERS = 1 << 0,
-   PC_SPECIFIED = 1 << 1,
-   PC_ANY       = 1 << 2
-};
+enum allowed_connection : char { PC_NONE = 0, PC_PRODUCERS = 1 << 0, PC_SPECIFIED = 1 << 1, PC_ANY = 1 << 2 };
 
-class producer_names
-{
+class producer_names {
 public:
    static string producer_name(unsigned int producer_number, bool shared_producer = false);
 
@@ -362,8 +322,7 @@ const char producer_names::valid_char_range = sizeof(producer_names::slot_chars)
 
 // for 26 or fewer total producers create "defproducera" .. "defproducerz"
 // above 26 produce  "defproducera" .. "defproducerz",  "defproduceaa" .. "defproducerb", etc.
-string producer_names::producer_name(unsigned int producer_number, bool shared_producer)
-{
+string producer_names::producer_name(unsigned int producer_number, bool shared_producer) {
    // keeping legacy "defproducer[a-z]", but if greater than valid_char_range, will use "defpraaaaaaa"
    // shared_producer will appear in all nodes' config
    char prod_name[] = "defproducera";
@@ -394,8 +353,7 @@ string producer_names::producer_name(unsigned int producer_number, bool shared_p
    return prod_name;
 }
 
-struct launcher_def
-{
+struct launcher_def {
    bool               force_overwrite;
    size_t             total_nodes;
    size_t             unstarted_nodes;
@@ -488,8 +446,7 @@ struct launcher_def
    string                           find_and_remove_arg(string str, string substr);
 };
 
-void launcher_def::set_options(bpo::options_description& cfg)
-{
+void launcher_def::set_options(bpo::options_description& cfg) {
    cfg.add_options()("force,f",
                      bpo::bool_switch(&force_overwrite)->default_value(false),
                      "Force overwrite of existing configuration files and erase blockchain")(
@@ -587,8 +544,7 @@ void launcher_def::set_options(bpo::options_description& cfg)
 }
 
 template<class enum_type, class = typename std::enable_if<std::is_enum<enum_type>::value>::type>
-inline enum_type& operator|=(enum_type& lhs, const enum_type& rhs)
-{
+inline enum_type& operator|=(enum_type& lhs, const enum_type& rhs) {
    using T    = std::underlying_type_t<enum_type>;
    return lhs = static_cast<enum_type>(static_cast<T>(lhs) | static_cast<T>(rhs));
 }
@@ -597,8 +553,7 @@ template<typename T>
 void retrieve_paired_array_parameters(const variables_map& vmap,
                                       const std::string&   num_selector,
                                       const std::string&   paired_selector,
-                                      std::map<uint, T>&   selector_map)
-{
+                                      std::map<uint, T>&   selector_map) {
    if (vmap.count(num_selector)) {
       const auto specific_nums = vmap[num_selector].as<vector<uint>>();
       const auto specific_args = vmap[paired_selector].as<vector<string>>();
@@ -620,8 +575,7 @@ void retrieve_paired_array_parameters(const variables_map& vmap,
    }
 }
 
-void launcher_def::initialize(const variables_map& vmap)
-{
+void launcher_def::initialize(const variables_map& vmap) {
    if (vmap.count("mode")) {
       const vector<string> modes = vmap["mode"].as<vector<string>>();
       for (const string& m : modes) {
@@ -759,8 +713,7 @@ void launcher_def::initialize(const variables_map& vmap)
    }
 }
 
-void launcher_def::load_servers()
-{
+void launcher_def::load_servers() {
    if (!server_ident_file.empty()) {
       try {
          fc::json::from_file(server_ident_file).as<server_identities>(servers);
@@ -783,8 +736,7 @@ void launcher_def::load_servers()
    }
 }
 
-void launcher_def::assign_name(eosd_def& node, bool is_bios)
-{
+void launcher_def::assign_name(eosd_def& node, bool is_bios) {
    string node_cfg_name;
 
    if (is_bios) {
@@ -800,8 +752,7 @@ void launcher_def::assign_name(eosd_def& node, bool is_bios)
    node.data_dir_name   = (data_dir_base / node_cfg_name).string();
 }
 
-bool launcher_def::generate()
-{
+bool launcher_def::generate() {
 
    if (boost::iequals(shape, "ring")) {
       make_line();
@@ -852,8 +803,7 @@ bool launcher_def::generate()
    return true;
 }
 
-void launcher_def::write_dot_file()
-{
+void launcher_def::write_dot_file() {
    bfs::ofstream df("testnet.dot");
    df << "digraph G\n{\nlayout=\"circo\";\n";
    for (auto& node : network.nodes) {
@@ -866,8 +816,7 @@ void launcher_def::write_dot_file()
    df << "}\n";
 }
 
-void launcher_def::define_network()
-{
+void launcher_def::define_network() {
 
    if (per_host == 0) {
       host_def local_host;
@@ -934,8 +883,7 @@ void launcher_def::define_network()
    }
 }
 
-void launcher_def::bind_nodes()
-{
+void launcher_def::bind_nodes() {
    if (prod_nodes < 2) {
       cerr << "Unable to allocate producers due to insufficient prod_nodes = " << prod_nodes << "\n";
       exit(10);
@@ -990,8 +938,7 @@ void launcher_def::bind_nodes()
    }
 }
 
-host_def* launcher_def::find_host(const string& name)
-{
+host_def* launcher_def::find_host(const string& name) {
    host_def* host = nullptr;
    for (auto& h : bindings) {
       if (h.host_name == name) {
@@ -1006,8 +953,7 @@ host_def* launcher_def::find_host(const string& name)
    return host;
 }
 
-host_def* launcher_def::find_host_by_name_or_address(const string& host_id)
-{
+host_def* launcher_def::find_host_by_name_or_address(const string& host_id) {
    host_def* host = nullptr;
    for (auto& h : bindings) {
       if ((h.host_name == host_id) || (h.public_name == host_id)) {
@@ -1022,8 +968,7 @@ host_def* launcher_def::find_host_by_name_or_address(const string& host_id)
    return host;
 }
 
-host_def* launcher_def::deploy_config_files(tn_node_def& node)
-{
+host_def* launcher_def::deploy_config_files(tn_node_def& node) {
    boost::system::error_code ec;
    eosd_def&                 instance = *node.instance;
    host_def*                 host     = find_host(instance.host);
@@ -1114,8 +1059,7 @@ host_def* launcher_def::deploy_config_files(tn_node_def& node)
 
 string launcher_def::compose_scp_command(const host_def&  host,
                                          const bfs::path& source,
-                                         const bfs::path& destination)
-{
+                                         const bfs::path& destination) {
    string        scp_cmd_line = network.ssh_helper.scp_cmd + " ";
    const string& args         = host.ssh_args.length() ? host.ssh_args : network.ssh_helper.ssh_args;
    if (args.length()) {
@@ -1133,8 +1077,7 @@ string launcher_def::compose_scp_command(const host_def&  host,
    return scp_cmd_line;
 }
 
-void launcher_def::write_config_file(tn_node_def& node)
-{
+void launcher_def::write_config_file(tn_node_def& node) {
    bool      is_bios = (node.name == "bios");
    bfs::path filename;
    eosd_def& instance = *node.instance;
@@ -1205,8 +1148,7 @@ void launcher_def::write_config_file(tn_node_def& node)
    cfg.close();
 }
 
-void launcher_def::write_logging_config_file(tn_node_def& node)
-{
+void launcher_def::write_logging_config_file(tn_node_def& node) {
    bfs::path filename;
    eosd_def& instance = *node.instance;
 
@@ -1292,8 +1234,7 @@ void launcher_def::write_logging_config_file(tn_node_def& node)
    cfg.close();
 }
 
-void launcher_def::init_genesis()
-{
+void launcher_def::init_genesis() {
    const bfs::path genesis_path = genesis.is_complete() ? genesis : bfs::current_path() / genesis;
    if (!bfs::exists(genesis_path)) {
       cout << "generating default genesis file " << genesis_path << endl;
@@ -1310,8 +1251,7 @@ void launcher_def::init_genesis()
       genesis_from_file.initial_configuration.max_transaction_cpu_usage = *max_transaction_cpu_usage;
 }
 
-void launcher_def::write_genesis_file(tn_node_def& node)
-{
+void launcher_def::write_genesis_file(tn_node_def& node) {
    bfs::path filename;
    eosd_def& instance = *node.instance;
 
@@ -1324,8 +1264,7 @@ void launcher_def::write_genesis_file(tn_node_def& node)
    fc::json::save_to_file(genesis_from_file, dd / "genesis.json", true);
 }
 
-void launcher_def::write_setprods_file()
-{
+void launcher_def::write_setprods_file() {
    bfs::path     filename = bfs::current_path() / "setprods.json";
    bfs::ofstream psfile(filename);
    if (!psfile.good()) {
@@ -1343,8 +1282,7 @@ void launcher_def::write_setprods_file()
    psfile.close();
 }
 
-void launcher_def::write_bios_boot()
-{
+void launcher_def::write_bios_boot() {
    bfs::ifstream src(bfs::path(config_dir_base) / "launcher" / start_temp);
    if (!src.good()) {
       cerr << "unable to open " << config_dir_base << "launcher/" << start_temp << " " << strerror(errno)
@@ -1390,18 +1328,15 @@ void launcher_def::write_bios_boot()
    brb.close();
 }
 
-bool launcher_def::is_bios_ndx(size_t ndx)
-{
+bool launcher_def::is_bios_ndx(size_t ndx) {
    return aliases[ndx] == "bios";
 }
 
-size_t launcher_def::start_ndx()
-{
+size_t launcher_def::start_ndx() {
    return is_bios_ndx(0) ? 1 : 0;
 }
 
-bool launcher_def::next_ndx(size_t& ndx)
-{
+bool launcher_def::next_ndx(size_t& ndx) {
    ++ndx;
    bool loop = ndx == total_nodes;
    if (loop)
@@ -1412,8 +1347,7 @@ bool launcher_def::next_ndx(size_t& ndx)
    return loop;
 }
 
-size_t launcher_def::skip_ndx(size_t from, size_t offset)
-{
+size_t launcher_def::skip_ndx(size_t from, size_t offset) {
    size_t ndx = (from + offset) % total_nodes;
    if (total_nodes > 2) {
       size_t attempts = total_nodes - 1;
@@ -1424,8 +1358,7 @@ size_t launcher_def::skip_ndx(size_t from, size_t offset)
    return ndx;
 }
 
-void launcher_def::make_line(bool make_ring)
-{
+void launcher_def::make_line(bool make_ring) {
    bind_nodes();
    size_t non_bios = total_nodes - 1;
    if (non_bios > 2) {
@@ -1454,8 +1387,7 @@ void launcher_def::make_line(bool make_ring)
    }
 }
 
-void launcher_def::make_star()
-{
+void launcher_def::make_star() {
    size_t non_bios = total_nodes - 1;
    if (non_bios < 4) {
       make_line();
@@ -1506,8 +1438,7 @@ void launcher_def::make_star()
    }
 }
 
-void launcher_def::make_mesh()
-{
+void launcher_def::make_mesh() {
    size_t non_bios = total_nodes - 1;
    bind_nodes();
    // use to prevent duplicates since all connections are bidirectional
@@ -1531,8 +1462,7 @@ void launcher_def::make_mesh()
    }
 }
 
-void launcher_def::make_custom()
-{
+void launcher_def::make_custom() {
    bfs::path source = shape;
    fc::json::from_file(source).as<testnet_def>(network);
    for (auto& h : bindings) {
@@ -1547,8 +1477,7 @@ void launcher_def::make_custom()
    }
 }
 
-void launcher_def::format_ssh(const string& cmd, const string& host_name, string& ssh_cmd_line)
-{
+void launcher_def::format_ssh(const string& cmd, const string& host_name, string& ssh_cmd_line) {
 
    ssh_cmd_line = network.ssh_helper.ssh_cmd + " ";
    if (network.ssh_helper.ssh_args.length()) {
@@ -1561,16 +1490,14 @@ void launcher_def::format_ssh(const string& cmd, const string& host_name, string
    cerr << "cmdline = " << ssh_cmd_line << endl;
 }
 
-bool launcher_def::do_ssh(const string& cmd, const string& host_name)
-{
+bool launcher_def::do_ssh(const string& cmd, const string& host_name) {
    string ssh_cmd_line;
    format_ssh(cmd, host_name, ssh_cmd_line);
    int res = boost::process::system(ssh_cmd_line);
    return (res == 0);
 }
 
-void launcher_def::prep_remote_config_dir(eosd_def& node, host_def* host)
-{
+void launcher_def::prep_remote_config_dir(eosd_def& node, host_def* host) {
    bfs::path abs_config_dir = bfs::path(host->eosio_home) / node.config_dir_name;
    bfs::path abs_data_dir   = bfs::path(host->eosio_home) / node.data_dir_name;
 
@@ -1614,8 +1541,7 @@ void launcher_def::prep_remote_config_dir(eosd_def& node, host_def* host)
    }
 }
 
-string launcher_def::find_and_remove_arg(string args, string arg)
-{
+string launcher_def::find_and_remove_arg(string args, string arg) {
    if (args.empty() || arg.empty())
       return args;
 
@@ -1634,8 +1560,7 @@ string launcher_def::find_and_remove_arg(string args, string arg)
    }
 }
 
-void launcher_def::launch(eosd_def& instance, string& gts)
-{
+void launcher_def::launch(eosd_def& instance, string& gts) {
    bfs::path dd         = instance.data_dir_name;
    bfs::path reout      = dd / "stdout.txt";
    bfs::path reerr_sl   = dd / "stderr.txt";
@@ -1750,8 +1675,7 @@ launcher_def::kill_instance(eosd_def, string sig_opt) {
 }
 #endif
 
-void launcher_def::kill(launch_modes mode, string sig_opt)
-{
+void launcher_def::kill(launch_modes mode, string sig_opt) {
    switch (mode) {
       case LM_NONE: return;
       case LM_VERIFY:
@@ -1803,15 +1727,13 @@ void launcher_def::kill(launch_modes mode, string sig_opt)
    }
 }
 
-string launcher_def::get_node_num(uint16_t node_num)
-{
+string launcher_def::get_node_num(uint16_t node_num) {
    string node_num_str = node_num < 10 ? "0" : "";
    node_num_str += boost::lexical_cast<string, uint16_t>(node_num);
    return node_num_str;
 }
 
-pair<host_def, eosd_def> launcher_def::find_node(uint16_t node_num)
-{
+pair<host_def, eosd_def> launcher_def::find_node(uint16_t node_num) {
    const string node_name = network.name + get_node_num(node_num);
    for (const auto& host : bindings) {
       for (const auto& node : host.instances) {
@@ -1824,8 +1746,7 @@ pair<host_def, eosd_def> launcher_def::find_node(uint16_t node_num)
    exit(-1);
 }
 
-vector<pair<host_def, eosd_def>> launcher_def::get_nodes(const string& node_number_list)
-{
+vector<pair<host_def, eosd_def>> launcher_def::get_nodes(const string& node_number_list) {
    vector<pair<host_def, eosd_def>> node_list;
    if (fc::to_lower(node_number_list) == "all") {
       for (auto host : bindings) {
@@ -1857,8 +1778,7 @@ vector<pair<host_def, eosd_def>> launcher_def::get_nodes(const string& node_numb
 void launcher_def::do_command(const host_def&              host,
                               const string&                name,
                               vector<pair<string, string>> env_pairs,
-                              const string&                cmd)
-{
+                              const string&                cmd) {
    if (!host.is_local()) {
       string rcmd = "cd " + host.eosio_home + "; ";
       for (auto& env_pair : env_pairs) {
@@ -1879,8 +1799,7 @@ void launcher_def::do_command(const host_def&              host,
    }
 }
 
-void launcher_def::bounce(const string& node_numbers)
-{
+void launcher_def::bounce(const string& node_numbers) {
    auto node_list = get_nodes(node_numbers);
    for (auto node_pair : node_list) {
       const host_def& host     = node_pair.first;
@@ -1905,8 +1824,7 @@ void launcher_def::bounce(const string& node_numbers)
    }
 }
 
-void launcher_def::down(const string& node_numbers)
-{
+void launcher_def::down(const string& node_numbers) {
    auto node_list = get_nodes(node_numbers);
    for (auto node_pair : node_list) {
       const host_def& host     = node_pair.first;
@@ -1925,8 +1843,7 @@ void launcher_def::down(const string& node_numbers)
    }
 }
 
-void launcher_def::roll(const string& host_names)
-{
+void launcher_def::roll(const string& host_names) {
    vector<string> hosts;
    boost::split(hosts, host_names, boost::is_any_of(","));
    for (string host_name : hosts) {
@@ -1942,8 +1859,7 @@ void launcher_def::roll(const string& host_names)
    }
 }
 
-void launcher_def::ignite()
-{
+void launcher_def::ignite() {
    if (boot) {
       cerr << "Invoking the blockchain boot script, " << start_script << "\n";
       string    script("bash " + start_script);
@@ -1963,8 +1879,7 @@ void launcher_def::ignite()
    }
 }
 
-void launcher_def::start_all(string& gts, launch_modes mode)
-{
+void launcher_def::start_all(string& gts, launch_modes mode) {
    switch (mode) {
       case LM_NONE: return;
       case LM_VERIFY:
@@ -2019,8 +1934,7 @@ void launcher_def::start_all(string& gts, launch_modes mode)
 
 //------------------------------------------------------------
 
-void write_default_config(const bfs::path& cfg_file, const options_description& cfg)
-{
+void write_default_config(const bfs::path& cfg_file, const options_description& cfg) {
    bfs::path parent = cfg_file.parent_path();
    if (parent.empty()) {
       parent = ".";
@@ -2061,8 +1975,7 @@ void write_default_config(const bfs::path& cfg_file, const options_description& 
    out_cfg.close();
 }
 
-int main(int argc, char* argv[])
-{
+int main(int argc, char* argv[]) {
 
    variables_map       vmap;
    options_description cfg("Testnet launcher config options");

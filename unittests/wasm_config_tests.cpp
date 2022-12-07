@@ -26,16 +26,13 @@ namespace data = boost::unit_test::data;
 #endif
 
 namespace {
-struct wasm_config_tester : TESTER
-{
-   wasm_config_tester()
-   {
+struct wasm_config_tester : TESTER {
+   wasm_config_tester() {
       set_abi(config::system_account_name, contracts::wasm_config_bios_abi().data());
       set_code(config::system_account_name, contracts::wasm_config_bios_wasm());
       bios_abi_ser = *get_resolver()(config::system_account_name);
    }
-   void set_wasm_params(const wasm_config& params)
-   {
+   void set_wasm_params(const wasm_config& params) {
       signed_transaction trx;
       trx.actions.emplace_back(
          vector<permission_level>{
@@ -54,8 +51,7 @@ struct wasm_config_tester : TESTER
       push_transaction(trx);
    }
    // Pushes an empty action
-   void push_action(account_name account)
-   {
+   void push_action(account_name account) {
       signed_transaction trx;
       trx.actions.push_back({ { { account, config::active_name } }, account, name(), {} });
       set_transaction_headers(trx);
@@ -65,8 +61,7 @@ struct wasm_config_tester : TESTER
    chain::abi_serializer bios_abi_ser;
 };
 
-std::string make_locals_wasm(int n_params, int n_locals, int n_stack)
-{
+std::string make_locals_wasm(int n_params, int n_locals, int n_stack) {
    std::stringstream ss;
    ss << "(module ";
    ss << " (func (export \"apply\") (param i64 i64 i64))";
@@ -88,20 +83,16 @@ std::string make_locals_wasm(int n_params, int n_locals, int n_stack)
 
 BOOST_AUTO_TEST_SUITE(wasm_config_tests)
 
-struct old_wasm_tester : tester
-{
+struct old_wasm_tester : tester {
    old_wasm_tester()
-      : tester{ setup_policy::old_wasm_parser }
-   {
-   }
+      : tester{ setup_policy::old_wasm_parser } {}
 };
 
 BOOST_DATA_TEST_CASE_F(wasm_config_tester,
                        max_mutable_global_bytes,
                        data::make({ 4096, 8192, 16384 }) * data::make({ 0, 1 }),
                        n_globals,
-                       oversize)
-{
+                       oversize) {
    produce_block();
    create_accounts({ "globals"_n });
    produce_block();
@@ -211,8 +202,7 @@ BOOST_DATA_TEST_CASE_F(wasm_config_tester,
                        n_elements,
                        oversize,
                        wast,
-                       one_element)
-{
+                       one_element) {
    produce_blocks(2);
    create_accounts({ "section"_n });
    produce_block();
@@ -248,8 +238,7 @@ BOOST_DATA_TEST_CASE_F(wasm_config_tester,
                        max_section_elements_export,
                        data::make({ 1024, 8192, 16384 }) * data::make({ 0, 1 }),
                        n_elements,
-                       oversize)
-{
+                       oversize) {
    produce_blocks(2);
    create_accounts({ "section"_n });
    produce_block();
@@ -296,8 +285,7 @@ BOOST_DATA_TEST_CASE_F(wasm_config_tester,
                        max_linear_memory_init,
                        data::make({ 32768, 65536, 86513, 131072 }) * data::make({ 0, 1 }),
                        n_init,
-                       oversize)
-{
+                       oversize) {
    produce_blocks(2);
    create_accounts({ "initdata"_n });
    produce_block();
@@ -348,8 +336,7 @@ BOOST_DATA_TEST_CASE_F(wasm_config_tester,
                        n_locals,
                        n_stack,
                        set_high,
-                       expect_success)
-{
+                       expect_success) {
    produce_blocks(2);
    create_accounts({ "stackz"_n });
    produce_block();
@@ -398,8 +385,7 @@ BOOST_DATA_TEST_CASE_F(wasm_config_tester,
    }
 }
 
-BOOST_FIXTURE_TEST_CASE(max_func_local_bytes_mixed, wasm_config_tester)
-{
+BOOST_FIXTURE_TEST_CASE(max_func_local_bytes_mixed, wasm_config_tester) {
    produce_blocks(2);
    create_accounts({ "stackz"_n });
    produce_block();
@@ -453,8 +439,7 @@ BOOST_DATA_TEST_CASE_F(old_wasm_tester,
                        n_stack,
                        n_params,
                        n_locals,
-                       expect_success)
-{
+                       expect_success) {
    produce_blocks(2);
    create_accounts({ "stackz"_n });
    produce_block();
@@ -488,8 +473,7 @@ BOOST_DATA_TEST_CASE_F(old_wasm_tester,
 }
 
 // Combines max_call_depth and max_func_local_bytes
-BOOST_FIXTURE_TEST_CASE(max_stack, wasm_config_tester)
-{
+BOOST_FIXTURE_TEST_CASE(max_stack, wasm_config_tester) {
    produce_blocks();
    create_accounts({ "stackz"_n });
    produce_block();
@@ -539,8 +523,7 @@ BOOST_FIXTURE_TEST_CASE(max_stack, wasm_config_tester)
    pushit();
 }
 
-BOOST_FIXTURE_TEST_CASE(max_stack_old, old_wasm_tester)
-{
+BOOST_FIXTURE_TEST_CASE(max_stack_old, old_wasm_tester) {
    produce_blocks();
    create_accounts({ "stackz"_n });
    produce_block();
@@ -576,8 +559,7 @@ BOOST_FIXTURE_TEST_CASE(max_stack_old, old_wasm_tester)
    pushit();
 }
 
-BOOST_FIXTURE_TEST_CASE(max_func_local_bytes_mixed_old, old_wasm_tester)
-{
+BOOST_FIXTURE_TEST_CASE(max_func_local_bytes_mixed_old, old_wasm_tester) {
    produce_blocks(2);
    create_accounts({ "stackz"_n });
    produce_block();
@@ -615,8 +597,7 @@ BOOST_DATA_TEST_CASE_F(wasm_config_tester,
                        max_table_elements,
                        data::make({ 512, 2048 }) * data::make({ 0, 1 }),
                        max_table_elements,
-                       oversize)
-{
+                       oversize) {
    produce_block();
    create_accounts({ "table"_n });
    produce_block();
@@ -654,8 +635,7 @@ BOOST_DATA_TEST_CASE_F(wasm_config_tester,
                        max_nested_structures,
                        data::make({ 512, 1024, 2048 }) * data::make({ 0, 1 }),
                        n_nesting,
-                       oversize)
-{
+                       oversize) {
    produce_block();
    create_accounts({ "nested"_n });
    produce_block();
@@ -729,8 +709,7 @@ BOOST_DATA_TEST_CASE_F(wasm_config_tester,
                                        max_symbol_table_wast }),
                        n_symbol,
                        oversize,
-                       wast)
-{
+                       wast) {
    produce_blocks(2);
 
    create_accounts({ "bigname"_n });
@@ -764,8 +743,7 @@ static const char max_symbol_import_wast[] = R"=====(
 )
 )=====";
 
-BOOST_FIXTURE_TEST_CASE(max_symbol_bytes_import, wasm_config_tester)
-{
+BOOST_FIXTURE_TEST_CASE(max_symbol_bytes_import, wasm_config_tester) {
    produce_blocks(2);
    create_accounts({ "bigname"_n });
 
@@ -804,8 +782,7 @@ static const std::vector<uint8_t> small_contract_wasm{
    0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x0b
 };
 
-BOOST_FIXTURE_TEST_CASE(max_module_bytes, wasm_config_tester)
-{
+BOOST_FIXTURE_TEST_CASE(max_module_bytes, wasm_config_tester) {
    produce_blocks(2);
    create_accounts({ "bigmodule"_n });
 
@@ -826,8 +803,7 @@ BOOST_FIXTURE_TEST_CASE(max_module_bytes, wasm_config_tester)
    BOOST_CHECK_THROW(set_code("bigmodule"_n, small_contract_wasm), wasm_exception);
 }
 
-BOOST_FIXTURE_TEST_CASE(max_code_bytes, wasm_config_tester)
-{
+BOOST_FIXTURE_TEST_CASE(max_code_bytes, wasm_config_tester) {
    produce_blocks(2);
    create_accounts({ "bigcode"_n });
 
@@ -869,8 +845,7 @@ static const char intrinsic_biggest_memory_wast[] = R"=====(
 )
 )=====";
 
-BOOST_FIXTURE_TEST_CASE(max_pages, wasm_config_tester)
-try {
+BOOST_FIXTURE_TEST_CASE(max_pages, wasm_config_tester) try {
    produce_blocks(2);
 
    create_accounts({ "bigmem"_n, "accessmem"_n, "intrinsicmem"_n });
@@ -991,8 +966,7 @@ try {
 }
 FC_LOG_AND_RETHROW()
 
-BOOST_FIXTURE_TEST_CASE(call_depth, wasm_config_tester)
-try {
+BOOST_FIXTURE_TEST_CASE(call_depth, wasm_config_tester) try {
    produce_block();
    create_accounts({ "depth"_n });
    produce_block();
@@ -1084,8 +1058,7 @@ static const char min_set_parameters_wast[] = R"======(
 )
 )======";
 
-BOOST_FIXTURE_TEST_CASE(reset_chain_tests, wasm_config_tester)
-{
+BOOST_FIXTURE_TEST_CASE(reset_chain_tests, wasm_config_tester) {
    produce_block();
 
    wasm_config min_params = { .max_mutable_global_bytes = 0,
@@ -1172,8 +1145,7 @@ static const char check_get_wasm_parameters_wast[] = R"======(
 )
 )======";
 
-BOOST_FIXTURE_TEST_CASE(get_wasm_parameters_test, TESTER)
-{
+BOOST_FIXTURE_TEST_CASE(get_wasm_parameters_test, TESTER) {
    produce_block();
 
    create_account("test"_n);
@@ -1232,8 +1204,7 @@ BOOST_FIXTURE_TEST_CASE(get_wasm_parameters_test, TESTER)
 }
 
 // Uses a custom section with large size
-BOOST_FIXTURE_TEST_CASE(large_custom_section, old_wasm_tester)
-{
+BOOST_FIXTURE_TEST_CASE(large_custom_section, old_wasm_tester) {
    create_account("hugecustom"_n);
 
    std::vector<uint8_t> custom_section_wasm{

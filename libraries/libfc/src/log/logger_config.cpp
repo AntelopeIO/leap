@@ -12,29 +12,25 @@
 
 namespace fc {
 
-log_config& log_config::get()
-{
+log_config& log_config::get() {
    // allocate dynamically which will leak on exit but allow loggers to be used until the very end of
    // execution
    static log_config* the = new log_config;
    return *the;
 }
 
-bool log_config::register_appender(const fc::string& type, const appender_factory::ptr& f)
-{
+bool log_config::register_appender(const fc::string& type, const appender_factory::ptr& f) {
    std::lock_guard g(log_config::get().log_mutex);
    log_config::get().appender_factory_map[type] = f;
    return true;
 }
 
-logger log_config::get_logger(const fc::string& name)
-{
+logger log_config::get_logger(const fc::string& name) {
    std::lock_guard g(log_config::get().log_mutex);
    return log_config::get().logger_map[name];
 }
 
-void log_config::update_logger(const fc::string& name, logger& log)
-{
+void log_config::update_logger(const fc::string& name, logger& log) {
    std::lock_guard g(log_config::get().log_mutex);
    if (log_config::get().logger_map.find(name) != log_config::get().logger_map.end()) {
       log = log_config::get().logger_map[name];
@@ -48,24 +44,20 @@ void log_config::update_logger(const fc::string& name, logger& log)
    }
 }
 
-void log_config::initialize_appenders(boost::asio::io_service& ios)
-{
+void log_config::initialize_appenders(boost::asio::io_service& ios) {
    std::lock_guard g(log_config::get().log_mutex);
    for (auto& iter : log_config::get().appender_map)
       iter.second->initialize(ios);
 }
 
-void configure_logging(const fc::path& lc)
-{
+void configure_logging(const fc::path& lc) {
    configure_logging(fc::json::from_file<logging_config>(lc));
 }
-bool configure_logging(const logging_config& cfg)
-{
+bool configure_logging(const logging_config& cfg) {
    return log_config::configure_logging(cfg);
 }
 
-bool log_config::configure_logging(const logging_config& cfg)
-{
+bool log_config::configure_logging(const logging_config& cfg) {
    try {
       static bool reg_console_appender = log_config::register_appender<console_appender>("console");
       static bool reg_gelf_appender    = log_config::register_appender<gelf_appender>("gelf");
@@ -110,8 +102,7 @@ bool log_config::configure_logging(const logging_config& cfg)
    return false;
 }
 
-logging_config logging_config::default_config()
-{
+logging_config logging_config::default_config() {
    // slog( "default cfg" );
    logging_config cfg;
 
@@ -134,18 +125,15 @@ logging_config logging_config::default_config()
 }
 
 static thread_local std::string thread_name;
-void                            set_os_thread_name(const string& name)
-{
+void                            set_os_thread_name(const string& name) {
 #ifdef FC_USE_PTHREAD_NAME_NP
    pthread_setname_np(pthread_self(), name.c_str());
 #endif
 }
-void set_thread_name(const string& name)
-{
+void set_thread_name(const string& name) {
    thread_name = name;
 }
-const string& get_thread_name()
-{
+const string& get_thread_name() {
    if (thread_name.empty()) {
 #ifdef FC_USE_PTHREAD_NAME_NP
       char thr_name[64];

@@ -4,8 +4,7 @@
 namespace fc {
 std::vector<boost::asio::ip::udp::endpoint> resolve(boost::asio::io_service& io_service,
                                                     const std::string&       host,
-                                                    uint16_t                 port)
-{
+                                                    uint16_t                 port) {
    using q = boost::asio::ip::udp::resolver::query;
    using b = boost::asio::ip::resolver_query_base;
    boost::asio::ip::udp::resolver res(io_service);

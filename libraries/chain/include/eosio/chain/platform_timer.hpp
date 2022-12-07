@@ -12,8 +12,7 @@
 namespace eosio {
 namespace chain {
 
-struct platform_timer
-{
+struct platform_timer {
    platform_timer();
    ~platform_timer();
 
@@ -23,8 +22,7 @@ struct platform_timer
    /* Sets a callback for when timer expires. Be aware this could might fire from a signal handling context
       and/or on any particular thread. Only a single callback can be registered at once; trying to register
       more will result in an exception. Setting to nullptr disables any current set callback */
-   void set_expiration_callback(void (*func)(void*), void* user)
-   {
+   void set_expiration_callback(void (*func)(void*), void* user) {
       bool expect_false = false;
       while (!atomic_compare_exchange_strong(&_callback_variables_busy, &expect_false, true))
          expect_false = false;
@@ -45,8 +43,7 @@ private:
    constexpr static size_t fwd_size = 8;
    fc::fwd<impl, fwd_size> my;
 
-   void call_expiration_callback()
-   {
+   void call_expiration_callback() {
       bool expect_false = false;
       if (atomic_compare_exchange_strong(&_callback_variables_busy, &expect_false, true)) {
          void (*cb)(void*) = _expiration_callback;

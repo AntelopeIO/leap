@@ -24,14 +24,12 @@
 namespace eosio {
 namespace chain {
 
-uint128_t transaction_id_to_sender_id(const transaction_id_type& tid)
-{
+uint128_t transaction_id_to_sender_id(const transaction_id_type& tid) {
    fc::uint128 _id(tid._hash[3], tid._hash[2]);
    return (unsigned __int128)_id;
 }
 
-void validate_authority_precondition(const apply_context& context, const authority& auth)
-{
+void validate_authority_precondition(const apply_context& context, const authority& auth) {
    for (const auto& a : auth.accounts) {
       auto* acct = context.db.find<account_object, by_name>(a.permission.actor);
       EOS_ASSERT(acct != nullptr,
@@ -64,8 +62,7 @@ void validate_authority_precondition(const apply_context& context, const authori
 /**
  *  This method is called assuming precondition_system_newaccount succeeds a
  */
-void apply_eosio_newaccount(apply_context& context)
-{
+void apply_eosio_newaccount(apply_context& context) {
    auto create = context.get_action().data_as<newaccount>();
    try {
       context.require_authorization(create.creator);
@@ -129,8 +126,7 @@ void apply_eosio_newaccount(apply_context& context)
    FC_CAPTURE_AND_RETHROW((create))
 }
 
-void apply_eosio_setcode(apply_context& context)
-{
+void apply_eosio_setcode(apply_context& context) {
    auto& db  = context.db;
    auto  act = context.get_action().data_as<setcode>();
    context.require_authorization(act.account);
@@ -213,8 +209,7 @@ void apply_eosio_setcode(apply_context& context)
    }
 }
 
-void apply_eosio_setabi(apply_context& context)
-{
+void apply_eosio_setabi(apply_context& context) {
    auto& db  = context.db;
    auto  act = context.get_action().data_as<setabi>();
 
@@ -249,8 +244,7 @@ void apply_eosio_setabi(apply_context& context)
    }
 }
 
-void apply_eosio_updateauth(apply_context& context)
-{
+void apply_eosio_updateauth(apply_context& context) {
 
    auto update = context.get_action().data_as<updateauth>();
    context.require_authorization(
@@ -334,8 +328,7 @@ void apply_eosio_updateauth(apply_context& context)
    }
 }
 
-void apply_eosio_deleteauth(apply_context& context)
-{
+void apply_eosio_deleteauth(apply_context& context) {
    //   context.require_write_lock( config::eosio_auth_scope );
 
    auto remove = context.get_action().data_as<deleteauth>();
@@ -372,8 +365,7 @@ void apply_eosio_deleteauth(apply_context& context)
    context.add_ram_usage(remove.account, -old_size);
 }
 
-void apply_eosio_linkauth(apply_context& context)
-{
+void apply_eosio_linkauth(apply_context& context) {
    //   context.require_write_lock( config::eosio_auth_scope );
 
    auto requirement = context.get_action().data_as<linkauth>();
@@ -439,8 +431,7 @@ void apply_eosio_linkauth(apply_context& context)
    FC_CAPTURE_AND_RETHROW((requirement))
 }
 
-void apply_eosio_unlinkauth(apply_context& context)
-{
+void apply_eosio_unlinkauth(apply_context& context) {
    //   context.require_write_lock( config::eosio_auth_scope );
 
    auto& db     = context.db;
@@ -463,8 +454,7 @@ void apply_eosio_unlinkauth(apply_context& context)
    db.remove(*link);
 }
 
-void apply_eosio_canceldelay(apply_context& context)
-{
+void apply_eosio_canceldelay(apply_context& context) {
    auto cancel = context.get_action().data_as<canceldelay>();
    context.require_authorization(
       cancel.canceling_auth.actor); // only here to mark the single authority on this action as used

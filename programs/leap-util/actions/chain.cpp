@@ -28,8 +28,7 @@ FC_REFLECT_ENUM(chainbase::environment::os_t, (OS_LINUX)(OS_MACOS)(OS_WINDOWS)(O
 FC_REFLECT_ENUM(chainbase::environment::arch_t, (ARCH_X86_64)(ARCH_ARM)(ARCH_RISCV)(ARCH_OTHER))
 FC_REFLECT(chainbase::environment, (debug)(os)(arch)(boost_version)(compiler))
 
-void chain_actions::setup(CLI::App& app)
-{
+void chain_actions::setup(CLI::App& app) {
    auto* sub = app.add_subcommand("chain-state", "chain utility");
    sub->require_subcommand(1);
 
@@ -47,8 +46,7 @@ void chain_actions::setup(CLI::App& app)
    });
 }
 
-int chain_actions::run_subcommand_build()
-{
+int chain_actions::run_subcommand_build() {
    if (!opt->build_output_file.empty()) {
       bfs::path p = opt->build_output_file;
       if (p.is_relative()) {

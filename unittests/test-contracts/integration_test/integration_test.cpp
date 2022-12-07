@@ -2,8 +2,7 @@
 
 using namespace eosio;
 
-void integration_test::store(name from, name to, uint64_t num)
-{
+void integration_test::store(name from, name to, uint64_t num) {
    require_auth(from);
 
    check(is_account(to), "to account does not exist");

@@ -21,8 +21,7 @@ using namespace eosio::chain_apis;
 using params  = account_query_db::get_accounts_by_authorizers_params;
 using results = account_query_db::get_accounts_by_authorizers_result;
 
-bool find_account_name(results rst, account_name name)
-{
+bool find_account_name(results rst, account_name name) {
    for (const auto& acc : rst.accounts) {
       if (acc.account_name == name) {
          return true;
@@ -30,8 +29,7 @@ bool find_account_name(results rst, account_name name)
    }
    return false;
 }
-bool find_account_auth(results rst, account_name name, permission_name perm)
-{
+bool find_account_auth(results rst, account_name name, permission_name perm) {
    for (const auto& acc : rst.accounts) {
       if (acc.account_name == name && acc.permission_name == perm)
          return true;
@@ -41,8 +39,7 @@ bool find_account_auth(results rst, account_name name, permission_name perm)
 
 BOOST_AUTO_TEST_SUITE(account_query_db_tests)
 
-BOOST_FIXTURE_TEST_CASE(newaccount_test, TESTER)
-{
+BOOST_FIXTURE_TEST_CASE(newaccount_test, TESTER) {
    try {
 
       // instantiate an account_query_db
@@ -67,8 +64,7 @@ BOOST_FIXTURE_TEST_CASE(newaccount_test, TESTER)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_FIXTURE_TEST_CASE(updateauth_test, TESTER)
-{
+BOOST_FIXTURE_TEST_CASE(updateauth_test, TESTER) {
    try {
 
       // instantiate an account_query_db
@@ -102,8 +98,7 @@ BOOST_FIXTURE_TEST_CASE(updateauth_test, TESTER)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_FIXTURE_TEST_CASE(updateauth_test_multi_threaded, TESTER)
-{
+BOOST_FIXTURE_TEST_CASE(updateauth_test_multi_threaded, TESTER) {
    try {
 
       // instantiate an account_query_db
@@ -152,8 +147,7 @@ BOOST_FIXTURE_TEST_CASE(updateauth_test_multi_threaded, TESTER)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(future_fork_test)
-{
+BOOST_AUTO_TEST_CASE(future_fork_test) {
    try {
       tester node_a(setup_policy::none);
       tester node_b(setup_policy::none);
@@ -201,8 +195,7 @@ BOOST_AUTO_TEST_CASE(future_fork_test)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(fork_test)
-{
+BOOST_AUTO_TEST_CASE(fork_test) {
    try {
       tester node_a(setup_policy::none);
       tester node_b(setup_policy::none);

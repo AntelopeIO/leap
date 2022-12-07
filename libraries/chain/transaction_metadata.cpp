@@ -10,8 +10,7 @@ recover_keys_future transaction_metadata::start_recover_keys(packed_transaction_
                                                              const chain_id_type&     chain_id,
                                                              fc::microseconds         time_limit,
                                                              trx_type                 t,
-                                                             uint32_t                 max_variable_sig_size)
-{
+                                                             uint32_t                 max_variable_sig_size) {
    return async_thread_pool(
       thread_pool, [trx{ std::move(trx) }, chain_id, time_limit, t, max_variable_sig_size]() mutable {
          fc::time_point deadline = time_limit == fc::microseconds::maximum()
@@ -26,8 +25,7 @@ recover_keys_future transaction_metadata::start_recover_keys(packed_transaction_
       });
 }
 
-size_t transaction_metadata::get_estimated_size() const
-{
+size_t transaction_metadata::get_estimated_size() const {
    return sizeof(*this) + _recovered_pub_keys.size() * sizeof(public_key_type) +
           packed_trx()->get_estimated_size();
 }

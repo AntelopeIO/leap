@@ -12,13 +12,11 @@ namespace WAST {
 #define INDENT_STRING "\xE0\x01"
 #define DEDENT_STRING "\xE0\x02"
 
-char nibbleToHexChar(U8 value)
-{
+char nibbleToHexChar(U8 value) {
    return value < 10 ? ('0' + value) : 'a' + value - 10;
 }
 
-std::string escapeString(const char* string, Uptr numChars)
-{
+std::string escapeString(const char* string, Uptr numChars) {
    std::string result;
    for (Uptr charIndex = 0; charIndex < numChars; ++charIndex) {
       auto c = string[charIndex];
@@ -39,8 +37,7 @@ std::string escapeString(const char* string, Uptr numChars)
    return result;
 }
 
-std::string expandIndentation(std::string&& inString, U8 spacesPerIndentLevel = 2)
-{
+std::string expandIndentation(std::string&& inString, U8 spacesPerIndentLevel = 2) {
    std::string paddedInput = std::move(inString);
    paddedInput += '\0';
 
@@ -69,11 +66,9 @@ std::string expandIndentation(std::string&& inString, U8 spacesPerIndentLevel = 
    return result;
 }
 
-struct ScopedTagPrinter
-{
+struct ScopedTagPrinter {
    ScopedTagPrinter(std::string& inString, const char* tag)
-      : string(inString)
-   {
+      : string(inString) {
       string += "(";
       string += tag;
       string += INDENT_STRING;
@@ -85,17 +80,14 @@ private:
    std::string& string;
 };
 
-void print(std::string& string, ValueType type)
-{
+void print(std::string& string, ValueType type) {
    string += asString(type);
 }
-void print(std::string& string, ResultType type)
-{
+void print(std::string& string, ResultType type) {
    string += asString(type);
 }
 
-void print(std::string& string, const SizeConstraints& size)
-{
+void print(std::string& string, const SizeConstraints& size) {
    string += std::to_string(size.min);
    if (size.max != UINT64_MAX) {
       string += ' ';
@@ -103,8 +95,7 @@ void print(std::string& string, const SizeConstraints& size)
    }
 }
 
-void print(std::string& string, const FunctionType* functionType)
-{
+void print(std::string& string, const FunctionType* functionType) {
    // Print the function parameters.
    if (functionType->parameters.size()) {
       ScopedTagPrinter paramTag(string, "param");
@@ -123,19 +114,16 @@ void print(std::string& string, const FunctionType* functionType)
    }
 }
 
-void print(std::string& string, const TableType& type)
-{
+void print(std::string& string, const TableType& type) {
    print(string, type.size);
    string += " anyfunc";
 }
 
-void print(std::string& string, const MemoryType& type)
-{
+void print(std::string& string, const MemoryType& type) {
    print(string, type.size);
 }
 
-void print(std::string& string, GlobalType type)
-{
+void print(std::string& string, GlobalType type) {
    if (type.isMutable) {
       string += "(mut ";
    }
@@ -145,8 +133,7 @@ void print(std::string& string, GlobalType type)
    }
 }
 
-void printControlSignature(std::string& string, ResultType resultType)
-{
+void printControlSignature(std::string& string, ResultType resultType) {
    if (resultType != ResultType::none) {
       string += " (result ";
       print(string, resultType);
@@ -154,16 +141,13 @@ void printControlSignature(std::string& string, ResultType resultType)
    }
 }
 
-struct NameScope
-{
+struct NameScope {
    NameScope(const char inSigil)
-      : sigil(inSigil)
-   {
+      : sigil(inSigil) {
       nameToCountMap[""] = 0;
    }
 
-   void map(std::string& name)
-   {
+   void map(std::string& name) {
       auto mapIt = nameToCountMap.find(name);
       if (mapIt == nameToCountMap.end()) {
          nameToCountMap[name] = 1;
@@ -178,8 +162,7 @@ private:
    std::map<std::string, Uptr> nameToCountMap;
 };
 
-struct ModulePrintContext
-{
+struct ModulePrintContext {
    const Module& module;
    std::string&  string;
 
@@ -187,8 +170,7 @@ struct ModulePrintContext
 
    ModulePrintContext(const Module& inModule, std::string& inString)
       : module(inModule)
-      , string(inString)
-   {
+      , string(inString) {
       // Start with the names from the module's user name section, but make sure they are unique, and add the
       // "$" sigil.
       IR::getDisassemblyNames(module, names);
@@ -217,8 +199,7 @@ struct ModulePrintContext
 
    void printModule();
 
-   void printInitializerExpression(const InitializerExpression& expression)
-   {
+   void printInitializerExpression(const InitializerExpression& expression) {
       switch (expression.type) {
          case InitializerExpression::Type::i32_const:
             string += "(i32.const " + std::to_string(expression.i32) + ')';
@@ -240,8 +221,7 @@ struct ModulePrintContext
    }
 };
 
-struct FunctionPrintContext
-{
+struct FunctionPrintContext {
    typedef void Result;
 
    ModulePrintContext& moduleContext;
@@ -260,39 +240,32 @@ struct FunctionPrintContext
       , functionType(inModuleContext.module.types[functionDef.type.index])
       , string(inModuleContext.string)
       , localNames(inModuleContext.names.functions[module.functions.imports.size() + functionDefIndex].locals)
-      , labelNameScope('$')
-   {
-   }
+      , labelNameScope('$') {}
 
    void printFunctionBody();
 
    void unknown(Opcode) { Errors::unreachable(); }
-   void block(ControlStructureImm imm)
-   {
+   void block(ControlStructureImm imm) {
       string += "\nblock";
       pushControlStack(ControlContext::Type::block, "block");
       printControlSignature(string, imm.resultType);
    }
-   void loop(ControlStructureImm imm)
-   {
+   void loop(ControlStructureImm imm) {
       string += "\nloop";
       pushControlStack(ControlContext::Type::loop, "loop");
       printControlSignature(string, imm.resultType);
    }
-   void if_(ControlStructureImm imm)
-   {
+   void if_(ControlStructureImm imm) {
       string += "\nif";
       pushControlStack(ControlContext::Type::ifThen, "if");
       printControlSignature(string, imm.resultType);
    }
-   void else_(NoImm imm)
-   {
+   void else_(NoImm imm) {
       string += DEDENT_STRING;
       controlStack.back().type = ControlContext::Type::ifElse;
       string += "\nelse" INDENT_STRING;
    }
-   void end(NoImm)
-   {
+   void end(NoImm) {
       string += DEDENT_STRING;
       if (controlStack.back().type != ControlContext::Type::function) {
          string += "\nend ;; ";
@@ -301,24 +274,18 @@ struct FunctionPrintContext
       controlStack.pop_back();
    }
 
-   void return_(NoImm)
-   {
+   void return_(NoImm) {
       string += "\nreturn";
       enterUnreachable();
    }
 
-   void br(BranchImm imm)
-   {
+   void br(BranchImm imm) {
       string += "\nbr " + getBranchTargetId(imm.targetDepth);
       enterUnreachable();
    }
-   void br_table(BranchTableImm imm)
-   {
+   void br_table(BranchTableImm imm) {
       string += "\nbr_table" INDENT_STRING;
-      enum
-      {
-         numTargetsPerLine = 16
-      };
+      enum { numTargetsPerLine = 16 };
       WAVM_ASSERT_THROW(imm.branchTableIndex < functionDef.branchTables.size());
       const std::vector<U32>& targetDepths = functionDef.branchTables[imm.branchTableIndex];
       for (Uptr targetIndex = 0; targetIndex < targetDepths.size(); ++targetIndex) {
@@ -337,8 +304,7 @@ struct FunctionPrintContext
    }
    void br_if(BranchImm imm) { string += "\nbr_if " + getBranchTargetId(imm.targetDepth); }
 
-   void unreachable(NoImm)
-   {
+   void unreachable(NoImm) {
       string += "\nunreachable";
       enterUnreachable();
    }
@@ -346,61 +312,50 @@ struct FunctionPrintContext
 
    void select(NoImm) { string += "\nselect"; }
 
-   void get_local(GetOrSetVariableImm<false> imm)
-   {
+   void get_local(GetOrSetVariableImm<false> imm) {
       string += "\nget_local " + localNames[imm.variableIndex];
    }
-   void set_local(GetOrSetVariableImm<false> imm)
-   {
+   void set_local(GetOrSetVariableImm<false> imm) {
       string += "\nset_local " + localNames[imm.variableIndex];
    }
-   void tee_local(GetOrSetVariableImm<false> imm)
-   {
+   void tee_local(GetOrSetVariableImm<false> imm) {
       string += "\ntee_local " + localNames[imm.variableIndex];
    }
 
-   void get_global(GetOrSetVariableImm<true> imm)
-   {
+   void get_global(GetOrSetVariableImm<true> imm) {
       string += "\nget_global " + moduleContext.names.globals[imm.variableIndex];
    }
-   void set_global(GetOrSetVariableImm<true> imm)
-   {
+   void set_global(GetOrSetVariableImm<true> imm) {
       string += "\nset_global " + moduleContext.names.globals[imm.variableIndex];
    }
 
    void call(CallImm imm) { string += "\ncall " + moduleContext.names.functions[imm.functionIndex].name; }
-   void call_indirect(CallIndirectImm imm)
-   {
+   void call_indirect(CallIndirectImm imm) {
       string += "\ncall_indirect " + moduleContext.names.types[imm.type.index];
    }
 
    void printImm(NoImm) {}
    void printImm(MemoryImm) {}
 
-   void printImm(LiteralImm<I32> imm)
-   {
+   void printImm(LiteralImm<I32> imm) {
       string += ' ';
       string += std::to_string(imm.value);
    }
-   void printImm(LiteralImm<I64> imm)
-   {
+   void printImm(LiteralImm<I64> imm) {
       string += ' ';
       string += std::to_string(imm.value);
    }
-   void printImm(LiteralImm<F32> imm)
-   {
+   void printImm(LiteralImm<F32> imm) {
       string += ' ';
       string += Floats::asString(imm.value);
    }
-   void printImm(LiteralImm<F64> imm)
-   {
+   void printImm(LiteralImm<F64> imm) {
       string += ' ';
       string += Floats::asString(imm.value);
    }
 
    template<Uptr naturalAlignmentLog2>
-   void printImm(LoadOrStoreImm<naturalAlignmentLog2> imm)
-   {
+   void printImm(LoadOrStoreImm<naturalAlignmentLog2> imm) {
       if (imm.offset != 0) {
          string += " offset=";
          string += std::to_string(imm.offset);
@@ -413,22 +368,19 @@ struct FunctionPrintContext
 
 #if ENABLE_SIMD_PROTOTYPE
 
-   void printImm(LiteralImm<V128> imm)
-   {
+   void printImm(LiteralImm<V128> imm) {
       string += ' ';
       string += asString(imm.value);
    }
 
    template<Uptr numLanes>
-   void printImm(LaneIndexImm<numLanes> imm)
-   {
+   void printImm(LaneIndexImm<numLanes> imm) {
       string += ' ';
       string += imm.laneIndex;
    }
 
    template<Uptr numLanes>
-   void printImm(ShuffleImm<numLanes> imm)
-   {
+   void printImm(ShuffleImm<numLanes> imm) {
       string += " (";
       for (Uptr laneIndex = 0; laneIndex < numLanes; ++laneIndex) {
          if (laneIndex != 0) {
@@ -444,8 +396,7 @@ struct FunctionPrintContext
    void printImm(LaunchThreadImm) {}
 
    template<Uptr naturalAlignmentLog2>
-   void printImm(AtomicLoadOrStoreImm<naturalAlignmentLog2> imm)
-   {
+   void printImm(AtomicLoadOrStoreImm<naturalAlignmentLog2> imm) {
       if (imm.offset != 0) {
          string += " offset=";
          string += std::to_string(imm.offset);
@@ -455,8 +406,7 @@ struct FunctionPrintContext
 #endif
 
 #define PRINT_OP(opcode, name, nameString, Imm, printOperands)                                               \
-   void name(Imm imm)                                                                                        \
-   {                                                                                                         \
+   void name(Imm imm) {                                                                                      \
       string += "\n" nameString;                                                                             \
       printImm(imm);                                                                                         \
    }
@@ -464,31 +414,21 @@ struct FunctionPrintContext
 #undef VALIDATE_OP
 
 private:
-   struct ControlContext
-   {
-      enum class Type : U8
-      {
-         function,
-         block,
-         ifThen,
-         ifElse,
-         loop
-      };
+   struct ControlContext {
+      enum class Type : U8 { function, block, ifThen, ifElse, loop };
       Type        type;
       std::string labelId;
    };
 
    std::vector<ControlContext> controlStack;
 
-   std::string getBranchTargetId(Uptr depth)
-   {
+   std::string getBranchTargetId(Uptr depth) {
       const ControlContext& controlContext = controlStack[controlStack.size() - depth - 1];
       return controlContext.type == ControlContext::Type::function ? std::to_string(depth)
                                                                    : controlContext.labelId;
    }
 
-   void pushControlStack(ControlContext::Type type, const char* labelIdBase)
-   {
+   void pushControlStack(ControlContext::Type type, const char* labelIdBase) {
       std::string labelId;
       if (type != ControlContext::Type::function) {
          labelId = labelIdBase;
@@ -504,13 +444,13 @@ private:
 };
 
 template<typename Type>
-void printImportType(std::string& string, const Module& module, Type type)
-{
+void printImportType(std::string& string, const Module& module, Type type) {
    print(string, type);
 }
 template<>
-void printImportType<IndexedFunctionType>(std::string& string, const Module& module, IndexedFunctionType type)
-{
+void printImportType<IndexedFunctionType>(std::string&        string,
+                                          const Module&       module,
+                                          IndexedFunctionType type) {
    print(string, module.types[type.index]);
 }
 
@@ -520,8 +460,7 @@ void printImport(std::string&        string,
                  const Import<Type>& import,
                  Uptr                importIndex,
                  const char*         name,
-                 const char*         typeTag)
-{
+                 const char*         typeTag) {
    string += '\n';
    ScopedTagPrinter importTag(string, "import");
    string += " \"";
@@ -537,8 +476,7 @@ void printImport(std::string&        string,
    string += ')';
 }
 
-void ModulePrintContext::printModule()
-{
+void ModulePrintContext::printModule() {
    ScopedTagPrinter moduleTag(string, "module");
 
    // Print the types.
@@ -645,10 +583,7 @@ void ModulePrintContext::printModule()
       string += names.tables[tableSegment.tableIndex];
       string += ' ';
       printInitializerExpression(tableSegment.baseOffset);
-      enum
-      {
-         numElemsPerLine = 8
-      };
+      enum { numElemsPerLine = 8 };
       for (Uptr elementIndex = 0; elementIndex < tableSegment.indices.size(); ++elementIndex) {
          if (elementIndex % numElemsPerLine == 0) {
             string += '\n';
@@ -665,10 +600,7 @@ void ModulePrintContext::printModule()
       string += names.memories[dataSegment.memoryIndex];
       string += ' ';
       printInitializerExpression(dataSegment.baseOffset);
-      enum
-      {
-         numBytesPerLine = 64
-      };
+      enum { numBytesPerLine = 64 };
       for (Uptr offset = 0; offset < dataSegment.data.size(); offset += numBytesPerLine) {
          string += "\n\"";
          string += escapeString((const char*)dataSegment.data.data() + offset,
@@ -730,10 +662,7 @@ void ModulePrintContext::printModule()
          string += " \"";
          string += escapeString(userSection.name.c_str(), userSection.name.length());
          string += "\" ";
-         enum
-         {
-            numBytesPerLine = 64
-         };
+         enum { numBytesPerLine = 64 };
          for (Uptr offset = 0; offset < userSection.data.size(); offset += numBytesPerLine) {
             string += "\n\"";
             string += escapeString((const char*)userSection.data.data() + offset,
@@ -744,8 +673,7 @@ void ModulePrintContext::printModule()
    }
 }
 
-void FunctionPrintContext::printFunctionBody()
-{
+void FunctionPrintContext::printFunctionBody() {
    // string += "(";
    pushControlStack(ControlContext::Type::function, nullptr);
    string += DEDENT_STRING;
@@ -758,8 +686,7 @@ void FunctionPrintContext::printFunctionBody()
    string += INDENT_STRING "\n";
 }
 
-std::string print(const Module& module)
-{
+std::string print(const Module& module) {
    std::string        string;
    ModulePrintContext context(module, string);
    context.printModule();

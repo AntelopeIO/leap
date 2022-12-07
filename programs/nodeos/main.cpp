@@ -22,8 +22,7 @@ using namespace eosio;
 
 namespace detail {
 
-fc::logging_config& add_deep_mind_logger(fc::logging_config& config)
-{
+fc::logging_config& add_deep_mind_logger(fc::logging_config& config) {
    config.appenders.push_back(fc::appender_config("deep-mind", "dmlog"));
 
    fc::logger_config dmlc;
@@ -37,8 +36,7 @@ fc::logging_config& add_deep_mind_logger(fc::logging_config& config)
    return config;
 }
 
-void configure_logging(const bfs::path& config_path)
-{
+void configure_logging(const bfs::path& config_path) {
    try {
       try {
          if (fc::exists(config_path)) {
@@ -65,8 +63,7 @@ void configure_logging(const bfs::path& config_path)
 
 } // namespace detail
 
-void logging_conf_handler()
-{
+void logging_conf_handler() {
    auto config_path = app().get_logging_conf();
    if (fc::exists(config_path)) {
       ilog("Received HUP.  Reloading logging configuration from ${p}.", ("p", config_path.string()));
@@ -77,8 +74,7 @@ void logging_conf_handler()
    fc::log_config::initialize_appenders(app().get_io_service());
 }
 
-void initialize_logging()
-{
+void initialize_logging() {
    auto config_path = app().get_logging_conf();
    if (fc::exists(config_path))
       fc::configure_logging(config_path); // intentionally allowing exceptions to escape
@@ -93,8 +89,7 @@ void initialize_logging()
    app().set_sighup_callback(logging_conf_handler);
 }
 
-enum return_codes
-{
+enum return_codes {
    OTHER_FAIL              = -2,
    INITIALIZE_FAIL         = -1,
    SUCCESS                 = 0,
@@ -105,8 +100,7 @@ enum return_codes
    NODE_MANAGEMENT_SUCCESS = 5
 };
 
-int main(int argc, char** argv)
-{
+int main(int argc, char** argv) {
    try {
       uint32_t short_hash = 0;
       fc::from_hex(eosio::version::version_hash(), (char*)&short_hash, sizeof(short_hash));

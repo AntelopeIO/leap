@@ -19,8 +19,9 @@ namespace eosio {
 namespace chain {
 namespace eosvmoc {
 
-void run_compile(wrapped_fd&& response_sock, wrapped_fd&& wasm_code) noexcept
-{ // noexcept; we'll just blow up if anything tries to cross this boundry
+void run_compile(
+   wrapped_fd&& response_sock,
+   wrapped_fd&& wasm_code) noexcept { // noexcept; we'll just blow up if anything tries to cross this boundry
    std::vector<uint8_t> wasm = vector_for_memfd(wasm_code);
 
    // ideally we catch exceptions and sent them upstream as strings for easier reporting
@@ -63,8 +64,7 @@ void run_compile(wrapped_fd&& response_sock, wrapped_fd&& wasm_code) noexcept
    std::vector<uint8_t>::iterator prologue_it = prologue.end();
 
    // set up mutable globals
-   union global_union
-   {
+   union global_union {
       int64_t i64;
       int32_t i32;
       float   f32;
@@ -86,8 +86,7 @@ void run_compile(wrapped_fd&& response_sock, wrapped_fd&& wasm_code) noexcept
       }
    }
 
-   struct table_entry
-   {
+   struct table_entry {
       uintptr_t type;
       int64_t   func; //>= 0 means offset to code in wasm; < 0 means intrinsic call at offset address
    };
@@ -145,8 +144,7 @@ void run_compile(wrapped_fd&& response_sock, wrapped_fd&& wasm_code) noexcept
    write_message_with_fds(response_sock, result_message, fds_to_send);
 }
 
-void run_compile_trampoline(int fd)
-{
+void run_compile_trampoline(int fd) {
    prctl(PR_SET_NAME, "oc-trampoline");
    prctl(PR_SET_PDEATHSIG, SIGKILL);
 

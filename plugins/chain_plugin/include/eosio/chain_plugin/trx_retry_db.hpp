@@ -16,8 +16,7 @@ using next_function = std::function<void(const std::variant<fc::exception_ptr, T
  * If the transaction is only executed only in a final signed block, then it will not be seen
  * as executed and will expire.
  */
-class trx_retry_db
-{
+class trx_retry_db {
 public:
    /**
     * @param chain - controller to read data from, caller is expected to manage lifetimes such that this

@@ -13,8 +13,7 @@ namespace detail {
 struct se_wallet_impl;
 }
 
-class se_wallet final : public wallet_api
-{
+class se_wallet final : public wallet_api {
 public:
    se_wallet();
    ~se_wallet();

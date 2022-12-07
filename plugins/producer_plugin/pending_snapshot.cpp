@@ -3,8 +3,7 @@
 
 namespace eosio {
 
-producer_plugin::snapshot_information pending_snapshot::finalize(const chain::controller& chain) const
-{
+producer_plugin::snapshot_information pending_snapshot::finalize(const chain::controller& chain) const {
    auto                      block_ptr = chain.fetch_block_by_id(block_id);
    auto                      in_chain  = (bool)block_ptr;
    boost::system::error_code ec;

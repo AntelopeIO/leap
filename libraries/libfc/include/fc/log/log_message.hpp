@@ -16,8 +16,7 @@ class log_message_impl;
 /**
  * Named scope for log_level enumeration.
  */
-class log_level
-{
+class log_level {
 public:
    /**
     * @brief Define's the various log levels for reporting.
@@ -25,23 +24,11 @@ public:
     * Each log level includes all higher levels such that
     * Debug includes Error, but Error does not include Debug.
     */
-   enum values
-   {
-      all,
-      debug,
-      info,
-      warn,
-      error,
-      off
-   };
+   enum values { all, debug, info, warn, error, off };
    log_level(values v = off)
-      : value(v)
-   {
-   }
+      : value(v) {}
    explicit log_level(int v)
-      : value(static_cast<values>(v))
-   {
-   }
+      : value(static_cast<values>(v)) {}
           operator int() const { return value; }
    string to_string() const;
    values value;
@@ -56,8 +43,7 @@ void from_variant(const variant& e, log_level& ll);
  *
  *  @see FC_LOG_CONTEXT
  */
-class log_context
-{
+class log_context {
 public:
    log_context();
    log_context(log_level ll, const char* file, uint64_t line, const char* method);
@@ -104,8 +90,7 @@ void from_variant(const variant& l, log_context& c);
  *
  *  @see FC_LOG_MESSAGE
  */
-class log_message
-{
+class log_message {
 public:
    log_message();
    /**

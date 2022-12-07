@@ -14,8 +14,7 @@ constexpr const char* private_key_base_prefix = "PVT";
 constexpr const char* private_key_prefix[]    = { "K1", "R1" };
 };
 
-class private_key
-{
+class private_key {
 public:
    using storage_type = std::variant<ecc::private_key_shim, r1::private_key_shim>;
 
@@ -29,20 +28,17 @@ public:
    sha512     generate_shared_secret(const public_key& pub) const;
 
    template<typename KeyType = ecc::private_key_shim>
-   static private_key generate()
-   {
+   static private_key generate() {
       return private_key(storage_type(KeyType::generate()));
    }
 
    template<typename KeyType = r1::private_key_shim>
-   static private_key generate_r1()
-   {
+   static private_key generate_r1() {
       return private_key(storage_type(KeyType::generate()));
    }
 
    template<typename KeyType = ecc::private_key_shim>
-   static private_key regenerate(const typename KeyType::data_type& data)
-   {
+   static private_key regenerate(const typename KeyType::data_type& data) {
       return private_key(storage_type(KeyType(data)));
    }
 
@@ -54,9 +50,7 @@ private:
    storage_type _storage;
 
    private_key(storage_type&& other_storage)
-      : _storage(forward<storage_type>(other_storage))
-   {
-   }
+      : _storage(forward<storage_type>(other_storage)) {}
 
    friend bool operator==(const private_key& p1, const private_key& p2);
    friend bool operator!=(const private_key& p1, const private_key& p2);

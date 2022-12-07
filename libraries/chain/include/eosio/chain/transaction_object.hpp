@@ -18,8 +18,7 @@ using namespace boost::multi_index;
  * included in a block a transaction_object is added. At the end of block processing all transaction_objects
  * that have expired can be removed from the index.
  */
-class transaction_object : public chainbase::object<transaction_object_type, transaction_object>
-{
+class transaction_object : public chainbase::object<transaction_object_type, transaction_object> {
    OBJECT_CTOR(transaction_object)
 
    id_type             id;

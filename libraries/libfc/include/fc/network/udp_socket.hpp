@@ -14,8 +14,7 @@ class address;
  *  The udp_socket class has reference semantics, all copies will
  *  refer to the same underlying socket.
  */
-class udp_socket
-{
+class udp_socket {
 public:
    udp_socket();
    udp_socket(const udp_socket& s);

@@ -8,8 +8,7 @@
 
 #include "test_api.hpp"
 
-struct check_auth_msg
-{
+struct check_auth_msg {
    eosio::name                    account;
    eosio::name                    permission;
    std::vector<eosio::public_key> pubkeys;
@@ -17,8 +16,7 @@ struct check_auth_msg
    EOSLIB_SERIALIZE(check_auth_msg, (account)(permission)(pubkeys))
 };
 
-void test_permission::check_authorization(uint64_t receiver, uint64_t code, uint64_t action)
-{
+void test_permission::check_authorization(uint64_t receiver, uint64_t code, uint64_t action) {
    (void)code;
    (void)action;
    using namespace eosio;
@@ -42,8 +40,7 @@ void test_permission::check_authorization(uint64_t receiver, uint64_t code, uint
    }
 }
 
-struct test_permission_last_used_msg
-{
+struct test_permission_last_used_msg {
    eosio::name account;
    eosio::name permission;
    int64_t     last_used_time;
@@ -51,8 +48,7 @@ struct test_permission_last_used_msg
    EOSLIB_SERIALIZE(test_permission_last_used_msg, (account)(permission)(last_used_time))
 };
 
-void test_permission::test_permission_last_used(uint64_t /* receiver */, uint64_t code, uint64_t action)
-{
+void test_permission::test_permission_last_used(uint64_t /* receiver */, uint64_t code, uint64_t action) {
    (void)code;
    (void)action;
    using namespace eosio;
@@ -64,8 +60,7 @@ void test_permission::test_permission_last_used(uint64_t /* receiver */, uint64_
                 "unexpected last used permission time");
 }
 
-void test_permission::test_account_creation_time(uint64_t /* receiver */, uint64_t code, uint64_t action)
-{
+void test_permission::test_account_creation_time(uint64_t /* receiver */, uint64_t code, uint64_t action) {
    (void)code;
    (void)action;
    using namespace eosio;

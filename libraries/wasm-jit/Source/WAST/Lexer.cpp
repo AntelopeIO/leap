@@ -10,8 +10,7 @@
 #include <fstream>
 
 namespace WAST {
-const char* describeToken(TokenType tokenType)
-{
+const char* describeToken(TokenType tokenType) {
    WAVM_ASSERT_THROW(tokenType < numTokenTypes);
    static const char* tokenDescriptions[] = {
 // This ENUM_TOKENS must come before the literalTokenPairs definition that redefines VISIT_OPERATOR_TOKEN.
@@ -22,14 +21,12 @@ const char* describeToken(TokenType tokenType)
    return tokenDescriptions[tokenType];
 }
 
-struct StaticData
-{
+struct StaticData {
    NFA::Machine nfaMachine;
    StaticData();
 };
 
-static NFA::StateIndex createTokenSeparatorPeekState(NFA::Builder* builder, NFA::StateIndex finalState)
-{
+static NFA::StateIndex createTokenSeparatorPeekState(NFA::Builder* builder, NFA::StateIndex finalState) {
    NFA::CharSet tokenSeparatorCharSet;
    tokenSeparatorCharSet.add(U8(' '));
    tokenSeparatorCharSet.add(U8('\t'));
@@ -48,8 +45,7 @@ static NFA::StateIndex createTokenSeparatorPeekState(NFA::Builder* builder, NFA:
 static void addLiteralToNFA(const char*     string,
                             NFA::Builder*   builder,
                             NFA::StateIndex initialState,
-                            NFA::StateIndex finalState)
-{
+                            NFA::StateIndex finalState) {
    // Add the literal to the NFA, one character at a time, reusing existing states that are reachable by the
    // same string.
    for (const char* nextChar = string; *nextChar; ++nextChar) {
@@ -62,8 +58,7 @@ static void addLiteralToNFA(const char*     string,
    }
 }
 
-StaticData::StaticData()
-{
+StaticData::StaticData() {
    static const std::pair<TokenType, const char*> regexpTokenPairs[] = {
       {t_decimalInt,    "[+\\-]?\\d+(_\\d+)*"                                                              },
       { t_decimalFloat, "[+\\-]?\\d+(_\\d+)*\\.(\\d+(_\\d+)*)*([eE][+\\-]?\\d+(_\\d+)*)?"                  },
@@ -126,14 +121,12 @@ StaticData::StaticData()
    Timing::logTimer("built lexer tables", timer);
 }
 
-struct LineInfo
-{
+struct LineInfo {
    U32* lineStarts;
    U32  numLineStarts;
 };
 
-inline bool isRecoveryPointChar(char c)
-{
+inline bool isRecoveryPointChar(char c) {
    switch (c) {
       // Recover lexing at the next whitespace or parenthesis.
       case ' ':
@@ -147,8 +140,7 @@ inline bool isRecoveryPointChar(char c)
    };
 }
 
-Token* lex(const char* string, Uptr stringLength, LineInfo*& outLineInfo)
-{
+Token* lex(const char* string, Uptr stringLength, LineInfo*& outLineInfo) {
    static StaticData staticData;
 
    Timing::Timer timer;
@@ -281,25 +273,21 @@ Token* lex(const char* string, Uptr stringLength, LineInfo*& outLineInfo)
    return tokens;
 }
 
-void freeTokens(Token* tokens)
-{
+void freeTokens(Token* tokens) {
    free(tokens);
 }
 
-void freeLineInfo(LineInfo* lineInfo)
-{
+void freeLineInfo(LineInfo* lineInfo) {
    free(lineInfo->lineStarts);
    delete lineInfo;
 }
 
-static Uptr getLineOffset(const LineInfo* lineInfo, Uptr lineIndex)
-{
+static Uptr getLineOffset(const LineInfo* lineInfo, Uptr lineIndex) {
    errorUnless(lineIndex < lineInfo->numLineStarts);
    return lineInfo->lineStarts[lineIndex];
 }
 
-TextFileLocus calcLocusFromOffset(const char* string, const LineInfo* lineInfo, Uptr charOffset)
-{
+TextFileLocus calcLocusFromOffset(const char* string, const LineInfo* lineInfo, Uptr charOffset) {
    // Binary search the line starts for the last one before charIndex.
    Uptr minLineIndex = 0;
    Uptr maxLineIndex = lineInfo->numLineStarts - 1;

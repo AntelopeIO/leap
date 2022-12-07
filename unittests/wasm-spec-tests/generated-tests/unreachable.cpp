@@ -3,8 +3,7 @@
 const string         wasm_str_unreachable_0 = base_dir + "/unreachable.0.wasm";
 std::vector<uint8_t> wasm_unreachable_0     = read_wasm(wasm_str_unreachable_0.c_str());
 
-BOOST_DATA_TEST_CASE(unreachable_0_check_throw, boost::unit_test::data::xrange(0, 57), index)
-{
+BOOST_DATA_TEST_CASE(unreachable_0_check_throw, boost::unit_test::data::xrange(0, 57), index) {
    try {
       TESTER tester;
       tester.produce_block();
@@ -27,8 +26,7 @@ BOOST_DATA_TEST_CASE(unreachable_0_check_throw, boost::unit_test::data::xrange(0
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_DATA_TEST_CASE(unreachable_0_pass, boost::unit_test::data::xrange(57, 58), index)
-{
+BOOST_DATA_TEST_CASE(unreachable_0_pass, boost::unit_test::data::xrange(57, 58), index) {
    try {
       TESTER tester;
       tester.produce_block();

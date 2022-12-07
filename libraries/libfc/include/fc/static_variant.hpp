@@ -9,13 +9,10 @@
 namespace fc {
 
 template<typename Result>
-struct visitor
-{
-};
+struct visitor {};
 
 template<typename variant, int32_t i = 0>
-void from_index(variant& v, int index)
-{
+void from_index(variant& v, int index) {
    if constexpr (i >= std::variant_size_v<variant>) {
       FC_THROW_EXCEPTION(fc::assert_exception, "Provided index out of range for variant.");
    } else if (index == 0) {
@@ -27,8 +24,7 @@ void from_index(variant& v, int index)
 }
 
 template<typename VariantType, typename T, std::size_t index = 0>
-constexpr std::size_t get_index()
-{
+constexpr std::size_t get_index() {
    if constexpr (index == std::variant_size_v<VariantType>) {
       return index;
    } else if constexpr (std::is_same_v<std::variant_alternative_t<index, VariantType>, T>) {
@@ -38,39 +34,30 @@ constexpr std::size_t get_index()
    }
 }
 
-struct from_static_variant
-{
+struct from_static_variant {
    variant& var;
    from_static_variant(variant& dv)
-      : var(dv)
-   {
-   }
+      : var(dv) {}
 
    template<typename T>
-   void operator()(const T& v) const
-   {
+   void operator()(const T& v) const {
       to_variant(v, var);
    }
 };
 
-struct to_static_variant
-{
+struct to_static_variant {
    const variant& var;
    to_static_variant(const variant& dv)
-      : var(dv)
-   {
-   }
+      : var(dv) {}
 
    template<typename T>
-   void operator()(T& v) const
-   {
+   void operator()(T& v) const {
       from_variant(var, v);
    }
 };
 
 template<typename... T>
-void to_variant(const std::variant<T...>& s, fc::variant& v)
-{
+void to_variant(const std::variant<T...>& s, fc::variant& v) {
    variants vars(2);
    vars[0] = s.index();
    std::visit(from_static_variant(vars[1]), s);
@@ -78,8 +65,7 @@ void to_variant(const std::variant<T...>& s, fc::variant& v)
 }
 
 template<typename... T>
-void from_variant(const fc::variant& v, std::variant<T...>& s)
-{
+void from_variant(const fc::variant& v, std::variant<T...>& s) {
    auto ar = v.get_array();
    if (ar.size() < 2) {
       s = std::variant<T...>();
@@ -90,8 +76,7 @@ void from_variant(const fc::variant& v, std::variant<T...>& s)
 }
 
 template<typename... T>
-struct get_typename
-{
+struct get_typename {
    static const char* name() { return BOOST_CORE_TYPEID(std::variant<T...>).name(); }
 };
 

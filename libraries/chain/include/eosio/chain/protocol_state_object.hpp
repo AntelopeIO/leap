@@ -15,14 +15,12 @@ namespace chain {
  * @ingroup object
  * @ingroup implementation
  */
-class protocol_state_object : public chainbase::object<protocol_state_object_type, protocol_state_object>
-{
+class protocol_state_object : public chainbase::object<protocol_state_object_type, protocol_state_object> {
    OBJECT_CTOR(protocol_state_object,
                (activated_protocol_features)(preactivated_protocol_features)(whitelisted_intrinsics))
 
 public:
-   struct activated_protocol_feature
-   {
+   struct activated_protocol_feature {
       digest_type feature_digest;
       uint32_t    activation_block_num = 0;
 
@@ -30,12 +28,9 @@ public:
 
       activated_protocol_feature(const digest_type& feature_digest, uint32_t activation_block_num)
          : feature_digest(feature_digest)
-         , activation_block_num(activation_block_num)
-      {
-      }
+         , activation_block_num(activation_block_num) {}
 
-      bool operator==(const activated_protocol_feature& rhs) const
-      {
+      bool operator==(const activated_protocol_feature& rhs) const {
          return feature_digest == rhs.feature_digest && activation_block_num == rhs.activation_block_num;
       }
    };
@@ -54,8 +49,7 @@ using protocol_state_multi_index = chainbase::shared_multi_index_container<
       ordered_unique<tag<by_id>,
                      BOOST_MULTI_INDEX_MEMBER(protocol_state_object, protocol_state_object::id_type, id)>>>;
 
-struct snapshot_protocol_state_object
-{
+struct snapshot_protocol_state_object {
    vector<protocol_state_object::activated_protocol_feature> activated_protocol_features;
    vector<digest_type>                                       preactivated_protocol_features;
    std::set<std::string>                                     whitelisted_intrinsics;
@@ -64,8 +58,7 @@ struct snapshot_protocol_state_object
 
 namespace detail {
 template<>
-struct snapshot_row_traits<protocol_state_object>
-{
+struct snapshot_row_traits<protocol_state_object> {
    using value_type    = protocol_state_object;
    using snapshot_type = snapshot_protocol_state_object;
 

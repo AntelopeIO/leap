@@ -12,17 +12,14 @@ namespace legacy {
 /**
  *  Used as part of the producer_schedule_type, maps the producer name to their key.
  */
-struct producer_key
-{
+struct producer_key {
    account_name    producer_name;
    public_key_type block_signing_key;
 
-   friend bool operator==(const producer_key& lhs, const producer_key& rhs)
-   {
+   friend bool operator==(const producer_key& lhs, const producer_key& rhs) {
       return tie(lhs.producer_name, lhs.block_signing_key) == tie(rhs.producer_name, rhs.block_signing_key);
    }
-   friend bool operator!=(const producer_key& lhs, const producer_key& rhs)
-   {
+   friend bool operator!=(const producer_key& lhs, const producer_key& rhs) {
       return tie(lhs.producer_name, lhs.block_signing_key) != tie(rhs.producer_name, rhs.block_signing_key);
    }
 };
@@ -30,13 +27,11 @@ struct producer_key
 /**
  *  Defines both the order, account name, and signing keys of the active set of producers.
  */
-struct producer_schedule_type
-{
+struct producer_schedule_type {
    uint32_t             version = 0; ///< sequentially incrementing version number
    vector<producer_key> producers;
 
-   friend bool operator==(const producer_schedule_type& a, const producer_schedule_type& b)
-   {
+   friend bool operator==(const producer_schedule_type& a, const producer_schedule_type& b) {
       if (a.version != b.version)
          return false;
       if (a.producers.size() != b.producers.size())
@@ -47,15 +42,13 @@ struct producer_schedule_type
       return true;
    }
 
-   friend bool operator!=(const producer_schedule_type& a, const producer_schedule_type& b)
-   {
+   friend bool operator!=(const producer_schedule_type& a, const producer_schedule_type& b) {
       return !(a == b);
    }
 };
 }
 
-struct shared_block_signing_authority_v0
-{
+struct shared_block_signing_authority_v0 {
    shared_block_signing_authority_v0()                                                    = delete;
    shared_block_signing_authority_v0(const shared_block_signing_authority_v0&)            = default;
    shared_block_signing_authority_v0(shared_block_signing_authority_v0&&)                 = default;
@@ -63,9 +56,7 @@ struct shared_block_signing_authority_v0
    shared_block_signing_authority_v0& operator=(const shared_block_signing_authority_v0&) = default;
 
    explicit shared_block_signing_authority_v0(chainbase::allocator<char> alloc)
-      : keys(alloc)
-   {
-   }
+      : keys(alloc) {}
 
    uint32_t                         threshold = 0;
    shared_vector<shared_key_weight> keys;
@@ -73,8 +64,7 @@ struct shared_block_signing_authority_v0
 
 using shared_block_signing_authority = std::variant<shared_block_signing_authority_v0>;
 
-struct shared_producer_authority
-{
+struct shared_producer_authority {
    shared_producer_authority()                                            = delete;
    shared_producer_authority(const shared_producer_authority&)            = default;
    shared_producer_authority(shared_producer_authority&&)                 = default;
@@ -83,22 +73,17 @@ struct shared_producer_authority
 
    shared_producer_authority(const name& producer_name, shared_block_signing_authority&& authority)
       : producer_name(producer_name)
-      , authority(std::move(authority))
-   {
-   }
+      , authority(std::move(authority)) {}
 
    name                           producer_name;
    shared_block_signing_authority authority;
 };
 
-struct shared_producer_authority_schedule
-{
+struct shared_producer_authority_schedule {
    shared_producer_authority_schedule() = delete;
 
    explicit shared_producer_authority_schedule(chainbase::allocator<char> alloc)
-      : producers(alloc)
-   {
-   }
+      : producers(alloc) {}
 
    shared_producer_authority_schedule(const shared_producer_authority_schedule&)            = default;
    shared_producer_authority_schedule(shared_producer_authority_schedule&&)                 = default;
@@ -113,23 +98,20 @@ struct shared_producer_authority_schedule
  * block signing authority version 0
  * this authority allows for a weighted threshold multi-sig per-producer
  */
-struct block_signing_authority_v0
-{
+struct block_signing_authority_v0 {
    static constexpr std::string_view abi_type_name() { return "block_signing_authority_v0"; }
 
    uint32_t           threshold = 0;
    vector<key_weight> keys;
 
    template<typename Op>
-   void for_each_key(Op&& op) const
-   {
+   void for_each_key(Op&& op) const {
       for (const auto& kw : keys) {
          op(kw.key);
       }
    }
 
-   std::pair<bool, size_t> keys_satisfy_and_relevant(const std::set<public_key_type>& presented_keys) const
-   {
+   std::pair<bool, size_t> keys_satisfy_and_relevant(const std::set<public_key_type>& presented_keys) const {
       size_t   num_relevant_keys = 0;
       uint32_t total_weight      = 0;
       for (const auto& kw : keys) {
@@ -147,8 +129,7 @@ struct block_signing_authority_v0
       return { total_weight >= threshold, num_relevant_keys };
    }
 
-   auto to_shared(chainbase::allocator<char> alloc) const
-   {
+   auto to_shared(chainbase::allocator<char> alloc) const {
       shared_block_signing_authority_v0 result(alloc);
       result.threshold = threshold;
       result.keys.clear();
@@ -160,8 +141,7 @@ struct block_signing_authority_v0
       return result;
    }
 
-   static auto from_shared(const shared_block_signing_authority_v0& src)
-   {
+   static auto from_shared(const shared_block_signing_authority_v0& src) {
       block_signing_authority_v0 result;
       result.threshold = src.threshold;
       result.keys.reserve(src.keys.size());
@@ -172,55 +152,46 @@ struct block_signing_authority_v0
       return result;
    }
 
-   friend bool operator==(const block_signing_authority_v0& lhs, const block_signing_authority_v0& rhs)
-   {
+   friend bool operator==(const block_signing_authority_v0& lhs, const block_signing_authority_v0& rhs) {
       return tie(lhs.threshold, lhs.keys) == tie(rhs.threshold, rhs.keys);
    }
-   friend bool operator!=(const block_signing_authority_v0& lhs, const block_signing_authority_v0& rhs)
-   {
+   friend bool operator!=(const block_signing_authority_v0& lhs, const block_signing_authority_v0& rhs) {
       return tie(lhs.threshold, lhs.keys) != tie(rhs.threshold, rhs.keys);
    }
 };
 
 using block_signing_authority = std::variant<block_signing_authority_v0>;
 
-struct producer_authority
-{
+struct producer_authority {
    name                    producer_name;
    block_signing_authority authority;
 
    template<typename Op>
-   static void for_each_key(const block_signing_authority& authority, Op&& op)
-   {
+   static void for_each_key(const block_signing_authority& authority, Op&& op) {
       std::visit([&op](const auto& a) { a.for_each_key(std::forward<Op>(op)); }, authority);
    }
 
    template<typename Op>
-   void for_each_key(Op&& op) const
-   {
+   void for_each_key(Op&& op) const {
       for_each_key(authority, std::forward<Op>(op));
    }
 
    static std::pair<bool, size_t> keys_satisfy_and_relevant(const std::set<public_key_type>& keys,
-                                                            const block_signing_authority&   authority)
-   {
+                                                            const block_signing_authority&   authority) {
       return std::visit([&keys](const auto& a) { return a.keys_satisfy_and_relevant(keys); }, authority);
    }
 
-   std::pair<bool, size_t> keys_satisfy_and_relevant(const std::set<public_key_type>& presented_keys) const
-   {
+   std::pair<bool, size_t> keys_satisfy_and_relevant(const std::set<public_key_type>& presented_keys) const {
       return keys_satisfy_and_relevant(presented_keys, authority);
    }
 
-   auto to_shared(chainbase::allocator<char> alloc) const
-   {
+   auto to_shared(chainbase::allocator<char> alloc) const {
       auto shared_auth = std::visit([&alloc](const auto& a) { return a.to_shared(alloc); }, authority);
 
       return shared_producer_authority(producer_name, std::move(shared_auth));
    }
 
-   static auto from_shared(const shared_producer_authority& src)
-   {
+   static auto from_shared(const shared_producer_authority& src) {
       producer_authority result;
       result.producer_name = src.producer_name;
       result.authority     = std::visit(overloaded{ [](const shared_block_signing_authority_v0& a) {
@@ -245,26 +216,22 @@ struct producer_authority
     */
    fc::variant get_abi_variant() const;
 
-   friend bool operator==(const producer_authority& lhs, const producer_authority& rhs)
-   {
+   friend bool operator==(const producer_authority& lhs, const producer_authority& rhs) {
       return tie(lhs.producer_name, lhs.authority) == tie(rhs.producer_name, rhs.authority);
    }
-   friend bool operator!=(const producer_authority& lhs, const producer_authority& rhs)
-   {
+   friend bool operator!=(const producer_authority& lhs, const producer_authority& rhs) {
       return tie(lhs.producer_name, lhs.authority) != tie(rhs.producer_name, rhs.authority);
    }
 };
 
-struct producer_authority_schedule
-{
+struct producer_authority_schedule {
    producer_authority_schedule() = default;
 
    /**
     * Up-convert a legacy producer schedule
     */
    explicit producer_authority_schedule(const legacy::producer_schedule_type& old)
-      : version(old.version)
-   {
+      : version(old.version) {
       producers.reserve(old.producers.size());
       for (const auto& p : old.producers)
          producers.emplace_back(producer_authority{
@@ -274,12 +241,9 @@ struct producer_authority_schedule
 
    producer_authority_schedule(uint32_t version, std::initializer_list<producer_authority> producers)
       : version(version)
-      , producers(producers)
-   {
-   }
+      , producers(producers) {}
 
-   auto to_shared(chainbase::allocator<char> alloc) const
-   {
+   auto to_shared(chainbase::allocator<char> alloc) const {
       auto result    = shared_producer_authority_schedule(alloc);
       result.version = version;
       result.producers.clear();
@@ -290,8 +254,7 @@ struct producer_authority_schedule
       return result;
    }
 
-   static auto from_shared(const shared_producer_authority_schedule& src)
-   {
+   static auto from_shared(const shared_producer_authority_schedule& src) {
       producer_authority_schedule result;
       result.version = src.version;
       result.producers.reserve(src.producers.size());
@@ -305,8 +268,7 @@ struct producer_authority_schedule
    uint32_t                   version = 0; ///< sequentially incrementing version number
    vector<producer_authority> producers;
 
-   friend bool operator==(const producer_authority_schedule& a, const producer_authority_schedule& b)
-   {
+   friend bool operator==(const producer_authority_schedule& a, const producer_authority_schedule& b) {
       if (a.version != b.version)
          return false;
       if (a.producers.size() != b.producers.size())
@@ -317,8 +279,7 @@ struct producer_authority_schedule
       return true;
    }
 
-   friend bool operator!=(const producer_authority_schedule& a, const producer_authority_schedule& b)
-   {
+   friend bool operator!=(const producer_authority_schedule& a, const producer_authority_schedule& b) {
       return !(a == b);
    }
 };
@@ -326,8 +287,7 @@ struct producer_authority_schedule
 /**
  * Block Header Extension Compatibility
  */
-struct producer_schedule_change_extension : producer_authority_schedule
-{
+struct producer_schedule_change_extension : producer_authority_schedule {
 
    static constexpr uint16_t extension_id() { return 1; }
    static constexpr bool     enforce_unique() { return true; }
@@ -340,13 +300,10 @@ struct producer_schedule_change_extension : producer_authority_schedule
    producer_schedule_change_extension& operator=(producer_schedule_change_extension&&)      = default;
 
    producer_schedule_change_extension(const producer_authority_schedule& sched)
-      : producer_authority_schedule(sched)
-   {
-   }
+      : producer_authority_schedule(sched) {}
 };
 
-inline bool operator==(const producer_authority& pa, const shared_producer_authority& pb)
-{
+inline bool operator==(const producer_authority& pa, const shared_producer_authority& pb) {
    if (pa.producer_name != pb.producer_name)
       return false;
    if (pa.authority.index() != pb.authority.index())

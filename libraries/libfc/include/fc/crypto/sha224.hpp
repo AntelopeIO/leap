@@ -6,8 +6,7 @@
 
 namespace fc {
 
-class sha224
-{
+class sha224 {
 public:
    sha224();
    explicit sha224(const string& hex_str);
@@ -23,15 +22,13 @@ public:
    static sha224 hash(const string&);
 
    template<typename T>
-   static sha224 hash(const T& t)
-   {
+   static sha224 hash(const T& t) {
       sha224::encoder e;
       fc::raw::pack(e, t);
       return e.result();
    }
 
-   class encoder
-   {
+   class encoder {
    public:
       encoder();
       ~encoder();
@@ -47,16 +44,14 @@ public:
    };
 
    template<typename T>
-   inline friend T& operator<<(T& ds, const sha224& ep)
-   {
+   inline friend T& operator<<(T& ds, const sha224& ep) {
       static_assert(sizeof(ep) == (8 * 3 + 4), "sha224 size mismatch");
       ds.write(ep.data(), sizeof(ep));
       return ds;
    }
 
    template<typename T>
-   inline friend T& operator>>(T& ds, sha224& ep)
-   {
+   inline friend T& operator>>(T& ds, sha224& ep) {
       ds.read(ep.data(), sizeof(ep));
       return ds;
    }
@@ -79,8 +74,7 @@ void from_variant(const variant& v, sha224& bi);
 } // fc
 namespace std {
 template<>
-struct hash<fc::sha224>
-{
+struct hash<fc::sha224> {
    size_t operator()(const fc::sha224& s) const { return *((size_t*)&s); }
 };
 }

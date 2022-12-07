@@ -5,12 +5,9 @@ using namespace eosio;
 
 proxy::proxy(eosio::name self, eosio::name first_receiver, eosio::datastream<const char*> ds)
    : contract(self, first_receiver, ds)
-   , _config(get_self(), get_self().value)
-{
-}
+   , _config(get_self(), get_self().value) {}
 
-void proxy::setowner(name owner, uint32_t delay)
-{
+void proxy::setowner(name owner, uint32_t delay) {
    require_auth(get_self());
    auto cfg  = _config.get_or_default();
    cfg.owner = owner;
@@ -19,8 +16,7 @@ void proxy::setowner(name owner, uint32_t delay)
    _config.set(cfg, get_self());
 }
 
-void proxy::on_transfer(name from, name to, asset quantity, const std::string& memo)
-{
+void proxy::on_transfer(name from, name to, asset quantity, const std::string& memo) {
    print("on_transfer called on ", get_self(), " contract with from = ", from, " and to = ", to, "\n");
    check(_config.exists(), "Attempting to use unconfigured proxy");
    auto cfg = _config.get();
@@ -42,8 +38,7 @@ void proxy::on_transfer(name from, name to, asset quantity, const std::string& m
    }
 }
 
-void proxy::on_error(uint128_t sender_id, eosio::ignore<std::vector<char>>)
-{
+void proxy::on_error(uint128_t sender_id, eosio::ignore<std::vector<char>>) {
    print("on_error called on ", get_self(), " contract with sender_id = ", sender_id, "\n");
    check(_config.exists(), "Attempting use of unconfigured proxy");
 

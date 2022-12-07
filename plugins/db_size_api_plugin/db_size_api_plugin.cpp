@@ -25,15 +25,13 @@ using namespace eosio;
 
 #define INVOKE_R_V(api_handle, call_name) auto result = api_handle->call_name();
 
-void db_size_api_plugin::plugin_startup()
-{
+void db_size_api_plugin::plugin_startup() {
    app().get_plugin<http_plugin>().add_api({
       CALL_WITH_400(db_size, this, get, INVOKE_R_V(this, get), 200),
    });
 }
 
-db_size_stats db_size_api_plugin::get()
-{
+db_size_stats db_size_api_plugin::get() {
    const chainbase::database& db = app().get_plugin<chain_plugin>().chain().db();
    db_size_stats              ret;
 

@@ -27,15 +27,13 @@ const string mem_clear     = "      volatile uint64_t* r = (uint64_t*)0;\n      
 // NOTE: Changing this will likely break one or more tests.
 const int NUM_TESTS_PER_SUB_APPLY = 100;
 
-struct spec_test_function_state
-{
+struct spec_test_function_state {
    set<string>      already_written_funcs;
    map<string, int> name_to_index;
    int              index = 0;
 };
 
-void write_file(ofstream& file, string test_name, string funcs, string sub_applies, string apply)
-{
+void write_file(ofstream& file, string test_name, string funcs, string sub_applies, string apply) {
    stringstream out;
    string       end_brace = "}";
 
@@ -55,8 +53,7 @@ void write_file(ofstream& file, string test_name, string funcs, string sub_appli
    out.str("");
 }
 
-void write_map_file(ofstream& file, spec_test_function_state& func_state)
-{
+void write_map_file(ofstream& file, spec_test_function_state& func_state) {
    stringstream out;
 
    out << "{\n";
@@ -76,8 +73,7 @@ void write_map_file(ofstream& file, spec_test_function_state& func_state)
    out.str("");
 }
 
-string c_type(string wasm_type)
-{
+string c_type(string wasm_type) {
    string c_type = "";
    if (wasm_type == "i32") {
       c_type = "int32_t";
@@ -94,8 +90,7 @@ string c_type(string wasm_type)
    return c_type;
 }
 
-vector<pair<string, string>> get_params(picojson::object action)
-{
+vector<pair<string, string>> get_params(picojson::object action) {
    vector<pair<string, string>> params = {};
 
    auto args = action["args"].get<picojson::array>();
@@ -108,8 +103,7 @@ vector<pair<string, string>> get_params(picojson::object action)
    return params;
 }
 
-pair<string, string> get_expected_return(picojson::object test)
-{
+pair<string, string> get_expected_return(picojson::object test) {
    pair<string, string> expected_return;
 
    auto expecteds = test["expected"].get<picojson::array>();
@@ -123,8 +117,9 @@ pair<string, string> get_expected_return(picojson::object test)
    return expected_return;
 }
 
-string write_test_function(string function_name, picojson::object test, spec_test_function_state& func_state)
-{
+string write_test_function(string                    function_name,
+                           picojson::object          test,
+                           spec_test_function_state& func_state) {
    stringstream out;
 
    auto action = test["action"].get<picojson::object>();
@@ -171,8 +166,7 @@ string write_test_function(string function_name, picojson::object test, spec_tes
    return out.str();
 }
 
-string write_test_function_call(string function_name, picojson::object test, int var_index)
-{
+string write_test_function_call(string function_name, picojson::object test, int var_index) {
    stringstream out;
    stringstream func_call;
    string       return_cast = "";
@@ -274,15 +268,13 @@ string write_test_function_call(string function_name, picojson::object test, int
    return out.str();
 }
 
-void usage(const char* name)
-{
+void usage(const char* name) {
    std::cerr << "Usage:\n"
              << "  " << name << " [json file created by wast2json]\n";
    std::exit(2);
 }
 
-map<string, vector<picojson::object>> get_file_func_mappings(picojson::value v)
-{
+map<string, vector<picojson::object>> get_file_func_mappings(picojson::value v) {
    map<string, vector<picojson::object>> file_func_mappings;
    auto&                                 o        = v.get<picojson::object>();
    string                                filename = "";
@@ -311,8 +303,7 @@ map<string, vector<picojson::object>> get_file_func_mappings(picojson::value v)
    return file_func_mappings;
 }
 
-string create_sub_apply(string func_calls, string name)
-{
+string create_sub_apply(string func_calls, string name) {
    stringstream ss;
    ss << "   void " << name << "() {\n";
    ss << func_calls;
@@ -320,8 +311,7 @@ string create_sub_apply(string func_calls, string name)
    return ss.str();
 }
 
-int main(int argc, char** argv)
-{
+int main(int argc, char** argv) {
    ifstream     ifs;
    stringstream ss;
    if (argc != 2 || !strcmp(argv[1], "-h") || !strcmp(argv[1], "--help")) {

@@ -272,8 +272,7 @@ const std::unordered_map<builtin_protocol_feature_t,
          */
          {} });
 
-const char* builtin_protocol_feature_codename(builtin_protocol_feature_t codename)
-{
+const char* builtin_protocol_feature_codename(builtin_protocol_feature_t codename) {
    auto itr = builtin_protocol_feature_codenames.find(codename);
    EOS_ASSERT(
       itr != builtin_protocol_feature_codenames.end(),
@@ -291,8 +290,7 @@ protocol_feature_base::protocol_feature_base(protocol_feature_t      feature_typ
    : description_digest(description_digest)
    , dependencies(std::move(dependencies))
    , subjective_restrictions(restrictions)
-   , _type(feature_type)
-{
+   , _type(feature_type) {
    switch (feature_type) {
       case protocol_feature_t::builtin:
          protocol_feature_type = builtin_protocol_feature::feature_type_string;
@@ -305,8 +303,7 @@ protocol_feature_base::protocol_feature_base(protocol_feature_t      feature_typ
    }
 }
 
-void protocol_feature_base::reflector_init()
-{
+void protocol_feature_base::reflector_init() {
    static_assert(fc::raw::has_feature_reflector_init_on_unpacked_reflected_types,
                  "protocol_feature_activation expects FC to support reflector_init");
 
@@ -330,8 +327,7 @@ builtin_protocol_feature::builtin_protocol_feature(
                            description_digest,
                            std::move(dependencies),
                            restrictions)
-   , _codename(codename)
-{
+   , _codename(codename) {
    auto itr = builtin_protocol_feature_codenames.find(codename);
    EOS_ASSERT(itr != builtin_protocol_feature_codenames.end(),
               protocol_feature_validation_exception,
@@ -341,8 +337,7 @@ builtin_protocol_feature::builtin_protocol_feature(
    builtin_feature_codename = itr->second.codename;
 }
 
-void builtin_protocol_feature::reflector_init()
-{
+void builtin_protocol_feature::reflector_init() {
    protocol_feature_base::reflector_init();
 
    for (const auto& p : builtin_protocol_feature_codenames) {
@@ -357,8 +352,7 @@ void builtin_protocol_feature::reflector_init()
              ("codename", builtin_feature_codename));
 }
 
-digest_type builtin_protocol_feature::digest() const
-{
+digest_type builtin_protocol_feature::digest() const {
    digest_type::encoder enc;
    fc::raw::pack(enc, _type);
    fc::raw::pack(enc, description_digest);
@@ -369,8 +363,7 @@ digest_type builtin_protocol_feature::digest() const
 }
 
 fc::variant protocol_feature::to_variant(bool                        include_subjective_restrictions,
-                                         fc::mutable_variant_object* additional_fields) const
-{
+                                         fc::mutable_variant_object* additional_fields) const {
    EOS_ASSERT(builtin_feature, protocol_feature_exception, "not a builtin protocol feature");
 
    fc::mutable_variant_object mvo;
@@ -413,14 +406,12 @@ fc::variant protocol_feature::to_variant(bool                        include_sub
    return fc::variant(std::move(mvo));
 }
 
-protocol_feature_set::protocol_feature_set()
-{
+protocol_feature_set::protocol_feature_set() {
    _recognized_builtin_protocol_features.reserve(builtin_protocol_feature_codenames.size());
 }
 
 protocol_feature_set::recognized_t protocol_feature_set::is_recognized(const digest_type& feature_digest,
-                                                                       time_point         now) const
-{
+                                                                       time_point         now) const {
    auto itr = _recognized_protocol_features.find(feature_digest);
 
    if (itr == _recognized_protocol_features.end())
@@ -436,8 +427,7 @@ protocol_feature_set::recognized_t protocol_feature_set::is_recognized(const dig
 }
 
 std::optional<digest_type> protocol_feature_set::get_builtin_digest(
-   builtin_protocol_feature_t feature_codename) const
-{
+   builtin_protocol_feature_t feature_codename) const {
    uint32_t indx = static_cast<uint32_t>(feature_codename);
 
    if (indx >= _recognized_builtin_protocol_features.size())
@@ -449,8 +439,7 @@ std::optional<digest_type> protocol_feature_set::get_builtin_digest(
    return _recognized_builtin_protocol_features[indx]->feature_digest;
 }
 
-const protocol_feature& protocol_feature_set::get_protocol_feature(const digest_type& feature_digest) const
-{
+const protocol_feature& protocol_feature_set::get_protocol_feature(const digest_type& feature_digest) const {
    auto itr = _recognized_protocol_features.find(feature_digest);
 
    EOS_ASSERT(itr != _recognized_protocol_features.end(),
@@ -463,8 +452,7 @@ const protocol_feature& protocol_feature_set::get_protocol_feature(const digest_
 
 bool protocol_feature_set::validate_dependencies(
    const digest_type&                             feature_digest,
-   const std::function<bool(const digest_type&)>& validator) const
-{
+   const std::function<bool(const digest_type&)>& validator) const {
    auto itr = _recognized_protocol_features.find(feature_digest);
 
    if (itr == _recognized_protocol_features.end())
@@ -480,8 +468,7 @@ bool protocol_feature_set::validate_dependencies(
 
 builtin_protocol_feature protocol_feature_set::make_default_builtin_protocol_feature(
    builtin_protocol_feature_t                                               codename,
-   const std::function<digest_type(builtin_protocol_feature_t dependency)>& handle_dependency)
-{
+   const std::function<digest_type(builtin_protocol_feature_t dependency)>& handle_dependency) {
    auto itr = builtin_protocol_feature_codenames.find(codename);
 
    EOS_ASSERT(itr != builtin_protocol_feature_codenames.end(),
@@ -501,8 +488,7 @@ builtin_protocol_feature protocol_feature_set::make_default_builtin_protocol_fea
    };
 }
 
-const protocol_feature& protocol_feature_set::add_feature(const builtin_protocol_feature& f)
-{
+const protocol_feature& protocol_feature_set::add_feature(const builtin_protocol_feature& f) {
    auto builtin_itr = builtin_protocol_feature_codenames.find(f._codename);
    EOS_ASSERT(builtin_itr != builtin_protocol_feature_codenames.end(),
               protocol_feature_validation_exception,
@@ -590,13 +576,11 @@ const protocol_feature& protocol_feature_set::add_feature(const builtin_protocol
 protocol_feature_manager::protocol_feature_manager(protocol_feature_set&&              pfs,
                                                    std::function<deep_mind_handler*()> get_deep_mind_logger)
    : _protocol_feature_set(std::move(pfs))
-   , _get_deep_mind_logger(get_deep_mind_logger)
-{
+   , _get_deep_mind_logger(get_deep_mind_logger) {
    _builtin_protocol_features.resize(_protocol_feature_set._recognized_builtin_protocol_features.size());
 }
 
-void protocol_feature_manager::init(chainbase::database& db)
-{
+void protocol_feature_manager::init(chainbase::database& db) {
    EOS_ASSERT(
       !is_initialized(), protocol_feature_exception, "cannot initialize protocol_feature_manager twice");
 
@@ -610,16 +594,14 @@ void protocol_feature_manager::init(chainbase::database& db)
    reset_initialized.cancel();
 }
 
-const protocol_feature* protocol_feature_manager::const_iterator::get_pointer() const
-{
+const protocol_feature* protocol_feature_manager::const_iterator::get_pointer() const {
    // EOS_ASSERT( _pfm, protocol_feature_iterator_exception, "cannot dereference singular iterator" );
    // EOS_ASSERT( _index != end_index, protocol_feature_iterator_exception, "cannot dereference end iterator"
    // );
    return &*(_pfm->_activated_protocol_features[_index].iterator_to_protocol_feature);
 }
 
-uint32_t protocol_feature_manager::const_iterator::activation_ordinal() const
-{
+uint32_t protocol_feature_manager::const_iterator::activation_ordinal() const {
    EOS_ASSERT(_pfm, protocol_feature_iterator_exception, "called activation_ordinal() on singular iterator");
    EOS_ASSERT(_index != end_index,
               protocol_feature_iterator_exception,
@@ -628,8 +610,7 @@ uint32_t protocol_feature_manager::const_iterator::activation_ordinal() const
    return _index;
 }
 
-uint32_t protocol_feature_manager::const_iterator::activation_block_num() const
-{
+uint32_t protocol_feature_manager::const_iterator::activation_block_num() const {
    EOS_ASSERT(
       _pfm, protocol_feature_iterator_exception, "called activation_block_num() on singular iterator");
    EOS_ASSERT(_index != end_index,
@@ -639,8 +620,7 @@ uint32_t protocol_feature_manager::const_iterator::activation_block_num() const
    return _pfm->_activated_protocol_features[_index].activation_block_num;
 }
 
-protocol_feature_manager::const_iterator& protocol_feature_manager::const_iterator::operator++()
-{
+protocol_feature_manager::const_iterator& protocol_feature_manager::const_iterator::operator++() {
    EOS_ASSERT(_pfm, protocol_feature_iterator_exception, "cannot increment singular iterator");
    EOS_ASSERT(_index != end_index, protocol_feature_iterator_exception, "cannot increment end iterator");
 
@@ -652,8 +632,7 @@ protocol_feature_manager::const_iterator& protocol_feature_manager::const_iterat
    return *this;
 }
 
-protocol_feature_manager::const_iterator& protocol_feature_manager::const_iterator::operator--()
-{
+protocol_feature_manager::const_iterator& protocol_feature_manager::const_iterator::operator--() {
    EOS_ASSERT(_pfm, protocol_feature_iterator_exception, "cannot decrement singular iterator");
    if (_index == end_index) {
       EOS_ASSERT(_pfm->_activated_protocol_features.size() > 0,
@@ -669,8 +648,7 @@ protocol_feature_manager::const_iterator& protocol_feature_manager::const_iterat
    return *this;
 }
 
-protocol_feature_manager::const_iterator protocol_feature_manager::cbegin() const
-{
+protocol_feature_manager::const_iterator protocol_feature_manager::cbegin() const {
    if (_activated_protocol_features.size() == 0) {
       return cend();
    } else {
@@ -679,8 +657,7 @@ protocol_feature_manager::const_iterator protocol_feature_manager::cbegin() cons
 }
 
 protocol_feature_manager::const_iterator protocol_feature_manager::at_activation_ordinal(
-   uint32_t activation_ordinal) const
-{
+   uint32_t activation_ordinal) const {
    if (activation_ordinal >= _activated_protocol_features.size()) {
       return cend();
    }
@@ -688,8 +665,7 @@ protocol_feature_manager::const_iterator protocol_feature_manager::at_activation
    return const_iterator{ this, static_cast<std::size_t>(activation_ordinal) };
 }
 
-protocol_feature_manager::const_iterator protocol_feature_manager::lower_bound(uint32_t block_num) const
-{
+protocol_feature_manager::const_iterator protocol_feature_manager::lower_bound(uint32_t block_num) const {
    const auto begin = _activated_protocol_features.cbegin();
    const auto end   = _activated_protocol_features.cend();
    auto itr = std::lower_bound(begin, end, block_num, [](const protocol_feature_entry& lhs, uint32_t rhs) {
@@ -703,8 +679,7 @@ protocol_feature_manager::const_iterator protocol_feature_manager::lower_bound(u
    return const_iterator{ this, static_cast<std::size_t>(itr - begin) };
 }
 
-protocol_feature_manager::const_iterator protocol_feature_manager::upper_bound(uint32_t block_num) const
-{
+protocol_feature_manager::const_iterator protocol_feature_manager::upper_bound(uint32_t block_num) const {
    const auto begin = _activated_protocol_features.cbegin();
    const auto end   = _activated_protocol_features.cend();
    auto itr = std::upper_bound(begin, end, block_num, [](uint32_t lhs, const protocol_feature_entry& rhs) {
@@ -719,8 +694,7 @@ protocol_feature_manager::const_iterator protocol_feature_manager::upper_bound(u
 }
 
 bool protocol_feature_manager::is_builtin_activated(builtin_protocol_feature_t feature_codename,
-                                                    uint32_t                   current_block_num) const
-{
+                                                    uint32_t                   current_block_num) const {
    uint32_t indx = static_cast<uint32_t>(feature_codename);
 
    if (indx >= _builtin_protocol_features.size())
@@ -729,8 +703,8 @@ bool protocol_feature_manager::is_builtin_activated(builtin_protocol_feature_t f
    return (_builtin_protocol_features[indx].activation_block_num <= current_block_num);
 }
 
-void protocol_feature_manager::activate_feature(const digest_type& feature_digest, uint32_t current_block_num)
-{
+void protocol_feature_manager::activate_feature(const digest_type& feature_digest,
+                                                uint32_t           current_block_num) {
    EOS_ASSERT(
       is_initialized(), protocol_feature_exception, "protocol_feature_manager is not yet initialized");
 
@@ -780,8 +754,7 @@ void protocol_feature_manager::activate_feature(const digest_type& feature_diges
    _head_of_builtin_activation_list                      = indx;
 }
 
-void protocol_feature_manager::popped_blocks_to(uint32_t block_num)
-{
+void protocol_feature_manager::popped_blocks_to(uint32_t block_num) {
    EOS_ASSERT(
       is_initialized(), protocol_feature_exception, "protocol_feature_manager is not yet initialized");
 
@@ -801,8 +774,7 @@ void protocol_feature_manager::popped_blocks_to(uint32_t block_num)
    }
 }
 
-std::optional<builtin_protocol_feature> read_builtin_protocol_feature(const fc::path& p)
-{
+std::optional<builtin_protocol_feature> read_builtin_protocol_feature(const fc::path& p) {
    try {
       return fc::json::from_file<builtin_protocol_feature>(p);
    } catch (const fc::exception& e) {
@@ -814,8 +786,7 @@ std::optional<builtin_protocol_feature> read_builtin_protocol_feature(const fc::
    return {};
 }
 
-protocol_feature_set initialize_protocol_features(const fc::path& p, bool populate_missing_builtins)
-{
+protocol_feature_set initialize_protocol_features(const fc::path& p, bool populate_missing_builtins) {
    using boost::filesystem::directory_iterator;
 
    protocol_feature_set pfs;

@@ -9,8 +9,7 @@
 
 using namespace eosio;
 
-void test_action::read_action_normal()
-{
+void test_action::read_action_normal() {
 
    char     buffer[100];
    uint32_t total = 0;
@@ -36,8 +35,7 @@ void test_action::read_action_normal()
    eosio_assert(dummy13->c == DUMMY_ACTION_DEFAULT_C, "dummy13->c == DUMMY_ACTION_DEFAULT_C");
 }
 
-void test_action::test_dummy_action()
-{
+void test_action::test_dummy_action() {
    char buffer[100];
    int  total = 0;
 
@@ -65,18 +63,15 @@ void test_action::test_dummy_action()
    }
 }
 
-void test_action::read_action_to_0()
-{
+void test_action::read_action_to_0() {
    read_action_data((void*)0, action_data_size());
 }
 
-void test_action::read_action_to_64k()
-{
+void test_action::read_action_to_64k() {
    read_action_data((void*)((1 << 16) - 2), action_data_size());
 }
 
-void test_action::test_cf_action()
-{
+void test_action::test_cf_action() {
 
    eosio::action act = eosio::get_action(0, 0);
    cf_action     cfa = act.data_as<cf_action>();
@@ -157,8 +152,7 @@ void test_action::test_cf_action()
    }
 }
 
-void test_action::require_notice(uint64_t receiver, uint64_t code, uint64_t action)
-{
+void test_action::require_notice(uint64_t receiver, uint64_t code, uint64_t action) {
    (void)code;
    (void)action;
    if (receiver == "testapi"_n.value) {
@@ -172,8 +166,7 @@ void test_action::require_notice(uint64_t receiver, uint64_t code, uint64_t acti
    eosio_assert(false, "Should've failed");
 }
 
-void test_action::require_notice_tests(uint64_t receiver, uint64_t code, uint64_t action)
-{
+void test_action::require_notice_tests(uint64_t receiver, uint64_t code, uint64_t action) {
    eosio::print("require_notice_tests");
    if (receiver == "testapi"_n.value) {
       eosio::print("require_recipient( \"acc5\"_n )");
@@ -184,36 +177,30 @@ void test_action::require_notice_tests(uint64_t receiver, uint64_t code, uint64_
    }
 }
 
-void test_action::require_auth()
-{
+void test_action::require_auth() {
    print("require_auth");
    eosio::require_auth("acc3"_n);
    eosio::require_auth("acc4"_n);
 }
 
-void test_action::assert_false()
-{
+void test_action::assert_false() {
    eosio_assert(false, "test_action::assert_false");
 }
 
-void test_action::assert_true()
-{
+void test_action::assert_true() {
    eosio_assert(true, "test_action::assert_true");
 }
 
-void test_action::assert_true_cf()
-{
+void test_action::assert_true_cf() {
    eosio_assert(true, "test_action::assert_true");
 }
 
-void test_action::test_abort()
-{
+void test_action::test_abort() {
    abort();
    eosio_assert(false, "should've aborted");
 }
 
-void test_action::test_publication_time()
-{
+void test_action::test_publication_time() {
    uint64_t pub_time = 0;
    uint32_t total    = read_action_data(&pub_time, sizeof(uint64_t));
    eosio_assert(total == sizeof(uint64_t), "total == sizeof(uint64_t)");
@@ -221,8 +208,7 @@ void test_action::test_publication_time()
    eosio_assert(msec == publication_time(), "pub_time == publication_time()");
 }
 
-void test_action::test_current_receiver(uint64_t receiver, uint64_t code, uint64_t action)
-{
+void test_action::test_current_receiver(uint64_t receiver, uint64_t code, uint64_t action) {
    (void)code;
    (void)action;
    name cur_rec;
@@ -231,24 +217,21 @@ void test_action::test_current_receiver(uint64_t receiver, uint64_t code, uint64
    eosio_assert(receiver == cur_rec.value, "the current receiver does not match");
 }
 
-void test_action::test_current_time()
-{
+void test_action::test_current_time() {
    uint64_t tmp   = 0;
    uint32_t total = read_action_data(&tmp, sizeof(uint64_t));
    eosio_assert(total == sizeof(uint64_t), "total == sizeof(uint64_t)");
    eosio_assert(tmp == current_time(), "tmp == current_time()");
 }
 
-void test_action::test_assert_code()
-{
+void test_action::test_assert_code() {
    uint64_t code  = 0;
    uint32_t total = read_action_data(&code, sizeof(uint64_t));
    eosio_assert(total == sizeof(uint64_t), "total == sizeof(uint64_t)");
    eosio_assert_code(false, code);
 }
 
-void test_action::test_ram_billing_in_notify(uint64_t receiver, uint64_t code, uint64_t action)
-{
+void test_action::test_ram_billing_in_notify(uint64_t receiver, uint64_t code, uint64_t action) {
    uint128_t tmp   = 0;
    uint32_t  total = eosio::read_action_data(&tmp, sizeof(uint128_t));
    eosio_assert(total == sizeof(uint128_t), "total == sizeof(uint128_t)");
@@ -277,8 +260,7 @@ void test_action::test_ram_billing_in_notify(uint64_t receiver, uint64_t code, u
    }
 }
 
-void test_action::test_action_ordinal1(uint64_t receiver, uint64_t code, uint64_t action)
-{
+void test_action::test_action_ordinal1(uint64_t receiver, uint64_t code, uint64_t action) {
    uint64_t _self = receiver;
    if (receiver == "testapi"_n.value) {
       print("exec 1");
@@ -334,8 +316,7 @@ void test_action::test_action_ordinal1(uint64_t receiver, uint64_t code, uint64_
       eosio_assert(false, "assert failed at test_action::test_action_ordinal1");
    }
 }
-void test_action::test_action_ordinal2(uint64_t receiver, uint64_t code, uint64_t action)
-{
+void test_action::test_action_ordinal2(uint64_t receiver, uint64_t code, uint64_t action) {
    uint64_t _self = receiver;
    if (receiver == "testapi"_n.value) {
       print("exec 5");
@@ -358,13 +339,11 @@ void test_action::test_action_ordinal2(uint64_t receiver, uint64_t code, uint64_
       eosio_assert(false, "assert failed at test_action::test_action_ordinal2");
    }
 }
-void test_action::test_action_ordinal4(uint64_t receiver, uint64_t code, uint64_t action)
-{
+void test_action::test_action_ordinal4(uint64_t receiver, uint64_t code, uint64_t action) {
    print("exec 8");
    // no set_action_return_value
 }
-void test_action::test_action_ordinal3(uint64_t receiver, uint64_t code, uint64_t action)
-{
+void test_action::test_action_ordinal3(uint64_t receiver, uint64_t code, uint64_t action) {
    print("exec 9");
 
    if (is_account("failnine"_n)) {
@@ -372,13 +351,11 @@ void test_action::test_action_ordinal3(uint64_t receiver, uint64_t code, uint64_
    }
    set_action_return_value(&eosio::pack(unsigned_int(9))[0], eosio::pack_size(unsigned_int(9)));
 }
-void test_action::test_action_ordinal_foo(uint64_t receiver, uint64_t code, uint64_t action)
-{
+void test_action::test_action_ordinal_foo(uint64_t receiver, uint64_t code, uint64_t action) {
    print("exec 10");
    set_action_return_value(&eosio::pack(13.23)[0], eosio::pack_size(13.23));
 }
-void test_action::test_action_ordinal_bar(uint64_t receiver, uint64_t code, uint64_t action)
-{
+void test_action::test_action_ordinal_bar(uint64_t receiver, uint64_t code, uint64_t action) {
    print("exec 11");
    set_action_return_value(&eosio::pack(11.42f)[0], eosio::pack_size(11.42f));
 }

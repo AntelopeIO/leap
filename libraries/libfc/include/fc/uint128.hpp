@@ -17,53 +17,37 @@ class bigint;
  *  @brief an implementation of 128 bit unsigned integer
  *
  */
-class uint128
-{
+class uint128 {
 
 public:
    uint128()
       : hi(0)
-      , lo(0)
-   {
-   }
+      , lo(0) {}
    uint128(uint32_t l)
       : hi(0)
-      , lo(l)
-   {
-   }
+      , lo(l) {}
    uint128(int32_t l)
       : hi(-(l < 0))
-      , lo(l)
-   {
-   }
+      , lo(l) {}
    uint128(int64_t l)
       : hi(-(l < 0))
-      , lo(l)
-   {
-   }
+      , lo(l) {}
    uint128(uint64_t l)
       : hi(0)
-      , lo(l)
-   {
-   }
+      , lo(l) {}
    uint128(const std::string& s);
    uint128(uint64_t _h, uint64_t _l)
       : hi(_h)
-      , lo(_l)
-   {
-   }
+      , lo(_l) {}
    uint128(const fc::bigint& bi);
    explicit uint128(unsigned __int128 i)
       : hi(i >> 64)
-      , lo(i)
-   {
-   }
+      , lo(i) {}
 
    operator std::string() const;
    operator fc::bigint() const;
 
-   explicit operator unsigned __int128() const
-   {
+   explicit operator unsigned __int128() const {
       unsigned __int128 result(hi);
       result <<= 64;
       return result | lo;
@@ -77,43 +61,36 @@ public:
    uint128 operator-() const { return ++uint128(~hi, ~lo); }
    uint128 operator~() const { return uint128(~hi, ~lo); }
 
-   uint128& operator++()
-   {
+   uint128& operator++() {
       hi += (++lo == 0);
       return *this;
    }
-   uint128& operator--()
-   {
+   uint128& operator--() {
       hi -= (lo-- == 0);
       return *this;
    }
-   uint128 operator++(int)
-   {
+   uint128 operator++(int) {
       auto tmp = *this;
       ++(*this);
       return tmp;
    }
-   uint128 operator--(int)
-   {
+   uint128 operator--(int) {
       auto tmp = *this;
       --(*this);
       return tmp;
    }
 
-   uint128& operator|=(const uint128& u)
-   {
+   uint128& operator|=(const uint128& u) {
       hi |= u.hi;
       lo |= u.lo;
       return *this;
    }
-   uint128& operator&=(const uint128& u)
-   {
+   uint128& operator&=(const uint128& u) {
       hi &= u.hi;
       lo &= u.lo;
       return *this;
    }
-   uint128& operator^=(const uint128& u)
-   {
+   uint128& operator^=(const uint128& u) {
       hi ^= u.hi;
       lo ^= u.lo;
       return *this;
@@ -121,8 +98,7 @@ public:
    uint128& operator<<=(const uint128& u);
    uint128& operator>>=(const uint128& u);
 
-   uint128& operator+=(const uint128& u)
-   {
+   uint128& operator+=(const uint128& u) {
       const uint64_t old = lo;
       lo += u.lo;
       hi += u.hi + (lo < old);
@@ -156,15 +132,13 @@ public:
 
    friend std::size_t hash_value(const uint128& v) { return city_hash_size_t((const char*)&v, sizeof(v)); }
 
-   uint32_t to_integer() const
-   {
+   uint32_t to_integer() const {
       FC_ASSERT(hi == 0);
       uint32_t lo32 = (uint32_t)lo;
       FC_ASSERT(lo == lo32);
       return lo32;
    }
-   uint64_t to_uint64() const
-   {
+   uint64_t to_uint64() const {
       FC_ASSERT(hi == 0);
       return lo;
    }
@@ -172,8 +146,7 @@ public:
    uint64_t low_bits() const { return lo; }
    uint64_t high_bits() const { return hi; }
 
-   static uint128 max_value()
-   {
+   static uint128 max_value() {
       const uint64_t max64 = std::numeric_limits<uint64_t>::max();
       return uint128(max64, max64);
    }
@@ -197,13 +170,11 @@ void from_variant(const variant& var, uint128& vo);
 
 namespace raw {
 template<typename Stream>
-inline void pack(Stream& s, const uint128& u)
-{
+inline void pack(Stream& s, const uint128& u) {
    s.write((char*)&u, sizeof(u));
 }
 template<typename Stream>
-inline void unpack(Stream& s, uint128& u)
-{
+inline void unpack(Stream& s, uint128& u) {
    s.read((char*)&u, sizeof(u));
 }
 }
@@ -213,8 +184,7 @@ size_t city_hash_size_t(const char* buf, size_t len);
 
 namespace std {
 template<>
-struct hash<fc::uint128>
-{
+struct hash<fc::uint128> {
    size_t operator()(const fc::uint128& s) const { return fc::city_hash_size_t((char*)&s, sizeof(s)); }
 };
 }

@@ -9,8 +9,7 @@ namespace client {
 namespace http {
 using std::string;
 
-struct config_t
-{
+struct config_t {
    std::vector<std::string> headers;
    bool                     no_verify_cert = false;
    bool                     verbose        = false;

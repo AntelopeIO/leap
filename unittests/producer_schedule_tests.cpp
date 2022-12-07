@@ -18,16 +18,14 @@ using mvo = fc::mutable_variant_object;
 BOOST_AUTO_TEST_SUITE(producer_schedule_tests)
 
 // Calculate expected producer given the schedule and slot number
-account_name get_expected_producer(const vector<producer_authority>& schedule, const uint64_t slot)
-{
+account_name get_expected_producer(const vector<producer_authority>& schedule, const uint64_t slot) {
    const auto& index =
       (slot % (schedule.size() * config::producer_repetitions)) / config::producer_repetitions;
    return schedule.at(index).producer_name;
 };
 
 // Check if two schedule is equal
-bool is_schedule_equal(const vector<producer_authority>& first, const vector<producer_authority>& second)
-{
+bool is_schedule_equal(const vector<producer_authority>& first, const vector<producer_authority>& second) {
    bool is_equal = first.size() == second.size();
    for (uint32_t i = 0; i < first.size(); i++) {
       is_equal = is_equal && first.at(i) == second.at(i);
@@ -38,8 +36,7 @@ bool is_schedule_equal(const vector<producer_authority>& first, const vector<pro
 // Calculate the block num of the next round first block
 // The new producer schedule will become effective when it's in the block of the next round first block
 // However, it won't be applied until the effective block num is deemed irreversible
-uint64_t calc_block_num_of_next_round_first_block(const controller& control)
-{
+uint64_t calc_block_num_of_next_round_first_block(const controller& control) {
    auto       res = control.head_block_num() + 1;
    const auto blocks_per_round =
       control.head_block_state()->active_schedule.producers.size() * config::producer_repetitions;
@@ -203,8 +200,7 @@ uint64_t calc_block_num_of_next_round_first_block(const controller& control)
    } FC_LOG_AND_RETHROW()
 #endif
 
-BOOST_FIXTURE_TEST_CASE(producer_schedule_promotion_test, TESTER)
-try {
+BOOST_FIXTURE_TEST_CASE(producer_schedule_promotion_test, TESTER) try {
    create_accounts({ "alice"_n, "bob"_n, "carol"_n });
    while (control->head_block_num() < 3) {
       produce_block();
@@ -279,8 +275,7 @@ try {
 }
 FC_LOG_AND_RETHROW()
 
-BOOST_FIXTURE_TEST_CASE(producer_schedule_reduction, tester)
-try {
+BOOST_FIXTURE_TEST_CASE(producer_schedule_reduction, tester) try {
    create_accounts({ "alice"_n, "bob"_n, "carol"_n });
    while (control->head_block_num() < 3) {
       produce_block();
@@ -345,8 +340,7 @@ try {
 }
 FC_LOG_AND_RETHROW()
 
-BOOST_AUTO_TEST_CASE(empty_producer_schedule_has_no_effect)
-try {
+BOOST_AUTO_TEST_CASE(empty_producer_schedule_has_no_effect) try {
    fc::temp_directory tempdir;
    validating_tester  c(tempdir, true);
    c.execute_setup_policy(setup_policy::preactivate_feature_and_new_bios);
@@ -434,8 +428,7 @@ try {
 }
 FC_LOG_AND_RETHROW()
 
-BOOST_AUTO_TEST_CASE(producer_watermark_test)
-try {
+BOOST_AUTO_TEST_CASE(producer_watermark_test) try {
    tester c;
 
    c.create_accounts({ "alice"_n, "bob"_n, "carol"_n });
@@ -557,8 +550,7 @@ try {
 }
 FC_LOG_AND_RETHROW()
 
-BOOST_FIXTURE_TEST_CASE(producer_one_of_n_test, TESTER)
-try {
+BOOST_FIXTURE_TEST_CASE(producer_one_of_n_test, TESTER) try {
    create_accounts({ "alice"_n, "bob"_n });
    produce_block();
 
@@ -581,8 +573,7 @@ try {
 }
 FC_LOG_AND_RETHROW()
 
-BOOST_FIXTURE_TEST_CASE(producer_m_of_n_test, TESTER)
-try {
+BOOST_FIXTURE_TEST_CASE(producer_m_of_n_test, TESTER) try {
    create_accounts({ "alice"_n, "bob"_n });
    produce_block();
 
@@ -607,8 +598,7 @@ try {
 }
 FC_LOG_AND_RETHROW()
 
-BOOST_FIXTURE_TEST_CASE(satisfiable_msig_test, TESTER)
-try {
+BOOST_FIXTURE_TEST_CASE(satisfiable_msig_test, TESTER) try {
    create_accounts({ "alice"_n, "bob"_n });
    produce_block();
 
@@ -627,8 +617,7 @@ try {
 }
 FC_LOG_AND_RETHROW()
 
-BOOST_FIXTURE_TEST_CASE(duplicate_producers_test, TESTER)
-try {
+BOOST_FIXTURE_TEST_CASE(duplicate_producers_test, TESTER) try {
    create_accounts({ "alice"_n });
    produce_block();
 
@@ -648,8 +637,7 @@ try {
 }
 FC_LOG_AND_RETHROW()
 
-BOOST_FIXTURE_TEST_CASE(duplicate_keys_test, TESTER)
-try {
+BOOST_FIXTURE_TEST_CASE(duplicate_keys_test, TESTER) try {
    create_accounts({ "alice"_n, "bob"_n });
    produce_block();
 
@@ -679,8 +667,7 @@ try {
 }
 FC_LOG_AND_RETHROW()
 
-BOOST_AUTO_TEST_CASE(large_authority_overflow_test)
-try {
+BOOST_AUTO_TEST_CASE(large_authority_overflow_test) try {
 
    block_signing_authority_v0 auth;
    {                                              // create a large authority that should overflow
@@ -725,8 +712,7 @@ try {
 }
 FC_LOG_AND_RETHROW()
 
-BOOST_AUTO_TEST_CASE(extra_signatures_test)
-try {
+BOOST_AUTO_TEST_CASE(extra_signatures_test) try {
    tester main;
 
    main.create_accounts({ "alice"_n });

@@ -8,8 +8,7 @@ namespace fc {
 class sha512;
 class sha256;
 
-class ripemd160
-{
+class ripemd160 {
 public:
    ripemd160();
    explicit ripemd160(const string& hex_str);
@@ -26,15 +25,13 @@ public:
    static ripemd160 hash(const string&);
 
    template<typename T>
-   static ripemd160 hash(const T& t)
-   {
+   static ripemd160 hash(const T& t) {
       ripemd160::encoder e;
       fc::raw::pack(e, t);
       return e.result();
    }
 
-   class encoder
-   {
+   class encoder {
    public:
       encoder();
       ~encoder();
@@ -50,15 +47,13 @@ public:
    };
 
    template<typename T>
-   inline friend T& operator<<(T& ds, const ripemd160& ep)
-   {
+   inline friend T& operator<<(T& ds, const ripemd160& ep) {
       ds.write(ep.data(), sizeof(ep));
       return ds;
    }
 
    template<typename T>
-   inline friend T& operator>>(T& ds, ripemd160& ep)
-   {
+   inline friend T& operator>>(T& ds, ripemd160& ep) {
       ds.read(ep.data(), sizeof(ep));
       return ds;
    }
@@ -81,8 +76,7 @@ typedef ripemd160 uint160_t;
 typedef ripemd160 uint160;
 
 template<>
-struct get_typename<uint160_t>
-{
+struct get_typename<uint160_t> {
    static const char* name() { return "uint160_t"; }
 };
 
@@ -90,8 +84,7 @@ struct get_typename<uint160_t>
 
 namespace std {
 template<>
-struct hash<fc::ripemd160>
-{
+struct hash<fc::ripemd160> {
    size_t operator()(const fc::ripemd160& s) const { return *((size_t*)&s); }
 };
 }

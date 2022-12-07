@@ -11,8 +11,7 @@ namespace fc {
 namespace raw {
 
 template<typename Stream, typename T, typename A>
-void pack(Stream& s, const boost::container::vector<T, A>& value)
-{
+void pack(Stream& s, const boost::container::vector<T, A>& value) {
    FC_ASSERT(value.size() <= MAX_NUM_ARRAY_ELEMENTS);
    pack(s, unsigned_int((uint32_t)value.size()));
    if (!std::is_fundamental<T>::value) {
@@ -25,8 +24,7 @@ void pack(Stream& s, const boost::container::vector<T, A>& value)
 }
 
 template<typename Stream, typename T, typename A>
-void unpack(Stream& s, boost::container::vector<T, A>& value)
-{
+void unpack(Stream& s, boost::container::vector<T, A>& value) {
    unsigned_int size;
    unpack(s, size);
    FC_ASSERT(size.value <= MAX_NUM_ARRAY_ELEMENTS);
@@ -42,8 +40,7 @@ void unpack(Stream& s, boost::container::vector<T, A>& value)
 }
 
 template<typename Stream, typename A>
-void pack(Stream& s, const boost::container::vector<char, A>& value)
-{
+void pack(Stream& s, const boost::container::vector<char, A>& value) {
    FC_ASSERT(value.size() <= MAX_SIZE_OF_BYTE_ARRAYS);
    pack(s, unsigned_int((uint32_t)value.size()));
    if (value.size())
@@ -51,8 +48,7 @@ void pack(Stream& s, const boost::container::vector<char, A>& value)
 }
 
 template<typename Stream, typename A>
-void unpack(Stream& s, boost::container::vector<char, A>& value)
-{
+void unpack(Stream& s, boost::container::vector<char, A>& value) {
    unsigned_int size;
    unpack(s, size);
    FC_ASSERT(size.value <= MAX_SIZE_OF_BYTE_ARRAYS);
@@ -63,58 +59,49 @@ void unpack(Stream& s, boost::container::vector<char, A>& value)
 }
 
 template<typename Stream, typename T, typename... U>
-void pack(Stream& s, const flat_set<T, U...>& value)
-{
+void pack(Stream& s, const flat_set<T, U...>& value) {
    detail::pack_set(s, value);
 }
 
 template<typename Stream, typename T, typename... U>
-void unpack(Stream& s, flat_set<T, U...>& value)
-{
+void unpack(Stream& s, flat_set<T, U...>& value) {
    detail::unpack_flat_set(s, value);
 }
 
 template<typename Stream, typename T, typename... U>
-void pack(Stream& s, const flat_multiset<T, U...>& value)
-{
+void pack(Stream& s, const flat_multiset<T, U...>& value) {
    detail::pack_set(s, value);
 }
 
 template<typename Stream, typename T, typename... U>
-void unpack(Stream& s, flat_multiset<T, U...>& value)
-{
+void unpack(Stream& s, flat_multiset<T, U...>& value) {
    detail::unpack_flat_set(s, value);
 }
 
 template<typename Stream, typename K, typename V, typename... U>
-void pack(Stream& s, const flat_map<K, V, U...>& value)
-{
+void pack(Stream& s, const flat_map<K, V, U...>& value) {
    detail::pack_map(s, value);
 }
 
 template<typename Stream, typename K, typename V, typename... U>
-void unpack(Stream& s, flat_map<K, V, U...>& value)
-{
+void unpack(Stream& s, flat_map<K, V, U...>& value) {
    detail::unpack_flat_map(s, value);
 }
 
 template<typename Stream, typename K, typename V, typename... U>
-void pack(Stream& s, const flat_multimap<K, V, U...>& value)
-{
+void pack(Stream& s, const flat_multimap<K, V, U...>& value) {
    detail::pack_map(s, value);
 }
 
 template<typename Stream, typename K, typename V, typename... U>
-void unpack(Stream& s, flat_multimap<K, V, U...>& value)
-{
+void unpack(Stream& s, flat_multimap<K, V, U...>& value) {
    detail::unpack_flat_map(s, value);
 }
 
 } // namespace raw
 
 template<typename T, typename... U>
-void to_variant(const boost::container::vector<T, U...>& vec, fc::variant& vo)
-{
+void to_variant(const boost::container::vector<T, U...>& vec, fc::variant& vo) {
    FC_ASSERT(vec.size() <= MAX_NUM_ARRAY_ELEMENTS);
    variants vars;
    vars.reserve(vec.size());
@@ -125,8 +112,7 @@ void to_variant(const boost::container::vector<T, U...>& vec, fc::variant& vo)
 }
 
 template<typename T, typename... U>
-void from_variant(const fc::variant& v, boost::container::vector<T, U...>& vec)
-{
+void from_variant(const fc::variant& v, boost::container::vector<T, U...>& vec) {
    const variants& vars = v.get_array();
    FC_ASSERT(vars.size() <= MAX_NUM_ARRAY_ELEMENTS);
    vec.clear();
@@ -137,8 +123,7 @@ void from_variant(const fc::variant& v, boost::container::vector<T, U...>& vec)
 }
 
 template<typename... U>
-void to_variant(const boost::container::vector<char, U...>& vec, fc::variant& vo)
-{
+void to_variant(const boost::container::vector<char, U...>& vec, fc::variant& vo) {
    FC_ASSERT(vec.size() <= MAX_SIZE_OF_BYTE_ARRAYS);
    if (vec.size())
       vo = variant(fc::to_hex(vec.data(), vec.size()));
@@ -147,8 +132,7 @@ void to_variant(const boost::container::vector<char, U...>& vec, fc::variant& vo
 }
 
 template<typename... U>
-void from_variant(const fc::variant& v, boost::container::vector<char, U...>& vec)
-{
+void from_variant(const fc::variant& v, boost::container::vector<char, U...>& vec) {
    const auto& str = v.get_string();
    FC_ASSERT(str.size() <=
              2 * MAX_SIZE_OF_BYTE_ARRAYS); // Doubled because hex strings needs two characters per byte
@@ -160,50 +144,42 @@ void from_variant(const fc::variant& v, boost::container::vector<char, U...>& ve
 }
 
 template<typename T, typename... U>
-void to_variant(const flat_set<T, U...>& s, fc::variant& vo)
-{
+void to_variant(const flat_set<T, U...>& s, fc::variant& vo) {
    detail::to_variant_from_set(s, vo);
 }
 
 template<typename T, typename... U>
-void from_variant(const fc::variant& v, flat_set<T, U...>& s)
-{
+void from_variant(const fc::variant& v, flat_set<T, U...>& s) {
    detail::from_variant_to_flat_set(v, s);
 }
 
 template<typename T, typename... U>
-void to_variant(const flat_multiset<T, U...>& s, fc::variant& vo)
-{
+void to_variant(const flat_multiset<T, U...>& s, fc::variant& vo) {
    detail::to_variant_from_set(s, vo);
 }
 
 template<typename T, typename... U>
-void from_variant(const fc::variant& v, flat_multiset<T, U...>& s)
-{
+void from_variant(const fc::variant& v, flat_multiset<T, U...>& s) {
    detail::from_variant_to_flat_set(v, s);
 }
 
 template<typename K, typename V, typename... U>
-void to_variant(const flat_map<K, V, U...>& m, fc::variant& vo)
-{
+void to_variant(const flat_map<K, V, U...>& m, fc::variant& vo) {
    detail::to_variant_from_map(m, vo);
 }
 
 template<typename K, typename V, typename... U>
-void from_variant(const variant& v, flat_map<K, V, U...>& m)
-{
+void from_variant(const variant& v, flat_map<K, V, U...>& m) {
    detail::from_variant_to_flat_map(v, m);
 }
 
 template<typename K, typename V, typename... U>
-void to_variant(const flat_multimap<K, V, U...>& m, fc::variant& vo)
-{
+void to_variant(const flat_multimap<K, V, U...>& m, fc::variant& vo) {
    detail::to_variant_from_map(m, vo);
 }
 
 template<typename K, typename V, typename... U>
-void from_variant(const variant& v, flat_multimap<K, V, U...>& m)
-{
+void from_variant(const variant& v, flat_multimap<K, V, U...>& m) {
    detail::from_variant_to_flat_map(v, m);
 }
 

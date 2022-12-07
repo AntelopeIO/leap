@@ -8,12 +8,10 @@
 
 namespace Runtime {
 // Keep a global list of all objects.
-struct GCGlobals
-{
+struct GCGlobals {
    std::set<GCObject*> allObjects;
 
-   static GCGlobals& get()
-   {
+   static GCGlobals& get() {
       static GCGlobals globals;
       return globals;
    }
@@ -23,20 +21,17 @@ private:
 };
 
 GCObject::GCObject(ObjectKind inKind)
-   : ObjectInstance(inKind)
-{
+   : ObjectInstance(inKind) {
    // Add the object to the global array.
    GCGlobals::get().allObjects.insert(this);
 }
 
-GCObject::~GCObject()
-{
+GCObject::~GCObject() {
    // Remove the object from the global array.
    GCGlobals::get().allObjects.erase(this);
 }
 
-void freeUnreferencedObjects(std::vector<ObjectInstance*>&& rootObjectReferences)
-{
+void freeUnreferencedObjects(std::vector<ObjectInstance*>&& rootObjectReferences) {
    std::set<ObjectInstance*>    referencedObjects;
    std::vector<ObjectInstance*> pendingScanObjects;
 

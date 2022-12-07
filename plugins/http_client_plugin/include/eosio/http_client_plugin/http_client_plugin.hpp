@@ -6,8 +6,7 @@ namespace eosio {
 using namespace appbase;
 using fc::http_client;
 
-class http_client_plugin : public appbase::plugin<http_client_plugin>
-{
+class http_client_plugin : public appbase::plugin<http_client_plugin> {
 public:
    http_client_plugin();
    virtual ~http_client_plugin();

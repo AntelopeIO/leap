@@ -14,8 +14,7 @@ namespace wallet {
 
 typedef uint16_t transaction_handle_type;
 
-struct wallet_data
-{
+struct wallet_data {
    vector<char> cipher_keys; /** encrypted keys */
 };
 
@@ -27,8 +26,7 @@ class soft_wallet_impl;
  * This wallet assumes it is connected to the database server with a high-bandwidth, low-latency connection
  * and performs minimal caching.
  */
-class soft_wallet final : public wallet_api
-{
+class soft_wallet final : public wallet_api {
 public:
    soft_wallet(const wallet_data& initial_data);
 
@@ -187,8 +185,7 @@ public:
    void                                      encrypt_keys();
 };
 
-struct plain_keys
-{
+struct plain_keys {
    fc::sha512                             checksum;
    map<public_key_type, private_key_type> keys;
 };

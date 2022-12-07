@@ -8,8 +8,7 @@ namespace bpo = boost::program_options;
 using bpo::options_description;
 using bpo::variables_map;
 
-int main(int argc, char* argv[])
-{
+int main(int argc, char* argv[]) {
    uint32_t    num_runs = 1;
    std::string feature_name;
 

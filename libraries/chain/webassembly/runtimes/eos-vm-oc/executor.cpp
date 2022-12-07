@@ -35,8 +35,7 @@ namespace eosvmoc {
 static constexpr auto signal_sentinel = 0x4D56534F45534559ul;
 
 static void (*chained_handler)(int, siginfo_t*, void*);
-static void segv_handler(int sig, siginfo_t* info, void* ctx)
-{
+static void segv_handler(int sig, siginfo_t* info, void* ctx) {
    control_block* cb_in_main_segment;
 
    // a 0 GS value is an indicator an executor hasn't been active on this thread recently
@@ -84,8 +83,7 @@ static intrinsic grow_memory_intrinsic EOSVMOC_INTRINSIC_INIT_PRIORITY(
    std::integral_constant<std::size_t, find_intrinsic_index("eosvmoc_internal.grow_memory")>::value);
 
 // This is effectively overriding the eosio_exit intrinsic in wasm_interface
-static void eosio_exit(int32_t code)
-{
+static void eosio_exit(int32_t code) {
    siglongjmp(*eos_vm_oc_get_jmp_buf(), EOSVMOC_EXIT_CLEAN_EXIT);
    __builtin_unreachable();
 }
@@ -95,8 +93,7 @@ static intrinsic eosio_exit_intrinsic(
    (void*)&eosio_exit,
    std::integral_constant<std::size_t, find_intrinsic_index("env.eosio_exit")>::value);
 
-static void throw_internal_exception(const char* const s)
-{
+static void throw_internal_exception(const char* const s) {
    *reinterpret_cast<std::exception_ptr*>(eos_vm_oc_get_exception_ptr()) =
       std::make_exception_ptr(wasm_execution_error(FC_LOG_MESSAGE(error, s)));
    siglongjmp(*eos_vm_oc_get_jmp_buf(), EOSVMOC_EXIT_EXCEPTION);
@@ -112,35 +109,28 @@ static void throw_internal_exception(const char* const s)
       std::integral_constant<std::size_t, find_intrinsic_index(#module "." #name)>::value);                  \
    void name()
 
-DEFINE_EOSVMOC_TRAP_INTRINSIC(eosvmoc_internal, depth_assert)
-{
+DEFINE_EOSVMOC_TRAP_INTRINSIC(eosvmoc_internal, depth_assert) {
    throw_internal_exception("Exceeded call depth maximum");
 }
 
-DEFINE_EOSVMOC_TRAP_INTRINSIC(eosvmoc_internal, div0_or_overflow)
-{
+DEFINE_EOSVMOC_TRAP_INTRINSIC(eosvmoc_internal, div0_or_overflow) {
    throw_internal_exception("Division by 0 or integer overflow trapped");
 }
 
-DEFINE_EOSVMOC_TRAP_INTRINSIC(eosvmoc_internal, indirect_call_mismatch)
-{
+DEFINE_EOSVMOC_TRAP_INTRINSIC(eosvmoc_internal, indirect_call_mismatch) {
    throw_internal_exception("Indirect call function type mismatch");
 }
 
-DEFINE_EOSVMOC_TRAP_INTRINSIC(eosvmoc_internal, indirect_call_oob)
-{
+DEFINE_EOSVMOC_TRAP_INTRINSIC(eosvmoc_internal, indirect_call_oob) {
    throw_internal_exception("Indirect call index out of bounds");
 }
 
-DEFINE_EOSVMOC_TRAP_INTRINSIC(eosvmoc_internal, unreachable)
-{
+DEFINE_EOSVMOC_TRAP_INTRINSIC(eosvmoc_internal, unreachable) {
    throw_internal_exception("Unreachable reached");
 }
 
-struct executor_signal_init
-{
-   executor_signal_init()
-   {
+struct executor_signal_init {
+   executor_signal_init() {
       struct sigaction sig_action, old_sig_action;
       sig_action.sa_sigaction = segv_handler;
       sigemptyset(&sig_action.sa_mask);
@@ -153,8 +143,7 @@ struct executor_signal_init
    }
 };
 
-executor::executor(const code_cache_base& cc)
-{
+executor::executor(const code_cache_base& cc) {
    // if we're the first executor created, go setup the signal handling. For now we'll just leave this
    // attached forever
    static executor_signal_init the_executor_signal_init;
@@ -171,8 +160,7 @@ executor::executor(const code_cache_base& cc)
    mapping_is_executable = true;
 }
 
-void executor::execute(const code_descriptor& code, memory& mem, apply_context& context)
-{
+void executor::execute(const code_descriptor& code, memory& mem, apply_context& context) {
    if (mapping_is_executable == false) {
       mprotect(code_mapping, code_mapping_size, PROT_EXEC | PROT_READ);
       mapping_is_executable = true;
@@ -299,8 +287,7 @@ void executor::execute(const code_descriptor& code, memory& mem, apply_context& 
    }
 }
 
-executor::~executor()
-{
+executor::~executor() {
    arch_prctl(ARCH_SET_GS, nullptr);
 }
 

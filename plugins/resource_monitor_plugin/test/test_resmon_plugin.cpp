@@ -17,16 +17,13 @@ namespace bpo = boost::program_options;
 using bpo::options_description;
 using bpo::variables_map;
 
-struct resmon_fixture
-{
-   void set_program_options()
-   {
+struct resmon_fixture {
+   void set_program_options() {
       options_description dummy;
       _my.set_program_options(dummy, _cfg);
    }
 
-   void initialize(const std::vector<std::string>& args)
-   {
+   void initialize(const std::vector<std::string>& args) {
       // We only have at most 3 arguments. OK to hardcodied in test
       // programs.
       const char* argv[10];
@@ -47,14 +44,12 @@ struct resmon_fixture
       _my.plugin_initialize(options);
    }
 
-   void set_options(const std::vector<std::string>& arg)
-   {
+   void set_options(const std::vector<std::string>& arg) {
       set_program_options();
       initialize(arg);
    }
 
-   void plugin_startup(const std::vector<bfs::path>& dirs, int runTimeSecs = 3)
-   {
+   void plugin_startup(const std::vector<bfs::path>& dirs, int runTimeSecs = 3) {
       set_options({ "--resource-monitor-interval-seconds=1" });
 
       for (auto& dir : dirs) {
@@ -71,116 +66,95 @@ struct resmon_fixture
 };
 
 BOOST_AUTO_TEST_SUITE(resmon_plugin_tests)
-BOOST_FIXTURE_TEST_CASE(intervalTooBig, resmon_fixture)
-{
+BOOST_FIXTURE_TEST_CASE(intervalTooBig, resmon_fixture) {
    BOOST_REQUIRE_THROW(set_options({ "--resource-monitor-interval-seconds=301" }),
                        chain::plugin_config_exception);
 }
 
-BOOST_FIXTURE_TEST_CASE(intervalTooSmall, resmon_fixture)
-{
+BOOST_FIXTURE_TEST_CASE(intervalTooSmall, resmon_fixture) {
    BOOST_REQUIRE_THROW(set_options({ "--resource-monitor-interval-seconds=0" }),
                        chain::plugin_config_exception);
 }
 
-BOOST_FIXTURE_TEST_CASE(intervalLowBound, resmon_fixture)
-{
+BOOST_FIXTURE_TEST_CASE(intervalLowBound, resmon_fixture) {
    BOOST_REQUIRE_NO_THROW(set_options({ "--resource-monitor-interval-seconds=1" }));
 }
 
-BOOST_FIXTURE_TEST_CASE(intervalMiddle, resmon_fixture)
-{
+BOOST_FIXTURE_TEST_CASE(intervalMiddle, resmon_fixture) {
    BOOST_REQUIRE_NO_THROW(set_options({ "--resource-monitor-interval-seconds=150" }));
 }
 
-BOOST_FIXTURE_TEST_CASE(intervalHighBound, resmon_fixture)
-{
+BOOST_FIXTURE_TEST_CASE(intervalHighBound, resmon_fixture) {
    BOOST_REQUIRE_NO_THROW(set_options({ "--resource-monitor-interval-seconds=300" }));
 }
 
-BOOST_FIXTURE_TEST_CASE(thresholdTooBig, resmon_fixture)
-{
+BOOST_FIXTURE_TEST_CASE(thresholdTooBig, resmon_fixture) {
    BOOST_REQUIRE_THROW(set_options({ "--resource-monitor-space-threshold=100" }),
                        chain::plugin_config_exception);
 }
 
-BOOST_FIXTURE_TEST_CASE(thresholdTooSmall, resmon_fixture)
-{
+BOOST_FIXTURE_TEST_CASE(thresholdTooSmall, resmon_fixture) {
    BOOST_REQUIRE_THROW(set_options({ "--resource-monitor-space-threshold=5" }),
                        chain::plugin_config_exception);
 }
 
-BOOST_FIXTURE_TEST_CASE(thresholdLowBound, resmon_fixture)
-{
+BOOST_FIXTURE_TEST_CASE(thresholdLowBound, resmon_fixture) {
    BOOST_REQUIRE_NO_THROW(set_options({ "--resource-monitor-space-threshold=6" }));
 }
 
-BOOST_FIXTURE_TEST_CASE(thresholdMiddle, resmon_fixture)
-{
+BOOST_FIXTURE_TEST_CASE(thresholdMiddle, resmon_fixture) {
    BOOST_REQUIRE_NO_THROW(set_options({ "--resource-monitor-space-threshold=60" }));
 }
 
-BOOST_FIXTURE_TEST_CASE(thresholdHighBound, resmon_fixture)
-{
+BOOST_FIXTURE_TEST_CASE(thresholdHighBound, resmon_fixture) {
    BOOST_REQUIRE_NO_THROW(set_options({ "--resource-monitor-space-threshold=99" }));
 }
 
-BOOST_FIXTURE_TEST_CASE(noShutdown, resmon_fixture)
-{
+BOOST_FIXTURE_TEST_CASE(noShutdown, resmon_fixture) {
    BOOST_REQUIRE_NO_THROW(set_options({ "--resource-monitor-not-shutdown-on-threshold-exceeded" }));
 }
 
-BOOST_FIXTURE_TEST_CASE(startupNormal, resmon_fixture)
-{
+BOOST_FIXTURE_TEST_CASE(startupNormal, resmon_fixture) {
    BOOST_REQUIRE_NO_THROW(plugin_startup({ "/tmp" }));
 }
 
-BOOST_FIXTURE_TEST_CASE(startupDuplicateDirs, resmon_fixture)
-{
+BOOST_FIXTURE_TEST_CASE(startupDuplicateDirs, resmon_fixture) {
    BOOST_REQUIRE_NO_THROW(plugin_startup({ "/tmp", "/tmp" }));
 }
 
-BOOST_FIXTURE_TEST_CASE(startupMultDirs, resmon_fixture)
-{
+BOOST_FIXTURE_TEST_CASE(startupMultDirs, resmon_fixture) {
    // Under "/" are multiple file systems
    BOOST_REQUIRE_NO_THROW(plugin_startup({ "/", "/tmp" }));
 }
 
-BOOST_FIXTURE_TEST_CASE(startupNoExistingDirs, resmon_fixture)
-{
+BOOST_FIXTURE_TEST_CASE(startupNoExistingDirs, resmon_fixture) {
    // "hsdfgd983" a random file and not existing
    BOOST_REQUIRE_THROW(plugin_startup({ "/tmp", "hsdfgd983" }), chain::plugin_config_exception);
 }
 
-BOOST_FIXTURE_TEST_CASE(startupLongRun, resmon_fixture)
-{
+BOOST_FIXTURE_TEST_CASE(startupLongRun, resmon_fixture) {
    BOOST_REQUIRE_NO_THROW(plugin_startup({ "/tmp" }, 120));
 }
 
-BOOST_FIXTURE_TEST_CASE(warningIntervalTooBig, resmon_fixture)
-{
+BOOST_FIXTURE_TEST_CASE(warningIntervalTooBig, resmon_fixture) {
    BOOST_REQUIRE_THROW(set_options({ "--resource-monitor-warning-interval=451" }),
                        chain::plugin_config_exception);
 }
 
-BOOST_FIXTURE_TEST_CASE(warningIntervalTooSmall, resmon_fixture)
-{
+BOOST_FIXTURE_TEST_CASE(warningIntervalTooSmall, resmon_fixture) {
    BOOST_REQUIRE_THROW(set_options({ "--resource-monitor-warning-interval=0" }),
                        chain::plugin_config_exception);
 }
 
-BOOST_FIXTURE_TEST_CASE(warningIntervalLowBound, resmon_fixture)
-{
+BOOST_FIXTURE_TEST_CASE(warningIntervalLowBound, resmon_fixture) {
    BOOST_REQUIRE_NO_THROW(set_options({ "--resource-monitor-warning-interval=1" }));
 }
 
-BOOST_FIXTURE_TEST_CASE(warningIntervalMiddle, resmon_fixture)
-{
+BOOST_FIXTURE_TEST_CASE(warningIntervalMiddle, resmon_fixture) {
    BOOST_REQUIRE_NO_THROW(set_options({ "--resource-monitor-warning-interval=225" }));
 }
 
-BOOST_FIXTURE_TEST_CASE(warningIntervalHighBound, resmon_fixture)
-{
+BOOST_FIXTURE_TEST_CASE(warningIntervalHighBound, resmon_fixture) {
    BOOST_REQUIRE_NO_THROW(set_options({ "--resource-monitor-warning-interval=450" }));
 }
 

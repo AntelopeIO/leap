@@ -6,8 +6,7 @@ namespace eosio {
 
 using namespace appbase;
 
-class resource_monitor_plugin : public appbase::plugin<resource_monitor_plugin>
-{
+class resource_monitor_plugin : public appbase::plugin<resource_monitor_plugin> {
 public:
    resource_monitor_plugin();
    virtual ~resource_monitor_plugin();

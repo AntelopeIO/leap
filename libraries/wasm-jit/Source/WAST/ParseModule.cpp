@@ -9,8 +9,7 @@
 using namespace WAST;
 using namespace IR;
 
-static bool tryParseSizeConstraints(ParseState& state, U64 maxMax, SizeConstraints& outSizeConstraints)
-{
+static bool tryParseSizeConstraints(ParseState& state, U64 maxMax, SizeConstraints& outSizeConstraints) {
    outSizeConstraints.min = 0;
    outSizeConstraints.max = UINT64_MAX;
 
@@ -44,8 +43,7 @@ static bool tryParseSizeConstraints(ParseState& state, U64 maxMax, SizeConstrain
    }
 }
 
-static SizeConstraints parseSizeConstraints(ParseState& state, U64 maxMax)
-{
+static SizeConstraints parseSizeConstraints(ParseState& state, U64 maxMax) {
    SizeConstraints result;
    if (!tryParseSizeConstraints(state, maxMax, result)) {
       parseErrorf(state, state.nextToken, "expected size constraints");
@@ -53,8 +51,7 @@ static SizeConstraints parseSizeConstraints(ParseState& state, U64 maxMax)
    return result;
 }
 
-static GlobalType parseGlobalType(ParseState& state)
-{
+static GlobalType parseGlobalType(ParseState& state) {
    GlobalType result;
    result.isMutable =
       tryParseParenthesizedTagged(state, t_mut, [&] { result.valueType = parseValueType(state); });
@@ -64,8 +61,7 @@ static GlobalType parseGlobalType(ParseState& state)
    return result;
 }
 
-static InitializerExpression parseInitializerExpression(ModuleParseState& state)
-{
+static InitializerExpression parseInitializerExpression(ModuleParseState& state) {
    InitializerExpression result;
    parseParenthesized(state, [&] {
       switch (state.nextToken->type) {
@@ -106,8 +102,7 @@ static InitializerExpression parseInitializerExpression(ModuleParseState& state)
    return result;
 }
 
-static void errorIfFollowsDefinitions(ModuleParseState& state)
-{
+static void errorIfFollowsDefinitions(ModuleParseState& state) {
    if (state.module.functions.defs.size() || state.module.tables.defs.size() ||
        state.module.memories.defs.size() || state.module.globals.defs.size()) {
       parseErrorf(state, state.nextToken, "import declarations must precede all definitions");
@@ -122,8 +117,7 @@ static Uptr createImport(ParseState&                   state,
                          NameToIndexMap&               nameToIndexMap,
                          IndexSpace<Def, Type>&        indexSpace,
                          std::vector<DisassemblyName>& disassemblyNameArray,
-                         Type                          type)
-{
+                         Type                          type) {
    const Uptr importIndex = indexSpace.imports.size();
    bindName(state, nameToIndexMap, name, indexSpace.size());
    disassemblyNameArray.push_back({ name.getString() });
@@ -131,8 +125,7 @@ static Uptr createImport(ParseState&                   state,
    return importIndex;
 }
 
-static bool parseOptionalSharedDeclaration(ModuleParseState& state)
-{
+static bool parseOptionalSharedDeclaration(ModuleParseState& state) {
    if (ENABLE_THREADING_PROTOTYPE && state.nextToken->type == t_shared) {
       ++state.nextToken;
       return true;
@@ -141,8 +134,7 @@ static bool parseOptionalSharedDeclaration(ModuleParseState& state)
    }
 }
 
-static void parseImport(ModuleParseState& state)
-{
+static void parseImport(ModuleParseState& state) {
    errorIfFollowsDefinitions(state);
 
    require(state, t_import);
@@ -234,8 +226,7 @@ static void parseImport(ModuleParseState& state)
    });
 }
 
-static void parseExport(ModuleParseState& state)
-{
+static void parseExport(ModuleParseState& state) {
    require(state, t_export);
 
    const std::string exportName = parseUTF8String(state);
@@ -285,8 +276,7 @@ static void parseExport(ModuleParseState& state)
    });
 }
 
-static void parseType(ModuleParseState& state)
-{
+static void parseType(ModuleParseState& state) {
    require(state, t_type);
 
    Name name;
@@ -310,8 +300,7 @@ static void parseType(ModuleParseState& state)
    });
 }
 
-static void parseData(ModuleParseState& state)
-{
+static void parseData(ModuleParseState& state) {
    const Token* firstToken = state.nextToken;
    require(state, t_data);
 
@@ -349,8 +338,7 @@ static void parseData(ModuleParseState& state)
 static Uptr parseElemSegmentBody(ModuleParseState&     state,
                                  Reference             tableRef,
                                  InitializerExpression baseIndex,
-                                 const Token*          elemToken)
-{
+                                 const Token*          elemToken) {
    // Allocate the elementReferences array on the heap so it doesn't need to be copied for the
    // post-declaration callback.
    std::vector<Reference>* elementReferences = new std::vector<Reference>();
@@ -392,8 +380,7 @@ static Uptr parseElemSegmentBody(ModuleParseState&     state,
    return elementReferences->size();
 }
 
-static void parseElem(ModuleParseState& state)
-{
+static void parseElem(ModuleParseState& state) {
    const Token* elemToken = state.nextToken;
    require(state, t_elem);
 
@@ -415,8 +402,7 @@ static void parseObjectDefOrImport(ModuleParseState&             state,
                                    TokenType                     declarationTag,
                                    IR::ObjectKind                kind,
                                    ParseImport                   parseImportFunc,
-                                   ParseDef                      parseDefFunc)
-{
+                                   ParseDef                      parseDefFunc) {
    const Token* declarationTagToken = state.nextToken;
    require(state, declarationTag);
 
@@ -460,8 +446,7 @@ static void parseObjectDefOrImport(ModuleParseState&             state,
    }
 }
 
-static void parseFunc(ModuleParseState& state)
-{
+static void parseFunc(ModuleParseState& state) {
    parseObjectDefOrImport(
       state,
       state.functionNameToIndexMap,
@@ -487,8 +472,7 @@ static void parseFunc(ModuleParseState& state)
       parseFunctionDef);
 }
 
-static void parseTable(ModuleParseState& state)
-{
+static void parseTable(ModuleParseState& state) {
    parseObjectDefOrImport(
       state,
       state.tableNameToIndexMap,
@@ -532,8 +516,7 @@ static void parseTable(ModuleParseState& state)
       });
 }
 
-static void parseMemory(ModuleParseState& state)
-{
+static void parseMemory(ModuleParseState& state) {
    parseObjectDefOrImport(
       state,
       state.memoryNameToIndexMap,
@@ -572,8 +555,7 @@ static void parseMemory(ModuleParseState& state)
       });
 }
 
-static void parseGlobal(ModuleParseState& state)
-{
+static void parseGlobal(ModuleParseState& state) {
    parseObjectDefOrImport(state,
                           state.globalNameToIndexMap,
                           state.module.globals,
@@ -591,8 +573,7 @@ static void parseGlobal(ModuleParseState& state)
                           });
 }
 
-static void parseStart(ModuleParseState& state)
-{
+static void parseStart(ModuleParseState& state) {
    require(state, t_start);
 
    Reference functionRef;
@@ -606,8 +587,7 @@ static void parseStart(ModuleParseState& state)
    });
 }
 
-static void parseDeclaration(ModuleParseState& state)
-{
+static void parseDeclaration(ModuleParseState& state) {
    parseParenthesized(state, [&] {
       switch (state.nextToken->type) {
          case t_import: parseImport(state); return true;
@@ -628,8 +608,7 @@ static void parseDeclaration(ModuleParseState& state)
 }
 
 namespace WAST {
-void parseModuleBody(ModuleParseState& state)
-{
+void parseModuleBody(ModuleParseState& state) {
    const Token* firstToken = state.nextToken;
 
    // Parse the module's declarations.
@@ -668,8 +647,10 @@ void parseModuleBody(ModuleParseState& state)
    IR::setDisassemblyNames(state.module, state.disassemblyNames);
 }
 
-bool parseModule(const char* string, Uptr stringLength, IR::Module& outModule, std::vector<Error>& outErrors)
-{
+bool parseModule(const char*         string,
+                 Uptr                stringLength,
+                 IR::Module&         outModule,
+                 std::vector<Error>& outErrors) {
    Timing::Timer timer;
 
    // Lex the string.
@@ -686,8 +667,7 @@ bool parseModule(const char* string, Uptr stringLength, IR::Module& outModule, s
       });
       require(state, t_eof);
    } catch (RecoverParseException) {
-   } catch (FatalParseException) {
-   }
+   } catch (FatalParseException) {}
 
    // Resolve line information for any errors, and write them to outErrors.
    for (auto& unresolvedError : unresolvedErrors) {

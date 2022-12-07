@@ -10,8 +10,7 @@ namespace raw {
 namespace detail {
 
 template<template<typename...> class Set, typename Stream, typename T, typename... U>
-inline void pack_set(Stream& s, const Set<T, U...>& value)
-{
+inline void pack_set(Stream& s, const Set<T, U...>& value) {
    FC_ASSERT(value.size() <= MAX_NUM_ARRAY_ELEMENTS);
    pack(s, unsigned_int((uint32_t)value.size()));
    for (const auto& item : value) {
@@ -20,8 +19,7 @@ inline void pack_set(Stream& s, const Set<T, U...>& value)
 }
 
 template<template<typename...> class Set, typename Stream, typename T, typename... U>
-inline void unpack_set(Stream& s, Set<T, U...>& value)
-{
+inline void unpack_set(Stream& s, Set<T, U...>& value) {
    unsigned_int size;
    unpack(s, size);
    FC_ASSERT(size.value <= MAX_NUM_ARRAY_ELEMENTS);
@@ -34,8 +32,7 @@ inline void unpack_set(Stream& s, Set<T, U...>& value)
 }
 
 template<template<typename...> class Set, typename Stream, typename T, typename... U>
-inline void unpack_flat_set(Stream& s, Set<T, U...>& value)
-{
+inline void unpack_flat_set(Stream& s, Set<T, U...>& value) {
    unsigned_int size;
    unpack(s, size);
    FC_ASSERT(size.value <= MAX_NUM_ARRAY_ELEMENTS);
@@ -49,8 +46,7 @@ inline void unpack_flat_set(Stream& s, Set<T, U...>& value)
 }
 
 template<template<typename...> class Map, typename Stream, typename K, typename V, typename... U>
-inline void pack_map(Stream& s, const Map<K, V, U...>& value)
-{
+inline void pack_map(Stream& s, const Map<K, V, U...>& value) {
    FC_ASSERT(value.size() <= MAX_NUM_ARRAY_ELEMENTS);
    pack(s, unsigned_int((uint32_t)value.size()));
    for (const auto& item : value) {
@@ -59,8 +55,7 @@ inline void pack_map(Stream& s, const Map<K, V, U...>& value)
 }
 
 template<template<typename...> class Map, typename Stream, typename K, typename V, typename... U>
-inline void unpack_map(Stream& s, Map<K, V, U...>& value)
-{
+inline void unpack_map(Stream& s, Map<K, V, U...>& value) {
    unsigned_int size;
    unpack(s, size);
    FC_ASSERT(size.value <= MAX_NUM_ARRAY_ELEMENTS);
@@ -73,8 +68,7 @@ inline void unpack_map(Stream& s, Map<K, V, U...>& value)
 }
 
 template<template<typename...> class Map, typename Stream, typename K, typename V, typename... U>
-inline void unpack_flat_map(Stream& s, Map<K, V, U...>& value)
-{
+inline void unpack_flat_map(Stream& s, Map<K, V, U...>& value) {
    unsigned_int size;
    unpack(s, size);
    FC_ASSERT(size.value <= MAX_NUM_ARRAY_ELEMENTS);
@@ -94,8 +88,7 @@ inline void unpack_flat_map(Stream& s, Map<K, V, U...>& value)
 namespace detail {
 
 template<template<typename...> class Set, typename T, typename... U>
-void to_variant_from_set(const Set<T, U...>& s, fc::variant& vo)
-{
+void to_variant_from_set(const Set<T, U...>& s, fc::variant& vo) {
    FC_ASSERT(s.size() <= MAX_NUM_ARRAY_ELEMENTS);
    variants vars;
    vars.reserve(s.size());
@@ -106,8 +99,7 @@ void to_variant_from_set(const Set<T, U...>& s, fc::variant& vo)
 }
 
 template<template<typename...> class Set, typename T, typename... U>
-void from_variant_to_set(const fc::variant& v, Set<T, U...>& s)
-{
+void from_variant_to_set(const fc::variant& v, Set<T, U...>& s) {
    const variants& vars = v.get_array();
    FC_ASSERT(vars.size() <= MAX_NUM_ARRAY_ELEMENTS);
    s.clear();
@@ -119,8 +111,7 @@ void from_variant_to_set(const fc::variant& v, Set<T, U...>& s)
 }
 
 template<template<typename...> class Set, typename T, typename... U>
-void from_variant_to_flat_set(const fc::variant& v, Set<T, U...>& s)
-{
+void from_variant_to_flat_set(const fc::variant& v, Set<T, U...>& s) {
    const variants& vars = v.get_array();
    FC_ASSERT(vars.size() <= MAX_NUM_ARRAY_ELEMENTS);
    s.clear();
@@ -133,8 +124,7 @@ void from_variant_to_flat_set(const fc::variant& v, Set<T, U...>& s)
 }
 
 template<template<typename...> class Map, typename K, typename V, typename... U>
-void to_variant_from_map(const Map<K, V, U...>& m, fc::variant& vo)
-{
+void to_variant_from_map(const Map<K, V, U...>& m, fc::variant& vo) {
    FC_ASSERT(m.size() <= MAX_NUM_ARRAY_ELEMENTS);
    variants vars;
    vars.reserve(m.size());
@@ -145,8 +135,7 @@ void to_variant_from_map(const Map<K, V, U...>& m, fc::variant& vo)
 }
 
 template<template<typename...> class Map, typename K, typename V, typename... U>
-void from_variant_to_map(const variant& v, Map<K, V, U...>& m)
-{
+void from_variant_to_map(const variant& v, Map<K, V, U...>& m) {
    const variants& vars = v.get_array();
    FC_ASSERT(vars.size() <= MAX_NUM_ARRAY_ELEMENTS);
    m.clear();
@@ -158,8 +147,7 @@ void from_variant_to_map(const variant& v, Map<K, V, U...>& m)
 }
 
 template<template<typename...> class Map, typename K, typename V, typename... U>
-void from_variant_to_flat_map(const variant& v, Map<K, V, U...>& m)
-{
+void from_variant_to_flat_map(const variant& v, Map<K, V, U...>& m) {
    const variants& vars = v.get_array();
    FC_ASSERT(vars.size() <= MAX_NUM_ARRAY_ELEMENTS);
    m.clear();

@@ -18,34 +18,27 @@ namespace fc {
  *  https://www.securecoding.cert.org/confluence/display/c/INT32-C.+Ensure+that+operations+on+signed+integers+do+not+result+in+overflow
  */
 template<typename T>
-struct safe
-{
+struct safe {
    T value = 0;
 
    template<typename O>
    safe(O o)
-      : value(o)
-   {
-   }
+      : value(o) {}
    safe() {}
    safe(const safe& o)
-      : value(o.value)
-   {
-   }
+      : value(o.value) {}
 
    static safe min() { return std::numeric_limits<T>::min(); }
    static safe max() { return std::numeric_limits<T>::max(); }
 
-   friend safe operator+(const safe& a, const safe& b)
-   {
+   friend safe operator+(const safe& a, const safe& b) {
       if (b.value > 0 && a.value > (std::numeric_limits<T>::max() - b.value))
          FC_CAPTURE_AND_THROW(overflow_exception, (a)(b));
       if (b.value < 0 && a.value < (std::numeric_limits<T>::min() - b.value))
          FC_CAPTURE_AND_THROW(underflow_exception, (a)(b));
       return safe(a.value + b.value);
    }
-   friend safe operator-(const safe& a, const safe& b)
-   {
+   friend safe operator-(const safe& a, const safe& b) {
       if (b.value > 0 && a.value < (std::numeric_limits<T>::min() + b.value))
          FC_CAPTURE_AND_THROW(underflow_exception, (a)(b));
       if (b.value < 0 && a.value > (std::numeric_limits<T>::max() + b.value))
@@ -53,8 +46,7 @@ struct safe
       return safe(a.value - b.value);
    }
 
-   friend safe operator*(const safe& a, const safe& b)
-   {
+   friend safe operator*(const safe& a, const safe& b) {
       if (a.value > 0) {
          if (b.value > 0) {
             if (a.value > (std::numeric_limits<T>::max() / b.value))
@@ -76,16 +68,14 @@ struct safe
       return safe(a.value * b.value);
    }
 
-   friend safe operator/(const safe& a, const safe& b)
-   {
+   friend safe operator/(const safe& a, const safe& b) {
       if (b.value == 0)
          FC_CAPTURE_AND_THROW(divide_by_zero_exception, (a)(b));
       if (a.value == std::numeric_limits<T>::min() && b.value == -1)
          FC_CAPTURE_AND_THROW(overflow_exception, (a)(b));
       return safe(a.value / b.value);
    }
-   friend safe operator%(const safe& a, const safe& b)
-   {
+   friend safe operator%(const safe& a, const safe& b) {
       if (b.value == 0)
          FC_CAPTURE_AND_THROW(divide_by_zero_exception, (a)(b));
       if (a.value == std::numeric_limits<T>::min() && b.value == -1)
@@ -93,58 +83,48 @@ struct safe
       return safe(a.value % b.value);
    }
 
-   safe operator-() const
-   {
+   safe operator-() const {
       if (value == std::numeric_limits<T>::min())
          FC_CAPTURE_AND_THROW(overflow_exception, (*this));
       return safe(-value);
    }
 
-   safe& operator+=(const safe& b)
-   {
+   safe& operator+=(const safe& b) {
       value = (*this + b).value;
       return *this;
    }
-   safe& operator-=(const safe& b)
-   {
+   safe& operator-=(const safe& b) {
       value = (*this - b).value;
       return *this;
    }
-   safe& operator*=(const safe& b)
-   {
+   safe& operator*=(const safe& b) {
       value = (*this * b).value;
       return *this;
    }
-   safe& operator/=(const safe& b)
-   {
+   safe& operator/=(const safe& b) {
       value = (*this / b).value;
       return *this;
    }
-   safe& operator%=(const safe& b)
-   {
+   safe& operator%=(const safe& b) {
       value = (*this % b).value;
       return *this;
    }
 
-   safe& operator++()
-   {
+   safe& operator++() {
       *this += 1;
       return *this;
    }
-   safe operator++(int)
-   {
+   safe operator++(int) {
       safe bak = *this;
       *this += 1;
       return bak;
    }
 
-   safe& operator--()
-   {
+   safe& operator--() {
       *this -= 1;
       return *this;
    }
-   safe operator--(int)
-   {
+   safe operator--(int) {
       safe bak = *this;
       *this -= 1;
       return bak;

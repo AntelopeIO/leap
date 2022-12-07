@@ -171,14 +171,12 @@ constexpr uint64_t billable_size_v =
 }
 } // namespace eosio::chain::config
 
-constexpr uint64_t EOS_PERCENT(uint64_t value, uint32_t percentage)
-{
+constexpr uint64_t EOS_PERCENT(uint64_t value, uint32_t percentage) {
    return (value * percentage) / eosio::chain::config::percent_100;
 }
 
 template<typename Number>
-Number EOS_PERCENT_CEIL(Number value, uint32_t percentage)
-{
+Number EOS_PERCENT_CEIL(Number value, uint32_t percentage) {
    return ((value * percentage) + eosio::chain::config::percent_100 - eosio::chain::config::percent_1) /
           eosio::chain::config::percent_100;
 }

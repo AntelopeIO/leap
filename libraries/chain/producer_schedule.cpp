@@ -3,8 +3,7 @@
 namespace eosio {
 namespace chain {
 
-fc::variant producer_authority::get_abi_variant() const
-{
+fc::variant producer_authority::get_abi_variant() const {
    auto authority_variant = std::visit(
       [](const auto& a) {
          fc::variant value;

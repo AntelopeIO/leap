@@ -9,19 +9,14 @@ using namespace eosio;
 using namespace eosio::resource_monitor;
 using namespace boost::system;
 
-struct space_handler_fixture
-{
-   struct mock_space_provider
-   {
+struct space_handler_fixture {
+   struct mock_space_provider {
       mock_space_provider(space_handler_fixture& fixture)
-         : fixture(fixture)
-      {
-      }
+         : fixture(fixture) {}
 
       int get_stat(const char* path, struct stat* buf) const { return fixture.mock_get_stat(path, buf); }
 
-      bfs::space_info get_space(const bfs::path& p, boost::system::error_code& ec) const
-      {
+      bfs::space_info get_space(const bfs::path& p, boost::system::error_code& ec) const {
          return fixture.mock_get_space(p, ec);
       }
 
@@ -32,21 +27,17 @@ struct space_handler_fixture
 
    using file_space_handler_t = file_space_handler<mock_space_provider>;
    space_handler_fixture()
-      : space_handler(mock_space_provider(*this), ctx)
-   {
-   }
+      : space_handler(mock_space_provider(*this), ctx) {}
 
    void add_file_system(const bfs::path& path_name) { space_handler.add_file_system(path_name); }
 
-   void set_threshold(uint32_t threshold, uint32_t warning_threshold)
-   {
+   void set_threshold(uint32_t threshold, uint32_t warning_threshold) {
       space_handler.set_threshold(threshold, warning_threshold);
    }
 
    void set_sleep_time(uint32_t sleep_time) { space_handler.set_sleep_time(sleep_time); }
 
-   void set_shutdown_on_exceeded(bool shutdown_on_exceeded)
-   {
+   void set_shutdown_on_exceeded(bool shutdown_on_exceeded) {
       space_handler.set_shutdown_on_exceeded(shutdown_on_exceeded);
    }
 
@@ -54,8 +45,7 @@ struct space_handler_fixture
 
    void space_monitor_loop() { return space_handler.space_monitor_loop(); }
 
-   bool test_loop_common(int num_loops, int interval)
-   {
+   bool test_loop_common(int num_loops, int interval) {
       mock_get_space = [i = 0, num_loops](const bfs::path&           p,
                                           boost::system::error_code& ec) mutable -> bfs::space_info {
          ec = boost::system::errc::make_error_code(errc::success);
@@ -113,43 +103,35 @@ struct space_handler_fixture
 };
 
 BOOST_AUTO_TEST_SUITE(monitor_loop_tests)
-BOOST_FIXTURE_TEST_CASE(zero_loop, space_handler_fixture)
-{
+BOOST_FIXTURE_TEST_CASE(zero_loop, space_handler_fixture) {
    BOOST_TEST(test_loop_common(0, 1));
 }
 
-BOOST_FIXTURE_TEST_CASE(one_loop_1_secs_interval, space_handler_fixture)
-{
+BOOST_FIXTURE_TEST_CASE(one_loop_1_secs_interval, space_handler_fixture) {
    BOOST_TEST(test_loop_common(1, 1));
 }
 
-BOOST_FIXTURE_TEST_CASE(two_loops_1_sec_interval, space_handler_fixture)
-{
+BOOST_FIXTURE_TEST_CASE(two_loops_1_sec_interval, space_handler_fixture) {
    BOOST_TEST(test_loop_common(2, 1));
 }
 
-BOOST_FIXTURE_TEST_CASE(ten_loops_1_sec_interval, space_handler_fixture)
-{
+BOOST_FIXTURE_TEST_CASE(ten_loops_1_sec_interval, space_handler_fixture) {
    BOOST_TEST(test_loop_common(10, 1));
 }
 
-BOOST_FIXTURE_TEST_CASE(one_loop_5_secs_interval, space_handler_fixture)
-{
+BOOST_FIXTURE_TEST_CASE(one_loop_5_secs_interval, space_handler_fixture) {
    BOOST_TEST(test_loop_common(1, 5));
 }
 
-BOOST_FIXTURE_TEST_CASE(two_loops_5_sec_interval, space_handler_fixture)
-{
+BOOST_FIXTURE_TEST_CASE(two_loops_5_sec_interval, space_handler_fixture) {
    BOOST_TEST(test_loop_common(2, 5));
 }
 
-BOOST_FIXTURE_TEST_CASE(ten_loops_5_sec_interval, space_handler_fixture)
-{
+BOOST_FIXTURE_TEST_CASE(ten_loops_5_sec_interval, space_handler_fixture) {
    BOOST_TEST(test_loop_common(10, 5));
 }
 
-BOOST_FIXTURE_TEST_CASE(one_hundred_twenty_loops_1_sec_interval, space_handler_fixture)
-{
+BOOST_FIXTURE_TEST_CASE(one_hundred_twenty_loops_1_sec_interval, space_handler_fixture) {
    BOOST_TEST(test_loop_common(120, 1));
 }
 

@@ -3,8 +3,7 @@
 
 using namespace eosio::chain::literals;
 
-std::vector<eosio::chain::signed_block_ptr> deploy_test_api(eosio::testing::tester& chain)
-{
+std::vector<eosio::chain::signed_block_ptr> deploy_test_api(eosio::testing::tester& chain) {
    std::vector<eosio::chain::signed_block_ptr> result;
    chain.create_account("testapi"_n);
    chain.create_account("dummy"_n);
@@ -14,8 +13,7 @@ std::vector<eosio::chain::signed_block_ptr> deploy_test_api(eosio::testing::test
    return result;
 }
 
-eosio::chain::transaction_trace_ptr push_test_cfd_transaction(eosio::testing::tester& chain)
-{
+eosio::chain::transaction_trace_ptr push_test_cfd_transaction(eosio::testing::tester& chain) {
    cf_action                        cfa;
    eosio::chain::signed_transaction trx;
    eosio::chain::action             act({}, cfa);

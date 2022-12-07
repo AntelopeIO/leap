@@ -12,8 +12,7 @@
 
 namespace fc {
 
-class http_client
-{
+class http_client {
 public:
    http_client();
    ~http_client();
@@ -23,8 +22,7 @@ public:
                      const time_point& deadline = time_point::maximum());
 
    template<typename T>
-   variant post_sync(const url& dest, const T& payload, const time_point& deadline = time_point::maximum())
-   {
+   variant post_sync(const url& dest, const T& payload, const time_point& deadline = time_point::maximum()) {
       variant payload_v;
       to_variant(payload, payload_v);
       return post_sync(dest, payload_v, deadline);

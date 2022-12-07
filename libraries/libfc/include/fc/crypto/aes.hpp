@@ -8,8 +8,7 @@
 namespace fc {
 class path;
 
-class aes_encoder
-{
+class aes_encoder {
 public:
    void     init(const fc::sha256& key, const fc::uint128& init_value);
    uint32_t encode(const char* plaintxt, uint32_t len, char* ciphertxt);
@@ -19,8 +18,7 @@ private:
    struct impl;
    fc::fwd<impl, 96> my;
 };
-class aes_decoder
-{
+class aes_decoder {
 public:
    void     init(const fc::sha256& key, const fc::uint128& init_value);
    uint32_t decode(const char* ciphertxt, uint32_t len, char* plaintext);

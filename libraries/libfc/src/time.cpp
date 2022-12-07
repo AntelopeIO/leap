@@ -11,8 +11,7 @@ namespace fc {
 
 namespace bch = boost::chrono;
 
-time_point time_point::now()
-{
+time_point time_point::now() {
    if (UNLIKELY(mock_time_traits::is_set())) {
       return mock_time_traits::fc_now();
    }
@@ -20,25 +19,21 @@ time_point time_point::now()
       bch::duration_cast<bch::microseconds>(bch::system_clock::now().time_since_epoch()).count()));
 }
 
-fc::string time_point_sec::to_non_delimited_iso_string() const
-{
+fc::string time_point_sec::to_non_delimited_iso_string() const {
    const auto ptime = boost::posix_time::from_time_t(time_t(sec_since_epoch()));
    return boost::posix_time::to_iso_string(ptime);
 }
 
-fc::string time_point_sec::to_iso_string() const
-{
+fc::string time_point_sec::to_iso_string() const {
    const auto ptime = boost::posix_time::from_time_t(time_t(sec_since_epoch()));
    return boost::posix_time::to_iso_extended_string(ptime);
 }
 
-time_point_sec::operator fc::string() const
-{
+time_point_sec::operator fc::string() const {
    return this->to_iso_string();
 }
 
-time_point_sec time_point_sec::from_iso_string(const fc::string& s)
-{
+time_point_sec time_point_sec::from_iso_string(const fc::string& s) {
    try {
       static boost::posix_time::ptime epoch = boost::posix_time::from_time_t(0);
       boost::posix_time::ptime        pt;
@@ -51,8 +46,7 @@ time_point_sec time_point_sec::from_iso_string(const fc::string& s)
    FC_RETHROW_EXCEPTIONS(warn, "unable to convert ISO-formatted string to fc::time_point_sec")
 }
 
-time_point::operator fc::string() const
-{
+time_point::operator fc::string() const {
    auto count = elapsed.count();
    if (count >= 0) {
       uint64_t   secs      = (uint64_t)count / 1000000ULL;
@@ -68,8 +62,7 @@ time_point::operator fc::string() const
    }
 }
 
-time_point time_point::from_iso_string(const fc::string& s)
-{
+time_point time_point::from_iso_string(const fc::string& s) {
    try {
       auto dot = s.find('.');
       if (dot == std::string::npos)
@@ -85,20 +78,16 @@ time_point time_point::from_iso_string(const fc::string& s)
    FC_RETHROW_EXCEPTIONS(warn, "unable to convert ISO-formatted string to fc::time_point")
 }
 
-void to_variant(const fc::time_point& t, variant& v)
-{
+void to_variant(const fc::time_point& t, variant& v) {
    v = fc::string(t);
 }
-void from_variant(const fc::variant& v, fc::time_point& t)
-{
+void from_variant(const fc::variant& v, fc::time_point& t) {
    t = fc::time_point::from_iso_string(v.as_string());
 }
-void to_variant(const fc::time_point_sec& t, variant& v)
-{
+void to_variant(const fc::time_point_sec& t, variant& v) {
    v = fc::string(t);
 }
-void from_variant(const fc::variant& v, fc::time_point_sec& t)
-{
+void from_variant(const fc::variant& v, fc::time_point_sec& t) {
    t = fc::time_point_sec::from_iso_string(v.as_string());
 }
 
@@ -106,8 +95,7 @@ void from_variant(const fc::variant& v, fc::time_point_sec& t)
 string get_approximate_relative_time_string(
    const time_point_sec& event_time,
    const time_point_sec& relative_to_time /* = fc::time_point::now() */,
-   const std::string&    default_ago /* = " ago" */)
-{
+   const std::string&    default_ago /* = " ago" */) {
 
    string  ago         = default_ago;
    int32_t seconds_ago = relative_to_time.sec_since_epoch() - event_time.sec_since_epoch();
@@ -158,18 +146,15 @@ string get_approximate_relative_time_string(
 }
 string get_approximate_relative_time_string(const time_point&  event_time,
                                             const time_point&  relative_to_time /* = fc::time_point::now() */,
-                                            const std::string& ago /* = " ago" */)
-{
+                                            const std::string& ago /* = " ago" */) {
    return get_approximate_relative_time_string(
       time_point_sec(event_time), time_point_sec(relative_to_time), ago);
 }
 
-void to_variant(const microseconds& input_microseconds, variant& output_variant)
-{
+void to_variant(const microseconds& input_microseconds, variant& output_variant) {
    output_variant = input_microseconds.count();
 }
-void from_variant(const variant& input_variant, microseconds& output_microseconds)
-{
+void from_variant(const variant& input_variant, microseconds& output_microseconds) {
    output_microseconds = microseconds(input_variant.as_int64());
 }
 

@@ -15,8 +15,7 @@ namespace detail {
 class exception_impl;
 }
 
-enum exception_code
-{
+enum exception_code {
    /** for exceptions we threw that don't have an assigned code */
    unspecified_exception_code       = 0,
    unhandled_exception_code         = 1, ///< for unhandled 3rd party exceptions
@@ -55,16 +54,12 @@ enum exception_code
  *  @see FC_RETHROW_EXCEPTION
  *  @see FC_RETHROW_EXCEPTIONS
  */
-class exception : public std::exception
-{
+class exception : public std::exception {
 public:
    static constexpr fc::microseconds format_time_limit =
       fc::milliseconds(10); // limit time spent formatting exceptions
 
-   enum code_enum
-   {
-      code_value = unspecified_exception_code
-   };
+   enum code_enum { code_value = unspecified_exception_code };
 
    exception(int64_t            code       = unspecified_exception_code,
              const std::string& name_value = "exception",
@@ -155,11 +150,9 @@ typedef std::optional<exception> oexception;
  *  which may be rethrown.  The std::exception_ptr does not
  *  propgate across process boundaries.
  */
-class unhandled_exception : public exception
-{
+class unhandled_exception : public exception {
 public:
-   enum code_enum
-   {
+   enum code_enum {
       code_value = unhandled_exception_code,
    };
    unhandled_exception(log_message&& m, std::exception_ptr e = std::current_exception());
@@ -182,8 +175,7 @@ private:
  *  which may be rethrown.  The std::exception_ptr does not
  *  propgate across process boundaries.
  */
-class std_exception_wrapper : public exception
-{
+class std_exception_wrapper : public exception {
 public:
    explicit std_exception_wrapper(log_message&&      m,
                                   std::exception_ptr e          = std::current_exception(),
@@ -202,8 +194,7 @@ private:
 };
 
 template<typename T>
-fc::exception_ptr copy_exception(T&& e)
-{
+fc::exception_ptr copy_exception(T&& e) {
 #if defined(_MSC_VER) && (_MSC_VER < 1700)
    return std::make_shared<unhandled_exception>(log_message(), std::copy_exception(fc::forward<T>(e)));
 #else
@@ -211,23 +202,19 @@ fc::exception_ptr copy_exception(T&& e)
 #endif
 }
 
-class exception_factory
-{
+class exception_factory {
 public:
-   struct base_exception_builder
-   {
+   struct base_exception_builder {
       virtual NO_RETURN void rethrow(const exception& e) const = 0;
    };
 
    template<typename T>
-   struct exception_builder : public base_exception_builder
-   {
+   struct exception_builder : public base_exception_builder {
       virtual NO_RETURN void rethrow(const exception& e) const override { throw T(e); }
    };
 
    template<typename T>
-   void register_exception()
-   {
+   void register_exception() {
       static exception_builder<T> builder;
       auto                        itr = _registered_exceptions.find(T::code_value);
       assert(itr == _registered_exceptions.end());
@@ -237,8 +224,7 @@ public:
 
    void NO_RETURN rethrow(const exception& e) const;
 
-   static exception_factory& instance()
-   {
+   static exception_factory& instance() {
       static exception_factory once;
       return once;
    }
@@ -256,69 +242,45 @@ private:
    }();
 
 #define FC_DECLARE_DERIVED_EXCEPTION(TYPE, BASE, CODE, WHAT)                                                 \
-   class TYPE : public BASE                                                                                  \
-   {                                                                                                         \
+   class TYPE : public BASE {                                                                                \
    public:                                                                                                   \
-      enum code_enum                                                                                         \
-      {                                                                                                      \
+      enum code_enum {                                                                                       \
          code_value = CODE,                                                                                  \
       };                                                                                                     \
       explicit TYPE(int64_t code, const std::string& name_value, const std::string& what_value)              \
-         : BASE(code, name_value, what_value)                                                                \
-      {                                                                                                      \
-      }                                                                                                      \
+         : BASE(code, name_value, what_value) {}                                                             \
       explicit TYPE(fc::log_message&&  m,                                                                    \
                     int64_t            code,                                                                 \
                     const std::string& name_value,                                                           \
                     const std::string& what_value)                                                           \
-         : BASE(std::move(m), code, name_value, what_value)                                                  \
-      {                                                                                                      \
-      }                                                                                                      \
+         : BASE(std::move(m), code, name_value, what_value) {}                                               \
       explicit TYPE(fc::log_messages&& m,                                                                    \
                     int64_t            code,                                                                 \
                     const std::string& name_value,                                                           \
                     const std::string& what_value)                                                           \
-         : BASE(std::move(m), code, name_value, what_value)                                                  \
-      {                                                                                                      \
-      }                                                                                                      \
+         : BASE(std::move(m), code, name_value, what_value) {}                                               \
       explicit TYPE(const fc::log_messages& m,                                                               \
                     int64_t                 code,                                                            \
                     const std::string&      name_value,                                                      \
                     const std::string&      what_value)                                                      \
-         : BASE(m, code, name_value, what_value)                                                             \
-      {                                                                                                      \
-      }                                                                                                      \
+         : BASE(m, code, name_value, what_value) {}                                                          \
       TYPE(const std::string& what_value, const fc::log_messages& m)                                         \
-         : BASE(m, CODE, BOOST_PP_STRINGIZE(TYPE), what_value)                                               \
-      {                                                                                                      \
-      }                                                                                                      \
+         : BASE(m, CODE, BOOST_PP_STRINGIZE(TYPE), what_value) {}                                            \
       TYPE(fc::log_message&& m)                                                                              \
-         : BASE(fc::move(m), CODE, BOOST_PP_STRINGIZE(TYPE), WHAT)                                           \
-      {                                                                                                      \
-      }                                                                                                      \
+         : BASE(fc::move(m), CODE, BOOST_PP_STRINGIZE(TYPE), WHAT) {}                                        \
       TYPE(fc::log_messages msgs)                                                                            \
-         : BASE(fc::move(msgs), CODE, BOOST_PP_STRINGIZE(TYPE), WHAT)                                        \
-      {                                                                                                      \
-      }                                                                                                      \
+         : BASE(fc::move(msgs), CODE, BOOST_PP_STRINGIZE(TYPE), WHAT) {}                                     \
       TYPE(const TYPE& c)                                                                                    \
-         : BASE(c)                                                                                           \
-      {                                                                                                      \
-      }                                                                                                      \
+         : BASE(c) {}                                                                                        \
       TYPE(const BASE& c)                                                                                    \
-         : BASE(c)                                                                                           \
-      {                                                                                                      \
-      }                                                                                                      \
+         : BASE(c) {}                                                                                        \
       TYPE()                                                                                                 \
-         : BASE(CODE, BOOST_PP_STRINGIZE(TYPE), WHAT)                                                        \
-      {                                                                                                      \
-      }                                                                                                      \
+         : BASE(CODE, BOOST_PP_STRINGIZE(TYPE), WHAT) {}                                                     \
                                                                                                              \
-      virtual std::shared_ptr<fc::exception> dynamic_copy_exception() const                                  \
-      {                                                                                                      \
+      virtual std::shared_ptr<fc::exception> dynamic_copy_exception() const {                                \
          return std::make_shared<TYPE>(*this);                                                               \
       }                                                                                                      \
-      virtual NO_RETURN void dynamic_rethrow_exception() const                                               \
-      {                                                                                                      \
+      virtual NO_RETURN void dynamic_rethrow_exception() const {                                             \
          if (code() == CODE)                                                                                 \
             throw *this;                                                                                     \
          else                                                                                                \
@@ -428,17 +390,14 @@ extern bool enable_record_assert_trip;
    FC_MULTILINE_MACRO_END
 
 #define FC_LOG_AND_RETHROW()                                                                                 \
-   catch (const boost::interprocess::bad_alloc&)                                                             \
-   {                                                                                                         \
+   catch (const boost::interprocess::bad_alloc&) {                                                           \
       throw;                                                                                                 \
    }                                                                                                         \
-   catch (fc::exception & er)                                                                                \
-   {                                                                                                         \
+   catch (fc::exception & er) {                                                                              \
       wlog("${details}", ("details", er.to_detail_string()));                                                \
       FC_RETHROW_EXCEPTION(er, warn, "rethrow");                                                             \
    }                                                                                                         \
-   catch (const std::exception& e)                                                                           \
-   {                                                                                                         \
+   catch (const std::exception& e) {                                                                         \
       fc::std_exception_wrapper sew(FC_LOG_MESSAGE(warn, "rethrow ${what}: ", ("what", e.what())),           \
                                     std::current_exception(),                                                \
                                     BOOST_CORE_TYPEID(e).name(),                                             \
@@ -446,26 +405,22 @@ extern bool enable_record_assert_trip;
       wlog("${details}", ("details", sew.to_detail_string()));                                               \
       throw sew;                                                                                             \
    }                                                                                                         \
-   catch (...)                                                                                               \
-   {                                                                                                         \
+   catch (...) {                                                                                             \
       fc::unhandled_exception e(FC_LOG_MESSAGE(warn, "rethrow"), std::current_exception());                  \
       wlog("${details}", ("details", e.to_detail_string()));                                                 \
       throw e;                                                                                               \
    }
 
 #define FC_CAPTURE_LOG_AND_RETHROW(...)                                                                      \
-   catch (const boost::interprocess::bad_alloc&)                                                             \
-   {                                                                                                         \
+   catch (const boost::interprocess::bad_alloc&) {                                                           \
       throw;                                                                                                 \
    }                                                                                                         \
-   catch (fc::exception & er)                                                                                \
-   {                                                                                                         \
+   catch (fc::exception & er) {                                                                              \
       wlog("${details}", ("details", er.to_detail_string()));                                                \
       wdump(__VA_ARGS__);                                                                                    \
       FC_RETHROW_EXCEPTION(er, warn, "rethrow", FC_FORMAT_ARG_PARAMS(__VA_ARGS__));                          \
    }                                                                                                         \
-   catch (const std::exception& e)                                                                           \
-   {                                                                                                         \
+   catch (const std::exception& e) {                                                                         \
       fc::std_exception_wrapper sew(                                                                         \
          FC_LOG_MESSAGE(warn, "rethrow ${what}: ", FC_FORMAT_ARG_PARAMS(__VA_ARGS__)("what", e.what())),     \
          std::current_exception(),                                                                           \
@@ -475,8 +430,7 @@ extern bool enable_record_assert_trip;
       wdump(__VA_ARGS__);                                                                                    \
       throw sew;                                                                                             \
    }                                                                                                         \
-   catch (...)                                                                                               \
-   {                                                                                                         \
+   catch (...) {                                                                                             \
       fc::unhandled_exception e(FC_LOG_MESSAGE(warn, "rethrow", FC_FORMAT_ARG_PARAMS(__VA_ARGS__)),          \
                                 std::current_exception());                                                   \
       wlog("${details}", ("details", e.to_detail_string()));                                                 \
@@ -485,17 +439,14 @@ extern bool enable_record_assert_trip;
    }
 
 #define FC_CAPTURE_AND_LOG(...)                                                                              \
-   catch (const boost::interprocess::bad_alloc&)                                                             \
-   {                                                                                                         \
+   catch (const boost::interprocess::bad_alloc&) {                                                           \
       throw;                                                                                                 \
    }                                                                                                         \
-   catch (fc::exception & er)                                                                                \
-   {                                                                                                         \
+   catch (fc::exception & er) {                                                                              \
       wlog("${details}", ("details", er.to_detail_string()));                                                \
       wdump(__VA_ARGS__);                                                                                    \
    }                                                                                                         \
-   catch (const std::exception& e)                                                                           \
-   {                                                                                                         \
+   catch (const std::exception& e) {                                                                         \
       fc::std_exception_wrapper sew(                                                                         \
          FC_LOG_MESSAGE(warn, "rethrow ${what}: ", FC_FORMAT_ARG_PARAMS(__VA_ARGS__)("what", e.what())),     \
          std::current_exception(),                                                                           \
@@ -504,8 +455,7 @@ extern bool enable_record_assert_trip;
       wlog("${details}", ("details", sew.to_detail_string()));                                               \
       wdump(__VA_ARGS__);                                                                                    \
    }                                                                                                         \
-   catch (...)                                                                                               \
-   {                                                                                                         \
+   catch (...) {                                                                                             \
       fc::unhandled_exception e(FC_LOG_MESSAGE(warn, "rethrow", FC_FORMAT_ARG_PARAMS(__VA_ARGS__)),          \
                                 std::current_exception());                                                   \
       wlog("${details}", ("details", e.to_detail_string()));                                                 \
@@ -513,12 +463,10 @@ extern bool enable_record_assert_trip;
    }
 
 #define FC_LOG_AND_DROP(...)                                                                                 \
-   catch (fc::exception & er)                                                                                \
-   {                                                                                                         \
+   catch (fc::exception & er) {                                                                              \
       wlog("${details}", ("details", er.to_detail_string()));                                                \
    }                                                                                                         \
-   catch (const std::exception& e)                                                                           \
-   {                                                                                                         \
+   catch (const std::exception& e) {                                                                         \
       fc::std_exception_wrapper sew(                                                                         \
          FC_LOG_MESSAGE(warn, "rethrow ${what}: ", FC_FORMAT_ARG_PARAMS(__VA_ARGS__)("what", e.what())),     \
          std::current_exception(),                                                                           \
@@ -526,8 +474,7 @@ extern bool enable_record_assert_trip;
          e.what());                                                                                          \
       wlog("${details}", ("details", sew.to_detail_string()));                                               \
    }                                                                                                         \
-   catch (...)                                                                                               \
-   {                                                                                                         \
+   catch (...) {                                                                                             \
       fc::unhandled_exception e(FC_LOG_MESSAGE(warn, "rethrow", FC_FORMAT_ARG_PARAMS(__VA_ARGS__)),          \
                                 std::current_exception());                                                   \
       wlog("${details}", ("details", e.to_detail_string()));                                                 \
@@ -539,16 +486,13 @@ extern bool enable_record_assert_trip;
  *   appending the provided log message.
  */
 #define FC_RETHROW_EXCEPTIONS(LOG_LEVEL, FORMAT, ...)                                                        \
-   catch (const boost::interprocess::bad_alloc&)                                                             \
-   {                                                                                                         \
+   catch (const boost::interprocess::bad_alloc&) {                                                           \
       throw;                                                                                                 \
    }                                                                                                         \
-   catch (fc::exception & er)                                                                                \
-   {                                                                                                         \
+   catch (fc::exception & er) {                                                                              \
       FC_RETHROW_EXCEPTION(er, LOG_LEVEL, FORMAT, __VA_ARGS__);                                              \
    }                                                                                                         \
-   catch (const std::exception& e)                                                                           \
-   {                                                                                                         \
+   catch (const std::exception& e) {                                                                         \
       fc::std_exception_wrapper sew(                                                                         \
          FC_LOG_MESSAGE(LOG_LEVEL, "${what}: " FORMAT, __VA_ARGS__("what", e.what())),                       \
          std::current_exception(),                                                                           \
@@ -556,23 +500,19 @@ extern bool enable_record_assert_trip;
          e.what());                                                                                          \
       throw sew;                                                                                             \
    }                                                                                                         \
-   catch (...)                                                                                               \
-   {                                                                                                         \
+   catch (...) {                                                                                             \
       throw fc::unhandled_exception(FC_LOG_MESSAGE(LOG_LEVEL, FORMAT, __VA_ARGS__),                          \
                                     std::current_exception());                                               \
    }
 
 #define FC_CAPTURE_AND_RETHROW(...)                                                                          \
-   catch (const boost::interprocess::bad_alloc&)                                                             \
-   {                                                                                                         \
+   catch (const boost::interprocess::bad_alloc&) {                                                           \
       throw;                                                                                                 \
    }                                                                                                         \
-   catch (fc::exception & er)                                                                                \
-   {                                                                                                         \
+   catch (fc::exception & er) {                                                                              \
       FC_RETHROW_EXCEPTION(er, warn, "", FC_FORMAT_ARG_PARAMS(__VA_ARGS__));                                 \
    }                                                                                                         \
-   catch (const std::exception& e)                                                                           \
-   {                                                                                                         \
+   catch (const std::exception& e) {                                                                         \
       fc::std_exception_wrapper sew(                                                                         \
          FC_LOG_MESSAGE(warn, "${what}: ", FC_FORMAT_ARG_PARAMS(__VA_ARGS__)("what", e.what())),             \
          std::current_exception(),                                                                           \
@@ -580,8 +520,7 @@ extern bool enable_record_assert_trip;
          e.what());                                                                                          \
       throw sew;                                                                                             \
    }                                                                                                         \
-   catch (...)                                                                                               \
-   {                                                                                                         \
+   catch (...) {                                                                                             \
       throw fc::unhandled_exception(FC_LOG_MESSAGE(warn, "", FC_FORMAT_ARG_PARAMS(__VA_ARGS__)),             \
                                     std::current_exception());                                               \
    }

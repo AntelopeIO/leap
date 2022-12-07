@@ -3,8 +3,7 @@
 const string         wasm_str_call_0 = base_dir + "/call.0.wasm";
 std::vector<uint8_t> wasm_call_0     = read_wasm(wasm_str_call_0.c_str());
 
-BOOST_DATA_TEST_CASE(call_0_check_throw, boost::unit_test::data::xrange(0, 3), index)
-{
+BOOST_DATA_TEST_CASE(call_0_check_throw, boost::unit_test::data::xrange(0, 3), index) {
    try {
       TESTER tester;
       tester.produce_block();
@@ -27,8 +26,7 @@ BOOST_DATA_TEST_CASE(call_0_check_throw, boost::unit_test::data::xrange(0, 3), i
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_DATA_TEST_CASE(call_0_pass, boost::unit_test::data::xrange(3, 4), index)
-{
+BOOST_DATA_TEST_CASE(call_0_pass, boost::unit_test::data::xrange(3, 4), index) {
    try {
       TESTER tester;
       tester.produce_block();

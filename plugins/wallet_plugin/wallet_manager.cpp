@@ -10,14 +10,12 @@ namespace wallet {
 constexpr auto file_ext        = ".wallet";
 constexpr auto password_prefix = "PW";
 
-std::string gen_password()
-{
+std::string gen_password() {
    auto key = private_key_type::generate();
    return password_prefix + key.to_string();
 }
 
-bool valid_filename(const string& name)
-{
+bool valid_filename(const string& name) {
    if (name.empty())
       return false;
    if (std::find_if(name.begin(),
@@ -27,25 +25,21 @@ bool valid_filename(const string& name)
    return boost::filesystem::path(name).filename().string() == name;
 }
 
-wallet_manager::wallet_manager()
-{
+wallet_manager::wallet_manager() {
 #ifdef __APPLE__
    try {
       wallets.emplace("SecureEnclave", std::make_unique<se_wallet>());
-   } catch (const std::exception&) {
-   }
+   } catch (const std::exception&) {}
 #endif
 }
 
-wallet_manager::~wallet_manager()
-{
+wallet_manager::~wallet_manager() {
    // not really required, but may spook users
    if (wallet_dir_lock)
       boost::filesystem::remove(lock_path);
 }
 
-void wallet_manager::set_timeout(const std::chrono::seconds& t)
-{
+void wallet_manager::set_timeout(const std::chrono::seconds& t) {
    timeout      = t;
    auto now     = std::chrono::system_clock::now();
    timeout_time = now + timeout;
@@ -56,8 +50,7 @@ void wallet_manager::set_timeout(const std::chrono::seconds& t)
                  "timeout_time", timeout_time.time_since_epoch().count()));
 }
 
-void wallet_manager::check_timeout()
-{
+void wallet_manager::check_timeout() {
    if (timeout_time != timepoint_t::max()) {
       const auto& now = std::chrono::system_clock::now();
       if (now >= timeout_time) {
@@ -67,8 +60,7 @@ void wallet_manager::check_timeout()
    }
 }
 
-std::string wallet_manager::create(const std::string& name)
-{
+std::string wallet_manager::create(const std::string& name) {
    check_timeout();
 
    EOS_ASSERT(valid_filename(name),
@@ -107,8 +99,7 @@ std::string wallet_manager::create(const std::string& name)
    return password;
 }
 
-void wallet_manager::open(const std::string& name)
-{
+void wallet_manager::open(const std::string& name) {
    check_timeout();
 
    EOS_ASSERT(valid_filename(name),
@@ -134,8 +125,7 @@ void wallet_manager::open(const std::string& name)
    wallets.emplace(name, std::move(wallet));
 }
 
-std::vector<std::string> wallet_manager::list_wallets()
-{
+std::vector<std::string> wallet_manager::list_wallets() {
    check_timeout();
    std::vector<std::string> result;
    for (const auto& i : wallets) {
@@ -148,8 +138,7 @@ std::vector<std::string> wallet_manager::list_wallets()
    return result;
 }
 
-map<public_key_type, private_key_type> wallet_manager::list_keys(const string& name, const string& pw)
-{
+map<public_key_type, private_key_type> wallet_manager::list_keys(const string& name, const string& pw) {
    check_timeout();
 
    if (wallets.count(name) == 0)
@@ -161,8 +150,7 @@ map<public_key_type, private_key_type> wallet_manager::list_keys(const string& n
    return w->list_keys();
 }
 
-flat_set<public_key_type> wallet_manager::get_public_keys()
-{
+flat_set<public_key_type> wallet_manager::get_public_keys() {
    check_timeout();
    EOS_ASSERT(!wallets.empty(), wallet_not_available_exception, "You don't have any wallet!");
    flat_set<public_key_type> result;
@@ -177,8 +165,7 @@ flat_set<public_key_type> wallet_manager::get_public_keys()
    return result;
 }
 
-void wallet_manager::lock_all()
-{
+void wallet_manager::lock_all() {
    // no call to check_timeout since we are locking all anyway
    for (auto& i : wallets) {
       if (!i.second->is_locked()) {
@@ -187,8 +174,7 @@ void wallet_manager::lock_all()
    }
 }
 
-void wallet_manager::lock(const std::string& name)
-{
+void wallet_manager::lock(const std::string& name) {
    check_timeout();
    if (wallets.count(name) == 0) {
       EOS_THROW(chain::wallet_nonexistent_exception, "Wallet not found: ${w}", ("w", name));
@@ -200,8 +186,7 @@ void wallet_manager::lock(const std::string& name)
    w->lock();
 }
 
-void wallet_manager::unlock(const std::string& name, const std::string& password)
-{
+void wallet_manager::unlock(const std::string& name, const std::string& password) {
    check_timeout();
    if (wallets.count(name) == 0) {
       open(name);
@@ -214,8 +199,7 @@ void wallet_manager::unlock(const std::string& name, const std::string& password
    w->unlock(password);
 }
 
-void wallet_manager::import_key(const std::string& name, const std::string& wif_key)
-{
+void wallet_manager::import_key(const std::string& name, const std::string& wif_key) {
    check_timeout();
    if (wallets.count(name) == 0) {
       EOS_THROW(chain::wallet_nonexistent_exception, "Wallet not found: ${w}", ("w", name));
@@ -227,8 +211,9 @@ void wallet_manager::import_key(const std::string& name, const std::string& wif_
    w->import_key(wif_key);
 }
 
-void wallet_manager::remove_key(const std::string& name, const std::string& password, const std::string& key)
-{
+void wallet_manager::remove_key(const std::string& name,
+                                const std::string& password,
+                                const std::string& key) {
    check_timeout();
    if (wallets.count(name) == 0) {
       EOS_THROW(chain::wallet_nonexistent_exception, "Wallet not found: ${w}", ("w", name));
@@ -241,8 +226,7 @@ void wallet_manager::remove_key(const std::string& name, const std::string& pass
    w->remove_key(key);
 }
 
-string wallet_manager::create_key(const std::string& name, const std::string& key_type)
-{
+string wallet_manager::create_key(const std::string& name, const std::string& key_type) {
    check_timeout();
    if (wallets.count(name) == 0) {
       EOS_THROW(chain::wallet_nonexistent_exception, "Wallet not found: ${w}", ("w", name));
@@ -258,8 +242,7 @@ string wallet_manager::create_key(const std::string& name, const std::string& ke
 
 chain::signed_transaction wallet_manager::sign_transaction(const chain::signed_transaction& txn,
                                                            const flat_set<public_key_type>& keys,
-                                                           const chain::chain_id_type&      id)
-{
+                                                           const chain::chain_id_type&      id) {
    check_timeout();
    chain::signed_transaction stxn(txn);
 
@@ -287,8 +270,7 @@ chain::signed_transaction wallet_manager::sign_transaction(const chain::signed_t
 }
 
 chain::signature_type wallet_manager::sign_digest(const chain::digest_type& digest,
-                                                  const public_key_type&    key)
-{
+                                                  const public_key_type&    key) {
    check_timeout();
 
    try {
@@ -306,15 +288,13 @@ chain::signature_type wallet_manager::sign_digest(const chain::digest_type& dige
       chain::wallet_missing_pub_key_exception, "Public key not found in unlocked wallets ${k}", ("k", key));
 }
 
-void wallet_manager::own_and_use_wallet(const string& name, std::unique_ptr<wallet_api>&& wallet)
-{
+void wallet_manager::own_and_use_wallet(const string& name, std::unique_ptr<wallet_api>&& wallet) {
    if (wallets.find(name) != wallets.end())
       EOS_THROW(wallet_exception, "Tried to use wallet name that already exists.");
    wallets.emplace(name, std::move(wallet));
 }
 
-void wallet_manager::start_lock_watch(std::shared_ptr<boost::asio::deadline_timer> t)
-{
+void wallet_manager::start_lock_watch(std::shared_ptr<boost::asio::deadline_timer> t) {
    t->async_wait([t, this](const boost::system::error_code& /*ec*/) {
       namespace bfs = boost::filesystem;
       boost::system::error_code ec;
@@ -330,8 +310,7 @@ void wallet_manager::start_lock_watch(std::shared_ptr<boost::asio::deadline_time
    });
 }
 
-void wallet_manager::initialize_lock()
-{
+void wallet_manager::initialize_lock() {
    // This is technically somewhat racy in here -- if multiple keosd are in this function at once.
    // I've considered that an acceptable tradeoff to maintain cross-platform boost constructs here
    lock_path = dir / "wallet.lock";

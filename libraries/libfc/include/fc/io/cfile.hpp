@@ -28,13 +28,10 @@ class cfile_datastream;
  * Wrapper for c-file access that provides a similar interface as fstream without all the overhead of std
  * streams. std::ios_base::failure exception thrown for errors.
  */
-class cfile
-{
+class cfile {
 public:
    cfile()
-      : _file(nullptr, &fclose)
-   {
-   }
+      : _file(nullptr, &fclose) {}
 
    void set_file_path(fc::path file_path) { _file_path = std::move(file_path); }
 
@@ -42,8 +39,7 @@ public:
 
    bool is_open() const { return _open; }
 
-   auto fileno() const
-   {
+   auto fileno() const {
       int fd = ::fileno(_file.get());
       if (-1 == fd) {
          throw std::ios_base::failure(
@@ -61,8 +57,7 @@ public:
    ///        Tested with:
    ///         "ab+" - open for binary update - create if does not exist
    ///         "rb+" - open for binary update - file must exist
-   void open(const char* mode)
-   {
+   void open(const char* mode) {
       _file.reset(FC_FOPEN(_file_path.generic_string().c_str(), mode));
       if (!_file) {
          throw std::ios_base::failure("cfile unable to open: " + _file_path.generic_string() +
@@ -77,8 +72,7 @@ public:
       _open = true;
    }
 
-   size_t tellp() const
-   {
+   size_t tellp() const {
       long result = ftell(_file.get());
       if (result == -1)
          throw std::ios_base::failure(
@@ -87,8 +81,7 @@ public:
       return static_cast<size_t>(result);
    }
 
-   void seek(long loc)
-   {
+   void seek(long loc) {
       if (0 != fseek(_file.get(), loc, SEEK_SET)) {
          int err = ferror(_file.get());
          throw std::ios_base::failure("cfile: " + _file_path.generic_string() + " unable to SEEK_SET to: " +
@@ -96,8 +89,7 @@ public:
       }
    }
 
-   void seek_end(long loc)
-   {
+   void seek_end(long loc) {
       if (0 != fseek(_file.get(), loc, SEEK_END)) {
          int err = ferror(_file.get());
          throw std::ios_base::failure("cfile: " + _file_path.generic_string() + " unable to SEEK_END to: " +
@@ -105,8 +97,7 @@ public:
       }
    }
 
-   void skip(long loc)
-   {
+   void skip(long loc) {
       if (0 != fseek(_file.get(), loc, SEEK_CUR)) {
          int err = ferror(_file.get());
          throw std::ios_base::failure("cfile: " + _file_path.generic_string() + " unable to SEEK_CUR to: " +
@@ -114,8 +105,7 @@ public:
       }
    }
 
-   void read(char* d, size_t n)
-   {
+   void read(char* d, size_t n) {
       size_t result = fread(d, 1, n, _file.get());
       if (result != n) {
          int err = ferror(_file.get());
@@ -129,8 +119,7 @@ public:
       }
    }
 
-   void write(const char* d, size_t n)
-   {
+   void write(const char* d, size_t n) {
       size_t result = fwrite(d, 1, n, _file.get());
       if (result != n) {
          throw std::ios_base::failure("cfile: " + _file_path.generic_string() + " unable to write " +
@@ -138,8 +127,7 @@ public:
       }
    }
 
-   void flush()
-   {
+   void flush() {
       if (0 != fflush(_file.get())) {
          int err = ferror(_file.get());
          throw std::ios_base::failure("cfile: " + _file_path.generic_string() +
@@ -147,8 +135,7 @@ public:
       }
    }
 
-   void sync()
-   {
+   void sync() {
       const int fd = fileno();
       if (-1 == fsync(fd)) {
          throw std::ios_base::failure("cfile: " + _file_path.generic_string() +
@@ -164,8 +151,7 @@ public:
 
    // rounds to filesystem block boundaries; e.g. punch_hole(5000, 14000) when blocksz=4096 punches from 8192
    // to 12288 end is not inclusive; eg punch_hole(4096, 8192) will punch 4096 bytes (assuming blocksz=4096)
-   void punch_hole(size_t begin, size_t end)
-   {
+   void punch_hole(size_t begin, size_t end) {
       if (begin % _file_blk_size) {
          begin &= ~(_file_blk_size - 1);
          begin += _file_blk_size;
@@ -188,26 +174,22 @@ public:
       flush();
    }
 
-   static bool supports_hole_punching()
-   {
+   static bool supports_hole_punching() {
 #if defined(__linux__) || defined(__APPLE__)
       return true;
 #endif
       return false;
    }
 
-   size_t filesystem_block_size() const
-   {
+   size_t filesystem_block_size() const {
       return _file_blk_size;
    }
 
-   bool eof() const
-   {
+   bool eof() const {
       return feof(_file.get()) != 0;
    }
 
-   int getc()
-   {
+   int getc() {
       int ret = fgetc(_file.get());
       if (ret == EOF) {
          throw std::ios_base::failure("cfile: " + _file_path.generic_string() + " unable to read 1 byte");
@@ -215,14 +197,12 @@ public:
       return ret;
    }
 
-   void close()
-   {
+   void close() {
       _file.reset();
       _open = false;
    }
 
-   boost::interprocess::mapping_handle_t get_mapping_handle() const
-   {
+   boost::interprocess::mapping_handle_t get_mapping_handle() const {
       return { fileno(), false };
    }
 
@@ -240,22 +220,17 @@ private:
  *
  *  This class supports unpack functionality but not pack.
  */
-class cfile_datastream
-{
+class cfile_datastream {
 public:
    explicit cfile_datastream(cfile& cf)
-      : cf(cf)
-   {
-   }
+      : cf(cf) {}
 
-   void skip(size_t s)
-   {
+   void skip(size_t s) {
       std::vector<char> d(s);
       read(&d[0], s);
    }
 
-   bool read(char* d, size_t s)
-   {
+   bool read(char* d, size_t s) {
       cf.read(d, s);
       return true;
    }
@@ -270,21 +245,18 @@ private:
    cfile& cf;
 };
 
-inline cfile_datastream cfile::create_datastream()
-{
+inline cfile_datastream cfile::create_datastream() {
    return cfile_datastream(*this);
 }
 
 template<>
-class datastream<fc::cfile, void> : public fc::cfile
-{
+class datastream<fc::cfile, void> : public fc::cfile {
 public:
    using fc::cfile::cfile;
 
    bool seekp(size_t pos) { return this->seek(pos), true; }
 
-   bool get(char& c)
-   {
+   bool get(char& c) {
       c = this->getc();
       return true;
    }

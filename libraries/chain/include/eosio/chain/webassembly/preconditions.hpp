@@ -28,8 +28,7 @@ template<typename T>
 inline constexpr bool is_wasm_arithmetic_type_v = is_softfloat_type_v<T> || std::is_integral_v<T>;
 
 template<typename T>
-struct is_whitelisted_legacy_type
-{
+struct is_whitelisted_legacy_type {
    static constexpr bool value =
       std::is_same_v<float128_t, T> || std::is_same_v<null_terminated_ptr, T> ||
       std::is_same_v<memcpy_params, T> || std::is_same_v<memcmp_params, T> ||
@@ -40,22 +39,19 @@ struct is_whitelisted_legacy_type
 };
 
 template<typename T>
-struct is_whitelisted_type
-{
+struct is_whitelisted_type {
    static constexpr bool value = (is_wasm_arithmetic_type_v<T> ||
                                   std::is_same_v<name, T>)&&!(std::is_pointer_v<T> || std::is_reference_v<T>);
 };
 template<typename T>
-struct is_whitelisted_type<vm::span<T>>
-{
+struct is_whitelisted_type<vm::span<T>> {
    // Currently only a span of [const] char is allowed so there are no alignment concerns.
    // If we wish to expand to general span<T> in the future, changes are needed in EOS VM
    // to check proper alignment of the void* within from_wasm before constructing the span.
    static constexpr bool value = std::is_same_v<std::remove_const_t<T>, char>;
 };
 template<typename T>
-struct is_whitelisted_type<vm::argument_proxy<T*, 0>>
-{
+struct is_whitelisted_type<vm::argument_proxy<T*, 0>> {
    static constexpr bool value = is_wasm_arithmetic_type_v<std::remove_const_t<T>>;
 };
 }
@@ -71,8 +67,7 @@ inline static constexpr bool are_whitelisted_legacy_types_v = (... &&
                                                                detail::is_whitelisted_legacy_type<Ts>::value);
 
 template<typename T, typename U>
-inline static bool is_aliasing(const T& s1, const U& s2)
-{
+inline static bool is_aliasing(const T& s1, const U& s2) {
    std::uintptr_t a_begin = reinterpret_cast<std::uintptr_t>(s1.data());
    std::uintptr_t a_end   = a_begin + s1.size_bytes();
 
@@ -97,16 +92,13 @@ inline static bool is_aliasing(const T& s1, const U& s2)
    return true;
 }
 
-inline static bool is_nan(const float32_t f)
-{
+inline static bool is_nan(const float32_t f) {
    return f32_is_nan(f);
 }
-inline static bool is_nan(const float64_t f)
-{
+inline static bool is_nan(const float64_t f) {
    return f64_is_nan(f);
 }
-inline static bool is_nan(const float128_t& f)
-{
+inline static bool is_nan(const float128_t& f) {
    return f128_is_nan(f);
 }
 
@@ -131,14 +123,12 @@ EOS_VM_PRECONDITION(privileged_check, EOS_VM_INVOKE_ONCE([&](auto&&...) {
 
 namespace detail {
 template<typename T>
-vm::span<const char> to_span(const vm::argument_proxy<T*>& val)
-{
+vm::span<const char> to_span(const vm::argument_proxy<T*>& val) {
    return { static_cast<const char*>(val.get_original_pointer()), sizeof(T) };
 }
 
 template<typename T>
-vm::span<T> to_span(const vm::span<T>& val)
-{
+vm::span<T> to_span(const vm::span<T>& val) {
    return val;
 }
 }
@@ -166,13 +156,11 @@ inline constexpr bool should_check_nan_v =
    std::is_same_v<T, float32_t> || std::is_same_v<T, float64_t> || std::is_same_v<T, float128_t>;
 
 template<typename T>
-struct remove_argument_proxy
-{
+struct remove_argument_proxy {
    using type = T;
 };
 template<typename T, std::size_t A>
-struct remove_argument_proxy<vm::argument_proxy<T*, A>>
-{
+struct remove_argument_proxy<vm::argument_proxy<T*, A>> {
    using type = T;
 };
 

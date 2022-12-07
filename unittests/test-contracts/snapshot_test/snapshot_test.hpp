@@ -2,15 +2,13 @@
 
 #include <eosio/eosio.hpp>
 
-class [[eosio::contract]] snapshot_test : public eosio::contract
-{
+class [[eosio::contract]] snapshot_test : public eosio::contract {
 public:
    using eosio::contract::contract;
 
    [[eosio::action]] void increment(uint32_t value);
 
-   struct [[eosio::table("data")]] main_record
-   {
+   struct [[eosio::table("data")]] main_record {
       uint64_t           id         = 0;
       double             index_f64  = 0.0;
       long double        index_f128 = 0.0L;
@@ -18,28 +16,22 @@ public:
       uint128_t          index_i128 = 0ULL;
       eosio::checksum256 index_i256;
 
-      uint64_t primary_key() const
-      {
+      uint64_t primary_key() const {
          return id;
       }
-      double get_index_f64() const
-      {
+      double get_index_f64() const {
          return index_f64;
       }
-      long double get_index_f128() const
-      {
+      long double get_index_f128() const {
          return index_f128;
       }
-      uint64_t get_index_i64() const
-      {
+      uint64_t get_index_i64() const {
          return index_i64;
       }
-      uint128_t get_index_i128() const
-      {
+      uint128_t get_index_i128() const {
          return index_i128;
       }
-      const eosio::checksum256& get_index_i256() const
-      {
+      const eosio::checksum256& get_index_i256() const {
          return index_i256;
       }
 

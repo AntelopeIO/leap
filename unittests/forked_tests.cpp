@@ -19,8 +19,7 @@ using namespace eosio::testing;
 
 BOOST_AUTO_TEST_SUITE(forked_tests)
 
-BOOST_AUTO_TEST_CASE(irrblock)
-try {
+BOOST_AUTO_TEST_CASE(irrblock) try {
    tester c;
    c.produce_blocks(10);
    auto r   = c.create_accounts({ "dan"_n, "sam"_n, "pam"_n, "scott"_n });
@@ -31,14 +30,12 @@ try {
 }
 FC_LOG_AND_RETHROW()
 
-struct fork_tracker
-{
+struct fork_tracker {
    vector<signed_block_ptr> blocks;
    incremental_merkle       block_merkle;
 };
 
-BOOST_AUTO_TEST_CASE(fork_with_bad_block)
-try {
+BOOST_AUTO_TEST_CASE(fork_with_bad_block) try {
    tester bios;
    bios.produce_block();
    bios.produce_block();
@@ -104,8 +101,7 @@ try {
 
    // go from most corrupted fork to least
    for (size_t i = 0; i < forks.size(); i++) {
-      BOOST_TEST_CONTEXT("Testing Fork: " << i)
-      {
+      BOOST_TEST_CONTEXT("Testing Fork: " << i) {
          const auto& fork = forks.at(i);
          // push the fork to the original node
          for (size_t fidx = 0; fidx < fork.blocks.size() - 1; fidx++) {
@@ -132,8 +128,7 @@ try {
 }
 FC_LOG_AND_RETHROW();
 
-BOOST_AUTO_TEST_CASE(forking)
-try {
+BOOST_AUTO_TEST_CASE(forking) try {
    tester c;
    while (c.control->head_block_num() < 3) {
       c.produce_block();
@@ -290,8 +285,7 @@ FC_LOG_AND_RETHROW()
  *  This test verifies that the fork-choice rule favors the branch with
  *  the highest last irreversible block over one that is longer.
  */
-BOOST_AUTO_TEST_CASE(prune_remove_branch)
-try {
+BOOST_AUTO_TEST_CASE(prune_remove_branch) try {
    tester c;
    while (c.control->head_block_num() < 11) {
       c.produce_block();
@@ -353,8 +347,7 @@ FC_LOG_AND_RETHROW()
 /**
  *  Tests that a validating node does not accept a block which is considered invalid by another node.
  */
-BOOST_AUTO_TEST_CASE(validator_accepts_valid_blocks)
-try {
+BOOST_AUTO_TEST_CASE(validator_accepts_valid_blocks) try {
 
    tester n1(setup_policy::none);
    tester n2(setup_policy::none);
@@ -385,8 +378,7 @@ try {
 }
 FC_LOG_AND_RETHROW()
 
-BOOST_AUTO_TEST_CASE(read_modes)
-try {
+BOOST_AUTO_TEST_CASE(read_modes) try {
    tester c;
    c.produce_block();
    c.produce_block();
@@ -410,8 +402,7 @@ try {
 }
 FC_LOG_AND_RETHROW()
 
-BOOST_AUTO_TEST_CASE(irreversible_mode)
-try {
+BOOST_AUTO_TEST_CASE(irreversible_mode) try {
    auto does_account_exist = [](const tester& t, account_name n) {
       const auto& db = t.control->db();
       return (db.find<account_object, by_name>(n) != nullptr);
@@ -523,8 +514,7 @@ try {
 }
 FC_LOG_AND_RETHROW()
 
-BOOST_AUTO_TEST_CASE(reopen_forkdb)
-try {
+BOOST_AUTO_TEST_CASE(reopen_forkdb) try {
    tester c1;
 
    c1.create_accounts({ "alice"_n, "bob"_n, "carol"_n });
@@ -579,8 +569,7 @@ try {
 }
 FC_LOG_AND_RETHROW()
 
-BOOST_AUTO_TEST_CASE(push_block_returns_forked_transactions)
-try {
+BOOST_AUTO_TEST_CASE(push_block_returns_forked_transactions) try {
    tester c;
    while (c.control->head_block_num() < 3) {
       c.produce_block();

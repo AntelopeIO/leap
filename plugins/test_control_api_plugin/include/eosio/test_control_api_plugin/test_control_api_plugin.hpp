@@ -10,8 +10,7 @@ using eosio::chain::controller;
 using std::unique_ptr;
 using namespace appbase;
 
-class test_control_api_plugin : public plugin<test_control_api_plugin>
-{
+class test_control_api_plugin : public plugin<test_control_api_plugin> {
 public:
    APPBASE_PLUGIN_REQUIRES((test_control_plugin)(chain_plugin)(http_plugin))
 

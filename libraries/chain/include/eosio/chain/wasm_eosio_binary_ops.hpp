@@ -24,30 +24,25 @@ namespace eosio {
 namespace chain {
 namespace wasm_ops {
 
-class instruction_stream
-{
+class instruction_stream {
 public:
    instruction_stream(size_t size)
-      : idx(0)
-   {
+      : idx(0) {
       data.resize(size);
    }
-   void operator<<(const char c)
-   {
+   void operator<<(const char c) {
       if (idx >= data.size())
          data.resize(data.size() * 2);
       data[idx++] = static_cast<U8>(c);
    }
-   void set(size_t i, const char* arr)
-   {
+   void set(size_t i, const char* arr) {
       if (i + idx >= data.size())
          data.resize(data.size() * 2 + i);
       memcpy((char*)&data[idx], arr, i);
       idx += i;
    }
    size_t          get_index() { return idx; }
-   std::vector<U8> get()
-   {
+   std::vector<U8> get() {
       std::vector<U8> ret = data;
       ret.resize(idx);
       return ret;
@@ -69,86 +64,69 @@ using code_iterator       = std::vector<uint8_t>::iterator;
 using wasm_op_generator   = std::function<wasm_instr_ptr(std::vector<uint8_t>, size_t)>;
 
 #pragma pack(push)
-struct memarg
-{
+struct memarg {
    uint32_t a; // align
    uint32_t o; // offset
 };
 
-struct blocktype
-{
+struct blocktype {
    uint8_t result = 0x40; // either null (0x40) or valtype
 };
 
-struct memoryoptype
-{
+struct memoryoptype {
    uint8_t end = 0x00;
 };
-struct branchtabletype
-{
+struct branchtabletype {
    uint64_t target_depth;
    uint64_t table_index;
 };
 
 // using for instructions with no fields
-struct voidtype
-{};
+struct voidtype {};
 
-inline std::string to_string(uint32_t field)
-{
+inline std::string to_string(uint32_t field) {
    return std::string("i32 : ") + std::to_string(field);
 }
-inline std::string to_string(uint64_t field)
-{
+inline std::string to_string(uint64_t field) {
    return std::string("i64 : ") + std::to_string(field);
 }
-inline std::string to_string(blocktype field)
-{
+inline std::string to_string(blocktype field) {
    return std::string("blocktype : ") + std::to_string((uint32_t)field.result);
 }
-inline std::string to_string(memoryoptype field)
-{
+inline std::string to_string(memoryoptype field) {
    return std::string("memoryoptype : ") + std::to_string((uint32_t)field.end);
 }
-inline std::string to_string(memarg field)
-{
+inline std::string to_string(memarg field) {
    return std::string("memarg : ") + std::to_string(field.a) + std::string(", ") + std::to_string(field.o);
 }
-inline std::string to_string(branchtabletype field)
-{
+inline std::string to_string(branchtabletype field) {
    return std::string("branchtabletype : ") + std::to_string(field.target_depth) + std::string(", ") +
           std::to_string(field.table_index);
 }
 
-inline void pack(instruction_stream* stream, uint32_t field)
-{
+inline void pack(instruction_stream* stream, uint32_t field) {
    const char packed[] = { char(field), char(field >> 8), char(field >> 16), char(field >> 24) };
    stream->set(sizeof(packed), packed);
 }
-inline void pack(instruction_stream* stream, uint64_t field)
-{
+inline void pack(instruction_stream* stream, uint64_t field) {
    const char packed[] = { char(field),       char(field >> 8),  char(field >> 16), char(field >> 24),
                            char(field >> 32), char(field >> 40), char(field >> 48), char(field >> 56) };
    stream->set(sizeof(packed), packed);
 }
-inline void pack(instruction_stream* stream, blocktype field)
-{
+inline void pack(instruction_stream* stream, blocktype field) {
    const char packed[] = { char(field.result) };
    stream->set(sizeof(packed), packed);
 }
-inline void pack(instruction_stream* stream, memoryoptype field)
-{
+inline void pack(instruction_stream* stream, memoryoptype field) {
    const char packed[] = { char(field.end) };
    stream->set(sizeof(packed), packed);
 }
-inline void pack(instruction_stream* stream, memarg field)
-{
+inline void pack(instruction_stream* stream, memarg field) {
    const char packed[] = { char(field.a), char(field.a >> 8), char(field.a >> 16), char(field.a >> 24),
                            char(field.o), char(field.o >> 8), char(field.o >> 16), char(field.o >> 24) };
    stream->set(sizeof(packed), packed);
 }
-inline void pack(instruction_stream* stream, branchtabletype field)
-{
+inline void pack(instruction_stream* stream, branchtabletype field) {
    const char packed[] = { char(field.target_depth),       char(field.target_depth >> 8),
                            char(field.target_depth >> 16), char(field.target_depth >> 24),
                            char(field.target_depth >> 32), char(field.target_depth >> 40),
@@ -161,16 +139,14 @@ inline void pack(instruction_stream* stream, branchtabletype field)
 }
 
 template<typename Field>
-struct field_specific_params
-{
+struct field_specific_params {
    static constexpr int skip_ahead = sizeof(uint16_t) + sizeof(Field);
    static auto          unpack(char* opcode, Field& f) { f = *reinterpret_cast<Field*>(opcode); }
    static void pack(instruction_stream* stream, Field& f) { return eosio::chain::wasm_ops::pack(stream, f); }
    static auto to_string(Field& f) { return std::string(" ") + eosio::chain::wasm_ops::to_string(f); }
 };
 template<>
-struct field_specific_params<voidtype>
-{
+struct field_specific_params<voidtype> {
    static constexpr int skip_ahead = sizeof(uint16_t);
    static auto          unpack(char* opcode, voidtype& f) {}
    static void          pack(instruction_stream* stream, voidtype& f) {}
@@ -179,20 +155,17 @@ struct field_specific_params<voidtype>
 
 #define CONSTRUCT_OP_HAS_DATA(r, DATA, OP)                                                                   \
    template<typename... Mutators>                                                                            \
-   struct OP final : instr_base<Mutators...>                                                                 \
-   {                                                                                                         \
+   struct OP final : instr_base<Mutators...> {                                                               \
       uint16_t code = BOOST_PP_CAT(OP, _code);                                                               \
       DATA     field;                                                                                        \
       uint16_t get_code() override { return BOOST_PP_CAT(OP, _code); }                                       \
       int      skip_ahead() override { return field_specific_params<DATA>::skip_ahead; }                     \
       void     unpack(char* opcode) override { field_specific_params<DATA>::unpack(opcode, field); }         \
-      void     pack(instruction_stream* stream) override                                                     \
-      {                                                                                                      \
-         stream->set(2, (const char*)&code);                                                                 \
-         field_specific_params<DATA>::pack(stream, field);                                                   \
+      void     pack(instruction_stream* stream) override {                                                   \
+         stream->set(2, (const char*)&code);                                                             \
+         field_specific_params<DATA>::pack(stream, field);                                               \
       }                                                                                                      \
-      std::string to_string() override                                                                       \
-      {                                                                                                      \
+      std::string to_string() override {                                                                     \
          return std::string(BOOST_PP_STRINGIZE(OP)) + field_specific_params<DATA>::to_string(field);         \
       }                                                                                                      \
    };
@@ -207,8 +180,7 @@ struct field_specific_params<voidtype>
       (i64_const)(f64_const) /* branchtable op */                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          \
       (br_table)
 
-enum code
-{
+enum code {
    unreachable_code         = 0x00,
    nop_code                 = 0x01,
    block_code               = 0x02,
@@ -384,16 +356,14 @@ enum code
    error_code               = 0xFF,
 }; // code
 
-struct visitor_arg
-{
+struct visitor_arg {
    IR::Module*         module;
    instruction_stream* new_code;
    IR::FunctionDef*    function_def;
    size_t              start_index;
 };
 
-struct instr
-{
+struct instr {
    virtual std::string to_string() { return "instr"; }
    virtual uint16_t    get_code()                       = 0;
    virtual void        visit(visitor_arg&& arg)         = 0;
@@ -406,32 +376,26 @@ struct instr
 
 // base injector and utility classes for encoding if we should reflect the instr to the new code block
 template<typename Mutator, typename... Mutators>
-struct propagate_should_kill
-{
+struct propagate_should_kill {
    static constexpr bool value = Mutator::kills || propagate_should_kill<Mutators...>::value;
 };
 template<typename Mutator>
-struct propagate_should_kill<Mutator>
-{
+struct propagate_should_kill<Mutator> {
    static constexpr bool value = Mutator::kills;
 };
 template<typename Mutator, typename... Mutators>
-struct propagate_post_injection
-{
+struct propagate_post_injection {
    static constexpr bool value = Mutator::post || propagate_post_injection<Mutators...>::value;
 };
 template<typename Mutator>
-struct propagate_post_injection<Mutator>
-{
+struct propagate_post_injection<Mutator> {
    static constexpr bool value = Mutator::post;
 };
 template<typename... Mutators>
-struct instr_base : instr
-{
+struct instr_base : instr {
    bool         is_post() override { return propagate_post_injection<Mutators...>::value; }
    bool         is_kill() override { return propagate_should_kill<Mutators...>::value; }
-   virtual void visit(visitor_arg&& arg) override
-   {
+   virtual void visit(visitor_arg&& arg) override {
       for (auto m : { Mutators::accept... }) {
          m(this, arg);
       }
@@ -449,8 +413,7 @@ BOOST_PP_SEQ_FOR_EACH(CONSTRUCT_OP_HAS_DATA, branchtabletype, BOOST_PP_SEQ_SUBSE
 
 #pragma pack(pop)
 
-struct nop_mutator
-{
+struct nop_mutator {
    static constexpr bool kills = false;
    static constexpr bool post  = false;
    static void           accept(instr* inst, visitor_arg& arg) {}
@@ -458,8 +421,7 @@ struct nop_mutator
 
 // class to inherit from to attach specific mutators and have default behavior for all specified types
 template<typename Mutator = nop_mutator, typename... Mutators>
-struct op_types
-{
+struct op_types {
 #define GEN_TYPE(r, T, OP) using BOOST_PP_CAT(OP, _t) = OP<T, BOOST_PP_CAT(T, s)...>;
    BOOST_PP_SEQ_FOR_EACH(GEN_TYPE, Mutator, WASM_OP_SEQ)
 #undef GEN_TYPE
@@ -469,8 +431,7 @@ struct op_types
  * Section for cached ops
  */
 template<class Op_Types>
-class cached_ops
-{
+class cached_ops {
 #define GEN_FIELD(r, P, OP)                                                                                  \
    static std::unique_ptr<typename Op_Types::BOOST_PP_CAT(OP, _t)> BOOST_PP_CAT(P, OP);
    BOOST_PP_SEQ_FOR_EACH(GEN_FIELD, cached_, WASM_OP_SEQ)
@@ -479,8 +440,7 @@ class cached_ops
    static std::vector<instr*> _cached_ops;
 
 public:
-   static std::vector<instr*>* get_cached_ops()
-   {
+   static std::vector<instr*>* get_cached_ops() {
 #define PUSH_BACK_OP(r, T, OP) _cached_ops[BOOST_PP_CAT(OP, _code)] = BOOST_PP_CAT(T, OP).get();
       if (_cached_ops.empty()) {
          // prefill with error
@@ -502,8 +462,7 @@ std::vector<instr*> cached_ops<Op_Types>::_cached_ops;
 BOOST_PP_SEQ_FOR_EACH(INIT_FIELD, cached_, WASM_OP_SEQ)
 
 template<class Op_Types>
-std::vector<instr*>* get_cached_ops_vec()
-{
+std::vector<instr*>* get_cached_ops_vec() {
 #define GEN_FIELD(r, P, OP)                                                                                  \
    static std::unique_ptr<typename Op_Types::BOOST_PP_CAT(OP, _t)> BOOST_PP_CAT(P, OP) =                     \
       std::make_unique<typename Op_Types::BOOST_PP_CAT(OP, _t)>();
@@ -526,21 +485,18 @@ using namespace IR;
 // Decodes an operator from an input stream and dispatches by opcode.
 // This code is from wasm-jit/Include/IR/Operators.h
 template<class Op_Types>
-struct EOSIO_OperatorDecoderStream
-{
+struct EOSIO_OperatorDecoderStream {
    EOSIO_OperatorDecoderStream(const std::vector<U8>& codeBytes)
       : start(codeBytes.data())
       , nextByte(codeBytes.data())
-      , end(codeBytes.data() + codeBytes.size())
-   {
+      , end(codeBytes.data() + codeBytes.size()) {
       if (!_cached_ops)
          _cached_ops = cached_ops<Op_Types>::get_cached_ops();
    }
 
    operator bool() const { return nextByte < end; }
 
-   instr* decodeOp()
-   {
+   instr* decodeOp() {
       EOS_ASSERT(nextByte + sizeof(IR::Opcode) <= end, wasm_exception, "");
       IR::Opcode opcode = *(IR::Opcode*)nextByte;
       switch (opcode) {
@@ -559,15 +515,13 @@ struct EOSIO_OperatorDecoderStream
       }
    }
 
-   instr* decodeOpWithoutConsume()
-   {
+   instr* decodeOpWithoutConsume() {
       const U8* savedNextByte = nextByte;
       instr*    result        = decodeOp();
       nextByte                = savedNextByte;
       return result;
    }
-   inline uint32_t index()
-   {
+   inline uint32_t index() {
       return nextByte - start;
    }
 

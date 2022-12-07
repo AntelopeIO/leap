@@ -13,8 +13,7 @@
 #endif
 
 namespace fc {
-struct identity_member
-{
+struct identity_member {
    template<typename R, typename C, typename P, typename... Args>
    static std::function<R(Args...)> functor(P&& p, R (C::*mem_func)(Args...));
    template<typename R, typename C, typename P, typename... Args>
@@ -22,25 +21,20 @@ struct identity_member
 };
 
 template<typename Interface, typename Transform>
-struct vtable : public std::enable_shared_from_this<vtable<Interface, Transform>>
-{
+struct vtable : public std::enable_shared_from_this<vtable<Interface, Transform>> {
 private:
    vtable();
 };
 
 template<typename OtherType>
-struct vtable_copy_visitor
-{
+struct vtable_copy_visitor {
    typedef OtherType other_type;
 
    vtable_copy_visitor(OtherType& s)
-      : _source(s)
-   {
-   }
+      : _source(s) {}
 
    template<typename R, typename MemberPtr, typename... Args>
-   void operator()(const char* name, std::function<R(Args...)>& memb, MemberPtr m) const
-   {
+   void operator()(const char* name, std::function<R(Args...)>& memb, MemberPtr m) const {
       OtherType* src = &_source;
       memb           = [src, m](Args... args) { return (src->*m)(args...); };
    }
@@ -54,8 +48,7 @@ class api_connection;
 
 typedef uint32_t api_id_type;
 
-class api_base
-{
+class api_base {
 public:
    api_base() {}
    virtual ~api_base() {}
@@ -73,21 +66,17 @@ typedef std::shared_ptr<api_base> api_ptr;
 class api_connection;
 
 template<typename Interface, typename Transform = identity_member>
-class api : public api_base
-{
+class api : public api_base {
 public:
    typedef vtable<Interface, Transform> vtable_type;
 
    api()
-      : _vtable(std::make_shared<vtable_type>())
-   {
-   }
+      : _vtable(std::make_shared<vtable_type>()) {}
 
    /** T is anything with pointer semantics */
    template<typename T>
    api(const T& p)
-      : _vtable(std::make_shared<vtable_type>())
-   {
+      : _vtable(std::make_shared<vtable_type>()) {
       _data                                                                  = std::make_shared<fc::any>(p);
       T&                                                                 ptr = boost::any_cast<T&>(*_data);
       auto&                                                              pointed_at = *ptr;
@@ -98,26 +87,21 @@ public:
 
    api(const api& cpy)
       : _vtable(cpy._vtable)
-      , _data(cpy._data)
-   {
-   }
+      , _data(cpy._data) {}
    virtual ~api() {}
 
    friend bool operator==(const api& a, const api& b) { return a._data == b._data && a._vtable == b._vtable; }
-   friend bool operator!=(const api& a, const api& b)
-   {
+   friend bool operator!=(const api& a, const api& b) {
       return !(a._data == b._data && a._vtable == b._vtable);
    }
    virtual uint64_t    get_handle() const override { return uint64_t(_data.get()); }
    virtual api_id_type register_api(api_connection& conn) const override; // defined in api_connection.hpp
 
-   vtable_type& operator*() const
-   {
+   vtable_type& operator*() const {
       FC_ASSERT(_vtable);
       return *_vtable;
    }
-   vtable_type* operator->() const
-   {
+   vtable_type* operator->() const {
       FC_ASSERT(_vtable);
       return _vtable.get();
    }
@@ -149,17 +133,14 @@ protected:
 #define FC_API(CLASS, METHODS)                                                                               \
    namespace fc {                                                                                            \
    template<typename Transform>                                                                              \
-   struct vtable<CLASS, Transform> : public std::enable_shared_from_this<vtable<CLASS, Transform>>           \
-   {                                                                                                         \
+   struct vtable<CLASS, Transform> : public std::enable_shared_from_this<vtable<CLASS, Transform>> {         \
       BOOST_PP_SEQ_FOR_EACH(FC_API_VTABLE_DEFINE_MEMBER, CLASS, METHODS)                                     \
       template<typename Visitor>                                                                             \
-      void visit_other(Visitor&& v)                                                                          \
-      {                                                                                                      \
+      void visit_other(Visitor&& v) {                                                                        \
          BOOST_PP_SEQ_FOR_EACH(FC_API_VTABLE_DEFINE_VISIT_OTHER, CLASS, METHODS)                             \
       }                                                                                                      \
       template<typename Visitor>                                                                             \
-      void visit(Visitor&& v)                                                                                \
-      {                                                                                                      \
+      void visit(Visitor&& v) {                                                                              \
          BOOST_PP_SEQ_FOR_EACH(FC_API_VTABLE_DEFINE_VISIT, CLASS, METHODS)                                   \
       }                                                                                                      \
    };                                                                                                        \

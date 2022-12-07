@@ -21,8 +21,7 @@ using namespace eosio::testing;
 
 BOOST_AUTO_TEST_SUITE(auth_tests)
 
-BOOST_FIXTURE_TEST_CASE(missing_sigs, TESTER)
-{
+BOOST_FIXTURE_TEST_CASE(missing_sigs, TESTER) {
    try {
       create_accounts({ "alice"_n });
       produce_block();
@@ -41,8 +40,7 @@ BOOST_FIXTURE_TEST_CASE(missing_sigs, TESTER)
    FC_LOG_AND_RETHROW()
 } /// missing_sigs
 
-BOOST_FIXTURE_TEST_CASE(missing_multi_sigs, TESTER)
-{
+BOOST_FIXTURE_TEST_CASE(missing_multi_sigs, TESTER) {
    try {
       produce_block();
       create_account("alice"_n, config::system_account_name, true);
@@ -57,8 +55,7 @@ BOOST_FIXTURE_TEST_CASE(missing_multi_sigs, TESTER)
    FC_LOG_AND_RETHROW()
 } /// missing_multi_sigs
 
-BOOST_FIXTURE_TEST_CASE(missing_auths, TESTER)
-{
+BOOST_FIXTURE_TEST_CASE(missing_auths, TESTER) {
    try {
       create_accounts({ "alice"_n, "bob"_n });
       produce_block();
@@ -78,8 +75,7 @@ BOOST_FIXTURE_TEST_CASE(missing_auths, TESTER)
  *  This test case will attempt to allow one account to transfer on behalf
  *  of another account by updating the active authority.
  */
-BOOST_FIXTURE_TEST_CASE(delegate_auth, TESTER)
-{
+BOOST_FIXTURE_TEST_CASE(delegate_auth, TESTER) {
    try {
       create_accounts({ "alice"_n, "bob"_n });
       produce_block();
@@ -121,8 +117,7 @@ BOOST_FIXTURE_TEST_CASE(delegate_auth, TESTER)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(update_auths)
-{
+BOOST_AUTO_TEST_CASE(update_auths) {
    try {
       TESTER chain;
       chain.create_account(name("alice"));
@@ -331,8 +326,7 @@ BOOST_AUTO_TEST_CASE(update_auths)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(update_auth_unknown_private_key)
-{
+BOOST_AUTO_TEST_CASE(update_auth_unknown_private_key) {
    try {
       TESTER chain;
       chain.create_account(name("alice"));
@@ -368,8 +362,7 @@ BOOST_AUTO_TEST_CASE(update_auth_unknown_private_key)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(link_auths)
-{
+BOOST_AUTO_TEST_CASE(link_auths) {
    try {
       TESTER chain;
 
@@ -443,8 +436,7 @@ BOOST_AUTO_TEST_CASE(link_auths)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(link_then_update_auth)
-{
+BOOST_AUTO_TEST_CASE(link_then_update_auth) {
    try {
       TESTER chain;
 
@@ -485,8 +477,7 @@ BOOST_AUTO_TEST_CASE(link_then_update_auth)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(create_account)
-{
+BOOST_AUTO_TEST_CASE(create_account) {
    try {
       TESTER chain;
       chain.create_account(name("joe"));
@@ -534,8 +525,7 @@ BOOST_AUTO_TEST_CASE(create_account)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(any_auth)
-{
+BOOST_AUTO_TEST_CASE(any_auth) {
    try {
       TESTER chain;
       chain.create_accounts({ name("alice"), name("bob") });
@@ -583,8 +573,7 @@ BOOST_AUTO_TEST_CASE(any_auth)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(no_double_billing)
-{
+BOOST_AUTO_TEST_CASE(no_double_billing) {
    try {
       fc::temp_directory tempdir;
       validating_tester  chain(tempdir, true);
@@ -644,8 +633,7 @@ BOOST_AUTO_TEST_CASE(no_double_billing)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(stricter_auth)
-{
+BOOST_AUTO_TEST_CASE(stricter_auth) {
    try {
       TESTER chain;
 
@@ -689,22 +677,19 @@ BOOST_AUTO_TEST_CASE(stricter_auth)
       try {
          create_acc(acc2, acc1, 0);
          BOOST_FAIL("threshold can't be zero");
-      } catch (...) {
-      }
+      } catch (...) {}
 
       try {
          create_acc(acc4, acc1, 3);
          BOOST_FAIL("threshold can't be more than total weight");
-      } catch (...) {
-      }
+      } catch (...) {}
 
       create_acc(acc3, acc1, 1);
    }
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(linkauth_special)
-{
+BOOST_AUTO_TEST_CASE(linkauth_special) {
    try {
       TESTER chain;
 

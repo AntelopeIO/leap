@@ -14,12 +14,10 @@ namespace chain {
  * vote for their preference for each of the parameters in this object, and the blockchain runs according to
  * the median of the values specified by the producers.
  */
-struct chain_config_v0
-{
+struct chain_config_v0 {
 
    // order must match parameters as ids are used in serialization
-   enum
-   {
+   enum {
       max_block_net_usage_id,
       target_block_net_usage_pct_id,
       max_transaction_net_usage_id,
@@ -77,13 +75,11 @@ struct chain_config_v0
    inline const chain_config_v0& v0() const { return *this; }
 
    template<typename Stream>
-   friend Stream& operator<<(Stream& out, const chain_config_v0& c)
-   {
+   friend Stream& operator<<(Stream& out, const chain_config_v0& c) {
       return c.log(out) << "\n";
    }
 
-   friend inline bool operator==(const chain_config_v0& lhs, const chain_config_v0& rhs)
-   {
+   friend inline bool operator==(const chain_config_v0& lhs, const chain_config_v0& rhs) {
       return std::tie(lhs.max_block_net_usage,
                       lhs.target_block_net_usage_pct,
                       lhs.max_transaction_net_usage,
@@ -119,15 +115,13 @@ struct chain_config_v0
                                                            rhs.max_authority_depth);
    };
 
-   friend inline bool operator!=(const chain_config_v0& lhs, const chain_config_v0& rhs)
-   {
+   friend inline bool operator!=(const chain_config_v0& lhs, const chain_config_v0& rhs) {
       return !(lhs == rhs);
    }
 
 protected:
    template<typename Stream>
-   Stream& log(Stream& out) const
-   {
+   Stream& log(Stream& out) const {
       return out << "Max Block Net Usage: " << max_block_net_usage << ", "
                  << "Target Block Net Usage Percent: "
                  << ((double)target_block_net_usage_pct / (double)config::percent_1) << "%, "
@@ -160,60 +154,49 @@ protected:
  * If Adding new parameters create chain_config_v[n] class instead of adding
  * new parameters to v1 or v0. This is needed for snapshots backward compatibility
  */
-struct chain_config_v1 : chain_config_v0
-{
+struct chain_config_v1 : chain_config_v0 {
    using Base = chain_config_v0;
 
    uint32_t max_action_return_value_size =
       config::default_max_action_return_value_size; ///< size limit for action return value
 
    // order must match parameters as ids are used in serialization
-   enum
-   {
-      max_action_return_value_size_id = Base::PARAMS_COUNT,
-      PARAMS_COUNT
-   };
+   enum { max_action_return_value_size_id = Base::PARAMS_COUNT, PARAMS_COUNT };
 
    inline const Base& base() const { return static_cast<const Base&>(*this); }
 
    void validate() const;
 
    template<typename Stream>
-   friend Stream& operator<<(Stream& out, const chain_config_v1& c)
-   {
+   friend Stream& operator<<(Stream& out, const chain_config_v1& c) {
       return c.log(out) << "\n";
    }
 
-   friend inline bool operator==(const chain_config_v1& lhs, const chain_config_v1& rhs)
-   {
+   friend inline bool operator==(const chain_config_v1& lhs, const chain_config_v1& rhs) {
       // add v1 parameters comarison here
       return std::tie(lhs.max_action_return_value_size) == std::tie(rhs.max_action_return_value_size) &&
              lhs.base() == rhs.base();
    }
 
-   friend inline bool operator!=(const chain_config_v1& lhs, const chain_config_v1& rhs)
-   {
+   friend inline bool operator!=(const chain_config_v1& lhs, const chain_config_v1& rhs) {
       return !(lhs == rhs);
    }
 
-   inline chain_config_v1& operator=(const Base& b)
-   {
+   inline chain_config_v1& operator=(const Base& b) {
       Base::operator=(b);
       return *this;
    }
 
 protected:
    template<typename Stream>
-   Stream& log(Stream& out) const
-   {
+   Stream& log(Stream& out) const {
       return base().log(out) << ", Max Action Return Value Size: " << max_action_return_value_size;
    }
 };
 
 class controller;
 
-struct config_entry_validator
-{
+struct config_entry_validator {
    const controller& control;
 
    bool operator()(uint32_t id) const;
@@ -250,10 +233,9 @@ namespace fc {
  * @throws config_parse_error if id is unknown
  */
 template<typename DataStream>
-inline DataStream& operator<<(
-   DataStream&                                                                                          s,
-   const eosio::chain::data_entry<eosio::chain::chain_config_v0, eosio::chain::config_entry_validator>& entry)
-{
+inline DataStream& operator<<(DataStream&                                                           s,
+                              const eosio::chain::data_entry<eosio::chain::chain_config_v0,
+                                                             eosio::chain::config_entry_validator>& entry) {
    using namespace eosio::chain;
 
    // initial requirements were to skip packing field if it is not activated.
@@ -319,10 +301,9 @@ inline DataStream& operator<<(
  * @throws unsupported_feature if protocol feature for particular id is not activated
  */
 template<typename DataStream>
-inline DataStream& operator<<(
-   DataStream&                                                                                          s,
-   const eosio::chain::data_entry<eosio::chain::chain_config_v1, eosio::chain::config_entry_validator>& entry)
-{
+inline DataStream& operator<<(DataStream&                                                           s,
+                              const eosio::chain::data_entry<eosio::chain::chain_config_v1,
+                                                             eosio::chain::config_entry_validator>& entry) {
    using namespace eosio::chain;
 
    // initial requirements were to skip packing field if it is not activated.
@@ -356,8 +337,7 @@ inline DataStream& operator<<(
 template<typename DataStream>
 inline DataStream& operator>>(
    DataStream&                                                                                    s,
-   eosio::chain::data_entry<eosio::chain::chain_config_v0, eosio::chain::config_entry_validator>& entry)
-{
+   eosio::chain::data_entry<eosio::chain::chain_config_v0, eosio::chain::config_entry_validator>& entry) {
    using namespace eosio::chain;
 
    EOS_ASSERT(entry.is_allowed(),
@@ -433,8 +413,7 @@ inline DataStream& operator>>(
 template<typename DataStream>
 inline DataStream& operator>>(
    DataStream&                                                                                    s,
-   eosio::chain::data_entry<eosio::chain::chain_config_v1, eosio::chain::config_entry_validator>& entry)
-{
+   eosio::chain::data_entry<eosio::chain::chain_config_v1, eosio::chain::config_entry_validator>& entry) {
    using namespace eosio::chain;
 
    EOS_ASSERT(entry.is_allowed(), unsupported_feature, "config id ${id} is no allowed", ("id", entry.id));
@@ -461,8 +440,7 @@ inline DataStream& operator>>(
 template<typename DataStream, typename T>
 inline DataStream& operator<<(
    DataStream&                                                              s,
-   const eosio::chain::data_range<T, eosio::chain::config_entry_validator>& selection)
-{
+   const eosio::chain::data_range<T, eosio::chain::config_entry_validator>& selection) {
    using namespace eosio::chain;
 
    fc::unsigned_int size = selection.ids.size();
@@ -495,8 +473,7 @@ inline DataStream& operator<<(
  */
 template<typename DataStream, typename T>
 inline DataStream& operator>>(DataStream&                                                        s,
-                              eosio::chain::data_range<T, eosio::chain::config_entry_validator>& selection)
-{
+                              eosio::chain::data_range<T, eosio::chain::config_entry_validator>& selection) {
    using namespace eosio::chain;
 
    fc::unsigned_int length;

@@ -25,28 +25,23 @@ namespace chain {
 
 transaction_checktime_timer::transaction_checktime_timer(platform_timer& timer)
    : expired(timer.expired)
-   , _timer(timer)
-{
+   , _timer(timer) {
    expired = 0;
 }
 
-void transaction_checktime_timer::start(fc::time_point tp)
-{
+void transaction_checktime_timer::start(fc::time_point tp) {
    _timer.start(tp);
 }
 
-void transaction_checktime_timer::stop()
-{
+void transaction_checktime_timer::stop() {
    _timer.stop();
 }
 
-void transaction_checktime_timer::set_expiration_callback(void (*func)(void*), void* user)
-{
+void transaction_checktime_timer::set_expiration_callback(void (*func)(void*), void* user) {
    _timer.set_expiration_callback(func, user);
 }
 
-transaction_checktime_timer::~transaction_checktime_timer()
-{
+transaction_checktime_timer::~transaction_checktime_timer() {
    stop();
    _timer.set_expiration_callback(nullptr, nullptr);
 }
@@ -64,8 +59,7 @@ transaction_context::transaction_context(controller&                    c,
    , transaction_timer(std::move(tmr))
    , trx_type(type)
    , net_usage(trace->net_usage)
-   , pseudo_start(s)
-{
+   , pseudo_start(s) {
    if (!c.skip_db_sessions()) {
       undo_session.emplace(c.mutable_db().start_undo_session(true));
    }
@@ -79,15 +73,13 @@ transaction_context::transaction_context(controller&                    c,
    }
 }
 
-transaction_context::~transaction_context()
-{
+transaction_context::~transaction_context() {
    if (auto dm_logger = control.get_deep_mind_logger()) {
       dm_logger->on_end_transaction();
    }
 }
 
-void transaction_context::disallow_transaction_extensions(const char* error_msg) const
-{
+void transaction_context::disallow_transaction_extensions(const char* error_msg) const {
    if (control.is_speculative_block()) {
       EOS_THROW(subjective_block_production_exception, error_msg);
    } else {
@@ -95,8 +87,7 @@ void transaction_context::disallow_transaction_extensions(const char* error_msg)
    }
 }
 
-void transaction_context::init(uint64_t initial_net_usage)
-{
+void transaction_context::init(uint64_t initial_net_usage) {
    EOS_ASSERT(!is_initialized, transaction_exception, "cannot initialize twice");
 
    // set maximum to a semi-valid deadline to allow for pause math and conversion to dates for logging
@@ -243,8 +234,7 @@ void transaction_context::init(uint64_t initial_net_usage)
    is_initialized = true;
 }
 
-void transaction_context::init_for_implicit_trx(uint64_t initial_net_usage)
-{
+void transaction_context::init_for_implicit_trx(uint64_t initial_net_usage) {
    const transaction& trx = packed_trx.get_transaction();
    if (trx.transaction_extensions.size() > 0) {
       disallow_transaction_extensions("no transaction extensions supported yet for implicit transactions");
@@ -255,8 +245,7 @@ void transaction_context::init_for_implicit_trx(uint64_t initial_net_usage)
 }
 
 void transaction_context::init_for_input_trx(uint64_t packed_trx_unprunable_size,
-                                             uint64_t packed_trx_prunable_size)
-{
+                                             uint64_t packed_trx_prunable_size) {
    const transaction& trx = packed_trx.get_transaction();
    if (trx.transaction_extensions.size() > 0) {
       disallow_transaction_extensions("no transaction extensions supported yet for input transactions");
@@ -294,8 +283,7 @@ void transaction_context::init_for_input_trx(uint64_t packed_trx_unprunable_size
    record_transaction(packed_trx.id(), trx.expiration); /// checks for dupes
 }
 
-void transaction_context::init_for_deferred_trx(fc::time_point p)
-{
+void transaction_context::init_for_deferred_trx(fc::time_point p) {
    const transaction& trx = packed_trx.get_transaction();
    if ((trx.expiration.sec_since_epoch() != 0) && (trx.transaction_extensions.size() > 0)) {
       disallow_transaction_extensions("no transaction extensions supported yet for deferred transactions");
@@ -311,8 +299,7 @@ void transaction_context::init_for_deferred_trx(fc::time_point p)
    init(0);
 }
 
-void transaction_context::exec()
-{
+void transaction_context::exec() {
    EOS_ASSERT(is_initialized, transaction_exception, "must first initialize");
 
    const transaction& trx = packed_trx.get_transaction();
@@ -339,8 +326,7 @@ void transaction_context::exec()
    }
 }
 
-void transaction_context::finalize()
-{
+void transaction_context::finalize() {
    EOS_ASSERT(is_initialized, transaction_exception, "must first initialize");
 
    if (is_input) {
@@ -402,20 +388,17 @@ void transaction_context::finalize()
                             block_timestamp_type(control.pending_block_time()).slot); // Should never fail
 }
 
-void transaction_context::squash()
-{
+void transaction_context::squash() {
    if (undo_session)
       undo_session->squash();
 }
 
-void transaction_context::undo()
-{
+void transaction_context::undo() {
    if (undo_session)
       undo_session->undo();
 }
 
-void transaction_context::check_net_usage() const
-{
+void transaction_context::check_net_usage() const {
    if (!control.skip_trx_checks()) {
       if (BOOST_UNLIKELY(net_usage > eager_net_limit)) {
          if (net_limit_due_to_block) {
@@ -435,8 +418,7 @@ void transaction_context::check_net_usage() const
    }
 }
 
-void transaction_context::checktime() const
-{
+void transaction_context::checktime() const {
    if (BOOST_LIKELY(transaction_timer.expired == false))
       return;
 
@@ -479,8 +461,7 @@ void transaction_context::checktime() const
               ("code", deadline_exception_code));
 }
 
-void transaction_context::pause_billing_timer()
-{
+void transaction_context::pause_billing_timer() {
    if (explicit_billed_cpu_time || pseudo_start == fc::time_point())
       return; // either irrelevant or already paused
 
@@ -490,8 +471,7 @@ void transaction_context::pause_billing_timer()
    transaction_timer.stop();
 }
 
-void transaction_context::resume_billing_timer()
-{
+void transaction_context::resume_billing_timer() {
    if (explicit_billed_cpu_time || pseudo_start != fc::time_point())
       return; // either irrelevant or already running
 
@@ -513,8 +493,7 @@ void transaction_context::resume_billing_timer()
 void transaction_context::validate_cpu_usage_to_bill(int64_t billed_us,
                                                      int64_t account_cpu_limit,
                                                      bool    check_minimum,
-                                                     int64_t subjective_billed_us) const
-{
+                                                     int64_t subjective_billed_us) const {
    if (!control.skip_trx_checks()) {
       if (check_minimum) {
          const auto& cfg = control.get_global_properties().configuration;
@@ -530,8 +509,7 @@ void transaction_context::validate_cpu_usage_to_bill(int64_t billed_us,
 
 void transaction_context::validate_account_cpu_usage(int64_t billed_us,
                                                      int64_t account_cpu_limit,
-                                                     int64_t subjective_billed_us) const
-{
+                                                     int64_t subjective_billed_us) const {
    if ((billed_us > 0) && !control.skip_trx_checks()) {
       const bool cpu_limited_by_account = (account_cpu_limit <= objective_duration_limit.count());
 
@@ -573,8 +551,7 @@ void transaction_context::validate_account_cpu_usage(int64_t billed_us,
 
 void transaction_context::validate_account_cpu_usage_estimate(int64_t prev_billed_us,
                                                               int64_t account_cpu_limit,
-                                                              int64_t subjective_billed_us) const
-{
+                                                              int64_t subjective_billed_us) const {
    // prev_billed_us can be 0, but so can account_cpu_limit
    if ((prev_billed_us >= 0) && !control.skip_trx_checks()) {
       const bool cpu_limited_by_account = (account_cpu_limit <= objective_duration_limit.count());
@@ -615,8 +592,7 @@ void transaction_context::validate_account_cpu_usage_estimate(int64_t prev_bille
    }
 }
 
-void transaction_context::add_ram_usage(account_name account, int64_t ram_delta)
-{
+void transaction_context::add_ram_usage(account_name account, int64_t ram_delta) {
    auto& rl = control.get_mutable_resource_limits_manager();
    rl.add_pending_ram_usage(account, ram_delta);
    if (ram_delta > 0) {
@@ -624,8 +600,7 @@ void transaction_context::add_ram_usage(account_name account, int64_t ram_delta)
    }
 }
 
-uint32_t transaction_context::update_billed_cpu_time(fc::time_point now)
-{
+uint32_t transaction_context::update_billed_cpu_time(fc::time_point now) {
    if (explicit_billed_cpu_time)
       return static_cast<uint32_t>(billed_cpu_time_us);
 
@@ -637,8 +612,7 @@ uint32_t transaction_context::update_billed_cpu_time(fc::time_point now)
 }
 
 std::tuple<int64_t, int64_t, bool, bool> transaction_context::max_bandwidth_billed_accounts_can_pay(
-   bool force_elastic_limits) const
-{
+   bool force_elastic_limits) const {
    // Assumes rl.update_account_usage( bill_to_accounts,
    // block_timestamp_type(control.pending_block_time()).slot ) was already called prior
 
@@ -681,8 +655,7 @@ std::tuple<int64_t, int64_t, bool, bool> transaction_context::max_bandwidth_bill
    return std::make_tuple(account_net_limit, account_cpu_limit, greylisted_net, greylisted_cpu);
 }
 
-action_trace& transaction_context::get_action_trace(uint32_t action_ordinal)
-{
+action_trace& transaction_context::get_action_trace(uint32_t action_ordinal) {
    EOS_ASSERT(0 < action_ordinal && action_ordinal <= trace->action_traces.size(),
               transaction_exception,
               "action_ordinal ${ordinal} is outside allowed range [1,${max}]",
@@ -690,8 +663,7 @@ action_trace& transaction_context::get_action_trace(uint32_t action_ordinal)
    return trace->action_traces[action_ordinal - 1];
 }
 
-const action_trace& transaction_context::get_action_trace(uint32_t action_ordinal) const
-{
+const action_trace& transaction_context::get_action_trace(uint32_t action_ordinal) const {
    EOS_ASSERT(0 < action_ordinal && action_ordinal <= trace->action_traces.size(),
               transaction_exception,
               "action_ordinal ${ordinal} is outside allowed range [1,${max}]",
@@ -703,8 +675,7 @@ uint32_t transaction_context::schedule_action(const action& act,
                                               account_name  receiver,
                                               bool          context_free,
                                               uint32_t      creator_action_ordinal,
-                                              uint32_t      closest_unnotified_ancestor_action_ordinal)
-{
+                                              uint32_t      closest_unnotified_ancestor_action_ordinal) {
    uint32_t new_action_ordinal = trace->action_traces.size() + 1;
 
    trace->action_traces.emplace_back(*trace,
@@ -722,8 +693,7 @@ uint32_t transaction_context::schedule_action(action&&     act,
                                               account_name receiver,
                                               bool         context_free,
                                               uint32_t     creator_action_ordinal,
-                                              uint32_t     closest_unnotified_ancestor_action_ordinal)
-{
+                                              uint32_t     closest_unnotified_ancestor_action_ordinal) {
    uint32_t new_action_ordinal = trace->action_traces.size() + 1;
 
    trace->action_traces.emplace_back(*trace,
@@ -741,8 +711,7 @@ uint32_t transaction_context::schedule_action(uint32_t     action_ordinal,
                                               account_name receiver,
                                               bool         context_free,
                                               uint32_t     creator_action_ordinal,
-                                              uint32_t     closest_unnotified_ancestor_action_ordinal)
-{
+                                              uint32_t     closest_unnotified_ancestor_action_ordinal) {
    uint32_t new_action_ordinal = trace->action_traces.size() + 1;
 
    trace->action_traces.reserve(new_action_ordinal);
@@ -763,8 +732,7 @@ uint32_t transaction_context::schedule_action(uint32_t     action_ordinal,
    return new_action_ordinal;
 }
 
-void transaction_context::execute_action(uint32_t action_ordinal, uint32_t recurse_depth)
-{
+void transaction_context::execute_action(uint32_t action_ordinal, uint32_t recurse_depth) {
    apply_context acontext(control, *this, action_ordinal, recurse_depth);
 
    if (recurse_depth == 0) {
@@ -776,8 +744,7 @@ void transaction_context::execute_action(uint32_t action_ordinal, uint32_t recur
    acontext.exec();
 }
 
-void transaction_context::schedule_transaction()
-{
+void transaction_context::schedule_transaction() {
    // Charge ahead of time for the additional net usage needed to retire the delayed transaction
    // whether that be by successfully executing, soft failure, hard failure, or expiration.
    const transaction& trx = packed_trx.get_transaction();
@@ -817,8 +784,7 @@ void transaction_context::schedule_transaction()
    trace->account_ram_delta = account_delta(cgto.payer, ram_delta);
 }
 
-void transaction_context::record_transaction(const transaction_id_type& id, fc::time_point_sec expire)
-{
+void transaction_context::record_transaction(const transaction_id_type& id, fc::time_point_sec expire) {
    try {
       control.mutable_db().create<transaction_object>([&](transaction_object& transaction) {
          transaction.trx_id     = id;
@@ -832,8 +798,7 @@ void transaction_context::record_transaction(const transaction_id_type& id, fc::
 } /// record_transaction
 
 void transaction_context::validate_referenced_accounts(const transaction& trx,
-                                                       bool enforce_actor_whitelist_blacklist) const
-{
+                                                       bool enforce_actor_whitelist_blacklist) const {
    const auto& db           = control.db();
    const auto& auth_manager = control.get_authorization_manager();
 

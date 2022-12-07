@@ -25,11 +25,9 @@ using namespace eosio::chain;
 using namespace eosio::testing;
 using namespace fc;
 
-class currency_tester : public TESTER
-{
+class currency_tester : public TESTER {
 public:
-   auto push_action(const account_name& signer, const action_name& name, const variant_object& data)
-   {
+   auto push_action(const account_name& signer, const action_name& name, const variant_object& data) {
       string action_type_name = abi_ser.get_action_type(name);
 
       action act;
@@ -49,16 +47,14 @@ public:
       return push_transaction(trx);
    }
 
-   asset get_balance(const account_name& account) const
-   {
+   asset get_balance(const account_name& account) const {
       return get_currency_balance("eosio.token"_n, symbol(SY(4, CUR)), account);
    }
 
    auto transfer(const account_name& from,
                  const account_name& to,
                  const std::string&  quantity,
-                 const std::string&  memo = "")
-   {
+                 const std::string&  memo = "") {
       auto trace =
          push_action(from,
                      "transfer"_n,
@@ -67,8 +63,7 @@ public:
       return trace;
    }
 
-   auto issue(const account_name& to, const std::string& quantity, const std::string& memo = "")
-   {
+   auto issue(const account_name& to, const std::string& quantity, const std::string& memo = "") {
       auto trace = push_action(
          "eosio.token"_n, "issue"_n, mutable_variant_object()("to", to)("quantity", quantity)("memo", memo));
       produce_block();
@@ -78,8 +73,7 @@ public:
    currency_tester()
       : TESTER()
       , abi_ser(json::from_string(contracts::eosio_token_abi().data()).as<abi_def>(),
-                abi_serializer::create_yield_function(abi_serializer_max_time))
-   {
+                abi_serializer::create_yield_function(abi_serializer_max_time)) {
       create_account("eosio.token"_n);
       set_code("eosio.token"_n, contracts::eosio_token_wasm());
 
@@ -106,8 +100,7 @@ const name currency_tester::eosio_token = "eosio.token"_n;
 
 BOOST_AUTO_TEST_SUITE(currency_tests)
 
-BOOST_AUTO_TEST_CASE(bootstrap)
-try {
+BOOST_AUTO_TEST_CASE(bootstrap) try {
    auto            expected = asset::from_string("1000000.0000 CUR");
    currency_tester t;
    auto            actual = t.get_currency_balance("eosio.token"_n, expected.get_symbol(), "eosio.token"_n);
@@ -115,8 +108,7 @@ try {
 }
 FC_LOG_AND_RETHROW() /// test_api_bootstrap
 
-BOOST_FIXTURE_TEST_CASE(test_transfer, currency_tester)
-try {
+BOOST_FIXTURE_TEST_CASE(test_transfer, currency_tester) try {
    create_accounts({ "alice"_n });
 
    // make a transfer from the contract to a user
@@ -134,8 +126,7 @@ try {
 }
 FC_LOG_AND_RETHROW() /// test_transfer
 
-BOOST_FIXTURE_TEST_CASE(test_duplicate_transfer, currency_tester)
-{
+BOOST_FIXTURE_TEST_CASE(test_duplicate_transfer, currency_tester) {
    create_accounts({ "alice"_n });
 
    auto trace = push_action("eosio.token"_n,
@@ -155,8 +146,7 @@ BOOST_FIXTURE_TEST_CASE(test_duplicate_transfer, currency_tester)
    BOOST_CHECK_EQUAL(get_balance("alice"_n), asset::from_string("100.0000 CUR"));
 }
 
-BOOST_FIXTURE_TEST_CASE(test_addtransfer, currency_tester)
-try {
+BOOST_FIXTURE_TEST_CASE(test_addtransfer, currency_tester) try {
    create_accounts({ "alice"_n });
 
    // make a transfer from the contract to a user
@@ -187,8 +177,7 @@ try {
 }
 FC_LOG_AND_RETHROW() /// test_transfer
 
-BOOST_FIXTURE_TEST_CASE(test_overspend, currency_tester)
-try {
+BOOST_FIXTURE_TEST_CASE(test_overspend, currency_tester) try {
    create_accounts({ "alice"_n, "bob"_n });
 
    // make a transfer from the contract to a user
@@ -220,8 +209,7 @@ try {
 }
 FC_LOG_AND_RETHROW() /// test_overspend
 
-BOOST_FIXTURE_TEST_CASE(test_fullspend, currency_tester)
-try {
+BOOST_FIXTURE_TEST_CASE(test_fullspend, currency_tester) try {
    create_accounts({ "alice"_n, "bob"_n });
 
    // make a transfer from the contract to a user
@@ -252,8 +240,7 @@ try {
 }
 FC_LOG_AND_RETHROW() /// test_fullspend
 
-BOOST_FIXTURE_TEST_CASE(test_symbol, TESTER)
-try {
+BOOST_FIXTURE_TEST_CASE(test_symbol, TESTER) try {
 
    {
       symbol dollar(2, "DLLR");
@@ -398,8 +385,7 @@ try {
 }
 FC_LOG_AND_RETHROW() /// test_symbol
 
-BOOST_FIXTURE_TEST_CASE(test_proxy, currency_tester)
-try {
+BOOST_FIXTURE_TEST_CASE(test_proxy, currency_tester) try {
    produce_blocks(2);
 
    create_accounts({ "alice"_n, "proxy"_n });
@@ -456,8 +442,7 @@ try {
 }
 FC_LOG_AND_RETHROW() /// test_currency
 
-BOOST_FIXTURE_TEST_CASE(test_deferred_failure, currency_tester)
-try {
+BOOST_FIXTURE_TEST_CASE(test_deferred_failure, currency_tester) try {
    produce_blocks(2);
 
    create_accounts({ "alice"_n, "bob"_n, "proxy"_n });
@@ -569,8 +554,7 @@ try {
 }
 FC_LOG_AND_RETHROW() /// test_currency
 
-BOOST_FIXTURE_TEST_CASE(test_input_quantity, currency_tester)
-try {
+BOOST_FIXTURE_TEST_CASE(test_input_quantity, currency_tester) try {
 
    produce_blocks(2);
 
@@ -586,9 +570,7 @@ try {
    }
 
    // transfer using different symbol name fails
-   {
-      BOOST_REQUIRE_THROW(transfer("alice"_n, "carl"_n, "20.50 USD"), eosio_assert_message_exception);
-   }
+   { BOOST_REQUIRE_THROW(transfer("alice"_n, "carl"_n, "20.50 USD"), eosio_assert_message_exception); }
 
    // issue to alice using right precision
    {

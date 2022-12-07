@@ -15,8 +15,7 @@ namespace detail {
  * @param value - an unsigned integral
  * @return - the minimum power-of-2 which is >= value
  */
-constexpr uint64_t next_power_of_2(uint64_t value)
-{
+constexpr uint64_t next_power_of_2(uint64_t value) {
    value -= 1;
    value |= value >> 1;
    value |= value >> 2;
@@ -37,8 +36,7 @@ constexpr uint64_t next_power_of_2(uint64_t value)
  * @param value - and integral power-of-2
  * @return the number of leading zeros
  */
-constexpr int clz_power_2(uint64_t value)
-{
+constexpr int clz_power_2(uint64_t value) {
    int lz = 64;
 
    if (value)
@@ -66,8 +64,7 @@ constexpr int clz_power_2(uint64_t value)
  * @param node_count - the number of nodes in the implied tree
  * @return the max depth of the minimal tree that stores them
  */
-constexpr int calcluate_max_depth(uint64_t node_count)
-{
+constexpr int calcluate_max_depth(uint64_t node_count) {
    if (node_count == 0) {
       return 0;
    }
@@ -76,15 +73,13 @@ constexpr int calcluate_max_depth(uint64_t node_count)
 }
 
 template<typename ContainerA, typename ContainerB>
-inline void move_nodes(ContainerA& to, const ContainerB& from)
-{
+inline void move_nodes(ContainerA& to, const ContainerB& from) {
    to.clear();
    to.insert(to.begin(), from.begin(), from.end());
 }
 
 template<typename Container>
-inline void move_nodes(Container& to, Container&& from)
-{
+inline void move_nodes(Container& to, Container&& from) {
    to = std::forward<Container>(from);
 }
 
@@ -104,13 +99,10 @@ inline void move_nodes(Container& to, Container&& from)
  * value to maintain validity.
  */
 template<typename DigestType, template<typename...> class Container = vector, typename... Args>
-class incremental_merkle_impl
-{
+class incremental_merkle_impl {
 public:
    incremental_merkle_impl()
-      : _node_count(0)
-   {
-   }
+      : _node_count(0) {}
 
    incremental_merkle_impl(const incremental_merkle_impl&)            = default;
    incremental_merkle_impl(incremental_merkle_impl&&)                 = default;
@@ -120,9 +112,7 @@ public:
    template<typename Allocator,
             std::enable_if_t<!std::is_same<std::decay_t<Allocator>, incremental_merkle_impl>::value, int> = 0>
    incremental_merkle_impl(Allocator&& alloc)
-      : _active_nodes(forward<Allocator>(alloc))
-   {
-   }
+      : _active_nodes(forward<Allocator>(alloc)) {}
 
    /*
    template<template<typename ...> class OtherContainer, typename ...OtherArgs>
@@ -183,8 +173,7 @@ public:
     * @param digest - the node to add
     * @return - the new root
     */
-   const DigestType& append(const DigestType& digest)
-   {
+   const DigestType& append(const DigestType& digest) {
       bool partial              = false;
       auto max_depth            = detail::calcluate_max_depth(_node_count + 1);
       auto current_depth        = max_depth - 1;
@@ -249,8 +238,7 @@ public:
     *
     * @return
     */
-   DigestType get_root() const
-   {
+   DigestType get_root() const {
       if (_node_count > 0) {
          return _active_nodes.back();
       } else {

@@ -4,33 +4,27 @@
 namespace eosio {
 namespace chain {
 namespace webassembly {
-void interface::require_auth(account_name account) const
-{
+void interface::require_auth(account_name account) const {
    context.require_authorization(account);
 }
 
-bool interface::has_auth(account_name account) const
-{
+bool interface::has_auth(account_name account) const {
    return context.has_authorization(account);
 }
 
-void interface::require_auth2(account_name account, permission_name permission) const
-{
+void interface::require_auth2(account_name account, permission_name permission) const {
    context.require_authorization(account, permission);
 }
 
-void interface::require_recipient(account_name recipient)
-{
+void interface::require_recipient(account_name recipient) {
    context.require_recipient(recipient);
 }
 
-bool interface::is_account(account_name account) const
-{
+bool interface::is_account(account_name account) const {
    return context.is_account(account);
 }
 
-struct get_code_hash_result
-{
+struct get_code_hash_result {
    unsigned_int struct_version;
    uint64_t     code_sequence;
    fc::sha256   code_hash;
@@ -40,8 +34,7 @@ struct get_code_hash_result
 
 uint32_t interface::get_code_hash(account_name   account,
                                   uint32_t       struct_version,
-                                  vm::span<char> packed_result) const
-{
+                                  vm::span<char> packed_result) const {
    struct_version              = std::min(uint32_t(0), struct_version);
    get_code_hash_result result = { struct_version };
    context.get_code_hash(account, result.code_sequence, result.code_hash, result.vm_type, result.vm_version);

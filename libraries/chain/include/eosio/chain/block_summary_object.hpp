@@ -14,8 +14,7 @@ namespace chain {
  *  so we can calculate whether the current transaction is valid and at
  *  what time it should expire.
  */
-class block_summary_object : public chainbase::object<block_summary_object_type, block_summary_object>
-{
+class block_summary_object : public chainbase::object<block_summary_object_type, block_summary_object> {
    OBJECT_CTOR(block_summary_object)
 
    id_type       id;

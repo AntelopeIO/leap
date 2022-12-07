@@ -17,25 +17,21 @@ namespace eosio {
 namespace chain {
 
 variant_snapshot_writer::variant_snapshot_writer(fc::mutable_variant_object& snapshot)
-   : snapshot(snapshot)
-{
+   : snapshot(snapshot) {
    snapshot.set("sections", fc::variants());
    snapshot.set("version", current_snapshot_version);
 }
 
-void variant_snapshot_writer::write_start_section(const std::string& section_name)
-{
+void variant_snapshot_writer::write_start_section(const std::string& section_name) {
    current_rows.clear();
    current_section_name = section_name;
 }
 
-void variant_snapshot_writer::write_row(const detail::abstract_snapshot_row_writer& row_writer)
-{
+void variant_snapshot_writer::write_row(const detail::abstract_snapshot_row_writer& row_writer) {
    current_rows.emplace_back(row_writer.to_variant());
 }
 
-void variant_snapshot_writer::write_end_section()
-{
+void variant_snapshot_writer::write_end_section() {
    snapshot["sections"].get_array().emplace_back(
       fc::mutable_variant_object()("name", std::move(current_section_name))("rows", std::move(current_rows)));
 }
@@ -45,12 +41,9 @@ void variant_snapshot_writer::finalize() {}
 variant_snapshot_reader::variant_snapshot_reader(const fc::variant& snapshot)
    : snapshot(snapshot)
    , cur_section(nullptr)
-   , cur_row(0)
-{
-}
+   , cur_row(0) {}
 
-void variant_snapshot_reader::validate() const
-{
+void variant_snapshot_reader::validate() const {
    EOS_ASSERT(snapshot.is_object(), snapshot_validation_exception, "Variant snapshot is not an object");
    const fc::variant_object& o = snapshot.get_object();
 
@@ -91,8 +84,7 @@ void variant_snapshot_reader::validate() const
    }
 }
 
-void variant_snapshot_reader::set_section(const string& section_name)
-{
+void variant_snapshot_reader::set_section(const string& section_name) {
    const auto& sections = snapshot["sections"].get_array();
    for (const auto& section : sections) {
       if (section["name"].as_string() == section_name) {
@@ -104,27 +96,23 @@ void variant_snapshot_reader::set_section(const string& section_name)
    EOS_THROW(snapshot_exception, "Variant snapshot has no section named ${n}", ("n", section_name));
 }
 
-bool variant_snapshot_reader::read_row(detail::abstract_snapshot_row_reader& row_reader)
-{
+bool variant_snapshot_reader::read_row(detail::abstract_snapshot_row_reader& row_reader) {
    const auto& rows = (*cur_section)["rows"].get_array();
    row_reader.provide(rows.at(cur_row++));
    return cur_row < rows.size();
 }
 
-bool variant_snapshot_reader::empty()
-{
+bool variant_snapshot_reader::empty() {
    const auto& rows = (*cur_section)["rows"].get_array();
    return rows.empty();
 }
 
-void variant_snapshot_reader::clear_section()
-{
+void variant_snapshot_reader::clear_section() {
    cur_section = nullptr;
    cur_row     = 0;
 }
 
-void variant_snapshot_reader::return_to_header()
-{
+void variant_snapshot_reader::return_to_header() {
    clear_section();
 }
 
@@ -132,8 +120,7 @@ ostream_snapshot_writer::ostream_snapshot_writer(std::ostream& snapshot)
    : snapshot(snapshot)
    , header_pos(snapshot.tellp())
    , section_pos(-1)
-   , row_count(0)
-{
+   , row_count(0) {
    // write magic number
    auto totem = magic_number;
    snapshot.write((char*)&totem, sizeof(totem));
@@ -143,8 +130,7 @@ ostream_snapshot_writer::ostream_snapshot_writer(std::ostream& snapshot)
    snapshot.write((char*)&version, sizeof(version));
 }
 
-void ostream_snapshot_writer::write_start_section(const std::string& section_name)
-{
+void ostream_snapshot_writer::write_start_section(const std::string& section_name) {
    EOS_ASSERT(section_pos == std::streampos(-1),
               snapshot_exception,
               "Attempting to write a new section without closing the previous section");
@@ -164,8 +150,7 @@ void ostream_snapshot_writer::write_start_section(const std::string& section_nam
    snapshot.put(0);
 }
 
-void ostream_snapshot_writer::write_row(const detail::abstract_snapshot_row_writer& row_writer)
-{
+void ostream_snapshot_writer::write_row(const detail::abstract_snapshot_row_writer& row_writer) {
    auto restore = snapshot.tellp();
    try {
       row_writer.write(snapshot);
@@ -176,8 +161,7 @@ void ostream_snapshot_writer::write_row(const detail::abstract_snapshot_row_writ
    row_count++;
 }
 
-void ostream_snapshot_writer::write_end_section()
-{
+void ostream_snapshot_writer::write_end_section() {
    auto restore = snapshot.tellp();
 
    uint64_t section_size = restore - section_pos - sizeof(uint64_t);
@@ -196,8 +180,7 @@ void ostream_snapshot_writer::write_end_section()
    row_count   = 0;
 }
 
-void ostream_snapshot_writer::finalize()
-{
+void ostream_snapshot_writer::finalize() {
    uint64_t end_marker = std::numeric_limits<uint64_t>::max();
 
    // write a placeholder for the section size
@@ -206,8 +189,7 @@ void ostream_snapshot_writer::finalize()
 
 ostream_json_snapshot_writer::ostream_json_snapshot_writer(std::ostream& snapshot)
    : snapshot(snapshot)
-   , row_count(0)
-{
+   , row_count(0) {
    snapshot << "{\n";
    // write magic number
    auto totem = magic_number;
@@ -218,15 +200,13 @@ ostream_json_snapshot_writer::ostream_json_snapshot_writer(std::ostream& snapsho
    snapshot << ",\"version\":" << fc::json::to_string(version, fc::time_point::maximum()) << "\n";
 }
 
-void ostream_json_snapshot_writer::write_start_section(const std::string& section_name)
-{
+void ostream_json_snapshot_writer::write_start_section(const std::string& section_name) {
    row_count = 0;
    snapshot.inner << "," << fc::json::to_string(section_name, fc::time_point::maximum())
                   << ":{\n\"rows\":[\n";
 }
 
-void ostream_json_snapshot_writer::write_row(const detail::abstract_snapshot_row_writer& row_writer)
-{
+void ostream_json_snapshot_writer::write_row(const detail::abstract_snapshot_row_writer& row_writer) {
    const auto yield = [&](size_t s) {};
 
    if (row_count != 0)
@@ -235,14 +215,12 @@ void ostream_json_snapshot_writer::write_row(const detail::abstract_snapshot_row
    ++row_count;
 }
 
-void ostream_json_snapshot_writer::write_end_section()
-{
+void ostream_json_snapshot_writer::write_end_section() {
    snapshot.inner << "],\n\"num_rows\":" << row_count << "\n}\n";
    row_count = 0;
 }
 
-void ostream_json_snapshot_writer::finalize()
-{
+void ostream_json_snapshot_writer::finalize() {
    snapshot.inner << "}\n";
    snapshot.inner.flush();
 }
@@ -251,12 +229,9 @@ istream_snapshot_reader::istream_snapshot_reader(std::istream& snapshot)
    : snapshot(snapshot)
    , header_pos(snapshot.tellg())
    , num_rows(0)
-   , cur_row(0)
-{
-}
+   , cur_row(0) {}
 
-void istream_snapshot_reader::validate() const
-{
+void istream_snapshot_reader::validate() const {
    // make sure to restore the read pos
    auto restore_pos = fc::make_scoped_exit([this, pos = snapshot.tellg(), ex = snapshot.exceptions()]() {
       snapshot.seekg(pos);
@@ -290,8 +265,7 @@ void istream_snapshot_reader::validate() const
    }
 }
 
-bool istream_snapshot_reader::validate_section() const
-{
+bool istream_snapshot_reader::validate_section() const {
    uint64_t section_size = 0;
    snapshot.read((char*)&section_size, sizeof(section_size));
 
@@ -306,8 +280,7 @@ bool istream_snapshot_reader::validate_section() const
    return true;
 }
 
-void istream_snapshot_reader::set_section(const string& section_name)
-{
+void istream_snapshot_reader::set_section(const string& section_name) {
    auto restore_pos = fc::make_scoped_exit([this, pos = snapshot.tellg()]() { snapshot.seekg(pos); });
 
    const std::streamoff header_size =
@@ -349,31 +322,26 @@ void istream_snapshot_reader::set_section(const string& section_name)
    EOS_THROW(snapshot_exception, "Binary snapshot has no section named ${n}", ("n", section_name));
 }
 
-bool istream_snapshot_reader::read_row(detail::abstract_snapshot_row_reader& row_reader)
-{
+bool istream_snapshot_reader::read_row(detail::abstract_snapshot_row_reader& row_reader) {
    row_reader.provide(snapshot);
    return ++cur_row < num_rows;
 }
 
-bool istream_snapshot_reader::empty()
-{
+bool istream_snapshot_reader::empty() {
    return num_rows == 0;
 }
 
-void istream_snapshot_reader::clear_section()
-{
+void istream_snapshot_reader::clear_section() {
    num_rows = 0;
    cur_row  = 0;
 }
 
-void istream_snapshot_reader::return_to_header()
-{
+void istream_snapshot_reader::return_to_header() {
    snapshot.seekg(header_pos);
    clear_section();
 }
 
-struct istream_json_snapshot_reader_impl
-{
+struct istream_json_snapshot_reader_impl {
    uint64_t                  num_rows;
    uint64_t                  cur_row;
    eosio_rapidjson::Document doc;
@@ -385,8 +353,7 @@ istream_json_snapshot_reader::~istream_json_snapshot_reader() = default;
 istream_json_snapshot_reader::istream_json_snapshot_reader(const fc::path& p)
    : impl{
       new istream_json_snapshot_reader_impl{0, 0, {}, {}}
-}
-{
+} {
    FILE* fp = fopen(p.string().c_str(), "rb");
    EOS_ASSERT(fp, snapshot_exception, "Failed to open JSON snapshot: ${file}", ("file", p));
    auto                            close = fc::make_scoped_exit([&fp]() { fclose(fp); });
@@ -395,8 +362,7 @@ istream_json_snapshot_reader::istream_json_snapshot_reader(const fc::path& p)
    impl->doc.ParseStream(is);
 }
 
-void istream_json_snapshot_reader::validate() const
-{
+void istream_json_snapshot_reader::validate() const {
    try {
       // validate totem
       auto expected_totem = ostream_json_snapshot_writer::magic_number;
@@ -421,13 +387,11 @@ void istream_json_snapshot_reader::validate() const
    }
 }
 
-bool istream_json_snapshot_reader::validate_section() const
-{
+bool istream_json_snapshot_reader::validate_section() const {
    return true;
 }
 
-void istream_json_snapshot_reader::set_section(const string& section_name)
-{
+void istream_json_snapshot_reader::set_section(const string& section_name) {
    EOS_ASSERT(impl->doc.HasMember(section_name.c_str()),
               snapshot_exception,
               "JSON snapshot has no section ${sec}",
@@ -451,8 +415,7 @@ void istream_json_snapshot_reader::set_section(const string& section_name)
         ("section_name", section_name)("num_rows", impl->num_rows));
 }
 
-bool istream_json_snapshot_reader::read_row(detail::abstract_snapshot_row_reader& row_reader)
-{
+bool istream_json_snapshot_reader::read_row(detail::abstract_snapshot_row_reader& row_reader) {
    EOS_ASSERT(impl->cur_row < impl->num_rows,
               snapshot_exception,
               "JSON snapshot ${sect}'s cur_row ${cur_row} >= num_rows ${num_rows}",
@@ -468,45 +431,36 @@ bool istream_json_snapshot_reader::read_row(detail::abstract_snapshot_row_reader
    return ++impl->cur_row < impl->num_rows;
 }
 
-bool istream_json_snapshot_reader::empty()
-{
+bool istream_json_snapshot_reader::empty() {
    return impl->num_rows == 0;
 }
 
-void istream_json_snapshot_reader::clear_section()
-{
+void istream_json_snapshot_reader::clear_section() {
    impl->num_rows = 0;
    impl->cur_row  = 0;
    impl->sec_name = "";
 }
 
-void istream_json_snapshot_reader::return_to_header()
-{
+void istream_json_snapshot_reader::return_to_header() {
    clear_section();
 }
 
 integrity_hash_snapshot_writer::integrity_hash_snapshot_writer(fc::sha256::encoder& enc)
-   : enc(enc)
-{
-}
+   : enc(enc) {}
 
-void integrity_hash_snapshot_writer::write_start_section(const std::string&)
-{
+void integrity_hash_snapshot_writer::write_start_section(const std::string&) {
    // no-op for structural details
 }
 
-void integrity_hash_snapshot_writer::write_row(const detail::abstract_snapshot_row_writer& row_writer)
-{
+void integrity_hash_snapshot_writer::write_row(const detail::abstract_snapshot_row_writer& row_writer) {
    row_writer.write(enc);
 }
 
-void integrity_hash_snapshot_writer::write_end_section()
-{
+void integrity_hash_snapshot_writer::write_end_section() {
    // no-op for structural details
 }
 
-void integrity_hash_snapshot_writer::finalize()
-{
+void integrity_hash_snapshot_writer::finalize() {
    // no-op for structural details
 }
 

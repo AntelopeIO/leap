@@ -8,29 +8,23 @@
 
 namespace fc {
 class path;
-struct appender_config
-{
+struct appender_config {
    appender_config(const string& name = "", const string& type = "", variant args = variant())
       : name(name)
       , type(type)
       , args(fc::move(args))
-      , enabled(true)
-   {
-   }
+      , enabled(true) {}
    string  name;
    string  type;
    variant args;
    bool    enabled;
 };
 
-struct logger_config
-{
+struct logger_config {
    logger_config(const fc::string& name = "")
       : name(name)
       , enabled(true)
-      , additivity(false)
-   {
-   }
+      , additivity(false) {}
    string  name;
    ostring parent;
    /// if not set, then parents level is used.
@@ -41,20 +35,17 @@ struct logger_config
    std::vector<string> appenders;
 };
 
-struct logging_config
-{
+struct logging_config {
    static logging_config        default_config();
    std::vector<string>          includes;
    std::vector<appender_config> appenders;
    std::vector<logger_config>   loggers;
 };
 
-struct log_config
-{
+struct log_config {
 
    template<typename T>
-   static bool register_appender(const fc::string& type)
-   {
+   static bool register_appender(const fc::string& type) {
       return register_appender(type, std::make_shared<detail::appender_factory_impl<T>>());
    }
 

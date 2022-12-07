@@ -10,12 +10,10 @@ using namespace eosio::testing;
 
 extern void setup_test_logging();
 
-struct deep_mind_log_fixture
-{
+struct deep_mind_log_fixture {
    deep_mind_handler deep_mind_logger;
    fc::temp_file     log_output;
-   deep_mind_log_fixture()
-   {
+   deep_mind_log_fixture() {
       auto cfg = fc::logging_config::default_config();
 
       cfg.appenders.push_back(
@@ -35,8 +33,7 @@ struct deep_mind_log_fixture
       deep_mind_logger.update_config(deep_mind_handler::deep_mind_config{ .zero_elapsed = true });
       deep_mind_logger.update_logger("deep-mind");
    }
-   ~deep_mind_log_fixture()
-   {
+   ~deep_mind_log_fixture() {
       fc::configure_logging(fc::logging_config::default_config());
       setup_test_logging();
    }
@@ -44,18 +41,14 @@ struct deep_mind_log_fixture
 
 struct deep_mind_tester
    : deep_mind_log_fixture
-   , validating_tester
-{
+   , validating_tester {
    deep_mind_tester()
-      : validating_tester({}, &deep_mind_logger)
-   {
-   }
+      : validating_tester({}, &deep_mind_logger) {}
 };
 
 namespace {
 
-void compare_files(const std::string& filename1, const std::string& filename2)
-{
+void compare_files(const std::string& filename1, const std::string& filename2) {
    std::ifstream file1(filename1.c_str());
    std::ifstream file2(filename2.c_str());
    std::string   line1, line2;
@@ -80,8 +73,7 @@ void compare_files(const std::string& filename1, const std::string& filename2)
 
 BOOST_AUTO_TEST_SUITE(deep_mind_tests)
 
-BOOST_FIXTURE_TEST_CASE(deep_mind, deep_mind_tester)
-{
+BOOST_FIXTURE_TEST_CASE(deep_mind, deep_mind_tester) {
    produce_block();
 
    create_account("alice"_n);

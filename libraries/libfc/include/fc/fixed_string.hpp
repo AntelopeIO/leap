@@ -12,17 +12,13 @@ namespace fc {
  *  sorting.
  */
 template<typename Storage = std::pair<uint64_t, uint64_t>>
-class fixed_string
-{
+class fixed_string {
 public:
    fixed_string() { memset((char*)&data, 0, sizeof(data)); }
    fixed_string(const fixed_string& c)
-      : data(c.data)
-   {
-   }
+      : data(c.data) {}
 
-   fixed_string(const std::string& str)
-   {
+   fixed_string(const std::string& str) {
       if (str.size() < sizeof(data)) {
          memset((char*)&data, 0, sizeof(data));
          memcpy((char*)&data, str.c_str(), str.size());
@@ -30,8 +26,7 @@ public:
          memcpy((char*)&data, str.c_str(), sizeof(data));
       }
    }
-   fixed_string(const char* str)
-   {
+   fixed_string(const char* str) {
       memset((char*)&data, 0, sizeof(data));
       auto l = strlen(str);
       if (l < sizeof(data)) {
@@ -42,29 +37,25 @@ public:
       }
    }
 
-   operator std::string() const
-   {
+   operator std::string() const {
       const char* self = (const char*)&data;
       return std::string(self, self + size());
    }
 
-   uint32_t size() const
-   {
+   uint32_t size() const {
       if (*(((const char*)&data) + sizeof(data) - 1))
          return sizeof(data);
       return strnlen((const char*)&data, sizeof(data));
    }
    uint32_t length() const { return size(); }
 
-   fixed_string& operator=(const fixed_string& str)
-   {
+   fixed_string& operator=(const fixed_string& str) {
       data = str.data;
       return *this;
    }
    fixed_string& operator=(const char* str) { return *this = fixed_string(str); }
 
-   fixed_string& operator=(const std::string& str)
-   {
+   fixed_string& operator=(const std::string& str) {
       if (str.size() < sizeof(data)) {
          memset((char*)&data, 0, sizeof(data));
          memcpy((char*)&data, str.c_str(), str.size());
@@ -84,8 +75,7 @@ public:
    friend bool operator==(const fixed_string& a, const fixed_string& b) { return a.data == b.data; }
    friend bool operator!=(const fixed_string& a, const fixed_string& b) { return a.data != b.data; }
 
-   friend std::ostream& operator<<(std::ostream& out, const fixed_string& str)
-   {
+   friend std::ostream& operator<<(std::ostream& out, const fixed_string& str) {
       return out << std::string(str);
    }
    // private:
@@ -94,16 +84,14 @@ public:
 
 namespace raw {
 template<typename Stream, typename Storage>
-inline void pack(Stream& s, const fc::fixed_string<Storage>& u)
-{
+inline void pack(Stream& s, const fc::fixed_string<Storage>& u) {
    unsigned_int size = u.size();
    pack(s, size);
    s.write((const char*)&u.data, size);
 }
 
 template<typename Stream, typename Storage>
-inline void unpack(Stream& s, fc::fixed_string<Storage>& u)
-{
+inline void unpack(Stream& s, fc::fixed_string<Storage>& u) {
    unsigned_int size;
    fc::raw::unpack(s, size);
    if (size.value > 0) {
@@ -147,14 +135,12 @@ inline void unpack( Stream& s, boost::multiprecision::number<Args...>& u ) {
 #include <fc/variant.hpp>
 namespace fc {
 template<typename Storage>
-void to_variant(const fixed_string<Storage>& s, variant& v)
-{
+void to_variant(const fixed_string<Storage>& s, variant& v) {
    v = std::string(s);
 }
 
 template<typename Storage>
-void from_variant(const variant& v, fixed_string<Storage>& s)
-{
+void from_variant(const variant& v, fixed_string<Storage>& s) {
    s = v.as_string();
 }
 }

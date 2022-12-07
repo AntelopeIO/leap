@@ -8,13 +8,10 @@ namespace fc {
 namespace raw {
 
 template<typename Stream>
-class variant_packer : public variant::visitor
-{
+class variant_packer : public variant::visitor {
 public:
    variant_packer(Stream& _s)
-      : s(_s)
-   {
-   }
+      : s(_s) {}
    virtual void handle() const {}
    virtual void handle(const int64_t& v) const { fc::raw::pack(s, v); }
    virtual void handle(const uint64_t& v) const { fc::raw::pack(s, v); }
@@ -29,14 +26,12 @@ public:
 };
 
 template<typename Stream>
-inline void pack(Stream& s, const variant& v)
-{
+inline void pack(Stream& s, const variant& v) {
    pack(s, uint8_t(v.get_type()));
    v.visit(variant_packer<Stream>(s));
 }
 template<typename Stream>
-inline void unpack(Stream& s, variant& v)
-{
+inline void unpack(Stream& s, variant& v) {
    uint8_t t;
    unpack(s, t);
    switch (t) {
@@ -94,8 +89,7 @@ inline void unpack(Stream& s, variant& v)
 }
 
 template<typename Stream>
-inline void pack(Stream& s, const variant_object& v)
-{
+inline void pack(Stream& s, const variant_object& v) {
    unsigned_int vs = (uint32_t)v.size();
    pack(s, vs);
    for (auto itr = v.begin(); itr != v.end(); ++itr) {
@@ -104,8 +98,7 @@ inline void pack(Stream& s, const variant_object& v)
    }
 }
 template<typename Stream>
-inline void unpack(Stream& s, variant_object& v)
-{
+inline void unpack(Stream& s, variant_object& v) {
    unsigned_int vs;
    unpack(s, vs);
 

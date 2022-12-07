@@ -10,21 +10,17 @@ namespace bfs = boost::filesystem;
 
 namespace eosio::resource_monitor {
 template<typename SpaceProvider>
-class file_space_handler
-{
+class file_space_handler {
 public:
    file_space_handler(SpaceProvider&& space_provider, boost::asio::io_context& ctx)
       : space_provider(std::move(space_provider))
-      , timer{ ctx }
-   {
-   }
+      , timer{ ctx } {}
 
    void set_sleep_time(uint32_t sleep_time) { sleep_time_in_secs = sleep_time; }
 
    // warning_threshold must be less than shutdown_threshold.
    // set them together so it is simpler to check.
-   void set_threshold(uint32_t new_threshold, uint32_t new_warning_threshold)
-   {
+   void set_threshold(uint32_t new_threshold, uint32_t new_warning_threshold) {
       EOS_ASSERT(new_warning_threshold < new_threshold,
                  chain::plugin_config_exception,
                  "warning_threshold ${new_warning_threshold} must be less than threshold ${new_threshold}",
@@ -34,15 +30,13 @@ public:
       warning_threshold  = new_warning_threshold;
    }
 
-   void set_shutdown_on_exceeded(bool new_shutdown_on_exceeded)
-   {
+   void set_shutdown_on_exceeded(bool new_shutdown_on_exceeded) {
       shutdown_on_exceeded = new_shutdown_on_exceeded;
    }
 
    void set_warning_interval(uint32_t new_warning_interval) { warning_interval = new_warning_interval; }
 
-   bool is_threshold_exceeded()
-   {
+   bool is_threshold_exceeded() {
       // Go over each monitored file system
       for (auto& fs : filesystems) {
          boost::system::error_code ec;
@@ -81,8 +75,7 @@ public:
       return false;
    }
 
-   void add_file_system(const bfs::path& path_name)
-   {
+   void add_file_system(const bfs::path& path_name) {
       // Get detailed information of the path
       struct stat statbuf;
       auto        status = space_provider.get_stat(path_name.string().c_str(), &statbuf);
@@ -129,8 +122,7 @@ public:
               "capacity", info.capacity)("threshold", shutdown_threshold));
    }
 
-   void space_monitor_loop()
-   {
+   void space_monitor_loop() {
       if (is_threshold_exceeded() && shutdown_on_exceeded) {
          elog("Shutting down, file system exceeded threshold");
          appbase::app().quit(); // This will gracefully stop Nodeos
@@ -162,8 +154,7 @@ private:
    uint32_t warning_threshold{ 85 };
    bool     shutdown_on_exceeded{ true };
 
-   struct filesystem_info
-   {
+   struct filesystem_info {
       dev_t     st_dev;                  // device id of file system containing "file_path"
       uintmax_t shutdown_available{ 0 }; // minimum number of available bytes the file system must maintain
       bfs::path path_name;
@@ -175,9 +166,7 @@ private:
          : st_dev(dev)
          , shutdown_available(available)
          , path_name(path)
-         , warning_available(warning)
-      {
-      }
+         , warning_available(warning) {}
    };
 
    // Stores file systems to be monitored. Duplicate
@@ -188,8 +177,7 @@ private:
    uint32_t warning_interval_counter{ 1 };
    bool     output_threshold_warning{ true };
 
-   void update_warning_interval_counter()
-   {
+   void update_warning_interval_counter() {
       if (warning_interval_counter == warning_interval) {
          output_threshold_warning = true;
          warning_interval_counter = 1;

@@ -424,8 +424,7 @@ const uint32_t crc_tableil8_o88[256] = {
  * end of the CRC lookup table crc_tableil8_o88
  */
 
-uint32_t crc32cSlicingBy8(uint32_t crc, const void* data, size_t length)
-{
+uint32_t crc32cSlicingBy8(uint32_t crc, const void* data, size_t length) {
    const char* p_buf = (const char*)data;
 
    // Handle leading misaligned bytes
@@ -463,8 +462,7 @@ uint32_t crc32cSlicingBy8(uint32_t crc, const void* data, size_t length)
 
 #if !defined __SSE4_2__ || (defined __SSE4_2__ && !defined __x86_64__)
 
-uint64_t mm_crc32_u64(uint64_t a, uint64_t b)
-{
+uint64_t mm_crc32_u64(uint64_t a, uint64_t b) {
    return crc32cSlicingBy8(a, (unsigned char*)&b, sizeof(b));
 }
 /*

@@ -4,8 +4,7 @@ using namespace eosio;
 
 using namespace eosio::internal_use_do_not_use;
 
-void test_api_db::primary_i64_general()
-{
+void test_api_db::primary_i64_general() {
    uint64_t receiver = get_self().value;
    auto     table1   = "table1"_n.value;
 
@@ -106,8 +105,7 @@ void test_api_db::primary_i64_general()
    }
 }
 
-void test_api_db::primary_i64_lowerbound()
-{
+void test_api_db::primary_i64_lowerbound() {
    uint64_t receiver = get_self().value;
    auto     table    = "mytable"_n.value;
    db_store_i64(receiver, table, receiver, "alice"_n.value, "alice's info", strlen("alice's info"));
@@ -141,8 +139,7 @@ void test_api_db::primary_i64_lowerbound()
    }
 }
 
-void test_api_db::primary_i64_upperbound()
-{
+void test_api_db::primary_i64_upperbound() {
    uint64_t          receiver = get_self().value;
    auto              table    = "mytable"_n.value;
    const std::string err      = "primary_i64_upperbound";
@@ -168,15 +165,13 @@ void test_api_db::primary_i64_upperbound()
    }
 }
 
-void test_api_db::idx64_general()
-{
+void test_api_db::idx64_general() {
    uint64_t   receiver = get_self().value;
    const auto table    = "myindextable"_n.value;
 
    typedef uint64_t secondary_type;
 
-   struct record
-   {
+   struct record {
       uint64_t       ssn;
       secondary_type name;
    };
@@ -294,8 +289,7 @@ void test_api_db::idx64_general()
    }
 }
 
-void test_api_db::idx64_lowerbound()
-{
+void test_api_db::idx64_lowerbound() {
    uint64_t          receiver = get_self().value;
    const auto        table    = "myindextable"_n.value;
    typedef uint64_t  secondary_type;
@@ -394,8 +388,7 @@ void test_api_db::idx64_lowerbound()
    }
 }
 
-void test_api_db::idx64_upperbound()
-{
+void test_api_db::idx64_upperbound() {
    uint64_t          receiver = get_self().value;
    const auto        table    = "myindextable"_n.value;
    typedef uint64_t  secondary_type;
@@ -492,8 +485,7 @@ void test_api_db::idx64_upperbound()
    }
 }
 
-void test_api_db::test_invalid_access(name _code, uint64_t val, uint32_t index, bool store)
-{
+void test_api_db::test_invalid_access(name _code, uint64_t val, uint32_t index, bool store) {
    uint64_t code     = _code.value;
    uint64_t receiver = get_self().value;
    uint64_t scope    = "access"_n.value;
@@ -538,16 +530,14 @@ void test_api_db::test_invalid_access(name _code, uint64_t val, uint32_t index, 
    }
 }
 
-void test_api_db::idx_double_nan_create_fail()
-{
+void test_api_db::idx_double_nan_create_fail() {
    uint64_t receiver = get_self().value;
    double   x        = 0.0;
    x                 = x / x;                                          // create a NaN
    db_idx_double_store("nan"_n.value, "nan"_n.value, receiver, 0, &x); // should fail
 }
 
-void test_api_db::idx_double_nan_modify_fail()
-{
+void test_api_db::idx_double_nan_modify_fail() {
    uint64_t receiver = get_self().value;
    double   x        = 0.0;
    db_idx_double_store("nan"_n.value, "nan"_n.value, receiver, 0, &x);
@@ -557,8 +547,7 @@ void test_api_db::idx_double_nan_modify_fail()
    db_idx_double_update(itr, 0, &x); // should fail
 }
 
-void test_api_db::idx_double_nan_lookup_fail(uint32_t lookup_type)
-{
+void test_api_db::idx_double_nan_lookup_fail(uint32_t lookup_type) {
    uint64_t receiver = get_self().value;
 
    uint64_t pk;
@@ -582,8 +571,7 @@ void test_api_db::idx_double_nan_lookup_fail(uint32_t lookup_type)
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wcast-align"
 
-void test_api_db::misaligned_secondary_key256_tests()
-{
+void test_api_db::misaligned_secondary_key256_tests() {
    uint64_t receiver = get_self().value;
    auto     key      = eosio::checksum256::make_from_word_sequence<uint64_t>(0ULL, 0ULL, 0ULL, 42ULL);
    char*    ptr      = (char*)(&key);

@@ -3,8 +3,7 @@
 
 namespace fc {
 
-uint8_t from_hex(char c)
-{
+uint8_t from_hex(char c) {
    if (c >= '0' && c <= '9')
       return c - '0';
    if (c >= 'a' && c <= 'f')
@@ -15,8 +14,7 @@ uint8_t from_hex(char c)
    return 0;
 }
 
-std::string to_hex(const char* d, uint32_t s)
-{
+std::string to_hex(const char* d, uint32_t s) {
    std::string r;
    const char* to_hex = "0123456789abcdef";
    uint8_t*    c      = (uint8_t*)d;
@@ -25,8 +23,7 @@ std::string to_hex(const char* d, uint32_t s)
    return r;
 }
 
-size_t from_hex(const fc::string& hex_str, char* out_data, size_t out_data_len)
-{
+size_t from_hex(const fc::string& hex_str, char* out_data, size_t out_data_len) {
    fc::string::const_iterator i       = hex_str.begin();
    uint8_t*                   out_pos = (uint8_t*)out_data;
    uint8_t*                   out_end = out_pos + out_data_len;
@@ -41,8 +38,7 @@ size_t from_hex(const fc::string& hex_str, char* out_data, size_t out_data_len)
    }
    return out_pos - (uint8_t*)out_data;
 }
-std::string to_hex(const std::vector<char>& data)
-{
+std::string to_hex(const std::vector<char>& data) {
    if (data.size())
       return to_hex(data.data(), data.size());
    return "";

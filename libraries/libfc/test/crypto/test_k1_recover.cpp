@@ -11,8 +11,7 @@ using namespace fc;
 #include "test_utils.hpp"
 
 namespace std {
-std::ostream& operator<<(std::ostream& st, const std::variant<fc::k1_recover_error, bytes>& err)
-{
+std::ostream& operator<<(std::ostream& st, const std::variant<fc::k1_recover_error, bytes>& err) {
    if (std::holds_alternative<fc::k1_recover_error>(err))
       st << static_cast<int32_t>(std::get<fc::k1_recover_error>(err));
    else
@@ -22,8 +21,7 @@ std::ostream& operator<<(std::ostream& st, const std::variant<fc::k1_recover_err
 }
 
 BOOST_AUTO_TEST_SUITE(k1_recover)
-BOOST_AUTO_TEST_CASE(recover)
-try {
+BOOST_AUTO_TEST_CASE(recover) try {
 
    using test_k1_recover = std::tuple<std::string, std::string, std::variant<fc::k1_recover_error, bytes>>;
    const std::vector<test_k1_recover> tests{

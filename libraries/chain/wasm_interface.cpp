@@ -40,14 +40,11 @@ wasm_interface::wasm_interface(vm_type                       vm,
                                const boost::filesystem::path data_dir,
                                const eosvmoc::config&        eosvmoc_config,
                                bool                          profile)
-   : my(new wasm_interface_impl(vm, eosvmoc_tierup, d, data_dir, eosvmoc_config, profile))
-{
-}
+   : my(new wasm_interface_impl(vm, eosvmoc_tierup, d, data_dir, eosvmoc_config, profile)) {}
 
 wasm_interface::~wasm_interface() {}
 
-void wasm_interface::validate(const controller& control, const bytes& code)
-{
+void wasm_interface::validate(const controller& control, const bytes& code) {
    const auto& pso = control.db().get<protocol_state_object>();
 
    if (control.is_builtin_activated(builtin_protocol_feature_t::configurable_wasm_limits)) {
@@ -75,29 +72,25 @@ void wasm_interface::validate(const controller& control, const bytes& code)
    // Hard: Kick off instantiation in a separate thread at this location
 }
 
-void wasm_interface::indicate_shutting_down()
-{
+void wasm_interface::indicate_shutting_down() {
    my->is_shutting_down = true;
 }
 
 void wasm_interface::code_block_num_last_used(const digest_type& code_hash,
                                               const uint8_t&     vm_type,
                                               const uint8_t&     vm_version,
-                                              const uint32_t&    block_num)
-{
+                                              const uint32_t&    block_num) {
    my->code_block_num_last_used(code_hash, vm_type, vm_version, block_num);
 }
 
-void wasm_interface::current_lib(const uint32_t lib)
-{
+void wasm_interface::current_lib(const uint32_t lib) {
    my->current_lib(lib);
 }
 
 void wasm_interface::apply(const digest_type& code_hash,
                            const uint8_t&     vm_type,
                            const uint8_t&     vm_version,
-                           apply_context&     context)
-{
+                           apply_context&     context) {
    if (substitute_apply && substitute_apply(code_hash, vm_type, vm_version, context))
       return;
 #ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
@@ -123,16 +116,14 @@ void wasm_interface::apply(const digest_type& code_hash,
    my->get_instantiated_module(code_hash, vm_type, vm_version, context.trx_context)->apply(context);
 }
 
-void wasm_interface::exit()
-{
+void wasm_interface::exit() {
    my->runtime_interface->immediately_exit_currently_running_module();
 }
 
 wasm_instantiated_module_interface::~wasm_instantiated_module_interface() {}
 wasm_runtime_interface::~wasm_runtime_interface() {}
 
-std::istream& operator>>(std::istream& in, wasm_interface::vm_type& runtime)
-{
+std::istream& operator>>(std::istream& in, wasm_interface::vm_type& runtime) {
    std::string s;
    in >> s;
    if (s == "eos-vm")

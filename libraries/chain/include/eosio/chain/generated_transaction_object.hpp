@@ -21,8 +21,7 @@ using namespace boost::multi_index;
  * in to new blocks
  */
 class generated_transaction_object
-   : public chainbase::object<generated_transaction_object_type, generated_transaction_object>
-{
+   : public chainbase::object<generated_transaction_object_type, generated_transaction_object> {
    OBJECT_CTOR(generated_transaction_object, (packed_trx))
 
    id_type             id;
@@ -36,8 +35,7 @@ class generated_transaction_object
    time_point   published;
    shared_blob  packed_trx;
 
-   uint32_t set(const transaction& trx)
-   {
+   uint32_t set(const transaction& trx) {
       auto trxsize = fc::raw::pack_size(trx);
       packed_trx.resize_and_fill(trxsize, [&trx](char* data, std::size_t size) {
          fc::datastream<char*> ds(data, size);
@@ -81,8 +79,7 @@ using generated_transaction_multi_index = chainbase::shared_multi_index_containe
                        BOOST_MULTI_INDEX_MEMBER(generated_transaction_object, account_name, sender),
                        BOOST_MULTI_INDEX_MEMBER(generated_transaction_object, uint128_t, sender_id)>>>>;
 
-class generated_transaction
-{
+class generated_transaction {
 public:
    generated_transaction(const generated_transaction_object& gto)
       : trx_id(gto.trx_id)
@@ -92,9 +89,7 @@ public:
       , delay_until(gto.delay_until)
       , expiration(gto.expiration)
       , published(gto.published)
-      , packed_trx(gto.packed_trx.begin(), gto.packed_trx.end())
-   {
-   }
+      , packed_trx(gto.packed_trx.begin(), gto.packed_trx.end()) {}
 
    generated_transaction(const generated_transaction& gt) = default;
    generated_transaction(generated_transaction&& gt)      = default;
@@ -111,8 +106,7 @@ public:
 
 namespace config {
 template<>
-struct billable_size<generated_transaction_object>
-{
+struct billable_size<generated_transaction_object> {
    static const uint64_t overhead =
       overhead_per_row_per_index_ram_bytes *
       5; ///< overhead for 5x indices internal-key, txid, expiration, delay, sender_id

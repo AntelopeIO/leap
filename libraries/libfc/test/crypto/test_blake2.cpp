@@ -11,8 +11,7 @@ using namespace fc;
 #include "test_utils.hpp"
 
 namespace std {
-std::ostream& operator<<(std::ostream& st, const std::variant<fc::blake2b_error, bytes>& err)
-{
+std::ostream& operator<<(std::ostream& st, const std::variant<fc::blake2b_error, bytes>& err) {
    if (std::holds_alternative<fc::blake2b_error>(err))
       st << static_cast<int32_t>(std::get<fc::blake2b_error>(err));
    else
@@ -22,8 +21,7 @@ std::ostream& operator<<(std::ostream& st, const std::variant<fc::blake2b_error,
 }
 
 BOOST_AUTO_TEST_SUITE(blake2)
-BOOST_AUTO_TEST_CASE(compress)
-try {
+BOOST_AUTO_TEST_CASE(compress) try {
 
    using compress_test = std::tuple<std::vector<string>, std::variant<fc::blake2b_error, bytes>>;
 

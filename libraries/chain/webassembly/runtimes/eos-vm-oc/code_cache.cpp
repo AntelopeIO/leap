@@ -31,8 +31,7 @@ static constexpr size_t   header_size       = 512u;
 static constexpr size_t   total_header_size = header_offset + header_size;
 static constexpr uint64_t header_id         = 0x32434f4d56534f45ULL; //"EOSVMOC2" little endian
 
-struct code_cache_header
-{
+struct code_cache_header {
    uint64_t  id                          = header_id;
    bool      dirty                       = false;
    uintptr_t serialized_descriptor_index = 0;
@@ -49,8 +48,7 @@ code_cache_async::code_cache_async(const bfs::path            data_dir,
                                    const chainbase::database& db)
    : code_cache_base(data_dir, eosvmoc_config, db)
    , _result_queue(eosvmoc_config.threads * 2)
-   , _threads(eosvmoc_config.threads)
-{
+   , _threads(eosvmoc_config.threads) {
    FC_ASSERT(_threads, "EOS VM OC requires at least 1 compile thread");
 
    wait_on_compile_monitor_message();
@@ -61,16 +59,14 @@ code_cache_async::code_cache_async(const bfs::path            data_dir,
    });
 }
 
-code_cache_async::~code_cache_async()
-{
+code_cache_async::~code_cache_async() {
    _compile_monitor_write_socket.shutdown(local::datagram_protocol::socket::shutdown_send);
    _monitor_reply_thread.join();
    consume_compile_thread_queue();
 }
 
 // remember again: wait_on_compile_monitor_message's callback is non-main thread!
-void code_cache_async::wait_on_compile_monitor_message()
-{
+void code_cache_async::wait_on_compile_monitor_message() {
    _compile_monitor_read_socket.async_wait(local::datagram_protocol::socket::wait_read, [this](auto ec) {
       if (ec) {
          _ctx.stop();
@@ -90,8 +86,7 @@ void code_cache_async::wait_on_compile_monitor_message()
 }
 
 // number processed, bytes available (only if number processed > 0)
-std::tuple<size_t, size_t> code_cache_async::consume_compile_thread_queue()
-{
+std::tuple<size_t, size_t> code_cache_async::consume_compile_thread_queue() {
    size_t bytes_remaining = 0;
    size_t gotsome         = _result_queue.consume_all([&](const wasm_compilation_result_message& result) {
       if (_outstanding_compiles_and_poison[result.code] == false) {
@@ -112,8 +107,7 @@ std::tuple<size_t, size_t> code_cache_async::consume_compile_thread_queue()
 }
 
 const code_descriptor* const code_cache_async::get_descriptor_for_code(const digest_type& code_id,
-                                                                       const uint8_t&     vm_version)
-{
+                                                                       const uint8_t&     vm_version) {
    // if there are any outstanding compiles, process the result queue now
    if (_outstanding_compiles_and_poison.size()) {
       auto [count_processed, bytes_remaining] = consume_compile_thread_queue();
@@ -178,8 +172,7 @@ const code_descriptor* const code_cache_async::get_descriptor_for_code(const dig
    return nullptr;
 }
 
-code_cache_sync::~code_cache_sync()
-{
+code_cache_sync::~code_cache_sync() {
    // it's exceedingly critical that we wait for the compile monitor to be done with all its work
    // This is easy in the sync case
    _compile_monitor_write_socket.shutdown(local::datagram_protocol::socket::shutdown_send);
@@ -189,8 +182,7 @@ code_cache_sync::~code_cache_sync()
 }
 
 const code_descriptor* const code_cache_sync::get_descriptor_for_code_sync(const digest_type& code_id,
-                                                                           const uint8_t&     vm_version)
-{
+                                                                           const uint8_t&     vm_version) {
    // check for entry in cache
    code_cache_index::index<by_hash>::type::iterator it =
       _cache_index.get<by_hash>().find(boost::make_tuple(code_id, vm_version));
@@ -231,8 +223,7 @@ code_cache_base::code_cache_base(const boost::filesystem::path data_dir,
                                  const eosvmoc::config&        eosvmoc_config,
                                  const chainbase::database&    db)
    : _db(db)
-   , _cache_file_path(data_dir / "code_cache.bin")
-{
+   , _cache_file_path(data_dir / "code_cache.bin") {
    static_assert(sizeof(allocator_t) <= header_offset, "header offset intersects with allocator");
 
    bfs::create_directories(data_dir);
@@ -320,8 +311,7 @@ code_cache_base::code_cache_base(const boost::filesystem::path data_dir,
    _compile_monitor_read_socket.assign(local::datagram_protocol(), compile_monitor_conn.release());
 }
 
-void code_cache_base::set_on_disk_region_dirty(bool dirty)
-{
+void code_cache_base::set_on_disk_region_dirty(bool dirty) {
    bip::file_mapping  dirty_mapping(_cache_file_path.generic_string().c_str(), bip::read_write);
    bip::mapped_region dirty_region(dirty_mapping, bip::read_write);
 
@@ -331,16 +321,14 @@ void code_cache_base::set_on_disk_region_dirty(bool dirty)
 }
 
 template<typename T>
-void code_cache_base::serialize_cache_index(fc::datastream<T>& ds)
-{
+void code_cache_base::serialize_cache_index(fc::datastream<T>& ds) {
    unsigned entries = _cache_index.size();
    fc::raw::pack(ds, entries);
    for (const code_descriptor& cd : _cache_index)
       fc::raw::pack(ds, cd);
 }
 
-code_cache_base::~code_cache_base()
-{
+code_cache_base::~code_cache_base() {
    // reopen the code cache in our process
    struct stat st;
    if (fstat(_cache_fd, &st))
@@ -385,8 +373,7 @@ code_cache_base::~code_cache_base()
    set_on_disk_region_dirty(false);
 }
 
-void code_cache_base::free_code(const digest_type& code_id, const uint8_t& vm_version)
-{
+void code_cache_base::free_code(const digest_type& code_id, const uint8_t& vm_version) {
    code_cache_index::index<by_hash>::type::iterator it =
       _cache_index.get<by_hash>().find(boost::make_tuple(code_id, vm_version));
    if (it != _cache_index.get<by_hash>().end()) {
@@ -406,8 +393,7 @@ void code_cache_base::free_code(const digest_type& code_id, const uint8_t& vm_ve
       compiling_it->second = true;
 }
 
-void code_cache_base::run_eviction_round()
-{
+void code_cache_base::run_eviction_round() {
    evict_wasms_message evict_msg;
    for (unsigned int i = 0; i < 25 && _cache_index.size() > 1; ++i) {
       evict_msg.codes.emplace_back(_cache_index.back());
@@ -416,8 +402,7 @@ void code_cache_base::run_eviction_round()
    write_message_with_fds(_compile_monitor_write_socket, evict_msg);
 }
 
-void code_cache_base::check_eviction_threshold(size_t free_bytes)
-{
+void code_cache_base::check_eviction_threshold(size_t free_bytes) {
    if (free_bytes < _free_bytes_eviction_threshold)
       run_eviction_round();
 }

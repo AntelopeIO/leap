@@ -39,8 +39,7 @@ transaction_trace_ptr issue_tokens(TESTER&      t,
                                    account_name to,
                                    const asset& amount,
                                    std::string  memo           = "",
-                                   account_name token_contract = "eosio.token"_n)
-{
+                                   account_name token_contract = "eosio.token"_n) {
    signed_transaction trx;
 
    trx.actions.emplace_back(
@@ -64,8 +63,7 @@ transaction_trace_ptr issue_tokens(TESTER&      t,
    return t.push_transaction(trx);
 }
 
-BOOST_FIXTURE_TEST_CASE(get_scope_test, TESTER)
-try {
+BOOST_FIXTURE_TEST_CASE(get_scope_test, TESTER) try {
    produce_blocks(2);
 
    create_accounts({ "eosio.token"_n,
@@ -146,8 +144,7 @@ try {
 }
 FC_LOG_AND_RETHROW() /// get_scope_test
 
-BOOST_FIXTURE_TEST_CASE(get_table_test, TESTER)
-try {
+BOOST_FIXTURE_TEST_CASE(get_table_test, TESTER) try {
    produce_blocks(2);
 
    create_accounts({ "eosio.token"_n,
@@ -330,8 +327,7 @@ try {
 }
 FC_LOG_AND_RETHROW()
 
-BOOST_FIXTURE_TEST_CASE(get_table_by_seckey_test, TESTER)
-try {
+BOOST_FIXTURE_TEST_CASE(get_table_by_seckey_test, TESTER) try {
    produce_blocks(2);
 
    create_accounts({ "eosio.token"_n,
@@ -472,8 +468,7 @@ try {
 }
 FC_LOG_AND_RETHROW()
 
-BOOST_FIXTURE_TEST_CASE(get_table_next_key_test, TESTER)
-try {
+BOOST_FIXTURE_TEST_CASE(get_table_next_key_test, TESTER) try {
    create_account("test"_n);
 
    // setup contract and abi

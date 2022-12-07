@@ -3,8 +3,7 @@
 const string         wasm_str_memory_grow_0 = base_dir + "/memory_grow.0.wasm";
 std::vector<uint8_t> wasm_memory_grow_0     = read_wasm(wasm_str_memory_grow_0.c_str());
 
-BOOST_DATA_TEST_CASE(memory_grow_0_check_throw, boost::unit_test::data::xrange(0, 6), index)
-{
+BOOST_DATA_TEST_CASE(memory_grow_0_check_throw, boost::unit_test::data::xrange(0, 6), index) {
    try {
       TESTER tester;
       tester.produce_block();
@@ -27,8 +26,7 @@ BOOST_DATA_TEST_CASE(memory_grow_0_check_throw, boost::unit_test::data::xrange(0
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_DATA_TEST_CASE(memory_grow_0_pass, boost::unit_test::data::xrange(6, 7), index)
-{
+BOOST_DATA_TEST_CASE(memory_grow_0_pass, boost::unit_test::data::xrange(6, 7), index) {
    try {
       TESTER tester;
       tester.produce_block();
@@ -54,8 +52,7 @@ BOOST_DATA_TEST_CASE(memory_grow_0_pass, boost::unit_test::data::xrange(6, 7), i
 const string         wasm_str_memory_grow_1 = base_dir + "/memory_grow.1.wasm";
 std::vector<uint8_t> wasm_memory_grow_1     = read_wasm(wasm_str_memory_grow_1.c_str());
 
-BOOST_DATA_TEST_CASE(memory_grow_1_pass, boost::unit_test::data::xrange(0, 1), index)
-{
+BOOST_DATA_TEST_CASE(memory_grow_1_pass, boost::unit_test::data::xrange(0, 1), index) {
    try {
       TESTER tester;
       tester.produce_block();
@@ -81,8 +78,7 @@ BOOST_DATA_TEST_CASE(memory_grow_1_pass, boost::unit_test::data::xrange(0, 1), i
 const string         wasm_str_memory_grow_2 = base_dir + "/memory_grow.2.wasm";
 std::vector<uint8_t> wasm_memory_grow_2     = read_wasm(wasm_str_memory_grow_2.c_str());
 
-BOOST_DATA_TEST_CASE(memory_grow_2_pass, boost::unit_test::data::xrange(0, 1), index)
-{
+BOOST_DATA_TEST_CASE(memory_grow_2_pass, boost::unit_test::data::xrange(0, 1), index) {
    try {
       TESTER tester;
       tester.produce_block();
@@ -108,8 +104,7 @@ BOOST_DATA_TEST_CASE(memory_grow_2_pass, boost::unit_test::data::xrange(0, 1), i
 const string         wasm_str_memory_grow_4 = base_dir + "/memory_grow.4.wasm";
 std::vector<uint8_t> wasm_memory_grow_4     = read_wasm(wasm_str_memory_grow_4.c_str());
 
-BOOST_DATA_TEST_CASE(memory_grow_4_check_throw, boost::unit_test::data::xrange(0, 1), index)
-{
+BOOST_DATA_TEST_CASE(memory_grow_4_check_throw, boost::unit_test::data::xrange(0, 1), index) {
    try {
       TESTER tester;
       tester.produce_block();
@@ -132,8 +127,7 @@ BOOST_DATA_TEST_CASE(memory_grow_4_check_throw, boost::unit_test::data::xrange(0
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_DATA_TEST_CASE(memory_grow_4_pass, boost::unit_test::data::xrange(1, 2), index)
-{
+BOOST_DATA_TEST_CASE(memory_grow_4_pass, boost::unit_test::data::xrange(1, 2), index) {
    try {
       TESTER tester;
       tester.produce_block();

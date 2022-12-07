@@ -2,8 +2,7 @@
 
 #include <eosio/eosio.hpp>
 
-class [[eosio::contract]] noop : public eosio::contract
-{
+class [[eosio::contract]] noop : public eosio::contract {
 public:
    using eosio::contract::contract;
 

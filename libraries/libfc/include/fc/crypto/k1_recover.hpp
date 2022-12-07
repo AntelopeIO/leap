@@ -9,8 +9,7 @@
 namespace fc {
 using bytes = std::vector<char>;
 
-enum class k1_recover_error : int32_t
-{
+enum class k1_recover_error : int32_t {
    init_error,
    input_error,
    invalid_signature,

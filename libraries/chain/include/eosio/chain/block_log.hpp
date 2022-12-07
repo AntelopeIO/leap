@@ -39,8 +39,7 @@ class block_log_impl;
  * and unreadable due to reclamation for purposes of saving space.
  */
 
-struct block_log_prune_config
-{
+struct block_log_prune_config {
    uint32_t prune_blocks; // number of blocks to prune to when doing a prune
    size_t   prune_threshold =
       4 * 1024 * 1024; //(approximately) how many bytes need to be added before a prune is performed
@@ -48,8 +47,7 @@ struct block_log_prune_config
                                           // this many live bytes
 };
 
-class block_log
-{
+class block_log {
 public:
    block_log(const fc::path& data_dir, std::optional<block_log_prune_config> prune_config);
    block_log(block_log&& other);
@@ -67,8 +65,7 @@ public:
    void             read_block_header(block_header& bh, uint64_t file_pos) const;
    signed_block_ptr read_block_by_num(uint32_t block_num) const;
    block_id_type    read_block_id_by_num(uint32_t block_num) const;
-   signed_block_ptr read_block_by_id(const block_id_type& id) const
-   {
+   signed_block_ptr read_block_by_id(const block_id_type& id) const {
       return read_block_by_num(block_header::num_from_id(id));
    }
 
@@ -124,8 +121,7 @@ private:
 //    block_id_type        previous;                   //bytes 14:45, low 4 bytes is big endian block number
 //    of previous block
 
-struct trim_data
-{ // used by trim_blocklog_front(), trim_blocklog_end(), and smoke_test()
+struct trim_data { // used by trim_blocklog_front(), trim_blocklog_end(), and smoke_test()
    trim_data(fc::path block_dir);
    ~trim_data();
    uint64_t block_index(uint32_t n) const;

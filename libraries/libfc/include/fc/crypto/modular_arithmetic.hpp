@@ -7,8 +7,7 @@
 namespace fc {
 using bytes = std::vector<char>;
 
-enum class modular_arithmetic_error : int32_t
-{
+enum class modular_arithmetic_error : int32_t {
    modulus_len_zero,
 };
 

@@ -35,8 +35,7 @@ using meta_permission_map =
  * corresponding authority
  */
 template<typename PermissionToAuthorityFunc>
-class authority_checker
-{
+class authority_checker {
 private:
    PermissionToAuthorityFunc    permission_to_authority;
    const std::function<void()>& checktime;
@@ -61,24 +60,17 @@ public:
       , provided_permissions(provided_permissions)
       , _used_keys(provided_keys.size(), false)
       , provided_delay(provided_delay)
-      , recursion_depth_limit(recursion_depth_limit)
-   {
+      , recursion_depth_limit(recursion_depth_limit) {
       EOS_ASSERT(static_cast<bool>(checktime), authorization_exception, "checktime cannot be empty");
    }
 
-   enum permission_cache_status
-   {
-      being_evaluated,
-      permission_unsatisfied,
-      permission_satisfied
-   };
+   enum permission_cache_status { being_evaluated, permission_unsatisfied, permission_satisfied };
 
    typedef map<permission_level, permission_cache_status> permission_cache_type;
 
    bool satisfied(const permission_level& permission,
                   fc::microseconds        override_provided_delay,
-                  permission_cache_type*  cached_perms = nullptr)
-   {
+                  permission_cache_type*  cached_perms = nullptr) {
       auto delay_reverter =
          fc::make_scoped_exit([this, delay = provided_delay]() mutable { provided_delay = delay; });
 
@@ -87,8 +79,7 @@ public:
       return satisfied(permission, cached_perms);
    }
 
-   bool satisfied(const permission_level& permission, permission_cache_type* cached_perms = nullptr)
-   {
+   bool satisfied(const permission_level& permission, permission_cache_type* cached_perms = nullptr) {
       permission_cache_type cached_permissions;
 
       if (cached_perms == nullptr)
@@ -101,8 +92,7 @@ public:
    template<typename AuthorityType>
    bool satisfied(const AuthorityType&   authority,
                   fc::microseconds       override_provided_delay,
-                  permission_cache_type* cached_perms = nullptr)
-   {
+                  permission_cache_type* cached_perms = nullptr) {
       auto delay_reverter =
          fc::make_scoped_exit([this, delay = provided_delay]() mutable { provided_delay = delay; });
 
@@ -112,8 +102,7 @@ public:
    }
 
    template<typename AuthorityType>
-   bool satisfied(const AuthorityType& authority, permission_cache_type* cached_perms = nullptr)
-   {
+   bool satisfied(const AuthorityType& authority, permission_cache_type* cached_perms = nullptr) {
       permission_cache_type cached_permissions;
 
       if (cached_perms == nullptr)
@@ -124,21 +113,18 @@ public:
 
    bool all_keys_used() const { return boost::algorithm::all_of_equal(_used_keys, true); }
 
-   flat_set<public_key_type> used_keys() const
-   {
+   flat_set<public_key_type> used_keys() const {
       auto range = filter_data_by_marker(provided_keys, _used_keys, true);
       return { range.begin(), range.end() };
    }
-   flat_set<public_key_type> unused_keys() const
-   {
+   flat_set<public_key_type> unused_keys() const {
       auto range = filter_data_by_marker(provided_keys, _used_keys, false);
       return { range.begin(), range.end() };
    }
 
    static std::optional<permission_cache_status> permission_status_in_cache(
       const permission_cache_type& permissions,
-      const permission_level&      level)
-   {
+      const permission_level&      level) {
       auto itr = permissions.find(level);
       if (itr != permissions.end())
          return itr->second;
@@ -151,8 +137,7 @@ public:
    }
 
 private:
-   permission_cache_type* initialize_permission_cache(permission_cache_type& cached_permissions)
-   {
+   permission_cache_type* initialize_permission_cache(permission_cache_type& cached_permissions) {
       for (const auto& p : provided_permissions) {
          cached_permissions.emplace_hint(cached_permissions.end(), p, permission_satisfied);
       }
@@ -160,8 +145,7 @@ private:
    }
 
    template<typename AuthorityType>
-   bool satisfied(const AuthorityType& authority, permission_cache_type& cached_permissions, uint16_t depth)
-   {
+   bool satisfied(const AuthorityType& authority, permission_cache_type& cached_permissions, uint16_t depth) {
       // Save the current used keys; if we do not satisfy this authority, the newly used keys aren't actually
       // used
       auto KeyReverter = fc::make_scoped_exit([this, keys = _used_keys]() mutable { _used_keys = keys; });
@@ -196,8 +180,7 @@ private:
       return false;
    }
 
-   struct weight_tally_visitor
-   {
+   struct weight_tally_visitor {
       using result_type = uint32_t;
 
       authority_checker&     checker;
@@ -210,12 +193,9 @@ private:
                            uint16_t               recursion_depth)
          : checker(checker)
          , cached_permissions(cached_permissions)
-         , recursion_depth(recursion_depth)
-      {
-      }
+         , recursion_depth(recursion_depth) {}
 
-      uint32_t operator()(const wait_weight& permission)
-      {
+      uint32_t operator()(const wait_weight& permission) {
          if (checker.provided_delay >= fc::seconds(permission.wait_sec)) {
             total_weight += permission.weight;
          }
@@ -224,8 +204,7 @@ private:
 
       template<typename KeyWeight,
                typename = std::enable_if_t<detail::is_any_of_v<KeyWeight, shared_key_weight, key_weight>>>
-      uint32_t operator()(const KeyWeight& permission)
-      {
+      uint32_t operator()(const KeyWeight& permission) {
          auto itr = boost::find(checker.provided_keys, permission.key);
          if (itr != checker.provided_keys.end()) {
             checker._used_keys[itr - checker.provided_keys.begin()] = true;
@@ -234,8 +213,7 @@ private:
          return total_weight;
       }
 
-      uint32_t operator()(const permission_level_weight& permission)
-      {
+      uint32_t operator()(const permission_level_weight& permission) {
          auto status =
             authority_checker::permission_status_in_cache(cached_permissions, permission.permission);
          if (!status) {
@@ -280,8 +258,7 @@ auto make_auth_checker(PermissionToAuthorityFunc&&       pta,
                        const flat_set<public_key_type>&  provided_keys,
                        const flat_set<permission_level>& provided_permissions = flat_set<permission_level>(),
                        fc::microseconds                  provided_delay       = fc::microseconds(0),
-                       const std::function<void()>&      _checktime           = std::function<void()>())
-{
+                       const std::function<void()>&      _checktime           = std::function<void()>()) {
    auto        noop_checktime = []() {};
    const auto& checktime      = (static_cast<bool>(_checktime) ? _checktime : noop_checktime);
    return authority_checker<PermissionToAuthorityFunc>(std::forward<PermissionToAuthorityFunc>(pta),

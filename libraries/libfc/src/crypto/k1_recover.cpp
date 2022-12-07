@@ -5,14 +5,12 @@
 
 namespace fc {
 
-const secp256k1_context* k1_recover_context()
-{
+const secp256k1_context* k1_recover_context() {
    static secp256k1_context* ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY);
    return ctx;
 }
 
-std::variant<k1_recover_error, bytes> k1_recover(const bytes& signature, const bytes& digest)
-{
+std::variant<k1_recover_error, bytes> k1_recover(const bytes& signature, const bytes& digest) {
    const secp256k1_context* context{ k1_recover_context() };
    FC_ASSERT(context != nullptr);
 

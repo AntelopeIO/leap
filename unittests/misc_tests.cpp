@@ -26,8 +26,7 @@ using namespace eosio::testing;
 #include <boost/random/mersenne_twister.hpp>
 #include <boost/random/uniform_int_distribution.hpp>
 
-struct base_reflect : fc::reflect_init
-{
+struct base_reflect : fc::reflect_init {
    int  bv                       = 0;
    bool base_reflect_initialized = false;
    int  base_reflect_called      = 0;
@@ -36,16 +35,14 @@ protected:
    friend struct fc::reflector<base_reflect>;
    friend struct fc::reflector_init_visitor<base_reflect>;
    friend struct fc::has_reflector_init<base_reflect>;
-   void reflector_init()
-   {
+   void reflector_init() {
       BOOST_CHECK_EQUAL(bv, 42); // should be deserialized before called, set by test
       ++base_reflect_called;
       base_reflect_initialized = true;
    }
 };
 
-struct derived_reflect : public base_reflect
-{
+struct derived_reflect : public base_reflect {
    int  dv                          = 0;
    bool derived_reflect_initialized = false;
    int  derived_reflect_called      = 0;
@@ -54,8 +51,7 @@ protected:
    friend struct fc::reflector<derived_reflect>;
    friend struct fc::reflector_init_visitor<derived_reflect>;
    friend struct fc::has_reflector_init<derived_reflect>;
-   void reflector_init()
-   {
+   void reflector_init() {
       BOOST_CHECK_EQUAL(bv, 42); // should be deserialized before called, set by test
       BOOST_CHECK_EQUAL(dv, 52); // should be deserialized before called, set by test
       ++derived_reflect_called;
@@ -64,8 +60,7 @@ protected:
    }
 };
 
-struct final_reflect : public derived_reflect
-{
+struct final_reflect : public derived_reflect {
    int  fv                        = 0;
    bool final_reflect_initialized = false;
    int  final_reflect_called      = 0;
@@ -74,8 +69,7 @@ private:
    friend struct fc::reflector<final_reflect>;
    friend struct fc::reflector_init_visitor<final_reflect>;
    friend struct fc::has_reflector_init<final_reflect>;
-   void reflector_init()
-   {
+   void reflector_init() {
       BOOST_CHECK_EQUAL(bv, 42); // should be deserialized before called, set by test
       BOOST_CHECK_EQUAL(dv, 52); // should be deserialized before called, set by test
       BOOST_CHECK_EQUAL(fv, 62); // should be deserialized before called, set by test
@@ -93,8 +87,7 @@ namespace eosio {
 using namespace chain;
 using namespace std;
 
-static constexpr uint64_t name_suffix(name nv)
-{
+static constexpr uint64_t name_suffix(name nv) {
    uint64_t n                                    = nv.to_uint64_t();
    uint32_t remaining_bits_after_last_actual_dot = 0;
    uint32_t tmp                                  = 0;
@@ -131,16 +124,14 @@ static constexpr uint64_t name_suffix(name nv)
 
 BOOST_AUTO_TEST_SUITE(misc_tests)
 
-BOOST_AUTO_TEST_CASE(reverse_endian_tests)
-{
+BOOST_AUTO_TEST_CASE(reverse_endian_tests) {
    BOOST_CHECK_EQUAL(endian_reverse_u64(0x0123456789abcdef), 0xefcdab8967452301);
    BOOST_CHECK_EQUAL(endian_reverse_u64(0x0102030405060708), 0x0807060504030201);
    BOOST_CHECK_EQUAL(endian_reverse_u32(0x01234567), 0x67452301);
    BOOST_CHECK_EQUAL(endian_reverse_u32(0x01020304), 0x04030201);
 }
 
-BOOST_AUTO_TEST_CASE(name_suffix_tests)
-{
+BOOST_AUTO_TEST_CASE(name_suffix_tests) {
    BOOST_CHECK_EQUAL(name{ name_suffix(name(0)) }, name{ 0 });
    BOOST_CHECK_EQUAL(name{ name_suffix("abcdehijklmn"_n) }, name{ "abcdehijklmn"_n });
    BOOST_CHECK_EQUAL(name{ name_suffix("abcdehijklmn1"_n) }, name{ "abcdehijklmn1"_n });
@@ -159,8 +150,7 @@ BOOST_AUTO_TEST_CASE(name_suffix_tests)
 }
 
 /// Test processing of unbalanced strings
-BOOST_AUTO_TEST_CASE(json_from_string_test)
-{
+BOOST_AUTO_TEST_CASE(json_from_string_test) {
    bool exc_found = false;
    try {
       auto val = fc::json::from_string("{\"}");
@@ -178,8 +168,7 @@ BOOST_AUTO_TEST_CASE(json_from_string_test)
    BOOST_CHECK_EQUAL(exc_found, true);
 }
 
-BOOST_AUTO_TEST_CASE(variant_format_string_limited)
-{
+BOOST_AUTO_TEST_CASE(variant_format_string_limited) {
    const string format = "${a} ${b} ${c}";
    {
       fc::mutable_variant_object mu;
@@ -274,8 +263,7 @@ BOOST_AUTO_TEST_CASE(variant_format_string_limited)
 }
 
 // Test overflow handling in asset::from_string
-BOOST_AUTO_TEST_CASE(asset_from_string_overflow)
-{
+BOOST_AUTO_TEST_CASE(asset_from_string_overflow) {
    asset a;
 
    // precision = 19, magnitude < 2^61
@@ -389,30 +377,25 @@ BOOST_AUTO_TEST_CASE(asset_from_string_overflow)
       [](const auto& e) { return expect_assert_message(e, "precision 20 should be <= 18"); });
 }
 
-struct permission_visitor
-{
+struct permission_visitor {
    std::vector<permission_level> permissions;
    std::vector<size_t>           size_stack;
    bool                          _log;
 
    permission_visitor(bool log = false)
-      : _log(log)
-   {
-   }
+      : _log(log) {}
 
    void operator()(const permission_level& permission) { permissions.push_back(permission); }
 
    void operator()(const permission_level& permission, bool repeat) {}
 
-   void push_undo()
-   {
+   void push_undo() {
       if (_log)
          ilog("push_undo called");
       size_stack.push_back(permissions.size());
    }
 
-   void pop_undo()
-   {
+   void pop_undo() {
       if (_log)
          ilog("pop_undo called");
       FC_ASSERT(size_stack.back() <= permissions.size() && size_stack.size() >= 1,
@@ -421,8 +404,7 @@ struct permission_visitor
       size_stack.pop_back();
    }
 
-   void squash_undo()
-   {
+   void squash_undo() {
       if (_log)
          ilog("squash_undo called");
       FC_ASSERT(size_stack.size() >= 1, "invariant failure in test permission_visitor");
@@ -430,8 +412,7 @@ struct permission_visitor
    }
 };
 
-BOOST_AUTO_TEST_CASE(authority_checker)
-{
+BOOST_AUTO_TEST_CASE(authority_checker) {
    try {
       testing::TESTER test;
       auto            a = test.get_public_key(name("a"), "active");
@@ -811,8 +792,7 @@ BOOST_AUTO_TEST_CASE(authority_checker)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(alphabetic_sort)
-{
+BOOST_AUTO_TEST_CASE(alphabetic_sort) {
    try {
 
       vector<string> words = {
@@ -844,8 +824,7 @@ BOOST_AUTO_TEST_CASE(alphabetic_sort)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(transaction_test)
-{
+BOOST_AUTO_TEST_CASE(transaction_test) {
    try {
 
       testing::TESTER    test;
@@ -982,8 +961,7 @@ BOOST_AUTO_TEST_CASE(transaction_test)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(signed_int_test)
-{
+BOOST_AUTO_TEST_CASE(signed_int_test) {
    try {
       char                  buf[32];
       fc::datastream<char*> ds(buf, 32);
@@ -1013,8 +991,7 @@ BOOST_AUTO_TEST_CASE(signed_int_test)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(transaction_metadata_test)
-{
+BOOST_AUTO_TEST_CASE(transaction_metadata_test) {
    try {
 
       testing::TESTER    test;
@@ -1103,8 +1080,7 @@ BOOST_AUTO_TEST_CASE(transaction_metadata_test)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(reflector_init_test)
-{
+BOOST_AUTO_TEST_CASE(reflector_init_test) {
    try {
 
       base_reflect br;
@@ -1303,8 +1279,7 @@ BOOST_AUTO_TEST_CASE(reflector_init_test)
 
 // Verify appbase::execution_priority_queue uses a stable priority queue so that jobs are executed
 // in order, FIFO, as submitted.
-BOOST_AUTO_TEST_CASE(stable_priority_queue_test)
-{
+BOOST_AUTO_TEST_CASE(stable_priority_queue_test) {
    try {
       using namespace std::chrono_literals;
 
@@ -1359,8 +1334,7 @@ BOOST_AUTO_TEST_CASE(stable_priority_queue_test)
 }
 
 // test that std::bad_alloc is being thrown
-BOOST_AUTO_TEST_CASE(bad_alloc_test)
-{
+BOOST_AUTO_TEST_CASE(bad_alloc_test) {
    tester     t; // force a controller to be constructed and set the new_handler
    int*       ptr  = nullptr;
    const auto fail = [&]() { ptr = new int[std::numeric_limits<int64_t>::max() / 16]; };
@@ -1368,8 +1342,7 @@ BOOST_AUTO_TEST_CASE(bad_alloc_test)
    BOOST_CHECK(ptr == nullptr);
 }
 
-BOOST_AUTO_TEST_CASE(public_key_from_hash)
-{
+BOOST_AUTO_TEST_CASE(public_key_from_hash) {
    auto private_key_string  = std::string("5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3");
    auto expected_public_key = std::string("EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV");
    auto test_private_key    = fc::crypto::private_key(private_key_string);

@@ -3,8 +3,7 @@
 const string         wasm_str_stack_0 = base_dir + "/stack.0.wasm";
 std::vector<uint8_t> wasm_stack_0     = read_wasm(wasm_str_stack_0.c_str());
 
-BOOST_DATA_TEST_CASE(stack_0_pass, boost::unit_test::data::xrange(0, 1), index)
-{
+BOOST_DATA_TEST_CASE(stack_0_pass, boost::unit_test::data::xrange(0, 1), index) {
    try {
       TESTER tester;
       tester.produce_block();
@@ -30,8 +29,7 @@ BOOST_DATA_TEST_CASE(stack_0_pass, boost::unit_test::data::xrange(0, 1), index)
 const string         wasm_str_stack_1 = base_dir + "/stack.1.wasm";
 std::vector<uint8_t> wasm_stack_1     = read_wasm(wasm_str_stack_1.c_str());
 
-BOOST_DATA_TEST_CASE(stack_1_module, boost::unit_test::data::xrange(0, 1), index)
-{
+BOOST_DATA_TEST_CASE(stack_1_module, boost::unit_test::data::xrange(0, 1), index) {
    try {
       TESTER tester;
       tester.produce_block();

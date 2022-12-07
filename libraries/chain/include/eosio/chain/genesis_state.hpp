@@ -12,8 +12,7 @@
 namespace eosio {
 namespace chain {
 
-struct genesis_state
-{
+struct genesis_state {
    genesis_state();
 
    static const string eosio_root_key;
@@ -64,8 +63,7 @@ struct genesis_state
     */
    chain_id_type compute_chain_id() const;
 
-   friend inline bool operator==(const genesis_state& lhs, const genesis_state& rhs)
-   {
+   friend inline bool operator==(const genesis_state& lhs, const genesis_state& rhs) {
       return std::tie(lhs.initial_configuration, lhs.initial_timestamp, lhs.initial_key) ==
              std::tie(rhs.initial_configuration, rhs.initial_timestamp, rhs.initial_key);
    };

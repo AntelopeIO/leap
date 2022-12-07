@@ -2,8 +2,7 @@
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/path.hpp>
 
-struct snapshot_options
-{
+struct snapshot_options {
    std::string input_file  = "";
    std::string output_file = "";
    uint64_t    db_size     = 65536ull;
@@ -11,13 +10,10 @@ struct snapshot_options
    std::string chain_id    = "";
 };
 
-class snapshot_actions : public sub_command<snapshot_options>
-{
+class snapshot_actions : public sub_command<snapshot_options> {
 public:
    snapshot_actions()
-      : sub_command()
-   {
-   }
+      : sub_command() {}
    void setup(CLI::App& app);
 
    // callbacks

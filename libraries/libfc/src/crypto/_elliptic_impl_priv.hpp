@@ -12,8 +12,7 @@ namespace detail {
 const secp256k1_context* _get_context();
 void                     _init_lib();
 
-class private_key_impl
-{
+class private_key_impl {
 public:
    private_key_impl() BOOST_NOEXCEPT;
    private_key_impl(const private_key_impl& cpy) BOOST_NOEXCEPT;

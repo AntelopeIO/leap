@@ -9,15 +9,9 @@ class mapped_region;
 }
 }
 namespace fc {
-enum mode_t
-{
-   read_only,
-   write_only,
-   read_write
-};
+enum mode_t { read_only, write_only, read_write };
 
-class file_mapping
-{
+class file_mapping {
 public:
    file_mapping(const char* file, mode_t);
    ~file_mapping();
@@ -31,8 +25,7 @@ private:
 #endif
 };
 
-class mapped_region
-{
+class mapped_region {
 public:
    mapped_region(const file_mapping& fm, mode_t m, uint64_t start, size_t size);
    mapped_region(const file_mapping& fm, mode_t m);

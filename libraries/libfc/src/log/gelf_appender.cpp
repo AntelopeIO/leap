@@ -18,8 +18,7 @@
 
 namespace fc {
 namespace detail {
-boost::asio::ip::udp::endpoint to_asio_ep(const fc::ip::endpoint& e)
-{
+boost::asio::ip::udp::endpoint to_asio_ep(const fc::ip::endpoint& e) {
    return boost::asio::ip::udp::endpoint(boost::asio::ip::address_v4(e.get_address()), e.port());
 }
 }
@@ -34,15 +33,13 @@ const std::regex gelf_appender::config::user_field_name_pattern{
    "^_[\\w\\.\\-]*$"
 }; // per GELF specification
 
-class gelf_appender::impl
-{
+class gelf_appender::impl {
 public:
    config                                        cfg;
    std::optional<boost::asio::ip::udp::endpoint> gelf_endpoint;
    udp_socket                                    gelf_socket;
 
-   impl(const variant& c)
-   {
+   impl(const variant& c) {
       mutable_variant_object mvo;
       from_variant(c, mvo);
 
@@ -72,18 +69,14 @@ public:
 };
 
 gelf_appender::gelf_appender(const variant& args)
-   : my(new impl(args))
-{
-}
+   : my(new impl(args)) {}
 
-void gelf_appender::initialize(boost::asio::io_service& io_service)
-{
+void gelf_appender::initialize(boost::asio::io_service& io_service) {
    try {
       try {
          // if it's a numeric address:port, this will parse it
          my->gelf_endpoint = detail::to_asio_ep(ip::endpoint::from_string(my->cfg.endpoint));
-      } catch (...) {
-      }
+      } catch (...) {}
       if (!my->gelf_endpoint) {
          // couldn't parse as a numeric ip address, try resolving as a DNS name.
          // This can yield, so don't do it in the catch block above
@@ -117,8 +110,7 @@ void gelf_appender::initialize(boost::asio::io_service& io_service)
 
 gelf_appender::~gelf_appender() {}
 
-void gelf_appender::log(const log_message& message)
-{
+void gelf_appender::log(const log_message& message) {
    if (!my->gelf_endpoint)
       return;
 

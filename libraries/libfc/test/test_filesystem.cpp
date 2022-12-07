@@ -6,8 +6,7 @@
 
 using namespace fc;
 
-std::string getFileContent(const string& filename)
-{
+std::string getFileContent(const string& filename) {
    string                      ret;
    boost::filesystem::ifstream ifs{ filename };
    ifs >> ret;
@@ -17,8 +16,7 @@ std::string getFileContent(const string& filename)
 
 BOOST_AUTO_TEST_SUITE(fc_filesystem)
 
-BOOST_AUTO_TEST_CASE(dir_copy)
-try {
+BOOST_AUTO_TEST_CASE(dir_copy) try {
    // 1. check whether dir can be copied when target dir does not exist,
    // but not recursively (compatible with 1.73)
 
@@ -55,8 +53,7 @@ try {
 }
 FC_LOG_AND_RETHROW();
 
-BOOST_AUTO_TEST_CASE(file_copy)
-try {
+BOOST_AUTO_TEST_CASE(file_copy) try {
    // 1. check whether file can be copied when target file does not exist,
    const string src_dir{ "/tmp/fc_copy_test_src" };
    if (!fc::exists(src_dir)) {

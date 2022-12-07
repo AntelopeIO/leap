@@ -10,8 +10,7 @@
 
 namespace bdata = boost::unit_test::data;
 
-struct ship_log_fixture
-{
+struct ship_log_fixture {
    ship_log_fixture(bool                    enable_read,
                     bool                    reopen_on_mark,
                     bool                    remove_index_on_reopen,
@@ -21,13 +20,11 @@ struct ship_log_fixture
       , reopen_on_mark(reopen_on_mark)
       , remove_index_on_reopen(remove_index_on_reopen)
       , vacuum_on_exit_if_small(vacuum_on_exit_if_small)
-      , prune_blocks(prune_blocks)
-   {
+      , prune_blocks(prune_blocks) {
       bounce();
    }
 
-   void add(uint32_t index, size_t size, char fillchar)
-   {
+   void add(uint32_t index, size_t size, char fillchar) {
       std::vector<char> a;
       a.assign(size, fillchar);
 
@@ -48,8 +45,7 @@ struct ship_log_fixture
       written_data.at(index) = a;
    }
 
-   void check_range_present(uint32_t first, uint32_t last)
-   {
+   void check_range_present(uint32_t first, uint32_t last) {
       BOOST_REQUIRE_EQUAL(log->begin_block(), first);
       BOOST_REQUIRE_EQUAL(log->end_block() - 1, last);
       if (enable_read) {
@@ -64,8 +60,7 @@ struct ship_log_fixture
       }
    }
 
-   void check_not_present(uint32_t index)
-   {
+   void check_not_present(uint32_t index) {
       eosio::state_history_log_header header;
       BOOST_REQUIRE_EXCEPTION(log->get_entry(index, header),
                               eosio::chain::plugin_exception,
@@ -79,8 +74,7 @@ struct ship_log_fixture
 
    // double the fun
    template<typename F>
-   void check_n_bounce(F&& f)
-   {
+   void check_n_bounce(F&& f) {
       f();
       if (reopen_on_mark) {
          bounce();
@@ -98,8 +92,7 @@ struct ship_log_fixture
    std::vector<std::vector<char>> written_data;
 
 private:
-   void bounce()
-   {
+   void bounce() {
       log.reset();
       if (remove_index_on_reopen)
          fc::remove(index_file.path());
@@ -119,8 +112,7 @@ private:
 
 // can only punch holes on filesystem block boundaries. let's make sure the entries we add are larger than
 // that
-static size_t larger_than_tmpfile_blocksize()
-{
+static size_t larger_than_tmpfile_blocksize() {
    fc::temp_file tf;
    fc::cfile     cf;
    cf.set_file_path(tf.path());
@@ -135,8 +127,7 @@ BOOST_DATA_TEST_CASE(basic_prune_test,
                      enable_read,
                      reopen_on_mark,
                      remove_index_on_reopen,
-                     vacuum_on_exit_if_small)
-{
+                     vacuum_on_exit_if_small) {
    try {
       ship_log_fixture t(enable_read, reopen_on_mark, remove_index_on_reopen, vacuum_on_exit_if_small, 4);
 
@@ -242,8 +233,7 @@ BOOST_DATA_TEST_CASE(basic_test,
                      bdata::xrange(2) * bdata::xrange(2) * bdata::xrange(2),
                      enable_read,
                      reopen_on_mark,
-                     remove_index_on_reopen)
-{
+                     remove_index_on_reopen) {
    try {
       ship_log_fixture t(
          enable_read, reopen_on_mark, remove_index_on_reopen, false, std::optional<uint32_t>());
@@ -279,8 +269,7 @@ BOOST_DATA_TEST_CASE(basic_test,
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(empty)
-{
+BOOST_AUTO_TEST_CASE(empty) {
    try {
       fc::temp_file log_file;
       fc::temp_file index_file;
@@ -334,8 +323,7 @@ BOOST_AUTO_TEST_CASE(empty)
 BOOST_DATA_TEST_CASE(non_prune_to_prune,
                      bdata::xrange(2) * bdata::xrange(2),
                      enable_read,
-                     remove_index_on_reopen)
-{
+                     remove_index_on_reopen) {
    try {
       ship_log_fixture t(enable_read, true, remove_index_on_reopen, false, std::optional<uint32_t>());
 
@@ -369,8 +357,7 @@ BOOST_DATA_TEST_CASE(non_prune_to_prune,
 BOOST_DATA_TEST_CASE(prune_to_non_prune,
                      bdata::xrange(2) * bdata::xrange(2),
                      enable_read,
-                     remove_index_on_reopen)
-{
+                     remove_index_on_reopen) {
    try {
       ship_log_fixture t(enable_read, true, remove_index_on_reopen, false, 4);
 

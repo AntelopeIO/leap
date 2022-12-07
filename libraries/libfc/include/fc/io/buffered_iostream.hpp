@@ -11,8 +11,7 @@ class buffered_ostream_impl;
  *  @brief Reads data from an unbuffered stream
  *         and enables peek functionality.
  */
-class buffered_istream : public virtual istream
-{
+class buffered_istream : public virtual istream {
 public:
    buffered_istream(istream_ptr is);
    buffered_istream(buffered_istream&& o);
@@ -46,8 +45,7 @@ typedef std::shared_ptr<buffered_istream> buffered_istream_ptr;
 /**
  *
  */
-class buffered_ostream : public virtual ostream
-{
+class buffered_ostream : public virtual ostream {
 public:
    buffered_ostream(ostream_ptr o, size_t bufsize = 4096);
    buffered_ostream(buffered_ostream&& m);

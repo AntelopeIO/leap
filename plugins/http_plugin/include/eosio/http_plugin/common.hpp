@@ -53,8 +53,7 @@ namespace detail {
 /**
  * virtualized wrapper for the various underlying connection functions needed in req/resp processng
  */
-struct abstract_conn
-{
+struct abstract_conn {
    virtual ~abstract_conn()                     = default;
    virtual bool verify_max_bytes_in_flight()    = 0;
    virtual bool verify_max_requests_in_flight() = 0;
@@ -77,12 +76,10 @@ using internal_url_handler = std::function<void(abstract_conn_ptr, string, strin
  * @param v - the fc::variant
  * @return in flight size of v
  */
-static size_t in_flight_sizeof(const fc::variant& v)
-{
+static size_t in_flight_sizeof(const fc::variant& v) {
    try {
       return fc::raw::pack_size(v);
-   } catch (...) {
-   }
+   } catch (...) {}
    return 0;
 }
 
@@ -94,8 +91,7 @@ static size_t in_flight_sizeof(const fc::variant& v)
  * @return in flight size of o
  */
 template<typename T>
-static size_t in_flight_sizeof(const std::optional<T>& o)
-{
+static size_t in_flight_sizeof(const std::optional<T>& o) {
    if (o) {
       return in_flight_sizeof(*o);
    }
@@ -107,8 +103,7 @@ static size_t in_flight_sizeof(const std::optional<T>& o)
  * @param s - the string
  * @return in flight size of s
  */
-static size_t in_flight_sizeof(const string& s)
-{
+static size_t in_flight_sizeof(const string& s) {
    return s.size();
 }
 } // namespace detail
@@ -116,8 +111,7 @@ static size_t in_flight_sizeof(const string& s)
 // key -> priority, url_handler
 typedef map<string, detail::internal_url_handler> url_handlers_type;
 
-struct http_plugin_state
-{
+struct http_plugin_state {
    string access_control_allow_origin;
    string access_control_allow_headers;
    string access_control_max_age;
@@ -146,9 +140,7 @@ struct http_plugin_state
    fc::logger& logger;
 
    explicit http_plugin_state(fc::logger& log)
-      : logger(log)
-   {
-   }
+      : logger(log) {}
 };
 
 /**
@@ -158,18 +150,15 @@ struct http_plugin_state
  * @tparam T - the contained Type
  */
 template<typename T>
-struct in_flight
-{
+struct in_flight {
    in_flight(T&& object, std::shared_ptr<http_plugin_state> plugin_state)
       : _object(std::move(object))
-      , _plugin_state(std::move(plugin_state))
-   {
+      , _plugin_state(std::move(plugin_state)) {
       _count = detail::in_flight_sizeof(_object);
       _plugin_state->bytes_in_flight += _count;
    }
 
-   ~in_flight()
-   {
+   ~in_flight() {
       if (_count) {
          _plugin_state->bytes_in_flight -= _count;
       }
@@ -180,8 +169,7 @@ struct in_flight
    in_flight(in_flight&& from)
       : _object(std::move(from._object))
       , _count(from._count)
-      , _plugin_state(std::move(from._plugin_state))
-   {
+      , _plugin_state(std::move(from._plugin_state)) {
       from._count = 0;
    }
 
@@ -210,8 +198,7 @@ struct in_flight
  * convenient wrapper to make an in_flight<T>
  */
 template<typename T>
-auto make_in_flight(T&& object, std::shared_ptr<http_plugin_state> plugin_state)
-{
+auto make_in_flight(T&& object, std::shared_ptr<http_plugin_state> plugin_state) {
    return std::make_shared<in_flight<T>>(std::forward<T>(object), std::move(plugin_state));
 }
 
@@ -224,8 +211,7 @@ auto make_in_flight(T&& object, std::shared_ptr<http_plugin_state> plugin_state)
  * @return lambda suitable for url_response_callback
  */
 auto make_http_response_handler(std::shared_ptr<http_plugin_state> plugin_state,
-                                detail::abstract_conn_ptr          session_ptr)
-{
+                                detail::abstract_conn_ptr          session_ptr) {
    return [plugin_state{ std::move(plugin_state) }, session_ptr{ std::move(session_ptr) }](
              int code, fc::time_point deadline, std::optional<fc::variant> response) {
       auto tracked_response = make_in_flight(std::move(response), plugin_state);
@@ -265,8 +251,7 @@ auto make_http_response_handler(std::shared_ptr<http_plugin_state> plugin_state,
 
 bool host_port_is_valid(const http_plugin_state& plugin_state,
                         const std::string&       header_host_port,
-                        const string&            endpoint_local_host_port)
-{
+                        const string&            endpoint_local_host_port) {
    return !plugin_state.validate_host || header_host_port == endpoint_local_host_port ||
           plugin_state.valid_hosts.find(header_host_port) != plugin_state.valid_hosts.end();
 }
@@ -274,8 +259,7 @@ bool host_port_is_valid(const http_plugin_state& plugin_state,
 bool host_is_valid(const http_plugin_state& plugin_state,
                    const std::string&       host,
                    const string&            endpoint_local_host_port,
-                   bool                     secure)
-{
+                   bool                     secure) {
    if (!plugin_state.validate_host) {
       return true;
    }

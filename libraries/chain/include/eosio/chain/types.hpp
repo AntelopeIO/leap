@@ -30,8 +30,7 @@
                                                                                                              \
 public:                                                                                                      \
    template<typename Constructor, typename Allocator>                                                        \
-   NAME(Constructor&& c, chainbase::allocator<Allocator>)                                                    \
-   {                                                                                                         \
+   NAME(Constructor&& c, chainbase::allocator<Allocator>) {                                                  \
       c(*this);                                                                                              \
    }
 #define OBJECT_CTOR2_MACRO(x, y, field) , field(a)
@@ -41,8 +40,7 @@ public:                                                                         
 public:                                                                                                      \
    template<typename Constructor, typename Allocator>                                                        \
    NAME(Constructor&& c, chainbase::allocator<Allocator> a)                                                  \
-      : id(0) BOOST_PP_SEQ_FOR_EACH(OBJECT_CTOR2_MACRO, _, FIELDS)                                           \
-   {                                                                                                         \
+      : id(0) BOOST_PP_SEQ_FOR_EACH(OBJECT_CTOR2_MACRO, _, FIELDS) {                                         \
       c(*this);                                                                                              \
    }
 #define OBJECT_CTOR(...) BOOST_PP_OVERLOAD(OBJECT_CTOR, __VA_ARGS__)(__VA_ARGS__)
@@ -51,35 +49,35 @@ public:                                                                         
 
 namespace eosio {
 namespace chain {
-using std::all_of;
-using std::enable_shared_from_this;
-using std::forward;
-using std::make_pair;
 using std::map;
-using std::move;
-using std::pair;
-using std::set;
-using std::shared_ptr;
-using std::string;
-using std::tie;
-using std::to_string;
-using std::unique_ptr;
-using std::unordered_map;
 using std::vector;
+using std::unordered_map;
+using std::string;
+using std::shared_ptr;
 using std::weak_ptr;
+using std::unique_ptr;
+using std::set;
+using std::pair;
+using std::make_pair;
+using std::enable_shared_from_this;
+using std::tie;
+using std::move;
+using std::forward;
+using std::to_string;
+using std::all_of;
 
+using fc::path;
+using fc::variant_object;
+using fc::variant;
 using fc::enum_type;
+using fc::unsigned_int;
+using fc::signed_int;
+using fc::time_point_sec;
+using fc::time_point;
+using fc::safe;
 using fc::flat_map;
 using fc::flat_multimap;
 using fc::flat_set;
-using fc::path;
-using fc::safe;
-using fc::signed_int;
-using fc::time_point;
-using fc::time_point_sec;
-using fc::unsigned_int;
-using fc::variant;
-using fc::variant_object;
 using std::variant;
 
 using public_key_type  = fc::crypto::public_key;
@@ -94,8 +92,7 @@ using deque = boost::container::deque<T, void, block_1024_option_t>;
 template<typename T>
 using deque = std::deque<T>;
 #endif
-struct void_t
-{};
+struct void_t {};
 
 using chainbase::allocator;
 using shared_string = chainbase::shared_string;
@@ -112,8 +109,7 @@ using shared_flat_multimap =
  * this wrapper allows us to continue that while also having a type-level distinction for
  * serialization and to/from variant
  */
-class shared_blob : public shared_string
-{
+class shared_blob : public shared_string {
 public:
    shared_blob()              = delete;
    shared_blob(shared_blob&&) = default;
@@ -126,14 +122,10 @@ public:
 
    template<typename InputIterator>
    shared_blob(InputIterator f, InputIterator l, const allocator_type& a)
-      : shared_string(f, l, a)
-   {
-   }
+      : shared_string(f, l, a) {}
 
    shared_blob(const allocator_type& a)
-      : shared_string(a)
-   {
-   }
+      : shared_string(a) {}
 };
 
 using action_name     = name;
@@ -152,8 +144,7 @@ using table_name      = name;
  * UNUSED_ enums can be taken for new purposes but otherwise the offsets
  * in this enumeration are potentially shared_memory breaking
  */
-enum object_type
-{
+enum object_type {
    null_object_type = 0,
    account_object_type,
    account_metadata_object_type,
@@ -266,10 +257,8 @@ using uint128_t           = unsigned __int128;
 using bytes               = vector<char>;
 using digests_t           = deque<digest_type>;
 
-struct sha256_less
-{
-   bool operator()(const fc::sha256& lhs, const fc::sha256& rhs) const
-   {
+struct sha256_less {
+   bool operator()(const fc::sha256& lhs, const fc::sha256& rhs) const {
       return std::tie(lhs._hash[0], lhs._hash[1], lhs._hash[2], lhs._hash[3]) <
              std::tie(rhs._hash[0], rhs._hash[1], rhs._hash[2], rhs._hash[3]);
    }
@@ -285,8 +274,7 @@ typedef vector<std::pair<uint16_t, vector<char>>> extensions_type;
  * emplace an extension into the extensions type such that it is properly ordered by extension id
  * this assumes exts is already sorted by extension id
  */
-inline auto emplace_extension(extensions_type& exts, uint16_t eid, vector<char>&& data)
-{
+inline auto emplace_extension(extensions_type& exts, uint16_t eid, vector<char>&& data) {
    auto insert_itr = std::upper_bound(
       exts.begin(), exts.end(), eid, [](uint16_t id, const auto& ext) { return id < ext.first; });
 
@@ -294,8 +282,7 @@ inline auto emplace_extension(extensions_type& exts, uint16_t eid, vector<char>&
 }
 
 template<typename Container>
-class end_insert_iterator
-{
+class end_insert_iterator {
 protected:
    Container* container;
 
@@ -309,12 +296,9 @@ public:
    using container_type = Container;
 
    explicit end_insert_iterator(Container& c)
-      : container(&c)
-   {
-   }
+      : container(&c) {}
 
-   end_insert_iterator& operator=(typename Container::const_reference value)
-   {
+   end_insert_iterator& operator=(typename Container::const_reference value) {
       container->insert(container->cend(), value);
       return *this;
    }
@@ -325,14 +309,12 @@ public:
 };
 
 template<typename Container>
-inline end_insert_iterator<Container> end_inserter(Container& c)
-{
+inline end_insert_iterator<Container> end_inserter(Container& c) {
    return end_insert_iterator<Container>(c);
 }
 
 template<typename T>
-struct enum_hash
-{
+struct enum_hash {
    static_assert(std::is_enum<T>::value, "enum_hash can only be used on enumeration types");
 
    using underlying_type = typename std::underlying_type<T>::type;
@@ -342,8 +324,7 @@ struct enum_hash
 // enum_hash needed to support old gcc compiler of Ubuntu 16.04
 
 namespace detail {
-struct extract_match
-{
+struct extract_match {
    bool enforce_unique = false;
 };
 
@@ -351,26 +332,22 @@ template<typename... Ts>
 struct decompose;
 
 template<>
-struct decompose<>
-{
+struct decompose<> {
    template<typename ResultVariant>
    static auto extract(uint16_t id, const vector<char>& data, ResultVariant& result)
-      -> std::optional<extract_match>
-   {
+      -> std::optional<extract_match> {
       return {};
    }
 };
 
 template<typename T, typename... Rest>
-struct decompose<T, Rest...>
-{
+struct decompose<T, Rest...> {
    using head_t = T;
    using tail_t = decompose<Rest...>;
 
    template<typename ResultVariant>
    static auto extract(uint16_t id, const vector<char>& data, ResultVariant& result)
-      -> std::optional<extract_match>
-   {
+      -> std::optional<extract_match> {
       if (id == head_t::extension_id()) {
          result = fc::raw::unpack<head_t>(data);
          return { extract_match{ head_t::enforce_unique() } };
@@ -381,8 +358,7 @@ struct decompose<T, Rest...>
 };
 
 template<typename T, typename... Ts>
-struct is_any_of
-{
+struct is_any_of {
    static constexpr bool value = std::disjunction_v<std::is_same<T, Ts>...>;
 };
 
@@ -394,8 +370,7 @@ template<typename E, typename F>
 static inline auto has_field(F flags, E field)
    -> std::enable_if_t<std::is_integral<F>::value && std::is_unsigned<F>::value && std::is_enum<E>::value &&
                           std::is_same<F, std::underlying_type_t<E>>::value,
-                       bool>
-{
+                       bool> {
    return ((flags & static_cast<F>(field)) != 0);
 }
 
@@ -403,8 +378,7 @@ template<typename E, typename F>
 static inline auto set_field(F flags, E field, bool value = true)
    -> std::enable_if_t<std::is_integral<F>::value && std::is_unsigned<F>::value && std::is_enum<E>::value &&
                           std::is_same<F, std::underlying_type_t<E>>::value,
-                       F>
-{
+                       F> {
    if (value)
       return (flags | static_cast<F>(field));
    else
@@ -412,8 +386,7 @@ static inline auto set_field(F flags, E field, bool value = true)
 }
 
 template<class... Ts>
-struct overloaded : Ts...
-{
+struct overloaded : Ts... {
    using Ts::operator()...;
 };
 template<class... Ts>
@@ -425,8 +398,7 @@ overloaded(Ts...) -> overloaded<Ts...>;
 namespace chainbase {
 // chainbase::shared_cow_string
 template<typename DataStream>
-inline DataStream& operator<<(DataStream& s, const chainbase::shared_cow_string& v)
-{
+inline DataStream& operator<<(DataStream& s, const chainbase::shared_cow_string& v) {
    FC_ASSERT(v.size() <= MAX_SIZE_OF_BYTE_ARRAYS);
    fc::raw::pack(s, fc::unsigned_int((uint32_t)v.size()));
    if (v.size())
@@ -435,8 +407,7 @@ inline DataStream& operator<<(DataStream& s, const chainbase::shared_cow_string&
 }
 
 template<typename DataStream>
-inline DataStream& operator>>(DataStream& s, chainbase::shared_cow_string& v)
-{
+inline DataStream& operator>>(DataStream& s, chainbase::shared_cow_string& v) {
    fc::unsigned_int size;
    fc::raw::unpack(s, size);
    FC_ASSERT(size.value <= MAX_SIZE_OF_BYTE_ARRAYS);

@@ -31,8 +31,7 @@ bool operator<(const fixed_key<Size>& c1, const fixed_key<Size>& c2);
  * @{
  */
 template<size_t Size>
-class fixed_key
-{
+class fixed_key {
 private:
    template<bool...>
    struct bool_pack;
@@ -40,8 +39,7 @@ private:
    using all_true = std::is_same<bool_pack<bs..., true>, bool_pack<true, bs...>>;
 
    template<typename Word, size_t NumWords>
-   static void set_from_word_sequence(const std::array<Word, NumWords>& arr, fixed_key<Size>& key)
-   {
+   static void set_from_word_sequence(const std::array<Word, NumWords>& arr, fixed_key<Size>& key) {
       auto         itr            = key._data.begin();
       word_t       temp_word      = 0;
       const size_t sub_word_shift = 8 * sizeof(Word);
@@ -84,9 +82,7 @@ public:
     * @details Default constructor to fixed_key object which initializes all bytes to zero
     */
    fixed_key()
-      : _data()
-   {
-   }
+      : _data() {}
 
    /**
     * @brief Constructor to fixed_key object from std::array of num_words() words
@@ -101,8 +97,7 @@ public:
             typename Enable =
                typename std::enable_if<std::is_integral<Word>::value && !std::is_same<Word, bool>::value &&
                                        sizeof(Word) < sizeof(word_t)>::type>
-   fixed_key(const std::array<Word, NumWords>& arr)
-   {
+   fixed_key(const std::array<Word, NumWords>& arr) {
       static_assert(sizeof(word_t) == (sizeof(word_t) / sizeof(Word)) * sizeof(Word),
                     "size of the backing word size is not divisible by the size of the array element");
       static_assert(sizeof(Word) * NumWords <= Size, "too many words supplied to fixed_key constructor");
@@ -116,8 +111,7 @@ public:
                                  sizeof(FirstWord) <= sizeof(word_t) &&
                                  all_true<(std::is_same<FirstWord, Rest>::value)...>::value,
                               FirstWord>::type first_word,
-      Rest... rest)
-   {
+      Rest... rest) {
       static_assert(
          sizeof(word_t) == (sizeof(word_t) / sizeof(FirstWord)) * sizeof(FirstWord),
          "size of the backing word size is not divisible by the size of the words supplied as arguments");
@@ -140,8 +134,7 @@ public:
 
    auto size() const { return _data.size(); }
 
-   std::array<uint8_t, Size> extract_as_byte_array() const
-   {
+   std::array<uint8_t, Size> extract_as_byte_array() const {
       std::array<uint8_t, Size> arr;
 
       const size_t num_sub_words = sizeof(word_t);
@@ -186,8 +179,7 @@ private:
  * @return if c1 == c2, return true, otherwise false
  */
 template<size_t Size>
-bool operator==(const fixed_key<Size>& c1, const fixed_key<Size>& c2)
-{
+bool operator==(const fixed_key<Size>& c1, const fixed_key<Size>& c2) {
    return c1._data == c2._data;
 }
 
@@ -198,8 +190,7 @@ bool operator==(const fixed_key<Size>& c1, const fixed_key<Size>& c2)
  * @return if c1 != c2, return true, otherwise false
  */
 template<size_t Size>
-bool operator!=(const fixed_key<Size>& c1, const fixed_key<Size>& c2)
-{
+bool operator!=(const fixed_key<Size>& c1, const fixed_key<Size>& c2) {
    return c1._data != c2._data;
 }
 
@@ -210,8 +201,7 @@ bool operator!=(const fixed_key<Size>& c1, const fixed_key<Size>& c2)
  * @return if c1 > c2, return true, otherwise false
  */
 template<size_t Size>
-bool operator>(const fixed_key<Size>& c1, const fixed_key<Size>& c2)
-{
+bool operator>(const fixed_key<Size>& c1, const fixed_key<Size>& c2) {
    return c1._data > c2._data;
 }
 
@@ -222,8 +212,7 @@ bool operator>(const fixed_key<Size>& c1, const fixed_key<Size>& c2)
  * @return if c1 < c2, return true, otherwise false
  */
 template<size_t Size>
-bool operator<(const fixed_key<Size>& c1, const fixed_key<Size>& c2)
-{
+bool operator<(const fixed_key<Size>& c1, const fixed_key<Size>& c2) {
    return c1._data < c2._data;
 }
 /// @} fixed_key

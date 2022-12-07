@@ -13,11 +13,9 @@ using trx_finality_status_processing_impl_ptr = std::unique_ptr<trx_finality_sta
 /**
  * This class manages the processing related to the transaction finality status feature.
  */
-class trx_finality_status_processing
-{
+class trx_finality_status_processing {
 public:
-   struct chain_state
-   {
+   struct chain_state {
       chain::block_id_type        head_id;
       chain::block_timestamp_type head_block_timestamp;
       chain::block_id_type        irr_id;
@@ -25,8 +23,7 @@ public:
       chain::block_id_type        earliest_tracked_block_id;
    };
 
-   struct trx_state
-   {
+   struct trx_state {
       chain::block_id_type block_id;
       fc::time_point       block_timestamp;
       fc::time_point       received;

@@ -15,8 +15,7 @@ using namespace eosio::testing;
 
 BOOST_AUTO_TEST_SUITE(chain_tests)
 
-BOOST_AUTO_TEST_CASE(replace_producer_keys)
-try {
+BOOST_AUTO_TEST_CASE(replace_producer_keys) try {
    validating_tester tester;
 
    const auto head_ptr = tester.control->head_block_state();
@@ -54,8 +53,7 @@ try {
 }
 FC_LOG_AND_RETHROW()
 
-BOOST_AUTO_TEST_CASE(replace_account_keys)
-try {
+BOOST_AUTO_TEST_CASE(replace_account_keys) try {
    validating_tester tester;
    const name        usr               = config::system_account_name;
    const name        active_permission = config::active_name;
@@ -82,8 +80,7 @@ try {
 }
 FC_LOG_AND_RETHROW()
 
-BOOST_AUTO_TEST_CASE(decompressed_size_over_limit)
-try {
+BOOST_AUTO_TEST_CASE(decompressed_size_over_limit) try {
    tester chain;
 
    // build a transaction, add cf data, sign
@@ -125,8 +122,7 @@ try {
 }
 FC_LOG_AND_RETHROW()
 
-BOOST_AUTO_TEST_CASE(decompressed_size_under_limit)
-try {
+BOOST_AUTO_TEST_CASE(decompressed_size_under_limit) try {
    tester chain;
 
    // build a transaction, add cf data, sign

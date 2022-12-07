@@ -17,8 +17,7 @@ namespace wallet {
 ///
 /// The name of the wallet is also used as part of the file name by soft_wallet. See wallet_manager::create.
 /// No const methods because timeout may cause lock_all() to be called.
-class wallet_manager
-{
+class wallet_manager {
 public:
    wallet_manager();
    wallet_manager(const wallet_manager&)            = delete;
@@ -29,8 +28,7 @@ public:
 
    /// Set the path for location of wallet files.
    /// @param p path to override default ./ location of wallet files.
-   void set_dir(const boost::filesystem::path& p)
-   {
+   void set_dir(const boost::filesystem::path& p) {
       dir = p;
       initialize_lock();
    }

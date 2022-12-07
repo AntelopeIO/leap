@@ -7,27 +7,23 @@ using namespace eosio::chain;
 using namespace eosio::testing;
 
 template<typename T>
-auto call_parse_no_params(const string& body)
-{
+auto call_parse_no_params(const string& body) {
    return parse_params<T, http_params_types::no_params>(body);
 }
 
 template<typename T>
-auto call_parse_params_required(const string& body)
-{
+auto call_parse_params_required(const string& body) {
    return parse_params<T, http_params_types::params_required>(body);
 }
 
 template<typename T>
-auto call_parse_possible_no_params(const string& body)
-{
+auto call_parse_possible_no_params(const string& body) {
    return parse_params<T, http_params_types::possible_no_params>(body);
 }
 
 BOOST_AUTO_TEST_SUITE(plugin_tests)
 
-BOOST_AUTO_TEST_CASE(make_trimmed_string_view)
-try {
+BOOST_AUTO_TEST_CASE(make_trimmed_string_view) try {
    { // empty string
       const std::string empty_str;
       BOOST_REQUIRE(empty_str.empty());
@@ -79,8 +75,7 @@ try {
 }
 FC_LOG_AND_RETHROW()
 
-BOOST_AUTO_TEST_CASE(is_empty_content)
-try {
+BOOST_AUTO_TEST_CASE(is_empty_content) try {
    { // empty string
       const std::string empty_str;
       BOOST_REQUIRE(empty_str.empty());
@@ -145,8 +140,7 @@ try {
 }
 FC_LOG_AND_RETHROW()
 
-BOOST_AUTO_TEST_CASE(parse_params)
-try {
+BOOST_AUTO_TEST_CASE(parse_params) try {
    { // empty body, no input
       const std::string empty_str;
       BOOST_REQUIRE(empty_str.empty());

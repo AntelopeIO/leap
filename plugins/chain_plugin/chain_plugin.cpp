@@ -46,8 +46,7 @@ namespace eosio {
 // declare operator<< and validate function for read_mode in the same namespace as read_mode itself
 namespace chain {
 
-std::ostream& operator<<(std::ostream& osm, eosio::chain::db_read_mode m)
-{
+std::ostream& operator<<(std::ostream& osm, eosio::chain::db_read_mode m) {
    if (m == eosio::chain::db_read_mode::HEAD) {
       osm << "head";
    } else if (m == eosio::chain::db_read_mode::IRREVERSIBLE) {
@@ -60,8 +59,7 @@ std::ostream& operator<<(std::ostream& osm, eosio::chain::db_read_mode m)
 void validate(boost::any&                     v,
               const std::vector<std::string>& values,
               eosio::chain::db_read_mode* /* target_type */,
-              int)
-{
+              int) {
    using namespace boost::program_options;
 
    // Make sure no previous assignment to 'v' was made.
@@ -80,8 +78,7 @@ void validate(boost::any&                     v,
    }
 }
 
-std::ostream& operator<<(std::ostream& osm, eosio::chain::validation_mode m)
-{
+std::ostream& operator<<(std::ostream& osm, eosio::chain::validation_mode m) {
    if (m == eosio::chain::validation_mode::FULL) {
       osm << "full";
    } else if (m == eosio::chain::validation_mode::LIGHT) {
@@ -94,8 +91,7 @@ std::ostream& operator<<(std::ostream& osm, eosio::chain::validation_mode m)
 void validate(boost::any&                     v,
               const std::vector<std::string>& values,
               eosio::chain::validation_mode* /* target_type */,
-              int)
-{
+              int) {
    using namespace boost::program_options;
 
    // Make sure no previous assignment to 'v' was made.
@@ -125,8 +121,7 @@ using fc::flat_map;
 
 using boost::signals2::scoped_connection;
 
-class chain_plugin_impl
-{
+class chain_plugin_impl {
 public:
    chain_plugin_impl()
       : pre_accepted_block_channel(app().get_channel<channels::pre_accepted_block>())
@@ -137,9 +132,7 @@ public:
       , applied_transaction_channel(app().get_channel<channels::applied_transaction>())
       , incoming_block_channel(app().get_channel<incoming::channels::block>())
       , incoming_block_sync_method(app().get_method<incoming::methods::block_sync>())
-      , incoming_transaction_async_method(app().get_method<incoming::methods::transaction_async>())
-   {
-   }
+      , incoming_transaction_async_method(app().get_method<incoming::methods::transaction_async>()) {}
 
    bfs::path                         blocks_dir;
    bool                              readonly = false;
@@ -192,8 +185,7 @@ public:
 };
 
 chain_plugin::chain_plugin()
-   : my(new chain_plugin_impl())
-{
+   : my(new chain_plugin_impl()) {
    app().register_config_type<eosio::chain::db_read_mode>();
    app().register_config_type<eosio::chain::validation_mode>();
    app().register_config_type<chainbase::pinnable_mapped_file::map_mode>();
@@ -202,8 +194,7 @@ chain_plugin::chain_plugin()
 
 chain_plugin::~chain_plugin() {}
 
-void chain_plugin::set_program_options(options_description& cli, options_description& cfg)
-{
+void chain_plugin::set_program_options(options_description& cli, options_description& cfg) {
    // build wasm_runtime help text
    std::string wasm_runtime_opt = "Override default WASM runtime (";
    std::string wasm_runtime_desc;
@@ -466,8 +457,7 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
       }                                                                                                      \
    }
 
-fc::time_point calculate_genesis_timestamp(string tstr)
-{
+fc::time_point calculate_genesis_timestamp(string tstr) {
    fc::time_point genesis_timestamp;
    if (strcasecmp(tstr.c_str(), "now") == 0) {
       genesis_timestamp = fc::time_point::now();
@@ -487,8 +477,7 @@ fc::time_point calculate_genesis_timestamp(string tstr)
    return genesis_timestamp;
 }
 
-void clear_directory_contents(const fc::path& p)
-{
+void clear_directory_contents(const fc::path& p) {
    using boost::filesystem::directory_iterator;
 
    if (!fc::is_directory(p))
@@ -499,8 +488,7 @@ void clear_directory_contents(const fc::path& p)
    }
 }
 
-void clear_chainbase_files(const fc::path& p)
-{
+void clear_chainbase_files(const fc::path& p) {
    if (!fc::is_directory(p))
       return;
 
@@ -511,8 +499,7 @@ void clear_chainbase_files(const fc::path& p)
 namespace {
 // This can be removed when versions of eosio that support reversible chainbase state file no longer
 // supported.
-void upgrade_from_reversible_to_fork_db(chain_plugin_impl* my)
-{
+void upgrade_from_reversible_to_fork_db(chain_plugin_impl* my) {
    namespace bfs         = boost::filesystem;
    bfs::path old_fork_db = my->chain_config->state_dir / config::forkdb_filename;
    bfs::path new_fork_db = my->blocks_dir / config::reversible_blocks_dir_name / config::forkdb_filename;
@@ -535,16 +522,14 @@ void upgrade_from_reversible_to_fork_db(chain_plugin_impl* my)
 }
 }
 
-void chain_plugin::do_hard_replay(const variables_map& options)
-{
+void chain_plugin::do_hard_replay(const variables_map& options) {
    ilog("Hard replay requested: deleting state database");
    clear_directory_contents(my->chain_config->state_dir);
    auto backup_dir = block_log::repair_log(
       my->blocks_dir, options.at("truncate-at-block").as<uint32_t>(), config::reversible_blocks_dir_name);
 }
 
-void chain_plugin::plugin_initialize(const variables_map& options)
-{
+void chain_plugin::plugin_initialize(const variables_map& options) {
    ilog("initializing chain plugin");
 
    try {
@@ -1180,8 +1165,7 @@ void chain_plugin::plugin_initialize(const variables_map& options)
    FC_LOG_AND_RETHROW()
 }
 
-void chain_plugin::plugin_startup()
-{
+void chain_plugin::plugin_startup() {
    try {
       handle_sighup(); // Sets loggers
 
@@ -1238,8 +1222,7 @@ void chain_plugin::plugin_startup()
    FC_CAPTURE_AND_RETHROW()
 }
 
-void chain_plugin::plugin_shutdown()
-{
+void chain_plugin::plugin_shutdown() {
    my->pre_accepted_block_connection.reset();
    my->accepted_block_header_connection.reset();
    my->accepted_block_connection.reset();
@@ -1252,8 +1235,7 @@ void chain_plugin::plugin_shutdown()
    my->chain.reset();
 }
 
-void chain_plugin::handle_sighup()
-{
+void chain_plugin::handle_sighup() {
    _deep_mind_log.update_logger(deep_mind_logger_name);
 }
 
@@ -1266,19 +1248,15 @@ chain_apis::read_write::read_write(controller&                  db,
    , trx_retry(trx_retry)
    , abi_serializer_max_time(abi_serializer_max_time)
    , http_max_response_time(http_max_response_time)
-   , api_accept_transactions(api_accept_transactions)
-{
-}
+   , api_accept_transactions(api_accept_transactions) {}
 
-void chain_apis::read_write::validate() const
-{
+void chain_apis::read_write::validate() const {
    EOS_ASSERT(api_accept_transactions,
               missing_chain_api_plugin_exception,
               "Not allowed, node has api-accept-transactions = false");
 }
 
-chain_apis::read_write chain_plugin::get_read_write_api(const fc::microseconds& http_max_response_time)
-{
+chain_apis::read_write chain_plugin::get_read_write_api(const fc::microseconds& http_max_response_time) {
    return chain_apis::read_write(chain(),
                                  my->_trx_retry_db,
                                  get_abi_serializer_max_time(),
@@ -1286,8 +1264,7 @@ chain_apis::read_write chain_plugin::get_read_write_api(const fc::microseconds& 
                                  api_accept_transactions());
 }
 
-chain_apis::read_only chain_plugin::get_read_only_api(const fc::microseconds& http_max_response_time) const
-{
+chain_apis::read_only chain_plugin::get_read_only_api(const fc::microseconds& http_max_response_time) const {
    return chain_apis::read_only(chain(),
                                 my->_account_query_db,
                                 get_abi_serializer_max_time(),
@@ -1296,54 +1273,44 @@ chain_apis::read_only chain_plugin::get_read_only_api(const fc::microseconds& ht
                                 my->_trx_finality_status_processing.get());
 }
 
-bool chain_plugin::accept_block(const signed_block_ptr& block, const block_id_type& id)
-{
+bool chain_plugin::accept_block(const signed_block_ptr& block, const block_id_type& id) {
    return my->incoming_block_sync_method(block, id);
 }
 
 void chain_plugin::accept_transaction(const chain::packed_transaction_ptr&        trx,
-                                      next_function<chain::transaction_trace_ptr> next)
-{
+                                      next_function<chain::transaction_trace_ptr> next) {
    my->incoming_transaction_async_method(
       trx, false, transaction_metadata::trx_type::input, false, std::move(next));
 }
 
-controller& chain_plugin::chain()
-{
+controller& chain_plugin::chain() {
    return *my->chain;
 }
-const controller& chain_plugin::chain() const
-{
+const controller& chain_plugin::chain() const {
    return *my->chain;
 }
 
-chain::chain_id_type chain_plugin::get_chain_id() const
-{
+chain::chain_id_type chain_plugin::get_chain_id() const {
    return my->chain->get_chain_id();
 }
 
-fc::microseconds chain_plugin::get_abi_serializer_max_time() const
-{
+fc::microseconds chain_plugin::get_abi_serializer_max_time() const {
    return my->abi_serializer_max_time_us;
 }
 
-bool chain_plugin::api_accept_transactions() const
-{
+bool chain_plugin::api_accept_transactions() const {
    return my->api_accept_transactions;
 }
 
-bool chain_plugin::accept_transactions() const
-{
+bool chain_plugin::accept_transactions() const {
    return my->accept_transactions;
 }
 
-void chain_plugin::enable_accept_transactions()
-{
+void chain_plugin::enable_accept_transactions() {
    my->accept_transactions = true;
 }
 
-void chain_plugin::log_guard_exception(const chain::guard_exception& e)
-{
+void chain_plugin::log_guard_exception(const chain::guard_exception& e) {
    if (e.code() == chain::database_guard_exception::code_value) {
       elog("Database has reached an unsafe level of usage, shutting down to avoid corrupting the database.  "
            "Please increase the value set for \"chain-state-db-size-mb\" and restart the process!");
@@ -1352,8 +1319,7 @@ void chain_plugin::log_guard_exception(const chain::guard_exception& e)
    dlog("Details: ${details}", ("details", e.to_detail_string()));
 }
 
-void chain_plugin::handle_guard_exception(const chain::guard_exception& e)
-{
+void chain_plugin::handle_guard_exception(const chain::guard_exception& e) {
    log_guard_exception(e);
 
    elog("database chain::guard_exception, quitting..."); // log string searched for in:
@@ -1362,27 +1328,23 @@ void chain_plugin::handle_guard_exception(const chain::guard_exception& e)
    app().quit();
 }
 
-void chain_plugin::handle_db_exhaustion()
-{
+void chain_plugin::handle_db_exhaustion() {
    elog("database memory exhausted: increase chain-state-db-size-mb");
    // return 1 -- it's what programs/nodeos/main.cpp considers "BAD_ALLOC"
    std::_Exit(1);
 }
 
-void chain_plugin::handle_bad_alloc()
-{
+void chain_plugin::handle_bad_alloc() {
    elog("std::bad_alloc - memory exhausted");
    // return -2 -- it's what programs/nodeos/main.cpp reports for std::exception
    std::_Exit(-2);
 }
 
-bool chain_plugin::account_queries_enabled() const
-{
+bool chain_plugin::account_queries_enabled() const {
    return my->account_queries_enabled;
 }
 
-bool chain_plugin::transaction_finality_status_enabled() const
-{
+bool chain_plugin::transaction_finality_status_enabled() const {
    return my->_trx_finality_status_processing.get();
 }
 
@@ -1391,8 +1353,7 @@ namespace chain_apis {
 const string read_only::KEYi64 = "i64";
 
 template<typename I>
-std::string itoh(I n, size_t hlen = sizeof(I) << 1)
-{
+std::string itoh(I n, size_t hlen = sizeof(I) << 1) {
    static const char* digits = "0123456789abcdef";
    std::string        r(hlen, '0');
    for (size_t i = 0, j = (hlen - 1) * 4; i < hlen; ++i, j -= 4)
@@ -1401,8 +1362,7 @@ std::string itoh(I n, size_t hlen = sizeof(I) << 1)
 }
 
 read_only::get_info_results read_only::get_info(const read_only::get_info_params&,
-                                                const fc::time_point&) const
-{
+                                                const fc::time_point&) const {
    const auto& rm = db.get_resource_limits_manager();
 
    return { itoh(static_cast<uint32_t>(app().version())),
@@ -1431,8 +1391,7 @@ read_only::get_info_results read_only::get_info(const read_only::get_info_params
 
 read_only::get_transaction_status_results read_only::get_transaction_status(
    const read_only::get_transaction_status_params& param,
-   const fc::time_point&                           deadline) const
-{
+   const fc::time_point&                           deadline) const {
    EOS_ASSERT(trx_finality_status_proc,
               unsupported_feature,
               "Transaction Status Interface not enabled.  To enable, configure nodeos with "
@@ -1466,8 +1425,7 @@ read_only::get_transaction_status_results read_only::get_transaction_status(
 
 read_only::get_activated_protocol_features_results read_only::get_activated_protocol_features(
    const read_only::get_activated_protocol_features_params& params,
-   const fc::time_point&                                    deadline) const
-{
+   const fc::time_point&                                    deadline) const {
    read_only::get_activated_protocol_features_results result;
    const auto&                                        pfm = db.get_protocol_feature_manager();
 
@@ -1539,8 +1497,7 @@ read_only::get_activated_protocol_features_results read_only::get_activated_prot
    return result;
 }
 
-uint64_t read_only::get_table_index_name(const read_only::get_table_rows_params& p, bool& primary)
-{
+uint64_t read_only::get_table_index_name(const read_only::get_table_rows_params& p, bool& primary) {
    using boost::algorithm::starts_with;
    // see multi_index packing of index name
    const uint64_t table = p.table.to_uint64_t();
@@ -1591,34 +1548,29 @@ uint64_t read_only::get_table_index_name(const read_only::get_table_rows_params&
    return index;
 }
 
-uint64_t convert_to_type(const eosio::name& n, const string& desc)
-{
+uint64_t convert_to_type(const eosio::name& n, const string& desc) {
    return n.to_uint64_t();
 }
 
 template<>
-uint64_t convert_to_type(const string& str, const string& desc)
-{
+uint64_t convert_to_type(const string& str, const string& desc) {
 
    try {
       return boost::lexical_cast<uint64_t>(str.c_str(), str.size());
-   } catch (...) {
-   }
+   } catch (...) {}
 
    try {
       auto trimmed_str = str;
       boost::trim(trimmed_str);
       name s(trimmed_str);
       return s.to_uint64_t();
-   } catch (...) {
-   }
+   } catch (...) {}
 
    if (str.find(',') != string::npos) { // fix #6274 only match formats like 4,EOS
       try {
          auto symb = eosio::chain::symbol::from_string(str);
          return symb.value();
-      } catch (...) {
-      }
+      } catch (...) {}
    }
 
    try {
@@ -1633,8 +1585,7 @@ uint64_t convert_to_type(const string& str, const string& desc)
 }
 
 template<>
-double convert_to_type(const string& str, const string& desc)
-{
+double convert_to_type(const string& str, const string& desc) {
    double val{};
    try {
       val = fc::variant(str).as<double>();
@@ -1654,8 +1605,7 @@ template<typename Type>
 string convert_to_string(const Type&   source,
                          const string& key_type,
                          const string& encode_type,
-                         const string& desc)
-{
+                         const string& desc) {
    try {
       return fc::variant(source).as<string>();
    }
@@ -1667,8 +1617,7 @@ template<>
 string convert_to_string(const chain::key256_t& source,
                          const string&          key_type,
                          const string&          encode_type,
-                         const string&          desc)
-{
+                         const string&          desc) {
    try {
       if (key_type == chain_apis::sha256 ||
           (key_type == chain_apis::i256 && encode_type == chain_apis::hex)) {
@@ -1695,8 +1644,7 @@ template<>
 string convert_to_string(const float128_t& source,
                          const string&     key_type,
                          const string&     encode_type,
-                         const string&     desc)
-{
+                         const string&     desc) {
    try {
       float64_t f = f128_to_f64(source);
       return fc::variant(f).as<string>();
@@ -1705,8 +1653,7 @@ string convert_to_string(const float128_t& source,
       warn, "Could not convert ${desc} from '${source}' to string.", ("desc", desc)("source", source))
 }
 
-abi_def get_abi(const controller& db, const name& account)
-{
+abi_def get_abi(const controller& db, const name& account) {
    const auto&           d          = db.db();
    const account_object* code_accnt = d.find<account_object, by_name>(account);
    EOS_ASSERT(code_accnt != nullptr,
@@ -1718,8 +1665,7 @@ abi_def get_abi(const controller& db, const name& account)
    return abi;
 }
 
-string get_table_type(const abi_def& abi, const name& table_name)
-{
+string get_table_type(const abi_def& abi, const name& table_name) {
    for (const auto& t : abi.tables) {
       if (t.name == table_name) {
          return t.index_type;
@@ -1732,8 +1678,7 @@ string get_table_type(const abi_def& abi, const name& table_name)
 }
 
 read_only::get_table_rows_result read_only::get_table_rows(const read_only::get_table_rows_params& p,
-                                                           const fc::time_point& deadline) const
-{
+                                                           const fc::time_point& deadline) const {
    const abi_def abi              = eosio::chain_apis::get_abi(db, p.code);
    bool          primary          = false;
    auto          table_with_index = get_table_index_name(p, primary);
@@ -1812,8 +1757,7 @@ read_only::get_table_rows_result read_only::get_table_rows(const read_only::get_
 
 read_only::get_table_by_scope_result read_only::get_table_by_scope(
    const read_only::get_table_by_scope_params& p,
-   const fc::time_point&                       deadline) const
-{
+   const fc::time_point&                       deadline) const {
 
    fc::microseconds params_time_limit = p.time_limit_ms ? fc::milliseconds(*p.time_limit_ms)
                                                         : fc::milliseconds(10);
@@ -1872,8 +1816,7 @@ read_only::get_table_by_scope_result read_only::get_table_by_scope(
 }
 
 vector<asset> read_only::get_currency_balance(const read_only::get_currency_balance_params& p,
-                                              const fc::time_point&                         deadline) const
-{
+                                              const fc::time_point&                         deadline) const {
 
    const abi_def abi = eosio::chain_apis::get_abi(db, p.code);
    (void)get_table_type(abi, name("accounts"));
@@ -1900,8 +1843,7 @@ vector<asset> read_only::get_currency_balance(const read_only::get_currency_bala
 }
 
 fc::variant read_only::get_currency_stats(const read_only::get_currency_stats_params& p,
-                                          const fc::time_point&                       deadline) const
-{
+                                          const fc::time_point&                       deadline) const {
    fc::mutable_variant_object results;
 
    const abi_def abi = eosio::chain_apis::get_abi(db, p.code);
@@ -1933,8 +1875,7 @@ fc::variant get_global_row(const database&         db,
                            const abi_def&          abi,
                            const abi_serializer&   abis,
                            const fc::microseconds& abi_serializer_max_time_us,
-                           bool                    shorten_abi_errors)
-{
+                           bool                    shorten_abi_errors) {
    const auto table_type = get_table_type(abi, "global"_n);
    EOS_ASSERT(table_type == read_only::KEYi64,
               chain::contract_table_query_exception,
@@ -1958,8 +1899,7 @@ fc::variant get_global_row(const database&         db,
 }
 
 read_only::get_producers_result read_only::get_producers(const read_only::get_producers_params& params,
-                                                         const fc::time_point& deadline) const
-try {
+                                                         const fc::time_point& deadline) const try {
    const abi_def        abi        = eosio::chain_apis::get_abi(db, config::system_account_name);
    const auto           table_type = get_table_type(abi, "producers"_n);
    const abi_serializer abis{ abi, abi_serializer::create_yield_function(abi_serializer_max_time) };
@@ -2047,8 +1987,7 @@ try {
 
 read_only::get_producer_schedule_result read_only::get_producer_schedule(
    const read_only::get_producer_schedule_params& p,
-   const fc::time_point&                          deadline) const
-{
+   const fc::time_point&                          deadline) const {
    read_only::get_producer_schedule_result result;
    to_variant(db.active_producers(), result.active);
    if (!db.pending_producers().producers.empty())
@@ -2059,10 +1998,8 @@ read_only::get_producer_schedule_result read_only::get_producer_schedule(
    return result;
 }
 
-struct resolver_factory
-{
-   static auto make(const controller& control, abi_serializer::yield_function_t yield)
-   {
+struct resolver_factory {
+   static auto make(const controller& control, abi_serializer::yield_function_t yield) {
       return
          [&control, yield{ std::move(yield) }](const account_name& name) -> std::optional<abi_serializer> {
             const auto* accnt = control.db().template find<account_object, by_name>(name);
@@ -2077,15 +2014,13 @@ struct resolver_factory
    }
 };
 
-auto make_resolver(const controller& control, abi_serializer::yield_function_t yield)
-{
+auto make_resolver(const controller& control, abi_serializer::yield_function_t yield) {
    return resolver_factory::make(control, std::move(yield));
 }
 
 read_only::get_scheduled_transactions_result read_only::get_scheduled_transactions(
    const read_only::get_scheduled_transactions_params& p,
-   const fc::time_point&                               deadline) const
-{
+   const fc::time_point&                               deadline) const {
 
    fc::microseconds params_time_limit = p.time_limit_ms ? fc::milliseconds(*p.time_limit_ms)
                                                         : fc::milliseconds(10);
@@ -2160,8 +2095,7 @@ read_only::get_scheduled_transactions_result read_only::get_scheduled_transactio
 }
 
 fc::variant read_only::get_block(const read_only::get_block_params& params,
-                                 const fc::time_point&              deadline) const
-{
+                                 const fc::time_point&              deadline) const {
    signed_block_ptr        block;
    std::optional<uint64_t> block_num;
 
@@ -2171,8 +2105,7 @@ fc::variant read_only::get_block(const read_only::get_block_params& params,
 
    try {
       block_num = fc::to_uint64(params.block_num_or_id);
-   } catch (...) {
-   }
+   } catch (...) {}
 
    if (block_num) {
       block = db.fetch_block_by_number(*block_num);
@@ -2203,8 +2136,7 @@ fc::variant read_only::get_block(const read_only::get_block_params& params,
 }
 
 fc::variant read_only::get_block_info(const read_only::get_block_info_params& params,
-                                      const fc::time_point&                   deadline) const
-{
+                                      const fc::time_point&                   deadline) const {
 
    signed_block_ptr block;
    try {
@@ -2227,15 +2159,13 @@ fc::variant read_only::get_block_info(const read_only::get_block_info_params& pa
 }
 
 fc::variant read_only::get_block_header_state(const get_block_header_state_params& params,
-                                              const fc::time_point&                deadline) const
-{
+                                              const fc::time_point&                deadline) const {
    block_state_ptr         b;
    std::optional<uint64_t> block_num;
    std::exception_ptr      e;
    try {
       block_num = fc::to_uint64(params.block_num_or_id);
-   } catch (...) {
-   }
+   } catch (...) {}
 
    if (block_num) {
       b = db.fetch_block_state_by_number(*block_num);
@@ -2259,8 +2189,7 @@ fc::variant read_only::get_block_header_state(const get_block_header_state_param
 }
 
 void read_write::push_block(read_write::push_block_params&&               params,
-                            next_function<read_write::push_block_results> next)
-{
+                            next_function<read_write::push_block_results> next) {
    try {
       app().get_method<incoming::methods::block_sync>()(std::make_shared<signed_block>(std::move(params)),
                                                         std::optional<block_id_type>{});
@@ -2274,8 +2203,7 @@ void read_write::push_block(read_write::push_block_params&&               params
 }
 
 void read_write::push_transaction(const read_write::push_transaction_params&          params,
-                                  next_function<read_write::push_transaction_results> next)
-{
+                                  next_function<read_write::push_transaction_results> next) {
    try {
       auto pretty_input = std::make_shared<packed_transaction>();
       auto resolver     = make_resolver(db, abi_serializer::create_yield_function(abi_serializer_max_time));
@@ -2375,8 +2303,7 @@ static void push_recurse(read_write*                                            
                          int                                                           index,
                          const std::shared_ptr<read_write::push_transactions_params>&  params,
                          const std::shared_ptr<read_write::push_transactions_results>& results,
-                         const next_function<read_write::push_transactions_results>&   next)
-{
+                         const next_function<read_write::push_transactions_results>&   next) {
    auto wrapped_next =
       [=](const std::variant<fc::exception_ptr, read_write::push_transaction_results>& result) {
          if (std::holds_alternative<fc::exception_ptr>(result)) {
@@ -2400,8 +2327,7 @@ static void push_recurse(read_write*                                            
 }
 
 void read_write::push_transactions(const read_write::push_transactions_params&          params,
-                                   next_function<read_write::push_transactions_results> next)
-{
+                                   next_function<read_write::push_transactions_results> next) {
    try {
       EOS_ASSERT(params.size() <= 1000, too_many_tx_at_once, "Attempt to push too many transactions at once");
       auto params_copy = std::make_shared<read_write::push_transactions_params>(params.begin(), params.end());
@@ -2418,8 +2344,7 @@ void read_write::push_transactions(const read_write::push_transactions_params&  
 }
 
 void read_write::send_transaction(const read_write::send_transaction_params&          params,
-                                  next_function<read_write::send_transaction_results> next)
-{
+                                  next_function<read_write::send_transaction_results> next) {
 
    try {
       auto pretty_input = std::make_shared<packed_transaction>();
@@ -2465,8 +2390,7 @@ void read_write::send_transaction(const read_write::send_transaction_params&    
 }
 
 void read_write::send_transaction2(const read_write::send_transaction2_params&         params,
-                                   next_function<read_write::send_transaction_results> next)
-{
+                                   next_function<read_write::send_transaction_results> next) {
    try {
       auto ptrx     = std::make_shared<packed_transaction>();
       auto resolver = make_resolver(db, abi_serializer::create_yield_function(abi_serializer_max_time));
@@ -2538,8 +2462,7 @@ void read_write::send_transaction2(const read_write::send_transaction2_params&  
 }
 
 read_only::get_abi_results read_only::get_abi(const get_abi_params& params,
-                                              const fc::time_point& deadline) const
-{
+                                              const fc::time_point& deadline) const {
    get_abi_results result;
    result.account_name = params.account_name;
    const auto& d       = db.db();
@@ -2554,8 +2477,7 @@ read_only::get_abi_results read_only::get_abi(const get_abi_params& params,
 }
 
 read_only::get_code_results read_only::get_code(const get_code_params& params,
-                                                const fc::time_point&  deadline) const
-{
+                                                const fc::time_point&  deadline) const {
    get_code_results result;
    result.account_name            = params.account_name;
    const auto& d                  = db.db();
@@ -2580,8 +2502,7 @@ read_only::get_code_results read_only::get_code(const get_code_params& params,
 }
 
 read_only::get_code_hash_results read_only::get_code_hash(const get_code_hash_params& params,
-                                                          const fc::time_point&       deadline) const
-{
+                                                          const fc::time_point&       deadline) const {
    get_code_hash_results result;
    result.account_name = params.account_name;
    const auto& d       = db.db();
@@ -2595,8 +2516,7 @@ read_only::get_code_hash_results read_only::get_code_hash(const get_code_hash_pa
 
 read_only::get_raw_code_and_abi_results read_only::get_raw_code_and_abi(
    const get_raw_code_and_abi_params& params,
-   const fc::time_point&              deadline) const
-{
+   const fc::time_point&              deadline) const {
    get_raw_code_and_abi_results result;
    result.account_name = params.account_name;
 
@@ -2617,8 +2537,7 @@ read_only::get_raw_code_and_abi_results read_only::get_raw_code_and_abi(
 }
 
 read_only::get_raw_abi_results read_only::get_raw_abi(const get_raw_abi_params& params,
-                                                      const fc::time_point&     deadline) const
-{
+                                                      const fc::time_point&     deadline) const {
    get_raw_abi_results result;
    result.account_name = params.account_name;
 
@@ -2637,8 +2556,7 @@ read_only::get_raw_abi_results read_only::get_raw_abi(const get_raw_abi_params& 
 }
 
 read_only::get_account_results read_only::get_account(const get_account_params& params,
-                                                      const fc::time_point&     deadline) const
-{
+                                                      const fc::time_point&     deadline) const {
    get_account_results result;
    result.account_name = params.account_name;
 
@@ -2845,8 +2763,7 @@ read_only::get_account_results read_only::get_account(const get_account_params& 
    return result;
 }
 
-static fc::variant action_abi_to_variant(const abi_def& abi, type_name action_type)
-{
+static fc::variant action_abi_to_variant(const abi_def& abi, type_name action_type) {
    fc::variant v;
    auto        it =
       std::find_if(abi.structs.begin(), abi.structs.end(), [&](auto& x) { return x.name == action_type; });
@@ -2856,8 +2773,7 @@ static fc::variant action_abi_to_variant(const abi_def& abi, type_name action_ty
 };
 
 read_only::abi_json_to_bin_result read_only::abi_json_to_bin(const read_only::abi_json_to_bin_params& params,
-                                                             const fc::time_point& deadline) const
-try {
+                                                             const fc::time_point& deadline) const try {
    abi_json_to_bin_result result;
    const auto             code_account = db.db().find<account_object, by_name>(params.code);
    EOS_ASSERT(code_account != nullptr,
@@ -2895,8 +2811,7 @@ FC_RETHROW_EXCEPTIONS(warn,
                       ("code", params.code)("action", params.action)("args", params.args))
 
 read_only::abi_bin_to_json_result read_only::abi_bin_to_json(const read_only::abi_bin_to_json_params& params,
-                                                             const fc::time_point& deadline) const
-{
+                                                             const fc::time_point& deadline) const {
    abi_bin_to_json_result result;
    const auto&            code_account = db.db().get<account_object, by_name>(params.code);
    abi_def                abi;
@@ -2913,8 +2828,7 @@ read_only::abi_bin_to_json_result read_only::abi_bin_to_json(const read_only::ab
 }
 
 read_only::get_required_keys_result read_only::get_required_keys(const get_required_keys_params& params,
-                                                                 const fc::time_point& deadline) const
-{
+                                                                 const fc::time_point& deadline) const {
    transaction pretty_input;
    auto        resolver = make_resolver(db, abi_serializer::create_yield_function(abi_serializer_max_time));
    try {
@@ -2932,8 +2846,7 @@ read_only::get_required_keys_result read_only::get_required_keys(const get_requi
    return result;
 }
 void read_only::compute_transaction(const compute_transaction_params&          params,
-                                    next_function<compute_transaction_results> next) const
-{
+                                    next_function<compute_transaction_results> next) const {
 
    try {
       auto pretty_input = std::make_shared<packed_transaction>();
@@ -2981,22 +2894,19 @@ void read_only::compute_transaction(const compute_transaction_params&          p
 }
 read_only::get_transaction_id_result read_only::get_transaction_id(
    const read_only::get_transaction_id_params& params,
-   const fc::time_point&                       deadline) const
-{
+   const fc::time_point&                       deadline) const {
    return params.id();
 }
 
 account_query_db::get_accounts_by_authorizers_result read_only::get_accounts_by_authorizers(
    const account_query_db::get_accounts_by_authorizers_params& args,
-   const fc::time_point&                                       deadline) const
-{
+   const fc::time_point&                                       deadline) const {
    EOS_ASSERT(aqdb.has_value(), plugin_config_exception, "Account Queries being accessed when not enabled");
    return aqdb->get_accounts_by_authorizers(args);
 }
 
 namespace detail {
-struct ram_market_exchange_state_t
-{
+struct ram_market_exchange_state_t {
    asset  ignore1;
    asset  ignore2;
    double ignore3;
@@ -3005,8 +2915,7 @@ struct ram_market_exchange_state_t
 };
 }
 
-chain::symbol read_only::extract_core_symbol() const
-{
+chain::symbol read_only::extract_core_symbol() const {
    symbol core_symbol(0);
 
    // The following code makes assumptions about the contract deployed on eosio account (i.e. the system
@@ -3039,8 +2948,7 @@ chain::symbol read_only::extract_core_symbol() const
 
 read_only::get_consensus_parameters_results read_only::get_consensus_parameters(
    const get_consensus_parameters_params&,
-   const fc::time_point& deadline) const
-{
+   const fc::time_point& deadline) const {
    get_consensus_parameters_results results;
 
    results.chain_config = db.get_global_properties().configuration;
@@ -3051,8 +2959,7 @@ read_only::get_consensus_parameters_results read_only::get_consensus_parameters(
 
 } // namespace chain_apis
 
-fc::variant chain_plugin::get_log_trx_trace(const transaction_trace_ptr& trx_trace) const
-{
+fc::variant chain_plugin::get_log_trx_trace(const transaction_trace_ptr& trx_trace) const {
    fc::variant pretty_output;
    try {
       abi_serializer::to_log_variant(
@@ -3067,8 +2974,7 @@ fc::variant chain_plugin::get_log_trx_trace(const transaction_trace_ptr& trx_tra
    return pretty_output;
 }
 
-fc::variant chain_plugin::get_log_trx(const transaction& trx) const
-{
+fc::variant chain_plugin::get_log_trx(const transaction& trx) const {
    fc::variant pretty_output;
    try {
       abi_serializer::to_log_variant(

@@ -6,10 +6,8 @@
 #include "test_api.hpp"
 
 template<typename T>
-struct testtype
-{
-   static void run(const T& v, const char* errmsg = "")
-   {
+struct testtype {
+   static void run(const T& v, const char* errmsg = "") {
       char                     buf[128];
       eosio::datastream<char*> ds(buf, sizeof(buf));
       ds << v;
@@ -21,10 +19,8 @@ struct testtype
 };
 
 template<>
-struct testtype<double>
-{
-   static void run(const double& v, const char* errmsg = "")
-   {
+struct testtype<double> {
+   static void run(const double& v, const char* errmsg = "") {
       char                     buf[128];
       eosio::datastream<char*> ds(buf, sizeof(buf));
       ds << v;
@@ -36,10 +32,8 @@ struct testtype<double>
 };
 
 template<>
-struct testtype<float>
-{
-   static void run(const float& v, const char* errmsg = "")
-   {
+struct testtype<float> {
+   static void run(const float& v, const char* errmsg = "") {
       char                     buf[128];
       eosio::datastream<char*> ds(buf, sizeof(buf));
       ds << v;
@@ -50,8 +44,7 @@ struct testtype<float>
    }
 };
 
-void test_datastream::test_basic()
-{
+void test_datastream::test_basic() {
 
    testtype<bool>::run(true, "bool");
    testtype<bool>::run(false, "bool");
@@ -69,16 +62,14 @@ void test_datastream::test_basic()
    // this should generate compile error
    // testtype<char *>::run((char *)0x12345678, "pointer");
 
-   struct Pair
-   {
+   struct Pair {
       int    a;
       double d;
       bool   operator==(const Pair& p) const { return a == p.a && std::abs(d - p.d) < 1e-20; }
    };
    testtype<Pair>::run({ 1, 1.23456 }, "struct");
 
-   struct StaticArray
-   {
+   struct StaticArray {
       int  a[2];
       bool operator==(const StaticArray& o) const { return a[0] == o.a[0] && a[1] == o.a[1]; }
    };

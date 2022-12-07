@@ -15,18 +15,15 @@ using std::ostream;
  *
  *  json strings are always UTF8
  */
-class json
-{
+class json {
 public:
-   enum class parse_type : unsigned char
-   {
+   enum class parse_type : unsigned char {
       legacy_parser                     = 0,
       strict_parser                     = 1,
       relaxed_parser                    = 2,
       legacy_parser_with_string_doubles = 3
    };
-   enum class output_formatting : unsigned char
-   {
+   enum class output_formatting : unsigned char {
       stringify_large_ints_and_doubles = 0,
       legacy_generator                 = 1
    };
@@ -57,8 +54,7 @@ public:
       const T&                v,
       const fc::path&         fi,
       const bool              pretty = true,
-      const output_formatting format = output_formatting::stringify_large_ints_and_doubles)
-   {
+      const output_formatting format = output_formatting::stringify_large_ints_and_doubles) {
       return save_to_file(variant(v), fi, pretty, format);
    }
 
@@ -74,8 +70,7 @@ public:
    template<typename T>
    static T from_file(const fc::path&  p,
                       const parse_type ptype     = parse_type::legacy_parser,
-                      const uint32_t   max_depth = DEFAULT_MAX_RECURSION_DEPTH)
-   {
+                      const uint32_t   max_depth = DEFAULT_MAX_RECURSION_DEPTH) {
       return json::from_file(p, ptype, max_depth).as<T>();
    }
 
@@ -84,8 +79,7 @@ public:
       const T&                v,
       const fc::time_point&   deadline,
       const output_formatting format  = output_formatting::stringify_large_ints_and_doubles,
-      const uint64_t          max_len = max_length_limit)
-   {
+      const uint64_t          max_len = max_length_limit) {
       const auto yield = [&](size_t s) {
          FC_CHECK_DEADLINE(deadline);
          FC_ASSERT(s <= max_len);
@@ -98,8 +92,7 @@ public:
       const T&                v,
       const fc::time_point&   deadline = fc::time_point::maximum(),
       const output_formatting format   = output_formatting::stringify_large_ints_and_doubles,
-      const uint64_t          max_len  = max_length_limit)
-   {
+      const uint64_t          max_len  = max_length_limit) {
       const auto yield = [&](size_t s) {
          FC_CHECK_DEADLINE(deadline);
          FC_ASSERT(s <= max_len);
@@ -112,8 +105,7 @@ public:
       const T&                v,
       const std::string&      p,
       const bool              pretty = true,
-      const output_formatting format = output_formatting::stringify_large_ints_and_doubles)
-   {
+      const output_formatting format = output_formatting::stringify_large_ints_and_doubles) {
       return save_to_file(variant(v), fc::path(p), pretty, format);
    }
 };

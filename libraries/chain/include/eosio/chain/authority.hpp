@@ -11,15 +11,11 @@ namespace chain {
 using shared_public_key_data =
    std::variant<fc::ecc::public_key_shim, fc::crypto::r1::public_key_shim, shared_string>;
 
-struct shared_public_key
-{
+struct shared_public_key {
    shared_public_key(shared_public_key_data&& p)
-      : pubkey(std::move(p))
-   {
-   }
+      : pubkey(std::move(p)) {}
 
-   operator public_key_type() const
-   {
+   operator public_key_type() const {
       fc::crypto::public_key::storage_type public_key_storage;
       std::visit(overloaded{ [&](const auto& k1r1) { public_key_storage = k1r1; },
                              [&](const shared_string& wa) {
@@ -36,8 +32,7 @@ struct shared_public_key
 
    shared_public_key_data pubkey;
 
-   friend bool operator==(const shared_public_key& lhs, const shared_public_key& rhs)
-   {
+   friend bool operator==(const shared_public_key& lhs, const shared_public_key& rhs) {
       if (lhs.pubkey.index() != rhs.pubkey.index())
          return false;
 
@@ -52,8 +47,7 @@ struct shared_public_key
          lhs.pubkey);
    }
 
-   friend bool operator==(const shared_public_key& l, const public_key_type& r)
-   {
+   friend bool operator==(const shared_public_key& l, const public_key_type& r) {
       if (l.pubkey.index() != r._storage.index())
          return false;
 
@@ -76,50 +70,40 @@ struct shared_public_key
    friend bool operator==(const public_key_type& l, const shared_public_key& r) { return r == l; }
 };
 
-struct permission_level_weight
-{
+struct permission_level_weight {
    permission_level permission;
    weight_type      weight;
 
-   friend bool operator==(const permission_level_weight& lhs, const permission_level_weight& rhs)
-   {
+   friend bool operator==(const permission_level_weight& lhs, const permission_level_weight& rhs) {
       return tie(lhs.permission, lhs.weight) == tie(rhs.permission, rhs.weight);
    }
 
-   friend bool operator<(const permission_level_weight& lhs, const permission_level_weight& rhs)
-   {
+   friend bool operator<(const permission_level_weight& lhs, const permission_level_weight& rhs) {
       return tie(lhs.permission, lhs.weight) < tie(rhs.permission, rhs.weight);
    }
 };
 
-struct key_weight
-{
+struct key_weight {
    public_key_type key;
    weight_type     weight;
 
-   friend bool operator==(const key_weight& lhs, const key_weight& rhs)
-   {
+   friend bool operator==(const key_weight& lhs, const key_weight& rhs) {
       return tie(lhs.key, lhs.weight) == tie(rhs.key, rhs.weight);
    }
 
-   friend bool operator<(const key_weight& lhs, const key_weight& rhs)
-   {
+   friend bool operator<(const key_weight& lhs, const key_weight& rhs) {
       return tie(lhs.key, lhs.weight) < tie(rhs.key, rhs.weight);
    }
 };
 
-struct shared_key_weight
-{
+struct shared_key_weight {
    shared_key_weight(shared_public_key_data&& k, const weight_type& w)
       : key(std::move(k))
-      , weight(w)
-   {
-   }
+      , weight(w) {}
 
    operator key_weight() const { return key_weight{ key, weight }; }
 
-   static shared_key_weight convert(chainbase::allocator<char> allocator, const key_weight& k)
-   {
+   static shared_key_weight convert(chainbase::allocator<char> allocator, const key_weight& k) {
       return std::visit(overloaded{ [&](const auto& k1r1) { return shared_key_weight(k1r1, k.weight); },
                                     [&](const fc::crypto::webauthn::public_key& wa) {
                                        size_t        psz = fc::raw::pack_size(wa);
@@ -137,56 +121,47 @@ struct shared_key_weight
    shared_public_key key;
    weight_type       weight;
 
-   friend bool operator==(const shared_key_weight& lhs, const shared_key_weight& rhs)
-   {
+   friend bool operator==(const shared_key_weight& lhs, const shared_key_weight& rhs) {
       return tie(lhs.key, lhs.weight) == tie(rhs.key, rhs.weight);
    }
 };
 
-struct wait_weight
-{
+struct wait_weight {
    uint32_t    wait_sec;
    weight_type weight;
 
-   friend bool operator==(const wait_weight& lhs, const wait_weight& rhs)
-   {
+   friend bool operator==(const wait_weight& lhs, const wait_weight& rhs) {
       return tie(lhs.wait_sec, lhs.weight) == tie(rhs.wait_sec, rhs.weight);
    }
 
-   friend bool operator<(const wait_weight& lhs, const wait_weight& rhs)
-   {
+   friend bool operator<(const wait_weight& lhs, const wait_weight& rhs) {
       return tie(lhs.wait_sec, lhs.weight) < tie(rhs.wait_sec, rhs.weight);
    }
 };
 
 namespace config {
 template<>
-struct billable_size<permission_level_weight>
-{
+struct billable_size<permission_level_weight> {
    static const uint64_t value = 24; ///< over value of weight for safety
 };
 
 template<>
-struct billable_size<key_weight>
-{
+struct billable_size<key_weight> {
    static const uint64_t value = 8; ///< over value of weight for safety, dynamically sizing key
 };
 
 template<>
-struct billable_size<wait_weight>
-{
+struct billable_size<wait_weight> {
    static const uint64_t value = 16; ///< over value of weight and wait_sec for safety
 };
 }
 
-struct authority
-{
+struct authority {
    authority(public_key_type k, uint32_t delay_sec = 0)
       : threshold(1)
       , keys({
            {k, 1}
-   })
-   {
+   }) {
       if (delay_sec > 0) {
          threshold = 2;
          waits.push_back(wait_weight{ delay_sec, 1 });
@@ -197,8 +172,7 @@ struct authority
       : threshold(1)
       , accounts({
            {p, 1}
-   })
-   {
+   }) {
       if (delay_sec > 0) {
          threshold = 2;
          waits.push_back(wait_weight{ delay_sec, 1 });
@@ -212,9 +186,7 @@ struct authority
       : threshold(t)
       , keys(move(k))
       , accounts(move(p))
-      , waits(move(w))
-   {
-   }
+      , waits(move(w)) {}
    authority() {}
 
    uint32_t                        threshold = 0;
@@ -222,37 +194,30 @@ struct authority
    vector<permission_level_weight> accounts;
    vector<wait_weight>             waits;
 
-   friend bool operator==(const authority& lhs, const authority& rhs)
-   {
+   friend bool operator==(const authority& lhs, const authority& rhs) {
       return tie(lhs.threshold, lhs.keys, lhs.accounts, lhs.waits) ==
              tie(rhs.threshold, rhs.keys, rhs.accounts, rhs.waits);
    }
 
-   friend bool operator!=(const authority& lhs, const authority& rhs)
-   {
+   friend bool operator!=(const authority& lhs, const authority& rhs) {
       return tie(lhs.threshold, lhs.keys, lhs.accounts, lhs.waits) !=
              tie(rhs.threshold, rhs.keys, rhs.accounts, rhs.waits);
    }
 
-   void sort_fields()
-   {
+   void sort_fields() {
       std::sort(std::begin(keys), std::end(keys));
       std::sort(std::begin(accounts), std::end(accounts));
       std::sort(std::begin(waits), std::end(waits));
    }
 };
 
-struct shared_authority
-{
+struct shared_authority {
    shared_authority(chainbase::allocator<char> alloc)
       : keys(alloc)
       , accounts(alloc)
-      , waits(alloc)
-   {
-   }
+      , waits(alloc) {}
 
-   shared_authority& operator=(const authority& a)
-   {
+   shared_authority& operator=(const authority& a) {
       threshold = a.threshold;
       keys.clear();
       keys.reserve(a.keys.size());
@@ -270,8 +235,7 @@ struct shared_authority
    shared_vector<wait_weight>             waits;
 
              operator authority() const { return to_authority(); }
-   authority to_authority() const
-   {
+   authority to_authority() const {
       authority auth;
       auth.threshold = threshold;
       auth.keys.reserve(keys.size());
@@ -289,8 +253,7 @@ struct shared_authority
       return auth;
    }
 
-   size_t get_billable_size() const
-   {
+   size_t get_billable_size() const {
       size_t accounts_size = accounts.size() * config::billable_size_v<permission_level_weight>;
       size_t waits_size    = waits.size() * config::billable_size_v<wait_weight>;
       size_t keys_size     = 0;
@@ -305,8 +268,7 @@ struct shared_authority
 
 namespace config {
 template<>
-struct billable_size<shared_authority>
-{
+struct billable_size<shared_authority> {
    static const uint64_t value = (3 * config::fixed_overhead_shared_vector_ram_bytes) + 4;
 };
 }
@@ -316,8 +278,7 @@ struct billable_size<shared_authority>
  * authority can be satisfied
  */
 template<typename Authority>
-inline bool validate(const Authority& auth)
-{
+inline bool validate(const Authority& auth) {
    decltype(auth.threshold) total_weight = 0;
 
    static_assert(

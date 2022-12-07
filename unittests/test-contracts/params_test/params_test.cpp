@@ -15,40 +15,31 @@ using namespace std;
 IMPORT uint32_t get_parameters_packed(const char* ids, uint32_t ids_size, char* params, uint32_t params_size);
 IMPORT void     set_parameters_packed(const char* params, uint32_t params_size);
 
-unsigned_int operator"" _ui(unsigned long long v)
-{
+unsigned_int operator"" _ui(unsigned long long v) {
    return unsigned_int(v);
 }
 
-uint16_t operator"" _16(unsigned long long v)
-{
+uint16_t operator"" _16(unsigned long long v) {
    return static_cast<uint16_t>(v);
 }
-uint32_t operator"" _32(unsigned long long v)
-{
+uint32_t operator"" _32(unsigned long long v) {
    return static_cast<uint32_t>(v);
 }
-uint64_t operator"" _64(unsigned long long v)
-{
+uint64_t operator"" _64(unsigned long long v) {
    return static_cast<uint64_t>(v);
 }
 
-struct params_object
-{
+struct params_object {
    string packed;
    template<typename T>
-   params_object(T v)
-   {
+   params_object(T v) {
       (*this)(v);
    }
    params_object(const string& params)
-      : packed(params)
-   {
-   }
+      : packed(params) {}
 
    bool           operator==(const params_object& pp) const { return packed == pp.packed; }
-   params_object& operator()(unsigned_int val)
-   {
+   params_object& operator()(unsigned_int val) {
       char              buffer[4];
       datastream<char*> ds((char*)&buffer, sizeof(buffer));
       ds << val;
@@ -57,8 +48,7 @@ struct params_object
       packed += std::string_view{ buffer, ds.tellp() };
       return *this;
    }
-   params_object& operator()(uint16_t val)
-   {
+   params_object& operator()(uint16_t val) {
       char              buffer[2];
       datastream<char*> ds((char*)&buffer, sizeof(buffer));
       ds << val;
@@ -67,8 +57,7 @@ struct params_object
       packed += std::string_view{ buffer, ds.tellp() };
       return *this;
    }
-   params_object& operator()(uint32_t val)
-   {
+   params_object& operator()(uint32_t val) {
       char              buffer[4];
       datastream<char*> ds((char*)&buffer, sizeof(buffer));
       ds << val;
@@ -77,8 +66,7 @@ struct params_object
       packed += std::string_view{ buffer, ds.tellp() };
       return *this;
    }
-   params_object& operator()(uint64_t val)
-   {
+   params_object& operator()(uint64_t val) {
       char              buffer[8];
       datastream<char*> ds((char*)&buffer, sizeof(buffer));
       ds << val;
@@ -87,8 +75,7 @@ struct params_object
       packed += std::string_view{ buffer, ds.tellp() };
       return *this;
    }
-   params_object& operator()(vector<unsigned_int>&& val)
-   {
+   params_object& operator()(vector<unsigned_int>&& val) {
       char              buffer[512];
       datastream<char*> ds((char*)&buffer, sizeof(buffer));
       ds << val;
@@ -99,8 +86,7 @@ struct params_object
    }
 
    void          set() const { set_parameters_packed(packed.c_str(), packed.size()); }
-   params_object get() const
-   {
+   params_object get() const {
       char              buffer[512];
       datastream<char*> ds((char*)&buffer, sizeof(buffer));
 
@@ -113,13 +99,11 @@ struct params_object
    size_t get_size() const { return get_parameters_packed(packed.c_str(), packed.size(), 0, 0); }
 };
 
-class [[eosio::contract("params_test")]] params_test : public eosio::contract
-{
+class [[eosio::contract("params_test")]] params_test : public eosio::contract {
 public:
    using eosio::contract::contract;
 
-   [[eosio::action]] void maintest()
-   {
+   [[eosio::action]] void maintest() {
 
       // make sure no throw for zero parameters provided
       params_object(0_ui).set();
@@ -212,38 +196,32 @@ public:
       ASSERT_EQ(params_object(1_ui)(17_ui).get(), params_object(1_ui)(17_ui)(512_32));
    }
 
-   [[eosio::action]] void setthrow1()
-   {
+   [[eosio::action]] void setthrow1() {
       // unknown configuration index
       params_object(1_ui)(100_ui).set();
    }
 
-   [[eosio::action]] void setthrow2()
-   {
+   [[eosio::action]] void setthrow2() {
       // length=2, only 1 argument provided
       params_object(2_ui)(1_ui).set();
    }
 
-   [[eosio::action]] void setthrow3()
-   {
+   [[eosio::action]] void setthrow3() {
       // passing argument that will fail validation
       params_object(1_ui)(1_ui)(200 * 100_32).set();
    }
 
-   [[eosio::action]] void getthrow1()
-   {
+   [[eosio::action]] void getthrow1() {
       // unknown configuration index
       params_object(1_ui)(100_ui).get();
    }
 
-   [[eosio::action]] void getthrow2()
-   {
+   [[eosio::action]] void getthrow2() {
       // length=2, only 1 argument provided
       params_object(2_ui)(1_ui).get();
    }
 
-   [[eosio::action]] void getthrow3()
-   {
+   [[eosio::action]] void getthrow3() {
       // buffer too small
       char              buffer[4];
       datastream<char*> ds((char*)&buffer, sizeof(buffer));
@@ -251,8 +229,7 @@ public:
       get_parameters_packed(pp.packed.c_str(), pp.packed.size(), buffer, sizeof(buffer));
    }
 
-   [[eosio::action]] void throwrvia1()
-   {
+   [[eosio::action]] void throwrvia1() {
       // throws when setting parameter that is not allowed because of protocol feature for
       // this parameter is not active
 
@@ -261,8 +238,7 @@ public:
       ASSERT_EQ(params_object(1_ui)(17_ui).get(), params_object(1_ui)(17_ui)(1024_32));
    }
 
-   [[eosio::action]] void throwrvia2()
-   {
+   [[eosio::action]] void throwrvia2() {
       // this test tries to get parameter with corresponding inactive protocol feature
 
       // v1 config, max_action_return_value_size

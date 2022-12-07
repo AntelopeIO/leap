@@ -26,15 +26,13 @@ namespace bpo = boost::program_options;
    basic_stream_socket<> out of the box which includes unix sockets. */
 #if BOOST_VERSION < 107000
 namespace boost::beast::websocket {
-void teardown(role_type, unixs::socket& sock, error_code& ec)
-{
+void teardown(role_type, unixs::socket& sock, error_code& ec) {
    sock.close(ec);
 }
 }
 #endif
 
-int main(int argc, char* argv[])
-{
+int main(int argc, char* argv[]) {
    boost::asio::io_context                  ctx;
    boost::asio::ip::tcp::resolver           resolver(ctx);
    ws::stream<boost::asio::ip::tcp::socket> tcp_stream(ctx);

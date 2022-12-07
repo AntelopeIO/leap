@@ -8,8 +8,7 @@ namespace fc {
  *
  */
 template<typename T, unsigned int S, typename Align = double>
-class fwd
-{
+class fwd {
 public:
    template<typename... U>
    fwd(U&&... u);

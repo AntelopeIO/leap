@@ -17,8 +17,7 @@ struct linkauth;
 struct unlinkauth;
 struct canceldelay;
 
-class authorization_manager
-{
+class authorization_manager {
 public:
    using permission_id_type = permission_object::id_type;
 

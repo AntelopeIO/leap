@@ -15,15 +15,13 @@
 
 namespace bio = boost::iostreams;
 
-eosio::chain::asset core_from_string(const std::string& s)
-{
+eosio::chain::asset core_from_string(const std::string& s) {
    return eosio::chain::asset::from_string(s + " " CORE_SYMBOL_NAME);
 }
 
 namespace eosio {
 namespace testing {
-std::string read_wast(const char* fn)
-{
+std::string read_wast(const char* fn) {
    std::ifstream wast_file(fn);
    FC_ASSERT(wast_file.is_open(), "wast file cannot be found");
    wast_file.seekg(0, std::ios::end);
@@ -38,8 +36,7 @@ std::string read_wast(const char* fn)
    return { wast.data() };
 }
 
-std::vector<uint8_t> read_wasm(const char* fn)
-{
+std::vector<uint8_t> read_wasm(const char* fn) {
    std::ifstream wasm_file(fn, std::ios::binary);
    FC_ASSERT(wasm_file.is_open(), "wasm file cannot be found");
    wasm_file.seekg(0, std::ios::end);
@@ -53,8 +50,7 @@ std::vector<uint8_t> read_wasm(const char* fn)
    return wasm;
 }
 
-std::vector<char> read_abi(const char* fn)
-{
+std::vector<char> read_abi(const char* fn) {
    std::ifstream abi_file(fn);
    FC_ASSERT(abi_file.is_open(), "abi file cannot be found");
    abi_file.seekg(0, std::ios::end);
@@ -70,8 +66,7 @@ std::vector<char> read_abi(const char* fn)
 }
 
 namespace {
-std::string read_gzipped_snapshot(const char* fn)
-{
+std::string read_gzipped_snapshot(const char* fn) {
    std::ifstream                        file(fn, std::ios_base::in | std::ios_base::binary);
    bio::filtering_streambuf<bio::input> in;
 
@@ -84,27 +79,23 @@ std::string read_gzipped_snapshot(const char* fn)
 }
 }
 
-std::string read_binary_snapshot(const char* fn)
-{
+std::string read_binary_snapshot(const char* fn) {
    return read_gzipped_snapshot(fn);
 }
 
-fc::variant read_json_snapshot(const char* fn)
-{
+fc::variant read_json_snapshot(const char* fn) {
    return fc::json::from_string(read_gzipped_snapshot(fn));
 }
 
 const fc::microseconds base_tester::abi_serializer_max_time{ 1000 * 1000 }; // 1s for slow test machines
 
-bool expect_assert_message(const fc::exception& ex, string expected)
-{
+bool expect_assert_message(const fc::exception& ex, string expected) {
    BOOST_TEST_MESSAGE("LOG : "
                       << "expected: " << expected << ", actual: " << ex.get_log().at(0).get_message());
    return (ex.get_log().at(0).get_message().find(expected) != std::string::npos);
 }
 
-fc::variant_object filter_fields(const fc::variant_object& filter, const fc::variant_object& value)
-{
+fc::variant_object filter_fields(const fc::variant_object& filter, const fc::variant_object& value) {
    fc::mutable_variant_object res;
    for (auto& entry : filter) {
       auto it = value.find(entry.key());
@@ -113,15 +104,13 @@ fc::variant_object filter_fields(const fc::variant_object& filter, const fc::var
    return res;
 }
 
-void copy_row(const chain::key_value_object& obj, vector<char>& data)
-{
+void copy_row(const chain::key_value_object& obj, vector<char>& data) {
    data.resize(obj.value.size());
    memcpy(data.data(), obj.value.data(), obj.value.size());
 }
 
 protocol_feature_set make_protocol_feature_set(
-   const subjective_restriction_map& custom_subjective_restrictions)
-{
+   const subjective_restriction_map& custom_subjective_restrictions) {
    protocol_feature_set pfs;
 
    map<builtin_protocol_feature_t, std::optional<digest_type>> visited_builtins;
@@ -158,16 +147,14 @@ protocol_feature_set make_protocol_feature_set(
    return pfs;
 }
 
-bool base_tester::is_same_chain(base_tester& other)
-{
+bool base_tester::is_same_chain(base_tester& other) {
    return control->head_block_id() == other.control->head_block_id();
 }
 
 void base_tester::init(const setup_policy      policy,
                        db_read_mode            read_mode,
                        std::optional<uint32_t> genesis_max_inline_action_size,
-                       std::optional<uint32_t> config_max_nonprivileged_inline_action_size)
-{
+                       std::optional<uint32_t> config_max_nonprivileged_inline_action_size) {
    auto def_conf =
       default_config(tempdir, genesis_max_inline_action_size, config_max_nonprivileged_inline_action_size);
    def_conf.first.read_mode = read_mode;
@@ -177,46 +164,39 @@ void base_tester::init(const setup_policy      policy,
    execute_setup_policy(policy);
 }
 
-void base_tester::init(controller::config config, const snapshot_reader_ptr& snapshot)
-{
+void base_tester::init(controller::config config, const snapshot_reader_ptr& snapshot) {
    cfg = config;
    open(snapshot);
 }
 
-void base_tester::init(controller::config config, const genesis_state& genesis)
-{
+void base_tester::init(controller::config config, const genesis_state& genesis) {
    cfg = config;
    open(genesis);
 }
 
-void base_tester::init(controller::config config)
-{
+void base_tester::init(controller::config config) {
    cfg = config;
    open(default_genesis().compute_chain_id());
 }
 
 void base_tester::init(controller::config         config,
                        protocol_feature_set&&     pfs,
-                       const snapshot_reader_ptr& snapshot)
-{
+                       const snapshot_reader_ptr& snapshot) {
    cfg = config;
    open(std::move(pfs), snapshot);
 }
 
-void base_tester::init(controller::config config, protocol_feature_set&& pfs, const genesis_state& genesis)
-{
+void base_tester::init(controller::config config, protocol_feature_set&& pfs, const genesis_state& genesis) {
    cfg = config;
    open(std::move(pfs), genesis);
 }
 
-void base_tester::init(controller::config config, protocol_feature_set&& pfs)
-{
+void base_tester::init(controller::config config, protocol_feature_set&& pfs) {
    cfg = config;
    open(std::move(pfs), default_genesis().compute_chain_id());
 }
 
-void base_tester::execute_setup_policy(const setup_policy policy)
-{
+void base_tester::execute_setup_policy(const setup_policy policy) {
    const auto& pfm = control->get_protocol_feature_manager();
 
    auto schedule_preactivate_protocol_feature = [&]() {
@@ -276,31 +256,26 @@ void base_tester::execute_setup_policy(const setup_policy policy)
    };
 }
 
-void base_tester::close()
-{
+void base_tester::close() {
    control.reset();
    chain_transactions.clear();
 }
 
-void base_tester::open(const snapshot_reader_ptr& snapshot)
-{
+void base_tester::open(const snapshot_reader_ptr& snapshot) {
    open(make_protocol_feature_set(), snapshot);
 }
 
-void base_tester::open(const genesis_state& genesis)
-{
+void base_tester::open(const genesis_state& genesis) {
    open(make_protocol_feature_set(), genesis);
 }
 
-void base_tester::open(std::optional<chain_id_type> expected_chain_id)
-{
+void base_tester::open(std::optional<chain_id_type> expected_chain_id) {
    open(make_protocol_feature_set(), expected_chain_id);
 }
 
 void base_tester::open(protocol_feature_set&&       pfs,
                        std::optional<chain_id_type> expected_chain_id,
-                       const std::function<void()>& lambda)
-{
+                       const std::function<void()>& lambda) {
    if (!expected_chain_id) {
       expected_chain_id = controller::extract_chain_id_from_db(cfg.state_dir);
       if (!expected_chain_id) {
@@ -331,8 +306,7 @@ void base_tester::open(protocol_feature_set&&       pfs,
    });
 }
 
-void base_tester::open(protocol_feature_set&& pfs, const snapshot_reader_ptr& snapshot)
-{
+void base_tester::open(protocol_feature_set&& pfs, const snapshot_reader_ptr& snapshot) {
    const auto& snapshot_chain_id = controller::extract_chain_id(*snapshot);
    snapshot->return_to_header();
    open(std::move(pfs), snapshot_chain_id, [&snapshot, &control = this->control]() {
@@ -340,22 +314,19 @@ void base_tester::open(protocol_feature_set&& pfs, const snapshot_reader_ptr& sn
    });
 }
 
-void base_tester::open(protocol_feature_set&& pfs, const genesis_state& genesis)
-{
+void base_tester::open(protocol_feature_set&& pfs, const genesis_state& genesis) {
    open(std::move(pfs), genesis.compute_chain_id(), [&genesis, &control = this->control]() {
       control->startup([]() {}, []() { return false; }, genesis);
    });
 }
 
-void base_tester::open(protocol_feature_set&& pfs, std::optional<chain_id_type> expected_chain_id)
-{
+void base_tester::open(protocol_feature_set&& pfs, std::optional<chain_id_type> expected_chain_id) {
    open(std::move(pfs), expected_chain_id, [&control = this->control]() {
       control->startup([]() {}, []() { return false; });
    });
 }
 
-void base_tester::push_block(signed_block_ptr b)
-{
+void base_tester::push_block(signed_block_ptr b) {
    auto bsf = control->create_block_state_future(b->calculate_id(), b);
    unapplied_transactions.add_aborted(control->abort_block());
    controller::block_report br;
@@ -371,8 +342,7 @@ void base_tester::push_block(signed_block_ptr b)
    }
 }
 
-signed_block_ptr base_tester::_produce_block(fc::microseconds skip_time, bool skip_pending_trxs)
-{
+signed_block_ptr base_tester::_produce_block(fc::microseconds skip_time, bool skip_pending_trxs) {
    std::vector<transaction_trace_ptr> traces;
    return _produce_block(skip_time, skip_pending_trxs, false, traces);
 }
@@ -380,8 +350,7 @@ signed_block_ptr base_tester::_produce_block(fc::microseconds skip_time, bool sk
 signed_block_ptr base_tester::_produce_block(fc::microseconds                    skip_time,
                                              bool                                skip_pending_trxs,
                                              bool                                no_throw,
-                                             std::vector<transaction_trace_ptr>& traces)
-{
+                                             std::vector<transaction_trace_ptr>& traces) {
    auto head      = control->head_block_state();
    auto head_time = control->head_block_time();
    auto next_time = head_time + skip_time;
@@ -428,8 +397,7 @@ signed_block_ptr base_tester::_produce_block(fc::microseconds                   
    return head_block;
 }
 
-void base_tester::_start_block(fc::time_point block_time)
-{
+void base_tester::_start_block(fc::time_point block_time) {
    auto head_block_number = control->head_block_num();
    auto producer          = control->head_block_state()->get_scheduled_producer(block_time);
 
@@ -463,8 +431,7 @@ void base_tester::_start_block(fc::time_point block_time)
    protocol_features_to_be_activated_wo_preactivation.clear();
 }
 
-signed_block_ptr base_tester::_finish_block()
-{
+signed_block_ptr base_tester::_finish_block() {
    FC_ASSERT(control->is_building_block(), "must first start a block before it can be finished");
 
    auto producer = control->head_block_state()->get_scheduled_producer(control->pending_block_time());
@@ -496,13 +463,11 @@ signed_block_ptr base_tester::_finish_block()
    return control->head_block_state()->block;
 }
 
-signed_block_ptr base_tester::produce_block(std::vector<transaction_trace_ptr>& traces)
-{
+signed_block_ptr base_tester::produce_block(std::vector<transaction_trace_ptr>& traces) {
    return _produce_block(fc::milliseconds(config::block_interval_ms), false, true, traces);
 }
 
-void base_tester::produce_blocks(uint32_t n, bool empty)
-{
+void base_tester::produce_blocks(uint32_t n, bool empty) {
    if (empty) {
       for (uint32_t i = 0; i < n; ++i)
          produce_empty_block();
@@ -512,8 +477,7 @@ void base_tester::produce_blocks(uint32_t n, bool empty)
    }
 }
 
-vector<transaction_id_type> base_tester::get_scheduled_transactions() const
-{
+vector<transaction_id_type> base_tester::get_scheduled_transactions() const {
    const auto& idx = control->db().get_index<generated_transaction_multi_index, by_delay>();
 
    vector<transaction_id_type> result;
@@ -526,8 +490,7 @@ vector<transaction_id_type> base_tester::get_scheduled_transactions() const
    return result;
 }
 
-void base_tester::produce_blocks_until_end_of_round()
-{
+void base_tester::produce_blocks_until_end_of_round() {
    uint64_t blocks_per_round;
    while (true) {
       blocks_per_round = control->active_producers().producers.size() * config::producer_repetitions;
@@ -537,16 +500,14 @@ void base_tester::produce_blocks_until_end_of_round()
    }
 }
 
-void base_tester::produce_blocks_for_n_rounds(const uint32_t num_of_rounds)
-{
+void base_tester::produce_blocks_for_n_rounds(const uint32_t num_of_rounds) {
    for (uint32_t i = 0; i < num_of_rounds; i++) {
       produce_blocks_until_end_of_round();
    }
 }
 
 void base_tester::produce_min_num_of_blocks_to_spend_time_wo_inactive_prod(
-   const fc::microseconds target_elapsed_time)
-{
+   const fc::microseconds target_elapsed_time) {
    fc::microseconds elapsed_time;
    while (elapsed_time < target_elapsed_time) {
       for (uint32_t i = 0; i < control->head_block_state()->active_schedule.producers.size(); i++) {
@@ -561,8 +522,7 @@ void base_tester::produce_min_num_of_blocks_to_spend_time_wo_inactive_prod(
    }
 }
 
-void base_tester::set_transaction_headers(transaction& trx, uint32_t expiration, uint32_t delay_sec) const
-{
+void base_tester::set_transaction_headers(transaction& trx, uint32_t expiration, uint32_t delay_sec) const {
    trx.expiration = control->head_block_time() + fc::seconds(expiration);
    trx.set_reference_block(control->head_block_id());
 
@@ -574,8 +534,7 @@ void base_tester::set_transaction_headers(transaction& trx, uint32_t expiration,
 transaction_trace_ptr base_tester::create_account(account_name a,
                                                   account_name creator,
                                                   bool         multisig,
-                                                  bool         include_code)
-{
+                                                  bool         include_code) {
    signed_transaction trx;
    set_transaction_headers(trx);
 
@@ -634,8 +593,7 @@ transaction_trace_ptr base_tester::create_account(account_name a,
 
 transaction_trace_ptr base_tester::push_transaction(packed_transaction& trx,
                                                     fc::time_point      deadline,
-                                                    uint32_t            billed_cpu_time_us)
-{
+                                                    uint32_t            billed_cpu_time_us) {
    try {
       if (!control->is_building_block())
          _start_block(control->head_block_time() + fc::microseconds(config::block_interval_us));
@@ -664,8 +622,7 @@ transaction_trace_ptr base_tester::push_transaction(packed_transaction& trx,
 transaction_trace_ptr base_tester::push_transaction(signed_transaction& trx,
                                                     fc::time_point      deadline,
                                                     uint32_t            billed_cpu_time_us,
-                                                    bool                no_throw)
-{
+                                                    bool                no_throw) {
    try {
       if (!control->is_building_block())
          _start_block(control->head_block_time() + fc::microseconds(config::block_interval_us));
@@ -699,8 +656,7 @@ transaction_trace_ptr base_tester::push_transaction(signed_transaction& trx,
                          ("header", transaction_header(trx))("billed", billed_cpu_time_us))
 }
 
-typename base_tester::action_result base_tester::push_action(action&& act, uint64_t authorizer)
-{
+typename base_tester::action_result base_tester::push_action(action&& act, uint64_t authorizer) {
    signed_transaction trx;
    if (authorizer) {
       act.authorization = vector<permission_level>{
@@ -776,8 +732,7 @@ transaction_trace_ptr base_tester::push_action(const account_name&             c
 action base_tester::get_action(account_name             code,
                                action_name              acttype,
                                vector<permission_level> auths,
-                               const variant_object&    data) const
-{
+                               const variant_object&    data) const {
    try {
       const auto&           acnt = control->get_account(code);
       auto                  abi  = acnt.get_abi();
@@ -799,8 +754,7 @@ action base_tester::get_action(account_name             code,
 
 transaction_trace_ptr base_tester::push_reqauth(account_name                    from,
                                                 const vector<permission_level>& auths,
-                                                const vector<private_key_type>& keys)
-{
+                                                const vector<private_key_type>& keys) {
    fc::variant pretty_trx = fc::mutable_variant_object()(
       "actions",
       fc::variants({ fc::mutable_variant_object()("account", name(config::system_account_name))(
@@ -815,8 +769,7 @@ transaction_trace_ptr base_tester::push_reqauth(account_name                    
    return push_transaction(trx);
 }
 
-transaction_trace_ptr base_tester::push_reqauth(account_name from, string role, bool multi_sig)
-{
+transaction_trace_ptr base_tester::push_reqauth(account_name from, string role, bool multi_sig) {
    if (!multi_sig) {
       return push_reqauth(from,
                           vector<permission_level>{
@@ -833,8 +786,9 @@ transaction_trace_ptr base_tester::push_reqauth(account_name from, string role, 
    }
 }
 
-transaction_trace_ptr base_tester::push_dummy(account_name from, const string& v, uint32_t billed_cpu_time_us)
-{
+transaction_trace_ptr base_tester::push_dummy(account_name  from,
+                                              const string& v,
+                                              uint32_t      billed_cpu_time_us) {
    // use reqauth for a normal action, this could be anything
    fc::variant pretty_trx = fc::mutable_variant_object()(
       "actions",
@@ -862,8 +816,7 @@ transaction_trace_ptr base_tester::transfer(account_name from,
                                             account_name to,
                                             string       amount,
                                             string       memo,
-                                            account_name currency)
-{
+                                            account_name currency) {
    return transfer(from, to, asset::from_string(amount), memo, currency);
 }
 
@@ -871,8 +824,7 @@ transaction_trace_ptr base_tester::transfer(account_name from,
                                             account_name to,
                                             asset        amount,
                                             string       memo,
-                                            account_name currency)
-{
+                                            account_name currency) {
    fc::variant pretty_trx = fc::mutable_variant_object()(
       "actions",
       fc::variants({ fc::mutable_variant_object()("account", currency)("name", "transfer")(
@@ -890,8 +842,7 @@ transaction_trace_ptr base_tester::transfer(account_name from,
    return push_transaction(trx);
 }
 
-transaction_trace_ptr base_tester::issue(account_name to, string amount, account_name currency, string memo)
-{
+transaction_trace_ptr base_tester::issue(account_name to, string amount, account_name currency, string memo) {
    fc::variant pretty_trx = fc::mutable_variant_object()(
       "actions",
       fc::variants({ fc::mutable_variant_object()("account", currency)("name", "issue")(
@@ -912,8 +863,7 @@ transaction_trace_ptr base_tester::issue(account_name to, string amount, account
 void base_tester::link_authority(account_name    account,
                                  account_name    code,
                                  permission_name req,
-                                 action_name     type)
-{
+                                 action_name     type) {
    signed_transaction trx;
 
    trx.actions.emplace_back(
@@ -927,8 +877,7 @@ void base_tester::link_authority(account_name    account,
    push_transaction(trx);
 }
 
-void base_tester::unlink_authority(account_name account, account_name code, action_name type)
-{
+void base_tester::unlink_authority(account_name account, account_name code, action_name type) {
    signed_transaction trx;
 
    trx.actions.emplace_back(
@@ -947,8 +896,7 @@ void base_tester::set_authority(account_name                    account,
                                 authority                       auth,
                                 permission_name                 parent,
                                 const vector<permission_level>& auths,
-                                const vector<private_key_type>& keys)
-{
+                                const vector<private_key_type>& keys) {
    try {
       signed_transaction trx;
 
@@ -973,8 +921,7 @@ void base_tester::set_authority(account_name                    account,
 void base_tester::set_authority(account_name    account,
                                 permission_name perm,
                                 authority       auth,
-                                permission_name parent)
-{
+                                permission_name parent) {
    set_authority(account,
                  perm,
                  auth,
@@ -988,8 +935,7 @@ void base_tester::set_authority(account_name    account,
 void base_tester::delete_authority(account_name                    account,
                                    permission_name                 perm,
                                    const vector<permission_level>& auths,
-                                   const vector<private_key_type>& keys)
-{
+                                   const vector<private_key_type>& keys) {
    try {
       signed_transaction trx;
       trx.actions.emplace_back(auths, deleteauth(account, perm));
@@ -1004,8 +950,7 @@ void base_tester::delete_authority(account_name                    account,
    FC_CAPTURE_AND_RETHROW((account)(perm))
 }
 
-void base_tester::delete_authority(account_name account, permission_name perm)
-{
+void base_tester::delete_authority(account_name account, permission_name perm) {
    delete_authority(account,
                     perm,
                     {
@@ -1014,14 +959,14 @@ void base_tester::delete_authority(account_name account, permission_name perm)
                     { get_private_key(account, "owner") });
 }
 
-void base_tester::set_code(account_name account, const char* wast, const private_key_type* signer)
-try {
+void base_tester::set_code(account_name account, const char* wast, const private_key_type* signer) try {
    set_code(account, wast_to_wasm(wast), signer);
 }
 FC_CAPTURE_AND_RETHROW((account))
 
-void base_tester::set_code(account_name account, const vector<uint8_t> wasm, const private_key_type* signer)
-try {
+void base_tester::set_code(account_name            account,
+                           const vector<uint8_t>   wasm,
+                           const private_key_type* signer) try {
    signed_transaction trx;
    trx.actions.emplace_back(
       vector<permission_level>{
@@ -1039,8 +984,7 @@ try {
 }
 FC_CAPTURE_AND_RETHROW((account))
 
-void base_tester::set_abi(account_name account, const char* abi_json, const private_key_type* signer)
-{
+void base_tester::set_abi(account_name account, const char* abi_json, const private_key_type* signer) {
    auto               abi = fc::json::from_string(abi_json).template as<abi_def>();
    signed_transaction trx;
    trx.actions.emplace_back(
@@ -1058,13 +1002,11 @@ void base_tester::set_abi(account_name account, const char* abi_json, const priv
    push_transaction(trx);
 }
 
-bool base_tester::chain_has_transaction(const transaction_id_type& txid) const
-{
+bool base_tester::chain_has_transaction(const transaction_id_type& txid) const {
    return chain_transactions.count(txid) != 0;
 }
 
-const transaction_receipt& base_tester::get_transaction_receipt(const transaction_id_type& txid) const
-{
+const transaction_receipt& base_tester::get_transaction_receipt(const transaction_id_type& txid) const {
    return chain_transactions.at(txid);
 }
 
@@ -1074,8 +1016,7 @@ const transaction_receipt& base_tester::get_transaction_receipt(const transactio
 
 asset base_tester::get_currency_balance(const account_name& code,
                                         const symbol&       asset_symbol,
-                                        const account_name& account) const
-{
+                                        const account_name& account) const {
    const auto& db = control->db();
    const auto* tbl =
       db.template find<table_id_object, by_code_scope_table>(boost::make_tuple(code, account, "accounts"_n));
@@ -1094,8 +1035,10 @@ asset base_tester::get_currency_balance(const account_name& code,
    return asset(result, asset_symbol);
 }
 
-vector<char> base_tester::get_row_by_account(name code, name scope, name table, const account_name& act) const
-{
+vector<char> base_tester::get_row_by_account(name                code,
+                                             name                scope,
+                                             name                table,
+                                             const account_name& act) const {
    vector<char> data;
    const auto&  db = control->db();
    const auto*  t_id =
@@ -1117,30 +1060,26 @@ vector<char> base_tester::get_row_by_account(name code, name scope, name table, 
    return data;
 }
 
-vector<uint8_t> base_tester::to_uint8_vector(const string& s)
-{
+vector<uint8_t> base_tester::to_uint8_vector(const string& s) {
    vector<uint8_t> v(s.size());
    copy(s.begin(), s.end(), v.begin());
    return v;
 };
 
-vector<uint8_t> base_tester::to_uint8_vector(uint64_t x)
-{
+vector<uint8_t> base_tester::to_uint8_vector(uint64_t x) {
    vector<uint8_t> v(sizeof(x));
    *reinterpret_cast<uint64_t*>(v.data()) = x;
    return v;
 };
 
-uint64_t base_tester::to_uint64(fc::variant x)
-{
+uint64_t base_tester::to_uint64(fc::variant x) {
    vector<uint8_t> blob;
    fc::from_variant<uint8_t>(x, blob);
    FC_ASSERT(8 == blob.size());
    return *reinterpret_cast<uint64_t*>(blob.data());
 }
 
-string base_tester::to_string(fc::variant x)
-{
+string base_tester::to_string(fc::variant x) {
    vector<uint8_t> v;
    fc::from_variant<uint8_t>(x, v);
    string s(v.size(), 0);
@@ -1148,8 +1087,7 @@ string base_tester::to_string(fc::variant x)
    return s;
 }
 
-void base_tester::sync_with(base_tester& other)
-{
+void base_tester::sync_with(base_tester& other) {
    // Already in sync?
    if (control->head_block_id() == other.control->head_block_id())
       return;
@@ -1178,27 +1116,23 @@ void base_tester::sync_with(base_tester& other)
    sync_dbs(other, *this);
 }
 
-void base_tester::set_before_preactivate_bios_contract()
-{
+void base_tester::set_before_preactivate_bios_contract() {
    set_code(config::system_account_name, contracts::before_preactivate_eosio_bios_wasm());
    set_abi(config::system_account_name, contracts::before_preactivate_eosio_bios_abi().data());
 }
 
-void base_tester::set_before_producer_authority_bios_contract()
-{
+void base_tester::set_before_producer_authority_bios_contract() {
    set_code(config::system_account_name, contracts::before_producer_authority_eosio_bios_wasm());
    set_abi(config::system_account_name, contracts::before_producer_authority_eosio_bios_abi().data());
 }
 
-void base_tester::set_bios_contract()
-{
+void base_tester::set_bios_contract() {
    set_code(config::system_account_name, contracts::eosio_bios_wasm());
    set_abi(config::system_account_name, contracts::eosio_bios_abi().data());
 }
 
 vector<producer_authority> base_tester::get_producer_authorities(
-   const vector<account_name>& producer_names) const
-{
+   const vector<account_name>& producer_names) const {
    // Create producer schedule
    vector<producer_authority> schedule;
    for (auto& producer_name : producer_names) {
@@ -1210,15 +1144,13 @@ vector<producer_authority> base_tester::get_producer_authorities(
    return schedule;
 }
 
-transaction_trace_ptr base_tester::set_producers(const vector<account_name>& producer_names)
-{
+transaction_trace_ptr base_tester::set_producers(const vector<account_name>& producer_names) {
    auto schedule = get_producer_authorities(producer_names);
 
    return set_producer_schedule(schedule);
 }
 
-transaction_trace_ptr base_tester::set_producer_schedule(const vector<producer_authority>& schedule)
-{
+transaction_trace_ptr base_tester::set_producer_schedule(const vector<producer_authority>& schedule) {
    // FC reflection does not create variants that are compatible with ABI 1.1 so we manually translate.
    fc::variants schedule_variant;
    schedule_variant.reserve(schedule.size());
@@ -1232,8 +1164,7 @@ transaction_trace_ptr base_tester::set_producer_schedule(const vector<producer_a
                       fc::mutable_variant_object()("schedule", schedule_variant));
 }
 
-transaction_trace_ptr base_tester::set_producers_legacy(const vector<account_name>& producer_names)
-{
+transaction_trace_ptr base_tester::set_producers_legacy(const vector<account_name>& producer_names) {
    auto schedule = get_producer_authorities(producer_names);
    // down-rank to old version
 
@@ -1253,22 +1184,19 @@ transaction_trace_ptr base_tester::set_producers_legacy(const vector<account_nam
                       fc::mutable_variant_object()("schedule", legacy_keys));
 }
 
-const table_id_object* base_tester::find_table(name code, name scope, name table)
-{
+const table_id_object* base_tester::find_table(name code, name scope, name table) {
    auto tid = control->db().find<table_id_object, by_code_scope_table>(boost::make_tuple(code, scope, table));
    return tid;
 }
 
-void base_tester::schedule_protocol_features_wo_preactivation(const vector<digest_type> feature_digests)
-{
+void base_tester::schedule_protocol_features_wo_preactivation(const vector<digest_type> feature_digests) {
    protocol_features_to_be_activated_wo_preactivation.insert(
       protocol_features_to_be_activated_wo_preactivation.end(),
       feature_digests.begin(),
       feature_digests.end());
 }
 
-void base_tester::preactivate_protocol_features(const vector<digest_type> feature_digests)
-{
+void base_tester::preactivate_protocol_features(const vector<digest_type> feature_digests) {
    for (const auto& feature_digest : feature_digests) {
       push_action(config::system_account_name,
                   "activate"_n,
@@ -1278,8 +1206,7 @@ void base_tester::preactivate_protocol_features(const vector<digest_type> featur
 }
 
 void base_tester::preactivate_builtin_protocol_features(
-   const std::vector<builtin_protocol_feature_t>& builtin_features)
-{
+   const std::vector<builtin_protocol_feature_t>& builtin_features) {
    const auto& pfs = control->get_protocol_feature_manager().get_protocol_feature_set();
 
    // This behavior is disabled by configurable_wasm_limits
@@ -1292,8 +1219,7 @@ void base_tester::preactivate_builtin_protocol_features(
    preactivate_protocol_features(features);
 }
 
-void base_tester::preactivate_all_builtin_protocol_features()
-{
+void base_tester::preactivate_all_builtin_protocol_features() {
    const auto& pfm               = control->get_protocol_feature_manager();
    const auto& pfs               = pfm.get_protocol_feature_set();
    const auto  current_block_num = control->head_block_num() + (control->is_building_block() ? 1 : 0);
@@ -1340,8 +1266,7 @@ void base_tester::preactivate_all_builtin_protocol_features()
    preactivate_protocol_features(preactivations);
 }
 
-bool fc_exception_message_is::operator()(const fc::exception& ex)
-{
+bool fc_exception_message_is::operator()(const fc::exception& ex) {
    auto message = ex.get_log().at(0).get_message();
    bool match   = (message == expected);
    if (!match) {
@@ -1350,8 +1275,7 @@ bool fc_exception_message_is::operator()(const fc::exception& ex)
    return match;
 }
 
-bool fc_exception_message_starts_with::operator()(const fc::exception& ex)
-{
+bool fc_exception_message_starts_with::operator()(const fc::exception& ex) {
    auto message = ex.get_log().at(0).get_message();
    bool match   = boost::algorithm::starts_with(message, expected);
    if (!match) {
@@ -1360,8 +1284,7 @@ bool fc_exception_message_starts_with::operator()(const fc::exception& ex)
    return match;
 }
 
-bool fc_assert_exception_message_is::operator()(const fc::assert_exception& ex)
-{
+bool fc_assert_exception_message_is::operator()(const fc::assert_exception& ex) {
    auto message = ex.get_log().at(0).get_message();
    bool match   = false;
    auto pos     = message.find(": ");
@@ -1375,8 +1298,7 @@ bool fc_assert_exception_message_is::operator()(const fc::assert_exception& ex)
    return match;
 }
 
-bool fc_assert_exception_message_starts_with::operator()(const fc::assert_exception& ex)
-{
+bool fc_assert_exception_message_starts_with::operator()(const fc::assert_exception& ex) {
    auto message = ex.get_log().at(0).get_message();
    bool match   = false;
    auto pos     = message.find(": ");
@@ -1390,8 +1312,7 @@ bool fc_assert_exception_message_starts_with::operator()(const fc::assert_except
    return match;
 }
 
-bool eosio_assert_message_is::operator()(const eosio_assert_message_exception& ex)
-{
+bool eosio_assert_message_is::operator()(const eosio_assert_message_exception& ex) {
    auto message = ex.get_log().at(0).get_message();
    bool match   = (message == expected);
    if (!match) {
@@ -1400,8 +1321,7 @@ bool eosio_assert_message_is::operator()(const eosio_assert_message_exception& e
    return match;
 }
 
-bool eosio_assert_message_starts_with::operator()(const eosio_assert_message_exception& ex)
-{
+bool eosio_assert_message_starts_with::operator()(const eosio_assert_message_exception& ex) {
    auto message = ex.get_log().at(0).get_message();
    bool match   = boost::algorithm::starts_with(message, expected);
    if (!match) {
@@ -1410,8 +1330,7 @@ bool eosio_assert_message_starts_with::operator()(const eosio_assert_message_exc
    return match;
 }
 
-bool eosio_assert_code_is::operator()(const eosio_assert_code_exception& ex)
-{
+bool eosio_assert_code_is::operator()(const eosio_assert_code_exception& ex) {
    auto message = ex.get_log().at(0).get_message();
    bool match   = (message == expected);
    if (!match) {
@@ -1425,21 +1344,18 @@ const sha256 mock::webauthn_private_key::_origin_hash = fc::sha256::hash(mock::w
 }
 } /// eosio::testing
 
-std::ostream& operator<<(std::ostream& osm, const fc::variant& v)
-{
+std::ostream& operator<<(std::ostream& osm, const fc::variant& v) {
    // fc::json::to_stream( osm, v );
    osm << fc::json::to_pretty_string(v);
    return osm;
 }
 
-std::ostream& operator<<(std::ostream& osm, const fc::variant_object& v)
-{
+std::ostream& operator<<(std::ostream& osm, const fc::variant_object& v) {
    osm << fc::variant(v);
    return osm;
 }
 
-std::ostream& operator<<(std::ostream& osm, const fc::variant_object::entry& e)
-{
+std::ostream& operator<<(std::ostream& osm, const fc::variant_object::entry& e) {
    osm << "{ " << e.key() << ": " << e.value() << " }";
    return osm;
 }

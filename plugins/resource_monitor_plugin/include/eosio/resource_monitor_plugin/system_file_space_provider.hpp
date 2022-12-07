@@ -6,8 +6,7 @@
 namespace bfs = boost::filesystem;
 
 namespace eosio::resource_monitor {
-class system_file_space_provider
-{
+class system_file_space_provider {
 public:
    system_file_space_provider() {}
 

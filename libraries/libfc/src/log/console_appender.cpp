@@ -15,8 +15,7 @@
 
 namespace fc {
 
-class console_appender::impl
-{
+class console_appender::impl {
 public:
    config      cfg;
    color::type lc[log_level::off + 1];
@@ -27,23 +26,18 @@ public:
 };
 
 console_appender::console_appender(const variant& args)
-   : my(new impl)
-{
+   : my(new impl) {
    configure(args.as<config>());
 }
 
 console_appender::console_appender(const config& cfg)
-   : my(new impl)
-{
+   : my(new impl) {
    configure(cfg);
 }
 console_appender::console_appender()
-   : my(new impl)
-{
-}
+   : my(new impl) {}
 
-void console_appender::configure(const config& console_appender_config)
-{
+void console_appender::configure(const config& console_appender_config) {
    try {
 #ifdef WIN32
       my->console_handle = INVALID_HANDLE_VALUE;
@@ -71,8 +65,7 @@ static WORD
 #else
 static const char*
 #endif
-get_console_color(console_appender::color::type t)
-{
+get_console_color(console_appender::color::type t) {
    switch (t) {
       case console_appender::color::red: return CONSOLE_RED;
       case console_appender::color::green: return CONSOLE_GREEN;
@@ -86,8 +79,7 @@ get_console_color(console_appender::color::type t)
    }
 }
 
-string fixed_size(size_t s, const string& str)
-{
+string fixed_size(size_t s, const string& str) {
    if (str.size() == s)
       return str;
    if (str.size() > s)
@@ -97,8 +89,7 @@ string fixed_size(size_t s, const string& str)
    return tmp;
 }
 
-void console_appender::log(const log_message& m)
-{
+void console_appender::log(const log_message& m) {
    // fc::string message = fc::format_string( m.get_format(), m.get_data() );
    // fc::variant lmsg(m);
 
@@ -158,8 +149,7 @@ void console_appender::log(const log_message& m)
       fflush(out);
 }
 
-void console_appender::print(const std::string& text, color::type text_color)
-{
+void console_appender::print(const std::string& text, color::type text_color) {
    FILE* out = my->cfg.stream == stream::std_error ? stderr : stdout;
 
 #ifdef WIN32

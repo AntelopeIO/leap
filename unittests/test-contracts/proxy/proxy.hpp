@@ -6,8 +6,7 @@
 
 // Extacted from eosio.token contract:
 namespace eosio {
-class [[eosio::contract("eosio.token")]] token : public eosio::contract
-{
+class [[eosio::contract("eosio.token")]] token : public eosio::contract {
 public:
    using eosio::contract::contract;
 
@@ -18,8 +17,7 @@ public:
 }
 
 // This contract:
-class [[eosio::contract]] proxy : public eosio::contract
-{
+class [[eosio::contract]] proxy : public eosio::contract {
 public:
    proxy(eosio::name self, eosio::name first_receiver, eosio::datastream<const char*> ds);
 
@@ -33,8 +31,7 @@ public:
    [[eosio::on_notify("eosio::onerror")]] void on_error(uint128_t                        sender_id,
                                                         eosio::ignore<std::vector<char>> sent_trx);
 
-   struct [[eosio::table]] config
-   {
+   struct [[eosio::table]] config {
       eosio::name owner;
       uint32_t    delay   = 0;
       uint32_t    next_id = 0;

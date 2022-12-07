@@ -12,8 +12,7 @@ using namespace std;
 const string test_includes = "#include <wasm_spec_tests.hpp>\n\n";
 const string boost_xrange  = "boost::unit_test::data::xrange";
 
-string convert_to_valid_cpp_identifier(string val)
-{
+string convert_to_valid_cpp_identifier(string val) {
    string ret_val = val;
    for (int i = 0; i <= val.size(); i++) {
       if (val[i] == '-' || val[i] == '.') {
@@ -26,8 +25,7 @@ string convert_to_valid_cpp_identifier(string val)
    return ret_val;
 }
 
-string create_module_test_case(string test_name, int start_index, int end_index)
-{
+string create_module_test_case(string test_name, int start_index, int end_index) {
    stringstream func;
 
    func << "BOOST_DATA_TEST_CASE(" << test_name << "_module, " << boost_xrange << "(" << start_index << ","
@@ -50,8 +48,7 @@ string create_module_test_case(string test_name, int start_index, int end_index)
    return func.str();
 }
 
-string create_passing_data_test_case(string test_name, int start_index, int end_index)
-{
+string create_passing_data_test_case(string test_name, int start_index, int end_index) {
    stringstream func;
 
    func << "BOOST_DATA_TEST_CASE(" << test_name << "_pass, " << boost_xrange << "(" << start_index << ","
@@ -74,8 +71,7 @@ string create_passing_data_test_case(string test_name, int start_index, int end_
    return func.str();
 }
 
-string create_check_throw_data_test_case(string test_name, int start_index, int end_index)
-{
+string create_check_throw_data_test_case(string test_name, int start_index, int end_index) {
    stringstream func;
 
    func << "BOOST_DATA_TEST_CASE(" << test_name << "_check_throw, " << boost_xrange << "(" << start_index
@@ -98,8 +94,7 @@ string create_check_throw_data_test_case(string test_name, int start_index, int 
    return func.str();
 }
 
-void write_tests(vector<spec_test> tests)
-{
+void write_tests(vector<spec_test> tests) {
    string       file_name = "";
    stringstream test_ss;
 

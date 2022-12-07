@@ -14,8 +14,7 @@ namespace chain {
  *  have changed.  When it is safe to directly use an older version that will be allowed though cases
  *  where this is possible may be rare.
  */
-class database_header_object : public chainbase::object<database_header_object_type, database_header_object>
-{
+class database_header_object : public chainbase::object<database_header_object_type, database_header_object> {
    OBJECT_CTOR(database_header_object)
 
    /**
@@ -33,8 +32,7 @@ class database_header_object : public chainbase::object<database_header_object_t
    id_type  id;
    uint32_t version = current_version;
 
-   void validate() const
-   {
+   void validate() const {
       EOS_ASSERT(
          std::clamp(version, minimum_version, current_version) == version,
          bad_database_version_exception,

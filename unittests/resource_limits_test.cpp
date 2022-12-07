@@ -13,13 +13,11 @@ using namespace eosio::chain;
 
 class resource_limits_fixture
    : private chainbase_fixture<1024 * 1024>
-   , public resource_limits_manager
-{
+   , public resource_limits_manager {
 public:
    resource_limits_fixture()
       : chainbase_fixture()
-      , resource_limits_manager(*chainbase_fixture::_db, []() { return nullptr; })
-   {
+      , resource_limits_manager(*chainbase_fixture::_db, []() { return nullptr; }) {
       add_indices();
       initialize_database();
    }
@@ -32,8 +30,7 @@ public:
 constexpr uint64_t expected_elastic_iterations(uint64_t from,
                                                uint64_t to,
                                                uint64_t rate_num,
-                                               uint64_t rate_den)
-{
+                                               uint64_t rate_den) {
    uint64_t result = 0;
    uint64_t cur    = from;
 
@@ -48,8 +45,7 @@ constexpr uint64_t expected_elastic_iterations(uint64_t from,
 constexpr uint64_t expected_exponential_average_iterations(uint64_t from,
                                                            uint64_t to,
                                                            uint64_t value,
-                                                           uint64_t window_size)
-{
+                                                           uint64_t window_size) {
    uint64_t result = 0;
    uint64_t cur    = from;
 
@@ -67,8 +63,7 @@ BOOST_AUTO_TEST_SUITE(resource_limits_test)
 /**
  * Test to make sure that the elastic limits for blocks relax and contract as expected
  */
-BOOST_FIXTURE_TEST_CASE(elastic_cpu_relax_contract, resource_limits_fixture)
-try {
+BOOST_FIXTURE_TEST_CASE(elastic_cpu_relax_contract, resource_limits_fixture) try {
    const uint64_t desired_virtual_limit =
       config::default_max_block_cpu_usage * config::maximum_elastic_resource_multiplier;
    const uint64_t expected_relax_iterations =
@@ -115,8 +110,7 @@ FC_LOG_AND_RETHROW();
 /**
  * Test to make sure that the elastic limits for blocks relax and contract as expected
  */
-BOOST_FIXTURE_TEST_CASE(elastic_net_relax_contract, resource_limits_fixture)
-try {
+BOOST_FIXTURE_TEST_CASE(elastic_net_relax_contract, resource_limits_fixture) try {
    const uint64_t desired_virtual_limit =
       config::default_max_block_net_usage * config::maximum_elastic_resource_multiplier;
    const uint64_t expected_relax_iterations =
@@ -229,8 +223,7 @@ FC_LOG_AND_RETHROW();
    } FC_LOG_AND_RETHROW();
 #endif
 
-BOOST_FIXTURE_TEST_CASE(enforce_block_limits_cpu, resource_limits_fixture)
-try {
+BOOST_FIXTURE_TEST_CASE(enforce_block_limits_cpu, resource_limits_fixture) try {
    const account_name account(1);
    initialize_account(account);
    set_account_limits(account, -1, -1, -1);
@@ -247,8 +240,7 @@ try {
 }
 FC_LOG_AND_RETHROW();
 
-BOOST_FIXTURE_TEST_CASE(enforce_block_limits_net, resource_limits_fixture)
-try {
+BOOST_FIXTURE_TEST_CASE(enforce_block_limits_net, resource_limits_fixture) try {
    const account_name account(1);
    initialize_account(account);
    set_account_limits(account, -1, -1, -1);
@@ -265,8 +257,7 @@ try {
 }
 FC_LOG_AND_RETHROW();
 
-BOOST_FIXTURE_TEST_CASE(enforce_account_ram_limit, resource_limits_fixture)
-try {
+BOOST_FIXTURE_TEST_CASE(enforce_account_ram_limit, resource_limits_fixture) try {
    const uint64_t limit               = 1000;
    const uint64_t increment           = 77;
    const uint64_t expected_iterations = (limit + increment - 1) / increment;
@@ -286,8 +277,7 @@ try {
 }
 FC_LOG_AND_RETHROW();
 
-BOOST_FIXTURE_TEST_CASE(enforce_account_ram_limit_underflow, resource_limits_fixture)
-try {
+BOOST_FIXTURE_TEST_CASE(enforce_account_ram_limit_underflow, resource_limits_fixture) try {
    const account_name account(1);
    initialize_account(account);
    set_account_limits(account, 100, -1, -1);
@@ -297,8 +287,7 @@ try {
 }
 FC_LOG_AND_RETHROW();
 
-BOOST_FIXTURE_TEST_CASE(enforce_account_ram_limit_overflow, resource_limits_fixture)
-try {
+BOOST_FIXTURE_TEST_CASE(enforce_account_ram_limit_overflow, resource_limits_fixture) try {
    const account_name account(1);
    initialize_account(account);
    set_account_limits(account, UINT64_MAX, -1, -1);
@@ -312,8 +301,7 @@ try {
 }
 FC_LOG_AND_RETHROW();
 
-BOOST_FIXTURE_TEST_CASE(enforce_account_ram_commitment, resource_limits_fixture)
-try {
+BOOST_FIXTURE_TEST_CASE(enforce_account_ram_commitment, resource_limits_fixture) try {
    const int64_t limit               = 1000;
    const int64_t commit              = 600;
    const int64_t increment           = 77;
@@ -337,8 +325,7 @@ try {
 }
 FC_LOG_AND_RETHROW();
 
-BOOST_FIXTURE_TEST_CASE(sanity_check, resource_limits_fixture)
-try {
+BOOST_FIXTURE_TEST_CASE(sanity_check, resource_limits_fixture) try {
    int64_t  total_staked_tokens  = 1'000'000'000'0000ll;
    int64_t  user_stake           = 1'0000ll;
    uint64_t max_block_cpu        = 200'000.; // us;
@@ -376,8 +363,7 @@ FC_LOG_AND_RETHROW()
  * 3. when timestamp is given, if it is earlier than last_usage_update_time, current_used is same as used,
  *    otherwise, current_used should be the decay value (will be 0 after 1 day)
  */
-BOOST_FIXTURE_TEST_CASE(get_account_net_limit_ex_and_get_account_cpu_limit_ex, resource_limits_fixture)
-try {
+BOOST_FIXTURE_TEST_CASE(get_account_net_limit_ex_and_get_account_cpu_limit_ex, resource_limits_fixture) try {
 
    const account_name cpu_test_account("cpuacc");
    const account_name net_test_account("netacc");

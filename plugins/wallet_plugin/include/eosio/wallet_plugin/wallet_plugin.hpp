@@ -16,8 +16,7 @@ class wallet_manager;
 }
 using namespace wallet;
 
-class wallet_plugin : public plugin<wallet_plugin>
-{
+class wallet_plugin : public plugin<wallet_plugin> {
 public:
    APPBASE_PLUGIN_REQUIRES()
 

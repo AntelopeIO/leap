@@ -11,16 +11,12 @@ namespace fc {
 namespace crypto {
 namespace r1 {
 namespace detail {
-class public_key_impl
-{
+class public_key_impl {
 public:
    public_key_impl()
-      : _key(nullptr)
-   {
-   }
+      : _key(nullptr) {}
 
-   ~public_key_impl()
-   {
+   ~public_key_impl() {
       if (_key != nullptr) {
          EC_KEY_free(_key);
       }
@@ -28,16 +24,12 @@ public:
    public_key_impl(const public_key_impl& cpy) { _key = cpy._key ? EC_KEY_dup(cpy._key) : nullptr; }
    EC_KEY* _key;
 };
-class private_key_impl
-{
+class private_key_impl {
 public:
    private_key_impl()
-      : _key(nullptr)
-   {
-   }
+      : _key(nullptr) {}
 
-   ~private_key_impl()
-   {
+   ~private_key_impl() {
       if (_key != nullptr) {
          EC_KEY_free(_key);
       }
@@ -46,8 +38,7 @@ public:
    EC_KEY* _key;
 };
 }
-static void* ecies_key_derivation(const void* input, size_t ilen, void* output, size_t* olen)
-{
+static void* ecies_key_derivation(const void* input, size_t ilen, void* output, size_t* olen) {
    if (*olen < SHA512_DIGEST_LENGTH) {
       return NULL;
    }
@@ -63,8 +54,7 @@ int ECDSA_SIG_recover_key_GFp(EC_KEY*              eckey,
                               const unsigned char* msg,
                               int                  msglen,
                               int                  recid,
-                              int                  check)
-{
+                              int                  check) {
    if (!eckey)
       FC_THROW_EXCEPTION(exception, "null key");
 
@@ -204,8 +194,7 @@ err:
 compact_signature signature_from_ecdsa(const EC_KEY*          key,
                                        const public_key_data& pub_data,
                                        fc::ecdsa_sig&         sig,
-                                       const fc::sha256&      d)
-{
+                                       const fc::sha256&      d) {
    // We can't use ssl_bignum here; _get0() does not transfer ownership to us; _set0() does transfer ownership
    // to fc::ecdsa_sig
    const BIGNUM *sig_r, *sig_s;
@@ -252,8 +241,7 @@ compact_signature signature_from_ecdsa(const EC_KEY*          key,
    return csig;
 }
 
-int static inline EC_KEY_regenerate_key(EC_KEY* eckey, const BIGNUM* priv_key)
-{
+int static inline EC_KEY_regenerate_key(EC_KEY* eckey, const BIGNUM* priv_key) {
    int       ok      = 0;
    BN_CTX*   ctx     = NULL;
    EC_POINT* pub_key = NULL;
@@ -305,8 +293,7 @@ err:
     }
     */
 
-public_key public_key::mult(const fc::sha256& digest)
-{
+public_key public_key::mult(const fc::sha256& digest) {
    // get point from this public key
    const EC_POINT* master_pub = EC_KEY_get0_public_key(my->_key);
    ec_group        group(EC_GROUP_new_by_curve_name(NID_X9_62_prime256v1));
@@ -328,12 +315,10 @@ public_key public_key::mult(const fc::sha256& digest)
 
    return rtn;
 }
-bool public_key::valid() const
-{
+bool public_key::valid() const {
    return my->_key != nullptr;
 }
-public_key public_key::add(const fc::sha256& digest) const
-{
+public_key public_key::add(const fc::sha256& digest) const {
    try {
       ec_group group(EC_GROUP_new_by_curve_name(NID_X9_62_prime256v1));
       bn_ctx   ctx(BN_CTX_new());
@@ -374,8 +359,7 @@ public_key public_key::add(const fc::sha256& digest) const
    FC_RETHROW_EXCEPTIONS(debug, "digest: ${digest}", ("digest", digest));
 }
 
-std::string public_key::to_base58() const
-{
+std::string public_key::to_base58() const {
    public_key_data key   = serialize();
    uint32_t        check = (uint32_t)sha256::hash(key.data, sizeof(key))._hash[0];
    static_assert(sizeof(key) + sizeof(check) == 37,
@@ -386,8 +370,7 @@ std::string public_key::to_base58() const
    return fc::to_base58(data.begin(), data.size(), fc::yield_function_t());
 }
 
-public_key public_key::from_base58(const std::string& b58)
-{
+public_key public_key::from_base58(const std::string& b58) {
    array<char, 37> data;
    size_t          s = fc::from_base58(b58, (char*)&data, sizeof(data));
    FC_ASSERT(s == sizeof(data));
@@ -401,8 +384,7 @@ public_key public_key::from_base58(const std::string& b58)
 
 private_key::private_key() {}
 
-private_key private_key::generate_from_seed(const fc::sha256& seed, const fc::sha256& offset)
-{
+private_key private_key::generate_from_seed(const fc::sha256& seed, const fc::sha256& offset) {
    ssl_bignum z;
    BN_bin2bn((unsigned char*)&offset, sizeof(offset), z);
 
@@ -424,8 +406,7 @@ private_key private_key::generate_from_seed(const fc::sha256& seed, const fc::sh
    return regenerate(secret);
 }
 
-private_key private_key::regenerate(const fc::sha256& secret)
-{
+private_key private_key::regenerate(const fc::sha256& secret) {
    private_key self;
    self.my->_key = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
    if (!self.my->_key)
@@ -440,8 +421,7 @@ private_key private_key::regenerate(const fc::sha256& secret)
    return self;
 }
 
-fc::sha256 private_key::get_secret() const
-{
+fc::sha256 private_key::get_secret() const {
    if (!my->_key) {
       return fc::sha256();
    }
@@ -456,8 +436,7 @@ fc::sha256 private_key::get_secret() const
    return sec;
 }
 
-private_key private_key::generate()
-{
+private_key private_key::generate() {
    private_key self;
    EC_KEY*     k = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
    if (!k)
@@ -480,8 +459,7 @@ private_key private_key::generate()
    return self;
 }
 
-signature private_key::sign(const fc::sha256& digest) const
-{
+signature private_key::sign(const fc::sha256& digest) const {
    unsigned int buf_len = ECDSA_size(my->_key);
    //        fprintf( stderr, "%d  %d\n", buf_len, sizeof(sha256) );
    signature sig;
@@ -494,14 +472,12 @@ signature private_key::sign(const fc::sha256& digest) const
 
    return sig;
 }
-bool public_key::verify(const fc::sha256& digest, const fc::crypto::r1::signature& sig)
-{
+bool public_key::verify(const fc::sha256& digest, const fc::crypto::r1::signature& sig) {
    return 1 == ECDSA_verify(
                   0, (unsigned char*)&digest, sizeof(digest), (unsigned char*)&sig, sizeof(sig), my->_key);
 }
 
-public_key_data public_key::serialize() const
-{
+public_key_data public_key::serialize() const {
    public_key_data dat;
    if (!my->_key)
       return dat;
@@ -520,8 +496,7 @@ public_key_data public_key::serialize() const
 
 public_key::public_key() {}
 public_key::~public_key() {}
-public_key::public_key(const public_key_point_data& dat)
-{
+public_key::public_key(const public_key_point_data& dat) {
    const char* front = &dat.data[0];
    if (*front == 0) {
    } else {
@@ -532,8 +507,7 @@ public_key::public_key(const public_key_point_data& dat)
       }
    }
 }
-public_key::public_key(const public_key_data& dat)
-{
+public_key::public_key(const public_key_data& dat) {
    const char* front = &dat.data[0];
    if (*front == 0) {
    } else {
@@ -546,22 +520,19 @@ public_key::public_key(const public_key_data& dat)
    }
 }
 
-bool private_key::verify(const fc::sha256& digest, const fc::crypto::r1::signature& sig)
-{
+bool private_key::verify(const fc::sha256& digest, const fc::crypto::r1::signature& sig) {
    return 1 == ECDSA_verify(
                   0, (unsigned char*)&digest, sizeof(digest), (unsigned char*)&sig, sizeof(sig), my->_key);
 }
 
-public_key private_key::get_public_key() const
-{
+public_key private_key::get_public_key() const {
    public_key pub;
    pub.my->_key = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
    EC_KEY_set_public_key(pub.my->_key, EC_KEY_get0_public_key(my->_key));
    return pub;
 }
 
-fc::sha512 private_key::get_shared_secret(const public_key& other) const
-{
+fc::sha512 private_key::get_shared_secret(const public_key& other) const {
    FC_ASSERT(my->_key != nullptr);
    FC_ASSERT(other.my->_key != nullptr);
    fc::sha512 buf;
@@ -575,8 +546,7 @@ fc::sha512 private_key::get_shared_secret(const public_key& other) const
 
 private_key::~private_key() {}
 
-public_key::public_key(const compact_signature& c, const fc::sha256& digest, bool check_canonical)
-{
+public_key::public_key(const compact_signature& c, const fc::sha256& digest, bool check_canonical) {
    int nV = c.data[0];
    if (nV < 27 || nV >= 35)
       FC_THROW_EXCEPTION(exception, "unable to reconstruct public key from signature");
@@ -607,8 +577,7 @@ public_key::public_key(const compact_signature& c, const fc::sha256& digest, boo
    FC_THROW_EXCEPTION(exception, "unable to reconstruct public key from signature");
 }
 
-compact_signature private_key::sign_compact(const fc::sha256& digest) const
-{
+compact_signature private_key::sign_compact(const fc::sha256& digest) const {
    try {
       FC_ASSERT(my->_key != nullptr);
       auto      my_pub_key = get_public_key().serialize(); // just for good measure
@@ -622,8 +591,7 @@ compact_signature private_key::sign_compact(const fc::sha256& digest) const
    FC_RETHROW_EXCEPTIONS(warn, "sign ${digest}", ("digest", digest)("private_key", *this));
 }
 
-private_key& private_key::operator=(private_key&& pk)
-{
+private_key& private_key::operator=(private_key&& pk) {
    if (my->_key) {
       EC_KEY_free(my->_key);
    }
@@ -632,24 +600,15 @@ private_key& private_key::operator=(private_key&& pk)
    return *this;
 }
 public_key::public_key(const public_key& pk)
-   : my(pk.my)
-{
-}
+   : my(pk.my) {}
 public_key::public_key(public_key&& pk)
-   : my(fc::move(pk.my))
-{
-}
+   : my(fc::move(pk.my)) {}
 private_key::private_key(const private_key& pk)
-   : my(pk.my)
-{
-}
+   : my(pk.my) {}
 private_key::private_key(private_key&& pk)
-   : my(fc::move(pk.my))
-{
-}
+   : my(fc::move(pk.my)) {}
 
-public_key& public_key::operator=(public_key&& pk)
-{
+public_key& public_key::operator=(public_key&& pk) {
    if (my->_key) {
       EC_KEY_free(my->_key);
    }
@@ -657,16 +616,14 @@ public_key& public_key::operator=(public_key&& pk)
    pk.my->_key = nullptr;
    return *this;
 }
-public_key& public_key::operator=(const public_key& pk)
-{
+public_key& public_key::operator=(const public_key& pk) {
    if (my->_key) {
       EC_KEY_free(my->_key);
    }
    my->_key = EC_KEY_dup(pk.my->_key);
    return *this;
 }
-private_key& private_key::operator=(const private_key& pk)
-{
+private_key& private_key::operator=(const private_key& pk) {
    if (my->_key) {
       EC_KEY_free(my->_key);
    }
@@ -676,23 +633,19 @@ private_key& private_key::operator=(const private_key& pk)
 
 }
 }
-void to_variant(const crypto::r1::private_key& var, variant& vo)
-{
+void to_variant(const crypto::r1::private_key& var, variant& vo) {
    vo = var.get_secret();
 }
-void from_variant(const variant& var, crypto::r1::private_key& vo)
-{
+void from_variant(const variant& var, crypto::r1::private_key& vo) {
    fc::sha256 sec;
    from_variant(var, sec);
    vo = crypto::r1::private_key::regenerate(sec);
 }
 
-void to_variant(const crypto::r1::public_key& var, variant& vo)
-{
+void to_variant(const crypto::r1::public_key& var, variant& vo) {
    vo = var.serialize();
 }
-void from_variant(const variant& var, crypto::r1::public_key& vo)
-{
+void from_variant(const variant& var, crypto::r1::public_key& vo) {
    crypto::r1::public_key_data dat;
    from_variant(var, dat);
    vo = crypto::r1::public_key(dat);

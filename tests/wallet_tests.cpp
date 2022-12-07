@@ -11,8 +11,7 @@ namespace eosio {
 BOOST_AUTO_TEST_SUITE(wallet_tests)
 
 /// Test creating the wallet
-BOOST_AUTO_TEST_CASE(wallet_test)
-{
+BOOST_AUTO_TEST_CASE(wallet_test) {
    try {
       using namespace eosio::wallet;
 
@@ -66,8 +65,7 @@ BOOST_AUTO_TEST_CASE(wallet_test)
 }
 
 /// Test wallet manager
-BOOST_AUTO_TEST_CASE(wallet_manager_test)
-{
+BOOST_AUTO_TEST_CASE(wallet_manager_test) {
    try {
       using namespace eosio::wallet;
 
@@ -108,8 +106,7 @@ BOOST_AUTO_TEST_CASE(wallet_manager_test)
       BOOST_CHECK_EQUAL(1u, wm.get_public_keys().size());
       auto keys = wm.list_keys("test", pw);
 
-      auto pub_pri_pair = [](const char* key) -> auto
-      {
+      auto pub_pri_pair = [](const char* key) -> auto{
          private_key_type prikey = private_key_type(std::string(key));
          return std::pair<const public_key_type, private_key_type>(prikey.get_public_key(), prikey);
       };
@@ -223,8 +220,7 @@ BOOST_AUTO_TEST_CASE(wallet_manager_test)
 }
 
 /// Test wallet manager
-BOOST_AUTO_TEST_CASE(wallet_manager_create_test)
-{
+BOOST_AUTO_TEST_CASE(wallet_manager_create_test) {
    try {
       using namespace eosio::wallet;
 

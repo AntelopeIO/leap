@@ -9,13 +9,11 @@ namespace eosio {
 
 using boost::signals2::signal;
 
-class producer_plugin : public appbase::plugin<producer_plugin>
-{
+class producer_plugin : public appbase::plugin<producer_plugin> {
 public:
    APPBASE_PLUGIN_REQUIRES((chain_plugin)(signature_provider_plugin))
 
-   struct runtime_options
-   {
+   struct runtime_options {
       std::optional<int32_t>  max_transaction_time;
       std::optional<int32_t>  max_irreversible_block_age;
       std::optional<int32_t>  produce_time_offset_us;
@@ -26,8 +24,7 @@ public:
       std::optional<uint32_t> greylist_limit;
    };
 
-   struct whitelist_blacklist
-   {
+   struct whitelist_blacklist {
       std::optional<flat_set<account_name>>                         actor_whitelist;
       std::optional<flat_set<account_name>>                         actor_blacklist;
       std::optional<flat_set<account_name>>                         contract_whitelist;
@@ -36,19 +33,16 @@ public:
       std::optional<flat_set<public_key_type>>                      key_blacklist;
    };
 
-   struct greylist_params
-   {
+   struct greylist_params {
       std::vector<account_name> accounts;
    };
 
-   struct integrity_hash_information
-   {
+   struct integrity_hash_information {
       chain::block_id_type head_block_id;
       chain::digest_type   integrity_hash;
    };
 
-   struct snapshot_information
-   {
+   struct snapshot_information {
       chain::block_id_type head_block_id;
       uint32_t             head_block_num;
       fc::time_point       head_block_time;
@@ -56,27 +50,23 @@ public:
       std::string          snapshot_name;
    };
 
-   struct scheduled_protocol_feature_activations
-   {
+   struct scheduled_protocol_feature_activations {
       std::vector<chain::digest_type> protocol_features_to_activate;
    };
 
-   struct get_supported_protocol_features_params
-   {
+   struct get_supported_protocol_features_params {
       bool exclude_disabled      = false;
       bool exclude_unactivatable = false;
    };
 
-   struct get_account_ram_corrections_params
-   {
+   struct get_account_ram_corrections_params {
       std::optional<account_name> lower_bound;
       std::optional<account_name> upper_bound;
       uint32_t                    limit   = 10;
       bool                        reverse = false;
    };
 
-   struct get_account_ram_corrections_result
-   {
+   struct get_account_ram_corrections_result {
       std::vector<fc::variant>    rows;
       std::optional<account_name> more;
    };
@@ -124,15 +114,13 @@ public:
    get_account_ram_corrections_result get_account_ram_corrections(
       const get_account_ram_corrections_params& params) const;
 
-   struct get_unapplied_transactions_params
-   {
+   struct get_unapplied_transactions_params {
       string                  lower_bound; /// transaction id
       std::optional<uint32_t> limit = 100;
       std::optional<uint32_t> time_limit_ms; // defaults to 10ms
    };
 
-   struct unapplied_trx
-   {
+   struct unapplied_trx {
       transaction_id_type trx_id;
       fc::time_point_sec  expiration;
       string              trx_type; // eosio::chain::trx_enum_type values or "read_only"
@@ -144,8 +132,7 @@ public:
       size_t              size               = 0;
    };
 
-   struct get_unapplied_transactions_result
-   {
+   struct get_unapplied_transactions_result {
       size_t                     size          = 0;
       size_t                     incoming_size = 0;
       std::vector<unapplied_trx> trxs;

@@ -16,17 +16,15 @@
 namespace eosio {
 
 namespace bmi = boost::multi_index;
+using chain::transaction_id_type;
 using chain::account_name;
 using chain::block_state_ptr;
 using chain::packed_transaction;
-using chain::transaction_id_type;
 namespace config = chain::config;
 
-class subjective_billing
-{
+class subjective_billing {
 private:
-   struct trx_cache_entry
-   {
+   struct trx_cache_entry {
       transaction_id_type trx_id;
       account_name        account;
       int64_t             subjective_cpu_bill;
@@ -44,14 +42,12 @@ private:
 
    using decaying_accumulator = chain::resource_limits::impl::exponential_decay_accumulator<>;
 
-   struct subjective_billing_info
-   {
+   struct subjective_billing_info {
       uint64_t pending_cpu_us; // tracked cpu us for transactions that may still succeed in a block
       decaying_accumulator
          expired_accumulator; // accumulator used to account for transactions that have expired
 
-      bool empty(uint32_t time_ordinal, uint32_t expired_accumulator_average_window)
-      {
+      bool empty(uint32_t time_ordinal, uint32_t expired_accumulator_average_window) {
          return pending_cpu_us == 0 &&
                 expired_accumulator.value_at(time_ordinal, expired_accumulator_average_window) == 0;
       }
@@ -69,8 +65,7 @@ private:
       config::account_cpu_usage_average_window_ms / subjective_time_interval_ms;
 
 private:
-   uint32_t time_ordinal_for(const fc::time_point& t) const
-   {
+   uint32_t time_ordinal_for(const fc::time_point& t) const {
       auto ordinal = t.time_since_epoch().count() / (1000U * (uint64_t)subjective_time_interval_ms);
       EOS_ASSERT(ordinal <= std::numeric_limits<uint32_t>::max(),
                  chain::tx_resource_exhaustion,
@@ -78,8 +73,7 @@ private:
       return ordinal;
    }
 
-   void remove_subjective_billing(const trx_cache_entry& entry, uint32_t time_ordinal)
-   {
+   void remove_subjective_billing(const trx_cache_entry& entry, uint32_t time_ordinal) {
       auto aitr = _account_subjective_bill_cache.find(entry.account);
       if (aitr != _account_subjective_bill_cache.end()) {
          aitr->second.pending_cpu_us -= entry.subjective_cpu_bill;
@@ -92,8 +86,7 @@ private:
       }
    }
 
-   void transition_to_expired(const trx_cache_entry& entry, uint32_t time_ordinal)
-   {
+   void transition_to_expired(const trx_cache_entry& entry, uint32_t time_ordinal) {
       auto aitr = _account_subjective_bill_cache.find(entry.account);
       if (aitr != _account_subjective_bill_cache.end()) {
          aitr->second.pending_cpu_us -= entry.subjective_cpu_bill;
@@ -102,8 +95,7 @@ private:
       }
    }
 
-   void remove_subjective_billing(const block_state_ptr& bsp, uint32_t time_ordinal)
-   {
+   void remove_subjective_billing(const block_state_ptr& bsp, uint32_t time_ordinal) {
       if (!_trx_cache_index.empty()) {
          for (const auto& receipt : bsp->block->transactions) {
             if (std::holds_alternative<packed_transaction>(receipt.trx)) {
@@ -117,8 +109,7 @@ private:
 public: // public for tests
    static constexpr uint32_t subjective_time_interval_ms = 5'000;
 
-   void remove_subjective_billing(const transaction_id_type& trx_id, uint32_t time_ordinal)
-   {
+   void remove_subjective_billing(const transaction_id_type& trx_id, uint32_t time_ordinal) {
       auto& idx = _trx_cache_index.get<by_id>();
       auto  itr = idx.find(trx_id);
       if (itr != idx.end()) {
@@ -137,8 +128,7 @@ public:
                         const fc::time_point&      expire,
                         const account_name&        first_auth,
                         const fc::microseconds&    elapsed,
-                        bool                       in_pending_block)
-   {
+                        bool                       in_pending_block) {
       if (!_disabled && !_disabled_accounts.count(first_auth)) {
          int64_t bill = std::max<int64_t>(0, elapsed.count());
          auto    p    = _trx_cache_index.emplace(trx_cache_entry{ id, first_auth, bill, expire });
@@ -153,8 +143,7 @@ public:
 
    void subjective_bill_failure(const account_name&     first_auth,
                                 const fc::microseconds& elapsed,
-                                const fc::time_point&   now)
-   {
+                                const fc::time_point&   now) {
       if (!_disabled && !_disabled_accounts.count(first_auth)) {
          int64_t    bill         = std::max<int64_t>(0, elapsed.count());
          const auto time_ordinal = time_ordinal_for(now);
@@ -163,8 +152,7 @@ public:
       }
    }
 
-   int64_t get_subjective_bill(const account_name& first_auth, const fc::time_point& now) const
-   {
+   int64_t get_subjective_bill(const account_name& first_auth, const fc::time_point& now) const {
       if (_disabled || _disabled_accounts.count(first_auth))
          return 0;
       const auto                     time_ordinal  = time_ordinal_for(now);
@@ -195,8 +183,7 @@ public:
 
    void abort_block() { _block_subjective_bill_cache.clear(); }
 
-   void on_block(fc::logger& log, const block_state_ptr& bsp, const fc::time_point& now)
-   {
+   void on_block(fc::logger& log, const block_state_ptr& bsp, const fc::time_point& now) {
       if (bsp == nullptr || _disabled)
          return;
       const auto time_ordinal = time_ordinal_for(now);
@@ -210,8 +197,7 @@ public:
    bool remove_expired(fc::logger&           log,
                        const fc::time_point& pending_block_time,
                        const fc::time_point& now,
-                       const fc::time_point& deadline)
-   {
+                       const fc::time_point& deadline) {
       bool  exhausted = false;
       auto& idx       = _trx_cache_index.get<by_expiry>();
       if (!idx.empty()) {
@@ -241,8 +227,7 @@ public:
 
    uint32_t get_expired_accumulator_average_window() const { return _expired_accumulator_average_window; }
 
-   void set_expired_accumulator_average_window(fc::microseconds subjective_account_decay_time)
-   {
+   void set_expired_accumulator_average_window(fc::microseconds subjective_account_decay_time) {
       _expired_accumulator_average_window =
          subjective_account_decay_time.count() / 1000 / subjective_time_interval_ms;
    }

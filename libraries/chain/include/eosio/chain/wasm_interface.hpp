@@ -17,8 +17,7 @@ namespace eosvmoc {
 struct config;
 }
 
-struct wasm_exit
-{
+struct wasm_exit {
    int32_t code = 0;
 };
 
@@ -26,19 +25,12 @@ struct wasm_exit
  * @class wasm_interface
  *
  */
-class wasm_interface
-{
+class wasm_interface {
 public:
-   enum class vm_type
-   {
-      eos_vm,
-      eos_vm_jit,
-      eos_vm_oc
-   };
+   enum class vm_type { eos_vm, eos_vm_jit, eos_vm_oc };
 
    // return string description of vm_type
-   static std::string vm_type_string(vm_type vmtype)
-   {
+   static std::string vm_type_string(vm_type vmtype) {
       switch (vmtype) {
          case vm_type::eos_vm: return "eos-vm";
          case vm_type::eos_vm_oc: return "eos-vm-oc";

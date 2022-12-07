@@ -28,63 +28,47 @@ using std::size_t;
 typedef decltype(nullptr) nullptr_t;
 
 template<typename T>
-struct remove_reference
-{
+struct remove_reference {
    typedef T type;
 };
 template<typename T>
-struct remove_reference<T&>
-{
+struct remove_reference<T&> {
    typedef T type;
 };
 template<typename T>
-struct remove_reference<T&&>
-{
+struct remove_reference<T&&> {
    typedef T type;
 };
 
 template<typename T>
-struct deduce
-{
+struct deduce {
    typedef T type;
 };
 template<typename T>
-struct deduce<T&>
-{
+struct deduce<T&> {
    typedef T type;
 };
 template<typename T>
-struct deduce<const T&>
-{
+struct deduce<const T&> {
    typedef T type;
 };
 template<typename T>
-struct deduce<T&&>
-{
+struct deduce<T&&> {
    typedef T type;
 };
 template<typename T>
-struct deduce<const T&&>
-{
+struct deduce<const T&&> {
    typedef T type;
 };
 
-using std::forward;
 using std::move;
+using std::forward;
 
-struct true_type
-{
-   enum _value
-   {
-      value = 1
-   };
+struct true_type {
+   enum _value { value = 1 };
 };
-struct false_type
-{
-   enum _value
-   {
-      value = 0
-   };
+struct false_type {
+   enum _value { value = 0 };
 };
 
 namespace detail {
@@ -94,8 +78,7 @@ template<typename T>
 fc::false_type is_class_helper(...);
 
 template<typename T, typename A, typename... Args>
-struct supports_allocator
-{
+struct supports_allocator {
 public:
    static constexpr bool value = std::uses_allocator<T, A>::value;
    static constexpr bool leading_allocator =
@@ -105,15 +88,13 @@ public:
 
 template<typename T, typename A, typename... Args>
 auto construct_maybe_with_allocator(A&& allocator, Args&&... args)
-   -> std::enable_if_t<supports_allocator<T, A>::value && supports_allocator<T, A>::leading_allocator, T>
-{
+   -> std::enable_if_t<supports_allocator<T, A>::value && supports_allocator<T, A>::leading_allocator, T> {
    return T(std::allocator_arg, std::forward<A>(allocator), std::forward<Args>(args)...);
 }
 
 template<typename T, typename A, typename... Args>
 auto construct_maybe_with_allocator(A&& allocator, Args&&... args)
-   -> std::enable_if_t<supports_allocator<T, A>::value && !supports_allocator<T, A>::leading_allocator, T>
-{
+   -> std::enable_if_t<supports_allocator<T, A>::value && !supports_allocator<T, A>::leading_allocator, T> {
    static_assert(supports_allocator<T, A>::trailing_allocator,
                  "type supposedly supports allocators but cannot be constructed by either the leading- or "
                  "trailing-allocator convention");
@@ -122,8 +103,7 @@ auto construct_maybe_with_allocator(A&& allocator, Args&&... args)
 
 template<typename T, typename A, typename... Args>
 auto construct_maybe_with_allocator(A&&, Args&&... args)
-   -> std::enable_if_t<!supports_allocator<T, A>::value, T>
-{
+   -> std::enable_if_t<!supports_allocator<T, A>::value, T> {
    return T(std::forward<Args>(args)...);
 }
 
@@ -131,8 +111,8 @@ template<typename T, typename A, typename... Args>
 auto maybe_augment_constructor_arguments_with_allocator(
    A&&                   allocator,
    std::tuple<Args&&...> args,
-   std::enable_if_t<supports_allocator<T, A>::value && supports_allocator<T, A>::leading_allocator, int> = 0)
-{
+   std::enable_if_t<supports_allocator<T, A>::value && supports_allocator<T, A>::leading_allocator, int> =
+      0) {
    return std::tuple_cat(std::forward_as_tuple<std::allocator_arg_t, A>(std::allocator_arg, allocator), args);
 }
 
@@ -140,8 +120,8 @@ template<typename T, typename A, typename... Args>
 auto maybe_augment_constructor_arguments_with_allocator(
    A&& allocator,
    std::tuple<>,
-   std::enable_if_t<supports_allocator<T, A>::value && supports_allocator<T, A>::leading_allocator, int> = 0)
-{
+   std::enable_if_t<supports_allocator<T, A>::value && supports_allocator<T, A>::leading_allocator, int> =
+      0) {
    return std::forward_as_tuple<std::allocator_arg_t, A>(std::allocator_arg, allocator);
 }
 
@@ -149,8 +129,8 @@ template<typename T, typename A, typename... Args>
 auto maybe_augment_constructor_arguments_with_allocator(
    A&&                   allocator,
    std::tuple<Args&&...> args,
-   std::enable_if_t<supports_allocator<T, A>::value && !supports_allocator<T, A>::leading_allocator, int> = 0)
-{
+   std::enable_if_t<supports_allocator<T, A>::value && !supports_allocator<T, A>::leading_allocator, int> =
+      0) {
    static_assert(supports_allocator<T, A>::trailing_allocator,
                  "type supposedly supports allocators but cannot be constructed by either the leading- or "
                  "trailing-allocator convention");
@@ -161,8 +141,8 @@ template<typename T, typename A, typename... Args>
 auto maybe_augment_constructor_arguments_with_allocator(
    A&& allocator,
    std::tuple<>,
-   std::enable_if_t<supports_allocator<T, A>::value && !supports_allocator<T, A>::leading_allocator, int> = 0)
-{
+   std::enable_if_t<supports_allocator<T, A>::value && !supports_allocator<T, A>::leading_allocator, int> =
+      0) {
    static_assert(supports_allocator<T, A>::trailing_allocator,
                  "type supposedly supports allocators but cannot be constructed by either the leading- or "
                  "trailing-allocator convention");
@@ -173,14 +153,12 @@ template<typename T, typename A, typename... Args>
 auto maybe_augment_constructor_arguments_with_allocator(
    A&&,
    std::tuple<Args&&...> args,
-   std::enable_if_t<!supports_allocator<T, A>::value, int> = 0)
-{
+   std::enable_if_t<!supports_allocator<T, A>::value, int> = 0) {
    return args;
 }
 
 template<typename T1, typename T2, typename A>
-std::pair<T1, T2> default_construct_pair_maybe_with_allocator(A&& allocator)
-{
+std::pair<T1, T2> default_construct_pair_maybe_with_allocator(A&& allocator) {
    return std::pair<T1, T2>(
       std::piecewise_construct,
       maybe_augment_constructor_arguments_with_allocator<T1>(allocator, std::make_tuple()),
@@ -189,25 +167,19 @@ std::pair<T1, T2> default_construct_pair_maybe_with_allocator(A&& allocator)
 }
 
 template<typename T>
-struct is_class
-{
+struct is_class {
    typedef decltype(detail::is_class_helper<T>(0)) type;
-   enum value_enum
-   {
-      value = type::value
-   };
+   enum value_enum { value = type::value };
 };
 #ifdef min
 #undef min
 #endif
 template<typename T>
-const T& min(const T& a, const T& b)
-{
+const T& min(const T& a, const T& b) {
    return a < b ? a : b;
 }
 
-constexpr size_t const_strlen(const char* str)
-{
+constexpr size_t const_strlen(const char* str) {
    int i = 0;
    while (*(str + i) != '\0')
       i++;
@@ -215,8 +187,7 @@ constexpr size_t const_strlen(const char* str)
 }
 
 template<typename Container>
-void move_append(Container& dest, Container&& src)
-{
+void move_append(Container& dest, Container&& src) {
    if (src.empty()) {
       return;
    } else if (dest.empty()) {
@@ -228,8 +199,7 @@ void move_append(Container& dest, Container&& src)
 }
 
 template<typename Container>
-void copy_append(Container& dest, const Container& src)
-{
+void copy_append(Container& dest, const Container& src) {
    if (src.empty()) {
       return;
    } else {
@@ -238,8 +208,7 @@ void copy_append(Container& dest, const Container& src)
 }
 
 template<typename Container>
-void deduplicate(Container& entries)
-{
+void deduplicate(Container& entries) {
    if (entries.size() > 1) {
       std::sort(entries.begin(), entries.end());
       auto itr = std::unique(entries.begin(), entries.end());
@@ -254,13 +223,11 @@ template<typename Signature>
 class optional_delegate;
 
 template<typename R, typename... Args>
-class optional_delegate<R(Args...)> : private std::function<R(Args...)>
-{
+class optional_delegate<R(Args...)> : private std::function<R(Args...)> {
 public:
    using std::function<R(Args...)>::function;
 
-   auto operator()(Args... args) const -> R
-   {
+   auto operator()(Args... args) const -> R {
       if (static_cast<bool>(*this)) {
          if constexpr (std::is_move_constructible_v<R>) {
             return std::function<R(Args...)>::operator()(std::move(args)...);
@@ -281,8 +248,7 @@ using yield_function_t = optional_delegate<void()>;
 
 // outside of namespace fc becuase of VC++ conflict with std::swap
 template<typename T>
-void fc_swap(T& a, T& b)
-{
+void fc_swap(T& a, T& b) {
    T tmp = fc::move(a);
    a     = fc::move(b);
    b     = fc::move(tmp);

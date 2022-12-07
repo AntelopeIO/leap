@@ -24,8 +24,7 @@ template<typename T, bool strict>
 variant variant_from_stream(T& in, uint32_t max_depth);
 
 template<typename T>
-std::string tokenFromStream(T& in)
-{
+std::string tokenFromStream(T& in) {
    std::stringstream token;
    try {
       char c = in.peek();
@@ -125,8 +124,7 @@ std::string tokenFromStream(T& in)
 }
 
 template<typename T, bool strict, bool allow_escape>
-std::string quoteStringFromStream(T& in)
-{
+std::string quoteStringFromStream(T& in) {
    std::stringstream token;
    try {
       char q = in.get();
@@ -211,8 +209,7 @@ std::string quoteStringFromStream(T& in)
 }
 
 template<typename T, bool strict>
-std::string stringFromStream(T& in)
-{
+std::string stringFromStream(T& in) {
    try {
       char c = in.peek(), c2;
 
@@ -316,11 +313,9 @@ std::string stringFromStream(T& in)
    FC_RETHROW_EXCEPTIONS(warn, "while parsing string");
 }
 
-struct CharValueTable
-{
+struct CharValueTable {
 public:
-   CharValueTable()
-   {
+   CharValueTable() {
       for (size_t i = 0; i < 0x100; i++)
          c2v[i] = 0xFF;
       c2v[(unsigned char)'0'] = 0;
@@ -368,8 +363,7 @@ public:
 };
 
 template<uint8_t base>
-fc::variant parseInt(const std::string& token, size_t start)
-{
+fc::variant parseInt(const std::string& token, size_t start) {
    static const CharValueTable ctbl;
    static const uint64_t       INT64_MAX_PLUS_ONE = static_cast<uint64_t>(INT64_MAX) + 1;
 
@@ -409,8 +403,7 @@ fc::variant parseInt(const std::string& token, size_t start)
 }
 
 template<bool strict, uint8_t base>
-fc::variant maybeParseInt(const std::string& token, size_t start)
-{
+fc::variant maybeParseInt(const std::string& token, size_t start) {
    try {
       return parseInt<base>(token, start);
    } catch (const parse_error_exception& e) {
@@ -422,8 +415,7 @@ fc::variant maybeParseInt(const std::string& token, size_t start)
 }
 
 template<bool strict>
-fc::variant parseNumberOrStr(const std::string& token)
-{
+fc::variant parseNumberOrStr(const std::string& token) {
    try {
       // ilog( (token) );
       size_t i = 0, n = token.length();
@@ -901,8 +893,7 @@ fc::variant parseNumberOrStr(const std::string& token)
 }
 
 template<typename T, bool strict>
-variant_object objectFromStream(T& in, uint32_t max_depth)
-{
+variant_object objectFromStream(T& in, uint32_t max_depth) {
    mutable_variant_object obj;
    try {
       char c = in.peek();
@@ -943,8 +934,7 @@ variant_object objectFromStream(T& in, uint32_t max_depth)
 }
 
 template<typename T, bool strict>
-variants arrayFromStream(T& in, uint32_t max_depth)
-{
+variants arrayFromStream(T& in, uint32_t max_depth) {
    variants ar;
    try {
       if (in.peek() != '[')
@@ -972,8 +962,7 @@ variants arrayFromStream(T& in, uint32_t max_depth)
 }
 
 template<typename T, bool strict>
-variant numberFromStream(T& in)
-{
+variant numberFromStream(T& in) {
    try {
       std::string token  = tokenFromStream(in);
       variant     result = json_relaxed::parseNumberOrStr<strict>(token);
@@ -985,8 +974,7 @@ variant numberFromStream(T& in)
 }
 
 template<typename T, bool strict>
-variant wordFromStream(T& in)
-{
+variant wordFromStream(T& in) {
    std::string token = tokenFromStream(in);
 
    FC_ASSERT(token.length() > 0);
@@ -1014,8 +1002,7 @@ variant wordFromStream(T& in)
 }
 
 template<typename T, bool strict>
-variant variant_from_stream(T& in, uint32_t max_depth)
-{
+variant variant_from_stream(T& in, uint32_t max_depth) {
    skip_white_space(in);
    variant var;
    while (signed char c = in.peek()) {

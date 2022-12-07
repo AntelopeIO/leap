@@ -21,8 +21,7 @@ class mutable_url;
  *  Used to pass an immutable URL and
  *  query its parts.
  */
-class url
-{
+class url {
 public:
    url();
    explicit url(const string& u);

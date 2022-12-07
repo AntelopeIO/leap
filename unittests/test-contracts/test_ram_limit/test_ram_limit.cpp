@@ -11,15 +11,13 @@
 
 using namespace eosio;
 
-CONTRACT test_ram_limit : public contract
-{
+CONTRACT test_ram_limit : public contract {
 public:
    using contract::contract;
 
    const uint32_t FIVE_MINUTES = 5 * 60;
 
-   ACTION setentry(name payer, uint64_t from, uint64_t to, uint64_t size)
-   {
+   ACTION setentry(name payer, uint64_t from, uint64_t to, uint64_t size) {
       const auto self = get_self();
       eosio::print("test_ram_limit::setentry ", eosio::name{ self }, "\n");
       test_table table(self, self.value);
@@ -36,8 +34,7 @@ public:
       }
    }
 
-   ACTION rmentry(uint64_t from, uint64_t to)
-   {
+   ACTION rmentry(uint64_t from, uint64_t to) {
       const auto self = get_self();
       eosio::print("test_ram_limit::rmentry ", eosio::name{ self }, "\n");
       test_table table(self, self.value);
@@ -48,8 +45,7 @@ public:
       }
    }
 
-   ACTION printentry(uint64_t from, uint64_t to)
-   {
+   ACTION printentry(uint64_t from, uint64_t to) {
       const auto self = get_self();
       eosio::print("test_ram_limit::printout ", eosio::name{ self }, ":");
       test_table table(self, self.value);
@@ -62,13 +58,11 @@ public:
    }
 
 private:
-   TABLE test
-   {
+   TABLE test {
       uint64_t            key;
       std::vector<int8_t> data;
 
-      uint64_t primary_key() const
-      {
+      uint64_t primary_key() const {
          return key;
       }
 

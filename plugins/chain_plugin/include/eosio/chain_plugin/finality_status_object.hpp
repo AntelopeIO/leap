@@ -15,8 +15,7 @@ namespace eosio {
  * block it is seen in as well as determine when it has failed or needs to no
  * no longer be tracked.
  */
-struct finality_status_object
-{
+struct finality_status_object {
    chain::transaction_id_type  trx_id;
    fc::time_point              trx_expiry; // if block time past trx_expiry && !block_num -> in failed list
    fc::time_point              received;

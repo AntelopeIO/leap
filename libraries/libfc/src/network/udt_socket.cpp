@@ -11,8 +11,7 @@
 
 namespace fc {
 
-void check_udt_errors()
-{
+void check_udt_errors() {
    UDT::ERRORINFO& error_info = UDT::getlasterror();
    if (error_info.getErrorCode()) {
       std::string error_message = error_info.getErrorMessage();
@@ -21,35 +20,30 @@ void check_udt_errors()
    }
 }
 
-class udt_epoll_service
-{
+class udt_epoll_service {
 public:
    udt_epoll_service()
-      : _epoll_thread("udt_epoll")
-   {
+      : _epoll_thread("udt_epoll") {
       UDT::startup();
       check_udt_errors();
       _epoll_id   = UDT::epoll_create();
       _epoll_loop = _epoll_thread.async([=]() { poll_loop(); }, "udt_poll_loop");
    }
 
-   ~udt_epoll_service()
-   {
+   ~udt_epoll_service() {
       _epoll_loop.cancel("udt_epoll_service is destructing");
       _epoll_loop.wait();
       UDT::cleanup();
    }
 
-   void poll_loop()
-   {
+   void poll_loop() {
       std::set<UDTSOCKET> read_ready;
       std::set<UDTSOCKET> write_ready;
       while (!_epoll_loop.canceled()) {
          UDT::epoll_wait(_epoll_id, &read_ready, &write_ready, 100000000);
 
          {
-            synchronized(_read_promises_mutex) for (auto sock : read_ready)
-            {
+            synchronized(_read_promises_mutex) for (auto sock : read_ready) {
                auto itr = _read_promises.find(sock);
                if (itr != _read_promises.end()) {
                   itr->second->set_value();
@@ -59,8 +53,7 @@ public:
          } // synchronized read promise mutex
 
          {
-            synchronized(_write_promises_mutex) for (auto sock : write_ready)
-            {
+            synchronized(_write_promises_mutex) for (auto sock : write_ready) {
                auto itr = _write_promises.find(sock);
                if (itr != _write_promises.end()) {
                   itr->second->set_value();
@@ -71,8 +64,7 @@ public:
       }    // while not canceled
    }       // poll_loop
 
-   void notify_read(int udt_socket_id, const promise<void>::ptr& p)
-   {
+   void notify_read(int udt_socket_id, const promise<void>::ptr& p) {
       int events = UDT_EPOLL_IN | UDT_EPOLL_ERR;
       if (0 != UDT::epoll_add_usock(_epoll_id, udt_socket_id, &events)) {
          check_udt_errors();
@@ -84,19 +76,15 @@ public:
       }
    }
 
-   void notify_write(int udt_socket_id, const promise<void>::ptr& p)
-   {
+   void notify_write(int udt_socket_id, const promise<void>::ptr& p) {
       int events = UDT_EPOLL_OUT | UDT_EPOLL_ERR;
       if (0 != UDT::epoll_add_usock(_epoll_id, udt_socket_id, &events)) {
          check_udt_errors();
       }
 
-      {
-         synchronized(_write_promises_mutex) _write_promises[udt_socket_id] = p;
-      }
+      { synchronized(_write_promises_mutex) _write_promises[udt_socket_id] = p; }
    }
-   void remove(int udt_socket_id)
-   {
+   void remove(int udt_socket_id) {
       {
          synchronized(_read_promises_mutex) auto read_itr = _read_promises.find(udt_socket_id);
          if (read_itr != _read_promises.end()) {
@@ -125,19 +113,15 @@ private:
    int              _epoll_id;
 };
 
-udt_epoll_service& default_epool_service()
-{
+udt_epoll_service& default_epool_service() {
    static udt_epoll_service* default_service = new udt_epoll_service();
    return *default_service;
 }
 
 udt_socket::udt_socket()
-   : _udt_socket_id(UDT::INVALID_SOCK)
-{
-}
+   : _udt_socket_id(UDT::INVALID_SOCK) {}
 
-udt_socket::~udt_socket()
-{
+udt_socket::~udt_socket() {
    try {
       close();
    } catch (const std::bad_alloc&) {
@@ -151,8 +135,7 @@ udt_socket::~udt_socket()
    }
 }
 
-void udt_socket::bind(const fc::ip::endpoint& local_endpoint)
-{
+void udt_socket::bind(const fc::ip::endpoint& local_endpoint) {
    try {
       if (!is_open())
          open();
@@ -168,8 +151,7 @@ void udt_socket::bind(const fc::ip::endpoint& local_endpoint)
    FC_CAPTURE_AND_RETHROW()
 }
 
-void udt_socket::connect_to(const ip::endpoint& remote_endpoint)
-{
+void udt_socket::connect_to(const ip::endpoint& remote_endpoint) {
    try {
       if (!is_open())
          open();
@@ -198,8 +180,7 @@ void udt_socket::connect_to(const ip::endpoint& remote_endpoint)
    FC_CAPTURE_AND_RETHROW((remote_endpoint))
 }
 
-ip::endpoint udt_socket::remote_endpoint() const
-{
+ip::endpoint udt_socket::remote_endpoint() const {
    try {
       sockaddr_in peer_addr;
       int         peer_addr_size = sizeof(peer_addr);
@@ -211,8 +192,7 @@ ip::endpoint udt_socket::remote_endpoint() const
    FC_CAPTURE_AND_RETHROW()
 }
 
-ip::endpoint udt_socket::local_endpoint() const
-{
+ip::endpoint udt_socket::local_endpoint() const {
    try {
       sockaddr_in sock_addr;
       int         addr_size  = sizeof(sock_addr);
@@ -225,8 +205,7 @@ ip::endpoint udt_socket::local_endpoint() const
 }
 
 /// @{
-size_t udt_socket::readsome(char* buffer, size_t max)
-{
+size_t udt_socket::readsome(char* buffer, size_t max) {
    try {
       auto bytes_read = UDT::recv(_udt_socket_id, buffer, max, 0);
       while (bytes_read == UDT::ERROR) {
@@ -244,13 +223,11 @@ size_t udt_socket::readsome(char* buffer, size_t max)
    FC_CAPTURE_AND_RETHROW((max))
 }
 
-size_t udt_socket::readsome(const std::shared_ptr<char>& buf, size_t len, size_t offset)
-{
+size_t udt_socket::readsome(const std::shared_ptr<char>& buf, size_t len, size_t offset) {
    return readsome(buf.get() + offset, len);
 }
 
-bool udt_socket::eof() const
-{
+bool udt_socket::eof() const {
    // TODO...
    return false;
 }
@@ -258,8 +235,7 @@ bool udt_socket::eof() const
 
 /// ostream interface
 /// @{
-size_t udt_socket::writesome(const char* buffer, size_t len)
-{
+size_t udt_socket::writesome(const char* buffer, size_t len) {
    try {
       auto bytes_sent = UDT::send(_udt_socket_id, buffer, len, 0);
 
@@ -279,15 +255,13 @@ size_t udt_socket::writesome(const char* buffer, size_t len)
    FC_CAPTURE_AND_RETHROW((len))
 }
 
-size_t udt_socket::writesome(const std::shared_ptr<const char>& buf, size_t len, size_t offset)
-{
+size_t udt_socket::writesome(const std::shared_ptr<const char>& buf, size_t len, size_t offset) {
    return writesome(buf.get() + offset, len);
 }
 
 void udt_socket::flush() {}
 
-void udt_socket::close()
-{
+void udt_socket::close() {
    try {
       if (is_open()) {
          default_epool_service().remove(_udt_socket_id);
@@ -302,21 +276,18 @@ void udt_socket::close()
 }
 /// @}
 
-void udt_socket::open()
-{
+void udt_socket::open() {
    _udt_socket_id = UDT::socket(AF_INET, SOCK_STREAM, 0);
    if (_udt_socket_id == UDT::INVALID_SOCK)
       check_udt_errors();
 }
 
-bool udt_socket::is_open() const
-{
+bool udt_socket::is_open() const {
    return _udt_socket_id != UDT::INVALID_SOCK;
 }
 
 udt_server::udt_server()
-   : _udt_socket_id(UDT::INVALID_SOCK)
-{
+   : _udt_socket_id(UDT::INVALID_SOCK) {
    _udt_socket_id = UDT::socket(AF_INET, SOCK_STREAM, 0);
    if (_udt_socket_id == UDT::INVALID_SOCK)
       check_udt_errors();
@@ -328,8 +299,7 @@ udt_server::udt_server()
    check_udt_errors();
 }
 
-udt_server::~udt_server()
-{
+udt_server::~udt_server() {
    try {
       close();
    } catch (const std::bad_alloc&) {
@@ -343,8 +313,7 @@ udt_server::~udt_server()
    }
 }
 
-void udt_server::close()
-{
+void udt_server::close() {
    try {
       if (_udt_socket_id != UDT::INVALID_SOCK) {
          UDT::close(_udt_socket_id);
@@ -356,8 +325,7 @@ void udt_server::close()
    FC_CAPTURE_AND_RETHROW()
 }
 
-void udt_server::accept(udt_socket& s)
-{
+void udt_server::accept(udt_socket& s) {
    try {
       FC_ASSERT(!s.is_open());
 
@@ -376,8 +344,7 @@ void udt_server::accept(udt_socket& s)
    FC_CAPTURE_AND_RETHROW()
 }
 
-void udt_server::listen(const ip::endpoint& ep)
-{
+void udt_server::listen(const ip::endpoint& ep) {
    try {
       sockaddr_in my_addr;
       my_addr.sin_family      = AF_INET;
@@ -394,8 +361,7 @@ void udt_server::listen(const ip::endpoint& ep)
    FC_CAPTURE_AND_RETHROW((ep))
 }
 
-fc::ip::endpoint udt_server::local_endpoint() const
-{
+fc::ip::endpoint udt_server::local_endpoint() const {
    try {
       sockaddr_in sock_addr;
       int         addr_size  = sizeof(sock_addr);

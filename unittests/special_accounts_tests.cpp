@@ -22,8 +22,7 @@ using tester = eosio::testing::tester;
 BOOST_AUTO_TEST_SUITE(special_account_tests)
 
 // Check special accounts exits in genesis
-BOOST_FIXTURE_TEST_CASE(accounts_exists, tester)
-{
+BOOST_FIXTURE_TEST_CASE(accounts_exists, tester) {
    try {
 
       tester                 test;

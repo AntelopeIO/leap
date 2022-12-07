@@ -26,16 +26,13 @@ struct resource_usage_object;
 
 #define RAM_EVENT_ID(FORMAT, ...) fc::format_string(FORMAT, fc::mutable_variant_object() __VA_ARGS__)
 
-struct ram_trace
-{
+struct ram_trace {
 public:
    ram_trace(std::string&& event_id, const char* family, const char* operation, const char* legacy_tag)
       : event_id(std::move(event_id))
       , family(family)
       , operation(operation)
-      , legacy_tag(legacy_tag)
-   {
-   }
+      , legacy_tag(legacy_tag) {}
 
    std::string event_id   = "generic";
    const char* family     = "generic";
@@ -45,11 +42,9 @@ public:
    ram_trace() {}
 };
 
-class deep_mind_handler
-{
+class deep_mind_handler {
 public:
-   struct deep_mind_config
-   {
+   struct deep_mind_config {
       bool zero_elapsed = false; // if true, the elapsed field of transaction and action traces is always set
                                  // to 0 (for reproducibility)
    };
@@ -57,12 +52,7 @@ public:
    void update_config(deep_mind_config config);
 
    void update_logger(const std::string& logger_name);
-   enum class operation_qualifier
-   {
-      none,
-      modify,
-      push
-   };
+   enum class operation_qualifier { none, modify, push };
 
    void on_startup(chainbase::database& db, uint32_t head_block_num);
    void on_start_block(uint32_t block_num);

@@ -3,8 +3,7 @@
 const string         wasm_str_globals_0 = base_dir + "/globals.0.wasm";
 std::vector<uint8_t> wasm_globals_0     = read_wasm(wasm_str_globals_0.c_str());
 
-BOOST_DATA_TEST_CASE(globals_0_check_throw, boost::unit_test::data::xrange(0, 1), index)
-{
+BOOST_DATA_TEST_CASE(globals_0_check_throw, boost::unit_test::data::xrange(0, 1), index) {
    try {
       TESTER tester;
       tester.produce_block();
@@ -27,8 +26,7 @@ BOOST_DATA_TEST_CASE(globals_0_check_throw, boost::unit_test::data::xrange(0, 1)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_DATA_TEST_CASE(globals_0_pass, boost::unit_test::data::xrange(1, 2), index)
-{
+BOOST_DATA_TEST_CASE(globals_0_pass, boost::unit_test::data::xrange(1, 2), index) {
    try {
       TESTER tester;
       tester.produce_block();
@@ -54,8 +52,7 @@ BOOST_DATA_TEST_CASE(globals_0_pass, boost::unit_test::data::xrange(1, 2), index
 const string         wasm_str_globals_17 = base_dir + "/globals.17.wasm";
 std::vector<uint8_t> wasm_globals_17     = read_wasm(wasm_str_globals_17.c_str());
 
-BOOST_DATA_TEST_CASE(globals_17_module, boost::unit_test::data::xrange(0, 1), index)
-{
+BOOST_DATA_TEST_CASE(globals_17_module, boost::unit_test::data::xrange(0, 1), index) {
    try {
       TESTER tester;
       tester.produce_block();

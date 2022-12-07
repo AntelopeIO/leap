@@ -7,8 +7,7 @@ struct bignum_st;
 typedef bignum_st BIGNUM;
 
 namespace fc {
-class bigint
-{
+class bigint {
 public:
    bigint(const std::vector<char>& bige);
    bigint(const char* bige, uint32_t l);

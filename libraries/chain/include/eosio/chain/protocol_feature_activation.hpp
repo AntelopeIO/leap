@@ -5,22 +5,17 @@
 namespace eosio {
 namespace chain {
 
-struct protocol_feature_activation : fc::reflect_init
-{
+struct protocol_feature_activation : fc::reflect_init {
    static constexpr uint16_t extension_id() { return 0; }
    static constexpr bool     enforce_unique() { return true; }
 
    protocol_feature_activation() = default;
 
    protocol_feature_activation(const vector<digest_type>& pf)
-      : protocol_features(pf)
-   {
-   }
+      : protocol_features(pf) {}
 
    protocol_feature_activation(vector<digest_type>&& pf)
-      : protocol_features(std::move(pf))
-   {
-   }
+      : protocol_features(std::move(pf)) {}
 
    protocol_feature_activation(const protocol_feature_activation&) = default;
    protocol_feature_activation(protocol_feature_activation&&)      = default;
@@ -37,8 +32,7 @@ struct protocol_feature_activation_set;
 
 using protocol_feature_activation_set_ptr = std::shared_ptr<protocol_feature_activation_set>;
 
-struct protocol_feature_activation_set
-{
+struct protocol_feature_activation_set {
    flat_set<digest_type> protocol_features;
 
    protocol_feature_activation_set() = default;

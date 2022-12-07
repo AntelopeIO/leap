@@ -5,8 +5,7 @@
 namespace eosio {
 namespace chain {
 namespace webassembly {
-int32_t interface::read_action_data(legacy_span<char> memory) const
-{
+int32_t interface::read_action_data(legacy_span<char> memory) const {
    auto s = context.get_action().data.size();
    if (memory.size() == 0)
       return s;
@@ -17,18 +16,15 @@ int32_t interface::read_action_data(legacy_span<char> memory) const
    return copy_size;
 }
 
-int32_t interface::action_data_size() const
-{
+int32_t interface::action_data_size() const {
    return context.get_action().data.size();
 }
 
-name interface::current_receiver() const
-{
+name interface::current_receiver() const {
    return context.get_receiver();
 }
 
-void interface::set_action_return_value(span<const char> packed_blob)
-{
+void interface::set_action_return_value(span<const char> packed_blob) {
    auto max_action_return_value_size =
       context.control.get_global_properties().configuration.max_action_return_value_size;
    EOS_ASSERT(packed_blob.size() <= max_action_return_value_size,

@@ -57,13 +57,11 @@ uint64_t city_hash64(const char* buf, size_t len);
 uint32_t city_hash32(const char* buf, size_t len);
 
 #if SIZE_MAX > UINT32_MAX
-inline size_t city_hash_size_t(const char* buf, size_t len)
-{
+inline size_t city_hash_size_t(const char* buf, size_t len) {
    return city_hash64(buf, len);
 }
 #else
-inline size_t city_hash_size_t(const char* buf, size_t len)
-{
+inline size_t city_hash_size_t(const char* buf, size_t len) {
    return city_hash32(buf, len);
 }
 #endif

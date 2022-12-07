@@ -12,8 +12,7 @@
 namespace fc {
 
 template<class... Ts>
-struct overloaded : Ts...
-{
+struct overloaded : Ts... {
    using Ts::operator()...;
 };
 template<class... Ts>
@@ -30,14 +29,12 @@ inline constexpr bool is_little_endian = false;
 #endif
 
 #if defined(__builtin_rotateleft64)
-__attribute__((always_inline)) inline uint64_t rotl64(uint64_t x, uint64_t y)
-{
+__attribute__((always_inline)) inline uint64_t rotl64(uint64_t x, uint64_t y) {
    return __builtin_rotateleft64(x, y);
 }
 #else
 // gcc should recognize this better than clang
-__attribute__((always_inline)) inline uint64_t rotl64(uint64_t x, uint64_t y)
-{
+__attribute__((always_inline)) inline uint64_t rotl64(uint64_t x, uint64_t y) {
    return (x << y) | (x >> (64 - y));
 }
 #endif
@@ -53,8 +50,7 @@ __attribute__((always_inline)) inline uint64_t rotl64(uint64_t x, uint64_t y)
  * This implementation is quite slow comparative to openssl 1.1.1. Once we require a version greater
  * than or equal to 1.1.1, we should replace with their primitives.
  */
-struct sha3_impl
-{
+struct sha3_impl {
    sha3_impl() { init(); }
 
    static constexpr uint8_t  number_of_rounds                  = 24;
@@ -81,8 +77,7 @@ struct sha3_impl
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wpass-failed"
 #endif
-   void update_step()
-   {
+   void update_step() {
       uint64_t bc[5];
 
       if constexpr (!is_little_endian) {
@@ -96,23 +91,20 @@ struct sha3_impl
          }
       }
 
-      VECTORIZE_HINT for (std::size_t i = 0; i < number_of_rounds; i++)
-      {
+      VECTORIZE_HINT for (std::size_t i = 0; i < number_of_rounds; i++) {
          // theta
          VECTORIZE_HINT for (std::size_t j = 0; j < 5; j++) bc[j] =
             words[j] ^ words[j + 5] ^ words[j + 10] ^ words[j + 15] ^ words[j + 20];
 
          uint64_t t;
-         VECTORIZE_HINT for (std::size_t j = 0; j < 5; j++)
-         {
+         VECTORIZE_HINT for (std::size_t j = 0; j < 5; j++) {
             t = bc[(j + 4) % 5] ^ rotl64(bc[(j + 1) % 5], 1);
             VECTORIZE_HINT for (std::size_t k = 0; k < number_of_words; k += 5) words[k + j] ^= t;
          }
 
          // rho pi
          t = words[1];
-         VECTORIZE_HINT for (std::size_t j = 0; j < number_of_rounds; j++)
-         {
+         VECTORIZE_HINT for (std::size_t j = 0; j < number_of_rounds; j++) {
             uint8_t p = pi_lanes[j];
             bc[0]     = words[p];
             words[p]  = rotl64(t, rot_constants[j]);
@@ -120,8 +112,7 @@ struct sha3_impl
          }
 
          // chi
-         VECTORIZE_HINT for (std::size_t j = 0; j < number_of_words; j += 5)
-         {
+         VECTORIZE_HINT for (std::size_t j = 0; j < number_of_words; j += 5) {
             VECTORIZE_HINT for (std::size_t k = 0; k < 5; k++) bc[k] = words[k + j];
             VECTORIZE_HINT for (std::size_t k = 0; k < 5; k++) words[k + j] ^=
                (~bc[(k + 1) % 5]) & bc[(k + 2) % 5];
@@ -154,14 +145,12 @@ struct sha3_impl
 #pragma clang diagnostic pop
 #endif
 
-   void init()
-   {
+   void init() {
       memset((char*)this, 0, sizeof(*this));
       size = 136;
    }
 
-   void update(const uint8_t* data, std::size_t len)
-   {
+   void update(const uint8_t* data, std::size_t len) {
       int j = point;
       for (std::size_t i = 0; i < len; i++) {
          bytes[j++] ^= data[i];
@@ -173,16 +162,14 @@ struct sha3_impl
       point = j;
    }
 
-   void finalize(char* buffer)
-   {
+   void finalize(char* buffer) {
       bytes[point] ^= keccak ? 0x01 : 0x06;
       bytes[size - 1] ^= 0x80;
       update_step();
       memcpy(buffer, (const char*)bytes, digest_size);
    }
 
-   union
-   {
+   union {
       uint8_t  bytes[number_of_words * 8];
       uint64_t words[number_of_words *
                      5]; // this is greater than 25, because in the theta portion we need a wide berth
@@ -192,82 +179,67 @@ struct sha3_impl
    int  size;
 };
 
-sha3::sha3()
-{
+sha3::sha3() {
    memset(_hash, 0, sizeof(_hash));
 }
-sha3::sha3(const char* data, size_t size)
-{
+sha3::sha3(const char* data, size_t size) {
    if (size != sizeof(_hash))
       FC_THROW_EXCEPTION(exception, "sha3: size mismatch");
    memcpy(_hash, data, size);
 }
-sha3::sha3(const string& hex_str)
-{
+sha3::sha3(const string& hex_str) {
    auto bytes_written = fc::from_hex(hex_str, (char*)_hash, sizeof(_hash));
    if (bytes_written < sizeof(_hash))
       memset((char*)_hash + bytes_written, 0, (sizeof(_hash) - bytes_written));
 }
 
-string sha3::str() const
-{
+string sha3::str() const {
    return fc::to_hex((char*)_hash, sizeof(_hash));
 }
-sha3::operator string() const
-{
+sha3::operator string() const {
    return str();
 }
 
-const char* sha3::data() const
-{
+const char* sha3::data() const {
    return (const char*)&_hash[0];
 }
-char* sha3::data()
-{
+char* sha3::data() {
    return (char*)&_hash[0];
 }
 
-struct sha3::encoder::impl
-{
+struct sha3::encoder::impl {
    sha3_impl ctx;
 };
 
 sha3::encoder::~encoder() {}
-sha3::encoder::encoder()
-{
+sha3::encoder::encoder() {
    reset();
 }
 
-void sha3::encoder::write(const char* d, uint32_t dlen)
-{
+void sha3::encoder::write(const char* d, uint32_t dlen) {
    my->ctx.update((const uint8_t*)d, dlen);
 }
-sha3 sha3::encoder::result(bool is_nist)
-{
+sha3 sha3::encoder::result(bool is_nist) {
    sha3 h;
    my->ctx.keccak = !is_nist;
    my->ctx.finalize((char*)h.data());
    return h;
 }
-void sha3::encoder::reset()
-{
+void sha3::encoder::reset() {
    my->ctx.init();
 }
 
-sha3 operator<<(const sha3& h1, uint32_t i)
-{
+sha3 operator<<(const sha3& h1, uint32_t i) {
    sha3 result;
    fc::detail::shift_l(h1.data(), result.data(), result.data_size(), i);
    return result;
 }
-sha3 operator>>(const sha3& h1, uint32_t i)
-{
+sha3 operator>>(const sha3& h1, uint32_t i) {
    sha3 result;
    fc::detail::shift_r(h1.data(), result.data(), result.data_size(), i);
    return result;
 }
-sha3 operator^(const sha3& h1, const sha3& h2)
-{
+sha3 operator^(const sha3& h1, const sha3& h2) {
    sha3 result;
    result._hash[0] = h1._hash[0] ^ h2._hash[0];
    result._hash[1] = h1._hash[1] ^ h2._hash[1];
@@ -275,36 +247,29 @@ sha3 operator^(const sha3& h1, const sha3& h2)
    result._hash[3] = h1._hash[3] ^ h2._hash[3];
    return result;
 }
-bool operator>=(const sha3& h1, const sha3& h2)
-{
+bool operator>=(const sha3& h1, const sha3& h2) {
    return memcmp(h1._hash, h2._hash, sizeof(h1._hash)) >= 0;
 }
-bool operator>(const sha3& h1, const sha3& h2)
-{
+bool operator>(const sha3& h1, const sha3& h2) {
    return memcmp(h1._hash, h2._hash, sizeof(h1._hash)) > 0;
 }
-bool operator<(const sha3& h1, const sha3& h2)
-{
+bool operator<(const sha3& h1, const sha3& h2) {
    return memcmp(h1._hash, h2._hash, sizeof(h1._hash)) < 0;
 }
-bool operator!=(const sha3& h1, const sha3& h2)
-{
+bool operator!=(const sha3& h1, const sha3& h2) {
    return !(h1 == h2);
 }
-bool operator==(const sha3& h1, const sha3& h2)
-{
+bool operator==(const sha3& h1, const sha3& h2) {
    // idea to not use memcmp, from:
    //   https://lemire.me/blog/2018/08/22/avoid-lexicographical-comparisons-when-testing-for-string-equality/
    return h1._hash[0] == h2._hash[0] && h1._hash[1] == h2._hash[1] && h1._hash[2] == h2._hash[2] &&
           h1._hash[3] == h2._hash[3];
 }
 
-void to_variant(const sha3& bi, variant& v)
-{
+void to_variant(const sha3& bi, variant& v) {
    v = std::vector<char>((const char*)&bi, ((const char*)&bi) + sizeof(bi));
 }
-void from_variant(const variant& v, sha3& bi)
-{
+void from_variant(const variant& v, sha3& bi) {
    const auto& ve = v.as<std::vector<char>>();
    if (ve.size())
       memcpy(bi.data(), ve.data(), fc::min<size_t>(ve.size(), sizeof(bi)));

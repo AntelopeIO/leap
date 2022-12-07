@@ -10,8 +10,7 @@
 #include <boost/multi_index/member.hpp>
 
 namespace fc {
-inline std::size_t hash_value(const fc::sha256& v)
-{
+inline std::size_t hash_value(const fc::sha256& v) {
    return v._hash[3];
 }
 }
@@ -21,8 +20,7 @@ namespace chain {
 
 using namespace boost::multi_index;
 
-enum class trx_enum_type
-{
+enum class trx_enum_type {
    unknown      = 0,
    forked       = 1,
    aborted      = 2,
@@ -32,8 +30,7 @@ enum class trx_enum_type
 
 using next_func_t = std::function<void(const std::variant<fc::exception_ptr, transaction_trace_ptr>&)>;
 
-struct unapplied_transaction
-{
+struct unapplied_transaction {
    const transaction_metadata_ptr trx_meta;
    trx_enum_type                  trx_type             = trx_enum_type::unknown;
    bool                           return_failure_trace = false;
@@ -51,8 +48,7 @@ struct unapplied_transaction
 /**
  * Track unapplied transactions for incoming, forked blocks, and aborted blocks.
  */
-class unapplied_transaction_queue
-{
+class unapplied_transaction_queue {
 private:
    struct by_trx_id;
    struct by_type;
@@ -87,8 +83,7 @@ public:
 
    size_t incoming_size() const { return incoming_count; }
 
-   transaction_metadata_ptr get_trx(const transaction_id_type& id) const
-   {
+   transaction_metadata_ptr get_trx(const transaction_id_type& id) const {
       auto itr = queue.get<by_trx_id>().find(id);
       if (itr == queue.get<by_trx_id>().end())
          return {};
@@ -96,8 +91,7 @@ public:
    }
 
    template<typename Func>
-   bool clear_expired(const time_point& pending_block_time, const time_point& deadline, Func&& callback)
-   {
+   bool clear_expired(const time_point& pending_block_time, const time_point& deadline, Func&& callback) {
       auto& persisted_by_expiry = queue.get<by_expiry>();
       while (!persisted_by_expiry.empty()) {
          const auto& itr = persisted_by_expiry.begin();
@@ -121,8 +115,7 @@ public:
       return true;
    }
 
-   void clear_applied(const block_state_ptr& bs)
-   {
+   void clear_applied(const block_state_ptr& bs) {
       if (empty())
          return;
       auto& idx = queue.get<by_trx_id>();
@@ -142,8 +135,7 @@ public:
       }
    }
 
-   void add_forked(const branch_type& forked_branch)
-   {
+   void add_forked(const branch_type& forked_branch) {
       // forked_branch is in reverse order
       for (auto ritr = forked_branch.rbegin(), rend = forked_branch.rend(); ritr != rend; ++ritr) {
          const block_state_ptr& bsptr = *ritr;
@@ -156,8 +148,7 @@ public:
       }
    }
 
-   void add_aborted(deque<transaction_metadata_ptr> aborted_trxs)
-   {
+   void add_aborted(deque<transaction_metadata_ptr> aborted_trxs) {
       for (auto& trx : aborted_trxs) {
          auto insert_itr = queue.insert({ std::move(trx), trx_enum_type::aborted });
          if (insert_itr.second)
@@ -168,8 +159,7 @@ public:
    void add_incoming(const transaction_metadata_ptr& trx,
                      bool                            api_trx,
                      bool                            return_failure_trace,
-                     next_func_t                     next)
-   {
+                     next_func_t                     next) {
       auto itr = queue.get<by_trx_id>().find(trx->id());
       if (itr == queue.get<by_trx_id>().end()) {
          auto insert_itr = queue.insert({ trx,
@@ -198,13 +188,11 @@ public:
    iterator unapplied_end() { return queue.get<by_type>().upper_bound(trx_enum_type::aborted); }
 
    iterator incoming_begin() { return queue.get<by_type>().lower_bound(trx_enum_type::incoming_api); }
-   iterator incoming_end()
-   {
+   iterator incoming_end() {
       return queue.get<by_type>().end();
    } // if changed to upper_bound, verify usage performance
 
-   iterator lower_bound(const transaction_id_type& id)
-   {
+   iterator lower_bound(const transaction_id_type& id) {
       auto itr = queue.get<by_trx_id>().find(id);
       if (itr == queue.get<by_trx_id>().end())
          return queue.get<by_type>().end();
@@ -212,16 +200,14 @@ public:
    }
 
    /// caller's responsibility to call next() if applicable
-   iterator erase(iterator itr)
-   {
+   iterator erase(iterator itr) {
       removed(itr);
       return queue.get<by_type>().erase(itr);
    }
 
 private:
    template<typename Itr>
-   void added(Itr itr)
-   {
+   void added(Itr itr) {
       auto size = calc_size(itr->trx_meta);
       if (itr->trx_type == trx_enum_type::incoming_p2p || itr->trx_type == trx_enum_type::incoming_api) {
          ++incoming_count;
@@ -236,16 +222,14 @@ private:
    }
 
    template<typename Itr>
-   void removed(Itr itr)
-   {
+   void removed(Itr itr) {
       if (itr->trx_type == trx_enum_type::incoming_p2p || itr->trx_type == trx_enum_type::incoming_api) {
          --incoming_count;
       }
       size_in_bytes -= calc_size(itr->trx_meta);
    }
 
-   static uint64_t calc_size(const transaction_metadata_ptr& trx)
-   {
+   static uint64_t calc_size(const transaction_metadata_ptr& trx) {
       // packed_trx caches unpacked transaction so double
       return (trx->packed_trx()->get_unprunable_size() + trx->packed_trx()->get_prunable_size()) * 2 +
              sizeof(*trx);

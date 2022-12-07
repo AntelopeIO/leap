@@ -44,31 +44,26 @@
 #define DUMMY_ACTION_DEFAULT_B 0xab11cd1244556677
 #define DUMMY_ACTION_DEFAULT_C 0x7451ae12
 
-static constexpr unsigned int DJBH(const char* cp)
-{
+static constexpr unsigned int DJBH(const char* cp) {
    unsigned int hash = 5381;
    while (*cp)
       hash = 33 * hash ^ (unsigned char)*cp++;
    return hash;
 }
 
-static constexpr unsigned long long WASM_TEST_ACTION(const char* cls, const char* method)
-{
+static constexpr unsigned long long WASM_TEST_ACTION(const char* cls, const char* method) {
    return static_cast<unsigned long long>(DJBH(cls)) << 32 | static_cast<unsigned long long>(DJBH(method));
 }
 
 using namespace eosio::chain::literals;
 
-struct u128_action
-{
+struct u128_action {
    unsigned __int128 values[3]; // 16*3
 };
 
 // Deferred Transaction Trigger Action
-struct dtt_action
-{
-   static uint64_t get_name()
-   {
+struct dtt_action {
+   static uint64_t get_name() {
       return WASM_TEST_ACTION("test_transaction", "send_deferred_tx_with_dtt_action");
    }
    static uint64_t get_account() { return "testapi"_n.to_uint64_t(); }
@@ -80,8 +75,7 @@ struct dtt_action
    uint32_t delay_sec        = 2;
 };
 
-struct invalid_access_action
-{
+struct invalid_access_action {
    uint64_t code;
    uint64_t val;
    uint32_t index;
@@ -106,8 +100,7 @@ using namespace fc;
 namespace bio = boost::iostreams;
 
 template<uint64_t NAME>
-struct test_api_action
-{
+struct test_api_action {
    static account_name get_account() { return "testapi"_n; }
 
    static action_name get_name() { return action_name(NAME); }
@@ -116,8 +109,7 @@ struct test_api_action
 FC_REFLECT_TEMPLATE((uint64_t T), test_api_action<T>, BOOST_PP_SEQ_NIL)
 
 template<uint64_t NAME>
-struct test_pause_action
-{
+struct test_pause_action {
    static account_name get_account() { return "pause"_n; }
 
    static action_name get_name() { return action_name(NAME); }
@@ -126,8 +118,7 @@ struct test_pause_action
 FC_REFLECT_TEMPLATE((uint64_t T), test_pause_action<T>, BOOST_PP_SEQ_NIL)
 
 template<uint64_t NAME>
-struct test_chain_action
-{
+struct test_chain_action {
    static account_name get_account() { return account_name(config::system_account_name); }
 
    static action_name get_name() { return action_name(NAME); }
@@ -135,8 +126,7 @@ struct test_chain_action
 
 FC_REFLECT_TEMPLATE((uint64_t T), test_chain_action<T>, BOOST_PP_SEQ_NIL)
 
-struct check_auth
-{
+struct check_auth {
    account_name            account;
    permission_name         permission;
    vector<public_key_type> pubkeys;
@@ -144,8 +134,7 @@ struct check_auth
 
 FC_REFLECT(check_auth, (account)(permission)(pubkeys))
 
-struct test_permission_last_used_action
-{
+struct test_permission_last_used_action {
    account_name    account;
    permission_name permission;
    fc::time_point  last_used_time;
@@ -153,33 +142,28 @@ struct test_permission_last_used_action
 
 FC_REFLECT(test_permission_last_used_action, (account)(permission)(last_used_time))
 
-constexpr uint64_t TEST_METHOD(const char* CLASS, const char* METHOD)
-{
+constexpr uint64_t TEST_METHOD(const char* CLASS, const char* METHOD) {
    return ((uint64_t(DJBH(CLASS)) << 32) | uint32_t(DJBH(METHOD)));
 }
 
-string I64Str(int64_t i)
-{
+string I64Str(int64_t i) {
    std::stringstream ss;
    ss << i;
    return ss.str();
 }
 
-string U64Str(uint64_t i)
-{
+string U64Str(uint64_t i) {
    std::stringstream ss;
    ss << i;
    return ss.str();
 }
 
-string U128Str(unsigned __int128 i)
-{
+string U128Str(unsigned __int128 i) {
    return fc::variant(fc::uint128(i)).get_string();
 }
 
 template<typename T>
-transaction_trace_ptr CallAction(TESTER& test, T ac, const vector<account_name>& scope = { "testapi"_n })
-{
+transaction_trace_ptr CallAction(TESTER& test, T ac, const vector<account_name>& scope = { "testapi"_n }) {
    signed_transaction trx;
 
    auto pl = vector<permission_level>{
@@ -208,8 +192,7 @@ std::pair<transaction_trace_ptr, signed_block_ptr> _CallFunction(
    T                           ac,
    const vector<char>&         data,
    const vector<account_name>& scope    = { "testapi"_n },
-   bool                        no_throw = false)
-{
+   bool                        no_throw = false) {
    {
       signed_transaction trx;
 
@@ -248,11 +231,8 @@ transaction_trace_ptr CallFunction(Tester&                     test,
                                    T                           ac,
                                    const vector<char>&         data,
                                    const vector<account_name>& scope    = { "testapi"_n },
-                                   bool                        no_throw = false)
-{
-   {
-      return _CallFunction(test, ac, data, scope, no_throw).first;
-   }
+                                   bool                        no_throw = false) {
+   { return _CallFunction(test, ac, data, scope, no_throw).first; }
 }
 
 #define CALL_TEST_FUNCTION(_TESTER, CLS, MTH, DATA)                                                          \
@@ -270,55 +250,43 @@ transaction_trace_ptr CallFunction(Tester&                     test,
       return expect_assert_message(e, EXC_MESSAGE);                                                          \
    });
 
-bool is_access_violation(fc::unhandled_exception const& e)
-{
+bool is_access_violation(fc::unhandled_exception const& e) {
    try {
       std::rethrow_exception(e.get_inner_exception());
    } catch (const eosio::chain::wasm_execution_error& e) {
       return true;
-   } catch (...) {
-   }
+   } catch (...) {}
    return false;
 }
-bool is_access_violation(const Runtime::Exception& e)
-{
+bool is_access_violation(const Runtime::Exception& e) {
    return true;
 }
 
-bool is_assert_exception(fc::assert_exception const& e)
-{
+bool is_assert_exception(fc::assert_exception const& e) {
    return true;
 }
-bool is_page_memory_error(page_memory_error const& e)
-{
+bool is_page_memory_error(page_memory_error const& e) {
    return true;
 }
-bool is_unsatisfied_authorization(unsatisfied_authorization const& e)
-{
+bool is_unsatisfied_authorization(unsatisfied_authorization const& e) {
    return true;
 }
-bool is_wasm_execution_error(eosio::chain::wasm_execution_error const& e)
-{
+bool is_wasm_execution_error(eosio::chain::wasm_execution_error const& e) {
    return true;
 }
-bool is_tx_net_usage_exceeded(const tx_net_usage_exceeded& e)
-{
+bool is_tx_net_usage_exceeded(const tx_net_usage_exceeded& e) {
    return true;
 }
-bool is_block_net_usage_exceeded(const block_net_usage_exceeded& e)
-{
+bool is_block_net_usage_exceeded(const block_net_usage_exceeded& e) {
    return true;
 }
-bool is_tx_cpu_usage_exceeded(const tx_cpu_usage_exceeded& e)
-{
+bool is_tx_cpu_usage_exceeded(const tx_cpu_usage_exceeded& e) {
    return true;
 }
-bool is_block_cpu_usage_exceeded(const block_cpu_usage_exceeded& e)
-{
+bool is_block_cpu_usage_exceeded(const block_cpu_usage_exceeded& e) {
    return true;
 }
-bool is_deadline_exception(const deadline_exception& e)
-{
+bool is_deadline_exception(const deadline_exception& e) {
    return true;
 }
 
@@ -332,11 +300,9 @@ BOOST_AUTO_TEST_SUITE(api_tests)
  */
 std::vector<std::string> capture;
 
-struct MySink : public bio::sink
-{
+struct MySink : public bio::sink {
 
-   std::streamsize write(const char* s, std::streamsize n)
-   {
+   std::streamsize write(const char* s, std::streamsize n) {
       std::string tmp;
       tmp.assign(s, n);
       capture.push_back(tmp);
@@ -346,8 +312,7 @@ struct MySink : public bio::sink
 };
 uint32_t last_fnc_err = 0;
 
-BOOST_FIXTURE_TEST_CASE(action_receipt_tests, TESTER)
-{
+BOOST_FIXTURE_TEST_CASE(action_receipt_tests, TESTER) {
    try {
       produce_blocks(2);
       create_account("test"_n);
@@ -467,8 +432,7 @@ BOOST_FIXTURE_TEST_CASE(action_receipt_tests, TESTER)
 /*************************************************************************************
  * action_tests test case
  *************************************************************************************/
-BOOST_FIXTURE_TEST_CASE(action_tests, TESTER)
-{
+BOOST_FIXTURE_TEST_CASE(action_tests, TESTER) {
    try {
       produce_blocks(2);
       create_account("testapi"_n);
@@ -638,8 +602,7 @@ BOOST_FIXTURE_TEST_CASE(action_tests, TESTER)
 }
 
 // test require_recipient loop (doesn't cause infinite loop)
-BOOST_FIXTURE_TEST_CASE(require_notice_tests, TESTER)
-{
+BOOST_FIXTURE_TEST_CASE(require_notice_tests, TESTER) {
    try {
       produce_blocks(2);
       create_account("testapi"_n);
@@ -668,8 +631,7 @@ BOOST_FIXTURE_TEST_CASE(require_notice_tests, TESTER)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(ram_billing_in_notify_tests)
-{
+BOOST_AUTO_TEST_CASE(ram_billing_in_notify_tests) {
    try {
       fc::temp_directory tempdir;
       validating_tester  chain(tempdir, true);
@@ -714,8 +676,7 @@ BOOST_AUTO_TEST_CASE(ram_billing_in_notify_tests)
 /*************************************************************************************
  * context free action tests
  *************************************************************************************/
-BOOST_FIXTURE_TEST_CASE(cf_action_tests, TESTER)
-{
+BOOST_FIXTURE_TEST_CASE(cf_action_tests, TESTER) {
    try {
       produce_blocks(2);
       create_account("testapi"_n);
@@ -818,8 +779,7 @@ BOOST_FIXTURE_TEST_CASE(cf_action_tests, TESTER)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_FIXTURE_TEST_CASE(cfa_tx_signature, TESTER)
-try {
+BOOST_FIXTURE_TEST_CASE(cfa_tx_signature, TESTER) try {
 
    action cfa({}, cf_action());
 
@@ -841,8 +801,7 @@ try {
 }
 FC_LOG_AND_RETHROW()
 
-BOOST_FIXTURE_TEST_CASE(cfa_stateful_api, TESTER)
-try {
+BOOST_FIXTURE_TEST_CASE(cfa_stateful_api, TESTER) try {
 
    create_account("testapi"_n);
    produce_blocks(1);
@@ -873,8 +832,7 @@ try {
 }
 FC_LOG_AND_RETHROW()
 
-BOOST_FIXTURE_TEST_CASE(deferred_cfa_failed, TESTER)
-try {
+BOOST_FIXTURE_TEST_CASE(deferred_cfa_failed, TESTER) try {
 
    create_account("testapi"_n);
    produce_blocks(1);
@@ -911,8 +869,7 @@ try {
 }
 FC_LOG_AND_RETHROW()
 
-BOOST_FIXTURE_TEST_CASE(deferred_cfa_success, TESTER)
-try {
+BOOST_FIXTURE_TEST_CASE(deferred_cfa_success, TESTER) try {
 
    create_account("testapi"_n);
    produce_blocks(1);
@@ -951,8 +908,7 @@ try {
 }
 FC_LOG_AND_RETHROW()
 
-BOOST_AUTO_TEST_CASE(light_validation_skip_cfa)
-try {
+BOOST_AUTO_TEST_CASE(light_validation_skip_cfa) try {
    tester chain(setup_policy::full);
 
    std::vector<signed_block_ptr> blocks;
@@ -1047,8 +1003,7 @@ FC_LOG_AND_RETHROW()
 /*************************************************************************************
  * checktime_tests test case
  *************************************************************************************/
-BOOST_FIXTURE_TEST_CASE(checktime_pass_tests, TESTER)
-{
+BOOST_FIXTURE_TEST_CASE(checktime_pass_tests, TESTER) {
    try {
       produce_blocks(2);
       create_account("testapi"_n);
@@ -1071,8 +1026,7 @@ void call_test(Tester&           test,
                uint32_t          max_cpu_usage_ms,
                uint32_t          max_block_cpu_ms,
                std::vector<char> payload = {},
-               name              account = "testapi"_n)
-{
+               name              account = "testapi"_n) {
    signed_transaction trx;
 
    auto pl = vector<permission_level>{
@@ -1106,8 +1060,7 @@ void call_test(Tester&           test,
    test.produce_block();
 };
 
-BOOST_AUTO_TEST_CASE(checktime_fail_tests)
-{
+BOOST_AUTO_TEST_CASE(checktime_fail_tests) {
    try {
       TESTER t;
       t.produce_blocks(2);
@@ -1165,8 +1118,7 @@ BOOST_AUTO_TEST_CASE(checktime_fail_tests)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(checktime_pause_max_trx_cpu_extended_test)
-{
+BOOST_AUTO_TEST_CASE(checktime_pause_max_trx_cpu_extended_test) {
    try {
       fc::temp_directory tempdir;
       auto               conf_genesis = tester::default_config(tempdir);
@@ -1254,8 +1206,7 @@ BOOST_AUTO_TEST_CASE(checktime_pause_max_trx_cpu_extended_test)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(checktime_pause_max_trx_extended_test)
-{
+BOOST_AUTO_TEST_CASE(checktime_pause_max_trx_extended_test) {
    try {
       fc::temp_directory tempdir;
       auto               conf_genesis = tester::default_config(tempdir);
@@ -1311,8 +1262,7 @@ BOOST_AUTO_TEST_CASE(checktime_pause_max_trx_extended_test)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(checktime_pause_block_deadline_not_extended_test)
-{
+BOOST_AUTO_TEST_CASE(checktime_pause_block_deadline_not_extended_test) {
    try {
       fc::temp_directory tempdir;
       auto               conf_genesis = tester::default_config(tempdir);
@@ -1365,8 +1315,7 @@ BOOST_AUTO_TEST_CASE(checktime_pause_block_deadline_not_extended_test)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(checktime_pause_block_deadline_not_extended_while_loading_test)
-{
+BOOST_AUTO_TEST_CASE(checktime_pause_block_deadline_not_extended_while_loading_test) {
    try {
       fc::temp_directory tempdir;
       auto               conf_genesis = tester::default_config(tempdir);
@@ -1424,8 +1373,7 @@ BOOST_AUTO_TEST_CASE(checktime_pause_block_deadline_not_extended_while_loading_t
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_FIXTURE_TEST_CASE(checktime_intrinsic, TESTER)
-{
+BOOST_FIXTURE_TEST_CASE(checktime_intrinsic, TESTER) {
    try {
       produce_blocks(2);
       create_account("testapi"_n);
@@ -1491,8 +1439,7 @@ BOOST_FIXTURE_TEST_CASE(checktime_intrinsic, TESTER)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_FIXTURE_TEST_CASE(checktime_grow_memory, TESTER)
-{
+BOOST_FIXTURE_TEST_CASE(checktime_grow_memory, TESTER) {
    try {
       produce_blocks(2);
       create_account("testapi"_n);
@@ -1536,8 +1483,7 @@ BOOST_FIXTURE_TEST_CASE(checktime_grow_memory, TESTER)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_FIXTURE_TEST_CASE(checktime_hashing_fail, TESTER)
-{
+BOOST_FIXTURE_TEST_CASE(checktime_hashing_fail, TESTER) {
    try {
       produce_blocks(2);
       create_account("testapi"_n);
@@ -1626,8 +1572,7 @@ BOOST_FIXTURE_TEST_CASE(checktime_hashing_fail, TESTER)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_FIXTURE_TEST_CASE(checktime_start, TESTER)
-try {
+BOOST_FIXTURE_TEST_CASE(checktime_start, TESTER) try {
    const char checktime_start_wast[] = R"=====(
 (module
  (func $start (loop (br 0)))
@@ -1651,8 +1596,7 @@ FC_LOG_AND_RETHROW()
 /*************************************************************************************
  * transaction_tests test case
  *************************************************************************************/
-BOOST_FIXTURE_TEST_CASE(transaction_tests, TESTER)
-{
+BOOST_FIXTURE_TEST_CASE(transaction_tests, TESTER) {
    try {
       produce_blocks(2);
       create_account("testapi"_n);
@@ -1842,8 +1786,7 @@ BOOST_FIXTURE_TEST_CASE(transaction_tests, TESTER)
 /*************************************************************************************
  * verify subjective limit test case
  *************************************************************************************/
-BOOST_AUTO_TEST_CASE(inline_action_subjective_limit)
-{
+BOOST_AUTO_TEST_CASE(inline_action_subjective_limit) {
    try {
       const uint32_t   _4k = 4 * 1024;
       tester           chain(setup_policy::full, db_read_mode::HEAD, { _4k + 100 }, { _4k + 1 });
@@ -1873,8 +1816,7 @@ BOOST_AUTO_TEST_CASE(inline_action_subjective_limit)
 /*************************************************************************************
  * verify objective limit test case
  *************************************************************************************/
-BOOST_AUTO_TEST_CASE(inline_action_objective_limit)
-{
+BOOST_AUTO_TEST_CASE(inline_action_objective_limit) {
    try {
       const uint32_t _4k = 4 * 1024;
       tester         chain(setup_policy::full, db_read_mode::HEAD, { _4k }, { _4k - 1 });
@@ -1898,8 +1840,7 @@ BOOST_AUTO_TEST_CASE(inline_action_objective_limit)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(deferred_inline_action_subjective_limit_failure)
-{
+BOOST_AUTO_TEST_CASE(deferred_inline_action_subjective_limit_failure) {
    try {
       const uint32_t _4k = 4 * 1024;
       tester         chain(setup_policy::full, db_read_mode::HEAD, { _4k + 100 }, { _4k });
@@ -1934,8 +1875,7 @@ BOOST_AUTO_TEST_CASE(deferred_inline_action_subjective_limit_failure)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(deferred_inline_action_subjective_limit)
-{
+BOOST_AUTO_TEST_CASE(deferred_inline_action_subjective_limit) {
    try {
       const uint32_t   _4k = 4 * 1024;
       tester           chain(setup_policy::full, db_read_mode::HEAD, { _4k + 100 }, { _4k + 1 });
@@ -1983,8 +1923,7 @@ BOOST_AUTO_TEST_CASE(deferred_inline_action_subjective_limit)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_FIXTURE_TEST_CASE(deferred_transaction_tests, TESTER)
-{
+BOOST_FIXTURE_TEST_CASE(deferred_transaction_tests, TESTER) {
    try {
       produce_blocks(2);
       create_accounts({ "testapi"_n, "testapi2"_n, "alice"_n });
@@ -2101,9 +2040,7 @@ BOOST_FIXTURE_TEST_CASE(deferred_transaction_tests, TESTER)
       produce_blocks(10);
 
       // cancel_deferred() return zero if no scheduled transaction found
-      {
-         CALL_TEST_FUNCTION(*this, "test_transaction", "cancel_deferred_transaction_not_found", {});
-      }
+      { CALL_TEST_FUNCTION(*this, "test_transaction", "cancel_deferred_transaction_not_found", {}); }
 
       produce_blocks(10);
 
@@ -2218,8 +2155,7 @@ BOOST_FIXTURE_TEST_CASE(deferred_transaction_tests, TESTER)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(more_deferred_transaction_tests)
-{
+BOOST_AUTO_TEST_CASE(more_deferred_transaction_tests) {
    try {
       fc::temp_directory tempdir;
       validating_tester  chain(tempdir, true);
@@ -2356,8 +2292,7 @@ BOOST_AUTO_TEST_CASE(more_deferred_transaction_tests)
 /*************************************************************************************
  * chain_tests test case
  *************************************************************************************/
-BOOST_FIXTURE_TEST_CASE(chain_tests, TESTER)
-{
+BOOST_FIXTURE_TEST_CASE(chain_tests, TESTER) {
    try {
       produce_blocks(2);
 
@@ -2389,8 +2324,7 @@ BOOST_FIXTURE_TEST_CASE(chain_tests, TESTER)
 /*************************************************************************************
  * db_tests test case
  *************************************************************************************/
-BOOST_FIXTURE_TEST_CASE(db_tests, TESTER)
-{
+BOOST_FIXTURE_TEST_CASE(db_tests, TESTER) {
    try {
       produce_blocks(2);
       create_account("testapi"_n);
@@ -2499,8 +2433,7 @@ BOOST_FIXTURE_TEST_CASE(db_tests, TESTER)
 }
 
 // The multi_index iterator cache is preserved across notifications for the same action.
-BOOST_FIXTURE_TEST_CASE(db_notify_tests, TESTER)
-{
+BOOST_FIXTURE_TEST_CASE(db_notify_tests, TESTER) {
    create_accounts({ "notifier"_n, "notified"_n });
    const char notifier[] = R"=====(
 (module
@@ -2554,8 +2487,7 @@ BOOST_FIXTURE_TEST_CASE(db_notify_tests, TESTER)
 /*************************************************************************************
  * multi_index_tests test case
  *************************************************************************************/
-BOOST_FIXTURE_TEST_CASE(multi_index_tests, TESTER)
-{
+BOOST_FIXTURE_TEST_CASE(multi_index_tests, TESTER) {
    try {
       produce_blocks(1);
       create_account("testapi"_n);
@@ -2624,8 +2556,7 @@ BOOST_FIXTURE_TEST_CASE(multi_index_tests, TESTER)
 /*************************************************************************************
  * crypto_tests test cases
  *************************************************************************************/
-BOOST_FIXTURE_TEST_CASE(crypto_tests, TESTER)
-{
+BOOST_FIXTURE_TEST_CASE(crypto_tests, TESTER) {
    try {
       produce_block();
       create_account("testapi"_n);
@@ -2847,8 +2778,7 @@ static const char memset_pass_wast[] = R"======(
 )
 )======";
 
-BOOST_FIXTURE_TEST_CASE(memory_tests, TESTER)
-{
+BOOST_FIXTURE_TEST_CASE(memory_tests, TESTER) {
    produce_block();
    create_accounts({ "memcpy"_n, "memcpy2"_n, "memcpy3"_n, "memmove"_n, "memcmp"_n, "memset"_n });
    set_code("memcpy"_n, memcpy_pass_wast);
@@ -2889,8 +2819,7 @@ static const char cstr_wast[] = R"======(
 )
 )======";
 
-BOOST_FIXTURE_TEST_CASE(cstr_tests, TESTER)
-{
+BOOST_FIXTURE_TEST_CASE(cstr_tests, TESTER) {
    produce_block();
    create_accounts({ "cstr"_n });
    set_code("cstr"_n, cstr_wast);
@@ -2907,8 +2836,7 @@ BOOST_FIXTURE_TEST_CASE(cstr_tests, TESTER)
 /*************************************************************************************
  * print_tests test case
  *************************************************************************************/
-BOOST_FIXTURE_TEST_CASE(print_tests, TESTER)
-{
+BOOST_FIXTURE_TEST_CASE(print_tests, TESTER) {
    try {
       produce_blocks(2);
       create_account("testapi"_n);
@@ -3054,8 +2982,7 @@ BOOST_FIXTURE_TEST_CASE(print_tests, TESTER)
 /*************************************************************************************
  * types_tests test case
  *************************************************************************************/
-BOOST_FIXTURE_TEST_CASE(types_tests, TESTER)
-{
+BOOST_FIXTURE_TEST_CASE(types_tests, TESTER) {
    try {
       produce_blocks(1000);
       create_account("testapi"_n);
@@ -3076,8 +3003,7 @@ BOOST_FIXTURE_TEST_CASE(types_tests, TESTER)
 /*************************************************************************************
  * permission_tests test case
  *************************************************************************************/
-BOOST_FIXTURE_TEST_CASE(permission_tests, TESTER)
-{
+BOOST_FIXTURE_TEST_CASE(permission_tests, TESTER) {
    try {
       produce_blocks(1);
       create_account("testapi"_n);
@@ -3225,8 +3151,7 @@ static const char get_resource_limits_null_cpu_wast[] = R"=====(
 )
 )=====";
 
-BOOST_FIXTURE_TEST_CASE(resource_limits_tests, TESTER)
-{
+BOOST_FIXTURE_TEST_CASE(resource_limits_tests, TESTER) {
    create_accounts({ "rlimits"_n, "testacnt"_n });
    set_code("rlimits"_n, resource_limits_wast);
    push_action(
@@ -3320,8 +3245,7 @@ BOOST_FIXTURE_TEST_CASE(privileged_tests, tester) { try {
 /*************************************************************************************
  * real_tests test cases
  *************************************************************************************/
-BOOST_FIXTURE_TEST_CASE(datastream_tests, TESTER)
-{
+BOOST_FIXTURE_TEST_CASE(datastream_tests, TESTER) {
    try {
       produce_blocks(1000);
       create_account("testapi"_n);
@@ -3339,8 +3263,7 @@ BOOST_FIXTURE_TEST_CASE(datastream_tests, TESTER)
 /*************************************************************************************
  * permission_usage_tests test cases
  *************************************************************************************/
-BOOST_FIXTURE_TEST_CASE(permission_usage_tests, TESTER)
-{
+BOOST_FIXTURE_TEST_CASE(permission_usage_tests, TESTER) {
    try {
       produce_block();
       create_accounts({ "testapi"_n, "alice"_n, "bob"_n });
@@ -3430,8 +3353,7 @@ BOOST_FIXTURE_TEST_CASE(permission_usage_tests, TESTER)
 /*************************************************************************************
  * account_creation_time_tests test cases
  *************************************************************************************/
-BOOST_FIXTURE_TEST_CASE(account_creation_time_tests, TESTER)
-{
+BOOST_FIXTURE_TEST_CASE(account_creation_time_tests, TESTER) {
    try {
       produce_block();
       create_account("testapi"_n);
@@ -3460,8 +3382,7 @@ BOOST_FIXTURE_TEST_CASE(account_creation_time_tests, TESTER)
 /*************************************************************************************
  * extended_symbol_api_tests test cases
  *************************************************************************************/
-BOOST_FIXTURE_TEST_CASE(extended_symbol_api_tests, TESTER)
-{
+BOOST_FIXTURE_TEST_CASE(extended_symbol_api_tests, TESTER) {
    try {
       name n0{ "1" };
       name n1{ "5" };
@@ -3498,8 +3419,7 @@ BOOST_FIXTURE_TEST_CASE(extended_symbol_api_tests, TESTER)
 /*************************************************************************************
  * eosio_assert_code_tests test cases
  *************************************************************************************/
-BOOST_FIXTURE_TEST_CASE(eosio_assert_code_tests, TESTER)
-{
+BOOST_FIXTURE_TEST_CASE(eosio_assert_code_tests, TESTER) {
    try {
       produce_block();
       create_account("testapi"_n);
@@ -3586,8 +3506,7 @@ BOOST_FIXTURE_TEST_CASE(eosio_assert_code_tests, TESTER)
 /*************************************************************************************
 + * action_ordinal_test test cases
 + *************************************************************************************/
-BOOST_FIXTURE_TEST_CASE(action_ordinal_test, TESTER)
-{
+BOOST_FIXTURE_TEST_CASE(action_ordinal_test, TESTER) {
    try {
 
       produce_blocks(1);
@@ -3772,8 +3691,7 @@ BOOST_FIXTURE_TEST_CASE(action_ordinal_test, TESTER)
 /*************************************************************************************
 + * action_ordinal_failtest1 test cases
 + *************************************************************************************/
-BOOST_FIXTURE_TEST_CASE(action_ordinal_failtest1, TESTER)
-{
+BOOST_FIXTURE_TEST_CASE(action_ordinal_failtest1, TESTER) {
    try {
 
       produce_blocks(1);
@@ -3843,8 +3761,7 @@ BOOST_FIXTURE_TEST_CASE(action_ordinal_failtest1, TESTER)
 /*************************************************************************************
 + * action_ordinal_failtest2 test cases
 + *************************************************************************************/
-BOOST_FIXTURE_TEST_CASE(action_ordinal_failtest2, TESTER)
-{
+BOOST_FIXTURE_TEST_CASE(action_ordinal_failtest2, TESTER) {
    try {
 
       produce_blocks(1);
@@ -3967,8 +3884,7 @@ BOOST_FIXTURE_TEST_CASE(action_ordinal_failtest2, TESTER)
 /*************************************************************************************
 + * action_ordinal_failtest3 test cases
 + *************************************************************************************/
-BOOST_FIXTURE_TEST_CASE(action_ordinal_failtest3, TESTER)
-{
+BOOST_FIXTURE_TEST_CASE(action_ordinal_failtest3, TESTER) {
    try {
 
       produce_blocks(1);
@@ -4124,8 +4040,7 @@ BOOST_FIXTURE_TEST_CASE(action_ordinal_failtest3, TESTER)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE(action_results_tests)
-{
+BOOST_AUTO_TEST_CASE(action_results_tests) {
    try {
       TESTER t;
       t.produce_blocks(2);
@@ -4240,8 +4155,7 @@ static const char get_code_hash_wast[] = R"=====(
 )
 )=====";
 
-BOOST_AUTO_TEST_CASE(get_code_hash_tests)
-{
+BOOST_AUTO_TEST_CASE(get_code_hash_tests) {
    try {
       TESTER t;
       t.produce_blocks(2);

@@ -3,8 +3,7 @@
 const string         wasm_str_if_0 = base_dir + "/if.0.wasm";
 std::vector<uint8_t> wasm_if_0     = read_wasm(wasm_str_if_0.c_str());
 
-BOOST_DATA_TEST_CASE(if_0_check_throw, boost::unit_test::data::xrange(0, 1), index)
-{
+BOOST_DATA_TEST_CASE(if_0_check_throw, boost::unit_test::data::xrange(0, 1), index) {
    try {
       TESTER tester;
       tester.produce_block();
@@ -27,8 +26,7 @@ BOOST_DATA_TEST_CASE(if_0_check_throw, boost::unit_test::data::xrange(0, 1), ind
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_DATA_TEST_CASE(if_0_pass, boost::unit_test::data::xrange(1, 2), index)
-{
+BOOST_DATA_TEST_CASE(if_0_pass, boost::unit_test::data::xrange(1, 2), index) {
    try {
       TESTER tester;
       tester.produce_block();

@@ -8,74 +8,59 @@ namespace chain {
 using type_name  = string;
 using field_name = string;
 
-struct type_def
-{
+struct type_def {
    type_def() = default;
    type_def(const type_name& new_type_name, const type_name& type)
       : new_type_name(new_type_name)
-      , type(type)
-   {
-   }
+      , type(type) {}
 
    type_name new_type_name;
    type_name type;
 };
 
-struct field_def
-{
+struct field_def {
    field_def() = default;
    field_def(const field_name& name, const type_name& type)
       : name(name)
-      , type(type)
-   {
-   }
+      , type(type) {}
 
    field_name name;
    type_name  type;
 
-   bool operator==(const field_def& other) const
-   {
+   bool operator==(const field_def& other) const {
       return std::tie(name, type) == std::tie(other.name, other.type);
    }
 };
 
-struct struct_def
-{
+struct struct_def {
    struct_def() = default;
    struct_def(const type_name& name, const type_name& base, const vector<field_def>& fields)
       : name(name)
       , base(base)
-      , fields(fields)
-   {
-   }
+      , fields(fields) {}
 
    type_name         name;
    type_name         base;
    vector<field_def> fields;
 
-   bool operator==(const struct_def& other) const
-   {
+   bool operator==(const struct_def& other) const {
       return std::tie(name, base, fields) == std::tie(other.name, other.base, other.fields);
    }
 };
 
-struct action_def
-{
+struct action_def {
    action_def() = default;
    action_def(const action_name& name, const type_name& type, const string& ricardian_contract)
       : name(name)
       , type(type)
-      , ricardian_contract(ricardian_contract)
-   {
-   }
+      , ricardian_contract(ricardian_contract) {}
 
    action_name name;
    type_name   type;
    string      ricardian_contract;
 };
 
-struct table_def
-{
+struct table_def {
    table_def() = default;
    table_def(const table_name&         name,
              const type_name&          index_type,
@@ -86,9 +71,7 @@ struct table_def
       , index_type(index_type)
       , key_names(key_names)
       , key_types(key_types)
-      , type(type)
-   {
-   }
+      , type(type) {}
 
    table_name         name;       // the name of the table
    type_name          index_type; // the kind of index, i64, i128i128, etc
@@ -97,59 +80,47 @@ struct table_def
    type_name          type;       // type of binary data stored in this table
 };
 
-struct clause_pair
-{
+struct clause_pair {
    clause_pair() = default;
    clause_pair(const string& id, const string& body)
       : id(id)
-      , body(body)
-   {
-   }
+      , body(body) {}
 
    string id;
    string body;
 };
 
-struct error_message
-{
+struct error_message {
    error_message() = default;
    error_message(uint64_t error_code, const string& error_msg)
       : error_code(error_code)
-      , error_msg(error_msg)
-   {
-   }
+      , error_msg(error_msg) {}
 
    uint64_t error_code;
    string   error_msg;
 };
 
-struct variant_def
-{
+struct variant_def {
    type_name         name;
    vector<type_name> types;
 };
 
-struct action_result_def
-{
+struct action_result_def {
    action_result_def() = default;
    action_result_def(const action_name& name, const type_name& result_type)
       : name(name)
-      , result_type(result_type)
-   {
-   }
+      , result_type(result_type) {}
 
    action_name name;
    type_name   result_type;
 };
 
 template<typename T>
-struct may_not_exist
-{
+struct may_not_exist {
    T value{};
 };
 
-struct abi_def
-{
+struct abi_def {
    abi_def() = default;
    abi_def(const vector<type_def>&      types,
            const vector<struct_def>&    structs,
@@ -162,9 +133,7 @@ struct abi_def
       , actions(actions)
       , tables(tables)
       , ricardian_clauses(clauses)
-      , error_messages(error_msgs)
-   {
-   }
+      , error_messages(error_msgs) {}
 
    string                                   version = "";
    vector<type_def>                         types;
@@ -189,29 +158,25 @@ extern unsigned char eosio_abi_bin[2132];
 namespace fc {
 
 template<typename ST, typename T>
-datastream<ST>& operator<<(datastream<ST>& s, const eosio::chain::may_not_exist<T>& v)
-{
+datastream<ST>& operator<<(datastream<ST>& s, const eosio::chain::may_not_exist<T>& v) {
    raw::pack(s, v.value);
    return s;
 }
 
 template<typename ST, typename T>
-datastream<ST>& operator>>(datastream<ST>& s, eosio::chain::may_not_exist<T>& v)
-{
+datastream<ST>& operator>>(datastream<ST>& s, eosio::chain::may_not_exist<T>& v) {
    if (s.remaining())
       raw::unpack(s, v.value);
    return s;
 }
 
 template<typename T>
-void to_variant(const eosio::chain::may_not_exist<T>& e, fc::variant& v)
-{
+void to_variant(const eosio::chain::may_not_exist<T>& e, fc::variant& v) {
    to_variant(e.value, v);
 }
 
 template<typename T>
-void from_variant(const fc::variant& v, eosio::chain::may_not_exist<T>& e)
-{
+void from_variant(const fc::variant& v, eosio::chain::may_not_exist<T>& e) {
    from_variant(v, e.value);
 }
 

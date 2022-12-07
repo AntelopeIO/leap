@@ -16,13 +16,11 @@ static appbase::abstract_plugin& _wallet_plugin = app().register_plugin<wallet_p
 
 wallet_plugin::wallet_plugin() {}
 
-wallet_manager& wallet_plugin::get_wallet_manager()
-{
+wallet_manager& wallet_plugin::get_wallet_manager() {
    return *wallet_manager_ptr;
 }
 
-void wallet_plugin::set_program_options(options_description& cli, options_description& cfg)
-{
+void wallet_plugin::set_program_options(options_description& cli, options_description& cfg) {
    cfg.add_options()("wallet-dir",
                      bpo::value<boost::filesystem::path>()->default_value("."),
                      "The path of the wallet files (absolute path or relative to application data dir)")(
@@ -33,8 +31,7 @@ void wallet_plugin::set_program_options(options_description& cli, options_descri
       "Activity is defined as any wallet command e.g. list-wallets.");
 }
 
-void wallet_plugin::plugin_initialize(const variables_map& options)
-{
+void wallet_plugin::plugin_initialize(const variables_map& options) {
    ilog("initializing wallet plugin");
    try {
       wallet_manager_ptr = std::make_unique<wallet_manager>();

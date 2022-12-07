@@ -36,32 +36,26 @@ using legacy_ptr = eosio::vm::argument_proxy<T*, Align>;
 template<typename T, std::size_t Align = alignof(T)>
 using legacy_span = eosio::vm::argument_proxy<eosio::vm::span<T>, Align>;
 
-struct null_terminated_ptr
-{
+struct null_terminated_ptr {
    null_terminated_ptr(const char* ptr)
-      : ptr(ptr)
-   {
-   }
+      : ptr(ptr) {}
    const char* data() const { return ptr; }
    const char* ptr;
 };
 
-struct memcpy_params
-{
+struct memcpy_params {
    void*           dst;
    const void*     src;
    vm::wasm_size_t size;
 };
 
-struct memcmp_params
-{
+struct memcmp_params {
    const void*     lhs;
    const void*     rhs;
    vm::wasm_size_t size;
 };
 
-struct memset_params
-{
+struct memset_params {
    const void*     dst;
    const int32_t   val;
    vm::wasm_size_t size;
@@ -69,8 +63,7 @@ struct memset_params
 
 // define the type converter for eosio
 template<typename Interface>
-struct basic_type_converter : public eosio::vm::type_converter<webassembly::interface, Interface>
-{
+struct basic_type_converter : public eosio::vm::type_converter<webassembly::interface, Interface> {
    using base_type = eosio::vm::type_converter<webassembly::interface, Interface>;
    using eosio::vm::type_converter<webassembly::interface, Interface>::type_converter;
    using base_type::from_wasm;
@@ -78,39 +71,34 @@ struct basic_type_converter : public eosio::vm::type_converter<webassembly::inte
 
    EOS_VM_FROM_WASM(bool, (uint32_t value)) { return value ? 1 : 0; }
 
-   EOS_VM_FROM_WASM(memcpy_params, (vm::wasm_ptr_t dst, vm::wasm_ptr_t src, vm::wasm_size_t size))
-   {
+   EOS_VM_FROM_WASM(memcpy_params, (vm::wasm_ptr_t dst, vm::wasm_ptr_t src, vm::wasm_size_t size)) {
       auto d = this->template validate_pointer<char>(dst, size);
       auto s = this->template validate_pointer<char>(src, size);
       this->template validate_pointer<char>(dst, 1);
       return { d, s, size };
    }
 
-   EOS_VM_FROM_WASM(memcmp_params, (vm::wasm_ptr_t lhs, vm::wasm_ptr_t rhs, vm::wasm_size_t size))
-   {
+   EOS_VM_FROM_WASM(memcmp_params, (vm::wasm_ptr_t lhs, vm::wasm_ptr_t rhs, vm::wasm_size_t size)) {
       auto l = this->template validate_pointer<char>(lhs, size);
       auto r = this->template validate_pointer<char>(rhs, size);
       return { l, r, size };
    }
 
-   EOS_VM_FROM_WASM(memset_params, (vm::wasm_ptr_t dst, int32_t val, vm::wasm_size_t size))
-   {
+   EOS_VM_FROM_WASM(memset_params, (vm::wasm_ptr_t dst, int32_t val, vm::wasm_size_t size)) {
       auto d = this->template validate_pointer<char>(dst, size);
       this->template validate_pointer<char>(dst, 1);
       return { d, val, size };
    }
 
    template<typename T>
-   auto from_wasm(vm::wasm_ptr_t ptr) const -> std::enable_if_t<std::is_pointer_v<T>, vm::argument_proxy<T>>
-   {
+   auto from_wasm(vm::wasm_ptr_t ptr) const -> std::enable_if_t<std::is_pointer_v<T>, vm::argument_proxy<T>> {
       auto p = this->template validate_pointer<std::remove_pointer_t<T>>(ptr, 1);
       return { p };
    }
 
    template<typename T>
    auto from_wasm(vm::wasm_ptr_t ptr, vm::tag<T> = {}) const
-      -> std::enable_if_t<vm::is_argument_proxy_type_v<T> && std::is_pointer_v<typename T::proxy_type>, T>
-   {
+      -> std::enable_if_t<vm::is_argument_proxy_type_v<T> && std::is_pointer_v<typename T::proxy_type>, T> {
       if constexpr (T::is_legacy()) {
          EOS_ASSERT(ptr != 0, wasm_execution_error, "references cannot be created for null pointers");
       }
@@ -118,8 +106,7 @@ struct basic_type_converter : public eosio::vm::type_converter<webassembly::inte
       return { p };
    }
 
-   EOS_VM_FROM_WASM(null_terminated_ptr, (vm::wasm_ptr_t ptr))
-   {
+   EOS_VM_FROM_WASM(null_terminated_ptr, (vm::wasm_ptr_t ptr)) {
       auto p = this->validate_null_terminated_pointer(ptr);
       return { static_cast<const char*>(p) };
    }

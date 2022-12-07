@@ -30,8 +30,7 @@ namespace bpo = boost::program_options;
 using bpo::options_description;
 using bpo::variables_map;
 
-struct blocklog
-{
+struct blocklog {
    blocklog() {}
 
    void read_log();
@@ -55,16 +54,12 @@ struct blocklog
    std::optional<block_log_prune_config> blog_keep_prune_conf;
 };
 
-struct report_time
-{
+struct report_time {
    report_time(std::string desc)
       : _start(std::chrono::high_resolution_clock::now())
-      , _desc(desc)
-   {
-   }
+      , _desc(desc) {}
 
-   void report()
-   {
+   void report() {
       const auto duration = std::chrono::duration_cast<std::chrono::microseconds>(
                                std::chrono::high_resolution_clock::now() - _start)
                                .count() /
@@ -76,8 +71,7 @@ struct report_time
    const std::string                                    _desc;
 };
 
-void blocklog::do_vacuum()
-{
+void blocklog::do_vacuum() {
    EOS_ASSERT(blog_keep_prune_conf, block_log_exception, "blocks.log is not a pruned log; nothing to vacuum");
    block_log blocks(blocks_dir,
                     std::optional<block_log_prune_config>()); // passing an unset block_log_prune_config turns
@@ -85,8 +79,7 @@ void blocklog::do_vacuum()
    ilog("Successfully vacuumed block log");
 }
 
-void blocklog::read_log()
-{
+void blocklog::read_log() {
    report_time rt("reading log");
    block_log   block_logger(blocks_dir, blog_keep_prune_conf);
    const auto  end = block_logger.read_head();
@@ -184,8 +177,7 @@ void blocklog::read_log()
    rt.report();
 }
 
-void blocklog::set_program_options(options_description& cli)
-{
+void blocklog::set_program_options(options_description& cli) {
    cli.add_options()(
       "blocks-dir",
       bpo::value<bfs::path>()->default_value("blocks"),
@@ -227,8 +219,7 @@ void blocklog::set_program_options(options_description& cli)
       "help,h", bpo::bool_switch(&help)->default_value(false), "Print this help message and exit.");
 }
 
-void blocklog::initialize(const variables_map& options)
-{
+void blocklog::initialize(const variables_map& options) {
    try {
       auto bld = options.at("blocks-dir").as<bfs::path>();
       if (bld.is_relative())
@@ -255,8 +246,7 @@ void blocklog::initialize(const variables_map& options)
    FC_LOG_AND_RETHROW()
 }
 
-int trim_blocklog_end(bfs::path block_dir, uint32_t n)
-{ // n is last block to keep (remove later blocks)
+int trim_blocklog_end(bfs::path block_dir, uint32_t n) { // n is last block to keep (remove later blocks)
    report_time rt("trimming blocklog end");
    using namespace std;
    trim_data td(block_dir);
@@ -280,8 +270,7 @@ int trim_blocklog_end(bfs::path block_dir, uint32_t n)
    return 0;
 }
 
-bool trim_blocklog_front(bfs::path block_dir, uint32_t n)
-{ // n is first block to keep (remove prior blocks)
+bool trim_blocklog_front(bfs::path block_dir, uint32_t n) { // n is first block to keep (remove prior blocks)
    report_time    rt("trimming blocklog start");
    block_num_type end    = std::numeric_limits<block_num_type>::max();
    const bool     status = block_log::extract_block_range(block_dir, block_dir / "old", n, end, true);
@@ -289,8 +278,7 @@ bool trim_blocklog_front(bfs::path block_dir, uint32_t n)
    return status;
 }
 
-bool extract_block_range(bfs::path block_dir, bfs::path output_dir, uint32_t start, uint32_t end)
-{
+bool extract_block_range(bfs::path block_dir, bfs::path output_dir, uint32_t start, uint32_t end) {
    report_time rt("extracting block range");
    EOS_ASSERT(end > start, block_log_exception, "extract range end must be greater than start");
    const bool status = block_log::extract_block_range(block_dir, output_dir, start, end, false);
@@ -298,8 +286,7 @@ bool extract_block_range(bfs::path block_dir, bfs::path output_dir, uint32_t sta
    return status;
 }
 
-void smoke_test(bfs::path block_dir)
-{
+void smoke_test(bfs::path block_dir) {
    using namespace std;
    cout << "\nSmoke test of blocks.log and blocks.index in directory " << block_dir << '\n';
    trim_data td(block_dir);
@@ -339,8 +326,7 @@ void smoke_test(bfs::path block_dir)
    cout << "\nno problems found\n"; // if get here there were no exceptions
 }
 
-int main(int argc, char** argv)
-{
+int main(int argc, char** argv) {
    std::ios::sync_with_stdio(false); // for potential performance boost for large block log files
    options_description cli("eosio-blocklog command line options");
    try {

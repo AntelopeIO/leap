@@ -23,8 +23,7 @@ class zipkin;
 
 class sha256;
 
-class zipkin_config
-{
+class zipkin_config {
 public:
    /// Thread safe only if init() called from main thread before spawning of any threads
    static bool is_enabled() { return get_zipkin_() != nullptr; }
@@ -59,64 +58,52 @@ private:
    std::unique_ptr<zipkin> zip;
 };
 
-struct zipkin_span
-{
+struct zipkin_span {
    explicit zipkin_span(std::string name, uint64_t parent_id = 0)
-      : data(std::move(name), parent_id)
-   {
-   }
+      : data(std::move(name), parent_id) {}
 
    explicit zipkin_span(uint64_t id, std::string name, uint64_t parent_id = 0)
-      : data(id, std::move(name), parent_id)
-   {
-   }
+      : data(id, std::move(name), parent_id) {}
 
    zipkin_span(const zipkin_span&)            = delete;
    zipkin_span& operator=(const zipkin_span&) = delete;
    zipkin_span& operator=(zipkin_span&&)      = delete;
 
    zipkin_span(zipkin_span&& rhs) noexcept
-      : data(std::move(rhs.data))
-   {
+      : data(std::move(rhs.data)) {
       rhs.data.id = 0;
    }
 
    ~zipkin_span();
 
-   void add_tag(const std::string& key, const std::string& var)
-   {
+   void add_tag(const std::string& key, const std::string& var) {
       // zipkin tags are required to be strings
       data.tags(key, var);
    }
 
-   void add_tag(const std::string& key, const char* var)
-   {
+   void add_tag(const std::string& key, const char* var) {
       // zipkin tags are required to be strings
       data.tags(key, var);
    }
 
-   void add_tag(const std::string& key, bool v)
-   {
+   void add_tag(const std::string& key, bool v) {
       // zipkin tags are required to be strings
       data.tags(key, v ? "true" : "false");
    }
 
    template<typename T>
    std::enable_if_t<std::is_arithmetic_v<std::remove_reference_t<T>>, void> add_tag(const std::string& key,
-                                                                                    T&&                var)
-   {
+                                                                                    T&&                var) {
       data.tags(key, std::to_string(std::forward<T>(var)));
    }
 
    template<typename T>
    std::enable_if_t<!std::is_arithmetic_v<std::remove_reference_t<T>>, void> add_tag(const std::string& key,
-                                                                                     T&&                var)
-   {
+                                                                                     T&&                var) {
       data.tags(key, (std::string)var);
    }
 
-   struct token
-   {
+   struct token {
       friend zipkin_span;
       friend struct zipkin_trace;
       friend struct optional_trace;
@@ -124,9 +111,7 @@ struct zipkin_span
 
    private:
       explicit token(uint64_t id)
-         : id(id)
-      {
-      }
+         : id(id) {}
       uint64_t id;
    };
 
@@ -135,29 +120,23 @@ struct zipkin_span
    static uint64_t to_id(const fc::sha256& id);
 
    template<typename T>
-   static uint64_t to_id(const T& id)
-   {
+   static uint64_t to_id(const T& id) {
       static_assert(std::is_same_v<decltype(id.data()), const uint64_t*>, "expected uint64_t");
       return id.data()[3];
    }
 
-   struct span_data
-   {
+   struct span_data {
       explicit span_data(std::string name, uint64_t parent_id = 0)
          : id(zipkin_config::get_next_unique_id())
          , parent_id(parent_id)
          , start(time_point::now())
-         , name(std::move(name))
-      {
-      }
+         , name(std::move(name)) {}
 
       explicit span_data(uint64_t id, std::string name, uint64_t parent_id = 0)
          : id(id)
          , parent_id(parent_id)
          , start(time_point::now())
-         , name(std::move(name))
-      {
-      }
+         , name(std::move(name)) {}
 
       span_data(const span_data&)            = delete;
       span_data& operator=(const span_data&) = delete;
@@ -177,36 +156,30 @@ struct zipkin_span
    span_data data;
 };
 
-struct zipkin_trace : public zipkin_span
-{
+struct zipkin_trace : public zipkin_span {
    using zipkin_span::zipkin_span;
 
-   [[nodiscard]] std::optional<zipkin_span> create_span(std::string name) const
-   {
+   [[nodiscard]] std::optional<zipkin_span> create_span(std::string name) const {
       return zipkin_span{ std::move(name), get_token().id };
    }
 
    [[nodiscard]] static std::optional<zipkin_span> create_span_from_token(zipkin_span::token token,
-                                                                          std::string        name)
-   {
+                                                                          std::string        name) {
       return zipkin_span{ std::move(name), token.id };
    }
 };
 
-struct optional_trace
-{
+struct optional_trace {
    std::optional<zipkin_trace> opt;
 
    constexpr explicit operator bool() const noexcept { return opt.has_value(); }
 
-   [[nodiscard]] zipkin_span::token get_token() const
-   {
+   [[nodiscard]] zipkin_span::token get_token() const {
       return opt ? opt->get_token() : zipkin_span::token(0);
    }
 };
 
-class zipkin
-{
+class zipkin {
 public:
    zipkin(const std::string& url, const std::string& service_name, uint32_t timeout_us);
 

@@ -2,8 +2,7 @@
 
 #include "test_api.hpp"
 
-void test_types::types_size()
-{
+void test_types::types_size() {
 
    eosio_assert(sizeof(int64_t) == 8, "int64_t size != 8");
    eosio_assert(sizeof(uint64_t) == 8, "uint64_t size != 8");
@@ -16,8 +15,7 @@ void test_types::types_size()
    eosio_assert(sizeof(eosio::name) == 8, "name size !=  8");
 }
 
-void test_types::char_to_symbol()
-{
+void test_types::char_to_symbol() {
 
    eosio_assert(eosio::name::char_to_value('1') == 1, "eosio::char_to_symbol('1') !=  1");
    eosio_assert(eosio::name::char_to_value('2') == 2, "eosio::char_to_symbol('2') !=  2");
@@ -58,8 +56,7 @@ void test_types::char_to_symbol()
    }
 }
 
-void test_types::string_to_name()
-{
+void test_types::string_to_name() {
    return;
    eosio_assert(eosio::name("a") == "a"_n, "eosio::string_to_name(a)");
    eosio_assert(eosio::name("ba") == "ba"_n, "eosio::string_to_name(ba)");

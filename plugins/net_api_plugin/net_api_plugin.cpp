@@ -9,8 +9,7 @@
 
 namespace eosio {
 namespace detail {
-struct net_api_plugin_empty
-{};
+struct net_api_plugin_empty {};
 }
 }
 
@@ -53,8 +52,7 @@ using namespace eosio;
    api_handle.call_name();                                                                                   \
    eosio::detail::net_api_plugin_empty result;
 
-void net_api_plugin::plugin_startup()
-{
+void net_api_plugin::plugin_startup() {
    ilog("starting net_api_plugin");
    // lifetime of plugin is lifetime of application
    auto& net_mgr = app().get_plugin<net_plugin>();
@@ -75,8 +73,7 @@ void net_api_plugin::plugin_startup()
       appbase::priority::medium_high);
 }
 
-void net_api_plugin::plugin_initialize(const variables_map& options)
-{
+void net_api_plugin::plugin_initialize(const variables_map& options) {
    try {
       const auto& _http_plugin = app().get_plugin<http_plugin>();
       if (!_http_plugin.is_on_loopback()) {

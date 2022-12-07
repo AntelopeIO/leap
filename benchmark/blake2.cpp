@@ -4,8 +4,7 @@
 
 namespace benchmark {
 
-void blake2_benchmarking()
-{
+void blake2_benchmarking() {
    uint32_t _rounds = 0x0C;
    bytes _h = to_bytes("48c9bdf267e6096a3ba7ca8485ae67bb2bf894fe72f36e3cf1361d5f3af54fa5d182e6ad7f520e511f6c3"
                        "e2b8c68059b6bbd41fbabd9831f79217e1319cde05b");

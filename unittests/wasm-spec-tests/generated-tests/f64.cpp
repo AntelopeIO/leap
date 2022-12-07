@@ -3,8 +3,7 @@
 const string         wasm_str_f64_0 = base_dir + "/f64.0.wasm";
 std::vector<uint8_t> wasm_f64_0     = read_wasm(wasm_str_f64_0.c_str());
 
-BOOST_DATA_TEST_CASE(f64_0_pass, boost::unit_test::data::xrange(0, 25), index)
-{
+BOOST_DATA_TEST_CASE(f64_0_pass, boost::unit_test::data::xrange(0, 25), index) {
    try {
       TESTER tester;
       tester.produce_block();

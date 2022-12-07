@@ -11,8 +11,7 @@ namespace fc {
 
 namespace persistence_util {
 
-cfile open_cfile_for_read(const fc::path& dir, const std::string& filename)
-{
+cfile open_cfile_for_read(const fc::path& dir, const std::string& filename) {
    if (!fc::is_directory(dir))
       fc::create_directories(dir);
 
@@ -29,8 +28,7 @@ cfile open_cfile_for_read(const fc::path& dir, const std::string& filename)
 uint32_t read_persistence_header(cfile&         dat_content,
                                  const uint32_t magic_number,
                                  const uint32_t min_supported_version,
-                                 const uint32_t max_supported_version)
-{
+                                 const uint32_t max_supported_version) {
    dat_content.seek(0); // needed on mac
    auto ds = dat_content.create_datastream();
 
@@ -56,8 +54,7 @@ uint32_t read_persistence_header(cfile&         dat_content,
    return version;
 }
 
-cfile open_cfile_for_write(const fc::path& dir, const std::string& filename)
-{
+cfile open_cfile_for_write(const fc::path& dir, const std::string& filename) {
    if (!fc::is_directory(dir))
       fc::create_directories(dir);
 
@@ -68,8 +65,9 @@ cfile open_cfile_for_write(const fc::path& dir, const std::string& filename)
    return dat_content;
 }
 
-void write_persistence_header(cfile& dat_content, const uint32_t magic_number, const uint32_t current_version)
-{
+void write_persistence_header(cfile&         dat_content,
+                              const uint32_t magic_number,
+                              const uint32_t current_version) {
    dat_content.write(reinterpret_cast<const char*>(&magic_number), sizeof(magic_number));
    dat_content.write(reinterpret_cast<const char*>(&current_version), sizeof(current_version));
 }

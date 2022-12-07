@@ -21,21 +21,17 @@ namespace eosvmoc {
 
 using control_block = eos_vm_oc_control_block;
 
-struct no_offset
-{};
-struct code_offset
-{
+struct no_offset {};
+struct code_offset {
    size_t offset;
 };
-struct intrinsic_ordinal
-{
+struct intrinsic_ordinal {
    size_t ordinal;
 };
 
 using eosvmoc_optional_offset_or_import_t = std::variant<no_offset, code_offset, intrinsic_ordinal>;
 
-struct code_descriptor
-{
+struct code_descriptor {
    digest_type                         code_hash;
    uint8_t                             vm_version;
    uint8_t                             codegen_version;
@@ -48,8 +44,7 @@ struct code_descriptor
    unsigned                            initdata_prologue_size;
 };
 
-enum eosvmoc_exitcode : int
-{
+enum eosvmoc_exitcode : int {
    EOSVMOC_EXIT_CLEAN_EXIT = 1,
    EOSVMOC_EXIT_CHECKTIME_FAIL,
    EOSVMOC_EXIT_SEGV,

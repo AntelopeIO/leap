@@ -9,8 +9,7 @@ namespace _test_multi_index {
 
 using eosio::checksum256;
 
-struct record_idx64
-{
+struct record_idx64 {
    uint64_t id;
    uint64_t sec;
 
@@ -20,8 +19,7 @@ struct record_idx64
    EOSLIB_SERIALIZE(record_idx64, (id)(sec))
 };
 
-struct record_idx128
-{
+struct record_idx128 {
    uint64_t  id;
    uint128_t sec;
 
@@ -31,8 +29,7 @@ struct record_idx128
    EOSLIB_SERIALIZE(record_idx128, (id)(sec))
 };
 
-struct record_idx256
-{
+struct record_idx256 {
    uint64_t    id;
    checksum256 sec;
 
@@ -42,8 +39,7 @@ struct record_idx256
    EOSLIB_SERIALIZE(record_idx256, (id)(sec))
 };
 
-struct record_idx_double
-{
+struct record_idx_double {
    uint64_t id;
    double   sec;
 
@@ -53,8 +49,7 @@ struct record_idx_double
    EOSLIB_SERIALIZE(record_idx_double, (id)(sec))
 };
 
-struct record_idx_long_double
-{
+struct record_idx_long_double {
    uint64_t    id;
    long double sec;
 
@@ -65,8 +60,7 @@ struct record_idx_long_double
 };
 
 template<uint64_t TableName>
-void idx64_store_only(name receiver)
-{
+void idx64_store_only(name receiver) {
    typedef record_idx64 record;
 
    record records[] = {
@@ -97,8 +91,7 @@ void idx64_store_only(name receiver)
 }
 
 template<uint64_t TableName>
-void idx64_check_without_storing(name receiver)
-{
+void idx64_check_without_storing(name receiver) {
    typedef record_idx64 record;
 
    // Load table using multi_index
@@ -221,8 +214,7 @@ void idx64_check_without_storing(name receiver)
 }
 
 template<uint64_t TableName>
-void idx64_require_find_fail(name receiver)
-{
+void idx64_require_find_fail(name receiver) {
    typedef record_idx64 record;
 
    // Load table using multi_index
@@ -238,8 +230,7 @@ void idx64_require_find_fail(name receiver)
 }
 
 template<uint64_t TableName>
-void idx64_require_find_fail_with_msg(name receiver)
-{
+void idx64_require_find_fail_with_msg(name receiver) {
    typedef record_idx64 record;
 
    // Load table using multi_index
@@ -255,8 +246,7 @@ void idx64_require_find_fail_with_msg(name receiver)
 }
 
 template<uint64_t TableName>
-void idx64_require_find_sk_fail(name receiver)
-{
+void idx64_require_find_sk_fail(name receiver) {
    typedef record_idx64 record;
 
    // Load table using multi_index
@@ -276,8 +266,7 @@ void idx64_require_find_sk_fail(name receiver)
 }
 
 template<uint64_t TableName>
-void idx64_require_find_sk_fail_with_msg(name receiver)
-{
+void idx64_require_find_sk_fail_with_msg(name receiver) {
    typedef record_idx64 record;
 
    // Load table using multi_index
@@ -297,8 +286,7 @@ void idx64_require_find_sk_fail_with_msg(name receiver)
 }
 
 template<uint64_t TableName>
-void idx128_store_only(name receiver)
-{
+void idx128_store_only(name receiver) {
    typedef record_idx128 record;
 
    // Construct and fill table using multi_index
@@ -318,8 +306,7 @@ void idx128_store_only(name receiver)
 }
 
 template<uint64_t TableName>
-void idx128_check_without_storing(name receiver)
-{
+void idx128_check_without_storing(name receiver) {
    typedef record_idx128 record;
 
    // Load table using multi_index
@@ -358,8 +345,7 @@ void idx128_check_without_storing(name receiver)
 }
 
 template<uint64_t TableName, uint64_t SecondaryIndex>
-auto idx64_table(name receiver)
-{
+auto idx64_table(name receiver) {
    typedef record_idx64 record;
    // Load table using multi_index
    multi_index<name{ TableName },
@@ -371,66 +357,55 @@ auto idx64_table(name receiver)
 
 } /// _test_multi_index
 
-void test_api_multi_index::idx64_store_only()
-{
+void test_api_multi_index::idx64_store_only() {
    _test_multi_index::idx64_store_only<"indextable1"_n.value>(get_self());
 }
 
-void test_api_multi_index::idx64_check_without_storing()
-{
+void test_api_multi_index::idx64_check_without_storing() {
    _test_multi_index::idx64_check_without_storing<"indextable1"_n.value>(get_self());
 }
 
-void test_api_multi_index::idx64_general()
-{
+void test_api_multi_index::idx64_general() {
    _test_multi_index::idx64_store_only<"indextable2"_n.value>(get_self());
    _test_multi_index::idx64_check_without_storing<"indextable2"_n.value>(get_self());
 }
 
-void test_api_multi_index::idx128_store_only()
-{
+void test_api_multi_index::idx128_store_only() {
    _test_multi_index::idx128_store_only<"indextable3"_n.value>(get_self());
 }
 
-void test_api_multi_index::idx128_check_without_storing()
-{
+void test_api_multi_index::idx128_check_without_storing() {
    _test_multi_index::idx128_check_without_storing<"indextable3"_n.value>(get_self());
 }
 
-void test_api_multi_index::idx128_general()
-{
+void test_api_multi_index::idx128_general() {
    _test_multi_index::idx128_store_only<"indextable4"_n.value>(get_self());
    _test_multi_index::idx128_check_without_storing<"indextable4"_n.value>(get_self());
 }
 
-void test_api_multi_index::idx64_require_find_fail()
-{
+void test_api_multi_index::idx64_require_find_fail() {
    _test_multi_index::idx64_store_only<"indextable5"_n.value>(get_self());
    _test_multi_index::idx64_require_find_fail<"indextable5"_n.value>(get_self());
 }
 
-void test_api_multi_index::idx64_require_find_fail_with_msg()
-{
+void test_api_multi_index::idx64_require_find_fail_with_msg() {
    _test_multi_index::idx64_store_only<"indextablea"_n.value>(
       get_self()); // Making the name smaller fixes this?
    _test_multi_index::idx64_require_find_fail_with_msg<"indextablea"_n.value>(
       get_self()); // Making the name smaller fixes this?
 }
 
-void test_api_multi_index::idx64_require_find_sk_fail()
-{
+void test_api_multi_index::idx64_require_find_sk_fail() {
    _test_multi_index::idx64_store_only<"indextableb"_n.value>(get_self());
    _test_multi_index::idx64_require_find_sk_fail<"indextableb"_n.value>(get_self());
 }
 
-void test_api_multi_index::idx64_require_find_sk_fail_with_msg()
-{
+void test_api_multi_index::idx64_require_find_sk_fail_with_msg() {
    _test_multi_index::idx64_store_only<"indextablec"_n.value>(get_self());
    _test_multi_index::idx64_require_find_sk_fail_with_msg<"indextablec"_n.value>(get_self());
 }
 
-void test_api_multi_index::idx128_autoincrement_test()
-{
+void test_api_multi_index::idx128_autoincrement_test() {
    using namespace _test_multi_index;
 
    typedef record_idx128 record;
@@ -477,8 +452,7 @@ void test_api_multi_index::idx128_autoincrement_test()
          "idx128_autoincrement_test - next_primary_key was not correct after record modify");
 }
 
-void test_api_multi_index::idx128_autoincrement_test_part1()
-{
+void test_api_multi_index::idx128_autoincrement_test_part1() {
    using namespace _test_multi_index;
 
    typedef record_idx128 record;
@@ -508,8 +482,7 @@ void test_api_multi_index::idx128_autoincrement_test_part1()
          "idx128_autoincrement_test_part1 - did not iterate through secondary index properly");
 }
 
-void test_api_multi_index::idx128_autoincrement_test_part2()
-{
+void test_api_multi_index::idx128_autoincrement_test_part2() {
    using namespace _test_multi_index;
 
    typedef record_idx128 record;
@@ -567,8 +540,7 @@ void test_api_multi_index::idx128_autoincrement_test_part2()
          "idx128_autoincrement_test_part2 - next_primary_key was not correct after record update");
 }
 
-void test_api_multi_index::idx256_general()
-{
+void test_api_multi_index::idx256_general() {
    using namespace _test_multi_index;
 
    typedef record_idx256 record;
@@ -678,8 +650,7 @@ void test_api_multi_index::idx256_general()
    }
 }
 
-void test_api_multi_index::idx_double_general()
-{
+void test_api_multi_index::idx_double_general() {
    using namespace _test_multi_index;
 
    typedef record_idx_double record;
@@ -732,8 +703,7 @@ void test_api_multi_index::idx_double_general()
    }
 }
 
-void test_api_multi_index::idx_long_double_general()
-{
+void test_api_multi_index::idx_long_double_general() {
    using namespace _test_multi_index;
 
    typedef record_idx_long_double record;
@@ -788,40 +758,35 @@ void test_api_multi_index::idx_long_double_general()
    }
 }
 
-void test_api_multi_index::idx64_pk_iterator_exceed_end()
-{
+void test_api_multi_index::idx64_pk_iterator_exceed_end() {
    auto table   = _test_multi_index::idx64_table<"indextable1"_n.value, "bysecondary"_n.value>(get_self());
    auto end_itr = table.end();
    // Should fail
    ++end_itr;
 }
 
-void test_api_multi_index::idx64_sk_iterator_exceed_end()
-{
+void test_api_multi_index::idx64_sk_iterator_exceed_end() {
    auto table   = _test_multi_index::idx64_table<"indextable1"_n.value, "bysecondary"_n.value>(get_self());
    auto end_itr = table.get_index<"bysecondary"_n>().end();
    // Should fail
    ++end_itr;
 }
 
-void test_api_multi_index::idx64_pk_iterator_exceed_begin()
-{
+void test_api_multi_index::idx64_pk_iterator_exceed_begin() {
    auto table     = _test_multi_index::idx64_table<"indextable1"_n.value, "bysecondary"_n.value>(get_self());
    auto begin_itr = table.begin();
    // Should fail
    --begin_itr;
 }
 
-void test_api_multi_index::idx64_sk_iterator_exceed_begin()
-{
+void test_api_multi_index::idx64_sk_iterator_exceed_begin() {
    auto table     = _test_multi_index::idx64_table<"indextable1"_n.value, "bysecondary"_n.value>(get_self());
    auto begin_itr = table.get_index<"bysecondary"_n>().begin();
    // Should fail
    --begin_itr;
 }
 
-void test_api_multi_index::idx64_pass_pk_ref_to_other_table()
-{
+void test_api_multi_index::idx64_pass_pk_ref_to_other_table() {
    auto table1 = _test_multi_index::idx64_table<"indextable1"_n.value, "bysecondary"_n.value>(get_self());
    auto table2 = _test_multi_index::idx64_table<"indextable2"_n.value, "bysecondary"_n.value>(get_self());
 
@@ -833,8 +798,7 @@ void test_api_multi_index::idx64_pass_pk_ref_to_other_table()
    table2.iterator_to(*table1_pk_itr);
 }
 
-void test_api_multi_index::idx64_pass_sk_ref_to_other_table()
-{
+void test_api_multi_index::idx64_pass_sk_ref_to_other_table() {
    auto table1 = _test_multi_index::idx64_table<"indextable1"_n.value, "bysecondary"_n.value>(get_self());
    auto table2 = _test_multi_index::idx64_table<"indextable2"_n.value, "bysecondary"_n.value>(get_self());
 
@@ -847,16 +811,14 @@ void test_api_multi_index::idx64_pass_sk_ref_to_other_table()
    table2_sec_index.iterator_to(*table1_pk_itr);
 }
 
-void test_api_multi_index::idx64_pass_pk_end_itr_to_iterator_to()
-{
+void test_api_multi_index::idx64_pass_pk_end_itr_to_iterator_to() {
    auto table   = _test_multi_index::idx64_table<"indextable1"_n.value, "bysecondary"_n.value>(get_self());
    auto end_itr = table.end();
    // Should fail
    table.iterator_to(*end_itr);
 }
 
-void test_api_multi_index::idx64_pass_pk_end_itr_to_modify()
-{
+void test_api_multi_index::idx64_pass_pk_end_itr_to_modify() {
    auto table   = _test_multi_index::idx64_table<"indextable1"_n.value, "bysecondary"_n.value>(get_self());
    auto end_itr = table.end();
 
@@ -864,8 +826,7 @@ void test_api_multi_index::idx64_pass_pk_end_itr_to_modify()
    table.modify(end_itr, get_self(), [](auto&) {});
 }
 
-void test_api_multi_index::idx64_pass_pk_end_itr_to_erase()
-{
+void test_api_multi_index::idx64_pass_pk_end_itr_to_erase() {
    auto table   = _test_multi_index::idx64_table<"indextable1"_n.value, "bysecondary"_n.value>(get_self());
    auto end_itr = table.end();
 
@@ -873,8 +834,7 @@ void test_api_multi_index::idx64_pass_pk_end_itr_to_erase()
    table.erase(end_itr);
 }
 
-void test_api_multi_index::idx64_pass_sk_end_itr_to_iterator_to()
-{
+void test_api_multi_index::idx64_pass_sk_end_itr_to_iterator_to() {
    auto table     = _test_multi_index::idx64_table<"indextable1"_n.value, "bysecondary"_n.value>(get_self());
    auto sec_index = table.get_index<"bysecondary"_n>();
    auto end_itr   = sec_index.end();
@@ -883,8 +843,7 @@ void test_api_multi_index::idx64_pass_sk_end_itr_to_iterator_to()
    sec_index.iterator_to(*end_itr);
 }
 
-void test_api_multi_index::idx64_pass_sk_end_itr_to_modify()
-{
+void test_api_multi_index::idx64_pass_sk_end_itr_to_modify() {
    auto table     = _test_multi_index::idx64_table<"indextable1"_n.value, "bysecondary"_n.value>(get_self());
    auto sec_index = table.get_index<"bysecondary"_n>();
    auto end_itr   = sec_index.end();
@@ -893,8 +852,7 @@ void test_api_multi_index::idx64_pass_sk_end_itr_to_modify()
    sec_index.modify(end_itr, get_self(), [](auto&) {});
 }
 
-void test_api_multi_index::idx64_pass_sk_end_itr_to_erase()
-{
+void test_api_multi_index::idx64_pass_sk_end_itr_to_erase() {
    auto table     = _test_multi_index::idx64_table<"indextable1"_n.value, "bysecondary"_n.value>(get_self());
    auto sec_index = table.get_index<"bysecondary"_n>();
    auto end_itr   = sec_index.end();
@@ -903,8 +861,7 @@ void test_api_multi_index::idx64_pass_sk_end_itr_to_erase()
    sec_index.erase(end_itr);
 }
 
-void test_api_multi_index::idx64_modify_primary_key()
-{
+void test_api_multi_index::idx64_modify_primary_key() {
    auto table = _test_multi_index::idx64_table<"indextable1"_n.value, "bysecondary"_n.value>(get_self());
 
    auto pk_itr = table.find(781);
@@ -915,8 +872,7 @@ void test_api_multi_index::idx64_modify_primary_key()
    table.modify(pk_itr, get_self(), [](auto& r) { r.id = 1100; });
 }
 
-void test_api_multi_index::idx64_run_out_of_avl_pk()
-{
+void test_api_multi_index::idx64_run_out_of_avl_pk() {
    auto table = _test_multi_index::idx64_table<"indextable1"_n.value, "bysecondary"_n.value>(get_self());
 
    auto pk_itr = table.find(781);
@@ -941,8 +897,7 @@ void test_api_multi_index::idx64_run_out_of_avl_pk()
    table.available_primary_key();
 }
 
-void test_api_multi_index::idx64_sk_cache_pk_lookup()
-{
+void test_api_multi_index::idx64_sk_cache_pk_lookup() {
    auto table = _test_multi_index::idx64_table<"indextable1"_n.value, "bysecondary"_n.value>(get_self());
 
    auto sec_index = table.get_index<"bysecondary"_n>();
@@ -956,8 +911,7 @@ void test_api_multi_index::idx64_sk_cache_pk_lookup()
          "idx64_sk_cache_pk_lookup - previous record");
 }
 
-void test_api_multi_index::idx64_pk_cache_sk_lookup()
-{
+void test_api_multi_index::idx64_pk_cache_sk_lookup() {
    auto table = _test_multi_index::idx64_table<"indextable1"_n.value, "bysecondary"_n.value>(get_self());
 
    auto pk_itr = table.find(540);

@@ -13,8 +13,7 @@ void from_variant(const fc::variant& v, eosio::chain::name& check);
 } // fc
 
 namespace eosio::chain {
-inline constexpr uint64_t char_to_symbol(char c)
-{
+inline constexpr uint64_t char_to_symbol(char c) {
    if (c >= 'a' && c <= 'z')
       return (c - 'a') + 6;
    if (c >= '1' && c <= '5')
@@ -22,8 +21,7 @@ inline constexpr uint64_t char_to_symbol(char c)
    return 0;
 }
 
-inline constexpr uint64_t string_to_uint64_t(std::string_view str)
-{
+inline constexpr uint64_t string_to_uint64_t(std::string_view str) {
    uint64_t n = 0;
    size_t   i = 0;
    for (; i < str.size() && i < 12; ++i) {
@@ -42,8 +40,7 @@ inline constexpr uint64_t string_to_uint64_t(std::string_view str)
 }
 
 /// Immutable except for fc::from_variant.
-struct name
-{
+struct name {
 private:
    uint64_t value = 0;
 
@@ -58,9 +55,7 @@ public:
 
    explicit name(std::string_view str) { set(str); }
    constexpr explicit name(uint64_t v)
-      : value(v)
-   {
-   }
+      : value(v) {}
    constexpr name() = default;
 
    std::string        to_string() const;
@@ -85,8 +80,7 @@ public:
 // to its 5-bit slot starting with the highest slot for the first char.
 // The 13th char, if str is long enough, is encoded into 4-bit chunk
 // and placed in the lowest 4 bits. 64 = 12 * 5 + 4
-inline constexpr name string_to_name(std::string_view str)
-{
+inline constexpr name string_to_name(std::string_view str) {
    return name(string_to_uint64_t(str));
 }
 
@@ -96,8 +90,7 @@ inline namespace literals {
 #pragma clang diagnostic ignored "-Wgnu-string-literal-operator-template"
 #endif
 template<typename T, T... Str>
-inline constexpr name operator""_n()
-{
+inline constexpr name operator""_n() {
    constexpr const char buf[] = { Str... };
    return name{
       std::integral_constant<uint64_t, string_to_uint64_t(std::string_view{ buf, sizeof(buf) })>::value
@@ -112,12 +105,10 @@ inline constexpr name operator""_n()
 
 namespace std {
 template<>
-struct hash<eosio::chain::name> : private hash<uint64_t>
-{
+struct hash<eosio::chain::name> : private hash<uint64_t> {
    typedef eosio::chain::name argument_type;
-   size_t                     operator()(const argument_type& name) const noexcept
-   {
-      return hash<uint64_t>::operator()(name.to_uint64_t());
+   size_t                     operator()(const argument_type& name) const noexcept {
+                          return hash<uint64_t>::operator()(name.to_uint64_t());
    }
 };
 };

@@ -7,8 +7,7 @@ namespace eosio {
 
 using namespace appbase;
 
-class txn_test_gen_plugin : public appbase::plugin<txn_test_gen_plugin>
-{
+class txn_test_gen_plugin : public appbase::plugin<txn_test_gen_plugin> {
 public:
    txn_test_gen_plugin();
    ~txn_test_gen_plugin();

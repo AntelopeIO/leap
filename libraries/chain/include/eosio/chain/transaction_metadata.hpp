@@ -21,16 +21,9 @@ using recover_keys_future      = std::future<transaction_metadata_ptr>;
  *  This data structure should store context-free cached data about a transaction such as
  *  packed/unpacked/compressed and recovered keys
  */
-class transaction_metadata
-{
+class transaction_metadata {
 public:
-   enum class trx_type
-   {
-      input,
-      implicit,
-      scheduled,
-      dry_run
-   };
+   enum class trx_type { input, implicit, scheduled, dry_run };
 
 private:
    const packed_transaction_ptr    _packed_trx;
@@ -43,11 +36,9 @@ public:
    uint32_t billed_cpu_time_us = 0;     // not thread safe
 
 private:
-   struct private_type
-   {};
+   struct private_type {};
 
-   static void check_variable_sig_size(const packed_transaction_ptr& trx, uint32_t max)
-   {
+   static void check_variable_sig_size(const packed_transaction_ptr& trx, uint32_t max) {
       for (const signature_type& sig : trx->get_signed_transaction().signatures)
          EOS_ASSERT(sig.variable_size() <= max,
                     sig_variable_size_limit_exception,
@@ -66,9 +57,7 @@ public:
       : _packed_trx(std::move(ptrx))
       , _sig_cpu_usage(sig_cpu_usage)
       , _recovered_pub_keys(std::move(recovered_pub_keys))
-      , _trx_type(t)
-   {
-   }
+      , _trx_type(t) {}
 
    transaction_metadata()                                 = delete;
    transaction_metadata(const transaction_metadata&)      = delete;
@@ -97,8 +86,7 @@ public:
 
    /// @returns constructed transaction_metadata with no key recovery (sig_cpu_usage=0,
    /// recovered_pub_keys=empty)
-   static transaction_metadata_ptr create_no_recover_keys(packed_transaction_ptr trx, trx_type t)
-   {
+   static transaction_metadata_ptr create_no_recover_keys(packed_transaction_ptr trx, trx_type t) {
       return std::make_shared<transaction_metadata>(
          private_type(), std::move(trx), fc::microseconds(), flat_set<public_key_type>(), t);
    }

@@ -24,8 +24,7 @@ namespace {
 
 constexpr uint16_t lib_totem = std::numeric_limits<uint16_t>::max();
 
-struct tracked_transaction
-{
+struct tracked_transaction {
    const packed_transaction_ptr                            ptrx;
    const uint16_t                                          num_blocks = 0; // lib is lib_totem
    uint32_t                                                block_num  = 0;
@@ -36,8 +35,7 @@ struct tracked_transaction
    const transaction_id_type& id() const { return ptrx->id(); }
    fc::time_point_sec         expiry() const { return ptrx->expiration(); }
 
-   uint32_t ready_block_num() const
-   {
+   uint32_t ready_block_num() const {
       if (block_num == 0)
          return std::numeric_limits<uint32_t>::max() - 1; // group not seen in middle
       if (num_blocks == lib_totem)
@@ -45,8 +43,7 @@ struct tracked_transaction
       return block_num + num_blocks;
    }
 
-   fc::time_point last_try_time() const
-   {
+   fc::time_point last_try_time() const {
       if (block_num != 0)
          return fc::time_point::maximum();
       return last_try;
@@ -54,8 +51,7 @@ struct tracked_transaction
 
    bool is_ready() const { return block_num != 0; }
 
-   size_t memory_size() const
-   {
+   size_t memory_size() const {
       return ptrx->get_estimated_size() + trx_trace_v.estimated_size() + sizeof(*this);
    }
 
@@ -92,8 +88,7 @@ using tracked_transaction_index_t = multi_index_container<
 
 namespace eosio::chain_apis {
 
-struct trx_retry_db_impl
-{
+struct trx_retry_db_impl {
    explicit trx_retry_db_impl(const chain::controller& controller,
                               size_t                   max_mem_usage_size,
                               fc::microseconds         retry_interval,
@@ -105,9 +100,7 @@ struct trx_retry_db_impl
       , _abi_serializer_max_time(abi_serializer_max_time)
       , _max_mem_usage_size(max_mem_usage_size)
       , _retry_interval(retry_interval)
-      , _max_expiration_time(max_expiration_time)
-   {
-   }
+      , _max_expiration_time(max_expiration_time) {}
 
    const fc::microseconds& get_max_expiration() const { return _max_expiration_time; }
 
@@ -115,8 +108,7 @@ struct trx_retry_db_impl
 
    void track_transaction(packed_transaction_ptr                      ptrx,
                           std::optional<uint16_t>                     num_blocks,
-                          next_function<std::unique_ptr<fc::variant>> next)
-   {
+                          next_function<std::unique_ptr<fc::variant>> next) {
       EOS_ASSERT(_tracked_trxs.memory_size() < _max_mem_usage_size,
                  tx_resource_exhaustion,
                  "Transaction exceeded  transaction-retry-max-storage-size-gb limit: ${m} bytes",
@@ -135,8 +127,7 @@ struct trx_retry_db_impl
    }
 
    void on_applied_transaction(const chain::transaction_trace_ptr&  trace,
-                               const chain::packed_transaction_ptr& ptrx)
-   {
+                               const chain::packed_transaction_ptr& ptrx) {
       if (!trace->receipt)
          return;
       // include only executed incoming transactions.
@@ -178,28 +169,24 @@ struct trx_retry_db_impl
       }
    }
 
-   void on_block_start(uint32_t block_num)
-   {
+   void on_block_start(uint32_t block_num) {
       // on forks rollback any accepted block transactions
       rollback_to(block_num);
    }
 
-   void on_accepted_block(const chain::block_state_ptr& bsp)
-   {
+   void on_accepted_block(const chain::block_state_ptr& bsp) {
       // good time to perform processing
       ack_ready_trxs_by_block_num(bsp->block_num);
       retry_trxs();
    }
 
-   void on_irreversible_block(const chain::block_state_ptr& bsp)
-   {
+   void on_irreversible_block(const chain::block_state_ptr& bsp) {
       ack_ready_trxs_by_lib(bsp->block_num);
       clear_expired(bsp->block->timestamp);
    }
 
 private:
-   void rollback_to(uint32_t block_num)
-   {
+   void rollback_to(uint32_t block_num) {
       const auto& idx = _tracked_trxs.index().get<by_block_num>();
       // determine what to rollback
       deque<decltype(_tracked_trxs.index().project<0>(idx.begin()))> to_process;
@@ -227,8 +214,7 @@ private:
       }
    }
 
-   void retry_trxs()
-   {
+   void retry_trxs() {
       const auto& idx = _tracked_trxs.index().get<by_last_try>();
       auto        now = fc::time_point::now();
       // determine what to retry
@@ -250,8 +236,7 @@ private:
       }
    }
 
-   void ack_ready_trxs_by_block_num(uint32_t block_num)
-   {
+   void ack_ready_trxs_by_block_num(uint32_t block_num) {
       const auto& idx = _tracked_trxs.index().get<by_ready_block_num>();
       // if we have reached requested block height then ack to user
       deque<decltype(_tracked_trxs.index().project<0>(idx.begin()))> to_process;
@@ -269,8 +254,7 @@ private:
       }
    }
 
-   void ack_ready_trxs_by_lib(uint32_t lib_block_num)
-   {
+   void ack_ready_trxs_by_lib(uint32_t lib_block_num) {
       const auto& idx = _tracked_trxs.index().get<by_block_num>();
       // determine what to ack
       deque<decltype(_tracked_trxs.index().project<0>(idx.begin()))> to_process;
@@ -288,8 +272,7 @@ private:
       }
    }
 
-   void clear_expired(const block_timestamp_type& block_timestamp)
-   {
+   void clear_expired(const block_timestamp_type& block_timestamp) {
       const fc::time_point block_time = block_timestamp;
       auto&                idx        = _tracked_trxs.index().get<by_expiry>();
       while (!idx.empty()) {
@@ -324,58 +307,49 @@ trx_retry_db::trx_retry_db(const chain::controller& controller,
                                                max_mem_usage_size,
                                                retry_interval,
                                                max_expiration_time,
-                                               abi_serializer_max_time))
-{
-}
+                                               abi_serializer_max_time)) {}
 
 trx_retry_db::~trx_retry_db() = default;
 
 void trx_retry_db::track_transaction(chain::packed_transaction_ptr               ptrx,
                                      std::optional<uint16_t>                     num_blocks,
-                                     next_function<std::unique_ptr<fc::variant>> next)
-{
+                                     next_function<std::unique_ptr<fc::variant>> next) {
    _impl->track_transaction(std::move(ptrx), num_blocks, next);
 }
 
-fc::time_point_sec trx_retry_db::get_max_expiration_time() const
-{
+fc::time_point_sec trx_retry_db::get_max_expiration_time() const {
    // conversion from time_point to time_point_sec rounds down, round up to nearest second to avoid appearing
    // expired
    return fc::time_point::now() + _impl->get_max_expiration() + fc::microseconds(999'999);
 }
 
-size_t trx_retry_db::size() const
-{
+size_t trx_retry_db::size() const {
    return _impl->size();
 }
 
 void trx_retry_db::on_applied_transaction(const chain::transaction_trace_ptr&  trace,
-                                          const chain::packed_transaction_ptr& ptrx)
-{
+                                          const chain::packed_transaction_ptr& ptrx) {
    try {
       _impl->on_applied_transaction(trace, ptrx);
    }
    FC_LOG_AND_DROP(("trx retry on_applied_transaction ERROR"));
 }
 
-void trx_retry_db::on_block_start(uint32_t block_num)
-{
+void trx_retry_db::on_block_start(uint32_t block_num) {
    try {
       _impl->on_block_start(block_num);
    }
    FC_LOG_AND_DROP(("trx retry block_start ERROR"));
 }
 
-void trx_retry_db::on_accepted_block(const chain::block_state_ptr& block)
-{
+void trx_retry_db::on_accepted_block(const chain::block_state_ptr& block) {
    try {
       _impl->on_accepted_block(block);
    }
    FC_LOG_AND_DROP(("trx retry accepted_block ERROR"));
 }
 
-void trx_retry_db::on_irreversible_block(const chain::block_state_ptr& block)
-{
+void trx_retry_db::on_irreversible_block(const chain::block_state_ptr& block) {
    try {
       _impl->on_irreversible_block(block);
    }

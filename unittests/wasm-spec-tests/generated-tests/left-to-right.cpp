@@ -3,8 +3,7 @@
 const string         wasm_str_left_to_right_0 = base_dir + "/left-to-right.0.wasm";
 std::vector<uint8_t> wasm_left_to_right_0     = read_wasm(wasm_str_left_to_right_0.c_str());
 
-BOOST_DATA_TEST_CASE(left_to_right_0_pass, boost::unit_test::data::xrange(0, 1), index)
-{
+BOOST_DATA_TEST_CASE(left_to_right_0_pass, boost::unit_test::data::xrange(0, 1), index) {
    try {
       TESTER tester;
       tester.produce_block();

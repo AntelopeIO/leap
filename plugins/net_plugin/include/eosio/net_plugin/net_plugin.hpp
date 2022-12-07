@@ -6,16 +6,14 @@
 namespace eosio {
 using namespace appbase;
 
-struct connection_status
-{
+struct connection_status {
    string            peer;
    bool              connecting = false;
    bool              syncing    = false;
    handshake_message last_handshake;
 };
 
-class net_plugin : public appbase::plugin<net_plugin>
-{
+class net_plugin : public appbase::plugin<net_plugin> {
 public:
    net_plugin();
    virtual ~net_plugin();
