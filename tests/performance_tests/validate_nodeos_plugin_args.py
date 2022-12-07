@@ -3,15 +3,7 @@
 import re
 import subprocess
 
-from ChainPluginArgs import ChainPluginArgs
-from HttpClientPluginArgs import HttpClientPluginArgs
-from HttpPluginArgs import HttpPluginArgs
-from NetPluginArgs import NetPluginArgs
-from ProducerPluginArgs import ProducerPluginArgs
-from ResourceMonitorPluginArgs import ResourceMonitorPluginArgs
-from SignatureProviderPluginArgs import SignatureProviderPluginArgs
-from StateHistoryPluginArgs import StateHistoryPluginArgs
-from TraceApiPluginArgs import TraceApiPluginArgs
+from NodeosPluginArgs import ChainPluginArgs, HttpClientPluginArgs, HttpPluginArgs, NetPluginArgs, ProducerPluginArgs, ResourceMonitorPluginArgs, SignatureProviderPluginArgs, StateHistoryPluginArgs, TraceApiPluginArgs
 
 testSuccessful = False
 
