@@ -9,18 +9,9 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_log_3_2.txt.gz ${CMAKE_CURRENT
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/genesis.json ${CMAKE_CURRENT_BINARY_DIR}/genesis.json COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/validate_nodeos_plugin_args.py ${CMAKE_CURRENT_BINARY_DIR}/validate_nodeos_plugin_args.py COPYONLY)
 
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/BasePluginArgs.py ${CMAKE_CURRENT_BINARY_DIR}/BasePluginArgs.py COPYONLY)
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/ChainPluginArgs.py ${CMAKE_CURRENT_BINARY_DIR}/ChainPluginArgs.py COPYONLY)
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/HttpClientPluginArgs.py ${CMAKE_CURRENT_BINARY_DIR}/HttpClientPluginArgs.py COPYONLY)
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/HttpPluginArgs.py ${CMAKE_CURRENT_BINARY_DIR}/HttpPluginArgs.py COPYONLY)
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/NetPluginArgs.py ${CMAKE_CURRENT_BINARY_DIR}/NetPluginArgs.py COPYONLY)
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/ProducerPluginArgs.py ${CMAKE_CURRENT_BINARY_DIR}/ProducerPluginArgs.py COPYONLY)
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/ResourceMonitorPluginArgs.py ${CMAKE_CURRENT_BINARY_DIR}/ResourceMonitorPluginArgs.py COPYONLY)
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/SignatureProviderPluginArgs.py ${CMAKE_CURRENT_BINARY_DIR}/SignatureProviderPluginArgs.py COPYONLY)
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/StateHistoryPluginArgs.py ${CMAKE_CURRENT_BINARY_DIR}/StateHistoryPluginArgs.py COPYONLY)
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/TraceApiPluginArgs.py ${CMAKE_CURRENT_BINARY_DIR}/TraceApiPluginArgs.py COPYONLY)
-
 add_test(NAME performance_test_basic COMMAND tests/performance_tests/performance_test_basic.py -v -p 1 -n 1 --target-tps 6000 --tps-limit-per-generator 1500 --clean-run WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 add_test(NAME log_reader_tests COMMAND tests/performance_tests/log_reader_tests.py WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 add_test(NAME validate_nodeos_plugin_args COMMAND tests/performance_tests/validate_nodeos_plugin_args.py WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST performance_test_basic PROPERTY LABELS nonparallelizable_tests)
+
+add_subdirectory( NodeosPluginArgs )

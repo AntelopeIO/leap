@@ -4,7 +4,6 @@ import re
 import subprocess
 
 def main():
-    cmd="programs/nodeos/nodeos --help"
     result = subprocess.run(["programs/nodeos/nodeos", "--help"], capture_output=True, text=True)
 
     myStr = result.stdout
@@ -62,7 +61,7 @@ def main():
 
     def writeDataclass(plugin:str, dataFieldDict:dict, pluginOptsDict:dict):
         newPlugin="".join([x.capitalize() for x in plugin.split('_')]).replace(":","")
-        pluginArgsFile=f"../tests/performance_tests/{newPlugin}Args.py"
+        pluginArgsFile=f"../tests/performance_tests/NodeosPluginArgs/{newPlugin}Args.py"
         with open(pluginArgsFile, 'w') as dataclassFile:
             chainPluginArgs = dataFieldDict[newPlugin]
 

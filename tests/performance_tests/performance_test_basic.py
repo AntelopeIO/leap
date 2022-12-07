@@ -13,15 +13,7 @@ import launch_transaction_generators as ltg
 harnessPath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(harnessPath)
 
-from ChainPluginArgs import ChainPluginArgs
-from HttpClientPluginArgs import HttpClientPluginArgs
-from HttpPluginArgs import HttpPluginArgs
-from NetPluginArgs import NetPluginArgs
-from ProducerPluginArgs import ProducerPluginArgs
-from ResourceMonitorPluginArgs import ResourceMonitorPluginArgs
-from SignatureProviderPluginArgs import SignatureProviderPluginArgs
-from StateHistoryPluginArgs import StateHistoryPluginArgs
-from TraceApiPluginArgs import TraceApiPluginArgs
+from NodeosPluginArgs import ChainPluginArgs, HttpClientPluginArgs, HttpPluginArgs, NetPluginArgs, ProducerPluginArgs, ResourceMonitorPluginArgs, SignatureProviderPluginArgs, StateHistoryPluginArgs, TraceApiPluginArgs
 from TestHarness import Cluster, TestHelper, Utils, WalletMgr
 from dataclasses import dataclass, asdict, field
 from datetime import datetime

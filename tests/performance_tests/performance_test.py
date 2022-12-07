@@ -11,10 +11,7 @@ import shutil
 harnessPath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(harnessPath)
 
-from ChainPluginArgs import ChainPluginArgs
-from HttpPluginArgs import HttpPluginArgs
-from NetPluginArgs import NetPluginArgs
-from ProducerPluginArgs import ProducerPluginArgs
+from NodeosPluginArgs import ChainPluginArgs, HttpPluginArgs, NetPluginArgs, ProducerPluginArgs
 from TestHarness import TestHelper, Utils
 from performance_test_basic import PerformanceTestBasic, PtbArgumentsHandler
 from platform import release, system
