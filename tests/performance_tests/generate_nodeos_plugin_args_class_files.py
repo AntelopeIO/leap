@@ -123,15 +123,6 @@ def main():
                         dataclassFile.write(f"    _{newKey}NodeosDefault: str=None\n")
                         dataclassFile.write(f"    _{newKey}NodeosArg: str=\"{key}\"\n")
 
-            def writeThreadSetter(pluginName: str) -> str:
-                if (re.search("chain", pluginName, re.IGNORECASE) or re.search("net", pluginName, re.IGNORECASE) or re.search("producer", pluginName, re.IGNORECASE)):
-                    attrName = re.sub("PluginArgs", "", pluginName).lower()
-                    return f"""\
-    def threads(self, threads: int):
-        self.{attrName}Threads=threads\n\n"""
-                else:
-                    return ""
-
             def writeMainFxn(pluginName: str) -> str:
                 return f"""\
 def main():\n\
@@ -142,7 +133,7 @@ if __name__ == '__main__':\n\
     main()\n"""
 
             def writeHelpers(pluginName: str) -> str:
-                return "\n" + writeThreadSetter(pluginName) + writeMainFxn(pluginName)
+                return "\n" + writeMainFxn(pluginName)
 
             dataclassFile.write(writeHelpers(f"{newPlugin}Args"))
     

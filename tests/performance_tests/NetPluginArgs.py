@@ -62,9 +62,6 @@ class NetPluginArgs(BasePluginArgs):
     _p2pKeepaliveIntervalMsNodeosDefault: int=10000
     _p2pKeepaliveIntervalMsNodeosArg: str="--p2p-keepalive-interval-ms"
 
-    def threads(self, threads: int):
-        self.netThreads=threads
-
 def main():
     pluginArgs = NetPluginArgs()
     print(pluginArgs.supportedNodeosArgs())

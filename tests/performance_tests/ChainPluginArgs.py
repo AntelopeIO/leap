@@ -170,9 +170,6 @@ class ChainPluginArgs(BasePluginArgs):
     _snapshotNodeosDefault: str=None
     _snapshotNodeosArg: str="--snapshot"
 
-    def threads(self, threads: int):
-        self.chainThreads=threads
-
 def main():
     pluginArgs = ChainPluginArgs()
     print(pluginArgs.supportedNodeosArgs())

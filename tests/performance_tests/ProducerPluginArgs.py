@@ -89,9 +89,6 @@ class ProducerPluginArgs(BasePluginArgs):
     _snapshotsDirNodeosDefault: str='"snapshots"'
     _snapshotsDirNodeosArg: str="--snapshots-dir"
 
-    def threads(self, threads: int):
-        self.producerThreads=threads
-
 def main():
     pluginArgs = ProducerPluginArgs()
     print(pluginArgs.supportedNodeosArgs())

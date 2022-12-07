@@ -233,7 +233,7 @@ class PerformanceTest:
         for threadCount in range(minThreadCount, maxThreadCount+1):
             print(f"Running {optPlugin.value} thread count optimization check with {threadCount} {optPlugin.value} threads")
 
-            getattr(clusterConfig.extraNodeosArgs, optPlugin.value + 'PluginArgs').threads(threadCount)
+            setattr(getattr(clusterConfig.extraNodeosArgs, optPlugin.value + 'PluginArgs'), f"{optPlugin.value}Threads", threadCount)
 
             binSearchResults = self.performPtbBinarySearch(clusterConfig=clusterConfig, logDirRoot=self.loggingConfig.pluginThreadOptLogsDirPath,
                                                             delReport=True, quiet=False, delPerfLogs=True)
