@@ -10,8 +10,7 @@ class [[eosio::contract("eosio.token")]] token : public eosio::contract {
 public:
    using eosio::contract::contract;
 
-   [[eosio::action]] void transfer(
-      eosio::name from, eosio::name to, eosio::asset quantity, const std::string& memo);
+   [[eosio::action]] void transfer(eosio::name from, eosio::name to, eosio::asset quantity, const std::string& memo);
    using transfer_action = eosio::action_wrapper<"transfer"_n, &token::transfer>;
 };
 }
@@ -28,8 +27,7 @@ public:
                                                                   eosio::asset       quantity,
                                                                   const std::string& memo);
 
-   [[eosio::on_notify("eosio::onerror")]] void on_error(uint128_t                        sender_id,
-                                                        eosio::ignore<std::vector<char>> sent_trx);
+   [[eosio::on_notify("eosio::onerror")]] void on_error(uint128_t sender_id, eosio::ignore<std::vector<char>> sent_trx);
 
    struct [[eosio::table]] config {
       eosio::name owner;

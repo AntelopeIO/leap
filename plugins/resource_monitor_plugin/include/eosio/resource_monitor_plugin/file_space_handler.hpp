@@ -30,9 +30,7 @@ public:
       warning_threshold  = new_warning_threshold;
    }
 
-   void set_shutdown_on_exceeded(bool new_shutdown_on_exceeded) {
-      shutdown_on_exceeded = new_shutdown_on_exceeded;
-   }
+   void set_shutdown_on_exceeded(bool new_shutdown_on_exceeded) { shutdown_on_exceeded = new_shutdown_on_exceeded; }
 
    void set_warning_interval(uint32_t new_warning_interval) { warning_interval = new_warning_interval; }
 
@@ -55,16 +53,15 @@ public:
             if (output_threshold_warning) {
                elog("Space usage warning: ${path}'s file system exceeded threshold ${threshold}%, available: "
                     "${available}, Capacity: ${capacity}, shutdown_available: ${shutdown_available}",
-                    ("path", fs.path_name.string())("threshold", shutdown_threshold)(
-                       "available", info.available)("capacity", info.capacity)("shutdown_available",
-                                                                               fs.shutdown_available));
+                    ("path", fs.path_name.string())("threshold", shutdown_threshold)("available", info.available)(
+                       "capacity", info.capacity)("shutdown_available", fs.shutdown_available));
             }
             return true;
          } else if (info.available < fs.warning_available && output_threshold_warning) {
-            wlog("Space usage warning: ${path}'s file system approaching threshold. available: ${available}, "
-                 "warning_available: ${warning_available}",
-                 ("path", fs.path_name.string())("available", info.available)("warning_available",
-                                                                              fs.warning_available));
+            wlog(
+               "Space usage warning: ${path}'s file system approaching threshold. available: ${available}, "
+               "warning_available: ${warning_available}",
+               ("path", fs.path_name.string())("available", info.available)("warning_available", fs.warning_available));
             if (shutdown_on_exceeded) {
                wlog("nodeos will shutdown when space usage exceeds threshold ${threshold}%",
                     ("threshold", shutdown_threshold));
@@ -107,19 +104,18 @@ public:
                  "Unable to get space info for ${path_name}: [code: ${ec}] ${message}",
                  ("path_name", path_name.string())("ec", ec.value())("message", ec.message()));
 
-      auto shutdown_available =
-         (100 - shutdown_threshold) *
-         (info.capacity / 100); // (100 - shutdown_threshold)/100 is the percentage of minimum number of
-                                // available bytes the file system must maintain
+      auto shutdown_available = (100 - shutdown_threshold) *
+                                (info.capacity / 100); // (100 - shutdown_threshold)/100 is the percentage of minimum
+                                                       // number of available bytes the file system must maintain
       auto warning_available = (100 - warning_threshold) * (info.capacity / 100);
 
       // Add to the list
       filesystems.emplace_back(statbuf.st_dev, shutdown_available, path_name, warning_available);
 
-      ilog("${path_name}'s file system monitored. shutdown_available: ${shutdown_available}, capacity: "
-           "${capacity}, threshold: ${threshold}",
-           ("path_name", path_name.string())("shutdown_available", shutdown_available)(
-              "capacity", info.capacity)("threshold", shutdown_threshold));
+      ilog("${path_name}'s file system monitored. shutdown_available: ${shutdown_available}, capacity: ${capacity}, "
+           "threshold: ${threshold}",
+           ("path_name", path_name.string())("shutdown_available", shutdown_available)("capacity", info.capacity)(
+              "threshold", shutdown_threshold));
    }
 
    void space_monitor_loop() {
@@ -134,8 +130,7 @@ public:
 
       timer.async_wait([this](auto& ec) {
          if (ec) {
-            wlog("Exit due to error: ${ec}, message: ${message}",
-                 ("ec", ec.value())("message", ec.message()));
+            wlog("Exit due to error: ${ec}, message: ${message}", ("ec", ec.value())("message", ec.message()));
             return;
          } else {
             // Loop over

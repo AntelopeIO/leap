@@ -30,12 +30,8 @@ memory::memory(uint64_t max_pages) {
    uint8_t* last       = nullptr;
 
    for (unsigned int p = 0; p < number_slices; ++p) {
-      last = (uint8_t*)mmap(next_slice,
-                            memory_prologue_size + 64u * 1024u * p,
-                            PROT_READ | PROT_WRITE,
-                            MAP_SHARED | MAP_FIXED,
-                            fd,
-                            0);
+      last = (uint8_t*)mmap(
+         next_slice, memory_prologue_size + 64u * 1024u * p, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_FIXED, fd, 0);
       FC_ASSERT(last != MAP_FAILED, "Failed to mmap memory");
       next_slice += total_memory_per_slice;
    }
@@ -45,9 +41,8 @@ memory::memory(uint64_t max_pages) {
    fullpage_base = last + memory_prologue_size;
 
    // layout the intrinsic jump table
-   uintptr_t* const intrinsic_jump_table =
-      reinterpret_cast<uintptr_t* const>(zeropage_base - first_intrinsic_offset);
-   const intrinsic_map_t& intrinsics = get_intrinsic_map();
+   uintptr_t* const intrinsic_jump_table = reinterpret_cast<uintptr_t* const>(zeropage_base - first_intrinsic_offset);
+   const intrinsic_map_t& intrinsics     = get_intrinsic_map();
    for (const auto& intrinsic : intrinsics)
       intrinsic_jump_table[-intrinsic.second.ordinal] = (uintptr_t)intrinsic.second.function_ptr;
 }

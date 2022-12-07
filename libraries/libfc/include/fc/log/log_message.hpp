@@ -147,5 +147,5 @@ FC_REFLECT_TYPENAME(fc::log_message);
  * @param FORMAT A const char* string containing zero or more references to keys as "${key}"
  * @param ...  A set of key/value pairs denoted as ("key",val)("key2",val2)...
  */
-#define FC_LOG_MESSAGE(LOG_LEVEL, FORMAT, ...)                                                               \
+#define FC_LOG_MESSAGE(LOG_LEVEL, FORMAT, ...)                                                                         \
    fc::log_message(FC_LOG_CONTEXT(LOG_LEVEL), FORMAT, fc::mutable_variant_object() __VA_ARGS__)

@@ -25,23 +25,23 @@
 #include <deque>
 #include <cstdint>
 
-#define OBJECT_CTOR1(NAME)                                                                                   \
-   NAME() = delete;                                                                                          \
-                                                                                                             \
-public:                                                                                                      \
-   template<typename Constructor, typename Allocator>                                                        \
-   NAME(Constructor&& c, chainbase::allocator<Allocator>) {                                                  \
-      c(*this);                                                                                              \
+#define OBJECT_CTOR1(NAME)                                                                                             \
+   NAME() = delete;                                                                                                    \
+                                                                                                                       \
+public:                                                                                                                \
+   template<typename Constructor, typename Allocator>                                                                  \
+   NAME(Constructor&& c, chainbase::allocator<Allocator>) {                                                            \
+      c(*this);                                                                                                        \
    }
 #define OBJECT_CTOR2_MACRO(x, y, field) , field(a)
-#define OBJECT_CTOR2(NAME, FIELDS)                                                                           \
-   NAME() = delete;                                                                                          \
-                                                                                                             \
-public:                                                                                                      \
-   template<typename Constructor, typename Allocator>                                                        \
-   NAME(Constructor&& c, chainbase::allocator<Allocator> a)                                                  \
-      : id(0) BOOST_PP_SEQ_FOR_EACH(OBJECT_CTOR2_MACRO, _, FIELDS) {                                         \
-      c(*this);                                                                                              \
+#define OBJECT_CTOR2(NAME, FIELDS)                                                                                     \
+   NAME() = delete;                                                                                                    \
+                                                                                                                       \
+public:                                                                                                                \
+   template<typename Constructor, typename Allocator>                                                                  \
+   NAME(Constructor&& c, chainbase::allocator<Allocator> a)                                                            \
+      : id(0) BOOST_PP_SEQ_FOR_EACH(OBJECT_CTOR2_MACRO, _, FIELDS) {                                                   \
+      c(*this);                                                                                                        \
    }
 #define OBJECT_CTOR(...) BOOST_PP_OVERLOAD(OBJECT_CTOR, __VA_ARGS__)(__VA_ARGS__)
 
@@ -101,8 +101,7 @@ using shared_vector = boost::interprocess::vector<T, allocator<T>>;
 template<typename T>
 using shared_set = boost::interprocess::set<T, std::less<T>, allocator<T>>;
 template<typename K, typename V>
-using shared_flat_multimap =
-   boost::interprocess::flat_multimap<K, V, std::less<K>, allocator<std::pair<K, V>>>;
+using shared_flat_multimap = boost::interprocess::flat_multimap<K, V, std::less<K>, allocator<std::pair<K, V>>>;
 
 /**
  * For bugs in boost interprocess we moved our blob data to shared_string
@@ -230,14 +229,13 @@ enum object_type {
  *
  *  The restrictions on usage of the chainbase objects within this code base are:
  *     + The chainbase object includes the id field discussed above.
- *     + The multi-index must include an ordered_unique index tagged with by_id that is based on the id field
- * as the sole key.
+ *     + The multi-index must include an ordered_unique index tagged with by_id that is based on the id field as the
+ * sole key.
  *     + No other types of indices other than ordered_unique are allowed.
- *       If an index is desired that does not enforce uniqueness, then use a composite key that ends with the
- * id field.
+ *       If an index is desired that does not enforce uniqueness, then use a composite key that ends with the id field.
  *     + When creating a chainbase object, the constructor lambda should never mutate the id field.
- *     + When modifying a chainbase object, the modifier lambda should never mutate any fields in the
- * restricted field set.
+ *     + When modifying a chainbase object, the modifier lambda should never mutate any fields in the restricted field
+ * set.
  */
 
 class account_object;
@@ -275,8 +273,8 @@ typedef vector<std::pair<uint16_t, vector<char>>> extensions_type;
  * this assumes exts is already sorted by extension id
  */
 inline auto emplace_extension(extensions_type& exts, uint16_t eid, vector<char>&& data) {
-   auto insert_itr = std::upper_bound(
-      exts.begin(), exts.end(), eid, [](uint16_t id, const auto& ext) { return id < ext.first; });
+   auto insert_itr =
+      std::upper_bound(exts.begin(), exts.end(), eid, [](uint16_t id, const auto& ext) { return id < ext.first; });
 
    return exts.emplace(insert_itr, eid, std::move(data));
 }
@@ -334,8 +332,7 @@ struct decompose;
 template<>
 struct decompose<> {
    template<typename ResultVariant>
-   static auto extract(uint16_t id, const vector<char>& data, ResultVariant& result)
-      -> std::optional<extract_match> {
+   static auto extract(uint16_t id, const vector<char>& data, ResultVariant& result) -> std::optional<extract_match> {
       return {};
    }
 };
@@ -346,8 +343,7 @@ struct decompose<T, Rest...> {
    using tail_t = decompose<Rest...>;
 
    template<typename ResultVariant>
-   static auto extract(uint16_t id, const vector<char>& data, ResultVariant& result)
-      -> std::optional<extract_match> {
+   static auto extract(uint16_t id, const vector<char>& data, ResultVariant& result) -> std::optional<extract_match> {
       if (id == head_t::extension_id()) {
          result = fc::raw::unpack<head_t>(data);
          return { extract_match{ head_t::enforce_unique() } };

@@ -175,10 +175,10 @@ static uint32_t Rotate32(uint32_t val, int shift) {
 }
 
 #undef PERMUTE3
-#define PERMUTE3(a, b, c)                                                                                    \
-   do {                                                                                                      \
-      std::swap(a, b);                                                                                       \
-      std::swap(a, c);                                                                                       \
+#define PERMUTE3(a, b, c)                                                                                              \
+   do {                                                                                                                \
+      std::swap(a, b);                                                                                                 \
+      std::swap(a, c);                                                                                                 \
    } while (0)
 
 static uint32_t Mur(uint32_t a, uint32_t h) {
@@ -224,8 +224,7 @@ static uint32_t Hash32Len5to12(const char* s, size_t len) {
 
 uint32_t city_hash32(const char* s, size_t len) {
    if (len <= 24) {
-      return len <= 12 ? (len <= 4 ? Hash32Len0to4(s, len) : Hash32Len5to12(s, len))
-                       : Hash32Len13to24(s, len);
+      return len <= 12 ? (len <= 4 ? Hash32Len0to4(s, len) : Hash32Len5to12(s, len)) : Hash32Len13to24(s, len);
    }
 
    // len > 24
@@ -562,25 +561,25 @@ static void CityHashCrc256Long(const char* s, size_t len, uint32_t seed, uint64_
    len -= iters * 240;
    do {
 #undef CHUNK
-#define CHUNK(r)                                                                                             \
-   PERMUTE3(x, z, y);                                                                                        \
-   b += Fetch64(s);                                                                                          \
-   c += Fetch64(s + 8);                                                                                      \
-   d += Fetch64(s + 16);                                                                                     \
-   e += Fetch64(s + 24);                                                                                     \
-   f += Fetch64(s + 32);                                                                                     \
-   a += b;                                                                                                   \
-   h += f;                                                                                                   \
-   b += c;                                                                                                   \
-   f += d;                                                                                                   \
-   g += e;                                                                                                   \
-   e += z;                                                                                                   \
-   g += x;                                                                                                   \
-   z = MM_CRC32_U64I(z, b + g);                                                                              \
-   y = MM_CRC32_U64I(y, e + h);                                                                              \
-   x = MM_CRC32_U64I(x, f + a);                                                                              \
-   e = Rotate(e, r);                                                                                         \
-   c += e;                                                                                                   \
+#define CHUNK(r)                                                                                                       \
+   PERMUTE3(x, z, y);                                                                                                  \
+   b += Fetch64(s);                                                                                                    \
+   c += Fetch64(s + 8);                                                                                                \
+   d += Fetch64(s + 16);                                                                                               \
+   e += Fetch64(s + 24);                                                                                               \
+   f += Fetch64(s + 32);                                                                                               \
+   a += b;                                                                                                             \
+   h += f;                                                                                                             \
+   b += c;                                                                                                             \
+   f += d;                                                                                                             \
+   g += e;                                                                                                             \
+   e += z;                                                                                                             \
+   g += x;                                                                                                             \
+   z = MM_CRC32_U64I(z, b + g);                                                                                        \
+   y = MM_CRC32_U64I(y, e + h);                                                                                        \
+   x = MM_CRC32_U64I(x, f + a);                                                                                        \
+   e = Rotate(e, r);                                                                                                   \
+   c += e;                                                                                                             \
    s += 40
 
       CHUNK(0);

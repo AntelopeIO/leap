@@ -29,69 +29,67 @@ struct async_result_visitor : public fc::visitor<fc::variant> {
    }
 };
 
-#define CALL_WITH_400(api_name, api_handle, call_name, INVOKE, http_response_code)                           \
-   {                                                                                                         \
-      std::string("/v1/" #api_name "/" #call_name),                                                          \
-         [&api_handle, http_max_response_time](string, string body, url_response_callback cb) mutable {      \
-            try {                                                                                            \
-               auto deadline = fc::time_point::now() + http_max_response_time;                               \
-               INVOKE                                                                                        \
-               cb(http_response_code, deadline, fc::variant(result));                                        \
-            } catch (...) {                                                                                  \
-               http_plugin::handle_exception(#api_name, #call_name, body, cb);                               \
-            }                                                                                                \
-         }                                                                                                   \
+#define CALL_WITH_400(api_name, api_handle, call_name, INVOKE, http_response_code)                                     \
+   {                                                                                                                   \
+      std::string("/v1/" #api_name "/" #call_name),                                                                    \
+         [&api_handle, http_max_response_time](string, string body, url_response_callback cb) mutable {                \
+            try {                                                                                                      \
+               auto deadline = fc::time_point::now() + http_max_response_time;                                         \
+               INVOKE                                                                                                  \
+               cb(http_response_code, deadline, fc::variant(result));                                                  \
+            } catch (...) {                                                                                            \
+               http_plugin::handle_exception(#api_name, #call_name, body, cb);                                         \
+            }                                                                                                          \
+         }                                                                                                             \
    }
 
-#define CALL_ASYNC(api_name, api_handle, call_name, call_result, INVOKE, http_response_code)                 \
-   {                                                                                                         \
-      std::string("/v1/" #api_name "/" #call_name),                                                          \
-         [&api_handle](string, string body, url_response_callback cb) mutable {                              \
-            if (body.empty())                                                                                \
-               body = "{}";                                                                                  \
-            auto next = [cb, body](const std::variant<fc::exception_ptr, call_result>& result) {             \
-               if (std::holds_alternative<fc::exception_ptr>(result)) {                                      \
-                  try {                                                                                      \
-                     std::get<fc::exception_ptr>(result)->dynamic_rethrow_exception();                       \
-                  } catch (...) {                                                                            \
-                     http_plugin::handle_exception(#api_name, #call_name, body, cb);                         \
-                  }                                                                                          \
-               } else {                                                                                      \
-                  cb(http_response_code,                                                                     \
-                     fc::time_point::maximum(),                                                              \
-                     std::visit(async_result_visitor(), result));                                            \
-               }                                                                                             \
-            };                                                                                               \
-            INVOKE                                                                                           \
-         }                                                                                                   \
+#define CALL_ASYNC(api_name, api_handle, call_name, call_result, INVOKE, http_response_code)                           \
+   {                                                                                                                   \
+      std::string("/v1/" #api_name "/" #call_name),                                                                    \
+         [&api_handle](string, string body, url_response_callback cb) mutable {                                        \
+            if (body.empty())                                                                                          \
+               body = "{}";                                                                                            \
+            auto next = [cb, body](const std::variant<fc::exception_ptr, call_result>& result) {                       \
+               if (std::holds_alternative<fc::exception_ptr>(result)) {                                                \
+                  try {                                                                                                \
+                     std::get<fc::exception_ptr>(result)->dynamic_rethrow_exception();                                 \
+                  } catch (...) {                                                                                      \
+                     http_plugin::handle_exception(#api_name, #call_name, body, cb);                                   \
+                  }                                                                                                    \
+               } else {                                                                                                \
+                  cb(http_response_code, fc::time_point::maximum(), std::visit(async_result_visitor(), result));       \
+               }                                                                                                       \
+            };                                                                                                         \
+            INVOKE                                                                                                     \
+         }                                                                                                             \
    }
 
-#define INVOKE_R_R(api_handle, call_name, in_param)                                                          \
-   auto params = parse_params<in_param, http_params_types::params_required>(body);                           \
+#define INVOKE_R_R(api_handle, call_name, in_param)                                                                    \
+   auto params = parse_params<in_param, http_params_types::params_required>(body);                                     \
    auto result = api_handle.call_name(std::move(params));
 
-#define INVOKE_R_R_II(api_handle, call_name, in_param)                                                       \
-   auto params = parse_params<in_param, http_params_types::possible_no_params>(body);                        \
+#define INVOKE_R_R_II(api_handle, call_name, in_param)                                                                 \
+   auto params = parse_params<in_param, http_params_types::possible_no_params>(body);                                  \
    auto result = api_handle.call_name(std::move(params));
 
-#define INVOKE_R_R_D(api_handle, call_name, in_param)                                                        \
-   auto params = parse_params<in_param, http_params_types::possible_no_params>(body);                        \
+#define INVOKE_R_R_D(api_handle, call_name, in_param)                                                                  \
+   auto params = parse_params<in_param, http_params_types::possible_no_params>(body);                                  \
    auto result = api_handle.call_name(std::move(params), deadline);
 
-#define INVOKE_R_V(api_handle, call_name)                                                                    \
-   body        = parse_params<std::string, http_params_types::no_params>(body);                              \
+#define INVOKE_R_V(api_handle, call_name)                                                                              \
+   body        = parse_params<std::string, http_params_types::no_params>(body);                                        \
    auto result = api_handle.call_name();
 
 #define INVOKE_R_V_ASYNC(api_handle, call_name) api_handle.call_name(next);
 
-#define INVOKE_V_R(api_handle, call_name, in_param)                                                          \
-   auto params = parse_params<in_param, http_params_types::params_required>(body);                           \
-   api_handle.call_name(std::move(params));                                                                  \
+#define INVOKE_V_R(api_handle, call_name, in_param)                                                                    \
+   auto params = parse_params<in_param, http_params_types::params_required>(body);                                     \
+   api_handle.call_name(std::move(params));                                                                            \
    eosio::detail::producer_api_plugin_response result{ "ok" };
 
-#define INVOKE_V_V(api_handle, call_name)                                                                    \
-   body = parse_params<std::string, http_params_types::no_params>(body);                                     \
-   api_handle.call_name();                                                                                   \
+#define INVOKE_V_V(api_handle, call_name)                                                                              \
+   body = parse_params<std::string, http_params_types::no_params>(body);                                               \
+   api_handle.call_name();                                                                                             \
    eosio::detail::producer_api_plugin_response result{ "ok" };
 
 void producer_api_plugin::plugin_startup() {
@@ -106,8 +104,7 @@ void producer_api_plugin::plugin_startup() {
          CALL_WITH_400(producer, producer, pause, INVOKE_V_V(producer, pause), 201),
          CALL_WITH_400(producer, producer, resume, INVOKE_V_V(producer, resume), 201),
          CALL_WITH_400(producer, producer, paused, INVOKE_R_V(producer, paused), 201),
-         CALL_WITH_400(
-            producer, producer, get_runtime_options, INVOKE_R_V(producer, get_runtime_options), 201),
+         CALL_WITH_400(producer, producer, get_runtime_options, INVOKE_R_V(producer, get_runtime_options), 201),
          CALL_WITH_400(producer,
                        producer,
                        update_runtime_options,
@@ -124,8 +121,7 @@ void producer_api_plugin::plugin_startup() {
                        INVOKE_V_R(producer, remove_greylist_accounts, producer_plugin::greylist_params),
                        201),
          CALL_WITH_400(producer, producer, get_greylist, INVOKE_R_V(producer, get_greylist), 201),
-         CALL_WITH_400(
-            producer, producer, get_whitelist_blacklist, INVOKE_R_V(producer, get_whitelist_blacklist), 201),
+         CALL_WITH_400(producer, producer, get_whitelist_blacklist, INVOKE_R_V(producer, get_whitelist_blacklist), 201),
          CALL_WITH_400(producer,
                        producer,
                        set_whitelist_blacklist,
@@ -157,20 +153,18 @@ void producer_api_plugin::plugin_startup() {
                                      get_supported_protocol_features,
                                      producer_plugin::get_supported_protocol_features_params),
                        201),
-         CALL_WITH_400(producer,
-                       producer,
-                       get_account_ram_corrections,
-                       INVOKE_R_R(producer,
-                                  get_account_ram_corrections,
-                                  producer_plugin::get_account_ram_corrections_params),
-                       201),
-         CALL_WITH_400(producer,
-                       producer,
-                       get_unapplied_transactions,
-                       INVOKE_R_R_D(producer,
-                                    get_unapplied_transactions,
-                                    producer_plugin::get_unapplied_transactions_params),
-                       200),
+         CALL_WITH_400(
+            producer,
+            producer,
+            get_account_ram_corrections,
+            INVOKE_R_R(producer, get_account_ram_corrections, producer_plugin::get_account_ram_corrections_params),
+            201),
+         CALL_WITH_400(
+            producer,
+            producer,
+            get_unapplied_transactions,
+            INVOKE_R_R_D(producer, get_unapplied_transactions, producer_plugin::get_unapplied_transactions_params),
+            200),
       },
       appbase::priority::medium_high);
 }

@@ -17,8 +17,8 @@ static void throwIfNotValidUTF8(const std::string& string) {
    }
 }
 
-// These serialization functions need to be declared in the IR namespace for the array serializer in the
-// Serialization namespace to find them.
+// These serialization functions need to be declared in the IR namespace for the array serializer in the Serialization
+// namespace to find them.
 namespace IR {
 template<typename Stream>
 void serialize(Stream& stream, ValueType& type) {
@@ -137,9 +137,7 @@ void serialize(Stream& stream, InitializerExpression& initializer) {
       case InitializerExpression::Type::i64_const: serializeVarInt64(stream, initializer.i64); break;
       case InitializerExpression::Type::f32_const: serialize(stream, initializer.f32); break;
       case InitializerExpression::Type::f64_const: serialize(stream, initializer.f64); break;
-      case InitializerExpression::Type::get_global:
-         serializeVarUInt32(stream, initializer.globalIndex);
-         break;
+      case InitializerExpression::Type::get_global: serializeVarUInt32(stream, initializer.globalIndex); break;
       default: throw FatalSerializationException("invalid initializer expression opcode");
    }
    serializeConstant(stream, "expected end opcode", (U8)Opcode::end);
@@ -241,9 +239,8 @@ void serialize(Stream& stream, BranchImm& imm, const FunctionDef&) {
 
 void serialize(InputStream& stream, BranchTableImm& imm, FunctionDef& functionDef) {
    std::vector<U32> branchTable;
-   serializeArray(stream, branchTable, [](InputStream& stream, U32& targetDepth) {
-      serializeVarUInt32(stream, targetDepth);
-   });
+   serializeArray(
+      stream, branchTable, [](InputStream& stream, U32& targetDepth) { serializeVarUInt32(stream, targetDepth); });
    imm.branchTableIndex = functionDef.branchTables.size();
    functionDef.branchTables.push_back(std::move(branchTable));
    serializeVarUInt32(stream, imm.defaultTargetDepth);
@@ -251,9 +248,8 @@ void serialize(InputStream& stream, BranchTableImm& imm, FunctionDef& functionDe
 void serialize(OutputStream& stream, BranchTableImm& imm, FunctionDef& functionDef) {
    WAVM_ASSERT_THROW(imm.branchTableIndex < functionDef.branchTables.size());
    std::vector<U32>& branchTable = functionDef.branchTables[imm.branchTableIndex];
-   serializeArray(stream, branchTable, [](OutputStream& stream, U32& targetDepth) {
-      serializeVarUInt32(stream, targetDepth);
-   });
+   serializeArray(
+      stream, branchTable, [](OutputStream& stream, U32& targetDepth) { serializeVarUInt32(stream, targetDepth); });
    serializeVarUInt32(stream, imm.defaultTargetDepth);
 }
 
@@ -413,11 +409,11 @@ struct OperatorSerializerStream {
       : byteStream(inByteStream)
       , functionDef(inFunctionDef) {}
 
-#define VISIT_OPCODE(_, name, nameString, Imm, ...)                                                          \
-   void name(Imm imm) const {                                                                                \
-      Opcode opcode = Opcode::name;                                                                          \
-      serialize(byteStream, opcode);                                                                         \
-      serialize(byteStream, imm, functionDef);                                                               \
+#define VISIT_OPCODE(_, name, nameString, Imm, ...)                                                                    \
+   void name(Imm imm) const {                                                                                          \
+      Opcode opcode = Opcode::name;                                                                                    \
+      serialize(byteStream, opcode);                                                                                   \
+      serialize(byteStream, imm, functionDef);                                                                         \
    }
    ENUM_OPERATORS(VISIT_OPCODE)
 #undef VISIT_OPCODE
@@ -509,13 +505,13 @@ void serializeFunctionBody(InputStream& sectionStream, Module& module, FunctionD
       Opcode opcode;
       serialize(bodyStream, opcode);
       switch (opcode) {
-#define VISIT_OPCODE(_, name, nameString, Imm, ...)                                                          \
-   case Opcode::name: {                                                                                      \
-      Imm imm;                                                                                               \
-      serialize(bodyStream, imm, functionDef);                                                               \
-      codeValidationStream.name(imm);                                                                        \
-      irEncoderStream.name(imm);                                                                             \
-      break;                                                                                                 \
+#define VISIT_OPCODE(_, name, nameString, Imm, ...)                                                                    \
+   case Opcode::name: {                                                                                                \
+      Imm imm;                                                                                                         \
+      serialize(bodyStream, imm, functionDef);                                                                         \
+      codeValidationStream.name(imm);                                                                                  \
+      irEncoderStream.name(imm);                                                                                       \
+      break;                                                                                                           \
    }
          ENUM_OPERATORS(VISIT_OPCODE)
 #undef VISIT_OPCODE
@@ -547,8 +543,8 @@ void serializeTypeSection(Stream& moduleStream, Module& module) {
 template<typename Stream>
 void serializeImportSection(Stream& moduleStream, Module& module) {
    serializeSection(moduleStream, SectionType::import, [&module](Stream& sectionStream) {
-      Uptr size = module.functions.imports.size() + module.tables.imports.size() +
-                  module.memories.imports.size() + module.globals.imports.size();
+      Uptr size = module.functions.imports.size() + module.tables.imports.size() + module.memories.imports.size() +
+                  module.globals.imports.size();
       serializeVarUInt32(sectionStream, size);
       constexpr size_t max_size = eosio::chain::wasm_constraints::maximum_section_elements;
       if (Stream::isInput) {
@@ -577,8 +573,7 @@ void serializeImportSection(Stream& moduleStream, Module& module) {
                case ObjectKind::table: {
                   TableType tableType;
                   serialize(sectionStream, tableType);
-                  module.tables.imports.push_back(
-                     { tableType, std::move(moduleName), std::move(exportName) });
+                  module.tables.imports.push_back({ tableType, std::move(moduleName), std::move(exportName) });
                   if (module.functions.imports.size() >= max_size && WASM::check_limits)
                      throw FatalSerializationException(std::string("Too many table imports"));
                   break;
@@ -586,8 +581,7 @@ void serializeImportSection(Stream& moduleStream, Module& module) {
                case ObjectKind::memory: {
                   MemoryType memoryType;
                   serialize(sectionStream, memoryType);
-                  module.memories.imports.push_back(
-                     { memoryType, std::move(moduleName), std::move(exportName) });
+                  module.memories.imports.push_back({ memoryType, std::move(moduleName), std::move(exportName) });
                   if (module.functions.imports.size() >= max_size && WASM::check_limits)
                      throw FatalSerializationException(std::string("Too many memory imports"));
                   break;
@@ -595,8 +589,7 @@ void serializeImportSection(Stream& moduleStream, Module& module) {
                case ObjectKind::global: {
                   GlobalType globalType;
                   serialize(sectionStream, globalType);
-                  module.globals.imports.push_back(
-                     { globalType, std::move(moduleName), std::move(exportName) });
+                  module.globals.imports.push_back({ globalType, std::move(moduleName), std::move(exportName) });
                   if (module.functions.imports.size() >= max_size && WASM::check_limits)
                      throw FatalSerializationException(std::string("Too many global imports"));
                   break;
@@ -736,8 +729,8 @@ void serializeModule(OutputStream& moduleStream, Module& module) {
    if (module.types.size() > 0) {
       serializeTypeSection(moduleStream, module);
    }
-   if (module.functions.imports.size() > 0 || module.tables.imports.size() > 0 ||
-       module.memories.imports.size() > 0 || module.globals.imports.size() > 0) {
+   if (module.functions.imports.size() > 0 || module.tables.imports.size() > 0 || module.memories.imports.size() > 0 ||
+       module.globals.imports.size() > 0) {
       serializeImportSection(moduleStream, module);
    }
    if (module.functions.defs.size() > 0) {

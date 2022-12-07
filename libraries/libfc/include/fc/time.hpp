@@ -20,20 +20,12 @@ public:
       return microseconds(l._count - r._count);
    }
 
-   constexpr bool        operator==(const microseconds& c) const { return _count == c._count; }
-   constexpr bool        operator!=(const microseconds& c) const { return _count != c._count; }
-   friend constexpr bool operator>(const microseconds& a, const microseconds& b) {
-      return a._count > b._count;
-   }
-   friend constexpr bool operator>=(const microseconds& a, const microseconds& b) {
-      return a._count >= b._count;
-   }
-   constexpr friend bool operator<(const microseconds& a, const microseconds& b) {
-      return a._count < b._count;
-   }
-   constexpr friend bool operator<=(const microseconds& a, const microseconds& b) {
-      return a._count <= b._count;
-   }
+   constexpr bool          operator==(const microseconds& c) const { return _count == c._count; }
+   constexpr bool          operator!=(const microseconds& c) const { return _count != c._count; }
+   friend constexpr bool   operator>(const microseconds& a, const microseconds& b) { return a._count > b._count; }
+   friend constexpr bool   operator>=(const microseconds& a, const microseconds& b) { return a._count >= b._count; }
+   constexpr friend bool   operator<(const microseconds& a, const microseconds& b) { return a._count < b._count; }
+   constexpr friend bool   operator<=(const microseconds& a, const microseconds& b) { return a._count <= b._count; }
    constexpr microseconds& operator+=(const microseconds& c) {
       _count += c._count;
       return *this;
@@ -82,15 +74,15 @@ public:
 
    constexpr const microseconds& time_since_epoch() const { return elapsed; }
    constexpr uint32_t            sec_since_epoch() const { return elapsed.count() / 1000000; }
-   constexpr bool        operator>(const time_point& t) const { return elapsed._count > t.elapsed._count; }
-   constexpr bool        operator>=(const time_point& t) const { return elapsed._count >= t.elapsed._count; }
-   constexpr bool        operator<(const time_point& t) const { return elapsed._count < t.elapsed._count; }
-   constexpr bool        operator<=(const time_point& t) const { return elapsed._count <= t.elapsed._count; }
-   constexpr bool        operator==(const time_point& t) const { return elapsed._count == t.elapsed._count; }
-   constexpr bool        operator!=(const time_point& t) const { return elapsed._count != t.elapsed._count; }
-   constexpr time_point& operator+=(const microseconds& m) {
-      elapsed += m;
-      return *this;
+   constexpr bool                operator>(const time_point& t) const { return elapsed._count > t.elapsed._count; }
+   constexpr bool                operator>=(const time_point& t) const { return elapsed._count >= t.elapsed._count; }
+   constexpr bool                operator<(const time_point& t) const { return elapsed._count < t.elapsed._count; }
+   constexpr bool                operator<=(const time_point& t) const { return elapsed._count <= t.elapsed._count; }
+   constexpr bool                operator==(const time_point& t) const { return elapsed._count == t.elapsed._count; }
+   constexpr bool                operator!=(const time_point& t) const { return elapsed._count != t.elapsed._count; }
+   constexpr time_point&         operator+=(const microseconds& m) {
+              elapsed += m;
+              return *this;
    }
    constexpr time_point& operator-=(const microseconds& m) {
       elapsed -= m;
@@ -167,12 +159,8 @@ public:
    constexpr time_point_sec operator+(uint32_t offset) const { return time_point_sec(utc_seconds + offset); }
    constexpr time_point_sec operator-(uint32_t offset) const { return time_point_sec(utc_seconds - offset); }
 
-   friend constexpr time_point operator+(const time_point_sec& t, const microseconds& m) {
-      return time_point(t) + m;
-   }
-   friend constexpr time_point operator-(const time_point_sec& t, const microseconds& m) {
-      return time_point(t) - m;
-   }
+   friend constexpr time_point   operator+(const time_point_sec& t, const microseconds& m) { return time_point(t) + m; }
+   friend constexpr time_point   operator-(const time_point_sec& t, const microseconds& m) { return time_point(t) - m; }
    friend constexpr microseconds operator-(const time_point_sec& t, const time_point_sec& m) {
       return time_point(t) - time_point(m);
    }

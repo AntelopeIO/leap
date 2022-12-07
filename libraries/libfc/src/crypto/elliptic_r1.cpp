@@ -195,8 +195,8 @@ compact_signature signature_from_ecdsa(const EC_KEY*          key,
                                        const public_key_data& pub_data,
                                        fc::ecdsa_sig&         sig,
                                        const fc::sha256&      d) {
-   // We can't use ssl_bignum here; _get0() does not transfer ownership to us; _set0() does transfer ownership
-   // to fc::ecdsa_sig
+   // We can't use ssl_bignum here; _get0() does not transfer ownership to us; _set0() does transfer ownership to
+   // fc::ecdsa_sig
    const BIGNUM *sig_r, *sig_s;
    BIGNUM *      r = BN_new(), *s = BN_new();
    ECDSA_SIG_get0(sig, &sig_r, &sig_s);
@@ -465,16 +465,14 @@ signature private_key::sign(const fc::sha256& digest) const {
    signature sig;
    FC_ASSERT(buf_len == sizeof(sig));
 
-   if (!ECDSA_sign(
-          0, (const unsigned char*)&digest, sizeof(digest), (unsigned char*)&sig, &buf_len, my->_key)) {
+   if (!ECDSA_sign(0, (const unsigned char*)&digest, sizeof(digest), (unsigned char*)&sig, &buf_len, my->_key)) {
       FC_THROW_EXCEPTION(exception, "signing error");
    }
 
    return sig;
 }
 bool public_key::verify(const fc::sha256& digest, const fc::crypto::r1::signature& sig) {
-   return 1 == ECDSA_verify(
-                  0, (unsigned char*)&digest, sizeof(digest), (unsigned char*)&sig, sizeof(sig), my->_key);
+   return 1 == ECDSA_verify(0, (unsigned char*)&digest, sizeof(digest), (unsigned char*)&sig, sizeof(sig), my->_key);
 }
 
 public_key_data public_key::serialize() const {
@@ -502,8 +500,7 @@ public_key::public_key(const public_key_point_data& dat) {
    } else {
       my->_key = o2i_ECPublicKey(&my->_key, (const unsigned char**)&front, sizeof(dat));
       if (!my->_key) {
-         FC_THROW_EXCEPTION(
-            exception, "error decoding public key", ("s", ERR_error_string(ERR_get_error(), nullptr)));
+         FC_THROW_EXCEPTION(exception, "error decoding public key", ("s", ERR_error_string(ERR_get_error(), nullptr)));
       }
    }
 }
@@ -514,15 +511,13 @@ public_key::public_key(const public_key_data& dat) {
       my->_key = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
       my->_key = o2i_ECPublicKey(&my->_key, (const unsigned char**)&front, sizeof(public_key_data));
       if (!my->_key) {
-         FC_THROW_EXCEPTION(
-            exception, "error decoding public key", ("s", ERR_error_string(ERR_get_error(), nullptr)));
+         FC_THROW_EXCEPTION(exception, "error decoding public key", ("s", ERR_error_string(ERR_get_error(), nullptr)));
       }
    }
 }
 
 bool private_key::verify(const fc::sha256& digest, const fc::crypto::r1::signature& sig) {
-   return 1 == ECDSA_verify(
-                  0, (unsigned char*)&digest, sizeof(digest), (unsigned char*)&sig, sizeof(sig), my->_key);
+   return 1 == ECDSA_verify(0, (unsigned char*)&digest, sizeof(digest), (unsigned char*)&sig, sizeof(sig), my->_key);
 }
 
 public_key private_key::get_public_key() const {
@@ -536,11 +531,8 @@ fc::sha512 private_key::get_shared_secret(const public_key& other) const {
    FC_ASSERT(my->_key != nullptr);
    FC_ASSERT(other.my->_key != nullptr);
    fc::sha512 buf;
-   ECDH_compute_key((unsigned char*)&buf,
-                    sizeof(buf),
-                    EC_KEY_get0_public_key(other.my->_key),
-                    my->_key,
-                    ecies_key_derivation);
+   ECDH_compute_key(
+      (unsigned char*)&buf, sizeof(buf), EC_KEY_get0_public_key(other.my->_key), my->_key, ecies_key_derivation);
    return buf;
 }
 

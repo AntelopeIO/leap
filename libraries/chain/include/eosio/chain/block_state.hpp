@@ -13,8 +13,8 @@ struct block_state : public block_header_state {
       const block_header_state&   prev,
       signed_block_ptr            b,
       const protocol_feature_set& pfs,
-      const std::function<
-         void(block_timestamp_type, const flat_set<digest_type>&, const vector<digest_type>&)>& validator,
+      const std::function<void(block_timestamp_type, const flat_set<digest_type>&, const vector<digest_type>&)>&
+           validator,
       bool skip_validate_signee);
 
    block_state(
@@ -22,9 +22,9 @@ struct block_state : public block_header_state {
       signed_block_ptr&&                b, // unsigned block
       deque<transaction_metadata_ptr>&& trx_metas,
       const protocol_feature_set&       pfs,
-      const std::function<
-         void(block_timestamp_type, const flat_set<digest_type>&, const vector<digest_type>&)>& validator,
-      const signer_callback_type&                                                               signer);
+      const std::function<void(block_timestamp_type, const flat_set<digest_type>&, const vector<digest_type>&)>&
+                                  validator,
+      const signer_callback_type& signer);
 
    block_state() = default;
 

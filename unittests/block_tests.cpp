@@ -87,17 +87,16 @@ BOOST_AUTO_TEST_CASE(block_with_invalid_tx_mroot_test) {
    auto   bs = validator.control->create_block_state_future(copy_b->calculate_id(), copy_b);
    validator.control->abort_block();
    controller::block_report br;
-   BOOST_REQUIRE_EXCEPTION(
-      validator.control->push_block(br, bs, forked_branch_callback{}, trx_meta_cache_lookup{}),
-      fc::exception,
-      [](const fc::exception& e) -> bool {
-         return e.code() == block_validate_exception::code_value &&
-                e.to_detail_string().find("invalid block transaction merkle root") != std::string::npos;
-      });
+   BOOST_REQUIRE_EXCEPTION(validator.control->push_block(br, bs, forked_branch_callback{}, trx_meta_cache_lookup{}),
+                           fc::exception,
+                           [](const fc::exception& e) -> bool {
+                              return e.code() == block_validate_exception::code_value &&
+                                     e.to_detail_string().find("invalid block transaction merkle root") !=
+                                        std::string::npos;
+                           });
 }
 
-std::pair<signed_block_ptr, signed_block_ptr> corrupt_trx_in_block(validating_tester& main,
-                                                                   account_name       act_name) {
+std::pair<signed_block_ptr, signed_block_ptr> corrupt_trx_in_block(validating_tester& main, account_name act_name) {
    // First we create a valid block with valid transaction
    main.create_account(act_name);
    signed_block_ptr b = main.produce_block_no_validation();
@@ -130,19 +129,16 @@ std::pair<signed_block_ptr, signed_block_ptr> corrupt_trx_in_block(validating_te
    return std::pair<signed_block_ptr, signed_block_ptr>(b, copy_b);
 }
 
-// verify that a block with a transaction with an incorrect signature, is blindly accepted from a trusted
-// producer
+// verify that a block with a transaction with an incorrect signature, is blindly accepted from a trusted producer
 BOOST_AUTO_TEST_CASE(trusted_producer_test) {
    flat_set<account_name> trusted_producers = { "defproducera"_n, "defproducerc"_n };
    validating_tester      main(trusted_producers);
-   // only using validating_tester to keep the 2 chains in sync, not to validate that the validating_node
-   // matches the main node, since it won't be
+   // only using validating_tester to keep the 2 chains in sync, not to validate that the validating_node matches the
+   // main node, since it won't be
    main.skip_validate = true;
 
    // First we create a valid block with valid transaction
-   std::set<account_name> producers = {
-      "defproducera"_n, "defproducerb"_n, "defproducerc"_n, "defproducerd"_n
-   };
+   std::set<account_name> producers = { "defproducera"_n, "defproducerb"_n, "defproducerc"_n, "defproducerd"_n };
    for (auto prod : producers)
       main.create_account(prod);
    auto b = main.produce_block();
@@ -162,14 +158,12 @@ BOOST_AUTO_TEST_CASE(trusted_producer_test) {
 BOOST_AUTO_TEST_CASE(trusted_producer_verify_2nd_test) {
    flat_set<account_name> trusted_producers = { "defproducera"_n, "defproducerc"_n };
    validating_tester      main(trusted_producers);
-   // only using validating_tester to keep the 2 chains in sync, not to validate that the validating_node
-   // matches the main node, since it won't be
+   // only using validating_tester to keep the 2 chains in sync, not to validate that the validating_node matches the
+   // main node, since it won't be
    main.skip_validate = true;
 
    // First we create a valid block with valid transaction
-   std::set<account_name> producers = {
-      "defproducera"_n, "defproducerb"_n, "defproducerc"_n, "defproducerd"_n
-   };
+   std::set<account_name> producers = { "defproducera"_n, "defproducerb"_n, "defproducerc"_n, "defproducerd"_n };
    for (auto prod : producers)
       main.create_account(prod);
    auto b = main.produce_block();
@@ -185,19 +179,16 @@ BOOST_AUTO_TEST_CASE(trusted_producer_verify_2nd_test) {
    main.validate_push_block(blocks.second);
 }
 
-// verify that a block with a transaction with an incorrect signature, is rejected if it is not from a trusted
-// producer
+// verify that a block with a transaction with an incorrect signature, is rejected if it is not from a trusted producer
 BOOST_AUTO_TEST_CASE(untrusted_producer_test) {
    flat_set<account_name> trusted_producers = { "defproducera"_n, "defproducerc"_n };
    validating_tester      main(trusted_producers);
-   // only using validating_tester to keep the 2 chains in sync, not to validate that the validating_node
-   // matches the main node, since it won't be
+   // only using validating_tester to keep the 2 chains in sync, not to validate that the validating_node matches the
+   // main node, since it won't be
    main.skip_validate = true;
 
    // First we create a valid block with valid transaction
-   std::set<account_name> producers = {
-      "defproducera"_n, "defproducerb"_n, "defproducerc"_n, "defproducerd"_n
-   };
+   std::set<account_name> producers = { "defproducera"_n, "defproducerb"_n, "defproducerc"_n, "defproducerd"_n };
    for (auto prod : producers)
       main.create_account(prod);
    auto b = main.produce_block();
@@ -210,10 +201,9 @@ BOOST_AUTO_TEST_CASE(untrusted_producer_test) {
    }
 
    auto blocks = corrupt_trx_in_block(main, "tstproducera"_n);
-   BOOST_REQUIRE_EXCEPTION(
-      main.validate_push_block(blocks.second), fc::exception, [](const fc::exception& e) -> bool {
-         return e.code() == unsatisfied_authorization::code_value;
-      });
+   BOOST_REQUIRE_EXCEPTION(main.validate_push_block(blocks.second), fc::exception, [](const fc::exception& e) -> bool {
+      return e.code() == unsatisfied_authorization::code_value;
+   });
 }
 
 /**
@@ -264,10 +254,8 @@ BOOST_FIXTURE_TEST_CASE(abort_block_transactions, validating_tester) {
          vector<permission_level>{
             {creator, config::active_name}
       },
-         newaccount{ .creator = creator,
-                     .name    = a,
-                     .owner   = owner_auth,
-                     .active  = authority(get_public_key(a, "active")) });
+         newaccount{
+            .creator = creator, .name = a, .owner = owner_auth, .active = authority(get_public_key(a, "active")) });
       set_transaction_headers(trx);
       trx.sign(get_private_key(creator, "active"), control->get_chain_id());
       auto trace = push_transaction(trx);
@@ -312,18 +300,15 @@ BOOST_FIXTURE_TEST_CASE(abort_block_transactions_tester, validating_tester) {
          vector<permission_level>{
             {creator, config::active_name}
       },
-         newaccount{ .creator = creator,
-                     .name    = a,
-                     .owner   = owner_auth,
-                     .active  = authority(get_public_key(a, "active")) });
+         newaccount{
+            .creator = creator, .name = a, .owner = owner_auth, .active = authority(get_public_key(a, "active")) });
       set_transaction_headers(trx);
       trx.sign(get_private_key(creator, "active"), control->get_chain_id());
       auto trace = push_transaction(trx);
 
       control->get_account(a); // throws if it does not exist
 
-      produce_block(
-         fc::milliseconds(config::block_interval_ms * 2)); // aborts block, tester should reapply trx
+      produce_block(fc::milliseconds(config::block_interval_ms * 2)); // aborts block, tester should reapply trx
 
       control->get_account(a); // throws if it does not exist
 

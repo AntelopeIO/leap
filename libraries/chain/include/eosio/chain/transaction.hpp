@@ -34,8 +34,7 @@ struct transaction_extension_types {
 };
 }
 
-using transaction_extension_types =
-   detail::transaction_extension_types<deferred_transaction_generation_context>;
+using transaction_extension_types = detail::transaction_extension_types<deferred_transaction_generation_context>;
 
 using transaction_extension = transaction_extension_types::transaction_extension_t;
 
@@ -52,9 +51,9 @@ using transaction_extension = transaction_extension_types::transaction_extension
  *  will never be included.
  */
 struct transaction_header {
-   time_point_sec expiration;             ///< the time at which a transaction expires
-   uint16_t       ref_block_num    = 0U;  ///< specifies a block num in the last 2^16 blocks.
-   uint32_t       ref_block_prefix = 0UL; ///< specifies the lower 32 bits of the blockid at get_ref_blocknum
+   time_point_sec   expiration;             ///< the time at which a transaction expires
+   uint16_t         ref_block_num    = 0U;  ///< specifies a block num in the last 2^16 blocks.
+   uint32_t         ref_block_prefix = 0UL; ///< specifies the lower 32 bits of the blockid at get_ref_blocknum
    fc::unsigned_int max_net_usage_words =
       0UL; /// upper limit on total network bandwidth (in 8 byte words) billed for this transaction
    uint8_t          max_cpu_usage_ms = 0; /// upper limit on the total CPU time billed for this transaction
@@ -83,13 +82,13 @@ struct transaction : public transaction_header {
    extensions_type transaction_extensions;
 
    transaction_id_type id() const;
-   digest_type sig_digest(const chain_id_type& chain_id, const vector<bytes>& cfd = vector<bytes>()) const;
-   fc::microseconds get_signature_keys(const vector<signature_type>& signatures,
-                                       const chain_id_type&          chain_id,
-                                       fc::time_point                deadline,
-                                       const vector<bytes>&          cfd,
-                                       flat_set<public_key_type>&    recovered_pub_keys,
-                                       bool                          allow_duplicate_keys = false) const;
+   digest_type         sig_digest(const chain_id_type& chain_id, const vector<bytes>& cfd = vector<bytes>()) const;
+   fc::microseconds    get_signature_keys(const vector<signature_type>& signatures,
+                                          const chain_id_type&          chain_id,
+                                          fc::time_point                deadline,
+                                          const vector<bytes>&          cfd,
+                                          flat_set<public_key_type>&    recovered_pub_keys,
+                                          bool                          allow_duplicate_keys = false) const;
 
    uint32_t total_actions() const { return context_free_actions.size() + actions.size(); }
 
@@ -114,9 +113,7 @@ struct signed_transaction : public transaction {
       : transaction(std::move(trx))
       , signatures(signatures)
       , context_free_data(context_free_data) {}
-   signed_transaction(transaction&&                 trx,
-                      const vector<signature_type>& signatures,
-                      vector<bytes>&&               context_free_data)
+   signed_transaction(transaction&& trx, const vector<signature_type>& signatures, vector<bytes>&& context_free_data)
       : transaction(std::move(trx))
       , signatures(signatures)
       , context_free_data(std::move(context_free_data)) {}
@@ -144,8 +141,7 @@ struct packed_transaction : fc::reflect_init {
    packed_transaction& operator=(const packed_transaction&) = delete;
    packed_transaction& operator=(packed_transaction&&)      = default;
 
-   explicit packed_transaction(const signed_transaction& t,
-                               compression_type          _compression = compression_type::none)
+   explicit packed_transaction(const signed_transaction& t, compression_type _compression = compression_type::none)
       : signatures(t.signatures)
       , compression(_compression)
       , unpacked_trx(t)
@@ -181,9 +177,7 @@ struct packed_transaction : fc::reflect_init {
       return std::tie(lhs.signatures, lhs.compression, lhs.packed_context_free_data, lhs.packed_trx) ==
              std::tie(rhs.signatures, rhs.compression, rhs.packed_context_free_data, rhs.packed_trx);
    }
-   friend bool operator!=(const packed_transaction& lhs, const packed_transaction& rhs) {
-      return !(lhs == rhs);
-   }
+   friend bool operator!=(const packed_transaction& lhs, const packed_transaction& rhs) { return !(lhs == rhs); }
 
    uint32_t get_unprunable_size() const;
    uint32_t get_prunable_size() const;
@@ -240,9 +234,7 @@ FC_REFLECT(eosio::chain::transaction_header,
 FC_REFLECT_DERIVED(eosio::chain::transaction,
                    (eosio::chain::transaction_header),
                    (context_free_actions)(actions)(transaction_extensions))
-FC_REFLECT_DERIVED(eosio::chain::signed_transaction,
-                   (eosio::chain::transaction),
-                   (signatures)(context_free_data))
+FC_REFLECT_DERIVED(eosio::chain::signed_transaction, (eosio::chain::transaction), (signatures)(context_free_data))
 FC_REFLECT_ENUM(eosio::chain::packed_transaction::compression_type, (none)(zlib))
 // @ignore unpacked_trx
 FC_REFLECT(eosio::chain::packed_transaction, (signatures)(compression)(packed_context_free_data)(packed_trx))

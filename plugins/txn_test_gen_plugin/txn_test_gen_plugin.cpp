@@ -41,67 +41,62 @@ static appbase::abstract_plugin& _txn_test_gen_plugin = app().register_plugin<tx
 
 using namespace eosio::chain;
 
-#define CALL(api_name, api_handle, call_name, INVOKE, http_response_code)                                    \
-   {                                                                                                         \
-      std::string("/v1/" #api_name "/" #call_name),                                                          \
-         [this](string, string body, url_response_callback cb) mutable {                                     \
-            try {                                                                                            \
-               if (body.empty())                                                                             \
-                  body = "{}";                                                                               \
-               INVOKE                                                                                        \
-               cb(http_response_code, fc::time_point::maximum(), fc::variant(result));                       \
-            } catch (...) {                                                                                  \
-               http_plugin::handle_exception(#api_name, #call_name, body, cb);                               \
-            }                                                                                                \
-         }                                                                                                   \
+#define CALL(api_name, api_handle, call_name, INVOKE, http_response_code)                                              \
+   {                                                                                                                   \
+      std::string("/v1/" #api_name "/" #call_name), [this](string, string body, url_response_callback cb) mutable {    \
+         try {                                                                                                         \
+            if (body.empty())                                                                                          \
+               body = "{}";                                                                                            \
+            INVOKE                                                                                                     \
+            cb(http_response_code, fc::time_point::maximum(), fc::variant(result));                                    \
+         } catch (...) {                                                                                               \
+            http_plugin::handle_exception(#api_name, #call_name, body, cb);                                            \
+         }                                                                                                             \
+      }                                                                                                                \
    }
 
-#define INVOKE_V_R_R_R(api_handle, call_name, in_param0, in_param1, in_param2)                               \
-   const auto& vs = fc::json::json::from_string(body).as<fc::variants>();                                    \
-   auto        status =                                                                                      \
-      api_handle->call_name(vs.at(0).as<in_param0>(), vs.at(1).as<in_param1>(), vs.at(2).as<in_param2>());   \
+#define INVOKE_V_R_R_R(api_handle, call_name, in_param0, in_param1, in_param2)                                           \
+   const auto& vs = fc::json::json::from_string(body).as<fc::variants>();                                                \
+   auto status    = api_handle->call_name(vs.at(0).as<in_param0>(), vs.at(1).as<in_param1>(), vs.at(2).as<in_param2>()); \
    eosio::detail::txn_test_gen_status result = { status };
 
-#define INVOKE_V_R_R(api_handle, call_name, in_param0, in_param1)                                            \
-   const auto& vs = fc::json::json::from_string(body).as<fc::variants>();                                    \
-   api_handle->call_name(vs.at(0).as<in_param0>(), vs.at(1).as<in_param1>());                                \
+#define INVOKE_V_R_R(api_handle, call_name, in_param0, in_param1)                                                      \
+   const auto& vs = fc::json::json::from_string(body).as<fc::variants>();                                              \
+   api_handle->call_name(vs.at(0).as<in_param0>(), vs.at(1).as<in_param1>());                                          \
    eosio::detail::txn_test_gen_empty result;
 
-#define INVOKE_V_V(api_handle, call_name)                                                                    \
-   api_handle->call_name();                                                                                  \
+#define INVOKE_V_V(api_handle, call_name)                                                                              \
+   api_handle->call_name();                                                                                            \
    eosio::detail::txn_test_gen_empty result;
 
-#define CALL_ASYNC(api_name, api_handle, call_name, INVOKE, http_response_code)                              \
-   {                                                                                                         \
-      std::string("/v1/" #api_name "/" #call_name),                                                          \
-         [this](string, string body, url_response_callback cb) mutable {                                     \
-            if (body.empty())                                                                                \
-               body = "{}";                                                                                  \
-            /*plugin processes many transactions, report only first to avoid http_plugin having to deal with \
-             * multiple responses*/                                                                          \
-            auto times_called = std::make_shared<std::atomic<size_t>>(0);                                    \
-            auto result_handler =                                                                            \
-               [times_called{ std::move(times_called) }, cb, body](const fc::exception_ptr& e) mutable {     \
-                  if (++(*times_called) > 1)                                                                 \
-                     return;                                                                                 \
-                  if (e) {                                                                                   \
-                     try {                                                                                   \
-                        e->dynamic_rethrow_exception();                                                      \
-                     } catch (...) {                                                                         \
-                        http_plugin::handle_exception(#api_name, #call_name, body, cb);                      \
-                     }                                                                                       \
-                  } else {                                                                                   \
-                     cb(http_response_code,                                                                  \
-                        fc::time_point::maximum(),                                                           \
-                        fc::variant(eosio::detail::txn_test_gen_empty()));                                   \
-                  }                                                                                          \
-               };                                                                                            \
-            INVOKE                                                                                           \
-         }                                                                                                   \
+#define CALL_ASYNC(api_name, api_handle, call_name, INVOKE, http_response_code)                                        \
+   {                                                                                                                   \
+      std::string("/v1/" #api_name "/" #call_name), [this](string, string body, url_response_callback cb) mutable {    \
+         if (body.empty())                                                                                             \
+            body = "{}";                                                                                               \
+         /*plugin processes many transactions, report only first to avoid http_plugin having to deal with multiple     \
+          * responses*/                                                                                                \
+         auto times_called = std::make_shared<std::atomic<size_t>>(0);                                                 \
+         auto result_handler =                                                                                         \
+            [times_called{ std::move(times_called) }, cb, body](const fc::exception_ptr& e) mutable {                  \
+               if (++(*times_called) > 1)                                                                              \
+                  return;                                                                                              \
+               if (e) {                                                                                                \
+                  try {                                                                                                \
+                     e->dynamic_rethrow_exception();                                                                   \
+                  } catch (...) {                                                                                      \
+                     http_plugin::handle_exception(#api_name, #call_name, body, cb);                                   \
+                  }                                                                                                    \
+               } else {                                                                                                \
+                  cb(http_response_code, fc::time_point::maximum(), fc::variant(eosio::detail::txn_test_gen_empty())); \
+               }                                                                                                       \
+            };                                                                                                         \
+         INVOKE                                                                                                        \
+      }                                                                                                                \
    }
 
-#define INVOKE_ASYNC_R_R(api_handle, call_name, in_param0, in_param1)                                        \
-   const auto& vs = fc::json::json::from_string(body).as<fc::variants>();                                    \
+#define INVOKE_ASYNC_R_R(api_handle, call_name, in_param0, in_param1)                                                  \
+   const auto& vs = fc::json::json::from_string(body).as<fc::variants>();                                              \
    api_handle->call_name(vs.at(0).as<in_param0>(), vs.at(1).as<in_param1>(), result_handler);
 
 struct txn_test_gen_plugin_impl {
@@ -123,32 +118,31 @@ struct txn_test_gen_plugin_impl {
       chain_plugin& cp = app().get_plugin<chain_plugin>();
 
       for (size_t i = 0; i < trxs->size(); ++i) {
-         cp.accept_transaction(
-            std::make_shared<packed_transaction>(trxs->at(i)),
-            [=](const std::variant<fc::exception_ptr, transaction_trace_ptr>& result) {
-               fc::exception_ptr except_ptr;
-               if (std::holds_alternative<fc::exception_ptr>(result)) {
-                  except_ptr = std::get<fc::exception_ptr>(result);
-               } else if (std::get<transaction_trace_ptr>(result)->except) {
-                  except_ptr = std::get<transaction_trace_ptr>(result)->except->dynamic_copy_exception();
-               }
+         cp.accept_transaction(std::make_shared<packed_transaction>(trxs->at(i)),
+                               [=](const std::variant<fc::exception_ptr, transaction_trace_ptr>& result) {
+                                  fc::exception_ptr except_ptr;
+                                  if (std::holds_alternative<fc::exception_ptr>(result)) {
+                                     except_ptr = std::get<fc::exception_ptr>(result);
+                                  } else if (std::get<transaction_trace_ptr>(result)->except) {
+                                     except_ptr =
+                                        std::get<transaction_trace_ptr>(result)->except->dynamic_copy_exception();
+                                  }
 
-               if (except_ptr) {
-                  next(std::get<fc::exception_ptr>(result));
-               } else {
-                  if (std::holds_alternative<transaction_trace_ptr>(result) &&
-                      std::get<transaction_trace_ptr>(result)->receipt) {
-                     _total_us += std::get<transaction_trace_ptr>(result)->receipt->cpu_usage_us;
-                     ++_txcount;
-                  }
-                  next(fc::exception_ptr{});
-               }
-            });
+                                  if (except_ptr) {
+                                     next(std::get<fc::exception_ptr>(result));
+                                  } else {
+                                     if (std::holds_alternative<transaction_trace_ptr>(result) &&
+                                         std::get<transaction_trace_ptr>(result)->receipt) {
+                                        _total_us += std::get<transaction_trace_ptr>(result)->receipt->cpu_usage_us;
+                                        ++_txcount;
+                                     }
+                                     next(fc::exception_ptr{});
+                                  }
+                               });
       }
    }
 
-   void push_transactions(std::vector<signed_transaction>&&             trxs,
-                          const std::function<void(fc::exception_ptr)>& next) {
+   void push_transactions(std::vector<signed_transaction>&& trxs, const std::function<void(fc::exception_ptr)>& next) {
       auto trxs_copy = std::make_shared<std::decay_t<decltype(trxs)>>(std::move(trxs));
       app().post(priority::low, [this, trxs_copy, next]() { push_next_transaction(trxs_copy, next); });
    }
@@ -248,8 +242,7 @@ struct txn_test_gen_plugin_impl {
             {
                setabi handler;
                handler.account = newaccountT;
-               handler.abi =
-                  fc::raw::pack(json::from_string(contracts::eosio_token_abi().data()).as<abi_def>());
+               handler.abi     = fc::raw::pack(json::from_string(contracts::eosio_token_abi().data()).as<abi_def>());
                trx.actions.emplace_back(
                   vector<chain::permission_level>{
                      {newaccountT, name("active")}
@@ -266,9 +259,9 @@ struct txn_test_gen_plugin_impl {
                };
                act.data = eosio_token_serializer.variant_to_binary(
                   "create",
-                  fc::json::from_string(fc::format_string(
-                     "{\"issuer\":\"${issuer}\",\"maximum_supply\":\"1000000000.0000 CUR\"}}",
-                     fc::mutable_variant_object()("issuer", newaccountT.to_string()))),
+                  fc::json::from_string(
+                     fc::format_string("{\"issuer\":\"${issuer}\",\"maximum_supply\":\"1000000000.0000 CUR\"}}",
+                                       fc::mutable_variant_object()("issuer", newaccountT.to_string()))),
                   abi_serializer::create_yield_function(abi_serializer_max_time));
                trx.actions.push_back(act);
             }
@@ -298,8 +291,7 @@ struct txn_test_gen_plugin_impl {
                   "transfer",
                   fc::json::from_string(fc::format_string(
                      "{\"from\":\"${from}\",\"to\":\"${to}\",\"quantity\":\"20000.0000 CUR\",\"memo\":\"\"}",
-                     fc::mutable_variant_object()("from", newaccountT.to_string())("to",
-                                                                                   newaccountA.to_string()))),
+                     fc::mutable_variant_object()("from", newaccountT.to_string())("to", newaccountA.to_string()))),
                   abi_serializer::create_yield_function(abi_serializer_max_time));
                trx.actions.push_back(act);
             }
@@ -314,8 +306,7 @@ struct txn_test_gen_plugin_impl {
                   "transfer",
                   fc::json::from_string(fc::format_string(
                      "{\"from\":\"${from}\",\"to\":\"${to}\",\"quantity\":\"20000.0000 CUR\",\"memo\":\"\"}",
-                     fc::mutable_variant_object()("from", newaccountT.to_string())("to",
-                                                                                   newaccountB.to_string()))),
+                     fc::mutable_variant_object()("from", newaccountT.to_string())("to", newaccountB.to_string()))),
                   abi_serializer::create_yield_function(abi_serializer_max_time));
                trx.actions.push_back(act);
             }
@@ -356,10 +347,8 @@ struct txn_test_gen_plugin_impl {
       running = true;
 
       auto           abi_serializer_max_time = app().get_plugin<chain_plugin>().get_abi_serializer_max_time();
-      abi_serializer eosio_token_serializer{
-         fc::json::from_string(contracts::eosio_token_abi().data()).as<abi_def>(),
-         abi_serializer::create_yield_function(abi_serializer_max_time)
-      };
+      abi_serializer eosio_token_serializer{ fc::json::from_string(contracts::eosio_token_abi().data()).as<abi_def>(),
+                                             abi_serializer::create_yield_function(abi_serializer_max_time) };
       // create the actions here
       act_a_to_b.account       = newaccountT;
       act_a_to_b.name          = "transfer"_n;
@@ -370,8 +359,7 @@ struct txn_test_gen_plugin_impl {
          "transfer",
          fc::json::from_string(fc::format_string(
             "{\"from\":\"${from}\",\"to\":\"${to}\",\"quantity\":\"1.0000 CUR\",\"memo\":\"${l}\"}",
-            fc::mutable_variant_object()("from",
-                                         newaccountA.to_string())("to", newaccountB.to_string())("l", salt))),
+            fc::mutable_variant_object()("from", newaccountA.to_string())("to", newaccountB.to_string())("l", salt))),
          abi_serializer::create_yield_function(abi_serializer_max_time));
 
       act_b_to_a.account       = newaccountT;
@@ -383,8 +371,7 @@ struct txn_test_gen_plugin_impl {
          "transfer",
          fc::json::from_string(fc::format_string(
             "{\"from\":\"${from}\",\"to\":\"${to}\",\"quantity\":\"1.0000 CUR\",\"memo\":\"${l}\"}",
-            fc::mutable_variant_object()("from",
-                                         newaccountB.to_string())("to", newaccountA.to_string())("l", salt))),
+            fc::mutable_variant_object()("from", newaccountB.to_string())("to", newaccountA.to_string())("l", salt))),
          abi_serializer::create_yield_function(abi_serializer_max_time));
 
       timer_timeout = period;
@@ -394,9 +381,9 @@ struct txn_test_gen_plugin_impl {
       thread_pool.emplace("txntest", thread_pool_size);
       timer = std::make_shared<boost::asio::high_resolution_timer>(thread_pool->get_executor());
 
-      ilog("Started transaction test plugin; generating ${p} transactions every ${m} ms by ${t} load "
-           "generation threads",
-           ("p", batch_size)("m", period)("t", thread_pool_size));
+      ilog(
+         "Started transaction test plugin; generating ${p} transactions every ${m} ms by ${t} load generation threads",
+         ("p", batch_size)("m", period)("t", thread_pool_size));
 
       boost::asio::post(thread_pool->get_executor(),
                         [this]() { arm_timer(boost::asio::high_resolution_timer::clock_type::now()); });
@@ -505,8 +492,7 @@ struct txn_test_gen_plugin_impl {
       ilog("Stopping transaction generation test");
 
       if (_txcount) {
-         ilog("${d} transactions executed, ${t}us / transaction",
-              ("d", _txcount)("t", _total_us / (double)_txcount));
+         ilog("${d} transactions executed, ${t}us / transaction", ("d", _txcount)("t", _total_us / (double)_txcount));
          _txcount = _total_us = 0;
       }
    }
@@ -529,11 +515,10 @@ txn_test_gen_plugin::~txn_test_gen_plugin() {}
 void txn_test_gen_plugin::set_program_options(options_description&, options_description& cfg) {
    cfg.add_options()("txn-reference-block-lag",
                      bpo::value<int32_t>()->default_value(0),
-                     "Lag in number of blocks from the head block when selecting the reference block for "
-                     "transactions (-1 means Last Irreversible Block)")(
-      "txn-test-gen-threads",
-      bpo::value<uint16_t>()->default_value(2),
-      "Number of worker threads in txn_test_gen thread pool")(
+                     "Lag in number of blocks from the head block when selecting the reference block for transactions "
+                     "(-1 means Last Irreversible Block)")("txn-test-gen-threads",
+                                                           bpo::value<uint16_t>()->default_value(2),
+                                                           "Number of worker threads in txn_test_gen thread pool")(
       "txn-test-gen-account-prefix",
       bpo::value<string>()->default_value("txn.test."),
       "Prefix to use for accounts generated and used by this plugin")(
@@ -548,13 +533,12 @@ void txn_test_gen_plugin::set_program_options(options_description&, options_desc
 void txn_test_gen_plugin::plugin_initialize(const variables_map& options) {
    try {
       my.reset(new txn_test_gen_plugin_impl);
-      my->txn_reference_block_lag = options.at("txn-reference-block-lag").as<int32_t>();
-      my->thread_pool_size        = options.at("txn-test-gen-threads").as<uint16_t>();
-      const std::string thread_pool_account_prefix =
-         options.at("txn-test-gen-account-prefix").as<std::string>();
-      my->newaccountA    = eosio::chain::name(thread_pool_account_prefix + "a");
-      my->newaccountB    = eosio::chain::name(thread_pool_account_prefix + "b");
-      my->newaccountT    = eosio::chain::name(thread_pool_account_prefix + "t");
+      my->txn_reference_block_lag                  = options.at("txn-reference-block-lag").as<int32_t>();
+      my->thread_pool_size                         = options.at("txn-test-gen-threads").as<uint16_t>();
+      const std::string thread_pool_account_prefix = options.at("txn-test-gen-account-prefix").as<std::string>();
+      my->newaccountA                              = eosio::chain::name(thread_pool_account_prefix + "a");
+      my->newaccountB                              = eosio::chain::name(thread_pool_account_prefix + "b");
+      my->newaccountT                              = eosio::chain::name(thread_pool_account_prefix + "t");
       my->trx_expiration = fc::seconds(options.at("txn-test-gen-expiration-seconds").as<uint16_t>());
       EOS_ASSERT(my->trx_expiration < fc::seconds(3600),
                  chain::plugin_config_exception,

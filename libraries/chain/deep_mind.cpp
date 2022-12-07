@@ -106,24 +106,21 @@ void deep_mind_handler::on_applied_transaction(uint32_t block_num, const transac
       packed_trace = fc::raw::pack(*trace);
    }
 
-   fc_dlog(_logger,
-           "APPLIED_TRANSACTION ${block} ${traces}",
-           ("block", block_num)("traces", fc::to_hex(packed_trace)));
+   fc_dlog(_logger, "APPLIED_TRANSACTION ${block} ${traces}", ("block", block_num)("traces", fc::to_hex(packed_trace)));
 }
 
 void deep_mind_handler::on_add_ram_correction(const account_ram_correction_object& rco, uint64_t delta) {
    fc_dlog(_logger,
            "RAM_CORRECTION_OP ${action_id} ${correction_id} ${event_id} ${payer} ${delta}",
-           ("action_id", _action_id)("correction_id", rco.id._id)("event_id", _ram_trace.event_id)(
-              "payer", rco.name)("delta", delta));
+           ("action_id", _action_id)("correction_id",
+                                     rco.id._id)("event_id", _ram_trace.event_id)("payer", rco.name)("delta", delta));
    _ram_trace = ram_trace();
 }
 
 void deep_mind_handler::on_preactivate_feature(const protocol_feature& feature) {
-   fc_dlog(
-      _logger,
-      "FEATURE_OP PRE_ACTIVATE ${action_id} ${feature_digest} ${feature}",
-      ("action_id", _action_id)("feature_digest", feature.feature_digest)("feature", feature.to_variant()));
+   fc_dlog(_logger,
+           "FEATURE_OP PRE_ACTIVATE ${action_id} ${feature_digest} ${feature}",
+           ("action_id", _action_id)("feature_digest", feature.feature_digest)("feature", feature.to_variant()));
 }
 
 void deep_mind_handler::on_activate_feature(const protocol_feature& feature) {
@@ -147,23 +144,20 @@ void deep_mind_handler::on_send_inline() {
 void deep_mind_handler::on_send_context_free_inline() {
    fc_dlog(_logger, "CREATION_OP CFA_INLINE ${action_id}", ("action_id", _action_id));
 }
-void deep_mind_handler::on_cancel_deferred(operation_qualifier                 qual,
-                                           const generated_transaction_object& gto) {
+void deep_mind_handler::on_cancel_deferred(operation_qualifier qual, const generated_transaction_object& gto) {
    fc_dlog(_logger,
-           "DTRX_OP ${qual}CANCEL ${action_id} ${sender} ${sender_id} ${payer} ${published} ${delay} "
-           "${expiration} ${trx_id} ${trx}",
+           "DTRX_OP ${qual}CANCEL ${action_id} ${sender} ${sender_id} ${payer} ${published} ${delay} ${expiration} "
+           "${trx_id} ${trx}",
            ("qual", prefix(qual))("action_id", _action_id)("sender", gto.sender)("sender_id", gto.sender_id)(
-              "payer", gto.payer)("published", gto.published)("delay", gto.delay_until)("expiration",
-                                                                                        gto.expiration)(
+              "payer", gto.payer)("published", gto.published)("delay", gto.delay_until)("expiration", gto.expiration)(
               "trx_id", gto.trx_id)("trx", fc::to_hex(gto.packed_trx.data(), gto.packed_trx.size())));
 }
 void deep_mind_handler::on_send_deferred(operation_qualifier qual, const generated_transaction_object& gto) {
    fc_dlog(_logger,
-           "DTRX_OP ${qual}CREATE ${action_id} ${sender} ${sender_id} ${payer} ${published} ${delay} "
-           "${expiration} ${trx_id} ${trx}",
+           "DTRX_OP ${qual}CREATE ${action_id} ${sender} ${sender_id} ${payer} ${published} ${delay} ${expiration} "
+           "${trx_id} ${trx}",
            ("qual", prefix(qual))("action_id", _action_id)("sender", gto.sender)("sender_id", gto.sender_id)(
-              "payer", gto.payer)("published", gto.published)("delay", gto.delay_until)("expiration",
-                                                                                        gto.expiration)(
+              "payer", gto.payer)("published", gto.published)("delay", gto.delay_until)("expiration", gto.expiration)(
               "trx_id", gto.trx_id)("trx", fc::to_hex(gto.packed_trx.data(), gto.packed_trx.size())));
 }
 void deep_mind_handler::on_create_deferred(operation_qualifier                 qual,
@@ -172,11 +166,10 @@ void deep_mind_handler::on_create_deferred(operation_qualifier                 q
    auto packed_signed_trx = fc::raw::pack(packed_trx.get_signed_transaction());
 
    fc_dlog(_logger,
-           "DTRX_OP ${qual}CREATE ${action_id} ${sender} ${sender_id} ${payer} ${published} ${delay} "
-           "${expiration} ${trx_id} ${trx}",
+           "DTRX_OP ${qual}CREATE ${action_id} ${sender} ${sender_id} ${payer} ${published} ${delay} ${expiration} "
+           "${trx_id} ${trx}",
            ("qual", prefix(qual))("action_id", _action_id)("sender", gto.sender)("sender_id", gto.sender_id)(
-              "payer", gto.payer)("published", gto.published)("delay", gto.delay_until)("expiration",
-                                                                                        gto.expiration)(
+              "payer", gto.payer)("published", gto.published)("delay", gto.delay_until)("expiration", gto.expiration)(
               "trx_id", gto.trx_id)("trx", fc::to_hex(packed_signed_trx.data(), packed_signed_trx.size())));
 }
 void deep_mind_handler::on_fail_deferred() {
@@ -185,21 +178,19 @@ void deep_mind_handler::on_fail_deferred() {
 void deep_mind_handler::on_create_table(const table_id_object& tid) {
    fc_dlog(_logger,
            "TBL_OP INS ${action_id} ${code} ${scope} ${table} ${payer}",
-           ("action_id", _action_id)("code", tid.code)("scope", tid.scope)("table", tid.table)("payer",
-                                                                                               tid.payer));
+           ("action_id", _action_id)("code", tid.code)("scope", tid.scope)("table", tid.table)("payer", tid.payer));
 }
 void deep_mind_handler::on_remove_table(const table_id_object& tid) {
    fc_dlog(_logger,
            "TBL_OP REM ${action_id} ${code} ${scope} ${table} ${payer}",
-           ("action_id", _action_id)("code", tid.code)("scope", tid.scope)("table", tid.table)("payer",
-                                                                                               tid.payer));
+           ("action_id", _action_id)("code", tid.code)("scope", tid.scope)("table", tid.table)("payer", tid.payer));
 }
 void deep_mind_handler::on_db_store_i64(const table_id_object& tid, const key_value_object& kvo) {
    fc_dlog(_logger,
            "DB_OP INS ${action_id} ${payer} ${table_code} ${scope} ${table_name} ${primkey} ${ndata}",
            ("action_id", _action_id)("payer", kvo.payer)("table_code", tid.code)("scope", tid.scope)(
-              "table_name", tid.table)("primkey", name(kvo.primary_key))(
-              "ndata", fc::to_hex(kvo.value.data(), kvo.value.size())));
+              "table_name", tid.table)("primkey",
+                                       name(kvo.primary_key))("ndata", fc::to_hex(kvo.value.data(), kvo.value.size())));
 }
 void deep_mind_handler::on_db_update_i64(const table_id_object&  tid,
                                          const key_value_object& kvo,
@@ -208,30 +199,27 @@ void deep_mind_handler::on_db_update_i64(const table_id_object&  tid,
                                          std::size_t             buffer_size) {
    fc_dlog(
       _logger,
-      "DB_OP UPD ${action_id} ${opayer}:${npayer} ${table_code} ${scope} ${table_name} ${primkey} "
-      "${odata}:${ndata}",
-      ("action_id", _action_id)("opayer", kvo.payer)("npayer", payer)("table_code", tid.code)(
-         "scope", tid.scope)("table_name", tid.table)("primkey", name(kvo.primary_key))(
+      "DB_OP UPD ${action_id} ${opayer}:${npayer} ${table_code} ${scope} ${table_name} ${primkey} ${odata}:${ndata}",
+      ("action_id", _action_id)("opayer", kvo.payer)("npayer", payer)("table_code", tid.code)("scope", tid.scope)(
+         "table_name", tid.table)("primkey", name(kvo.primary_key))(
          "odata", fc::to_hex(kvo.value.data(), kvo.value.size()))("ndata", fc::to_hex(buffer, buffer_size)));
 }
 void deep_mind_handler::on_db_remove_i64(const table_id_object& tid, const key_value_object& kvo) {
    fc_dlog(_logger,
            "DB_OP REM ${action_id} ${payer} ${table_code} ${scope} ${table_name} ${primkey} ${odata}",
            ("action_id", _action_id)("payer", kvo.payer)("table_code", tid.code)("scope", tid.scope)(
-              "table_name", tid.table)("primkey", name(kvo.primary_key))(
-              "odata", fc::to_hex(kvo.value.data(), kvo.value.size())));
+              "table_name", tid.table)("primkey",
+                                       name(kvo.primary_key))("odata", fc::to_hex(kvo.value.data(), kvo.value.size())));
 }
 void deep_mind_handler::on_init_resource_limits(const resource_limits::resource_limits_config_object& config,
                                                 const resource_limits::resource_limits_state_object&  state) {
    fc_dlog(_logger, "RLIMIT_OP CONFIG INS ${data}", ("data", config));
    fc_dlog(_logger, "RLIMIT_OP STATE INS ${data}", ("data", state));
 }
-void deep_mind_handler::on_update_resource_limits_config(
-   const resource_limits::resource_limits_config_object& config) {
+void deep_mind_handler::on_update_resource_limits_config(const resource_limits::resource_limits_config_object& config) {
    fc_dlog(_logger, "RLIMIT_OP CONFIG UPD ${data}", ("data", config));
 }
-void deep_mind_handler::on_update_resource_limits_state(
-   const resource_limits::resource_limits_state_object& state) {
+void deep_mind_handler::on_update_resource_limits_state(const resource_limits::resource_limits_state_object& state) {
    fc_dlog(_logger, "RLIMIT_OP STATE UPD ${data}", ("data", state));
 }
 void deep_mind_handler::on_newaccount_resource_limits(const resource_limits::resource_limits_object& limits,
@@ -252,12 +240,11 @@ void deep_mind_handler::on_ram_trace(std::string&& event_id,
    _ram_trace = ram_trace(std::move(event_id), family, operation, legacy_tag);
 }
 void deep_mind_handler::on_ram_event(account_name account, uint64_t new_usage, int64_t delta) {
-   fc_dlog(
-      _logger,
-      "RAM_OP ${action_id} ${event_id} ${family} ${operation} ${legacy_tag} ${payer} ${new_usage} ${delta}",
-      ("action_id", _action_id)("event_id", _ram_trace.event_id)("family", _ram_trace.family)(
-         "operation", _ram_trace.operation)("legacy_tag", _ram_trace.legacy_tag)("payer", account)(
-         "new_usage", new_usage)("delta", delta));
+   fc_dlog(_logger,
+           "RAM_OP ${action_id} ${event_id} ${family} ${operation} ${legacy_tag} ${payer} ${new_usage} ${delta}",
+           ("action_id", _action_id)("event_id", _ram_trace.event_id)("family", _ram_trace.family)(
+              "operation", _ram_trace.operation)("legacy_tag", _ram_trace.legacy_tag)("payer", account)(
+              "new_usage", new_usage)("delta", delta));
    _ram_trace = ram_trace();
 }
 

@@ -110,8 +110,7 @@ void idx64_check_without_storing(name receiver) {
       check(itr == table.end(), "idx64_general - table.find() of non-existing primary key");
 
       itr = table.find(976);
-      check(itr != table.end() && itr->sec == "emily"_n.value,
-            "idx64_general - table.find() of existing primary key");
+      check(itr != table.end() && itr->sec == "emily"_n.value, "idx64_general - table.find() of existing primary key");
 
       ++itr;
       check(itr == table.end(), "idx64_general - increment primary iterator to end");
@@ -175,13 +174,11 @@ void idx64_check_without_storing(name receiver) {
 
       auto itr = --std::make_reverse_iterator(secondary_index.find("emily"_n.value));
       for (; itr != secondary_index.rend(); ++itr) {
-         check(pk_itr != pks.end(),
-               "idx64_general - unexpected continuation of secondary index in reverse iteration");
+         check(pk_itr != pks.end(), "idx64_general - unexpected continuation of secondary index in reverse iteration");
          check(*pk_itr == itr->id, "idx64_general - primary key mismatch in reverse iteration");
          ++pk_itr;
       }
-      check(pk_itr == pks.end(),
-            "idx64_general - did not iterate backwards through secondary index properly");
+      check(pk_itr == pks.end(), "idx64_general - did not iterate backwards through secondary index properly");
    }
 
    // require_find secondary key
@@ -325,20 +322,15 @@ void idx128_check_without_storing(name receiver) {
       uint128_t multiplier = 1ULL << 63;
 
       auto itr = secondary_index.begin();
-      check(itr->primary_key() == 0 && itr->get_secondary() == multiplier * 0,
-            "idx128_general - secondary key sort");
+      check(itr->primary_key() == 0 && itr->get_secondary() == multiplier * 0, "idx128_general - secondary key sort");
       ++itr;
-      check(itr->primary_key() == 1 && itr->get_secondary() == multiplier * 1,
-            "idx128_general - secondary key sort");
+      check(itr->primary_key() == 1 && itr->get_secondary() == multiplier * 1, "idx128_general - secondary key sort");
       ++itr;
-      check(itr->primary_key() == 2 && itr->get_secondary() == multiplier * 2,
-            "idx128_general - secondary key sort");
+      check(itr->primary_key() == 2 && itr->get_secondary() == multiplier * 2, "idx128_general - secondary key sort");
       ++itr;
-      check(itr->primary_key() == 4 && itr->get_secondary() == multiplier * 4,
-            "idx128_general - secondary key sort");
+      check(itr->primary_key() == 4 && itr->get_secondary() == multiplier * 4, "idx128_general - secondary key sort");
       ++itr;
-      check(itr->primary_key() == 3 && itr->get_secondary() == multiplier * 6,
-            "idx128_general - secondary key sort");
+      check(itr->primary_key() == 3 && itr->get_secondary() == multiplier * 6, "idx128_general - secondary key sort");
       ++itr;
       check(itr == secondary_index.end(), "idx128_general - secondary key sort");
    }
@@ -389,8 +381,7 @@ void test_api_multi_index::idx64_require_find_fail() {
 }
 
 void test_api_multi_index::idx64_require_find_fail_with_msg() {
-   _test_multi_index::idx64_store_only<"indextablea"_n.value>(
-      get_self()); // Making the name smaller fixes this?
+   _test_multi_index::idx64_store_only<"indextablea"_n.value>(get_self()); // Making the name smaller fixes this?
    _test_multi_index::idx64_require_find_fail_with_msg<"indextablea"_n.value>(
       get_self()); // Making the name smaller fixes this?
 }
@@ -478,8 +469,7 @@ void test_api_multi_index::idx128_autoincrement_test_part1() {
       check(r.primary_key() == expected_key, "idx128_autoincrement_test_part1 - unexpected primary key");
       --expected_key;
    }
-   check(expected_key == 0,
-         "idx128_autoincrement_test_part1 - did not iterate through secondary index properly");
+   check(expected_key == 0, "idx128_autoincrement_test_part1 - did not iterate through secondary index properly");
 }
 
 void test_api_multi_index::idx128_autoincrement_test_part2() {
@@ -581,14 +571,11 @@ void test_api_multi_index::idx256_general() {
 
    {
       auto itr = table.begin();
-      check(itr->primary_key() == 1 && itr->get_secondary() == fourtytwo,
-            "idx256_general - primary key sort");
+      check(itr->primary_key() == 1 && itr->get_secondary() == fourtytwo, "idx256_general - primary key sort");
       ++itr;
-      check(itr->primary_key() == 2 && itr->get_secondary() == onetwothreefour,
-            "idx256_general - primary key sort");
+      check(itr->primary_key() == 2 && itr->get_secondary() == onetwothreefour, "idx256_general - primary key sort");
       ++itr;
-      check(itr->primary_key() == 3 && itr->get_secondary() == fourtytwo,
-            "idx256_general - primary key sort");
+      check(itr->primary_key() == 3 && itr->get_secondary() == fourtytwo, "idx256_general - primary key sort");
       ++itr;
       check(itr == table.end(), "idx256_general - primary key sort");
    }
@@ -686,9 +673,8 @@ void test_api_multi_index::idx_double_general() {
 
       print(" id = ", obj.id, ", sec = ", obj.sec, ", sec * id = ", prod, "\n");
 
-      check(
-         std::abs(prod - expected_product) <= tolerance,
-         "idx_double_general - product of secondary and id not equal to expected_product within tolerance");
+      check(std::abs(prod - expected_product) <= tolerance,
+            "idx_double_general - product of secondary and id not equal to expected_product within tolerance");
 
       --expected_key;
    }
@@ -742,8 +728,7 @@ void test_api_multi_index::idx_long_double_general() {
       print(" id = ", obj.id, ", sec = ", obj.sec, ", sec * id = ", prod, "\n");
 
       check(std::abs(prod - expected_product) <= tolerance,
-            "idx_long_double_general - product of secondary and id not equal to expected_product within "
-            "tolerance");
+            "idx_long_double_general - product of secondary and id not equal to expected_product within tolerance");
 
       --expected_key;
    }
@@ -907,8 +892,7 @@ void test_api_multi_index::idx64_sk_cache_pk_lookup() {
 
    auto pk_itr   = table.iterator_to(*sk_itr);
    auto prev_itr = --pk_itr;
-   check(prev_itr->id == 265 && prev_itr->sec == "alice"_n.value,
-         "idx64_sk_cache_pk_lookup - previous record");
+   check(prev_itr->id == 265 && prev_itr->sec == "alice"_n.value, "idx64_sk_cache_pk_lookup - previous record");
 }
 
 void test_api_multi_index::idx64_pk_cache_sk_lookup() {

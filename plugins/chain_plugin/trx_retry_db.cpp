@@ -51,9 +51,7 @@ struct tracked_transaction {
 
    bool is_ready() const { return block_num != 0; }
 
-   size_t memory_size() const {
-      return ptrx->get_estimated_size() + trx_trace_v.estimated_size() + sizeof(*this);
-   }
+   size_t memory_size() const { return ptrx->get_estimated_size() + trx_trace_v.estimated_size() + sizeof(*this); }
 
    tracked_transaction(const tracked_transaction&)            = delete;
    tracked_transaction()                                      = delete;
@@ -73,16 +71,13 @@ using tracked_transaction_index_t = multi_index_container<
       hashed_unique<tag<by_trx_id>,
                     const_mem_fun<tracked_transaction, const transaction_id_type&, &tracked_transaction::id>,
                     std::hash<transaction_id_type>>,
-      ordered_non_unique<
-         tag<by_expiry>,
-         const_mem_fun<tracked_transaction, fc::time_point_sec, &tracked_transaction::expiry>>,
+      ordered_non_unique<tag<by_expiry>,
+                         const_mem_fun<tracked_transaction, fc::time_point_sec, &tracked_transaction::expiry>>,
       ordered_non_unique<tag<by_ready_block_num>,
                          const_mem_fun<tracked_transaction, uint32_t, &tracked_transaction::ready_block_num>>,
-      ordered_non_unique<tag<by_block_num>,
-                         member<tracked_transaction, uint32_t, &tracked_transaction::block_num>>,
-      ordered_non_unique<
-         tag<by_last_try>,
-         const_mem_fun<tracked_transaction, fc::time_point, &tracked_transaction::last_try_time>>>>;
+      ordered_non_unique<tag<by_block_num>, member<tracked_transaction, uint32_t, &tracked_transaction::block_num>>,
+      ordered_non_unique<tag<by_last_try>,
+                         const_mem_fun<tracked_transaction, fc::time_point, &tracked_transaction::last_try_time>>>>;
 
 } // anonymous namespace
 
@@ -126,8 +121,7 @@ struct trx_retry_db_impl {
       }
    }
 
-   void on_applied_transaction(const chain::transaction_trace_ptr&  trace,
-                               const chain::packed_transaction_ptr& ptrx) {
+   void on_applied_transaction(const chain::transaction_trace_ptr& trace, const chain::packed_transaction_ptr& ptrx) {
       if (!trace->receipt)
          return;
       // include only executed incoming transactions.
@@ -149,23 +143,21 @@ struct trx_retry_db_impl {
       auto& idx = _tracked_trxs.index().get<by_trx_id>();
       auto  itr = idx.find(trace->id);
       if (itr != idx.end()) {
-         _tracked_trxs.modify(itr,
-                              [&trace, &control = _controller, &abi_max_time = _abi_serializer_max_time](
-                                 tracked_transaction& tt) {
-                                 tt.block_num = trace->block_num;
-                                 try {
-                                    // send_transaction trace output format.
-                                    // Convert to variant with abi here and now because abi could change in
-                                    // very next transaction. Alternatively, we could store off all the abis
-                                    // needed and do the conversion later, but as this is designed to run on
-                                    // an API node, probably the best trade off to perform the abi
-                                    // serialization during block processing.
-                                    tt.trx_trace_v = control.to_variant_with_abi(
-                                       *trace, abi_serializer::create_yield_function(abi_max_time));
-                                 } catch (chain::abi_exception&) {
-                                    tt.trx_trace_v = *trace;
-                                 }
-                              });
+         _tracked_trxs.modify(
+            itr, [&trace, &control = _controller, &abi_max_time = _abi_serializer_max_time](tracked_transaction& tt) {
+               tt.block_num = trace->block_num;
+               try {
+                  // send_transaction trace output format.
+                  // Convert to variant with abi here and now because abi could change in very next transaction.
+                  // Alternatively, we could store off all the abis needed and do the conversion later, but as this is
+                  // designed to run on an API node, probably the best trade off to perform the abi serialization during
+                  // block processing.
+                  tt.trx_trace_v =
+                     control.to_variant_with_abi(*trace, abi_serializer::create_yield_function(abi_max_time));
+               } catch (chain::abi_exception&) {
+                  tt.trx_trace_v = *trace;
+               }
+            });
       }
    }
 
@@ -229,8 +221,8 @@ private:
       }
       // retry
       for (auto& i : to_process) {
-         _transaction_ack_channel.publish(
-            appbase::priority::low, std::pair<fc::exception_ptr, packed_transaction_ptr>(nullptr, i->ptrx));
+         _transaction_ack_channel.publish(appbase::priority::low,
+                                          std::pair<fc::exception_ptr, packed_transaction_ptr>(nullptr, i->ptrx));
          dlog("retry send trx ${id}", ("id", i->ptrx->id()));
          _tracked_trxs.modify(i, [&](tracked_transaction& tt) { tt.last_try = now; });
       }
@@ -318,8 +310,7 @@ void trx_retry_db::track_transaction(chain::packed_transaction_ptr              
 }
 
 fc::time_point_sec trx_retry_db::get_max_expiration_time() const {
-   // conversion from time_point to time_point_sec rounds down, round up to nearest second to avoid appearing
-   // expired
+   // conversion from time_point to time_point_sec rounds down, round up to nearest second to avoid appearing expired
    return fc::time_point::now() + _impl->get_max_expiration() + fc::microseconds(999'999);
 }
 

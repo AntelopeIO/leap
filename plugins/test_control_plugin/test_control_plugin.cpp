@@ -34,8 +34,8 @@ private:
 };
 
 void test_control_plugin_impl::connect() {
-   _irreversible_block_connection.emplace(_chain.irreversible_block.connect(
-      [&](const chain::block_state_ptr& bs) { applied_irreversible_block(bs); }));
+   _irreversible_block_connection.emplace(
+      _chain.irreversible_block.connect([&](const chain::block_state_ptr& bs) { applied_irreversible_block(bs); }));
    _accepted_block_connection =
       _chain.accepted_block.connect([&](const chain::block_state_ptr& bs) { accepted_block(bs); });
 }
@@ -57,7 +57,7 @@ void test_control_plugin_impl::accepted_block(const chain::block_state_ptr& bsp)
 
 void test_control_plugin_impl::process_next_block_state(const chain::block_state_ptr& bsp) {
    // Tests expect the shutdown only after signaling a producer shutdown and seeing a full production cycle
-   const auto  block_time = _chain.head_block_time() + fc::microseconds(chain::config::block_interval_us);
+   const auto  block_time         = _chain.head_block_time() + fc::microseconds(chain::config::block_interval_us);
    const auto& producer_authority = bsp->get_scheduled_producer(block_time);
    const auto  producer_name      = producer_authority.producer_name;
    const auto  slot               = bsp->block->timestamp.slot % chain::config::producer_repetitions;
@@ -73,12 +73,10 @@ void test_control_plugin_impl::process_next_block_state(const chain::block_state
       }
    }
 
-   // check started_production_round in case where producer does not produce a full round, still want to shut
-   // down
+   // check started_production_round in case where producer does not produce a full round, still want to shut down
    if (_clean_producer_sequence && (producer_name == _producer || _started_production_round)) {
       _started_production_round = true;
-      const auto current_slot =
-         chain::block_timestamp_type(block_time).slot % chain::config::producer_repetitions;
+      const auto current_slot   = chain::block_timestamp_type(block_time).slot % chain::config::producer_repetitions;
       ilog("producer ${prod} slot: ${slot}", ("prod", producer_name)("slot", slot));
 
       if (current_slot >= _where_in_sequence || producer_name != _producer) {

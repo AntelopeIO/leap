@@ -34,9 +34,7 @@ public:
 
       variant& value();
 
-      friend bool operator==(const entry& a, const entry& b) {
-         return a._key == b._key && a._value == b._value;
-      }
+      friend bool operator==(const entry& a, const entry& b) { return a._key == b._key && a._value == b._value; }
       friend bool operator!=(const entry& a, const entry& b) { return !(a == b); }
 
    private:
@@ -194,8 +192,7 @@ public:
    mutable_variant_object  operator()(const mutable_variant_object& mvo) &&;
    ///@}
 
-   template<typename T,
-            typename = std::enable_if_t<!std::is_base_of<mutable_variant_object, std::decay_t<T>>::value>>
+   template<typename T, typename = std::enable_if_t<!std::is_base_of<mutable_variant_object, std::decay_t<T>>::value>>
    explicit mutable_variant_object(T&& v)
       : _key_value(new std::vector<entry>()) {
       *this = variant(fc::forward<T>(v)).get_object();

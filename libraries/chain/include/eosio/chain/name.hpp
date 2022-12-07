@@ -92,9 +92,7 @@ inline namespace literals {
 template<typename T, T... Str>
 inline constexpr name operator""_n() {
    constexpr const char buf[] = { Str... };
-   return name{
-      std::integral_constant<uint64_t, string_to_uint64_t(std::string_view{ buf, sizeof(buf) })>::value
-   };
+   return name{ std::integral_constant<uint64_t, string_to_uint64_t(std::string_view{ buf, sizeof(buf) })>::value };
 }
 #if defined(__clang__)
 #pragma clang diagnostic pop

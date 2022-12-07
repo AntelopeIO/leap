@@ -52,9 +52,7 @@ private:
 } // fc::crypto
 
 namespace fc {
-void to_variant(const crypto::public_key&   var,
-                variant&                    vo,
-                const fc::yield_function_t& yield = fc::yield_function_t());
+void to_variant(const crypto::public_key& var, variant& vo, const fc::yield_function_t& yield = fc::yield_function_t());
 
 void from_variant(const variant& var, crypto::public_key& vo);
 } // namespace fc

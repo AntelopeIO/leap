@@ -23,11 +23,8 @@ static bool tryParseSizeConstraints(ParseState& state, U64 maxMax, SizeConstrain
       } else {
          // Validate that the maximum size is within the limit, and that the size contraints is not disjoint.
          if (outSizeConstraints.max > maxMax) {
-            parseErrorf(state,
-                        state.nextToken - 1,
-                        "maximum size exceeds limit (%u>%u)",
-                        outSizeConstraints.max,
-                        maxMax);
+            parseErrorf(
+               state, state.nextToken - 1, "maximum size exceeds limit (%u>%u)", outSizeConstraints.max, maxMax);
             outSizeConstraints.max = maxMax;
          } else if (outSizeConstraints.max < outSizeConstraints.min) {
             parseErrorf(state,
@@ -53,8 +50,7 @@ static SizeConstraints parseSizeConstraints(ParseState& state, U64 maxMax) {
 
 static GlobalType parseGlobalType(ParseState& state) {
    GlobalType result;
-   result.isMutable =
-      tryParseParenthesizedTagged(state, t_mut, [&] { result.valueType = parseValueType(state); });
+   result.isMutable = tryParseParenthesizedTagged(state, t_mut, [&] { result.valueType = parseValueType(state); });
    if (!result.isMutable) {
       result.valueType = parseValueType(state);
    }
@@ -87,9 +83,9 @@ static InitializerExpression parseInitializerExpression(ModuleParseState& state)
          }
          case t_get_global: {
             ++state.nextToken;
-            result.type        = InitializerExpression::Type::get_global;
-            result.globalIndex = parseAndResolveNameOrIndexRef(
-               state, state.globalNameToIndexMap, state.module.globals.size(), "global");
+            result.type = InitializerExpression::Type::get_global;
+            result.globalIndex =
+               parseAndResolveNameOrIndexRef(state, state.globalNameToIndexMap, state.module.globals.size(), "global");
             break;
          }
          default:
@@ -103,8 +99,8 @@ static InitializerExpression parseInitializerExpression(ModuleParseState& state)
 }
 
 static void errorIfFollowsDefinitions(ModuleParseState& state) {
-   if (state.module.functions.defs.size() || state.module.tables.defs.size() ||
-       state.module.memories.defs.size() || state.module.globals.defs.size()) {
+   if (state.module.functions.defs.size() || state.module.tables.defs.size() || state.module.memories.defs.size() ||
+       state.module.globals.defs.size()) {
       parseErrorf(state, state.nextToken, "import declarations must precede all definitions");
    }
 }
@@ -176,8 +172,7 @@ static void parseImport(ModuleParseState& state) {
 
             // Resolve the function import type after all type declarations have been parsed.
             state.postTypeCallbacks.push_back([unresolvedFunctionType, importIndex](ModuleParseState& state) {
-               state.module.functions.imports[importIndex].type =
-                  resolveFunctionType(state, unresolvedFunctionType);
+               state.module.functions.imports[importIndex].type = resolveFunctionType(state, unresolvedFunctionType);
             });
             break;
          }
@@ -287,8 +282,7 @@ static void parseType(ModuleParseState& state) {
 
       NameToIndexMap           parameterNameToIndexMap;
       std::vector<std::string> localDisassemblyNames;
-      const FunctionType*      functionType =
-         parseFunctionType(state, parameterNameToIndexMap, localDisassemblyNames);
+      const FunctionType*      functionType = parseFunctionType(state, parameterNameToIndexMap, localDisassemblyNames);
 
       Uptr functionTypeIndex = state.module.types.size();
       state.module.types.push_back(functionType);
@@ -320,17 +314,14 @@ static void parseData(ModuleParseState& state) {
    const Uptr      dataSegmentIndex = state.module.dataSegments.size();
    state.module.dataSegments.push_back({ UINTPTR_MAX, baseAddress, std::move(dataVector) });
 
-   // Enqueue a callback that is called after all declarations are parsed to resolve the memory to put the
-   // data segment in.
+   // Enqueue a callback that is called after all declarations are parsed to resolve the memory to put the data segment
+   // in.
    state.postDeclarationCallbacks.push_back([=](ModuleParseState& state) {
       if (!state.module.memories.size()) {
-         parseErrorf(
-            state, firstToken, "data segments aren't allowed in modules without any memory declarations");
+         parseErrorf(state, firstToken, "data segments aren't allowed in modules without any memory declarations");
       } else {
          state.module.dataSegments[dataSegmentIndex].memoryIndex =
-            hasMemoryRef
-               ? resolveRef(state, state.memoryNameToIndexMap, state.module.memories.size(), memoryRef)
-               : 0;
+            hasMemoryRef ? resolveRef(state, state.memoryNameToIndexMap, state.module.memories.size(), memoryRef) : 0;
       }
    });
 }
@@ -339,8 +330,8 @@ static Uptr parseElemSegmentBody(ModuleParseState&     state,
                                  Reference             tableRef,
                                  InitializerExpression baseIndex,
                                  const Token*          elemToken) {
-   // Allocate the elementReferences array on the heap so it doesn't need to be copied for the
-   // post-declaration callback.
+   // Allocate the elementReferences array on the heap so it doesn't need to be copied for the post-declaration
+   // callback.
    std::vector<Reference>* elementReferences = new std::vector<Reference>();
 
    Reference elementRef;
@@ -352,13 +343,11 @@ static Uptr parseElemSegmentBody(ModuleParseState&     state,
    const Uptr tableSegmentIndex = state.module.tableSegments.size();
    state.module.tableSegments.push_back({ UINTPTR_MAX, baseIndex, std::vector<Uptr>() });
 
-   // Enqueue a callback that is called after all declarations are parsed to resolve the table elements'
-   // references.
+   // Enqueue a callback that is called after all declarations are parsed to resolve the table elements' references.
    state.postDeclarationCallbacks.push_back([tableRef, tableSegmentIndex, elementReferences, elemToken](
                                                ModuleParseState& state) {
       if (!state.module.tables.size()) {
-         parseErrorf(
-            state, elemToken, "data segments aren't allowed in modules without any memory declarations");
+         parseErrorf(state, elemToken, "data segments aren't allowed in modules without any memory declarations");
       } else {
          TableSegment& tableSegment = state.module.tableSegments[tableSegmentIndex];
          tableSegment.tableIndex =
@@ -366,10 +355,8 @@ static Uptr parseElemSegmentBody(ModuleParseState&     state,
 
          tableSegment.indices.resize(elementReferences->size());
          for (Uptr elementIndex = 0; elementIndex < elementReferences->size(); ++elementIndex) {
-            tableSegment.indices[elementIndex] = resolveRef(state,
-                                                            state.functionNameToIndexMap,
-                                                            state.module.functions.size(),
-                                                            (*elementReferences)[elementIndex]);
+            tableSegment.indices[elementIndex] = resolveRef(
+               state, state.functionNameToIndexMap, state.module.functions.size(), (*elementReferences)[elementIndex]);
          }
       }
 
@@ -464,8 +451,7 @@ static void parseFunc(ModuleParseState& state) {
          // Resolve the function import type after all type declarations have been parsed.
          const Uptr importIndex = state.module.functions.imports.size();
          state.postTypeCallbacks.push_back([unresolvedFunctionType, importIndex](ModuleParseState& state) {
-            state.module.functions.imports[importIndex].type =
-               resolveFunctionType(state, unresolvedFunctionType);
+            state.module.functions.imports[importIndex].type = resolveFunctionType(state, unresolvedFunctionType);
          });
          return IndexedFunctionType{ UINT32_MAX };
       },
@@ -497,8 +483,8 @@ static void parseTable(ModuleParseState& state) {
          const TableElementType elementType = TableElementType::anyfunc;
          require(state, t_anyfunc);
 
-         // If we couldn't parse an explicit size constraints, the table definition must contain an table
-         // segment that implicitly defines the size.
+         // If we couldn't parse an explicit size constraints, the table definition must contain an table segment that
+         // implicitly defines the size.
          if (!hasSizeConstraints) {
             parseParenthesized(state, [&] {
                require(state, t_elem);
@@ -542,8 +528,7 @@ static void parseMemory(ModuleParseState& state) {
                while (tryParseString(state, dataString)) {};
             });
 
-            std::vector<U8> dataVector((const U8*)dataString.data(),
-                                       (const U8*)dataString.data() + dataString.size());
+            std::vector<U8> dataVector((const U8*)dataString.data(), (const U8*)dataString.data() + dataString.size());
             sizeConstraints.min = sizeConstraints.max =
                (dataVector.size() + IR::numBytesPerPage - 1) / IR::numBytesPerPage;
             state.module.dataSegments.push_back(
@@ -566,9 +551,8 @@ static void parseGlobal(ModuleParseState& state) {
                           parseGlobalType,
                           // Parse a global definition
                           [](ModuleParseState& state, const Token*) {
-                             const GlobalType            globalType = parseGlobalType(state);
-                             const InitializerExpression initializerExpression =
-                                parseInitializerExpression(state);
+                             const GlobalType            globalType            = parseGlobalType(state);
+                             const InitializerExpression initializerExpression = parseInitializerExpression(state);
                              return GlobalDef{ globalType, initializerExpression };
                           });
 }
@@ -647,10 +631,7 @@ void parseModuleBody(ModuleParseState& state) {
    IR::setDisassemblyNames(state.module, state.disassemblyNames);
 }
 
-bool parseModule(const char*         string,
-                 Uptr                stringLength,
-                 IR::Module&         outModule,
-                 std::vector<Error>& outErrors) {
+bool parseModule(const char* string, Uptr stringLength, IR::Module& outModule, std::vector<Error>& outErrors) {
    Timing::Timer timer;
 
    // Lex the string.

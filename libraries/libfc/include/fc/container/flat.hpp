@@ -134,8 +134,7 @@ void to_variant(const boost::container::vector<char, U...>& vec, fc::variant& vo
 template<typename... U>
 void from_variant(const fc::variant& v, boost::container::vector<char, U...>& vec) {
    const auto& str = v.get_string();
-   FC_ASSERT(str.size() <=
-             2 * MAX_SIZE_OF_BYTE_ARRAYS); // Doubled because hex strings needs two characters per byte
+   FC_ASSERT(str.size() <= 2 * MAX_SIZE_OF_BYTE_ARRAYS); // Doubled because hex strings needs two characters per byte
    vec.resize(str.size() / 2);
    if (vec.size()) {
       size_t r = fc::from_hex(str, vec.data(), vec.size());

@@ -31,18 +31,16 @@ int main(int argc, char* argv[]) {
    bool                     fetch_traces      = false;
    bool                     fetch_deltas      = false;
 
-   cli.add_options()(
-      "help,h", bpo::bool_switch(&help)->default_value(false), "Print this help message and exit.")(
+   cli.add_options()("help,h", bpo::bool_switch(&help)->default_value(false), "Print this help message and exit.")(
       "socket-address,a",
       bpo::value<std::string>(&socket_address)->default_value(socket_address),
       "Websocket address and port.")("start-block-num",
                                      bpo::value<uint32_t>(&start_block_num)->default_value(start_block_num),
                                      "Block to start streaming from")(
-      "end-block-num",
-      bpo::value<uint32_t>(&end_block_num)->default_value(end_block_num),
-      "Block to stop streaming")("irreversible-only",
-                                 bpo::bool_switch(&irreversible_only)->default_value(irreversible_only),
-                                 "Irreversible blocks only")(
+      "end-block-num", bpo::value<uint32_t>(&end_block_num)->default_value(end_block_num), "Block to stop streaming")(
+      "irreversible-only",
+      bpo::bool_switch(&irreversible_only)->default_value(irreversible_only),
+      "Irreversible blocks only")(
       "fetch-block", bpo::bool_switch(&fetch_block)->default_value(fetch_block), "Fetch blocks")(
       "fetch-traces", bpo::bool_switch(&fetch_traces)->default_value(fetch_traces), "Fetch traces")(
       "fetch-deltas", bpo::bool_switch(&fetch_deltas)->default_value(fetch_deltas), "Fetch deltas");
@@ -133,8 +131,7 @@ int main(int argc, char* argv[]) {
          eosio::check(result_doucment[1].IsObject(), "second item in result array is not an object");
          eosio::check(result_doucment[1].HasMember("head"), "cannot find 'head' in result");
          eosio::check(result_doucment[1]["head"].IsObject(), "'head' is not an object");
-         eosio::check(result_doucment[1]["head"].HasMember("block_num"),
-                      "'head' does not contain 'block_num'");
+         eosio::check(result_doucment[1]["head"].HasMember("block_num"), "'head' does not contain 'block_num'");
          eosio::check(result_doucment[1]["head"]["block_num"].IsUint(), "'head.block_num' isn't a number");
 
          uint32_t this_block_num = 0;

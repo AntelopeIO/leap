@@ -58,8 +58,7 @@ extern "C" {
 #endif
 
 #ifndef PICOJSON_USE_RVALUE_REFERENCE
-#if (defined(__cpp_rvalue_references) && __cpp_rvalue_references >= 200610) ||                               \
-   (defined(_MSC_VER) && _MSC_VER >= 1600)
+#if (defined(__cpp_rvalue_references) && __cpp_rvalue_references >= 200610) || (defined(_MSC_VER) && _MSC_VER >= 1600)
 #define PICOJSON_USE_RVALUE_REFERENCE 1
 #else
 #define PICOJSON_USE_RVALUE_REFERENCE 0
@@ -92,10 +91,10 @@ extern "C" {
 #endif
 
 #ifndef PICOJSON_ASSERT
-#define PICOJSON_ASSERT(e)                                                                                   \
-   do {                                                                                                      \
-      if (!(e))                                                                                              \
-         throw std::runtime_error(#e);                                                                       \
+#define PICOJSON_ASSERT(e)                                                                                             \
+   do {                                                                                                                \
+      if (!(e))                                                                                                        \
+         throw std::runtime_error(#e);                                                                                 \
    } while (0)
 #endif
 
@@ -220,7 +219,7 @@ inline value::value(int type, bool)
    : type_(type)
    , u_() {
    switch (type) {
-#define INIT(p, v)                                                                                           \
+#define INIT(p, v)                                                                                                     \
    case p##type: u_.p = v; break
       INIT(boolean_, false);
       INIT(number_, 0.0);
@@ -318,7 +317,7 @@ inline value::value(const char* s, size_t len)
 
 inline void value::clear() {
    switch (type_) {
-#define DEINIT(p)                                                                                            \
+#define DEINIT(p)                                                                                                      \
    case p##type: delete u_.p; break
       DEINIT(string_);
       DEINIT(array_);
@@ -336,7 +335,7 @@ inline value::value(const value& x)
    : type_(x.type_)
    , u_() {
    switch (type_) {
-#define INIT(p, v)                                                                                           \
+#define INIT(p, v)                                                                                                     \
    case p##type: u_.p = v; break
       INIT(string_, new std::string(*x.u_.string_));
       INIT(array_, new array(*x.u_.array_));
@@ -370,10 +369,10 @@ inline void value::swap(value& x) PICOJSON_NOEXCEPT {
    std::swap(u_, x.u_);
 }
 
-#define IS(ctype, jtype)                                                                                     \
-   template<>                                                                                                \
-   inline bool value::is<ctype>() const {                                                                    \
-      return type_ == jtype##_type;                                                                          \
+#define IS(ctype, jtype)                                                                                               \
+   template<>                                                                                                          \
+   inline bool value::is<ctype>() const {                                                                              \
+      return type_ == jtype##_type;                                                                                    \
    }
 IS(null, null)
 IS(bool, boolean)
@@ -393,16 +392,16 @@ inline bool value::is<double>() const {
       ;
 }
 
-#define GET(ctype, var)                                                                                      \
-   template<>                                                                                                \
-   inline const ctype& value::get<ctype>() const {                                                           \
-      PICOJSON_ASSERT("type mismatch! call is<type>() before get<type>()" && is<ctype>());                   \
-      return var;                                                                                            \
-   }                                                                                                         \
-   template<>                                                                                                \
-   inline ctype& value::get<ctype>() {                                                                       \
-      PICOJSON_ASSERT("type mismatch! call is<type>() before get<type>()" && is<ctype>());                   \
-      return var;                                                                                            \
+#define GET(ctype, var)                                                                                                \
+   template<>                                                                                                          \
+   inline const ctype& value::get<ctype>() const {                                                                     \
+      PICOJSON_ASSERT("type mismatch! call is<type>() before get<type>()" && is<ctype>());                             \
+      return var;                                                                                                      \
+   }                                                                                                                   \
+   template<>                                                                                                          \
+   inline ctype& value::get<ctype>() {                                                                                 \
+      PICOJSON_ASSERT("type mismatch! call is<type>() before get<type>()" && is<ctype>());                             \
+      return var;                                                                                                      \
    }
 GET(bool, u_.boolean_)
 GET(std::string, *u_.string_)
@@ -419,12 +418,12 @@ GET(double, u_.number_)
 #endif
 #undef GET
 
-#define SET(ctype, jtype, setter)                                                                            \
-   template<>                                                                                                \
-   inline void value::set<ctype>(const ctype& _val) {                                                        \
-      clear();                                                                                               \
-      type_ = jtype##_type;                                                                                  \
-      setter                                                                                                 \
+#define SET(ctype, jtype, setter)                                                                                      \
+   template<>                                                                                                          \
+   inline void value::set<ctype>(const ctype& _val) {                                                                  \
+      clear();                                                                                                         \
+      type_ = jtype##_type;                                                                                            \
+      setter                                                                                                           \
    }
 SET(bool, boolean, u_.boolean_ = _val;)
 SET(std::string, string, u_.string_ = new std::string(_val);)
@@ -437,12 +436,12 @@ SET(int64_t, int64, u_.int64_ = _val;)
 #undef SET
 
 #if PICOJSON_USE_RVALUE_REFERENCE
-#define MOVESET(ctype, jtype, setter)                                                                        \
-   template<>                                                                                                \
-   inline void value::set<ctype>(ctype && _val) {                                                            \
-      clear();                                                                                               \
-      type_ = jtype##_type;                                                                                  \
-      setter                                                                                                 \
+#define MOVESET(ctype, jtype, setter)                                                                                  \
+   template<>                                                                                                          \
+   inline void value::set<ctype>(ctype && _val) {                                                                      \
+      clear();                                                                                                         \
+      type_ = jtype##_type;                                                                                            \
+      setter                                                                                                           \
    }
 MOVESET(std::string, string, u_.string_ = new std::string(std::move(_val));)
 MOVESET(array, array, u_.array_ = new array(std::move(_val));)
@@ -552,7 +551,7 @@ struct serialize_str_char {
    Iter oi;
    void operator()(char c) {
       switch (c) {
-#define MAP(val, sym)                                                                                        \
+#define MAP(val, sym)                                                                                                  \
    case val: copy(sym, oi); break
          MAP('"', "\\\"");
          MAP('\\', "\\\\");
@@ -812,7 +811,7 @@ inline bool _parse_string(String& out, input<Iter>& in) {
             return false;
          }
          switch (ch) {
-#define MAP(sym, val)                                                                                        \
+#define MAP(sym, val)                                                                                                  \
    case sym: out.push_back(val); break
             MAP('"', '\"');
             MAP('\\', '\\');
@@ -901,12 +900,12 @@ inline bool _parse(Context& ctx, input<Iter>& in) {
    in.skip_ws();
    int ch = in.getc();
    switch (ch) {
-#define IS(ch, text, op)                                                                                     \
-   case ch:                                                                                                  \
-      if (in.match(text) && op) {                                                                            \
-         return true;                                                                                        \
-      } else {                                                                                               \
-         return false;                                                                                       \
+#define IS(ch, text, op)                                                                                               \
+   case ch:                                                                                                            \
+      if (in.match(text) && op) {                                                                                      \
+         return true;                                                                                                  \
+      } else {                                                                                                         \
+         return false;                                                                                                 \
       }
       IS('n', "ull", ctx.set_null());
       IS('f', "alse", ctx.set_bool(false));
@@ -1152,8 +1151,8 @@ inline const std::string& get_last_error() {
 inline bool operator==(const value& x, const value& y) {
    if (x.is<null>())
       return y.is<null>();
-#define PICOJSON_CMP(type)                                                                                   \
-   if (x.is<type>())                                                                                         \
+#define PICOJSON_CMP(type)                                                                                             \
+   if (x.is<type>())                                                                                                   \
    return y.is<type>() && x.get<type>() == y.get<type>()
    PICOJSON_CMP(bool);
    PICOJSON_CMP(double);

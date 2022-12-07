@@ -109,8 +109,7 @@ void copy_row(const chain::key_value_object& obj, vector<char>& data) {
    memcpy(data.data(), obj.value.data(), obj.value.size());
 }
 
-protocol_feature_set make_protocol_feature_set(
-   const subjective_restriction_map& custom_subjective_restrictions) {
+protocol_feature_set make_protocol_feature_set(const subjective_restriction_map& custom_subjective_restrictions) {
    protocol_feature_set pfs;
 
    map<builtin_protocol_feature_t, std::optional<digest_type>> visited_builtins;
@@ -155,8 +154,7 @@ void base_tester::init(const setup_policy      policy,
                        db_read_mode            read_mode,
                        std::optional<uint32_t> genesis_max_inline_action_size,
                        std::optional<uint32_t> config_max_nonprivileged_inline_action_size) {
-   auto def_conf =
-      default_config(tempdir, genesis_max_inline_action_size, config_max_nonprivileged_inline_action_size);
+   auto def_conf = default_config(tempdir, genesis_max_inline_action_size, config_max_nonprivileged_inline_action_size);
    def_conf.first.read_mode = read_mode;
    cfg                      = def_conf.first;
 
@@ -179,9 +177,7 @@ void base_tester::init(controller::config config) {
    open(default_genesis().compute_chain_id());
 }
 
-void base_tester::init(controller::config         config,
-                       protocol_feature_set&&     pfs,
-                       const snapshot_reader_ptr& snapshot) {
+void base_tester::init(controller::config config, protocol_feature_set&& pfs, const snapshot_reader_ptr& snapshot) {
    cfg = config;
    open(std::move(pfs), snapshot);
 }
@@ -200,8 +196,7 @@ void base_tester::execute_setup_policy(const setup_policy policy) {
    const auto& pfm = control->get_protocol_feature_manager();
 
    auto schedule_preactivate_protocol_feature = [&]() {
-      auto preactivate_feature_digest =
-         pfm.get_builtin_digest(builtin_protocol_feature_t::preactivate_feature);
+      auto preactivate_feature_digest = pfm.get_builtin_digest(builtin_protocol_feature_t::preactivate_feature);
       FC_ASSERT(preactivate_feature_digest, "PREACTIVATE_FEATURE not found");
       schedule_protocol_features_wo_preactivation({ *preactivate_feature_digest });
    };
@@ -361,16 +356,11 @@ signed_block_ptr base_tester::_produce_block(fc::microseconds                   
 
    if (!skip_pending_trxs) {
       for (auto itr = unapplied_transactions.begin(); itr != unapplied_transactions.end();) {
-         auto trace = control->push_transaction(itr->trx_meta,
-                                                fc::time_point::maximum(),
-                                                fc::microseconds::maximum(),
-                                                DEFAULT_BILLED_CPU_TIME_US,
-                                                true,
-                                                0);
+         auto trace = control->push_transaction(
+            itr->trx_meta, fc::time_point::maximum(), fc::microseconds::maximum(), DEFAULT_BILLED_CPU_TIME_US, true, 0);
          traces.emplace_back(trace);
          if (!no_throw && trace->except) {
-            // this always throws an fc::exception, since the original exception is copied into an
-            // fc::exception
+            // this always throws an fc::exception, since the original exception is copied into an fc::exception
             trace->except->dynamic_rethrow_exception();
          }
          itr = unapplied_transactions.erase(itr);
@@ -383,8 +373,7 @@ signed_block_ptr base_tester::_produce_block(fc::microseconds                   
                trx, fc::time_point::maximum(), fc::microseconds::maximum(), DEFAULT_BILLED_CPU_TIME_US, true);
             traces.emplace_back(trace);
             if (!no_throw && trace->except) {
-               // this always throws an fc::exception, since the original exception is copied into an
-               // fc::exception
+               // this always throws an fc::exception, since the original exception is copied into an fc::exception
                trace->except->dynamic_rethrow_exception();
             }
          }
@@ -417,17 +406,15 @@ void base_tester::_start_block(fc::time_point block_time) {
                                   protocol_features_to_be_activated_wo_preactivation.end());
    // Then add protocol features to be activated WITH preactivation
    const auto preactivated_protocol_features = control->get_preactivated_protocol_features();
-   feature_to_be_activated.insert(feature_to_be_activated.end(),
-                                  preactivated_protocol_features.begin(),
-                                  preactivated_protocol_features.end());
+   feature_to_be_activated.insert(
+      feature_to_be_activated.end(), preactivated_protocol_features.begin(), preactivated_protocol_features.end());
 
    control->start_block(block_time,
                         head_block_number - last_produced_block_num,
                         feature_to_be_activated,
                         controller::block_status::incomplete);
 
-   // Clear the list, if start block finishes successfuly, the protocol features should be assumed to be
-   // activated
+   // Clear the list, if start block finishes successfuly, the protocol features should be assumed to be activated
    protocol_features_to_be_activated_wo_preactivation.clear();
 }
 
@@ -506,8 +493,7 @@ void base_tester::produce_blocks_for_n_rounds(const uint32_t num_of_rounds) {
    }
 }
 
-void base_tester::produce_min_num_of_blocks_to_spend_time_wo_inactive_prod(
-   const fc::microseconds target_elapsed_time) {
+void base_tester::produce_min_num_of_blocks_to_spend_time_wo_inactive_prod(const fc::microseconds target_elapsed_time) {
    fc::microseconds elapsed_time;
    while (elapsed_time < target_elapsed_time) {
       for (uint32_t i = 0; i < control->head_block_state()->active_schedule.producers.size(); i++) {
@@ -599,15 +585,11 @@ transaction_trace_ptr base_tester::push_transaction(packed_transaction& trx,
          _start_block(control->head_block_time() + fc::microseconds(config::block_interval_us));
 
       auto ptrx       = std::make_shared<packed_transaction>(trx);
-      auto time_limit = deadline == fc::time_point::maximum()
-                           ? fc::microseconds::maximum()
-                           : fc::microseconds(deadline - fc::time_point::now());
-      auto fut        = transaction_metadata::start_recover_keys(ptrx,
-                                                          control->get_thread_pool(),
-                                                          control->get_chain_id(),
-                                                          time_limit,
-                                                          transaction_metadata::trx_type::input);
-      auto r          = control->push_transaction(
+      auto time_limit = deadline == fc::time_point::maximum() ? fc::microseconds::maximum()
+                                                              : fc::microseconds(deadline - fc::time_point::now());
+      auto fut        = transaction_metadata::start_recover_keys(
+         ptrx, control->get_thread_pool(), control->get_chain_id(), time_limit, transaction_metadata::trx_type::input);
+      auto r = control->push_transaction(
          fut.get(), deadline, fc::microseconds::maximum(), billed_cpu_time_us, billed_cpu_time_us > 0, 0);
       if (r->except_ptr)
          std::rethrow_exception(r->except_ptr);
@@ -615,8 +597,7 @@ transaction_trace_ptr base_tester::push_transaction(packed_transaction& trx,
          throw *r->except;
       return r;
    }
-   FC_RETHROW_EXCEPTIONS(
-      warn, "transaction_header: ${header}", ("header", transaction_header(trx.get_transaction())))
+   FC_RETHROW_EXCEPTIONS(warn, "transaction_header: ${header}", ("header", transaction_header(trx.get_transaction())))
 }
 
 transaction_trace_ptr base_tester::push_transaction(signed_transaction& trx,
@@ -632,16 +613,12 @@ transaction_trace_ptr base_tester::push_transaction(signed_transaction& trx,
          c = packed_transaction::compression_type::zlib;
       }
 
-      auto time_limit = deadline == fc::time_point::maximum()
-                           ? fc::microseconds::maximum()
-                           : fc::microseconds(deadline - fc::time_point::now());
+      auto time_limit = deadline == fc::time_point::maximum() ? fc::microseconds::maximum()
+                                                              : fc::microseconds(deadline - fc::time_point::now());
       auto ptrx       = std::make_shared<packed_transaction>(trx, c);
-      auto fut        = transaction_metadata::start_recover_keys(ptrx,
-                                                          control->get_thread_pool(),
-                                                          control->get_chain_id(),
-                                                          time_limit,
-                                                          transaction_metadata::trx_type::input);
-      auto r          = control->push_transaction(
+      auto fut        = transaction_metadata::start_recover_keys(
+         ptrx, control->get_thread_pool(), control->get_chain_id(), time_limit, transaction_metadata::trx_type::input);
+      auto r = control->push_transaction(
          fut.get(), deadline, fc::microseconds::maximum(), billed_cpu_time_us, billed_cpu_time_us > 0, 0);
       if (no_throw)
          return r;
@@ -745,8 +722,8 @@ action base_tester::get_action(account_name             code,
       act.account       = code;
       act.name          = acttype;
       act.authorization = auths;
-      act.data          = abis.variant_to_binary(
-         action_type_name, data, abi_serializer::create_yield_function(abi_serializer_max_time));
+      act.data =
+         abis.variant_to_binary(action_type_name, data, abi_serializer::create_yield_function(abi_serializer_max_time));
       return act;
    }
    FC_CAPTURE_AND_RETHROW()
@@ -757,8 +734,8 @@ transaction_trace_ptr base_tester::push_reqauth(account_name                    
                                                 const vector<private_key_type>& keys) {
    fc::variant pretty_trx = fc::mutable_variant_object()(
       "actions",
-      fc::variants({ fc::mutable_variant_object()("account", name(config::system_account_name))(
-         "name", "reqauth")("authorization", auths)("data", fc::mutable_variant_object()("from", from)) }));
+      fc::variants({ fc::mutable_variant_object()("account", name(config::system_account_name))("name", "reqauth")(
+         "authorization", auths)("data", fc::mutable_variant_object()("from", from)) }));
 
    signed_transaction trx;
    abi_serializer::from_variant(
@@ -777,31 +754,26 @@ transaction_trace_ptr base_tester::push_reqauth(account_name from, string role, 
       },
                           { get_private_key(from, role) });
    } else {
-      return push_reqauth(
-         from,
-         vector<permission_level>{
-            {from, config::owner_name}
+      return push_reqauth(from,
+                          vector<permission_level>{
+                             {from, config::owner_name}
       },
-         { get_private_key(from, role), get_private_key(config::system_account_name, "active") });
+                          { get_private_key(from, role), get_private_key(config::system_account_name, "active") });
    }
 }
 
-transaction_trace_ptr base_tester::push_dummy(account_name  from,
-                                              const string& v,
-                                              uint32_t      billed_cpu_time_us) {
+transaction_trace_ptr base_tester::push_dummy(account_name from, const string& v, uint32_t billed_cpu_time_us) {
    // use reqauth for a normal action, this could be anything
    fc::variant pretty_trx = fc::mutable_variant_object()(
       "actions",
-      fc::variants({ fc::mutable_variant_object()("account", name(config::system_account_name))(
-         "name", "reqauth")("authorization",
-                            fc::variants({ fc::mutable_variant_object()("actor", from)(
-                               "permission", name(config::active_name)) }))(
+      fc::variants({ fc::mutable_variant_object()("account", name(config::system_account_name))("name", "reqauth")(
+         "authorization",
+         fc::variants({ fc::mutable_variant_object()("actor", from)("permission", name(config::active_name)) }))(
          "data", fc::mutable_variant_object()("from", from)) }))
-      // lets also push a context free action, the multi chain test will then also include a context free
-      // action
+      // lets also push a context free action, the multi chain test will then also include a context free action
       ("context_free_actions",
-       fc::variants({ fc::mutable_variant_object()("account", name(config::null_account_name))(
-          "name", "nonce")("data", fc::raw::pack(v)) }));
+       fc::variants({ fc::mutable_variant_object()("account", name(config::null_account_name))("name", "nonce")(
+          "data", fc::raw::pack(v)) }));
 
    signed_transaction trx;
    abi_serializer::from_variant(
@@ -829,8 +801,7 @@ transaction_trace_ptr base_tester::transfer(account_name from,
       "actions",
       fc::variants({ fc::mutable_variant_object()("account", currency)("name", "transfer")(
          "authorization",
-         fc::variants(
-            { fc::mutable_variant_object()("actor", from)("permission", name(config::active_name)) }))(
+         fc::variants({ fc::mutable_variant_object()("actor", from)("permission", name(config::active_name)) }))(
          "data", fc::mutable_variant_object()("from", from)("to", to)("quantity", amount)("memo", memo)) }));
 
    signed_transaction trx;
@@ -847,8 +818,7 @@ transaction_trace_ptr base_tester::issue(account_name to, string amount, account
       "actions",
       fc::variants({ fc::mutable_variant_object()("account", currency)("name", "issue")(
          "authorization",
-         fc::variants(
-            { fc::mutable_variant_object()("actor", currency)("permission", name(config::active_name)) }))(
+         fc::variants({ fc::mutable_variant_object()("actor", currency)("permission", name(config::active_name)) }))(
          "data", fc::mutable_variant_object()("to", to)("quantity", amount)("memo", memo)) }));
 
    signed_transaction trx;
@@ -860,10 +830,7 @@ transaction_trace_ptr base_tester::issue(account_name to, string amount, account
    return push_transaction(trx);
 }
 
-void base_tester::link_authority(account_name    account,
-                                 account_name    code,
-                                 permission_name req,
-                                 action_name     type) {
+void base_tester::link_authority(account_name account, account_name code, permission_name req, action_name type) {
    signed_transaction trx;
 
    trx.actions.emplace_back(
@@ -918,10 +885,7 @@ void base_tester::set_authority(account_name                    account,
    FC_CAPTURE_AND_RETHROW((account)(perm)(auth)(parent))
 }
 
-void base_tester::set_authority(account_name    account,
-                                permission_name perm,
-                                authority       auth,
-                                permission_name parent) {
+void base_tester::set_authority(account_name account, permission_name perm, authority auth, permission_name parent) {
    set_authority(account,
                  perm,
                  auth,
@@ -964,9 +928,7 @@ void base_tester::set_code(account_name account, const char* wast, const private
 }
 FC_CAPTURE_AND_RETHROW((account))
 
-void base_tester::set_code(account_name            account,
-                           const vector<uint8_t>   wasm,
-                           const private_key_type* signer) try {
+void base_tester::set_code(account_name account, const vector<uint8_t> wasm, const private_key_type* signer) try {
    signed_transaction trx;
    trx.actions.emplace_back(
       vector<permission_level>{
@@ -1035,10 +997,7 @@ asset base_tester::get_currency_balance(const account_name& code,
    return asset(result, asset_symbol);
 }
 
-vector<char> base_tester::get_row_by_account(name                code,
-                                             name                scope,
-                                             name                table,
-                                             const account_name& act) const {
+vector<char> base_tester::get_row_by_account(name code, name scope, name table, const account_name& act) const {
    vector<char> data;
    const auto&  db = control->db();
    const auto*  t_id =
@@ -1103,11 +1062,10 @@ void base_tester::sync_with(base_tester& other) {
             auto bsf = b.control->create_block_state_future(block->calculate_id(), block);
             b.control->abort_block();
             controller::block_report br;
-            b.control->push_block(
-               br,
-               bsf,
-               forked_branch_callback{},
-               trx_meta_cache_lookup{}); //, eosio::chain::validation_steps::created_block);
+            b.control->push_block(br,
+                                  bsf,
+                                  forked_branch_callback{},
+                                  trx_meta_cache_lookup{}); //, eosio::chain::validation_steps::created_block);
          }
       }
    };
@@ -1131,14 +1089,12 @@ void base_tester::set_bios_contract() {
    set_abi(config::system_account_name, contracts::eosio_bios_abi().data());
 }
 
-vector<producer_authority> base_tester::get_producer_authorities(
-   const vector<account_name>& producer_names) const {
+vector<producer_authority> base_tester::get_producer_authorities(const vector<account_name>& producer_names) const {
    // Create producer schedule
    vector<producer_authority> schedule;
    for (auto& producer_name : producer_names) {
       schedule.emplace_back(producer_authority{
-         producer_name,
-         block_signing_authority_v0{1, { { get_public_key(producer_name, "active"), 1 } }}
+         producer_name, block_signing_authority_v0{1, { { get_public_key(producer_name, "active"), 1 } }}
       });
    }
    return schedule;
@@ -1191,9 +1147,7 @@ const table_id_object* base_tester::find_table(name code, name scope, name table
 
 void base_tester::schedule_protocol_features_wo_preactivation(const vector<digest_type> feature_digests) {
    protocol_features_to_be_activated_wo_preactivation.insert(
-      protocol_features_to_be_activated_wo_preactivation.end(),
-      feature_digests.begin(),
-      feature_digests.end());
+      protocol_features_to_be_activated_wo_preactivation.end(), feature_digests.begin(), feature_digests.end());
 }
 
 void base_tester::preactivate_protocol_features(const vector<digest_type> feature_digests) {
@@ -1224,9 +1178,8 @@ void base_tester::preactivate_all_builtin_protocol_features() {
    const auto& pfs               = pfm.get_protocol_feature_set();
    const auto  current_block_num = control->head_block_num() + (control->is_building_block() ? 1 : 0);
    const auto  current_block_time =
-      (control->is_building_block()
-          ? control->pending_block_time()
-          : control->head_block_time() + fc::milliseconds(config::block_interval_ms));
+      (control->is_building_block() ? control->pending_block_time()
+                                    : control->head_block_time() + fc::milliseconds(config::block_interval_ms));
 
    set<digest_type>    preactivation_set;
    vector<digest_type> preactivations;
@@ -1339,8 +1292,8 @@ bool eosio_assert_code_is::operator()(const eosio_assert_code_exception& ex) {
    return match;
 }
 
-const std::string mock::webauthn_private_key::_origin = "mock.webauthn.invalid";
-const sha256 mock::webauthn_private_key::_origin_hash = fc::sha256::hash(mock::webauthn_private_key::_origin);
+const std::string mock::webauthn_private_key::_origin      = "mock.webauthn.invalid";
+const sha256      mock::webauthn_private_key::_origin_hash = fc::sha256::hash(mock::webauthn_private_key::_origin);
 }
 } /// eosio::testing
 

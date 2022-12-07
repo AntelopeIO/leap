@@ -43,10 +43,8 @@ struct elastic_limit_parameters {
    void validate() const; // throws if the parameters do not satisfy basic sanity checks
 
    friend inline bool operator==(const elastic_limit_parameters& lhs, const elastic_limit_parameters& rhs) {
-      return std::tie(
-                lhs.target, lhs.max, lhs.periods, lhs.max_multiplier, lhs.contract_rate, lhs.expand_rate) ==
-             std::tie(
-                rhs.target, rhs.max, rhs.periods, rhs.max_multiplier, rhs.contract_rate, rhs.expand_rate);
+      return std::tie(lhs.target, lhs.max, lhs.periods, lhs.max_multiplier, lhs.contract_rate, lhs.expand_rate) ==
+             std::tie(rhs.target, rhs.max, rhs.periods, rhs.max_multiplier, rhs.contract_rate, rhs.expand_rate);
    }
 
    friend inline bool operator!=(const elastic_limit_parameters& lhs, const elastic_limit_parameters& rhs) {
@@ -55,17 +53,16 @@ struct elastic_limit_parameters {
 };
 
 struct account_resource_limit {
-   int64_t used      = 0; ///< quantity used in current window
-   int64_t available = 0; ///< quantity available in current window (based upon fractional reserve)
-   int64_t max       = 0; ///< max per window under current congestion
+   int64_t              used      = 0; ///< quantity used in current window
+   int64_t              available = 0; ///< quantity available in current window (based upon fractional reserve)
+   int64_t              max       = 0; ///< max per window under current congestion
    block_timestamp_type last_usage_update_time; ///< last usage timestamp
    int64_t              current_used = 0;       ///< current usage according to the given timestamp
 };
 
 class resource_limits_manager {
 public:
-   explicit resource_limits_manager(chainbase::database&                db,
-                                    std::function<deep_mind_handler*()> get_deep_mind_logger)
+   explicit resource_limits_manager(chainbase::database& db, std::function<deep_mind_handler*()> get_deep_mind_logger)
       : _db(db)
       , _get_deep_mind_logger(get_deep_mind_logger) {}
 
@@ -88,10 +85,7 @@ public:
    void verify_account_ram_usage(const account_name accunt) const;
 
    /// set_account_limits returns true if new ram_bytes limit is more restrictive than the previously set one
-   bool set_account_limits(const account_name& account,
-                           int64_t             ram_bytes,
-                           int64_t             net_weight,
-                           int64_t             cpu_weight);
+   bool set_account_limits(const account_name& account, int64_t ram_bytes, int64_t net_weight, int64_t cpu_weight);
    void get_account_limits(const account_name& account,
                            int64_t&            ram_bytes,
                            int64_t&            net_weight,

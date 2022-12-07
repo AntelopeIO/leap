@@ -46,9 +46,9 @@ auto create_test_block_state(deque<transaction_metadata_ptr> trx_metas) {
    auto priv_key = eosio::testing::base_tester::get_private_key(block->producer, "active");
    auto pub_key  = eosio::testing::base_tester::get_public_key(block->producer, "active");
 
-   auto prev          = std::make_shared<block_state>();
-   auto header_bmroot = digest_type::hash(std::make_pair(block->digest(), prev->blockroot_merkle.get_root()));
-   auto sig_digest = digest_type::hash(std::make_pair(header_bmroot, prev->pending_schedule.schedule_hash));
+   auto prev                 = std::make_shared<block_state>();
+   auto header_bmroot        = digest_type::hash(std::make_pair(block->digest(), prev->blockroot_merkle.get_root()));
+   auto sig_digest           = digest_type::hash(std::make_pair(header_bmroot, prev->pending_schedule.schedule_hash));
    block->producer_signature = priv_key.sign(sig_digest);
 
    vector<private_key_type> signing_keys;
@@ -82,9 +82,7 @@ auto create_test_block_state(deque<transaction_metadata_ptr> trx_metas) {
 }
 
 // given a current itr make sure expected number of items are iterated over
-void verify_order(unapplied_transaction_queue&          q,
-                  unapplied_transaction_queue::iterator itr,
-                  size_t                                expected) {
+void verify_order(unapplied_transaction_queue& q, unapplied_transaction_queue::iterator itr, size_t expected) {
    size_t                        size = 0;
    std::set<transaction_id_type> ids;
    for (; itr != q.end(); ++itr, ++size) {

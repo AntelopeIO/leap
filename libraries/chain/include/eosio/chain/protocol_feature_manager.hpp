@@ -50,10 +50,9 @@ struct builtin_protocol_feature_spec {
    protocol_feature_subjective_restrictions subjective_restrictions{ time_point{}, true, true };
 };
 
-extern const std::unordered_map<builtin_protocol_feature_t,
-                                builtin_protocol_feature_spec,
-                                enum_hash<builtin_protocol_feature_t>>
-   builtin_protocol_feature_codenames;
+extern const std::
+   unordered_map<builtin_protocol_feature_t, builtin_protocol_feature_spec, enum_hash<builtin_protocol_feature_t>>
+      builtin_protocol_feature_codenames;
 
 const char* builtin_protocol_feature_codename(builtin_protocol_feature_t);
 
@@ -122,13 +121,9 @@ struct protocol_feature {
       return lhs.feature_digest < rhs.feature_digest;
    }
 
-   friend bool operator<(const digest_type& lhs, const protocol_feature& rhs) {
-      return lhs < rhs.feature_digest;
-   }
+   friend bool operator<(const digest_type& lhs, const protocol_feature& rhs) { return lhs < rhs.feature_digest; }
 
-   friend bool operator<(const protocol_feature& lhs, const digest_type& rhs) {
-      return lhs.feature_digest < rhs;
-   }
+   friend bool operator<(const protocol_feature& lhs, const digest_type& rhs) { return lhs.feature_digest < rhs; }
 };
 
 class protocol_feature_set {
@@ -177,13 +172,9 @@ public:
    public:
       const_iterator() = default;
 
-      friend bool operator==(const const_iterator& lhs, const const_iterator& rhs) {
-         return (lhs._itr == rhs._itr);
-      }
+      friend bool operator==(const const_iterator& lhs, const const_iterator& rhs) { return (lhs._itr == rhs._itr); }
 
-      friend bool operator!=(const const_iterator& lhs, const const_iterator& rhs) {
-         return (lhs._itr != rhs._itr);
-      }
+      friend bool operator!=(const const_iterator& lhs, const const_iterator& rhs) { return (lhs._itr != rhs._itr); }
 
       const protocol_feature& operator*() const { return *get_pointer(); }
 
@@ -254,8 +245,7 @@ protected:
 
 class protocol_feature_manager {
 public:
-   protocol_feature_manager(protocol_feature_set&&              pfs,
-                            std::function<deep_mind_handler*()> get_deep_mind_logger);
+   protocol_feature_manager(protocol_feature_set&& pfs, std::function<deep_mind_handler*()> get_deep_mind_logger);
 
    class const_iterator {
    public:

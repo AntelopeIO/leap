@@ -38,8 +38,7 @@ flat_multimap<uint16_t, block_header_extension> block_header::validate_and_extra
                  invalid_block_header_extension,
                  "Block header extensions are not in the correct order (ascending id types required)");
 
-      auto iter =
-         results.emplace(std::piecewise_construct, std::forward_as_tuple(id), std::forward_as_tuple());
+      auto iter = results.emplace(std::piecewise_construct, std::forward_as_tuple(id), std::forward_as_tuple());
 
       auto match = decompose_t::extract<block_header_extension>(id, e.second, iter->second);
       EOS_ASSERT(match,

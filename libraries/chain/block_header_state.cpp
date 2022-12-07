@@ -25,8 +25,7 @@ uint32_t block_header_state::calc_dpos_last_irreversible(account_name producer_o
    vector<uint32_t> blocknums;
    blocknums.reserve(producer_to_last_implied_irb.size());
    for (auto& i : producer_to_last_implied_irb) {
-      blocknums.push_back((i.first == producer_of_next_block) ? dpos_proposed_irreversible_blocknum
-                                                              : i.second);
+      blocknums.push_back((i.first == producer_of_next_block) ? dpos_proposed_irreversible_blocknum : i.second);
    }
    /// 2/3 must be greater, so if I go 1/3 into the list sorted from low to high, then 2/3 are greater
 
@@ -55,8 +54,8 @@ pending_block_header_state block_header_state::next(block_timestamp_type when,
       EOS_ASSERT(itr->second < (block_num + 1) - num_prev_blocks_to_confirm,
                  producer_double_confirm,
                  "producer ${prod} double-confirming known range",
-                 ("prod", proauth.producer_name)("num", block_num + 1)(
-                    "confirmed", num_prev_blocks_to_confirm)("last_produced", itr->second));
+                 ("prod", proauth.producer_name)("num", block_num + 1)("confirmed", num_prev_blocks_to_confirm)(
+                    "last_produced", itr->second));
    }
 
    result.block_num                        = block_num + 1;
@@ -76,8 +75,8 @@ pending_block_header_state block_header_state::next(block_timestamp_type when,
    static_assert(std::numeric_limits<uint8_t>::max() >= (config::max_producers * 2 / 3) + 1,
                  "8bit confirmations may not be able to hold all of the needed confirmations");
 
-   // This uses the previous block active_schedule because thats the "schedule" that signs and therefore
-   // confirms _this_ block
+   // This uses the previous block active_schedule because thats the "schedule" that signs and therefore confirms _this_
+   // block
    auto     num_active_producers = active_schedule.producers.size();
    uint32_t required_confs       = (uint32_t)(num_active_producers * 2 / 3) + 1;
 
@@ -100,15 +99,14 @@ pending_block_header_state block_header_state::next(block_timestamp_type when,
       --result.confirm_count[i];
       // idump((confirm_count[i]));
       if (result.confirm_count[i] == 0) {
-         uint32_t block_num_for_i = result.block_num - (uint32_t)(result.confirm_count.size() - 1 - i);
+         uint32_t block_num_for_i                = result.block_num - (uint32_t)(result.confirm_count.size() - 1 - i);
          new_dpos_proposed_irreversible_blocknum = block_num_for_i;
          // idump((dpos2_lib)(block_num)(dpos_irreversible_blocknum));
 
          if (i == static_cast<int32_t>(result.confirm_count.size() - 1)) {
             result.confirm_count.resize(0);
          } else {
-            memmove(
-               &result.confirm_count[0], &result.confirm_count[i + 1], result.confirm_count.size() - i - 1);
+            memmove(&result.confirm_count[0], &result.confirm_count[i + 1], result.confirm_count.size() - i - 1);
             result.confirm_count.resize(result.confirm_count.size() - i - 1);
          }
 
@@ -191,10 +189,9 @@ signed_block_header pending_block_header_state::make_block_header(
    h.schedule_version  = active_schedule_version;
 
    if (new_protocol_feature_activations.size() > 0) {
-      emplace_extension(
-         h.header_extensions,
-         protocol_feature_activation::extension_id(),
-         fc::raw::pack(protocol_feature_activation{ std::move(new_protocol_feature_activations) }));
+      emplace_extension(h.header_extensions,
+                        protocol_feature_activation::extension_id(),
+                        fc::raw::pack(protocol_feature_activation{ std::move(new_protocol_feature_activations) }));
    }
 
    if (new_producers) {
@@ -226,10 +223,9 @@ signed_block_header pending_block_header_state::make_block_header(
 }
 
 block_header_state pending_block_header_state::_finish_next(
-   const signed_block_header&  h,
-   const protocol_feature_set& pfs,
-   const std::function<void(block_timestamp_type, const flat_set<digest_type>&, const vector<digest_type>&)>&
-      validator
+   const signed_block_header&                                                                                 h,
+   const protocol_feature_set&                                                                                pfs,
+   const std::function<void(block_timestamp_type, const flat_set<digest_type>&, const vector<digest_type>&)>& validator
 
    ) && {
    EOS_ASSERT(h.timestamp == timestamp, block_validate_exception, "timestamp mismatch");
@@ -252,15 +248,13 @@ block_header_state pending_block_header_state::_finish_next(
    }
 
    if (h.new_producers) {
-      EOS_ASSERT(
-         !wtmsig_enabled,
-         producer_schedule_exception,
-         "Block header contains legacy producer schedule outdated by activation of WTMsig Block Signatures");
+      EOS_ASSERT(!wtmsig_enabled,
+                 producer_schedule_exception,
+                 "Block header contains legacy producer schedule outdated by activation of WTMsig Block Signatures");
 
-      EOS_ASSERT(
-         !was_pending_promoted,
-         producer_schedule_exception,
-         "cannot set pending producer schedule in the same block in which pending was promoted to active");
+      EOS_ASSERT(!was_pending_promoted,
+                 producer_schedule_exception,
+                 "cannot set pending producer schedule in the same block in which pending was promoted to active");
 
       const auto& new_producers = *h.new_producers;
       EOS_ASSERT(new_producers.version == active_schedule.version + 1,
@@ -275,14 +269,12 @@ block_header_state pending_block_header_state::_finish_next(
    }
 
    if (exts.count(producer_schedule_change_extension::extension_id()) > 0) {
-      EOS_ASSERT(
-         wtmsig_enabled,
-         producer_schedule_exception,
-         "Block header producer_schedule_change_extension before activation of WTMsig Block Signatures");
-      EOS_ASSERT(
-         !was_pending_promoted,
-         producer_schedule_exception,
-         "cannot set pending producer schedule in the same block in which pending was promoted to active");
+      EOS_ASSERT(wtmsig_enabled,
+                 producer_schedule_exception,
+                 "Block header producer_schedule_change_extension before activation of WTMsig Block Signatures");
+      EOS_ASSERT(!was_pending_promoted,
+                 producer_schedule_exception,
+                 "cannot set pending producer schedule in the same block in which pending was promoted to active");
 
       const auto& new_producer_schedule = std::get<producer_schedule_change_extension>(
          exts.lower_bound(producer_schedule_change_extension::extension_id())->second);
@@ -302,13 +294,12 @@ block_header_state pending_block_header_state::_finish_next(
    { // handle protocol_feature_activation
       if (exts.count(protocol_feature_activation::extension_id() > 0)) {
          const auto& new_protocol_features =
-            std::get<protocol_feature_activation>(
-               exts.lower_bound(protocol_feature_activation::extension_id())->second)
+            std::get<protocol_feature_activation>(exts.lower_bound(protocol_feature_activation::extension_id())->second)
                .protocol_features;
          validator(timestamp, prev_activated_protocol_features->protocol_features, new_protocol_features);
 
-         new_activated_protocol_features = std::make_shared<protocol_feature_activation_set>(
-            *prev_activated_protocol_features, new_protocol_features);
+         new_activated_protocol_features =
+            std::make_shared<protocol_feature_activation_set>(*prev_activated_protocol_features, new_protocol_features);
       } else {
          new_activated_protocol_features = std::move(prev_activated_protocol_features);
       }
@@ -346,8 +337,7 @@ block_header_state pending_block_header_state::finish_next(
    const signed_block_header&  h,
    vector<signature_type>&&    additional_signatures,
    const protocol_feature_set& pfs,
-   const std::function<void(block_timestamp_type, const flat_set<digest_type>&, const vector<digest_type>&)>&
-        validator,
+   const std::function<void(block_timestamp_type, const flat_set<digest_type>&, const vector<digest_type>&)>& validator,
    bool skip_validate_signee) && {
    if (!additional_signatures.empty()) {
       bool wtmsig_enabled = detail::is_builtin_activated(
@@ -364,8 +354,7 @@ block_header_state pending_block_header_state::finish_next(
       result.additional_signatures = std::move(additional_signatures);
    }
 
-   // ASSUMPTION FROM controller_impl::apply_block = all untrusted blocks will have their signatures
-   // pre-validated here
+   // ASSUMPTION FROM controller_impl::apply_block = all untrusted blocks will have their signatures pre-validated here
    if (!skip_validate_signee) {
       result.verify_signee();
    }
@@ -374,10 +363,9 @@ block_header_state pending_block_header_state::finish_next(
 }
 
 block_header_state pending_block_header_state::finish_next(
-   signed_block_header&        h,
-   const protocol_feature_set& pfs,
-   const std::function<void(block_timestamp_type, const flat_set<digest_type>&, const vector<digest_type>&)>&
-                               validator,
+   signed_block_header&                                                                                       h,
+   const protocol_feature_set&                                                                                pfs,
+   const std::function<void(block_timestamp_type, const flat_set<digest_type>&, const vector<digest_type>&)>& validator,
    const signer_callback_type& signer) && {
    auto pfa = prev_activated_protocol_features;
 
@@ -386,8 +374,7 @@ block_header_state pending_block_header_state::finish_next(
    h.producer_signature = result.header.producer_signature;
 
    if (!result.additional_signatures.empty()) {
-      bool wtmsig_enabled =
-         detail::is_builtin_activated(pfa, pfs, builtin_protocol_feature_t::wtmsig_block_signatures);
+      bool wtmsig_enabled = detail::is_builtin_activated(pfa, pfs, builtin_protocol_feature_t::wtmsig_block_signatures);
       EOS_ASSERT(wtmsig_enabled,
                  producer_schedule_exception,
                  "Block was signed with multiple signatures before WTMsig block signatures are enabled");
@@ -408,8 +395,7 @@ block_header_state block_header_state::next(
    const signed_block_header&  h,
    vector<signature_type>&&    _additional_signatures,
    const protocol_feature_set& pfs,
-   const std::function<void(block_timestamp_type, const flat_set<digest_type>&, const vector<digest_type>&)>&
-        validator,
+   const std::function<void(block_timestamp_type, const flat_set<digest_type>&, const vector<digest_type>&)>& validator,
    bool skip_validate_signee) const {
    return next(h.timestamp, h.confirmed)
       .finish_next(h, std::move(_additional_signatures), pfs, validator, skip_validate_signee);
@@ -435,12 +421,11 @@ void block_header_state::sign(const signer_callback_type& signer) {
 
 void block_header_state::verify_signee() const {
 
-   auto num_keys_in_authority =
-      std::visit([](const auto& a) { return a.keys.size(); }, valid_block_signing_authority);
+   auto num_keys_in_authority = std::visit([](const auto& a) { return a.keys.size(); }, valid_block_signing_authority);
    EOS_ASSERT(1 + additional_signatures.size() <= num_keys_in_authority,
               wrong_signing_key,
-              "number of block signatures (${num_block_signatures}) exceeds number of keys in block signing "
-              "authority (${num_keys})",
+              "number of block signatures (${num_block_signatures}) exceeds number of keys in block signing authority "
+              "(${num_keys})",
               ("num_block_signatures", 1 + additional_signatures.size())("num_keys", num_keys_in_authority)(
                  "authority", valid_block_signing_authority));
 
@@ -492,11 +477,10 @@ block_header_state::block_header_state(legacy::snapshot_block_header_state_v2&& 
    blockroot_merkle                    = std::move(snapshot.blockroot_merkle);
    producer_to_last_produced           = std::move(snapshot.producer_to_last_produced);
    producer_to_last_implied_irb        = std::move(snapshot.producer_to_last_implied_irb);
-   valid_block_signing_authority =
-      block_signing_authority_v0{ 1, { { std::move(snapshot.block_signing_key), 1 } } };
-   confirm_count                     = std::move(snapshot.confirm_count);
-   id                                = std::move(snapshot.id);
-   header                            = std::move(snapshot.header);
+   valid_block_signing_authority = block_signing_authority_v0{ 1, { { std::move(snapshot.block_signing_key), 1 } } };
+   confirm_count                 = std::move(snapshot.confirm_count);
+   id                            = std::move(snapshot.id);
+   header                        = std::move(snapshot.header);
    pending_schedule.schedule_lib_num = snapshot.pending_schedule.schedule_lib_num;
    pending_schedule.schedule_hash    = std::move(snapshot.pending_schedule.schedule_hash);
    pending_schedule.schedule         = producer_authority_schedule(snapshot.pending_schedule.schedule);

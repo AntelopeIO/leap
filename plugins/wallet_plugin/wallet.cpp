@@ -346,8 +346,7 @@ void soft_wallet::check_password(string password) {
 
 void soft_wallet::set_password(string password) {
    if (!is_new())
-      EOS_ASSERT(
-         !is_locked(), wallet_locked_exception, "The wallet must be unlocked before the password can be set");
+      EOS_ASSERT(!is_locked(), wallet_locked_exception, "The wallet must be unlocked before the password can be set");
    my->_checksum = fc::sha512::hash(password.c_str(), password.size());
    lock();
 }
@@ -368,8 +367,7 @@ private_key_type soft_wallet::get_private_key(public_key_type pubkey) const {
    return my->get_private_key(pubkey);
 }
 
-std::optional<signature_type> soft_wallet::try_sign_digest(const digest_type     digest,
-                                                           const public_key_type public_key) {
+std::optional<signature_type> soft_wallet::try_sign_digest(const digest_type digest, const public_key_type public_key) {
    return my->try_sign_digest(digest, public_key);
 }
 

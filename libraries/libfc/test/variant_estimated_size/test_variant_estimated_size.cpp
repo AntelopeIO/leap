@@ -145,8 +145,7 @@ BOOST_AUTO_TEST_CASE(array_variant_estimated_size_test) {
    vs.push_back(v_uint32);
 
    variant v_variants(vs); // + sizeof(variant)
-   BOOST_CHECK_EQUAL(v_variants.estimated_size(),
-                     7 + sizeof(string) + 4 * sizeof(variant) + sizeof(variants));
+   BOOST_CHECK_EQUAL(v_variants.estimated_size(), 7 + sizeof(string) + 4 * sizeof(variant) + sizeof(variants));
 }
 
 BOOST_AUTO_TEST_SUITE_END()

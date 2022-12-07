@@ -103,8 +103,7 @@ struct compile_monitor_session {
       fds_pass_to_trampoline.emplace_back(std::move(wasm_code));
 
       eosvmoc_message trampoline_compile_request = compile_wasm_message{ code_id };
-      if (write_message_with_fds(_trampoline_socket, trampoline_compile_request, fds_pass_to_trampoline) ==
-          false) {
+      if (write_message_with_fds(_trampoline_socket, trampoline_compile_request, fds_pass_to_trampoline) == false) {
          wasm_compilation_result_message reply{ code_id,
                                                 compilation_result_unknownfailure{},
                                                 _allocator->get_free_memory() };
@@ -120,8 +119,8 @@ struct compile_monitor_session {
       std::list<std::tuple<code_tuple, local::datagram_protocol::socket>>::iterator current_compile_it) {
       auto& [code, socket] = *current_compile_it;
       socket.async_wait(local::datagram_protocol::socket::wait_read, [this, current_compile_it](auto ec) {
-         // at this point we only expect 1 of 2 things to happen: we either get a reply (success), or we get
-         // no reply (failure)
+         // at this point we only expect 1 of 2 things to happen: we either get a reply (success), or we get no reply
+         // (failure)
          auto& [code, socket]         = *current_compile_it;
          auto [success, message, fds] = read_message_with_fds(socket);
 
@@ -132,8 +131,7 @@ struct compile_monitor_session {
          void* code_ptr = nullptr;
          void* mem_ptr  = nullptr;
          try {
-            if (success && std::holds_alternative<code_compilation_result_message>(message) &&
-                fds.size() == 2) {
+            if (success && std::holds_alternative<code_compilation_result_message>(message) && fds.size() == 2) {
                code_compilation_result_message& result = std::get<code_compilation_result_message>(message);
                code_ptr                                = _allocator->allocate(get_size_of_fd(fds[0]));
                mem_ptr                                 = _allocator->allocate(get_size_of_fd(fds[1]));
@@ -195,40 +193,35 @@ struct compile_monitor {
    }
 
    void wait_for_new_incomming_session(boost::asio::io_context& ctx) {
-      _nodeos_socket.async_wait(
-         boost::asio::local::datagram_protocol::socket::wait_read, [this, &ctx](auto ec) {
-            if (ec) {
-               ctx.stop();
-               return;
-            }
-            auto [success, message, fds] = read_message_with_fds(_nodeos_socket);
-            if (!success) { // failure reading indicates that nodeos has shut down
-               ctx.stop();
-               return;
-            }
-            if (!std::holds_alternative<initialize_message>(message) || fds.size() != 2) {
-               ctx.stop();
-               return;
-            }
-            try {
-               local::datagram_protocol::socket _socket_for_comm(ctx);
-               _socket_for_comm.assign(local::datagram_protocol(), fds[0].release());
-               _compile_sessions.emplace_front(
-                  ctx, std::move(_socket_for_comm), std::move(fds[1]), _trampoline_socket);
-               _compile_sessions.front().connection_dead_signal.connect(
-                  [&, it = _compile_sessions.begin()]() {
-                     ctx.post([&]() { _compile_sessions.erase(it); });
-                  });
-               write_message_with_fds(_nodeos_socket, initalize_response_message());
-            } catch (const std::exception& e) {
-               write_message_with_fds(_nodeos_socket, initalize_response_message{ e.what() });
-            } catch (...) {
-               write_message_with_fds(_nodeos_socket,
-                                      initalize_response_message{ "Failed to create compile process" });
-            }
+      _nodeos_socket.async_wait(boost::asio::local::datagram_protocol::socket::wait_read, [this, &ctx](auto ec) {
+         if (ec) {
+            ctx.stop();
+            return;
+         }
+         auto [success, message, fds] = read_message_with_fds(_nodeos_socket);
+         if (!success) { // failure reading indicates that nodeos has shut down
+            ctx.stop();
+            return;
+         }
+         if (!std::holds_alternative<initialize_message>(message) || fds.size() != 2) {
+            ctx.stop();
+            return;
+         }
+         try {
+            local::datagram_protocol::socket _socket_for_comm(ctx);
+            _socket_for_comm.assign(local::datagram_protocol(), fds[0].release());
+            _compile_sessions.emplace_front(ctx, std::move(_socket_for_comm), std::move(fds[1]), _trampoline_socket);
+            _compile_sessions.front().connection_dead_signal.connect(
+               [&, it = _compile_sessions.begin()]() { ctx.post([&]() { _compile_sessions.erase(it); }); });
+            write_message_with_fds(_nodeos_socket, initalize_response_message());
+         } catch (const std::exception& e) {
+            write_message_with_fds(_nodeos_socket, initalize_response_message{ e.what() });
+         } catch (...) {
+            write_message_with_fds(_nodeos_socket, initalize_response_message{ "Failed to create compile process" });
+         }
 
-            wait_for_new_incomming_session(ctx);
-         });
+         wait_for_new_incomming_session(ctx);
+      });
    }
 
    local::datagram_protocol::socket _nodeos_socket;
@@ -308,16 +301,14 @@ extern "C" int                    __wrap_main(int argc, char* argv[]) {
 }
 
 wrapped_fd get_connection_to_compile_monitor(int cache_fd) {
-   FC_ASSERT(the_compile_monitor_trampoline.compile_manager_pid >= 0,
-             "EOS VM oop connection doesn't look active");
+   FC_ASSERT(the_compile_monitor_trampoline.compile_manager_pid >= 0, "EOS VM oop connection doesn't look active");
 
    int socks[2]; // 0: our socket to compile_manager_session, 1: socket we'll give to compile_maanger_session
    socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC, 0, socks);
    wrapped_fd socket_to_monitor_session(socks[0]);
    wrapped_fd socket_to_hand_to_monitor_session(socks[1]);
 
-   // we don't own cache_fd, so try to be extra careful not to accidentally close it: don't stick it in a
-   // wrapped_fd
+   // we don't own cache_fd, so try to be extra careful not to accidentally close it: don't stick it in a wrapped_fd
    //  to hand off to write_message_with_fds even temporarily. make a copy of it.
    int dup_of_cache_fd = dup(cache_fd);
    FC_ASSERT(dup_of_cache_fd != -1, "failed to dup cache_fd");
@@ -326,8 +317,7 @@ wrapped_fd get_connection_to_compile_monitor(int cache_fd) {
    std::vector<wrapped_fd> fds_to_pass;
    fds_to_pass.emplace_back(std::move(socket_to_hand_to_monitor_session));
    fds_to_pass.emplace_back(std::move(dup_cache_fd));
-   write_message_with_fds(
-      the_compile_monitor_trampoline.compile_manager_fd, initialize_message(), fds_to_pass);
+   write_message_with_fds(the_compile_monitor_trampoline.compile_manager_fd, initialize_message(), fds_to_pass);
 
    auto [success, message, fds] = read_message_with_fds(the_compile_monitor_trampoline.compile_manager_fd);
    EOS_ASSERT(success, misc_exception, "failed to read response from monitor process");

@@ -2002,8 +2002,7 @@ void pair_benchmarking() {
    auto f_1_pair = [&]() {
       auto res = fc::alt_bn128_pair(g1_g2_1_pair, []() {});
       if (std::holds_alternative<fc::alt_bn128_error>(res)) {
-         std::cout << "alt_bn128_pair 1 pair failed: " << (int)std::get<fc::alt_bn128_error>(res)
-                   << std::endl;
+         std::cout << "alt_bn128_pair 1 pair failed: " << (int)std::get<fc::alt_bn128_error>(res) << std::endl;
       }
    };
    benchmarking("alt_bn128_pair (1 pair)", f_1_pair);
@@ -2014,8 +2013,7 @@ void pair_benchmarking() {
    auto f_10_pairs = [&]() {
       auto res = fc::alt_bn128_pair(g1_g2_10_pairs, []() {});
       if (std::holds_alternative<fc::alt_bn128_error>(res)) {
-         std::cout << "alt_bn128_pair 10 pairs failed: " << (int)std::get<fc::alt_bn128_error>(res)
-                   << std::endl;
+         std::cout << "alt_bn128_pair 10 pairs failed: " << (int)std::get<fc::alt_bn128_error>(res) << std::endl;
       }
    };
 

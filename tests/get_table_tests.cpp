@@ -50,13 +50,13 @@ transaction_trace_ptr issue_tokens(TESTER&      t,
    },
                    mutable_variant_object()("to", issuer.to_string())("quantity", amount)("memo", memo)));
 
-   trx.actions.emplace_back(t.get_action(token_contract,
-                                         "transfer"_n,
-                                         vector<permission_level>{
-                                            {issuer, config::active_name}
+   trx.actions.emplace_back(t.get_action(
+      token_contract,
+      "transfer"_n,
+      vector<permission_level>{
+         {issuer, config::active_name}
    },
-                                         mutable_variant_object()("from", issuer.to_string())(
-                                            "to", to.to_string())("quantity", amount)("memo", memo)));
+      mutable_variant_object()("from", issuer.to_string())("to", to.to_string())("quantity", amount)("memo", memo)));
 
    t.set_transaction_headers(trx);
    trx.sign(t.get_private_key(issuer, "active"), t.control->get_chain_id());
@@ -84,8 +84,8 @@ BOOST_FIXTURE_TEST_CASE(get_scope_test, TESTER) try {
    produce_blocks(1);
 
    // create currency
-   auto act = mutable_variant_object()("issuer", "eosio")(
-      "maximum_supply", eosio::chain::asset::from_string("1000000000.0000 SYS"));
+   auto act = mutable_variant_object()("issuer", "eosio")("maximum_supply",
+                                                          eosio::chain::asset::from_string("1000000000.0000 SYS"));
    push_action("eosio.token"_n, "create"_n, "eosio.token"_n, act);
 
    // issue
@@ -97,9 +97,7 @@ BOOST_FIXTURE_TEST_CASE(get_scope_test, TESTER) try {
    // iterate over scope
    eosio::chain_apis::read_only plugin(
       *(this->control), {}, fc::microseconds::maximum(), fc::microseconds::maximum(), {}, {});
-   eosio::chain_apis::read_only::get_table_by_scope_params param{
-      "eosio.token"_n, "accounts"_n, "inita", "", 10
-   };
+   eosio::chain_apis::read_only::get_table_by_scope_params param{ "eosio.token"_n, "accounts"_n, "inita", "", 10 };
    eosio::chain_apis::read_only::get_table_by_scope_result result =
       plugin.read_only::get_table_by_scope(param, fc::time_point::maximum());
 
@@ -165,8 +163,8 @@ BOOST_FIXTURE_TEST_CASE(get_table_test, TESTER) try {
    produce_blocks(1);
 
    // create currency
-   auto act = mutable_variant_object()("issuer", "eosio")(
-      "maximum_supply", eosio::chain::asset::from_string("1000000000.0000 SYS"));
+   auto act = mutable_variant_object()("issuer", "eosio")("maximum_supply",
+                                                          eosio::chain::asset::from_string("1000000000.0000 SYS"));
    push_action("eosio.token"_n, "create"_n, "eosio.token"_n, act);
 
    // issue
@@ -348,8 +346,8 @@ BOOST_FIXTURE_TEST_CASE(get_table_by_seckey_test, TESTER) try {
    produce_blocks(1);
 
    // create currency
-   auto act = mutable_variant_object()("issuer", "eosio")(
-      "maximum_supply", eosio::chain::asset::from_string("1000000000.0000 SYS"));
+   auto act = mutable_variant_object()("issuer", "eosio")("maximum_supply",
+                                                          eosio::chain::asset::from_string("1000000000.0000 SYS"));
    push_action("eosio.token"_n, "create"_n, "eosio.token"_n, act);
 
    // issue
@@ -533,8 +531,7 @@ BOOST_FIXTURE_TEST_CASE(get_table_next_key_test, TESTER) try {
    //   "next_key": ""
    // }
 
-   chain_apis::read_only plugin(
-      *(this->control), {}, fc::microseconds::maximum(), fc::microseconds::maximum(), {}, {});
+   chain_apis::read_only plugin(*(this->control), {}, fc::microseconds::maximum(), fc::microseconds::maximum(), {}, {});
    chain_apis::read_only::get_table_rows_params params = [] {
       chain_apis::read_only::get_table_rows_params params{};
       params.json  = true;
@@ -588,8 +585,7 @@ BOOST_FIXTURE_TEST_CASE(get_table_next_key_test, TESTER) try {
    auto             more2_res_3                 = plugin.get_table_rows(params, fc::time_point::maximum());
    chain::uint128_t more2_sec128_expected_value = 7;
    BOOST_REQUIRE(more2_res_3.rows.size() > 0);
-   BOOST_CHECK(more2_res_3.rows[0].get_object()["sec128"].as<chain::uint128_t>() ==
-               more2_sec128_expected_value);
+   BOOST_CHECK(more2_res_3.rows[0].get_object()["sec128"].as<chain::uint128_t>() == more2_sec128_expected_value);
 
    // float64 secondary key type
    params.key_type       = "float64";
@@ -646,17 +642,15 @@ BOOST_FIXTURE_TEST_CASE(get_table_next_key_test, TESTER) try {
    auto             more2_res_6                 = plugin.get_table_rows(params, fc::time_point::maximum());
    checksum256_type more2_sec256_expected_value = checksum256_type::hash(std::string("secondinput"));
    BOOST_REQUIRE(more2_res_6.rows.size() > 0);
-   checksum256_type more2_sec256_res_value =
-      more2_res_6.rows[0].get_object()["sec256"].as<checksum256_type>();
+   checksum256_type more2_sec256_res_value = more2_res_6.rows[0].get_object()["sec256"].as<checksum256_type>();
    BOOST_TEST(more2_sec256_res_value == more2_sec256_expected_value);
    BOOST_TEST(more2_res_6.rows[0].get_object()["hash_input"].as<string>() == std::string("secondinput"));
 
    // i256 secondary key type
    params.key_type       = "i256";
    params.index_position = "2";
-   params.lower_bound =
-      "0x2652d68fbbf6000c703b35fdc607b09cd8218cbeea1d108b5c9e84842cdd5ea5"; // This is sha256 hash of
-                                                                            // "thirdinput" as number
+   params.lower_bound = "0x2652d68fbbf6000c703b35fdc607b09cd8218cbeea1d108b5c9e84842cdd5ea5"; // This is sha256 hash of
+                                                                                              // "thirdinput" as number
 
    auto             res_7               = plugin.get_table_rows(params, fc::time_point::maximum());
    checksum256_type i256_expected_value = checksum256_type::hash(std::string("thirdinput"));
@@ -676,7 +670,7 @@ BOOST_FIXTURE_TEST_CASE(get_table_next_key_test, TESTER) try {
    // ripemd160 secondary key type
    params.key_type       = "ripemd160";
    params.index_position = "3";
-   params.lower_bound = "ab4314638b573fdc39e5a7b107938ad1b5a16414"; // This is ripemd160 hash of "thirdinput"
+   params.lower_bound    = "ab4314638b573fdc39e5a7b107938ad1b5a16414"; // This is ripemd160 hash of "thirdinput"
 
    auto      res_8                 = plugin.get_table_rows(params, fc::time_point::maximum());
    ripemd160 sec160_expected_value = ripemd160::hash(std::string("thirdinput"));

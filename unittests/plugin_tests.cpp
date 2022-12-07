@@ -64,13 +64,11 @@ BOOST_AUTO_TEST_CASE(make_trimmed_string_view) try {
 
       const std::string str_with_with_trailing_space = str_no_space_both_side + " ";
       BOOST_REQUIRE(!str_with_with_trailing_space.empty());
-      BOOST_CHECK_EQUAL(eosio::make_trimmed_string_view(str_with_with_trailing_space),
-                        str_no_space_both_side);
+      BOOST_CHECK_EQUAL(eosio::make_trimmed_string_view(str_with_with_trailing_space), str_no_space_both_side);
 
       const std::string str_with_with_space_both_side = " " + str_no_space_both_side + " ";
       BOOST_REQUIRE(!str_with_with_space_both_side.empty());
-      BOOST_CHECK_EQUAL(eosio::make_trimmed_string_view(str_with_with_space_both_side),
-                        str_no_space_both_side);
+      BOOST_CHECK_EQUAL(eosio::make_trimmed_string_view(str_with_with_space_both_side), str_no_space_both_side);
    }
 }
 FC_LOG_AND_RETHROW()
@@ -144,8 +142,7 @@ BOOST_AUTO_TEST_CASE(parse_params) try {
    { // empty body, no input
       const std::string empty_str;
       BOOST_REQUIRE(empty_str.empty());
-      BOOST_REQUIRE_NO_THROW(auto test_result = call_parse_no_params<int>(empty_str);
-                             BOOST_REQUIRE(test_result == 0););
+      BOOST_REQUIRE_NO_THROW(auto test_result = call_parse_no_params<int>(empty_str); BOOST_REQUIRE(test_result == 0););
       BOOST_REQUIRE_NO_THROW(auto test_result = call_parse_possible_no_params<std::string>(empty_str);
                              BOOST_REQUIRE(test_result == "{}"););
       BOOST_REQUIRE_NO_THROW(auto test_result = call_parse_no_params<std::string>(empty_str);

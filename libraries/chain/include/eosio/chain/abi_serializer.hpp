@@ -42,8 +42,7 @@ struct abi_serializer {
       const abi_def&          abi,
       const fc::microseconds& max_serialization_time);
    void set_abi(const abi_def& abi, const yield_function_t& yield);
-   [[deprecated(
-      "use the overload with yield_function_t[=create_yield_function(max_serialization_time)]")]] void
+   [[deprecated("use the overload with yield_function_t[=create_yield_function(max_serialization_time)]")]] void
    set_abi(const abi_def& abi, const fc::microseconds& max_serialization_time);
 
    /// @return string_view of `t` or internal string type
@@ -52,8 +51,7 @@ struct abi_serializer {
    bool             is_szarray(const std::string_view& type) const;
    bool             is_optional(const std::string_view& type) const;
    bool             is_type(const std::string_view& type, const yield_function_t& yield) const;
-   [[deprecated(
-      "use the overload with yield_function_t[=create_yield_function(max_serialization_time)]")]] bool
+   [[deprecated("use the overload with yield_function_t[=create_yield_function(max_serialization_time)]")]] bool
         is_type(const std::string_view& type, const fc::microseconds& max_serialization_time) const;
    bool is_builtin_type(const std::string_view& type) const;
    bool is_integer(const std::string_view& type) const;
@@ -75,8 +73,7 @@ struct abi_serializer {
                                  const bytes&            binary,
                                  const yield_function_t& yield,
                                  bool                    short_path = false) const;
-   [[deprecated(
-      "use the overload with yield_function_t[=create_yield_function(max_serialization_time)]")]] fc::variant
+   [[deprecated("use the overload with yield_function_t[=create_yield_function(max_serialization_time)]")]] fc::variant
                binary_to_variant(const std::string_view& type,
                                  const bytes&            binary,
                                  const fc::microseconds& max_serialization_time,
@@ -85,15 +82,13 @@ struct abi_serializer {
                                  fc::datastream<const char*>& binary,
                                  const yield_function_t&      yield,
                                  bool                         short_path = false) const;
-   [[deprecated(
-      "use the overload with yield_function_t[=create_yield_function(max_serialization_time)]")]] fc::variant
+   [[deprecated("use the overload with yield_function_t[=create_yield_function(max_serialization_time)]")]] fc::variant
    binary_to_variant(const std::string_view&      type,
                      fc::datastream<const char*>& binary,
                      const fc::microseconds&      max_serialization_time,
                      bool                         short_path = false) const;
 
-   [[deprecated(
-      "use the overload with yield_function_t[=create_yield_function(max_serialization_time)]")]] bytes
+   [[deprecated("use the overload with yield_function_t[=create_yield_function(max_serialization_time)]")]] bytes
          variant_to_binary(const std::string_view& type,
                            const fc::variant&      var,
                            const fc::microseconds& max_serialization_time,
@@ -102,8 +97,7 @@ struct abi_serializer {
                            const fc::variant&      var,
                            const yield_function_t& yield,
                            bool                    short_path = false) const;
-   [[deprecated(
-      "use the overload with yield_function_t[=create_yield_function(max_serialization_time)]")]] void
+   [[deprecated("use the overload with yield_function_t[=create_yield_function(max_serialization_time)]")]] void
         variant_to_binary(const std::string_view& type,
                           const fc::variant&      var,
                           fc::datastream<char*>&  ds,
@@ -118,8 +112,7 @@ struct abi_serializer {
    template<typename T, typename Resolver>
    static void to_variant(const T& o, fc::variant& vo, Resolver resolver, const yield_function_t& yield);
    template<typename T, typename Resolver>
-   [[deprecated(
-      "use the overload with yield_function_t[=create_yield_function(max_serialization_time)]")]] static void
+   [[deprecated("use the overload with yield_function_t[=create_yield_function(max_serialization_time)]")]] static void
    to_variant(const T& o, fc::variant& vo, Resolver resolver, const fc::microseconds& max_serialization_time);
 
    template<typename T, typename Resolver>
@@ -128,12 +121,8 @@ struct abi_serializer {
    template<typename T, typename Resolver>
    static void from_variant(const fc::variant& v, T& o, Resolver resolver, const yield_function_t& yield);
    template<typename T, typename Resolver>
-   [[deprecated(
-      "use the overload with yield_function_t[=create_yield_function(max_serialization_time)]")]] static void
-   from_variant(const fc::variant&      v,
-                T&                      o,
-                Resolver                resolver,
-                const fc::microseconds& max_serialization_time);
+   [[deprecated("use the overload with yield_function_t[=create_yield_function(max_serialization_time)]")]] static void
+   from_variant(const fc::variant& v, T& o, Resolver resolver, const fc::microseconds& max_serialization_time);
 
    template<typename Vec>
    static bool is_empty_abi(const Vec& abi_vec) {
@@ -150,8 +139,7 @@ struct abi_serializer {
       return false;
    }
 
-   typedef std::function<
-      fc::variant(fc::datastream<const char*>&, bool, bool, const abi_serializer::yield_function_t&)>
+   typedef std::function<fc::variant(fc::datastream<const char*>&, bool, bool, const abi_serializer::yield_function_t&)>
       unpack_function;
    typedef std::function<
       void(const fc::variant&, fc::datastream<char*>&, bool, bool, const abi_serializer::yield_function_t&)>
@@ -258,8 +246,7 @@ struct variant_type_path_root {
    map<type_name, variant_def>::const_iterator variant_itr;
 };
 
-using path_root =
-   std::variant<empty_path_root, array_type_path_root, struct_type_path_root, variant_type_path_root>;
+using path_root = std::variant<empty_path_root, array_type_path_root, struct_type_path_root, variant_type_path_root>;
 
 struct empty_path_item {};
 
@@ -387,11 +374,7 @@ struct abi_to_variant {
     * and can be degraded to the normal ::to_variant(...) processing
     */
    template<typename M, typename Resolver, not_require_abi_t<M> = 1>
-   static void add(mutable_variant_object& mvo,
-                   const char*             name,
-                   const M&                v,
-                   Resolver,
-                   abi_traverse_context& ctx) {
+   static void add(mutable_variant_object& mvo, const char* name, const M& v, Resolver, abi_traverse_context& ctx) {
       auto h = ctx.enter_scope();
       mvo(name, v);
    }
@@ -512,8 +495,7 @@ struct abi_to_variant {
          if (act.account == config::system_account_name && act.name == "setcode"_n) {
             auto setcode_act = act.data_as<setcode>();
             if (setcode_act.code.size() > 0) {
-               fc::sha256 code_hash =
-                  fc::sha256::hash(setcode_act.code.data(), (uint32_t)setcode_act.code.size());
+               fc::sha256 code_hash = fc::sha256::hash(setcode_act.code.data(), (uint32_t)setcode_act.code.size());
                mvo("code_hash", code_hash);
             }
             return false; // still want the hex data included
@@ -573,8 +555,8 @@ struct abi_to_variant {
             if (!type.empty()) {
                try {
                   binary_to_variant_context _ctx(*abi, ctx, type);
-                  _ctx.short_path = true; // Just to be safe while avoiding the complexity of threading an
-                                          // override boolean all over the place
+                  _ctx.short_path = true; // Just to be safe while avoiding the complexity of threading an override
+                                          // boolean all over the place
                   mvo("data", abi->_binary_to_variant(type, act.data, _ctx));
                } catch (...) {
                   // any failure to serialize data, then leave as not serailzed
@@ -638,8 +620,8 @@ struct abi_to_variant {
             auto type = abi->get_action_result_type(act.name);
             if (!type.empty()) {
                binary_to_variant_context _ctx(*abi, ctx, type);
-               _ctx.short_path = true; // Just to be safe while avoiding the complexity of threading an
-                                       // override boolean all over the place
+               _ctx.short_path = true; // Just to be safe while avoiding the complexity of threading an override boolean
+                                       // all over the place
                mvo("return_value_data", abi->_binary_to_variant(type, act_trace.return_value, _ctx));
             }
          }
@@ -739,8 +721,7 @@ struct abi_to_variant {
       mvo("new_producers", block.new_producers);
 
       // process contents of block.header_extensions
-      flat_multimap<uint16_t, block_header_extension> header_exts =
-         block.validate_and_extract_header_extensions();
+      flat_multimap<uint16_t, block_header_extension> header_exts = block.validate_and_extract_header_extensions();
       if (header_exts.count(protocol_feature_activation::extension_id() > 0)) {
          const auto& new_protocol_features =
             std::get<protocol_feature_activation>(
@@ -786,10 +767,7 @@ struct abi_to_variant {
 template<typename T, typename Resolver>
 class abi_to_variant_visitor {
 public:
-   abi_to_variant_visitor(mutable_variant_object& _mvo,
-                          const T&                _val,
-                          Resolver                _resolver,
-                          abi_traverse_context&   _ctx)
+   abi_to_variant_visitor(mutable_variant_object& _mvo, const T& _val, Resolver _resolver, abi_traverse_context& _ctx)
       : _vo(_mvo)
       , _val(_val)
       , _resolver(_resolver)
@@ -870,10 +848,7 @@ struct abi_from_variant {
     * for these members we call ::extract in order to trigger further processing
     */
    template<typename M, typename Resolver, require_abi_t<M> = 1>
-   static void extract(const fc::variant&    v,
-                       std::shared_ptr<M>&   o,
-                       Resolver              resolver,
-                       abi_traverse_context& ctx) {
+   static void extract(const fc::variant& v, std::shared_ptr<M>& o, Resolver resolver, abi_traverse_context& ctx) {
       auto                  h  = ctx.enter_scope();
       const variant_object& vo = v.get_object();
       M                     obj;
@@ -911,8 +886,8 @@ struct abi_from_variant {
                auto type = abi->get_action_type(act.name);
                if (!type.empty()) {
                   variant_to_binary_context _ctx(*abi, ctx, type);
-                  _ctx.short_path = true; // Just to be safe while avoiding the complexity of threading an
-                                          // override boolean all over the place
+                  _ctx.short_path = true; // Just to be safe while avoiding the complexity of threading an override
+                                          // boolean all over the place
                   act.data         = std::move(abi->_variant_to_binary(type, data, _ctx));
                   valid_empty_data = act.data.empty();
                }
@@ -936,10 +911,7 @@ struct abi_from_variant {
    }
 
    template<typename Resolver>
-   static void extract(const fc::variant&    v,
-                       packed_transaction&   ptrx,
-                       Resolver              resolver,
-                       abi_traverse_context& ctx) {
+   static void extract(const fc::variant& v, packed_transaction& ptrx, Resolver resolver, abi_traverse_context& ctx) {
       auto                  h  = ctx.enter_scope();
       const variant_object& vo = v.get_object();
       EOS_ASSERT(vo.contains("signatures"), packed_transaction_type_exception, "Missing signatures");
@@ -960,24 +932,20 @@ struct abi_from_variant {
          from_variant(vo["context_free_data"], cfd);
       }
 
-      if (vo.contains("packed_trx") && vo["packed_trx"].is_string() &&
-          !vo["packed_trx"].as_string().empty()) {
+      if (vo.contains("packed_trx") && vo["packed_trx"].is_string() && !vo["packed_trx"].as_string().empty()) {
          bytes packed_trx;
          from_variant(vo["packed_trx"], packed_trx);
          if (use_packed_cfd) {
-            ptrx = packed_transaction(
-               std::move(packed_trx), std::move(signatures), std::move(packed_cfd), compression);
+            ptrx = packed_transaction(std::move(packed_trx), std::move(signatures), std::move(packed_cfd), compression);
          } else {
-            ptrx =
-               packed_transaction(std::move(packed_trx), std::move(signatures), std::move(cfd), compression);
+            ptrx = packed_transaction(std::move(packed_trx), std::move(signatures), std::move(cfd), compression);
          }
       } else {
          EOS_ASSERT(vo.contains("transaction"), packed_transaction_type_exception, "Missing transaction");
          if (use_packed_cfd) {
             transaction trx;
             extract(vo["transaction"], trx, resolver, ctx);
-            ptrx =
-               packed_transaction(std::move(trx), std::move(signatures), std::move(packed_cfd), compression);
+            ptrx = packed_transaction(std::move(trx), std::move(signatures), std::move(packed_cfd), compression);
          } else {
             signed_transaction trx;
             extract(vo["transaction"], trx, resolver, ctx);
@@ -1046,18 +1014,13 @@ void abi_from_variant::extract(const fc::variant& v, M& o, Resolver resolver, ab
 } /// namespace eosio::chain::impl
 
 template<typename T, typename Resolver>
-void abi_serializer::to_variant(const T&                o,
-                                fc::variant&            vo,
-                                Resolver                resolver,
-                                const yield_function_t& yield) try {
+void abi_serializer::to_variant(const T& o, fc::variant& vo, Resolver resolver, const yield_function_t& yield) try {
    mutable_variant_object     mvo;
    impl::abi_traverse_context ctx(yield);
    impl::abi_to_variant::add(mvo, "_", o, resolver, ctx);
    vo = std::move(mvo["_"]);
 }
-FC_RETHROW_EXCEPTIONS(error,
-                      "Failed to serialize: ${type}",
-                      ("type", boost::core::demangle(typeid(o).name())))
+FC_RETHROW_EXCEPTIONS(error, "Failed to serialize: ${type}", ("type", boost::core::demangle(typeid(o).name())))
 
 template<typename T, typename Resolver>
 void abi_serializer::to_variant(const T&                o,
@@ -1068,25 +1031,17 @@ void abi_serializer::to_variant(const T&                o,
 }
 
 template<typename T, typename Resolver>
-void abi_serializer::to_log_variant(const T&                o,
-                                    fc::variant&            vo,
-                                    Resolver                resolver,
-                                    const yield_function_t& yield) try {
+void abi_serializer::to_log_variant(const T& o, fc::variant& vo, Resolver resolver, const yield_function_t& yield) try {
    mutable_variant_object     mvo;
    impl::abi_traverse_context ctx(yield);
    ctx.logging();
    impl::abi_to_variant::add(mvo, "_", o, resolver, ctx);
    vo = std::move(mvo["_"]);
 }
-FC_RETHROW_EXCEPTIONS(error,
-                      "Failed to serialize: ${type}",
-                      ("type", boost::core::demangle(typeid(o).name())))
+FC_RETHROW_EXCEPTIONS(error, "Failed to serialize: ${type}", ("type", boost::core::demangle(typeid(o).name())))
 
 template<typename T, typename Resolver>
-void abi_serializer::from_variant(const fc::variant&      v,
-                                  T&                      o,
-                                  Resolver                resolver,
-                                  const yield_function_t& yield) try {
+void abi_serializer::from_variant(const fc::variant& v, T& o, Resolver resolver, const yield_function_t& yield) try {
    impl::abi_traverse_context ctx(yield);
    impl::abi_from_variant::extract(v, o, resolver, ctx);
 }

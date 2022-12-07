@@ -81,8 +81,8 @@ public:
                        const kv_database_config&                         kv_config_val,
                        const wasm_config&                                wasm_config_val) {
       proposed_schedule_block_num = legacy.proposed_schedule_block_num;
-      proposed_schedule           = producer_authority_schedule(legacy.proposed_schedule)
-                             .to_shared(proposed_schedule.producers.get_allocator());
+      proposed_schedule =
+         producer_authority_schedule(legacy.proposed_schedule).to_shared(proposed_schedule.producers.get_allocator());
       configuration      = legacy.configuration;
       chain_id           = chain_id_val;
       kv_configuration   = kv_config_val;
@@ -93,28 +93,27 @@ public:
                        const kv_database_config&                         kv_config_val,
                        const wasm_config&                                wasm_config_val) {
       proposed_schedule_block_num = legacy.proposed_schedule_block_num;
-      proposed_schedule  = legacy.proposed_schedule.to_shared(proposed_schedule.producers.get_allocator());
-      configuration      = legacy.configuration;
-      chain_id           = legacy.chain_id;
-      kv_configuration   = kv_config_val;
-      wasm_configuration = wasm_config_val;
+      proposed_schedule           = legacy.proposed_schedule.to_shared(proposed_schedule.producers.get_allocator());
+      configuration               = legacy.configuration;
+      chain_id                    = legacy.chain_id;
+      kv_configuration            = kv_config_val;
+      wasm_configuration          = wasm_config_val;
    }
 
    void initalize_from(const legacy::snapshot_global_property_object_v4& legacy) {
       proposed_schedule_block_num = legacy.proposed_schedule_block_num;
-      proposed_schedule  = legacy.proposed_schedule.to_shared(proposed_schedule.producers.get_allocator());
-      configuration      = legacy.configuration;
-      chain_id           = legacy.chain_id;
-      kv_configuration   = legacy.kv_configuration;
-      wasm_configuration = legacy.wasm_configuration;
+      proposed_schedule           = legacy.proposed_schedule.to_shared(proposed_schedule.producers.get_allocator());
+      configuration               = legacy.configuration;
+      chain_id                    = legacy.chain_id;
+      kv_configuration            = legacy.kv_configuration;
+      wasm_configuration          = legacy.wasm_configuration;
    }
 };
 
 using global_property_multi_index = chainbase::shared_multi_index_container<
    global_property_object,
-   indexed_by<
-      ordered_unique<tag<by_id>,
-                     BOOST_MULTI_INDEX_MEMBER(global_property_object, global_property_object::id_type, id)>>>;
+   indexed_by<ordered_unique<tag<by_id>,
+                             BOOST_MULTI_INDEX_MEMBER(global_property_object, global_property_object::id_type, id)>>>;
 
 struct snapshot_global_property_object {
    std::optional<block_num_type> proposed_schedule_block_num;
@@ -145,8 +144,7 @@ struct snapshot_row_traits<global_property_object> {
                                  global_property_object&           value,
                                  chainbase::database&) {
       value.proposed_schedule_block_num = row.proposed_schedule_block_num;
-      value.proposed_schedule =
-         row.proposed_schedule.to_shared(value.proposed_schedule.producers.get_allocator());
+      value.proposed_schedule  = row.proposed_schedule.to_shared(value.proposed_schedule.producers.get_allocator());
       value.configuration      = row.configuration;
       value.chain_id           = row.chain_id;
       value.kv_configuration   = row.kv_configuration;
@@ -171,10 +169,9 @@ class dynamic_global_property_object
 
 using dynamic_global_property_multi_index = chainbase::shared_multi_index_container<
    dynamic_global_property_object,
-   indexed_by<ordered_unique<tag<by_id>,
-                             BOOST_MULTI_INDEX_MEMBER(dynamic_global_property_object,
-                                                      dynamic_global_property_object::id_type,
-                                                      id)>>>;
+   indexed_by<ordered_unique<
+      tag<by_id>,
+      BOOST_MULTI_INDEX_MEMBER(dynamic_global_property_object, dynamic_global_property_object::id_type, id)>>>;
 
 }
 }

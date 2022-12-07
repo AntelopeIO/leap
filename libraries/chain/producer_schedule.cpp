@@ -15,8 +15,7 @@ fc::variant producer_authority::get_abi_variant() const {
       },
       authority);
 
-   return fc::mutable_variant_object()("producer_name", producer_name)("authority",
-                                                                       std::move(authority_variant));
+   return fc::mutable_variant_object()("producer_name", producer_name)("authority", std::move(authority_variant));
 }
 
 }

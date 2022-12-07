@@ -42,11 +42,9 @@ public:
       "data"_n,
       main_record,
       eosio::indexed_by<"byf"_n, eosio::const_mem_fun<main_record, double, &main_record::get_index_f64>>,
-      eosio::indexed_by<"byff"_n,
-                        eosio::const_mem_fun<main_record, long double, &main_record::get_index_f128>>,
+      eosio::indexed_by<"byff"_n, eosio::const_mem_fun<main_record, long double, &main_record::get_index_f128>>,
       eosio::indexed_by<"byi"_n, eosio::const_mem_fun<main_record, uint64_t, &main_record::get_index_i64>>,
       eosio::indexed_by<"byii"_n, eosio::const_mem_fun<main_record, uint128_t, &main_record::get_index_i128>>,
-      eosio::indexed_by<
-         "byiiii"_n,
-         eosio::const_mem_fun<main_record, const eosio::checksum256&, &main_record::get_index_i256>>>;
+      eosio::indexed_by<"byiiii"_n,
+                        eosio::const_mem_fun<main_record, const eosio::checksum256&, &main_record::get_index_i256>>>;
 };

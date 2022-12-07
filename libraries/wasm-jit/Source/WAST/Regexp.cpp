@@ -273,10 +273,7 @@ static Node* parse(const char* string) {
    return node;
 }
 
-static void createNFA(NFA::Builder*   nfaBuilder,
-                      Node*           node,
-                      NFA::StateIndex initialState,
-                      NFA::StateIndex finalState) {
+static void createNFA(NFA::Builder* nfaBuilder, Node* node, NFA::StateIndex initialState, NFA::StateIndex finalState) {
    switch (node->type) {
       case NodeType::lit: {
          auto lit = (Lit*)node;

@@ -7,9 +7,9 @@ void tester_network::connect_blockchain(base_tester& new_blockchain) {
    if (blockchains.count(&new_blockchain))
       return;
 
-   // If the network isn't empty, sync the new blockchain with one of the old ones. The old ones are already
-   // in sync with each other, so just grab one arbitrarily. The old blockchains are connected to the
-   // propagation signals, so when one of them gets synced, it will propagate blocks to the others as well.
+   // If the network isn't empty, sync the new blockchain with one of the old ones. The old ones are already in sync
+   // with each other, so just grab one arbitrarily. The old blockchains are connected to the propagation signals, so
+   // when one of them gets synced, it will propagate blocks to the others as well.
    if (!blockchains.empty()) {
       blockchains.begin()->first->sync_with(new_blockchain);
    }

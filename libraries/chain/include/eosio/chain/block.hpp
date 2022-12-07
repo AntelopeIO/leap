@@ -24,16 +24,15 @@ struct transaction_receipt_header {
    explicit transaction_receipt_header(status_enum s)
       : status(s) {}
 
-   friend inline bool operator==(const transaction_receipt_header& lhs,
-                                 const transaction_receipt_header& rhs) {
+   friend inline bool operator==(const transaction_receipt_header& lhs, const transaction_receipt_header& rhs) {
       return std::tie(lhs.status, lhs.cpu_usage_us, lhs.net_usage_words) ==
              std::tie(rhs.status, rhs.cpu_usage_us, rhs.net_usage_words);
    }
 
    fc::enum_type<uint8_t, status_enum> status;
    uint32_t                            cpu_usage_us = 0; ///< total billed CPU usage (microseconds)
-   fc::unsigned_int net_usage_words; ///<  total billed NET usage, so we can reconstruct resource state when
-                                     ///<  skipping context free data... hard failures...
+   fc::unsigned_int net_usage_words; ///<  total billed NET usage, so we can reconstruct resource state when skipping
+                                     ///<  context free data... hard failures...
 };
 
 struct transaction_receipt : public transaction_receipt_header {
@@ -123,12 +122,9 @@ struct producer_confirmation {
 }
 } /// eosio::chain
 
-FC_REFLECT_ENUM(eosio::chain::transaction_receipt::status_enum,
-                (executed)(soft_fail)(hard_fail)(delayed)(expired))
+FC_REFLECT_ENUM(eosio::chain::transaction_receipt::status_enum, (executed)(soft_fail)(hard_fail)(delayed)(expired))
 
 FC_REFLECT(eosio::chain::transaction_receipt_header, (status)(cpu_usage_us)(net_usage_words))
 FC_REFLECT_DERIVED(eosio::chain::transaction_receipt, (eosio::chain::transaction_receipt_header), (trx))
 FC_REFLECT(eosio::chain::additional_block_signatures_extension, (signatures));
-FC_REFLECT_DERIVED(eosio::chain::signed_block,
-                   (eosio::chain::signed_block_header),
-                   (transactions)(block_extensions))
+FC_REFLECT_DERIVED(eosio::chain::signed_block, (eosio::chain::signed_block_header), (transactions)(block_extensions))

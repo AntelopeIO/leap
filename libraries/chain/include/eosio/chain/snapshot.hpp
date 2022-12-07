@@ -26,9 +26,7 @@ struct snapshot_row_traits {
    using value_type    = std::decay_t<T>;
    using snapshot_type = value_type;
 
-   static const snapshot_type& to_snapshot_row(const value_type& value, const chainbase::database&) {
-      return value;
-   };
+   static const snapshot_type& to_snapshot_row(const value_type& value, const chainbase::database&) { return value; };
 };
 
 /**

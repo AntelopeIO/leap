@@ -30,17 +30,16 @@ void snapshot_actions::setup(CLI::App& app) {
    to_json
       ->add_option("--input-file,-i",
                    opt->input_file,
-                   "Snapshot file to convert to json format, writes to <file>.json if output file not "
-                   "specified (tmp state dir used).")
+                   "Snapshot file to convert to json format, writes to <file>.json if output file not specified (tmp "
+                   "state dir used).")
       ->required();
    to_json->add_option("--output-file,-o",
                        opt->output_file,
-                       "The file to write the output to (absolute or relative path).  If not specified then "
-                       "output is to <input-file>.json.");
-   to_json->add_option(
-      "--chain-id",
-      opt->chain_id,
-      "Specify a chain id in case it is not included in a snapshot or you want to override it.");
+                       "The file to write the output to (absolute or relative path).  If not specified then output is "
+                       "to <input-file>.json.");
+   to_json->add_option("--chain-id",
+                       opt->chain_id,
+                       "Specify a chain id in case it is not included in a snapshot or you want to override it.");
    to_json->add_option("--db-size", opt->db_size, "Maximum size (in MiB) of the chain state database")
       ->capture_default_str();
 
@@ -65,14 +64,13 @@ int snapshot_actions::run_subcommand() {
    }
 
    bfs::path snapshot_path = opt->input_file;
-   bfs::path json_path     = opt->output_file.empty() ? snapshot_path.generic_string() + ".json"
-                                                      : opt->output_file;
+   bfs::path json_path     = opt->output_file.empty() ? snapshot_path.generic_string() + ".json" : opt->output_file;
    // determine chain id
    auto chain_id = chain_id_type("");
    if (!opt->chain_id.empty()) { // override it
       chain_id = chain_id_type(opt->chain_id);
    } else { // try to retrieve it
-      auto infile = std::ifstream(snapshot_path.generic_string(), (std::ios::in | std::ios::binary));
+      auto                    infile = std::ifstream(snapshot_path.generic_string(), (std::ios::in | std::ios::binary));
       istream_snapshot_reader reader(infile);
       reader.validate();
       chain_id = controller::extract_chain_id(reader);
@@ -80,9 +78,9 @@ int snapshot_actions::run_subcommand() {
    }
 
    // setup controller
-   bfs::path temp_dir   = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
-   bfs::path state_dir  = temp_dir / "state";
-   bfs::path blocks_dir = temp_dir / "blocks";
+   bfs::path                   temp_dir   = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
+   bfs::path                   state_dir  = temp_dir / "state";
+   bfs::path                   blocks_dir = temp_dir / "blocks";
    std::unique_ptr<controller> control;
    controller::config          cfg;
    cfg.blocks_dir           = blocks_dir;
@@ -111,8 +109,8 @@ int snapshot_actions::run_subcommand() {
       snap_out.flush();
       snap_out.close();
    } catch (const database_guard_exception& e) {
-      std::cerr << "Database is not configured to have enough storage to handle provided snapshot, please "
-                   "increase storage and try aagain"
+      std::cerr << "Database is not configured to have enough storage to handle provided snapshot, please increase "
+                   "storage and try aagain"
                 << std::endl;
       control.reset();
       fc::remove_all(temp_dir);

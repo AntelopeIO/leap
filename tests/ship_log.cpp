@@ -62,12 +62,10 @@ struct ship_log_fixture {
 
    void check_not_present(uint32_t index) {
       eosio::state_history_log_header header;
-      BOOST_REQUIRE_EXCEPTION(log->get_entry(index, header),
-                              eosio::chain::plugin_exception,
-                              [](const eosio::chain::plugin_exception& e) {
-                                 return e.to_detail_string().find("read non-existing block in") !=
-                                        std::string::npos;
-                              });
+      BOOST_REQUIRE_EXCEPTION(
+         log->get_entry(index, header), eosio::chain::plugin_exception, [](const eosio::chain::plugin_exception& e) {
+            return e.to_detail_string().find("read non-existing block in") != std::string::npos;
+         });
    }
 
    void check_empty() { BOOST_REQUIRE_EQUAL(log->begin_block(), log->end_block()); }
@@ -99,19 +97,17 @@ private:
       std::optional<eosio::state_history_log_prune_config> prune_conf;
       if (prune_blocks) {
          prune_conf.emplace();
-         prune_conf->prune_blocks    = *prune_blocks;
-         prune_conf->prune_threshold = 8; // every 8 bytes check in and see if to prune. should make it always
-                                          // check after each entry for us
+         prune_conf->prune_blocks = *prune_blocks;
+         prune_conf->prune_threshold =
+            8; // every 8 bytes check in and see if to prune. should make it always check after each entry for us
          if (vacuum_on_exit_if_small)
-            prune_conf->vacuum_on_close =
-               1024 * 1024 * 1024; // something large: always vacuum on close for these tests
+            prune_conf->vacuum_on_close = 1024 * 1024 * 1024; // something large: always vacuum on close for these tests
       }
       log.emplace("shipit", log_file.path().string(), index_file.path().string(), prune_conf);
    }
 };
 
-// can only punch holes on filesystem block boundaries. let's make sure the entries we add are larger than
-// that
+// can only punch holes on filesystem block boundaries. let's make sure the entries we add are larger than that
 static size_t larger_than_tmpfile_blocksize() {
    fc::temp_file tf;
    fc::cfile     cf;
@@ -133,13 +129,11 @@ BOOST_DATA_TEST_CASE(basic_prune_test,
 
       t.check_empty();
 
-      // with a small prune blocks value, the log will attempt to prune every filesystem block size. So let's
-      // just make
+      // with a small prune blocks value, the log will attempt to prune every filesystem block size. So let's just make
       //  every entry be greater than that size
       size_t payload_size = larger_than_tmpfile_blocksize();
 
-      // we'll start at 2 here, since that's what you'd get from starting from genesis, but it really doesn't
-      // matter
+      // we'll start at 2 here, since that's what you'd get from starting from genesis, but it really doesn't matter
       //  one way or another for the ship log logic
       t.add(2, payload_size, 'A');
       t.add(3, payload_size, 'B');
@@ -235,8 +229,7 @@ BOOST_DATA_TEST_CASE(basic_test,
                      reopen_on_mark,
                      remove_index_on_reopen) {
    try {
-      ship_log_fixture t(
-         enable_read, reopen_on_mark, remove_index_on_reopen, false, std::optional<uint32_t>());
+      ship_log_fixture t(enable_read, reopen_on_mark, remove_index_on_reopen, false, std::optional<uint32_t>());
 
       t.check_empty();
       size_t payload_size = larger_than_tmpfile_blocksize();
@@ -286,13 +279,11 @@ BOOST_AUTO_TEST_CASE(empty) {
       // reopen but prunned set
       const eosio::state_history_log_prune_config simple_prune_conf = { .prune_blocks = 4 };
       {
-         eosio::state_history_log log(
-            "empty", log_file.path().string(), index_file.path().string(), simple_prune_conf);
+         eosio::state_history_log log("empty", log_file.path().string(), index_file.path().string(), simple_prune_conf);
          BOOST_REQUIRE_EQUAL(log.begin_block(), log.end_block());
       }
       {
-         eosio::state_history_log log(
-            "empty", log_file.path().string(), index_file.path().string(), simple_prune_conf);
+         eosio::state_history_log log("empty", log_file.path().string(), index_file.path().string(), simple_prune_conf);
          BOOST_REQUIRE_EQUAL(log.begin_block(), log.end_block());
       }
       // back to non pruned
@@ -310,8 +301,7 @@ BOOST_AUTO_TEST_CASE(empty) {
 
       // one more time to pruned, just to make sure
       {
-         eosio::state_history_log log(
-            "empty", log_file.path().string(), index_file.path().string(), simple_prune_conf);
+         eosio::state_history_log log("empty", log_file.path().string(), index_file.path().string(), simple_prune_conf);
          BOOST_REQUIRE_EQUAL(log.begin_block(), log.end_block());
       }
       BOOST_REQUIRE(fc::file_size(log_file.path()) == 0);
@@ -320,10 +310,7 @@ BOOST_AUTO_TEST_CASE(empty) {
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_DATA_TEST_CASE(non_prune_to_prune,
-                     bdata::xrange(2) * bdata::xrange(2),
-                     enable_read,
-                     remove_index_on_reopen) {
+BOOST_DATA_TEST_CASE(non_prune_to_prune, bdata::xrange(2) * bdata::xrange(2), enable_read, remove_index_on_reopen) {
    try {
       ship_log_fixture t(enable_read, true, remove_index_on_reopen, false, std::optional<uint32_t>());
 
@@ -354,10 +341,7 @@ BOOST_DATA_TEST_CASE(non_prune_to_prune,
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_DATA_TEST_CASE(prune_to_non_prune,
-                     bdata::xrange(2) * bdata::xrange(2),
-                     enable_read,
-                     remove_index_on_reopen) {
+BOOST_DATA_TEST_CASE(prune_to_non_prune, bdata::xrange(2) * bdata::xrange(2), enable_read, remove_index_on_reopen) {
    try {
       ship_log_fixture t(enable_read, true, remove_index_on_reopen, false, 4);
 

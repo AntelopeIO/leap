@@ -53,9 +53,7 @@ private:
             continue;
          }
 
-         EOS_ASSERT(sub_words_left == 1,
-                    chain::fixed_key_type_exception,
-                    "unexpected error in fixed_key constructor");
+         EOS_ASSERT(sub_words_left == 1, chain::fixed_key_type_exception, "unexpected error in fixed_key constructor");
          temp_word |= static_cast<word_t>(w);
          sub_words_left = num_sub_words;
 
@@ -92,11 +90,11 @@ public:
     */
    fixed_key(const std::array<word_t, num_words()>& arr) { std::copy(arr.begin(), arr.end(), _data.begin()); }
 
-   template<typename Word,
-            size_t NumWords,
-            typename Enable =
-               typename std::enable_if<std::is_integral<Word>::value && !std::is_same<Word, bool>::value &&
-                                       sizeof(Word) < sizeof(word_t)>::type>
+   template<
+      typename Word,
+      size_t NumWords,
+      typename Enable = typename std::enable_if<std::is_integral<Word>::value && !std::is_same<Word, bool>::value &&
+                                                sizeof(Word) < sizeof(word_t)>::type>
    fixed_key(const std::array<Word, NumWords>& arr) {
       static_assert(sizeof(word_t) == (sizeof(word_t) / sizeof(Word)) * sizeof(Word),
                     "size of the backing word size is not divisible by the size of the array element");
@@ -112,9 +110,8 @@ public:
                                  all_true<(std::is_same<FirstWord, Rest>::value)...>::value,
                               FirstWord>::type first_word,
       Rest... rest) {
-      static_assert(
-         sizeof(word_t) == (sizeof(word_t) / sizeof(FirstWord)) * sizeof(FirstWord),
-         "size of the backing word size is not divisible by the size of the words supplied as arguments");
+      static_assert(sizeof(word_t) == (sizeof(word_t) / sizeof(FirstWord)) * sizeof(FirstWord),
+                    "size of the backing word size is not divisible by the size of the words supplied as arguments");
       static_assert(sizeof(FirstWord) * (1 + sizeof...(Rest)) <= Size,
                     "too many words supplied to make_from_word_sequence");
 

@@ -31,8 +31,7 @@ std::vector<uint8_t> wast_to_wasm(const std::string& wast) {
          EOS_ASSERT(false, wasm_exception, "error parsing wast: ${msg}", ("msg", ss.str()));
       }
 
-      for (auto sectionIt = module.userSections.begin(); sectionIt != module.userSections.end();
-           ++sectionIt) {
+      for (auto sectionIt = module.userSections.begin(); sectionIt != module.userSections.end(); ++sectionIt) {
          if (sectionIt->name == "name") {
             module.userSections.erase(sectionIt);
             break;

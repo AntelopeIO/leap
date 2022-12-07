@@ -33,20 +33,18 @@ class database_header_object : public chainbase::object<database_header_object_t
    uint32_t version = current_version;
 
    void validate() const {
-      EOS_ASSERT(
-         std::clamp(version, minimum_version, current_version) == version,
-         bad_database_version_exception,
-         "state database version is incompatible, please restore from a compatible snapshot or replay!",
-         ("version", version)("minimum_version", minimum_version)("maximum_version", current_version));
+      EOS_ASSERT(std::clamp(version, minimum_version, current_version) == version,
+                 bad_database_version_exception,
+                 "state database version is incompatible, please restore from a compatible snapshot or replay!",
+                 ("version", version)("minimum_version", minimum_version)("maximum_version", current_version));
    }
 };
 
 struct by_block_id;
 using database_header_multi_index = chainbase::shared_multi_index_container<
    database_header_object,
-   indexed_by<
-      ordered_unique<tag<by_id>,
-                     BOOST_MULTI_INDEX_MEMBER(database_header_object, database_header_object::id_type, id)>>>;
+   indexed_by<ordered_unique<tag<by_id>,
+                             BOOST_MULTI_INDEX_MEMBER(database_header_object, database_header_object::id_type, id)>>>;
 
 }
 }

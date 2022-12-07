@@ -8,8 +8,7 @@
 namespace eosio {
 namespace chain {
 
-using shared_public_key_data =
-   std::variant<fc::ecc::public_key_shim, fc::crypto::r1::public_key_shim, shared_string>;
+using shared_public_key_data = std::variant<fc::ecc::public_key_shim, fc::crypto::r1::public_key_shim, shared_string>;
 
 struct shared_public_key {
    shared_public_key(shared_public_key_data&& p)
@@ -55,8 +54,7 @@ struct shared_public_key {
                                       return k1._data == std::get<fc::ecc::public_key_shim>(r._storage)._data;
                                    },
                                     [&](const fc::crypto::r1::public_key_shim& r1) {
-                                       return r1._data ==
-                                              std::get<fc::crypto::r1::public_key_shim>(r._storage)._data;
+                                       return r1._data == std::get<fc::crypto::r1::public_key_shim>(r._storage)._data;
                                     },
                                     [&](const shared_string& wa) {
                                        fc::datastream<const char*>      ds(wa.data(), wa.size());
@@ -179,10 +177,7 @@ struct authority {
       }
    }
 
-   authority(uint32_t                        t,
-             vector<key_weight>              k,
-             vector<permission_level_weight> p = {},
-             vector<wait_weight>             w = {})
+   authority(uint32_t t, vector<key_weight> k, vector<permission_level_weight> p = {}, vector<wait_weight> w = {})
       : threshold(t)
       , keys(move(k))
       , accounts(move(p))
@@ -274,19 +269,19 @@ struct billable_size<shared_authority> {
 }
 
 /**
- * Makes sure all keys are unique and sorted and all account permissions are unique and sorted and that
- * authority can be satisfied
+ * Makes sure all keys are unique and sorted and all account permissions are unique and sorted and that authority can
+ * be satisfied
  */
 template<typename Authority>
 inline bool validate(const Authority& auth) {
    decltype(auth.threshold) total_weight = 0;
 
-   static_assert(
-      std::is_same<decltype(auth.threshold), uint32_t>::value && std::is_same<weight_type, uint16_t>::value &&
-         std::is_same<typename decltype(auth.keys)::value_type, key_weight>::value &&
-         std::is_same<typename decltype(auth.accounts)::value_type, permission_level_weight>::value &&
-         std::is_same<typename decltype(auth.waits)::value_type, wait_weight>::value,
-      "unexpected type for threshold and/or weight in authority");
+   static_assert(std::is_same<decltype(auth.threshold), uint32_t>::value &&
+                    std::is_same<weight_type, uint16_t>::value &&
+                    std::is_same<typename decltype(auth.keys)::value_type, key_weight>::value &&
+                    std::is_same<typename decltype(auth.accounts)::value_type, permission_level_weight>::value &&
+                    std::is_same<typename decltype(auth.waits)::value_type, wait_weight>::value,
+                 "unexpected type for threshold and/or weight in authority");
 
    if ((auth.keys.size() + auth.accounts.size() + auth.waits.size()) > (1 << 16))
       return false; // overflow protection (assumes weight_type is uint16_t and threshold is of type uint32_t)
@@ -298,8 +293,8 @@ inline bool validate(const Authority& auth) {
       const key_weight* prev = nullptr;
       for (const auto& k : auth.keys) {
          if (prev && !(prev->key < k.key))
-            return false; // TODO: require keys to be sorted in ascending order rather than descending
-                          // (requires modifying many tests)
+            return false; // TODO: require keys to be sorted in ascending order rather than descending (requires
+                          // modifying many tests)
          total_weight += k.weight;
          prev = &k;
       }
@@ -308,8 +303,8 @@ inline bool validate(const Authority& auth) {
       const permission_level_weight* prev = nullptr;
       for (const auto& a : auth.accounts) {
          if (prev && (prev->permission >= a.permission))
-            return false; // TODO: require permission_levels to be sorted in ascending order rather than
-                          // descending (requires modifying many tests)
+            return false; // TODO: require permission_levels to be sorted in ascending order rather than descending
+                          // (requires modifying many tests)
          total_weight += a.weight;
          prev = &a;
       }

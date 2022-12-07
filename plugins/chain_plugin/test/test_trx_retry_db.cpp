@@ -106,25 +106,25 @@ auto make_unique_trx(const chain_id_type& chain_id, const fc::microseconds& expi
    return std::make_shared<packed_transaction>(std::move(trx), packed_transaction::compression_type::none);
 }
 
-chain::transaction_trace_ptr make_transaction_trace(const packed_transaction_ptr trx,
-                                                    uint32_t                     block_number,
-                                                    chain::transaction_receipt_header::status_enum status =
-                                                       eosio::chain::transaction_receipt_header::executed) {
-   return std::make_shared<chain::transaction_trace>(chain::transaction_trace{
-      trx->id(),
-      block_number,
-      chain::block_timestamp_type(fc::time_point::now()),
-      trx->id(), // block_id, doesn't matter what it is for this test as long as it is set
-      chain::transaction_receipt_header{ status },
-      fc::microseconds(0),
-      0,
-      false,
-      {}, // actions
-      {},
-      {},
-      {},
-      {},
-      {} });
+chain::transaction_trace_ptr make_transaction_trace(
+   const packed_transaction_ptr                   trx,
+   uint32_t                                       block_number,
+   chain::transaction_receipt_header::status_enum status = eosio::chain::transaction_receipt_header::executed) {
+   return std::make_shared<chain::transaction_trace>(
+      chain::transaction_trace{ trx->id(),
+                                block_number,
+                                chain::block_timestamp_type(fc::time_point::now()),
+                                trx->id(), // block_id, doesn't matter what it is for this test as long as it is set
+                                chain::transaction_receipt_header{ status },
+                                fc::microseconds(0),
+                                0,
+                                false,
+                                {}, // actions
+                                {},
+                                {},
+                                {},
+                                {},
+                                {} });
 }
 
 uint64_t get_id(const transaction& trx) {
@@ -153,11 +153,9 @@ auto make_block_state(uint32_t block_num, std::vector<chain::packed_transaction_
    auto priv_key = get_private_key(block->producer, "active");
    auto pub_key  = get_public_key(block->producer, "active");
 
-   auto prev = std::make_shared<chain::block_state>();
-   auto header_bmroot =
-      chain::digest_type::hash(std::make_pair(block->digest(), prev->blockroot_merkle.get_root()));
-   auto sig_digest =
-      chain::digest_type::hash(std::make_pair(header_bmroot, prev->pending_schedule.schedule_hash));
+   auto prev          = std::make_shared<chain::block_state>();
+   auto header_bmroot = chain::digest_type::hash(std::make_pair(block->digest(), prev->blockroot_merkle.get_root()));
+   auto sig_digest    = chain::digest_type::hash(std::make_pair(header_bmroot, prev->pending_schedule.schedule_hash));
    block->producer_signature = priv_key.sign(sig_digest);
 
    std::vector<chain::private_key_type> signing_keys;
@@ -174,9 +172,7 @@ auto make_block_state(uint32_t block_num, std::vector<chain::packed_transaction_
    pbhs.timestamp                              = block->timestamp;
    pbhs.previous                               = block->previous;
    chain::producer_authority_schedule schedule = {
-      0,
-      { chain::producer_authority{ block->producer,
-                                   chain::block_signing_authority_v0{ 1, { { pub_key, 1 } } } } }
+      0, { chain::producer_authority{ block->producer, chain::block_signing_authority_v0{ 1, { { pub_key, 1 } } } } }
    };
    pbhs.active_schedule               = schedule;
    pbhs.valid_block_signing_authority = chain::block_signing_authority_v0{ 1, { { pub_key, 1 } } };
@@ -230,21 +226,18 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       boost::posix_time::seconds pretry_interval    = boost::posix_time::seconds(10);
       BOOST_REQUIRE(retry_interval.count() == pretry_interval.total_microseconds());
       fc::microseconds max_expiration_time = fc::hours(1);
-      trx_retry_db     trx_retry(
-         *chain, max_mem_usage_size, retry_interval, max_expiration_time, fc::seconds(10));
+      trx_retry_db     trx_retry(*chain, max_mem_usage_size, retry_interval, max_expiration_time, fc::seconds(10));
 
       // provide a subscriber for the transaction_ack channel
-      blocking_queue<std::pair<fc::exception_ptr, packed_transaction_ptr>> transactions_acked;
-      plugin_interface::compat::channels::transaction_ack::channel_type::handle
-         incoming_transaction_ack_subscription =
-            appbase::app().get_channel<plugin_interface::compat::channels::transaction_ack>().subscribe(
-               [&transactions_acked](const std::pair<fc::exception_ptr, packed_transaction_ptr>& t) {
-                  transactions_acked.push(t);
-               });
+      blocking_queue<std::pair<fc::exception_ptr, packed_transaction_ptr>>      transactions_acked;
+      plugin_interface::compat::channels::transaction_ack::channel_type::handle incoming_transaction_ack_subscription =
+         appbase::app().get_channel<plugin_interface::compat::channels::transaction_ack>().subscribe(
+            [&transactions_acked](const std::pair<fc::exception_ptr, packed_transaction_ptr>& t) {
+               transactions_acked.push(t);
+            });
 
       // test get_max_expiration_time
-      BOOST_CHECK(fc::time_point::now() + fc::hours(1) ==
-                  fc::time_point(trx_retry.get_max_expiration_time()));
+      BOOST_CHECK(fc::time_point::now() + fc::hours(1) == fc::time_point(trx_retry.get_max_expiration_time()));
 
       //
       // test expired, not in a block
@@ -253,9 +246,7 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       auto trx_1         = make_unique_trx(chain->get_chain_id(), fc::seconds(2), 1);
       bool trx_1_expired = false;
       trx_retry.track_transaction(
-         trx_1,
-         lib,
-         [&trx_1_expired](const std::variant<fc::exception_ptr, std::unique_ptr<fc::variant>>& result) {
+         trx_1, lib, [&trx_1_expired](const std::variant<fc::exception_ptr, std::unique_ptr<fc::variant>>& result) {
             BOOST_REQUIRE(std::holds_alternative<fc::exception_ptr>(result));
             BOOST_CHECK_EQUAL(std::get<fc::exception_ptr>(result)->code(), expired_tx_exception::code_value);
             trx_1_expired = true;
@@ -263,9 +254,7 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       auto trx_2         = make_unique_trx(chain->get_chain_id(), fc::seconds(4), 2);
       bool trx_2_expired = false;
       trx_retry.track_transaction(
-         trx_2,
-         lib,
-         [&trx_2_expired](const std::variant<fc::exception_ptr, std::unique_ptr<fc::variant>>& result) {
+         trx_2, lib, [&trx_2_expired](const std::variant<fc::exception_ptr, std::unique_ptr<fc::variant>>& result) {
             BOOST_REQUIRE(std::holds_alternative<fc::exception_ptr>(result));
             BOOST_CHECK_EQUAL(std::get<fc::exception_ptr>(result)->code(), expired_tx_exception::code_value);
             trx_2_expired = true;
@@ -305,9 +294,7 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       auto trx_3         = make_unique_trx(chain->get_chain_id(), fc::seconds(30), 3);
       bool trx_3_expired = false;
       trx_retry.track_transaction(
-         trx_3,
-         lib,
-         [&trx_3_expired](const std::variant<fc::exception_ptr, std::unique_ptr<fc::variant>>& result) {
+         trx_3, lib, [&trx_3_expired](const std::variant<fc::exception_ptr, std::unique_ptr<fc::variant>>& result) {
             BOOST_REQUIRE(std::holds_alternative<fc::exception_ptr>(result));
             BOOST_CHECK_EQUAL(std::get<fc::exception_ptr>(result)->code(), expired_tx_exception::code_value);
             trx_3_expired = true;
@@ -318,9 +305,7 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       auto trx_4         = make_unique_trx(chain->get_chain_id(), fc::seconds(30), 4);
       bool trx_4_expired = false;
       trx_retry.track_transaction(
-         trx_4,
-         lib,
-         [&trx_4_expired](const std::variant<fc::exception_ptr, std::unique_ptr<fc::variant>>& result) {
+         trx_4, lib, [&trx_4_expired](const std::variant<fc::exception_ptr, std::unique_ptr<fc::variant>>& result) {
             BOOST_REQUIRE(std::holds_alternative<fc::exception_ptr>(result));
             BOOST_CHECK_EQUAL(std::get<fc::exception_ptr>(result)->code(), expired_tx_exception::code_value);
             trx_4_expired = true;
@@ -364,9 +349,7 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       auto trx_5         = make_unique_trx(chain->get_chain_id(), fc::seconds(30), 5);
       bool trx_5_variant = false;
       trx_retry.track_transaction(
-         trx_5,
-         lib,
-         [&trx_5_variant](const std::variant<fc::exception_ptr, std::unique_ptr<fc::variant>>& result) {
+         trx_5, lib, [&trx_5_variant](const std::variant<fc::exception_ptr, std::unique_ptr<fc::variant>>& result) {
             BOOST_REQUIRE(std::holds_alternative<std::unique_ptr<fc::variant>>(result));
             BOOST_CHECK(!!std::get<std::unique_ptr<fc::variant>>(result));
             trx_5_variant = true;
@@ -439,9 +422,7 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       auto trx_7         = make_unique_trx(chain->get_chain_id(), fc::seconds(30), 7);
       bool trx_7_variant = false;
       trx_retry.track_transaction(
-         trx_7,
-         lib,
-         [&trx_7_variant](const std::variant<fc::exception_ptr, std::unique_ptr<fc::variant>>& result) {
+         trx_7, lib, [&trx_7_variant](const std::variant<fc::exception_ptr, std::unique_ptr<fc::variant>>& result) {
             BOOST_REQUIRE(std::holds_alternative<std::unique_ptr<fc::variant>>(result));
             BOOST_CHECK(!!std::get<std::unique_ptr<fc::variant>>(result));
             trx_7_variant = true;
@@ -463,9 +444,7 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       auto trx_9         = make_unique_trx(chain->get_chain_id(), fc::seconds(30), 9);
       bool trx_9_expired = false;
       trx_retry.track_transaction(
-         trx_9,
-         lib,
-         [&trx_9_expired](const std::variant<fc::exception_ptr, std::unique_ptr<fc::variant>>& result) {
+         trx_9, lib, [&trx_9_expired](const std::variant<fc::exception_ptr, std::unique_ptr<fc::variant>>& result) {
             BOOST_REQUIRE(std::holds_alternative<fc::exception_ptr>(result));
             BOOST_CHECK_EQUAL(std::get<fc::exception_ptr>(result)->code(), expired_tx_exception::code_value);
             trx_9_expired = true;

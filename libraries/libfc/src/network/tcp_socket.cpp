@@ -132,9 +132,9 @@ size_t tcp_socket::readsome(const std::shared_ptr<char>& buf, size_t len, size_t
 }
 
 void tcp_socket::connect_to(const fc::ip::endpoint& remote_endpoint) {
-   fc::asio::tcp::connect(my->_sock,
-                          fc::asio::tcp::endpoint(boost::asio::ip::address_v4(remote_endpoint.get_address()),
-                                                  remote_endpoint.port()));
+   fc::asio::tcp::connect(
+      my->_sock,
+      fc::asio::tcp::endpoint(boost::asio::ip::address_v4(remote_endpoint.get_address()), remote_endpoint.port()));
 }
 
 void tcp_socket::bind(const fc::ip::endpoint& local_endpoint) {
@@ -183,8 +183,7 @@ void tcp_socket::enable_keep_alives(const fc::microseconds& interval) {
                      sizeof(timeout_sec)) < 0)
          wlog("Error setting TCP keepalive idle time");
 #if !defined(__APPLE__) || defined(TCP_KEEPINTVL) // TCP_KEEPINTVL not defined before 10.9
-      if (setsockopt(
-             my->_sock.native(), IPPROTO_TCP, TCP_KEEPINTVL, (char*)&timeout_sec, sizeof(timeout_sec)) < 0)
+      if (setsockopt(my->_sock.native(), IPPROTO_TCP, TCP_KEEPINTVL, (char*)&timeout_sec, sizeof(timeout_sec)) < 0)
          wlog("Error setting TCP keepalive interval");
 #endif                                            // !__APPLE__ || TCP_KEEPINTVL
 #endif                                            // !WIN32
@@ -210,8 +209,7 @@ void tcp_socket::set_reuse_address(bool enable /* = true */) {
    // This probably needs to be set for any BSD
    if (detail::have_so_reuseport) {
       int reuseport_value = 1;
-      if (setsockopt(
-             my->_sock.native(), SOL_SOCKET, SO_REUSEPORT, (char*)&reuseport_value, sizeof(reuseport_value)) <
+      if (setsockopt(my->_sock.native(), SOL_SOCKET, SO_REUSEPORT, (char*)&reuseport_value, sizeof(reuseport_value)) <
           0) {
          if (errno == ENOPROTOOPT)
             detail::have_so_reuseport = false;
@@ -268,11 +266,8 @@ void tcp_server::set_reuse_address(bool enable /* = true */) {
    // This probably needs to be set for any BSD
    if (detail::have_so_reuseport) {
       int reuseport_value = 1;
-      if (setsockopt(my->_accept.native(),
-                     SOL_SOCKET,
-                     SO_REUSEPORT,
-                     (char*)&reuseport_value,
-                     sizeof(reuseport_value)) < 0) {
+      if (setsockopt(my->_accept.native(), SOL_SOCKET, SO_REUSEPORT, (char*)&reuseport_value, sizeof(reuseport_value)) <
+          0) {
          if (errno == ENOPROTOOPT)
             detail::have_so_reuseport = false;
          else
@@ -294,8 +289,8 @@ void tcp_server::listen(const fc::ip::endpoint& ep) {
    if (!my)
       my = new impl;
    try {
-      my->_accept.bind(boost::asio::ip::tcp::endpoint(
-         boost::asio::ip::address_v4::from_string((string)ep.get_address()), ep.port()));
+      my->_accept.bind(
+         boost::asio::ip::tcp::endpoint(boost::asio::ip::address_v4::from_string((string)ep.get_address()), ep.port()));
       my->_accept.listen();
    }
    FC_RETHROW_EXCEPTIONS(warn, "error listening on socket");

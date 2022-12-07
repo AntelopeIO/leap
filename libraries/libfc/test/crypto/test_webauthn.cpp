@@ -150,9 +150,8 @@ FC_LOG_AND_RETHROW();
 BOOST_AUTO_TEST_CASE(good_port) try {
    webauthn::public_key wa_pub(
       pub.serialize(), webauthn::public_key::user_presence_t::USER_PRESENCE_NONE, "fctesting.invalid");
-   std::string json =
-      "{\"origin\":\"https://fctesting.invalid:123456\",\"type\":\"webauthn.get\",\"challenge\":\"" +
-      fc::base64url_encode(d.data(), d.data_size()) + "\"}";
+   std::string json = "{\"origin\":\"https://fctesting.invalid:123456\",\"type\":\"webauthn.get\",\"challenge\":\"" +
+                      fc::base64url_encode(d.data(), d.data_size()) + "\"}";
 
    std::vector<uint8_t> auth_data(37);
    memcpy(auth_data.data(), origin_hash.data(), sizeof(origin_hash));
@@ -165,9 +164,8 @@ FC_LOG_AND_RETHROW();
 BOOST_AUTO_TEST_CASE(empty_port) try {
    webauthn::public_key wa_pub(
       pub.serialize(), webauthn::public_key::user_presence_t::USER_PRESENCE_NONE, "fctesting.invalid");
-   std::string json =
-      "{\"origin\":\"https://fctesting.invalid:\",\"type\":\"webauthn.get\",\"challenge\":\"" +
-      fc::base64url_encode(d.data(), d.data_size()) + "\"}";
+   std::string json = "{\"origin\":\"https://fctesting.invalid:\",\"type\":\"webauthn.get\",\"challenge\":\"" +
+                      fc::base64url_encode(d.data(), d.data_size()) + "\"}";
 
    std::vector<uint8_t> auth_data(37);
    memcpy(auth_data.data(), origin_hash.data(), sizeof(origin_hash));
@@ -180,8 +178,8 @@ FC_LOG_AND_RETHROW();
 BOOST_AUTO_TEST_CASE(challenge_junk) try {
    webauthn::public_key wa_pub(
       pub.serialize(), webauthn::public_key::user_presence_t::USER_PRESENCE_NONE, "fctesting.invalid");
-   std::string json = "{\"origin\":\"https://fctesting.invalid\",\"type\":\"webauthn.get\",\"challenge\":\"" +
-                      "blahBLAH"s + "\"}";
+   std::string json =
+      "{\"origin\":\"https://fctesting.invalid\",\"type\":\"webauthn.get\",\"challenge\":\"" + "blahBLAH"s + "\"}";
 
    std::vector<uint8_t> auth_data(37);
    memcpy(auth_data.data(), origin_hash.data(), sizeof(origin_hash));
@@ -197,8 +195,8 @@ FC_LOG_AND_RETHROW();
 BOOST_AUTO_TEST_CASE(challenge_non_base64) try {
    webauthn::public_key wa_pub(
       pub.serialize(), webauthn::public_key::user_presence_t::USER_PRESENCE_NONE, "fctesting.invalid");
-   std::string json = "{\"origin\":\"https://fctesting.invalid\",\"type\":\"webauthn.get\",\"challenge\":\"" +
-                      "hello@world$"s + "\"}";
+   std::string json =
+      "{\"origin\":\"https://fctesting.invalid\",\"type\":\"webauthn.get\",\"challenge\":\"" + "hello@world$"s + "\"}";
 
    std::vector<uint8_t> auth_data(37);
    memcpy(auth_data.data(), origin_hash.data(), sizeof(origin_hash));
@@ -215,7 +213,7 @@ BOOST_AUTO_TEST_CASE(challenge_wrong) try {
    webauthn::public_key wa_pub(
       pub.serialize(), webauthn::public_key::user_presence_t::USER_PRESENCE_NONE, "fctesting.invalid");
    fc::sha256  other_digest = fc::sha256::hash("yo"s);
-   std::string json = "{\"origin\":\"https://fctesting.invalid\",\"type\":\"webauthn.get\",\"challenge\":\"" +
+   std::string json         = "{\"origin\":\"https://fctesting.invalid\",\"type\":\"webauthn.get\",\"challenge\":\"" +
                       fc::base64url_encode(other_digest.data(), other_digest.data_size()) + "\"}";
 
    std::vector<uint8_t> auth_data(37);
@@ -282,8 +280,7 @@ BOOST_AUTO_TEST_CASE(auth_data_too_short) try {
    BOOST_CHECK_EXCEPTION(make_webauthn_sig(priv, auth_data, json).recover(d, true),
                          fc::assert_exception,
                          [](const fc::assert_exception& e) {
-                            return e.to_detail_string().find("auth_data not as large as required") !=
-                                   std::string::npos;
+                            return e.to_detail_string().find("auth_data not as large as required") != std::string::npos;
                          });
 }
 FC_LOG_AND_RETHROW();
@@ -346,10 +343,9 @@ FC_LOG_AND_RETHROW();
 BOOST_AUTO_TEST_CASE(good_extrajunk) try {
    webauthn::public_key wa_pub(
       pub.serialize(), webauthn::public_key::user_presence_t::USER_PRESENCE_NONE, "fctesting.invalid");
-   std::string json =
-      "{\"origin\":\"https://fctesting.invalid\",\"cool\":\"beans\",\"obj\":{\"array\":[4, 5, 6]},"
-      "\"type\":\"webauthn.get\",\"answer\": 42 ,\"challenge\":\"" +
-      fc::base64url_encode(d.data(), d.data_size()) + "\"}";
+   std::string json = "{\"origin\":\"https://fctesting.invalid\",\"cool\":\"beans\",\"obj\":{\"array\":[4, 5, 6]},"
+                      "\"type\":\"webauthn.get\",\"answer\": 42 ,\"challenge\":\"" +
+                      fc::base64url_encode(d.data(), d.data_size()) + "\"}";
 
    std::vector<uint8_t> auth_data(37);
    memcpy(auth_data.data(), origin_hash.data(), sizeof(origin_hash));
@@ -370,8 +366,7 @@ BOOST_AUTO_TEST_CASE(not_json_object) try {
    BOOST_CHECK_EXCEPTION(make_webauthn_sig(priv, auth_data, json).recover(d, true),
                          fc::assert_exception,
                          [](const fc::assert_exception& e) {
-                            return e.to_detail_string().find("Failed to parse client data JSON") !=
-                                   std::string::npos;
+                            return e.to_detail_string().find("Failed to parse client data JSON") != std::string::npos;
                          });
 }
 FC_LOG_AND_RETHROW();
@@ -406,8 +401,8 @@ BOOST_AUTO_TEST_CASE(damage_sig) try {
          e.to_detail_string().find("unable to reconstruct public key from signature") != std::string::npos;
    }
 
-   // We can fail either by failing to recover any key, or recovering the wrong key. Check that at least one
-   // of these failed
+   // We can fail either by failing to recover any key, or recovering the wrong key. Check that at least one of these
+   // failed
    BOOST_CHECK_EQUAL(failed_recovery || failed_compare, true);
 }
 FC_LOG_AND_RETHROW();
@@ -442,8 +437,8 @@ BOOST_AUTO_TEST_CASE(damage_sig_idx) try {
          e.to_detail_string().find("unable to reconstruct public key from signature") != std::string::npos;
    }
 
-   // We can fail either by failing to recover any key, or recovering the wrong key. Check that at least one
-   // of these failed
+   // We can fail either by failing to recover any key, or recovering the wrong key. Check that at least one of these
+   // failed
    BOOST_CHECK_EQUAL(failed_recovery || failed_compare, true);
 }
 FC_LOG_AND_RETHROW();
@@ -476,8 +471,7 @@ BOOST_AUTO_TEST_CASE(empty_json) try {
    BOOST_CHECK_EXCEPTION(make_webauthn_sig(priv, auth_data, json).recover(d, true),
                          fc::assert_exception,
                          [](const fc::assert_exception& e) {
-                            return e.to_detail_string().find("Failed to parse client data JSON") !=
-                                   std::string::npos;
+                            return e.to_detail_string().find("Failed to parse client data JSON") != std::string::npos;
                          });
 }
 FC_LOG_AND_RETHROW();
@@ -488,10 +482,9 @@ BOOST_AUTO_TEST_CASE(empty_rpid) try {
    datastream<char*>    ds(data, sizeof(data));
    webauthn::public_key pubkey;
 
-   BOOST_CHECK_EXCEPTION(
-      fc::raw::unpack(ds, pubkey), fc::assert_exception, [](const fc::assert_exception& e) {
-         return e.to_detail_string().find("webauthn pubkey must have non empty rpid") != std::string::npos;
-      });
+   BOOST_CHECK_EXCEPTION(fc::raw::unpack(ds, pubkey), fc::assert_exception, [](const fc::assert_exception& e) {
+      return e.to_detail_string().find("webauthn pubkey must have non empty rpid") != std::string::npos;
+   });
 }
 FC_LOG_AND_RETHROW();
 
@@ -511,9 +504,9 @@ BOOST_AUTO_TEST_CASE(good_no_trailing_equal) try {
 }
 FC_LOG_AND_RETHROW();
 
-// Before the base64 decoder was adjusted to throw in error (pre-webauthn-merge), it would simply stop when
-// encountering a non-base64 char. This means it was possible for the following JSON & challenge to validate
-// completely correctly. Now it should not pass.
+// Before the base64 decoder was adjusted to throw in error (pre-webauthn-merge), it would simply stop when encountering
+// a non-base64 char. This means it was possible for the following JSON & challenge to validate completely correctly.
+// Now it should not pass.
 BOOST_AUTO_TEST_CASE(base64_wonky) try {
    webauthn::public_key wa_pub(
       pub.serialize(), webauthn::public_key::user_presence_t::USER_PRESENCE_NONE, "fctesting.invalid");

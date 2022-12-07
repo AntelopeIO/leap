@@ -19,8 +19,7 @@ BOOST_AUTO_TEST_SUITE(producer_schedule_tests)
 
 // Calculate expected producer given the schedule and slot number
 account_name get_expected_producer(const vector<producer_authority>& schedule, const uint64_t slot) {
-   const auto& index =
-      (slot % (schedule.size() * config::producer_repetitions)) / config::producer_repetitions;
+   const auto& index = (slot % (schedule.size() * config::producer_repetitions)) / config::producer_repetitions;
    return schedule.at(index).producer_name;
 };
 
@@ -212,10 +211,8 @@ BOOST_FIXTURE_TEST_CASE(producer_schedule_promotion_test, TESTER) try {
 
    auto                       res  = set_producers({ "alice"_n, "bob"_n });
    vector<producer_authority> sch1 = {
-      producer_authority{"alice"_n,
-                         block_signing_authority_v0{ 1, { { get_public_key("alice"_n, "active"), 1 } } }},
-      producer_authority{ "bob"_n,
-                         block_signing_authority_v0{ 1, { { get_public_key("bob"_n, "active"), 1 } } }  }
+      producer_authority{"alice"_n, block_signing_authority_v0{ 1, { { get_public_key("alice"_n, "active"), 1 } } }},
+      producer_authority{ "bob"_n,  block_signing_authority_v0{ 1, { { get_public_key("bob"_n, "active"), 1 } } }  }
    };
    // wdump((fc::json::to_pretty_string(res)));
    wlog("set producer schedule to [alice,bob]");
@@ -234,21 +231,17 @@ BOOST_FIXTURE_TEST_CASE(producer_schedule_promotion_test, TESTER) try {
 
    res                             = set_producers({ "alice"_n, "bob"_n, "carol"_n });
    vector<producer_authority> sch2 = {
-      producer_authority{"alice"_n,
-                         block_signing_authority_v0{ 1, { { get_public_key("alice"_n, "active"), 1 } } }},
-      producer_authority{ "bob"_n,
-                         block_signing_authority_v0{ 1, { { get_public_key("bob"_n, "active"), 1 } } }  },
-      producer_authority{ "carol"_n,
-                         block_signing_authority_v0{ 1, { { get_public_key("carol"_n, "active"), 1 } } }}
+      producer_authority{"alice"_n,  block_signing_authority_v0{ 1, { { get_public_key("alice"_n, "active"), 1 } } }},
+      producer_authority{ "bob"_n,   block_signing_authority_v0{ 1, { { get_public_key("bob"_n, "active"), 1 } } }  },
+      producer_authority{ "carol"_n, block_signing_authority_v0{ 1, { { get_public_key("carol"_n, "active"), 1 } } }}
    };
    wlog("set producer schedule to [alice,bob,carol]");
    BOOST_REQUIRE_EQUAL(true, control->proposed_producers().has_value());
    BOOST_CHECK_EQUAL(true, compare_schedules(sch2, *control->proposed_producers()));
 
    produce_block();
-   produce_blocks(
-      23); // Alice produces the last block of her first round.
-           // Bob's first block (which advances LIB to Alice's last block) is started but not finalized.
+   produce_blocks(23); // Alice produces the last block of her first round.
+                       // Bob's first block (which advances LIB to Alice's last block) is started but not finalized.
    BOOST_REQUIRE_EQUAL(control->head_block_producer(), "alice"_n);
    BOOST_REQUIRE_EQUAL(control->pending_block_producer(), "bob"_n);
    BOOST_CHECK_EQUAL(control->pending_producers().version, 2u);
@@ -256,20 +249,18 @@ BOOST_FIXTURE_TEST_CASE(producer_schedule_promotion_test, TESTER) try {
    produce_blocks(12); // Bob produces his first 11 blocks
    BOOST_CHECK_EQUAL(control->active_producers().version, 1u);
    produce_blocks(12); // Bob produces his 12th block.
-                       // Alice's first block of the second round is started but not finalized (which advances
-                       // LIB to Bob's last block).
+                       // Alice's first block of the second round is started but not finalized (which advances LIB to
+                       // Bob's last block).
    BOOST_REQUIRE_EQUAL(control->head_block_producer(), "alice"_n);
    BOOST_REQUIRE_EQUAL(control->pending_block_producer(), "bob"_n);
    BOOST_CHECK_EQUAL(control->active_producers().version, 2u);
    BOOST_CHECK_EQUAL(true, compare_schedules(sch2, control->active_producers()));
 
-   produce_block(); // Alice produces the first block of her second round which has changed the active
-                    // schedule.
+   produce_block(); // Alice produces the first block of her second round which has changed the active schedule.
 
    // The next block will be produced according to the new schedule
    produce_block();
-   BOOST_CHECK_EQUAL(control->head_block_producer(),
-                     "carol"_n); // And that next block happens to be produced by Carol.
+   BOOST_CHECK_EQUAL(control->head_block_producer(), "carol"_n); // And that next block happens to be produced by Carol.
 
    BOOST_REQUIRE_EQUAL(validate(), true);
 }
@@ -287,12 +278,9 @@ BOOST_FIXTURE_TEST_CASE(producer_schedule_reduction, tester) try {
 
    auto                       res  = set_producers({ "alice"_n, "bob"_n, "carol"_n });
    vector<producer_authority> sch1 = {
-      producer_authority{"alice"_n,
-                         block_signing_authority_v0{ 1, { { get_public_key("alice"_n, "active"), 1 } } }},
-      producer_authority{ "bob"_n,
-                         block_signing_authority_v0{ 1, { { get_public_key("bob"_n, "active"), 1 } } }  },
-      producer_authority{ "carol"_n,
-                         block_signing_authority_v0{ 1, { { get_public_key("carol"_n, "active"), 1 } } }}
+      producer_authority{"alice"_n,  block_signing_authority_v0{ 1, { { get_public_key("alice"_n, "active"), 1 } } }},
+      producer_authority{ "bob"_n,   block_signing_authority_v0{ 1, { { get_public_key("bob"_n, "active"), 1 } } }  },
+      producer_authority{ "carol"_n, block_signing_authority_v0{ 1, { { get_public_key("carol"_n, "active"), 1 } } }}
    };
    wlog("set producer schedule to [alice,bob,carol]");
    BOOST_REQUIRE_EQUAL(true, control->proposed_producers().has_value());
@@ -310,10 +298,8 @@ BOOST_FIXTURE_TEST_CASE(producer_schedule_reduction, tester) try {
 
    res                             = set_producers({ "alice"_n, "bob"_n });
    vector<producer_authority> sch2 = {
-      producer_authority{"alice"_n,
-                         block_signing_authority_v0{ 1, { { get_public_key("alice"_n, "active"), 1 } } }},
-      producer_authority{ "bob"_n,
-                         block_signing_authority_v0{ 1, { { get_public_key("bob"_n, "active"), 1 } } }  }
+      producer_authority{"alice"_n, block_signing_authority_v0{ 1, { { get_public_key("alice"_n, "active"), 1 } } }},
+      producer_authority{ "bob"_n,  block_signing_authority_v0{ 1, { { get_public_key("bob"_n, "active"), 1 } } }  }
    };
    wlog("set producer schedule to [alice,bob]");
    BOOST_REQUIRE_EQUAL(true, control->proposed_producers().has_value());
@@ -356,10 +342,8 @@ BOOST_AUTO_TEST_CASE(empty_producer_schedule_has_no_effect) try {
 
    auto                       res  = c.set_producers_legacy({ "alice"_n, "bob"_n });
    vector<producer_authority> sch1 = {
-      producer_authority{"alice"_n,
-                         block_signing_authority_v0{ 1, { { get_public_key("alice"_n, "active"), 1 } } }},
-      producer_authority{ "bob"_n,
-                         block_signing_authority_v0{ 1, { { get_public_key("bob"_n, "active"), 1 } } }  }
+      producer_authority{"alice"_n, block_signing_authority_v0{ 1, { { get_public_key("alice"_n, "active"), 1 } } }},
+      producer_authority{ "bob"_n,  block_signing_authority_v0{ 1, { { get_public_key("bob"_n, "active"), 1 } } }  }
    };
    wlog("set producer schedule to [alice,bob]");
    BOOST_REQUIRE_EQUAL(true, c.control->proposed_producers().has_value());
@@ -400,20 +384,17 @@ BOOST_AUTO_TEST_CASE(empty_producer_schedule_has_no_effect) try {
    // Setting a new producer schedule should still use version 2
    res                             = c.set_producers_legacy({ "alice"_n, "bob"_n, "carol"_n });
    vector<producer_authority> sch2 = {
-      producer_authority{"alice"_n,
-                         block_signing_authority_v0{ 1, { { get_public_key("alice"_n, "active"), 1 } } }},
-      producer_authority{ "bob"_n,
-                         block_signing_authority_v0{ 1, { { get_public_key("bob"_n, "active"), 1 } } }  },
-      producer_authority{ "carol"_n,
-                         block_signing_authority_v0{ 1, { { get_public_key("carol"_n, "active"), 1 } } }}
+      producer_authority{"alice"_n,  block_signing_authority_v0{ 1, { { get_public_key("alice"_n, "active"), 1 } } }},
+      producer_authority{ "bob"_n,   block_signing_authority_v0{ 1, { { get_public_key("bob"_n, "active"), 1 } } }  },
+      producer_authority{ "carol"_n, block_signing_authority_v0{ 1, { { get_public_key("carol"_n, "active"), 1 } } }}
    };
    wlog("set producer schedule to [alice,bob,carol]");
    BOOST_REQUIRE_EQUAL(true, c.control->proposed_producers().has_value());
    BOOST_CHECK_EQUAL(true, compare_schedules(sch2, *c.control->proposed_producers()));
    BOOST_CHECK_EQUAL(c.control->proposed_producers()->version, 2u);
 
-   // Produce enough blocks to promote the proposed schedule to pending, which it can do because the existing
-   // pending has zero producers
+   // Produce enough blocks to promote the proposed schedule to pending, which it can do because the existing pending
+   // has zero producers
    c.produce_blocks(24);
    BOOST_CHECK_EQUAL(c.control->active_producers().version, 1u);
    BOOST_CHECK_EQUAL(c.control->pending_producers().version, 2u);
@@ -441,11 +422,9 @@ BOOST_AUTO_TEST_CASE(producer_watermark_test) try {
    auto                       res  = c.set_producers({ "alice"_n, "bob"_n, "carol"_n });
    vector<producer_authority> sch1 = {
       producer_authority{"alice"_n,
-                         block_signing_authority_v0{ 1, { { c.get_public_key("alice"_n, "active"), 1 } } }},
-      producer_authority{ "bob"_n,
-                         block_signing_authority_v0{ 1, { { c.get_public_key("bob"_n, "active"), 1 } } }  },
-      producer_authority{ "carol"_n,
-                         block_signing_authority_v0{ 1, { { c.get_public_key("carol"_n, "active"), 1 } } }}
+                         block_signing_authority_v0{ 1, { { c.get_public_key("alice"_n, "active"), 1 } } }            },
+      producer_authority{ "bob"_n,   block_signing_authority_v0{ 1, { { c.get_public_key("bob"_n, "active"), 1 } } }  },
+      producer_authority{ "carol"_n, block_signing_authority_v0{ 1, { { c.get_public_key("carol"_n, "active"), 1 } } }}
    };
    wlog("set producer schedule to [alice,bob,carol]");
    BOOST_REQUIRE_EQUAL(true, c.control->proposed_producers().has_value());
@@ -467,9 +446,8 @@ BOOST_AUTO_TEST_CASE(producer_watermark_test) try {
    res                             = c.set_producers({ "alice"_n, "bob"_n });
    vector<producer_authority> sch2 = {
       producer_authority{"alice"_n,
-                         block_signing_authority_v0{ 1, { { c.get_public_key("alice"_n, "active"), 1 } } }},
-      producer_authority{ "bob"_n,
-                         block_signing_authority_v0{ 1, { { c.get_public_key("bob"_n, "active"), 1 } } }  }
+                         block_signing_authority_v0{ 1, { { c.get_public_key("alice"_n, "active"), 1 } } }         },
+      producer_authority{ "bob"_n,  block_signing_authority_v0{ 1, { { c.get_public_key("bob"_n, "active"), 1 } } }}
    };
    wlog("set producer schedule to [alice,bob]");
    BOOST_REQUIRE_EQUAL(true, c.control->proposed_producers().has_value());
@@ -558,9 +536,9 @@ BOOST_FIXTURE_TEST_CASE(producer_one_of_n_test, TESTER) try {
       producer_authority{
                          "alice"_n, block_signing_authority_v0{
             1, { { get_public_key("alice"_n, "bs1"), 1 }, { get_public_key("alice"_n, "bs2"), 1 } } }},
-      producer_authority{
-                         "bob"_n,   block_signing_authority_v0{
-            1, { { get_public_key("bob"_n, "bs1"), 1 }, { get_public_key("bob"_n, "bs2"), 1 } } }      }
+      producer_authority{ "bob"_n,
+                         block_signing_authority_v0{
+                             1, { { get_public_key("bob"_n, "bs1"), 1 }, { get_public_key("bob"_n, "bs2"), 1 } } }                      }
    };
 
    auto res = set_producer_schedule(sch1);
@@ -581,9 +559,9 @@ BOOST_FIXTURE_TEST_CASE(producer_m_of_n_test, TESTER) try {
       producer_authority{
                          "alice"_n, block_signing_authority_v0{
             2, { { get_public_key("alice"_n, "bs1"), 1 }, { get_public_key("alice"_n, "bs2"), 1 } } }},
-      producer_authority{
-                         "bob"_n,   block_signing_authority_v0{
-            2, { { get_public_key("bob"_n, "bs1"), 1 }, { get_public_key("bob"_n, "bs2"), 1 } } }      }
+      producer_authority{ "bob"_n,
+                         block_signing_authority_v0{
+                             2, { { get_public_key("bob"_n, "bs1"), 1 }, { get_public_key("bob"_n, "bs2"), 1 } } }                      }
    };
 
    auto res = set_producer_schedule(sch1);
@@ -603,15 +581,13 @@ BOOST_FIXTURE_TEST_CASE(satisfiable_msig_test, TESTER) try {
    produce_block();
 
    vector<producer_authority> sch1 = {
-      producer_authority{"alice"_n,
-                         block_signing_authority_v0{ 2, { { get_public_key("alice"_n, "bs1"), 1 } } }}
+      producer_authority{"alice"_n, block_signing_authority_v0{ 2, { { get_public_key("alice"_n, "bs1"), 1 } } }}
    };
 
    // ensure that the entries in a wtmsig schedule are rejected if not satisfiable
-   BOOST_REQUIRE_EXCEPTION(
-      set_producer_schedule(sch1),
-      wasm_execution_error,
-      fc_exception_message_is("producer schedule includes an unsatisfiable authority for alice"));
+   BOOST_REQUIRE_EXCEPTION(set_producer_schedule(sch1),
+                           wasm_execution_error,
+                           fc_exception_message_is("producer schedule includes an unsatisfiable authority for alice"));
 
    BOOST_REQUIRE_EQUAL(false, control->proposed_producers().has_value());
 }
@@ -622,10 +598,8 @@ BOOST_FIXTURE_TEST_CASE(duplicate_producers_test, TESTER) try {
    produce_block();
 
    vector<producer_authority> sch1 = {
-      producer_authority{"alice"_n,
-                         block_signing_authority_v0{ 1, { { get_public_key("alice"_n, "bs1"), 1 } } }},
-      producer_authority{ "alice"_n,
-                         block_signing_authority_v0{ 1, { { get_public_key("alice"_n, "bs2"), 1 } } }}
+      producer_authority{"alice"_n,  block_signing_authority_v0{ 1, { { get_public_key("alice"_n, "bs1"), 1 } } }},
+      producer_authority{ "alice"_n, block_signing_authority_v0{ 1, { { get_public_key("alice"_n, "bs2"), 1 } } }}
    };
 
    // ensure that the schedule is rejected if it has duplicate producers in it
@@ -642,9 +616,9 @@ BOOST_FIXTURE_TEST_CASE(duplicate_keys_test, TESTER) try {
    produce_block();
 
    vector<producer_authority> sch1 = {
-      producer_authority{
-                         "alice"_n, block_signing_authority_v0{
-            2, { { get_public_key("alice"_n, "bs1"), 1 }, { get_public_key("alice"_n, "bs1"), 1 } } }}
+      producer_authority{"alice"_n,
+                         block_signing_authority_v0{
+                             2, { { get_public_key("alice"_n, "bs1"), 1 }, { get_public_key("alice"_n, "bs1"), 1 } } }}
    };
 
    // ensure that the schedule is rejected if it has duplicate keys for a single producer in it
@@ -656,10 +630,8 @@ BOOST_FIXTURE_TEST_CASE(duplicate_keys_test, TESTER) try {
 
    // ensure that multiple producers are allowed to share keys
    vector<producer_authority> sch2 = {
-      producer_authority{"alice"_n,
-                         block_signing_authority_v0{ 1, { { get_public_key("alice"_n, "bs1"), 1 } } }},
-      producer_authority{ "bob"_n,
-                         block_signing_authority_v0{ 1, { { get_public_key("alice"_n, "bs1"), 1 } } }}
+      producer_authority{"alice"_n, block_signing_authority_v0{ 1, { { get_public_key("alice"_n, "bs1"), 1 } } }},
+      producer_authority{ "bob"_n,  block_signing_authority_v0{ 1, { { get_public_key("alice"_n, "bs1"), 1 } } }}
    };
 
    set_producer_schedule(sch2);
@@ -682,8 +654,8 @@ BOOST_AUTO_TEST_CASE(large_authority_overflow_test) try {
       // reduce the last weight by 1 so that its unsatisfiable
       auth.keys.back().weight = 0xFFFEU;
 
-      // add one last key with a weight of 2 so that its only satisfiable with values that sum to an overflow
-      // of 32bit uint
+      // add one last key with a weight of 2 so that its only satisfiable with values that sum to an overflow of 32bit
+      // uint
       auth.keys.emplace_back(
          key_weight{ get_public_key("alice"_n, std::to_string(pre_overflow_count) + "_bsk"), 0x0002U });
 
@@ -731,10 +703,8 @@ BOOST_AUTO_TEST_CASE(extra_signatures_test) try {
    main.set_producer_schedule(sch1);
    BOOST_REQUIRE_EQUAL(true, main.control->proposed_producers().has_value());
 
-   main.block_signing_private_keys.emplace(get_public_key("alice"_n, "bs1"),
-                                           get_private_key("alice"_n, "bs1"));
-   main.block_signing_private_keys.emplace(get_public_key("alice"_n, "bs2"),
-                                           get_private_key("alice"_n, "bs2"));
+   main.block_signing_private_keys.emplace(get_public_key("alice"_n, "bs1"), get_private_key("alice"_n, "bs1"));
+   main.block_signing_private_keys.emplace(get_public_key("alice"_n, "bs2"), get_private_key("alice"_n, "bs2"));
 
    BOOST_REQUIRE(main.control->pending_block_producer() == "eosio"_n);
    main.produce_blocks(3);
@@ -747,10 +717,8 @@ BOOST_AUTO_TEST_CASE(extra_signatures_test) try {
       tester remote(setup_policy::none);
       push_blocks(main, remote);
 
-      remote.block_signing_private_keys.emplace(get_public_key("alice"_n, "bs1"),
-                                                get_private_key("alice"_n, "bs1"));
-      remote.block_signing_private_keys.emplace(get_public_key("alice"_n, "bs2"),
-                                                get_private_key("alice"_n, "bs2"));
+      remote.block_signing_private_keys.emplace(get_public_key("alice"_n, "bs1"), get_private_key("alice"_n, "bs1"));
+      remote.block_signing_private_keys.emplace(get_public_key("alice"_n, "bs2"), get_private_key("alice"_n, "bs2"));
 
       // Generate the block that will be corrupted.
       auto valid_block = remote.produce_block();
@@ -766,8 +734,7 @@ BOOST_AUTO_TEST_CASE(extra_signatures_test) try {
       auto           exts                = b->validate_and_extract_extensions();
       BOOST_REQUIRE_EQUAL(exts.count(additional_sigs_eid), 1);
       auto additional_sigs =
-         std::get<additional_block_signatures_extension>(exts.lower_bound(additional_sigs_eid)->second)
-            .signatures;
+         std::get<additional_block_signatures_extension>(exts.lower_bound(additional_sigs_eid)->second).signatures;
       BOOST_REQUIRE_EQUAL(additional_sigs.size(), 1);
 
       // Generate the extra signature and add to additonal_sigs.

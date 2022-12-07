@@ -9,8 +9,7 @@ std::vector<boost::asio::ip::udp::endpoint> resolve(boost::asio::io_service& io_
    using b = boost::asio::ip::resolver_query_base;
    boost::asio::ip::udp::resolver res(io_service);
    boost::system::error_code      ec;
-   auto                           ep =
-      res.resolve(q(host, std::to_string(uint64_t(port)), b::address_configured | b::numeric_service), ec);
+   auto ep = res.resolve(q(host, std::to_string(uint64_t(port)), b::address_configured | b::numeric_service), ec);
    if (!ec) {
       std::vector<boost::asio::ip::udp::endpoint> eps;
       while (ep != boost::asio::ip::udp::resolver::iterator()) {

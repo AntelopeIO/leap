@@ -8,8 +8,7 @@ void test_api_db::primary_i64_general() {
    uint64_t receiver = get_self().value;
    auto     table1   = "table1"_n.value;
 
-   int alice_itr =
-      db_store_i64(receiver, table1, receiver, "alice"_n.value, "alice's info", strlen("alice's info"));
+   int alice_itr = db_store_i64(receiver, table1, receiver, "alice"_n.value, "alice's info", strlen("alice's info"));
    db_store_i64(receiver, table1, receiver, "bob"_n.value, "bob's info", strlen("bob's info"));
    db_store_i64(receiver, table1, receiver, "charlie"_n.value, "charlie's info", strlen("charlies's info"));
    db_store_i64(receiver, table1, receiver, "allyson"_n.value, "allyson's info", strlen("allyson's info"));
@@ -19,12 +18,10 @@ void test_api_db::primary_i64_general() {
       uint64_t prim              = 0;
       int      itr_next          = db_next_i64(alice_itr, &prim);
       int      itr_next_expected = db_find_i64(receiver, receiver, table1, "allyson"_n.value);
-      eosio_assert(itr_next == itr_next_expected && prim == "allyson"_n.value,
-                   "primary_i64_general - db_find_i64");
+      eosio_assert(itr_next == itr_next_expected && prim == "allyson"_n.value, "primary_i64_general - db_find_i64");
       itr_next          = db_next_i64(itr_next, &prim);
       itr_next_expected = db_find_i64(receiver, receiver, table1, "bob"_n.value);
-      eosio_assert(itr_next == itr_next_expected && prim == "bob"_n.value,
-                   "primary_i64_general - db_next_i64");
+      eosio_assert(itr_next == itr_next_expected && prim == "bob"_n.value, "primary_i64_general - db_next_i64");
    }
 
    // next
@@ -44,18 +41,15 @@ void test_api_db::primary_i64_general() {
       uint64_t prim              = 0;
       int      itr_prev          = db_previous_i64(charlie_itr, &prim);
       int      itr_prev_expected = db_find_i64(receiver, receiver, table1, "bob"_n.value);
-      eosio_assert(itr_prev == itr_prev_expected && prim == "bob"_n.value,
-                   "primary_i64_general - db_previous_i64");
+      eosio_assert(itr_prev == itr_prev_expected && prim == "bob"_n.value, "primary_i64_general - db_previous_i64");
 
       itr_prev          = db_previous_i64(itr_prev, &prim);
       itr_prev_expected = db_find_i64(receiver, receiver, table1, "allyson"_n.value);
-      eosio_assert(itr_prev == itr_prev_expected && prim == "allyson"_n.value,
-                   "primary_i64_general - db_previous_i64");
+      eosio_assert(itr_prev == itr_prev_expected && prim == "allyson"_n.value, "primary_i64_general - db_previous_i64");
 
       itr_prev          = db_previous_i64(itr_prev, &prim);
       itr_prev_expected = db_find_i64(receiver, receiver, table1, "alice"_n.value);
-      eosio_assert(itr_prev == itr_prev_expected && prim == "alice"_n.value,
-                   "primary_i64_general - db_previous_i64");
+      eosio_assert(itr_prev == itr_prev_expected && prim == "alice"_n.value, "primary_i64_general - db_previous_i64");
 
       itr_prev = db_previous_i64(itr_prev, &prim);
       eosio_assert(itr_prev < 0 && prim == "alice"_n.value, "primary_i64_general - db_previous_i64");
@@ -211,16 +205,14 @@ void test_api_db::idx64_general() {
       uint64_t prim_next = 0;
       int      itr_next  = db_idx64_next(itr, &prim_next);
       eosio_assert(itr_next >= 0 && prim_next == 976, "idx64_general - db_idx64_next");
-      secondary_type sec_next = 0;
-      int itr_next_expected   = db_idx64_find_primary(receiver, receiver, table, &sec_next, prim_next);
-      eosio_assert(itr_next == itr_next_expected && sec_next == "emily"_n.value,
-                   "idx64_general - db_idx64_next");
+      secondary_type sec_next          = 0;
+      int            itr_next_expected = db_idx64_find_primary(receiver, receiver, table, &sec_next, prim_next);
+      eosio_assert(itr_next == itr_next_expected && sec_next == "emily"_n.value, "idx64_general - db_idx64_next");
 
       itr_next = db_idx64_next(itr_next, &prim_next);
       eosio_assert(itr_next >= 0 && prim_next == 110, "idx64_general - db_idx64_next");
       itr_next_expected = db_idx64_find_primary(receiver, receiver, table, &sec_next, prim_next);
-      eosio_assert(itr_next == itr_next_expected && sec_next == "joe"_n.value,
-                   "idx64_general - db_idx64_next");
+      eosio_assert(itr_next == itr_next_expected && sec_next == "joe"_n.value, "idx64_general - db_idx64_next");
 
       itr_next = db_idx64_next(itr_next, &prim_next);
       eosio_assert(itr_next < 0 && prim_next == 110, "idx64_general - db_idx64_next");
@@ -236,22 +228,19 @@ void test_api_db::idx64_general() {
       int      itr_prev  = db_idx64_previous(itr, &prim_prev);
       eosio_assert(itr_prev >= 0 && prim_prev == 540, "idx64_general - db_idx64_previous");
 
-      secondary_type sec_prev = 0;
-      int itr_prev_expected   = db_idx64_find_primary(receiver, receiver, table, &sec_prev, prim_prev);
-      eosio_assert(itr_prev == itr_prev_expected && sec_prev == "bob"_n.value,
-                   "idx64_general - db_idx64_previous");
+      secondary_type sec_prev          = 0;
+      int            itr_prev_expected = db_idx64_find_primary(receiver, receiver, table, &sec_prev, prim_prev);
+      eosio_assert(itr_prev == itr_prev_expected && sec_prev == "bob"_n.value, "idx64_general - db_idx64_previous");
 
       itr_prev = db_idx64_previous(itr_prev, &prim_prev);
       eosio_assert(itr_prev >= 0 && prim_prev == 650, "idx64_general - db_idx64_previous");
       itr_prev_expected = db_idx64_find_primary(receiver, receiver, table, &sec_prev, prim_prev);
-      eosio_assert(itr_prev == itr_prev_expected && sec_prev == "allyson"_n.value,
-                   "idx64_general - db_idx64_previous");
+      eosio_assert(itr_prev == itr_prev_expected && sec_prev == "allyson"_n.value, "idx64_general - db_idx64_previous");
 
       itr_prev = db_idx64_previous(itr_prev, &prim_prev);
       eosio_assert(itr_prev >= 0 && prim_prev == 265, "idx64_general - db_idx64_previous");
       itr_prev_expected = db_idx64_find_primary(receiver, receiver, table, &sec_prev, prim_prev);
-      eosio_assert(itr_prev == itr_prev_expected && sec_prev == "alice"_n.value,
-                   "idx64_general - db_idx64_previous");
+      eosio_assert(itr_prev == itr_prev_expected && sec_prev == "alice"_n.value, "idx64_general - db_idx64_previous");
 
       itr_prev = db_idx64_previous(itr_prev, &prim_prev);
       eosio_assert(itr_prev < 0 && prim_prev == 265, "idx64_general - db_idx64_previous");

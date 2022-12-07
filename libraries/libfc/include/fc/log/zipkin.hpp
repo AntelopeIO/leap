@@ -31,8 +31,7 @@ public:
    /// Not thread safe, call from main thread before spawning any threads that might use zipkin.
    /// @param url the url endpoint of zipkin server. e.g. http://127.0.0.1:9411/api/v2/spans
    /// @param service_name the service name to include in each zipkin span
-   /// @param timeout_us the timeout in microseconds for each http call (9 consecutive failures and zipkin is
-   /// disabled)
+   /// @param timeout_us the timeout in microseconds for each http call (9 consecutive failures and zipkin is disabled)
    static void init(const std::string& url, const std::string& service_name, uint32_t timeout_us);
 
    /// Thread safe only if init() called from main thread before spawning of any threads
@@ -92,14 +91,12 @@ struct zipkin_span {
    }
 
    template<typename T>
-   std::enable_if_t<std::is_arithmetic_v<std::remove_reference_t<T>>, void> add_tag(const std::string& key,
-                                                                                    T&&                var) {
+   std::enable_if_t<std::is_arithmetic_v<std::remove_reference_t<T>>, void> add_tag(const std::string& key, T&& var) {
       data.tags(key, std::to_string(std::forward<T>(var)));
    }
 
    template<typename T>
-   std::enable_if_t<!std::is_arithmetic_v<std::remove_reference_t<T>>, void> add_tag(const std::string& key,
-                                                                                     T&&                var) {
+   std::enable_if_t<!std::is_arithmetic_v<std::remove_reference_t<T>>, void> add_tag(const std::string& key, T&& var) {
       data.tags(key, (std::string)var);
    }
 
@@ -144,8 +141,8 @@ struct zipkin_span {
       span_data(span_data&& rhs)             = default;
 
       uint64_t id;
-      // zipkin traceId and parentId are same (when parent_id set) since only allowing trace with span
-      // children. Not currently supporting spans with children, only trace with children spans.
+      // zipkin traceId and parentId are same (when parent_id set) since only allowing trace with span children.
+      // Not currently supporting spans with children, only trace with children spans.
       const uint64_t             parent_id;
       const fc::time_point       start;
       fc::time_point             stop;
@@ -163,8 +160,7 @@ struct zipkin_trace : public zipkin_span {
       return zipkin_span{ std::move(name), get_token().id };
    }
 
-   [[nodiscard]] static std::optional<zipkin_span> create_span_from_token(zipkin_span::token token,
-                                                                          std::string        name) {
+   [[nodiscard]] static std::optional<zipkin_span> create_span_from_token(zipkin_span::token token, std::string name) {
       return zipkin_span{ std::move(name), token.id };
    }
 };
@@ -174,9 +170,7 @@ struct optional_trace {
 
    constexpr explicit operator bool() const noexcept { return opt.has_value(); }
 
-   [[nodiscard]] zipkin_span::token get_token() const {
-      return opt ? opt->get_token() : zipkin_span::token(0);
-   }
+   [[nodiscard]] zipkin_span::token get_token() const { return opt ? opt->get_token() : zipkin_span::token(0); }
 };
 
 class zipkin {

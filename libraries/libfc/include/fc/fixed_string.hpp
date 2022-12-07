@@ -75,9 +75,7 @@ public:
    friend bool operator==(const fixed_string& a, const fixed_string& b) { return a.data == b.data; }
    friend bool operator!=(const fixed_string& a, const fixed_string& b) { return a.data != b.data; }
 
-   friend std::ostream& operator<<(std::ostream& out, const fixed_string& str) {
-      return out << std::string(str);
-   }
+   friend std::ostream& operator<<(std::ostream& out, const fixed_string& str) { return out << std::string(str); }
    // private:
    Storage data;
 };

@@ -50,11 +50,10 @@ controller::config copy_config_and_files(const controller::config& config, int o
 class snapshotted_tester : public base_tester {
 public:
    enum config_file_handling { dont_copy_config_files, copy_config_files };
-   snapshotted_tester(
-      controller::config         config,
-      const snapshot_reader_ptr& snapshot,
-      int                        ordinal,
-      config_file_handling       copy_files_from_config = config_file_handling::dont_copy_config_files) {
+   snapshotted_tester(controller::config         config,
+                      const snapshot_reader_ptr& snapshot,
+                      int                        ordinal,
+                      config_file_handling copy_files_from_config = config_file_handling::dont_copy_config_files) {
       FC_ASSERT(config.blocks_dir.filename().generic_string() != "." &&
                    config.state_dir.filename().generic_string() != ".",
                 "invalid path names in controller::config");
@@ -66,8 +65,7 @@ public:
       init(copied_config, snapshot);
    }
 
-   signed_block_ptr produce_block(
-      fc::microseconds skip_time = fc::milliseconds(config::block_interval_ms)) override {
+   signed_block_ptr produce_block(fc::microseconds skip_time = fc::milliseconds(config::block_interval_ms)) override {
       return _produce_block(skip_time, false);
    }
 
@@ -85,10 +83,9 @@ public:
 BOOST_AUTO_TEST_SUITE(snapshot_tests)
 
 namespace {
-void variant_diff_helper(
-   const fc::variant&                                                                lhs,
-   const fc::variant&                                                                rhs,
-   std::function<void(const std::string&, const fc::variant&, const fc::variant&)>&& out) {
+void variant_diff_helper(const fc::variant&                                                                lhs,
+                         const fc::variant&                                                                rhs,
+                         std::function<void(const std::string&, const fc::variant&, const fc::variant&)>&& out) {
    if (lhs.get_type() != rhs.get_type()) {
       out("", lhs, rhs);
    } else if (lhs.is_object()) {
@@ -106,9 +103,7 @@ void variant_diff_helper(
          } else {
             const auto& r_val = r_iter->value();
             variant_diff_helper(
-               l_val,
-               r_val,
-               [&out, &entry](const std::string& path, const fc::variant& lhs, const fc::variant& rhs) {
+               l_val, r_val, [&out, &entry](const std::string& path, const fc::variant& lhs, const fc::variant& rhs) {
                   out(sep + entry.key() + path, lhs, rhs);
                });
          }
@@ -173,8 +168,7 @@ template<typename SNAPSHOT_SUITE>
 void verify_integrity_hash(controller& lhs, controller& rhs) {
    const auto lhs_integrity_hash = lhs.calculate_integrity_hash();
    const auto rhs_integrity_hash = rhs.calculate_integrity_hash();
-   if (std::is_same_v<SNAPSHOT_SUITE, variant_snapshot_suite> &&
-       lhs_integrity_hash.str() != rhs_integrity_hash.str()) {
+   if (std::is_same_v<SNAPSHOT_SUITE, variant_snapshot_suite> && lhs_integrity_hash.str() != rhs_integrity_hash.str()) {
       auto lhs_latest_writer = SNAPSHOT_SUITE::get_writer();
       lhs.write_snapshot(lhs_latest_writer);
       auto lhs_latest = SNAPSHOT_SUITE::finalize(lhs_latest_writer);
@@ -388,7 +382,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(test_compatible_versions, SNAPSHOT_SUITE, snapshot
    bool           save_snapshot                         = false;
    bool           generate_log                          = false;
    std::tie(save_snapshot, generate_log)                = get_extra_args();
-   const auto source_log_dir = bfs::path(snapshot_file<snapshot::binary>::base_path);
+   const auto source_log_dir                            = bfs::path(snapshot_file<snapshot::binary>::base_path);
 
    if (generate_log) {
       ///< Begin deterministic code to generate blockchain for comparison
@@ -439,8 +433,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(test_compatible_versions, SNAPSHOT_SUITE, snapshot
       auto latest = SNAPSHOT_SUITE::finalize(latest_writer);
 
       // load the latest snapshot
-      snapshotted_tester latest_tester(
-         base_chain.get_config(), SNAPSHOT_SUITE::get_reader(latest), ordinal++);
+      snapshotted_tester latest_tester(base_chain.get_config(), SNAPSHOT_SUITE::get_reader(latest), ordinal++);
       verify_integrity_hash<SNAPSHOT_SUITE>(*base_chain.control, *latest_tester.control);
    }
    // This isn't quite fully automated.  The snapshots still need to be gzipped and moved to
@@ -462,8 +455,8 @@ This test intends to make sure that a snapshot from before that change could
 be correctly loaded into a new version to facilitate upgrading from 1.8.x
 to v2.0.x without a replay.
 
-The original test simulated a snapshot from 1.8.x with an inflight schedule change, loaded it on the newer
-version and reconstructed the chain via push_transaction. This is too fragile.
+The original test simulated a snapshot from 1.8.x with an inflight schedule change, loaded it on the newer version and
+reconstructed the chain via push_transaction. This is too fragile.
 
 The fix is to save block.log and its corresponding snapshot with infight
 schedule changes, load the snapshot and replay the block.log on the new
@@ -478,8 +471,8 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(test_pending_schedule_snapshot, SNAPSHOT_SUITE, sn
    source_log_dir_str += "prod_sched";
    const auto     source_log_dir                        = bfs::path(source_log_dir_str.c_str());
    const uint32_t legacy_default_max_inline_action_size = 4 * 1024;
-   auto config  = tester::default_config(fc::temp_directory(), legacy_default_max_inline_action_size).first;
-   auto genesis = eosio::chain::block_log::extract_genesis_state(source_log_dir);
+   auto           config  = tester::default_config(fc::temp_directory(), legacy_default_max_inline_action_size).first;
+   auto           genesis = eosio::chain::block_log::extract_genesis_state(source_log_dir);
    bfs::create_directories(config.blocks_dir);
    bfs::copy(source_log_dir / "blocks.log", config.blocks_dir / "blocks.log");
    tester blockslog_chain(config, *genesis);
@@ -487,8 +480,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(test_pending_schedule_snapshot, SNAPSHOT_SUITE, sn
    // consruct a chain by loading the saved snapshot
    auto               ordinal      = 0;
    auto               old_snapshot = SNAPSHOT_SUITE::load_from_file("snap_v2_prod_sched");
-   snapshotted_tester snapshot_chain(
-      blockslog_chain.get_config(), SNAPSHOT_SUITE::get_reader(old_snapshot), ordinal++);
+   snapshotted_tester snapshot_chain(blockslog_chain.get_config(), SNAPSHOT_SUITE::get_reader(old_snapshot), ordinal++);
 
    // make sure blockslog_chain and snapshot_chain agree to each other
    verify_integrity_hash<SNAPSHOT_SUITE>(*blockslog_chain.control, *snapshot_chain.control);
@@ -500,8 +492,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(test_pending_schedule_snapshot, SNAPSHOT_SUITE, sn
    auto latest = SNAPSHOT_SUITE::finalize(latest_writer);
 
    // construct a chain from the latest snapshot
-   snapshotted_tester latest_chain(
-      blockslog_chain.get_config(), SNAPSHOT_SUITE::get_reader(latest), ordinal++);
+   snapshotted_tester latest_chain(blockslog_chain.get_config(), SNAPSHOT_SUITE::get_reader(latest), ordinal++);
 
    // make sure both chains agree
    verify_integrity_hash<SNAPSHOT_SUITE>(*blockslog_chain.control, *latest_chain.control);
@@ -604,8 +595,8 @@ BOOST_AUTO_TEST_CASE(json_snapshot_validity_test) {
    buffered_snapshot_suite::write_to_file(bin_from_json_file, snapshot_bin_from_json);
 
    // load new bin snapshot
-   auto snapshot_bin_from_json_read = buffered_snapshot_suite::load_from_file(bin_from_json_file);
-   auto reader_bin_from_json        = buffered_snapshot_suite::get_reader(snapshot_bin_from_json_read);
+   auto               snapshot_bin_from_json_read = buffered_snapshot_suite::load_from_file(bin_from_json_file);
+   auto               reader_bin_from_json        = buffered_snapshot_suite::get_reader(snapshot_bin_from_json_read);
    snapshotted_tester tester_bin_from_json(chain.get_config(), reader_bin_from_json, ordinal++);
 
    // ensure all snapshots are equal

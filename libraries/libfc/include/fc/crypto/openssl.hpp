@@ -30,14 +30,14 @@ struct ssl_wrapper {
    ssl_type* obj;
 };
 
-#define SSL_TYPE(name, ssl_type, free_func)                                                                  \
-   struct name : public ssl_wrapper<ssl_type> {                                                              \
-      name(ssl_type* obj = nullptr)                                                                          \
-         : ssl_wrapper(obj) {}                                                                               \
-      ~name() {                                                                                              \
-         if (obj != nullptr)                                                                                 \
-            free_func(obj);                                                                                  \
-      }                                                                                                      \
+#define SSL_TYPE(name, ssl_type, free_func)                                                                            \
+   struct name : public ssl_wrapper<ssl_type> {                                                                        \
+      name(ssl_type* obj = nullptr)                                                                                    \
+         : ssl_wrapper(obj) {}                                                                                         \
+      ~name() {                                                                                                        \
+         if (obj != nullptr)                                                                                           \
+            free_func(obj);                                                                                            \
+      }                                                                                                                \
    };
 
 SSL_TYPE(ec_group, EC_GROUP, EC_GROUP_free)

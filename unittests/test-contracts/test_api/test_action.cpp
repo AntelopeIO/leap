@@ -46,8 +46,7 @@ void test_action::test_dummy_action() {
    eosio::action act = eosio::get_action(1, 0);
    eosio_assert(act.authorization.back().actor == "testapi"_n, "incorrect permission actor");
    eosio_assert(act.authorization.back().permission == "active"_n, "incorrect permission name");
-   eosio_assert(eosio::pack_size(act) == static_cast<size_t>(total),
-                "pack_size does not match get_action size");
+   eosio_assert(eosio::pack_size(act) == static_cast<size_t>(total), "pack_size does not match get_action size");
    eosio_assert(act.account == "testapi"_n, "expected testapi account");
 
    dummy_action dum13 = act.data_as<dummy_action>();
@@ -251,12 +250,8 @@ void test_action::test_ram_billing_in_notify(uint64_t receiver, uint64_t code, u
 
       // Create the main table row simply for the purpose of charging code more RAM.
       if (payer != 0)
-         db_store_i64("notifytest"_n.value,
-                      "notifytest"_n.value,
-                      payer,
-                      "notifytest"_n.value,
-                      &to_notify,
-                      sizeof(to_notify));
+         db_store_i64(
+            "notifytest"_n.value, "notifytest"_n.value, payer, "notifytest"_n.value, &to_notify, sizeof(to_notify));
    }
 }
 
@@ -303,8 +298,7 @@ void test_action::test_action_ordinal1(uint64_t receiver, uint64_t code, uint64_
                          std::tuple<>()); // exec 11
       act1.send();
 
-      set_action_return_value(&eosio::pack(std::string("charlie"))[0],
-                              eosio::pack_size(std::string("charlie")));
+      set_action_return_value(&eosio::pack(std::string("charlie"))[0], eosio::pack_size(std::string("charlie")));
       if (is_account("fail3"_n)) {
          eosio_assert(false, "fail at point 3");
       }

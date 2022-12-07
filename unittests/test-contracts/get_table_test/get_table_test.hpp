@@ -97,20 +97,18 @@ public:
       checksum256 sec160_key() const { return checksum256(sec160.get_array()); }
    };
 
-   typedef eosio::multi_index<
-      "numobjs"_n,
-      numobj,
-      indexed_by<"bysec1"_n, const_mem_fun<numobj, uint64_t, &numobj::sec64_key>>,
-      indexed_by<"bysec2"_n, const_mem_fun<numobj, uint128_t, &numobj::sec128_key>>,
-      indexed_by<"bysec3"_n, const_mem_fun<numobj, double, &numobj::secdouble_key>>,
-      indexed_by<"bysec4"_n, const_mem_fun<numobj, long double, &numobj::secldouble_key>>>
+   typedef eosio::multi_index<"numobjs"_n,
+                              numobj,
+                              indexed_by<"bysec1"_n, const_mem_fun<numobj, uint64_t, &numobj::sec64_key>>,
+                              indexed_by<"bysec2"_n, const_mem_fun<numobj, uint128_t, &numobj::sec128_key>>,
+                              indexed_by<"bysec3"_n, const_mem_fun<numobj, double, &numobj::secdouble_key>>,
+                              indexed_by<"bysec4"_n, const_mem_fun<numobj, long double, &numobj::secldouble_key>>>
       numobjs;
 
-   typedef eosio::multi_index<
-      "hashobjs"_n,
-      hashobj,
-      indexed_by<"bysec1"_n, const_mem_fun<hashobj, checksum256, &hashobj::sec256_key>>,
-      indexed_by<"bysec2"_n, const_mem_fun<hashobj, checksum256, &hashobj::sec160_key>>>
+   typedef eosio::multi_index<"hashobjs"_n,
+                              hashobj,
+                              indexed_by<"bysec1"_n, const_mem_fun<hashobj, checksum256, &hashobj::sec256_key>>,
+                              indexed_by<"bysec2"_n, const_mem_fun<hashobj, checksum256, &hashobj::sec160_key>>>
       hashobjs;
 
    [[eosio::action]] void addnumobj(uint64_t input);

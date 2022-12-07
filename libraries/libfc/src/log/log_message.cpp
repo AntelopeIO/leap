@@ -116,8 +116,7 @@ void from_variant(const variant& v, log_level& e) {
       else
          FC_THROW_EXCEPTION(bad_cast_exception, "Failed to cast from Variant to log_level");
    }
-   FC_RETHROW_EXCEPTIONS(
-      error, "Expected 'all|debug|info|warn|error|off', but got '${variant}'", ("variant", v));
+   FC_RETHROW_EXCEPTIONS(error, "Expected 'all|debug|info|warn|error|off', but got '${variant}'", ("variant", v));
 }
 
 string log_level::to_string() const {
@@ -162,8 +161,8 @@ string log_context::get_context() const {
 
 variant log_context::to_variant() const {
    mutable_variant_object o;
-   o("level", variant(my->level))("file", my->file)("line", my->line)("method", my->method)(
-      "hostname", my->hostname)("thread_name", my->thread_name)("timestamp", variant(my->timestamp));
+   o("level", variant(my->level))("file", my->file)("line", my->line)("method", my->method)("hostname", my->hostname)(
+      "thread_name", my->thread_name)("timestamp", variant(my->timestamp));
 
    if (my->context.size())
       o("context", my->context);

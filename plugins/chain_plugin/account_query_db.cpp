@@ -23,8 +23,7 @@ using namespace boost::bimaps;
 namespace {
 /**
  * Structure to hold indirect reference to a `property_object` via {owner,name} as well as a non-standard
- * index over `last_updated_height` (which is truncated at the LIB during initialization) for roll-back
- * support
+ * index over `last_updated_height` (which is truncated at the LIB during initialization) for roll-back support
  */
 struct permission_info {
    // indexed data
@@ -75,13 +74,9 @@ struct weighted {
    T                  value;
    chain::weight_type weight;
 
-   static weighted lower_bound_for(const T& value) {
-      return { value, std::numeric_limits<chain::weight_type>::min() };
-   }
+   static weighted lower_bound_for(const T& value) { return { value, std::numeric_limits<chain::weight_type>::min() }; }
 
-   static weighted upper_bound_for(const T& value) {
-      return { value, std::numeric_limits<chain::weight_type>::max() };
-   }
+   static weighted upper_bound_for(const T& value) { return { value, std::numeric_limits<chain::weight_type>::max() }; }
 };
 
 template<typename Output, typename Input>
@@ -152,8 +147,7 @@ struct account_query_db_impl {
       for (const auto& po : index) {
          uint32_t    last_updated_height = last_updated_time_to_height(po.last_updated);
          const auto& pi =
-            permission_info_index
-               .emplace(permission_info{ po.owner, po.name, last_updated_height, po.auth.threshold })
+            permission_info_index.emplace(permission_info{ po.owner, po.name, last_updated_height, po.auth.threshold })
                .first;
          add_to_bimaps(*pi, po);
       }
@@ -237,8 +231,8 @@ struct account_query_db_impl {
     * Given a block number, remove all permissions that were last updated at or after that block number
     * this will effectively roll back the database to just before the incoming block
     *
-    * For each removed entry, this will create a new entry if there exists an equivalent {owner, name}
-    * permission at the HEAD state of the chain.
+    * For each removed entry, this will create a new entry if there exists an equivalent {owner, name} permission
+    * at the HEAD state of the chain.
     * @param bsp - the block to rollback before
     */
    void rollback_to_before(const chain::block_state_ptr& bsp) {
@@ -274,9 +268,8 @@ struct account_query_db_impl {
          } else {
             const auto& po = *itr;
 
-            uint32_t last_updated_height = po.last_updated == bsp->header.timestamp
-                                              ? bsp->block_num
-                                              : last_updated_time_to_height(po.last_updated);
+            uint32_t last_updated_height =
+               po.last_updated == bsp->header.timestamp ? bsp->block_num : last_updated_time_to_height(po.last_updated);
 
             index.modify(index.iterator_to(pi), [&po, last_updated_height](auto& mutable_pi) {
                mutable_pi.last_updated_height = last_updated_height;
@@ -296,8 +289,8 @@ struct account_query_db_impl {
    void cache_transaction_trace(const chain::transaction_trace_ptr& trace) {
       if (!trace->receipt)
          return;
-      // include only executed transactions; soft_fail included so that onerror (and any inlines via onerror)
-      // are included
+      // include only executed transactions; soft_fail included so that onerror (and any inlines via onerror) are
+      // included
       if ((trace->receipt->status != chain::transaction_receipt_header::executed &&
            trace->receipt->status != chain::transaction_receipt_header::soft_fail)) {
          return;
@@ -398,12 +391,11 @@ struct account_query_db_impl {
          for (const auto& up : updated) {
             auto key        = std::make_tuple(up.actor, up.permission);
             auto source_itr = permission_by_owner.find(key);
-            EOS_ASSERT(
-               source_itr != permission_by_owner.end(), chain::plugin_exception, "chain data is missing");
+            EOS_ASSERT(source_itr != permission_by_owner.end(), chain::plugin_exception, "chain data is missing");
             auto itr = index.find(key);
             if (itr == index.end()) {
                const auto& po = *source_itr;
-               itr = index.emplace(permission_info{ po.owner, po.name, bnum, po.auth.threshold }).first;
+               itr            = index.emplace(permission_info{ po.owner, po.name, bnum, po.auth.threshold }).first;
             } else {
                remove_from_bimaps(*itr);
                index.modify(itr, [&](auto& mutable_pi) {
@@ -474,11 +466,9 @@ struct account_query_db_impl {
             push_results(begin, end);
          } else {
             // construct a range of all possible weights for an account/permission pair
-            const auto p = chain::permission_level{ a.actor, a.permission };
-            const auto begin =
-               name_bimap.left.lower_bound(weighted<chain::permission_level>::lower_bound_for(p));
-            const auto end =
-               name_bimap.left.upper_bound(weighted<chain::permission_level>::upper_bound_for(p));
+            const auto p     = chain::permission_level{ a.actor, a.permission };
+            const auto begin = name_bimap.left.lower_bound(weighted<chain::permission_level>::lower_bound_for(p));
+            const auto end   = name_bimap.left.upper_bound(weighted<chain::permission_level>::upper_bound_for(p));
             push_results(begin, end);
          }
       }
@@ -506,14 +496,12 @@ struct account_query_db_impl {
    using time_map_t = std::map<fc::time_point, uint32_t>;
    time_map_t time_to_block_num;
 
-   using name_bimap_t =
-      bimap<multiset_of<weighted<chain::permission_level>>, multiset_of<permission_info::cref>>;
-   using key_bimap_t =
-      bimap<multiset_of<weighted<chain::public_key_type>>, multiset_of<permission_info::cref>>;
+   using name_bimap_t = bimap<multiset_of<weighted<chain::permission_level>>, multiset_of<permission_info::cref>>;
+   using key_bimap_t  = bimap<multiset_of<weighted<chain::public_key_type>>, multiset_of<permission_info::cref>>;
 
    /*
-    * The structures below are shared between the writing thread and the reading thread(s) and must be
-    * protected by the `rw_mutex`
+    * The structures below are shared between the writing thread and the reading thread(s) and must be protected
+    * by the `rw_mutex`
     */
    permission_info_index_t permission_info_index; ///< multi-index that holds ephemeral indices
    name_bimap_t            name_bimap;            ///< many:many bimap of names:permission_infos

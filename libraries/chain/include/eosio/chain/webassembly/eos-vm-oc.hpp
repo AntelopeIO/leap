@@ -40,7 +40,7 @@ public:
                                                                           std::vector<uint8_t> initial_memory,
                                                                           const digest_type&   code_hash,
                                                                           const uint8_t&       vm_type,
-                                                                          const uint8_t& vm_version) override;
+                                                                          const uint8_t&       vm_version) override;
 
    void immediately_exit_currently_running_module() override;
 
@@ -54,30 +54,26 @@ public:
  * validate an in-wasm-memory array
  * @tparam T
  *
- * When a pointer will be invalid we want to stop execution right here right now. This is accomplished by
- * forcing a read from an address that must always be bad. A better approach would probably be to call in to a
- * function that notes the invalid parameter and host function and then bubbles up a more useful error
- * message; maybe some day. Prior to WASM_LIMITS the code just simply did a load from address 33MB via an
- * immediate. 33MB was always invalid since 33MB was the most WASM memory you could have. Post WASM_LIMITS you
- * theoretically could have up to 4GB, but we can't do a load from a 4GB immediate since immediates are
- * limited to signed 32bit ranges.
+ * When a pointer will be invalid we want to stop execution right here right now. This is accomplished by forcing a read
+ * from an address that must always be bad. A better approach would probably be to call in to a function that notes the
+ * invalid parameter and host function and then bubbles up a more useful error message; maybe some day. Prior to
+ * WASM_LIMITS the code just simply did a load from address 33MB via an immediate. 33MB was always invalid since 33MB
+ * was the most WASM memory you could have. Post WASM_LIMITS you theoretically could have up to 4GB, but we can't do a
+ * load from a 4GB immediate since immediates are limited to signed 32bit ranges.
  *
- * So instead access the first_invalid_memory_address which by its name will always be invalid. Or will it?
- * No... it won't, since it's initialized to -1*64KB in the case WASM has _no_ memory! We actually cannot
- * clamp first_invalid_memory_address to 0 during initialization in such a case since there is some historical
- * funny business going on when end==0 (note how jle will _pass_ when end==0 &
- * first_invalid_memory_address==0)
+ * So instead access the first_invalid_memory_address which by its name will always be invalid. Or will it? No... it
+ * won't, since it's initialized to -1*64KB in the case WASM has _no_ memory! We actually cannot clamp
+ * first_invalid_memory_address to 0 during initialization in such a case since there is some historical funny business
+ * going on when end==0 (note how jle will _pass_ when end==0 & first_invalid_memory_address==0)
  *
- * So instead just bump first_invalid_memory_address another 64KB before accessing it. If it's -64KB it'll go
- * to 0 which fails correctly in that case. If it's 4GB it'll go to 4GB+64KB which still fails too (there is
- * an entire 8GB range of WASM memory set aside). There are other more straightforward ways of accomplishing
- * this, but at least this approach has zero overhead (e.g. no additional register usage, etc) in the nominal
- * case.
+ * So instead just bump first_invalid_memory_address another 64KB before accessing it. If it's -64KB it'll go to 0 which
+ * fails correctly in that case. If it's 4GB it'll go to 4GB+64KB which still fails too (there is an entire 8GB range of
+ * WASM memory set aside). There are other more straightforward ways of accomplishing this, but at least this approach
+ * has zero overhead (e.g. no additional register usage, etc) in the nominal case.
  */
 template<typename T>
 inline void* array_ptr_impl(size_t ptr, size_t length) {
-   constexpr int cb_full_linear_memory_start_segment_offset =
-      OFFSET_OF_CONTROL_BLOCK_MEMBER(full_linear_memory_start);
+   constexpr int cb_full_linear_memory_start_segment_offset = OFFSET_OF_CONTROL_BLOCK_MEMBER(full_linear_memory_start);
    constexpr int cb_first_invalid_memory_address_segment_offset =
       OFFSET_OF_CONTROL_BLOCK_MEMBER(first_invalid_memory_address);
 
@@ -103,15 +99,14 @@ inline void* array_ptr_impl(size_t ptr, size_t length) {
  * validate an in-wasm-memory char array that must be null terminated
  */
 inline char* null_terminated_ptr_impl(uint64_t ptr) {
-   constexpr int cb_full_linear_memory_start_segment_offset =
-      OFFSET_OF_CONTROL_BLOCK_MEMBER(full_linear_memory_start);
+   constexpr int cb_full_linear_memory_start_segment_offset = OFFSET_OF_CONTROL_BLOCK_MEMBER(full_linear_memory_start);
    constexpr int cb_first_invalid_memory_address_segment_offset =
       OFFSET_OF_CONTROL_BLOCK_MEMBER(first_invalid_memory_address);
 
    char     dumpster;
    uint64_t scratch;
 
-   asm volatile("mov %%gs:(%[Ptr]), %[Dumpster]\n" // probe memory location at ptr to see if valid
+   asm volatile("mov %%gs:(%[Ptr]), %[Dumpster]\n"              // probe memory location at ptr to see if valid
                 "mov %%gs:%c[firstInvalidMemory], %[Scratch]\n" // get first invalid memory address
                 "cmpb $0, %%gs:-1(%[Scratch])\n"                // is last byte in valid linear memory 0?
                 "je 2f\n" // if so, this will be a null terminated string one way or another
@@ -131,9 +126,8 @@ inline char* null_terminated_ptr_impl(uint64_t ptr) {
 }
 
 inline auto convert_native_to_wasm(char* ptr) {
-   constexpr int cb_full_linear_memory_start_offset =
-      OFFSET_OF_CONTROL_BLOCK_MEMBER(full_linear_memory_start);
-   char* full_linear_memory_start;
+   constexpr int cb_full_linear_memory_start_offset = OFFSET_OF_CONTROL_BLOCK_MEMBER(full_linear_memory_start);
+   char*         full_linear_memory_start;
    asm("mov %%gs:%c[fullLinearMemOffset], %[fullLinearMem]\n"
        : [fullLinearMem] "=r"(full_linear_memory_start)
        : [fullLinearMemOffset] "i"(cb_full_linear_memory_start_offset));
@@ -395,8 +389,7 @@ constexpr auto create_function(std::index_sequence<Is...>) {
 template<auto F, typename Preconditions, bool is_injected>
 constexpr auto create_function() {
    using native_args = vm::flatten_parameters_t<AUTO_PARAM_WORKAROUND(F)>;
-   using wasm_args =
-      decltype(get_ct_args<native_args>(std::make_index_sequence<std::tuple_size_v<native_args>>()));
+   using wasm_args   = decltype(get_ct_args<native_args>(std::make_index_sequence<std::tuple_size_v<native_args>>()));
    return create_function<F, Preconditions, wasm_args, is_injected>(
       std::make_index_sequence<std::tuple_size_v<wasm_args>>());
 }
@@ -408,11 +401,10 @@ void register_eosvm_oc(Name n) {
       return;
    constexpr auto             fn    = create_function<F, Preconditions, injected>();
    constexpr auto             index = find_intrinsic_index(n.c_str());
-   [[maybe_unused]] intrinsic the_intrinsic(
-      n.c_str(),
-      wasm_function_type_provider<std::remove_pointer_t<decltype(fn)>>::type(),
-      reinterpret_cast<void*>(fn),
-      index);
+   [[maybe_unused]] intrinsic the_intrinsic(n.c_str(),
+                                            wasm_function_type_provider<std::remove_pointer_t<decltype(fn)>>::type(),
+                                            reinterpret_cast<void*>(fn),
+                                            index);
 }
 
 }

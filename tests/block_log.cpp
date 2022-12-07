@@ -245,8 +245,7 @@ BOOST_DATA_TEST_CASE(nonprune_test_genesis,
                      reopen_on_mark,
                      remove_index_on_reopen) {
    try {
-      block_log_fixture t(
-         enable_read, reopen_on_mark, remove_index_on_reopen, false, std::optional<uint32_t>());
+      block_log_fixture t(enable_read, reopen_on_mark, remove_index_on_reopen, false, std::optional<uint32_t>());
 
       t.startup(1);
 
@@ -277,8 +276,7 @@ BOOST_DATA_TEST_CASE(nonprune_test_nongenesis,
                      reopen_on_mark,
                      remove_index_on_reopen) {
    try {
-      block_log_fixture t(
-         enable_read, reopen_on_mark, remove_index_on_reopen, false, std::optional<uint32_t>());
+      block_log_fixture t(enable_read, reopen_on_mark, remove_index_on_reopen, false, std::optional<uint32_t>());
 
       t.startup(10);
 
@@ -303,10 +301,10 @@ BOOST_DATA_TEST_CASE(nonprune_test_nongenesis,
    FC_LOG_AND_RETHROW()
 }
 
-// the important part of this test is that we transition to a pruned log that still has the genesis state
-// after transition to pruned
-//  and then try vacuuming it in both cases where it remains a genesis_state and gets converted to a chainid.
-//  basically we want to feel around in convert_existing_header_to_vacuumed()
+// the important part of this test is that we transition to a pruned log that still has the genesis state after
+// transition to pruned
+//  and then try vacuuming it in both cases where it remains a genesis_state and gets converted to a chainid. basically
+//  we want to feel around in convert_existing_header_to_vacuumed()
 BOOST_DATA_TEST_CASE(non_prune_to_prune_genesis,
                      bdata::xrange(2) * bdata::xrange(2),
                      enable_read,
@@ -324,8 +322,7 @@ BOOST_DATA_TEST_CASE(non_prune_to_prune_genesis,
       t.prune_blocks = 10;
       t.check_n_bounce([&]() {});
 
-      // we're now a pruned log with genesis state at the front still; however we didn't actually prune any
-      // entries
+      // we're now a pruned log with genesis state at the front still; however we didn't actually prune any entries
       t.check_range_present(1, 4);
 
       t.add(5, payload_size(), 'D');
@@ -334,8 +331,7 @@ BOOST_DATA_TEST_CASE(non_prune_to_prune_genesis,
 
       t.prune_blocks.reset();
       t.check_n_bounce([&]() {});
-      // we've just been converted back to a non-pruned log. But since we never pruned any blocks, the front
-      // of the log
+      // we've just been converted back to a non-pruned log. But since we never pruned any blocks, the front of the log
       //  should still have the genesis_state
       t.check_range_present(1, 6);
 
@@ -371,8 +367,7 @@ BOOST_DATA_TEST_CASE(non_prune_to_prune_genesis,
       // and now we did prune some blocks while in prune mode
       t.check_range_present(3, 12);
 
-      // so now when we vacuum there will be a transition from the log starting with a genesis_state to a
-      // chain_id
+      // so now when we vacuum there will be a transition from the log starting with a genesis_state to a chain_id
       t.prune_blocks.reset();
       t.check_n_bounce([&]() {});
 
@@ -397,8 +392,8 @@ BOOST_DATA_TEST_CASE(non_prune_to_prune_genesis,
    FC_LOG_AND_RETHROW()
 }
 
-// simpler than above, we'll start out with a non-genesis log and just make sure after pruning the chainid is
-// still what we expect
+// simpler than above, we'll start out with a non-genesis log and just make sure after pruning the chainid is still what
+// we expect
 BOOST_DATA_TEST_CASE(non_prune_to_prune_nongenesis,
                      bdata::xrange(2) * bdata::xrange(2),
                      enable_read,

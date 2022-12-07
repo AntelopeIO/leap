@@ -9,8 +9,7 @@
 namespace fc {
 
 /**
- * Specialize tracked::memory_size() if obj does not provide a memory_size() method that represents memory
- * size.
+ * Specialize tracked::memory_size() if obj does not provide a memory_size() method that represents memory size.
  */
 namespace tracked {
 template<typename T>

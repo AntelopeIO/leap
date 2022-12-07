@@ -68,8 +68,7 @@ auto make_unique_trx(const chain_id_type& chain_id) {
          private_key_type::regenerate<fc::ecc::private_key_shim>(fc::sha256::hash(std::string("kevin")));
       trx.sign(bad_priv_key, chain_id);
    } else {
-      auto priv_key =
-         private_key_type::regenerate<fc::ecc::private_key_shim>(fc::sha256::hash(std::string("nathan")));
+      auto priv_key = private_key_type::regenerate<fc::ecc::private_key_shim>(fc::sha256::hash(std::string("nathan")));
       trx.sign(priv_key, chain_id);
    }
 
@@ -77,8 +76,7 @@ auto make_unique_trx(const chain_id_type& chain_id) {
 }
 
 // verify all trxs are in blocks only once
-bool verify_equal(const std::deque<packed_transaction_ptr>& trxs,
-                  const std::deque<block_state_ptr>&        all_blocks) {
+bool verify_equal(const std::deque<packed_transaction_ptr>& trxs, const std::deque<block_state_ptr>& all_blocks) {
    std::set<transaction_id_type> trxs_ids; // trx can appear more than once if they were aborted
    std::set<transaction_id_type> blk_trxs_ids;
 
@@ -139,7 +137,7 @@ BOOST_AUTO_TEST_CASE(producer) {
       std::deque<block_state_ptr> all_blocks;
       std::promise<void>          empty_blocks_promise;
       std::future<void>           empty_blocks_fut = empty_blocks_promise.get_future();
-      auto ab = chain_plug->chain().accepted_block.connect([&](const block_state_ptr& bsp) {
+      auto                        ab = chain_plug->chain().accepted_block.connect([&](const block_state_ptr& bsp) {
          static int num_empty = std::numeric_limits<int>::max();
          all_blocks.push_back(bsp);
          if (bsp->block->transactions.empty()) {
@@ -150,13 +148,12 @@ BOOST_AUTO_TEST_CASE(producer) {
             num_empty = 10;
          }
       });
-      auto bs = chain_plug->chain().block_start.connect([&](uint32_t bn) {});
+      auto                        bs = chain_plug->chain().block_start.connect([&](uint32_t bn) {});
 
-      std::atomic<size_t> num_acked = 0;
-      plugin_interface::compat::channels::transaction_ack::channel_type::handle
-         incoming_transaction_ack_subscription =
-            appbase::app().get_channel<plugin_interface::compat::channels::transaction_ack>().subscribe(
-               [&num_acked](const std::pair<fc::exception_ptr, packed_transaction_ptr>& t) { ++num_acked; });
+      std::atomic<size_t>                                                       num_acked = 0;
+      plugin_interface::compat::channels::transaction_ack::channel_type::handle incoming_transaction_ack_subscription =
+         appbase::app().get_channel<plugin_interface::compat::channels::transaction_ack>().subscribe(
+            [&num_acked](const std::pair<fc::exception_ptr, packed_transaction_ptr>& t) { ++num_acked; });
 
       std::deque<packed_transaction_ptr> trxs;
       std::atomic<size_t>                next_calls        = 0;
@@ -184,8 +181,7 @@ BOOST_AUTO_TEST_CASE(producer) {
                      } else {
                         elog("trace not for trx ${id}: ${t}",
                              ("id", ptrx->id())(
-                                "t",
-                                fc::json::to_pretty_string(*std::get<chain::transaction_trace_ptr>(result))));
+                                "t", fc::json::to_pretty_string(*std::get<chain::transaction_trace_ptr>(result))));
                         trx_match = false;
                      }
                   } else if (!return_failure_traces && !std::holds_alternative<fc::exception_ptr>(result) &&

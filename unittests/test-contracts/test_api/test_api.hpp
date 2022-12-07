@@ -12,22 +12,22 @@ class transaction;
 // env._ZNKSt3__120__vector_base_commonILb1EE20__throw_length_errorEv
 //       errors in api_tests/memory_tests
 
-#define WASM_TEST_HANDLER(CLASS, METHOD)                                                                     \
-   if (action == WASM_TEST_ACTION(#CLASS, #METHOD)) {                                                        \
-      CLASS::METHOD();                                                                                       \
-      return;                                                                                                \
+#define WASM_TEST_HANDLER(CLASS, METHOD)                                                                               \
+   if (action == WASM_TEST_ACTION(#CLASS, #METHOD)) {                                                                  \
+      CLASS::METHOD();                                                                                                 \
+      return;                                                                                                          \
    }
 
-#define WASM_TEST_HANDLER_EX(CLASS, METHOD)                                                                  \
-   if (action == WASM_TEST_ACTION(#CLASS, #METHOD)) {                                                        \
-      CLASS::METHOD(receiver, code, action);                                                                 \
-      return;                                                                                                \
+#define WASM_TEST_HANDLER_EX(CLASS, METHOD)                                                                            \
+   if (action == WASM_TEST_ACTION(#CLASS, #METHOD)) {                                                                  \
+      CLASS::METHOD(receiver, code, action);                                                                           \
+      return;                                                                                                          \
    }
 
-#define WASM_TEST_ERROR_HANDLER(CALLED_CLASS_STR, CALLED_METHOD_STR, HANDLER_CLASS, HANDLER_METHOD)          \
-   if (error_action == name{ WASM_TEST_ACTION(CALLED_CLASS_STR, CALLED_METHOD_STR) }) {                      \
-      HANDLER_CLASS::HANDLER_METHOD(error_trx);                                                              \
-      return;                                                                                                \
+#define WASM_TEST_ERROR_HANDLER(CALLED_CLASS_STR, CALLED_METHOD_STR, HANDLER_CLASS, HANDLER_METHOD)                    \
+   if (error_action == name{ WASM_TEST_ACTION(CALLED_CLASS_STR, CALLED_METHOD_STR) }) {                                \
+      HANDLER_CLASS::HANDLER_METHOD(error_trx);                                                                        \
+      return;                                                                                                          \
    }
 
 extern "C" {
@@ -49,10 +49,7 @@ __attribute__((eosio_wasm_import)) int32_t db_store_i64(uint64_t    scope,
                                                         const void* data,
                                                         uint32_t    len);
 
-__attribute__((eosio_wasm_import)) int32_t db_find_i64(capi_name code,
-                                                       uint64_t  scope,
-                                                       capi_name table,
-                                                       uint64_t  id);
+__attribute__((eosio_wasm_import)) int32_t db_find_i64(capi_name code, uint64_t scope, capi_name table, uint64_t id);
 
 __attribute__((eosio_wasm_import)) int32_t db_idx64_store(uint64_t        scope,
                                                           capi_name       table,

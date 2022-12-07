@@ -6,22 +6,22 @@ subject the following:
 Copyright (c) 2016-2019, Andrew Scheidecker
 All rights reserved.
 
-Redistribution and use in source and binary forms, with or without modification, are permitted provided that
-the following conditions are met:
-* Redistributions of source code must retain the above copyright notice, this list of conditions and the
-following disclaimer.
-* Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the
-following disclaimer in the documentation and/or other materials provided with the distribution.
-* Neither the name of WAVM nor the names of its contributors may be used to endorse or promote products
-derived from this software without specific prior written permission.
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the
+following conditions are met:
+* Redistributions of source code must retain the above copyright notice, this list of conditions and the following
+disclaimer.
+* Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following
+disclaimer in the documentation and/or other materials provided with the distribution.
+* Neither the name of WAVM nor the names of its contributors may be used to endorse or promote products derived from
+this software without specific prior written permission.
 
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
-WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
-PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL <COPYRIGHT HOLDER> BE LIABLE FOR ANY DIRECT, INDIRECT,
-INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
-ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES,
+INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL <COPYRIGHT HOLDER> BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.
 */
 
 #include "LLVMJIT.h"
@@ -189,37 +189,32 @@ struct JITModule {
       objectLayer = std::make_unique<llvm::orc::LegacyRTDyldObjectLinkingLayer>(
          ES,
          [this](llvm::orc::VModuleKey K) {
-            return llvm::orc::LegacyRTDyldObjectLinkingLayer::Resources{
-               unitmemorymanager, std::make_shared<llvm::orc::NullResolver>()
-            };
+            return llvm::orc::LegacyRTDyldObjectLinkingLayer::Resources{ unitmemorymanager,
+                                                                         std::make_shared<llvm::orc::NullResolver>() };
          },
-         [](llvm::orc::VModuleKey,
-            const llvm::object::ObjectFile&            Obj,
-            const llvm::RuntimeDyld::LoadedObjectInfo& o) {
+         [](llvm::orc::VModuleKey, const llvm::object::ObjectFile& Obj, const llvm::RuntimeDyld::LoadedObjectInfo& o) {
             // nothing to do
          },
-         [this](llvm::orc::VModuleKey,
-                const llvm::object::ObjectFile&            Obj,
-                const llvm::RuntimeDyld::LoadedObjectInfo& o) {
+         [this](
+            llvm::orc::VModuleKey, const llvm::object::ObjectFile& Obj, const llvm::RuntimeDyld::LoadedObjectInfo& o) {
             for (auto symbolSizePair : llvm::object::computeSymbolSizes(Obj)) {
                auto symbol  = symbolSizePair.first;
                auto name    = symbol.getName();
                auto address = symbol.getAddress();
-               if (symbol.getType() && symbol.getType().get() == llvm::object::SymbolRef::ST_Function &&
-                   name && address) {
+               if (symbol.getType() && symbol.getType().get() == llvm::object::SymbolRef::ST_Function && name &&
+                   address) {
                   Uptr loadedAddress = Uptr(*address);
                   auto symbolSection = symbol.getSection();
                   if (symbolSection)
                      loadedAddress += (Uptr)o.getSectionLoadAddress(*symbolSection.get());
                   Uptr functionDefIndex;
                   if (getFunctionIndexFromExternalName(name->data(), functionDefIndex))
-                     function_to_offsets[functionDefIndex] =
-                        loadedAddress - (uintptr_t)unitmemorymanager->code->data();
+                     function_to_offsets[functionDefIndex] = loadedAddress - (uintptr_t)unitmemorymanager->code->data();
 #if PRINT_DISASSEMBLY
                   disassembleFunction((U8*)loadedAddress, symbolSizePair.second);
 #endif
-               } else if (symbol.getType() && symbol.getType().get() == llvm::object::SymbolRef::ST_Data &&
-                          name && *name == getTableSymbolName()) {
+               } else if (symbol.getType() && symbol.getType().get() == llvm::object::SymbolRef::ST_Data && name &&
+                          *name == getTableSymbolName()) {
                   Uptr loadedAddress = Uptr(*address);
                   auto symbolSection = symbol.getSection();
                   if (symbolSection)
@@ -243,8 +238,7 @@ struct JITModule {
    ~JITModule() {}
 
 private:
-   typedef llvm::orc::LegacyIRCompileLayer<llvm::orc::LegacyRTDyldObjectLinkingLayer,
-                                           llvm::orc::SimpleCompiler>
+   typedef llvm::orc::LegacyIRCompileLayer<llvm::orc::LegacyRTDyldObjectLinkingLayer, llvm::orc::SimpleCompiler>
       CompileLayer;
 
    llvm::orc::ExecutionSession                                ES;
@@ -319,12 +313,11 @@ instantiated_code instantiateModule(const IR::Module& module) {
       llvm::TargetOptions to;
       to.EmitStackSizeSection = 1;
 
-      targetMachine =
-         llvm::EngineBuilder()
-            .setRelocationModel(llvm::Reloc::PIC_)
-            .setCodeModel(llvm::CodeModel::Small)
-            .setTargetOptions(to)
-            .selectTarget(llvm::Triple(targetTriple), "", "", llvm::SmallVector<std::string, 0>());
+      targetMachine = llvm::EngineBuilder()
+                         .setRelocationModel(llvm::Reloc::PIC_)
+                         .setCodeModel(llvm::CodeModel::Small)
+                         .setTargetOptions(to)
+                         .selectTarget(llvm::Triple(targetTriple), "", "", llvm::SmallVector<std::string, 0>());
    }
 
    // Emit LLVM IR for the module.

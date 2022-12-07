@@ -36,12 +36,10 @@ flat_multimap<uint16_t, block_extension> signed_block::validate_and_extract_exte
                  invalid_block_extension,
                  "Block extensions are not in the correct order (ascending id types required)");
 
-      auto iter =
-         results.emplace(std::piecewise_construct, std::forward_as_tuple(id), std::forward_as_tuple());
+      auto iter = results.emplace(std::piecewise_construct, std::forward_as_tuple(id), std::forward_as_tuple());
 
       auto match = decompose_t::extract<block_extension>(id, e.second, iter->second);
-      EOS_ASSERT(
-         match, invalid_block_extension, "Block extension with id type ${id} is not supported", ("id", id));
+      EOS_ASSERT(match, invalid_block_extension, "Block extension with id type ${id} is not supported", ("id", id));
 
       if (match->enforce_unique) {
          EOS_ASSERT(i == 0 || id > id_type_lower_bound,

@@ -58,8 +58,7 @@ struct base58_str_parser_impl<Result, Prefixes, Position, KeyType, Rem...> {
 template<typename Result, const char* const* Prefixes, int Position>
 struct base58_str_parser_impl<Result, Prefixes, Position> {
    static Result apply(const std::string& prefix_str, const std::string& data_str) {
-      FC_ASSERT(
-         false, "No matching suite type for ${prefix}_${data}", ("prefix", prefix_str)("data", data_str));
+      FC_ASSERT(false, "No matching suite type for ${prefix}_${data}", ("prefix", prefix_str)("data", data_str));
    }
 };
 
@@ -76,9 +75,8 @@ template<const char* const* Prefixes, typename... Ts>
 struct base58_str_parser<std::variant<Ts...>, Prefixes> {
    static std::variant<Ts...> apply(const std::string& base58str) {
       const auto pivot = base58str.find('_');
-      FC_ASSERT(pivot != std::string::npos,
-                "No delimiter in data, cannot determine suite type: ${str}",
-                ("str", base58str));
+      FC_ASSERT(
+         pivot != std::string::npos, "No delimiter in data, cannot determine suite type: ${str}", ("str", base58str));
 
       const auto prefix_str = base58str.substr(0, pivot);
       auto       data_str   = base58str.substr(pivot + 1);
@@ -101,8 +99,8 @@ struct base58str_visitor : public fc::visitor<std::string> {
       checksummed_data<data_type> wrapper;
       wrapper.data = key.serialize();
       _yield();
-      wrapper.check = checksummed_data<data_type>::calculate_checksum(
-         wrapper.data, !is_default ? Prefixes[position] : nullptr);
+      wrapper.check =
+         checksummed_data<data_type>::calculate_checksum(wrapper.data, !is_default ? Prefixes[position] : nullptr);
       _yield();
       auto packed = raw::pack(wrapper);
       _yield();

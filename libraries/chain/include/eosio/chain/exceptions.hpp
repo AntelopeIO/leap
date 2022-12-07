@@ -3,10 +3,10 @@
 #include <fc/exception/exception.hpp>
 #include <boost/core/typeinfo.hpp>
 
-#define EOS_ASSERT(expr, exc_type, FORMAT, ...)                                                              \
-   FC_MULTILINE_MACRO_BEGIN                                                                                  \
-   if (!(expr))                                                                                              \
-      FC_THROW_EXCEPTION(exc_type, FORMAT, __VA_ARGS__);                                                     \
+#define EOS_ASSERT(expr, exc_type, FORMAT, ...)                                                                        \
+   FC_MULTILINE_MACRO_BEGIN                                                                                            \
+   if (!(expr))                                                                                                        \
+      FC_THROW_EXCEPTION(exc_type, FORMAT, __VA_ARGS__);                                                               \
    FC_MULTILINE_MACRO_END
 
 #define EOS_THROW(exc_type, FORMAT, ...) throw exc_type(FC_LOG_MESSAGE(error, FORMAT, __VA_ARGS__));
@@ -16,29 +16,29 @@
  * The main difference here is that if the exception caught isn't of type "eosio::chain::chain_exception"
  * This macro will rethrow the exception as the specified "exception_type"
  */
-#define EOS_RETHROW_EXCEPTIONS(exception_type, FORMAT, ...)                                                  \
-   catch (const std::bad_alloc&) {                                                                           \
-      throw;                                                                                                 \
-   }                                                                                                         \
-   catch (const boost::interprocess::bad_alloc&) {                                                           \
-      throw;                                                                                                 \
-   }                                                                                                         \
-   catch (eosio::chain::chain_exception & e) {                                                               \
-      FC_RETHROW_EXCEPTION(e, warn, FORMAT, __VA_ARGS__);                                                    \
-   }                                                                                                         \
-   catch (fc::exception & e) {                                                                               \
-      exception_type new_exception(FC_LOG_MESSAGE(warn, FORMAT, __VA_ARGS__));                               \
-      for (const auto& log : e.get_log()) {                                                                  \
-         new_exception.append_log(log);                                                                      \
-      }                                                                                                      \
-      throw new_exception;                                                                                   \
-   }                                                                                                         \
-   catch (const std::exception& e) {                                                                         \
-      exception_type fce(FC_LOG_MESSAGE(warn, FORMAT " (${what})", __VA_ARGS__("what", e.what())));          \
-      throw fce;                                                                                             \
-   }                                                                                                         \
-   catch (...) {                                                                                             \
-      throw fc::unhandled_exception(FC_LOG_MESSAGE(warn, FORMAT, __VA_ARGS__), std::current_exception());    \
+#define EOS_RETHROW_EXCEPTIONS(exception_type, FORMAT, ...)                                                            \
+   catch (const std::bad_alloc&) {                                                                                     \
+      throw;                                                                                                           \
+   }                                                                                                                   \
+   catch (const boost::interprocess::bad_alloc&) {                                                                     \
+      throw;                                                                                                           \
+   }                                                                                                                   \
+   catch (eosio::chain::chain_exception & e) {                                                                         \
+      FC_RETHROW_EXCEPTION(e, warn, FORMAT, __VA_ARGS__);                                                              \
+   }                                                                                                                   \
+   catch (fc::exception & e) {                                                                                         \
+      exception_type new_exception(FC_LOG_MESSAGE(warn, FORMAT, __VA_ARGS__));                                         \
+      for (const auto& log : e.get_log()) {                                                                            \
+         new_exception.append_log(log);                                                                                \
+      }                                                                                                                \
+      throw new_exception;                                                                                             \
+   }                                                                                                                   \
+   catch (const std::exception& e) {                                                                                   \
+      exception_type fce(FC_LOG_MESSAGE(warn, FORMAT " (${what})", __VA_ARGS__("what", e.what())));                    \
+      throw fce;                                                                                                       \
+   }                                                                                                                   \
+   catch (...) {                                                                                                       \
+      throw fc::unhandled_exception(FC_LOG_MESSAGE(warn, FORMAT, __VA_ARGS__), std::current_exception());              \
    }
 
 /**
@@ -46,104 +46,95 @@
  * The main difference here is that if the exception caught isn't of type "eosio::chain::chain_exception"
  * This macro will rethrow the exception as the specified "exception_type"
  */
-#define EOS_CAPTURE_AND_RETHROW(exception_type, ...)                                                         \
-   catch (const std::bad_alloc&) {                                                                           \
-      throw;                                                                                                 \
-   }                                                                                                         \
-   catch (const boost::interprocess::bad_alloc&) {                                                           \
-      throw;                                                                                                 \
-   }                                                                                                         \
-   catch (eosio::chain::chain_exception & e) {                                                               \
-      FC_RETHROW_EXCEPTION(e, warn, "", FC_FORMAT_ARG_PARAMS(__VA_ARGS__));                                  \
-   }                                                                                                         \
-   catch (fc::exception & e) {                                                                               \
-      exception_type new_exception(e.get_log());                                                             \
-      throw new_exception;                                                                                   \
-   }                                                                                                         \
-   catch (const std::exception& e) {                                                                         \
-      exception_type fce(                                                                                    \
-         FC_LOG_MESSAGE(warn, "${what}: ", FC_FORMAT_ARG_PARAMS(__VA_ARGS__)("what", e.what())),             \
-         fc::std_exception_code,                                                                             \
-         BOOST_CORE_TYPEID(decltype(e)).name(),                                                              \
-         e.what());                                                                                          \
-      throw fce;                                                                                             \
-   }                                                                                                         \
-   catch (...) {                                                                                             \
-      throw fc::unhandled_exception(FC_LOG_MESSAGE(warn, "", FC_FORMAT_ARG_PARAMS(__VA_ARGS__)),             \
-                                    std::current_exception());                                               \
+#define EOS_CAPTURE_AND_RETHROW(exception_type, ...)                                                                   \
+   catch (const std::bad_alloc&) {                                                                                     \
+      throw;                                                                                                           \
+   }                                                                                                                   \
+   catch (const boost::interprocess::bad_alloc&) {                                                                     \
+      throw;                                                                                                           \
+   }                                                                                                                   \
+   catch (eosio::chain::chain_exception & e) {                                                                         \
+      FC_RETHROW_EXCEPTION(e, warn, "", FC_FORMAT_ARG_PARAMS(__VA_ARGS__));                                            \
+   }                                                                                                                   \
+   catch (fc::exception & e) {                                                                                         \
+      exception_type new_exception(e.get_log());                                                                       \
+      throw new_exception;                                                                                             \
+   }                                                                                                                   \
+   catch (const std::exception& e) {                                                                                   \
+      exception_type fce(FC_LOG_MESSAGE(warn, "${what}: ", FC_FORMAT_ARG_PARAMS(__VA_ARGS__)("what", e.what())),       \
+                         fc::std_exception_code,                                                                       \
+                         BOOST_CORE_TYPEID(decltype(e)).name(),                                                        \
+                         e.what());                                                                                    \
+      throw fce;                                                                                                       \
+   }                                                                                                                   \
+   catch (...) {                                                                                                       \
+      throw fc::unhandled_exception(FC_LOG_MESSAGE(warn, "", FC_FORMAT_ARG_PARAMS(__VA_ARGS__)),                       \
+                                    std::current_exception());                                                         \
    }
 
 /**
  * Capture all exceptions and pass to NEXT function
  */
-#define CATCH_AND_CALL(NEXT)                                                                                 \
-   catch (const fc::exception& err) {                                                                        \
-      NEXT(err.dynamic_copy_exception());                                                                    \
-   }                                                                                                         \
-   catch (const std::exception& e) {                                                                         \
-      fc::exception fce(FC_LOG_MESSAGE(warn, "rethrow ${what}: ", ("what", e.what())),                       \
-                        fc::std_exception_code,                                                              \
-                        BOOST_CORE_TYPEID(e).name(),                                                         \
-                        e.what());                                                                           \
-      NEXT(fce.dynamic_copy_exception());                                                                    \
-   }                                                                                                         \
-   catch (...) {                                                                                             \
-      fc::unhandled_exception e(FC_LOG_MESSAGE(warn, "rethrow"), std::current_exception());                  \
-      NEXT(e.dynamic_copy_exception());                                                                      \
+#define CATCH_AND_CALL(NEXT)                                                                                           \
+   catch (const fc::exception& err) {                                                                                  \
+      NEXT(err.dynamic_copy_exception());                                                                              \
+   }                                                                                                                   \
+   catch (const std::exception& e) {                                                                                   \
+      fc::exception fce(FC_LOG_MESSAGE(warn, "rethrow ${what}: ", ("what", e.what())),                                 \
+                        fc::std_exception_code,                                                                        \
+                        BOOST_CORE_TYPEID(e).name(),                                                                   \
+                        e.what());                                                                                     \
+      NEXT(fce.dynamic_copy_exception());                                                                              \
+   }                                                                                                                   \
+   catch (...) {                                                                                                       \
+      fc::unhandled_exception e(FC_LOG_MESSAGE(warn, "rethrow"), std::current_exception());                            \
+      NEXT(e.dynamic_copy_exception());                                                                                \
    }
 
-#define EOS_RECODE_EXC(cause_type, effect_type)                                                              \
-   catch (const cause_type& e) {                                                                             \
-      throw(effect_type(e.what(), e.get_log()));                                                             \
+#define EOS_RECODE_EXC(cause_type, effect_type)                                                                        \
+   catch (const cause_type& e) {                                                                                       \
+      throw(effect_type(e.what(), e.get_log()));                                                                       \
    }
 
-#define FC_DECLARE_DERIVED_EXCEPTION_WITH_ERROR_CODE(TYPE, BASE, CODE, WHAT)                                 \
-   class TYPE : public BASE {                                                                                \
-   public:                                                                                                   \
-      enum code_enum {                                                                                       \
-         code_value = CODE,                                                                                  \
-      };                                                                                                     \
-      explicit TYPE(int64_t code, const std::string& name_value, const std::string& what_value)              \
-         : BASE(code, name_value, what_value) {}                                                             \
-      explicit TYPE(fc::log_message&&  m,                                                                    \
-                    int64_t            code,                                                                 \
-                    const std::string& name_value,                                                           \
-                    const std::string& what_value)                                                           \
-         : BASE(std::move(m), code, name_value, what_value) {}                                               \
-      explicit TYPE(fc::log_messages&& m,                                                                    \
-                    int64_t            code,                                                                 \
-                    const std::string& name_value,                                                           \
-                    const std::string& what_value)                                                           \
-         : BASE(std::move(m), code, name_value, what_value) {}                                               \
-      explicit TYPE(const fc::log_messages& m,                                                               \
-                    int64_t                 code,                                                            \
-                    const std::string&      name_value,                                                      \
-                    const std::string&      what_value)                                                      \
-         : BASE(m, code, name_value, what_value) {}                                                          \
-      TYPE(const std::string& what_value, const fc::log_messages& m)                                         \
-         : BASE(m, CODE, BOOST_PP_STRINGIZE(TYPE), what_value) {}                                            \
-      TYPE(fc::log_message&& m)                                                                              \
-         : BASE(fc::move(m), CODE, BOOST_PP_STRINGIZE(TYPE), WHAT) {}                                        \
-      TYPE(fc::log_messages msgs)                                                                            \
-         : BASE(fc::move(msgs), CODE, BOOST_PP_STRINGIZE(TYPE), WHAT) {}                                     \
-      TYPE(const TYPE& c)                                                                                    \
-         : BASE(c)                                                                                           \
-         , error_code(c.error_code) {}                                                                       \
-      TYPE(const BASE& c)                                                                                    \
-         : BASE(c) {}                                                                                        \
-      TYPE()                                                                                                 \
-         : BASE(CODE, BOOST_PP_STRINGIZE(TYPE), WHAT) {}                                                     \
-                                                                                                             \
-      virtual std::shared_ptr<fc::exception> dynamic_copy_exception() const {                                \
-         return std::make_shared<TYPE>(*this);                                                               \
-      }                                                                                                      \
-      virtual NO_RETURN void dynamic_rethrow_exception() const {                                             \
-         if (code() == CODE)                                                                                 \
-            throw *this;                                                                                     \
-         else                                                                                                \
-            fc::exception::dynamic_rethrow_exception();                                                      \
-      }                                                                                                      \
-      std::optional<uint64_t> error_code;                                                                    \
+#define FC_DECLARE_DERIVED_EXCEPTION_WITH_ERROR_CODE(TYPE, BASE, CODE, WHAT)                                           \
+   class TYPE : public BASE {                                                                                          \
+   public:                                                                                                             \
+      enum code_enum {                                                                                                 \
+         code_value = CODE,                                                                                            \
+      };                                                                                                               \
+      explicit TYPE(int64_t code, const std::string& name_value, const std::string& what_value)                        \
+         : BASE(code, name_value, what_value) {}                                                                       \
+      explicit TYPE(fc::log_message&& m, int64_t code, const std::string& name_value, const std::string& what_value)   \
+         : BASE(std::move(m), code, name_value, what_value) {}                                                         \
+      explicit TYPE(fc::log_messages&& m, int64_t code, const std::string& name_value, const std::string& what_value)  \
+         : BASE(std::move(m), code, name_value, what_value) {}                                                         \
+      explicit TYPE(const fc::log_messages& m,                                                                         \
+                    int64_t                 code,                                                                      \
+                    const std::string&      name_value,                                                                \
+                    const std::string&      what_value)                                                                \
+         : BASE(m, code, name_value, what_value) {}                                                                    \
+      TYPE(const std::string& what_value, const fc::log_messages& m)                                                   \
+         : BASE(m, CODE, BOOST_PP_STRINGIZE(TYPE), what_value) {}                                                      \
+      TYPE(fc::log_message&& m)                                                                                        \
+         : BASE(fc::move(m), CODE, BOOST_PP_STRINGIZE(TYPE), WHAT) {}                                                  \
+      TYPE(fc::log_messages msgs)                                                                                      \
+         : BASE(fc::move(msgs), CODE, BOOST_PP_STRINGIZE(TYPE), WHAT) {}                                               \
+      TYPE(const TYPE& c)                                                                                              \
+         : BASE(c)                                                                                                     \
+         , error_code(c.error_code) {}                                                                                 \
+      TYPE(const BASE& c)                                                                                              \
+         : BASE(c) {}                                                                                                  \
+      TYPE()                                                                                                           \
+         : BASE(CODE, BOOST_PP_STRINGIZE(TYPE), WHAT) {}                                                               \
+                                                                                                                       \
+      virtual std::shared_ptr<fc::exception> dynamic_copy_exception() const { return std::make_shared<TYPE>(*this); }  \
+      virtual NO_RETURN void                 dynamic_rethrow_exception() const {                                       \
+                         if (code() == CODE)                                                                           \
+            throw *this;                                                                               \
+         else                                                                                          \
+            fc::exception::dynamic_rethrow_exception();                                                \
+      }                                                                                                                \
+      std::optional<uint64_t> error_code;                                                                              \
    };
 
 namespace eosio {
@@ -189,10 +180,7 @@ FC_DECLARE_DERIVED_EXCEPTION(action_type_exception, chain_type_exception, 301000
 FC_DECLARE_DERIVED_EXCEPTION(transaction_type_exception, chain_type_exception, 3010006, "Invalid transaction")
 FC_DECLARE_DERIVED_EXCEPTION(abi_type_exception, chain_type_exception, 3010007, "Invalid ABI")
 FC_DECLARE_DERIVED_EXCEPTION(block_id_type_exception, chain_type_exception, 3010008, "Invalid block ID")
-FC_DECLARE_DERIVED_EXCEPTION(transaction_id_type_exception,
-                             chain_type_exception,
-                             3010009,
-                             "Invalid transaction ID")
+FC_DECLARE_DERIVED_EXCEPTION(transaction_id_type_exception, chain_type_exception, 3010009, "Invalid transaction ID")
 FC_DECLARE_DERIVED_EXCEPTION(packed_transaction_type_exception,
                              chain_type_exception,
                              3010010,
@@ -212,22 +200,15 @@ FC_DECLARE_DERIVED_EXCEPTION(unactivated_signature_type,
 
 FC_DECLARE_DERIVED_EXCEPTION(fork_database_exception, chain_exception, 3020000, "Fork database exception")
 
-FC_DECLARE_DERIVED_EXCEPTION(fork_db_block_not_found,
-                             fork_database_exception,
-                             3020001,
-                             "Block can not be found")
+FC_DECLARE_DERIVED_EXCEPTION(fork_db_block_not_found, fork_database_exception, 3020001, "Block can not be found")
 
 FC_DECLARE_DERIVED_EXCEPTION(block_validate_exception, chain_exception, 3030000, "Block exception")
 
-FC_DECLARE_DERIVED_EXCEPTION(unlinkable_block_exception,
+FC_DECLARE_DERIVED_EXCEPTION(unlinkable_block_exception, block_validate_exception, 3030001, "Unlinkable block")
+FC_DECLARE_DERIVED_EXCEPTION(block_tx_output_exception,
                              block_validate_exception,
-                             3030001,
-                             "Unlinkable block")
-FC_DECLARE_DERIVED_EXCEPTION(
-   block_tx_output_exception,
-   block_validate_exception,
-   3030002,
-   "Transaction outputs in block do not match transaction outputs from applying block")
+                             3030002,
+                             "Transaction outputs in block do not match transaction outputs from applying block")
 FC_DECLARE_DERIVED_EXCEPTION(block_concurrency_exception,
                              block_validate_exception,
                              3030003,
@@ -240,14 +221,8 @@ FC_DECLARE_DERIVED_EXCEPTION(block_resource_exhausted,
                              block_validate_exception,
                              3030005,
                              "Block exhausted allowed resources")
-FC_DECLARE_DERIVED_EXCEPTION(block_too_old_exception,
-                             block_validate_exception,
-                             3030006,
-                             "Block is too old to push")
-FC_DECLARE_DERIVED_EXCEPTION(block_from_the_future,
-                             block_validate_exception,
-                             3030007,
-                             "Block is from the future")
+FC_DECLARE_DERIVED_EXCEPTION(block_too_old_exception, block_validate_exception, 3030006, "Block is too old to push")
+FC_DECLARE_DERIVED_EXCEPTION(block_from_the_future, block_validate_exception, 3030007, "Block is from the future")
 FC_DECLARE_DERIVED_EXCEPTION(wrong_signing_key,
                              block_validate_exception,
                              3030008,
@@ -264,10 +239,7 @@ FC_DECLARE_DERIVED_EXCEPTION(ill_formed_protocol_feature_activation,
                              block_validate_exception,
                              3030011,
                              "Block includes an ill-formed protocol feature activation extension")
-FC_DECLARE_DERIVED_EXCEPTION(invalid_block_extension,
-                             block_validate_exception,
-                             3030012,
-                             "Invalid block extension")
+FC_DECLARE_DERIVED_EXCEPTION(invalid_block_extension, block_validate_exception, 3030012, "Invalid block extension")
 FC_DECLARE_DERIVED_EXCEPTION(ill_formed_additional_block_signatures_extension,
                              block_validate_exception,
                              3030013,
@@ -275,10 +247,7 @@ FC_DECLARE_DERIVED_EXCEPTION(ill_formed_additional_block_signatures_extension,
 
 FC_DECLARE_DERIVED_EXCEPTION(transaction_exception, chain_exception, 3040000, "Transaction exception")
 
-FC_DECLARE_DERIVED_EXCEPTION(tx_decompression_error,
-                             transaction_exception,
-                             3040001,
-                             "Error decompressing transaction")
+FC_DECLARE_DERIVED_EXCEPTION(tx_decompression_error, transaction_exception, 3040001, "Error decompressing transaction")
 FC_DECLARE_DERIVED_EXCEPTION(tx_no_action,
                              transaction_exception,
                              3040002,
@@ -292,19 +261,10 @@ FC_DECLARE_DERIVED_EXCEPTION(cfa_irrelevant_auth,
                              3040004,
                              "Context-free action should have no required authority")
 FC_DECLARE_DERIVED_EXCEPTION(expired_tx_exception, transaction_exception, 3040005, "Expired Transaction")
-FC_DECLARE_DERIVED_EXCEPTION(tx_exp_too_far_exception,
-                             transaction_exception,
-                             3040006,
-                             "Transaction Expiration Too Far")
-FC_DECLARE_DERIVED_EXCEPTION(invalid_ref_block_exception,
-                             transaction_exception,
-                             3040007,
-                             "Invalid Reference Block")
+FC_DECLARE_DERIVED_EXCEPTION(tx_exp_too_far_exception, transaction_exception, 3040006, "Transaction Expiration Too Far")
+FC_DECLARE_DERIVED_EXCEPTION(invalid_ref_block_exception, transaction_exception, 3040007, "Invalid Reference Block")
 FC_DECLARE_DERIVED_EXCEPTION(tx_duplicate, transaction_exception, 3040008, "Duplicate transaction")
-FC_DECLARE_DERIVED_EXCEPTION(deferred_tx_duplicate,
-                             transaction_exception,
-                             3040009,
-                             "Duplicate deferred transaction")
+FC_DECLARE_DERIVED_EXCEPTION(deferred_tx_duplicate, transaction_exception, 3040009, "Duplicate deferred transaction")
 FC_DECLARE_DERIVED_EXCEPTION(cfa_inside_generated_tx,
                              transaction_exception,
                              3040010,
@@ -323,11 +283,10 @@ FC_DECLARE_DERIVED_EXCEPTION(invalid_transaction_extension,
                              transaction_exception,
                              3040015,
                              "Invalid transaction extension")
-FC_DECLARE_DERIVED_EXCEPTION(
-   ill_formed_deferred_transaction_generation_context,
-   transaction_exception,
-   3040016,
-   "Transaction includes an ill-formed deferred transaction generation context extension")
+FC_DECLARE_DERIVED_EXCEPTION(ill_formed_deferred_transaction_generation_context,
+                             transaction_exception,
+                             3040016,
+                             "Transaction includes an ill-formed deferred transaction generation context extension")
 FC_DECLARE_DERIVED_EXCEPTION(disallowed_transaction_extensions_bad_block_exception,
                              transaction_exception,
                              3040017,
@@ -355,18 +314,12 @@ FC_DECLARE_DERIVED_EXCEPTION(eosio_assert_code_exception,
                              action_validate_exception,
                              3050004,
                              "eosio_assert_code assertion failure")
-FC_DECLARE_DERIVED_EXCEPTION(action_not_found_exception,
-                             action_validate_exception,
-                             3050005,
-                             "Action can not be found")
+FC_DECLARE_DERIVED_EXCEPTION(action_not_found_exception, action_validate_exception, 3050005, "Action can not be found")
 FC_DECLARE_DERIVED_EXCEPTION(action_data_and_struct_mismatch,
                              action_validate_exception,
                              3050006,
                              "Mismatch between action data and its struct")
-FC_DECLARE_DERIVED_EXCEPTION(unaccessible_api,
-                             action_validate_exception,
-                             3050007,
-                             "Attempt to use unaccessible API")
+FC_DECLARE_DERIVED_EXCEPTION(unaccessible_api, action_validate_exception, 3050007, "Attempt to use unaccessible API")
 FC_DECLARE_DERIVED_EXCEPTION(abort_called, action_validate_exception, 3050008, "Abort Called")
 FC_DECLARE_DERIVED_EXCEPTION(inline_action_too_big,
                              action_validate_exception,
@@ -391,19 +344,13 @@ FC_DECLARE_DERIVED_EXCEPTION(action_return_value_exception,
 
 FC_DECLARE_DERIVED_EXCEPTION(database_exception, chain_exception, 3060000, "Database exception")
 
-FC_DECLARE_DERIVED_EXCEPTION(permission_query_exception,
-                             database_exception,
-                             3060001,
-                             "Permission Query Exception")
+FC_DECLARE_DERIVED_EXCEPTION(permission_query_exception, database_exception, 3060001, "Permission Query Exception")
 FC_DECLARE_DERIVED_EXCEPTION(account_query_exception, database_exception, 3060002, "Account Query Exception")
 FC_DECLARE_DERIVED_EXCEPTION(contract_table_query_exception,
                              database_exception,
                              3060003,
                              "Contract Table Query Exception")
-FC_DECLARE_DERIVED_EXCEPTION(contract_query_exception,
-                             database_exception,
-                             3060004,
-                             "Contract Query Exception")
+FC_DECLARE_DERIVED_EXCEPTION(contract_query_exception, database_exception, 3060004, "Contract Query Exception")
 FC_DECLARE_DERIVED_EXCEPTION(bad_database_version_exception,
                              database_exception,
                              3060005,
@@ -411,38 +358,25 @@ FC_DECLARE_DERIVED_EXCEPTION(bad_database_version_exception,
 
 FC_DECLARE_DERIVED_EXCEPTION(guard_exception, database_exception, 3060100, "Guard Exception")
 
-FC_DECLARE_DERIVED_EXCEPTION(database_guard_exception,
-                             guard_exception,
-                             3060101,
-                             "Database usage is at unsafe levels")
+FC_DECLARE_DERIVED_EXCEPTION(database_guard_exception, guard_exception, 3060101, "Database usage is at unsafe levels")
 
 FC_DECLARE_DERIVED_EXCEPTION(wasm_exception, chain_exception, 3070000, "WASM Exception")
 FC_DECLARE_DERIVED_EXCEPTION(page_memory_error, wasm_exception, 3070001, "Error in WASM page memory")
 FC_DECLARE_DERIVED_EXCEPTION(wasm_execution_error, wasm_exception, 3070002, "Runtime Error Processing WASM")
-FC_DECLARE_DERIVED_EXCEPTION(wasm_serialization_error,
-                             wasm_exception,
-                             3070003,
-                             "Serialization Error Processing WASM")
-FC_DECLARE_DERIVED_EXCEPTION(overlapping_memory_error,
-                             wasm_exception,
-                             3070004,
-                             "memcpy with overlapping memory")
+FC_DECLARE_DERIVED_EXCEPTION(wasm_serialization_error, wasm_exception, 3070003, "Serialization Error Processing WASM")
+FC_DECLARE_DERIVED_EXCEPTION(overlapping_memory_error, wasm_exception, 3070004, "memcpy with overlapping memory")
 FC_DECLARE_DERIVED_EXCEPTION(binaryen_exception, wasm_exception, 3070005, "binaryen exception")
 
-FC_DECLARE_DERIVED_EXCEPTION(resource_exhausted_exception,
-                             chain_exception,
-                             3080000,
-                             "Resource exhausted exception")
+FC_DECLARE_DERIVED_EXCEPTION(resource_exhausted_exception, chain_exception, 3080000, "Resource exhausted exception")
 
 FC_DECLARE_DERIVED_EXCEPTION(ram_usage_exceeded,
                              resource_exhausted_exception,
                              3080001,
                              "Account using more than allotted RAM usage")
-FC_DECLARE_DERIVED_EXCEPTION(
-   tx_net_usage_exceeded,
-   resource_exhausted_exception,
-   3080002,
-   "Transaction exceeded the current network usage limit imposed on the transaction")
+FC_DECLARE_DERIVED_EXCEPTION(tx_net_usage_exceeded,
+                             resource_exhausted_exception,
+                             3080002,
+                             "Transaction exceeded the current network usage limit imposed on the transaction")
 FC_DECLARE_DERIVED_EXCEPTION(
    block_net_usage_exceeded,
    resource_exhausted_exception,
@@ -452,15 +386,11 @@ FC_DECLARE_DERIVED_EXCEPTION(tx_cpu_usage_exceeded,
                              resource_exhausted_exception,
                              3080004,
                              "Transaction exceeded the current CPU usage limit imposed on the transaction")
-FC_DECLARE_DERIVED_EXCEPTION(
-   block_cpu_usage_exceeded,
-   resource_exhausted_exception,
-   3080005,
-   "Transaction CPU usage is too much for the remaining allowable usage of the current block")
-FC_DECLARE_DERIVED_EXCEPTION(deadline_exception,
+FC_DECLARE_DERIVED_EXCEPTION(block_cpu_usage_exceeded,
                              resource_exhausted_exception,
-                             3080006,
-                             "Transaction took too long")
+                             3080005,
+                             "Transaction CPU usage is too much for the remaining allowable usage of the current block")
+FC_DECLARE_DERIVED_EXCEPTION(deadline_exception, resource_exhausted_exception, 3080006, "Transaction took too long")
 FC_DECLARE_DERIVED_EXCEPTION(greylist_net_usage_exceeded,
                              resource_exhausted_exception,
                              3080007,
@@ -476,30 +406,18 @@ FC_DECLARE_DERIVED_EXCEPTION(leeway_deadline_exception,
                              "Transaction reached the deadline set due to leeway on account CPU limits")
 
 FC_DECLARE_DERIVED_EXCEPTION(authorization_exception, chain_exception, 3090000, "Authorization exception")
-FC_DECLARE_DERIVED_EXCEPTION(tx_duplicate_sig,
-                             authorization_exception,
-                             3090001,
-                             "Duplicate signature included")
-FC_DECLARE_DERIVED_EXCEPTION(tx_irrelevant_sig,
-                             authorization_exception,
-                             3090002,
-                             "Irrelevant signature included")
+FC_DECLARE_DERIVED_EXCEPTION(tx_duplicate_sig, authorization_exception, 3090001, "Duplicate signature included")
+FC_DECLARE_DERIVED_EXCEPTION(tx_irrelevant_sig, authorization_exception, 3090002, "Irrelevant signature included")
 FC_DECLARE_DERIVED_EXCEPTION(unsatisfied_authorization,
                              authorization_exception,
                              3090003,
                              "Provided keys, permissions, and delays do not satisfy declared authorizations")
-FC_DECLARE_DERIVED_EXCEPTION(missing_auth_exception,
-                             authorization_exception,
-                             3090004,
-                             "Missing required authority")
+FC_DECLARE_DERIVED_EXCEPTION(missing_auth_exception, authorization_exception, 3090004, "Missing required authority")
 FC_DECLARE_DERIVED_EXCEPTION(irrelevant_auth_exception,
                              authorization_exception,
                              3090005,
                              "Irrelevant authority included")
-FC_DECLARE_DERIVED_EXCEPTION(insufficient_delay_exception,
-                             authorization_exception,
-                             3090006,
-                             "Insufficient delay")
+FC_DECLARE_DERIVED_EXCEPTION(insufficient_delay_exception, authorization_exception, 3090006, "Insufficient delay")
 FC_DECLARE_DERIVED_EXCEPTION(invalid_permission, authorization_exception, 3090007, "Invalid Permission")
 FC_DECLARE_DERIVED_EXCEPTION(unlinkable_min_permission_action,
                              authorization_exception,
@@ -544,10 +462,7 @@ FC_DECLARE_DERIVED_EXCEPTION(sig_variable_size_limit_exception,
 
 FC_DECLARE_DERIVED_EXCEPTION(plugin_exception, chain_exception, 3110000, "Plugin exception")
 
-FC_DECLARE_DERIVED_EXCEPTION(missing_chain_api_plugin_exception,
-                             plugin_exception,
-                             3110001,
-                             "Missing Chain API Plugin")
+FC_DECLARE_DERIVED_EXCEPTION(missing_chain_api_plugin_exception, plugin_exception, 3110001, "Missing Chain API Plugin")
 FC_DECLARE_DERIVED_EXCEPTION(missing_wallet_api_plugin_exception,
                              plugin_exception,
                              3110002,
@@ -556,44 +471,23 @@ FC_DECLARE_DERIVED_EXCEPTION(missing_history_api_plugin_exception,
                              plugin_exception,
                              3110003,
                              "Missing History API Plugin")
-FC_DECLARE_DERIVED_EXCEPTION(missing_net_api_plugin_exception,
-                             plugin_exception,
-                             3110004,
-                             "Missing Net API Plugin")
-FC_DECLARE_DERIVED_EXCEPTION(missing_chain_plugin_exception,
-                             plugin_exception,
-                             3110005,
-                             "Missing Chain Plugin")
-FC_DECLARE_DERIVED_EXCEPTION(plugin_config_exception,
-                             plugin_exception,
-                             3110006,
-                             "Incorrect plugin configuration")
-FC_DECLARE_DERIVED_EXCEPTION(missing_trace_api_plugin_exception,
-                             plugin_exception,
-                             3110007,
-                             "Missing Trace API Plugin")
+FC_DECLARE_DERIVED_EXCEPTION(missing_net_api_plugin_exception, plugin_exception, 3110004, "Missing Net API Plugin")
+FC_DECLARE_DERIVED_EXCEPTION(missing_chain_plugin_exception, plugin_exception, 3110005, "Missing Chain Plugin")
+FC_DECLARE_DERIVED_EXCEPTION(plugin_config_exception, plugin_exception, 3110006, "Incorrect plugin configuration")
+FC_DECLARE_DERIVED_EXCEPTION(missing_trace_api_plugin_exception, plugin_exception, 3110007, "Missing Trace API Plugin")
 
 FC_DECLARE_DERIVED_EXCEPTION(wallet_exception, chain_exception, 3120000, "Wallet exception")
 
 FC_DECLARE_DERIVED_EXCEPTION(wallet_exist_exception, wallet_exception, 3120001, "Wallet already exists")
 FC_DECLARE_DERIVED_EXCEPTION(wallet_nonexistent_exception, wallet_exception, 3120002, "Nonexistent wallet")
 FC_DECLARE_DERIVED_EXCEPTION(wallet_locked_exception, wallet_exception, 3120003, "Locked wallet")
-FC_DECLARE_DERIVED_EXCEPTION(wallet_missing_pub_key_exception,
-                             wallet_exception,
-                             3120004,
-                             "Missing public key")
-FC_DECLARE_DERIVED_EXCEPTION(wallet_invalid_password_exception,
-                             wallet_exception,
-                             3120005,
-                             "Invalid wallet password")
+FC_DECLARE_DERIVED_EXCEPTION(wallet_missing_pub_key_exception, wallet_exception, 3120004, "Missing public key")
+FC_DECLARE_DERIVED_EXCEPTION(wallet_invalid_password_exception, wallet_exception, 3120005, "Invalid wallet password")
 FC_DECLARE_DERIVED_EXCEPTION(wallet_not_available_exception, wallet_exception, 3120006, "No available wallet")
 FC_DECLARE_DERIVED_EXCEPTION(wallet_unlocked_exception, wallet_exception, 3120007, "Already unlocked")
 FC_DECLARE_DERIVED_EXCEPTION(key_exist_exception, wallet_exception, 3120008, "Key already exists")
 FC_DECLARE_DERIVED_EXCEPTION(key_nonexistent_exception, wallet_exception, 3120009, "Nonexistent key")
-FC_DECLARE_DERIVED_EXCEPTION(unsupported_key_type_exception,
-                             wallet_exception,
-                             3120010,
-                             "Unsupported key type")
+FC_DECLARE_DERIVED_EXCEPTION(unsupported_key_type_exception, wallet_exception, 3120010, "Unsupported key type")
 FC_DECLARE_DERIVED_EXCEPTION(invalid_lock_timeout_exception,
                              wallet_exception,
                              3120011,
@@ -645,19 +539,12 @@ FC_DECLARE_DERIVED_EXCEPTION(state_history_write_exception,
 
 FC_DECLARE_DERIVED_EXCEPTION(abi_exception, chain_exception, 3015000, "ABI exception")
 FC_DECLARE_DERIVED_EXCEPTION(abi_not_found_exception, abi_exception, 3015001, "No ABI found")
-FC_DECLARE_DERIVED_EXCEPTION(invalid_ricardian_clause_exception,
+FC_DECLARE_DERIVED_EXCEPTION(invalid_ricardian_clause_exception, abi_exception, 3015002, "Invalid Ricardian Clause")
+FC_DECLARE_DERIVED_EXCEPTION(invalid_ricardian_action_exception, abi_exception, 3015003, "Invalid Ricardian Action")
+FC_DECLARE_DERIVED_EXCEPTION(invalid_type_inside_abi,
                              abi_exception,
-                             3015002,
-                             "Invalid Ricardian Clause")
-FC_DECLARE_DERIVED_EXCEPTION(invalid_ricardian_action_exception,
-                             abi_exception,
-                             3015003,
-                             "Invalid Ricardian Action")
-FC_DECLARE_DERIVED_EXCEPTION(
-   invalid_type_inside_abi,
-   abi_exception,
-   3015004,
-   "The type defined in the ABI is invalid") // Not to be confused with abi_type_exception
+                             3015004,
+                             "The type defined in the ABI is invalid") // Not to be confused with abi_type_exception
 FC_DECLARE_DERIVED_EXCEPTION(duplicate_abi_type_def_exception,
                              abi_exception,
                              3015005,
@@ -706,38 +593,23 @@ FC_DECLARE_DERIVED_EXCEPTION(duplicate_abi_action_results_def_exception,
                              "Duplicate action results definition in the ABI")
 
 FC_DECLARE_DERIVED_EXCEPTION(contract_exception, chain_exception, 3160000, "Contract exception")
-FC_DECLARE_DERIVED_EXCEPTION(invalid_table_payer,
-                             contract_exception,
-                             3160001,
-                             "The payer of the table data is invalid")
+FC_DECLARE_DERIVED_EXCEPTION(invalid_table_payer, contract_exception, 3160001, "The payer of the table data is invalid")
 FC_DECLARE_DERIVED_EXCEPTION(table_access_violation, contract_exception, 3160002, "Table access violation")
 FC_DECLARE_DERIVED_EXCEPTION(invalid_table_iterator, contract_exception, 3160003, "Invalid table iterator")
-FC_DECLARE_DERIVED_EXCEPTION(table_not_in_cache,
-                             contract_exception,
-                             3160004,
-                             "Table can not be found inside the cache")
+FC_DECLARE_DERIVED_EXCEPTION(table_not_in_cache, contract_exception, 3160004, "Table can not be found inside the cache")
 FC_DECLARE_DERIVED_EXCEPTION(table_operation_not_permitted,
                              contract_exception,
                              3160005,
                              "The table operation is not allowed")
-FC_DECLARE_DERIVED_EXCEPTION(invalid_contract_vm_type,
-                             contract_exception,
-                             3160006,
-                             "Invalid contract vm type")
-FC_DECLARE_DERIVED_EXCEPTION(invalid_contract_vm_version,
-                             contract_exception,
-                             3160007,
-                             "Invalid contract vm version")
+FC_DECLARE_DERIVED_EXCEPTION(invalid_contract_vm_type, contract_exception, 3160006, "Invalid contract vm type")
+FC_DECLARE_DERIVED_EXCEPTION(invalid_contract_vm_version, contract_exception, 3160007, "Invalid contract vm version")
 FC_DECLARE_DERIVED_EXCEPTION(set_exact_code,
                              contract_exception,
                              3160008,
                              "Contract is already running this version of code")
 FC_DECLARE_DERIVED_EXCEPTION(wasm_file_not_found, contract_exception, 3160009, "No wasm file found")
 FC_DECLARE_DERIVED_EXCEPTION(abi_file_not_found, contract_exception, 3160010, "No abi file found")
-FC_DECLARE_DERIVED_EXCEPTION(wasm_config_unknown_version,
-                             contract_exception,
-                             3160015,
-                             "Unknown wasm_config version")
+FC_DECLARE_DERIVED_EXCEPTION(wasm_config_unknown_version, contract_exception, 3160015, "Unknown wasm_config version")
 FC_DECLARE_DERIVED_EXCEPTION(config_parse_error, contract_exception, 3160016, "Parsing config error")
 
 FC_DECLARE_DERIVED_EXCEPTION(producer_exception, chain_exception, 3170000, "Producer exception")
@@ -745,18 +617,12 @@ FC_DECLARE_DERIVED_EXCEPTION(producer_priv_key_not_found,
                              producer_exception,
                              3170001,
                              "Producer private key is not available")
-FC_DECLARE_DERIVED_EXCEPTION(missing_pending_block_state,
-                             producer_exception,
-                             3170002,
-                             "Pending block state is missing")
+FC_DECLARE_DERIVED_EXCEPTION(missing_pending_block_state, producer_exception, 3170002, "Pending block state is missing")
 FC_DECLARE_DERIVED_EXCEPTION(producer_double_confirm,
                              producer_exception,
                              3170003,
                              "Producer is double confirming known range")
-FC_DECLARE_DERIVED_EXCEPTION(producer_schedule_exception,
-                             producer_exception,
-                             3170004,
-                             "Producer schedule exception")
+FC_DECLARE_DERIVED_EXCEPTION(producer_schedule_exception, producer_exception, 3170004, "Producer schedule exception")
 FC_DECLARE_DERIVED_EXCEPTION(producer_not_in_schedule,
                              producer_exception,
                              3170006,
@@ -786,10 +652,7 @@ FC_DECLARE_DERIVED_EXCEPTION(unsupported_multiple_block_signatures,
                              3170012,
                              "The signer returned multiple signatures but that is not supported")
 
-FC_DECLARE_DERIVED_EXCEPTION(reversible_blocks_exception,
-                             chain_exception,
-                             3180000,
-                             "Reversible Blocks exception")
+FC_DECLARE_DERIVED_EXCEPTION(reversible_blocks_exception, chain_exception, 3180000, "Reversible Blocks exception")
 FC_DECLARE_DERIVED_EXCEPTION(invalid_reversible_blocks_dir,
                              reversible_blocks_exception,
                              3180001,
@@ -817,10 +680,7 @@ FC_DECLARE_DERIVED_EXCEPTION(block_log_backup_dir_exist,
                              block_log_exception,
                              3190004,
                              "block log backup dir already exists")
-FC_DECLARE_DERIVED_EXCEPTION(block_index_not_found,
-                             block_log_exception,
-                             3190005,
-                             "block index can not be found")
+FC_DECLARE_DERIVED_EXCEPTION(block_index_not_found, block_log_exception, 3190005, "block index can not be found")
 
 FC_DECLARE_DERIVED_EXCEPTION(http_exception, chain_exception, 3200000, "http exception")
 FC_DECLARE_DERIVED_EXCEPTION(invalid_http_client_root_cert,
@@ -828,10 +688,7 @@ FC_DECLARE_DERIVED_EXCEPTION(invalid_http_client_root_cert,
                              3200001,
                              "invalid http client root certificate")
 FC_DECLARE_DERIVED_EXCEPTION(invalid_http_response, http_exception, 3200002, "invalid http response")
-FC_DECLARE_DERIVED_EXCEPTION(resolved_to_multiple_ports,
-                             http_exception,
-                             3200003,
-                             "service resolved to multiple ports")
+FC_DECLARE_DERIVED_EXCEPTION(resolved_to_multiple_ports, http_exception, 3200003, "service resolved to multiple ports")
 FC_DECLARE_DERIVED_EXCEPTION(fail_to_resolve_host, http_exception, 3200004, "fail to resolve host")
 FC_DECLARE_DERIVED_EXCEPTION(http_request_fail, http_exception, 3200005, "http request fail")
 FC_DECLARE_DERIVED_EXCEPTION(invalid_http_request, http_exception, 3200006, "invalid http request")
@@ -849,10 +706,7 @@ FC_DECLARE_DERIVED_EXCEPTION(snapshot_validation_exception,
                              3240001,
                              "Snapshot Validation Exception")
 
-FC_DECLARE_DERIVED_EXCEPTION(protocol_feature_exception,
-                             chain_exception,
-                             3250000,
-                             "Protocol feature exception")
+FC_DECLARE_DERIVED_EXCEPTION(protocol_feature_exception, chain_exception, 3250000, "Protocol feature exception")
 FC_DECLARE_DERIVED_EXCEPTION(protocol_feature_validation_exception,
                              protocol_feature_exception,
                              3250001,

@@ -58,8 +58,7 @@ BOOST_AUTO_TEST_CASE(replace_account_keys) try {
    const name        usr               = config::system_account_name;
    const name        active_permission = config::active_name;
    const auto&       rlm               = tester.control->get_resource_limits_manager();
-   const auto*       perm =
-      tester.control->db().find<permission_object, by_owner>(boost::make_tuple(usr, active_permission));
+   const auto* perm = tester.control->db().find<permission_object, by_owner>(boost::make_tuple(usr, active_permission));
    BOOST_REQUIRE(perm != NULL);
 
    const int64_t old_size =
@@ -116,8 +115,7 @@ BOOST_AUTO_TEST_CASE(decompressed_size_over_limit) try {
          std::move(packed_txn), std::move(sigs), std::move(pcfd), packed_transaction::compression_type::zlib),
       tx_decompression_error,
       [](const tx_decompression_error& e) {
-         return e.to_detail_string().find("Exceeded maximum decompressed transaction size") !=
-                std::string::npos;
+         return e.to_detail_string().find("Exceeded maximum decompressed transaction size") != std::string::npos;
       });
 }
 FC_LOG_AND_RETHROW()

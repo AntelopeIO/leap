@@ -60,10 +60,10 @@ struct report_time {
       , _desc(desc) {}
 
    void report() {
-      const auto duration = std::chrono::duration_cast<std::chrono::microseconds>(
-                               std::chrono::high_resolution_clock::now() - _start)
-                               .count() /
-                            1000;
+      const auto duration =
+         std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - _start)
+            .count() /
+         1000;
       ilog("eosio-blocklog - ${desc} took ${t} msec", ("desc", _desc)("t", duration));
    }
 
@@ -73,9 +73,8 @@ struct report_time {
 
 void blocklog::do_vacuum() {
    EOS_ASSERT(blog_keep_prune_conf, block_log_exception, "blocks.log is not a pruned log; nothing to vacuum");
-   block_log blocks(blocks_dir,
-                    std::optional<block_log_prune_config>()); // passing an unset block_log_prune_config turns
-                                                              // off pruning this performs a vacuum
+   block_log blocks(blocks_dir, std::optional<block_log_prune_config>()); // passing an unset block_log_prune_config
+                                                                          // turns off pruning this performs a vacuum
    ilog("Successfully vacuumed block log");
 }
 
@@ -143,7 +142,7 @@ void blocklog::read_log() {
          abi_serializer::create_yield_function(deadline));
       const auto     block_id         = next->calculate_id();
       const uint32_t ref_block_prefix = block_id._hash[1];
-      const auto enhanced_object = fc::mutable_variant_object("block_num", next->block_num())("id", block_id)(
+      const auto     enhanced_object = fc::mutable_variant_object("block_num", next->block_num())("id", block_id)(
          "ref_block_prefix", ref_block_prefix)(pretty_output.get_object());
       fc::variant v(std::move(enhanced_object));
       if (no_pretty_print)
@@ -161,8 +160,7 @@ void blocklog::read_log() {
    }
 
    if (!fork_db_branch.empty()) {
-      for (auto bitr = fork_db_branch.rbegin(); bitr != fork_db_branch.rend() && block_num <= last_block;
-           ++bitr) {
+      for (auto bitr = fork_db_branch.rbegin(); bitr != fork_db_branch.rend() && block_num <= last_block; ++bitr) {
          if (as_json_array && contains_obj)
             *out << ",";
          auto next = (*bitr)->block;
@@ -178,16 +176,15 @@ void blocklog::read_log() {
 }
 
 void blocklog::set_program_options(options_description& cli) {
-   cli.add_options()(
-      "blocks-dir",
-      bpo::value<bfs::path>()->default_value("blocks"),
-      "the location of the blocks directory (absolute path or relative to the current directory)")(
+   cli.add_options()("blocks-dir",
+                     bpo::value<bfs::path>()->default_value("blocks"),
+                     "the location of the blocks directory (absolute path or relative to the current directory)")(
       "output-file,o",
       bpo::value<bfs::path>(),
-      "the file to write the output to (absolute or relative path).  If not specified then output is to "
-      "stdout.")("first,f",
-                 bpo::value<uint32_t>(&first_block)->default_value(0),
-                 "the first block number to log or the first to keep if trim-blocklog")(
+      "the file to write the output to (absolute or relative path).  If not specified then output is to stdout.")(
+      "first,f",
+      bpo::value<uint32_t>(&first_block)->default_value(0),
+      "the first block number to log or the first to keep if trim-blocklog")(
       "last,l",
       bpo::value<uint32_t>(&last_block)->default_value(std::numeric_limits<uint32_t>::max()),
       "the last block number to log or the last to keep if trim-blocklog")(
@@ -199,17 +196,15 @@ void blocklog::set_program_options(options_description& cli) {
       "Print out json blocks wrapped in json array (otherwise the output is free-standing json objects).")(
       "make-index",
       bpo::bool_switch(&make_index)->default_value(false),
-      "Create blocks.index from blocks.log. Must give 'blocks-dir'. Give 'output-file' relative to current "
-      "directory or absolute path (default is <blocks-dir>/blocks.index).")(
+      "Create blocks.index from blocks.log. Must give 'blocks-dir'. Give 'output-file' relative to current directory "
+      "or absolute path (default is <blocks-dir>/blocks.index).")(
       "trim-blocklog",
       bpo::bool_switch(&trim_log)->default_value(false),
       "Trim blocks.log and blocks.index. Must give 'blocks-dir' and 'first' and/or 'last'.")(
       "extract-blocks",
       bpo::bool_switch(&extract_blocks)->default_value(false),
       "Extract range of blocks from blocks.log and write to output-dir.  Must give 'first' and/or 'last'.")(
-      "output-dir",
-      bpo::value<bfs::path>(),
-      "the output directory for the block log extracted from blocks-dir")(
+      "output-dir", bpo::value<bfs::path>(), "the output directory for the block log extracted from blocks-dir")(
       "smoke-test",
       bpo::bool_switch(&smoke_test)->default_value(false),
       "Quick test that blocks.log and blocks.index are well formed and agree with each other.")(
@@ -235,8 +230,8 @@ void blocklog::initialize(const variables_map& options) {
             output_file = bld;
       }
 
-      // if the log is pruned, keep it that way by passing in a config with a large block pruning value. There
-      // is otherwise no
+      // if the log is pruned, keep it that way by passing in a config with a large block pruning value. There is
+      // otherwise no
       //  way to tell block_log "keep the current non/pruneness of the log"
       if (block_log::is_pruned_log(blocks_dir)) {
          blog_keep_prune_conf.emplace();
@@ -253,8 +248,7 @@ int trim_blocklog_end(bfs::path block_dir, uint32_t n) { // n is last block to k
    cout << "\nIn directory " << block_dir << " will trim all blocks after block " << n << " from "
         << td.block_file_name.generic_string() << " and " << td.index_file_name.generic_string() << ".\n";
    if (n < td.first_block) {
-      cerr << "All blocks are after block " << n
-           << " so do nothing (trim_end would delete entire blocks.log)\n";
+      cerr << "All blocks are after block " << n << " so do nothing (trim_end would delete entire blocks.log)\n";
       return 1;
    }
    if (n >= td.last_block) {
@@ -290,8 +284,8 @@ void smoke_test(bfs::path block_dir) {
    using namespace std;
    cout << "\nSmoke test of blocks.log and blocks.index in directory " << block_dir << '\n';
    trim_data td(block_dir);
-   auto      status = fseek(
-      td.blk_in, -sizeof(uint64_t), SEEK_END); // get last_block from blocks.log, compare to from blocks.index
+   auto      status =
+      fseek(td.blk_in, -sizeof(uint64_t), SEEK_END); // get last_block from blocks.log, compare to from blocks.index
    EOS_ASSERT(status == 0,
               block_log_exception,
               "cannot seek to ${file} ${pos} from beginning of file",

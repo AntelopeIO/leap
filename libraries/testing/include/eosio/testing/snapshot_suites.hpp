@@ -143,5 +143,4 @@ struct json_snapshot_suite {
    }
 };
 
-using snapshot_suites =
-   boost::mpl::list<variant_snapshot_suite, buffered_snapshot_suite, json_snapshot_suite>;
+using snapshot_suites = boost::mpl::list<variant_snapshot_suite, buffered_snapshot_suite, json_snapshot_suite>;

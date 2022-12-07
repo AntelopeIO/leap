@@ -17,10 +17,10 @@ class public_key_impl;
 class private_key_impl;
 }
 
-typedef fc::array<char, 33> public_key_data;
-typedef fc::sha256          private_key_secret;
-typedef fc::array<char, 65> public_key_point_data; ///< the full non-compressed version of the ECC point
-typedef fc::array<char, 72> signature;
+typedef fc::array<char, 33>          public_key_data;
+typedef fc::sha256                   private_key_secret;
+typedef fc::array<char, 65>          public_key_point_data; ///< the full non-compressed version of the ECC point
+typedef fc::array<char, 72>          signature;
 typedef fc::array<unsigned char, 65> compact_signature;
 
 int ECDSA_SIG_recover_key_GFp(EC_KEY*              eckey,
@@ -56,12 +56,8 @@ public:
    public_key& operator=(public_key&& pk);
    public_key& operator=(const public_key& pk);
 
-   inline friend bool operator==(const public_key& a, const public_key& b) {
-      return a.serialize() == b.serialize();
-   }
-   inline friend bool operator!=(const public_key& a, const public_key& b) {
-      return a.serialize() != b.serialize();
-   }
+   inline friend bool operator==(const public_key& a, const public_key& b) { return a.serialize() == b.serialize(); }
+   inline friend bool operator!=(const public_key& a, const public_key& b) { return a.serialize() != b.serialize(); }
 
    /// Allows to convert current public key object into base58 number.
    std::string       to_base58() const;
@@ -122,9 +118,7 @@ public:
    inline friend bool operator!=(const private_key& a, const private_key& b) {
       return a.get_secret() != b.get_secret();
    }
-   inline friend bool operator<(const private_key& a, const private_key& b) {
-      return a.get_secret() < b.get_secret();
-   }
+   inline friend bool operator<(const private_key& a, const private_key& b) { return a.get_secret() < b.get_secret(); }
 
 private:
    fc::fwd<detail::private_key_impl, 8> my;

@@ -68,9 +68,8 @@ int32_t interface::recover_key(legacy_ptr<const fc::sha256> digest,
 
    // the key types newer than the first 2 may be varible in length
    if (s.which() >= config::genesis_num_supported_key_types) {
-      EOS_ASSERT(pub.size() >= 33,
-                 wasm_execution_error,
-                 "destination buffer must at least be able to hold an ECC public key");
+      EOS_ASSERT(
+         pub.size() >= 33, wasm_execution_error, "destination buffer must at least be able to hold an ECC public key");
       auto packed_pubkey = fc::raw::pack(recovered);
       auto copy_size     = std::min<size_t>(pub.size(), packed_pubkey.size());
       std::memcpy(pub.data(), packed_pubkey.data(), copy_size);
@@ -101,8 +100,7 @@ void interface::assert_sha512(legacy_span<const char> data, legacy_ptr<const fc:
    EOS_ASSERT(result == *hash_val, crypto_api_exception, "hash mismatch");
 }
 
-void interface::assert_ripemd160(legacy_span<const char>         data,
-                                 legacy_ptr<const fc::ripemd160> hash_val) const {
+void interface::assert_ripemd160(legacy_span<const char> data, legacy_ptr<const fc::ripemd160> hash_val) const {
    auto result = context.trx_context.hash_with_checktime<fc::ripemd160>(data.data(), data.size());
    EOS_ASSERT(result == *hash_val, crypto_api_exception, "hash mismatch");
 }
@@ -141,9 +139,7 @@ int32_t interface::alt_bn128_add(span<const char> op1, span<const char> op2, spa
    return return_code::success;
 }
 
-int32_t interface::alt_bn128_mul(span<const char> g1_point,
-                                 span<const char> scalar,
-                                 span<char>       result) const {
+int32_t interface::alt_bn128_mul(span<const char> g1_point, span<const char> scalar, span<char> result) const {
    bytes bg1_point(g1_point.data(), g1_point.data() + g1_point.size());
    bytes bscalar(scalar.data(), scalar.data() + scalar.size());
 

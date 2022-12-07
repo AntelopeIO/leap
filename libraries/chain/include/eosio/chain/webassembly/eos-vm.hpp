@@ -23,8 +23,8 @@ struct apply_options;
 }
 
 template<typename Impl>
-using eos_vm_backend_t = eosio::vm::
-   backend<eos_vm_host_functions_t, Impl, webassembly::eos_vm_runtime::apply_options, vm::profile_instr_map>;
+using eos_vm_backend_t =
+   eosio::vm::backend<eos_vm_host_functions_t, Impl, webassembly::eos_vm_runtime::apply_options, vm::profile_instr_map>;
 
 template<typename Options>
 using eos_vm_null_backend_t = eosio::vm::backend<eos_vm_host_functions_t, eosio::vm::null_backend, Options>;
@@ -54,7 +54,7 @@ public:
                                                                           std::vector<uint8_t>,
                                                                           const digest_type& code_hash,
                                                                           const uint8_t&     vm_type,
-                                                                          const uint8_t& vm_version) override;
+                                                                          const uint8_t&     vm_version) override;
 
    void immediately_exit_currently_running_module() override;
 
@@ -76,7 +76,7 @@ public:
                                                                           std::vector<uint8_t>,
                                                                           const digest_type& code_hash,
                                                                           const uint8_t&     vm_type,
-                                                                          const uint8_t& vm_version) override;
+                                                                          const uint8_t&     vm_version) override;
 
    void immediately_exit_currently_running_module() override;
 };

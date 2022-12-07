@@ -9,14 +9,13 @@ namespace testing {
 using namespace boost::signals2;
 
 /**
- * @brief The tester_network class provides a simplistic virtual P2P network connecting testing_blockchains
- * together.
+ * @brief The tester_network class provides a simplistic virtual P2P network connecting testing_blockchains together.
  *
  * A tester may be connected to zero or more tester_networks at any given time. When a new
  * tester joins the network, it will be synced with all other blockchains already in the network (blocks
- * known only to the new chain will be pushed to the prior network members and vice versa, ignoring blocks not
- * on the main fork). After this, whenever any blockchain in the network gets a new block, that block will be
- * pushed to all other blockchains in the network as well.
+ * known only to the new chain will be pushed to the prior network members and vice versa, ignoring blocks not on the
+ * main fork). After this, whenever any blockchain in the network gets a new block, that block will be pushed to all
+ * other blockchains in the network as well.
  */
 class tester_network {
 public:

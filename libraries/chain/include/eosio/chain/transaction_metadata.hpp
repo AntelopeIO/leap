@@ -47,8 +47,8 @@ private:
    }
 
 public:
-   // creation of tranaction_metadata restricted to start_recover_keys and create_no_recover_keys below,
-   // public for make_shared
+   // creation of tranaction_metadata restricted to start_recover_keys and create_no_recover_keys below, public for
+   // make_shared
    explicit transaction_metadata(const private_type&       pt,
                                  packed_transaction_ptr    ptrx,
                                  fc::microseconds          sig_cpu_usage,
@@ -84,8 +84,7 @@ public:
                                                  trx_type                 t,
                                                  uint32_t                 max_variable_sig_size = UINT32_MAX);
 
-   /// @returns constructed transaction_metadata with no key recovery (sig_cpu_usage=0,
-   /// recovered_pub_keys=empty)
+   /// @returns constructed transaction_metadata with no key recovery (sig_cpu_usage=0, recovered_pub_keys=empty)
    static transaction_metadata_ptr create_no_recover_keys(packed_transaction_ptr trx, trx_type t) {
       return std::make_shared<transaction_metadata>(
          private_type(), std::move(trx), fc::microseconds(), flat_set<public_key_type>(), t);

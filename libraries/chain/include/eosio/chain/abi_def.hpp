@@ -27,9 +27,7 @@ struct field_def {
    field_name name;
    type_name  type;
 
-   bool operator==(const field_def& other) const {
-      return std::tie(name, type) == std::tie(other.name, other.type);
-   }
+   bool operator==(const field_def& other) const { return std::tie(name, type) == std::tie(other.name, other.type); }
 };
 
 struct struct_def {

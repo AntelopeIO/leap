@@ -73,11 +73,9 @@ void validate(const bytes& code, const whitelisted_intrinsics_type& intrinsics) 
       // check that the imports are all currently enabled
       const auto& imports = bkend.get_module().imports;
       for (std::uint32_t i = 0; i < imports.size(); ++i) {
-         EOS_ASSERT(std::string_view((char*)imports[i].module_str.raw(), imports[i].module_str.size()) ==
-                          "env" &&
+         EOS_ASSERT(std::string_view((char*)imports[i].module_str.raw(), imports[i].module_str.size()) == "env" &&
                        is_intrinsic_whitelisted(
-                          intrinsics,
-                          std::string_view((char*)imports[i].field_str.raw(), imports[i].field_str.size())),
+                          intrinsics, std::string_view((char*)imports[i].field_str.raw(), imports[i].field_str.size())),
                     wasm_serialization_error,
                     "${module}.${fn} unresolveable",
                     ("module", std::string((char*)imports[i].module_str.raw(), imports[i].module_str.size()))(
@@ -98,11 +96,9 @@ void validate(const bytes& code, const wasm_config& cfg, const whitelisted_intri
       // check that the imports are all currently enabled
       const auto& imports = bkend.get_module().imports;
       for (std::uint32_t i = 0; i < imports.size(); ++i) {
-         EOS_ASSERT(std::string_view((char*)imports[i].module_str.raw(), imports[i].module_str.size()) ==
-                          "env" &&
+         EOS_ASSERT(std::string_view((char*)imports[i].module_str.raw(), imports[i].module_str.size()) == "env" &&
                        is_intrinsic_whitelisted(
-                          intrinsics,
-                          std::string_view((char*)imports[i].field_str.raw(), imports[i].field_str.size())),
+                          intrinsics, std::string_view((char*)imports[i].field_str.raw(), imports[i].field_str.size())),
                     wasm_serialization_error,
                     "${module}.${fn} unresolveable",
                     ("module", std::string((char*)imports[i].module_str.raw(), imports[i].module_str.size()))(
@@ -110,8 +106,7 @@ void validate(const bytes& code, const wasm_config& cfg, const whitelisted_intri
       }
       // check apply
       uint32_t apply_idx = bkend.get_module().get_exported_function("apply");
-      EOS_ASSERT(
-         apply_idx < std::numeric_limits<uint32_t>::max(), wasm_serialization_error, "apply not exported");
+      EOS_ASSERT(apply_idx < std::numeric_limits<uint32_t>::max(), wasm_serialization_error, "apply not exported");
       const vm::func_type& apply_type = bkend.get_module().get_function_type(apply_idx);
       EOS_ASSERT((apply_type ==
                   vm::host_function{
@@ -127,8 +122,8 @@ void validate(const bytes& code, const wasm_config& cfg, const whitelisted_intri
 
 // Be permissive on apply.
 struct apply_options {
-   std::uint32_t max_pages      = wasm_constraints::maximum_linear_memory / wasm_constraints::wasm_page_size;
-   std::uint32_t max_call_depth = wasm_constraints::maximum_call_depth + 1;
+   std::uint32_t         max_pages      = wasm_constraints::maximum_linear_memory / wasm_constraints::wasm_page_size;
+   std::uint32_t         max_call_depth = wasm_constraints::maximum_call_depth + 1;
    static constexpr bool forbid_export_mutable_globals = false;
    static constexpr bool allow_code_after_function_end = false;
    static constexpr bool allow_u32_limits_flags        = true;
@@ -233,11 +228,10 @@ public:
       if (auto it = _prof.find(account); it != _prof.end()) {
          return it->second.get();
       } else {
-         auto code_sequence =
-            context.control.db().get<account_metadata_object, by_name>(account).code_sequence;
-         std::string basename = account.to_string() + "." + std::to_string(code_sequence);
-         auto        prof     = std::make_unique<profile_data>(basename + ".profile", *_instantiated_module);
-         auto [pos, _]        = _prof.insert(std::pair{ account, std::move(prof) });
+         auto        code_sequence = context.control.db().get<account_metadata_object, by_name>(account).code_sequence;
+         std::string basename      = account.to_string() + "." + std::to_string(code_sequence);
+         auto        prof          = std::make_unique<profile_data>(basename + ".profile", *_instantiated_module);
+         auto [pos, _]             = _prof.insert(std::pair{ account, std::move(prof) });
          std::ofstream outfile(basename + ".wasm");
          outfile.write(_original_code.data(), _original_code.size());
          return pos->second.get();
@@ -261,13 +255,12 @@ void eos_vm_runtime<Impl>::immediately_exit_currently_running_module() {
 }
 
 template<typename Impl>
-std::unique_ptr<wasm_instantiated_module_interface> eos_vm_runtime<Impl>::instantiate_module(
-   const char* code_bytes,
-   size_t      code_size,
-   std::vector<uint8_t>,
-   const digest_type&,
-   const uint8_t&,
-   const uint8_t&) {
+std::unique_ptr<wasm_instantiated_module_interface> eos_vm_runtime<Impl>::instantiate_module(const char* code_bytes,
+                                                                                             size_t      code_size,
+                                                                                             std::vector<uint8_t>,
+                                                                                             const digest_type&,
+                                                                                             const uint8_t&,
+                                                                                             const uint8_t&) {
 
    using backend_t = eos_vm_backend_t<Impl>;
    try {
@@ -291,13 +284,12 @@ void eos_vm_profile_runtime::immediately_exit_currently_running_module() {
    throw wasm_exit{};
 }
 
-std::unique_ptr<wasm_instantiated_module_interface> eos_vm_profile_runtime::instantiate_module(
-   const char* code_bytes,
-   size_t      code_size,
-   std::vector<uint8_t>,
-   const digest_type&,
-   const uint8_t&,
-   const uint8_t&) {
+std::unique_ptr<wasm_instantiated_module_interface> eos_vm_profile_runtime::instantiate_module(const char* code_bytes,
+                                                                                               size_t      code_size,
+                                                                                               std::vector<uint8_t>,
+                                                                                               const digest_type&,
+                                                                                               const uint8_t&,
+                                                                                               const uint8_t&) {
 
    using backend_t = eosio::vm::backend<eos_vm_host_functions_t,
                                         eosio::vm::jit_profile,
@@ -331,51 +323,44 @@ struct host_function_registrator {
    }
 };
 
-#define REGISTER_INJECTED_HOST_FUNCTION(NAME, ...)                                                           \
-   static host_function_registrator<&interface::NAME, ##__VA_ARGS__> NAME##_registrator_impl() {             \
-      return { BOOST_HANA_STRING(EOSIO_INJECTED_MODULE_NAME), BOOST_HANA_STRING(#NAME) };                    \
-   }                                                                                                         \
+#define REGISTER_INJECTED_HOST_FUNCTION(NAME, ...)                                                                     \
+   static host_function_registrator<&interface::NAME, ##__VA_ARGS__> NAME##_registrator_impl() {                       \
+      return { BOOST_HANA_STRING(EOSIO_INJECTED_MODULE_NAME), BOOST_HANA_STRING(#NAME) };                              \
+   }                                                                                                                   \
    inline static auto NAME##_registrator = NAME##_registrator_impl();
 
-#define REGISTER_HOST_FUNCTION(NAME, ...)                                                                    \
-   static host_function_registrator<&interface::NAME, core_precondition, context_aware_check, ##__VA_ARGS__> \
-      NAME##_registrator_impl() {                                                                            \
-      return { BOOST_HANA_STRING("env"), BOOST_HANA_STRING(#NAME) };                                         \
-   }                                                                                                         \
+#define REGISTER_HOST_FUNCTION(NAME, ...)                                                                              \
+   static host_function_registrator<&interface::NAME, core_precondition, context_aware_check, ##__VA_ARGS__>           \
+      NAME##_registrator_impl() {                                                                                      \
+      return { BOOST_HANA_STRING("env"), BOOST_HANA_STRING(#NAME) };                                                   \
+   }                                                                                                                   \
    inline static auto NAME##_registrator = NAME##_registrator_impl();
 
-#define REGISTER_CF_HOST_FUNCTION(NAME, ...)                                                                 \
-   static host_function_registrator<&interface::NAME, core_precondition, ##__VA_ARGS__>                      \
-      NAME##_registrator_impl() {                                                                            \
-      return { BOOST_HANA_STRING("env"), BOOST_HANA_STRING(#NAME) };                                         \
-   }                                                                                                         \
+#define REGISTER_CF_HOST_FUNCTION(NAME, ...)                                                                           \
+   static host_function_registrator<&interface::NAME, core_precondition, ##__VA_ARGS__> NAME##_registrator_impl() {    \
+      return { BOOST_HANA_STRING("env"), BOOST_HANA_STRING(#NAME) };                                                   \
+   }                                                                                                                   \
    inline static auto NAME##_registrator = NAME##_registrator_impl();
 
-#define REGISTER_LEGACY_HOST_FUNCTION(NAME, ...)                                                             \
-   static host_function_registrator<&interface::NAME,                                                        \
-                                    legacy_static_check_wl_args,                                             \
-                                    context_aware_check,                                                     \
-                                    ##__VA_ARGS__>                                                           \
-      NAME##_registrator_impl() {                                                                            \
-      return { BOOST_HANA_STRING("env"), BOOST_HANA_STRING(#NAME) };                                         \
-   }                                                                                                         \
+#define REGISTER_LEGACY_HOST_FUNCTION(NAME, ...)                                                                       \
+   static host_function_registrator<&interface::NAME, legacy_static_check_wl_args, context_aware_check, ##__VA_ARGS__> \
+      NAME##_registrator_impl() {                                                                                      \
+      return { BOOST_HANA_STRING("env"), BOOST_HANA_STRING(#NAME) };                                                   \
+   }                                                                                                                   \
    inline static auto NAME##_registrator = NAME##_registrator_impl();
 
-#define REGISTER_LEGACY_CF_HOST_FUNCTION(NAME, ...)                                                          \
-   static host_function_registrator<&interface::NAME, legacy_static_check_wl_args, ##__VA_ARGS__>            \
-      NAME##_registrator_impl() {                                                                            \
-      return { BOOST_HANA_STRING("env"), BOOST_HANA_STRING(#NAME) };                                         \
-   }                                                                                                         \
+#define REGISTER_LEGACY_CF_HOST_FUNCTION(NAME, ...)                                                                    \
+   static host_function_registrator<&interface::NAME, legacy_static_check_wl_args, ##__VA_ARGS__>                      \
+      NAME##_registrator_impl() {                                                                                      \
+      return { BOOST_HANA_STRING("env"), BOOST_HANA_STRING(#NAME) };                                                   \
+   }                                                                                                                   \
    inline static auto NAME##_registrator = NAME##_registrator_impl();
 
-#define REGISTER_LEGACY_CF_ONLY_HOST_FUNCTION(NAME, ...)                                                     \
-   static host_function_registrator<&interface::NAME,                                                        \
-                                    legacy_static_check_wl_args,                                             \
-                                    context_free_check,                                                      \
-                                    ##__VA_ARGS__>                                                           \
-      NAME##_registrator_impl() {                                                                            \
-      return { BOOST_HANA_STRING("env"), BOOST_HANA_STRING(#NAME) };                                         \
-   }                                                                                                         \
+#define REGISTER_LEGACY_CF_ONLY_HOST_FUNCTION(NAME, ...)                                                               \
+   static host_function_registrator<&interface::NAME, legacy_static_check_wl_args, context_free_check, ##__VA_ARGS__>  \
+      NAME##_registrator_impl() {                                                                                      \
+      return { BOOST_HANA_STRING("env"), BOOST_HANA_STRING(#NAME) };                                                   \
+   }                                                                                                                   \
    inline static auto NAME##_registrator = NAME##_registrator_impl();
 
 // context free api

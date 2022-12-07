@@ -33,8 +33,7 @@ void chain_actions::setup(CLI::App& app) {
    sub->require_subcommand(1);
 
    auto* build = sub->add_subcommand("build-info", "extract build environment information as JSON");
-   build->add_option("--output-file,-o", opt->build_output_file, "write into specified file")
-      ->capture_default_str();
+   build->add_option("--output-file,-o", opt->build_output_file, "write into specified file")->capture_default_str();
    build->add_flag("--print,-p", opt->build_just_print, "print to console");
    build->require_option(1);
 

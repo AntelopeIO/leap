@@ -7,8 +7,7 @@
 #include <boost/algorithm/string.hpp>
 
 namespace eosio {
-static appbase::abstract_plugin& _signature_provider_plugin =
-   app().register_plugin<signature_provider_plugin>();
+static appbase::abstract_plugin& _signature_provider_plugin = app().register_plugin<signature_provider_plugin>();
 
 class signature_provider_plugin_impl {
 public:
@@ -55,10 +54,10 @@ signature_provider_plugin::signature_provider_plugin()
 signature_provider_plugin::~signature_provider_plugin() {}
 
 void signature_provider_plugin::set_program_options(options_description&, options_description& cfg) {
-   cfg.add_options()("keosd-provider-timeout",
-                     boost::program_options::value<int32_t>()->default_value(5),
-                     "Limits the maximum time (in milliseconds) that is allowed for sending requests to a "
-                     "keosd provider for signing");
+   cfg.add_options()(
+      "keosd-provider-timeout",
+      boost::program_options::value<int32_t>()->default_value(5),
+      "Limits the maximum time (in milliseconds) that is allowed for sending requests to a keosd provider for signing");
 }
 
 const char* const signature_provider_plugin::signature_provider_help_text() const {
@@ -67,10 +66,8 @@ const char* const signature_provider_plugin::signature_provider_help_text() cons
           "   <public-key>    \tis a string form of a vaild EOSIO public key\n\n"
           "   <provider-spec> \tis a string in the form <provider-type>:<data>\n\n"
           "   <provider-type> \tis KEY, KEOSD, or SE\n\n"
-          "   KEY:<data>      \tis a string form of a valid EOSIO private key which maps to the provided "
-          "public key\n\n"
-          "   KEOSD:<data>    \tis the URL where keosd is available and the approptiate wallet(s) are "
-          "unlocked\n\n";
+          "   KEY:<data>      \tis a string form of a valid EOSIO private key which maps to the provided public key\n\n"
+          "   KEOSD:<data>    \tis the URL where keosd is available and the approptiate wallet(s) are unlocked\n\n";
 }
 
 void signature_provider_plugin::plugin_initialize(const variables_map& options) {
@@ -80,14 +77,12 @@ void signature_provider_plugin::plugin_initialize(const variables_map& options) 
 std::pair<chain::public_key_type, signature_provider_plugin::signature_provider_type>
 signature_provider_plugin::signature_provider_for_specification(const std::string& spec) const {
    auto delim = spec.find("=");
-   EOS_ASSERT(
-      delim != std::string::npos, chain::plugin_config_exception, "Missing \"=\" in the key spec pair");
+   EOS_ASSERT(delim != std::string::npos, chain::plugin_config_exception, "Missing \"=\" in the key spec pair");
    auto pub_key_str = spec.substr(0, delim);
    auto spec_str    = spec.substr(delim + 1);
 
    auto spec_delim = spec_str.find(":");
-   EOS_ASSERT(
-      spec_delim != std::string::npos, chain::plugin_config_exception, "Missing \":\" in the key spec pair");
+   EOS_ASSERT(spec_delim != std::string::npos, chain::plugin_config_exception, "Missing \":\" in the key spec pair");
    auto spec_type_str = spec_str.substr(0, spec_delim);
    auto spec_data     = spec_str.substr(spec_delim + 1);
 
@@ -105,8 +100,8 @@ signature_provider_plugin::signature_provider_for_specification(const std::strin
    EOS_THROW(chain::plugin_config_exception, "Unsupported key provider type \"${t}\"", ("t", spec_type_str));
 }
 
-signature_provider_plugin::signature_provider_type
-signature_provider_plugin::signature_provider_for_private_key(const chain::private_key_type priv) const {
+signature_provider_plugin::signature_provider_type signature_provider_plugin::signature_provider_for_private_key(
+   const chain::private_key_type priv) const {
    return my->make_key_signature_provider(priv);
 }
 

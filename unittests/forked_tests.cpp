@@ -82,10 +82,9 @@ BOOST_AUTO_TEST_CASE(fork_with_bad_block) try {
             }
 
             // re-sign the block
-            auto header_bmroot =
-               digest_type::hash(std::make_pair(copy_b->digest(), fork.block_merkle.get_root()));
-            auto sig_digest            = digest_type::hash(std::make_pair(
-               header_bmroot, remote.control->head_block_state()->pending_schedule.schedule_hash));
+            auto header_bmroot = digest_type::hash(std::make_pair(copy_b->digest(), fork.block_merkle.get_root()));
+            auto sig_digest    = digest_type::hash(
+               std::make_pair(header_bmroot, remote.control->head_block_state()->pending_schedule.schedule_hash));
             copy_b->producer_signature = remote.get_private_key("b"_n, "active").sign(sig_digest);
 
             // add this new block to our corrupted block merkle
@@ -113,9 +112,8 @@ BOOST_AUTO_TEST_CASE(fork_with_bad_block) try {
          }
 
          // push the block which should attempt the corrupted fork and fail
-         BOOST_REQUIRE_EXCEPTION(bios.push_block(fork.blocks.back()),
-                                 fc::exception,
-                                 fc_exception_message_is("Block ID does not match"));
+         BOOST_REQUIRE_EXCEPTION(
+            bios.push_block(fork.blocks.back()), fc::exception, fc_exception_message_is("Block ID does not match"));
       }
    }
 
@@ -148,23 +146,22 @@ BOOST_AUTO_TEST_CASE(forking) try {
    c.set_abi("eosio.token"_n, contracts::eosio_token_abi().data());
    c.produce_blocks(10);
 
-   auto cr = c.push_action(
-      "eosio.token"_n,
-      "create"_n,
-      "eosio.token"_n,
-      mutable_variant_object()("issuer", "eosio")("maximum_supply", core_from_string("10000000.0000")));
+   auto cr =
+      c.push_action("eosio.token"_n,
+                    "create"_n,
+                    "eosio.token"_n,
+                    mutable_variant_object()("issuer", "eosio")("maximum_supply", core_from_string("10000000.0000")));
+
+   cr = c.push_action("eosio.token"_n,
+                      "issue"_n,
+                      config::system_account_name,
+                      mutable_variant_object()("to", "eosio")("quantity", core_from_string("100.0000"))("memo", ""));
 
    cr = c.push_action(
       "eosio.token"_n,
-      "issue"_n,
+      "transfer"_n,
       config::system_account_name,
-      mutable_variant_object()("to", "eosio")("quantity", core_from_string("100.0000"))("memo", ""));
-
-   cr = c.push_action("eosio.token"_n,
-                      "transfer"_n,
-                      config::system_account_name,
-                      mutable_variant_object()("from", "eosio")("to", "dan")(
-                         "quantity", core_from_string("100.0000"))("memo", ""));
+      mutable_variant_object()("from", "eosio")("to", "dan")("quantity", core_from_string("100.0000"))("memo", ""));
 
    tester c2(setup_policy::none);
    wlog("push c1 blocks to c2");
@@ -206,7 +203,7 @@ BOOST_AUTO_TEST_CASE(forking) try {
    c2.produce_blocks(11 + 12);
 
    wlog("c1 blocks:");
-   b = c.produce_block(fc::milliseconds(config::block_interval_ms * 13)); // dan skips over pam's blocks
+   b                 = c.produce_block(fc::milliseconds(config::block_interval_ms * 13)); // dan skips over pam's blocks
    expected_producer = "dan"_n;
    BOOST_REQUIRE_EQUAL(b->producer.to_string(), expected_producer.to_string());
    c.produce_blocks(11);
@@ -272,12 +269,11 @@ BOOST_AUTO_TEST_CASE(forking) try {
       c.control->create_block_state_future(bad_id, std::make_shared<signed_block>(std::move(bad_block)));
    c.control->abort_block();
    controller::block_report br;
-   BOOST_REQUIRE_EXCEPTION(
-      c.control->push_block(br, bad_block_bs, forked_branch_callback{}, trx_meta_cache_lookup{}),
-      fc::exception,
-      [](const fc::exception& ex) -> bool {
-         return ex.to_detail_string().find("block signed by unexpected key") != std::string::npos;
-      });
+   BOOST_REQUIRE_EXCEPTION(c.control->push_block(br, bad_block_bs, forked_branch_callback{}, trx_meta_cache_lookup{}),
+                           fc::exception,
+                           [](const fc::exception& ex) -> bool {
+                              return ex.to_detail_string().find("block signed by unexpected key") != std::string::npos;
+                           });
 }
 FC_LOG_AND_RETHROW()
 
@@ -451,18 +447,15 @@ BOOST_AUTO_TEST_CASE(irreversible_mode) try {
    auto fork_first_block_id = other.control->head_block_id();
    wlog("{w}", ("w", fork_first_block_id));
 
-   BOOST_REQUIRE(
-      produce_until_transition(other, "producer2"_n, "producer1"_n, 11)); // finish producer2's round
+   BOOST_REQUIRE(produce_until_transition(other, "producer2"_n, "producer1"_n, 11)); // finish producer2's round
    BOOST_REQUIRE_EQUAL(other.control->pending_block_producer().to_string(), "producer1");
 
    // Repeat two more times to ensure other has a longer chain than main
-   other.produce_block(fc::milliseconds(13 * config::block_interval_ms)); // skip over producer1's round
-   BOOST_REQUIRE(
-      produce_until_transition(other, "producer2"_n, "producer1"_n, 11)); // finish producer2's round
+   other.produce_block(fc::milliseconds(13 * config::block_interval_ms));            // skip over producer1's round
+   BOOST_REQUIRE(produce_until_transition(other, "producer2"_n, "producer1"_n, 11)); // finish producer2's round
 
-   other.produce_block(fc::milliseconds(13 * config::block_interval_ms)); // skip over producer1's round
-   BOOST_REQUIRE(
-      produce_until_transition(other, "producer2"_n, "producer1"_n, 11)); // finish producer2's round
+   other.produce_block(fc::milliseconds(13 * config::block_interval_ms));            // skip over producer1's round
+   BOOST_REQUIRE(produce_until_transition(other, "producer2"_n, "producer1"_n, 11)); // finish producer2's round
 
    auto hbn4 = other.control->head_block_num();
    auto lib4 = other.control->last_irreversible_block_num();
@@ -560,8 +553,7 @@ BOOST_AUTO_TEST_CASE(reopen_forkdb) try {
       c1.push_block(fb);
    }
 
-   BOOST_REQUIRE(fork1_head_block_id ==
-                 c1.control->head_block_id()); // new blocks should not cause fork switch
+   BOOST_REQUIRE(fork1_head_block_id == c1.control->head_block_id()); // new blocks should not cause fork switch
 
    c1.close();
 
@@ -614,9 +606,8 @@ BOOST_AUTO_TEST_CASE(push_block_returns_forked_transactions) try {
 
    signed_block_ptr c2b;
    wlog("c2 blocks:");
-   c2.produce_blocks(12); // pam produces 12 blocks
-   b = c2b =
-      c2.produce_block(fc::milliseconds(config::block_interval_ms * 13)); // sam skips over dan's blocks
+   c2.produce_blocks(12);                                                        // pam produces 12 blocks
+   b = c2b = c2.produce_block(fc::milliseconds(config::block_interval_ms * 13)); // sam skips over dan's blocks
    expected_producer = "sam"_n;
    BOOST_REQUIRE_EQUAL(b->producer.to_string(), expected_producer.to_string());
    // save blocks for verification of forking later
@@ -626,7 +617,7 @@ BOOST_AUTO_TEST_CASE(push_block_returns_forked_transactions) try {
    }
 
    wlog("c1 blocks:");
-   b = c.produce_block(fc::milliseconds(config::block_interval_ms * 13)); // dan skips over pam's blocks
+   b                 = c.produce_block(fc::milliseconds(config::block_interval_ms * 13)); // dan skips over pam's blocks
    expected_producer = "dan"_n;
    BOOST_REQUIRE_EQUAL(b->producer.to_string(), expected_producer.to_string());
    // create accounts on c1 which will be forked out
@@ -716,8 +707,8 @@ BOOST_AUTO_TEST_CASE(push_block_returns_forked_transactions) try {
 
    // test forked blocks signal accepted_block in order, required by trace_api_plugin
    std::vector<signed_block_ptr> accepted_blocks;
-   auto                          conn = c.control->accepted_block.connect(
-      [&](const block_state_ptr& bsp) { accepted_blocks.emplace_back(bsp->block); });
+   auto                          conn =
+      c.control->accepted_block.connect([&](const block_state_ptr& bsp) { accepted_blocks.emplace_back(bsp->block); });
 
    // dan on chain 1 now gets all of the blocks from chain 2 which should cause fork switch
    wlog("push c2 blocks to c1");

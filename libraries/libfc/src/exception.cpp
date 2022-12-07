@@ -6,9 +6,8 @@
 #include <iostream>
 
 namespace fc {
-FC_REGISTER_EXCEPTIONS(
-   (
-      timeout_exception)(file_not_found_exception)(parse_error_exception)(invalid_arg_exception)(invalid_operation_exception)(key_not_found_exception)(bad_cast_exception)(out_of_range_exception)(canceled_exception)(assert_exception)(eof_exception)(unknown_host_exception)(null_optional)(udt_exception)(aes_exception)(overflow_exception)(underflow_exception)(divide_by_zero_exception))
+FC_REGISTER_EXCEPTIONS((
+   timeout_exception)(file_not_found_exception)(parse_error_exception)(invalid_arg_exception)(invalid_operation_exception)(key_not_found_exception)(bad_cast_exception)(out_of_range_exception)(canceled_exception)(assert_exception)(eof_exception)(unknown_host_exception)(null_optional)(udt_exception)(aes_exception)(overflow_exception)(underflow_exception)(divide_by_zero_exception))
 
 namespace detail {
 class exception_impl {
@@ -19,10 +18,7 @@ public:
    log_messages _elog;
 };
 }
-exception::exception(log_messages&&     msgs,
-                     int64_t            code,
-                     const std::string& name_value,
-                     const std::string& what_value)
+exception::exception(log_messages&& msgs, int64_t code, const std::string& name_value, const std::string& what_value)
    : my(new detail::exception_impl()) {
    my->_code = code;
    my->_what = what_value;
@@ -77,10 +73,7 @@ exception::exception(int64_t code, const std::string& name_value, const std::str
    my->_name = name_value;
 }
 
-exception::exception(log_message&&      msg,
-                     int64_t            code,
-                     const std::string& name_value,
-                     const std::string& what_value)
+exception::exception(log_message&& msg, int64_t code, const std::string& name_value, const std::string& what_value)
    : my(new detail::exception_impl()) {
    my->_code = code;
    my->_what = what_value;
@@ -145,8 +138,7 @@ string exception::to_detail_string(log_level ll) const {
       ss << " " << my->_name << ": " << my->_what << "\n";
       for (auto itr = my->_elog.begin(); itr != my->_elog.end(); ++itr) {
          try {
-            ss << itr->get_message()
-               << "\n"; // fc::format_string( itr->get_format(), itr->get_data() ) <<"\n";
+            ss << itr->get_message() << "\n"; // fc::format_string( itr->get_format(), itr->get_data() ) <<"\n";
             ss << "    " << json::to_string(itr->get_data(), deadline) << "\n";
             ss << "    " << itr->get_context().to_string() << "\n";
          } catch (std::bad_alloc&) {

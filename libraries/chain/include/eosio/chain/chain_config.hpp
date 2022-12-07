@@ -10,9 +10,9 @@ namespace chain {
 /**
  * @brief Producer-voted blockchain configuration parameters
  *
- * This object stores the blockchain configuration, which is set by the block producers. Block producers each
- * vote for their preference for each of the parameters in this object, and the blockchain runs according to
- * the median of the values specified by the producers.
+ * This object stores the blockchain configuration, which is set by the block producers. Block producers each vote for
+ * their preference for each of the parameters in this object, and the blockchain runs according to the median of the
+ * values specified by the producers.
  */
 struct chain_config_v0 {
 
@@ -39,36 +39,32 @@ struct chain_config_v0 {
    };
 
    uint64_t max_block_net_usage;        ///< the maxiumum net usage in instructions for a block
-   uint32_t target_block_net_usage_pct; ///< the target percent (1% == 100, 100%= 10,000) of maximum net
-                                        ///< usage; exceeding this triggers congestion handling
-   uint32_t max_transaction_net_usage;  ///< the maximum objectively measured net usage that the chain will
-                                        ///< allow regardless of account limits
-   uint32_t base_per_transaction_net_usage; ///< the base amount of net usage billed for a transaction to
-                                            ///< cover incidentals
+   uint32_t target_block_net_usage_pct; ///< the target percent (1% == 100, 100%= 10,000) of maximum net usage;
+                                        ///< exceeding this triggers congestion handling
+   uint32_t max_transaction_net_usage;  ///< the maximum objectively measured net usage that the chain will allow
+                                        ///< regardless of account limits
+   uint32_t
+      base_per_transaction_net_usage; ///< the base amount of net usage billed for a transaction to cover incidentals
    uint32_t net_usage_leeway;
-   uint32_t context_free_discount_net_usage_num; ///< the numerator for the discount on net usage of
-                                                 ///< context-free data
-   uint32_t context_free_discount_net_usage_den; ///< the denominator for the discount on net usage of
-                                                 ///< context-free data
+   uint32_t context_free_discount_net_usage_num; ///< the numerator for the discount on net usage of context-free data
+   uint32_t context_free_discount_net_usage_den; ///< the denominator for the discount on net usage of context-free data
 
    uint32_t max_block_cpu_usage;        ///< the maxiumum billable cpu usage (in microseconds) for a block
-   uint32_t target_block_cpu_usage_pct; ///< the target percent (1% == 100, 100%= 10,000) of maximum cpu
-                                        ///< usage; exceeding this triggers congestion handling
-   uint32_t max_transaction_cpu_usage;  ///< the maximum billable cpu usage (in microseconds) that the chain
-                                        ///< will allow regardless of account limits
-   uint32_t
-      min_transaction_cpu_usage; ///< the minimum billable cpu usage (in microseconds) that the chain requires
+   uint32_t target_block_cpu_usage_pct; ///< the target percent (1% == 100, 100%= 10,000) of maximum cpu usage;
+                                        ///< exceeding this triggers congestion handling
+   uint32_t max_transaction_cpu_usage;  ///< the maximum billable cpu usage (in microseconds) that the chain will allow
+                                        ///< regardless of account limits
+   uint32_t min_transaction_cpu_usage;  ///< the minimum billable cpu usage (in microseconds) that the chain requires
 
-   uint32_t
-      max_transaction_lifetime; ///< the maximum number of seconds that an input transaction's expiration can
-                                ///< be ahead of the time of the block in which it is first included
-   uint32_t deferred_trx_expiration_window; ///< the number of seconds after the time a deferred transaction
-                                            ///< can first execute until it expires
-   uint32_t max_transaction_delay;          ///< the maximum number of seconds that can be imposed as a delay
-                                            ///< requirement by authorization checks
-   uint32_t max_inline_action_size;         ///< maximum allowed size (in bytes) of an inline action
-   uint16_t max_inline_action_depth;        ///< recursion depth limit on sending inline actions
-   uint16_t max_authority_depth; ///< recursion depth limit for checking if an authority is satisfied
+   uint32_t max_transaction_lifetime; ///< the maximum number of seconds that an input transaction's expiration can be
+                                      ///< ahead of the time of the block in which it is first included
+   uint32_t deferred_trx_expiration_window; ///< the number of seconds after the time a deferred transaction can first
+                                            ///< execute until it expires
+   uint32_t max_transaction_delay;   ///< the maximum number of seconds that can be imposed as a delay requirement by
+                                     ///< authorization checks
+   uint32_t max_inline_action_size;  ///< maximum allowed size (in bytes) of an inline action
+   uint16_t max_inline_action_depth; ///< recursion depth limit on sending inline actions
+   uint16_t max_authority_depth;     ///< recursion depth limit for checking if an authority is satisfied
 
    void validate() const;
 
@@ -115,9 +111,7 @@ struct chain_config_v0 {
                                                            rhs.max_authority_depth);
    };
 
-   friend inline bool operator!=(const chain_config_v0& lhs, const chain_config_v0& rhs) {
-      return !(lhs == rhs);
-   }
+   friend inline bool operator!=(const chain_config_v0& lhs, const chain_config_v0& rhs) { return !(lhs == rhs); }
 
 protected:
    template<typename Stream>
@@ -129,8 +123,7 @@ protected:
                  << "Base Per-Transaction Net Usage: " << base_per_transaction_net_usage << ", "
                  << "Net Usage Leeway: " << net_usage_leeway << ", "
                  << "Context-Free Data Net Usage Discount: "
-                 << (double)context_free_discount_net_usage_num * 100.0 /
-                       (double)context_free_discount_net_usage_den
+                 << (double)context_free_discount_net_usage_num * 100.0 / (double)context_free_discount_net_usage_den
                  << "% , "
 
                  << "Max Block CPU Usage: " << max_block_cpu_usage << ", "
@@ -178,9 +171,7 @@ struct chain_config_v1 : chain_config_v0 {
              lhs.base() == rhs.base();
    }
 
-   friend inline bool operator!=(const chain_config_v1& lhs, const chain_config_v1& rhs) {
-      return !(lhs == rhs);
-   }
+   friend inline bool operator!=(const chain_config_v1& lhs, const chain_config_v1& rhs) { return !(lhs == rhs); }
 
    inline chain_config_v1& operator=(const Base& b) {
       Base::operator=(b);
@@ -219,9 +210,7 @@ FC_REFLECT(
 
 )
 
-FC_REFLECT_DERIVED(eosio::chain::chain_config_v1,
-                   (eosio::chain::chain_config_v0),
-                   (max_action_return_value_size))
+FC_REFLECT_DERIVED(eosio::chain::chain_config_v1, (eosio::chain::chain_config_v0), (max_action_return_value_size))
 
 namespace fc {
 
@@ -233,9 +222,9 @@ namespace fc {
  * @throws config_parse_error if id is unknown
  */
 template<typename DataStream>
-inline DataStream& operator<<(DataStream&                                                           s,
-                              const eosio::chain::data_entry<eosio::chain::chain_config_v0,
-                                                             eosio::chain::config_entry_validator>& entry) {
+inline DataStream& operator<<(
+   DataStream&                                                                                          s,
+   const eosio::chain::data_entry<eosio::chain::chain_config_v0, eosio::chain::config_entry_validator>& entry) {
    using namespace eosio::chain;
 
    // initial requirements were to skip packing field if it is not activated.
@@ -270,25 +259,15 @@ inline DataStream& operator<<(DataStream&                                       
       case chain_config_v0::min_transaction_cpu_usage_id:
          fc::raw::pack(s, entry.config.min_transaction_cpu_usage);
          break;
-      case chain_config_v0::max_transaction_lifetime_id:
-         fc::raw::pack(s, entry.config.max_transaction_lifetime);
-         break;
+      case chain_config_v0::max_transaction_lifetime_id: fc::raw::pack(s, entry.config.max_transaction_lifetime); break;
       case chain_config_v0::deferred_trx_expiration_window_id:
          fc::raw::pack(s, entry.config.deferred_trx_expiration_window);
          break;
-      case chain_config_v0::max_transaction_delay_id:
-         fc::raw::pack(s, entry.config.max_transaction_delay);
-         break;
-      case chain_config_v0::max_inline_action_size_id:
-         fc::raw::pack(s, entry.config.max_inline_action_size);
-         break;
-      case chain_config_v0::max_inline_action_depth_id:
-         fc::raw::pack(s, entry.config.max_inline_action_depth);
-         break;
+      case chain_config_v0::max_transaction_delay_id: fc::raw::pack(s, entry.config.max_transaction_delay); break;
+      case chain_config_v0::max_inline_action_size_id: fc::raw::pack(s, entry.config.max_inline_action_size); break;
+      case chain_config_v0::max_inline_action_depth_id: fc::raw::pack(s, entry.config.max_inline_action_depth); break;
       case chain_config_v0::max_authority_depth_id: fc::raw::pack(s, entry.config.max_authority_depth); break;
-      default:
-         FC_THROW_EXCEPTION(
-            config_parse_error, "DataStream& operator<<: no such id: ${id}", ("id", entry.id));
+      default: FC_THROW_EXCEPTION(config_parse_error, "DataStream& operator<<: no such id: ${id}", ("id", entry.id));
    }
    return s;
 }
@@ -301,9 +280,9 @@ inline DataStream& operator<<(DataStream&                                       
  * @throws unsupported_feature if protocol feature for particular id is not activated
  */
 template<typename DataStream>
-inline DataStream& operator<<(DataStream&                                                           s,
-                              const eosio::chain::data_entry<eosio::chain::chain_config_v1,
-                                                             eosio::chain::config_entry_validator>& entry) {
+inline DataStream& operator<<(
+   DataStream&                                                                                          s,
+   const eosio::chain::data_entry<eosio::chain::chain_config_v1, eosio::chain::config_entry_validator>& entry) {
    using namespace eosio::chain;
 
    // initial requirements were to skip packing field if it is not activated.
@@ -319,9 +298,7 @@ inline DataStream& operator<<(DataStream&                                       
       case chain_config_v1::max_action_return_value_size_id:
          fc::raw::pack(s, entry.config.max_action_return_value_size);
          break;
-      default:
-         data_entry<chain_config_v0, config_entry_validator> base_entry(entry);
-         fc::raw::pack(s, base_entry);
+      default: data_entry<chain_config_v0, config_entry_validator> base_entry(entry); fc::raw::pack(s, base_entry);
    }
 
    return s;
@@ -340,15 +317,10 @@ inline DataStream& operator>>(
    eosio::chain::data_entry<eosio::chain::chain_config_v0, eosio::chain::config_entry_validator>& entry) {
    using namespace eosio::chain;
 
-   EOS_ASSERT(entry.is_allowed(),
-              eosio::chain::unsupported_feature,
-              "config id ${id} is no allowed",
-              ("id", entry.id));
+   EOS_ASSERT(entry.is_allowed(), eosio::chain::unsupported_feature, "config id ${id} is no allowed", ("id", entry.id));
 
    switch (entry.id) {
-      case chain_config_v0::max_block_net_usage_id:
-         fc::raw::unpack(s, entry.config.max_block_net_usage);
-         break;
+      case chain_config_v0::max_block_net_usage_id: fc::raw::unpack(s, entry.config.max_block_net_usage); break;
       case chain_config_v0::target_block_net_usage_pct_id:
          fc::raw::unpack(s, entry.config.target_block_net_usage_pct);
          break;
@@ -365,9 +337,7 @@ inline DataStream& operator>>(
       case chain_config_v0::context_free_discount_net_usage_den_id:
          fc::raw::unpack(s, entry.config.context_free_discount_net_usage_den);
          break;
-      case chain_config_v0::max_block_cpu_usage_id:
-         fc::raw::unpack(s, entry.config.max_block_cpu_usage);
-         break;
+      case chain_config_v0::max_block_cpu_usage_id: fc::raw::unpack(s, entry.config.max_block_cpu_usage); break;
       case chain_config_v0::target_block_cpu_usage_pct_id:
          fc::raw::unpack(s, entry.config.target_block_cpu_usage_pct);
          break;
@@ -383,18 +353,10 @@ inline DataStream& operator>>(
       case chain_config_v0::deferred_trx_expiration_window_id:
          fc::raw::unpack(s, entry.config.deferred_trx_expiration_window);
          break;
-      case chain_config_v0::max_transaction_delay_id:
-         fc::raw::unpack(s, entry.config.max_transaction_delay);
-         break;
-      case chain_config_v0::max_inline_action_size_id:
-         fc::raw::unpack(s, entry.config.max_inline_action_size);
-         break;
-      case chain_config_v0::max_inline_action_depth_id:
-         fc::raw::unpack(s, entry.config.max_inline_action_depth);
-         break;
-      case chain_config_v0::max_authority_depth_id:
-         fc::raw::unpack(s, entry.config.max_authority_depth);
-         break;
+      case chain_config_v0::max_transaction_delay_id: fc::raw::unpack(s, entry.config.max_transaction_delay); break;
+      case chain_config_v0::max_inline_action_size_id: fc::raw::unpack(s, entry.config.max_inline_action_size); break;
+      case chain_config_v0::max_inline_action_depth_id: fc::raw::unpack(s, entry.config.max_inline_action_depth); break;
+      case chain_config_v0::max_authority_depth_id: fc::raw::unpack(s, entry.config.max_authority_depth); break;
       default:
          FC_THROW_EXCEPTION(
             eosio::chain::config_parse_error, "DataStream& operator<<: no such id: ${id}", ("id", entry.id));
@@ -438,9 +400,8 @@ inline DataStream& operator>>(
  * @throws config_parse_error on duplicate or unknown id in selection
  */
 template<typename DataStream, typename T>
-inline DataStream& operator<<(
-   DataStream&                                                              s,
-   const eosio::chain::data_range<T, eosio::chain::config_entry_validator>& selection) {
+inline DataStream& operator<<(DataStream&                                                              s,
+                              const eosio::chain::data_range<T, eosio::chain::config_entry_validator>& selection) {
    using namespace eosio::chain;
 
    fc::unsigned_int size = selection.ids.size();

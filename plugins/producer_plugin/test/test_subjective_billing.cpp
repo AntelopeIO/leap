@@ -29,9 +29,9 @@ BOOST_AUTO_TEST_CASE(subjective_bill_test) {
    const auto now = time_point::now();
 
    subjective_billing timing_sub_bill;
-   const auto halftime = now + fc::milliseconds(timing_sub_bill.get_expired_accumulator_average_window() *
+   const auto         halftime = now + fc::milliseconds(timing_sub_bill.get_expired_accumulator_average_window() *
                                                 subjective_billing::subjective_time_interval_ms / 2);
-   const auto endtime  = now + fc::milliseconds(timing_sub_bill.get_expired_accumulator_average_window() *
+   const auto         endtime  = now + fc::milliseconds(timing_sub_bill.get_expired_accumulator_average_window() *
                                                subjective_billing::subjective_time_interval_ms);
 
    { // Failed transactions remain until expired in subjective billing.
@@ -79,8 +79,8 @@ BOOST_AUTO_TEST_CASE(subjective_bill_test) {
       BOOST_CHECK_EQUAL(7, sub_bill.get_subjective_bill(b, now));
 
       sub_bill.on_block(log, {}, now);
-      sub_bill.remove_subjective_billing(
-         id1, 0); // simulate seeing id1 come back in block (this is what on_block would do)
+      sub_bill.remove_subjective_billing(id1,
+                                         0); // simulate seeing id1 come back in block (this is what on_block would do)
       sub_bill.abort_block();
 
       BOOST_CHECK_EQUAL(19, sub_bill.get_subjective_bill(a, now));
@@ -96,31 +96,28 @@ BOOST_AUTO_TEST_CASE(subjective_bill_test) {
       sub_bill.subjective_bill(id5, now, b, fc::microseconds(7), true);
       sub_bill.subjective_bill(id6, now, a, fc::microseconds(11), false); // trx outside of block
 
-      BOOST_CHECK_EQUAL(
-         19 + 11, sub_bill.get_subjective_bill(a, now)); // should not include what is in the pending block
-      BOOST_CHECK_EQUAL(
-         0, sub_bill.get_subjective_bill(b, now)); // should not include what is in the pending block
+      BOOST_CHECK_EQUAL(19 + 11,
+                        sub_bill.get_subjective_bill(a, now));    // should not include what is in the pending block
+      BOOST_CHECK_EQUAL(0, sub_bill.get_subjective_bill(b, now)); // should not include what is in the pending block
       BOOST_CHECK_EQUAL(0, sub_bill.get_subjective_bill(c, now));
 
       sub_bill.on_block(log, {}, now); // have not seen any of the transactions come back yet
-      sub_bill
-         .abort_block(); // aborts the pending block, so subjective billing needs to include the reverted trxs
+      sub_bill.abort_block(); // aborts the pending block, so subjective billing needs to include the reverted trxs
 
       BOOST_CHECK_EQUAL(23 + 19 + 55 + 11, sub_bill.get_subjective_bill(a, now));
       BOOST_CHECK_EQUAL(3 + 7, sub_bill.get_subjective_bill(b, now));
 
       sub_bill.on_block(log, {}, now);
-      sub_bill.remove_subjective_billing(
-         id3, 0); // simulate seeing id3 come back in block (this is what on_block would do)
-      sub_bill.remove_subjective_billing(
-         id4, 0); // simulate seeing id4 come back in block (this is what on_block would do)
+      sub_bill.remove_subjective_billing(id3,
+                                         0); // simulate seeing id3 come back in block (this is what on_block would do)
+      sub_bill.remove_subjective_billing(id4,
+                                         0); // simulate seeing id4 come back in block (this is what on_block would do)
       sub_bill.abort_block();
 
       BOOST_CHECK_EQUAL(23 + 19 + 11, sub_bill.get_subjective_bill(a, now));
       BOOST_CHECK_EQUAL(7, sub_bill.get_subjective_bill(b, now));
    }
-   { // failed handling logic, decay with repeated failures should be exponential, single failures should be
-     // linear
+   { // failed handling logic, decay with repeated failures should be exponential, single failures should be linear
       subjective_billing sub_bill;
 
       sub_bill.subjective_bill_failure(a, fc::microseconds(1024), now);

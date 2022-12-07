@@ -35,9 +35,7 @@ namespace detail {
 template<typename T>
 class appender_factory_impl : public appender_factory {
 public:
-   virtual std::shared_ptr<appender> create(const variant& args) {
-      return std::shared_ptr<appender>(new T(args));
-   }
+   virtual std::shared_ptr<appender> create(const variant& args) { return std::shared_ptr<appender>(new T(args)); }
 };
 }
 

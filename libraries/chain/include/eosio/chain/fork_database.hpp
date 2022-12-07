@@ -23,17 +23,16 @@ public:
    explicit fork_database(const fc::path& data_dir);
    ~fork_database();
 
-   void open(
-      const std::function<
-         void(block_timestamp_type, const flat_set<digest_type>&, const vector<digest_type>&)>& validator);
+   void open(const std::function<void(block_timestamp_type, const flat_set<digest_type>&, const vector<digest_type>&)>&
+                validator);
    void close();
 
    block_header_state_ptr get_block_header(const block_id_type& id) const;
    block_state_ptr        get_block(const block_id_type& id) const;
 
    /**
-    *  Purges any existing blocks from the fork database and resets the root block_header_state to the
-    * provided value. The head will also be reset to point to the root.
+    *  Purges any existing blocks from the fork database and resets the root block_header_state to the provided value.
+    *  The head will also be reset to point to the root.
     */
    void reset(const block_header_state& root_bhs);
 
@@ -65,11 +64,10 @@ public:
     *  block states corresponding to block numbers greater than `trim_after_block_num`.
     *
     *  The order of the sequence is in descending block number order.
-    *  A block with an id of `h` must exist in the fork database otherwise this method will throw an
-    * exception.
+    *  A block with an id of `h` must exist in the fork database otherwise this method will throw an exception.
     */
    branch_type fetch_branch(const block_id_type& h,
-                            uint32_t trim_after_block_num = std::numeric_limits<uint32_t>::max()) const;
+                            uint32_t             trim_after_block_num = std::numeric_limits<uint32_t>::max()) const;
 
    /**
     *  Returns the block state with a block number of `block_num` that is on the branch that
@@ -81,8 +79,7 @@ public:
     *  Given two head blocks, return two branches of the fork graph that
     *  end with a common ancestor (same prior block)
     */
-   pair<branch_type, branch_type> fetch_branch_from(const block_id_type& first,
-                                                    const block_id_type& second) const;
+   pair<branch_type, branch_type> fetch_branch_from(const block_id_type& first, const block_id_type& second) const;
 
    void mark_valid(const block_state_ptr& h);
 

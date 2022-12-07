@@ -89,9 +89,8 @@ static private_key::storage_type priv_parse_base58(const string& base58str) {
    } else {
       constexpr auto prefix     = config::private_key_base_prefix;
       const auto     prefix_str = base58str.substr(0, pivot);
-      FC_ASSERT(prefix == prefix_str,
-                "Private Key has invalid prefix: ${str}",
-                ("str", base58str)("prefix_str", prefix_str));
+      FC_ASSERT(
+         prefix == prefix_str, "Private Key has invalid prefix: ${str}", ("str", base58str)("prefix_str", prefix_str));
 
       auto data_str = base58str.substr(pivot + 1);
       FC_ASSERT(!data_str.empty(), "Private Key has no data: ${str}", ("str", base58str));

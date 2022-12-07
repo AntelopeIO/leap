@@ -59,8 +59,7 @@ void run_compile(
    if (module.memories.size())
       result_message.starting_memory_pages = module.memories.defs.at(0).type.size.min;
 
-   std::vector<uint8_t>           prologue(module.globals.defs.size() *
-                                 8); // Large enough to handle all mutable globals
+   std::vector<uint8_t> prologue(module.globals.defs.size() * 8); // Large enough to handle all mutable globals
    std::vector<uint8_t>::iterator prologue_it = prologue.end();
 
    // set up mutable globals
@@ -108,8 +107,8 @@ void run_compile(
             return;
 
          if (function_index < module.functions.imports.size()) {
-            const auto&            f  = module.functions.imports[function_index];
-            const intrinsic_entry& ie = get_intrinsic_map().at(f.moduleName + "." + f.exportName);
+            const auto&            f                  = module.functions.imports[function_index];
+            const intrinsic_entry& ie                 = get_intrinsic_map().at(f.moduleName + "." + f.exportName);
             table_index_0[effective_table_index].func = ie.ordinal * -8;
             table_index_0[effective_table_index].type =
                (uintptr_t)module.types[module.functions.imports[function_index].type.index];
@@ -117,8 +116,8 @@ void run_compile(
             table_index_0[effective_table_index].func =
                function_to_offsets.at(function_index - module.functions.imports.size());
             table_index_0[effective_table_index].type =
-               (uintptr_t)module
-                  .types[module.functions.defs[function_index - module.functions.imports.size()].type.index];
+               (uintptr_t)
+                  module.types[module.functions.defs[function_index - module.functions.imports.size()].type.index];
          }
       }
    }

@@ -42,8 +42,7 @@ static uint64_t string_to_symbol(uint8_t precision, const char* str) {
       uint64_t result = 0;
       for (uint32_t i = 0; i < len; ++i) {
          // All characters must be upper case alphabets
-         EOS_ASSERT(
-            str[i] >= 'A' && str[i] <= 'Z', symbol_type_exception, "invalid character in symbol name");
+         EOS_ASSERT(str[i] >= 'A' && str[i] <= 'Z', symbol_type_exception, "invalid character in symbol name");
          result |= (uint64_t(str[i]) << (8 * (i + 1)));
       }
       result |= uint64_t(precision);
@@ -95,10 +94,8 @@ public:
 
    uint8_t  decimals() const { return m_value & 0xFF; }
    uint64_t precision() const {
-      EOS_ASSERT(decimals() <= max_precision,
-                 symbol_type_exception,
-                 "precision ${p} should be <= 18",
-                 ("p", decimals()));
+      EOS_ASSERT(
+         decimals() <= max_precision, symbol_type_exception, "precision ${p} should be <= 18", ("p", decimals()));
       uint64_t p10 = 1;
       uint64_t p   = decimals();
       while (p > 0) {
@@ -137,10 +134,8 @@ public:
    }
 
    void reflector_init() const {
-      EOS_ASSERT(decimals() <= max_precision,
-                 symbol_type_exception,
-                 "precision ${p} should be <= 18",
-                 ("p", decimals()));
+      EOS_ASSERT(
+         decimals() <= max_precision, symbol_type_exception, "precision ${p} should be <= 18", ("p", decimals()));
       EOS_ASSERT(valid_name(name()), symbol_type_exception, "invalid symbol: ${name}", ("name", name()));
    }
 

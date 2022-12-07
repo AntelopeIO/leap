@@ -101,15 +101,13 @@ BOOST_AUTO_TEST_CASE(test_hole_punching) {
    BOOST_TEST_REQUIRE(nom == a);
 
    // should also do nothing
-   file.punch_hole(file.filesystem_block_size(),
-                   file.filesystem_block_size() + file.filesystem_block_size() / 2);
+   file.punch_hole(file.filesystem_block_size(), file.filesystem_block_size() + file.filesystem_block_size() / 2);
    file.seek(file.filesystem_block_size());
    file.read(nom.data(), nom.size());
    BOOST_TEST_REQUIRE(nom == b);
 
    // should only wipe out B
-   file.punch_hole(file.filesystem_block_size(),
-                   file.filesystem_block_size() * 2 + file.filesystem_block_size() / 2);
+   file.punch_hole(file.filesystem_block_size(), file.filesystem_block_size() * 2 + file.filesystem_block_size() / 2);
    file.seek(0);
    file.read(nom.data(), nom.size());
    BOOST_TEST_REQUIRE(nom == a);

@@ -66,9 +66,7 @@ bool write_message_with_fds(boost::asio::local::datagram_protocol::socket& s,
    return write_message_with_fds(s.native_handle(), message, fds);
 }
 
-bool write_message_with_fds(int                            fd_to_send_to,
-                            const eosvmoc_message&         message,
-                            const std::vector<wrapped_fd>& fds) {
+bool write_message_with_fds(int fd_to_send_to, const eosvmoc_message& message, const std::vector<wrapped_fd>& fds) {
    struct msghdr   msg = {};
    struct cmsghdr* cmsg;
 

@@ -62,18 +62,14 @@ public:
    void current_lib(const uint32_t lib);
 
    // Calls apply or error on a given code
-   void apply(const digest_type& code_hash,
-              const uint8_t&     vm_type,
-              const uint8_t&     vm_version,
-              apply_context&     context);
+   void apply(const digest_type& code_hash, const uint8_t& vm_type, const uint8_t& vm_version, apply_context& context);
 
    // Immediately exits currently running wasm. UB is called when no wasm running
    void exit();
 
-   // If substitute_apply is set, then apply calls it before doing anything else. If substitute_apply returns
-   // true, then apply returns immediately.
-   std::function<
-      bool(const digest_type& code_hash, uint8_t vm_type, uint8_t vm_version, apply_context& context)>
+   // If substitute_apply is set, then apply calls it before doing anything else. If substitute_apply returns true,
+   // then apply returns immediately.
+   std::function<bool(const digest_type& code_hash, uint8_t vm_type, uint8_t vm_version, apply_context& context)>
       substitute_apply;
 
 private:

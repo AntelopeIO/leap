@@ -59,8 +59,8 @@ void trx_finality_status_processing::signal_irreversible_block(const chain::bloc
 
 void trx_finality_status_processing::signal_block_start(uint32_t block_num) {
    try {
-      // since a new block is started, no block state was received, so the speculative block did not get
-      // eventually produced
+      // since a new block is started, no block state was received, so the speculative block did not get eventually
+      // produced
       _my->_speculative_trxs.clear();
    }
    FC_LOG_AND_DROP(("Failed to signal block start for finality status"));
@@ -81,9 +81,8 @@ void trx_finality_status_processing::signal_accepted_block(const chain::block_st
    FC_LOG_AND_DROP(("Failed to signal accepted block for finality status"));
 }
 
-void trx_finality_status_processing_impl::signal_applied_transaction(
-   const chain::transaction_trace_ptr&  trace,
-   const chain::packed_transaction_ptr& ptrx) {
+void trx_finality_status_processing_impl::signal_applied_transaction(const chain::transaction_trace_ptr&  trace,
+                                                                     const chain::packed_transaction_ptr& ptrx) {
    const fc::time_point now = fc::time_point::now();
    // use the head block num if we are in a block, otherwise don't provide block number for speculative blocks
    chain::block_id_type        block_id;
@@ -170,10 +169,8 @@ void trx_finality_status_processing_impl::signal_accepted_block(const chain::blo
       determine_earliest_tracked_block_id();
    }
 
-   // if this approve block was preceded by speculative transactions then we produced the block, update trx
-   // state.
-   auto mod = [&block_id        = _head_block_id,
-               &block_timestamp = _head_block_timestamp](finality_status_object& obj) {
+   // if this approve block was preceded by speculative transactions then we produced the block, update trx state.
+   auto mod = [&block_id = _head_block_id, &block_timestamp = _head_block_timestamp](finality_status_object& obj) {
       obj.block_id        = block_id;
       obj.block_timestamp = block_timestamp;
       obj.forked_out      = false;
@@ -192,10 +189,9 @@ void trx_finality_status_processing_impl::signal_accepted_block(const chain::blo
 }
 
 void trx_finality_status_processing_impl::handle_rollback() {
-   const auto& indx = _storage.index().get<by_block_num>();
+   const auto&                                                       indx = _storage.index().get<by_block_num>();
    chain::deque<decltype(_storage.index().project<0>(indx.begin()))> trxs;
-   for (auto iter = indx.lower_bound(chain::block_header::num_from_id(_head_block_id)); iter != indx.end();
-        ++iter) {
+   for (auto iter = indx.lower_bound(chain::block_header::num_from_id(_head_block_id)); iter != indx.end(); ++iter) {
       trxs.push_back(_storage.index().project<0>(iter));
    }
    for (const auto& trx_iter : trxs) {
@@ -204,7 +200,7 @@ void trx_finality_status_processing_impl::handle_rollback() {
 }
 
 bool trx_finality_status_processing_impl::status_expiry_of_trxs(const fc::time_point& now) {
-   const auto& indx = _storage.index().get<by_status_expiry>();
+   const auto&                                                       indx = _storage.index().get<by_status_expiry>();
    chain::deque<decltype(_storage.index().project<0>(indx.begin()))> remove_trxs;
 
    // find the successful (in any block) transactions that are past the failure expiry times
@@ -242,8 +238,7 @@ bool trx_finality_status_processing_impl::ensure_storage() {
    // determine how much we need to free to get back to at least the desired percentage of the storage
    int64_t storage_to_free = _max_storage - percentage(_max_storage) - remaining_storage;
    ilog("Finality Status exceeded max storage (${max_storage}GB) need to free up ${storage_to_free} GB",
-        ("max_storage", _max_storage / 1024 / 1024 / 1024)("storage_to_free",
-                                                           storage_to_free / 1024 / 1024 / 1024));
+        ("max_storage", _max_storage / 1024 / 1024 / 1024)("storage_to_free", storage_to_free / 1024 / 1024 / 1024));
    const auto& block_indx         = _storage.index().get<by_block_num>();
    const auto& status_expiry_indx = _storage.index().get<by_status_expiry>();
    using index_iter_type          = decltype(_storage.index().project<0>(block_indx.begin()));
@@ -267,8 +262,8 @@ bool trx_finality_status_processing_impl::ensure_storage() {
                    "CODE ERROR: can not free more storage, but still exceeding limit. "
                    "Total entries: ${total_entries}, storage memory to free: ${storage}, "
                    "entries slated for removal: ${remove_entries}",
-                   ("total_entries", _storage.index().size())("storage", storage_to_free)(
-                      "remove_entries", remove_trxs.size()));
+                   ("total_entries", _storage.index().size())("storage", storage_to_free)("remove_entries",
+                                                                                          remove_trxs.size()));
          for (; oldest_failure_iter != oldest_failure_end && storage_to_free > 0; ++oldest_failure_iter) {
             reduce_storage(oldest_failure_iter);
          }
@@ -276,8 +271,8 @@ bool trx_finality_status_processing_impl::ensure_storage() {
                    "CODE ERROR: can not free more storage, but still exceeding limit. "
                    "Total entries: ${total_entries}, storage memory to free: ${storage}, "
                    "entries slated for removal: ${remove_entries}",
-                   ("total_entries", _storage.index().size())("storage", storage_to_free)(
-                      "remove_entries", remove_trxs.size()));
+                   ("total_entries", _storage.index().size())("storage", storage_to_free)("remove_entries",
+                                                                                          remove_trxs.size()));
          break;
       } else {
          const auto block_num = oldest_block_iter->block_num();
@@ -303,10 +298,9 @@ bool trx_finality_status_processing_impl::ensure_storage() {
    }
 
    if (earliest_block != finality_status::no_block_num) {
-      ilog("Finality Status dropped ${trx_count} transactions, which were removed from block # "
-           "${block_num_start} to block # ${block_num_end}",
-           ("trx_count", remove_trxs.size())("block_num_start", earliest_block)("block_num_end",
-                                                                                block_upper_bound));
+      ilog("Finality Status dropped ${trx_count} transactions, which were removed from block # ${block_num_start} to "
+           "block # ${block_num_end}",
+           ("trx_count", remove_trxs.size())("block_num_start", earliest_block)("block_num_end", block_upper_bound));
    } else {
       ilog("Finality Status dropped ${trx_count} transactions, all were failed transactions",
            ("trx_count", remove_trxs.size()));

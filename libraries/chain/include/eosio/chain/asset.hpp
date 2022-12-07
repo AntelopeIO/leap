@@ -21,8 +21,7 @@ struct asset : fc::reflect_init {
    explicit asset(share_type a = 0, symbol id = symbol(CORE_SYMBOL))
       : amount(a)
       , sym(id) {
-      EOS_ASSERT(
-         is_amount_within_range(), asset_type_exception, "magnitude of asset amount must be less than 2^62");
+      EOS_ASSERT(is_amount_within_range(), asset_type_exception, "magnitude of asset amount must be less than 2^62");
       EOS_ASSERT(sym.valid(), asset_type_exception, "invalid symbol");
    }
 
@@ -41,9 +40,8 @@ struct asset : fc::reflect_init {
    string       to_string() const;
 
    asset& operator+=(const asset& o) {
-      EOS_ASSERT(get_symbol() == o.get_symbol(),
-                 asset_type_exception,
-                 "addition between two different asset is not allowed");
+      EOS_ASSERT(
+         get_symbol() == o.get_symbol(), asset_type_exception, "addition between two different asset is not allowed");
       amount += o.amount;
       return *this;
    }
@@ -79,9 +77,8 @@ struct asset : fc::reflect_init {
    }
 
    friend asset operator+(const asset& a, const asset& b) {
-      EOS_ASSERT(a.get_symbol() == b.get_symbol(),
-                 asset_type_exception,
-                 "addition between two different asset is not allowed");
+      EOS_ASSERT(
+         a.get_symbol() == b.get_symbol(), asset_type_exception, "addition between two different asset is not allowed");
       return asset(a.amount + b.amount, a.get_symbol());
    }
 
@@ -90,8 +87,7 @@ struct asset : fc::reflect_init {
    friend struct fc::reflector<asset>;
 
    void reflector_init() const {
-      EOS_ASSERT(
-         is_amount_within_range(), asset_type_exception, "magnitude of asset amount must be less than 2^62");
+      EOS_ASSERT(is_amount_within_range(), asset_type_exception, "magnitude of asset amount must be less than 2^62");
       EOS_ASSERT(sym.valid(), asset_type_exception, "invalid symbol");
    }
 

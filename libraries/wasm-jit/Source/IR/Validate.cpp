@@ -10,9 +10,9 @@
 #define ENABLE_LOGGING 0
 
 namespace IR {
-#define VALIDATE_UNLESS(reason, comparison)                                                                  \
-   if (comparison) {                                                                                         \
-      throw ValidationException(reason #comparison);                                                         \
+#define VALIDATE_UNLESS(reason, comparison)                                                                            \
+   if (comparison) {                                                                                                   \
+      throw ValidationException(reason #comparison);                                                                   \
    }
 
 #define VALIDATE_INDEX(index, arraySize) VALIDATE_UNLESS("invalid index: ", index >= arraySize)
@@ -51,16 +51,14 @@ void validate(TableType type) {
    validate(type.elementType);
    validate(type.size, UINT32_MAX);
    if (ENABLE_THREADING_PROTOTYPE) {
-      VALIDATE_UNLESS("shared tables must have a maximum size: ",
-                      type.isShared && type.size.max == UINT64_MAX);
+      VALIDATE_UNLESS("shared tables must have a maximum size: ", type.isShared && type.size.max == UINT64_MAX);
    }
 }
 
 void validate(MemoryType type) {
    validate(type.size, IR::maxMemoryPages);
    if (ENABLE_THREADING_PROTOTYPE) {
-      VALIDATE_UNLESS("shared tables must have a maximum size: ",
-                      type.isShared && type.size.max == UINT64_MAX);
+      VALIDATE_UNLESS("shared tables must have a maximum size: ", type.isShared && type.size.max == UINT64_MAX);
    }
 }
 
@@ -138,8 +136,7 @@ struct FunctionValidationContext {
       // Initialize the local types.
       locals.reserve(functionType->parameters.size() + functionDef.nonParameterLocalTypes.size());
       locals = functionType->parameters;
-      locals.insert(
-         locals.end(), functionDef.nonParameterLocalTypes.begin(), functionDef.nonParameterLocalTypes.end());
+      locals.insert(locals.end(), functionDef.nonParameterLocalTypes.begin(), functionDef.nonParameterLocalTypes.end());
 
       // Push the function context onto the control stack.
       pushControlStack(ControlContext::Type::function, functionType->ret, functionType->ret);
@@ -189,9 +186,7 @@ struct FunctionValidationContext {
    }
 
    // Operation dispatch methods.
-   void unknown(Opcode opcode) {
-      throw ValidationException("Unknown opcode: " + std::to_string((Uptr)opcode));
-   }
+   void unknown(Opcode opcode) { throw ValidationException("Unknown opcode: " + std::to_string((Uptr)opcode)); }
    void block(ControlStructureImm imm) {
       validate(imm.resultType);
       pushControlStack(ControlContext::Type::block, imm.resultType, imm.resultType);
@@ -229,15 +224,13 @@ struct FunctionValidationContext {
    }
    void br_table(BranchTableImm imm) {
       popAndValidateOperand("br_table index", ValueType::i32);
-      const ResultType defaultTargetArgumentType =
-         getBranchTargetByDepth(imm.defaultTargetDepth).branchArgumentType;
+      const ResultType defaultTargetArgumentType = getBranchTargetByDepth(imm.defaultTargetDepth).branchArgumentType;
       popAndValidateResultType("br_table argument", defaultTargetArgumentType);
 
       WAVM_ASSERT_THROW(imm.branchTableIndex < functionDef.branchTables.size());
       const std::vector<U32>& targetDepths = functionDef.branchTables[imm.branchTableIndex];
       for (Uptr targetIndex = 0; targetIndex < targetDepths.size(); ++targetIndex) {
-         const ResultType targetArgumentType =
-            getBranchTargetByDepth(targetDepths[targetIndex]).branchArgumentType;
+         const ResultType targetArgumentType = getBranchTargetByDepth(targetDepths[targetIndex]).branchArgumentType;
          VALIDATE_UNLESS("br_table target argument must match default target argument: ",
                          targetArgumentType != defaultTargetArgumentType);
       }
@@ -282,14 +275,12 @@ struct FunctionValidationContext {
 
    void call(CallImm imm) {
       const FunctionType* calleeType = validateFunctionIndex(module, imm.functionIndex);
-      popAndValidateOperands(
-         "call arguments", calleeType->parameters.data(), (Uptr)calleeType->parameters.size());
+      popAndValidateOperands("call arguments", calleeType->parameters.data(), (Uptr)calleeType->parameters.size());
       pushOperand(calleeType->ret);
    }
    void call_indirect(CallIndirectImm imm) {
       VALIDATE_INDEX(imm.type.index, module.types.size());
-      VALIDATE_UNLESS("call_indirect is only valid if there is a default function table: ",
-                      module.tables.size() == 0);
+      VALIDATE_UNLESS("call_indirect is only valid if there is a default function table: ", module.tables.size() == 0);
       const FunctionType* calleeType = module.types[imm.type.index];
       popAndValidateOperand("call_indirect function index", ValueType::i32);
       popAndValidateOperands(
@@ -334,8 +325,7 @@ struct FunctionValidationContext {
    }
    template<Uptr naturalAlignmentLog2>
    void validateImm(AtomicLoadOrStoreImm<naturalAlignmentLog2> imm) {
-      VALIDATE_UNLESS("atomic memory operator in module without default memory: ",
-                      module.memories.size() == 0);
+      VALIDATE_UNLESS("atomic memory operator in module without default memory: ", module.memories.size() == 0);
       if (requireSharedFlagForAtomicOperators) {
          VALIDATE_UNLESS("atomic memory operators require a memory with the shared flag: ",
                          !module.memories.getType(0).isShared);
@@ -345,47 +335,46 @@ struct FunctionValidationContext {
    }
 #endif
 
-#define LOAD(resultTypeId)                                                                                   \
-   popAndValidateOperand(operatorName, ValueType::i32);                                                      \
+#define LOAD(resultTypeId)                                                                                             \
+   popAndValidateOperand(operatorName, ValueType::i32);                                                                \
    pushOperand(ResultType::resultTypeId);
 #define STORE(valueTypeId) popAndValidateOperands(operatorName, ValueType::i32, ValueType::valueTypeId);
 #define NULLARY(resultTypeId) pushOperand(ResultType::resultTypeId);
-#define BINARY(operandTypeId, resultTypeId)                                                                  \
-   popAndValidateOperands(operatorName, ValueType::operandTypeId, ValueType::operandTypeId);                 \
+#define BINARY(operandTypeId, resultTypeId)                                                                            \
+   popAndValidateOperands(operatorName, ValueType::operandTypeId, ValueType::operandTypeId);                           \
    pushOperand(ResultType::resultTypeId)
-#define UNARY(operandTypeId, resultTypeId)                                                                   \
-   popAndValidateOperand(operatorName, ValueType::operandTypeId);                                            \
+#define UNARY(operandTypeId, resultTypeId)                                                                             \
+   popAndValidateOperand(operatorName, ValueType::operandTypeId);                                                      \
    pushOperand(ResultType::resultTypeId)
 
 #if ENABLE_SIMD_PROTOTYPE
-#define VECTORSELECT(vectorTypeId)                                                                           \
-   popAndValidateOperands(                                                                                   \
-      operatorName, ValueType::vectorTypeId, ValueType::vectorTypeId, ValueType::vectorTypeId);              \
+#define VECTORSELECT(vectorTypeId)                                                                                     \
+   popAndValidateOperands(operatorName, ValueType::vectorTypeId, ValueType::vectorTypeId, ValueType::vectorTypeId);    \
    pushOperand(ValueType::vectorTypeId);
-#define REPLACELANE(scalarTypeId, vectorTypeId)                                                              \
-   popAndValidateOperands(operatorName, ValueType::vectorTypeId, ValueType::scalarTypeId);                   \
+#define REPLACELANE(scalarTypeId, vectorTypeId)                                                                        \
+   popAndValidateOperands(operatorName, ValueType::vectorTypeId, ValueType::scalarTypeId);                             \
    pushOperand(ValueType::vectorTypeId);
 #endif
 
 #if ENABLE_THREADING_PROTOTYPE
 #define LAUNCHTHREAD popAndValidateOperands(operatorName, ValueType::i32, ValueType::i32, ValueType::i32);
-#define COMPAREEXCHANGE(valueTypeId)                                                                         \
-   popAndValidateOperands(operatorName, ValueType::i32, ValueType::valueTypeId, ValueType::valueTypeId);     \
+#define COMPAREEXCHANGE(valueTypeId)                                                                                   \
+   popAndValidateOperands(operatorName, ValueType::i32, ValueType::valueTypeId, ValueType::valueTypeId);               \
    pushOperand(ValueType::valueTypeId);
-#define WAIT(valueTypeId)                                                                                    \
-   popAndValidateOperands(operatorName, ValueType::i32, ValueType::valueTypeId, ValueType::f64);             \
+#define WAIT(valueTypeId)                                                                                              \
+   popAndValidateOperands(operatorName, ValueType::i32, ValueType::valueTypeId, ValueType::f64);                       \
    pushOperand(ValueType::i32);
-#define ATOMICRMW(valueTypeId)                                                                               \
-   popAndValidateOperands(operatorName, ValueType::i32, ValueType::valueTypeId);                             \
+#define ATOMICRMW(valueTypeId)                                                                                         \
+   popAndValidateOperands(operatorName, ValueType::i32, ValueType::valueTypeId);                                       \
    pushOperand(ValueType::valueTypeId);
 #endif
 
-#define VALIDATE_OP(opcode, name, nameString, Imm, validateOperands)                                         \
-   void name(Imm imm) {                                                                                      \
-      const char* operatorName = nameString;                                                                 \
-      SUPPRESS_UNUSED(operatorName);                                                                         \
-      validateImm(imm);                                                                                      \
-      validateOperands;                                                                                      \
+#define VALIDATE_OP(opcode, name, nameString, Imm, validateOperands)                                                   \
+   void name(Imm imm) {                                                                                                \
+      const char* operatorName = nameString;                                                                           \
+      SUPPRESS_UNUSED(operatorName);                                                                                   \
+      validateImm(imm);                                                                                                \
+      validateOperands;                                                                                                \
    }
    ENUM_NONCONTROL_NONPARAMETRIC_OPERATORS(VALIDATE_OP)
 #undef VALIDATE_OP
@@ -549,8 +538,7 @@ void validateDefinitions(const Module& module) {
 
    for (auto& globalDef : module.globals.defs) {
       validate(globalDef.type);
-      validateInitializer(
-         module, globalDef.initializer, globalDef.type.valueType, "global initializer expression");
+      validateInitializer(module, globalDef.initializer, globalDef.type.valueType, "global initializer expression");
    }
 
    for (auto& tableDef : module.tables.defs) {
@@ -581,8 +569,7 @@ void validateDefinitions(const Module& module) {
 
    if (module.startFunctionIndex != UINTPTR_MAX) {
       VALIDATE_INDEX(module.startFunctionIndex, module.functions.size());
-      const FunctionType* startFunctionType =
-         module.types[module.functions.getType(module.startFunctionIndex).index];
+      const FunctionType* startFunctionType = module.types[module.functions.getType(module.startFunctionIndex).index];
       VALIDATE_UNLESS("start function must not have any parameters or results: ",
                       startFunctionType != FunctionType::get());
    }
@@ -600,9 +587,7 @@ void validateDefinitions(const Module& module) {
       }
    }
 
-   Log::printf(Log::Category::metrics,
-               "Validated WebAssembly module definitions in %.2fms\n",
-               timer.getMilliseconds());
+   Log::printf(Log::Category::metrics, "Validated WebAssembly module definitions in %.2fms\n", timer.getMilliseconds());
 }
 
 struct CodeValidationStreamImpl {
@@ -629,12 +614,12 @@ void CodeValidationStream::finish() {
    }
 }
 
-#define VISIT_OPCODE(_, name, nameString, Imm, ...)                                                          \
-   void CodeValidationStream::name(Imm imm) {                                                                \
-      if (ENABLE_LOGGING) {                                                                                  \
-         impl->functionContext.logOperator(impl->operatorPrinter.name(imm));                                 \
-      }                                                                                                      \
-      impl->functionContext.name(imm);                                                                       \
+#define VISIT_OPCODE(_, name, nameString, Imm, ...)                                                                    \
+   void CodeValidationStream::name(Imm imm) {                                                                          \
+      if (ENABLE_LOGGING) {                                                                                            \
+         impl->functionContext.logOperator(impl->operatorPrinter.name(imm));                                           \
+      }                                                                                                                \
+      impl->functionContext.name(imm);                                                                                 \
    }
 ENUM_OPERATORS(VISIT_OPCODE)
 #undef VISIT_OPCODE

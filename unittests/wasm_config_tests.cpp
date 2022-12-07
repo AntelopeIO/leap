@@ -110,8 +110,7 @@ BOOST_DATA_TEST_CASE_F(wasm_config_tester,
          ss << "(global (mut i32) (i32.const " << i << "))";
       ss << " (func (export \"apply\") (param i64 i64 i64)";
       for (int i = 0; i < n_globals + oversize; i += 4)
-         ss << "(call $eosio_assert (i32.eq (get_global " << i / 4 << ") (i32.const " << i
-            << ")) (i32.const 0))";
+         ss << "(call $eosio_assert (i32.eq (get_global " << i / 4 << ") (i32.const " << i << ")) (i32.const 0))";
       ss << " )";
       ss << ")";
       return ss.str();
@@ -189,20 +188,17 @@ static const char many_data_wast[] = R"=====(
 )=====";
 static const char one_data[]       = "(data (i32.const 0))";
 
-BOOST_DATA_TEST_CASE_F(wasm_config_tester,
-                       max_section_elements,
-                       data::make({ 1024, 8192, 16384 }) * data::make({ 0, 1 }) *
-                          (data::make({ many_funcs_wast,
-                                        many_types_wast,
-                                        many_imports_wast,
-                                        many_globals_wast,
-                                        many_elem_wast,
-                                        many_data_wast }) ^
-                           data::make({ one_func, one_type, one_import, one_global, one_elem, one_data })),
-                       n_elements,
-                       oversize,
-                       wast,
-                       one_element) {
+BOOST_DATA_TEST_CASE_F(
+   wasm_config_tester,
+   max_section_elements,
+   data::make({ 1024, 8192, 16384 }) * data::make({ 0, 1 }) *
+      (data::make(
+          { many_funcs_wast, many_types_wast, many_imports_wast, many_globals_wast, many_elem_wast, many_data_wast }) ^
+       data::make({ one_func, one_type, one_import, one_global, one_elem, one_data })),
+   n_elements,
+   oversize,
+   wast,
+   one_element) {
    produce_blocks(2);
    create_accounts({ "section"_n });
    produce_block();
@@ -614,10 +610,9 @@ BOOST_DATA_TEST_CASE_F(wasm_config_tester,
    params.max_table_elements = max_table_elements;
    set_wasm_params(params);
 
-   std::string code =
-      fc::format_string(variable_table,
-                        fc::mutable_variant_object()("TABLE_SIZE", max_table_elements + oversize)(
-                           "TABLE_OFFSET", max_table_elements - 2));
+   std::string code = fc::format_string(variable_table,
+                                        fc::mutable_variant_object()("TABLE_SIZE", max_table_elements + oversize)(
+                                           "TABLE_OFFSET", max_table_elements - 2));
    if (!oversize) {
       set_code("table"_n, code.c_str());
       pushit();
@@ -700,16 +695,14 @@ static const char max_symbol_table_wast[] = R"=====(
 )
 )=====";
 
-BOOST_DATA_TEST_CASE_F(wasm_config_tester,
-                       max_symbol_bytes_export,
-                       data::make({ 4096, 8192, 16384 }) * data::make({ 0, 1 }) *
-                          data::make({ max_symbol_func_wast,
-                                       max_symbol_global_wast,
-                                       max_symbol_memory_wast,
-                                       max_symbol_table_wast }),
-                       n_symbol,
-                       oversize,
-                       wast) {
+BOOST_DATA_TEST_CASE_F(
+   wasm_config_tester,
+   max_symbol_bytes_export,
+   data::make({ 4096, 8192, 16384 }) * data::make({ 0, 1 }) *
+      data::make({ max_symbol_func_wast, max_symbol_global_wast, max_symbol_memory_wast, max_symbol_table_wast }),
+   n_symbol,
+   oversize,
+   wast) {
    produce_blocks(2);
 
    create_accounts({ "bigname"_n });
@@ -765,21 +758,20 @@ BOOST_FIXTURE_TEST_CASE(max_symbol_bytes_import, wasm_config_tester) {
 }
 
 static const std::vector<uint8_t> small_contract_wasm{
-   0x00, 'a',  's',  'm',  0x01, 0x00, 0x00, 0x00, 0x01, 0x07, 0x01, 0x60, 0x03, 0x7e, 0x7e, 0x7e, 0x00, 0x03,
-   0x02, 0x01, 0x00, 0x07, 0x09, 0x01, 0x05, 'a',  'p',  'p',  'l',  'y',  0x00, 0x00, 0x0a, 0xE3, 0x01, 0x01,
-   0xE0, 0x01, 0x00, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
-   0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
-   0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
-   0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
-   0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
-   0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
-   0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
-   0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
-   0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
-   0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
-   0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
-   0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
-   0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x0b
+   0x00, 'a',  's',  'm',  0x01, 0x00, 0x00, 0x00, 0x01, 0x07, 0x01, 0x60, 0x03, 0x7e, 0x7e, 0x7e, 0x00, 0x03, 0x02,
+   0x01, 0x00, 0x07, 0x09, 0x01, 0x05, 'a',  'p',  'p',  'l',  'y',  0x00, 0x00, 0x0a, 0xE3, 0x01, 0x01, 0xE0, 0x01,
+   0x00, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+   0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+   0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+   0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+   0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+   0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+   0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+   0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+   0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+   0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+   0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+   0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x0b
 };
 
 BOOST_FIXTURE_TEST_CASE(max_module_bytes, wasm_config_tester) {
@@ -943,10 +935,9 @@ BOOST_FIXTURE_TEST_CASE(max_pages, wasm_config_tester) try {
       BOOST_CHECK_THROW(set_code("bigmem"_n, too_big_memory_wast_f.c_str()), eosio::chain::wasm_exception);
 
       // Check that the max memory defined by the contract is respected
-      string memory_over_max_wast =
-         fc::format_string(max_memory_wast,
-                           fc::mutable_variant_object()("INIT_WASM_PAGES", params.max_pages - 3)(
-                              "MAX_WASM_PAGES", params.max_pages - 1));
+      string memory_over_max_wast = fc::format_string(
+         max_memory_wast,
+         fc::mutable_variant_object()("INIT_WASM_PAGES", params.max_pages - 3)("MAX_WASM_PAGES", params.max_pages - 1));
       set_code("bigmem"_n, memory_over_max_wast.c_str());
       produce_block();
       pushit(2);
@@ -1024,8 +1015,8 @@ BOOST_FIXTURE_TEST_CASE(call_depth, wasm_config_tester) try {
    set_code("depth"_n, intrinsic_depth_okay.c_str());
    pushit();
 
-   string intrinsic_depth_one_over = fc::format_string(
-      depth_assert_intrinsic, fc::mutable_variant_object()("MAX_DEPTH", max_call_depth + 1));
+   string intrinsic_depth_one_over =
+      fc::format_string(depth_assert_intrinsic, fc::mutable_variant_object()("MAX_DEPTH", max_call_depth + 1));
    set_code("depth"_n, intrinsic_depth_one_over.c_str());
    BOOST_CHECK_THROW(pushit(), wasm_execution_error);
 
@@ -1035,8 +1026,8 @@ BOOST_FIXTURE_TEST_CASE(call_depth, wasm_config_tester) try {
    set_code("depth"_n, wasm_float_depth_okay.c_str());
    pushit();
 
-   string wasm_float_depth_one_over = fc::format_string(
-      depth_assert_wasm_float, fc::mutable_variant_object()("MAX_DEPTH", max_call_depth + 1));
+   string wasm_float_depth_one_over =
+      fc::format_string(depth_assert_wasm_float, fc::mutable_variant_object()("MAX_DEPTH", max_call_depth + 1));
    set_code("depth"_n, wasm_float_depth_one_over.c_str());
    BOOST_CHECK_THROW(pushit(), wasm_execution_error);
 }
@@ -1107,8 +1098,7 @@ BOOST_FIXTURE_TEST_CASE(reset_chain_tests, wasm_config_tester) {
                               "eosio"_n,
                               ""_n,
                               fc::raw::pack(genesis_state::default_initial_wasm_configuration) });
-      trx.actions.push_back(
-         { { { "eosio"_n, config::active_name } }, make_setcode(contracts::eosio_bios_wasm()) });
+      trx.actions.push_back({ { { "eosio"_n, config::active_name } }, make_setcode(contracts::eosio_bios_wasm()) });
       set_transaction_headers(trx);
       trx.sign(get_private_key("eosio"_n, "active"), control->get_chain_id());
       push_transaction(trx);
@@ -1181,8 +1171,7 @@ BOOST_FIXTURE_TEST_CASE(get_wasm_parameters_test, TESTER) {
       push_transaction(trx);
    };
 
-   BOOST_CHECK_THROW(check_wasm_params(fc::raw::pack(uint32_t{ 0 }, wasm_config(original_params))),
-                     unaccessible_api);
+   BOOST_CHECK_THROW(check_wasm_params(fc::raw::pack(uint32_t{ 0 }, wasm_config(original_params))), unaccessible_api);
 
    push_action(config::system_account_name,
                "setpriv"_n,
@@ -1191,16 +1180,14 @@ BOOST_FIXTURE_TEST_CASE(get_wasm_parameters_test, TESTER) {
 
    check_wasm_params(fc::raw::pack(uint32_t{ 0 }, wasm_config(original_params)));
    // Extra space is left unmodified
-   check_wasm_params(
-      fc::raw::pack(uint32_t{ 0 }, wasm_config(original_params), static_cast<unsigned char>(0xFF)));
+   check_wasm_params(fc::raw::pack(uint32_t{ 0 }, wasm_config(original_params), static_cast<unsigned char>(0xFF)));
    // Does nothing if the buffer is too small
    check_wasm_params(
       std::vector<char>(fc::raw::pack_size(uint32_t{ 0 }) + fc::raw::pack_size(original_params) - 1, '\xFF'));
 
    // Test case sanity check
-   BOOST_CHECK_THROW(
-      check_wasm_params(fc::raw::pack(uint32_t{ 0 }, wasm_config{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 })),
-      fc::exception);
+   BOOST_CHECK_THROW(check_wasm_params(fc::raw::pack(uint32_t{ 0 }, wasm_config{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 })),
+                     fc::exception);
 }
 
 // Uses a custom section with large size
@@ -1214,11 +1201,11 @@ BOOST_FIXTURE_TEST_CASE(large_custom_section, old_wasm_tester) {
 
       0x07, 0x09, 0x01, 0x05, 'a',  'p',  'p',  'l',  'y',  0x00, 0x00, // export function 0 as "apply"
       0x0a, 0x04, 0x01,                                                 // code section
-      0x02, 0x00,                 // function body start with length 3; no locals
-      0x0b,                       // end
-      0x00,                       // custom section
-      0x85, 0x80, 0x04,           // size  2^16 + 5
-      0x04, 'h',  'u',  'g',  'e' // name
+      0x02, 0x00,                                                       // function body start with length 3; no locals
+      0x0b,                                                             // end
+      0x00,                                                             // custom section
+      0x85, 0x80, 0x04,                                                 // size  2^16 + 5
+      0x04, 'h',  'u',  'g',  'e'                                       // name
    };
 
    custom_section_wasm.resize(custom_section_wasm.size() + 65536);

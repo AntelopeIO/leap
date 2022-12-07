@@ -48,26 +48,22 @@ struct injector_utils {
 
    template<ResultType Result, ValueType... Params>
    static void add_type_slot(Module& mod) {
-      if (type_slots.find({ FromResultType<Result>::value, FromValueType<Params>::value... }) ==
-          type_slots.end()) {
-         type_slots.emplace(
-            std::vector<uint16_t>{ FromResultType<Result>::value, FromValueType<Params>::value... },
-            mod.types.size());
+      if (type_slots.find({ FromResultType<Result>::value, FromValueType<Params>::value... }) == type_slots.end()) {
+         type_slots.emplace(std::vector<uint16_t>{ FromResultType<Result>::value, FromValueType<Params>::value... },
+                            mod.types.size());
          mod.types.push_back(FunctionType::get(Result, { Params... }));
       }
    }
 
    // get the next available index that is greater than the last exported function
    static void get_next_indices(Module& module, int& next_function_index, int& next_actual_index) {
-      next_function_index =
-         module.functions.imports.size() + module.functions.defs.size() + registered_injected.size();
-      next_actual_index = next_injected_index++;
+      next_function_index = module.functions.imports.size() + module.functions.defs.size() + registered_injected.size();
+      next_actual_index   = next_injected_index++;
    }
 
    template<ResultType Result, ValueType... Params>
    static void add_import(Module& module, const char* func_name, int32_t& index) {
-      if (module.functions.imports.size() == 0 ||
-          registered_injected.find(func_name) == registered_injected.end()) {
+      if (module.functions.imports.size() == 0 || registered_injected.find(func_name) == registered_injected.end()) {
          add_type_slot<Result, Params...>(module);
          const uint32_t func_type_index =
             type_slots[{ FromResultType<Result>::value, FromValueType<Params>::value... }];
@@ -78,9 +74,8 @@ struct injector_utils {
             {{ func_type_index }, eosio_injected_module_name, std::move(func_name)}
          };
          // prepend to the head of the imports
-         module.functions.imports.insert(module.functions.imports.begin() + (registered_injected.size() - 1),
-                                         new_import.begin(),
-                                         new_import.end());
+         module.functions.imports.insert(
+            module.functions.imports.begin() + (registered_injected.size() - 1), new_import.begin(), new_import.end());
          injected_index_mapping.emplace(index, actual_index);
 
          // shift all exported functions by 1
@@ -159,8 +154,8 @@ struct fix_call_index {
    static constexpr bool post  = false;
    static void           init() {}
    static void           accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg) {
-                wasm_ops::op_types<>::call_t* call_inst = reinterpret_cast<wasm_ops::op_types<>::call_t*>(inst);
-                auto mapped_index = injector_utils::injected_index_mapping.find(call_inst->field);
+                wasm_ops::op_types<>::call_t* call_inst    = reinterpret_cast<wasm_ops::op_types<>::call_t*>(inst);
+                auto                          mapped_index = injector_utils::injected_index_mapping.find(call_inst->field);
 
                 if (mapped_index != injector_utils::injected_index_mapping.end()) {
                    call_inst->field = mapped_index->second;
@@ -260,8 +255,7 @@ struct f32_unop_injector {
    static void           init() {}
    static void           accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg) {
                 int32_t idx;
-                injector_utils::add_import<ResultType::f32, ValueType::f32>(
-         *(arg.module), inject_which_op(Opcode), idx);
+                injector_utils::add_import<ResultType::f32, ValueType::f32>(*(arg.module), inject_which_op(Opcode), idx);
                 wasm_ops::op_types<>::call_t f32op;
                 f32op.field = idx;
                 f32op.pack(arg.new_code);
@@ -304,8 +298,7 @@ struct f64_unop_injector {
    static void           init() {}
    static void           accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg) {
                 int32_t idx;
-                injector_utils::add_import<ResultType::f64, ValueType::f64>(
-         *(arg.module), inject_which_op(Opcode), idx);
+                injector_utils::add_import<ResultType::f64, ValueType::f64>(*(arg.module), inject_which_op(Opcode), idx);
                 wasm_ops::op_types<>::call_t f64op;
                 f64op.field = idx;
                 f64op.pack(arg.new_code);
@@ -334,8 +327,7 @@ struct f32_trunc_i32_injector {
    static void           init() {}
    static void           accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg) {
                 int32_t idx;
-                injector_utils::add_import<ResultType::i32, ValueType::f32>(
-         *(arg.module), inject_which_op(Opcode), idx);
+                injector_utils::add_import<ResultType::i32, ValueType::f32>(*(arg.module), inject_which_op(Opcode), idx);
                 wasm_ops::op_types<>::call_t f32op;
                 f32op.field = idx;
                 f32op.pack(arg.new_code);
@@ -348,8 +340,7 @@ struct f32_trunc_i64_injector {
    static void           init() {}
    static void           accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg) {
                 int32_t idx;
-                injector_utils::add_import<ResultType::i64, ValueType::f32>(
-         *(arg.module), inject_which_op(Opcode), idx);
+                injector_utils::add_import<ResultType::i64, ValueType::f32>(*(arg.module), inject_which_op(Opcode), idx);
                 wasm_ops::op_types<>::call_t f32op;
                 f32op.field = idx;
                 f32op.pack(arg.new_code);
@@ -362,8 +353,7 @@ struct f64_trunc_i32_injector {
    static void           init() {}
    static void           accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg) {
                 int32_t idx;
-                injector_utils::add_import<ResultType::i32, ValueType::f64>(
-         *(arg.module), inject_which_op(Opcode), idx);
+                injector_utils::add_import<ResultType::i32, ValueType::f64>(*(arg.module), inject_which_op(Opcode), idx);
                 wasm_ops::op_types<>::call_t f32op;
                 f32op.field = idx;
                 f32op.pack(arg.new_code);
@@ -376,8 +366,7 @@ struct f64_trunc_i64_injector {
    static void           init() {}
    static void           accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg) {
                 int32_t idx;
-                injector_utils::add_import<ResultType::i64, ValueType::f64>(
-         *(arg.module), inject_which_op(Opcode), idx);
+                injector_utils::add_import<ResultType::i64, ValueType::f64>(*(arg.module), inject_which_op(Opcode), idx);
                 wasm_ops::op_types<>::call_t f32op;
                 f32op.field = idx;
                 f32op.pack(arg.new_code);
@@ -390,8 +379,7 @@ struct i32_convert_f32_injector {
    static void           init() {}
    static void           accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg) {
                 int32_t idx;
-                injector_utils::add_import<ResultType::f32, ValueType::i32>(
-         *(arg.module), inject_which_op(Opcode), idx);
+                injector_utils::add_import<ResultType::f32, ValueType::i32>(*(arg.module), inject_which_op(Opcode), idx);
                 wasm_ops::op_types<>::call_t f32op;
                 f32op.field = idx;
                 f32op.pack(arg.new_code);
@@ -404,8 +392,7 @@ struct i64_convert_f32_injector {
    static void           init() {}
    static void           accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg) {
                 int32_t idx;
-                injector_utils::add_import<ResultType::f32, ValueType::i64>(
-         *(arg.module), inject_which_op(Opcode), idx);
+                injector_utils::add_import<ResultType::f32, ValueType::i64>(*(arg.module), inject_which_op(Opcode), idx);
                 wasm_ops::op_types<>::call_t f32op;
                 f32op.field = idx;
                 f32op.pack(arg.new_code);
@@ -418,8 +405,7 @@ struct i32_convert_f64_injector {
    static void           init() {}
    static void           accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg) {
                 int32_t idx;
-                injector_utils::add_import<ResultType::f64, ValueType::i32>(
-         *(arg.module), inject_which_op(Opcode), idx);
+                injector_utils::add_import<ResultType::f64, ValueType::i32>(*(arg.module), inject_which_op(Opcode), idx);
                 wasm_ops::op_types<>::call_t f64op;
                 f64op.field = idx;
                 f64op.pack(arg.new_code);
@@ -432,8 +418,7 @@ struct i64_convert_f64_injector {
    static void           init() {}
    static void           accept(wasm_ops::instr* inst, wasm_ops::visitor_arg& arg) {
                 int32_t idx;
-                injector_utils::add_import<ResultType::f64, ValueType::i64>(
-         *(arg.module), inject_which_op(Opcode), idx);
+                injector_utils::add_import<ResultType::f64, ValueType::i64>(*(arg.module), inject_which_op(Opcode), idx);
                 wasm_ops::op_types<>::call_t f64op;
                 f64op.field = idx;
                 f64op.pack(arg.new_code);
@@ -518,39 +503,23 @@ struct pre_op_injectors : wasm_ops::op_types<pass_injector> {
    using f64_promote_f32_t = wasm_ops::f64_promote_f32<f32_promote_injector>;
    using f32_demote_f64_t  = wasm_ops::f32_demote_f64<f64_demote_injector>;
 
-   using i32_trunc_s_f32_t =
-      wasm_ops::i32_trunc_s_f32<f32_trunc_i32_injector<wasm_ops::i32_trunc_s_f32_code>>;
-   using i32_trunc_u_f32_t =
-      wasm_ops::i32_trunc_u_f32<f32_trunc_i32_injector<wasm_ops::i32_trunc_u_f32_code>>;
-   using i32_trunc_s_f64_t =
-      wasm_ops::i32_trunc_s_f64<f64_trunc_i32_injector<wasm_ops::i32_trunc_s_f64_code>>;
-   using i32_trunc_u_f64_t =
-      wasm_ops::i32_trunc_u_f64<f64_trunc_i32_injector<wasm_ops::i32_trunc_u_f64_code>>;
-   using i64_trunc_s_f32_t =
-      wasm_ops::i64_trunc_s_f32<f32_trunc_i64_injector<wasm_ops::i64_trunc_s_f32_code>>;
-   using i64_trunc_u_f32_t =
-      wasm_ops::i64_trunc_u_f32<f32_trunc_i64_injector<wasm_ops::i64_trunc_u_f32_code>>;
-   using i64_trunc_s_f64_t =
-      wasm_ops::i64_trunc_s_f64<f64_trunc_i64_injector<wasm_ops::i64_trunc_s_f64_code>>;
-   using i64_trunc_u_f64_t =
-      wasm_ops::i64_trunc_u_f64<f64_trunc_i64_injector<wasm_ops::i64_trunc_u_f64_code>>;
+   using i32_trunc_s_f32_t = wasm_ops::i32_trunc_s_f32<f32_trunc_i32_injector<wasm_ops::i32_trunc_s_f32_code>>;
+   using i32_trunc_u_f32_t = wasm_ops::i32_trunc_u_f32<f32_trunc_i32_injector<wasm_ops::i32_trunc_u_f32_code>>;
+   using i32_trunc_s_f64_t = wasm_ops::i32_trunc_s_f64<f64_trunc_i32_injector<wasm_ops::i32_trunc_s_f64_code>>;
+   using i32_trunc_u_f64_t = wasm_ops::i32_trunc_u_f64<f64_trunc_i32_injector<wasm_ops::i32_trunc_u_f64_code>>;
+   using i64_trunc_s_f32_t = wasm_ops::i64_trunc_s_f32<f32_trunc_i64_injector<wasm_ops::i64_trunc_s_f32_code>>;
+   using i64_trunc_u_f32_t = wasm_ops::i64_trunc_u_f32<f32_trunc_i64_injector<wasm_ops::i64_trunc_u_f32_code>>;
+   using i64_trunc_s_f64_t = wasm_ops::i64_trunc_s_f64<f64_trunc_i64_injector<wasm_ops::i64_trunc_s_f64_code>>;
+   using i64_trunc_u_f64_t = wasm_ops::i64_trunc_u_f64<f64_trunc_i64_injector<wasm_ops::i64_trunc_u_f64_code>>;
 
-   using f32_convert_s_i32 =
-      wasm_ops::f32_convert_s_i32<i32_convert_f32_injector<wasm_ops::f32_convert_s_i32_code>>;
-   using f32_convert_s_i64 =
-      wasm_ops::f32_convert_s_i64<i64_convert_f32_injector<wasm_ops::f32_convert_s_i64_code>>;
-   using f32_convert_u_i32 =
-      wasm_ops::f32_convert_u_i32<i32_convert_f32_injector<wasm_ops::f32_convert_u_i32_code>>;
-   using f32_convert_u_i64 =
-      wasm_ops::f32_convert_u_i64<i64_convert_f32_injector<wasm_ops::f32_convert_u_i64_code>>;
-   using f64_convert_s_i32 =
-      wasm_ops::f64_convert_s_i32<i32_convert_f64_injector<wasm_ops::f64_convert_s_i32_code>>;
-   using f64_convert_s_i64 =
-      wasm_ops::f64_convert_s_i64<i64_convert_f64_injector<wasm_ops::f64_convert_s_i64_code>>;
-   using f64_convert_u_i32 =
-      wasm_ops::f64_convert_u_i32<i32_convert_f64_injector<wasm_ops::f64_convert_u_i32_code>>;
-   using f64_convert_u_i64 =
-      wasm_ops::f64_convert_u_i64<i64_convert_f64_injector<wasm_ops::f64_convert_u_i64_code>>;
+   using f32_convert_s_i32 = wasm_ops::f32_convert_s_i32<i32_convert_f32_injector<wasm_ops::f32_convert_s_i32_code>>;
+   using f32_convert_s_i64 = wasm_ops::f32_convert_s_i64<i64_convert_f32_injector<wasm_ops::f32_convert_s_i64_code>>;
+   using f32_convert_u_i32 = wasm_ops::f32_convert_u_i32<i32_convert_f32_injector<wasm_ops::f32_convert_u_i32_code>>;
+   using f32_convert_u_i64 = wasm_ops::f32_convert_u_i64<i64_convert_f32_injector<wasm_ops::f32_convert_u_i64_code>>;
+   using f64_convert_s_i32 = wasm_ops::f64_convert_s_i32<i32_convert_f64_injector<wasm_ops::f64_convert_s_i32_code>>;
+   using f64_convert_s_i64 = wasm_ops::f64_convert_s_i64<i64_convert_f64_injector<wasm_ops::f64_convert_s_i64_code>>;
+   using f64_convert_u_i32 = wasm_ops::f64_convert_u_i32<i32_convert_f64_injector<wasm_ops::f64_convert_u_i32_code>>;
+   using f64_convert_u_i64 = wasm_ops::f64_convert_u_i64<i64_convert_f64_injector<wasm_ops::f64_convert_u_i64_code>>;
 }; // pre_op_injectors
 
 struct post_op_injectors : wasm_ops::op_types<pass_injector> {

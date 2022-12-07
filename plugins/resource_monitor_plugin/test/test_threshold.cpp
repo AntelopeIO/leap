@@ -44,8 +44,7 @@ struct threshold_fixture {
    bool test_threshold_common(std::map<bfs::path, uintmax_t>& available,
                               std::map<bfs::path, int>&       dev,
                               uint32_t                        warning_threshold = 75) {
-      mock_get_space = [available](const bfs::path&           p,
-                                   boost::system::error_code& ec) mutable -> bfs::space_info {
+      mock_get_space = [available](const bfs::path& p, boost::system::error_code& ec) mutable -> bfs::space_info {
          ec = boost::system::errc::make_error_code(errc::success);
 
          bfs::space_info rc;

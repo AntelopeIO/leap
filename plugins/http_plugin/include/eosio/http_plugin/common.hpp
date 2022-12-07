@@ -220,32 +220,27 @@ auto make_http_response_handler(std::shared_ptr<http_plugin_state> plugin_state,
       }
 
       auto start = fc::time_point::now();
-      if (deadline ==
-          fc::time_point::maximum()) { // no caller supplied deadline so use http configured deadline
+      if (deadline == fc::time_point::maximum()) { // no caller supplied deadline so use http configured deadline
          deadline = start + plugin_state->max_response_time;
       }
 
       // post back to an HTTP thread to allow the response handler to be called from any thread
-      boost::asio::post(plugin_state->thread_pool->get_executor(),
-                        [plugin_state,
-                         session_ptr,
-                         code,
-                         deadline,
-                         start,
-                         tracked_response = std::move(tracked_response)]() {
-                           try {
-                              if (tracked_response->obj().has_value()) {
-                                 std::string json = fc::json::to_string(
-                                    *tracked_response->obj(), deadline + (fc::time_point::now() - start));
-                                 auto tracked_json = make_in_flight(std::move(json), plugin_state);
-                                 session_ptr->send_response(std::move(tracked_json->obj()), code);
-                              } else {
-                                 session_ptr->send_response("{}", code);
-                              }
-                           } catch (...) {
-                              session_ptr->handle_exception();
-                           }
-                        });
+      boost::asio::post(
+         plugin_state->thread_pool->get_executor(),
+         [plugin_state, session_ptr, code, deadline, start, tracked_response = std::move(tracked_response)]() {
+            try {
+               if (tracked_response->obj().has_value()) {
+                  std::string json =
+                     fc::json::to_string(*tracked_response->obj(), deadline + (fc::time_point::now() - start));
+                  auto tracked_json = make_in_flight(std::move(json), plugin_state);
+                  session_ptr->send_response(std::move(tracked_json->obj()), code);
+               } else {
+                  session_ptr->send_response("{}", code);
+               }
+            } catch (...) {
+               session_ptr->handle_exception();
+            }
+         });
    }; // end lambda
 }
 
@@ -270,11 +265,10 @@ bool host_is_valid(const http_plugin_state& plugin_state,
    if (std::regex_search(host, has_port_expr)) {
       return host_port_is_valid(plugin_state, host, endpoint_local_host_port);
    } else {
-      // according to RFC 2732 ipv6 addresses should always be enclosed with brackets so we shouldn't need to
-      // special case here
+      // according to RFC 2732 ipv6 addresses should always be enclosed with brackets so we shouldn't need to special
+      // case here
       return host_port_is_valid(plugin_state,
-                                host + ":" +
-                                   std::to_string(secure ? uri_default_secure_port : uri_default_port),
+                                host + ":" + std::to_string(secure ? uri_default_secure_port : uri_default_port),
                                 endpoint_local_host_port);
    }
 }

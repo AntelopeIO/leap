@@ -25,12 +25,9 @@ void getDisassemblyNames(const Module& module, DisassemblyNames& outNames) {
    }
 
    outNames.types.insert(outNames.types.end(), module.types.size(), "");
-   outNames.tables.insert(
-      outNames.tables.end(), module.tables.defs.size() + module.tables.imports.size(), "");
-   outNames.memories.insert(
-      outNames.memories.end(), module.memories.defs.size() + module.memories.imports.size(), "");
-   outNames.globals.insert(
-      outNames.globals.end(), module.globals.defs.size() + module.globals.imports.size(), "");
+   outNames.tables.insert(outNames.tables.end(), module.tables.defs.size() + module.tables.imports.size(), "");
+   outNames.memories.insert(outNames.memories.end(), module.memories.defs.size() + module.memories.imports.size(), "");
+   outNames.globals.insert(outNames.globals.end(), module.globals.defs.size() + module.globals.imports.size(), "");
 
    // Deserialize the name section, if it is present.
    Uptr userSectionIndex = 0;

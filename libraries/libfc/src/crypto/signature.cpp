@@ -20,9 +20,8 @@ static signature::storage_type sig_parse_base58(const std::string& base58str) {
       constexpr auto prefix = config::signature_base_prefix;
 
       const auto pivot = base58str.find('_');
-      FC_ASSERT(pivot != std::string::npos,
-                "No delimiter in string, cannot determine type: ${str}",
-                ("str", base58str));
+      FC_ASSERT(
+         pivot != std::string::npos, "No delimiter in string, cannot determine type: ${str}", ("str", base58str));
 
       const auto prefix_str = base58str.substr(0, pivot);
       FC_ASSERT(prefix == prefix_str,

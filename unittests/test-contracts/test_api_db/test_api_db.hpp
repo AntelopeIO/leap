@@ -18,10 +18,7 @@ public:
 
    [[eosio::action("s1u")]] void idx64_upperbound();
 
-   [[eosio::action("tia")]] void test_invalid_access(eosio::name code,
-                                                     uint64_t    val,
-                                                     uint32_t    index,
-                                                     bool        store);
+   [[eosio::action("tia")]] void test_invalid_access(eosio::name code, uint64_t val, uint32_t index, bool store);
 
    [[eosio::action("sdnancreate")]] void idx_double_nan_create_fail();
 

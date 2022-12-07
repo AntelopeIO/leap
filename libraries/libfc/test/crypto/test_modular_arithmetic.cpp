@@ -178,12 +178,11 @@ BOOST_AUTO_TEST_CASE(modexp_benchmarking) try {
 
             auto end_time = std::chrono::steady_clock::now();
 
-            int64_t duration_ns =
-               std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time).count();
+            int64_t duration_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time).count();
 
             // ilog("(${base})^(${exp}) % ${mod} = ${result} [took ${duration} ns]",
-            //      ("base", base)("exp", exponent)("mod", modulus)("result",
-            //      std::get<bytes>(res))("duration", duration_ns)
+            //      ("base", base)("exp", exponent)("mod", modulus)("result", std::get<bytes>(res))("duration",
+            //      duration_ns)
             //     );
 
             min_duration_ns = std::min(min_duration_ns, duration_ns);
@@ -204,8 +203,8 @@ BOOST_AUTO_TEST_CASE(modexp_benchmarking) try {
          ilog("Completed random runs of mod_exp with ${bit_width}-bit width base and modulus values and "
               "${exp_bit_width}-bit width exponent values. "
               "Min time: ${min} ns; Average time: ${avg} ns; Max time: ${max} ns.",
-              ("bit_width", stat.modulus_bit_size)("exp_bit_width", stat.exponent_bit_size)(
-                 "min", stat.min_time_ns)("avg", stat.avg_time_ns)("max", stat.max_time_ns));
+              ("bit_width", stat.modulus_bit_size)("exp_bit_width", stat.exponent_bit_size)("min", stat.min_time_ns)(
+                 "avg", stat.avg_time_ns)("max", stat.max_time_ns));
       }
    }
 
@@ -222,34 +221,31 @@ BOOST_AUTO_TEST_CASE(modexp_benchmarking) try {
 
    ilog(stats_output);
 
-   // Running the above benchmark (using commented values for num_trials and bit_calc_limit) with a release
-   // build on an AMD 3.4 GHz CPU provides average durations for executing mod_exp for varying bit sizes for
-   // the values (but with base and modulus bit sizes kept equal to one another).
+   // Running the above benchmark (using commented values for num_trials and bit_calc_limit) with a release build on
+   // an AMD 3.4 GHz CPU provides average durations for executing mod_exp for varying bit sizes for the values
+   // (but with base and modulus bit sizes kept equal to one another).
 
-   // Holding the base/modulus bit size constant and increasing the exponent bit size shows a linear
-   // relationship with increasing bit size on the average time to execute the modular exponentiation. The
-   // slope of the best fit line to the empirical data appears to scale super-linearly with base/modulus size.
-   // A quadratic (degree 2) fit works okay, but it appears that a better fit is to model the slope of the
-   // linear relationship between average time and exponent bit size as a the base/modulus bit size taken to
-   // the 1.6 power and then scaled by some constant.
+   // Holding the base/modulus bit size constant and increasing the exponent bit size shows a linear relationship with
+   // increasing bit size on the average time to execute the modular exponentiation. The slope of the best fit line to
+   // the empirical data appears to scale super-linearly with base/modulus size. A quadratic (degree 2) fit works okay,
+   // but it appears that a better fit is to model the slope of the linear relationship between average time and
+   // exponent bit size as a the base/modulus bit size taken to the 1.6 power and then scaled by some constant.
 
-   // Holding the exponent bit size constant and increasing the base/modulus bit size shows a super-linear
-   // relationship with increasing bit size on the average time to execute the modular exponentiation. A
-   // quadratic relationship works pretty well but perhaps a fractional exponent between 1 and 2 (e.g. 1.6)
-   // would work well as well.
+   // Holding the exponent bit size constant and increasing the base/modulus bit size shows a super-linear relationship
+   // with increasing bit size on the average time to execute the modular exponentiation. A quadratic relationship works
+   // pretty well but perhaps a fractional exponent between 1 and 2 (e.g. 1.6) would work well as well.
 
-   // What is particularly revealing is plotting the average time with respect to some combination of the bit
-   // sizes of base/modulus and exponent. If the independent variable is the product of the exponent bit size
-   // and the base/modulus bit size, the correlation is not great. Even if the independent variable is the
-   // product of the exponent bit size and the base/modulus bit size taken to some power, the correlation is
-   // still not great. It seems that trying to capture all the data using a model like that breaks down when
-   // the exponent bit size is greater than the base/modulus bit size. If we filter out all the data points
-   // where the exponent bit size is greater than the base/modulus bit size, and then choose as then
-   // independent variable the product of the exponent bit size and the base/modulus bit size taken to some
-   // power, then we get a pretty good linear correlation when a power of 1.6 is chosen.
+   // What is particularly revealing is plotting the average time with respect to some combination of the bit sizes of
+   // base/modulus and exponent. If the independent variable is the product of the exponent bit size and the
+   // base/modulus bit size, the correlation is not great. Even if the independent variable is the product of the
+   // exponent bit size and the base/modulus bit size taken to some power, the correlation is still not great. It seems
+   // that trying to capture all the data using a model like that breaks down when the exponent bit size is greater than
+   // the base/modulus bit size. If we filter out all the data points where the exponent bit size is greater than the
+   // base/modulus bit size, and then choose as then independent variable the product of the exponent bit size and the
+   // base/modulus bit size taken to some power, then we get a pretty good linear correlation when a power of 1.6 is
+   // chosen.
 
-   // TODO: See if theoretical analysis of the modular exponentiation algorithm also justifies these scaling
-   // properties.
+   // TODO: See if theoretical analysis of the modular exponentiation algorithm also justifies these scaling properties.
 
    // Example results for average time:
    // | Modulus/Base Bit Size | Exponent Bit Size | Average Time (ns) |
@@ -264,21 +260,21 @@ BOOST_AUTO_TEST_CASE(modexp_benchmarking) try {
    // | 8192                  | 256               |           2503652 |
    // | 8192                  | 2048              |          19199775 |
 
-   // The empirical results show that the average time stays well below 5 ms if the exponent bit size does not
-   // exceed the modulus/base bit size and the product of the exponent bit size and the (modulus/base bit
-   // size)^1.6 does not exceed 550,000,000. Another way of satisfying that constraint is to require that the
-   // 5*ceil(log2(exponent bit size)) + 8*ceil(log2(modulus bit size)) be less than or equal to
-   // 5*floor(log2(500000000)) = 145. Or equivalently, assuming the bit sizes are multiples of 8:
-   // 5*ceil(log2(exponent bit size/8)) + 8*ceil(log2(modulus bit size/8)) <= 106.
+   // The empirical results show that the average time stays well below 5 ms if the exponent bit size does not exceed
+   // the modulus/base bit size and the product of the exponent bit size and the (modulus/base bit size)^1.6 does not
+   // exceed 550,000,000. Another way of satisfying that constraint is to require that the 5*ceil(log2(exponent bit
+   // size)) + 8*ceil(log2(modulus bit size)) be less than or equal to 5*floor(log2(500000000)) = 145. Or equivalently,
+   // assuming the bit sizes are multiples of 8: 5*ceil(log2(exponent bit size/8)) + 8*ceil(log2(modulus bit size/8)) <=
+   // 106.
 
    // Take, as an example, a 8192-bit modulus/base and a 128-bit exponent (which on average took 1.29 ms).
    // 5*ceil(log2(128)) + 8*ceil(log2(8192)) = 5*7 + 8*13 = 139 which is less than the limit of 145.
    //
-   // Or, as an other example, a 2048-bit modulus/base and a 2048-bit exponent (which on average took 1.89
-   // ms). 5*ceil(log2(2048)) + 8*ceil(log2(2048)) = 5*11 + 8*11 = 143 which is less than the limit of 145.
+   // Or, as an other example, a 2048-bit modulus/base and a 2048-bit exponent (which on average took 1.89 ms).
+   // 5*ceil(log2(2048)) + 8*ceil(log2(2048)) = 5*11 + 8*11 = 143 which is less than the limit of 145.
    //
-   // On the other hand, consider a 4096-bit modulus/base and a 1024-bit exponent (which on average took 3.69
-   // ms). 5*ceil(log2(1024)) + 8*ceil(log2(4096)) = 5*10 + 8*12 = 146 which is greater than the limit of 145.
+   // On the other hand, consider a 4096-bit modulus/base and a 1024-bit exponent (which on average took 3.69 ms).
+   // 5*ceil(log2(1024)) + 8*ceil(log2(4096)) = 5*10 + 8*12 = 146 which is greater than the limit of 145.
 }
 FC_LOG_AND_RETHROW();
 

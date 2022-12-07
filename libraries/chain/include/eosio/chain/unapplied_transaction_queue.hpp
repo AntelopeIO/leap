@@ -57,9 +57,8 @@ private:
    typedef multi_index_container<
       unapplied_transaction,
       indexed_by<
-         hashed_unique<
-            tag<by_trx_id>,
-            const_mem_fun<unapplied_transaction, const transaction_id_type&, &unapplied_transaction::id>>,
+         hashed_unique<tag<by_trx_id>,
+                       const_mem_fun<unapplied_transaction, const transaction_id_type&, &unapplied_transaction::id>>,
          ordered_non_unique<tag<by_type>,
                             member<unapplied_transaction, trx_enum_type, &unapplied_transaction::trx_type>>,
          ordered_non_unique<
@@ -103,11 +102,10 @@ public:
          }
          callback(itr->trx_meta->packed_trx(), itr->trx_type);
          if (itr->next) {
-            itr->next(std::static_pointer_cast<fc::exception>(std::make_shared<expired_tx_exception>(
-               FC_LOG_MESSAGE(error,
-                              "expired transaction ${id}, expiration ${e}, block time ${bt}",
-                              ("id", itr->id())("e", itr->trx_meta->packed_trx()->expiration())(
-                                 "bt", pending_block_time)))));
+            itr->next(std::static_pointer_cast<fc::exception>(std::make_shared<expired_tx_exception>(FC_LOG_MESSAGE(
+               error,
+               "expired transaction ${id}, expiration ${e}, block time ${bt}",
+               ("id", itr->id())("e", itr->trx_meta->packed_trx()->expiration())("bt", pending_block_time)))));
          }
          removed(itr);
          persisted_by_expiry.erase(itr);
@@ -156,10 +154,7 @@ public:
       }
    }
 
-   void add_incoming(const transaction_metadata_ptr& trx,
-                     bool                            api_trx,
-                     bool                            return_failure_trace,
-                     next_func_t                     next) {
+   void add_incoming(const transaction_metadata_ptr& trx, bool api_trx, bool return_failure_trace, next_func_t next) {
       auto itr = queue.get<by_trx_id>().find(trx->id());
       if (itr == queue.get<by_trx_id>().end()) {
          auto insert_itr = queue.insert({ trx,
@@ -172,8 +167,8 @@ public:
          if (itr->trx_meta == trx)
             return; // same trx meta pointer
          if (next) {
-            next(std::static_pointer_cast<fc::exception>(std::make_shared<tx_duplicate>(
-               FC_LOG_MESSAGE(info, "duplicate transaction ${id}", ("id", trx->id())))));
+            next(std::static_pointer_cast<fc::exception>(
+               std::make_shared<tx_duplicate>(FC_LOG_MESSAGE(info, "duplicate transaction ${id}", ("id", trx->id())))));
          }
       }
    }
@@ -188,9 +183,7 @@ public:
    iterator unapplied_end() { return queue.get<by_type>().upper_bound(trx_enum_type::aborted); }
 
    iterator incoming_begin() { return queue.get<by_type>().lower_bound(trx_enum_type::incoming_api); }
-   iterator incoming_end() {
-      return queue.get<by_type>().end();
-   } // if changed to upper_bound, verify usage performance
+   iterator incoming_end() { return queue.get<by_type>().end(); } // if changed to upper_bound, verify usage performance
 
    iterator lower_bound(const transaction_id_type& id) {
       auto itr = queue.get<by_trx_id>().find(id);
@@ -231,8 +224,7 @@ private:
 
    static uint64_t calc_size(const transaction_metadata_ptr& trx) {
       // packed_trx caches unpacked transaction so double
-      return (trx->packed_trx()->get_unprunable_size() + trx->packed_trx()->get_prunable_size()) * 2 +
-             sizeof(*trx);
+      return (trx->packed_trx()->get_unprunable_size() + trx->packed_trx()->get_prunable_size()) * 2 + sizeof(*trx);
    }
 };
 

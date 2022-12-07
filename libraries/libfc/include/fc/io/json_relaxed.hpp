@@ -192,13 +192,11 @@ std::string quoteStringFromStream(T& in) {
             in.get();
             return token.str();
          } else if (c == '\x04')
-            FC_THROW_EXCEPTION(
-               parse_error_exception, "unexpected EOF in string '${token}'", ("token", token.str()));
+            FC_THROW_EXCEPTION(parse_error_exception, "unexpected EOF in string '${token}'", ("token", token.str()));
          else if (allow_escape && (c == '\\'))
             token << parseEscape(in);
          else if ((c == '\r') | (c == '\n'))
-            FC_THROW_EXCEPTION(
-               parse_error_exception, "unexpected EOL in string '${token}'", ("token", token.str()));
+            FC_THROW_EXCEPTION(parse_error_exception, "unexpected EOL in string '${token}'", ("token", token.str()));
          else {
             in.get();
             token << c;
@@ -233,8 +231,7 @@ std::string stringFromStream(T& in) {
                   return quoteStringFromStream<T, strict, false>(in);
                default:
                   if (strict)
-                     FC_THROW_EXCEPTION(parse_error_exception,
-                                        "unquoted strings not supported in strict mode");
+                     FC_THROW_EXCEPTION(parse_error_exception, "unquoted strings not supported in strict mode");
                   return c + tokenFromStream(in);
             }
             break;
@@ -439,8 +436,7 @@ fc::variant parseNumberOrStr(const std::string& token) {
                case 'b':
                case 'B':
                   if (strict)
-                     FC_THROW_EXCEPTION(parse_error_exception,
-                                        "binary numeric literals not supported in strict mode");
+                     FC_THROW_EXCEPTION(parse_error_exception, "binary numeric literals not supported in strict mode");
                   i++;
                   if (i >= n)
                      FC_THROW_EXCEPTION(parse_error_exception, "empty binary numeric literal");
@@ -448,14 +444,12 @@ fc::variant parseNumberOrStr(const std::string& token) {
                case 'o':
                case 'O':
                   if (strict)
-                     FC_THROW_EXCEPTION(parse_error_exception,
-                                        "octal numeric literals not supported in strict mode");
+                     FC_THROW_EXCEPTION(parse_error_exception, "octal numeric literals not supported in strict mode");
                   return maybeParseInt<strict, 8>(token, i + 1);
                case 'x':
                case 'X':
                   if (strict)
-                     FC_THROW_EXCEPTION(parse_error_exception,
-                                        "hex numeric literals not supported in strict mode");
+                     FC_THROW_EXCEPTION(parse_error_exception, "hex numeric literals not supported in strict mode");
                   return maybeParseInt<strict, 16>(token, i + 1);
                case '.':
                case 'e':
@@ -565,8 +559,7 @@ fc::variant parseNumberOrStr(const std::string& token) {
                   dot_ok = false;
                   if (i == n) {
                      if (strict)
-                        FC_THROW_EXCEPTION(parse_error_exception,
-                                           "number cannot end with '.' in strict mode");
+                        FC_THROW_EXCEPTION(parse_error_exception, "number cannot end with '.' in strict mode");
                      return fc::variant(fc::to_double(token.c_str()));
                   }
 
@@ -661,8 +654,7 @@ fc::variant parseNumberOrStr(const std::string& token) {
             case 'E':
                if (i == n) {
                   if (strict)
-                     FC_THROW_EXCEPTION(parse_error_exception,
-                                        "expected exponent after 'e'|'E' parsing number");
+                     FC_THROW_EXCEPTION(parse_error_exception, "expected exponent after 'e'|'E' parsing number");
                   return fc::variant(token);
                }
                c = token[i++];
@@ -741,11 +733,9 @@ fc::variant parseNumberOrStr(const std::string& token) {
                   case '.':
                   case '/':
                      if (strict)
-                        FC_THROW_EXCEPTION(
-                           parse_error_exception, "illegal character '${c}' in number", ("c", c));
+                        FC_THROW_EXCEPTION(parse_error_exception, "illegal character '${c}' in number", ("c", c));
                      return fc::variant(token);
-                  default:
-                     FC_THROW_EXCEPTION(parse_error_exception, "illegal character '${c}' in token", ("c", c));
+                  default: FC_THROW_EXCEPTION(parse_error_exception, "illegal character '${c}' in token", ("c", c));
                }
                while (true) {
                   if (i == n)
@@ -820,8 +810,7 @@ fc::variant parseNumberOrStr(const std::string& token) {
                      case '+':
                      case '/':
                         if (strict)
-                           FC_THROW_EXCEPTION(
-                              parse_error_exception, "illegal character '${c}' in number", ("c", c));
+                           FC_THROW_EXCEPTION(parse_error_exception, "illegal character '${c}' in number", ("c", c));
                         return fc::variant(token);
                   }
                }
@@ -881,11 +870,9 @@ fc::variant parseNumberOrStr(const std::string& token) {
             case '+':
             case '/':
                if (strict)
-                  FC_THROW_EXCEPTION(
-                     parse_error_exception, "illegal character '${c}' parsing number", ("c", c));
+                  FC_THROW_EXCEPTION(parse_error_exception, "illegal character '${c}' parsing number", ("c", c));
                return fc::variant(token);
-            default:
-               FC_THROW_EXCEPTION(parse_error_exception, "illegal character '${c}' in number", ("c", c));
+            default: FC_THROW_EXCEPTION(parse_error_exception, "illegal character '${c}' in number", ("c", c));
          }
       }
    }
@@ -898,8 +885,7 @@ variant_object objectFromStream(T& in, uint32_t max_depth) {
    try {
       char c = in.peek();
       if (c != '{')
-         FC_THROW_EXCEPTION(
-            parse_error_exception, "Expected '{', but read '${char}'", ("char", string(&c, &c + 1)));
+         FC_THROW_EXCEPTION(parse_error_exception, "Expected '{', but read '${char}'", ("char", string(&c, &c + 1)));
       in.get();
       skip_white_space(in);
       while (in.peek() != '}') {
@@ -1085,9 +1071,8 @@ variant variant_from_stream(T& in, uint32_t max_depth) {
          case 0x04: // ^D end of transmission
          case EOF: FC_THROW_EXCEPTION(eof_exception, "unexpected end of file");
          default:
-            FC_THROW_EXCEPTION(parse_error_exception,
-                               "Unexpected char '${c}' in \"${s}\"",
-                               ("c", c)("s", stringFromToken(in)));
+            FC_THROW_EXCEPTION(
+               parse_error_exception, "Unexpected char '${c}' in \"${s}\"", ("c", c)("s", stringFromToken(in)));
       }
    }
    return variant();

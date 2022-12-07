@@ -71,8 +71,7 @@ struct local_identity {
       ifaddrs* ifap = 0;
       if (::getifaddrs(&ifap) == 0) {
          for (ifaddrs* p_if = ifap; p_if != 0; p_if = p_if->ifa_next) {
-            if (p_if->ifa_addr != 0 && p_if->ifa_addr->sa_family == AF_INET &&
-                (p_if->ifa_flags & IFF_UP) == IFF_UP) {
+            if (p_if->ifa_addr != 0 && p_if->ifa_addr->sa_family == AF_INET && (p_if->ifa_flags & IFF_UP) == IFF_UP) {
                sockaddr_in* ifaddr  = reinterpret_cast<sockaddr_in*>(p_if->ifa_addr);
                int32_t      in_addr = ntohl(ifaddr->sin_addr.s_addr);
 
@@ -421,22 +420,19 @@ struct launcher_def {
    bool   next_ndx(size_t& ndx);
    size_t skip_ndx(size_t from, size_t offset);
 
-   void                     make_line(bool make_ring = true);
-   void                     make_star();
-   void                     make_mesh();
-   void                     make_custom();
-   void                     write_dot_file();
-   void                     format_ssh(const string& cmd, const string& host_name, string& ssh_cmd_line);
-   void                     do_command(const host_def&              host,
-                                       const string&                name,
-                                       vector<pair<string, string>> env_pairs,
-                                       const string&                cmd);
-   bool                     do_ssh(const string& cmd, const string& host_name);
-   void                     prep_remote_config_dir(eosd_def& node, host_def* host);
-   void                     launch(eosd_def& node, string& gts);
-   void                     kill(launch_modes mode, string sig_opt);
-   static string            get_node_num(uint16_t node_num);
-   pair<host_def, eosd_def> find_node(uint16_t node_num);
+   void make_line(bool make_ring = true);
+   void make_star();
+   void make_mesh();
+   void make_custom();
+   void write_dot_file();
+   void format_ssh(const string& cmd, const string& host_name, string& ssh_cmd_line);
+   void do_command(const host_def& host, const string& name, vector<pair<string, string>> env_pairs, const string& cmd);
+   bool do_ssh(const string& cmd, const string& host_name);
+   void prep_remote_config_dir(eosd_def& node, host_def* host);
+   void launch(eosd_def& node, string& gts);
+   void kill(launch_modes mode, string sig_opt);
+   static string                    get_node_num(uint16_t node_num);
+   pair<host_def, eosd_def>         find_node(uint16_t node_num);
    vector<pair<host_def, eosd_def>> get_nodes(const string& node_number_list);
    void                             bounce(const string& node_numbers);
    void                             down(const string& node_numbers);
@@ -450,14 +446,12 @@ void launcher_def::set_options(bpo::options_description& cfg) {
    cfg.add_options()("force,f",
                      bpo::bool_switch(&force_overwrite)->default_value(false),
                      "Force overwrite of existing configuration files and erase blockchain")(
-      "nodes,n",
-      bpo::value<size_t>(&total_nodes)->default_value(1),
-      "total number of nodes to configure and launch")("unstarted-nodes",
-                                                       bpo::value<size_t>(&unstarted_nodes)->default_value(0),
-                                                       "total number of nodes to configure, but not launch")(
-      "pnodes,p",
-      bpo::value<size_t>(&prod_nodes)->default_value(1),
-      "number of nodes that contain one or more producers")(
+      "nodes,n", bpo::value<size_t>(&total_nodes)->default_value(1), "total number of nodes to configure and launch")(
+      "unstarted-nodes",
+      bpo::value<size_t>(&unstarted_nodes)->default_value(0),
+      "total number of nodes to configure, but not launch")("pnodes,p",
+                                                            bpo::value<size_t>(&prod_nodes)->default_value(1),
+                                                            "number of nodes that contain one or more producers")(
       "producers",
       bpo::value<size_t>(&producers)->default_value(21),
       "total number of non-bios and non-shared producer instances in this network")(
@@ -480,61 +474,55 @@ void launcher_def::set_options(bpo::options_description& cfg) {
        string(node_executable_name) + ", enclose arg(s) in quotes")
          .c_str())("specific-num",
                    bpo::value<vector<uint>>()->composing(),
-                   ("forward " + string(node_executable_name) +
-                    " command line argument(s) (using \"--specific-" + string(node_executable_name) +
-                    "\" flag) to this specific instance of " + string(node_executable_name) +
+                   ("forward " + string(node_executable_name) + " command line argument(s) (using \"--specific-" +
+                    string(node_executable_name) + "\" flag) to this specific instance of " +
+                    string(node_executable_name) +
                     ". This parameter can be entered multiple times and requires a paired \"--specific-" +
                     string(node_executable_name) + "\" flag each time it is used")
-                      .c_str())(("specific-" + string(node_executable_name)).c_str(),
+                      .c_str())(
+      ("specific-" + string(node_executable_name)).c_str(),
+      bpo::value<vector<string>>()->composing(),
+      ("forward " + string(node_executable_name) + " command line argument(s) to its paired specific instance of " +
+       string(node_executable_name) + "(using \"--specific-num\"), enclose arg(s) in quotes")
+         .c_str())("spcfc-inst-num",
+                   bpo::value<vector<uint>>()->composing(),
+                   ("Specify a specific version installation path (using \"--spcfc-inst-" +
+                    string(node_executable_name) + "\" flag) for launching this specific instance of " +
+                    string(node_executable_name) +
+                    ". This parameter can be entered multiple times and requires a paired \"--spcfc-inst-" +
+                    string(node_executable_name) + "\" flag each time it is used")
+                      .c_str())(("spcfc-inst-" + string(node_executable_name)).c_str(),
                                 bpo::value<vector<string>>()->composing(),
-                                ("forward " + string(node_executable_name) +
-                                 " command line argument(s) to its paired specific instance of " +
-                                 string(node_executable_name) +
-                                 "(using \"--specific-num\"), enclose arg(s) in quotes")
-                                   .c_str())(
-      "spcfc-inst-num",
-      bpo::value<vector<uint>>()->composing(),
-      ("Specify a specific version installation path (using \"--spcfc-inst-" + string(node_executable_name) +
-       "\" flag) for launching this specific instance of " + string(node_executable_name) +
-       ". This parameter can be entered multiple times and requires a paired \"--spcfc-inst-" +
-       string(node_executable_name) + "\" flag each time it is used")
-         .c_str())(("spcfc-inst-" + string(node_executable_name)).c_str(),
-                   bpo::value<vector<string>>()->composing(),
-                   ("Provide a specific version installation path to its paired specific instance of " +
-                    string(node_executable_name) + "(using \"--spcfc-inst-num\")")
-                      .c_str())("delay,d",
-                                bpo::value<int>(&start_delay)->default_value(0),
-                                "seconds delay before starting each node after the first")(
+                                ("Provide a specific version installation path to its paired specific instance of " +
+                                 string(node_executable_name) + "(using \"--spcfc-inst-num\")")
+                                   .c_str())("delay,d",
+                                             bpo::value<int>(&start_delay)->default_value(0),
+                                             "seconds delay before starting each node after the first")(
       "boot",
       bpo::bool_switch(&boot)->default_value(false),
       "After deploying the nodes and generating a boot script, invoke it.")(
-      "nogen",
-      bpo::bool_switch(&nogen)->default_value(false),
-      "launch nodes without writing new config files")(
+      "nogen", bpo::bool_switch(&nogen)->default_value(false), "launch nodes without writing new config files")(
       "host-map",
       bpo::value<string>(),
       "a file containing mapping specific nodes to hosts. Used to enhance the custom shape argument")(
       "servers",
       bpo::value<string>(),
-      "a file containing ip addresses and names of individual servers to deploy as producers or "
-      "non-producers ")("per-host",
-                        bpo::value<int>(&per_host)->default_value(0),
-                        ("specifies how many " + string(node_executable_name) +
-                         " instances will run on a single host. Use 0 to indicate all on one.")
-                           .c_str())("network-name",
-                                     bpo::value<string>(&network.name)->default_value("testnet_"),
-                                     "network name prefix used in GELF logging source")(
+      "a file containing ip addresses and names of individual servers to deploy as producers or non-producers ")(
+      "per-host",
+      bpo::value<int>(&per_host)->default_value(0),
+      ("specifies how many " + string(node_executable_name) +
+       " instances will run on a single host. Use 0 to indicate all on one.")
+         .c_str())("network-name",
+                   bpo::value<string>(&network.name)->default_value("testnet_"),
+                   "network name prefix used in GELF logging source")(
       "enable-gelf-logging",
       bpo::value<bool>(&gelf_enabled)->default_value(false),
       "enable gelf logging appender in logging configuration file")(
       "gelf-endpoint",
       bpo::value<string>(&gelf_endpoint)->default_value("10.160.11.21:12201"),
       "hostname:port or ip:port of GELF endpoint")(
-      "template",
-      bpo::value<string>(&start_temp)->default_value("testnet.template"),
-      "the startup script template")("script",
-                                     bpo::value<string>(&start_script)->default_value("bios_boot.sh"),
-                                     "the generated startup script name")(
+      "template", bpo::value<string>(&start_temp)->default_value("testnet.template"), "the startup script template")(
+      "script", bpo::value<string>(&start_script)->default_value("bios_boot.sh"), "the generated startup script name")(
       "max-block-cpu-usage",
       bpo::value<uint32_t>(),
       "Provide the \"max-block-cpu-usage\" value to use in the genesis.json file")(
@@ -558,8 +546,8 @@ void retrieve_paired_array_parameters(const variables_map& vmap,
       const auto specific_nums = vmap[num_selector].as<vector<uint>>();
       const auto specific_args = vmap[paired_selector].as<vector<string>>();
       if (specific_nums.size() != specific_args.size()) {
-         cerr << "ERROR: every " << num_selector << " argument must be paired with a " << paired_selector
-              << " argument" << endl;
+         cerr << "ERROR: every " << num_selector << " argument must be paired with a " << paired_selector << " argument"
+              << endl;
          exit(-1);
       }
       const auto total_nodes = vmap["nodes"].as<size_t>();
@@ -612,10 +600,8 @@ void launcher_def::initialize(const variables_map& vmap) {
 
    retrieve_paired_array_parameters(
       vmap, "specific-num", "specific-" + string(node_executable_name), specific_nodeos_args);
-   retrieve_paired_array_parameters(vmap,
-                                    "spcfc-inst-num",
-                                    "spcfc-inst-" + string(node_executable_name),
-                                    specific_nodeos_installation_paths);
+   retrieve_paired_array_parameters(
+      vmap, "spcfc-inst-num", "spcfc-inst-" + string(node_executable_name), specific_nodeos_installation_paths);
 
    using namespace std::chrono;
    system_clock::time_point now   = system_clock::now();
@@ -636,9 +622,8 @@ void launcher_def::initialize(const variables_map& vmap) {
          fc::json::from_file(host_map_file).as<vector<host_def>>(bindings);
          for (auto& binding : bindings) {
             for (auto& eosd : binding.instances) {
-               eosd.host = binding.host_name;
-               eosd.p2p_endpoint =
-                  binding.public_name + ":" + boost::lexical_cast<string, uint16_t>(eosd.p2p_port);
+               eosd.host         = binding.host_name;
+               eosd.p2p_endpoint = binding.public_name + ":" + boost::lexical_cast<string, uint16_t>(eosd.p2p_port);
 
                aliases.push_back(eosd.name);
             }
@@ -660,8 +645,8 @@ void launcher_def::initialize(const variables_map& vmap) {
    if (prod_nodes > total_nodes)
       total_nodes = prod_nodes + unstarted_nodes;
    else if (total_nodes < prod_nodes + unstarted_nodes) {
-      cerr << "ERROR: if provided, \"--nodes\" must be equal or greater than the number of nodes indicated "
-              "by \"--pnodes\" and \"--unstarted-nodes\"."
+      cerr << "ERROR: if provided, \"--nodes\" must be equal or greater than the number of nodes indicated by "
+              "\"--pnodes\" and \"--unstarted-nodes\"."
            << endl;
       exit(-1);
    }
@@ -700,10 +685,8 @@ void launcher_def::initialize(const variables_map& vmap) {
 
    stage = bfs::path(erd);
    if (!bfs::exists(stage)) {
-      cerr
-         << "\"" << erd
-         << "\" is not a valid path. Please ensure environment variable EOSIO_HOME is set to the build path."
-         << endl;
+      cerr << "\"" << erd
+           << "\" is not a valid path. Please ensure environment variable EOSIO_HOME is set to the build path." << endl;
       exit(-1);
    }
    stage /= bfs::path("staging");
@@ -809,8 +792,7 @@ void launcher_def::write_dot_file() {
    for (auto& node : network.nodes) {
       for (const auto& p : node.second.peers) {
          string pname = network.nodes.find(p)->second.instance->dot_label();
-         df << "\"" << node.second.instance->dot_label() << "\"->\"" << pname << "\" [dir=\"forward\"];"
-            << std::endl;
+         df << "\"" << node.second.instance->dot_label() << "\"->\"" << pname << "\" [dir=\"forward\"];" << std::endl;
       }
    }
    df << "}\n";
@@ -900,9 +882,9 @@ void launcher_def::bind_nodes() {
          tn_node_def node;
          node.name     = inst.name;
          node.instance = &inst;
-         auto kp = is_bios ? private_key_type(string("5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3"))
-                           : private_key_type::generate();
-         auto pubkey = kp.get_public_key();
+         auto kp       = is_bios ? private_key_type(string("5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3"))
+                                 : private_key_type::generate();
+         auto pubkey   = kp.get_public_key();
          node.keys.emplace_back(move(kp));
          if (is_bios) {
             string prodname = "eosio";
@@ -983,8 +965,8 @@ host_def* launcher_def::deploy_config_files(tn_node_def& node) {
 
       if (!bfs::exists(cfgdir)) {
          if (!bfs::create_directories(cfgdir, ec) && ec.value()) {
-            cerr << "could not create new directory: " << instance.config_dir_name << " errno " << ec.value()
-                 << " " << strerror(ec.value()) << endl;
+            cerr << "could not create new directory: " << instance.config_dir_name << " errno " << ec.value() << " "
+                 << strerror(ec.value()) << endl;
             exit(-1);
          }
       } else if (bfs::exists(cfgdir / "config.ini") && !force_overwrite) {
@@ -995,21 +977,21 @@ host_def* launcher_def::deploy_config_files(tn_node_def& node) {
 
       if (!bfs::exists(dd)) {
          if (!bfs::create_directories(dd, ec) && ec.value()) {
-            cerr << "could not create new directory: " << instance.config_dir_name << " errno " << ec.value()
-                 << " " << strerror(ec.value()) << endl;
+            cerr << "could not create new directory: " << instance.config_dir_name << " errno " << ec.value() << " "
+                 << strerror(ec.value()) << endl;
             exit(-1);
          }
       } else if (force_overwrite) {
          int64_t count = bfs::remove_all(dd / block_dir, ec);
          if (ec.value() != 0) {
-            cerr << "count = " << count << " could not remove old directory: " << dd << " "
-                 << strerror(ec.value()) << endl;
+            cerr << "count = " << count << " could not remove old directory: " << dd << " " << strerror(ec.value())
+                 << endl;
             exit(-1);
          }
          count = bfs::remove_all(dd / shared_mem_dir, ec);
          if (ec.value() != 0) {
-            cerr << "count = " << count << " could not remove old directory: " << dd << " "
-                 << strerror(ec.value()) << endl;
+            cerr << "count = " << count << " could not remove old directory: " << dd << " " << strerror(ec.value())
+                 << endl;
             exit(-1);
          }
       } else if (bfs::exists(dd / block_dir) || bfs::exists(dd / shared_mem_dir)) {
@@ -1057,9 +1039,7 @@ host_def* launcher_def::deploy_config_files(tn_node_def& node) {
    return host;
 }
 
-string launcher_def::compose_scp_command(const host_def&  host,
-                                         const bfs::path& source,
-                                         const bfs::path& destination) {
+string launcher_def::compose_scp_command(const host_def& host, const bfs::path& source, const bfs::path& destination) {
    string        scp_cmd_line = network.ssh_helper.scp_cmd + " ";
    const string& args         = host.ssh_args.length() ? host.ssh_args : network.ssh_helper.ssh_args;
    if (args.length()) {
@@ -1135,8 +1115,7 @@ void launcher_def::write_config_file(tn_node_def& node) {
    }
    if (node.producers.size()) {
       for (const auto& kp : node.keys) {
-         cfg << "private-key = [\"" << kp.get_public_key().to_string() << "\",\"" << kp.to_string()
-             << "\"]\n";
+         cfg << "private-key = [\"" << kp.get_public_key().to_string() << "\",\"" << kp.to_string() << "\"]\n";
       }
       for (auto& p : node.producers) {
          cfg << "producer-name = " << p << "\n";
@@ -1285,15 +1264,13 @@ void launcher_def::write_setprods_file() {
 void launcher_def::write_bios_boot() {
    bfs::ifstream src(bfs::path(config_dir_base) / "launcher" / start_temp);
    if (!src.good()) {
-      cerr << "unable to open " << config_dir_base << "launcher/" << start_temp << " " << strerror(errno)
-           << "\n";
+      cerr << "unable to open " << config_dir_base << "launcher/" << start_temp << " " << strerror(errno) << "\n";
       exit(9);
    }
 
    bfs::ofstream brb(bfs::current_path() / start_script);
    if (!brb.good()) {
-      cerr << "unable to open " << bfs::current_path() << "/" << start_script << " " << strerror(errno)
-           << "\n";
+      cerr << "unable to open " << bfs::current_path() << "/" << start_script << " " << strerror(errno) << "\n";
       exit(9);
    }
 
@@ -1367,8 +1344,8 @@ void launcher_def::make_line(bool make_ring) {
       for (size_t i = start_ndx(); !end_of_loop; next_ndx(i)) {
          size_t front = i;
          end_of_loop  = next_ndx(front);
-         // if this is the end of the loop and this is not a ring, then don't connect the end to the beginning
-         // to make a ring
+         // if this is the end of the loop and this is not a ring, then don't connect the end to the beginning to make a
+         // ring
          if (end_of_loop && !make_ring) {
             break;
          }
@@ -1382,8 +1359,8 @@ void launcher_def::make_line(bool make_ring) {
       if (make_ring) {
          network.nodes.find(aliases[n1])->second.peers.push_back(aliases[n0]);
       }
-      // since there are only 2 nodes, this really just affects startup and that only index 0 will initiate
-      // the connection if !make_ring
+      // since there are only 2 nodes, this really just affects startup and that only index 0 will initiate the
+      // connection if !make_ring
    }
 }
 
@@ -1625,8 +1602,8 @@ void launcher_def::launch(eosd_def& instance, string& gts) {
       }
       string cmdl("cd ");
       cmdl += host->eosio_home + "; nohup " + eosdcmd + " > " + reout.string() + " 2> " + reerr.string() +
-              "& echo $! > " + pidf.string() + "; rm -f " + reerr_sl.string() + "; ln -s " +
-              reerr_base.string() + " " + reerr_sl.string();
+              "& echo $! > " + pidf.string() + "; rm -f " + reerr_sl.string() + "; ln -s " + reerr_base.string() + " " +
+              reerr_sl.string();
       if (!do_ssh(cmdl, host->host_name)) {
          cerr << "Unable to invoke " << cmdl << " on host " << host->host_name << endl;
          exit(-1);
@@ -1696,8 +1673,7 @@ void launcher_def::kill(launch_modes mode, string sig_opt) {
          try {
             fc::json::from_file(source).as<last_run_def>(last_run);
             for (auto& info : last_run.running_nodes) {
-               if (mode == LM_ALL || (info.remote && mode == LM_REMOTE) ||
-                   (!info.remote && mode == LM_LOCAL)) {
+               if (mode == LM_ALL || (info.remote && mode == LM_REMOTE) || (!info.remote && mode == LM_LOCAL)) {
                   try {
                      if (info.pid_file.length()) {
                         string pid;
@@ -1911,8 +1887,7 @@ void launcher_def::start_all(string& gts, launch_modes mode) {
                      cerr << "launching " << inst.name << endl;
                      launch(inst, gts);
                   } catch (fc::exception& fce) {
-                     cerr << "unable to launch " << inst.name << " fc::exception=" << fce.to_detail_string()
-                          << endl;
+                     cerr << "unable to launch " << inst.name << " fc::exception=" << fce.to_detail_string() << endl;
                   } catch (std::exception& stde) {
                      cerr << "unable to launch " << inst.name << " std::exception=" << stde.what() << endl;
                   } catch (...) {
@@ -1943,8 +1918,7 @@ void write_default_config(const bfs::path& cfg_file, const options_description& 
       try {
          bfs::create_directories(parent);
       } catch (bfs::filesystem_error& ex) {
-         cerr << "could not create new directory: " << cfg_file.parent_path() << " caught " << ex.what()
-              << endl;
+         cerr << "could not create new directory: " << cfg_file.parent_path() << " caught " << ex.what() << endl;
          exit(-1);
       }
    }
@@ -1998,8 +1972,8 @@ int main(int argc, char* argv[]) {
                      "set the timestamp for the first block. Use \"now\" to indicate the current time")(
       "launch,l",
       bpo::value<string>(),
-      "select a subset of nodes to launch. Currently may be \"all\", \"none\", or \"local\". If not set, the "
-      "default is to launch all unless an output file is named, in which case it starts none.")(
+      "select a subset of nodes to launch. Currently may be \"all\", \"none\", or \"local\". If not set, the default "
+      "is to launch all unless an output file is named, in which case it starts none.")(
       "output,o", bpo::value<bfs::path>(&top.output), "save a copy of the generated topology in this file")(
       "kill,k",
       bpo::value<string>(&kill_arg),
@@ -2012,8 +1986,8 @@ int main(int argc, char* argv[]) {
       "comma-separated list of node numbers that will be restarted using the eosio-tn_bounce.sh script")(
       "roll",
       bpo::value<string>(&roll_nodes),
-      "comma-separated list of host names where the nodes should be rolled to a new version using the "
-      "eosio-tn_roll.sh script")("version,v", "print version information")("help,h", "print this list")(
+      "comma-separated list of host names where the nodes should be rolled to a new version using the eosio-tn_roll.sh "
+      "script")("version,v", "print version information")("help,h", "print this list")(
       "config-dir", bpo::value<bfs::path>(), "Directory containing configuration files such as config.ini")(
       "config,c",
       bpo::value<bfs::path>()->default_value("config.ini"),
@@ -2057,8 +2031,7 @@ int main(int argc, char* argv[]) {
          write_default_config(config_file_name, cfg);
       }
 
-      bpo::store(bpo::parse_config_file<char>(config_file_name.make_preferred().string().c_str(), cfg, true),
-                 vmap);
+      bpo::store(bpo::parse_config_file<char>(config_file_name.make_preferred().string().c_str(), cfg, true), vmap);
 
       if (vmap.count("launch")) {
          string l = vmap["launch"].as<string>();
@@ -2118,8 +2091,7 @@ FC_REFLECT(
    (genesis)(ssh_identity)(ssh_args)(eosio_home)(host_name)(public_name)(base_p2p_port)(base_http_port)(def_file_size)(instances))
 
 // @ignore node, dot_label_str
-FC_REFLECT(eosd_def,
-           (config_dir_name)(data_dir_name)(p2p_port)(http_port)(file_size)(name)(host)(p2p_endpoint))
+FC_REFLECT(eosd_def, (config_dir_name)(data_dir_name)(p2p_port)(http_port)(file_size)(name)(host)(p2p_endpoint))
 
 // @ignore instance, gelf_endpoint
 FC_REFLECT(tn_node_def, (name)(keys)(peers)(producers)(dont_start))

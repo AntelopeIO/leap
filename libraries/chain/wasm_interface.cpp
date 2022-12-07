@@ -99,9 +99,9 @@ void wasm_interface::apply(const digest_type& code_hash,
       try {
          cd = my->eosvmoc->cc.get_descriptor_for_code(code_hash, vm_version);
       } catch (...) {
-         // swallow errors here, if EOS VM OC has gone in to the weeds we shouldn't bail: continue to try and
-         // run baseline In the future, consider moving bits of EOS VM that can fire exceptions and such out
-         // of this call path
+         // swallow errors here, if EOS VM OC has gone in to the weeds we shouldn't bail: continue to try and run
+         // baseline In the future, consider moving bits of EOS VM that can fire exceptions and such out of this call
+         // path
          static bool once_is_enough;
          if (!once_is_enough)
             elog("EOS VM OC has encountered an unexpected failure");

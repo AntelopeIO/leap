@@ -28,7 +28,7 @@ BIGNUM* bigint::dup() const {
 
 bigint::bigint(uint64_t value) {
    uint64_t big_endian_value = bswap_64(value);
-   n = BN_bin2bn((const unsigned char*)&big_endian_value, sizeof(big_endian_value), NULL);
+   n                         = BN_bin2bn((const unsigned char*)&big_endian_value, sizeof(big_endian_value), NULL);
 }
 
 bigint::bigint(const bigint& c) {

@@ -117,9 +117,7 @@ public:
     *
     * @param arr    data
     */
-   fixed_bytes(const std::array<word_t, num_words()>& arr) {
-      std::copy(arr.begin(), arr.end(), _data.begin());
-   }
+   fixed_bytes(const std::array<word_t, num_words()>& arr) { std::copy(arr.begin(), arr.end(), _data.begin()); }
 
    /**
     * Constructor to fixed_bytes object from std::array of Word types smaller in size than word_t
@@ -128,9 +126,9 @@ public:
     */
    template<typename Word,
             size_t NumWords,
-            typename Enable = typename std::enable_if<
-               std::is_integral<Word>::value && std::is_unsigned<Word>::value &&
-               !std::is_same<Word, bool>::value && std::less<size_t>{}(sizeof(Word), sizeof(word_t))>::type>
+            typename Enable = typename std::enable_if<std::is_integral<Word>::value && std::is_unsigned<Word>::value &&
+                                                      !std::is_same<Word, bool>::value &&
+                                                      std::less<size_t>{}(sizeof(Word), sizeof(word_t))>::type>
    fixed_bytes(const std::array<Word, NumWords>& arr) {
       static_assert(sizeof(word_t) == (sizeof(word_t) / sizeof(Word)) * sizeof(Word),
                     "size of the backing word size is not divisible by the size of the array element");
@@ -146,9 +144,9 @@ public:
     */
    template<typename Word,
             size_t NumWords,
-            typename Enable = typename std::enable_if<
-               std::is_integral<Word>::value && std::is_unsigned<Word>::value &&
-               !std::is_same<Word, bool>::value && std::less<size_t>{}(sizeof(Word), sizeof(word_t))>::type>
+            typename Enable = typename std::enable_if<std::is_integral<Word>::value && std::is_unsigned<Word>::value &&
+                                                      !std::is_same<Word, bool>::value &&
+                                                      std::less<size_t>{}(sizeof(Word), sizeof(word_t))>::type>
    fixed_bytes(const Word (&arr)[NumWords]) {
       static_assert(sizeof(word_t) == (sizeof(word_t) / sizeof(Word)) * sizeof(Word),
                     "size of the backing word size is not divisible by the size of the array element");
@@ -168,14 +166,12 @@ public:
    template<typename FirstWord, typename... Rest>
    static fixed_bytes<Size> make_from_word_sequence(
       typename std::enable_if<std::is_integral<FirstWord>::value && std::is_unsigned<FirstWord>::value &&
-                                 !std::is_same<FirstWord, bool>::value &&
-                                 sizeof(FirstWord) <= sizeof(word_t) &&
+                                 !std::is_same<FirstWord, bool>::value && sizeof(FirstWord) <= sizeof(word_t) &&
                                  all_true<(std::is_same<FirstWord, Rest>::value)...>::value,
                               FirstWord>::type first_word,
       Rest... rest) {
-      static_assert(
-         sizeof(word_t) == (sizeof(word_t) / sizeof(FirstWord)) * sizeof(FirstWord),
-         "size of the backing word size is not divisible by the size of the words supplied as arguments");
+      static_assert(sizeof(word_t) == (sizeof(word_t) / sizeof(FirstWord)) * sizeof(FirstWord),
+                    "size of the backing word size is not divisible by the size of the words supplied as arguments");
       static_assert(sizeof(FirstWord) * (1 + sizeof...(Rest)) <= Size,
                     "too many words supplied to make_from_word_sequence");
 

@@ -144,9 +144,8 @@ void abi_serializer::configure_built_in_types() {
 void abi_serializer::set_abi(const abi_def& abi, const yield_function_t& yield) {
    impl::abi_traverse_context ctx(yield);
 
-   EOS_ASSERT(starts_with(abi.version, "eosio::abi/1."),
-              unsupported_abi_version_exception,
-              "ABI has an unsupported version");
+   EOS_ASSERT(
+      starts_with(abi.version, "eosio::abi/1."), unsupported_abi_version_exception, "ABI has an unsupported version");
 
    typedefs.clear();
    structs.clear();
@@ -186,18 +185,14 @@ void abi_serializer::set_abi(const abi_def& abi, const yield_function_t& yield) 
     *  The ABI vector may contain duplicates which would make it
     *  an invalid ABI
     */
-   EOS_ASSERT(typedefs.size() == abi.types.size(),
-              duplicate_abi_type_def_exception,
-              "duplicate type definition detected");
-   EOS_ASSERT(structs.size() == abi.structs.size(),
-              duplicate_abi_struct_def_exception,
-              "duplicate struct definition detected");
-   EOS_ASSERT(actions.size() == abi.actions.size(),
-              duplicate_abi_action_def_exception,
-              "duplicate action definition detected");
-   EOS_ASSERT(tables.size() == abi.tables.size(),
-              duplicate_abi_table_def_exception,
-              "duplicate table definition detected");
+   EOS_ASSERT(
+      typedefs.size() == abi.types.size(), duplicate_abi_type_def_exception, "duplicate type definition detected");
+   EOS_ASSERT(
+      structs.size() == abi.structs.size(), duplicate_abi_struct_def_exception, "duplicate struct definition detected");
+   EOS_ASSERT(
+      actions.size() == abi.actions.size(), duplicate_abi_action_def_exception, "duplicate action definition detected");
+   EOS_ASSERT(
+      tables.size() == abi.tables.size(), duplicate_abi_table_def_exception, "duplicate table definition detected");
    EOS_ASSERT(error_messages.size() == abi.error_messages.size(),
               duplicate_abi_err_msg_def_exception,
               "duplicate error message definition detected");
@@ -224,10 +219,8 @@ bool abi_serializer::is_integer(const std::string_view& type) const {
 }
 
 int abi_serializer::get_integer_size(const std::string_view& type) const {
-   EOS_ASSERT(is_integer(type),
-              invalid_type_inside_abi,
-              "${type} is not an integer type",
-              ("type", impl::limit_size(type)));
+   EOS_ASSERT(
+      is_integer(type), invalid_type_inside_abi, "${type} is not an integer type", ("type", impl::limit_size(type)));
    if (boost::starts_with(type, "uint")) {
       return boost::lexical_cast<int>(type.substr(4));
    } else {
@@ -268,8 +261,7 @@ bool abi_serializer::is_type(const std::string_view& type, const yield_function_
    return _is_type(type, ctx);
 }
 
-bool abi_serializer::is_type(const std::string_view& type,
-                             const fc::microseconds& max_serialization_time) const {
+bool abi_serializer::is_type(const std::string_view& type, const fc::microseconds& max_serialization_time) const {
    return is_type(type, create_yield_function(max_serialization_time));
 }
 
@@ -308,10 +300,8 @@ bool abi_serializer::_is_type(const std::string_view& rtype, impl::abi_traverse_
 
 const struct_def& abi_serializer::get_struct(const std::string_view& type) const {
    auto itr = structs.find(resolve_type(type));
-   EOS_ASSERT(itr != structs.end(),
-              invalid_type_inside_abi,
-              "Unknown struct ${type}",
-              ("type", impl::limit_size(type)));
+   EOS_ASSERT(
+      itr != structs.end(), invalid_type_inside_abi, "Unknown struct ${type}", ("type", impl::limit_size(type)));
    return itr->second;
 }
 
@@ -334,10 +324,7 @@ void abi_serializer::validate(impl::abi_traverse_context& ctx) const {
    }
    for (const auto& t : typedefs) {
       try {
-         EOS_ASSERT(_is_type(t.second, ctx),
-                    invalid_type_inside_abi,
-                    "${type}",
-                    ("type", impl::limit_size(t.second)));
+         EOS_ASSERT(_is_type(t.second, ctx), invalid_type_inside_abi, "${type}", ("type", impl::limit_size(t.second)));
       }
       FC_CAPTURE_AND_RETHROW((t))
    }
@@ -348,8 +335,7 @@ void abi_serializer::validate(impl::abi_traverse_context& ctx) const {
             vector<std::string_view> types_seen{ current->name };
             while (current->base != type_name()) {
                ctx.check_deadline();
-               const struct_def& base =
-                  get_struct(current->base); //<-- force struct to inherit from another struct
+               const struct_def& base = get_struct(current->base); //<-- force struct to inherit from another struct
                EOS_ASSERT(find(types_seen.begin(), types_seen.end(), base.name) == types_seen.end(),
                           abi_circular_def_exception,
                           "Circular reference in struct ${type}",
@@ -376,8 +362,7 @@ void abi_serializer::validate(impl::abi_traverse_context& ctx) const {
          for (const auto& type : s.second.types) {
             try {
                ctx.check_deadline();
-               EOS_ASSERT(
-                  _is_type(type, ctx), invalid_type_inside_abi, "${type}", ("type", impl::limit_size(type)));
+               EOS_ASSERT(_is_type(type, ctx), invalid_type_inside_abi, "${type}", ("type", impl::limit_size(type)));
             }
             FC_CAPTURE_AND_RETHROW((type))
          }
@@ -387,10 +372,7 @@ void abi_serializer::validate(impl::abi_traverse_context& ctx) const {
    for (const auto& a : actions) {
       try {
          ctx.check_deadline();
-         EOS_ASSERT(_is_type(a.second, ctx),
-                    invalid_type_inside_abi,
-                    "${type}",
-                    ("type", impl::limit_size(a.second)));
+         EOS_ASSERT(_is_type(a.second, ctx), invalid_type_inside_abi, "${type}", ("type", impl::limit_size(a.second)));
       }
       FC_CAPTURE_AND_RETHROW((a))
    }
@@ -398,10 +380,7 @@ void abi_serializer::validate(impl::abi_traverse_context& ctx) const {
    for (const auto& t : tables) {
       try {
          ctx.check_deadline();
-         EOS_ASSERT(_is_type(t.second, ctx),
-                    invalid_type_inside_abi,
-                    "${type}",
-                    ("type", impl::limit_size(t.second)));
+         EOS_ASSERT(_is_type(t.second, ctx), invalid_type_inside_abi, "${type}", ("type", impl::limit_size(t.second)));
       }
       FC_CAPTURE_AND_RETHROW((t))
    }
@@ -409,10 +388,7 @@ void abi_serializer::validate(impl::abi_traverse_context& ctx) const {
    for (const auto& r : action_results) {
       try {
          ctx.check_deadline();
-         EOS_ASSERT(_is_type(r.second, ctx),
-                    invalid_type_inside_abi,
-                    "${type}",
-                    ("type", impl::limit_size(r.second)));
+         EOS_ASSERT(_is_type(r.second, ctx), invalid_type_inside_abi, "${type}", ("type", impl::limit_size(r.second)));
       }
       FC_CAPTURE_AND_RETHROW((r))
    }
@@ -437,10 +413,8 @@ void abi_serializer::_binary_to_variant(const std::string_view&          type,
                                         impl::binary_to_variant_context& ctx) const {
    auto h     = ctx.enter_scope();
    auto s_itr = structs.find(type);
-   EOS_ASSERT(s_itr != structs.end(),
-              invalid_type_inside_abi,
-              "Unknown type ${type}",
-              ("type", ctx.maybe_shorten(type)));
+   EOS_ASSERT(
+      s_itr != structs.end(), invalid_type_inside_abi, "Unknown type ${type}", ("type", ctx.maybe_shorten(type)));
    ctx.hint_struct_type_if_in_array(s_itr);
    const auto& st = s_itr->second;
    if (st.base != type_name()) {
@@ -456,16 +430,15 @@ void abi_serializer::_binary_to_variant(const std::string_view&          type,
             continue;
          }
          if (encountered_extension) {
-            EOS_THROW(
-               abi_exception,
-               "Encountered field '${f}' without binary extension designation while processing struct '${p}'",
-               ("f", ctx.maybe_shorten(field.name))("p", ctx.get_path_string()));
+            EOS_THROW(abi_exception,
+                      "Encountered field '${f}' without binary extension designation while processing struct '${p}'",
+                      ("f", ctx.maybe_shorten(field.name))("p", ctx.get_path_string()));
          }
          EOS_THROW(unpack_exception,
                    "Stream unexpectedly ended; unable to unpack field '${f}' of struct '${p}'",
                    ("f", ctx.maybe_shorten(field.name))("p", ctx.get_path_string()));
       }
-      auto h1 = ctx.push_to_path(impl::field_path_item{ .parent_struct_itr = s_itr, .field_ordinal = i });
+      auto h1         = ctx.push_to_path(impl::field_path_item{ .parent_struct_itr = s_itr, .field_ordinal = i });
       auto field_type = resolve_type(extension ? _remove_bin_extension(field.type) : field.type);
       auto v          = _binary_to_variant(field_type, stream, ctx);
       if (ctx.is_logging() && v.is_string() && field_type == "bytes") {
@@ -509,16 +482,14 @@ fc::variant abi_serializer::_binary_to_variant(const std::string_view&          
       try {
          fc::raw::unpack(stream, size);
       }
-      EOS_RETHROW_EXCEPTIONS(
-         unpack_exception, "Unable to unpack size of array '${p}'", ("p", ctx.get_path_string()))
+      EOS_RETHROW_EXCEPTIONS(unpack_exception, "Unable to unpack size of array '${p}'", ("p", ctx.get_path_string()))
       vector<fc::variant> vars;
       auto                h1 = ctx.push_to_path(impl::array_index_path_item{});
       for (decltype(size.value) i = 0; i < size; ++i) {
          ctx.set_array_index_of_path_back(i);
          auto v = _binary_to_variant(ftype, stream, ctx);
          // The exception below is commented out to allow array of optional as input data
-         // EOS_ASSERT( !v.is_null(), unpack_exception, "Invalid packed array '${p}'", ("p",
-         // ctx.get_path_string()) );
+         // EOS_ASSERT( !v.is_null(), unpack_exception, "Invalid packed array '${p}'", ("p", ctx.get_path_string()) );
          vars.emplace_back(std::move(v));
       }
       // QUESTION: Why would the assert below ever fail?
@@ -549,8 +520,8 @@ fc::variant abi_serializer::_binary_to_variant(const std::string_view&          
                     unpack_exception,
                     "Unpacked invalid tag (${select}) for variant '${p}'",
                     ("select", select.value)("p", ctx.get_path_string()));
-         auto h1 = ctx.push_to_path(impl::variant_path_item{
-            .variant_itr = v_itr, .variant_ordinal = static_cast<uint32_t>(select) });
+         auto h1 = ctx.push_to_path(
+            impl::variant_path_item{ .variant_itr = v_itr, .variant_ordinal = static_cast<uint32_t>(select) });
          return vector<fc::variant>{ v_itr->second.types[select],
                                      _binary_to_variant(v_itr->second.types[select], stream, ctx) };
       }
@@ -559,8 +530,7 @@ fc::variant abi_serializer::_binary_to_variant(const std::string_view&          
    fc::mutable_variant_object mvo;
    _binary_to_variant(rtype, stream, mvo, ctx);
    // QUESTION: Is this assert actually desired? It disallows unpacking empty structs from datastream.
-   EOS_ASSERT(
-      mvo.size() > 0, unpack_exception, "Unable to unpack '${p}' from stream", ("p", ctx.get_path_string()));
+   EOS_ASSERT(mvo.size() > 0, unpack_exception, "Unable to unpack '${p}' from stream", ("p", ctx.get_path_string()));
    return fc::variant(std::move(mvo));
 }
 
@@ -679,18 +649,18 @@ void abi_serializer::_variant_to_binary(const std::string_view&          type,
                                "Unexpected field '${f}' found in input object while processing struct '${p}'",
                                ("f", ctx.maybe_shorten(field.name))("p", ctx.get_path_string()));
                   {
-                     auto h1 = ctx.push_to_path(
-                        impl::field_path_item{ .parent_struct_itr = s_itr, .field_ordinal = i });
+                     auto h1 =
+                        ctx.push_to_path(impl::field_path_item{ .parent_struct_itr = s_itr, .field_ordinal = i });
                      auto h2 = ctx.disallow_extensions_unless(&field == &st.fields.back());
                      _variant_to_binary(_remove_bin_extension(field.type), vo[field.name], ds, ctx);
                   }
                } else if (ends_with(field.type, "$") && ctx.extensions_allowed()) {
                   disallow_additional_fields = true;
                } else if (disallow_additional_fields) {
-                  EOS_THROW(abi_exception,
-                            "Encountered field '${f}' without binary extension designation while processing "
-                            "struct '${p}'",
-                            ("f", ctx.maybe_shorten(field.name))("p", ctx.get_path_string()));
+                  EOS_THROW(
+                     abi_exception,
+                     "Encountered field '${f}' without binary extension designation while processing struct '${p}'",
+                     ("f", ctx.maybe_shorten(field.name))("p", ctx.get_path_string()));
                } else {
                   EOS_THROW(pack_exception,
                             "Missing field '${f}' in input object while processing struct '${p}'",
@@ -701,23 +671,22 @@ void abi_serializer::_variant_to_binary(const std::string_view&          type,
             const auto& va = var.get_array();
             EOS_ASSERT(st.base == type_name(),
                        invalid_type_inside_abi,
-                       "Using input array to specify the fields of the derived struct '${p}'; input arrays "
-                       "are currently only allowed for structs without a base",
+                       "Using input array to specify the fields of the derived struct '${p}'; input arrays are "
+                       "currently only allowed for structs without a base",
                        ("p", ctx.get_path_string()));
             for (uint32_t i = 0; i < st.fields.size(); ++i) {
                const auto& field = st.fields[i];
                if (va.size() > i) {
-                  auto h1 = ctx.push_to_path(
-                     impl::field_path_item{ .parent_struct_itr = s_itr, .field_ordinal = i });
+                  auto h1 = ctx.push_to_path(impl::field_path_item{ .parent_struct_itr = s_itr, .field_ordinal = i });
                   auto h2 = ctx.disallow_extensions_unless(&field == &st.fields.back());
                   _variant_to_binary(_remove_bin_extension(field.type), va[i], ds, ctx);
                } else if (ends_with(field.type, "$") && ctx.extensions_allowed()) {
                   break;
                } else {
-                  EOS_THROW(pack_exception,
-                            "Early end to input array specifying the fields of struct '${p}'; require input "
-                            "for field '${f}'",
-                            ("p", ctx.get_path_string())("f", ctx.maybe_shorten(field.name)));
+                  EOS_THROW(
+                     pack_exception,
+                     "Early end to input array specifying the fields of struct '${p}'; require input for field '${f}'",
+                     ("p", ctx.get_path_string())("f", ctx.maybe_shorten(field.name)));
                }
             }
          } else {
@@ -845,9 +814,8 @@ void abi_traverse_context_with_path::set_path_root(const std::string_view& type)
 
 fc::scoped_exit<std::function<void()>> abi_traverse_context_with_path::push_to_path(const path_item& item) {
    std::function<void()> callback = [this]() {
-      EOS_ASSERT(path.size() > 0,
-                 abi_exception,
-                 "invariant failure in variant_to_binary_context: path is empty on scope exit");
+      EOS_ASSERT(
+         path.size() > 0, abi_exception, "invariant failure in variant_to_binary_context: path is empty on scope exit");
       path.pop_back();
    };
 

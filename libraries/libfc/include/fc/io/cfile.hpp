@@ -25,8 +25,8 @@ using unique_file = std::unique_ptr<FILE, decltype(&fclose)>;
 class cfile_datastream;
 
 /**
- * Wrapper for c-file access that provides a similar interface as fstream without all the overhead of std
- * streams. std::ios_base::failure exception thrown for errors.
+ * Wrapper for c-file access that provides a similar interface as fstream without all the overhead of std streams.
+ * std::ios_base::failure exception thrown for errors.
  */
 class cfile {
 public:
@@ -110,8 +110,7 @@ public:
       if (result != n) {
          int err = ferror(_file.get());
          int eof = feof(_file.get());
-         throw std::ios_base::failure("cfile: " + _file_path.generic_string() + " unable to read " +
-                                      std::to_string(n) +
+         throw std::ios_base::failure("cfile: " + _file_path.generic_string() + " unable to read " + std::to_string(n) +
                                       " bytes;"
                                       " only read " +
                                       std::to_string(result) + ", eof: " + (eof == 0 ? "false" : "true") +
@@ -149,8 +148,8 @@ public:
 #endif
    }
 
-   // rounds to filesystem block boundaries; e.g. punch_hole(5000, 14000) when blocksz=4096 punches from 8192
-   // to 12288 end is not inclusive; eg punch_hole(4096, 8192) will punch 4096 bytes (assuming blocksz=4096)
+   // rounds to filesystem block boundaries; e.g. punch_hole(5000, 14000) when blocksz=4096 punches from 8192 to 12288
+   // end is not inclusive; eg punch_hole(4096, 8192) will punch 4096 bytes (assuming blocksz=4096)
    void punch_hole(size_t begin, size_t end) {
       if (begin % _file_blk_size) {
          begin &= ~(_file_blk_size - 1);

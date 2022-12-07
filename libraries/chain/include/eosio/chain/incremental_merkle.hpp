@@ -205,9 +205,8 @@ public:
             const auto& left_value = *active_iter;
             ++active_iter;
 
-            // if the "right" value is a partial node we will need to copy the "left" as future appends still
-            // need it otherwise, it can be dropped from the set of active nodes as we are collapsing a
-            // fully-realized node
+            // if the "right" value is a partial node we will need to copy the "left" as future appends still need it
+            // otherwise, it can be dropped from the set of active nodes as we are collapsing a fully-realized node
             if (partial) {
                updated_active_nodes.emplace_back(left_value);
             }

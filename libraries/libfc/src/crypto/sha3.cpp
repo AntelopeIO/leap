@@ -66,9 +66,8 @@ struct sha3_impl {
       UINT64_C(0x000000000000800a), UINT64_C(0x800000008000000a), UINT64_C(0x8000000080008081),
       UINT64_C(0x8000000000008080), UINT64_C(0x0000000080000001), UINT64_C(0x8000000080008008)
    };
-   static constexpr uint8_t rot_constants[number_of_rounds] = { 1,  3,  6,  10, 15, 21, 28, 36,
-                                                                45, 55, 2,  14, 27, 41, 56, 8,
-                                                                25, 43, 62, 18, 39, 61, 20, 44 };
+   static constexpr uint8_t rot_constants[number_of_rounds] = { 1,  3,  6,  10, 15, 21, 28, 36, 45, 55, 2,  14,
+                                                                27, 41, 56, 8,  25, 43, 62, 18, 39, 61, 20, 44 };
    static constexpr uint8_t pi_lanes[number_of_rounds]      = { 10, 7,  11, 17, 18, 3, 5,  16, 8,  21, 24, 4,
                                                                 15, 23, 19, 13, 12, 2, 20, 14, 22, 9,  6,  1 };
 
@@ -114,8 +113,7 @@ struct sha3_impl {
          // chi
          VECTORIZE_HINT for (std::size_t j = 0; j < number_of_words; j += 5) {
             VECTORIZE_HINT for (std::size_t k = 0; k < 5; k++) bc[k] = words[k + j];
-            VECTORIZE_HINT for (std::size_t k = 0; k < 5; k++) words[k + j] ^=
-               (~bc[(k + 1) % 5]) & bc[(k + 2) % 5];
+            VECTORIZE_HINT for (std::size_t k = 0; k < 5; k++) words[k + j] ^= (~bc[(k + 1) % 5]) & bc[(k + 2) % 5];
          }
 
          // iota
@@ -171,8 +169,7 @@ struct sha3_impl {
 
    union {
       uint8_t  bytes[number_of_words * 8];
-      uint64_t words[number_of_words *
-                     5]; // this is greater than 25, because in the theta portion we need a wide berth
+      uint64_t words[number_of_words * 5]; // this is greater than 25, because in the theta portion we need a wide berth
    };
    bool keccak = false;
    int  point;

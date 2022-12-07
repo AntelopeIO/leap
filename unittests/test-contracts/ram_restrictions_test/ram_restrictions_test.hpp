@@ -21,10 +21,7 @@ public:
 
    [[eosio::action]] void setdata(uint32_t len1, uint32_t len2, eosio::name payer);
 
-   [[eosio::action]] void notifysetdat(eosio::name acctonotify,
-                                       uint32_t    len1,
-                                       uint32_t    len2,
-                                       eosio::name payer);
+   [[eosio::action]] void notifysetdat(eosio::name acctonotify, uint32_t len1, uint32_t len2, eosio::name payer);
 
    [[eosio::on_notify("tester2::notifysetdat")]] void on_notify_setdata(eosio::name acctonotify,
                                                                         uint32_t    len1,

@@ -45,8 +45,8 @@ public:
 class deep_mind_handler {
 public:
    struct deep_mind_config {
-      bool zero_elapsed = false; // if true, the elapsed field of transaction and action traces is always set
-                                 // to 0 (for reproducibility)
+      bool zero_elapsed =
+         false; // if true, the elapsed field of transaction and action traces is always set to 0 (for reproducibility)
    };
 
    void update_config(deep_mind_config config);
@@ -95,14 +95,10 @@ public:
    void on_update_account_usage(const resource_limits::resource_usage_object& usage);
    void on_set_account_limits(const resource_limits::resource_limits_object& limits);
    // The trace is consumed by the next ram_event or ram_correction
-   void on_ram_trace(std::string&& event_id,
-                     const char*   family,
-                     const char*   operation,
-                     const char*   legacy_tag);
+   void on_ram_trace(std::string&& event_id, const char* family, const char* operation, const char* legacy_tag);
    void on_ram_event(account_name account, uint64_t new_usage, int64_t delta);
    void on_create_permission(const permission_object& p);
-   void on_modify_permission(const permission_object& old_permission,
-                             const permission_object& new_permission);
+   void on_modify_permission(const permission_object& old_permission, const permission_object& new_permission);
    void on_remove_permission(const permission_object& permission);
 
 private:

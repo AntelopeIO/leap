@@ -33,9 +33,8 @@ void aes_encoder::init(const fc::sha256& key, const fc::uint128& init_value) {
    my->ctx.obj = EVP_CIPHER_CTX_new();
    /* Create and initialise the context */
    if (!my->ctx) {
-      FC_THROW_EXCEPTION(aes_exception,
-                         "error allocating evp cipher context",
-                         ("s", ERR_error_string(ERR_get_error(), nullptr)));
+      FC_THROW_EXCEPTION(
+         aes_exception, "error allocating evp cipher context", ("s", ERR_error_string(ERR_get_error(), nullptr)));
    }
 
    /* Initialise the encryption operation. IMPORTANT - ensure you use a key
@@ -43,11 +42,9 @@ void aes_encoder::init(const fc::sha256& key, const fc::uint128& init_value) {
     *    In this example we are using 256 bit AES (i.e. a 256 bit key). The
     *    IV size for *most* modes is the same as the block size. For AES this
     *    is 128 bits */
-   if (1 != EVP_EncryptInit_ex(
-               my->ctx, EVP_aes_256_cbc(), NULL, (unsigned char*)&key, (unsigned char*)&init_value)) {
-      FC_THROW_EXCEPTION(aes_exception,
-                         "error during aes 256 cbc encryption init",
-                         ("s", ERR_error_string(ERR_get_error(), nullptr)));
+   if (1 != EVP_EncryptInit_ex(my->ctx, EVP_aes_256_cbc(), NULL, (unsigned char*)&key, (unsigned char*)&init_value)) {
+      FC_THROW_EXCEPTION(
+         aes_exception, "error during aes 256 cbc encryption init", ("s", ERR_error_string(ERR_get_error(), nullptr)));
    }
    EVP_CIPHER_CTX_set_padding(my->ctx, 0);
 }
@@ -57,11 +54,8 @@ uint32_t aes_encoder::encode(const char* plaintxt, uint32_t plaintext_len, char*
    /* Provide the message to be encrypted, and obtain the encrypted output.
     *    * EVP_EncryptUpdate can be called multiple times if necessary
     *       */
-   if (1 != EVP_EncryptUpdate(my->ctx,
-                              (unsigned char*)ciphertxt,
-                              &ciphertext_len,
-                              (const unsigned char*)plaintxt,
-                              plaintext_len)) {
+   if (1 != EVP_EncryptUpdate(
+               my->ctx, (unsigned char*)ciphertxt, &ciphertext_len, (const unsigned char*)plaintxt, plaintext_len)) {
       FC_THROW_EXCEPTION(aes_exception,
                          "error during aes 256 cbc encryption update",
                          ("s", ERR_error_string(ERR_get_error(), nullptr)));
@@ -95,9 +89,8 @@ void aes_decoder::init(const fc::sha256& key, const fc::uint128& init_value) {
    my->ctx.obj = EVP_CIPHER_CTX_new();
    /* Create and initialise the context */
    if (!my->ctx) {
-      FC_THROW_EXCEPTION(aes_exception,
-                         "error allocating evp cipher context",
-                         ("s", ERR_error_string(ERR_get_error(), nullptr)));
+      FC_THROW_EXCEPTION(
+         aes_exception, "error allocating evp cipher context", ("s", ERR_error_string(ERR_get_error(), nullptr)));
    }
 
    /* Initialise the encryption operation. IMPORTANT - ensure you use a key
@@ -105,11 +98,9 @@ void aes_decoder::init(const fc::sha256& key, const fc::uint128& init_value) {
     *    In this example we are using 256 bit AES (i.e. a 256 bit key). The
     *    IV size for *most* modes is the same as the block size. For AES this
     *    is 128 bits */
-   if (1 != EVP_DecryptInit_ex(
-               my->ctx, EVP_aes_256_cbc(), NULL, (unsigned char*)&key, (unsigned char*)&init_value)) {
-      FC_THROW_EXCEPTION(aes_exception,
-                         "error during aes 256 cbc encryption init",
-                         ("s", ERR_error_string(ERR_get_error(), nullptr)));
+   if (1 != EVP_DecryptInit_ex(my->ctx, EVP_aes_256_cbc(), NULL, (unsigned char*)&key, (unsigned char*)&init_value)) {
+      FC_THROW_EXCEPTION(
+         aes_exception, "error during aes 256 cbc encryption init", ("s", ERR_error_string(ERR_get_error(), nullptr)));
    }
    EVP_CIPHER_CTX_set_padding(my->ctx, 0);
 }
@@ -119,11 +110,8 @@ uint32_t aes_decoder::decode(const char* ciphertxt, uint32_t ciphertxt_len, char
    /* Provide the message to be decrypted, and obtain the decrypted output.
     *    * EVP_DecryptUpdate can be called multiple times if necessary
     *       */
-   if (1 != EVP_DecryptUpdate(my->ctx,
-                              (unsigned char*)plaintext,
-                              &plaintext_len,
-                              (const unsigned char*)ciphertxt,
-                              ciphertxt_len)) {
+   if (1 != EVP_DecryptUpdate(
+               my->ctx, (unsigned char*)plaintext, &plaintext_len, (const unsigned char*)ciphertxt, ciphertxt_len)) {
       FC_THROW_EXCEPTION(aes_exception,
                          "error during aes 256 cbc decryption update",
                          ("s", ERR_error_string(ERR_get_error(), nullptr)));
@@ -163,9 +151,8 @@ unsigned aes_encrypt(unsigned char* plaintext,
 
    /* Create and initialise the context */
    if (!ctx) {
-      FC_THROW_EXCEPTION(aes_exception,
-                         "error allocating evp cipher context",
-                         ("s", ERR_error_string(ERR_get_error(), nullptr)));
+      FC_THROW_EXCEPTION(
+         aes_exception, "error allocating evp cipher context", ("s", ERR_error_string(ERR_get_error(), nullptr)));
    }
 
    /* Initialise the encryption operation. IMPORTANT - ensure you use a key
@@ -174,9 +161,8 @@ unsigned aes_encrypt(unsigned char* plaintext,
     *    IV size for *most* modes is the same as the block size. For AES this
     *    is 128 bits */
    if (1 != EVP_EncryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, key, iv)) {
-      FC_THROW_EXCEPTION(aes_exception,
-                         "error during aes 256 cbc encryption init",
-                         ("s", ERR_error_string(ERR_get_error(), nullptr)));
+      FC_THROW_EXCEPTION(
+         aes_exception, "error during aes 256 cbc encryption init", ("s", ERR_error_string(ERR_get_error(), nullptr)));
    }
 
    /* Provide the message to be encrypted, and obtain the encrypted output.
@@ -193,9 +179,8 @@ unsigned aes_encrypt(unsigned char* plaintext,
     *    * this stage.
     *       */
    if (1 != EVP_EncryptFinal_ex(ctx, ciphertext + len, &len)) {
-      FC_THROW_EXCEPTION(aes_exception,
-                         "error during aes 256 cbc encryption final",
-                         ("s", ERR_error_string(ERR_get_error(), nullptr)));
+      FC_THROW_EXCEPTION(
+         aes_exception, "error during aes 256 cbc encryption final", ("s", ERR_error_string(ERR_get_error(), nullptr)));
    }
    ciphertext_len += len;
 
@@ -213,9 +198,8 @@ unsigned aes_decrypt(unsigned char* ciphertext,
 
    /* Create and initialise the context */
    if (!ctx) {
-      FC_THROW_EXCEPTION(aes_exception,
-                         "error allocating evp cipher context",
-                         ("s", ERR_error_string(ERR_get_error(), nullptr)));
+      FC_THROW_EXCEPTION(
+         aes_exception, "error allocating evp cipher context", ("s", ERR_error_string(ERR_get_error(), nullptr)));
    }
 
    /* Initialise the decryption operation. IMPORTANT - ensure you use a key
@@ -224,18 +208,16 @@ unsigned aes_decrypt(unsigned char* ciphertext,
     *          * IV size for *most* modes is the same as the block size. For AES this
     *             * is 128 bits */
    if (1 != EVP_DecryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, key, iv)) {
-      FC_THROW_EXCEPTION(aes_exception,
-                         "error during aes 256 cbc decrypt init",
-                         ("s", ERR_error_string(ERR_get_error(), nullptr)));
+      FC_THROW_EXCEPTION(
+         aes_exception, "error during aes 256 cbc decrypt init", ("s", ERR_error_string(ERR_get_error(), nullptr)));
    }
 
    /* Provide the message to be decrypted, and obtain the plaintext output.
     *    * EVP_DecryptUpdate can be called multiple times if necessary
     *       */
    if (1 != EVP_DecryptUpdate(ctx, plaintext, &len, ciphertext, ciphertext_len)) {
-      FC_THROW_EXCEPTION(aes_exception,
-                         "error during aes 256 cbc decrypt update",
-                         ("s", ERR_error_string(ERR_get_error(), nullptr)));
+      FC_THROW_EXCEPTION(
+         aes_exception, "error during aes 256 cbc decrypt update", ("s", ERR_error_string(ERR_get_error(), nullptr)));
    }
 
    plaintext_len = len;
@@ -244,9 +226,8 @@ unsigned aes_decrypt(unsigned char* ciphertext,
     *    * this stage.
     *       */
    if (1 != EVP_DecryptFinal_ex(ctx, plaintext + len, &len)) {
-      FC_THROW_EXCEPTION(aes_exception,
-                         "error during aes 256 cbc decrypt final",
-                         ("s", ERR_error_string(ERR_get_error(), nullptr)));
+      FC_THROW_EXCEPTION(
+         aes_exception, "error during aes 256 cbc decrypt final", ("s", ERR_error_string(ERR_get_error(), nullptr)));
    }
    plaintext_len += len;
 
@@ -264,9 +245,8 @@ unsigned aes_cfb_decrypt(unsigned char* ciphertext,
 
    /* Create and initialise the context */
    if (!ctx) {
-      FC_THROW_EXCEPTION(aes_exception,
-                         "error allocating evp cipher context",
-                         ("s", ERR_error_string(ERR_get_error(), nullptr)));
+      FC_THROW_EXCEPTION(
+         aes_exception, "error allocating evp cipher context", ("s", ERR_error_string(ERR_get_error(), nullptr)));
    }
 
    /* Initialise the decryption operation. IMPORTANT - ensure you use a key
@@ -275,18 +255,16 @@ unsigned aes_cfb_decrypt(unsigned char* ciphertext,
     *          * IV size for *most* modes is the same as the block size. For AES this
     *             * is 128 bits */
    if (1 != EVP_DecryptInit_ex(ctx, EVP_aes_256_cfb128(), NULL, key, iv)) {
-      FC_THROW_EXCEPTION(aes_exception,
-                         "error during aes 256 cbc decrypt init",
-                         ("s", ERR_error_string(ERR_get_error(), nullptr)));
+      FC_THROW_EXCEPTION(
+         aes_exception, "error during aes 256 cbc decrypt init", ("s", ERR_error_string(ERR_get_error(), nullptr)));
    }
 
    /* Provide the message to be decrypted, and obtain the plaintext output.
     *    * EVP_DecryptUpdate can be called multiple times if necessary
     *       */
    if (1 != EVP_DecryptUpdate(ctx, plaintext, &len, ciphertext, ciphertext_len)) {
-      FC_THROW_EXCEPTION(aes_exception,
-                         "error during aes 256 cbc decrypt update",
-                         ("s", ERR_error_string(ERR_get_error(), nullptr)));
+      FC_THROW_EXCEPTION(
+         aes_exception, "error during aes 256 cbc decrypt update", ("s", ERR_error_string(ERR_get_error(), nullptr)));
    }
 
    plaintext_len = len;
@@ -295,9 +273,8 @@ unsigned aes_cfb_decrypt(unsigned char* ciphertext,
     *    * this stage.
     *       */
    if (1 != EVP_DecryptFinal_ex(ctx, plaintext + len, &len)) {
-      FC_THROW_EXCEPTION(aes_exception,
-                         "error during aes 256 cbc decrypt final",
-                         ("s", ERR_error_string(ERR_get_error(), nullptr)));
+      FC_THROW_EXCEPTION(
+         aes_exception, "error during aes 256 cbc decrypt final", ("s", ERR_error_string(ERR_get_error(), nullptr)));
    }
    plaintext_len += len;
 

@@ -74,18 +74,17 @@ public:
       uint64_t                                  state_size       = chain::config::default_state_size;
       uint64_t                                  state_guard_size = chain::config::default_state_guard_size;
       uint32_t                                  sig_cpu_bill_pct = chain::config::default_sig_cpu_bill_pct;
-      uint16_t thread_pool_size = chain::config::default_controller_thread_pool_size;
-      uint32_t max_nonprivileged_inline_action_size =
-         chain::config::default_max_nonprivileged_inline_action_size;
-      bool     read_only                         = false;
-      bool     force_all_checks                  = false;
-      bool     disable_replay_opts               = false;
-      bool     contracts_console                 = false;
-      bool     allow_ram_billing_in_notify       = false;
-      uint32_t maximum_variable_signature_length = chain::config::default_max_variable_signature_length;
+      uint16_t                                  thread_pool_size = chain::config::default_controller_thread_pool_size;
+      uint32_t max_nonprivileged_inline_action_size = chain::config::default_max_nonprivileged_inline_action_size;
+      bool     read_only                            = false;
+      bool     force_all_checks                     = false;
+      bool     disable_replay_opts                  = false;
+      bool     contracts_console                    = false;
+      bool     allow_ram_billing_in_notify          = false;
+      uint32_t maximum_variable_signature_length    = chain::config::default_max_variable_signature_length;
       bool     disable_all_subjective_mitigations =
-         false; //< for developer & testing purposes, can be configured using
-                //`disable-all-subjective-mitigations` when `EOSIO_DEVELOPER` build option is provided
+         false; //< for developer & testing purposes, can be configured using `disable-all-subjective-mitigations` when
+                //`EOSIO_DEVELOPER` build option is provided
       uint32_t terminate_at_block      = 0; //< primarily for testing purposes
       bool     integrity_hash_on_start = false;
       bool     integrity_hash_on_stop  = false;
@@ -107,15 +106,13 @@ public:
    };
 
    enum class block_status {
-      irreversible =
-         0, ///< this block has already been applied before by this node and is considered irreversible
-      validated = 1,  ///< this is a complete block signed by a valid producer and has been previously applied
-                      ///< by this node and therefore validated but it is not yet irreversible
-      complete = 2,   ///< this is a complete block signed by a valid producer but is not yet irreversible nor
-                      ///< has it yet been applied by this node
+      irreversible = 0, ///< this block has already been applied before by this node and is considered irreversible
+      validated    = 1, ///< this is a complete block signed by a valid producer and has been previously applied by this
+                        ///< node and therefore validated but it is not yet irreversible
+      complete = 2, ///< this is a complete block signed by a valid producer but is not yet irreversible nor has it yet
+                    ///< been applied by this node
       incomplete = 3, ///< this is an incomplete block being produced by a producer
-      ephemeral =
-         4 ///< this is an incomplete block created for speculative execution of trxs, will always be aborted
+      ephemeral  = 4  ///< this is an incomplete block created for speculative execution of trxs, will always be aborted
    };
 
    controller(const config& cfg, const chain_id_type& chain_id);
@@ -126,9 +123,7 @@ public:
    void startup(std::function<void()>      shutdown,
                 std::function<bool()>      check_shutdown,
                 const snapshot_reader_ptr& snapshot);
-   void startup(std::function<void()> shutdown,
-                std::function<bool()> check_shutdown,
-                const genesis_state&  genesis);
+   void startup(std::function<void()> shutdown, std::function<bool()> check_shutdown, const genesis_state& genesis);
    void startup(std::function<void()> shutdown, std::function<bool()> check_shutdown);
 
    void preactivate_feature(const digest_type& feature_digest);
@@ -333,12 +328,12 @@ public:
 
    static std::optional<uint64_t> convert_exception_to_error_code(const fc::exception& e);
 
-   signal<void(uint32_t)>                        block_start; // block_num
-   signal<void(const signed_block_ptr&)>         pre_accepted_block;
-   signal<void(const block_state_ptr&)>          accepted_block_header;
-   signal<void(const block_state_ptr&)>          accepted_block;
-   signal<void(const block_state_ptr&)>          irreversible_block;
-   signal<void(const transaction_metadata_ptr&)> accepted_transaction;
+   signal<void(uint32_t)>                                                                block_start; // block_num
+   signal<void(const signed_block_ptr&)>                                                 pre_accepted_block;
+   signal<void(const block_state_ptr&)>                                                  accepted_block_header;
+   signal<void(const block_state_ptr&)>                                                  accepted_block;
+   signal<void(const block_state_ptr&)>                                                  irreversible_block;
+   signal<void(const transaction_metadata_ptr&)>                                         accepted_transaction;
    signal<void(std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&>)> applied_transaction;
    signal<void(const int&)>                                                              bad_alloc;
 

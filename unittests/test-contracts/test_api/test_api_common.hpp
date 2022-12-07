@@ -43,9 +43,7 @@ struct cf_action {
 
 // Deferred Transaction Trigger Action
 struct dtt_action {
-   static uint64_t get_name() {
-      return WASM_TEST_ACTION("test_transaction", "send_deferred_tx_with_dtt_action");
-   }
+   static uint64_t get_name() { return WASM_TEST_ACTION("test_transaction", "send_deferred_tx_with_dtt_action"); }
    static uint64_t get_account() { return "testapi"_n.value; }
 
    uint64_t payer            = "testapi"_n.value;

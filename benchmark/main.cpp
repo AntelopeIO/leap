@@ -15,15 +15,13 @@ int main(int argc, char* argv[]) {
    auto features = benchmark::get_features();
 
    options_description cli("benchmark command line options");
-   cli.add_options()(
-      "feature,f",
-      bpo::value<std::string>(),
-      "feature to be benchmarked; if this option is not present, all features are benchmarked.")(
+   cli.add_options()("feature,f",
+                     bpo::value<std::string>(),
+                     "feature to be benchmarked; if this option is not present, all features are benchmarked.")(
       "list,l", "list of supported features")("runs,r",
                                               bpo::value<uint32_t>(&num_runs)->default_value(1000),
                                               "the number of times running a function during benchmarking")(
-      "help,h",
-      "benchmark functions, and report average, minimum, and maximum execution time in nanoseconds");
+      "help,h", "benchmark functions, and report average, minimum, and maximum execution time in nanoseconds");
 
    variables_map vmap;
    try {

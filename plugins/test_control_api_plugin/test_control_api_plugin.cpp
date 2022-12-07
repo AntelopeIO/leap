@@ -30,23 +30,22 @@ struct async_result_visitor : public fc::visitor<std::string> {
    }
 };
 
-#define CALL_WITH_API_400(api_name, api_handle, api_namespace, call_name, http_response_code, params_type)   \
-   {                                                                                                         \
-      std::string("/v1/" #api_name "/" #call_name),                                                          \
-         [api_handle](string, string body, url_response_callback cb) mutable {                               \
-            try {                                                                                            \
-               auto        params = parse_params<api_namespace::call_name##_params, params_type>(body);      \
-               fc::variant result(api_handle.call_name(std::move(params)));                                  \
-               cb(http_response_code, fc::time_point::maximum(), std::move(result));                         \
-            } catch (...) {                                                                                  \
-               http_plugin::handle_exception(#api_name, #call_name, body, cb);                               \
-            }                                                                                                \
-         }                                                                                                   \
+#define CALL_WITH_API_400(api_name, api_handle, api_namespace, call_name, http_response_code, params_type)             \
+   {                                                                                                                   \
+      std::string("/v1/" #api_name "/" #call_name),                                                                    \
+         [api_handle](string, string body, url_response_callback cb) mutable {                                         \
+            try {                                                                                                      \
+               auto        params = parse_params<api_namespace::call_name##_params, params_type>(body);                \
+               fc::variant result(api_handle.call_name(std::move(params)));                                            \
+               cb(http_response_code, fc::time_point::maximum(), std::move(result));                                   \
+            } catch (...) {                                                                                            \
+               http_plugin::handle_exception(#api_name, #call_name, body, cb);                                         \
+            }                                                                                                          \
+         }                                                                                                             \
    }
 
-#define TEST_CONTROL_RW_CALL(call_name, http_response_code, params_type)                                     \
-   CALL_WITH_API_400(                                                                                        \
-      test_control, rw_api, test_control_apis::read_write, call_name, http_response_code, params_type)
+#define TEST_CONTROL_RW_CALL(call_name, http_response_code, params_type)                                               \
+   CALL_WITH_API_400(test_control, rw_api, test_control_apis::read_write, call_name, http_response_code, params_type)
 
 void test_control_api_plugin::plugin_startup() {
    my.reset(new test_control_api_plugin_impl(app().get_plugin<chain_plugin>().chain()));

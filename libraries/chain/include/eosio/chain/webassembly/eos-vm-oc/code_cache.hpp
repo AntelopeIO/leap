@@ -18,9 +18,7 @@
 namespace std {
 template<>
 struct hash<eosio::chain::eosvmoc::code_tuple> {
-   size_t operator()(const eosio::chain::eosvmoc::code_tuple& ct) const noexcept {
-      return ct.code_id._hash[0];
-   }
+   size_t operator()(const eosio::chain::eosvmoc::code_tuple& ct) const noexcept { return ct.code_id._hash[0]; }
 };
 }
 
@@ -34,16 +32,13 @@ using namespace boost::asio;
 namespace bip = boost::interprocess;
 namespace bfs = boost::filesystem;
 
-using allocator_t =
-   bip::rbtree_best_fit<bip::null_mutex_family, bip::offset_ptr<void>, alignof(std::max_align_t)>;
+using allocator_t = bip::rbtree_best_fit<bip::null_mutex_family, bip::offset_ptr<void>, alignof(std::max_align_t)>;
 
 struct config;
 
 class code_cache_base {
 public:
-   code_cache_base(const bfs::path            data_dir,
-                   const eosvmoc::config&     eosvmoc_config,
-                   const chainbase::database& db);
+   code_cache_base(const bfs::path data_dir, const eosvmoc::config& eosvmoc_config, const chainbase::database& db);
    ~code_cache_base();
 
    const int& fd() const { return _cache_fd; }
@@ -55,12 +50,11 @@ protected:
 
    typedef boost::multi_index_container<
       code_descriptor,
-      indexed_by<
-         sequenced<>,
-         hashed_unique<tag<by_hash>,
-                       composite_key<code_descriptor,
-                                     member<code_descriptor, digest_type, &code_descriptor::code_hash>,
-                                     member<code_descriptor, uint8_t, &code_descriptor::vm_version>>>>>
+      indexed_by<sequenced<>,
+                 hashed_unique<tag<by_hash>,
+                               composite_key<code_descriptor,
+                                             member<code_descriptor, digest_type, &code_descriptor::code_hash>,
+                                             member<code_descriptor, uint8_t, &code_descriptor::vm_version>>>>>
                     code_cache_index;
    code_cache_index _cache_index;
 
@@ -90,16 +84,13 @@ protected:
 
 class code_cache_async : public code_cache_base {
 public:
-   code_cache_async(const bfs::path            data_dir,
-                    const eosvmoc::config&     eosvmoc_config,
-                    const chainbase::database& db);
+   code_cache_async(const bfs::path data_dir, const eosvmoc::config& eosvmoc_config, const chainbase::database& db);
    ~code_cache_async();
 
    // If code is in cache: returns pointer & bumps to front of MRU list
-   // If code is not in cache, and not blacklisted, and not currently compiling: return nullptr and kick off
-   // compile otherwise: return nullptr
-   const code_descriptor* const get_descriptor_for_code(const digest_type& code_id,
-                                                        const uint8_t&     vm_version);
+   // If code is not in cache, and not blacklisted, and not currently compiling: return nullptr and kick off compile
+   // otherwise: return nullptr
+   const code_descriptor* const get_descriptor_for_code(const digest_type& code_id, const uint8_t& vm_version);
 
 private:
    std::thread                                                  _monitor_reply_thread;
@@ -116,8 +107,7 @@ public:
    ~code_cache_sync();
 
    // Can still fail and return nullptr if, for example, there is an expected instantiation failure
-   const code_descriptor* const get_descriptor_for_code_sync(const digest_type& code_id,
-                                                             const uint8_t&     vm_version);
+   const code_descriptor* const get_descriptor_for_code_sync(const digest_type& code_id, const uint8_t& vm_version);
 };
 
 }

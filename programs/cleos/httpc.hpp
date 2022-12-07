@@ -80,9 +80,8 @@ const string wallet_create_key  = wallet_func_base + "/create_key";
 const string wallet_sign_trx    = wallet_func_base + "/sign_transaction";
 const string keosd_stop         = "/v1/" + string(client::config::key_store_executable_name) + "/stop";
 
-const string producer_func_base = "/v1/producer";
-const string producer_get_supported_protocol_features_func =
-   producer_func_base + "/get_supported_protocol_features";
+const string producer_func_base                            = "/v1/producer";
+const string producer_get_supported_protocol_features_func = producer_func_base + "/get_supported_protocol_features";
 
 }
 }

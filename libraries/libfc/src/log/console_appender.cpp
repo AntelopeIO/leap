@@ -95,8 +95,8 @@ void console_appender::log(const log_message& m) {
 
    FILE* out = my->cfg.stream == stream::std_error ? stderr : stdout;
 
-   // fc::string fmt_str = fc::format_string( cfg.format, mutable_variant_object(m.get_context())( "message",
-   // message)  );
+   // fc::string fmt_str = fc::format_string( cfg.format, mutable_variant_object(m.get_context())( "message", message)
+   // );
 
    const log_context context   = m.get_context();
    std::string       file_line = context.get_file().substr(0, 22);
@@ -115,8 +115,8 @@ void console_appender::log(const log_message& m) {
    }
    line += fixed_size(5, context.get_log_level().to_string());
    line += ' ';
-   // use now() instead of context.get_timestamp() because log_message construction can include user provided
-   // long running calls
+   // use now() instead of context.get_timestamp() because log_message construction can include user provided long
+   // running calls
    line += string(time_point::now());
    line += ' ';
    line += fixed_size(9, context.get_thread_name());

@@ -30,9 +30,8 @@ void findClosingParenthesis(ParseState& state, const Token* openingParenthesisTo
             --depth;
             break;
          case t_eof:
-            parseErrorf(state,
-                        openingParenthesisToken,
-                        "reached end of input while trying to find closing parenthesis");
+            parseErrorf(
+               state, openingParenthesisToken, "reached end of input while trying to find closing parenthesis");
             throw FatalParseException();
       }
    }
@@ -41,8 +40,7 @@ void findClosingParenthesis(ParseState& state, const Token* openingParenthesisTo
 void parseErrorf(ParseState& state, Uptr charOffset, const char* messageFormat, va_list messageArguments) {
    // Format the message.
    char messageBuffer[1024];
-   int  numPrintedChars =
-      std::vsnprintf(messageBuffer, sizeof(messageBuffer), messageFormat, messageArguments);
+   int  numPrintedChars = std::vsnprintf(messageBuffer, sizeof(messageBuffer), messageFormat, messageArguments);
    if (numPrintedChars >= 1023 || numPrintedChars < 0) {
       Errors::unreachable();
    }
@@ -188,8 +186,7 @@ UnresolvedFunctionType parseFunctionTypeRefAndOrDecl(ModuleParseState&         s
    return result;
 }
 
-IndexedFunctionType resolveFunctionType(ModuleParseState&             state,
-                                        const UnresolvedFunctionType& unresolvedType) {
+IndexedFunctionType resolveFunctionType(ModuleParseState& state, const UnresolvedFunctionType& unresolvedType) {
    if (!unresolvedType.reference) {
       return getUniqueFunctionTypeIndex(state, unresolvedType.explicitType);
    } else {
@@ -249,10 +246,10 @@ bool tryParseName(ParseState& state, Name& outName) {
    ++nextChar;
    while (true) {
       const char c = *nextChar;
-      if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' ||
-          c == '\'' || c == '+' || c == '-' || c == '*' || c == '/' || c == '\\' || c == '^' || c == '~' ||
-          c == '=' || c == '<' || c == '>' || c == '!' || c == '?' || c == '@' || c == '#' || c == '$' ||
-          c == '%' || c == '&' || c == '|' || c == ':' || c == '`' || c == '.') {
+      if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '\'' ||
+          c == '+' || c == '-' || c == '*' || c == '/' || c == '\\' || c == '^' || c == '~' || c == '=' || c == '<' ||
+          c == '>' || c == '!' || c == '?' || c == '@' || c == '#' || c == '$' || c == '%' || c == '&' || c == '|' ||
+          c == ':' || c == '`' || c == '.') {
          ++nextChar;
       } else {
          break;

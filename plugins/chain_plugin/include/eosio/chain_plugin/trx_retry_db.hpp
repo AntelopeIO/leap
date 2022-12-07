@@ -19,13 +19,13 @@ using next_function = std::function<void(const std::variant<fc::exception_ptr, T
 class trx_retry_db {
 public:
    /**
-    * @param chain - controller to read data from, caller is expected to manage lifetimes such that this
-    * controller reference does not go stale for the life of this class.
+    * @param chain - controller to read data from, caller is expected to manage lifetimes such that this controller
+    *                reference does not go stale for the life of this class.
     * @param max_mem_usage_size - maximum allowed memory for this feature, see track_transaction.
     * @param retry_interval - how often to retry transaction if not see in a block.
     * @param max_expiration_time - the maximum allowed expiration on a retry transaction
-    * @param abi_serializer_max_time - the configurable abi-serializer-max-time-ms option used for creating
-    * trace variants
+    * @param abi_serializer_max_time - the configurable abi-serializer-max-time-ms option used for creating trace
+    * variants
     */
    explicit trx_retry_db(const chain::controller& controller,
                          size_t                   max_mem_usage_size,
@@ -61,8 +61,7 @@ public:
     * Attach to chain applied_transaction signal
     * Add a transaction trace to the DB that has been applied to the controller
     */
-   void on_applied_transaction(const chain::transaction_trace_ptr&  trace,
-                               const chain::packed_transaction_ptr& ptrx);
+   void on_applied_transaction(const chain::transaction_trace_ptr& trace, const chain::packed_transaction_ptr& ptrx);
 
    /**
     * Attach to chain block_start signal

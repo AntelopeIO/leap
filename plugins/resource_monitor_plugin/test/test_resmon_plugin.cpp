@@ -67,13 +67,11 @@ struct resmon_fixture {
 
 BOOST_AUTO_TEST_SUITE(resmon_plugin_tests)
 BOOST_FIXTURE_TEST_CASE(intervalTooBig, resmon_fixture) {
-   BOOST_REQUIRE_THROW(set_options({ "--resource-monitor-interval-seconds=301" }),
-                       chain::plugin_config_exception);
+   BOOST_REQUIRE_THROW(set_options({ "--resource-monitor-interval-seconds=301" }), chain::plugin_config_exception);
 }
 
 BOOST_FIXTURE_TEST_CASE(intervalTooSmall, resmon_fixture) {
-   BOOST_REQUIRE_THROW(set_options({ "--resource-monitor-interval-seconds=0" }),
-                       chain::plugin_config_exception);
+   BOOST_REQUIRE_THROW(set_options({ "--resource-monitor-interval-seconds=0" }), chain::plugin_config_exception);
 }
 
 BOOST_FIXTURE_TEST_CASE(intervalLowBound, resmon_fixture) {
@@ -89,13 +87,11 @@ BOOST_FIXTURE_TEST_CASE(intervalHighBound, resmon_fixture) {
 }
 
 BOOST_FIXTURE_TEST_CASE(thresholdTooBig, resmon_fixture) {
-   BOOST_REQUIRE_THROW(set_options({ "--resource-monitor-space-threshold=100" }),
-                       chain::plugin_config_exception);
+   BOOST_REQUIRE_THROW(set_options({ "--resource-monitor-space-threshold=100" }), chain::plugin_config_exception);
 }
 
 BOOST_FIXTURE_TEST_CASE(thresholdTooSmall, resmon_fixture) {
-   BOOST_REQUIRE_THROW(set_options({ "--resource-monitor-space-threshold=5" }),
-                       chain::plugin_config_exception);
+   BOOST_REQUIRE_THROW(set_options({ "--resource-monitor-space-threshold=5" }), chain::plugin_config_exception);
 }
 
 BOOST_FIXTURE_TEST_CASE(thresholdLowBound, resmon_fixture) {
@@ -137,13 +133,11 @@ BOOST_FIXTURE_TEST_CASE(startupLongRun, resmon_fixture) {
 }
 
 BOOST_FIXTURE_TEST_CASE(warningIntervalTooBig, resmon_fixture) {
-   BOOST_REQUIRE_THROW(set_options({ "--resource-monitor-warning-interval=451" }),
-                       chain::plugin_config_exception);
+   BOOST_REQUIRE_THROW(set_options({ "--resource-monitor-warning-interval=451" }), chain::plugin_config_exception);
 }
 
 BOOST_FIXTURE_TEST_CASE(warningIntervalTooSmall, resmon_fixture) {
-   BOOST_REQUIRE_THROW(set_options({ "--resource-monitor-warning-interval=0" }),
-                       chain::plugin_config_exception);
+   BOOST_REQUIRE_THROW(set_options({ "--resource-monitor-warning-interval=0" }), chain::plugin_config_exception);
 }
 
 BOOST_FIXTURE_TEST_CASE(warningIntervalLowBound, resmon_fixture) {

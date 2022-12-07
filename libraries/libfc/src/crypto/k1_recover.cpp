@@ -36,8 +36,7 @@ std::variant<k1_recover_error, bytes> k1_recover(const bytes& signature, const b
 
    size_t kOutLen{ 65 };
    bytes  out(kOutLen, '\0');
-   secp256k1_ec_pubkey_serialize(
-      context, (unsigned char*)&out[0], &kOutLen, &pub_key, SECP256K1_EC_UNCOMPRESSED);
+   secp256k1_ec_pubkey_serialize(context, (unsigned char*)&out[0], &kOutLen, &pub_key, SECP256K1_EC_UNCOMPRESSED);
    return out;
 }
 }

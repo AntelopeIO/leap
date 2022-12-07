@@ -111,11 +111,11 @@ static constexpr uint64_t name_suffix(name nv) {
        0) // there is no actual dot in the name other than potentially leading dots
       return n;
 
-   // At this point remaining_bits_after_last_actual_dot has to be within the range of 4 to 59 (and restricted
-   // to increments of 5).
+   // At this point remaining_bits_after_last_actual_dot has to be within the range of 4 to 59 (and restricted to
+   // increments of 5).
 
-   // Mask for remaining bits corresponding to characters after last actual dot, except for 4 least
-   // significant bits (corresponds to 13th character).
+   // Mask for remaining bits corresponding to characters after last actual dot, except for 4 least significant bits
+   // (corresponds to 13th character).
    uint64_t mask  = (1ull << remaining_bits_after_last_actual_dot) - 16;
    uint32_t shift = 64 - remaining_bits_after_last_actual_dot;
 
@@ -210,17 +210,17 @@ BOOST_AUTO_TEST_CASE(variant_format_string_limited) {
          std::string digest = "1234567";
          for (auto& permission : provided_permissions) {
             digest += "1";
-            const std::string key_name_str = permission.actor.to_string() + permission.permission.to_string();
-            auto              sig_digest = digest_type::hash(std::make_pair("1234", "abcd"));
-            const fc::crypto::signature sig = private_key_type::regenerate<fc::ecc::private_key_shim>(
-                                                 fc::sha256::hash(key_name_str + "active"))
-                                                 .sign(sig_digest);
+            const std::string           key_name_str = permission.actor.to_string() + permission.permission.to_string();
+            auto                        sig_digest = digest_type::hash(std::make_pair("1234", "abcd"));
+            const fc::crypto::signature sig =
+               private_key_type::regenerate<fc::ecc::private_key_shim>(fc::sha256::hash(key_name_str + "active"))
+                  .sign(sig_digest);
             provided_keys.insert(public_key_type{ sig, fc::sha256{ digest }, true });
          }
       };
       fill_keys(provided_permissions, provided_keys);
-      const string               format = "transaction declares authority '${auth}', provided permissions "
-                                          "${provided_permissions}, provided keys ${provided_keys}";
+      const string format = "transaction declares authority '${auth}', provided permissions ${provided_permissions}, "
+                            "provided keys ${provided_keys}";
       fc::mutable_variant_object mu;
       mu("auth", *provided_permissions.begin());
       mu("provided_permissions", provided_permissions);
@@ -232,10 +232,9 @@ BOOST_AUTO_TEST_CASE(variant_format_string_limited) {
       const string auth_str   = fc::json::to_string(*provided_permissions.begin(), fc::time_point::maximum());
       string       target_str = "transaction declares authority '" +
                           fc::json::to_string(*provided_permissions.begin(), fc::time_point::maximum());
+      target_str += "', provided permissions " + fc::json::to_string(provided_permissions, fc::time_point::maximum());
       target_str +=
-         "', provided permissions " + fc::json::to_string(provided_permissions, fc::time_point::maximum());
-      target_str += ", provided keys " +
-                    fc::json::to_string(provided_keys, fc::time_point::maximum()).substr(0, arg_limit_size);
+         ", provided keys " + fc::json::to_string(provided_keys, fc::time_point::maximum()).substr(0, arg_limit_size);
       BOOST_CHECK_EQUAL(result, target_str);
       BOOST_CHECK_LT(result.size(), 1024 + 3 * mu.size());
 
@@ -267,22 +266,18 @@ BOOST_AUTO_TEST_CASE(asset_from_string_overflow) {
    asset a;
 
    // precision = 19, magnitude < 2^61
-   BOOST_CHECK_EXCEPTION(
-      asset::from_string("0.1000000000000000000 CUR"), symbol_type_exception, [](const auto& e) {
-         return expect_assert_message(e, "precision 19 should be <= 18");
-      });
-   BOOST_CHECK_EXCEPTION(
-      asset::from_string("-0.1000000000000000000 CUR"), symbol_type_exception, [](const auto& e) {
-         return expect_assert_message(e, "precision 19 should be <= 18");
-      });
-   BOOST_CHECK_EXCEPTION(
-      asset::from_string("1.0000000000000000000 CUR"), symbol_type_exception, [](const auto& e) {
-         return expect_assert_message(e, "precision 19 should be <= 18");
-      });
-   BOOST_CHECK_EXCEPTION(
-      asset::from_string("-1.0000000000000000000 CUR"), symbol_type_exception, [](const auto& e) {
-         return expect_assert_message(e, "precision 19 should be <= 18");
-      });
+   BOOST_CHECK_EXCEPTION(asset::from_string("0.1000000000000000000 CUR"), symbol_type_exception, [](const auto& e) {
+      return expect_assert_message(e, "precision 19 should be <= 18");
+   });
+   BOOST_CHECK_EXCEPTION(asset::from_string("-0.1000000000000000000 CUR"), symbol_type_exception, [](const auto& e) {
+      return expect_assert_message(e, "precision 19 should be <= 18");
+   });
+   BOOST_CHECK_EXCEPTION(asset::from_string("1.0000000000000000000 CUR"), symbol_type_exception, [](const auto& e) {
+      return expect_assert_message(e, "precision 19 should be <= 18");
+   });
+   BOOST_CHECK_EXCEPTION(asset::from_string("-1.0000000000000000000 CUR"), symbol_type_exception, [](const auto& e) {
+      return expect_assert_message(e, "precision 19 should be <= 18");
+   });
 
    // precision = 18, magnitude < 2^58
    a = asset::from_string("0.100000000000000000 CUR");
@@ -291,30 +286,22 @@ BOOST_AUTO_TEST_CASE(asset_from_string_overflow) {
    BOOST_CHECK_EQUAL(a.get_amount(), -100000000000000000L);
 
    // precision = 18, magnitude = 2^62
-   BOOST_CHECK_EXCEPTION(asset::from_string("4.611686018427387904 CUR"),
-                         asset_type_exception,
-                         [](const asset_type_exception& e) {
-                            return expect_assert_message(e,
-                                                         "magnitude of asset amount must be less than 2^62");
-                         });
-   BOOST_CHECK_EXCEPTION(asset::from_string("-4.611686018427387904 CUR"),
-                         asset_type_exception,
-                         [](const asset_type_exception& e) {
-                            return expect_assert_message(e,
-                                                         "magnitude of asset amount must be less than 2^62");
-                         });
-   BOOST_CHECK_EXCEPTION(asset::from_string("4611686018427387.904 CUR"),
-                         asset_type_exception,
-                         [](const asset_type_exception& e) {
-                            return expect_assert_message(e,
-                                                         "magnitude of asset amount must be less than 2^62");
-                         });
-   BOOST_CHECK_EXCEPTION(asset::from_string("-4611686018427387.904 CUR"),
-                         asset_type_exception,
-                         [](const asset_type_exception& e) {
-                            return expect_assert_message(e,
-                                                         "magnitude of asset amount must be less than 2^62");
-                         });
+   BOOST_CHECK_EXCEPTION(
+      asset::from_string("4.611686018427387904 CUR"), asset_type_exception, [](const asset_type_exception& e) {
+         return expect_assert_message(e, "magnitude of asset amount must be less than 2^62");
+      });
+   BOOST_CHECK_EXCEPTION(
+      asset::from_string("-4.611686018427387904 CUR"), asset_type_exception, [](const asset_type_exception& e) {
+         return expect_assert_message(e, "magnitude of asset amount must be less than 2^62");
+      });
+   BOOST_CHECK_EXCEPTION(
+      asset::from_string("4611686018427387.904 CUR"), asset_type_exception, [](const asset_type_exception& e) {
+         return expect_assert_message(e, "magnitude of asset amount must be less than 2^62");
+      });
+   BOOST_CHECK_EXCEPTION(
+      asset::from_string("-4611686018427387.904 CUR"), asset_type_exception, [](const asset_type_exception& e) {
+         return expect_assert_message(e, "magnitude of asset amount must be less than 2^62");
+      });
 
    // precision = 18, magnitude = 2^62-1
    a = asset::from_string("4.611686018427387903 CUR");
@@ -327,12 +314,10 @@ BOOST_AUTO_TEST_CASE(asset_from_string_overflow) {
       asset::from_string("4611686018427387904 CUR"), asset_type_exception, [](const asset_type_exception& e) {
          return expect_assert_message(e, "magnitude of asset amount must be less than 2^62");
       });
-   BOOST_CHECK_EXCEPTION(asset::from_string("-4611686018427387904 CUR"),
-                         asset_type_exception,
-                         [](const asset_type_exception& e) {
-                            return expect_assert_message(e,
-                                                         "magnitude of asset amount must be less than 2^62");
-                         });
+   BOOST_CHECK_EXCEPTION(
+      asset::from_string("-4611686018427387904 CUR"), asset_type_exception, [](const asset_type_exception& e) {
+         return expect_assert_message(e, "magnitude of asset amount must be less than 2^62");
+      });
 
    // precision = 0, magnitude = 2^62-1
    a = asset::from_string("4611686018427387903 CUR");
@@ -358,23 +343,21 @@ BOOST_AUTO_TEST_CASE(asset_from_string_overflow) {
 
    // precision = 0, magnitude > 2^76
    BOOST_CHECK_EXCEPTION(
-      asset::from_string("100000000000000000000000 CUR"),
-      parse_error_exception,
-      [](const parse_error_exception& e) { return expect_assert_message(e, "Couldn't parse int64_t"); });
+      asset::from_string("100000000000000000000000 CUR"), parse_error_exception, [](const parse_error_exception& e) {
+         return expect_assert_message(e, "Couldn't parse int64_t");
+      });
    BOOST_CHECK_EXCEPTION(
-      asset::from_string("-100000000000000000000000 CUR"),
-      parse_error_exception,
-      [](const parse_error_exception& e) { return expect_assert_message(e, "Couldn't parse int64_t"); });
+      asset::from_string("-100000000000000000000000 CUR"), parse_error_exception, [](const parse_error_exception& e) {
+         return expect_assert_message(e, "Couldn't parse int64_t");
+      });
 
    // precision = 20, magnitude > 2^142
-   BOOST_CHECK_EXCEPTION(
-      asset::from_string("100000000000000000000000.00000000000000000000 CUR"),
-      symbol_type_exception,
-      [](const auto& e) { return expect_assert_message(e, "precision 20 should be <= 18"); });
-   BOOST_CHECK_EXCEPTION(
-      asset::from_string("-100000000000000000000000.00000000000000000000 CUR"),
-      symbol_type_exception,
-      [](const auto& e) { return expect_assert_message(e, "precision 20 should be <= 18"); });
+   BOOST_CHECK_EXCEPTION(asset::from_string("100000000000000000000000.00000000000000000000 CUR"),
+                         symbol_type_exception,
+                         [](const auto& e) { return expect_assert_message(e, "precision 20 should be <= 18"); });
+   BOOST_CHECK_EXCEPTION(asset::from_string("-100000000000000000000000.00000000000000000000 CUR"),
+                         symbol_type_exception,
+                         [](const auto& e) { return expect_assert_message(e, "precision 20 should be <= 18"); });
 }
 
 struct permission_visitor {
@@ -796,9 +779,8 @@ BOOST_AUTO_TEST_CASE(alphabetic_sort) {
    try {
 
       vector<string> words = {
-         "com.o",  "te",  "a.....5", "a...4", ".va.ku", "gh",           "1ho.la",
-         "g1",     "g",   "a....2",  "gg",    "va",     "lale.....12b", "a....3",
-         "a....1", "..g", ".g",      "....g", "a....y", "...g",         "lale.....333",
+         "com.o", "te",           "a.....5", "a...4",  ".va.ku", "gh", "1ho.la", "g1",     "g",    "a....2",       "gg",
+         "va",    "lale.....12b", "a....3",  "a....1", "..g",    ".g", "....g",  "a....y", "...g", "lale.....333",
       };
 
       std::sort(words.begin(), words.end(), std::less<string>());
@@ -833,19 +815,15 @@ BOOST_AUTO_TEST_CASE(transaction_test) {
       fc::variant pretty_trx = fc::mutable_variant_object()(
          "actions",
          fc::variants({ fc::mutable_variant_object()("account", "eosio")("name", "reqauth")(
-            "authorization",
-            fc::variants({ fc::mutable_variant_object()("actor", "eosio")("permission", "active") }))(
+            "authorization", fc::variants({ fc::mutable_variant_object()("actor", "eosio")("permission", "active") }))(
             "data", fc::mutable_variant_object()("from", "eosio")) }))
-         // lets also push a context free action, the multi chain test will then also include a context free
-         // action
+         // lets also push a context free action, the multi chain test will then also include a context free action
          ("context_free_actions",
           fc::variants({ fc::mutable_variant_object()("account", "eosio")("name", "nonce")(
              "data", fc::raw::pack(std::string("dummy"))) }));
 
-      abi_serializer::from_variant(pretty_trx,
-                                   trx,
-                                   test.get_resolver(),
-                                   abi_serializer::create_yield_function(test.abi_serializer_max_time));
+      abi_serializer::from_variant(
+         pretty_trx, trx, test.get_resolver(), abi_serializer::create_yield_function(test.abi_serializer_max_time));
 
       test.set_transaction_headers(trx);
 
@@ -880,13 +858,13 @@ BOOST_AUTO_TEST_CASE(transaction_test) {
       BOOST_CHECK_EQUAL(pkt.get_signed_transaction().id(), pkt2.id());
 
       flat_set<public_key_type> keys;
-      auto                      cpu_time1 = pkt.get_signed_transaction().get_signature_keys(
-         test.control->get_chain_id(), fc::time_point::maximum(), keys);
+      auto                      cpu_time1 =
+         pkt.get_signed_transaction().get_signature_keys(test.control->get_chain_id(), fc::time_point::maximum(), keys);
       BOOST_CHECK_EQUAL(1u, keys.size());
       BOOST_CHECK_EQUAL(public_key, *keys.begin());
       keys.clear();
-      auto cpu_time2 = pkt.get_signed_transaction().get_signature_keys(
-         test.control->get_chain_id(), fc::time_point::maximum(), keys);
+      auto cpu_time2 =
+         pkt.get_signed_transaction().get_signature_keys(test.control->get_chain_id(), fc::time_point::maximum(), keys);
       BOOST_CHECK_EQUAL(1u, keys.size());
       BOOST_CHECK_EQUAL(public_key, *keys.begin());
 
@@ -930,24 +908,23 @@ BOOST_AUTO_TEST_CASE(transaction_test) {
       BOOST_CHECK_EQUAL(true, trx.expiration == pkt4.expiration());
       BOOST_CHECK_EQUAL(true, trx.expiration == pkt4.get_signed_transaction().expiration);
       keys.clear();
-      pkt4.get_signed_transaction().get_signature_keys(
-         test.control->get_chain_id(), fc::time_point::maximum(), keys);
+      pkt4.get_signed_transaction().get_signature_keys(test.control->get_chain_id(), fc::time_point::maximum(), keys);
       BOOST_CHECK_EQUAL(1u, keys.size());
       BOOST_CHECK_EQUAL(public_key, *keys.begin());
 
       // verify packed_transaction creation from packed data
       {
-         auto packed = fc::raw::pack(static_cast<const transaction&>(pkt5.get_transaction()));
-         vector<signature_type> psigs = pkt5.get_signatures();
-         vector<bytes>          pcfd  = pkt5.get_context_free_data();
+         auto                   packed = fc::raw::pack(static_cast<const transaction&>(pkt5.get_transaction()));
+         vector<signature_type> psigs  = pkt5.get_signatures();
+         vector<bytes>          pcfd   = pkt5.get_context_free_data();
          packed_transaction     pkt7(
             std::move(packed), std::move(psigs), std::move(pcfd), packed_transaction::compression_type::none);
          BOOST_CHECK_EQUAL(pkt5.get_transaction().id(), pkt7.get_transaction().id());
       }
       {
-         auto packed = fc::raw::pack(static_cast<const transaction&>(pkt5.get_transaction()));
-         vector<signature_type> psigs = pkt5.get_signatures();
-         vector<bytes>          pcfd  = pkt5.get_context_free_data();
+         auto                   packed = fc::raw::pack(static_cast<const transaction&>(pkt5.get_transaction()));
+         vector<signature_type> psigs  = pkt5.get_signatures();
+         vector<bytes>          pcfd   = pkt5.get_context_free_data();
          packed.push_back('8');
          packed.push_back('8'); // extra ignored
          auto               packed_copy = packed;
@@ -965,8 +942,8 @@ BOOST_AUTO_TEST_CASE(signed_int_test) {
    try {
       char                  buf[32];
       fc::datastream<char*> ds(buf, 32);
-      signed_int a(47), b((1 << 30) + 2), c(-47), d(-(1 << 30) - 2); // small +, big +, small -, big -
-      signed_int ee;
+      signed_int            a(47), b((1 << 30) + 2), c(-47), d(-(1 << 30) - 2); // small +, big +, small -, big -
+      signed_int            ee;
       fc::raw::pack(ds, a);
       ds.seekp(0);
       fc::raw::unpack(ds, ee);
@@ -1000,17 +977,14 @@ BOOST_AUTO_TEST_CASE(transaction_metadata_test) {
       fc::variant pretty_trx = fc::mutable_variant_object()(
          "actions",
          fc::variants({ fc::mutable_variant_object()("account", "eosio")("name", "reqauth")(
-            "authorization",
-            fc::variants({ fc::mutable_variant_object()("actor", "eosio")("permission", "active") }))(
+            "authorization", fc::variants({ fc::mutable_variant_object()("actor", "eosio")("permission", "active") }))(
             "data", fc::mutable_variant_object()("from", "eosio")) }))(
          "context_free_actions",
          fc::variants({ fc::mutable_variant_object()("account", "eosio")("name", "nonce")(
             "data", fc::raw::pack(std::string("dummy data"))) }));
 
-      abi_serializer::from_variant(pretty_trx,
-                                   trx,
-                                   test.get_resolver(),
-                                   abi_serializer::create_yield_function(test.abi_serializer_max_time));
+      abi_serializer::from_variant(
+         pretty_trx, trx, test.get_resolver(), abi_serializer::create_yield_function(test.abi_serializer_max_time));
 
       test.set_transaction_headers(trx);
       trx.expiration = fc::time_point::now();
@@ -1046,8 +1020,8 @@ BOOST_AUTO_TEST_CASE(transaction_metadata_test) {
                                                            fc::microseconds::maximum(),
                                                            transaction_metadata::trx_type::input);
 
-      // start another key reovery on same packed_transaction, creates a new future with transaction_metadata,
-      // should not interfere with above
+      // start another key reovery on same packed_transaction, creates a new future with transaction_metadata, should
+      // not interfere with above
       transaction_metadata::start_recover_keys(ptrx,
                                                thread_pool.get_executor(),
                                                test.control->get_chain_id(),
@@ -1064,8 +1038,7 @@ BOOST_AUTO_TEST_CASE(transaction_metadata_test) {
       BOOST_CHECK_EQUAL(1u, keys.size());
       BOOST_CHECK_EQUAL(public_key, *keys.begin());
 
-      // again, can be called multiple times, current implementation it is just an attribute of
-      // transaction_metadata
+      // again, can be called multiple times, current implementation it is just an attribute of transaction_metadata
       const auto& keys2 = mtrx->recovered_keys();
       BOOST_CHECK_EQUAL(1u, keys2.size());
       BOOST_CHECK_EQUAL(public_key, *keys2.begin());
@@ -1303,18 +1276,16 @@ BOOST_AUTO_TEST_CASE(stable_priority_queue_test) {
       std::mutex       mx;
       std::vector<int> results;
       for (int i = 0; i < 50; ++i) {
-         boost::asio::post(*io_serv,
-                           pri_queue.wrap(appbase::priority::low, [io_serv, &mx, &ran, &results, i]() {
-                              std::lock_guard<std::mutex> g(mx);
-                              results.push_back(50 + i);
-                              ++ran;
-                           }));
-         boost::asio::post(*io_serv,
-                           pri_queue.wrap(appbase::priority::high, [io_serv, &mx, &ran, &results, i]() {
-                              std::lock_guard<std::mutex> g(mx);
-                              results.push_back(i);
-                              ++ran;
-                           }));
+         boost::asio::post(*io_serv, pri_queue.wrap(appbase::priority::low, [io_serv, &mx, &ran, &results, i]() {
+            std::lock_guard<std::mutex> g(mx);
+            results.push_back(50 + i);
+            ++ran;
+         }));
+         boost::asio::post(*io_serv, pri_queue.wrap(appbase::priority::high, [io_serv, &mx, &ran, &results, i]() {
+            std::lock_guard<std::mutex> g(mx);
+            results.push_back(i);
+            ++ran;
+         }));
       }
 
       while (ran < 100)
@@ -1343,10 +1314,10 @@ BOOST_AUTO_TEST_CASE(bad_alloc_test) {
 }
 
 BOOST_AUTO_TEST_CASE(public_key_from_hash) {
-   auto private_key_string  = std::string("5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3");
-   auto expected_public_key = std::string("EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV");
-   auto test_private_key    = fc::crypto::private_key(private_key_string);
-   auto test_public_key     = test_private_key.get_public_key();
+   auto                   private_key_string  = std::string("5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3");
+   auto                   expected_public_key = std::string("EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV");
+   auto                   test_private_key    = fc::crypto::private_key(private_key_string);
+   auto                   test_public_key     = test_private_key.get_public_key();
    fc::crypto::public_key eos_pk(expected_public_key);
 
    BOOST_CHECK_EQUAL(private_key_string, test_private_key.to_string());

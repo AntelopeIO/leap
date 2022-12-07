@@ -78,11 +78,11 @@ chain::block_id_type make_block_id(uint32_t block_num) {
    return block_id;
 }
 
-chain::transaction_trace_ptr make_transaction_trace(const packed_transaction_ptr         trx,
-                                                    uint32_t                             block_number,
-                                                    const eosio::chain::block_state_ptr& bs_ptr,
-                                                    chain::transaction_receipt_header::status_enum status =
-                                                       eosio::chain::transaction_receipt_header::executed) {
+chain::transaction_trace_ptr make_transaction_trace(
+   const packed_transaction_ptr                   trx,
+   uint32_t                                       block_number,
+   const eosio::chain::block_state_ptr&           bs_ptr,
+   chain::transaction_receipt_header::status_enum status = eosio::chain::transaction_receipt_header::executed) {
    return std::make_shared<chain::transaction_trace>(
       chain::transaction_trace{ trx->id(),
                                 block_number,
@@ -115,11 +115,9 @@ auto make_block_state(uint32_t block_num) {
    auto priv_key = get_private_key(block->producer, "active");
    auto pub_key  = get_public_key(block->producer, "active");
 
-   auto prev = std::make_shared<chain::block_state>();
-   auto header_bmroot =
-      chain::digest_type::hash(std::make_pair(block->digest(), prev->blockroot_merkle.get_root()));
-   auto sig_digest =
-      chain::digest_type::hash(std::make_pair(header_bmroot, prev->pending_schedule.schedule_hash));
+   auto prev          = std::make_shared<chain::block_state>();
+   auto header_bmroot = chain::digest_type::hash(std::make_pair(block->digest(), prev->blockroot_merkle.get_root()));
+   auto sig_digest    = chain::digest_type::hash(std::make_pair(header_bmroot, prev->pending_schedule.schedule_hash));
    block->producer_signature = priv_key.sign(sig_digest);
 
    std::vector<chain::private_key_type> signing_keys;
@@ -136,9 +134,7 @@ auto make_block_state(uint32_t block_num) {
    pbhs.timestamp                              = block->timestamp;
    pbhs.previous                               = block->previous;
    chain::producer_authority_schedule schedule = {
-      0,
-      { chain::producer_authority{ block->producer,
-                                   chain::block_signing_authority_v0{ 1, { { pub_key, 1 } } } } }
+      0, { chain::producer_authority{ block->producer, chain::block_signing_authority_v0{ 1, { { pub_key, 1 } } } } }
    };
    pbhs.active_schedule               = schedule;
    pbhs.valid_block_signing_authority = chain::block_signing_authority_v0{ 1, { { pub_key, 1 } } };
@@ -639,8 +635,7 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_logic) {
       trx_pairs_19_alt.push_back(hold_pairs[0]);
 
       const auto bs_19_alt = make_block_state(bn);
-      // const auto bs_19_alt = make_block_state(make_block_id(bn),
-      // std::vector<chain::packed_transaction_ptr>{});
+      // const auto bs_19_alt = make_block_state(make_block_id(bn), std::vector<chain::packed_transaction_ptr>{});
       status.signal_block_start(bn);
 
       for (const auto& trx_tuple : trx_pairs_19_alt) {
@@ -837,9 +832,7 @@ struct block_frame {
    chain::block_state_ptr          bs;
    std::string                     context;
 
-   block_frame(trx_finality_status_processing& finality_status,
-               const char*                     block_time,
-               uint32_t                        block_num = 0)
+   block_frame(trx_finality_status_processing& finality_status, const char* block_time, uint32_t block_num = 0)
       : status(finality_status)
       , bn(block_num == 0 ? block_frame::last_used_block_num + 1 : block_num)
       , time(set_now("2022-04-04", block_time)) {

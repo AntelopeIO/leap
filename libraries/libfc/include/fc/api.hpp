@@ -77,12 +77,11 @@ public:
    template<typename T>
    api(const T& p)
       : _vtable(std::make_shared<vtable_type>()) {
-      _data                                                                  = std::make_shared<fc::any>(p);
-      T&                                                                 ptr = boost::any_cast<T&>(*_data);
+      _data                                                                         = std::make_shared<fc::any>(p);
+      T&                                                                 ptr        = boost::any_cast<T&>(*_data);
       auto&                                                              pointed_at = *ptr;
       typedef typename std::remove_reference<decltype(pointed_at)>::type source_vtable_type;
-      _vtable->FC_CALL_MEMBER_TEMPLATE_KEYWORD                           visit_other(
-         vtable_copy_visitor<source_vtable_type>(pointed_at));
+      _vtable->FC_CALL_MEMBER_TEMPLATE_KEYWORD visit_other(vtable_copy_visitor<source_vtable_type>(pointed_at));
    }
 
    api(const api& cpy)
@@ -90,11 +89,9 @@ public:
       , _data(cpy._data) {}
    virtual ~api() {}
 
-   friend bool operator==(const api& a, const api& b) { return a._data == b._data && a._vtable == b._vtable; }
-   friend bool operator!=(const api& a, const api& b) {
-      return !(a._data == b._data && a._vtable == b._vtable);
-   }
-   virtual uint64_t    get_handle() const override { return uint64_t(_data.get()); }
+   friend bool      operator==(const api& a, const api& b) { return a._data == b._data && a._vtable == b._vtable; }
+   friend bool      operator!=(const api& a, const api& b) { return !(a._data == b._data && a._vtable == b._vtable); }
+   virtual uint64_t get_handle() const override { return uint64_t(_data.get()); }
    virtual api_id_type register_api(api_connection& conn) const override; // defined in api_connection.hpp
 
    vtable_type& operator*() const {
@@ -121,27 +118,26 @@ protected:
 #include <boost/preprocessor/seq/for_each.hpp>
 #include <boost/preprocessor/stringize.hpp>
 
-#define FC_API_VTABLE_DEFINE_MEMBER(r, data, elem)                                                           \
-   decltype(Transform::functor((data*)nullptr, &data::elem)) elem;
-#define FC_API_VTABLE_DEFINE_VISIT_OTHER(r, data, elem)                                                      \
-   {                                                                                                         \
-      typedef typename Visitor::other_type OtherType;                                                        \
-      v(BOOST_PP_STRINGIZE(elem), elem, &OtherType::elem);                                                   \
+#define FC_API_VTABLE_DEFINE_MEMBER(r, data, elem) decltype(Transform::functor((data*)nullptr, &data::elem)) elem;
+#define FC_API_VTABLE_DEFINE_VISIT_OTHER(r, data, elem)                                                                \
+   {                                                                                                                   \
+      typedef typename Visitor::other_type OtherType;                                                                  \
+      v(BOOST_PP_STRINGIZE(elem), elem, &OtherType::elem);                                                             \
    }
 #define FC_API_VTABLE_DEFINE_VISIT(r, data, elem) v(BOOST_PP_STRINGIZE(elem), elem);
 
-#define FC_API(CLASS, METHODS)                                                                               \
-   namespace fc {                                                                                            \
-   template<typename Transform>                                                                              \
-   struct vtable<CLASS, Transform> : public std::enable_shared_from_this<vtable<CLASS, Transform>> {         \
-      BOOST_PP_SEQ_FOR_EACH(FC_API_VTABLE_DEFINE_MEMBER, CLASS, METHODS)                                     \
-      template<typename Visitor>                                                                             \
-      void visit_other(Visitor&& v) {                                                                        \
-         BOOST_PP_SEQ_FOR_EACH(FC_API_VTABLE_DEFINE_VISIT_OTHER, CLASS, METHODS)                             \
-      }                                                                                                      \
-      template<typename Visitor>                                                                             \
-      void visit(Visitor&& v) {                                                                              \
-         BOOST_PP_SEQ_FOR_EACH(FC_API_VTABLE_DEFINE_VISIT, CLASS, METHODS)                                   \
-      }                                                                                                      \
-   };                                                                                                        \
+#define FC_API(CLASS, METHODS)                                                                                         \
+   namespace fc {                                                                                                      \
+   template<typename Transform>                                                                                        \
+   struct vtable<CLASS, Transform> : public std::enable_shared_from_this<vtable<CLASS, Transform>> {                   \
+      BOOST_PP_SEQ_FOR_EACH(FC_API_VTABLE_DEFINE_MEMBER, CLASS, METHODS)                                               \
+      template<typename Visitor>                                                                                       \
+      void visit_other(Visitor&& v) {                                                                                  \
+         BOOST_PP_SEQ_FOR_EACH(FC_API_VTABLE_DEFINE_VISIT_OTHER, CLASS, METHODS)                                       \
+      }                                                                                                                \
+      template<typename Visitor>                                                                                       \
+      void visit(Visitor&& v) {                                                                                        \
+         BOOST_PP_SEQ_FOR_EACH(FC_API_VTABLE_DEFINE_VISIT, CLASS, METHODS)                                             \
+      }                                                                                                                \
+   };                                                                                                                  \
    }

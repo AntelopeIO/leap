@@ -41,14 +41,11 @@ static_assert(sizeof(base64_chars) == sizeof(base64url_chars),
               "base64 and base64url must have the same amount of chars");
 
 static inline void throw_on_nonbase64(unsigned char c, const char* const b64_chars) {
-   FC_ASSERT(isalnum(c) || (c == b64_chars[sizeof(base64_chars) - 3]) ||
-                (c == b64_chars[sizeof(base64_chars) - 2]),
+   FC_ASSERT(isalnum(c) || (c == b64_chars[sizeof(base64_chars) - 3]) || (c == b64_chars[sizeof(base64_chars) - 2]),
              "encountered non-base64 character");
 }
 
-std::string base64_encode_impl(unsigned char const* bytes_to_encode,
-                               unsigned int         in_len,
-                               const char* const    b64_chars) {
+std::string base64_encode_impl(unsigned char const* bytes_to_encode, unsigned int in_len, const char* const b64_chars) {
 
    std::string   ret;
    int           i = 0;

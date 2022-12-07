@@ -14,9 +14,7 @@ void unpack_provided_keys(flat_set<public_key_type>& keys, const char* pubkeys_d
    keys = fc::raw::unpack<flat_set<public_key_type>>(pubkeys_data, pubkeys_size);
 }
 
-void unpack_provided_permissions(flat_set<permission_level>& permissions,
-                                 const char*                 perms_data,
-                                 uint32_t                    perms_size) {
+void unpack_provided_permissions(flat_set<permission_level>& permissions, const char* perms_data, uint32_t perms_size) {
    permissions.clear();
    if (perms_size == 0)
       return;
@@ -86,10 +84,7 @@ int64_t interface::get_permission_last_used(account_name account, permission_nam
 
 int64_t interface::get_account_creation_time(account_name account) const {
    const auto* acct = context.db.find<account_object, by_name>(account);
-   EOS_ASSERT(acct != nullptr,
-              action_validate_exception,
-              "account '${account}' does not exist",
-              ("account", account));
+   EOS_ASSERT(acct != nullptr, action_validate_exception, "account '${account}' does not exist", ("account", account));
    return time_point(acct->creation_date).time_since_epoch().count();
 }
 }

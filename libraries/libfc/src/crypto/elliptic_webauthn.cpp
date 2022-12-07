@@ -195,14 +195,12 @@ public_key::public_key(const signature& c, const fc::sha256& digest, bool) {
    detail::webauthn_json_handler   handler;
    detail::rapidjson::Reader       reader;
    detail::rapidjson::StringStream ss(c.client_json.c_str());
-   FC_ASSERT(reader.Parse<detail::rapidjson::kParseIterativeFlag>(ss, handler),
-             "Failed to parse client data JSON");
+   FC_ASSERT(reader.Parse<detail::rapidjson::kParseIterativeFlag>(ss, handler), "Failed to parse client data JSON");
 
    FC_ASSERT(handler.found_type == "webauthn.get", "webauthn signature type not an assertion");
 
    std::string challenge_bytes = fc::base64url_decode(handler.found_challenge);
-   FC_ASSERT(fc::sha256(challenge_bytes.data(), challenge_bytes.size()) == digest,
-             "Wrong webauthn challenge");
+   FC_ASSERT(fc::sha256(challenge_bytes.data(), challenge_bytes.size()) == digest, "Wrong webauthn challenge");
 
    char   required_origin_scheme[] = "https://";
    size_t https_len                = strlen(required_origin_scheme);
@@ -242,16 +240,12 @@ public_key::public_key(const signature& c, const fc::sha256& digest, bool) {
    fc::ec_key key = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
    nV -= 4;
 
-   if (r1::ECDSA_SIG_recover_key_GFp(
-          key, sig, (uint8_t*)signed_digest.data(), signed_digest.data_size(), nV - 27, 0) == 1) {
+   if (r1::ECDSA_SIG_recover_key_GFp(key, sig, (uint8_t*)signed_digest.data(), signed_digest.data_size(), nV - 27, 0) ==
+       1) {
       const EC_POINT* point = EC_KEY_get0_public_key(key);
       const EC_GROUP* group = EC_KEY_get0_group(key);
-      size_t          sz    = EC_POINT_point2oct(group,
-                                     point,
-                                     POINT_CONVERSION_COMPRESSED,
-                                     (uint8_t*)public_key_data.data,
-                                     public_key_data.size(),
-                                     NULL);
+      size_t          sz    = EC_POINT_point2oct(
+         group, point, POINT_CONVERSION_COMPRESSED, (uint8_t*)public_key_data.data, public_key_data.size(), NULL);
       if (sz == public_key_data.size())
          return;
    }

@@ -30,14 +30,13 @@ public:
       uint64_t    name_key() const { return nm.value; }
    };
 
-   typedef eosio::multi_index<
-      "numobjs"_n,
-      numobj,
-      indexed_by<"bysec1"_n, const_mem_fun<numobj, uint64_t, &numobj::sec64_key>>,
-      indexed_by<"bysec2"_n, const_mem_fun<numobj, uint128_t, &numobj::sec128_key>>,
-      indexed_by<"bysec3"_n, const_mem_fun<numobj, double, &numobj::secdouble_key>>,
-      indexed_by<"bysec4"_n, const_mem_fun<numobj, long double, &numobj::secldouble_key>>,
-      indexed_by<"byname"_n, const_mem_fun<numobj, uint64_t, &numobj::name_key>>>
+   typedef eosio::multi_index<"numobjs"_n,
+                              numobj,
+                              indexed_by<"bysec1"_n, const_mem_fun<numobj, uint64_t, &numobj::sec64_key>>,
+                              indexed_by<"bysec2"_n, const_mem_fun<numobj, uint128_t, &numobj::sec128_key>>,
+                              indexed_by<"bysec3"_n, const_mem_fun<numobj, double, &numobj::secdouble_key>>,
+                              indexed_by<"bysec4"_n, const_mem_fun<numobj, long double, &numobj::secldouble_key>>,
+                              indexed_by<"byname"_n, const_mem_fun<numobj, uint64_t, &numobj::name_key>>>
       numobjs;
 
    [[eosio::action]] void addnumobj(uint64_t input, std::string nm);

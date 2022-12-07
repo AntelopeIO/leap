@@ -66,9 +66,8 @@ void freeUnreferencedObjects(std::vector<ObjectInstance*>&& rootObjectReferences
          }
          case ObjectKind::module: {
             ModuleInstance* moduleInstance = asModule(scanObject);
-            childReferences.insert(childReferences.begin(),
-                                   moduleInstance->functionDefs.begin(),
-                                   moduleInstance->functionDefs.end());
+            childReferences.insert(
+               childReferences.begin(), moduleInstance->functionDefs.begin(), moduleInstance->functionDefs.end());
             childReferences.insert(
                childReferences.begin(), moduleInstance->functions.begin(), moduleInstance->functions.end());
             childReferences.insert(
@@ -100,8 +99,7 @@ void freeUnreferencedObjects(std::vector<ObjectInstance*>&& rootObjectReferences
       }
    };
 
-   // Iterate over all objects, and delete objects that weren't referenced directly or indirectly by the root
-   // set.
+   // Iterate over all objects, and delete objects that weren't referenced directly or indirectly by the root set.
    GCGlobals& gcGlobals = GCGlobals::get();
    auto       objectIt  = gcGlobals.allObjects.begin();
    while (objectIt != gcGlobals.allObjects.end()) {

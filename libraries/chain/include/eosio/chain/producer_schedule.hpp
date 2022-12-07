@@ -42,9 +42,7 @@ struct producer_schedule_type {
       return true;
    }
 
-   friend bool operator!=(const producer_schedule_type& a, const producer_schedule_type& b) {
-      return !(a == b);
-   }
+   friend bool operator!=(const producer_schedule_type& a, const producer_schedule_type& b) { return !(a == b); }
 };
 }
 
@@ -120,8 +118,7 @@ struct block_signing_authority_v0 {
             ++num_relevant_keys;
 
             if (total_weight < threshold) {
-               total_weight +=
-                  std::min<uint32_t>(std::numeric_limits<uint32_t>::max() - total_weight, kw.weight);
+               total_weight += std::min<uint32_t>(std::numeric_limits<uint32_t>::max() - total_weight, kw.weight);
             }
          }
       }
@@ -334,8 +331,7 @@ FC_REFLECT(eosio::chain::legacy::producer_schedule_type, (version)(producers))
 FC_REFLECT(eosio::chain::block_signing_authority_v0, (threshold)(keys))
 FC_REFLECT(eosio::chain::producer_authority, (producer_name)(authority))
 FC_REFLECT(eosio::chain::producer_authority_schedule, (version)(producers))
-FC_REFLECT_DERIVED(eosio::chain::producer_schedule_change_extension,
-                   (eosio::chain::producer_authority_schedule), )
+FC_REFLECT_DERIVED(eosio::chain::producer_schedule_change_extension, (eosio::chain::producer_authority_schedule), )
 
 FC_REFLECT(eosio::chain::shared_block_signing_authority_v0, (threshold)(keys))
 FC_REFLECT(eosio::chain::shared_producer_authority, (producer_name)(authority))

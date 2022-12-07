@@ -64,8 +64,7 @@ public:
    /// A new wallet is created in file dir/{name}.wallet see set_dir.
    /// The new wallet is unlocked after creation.
    /// @param name of the wallet and name of the file without ext .wallet.
-   /// @return Plaintext password that is needed to unlock wallet. Caller is responsible for saving password
-   /// otherwise
+   /// @return Plaintext password that is needed to unlock wallet. Caller is responsible for saving password otherwise
    ///         they will not be able to unlock their wallet. Note user supplied passwords are not supported.
    /// @throws fc::exception if wallet with name already exists (or filename already exists)
    std::string create(const std::string& name);
@@ -136,10 +135,10 @@ private:
 private:
    using timepoint_t = std::chrono::time_point<std::chrono::system_clock>;
    std::map<std::string, std::unique_ptr<wallet_api>> wallets;
-   std::chrono::seconds timeout = std::chrono::seconds::max(); ///< how long to wait before calling lock_all()
-   mutable timepoint_t  timeout_time                   = timepoint_t::max(); ///< when to call lock_all()
-   boost::filesystem::path                         dir = ".";
-   boost::filesystem::path                         lock_path = dir / "wallet.lock";
+   std::chrono::seconds    timeout      = std::chrono::seconds::max(); ///< how long to wait before calling lock_all()
+   mutable timepoint_t     timeout_time = timepoint_t::max();          ///< when to call lock_all()
+   boost::filesystem::path dir          = ".";
+   boost::filesystem::path lock_path    = dir / "wallet.lock";
    std::unique_ptr<boost::interprocess::file_lock> wallet_dir_lock;
 
    void start_lock_watch(std::shared_ptr<boost::asio::deadline_timer> t);

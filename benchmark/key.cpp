@@ -22,8 +22,8 @@ void k1_sign_benchmarking() {
 }
 
 void k1_recover_benchmarking() {
-   auto signature = to_bytes("1b323dd47a1dd5592c296ee2ee12e0af38974087a475e99098a440284f19c1f7642fa0baa10a8a3"
-                             "ab800dfdbe987dee68a09b6fa3db45a5cc4f3a5835a1671d4dd");
+   auto signature = to_bytes("1b323dd47a1dd5592c296ee2ee12e0af38974087a475e99098a440284f19c1f7642fa0baa10a8a3ab800dfdbe"
+                             "987dee68a09b6fa3db45a5cc4f3a5835a1671d4dd");
    auto digest    = to_bytes("92390316873c5a9d520b28aba61e7a8f00025ac069acd9c4d2a71d775a55fa5f");
 
    auto recover_f = [&]() { fc::k1_recover(signature, digest); };
@@ -80,9 +80,8 @@ void wa_benchmarking() {
    static const r1::private_key priv        = fc::crypto::r1::private_key::generate();
    static const fc::sha256      d           = fc::sha256::hash("sup"s);
    static const fc::sha256      origin_hash = fc::sha256::hash("fctesting.invalid"s);
-   std::string                  json =
-      "{\"origin\":\"https://fctesting.invalid\",\"type\":\"webauthn.get\", \"challenge\":\"" +
-      fc::base64url_encode(d.data(), d.data_size()) + "\"}";
+   std::string json = "{\"origin\":\"https://fctesting.invalid\",\"type\":\"webauthn.get\", \"challenge\":\"" +
+                      fc::base64url_encode(d.data(), d.data_size()) + "\"}";
    std::vector<uint8_t> auth_data(37);
    memcpy(auth_data.data(), origin_hash.data(), sizeof(origin_hash));
 

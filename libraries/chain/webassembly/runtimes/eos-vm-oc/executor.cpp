@@ -62,8 +62,8 @@ static void segv_handler(int sig, siginfo_t* info, void* ctx) {
 
    // was the segfault within data?
    if ((uintptr_t)info->si_addr >= cb_in_main_segment->execution_thread_memory_start &&
-       (uintptr_t)info->si_addr < cb_in_main_segment->execution_thread_memory_start +
-                                     cb_in_main_segment->execution_thread_memory_length)
+       (uintptr_t)info->si_addr <
+          cb_in_main_segment->execution_thread_memory_start + cb_in_main_segment->execution_thread_memory_length)
       siglongjmp(*cb_in_main_segment->jmp, EOSVMOC_EXIT_SEGV);
 
 notus:
@@ -100,13 +100,13 @@ static void throw_internal_exception(const char* const s) {
    __builtin_unreachable();
 }
 
-#define DEFINE_EOSVMOC_TRAP_INTRINSIC(module, name)                                                          \
-   void             name();                                                                                  \
-   static intrinsic name##Function EOSVMOC_INTRINSIC_INIT_PRIORITY(                                          \
-      #module "." #name,                                                                                     \
-      IR::FunctionType::get(),                                                                               \
-      (void*)&name,                                                                                          \
-      std::integral_constant<std::size_t, find_intrinsic_index(#module "." #name)>::value);                  \
+#define DEFINE_EOSVMOC_TRAP_INTRINSIC(module, name)                                                                    \
+   void             name();                                                                                            \
+   static intrinsic name##Function EOSVMOC_INTRINSIC_INIT_PRIORITY(                                                    \
+      #module "." #name,                                                                                               \
+      IR::FunctionType::get(),                                                                                         \
+      (void*)&name,                                                                                                    \
+      std::integral_constant<std::size_t, find_intrinsic_index(#module "." #name)>::value);                            \
    void name()
 
 DEFINE_EOSVMOC_TRAP_INTRINSIC(eosvmoc_internal, depth_assert) {
@@ -144,8 +144,7 @@ struct executor_signal_init {
 };
 
 executor::executor(const code_cache_base& cc) {
-   // if we're the first executor created, go setup the signal handling. For now we'll just leave this
-   // attached forever
+   // if we're the first executor created, go setup the signal handling. For now we'll just leave this attached forever
    static executor_signal_init the_executor_signal_init;
 
    uint64_t current_gs;
@@ -175,22 +174,18 @@ void executor::execute(const code_descriptor& code, memory& mem, apply_context& 
       max_pages                 = config.max_pages;
    }
    stack.reset(max_call_depth);
-   EOS_ASSERT(
-      code.starting_memory_pages <= (int)max_pages, wasm_execution_error, "Initial memory out of range");
+   EOS_ASSERT(code.starting_memory_pages <= (int)max_pages, wasm_execution_error, "Initial memory out of range");
 
    // prepare initial memory, mutable globals, and table data
    if (code.starting_memory_pages > 0) {
       uint64_t initial_page_offset = std::min(static_cast<std::size_t>(code.starting_memory_pages),
                                               mem.size_of_memory_slice_mapping() / memory::stride - 1);
       if (initial_page_offset < static_cast<uint64_t>(code.starting_memory_pages)) {
-         mprotect(mem.full_page_memory_base() +
-                     initial_page_offset * eosio::chain::wasm_constraints::wasm_page_size,
-                  (code.starting_memory_pages - initial_page_offset) *
-                     eosio::chain::wasm_constraints::wasm_page_size,
+         mprotect(mem.full_page_memory_base() + initial_page_offset * eosio::chain::wasm_constraints::wasm_page_size,
+                  (code.starting_memory_pages - initial_page_offset) * eosio::chain::wasm_constraints::wasm_page_size,
                   PROT_READ | PROT_WRITE);
       }
-      arch_prctl(ARCH_SET_GS,
-                 (unsigned long*)(mem.zero_page_memory_base() + initial_page_offset * memory::stride));
+      arch_prctl(ARCH_SET_GS, (unsigned long*)(mem.zero_page_memory_base() + initial_page_offset * memory::stride));
       memset(mem.full_page_memory_base(), 0, 64u * 1024u * code.starting_memory_pages);
    } else
       arch_prctl(ARCH_SET_GS, (unsigned long*)mem.zero_page_memory_base());
@@ -237,8 +232,7 @@ void executor::execute(const code_descriptor& code, memory& mem, apply_context& 
          self->mapping_is_executable = false;
       },
       this);
-   context.trx_context.checktime(); // catch any expiration that might have occurred before setting up
-                                    // callback
+   context.trx_context.checktime(); // catch any expiration that might have occurred before setting up callback
 
    auto cleanup = fc::make_scoped_exit([cb, &tt = context.trx_context.transaction_timer, &mem = mem]() {
       cb->is_running = false;
@@ -248,8 +242,7 @@ void executor::execute(const code_descriptor& code, memory& mem, apply_context& 
       int64_t base_pages = mem.size_of_memory_slice_mapping() / memory::stride - 1;
       if (cb->current_linear_memory_pages > base_pages) {
          mprotect(mem.full_page_memory_base() + base_pages * eosio::chain::wasm_constraints::wasm_page_size,
-                  (cb->current_linear_memory_pages - base_pages) *
-                     eosio::chain::wasm_constraints::wasm_page_size,
+                  (cb->current_linear_memory_pages - base_pages) * eosio::chain::wasm_constraints::wasm_page_size,
                   PROT_NONE);
       }
    });
@@ -262,14 +255,13 @@ void executor::execute(const code_descriptor& code, memory& mem, apply_context& 
          stack.run([&] {
             std::visit(overloaded{ [&](const no_offset&) {},
                                    [&](const intrinsic_ordinal& i) {
-                                      void (*start_func)() = (void (*)())(
-                                         *(uintptr_t*)((uintptr_t)mem.zero_page_memory_base() -
-                                                       memory::first_intrinsic_offset - i.ordinal * 8));
+                                      void (*start_func)() =
+                                         (void (*)())(*(uintptr_t*)((uintptr_t)mem.zero_page_memory_base() -
+                                                                    memory::first_intrinsic_offset - i.ordinal * 8));
                                       start_func();
                                    },
                                    [&](const code_offset& offs) {
-                                      void (*start_func)() =
-                                         (void (*)())(cb->running_code_base + offs.offset);
+                                      void (*start_func)() = (void (*)())(cb->running_code_base + offs.offset);
                                       start_func();
                                    } },
                        code.start);

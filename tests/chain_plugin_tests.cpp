@@ -66,8 +66,8 @@ BOOST_FIXTURE_TEST_CASE(get_block_with_invalid_abi, TESTER) try {
       "actions",
       variants({ mutable_variant_object()("account", "asserter")("name", "procassert")(
          "authorization",
-         variants({ mutable_variant_object()("actor", "asserter")("permission",
-                                                                  name(config::active_name).to_string()) }))(
+         variants(
+            { mutable_variant_object()("actor", "asserter")("permission", name(config::active_name).to_string()) }))(
          "data", mutable_variant_object()("condition", 1)("message", "Should Not Assert!")) }));
    signed_transaction trx;
    abi_serializer::from_variant(
@@ -83,8 +83,7 @@ BOOST_FIXTURE_TEST_CASE(get_block_with_invalid_abi, TESTER) try {
    char headnumstr[20];
    sprintf(headnumstr, "%d", headnum);
    chain_apis::read_only::get_block_params param{ headnumstr };
-   chain_apis::read_only                   plugin(
-      *(this->control), {}, fc::microseconds::maximum(), fc::microseconds::maximum(), {}, {});
+   chain_apis::read_only plugin(*(this->control), {}, fc::microseconds::maximum(), fc::microseconds::maximum(), {}, {});
 
    // block should be decoded successfully
    std::string block_str = json::to_pretty_string(plugin.get_block(param, fc::time_point::maximum()));
@@ -107,10 +106,9 @@ BOOST_FIXTURE_TEST_CASE(get_block_with_invalid_abi, TESTER) try {
    // get the same block as string, results in decode failed(invalid abi) but not exception
    std::string block_str2 = json::to_pretty_string(plugin.get_block(param, fc::time_point::maximum()));
    BOOST_TEST(block_str2.find("procassert") != std::string::npos);
-   BOOST_TEST(block_str2.find("condition") == std::string::npos);          // decode failed
-   BOOST_TEST(block_str2.find("Should Not Assert!") == std::string::npos); // decode failed
-   BOOST_TEST(block_str2.find("011253686f756c64204e6f742041737365727421") != std::string::npos); // action
-                                                                                                 // data
+   BOOST_TEST(block_str2.find("condition") == std::string::npos);                                // decode failed
+   BOOST_TEST(block_str2.find("Should Not Assert!") == std::string::npos);                       // decode failed
+   BOOST_TEST(block_str2.find("011253686f756c64204e6f742041737365727421") != std::string::npos); // action data
 }
 FC_LOG_AND_RETHROW() /// get_block_with_invalid_abi
 
@@ -131,8 +129,7 @@ BOOST_FIXTURE_TEST_CASE(get_consensus_parameters, TESTER) try {
               control->get_global_properties().configuration.max_transaction_net_usage);
    BOOST_TEST(parms.chain_config.base_per_transaction_net_usage ==
               control->get_global_properties().configuration.base_per_transaction_net_usage);
-   BOOST_TEST(parms.chain_config.net_usage_leeway ==
-              control->get_global_properties().configuration.net_usage_leeway);
+   BOOST_TEST(parms.chain_config.net_usage_leeway == control->get_global_properties().configuration.net_usage_leeway);
    BOOST_TEST(parms.chain_config.context_free_discount_net_usage_num ==
               control->get_global_properties().configuration.context_free_discount_net_usage_num);
    BOOST_TEST(parms.chain_config.context_free_discount_net_usage_den ==
@@ -177,11 +174,9 @@ BOOST_FIXTURE_TEST_CASE(get_consensus_parameters, TESTER) try {
               control->get_global_properties().wasm_configuration.max_symbol_bytes);
    BOOST_TEST(parms.wasm_config.max_module_bytes ==
               control->get_global_properties().wasm_configuration.max_module_bytes);
-   BOOST_TEST(parms.wasm_config.max_code_bytes ==
-              control->get_global_properties().wasm_configuration.max_code_bytes);
+   BOOST_TEST(parms.wasm_config.max_code_bytes == control->get_global_properties().wasm_configuration.max_code_bytes);
    BOOST_TEST(parms.wasm_config.max_pages == control->get_global_properties().wasm_configuration.max_pages);
-   BOOST_TEST(parms.wasm_config.max_call_depth ==
-              control->get_global_properties().wasm_configuration.max_call_depth);
+   BOOST_TEST(parms.wasm_config.max_call_depth == control->get_global_properties().wasm_configuration.max_call_depth);
 }
 FC_LOG_AND_RETHROW() // get_consensus_parameters
 
@@ -200,35 +195,33 @@ BOOST_FIXTURE_TEST_CASE(get_account, TESTER) try {
 
    chain_apis::read_only::get_account_params p{ "alice"_n };
 
-   chain_apis::read_only::get_account_results result =
-      plugin.read_only::get_account(p, fc::time_point::maximum());
+   chain_apis::read_only::get_account_results result = plugin.read_only::get_account(p, fc::time_point::maximum());
 
-   auto check_result_basic =
-      [](chain_apis::read_only::get_account_results result, eosio::name nm, bool isPriv) {
-         BOOST_REQUIRE_EQUAL(nm, result.account_name);
-         BOOST_REQUIRE_EQUAL(isPriv, result.privileged);
+   auto check_result_basic = [](chain_apis::read_only::get_account_results result, eosio::name nm, bool isPriv) {
+      BOOST_REQUIRE_EQUAL(nm, result.account_name);
+      BOOST_REQUIRE_EQUAL(isPriv, result.privileged);
 
-         BOOST_REQUIRE_EQUAL(2, result.permissions.size());
-         if (result.permissions.size() > 1) {
-            auto perm = result.permissions[0];
-            BOOST_REQUIRE_EQUAL(name("active"_n), perm.perm_name);
-            BOOST_REQUIRE_EQUAL(name("owner"_n), perm.parent);
-            auto auth = perm.required_auth;
-            BOOST_REQUIRE_EQUAL(1, auth.threshold);
-            BOOST_REQUIRE_EQUAL(1, auth.keys.size());
-            BOOST_REQUIRE_EQUAL(0, auth.accounts.size());
-            BOOST_REQUIRE_EQUAL(0, auth.waits.size());
+      BOOST_REQUIRE_EQUAL(2, result.permissions.size());
+      if (result.permissions.size() > 1) {
+         auto perm = result.permissions[0];
+         BOOST_REQUIRE_EQUAL(name("active"_n), perm.perm_name);
+         BOOST_REQUIRE_EQUAL(name("owner"_n), perm.parent);
+         auto auth = perm.required_auth;
+         BOOST_REQUIRE_EQUAL(1, auth.threshold);
+         BOOST_REQUIRE_EQUAL(1, auth.keys.size());
+         BOOST_REQUIRE_EQUAL(0, auth.accounts.size());
+         BOOST_REQUIRE_EQUAL(0, auth.waits.size());
 
-            perm = result.permissions[1];
-            BOOST_REQUIRE_EQUAL(name("owner"_n), perm.perm_name);
-            BOOST_REQUIRE_EQUAL(name(""_n), perm.parent);
-            auth = perm.required_auth;
-            BOOST_REQUIRE_EQUAL(1, auth.threshold);
-            BOOST_REQUIRE_EQUAL(1, auth.keys.size());
-            BOOST_REQUIRE_EQUAL(0, auth.accounts.size());
-            BOOST_REQUIRE_EQUAL(0, auth.waits.size());
-         }
-      };
+         perm = result.permissions[1];
+         BOOST_REQUIRE_EQUAL(name("owner"_n), perm.perm_name);
+         BOOST_REQUIRE_EQUAL(name(""_n), perm.parent);
+         auth = perm.required_auth;
+         BOOST_REQUIRE_EQUAL(1, auth.threshold);
+         BOOST_REQUIRE_EQUAL(1, auth.keys.size());
+         BOOST_REQUIRE_EQUAL(0, auth.accounts.size());
+         BOOST_REQUIRE_EQUAL(0, auth.waits.size());
+      }
+   };
 
    check_result_basic(result, name("alice"_n), false);
 

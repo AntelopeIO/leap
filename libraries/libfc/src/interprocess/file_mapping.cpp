@@ -11,10 +11,7 @@ file_mapping::file_mapping(const char* file, mode_t m)
 file_mapping::~file_mapping() {}
 
 mapped_region::mapped_region(const file_mapping& fm, mode_t m, uint64_t start, size_t size)
-   : my(*fm.my,
-        m == read_only ? boost::interprocess::read_only : boost::interprocess::read_write,
-        start,
-        size) {}
+   : my(*fm.my, m == read_only ? boost::interprocess::read_only : boost::interprocess::read_write, start, size) {}
 
 mapped_region::mapped_region(const file_mapping& fm, mode_t m)
    : my(*fm.my, m == read_only ? boost::interprocess::read_only : boost::interprocess::read_write) {}

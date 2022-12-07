@@ -12,8 +12,8 @@ int32_t interface::read_transaction(legacy_span<char> data) const {
    // always pack the transaction here as exact pack format is part of consensus
    // and an alternative packed format could be stored in get_packed_transaction()
    const packed_transaction& packed_trx = context.trx_context.packed_trx;
-   bytes  trx       = fc::raw::pack(static_cast<const transaction&>(packed_trx.get_transaction()));
-   size_t copy_size = std::min(static_cast<size_t>(data.size()), trx.size());
+   bytes                     trx        = fc::raw::pack(static_cast<const transaction&>(packed_trx.get_transaction()));
+   size_t                    copy_size  = std::min(static_cast<size_t>(data.size()), trx.size());
    std::memcpy(data.data(), trx.data(), copy_size);
 
    return copy_size;

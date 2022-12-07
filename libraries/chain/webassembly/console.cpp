@@ -12,8 +12,8 @@ inline static void predicated_print(Ctx& context, F&& print_func) {
       print_func();
 }
 
-// Kept as intrinsic rather than implementing on WASM side (using prints_l and strlen) because strlen is
-// faster on native side.
+// Kept as intrinsic rather than implementing on WASM side (using prints_l and strlen) because strlen is faster on
+// native side.
 // TODO predicate these for ignore
 void interface::prints(null_terminated_ptr str) {
    predicated_print(context, [&]() { context.console_append(static_cast<const char*>(str.data())); });
@@ -45,8 +45,8 @@ void interface::printi128(legacy_ptr<const __int128> val) {
       unsigned __int128 val_magnitude;
 
       if (is_negative)
-         val_magnitude = static_cast<unsigned __int128>(
-            -*val); // Works even if val is at the lowest possible value of a int128_t
+         val_magnitude =
+            static_cast<unsigned __int128>(-*val); // Works even if val is at the lowest possible value of a int128_t
       else
          val_magnitude = static_cast<unsigned __int128>(*val);
 
@@ -99,9 +99,9 @@ void interface::printqf(legacy_ptr<const float128_t> val) {
     * (losing precision) which then allows us to simply cast it into a long double for printing purposes.
     *
     * Later we might find a better solution to print the full quadruple-precision floating-point number.
-    * Maybe with some compilation flag that turns long double into a quadruple-precision floating-point
-    * number, or maybe with some library that allows us to print out quadruple-precision floating-point
-    * numbers without having to deal with long doubles at all.
+    * Maybe with some compilation flag that turns long double into a quadruple-precision floating-point number,
+    * or maybe with some library that allows us to print out quadruple-precision floating-point numbers without
+    * having to deal with long doubles at all.
     */
 
    predicated_print(context, [&]() {

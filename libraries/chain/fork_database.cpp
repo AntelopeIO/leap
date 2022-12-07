@@ -41,20 +41,17 @@ typedef multi_index_container<
                     std::hash<block_id_type>>,
       ordered_non_unique<tag<by_prev>,
                          const_mem_fun<block_header_state, const block_id_type&, &block_header_state::prev>>,
-      ordered_unique<tag<by_lib_block_num>,
-                     composite_key<block_state,
-                                   global_fun<const block_state&, bool, &block_state_is_valid>,
-                                   member<detail::block_header_state_common,
-                                          uint32_t,
-                                          &detail::block_header_state_common::dpos_irreversible_blocknum>,
-                                   member<detail::block_header_state_common,
-                                          uint32_t,
-                                          &detail::block_header_state_common::block_num>,
-                                   member<block_header_state, block_id_type, &block_header_state::id>>,
-                     composite_key_compare<std::greater<bool>,
-                                           std::greater<uint32_t>,
-                                           std::greater<uint32_t>,
-                                           sha256_less>>>>
+      ordered_unique<
+         tag<by_lib_block_num>,
+         composite_key<
+            block_state,
+            global_fun<const block_state&, bool, &block_state_is_valid>,
+            member<detail::block_header_state_common,
+                   uint32_t,
+                   &detail::block_header_state_common::dpos_irreversible_blocknum>,
+            member<detail::block_header_state_common, uint32_t, &detail::block_header_state_common::block_num>,
+            member<block_header_state, block_id_type, &block_header_state::id>>,
+         composite_key_compare<std::greater<bool>, std::greater<uint32_t>, std::greater<uint32_t>, sha256_less>>>>
    fork_multi_index_type;
 
 bool first_preferred(const block_header_state& lhs, const block_header_state& rhs) {
@@ -73,12 +70,11 @@ struct fork_database_impl {
    block_state_ptr       head;
    fc::path              datadir;
 
-   void add(
-      const block_state_ptr& n,
-      bool                   ignore_duplicate,
-      bool                   validate,
-      const std::function<
-         void(block_timestamp_type, const flat_set<digest_type>&, const vector<digest_type>&)>& validator);
+   void add(const block_state_ptr& n,
+            bool                   ignore_duplicate,
+            bool                   validate,
+            const std::function<void(block_timestamp_type, const flat_set<digest_type>&, const vector<digest_type>&)>&
+               validator);
 };
 
 fork_database::fork_database(const fc::path& data_dir)
@@ -101,12 +97,11 @@ void fork_database::open(
          // validate totem
          uint32_t totem = 0;
          fc::raw::unpack(ds, totem);
-         EOS_ASSERT(totem == magic_number,
-                    fork_database_exception,
-                    "Fork database file '${filename}' has unexpected magic number: ${actual_totem}. Expected "
-                    "${expected_totem}",
-                    ("filename", fork_db_dat.generic_string())("actual_totem", totem)("expected_totem",
-                                                                                      magic_number));
+         EOS_ASSERT(
+            totem == magic_number,
+            fork_database_exception,
+            "Fork database file '${filename}' has unexpected magic number: ${actual_totem}. Expected ${expected_totem}",
+            ("filename", fork_db_dat.generic_string())("actual_totem", totem)("expected_totem", magic_number));
 
          // validate version
          uint32_t version = 0;
@@ -115,8 +110,8 @@ void fork_database::open(
                     fork_database_exception,
                     "Unsupported version of fork database file '${filename}'. "
                     "Fork database version is ${version} while code supports version(s) [${min},${max}]",
-                    ("filename", fork_db_dat.generic_string())("version", version)(
-                       "min", min_supported_version)("max", max_supported_version));
+                    ("filename", fork_db_dat.generic_string())("version", version)("min", min_supported_version)(
+                       "max", max_supported_version));
 
          block_header_state bhs;
          fc::raw::unpack(ds, bhs);
@@ -127,8 +122,8 @@ void fork_database::open(
          for (uint32_t i = 0, n = size.value; i < n; ++i) {
             block_state s;
             fc::raw::unpack(ds, s);
-            // do not populate transaction_metadatas, they will be created as needed in apply_block with
-            // appropriate key recovery
+            // do not populate transaction_metadatas, they will be created as needed in apply_block with appropriate key
+            // recovery
             s.header_exts = s.block->validate_and_extract_header_extensions();
             my->add(std::make_shared<block_state>(move(s)), false, true, validator);
          }
@@ -139,20 +134,19 @@ void fork_database::open(
             my->head = my->root;
          } else {
             my->head = get_block(head_id);
-            EOS_ASSERT(my->head,
-                       fork_database_exception,
-                       "could not find head while reconstructing fork database from file; '${filename}' is "
-                       "likely corrupted",
-                       ("filename", fork_db_dat.generic_string()));
+            EOS_ASSERT(
+               my->head,
+               fork_database_exception,
+               "could not find head while reconstructing fork database from file; '${filename}' is likely corrupted",
+               ("filename", fork_db_dat.generic_string()));
          }
 
          auto candidate = my->index.get<by_lib_block_num>().begin();
          if (candidate == my->index.get<by_lib_block_num>().end() || !(*candidate)->is_valid()) {
-            EOS_ASSERT(
-               my->head->id == my->root->id,
-               fork_database_exception,
-               "head not set to root despite no better option available; '${filename}' is likely corrupted",
-               ("filename", fork_db_dat.generic_string()));
+            EOS_ASSERT(my->head->id == my->root->id,
+                       fork_database_exception,
+                       "head not set to root despite no better option available; '${filename}' is likely corrupted",
+                       ("filename", fork_db_dat.generic_string()));
          } else {
             EOS_ASSERT(!first_preferred(**candidate, *my->head),
                        fork_database_exception,
@@ -177,11 +171,9 @@ void fork_database::close() {
       return;
    }
 
-   std::ofstream out(fork_db_dat.generic_string().c_str(),
-                     std::ios::out | std::ios::binary | std::ofstream::trunc);
+   std::ofstream out(fork_db_dat.generic_string().c_str(), std::ios::out | std::ios::binary | std::ofstream::trunc);
    fc::raw::pack(out, magic_number);
-   fc::raw::pack(out,
-                 max_supported_version); // write out current version which is always max_supported_version
+   fc::raw::pack(out, max_supported_version); // write out current version which is always max_supported_version
    fc::raw::pack(out, *static_cast<block_header_state*>(&*my->root));
    uint32_t num_blocks_in_fork_db = my->index.size();
    fc::raw::pack(out, unsigned_int{ num_blocks_in_fork_db });
@@ -255,12 +247,10 @@ void fork_database::advance_root(const block_id_type& id) {
    EOS_ASSERT(my->root, fork_database_exception, "root not yet set");
 
    auto new_root = get_block(id);
-   EOS_ASSERT(new_root,
-              fork_database_exception,
-              "cannot advance root to a block that does not exist in the fork database");
-   EOS_ASSERT(new_root->is_valid(),
-              fork_database_exception,
-              "cannot advance root to a block that has not yet been validated");
+   EOS_ASSERT(
+      new_root, fork_database_exception, "cannot advance root to a block that does not exist in the fork database");
+   EOS_ASSERT(
+      new_root->is_valid(), fork_database_exception, "cannot advance root to a block that has not yet been validated");
 
    deque<block_id_type> blocks_to_remove;
    for (auto b = new_root; b;) {
@@ -271,13 +261,12 @@ void fork_database::advance_root(const block_id_type& id) {
                  "invariant violation: orphaned branch was present in forked database");
    }
 
-   // The new root block should be erased from the fork database index individually rather than with the
-   // remove method, because we do not want the blocks branching off of it to be removed from the fork
-   // database.
+   // The new root block should be erased from the fork database index individually rather than with the remove method,
+   // because we do not want the blocks branching off of it to be removed from the fork database.
    my->index.erase(my->index.find(id));
 
-   // The other blocks to be removed are removed using the remove method so that orphaned branches do not
-   // remain in the fork database.
+   // The other blocks to be removed are removed using the remove method so that orphaned branches do not remain in the
+   // fork database.
    for (const auto& block_id : blocks_to_remove) {
       remove(block_id);
    }
@@ -312,8 +301,7 @@ void fork_database_impl::add(
 
    auto prev_bh = self.get_block_header(n->header.previous);
 
-   EOS_ASSERT(
-      prev_bh, unlinkable_block_exception, "unlinkable block", ("id", n->id)("previous", n->header.previous));
+   EOS_ASSERT(prev_bh, unlinkable_block_exception, "unlinkable block", ("id", n->id)("previous", n->header.previous));
 
    if (validate) {
       try {
@@ -324,9 +312,8 @@ void fork_database_impl::add(
                std::get<protocol_feature_activation>(
                   exts.lower_bound(protocol_feature_activation::extension_id())->second)
                   .protocol_features;
-            validator(n->header.timestamp,
-                      prev_bh->activated_protocol_features->protocol_features,
-                      new_protocol_features);
+            validator(
+               n->header.timestamp, prev_bh->activated_protocol_features->protocol_features, new_protocol_features);
          }
       }
       EOS_RETHROW_EXCEPTIONS(fork_database_exception,

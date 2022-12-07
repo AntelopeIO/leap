@@ -118,10 +118,9 @@ struct basic_type_converter : public eosio::vm::type_converter<webassembly::inte
 
 using type_converter = basic_type_converter<eosio::vm::execution_interface>;
 
-using eos_vm_host_functions_t = eosio::vm::registered_host_functions<webassembly::interface,
-                                                                     eosio::vm::execution_interface,
-                                                                     eosio::chain::type_converter>;
-using wasm_size_t             = eosio::vm::wasm_size_t;
+using eos_vm_host_functions_t = eosio::vm::
+   registered_host_functions<webassembly::interface, eosio::vm::execution_interface, eosio::chain::type_converter>;
+using wasm_size_t = eosio::vm::wasm_size_t;
 
 }
 } // eosio::chain

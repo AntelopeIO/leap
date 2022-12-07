@@ -55,18 +55,12 @@ void from_variant(const fc::variant& v, boost::multi_index_container<T, Args...>
 
 template<size_t Size>
 using UInt = boost::multiprecision::number<
-   boost::multiprecision::cpp_int_backend<Size,
-                                          Size,
-                                          boost::multiprecision::unsigned_magnitude,
-                                          boost::multiprecision::unchecked,
-                                          void>>;
+   boost::multiprecision::
+      cpp_int_backend<Size, Size, boost::multiprecision::unsigned_magnitude, boost::multiprecision::unchecked, void>>;
 template<size_t Size>
 using Int = boost::multiprecision::number<
-   boost::multiprecision::cpp_int_backend<Size,
-                                          Size,
-                                          boost::multiprecision::signed_magnitude,
-                                          boost::multiprecision::unchecked,
-                                          void>>;
+   boost::multiprecision::
+      cpp_int_backend<Size, Size, boost::multiprecision::signed_magnitude, boost::multiprecision::unchecked, void>>;
 
 void to_variant(const UInt<8>& n, fc::variant& v);
 void from_variant(const fc::variant& v, UInt<8>& n);

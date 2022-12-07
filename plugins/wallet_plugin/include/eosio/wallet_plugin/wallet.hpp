@@ -23,8 +23,8 @@ class soft_wallet_impl;
 }
 
 /**
- * This wallet assumes it is connected to the database server with a high-bandwidth, low-latency connection
- * and performs minimal caching.
+ * This wallet assumes it is connected to the database server with a high-bandwidth, low-latency connection and
+ * performs minimal caching.
  */
 class soft_wallet final : public wallet_api {
 public:
@@ -178,8 +178,7 @@ public:
 
    /* Attempts to sign a digest via the given public_key
     */
-   std::optional<signature_type> try_sign_digest(const digest_type     digest,
-                                                 const public_key_type public_key) override;
+   std::optional<signature_type> try_sign_digest(const digest_type digest, const public_key_type public_key) override;
 
    std::shared_ptr<detail::soft_wallet_impl> my;
    void                                      encrypt_keys();

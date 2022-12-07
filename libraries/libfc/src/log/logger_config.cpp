@@ -13,8 +13,7 @@
 namespace fc {
 
 log_config& log_config::get() {
-   // allocate dynamically which will leak on exit but allow loggers to be used until the very end of
-   // execution
+   // allocate dynamically which will leak on exit but allow loggers to be used until the very end of execution
    static log_config* the = new log_config;
    return *the;
 }
@@ -35,8 +34,8 @@ void log_config::update_logger(const fc::string& name, logger& log) {
    if (log_config::get().logger_map.find(name) != log_config::get().logger_map.end()) {
       log = log_config::get().logger_map[name];
    } else {
-      // no entry for logger, so setup with default logger if it exists, otherwise do nothing since default
-      // logger not configured
+      // no entry for logger, so setup with default logger if it exists, otherwise do nothing since default logger not
+      // configured
       if (log_config::get().logger_map.find(DEFAULT_LOGGER) != log_config::get().logger_map.end()) {
          log = log_config::get().logger_map[DEFAULT_LOGGER];
          log_config::get().logger_map.emplace(name, log);
@@ -74,7 +73,7 @@ bool log_config::configure_logging(const logging_config& cfg) {
             // wlog( "Unknown appender type '%s'", type.c_str() );
             continue;
          }
-         auto ap = fact_itr->second->create(cfg.appenders[i].args);
+         auto ap                                               = fact_itr->second->create(cfg.appenders[i].args);
          log_config::get().appender_map[cfg.appenders[i].name] = ap;
       }
       for (size_t i = 0; i < cfg.loggers.size(); ++i) {
@@ -111,8 +110,8 @@ logging_config logging_config::default_config() {
    c.push_back(mutable_variant_object("level", "warn")("color", "brown"));
    c.push_back(mutable_variant_object("level", "error")("color", "red"));
 
-   cfg.appenders.push_back(appender_config(
-      "stderr", "console", mutable_variant_object()("stream", "std_error")("level_colors", c)));
+   cfg.appenders.push_back(
+      appender_config("stderr", "console", mutable_variant_object()("stream", "std_error")("level_colors", c)));
    cfg.appenders.push_back(
       appender_config("stdout", "console", mutable_variant_object()("stream", "std_out")("level_colors", c)));
 

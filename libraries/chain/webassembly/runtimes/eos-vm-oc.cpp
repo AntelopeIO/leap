@@ -23,8 +23,7 @@ public:
    ~eosvmoc_instantiated_module() { _eosvmoc_runtime.cc.free_code(_code_hash, _vm_version); }
 
    void apply(apply_context& context) override {
-      const code_descriptor* const cd =
-         _eosvmoc_runtime.cc.get_descriptor_for_code_sync(_code_hash, _vm_version);
+      const code_descriptor* const cd = _eosvmoc_runtime.cc.get_descriptor_for_code_sync(_code_hash, _vm_version);
       EOS_ASSERT(cd, wasm_execution_error, "EOS VM OC instantiation failed");
 
       _eosvmoc_runtime.exec.execute(*cd, _eosvmoc_runtime.mem, context);

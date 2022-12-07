@@ -35,17 +35,15 @@ private:
 
    using trx_cache_index = bmi::multi_index_container<
       trx_cache_entry,
-      indexed_by<bmi::hashed_unique<tag<by_id>,
-                                    BOOST_MULTI_INDEX_MEMBER(trx_cache_entry, transaction_id_type, trx_id)>,
-                 ordered_non_unique<tag<by_expiry>,
-                                    BOOST_MULTI_INDEX_MEMBER(trx_cache_entry, fc::time_point, expiry)>>>;
+      indexed_by<
+         bmi::hashed_unique<tag<by_id>, BOOST_MULTI_INDEX_MEMBER(trx_cache_entry, transaction_id_type, trx_id)>,
+         ordered_non_unique<tag<by_expiry>, BOOST_MULTI_INDEX_MEMBER(trx_cache_entry, fc::time_point, expiry)>>>;
 
    using decaying_accumulator = chain::resource_limits::impl::exponential_decay_accumulator<>;
 
    struct subjective_billing_info {
-      uint64_t pending_cpu_us; // tracked cpu us for transactions that may still succeed in a block
-      decaying_accumulator
-         expired_accumulator; // accumulator used to account for transactions that have expired
+      uint64_t             pending_cpu_us;      // tracked cpu us for transactions that may still succeed in a block
+      decaying_accumulator expired_accumulator; // accumulator used to account for transactions that have expired
 
       bool empty(uint32_t time_ordinal, uint32_t expired_accumulator_average_window) {
          return pending_cpu_us == 0 &&
@@ -228,8 +226,7 @@ public:
    uint32_t get_expired_accumulator_average_window() const { return _expired_accumulator_average_window; }
 
    void set_expired_accumulator_average_window(fc::microseconds subjective_account_decay_time) {
-      _expired_accumulator_average_window =
-         subjective_account_decay_time.count() / 1000 / subjective_time_interval_ms;
+      _expired_accumulator_average_window = subjective_account_decay_time.count() / 1000 / subjective_time_interval_ms;
    }
 };
 

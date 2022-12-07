@@ -35,8 +35,7 @@ struct snapshot_row_traits<permission_object> {
    using value_type    = permission_object;
    using snapshot_type = snapshot_permission_object;
 
-   static snapshot_permission_object to_snapshot_row(const permission_object&   value,
-                                                     const chainbase::database& db) {
+   static snapshot_permission_object to_snapshot_row(const permission_object& value, const chainbase::database& db) {
       snapshot_permission_object res;
       res.name         = value.name;
       res.owner        = value.owner;
@@ -54,9 +53,7 @@ struct snapshot_row_traits<permission_object> {
       return res;
    };
 
-   static void from_snapshot_row(snapshot_permission_object&& row,
-                                 permission_object&           value,
-                                 chainbase::database&         db) {
+   static void from_snapshot_row(snapshot_permission_object&& row, permission_object& value, chainbase::database& db) {
       value.name         = row.name;
       value.owner        = row.owner;
       value.last_updated = row.last_updated;
@@ -64,24 +61,16 @@ struct snapshot_row_traits<permission_object> {
 
       value.parent = 0;
       if (value.id == 0) {
-         EOS_ASSERT(row.parent == permission_name(),
-                    snapshot_exception,
-                    "Unexpected parent name on reserved permission 0");
-         EOS_ASSERT(row.name == permission_name(),
-                    snapshot_exception,
-                    "Unexpected permission name on reserved permission 0");
          EOS_ASSERT(
-            row.owner == name(), snapshot_exception, "Unexpected owner name on reserved permission 0");
-         EOS_ASSERT(row.auth.accounts.size() == 0,
-                    snapshot_exception,
-                    "Unexpected auth accounts on reserved permission 0");
+            row.parent == permission_name(), snapshot_exception, "Unexpected parent name on reserved permission 0");
          EOS_ASSERT(
-            row.auth.keys.size() == 0, snapshot_exception, "Unexpected auth keys on reserved permission 0");
+            row.name == permission_name(), snapshot_exception, "Unexpected permission name on reserved permission 0");
+         EOS_ASSERT(row.owner == name(), snapshot_exception, "Unexpected owner name on reserved permission 0");
          EOS_ASSERT(
-            row.auth.waits.size() == 0, snapshot_exception, "Unexpected auth waits on reserved permission 0");
-         EOS_ASSERT(row.auth.threshold == 0,
-                    snapshot_exception,
-                    "Unexpected auth threshold on reserved permission 0");
+            row.auth.accounts.size() == 0, snapshot_exception, "Unexpected auth accounts on reserved permission 0");
+         EOS_ASSERT(row.auth.keys.size() == 0, snapshot_exception, "Unexpected auth keys on reserved permission 0");
+         EOS_ASSERT(row.auth.waits.size() == 0, snapshot_exception, "Unexpected auth waits on reserved permission 0");
+         EOS_ASSERT(row.auth.threshold == 0, snapshot_exception, "Unexpected auth threshold on reserved permission 0");
          EOS_ASSERT(row.last_updated == time_point(),
                     snapshot_exception,
                     "Unexpected auth last updated on reserved permission 0");
@@ -95,9 +84,8 @@ struct snapshot_row_traits<permission_object> {
 
       if (value.id != 0) {
          // create the usage object
-         const auto& usage =
-            db.create<permission_usage_object>([&](auto& p) { p.last_used = row.last_used; });
-         value.usage_id = usage.id;
+         const auto& usage = db.create<permission_usage_object>([&](auto& p) { p.last_used = row.last_used; });
+         value.usage_id    = usage.id;
       } else {
          value.usage_id = 0;
       }
@@ -132,8 +120,7 @@ void authorization_manager::read_from_snapshot(const snapshot_reader_ptr& snapsh
       snapshot->read_section<section_t>([this](auto& section) {
          bool more = !section.empty();
          while (more) {
-            decltype(utils)::create(
-               _db, [this, &section, &more](auto& row) { more = section.read_row(row, _db); });
+            decltype(utils)::create(_db, [this, &section, &more](auto& row) { more = section.read_row(row, _db); });
          }
       });
    });
@@ -154,8 +141,7 @@ const permission_object& authorization_manager::create_permission(account_name  
       creation_time = _control.pending_block_time();
    }
 
-   const auto& perm_usage =
-      _db.create<permission_usage_object>([&](auto& p) { p.last_used = creation_time; });
+   const auto& perm_usage = _db.create<permission_usage_object>([&](auto& p) { p.last_used = creation_time; });
 
    const auto& perm = _db.create<permission_object>([&](auto& p) {
       p.usage_id     = perm_usage.id;
@@ -187,8 +173,7 @@ const permission_object& authorization_manager::create_permission(account_name  
       creation_time = _control.pending_block_time();
    }
 
-   const auto& perm_usage =
-      _db.create<permission_usage_object>([&](auto& p) { p.last_used = creation_time; });
+   const auto& perm_usage = _db.create<permission_usage_object>([&](auto& p) { p.last_used = creation_time; });
 
    const auto& perm = _db.create<permission_object>([&](auto& p) {
       p.usage_id     = perm_usage.id;
@@ -271,10 +256,9 @@ const permission_object& authorization_manager::get_permission(const permission_
       chain::permission_query_exception, "Failed to retrieve permission: ${level}", ("level", level))
 }
 
-std::optional<permission_name> authorization_manager::lookup_linked_permission(
-   account_name authorizer_account,
-   account_name scope,
-   action_name  act_name) const {
+std::optional<permission_name> authorization_manager::lookup_linked_permission(account_name authorizer_account,
+                                                                               account_name scope,
+                                                                               action_name  act_name) const {
    try {
       // First look up a specific link for this message act_name
       auto key  = boost::make_tuple(authorizer_account, scope, act_name);
@@ -294,23 +278,21 @@ std::optional<permission_name> authorization_manager::lookup_linked_permission(
    FC_CAPTURE_AND_RETHROW((authorizer_account)(scope)(act_name))
 }
 
-std::optional<permission_name> authorization_manager::lookup_minimum_permission(
-   account_name authorizer_account,
-   account_name scope,
-   action_name  act_name) const {
+std::optional<permission_name> authorization_manager::lookup_minimum_permission(account_name authorizer_account,
+                                                                                account_name scope,
+                                                                                action_name  act_name) const {
    // Special case native actions cannot be linked to a minimum permission, so there is no need to check.
    if (scope == config::system_account_name) {
       EOS_ASSERT(act_name != updateauth::get_name() && act_name != deleteauth::get_name() &&
                     act_name != linkauth::get_name() && act_name != unlinkauth::get_name() &&
                     act_name != canceldelay::get_name(),
                  unlinkable_min_permission_action,
-                 "cannot call lookup_minimum_permission on native actions that are not allowed to be linked "
-                 "to minimum permissions");
+                 "cannot call lookup_minimum_permission on native actions that are not allowed to be linked to minimum "
+                 "permissions");
    }
 
    try {
-      std::optional<permission_name> linked_permission =
-         lookup_linked_permission(authorizer_account, scope, act_name);
+      std::optional<permission_name> linked_permission = lookup_linked_permission(authorizer_account, scope, act_name);
       if (!linked_permission)
          return config::active_name;
 
@@ -324,9 +306,8 @@ std::optional<permission_name> authorization_manager::lookup_minimum_permission(
 
 void authorization_manager::check_updateauth_authorization(const updateauth&               update,
                                                            const vector<permission_level>& auths) const {
-   EOS_ASSERT(auths.size() == 1,
-              irrelevant_auth_exception,
-              "updateauth action should only have one declared authorization");
+   EOS_ASSERT(
+      auths.size() == 1, irrelevant_auth_exception, "updateauth action should only have one declared authorization");
    const auto& auth = auths[0];
    EOS_ASSERT(auth.actor == update.account,
               irrelevant_auth_exception,
@@ -345,9 +326,8 @@ void authorization_manager::check_updateauth_authorization(const updateauth&    
 
 void authorization_manager::check_deleteauth_authorization(const deleteauth&               del,
                                                            const vector<permission_level>& auths) const {
-   EOS_ASSERT(auths.size() == 1,
-              irrelevant_auth_exception,
-              "deleteauth action should only have one declared authorization");
+   EOS_ASSERT(
+      auths.size() == 1, irrelevant_auth_exception, "deleteauth action should only have one declared authorization");
    const auto& auth = auths[0];
    EOS_ASSERT(auth.actor == del.account,
               irrelevant_auth_exception,
@@ -363,9 +343,7 @@ void authorization_manager::check_deleteauth_authorization(const deleteauth&    
 
 void authorization_manager::check_linkauth_authorization(const linkauth&                 link,
                                                          const vector<permission_level>& auths) const {
-   EOS_ASSERT(auths.size() == 1,
-              irrelevant_auth_exception,
-              "link action should only have one declared authorization");
+   EOS_ASSERT(auths.size() == 1, irrelevant_auth_exception, "link action should only have one declared authorization");
    const auto& auth = auths[0];
    EOS_ASSERT(auth.actor == link.account,
               irrelevant_auth_exception,
@@ -404,20 +382,19 @@ void authorization_manager::check_linkauth_authorization(const linkauth&        
 
 void authorization_manager::check_unlinkauth_authorization(const unlinkauth&               unlink,
                                                            const vector<permission_level>& auths) const {
-   EOS_ASSERT(auths.size() == 1,
-              irrelevant_auth_exception,
-              "unlink action should only have one declared authorization");
+   EOS_ASSERT(
+      auths.size() == 1, irrelevant_auth_exception, "unlink action should only have one declared authorization");
    const auto& auth = auths[0];
    EOS_ASSERT(auth.actor == unlink.account,
               irrelevant_auth_exception,
               "the owner of the linked permission needs to be the actor of the declared authorization");
 
    const auto unlinked_permission_name = lookup_linked_permission(unlink.account, unlink.code, unlink.type);
-   EOS_ASSERT(unlinked_permission_name,
-              transaction_exception,
-              "cannot unlink non-existent permission link of account '${account}' for actions matching "
-              "'${code}::${action}'",
-              ("account", unlink.account)("code", unlink.code)("action", unlink.type));
+   EOS_ASSERT(
+      unlinked_permission_name,
+      transaction_exception,
+      "cannot unlink non-existent permission link of account '${account}' for actions matching '${code}::${action}'",
+      ("account", unlink.account)("code", unlink.code)("action", unlink.type));
 
    if (*unlinked_permission_name == config::eosio_any_name)
       return;
@@ -429,20 +406,17 @@ void authorization_manager::check_unlinkauth_authorization(const unlinkauth&    
               ("auth", auth)("min", permission_level{ unlink.account, *unlinked_permission_name }));
 }
 
-fc::microseconds authorization_manager::check_canceldelay_authorization(
-   const canceldelay&              cancel,
-   const vector<permission_level>& auths) const {
-   EOS_ASSERT(auths.size() == 1,
-              irrelevant_auth_exception,
-              "canceldelay action should only have one declared authorization");
+fc::microseconds authorization_manager::check_canceldelay_authorization(const canceldelay&              cancel,
+                                                                        const vector<permission_level>& auths) const {
+   EOS_ASSERT(
+      auths.size() == 1, irrelevant_auth_exception, "canceldelay action should only have one declared authorization");
    const auto& auth = auths[0];
 
-   EOS_ASSERT(
-      get_permission(auth).satisfies(get_permission(cancel.canceling_auth),
-                                     _db.get_index<permission_index>().indices()),
-      irrelevant_auth_exception,
-      "canceldelay action declares irrelevant authority '${auth}'; specified authority to satisfy is ${min}",
-      ("auth", auth)("min", cancel.canceling_auth));
+   EOS_ASSERT(get_permission(auth).satisfies(get_permission(cancel.canceling_auth),
+                                             _db.get_index<permission_index>().indices()),
+              irrelevant_auth_exception,
+              "canceldelay action declares irrelevant authority '${auth}'; specified authority to satisfy is ${min}",
+              ("auth", auth)("min", cancel.canceling_auth));
 
    const auto& trx_id = cancel.trx_id;
 
@@ -467,10 +441,10 @@ fc::microseconds authorization_manager::check_canceldelay_authorization(
          break;
    }
 
-   EOS_ASSERT(found,
-              action_validate_exception,
-              "canceling_auth in canceldelay action was not found as authorization in the original delayed "
-              "transaction");
+   EOS_ASSERT(
+      found,
+      action_validate_exception,
+      "canceling_auth in canceldelay action was not found as authorization in the original delayed transaction");
 
    return (itr->delay_until - itr->published);
 }
@@ -479,21 +453,19 @@ void noop_checktime() {}
 
 std::function<void()> authorization_manager::_noop_checktime{ &noop_checktime };
 
-void authorization_manager::check_authorization(
-   const vector<action>&             actions,
-   const flat_set<public_key_type>&  provided_keys,
-   const flat_set<permission_level>& provided_permissions,
-   fc::microseconds                  provided_delay,
-   const std::function<void()>&      _checktime,
-   bool                              allow_unused_keys,
-   bool                              check_but_dont_fail,
-   const flat_set<permission_level>& satisfied_authorizations) const {
+void authorization_manager::check_authorization(const vector<action>&             actions,
+                                                const flat_set<public_key_type>&  provided_keys,
+                                                const flat_set<permission_level>& provided_permissions,
+                                                fc::microseconds                  provided_delay,
+                                                const std::function<void()>&      _checktime,
+                                                bool                              allow_unused_keys,
+                                                bool                              check_but_dont_fail,
+                                                const flat_set<permission_level>& satisfied_authorizations) const {
    const auto& checktime = (static_cast<bool>(_checktime) ? _checktime : _noop_checktime);
 
    auto delay_max_limit = fc::seconds(_control.get_global_properties().configuration.max_transaction_delay);
 
-   auto effective_provided_delay = (provided_delay >= delay_max_limit) ? fc::microseconds::maximum()
-                                                                       : provided_delay;
+   auto effective_provided_delay = (provided_delay >= delay_max_limit) ? fc::microseconds::maximum() : provided_delay;
 
    auto checker = make_auth_checker([&](const permission_level& p) { return get_permission(p).auth; },
                                     _control.get_global_properties().configuration.max_authority_depth,
@@ -520,8 +492,7 @@ void authorization_manager::check_authorization(
          } else if (act.name == unlinkauth::get_name()) {
             check_unlinkauth_authorization(act.data_as<unlinkauth>(), act.authorization);
          } else if (act.name == canceldelay::get_name()) {
-            delay = std::max(delay,
-                             check_canceldelay_authorization(act.data_as<canceldelay>(), act.authorization));
+            delay = std::max(delay, check_canceldelay_authorization(act.data_as<canceldelay>(), act.authorization));
          } else {
             special_case = false;
          }
@@ -533,23 +504,21 @@ void authorization_manager::check_authorization(
 
          if (!special_case) {
             auto min_permission_name = lookup_minimum_permission(declared_auth.actor, act.account, act.name);
-            if (min_permission_name) { // since special cases were already handled, it should only be false if
-                                       // the permission is eosio.any
+            if (min_permission_name) { // since special cases were already handled, it should only be false if the
+                                       // permission is eosio.any
                const auto& min_permission = get_permission({ declared_auth.actor, *min_permission_name });
-               EOS_ASSERT(get_permission(declared_auth)
-                             .satisfies(min_permission, _db.get_index<permission_index>().indices()),
-                          irrelevant_auth_exception,
-                          "action declares irrelevant authority '${auth}'; minimum authority is ${min}",
-                          ("auth", declared_auth)(
-                             "min", permission_level{ min_permission.owner, min_permission.name }));
+               EOS_ASSERT(
+                  get_permission(declared_auth).satisfies(min_permission, _db.get_index<permission_index>().indices()),
+                  irrelevant_auth_exception,
+                  "action declares irrelevant authority '${auth}'; minimum authority is ${min}",
+                  ("auth", declared_auth)("min", permission_level{ min_permission.owner, min_permission.name }));
             }
          }
 
          if (satisfied_authorizations.find(declared_auth) == satisfied_authorizations.end()) {
             auto res = permissions_to_satisfy.emplace(declared_auth, delay);
             if (!res.second &&
-                res.first->second >
-                   delay) { // if the declared_auth was already in the map and with a higher delay
+                res.first->second > delay) { // if the declared_auth was already in the map and with a higher delay
                res.first->second = delay;
             }
          }
@@ -558,11 +527,11 @@ void authorization_manager::check_authorization(
 
    // Now verify that all the declared authorizations are satisfied:
 
-   // Although this can be made parallel (especially for input transactions) with the optimistic assumption
-   // that the CPU limit is not reached, because of the CPU limit the protocol must officially specify a
-   // sequential algorithm for checking the set of declared authorizations. The permission_levels are
-   // traversed in ascending order, which is: ascending order of the actor name with ties broken by ascending
-   // order of the permission name.
+   // Although this can be made parallel (especially for input transactions) with the optimistic assumption that the
+   // CPU limit is not reached, because of the CPU limit the protocol must officially specify a sequential algorithm
+   // for checking the set of declared authorizations.
+   // The permission_levels are traversed in ascending order, which is:
+   // ascending order of the actor name with ties broken by ascending order of the permission name.
    for (const auto& p : permissions_to_satisfy) {
       checktime(); // TODO: this should eventually move into authority_checker instead
       EOS_ASSERT(checker.satisfied(p.first, p.second) || check_but_dont_fail,
@@ -595,23 +564,21 @@ void authorization_manager::check_authorization(account_name                    
 
    auto delay_max_limit = fc::seconds(_control.get_global_properties().configuration.max_transaction_delay);
 
-   auto checker =
-      make_auth_checker([&](const permission_level& p) { return get_permission(p).auth; },
-                        _control.get_global_properties().configuration.max_authority_depth,
-                        provided_keys,
-                        provided_permissions,
-                        (provided_delay >= delay_max_limit) ? fc::microseconds::maximum() : provided_delay,
-                        checktime);
+   auto checker = make_auth_checker([&](const permission_level& p) { return get_permission(p).auth; },
+                                    _control.get_global_properties().configuration.max_authority_depth,
+                                    provided_keys,
+                                    provided_permissions,
+                                    (provided_delay >= delay_max_limit) ? fc::microseconds::maximum() : provided_delay,
+                                    checktime);
 
-   EOS_ASSERT(
-      checker.satisfied({ account, permission }),
-      unsatisfied_authorization,
-      "permission '${auth}' was not satisfied under a provided delay of ${provided_delay} ms, "
-      "provided permissions ${provided_permissions}, provided keys ${provided_keys}, "
-      "and a delay max limit of ${delay_max_limit_ms} ms",
-      ("auth", permission_level{ account, permission })("provided_delay", provided_delay.count() / 1000)(
-         "provided_permissions", provided_permissions)("provided_keys", provided_keys)(
-         "delay_max_limit_ms", delay_max_limit.count() / 1000));
+   EOS_ASSERT(checker.satisfied({ account, permission }),
+              unsatisfied_authorization,
+              "permission '${auth}' was not satisfied under a provided delay of ${provided_delay} ms, "
+              "provided permissions ${provided_permissions}, provided keys ${provided_keys}, "
+              "and a delay max limit of ${delay_max_limit_ms} ms",
+              ("auth", permission_level{ account, permission })("provided_delay", provided_delay.count() / 1000)(
+                 "provided_permissions", provided_permissions)("provided_keys", provided_keys)(
+                 "delay_max_limit_ms", delay_max_limit.count() / 1000));
 
    if (!allow_unused_keys) {
       EOS_ASSERT(checker.all_keys_used(),
@@ -621,10 +588,9 @@ void authorization_manager::check_authorization(account_name                    
    }
 }
 
-flat_set<public_key_type> authorization_manager::get_required_keys(
-   const transaction&               trx,
-   const flat_set<public_key_type>& candidate_keys,
-   fc::microseconds                 provided_delay) const {
+flat_set<public_key_type> authorization_manager::get_required_keys(const transaction&               trx,
+                                                                   const flat_set<public_key_type>& candidate_keys,
+                                                                   fc::microseconds provided_delay) const {
    auto checker = make_auth_checker([&](const permission_level& p) { return get_permission(p).auth; },
                                     _control.get_global_properties().configuration.max_authority_depth,
                                     candidate_keys,

@@ -184,7 +184,7 @@ ip::endpoint udt_socket::remote_endpoint() const {
    try {
       sockaddr_in peer_addr;
       int         peer_addr_size = sizeof(peer_addr);
-      int error_code = UDT::getpeername(_udt_socket_id, (struct sockaddr*)&peer_addr, &peer_addr_size);
+      int         error_code     = UDT::getpeername(_udt_socket_id, (struct sockaddr*)&peer_addr, &peer_addr_size);
       if (error_code == UDT::ERROR)
          check_udt_errors();
       return ip::endpoint(ip::address(htonl(peer_addr.sin_addr.s_addr)), htons(peer_addr.sin_port));

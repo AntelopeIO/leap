@@ -11,8 +11,7 @@ void restrict_action_test::sendinline(name authorizer) {
 
 void restrict_action_test::senddefer(name authorizer, uint32_t senderid) {
    transaction trx;
-   trx.actions.emplace_back(
-      permission_level{ authorizer, "active"_n }, get_self(), "noop"_n, std::make_tuple());
+   trx.actions.emplace_back(permission_level{ authorizer, "active"_n }, get_self(), "noop"_n, std::make_tuple());
    trx.send(senderid, get_self());
 }
 

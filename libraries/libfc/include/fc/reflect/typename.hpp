@@ -126,8 +126,7 @@ struct get_typename<std::optional<T>> {
 template<typename K, typename V>
 struct get_typename<std::map<K, V>> {
    static const char* name() {
-      static std::string n =
-         std::string("std::map<") + get_typename<K>::name() + "," + get_typename<V>::name() + ">";
+      static std::string n = std::string("std::map<") + get_typename<K>::name() + "," + get_typename<V>::name() + ">";
       return n.c_str();
    }
 };

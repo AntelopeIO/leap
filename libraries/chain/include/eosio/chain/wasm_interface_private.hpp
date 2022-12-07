@@ -72,8 +72,7 @@ struct wasm_interface_impl {
       , wasm_runtime_time(vm) {
 #ifdef EOSIO_EOS_VM_RUNTIME_ENABLED
       if (vm == wasm_interface::vm_type::eos_vm)
-         runtime_interface =
-            std::make_unique<webassembly::eos_vm_runtime::eos_vm_runtime<eosio::vm::interpreter>>();
+         runtime_interface = std::make_unique<webassembly::eos_vm_runtime::eos_vm_runtime<eosio::vm::interpreter>>();
 #endif
 #ifdef EOSIO_EOS_VM_JIT_RUNTIME_ENABLED
       if (vm == wasm_interface::vm_type::eos_vm_jit && profile) {
@@ -85,13 +84,10 @@ struct wasm_interface_impl {
 #endif
 #ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
       if (vm == wasm_interface::vm_type::eos_vm_oc)
-         runtime_interface =
-            std::make_unique<webassembly::eosvmoc::eosvmoc_runtime>(data_dir, eosvmoc_config, d);
+         runtime_interface = std::make_unique<webassembly::eosvmoc::eosvmoc_runtime>(data_dir, eosvmoc_config, d);
 #endif
       if (!runtime_interface)
-         EOS_THROW(wasm_exception,
-                   "${r} wasm runtime not supported on this platform and/or configuration",
-                   ("r", vm));
+         EOS_THROW(wasm_exception, "${r} wasm runtime not supported on this platform and/or configuration", ("r", vm));
 
 #ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
       if (eosvmoc_tierup) {
@@ -105,19 +101,16 @@ struct wasm_interface_impl {
 
    ~wasm_interface_impl() {
       if (is_shutting_down)
-         for (wasm_cache_index::iterator it = wasm_instantiation_cache.begin();
-              it != wasm_instantiation_cache.end();
+         for (wasm_cache_index::iterator it = wasm_instantiation_cache.begin(); it != wasm_instantiation_cache.end();
               ++it)
-            wasm_instantiation_cache.modify(it,
-                                            [](wasm_cache_entry& e) { e.module.release()->fast_shutdown(); });
+            wasm_instantiation_cache.modify(it, [](wasm_cache_entry& e) { e.module.release()->fast_shutdown(); });
    }
 
    std::vector<uint8_t> parse_initial_memory(const Module& module) {
       std::vector<uint8_t> mem_image;
 
       for (const DataSegment& data_segment : module.dataSegments) {
-         EOS_ASSERT(
-            data_segment.baseOffset.type == InitializerExpression::Type::i32_const, wasm_exception, "");
+         EOS_ASSERT(data_segment.baseOffset.type == InitializerExpression::Type::i32_const, wasm_exception, "");
          EOS_ASSERT(module.memories.defs.size(), wasm_exception, "");
          const U32  base_offset = data_segment.baseOffset.i32;
          const Uptr memory_size = (module.memories.defs[0].type.size.min << IR::numBytesPerPageLog2);
@@ -135,11 +128,9 @@ struct wasm_interface_impl {
                                  const uint8_t&     vm_type,
                                  const uint8_t&     vm_version,
                                  const uint32_t&    block_num) {
-      wasm_cache_index::iterator it =
-         wasm_instantiation_cache.find(boost::make_tuple(code_hash, vm_type, vm_version));
+      wasm_cache_index::iterator it = wasm_instantiation_cache.find(boost::make_tuple(code_hash, vm_type, vm_version));
       if (it != wasm_instantiation_cache.end())
-         wasm_instantiation_cache.modify(
-            it, [block_num](wasm_cache_entry& e) { e.last_block_num_used = block_num; });
+         wasm_instantiation_cache.modify(it, [block_num](wasm_cache_entry& e) { e.last_block_num_used = block_num; });
    }
 
    void current_lib(uint32_t lib) {
@@ -159,27 +150,24 @@ struct wasm_interface_impl {
       const uint8_t&       vm_type,
       const uint8_t&       vm_version,
       transaction_context& trx_context) {
-      wasm_cache_index::iterator it =
-         wasm_instantiation_cache.find(boost::make_tuple(code_hash, vm_type, vm_version));
-      const code_object* codeobject = nullptr;
+      wasm_cache_index::iterator it = wasm_instantiation_cache.find(boost::make_tuple(code_hash, vm_type, vm_version));
+      const code_object*         codeobject = nullptr;
       if (it == wasm_instantiation_cache.end()) {
          codeobject = &db.get<code_object, by_code_hash>(boost::make_tuple(code_hash, vm_type, vm_version));
 
          it = wasm_instantiation_cache
-                 .emplace(wasm_interface_impl::wasm_cache_entry{ .code_hash = code_hash,
-                                                                 .first_block_num_used =
-                                                                    codeobject->first_block_used,
-                                                                 .last_block_num_used = UINT32_MAX,
-                                                                 .module              = nullptr,
-                                                                 .vm_type             = vm_type,
-                                                                 .vm_version          = vm_version })
+                 .emplace(wasm_interface_impl::wasm_cache_entry{ .code_hash            = code_hash,
+                                                                 .first_block_num_used = codeobject->first_block_used,
+                                                                 .last_block_num_used  = UINT32_MAX,
+                                                                 .module               = nullptr,
+                                                                 .vm_type              = vm_type,
+                                                                 .vm_version           = vm_version })
                  .first;
       }
 
       if (!it->module) {
          if (!codeobject)
-            codeobject =
-               &db.get<code_object, by_code_hash>(boost::make_tuple(code_hash, vm_type, vm_version));
+            codeobject = &db.get<code_object, by_code_hash>(boost::make_tuple(code_hash, vm_type, vm_version));
 
          auto timer_pause = fc::make_scoped_exit([&]() { trx_context.resume_billing_timer(); });
          trx_context.pause_billing_timer();
@@ -198,12 +186,8 @@ struct wasm_interface_impl {
          }
 
          wasm_instantiation_cache.modify(it, [&](auto& c) {
-            c.module = runtime_interface->instantiate_module((const char*)bytes.data(),
-                                                             bytes.size(),
-                                                             parse_initial_memory(module),
-                                                             code_hash,
-                                                             vm_type,
-                                                             vm_version);
+            c.module = runtime_interface->instantiate_module(
+               (const char*)bytes.data(), bytes.size(), parse_initial_memory(module), code_hash, vm_type, vm_version);
          });
       }
       return it->module;
@@ -214,16 +198,15 @@ struct wasm_interface_impl {
 
    typedef boost::multi_index_container<
       wasm_cache_entry,
-      indexed_by<
-         ordered_unique<tag<by_hash>,
-                        composite_key<wasm_cache_entry,
-                                      member<wasm_cache_entry, digest_type, &wasm_cache_entry::code_hash>,
-                                      member<wasm_cache_entry, uint8_t, &wasm_cache_entry::vm_type>,
-                                      member<wasm_cache_entry, uint8_t, &wasm_cache_entry::vm_version>>>,
-         ordered_non_unique<tag<by_first_block_num>,
-                            member<wasm_cache_entry, uint32_t, &wasm_cache_entry::first_block_num_used>>,
-         ordered_non_unique<tag<by_last_block_num>,
-                            member<wasm_cache_entry, uint32_t, &wasm_cache_entry::last_block_num_used>>>>
+      indexed_by<ordered_unique<tag<by_hash>,
+                                composite_key<wasm_cache_entry,
+                                              member<wasm_cache_entry, digest_type, &wasm_cache_entry::code_hash>,
+                                              member<wasm_cache_entry, uint8_t, &wasm_cache_entry::vm_type>,
+                                              member<wasm_cache_entry, uint8_t, &wasm_cache_entry::vm_version>>>,
+                 ordered_non_unique<tag<by_first_block_num>,
+                                    member<wasm_cache_entry, uint32_t, &wasm_cache_entry::first_block_num_used>>,
+                 ordered_non_unique<tag<by_last_block_num>,
+                                    member<wasm_cache_entry, uint32_t, &wasm_cache_entry::last_block_num_used>>>>
                     wasm_cache_index;
    wasm_cache_index wasm_instantiation_cache;
 

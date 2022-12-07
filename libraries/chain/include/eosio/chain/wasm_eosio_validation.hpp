@@ -73,8 +73,7 @@ struct large_offset_validator {
                 // cast to a type that has a memarg field
       T* memarg_instr = reinterpret_cast<T*>(inst);
       if (memarg_instr->field.o >= wasm_constraints::maximum_linear_memory)
-         FC_THROW_EXCEPTION(wasm_execution_error,
-                            "Smart contract used an invalid large memory store/load offset");
+         FC_THROW_EXCEPTION(wasm_execution_error, "Smart contract used an invalid large memory store/load offset");
    }
 };
 
@@ -148,35 +147,31 @@ struct op_constrainers : wasm_ops::op_types<blacklist_validator> {
    using grow_memory_t    = wasm_ops::grow_memory<whitelist_validator>;
    using current_memory_t = wasm_ops::current_memory<whitelist_validator>;
 
-   using nop_t = wasm_ops::nop<whitelist_validator>;
-   using i32_load_t =
-      wasm_ops::i32_load<large_offset_validator<wasm_ops::op_types<>::i32_load_t>, whitelist_validator>;
-   using i64_load_t =
-      wasm_ops::i64_load<large_offset_validator<wasm_ops::op_types<>::i64_load_t>, whitelist_validator>;
-   using f32_load_t =
-      wasm_ops::f32_load<large_offset_validator<wasm_ops::op_types<>::f32_load_t>, whitelist_validator>;
-   using f64_load_t =
-      wasm_ops::f64_load<large_offset_validator<wasm_ops::op_types<>::f64_load_t>, whitelist_validator>;
+   using nop_t      = wasm_ops::nop<whitelist_validator>;
+   using i32_load_t = wasm_ops::i32_load<large_offset_validator<wasm_ops::op_types<>::i32_load_t>, whitelist_validator>;
+   using i64_load_t = wasm_ops::i64_load<large_offset_validator<wasm_ops::op_types<>::i64_load_t>, whitelist_validator>;
+   using f32_load_t = wasm_ops::f32_load<large_offset_validator<wasm_ops::op_types<>::f32_load_t>, whitelist_validator>;
+   using f64_load_t = wasm_ops::f64_load<large_offset_validator<wasm_ops::op_types<>::f64_load_t>, whitelist_validator>;
    using i32_load8_s_t =
       wasm_ops::i32_load8_s<large_offset_validator<wasm_ops::op_types<>::i32_load8_s_t>, whitelist_validator>;
    using i32_load8_u_t =
       wasm_ops::i32_load8_u<large_offset_validator<wasm_ops::op_types<>::i32_load8_u_t>, whitelist_validator>;
-   using i32_load16_s_t = wasm_ops::i32_load16_s<large_offset_validator<wasm_ops::op_types<>::i32_load16_s_t>,
-                                                 whitelist_validator>;
-   using i32_load16_u_t = wasm_ops::i32_load16_u<large_offset_validator<wasm_ops::op_types<>::i32_load16_u_t>,
-                                                 whitelist_validator>;
+   using i32_load16_s_t =
+      wasm_ops::i32_load16_s<large_offset_validator<wasm_ops::op_types<>::i32_load16_s_t>, whitelist_validator>;
+   using i32_load16_u_t =
+      wasm_ops::i32_load16_u<large_offset_validator<wasm_ops::op_types<>::i32_load16_u_t>, whitelist_validator>;
    using i64_load8_s_t =
       wasm_ops::i64_load8_s<large_offset_validator<wasm_ops::op_types<>::i64_load8_s_t>, whitelist_validator>;
    using i64_load8_u_t =
       wasm_ops::i64_load8_u<large_offset_validator<wasm_ops::op_types<>::i64_load8_u_t>, whitelist_validator>;
-   using i64_load16_s_t = wasm_ops::i64_load16_s<large_offset_validator<wasm_ops::op_types<>::i64_load16_s_t>,
-                                                 whitelist_validator>;
-   using i64_load16_u_t = wasm_ops::i64_load16_u<large_offset_validator<wasm_ops::op_types<>::i64_load16_u_t>,
-                                                 whitelist_validator>;
-   using i64_load32_s_t = wasm_ops::i64_load32_s<large_offset_validator<wasm_ops::op_types<>::i64_load32_s_t>,
-                                                 whitelist_validator>;
-   using i64_load32_u_t = wasm_ops::i64_load32_u<large_offset_validator<wasm_ops::op_types<>::i64_load32_u_t>,
-                                                 whitelist_validator>;
+   using i64_load16_s_t =
+      wasm_ops::i64_load16_s<large_offset_validator<wasm_ops::op_types<>::i64_load16_s_t>, whitelist_validator>;
+   using i64_load16_u_t =
+      wasm_ops::i64_load16_u<large_offset_validator<wasm_ops::op_types<>::i64_load16_u_t>, whitelist_validator>;
+   using i64_load32_s_t =
+      wasm_ops::i64_load32_s<large_offset_validator<wasm_ops::op_types<>::i64_load32_s_t>, whitelist_validator>;
+   using i64_load32_u_t =
+      wasm_ops::i64_load32_u<large_offset_validator<wasm_ops::op_types<>::i64_load32_u_t>, whitelist_validator>;
    using i32_store_t =
       wasm_ops::i32_store<large_offset_validator<wasm_ops::op_types<>::i32_store_t>, whitelist_validator>;
    using i64_store_t =

@@ -84,18 +84,15 @@ public:
          get_row_by_account(config::system_account_name, config::system_account_name, "global"_n, "global"_n);
       if (data.empty())
          std::cout << "\nData is empty\n" << std::endl;
-      return data.empty()
-                ? fc::variant()
-                : abi_ser.binary_to_variant("eosio_global_state",
-                                            data,
-                                            abi_serializer::create_yield_function(abi_serializer_max_time));
+      return data.empty() ? fc::variant()
+                          : abi_ser.binary_to_variant("eosio_global_state",
+                                                      data,
+                                                      abi_serializer::create_yield_function(abi_serializer_max_time));
    }
 
    auto buyram(name payer, name receiver, asset ram) {
-      auto r = base_tester::push_action(config::system_account_name,
-                                        "buyram"_n,
-                                        payer,
-                                        mvo()("payer", payer)("receiver", receiver)("quant", ram));
+      auto r = base_tester::push_action(
+         config::system_account_name, "buyram"_n, payer, mvo()("payer", payer)("receiver", receiver)("quant", ram));
       produce_block();
       return r;
    }
@@ -110,10 +107,7 @@ public:
       return r;
    }
 
-   void create_currency(name                    contract,
-                        name                    manager,
-                        asset                   maxsupply,
-                        const private_key_type* signer = nullptr) {
+   void create_currency(name contract, name manager, asset maxsupply, const private_key_type* signer = nullptr) {
       auto act = mutable_variant_object()("issuer", manager)("maximum_supply", maxsupply);
 
       base_tester::push_action(contract, "create"_n, contract, act);
@@ -127,8 +121,7 @@ public:
    }
 
    auto claim_rewards(name owner) {
-      auto r = base_tester::push_action(
-         config::system_account_name, "claimrewards"_n, owner, mvo()("owner", owner));
+      auto r = base_tester::push_action(config::system_account_name, "claimrewards"_n, owner, mvo()("owner", owner));
       produce_block();
       return r;
    }
@@ -143,12 +136,12 @@ public:
    }
 
    auto register_producer(name producer) {
-      auto r = base_tester::push_action(
-         config::system_account_name,
-         "regproducer"_n,
-         producer,
-         mvo()("producer", name(producer))("producer_key",
-                                           get_public_key(producer, "active"))("url", "")("location", 0));
+      auto r =
+         base_tester::push_action(config::system_account_name,
+                                  "regproducer"_n,
+                                  producer,
+                                  mvo()("producer", name(producer))("producer_key", get_public_key(producer, "active"))(
+                                     "url", "")("location", 0));
       produce_block();
       return r;
    }
@@ -256,11 +249,10 @@ BOOST_FIXTURE_TEST_CASE(bootseq_test, bootseq_tester) {
          BOOST_REQUIRE(!r->except_ptr);
       }
 
-      auto producer_candidates = { "proda"_n, "prodb"_n,     "prodc"_n,     "prodd"_n,    "prode"_n,
-                                   "prodf"_n, "prodg"_n,     "prodh"_n,     "prodi"_n,    "prodj"_n,
-                                   "prodk"_n, "prodl"_n,     "prodm"_n,     "prodn"_n,    "prodo"_n,
-                                   "prodp"_n, "prodq"_n,     "prodr"_n,     "prods"_n,    "prodt"_n,
-                                   "produ"_n, "runnerup1"_n, "runnerup2"_n, "runnerup3"_n };
+      auto producer_candidates = { "proda"_n, "prodb"_n, "prodc"_n, "prodd"_n,     "prode"_n,     "prodf"_n,
+                                   "prodg"_n, "prodh"_n, "prodi"_n, "prodj"_n,     "prodk"_n,     "prodl"_n,
+                                   "prodm"_n, "prodn"_n, "prodo"_n, "prodp"_n,     "prodq"_n,     "prodr"_n,
+                                   "prods"_n, "prodt"_n, "produ"_n, "runnerup1"_n, "runnerup2"_n, "runnerup3"_n };
 
       // Register producers
       for (auto pro : producer_candidates) {
@@ -281,8 +273,7 @@ BOOST_FIXTURE_TEST_CASE(bootseq_test, bootseq_tester) {
       votepro("whale2"_n, { "runnerup1"_n, "runnerup2"_n, "runnerup3"_n });
       votepro("whale3"_n, { "proda"_n, "prodb"_n, "prodc"_n, "prodd"_n, "prode"_n });
 
-      // Total Stakes = b1 + whale2 + whale3 stake = (100,000,000 - 1,000) + (20,000,000 - 1,000) +
-      // (30,000,000 - 1,000)
+      // Total Stakes = b1 + whale2 + whale3 stake = (100,000,000 - 1,000) + (20,000,000 - 1,000) + (30,000,000 - 1,000)
       vector<char> data =
          get_row_by_account(config::system_account_name, config::system_account_name, "global"_n, "global"_n);
 
@@ -333,8 +324,8 @@ BOOST_FIXTURE_TEST_CASE(bootseq_test, bootseq_tester) {
 
       // Spend some time so the producer pay pool is filled by the inflation rate
       produce_min_num_of_blocks_to_spend_time_wo_inactive_prod(fc::seconds(30 * 24 * 3600)); // 30 days
-      // Since the total activated stake is larger than 150,000,000, pool should be filled reward should be
-      // bigger than zero
+      // Since the total activated stake is larger than 150,000,000, pool should be filled reward should be bigger than
+      // zero
       claim_rewards("runnerup1"_n);
       BOOST_TEST(get_balance("runnerup1"_n).get_amount() > 0);
 
@@ -345,16 +336,14 @@ BOOST_FIXTURE_TEST_CASE(bootseq_test, bootseq_tester) {
       // This should thrown an error, since block one can only unstake all his stake after 10 years
 
       BOOST_REQUIRE_THROW(
-         undelegate_bandwidth(
-            "b1"_n, "b1"_n, core_from_string("49999500.0000"), core_from_string("49999500.0000")),
+         undelegate_bandwidth("b1"_n, "b1"_n, core_from_string("49999500.0000"), core_from_string("49999500.0000")),
          eosio_assert_message_exception);
 
       // Skip 10 years
       produce_block(first_june_2028 - control->head_block_time().time_since_epoch());
 
       // Block one should be able to unstake all his stake now
-      undelegate_bandwidth(
-         "b1"_n, "b1"_n, core_from_string("49999500.0000"), core_from_string("49999500.0000"));
+      undelegate_bandwidth("b1"_n, "b1"_n, core_from_string("49999500.0000"), core_from_string("49999500.0000"));
 
       return;
       produce_blocks(7000); /// produce blocks until virutal bandwidth can acomadate a small user

@@ -145,8 +145,7 @@ public:
       if (!BN_is_negative(bn))
          return (n > (unsigned long)std::numeric_limits<int>::max() ? std::numeric_limits<int>::max() : n);
       else
-         return (n > (unsigned long)std::numeric_limits<int>::max() ? std::numeric_limits<int>::min()
-                                                                    : -(int)n);
+         return (n > (unsigned long)std::numeric_limits<int>::max() ? std::numeric_limits<int>::min() : -(int)n);
    }
 
    void setint64(int64_t n) {
@@ -274,14 +273,13 @@ public:
          psz++;
 
       // hex string to bignum
-      static signed char phexdigit[256] = { 0, 0,   0,   0,   0,   0,   0,   0, 0, 0, 0, 0, 0, 0, 0, 0,
-                                            0, 0,   0,   0,   0,   0,   0,   0, 0, 0, 0, 0, 0, 0, 0, 0,
-                                            0, 0,   0,   0,   0,   0,   0,   0, 0, 0, 0, 0, 0, 0, 0, 0,
-                                            0, 1,   2,   3,   4,   5,   6,   7, 8, 9, 0, 0, 0, 0, 0, 0,
-                                            0, 0xa, 0xb, 0xc, 0xd, 0xe, 0xf, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                                            0, 0,   0,   0,   0,   0,   0,   0, 0, 0, 0, 0, 0, 0, 0, 0,
-                                            0, 0xa, 0xb, 0xc, 0xd, 0xe, 0xf, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-      *this                             = 0;
+      static signed char phexdigit[256] = {
+         0, 0, 0, 0, 0, 0, 0, 0, 0, 0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0, 0, 0, 0, 0, 0, 0, 0, 0,
+         0, 0, 0, 0, 0, 0, 0, 0, 0, 0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0, 0, 1, 2, 3, 4, 5, 6, 7,
+         8, 9, 0, 0, 0, 0, 0, 0, 0, 0xa, 0xb, 0xc, 0xd, 0xe, 0xf, 0,   0,   0,   0,   0, 0, 0, 0, 0, 0, 0, 0, 0,
+         0, 0, 0, 0, 0, 0, 0, 0, 0, 0,   0,   0,   0,   0xa, 0xb, 0xc, 0xd, 0xe, 0xf, 0, 0, 0, 0, 0, 0, 0, 0, 0
+      };
+      *this = 0;
       while (isxdigit(*psz)) {
          *this <<= 4;
          int n = phexdigit[(unsigned char)*psz++];

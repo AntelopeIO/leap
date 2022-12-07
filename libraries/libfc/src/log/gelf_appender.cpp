@@ -29,9 +29,7 @@ const std::vector<std::string> gelf_appender::config::reserved_field_names = {
    "_log_id",       "_line", "_file", "_method_name", "_thread_name", "_task_name"
 };
 
-const std::regex gelf_appender::config::user_field_name_pattern{
-   "^_[\\w\\.\\-]*$"
-}; // per GELF specification
+const std::regex gelf_appender::config::user_field_name_pattern{ "^_[\\w\\.\\-]*$" }; // per GELF specification
 
 class gelf_appender::impl {
 public:
@@ -58,8 +56,8 @@ public:
       for (auto&& field : cfg.user_fields) {
          if (!std::regex_match(field.key(), config::user_field_name_pattern)) {
             FC_THROW_EXCEPTION(invalid_arg_exception,
-                               "Field name '${field_name} must begin with an underscore and contain only "
-                               "letters, numbers, underscores, dashes, and dots.",
+                               "Field name '${field_name} must begin with an underscore and contain only letters, "
+                               "numbers, underscores, dashes, and dots.",
                                ("field_name", field.key()));
          }
       }
@@ -93,8 +91,7 @@ void gelf_appender::initialize(boost::asio::io_service& io_service) {
                                   ("hostname", hostname));
             my->gelf_endpoint = endpoints.back();
          } catch (const boost::bad_lexical_cast&) {
-            FC_THROW("Bad port: ${port}",
-                     ("port", my->cfg.endpoint.substr(colon_pos + 1, my->cfg.endpoint.size())));
+            FC_THROW("Bad port: ${port}", ("port", my->cfg.endpoint.substr(colon_pos + 1, my->cfg.endpoint.size())));
          }
       }
 
@@ -121,8 +118,8 @@ void gelf_appender::log(const log_message& message) {
    gelf_message["host"]          = my->cfg.host;
    gelf_message["short_message"] = format_string(message.get_format(), message.get_data(), true);
 
-   // use now() instead of context.get_timestamp() because log_message construction can include user provided
-   // long running calls
+   // use now() instead of context.get_timestamp() because log_message construction can include user provided long
+   // running calls
    const auto time_ns            = time_point::now().time_since_epoch().count();
    gelf_message["timestamp"]     = time_ns / 1000000.;
    gelf_message["_timestamp_ns"] = time_ns;
@@ -187,12 +184,12 @@ void gelf_appender::log(const log_message& message) {
       // split the message
       // we need to generate an 8-byte ID for this message.
       // city hash should do
-      uint64_t       message_id = city_hash64(gelf_message_as_string.c_str(), gelf_message_as_string.size());
-      const unsigned header_length     = 2 /* magic */ + 8 /* msg id */ + 1 /* seq */ + 1 /* count */;
-      const unsigned body_length       = max_payload_size - header_length;
-      unsigned total_number_of_packets = (gelf_message_as_string.size() + body_length - 1) / body_length;
-      unsigned bytes_sent              = 0;
-      unsigned number_of_packets_sent  = 0;
+      uint64_t       message_id    = city_hash64(gelf_message_as_string.c_str(), gelf_message_as_string.size());
+      const unsigned header_length = 2 /* magic */ + 8 /* msg id */ + 1 /* seq */ + 1 /* count */;
+      const unsigned body_length   = max_payload_size - header_length;
+      unsigned       total_number_of_packets = (gelf_message_as_string.size() + body_length - 1) / body_length;
+      unsigned       bytes_sent              = 0;
+      unsigned       number_of_packets_sent  = 0;
       while (bytes_sent < gelf_message_as_string.size()) {
          unsigned bytes_to_send = std::min((unsigned)gelf_message_as_string.size() - bytes_sent, body_length);
 

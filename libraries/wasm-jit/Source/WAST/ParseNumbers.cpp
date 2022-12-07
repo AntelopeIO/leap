@@ -93,10 +93,7 @@ static U64 parseHexUnsignedInt(const char*& nextChar, ParseState& state, U64 max
 
 // Parses an unsigned integer from digits, advancing nextChar past the parsed digits.
 // Assumes it will only be called for input that's already been accepted by the lexer as a decimal integer.
-static U64 parseDecimalUnsignedInt(const char*& nextChar,
-                                   ParseState&  state,
-                                   U64          maxValue,
-                                   const char*  context) {
+static U64 parseDecimalUnsignedInt(const char*& nextChar, ParseState& state, U64 maxValue, const char* context) {
    U64         result     = 0;
    const char* firstDigit = nextChar;
    while (true) {
@@ -140,7 +137,7 @@ Float parseNaN(const char*& nextChar, ParseState& state) {
    if (*nextChar == ':') {
       ++nextChar;
 
-      const U64 significandBits = parseHexUnsignedInt(nextChar, state, FloatComponents::maxSignificand);
+      const U64 significandBits         = parseHexUnsignedInt(nextChar, state, FloatComponents::maxSignificand);
       resultComponents.bits.significand = typename FloatComponents::Bits(significandBits);
    } else {
       // If the NaN's significand isn't specified, just set the top bit.
@@ -165,8 +162,7 @@ Float parseInfinity(const char* nextChar) {
 }
 
 // Parses a decimal floating point literal, advancing nextChar past the parsed characters.
-// Assumes it will only be called for input that's already been accepted by the lexer as a decimal float
-// literal.
+// Assumes it will only be called for input that's already been accepted by the lexer as a decimal float literal.
 template<typename Float>
 Float parseFloat(const char*& nextChar, ParseState& state) {
    // Scan the token's characters for underscores, and make a copy of it without the underscores for strtod.
@@ -213,8 +209,7 @@ Float parseFloat(const char*& nextChar, ParseState& state) {
       }
 
       if (*nextChar == '_' && !hasUnderscores) {
-         // If this is the first underscore encountered, copy the preceding characters of the number to a
-         // std::string.
+         // If this is the first underscore encountered, copy the preceding characters of the number to a std::string.
          noUnderscoreString = std::string(firstChar, nextChar);
          hasUnderscores     = true;
       } else if (*nextChar != '_' && hasUnderscores) {
@@ -259,7 +254,7 @@ bool tryParseInt(ParseState& state, UnsignedInt& outUnsignedInt, I64 minSignedVa
          break;
       case t_hexInt:
          isNegative = parseSign(nextChar);
-         u64 = parseHexUnsignedInt(nextChar, state, isNegative ? U64(-minSignedValue) : maxUnsignedValue);
+         u64        = parseHexUnsignedInt(nextChar, state, isNegative ? U64(-minSignedValue) : maxUnsignedValue);
          break;
       default: return false;
    };

@@ -37,8 +37,7 @@ public:
    const char*                   raw_buffer;
    std::shared_ptr<const char>   shared_buffer;
 
-   // QUESTION: Why would this version of the constructor ever be called if it will abort the program if built
-   // as DEBUG?
+   // QUESTION: Why would this version of the constructor ever be called if it will abort the program if built as DEBUG?
    //           Commenting out for now since this file is not even included in the fc library build.
    /*
    rate_limited_tcp_write_operation(boost::asio::ip::tcp::socket& socket,
@@ -166,9 +165,8 @@ public:
 
    microseconds _granularity; // how often to add tokens to the bucket
    uint32_t     _read_tokens;
-   uint32_t _unused_read_tokens; // gets filled with tokens for unused bytes (if I'm allowed to read 200 bytes
-                                 // and I try to read 200 bytes, but can only read 50, tokens for the other
-                                 // 150 get returned here)
+   uint32_t _unused_read_tokens; // gets filled with tokens for unused bytes (if I'm allowed to read 200 bytes and I try
+                                 // to read 200 bytes, but can only read 50, tokens for the other 150 get returned here)
    uint32_t _write_tokens;
    uint32_t _unused_write_tokens;
 
@@ -200,20 +198,14 @@ public:
                            size_t                        length,
                            size_t                        offset) override;
    template<typename BufferType>
-   size_t         readsome_impl(boost::asio::ip::tcp::socket& socket,
-                                const BufferType&             buffer,
-                                size_t                        length,
-                                size_t                        offset);
+   size_t readsome_impl(boost::asio::ip::tcp::socket& socket, const BufferType& buffer, size_t length, size_t offset);
    virtual size_t writesome(boost::asio::ip::tcp::socket& socket, const char* buffer, size_t length) override;
    virtual size_t writesome(boost::asio::ip::tcp::socket&      socket,
                             const std::shared_ptr<const char>& buffer,
                             size_t                             length,
                             size_t                             offset) override;
    template<typename BufferType>
-   size_t writesome_impl(boost::asio::ip::tcp::socket& socket,
-                         const BufferType&             buffer,
-                         size_t                        length,
-                         size_t                        offset);
+   size_t writesome_impl(boost::asio::ip::tcp::socket& socket, const BufferType& buffer, size_t length, size_t offset);
 
    void process_pending_reads();
    void process_pending_writes();
@@ -264,14 +256,13 @@ size_t rate_limiting_group_impl::readsome_impl(boost::asio::ip::tcp::socket& soc
                                                size_t                        offset) {
    size_t bytes_read;
    if (_download_bytes_per_second) {
-      promise<size_t>::ptr completion_promise(new promise<size_t>("rate_limiting_group_impl::readsome"));
+      promise<size_t>::ptr            completion_promise(new promise<size_t>("rate_limiting_group_impl::readsome"));
       rate_limited_tcp_read_operation read_operation(socket, buffer, length, offset, completion_promise);
       _read_operations_for_next_iteration.push_back(&read_operation);
 
       // launch the read processing loop it if isn't running, or signal it to resume if it's paused.
       if (!_process_pending_reads_loop_complete.valid() || _process_pending_reads_loop_complete.ready())
-         _process_pending_reads_loop_complete =
-            async([=]() { process_pending_reads(); }, "process_pending_reads");
+         _process_pending_reads_loop_complete = async([=]() { process_pending_reads(); }, "process_pending_reads");
       else if (_new_read_operation_available_promise)
          _new_read_operation_available_promise->set_value();
 
@@ -291,9 +282,7 @@ size_t rate_limiting_group_impl::readsome_impl(boost::asio::ip::tcp::socket& soc
    return bytes_read;
 }
 
-size_t rate_limiting_group_impl::writesome(boost::asio::ip::tcp::socket& socket,
-                                           const char*                   buffer,
-                                           size_t                        length) {
+size_t rate_limiting_group_impl::writesome(boost::asio::ip::tcp::socket& socket, const char* buffer, size_t length) {
    return writesome_impl(socket, buffer, length, 0);
 }
 
@@ -311,14 +300,13 @@ size_t rate_limiting_group_impl::writesome_impl(boost::asio::ip::tcp::socket& so
                                                 size_t                        offset) {
    size_t bytes_written;
    if (_upload_bytes_per_second) {
-      promise<size_t>::ptr completion_promise(new promise<size_t>("rate_limiting_group_impl::writesome"));
+      promise<size_t>::ptr             completion_promise(new promise<size_t>("rate_limiting_group_impl::writesome"));
       rate_limited_tcp_write_operation write_operation(socket, buffer, length, offset, completion_promise);
       _write_operations_for_next_iteration.push_back(&write_operation);
 
       // launch the write processing loop it if isn't running, or signal it to resume if it's paused.
       if (!_process_pending_writes_loop_complete.valid() || _process_pending_writes_loop_complete.ready())
-         _process_pending_writes_loop_complete =
-            async([=]() { process_pending_writes(); }, "process_pending_writes");
+         _process_pending_writes_loop_complete = async([=]() { process_pending_writes(); }, "process_pending_writes");
       else if (_new_write_operation_available_promise)
          _new_write_operation_available_promise->set_value();
 
@@ -347,8 +335,7 @@ void rate_limiting_group_impl::process_pending_reads() {
                                  _read_tokens,
                                  _unused_read_tokens);
 
-      _new_read_operation_available_promise =
-         new promise<void>("rate_limiting_group_impl::process_pending_reads");
+      _new_read_operation_available_promise = new promise<void>("rate_limiting_group_impl::process_pending_reads");
       try {
          if (_read_operations_in_progress.empty())
             _new_read_operation_available_promise->wait();
@@ -367,8 +354,7 @@ void rate_limiting_group_impl::process_pending_writes() {
                                  _write_tokens,
                                  _unused_write_tokens);
 
-      _new_write_operation_available_promise =
-         new promise<void>("rate_limiting_group_impl::process_pending_writes");
+      _new_write_operation_available_promise = new promise<void>("rate_limiting_group_impl::process_pending_writes");
       try {
          if (_write_operations_in_progress.empty())
             _new_write_operation_available_promise->wait();
@@ -378,13 +364,12 @@ void rate_limiting_group_impl::process_pending_writes() {
       _new_write_operation_available_promise.reset();
    }
 }
-void rate_limiting_group_impl::process_pending_operations(
-   time_point&                  last_iteration_start_time,
-   uint32_t&                    limit_bytes_per_second,
-   rate_limited_operation_list& operations_in_progress,
-   rate_limited_operation_list& operations_for_next_iteration,
-   uint32_t&                    tokens,
-   uint32_t&                    unused_tokens) {
+void rate_limiting_group_impl::process_pending_operations(time_point&                  last_iteration_start_time,
+                                                          uint32_t&                    limit_bytes_per_second,
+                                                          rate_limited_operation_list& operations_in_progress,
+                                                          rate_limited_operation_list& operations_for_next_iteration,
+                                                          uint32_t&                    tokens,
+                                                          uint32_t&                    unused_tokens) {
    // lock here for multithreaded
    std::copy(operations_for_next_iteration.begin(),
              operations_for_next_iteration.end(),
@@ -412,16 +397,15 @@ void rate_limiting_group_impl::process_pending_operations(
          operations_sorted_by_length.reserve(operations_in_progress.size());
          for (rate_limited_operation* operation_data : operations_in_progress)
             operations_sorted_by_length.push_back(operation_data);
-         std::sort(
-            operations_sorted_by_length.begin(), operations_sorted_by_length.end(), is_operation_shorter());
+         std::sort(operations_sorted_by_length.begin(), operations_sorted_by_length.end(), is_operation_shorter());
 
          // figure out how many bytes each reader/writer is allowed to read/write
          uint32_t bytes_remaining_to_allocate = tokens;
          while (!operations_sorted_by_length.empty()) {
             uint32_t bytes_permitted_for_this_operation =
                bytes_remaining_to_allocate / operations_sorted_by_length.size();
-            uint32_t bytes_allocated_for_this_operation = std::min<size_t>(
-               operations_sorted_by_length.back()->length, bytes_permitted_for_this_operation);
+            uint32_t bytes_allocated_for_this_operation =
+               std::min<size_t>(operations_sorted_by_length.back()->length, bytes_permitted_for_this_operation);
             operations_sorted_by_length.back()->permitted_length = bytes_allocated_for_this_operation;
             bytes_remaining_to_allocate -= bytes_allocated_for_this_operation;
             operations_sorted_by_length.pop_back();

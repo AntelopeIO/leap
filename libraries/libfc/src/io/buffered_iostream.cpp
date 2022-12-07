@@ -117,8 +117,7 @@ char buffered_istream::peek() const {
    if (my->_rdbuf.size()) {
       return my->_rdbuf.sgetc();
    }
-   FC_THROW_EXCEPTION(assert_exception,
-                      "at least one byte should be available, or eof should have been thrown");
+   FC_THROW_EXCEPTION(assert_exception, "at least one byte should be available, or eof should have been thrown");
 }
 
 namespace detail {

@@ -159,8 +159,7 @@ variant::variant(const variant& v) {
          set_variant_type(this, object_type);
          return;
       case array_type:
-         *reinterpret_cast<variants**>(this) =
-            new variants(**reinterpret_cast<const const_variants_ptr*>(&v));
+         *reinterpret_cast<variants**>(this) = new variants(**reinterpret_cast<const const_variants_ptr*>(&v));
          set_variant_type(this, array_type);
          return;
       case string_type:
@@ -204,8 +203,7 @@ variant& variant::operator=(const variant& v) {
             new variant_object((**reinterpret_cast<const const_variant_object_ptr*>(&v)));
          break;
       case array_type:
-         *reinterpret_cast<variants**>(this) =
-            new variants((**reinterpret_cast<const const_variants_ptr*>(&v)));
+         *reinterpret_cast<variants**>(this) = new variants((**reinterpret_cast<const const_variants_ptr*>(&v)));
          break;
       case string_type:
          *reinterpret_cast<string**>(this) = new string((**reinterpret_cast<const const_string_ptr*>(&v)));
@@ -297,8 +295,7 @@ int64_t variant::as_int64() const {
       case uint64_type: return int64_t(*reinterpret_cast<const uint64_t*>(this));
       case bool_type: return *reinterpret_cast<const bool*>(this);
       case null_type: return 0;
-      default:
-         FC_THROW_EXCEPTION(bad_cast_exception, "Invalid cast from ${type} to int64", ("type", get_type()));
+      default: FC_THROW_EXCEPTION(bad_cast_exception, "Invalid cast from ${type} to int64", ("type", get_type()));
    }
 }
 
@@ -311,9 +308,7 @@ uint64_t variant::as_uint64() const {
          case uint64_type: return *reinterpret_cast<const uint64_t*>(this);
          case bool_type: return static_cast<uint64_t>(*reinterpret_cast<const bool*>(this));
          case null_type: return 0;
-         default:
-            FC_THROW_EXCEPTION(
-               bad_cast_exception, "Invalid cast from ${type} to uint64", ("type", get_type()));
+         default: FC_THROW_EXCEPTION(bad_cast_exception, "Invalid cast from ${type} to uint64", ("type", get_type()));
       }
    }
    FC_CAPTURE_AND_RETHROW((*this))
@@ -327,8 +322,7 @@ double variant::as_double() const {
       case uint64_type: return static_cast<double>(*reinterpret_cast<const uint64_t*>(this));
       case bool_type: return *reinterpret_cast<const bool*>(this);
       case null_type: return 0;
-      default:
-         FC_THROW_EXCEPTION(bad_cast_exception, "Invalid cast from ${type} to double", ("type", get_type()));
+      default: FC_THROW_EXCEPTION(bad_cast_exception, "Invalid cast from ${type} to double", ("type", get_type()));
    }
 }
 
@@ -348,8 +342,7 @@ bool variant::as_bool() const {
       case uint64_type: return *reinterpret_cast<const uint64_t*>(this) != 0;
       case bool_type: return *reinterpret_cast<const bool*>(this);
       case null_type: return false;
-      default:
-         FC_THROW_EXCEPTION(bad_cast_exception, "Invalid cast from ${type} to bool", ("type", get_type()));
+      default: FC_THROW_EXCEPTION(bad_cast_exception, "Invalid cast from ${type} to bool", ("type", get_type()));
    }
 }
 
@@ -365,8 +358,7 @@ string variant::as_string() const {
             return base64_encode(get_blob().data.data(), get_blob().data.size()) + "=";
          return string();
       case null_type: return string();
-      default:
-         FC_THROW_EXCEPTION(bad_cast_exception, "Invalid cast from ${type} to string", ("type", get_type()));
+      default: FC_THROW_EXCEPTION(bad_cast_exception, "Invalid cast from ${type} to string", ("type", get_type()));
    }
 }
 
@@ -542,9 +534,8 @@ void from_variant(const variant& var, unsigned __int128& vo) {
    } else if (var.is_string()) {
       vo = static_cast<unsigned __int128>(boost::multiprecision::uint128_t(var.as_string()));
    } else {
-      FC_THROW_EXCEPTION(bad_cast_exception,
-                         "Cannot convert variant of type '${type}' into a uint128_t",
-                         ("type", var.get_type()));
+      FC_THROW_EXCEPTION(
+         bad_cast_exception, "Cannot convert variant of type '${type}' into a uint128_t", ("type", var.get_type()));
    }
 }
 
@@ -558,9 +549,8 @@ void from_variant(const variant& var, __int128& vo) {
    } else if (var.is_string()) {
       vo = static_cast<__int128>(boost::multiprecision::int128_t(var.as_string()));
    } else {
-      FC_THROW_EXCEPTION(bad_cast_exception,
-                         "Cannot convert variant of type '${type}' into a int128_t",
-                         ("type", var.get_type()));
+      FC_THROW_EXCEPTION(
+         bad_cast_exception, "Cannot convert variant of type '${type}' into a int128_t", ("type", var.get_type()));
    }
 }
 
@@ -601,8 +591,7 @@ void to_variant(const std::vector<char>& var, variant& vo) {
 }
 void from_variant(const variant& var, std::vector<char>& vo) {
    const auto& str = var.get_string();
-   FC_ASSERT(str.size() <=
-             2 * MAX_SIZE_OF_BYTE_ARRAYS); // Doubled because hex strings needs two characters per byte
+   FC_ASSERT(str.size() <= 2 * MAX_SIZE_OF_BYTE_ARRAYS); // Doubled because hex strings needs two characters per byte
    FC_ASSERT(str.size() % 2 == 0, "the length of hex string should be even number");
    vo.resize(str.size() / 2);
    if (vo.size()) {
@@ -663,14 +652,13 @@ void clean_append(string& app, const std::string_view& s, size_t pos = 0, size_t
 
 string format_string(const string& frmt, const variant_object& args, bool minimize) {
    std::string   result;
-   const string& format =
-      (minimize && frmt.size() > minimize_max_size) ? frmt.substr(0, minimize_max_size) + "..." : frmt;
+   const string& format = (minimize && frmt.size() > minimize_max_size) ? frmt.substr(0, minimize_max_size) + "..."
+                                                                        : frmt;
 
    const auto arg_num         = (args.size() == 0) ? 1 : args.size();
    const auto max_format_size = std::max(minimize_max_size, format.size());
    // limit each arg size when minimize is set
-   const auto minimize_sub_max_size = minimize ? (max_format_size - format.size()) / arg_num
-                                               : minimize_max_size;
+   const auto minimize_sub_max_size = minimize ? (max_format_size - format.size()) / arg_num : minimize_max_size;
    // reserve space for each argument replaced by ...
    result.reserve(max_format_size + 3 * args.size());
    size_t prev = 0;
@@ -708,8 +696,7 @@ string format_string(const string& frmt, const variant_object& args, bool minimi
                   if (minimize && (result.size() >= minimize_max_size)) {
                      replaced = false;
                   } else {
-                     const auto max_length = minimize ? minimize_sub_max_size
-                                                      : std::numeric_limits<uint64_t>::max();
+                     const auto max_length = minimize ? minimize_sub_max_size : std::numeric_limits<uint64_t>::max();
                      try {
                         // clean_append not needed as to_string is valid utf8
                         result += json::to_string(val->value(),

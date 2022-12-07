@@ -171,8 +171,7 @@ struct ModulePrintContext {
    ModulePrintContext(const Module& inModule, std::string& inString)
       : module(inModule)
       , string(inString) {
-      // Start with the names from the module's user name section, but make sure they are unique, and add the
-      // "$" sigil.
+      // Start with the names from the module's user name section, but make sure they are unique, and add the "$" sigil.
       IR::getDisassemblyNames(module, names);
       NameScope globalNameScope('$');
       for (auto& name : names.types) {
@@ -312,15 +311,9 @@ struct FunctionPrintContext {
 
    void select(NoImm) { string += "\nselect"; }
 
-   void get_local(GetOrSetVariableImm<false> imm) {
-      string += "\nget_local " + localNames[imm.variableIndex];
-   }
-   void set_local(GetOrSetVariableImm<false> imm) {
-      string += "\nset_local " + localNames[imm.variableIndex];
-   }
-   void tee_local(GetOrSetVariableImm<false> imm) {
-      string += "\ntee_local " + localNames[imm.variableIndex];
-   }
+   void get_local(GetOrSetVariableImm<false> imm) { string += "\nget_local " + localNames[imm.variableIndex]; }
+   void set_local(GetOrSetVariableImm<false> imm) { string += "\nset_local " + localNames[imm.variableIndex]; }
+   void tee_local(GetOrSetVariableImm<false> imm) { string += "\ntee_local " + localNames[imm.variableIndex]; }
 
    void get_global(GetOrSetVariableImm<true> imm) {
       string += "\nget_global " + moduleContext.names.globals[imm.variableIndex];
@@ -330,9 +323,7 @@ struct FunctionPrintContext {
    }
 
    void call(CallImm imm) { string += "\ncall " + moduleContext.names.functions[imm.functionIndex].name; }
-   void call_indirect(CallIndirectImm imm) {
-      string += "\ncall_indirect " + moduleContext.names.types[imm.type.index];
-   }
+   void call_indirect(CallIndirectImm imm) { string += "\ncall_indirect " + moduleContext.names.types[imm.type.index]; }
 
    void printImm(NoImm) {}
    void printImm(MemoryImm) {}
@@ -405,10 +396,10 @@ struct FunctionPrintContext {
    }
 #endif
 
-#define PRINT_OP(opcode, name, nameString, Imm, printOperands)                                               \
-   void name(Imm imm) {                                                                                      \
-      string += "\n" nameString;                                                                             \
-      printImm(imm);                                                                                         \
+#define PRINT_OP(opcode, name, nameString, Imm, printOperands)                                                         \
+   void name(Imm imm) {                                                                                                \
+      string += "\n" nameString;                                                                                       \
+      printImm(imm);                                                                                                   \
    }
    ENUM_NONCONTROL_NONPARAMETRIC_OPERATORS(PRINT_OP)
 #undef VALIDATE_OP
@@ -424,8 +415,7 @@ private:
 
    std::string getBranchTargetId(Uptr depth) {
       const ControlContext& controlContext = controlStack[controlStack.size() - depth - 1];
-      return controlContext.type == ControlContext::Type::function ? std::to_string(depth)
-                                                                   : controlContext.labelId;
+      return controlContext.type == ControlContext::Type::function ? std::to_string(depth) : controlContext.labelId;
    }
 
    void pushControlStack(ControlContext::Type type, const char* labelIdBase) {
@@ -448,9 +438,7 @@ void printImportType(std::string& string, const Module& module, Type type) {
    print(string, type);
 }
 template<>
-void printImportType<IndexedFunctionType>(std::string&        string,
-                                          const Module&       module,
-                                          IndexedFunctionType type) {
+void printImportType<IndexedFunctionType>(std::string& string, const Module& module, IndexedFunctionType type) {
    print(string, module.types[type.index]);
 }
 
@@ -500,12 +488,8 @@ void ModulePrintContext::printModule() {
                   "func");
    }
    for (Uptr importIndex = 0; importIndex < module.tables.imports.size(); ++importIndex) {
-      printImport(string,
-                  module,
-                  module.tables.imports[importIndex],
-                  importIndex,
-                  names.tables[importIndex].c_str(),
-                  "table");
+      printImport(
+         string, module, module.tables.imports[importIndex], importIndex, names.tables[importIndex].c_str(), "table");
    }
    for (Uptr importIndex = 0; importIndex < module.memories.imports.size(); ++importIndex) {
       printImport(string,

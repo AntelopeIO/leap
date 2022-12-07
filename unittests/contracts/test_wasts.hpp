@@ -615,10 +615,10 @@ static const std::vector<uint8_t> global_protection_okay_get_wasm{
 
    0x07, 0x09, 0x01, 0x05, 'a',  'p',  'p',  'l',  'y',  0x00, 0x00, // export function 0 as "apply"
    0x0a, 0x07, 0x01,                                                 // code section
-   0x05, 0x00, // function body start with length 5; no locals
-   0x23, 0x00, // get global 0
-   0x1a,       // drop
-   0x0b        // end
+   0x05, 0x00,                                                       // function body start with length 5; no locals
+   0x23, 0x00,                                                       // get global 0
+   0x1a,                                                             // drop
+   0x0b                                                              // end
 };
 
 static const std::vector<uint8_t> global_protection_none_get_wasm{
@@ -628,10 +628,10 @@ static const std::vector<uint8_t> global_protection_none_get_wasm{
 
    0x07, 0x09, 0x01, 0x05, 'a',  'p',  'p',  'l',  'y',  0x00, 0x00, // export function 0 as "apply"
    0x0a, 0x07, 0x01,                                                 // code section
-   0x05, 0x00, // function body start with length 5; no locals
-   0x23, 0x00, // get global 0
-   0x1a,       // drop
-   0x0b        // end
+   0x05, 0x00,                                                       // function body start with length 5; no locals
+   0x23, 0x00,                                                       // get global 0
+   0x1a,                                                             // drop
+   0x0b                                                              // end
 };
 
 static const std::vector<uint8_t> global_protection_some_get_wasm{
@@ -643,10 +643,10 @@ static const std::vector<uint8_t> global_protection_some_get_wasm{
 
    0x07, 0x09, 0x01, 0x05, 'a',  'p',  'p',  'l',  'y',  0x00, 0x00, // export function 0 as "apply"
    0x0a, 0x07, 0x01,                                                 // code section
-   0x05, 0x00, // function body start with length 5; no locals
-   0x23, 0x01, // get global 1
-   0x1a,       // drop
-   0x0b        // end
+   0x05, 0x00,                                                       // function body start with length 5; no locals
+   0x23, 0x01,                                                       // get global 1
+   0x1a,                                                             // drop
+   0x0b                                                              // end
 };
 
 static const std::vector<uint8_t> global_protection_okay_set_wasm{
@@ -658,10 +658,10 @@ static const std::vector<uint8_t> global_protection_okay_set_wasm{
 
    0x07, 0x09, 0x01, 0x05, 'a',  'p',  'p',  'l',  'y',  0x00, 0x00, // export function 0 as "apply"
    0x0a, 0x08, 0x01,                                                 // code section
-   0x06, 0x00, // function body start with length 6; no locals
-   0x20, 0x00, // get local 0
-   0x24, 0x00, // set global 0
-   0x0b        // end
+   0x06, 0x00,                                                       // function body start with length 6; no locals
+   0x20, 0x00,                                                       // get local 0
+   0x24, 0x00,                                                       // set global 0
+   0x0b                                                              // end
 };
 
 static const std::vector<uint8_t> global_protection_some_set_wasm{
@@ -673,10 +673,10 @@ static const std::vector<uint8_t> global_protection_some_set_wasm{
 
    0x07, 0x09, 0x01, 0x05, 'a',  'p',  'p',  'l',  'y',  0x00, 0x00, // export function 0 as "apply"
    0x0a, 0x08, 0x01,                                                 // code section
-   0x06, 0x00, // function body start with length 6; no locals
-   0x20, 0x00, // get local 0
-   0x24, 0x01, // set global 1
-   0x0b        // end
+   0x06, 0x00,                                                       // function body start with length 6; no locals
+   0x20, 0x00,                                                       // get local 0
+   0x24, 0x01,                                                       // set global 1
+   0x0b                                                              // end
 };
 
 static const char no_apply_wast[] = R"=====(
@@ -869,10 +869,9 @@ static const char depth_assert_wasm_float[] = R"=====(
 )=====";
 
 static const std::vector<uint8_t> varuint_memory_flags{
-   0x00, 'a',  's',  'm',  0x01, 0x00, 0x00, 0x00, 0x01, 0x07, 0x01,
-   0x60, 0x03, 0x7e, 0x7e, 0x7e, 0x00,                         // types
-   0x03, 0x02, 0x01, 0x00,                                     // functions
-   0x04, 0x08, 0x01, 0x70, 0x80, 0x02, 0x80, 0x80, 0x80, 0x00, // memory with flags varuint(0x80 0x02) -> 0x2
+   0x00, 'a',  's',  'm',  0x01, 0x00, 0x00, 0x00, 0x01, 0x07, 0x01, 0x60, 0x03, 0x7e, 0x7e, 0x7e, 0x00, // types
+   0x03, 0x02, 0x01, 0x00,                                                                               // functions
+   0x04, 0x08, 0x01, 0x70, 0x80, 0x02, 0x80, 0x80, 0x80, 0x00,       // memory with flags varuint(0x80 0x02) -> 0x2
    0x07, 0x09, 0x01, 0x05, 'a',  'p',  'p',  'l',  'y',  0x00, 0x00, // exports
    0x0a, 0x04, 0x01, 0x02, 0x00, 0x0b                                // code
 };

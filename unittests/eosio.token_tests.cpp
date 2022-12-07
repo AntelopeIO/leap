@@ -37,9 +37,7 @@ public:
       abi_ser.set_abi(abi, abi_serializer::create_yield_function(abi_serializer_max_time));
    }
 
-   action_result push_action(const account_name&   signer,
-                             const action_name&    name,
-                             const variant_object& data) {
+   action_result push_action(const account_name& signer, const action_name& name, const variant_object& data) {
       string action_type_name = abi_ser.get_action_type(name);
 
       action act;
@@ -54,27 +52,24 @@ public:
    fc::variant get_stats(const string& symbolname) {
       auto         symb        = eosio::chain::symbol::from_string(symbolname);
       auto         symbol_code = symb.to_symbol_code().value;
-      vector<char> data = get_row_by_account("eosio.token"_n, name(symbol_code), "stat"_n, name(symbol_code));
-      return data.empty()
-                ? fc::variant()
-                : abi_ser.binary_to_variant(
-                     "currency_stats", data, abi_serializer::create_yield_function(abi_serializer_max_time));
+      vector<char> data        = get_row_by_account("eosio.token"_n, name(symbol_code), "stat"_n, name(symbol_code));
+      return data.empty() ? fc::variant()
+                          : abi_ser.binary_to_variant(
+                               "currency_stats", data, abi_serializer::create_yield_function(abi_serializer_max_time));
    }
 
    fc::variant get_account(account_name acc, const string& symbolname) {
       auto         symb        = eosio::chain::symbol::from_string(symbolname);
       auto         symbol_code = symb.to_symbol_code().value;
       vector<char> data        = get_row_by_account("eosio.token"_n, acc, "accounts"_n, name(symbol_code));
-      return data.empty()
-                ? fc::variant()
-                : abi_ser.binary_to_variant(
-                     "account", data, abi_serializer::create_yield_function(abi_serializer_max_time));
+      return data.empty() ? fc::variant()
+                          : abi_ser.binary_to_variant(
+                               "account", data, abi_serializer::create_yield_function(abi_serializer_max_time));
    }
 
    action_result create(account_name issuer, asset maximum_supply) {
 
-      return push_action(
-         "eosio.token"_n, "create"_n, mvo()("issuer", issuer)("maximum_supply", maximum_supply));
+      return push_action("eosio.token"_n, "create"_n, mvo()("issuer", issuer)("maximum_supply", maximum_supply));
    }
 
    action_result issue(account_name issuer, account_name to, asset quantity, string memo) {
@@ -82,8 +77,7 @@ public:
    }
 
    action_result transfer(account_name from, account_name to, asset quantity, string memo) {
-      return push_action(
-         from, "transfer"_n, mvo()("from", from)("to", to)("quantity", quantity)("memo", memo));
+      return push_action(from, "transfer"_n, mvo()("from", from)("to", to)("quantity", quantity)("memo", memo));
    }
 
    abi_serializer abi_ser;
@@ -95,8 +89,7 @@ BOOST_FIXTURE_TEST_CASE(create_tests, eosio_token_tester) try {
 
    auto token = create("alice"_n, asset::from_string("1000.000 TKN"));
    auto stats = get_stats("3,TKN");
-   REQUIRE_MATCHING_OBJECT(stats,
-                           mvo()("supply", "0.000 TKN")("max_supply", "1000.000 TKN")("issuer", "alice"));
+   REQUIRE_MATCHING_OBJECT(stats, mvo()("supply", "0.000 TKN")("max_supply", "1000.000 TKN")("issuer", "alice"));
    produce_blocks(1);
 }
 FC_LOG_AND_RETHROW()
@@ -124,8 +117,7 @@ BOOST_FIXTURE_TEST_CASE(create_max_supply, eosio_token_tester) try {
 
    auto token = create("alice"_n, asset::from_string("4611686018427387903 TKN"));
    auto stats = get_stats("0,TKN");
-   REQUIRE_MATCHING_OBJECT(
-      stats, mvo()("supply", "0 TKN")("max_supply", "4611686018427387903 TKN")("issuer", "alice"));
+   REQUIRE_MATCHING_OBJECT(stats, mvo()("supply", "0 TKN")("max_supply", "4611686018427387903 TKN")("issuer", "alice"));
    produce_blocks(1);
 
    asset      max(10, symbol(SY(0, NKT)));
@@ -145,9 +137,8 @@ BOOST_FIXTURE_TEST_CASE(create_max_decimals, eosio_token_tester) try {
 
    auto token = create("alice"_n, asset::from_string("1.000000000000000000 TKN"));
    auto stats = get_stats("18,TKN");
-   REQUIRE_MATCHING_OBJECT(stats,
-                           mvo()("supply", "0.000000000000000000 TKN")(
-                              "max_supply", "1.000000000000000000 TKN")("issuer", "alice"));
+   REQUIRE_MATCHING_OBJECT(
+      stats, mvo()("supply", "0.000000000000000000 TKN")("max_supply", "1.000000000000000000 TKN")("issuer", "alice"));
    produce_blocks(1);
 
    asset max(10, symbol(SY(0, NKT)));
@@ -172,8 +163,7 @@ BOOST_FIXTURE_TEST_CASE(issue_tests, eosio_token_tester) try {
    issue("alice"_n, "alice"_n, asset::from_string("500.000 TKN"), "hola");
 
    auto stats = get_stats("3,TKN");
-   REQUIRE_MATCHING_OBJECT(stats,
-                           mvo()("supply", "500.000 TKN")("max_supply", "1000.000 TKN")("issuer", "alice"));
+   REQUIRE_MATCHING_OBJECT(stats, mvo()("supply", "500.000 TKN")("max_supply", "1000.000 TKN")("issuer", "alice"));
 
    auto alice_balance = get_account("alice"_n, "3,TKN");
    REQUIRE_MATCHING_OBJECT(alice_balance, mvo()("balance", "500.000 TKN"));

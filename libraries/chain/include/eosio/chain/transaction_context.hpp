@@ -18,9 +18,9 @@ public:
    void start(fc::time_point tp);
    void stop();
 
-   /* Sets a callback for when timer expires. Be aware this could might fire from a signal handling context
-      and/or on any particular thread. Only a single callback can be registered at once; trying to register
-      more will result in an exception. Use nullptr to disable a previously set callback. */
+   /* Sets a callback for when timer expires. Be aware this could might fire from a signal handling context and/or
+      on any particular thread. Only a single callback can be registered at once; trying to register more will
+      result in an exception. Use nullptr to disable a previously set callback. */
    void set_expiration_callback(void (*func)(void*), void* user);
 
    std::atomic_bool& expired;
@@ -128,9 +128,7 @@ private:
                                    int64_t account_cpu_limit,
                                    bool    check_minimum,
                                    int64_t subjective_billed_us) const;
-   void validate_account_cpu_usage(int64_t billed_us,
-                                   int64_t account_cpu_limit,
-                                   int64_t subjective_billed_us) const;
+   void validate_account_cpu_usage(int64_t billed_us, int64_t account_cpu_limit, int64_t subjective_billed_us) const;
    void validate_account_cpu_usage_estimate(int64_t billed_us,
                                             int64_t account_cpu_limit,
                                             int64_t subjective_billed_us) const;
@@ -151,8 +149,8 @@ public:
    flat_set<account_name> bill_to_accounts;
    flat_set<account_name> validate_ram_usage;
 
-   /// the maximum number of virtual CPU instructions of the transaction that can be safely billed to the
-   /// billable accounts
+   /// the maximum number of virtual CPU instructions of the transaction that can be safely billed to the billable
+   /// accounts
    uint64_t initial_max_billable_cpu = 0;
 
    fc::microseconds delay;

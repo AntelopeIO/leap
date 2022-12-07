@@ -90,8 +90,7 @@ public:
    size_t variable_size() const { return auth_data.size() + client_json.size(); }
 
    bool operator==(const signature& o) const {
-      return compact_signature == o.compact_signature && auth_data == o.auth_data &&
-             client_json == o.client_json;
+      return compact_signature == o.compact_signature && auth_data == o.auth_data && client_json == o.client_json;
    }
 
    bool operator<(const signature& o) const {

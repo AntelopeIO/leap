@@ -20,8 +20,7 @@ public:
    uint32_t get_height() const { return chain::block_header::num_from_id(block_id); }
 
    static bfs::path get_final_path(const chain::block_id_type& block_id, const bfs::path& snapshots_dir) {
-      return snapshots_dir /
-             fc::format_string("snapshot-${id}.bin", fc::mutable_variant_object()("id", block_id));
+      return snapshots_dir / fc::format_string("snapshot-${id}.bin", fc::mutable_variant_object()("id", block_id));
    }
 
    static bfs::path get_pending_path(const chain::block_id_type& block_id, const bfs::path& snapshots_dir) {
@@ -30,8 +29,8 @@ public:
    }
 
    static bfs::path get_temp_path(const chain::block_id_type& block_id, const bfs::path& snapshots_dir) {
-      return snapshots_dir / fc::format_string(".incomplete-snapshot-${id}.bin",
-                                               fc::mutable_variant_object()("id", block_id));
+      return snapshots_dir /
+             fc::format_string(".incomplete-snapshot-${id}.bin", fc::mutable_variant_object()("id", block_id));
    }
 
    producer_plugin::snapshot_information finalize(const chain::controller& chain) const;

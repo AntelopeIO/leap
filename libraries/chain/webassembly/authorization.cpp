@@ -32,9 +32,7 @@ struct get_code_hash_result {
    uint8_t      vm_version;
 };
 
-uint32_t interface::get_code_hash(account_name   account,
-                                  uint32_t       struct_version,
-                                  vm::span<char> packed_result) const {
+uint32_t interface::get_code_hash(account_name account, uint32_t struct_version, vm::span<char> packed_result) const {
    struct_version              = std::min(uint32_t(0), struct_version);
    get_code_hash_result result = { struct_version };
    context.get_code_hash(account, result.code_sequence, result.code_hash, result.vm_type, result.vm_version);

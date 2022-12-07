@@ -25,25 +25,18 @@
 namespace fc {
 namespace raw {
 
-namespace bip       = boost::interprocess;
-using shared_string = bip::basic_string<char,
-                                        std::char_traits<char>,
-                                        bip::allocator<char, bip::managed_mapped_file::segment_manager>>;
+namespace bip = boost::interprocess;
+using shared_string =
+   bip::basic_string<char, std::char_traits<char>, bip::allocator<char, bip::managed_mapped_file::segment_manager>>;
 
 template<size_t Size>
 using UInt = boost::multiprecision::number<
-   boost::multiprecision::cpp_int_backend<Size,
-                                          Size,
-                                          boost::multiprecision::unsigned_magnitude,
-                                          boost::multiprecision::unchecked,
-                                          void>>;
+   boost::multiprecision::
+      cpp_int_backend<Size, Size, boost::multiprecision::unsigned_magnitude, boost::multiprecision::unchecked, void>>;
 template<size_t Size>
 using Int = boost::multiprecision::number<
-   boost::multiprecision::cpp_int_backend<Size,
-                                          Size,
-                                          boost::multiprecision::signed_magnitude,
-                                          boost::multiprecision::unchecked,
-                                          void>>;
+   boost::multiprecision::
+      cpp_int_backend<Size, Size, boost::multiprecision::signed_magnitude, boost::multiprecision::unchecked, void>>;
 template<typename Stream>
 void pack(Stream& s, const UInt<256>& n);
 template<typename Stream>
@@ -175,8 +168,7 @@ inline auto unpack(Stream& s, fc::array<T, N>& v) -> std::enable_if_t<!is_trivia
       for (uint64_t i = 0; i < N; ++i)
          fc::raw::unpack(s, v.data[i]);
    }
-   FC_RETHROW_EXCEPTIONS(
-      warn, "fc::array<${type},${length}>", ("type", fc::get_typename<T>::name())("length", N))
+   FC_RETHROW_EXCEPTIONS(warn, "fc::array<${type},${length}>", ("type", fc::get_typename<T>::name())("length", N))
 }
 
 template<typename Stream, typename T, size_t N>
@@ -185,8 +177,7 @@ inline auto unpack(Stream& s, fc::array<T, N>& v) -> std::enable_if_t<is_trivial
       static_assert(N <= MAX_NUM_ARRAY_ELEMENTS, "number of elements in array is too large");
       s.read((char*)&v.data[0], N * sizeof(T));
    }
-   FC_RETHROW_EXCEPTIONS(
-      warn, "fc::array<${type},${length}>", ("type", fc::get_typename<T>::name())("length", N))
+   FC_RETHROW_EXCEPTIONS(warn, "fc::array<${type},${length}>", ("type", fc::get_typename<T>::name())("length", N))
 }
 
 template<typename Stream, typename T, size_t N>

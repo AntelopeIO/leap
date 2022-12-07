@@ -149,8 +149,7 @@ BOOST_DATA_TEST_CASE(memory_6_check_throw, boost::unit_test::data::xrange(0, 1),
          {"wasmtest"_n, config::active_name}
       };
 
-      BOOST_CHECK_THROW(push_action(tester, std::move(test), "wasmtest"_n.to_uint64_t()),
-                        wasm_execution_error);
+      BOOST_CHECK_THROW(push_action(tester, std::move(test), "wasmtest"_n.to_uint64_t()), wasm_execution_error);
       tester.produce_block();
    }
    FC_LOG_AND_RETHROW()
@@ -175,8 +174,7 @@ BOOST_DATA_TEST_CASE(memory_7_check_throw, boost::unit_test::data::xrange(0, 1),
          {"wasmtest"_n, config::active_name}
       };
 
-      BOOST_CHECK_THROW(push_action(tester, std::move(test), "wasmtest"_n.to_uint64_t()),
-                        wasm_execution_error);
+      BOOST_CHECK_THROW(push_action(tester, std::move(test), "wasmtest"_n.to_uint64_t()), wasm_execution_error);
       tester.produce_block();
    }
    FC_LOG_AND_RETHROW()

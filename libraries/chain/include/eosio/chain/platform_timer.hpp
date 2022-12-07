@@ -19,18 +19,17 @@ struct platform_timer {
    void start(fc::time_point tp);
    void stop();
 
-   /* Sets a callback for when timer expires. Be aware this could might fire from a signal handling context
-      and/or on any particular thread. Only a single callback can be registered at once; trying to register
-      more will result in an exception. Setting to nullptr disables any current set callback */
+   /* Sets a callback for when timer expires. Be aware this could might fire from a signal handling context and/or
+      on any particular thread. Only a single callback can be registered at once; trying to register more will
+      result in an exception. Setting to nullptr disables any current set callback */
    void set_expiration_callback(void (*func)(void*), void* user) {
       bool expect_false = false;
       while (!atomic_compare_exchange_strong(&_callback_variables_busy, &expect_false, true))
          expect_false = false;
       auto reset_busy =
          fc::make_scoped_exit([this]() { _callback_variables_busy.store(false, std::memory_order_release); });
-      EOS_ASSERT(!(func && _expiration_callback),
-                 misc_exception,
-                 "Setting a platform_timer callback when one already exists");
+      EOS_ASSERT(
+         !(func && _expiration_callback), misc_exception, "Setting a platform_timer callback when one already exists");
 
       _expiration_callback      = func;
       _expiration_callback_data = user;

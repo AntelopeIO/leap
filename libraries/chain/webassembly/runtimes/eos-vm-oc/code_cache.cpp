@@ -36,8 +36,7 @@ struct code_cache_header {
    bool      dirty                       = false;
    uintptr_t serialized_descriptor_index = 0;
 } __attribute__((packed));
-static constexpr size_t header_dirty_bit_offset_from_file_start =
-   header_offset + offsetof(code_cache_header, dirty);
+static constexpr size_t header_dirty_bit_offset_from_file_start = header_offset + offsetof(code_cache_header, dirty);
 static constexpr size_t descriptor_ptr_from_file_start =
    header_offset + offsetof(code_cache_header, serialized_descriptor_index);
 
@@ -92,8 +91,7 @@ std::tuple<size_t, size_t> code_cache_async::consume_compile_thread_queue() {
       if (_outstanding_compiles_and_poison[result.code] == false) {
          std::visit(overloaded{ [&](const code_descriptor& cd) { _cache_index.push_front(cd); },
                                 [&](const compilation_result_unknownfailure&) {
-                                   wlog("code ${c} failed to tier-up with EOS VM OC",
-                                        ("c", result.code.code_id));
+                                   wlog("code ${c} failed to tier-up with EOS VM OC", ("c", result.code.code_id));
                                    _blacklist.emplace(result.code);
                                 },
                                 [&](const compilation_result_toofull&) { run_eviction_round(); } },
@@ -118,8 +116,8 @@ const code_descriptor* const code_cache_async::get_descriptor_for_code(const dig
       while (count_processed && _queued_compiles.size()) {
          auto nextup = _queued_compiles.begin();
 
-         // it's not clear this check is required: if apply() was called for code then it existed in the
-         // code_index; and then
+         // it's not clear this check is required: if apply() was called for code then it existed in the code_index; and
+         // then
          //  if we got notification of it no longer existing we would have removed it from queued_compiles
          const code_object* const codeobject =
             _db.find<code_object, by_code_hash>(boost::make_tuple(nextup->code_id, 0, nextup->vm_version));
@@ -127,9 +125,9 @@ const code_descriptor* const code_cache_async::get_descriptor_for_code(const dig
             _outstanding_compiles_and_poison.emplace(*nextup, false);
             std::vector<wrapped_fd> fds_to_pass;
             fds_to_pass.emplace_back(memfd_for_bytearray(codeobject->code));
-            FC_ASSERT(write_message_with_fds(
-                         _compile_monitor_write_socket, compile_wasm_message{ *nextup }, fds_to_pass),
-                      "EOS VM failed to communicate to OOP manager");
+            FC_ASSERT(
+               write_message_with_fds(_compile_monitor_write_socket, compile_wasm_message{ *nextup }, fds_to_pass),
+               "EOS VM failed to communicate to OOP manager");
             --count_processed;
          }
          _queued_compiles.erase(nextup);
@@ -160,8 +158,7 @@ const code_descriptor* const code_cache_async::get_descriptor_for_code(const dig
       return nullptr;
    }
 
-   const code_object* const codeobject =
-      _db.find<code_object, by_code_hash>(boost::make_tuple(code_id, 0, vm_version));
+   const code_object* const codeobject = _db.find<code_object, by_code_hash>(boost::make_tuple(code_id, 0, vm_version));
    if (!codeobject) // should be impossible right?
       return nullptr;
 
@@ -191,8 +188,7 @@ const code_descriptor* const code_cache_sync::get_descriptor_for_code_sync(const
       return &*it;
    }
 
-   const code_object* const codeobject =
-      _db.find<code_object, by_code_hash>(boost::make_tuple(code_id, 0, vm_version));
+   const code_object* const codeobject = _db.find<code_object, by_code_hash>(boost::make_tuple(code_id, 0, vm_version));
    if (!codeobject) // should be impossible right?
       return nullptr;
 
@@ -211,8 +207,7 @@ const code_descriptor* const code_cache_sync::get_descriptor_for_code_sync(const
               "unexpected response from monitor process");
 
    wasm_compilation_result_message result = std::get<wasm_compilation_result_message>(message);
-   EOS_ASSERT(
-      std::holds_alternative<code_descriptor>(result.result), wasm_execution_error, "failed to compile wasm");
+   EOS_ASSERT(std::holds_alternative<code_descriptor>(result.result), wasm_execution_error, "failed to compile wasm");
 
    check_eviction_threshold(result.cache_free_bytes);
 
@@ -304,8 +299,8 @@ code_cache_base::code_cache_base(const boost::filesystem::path data_dir,
 
    wrapped_fd compile_monitor_conn = get_connection_to_compile_monitor(_cache_fd);
 
-   // okay, let's do this by the book: we're not allowed to write & read on different threads to the same asio
-   // socket. So create two fds representing the same unix socket. we'll read on one and write on the other
+   // okay, let's do this by the book: we're not allowed to write & read on different threads to the same asio socket.
+   // So create two fds representing the same unix socket. we'll read on one and write on the other
    int duped = dup(compile_monitor_conn);
    _compile_monitor_write_socket.assign(local::datagram_protocol(), duped);
    _compile_monitor_read_socket.assign(local::datagram_protocol(), compile_monitor_conn.release());

@@ -204,8 +204,7 @@ BOOST_AUTO_TEST_CASE(update_auths) {
                           { new_active_priv_key });
       chain.produce_blocks();
       {
-         auto obj =
-            chain.find<permission_object, by_owner>(boost::make_tuple(name("alice"), name("spending")));
+         auto obj = chain.find<permission_object, by_owner>(boost::make_tuple(name("alice"), name("spending")));
          BOOST_TEST(obj != nullptr);
          BOOST_TEST(obj->owner == name("alice"));
          BOOST_TEST(obj->name == name("spending"));
@@ -242,8 +241,7 @@ BOOST_AUTO_TEST_CASE(update_auths) {
       },
                              { new_active_priv_key });
       {
-         auto obj =
-            chain.find<permission_object, by_owner>(boost::make_tuple(name("alice"), name("spending")));
+         auto obj = chain.find<permission_object, by_owner>(boost::make_tuple(name("alice"), name("spending")));
          BOOST_TEST(obj == nullptr);
       }
       chain.produce_blocks();
@@ -311,8 +309,8 @@ BOOST_AUTO_TEST_CASE(update_auths) {
                                 permission_level{name("alice"), name("active")}
       },
                              { new_active_priv_key });
-      BOOST_TEST((chain.find<permission_object, by_owner>(
-                    boost::make_tuple(name("alice"), name("spending")))) == nullptr);
+      BOOST_TEST((chain.find<permission_object, by_owner>(boost::make_tuple(name("alice"), name("spending")))) ==
+                 nullptr);
       // Delete trading auth, now it should succeed since it doesn't have any children anymore
       chain.delete_authority(name("alice"),
                              name("trading"),
@@ -320,8 +318,8 @@ BOOST_AUTO_TEST_CASE(update_auths) {
                                 permission_level{name("alice"), name("active")}
       },
                              { new_active_priv_key });
-      BOOST_TEST((chain.find<permission_object, by_owner>(
-                    boost::make_tuple(name("alice"), name("trading")))) == nullptr);
+      BOOST_TEST((chain.find<permission_object, by_owner>(boost::make_tuple(name("alice"), name("trading")))) ==
+                 nullptr);
    }
    FC_LOG_AND_RETHROW()
 }
@@ -425,8 +423,7 @@ BOOST_AUTO_TEST_CASE(link_auths) {
                             permission_level{"alice"_n, name("scud")}
       },
                          { scud_priv_key });
-      // req auth action with alice's spending key should also be fine, since it is the parent of alice's scud
-      // key
+      // req auth action with alice's spending key should also be fine, since it is the parent of alice's scud key
       chain.push_reqauth(name("alice"),
                          {
                             permission_level{"alice"_n, name("spending")}
@@ -503,10 +500,9 @@ BOOST_AUTO_TEST_CASE(create_account) {
       BOOST_TEST(joe_active_authority.auth.keys[0].weight == 1u);
 
       // Create duplicate name
-      BOOST_CHECK_EXCEPTION(
-         chain.create_account(name("joe")),
-         action_validate_exception,
-         fc_exception_message_is("Cannot create account named joe, as that name is already taken"));
+      BOOST_CHECK_EXCEPTION(chain.create_account(name("joe")),
+                            action_validate_exception,
+                            fc_exception_message_is("Cannot create account named joe, as that name is already taken"));
 
       // Creating account with name more than 12 chars
       BOOST_CHECK_EXCEPTION(chain.create_account(name("aaaaaaaaaaaaa")),
@@ -651,23 +647,21 @@ BOOST_AUTO_TEST_CASE(stricter_auth) {
          signed_transaction trx;
          chain.set_transaction_headers(trx);
 
-         authority invalid_auth =
-            authority(threshold,
-                      {
-                         key_weight{chain.get_public_key(a, "owner"), 1}
+         authority invalid_auth = authority(threshold,
+                                            {
+                                               key_weight{chain.get_public_key(a, "owner"), 1}
          },
-                      { permission_level_weight{ { creator, config::active_name }, 1 } });
+                                            { permission_level_weight{ { creator, config::active_name }, 1 } });
 
          vector<permission_level> pls;
          pls.push_back({ creator, name("active") });
-         trx.actions.emplace_back(
-            pls,
-            newaccount{
-               .creator = creator,
-               .name    = a,
-               .owner   = authority(chain.get_public_key(a, "owner")),
-               .active  = invalid_auth // authority( chain.get_public_key( a, "active" ) ),
-            });
+         trx.actions.emplace_back(pls,
+                                  newaccount{
+                                     .creator = creator,
+                                     .name    = a,
+                                     .owner   = authority(chain.get_public_key(a, "owner")),
+                                     .active  = invalid_auth // authority( chain.get_public_key( a, "active" ) ),
+                                  });
 
          chain.set_transaction_headers(trx);
          trx.sign(chain.get_private_key(creator, "active"), chain.control->get_chain_id());
@@ -704,22 +698,20 @@ BOOST_AUTO_TEST_CASE(linkauth_special) {
       chain.create_account("tester2"_n);
       chain.produce_blocks();
 
-      chain.push_action(
-         config::system_account_name,
-         updateauth::get_name(),
-         tester_account,
-         fc::mutable_variant_object()("account", "tester")("permission", "first")("parent", "active")(
-            "auth", authority(chain.get_public_key(tester_account, "first"), 5)));
+      chain.push_action(config::system_account_name,
+                        updateauth::get_name(),
+                        tester_account,
+                        fc::mutable_variant_object()("account", "tester")("permission", "first")("parent", "active")(
+                           "auth", authority(chain.get_public_key(tester_account, "first"), 5)));
 
       auto validate_disallow = [&](const char* type) {
          BOOST_REQUIRE_EXCEPTION(chain.push_action(config::system_account_name,
                                                    linkauth::get_name(),
                                                    tester_account,
-                                                   fc::mutable_variant_object()("account", "tester")(
-                                                      "code", "eosio")("type", type)("requirement", "first")),
+                                                   fc::mutable_variant_object()("account", "tester")("code", "eosio")(
+                                                      "type", type)("requirement", "first")),
                                  action_validate_exception,
-                                 fc_exception_message_is(std::string("Cannot link eosio::") +
-                                                         std::string(type) +
+                                 fc_exception_message_is(std::string("Cannot link eosio::") + std::string(type) +
                                                          std::string(" to a minimum permission")));
       };
 

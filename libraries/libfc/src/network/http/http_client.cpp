@@ -49,8 +49,7 @@ public:
 
    void add_cert(const std::string& cert_pem_string) {
       error_code ec;
-      _sslc.add_certificate_authority(boost::asio::buffer(cert_pem_string.data(), cert_pem_string.size()),
-                                      ec);
+      _sslc.add_certificate_authority(boost::asio::buffer(cert_pem_string.data(), cert_pem_string.size()), ec);
       FC_ASSERT(!ec, "Failed to add cert: ${msg}", ("msg", ec.message()));
    }
 
@@ -116,9 +115,7 @@ public:
          deadline,
          [&local_resolver, &cancelled, &s, &host, &port](std::optional<error_code>& final_ec) {
             local_resolver.async_resolve(
-               host,
-               port,
-               [&cancelled, &s, &final_ec](const error_code& ec, tcp::resolver::results_type resolved) {
+               host, port, [&cancelled, &s, &final_ec](const error_code& ec, tcp::resolver::results_type resolved) {
                   if (ec) {
                      final_ec.emplace(ec);
                      return;
@@ -156,8 +153,7 @@ public:
                                      http::response<http::string_body>& res,
                                      const deadline_type&               deadline) {
       return sync_do_with_deadline(s, deadline, [&s, &buffer, &res](std::optional<error_code>& final_ec) {
-         http::async_read(
-            s, buffer, res, [&final_ec](const error_code& ec, std::size_t) { final_ec.emplace(ec); });
+         http::async_read(s, buffer, res, [&final_ec](const error_code& ec, std::size_t) { final_ec.emplace(ec); });
       });
    }
 
@@ -189,8 +185,8 @@ public:
       auto key    = url_to_host_key(dest);
       auto socket = std::make_unique<tcp::socket>(_ioc);
 
-      error_code ec = sync_connect_with_timeout(
-         *socket, *dest.host(), dest.port() ? std::to_string(*dest.port()) : "80", deadline);
+      error_code ec =
+         sync_connect_with_timeout(*socket, *dest.host(), dest.port() ? std::to_string(*dest.port()) : "80", deadline);
       FC_ASSERT(!ec, "Failed to connect: ${message}", ("message", ec.message()));
 
       auto res = _connections.emplace(
@@ -211,10 +207,8 @@ public:
 
       ssl_socket->set_verify_callback(boost::asio::ssl::rfc2818_verification(*dest.host()));
 
-      error_code ec = sync_connect_with_timeout(ssl_socket->next_layer(),
-                                                *dest.host(),
-                                                dest.port() ? std::to_string(*dest.port()) : "443",
-                                                deadline);
+      error_code ec = sync_connect_with_timeout(
+         ssl_socket->next_layer(), *dest.host(), dest.port() ? std::to_string(*dest.port()) : "443", deadline);
       if (!ec) {
          ec = sync_do_with_deadline(
             ssl_socket->next_layer(), deadline, [&ssl_socket](std::optional<error_code>& final_ec) {

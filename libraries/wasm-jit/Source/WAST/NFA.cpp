@@ -93,8 +93,8 @@ std::vector<DFAState> convertToDFA(Builder* builder) {
 
       const StateSet currentStateSet = dfaStateToNFAStateSetMap[currentDFAStateIndex];
 
-      // Expand the set of current states to include all states reachable by epsilon transitions from the
-      // current states.
+      // Expand the set of current states to include all states reachable by epsilon transitions from the current
+      // states.
       StateSet epsilonClosureCurrentStateSet = currentStateSet;
       for (Uptr scanIndex = 0; scanIndex < epsilonClosureCurrentStateSet.size(); ++scanIndex) {
          StateIndex scanState = epsilonClosureCurrentStateSet[scanIndex];
@@ -149,8 +149,7 @@ std::vector<DFAState> convertToDFA(Builder* builder) {
       maxLocalStates = std::max<Uptr>(maxLocalStates, numLocalStates);
 
       // Combine the [nextState][char] transition maps for current states and transpose to [char][nextState]
-      // After building the compact index of referenced states, the nextState set can be represented as a
-      // 64-bit mask.
+      // After building the compact index of referenced states, the nextState set can be represented as a 64-bit mask.
       LocalStateSet charToLocalStateSet[256];
       for (auto stateIndex : nonTerminalCurrentStateSet) {
          const NFAState& nfaState = builder->nfaStates[stateIndex];
@@ -163,8 +162,7 @@ std::vector<DFAState> convertToDFA(Builder* builder) {
          }
       }
 
-      const LocalStateSet currentTerminalStateLocalSet(
-         stateIndexToLocalStateIndexMap.at(currentTerminalState));
+      const LocalStateSet currentTerminalStateLocalSet(stateIndexToLocalStateIndexMap.at(currentTerminalState));
       for (Uptr charIndex = 0; charIndex < 256; ++charIndex) {
          if (charToLocalStateSet[charIndex].isEmpty()) {
             charToLocalStateSet[charIndex] = currentTerminalStateLocalSet;
@@ -180,8 +178,7 @@ std::vector<DFAState> convertToDFA(Builder* builder) {
          }
       }
 
-      // For each unique local state set that follows this state set, find or create a corresponding DFA
-      // state.
+      // For each unique local state set that follows this state set, find or create a corresponding DFA state.
       std::map<LocalStateSet, StateIndex> localStateSetToDFAStateIndexMap;
       for (auto localNextStateSet : uniqueLocalNextStateSets) {
          // Convert the local state set bit mask to a global NFA state set.
@@ -239,10 +236,8 @@ std::vector<DFAState> convertToDFA(Builder* builder) {
                "  translated NFA with %u states to DFA with %u states\n",
                builder->nfaStates.size(),
                dfaStates.size());
-   Log::printf(
-      Log::Category::metrics, "  maximum number of states following a NFA state set: %u\n", maxLocalStates);
-   Log::printf(
-      Log::Category::metrics, "  maximum number of states following a DFA state: %u\n", maxDFANextStates);
+   Log::printf(Log::Category::metrics, "  maximum number of states following a NFA state set: %u\n", maxLocalStates);
+   Log::printf(Log::Category::metrics, "  maximum number of states following a DFA state: %u\n", maxDFANextStates);
 
    return dfaStates;
 }
@@ -276,13 +271,11 @@ struct StateTransitionsByChar {
 
    bool operator<(const StateTransitionsByChar& right) const {
       WAVM_ASSERT_THROW(numStates == right.numStates);
-      return memcmp(nextStateByInitialState, right.nextStateByInitialState, sizeof(StateIndex) * numStates) <
-             0;
+      return memcmp(nextStateByInitialState, right.nextStateByInitialState, sizeof(StateIndex) * numStates) < 0;
    }
    bool operator!=(const StateTransitionsByChar& right) const {
       WAVM_ASSERT_THROW(numStates == right.numStates);
-      return memcmp(nextStateByInitialState, right.nextStateByInitialState, sizeof(StateIndex) * numStates) !=
-             0;
+      return memcmp(nextStateByInitialState, right.nextStateByInitialState, sizeof(StateIndex) * numStates) != 0;
    }
 };
 

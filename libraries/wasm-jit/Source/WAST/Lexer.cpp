@@ -46,8 +46,8 @@ static void addLiteralToNFA(const char*     string,
                             NFA::Builder*   builder,
                             NFA::StateIndex initialState,
                             NFA::StateIndex finalState) {
-   // Add the literal to the NFA, one character at a time, reusing existing states that are reachable by the
-   // same string.
+   // Add the literal to the NFA, one character at a time, reusing existing states that are reachable by the same
+   // string.
    for (const char* nextChar = string; *nextChar; ++nextChar) {
       NFA::StateIndex nextState = NFA::getNonTerminalEdge(builder, initialState, *nextChar);
       if (nextState < 0 || nextChar[1] == 0) {
@@ -60,22 +60,21 @@ static void addLiteralToNFA(const char*     string,
 
 StaticData::StaticData() {
    static const std::pair<TokenType, const char*> regexpTokenPairs[] = {
-      {t_decimalInt,    "[+\\-]?\\d+(_\\d+)*"                                                              },
-      { t_decimalFloat, "[+\\-]?\\d+(_\\d+)*\\.(\\d+(_\\d+)*)*([eE][+\\-]?\\d+(_\\d+)*)?"                  },
-      { t_decimalFloat, "[+\\-]?\\d+(_\\d+)*[eE][+\\-]?\\d+(_\\d+)*"                                       },
+      {t_decimalInt,    "[+\\-]?\\d+(_\\d+)*"                                                                },
+      { t_decimalFloat, "[+\\-]?\\d+(_\\d+)*\\.(\\d+(_\\d+)*)*([eE][+\\-]?\\d+(_\\d+)*)?"                    },
+      { t_decimalFloat, "[+\\-]?\\d+(_\\d+)*[eE][+\\-]?\\d+(_\\d+)*"                                         },
 
-      { t_hexInt,       "[+\\-]?0[xX][\\da-fA-F]+(_[\\da-fA-F]+)*"                                         },
+      { t_hexInt,       "[+\\-]?0[xX][\\da-fA-F]+(_[\\da-fA-F]+)*"                                           },
       { t_hexFloat,
-       "[+\\-]?0[xX][\\da-fA-F]+(_[\\da-fA-F]+)*\\.([\\da-fA-F]+(_[\\da-fA-F]+)*)*([pP][+\\-]?\\d+(_\\d+)*)"
-       "?"                                                                                                 },
-      { t_hexFloat,     "[+\\-]?0[xX][\\da-fA-F]+(_[\\da-fA-F]+)*[pP][+\\-]?\\d+(_\\d+)*"                  },
+       "[+\\-]?0[xX][\\da-fA-F]+(_[\\da-fA-F]+)*\\.([\\da-fA-F]+(_[\\da-fA-F]+)*)*([pP][+\\-]?\\d+(_\\d+)*)?"},
+      { t_hexFloat,     "[+\\-]?0[xX][\\da-fA-F]+(_[\\da-fA-F]+)*[pP][+\\-]?\\d+(_\\d+)*"                    },
 
-      { t_floatNaN,     "[+\\-]?nan(:0[xX][\\da-fA-F]+(_[\\da-fA-F]+)*)?"                                  },
-      { t_floatInf,     "[+\\-]?inf"                                                                       },
+      { t_floatNaN,     "[+\\-]?nan(:0[xX][\\da-fA-F]+(_[\\da-fA-F]+)*)?"                                    },
+      { t_floatInf,     "[+\\-]?inf"                                                                         },
 
-      { t_string,       "\"([^\"\n\\\\]*(\\\\([^0-9a-fA-Fu]|[0-9a-fA-F][0-9a-fA-F]|u\\{[0-9a-fA-F]+})))*\""},
+      { t_string,       "\"([^\"\n\\\\]*(\\\\([^0-9a-fA-Fu]|[0-9a-fA-F][0-9a-fA-F]|u\\{[0-9a-fA-F]+})))*\""  },
 
-      { t_name,         "\\$[a-zA-Z0-9\'_+*/~=<>!?@#$%&|:`.\\-\\^\\\\]+"                                   },
+      { t_name,         "\\$[a-zA-Z0-9\'_+*/~=<>!?@#$%&|:`.\\-\\^\\\\]+"                                     },
    };
 
    static const std::tuple<TokenType, const char*, bool> literalTokenTuples[] = {
@@ -224,8 +223,8 @@ Token* lex(const char* string, Uptr stringLength, LineInfo*& outLineInfo) {
       }
    doneSkippingWhitespace:
 
-      // Once we reach a non-whitespace, non-comment character, feed characters into the NFA until it reaches
-      // a terminal state.
+      // Once we reach a non-whitespace, non-comment character, feed characters into the NFA until it reaches a terminal
+      // state.
       nextToken->begin              = U32(nextChar - string);
       NFA::StateIndex terminalState = staticData.nfaMachine.feed(nextChar);
       if (terminalState != NFA::unmatchedCharacterTerminal) {
@@ -251,8 +250,7 @@ Token* lex(const char* string, Uptr stringLength, LineInfo*& outLineInfo) {
    nextToken->type = t_eof;
    ++nextToken;
 
-   // Emit an extra line start for the end of the file, so you can find the end of a line with lineStarts[line
-   // + 1].
+   // Emit an extra line start for the end of the file, so you can find the end of a line with lineStarts[line + 1].
    *nextLineStart++ = U32(nextChar - string) + 1;
 
    // Shrink the line start and token arrays to the final number of tokens/lines.

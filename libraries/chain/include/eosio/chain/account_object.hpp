@@ -39,12 +39,10 @@ using account_id_type = account_object::id_type;
 struct by_name;
 using account_index = chainbase::shared_multi_index_container<
    account_object,
-   indexed_by<
-      ordered_unique<tag<by_id>, member<account_object, account_object::id_type, &account_object::id>>,
-      ordered_unique<tag<by_name>, member<account_object, account_name, &account_object::name>>>>;
+   indexed_by<ordered_unique<tag<by_id>, member<account_object, account_object::id_type, &account_object::id>>,
+              ordered_unique<tag<by_name>, member<account_object, account_name, &account_object::name>>>>;
 
-class account_metadata_object
-   : public chainbase::object<account_metadata_object_type, account_metadata_object> {
+class account_metadata_object : public chainbase::object<account_metadata_object_type, account_metadata_object> {
    OBJECT_CTOR(account_metadata_object);
 
    enum class flags_fields : uint32_t { privileged = 1 };
@@ -70,11 +68,9 @@ struct by_name;
 using account_metadata_index = chainbase::shared_multi_index_container<
    account_metadata_object,
    indexed_by<
-      ordered_unique<
-         tag<by_id>,
-         member<account_metadata_object, account_metadata_object::id_type, &account_metadata_object::id>>,
-      ordered_unique<tag<by_name>,
-                     member<account_metadata_object, account_name, &account_metadata_object::name>>>>;
+      ordered_unique<tag<by_id>,
+                     member<account_metadata_object, account_metadata_object::id_type, &account_metadata_object::id>>,
+      ordered_unique<tag<by_name>, member<account_metadata_object, account_name, &account_metadata_object::name>>>>;
 
 class account_ram_correction_object
    : public chainbase::object<account_ram_correction_object_type, account_ram_correction_object> {
@@ -88,21 +84,20 @@ class account_ram_correction_object
 struct by_name;
 using account_ram_correction_index = chainbase::shared_multi_index_container<
    account_ram_correction_object,
-   indexed_by<ordered_unique<tag<by_id>,
-                             member<account_ram_correction_object,
-                                    account_ram_correction_object::id_type,
-                                    &account_ram_correction_object::id>>,
-              ordered_unique<
-                 tag<by_name>,
-                 member<account_ram_correction_object, account_name, &account_ram_correction_object::name>>>>;
+   indexed_by<
+      ordered_unique<tag<by_id>,
+                     member<account_ram_correction_object,
+                            account_ram_correction_object::id_type,
+                            &account_ram_correction_object::id>>,
+      ordered_unique<tag<by_name>,
+                     member<account_ram_correction_object, account_name, &account_ram_correction_object::name>>>>;
 
 }
 } // eosio::chain
 
 CHAINBASE_SET_INDEX_TYPE(eosio::chain::account_object, eosio::chain::account_index)
 CHAINBASE_SET_INDEX_TYPE(eosio::chain::account_metadata_object, eosio::chain::account_metadata_index)
-CHAINBASE_SET_INDEX_TYPE(eosio::chain::account_ram_correction_object,
-                         eosio::chain::account_ram_correction_index)
+CHAINBASE_SET_INDEX_TYPE(eosio::chain::account_ram_correction_object, eosio::chain::account_ram_correction_index)
 
 FC_REFLECT(eosio::chain::account_object, (name)(creation_date)(abi))
 FC_REFLECT(

@@ -55,10 +55,8 @@ public:
                  const account_name& to,
                  const std::string&  quantity,
                  const std::string&  memo = "") {
-      auto trace =
-         push_action(from,
-                     "transfer"_n,
-                     mutable_variant_object()("from", from)("to", to)("quantity", quantity)("memo", memo));
+      auto trace = push_action(
+         from, "transfer"_n, mutable_variant_object()("from", from)("to", to)("quantity", quantity)("memo", memo));
       produce_block();
       return trace;
    }
@@ -115,8 +113,8 @@ BOOST_FIXTURE_TEST_CASE(test_transfer, currency_tester) try {
    {
       auto trace = push_action("eosio.token"_n,
                                "transfer"_n,
-                               mutable_variant_object()("from", eosio_token)("to", "alice")(
-                                  "quantity", "100.0000 CUR")("memo", "fund Alice"));
+                               mutable_variant_object()("from", eosio_token)("to", "alice")("quantity", "100.0000 CUR")(
+                                  "memo", "fund Alice"));
 
       produce_block();
 
@@ -129,10 +127,10 @@ FC_LOG_AND_RETHROW() /// test_transfer
 BOOST_FIXTURE_TEST_CASE(test_duplicate_transfer, currency_tester) {
    create_accounts({ "alice"_n });
 
-   auto trace = push_action("eosio.token"_n,
-                            "transfer"_n,
-                            mutable_variant_object()("from", eosio_token)("to", "alice")(
-                               "quantity", "100.0000 CUR")("memo", "fund Alice"));
+   auto trace = push_action(
+      "eosio.token"_n,
+      "transfer"_n,
+      mutable_variant_object()("from", eosio_token)("to", "alice")("quantity", "100.0000 CUR")("memo", "fund Alice"));
 
    BOOST_REQUIRE_THROW(push_action("eosio.token"_n,
                                    "transfer"_n,
@@ -153,8 +151,8 @@ BOOST_FIXTURE_TEST_CASE(test_addtransfer, currency_tester) try {
    {
       auto trace = push_action("eosio.token"_n,
                                "transfer"_n,
-                               mutable_variant_object()("from", eosio_token)("to", "alice")(
-                                  "quantity", "100.0000 CUR")("memo", "fund Alice"));
+                               mutable_variant_object()("from", eosio_token)("to", "alice")("quantity", "100.0000 CUR")(
+                                  "memo", "fund Alice"));
 
       produce_block();
 
@@ -164,10 +162,10 @@ BOOST_FIXTURE_TEST_CASE(test_addtransfer, currency_tester) try {
 
    // make a transfer from the contract to a user
    {
-      auto trace = push_action("eosio.token"_n,
-                               "transfer"_n,
-                               mutable_variant_object()("from", eosio_token)("to", "alice")(
-                                  "quantity", "10.0000 CUR")("memo", "add Alice"));
+      auto trace = push_action(
+         "eosio.token"_n,
+         "transfer"_n,
+         mutable_variant_object()("from", eosio_token)("to", "alice")("quantity", "10.0000 CUR")("memo", "add Alice"));
 
       produce_block();
 
@@ -184,8 +182,8 @@ BOOST_FIXTURE_TEST_CASE(test_overspend, currency_tester) try {
    {
       auto trace = push_action("eosio.token"_n,
                                "transfer"_n,
-                               mutable_variant_object()("from", eosio_token)("to", "alice")(
-                                  "quantity", "100.0000 CUR")("memo", "fund Alice"));
+                               mutable_variant_object()("from", eosio_token)("to", "alice")("quantity", "100.0000 CUR")(
+                                  "memo", "fund Alice"));
 
       produce_block();
 
@@ -195,8 +193,8 @@ BOOST_FIXTURE_TEST_CASE(test_overspend, currency_tester) try {
 
    // Overspend!
    {
-      variant_object data = mutable_variant_object()("from", "alice")("to", "bob")(
-         "quantity", "101.0000 CUR")("memo", "overspend! Alice");
+      variant_object data =
+         mutable_variant_object()("from", "alice")("to", "bob")("quantity", "101.0000 CUR")("memo", "overspend! Alice");
 
       BOOST_CHECK_EXCEPTION(push_action("alice"_n, "transfer"_n, data),
                             eosio_assert_message_exception,
@@ -216,8 +214,8 @@ BOOST_FIXTURE_TEST_CASE(test_fullspend, currency_tester) try {
    {
       auto trace = push_action("eosio.token"_n,
                                "transfer"_n,
-                               mutable_variant_object()("from", eosio_token)("to", "alice")(
-                                  "quantity", "100.0000 CUR")("memo", "fund Alice"));
+                               mutable_variant_object()("from", eosio_token)("to", "alice")("quantity", "100.0000 CUR")(
+                                  "memo", "fund Alice"));
 
       produce_block();
 
@@ -227,8 +225,8 @@ BOOST_FIXTURE_TEST_CASE(test_fullspend, currency_tester) try {
 
    // Full spend
    {
-      variant_object data = mutable_variant_object()("from", "alice")("to", "bob")(
-         "quantity", "100.0000 CUR")("memo", "all in! Alice");
+      variant_object data =
+         mutable_variant_object()("from", "alice")("to", "bob")("quantity", "100.0000 CUR")("memo", "all in! Alice");
 
       auto trace = push_action("alice"_n, "transfer"_n, data);
       produce_block();
@@ -274,16 +272,14 @@ BOOST_FIXTURE_TEST_CASE(test_symbol, TESTER) try {
 
    // from empty string
    {
-      BOOST_CHECK_EXCEPTION(symbol::from_string(""),
-                            symbol_type_exception,
-                            fc_exception_message_is("creating symbol from empty string"));
+      BOOST_CHECK_EXCEPTION(
+         symbol::from_string(""), symbol_type_exception, fc_exception_message_is("creating symbol from empty string"));
    }
 
    // precision part missing
    {
-      BOOST_CHECK_EXCEPTION(symbol::from_string("RND"),
-                            symbol_type_exception,
-                            fc_exception_message_is("missing comma in symbol"));
+      BOOST_CHECK_EXCEPTION(
+         symbol::from_string("RND"), symbol_type_exception, fc_exception_message_is("missing comma in symbol"));
    }
 
    // 0 decimals part
@@ -301,9 +297,8 @@ BOOST_FIXTURE_TEST_CASE(test_symbol, TESTER) try {
 
    // invalid - contains lower case characters, exception thrown
    {
-      BOOST_CHECK_EXCEPTION(symbol(5, "EoS"),
-                            symbol_type_exception,
-                            fc_exception_message_is("invalid character in symbol name"));
+      BOOST_CHECK_EXCEPTION(
+         symbol(5, "EoS"), symbol_type_exception, fc_exception_message_is("invalid character in symbol name"));
    }
 
    // Missing decimal point, should create asset with 0 decimals
@@ -317,10 +312,9 @@ BOOST_FIXTURE_TEST_CASE(test_symbol, TESTER) try {
 
    // Missing space
    {
-      BOOST_CHECK_EXCEPTION(
-         asset::from_string("10CUR"),
-         asset_type_exception,
-         fc_exception_message_is("Asset's amount and symbol should be separated with space"));
+      BOOST_CHECK_EXCEPTION(asset::from_string("10CUR"),
+                            asset_type_exception,
+                            fc_exception_message_is("Asset's amount and symbol should be separated with space"));
    }
 
    // Precision is not specified when decimal separator is introduced
@@ -332,10 +326,9 @@ BOOST_FIXTURE_TEST_CASE(test_symbol, TESTER) try {
 
    // Missing symbol
    {
-      BOOST_CHECK_EXCEPTION(
-         asset::from_string("10"),
-         asset_type_exception,
-         fc_exception_message_is("Asset's amount and symbol should be separated with space"));
+      BOOST_CHECK_EXCEPTION(asset::from_string("10"),
+                            asset_type_exception,
+                            fc_exception_message_is("Asset's amount and symbol should be separated with space"));
    }
 
    // Multiple spaces
@@ -419,15 +412,13 @@ BOOST_FIXTURE_TEST_CASE(test_proxy, currency_tester) try {
       BOOST_REQUIRE_EQUAL(true, chain_has_transaction(trx.id()));
    }
 
-   // for now wasm "time" is in seconds, so we have to truncate off any parts of a second that may have
-   // applied
-   fc::time_point expected_delivery(fc::seconds(control->head_block_time().sec_since_epoch()) +
-                                    fc::seconds(10));
+   // for now wasm "time" is in seconds, so we have to truncate off any parts of a second that may have applied
+   fc::time_point expected_delivery(fc::seconds(control->head_block_time().sec_since_epoch()) + fc::seconds(10));
    {
-      auto trace = push_action("eosio.token"_n,
-                               "transfer"_n,
-                               mutable_variant_object()("from", eosio_token)("to", "proxy")(
-                                  "quantity", "5.0000 CUR")("memo", "fund Proxy"));
+      auto trace = push_action(
+         "eosio.token"_n,
+         "transfer"_n,
+         mutable_variant_object()("from", eosio_token)("to", "proxy")("quantity", "5.0000 CUR")("memo", "fund Proxy"));
    }
 
    while (control->head_block_time() < expected_delivery) {
@@ -479,10 +470,10 @@ BOOST_FIXTURE_TEST_CASE(test_deferred_failure, currency_tester) try {
    const auto& index = control->db().get_index<generated_transaction_multi_index, by_trx_id>();
    BOOST_REQUIRE_EQUAL(0, index.size());
 
-   auto           trace             = push_action("eosio.token"_n,
-                            "transfer"_n,
-                            mutable_variant_object()("from", eosio_token)("to", "proxy")(
-                               "quantity", "5.0000 CUR")("memo", "fund Proxy"));
+   auto trace = push_action(
+      "eosio.token"_n,
+      "transfer"_n,
+      mutable_variant_object()("from", eosio_token)("to", "proxy")("quantity", "5.0000 CUR")("memo", "fund Proxy"));
    fc::time_point expected_delivery = control->pending_block_time() + fc::seconds(10);
 
    BOOST_REQUIRE_EQUAL(1, index.size());
@@ -501,8 +492,8 @@ BOOST_FIXTURE_TEST_CASE(test_deferred_failure, currency_tester) try {
    // First deferred transaction should be retired in this block.
    // It will fail, and its onerror handler will reschedule the transaction for 10 seconds later.
    produce_block();
-   BOOST_REQUIRE_EQUAL(1, index.size()); // Still one because the first deferred transaction retires but the
-                                         // second is created at the same time.
+   BOOST_REQUIRE_EQUAL(1, index.size()); // Still one because the first deferred transaction retires but the second is
+                                         // created at the same time.
    BOOST_REQUIRE_EQUAL(get_transaction_receipt(deferred_id).status, transaction_receipt::soft_fail);
    auto deferred2_id = index.begin()->trx_id;
 
@@ -540,10 +531,11 @@ BOOST_FIXTURE_TEST_CASE(test_deferred_failure, currency_tester) try {
    BOOST_REQUIRE_EQUAL(1, index.size());
 
    // Second deferred transaction should be retired in this block and should succeed,
-   // which should move tokens from the proxy contract to the bob contract, thereby trigger the bob contract
-   // to schedule a third deferred transaction with no delay. That third deferred transaction (which moves
-   // tokens from the bob contract to account alice) should be executed immediately after in the same block
-   // (note that this is the current deferred transaction scheduling policy in tester and it may change).
+   // which should move tokens from the proxy contract to the bob contract, thereby trigger the bob contract to
+   // schedule a third deferred transaction with no delay.
+   // That third deferred transaction (which moves tokens from the bob contract to account alice) should be executed
+   // immediately after in the same block (note that this is the current deferred transaction scheduling policy in
+   // tester and it may change).
    produce_block();
    BOOST_REQUIRE_EQUAL(0, index.size());
    BOOST_REQUIRE_EQUAL(get_transaction_receipt(deferred2_id).status, transaction_receipt::executed);

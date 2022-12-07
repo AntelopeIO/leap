@@ -36,9 +36,8 @@ BOOST_AUTO_TEST_CASE(static_variant_from_index) {
    using variant_type = std::variant<int32_t, bool, std::string>;
    auto v             = variant_type{};
 
-   BOOST_CHECK_EXCEPTION(fc::from_index(v, 3), fc::assert_exception, [](const auto& e) {
-      return e.code() == fc::assert_exception_code;
-   });
+   BOOST_CHECK_EXCEPTION(
+      fc::from_index(v, 3), fc::assert_exception, [](const auto& e) { return e.code() == fc::assert_exception_code; });
 
    fc::from_index(v, 2);
    BOOST_REQUIRE(std::string{} == std::get<std::string>(v));

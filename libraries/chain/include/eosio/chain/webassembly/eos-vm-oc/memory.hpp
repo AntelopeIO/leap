@@ -15,21 +15,18 @@ namespace eosvmoc {
 class memory {
    static constexpr uint64_t intrinsic_count = intrinsic_table_size();
    // warning: changing the following 3 params will invalidate existing PIC
-   static constexpr uint64_t mutable_global_size =
-      8u * eosio::chain::wasm_constraints::maximum_mutable_globals / 4u;
-   static constexpr uint64_t table_size    = 16u * eosio::chain::wasm_constraints::maximum_table_elements;
-   static constexpr size_t   wcb_allowance = 512u;
+   static constexpr uint64_t mutable_global_size = 8u * eosio::chain::wasm_constraints::maximum_mutable_globals / 4u;
+   static constexpr uint64_t table_size          = 16u * eosio::chain::wasm_constraints::maximum_table_elements;
+   static constexpr size_t   wcb_allowance       = 512u;
    static_assert(sizeof(control_block) <= wcb_allowance,
                  "EOS VM OC memory doesn't set aside enough memory for control block");
 
    // round up the prologue to multiple of 4K page
    static constexpr uint64_t memory_prologue_size =
-      ((memory::wcb_allowance + mutable_global_size + table_size + intrinsic_count * UINT64_C(8)) +
-       UINT64_C(4095)) /
+      ((memory::wcb_allowance + mutable_global_size + table_size + intrinsic_count * UINT64_C(8)) + UINT64_C(4095)) /
       UINT64_C(4096) * UINT64_C(4096);
    // prologue + 8GB fault buffer + 4096 addtional buffer for safety
-   static constexpr uint64_t total_memory_per_slice =
-      memory_prologue_size + UINT64_C(0x200000000) + UINT64_C(4096);
+   static constexpr uint64_t total_memory_per_slice = memory_prologue_size + UINT64_C(0x200000000) + UINT64_C(4096);
 
 public:
    explicit memory(uint64_t max_pages);
@@ -78,6 +75,6 @@ private:
 }
 }
 
-#define OFFSET_OF_CONTROL_BLOCK_MEMBER(M)                                                                    \
+#define OFFSET_OF_CONTROL_BLOCK_MEMBER(M)                                                                              \
    (-(int)eosio::chain::eosvmoc::memory::cb_offset + (int)offsetof(eosio::chain::eosvmoc::control_block, M))
 #define OFFSET_OF_FIRST_INTRINSIC ((int)-eosio::chain::eosvmoc::memory::first_intrinsic_offset)

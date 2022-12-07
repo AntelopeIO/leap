@@ -49,12 +49,7 @@ static inline uint64_t rotr64(const uint64_t w, const unsigned c) {
    return (w >> c) | (w << (64 - c));
 }
 
-inline void blake2b_wrapper::G(uint8_t   r,
-                               uint8_t   i,
-                               uint64_t& a,
-                               uint64_t& b,
-                               uint64_t& c,
-                               uint64_t& d) noexcept {
+inline void blake2b_wrapper::G(uint8_t r, uint8_t i, uint64_t& a, uint64_t& b, uint64_t& c, uint64_t& d) noexcept {
    a = a + b + m[blake2b_sigma[r][2 * i + 0]];
    d = rotr64(d ^ a, 32);
    c = c + d;
@@ -92,9 +87,7 @@ void blake2b_wrapper::blake2b_compress(blake2b_state*          S,
    blake2b_compress_end(S);
 }
 
-void blake2b_wrapper::blake2b_compress_init(blake2b_state* S,
-                                            const uint8_t  block[BLAKE2B_BLOCKBYTES],
-                                            size_t         r) {
+void blake2b_wrapper::blake2b_compress_init(blake2b_state* S, const uint8_t block[BLAKE2B_BLOCKBYTES], size_t r) {
    for (i = 0; i < 16; ++i) {
       m[i] = load64(block + i * sizeof(m[i]));
    }
@@ -127,10 +120,10 @@ std::variant<blake2b_error, bytes> blake2b(uint32_t                _rounds,
                                            bool                    _f,
                                            const yield_function_t& yield) {
 
-   //  EIP-152 [4 bytes for rounds][64 bytes for h][128 bytes for m][8 bytes for t_0][8 bytes for t_1][1 byte
-   //  for f] : 213
-   //          [------------------][64 bytes for h][128 bytes for m][8 bytes for t_0][8 bytes for
-   //          t_1][------------] : 208
+   //  EIP-152 [4 bytes for rounds][64 bytes for h][128 bytes for m][8 bytes for t_0][8 bytes for t_1][1 byte for f] :
+   //  213
+   //          [------------------][64 bytes for h][128 bytes for m][8 bytes for t_0][8 bytes for t_1][------------] :
+   //          208
    //  * rounds and final indicator flag are not serialized
    if (_h.size() != 64 || _m.size() != blake2b_wrapper::BLAKE2B_BLOCKBYTES || _t0_offset.size() != 8 ||
        _t1_offset.size() != 8) {

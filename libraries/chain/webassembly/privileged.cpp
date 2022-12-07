@@ -24,18 +24,10 @@ void interface::preactivate_feature(legacy_ptr<const digest_type> feature_digest
    context.control.preactivate_feature(*feature_digest);
 }
 
-void interface::set_resource_limits(account_name account,
-                                    int64_t      ram_bytes,
-                                    int64_t      net_weight,
-                                    int64_t      cpu_weight) {
-   EOS_ASSERT(
-      ram_bytes >= -1, wasm_execution_error, "invalid value for ram resource limit expected [-1,INT64_MAX]");
-   EOS_ASSERT(net_weight >= -1,
-              wasm_execution_error,
-              "invalid value for net resource weight expected [-1,INT64_MAX]");
-   EOS_ASSERT(cpu_weight >= -1,
-              wasm_execution_error,
-              "invalid value for cpu resource weight expected [-1,INT64_MAX]");
+void interface::set_resource_limits(account_name account, int64_t ram_bytes, int64_t net_weight, int64_t cpu_weight) {
+   EOS_ASSERT(ram_bytes >= -1, wasm_execution_error, "invalid value for ram resource limit expected [-1,INT64_MAX]");
+   EOS_ASSERT(net_weight >= -1, wasm_execution_error, "invalid value for net resource weight expected [-1,INT64_MAX]");
+   EOS_ASSERT(cpu_weight >= -1, wasm_execution_error, "invalid value for cpu resource weight expected [-1,INT64_MAX]");
    if (context.control.get_mutable_resource_limits_manager().set_account_limits(
           account, ram_bytes, net_weight, cpu_weight)) {
       context.trx_context.validate_ram_usage.insert(account);
@@ -46,8 +38,7 @@ void interface::get_resource_limits(account_name        account,
                                     legacy_ptr<int64_t> ram_bytes,
                                     legacy_ptr<int64_t> net_weight,
                                     legacy_ptr<int64_t> cpu_weight) const {
-   context.control.get_resource_limits_manager().get_account_limits(
-      account, *ram_bytes, *net_weight, *cpu_weight);
+   context.control.get_resource_limits_manager().get_account_limits(account, *ram_bytes, *net_weight, *cpu_weight);
    (void)legacy_ptr<int64_t>(std::move(ram_bytes));
    (void)legacy_ptr<int64_t>(std::move(net_weight));
    (void)legacy_ptr<int64_t>(std::move(cpu_weight));
@@ -59,8 +50,8 @@ int64_t set_proposed_producers_common(apply_context&               context,
    EOS_ASSERT(producers.size() <= config::max_producers,
               wasm_execution_error,
               "Producer schedule exceeds the maximum producer count for this chain");
-   EOS_ASSERT(producers.size() > 0 || !context.control.is_builtin_activated(
-                                         builtin_protocol_feature_t::disallow_empty_producer_schedule),
+   EOS_ASSERT(producers.size() > 0 ||
+                 !context.control.is_builtin_activated(builtin_protocol_feature_t::disallow_empty_producer_schedule),
               wasm_execution_error,
               "Producer schedule cannot be empty");
 
@@ -69,9 +60,8 @@ int64_t set_proposed_producers_common(apply_context&               context,
    // check that producers are unique
    std::set<account_name> unique_producers;
    for (const auto& p : producers) {
-      EOS_ASSERT(context.is_account(p.producer_name),
-                 wasm_execution_error,
-                 "producer schedule includes a nonexisting account");
+      EOS_ASSERT(
+         context.is_account(p.producer_name), wasm_execution_error, "producer schedule includes a nonexisting account");
       std::visit(
          [&p, num_supported_key_types, validate_keys](const auto& a) {
             uint32_t                  sum_weights = 0;
@@ -82,8 +72,7 @@ int64_t set_proposed_producers_common(apply_context&               context,
                           "Unactivated key type used in proposed producer schedule");
 
                if (validate_keys) {
-                  EOS_ASSERT(
-                     kw.key.valid(), wasm_execution_error, "producer schedule includes an invalid key");
+                  EOS_ASSERT(kw.key.valid(), wasm_execution_error, "producer schedule includes an invalid key");
                }
 
                if (std::numeric_limits<uint32_t>::max() - sum_weights <= kw.weight) {
@@ -146,8 +135,7 @@ void interface::set_wasm_parameters_packed(span<const char> packed_parameters) {
               ("version", version));
    fc::raw::unpack(ds, cfg);
    cfg.validate();
-   context.db.modify(context.control.get_global_properties(),
-                     [&](auto& gprops) { gprops.wasm_configuration = cfg; });
+   context.db.modify(context.control.get_global_properties(), [&](auto& gprops) { gprops.wasm_configuration = cfg; });
 }
 int64_t interface::set_proposed_producers(legacy_span<const char> packed_producer_schedule) {
    datastream<const char*>           ds(packed_producer_schedule.data(), packed_producer_schedule.size());
@@ -202,12 +190,10 @@ void interface::set_blockchain_parameters_packed(legacy_span<const char> packed_
    chain::chain_config_v0  cfg;
    fc::raw::unpack(ds, cfg);
    cfg.validate();
-   context.db.modify(context.control.get_global_properties(),
-                     [&](auto& gprops) { gprops.configuration = cfg; });
+   context.db.modify(context.control.get_global_properties(), [&](auto& gprops) { gprops.configuration = cfg; });
 }
 
-uint32_t interface::get_parameters_packed(span<const char> packed_parameter_ids,
-                                          span<char>       packed_parameters) const {
+uint32_t interface::get_parameters_packed(span<const char> packed_parameter_ids, span<char> packed_parameters) const {
    datastream<const char*> ds_ids(packed_parameter_ids.data(), packed_parameter_ids.size());
 
    chain::chain_config           cfg = context.control.get_global_properties().configuration;

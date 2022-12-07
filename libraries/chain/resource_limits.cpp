@@ -12,10 +12,8 @@ namespace eosio {
 namespace chain {
 namespace resource_limits {
 
-using resource_index_set = index_set<resource_limits_index,
-                                     resource_usage_index,
-                                     resource_limits_state_index,
-                                     resource_limits_config_index>;
+using resource_index_set =
+   index_set<resource_limits_index, resource_usage_index, resource_limits_state_index, resource_limits_config_index>;
 
 static_assert(config::rate_limiting_precision > 0, "config::rate_limiting_precision must be positive");
 
@@ -32,8 +30,8 @@ static uint64_t update_elastic_limit(uint64_t                        current_lim
 }
 
 void elastic_limit_parameters::validate() const {
-   // At the very least ensure parameters are not set to values that will cause divide by zero errors later
-   // on. Stricter checks for sensible values can be added later.
+   // At the very least ensure parameters are not set to values that will cause divide by zero errors later on.
+   // Stricter checks for sensible values can be added later.
    EOS_ASSERT(periods > 0, resource_limit_exception, "elastic limit parameter 'periods' cannot be zero");
    EOS_ASSERT(contract_rate.denominator > 0,
               resource_limit_exception,
@@ -64,14 +62,13 @@ void resource_limits_manager::initialize_database() {
       // see default settings in the declaration
    });
 
-   const auto& state =
-      _db.create<resource_limits_state_object>([&config](resource_limits_state_object& state) {
-         // see default settings in the declaration
+   const auto& state = _db.create<resource_limits_state_object>([&config](resource_limits_state_object& state) {
+      // see default settings in the declaration
 
-         // start the chain off in a way that it is "congested" aka slow-start
-         state.virtual_cpu_limit = config.cpu_limit_parameters.max;
-         state.virtual_net_limit = config.net_limit_parameters.max;
-      });
+      // start the chain off in a way that it is "congested" aka slow-start
+      state.virtual_cpu_limit = config.cpu_limit_parameters.max;
+      state.virtual_net_limit = config.net_limit_parameters.max;
+   });
 
    if (auto dm_logger = _get_deep_mind_logger()) {
       dm_logger->on_init_resource_limits(config, state);
@@ -91,19 +88,16 @@ void resource_limits_manager::read_from_snapshot(const snapshot_reader_ptr& snap
       snapshot->read_section<typename decltype(utils)::index_t::value_type>([this](auto& section) {
          bool more = !section.empty();
          while (more) {
-            decltype(utils)::create(
-               _db, [this, &section, &more](auto& row) { more = section.read_row(row, _db); });
+            decltype(utils)::create(_db, [this, &section, &more](auto& row) { more = section.read_row(row, _db); });
          }
       });
    });
 }
 
 void resource_limits_manager::initialize_account(const account_name& account) {
-   const auto& limits =
-      _db.create<resource_limits_object>([&](resource_limits_object& bl) { bl.owner = account; });
+   const auto& limits = _db.create<resource_limits_object>([&](resource_limits_object& bl) { bl.owner = account; });
 
-   const auto& usage =
-      _db.create<resource_usage_object>([&](resource_usage_object& bu) { bu.owner = account; });
+   const auto& usage = _db.create<resource_usage_object>([&](resource_usage_object& bu) { bu.owner = account; });
    if (auto dm_logger = _get_deep_mind_logger()) {
       dm_logger->on_newaccount_resource_limits(limits, usage);
    }
@@ -114,8 +108,7 @@ void resource_limits_manager::set_block_parameters(const elastic_limit_parameter
    cpu_limit_parameters.validate();
    net_limit_parameters.validate();
    const auto& config = _db.get<resource_limits_config_object>();
-   if (config.cpu_limit_parameters == cpu_limit_parameters &&
-       config.net_limit_parameters == net_limit_parameters)
+   if (config.cpu_limit_parameters == cpu_limit_parameters && config.net_limit_parameters == net_limit_parameters)
       return;
    _db.modify(config, [&](resource_limits_config_object& c) {
       c.cpu_limit_parameters = cpu_limit_parameters;
@@ -127,8 +120,7 @@ void resource_limits_manager::set_block_parameters(const elastic_limit_parameter
    });
 }
 
-void resource_limits_manager::update_account_usage(const flat_set<account_name>& accounts,
-                                                   uint32_t                      time_slot) {
+void resource_limits_manager::update_account_usage(const flat_set<account_name>& accounts, uint32_t time_slot) {
    const auto& config = _db.get<resource_limits_config_object>();
    for (const auto& a : accounts) {
       const auto& usage = _db.get<resource_usage_object, by_owner>(a);
@@ -174,11 +166,11 @@ void resource_limits_manager::add_transaction_usage(const flat_set<account_name>
 
          auto max_user_use_in_window = (virtual_network_capacity_in_window * user_weight) / all_user_weight;
 
-         EOS_ASSERT(cpu_used_in_window <= max_user_use_in_window,
-                    tx_cpu_usage_exceeded,
-                    "authorizing account '${n}' has insufficient cpu resources for this transaction",
-                    ("n", name(a))("cpu_used_in_window", cpu_used_in_window)("max_user_use_in_window",
-                                                                             max_user_use_in_window));
+         EOS_ASSERT(
+            cpu_used_in_window <= max_user_use_in_window,
+            tx_cpu_usage_exceeded,
+            "authorizing account '${n}' has insufficient cpu resources for this transaction",
+            ("n", name(a))("cpu_used_in_window", cpu_used_in_window)("max_user_use_in_window", max_user_use_in_window));
       }
 
       if (net_weight >= 0 && state.total_net_weight > 0) {
@@ -193,11 +185,11 @@ void resource_limits_manager::add_transaction_usage(const flat_set<account_name>
 
          auto max_user_use_in_window = (virtual_network_capacity_in_window * user_weight) / all_user_weight;
 
-         EOS_ASSERT(net_used_in_window <= max_user_use_in_window,
-                    tx_net_usage_exceeded,
-                    "authorizing account '${n}' has insufficient net resources for this transaction",
-                    ("n", name(a))("net_used_in_window", net_used_in_window)("max_user_use_in_window",
-                                                                             max_user_use_in_window));
+         EOS_ASSERT(
+            net_used_in_window <= max_user_use_in_window,
+            tx_net_usage_exceeded,
+            "authorizing account '${n}' has insufficient net resources for this transaction",
+            ("n", name(a))("net_used_in_window", net_used_in_window)("max_user_use_in_window", max_user_use_in_window));
       }
    }
 
@@ -264,12 +256,11 @@ bool resource_limits_manager::set_account_limits(const account_name& account,
    // const auto& usage = _db.get<resource_usage_object,by_owner>( account );
    /*
     * Since we need to delay these until the next resource limiting boundary, these are created in a "pending"
-    * state or adjusted in an existing "pending" state.  The chain controller will collapse "pending" state
-    * into the actual state at the next appropriate boundary.
+    * state or adjusted in an existing "pending" state.  The chain controller will collapse "pending" state into
+    * the actual state at the next appropriate boundary.
     */
    auto find_or_create_pending_limits = [&]() -> const resource_limits_object& {
-      const auto* pending_limits =
-         _db.find<resource_limits_object, by_owner>(boost::make_tuple(true, account));
+      const auto* pending_limits = _db.find<resource_limits_object, by_owner>(boost::make_tuple(true, account));
       if (pending_limits == nullptr) {
          const auto& limits = _db.get<resource_limits_object, by_owner>(boost::make_tuple(false, account));
          return _db.create<resource_limits_object>([&](resource_limits_object& pending_limits) {
@@ -295,10 +286,10 @@ bool resource_limits_manager::set_account_limits(const account_name& account,
 
       /*
       if( limits.ram_bytes < 0 ) {
-         EOS_ASSERT(ram_bytes >= usage.ram_usage, wasm_execution_error, "converting unlimited account would
-      result in overcommitment [commit=${c}, desired limit=${l}]", ("c", usage.ram_usage)("l", ram_bytes)); }
-      else { EOS_ASSERT(ram_bytes >= usage.ram_usage, wasm_execution_error, "attempting to release committed
-      ram resources [commit=${c}, desired limit=${l}]", ("c", usage.ram_usage)("l", ram_bytes));
+         EOS_ASSERT(ram_bytes >= usage.ram_usage, wasm_execution_error, "converting unlimited account would result in
+      overcommitment [commit=${c}, desired limit=${l}]", ("c", usage.ram_usage)("l", ram_bytes)); } else {
+         EOS_ASSERT(ram_bytes >= usage.ram_usage, wasm_execution_error, "attempting to release committed ram resources
+      [commit=${c}, desired limit=${l}]", ("c", usage.ram_usage)("l", ram_bytes));
       }
       */
    }
@@ -375,8 +366,7 @@ void resource_limits_manager::process_account_limit_updates() {
             break;
          }
 
-         const auto& actual_entry =
-            _db.get<resource_limits_object, by_owner>(boost::make_tuple(false, itr->owner));
+         const auto& actual_entry = _db.get<resource_limits_object, by_owner>(boost::make_tuple(false, itr->owner));
          _db.modify(actual_entry, [&](resource_limits_object& rlo) {
             update_state_and_value(rso.total_ram_bytes, rlo.ram_bytes, itr->ram_bytes, "ram_bytes");
             update_state_and_value(rso.total_cpu_weight, rlo.cpu_weight, itr->cpu_weight, "cpu_weight");
@@ -398,13 +388,11 @@ void resource_limits_manager::process_block_usage(uint32_t block_num) {
    _db.modify(s, [&](resource_limits_state_object& state) {
       // apply pending usage, update virtual limits and reset the pending
 
-      state.average_block_cpu_usage.add(
-         state.pending_cpu_usage, block_num, config.cpu_limit_parameters.periods);
+      state.average_block_cpu_usage.add(state.pending_cpu_usage, block_num, config.cpu_limit_parameters.periods);
       state.update_virtual_cpu_limit(config);
       state.pending_cpu_usage = 0;
 
-      state.average_block_net_usage.add(
-         state.pending_net_usage, block_num, config.net_limit_parameters.periods);
+      state.average_block_net_usage.add(state.pending_net_usage, block_num, config.net_limit_parameters.periods);
       state.update_virtual_net_limit(config);
       state.pending_net_usage = 0;
 
@@ -447,7 +435,7 @@ uint64_t resource_limits_manager::get_block_net_limit() const {
 }
 
 std::pair<int64_t, bool> resource_limits_manager::get_account_cpu_limit(const account_name& name,
-                                                                        uint32_t greylist_limit) const {
+                                                                        uint32_t            greylist_limit) const {
    auto [arl, greylisted] = get_account_cpu_limit_ex(name, greylist_limit);
    return { arl.available, greylisted };
 }
@@ -517,7 +505,7 @@ std::pair<account_resource_limit, bool> resource_limits_manager::get_account_cpu
 }
 
 std::pair<int64_t, bool> resource_limits_manager::get_account_net_limit(const account_name& name,
-                                                                        uint32_t greylist_limit) const {
+                                                                        uint32_t            greylist_limit) const {
    auto [arl, greylisted] = get_account_net_limit_ex(name, greylist_limit);
    return { arl.available, greylisted };
 }

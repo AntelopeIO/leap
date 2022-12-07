@@ -16,8 +16,8 @@ bool is_utf8(const std::string& str) {
 
 // tweaked utf8::find_invalid that also considers provided range as invalid
 // @param invalid_range, indicates additional invalid values
-// @return [iterator to found invalid char, the value found if in range of provided pair invalid_range
-// otherwise UINT32_MAX]
+// @return [iterator to found invalid char, the value found if in range of provided pair invalid_range otherwise
+// UINT32_MAX]
 template<typename octet_iterator>
 std::pair<octet_iterator, uint32_t> find_invalid(octet_iterator                       start,
                                                  octet_iterator                       end,

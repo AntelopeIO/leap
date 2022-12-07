@@ -59,8 +59,7 @@ void linkImport(const IR::Module&       module,
                 std::vector<Instance*>& resolvedImports) {
    // Ask the resolver for a value for this import.
    ObjectInstance* importValue;
-   if (resolver.resolve(
-          import.moduleName, import.exportName, resolveImportType(module, import.type), importValue)) {
+   if (resolver.resolve(import.moduleName, import.exportName, resolveImportType(module, import.type), importValue)) {
       // Sanity check that the resolver returned an object of the right type.
       WAVM_ASSERT_THROW(isA(importValue, resolveImportType(module, import.type)));
       resolvedImports.push_back(as<Instance>(importValue));

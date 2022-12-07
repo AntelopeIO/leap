@@ -21,9 +21,9 @@ namespace ws = boost::beast::websocket;
 
 namespace bpo = boost::program_options;
 
-/* Prior to boost 1.70, if socket type is not boost::asio::ip::tcp::socket nor boost::asio::ssl::stream beast
-   requires an overload of async_/teardown. This has been improved in 1.70+ to support any
-   basic_stream_socket<> out of the box which includes unix sockets. */
+/* Prior to boost 1.70, if socket type is not boost::asio::ip::tcp::socket nor boost::asio::ssl::stream beast requires
+   an overload of async_/teardown. This has been improved in 1.70+ to support any basic_stream_socket<> out of the box
+   which includes unix sockets. */
 #if BOOST_VERSION < 107000
 namespace boost::beast::websocket {
 void teardown(role_type, unixs::socket& sock, error_code& ec) {
@@ -46,13 +46,11 @@ int main(int argc, char* argv[]) {
    std::string              socket_address = "127.0.0.1:8080";
    uint32_t                 num_requests   = 1;
 
-   cli.add_options()(
-      "help,h", bpo::bool_switch(&help)->default_value(false), "Print this help message and exit.")(
+   cli.add_options()("help,h", bpo::bool_switch(&help)->default_value(false), "Print this help message and exit.")(
       "socket-address,a",
       bpo::value<std::string>(&socket_address)->default_value(socket_address),
-      "Websocket address and port.")("num-requests,n",
-                                     bpo::value<uint32_t>(&num_requests)->default_value(num_requests),
-                                     "number of requests to make");
+      "Websocket address and port.")(
+      "num-requests,n", bpo::value<uint32_t>(&num_requests)->default_value(num_requests), "number of requests to make");
    bpo::variables_map varmap;
    bpo::store(bpo::parse_command_line(argc, argv, cli), varmap);
    bpo::notify(varmap);
@@ -83,7 +81,7 @@ int main(int argc, char* argv[]) {
          {
             boost::beast::flat_buffer abi_buffer;
             stream.read(abi_buffer);
-            std::string abi_string((const char*)abi_buffer.data().data(), abi_buffer.data().size());
+            std::string              abi_string((const char*)abi_buffer.data().data(), abi_buffer.data().size());
             eosio::json_token_stream token_stream(abi_string.data());
             eosio::abi_def           abidef = eosio::from_json<eosio::abi_def>(token_stream);
             eosio::convert(abidef, abi);
@@ -118,8 +116,7 @@ int main(int argc, char* argv[]) {
             result_doucment.Parse(result_type.bin_to_json(is).c_str());
 
             eosio::check(!result_doucment.HasParseError(), "Failed to parse result JSON from abieos");
-            eosio::check(result_doucment.IsArray(),
-                         "result should have been an array (variant) but it's not");
+            eosio::check(result_doucment.IsArray(), "result should have been an array (variant) but it's not");
             eosio::check(result_doucment.Size() == 2,
                          "result was an array but did not contain 2 items like a variant should");
             eosio::check(std::string(result_doucment[0].GetString()) == "get_status_result_v0",
@@ -127,8 +124,7 @@ int main(int argc, char* argv[]) {
             eosio::check(result_doucment[1].IsObject(), "second item in result array is not an object");
             eosio::check(result_doucment[1].HasMember("head"), "cannot find 'head' in result");
             eosio::check(result_doucment[1]["head"].IsObject(), "'head' is not an object");
-            eosio::check(result_doucment[1]["head"].HasMember("block_num"),
-                         "'head' does not contain 'block_num'");
+            eosio::check(result_doucment[1]["head"].HasMember("block_num"), "'head' does not contain 'block_num'");
             eosio::check(result_doucment[1]["head"]["block_num"].IsUint(), "'head.block_num' isn't a number");
 
             uint32_t this_block_num = result_doucment[1]["head"]["block_num"].GetUint();
@@ -175,14 +171,14 @@ int main(int argc, char* argv[]) {
          auto                      check_ec = [&](const char* what) {
             if (!ec)
                return;
-            std::cerr << "{\n   \"status\": socket error - " << ec.message()
-                      << ",\n   \"time\": " << time(NULL) << "\n},\n";
+            std::cerr << "{\n   \"status\": socket error - " << ec.message() << ",\n   \"time\": " << time(NULL)
+                      << "\n},\n";
          };
 
          unix_stream.next_layer().connect(unixs::endpoint(statehistory_server), ec);
          if (ec == boost::system::errc::success) {
-            std::cerr << "{\n   \"status\": \"successfully connected to unix socket\",\n   \"time\": "
-                      << time(NULL) << "\n},\n";
+            std::cerr << "{\n   \"status\": \"successfully connected to unix socket\",\n   \"time\": " << time(NULL)
+                      << "\n},\n";
          } else {
             check_ec("connect");
          }
@@ -191,8 +187,7 @@ int main(int argc, char* argv[]) {
       }
       // tcp socket
       else {
-         boost::asio::connect(tcp_stream.next_layer(),
-                              resolver.resolve(statehistory_server, statehistory_port));
+         boost::asio::connect(tcp_stream.next_layer(), resolver.resolve(statehistory_server, statehistory_port));
          tcp_stream.handshake(statehistory_server, "/");
          run(tcp_stream);
       }

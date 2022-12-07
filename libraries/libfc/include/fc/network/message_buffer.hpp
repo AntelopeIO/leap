@@ -200,9 +200,8 @@ public:
     */
    bool read(void* s, uint32_t size) {
       if (bytes_to_read() < size) {
-         FC_THROW_EXCEPTION(out_of_range_exception,
-                            "tried to read ${r} but only ${s} left",
-                            ("r", size)("s", bytes_to_read()));
+         FC_THROW_EXCEPTION(
+            out_of_range_exception, "tried to read ${r} but only ${s} left", ("r", size)("s", bytes_to_read()));
       }
       if (read_ind.second + size <= buffer_len) {
          memcpy(s, read_ptr(), size);

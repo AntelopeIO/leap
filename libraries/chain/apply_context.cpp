@@ -21,17 +21,13 @@ namespace chain {
 static inline void print_debug(account_name receiver, const action_trace& ar) {
    if (!ar.console.empty()) {
       auto prefix = fc::format_string(
-         "\n[(${a},${n})->${r}]",
-         fc::mutable_variant_object()("a", ar.act.account)("n", ar.act.name)("r", receiver));
+         "\n[(${a},${n})->${r}]", fc::mutable_variant_object()("a", ar.act.account)("n", ar.act.name)("r", receiver));
       dlog(prefix + ": CONSOLE OUTPUT BEGIN =====================\n" + ar.console + prefix +
            ": CONSOLE OUTPUT END   =====================");
    }
 }
 
-apply_context::apply_context(controller&          con,
-                             transaction_context& trx_ctx,
-                             uint32_t             action_ordinal,
-                             uint32_t             depth)
+apply_context::apply_context(controller& con, transaction_context& trx_ctx, uint32_t action_ordinal, uint32_t depth)
    : control(con)
    , db(con.mutable_db())
    , trx_context(trx_ctx)
@@ -88,10 +84,8 @@ void apply_context::exec_one() {
                   control.check_action_list(act->account, act->name);
                }
                try {
-                  control.get_wasm_interface().apply(receiver_account->code_hash,
-                                                     receiver_account->vm_type,
-                                                     receiver_account->vm_version,
-                                                     *this);
+                  control.get_wasm_interface().apply(
+                     receiver_account->code_hash, receiver_account->vm_type, receiver_account->vm_version, *this);
                } catch (const wasm_exit&) {}
             }
 
@@ -108,13 +102,13 @@ void apply_context::exec_one() {
                   if (itr->delta > 0 && itr->account != receiver) {
                      EOS_ASSERT(not_in_notify_context,
                                 unauthorized_ram_usage_increase,
-                                "unprivileged contract cannot increase RAM usage of another account within a "
-                                "notify context: ${account}",
+                                "unprivileged contract cannot increase RAM usage of another account within a notify "
+                                "context: ${account}",
                                 ("account", itr->account));
                      EOS_ASSERT(has_authorization(itr->account),
                                 unauthorized_ram_usage_increase,
-                                "unprivileged contract cannot increase RAM usage of another account that has "
-                                "not authorized the action: ${account}",
+                                "unprivileged contract cannot increase RAM usage of another account that has not "
+                                "authorized the action: ${account}",
                                 ("account", itr->account));
                   }
                }
@@ -145,12 +139,10 @@ void apply_context::exec_one() {
    }
 
    // Note: It should not be possible for receiver_account to be invalidated because:
-   //    * a pointer to an object in a chainbase index is not invalidated if other objects in that index are
-   //    modified, removed, or added;
-   //    * a pointer to an object in a chainbase index is not invalidated if the fields of that object are
-   //    modified;
-   //    * and, the *receiver_account object itself cannot be removed because accounts cannot be deleted in
-   //    EOSIO.
+   //    * a pointer to an object in a chainbase index is not invalidated if other objects in that index are modified,
+   //    removed, or added;
+   //    * a pointer to an object in a chainbase index is not invalidated if the fields of that object are modified;
+   //    * and, the *receiver_account object itself cannot be removed because accounts cannot be deleted in EOSIO.
 
    action_trace& trace = trx_context.get_action_trace(action_ordinal);
    trace.return_value  = std::move(action_return_value);
@@ -318,15 +310,14 @@ void apply_context::execute_inline(action&& a) {
               "inline action's code account ${account} does not exist",
               ("account", a.account));
 
-   bool enforce_actor_whitelist_blacklist =
-      trx_context.enforce_whiteblacklist && control.is_speculative_block();
+   bool enforce_actor_whitelist_blacklist = trx_context.enforce_whiteblacklist && control.is_speculative_block();
    flat_set<account_name> actors;
 
    bool disallow_send_to_self_bypass =
       control.is_builtin_activated(builtin_protocol_feature_t::restrict_action_to_self);
-   bool send_to_self                  = (a.account == receiver);
-   bool inherit_parent_authorizations = (!disallow_send_to_self_bypass && send_to_self &&
-                                         (receiver == act->account) && control.is_speculative_block());
+   bool send_to_self = (a.account == receiver);
+   bool inherit_parent_authorizations =
+      (!disallow_send_to_self_bypass && send_to_self && (receiver == act->account) && control.is_speculative_block());
 
    flat_set<permission_level> inherited_authorizations;
    if (inherit_parent_authorizations) {
@@ -358,8 +349,8 @@ void apply_context::execute_inline(action&& a) {
 
    if (!privileged && control.is_speculative_block()) {
       const auto& chain_config = control.get_global_properties().configuration;
-      EOS_ASSERT(a.data.size() < std::min(chain_config.max_inline_action_size,
-                                          control.get_max_nonprivileged_inline_action_size()),
+      EOS_ASSERT(a.data.size() <
+                    std::min(chain_config.max_inline_action_size, control.get_max_nonprivileged_inline_action_size()),
                  inline_action_too_big_nonprivileged,
                  "inline action too big for nonprivileged account ${account}",
                  ("account", a.account));
@@ -379,11 +370,10 @@ void apply_context::execute_inline(action&& a) {
             trx_context.is_dry_run(),
             inherited_authorizations);
 
-         // QUESTION: Is it smart to allow a deferred transaction that has been delayed for some time to get
-         // away
-         //           with sending an inline action that requires a delay even though the decision to send
-         //           that inline action was made at the moment the deferred transaction was executed with
-         //           potentially no forewarning?
+         // QUESTION: Is it smart to allow a deferred transaction that has been delayed for some time to get away
+         //           with sending an inline action that requires a delay even though the decision to send that inline
+         //           action was made at the moment the deferred transaction was executed with potentially no
+         //           forewarning?
       } catch (const fc::exception& e) {
          if (disallow_send_to_self_bypass || !send_to_self) {
             throw;
@@ -420,14 +410,13 @@ void apply_context::execute_context_free_inline(action&& a) {
               "inline action's code account ${account} does not exist",
               ("account", a.account));
 
-   EOS_ASSERT(a.authorization.size() == 0,
-              action_validate_exception,
-              "context-free actions cannot have authorizations");
+   EOS_ASSERT(
+      a.authorization.size() == 0, action_validate_exception, "context-free actions cannot have authorizations");
 
    if (!privileged && control.is_speculative_block()) {
       const auto& chain_config = control.get_global_properties().configuration;
-      EOS_ASSERT(a.data.size() < std::min(chain_config.max_inline_action_size,
-                                          control.get_max_nonprivileged_inline_action_size()),
+      EOS_ASSERT(a.data.size() <
+                    std::min(chain_config.max_inline_action_size, control.get_max_nonprivileged_inline_action_size()),
                  inline_action_too_big_nonprivileged,
                  "inline action too big for nonprivileged account ${account}",
                  ("account", a.account));
@@ -449,8 +438,7 @@ void apply_context::schedule_deferred_transaction(const uint128_t& sender_id,
               cfa_inside_generated_tx,
               "context free actions are not currently allowed in generated transactions");
 
-   bool enforce_actor_whitelist_blacklist = trx_context.enforce_whiteblacklist &&
-                                            control.is_speculative_block() &&
+   bool enforce_actor_whitelist_blacklist = trx_context.enforce_whiteblacklist && control.is_speculative_block() &&
                                             !control.sender_avoids_whitelist_blacklist_enforcement(receiver);
    trx_context.validate_referenced_accounts(trx, enforce_actor_whitelist_blacklist);
 
@@ -461,8 +449,8 @@ void apply_context::schedule_deferred_transaction(const uint128_t& sender_id,
 
          EOS_ASSERT(exts.size() == 1 && itr != exts.end(),
                     invalid_transaction_extension,
-                    "only the deferred_transaction_generation_context extension is currently supported for "
-                    "deferred transactions");
+                    "only the deferred_transaction_generation_context extension is currently supported for deferred "
+                    "transactions");
 
          const auto& context = std::get<deferred_transaction_generation_context>(itr->second);
 
@@ -479,18 +467,17 @@ void apply_context::schedule_deferred_transaction(const uint128_t& sender_id,
                     "deferred transaction generaction context contains mismatching sender_trx_id",
                     ("expected", trx_context.packed_trx.id())("actual", context.sender_trx_id));
       } else {
-         emplace_extension(trx.transaction_extensions,
-                           deferred_transaction_generation_context::extension_id(),
-                           fc::raw::pack(deferred_transaction_generation_context(
-                              trx_context.packed_trx.id(), sender_id, receiver)));
+         emplace_extension(
+            trx.transaction_extensions,
+            deferred_transaction_generation_context::extension_id(),
+            fc::raw::pack(deferred_transaction_generation_context(trx_context.packed_trx.id(), sender_id, receiver)));
       }
       trx.expiration       = time_point_sec();
       trx.ref_block_num    = 0;
       trx.ref_block_prefix = 0;
    } else {
-      trx.expiration =
-         control.pending_block_time() +
-         fc::microseconds(999'999); // Rounds up to nearest second (makes expiration check unnecessary)
+      trx.expiration = control.pending_block_time() +
+                       fc::microseconds(999'999); // Rounds up to nearest second (makes expiration check unnecessary)
       trx.set_reference_block(control.head_block_id()); // No TaPoS check necessary
    }
 
@@ -499,43 +486,40 @@ void apply_context::schedule_deferred_transaction(const uint128_t& sender_id,
    const auto& cfg = control.get_global_properties().configuration;
    trx_context.add_net_usage(
       static_cast<uint64_t>(cfg.base_per_transaction_net_usage) +
-      static_cast<uint64_t>(
-         config::transaction_id_net_usage)); // Will exit early if net usage cannot be payed.
+      static_cast<uint64_t>(config::transaction_id_net_usage)); // Will exit early if net usage cannot be payed.
 
    auto delay = fc::seconds(trx.delay_sec);
 
-   bool ram_restrictions_activated =
-      control.is_builtin_activated(builtin_protocol_feature_t::ram_restrictions);
+   bool ram_restrictions_activated = control.is_builtin_activated(builtin_protocol_feature_t::ram_restrictions);
 
-   if (!control.skip_auth_check() && !privileged) { // Do not need to check authorization if replayng
-                                                    // irreversible block or if contract is privileged
+   if (!control.skip_auth_check() &&
+       !privileged) { // Do not need to check authorization if replayng irreversible block or if contract is privileged
       if (payer != receiver) {
          if (ram_restrictions_activated) {
-            EOS_ASSERT(
-               receiver == act->account,
-               action_validate_exception,
-               "cannot bill RAM usage of deferred transactions to another account within notify context");
+            EOS_ASSERT(receiver == act->account,
+                       action_validate_exception,
+                       "cannot bill RAM usage of deferred transactions to another account within notify context");
             EOS_ASSERT(has_authorization(payer),
                        action_validate_exception,
-                       "cannot bill RAM usage of deferred transaction to another account that has not "
-                       "authorized the action: ${payer}",
+                       "cannot bill RAM usage of deferred transaction to another account that has not authorized the "
+                       "action: ${payer}",
                        ("payer", payer));
          } else {
             require_authorization(payer); /// uses payer's storage
          }
       }
 
-      // Originally this code bypassed authorization checks if a contract was deferring only actions to
-      // itself. The idea was that the code could already do whatever the deferred transaction could do, so
-      // there was no point in checking authorizations. But this is not true. The original implementation
-      // didn't validate the authorizations on the actions which allowed for privilege escalation. It would
-      // make it possible to bill RAM to some unrelated account. Furthermore, even if the authorizations were
-      // forced to be a subset of the current action's authorizations, it would still violate the expectations
-      // of the signers of the original transaction, because the deferred transaction would allow billing more
-      // CPU and network bandwidth than the maximum limit specified on the original transaction. So, the
-      // deferred transaction must always go through the authorization checking if it is not sent by a
-      // privileged contract. However, the old logic must still be considered because it cannot objectively
-      // change until a consensus protocol upgrade.
+      // Originally this code bypassed authorization checks if a contract was deferring only actions to itself.
+      // The idea was that the code could already do whatever the deferred transaction could do, so there was no point
+      // in checking authorizations. But this is not true. The original implementation didn't validate the
+      // authorizations on the actions which allowed for privilege escalation. It would make it possible to bill RAM to
+      // some unrelated account. Furthermore, even if the authorizations were forced to be a subset of the current
+      // action's authorizations, it would still violate the expectations of the signers of the original transaction,
+      // because the deferred transaction would allow billing more CPU and network bandwidth than the maximum limit
+      // specified on the original transaction.
+      // So, the deferred transaction must always go through the authorization checking if it is not sent by a
+      // privileged contract. However, the old logic must still be considered because it cannot objectively change until
+      // a consensus protocol upgrade.
 
       bool disallow_send_to_self_bypass =
          control.is_builtin_activated(builtin_protocol_feature_t::restrict_action_to_self);
@@ -565,8 +549,7 @@ void apply_context::schedule_deferred_transaction(const uint128_t& sender_id,
             throw;
          } else if (control.is_speculative_block()) {
             subjective_block_production_exception new_exception(FC_LOG_MESSAGE(
-               error,
-               "Authorization failure with sent deferred transaction consisting only of actions to self"));
+               error, "Authorization failure with sent deferred transaction consisting only of actions to self"));
             for (const auto& log : e.get_log()) {
                new_exception.append_log(log);
             }
@@ -576,22 +559,20 @@ void apply_context::schedule_deferred_transaction(const uint128_t& sender_id,
          if (disallow_send_to_self_bypass || !is_sending_only_to_self(receiver)) {
             throw;
          } else if (control.is_speculative_block()) {
-            EOS_THROW(subjective_block_production_exception,
-                      "Unexpected exception occurred validating sent deferred transaction consisting only of "
-                      "actions to self");
+            EOS_THROW(
+               subjective_block_production_exception,
+               "Unexpected exception occurred validating sent deferred transaction consisting only of actions to self");
          }
       }
    }
 
    uint32_t trx_size = 0;
-   if (auto ptr =
-          db.find<generated_transaction_object, by_sender_id>(boost::make_tuple(receiver, sender_id))) {
+   if (auto ptr = db.find<generated_transaction_object, by_sender_id>(boost::make_tuple(receiver, sender_id))) {
       EOS_ASSERT(replace_existing,
                  deferred_tx_duplicate,
                  "deferred transaction with the same sender_id and payer already exists");
 
-      bool replace_deferred_activated =
-         control.is_builtin_activated(builtin_protocol_feature_t::replace_deferred);
+      bool replace_deferred_activated = control.is_builtin_activated(builtin_protocol_feature_t::replace_deferred);
 
       EOS_ASSERT(replace_deferred_activated || !control.is_speculative_block() ||
                     control.all_subjective_mitigations_disabled(),
@@ -603,8 +584,7 @@ void apply_context::schedule_deferred_transaction(const uint128_t& sender_id,
             RAM_EVENT_ID("${id}", ("id", ptr->id)), "deferred_trx", "cancel", "deferred_trx_cancel");
       }
 
-      uint64_t orig_trx_ram_bytes =
-         config::billable_size_v<generated_transaction_object> + ptr->packed_trx.size();
+      uint64_t orig_trx_ram_bytes = config::billable_size_v<generated_transaction_object> + ptr->packed_trx.size();
       if (replace_deferred_activated) {
          add_ram_usage(ptr->payer, -static_cast<int64_t>(orig_trx_ram_bytes));
       } else {
@@ -632,8 +612,7 @@ void apply_context::schedule_deferred_transaction(const uint128_t& sender_id,
          gtx.published   = control.pending_block_time();
          gtx.delay_until = gtx.published + delay;
          gtx.expiration =
-            gtx.delay_until +
-            fc::seconds(control.get_global_properties().configuration.deferred_trx_expiration_window);
+            gtx.delay_until + fc::seconds(control.get_global_properties().configuration.deferred_trx_expiration_window);
 
          trx_size = gtx.set(trx);
 
@@ -652,21 +631,19 @@ void apply_context::schedule_deferred_transaction(const uint128_t& sender_id,
          gtx.published   = control.pending_block_time();
          gtx.delay_until = gtx.published + delay;
          gtx.expiration =
-            gtx.delay_until +
-            fc::seconds(control.get_global_properties().configuration.deferred_trx_expiration_window);
+            gtx.delay_until + fc::seconds(control.get_global_properties().configuration.deferred_trx_expiration_window);
 
          trx_size = gtx.set(trx);
 
          if (auto dm_logger = control.get_deep_mind_logger()) {
             dm_logger->on_send_deferred(deep_mind_handler::operation_qualifier::none, gtx);
-            dm_logger->on_ram_trace(
-               RAM_EVENT_ID("${id}", ("id", gtx.id)), "deferred_trx", "add", "deferred_trx_add");
+            dm_logger->on_ram_trace(RAM_EVENT_ID("${id}", ("id", gtx.id)), "deferred_trx", "add", "deferred_trx_add");
          }
       });
    }
 
-   EOS_ASSERT(ram_restrictions_activated || control.is_ram_billing_in_notify_allowed() ||
-                 (receiver == act->account) || (receiver == payer) || privileged,
+   EOS_ASSERT(ram_restrictions_activated || control.is_ram_billing_in_notify_allowed() || (receiver == act->account) ||
+                 (receiver == payer) || privileged,
               subjective_block_production_exception,
               "Cannot charge RAM to other accounts during notify.");
    add_ram_usage(payer, (config::billable_size_v<generated_transaction_object> + trx_size));
@@ -674,8 +651,7 @@ void apply_context::schedule_deferred_transaction(const uint128_t& sender_id,
 
 bool apply_context::cancel_deferred_transaction(const uint128_t& sender_id, account_name sender) {
    auto&       generated_transaction_idx = db.get_mutable_index<generated_transaction_multi_index>();
-   const auto* gto =
-      db.find<generated_transaction_object, by_sender_id>(boost::make_tuple(sender, sender_id));
+   const auto* gto = db.find<generated_transaction_object, by_sender_id>(boost::make_tuple(sender, sender_id));
    if (gto) {
       if (auto dm_logger = control.get_deep_mind_logger()) {
          dm_logger->on_cancel_deferred(deep_mind_handler::operation_qualifier::none, *gto);
@@ -683,8 +659,7 @@ bool apply_context::cancel_deferred_transaction(const uint128_t& sender_id, acco
             RAM_EVENT_ID("${id}", ("id", gto->id)), "deferred_trx", "cancel", "deferred_trx_cancel");
       }
 
-      add_ram_usage(gto->payer,
-                    -(config::billable_size_v<generated_transaction_object> + gto->packed_trx.size()));
+      add_ram_usage(gto->payer, -(config::billable_size_v<generated_transaction_object> + gto->packed_trx.size()));
       generated_transaction_idx.remove(*gto);
    }
    return gto;
@@ -716,15 +691,13 @@ const table_id_object& apply_context::find_or_create_table(name                c
                                                            name                scope,
                                                            name                table,
                                                            const account_name& payer) {
-   const auto* existing_tid =
-      db.find<table_id_object, by_code_scope_table>(boost::make_tuple(code, scope, table));
+   const auto* existing_tid = db.find<table_id_object, by_code_scope_table>(boost::make_tuple(code, scope, table));
    if (existing_tid != nullptr) {
       return *existing_tid;
    }
 
    if (auto dm_logger = control.get_deep_mind_logger()) {
-      std::string event_id =
-         RAM_EVENT_ID("${code}:${scope}:${table}", ("code", code)("scope", scope)("table", table));
+      std::string event_id = RAM_EVENT_ID("${code}:${scope}:${table}", ("code", code)("scope", scope)("table", table));
       dm_logger->on_ram_trace(std::move(event_id), "table", "add", "create_table");
    }
 
@@ -744,8 +717,8 @@ const table_id_object& apply_context::find_or_create_table(name                c
 
 void apply_context::remove_table(const table_id_object& tid) {
    if (auto dm_logger = control.get_deep_mind_logger()) {
-      std::string event_id = RAM_EVENT_ID("${code}:${scope}:${table}",
-                                          ("code", tid.code)("scope", tid.scope)("table", tid.table));
+      std::string event_id =
+         RAM_EVENT_ID("${code}:${scope}:${table}", ("code", tid.code)("scope", tid.scope)("table", tid.table));
       dm_logger->on_ram_trace(std::move(event_id), "table", "remove", "remove_table");
    }
 
@@ -842,8 +815,7 @@ int apply_context::db_store_i64(name                code,
    const auto& tab     = find_or_create_table(code, scope, table, payer);
    auto        tableid = tab.id;
 
-   EOS_ASSERT(
-      payer != account_name(), invalid_table_payer, "must specify a valid account to pay for new record");
+   EOS_ASSERT(payer != account_name(), invalid_table_payer, "must specify a valid account to pay for new record");
 
    const auto& obj = db.create<key_value_object>([&](auto& o) {
       o.t_id        = tableid;
@@ -857,9 +829,9 @@ int apply_context::db_store_i64(name                code,
    int64_t billable_size = (int64_t)(buffer_size + config::billable_size_v<key_value_object>);
 
    if (auto dm_logger = control.get_deep_mind_logger()) {
-      std::string event_id = RAM_EVENT_ID("${table_code}:${scope}:${table_name}:${primkey}",
-                                          ("table_code", tab.code)("scope", tab.scope)(
-                                             "table_name", tab.table)("primkey", name(obj.primary_key)));
+      std::string event_id = RAM_EVENT_ID(
+         "${table_code}:${scope}:${table_name}:${primkey}",
+         ("table_code", tab.code)("scope", tab.scope)("table_name", tab.table)("primkey", name(obj.primary_key)));
       dm_logger->on_ram_trace(std::move(event_id), "table_row", "add", "primary_index_add");
    }
 
@@ -891,21 +863,19 @@ void apply_context::db_update_i64(int iterator, account_name payer, const char* 
    std::string event_id;
    if (control.get_deep_mind_logger() != nullptr) {
       event_id = RAM_EVENT_ID("${table_code}:${scope}:${table_name}:${primkey}",
-                              ("table_code", table_obj.code)("scope", table_obj.scope)(
-                                 "table_name", table_obj.table)("primkey", name(obj.primary_key)));
+                              ("table_code", table_obj.code)("scope", table_obj.scope)("table_name", table_obj.table)(
+                                 "primkey", name(obj.primary_key)));
    }
 
    if (account_name(obj.payer) != payer) {
       // refund the existing payer
       if (auto dm_logger = control.get_deep_mind_logger()) {
-         dm_logger->on_ram_trace(
-            std::string(event_id), "table_row", "remove", "primary_index_update_remove_old_payer");
+         dm_logger->on_ram_trace(std::string(event_id), "table_row", "remove", "primary_index_update_remove_old_payer");
       }
       update_db_usage(obj.payer, -(old_size));
       // charge the new payer
       if (auto dm_logger = control.get_deep_mind_logger()) {
-         dm_logger->on_ram_trace(
-            std::move(event_id), "table_row", "add", "primary_index_update_add_new_payer");
+         dm_logger->on_ram_trace(std::move(event_id), "table_row", "add", "primary_index_update_add_new_payer");
       }
       update_db_usage(payer, (new_size));
    } else if (old_size != new_size) {
@@ -935,10 +905,9 @@ void apply_context::db_remove_i64(int iterator) {
    //   require_write_lock( table_obj.scope );
 
    if (auto dm_logger = control.get_deep_mind_logger()) {
-      std::string event_id =
-         RAM_EVENT_ID("${table_code}:${scope}:${table_name}:${primkey}",
-                      ("table_code", table_obj.code)("scope", table_obj.scope)("table_name", table_obj.table)(
-                         "primkey", name(obj.primary_key)));
+      std::string event_id = RAM_EVENT_ID("${table_code}:${scope}:${table_name}:${primkey}",
+                                          ("table_code", table_obj.code)("scope", table_obj.scope)(
+                                             "table_name", table_obj.table)("primkey", name(obj.primary_key)));
       dm_logger->on_ram_trace(std::move(event_id), "table_row", "remove", "primary_index_remove");
    }
 

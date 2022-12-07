@@ -3,8 +3,8 @@
  *
  * std:pair<T1,T2> is a struct with 2 fields first and second,
  * std::map<K,V> is handled as an array/vector of pairs/structs by EOSIO with implicit fields key, value,
- * the cases of combined use of key/value and first/second involving map,pair in the cleos are documented
- * here. so handling of std::pair is NOT the same as the handling of a general struct such as struct mystruct!
+ * the cases of combined use of key/value and first/second involving map,pair in the cleos are documented here.
+ * so handling of std::pair is NOT the same as the handling of a general struct such as struct mystruct!
  *
  * When assigning data input with cleos:
  *      [] represents an empty vector<T>/set<T> or empty map<T1,T2> where T, T1, T2 can be any composite types
@@ -23,19 +23,19 @@
 using namespace eosio;
 using namespace std;
 
-#define SETCONTAINERVAL(x)                                                                                   \
-   do {                                                                                                      \
-      require_auth(user);                                                                                    \
-      psninfoindex2 tblIndex(get_self(), get_first_receiver().value);                                        \
-      auto          iter = tblIndex.find(user.value);                                                        \
-      if (iter == tblIndex.end()) {                                                                          \
-         tblIndex.emplace(user, [&](auto& row) {                                                             \
-            row.key = user;                                                                                  \
-            row.x   = x;                                                                                     \
-         });                                                                                                 \
-      } else {                                                                                               \
-         tblIndex.modify(iter, user, [&](auto& row) { row.x = x; });                                         \
-      }                                                                                                      \
+#define SETCONTAINERVAL(x)                                                                                             \
+   do {                                                                                                                \
+      require_auth(user);                                                                                              \
+      psninfoindex2 tblIndex(get_self(), get_first_receiver().value);                                                  \
+      auto          iter = tblIndex.find(user.value);                                                                  \
+      if (iter == tblIndex.end()) {                                                                                    \
+         tblIndex.emplace(user, [&](auto& row) {                                                                       \
+            row.key = user;                                                                                            \
+            row.x   = x;                                                                                               \
+         });                                                                                                           \
+      } else {                                                                                                         \
+         tblIndex.modify(iter, user, [&](auto& row) { row.x = x; });                                                   \
+      }                                                                                                                \
    } while (0)
 
 struct mystruct {
@@ -270,27 +270,24 @@ public:
 
    [[eosio::action]] void settv(name user, const tuple<uint16_t, vec_uint16, vec_uint16>& tv) {
       SETCONTAINERVAL(tv);
-      eosio::print(
-         "type defined tuple< uint16_t, vector< uint16_t >, vector< uint16_t > stored successfully!");
+      eosio::print("type defined tuple< uint16_t, vector< uint16_t >, vector< uint16_t > stored successfully!");
    }
 
-   [[eosio::action]] void setto(name                                                                user,
-                                const tuple<op_uint16, op_uint16, op_uint16, op_uint16, op_uint16>& to) {
+   [[eosio::action]] void setto(name user, const tuple<op_uint16, op_uint16, op_uint16, op_uint16, op_uint16>& to) {
       SETCONTAINERVAL(to);
-      eosio::print(
-         "type defined tuple< optional < uint16_t >, optional < uint16_t >, ... > stored successfully!");
+      eosio::print("type defined tuple< optional < uint16_t >, optional < uint16_t >, ... > stored successfully!");
    }
 
    [[eosio::action]] void settm(name user, const tuple<uint16_t, mp_uint16, mp_uint16>& tm) {
       SETCONTAINERVAL(tm);
-      eosio::print("type defined tuple< map< uint16_t, map< uint16_t, uint16_t>, map< uint16_t, uint16_t> >> "
-                   "stored successfully!");
+      eosio::print("type defined tuple< map< uint16_t, map< uint16_t, uint16_t>, map< uint16_t, uint16_t> >> stored "
+                   "successfully!");
    }
 
    [[eosio::action]] void settp(name user, const tuple<uint16_t, pr_uint16, pr_uint16>& tp) {
       SETCONTAINERVAL(tp);
-      eosio::print("type defined tuple< uint16_t, pair< uint16_t, uint16_t >, pair< uint16_t, uint16_t >> "
-                   "stored successfully");
+      eosio::print(
+         "type defined tuple< uint16_t, pair< uint16_t, uint16_t >, pair< uint16_t, uint16_t >> stored successfully");
    }
 
    [[eosio::action]] void settt(name user, const tuple<tup_uint16, tup_uint16, tup_uint16>& tt) {

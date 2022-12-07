@@ -65,10 +65,9 @@ public:
 
    std::optional<asio::local::stream_protocol::endpoint> unix_endpoint;
 
-   shared_ptr<beast_http_listener<plain_session, tcp, tcp_socket_t>> beast_server;
-   shared_ptr<beast_http_listener<ssl_session, tcp, tcp_socket_t>>   beast_https_server;
-   shared_ptr<beast_http_listener<unix_socket_session, stream_protocol, stream_protocol::socket>>
-      beast_unix_server;
+   shared_ptr<beast_http_listener<plain_session, tcp, tcp_socket_t>>                              beast_server;
+   shared_ptr<beast_http_listener<ssl_session, tcp, tcp_socket_t>>                                beast_https_server;
+   shared_ptr<beast_http_listener<unix_socket_session, stream_protocol, stream_protocol::socket>> beast_unix_server;
 
    shared_ptr<http_plugin_state> plugin_state = std::make_shared<http_plugin_state>(logger());
 
@@ -93,11 +92,11 @@ public:
             return;
          }
 
-         url_response_callback wrapped_then =
-            [tracked_b, then = std::move(then)](
-               int code, const fc::time_point& deadline, std::optional<fc::variant> resp) {
-               then(code, deadline, std::move(resp));
-            };
+         url_response_callback wrapped_then = [tracked_b, then = std::move(then)](int                        code,
+                                                                                  const fc::time_point&      deadline,
+                                                                                  std::optional<fc::variant> resp) {
+            then(code, deadline, std::move(resp));
+         };
 
          // post to the app thread taking shared ownership of next (via std::shared_ptr),
          // sole ownership of the tracked body and the passed in parameters
@@ -145,10 +144,9 @@ public:
       if (useSSL) {
          try {
             plugin_state->ctx.emplace(ssl::context::tlsv12);
-            plugin_state->ctx->set_options(asio::ssl::context::default_workarounds |
-                                           asio::ssl::context::no_sslv2 | asio::ssl::context::no_sslv3 |
-                                           asio::ssl::context::no_tlsv1 | asio::ssl::context::no_tlsv1_1 |
-                                           asio::ssl::context::single_dh_use);
+            plugin_state->ctx->set_options(asio::ssl::context::default_workarounds | asio::ssl::context::no_sslv2 |
+                                           asio::ssl::context::no_sslv3 | asio::ssl::context::no_tlsv1 |
+                                           asio::ssl::context::no_tlsv1_1 | asio::ssl::context::single_dh_use);
 
             plugin_state->ctx->use_certificate_chain_file(https_cert_chain);
             plugin_state->ctx->use_private_key_file(https_key, asio::ssl::context::pem);
@@ -173,18 +171,16 @@ public:
             fc_elog(logger(), "https server initialization error: ${w}", ("w", e.what()));
          }
 
-         beast_https_server =
-            std::make_shared<beast_http_listener<ssl_session, tcp, tcp_socket_t>>(plugin_state);
+         beast_https_server = std::make_shared<beast_http_listener<ssl_session, tcp, tcp_socket_t>>(plugin_state);
          fc_ilog(logger(), "created beast HTTPS listener");
       } else {
          if (isUnix) {
-            beast_unix_server = std::make_shared<
-               beast_http_listener<unix_socket_session, stream_protocol, stream_protocol::socket>>(
-               plugin_state);
+            beast_unix_server =
+               std::make_shared<beast_http_listener<unix_socket_session, stream_protocol, stream_protocol::socket>>(
+                  plugin_state);
             fc_ilog(logger(), "created beast UNIX socket listener");
          } else {
-            beast_server =
-               std::make_shared<beast_http_listener<plain_session, tcp, tcp_socket_t>>(plugin_state);
+            beast_server = std::make_shared<beast_http_listener<plain_session, tcp, tcp_socket_t>>(plugin_state);
             fc_ilog(logger(), "created beast HTTP listener");
          }
       }
@@ -210,21 +206,18 @@ void http_plugin::set_program_options(options_description&, options_description&
          "The filename (relative to data-dir) to create a unix socket for HTTP RPC; set blank to disable.");
 
    if (current_http_plugin_defaults.default_http_port)
-      cfg.add_options()(
-         "http-server-address",
-         bpo::value<string>()->default_value("127.0.0.1:" +
-                                             std::to_string(current_http_plugin_defaults.default_http_port)),
-         "The local IP and port to listen for incoming http connections; set blank to disable.");
+      cfg.add_options()("http-server-address",
+                        bpo::value<string>()->default_value(
+                           "127.0.0.1:" + std::to_string(current_http_plugin_defaults.default_http_port)),
+                        "The local IP and port to listen for incoming http connections; set blank to disable.");
    else
-      cfg.add_options()(
-         "http-server-address",
-         bpo::value<string>(),
-         "The local IP and port to listen for incoming http connections; leave blank to disable.");
+      cfg.add_options()("http-server-address",
+                        bpo::value<string>(),
+                        "The local IP and port to listen for incoming http connections; leave blank to disable.");
 
-   cfg.add_options()(
-      "https-server-address",
-      bpo::value<string>(),
-      "The local IP and port to listen for incoming https connections; leave blank to disable.")
+   cfg.add_options()("https-server-address",
+                     bpo::value<string>(),
+                     "The local IP and port to listen for incoming https connections; leave blank to disable.")
 
       ("https-certificate-chain-file",
        bpo::value<string>(),
@@ -272,25 +265,23 @@ void http_plugin::set_program_options(options_description&, options_description&
                             ->notifier([this](bool v) {
                                my->plugin_state->access_control_allow_credentials = v;
                                if (v)
-                                  fc_ilog(logger(),
-                                          "configured http with Access-Control-Allow-Credentials: true");
+                                  fc_ilog(logger(), "configured http with Access-Control-Allow-Credentials: true");
                             })
                             ->default_value(false),
-                         "Specify if Access-Control-Allow-Credentials: true should be returned on each "
-                         "request.")("max-body-size",
-                                     bpo::value<uint32_t>()->default_value(my->plugin_state->max_body_size),
-                                     "The maximum body size in bytes allowed for incoming RPC requests")(
+                         "Specify if Access-Control-Allow-Credentials: true should be returned on each request.")(
+                           "max-body-size",
+                           bpo::value<uint32_t>()->default_value(my->plugin_state->max_body_size),
+                           "The maximum body size in bytes allowed for incoming RPC requests")(
                            "http-max-bytes-in-flight-mb",
                            bpo::value<int64_t>()->default_value(500),
-                           "Maximum size in megabytes http_plugin should use for processing http requests. "
-                           "-1 for unlimited. 429 error response when exceeded.")(
+                           "Maximum size in megabytes http_plugin should use for processing http requests. -1 for "
+                           "unlimited. 429 error response when exceeded.")(
                            "http-max-in-flight-requests",
                            bpo::value<int32_t>()->default_value(-1),
-                           "Maximum number of requests http_plugin should use for processing http requests. "
-                           "429 error response when exceeded.")(
-                           "http-max-response-time-ms",
-                           bpo::value<int64_t>()->default_value(30),
-                           "Maximum time for processing a request, -1 for unlimited")(
+                           "Maximum number of requests http_plugin should use for processing http requests. 429 error "
+                           "response when exceeded.")("http-max-response-time-ms",
+                                                      bpo::value<int64_t>()->default_value(30),
+                                                      "Maximum time for processing a request, -1 for unlimited")(
                            "verbose-http-errors",
                            bpo::bool_switch()->default_value(false),
                            "Append the error log to HTTP responses")(
@@ -299,8 +290,8 @@ void http_plugin::set_program_options(options_description&, options_description&
                            "If set to false, then any incoming \"Host\" header is considered valid")(
                            "http-alias",
                            bpo::value<std::vector<string>>()->composing(),
-                           "Additionaly acceptable values for the \"Host\" header of incoming HTTP requests, "
-                           "can be specified multiple times.  Includes http/s_server_address by default.")(
+                           "Additionaly acceptable values for the \"Host\" header of incoming HTTP requests, can be "
+                           "specified multiple times.  Includes http/s_server_address by default.")(
                            "http-threads",
                            bpo::value<uint16_t>()->default_value(my->plugin_state->thread_pool_size),
                            "Number of worker threads in http thread pool")(
@@ -321,11 +312,11 @@ void http_plugin::plugin_initialize(const variables_map& options) {
                  ("num", my->plugin_state->thread_pool_size));
 
       auto max_bytes_mb = options.at("http-max-bytes-in-flight-mb").as<int64_t>();
-      EOS_ASSERT((max_bytes_mb >= -1 && max_bytes_mb < std::numeric_limits<int64_t>::max() / (1024 * 1024)),
-                 chain::plugin_config_exception,
-                 "http-max-bytes-in-flight-mb (${max_bytes_mb}) must be equal to or greater than -1 and less "
-                 "than ${max}",
-                 ("max_bytes_mb", max_bytes_mb)("max", std::numeric_limits<int64_t>::max() / (1024 * 1024)));
+      EOS_ASSERT(
+         (max_bytes_mb >= -1 && max_bytes_mb < std::numeric_limits<int64_t>::max() / (1024 * 1024)),
+         chain::plugin_config_exception,
+         "http-max-bytes-in-flight-mb (${max_bytes_mb}) must be equal to or greater than -1 and less than ${max}",
+         ("max_bytes_mb", max_bytes_mb)("max", std::numeric_limits<int64_t>::max() / (1024 * 1024)));
       if (max_bytes_mb == -1) {
          my->plugin_state->max_bytes_in_flight = std::numeric_limits<size_t>::max();
       } else {
@@ -338,8 +329,8 @@ void http_plugin::plugin_initialize(const variables_map& options) {
                  "http-max-response-time-ms must be -1, or non-negative: ${m}",
                  ("m", max_reponse_time_ms));
       // set to one year for -1, unlimited, since this is added to fc::time_point::now() for a deadline
-      my->plugin_state->max_response_time =
-         max_reponse_time_ms == -1 ? fc::days(365) : fc::microseconds(max_reponse_time_ms * 1000);
+      my->plugin_state->max_response_time = max_reponse_time_ms == -1 ? fc::days(365)
+                                                                      : fc::microseconds(max_reponse_time_ms * 1000);
 
       my->plugin_state->validate_host = options.at("http-validate-host").as<bool>();
       if (options.count("http-alias")) {
@@ -382,8 +373,7 @@ void http_plugin::plugin_initialize(const variables_map& options) {
             fc_elog(logger(), "https-certificate-chain-file is required for HTTPS");
             return;
          }
-         if (!options.count("https-private-key-file") ||
-             options.at("https-private-key-file").as<string>().empty()) {
+         if (!options.count("https-private-key-file") || options.at("https-private-key-file").as<string>().empty()) {
             fc_elog(logger(), "https-private-key-file is required for HTTPS");
             return;
          }
@@ -393,10 +383,9 @@ void http_plugin::plugin_initialize(const variables_map& options) {
          string port   = lipstr.substr(host.size() + 1, lipstr.size());
          try {
             my->https_listen_endpoint = *resolver.resolve(tcp::v4(), host, port);
-            fc_ilog(
-               logger(),
-               "configured https to listen on ${h}:${p} (TLS configuration will be validated momentarily)",
-               ("h", host)("p", port));
+            fc_ilog(logger(),
+                    "configured https to listen on ${h}:${p} (TLS configuration will be validated momentarily)",
+                    ("h", host)("p", port));
             my->https_cert_chain = options.at("https-certificate-chain-file").as<string>();
             my->https_key        = options.at("https-private-key-file").as<string>();
          } catch (const boost::system::system_error& ec) {
@@ -462,9 +451,8 @@ void http_plugin::plugin_startup() {
                        ("e", e.what())("path", my->unix_endpoint->path()));
                throw;
             } catch (...) {
-               fc_elog(logger(),
-                       "error thrown from unix socket (${path}) io service",
-                       ("path", my->unix_endpoint->path()));
+               fc_elog(
+                  logger(), "error thrown from unix socket (${path}) io service", ("path", my->unix_endpoint->path()));
                throw;
             }
          }
@@ -566,17 +554,12 @@ void http_plugin::handle_exception(const char*                  api_name,
          error_results results{ 409, "Conflict", error_results::error_info(e, verbose_http_errors) };
          cb(409, fc::time_point::maximum(), fc::variant(results));
       } catch (fc::eof_exception& e) {
-         error_results results{ 422,
-                                "Unprocessable Entity",
-                                error_results::error_info(e, verbose_http_errors) };
+         error_results results{ 422, "Unprocessable Entity", error_results::error_info(e, verbose_http_errors) };
          cb(422, fc::time_point::maximum(), fc::variant(results));
-         fc_elog(
-            logger(), "Unable to parse arguments to ${api}.${call}", ("api", api_name)("call", call_name));
+         fc_elog(logger(), "Unable to parse arguments to ${api}.${call}", ("api", api_name)("call", call_name));
          fc_dlog(logger(), "Bad arguments: ${args}", ("args", body));
       } catch (fc::exception& e) {
-         error_results results{ 500,
-                                "Internal Service Error",
-                                error_results::error_info(e, verbose_http_errors) };
+         error_results results{ 500, "Internal Service Error", error_results::error_info(e, verbose_http_errors) };
          cb(500, fc::time_point::maximum(), fc::variant(results));
          fc_dlog(logger(),
                  "Exception while processing ${api}.${call}: ${e}",
@@ -593,17 +576,15 @@ void http_plugin::handle_exception(const char*                  api_name,
       } catch (...) {
          error_results results{ 500,
                                 "Internal Service Error",
-                                error_results::error_info(
-                                   fc::exception(FC_LOG_MESSAGE(error, "Unknown Exception")),
-                                   verbose_http_errors) };
+                                error_results::error_info(fc::exception(FC_LOG_MESSAGE(error, "Unknown Exception")),
+                                                          verbose_http_errors) };
          cb(500, fc::time_point::maximum(), fc::variant(results));
          fc_elog(logger(),
                  "Unknown Exception encountered while processing ${api}.${call}",
                  ("api", api_name)("call", call_name));
       }
    } catch (...) {
-      std::cerr << "Exception attempting to handle exception for " << api_name << "." << call_name
-                << std::endl;
+      std::cerr << "Exception attempting to handle exception for " << api_name << "." << call_name << std::endl;
    }
 }
 

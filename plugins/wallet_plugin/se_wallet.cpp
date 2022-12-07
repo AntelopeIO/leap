@@ -45,9 +45,8 @@ struct se_wallet_impl {
       if (error) {
          string error_string = string_for_cferror(error);
          CFRelease(error);
-         FC_THROW_EXCEPTION(chain::wallet_exception,
-                            "Failed to get public key from Secure Enclave: ${m}",
-                            ("m", error_string));
+         FC_THROW_EXCEPTION(
+            chain::wallet_exception, "Failed to get public key from Secure Enclave: ${m}", ("m", error_string));
       }
 
       return pub_key_data;
@@ -140,9 +139,7 @@ struct se_wallet_impl {
                                                       &kCFTypeDictionaryKeyCallBacks,
                                                       &kCFTypeDictionaryValueCallBacks);
 
-      const void* attrKeys[] = {
-         kSecAttrKeyType, kSecAttrKeySizeInBits, kSecAttrTokenID, kSecPrivateKeyAttrs
-      };
+      const void* attrKeys[]   = { kSecAttrKeyType, kSecAttrKeySizeInBits, kSecAttrTokenID, kSecPrivateKeyAttrs };
       const void* atrrValues[] = {
          kSecAttrKeyTypeECSECPrimeRandom, keySizeNumber, kSecAttrTokenIDSecureEnclave, keyAttrDic
       };
@@ -190,10 +187,9 @@ struct se_wallet_impl {
       fc::ecdsa_sig sig   = ECDSA_SIG_new();
       CFErrorRef    error = nullptr;
 
-      CFDataRef digestData =
-         CFDataCreateWithBytesNoCopy(nullptr, (UInt8*)d.data(), d.data_size(), kCFAllocatorNull);
-      CFDataRef signature = SecKeyCreateSignature(
-         it->second, kSecKeyAlgorithmECDSASignatureDigestX962SHA256, digestData, &error);
+      CFDataRef digestData = CFDataCreateWithBytesNoCopy(nullptr, (UInt8*)d.data(), d.data_size(), kCFAllocatorNull);
+      CFDataRef signature =
+         SecKeyCreateSignature(it->second, kSecKeyAlgorithmECDSASignatureDigestX962SHA256, digestData, &error);
       if (error) {
          string error_string = string_for_cferror(error);
          CFRelease(error);
@@ -233,8 +229,7 @@ struct se_wallet_impl {
    bool remove_key(string public_key) {
       auto it = _keys.find(public_key_type{ public_key });
       if (it == _keys.end())
-         FC_THROW_EXCEPTION(chain::wallet_exception,
-                            "Given key to delete not found in Secure Enclave wallet");
+         FC_THROW_EXCEPTION(chain::wallet_exception, "Given key to delete not found in Secure Enclave wallet");
 
       promise<bool> prom;
       future<bool>  fut = prom.get_future();
@@ -276,12 +271,8 @@ static void check_signed() {
    pid_t           pid       = getpid();
    SecCodeRef      code      = nullptr;
    CFNumberRef     pidnumber = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &pid);
-   CFDictionaryRef piddict   = CFDictionaryCreate(kCFAllocatorDefault,
-                                                (const void**)&kSecGuestAttributePid,
-                                                (const void**)&pidnumber,
-                                                1,
-                                                nullptr,
-                                                nullptr);
+   CFDictionaryRef piddict   = CFDictionaryCreate(
+      kCFAllocatorDefault, (const void**)&kSecGuestAttributePid, (const void**)&pidnumber, 1, nullptr, nullptr);
    if (!SecCodeCopyGuestWithAttributes(nullptr, piddict, kSecCSDefaultFlags, &code)) {
       SecRequirementRef sec_requirement = nullptr;
       if (!SecRequirementCreateWithString(CFSTR("anchor trusted"), kSecCSDefaultFlags, &sec_requirement)) {
@@ -372,8 +363,7 @@ void se_wallet::set_password(string password) {
 }
 
 map<public_key_type, private_key_type> se_wallet::list_keys() {
-   FC_THROW_EXCEPTION(chain::wallet_exception,
-                      "Getting the private keys from the Secure Enclave wallet is impossible");
+   FC_THROW_EXCEPTION(chain::wallet_exception, "Getting the private keys from the Secure Enclave wallet is impossible");
 }
 flat_set<public_key_type> se_wallet::list_public_keys() {
    flat_set<public_key_type> keys;
@@ -382,8 +372,7 @@ flat_set<public_key_type> se_wallet::list_public_keys() {
 }
 
 bool se_wallet::import_key(string wif_key) {
-   FC_THROW_EXCEPTION(chain::wallet_exception,
-                      "It is not possible to import a key in to the Secure Enclave wallet");
+   FC_THROW_EXCEPTION(chain::wallet_exception, "It is not possible to import a key in to the Secure Enclave wallet");
 }
 
 string se_wallet::create_key(string key_type) {
@@ -398,8 +387,7 @@ bool se_wallet::remove_key(string key) {
    return my->remove_key(key);
 }
 
-std::optional<signature_type> se_wallet::try_sign_digest(const digest_type     digest,
-                                                         const public_key_type public_key) {
+std::optional<signature_type> se_wallet::try_sign_digest(const digest_type digest, const public_key_type public_key) {
    return my->try_sign_digest(digest, public_key);
 }
 

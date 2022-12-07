@@ -1,5 +1,4 @@
-#define RAPIDJSON_NAMESPACE                                                                                  \
-   eosio_rapidjson // This is ABSOLUTELY necessary anywhere that is using eosio_rapidjson
+#define RAPIDJSON_NAMESPACE eosio_rapidjson // This is ABSOLUTELY necessary anywhere that is using eosio_rapidjson
 
 #include <eosio/chain/snapshot.hpp>
 #include <eosio/chain/exceptions.hpp>
@@ -50,8 +49,7 @@ void variant_snapshot_reader::validate() const {
    EOS_ASSERT(o.contains("version"), snapshot_validation_exception, "Variant snapshot has no version");
 
    const auto& version = o["version"];
-   EOS_ASSERT(
-      version.is_integer(), snapshot_validation_exception, "Variant snapshot version is not an integer");
+   EOS_ASSERT(version.is_integer(), snapshot_validation_exception, "Variant snapshot version is not an integer");
 
    EOS_ASSERT(version.as_uint64() == (uint64_t)current_snapshot_version,
               snapshot_validation_exception,
@@ -61,26 +59,21 @@ void variant_snapshot_reader::validate() const {
    EOS_ASSERT(o.contains("sections"), snapshot_validation_exception, "Variant snapshot has no sections");
 
    const auto& sections = o["sections"];
-   EOS_ASSERT(
-      sections.is_array(), snapshot_validation_exception, "Variant snapshot sections is not an array");
+   EOS_ASSERT(sections.is_array(), snapshot_validation_exception, "Variant snapshot sections is not an array");
 
    const auto& section_array = sections.get_array();
    for (const auto& section : section_array) {
-      EOS_ASSERT(
-         section.is_object(), snapshot_validation_exception, "Variant snapshot section is not an object");
+      EOS_ASSERT(section.is_object(), snapshot_validation_exception, "Variant snapshot section is not an object");
 
       const auto& so = section.get_object();
       EOS_ASSERT(so.contains("name"), snapshot_validation_exception, "Variant snapshot section has no name");
 
-      EOS_ASSERT(so["name"].is_string(),
-                 snapshot_validation_exception,
-                 "Variant snapshot section name is not a string");
+      EOS_ASSERT(
+         so["name"].is_string(), snapshot_validation_exception, "Variant snapshot section name is not a string");
 
       EOS_ASSERT(so.contains("rows"), snapshot_validation_exception, "Variant snapshot section has no rows");
 
-      EOS_ASSERT(so["rows"].is_array(),
-                 snapshot_validation_exception,
-                 "Variant snapshot section rows is not an array");
+      EOS_ASSERT(so["rows"].is_array(), snapshot_validation_exception, "Variant snapshot section rows is not an array");
    }
 }
 
@@ -202,8 +195,7 @@ ostream_json_snapshot_writer::ostream_json_snapshot_writer(std::ostream& snapsho
 
 void ostream_json_snapshot_writer::write_start_section(const std::string& section_name) {
    row_count = 0;
-   snapshot.inner << "," << fc::json::to_string(section_name, fc::time_point::maximum())
-                  << ":{\n\"rows\":[\n";
+   snapshot.inner << "," << fc::json::to_string(section_name, fc::time_point::maximum()) << ":{\n\"rows\":[\n";
 }
 
 void ostream_json_snapshot_writer::write_row(const detail::abstract_snapshot_row_writer& row_writer) {
@@ -245,8 +237,7 @@ void istream_snapshot_reader::validate() const {
       auto                     expected_totem = ostream_snapshot_writer::magic_number;
       decltype(expected_totem) actual_totem;
       snapshot.read((char*)&actual_totem, sizeof(actual_totem));
-      EOS_ASSERT(
-         actual_totem == expected_totem, snapshot_exception, "Binary snapshot has unexpected magic number!");
+      EOS_ASSERT(actual_totem == expected_totem, snapshot_exception, "Binary snapshot has unexpected magic number!");
 
       // validate version
       auto                       expected_version = current_snapshot_version;
@@ -283,8 +274,7 @@ bool istream_snapshot_reader::validate_section() const {
 void istream_snapshot_reader::set_section(const string& section_name) {
    auto restore_pos = fc::make_scoped_exit([this, pos = snapshot.tellg()]() { snapshot.seekg(pos); });
 
-   const std::streamoff header_size =
-      sizeof(ostream_snapshot_writer::magic_number) + sizeof(current_snapshot_version);
+   const std::streamoff header_size = sizeof(ostream_snapshot_writer::magic_number) + sizeof(current_snapshot_version);
 
    auto next_section_pos = header_pos + header_size;
 
@@ -368,8 +358,7 @@ void istream_json_snapshot_reader::validate() const {
       auto expected_totem = ostream_json_snapshot_writer::magic_number;
       EOS_ASSERT(impl->doc.HasMember("magic_number"), snapshot_exception, "magic_number section not found");
       auto actual_totem = impl->doc["magic_number"].GetUint();
-      EOS_ASSERT(
-         actual_totem == expected_totem, snapshot_exception, "JSON snapshot has unexpected magic number");
+      EOS_ASSERT(actual_totem == expected_totem, snapshot_exception, "JSON snapshot has unexpected magic number");
 
       // validate version
       auto expected_version = current_snapshot_version;
@@ -411,8 +400,7 @@ void istream_json_snapshot_reader::set_section(const string& section_name) {
 
    impl->sec_name = section_name;
    impl->num_rows = impl->doc[section_name.c_str()]["num_rows"].GetInt();
-   ilog("reading ${section_name}, num_rows: ${num_rows}",
-        ("section_name", section_name)("num_rows", impl->num_rows));
+   ilog("reading ${section_name}, num_rows: ${num_rows}", ("section_name", section_name)("num_rows", impl->num_rows));
 }
 
 bool istream_json_snapshot_reader::read_row(detail::abstract_snapshot_row_reader& row_reader) {

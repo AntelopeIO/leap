@@ -43,8 +43,8 @@ struct block_log_prune_config {
    uint32_t prune_blocks; // number of blocks to prune to when doing a prune
    size_t   prune_threshold =
       4 * 1024 * 1024; //(approximately) how many bytes need to be added before a prune is performed
-   std::optional<size_t> vacuum_on_close; // when set, a vacuum is performed on dtor if log contains less than
-                                          // this many live bytes
+   std::optional<size_t>
+      vacuum_on_close; // when set, a vacuum is performed on dtor if log contains less than this many live bytes
 };
 
 class block_log {
@@ -118,8 +118,8 @@ private:
 //    block_timestamp_type timestamp;                  //bytes 0:3
 //    account_name         producer;                   //bytes 4:11
 //    uint16_t             confirmed;                  //bytes 12:13
-//    block_id_type        previous;                   //bytes 14:45, low 4 bytes is big endian block number
-//    of previous block
+//    block_id_type        previous;                   //bytes 14:45, low 4 bytes is big endian block number of previous
+//    block
 
 struct trim_data { // used by trim_blocklog_front(), trim_blocklog_end(), and smoke_test()
    trim_data(fc::path block_dir);

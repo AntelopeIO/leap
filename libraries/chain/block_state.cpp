@@ -32,9 +32,9 @@ vector<signature_type> extract_additional_signatures(const signed_block_ptr&    
 }
 
 /**
- * Given a pending block header state, wrap the promotion to a block header state such that additional
- * signatures can be allowed based on activations *prior* to the promoted block and properly injected into the
- * signed block that is previously constructed and mutated by the promotion
+ * Given a pending block header state, wrap the promotion to a block header state such that additional signatures
+ * can be allowed based on activations *prior* to the promoted block and properly injected into the signed block
+ * that is previously constructed and mutated by the promotion
  *
  * This cleans up lifetime issues involved with accessing activated protocol features and moving from the
  * pending block header state
@@ -56,8 +56,7 @@ block_header_state inject_additional_signatures(pending_block_header_state&& cur
    block_header_state result = std::move(cur).finish_next(b, pfs, std::forward<Extras>(extras)...);
 
    if (!result.additional_signatures.empty()) {
-      bool wtmsig_enabled =
-         detail::is_builtin_activated(pfa, pfs, builtin_protocol_feature_t::wtmsig_block_signatures);
+      bool wtmsig_enabled = detail::is_builtin_activated(pfa, pfs, builtin_protocol_feature_t::wtmsig_block_signatures);
 
       EOS_ASSERT(wtmsig_enabled,
                  block_validate_exception,
@@ -66,8 +65,8 @@ block_header_state inject_additional_signatures(pending_block_header_state&& cur
       // as an optimization we don't copy this out into the legitimate extension structure as it serializes
       // the same way as the vector of signatures
       static_assert(fc::reflector<additional_block_signatures_extension>::total_member_count == 1);
-      static_assert(std::is_same_v<decltype(additional_block_signatures_extension::signatures),
-                                   std::vector<signature_type>>);
+      static_assert(
+         std::is_same_v<decltype(additional_block_signatures_extension::signatures), std::vector<signature_type>>);
 
       emplace_extension(b.block_extensions, additional_sigs_eid, fc::raw::pack(result.additional_signatures));
    }
@@ -78,11 +77,10 @@ block_header_state inject_additional_signatures(pending_block_header_state&& cur
 }
 
 block_state::block_state(
-   const block_header_state&   prev,
-   signed_block_ptr            b,
-   const protocol_feature_set& pfs,
-   const std::function<void(block_timestamp_type, const flat_set<digest_type>&, const vector<digest_type>&)>&
-        validator,
+   const block_header_state&                                                                                  prev,
+   signed_block_ptr                                                                                           b,
+   const protocol_feature_set&                                                                                pfs,
+   const std::function<void(block_timestamp_type, const flat_set<digest_type>&, const vector<digest_type>&)>& validator,
    bool skip_validate_signee)
    : block_header_state(prev.next(*b,
                                   extract_additional_signatures(b, pfs, prev.activated_protocol_features),
@@ -92,13 +90,12 @@ block_state::block_state(
    , block(std::move(b)) {}
 
 block_state::block_state(
-   pending_block_header_state&&      cur,
-   signed_block_ptr&&                b,
-   deque<transaction_metadata_ptr>&& trx_metas,
-   const protocol_feature_set&       pfs,
-   const std::function<void(block_timestamp_type, const flat_set<digest_type>&, const vector<digest_type>&)>&
-                               validator,
-   const signer_callback_type& signer)
+   pending_block_header_state&&                                                                               cur,
+   signed_block_ptr&&                                                                                         b,
+   deque<transaction_metadata_ptr>&&                                                                          trx_metas,
+   const protocol_feature_set&                                                                                pfs,
+   const std::function<void(block_timestamp_type, const flat_set<digest_type>&, const vector<digest_type>&)>& validator,
+   const signer_callback_type&                                                                                signer)
    : block_header_state(inject_additional_signatures(std::move(cur), *b, pfs, validator, signer))
    , block(std::move(b))
    , _pub_keys_recovered(true) // called by produce_block so signature recovery of trxs must have been done

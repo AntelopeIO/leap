@@ -10,9 +10,9 @@ namespace eosio {
 
 using std::chrono::steady_clock;
 
-// Boost 1.70 introduced a breaking change that causes problems with construction of strand objects from
-// tcp_socket this is suggested fix OK'd Beast author (V. Falco) to handle both versions gracefully see
-// https://stackoverflow.com/questions/58453017/boost-asio-tcp-socket-1-70-not-backward-compatible
+// Boost 1.70 introduced a breaking change that causes problems with construction of strand objects from tcp_socket
+// this is suggested fix OK'd Beast author (V. Falco) to handle both versions gracefully
+// see https://stackoverflow.com/questions/58453017/boost-asio-tcp-socket-1-70-not-backward-compatible
 #if BOOST_VERSION < 107000
 typedef tcp::socket tcp_socket_t;
 #else
@@ -27,8 +27,7 @@ using local_stream = boost::asio::basic_stream_socket<stream_protocol>;
 #if BOOST_VERSION < 107300
 using local_stream = beast::basic_stream<stream_protocol, asio::executor, beast::unlimited_rate_policy>;
 #else
-using local_stream =
-   beast::basic_stream<stream_protocol, asio::any_io_executor, beast::unlimited_rate_policy>;
+using local_stream = beast::basic_stream<stream_protocol, asio::any_io_executor, beast::unlimited_rate_policy>;
 #endif
 #endif
 
@@ -57,9 +56,8 @@ bool allow_host(const http::request<http::string_body>&   req,
 #else
    auto&         lowest_layer = beast::get_lowest_layer(socket);
 #endif
-   auto local_endpoint = lowest_layer.local_endpoint();
-   auto local_socket_host_port =
-      local_endpoint.address().to_string() + ":" + std::to_string(local_endpoint.port());
+   auto local_endpoint         = lowest_layer.local_endpoint();
+   auto local_socket_host_port = local_endpoint.address().to_string() + ":" + std::to_string(local_endpoint.port());
    const std::string host_str(req["host"]);
    if (host_str.empty() || !host_is_valid(*plugin_state, host_str, local_socket_host_port, is_conn_secure)) {
       return false;
@@ -101,8 +99,7 @@ protected:
          res_->set(http::field::server, plugin_state_->server_header);
 
       // Request path must be absolute and not contain "..".
-      if (req.target().empty() || req.target()[0] != '/' ||
-          req.target().find("..") != beast::string_view::npos) {
+      if (req.target().empty() || req.target()[0] != '/' || req.target().find("..") != beast::string_view::npos) {
          error_results results{ static_cast<uint16_t>(http::status::bad_request), "Illegal request-target" };
          send_response(fc::json::to_string(results, fc::time_point::maximum()),
                        static_cast<unsigned int>(http::status::bad_request));
@@ -151,12 +148,10 @@ protected:
             fc_dlog(plugin_state_->logger, "404 - not found: ${ep}", ("ep", resource));
             error_results results{ static_cast<uint16_t>(http::status::not_found),
                                    "Not Found",
-                                   error_results::error_info(
-                                      fc::exception(FC_LOG_MESSAGE(error, "Unknown Endpoint")),
-                                      http_plugin::verbose_errors()) };
-            send_response(
-               fc::json::to_string(results, fc::time_point::now() + plugin_state_->max_response_time),
-               static_cast<unsigned int>(http::status::not_found));
+                                   error_results::error_info(fc::exception(FC_LOG_MESSAGE(error, "Unknown Endpoint")),
+                                                             http_plugin::verbose_errors()) };
+            send_response(fc::json::to_string(results, fc::time_point::now() + plugin_state_->max_response_time),
+                          static_cast<unsigned int>(http::status::not_found));
          }
       } catch (...) {
          handle_exception();
@@ -167,9 +162,7 @@ public:
    virtual bool verify_max_bytes_in_flight() override {
       auto bytes_in_flight_size = plugin_state_->bytes_in_flight.load();
       if (bytes_in_flight_size > plugin_state_->max_bytes_in_flight) {
-         fc_dlog(plugin_state_->logger,
-                 "429 - too many bytes in flight: ${bytes}",
-                 ("bytes", bytes_in_flight_size));
+         fc_dlog(plugin_state_->logger, "429 - too many bytes in flight: ${bytes}", ("bytes", bytes_in_flight_size));
          error_results::error_info ei;
          ei.code = static_cast<int64_t>(http::status::too_many_requests);
          ei.name = "Busy";
@@ -243,12 +236,10 @@ public:
 
       // Read a request
       auto self = derived().shared_from_this();
-      http::async_read(derived().stream(),
-                       buffer_,
-                       *req_parser_,
-                       [self](beast::error_code ec, std::size_t bytes_transferred) {
-                          self->on_read(ec, bytes_transferred);
-                       });
+      http::async_read(
+         derived().stream(), buffer_, *req_parser_, [self](beast::error_code ec, std::size_t bytes_transferred) {
+            self->on_read(ec, bytes_transferred);
+         });
    }
 
    void on_read(beast::error_code ec, std::size_t bytes_transferred) {
@@ -362,10 +353,9 @@ public:
 
       // Write the response
       auto self = derived().shared_from_this();
-      http::async_write(
-         derived().stream(), *res_, [self, close](beast::error_code ec, std::size_t bytes_transferred) {
-            self->on_write(ec, bytes_transferred, close);
-         });
+      http::async_write(derived().stream(), *res_, [self, close](beast::error_code ec, std::size_t bytes_transferred) {
+         self->on_write(ec, bytes_transferred, close);
+      });
    }
 
    void run_session() {
@@ -408,9 +398,7 @@ public:
 
    bool is_secure() { return false; };
 
-   bool allow_host(const http::request<http::string_body>& req) {
-      return eosio::allow_host(req, *this, plugin_state_);
-   }
+   bool allow_host(const http::request<http::string_body>& req) { return eosio::allow_host(req, *this, plugin_state_); }
 
    static constexpr auto name() { return "plain_session"; }
 }; // end class plain_session
@@ -442,9 +430,9 @@ public:
    void run() {
       auto self = shared_from_this();
       self->stream_.async_handshake(
-         ssl::stream_base::server,
-         self->buffer_.data(),
-         [self](beast::error_code ec, std::size_t bytes_used) { self->on_handshake(ec, bytes_used); });
+         ssl::stream_base::server, self->buffer_.data(), [self](beast::error_code ec, std::size_t bytes_used) {
+            self->on_handshake(ec, bytes_used);
+         });
    }
 
    void on_handshake(beast::error_code ec, std::size_t bytes_used) {

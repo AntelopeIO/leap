@@ -26,8 +26,7 @@ namespace fc {
 namespace ecc {
 namespace detail {
 const secp256k1_context* _get_context() {
-   static secp256k1_context* ctx =
-      secp256k1_context_create(SECP256K1_CONTEXT_VERIFY | SECP256K1_CONTEXT_SIGN);
+   static secp256k1_context* ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY | SECP256K1_CONTEXT_SIGN);
    return ctx;
 }
 
@@ -61,12 +60,9 @@ fc::sha512 private_key::get_shared_secret(const public_key& other) const {
    FC_ASSERT(my->_key != empty_priv);
    FC_ASSERT(other.my->_key != empty_pub);
    secp256k1_pubkey secp_pubkey;
-   FC_ASSERT(secp256k1_ec_pubkey_parse(detail::_get_context(),
-                                       &secp_pubkey,
-                                       (unsigned char*)other.serialize().data,
-                                       other.serialize().size()));
-   FC_ASSERT(
-      secp256k1_ec_pubkey_tweak_mul(detail::_get_context(), &secp_pubkey, (unsigned char*)my->_key.data()));
+   FC_ASSERT(secp256k1_ec_pubkey_parse(
+      detail::_get_context(), &secp_pubkey, (unsigned char*)other.serialize().data, other.serialize().size()));
+   FC_ASSERT(secp256k1_ec_pubkey_tweak_mul(detail::_get_context(), &secp_pubkey, (unsigned char*)my->_key.data()));
    public_key_data serialized_result;
    size_t          serialized_result_sz = sizeof(serialized_result);
    secp256k1_ec_pubkey_serialize(detail::_get_context(),
@@ -144,8 +140,7 @@ public_key::public_key(const compact_signature& c, const fc::sha256& digest, boo
 
    FC_ASSERT(secp256k1_ecdsa_recoverable_signature_parse_compact(
       detail::_get_context(), &secp_sig, (unsigned char*)c.begin() + 1, (*c.begin() - 27) & 3));
-   FC_ASSERT(
-      secp256k1_ecdsa_recover(detail::_get_context(), &secp_pub, &secp_sig, (unsigned char*)digest.data()));
+   FC_ASSERT(secp256k1_ecdsa_recover(detail::_get_context(), &secp_pub, &secp_sig, (unsigned char*)digest.data()));
 
    size_t serialized_result_sz = my->_key.size();
    secp256k1_ec_pubkey_serialize(detail::_get_context(),

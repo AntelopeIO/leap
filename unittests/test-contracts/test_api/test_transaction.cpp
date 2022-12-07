@@ -62,10 +62,8 @@ void test_transaction::send_action() {
    std::vector<permission_level> permissions = {
       {"testapi"_n, "active"_n}
    };
-   action act(permissions,
-              name{ "testapi" },
-              name{ WASM_TEST_ACTION("test_action", "read_action_normal") },
-              test_action);
+   action act(
+      permissions, name{ "testapi" }, name{ WASM_TEST_ACTION("test_action", "read_action_normal") }, test_action);
 
    act.send();
 }
@@ -77,8 +75,7 @@ void test_transaction::send_action_empty() {
    std::vector<permission_level> permissions = {
       {"testapi"_n, "active"_n}
    };
-   action act(
-      permissions, name{ "testapi" }, name{ WASM_TEST_ACTION("test_action", "assert_true") }, test_action);
+   action act(permissions, name{ "testapi" }, name{ WASM_TEST_ACTION("test_action", "assert_true") }, test_action);
 
    act.send();
 }
@@ -88,17 +85,15 @@ void test_transaction::send_action_empty() {
  */
 void test_transaction::send_action_large() {
    using namespace eosio;
-   static char large_message[8 * 1024];
+   static char                                                                                  large_message[8 * 1024];
    test_action_action<"testapi"_n.value, WASM_TEST_ACTION("test_action", "read_action_normal")> test_action;
    copy_data(large_message, 8 * 1024, test_action.data);
 
    std::vector<permission_level> permissions = {
       {"testapi"_n, "active"_n}
    };
-   action act(permissions,
-              name{ "testapi" },
-              name{ WASM_TEST_ACTION("test_action", "read_action_normal") },
-              test_action);
+   action act(
+      permissions, name{ "testapi" }, name{ WASM_TEST_ACTION("test_action", "read_action_normal") }, test_action);
 
    act.send();
    eosio_assert(false, "send_message_large() should've thrown an error");
@@ -116,10 +111,8 @@ void test_transaction::send_action_4k() {
    std::vector<permission_level> permissions = {
       {"testapi"_n, "active"_n}
    };
-   action act(permissions,
-              name{ "testapi" },
-              name{ WASM_TEST_ACTION("test_action", "test_action_ordinal4") },
-              test_action);
+   action act(
+      permissions, name{ "testapi" }, name{ WASM_TEST_ACTION("test_action", "test_action_ordinal4") }, test_action);
 
    act.send();
 }
@@ -132,17 +125,14 @@ void test_transaction::send_action_recurse() {
    char buffer[1024];
    eosio::read_action_data(buffer, 1024);
 
-   test_action_action<"testapi"_n.value, WASM_TEST_ACTION("test_transaction", "send_action_recurse")>
-      test_action;
+   test_action_action<"testapi"_n.value, WASM_TEST_ACTION("test_transaction", "send_action_recurse")> test_action;
    copy_data(buffer, 1024, test_action.data);
 
    std::vector<permission_level> permissions = {
       {"testapi"_n, "active"_n}
    };
-   action act(permissions,
-              name{ "testapi" },
-              name{ WASM_TEST_ACTION("test_transaction", "send_action_recurse") },
-              test_action);
+   action act(
+      permissions, name{ "testapi" }, name{ WASM_TEST_ACTION("test_transaction", "send_action_recurse") }, test_action);
 
    act.send();
 }
@@ -157,8 +147,7 @@ void test_transaction::send_action_inline_fail() {
    std::vector<permission_level> permissions = {
       {"testapi"_n, "active"_n}
    };
-   action act(
-      permissions, name{ "testapi" }, name{ WASM_TEST_ACTION("test_action", "assert_false") }, test_action);
+   action act(permissions, name{ "testapi" }, name{ WASM_TEST_ACTION("test_action", "assert_false") }, test_action);
 
    act.send();
 }
@@ -208,10 +197,8 @@ void test_transaction::send_transaction(uint64_t receiver, uint64_t, uint64_t) {
       {"testapi"_n, "active"_n}
    };
 
-   trx.actions.emplace_back(permissions,
-                            name{ "testapi" },
-                            name{ WASM_TEST_ACTION("test_action", "read_action_normal") },
-                            test_action);
+   trx.actions.emplace_back(
+      permissions, name{ "testapi" }, name{ WASM_TEST_ACTION("test_action", "read_action_normal") }, test_action);
    trx.send(0, name{ receiver });
 }
 
@@ -225,10 +212,8 @@ void test_transaction::send_action_sender(uint64_t receiver, uint64_t, uint64_t)
       {"testapi"_n, "active"_n}
    };
 
-   trx.actions.emplace_back(permissions,
-                            name{ "testapi" },
-                            name{ WASM_TEST_ACTION("test_action", "test_current_sender") },
-                            &cur_send);
+   trx.actions.emplace_back(
+      permissions, name{ "testapi" }, name{ WASM_TEST_ACTION("test_action", "test_current_sender") }, &cur_send);
    trx.send(0, name{ receiver });
 }
 
@@ -260,8 +245,7 @@ void test_transaction::assert_false_error_handler(const eosio::transaction& dtrx
    eosio_assert(dtrx.actions[0].name.value == WASM_TEST_ACTION("test_action", "assert_false"),
                 "transaction has wrong name");
    eosio_assert(dtrx.actions[0].authorization.size() == 1, "action should only have one authorization");
-   eosio_assert(dtrx.actions[0].authorization[0].actor == "testapi"_n,
-                "action's authorization has wrong actor");
+   eosio_assert(dtrx.actions[0].authorization[0].actor == "testapi"_n, "action's authorization has wrong actor");
    eosio_assert(dtrx.actions[0].authorization[0].permission == "active"_n,
                 "action's authorization has wrong permission");
 }
@@ -276,14 +260,11 @@ void test_transaction::send_transaction_large(uint64_t receiver, uint64_t, uint6
       {"testapi"_n, "active"_n}
    };
    for (int i = 0; i < 32; i++) {
-      char large_message[1024];
-      test_action_action<"testapi"_n.value, WASM_TEST_ACTION("test_action", "read_action_normal")>
-         test_action;
+      char                                                                                         large_message[1024];
+      test_action_action<"testapi"_n.value, WASM_TEST_ACTION("test_action", "read_action_normal")> test_action;
       copy_data(large_message, 1024, test_action.data);
-      trx.actions.emplace_back(permissions,
-                               name{ "testapi" },
-                               name{ WASM_TEST_ACTION("test_action", "read_action_normal") },
-                               test_action);
+      trx.actions.emplace_back(
+         permissions, name{ "testapi" }, name{ WASM_TEST_ACTION("test_action", "read_action_normal") }, test_action);
    }
 
    trx.send(0, name{ receiver });
@@ -307,10 +288,8 @@ void test_transaction::send_deferred_transaction(uint64_t receiver, uint64_t, ui
       {"testapi"_n, "active"_n}
    };
 
-   trx.actions.emplace_back(permissions,
-                            name{ "testapi" },
-                            name{ WASM_TEST_ACTION("test_transaction", "deferred_print") },
-                            test_action);
+   trx.actions.emplace_back(
+      permissions, name{ "testapi" }, name{ WASM_TEST_ACTION("test_transaction", "deferred_print") }, test_action);
    trx.delay_sec = 2;
    trx.send(0xffffffffffffffff, name{ receiver });
 }
@@ -324,10 +303,8 @@ void test_transaction::send_deferred_transaction_4k_action(uint64_t receiver, ui
       {"testapi"_n, "active"_n}
    };
 
-   trx.actions.emplace_back(permissions,
-                            name{ "testapi" },
-                            name{ WASM_TEST_ACTION("test_transaction", "send_action_4k") },
-                            test_action);
+   trx.actions.emplace_back(
+      permissions, name{ "testapi" }, name{ WASM_TEST_ACTION("test_transaction", "send_action_4k") }, test_action);
    trx.delay_sec = 2;
    trx.send(0xffffffffffffffff, name{ receiver });
 }
@@ -341,10 +318,8 @@ void test_transaction::send_deferred_transaction_replace(uint64_t receiver, uint
       {"testapi"_n, "active"_n}
    };
 
-   trx.actions.emplace_back(permissions,
-                            name{ "testapi" },
-                            name{ WASM_TEST_ACTION("test_transaction", "deferred_print") },
-                            test_action);
+   trx.actions.emplace_back(
+      permissions, name{ "testapi" }, name{ WASM_TEST_ACTION("test_transaction", "deferred_print") }, test_action);
    trx.delay_sec = 2;
    trx.send(0xffffffffffffffff, name{ receiver }, true);
 }
@@ -400,12 +375,8 @@ void test_transaction::send_cf_action_fail() {
 
 void test_transaction::stateful_api() {
    char buf[4] = { 1 };
-   db_store_i64(eosio::name{ "testtrans" }.value,
-                eosio::name{ "table" }.value,
-                eosio::name{ "testtrans" }.value,
-                0,
-                buf,
-                4);
+   db_store_i64(
+      eosio::name{ "testtrans" }.value, eosio::name{ "table" }.value, eosio::name{ "testtrans" }.value, 0, buf, 4);
 }
 
 void test_transaction::context_free_api() {

@@ -21,11 +21,9 @@ producer_plugin::snapshot_information pending_snapshot::finalize(const chain::co
               "Unable to finalize valid snapshot of block number ${bn}: [code: ${ec}] ${message}",
               ("bn", get_height())("ec", ec.value())("message", ec.message()));
 
-   return { block_id,
-            block_ptr->block_num(),
-            block_ptr->timestamp,
-            chain::chain_snapshot_header::current_version,
-            final_path };
+   return {
+      block_id, block_ptr->block_num(), block_ptr->timestamp, chain::chain_snapshot_header::current_version, final_path
+   };
 }
 
 } // namespace eosio

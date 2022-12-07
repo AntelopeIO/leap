@@ -18,30 +18,27 @@ namespace chain {
 namespace detail {
 using meta_permission_key   = std::tuple<uint32_t, int>;
 using meta_permission_value = std::function<uint32_t()>;
-using meta_permission_map =
-   boost::container::flat_multimap<meta_permission_key, meta_permission_value, std::greater<>>;
+using meta_permission_map = boost::container::flat_multimap<meta_permission_key, meta_permission_value, std::greater<>>;
 
 } /// namespace detail
 
 /**
  * @brief This class determines whether a set of signing keys are sufficient to satisfy an authority or not
  *
- * To determine whether an authority is satisfied or not, we first determine which keys have approved of a
- * message, and then determine whether that list of keys is sufficient to satisfy the authority. This class
- * takes a list of keys and provides the @ref satisfied method to determine whether that list of keys
- * satisfies a provided authority.
+ * To determine whether an authority is satisfied or not, we first determine which keys have approved of a message, and
+ * then determine whether that list of keys is sufficient to satisfy the authority. This class takes a list of keys and
+ * provides the @ref satisfied method to determine whether that list of keys satisfies a provided authority.
  *
- * @tparam F A callable which takes a single argument of type @ref AccountPermission and returns the
- * corresponding authority
+ * @tparam F A callable which takes a single argument of type @ref AccountPermission and returns the corresponding
+ * authority
  */
 template<typename PermissionToAuthorityFunc>
 class authority_checker {
 private:
    PermissionToAuthorityFunc    permission_to_authority;
    const std::function<void()>& checktime;
-   vector<public_key_type>
-      provided_keys; // Making this a flat_set<public_key_type> causes runtime problems with
-                     // utilities::filter_data_by_marker for some reason. TODO: Figure out why.
+   vector<public_key_type>      provided_keys; // Making this a flat_set<public_key_type> causes runtime problems with
+                                          // utilities::filter_data_by_marker for some reason. TODO: Figure out why.
    flat_set<permission_level> provided_permissions;
    vector<bool>               _used_keys;
    fc::microseconds           provided_delay;
@@ -71,8 +68,7 @@ public:
    bool satisfied(const permission_level& permission,
                   fc::microseconds        override_provided_delay,
                   permission_cache_type*  cached_perms = nullptr) {
-      auto delay_reverter =
-         fc::make_scoped_exit([this, delay = provided_delay]() mutable { provided_delay = delay; });
+      auto delay_reverter = fc::make_scoped_exit([this, delay = provided_delay]() mutable { provided_delay = delay; });
 
       provided_delay = override_provided_delay;
 
@@ -93,8 +89,7 @@ public:
    bool satisfied(const AuthorityType&   authority,
                   fc::microseconds       override_provided_delay,
                   permission_cache_type* cached_perms = nullptr) {
-      auto delay_reverter =
-         fc::make_scoped_exit([this, delay = provided_delay]() mutable { provided_delay = delay; });
+      auto delay_reverter = fc::make_scoped_exit([this, delay = provided_delay]() mutable { provided_delay = delay; });
 
       provided_delay = override_provided_delay;
 
@@ -122,9 +117,8 @@ public:
       return { range.begin(), range.end() };
    }
 
-   static std::optional<permission_cache_status> permission_status_in_cache(
-      const permission_cache_type& permissions,
-      const permission_level&      level) {
+   static std::optional<permission_cache_status> permission_status_in_cache(const permission_cache_type& permissions,
+                                                                            const permission_level&      level) {
       auto itr = permissions.find(level);
       if (itr != permissions.end())
          return itr->second;
@@ -146,8 +140,7 @@ private:
 
    template<typename AuthorityType>
    bool satisfied(const AuthorityType& authority, permission_cache_type& cached_permissions, uint16_t depth) {
-      // Save the current used keys; if we do not satisfy this authority, the newly used keys aren't actually
-      // used
+      // Save the current used keys; if we do not satisfy this authority, the newly used keys aren't actually used
       auto KeyReverter = fc::make_scoped_exit([this, keys = _used_keys]() mutable { _used_keys = keys; });
 
       // Sort key permissions and account permissions together into a single set of meta_permissions
@@ -159,18 +152,15 @@ private:
       };
 
       permissions.reserve(authority.waits.size() + authority.keys.size() + authority.accounts.size());
-      std::for_each(authority.accounts.begin(),
-                    authority.accounts.end(),
-                    std::bind(emplace_permission, 1, std::placeholders::_1));
-      std::for_each(authority.keys.begin(),
-                    authority.keys.end(),
-                    std::bind(emplace_permission, 2, std::placeholders::_1));
-      std::for_each(authority.waits.begin(),
-                    authority.waits.end(),
-                    std::bind(emplace_permission, 3, std::placeholders::_1));
+      std::for_each(
+         authority.accounts.begin(), authority.accounts.end(), std::bind(emplace_permission, 1, std::placeholders::_1));
+      std::for_each(
+         authority.keys.begin(), authority.keys.end(), std::bind(emplace_permission, 2, std::placeholders::_1));
+      std::for_each(
+         authority.waits.begin(), authority.waits.end(), std::bind(emplace_permission, 3, std::placeholders::_1));
 
-      // Check all permissions, from highest weight to lowest, seeing if provided authorization factors
-      // satisfies them or not
+      // Check all permissions, from highest weight to lowest, seeing if provided authorization factors satisfies them
+      // or not
       for (const auto& p : permissions)
          // If we've got enough weight, to satisfy the authority, return!
          if (p.second() >= authority.threshold) {
@@ -214,8 +204,7 @@ private:
       }
 
       uint32_t operator()(const permission_level_weight& permission) {
-         auto status =
-            authority_checker::permission_status_in_cache(cached_permissions, permission.permission);
+         auto status = authority_checker::permission_status_in_cache(cached_permissions, permission.permission);
          if (!status) {
             if (recursion_depth < checker.recursion_depth_limit) {
                bool                                     r   = false;
@@ -227,8 +216,7 @@ private:
                   propagate_error = true;
                   auto res        = cached_permissions.emplace(permission.permission, being_evaluated);
                   itr             = res.first;
-                  r               = checker.satisfied(
-                     std::forward<decltype(auth)>(auth), cached_permissions, recursion_depth + 1);
+                  r = checker.satisfied(std::forward<decltype(auth)>(auth), cached_permissions, recursion_depth + 1);
                } catch (const permission_query_exception&) {
                   if (propagate_error)
                      throw;

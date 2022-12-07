@@ -46,8 +46,7 @@ public:
 using protocol_state_multi_index = chainbase::shared_multi_index_container<
    protocol_state_object,
    indexed_by<
-      ordered_unique<tag<by_id>,
-                     BOOST_MULTI_INDEX_MEMBER(protocol_state_object, protocol_state_object::id_type, id)>>>;
+      ordered_unique<tag<by_id>, BOOST_MULTI_INDEX_MEMBER(protocol_state_object, protocol_state_object::id_type, id)>>>;
 
 struct snapshot_protocol_state_object {
    vector<protocol_state_object::activated_protocol_feature> activated_protocol_features;
@@ -76,8 +75,7 @@ struct snapshot_row_traits<protocol_state_object> {
 
 CHAINBASE_SET_INDEX_TYPE(eosio::chain::protocol_state_object, eosio::chain::protocol_state_multi_index)
 
-FC_REFLECT(eosio::chain::protocol_state_object::activated_protocol_feature,
-           (feature_digest)(activation_block_num))
+FC_REFLECT(eosio::chain::protocol_state_object::activated_protocol_feature, (feature_digest)(activation_block_num))
 
 FC_REFLECT(
    eosio::chain::protocol_state_object,

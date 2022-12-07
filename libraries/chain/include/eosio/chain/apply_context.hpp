@@ -42,17 +42,13 @@ private:
 
       const table_id_object& get_table(table_id_object::id_type i) const {
          auto itr = _table_cache.find(i);
-         EOS_ASSERT(itr != _table_cache.end(),
-                    table_not_in_cache,
-                    "an invariant was broken, table should be in cache");
+         EOS_ASSERT(itr != _table_cache.end(), table_not_in_cache, "an invariant was broken, table should be in cache");
          return *itr->second.first;
       }
 
       int get_end_iterator_by_table_id(table_id_object::id_type i) const {
          auto itr = _table_cache.find(i);
-         EOS_ASSERT(itr != _table_cache.end(),
-                    table_not_in_cache,
-                    "an invariant was broken, table should be in cache");
+         EOS_ASSERT(itr != _table_cache.end(), table_not_in_cache, "an invariant was broken, table should be in cache");
          return itr->second.second;
       }
 
@@ -67,8 +63,7 @@ private:
       const T& get(int iterator) {
          EOS_ASSERT(iterator != -1, invalid_table_iterator, "invalid iterator");
          EOS_ASSERT(iterator >= 0, table_operation_not_permitted, "dereference of end iterator");
-         EOS_ASSERT(
-            (size_t)iterator < _iterator_to_object.size(), invalid_table_iterator, "iterator out of range");
+         EOS_ASSERT((size_t)iterator < _iterator_to_object.size(), invalid_table_iterator, "iterator out of range");
          auto result = _iterator_to_object[iterator];
          EOS_ASSERT(result, table_operation_not_permitted, "dereference of deleted object");
          return *result;
@@ -77,8 +72,7 @@ private:
       void remove(int iterator) {
          EOS_ASSERT(iterator != -1, invalid_table_iterator, "invalid iterator");
          EOS_ASSERT(iterator >= 0, table_operation_not_permitted, "cannot call remove on end iterators");
-         EOS_ASSERT(
-            (size_t)iterator < _iterator_to_object.size(), invalid_table_iterator, "iterator out of range");
+         EOS_ASSERT((size_t)iterator < _iterator_to_object.size(), invalid_table_iterator, "iterator out of range");
 
          auto obj_ptr = _iterator_to_object[iterator];
          if (!obj_ptr)
@@ -105,8 +99,7 @@ private:
       map<const T*, int>                                               _object_to_iterator;
 
       /// Precondition: std::numeric_limits<int>::min() < ei < -1
-      /// Iterator of -1 is reserved for invalid iterators (i.e. when the appropriate table has not yet been
-      /// created).
+      /// Iterator of -1 is reserved for invalid iterators (i.e. when the appropriate table has not yet been created).
       inline size_t end_iterator_to_index(int ei) const { return (-ei - 2); }
       /// Precondition: indx < _end_iterator_to_table.size() <= std::numeric_limits<int>::max()
       inline int index_to_end_iterator(size_t indx) const { return -(indx + 2); }
@@ -120,10 +113,7 @@ private:
       static constexpr size_t size = N;
    };
 
-   template<typename SecondaryKey,
-            typename SecondaryKeyProxy,
-            typename SecondaryKeyProxyConst,
-            typename Enable = void>
+   template<typename SecondaryKey, typename SecondaryKeyProxy, typename SecondaryKeyProxyConst, typename Enable = void>
    class secondary_key_helper;
 
    template<typename SecondaryKey, typename SecondaryKeyProxy, typename SecondaryKeyProxyConst>
@@ -131,8 +121,7 @@ private:
       SecondaryKey,
       SecondaryKeyProxy,
       SecondaryKeyProxyConst,
-      typename std::enable_if<
-         std::is_same<SecondaryKey, typename std::decay<SecondaryKeyProxy>::type>::value>::type> {
+      typename std::enable_if<std::is_same<SecondaryKey, typename std::decay<SecondaryKeyProxy>::type>::value>::type> {
    public:
       typedef SecondaryKey secondary_key_type;
 
@@ -154,9 +143,8 @@ private:
       SecondaryKey,
       SecondaryKeyProxy,
       SecondaryKeyProxyConst,
-      typename std::enable_if<
-         !std::is_same<SecondaryKey, typename std::decay<SecondaryKeyProxy>::type>::value &&
-         std::is_pointer<typename std::decay<SecondaryKeyProxy>::type>::value>::type> {
+      typename std::enable_if<!std::is_same<SecondaryKey, typename std::decay<SecondaryKeyProxy>::type>::value &&
+                              std::is_pointer<typename std::decay<SecondaryKeyProxy>::type>::value>::type> {
    public:
       typedef SecondaryKey           secondary_key_type;
       typedef SecondaryKeyProxy      secondary_key_proxy_type;
@@ -202,9 +190,7 @@ public:
                 const account_name&            payer,
                 uint64_t                       id,
                 secondary_key_proxy_const_type value) {
-         EOS_ASSERT(payer != account_name(),
-                    invalid_table_payer,
-                    "must specify a valid account to pay for new record");
+         EOS_ASSERT(payer != account_name(), invalid_table_payer, "must specify a valid account to pay for new record");
 
          //               context.require_write_lock( scope );
 
@@ -241,12 +227,10 @@ public:
          EOS_ASSERT(table_obj.code == context.receiver, table_access_violation, "db access violation");
 
          if (auto dm_logger = context.control.get_deep_mind_logger()) {
-            std::string event_id =
-               RAM_EVENT_ID("${code}:${scope}:${table}:${index_name}",
-                            ("code", table_obj.code)("scope", table_obj.scope)("table", table_obj.table)(
-                               "index_name", name(obj.primary_key)));
-            dm_logger->on_ram_trace(
-               std::move(event_id), "secondary_index", "remove", "secondary_index_remove");
+            std::string event_id = RAM_EVENT_ID("${code}:${scope}:${table}:${index_name}",
+                                                ("code", table_obj.code)("scope", table_obj.scope)(
+                                                   "table", table_obj.table)("index_name", name(obj.primary_key)));
+            dm_logger->on_ram_trace(std::move(event_id), "secondary_index", "remove", "secondary_index_remove");
          }
 
          context.update_db_usage(obj.payer, -(config::billable_size_v<ObjectType>));
@@ -279,14 +263,13 @@ public:
          std::string event_id;
          if (context.control.get_deep_mind_logger() != nullptr) {
             event_id = RAM_EVENT_ID("${code}:${scope}:${table}:${index_name}",
-                                    ("code", table_obj.code)("scope", table_obj.scope)(
-                                       "table", table_obj.table)("index_name", name(obj.primary_key)));
+                                    ("code", table_obj.code)("scope", table_obj.scope)("table", table_obj.table)(
+                                       "index_name", name(obj.primary_key)));
          }
 
          if (obj.payer != payer) {
             if (auto dm_logger = context.control.get_deep_mind_logger()) {
-               dm_logger->on_ram_trace(
-                  std::string(event_id), "secondary_index", "remove", "secondary_index_remove");
+               dm_logger->on_ram_trace(std::string(event_id), "secondary_index", "remove", "secondary_index_remove");
             }
             context.update_db_usage(obj.payer, -(billing_size));
             if (auto dm_logger = context.control.get_deep_mind_logger()) {
@@ -334,9 +317,8 @@ public:
 
          auto table_end_itr = itr_cache.cache_table(*tab);
 
-         const auto& idx =
-            context.db.get_index<typename chainbase::get_index_type<ObjectType>::type, by_secondary>();
-         auto itr = idx.lower_bound(secondary_key_helper_t::create_tuple(*tab, secondary));
+         const auto& idx = context.db.get_index<typename chainbase::get_index_type<ObjectType>::type, by_secondary>();
+         auto        itr = idx.lower_bound(secondary_key_helper_t::create_tuple(*tab, secondary));
          if (itr == idx.end())
             return table_end_itr;
          if (itr->t_id != tab->id)
@@ -359,9 +341,8 @@ public:
 
          auto table_end_itr = itr_cache.cache_table(*tab);
 
-         const auto& idx =
-            context.db.get_index<typename chainbase::get_index_type<ObjectType>::type, by_secondary>();
-         auto itr = idx.upper_bound(secondary_key_helper_t::create_tuple(*tab, secondary));
+         const auto& idx = context.db.get_index<typename chainbase::get_index_type<ObjectType>::type, by_secondary>();
+         auto        itr = idx.upper_bound(secondary_key_helper_t::create_tuple(*tab, secondary));
          if (itr == idx.end())
             return table_end_itr;
          if (itr->t_id != tab->id)
@@ -386,8 +367,7 @@ public:
             return -1; // cannot increment past end iterator of index
 
          const auto& obj = itr_cache.get(iterator); // Check for iterator != -1 happens in this call
-         const auto& idx =
-            context.db.get_index<typename chainbase::get_index_type<ObjectType>::type, by_secondary>();
+         const auto& idx = context.db.get_index<typename chainbase::get_index_type<ObjectType>::type, by_secondary>();
 
          auto itr = idx.iterator_to(obj);
          ++itr;
@@ -400,8 +380,7 @@ public:
       }
 
       int previous_secondary(int iterator, uint64_t& primary) {
-         const auto& idx =
-            context.db.get_index<typename chainbase::get_index_type<ObjectType>::type, by_secondary>();
+         const auto& idx = context.db.get_index<typename chainbase::get_index_type<ObjectType>::type, by_secondary>();
 
          if (iterator < -1) // is end iterator
          {
@@ -462,9 +441,8 @@ public:
 
          auto table_end_itr = itr_cache.cache_table(*tab);
 
-         const auto& idx =
-            context.db.get_index<typename chainbase::get_index_type<ObjectType>::type, by_primary>();
-         auto itr = idx.lower_bound(boost::make_tuple(tab->id, primary));
+         const auto& idx = context.db.get_index<typename chainbase::get_index_type<ObjectType>::type, by_primary>();
+         auto        itr = idx.lower_bound(boost::make_tuple(tab->id, primary));
          if (itr == idx.end())
             return table_end_itr;
          if (itr->t_id != tab->id)
@@ -480,9 +458,8 @@ public:
 
          auto table_end_itr = itr_cache.cache_table(*tab);
 
-         const auto& idx =
-            context.db.get_index<typename chainbase::get_index_type<ObjectType>::type, by_primary>();
-         auto itr = idx.upper_bound(boost::make_tuple(tab->id, primary));
+         const auto& idx = context.db.get_index<typename chainbase::get_index_type<ObjectType>::type, by_primary>();
+         auto        itr = idx.upper_bound(boost::make_tuple(tab->id, primary));
          if (itr == idx.end())
             return table_end_itr;
          if (itr->t_id != tab->id)
@@ -497,8 +474,7 @@ public:
             return -1; // cannot increment past end iterator of table
 
          const auto& obj = itr_cache.get(iterator); // Check for iterator != -1 happens in this call
-         const auto& idx =
-            context.db.get_index<typename chainbase::get_index_type<ObjectType>::type, by_primary>();
+         const auto& idx = context.db.get_index<typename chainbase::get_index_type<ObjectType>::type, by_primary>();
 
          auto itr = idx.iterator_to(obj);
          ++itr;
@@ -511,8 +487,7 @@ public:
       }
 
       int previous_primary(int iterator, uint64_t& primary) {
-         const auto& idx =
-            context.db.get_index<typename chainbase::get_index_type<ObjectType>::type, by_primary>();
+         const auto& idx = context.db.get_index<typename chainbase::get_index_type<ObjectType>::type, by_primary>();
 
          if (iterator < -1) // is end iterator
          {
@@ -587,9 +562,8 @@ public:
     * @brief Require @ref account to have approved of this message
     * @param account The account whose approval is required
     *
-    * This method will check that @ref account is listed in the message's declared authorizations, and marks
-    * the authorization as used. Note that all authorizations on a message must be used, or the message is
-    * invalid.
+    * This method will check that @ref account is listed in the message's declared authorizations, and marks the
+    * authorization as used. Note that all authorizations on a message must be used, or the message is invalid.
     *
     * @throws missing_auth_exception If no sufficient permission was found
     */
@@ -703,8 +677,8 @@ public:
 private:
    iterator_cache<key_value_object> keyval_cache;
    vector<std::pair<account_name, uint32_t>>
-                           _notified;       ///< keeps track of new accounts to be notifed of current message
-   vector<uint32_t>        _inline_actions; ///< action_ordinals of queued inline actions
+                           _notified;           ///< keeps track of new accounts to be notifed of current message
+   vector<uint32_t>        _inline_actions;     ///< action_ordinals of queued inline actions
    vector<uint32_t>        _cfa_inline_actions; ///< action_ordinals of queued inline context-free actions
    std::string             _pending_console_output;
    flat_set<account_delta> _account_ram_deltas; ///< flat_set of account_delta so json is an array of objects

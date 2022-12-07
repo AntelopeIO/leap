@@ -28,8 +28,8 @@ string convert_to_valid_cpp_identifier(string val) {
 string create_module_test_case(string test_name, int start_index, int end_index) {
    stringstream func;
 
-   func << "BOOST_DATA_TEST_CASE(" << test_name << "_module, " << boost_xrange << "(" << start_index << ","
-        << end_index << "), index) { try {\n";
+   func << "BOOST_DATA_TEST_CASE(" << test_name << "_module, " << boost_xrange << "(" << start_index << "," << end_index
+        << "), index) { try {\n";
    func << "   TESTER tester;\n";
    func << "   tester.produce_block();\n";
    func << "   tester.create_account( \"wasmtest\"_n );\n";
@@ -51,8 +51,8 @@ string create_module_test_case(string test_name, int start_index, int end_index)
 string create_passing_data_test_case(string test_name, int start_index, int end_index) {
    stringstream func;
 
-   func << "BOOST_DATA_TEST_CASE(" << test_name << "_pass, " << boost_xrange << "(" << start_index << ","
-        << end_index << "), index) { try {\n";
+   func << "BOOST_DATA_TEST_CASE(" << test_name << "_pass, " << boost_xrange << "(" << start_index << "," << end_index
+        << "), index) { try {\n";
    func << "   TESTER tester;\n";
    func << "   tester.produce_block();\n";
    func << "   tester.create_account( \"wasmtest\"_n );\n";
@@ -74,8 +74,8 @@ string create_passing_data_test_case(string test_name, int start_index, int end_
 string create_check_throw_data_test_case(string test_name, int start_index, int end_index) {
    stringstream func;
 
-   func << "BOOST_DATA_TEST_CASE(" << test_name << "_check_throw, " << boost_xrange << "(" << start_index
-        << "," << end_index << "), index) { try {\n";
+   func << "BOOST_DATA_TEST_CASE(" << test_name << "_check_throw, " << boost_xrange << "(" << start_index << ","
+        << end_index << "), index) { try {\n";
    func << "   TESTER tester;\n";
    func << "   tester.produce_block();\n";
    func << "   tester.create_account( \"wasmtest\"_n );\n";
@@ -112,13 +112,11 @@ void write_tests(vector<spec_test> tests) {
          test_ss << create_module_test_case(name, 0, 1);
       } else {
          if (has_assert_trap_tests) {
-            test_ss << create_check_throw_data_test_case(
-               name, t.assert_trap_start_index, t.assert_trap_end_index);
+            test_ss << create_check_throw_data_test_case(name, t.assert_trap_start_index, t.assert_trap_end_index);
          }
 
          if (has_assert_return_tests) {
-            test_ss << create_passing_data_test_case(
-               name, t.assert_return_start_index, t.assert_return_end_index);
+            test_ss << create_passing_data_test_case(name, t.assert_return_start_index, t.assert_return_end_index);
          }
       }
    }

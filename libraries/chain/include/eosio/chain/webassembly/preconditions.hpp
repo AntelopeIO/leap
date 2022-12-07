@@ -29,19 +29,18 @@ inline constexpr bool is_wasm_arithmetic_type_v = is_softfloat_type_v<T> || std:
 
 template<typename T>
 struct is_whitelisted_legacy_type {
-   static constexpr bool value =
-      std::is_same_v<float128_t, T> || std::is_same_v<null_terminated_ptr, T> ||
-      std::is_same_v<memcpy_params, T> || std::is_same_v<memcmp_params, T> ||
-      std::is_same_v<memset_params, T> ||
-      std::is_same_v<decltype(is_legacy_ptr(std::declval<T>())), std::true_type> ||
-      std::is_same_v<decltype(is_legacy_span(std::declval<T>())), std::true_type> ||
-      std::is_same_v<name, T> || std::is_arithmetic_v<T>;
+   static constexpr bool value = std::is_same_v<float128_t, T> || std::is_same_v<null_terminated_ptr, T> ||
+                                 std::is_same_v<memcpy_params, T> || std::is_same_v<memcmp_params, T> ||
+                                 std::is_same_v<memset_params, T> ||
+                                 std::is_same_v<decltype(is_legacy_ptr(std::declval<T>())), std::true_type> ||
+                                 std::is_same_v<decltype(is_legacy_span(std::declval<T>())), std::true_type> ||
+                                 std::is_same_v<name, T> || std::is_arithmetic_v<T>;
 };
 
 template<typename T>
 struct is_whitelisted_type {
-   static constexpr bool value = (is_wasm_arithmetic_type_v<T> ||
-                                  std::is_same_v<name, T>)&&!(std::is_pointer_v<T> || std::is_reference_v<T>);
+   static constexpr bool value =
+      (is_wasm_arithmetic_type_v<T> || std::is_same_v<name, T>)&&!(std::is_pointer_v<T> || std::is_reference_v<T>);
 };
 template<typename T>
 struct is_whitelisted_type<vm::span<T>> {
@@ -63,8 +62,7 @@ template<typename T>
 inline static constexpr bool is_whitelisted_legacy_type_v = detail::is_whitelisted_legacy_type<T>::value;
 
 template<typename... Ts>
-inline static constexpr bool are_whitelisted_legacy_types_v = (... &&
-                                                               detail::is_whitelisted_legacy_type<Ts>::value);
+inline static constexpr bool are_whitelisted_legacy_types_v = (... && detail::is_whitelisted_legacy_type<Ts>::value);
 
 template<typename T, typename U>
 inline static bool is_aliasing(const T& s1, const U& s2) {
@@ -169,9 +167,8 @@ EOS_VM_PRECONDITION(
    EOS_VM_INVOKE_ON_ALL([&](auto&& arg, auto&&... rest) {
       if constexpr (should_check_nan_v<
                        std::remove_cv_t<typename remove_argument_proxy<std::decay_t<decltype(arg)>>::type>>) {
-         EOS_ASSERT(!webassembly::is_nan(*arg),
-                    transaction_exception,
-                    "NaN is not an allowed value for a secondary key");
+         EOS_ASSERT(
+            !webassembly::is_nan(*arg), transaction_exception, "NaN is not an allowed value for a secondary key");
       }
    }));
 

@@ -63,9 +63,7 @@ struct u128_action {
 
 // Deferred Transaction Trigger Action
 struct dtt_action {
-   static uint64_t get_name() {
-      return WASM_TEST_ACTION("test_transaction", "send_deferred_tx_with_dtt_action");
-   }
+   static uint64_t get_name() { return WASM_TEST_ACTION("test_transaction", "send_deferred_tx_with_dtt_action"); }
    static uint64_t get_account() { return "testapi"_n.to_uint64_t(); }
 
    uint64_t payer            = "testapi"_n.to_uint64_t();
@@ -177,7 +175,7 @@ transaction_trace_ptr CallAction(TESTER& test, T ac, const vector<account_name>&
    trx.actions.push_back(act);
 
    test.set_transaction_headers(trx);
-   auto sigs = trx.sign(test.get_private_key(scope[0], "active"), test.control->get_chain_id());
+   auto                      sigs = trx.sign(test.get_private_key(scope[0], "active"), test.control->get_chain_id());
    flat_set<public_key_type> keys;
    trx.get_signature_keys(test.control->get_chain_id(), fc::time_point::maximum(), keys);
    auto res = test.push_transaction(trx);
@@ -187,12 +185,11 @@ transaction_trace_ptr CallAction(TESTER& test, T ac, const vector<account_name>&
 }
 
 template<typename T, typename Tester>
-std::pair<transaction_trace_ptr, signed_block_ptr> _CallFunction(
-   Tester&                     test,
-   T                           ac,
-   const vector<char>&         data,
-   const vector<account_name>& scope    = { "testapi"_n },
-   bool                        no_throw = false) {
+std::pair<transaction_trace_ptr, signed_block_ptr> _CallFunction(Tester&                     test,
+                                                                 T                           ac,
+                                                                 const vector<char>&         data,
+                                                                 const vector<account_name>& scope    = { "testapi"_n },
+                                                                 bool                        no_throw = false) {
    {
       signed_transaction trx;
 
@@ -216,8 +213,7 @@ std::pair<transaction_trace_ptr, signed_block_ptr> _CallFunction(
       flat_set<public_key_type> keys;
       trx.get_signature_keys(test.control->get_chain_id(), fc::time_point::maximum(), keys);
 
-      auto res =
-         test.push_transaction(trx, fc::time_point::maximum(), Tester::DEFAULT_BILLED_CPU_TIME_US, no_throw);
+      auto res = test.push_transaction(trx, fc::time_point::maximum(), Tester::DEFAULT_BILLED_CPU_TIME_US, no_throw);
       if (!no_throw) {
          BOOST_CHECK_EQUAL(res->receipt->status, transaction_receipt::executed);
       }
@@ -235,19 +231,19 @@ transaction_trace_ptr CallFunction(Tester&                     test,
    { return _CallFunction(test, ac, data, scope, no_throw).first; }
 }
 
-#define CALL_TEST_FUNCTION(_TESTER, CLS, MTH, DATA)                                                          \
+#define CALL_TEST_FUNCTION(_TESTER, CLS, MTH, DATA)                                                                    \
    CallFunction(_TESTER, test_api_action<TEST_METHOD(CLS, MTH)>{}, DATA)
-#define CALL_TEST_FUNCTION_WITH_BLOCK(_TESTER, CLS, MTH, DATA)                                               \
+#define CALL_TEST_FUNCTION_WITH_BLOCK(_TESTER, CLS, MTH, DATA)                                                         \
    _CallFunction(_TESTER, test_api_action<TEST_METHOD(CLS, MTH)>{}, DATA)
-#define CALL_TEST_FUNCTION_SYSTEM(_TESTER, CLS, MTH, DATA)                                                   \
+#define CALL_TEST_FUNCTION_SYSTEM(_TESTER, CLS, MTH, DATA)                                                             \
    CallFunction(_TESTER, test_chain_action<TEST_METHOD(CLS, MTH)>{}, DATA, { config::system_account_name })
-#define CALL_TEST_FUNCTION_SCOPE(_TESTER, CLS, MTH, DATA, ACCOUNT)                                           \
+#define CALL_TEST_FUNCTION_SCOPE(_TESTER, CLS, MTH, DATA, ACCOUNT)                                                     \
    CallFunction(_TESTER, test_api_action<TEST_METHOD(CLS, MTH)>{}, DATA, ACCOUNT)
-#define CALL_TEST_FUNCTION_NO_THROW(_TESTER, CLS, MTH, DATA)                                                 \
+#define CALL_TEST_FUNCTION_NO_THROW(_TESTER, CLS, MTH, DATA)                                                           \
    CallFunction(_TESTER, test_api_action<TEST_METHOD(CLS, MTH)>{}, DATA, { "testapi"_n }, true)
-#define CALL_TEST_FUNCTION_AND_CHECK_EXCEPTION(_TESTER, CLS, MTH, DATA, EXC, EXC_MESSAGE)                    \
-   BOOST_CHECK_EXCEPTION(CALL_TEST_FUNCTION(_TESTER, CLS, MTH, DATA), EXC, [](const EXC& e) {                \
-      return expect_assert_message(e, EXC_MESSAGE);                                                          \
+#define CALL_TEST_FUNCTION_AND_CHECK_EXCEPTION(_TESTER, CLS, MTH, DATA, EXC, EXC_MESSAGE)                              \
+   BOOST_CHECK_EXCEPTION(CALL_TEST_FUNCTION(_TESTER, CLS, MTH, DATA), EXC, [](const EXC& e) {                          \
+      return expect_assert_message(e, EXC_MESSAGE);                                                                    \
    });
 
 bool is_access_violation(fc::unhandled_exception const& e) {
@@ -462,11 +458,10 @@ BOOST_FIXTURE_TEST_CASE(action_tests, TESTER) {
 
       // test read_action_to_0
       raw_bytes.resize((1 << 16) + 1);
-      BOOST_CHECK_EXCEPTION(CALL_TEST_FUNCTION(*this, "test_action", "read_action_to_0", raw_bytes),
-                            eosio::chain::wasm_execution_error,
-                            [](const eosio::chain::wasm_execution_error& e) {
-                               return expect_assert_message(e, "access violation");
-                            });
+      BOOST_CHECK_EXCEPTION(
+         CALL_TEST_FUNCTION(*this, "test_action", "read_action_to_0", raw_bytes),
+         eosio::chain::wasm_execution_error,
+         [](const eosio::chain::wasm_execution_error& e) { return expect_assert_message(e, "access violation"); });
 
       // test read_action_to_64k
       raw_bytes.resize(1);
@@ -474,39 +469,36 @@ BOOST_FIXTURE_TEST_CASE(action_tests, TESTER) {
 
       // test read_action_to_64k
       raw_bytes.resize(3);
-      BOOST_CHECK_EXCEPTION(CALL_TEST_FUNCTION(*this, "test_action", "read_action_to_64k", raw_bytes),
-                            eosio::chain::wasm_execution_error,
-                            [](const eosio::chain::wasm_execution_error& e) {
-                               return expect_assert_message(e, "access violation");
-                            });
+      BOOST_CHECK_EXCEPTION(
+         CALL_TEST_FUNCTION(*this, "test_action", "read_action_to_64k", raw_bytes),
+         eosio::chain::wasm_execution_error,
+         [](const eosio::chain::wasm_execution_error& e) { return expect_assert_message(e, "access violation"); });
 
       // test require_notice
-      auto scope = std::vector<account_name>{ "testapi"_n };
-      auto test_require_notice =
-         [this](auto& test, std::vector<char>& data, std::vector<account_name>& scope) {
-            signed_transaction trx;
-            auto               tm = test_api_action<TEST_METHOD("test_action", "require_notice")>{};
+      auto scope               = std::vector<account_name>{ "testapi"_n };
+      auto test_require_notice = [this](auto& test, std::vector<char>& data, std::vector<account_name>& scope) {
+         signed_transaction trx;
+         auto               tm = test_api_action<TEST_METHOD("test_action", "require_notice")>{};
 
-            action act(
-               std::vector<permission_level>{
-                  {"testapi"_n, config::active_name}
-            },
-               tm);
-            vector<char>& dest = *(vector<char>*)(&act.data);
-            std::copy(data.begin(), data.end(), std::back_inserter(dest));
-            trx.actions.push_back(act);
+         action act(
+            std::vector<permission_level>{
+               {"testapi"_n, config::active_name}
+         },
+            tm);
+         vector<char>& dest = *(vector<char>*)(&act.data);
+         std::copy(data.begin(), data.end(), std::back_inserter(dest));
+         trx.actions.push_back(act);
 
-            test.set_transaction_headers(trx);
-            trx.sign(test.get_private_key("inita"_n, "active"), control->get_chain_id());
-            auto res = test.push_transaction(trx);
-            BOOST_CHECK_EQUAL(res->receipt->status, transaction_receipt::executed);
-         };
+         test.set_transaction_headers(trx);
+         trx.sign(test.get_private_key("inita"_n, "active"), control->get_chain_id());
+         auto res = test.push_transaction(trx);
+         BOOST_CHECK_EQUAL(res->receipt->status, transaction_receipt::executed);
+      };
 
-      BOOST_CHECK_EXCEPTION(test_require_notice(*this, raw_bytes, scope),
-                            unsatisfied_authorization,
-                            [](const unsatisfied_authorization& e) {
-                               return expect_assert_message(e, "transaction declares authority");
-                            });
+      BOOST_CHECK_EXCEPTION(
+         test_require_notice(*this, raw_bytes, scope),
+         unsatisfied_authorization,
+         [](const unsatisfied_authorization& e) { return expect_assert_message(e, "transaction declares authority"); });
 
       // test require_auth
       BOOST_CHECK_EXCEPTION(
@@ -589,10 +581,9 @@ BOOST_FIXTURE_TEST_CASE(action_tests, TESTER) {
       CALL_TEST_FUNCTION(*this, "test_action", "test_publication_time", fc::raw::pack(pub_time));
 
       // test test_abort
-      BOOST_CHECK_EXCEPTION(
-         CALL_TEST_FUNCTION(*this, "test_action", "test_abort", {}),
-         abort_called,
-         [](const fc::exception& e) { return expect_assert_message(e, "abort() called"); });
+      BOOST_CHECK_EXCEPTION(CALL_TEST_FUNCTION(*this, "test_action", "test_abort", {}),
+                            abort_called,
+                            [](const fc::exception& e) { return expect_assert_message(e, "abort() called"); });
 
       dummy_action da = { DUMMY_ACTION_DEFAULT_A, DUMMY_ACTION_DEFAULT_B, DUMMY_ACTION_DEFAULT_C };
       CallAction(*this, da);
@@ -648,14 +639,13 @@ BOOST_AUTO_TEST_CASE(ram_billing_in_notify_tests) {
       chain.set_code("testapi2"_n, contracts::test_api_wasm());
       chain.produce_blocks(1);
 
-      BOOST_CHECK_EXCEPTION(
-         CALL_TEST_FUNCTION(
-            chain,
-            "test_action",
-            "test_ram_billing_in_notify",
-            fc::raw::pack(((unsigned __int128)"testapi2"_n.to_uint64_t() << 64) | "testapi"_n.to_uint64_t())),
-         subjective_block_production_exception,
-         fc_exception_message_is("Cannot charge RAM to other accounts during notify."));
+      BOOST_CHECK_EXCEPTION(CALL_TEST_FUNCTION(chain,
+                                               "test_action",
+                                               "test_ram_billing_in_notify",
+                                               fc::raw::pack(((unsigned __int128)"testapi2"_n.to_uint64_t() << 64) |
+                                                             "testapi"_n.to_uint64_t())),
+                            subjective_block_production_exception,
+                            fc_exception_message_is("Cannot charge RAM to other accounts during notify."));
 
       CALL_TEST_FUNCTION(chain,
                          "test_action",
@@ -694,8 +684,7 @@ BOOST_FIXTURE_TEST_CASE(cf_action_tests, TESTER) {
 
       action act({}, cfa);
       trx.context_free_actions.push_back(act);
-      trx.context_free_data.emplace_back(
-         fc::raw::pack<uint32_t>(100)); // verify payload matches context free data
+      trx.context_free_data.emplace_back(fc::raw::pack<uint32_t>(100)); // verify payload matches context free data
       trx.context_free_data.emplace_back(fc::raw::pack<uint32_t>(200));
       set_transaction_headers(trx);
 
@@ -737,8 +726,7 @@ BOOST_FIXTURE_TEST_CASE(cf_action_tests, TESTER) {
          action             act1(pl, da);
          signed_transaction trx;
          trx.context_free_actions.push_back(act);
-         trx.context_free_data.emplace_back(
-            fc::raw::pack<uint32_t>(100)); // verify payload matches context free data
+         trx.context_free_data.emplace_back(fc::raw::pack<uint32_t>(100)); // verify payload matches context free data
          trx.context_free_data.emplace_back(fc::raw::pack<uint32_t>(200));
 
          trx.actions.push_back(act1);
@@ -924,8 +912,7 @@ BOOST_AUTO_TEST_CASE(light_validation_skip_cfa) try {
    signed_transaction trx;
    action             act({}, cfa);
    trx.context_free_actions.push_back(act);
-   trx.context_free_data.emplace_back(
-      fc::raw::pack<uint32_t>(100)); // verify payload matches context free data
+   trx.context_free_data.emplace_back(fc::raw::pack<uint32_t>(100)); // verify payload matches context free data
    trx.context_free_data.emplace_back(fc::raw::pack<uint32_t>(200));
    // add a normal action along with cfa
    dummy_action da = { DUMMY_ACTION_DEFAULT_A, DUMMY_ACTION_DEFAULT_B, DUMMY_ACTION_DEFAULT_C };
@@ -982,19 +969,16 @@ BOOST_AUTO_TEST_CASE(light_validation_skip_cfa) try {
 
    BOOST_CHECK(other_trace->action_traces.at(0).context_free); // cfa
    BOOST_CHECK_EQUAL(
-      "",
-      other_trace->action_traces.at(0).console); // cfa not executed for light validation (trusted producer)
+      "", other_trace->action_traces.at(0).console); // cfa not executed for light validation (trusted producer)
    BOOST_CHECK_EQUAL(trace->action_traces.at(0).receipt->global_sequence,
                      other_trace->action_traces.at(0).receipt->global_sequence);
-   BOOST_CHECK_EQUAL(trace->action_traces.at(0).receipt->digest(),
-                     other_trace->action_traces.at(0).receipt->digest());
+   BOOST_CHECK_EQUAL(trace->action_traces.at(0).receipt->digest(), other_trace->action_traces.at(0).receipt->digest());
 
    BOOST_CHECK(!other_trace->action_traces.at(1).context_free); // non-cfa
    BOOST_CHECK_EQUAL("", other_trace->action_traces.at(1).console);
    BOOST_CHECK_EQUAL(trace->action_traces.at(1).receipt->global_sequence,
                      other_trace->action_traces.at(1).receipt->global_sequence);
-   BOOST_CHECK_EQUAL(trace->action_traces.at(1).receipt->digest(),
-                     other_trace->action_traces.at(1).receipt->digest());
+   BOOST_CHECK_EQUAL(trace->action_traces.at(1).receipt->digest(), other_trace->action_traces.at(1).receipt->digest());
 
    other.close();
 }
@@ -1037,7 +1021,7 @@ void call_test(Tester&           test,
 
    trx.actions.push_back(act);
    test.set_transaction_headers(trx);
-   auto sigs = trx.sign(test.get_private_key(account, "active"), test.control->get_chain_id());
+   auto                      sigs = trx.sign(test.get_private_key(account, "active"), test.control->get_chain_id());
    flat_set<public_key_type> keys;
    trx.get_signature_keys(test.control->get_chain_id(), fc::time_point::maximum(), keys);
    auto ptrx = std::make_shared<packed_transaction>(std::move(trx));
@@ -1096,10 +1080,9 @@ BOOST_AUTO_TEST_CASE(checktime_fail_tests) {
                             tx_cpu_usage_exceeded,
                             is_tx_cpu_usage_exceeded);
 
-      uint32_t time_left_in_block_us =
-         config::default_max_block_cpu_usage - config::default_min_transaction_cpu_usage;
-      std::string dummy_string = "nonce";
-      uint32_t    increment    = config::default_max_transaction_cpu_usage / 3;
+      uint32_t time_left_in_block_us = config::default_max_block_cpu_usage - config::default_min_transaction_cpu_usage;
+      std::string dummy_string       = "nonce";
+      uint32_t    increment          = config::default_max_transaction_cpu_usage / 3;
       for (auto i = 0; time_left_in_block_us > 2 * increment; ++i) {
          t.push_dummy("testapi"_n, dummy_string + std::to_string(i), increment);
          time_left_in_block_us -= increment;
@@ -1153,10 +1136,9 @@ BOOST_AUTO_TEST_CASE(checktime_pause_max_trx_cpu_extended_test) {
 
       // Test deadline is extended when max_transaction_cpu_time is the limiting factor
 
-      // First call to contract which should cause the WASM to load and trx_context.pause_billing_timer() to
-      // be called. Verify that the restriction on the transaction of 24'999 is honored even though there is
-      // wall clock time to load the wasm. If this test fails it is possible that the wasm loaded faster or
-      // slower than expected.
+      // First call to contract which should cause the WASM to load and trx_context.pause_billing_timer() to be called.
+      // Verify that the restriction on the transaction of 24'999 is honored even though there is wall clock time to
+      // load the wasm. If this test fails it is possible that the wasm loaded faster or slower than expected.
       auto before = fc::time_point::now();
       BOOST_CHECK_EXCEPTION(call_test(t,
                                       test_pause_action<TEST_METHOD("test_checktime", "checktime_failure")>{},
@@ -1173,11 +1155,10 @@ BOOST_AUTO_TEST_CASE(checktime_pause_max_trx_cpu_extended_test) {
       dlog("elapsed ${e}us", ("e", dur));
       BOOST_CHECK(dur >= 24'999); // should never fail
       // This assumes that loading the WASM takes at least 1.5 ms
-      // If this check fails but duration is >= 24'999 (previous check did not fail), then the check here is
-      // likely because WASM took less than 1.5 ms to load.
+      // If this check fails but duration is >= 24'999 (previous check did not fail), then the check here is likely
+      // because WASM took less than 1.5 ms to load.
       BOOST_CHECK_MESSAGE(dur > 26'500, "elapsed " << dur << "us");
-      BOOST_CHECK_MESSAGE(dur < 150'000,
-                          "elapsed " << dur << "us"); // Should not run to block_cpu_usage deadline
+      BOOST_CHECK_MESSAGE(dur < 150'000, "elapsed " << dur << "us"); // Should not run to block_cpu_usage deadline
 
       // Test hitting max_transaction_time throws tx_cpu_usage_exceeded
       BOOST_CHECK_EXCEPTION(call_test(t,
@@ -1231,10 +1212,9 @@ BOOST_AUTO_TEST_CASE(checktime_pause_max_trx_extended_test) {
 
       // Test deadline is extended when max_transaction_time is the limiting factor
 
-      // First call to contract which should cause the WASM to load and trx_context.pause_billing_timer() to
-      // be called. Verify that the restriction on the max_transaction_time of 25ms is honored even though
-      // there is wall clock time to load the wasm. If this test fails it is possible that the wasm loaded
-      // faster or slower than expected.
+      // First call to contract which should cause the WASM to load and trx_context.pause_billing_timer() to be called.
+      // Verify that the restriction on the max_transaction_time of 25ms is honored even though there is wall clock time
+      // to load the wasm. If this test fails it is possible that the wasm loaded faster or slower than expected.
       auto before = fc::time_point::now();
       BOOST_CHECK_EXCEPTION(call_test(t,
                                       test_pause_action<TEST_METHOD("test_checktime", "checktime_failure")>{},
@@ -1251,8 +1231,8 @@ BOOST_AUTO_TEST_CASE(checktime_pause_max_trx_extended_test) {
       dlog("elapsed ${e}us", ("e", dur));
       BOOST_CHECK(dur >= 25'000); // should never fail
       // This assumes that loading the WASM takes at least 1.5 ms
-      // If this check fails but duration is >= 25'000 (previous check did not fail), then the check here is
-      // likely because WASM took less than 1.5 ms to load.
+      // If this check fails but duration is >= 25'000 (previous check did not fail), then the check here is likely
+      // because WASM took less than 1.5 ms to load.
       BOOST_CHECK_MESSAGE(dur > 26'500, "elapsed " << dur << "us");
       BOOST_CHECK_MESSAGE(dur < 250'000,
                           "elapsed " << dur << "us"); // Should not run to max_transaction_cpu_usage deadline
@@ -1288,8 +1268,7 @@ BOOST_AUTO_TEST_CASE(checktime_pause_block_deadline_not_extended_test) {
       // Test block deadline is not extended when it is the limiting factor
       // Specify large enough time so that WASM is completely loaded.
 
-      // First call to contract which should cause the WASM to load and trx_context.pause_billing_timer() to
-      // be called.
+      // First call to contract which should cause the WASM to load and trx_context.pause_billing_timer() to be called.
       auto before = fc::time_point::now();
       BOOST_CHECK_EXCEPTION(call_test(t,
                                       test_pause_action<TEST_METHOD("test_checktime", "checktime_failure")>{},
@@ -1305,9 +1284,8 @@ BOOST_AUTO_TEST_CASE(checktime_pause_block_deadline_not_extended_test) {
       auto dur = (after - before).count();
       dlog("elapsed ${e}us", ("e", dur));
       BOOST_CHECK(dur >= 75'000); // should never fail
-      // If this check fails but duration is >= 75'000 (previous check did not fail), then the check here is
-      // likely because it took longer than 10 ms for checktime to trigger, trace to be created, and to get to
-      // the now() call.
+      // If this check fails but duration is >= 75'000 (previous check did not fail), then the check here is likely
+      // because it took longer than 10 ms for checktime to trigger, trace to be created, and to get to the now() call.
       BOOST_CHECK_MESSAGE(dur < 85'000, "elapsed " << dur << "us");
 
       BOOST_REQUIRE_EQUAL(t.validate(), true);
@@ -1344,8 +1322,7 @@ BOOST_AUTO_TEST_CASE(checktime_pause_block_deadline_not_extended_while_loading_t
       // This is difficult to determine as checktime is not checked until WASM has completed loading.
       // We want to test that blocktime is enforced immediately after timer is unpaused.
 
-      // First call to contract which should cause the WASM to load and trx_context.pause_billing_timer() to
-      // be called.
+      // First call to contract which should cause the WASM to load and trx_context.pause_billing_timer() to be called.
       auto before = fc::time_point::now();
       BOOST_CHECK_EXCEPTION(call_test(t,
                                       test_pause_action<TEST_METHOD("test_checktime", "checktime_failure")>{},
@@ -1363,8 +1340,8 @@ BOOST_AUTO_TEST_CASE(checktime_pause_block_deadline_not_extended_while_loading_t
       dlog("elapsed ${e}us", ("e", dur));
       BOOST_CHECK(dur >= 5'000); // should never fail
       // WASM load times on my machine was 35ms.
-      // Since checktime only kicks in after WASM is loaded this needs to be large enough to load the WASM,
-      // but should be considerably lower than the 150ms max_transaction_time
+      // Since checktime only kicks in after WASM is loaded this needs to be large enough to load the WASM, but should
+      // be considerably lower than the 150ms max_transaction_time
       BOOST_CHECK_MESSAGE(dur < 50'000, "elapsed " << dur << "us");
       BOOST_REQUIRE_MESSAGE(dur < 150'000, "elapsed " << dur << "us"); // should never fail
 
@@ -1493,8 +1470,7 @@ BOOST_FIXTURE_TEST_CASE(checktime_hashing_fail, TESTER) {
 
       // hit deadline exception, but cache the contract
       BOOST_CHECK_EXCEPTION(
-         call_test(
-            *this, test_api_action<TEST_METHOD("test_checktime", "checktime_sha1_failure")>{}, 5000, 3, 3),
+         call_test(*this, test_api_action<TEST_METHOD("test_checktime", "checktime_sha1_failure")>{}, 5000, 3, 3),
          deadline_exception,
          is_deadline_exception);
 
@@ -1502,68 +1478,49 @@ BOOST_FIXTURE_TEST_CASE(checktime_hashing_fail, TESTER) {
       // Remove those comments after the issue is resolved.
       //#warning TODO validate that the contract was successfully cached
 
-      // the contract should be cached, now we should get deadline_exception because of calls to checktime()
-      // from hashing function
+      // the contract should be cached, now we should get deadline_exception because of calls to checktime() from
+      // hashing function
       BOOST_CHECK_EXCEPTION(
-         call_test(
-            *this, test_api_action<TEST_METHOD("test_checktime", "checktime_sha1_failure")>{}, 5000, 3, 3),
-         deadline_exception,
-         is_deadline_exception);
-
-      BOOST_CHECK_EXCEPTION(
-         call_test(*this,
-                   test_api_action<TEST_METHOD("test_checktime", "checktime_assert_sha1_failure")>{},
-                   5000,
-                   3,
-                   3),
+         call_test(*this, test_api_action<TEST_METHOD("test_checktime", "checktime_sha1_failure")>{}, 5000, 3, 3),
          deadline_exception,
          is_deadline_exception);
 
       BOOST_CHECK_EXCEPTION(
          call_test(
-            *this, test_api_action<TEST_METHOD("test_checktime", "checktime_sha256_failure")>{}, 5000, 3, 3),
+            *this, test_api_action<TEST_METHOD("test_checktime", "checktime_assert_sha1_failure")>{}, 5000, 3, 3),
          deadline_exception,
          is_deadline_exception);
 
       BOOST_CHECK_EXCEPTION(
-         call_test(*this,
-                   test_api_action<TEST_METHOD("test_checktime", "checktime_assert_sha256_failure")>{},
-                   5000,
-                   3,
-                   3),
+         call_test(*this, test_api_action<TEST_METHOD("test_checktime", "checktime_sha256_failure")>{}, 5000, 3, 3),
          deadline_exception,
          is_deadline_exception);
 
       BOOST_CHECK_EXCEPTION(
          call_test(
-            *this, test_api_action<TEST_METHOD("test_checktime", "checktime_sha512_failure")>{}, 5000, 3, 3),
+            *this, test_api_action<TEST_METHOD("test_checktime", "checktime_assert_sha256_failure")>{}, 5000, 3, 3),
          deadline_exception,
          is_deadline_exception);
 
       BOOST_CHECK_EXCEPTION(
-         call_test(*this,
-                   test_api_action<TEST_METHOD("test_checktime", "checktime_assert_sha512_failure")>{},
-                   5000,
-                   3,
-                   3),
+         call_test(*this, test_api_action<TEST_METHOD("test_checktime", "checktime_sha512_failure")>{}, 5000, 3, 3),
          deadline_exception,
          is_deadline_exception);
 
       BOOST_CHECK_EXCEPTION(
-         call_test(*this,
-                   test_api_action<TEST_METHOD("test_checktime", "checktime_ripemd160_failure")>{},
-                   5000,
-                   3,
-                   3),
+         call_test(
+            *this, test_api_action<TEST_METHOD("test_checktime", "checktime_assert_sha512_failure")>{}, 5000, 3, 3),
          deadline_exception,
          is_deadline_exception);
 
       BOOST_CHECK_EXCEPTION(
-         call_test(*this,
-                   test_api_action<TEST_METHOD("test_checktime", "checktime_assert_ripemd160_failure")>{},
-                   5000,
-                   3,
-                   3),
+         call_test(*this, test_api_action<TEST_METHOD("test_checktime", "checktime_ripemd160_failure")>{}, 5000, 3, 3),
+         deadline_exception,
+         is_deadline_exception);
+
+      BOOST_CHECK_EXCEPTION(
+         call_test(
+            *this, test_api_action<TEST_METHOD("test_checktime", "checktime_assert_ripemd160_failure")>{}, 5000, 3, 3),
          deadline_exception,
          is_deadline_exception);
 
@@ -1627,8 +1584,7 @@ BOOST_FIXTURE_TEST_CASE(transaction_tests, TESTER) {
       BOOST_CHECK_EXCEPTION(CALL_TEST_FUNCTION(*this, "test_transaction", "send_action_large", {}),
                             inline_action_too_big_nonprivileged,
                             [](const fc::exception& e) {
-                               return expect_assert_message(
-                                  e, "inline action too big for nonprivileged account");
+                               return expect_assert_message(e, "inline action too big for nonprivileged account");
                             });
 
       // test send_action_inline_fail
@@ -1643,8 +1599,7 @@ BOOST_FIXTURE_TEST_CASE(transaction_tests, TESTER) {
       BOOST_CHECK_EXCEPTION(CALL_TEST_FUNCTION(*this, "test_transaction", "send_transaction_empty", {}),
                             tx_no_auths,
                             [](const fc::exception& e) {
-                               return expect_assert_message(
-                                  e, "transaction must have at least one authorization");
+                               return expect_assert_message(e, "transaction must have at least one authorization");
                             });
 
       {
@@ -1661,8 +1616,7 @@ BOOST_FIXTURE_TEST_CASE(transaction_tests, TESTER) {
          auto            c2 = control->accepted_block.connect([&](const block_state_ptr& b) { bsp = b; });
 
          // test error handling on deferred transaction failure
-         auto test_trace =
-            CALL_TEST_FUNCTION(*this, "test_transaction", "send_transaction_trigger_error_handler", {});
+         auto test_trace = CALL_TEST_FUNCTION(*this, "test_transaction", "send_transaction_trigger_error_handler", {});
 
          BOOST_REQUIRE(trace);
          BOOST_CHECK_EQUAL(trace->receipt->status, transaction_receipt::soft_fail);
@@ -1684,9 +1638,7 @@ BOOST_FIXTURE_TEST_CASE(transaction_tests, TESTER) {
          BOOST_CHECK(!test_trace->failed_dtrx_trace);
          BOOST_CHECK_EQUAL(0, block_ids.count(trace->id)); // onerror id, not in block
          BOOST_CHECK_EQUAL(
-            1,
-            block_ids.count(
-               trace->failed_dtrx_trace->id)); // deferred id since trace moved to failed_dtrx_trace
+            1, block_ids.count(trace->failed_dtrx_trace->id)); // deferred id since trace moved to failed_dtrx_trace
          BOOST_CHECK(trace->action_traces.at(0).act.name == "onerror"_n);
 
          c.disconnect();
@@ -1703,26 +1655,21 @@ BOOST_FIXTURE_TEST_CASE(transaction_tests, TESTER) {
       // this is a bit rough, but I couldn't figure out a better way to compare the hashes
       auto   tx_trace   = CALL_TEST_FUNCTION(*this, "test_transaction", "test_read_transaction", {});
       string sha_expect = tx_trace->id;
-      BOOST_TEST_MESSAGE(
-         "tx_trace->action_traces.front().console: = " << tx_trace->action_traces.front().console);
+      BOOST_TEST_MESSAGE("tx_trace->action_traces.front().console: = " << tx_trace->action_traces.front().console);
       BOOST_TEST_MESSAGE("sha_expect = " << sha_expect);
       BOOST_CHECK_EQUAL(tx_trace->action_traces.front().console == sha_expect, true);
       // test test_tapos_block_num
-      CALL_TEST_FUNCTION(
-         *this, "test_transaction", "test_tapos_block_num", fc::raw::pack(control->head_block_num()));
+      CALL_TEST_FUNCTION(*this, "test_transaction", "test_tapos_block_num", fc::raw::pack(control->head_block_num()));
 
       // test test_tapos_block_prefix
-      CALL_TEST_FUNCTION(*this,
-                         "test_transaction",
-                         "test_tapos_block_prefix",
-                         fc::raw::pack(control->head_block_id()._hash[1]));
+      CALL_TEST_FUNCTION(
+         *this, "test_transaction", "test_tapos_block_prefix", fc::raw::pack(control->head_block_id()._hash[1]));
 
       // test send_action_recurse
       BOOST_CHECK_EXCEPTION(CALL_TEST_FUNCTION(*this, "test_transaction", "send_action_recurse", {}),
                             eosio::chain::transaction_exception,
                             [](const eosio::chain::transaction_exception& e) {
-                               return expect_assert_message(
-                                  e, "max inline action depth per transaction reached");
+                               return expect_assert_message(e, "max inline action depth per transaction reached");
                             });
 
       BOOST_REQUIRE_EQUAL(validate(), true);
@@ -1745,8 +1692,8 @@ BOOST_FIXTURE_TEST_CASE(transaction_tests, TESTER) {
          auto sigs = trx.sign(get_private_key("testapi"_n, "active"), control->get_chain_id());
 
          auto time_limit = fc::microseconds::maximum();
-         auto ptrx       = std::make_shared<packed_transaction>(signed_transaction(trx),
-                                                          packed_transaction::compression_type::none);
+         auto ptrx =
+            std::make_shared<packed_transaction>(signed_transaction(trx), packed_transaction::compression_type::none);
 
          string sha_expect = ptrx->id();
          auto   packed     = fc::raw::pack(static_cast<const transaction&>(ptrx->get_transaction()));
@@ -1765,12 +1712,8 @@ BOOST_FIXTURE_TEST_CASE(transaction_tests, TESTER) {
                                                              control->get_chain_id(),
                                                              time_limit,
                                                              transaction_metadata::trx_type::input);
-         auto r   = control->push_transaction(fut.get(),
-                                            fc::time_point::maximum(),
-                                            fc::microseconds::maximum(),
-                                            DEFAULT_BILLED_CPU_TIME_US,
-                                            true,
-                                            0);
+         auto r   = control->push_transaction(
+            fut.get(), fc::time_point::maximum(), fc::microseconds::maximum(), DEFAULT_BILLED_CPU_TIME_US, true, 0);
          if (r->except_ptr)
             std::rethrow_exception(r->except_ptr);
          if (r->except)
@@ -1832,10 +1775,9 @@ BOOST_AUTO_TEST_CASE(inline_action_objective_limit) {
                         mutable_variant_object()("account", "testapi")("is_priv", 1));
       chain.produce_block();
 
-      BOOST_CHECK_EXCEPTION(
-         CALL_TEST_FUNCTION(chain, "test_transaction", "send_action_4k", {}),
-         inline_action_too_big,
-         [](const fc::exception& e) { return expect_assert_message(e, "inline action too big"); });
+      BOOST_CHECK_EXCEPTION(CALL_TEST_FUNCTION(chain, "test_transaction", "send_action_4k", {}),
+                            inline_action_too_big,
+                            [](const fc::exception& e) { return expect_assert_message(e, "inline action too big"); });
    }
    FC_LOG_AND_RETHROW()
 }
@@ -1900,8 +1842,7 @@ BOOST_AUTO_TEST_CASE(deferred_inline_action_subjective_limit) {
             }
          });
       block =
-         CALL_TEST_FUNCTION_WITH_BLOCK(chain, "test_transaction", "send_deferred_transaction_4k_action", {})
-            .second;
+         CALL_TEST_FUNCTION_WITH_BLOCK(chain, "test_transaction", "send_deferred_transaction_4k_action", {}).second;
       chain2.push_block(block);
       BOOST_CHECK(!trace);
       block = chain.produce_block(fc::seconds(2));
@@ -1977,8 +1918,7 @@ BOOST_FIXTURE_TEST_CASE(deferred_transaction_tests, TESTER) {
          auto dtrxs = get_scheduled_transactions();
          BOOST_CHECK_EQUAL(dtrxs.size(), 1);
          for (const auto& trx : dtrxs) {
-            control->push_scheduled_transaction(
-               trx, fc::time_point::maximum(), fc::microseconds::maximum(), 0, false);
+            control->push_scheduled_transaction(trx, fc::time_point::maximum(), fc::microseconds::maximum(), 0, false);
          }
          BOOST_CHECK_EQUAL(1, count);
          BOOST_REQUIRE(trace);
@@ -2055,8 +1995,7 @@ BOOST_FIXTURE_TEST_CASE(deferred_transaction_tests, TESTER) {
                }
             });
 
-         CALL_TEST_FUNCTION(
-            *this, "test_transaction", "repeat_deferred_transaction", fc::raw::pack((uint32_t)5));
+         CALL_TEST_FUNCTION(*this, "test_transaction", "repeat_deferred_transaction", fc::raw::pack((uint32_t)5));
 
          produce_block();
 
@@ -2073,21 +2012,19 @@ BOOST_FIXTURE_TEST_CASE(deferred_transaction_tests, TESTER) {
          dtt_action dtt_act1;
          dtt_act1.payer = "alice"_n.to_uint64_t();
          BOOST_CHECK_THROW(
-            CALL_TEST_FUNCTION(
-               *this, "test_transaction", "send_deferred_tx_with_dtt_action", fc::raw::pack(dtt_act1)),
+            CALL_TEST_FUNCTION(*this, "test_transaction", "send_deferred_tx_with_dtt_action", fc::raw::pack(dtt_act1)),
             action_validate_exception);
 
          // Send a tx which in turn sends a deferred tx with the deferred tx's receiver != this tx receiver
-         // This will include the authorization of the receiver, and impose any related delay associated with
-         // the authority We set the authorization delay to be 10 sec here, and since the deferred tx delay is
-         // set to be 5 sec, so this tx should fail
+         // This will include the authorization of the receiver, and impose any related delay associated with the
+         // authority We set the authorization delay to be 10 sec here, and since the deferred tx delay is set to be 5
+         // sec, so this tx should fail
          dtt_action dtt_act2;
          dtt_act2.deferred_account = "testapi2"_n.to_uint64_t();
          dtt_act2.permission_name  = "additional"_n.to_uint64_t();
          dtt_act2.delay_sec        = 5;
 
-         auto auth =
-            authority(get_public_key(name("testapi"), name(dtt_act2.permission_name).to_string()), 10);
+         auto auth = authority(get_public_key(name("testapi"), name(dtt_act2.permission_name).to_string()), 10);
          auth.accounts.push_back(permission_level_weight{
             {"testapi"_n, config::eosio_code_name},
             1
@@ -2096,46 +2033,39 @@ BOOST_FIXTURE_TEST_CASE(deferred_transaction_tests, TESTER) {
          push_action(config::system_account_name,
                      updateauth::get_name(),
                      name("testapi"),
-                     fc::mutable_variant_object()("account", "testapi")(
-                        "permission", name(dtt_act2.permission_name))("parent", "active")("auth", auth));
-         push_action(
-            config::system_account_name,
-            linkauth::get_name(),
-            name("testapi"),
-            fc::mutable_variant_object()("account", "testapi")("code", name(dtt_act2.deferred_account))(
-               "type", name(dtt_act2.deferred_action))("requirement", name(dtt_act2.permission_name)));
+                     fc::mutable_variant_object()("account", "testapi")("permission", name(dtt_act2.permission_name))(
+                        "parent", "active")("auth", auth));
+         push_action(config::system_account_name,
+                     linkauth::get_name(),
+                     name("testapi"),
+                     fc::mutable_variant_object()("account", "testapi")("code", name(dtt_act2.deferred_account))(
+                        "type", name(dtt_act2.deferred_action))("requirement", name(dtt_act2.permission_name)));
          BOOST_CHECK_THROW(
-            CALL_TEST_FUNCTION(
-               *this, "test_transaction", "send_deferred_tx_with_dtt_action", fc::raw::pack(dtt_act2)),
+            CALL_TEST_FUNCTION(*this, "test_transaction", "send_deferred_tx_with_dtt_action", fc::raw::pack(dtt_act2)),
             unsatisfied_authorization);
 
          // But if the deferred transaction has a sufficient delay, then it should work.
          dtt_act2.delay_sec = 10;
-         CALL_TEST_FUNCTION(
-            *this, "test_transaction", "send_deferred_tx_with_dtt_action", fc::raw::pack(dtt_act2));
+         CALL_TEST_FUNCTION(*this, "test_transaction", "send_deferred_tx_with_dtt_action", fc::raw::pack(dtt_act2));
 
-         // If the deferred tx receiver == this tx receiver, the authorization checking would originally be
-         // bypassed. But not anymore. With the RESTRICT_ACTION_TO_SELF protocol feature activated, it should
-         // now objectively fail because testapi@additional permission is not unilaterally satisfied by
-         // testapi@eosio.code.
+         // If the deferred tx receiver == this tx receiver, the authorization checking would originally be bypassed.
+         // But not anymore. With the RESTRICT_ACTION_TO_SELF protocol feature activated, it should now objectively
+         // fail because testapi@additional permission is not unilaterally satisfied by testapi@eosio.code.
          dtt_action dtt_act3;
          dtt_act3.deferred_account = "testapi"_n.to_uint64_t();
          dtt_act3.permission_name  = "additional"_n.to_uint64_t();
-         push_action(
-            config::system_account_name,
-            linkauth::get_name(),
-            name("testapi"),
-            fc::mutable_variant_object()("account", "testapi")("code", name(dtt_act3.deferred_account))(
-               "type", name(dtt_act3.deferred_action))("requirement", name(dtt_act3.permission_name)));
+         push_action(config::system_account_name,
+                     linkauth::get_name(),
+                     name("testapi"),
+                     fc::mutable_variant_object()("account", "testapi")("code", name(dtt_act3.deferred_account))(
+                        "type", name(dtt_act3.deferred_action))("requirement", name(dtt_act3.permission_name)));
          BOOST_CHECK_THROW(
-            CALL_TEST_FUNCTION(
-               *this, "test_transaction", "send_deferred_tx_with_dtt_action", fc::raw::pack(dtt_act3)),
+            CALL_TEST_FUNCTION(*this, "test_transaction", "send_deferred_tx_with_dtt_action", fc::raw::pack(dtt_act3)),
             unsatisfied_authorization);
 
          // But it should again work if the deferred transaction has a sufficient delay.
          dtt_act3.delay_sec = 10;
-         CALL_TEST_FUNCTION(
-            *this, "test_transaction", "send_deferred_tx_with_dtt_action", fc::raw::pack(dtt_act3));
+         CALL_TEST_FUNCTION(*this, "test_transaction", "send_deferred_tx_with_dtt_action", fc::raw::pack(dtt_act3));
 
          // If we make testapi account to be priviledged account:
          // - the deferred transaction will work no matter who is the payer
@@ -2144,10 +2074,8 @@ BOOST_FIXTURE_TEST_CASE(deferred_transaction_tests, TESTER) {
                      "setpriv"_n,
                      config::system_account_name,
                      mutable_variant_object()("account", "testapi")("is_priv", 1));
-         CALL_TEST_FUNCTION(
-            *this, "test_transaction", "send_deferred_tx_with_dtt_action", fc::raw::pack(dtt_act1));
-         CALL_TEST_FUNCTION(
-            *this, "test_transaction", "send_deferred_tx_with_dtt_action", fc::raw::pack(dtt_act2));
+         CALL_TEST_FUNCTION(*this, "test_transaction", "send_deferred_tx_with_dtt_action", fc::raw::pack(dtt_act1));
+         CALL_TEST_FUNCTION(*this, "test_transaction", "send_deferred_tx_with_dtt_action", fc::raw::pack(dtt_act2));
       }
 
       BOOST_REQUIRE_EQUAL(validate(), true);
@@ -2182,12 +2110,11 @@ BOOST_AUTO_TEST_CASE(more_deferred_transaction_tests) {
 
       BOOST_REQUIRE_EQUAL(0, index.size());
 
-      chain.push_action(
-         contract_account,
-         "delayedcall"_n,
-         test_account,
-         fc::mutable_variant_object()("payer", test_account)("sender_id", 0)("contract", contract_account)(
-            "payload", 42)("delay_sec", 1000)("replace_existing", false));
+      chain.push_action(contract_account,
+                        "delayedcall"_n,
+                        test_account,
+                        fc::mutable_variant_object()("payer", test_account)("sender_id", 0)(
+                           "contract", contract_account)("payload", 42)("delay_sec", 1000)("replace_existing", false));
 
       BOOST_REQUIRE_EQUAL(1, index.size());
       print_deferred();
@@ -2209,8 +2136,8 @@ BOOST_AUTO_TEST_CASE(more_deferred_transaction_tests) {
       },
          fc::mutable_variant_object()("payer", test_account)("sender_id", 1)("contract", contract_account)(
             "payload", 42)("delay_sec", 1000)("replace_existing", false)));
-      trx.actions.emplace_back(chain.get_action(
-         contract_account, "fail"_n, vector<permission_level>{}, fc::mutable_variant_object()));
+      trx.actions.emplace_back(
+         chain.get_action(contract_account, "fail"_n, vector<permission_level>{}, fc::mutable_variant_object()));
       chain.set_transaction_headers(trx);
       trx.sign(chain.get_private_key(test_account, "active"), chain.control->get_chain_id());
       BOOST_REQUIRE_EXCEPTION(
@@ -2221,19 +2148,17 @@ BOOST_AUTO_TEST_CASE(more_deferred_transaction_tests) {
 
       chain.produce_blocks(2);
 
-      chain.push_action(
-         contract_account,
-         "delayedcall"_n,
-         test_account,
-         fc::mutable_variant_object()("payer", test_account)("sender_id", 1)("contract", contract_account)(
-            "payload", 101)("delay_sec", 1000)("replace_existing", false));
+      chain.push_action(contract_account,
+                        "delayedcall"_n,
+                        test_account,
+                        fc::mutable_variant_object()("payer", test_account)("sender_id", 1)(
+                           "contract", contract_account)("payload", 101)("delay_sec", 1000)("replace_existing", false));
 
-      chain.push_action(
-         contract_account,
-         "delayedcall"_n,
-         test_account,
-         fc::mutable_variant_object()("payer", test_account)("sender_id", 2)("contract", contract_account)(
-            "payload", 102)("delay_sec", 1000)("replace_existing", false));
+      chain.push_action(contract_account,
+                        "delayedcall"_n,
+                        test_account,
+                        fc::mutable_variant_object()("payer", test_account)("sender_id", 2)(
+                           "contract", contract_account)("payload", 102)("delay_sec", 1000)("replace_existing", false));
 
       BOOST_REQUIRE_EQUAL(3, index.size());
       print_deferred();
@@ -2241,9 +2166,9 @@ BOOST_AUTO_TEST_CASE(more_deferred_transaction_tests) {
       BOOST_REQUIRE_THROW(chain.push_action(contract_account,
                                             "delayedcall"_n,
                                             test_account,
-                                            fc::mutable_variant_object()("payer", test_account)(
-                                               "sender_id", 2)("contract", contract_account)("payload", 101)(
-                                               "delay_sec", 1000)("replace_existing", true)),
+                                            fc::mutable_variant_object()("payer", test_account)("sender_id", 2)(
+                                               "contract", contract_account)("payload", 101)("delay_sec", 1000)(
+                                               "replace_existing", true)),
                           fc::exception);
 
       BOOST_REQUIRE_EQUAL(3, index.size());
@@ -2274,8 +2199,8 @@ BOOST_AUTO_TEST_CASE(more_deferred_transaction_tests) {
       },
          fc::mutable_variant_object()("payer", test_account)("sender_id", 1)("contract", contract_account)(
             "payload", 102)("delay_sec", 1000)("replace_existing", true)));
-      trx2.actions.emplace_back(chain.get_action(
-         contract_account, "fail"_n, vector<permission_level>{}, fc::mutable_variant_object()));
+      trx2.actions.emplace_back(
+         chain.get_action(contract_account, "fail"_n, vector<permission_level>{}, fc::mutable_variant_object()));
       chain.set_transaction_headers(trx2);
       trx2.sign(chain.get_private_key(test_account, "active"), chain.control->get_chain_id());
       BOOST_REQUIRE_EXCEPTION(
@@ -2298,10 +2223,9 @@ BOOST_FIXTURE_TEST_CASE(chain_tests, TESTER) {
 
       create_account("testapi"_n);
 
-      vector<account_name> producers = { "inita"_n, "initb"_n, "initc"_n, "initd"_n, "inite"_n, "initf"_n,
-                                         "initg"_n, "inith"_n, "initi"_n, "initj"_n, "initk"_n, "initl"_n,
-                                         "initm"_n, "initn"_n, "inito"_n, "initp"_n, "initq"_n, "initr"_n,
-                                         "inits"_n, "initt"_n, "initu"_n };
+      vector<account_name> producers = { "inita"_n, "initb"_n, "initc"_n, "initd"_n, "inite"_n, "initf"_n, "initg"_n,
+                                         "inith"_n, "initi"_n, "initj"_n, "initk"_n, "initl"_n, "initm"_n, "initn"_n,
+                                         "inito"_n, "initp"_n, "initq"_n, "initr"_n, "inits"_n, "initt"_n, "initu"_n };
 
       create_accounts(producers);
       set_producers(producers);
@@ -2398,34 +2322,28 @@ BOOST_FIXTURE_TEST_CASE(db_tests, TESTER) {
                             fc_exception_message_is("NaN is not an allowed value for a secondary key"));
 
       // idx_double_nan_lookup_fail
-      BOOST_CHECK_EXCEPTION(push_action("testapi"_n,
-                                        "sdnanlookup"_n,
-                                        "testapi"_n,
-                                        mutable_variant_object()("lookup_type", 0) // 0 for find
-                                        ),
-                            transaction_exception,
-                            fc_exception_message_is("NaN is not an allowed value for a secondary key"));
+      BOOST_CHECK_EXCEPTION(
+         push_action("testapi"_n, "sdnanlookup"_n, "testapi"_n, mutable_variant_object()("lookup_type", 0) // 0 for find
+                     ),
+         transaction_exception,
+         fc_exception_message_is("NaN is not an allowed value for a secondary key"));
 
-      BOOST_CHECK_EXCEPTION(push_action("testapi"_n,
-                                        "sdnanlookup"_n,
-                                        "testapi"_n,
-                                        mutable_variant_object()("lookup_type", 1) // 1 for lower bound
-                                        ),
-                            transaction_exception,
-                            fc_exception_message_is("NaN is not an allowed value for a secondary key"));
+      BOOST_CHECK_EXCEPTION(
+         push_action(
+            "testapi"_n, "sdnanlookup"_n, "testapi"_n, mutable_variant_object()("lookup_type", 1) // 1 for lower bound
+            ),
+         transaction_exception,
+         fc_exception_message_is("NaN is not an allowed value for a secondary key"));
 
-      BOOST_CHECK_EXCEPTION(push_action("testapi"_n,
-                                        "sdnanlookup"_n,
-                                        "testapi"_n,
-                                        mutable_variant_object()("lookup_type", 2) // 2 for upper bound
-                                        ),
-                            transaction_exception,
-                            fc_exception_message_is("NaN is not an allowed value for a secondary key"));
+      BOOST_CHECK_EXCEPTION(
+         push_action(
+            "testapi"_n, "sdnanlookup"_n, "testapi"_n, mutable_variant_object()("lookup_type", 2) // 2 for upper bound
+            ),
+         transaction_exception,
+         fc_exception_message_is("NaN is not an allowed value for a secondary key"));
 
-      push_action("testapi"_n,
-                  "sk32align"_n,
-                  "testapi"_n,
-                  mutable_variant_object()); // misaligned_secondary_key256_tests
+      push_action(
+         "testapi"_n, "sk32align"_n, "testapi"_n, mutable_variant_object()); // misaligned_secondary_key256_tests
 
       BOOST_REQUIRE_EQUAL(validate(), true);
    }
@@ -2515,35 +2433,29 @@ BOOST_FIXTURE_TEST_CASE(multi_index_tests, TESTER) {
       push_action("testapi"_n, "sdg"_n, "testapi"_n, {});        // idx_double_general
       push_action("testapi"_n, "sldg"_n, "testapi"_n, {});       // idx_long_double_general
 
-      check_failure("s1pkend"_n, "cannot increment end iterator"); // idx64_pk_iterator_exceed_end
-      check_failure("s1skend"_n, "cannot increment end iterator"); // idx64_sk_iterator_exceed_end
-      check_failure("s1pkbegin"_n,
-                    "cannot decrement iterator at beginning of table"); // idx64_pk_iterator_exceed_begin
-      check_failure("s1skbegin"_n,
-                    "cannot decrement iterator at beginning of index"); // idx64_sk_iterator_exceed_begin
+      check_failure("s1pkend"_n, "cannot increment end iterator");                     // idx64_pk_iterator_exceed_end
+      check_failure("s1skend"_n, "cannot increment end iterator");                     // idx64_sk_iterator_exceed_end
+      check_failure("s1pkbegin"_n, "cannot decrement iterator at beginning of table"); // idx64_pk_iterator_exceed_begin
+      check_failure("s1skbegin"_n, "cannot decrement iterator at beginning of index"); // idx64_sk_iterator_exceed_begin
       check_failure("s1pkref"_n,
                     "object passed to iterator_to is not in multi_index"); // idx64_pass_pk_ref_to_other_table
       check_failure("s1skref"_n,
                     "object passed to iterator_to is not in multi_index"); // idx64_pass_sk_ref_to_other_table
-      check_failure(
-         "s1pkitrto"_n,
-         "object passed to iterator_to is not in multi_index"); // idx64_pass_pk_end_itr_to_iterator_to
+      check_failure("s1pkitrto"_n,
+                    "object passed to iterator_to is not in multi_index"); // idx64_pass_pk_end_itr_to_iterator_to
       check_failure("s1pkmodify"_n, "cannot pass end iterator to modify"); // idx64_pass_pk_end_itr_to_modify
       check_failure("s1pkerase"_n, "cannot pass end iterator to erase");   // idx64_pass_pk_end_itr_to_erase
-      check_failure(
-         "s1skitrto"_n,
-         "object passed to iterator_to is not in multi_index"); // idx64_pass_sk_end_itr_to_iterator_to
+      check_failure("s1skitrto"_n,
+                    "object passed to iterator_to is not in multi_index"); // idx64_pass_sk_end_itr_to_iterator_to
       check_failure("s1skmodify"_n, "cannot pass end iterator to modify"); // idx64_pass_sk_end_itr_to_modify
       check_failure("s1skerase"_n, "cannot pass end iterator to erase");   // idx64_pass_sk_end_itr_to_erase
       check_failure("s1modpk"_n,
-                    "updater cannot change primary key when modifying an object"); // idx64_modify_primary_key
-      check_failure("s1exhaustpk"_n,
-                    "next primary key in table is at autoincrement limit"); // idx64_run_out_of_avl_pk
-      check_failure("s1findfail1"_n, "unable to find key");                 // idx64_require_find_fail
-      check_failure("s1findfail2"_n,
-                    "unable to find primary key in require_find");    // idx64_require_find_fail_with_msg
-      check_failure("s1findfail3"_n, "unable to find secondary key"); // idx64_require_find_sk_fail
-      check_failure("s1findfail4"_n, "unable to find sec key");       // idx64_require_find_sk_fail_with_msg
+                    "updater cannot change primary key when modifying an object");           // idx64_modify_primary_key
+      check_failure("s1exhaustpk"_n, "next primary key in table is at autoincrement limit"); // idx64_run_out_of_avl_pk
+      check_failure("s1findfail1"_n, "unable to find key");                                  // idx64_require_find_fail
+      check_failure("s1findfail2"_n, "unable to find primary key in require_find"); // idx64_require_find_fail_with_msg
+      check_failure("s1findfail3"_n, "unable to find secondary key");               // idx64_require_find_sk_fail
+      check_failure("s1findfail4"_n, "unable to find sec key"); // idx64_require_find_sk_fail_with_msg
 
       push_action("testapi"_n, "s1skcache"_n, "testapi"_n, {}); // idx64_sk_cache_pk_lookup
       push_action("testapi"_n, "s1pkcache"_n, "testapi"_n, {}); // idx64_pk_cache_sk_lookup
@@ -2590,10 +2502,9 @@ BOOST_FIXTURE_TEST_CASE(crypto_tests, TESTER) {
          // Error Here
          CALL_TEST_FUNCTION(*this, "test_crypto", "test_recover_key_assert_true", payload);
          payload[payload.size() - 1] = 0;
-         BOOST_CHECK_EXCEPTION(
-            CALL_TEST_FUNCTION(*this, "test_crypto", "test_recover_key_assert_false", payload),
-            crypto_api_exception,
-            fc_exception_message_is("Error expected key different than recovered key"));
+         BOOST_CHECK_EXCEPTION(CALL_TEST_FUNCTION(*this, "test_crypto", "test_recover_key_assert_false", payload),
+                               crypto_api_exception,
+                               fc_exception_message_is("Error expected key different than recovered key"));
       }
 
       {
@@ -2605,8 +2516,7 @@ BOOST_FIXTURE_TEST_CASE(crypto_tests, TESTER) {
 
          action act(pl, test_api_action<TEST_METHOD("test_crypto", "test_recover_key_partial")>{});
 
-         // construct a mock WebAuthN pubkey and signature, as it is the only type that would be
-         // variable-sized
+         // construct a mock WebAuthN pubkey and signature, as it is the only type that would be variable-sized
          const auto priv_key = get_private_key<mock::webauthn_private_key>("testapi"_n, "active");
          const auto pub_key  = priv_key.get_public_key();
          auto       hash     = trx.sig_digest(control->get_chain_id());
@@ -2906,8 +2816,7 @@ BOOST_FIXTURE_TEST_CASE(print_tests, TESTER) {
       start = end + 1;
       end   = tx6_act_cnsl.find('\n', start);
       BOOST_CHECK_EQUAL(tx6_act_cnsl.substr(start, end - start),
-                        "-" +
-                           U128Str(static_cast<unsigned __int128>(std::numeric_limits<__int128>::lowest())));
+                        "-" + U128Str(static_cast<unsigned __int128>(std::numeric_limits<__int128>::lowest())));
       start = end + 1;
       end   = tx6_act_cnsl.find('\n', start);
       BOOST_CHECK_EQUAL(tx6_act_cnsl.substr(start, end - start), "-" + U128Str(87654323456));
@@ -3013,9 +2922,9 @@ BOOST_FIXTURE_TEST_CASE(permission_tests, TESTER) {
       produce_blocks(1);
 
       auto get_result_int64 = [&]() -> int64_t {
-         const auto& db   = control->db();
-         const auto* t_id = db.find<table_id_object, by_code_scope_table>(
-            boost::make_tuple("testapi"_n, "testapi"_n, "testapi"_n));
+         const auto& db = control->db();
+         const auto* t_id =
+            db.find<table_id_object, by_code_scope_table>(boost::make_tuple("testapi"_n, "testapi"_n, "testapi"_n));
 
          FC_ASSERT(t_id != 0, "Table id not found");
 
@@ -3033,28 +2942,27 @@ BOOST_FIXTURE_TEST_CASE(permission_tests, TESTER) {
                          "check_authorization",
                          fc::raw::pack(check_auth{ .account    = "testapi"_n,
                                                    .permission = "active"_n,
-                                                   .pubkeys = { get_public_key("testapi"_n, "active") } }));
+                                                   .pubkeys    = { get_public_key("testapi"_n, "active") } }));
       BOOST_CHECK_EQUAL(int64_t(1), get_result_int64());
+
+      CALL_TEST_FUNCTION(*this,
+                         "test_permission",
+                         "check_authorization",
+                         fc::raw::pack(check_auth{ .account    = "testapi"_n,
+                                                   .permission = "active"_n,
+                                                   .pubkeys    = { public_key_type(string(
+                                                      "EOS7GfRtyDWWgxV88a5TRaYY59XmHptyfjsFmHHfioGNJtPjpSmGX")) } }));
+      BOOST_CHECK_EQUAL(int64_t(0), get_result_int64());
 
       CALL_TEST_FUNCTION(
          *this,
          "test_permission",
          "check_authorization",
-         fc::raw::pack(check_auth{ .account    = "testapi"_n,
-                                   .permission = "active"_n,
-                                   .pubkeys    = { public_key_type(
-                                      string("EOS7GfRtyDWWgxV88a5TRaYY59XmHptyfjsFmHHfioGNJtPjpSmGX")) } }));
-      BOOST_CHECK_EQUAL(int64_t(0), get_result_int64());
-
-      CALL_TEST_FUNCTION(*this,
-                         "test_permission",
-                         "check_authorization",
-                         fc::raw::pack(check_auth{
-                            .account    = "testapi"_n,
-                            .permission = "active"_n,
-                            .pubkeys    = {get_public_key("testapi"_n, "active"),
-                                           public_key_type(string(
-                                            "EOS7GfRtyDWWgxV88a5TRaYY59XmHptyfjsFmHHfioGNJtPjpSmGX"))}
+         fc::raw::pack(check_auth{
+            .account    = "testapi"_n,
+            .permission = "active"_n,
+            .pubkeys    = {get_public_key("testapi"_n, "active"),
+                           public_key_type(string("EOS7GfRtyDWWgxV88a5TRaYY59XmHptyfjsFmHHfioGNJtPjpSmGX"))}
       }));
       BOOST_CHECK_EQUAL(int64_t(0), get_result_int64()); // Failure due to irrelevant signatures
 
@@ -3063,14 +2971,13 @@ BOOST_FIXTURE_TEST_CASE(permission_tests, TESTER) {
                          "check_authorization",
                          fc::raw::pack(check_auth{ .account    = "noname"_n,
                                                    .permission = "active"_n,
-                                                   .pubkeys = { get_public_key("testapi"_n, "active") } }));
+                                                   .pubkeys    = { get_public_key("testapi"_n, "active") } }));
       BOOST_CHECK_EQUAL(int64_t(0), get_result_int64());
 
-      CALL_TEST_FUNCTION(
-         *this,
-         "test_permission",
-         "check_authorization",
-         fc::raw::pack(check_auth{ .account = "testapi"_n, .permission = "active"_n, .pubkeys = {} }));
+      CALL_TEST_FUNCTION(*this,
+                         "test_permission",
+                         "check_authorization",
+                         fc::raw::pack(check_auth{ .account = "testapi"_n, .permission = "active"_n, .pubkeys = {} }));
       BOOST_CHECK_EQUAL(int64_t(0), get_result_int64());
 
       CALL_TEST_FUNCTION(*this,
@@ -3078,7 +2985,7 @@ BOOST_FIXTURE_TEST_CASE(permission_tests, TESTER) {
                          "check_authorization",
                          fc::raw::pack(check_auth{ .account    = "testapi"_n,
                                                    .permission = "noname"_n,
-                                                   .pubkeys = { get_public_key("testapi"_n, "active") } }));
+                                                   .pubkeys    = { get_public_key("testapi"_n, "active") } }));
       BOOST_CHECK_EQUAL(int64_t(0), get_result_int64());
    }
    FC_LOG_AND_RETHROW()
@@ -3154,8 +3061,7 @@ static const char get_resource_limits_null_cpu_wast[] = R"=====(
 BOOST_FIXTURE_TEST_CASE(resource_limits_tests, TESTER) {
    create_accounts({ "rlimits"_n, "testacnt"_n });
    set_code("rlimits"_n, resource_limits_wast);
-   push_action(
-      "eosio"_n, "setpriv"_n, "eosio"_n, mutable_variant_object()("account", "rlimits"_n)("is_priv", 1));
+   push_action("eosio"_n, "setpriv"_n, "eosio"_n, mutable_variant_object()("account", "rlimits"_n)("is_priv", 1));
    produce_block();
 
    auto pushit = [&] {
@@ -3298,11 +3204,11 @@ BOOST_FIXTURE_TEST_CASE(permission_usage_tests, TESTER) {
 
       set_authority("bob"_n, "perm1"_n, authority(get_private_key("bob"_n, "perm1").get_public_key()));
 
-      push_action(config::system_account_name,
-                  linkauth::get_name(),
-                  "bob"_n,
-                  fc::mutable_variant_object()("account", "bob")("code", "eosio")("type", "reqauth")(
-                     "requirement", "perm1"));
+      push_action(
+         config::system_account_name,
+         linkauth::get_name(),
+         "bob"_n,
+         fc::mutable_variant_object()("account", "bob")("code", "eosio")("type", "reqauth")("requirement", "perm1"));
 
       auto permission_creation_time = control->pending_block_time();
 
@@ -3324,11 +3230,11 @@ BOOST_FIXTURE_TEST_CASE(permission_usage_tests, TESTER) {
 
       auto perm1_last_used_time = control->pending_block_time();
 
-      CALL_TEST_FUNCTION(*this,
-                         "test_permission",
-                         "test_permission_last_used",
-                         fc::raw::pack(test_permission_last_used_action{
-                            "bob"_n, config::active_name, permission_creation_time }));
+      CALL_TEST_FUNCTION(
+         *this,
+         "test_permission",
+         "test_permission_last_used",
+         fc::raw::pack(test_permission_last_used_action{ "bob"_n, config::active_name, permission_creation_time }));
 
       BOOST_CHECK_THROW(CALL_TEST_FUNCTION(*this,
                                            "test_permission",
@@ -3337,11 +3243,10 @@ BOOST_FIXTURE_TEST_CASE(permission_usage_tests, TESTER) {
                                               "bob"_n, "perm1"_n, permission_creation_time })),
                         eosio_assert_message_exception);
 
-      CALL_TEST_FUNCTION(
-         *this,
-         "test_permission",
-         "test_permission_last_used",
-         fc::raw::pack(test_permission_last_used_action{ "bob"_n, "perm1"_n, perm1_last_used_time }));
+      CALL_TEST_FUNCTION(*this,
+                         "test_permission",
+                         "test_permission_last_used",
+                         fc::raw::pack(test_permission_last_used_action{ "bob"_n, "perm1"_n, perm1_last_used_time }));
 
       produce_block();
 
@@ -3366,11 +3271,11 @@ BOOST_FIXTURE_TEST_CASE(account_creation_time_tests, TESTER) {
 
       produce_blocks(10);
 
-      CALL_TEST_FUNCTION(*this,
-                         "test_permission",
-                         "test_account_creation_time",
-                         fc::raw::pack(test_permission_last_used_action{
-                            "alice"_n, config::active_name, alice_creation_time }));
+      CALL_TEST_FUNCTION(
+         *this,
+         "test_permission",
+         "test_account_creation_time",
+         fc::raw::pack(test_permission_last_used_action{ "alice"_n, config::active_name, alice_creation_time }));
 
       produce_block();
 
@@ -3449,13 +3354,11 @@ BOOST_FIXTURE_TEST_CASE(eosio_assert_code_tests, TESTER) {
 
       produce_blocks(10);
 
-      BOOST_CHECK_EXCEPTION(
-         CALL_TEST_FUNCTION(*this, "test_action", "test_assert_code", fc::raw::pack((uint64_t)42)),
-         eosio_assert_code_exception,
-         eosio_assert_code_is(42));
+      BOOST_CHECK_EXCEPTION(CALL_TEST_FUNCTION(*this, "test_action", "test_assert_code", fc::raw::pack((uint64_t)42)),
+                            eosio_assert_code_exception,
+                            eosio_assert_code_is(42));
 
-      auto trace =
-         CALL_TEST_FUNCTION_NO_THROW(*this, "test_action", "test_assert_code", fc::raw::pack((uint64_t)42));
+      auto trace = CALL_TEST_FUNCTION_NO_THROW(*this, "test_action", "test_assert_code", fc::raw::pack((uint64_t)42));
       BOOST_REQUIRE(trace);
       BOOST_REQUIRE(trace->except);
       BOOST_REQUIRE(trace->error_code);
@@ -3480,11 +3383,11 @@ BOOST_FIXTURE_TEST_CASE(eosio_assert_code_tests, TESTER) {
 
       produce_block();
 
-      auto trace2 = CALL_TEST_FUNCTION_NO_THROW(
-         *this,
-         "test_action",
-         "test_assert_code",
-         fc::raw::pack(static_cast<uint64_t>(system_error_code::generic_system_error)));
+      auto trace2 =
+         CALL_TEST_FUNCTION_NO_THROW(*this,
+                                     "test_action",
+                                     "test_assert_code",
+                                     fc::raw::pack(static_cast<uint64_t>(system_error_code::generic_system_error)));
       BOOST_REQUIRE(trace2);
       BOOST_REQUIRE(trace2->except);
       BOOST_REQUIRE(trace2->error_code);
@@ -3527,34 +3430,33 @@ BOOST_FIXTURE_TEST_CASE(action_ordinal_test, TESTER) {
       produce_blocks(1);
 
       // prove act digest
-      auto pad =
-         [](const digest_type& expected_act_digest, const action& act, const vector<char>& act_output) {
-            std::vector<char> buf1;
-            buf1.resize(64);
-            datastream<char*> ds(buf1.data(), buf1.size());
+      auto pad = [](const digest_type& expected_act_digest, const action& act, const vector<char>& act_output) {
+         std::vector<char> buf1;
+         buf1.resize(64);
+         datastream<char*> ds(buf1.data(), buf1.size());
 
-            {
-               std::vector<char>  buf2;
-               const action_base* act_base = &act;
-               buf2.resize(fc::raw::pack_size(*act_base));
-               datastream<char*> ds2(buf2.data(), buf2.size());
-               fc::raw::pack(ds2, *act_base);
-               fc::raw::pack(ds, sha256::hash(buf2.data(), buf2.size()));
-            }
+         {
+            std::vector<char>  buf2;
+            const action_base* act_base = &act;
+            buf2.resize(fc::raw::pack_size(*act_base));
+            datastream<char*> ds2(buf2.data(), buf2.size());
+            fc::raw::pack(ds2, *act_base);
+            fc::raw::pack(ds, sha256::hash(buf2.data(), buf2.size()));
+         }
 
-            {
-               std::vector<char> buf2;
-               buf2.resize(fc::raw::pack_size(act.data) + fc::raw::pack_size(act_output));
-               datastream<char*> ds2(buf2.data(), buf2.size());
-               fc::raw::pack(ds2, act.data);
-               fc::raw::pack(ds2, act_output);
-               fc::raw::pack(ds, sha256::hash(buf2.data(), buf2.size()));
-            }
+         {
+            std::vector<char> buf2;
+            buf2.resize(fc::raw::pack_size(act.data) + fc::raw::pack_size(act_output));
+            datastream<char*> ds2(buf2.data(), buf2.size());
+            fc::raw::pack(ds2, act.data);
+            fc::raw::pack(ds2, act_output);
+            fc::raw::pack(ds, sha256::hash(buf2.data(), buf2.size()));
+         }
 
-            digest_type computed_act_digest = sha256::hash(buf1.data(), ds.tellp());
+         digest_type computed_act_digest = sha256::hash(buf1.data(), ds.tellp());
 
-            return expected_act_digest == computed_act_digest;
-         };
+         return expected_act_digest == computed_act_digest;
+      };
 
       transaction_trace_ptr txn_trace = CALL_TEST_FUNCTION_SCOPE(
          *this, "test_action", "test_action_ordinal1", {}, vector<account_name>{ "testapi"_n });
@@ -3714,8 +3616,7 @@ BOOST_FIXTURE_TEST_CASE(action_ordinal_failtest1, TESTER) {
       create_account("fail1"_n); // <- make first action fails in the middle
       produce_blocks(1);
 
-      transaction_trace_ptr txn_trace =
-         CALL_TEST_FUNCTION_NO_THROW(*this, "test_action", "test_action_ordinal1", {});
+      transaction_trace_ptr txn_trace = CALL_TEST_FUNCTION_NO_THROW(*this, "test_action", "test_action_ordinal1", {});
 
       BOOST_REQUIRE_EQUAL(validate(), true);
 
@@ -3784,8 +3685,7 @@ BOOST_FIXTURE_TEST_CASE(action_ordinal_failtest2, TESTER) {
       create_account("fail3"_n); // <- make action 3 fails in the middle
       produce_blocks(1);
 
-      transaction_trace_ptr txn_trace =
-         CALL_TEST_FUNCTION_NO_THROW(*this, "test_action", "test_action_ordinal1", {});
+      transaction_trace_ptr txn_trace = CALL_TEST_FUNCTION_NO_THROW(*this, "test_action", "test_action_ordinal1", {});
 
       BOOST_REQUIRE_EQUAL(validate(), true);
 
@@ -3907,8 +3807,7 @@ BOOST_FIXTURE_TEST_CASE(action_ordinal_failtest3, TESTER) {
       create_account("failnine"_n); // <- make action 9 fails in the middle
       produce_blocks(1);
 
-      transaction_trace_ptr txn_trace =
-         CALL_TEST_FUNCTION_NO_THROW(*this, "test_action", "test_action_ordinal1", {});
+      transaction_trace_ptr txn_trace = CALL_TEST_FUNCTION_NO_THROW(*this, "test_action", "test_action_ordinal1", {});
 
       BOOST_REQUIRE_EQUAL(validate(), true);
 
@@ -4084,8 +3983,7 @@ BOOST_AUTO_TEST_CASE(action_results_tests) {
          vector<char> expected_vec(256 - 2, '0'); // 2 bytes for size of type unsigned_int
          vector<char> ret_vec = fc::raw::unpack<vector<char>>(atrace[0].return_value);
 
-         BOOST_REQUIRE_EQUAL_COLLECTIONS(
-            ret_vec.begin(), ret_vec.end(), expected_vec.begin(), expected_vec.end());
+         BOOST_REQUIRE_EQUAL_COLLECTIONS(ret_vec.begin(), ret_vec.end(), expected_vec.begin(), expected_vec.end());
       });
 
       t.produce_blocks(1);
@@ -4114,10 +4012,9 @@ BOOST_AUTO_TEST_CASE(action_results_tests) {
                                                                    expected_vec.end());
                                 });
       t.produce_blocks(1);
-      BOOST_REQUIRE_THROW(
-         call_autoresret_and_check(
-            config::system_account_name, config::system_account_name, "setliminv"_n, [&](auto res) {}),
-         action_validate_exception);
+      BOOST_REQUIRE_THROW(call_autoresret_and_check(
+                             config::system_account_name, config::system_account_name, "setliminv"_n, [&](auto res) {}),
+                          action_validate_exception);
    }
    FC_LOG_AND_RETHROW()
 }

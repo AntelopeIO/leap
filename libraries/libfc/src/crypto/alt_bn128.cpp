@@ -216,8 +216,7 @@ std::variant<alt_bn128_error, bool> alt_bn128_pair(const bytes& g1_g2_pairs, con
          continue;
       }
 
-      accumulator =
-         accumulator * alt_bn128_miller_loop(alt_bn128_precompute_G1(a), alt_bn128_precompute_G2(b));
+      accumulator = accumulator * alt_bn128_miller_loop(alt_bn128_precompute_G1(a), alt_bn128_precompute_G2(b));
       yield();
    }
 

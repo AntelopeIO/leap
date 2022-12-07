@@ -37,11 +37,9 @@ struct add_file_system_fixture {
 
    bool is_threshold_exceeded() { return space_handler.is_threshold_exceeded(); }
 
-   void test_add_file_systems_common(std::vector<int>& capacity,
-                                     std::vector<int>& available,
-                                     std::vector<int>& devs) {
-      mock_get_space = [i = 0, capacity, available](
-                          const bfs::path& p, boost::system::error_code& ec) mutable -> bfs::space_info {
+   void test_add_file_systems_common(std::vector<int>& capacity, std::vector<int>& available, std::vector<int>& devs) {
+      mock_get_space = [i = 0, capacity, available](const bfs::path&           p,
+                                                    boost::system::error_code& ec) mutable -> bfs::space_info {
          ec = boost::system::errc::make_error_code(errc::success);
 
          bfs::space_info rc;

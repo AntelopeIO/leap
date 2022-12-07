@@ -33,10 +33,7 @@ Function::Function(const char* inName, const IR::FunctionType* type, void* nativ
 }
 
 Function::~Function() {
-   {
-      Singleton::get().functionMap.erase(
-         Singleton::get().functionMap.find(getDecoratedName(name, function->type)));
-   }
+   { Singleton::get().functionMap.erase(Singleton::get().functionMap.find(getDecoratedName(name, function->type))); }
    delete function;
 }
 
@@ -46,8 +43,7 @@ Runtime::ObjectInstance* find(const std::string& name, const IR::ObjectType& typ
    switch (type.kind) {
       case IR::ObjectKind::function: {
          auto keyValue = Singleton::get().functionMap.find(decoratedName);
-         result        = keyValue == Singleton::get().functionMap.end() ? nullptr
-                                                                        : asObject(keyValue->second->function);
+         result = keyValue == Singleton::get().functionMap.end() ? nullptr : asObject(keyValue->second->function);
          break;
       }
       case IR::ObjectKind::table: {

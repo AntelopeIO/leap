@@ -16,8 +16,7 @@ public:
 
    [[eosio::action]] void notifydefer(eosio::name acctonotify, eosio::name authorizer, uint32_t senderid);
 
-   [[eosio::on_notify("testacc::notifyinline")]] void on_notify_inline(eosio::name acctonotify,
-                                                                       eosio::name authorizer);
+   [[eosio::on_notify("testacc::notifyinline")]] void on_notify_inline(eosio::name acctonotify, eosio::name authorizer);
 
    [[eosio::on_notify("testacc::notifydefer")]] void on_notify_defer(eosio::name acctonotify,
                                                                      eosio::name authorizer,

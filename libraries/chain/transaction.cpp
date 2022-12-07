@@ -75,11 +75,11 @@ fc::microseconds transaction::get_signature_keys(const vector<signature_type>& s
                     "transaction signature verification executed for too long ${time}us",
                     ("time", now - start)("now", now)("deadline", deadline)("start", start));
          auto [itr, successful_insertion] = recovered_pub_keys.emplace(sig, digest);
-         EOS_ASSERT(allow_duplicate_keys || successful_insertion,
-                    tx_duplicate_sig,
-                    "transaction includes more than one signature signed using the same key associated with "
-                    "public key: ${key}",
-                    ("key", *itr));
+         EOS_ASSERT(
+            allow_duplicate_keys || successful_insertion,
+            tx_duplicate_sig,
+            "transaction includes more than one signature signed using the same key associated with public key: ${key}",
+            ("key", *itr));
       }
 
       return fc::time_point::now() - start;
@@ -102,14 +102,11 @@ flat_multimap<uint16_t, transaction_extension> transaction::validate_and_extract
                  invalid_transaction_extension,
                  "Transaction extensions are not in the correct order (ascending id types required)");
 
-      auto iter =
-         results.emplace(std::piecewise_construct, std::forward_as_tuple(id), std::forward_as_tuple());
+      auto iter = results.emplace(std::piecewise_construct, std::forward_as_tuple(id), std::forward_as_tuple());
 
       auto match = decompose_t::extract<transaction_extension>(id, e.second, iter->second);
-      EOS_ASSERT(match,
-                 invalid_transaction_extension,
-                 "Transaction extension with id type ${id} is not supported",
-                 ("id", id));
+      EOS_ASSERT(
+         match, invalid_transaction_extension, "Transaction extension with id type ${id} is not supported", ("id", id));
 
       if (match->enforce_unique) {
          EOS_ASSERT(i == 0 || id > id_type_lower_bound,
@@ -136,7 +133,7 @@ signature_type signed_transaction::sign(const private_key_type& key, const chain
 fc::microseconds signed_transaction::get_signature_keys(const chain_id_type&       chain_id,
                                                         fc::time_point             deadline,
                                                         flat_set<public_key_type>& recovered_pub_keys,
-                                                        bool allow_duplicate_keys) const {
+                                                        bool                       allow_duplicate_keys) const {
    return transaction::get_signature_keys(
       signatures, chain_id, deadline, context_free_data, recovered_pub_keys, allow_duplicate_keys);
 }
@@ -157,10 +154,10 @@ uint32_t packed_transaction::get_prunable_size() const {
 
 size_t packed_transaction::get_estimated_size() const {
    // transaction is stored packed (only transaction minus signed_transaction members) and unpacked
-   // (signed_transaction), double packed size, packed cfd size, and signature size to account for
-   // signed_transaction unpacked_trx size
-   return sizeof(*this) + (signatures.size() * sizeof(signature_type)) * 2 +
-          packed_context_free_data.size() * 2 + packed_trx.size() * 2;
+   // (signed_transaction), double packed size, packed cfd size, and signature size to account for signed_transaction
+   // unpacked_trx size
+   return sizeof(*this) + (signatures.size() * sizeof(signature_type)) * 2 + packed_context_free_data.size() * 2 +
+          packed_trx.size() * 2;
 }
 
 digest_type packed_transaction::packed_digest() const {
@@ -185,8 +182,7 @@ struct read_limiter {
 
    template<typename Sink>
    size_t write(Sink& sink, const char* s, size_t count) {
-      EOS_ASSERT(
-         _total + count <= Limit, tx_decompression_error, "Exceeded maximum decompressed transaction size");
+      EOS_ASSERT(_total + count <= Limit, tx_decompression_error, "Exceeded maximum decompressed transaction size");
       _total += count;
       return bio::write(sink, s, count);
    }
@@ -218,8 +214,7 @@ static bytes zlib_decompress(const bytes& data) {
    } catch (fc::exception& er) {
       throw;
    } catch (...) {
-      fc::unhandled_exception er(FC_LOG_MESSAGE(warn, "internal decompression error"),
-                                 std::current_exception());
+      fc::unhandled_exception er(FC_LOG_MESSAGE(warn, "internal decompression error"), std::current_exception());
       throw er;
    }
 }
@@ -327,13 +322,11 @@ packed_transaction::packed_transaction(transaction&&            t,
 }
 
 void packed_transaction::reflector_init() {
-   // called after construction, but always on the same thread and before packed_transaction passed to any
-   // other threads
+   // called after construction, but always on the same thread and before packed_transaction passed to any other threads
    static_assert(fc::raw::has_feature_reflector_init_on_unpacked_reflected_types,
                  "FC unpack needs to call reflector_init otherwise unpacked_trx will not be initialized");
-   EOS_ASSERT(unpacked_trx.expiration == time_point_sec(),
-              tx_decompression_error,
-              "packed_transaction already unpacked");
+   EOS_ASSERT(
+      unpacked_trx.expiration == time_point_sec(), tx_decompression_error, "packed_transaction already unpacked");
    local_unpack_transaction({});
    local_unpack_context_free_data();
 }
@@ -342,12 +335,11 @@ void packed_transaction::local_unpack_transaction(vector<bytes>&& context_free_d
    try {
       switch (compression) {
          case compression_type::none:
-            unpacked_trx =
-               signed_transaction(unpack_transaction(packed_trx), signatures, std::move(context_free_data));
+            unpacked_trx = signed_transaction(unpack_transaction(packed_trx), signatures, std::move(context_free_data));
             break;
          case compression_type::zlib:
-            unpacked_trx = signed_transaction(
-               zlib_decompress_transaction(packed_trx), signatures, std::move(context_free_data));
+            unpacked_trx =
+               signed_transaction(zlib_decompress_transaction(packed_trx), signatures, std::move(context_free_data));
             break;
          default: EOS_THROW(unknown_transaction_compression, "Unknown transaction compression algorithm");
       }

@@ -34,14 +34,12 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(test_snapshot_information, SNAPSHOT_SUITE, snapsho
    chain.produce_blocks(1);
 
    auto block = chain.produce_block();
-   BOOST_REQUIRE_EQUAL(block->block_num(),
-                       6); // ensure that test setup stays consistent with original snapshot setup
+   BOOST_REQUIRE_EQUAL(block->block_num(), 6); // ensure that test setup stays consistent with original snapshot setup
    // undo the auto-pending from tester
    chain.control->abort_block();
 
    auto block2 = chain.produce_block();
-   BOOST_REQUIRE_EQUAL(block2->block_num(),
-                       7); // ensure that test setup stays consistent with original snapshot setup
+   BOOST_REQUIRE_EQUAL(block2->block_num(), 7); // ensure that test setup stays consistent with original snapshot setup
    // undo the auto-pending from tester
    chain.control->abort_block();
 

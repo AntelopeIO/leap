@@ -15,8 +15,8 @@ time_point time_point::now() {
    if (UNLIKELY(mock_time_traits::is_set())) {
       return mock_time_traits::fc_now();
    }
-   return time_point(microseconds(
-      bch::duration_cast<bch::microseconds>(bch::system_clock::now().time_since_epoch()).count()));
+   return time_point(
+      microseconds(bch::duration_cast<bch::microseconds>(bch::system_clock::now().time_since_epoch()).count()));
 }
 
 fc::string time_point_sec::to_non_delimited_iso_string() const {
@@ -92,10 +92,9 @@ void from_variant(const fc::variant& v, fc::time_point_sec& t) {
 }
 
 // inspired by show_date_relative() in git's date.c
-string get_approximate_relative_time_string(
-   const time_point_sec& event_time,
-   const time_point_sec& relative_to_time /* = fc::time_point::now() */,
-   const std::string&    default_ago /* = " ago" */) {
+string get_approximate_relative_time_string(const time_point_sec& event_time,
+                                            const time_point_sec& relative_to_time /* = fc::time_point::now() */,
+                                            const std::string&    default_ago /* = " ago" */) {
 
    string  ago         = default_ago;
    int32_t seconds_ago = relative_to_time.sec_since_epoch() - event_time.sec_since_epoch();
@@ -147,8 +146,7 @@ string get_approximate_relative_time_string(
 string get_approximate_relative_time_string(const time_point&  event_time,
                                             const time_point&  relative_to_time /* = fc::time_point::now() */,
                                             const std::string& ago /* = " ago" */) {
-   return get_approximate_relative_time_string(
-      time_point_sec(event_time), time_point_sec(relative_to_time), ago);
+   return get_approximate_relative_time_string(time_point_sec(event_time), time_point_sec(relative_to_time), ago);
 }
 
 void to_variant(const microseconds& input_microseconds, variant& output_variant) {

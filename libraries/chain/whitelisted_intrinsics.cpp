@@ -27,8 +27,9 @@ whitelisted_intrinsics_type::iterator find_intrinsic(whitelisted_intrinsics_type
    return itr;
 }
 
-whitelisted_intrinsics_type::const_iterator
-find_intrinsic(const whitelisted_intrinsics_type& whitelisted_intrinsics, uint64_t h, std::string_view name) {
+whitelisted_intrinsics_type::const_iterator find_intrinsic(const whitelisted_intrinsics_type& whitelisted_intrinsics,
+                                                           uint64_t                           h,
+                                                           std::string_view                   name) {
    auto       itr = whitelisted_intrinsics.lower_bound(h);
    const auto end = whitelisted_intrinsics.end();
 
@@ -38,8 +39,7 @@ find_intrinsic(const whitelisted_intrinsics_type& whitelisted_intrinsics, uint64
    return itr;
 }
 
-bool is_intrinsic_whitelisted(const whitelisted_intrinsics_type& whitelisted_intrinsics,
-                              std::string_view                   name) {
+bool is_intrinsic_whitelisted(const whitelisted_intrinsics_type& whitelisted_intrinsics, std::string_view name) {
    uint64_t   h   = static_cast<uint64_t>(std::hash<std::string_view>{}(name));
    auto       itr = whitelisted_intrinsics.lower_bound(h);
    const auto end = whitelisted_intrinsics.end();
@@ -61,8 +61,7 @@ void add_intrinsic_to_whitelist(whitelisted_intrinsics_type& whitelisted_intrins
       std::forward_as_tuple(name.data(), name.size(), whitelisted_intrinsics.get_allocator()));
 }
 
-void remove_intrinsic_from_whitelist(whitelisted_intrinsics_type& whitelisted_intrinsics,
-                                     std::string_view             name) {
+void remove_intrinsic_from_whitelist(whitelisted_intrinsics_type& whitelisted_intrinsics, std::string_view name) {
    uint64_t h   = static_cast<uint64_t>(std::hash<std::string_view>{}(name));
    auto     itr = find_intrinsic(whitelisted_intrinsics, h, name);
    EOS_ASSERT(itr != whitelisted_intrinsics.end(),
@@ -73,8 +72,7 @@ void remove_intrinsic_from_whitelist(whitelisted_intrinsics_type& whitelisted_in
    whitelisted_intrinsics.erase(itr);
 }
 
-void reset_intrinsic_whitelist(whitelisted_intrinsics_type& whitelisted_intrinsics,
-                               const std::set<std::string>& s) {
+void reset_intrinsic_whitelist(whitelisted_intrinsics_type& whitelisted_intrinsics, const std::set<std::string>& s) {
    whitelisted_intrinsics.clear();
 
    for (const auto& name : s) {
@@ -86,8 +84,7 @@ void reset_intrinsic_whitelist(whitelisted_intrinsics_type& whitelisted_intrinsi
    }
 }
 
-std::set<std::string> convert_intrinsic_whitelist_to_set(
-   const whitelisted_intrinsics_type& whitelisted_intrinsics) {
+std::set<std::string> convert_intrinsic_whitelist_to_set(const whitelisted_intrinsics_type& whitelisted_intrinsics) {
    std::set<std::string> s;
 
    for (const auto& p : whitelisted_intrinsics) {

@@ -22,8 +22,8 @@ BOOST_AUTO_TEST_CASE(undo_test) {
    try {
       TESTER test;
 
-      // Bypass read-only restriction on state DB access for this unit test which really needs to mutate the
-      // DB to properly conduct its test.
+      // Bypass read-only restriction on state DB access for this unit test which really needs to mutate the DB to
+      // properly conduct its test.
       eosio::chain::database& db = const_cast<eosio::chain::database&>(test.control->db());
 
       auto ses = db.start_undo_session(true);
@@ -60,8 +60,8 @@ BOOST_AUTO_TEST_CASE(get_blocks) {
          BOOST_TEST(test.control->fetch_block_by_number(i + 1)->calculate_id() == block_ids.back());
       }
 
-      // Check the last irreversible block number is set correctly, with one producer, irreversibility should
-      // only just 1 block before
+      // Check the last irreversible block number is set correctly, with one producer, irreversibility should only just
+      // 1 block before
       const auto expected_last_irreversible_block_number = test.control->head_block_num() - 1;
       BOOST_TEST(test.control->head_block_state()->dpos_irreversible_blocknum ==
                  expected_last_irreversible_block_number);

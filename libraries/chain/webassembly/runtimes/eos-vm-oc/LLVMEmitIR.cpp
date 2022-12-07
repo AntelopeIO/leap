@@ -6,22 +6,22 @@ subject the following:
 Copyright (c) 2016-2019, Andrew Scheidecker
 All rights reserved.
 
-Redistribution and use in source and binary forms, with or without modification, are permitted provided that
-the following conditions are met:
-* Redistributions of source code must retain the above copyright notice, this list of conditions and the
-following disclaimer.
-* Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the
-following disclaimer in the documentation and/or other materials provided with the distribution.
-* Neither the name of WAVM nor the names of its contributors may be used to endorse or promote products
-derived from this software without specific prior written permission.
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the
+following conditions are met:
+* Redistributions of source code must retain the above copyright notice, this list of conditions and the following
+disclaimer.
+* Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following
+disclaimer in the documentation and/or other materials provided with the distribution.
+* Neither the name of WAVM nor the names of its contributors may be used to endorse or promote products derived from
+this software without specific prior written permission.
 
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
-WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
-PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL <COPYRIGHT HOLDER> BE LIABLE FOR ANY DIRECT, INDIRECT,
-INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
-ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES,
+INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL <COPYRIGHT HOLDER> BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.
 */
 
 #include "LLVMJIT.h"
@@ -317,17 +317,15 @@ struct EmitFunctionContext {
    llvm::Value* coerceI32ToBool(llvm::Value* i32Value) {
       return irBuilder.CreateICmpNE(i32Value, typedZeroConstants[(Uptr)ValueType::i32]);
    }
-   llvm::Value* coerceBoolToI32(llvm::Value* boolValue) {
-      return irBuilder.CreateZExt(boolValue, llvmI32Type);
-   }
+   llvm::Value* coerceBoolToI32(llvm::Value* boolValue) { return irBuilder.CreateZExt(boolValue, llvmI32Type); }
 
    // Bounds checks and converts a memory operation I32 address operand to a LLVM pointer.
    llvm::Value* coerceByteIndexToPointer(llvm::Value* byteIndex, U32 offset, llvm::Type* memoryType) {
 
       // On a 64 bit runtime, if the address is 32-bits, zext it to 64-bits.
-      // This is crucial for security, as LLVM will otherwise implicitly sign extend it to 64-bits in the GEP
-      // below, interpreting it as a signed offset and allowing access to memory outside the sandboxed memory
-      // range. There are no 'far addresses' in a 32 bit runtime.
+      // This is crucial for security, as LLVM will otherwise implicitly sign extend it to 64-bits in the GEP below,
+      // interpreting it as a signed offset and allowing access to memory outside the sandboxed memory range.
+      // There are no 'far addresses' in a 32 bit runtime.
       byteIndex = irBuilder.CreateZExt(byteIndex, llvmI64Type);
 
       // Add the offset to the byte index.
@@ -356,16 +354,14 @@ struct EmitFunctionContext {
             irBuilder.CreateAnd(
                irBuilder.CreateICmpEQ(
                   left, type == ValueType::i32 ? emitLiteral((U32)INT32_MIN) : emitLiteral((U64)INT64_MIN)),
-               irBuilder.CreateICmpEQ(right,
-                                      type == ValueType::i32 ? emitLiteral((U32)-1) : emitLiteral((U64)-1))),
+               irBuilder.CreateICmpEQ(right, type == ValueType::i32 ? emitLiteral((U32)-1) : emitLiteral((U64)-1))),
             irBuilder.CreateICmpEQ(right, typedZeroConstants[(Uptr)type])),
          "eosvmoc_internal.div0_or_overflow",
          FunctionType::get(),
          {});
    }
 
-   // llvm11 removed inferring the function type automatically, plumb CreateCalls through here as done for 10
-   // & earlier
+   // llvm11 removed inferring the function type automatically, plumb CreateCalls through here as done for 10 & earlier
    llvm::CallInst* createCall(llvm::Value* Callee, llvm::ArrayRef<llvm::Value*> Args) {
       auto* PTy = llvm::cast<llvm::PointerType>(Callee->getType());
       auto* FTy = llvm::cast<llvm::FunctionType>(PTy->getElementType());
@@ -381,10 +377,9 @@ struct EmitFunctionContext {
    llvm::Value* emitRuntimeIntrinsic(const char*                                intrinsicName,
                                      const FunctionType*                        intrinsicType,
                                      const std::initializer_list<llvm::Value*>& args) {
-      const eosio::chain::eosvmoc::intrinsic_entry& ie =
-         eosio::chain::eosvmoc::get_intrinsic_map().at(intrinsicName);
-      llvm::Value* ic  = irBuilder.CreateLoad(emitLiteralPointer(
-         (void*)(OFFSET_OF_FIRST_INTRINSIC - ie.ordinal * 8), llvmI64Type->getPointerTo(256)));
+      const eosio::chain::eosvmoc::intrinsic_entry& ie = eosio::chain::eosvmoc::get_intrinsic_map().at(intrinsicName);
+      llvm::Value*                                  ic = irBuilder.CreateLoad(
+         emitLiteralPointer((void*)(OFFSET_OF_FIRST_INTRINSIC - ie.ordinal * 8), llvmI64Type->getPointerTo(256)));
       llvm::Value* itp = irBuilder.CreateIntToPtr(ic, asLLVMType(ie.type)->getPointerTo());
       return createCall(itp, llvm::ArrayRef<llvm::Value*>(args.begin(), args.end()));
    }
@@ -427,15 +422,8 @@ struct EmitFunctionContext {
          errorUnless(controlStack.back().isReachable);
       }
 
-      controlStack.push_back({ type,
-                               endBlock,
-                               endPHI,
-                               elseBlock,
-                               resultType,
-                               stack.size(),
-                               branchTargetStack.size(),
-                               true,
-                               true });
+      controlStack.push_back(
+         { type, endBlock, endPHI, elseBlock, resultType, stack.size(), branchTargetStack.size(), true, true });
    }
 
    void pushBranchTarget(ResultType        branchArgumentType,
@@ -578,15 +566,15 @@ struct EmitFunctionContext {
       return branchTargetStack[branchTargetStack.size() - depth - 1];
    }
 
-   // This is called after unconditional control flow to indicate that operators following it are unreachable
-   // until the control stack is popped.
+   // This is called after unconditional control flow to indicate that operators following it are unreachable until the
+   // control stack is popped.
    void enterUnreachable() {
       // Unwind the operand stack to the outer control context.
       WAVM_ASSERT_THROW(controlStack.back().outerStackSize <= stack.size());
       stack.resize(controlStack.back().outerStackSize);
 
-      // Mark the current control context as unreachable: this will cause the outer loop to stop dispatching
-      // operators to us until an else/end for the current control context is reached.
+      // Mark the current control context as unreachable: this will cause the outer loop to stop dispatching operators
+      // to us until an else/end for the current control context is reached.
       controlStack.back().isReachable = false;
    }
 
@@ -596,8 +584,7 @@ struct EmitFunctionContext {
 
       BranchTarget& target = getBranchTargetByDepth(imm.targetDepth);
       if (target.argumentType != ResultType::none) {
-         // Use the stack top as the branch argument (don't pop it) and add it to the target phi's incoming
-         // values.
+         // Use the stack top as the branch argument (don't pop it) and add it to the target phi's incoming values.
          llvm::Value* argument = getTopValue();
          target.phi->addIncoming(argument, irBuilder.GetInsertBlock());
       }
@@ -780,8 +767,7 @@ struct EmitFunctionContext {
             (void*)OFFSET_OF_CONTROL_BLOCK_MEMBER(running_code_base), llvmI64Type->getPointerTo(256)));
          llvm::Value* offset_from_start  = irBuilder.CreateAdd(running_code_start, functionInfo);
          llvm::Value* ptr_cast           = irBuilder.CreateIntToPtr(offset_from_start, functionPointerType);
-         auto         result =
-            createCall(ptr_cast, llvm::ArrayRef<llvm::Value*>(llvmArgs, calleeType->parameters.size()));
+         auto result = createCall(ptr_cast, llvm::ArrayRef<llvm::Value*>(llvmArgs, calleeType->parameters.size()));
 
          // Push the result on the operand stack.
          if (calleeType->ret != ResultType::none) {
@@ -794,8 +780,7 @@ struct EmitFunctionContext {
 
          auto is_intrnsic = irBuilder.CreateICmpSLT(functionInfo, typedZeroConstants[(Uptr)ValueType::i64]);
 
-         llvm::BasicBlock* is_intrinsic_block =
-            llvm::BasicBlock::Create(context, "isintrinsic", llvmFunction);
+         llvm::BasicBlock* is_intrinsic_block   = llvm::BasicBlock::Create(context, "isintrinsic", llvmFunction);
          llvm::BasicBlock* is_code_offset_block = llvm::BasicBlock::Create(context, "isoffset");
          llvm::BasicBlock* continuation_block   = llvm::BasicBlock::Create(context, "cont");
 
@@ -824,8 +809,7 @@ struct EmitFunctionContext {
          PN->addIncoming(offset_from_start, is_code_offset_block);
 
          llvm::Value* ptr_cast = irBuilder.CreateIntToPtr(PN, functionPointerType);
-         auto         result =
-            createCall(ptr_cast, llvm::ArrayRef<llvm::Value*>(llvmArgs, calleeType->parameters.size()));
+         auto result = createCall(ptr_cast, llvm::ArrayRef<llvm::Value*>(llvmArgs, calleeType->parameters.size()));
 
          // Push the result on the operand stack.
          if (calleeType->ret != ResultType::none) {
@@ -844,8 +828,7 @@ struct EmitFunctionContext {
    }
    void set_local(GetOrSetVariableImm<false> imm) {
       WAVM_ASSERT_THROW(imm.variableIndex < localPointers.size());
-      auto value =
-         irBuilder.CreateBitCast(pop(), localPointers[imm.variableIndex]->getType()->getPointerElementType());
+      auto value = irBuilder.CreateBitCast(pop(), localPointers[imm.variableIndex]->getType()->getPointerElementType());
       irBuilder.CreateStore(value, localPointers[imm.variableIndex]);
    }
    llvm::Value* get_mutable_global_ptr(llvm::Value* global) {
@@ -861,8 +844,8 @@ struct EmitFunctionContext {
    }
    void tee_local(GetOrSetVariableImm<false> imm) {
       WAVM_ASSERT_THROW(imm.variableIndex < localPointers.size());
-      auto value = irBuilder.CreateBitCast(
-         getTopValue(), localPointers[imm.variableIndex]->getType()->getPointerElementType());
+      auto value =
+         irBuilder.CreateBitCast(getTopValue(), localPointers[imm.variableIndex]->getType()->getPointerElementType());
       irBuilder.CreateStore(value, get_mutable_global_ptr(localPointers[imm.variableIndex]));
    }
 
@@ -875,15 +858,15 @@ struct EmitFunctionContext {
    }
    void set_global(GetOrSetVariableImm<true> imm) {
       WAVM_ASSERT_THROW(imm.variableIndex < moduleContext.globals.size());
-      auto value = irBuilder.CreateBitCast(
-         pop(), moduleContext.globals[imm.variableIndex]->getType()->getPointerElementType());
+      auto value =
+         irBuilder.CreateBitCast(pop(), moduleContext.globals[imm.variableIndex]->getType()->getPointerElementType());
       irBuilder.CreateStore(value, get_mutable_global_ptr(moduleContext.globals[imm.variableIndex]));
    }
 
    //
    // Memory size operators
-   // These just call out to wavmIntrinsics.growMemory/currentMemory, passing a pointer to the default memory
-   // for the module.
+   // These just call out to wavmIntrinsics.growMemory/currentMemory, passing a pointer to the default memory for the
+   // module.
    //
 
    void grow_memory(MemoryImm) {
@@ -907,9 +890,9 @@ struct EmitFunctionContext {
    // Constant operators
    //
 
-#define EMIT_CONST(typeId, nativeType)                                                                       \
-   void typeId##_const(LiteralImm<nativeType> imm) {                                                         \
-      push(emitLiteral(imm.value));                                                                          \
+#define EMIT_CONST(typeId, nativeType)                                                                                 \
+   void typeId##_const(LiteralImm<nativeType> imm) {                                                                   \
+      push(emitLiteral(imm.value));                                                                                    \
    }
    EMIT_CONST(i32, I32)
    EMIT_CONST(i64, I64) EMIT_CONST(f32, F32) EMIT_CONST(f64, F64)
@@ -917,24 +900,24 @@ struct EmitFunctionContext {
 //
 // Load/store operators
 //
-#define EMIT_LOAD_OP(valueTypeId, name, llvmMemoryType, naturalAlignmentLog2, conversionOp, alignmentParam)  \
-   void valueTypeId##_##name(LoadOrStoreImm<naturalAlignmentLog2> imm) {                                     \
-      auto byteIndex = pop();                                                                                \
-      auto pointer   = coerceByteIndexToPointer(byteIndex, imm.offset, llvmMemoryType);                      \
-      auto load      = irBuilder.CreateLoad(pointer);                                                        \
-      load->setAlignment(alignmentParam);                                                                    \
-      load->setVolatile(true);                                                                               \
-      push(conversionOp(load, asLLVMType(ValueType::valueTypeId)));                                          \
+#define EMIT_LOAD_OP(valueTypeId, name, llvmMemoryType, naturalAlignmentLog2, conversionOp, alignmentParam)            \
+   void valueTypeId##_##name(LoadOrStoreImm<naturalAlignmentLog2> imm) {                                               \
+      auto byteIndex = pop();                                                                                          \
+      auto pointer   = coerceByteIndexToPointer(byteIndex, imm.offset, llvmMemoryType);                                \
+      auto load      = irBuilder.CreateLoad(pointer);                                                                  \
+      load->setAlignment(alignmentParam);                                                                              \
+      load->setVolatile(true);                                                                                         \
+      push(conversionOp(load, asLLVMType(ValueType::valueTypeId)));                                                    \
    }
-#define EMIT_STORE_OP(valueTypeId, name, llvmMemoryType, naturalAlignmentLog2, conversionOp, alignmentParam) \
-   void valueTypeId##_##name(LoadOrStoreImm<naturalAlignmentLog2> imm) {                                     \
-      auto value       = pop();                                                                              \
-      auto byteIndex   = pop();                                                                              \
-      auto pointer     = coerceByteIndexToPointer(byteIndex, imm.offset, llvmMemoryType);                    \
-      auto memoryValue = conversionOp(value, llvmMemoryType);                                                \
-      auto store       = irBuilder.CreateStore(memoryValue, pointer);                                        \
-      store->setVolatile(true);                                                                              \
-      store->setAlignment(alignmentParam);                                                                   \
+#define EMIT_STORE_OP(valueTypeId, name, llvmMemoryType, naturalAlignmentLog2, conversionOp, alignmentParam)           \
+   void valueTypeId##_##name(LoadOrStoreImm<naturalAlignmentLog2> imm) {                                               \
+      auto value       = pop();                                                                                        \
+      auto byteIndex   = pop();                                                                                        \
+      auto pointer     = coerceByteIndexToPointer(byteIndex, imm.offset, llvmMemoryType);                              \
+      auto memoryValue = conversionOp(value, llvmMemoryType);                                                          \
+      auto store       = irBuilder.CreateStore(memoryValue, pointer);                                                  \
+      store->setVolatile(true);                                                                                        \
+      store->setAlignment(alignmentParam);                                                                             \
    }
 
       llvm::Value* identityConversion(llvm::Value* value, llvm::Type* type) {
@@ -950,134 +933,108 @@ struct EmitFunctionContext {
 #endif
 
    EMIT_LOAD_OP(i32, load8_s, llvmI8Type, 0, irBuilder.CreateSExt, LOAD_STORE_ALIGNMENT_PARAM)
-   EMIT_LOAD_OP(i32, load8_u, llvmI8Type, 0, irBuilder.CreateZExt, LOAD_STORE_ALIGNMENT_PARAM) EMIT_LOAD_OP(
-      i32,
-      load16_s,
-      llvmI16Type,
-      1,
-      irBuilder.CreateSExt,
-      LOAD_STORE_ALIGNMENT_PARAM) EMIT_LOAD_OP(i32,
-                                               load16_u,
-                                               llvmI16Type,
-                                               1,
-                                               irBuilder.CreateZExt,
-                                               LOAD_STORE_ALIGNMENT_PARAM)
-      EMIT_LOAD_OP(i64, load8_s, llvmI8Type, 0, irBuilder.CreateSExt, LOAD_STORE_ALIGNMENT_PARAM)
-         EMIT_LOAD_OP(i64, load8_u, llvmI8Type, 0, irBuilder.CreateZExt, LOAD_STORE_ALIGNMENT_PARAM)
-            EMIT_LOAD_OP(i64, load16_s, llvmI16Type, 1, irBuilder.CreateSExt, LOAD_STORE_ALIGNMENT_PARAM)
-               EMIT_LOAD_OP(i64, load16_u, llvmI16Type, 1, irBuilder.CreateZExt, LOAD_STORE_ALIGNMENT_PARAM)
-                  EMIT_LOAD_OP(i64,
-                               load32_s,
-                               llvmI32Type,
-                               2,
-                               irBuilder.CreateSExt,
-                               LOAD_STORE_ALIGNMENT_PARAM) EMIT_LOAD_OP(i64,
-                                                                        load32_u,
-                                                                        llvmI32Type,
-                                                                        2,
-                                                                        irBuilder.CreateZExt,
-                                                                        LOAD_STORE_ALIGNMENT_PARAM)
+   EMIT_LOAD_OP(i32, load8_u, llvmI8Type, 0, irBuilder.CreateZExt, LOAD_STORE_ALIGNMENT_PARAM)
+      EMIT_LOAD_OP(i32, load16_s, llvmI16Type, 1, irBuilder.CreateSExt, LOAD_STORE_ALIGNMENT_PARAM)
+         EMIT_LOAD_OP(i32, load16_u, llvmI16Type, 1, irBuilder.CreateZExt, LOAD_STORE_ALIGNMENT_PARAM)
+            EMIT_LOAD_OP(i64, load8_s, llvmI8Type, 0, irBuilder.CreateSExt, LOAD_STORE_ALIGNMENT_PARAM)
+               EMIT_LOAD_OP(i64, load8_u, llvmI8Type, 0, irBuilder.CreateZExt, LOAD_STORE_ALIGNMENT_PARAM)
+                  EMIT_LOAD_OP(i64, load16_s, llvmI16Type, 1, irBuilder.CreateSExt, LOAD_STORE_ALIGNMENT_PARAM)
+                     EMIT_LOAD_OP(i64, load16_u, llvmI16Type, 1, irBuilder.CreateZExt, LOAD_STORE_ALIGNMENT_PARAM)
+                        EMIT_LOAD_OP(i64, load32_s, llvmI32Type, 2, irBuilder.CreateSExt, LOAD_STORE_ALIGNMENT_PARAM)
+                           EMIT_LOAD_OP(i64, load32_u, llvmI32Type, 2, irBuilder.CreateZExt, LOAD_STORE_ALIGNMENT_PARAM)
 
-                     EMIT_LOAD_OP(i32, load, llvmI32Type, 2, identityConversion, LOAD_STORE_ALIGNMENT_PARAM)
-                        EMIT_LOAD_OP(i64,
-                                     load,
-                                     llvmI64Type,
-                                     3,
-                                     identityConversion,
-                                     LOAD_STORE_ALIGNMENT_PARAM) EMIT_LOAD_OP(f32,
-                                                                              load,
-                                                                              llvmF32Type,
-                                                                              2,
-                                                                              identityConversion,
-                                                                              LOAD_STORE_ALIGNMENT_PARAM)
-                           EMIT_LOAD_OP(f64,
-                                        load,
-                                        llvmF64Type,
-                                        3,
-                                        identityConversion,
-                                        LOAD_STORE_ALIGNMENT_PARAM)
+                              EMIT_LOAD_OP(i32, load, llvmI32Type, 2, identityConversion, LOAD_STORE_ALIGNMENT_PARAM)
+                                 EMIT_LOAD_OP(i64, load, llvmI64Type, 3, identityConversion, LOAD_STORE_ALIGNMENT_PARAM)
+                                    EMIT_LOAD_OP(f32,
+                                                 load,
+                                                 llvmF32Type,
+                                                 2,
+                                                 identityConversion,
+                                                 LOAD_STORE_ALIGNMENT_PARAM) EMIT_LOAD_OP(f64,
+                                                                                          load,
+                                                                                          llvmF64Type,
+                                                                                          3,
+                                                                                          identityConversion,
+                                                                                          LOAD_STORE_ALIGNMENT_PARAM)
 
-                              EMIT_STORE_OP(i32,
-                                            store8,
-                                            llvmI8Type,
-                                            0,
-                                            irBuilder.CreateTrunc,
-                                            LOAD_STORE_ALIGNMENT_PARAM)
-                                 EMIT_STORE_OP(i64,
-                                               store8,
-                                               llvmI8Type,
-                                               0,
-                                               irBuilder.CreateTrunc,
-                                               LOAD_STORE_ALIGNMENT_PARAM)
-                                    EMIT_STORE_OP(i32,
-                                                  store16,
-                                                  llvmI16Type,
-                                                  1,
-                                                  irBuilder.CreateTrunc,
-                                                  LOAD_STORE_ALIGNMENT_PARAM)
-                                       EMIT_STORE_OP(i64,
-                                                     store16,
-                                                     llvmI16Type,
-                                                     1,
+                                       EMIT_STORE_OP(i32,
+                                                     store8,
+                                                     llvmI8Type,
+                                                     0,
                                                      irBuilder.CreateTrunc,
                                                      LOAD_STORE_ALIGNMENT_PARAM)
-                                          EMIT_STORE_OP(i32,
-                                                        store,
-                                                        llvmI32Type,
-                                                        2,
+                                          EMIT_STORE_OP(i64,
+                                                        store8,
+                                                        llvmI8Type,
+                                                        0,
                                                         irBuilder.CreateTrunc,
                                                         LOAD_STORE_ALIGNMENT_PARAM)
-                                             EMIT_STORE_OP(i64,
-                                                           store32,
-                                                           llvmI32Type,
-                                                           2,
+                                             EMIT_STORE_OP(i32,
+                                                           store16,
+                                                           llvmI16Type,
+                                                           1,
                                                            irBuilder.CreateTrunc,
                                                            LOAD_STORE_ALIGNMENT_PARAM)
                                                 EMIT_STORE_OP(i64,
-                                                              store,
-                                                              llvmI64Type,
-                                                              3,
-                                                              identityConversion,
+                                                              store16,
+                                                              llvmI16Type,
+                                                              1,
+                                                              irBuilder.CreateTrunc,
                                                               LOAD_STORE_ALIGNMENT_PARAM)
-                                                   EMIT_STORE_OP(f32,
+                                                   EMIT_STORE_OP(i32,
                                                                  store,
-                                                                 llvmF32Type,
+                                                                 llvmI32Type,
                                                                  2,
-                                                                 identityConversion,
+                                                                 irBuilder.CreateTrunc,
                                                                  LOAD_STORE_ALIGNMENT_PARAM)
-                                                      EMIT_STORE_OP(f64,
-                                                                    store,
-                                                                    llvmF64Type,
-                                                                    3,
-                                                                    identityConversion,
+                                                      EMIT_STORE_OP(i64,
+                                                                    store32,
+                                                                    llvmI32Type,
+                                                                    2,
+                                                                    irBuilder.CreateTrunc,
                                                                     LOAD_STORE_ALIGNMENT_PARAM)
+                                                         EMIT_STORE_OP(i64,
+                                                                       store,
+                                                                       llvmI64Type,
+                                                                       3,
+                                                                       identityConversion,
+                                                                       LOAD_STORE_ALIGNMENT_PARAM)
+                                                            EMIT_STORE_OP(f32,
+                                                                          store,
+                                                                          llvmF32Type,
+                                                                          2,
+                                                                          identityConversion,
+                                                                          LOAD_STORE_ALIGNMENT_PARAM)
+                                                               EMIT_STORE_OP(f64,
+                                                                             store,
+                                                                             llvmF64Type,
+                                                                             3,
+                                                                             identityConversion,
+                                                                             LOAD_STORE_ALIGNMENT_PARAM)
 
    //
    // Numeric operator macros
    //
 
-#define EMIT_BINARY_OP(typeId, name, emitCode)                                                               \
-   void typeId##_##name(NoImm) {                                                                             \
-      const ValueType type = ValueType::typeId;                                                              \
-      SUPPRESS_UNUSED(type);                                                                                 \
-      auto right = pop();                                                                                    \
-      auto left  = pop();                                                                                    \
-      push(emitCode);                                                                                        \
+#define EMIT_BINARY_OP(typeId, name, emitCode)                                                                         \
+   void typeId##_##name(NoImm) {                                                                                       \
+      const ValueType type = ValueType::typeId;                                                                        \
+      SUPPRESS_UNUSED(type);                                                                                           \
+      auto right = pop();                                                                                              \
+      auto left  = pop();                                                                                              \
+      push(emitCode);                                                                                                  \
    }
-#define EMIT_INT_BINARY_OP(name, emitCode)                                                                   \
-   EMIT_BINARY_OP(i32, name, emitCode) EMIT_BINARY_OP(i64, name, emitCode)
-#define EMIT_FP_BINARY_OP(name, emitCode)                                                                    \
-   EMIT_BINARY_OP(f32, name, emitCode) EMIT_BINARY_OP(f64, name, emitCode)
+#define EMIT_INT_BINARY_OP(name, emitCode) EMIT_BINARY_OP(i32, name, emitCode) EMIT_BINARY_OP(i64, name, emitCode)
+#define EMIT_FP_BINARY_OP(name, emitCode) EMIT_BINARY_OP(f32, name, emitCode) EMIT_BINARY_OP(f64, name, emitCode)
 
-#define EMIT_UNARY_OP(typeId, name, emitCode)                                                                \
-   void typeId##_##name(NoImm) {                                                                             \
-      const ValueType type = ValueType::typeId;                                                              \
-      SUPPRESS_UNUSED(type);                                                                                 \
-      auto operand = pop();                                                                                  \
-      push(emitCode);                                                                                        \
+#define EMIT_UNARY_OP(typeId, name, emitCode)                                                                          \
+   void typeId##_##name(NoImm) {                                                                                       \
+      const ValueType type = ValueType::typeId;                                                                        \
+      SUPPRESS_UNUSED(type);                                                                                           \
+      auto operand = pop();                                                                                            \
+      push(emitCode);                                                                                                  \
    }
-#define EMIT_INT_UNARY_OP(name, emitCode)                                                                    \
-   EMIT_UNARY_OP(i32, name, emitCode) EMIT_UNARY_OP(i64, name, emitCode)
+#define EMIT_INT_UNARY_OP(name, emitCode) EMIT_UNARY_OP(i32, name, emitCode) EMIT_UNARY_OP(i64, name, emitCode)
 #define EMIT_FP_UNARY_OP(name, emitCode) EMIT_UNARY_OP(f32, name, emitCode) EMIT_UNARY_OP(f64, name, emitCode)
 
       //
@@ -1089,14 +1046,14 @@ struct EmitFunctionContext {
       trapDivideByZero(type, right);
 
       // LLVM's srem has undefined behavior where WebAssembly's rem_s defines that it should not trap if the
-      // corresponding division would overflow a signed integer. To avoid this case, we just branch around the
-      // srem if the INT_MAX%-1 case that overflows is detected.
+      // corresponding division would overflow a signed integer. To avoid this case, we just branch around the srem if
+      // the INT_MAX%-1 case that overflows is detected.
       auto preOverflowBlock = irBuilder.GetInsertBlock();
       auto noOverflowBlock  = llvm::BasicBlock::Create(context, "sremNoOverflow", llvmFunction);
       auto endBlock         = llvm::BasicBlock::Create(context, "sremEnd", llvmFunction);
       auto noOverflow       = irBuilder.CreateOr(
-         irBuilder.CreateICmpNE(
-            left, type == ValueType::i32 ? emitLiteral((U32)INT32_MIN) : emitLiteral((U64)INT64_MIN)),
+         irBuilder.CreateICmpNE(left,
+                                type == ValueType::i32 ? emitLiteral((U32)INT32_MIN) : emitLiteral((U64)INT64_MIN)),
          irBuilder.CreateICmpNE(right, type == ValueType::i32 ? emitLiteral((U32)-1) : emitLiteral((U64)-1)));
       irBuilder.CreateCondBr(noOverflow, noOverflowBlock, endBlock, moduleContext.likelyTrueBranchWeights);
 
@@ -1112,25 +1069,23 @@ struct EmitFunctionContext {
    }
 
    llvm::Value* emitShiftCountMask(ValueType type, llvm::Value* shiftCount) {
-      // LLVM's shifts have undefined behavior where WebAssembly specifies that the shift count will wrap
-      // numbers grather than the bit count of the operands. This matches x86's native shift instructions, but
-      // explicitly mask the shift count anyway to support other platforms, and ensure the optimizer doesn't
-      // take advantage of the UB.
-      auto bitsMinusOne =
-         irBuilder.CreateZExt(emitLiteral((U8)(getTypeBitWidth(type) - 1)), asLLVMType(type));
+      // LLVM's shifts have undefined behavior where WebAssembly specifies that the shift count will wrap numbers
+      // grather than the bit count of the operands. This matches x86's native shift instructions, but explicitly mask
+      // the shift count anyway to support other platforms, and ensure the optimizer doesn't take advantage of the UB.
+      auto bitsMinusOne = irBuilder.CreateZExt(emitLiteral((U8)(getTypeBitWidth(type) - 1)), asLLVMType(type));
       return irBuilder.CreateAnd(shiftCount, bitsMinusOne);
    }
 
    llvm::Value* emitRotl(ValueType type, llvm::Value* left, llvm::Value* right) {
-      auto bitWidthMinusRight = irBuilder.CreateSub(
-         irBuilder.CreateZExt(emitLiteral(getTypeBitWidth(type)), asLLVMType(type)), right);
+      auto bitWidthMinusRight =
+         irBuilder.CreateSub(irBuilder.CreateZExt(emitLiteral(getTypeBitWidth(type)), asLLVMType(type)), right);
       return irBuilder.CreateOr(irBuilder.CreateShl(left, emitShiftCountMask(type, right)),
                                 irBuilder.CreateLShr(left, emitShiftCountMask(type, bitWidthMinusRight)));
    }
 
    llvm::Value* emitRotr(ValueType type, llvm::Value* left, llvm::Value* right) {
-      auto bitWidthMinusRight = irBuilder.CreateSub(
-         irBuilder.CreateZExt(emitLiteral(getTypeBitWidth(type)), asLLVMType(type)), right);
+      auto bitWidthMinusRight =
+         irBuilder.CreateSub(irBuilder.CreateZExt(emitLiteral(getTypeBitWidth(type)), asLLVMType(type)), right);
       return irBuilder.CreateOr(irBuilder.CreateShl(left, emitShiftCountMask(type, bitWidthMinusRight)),
                                 irBuilder.CreateLShr(left, emitShiftCountMask(type, right)));
    }
@@ -1145,9 +1100,7 @@ struct EmitFunctionContext {
    EMIT_INT_BINARY_OP(rotl, emitRotl(type, left, right))
 
    // Divides use trapDivideByZero to avoid the undefined behavior in LLVM's division instructions.
-   EMIT_INT_BINARY_OP(div_s,
-                      (trapDivideByZeroOrIntegerOverflow(type, left, right),
-                       irBuilder.CreateSDiv(left, right)))
+   EMIT_INT_BINARY_OP(div_s, (trapDivideByZeroOrIntegerOverflow(type, left, right), irBuilder.CreateSDiv(left, right)))
    EMIT_INT_BINARY_OP(rem_s, emitSRem(type, left, right))
    EMIT_INT_BINARY_OP(div_u, (trapDivideByZero(type, right), irBuilder.CreateUDiv(left, right)))
    EMIT_INT_BINARY_OP(rem_u, (trapDivideByZero(type, right), irBuilder.CreateURem(left, right)))
@@ -1163,18 +1116,17 @@ struct EmitFunctionContext {
       return irBuilder.CreateLoad(zeroAlloca);
    }
 
-#define EMIT_INT_COMPARE_OP(name, llvmSourceType, llvmDestType, valueType, emitCode)                         \
-   void name(NoImm) {                                                                                        \
-      auto right = irBuilder.CreateOr(                                                                       \
-         irBuilder.CreateBitCast(pop(), llvmSourceType),                                                     \
-         irBuilder.CreateBitCast(getNonConstantZero(irBuilder, typedZeroConstants[Uptr(valueType)]),         \
-                                 llvmSourceType));                                                           \
-      auto left = irBuilder.CreateBitCast(pop(), llvmSourceType);                                            \
-      push(coerceBoolToI32(emitCode));                                                                       \
+#define EMIT_INT_COMPARE_OP(name, llvmSourceType, llvmDestType, valueType, emitCode)                                   \
+   void name(NoImm) {                                                                                                  \
+      auto right = irBuilder.CreateOr(                                                                                 \
+         irBuilder.CreateBitCast(pop(), llvmSourceType),                                                               \
+         irBuilder.CreateBitCast(getNonConstantZero(irBuilder, typedZeroConstants[Uptr(valueType)]), llvmSourceType)); \
+      auto left = irBuilder.CreateBitCast(pop(), llvmSourceType);                                                      \
+      push(coerceBoolToI32(emitCode));                                                                                 \
    }
 
-#define EMIT_INT_COMPARE(name, emitCode)                                                                     \
-   EMIT_INT_COMPARE_OP(i32_##name, llvmI32Type, llvmI32Type, ValueType::i32, emitCode)                       \
+#define EMIT_INT_COMPARE(name, emitCode)                                                                               \
+   EMIT_INT_COMPARE_OP(i32_##name, llvmI32Type, llvmI32Type, ValueType::i32, emitCode)                                 \
    EMIT_INT_COMPARE_OP(i64_##name, llvmI64Type, llvmI32Type, ValueType::i64, emitCode)
 
 #if LLVM_VERSION_MAJOR < 9
@@ -1298,22 +1250,22 @@ struct EmitFunctionContext {
                                           { operand }))
 };
 
-// A do-nothing visitor used to decode past unreachable operators (but supporting logging, and passing the end
-// operator through).
+// A do-nothing visitor used to decode past unreachable operators (but supporting logging, and passing the end operator
+// through).
 struct UnreachableOpVisitor {
    typedef void Result;
 
    UnreachableOpVisitor(EmitFunctionContext& inContext)
       : context(inContext)
       , unreachableControlDepth(0) {}
-#define VISIT_OP(opcode, name, nameString, Imm, ...)                                                         \
+#define VISIT_OP(opcode, name, nameString, Imm, ...)                                                                   \
    void name(Imm imm) {}
    ENUM_NONCONTROL_OPERATORS(VISIT_OP)
    VISIT_OP(_, unknown, "unknown", Opcode)
 #undef VISIT_OP
 
-   // Keep track of control structure nesting level in unreachable code, so we know when we reach the end of
-   // the unreachable code.
+   // Keep track of control structure nesting level in unreachable code, so we know when we reach the end of the
+   // unreachable code.
    void block(ControlStructureImm) {
       ++unreachableControlDepth;
    }
@@ -1324,8 +1276,7 @@ struct UnreachableOpVisitor {
       ++unreachableControlDepth;
    }
 
-   // If an else or end opcode would signal an end to the unreachable code, then pass it through to the IR
-   // emitter.
+   // If an else or end opcode would signal an end to the unreachable code, then pass it through to the IR emitter.
    void else_(NoImm imm) {
       if (!unreachableControlDepth) {
          context.else_(imm);
@@ -1357,8 +1308,7 @@ void EmitFunctionContext::emit() {
 
    // Create and initialize allocas for all the locals and parameters.
    auto llvmArgIt = llvmFunction->arg_begin();
-   for (Uptr localIndex = 0;
-        localIndex < functionType->parameters.size() + functionDef.nonParameterLocalTypes.size();
+   for (Uptr localIndex = 0; localIndex < functionType->parameters.size() + functionDef.nonParameterLocalTypes.size();
         ++localIndex) {
       auto localType    = localIndex < functionType->parameters.size()
                              ? functionType->parameters[localIndex]
@@ -1381,10 +1331,8 @@ void EmitFunctionContext::emit() {
    llvm::Value*     depth = depth_loadinst = irBuilder.CreateLoad(moduleContext.depthCounter);
    depth                                   = irBuilder.CreateSub(depth, emitLiteral((I32)1));
    depth_storeinst                         = irBuilder.CreateStore(depth, moduleContext.depthCounter);
-   emitConditionalTrapIntrinsic(irBuilder.CreateICmpEQ(depth, emitLiteral((I32)0)),
-                                "eosvmoc_internal.depth_assert",
-                                FunctionType::get(),
-                                {});
+   emitConditionalTrapIntrinsic(
+      irBuilder.CreateICmpEQ(depth, emitLiteral((I32)0)), "eosvmoc_internal.depth_assert", FunctionType::get(), {});
    depth_loadinst->setVolatile(true);
    depth_storeinst->setVolatile(true);
 
@@ -1428,9 +1376,8 @@ llvm::Module* EmitModuleContext::emit() {
 
    // Create LLVM pointer constants for the module's imported functions.
    for (Uptr functionIndex = 0; functionIndex < module.functions.imports.size(); ++functionIndex) {
-      const intrinsic_entry& ie =
-         get_intrinsic_map().at(module.functions.imports[functionIndex].moduleName + "." +
-                                module.functions.imports[functionIndex].exportName);
+      const intrinsic_entry& ie = get_intrinsic_map().at(module.functions.imports[functionIndex].moduleName + "." +
+                                                         module.functions.imports[functionIndex].exportName);
       importedFunctionOffsets.push_back(ie.ordinal);
    }
 
@@ -1439,15 +1386,15 @@ llvm::Module* EmitModuleContext::emit() {
    for (const GlobalDef& global : module.globals.defs) {
       if (global.type.isMutable) {
          if (current_prologue >= -(int)memory::max_prologue_size) {
-            globals.push_back(emitLiteralPointer((void*)current_prologue,
-                                                 asLLVMType(global.type.valueType)->getPointerTo(256)));
+            globals.push_back(
+               emitLiteralPointer((void*)current_prologue, asLLVMType(global.type.valueType)->getPointerTo(256)));
          } else {
             auto baseType = asLLVMType(global.type.valueType)->getPointerTo()->getPointerTo(256);
             auto basePtr  = emitLiteralPointer((void*)OFFSET_OF_CONTROL_BLOCK_MEMBER(globals), baseType);
             auto structTy = llvm::StructType::get(context, { baseType, llvmI64Type });
             I64  typeSize = IR::getTypeBitWidth(global.type.valueType) / 8;
-            globals.push_back(llvm::ConstantStruct::get(
-               structTy, { basePtr, emitLiteral((I64)current_prologue / typeSize) }));
+            globals.push_back(
+               llvm::ConstantStruct::get(structTy, { basePtr, emitLiteral((I64)current_prologue / typeSize) }));
          }
          current_prologue -= 8;
       } else {
@@ -1463,8 +1410,8 @@ llvm::Module* EmitModuleContext::emit() {
 
    if (module.tables.size()) {
       auto        tableElementType = llvm::StructType::get(context, { llvmI8PtrType, llvmI64Type });
-      llvm::Type* tableArrayTy = llvm::ArrayType::get(tableElementType, module.tables.defs[0].type.size.min);
-      defaultTablePointer      = new llvm::GlobalVariable(*llvmModule,
+      llvm::Type* tableArrayTy     = llvm::ArrayType::get(tableElementType, module.tables.defs[0].type.size.min);
+      defaultTablePointer          = new llvm::GlobalVariable(*llvmModule,
                                                      tableArrayTy,
                                                      true,
                                                      llvm::GlobalValue::ExternalLinkage,
@@ -1490,8 +1437,7 @@ llvm::Module* EmitModuleContext::emit() {
 
    // Compile each function in the module.
    for (Uptr functionDefIndex = 0; functionDefIndex < module.functions.defs.size(); ++functionDefIndex) {
-      EmitFunctionContext(
-         *this, module, module.functions.defs[functionDefIndex], functionDefs[functionDefIndex])
+      EmitFunctionContext(*this, module, module.functions.defs[functionDefIndex], functionDefs[functionDefIndex])
          .emit();
    }
 

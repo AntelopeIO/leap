@@ -27,8 +27,8 @@ class generated_transaction_object
    id_type             id;
    transaction_id_type trx_id; //< trx_id should not be changed within a chainbase modifier lambda
    account_name        sender; //< sender should not be changed within a chainbase modifier lambda
-   uint128_t sender_id = 0;    /// ID given this transaction by the sender (should not be changed within a
-                               /// chainbase modifier lambda)
+   uint128_t           sender_id =
+      0; /// ID given this transaction by the sender (should not be changed within a chainbase modifier lambda)
    account_name payer;
    time_point   delay_until; /// this generated transaction will not be applied until the specified time
    time_point   expiration;  /// this generated transaction will not be applied after this time
@@ -54,30 +54,26 @@ struct by_sender_id;
 using generated_transaction_multi_index = chainbase::shared_multi_index_container<
    generated_transaction_object,
    indexed_by<
-      ordered_unique<
-         tag<by_id>,
-         BOOST_MULTI_INDEX_MEMBER(generated_transaction_object, generated_transaction_object::id_type, id)>,
+      ordered_unique<tag<by_id>,
+                     BOOST_MULTI_INDEX_MEMBER(generated_transaction_object, generated_transaction_object::id_type, id)>,
       ordered_unique<tag<by_trx_id>,
                      BOOST_MULTI_INDEX_MEMBER(generated_transaction_object, transaction_id_type, trx_id)>,
       ordered_unique<
          tag<by_expiration>,
-         composite_key<generated_transaction_object,
-                       BOOST_MULTI_INDEX_MEMBER(generated_transaction_object, time_point, expiration),
-                       BOOST_MULTI_INDEX_MEMBER(generated_transaction_object,
-                                                generated_transaction_object::id_type,
-                                                id)>>,
+         composite_key<
+            generated_transaction_object,
+            BOOST_MULTI_INDEX_MEMBER(generated_transaction_object, time_point, expiration),
+            BOOST_MULTI_INDEX_MEMBER(generated_transaction_object, generated_transaction_object::id_type, id)>>,
       ordered_unique<
          tag<by_delay>,
-         composite_key<generated_transaction_object,
-                       BOOST_MULTI_INDEX_MEMBER(generated_transaction_object, time_point, delay_until),
-                       BOOST_MULTI_INDEX_MEMBER(generated_transaction_object,
-                                                generated_transaction_object::id_type,
-                                                id)>>,
-      ordered_unique<
-         tag<by_sender_id>,
-         composite_key<generated_transaction_object,
-                       BOOST_MULTI_INDEX_MEMBER(generated_transaction_object, account_name, sender),
-                       BOOST_MULTI_INDEX_MEMBER(generated_transaction_object, uint128_t, sender_id)>>>>;
+         composite_key<
+            generated_transaction_object,
+            BOOST_MULTI_INDEX_MEMBER(generated_transaction_object, time_point, delay_until),
+            BOOST_MULTI_INDEX_MEMBER(generated_transaction_object, generated_transaction_object::id_type, id)>>,
+      ordered_unique<tag<by_sender_id>,
+                     composite_key<generated_transaction_object,
+                                   BOOST_MULTI_INDEX_MEMBER(generated_transaction_object, account_name, sender),
+                                   BOOST_MULTI_INDEX_MEMBER(generated_transaction_object, uint128_t, sender_id)>>>>;
 
 class generated_transaction {
 public:
@@ -98,28 +94,25 @@ public:
    account_name        sender;
    uint128_t           sender_id;
    account_name        payer;
-   time_point   delay_until; /// this generated transaction will not be applied until the specified time
-   time_point   expiration;  /// this generated transaction will not be applied after this time
-   time_point   published;
-   vector<char> packed_trx;
+   time_point          delay_until; /// this generated transaction will not be applied until the specified time
+   time_point          expiration;  /// this generated transaction will not be applied after this time
+   time_point          published;
+   vector<char>        packed_trx;
 };
 
 namespace config {
 template<>
 struct billable_size<generated_transaction_object> {
-   static const uint64_t overhead =
-      overhead_per_row_per_index_ram_bytes *
-      5; ///< overhead for 5x indices internal-key, txid, expiration, delay, sender_id
-   static const uint64_t value =
-      96 + 4 + overhead; ///< 96 bytes for our constant size fields, 4 bytes for a varint for packed_trx size
-                         ///< and 96 bytes of implementation overhead
+   static const uint64_t overhead = overhead_per_row_per_index_ram_bytes *
+                                    5; ///< overhead for 5x indices internal-key, txid, expiration, delay, sender_id
+   static const uint64_t value = 96 + 4 + overhead; ///< 96 bytes for our constant size fields, 4 bytes for a varint for
+                                                    ///< packed_trx size and 96 bytes of implementation overhead
 };
 }
 }
 } // eosio::chain
 
-CHAINBASE_SET_INDEX_TYPE(eosio::chain::generated_transaction_object,
-                         eosio::chain::generated_transaction_multi_index)
+CHAINBASE_SET_INDEX_TYPE(eosio::chain::generated_transaction_object, eosio::chain::generated_transaction_multi_index)
 
 FC_REFLECT(eosio::chain::generated_transaction_object,
            (trx_id)(sender)(sender_id)(payer)(delay_until)(expiration)(published)(packed_trx))

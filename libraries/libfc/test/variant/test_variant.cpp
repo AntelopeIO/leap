@@ -59,8 +59,8 @@ BOOST_AUTO_TEST_CASE(variant_format_string_limited) {
       const string result        = fc::format_string(format_str, mu, true);
       BOOST_CHECK_LT(0, mu.size());
       const auto arg_limit_size = (1024 - format_str.size()) / mu.size();
-      BOOST_CHECK_EQUAL(
-         result, format_prefix + a_long_list.substr(0, arg_limit_size) + "..." + " ${obj} ${arr} {blob}");
+      BOOST_CHECK_EQUAL(result,
+                        format_prefix + a_long_list.substr(0, arg_limit_size) + "..." + " ${obj} ${arr} {blob}");
       BOOST_CHECK_LT(result.size(), 1024 + 3 * mu.size());
    }
    { // verify object, array can be displayed properly
@@ -85,11 +85,11 @@ BOOST_AUTO_TEST_CASE(variant_format_string_limited) {
       mu("arr", variant_list);
       mu("blob", a_blob);
       mu("var", a_variant);
-      const string result = fc::format_string(format_str, mu, true);
-      const string target_result =
-         format_prefix + a_short_list + " " + "{" + "\"b\":\"" + b_short_list + "\",\"c\":\"" + c_short_list +
-         "\"}" + " " + "[\"" + d_short_list + "\",\"" + e_short_list + "\"]" + " " +
-         base64_encode(a_blob.data.data(), a_blob.data.size()) + "=" + " " + g_short_list;
+      const string result        = fc::format_string(format_str, mu, true);
+      const string target_result = format_prefix + a_short_list + " " + "{" + "\"b\":\"" + b_short_list +
+                                   "\",\"c\":\"" + c_short_list + "\"}" + " " + "[\"" + d_short_list + "\",\"" +
+                                   e_short_list + "\"]" + " " + base64_encode(a_blob.data.data(), a_blob.data.size()) +
+                                   "=" + " " + g_short_list;
 
       BOOST_CHECK_EQUAL(result, target_result);
       BOOST_CHECK_LT(result.size(), 1024 + 3 * mu.size());

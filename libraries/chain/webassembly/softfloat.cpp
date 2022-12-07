@@ -272,9 +272,8 @@ double interface::_eosio_f64_ceil(double af) const {
       y = ::f64_sub(::f64_sub(::f64_add(a, float64_t{ inv_double_eps }), float64_t{ inv_double_eps }), a);
    /* special case because of non-nearest rounding modes */
    if (e <= 0x3ff - 1) {
-      return a.v >> 63
-                ? -0.0
-                : 1.0; // float64_t{0x8000000000000000} : float64_t{0xBE99999A3F800000}; //either -0.0 or 1
+      return a.v >> 63 ? -0.0 : 1.0; // float64_t{0x8000000000000000} : float64_t{0xBE99999A3F800000}; //either -0.0 or
+                                     // 1
    }
    if (::f64_lt(y, to_softfloat64(0))) {
       ret = ::f64_add(::f64_add(a, y), to_softfloat64(1)); // 0xBE99999A3F800000 } ); // plus 1

@@ -161,8 +161,7 @@ void zipkin::log(zipkin_span::span_data&& span) {
    if (my->consecutive_errors > my->max_consecutive_errors || my->stopped)
       return;
 
-   boost::asio::post(my->work_strand,
-                     [this, span{ std::move(span) }]() mutable { my->log(std::move(span)); });
+   boost::asio::post(my->work_strand, [this, span{ std::move(span) }]() mutable { my->log(std::move(span)); });
 }
 
 void zipkin::impl::log(zipkin_span::span_data&& span) {

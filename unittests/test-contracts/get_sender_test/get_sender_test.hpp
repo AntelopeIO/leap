@@ -13,7 +13,5 @@ public:
 
    [[eosio::action]] void notify(eosio::name to, eosio::name expected_sender, bool send_inline);
 
-   [[eosio::on_notify("*::notify")]] void on_notify(eosio::name to,
-                                                    eosio::name expected_sender,
-                                                    bool        send_inline);
+   [[eosio::on_notify("*::notify")]] void on_notify(eosio::name to, eosio::name expected_sender, bool send_inline);
 };

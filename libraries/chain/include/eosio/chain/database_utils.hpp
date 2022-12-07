@@ -26,10 +26,7 @@ public:
    }
 
    template<typename Secondary, typename Key, typename F>
-   static void walk_range(const chainbase::database& db,
-                          const Key&                 begin_key,
-                          const Key&                 end_key,
-                          F                          function) {
+   static void walk_range(const chainbase::database& db, const Key& begin_key, const Key& end_key, F function) {
       const auto& idx       = db.get_index<Index, Secondary>();
       auto        begin_itr = idx.lower_bound(begin_key);
       auto        end_itr   = idx.lower_bound(end_key);
@@ -152,8 +149,7 @@ inline void from_variant(const variant& v, float128_t& f) {
    char temp[sizeof(eosio::chain::uint128_t)];
    memset(temp, 0, sizeof(temp));
    auto s = v.as_string();
-   FC_ASSERT(s.size() == 2 + 2 * sizeof(temp) && s.find("0x") == 0,
-             "Failure in converting hex data into a float128_t");
+   FC_ASSERT(s.size() == 2 + 2 * sizeof(temp) && s.find("0x") == 0, "Failure in converting hex data into a float128_t");
    auto sz = from_hex(s.substr(2), temp, sizeof(temp));
    // Assumes platform is little endian and hex representation of 128-bit integer is in little endian order.
    FC_ASSERT(sz == sizeof(temp), "Failure in converting hex data into a float128_t");

@@ -52,11 +52,7 @@ void interface::__divti3(legacy_ptr<__int128> ret, uint64_t la, uint64_t ha, uin
    *ret = lhs;
 }
 
-void interface::__udivti3(legacy_ptr<unsigned __int128> ret,
-                          uint64_t                      la,
-                          uint64_t                      ha,
-                          uint64_t                      lb,
-                          uint64_t                      hb) const {
+void interface::__udivti3(legacy_ptr<unsigned __int128> ret, uint64_t la, uint64_t ha, uint64_t lb, uint64_t hb) const {
    unsigned __int128 lhs = ha;
    unsigned __int128 rhs = hb;
 
@@ -102,11 +98,7 @@ void interface::__modti3(legacy_ptr<__int128> ret, uint64_t la, uint64_t ha, uin
    *ret = lhs;
 }
 
-void interface::__umodti3(legacy_ptr<unsigned __int128> ret,
-                          uint64_t                      la,
-                          uint64_t                      ha,
-                          uint64_t                      lb,
-                          uint64_t                      hb) const {
+void interface::__umodti3(legacy_ptr<unsigned __int128> ret, uint64_t la, uint64_t ha, uint64_t lb, uint64_t hb) const {
    unsigned __int128 lhs = ha;
    unsigned __int128 rhs = hb;
 
@@ -123,11 +115,7 @@ void interface::__umodti3(legacy_ptr<unsigned __int128> ret,
 }
 
 // arithmetic long double
-void interface::__addtf3(legacy_ptr<float128_t> ret,
-                         uint64_t               la,
-                         uint64_t               ha,
-                         uint64_t               lb,
-                         uint64_t               hb) const {
+void interface::__addtf3(legacy_ptr<float128_t> ret, uint64_t la, uint64_t ha, uint64_t lb, uint64_t hb) const {
    float128_t a = {
       {la, ha}
    };
@@ -136,11 +124,7 @@ void interface::__addtf3(legacy_ptr<float128_t> ret,
    };
    *ret = f128_add(a, b);
 }
-void interface::__subtf3(legacy_ptr<float128_t> ret,
-                         uint64_t               la,
-                         uint64_t               ha,
-                         uint64_t               lb,
-                         uint64_t               hb) const {
+void interface::__subtf3(legacy_ptr<float128_t> ret, uint64_t la, uint64_t ha, uint64_t lb, uint64_t hb) const {
    float128_t a = {
       {la, ha}
    };
@@ -149,11 +133,7 @@ void interface::__subtf3(legacy_ptr<float128_t> ret,
    };
    *ret = f128_sub(a, b);
 }
-void interface::__multf3(legacy_ptr<float128_t> ret,
-                         uint64_t               la,
-                         uint64_t               ha,
-                         uint64_t               lb,
-                         uint64_t               hb) const {
+void interface::__multf3(legacy_ptr<float128_t> ret, uint64_t la, uint64_t ha, uint64_t lb, uint64_t hb) const {
    float128_t a = {
       {la, ha}
    };
@@ -162,11 +142,7 @@ void interface::__multf3(legacy_ptr<float128_t> ret,
    };
    *ret = f128_mul(a, b);
 }
-void interface::__divtf3(legacy_ptr<float128_t> ret,
-                         uint64_t               la,
-                         uint64_t               ha,
-                         uint64_t               lb,
-                         uint64_t               hb) const {
+void interface::__divtf3(legacy_ptr<float128_t> ret, uint64_t la, uint64_t ha, uint64_t lb, uint64_t hb) const {
    float128_t a = {
       {la, ha}
    };

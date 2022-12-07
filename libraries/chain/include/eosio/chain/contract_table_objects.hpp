@@ -28,13 +28,12 @@ struct by_code_scope_table;
 
 using table_id_multi_index = chainbase::shared_multi_index_container<
    table_id_object,
-   indexed_by<
-      ordered_unique<tag<by_id>, member<table_id_object, table_id_object::id_type, &table_id_object::id>>,
-      ordered_unique<tag<by_code_scope_table>,
-                     composite_key<table_id_object,
-                                   member<table_id_object, account_name, &table_id_object::code>,
-                                   member<table_id_object, scope_name, &table_id_object::scope>,
-                                   member<table_id_object, table_name, &table_id_object::table>>>>>;
+   indexed_by<ordered_unique<tag<by_id>, member<table_id_object, table_id_object::id_type, &table_id_object::id>>,
+              ordered_unique<tag<by_code_scope_table>,
+                             composite_key<table_id_object,
+                                           member<table_id_object, account_name, &table_id_object::code>,
+                                           member<table_id_object, scope_name, &table_id_object::scope>,
+                                           member<table_id_object, table_name, &table_id_object::table>>>>>;
 
 using table_id = table_id_object::id_type;
 
@@ -57,13 +56,12 @@ struct key_value_object : public chainbase::object<key_value_object_type, key_va
 
 using key_value_index = chainbase::shared_multi_index_container<
    key_value_object,
-   indexed_by<
-      ordered_unique<tag<by_id>, member<key_value_object, key_value_object::id_type, &key_value_object::id>>,
-      ordered_unique<tag<by_scope_primary>,
-                     composite_key<key_value_object,
-                                   member<key_value_object, table_id, &key_value_object::t_id>,
-                                   member<key_value_object, uint64_t, &key_value_object::primary_key>>,
-                     composite_key_compare<std::less<table_id>, std::less<uint64_t>>>>>;
+   indexed_by<ordered_unique<tag<by_id>, member<key_value_object, key_value_object::id_type, &key_value_object::id>>,
+              ordered_unique<tag<by_scope_primary>,
+                             composite_key<key_value_object,
+                                           member<key_value_object, table_id, &key_value_object::t_id>,
+                                           member<key_value_object, uint64_t, &key_value_object::primary_key>>,
+                             composite_key_compare<std::less<table_id>, std::less<uint64_t>>>>>;
 
 struct by_primary;
 struct by_secondary;
@@ -83,19 +81,18 @@ struct secondary_index {
 
    typedef chainbase::shared_multi_index_container<
       index_object,
-      indexed_by<
-         ordered_unique<tag<by_id>, member<index_object, typename index_object::id_type, &index_object::id>>,
-         ordered_unique<tag<by_primary>,
-                        composite_key<index_object,
-                                      member<index_object, table_id, &index_object::t_id>,
-                                      member<index_object, uint64_t, &index_object::primary_key>>,
-                        composite_key_compare<std::less<table_id>, std::less<uint64_t>>>,
-         ordered_unique<tag<by_secondary>,
-                        composite_key<index_object,
-                                      member<index_object, table_id, &index_object::t_id>,
-                                      member<index_object, SecondaryKey, &index_object::secondary_key>,
-                                      member<index_object, uint64_t, &index_object::primary_key>>,
-                        composite_key_compare<std::less<table_id>, SecondaryKeyLess, std::less<uint64_t>>>>>
+      indexed_by<ordered_unique<tag<by_id>, member<index_object, typename index_object::id_type, &index_object::id>>,
+                 ordered_unique<tag<by_primary>,
+                                composite_key<index_object,
+                                              member<index_object, table_id, &index_object::t_id>,
+                                              member<index_object, uint64_t, &index_object::primary_key>>,
+                                composite_key_compare<std::less<table_id>, std::less<uint64_t>>>,
+                 ordered_unique<tag<by_secondary>,
+                                composite_key<index_object,
+                                              member<index_object, table_id, &index_object::t_id>,
+                                              member<index_object, SecondaryKey, &index_object::secondary_key>,
+                                              member<index_object, uint64_t, &index_object::primary_key>>,
+                                composite_key_compare<std::less<table_id>, SecondaryKeyLess, std::less<uint64_t>>>>>
       index_index;
 };
 
@@ -123,10 +120,8 @@ struct soft_long_double_less {
  *  The software double implementation is using the Berkeley softfloat library (release 3).
  */
 
-typedef secondary_index<float64_t, index_double_object_type, soft_double_less>::index_object
-   index_double_object;
-typedef secondary_index<float64_t, index_double_object_type, soft_double_less>::index_index
-   index_double_index;
+typedef secondary_index<float64_t, index_double_object_type, soft_double_less>::index_object index_double_object;
+typedef secondary_index<float64_t, index_double_object_type, soft_double_less>::index_index  index_double_index;
 
 /**
  *  This index supports a deterministic software implementation of long double as the secondary key.
@@ -153,8 +148,7 @@ template<size_t N>
 struct secondary_key_traits<std::array<uint128_t, N>> {
 private:
    static constexpr uint128_t max_uint128 =
-      (static_cast<uint128_t>(std::numeric_limits<uint64_t>::max()) << 64) |
-      std::numeric_limits<uint64_t>::max();
+      (static_cast<uint128_t>(std::numeric_limits<uint64_t>::max()) << 64) | std::numeric_limits<uint64_t>::max();
    static_assert(std::numeric_limits<uint128_t>::max() == max_uint128,
                  "numeric_limits for uint128_t is not properly defined");
 
@@ -200,10 +194,10 @@ struct secondary_key_traits<float128_t> {
 template<typename T>
 struct object_to_table_id_tag;
 
-#define DECLARE_TABLE_ID_TAG(object, tag)                                                                    \
-   template<>                                                                                                \
-   struct object_to_table_id_tag<object> {                                                                   \
-      using tag_type = tag;                                                                                  \
+#define DECLARE_TABLE_ID_TAG(object, tag)                                                                              \
+   template<>                                                                                                          \
+   struct object_to_table_id_tag<object> {                                                                             \
+      using tag_type = tag;                                                                                            \
    };
 
 DECLARE_TABLE_ID_TAG(key_value_object, by_scope_primary)
@@ -229,48 +223,47 @@ struct billable_size<key_value_object> {
    static const uint64_t overhead =
       overhead_per_row_per_index_ram_bytes *
       2; ///< overhead for potentially single-row table, 2x indices internal-key and primary key
-   static const uint64_t value =
-      32 + 8 + 4 + overhead; ///< 32 bytes for our constant size fields, 8 for pointer to vector data, 4 bytes
-                             ///< for a size of vector + overhead
+   static const uint64_t value = 32 + 8 + 4 + overhead; ///< 32 bytes for our constant size fields, 8 for pointer to
+                                                        ///< vector data, 4 bytes for a size of vector + overhead
 };
 
 template<>
 struct billable_size<index64_object> {
    static const uint64_t overhead =
-      overhead_per_row_per_index_ram_bytes * 3;     ///< overhead for potentially single-row table, 3x indices
-                                                    ///< internal-key, primary key and primary+secondary key
+      overhead_per_row_per_index_ram_bytes *
+      3; ///< overhead for potentially single-row table, 3x indices internal-key, primary key and primary+secondary key
    static const uint64_t value = 24 + 8 + overhead; ///< 24 bytes for fixed fields + 8 bytes key + overhead
 };
 
 template<>
 struct billable_size<index128_object> {
    static const uint64_t overhead =
-      overhead_per_row_per_index_ram_bytes * 3; ///< overhead for potentially single-row table, 3x indices
-                                                ///< internal-key, primary key and primary+secondary key
+      overhead_per_row_per_index_ram_bytes *
+      3; ///< overhead for potentially single-row table, 3x indices internal-key, primary key and primary+secondary key
    static const uint64_t value = 24 + 16 + overhead; ///< 24 bytes for fixed fields + 16 bytes key + overhead
 };
 
 template<>
 struct billable_size<index256_object> {
    static const uint64_t overhead =
-      overhead_per_row_per_index_ram_bytes * 3; ///< overhead for potentially single-row table, 3x indices
-                                                ///< internal-key, primary key and primary+secondary key
+      overhead_per_row_per_index_ram_bytes *
+      3; ///< overhead for potentially single-row table, 3x indices internal-key, primary key and primary+secondary key
    static const uint64_t value = 24 + 32 + overhead; ///< 24 bytes for fixed fields + 32 bytes key + overhead
 };
 
 template<>
 struct billable_size<index_double_object> {
    static const uint64_t overhead =
-      overhead_per_row_per_index_ram_bytes * 3;     ///< overhead for potentially single-row table, 3x indices
-                                                    ///< internal-key, primary key and primary+secondary key
+      overhead_per_row_per_index_ram_bytes *
+      3; ///< overhead for potentially single-row table, 3x indices internal-key, primary key and primary+secondary key
    static const uint64_t value = 24 + 8 + overhead; ///< 24 bytes for fixed fields + 8 bytes key + overhead
 };
 
 template<>
 struct billable_size<index_long_double_object> {
    static const uint64_t overhead =
-      overhead_per_row_per_index_ram_bytes * 3; ///< overhead for potentially single-row table, 3x indices
-                                                ///< internal-key, primary key and primary+secondary key
+      overhead_per_row_per_index_ram_bytes *
+      3; ///< overhead for potentially single-row table, 3x indices internal-key, primary key and primary+secondary key
    static const uint64_t value = 24 + 16 + overhead; ///< 24 bytes for fixed fields + 16 bytes key + overhead
 };
 

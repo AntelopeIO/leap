@@ -62,10 +62,7 @@ process::process()
    : my(new process::impl()) {}
 process::~process() {}
 
-iprocess& process::exec(const fc::path&          exe,
-                        std::vector<std::string> args,
-                        const fc::path&          work_dir,
-                        int                      opt) {
+iprocess& process::exec(const fc::path& exe, std::vector<std::string> args, const fc::path& work_dir, int opt) {
 
    my->pctx.work_dir         = work_dir.string();
    my->pctx.suppress_console = (opt & suppress_console) != 0;
@@ -122,10 +119,8 @@ iprocess& process::exec(const fc::path&          exe,
           p->set_value(exit_code);
 #endif
       } else {
-         p->set_exception(fc::exception_ptr(
-            new fc::exception(FC_LOG_MESSAGE(error,
-                                             "process exited with: ${message} ",
-                                             ("message", boost::system::system_error(ec).what())))));
+         p->set_exception(fc::exception_ptr(new fc::exception(FC_LOG_MESSAGE(
+            error, "process exited with: ${message} ", ("message", boost::system::system_error(ec).what())))));
       }
    });
    if (opt & open_stdin)

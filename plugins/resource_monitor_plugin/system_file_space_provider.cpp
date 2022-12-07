@@ -7,8 +7,7 @@ int system_file_space_provider::get_stat(const char* path, struct stat* buf) con
    return stat(path, buf);
 }
 
-bfs::space_info system_file_space_provider::get_space(const bfs::path&           p,
-                                                      boost::system::error_code& ec) const {
+bfs::space_info system_file_space_provider::get_space(const bfs::path& p, boost::system::error_code& ec) const {
    return bfs::space(p, ec);
 }
 

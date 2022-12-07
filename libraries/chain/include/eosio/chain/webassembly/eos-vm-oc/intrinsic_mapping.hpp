@@ -24,9 +24,8 @@ inline constexpr auto get_intrinsic_table() {
       "eosvmoc_internal.indirect_call_mismatch",
       "eosvmoc_internal.indirect_call_oob",
       "eosvmoc_internal.depth_assert",
-      "eosio_injection.call_depth_assert", // now unused; left for purposes of not upsetting existing code
-                                           // mappings
-      "eosio_injection.checktime", // now unused; left for purposes of not upsetting existing code mappings
+      "eosio_injection.call_depth_assert", // now unused; left for purposes of not upsetting existing code mappings
+      "eosio_injection.checktime",         // now unused; left for purposes of not upsetting existing code mappings
       "env.__ashlti3",
       "env.__ashrti3",
       "env.__lshlti3",

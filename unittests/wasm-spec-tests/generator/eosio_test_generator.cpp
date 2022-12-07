@@ -11,11 +11,10 @@
 
 using namespace std;
 
-const set<string> blacklist_memory_clearing = {
-   "address.0",      "address.2",      "address.3",      "address.4",      "float_exprs.59", "float_exprs.60",
-   "float_memory.0", "float_memory.1", "float_memory.2", "float_memory.3", "float_memory.4", "float_memory.5",
-   "memory.25",      "memory_trap.1",  "start.3",        "start.4"
-};
+const set<string> blacklist_memory_clearing = { "address.0",      "address.2",      "address.3",      "address.4",
+                                                "float_exprs.59", "float_exprs.60", "float_memory.0", "float_memory.1",
+                                                "float_memory.2", "float_memory.3", "float_memory.4", "float_memory.5",
+                                                "memory.25",      "memory_trap.1",  "start.3",        "start.4" };
 
 const set<string> whitelist_force_check_throw = { "memory.6", "memory.7" };
 
@@ -117,9 +116,7 @@ pair<string, string> get_expected_return(picojson::object test) {
    return expected_return;
 }
 
-string write_test_function(string                    function_name,
-                           picojson::object          test,
-                           spec_test_function_state& func_state) {
+string write_test_function(string function_name, picojson::object test, spec_test_function_state& func_state) {
    stringstream out;
 
    auto action = test["action"].get<picojson::object>();
@@ -290,10 +287,9 @@ map<string, vector<picojson::object>> get_file_func_mappings(picojson::value v) 
                file_func_mappings[filename] = {};
             }
             if (obj["type"].to_str() == "assert_return" || obj["type"].to_str() == "action" ||
-                obj["type"].to_str() == "assert_exhaustion" ||
-                obj["type"].to_str() == "assert_return_canonical_nan" ||
-                obj["type"].to_str() == "assert_return_arithmetic_nan" ||
-                obj["type"].to_str() == "assert_exhaustion" || obj["type"].to_str() == "assert_trap") {
+                obj["type"].to_str() == "assert_exhaustion" || obj["type"].to_str() == "assert_return_canonical_nan" ||
+                obj["type"].to_str() == "assert_return_arithmetic_nan" || obj["type"].to_str() == "assert_exhaustion" ||
+                obj["type"].to_str() == "assert_trap") {
                file_func_mappings[filename].push_back(obj);
             }
          }
@@ -416,8 +412,7 @@ int main(int argc, char** argv) {
          ++i;
       }
 
-      spec_tests.push_back(
-         spec_test{ test_name, 0, assert_trap_end_index, assert_trap_end_index, sub_apply_index });
+      spec_tests.push_back(spec_test{ test_name, 0, assert_trap_end_index, assert_trap_end_index, sub_apply_index });
 
       int index = 0;
       apply_func << "      switch(test_to_run) {\n";

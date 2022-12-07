@@ -56,8 +56,7 @@ enum exception_code {
  */
 class exception : public std::exception {
 public:
-   static constexpr fc::microseconds format_time_limit =
-      fc::milliseconds(10); // limit time spent formatting exceptions
+   static constexpr fc::microseconds format_time_limit = fc::milliseconds(10); // limit time spent formatting exceptions
 
    enum code_enum { code_value = unspecified_exception_code };
 
@@ -234,58 +233,50 @@ private:
 };
 #define FC_REGISTER_EXCEPTION(r, unused, base) fc::exception_factory::instance().register_exception<base>();
 
-#define FC_REGISTER_EXCEPTIONS(SEQ)                                                                          \
-                                                                                                             \
-   static bool exception_init = []() -> bool {                                                               \
-      BOOST_PP_SEQ_FOR_EACH(FC_REGISTER_EXCEPTION, v, SEQ)                                                   \
-      return true;                                                                                           \
+#define FC_REGISTER_EXCEPTIONS(SEQ)                                                                                    \
+                                                                                                                       \
+   static bool exception_init = []() -> bool {                                                                         \
+      BOOST_PP_SEQ_FOR_EACH(FC_REGISTER_EXCEPTION, v, SEQ)                                                             \
+      return true;                                                                                                     \
    }();
 
-#define FC_DECLARE_DERIVED_EXCEPTION(TYPE, BASE, CODE, WHAT)                                                 \
-   class TYPE : public BASE {                                                                                \
-   public:                                                                                                   \
-      enum code_enum {                                                                                       \
-         code_value = CODE,                                                                                  \
-      };                                                                                                     \
-      explicit TYPE(int64_t code, const std::string& name_value, const std::string& what_value)              \
-         : BASE(code, name_value, what_value) {}                                                             \
-      explicit TYPE(fc::log_message&&  m,                                                                    \
-                    int64_t            code,                                                                 \
-                    const std::string& name_value,                                                           \
-                    const std::string& what_value)                                                           \
-         : BASE(std::move(m), code, name_value, what_value) {}                                               \
-      explicit TYPE(fc::log_messages&& m,                                                                    \
-                    int64_t            code,                                                                 \
-                    const std::string& name_value,                                                           \
-                    const std::string& what_value)                                                           \
-         : BASE(std::move(m), code, name_value, what_value) {}                                               \
-      explicit TYPE(const fc::log_messages& m,                                                               \
-                    int64_t                 code,                                                            \
-                    const std::string&      name_value,                                                      \
-                    const std::string&      what_value)                                                      \
-         : BASE(m, code, name_value, what_value) {}                                                          \
-      TYPE(const std::string& what_value, const fc::log_messages& m)                                         \
-         : BASE(m, CODE, BOOST_PP_STRINGIZE(TYPE), what_value) {}                                            \
-      TYPE(fc::log_message&& m)                                                                              \
-         : BASE(fc::move(m), CODE, BOOST_PP_STRINGIZE(TYPE), WHAT) {}                                        \
-      TYPE(fc::log_messages msgs)                                                                            \
-         : BASE(fc::move(msgs), CODE, BOOST_PP_STRINGIZE(TYPE), WHAT) {}                                     \
-      TYPE(const TYPE& c)                                                                                    \
-         : BASE(c) {}                                                                                        \
-      TYPE(const BASE& c)                                                                                    \
-         : BASE(c) {}                                                                                        \
-      TYPE()                                                                                                 \
-         : BASE(CODE, BOOST_PP_STRINGIZE(TYPE), WHAT) {}                                                     \
-                                                                                                             \
-      virtual std::shared_ptr<fc::exception> dynamic_copy_exception() const {                                \
-         return std::make_shared<TYPE>(*this);                                                               \
-      }                                                                                                      \
-      virtual NO_RETURN void dynamic_rethrow_exception() const {                                             \
-         if (code() == CODE)                                                                                 \
-            throw *this;                                                                                     \
-         else                                                                                                \
-            fc::exception::dynamic_rethrow_exception();                                                      \
-      }                                                                                                      \
+#define FC_DECLARE_DERIVED_EXCEPTION(TYPE, BASE, CODE, WHAT)                                                           \
+   class TYPE : public BASE {                                                                                          \
+   public:                                                                                                             \
+      enum code_enum {                                                                                                 \
+         code_value = CODE,                                                                                            \
+      };                                                                                                               \
+      explicit TYPE(int64_t code, const std::string& name_value, const std::string& what_value)                        \
+         : BASE(code, name_value, what_value) {}                                                                       \
+      explicit TYPE(fc::log_message&& m, int64_t code, const std::string& name_value, const std::string& what_value)   \
+         : BASE(std::move(m), code, name_value, what_value) {}                                                         \
+      explicit TYPE(fc::log_messages&& m, int64_t code, const std::string& name_value, const std::string& what_value)  \
+         : BASE(std::move(m), code, name_value, what_value) {}                                                         \
+      explicit TYPE(const fc::log_messages& m,                                                                         \
+                    int64_t                 code,                                                                      \
+                    const std::string&      name_value,                                                                \
+                    const std::string&      what_value)                                                                \
+         : BASE(m, code, name_value, what_value) {}                                                                    \
+      TYPE(const std::string& what_value, const fc::log_messages& m)                                                   \
+         : BASE(m, CODE, BOOST_PP_STRINGIZE(TYPE), what_value) {}                                                      \
+      TYPE(fc::log_message&& m)                                                                                        \
+         : BASE(fc::move(m), CODE, BOOST_PP_STRINGIZE(TYPE), WHAT) {}                                                  \
+      TYPE(fc::log_messages msgs)                                                                                      \
+         : BASE(fc::move(msgs), CODE, BOOST_PP_STRINGIZE(TYPE), WHAT) {}                                               \
+      TYPE(const TYPE& c)                                                                                              \
+         : BASE(c) {}                                                                                                  \
+      TYPE(const BASE& c)                                                                                              \
+         : BASE(c) {}                                                                                                  \
+      TYPE()                                                                                                           \
+         : BASE(CODE, BOOST_PP_STRINGIZE(TYPE), WHAT) {}                                                               \
+                                                                                                                       \
+      virtual std::shared_ptr<fc::exception> dynamic_copy_exception() const { return std::make_shared<TYPE>(*this); }  \
+      virtual NO_RETURN void                 dynamic_rethrow_exception() const {                                       \
+                         if (code() == CODE)                                                                           \
+            throw *this;                                                                               \
+         else                                                                                          \
+            fc::exception::dynamic_rethrow_exception();                                                \
+      }                                                                                                                \
    };
 
 #define FC_DECLARE_EXCEPTION(TYPE, CODE, WHAT) FC_DECLARE_DERIVED_EXCEPTION(TYPE, fc::exception, CODE, WHAT)
@@ -347,25 +338,25 @@ extern bool enable_record_assert_trip;
 /**
  *  @brief Checks a condition and throws an assert_exception if the test is FALSE
  */
-#define FC_ASSERT(TEST, ...)                                                                                 \
-   FC_EXPAND_MACRO(FC_MULTILINE_MACRO_BEGIN if (UNLIKELY(!(TEST))) {                                         \
-      if (fc::enable_record_assert_trip)                                                                     \
-         fc::record_assert_trip(__FILE__, __LINE__, #TEST);                                                  \
-      FC_THROW_EXCEPTION(fc::assert_exception, #TEST ": " __VA_ARGS__);                                      \
+#define FC_ASSERT(TEST, ...)                                                                                           \
+   FC_EXPAND_MACRO(FC_MULTILINE_MACRO_BEGIN if (UNLIKELY(!(TEST))) {                                                   \
+      if (fc::enable_record_assert_trip)                                                                               \
+         fc::record_assert_trip(__FILE__, __LINE__, #TEST);                                                            \
+      FC_THROW_EXCEPTION(fc::assert_exception, #TEST ": " __VA_ARGS__);                                                \
    } FC_MULTILINE_MACRO_END)
 
-#define FC_CAPTURE_AND_THROW(EXCEPTION_TYPE, ...)                                                            \
-   FC_MULTILINE_MACRO_BEGIN                                                                                  \
-   throw EXCEPTION_TYPE(FC_LOG_MESSAGE(error, "", FC_FORMAT_ARG_PARAMS(__VA_ARGS__)));                       \
+#define FC_CAPTURE_AND_THROW(EXCEPTION_TYPE, ...)                                                                      \
+   FC_MULTILINE_MACRO_BEGIN                                                                                            \
+   throw EXCEPTION_TYPE(FC_LOG_MESSAGE(error, "", FC_FORMAT_ARG_PARAMS(__VA_ARGS__)));                                 \
    FC_MULTILINE_MACRO_END
 
 //#define FC_THROW( FORMAT, ... )
 // FC_INDIRECT_EXPAND workas around a bug in Visual C++ variadic macro processing that prevents it
 // from separating __VA_ARGS__ into separate tokens
 #define FC_INDIRECT_EXPAND(MACRO, ARGS) MACRO ARGS
-#define FC_THROW(...)                                                                                        \
-   FC_MULTILINE_MACRO_BEGIN                                                                                  \
-   throw fc::exception(FC_INDIRECT_EXPAND(FC_LOG_MESSAGE, (error, __VA_ARGS__)));                            \
+#define FC_THROW(...)                                                                                                  \
+   FC_MULTILINE_MACRO_BEGIN                                                                                            \
+   throw fc::exception(FC_INDIRECT_EXPAND(FC_LOG_MESSAGE, (error, __VA_ARGS__)));                                      \
    FC_MULTILINE_MACRO_END
 
 #define FC_EXCEPTION(EXCEPTION_TYPE, FORMAT, ...) EXCEPTION_TYPE(FC_LOG_MESSAGE(error, FORMAT, __VA_ARGS__))
@@ -374,110 +365,110 @@ extern bool enable_record_assert_trip;
  *  @param EXCEPTION a class in the Phoenix::Athena::API namespace that inherits
  *  @param format - a const char* string with "${keys}"
  */
-#define FC_THROW_EXCEPTION(EXCEPTION, FORMAT, ...)                                                           \
-   FC_MULTILINE_MACRO_BEGIN                                                                                  \
-   throw EXCEPTION(FC_LOG_MESSAGE(error, FORMAT, __VA_ARGS__));                                              \
+#define FC_THROW_EXCEPTION(EXCEPTION, FORMAT, ...)                                                                     \
+   FC_MULTILINE_MACRO_BEGIN                                                                                            \
+   throw EXCEPTION(FC_LOG_MESSAGE(error, FORMAT, __VA_ARGS__));                                                        \
    FC_MULTILINE_MACRO_END
 
 /**
  *  @def FC_RETHROW_EXCEPTION(ER,LOG_LEVEL,FORMAT,...)
  *  @brief Appends a log_message to the exception ER and rethrows it.
  */
-#define FC_RETHROW_EXCEPTION(ER, LOG_LEVEL, FORMAT, ...)                                                     \
-   FC_MULTILINE_MACRO_BEGIN                                                                                  \
-   ER.append_log(FC_LOG_MESSAGE(LOG_LEVEL, FORMAT, __VA_ARGS__));                                            \
-   throw;                                                                                                    \
+#define FC_RETHROW_EXCEPTION(ER, LOG_LEVEL, FORMAT, ...)                                                               \
+   FC_MULTILINE_MACRO_BEGIN                                                                                            \
+   ER.append_log(FC_LOG_MESSAGE(LOG_LEVEL, FORMAT, __VA_ARGS__));                                                      \
+   throw;                                                                                                              \
    FC_MULTILINE_MACRO_END
 
-#define FC_LOG_AND_RETHROW()                                                                                 \
-   catch (const boost::interprocess::bad_alloc&) {                                                           \
-      throw;                                                                                                 \
-   }                                                                                                         \
-   catch (fc::exception & er) {                                                                              \
-      wlog("${details}", ("details", er.to_detail_string()));                                                \
-      FC_RETHROW_EXCEPTION(er, warn, "rethrow");                                                             \
-   }                                                                                                         \
-   catch (const std::exception& e) {                                                                         \
-      fc::std_exception_wrapper sew(FC_LOG_MESSAGE(warn, "rethrow ${what}: ", ("what", e.what())),           \
-                                    std::current_exception(),                                                \
-                                    BOOST_CORE_TYPEID(e).name(),                                             \
-                                    e.what());                                                               \
-      wlog("${details}", ("details", sew.to_detail_string()));                                               \
-      throw sew;                                                                                             \
-   }                                                                                                         \
-   catch (...) {                                                                                             \
-      fc::unhandled_exception e(FC_LOG_MESSAGE(warn, "rethrow"), std::current_exception());                  \
-      wlog("${details}", ("details", e.to_detail_string()));                                                 \
-      throw e;                                                                                               \
+#define FC_LOG_AND_RETHROW()                                                                                           \
+   catch (const boost::interprocess::bad_alloc&) {                                                                     \
+      throw;                                                                                                           \
+   }                                                                                                                   \
+   catch (fc::exception & er) {                                                                                        \
+      wlog("${details}", ("details", er.to_detail_string()));                                                          \
+      FC_RETHROW_EXCEPTION(er, warn, "rethrow");                                                                       \
+   }                                                                                                                   \
+   catch (const std::exception& e) {                                                                                   \
+      fc::std_exception_wrapper sew(FC_LOG_MESSAGE(warn, "rethrow ${what}: ", ("what", e.what())),                     \
+                                    std::current_exception(),                                                          \
+                                    BOOST_CORE_TYPEID(e).name(),                                                       \
+                                    e.what());                                                                         \
+      wlog("${details}", ("details", sew.to_detail_string()));                                                         \
+      throw sew;                                                                                                       \
+   }                                                                                                                   \
+   catch (...) {                                                                                                       \
+      fc::unhandled_exception e(FC_LOG_MESSAGE(warn, "rethrow"), std::current_exception());                            \
+      wlog("${details}", ("details", e.to_detail_string()));                                                           \
+      throw e;                                                                                                         \
    }
 
-#define FC_CAPTURE_LOG_AND_RETHROW(...)                                                                      \
-   catch (const boost::interprocess::bad_alloc&) {                                                           \
-      throw;                                                                                                 \
-   }                                                                                                         \
-   catch (fc::exception & er) {                                                                              \
-      wlog("${details}", ("details", er.to_detail_string()));                                                \
-      wdump(__VA_ARGS__);                                                                                    \
-      FC_RETHROW_EXCEPTION(er, warn, "rethrow", FC_FORMAT_ARG_PARAMS(__VA_ARGS__));                          \
-   }                                                                                                         \
-   catch (const std::exception& e) {                                                                         \
-      fc::std_exception_wrapper sew(                                                                         \
-         FC_LOG_MESSAGE(warn, "rethrow ${what}: ", FC_FORMAT_ARG_PARAMS(__VA_ARGS__)("what", e.what())),     \
-         std::current_exception(),                                                                           \
-         BOOST_CORE_TYPEID(e).name(),                                                                        \
-         e.what());                                                                                          \
-      wlog("${details}", ("details", sew.to_detail_string()));                                               \
-      wdump(__VA_ARGS__);                                                                                    \
-      throw sew;                                                                                             \
-   }                                                                                                         \
-   catch (...) {                                                                                             \
-      fc::unhandled_exception e(FC_LOG_MESSAGE(warn, "rethrow", FC_FORMAT_ARG_PARAMS(__VA_ARGS__)),          \
-                                std::current_exception());                                                   \
-      wlog("${details}", ("details", e.to_detail_string()));                                                 \
-      wdump(__VA_ARGS__);                                                                                    \
-      throw e;                                                                                               \
+#define FC_CAPTURE_LOG_AND_RETHROW(...)                                                                                \
+   catch (const boost::interprocess::bad_alloc&) {                                                                     \
+      throw;                                                                                                           \
+   }                                                                                                                   \
+   catch (fc::exception & er) {                                                                                        \
+      wlog("${details}", ("details", er.to_detail_string()));                                                          \
+      wdump(__VA_ARGS__);                                                                                              \
+      FC_RETHROW_EXCEPTION(er, warn, "rethrow", FC_FORMAT_ARG_PARAMS(__VA_ARGS__));                                    \
+   }                                                                                                                   \
+   catch (const std::exception& e) {                                                                                   \
+      fc::std_exception_wrapper sew(                                                                                   \
+         FC_LOG_MESSAGE(warn, "rethrow ${what}: ", FC_FORMAT_ARG_PARAMS(__VA_ARGS__)("what", e.what())),               \
+         std::current_exception(),                                                                                     \
+         BOOST_CORE_TYPEID(e).name(),                                                                                  \
+         e.what());                                                                                                    \
+      wlog("${details}", ("details", sew.to_detail_string()));                                                         \
+      wdump(__VA_ARGS__);                                                                                              \
+      throw sew;                                                                                                       \
+   }                                                                                                                   \
+   catch (...) {                                                                                                       \
+      fc::unhandled_exception e(FC_LOG_MESSAGE(warn, "rethrow", FC_FORMAT_ARG_PARAMS(__VA_ARGS__)),                    \
+                                std::current_exception());                                                             \
+      wlog("${details}", ("details", e.to_detail_string()));                                                           \
+      wdump(__VA_ARGS__);                                                                                              \
+      throw e;                                                                                                         \
    }
 
-#define FC_CAPTURE_AND_LOG(...)                                                                              \
-   catch (const boost::interprocess::bad_alloc&) {                                                           \
-      throw;                                                                                                 \
-   }                                                                                                         \
-   catch (fc::exception & er) {                                                                              \
-      wlog("${details}", ("details", er.to_detail_string()));                                                \
-      wdump(__VA_ARGS__);                                                                                    \
-   }                                                                                                         \
-   catch (const std::exception& e) {                                                                         \
-      fc::std_exception_wrapper sew(                                                                         \
-         FC_LOG_MESSAGE(warn, "rethrow ${what}: ", FC_FORMAT_ARG_PARAMS(__VA_ARGS__)("what", e.what())),     \
-         std::current_exception(),                                                                           \
-         BOOST_CORE_TYPEID(e).name(),                                                                        \
-         e.what());                                                                                          \
-      wlog("${details}", ("details", sew.to_detail_string()));                                               \
-      wdump(__VA_ARGS__);                                                                                    \
-   }                                                                                                         \
-   catch (...) {                                                                                             \
-      fc::unhandled_exception e(FC_LOG_MESSAGE(warn, "rethrow", FC_FORMAT_ARG_PARAMS(__VA_ARGS__)),          \
-                                std::current_exception());                                                   \
-      wlog("${details}", ("details", e.to_detail_string()));                                                 \
-      wdump(__VA_ARGS__);                                                                                    \
+#define FC_CAPTURE_AND_LOG(...)                                                                                        \
+   catch (const boost::interprocess::bad_alloc&) {                                                                     \
+      throw;                                                                                                           \
+   }                                                                                                                   \
+   catch (fc::exception & er) {                                                                                        \
+      wlog("${details}", ("details", er.to_detail_string()));                                                          \
+      wdump(__VA_ARGS__);                                                                                              \
+   }                                                                                                                   \
+   catch (const std::exception& e) {                                                                                   \
+      fc::std_exception_wrapper sew(                                                                                   \
+         FC_LOG_MESSAGE(warn, "rethrow ${what}: ", FC_FORMAT_ARG_PARAMS(__VA_ARGS__)("what", e.what())),               \
+         std::current_exception(),                                                                                     \
+         BOOST_CORE_TYPEID(e).name(),                                                                                  \
+         e.what());                                                                                                    \
+      wlog("${details}", ("details", sew.to_detail_string()));                                                         \
+      wdump(__VA_ARGS__);                                                                                              \
+   }                                                                                                                   \
+   catch (...) {                                                                                                       \
+      fc::unhandled_exception e(FC_LOG_MESSAGE(warn, "rethrow", FC_FORMAT_ARG_PARAMS(__VA_ARGS__)),                    \
+                                std::current_exception());                                                             \
+      wlog("${details}", ("details", e.to_detail_string()));                                                           \
+      wdump(__VA_ARGS__);                                                                                              \
    }
 
-#define FC_LOG_AND_DROP(...)                                                                                 \
-   catch (fc::exception & er) {                                                                              \
-      wlog("${details}", ("details", er.to_detail_string()));                                                \
-   }                                                                                                         \
-   catch (const std::exception& e) {                                                                         \
-      fc::std_exception_wrapper sew(                                                                         \
-         FC_LOG_MESSAGE(warn, "rethrow ${what}: ", FC_FORMAT_ARG_PARAMS(__VA_ARGS__)("what", e.what())),     \
-         std::current_exception(),                                                                           \
-         BOOST_CORE_TYPEID(e).name(),                                                                        \
-         e.what());                                                                                          \
-      wlog("${details}", ("details", sew.to_detail_string()));                                               \
-   }                                                                                                         \
-   catch (...) {                                                                                             \
-      fc::unhandled_exception e(FC_LOG_MESSAGE(warn, "rethrow", FC_FORMAT_ARG_PARAMS(__VA_ARGS__)),          \
-                                std::current_exception());                                                   \
-      wlog("${details}", ("details", e.to_detail_string()));                                                 \
+#define FC_LOG_AND_DROP(...)                                                                                           \
+   catch (fc::exception & er) {                                                                                        \
+      wlog("${details}", ("details", er.to_detail_string()));                                                          \
+   }                                                                                                                   \
+   catch (const std::exception& e) {                                                                                   \
+      fc::std_exception_wrapper sew(                                                                                   \
+         FC_LOG_MESSAGE(warn, "rethrow ${what}: ", FC_FORMAT_ARG_PARAMS(__VA_ARGS__)("what", e.what())),               \
+         std::current_exception(),                                                                                     \
+         BOOST_CORE_TYPEID(e).name(),                                                                                  \
+         e.what());                                                                                                    \
+      wlog("${details}", ("details", sew.to_detail_string()));                                                         \
+   }                                                                                                                   \
+   catch (...) {                                                                                                       \
+      fc::unhandled_exception e(FC_LOG_MESSAGE(warn, "rethrow", FC_FORMAT_ARG_PARAMS(__VA_ARGS__)),                    \
+                                std::current_exception());                                                             \
+      wlog("${details}", ("details", e.to_detail_string()));                                                           \
    }
 
 /**
@@ -485,55 +476,53 @@ extern bool enable_record_assert_trip;
  *  @brief  Catchs all exception's, std::exceptions, and ... and rethrows them after
  *   appending the provided log message.
  */
-#define FC_RETHROW_EXCEPTIONS(LOG_LEVEL, FORMAT, ...)                                                        \
-   catch (const boost::interprocess::bad_alloc&) {                                                           \
-      throw;                                                                                                 \
-   }                                                                                                         \
-   catch (fc::exception & er) {                                                                              \
-      FC_RETHROW_EXCEPTION(er, LOG_LEVEL, FORMAT, __VA_ARGS__);                                              \
-   }                                                                                                         \
-   catch (const std::exception& e) {                                                                         \
-      fc::std_exception_wrapper sew(                                                                         \
-         FC_LOG_MESSAGE(LOG_LEVEL, "${what}: " FORMAT, __VA_ARGS__("what", e.what())),                       \
-         std::current_exception(),                                                                           \
-         BOOST_CORE_TYPEID(e).name(),                                                                        \
-         e.what());                                                                                          \
-      throw sew;                                                                                             \
-   }                                                                                                         \
-   catch (...) {                                                                                             \
-      throw fc::unhandled_exception(FC_LOG_MESSAGE(LOG_LEVEL, FORMAT, __VA_ARGS__),                          \
-                                    std::current_exception());                                               \
+#define FC_RETHROW_EXCEPTIONS(LOG_LEVEL, FORMAT, ...)                                                                  \
+   catch (const boost::interprocess::bad_alloc&) {                                                                     \
+      throw;                                                                                                           \
+   }                                                                                                                   \
+   catch (fc::exception & er) {                                                                                        \
+      FC_RETHROW_EXCEPTION(er, LOG_LEVEL, FORMAT, __VA_ARGS__);                                                        \
+   }                                                                                                                   \
+   catch (const std::exception& e) {                                                                                   \
+      fc::std_exception_wrapper sew(FC_LOG_MESSAGE(LOG_LEVEL, "${what}: " FORMAT, __VA_ARGS__("what", e.what())),      \
+                                    std::current_exception(),                                                          \
+                                    BOOST_CORE_TYPEID(e).name(),                                                       \
+                                    e.what());                                                                         \
+      throw sew;                                                                                                       \
+   }                                                                                                                   \
+   catch (...) {                                                                                                       \
+      throw fc::unhandled_exception(FC_LOG_MESSAGE(LOG_LEVEL, FORMAT, __VA_ARGS__), std::current_exception());         \
    }
 
-#define FC_CAPTURE_AND_RETHROW(...)                                                                          \
-   catch (const boost::interprocess::bad_alloc&) {                                                           \
-      throw;                                                                                                 \
-   }                                                                                                         \
-   catch (fc::exception & er) {                                                                              \
-      FC_RETHROW_EXCEPTION(er, warn, "", FC_FORMAT_ARG_PARAMS(__VA_ARGS__));                                 \
-   }                                                                                                         \
-   catch (const std::exception& e) {                                                                         \
-      fc::std_exception_wrapper sew(                                                                         \
-         FC_LOG_MESSAGE(warn, "${what}: ", FC_FORMAT_ARG_PARAMS(__VA_ARGS__)("what", e.what())),             \
-         std::current_exception(),                                                                           \
-         BOOST_CORE_TYPEID(e).name(),                                                                        \
-         e.what());                                                                                          \
-      throw sew;                                                                                             \
-   }                                                                                                         \
-   catch (...) {                                                                                             \
-      throw fc::unhandled_exception(FC_LOG_MESSAGE(warn, "", FC_FORMAT_ARG_PARAMS(__VA_ARGS__)),             \
-                                    std::current_exception());                                               \
+#define FC_CAPTURE_AND_RETHROW(...)                                                                                    \
+   catch (const boost::interprocess::bad_alloc&) {                                                                     \
+      throw;                                                                                                           \
+   }                                                                                                                   \
+   catch (fc::exception & er) {                                                                                        \
+      FC_RETHROW_EXCEPTION(er, warn, "", FC_FORMAT_ARG_PARAMS(__VA_ARGS__));                                           \
+   }                                                                                                                   \
+   catch (const std::exception& e) {                                                                                   \
+      fc::std_exception_wrapper sew(                                                                                   \
+         FC_LOG_MESSAGE(warn, "${what}: ", FC_FORMAT_ARG_PARAMS(__VA_ARGS__)("what", e.what())),                       \
+         std::current_exception(),                                                                                     \
+         BOOST_CORE_TYPEID(e).name(),                                                                                  \
+         e.what());                                                                                                    \
+      throw sew;                                                                                                       \
+   }                                                                                                                   \
+   catch (...) {                                                                                                       \
+      throw fc::unhandled_exception(FC_LOG_MESSAGE(warn, "", FC_FORMAT_ARG_PARAMS(__VA_ARGS__)),                       \
+                                    std::current_exception());                                                         \
    }
 
-#define FC_CHECK_DEADLINE(DEADLINE, ...)                                                                     \
-   FC_MULTILINE_MACRO_BEGIN                                                                                  \
-   if (DEADLINE < fc::time_point::maximum() && DEADLINE < fc::time_point::now()) {                           \
-      auto log_mgs = FC_LOG_MESSAGE(                                                                         \
-         error,                                                                                              \
-         "deadline ${d} exceeded by ${t}us ",                                                                \
-         FC_FORMAT_ARG_PARAMS(__VA_ARGS__)("d", DEADLINE)("t", fc::time_point::now() - DEADLINE));           \
-      auto msg = log_mgs.get_limited_message();                                                              \
-      throw fc::timeout_exception(                                                                           \
-         std::move(log_mgs), fc::timeout_exception_code, "timeout_exception", std::move(msg));               \
-   }                                                                                                         \
+#define FC_CHECK_DEADLINE(DEADLINE, ...)                                                                               \
+   FC_MULTILINE_MACRO_BEGIN                                                                                            \
+   if (DEADLINE < fc::time_point::maximum() && DEADLINE < fc::time_point::now()) {                                     \
+      auto log_mgs =                                                                                                   \
+         FC_LOG_MESSAGE(error,                                                                                         \
+                        "deadline ${d} exceeded by ${t}us ",                                                           \
+                        FC_FORMAT_ARG_PARAMS(__VA_ARGS__)("d", DEADLINE)("t", fc::time_point::now() - DEADLINE));      \
+      auto msg = log_mgs.get_limited_message();                                                                        \
+      throw fc::timeout_exception(                                                                                     \
+         std::move(log_mgs), fc::timeout_exception_code, "timeout_exception", std::move(msg));                         \
+   }                                                                                                                   \
    FC_MULTILINE_MACRO_END

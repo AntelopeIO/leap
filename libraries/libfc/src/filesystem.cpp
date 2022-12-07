@@ -293,10 +293,8 @@ void copy(const path& f, const path& t) {
                                  boost::filesystem::copy_options::directories_only,
                                  ec);
       } else {
-         boost::filesystem::copy(boost::filesystem::path(f),
-                                 boost::filesystem::path(t),
-                                 boost::filesystem::copy_options::none,
-                                 ec);
+         boost::filesystem::copy(
+            boost::filesystem::path(f), boost::filesystem::path(t), boost::filesystem::copy_options::none, ec);
       }
 #else
       boost::filesystem::copy(boost::filesystem::path(f), boost::filesystem::path(t), ec);
@@ -305,8 +303,7 @@ void copy(const path& f, const path& t) {
       FC_THROW("Copy from ${srcfile} to ${dstfile} failed because ${reason}",
                ("srcfile", f)("dstfile", t)("reason", e.what()));
    } catch (...) {
-      FC_THROW("Copy from ${srcfile} to ${dstfile} failed",
-               ("srcfile", f)("dstfile", t)("inner", fc::except_str()));
+      FC_THROW("Copy from ${srcfile} to ${dstfile} failed", ("srcfile", f)("dstfile", t)("inner", fc::except_str()));
    }
    if (ec) {
       FC_THROW("Copy from ${srcfile} to ${dstfile} failed because ${reason}, category: ${cat}",
@@ -319,8 +316,7 @@ void resize_file(const path& f, size_t t) {
    } catch (boost::system::system_error& e) {
       FC_THROW("Resize file '${f}' to size ${s} failed: ${reason}", ("f", f)("s", t)("reason", e.what()));
    } catch (...) {
-      FC_THROW("Resize file '${f}' to size ${s} failed: ${reason}",
-               ("f", f)("s", t)("reason", fc::except_str()));
+      FC_THROW("Resize file '${f}' to size ${s} failed: ${reason}", ("f", f)("s", t)("reason", fc::except_str()));
    }
 }
 
@@ -329,12 +325,11 @@ void resize_file(const path& f, size_t t) {
 // no-op on Windows.
 void chmod(const path& p, int perm) {
 #ifndef WIN32
-   mode_t actual_perm =
-      ((perm & 0400) ? S_IRUSR : 0) | ((perm & 0200) ? S_IWUSR : 0) | ((perm & 0100) ? S_IXUSR : 0)
+   mode_t actual_perm = ((perm & 0400) ? S_IRUSR : 0) | ((perm & 0200) ? S_IWUSR : 0) | ((perm & 0100) ? S_IXUSR : 0)
 
-      | ((perm & 0040) ? S_IRGRP : 0) | ((perm & 0020) ? S_IWGRP : 0) | ((perm & 0010) ? S_IXGRP : 0)
+                        | ((perm & 0040) ? S_IRGRP : 0) | ((perm & 0020) ? S_IWGRP : 0) | ((perm & 0010) ? S_IXGRP : 0)
 
-      | ((perm & 0004) ? S_IROTH : 0) | ((perm & 0002) ? S_IWOTH : 0) | ((perm & 0001) ? S_IXOTH : 0);
+                        | ((perm & 0004) ? S_IROTH : 0) | ((perm & 0002) ? S_IWOTH : 0) | ((perm & 0001) ? S_IXOTH : 0);
 
    int result = ::chmod(p.string().c_str(), actual_perm);
    if (result != 0)
@@ -355,8 +350,7 @@ void rename(const path& f, const path& t) {
                   ("srcfile", f)("dstfile", t)("reason", e.what()));
       }
    } catch (...) {
-      FC_THROW("Rename from ${srcfile} to ${dstfile} failed",
-               ("srcfile", f)("dstfile", t)("inner", fc::except_str()));
+      FC_THROW("Rename from ${srcfile} to ${dstfile} failed", ("srcfile", f)("dstfile", t)("inner", fc::except_str()));
    }
 }
 void create_hard_link(const path& f, const path& t) {
@@ -484,7 +478,7 @@ const fc::path& home_path() {
          FC_ASSERT(false, "Unable to open an access token for the current process");
       wchar_t user_profile_dir[MAX_PATH];
       DWORD   user_profile_dir_len = sizeof(user_profile_dir);
-      BOOL    success = GetUserProfileDirectoryW(access_token, user_profile_dir, &user_profile_dir_len);
+      BOOL    success              = GetUserProfileDirectoryW(access_token, user_profile_dir, &user_profile_dir_len);
       CloseHandle(access_token);
       if (!success)
          FC_ASSERT(false, "Unable to get the user profile directory");

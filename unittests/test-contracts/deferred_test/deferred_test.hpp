@@ -7,10 +7,7 @@ class [[eosio::contract]] deferred_test : public eosio::contract {
 public:
    using eosio::contract::contract;
 
-   [[eosio::action]] void defercall(eosio::name payer,
-                                    uint64_t    sender_id,
-                                    eosio::name contract,
-                                    uint64_t    payload);
+   [[eosio::action]] void defercall(eosio::name payer, uint64_t sender_id, eosio::name contract, uint64_t payload);
 
    [[eosio::action]] void delayedcall(eosio::name payer,
                                       uint64_t    sender_id,
@@ -26,6 +23,5 @@ public:
 
    [[eosio::action]] void fail();
 
-   [[eosio::on_notify("eosio::onerror")]] void on_error(uint128_t                        sender_id,
-                                                        eosio::ignore<std::vector<char>> sent_trx);
+   [[eosio::on_notify("eosio::onerror")]] void on_error(uint128_t sender_id, eosio::ignore<std::vector<char>> sent_trx);
 };

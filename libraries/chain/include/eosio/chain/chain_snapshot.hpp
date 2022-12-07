@@ -15,8 +15,8 @@ struct chain_snapshot_header {
     *   3: Updated for v2.0.0 protocol features:
     *         - forwards compatible with version 2
     *         - WebAuthn keys
-    *         - wtmsig block siganatures: the block header state changed to include producer authorities and
-    * additional signatures
+    *         - wtmsig block siganatures: the block header state changed to include producer authorities and additional
+    * signatures
     *         - removed genesis_state and added chain ID to global_property_object
     *   4: Updated for v3.0.0 protocol features:
     *         - forwards compatible with versions 2 and 3
@@ -37,8 +37,8 @@ struct chain_snapshot_header {
       auto max = current_version;
       EOS_ASSERT(version >= min && version <= max,
                  snapshot_validation_exception,
-                 "Unsupported version of chain snapshot: ${version}. Supported version must be between "
-                 "${min} and ${max} inclusive.",
+                 "Unsupported version of chain snapshot: ${version}. Supported version must be between ${min} and "
+                 "${max} inclusive.",
                  ("version", version)("min", min)("max", max));
    }
 };

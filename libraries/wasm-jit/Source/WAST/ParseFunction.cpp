@@ -162,11 +162,11 @@ static void parseImm(FunctionParseState& state, BranchTableImm& outImm) {
 
 template<bool isGlobal>
 static void parseImm(FunctionParseState& state, GetOrSetVariableImm<isGlobal>& outImm) {
-   outImm.variableIndex = parseAndResolveNameOrIndexRef(
-      state,
-      isGlobal ? state.moduleState.globalNameToIndexMap : *state.localNameToIndexMap,
-      isGlobal ? state.moduleState.module.globals.size() : state.numLocals,
-      isGlobal ? "global" : "local");
+   outImm.variableIndex =
+      parseAndResolveNameOrIndexRef(state,
+                                    isGlobal ? state.moduleState.globalNameToIndexMap : *state.localNameToIndexMap,
+                                    isGlobal ? state.moduleState.module.globals.size() : state.numLocals,
+                                    isGlobal ? "global" : "local");
 }
 
 static void parseImm(FunctionParseState& state, CallImm& outImm) {
@@ -304,15 +304,15 @@ static void parseExprSequence(FunctionParseState& state) {
    };
 }
 
-#define VISIT_OP(opcode, name, nameString, Imm, ...)                                                         \
-   static void parseOp_##name(FunctionParseState& state, bool isExpression) {                                \
-      ++state.nextToken;                                                                                     \
-      Imm imm;                                                                                               \
-      parseImm(state, imm);                                                                                  \
-      if (isExpression) {                                                                                    \
-         parseExprSequence(state);                                                                           \
-      }                                                                                                      \
-      state.validatingCodeStream.name(imm);                                                                  \
+#define VISIT_OP(opcode, name, nameString, Imm, ...)                                                                   \
+   static void parseOp_##name(FunctionParseState& state, bool isExpression) {                                          \
+      ++state.nextToken;                                                                                               \
+      Imm imm;                                                                                                         \
+      parseImm(state, imm);                                                                                            \
+      if (isExpression) {                                                                                              \
+         parseExprSequence(state);                                                                                     \
+      }                                                                                                                \
+      state.validatingCodeStream.name(imm);                                                                            \
    }
 ENUM_NONCONTROL_OPERATORS(VISIT_OP)
 #undef VISIT_OP
@@ -372,9 +372,9 @@ static void parseExpr(FunctionParseState& state) {
                state.validatingCodeStream.end();
                break;
             }
-#define VISIT_OP(opcode, name, nameString, Imm, ...)                                                         \
-   case t_##name:                                                                                            \
-      parseOp_##name(state, true);                                                                           \
+#define VISIT_OP(opcode, name, nameString, Imm, ...)                                                                   \
+   case t_##name:                                                                                                      \
+      parseOp_##name(state, true);                                                                                     \
       break;
                ENUM_NONCONTROL_OPERATORS(VISIT_OP)
 #undef VISIT_OP
@@ -438,7 +438,7 @@ static void parseInstrSequence(FunctionParseState& state) {
 
                break;
             }
-#define VISIT_OP(opcode, name, nameString, Imm, ...)                                                         \
+#define VISIT_OP(opcode, name, nameString, Imm, ...)                                                                   \
    case t_##name: parseOp_##name(state, false); break;
                ENUM_NONCONTROL_OPERATORS(VISIT_OP)
 #undef VISIT_OP
@@ -485,10 +485,9 @@ FunctionDef parseFunctionDef(ModuleParseState& state, const Token* funcToken) {
                                                 localNameToIndexMap,
                                                 localDisassemblyNames,
                                                 functionTypeIndex](ModuleParseState& state) {
-         FunctionDef&        functionDef  = state.module.functions.defs[functionDefIndex];
-         const FunctionType* functionType = functionTypeIndex.index == UINT32_MAX
-                                               ? FunctionType::get()
-                                               : state.module.types[functionTypeIndex.index];
+         FunctionDef&        functionDef = state.module.functions.defs[functionDefIndex];
+         const FunctionType* functionType =
+            functionTypeIndex.index == UINT32_MAX ? FunctionType::get() : state.module.types[functionTypeIndex.index];
 
          // Parse the function's local variables.
          ParseState localParseState(state.string, state.lineInfo, state.errors, firstBodyToken);

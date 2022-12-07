@@ -12,8 +12,8 @@ http_client_plugin::~http_client_plugin() {}
 void http_client_plugin::set_program_options(options_description&, options_description& cfg) {
    cfg.add_options()("https-client-root-cert",
                      boost::program_options::value<vector<string>>()->composing()->multitoken(),
-                     "PEM encoded trusted root certificate (or path to file containing one) used to validate "
-                     "any TLS connections made.  (may specify multiple times)\n")(
+                     "PEM encoded trusted root certificate (or path to file containing one) used to validate any TLS "
+                     "connections made.  (may specify multiple times)\n")(
       "https-client-validate-peers",
       boost::program_options::value<bool>()->default_value(true),
       "true: validate that the peer certificates are valid and trusted, false: ignore cert errors");
@@ -22,8 +22,7 @@ void http_client_plugin::set_program_options(options_description&, options_descr
 void http_client_plugin::plugin_initialize(const variables_map& options) {
    try {
       if (options.count("https-client-root-cert")) {
-         const std::vector<std::string> root_pems =
-            options["https-client-root-cert"].as<std::vector<std::string>>();
+         const std::vector<std::string> root_pems = options["https-client-root-cert"].as<std::vector<std::string>>();
          for (const auto& root_pem : root_pems) {
             std::string pem_str = root_pem;
             if (!boost::algorithm::starts_with(pem_str, "-----BEGIN CERTIFICATE-----\n")) {
@@ -43,8 +42,7 @@ void http_client_plugin::plugin_initialize(const variables_map& options) {
                   elog("Failed to read PEM ${f} : ${e}", ("f", root_pem)("e", e.to_detail_string()));
                } catch (const std::exception& e) {
                   elog("Failed to read PEM ${f} : ${e}",
-                       ("f", root_pem)(
-                          "e", fc::std_exception_wrapper::from_current_exception(e).to_detail_string()));
+                       ("f", root_pem)("e", fc::std_exception_wrapper::from_current_exception(e).to_detail_string()));
                }
             }
 
@@ -58,8 +56,7 @@ void http_client_plugin::plugin_initialize(const variables_map& options) {
                elog("Failed to read PEM : ${e} \n${pem}\n", ("pem", pem_str)("e", e.to_detail_string()));
             } catch (const std::exception& e) {
                elog("Failed to read PEM : ${e} \n${pem}\n",
-                    ("pem",
-                     pem_str)("e", fc::std_exception_wrapper::from_current_exception(e).to_detail_string()));
+                    ("pem", pem_str)("e", fc::std_exception_wrapper::from_current_exception(e).to_detail_string()));
             }
          }
       }

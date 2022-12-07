@@ -35,9 +35,8 @@ void set_num_runs(uint32_t runs) {
 
 void print_header() {
    std::cout << std::left << std::setw(name_width) << "function" << std::setw(runs_width) << "runs"
-             << std::setw(time_width + ns_width) << std::right << "average"
-             << std::setw(time_width + ns_width) << "minimum" << std::setw(time_width + ns_width) << "maximum"
-             << std::endl
+             << std::setw(time_width + ns_width) << std::right << "average" << std::setw(time_width + ns_width)
+             << "minimum" << std::setw(time_width + ns_width) << "maximum" << std::endl
              << std::endl;
 }
 

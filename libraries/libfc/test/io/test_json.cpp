@@ -46,17 +46,15 @@ const string      escape_input_str =
 } // namespace json_test_util
 
 BOOST_AUTO_TEST_CASE(to_string_test) {
-   { // to_string( const variant& v, const fc::time_point& deadline, const uint64_t max_len =
-     // max_length_limit, output_formatting format = stringify_large_ints_and_doubles);
+   { // to_string( const variant& v, const fc::time_point& deadline, const uint64_t max_len = max_length_limit,
+     // output_formatting format = stringify_large_ints_and_doubles);
      { variant v(json_test_util::escape_input_str);
    std::string deadline_exception_at_start_str;
-   BOOST_CHECK_EXCEPTION(deadline_exception_at_start_str =
-                            json::to_string(v,
-                                            fc::time_point::min(),
-                                            json::output_formatting::stringify_large_ints_and_doubles,
-                                            json::max_length_limit),
-                         fc::timeout_exception,
-                         json_test_util::time_except_verf_func);
+   BOOST_CHECK_EXCEPTION(
+      deadline_exception_at_start_str = json::to_string(
+         v, fc::time_point::min(), json::output_formatting::stringify_large_ints_and_doubles, json::max_length_limit),
+      fc::timeout_exception,
+      json_test_util::time_except_verf_func);
    BOOST_CHECK_EQUAL(deadline_exception_at_start_str.empty(), true);
 }
 {
@@ -104,8 +102,7 @@ BOOST_AUTO_TEST_CASE(to_string_test) {
    }
    {
       std::string length_exception_in_mid_str;
-      BOOST_CHECK_EXCEPTION(length_exception_in_mid_str =
-                               json::to_string(v, json_test_util::yield_length_exception),
+      BOOST_CHECK_EXCEPTION(length_exception_in_mid_str = json::to_string(v, json_test_util::yield_length_exception),
                             fc::assert_exception,
                             json_test_util::length_limit_except_verf_func);
       BOOST_CHECK_EQUAL(length_exception_in_mid_str.empty(), true);
@@ -125,8 +122,8 @@ BOOST_AUTO_TEST_CASE(to_string_test) {
    // exceed length
    std::string id_ret_2;
    BOOST_REQUIRE_THROW(
-      id_ret_2 = json::to_string(
-         id, fc::time_point::maximum(), json::output_formatting::stringify_large_ints_and_doubles, len),
+      id_ret_2 =
+         json::to_string(id, fc::time_point::maximum(), json::output_formatting::stringify_large_ints_and_doubles, len),
       fc::assert_exception);
    BOOST_CHECK_EQUAL(id_ret_2.empty(), true);
 
@@ -139,17 +136,15 @@ BOOST_AUTO_TEST_CASE(to_string_test) {
 }
 
 BOOST_AUTO_TEST_CASE(to_pretty_string_test) {
-   { // to_pretty_string( const variant& v, const fc::time_point& deadline, const uint64_t max_len =
-     // max_length_limit, output_formatting format = stringify_large_ints_and_doubles );
+   { // to_pretty_string( const variant& v, const fc::time_point& deadline, const uint64_t max_len = max_length_limit,
+     // output_formatting format = stringify_large_ints_and_doubles );
      { variant v(json_test_util::escape_input_str);
    std::string deadline_exception_at_start_str;
-   BOOST_CHECK_EXCEPTION(deadline_exception_at_start_str =
-                            json::to_pretty_string(v,
-                                                   fc::time_point::min(),
-                                                   json::output_formatting::stringify_large_ints_and_doubles,
-                                                   json::max_length_limit),
-                         fc::timeout_exception,
-                         json_test_util::time_except_verf_func);
+   BOOST_CHECK_EXCEPTION(
+      deadline_exception_at_start_str = json::to_pretty_string(
+         v, fc::time_point::min(), json::output_formatting::stringify_large_ints_and_doubles, json::max_length_limit),
+      fc::timeout_exception,
+      json_test_util::time_except_verf_func);
    BOOST_CHECK_EQUAL(deadline_exception_at_start_str.empty(), true);
 }
 {
@@ -235,9 +230,8 @@ BOOST_AUTO_TEST_CASE(escape_string_test) {
    std::string escape_out_str;
    escape_out_str = fc::escape_string(json_test_util::escape_input_str, json_test_util::yield_no_limitation);
    BOOST_CHECK_LT(json_test_util::repeat_char_num, json_test_util::escape_input_str.size());
-   BOOST_CHECK_LT(
-      json_test_util::escape_input_str.size() - json_test_util::repeat_char_num,
-      json_test_util::exception_limit_size); // by using size_different to calculate expected string
+   BOOST_CHECK_LT(json_test_util::escape_input_str.size() - json_test_util::repeat_char_num,
+                  json_test_util::exception_limit_size); // by using size_different to calculate expected string
    {
       // simulate exceed time exception at the beginning of processing
       BOOST_CHECK_EXCEPTION(
@@ -254,10 +248,9 @@ BOOST_AUTO_TEST_CASE(escape_string_test) {
    }
    {
       // length limitation exception in the middle of processing
-      BOOST_CHECK_EXCEPTION(
-         escape_string(json_test_util::escape_input_str, json_test_util::yield_length_exception),
-         fc::assert_exception,
-         json_test_util::length_limit_except_verf_func);
+      BOOST_CHECK_EXCEPTION(escape_string(json_test_util::escape_input_str, json_test_util::yield_length_exception),
+                            fc::assert_exception,
+                            json_test_util::length_limit_except_verf_func);
    }
 }
 

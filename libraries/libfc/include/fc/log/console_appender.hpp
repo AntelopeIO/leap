@@ -64,7 +64,6 @@ private:
 
 #include <fc/reflect/reflect.hpp>
 FC_REFLECT_ENUM(fc::console_appender::stream::type, (std_out)(std_error))
-FC_REFLECT_ENUM(fc::console_appender::color::type,
-                (red)(green)(brown)(blue)(magenta)(cyan)(white)(console_default))
+FC_REFLECT_ENUM(fc::console_appender::color::type, (red)(green)(brown)(blue)(magenta)(cyan)(white)(console_default))
 FC_REFLECT(fc::console_appender::level_color, (level)(color))
 FC_REFLECT(fc::console_appender::config, (format)(stream)(level_colors)(flush))

@@ -128,10 +128,7 @@ abi_def eosio_contract_abi(const abi_def& eosio_system_abi) {
    eos_abi.structs.emplace_back(struct_def{
       "setcode",
       "",
-      {{ "account", "account_name" },
-        { "vmtype", "uint8" },
-        { "vmversion", "uint8" },
-        { "code", "bytes" }}
+      {{ "account", "account_name" }, { "vmtype", "uint8" }, { "vmversion", "uint8" }, { "code", "bytes" }}
    });
 
    eos_abi.structs.emplace_back(struct_def{

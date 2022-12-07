@@ -45,8 +45,7 @@ void validate_authority_precondition(const apply_context& context, const authori
          continue;
 
       try {
-         context.control.get_authorization_manager().get_permission(
-            { a.permission.actor, a.permission.permission });
+         context.control.get_authorization_manager().get_permission({ a.permission.actor, a.permission.permission });
       } catch (const permission_query_exception&) {
          EOS_THROW(action_validate_exception, "permission '${perm}' does not exist", ("perm", a.permission));
       }
@@ -117,8 +116,7 @@ void apply_eosio_newaccount(apply_context& context) {
       ram_delta += active_permission.auth.get_billable_size();
 
       if (auto dm_logger = context.control.get_deep_mind_logger()) {
-         dm_logger->on_ram_trace(
-            RAM_EVENT_ID("${name}", ("name", create.name)), "account", "add", "newaccount");
+         dm_logger->on_ram_trace(RAM_EVENT_ID("${name}", ("name", create.name)), "account", "add", "newaccount");
       }
 
       context.add_ram_usage(create.name, ram_delta);
@@ -152,11 +150,10 @@ void apply_eosio_setcode(apply_context& context) {
    int64_t new_size = code_size * config::setcode_ram_bytes_multiplier;
 
    if (existing_code) {
-      const code_object& old_code_entry = db.get<code_object, by_code_hash>(
-         boost::make_tuple(account.code_hash, account.vm_type, account.vm_version));
-      EOS_ASSERT(old_code_entry.code_hash != code_hash,
-                 set_exact_code,
-                 "contract is already running this version of code");
+      const code_object& old_code_entry =
+         db.get<code_object, by_code_hash>(boost::make_tuple(account.code_hash, account.vm_type, account.vm_version));
+      EOS_ASSERT(
+         old_code_entry.code_hash != code_hash, set_exact_code, "contract is already running this version of code");
       old_size = (int64_t)old_code_entry.code.size() * config::setcode_ram_bytes_multiplier;
       if (old_code_entry.code_ref_count == 1) {
          db.remove(old_code_entry);
@@ -201,8 +198,7 @@ void apply_eosio_setcode(apply_context& context) {
             operation = "remove";
          }
 
-         dm_logger->on_ram_trace(
-            RAM_EVENT_ID("${account}", ("account", act.account)), "code", operation, "setcode");
+         dm_logger->on_ram_trace(RAM_EVENT_ID("${account}", ("account", act.account)), "code", operation, "setcode");
       }
 
       context.add_ram_usage(act.account, new_size - old_size);
@@ -236,8 +232,7 @@ void apply_eosio_setabi(apply_context& context) {
             operation = "remove";
          }
 
-         dm_logger->on_ram_trace(
-            RAM_EVENT_ID("${account}", ("account", act.account)), "abi", operation, "setabi");
+         dm_logger->on_ram_trace(RAM_EVENT_ID("${account}", ("account", act.account)), "abi", operation, "setabi");
       }
 
       context.add_ram_usage(act.account, new_size - old_size);
@@ -247,23 +242,19 @@ void apply_eosio_setabi(apply_context& context) {
 void apply_eosio_updateauth(apply_context& context) {
 
    auto update = context.get_action().data_as<updateauth>();
-   context.require_authorization(
-      update.account); // only here to mark the single authority on this action as used
+   context.require_authorization(update.account); // only here to mark the single authority on this action as used
 
    auto& authorization = context.control.get_mutable_authorization_manager();
    auto& db            = context.db;
 
-   EOS_ASSERT(
-      !update.permission.empty(), action_validate_exception, "Cannot create authority with empty name");
+   EOS_ASSERT(!update.permission.empty(), action_validate_exception, "Cannot create authority with empty name");
    EOS_ASSERT(update.permission.to_string().find("eosio.") != 0,
               action_validate_exception,
               "Permission names that start with 'eosio.' are reserved");
-   EOS_ASSERT(update.permission != update.parent,
-              action_validate_exception,
-              "Cannot set an authority as its own parent");
-   db.get<account_object, by_name>(update.account);
    EOS_ASSERT(
-      validate(update.auth), action_validate_exception, "Invalid authority: ${auth}", ("auth", update.auth));
+      update.permission != update.parent, action_validate_exception, "Cannot set an authority as its own parent");
+   db.get<account_object, by_name>(update.account);
+   EOS_ASSERT(validate(update.auth), action_validate_exception, "Invalid authority: ${auth}", ("auth", update.auth));
    if (update.permission == config::active_name)
       EOS_ASSERT(update.parent == config::owner_name,
                  action_validate_exception,
@@ -272,8 +263,7 @@ void apply_eosio_updateauth(apply_context& context) {
    if (update.permission == config::owner_name)
       EOS_ASSERT(update.parent.empty(), action_validate_exception, "Cannot change owner authority's parent");
    else
-      EOS_ASSERT(
-         !update.parent.empty(), action_validate_exception, "Only owner permission can have empty parent");
+      EOS_ASSERT(!update.parent.empty(), action_validate_exception, "Only owner permission can have empty parent");
 
    if (update.auth.waits.size() > 0) {
       auto max_delay = context.control.get_global_properties().configuration.max_transaction_delay;
@@ -287,8 +277,8 @@ void apply_eosio_updateauth(apply_context& context) {
 
    auto permission = authorization.find_permission({ update.account, update.permission });
 
-   // If a parent_id of 0 is going to be used to indicate the absence of a parent, then we need to make sure
-   // that the chain initializes permission_index with a dummy object that reserves the id of 0.
+   // If a parent_id of 0 is going to be used to indicate the absence of a parent, then we need to make sure that the
+   // chain initializes permission_index with a dummy object that reserves the id of 0.
    authorization_manager::permission_id_type parent_id = 0;
    if (update.permission != config::owner_name) {
       auto& parent = authorization.get_permission({ update.account, update.parent });
@@ -300,23 +290,19 @@ void apply_eosio_updateauth(apply_context& context) {
                  action_validate_exception,
                  "Changing parent authority is not currently supported");
 
-      int64_t old_size =
-         (int64_t)(config::billable_size_v<permission_object> + permission->auth.get_billable_size());
+      int64_t old_size = (int64_t)(config::billable_size_v<permission_object> + permission->auth.get_billable_size());
 
       authorization.modify_permission(*permission, update.auth);
 
-      int64_t new_size =
-         (int64_t)(config::billable_size_v<permission_object> + permission->auth.get_billable_size());
+      int64_t new_size = (int64_t)(config::billable_size_v<permission_object> + permission->auth.get_billable_size());
 
       if (auto dm_logger = context.control.get_deep_mind_logger()) {
-         dm_logger->on_ram_trace(
-            RAM_EVENT_ID("${id}", ("id", permission->id)), "auth", "update", "updateauth_update");
+         dm_logger->on_ram_trace(RAM_EVENT_ID("${id}", ("id", permission->id)), "auth", "update", "updateauth_update");
       }
 
       context.add_ram_usage(permission->owner, new_size - old_size);
    } else {
-      const auto& p =
-         authorization.create_permission(update.account, update.permission, parent_id, update.auth);
+      const auto& p = authorization.create_permission(update.account, update.permission, parent_id, update.auth);
 
       int64_t new_size = (int64_t)(config::billable_size_v<permission_object> + p.auth.get_billable_size());
 
@@ -332,13 +318,10 @@ void apply_eosio_deleteauth(apply_context& context) {
    //   context.require_write_lock( config::eosio_auth_scope );
 
    auto remove = context.get_action().data_as<deleteauth>();
-   context.require_authorization(
-      remove.account); // only here to mark the single authority on this action as used
+   context.require_authorization(remove.account); // only here to mark the single authority on this action as used
 
-   EOS_ASSERT(
-      remove.permission != config::active_name, action_validate_exception, "Cannot delete active authority");
-   EOS_ASSERT(
-      remove.permission != config::owner_name, action_validate_exception, "Cannot delete owner authority");
+   EOS_ASSERT(remove.permission != config::active_name, action_validate_exception, "Cannot delete active authority");
+   EOS_ASSERT(remove.permission != config::owner_name, action_validate_exception, "Cannot delete owner authority");
 
    auto& authorization = context.control.get_mutable_authorization_manager();
    auto& db            = context.db;
@@ -346,11 +329,11 @@ void apply_eosio_deleteauth(apply_context& context) {
    { // Check for links to this permission
       const auto& index = db.get_index<permission_link_index, by_permission_name>();
       auto        range = index.equal_range(boost::make_tuple(remove.account, remove.permission));
-      EOS_ASSERT(range.first == range.second,
-                 action_validate_exception,
-                 "Cannot delete a linked authority. Unlink the authority first. This authority is linked to "
-                 "${code}::${type}.",
-                 ("code", range.first->code)("type", range.first->message_type));
+      EOS_ASSERT(
+         range.first == range.second,
+         action_validate_exception,
+         "Cannot delete a linked authority. Unlink the authority first. This authority is linked to ${code}::${type}.",
+         ("code", range.first->code)("type", range.first->message_type));
    }
 
    const auto& permission = authorization.get_permission({ remove.account, remove.permission });
@@ -370,8 +353,7 @@ void apply_eosio_linkauth(apply_context& context) {
 
    auto requirement = context.get_action().data_as<linkauth>();
    try {
-      EOS_ASSERT(
-         !requirement.requirement.empty(), action_validate_exception, "Required permission cannot be empty");
+      EOS_ASSERT(!requirement.requirement.empty(), action_validate_exception, "Required permission cannot be empty");
 
       context.require_authorization(
          requirement.account); // only here to mark the single authority on this action as used
@@ -389,10 +371,9 @@ void apply_eosio_linkauth(apply_context& context) {
                  ("account", requirement.code));
       if (requirement.requirement != config::eosio_any_name) {
          const permission_object* permission = nullptr;
-         if (context.control.is_builtin_activated(
-                builtin_protocol_feature_t::only_link_to_existing_permission)) {
-            permission = db.find<permission_object, by_owner>(
-               boost::make_tuple(requirement.account, requirement.requirement));
+         if (context.control.is_builtin_activated(builtin_protocol_feature_t::only_link_to_existing_permission)) {
+            permission =
+               db.find<permission_object, by_owner>(boost::make_tuple(requirement.account, requirement.requirement));
          } else {
             permission = db.find<permission_object, by_name>(requirement.requirement);
          }
@@ -437,13 +418,11 @@ void apply_eosio_unlinkauth(apply_context& context) {
    auto& db     = context.db;
    auto  unlink = context.get_action().data_as<unlinkauth>();
 
-   context.require_authorization(
-      unlink.account); // only here to mark the single authority on this action as used
+   context.require_authorization(unlink.account); // only here to mark the single authority on this action as used
 
    auto link_key = boost::make_tuple(unlink.account, unlink.code, unlink.type);
    auto link     = db.find<permission_link_object, by_action_name>(link_key);
-   EOS_ASSERT(
-      link != nullptr, action_validate_exception, "Attempting to unlink authority, but no link found");
+   EOS_ASSERT(link != nullptr, action_validate_exception, "Attempting to unlink authority, but no link found");
 
    if (auto dm_logger = context.control.get_deep_mind_logger()) {
       dm_logger->on_ram_trace(RAM_EVENT_ID("${id}", ("id", link->id)), "auth_link", "remove", "unlinkauth");

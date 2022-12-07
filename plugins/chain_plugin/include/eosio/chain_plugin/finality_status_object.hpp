@@ -41,19 +41,16 @@ constexpr uint32_t no_block_num = 0;
 using finality_status_multi_index = boost::multi_index_container<
    finality_status_object,
    indexed_by<
-      bmi::hashed_unique<
-         tag<finality_status::by_trx_id>,
-         member<finality_status_object, chain::transaction_id_type, &finality_status_object::trx_id>>,
+      bmi::hashed_unique<tag<finality_status::by_trx_id>,
+                         member<finality_status_object, chain::transaction_id_type, &finality_status_object::trx_id>>,
       ordered_non_unique<
          tag<finality_status::by_status_expiry>,
          composite_key<finality_status_object,
                        const_mem_fun<finality_status_object, bool, &finality_status_object::is_in_block>,
                        member<finality_status_object, fc::time_point, &finality_status_object::received>>>,
-      ordered_non_unique<
-         tag<finality_status::by_block_num>,
-         const_mem_fun<finality_status_object, uint32_t, &finality_status_object::block_num>>>>;
+      ordered_non_unique<tag<finality_status::by_block_num>,
+                         const_mem_fun<finality_status_object, uint32_t, &finality_status_object::block_num>>>>;
 
 }
 
-FC_REFLECT(eosio::finality_status_object,
-           (trx_id)(trx_expiry)(received)(block_id)(block_timestamp)(forked_out))
+FC_REFLECT(eosio::finality_status_object, (trx_id)(trx_expiry)(received)(block_id)(block_timestamp)(forked_out))

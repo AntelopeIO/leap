@@ -11,17 +11,14 @@
 BOOST_AUTO_TEST_SUITE(get_producers_tests)
 using namespace eosio::testing;
 
-// this test verifies the exception case of get_producer, where it is populated by the active schedule of
-// producers
+// this test verifies the exception case of get_producer, where it is populated by the active schedule of producers
 BOOST_AUTO_TEST_CASE(get_producers) {
    try {
       tester chain;
 
       eosio::chain_apis::read_only plugin(
          *(chain.control), {}, fc::microseconds::maximum(), fc::microseconds::maximum(), {}, {});
-      eosio::chain_apis::read_only::get_producers_params params = { .json        = true,
-                                                                    .lower_bound = "",
-                                                                    .limit       = 21 };
+      eosio::chain_apis::read_only::get_producers_params params = { .json = true, .lower_bound = "", .limit = 21 };
 
       auto results = plugin.get_producers(params, fc::time_point::maximum());
       BOOST_REQUIRE_EQUAL(results.more, "");
@@ -50,8 +47,8 @@ BOOST_AUTO_TEST_CASE(get_producers) {
    FC_LOG_AND_RETHROW()
 }
 
-// this test verifies the normal case of get_producer, where the contents of the system contract's producers
-// table is used
+// this test verifies the normal case of get_producer, where the contents of the system contract's producers table is
+// used
 BOOST_AUTO_TEST_CASE(get_producers_from_table) {
    try {
       eosio_system::eosio_system_tester chain;
@@ -61,9 +58,7 @@ BOOST_AUTO_TEST_CASE(get_producers_from_table) {
 
       eosio::chain_apis::read_only plugin(
          *(chain.control), {}, fc::microseconds::maximum(), fc::microseconds::maximum(), {}, {});
-      eosio::chain_apis::read_only::get_producers_params params = { .json        = true,
-                                                                    .lower_bound = "",
-                                                                    .limit       = 21 };
+      eosio::chain_apis::read_only::get_producers_params params = { .json = true, .lower_bound = "", .limit = 21 };
 
       auto results = plugin.get_producers(params, fc::time_point::maximum());
       BOOST_REQUIRE_EQUAL(results.more, "");
@@ -71,8 +66,8 @@ BOOST_AUTO_TEST_CASE(get_producers_from_table) {
       const auto& row = results.rows[0].get_object();
       BOOST_REQUIRE(row.contains("owner"));
       BOOST_REQUIRE_EQUAL(row["owner"].as_string(), "producer1111");
-      // check for producer_authority not present, since it is only set when the producer schedule is used,
-      // this verifies producers table was used
+      // check for producer_authority not present, since it is only set when the producer schedule is used, this
+      // verifies producers table was used
       BOOST_REQUIRE(!row.contains("producer_authority"));
    }
    FC_LOG_AND_RETHROW()

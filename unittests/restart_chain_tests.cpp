@@ -68,8 +68,7 @@ public:
    }
    using base_tester::produce_block;
 
-   signed_block_ptr produce_block(
-      fc::microseconds skip_time = fc::milliseconds(config::block_interval_ms)) override {
+   signed_block_ptr produce_block(fc::microseconds skip_time = fc::milliseconds(config::block_interval_ms)) override {
       return _produce_block(skip_time, false);
    }
 
@@ -133,7 +132,7 @@ BOOST_AUTO_TEST_CASE(test_restart_with_different_chain_id) {
    other.close();
    genesis_state genesis;
    genesis.initial_timestamp = fc::time_point::from_iso_string("2020-01-01T00:00:01.000");
-   genesis.initial_key = eosio::testing::base_tester::get_public_key(config::system_account_name, "active");
+   genesis.initial_key       = eosio::testing::base_tester::get_public_key(config::system_account_name, "active");
    std::optional<chain_id_type> chain_id = genesis.compute_chain_id();
    BOOST_REQUIRE_EXCEPTION(
       other.open(chain_id), chain_id_type_exception, fc_exception_message_starts_with("chain ID in state "));
@@ -182,8 +181,7 @@ BOOST_AUTO_TEST_CASE(test_light_validation_restart_from_block_log) {
    signed_transaction trx;
    action             act({}, cfa);
    trx.context_free_actions.push_back(act);
-   trx.context_free_data.emplace_back(
-      fc::raw::pack<uint32_t>(100)); // verify payload matches context free data
+   trx.context_free_data.emplace_back(fc::raw::pack<uint32_t>(100)); // verify payload matches context free data
    trx.context_free_data.emplace_back(fc::raw::pack<uint32_t>(200));
    // add a normal action along with cfa
    dummy_action da = { DUMMY_ACTION_DEFAULT_A, DUMMY_ACTION_DEFAULT_B, DUMMY_ACTION_DEFAULT_C };
@@ -220,9 +218,7 @@ BOOST_AUTO_TEST_CASE(test_light_validation_restart_from_block_log) {
    transaction_trace_ptr other_trace;
 
    replay_tester from_block_log_chain(
-      copied_config,
-      *genesis,
-      [&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
+      copied_config, *genesis, [&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
          auto& t = std::get<0>(x);
          if (t && t->id == trace->id) {
             other_trace = t;
@@ -239,15 +235,13 @@ BOOST_AUTO_TEST_CASE(test_light_validation_restart_from_block_log) {
    BOOST_CHECK_EQUAL("", other_trace->action_traces.at(0).console); // cfa not executed for replay
    BOOST_CHECK_EQUAL(trace->action_traces.at(0).receipt->global_sequence,
                      other_trace->action_traces.at(0).receipt->global_sequence);
-   BOOST_CHECK_EQUAL(trace->action_traces.at(0).receipt->digest(),
-                     other_trace->action_traces.at(0).receipt->digest());
+   BOOST_CHECK_EQUAL(trace->action_traces.at(0).receipt->digest(), other_trace->action_traces.at(0).receipt->digest());
 
    BOOST_CHECK(!other_trace->action_traces.at(1).context_free); // non-cfa
    BOOST_CHECK_EQUAL("", other_trace->action_traces.at(1).console);
    BOOST_CHECK_EQUAL(trace->action_traces.at(1).receipt->global_sequence,
                      other_trace->action_traces.at(1).receipt->global_sequence);
-   BOOST_CHECK_EQUAL(trace->action_traces.at(1).receipt->digest(),
-                     other_trace->action_traces.at(1).receipt->digest());
+   BOOST_CHECK_EQUAL(trace->action_traces.at(1).receipt->digest(), other_trace->action_traces.at(1).receipt->digest());
 }
 
 namespace {
@@ -299,8 +293,7 @@ void trim_blocklog_front(uint32_t truncate_at_block, buf_len_type len_type) {
    BOOST_CHECK(old_log.version == new_log.version);
 
    int num_blocks_trimmed = truncate_at_block - 1;
-   BOOST_CHECK(fc::file_size(temp1.path / "blocks.index") ==
-               old_index_size - sizeof(uint64_t) * num_blocks_trimmed);
+   BOOST_CHECK(fc::file_size(temp1.path / "blocks.index") == old_index_size - sizeof(uint64_t) * num_blocks_trimmed);
 }
 
 BOOST_AUTO_TEST_CASE(test_trim_blocklog_front) {

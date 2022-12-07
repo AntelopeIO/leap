@@ -163,11 +163,10 @@ public:
    incoming::methods::transaction_async::method_type& incoming_transaction_async_method;
 
    // method provider handles
-   methods::get_block_by_number::method_type::handle get_block_by_number_provider;
-   methods::get_block_by_id::method_type::handle     get_block_by_id_provider;
-   methods::get_head_block_id::method_type::handle   get_head_block_id_provider;
-   methods::get_last_irreversible_block_number::method_type::handle
-      get_last_irreversible_block_number_provider;
+   methods::get_block_by_number::method_type::handle                get_block_by_number_provider;
+   methods::get_block_by_id::method_type::handle                    get_block_by_id_provider;
+   methods::get_head_block_id::method_type::handle                  get_head_block_id_provider;
+   methods::get_last_irreversible_block_number::method_type::handle get_last_irreversible_block_number_provider;
 
    // scoped connections for chain controller
    std::optional<scoped_connection> pre_accepted_block_connection;
@@ -201,8 +200,8 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
    std::string delim;
 #ifdef EOSIO_EOS_VM_JIT_RUNTIME_ENABLED
    wasm_runtime_opt += " \"eos-vm-jit\"";
-   wasm_runtime_desc += "\"eos-vm-jit\" : A WebAssembly runtime that compiles WebAssembly code to native x86 "
-                        "code prior to execution.\n";
+   wasm_runtime_desc +=
+      "\"eos-vm-jit\" : A WebAssembly runtime that compiles WebAssembly code to native x86 code prior to execution.\n";
    delim = ", ";
 #endif
 
@@ -214,34 +213,32 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
 
 #ifdef EOSIO_EOS_VM_OC_DEVELOPER
    wasm_runtime_opt += delim + "\"eos-vm-oc\"";
-   wasm_runtime_desc += "\"eos-vm-oc\" : Unsupported. Instead, use one of the other runtimes along with the "
-                        "option enable-eos-vm-oc.\n";
+   wasm_runtime_desc +=
+      "\"eos-vm-oc\" : Unsupported. Instead, use one of the other runtimes along with the option enable-eos-vm-oc.\n";
 #endif
    wasm_runtime_opt += ")\n" + wasm_runtime_desc;
 
    std::string default_wasm_runtime_str =
       eosio::chain::wasm_interface::vm_type_string(eosio::chain::config::default_wasm_runtime);
 
-   cfg.add_options()(
-      "blocks-dir",
-      bpo::value<bfs::path>()->default_value("blocks"),
-      "the location of the blocks directory (absolute path or relative to application data dir)")(
+   cfg.add_options()("blocks-dir",
+                     bpo::value<bfs::path>()->default_value("blocks"),
+                     "the location of the blocks directory (absolute path or relative to application data dir)")(
       "protocol-features-dir",
       bpo::value<bfs::path>()->default_value("protocol_features"),
-      "the location of the protocol_features directory (absolute path or relative to application config "
-      "dir)")("checkpoint",
-              bpo::value<vector<string>>()->composing(),
-              "Pairs of [BLOCK_NUM,BLOCK_ID] that should be enforced as checkpoints.")(
+      "the location of the protocol_features directory (absolute path or relative to application config dir)")(
+      "checkpoint",
+      bpo::value<vector<string>>()->composing(),
+      "Pairs of [BLOCK_NUM,BLOCK_ID] that should be enforced as checkpoints.")(
       "wasm-runtime",
       bpo::value<eosio::chain::wasm_interface::vm_type>()
          ->value_name("runtime")
          ->notifier([](const auto& vm) {
 #ifndef EOSIO_EOS_VM_OC_DEVELOPER
-            // throwing an exception here (like EOS_ASSERT) is just gobbled up with a "Failed to initialize"
-            // error :(
+            // throwing an exception here (like EOS_ASSERT) is just gobbled up with a "Failed to initialize" error :(
             if (vm == wasm_interface::vm_type::eos_vm_oc) {
-               elog("EOS VM OC is a tier-up compiler and works in conjunction with the configured base WASM "
-                    "runtime. Enable EOS VM OC via 'eos-vm-oc-enable' option");
+               elog("EOS VM OC is a tier-up compiler and works in conjunction with the configured base WASM runtime. "
+                    "Enable EOS VM OC via 'eos-vm-oc-enable' option");
                EOS_ASSERT(false, plugin_exception, "");
             }
 #endif
@@ -258,8 +255,7 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
       "Maximum size (in MiB) of the chain state database")(
       "chain-state-db-guard-size-mb",
       bpo::value<uint64_t>()->default_value(config::default_state_guard_size / (1024 * 1024)),
-      "Safely shut down node when free space remaining in the chain state database drops below this size (in "
-      "MiB).")(
+      "Safely shut down node when free space remaining in the chain state database drops below this size (in MiB).")(
       "signature-cpu-billable-pct",
       bpo::value<uint32_t>()->default_value(config::default_sig_cpu_bill_pct / config::percent_1),
       "Percentage of actual signature recovery cpu to bill. Whole number percentages, e.g. 50 for 50%")(
@@ -267,9 +263,7 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
       bpo::value<uint16_t>()->default_value(config::default_controller_thread_pool_size),
       "Number of worker threads in controller thread pool")(
       "contracts-console", bpo::bool_switch()->default_value(false), "print contract's output to console")(
-      "deep-mind",
-      bpo::bool_switch()->default_value(false),
-      "print deeper information about chain operations")(
+      "deep-mind", bpo::bool_switch()->default_value(false), "print deeper information about chain operations")(
       "actor-whitelist",
       boost::program_options::value<vector<string>>()->composing()->multitoken(),
       "Account added to actor whitelist (may specify multiple times)")(
@@ -287,35 +281,32 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
       "Action (in the form code::action) added to action blacklist (may specify multiple times)")(
       "key-blacklist",
       boost::program_options::value<vector<string>>()->composing()->multitoken(),
-      "Public key added to blacklist of keys that should not be included in authorities (may specify "
-      "multiple times)")(
+      "Public key added to blacklist of keys that should not be included in authorities (may specify multiple times)")(
       "sender-bypass-whiteblacklist",
       boost::program_options::value<vector<string>>()->composing()->multitoken(),
-      "Deferred transactions sent by accounts in this list do not have any of the subjective "
-      "whitelist/blacklist checks applied to them (may specify multiple times)")(
+      "Deferred transactions sent by accounts in this list do not have any of the subjective whitelist/blacklist "
+      "checks applied to them (may specify multiple times)")(
       "read-mode",
-      boost::program_options::value<eosio::chain::db_read_mode>()->default_value(
-         eosio::chain::db_read_mode::HEAD),
+      boost::program_options::value<eosio::chain::db_read_mode>()->default_value(eosio::chain::db_read_mode::HEAD),
       "Database read mode (\"head\", \"irreversible\").\n"
-      "In \"head\" mode: database contains state changes up to the head block; transactions received by the "
-      "node are relayed if valid.\n"
+      "In \"head\" mode: database contains state changes up to the head block; transactions received by the node are "
+      "relayed if valid.\n"
       "In \"irreversible\" mode: database contains state changes up to the last irreversible block; "
-      "transactions received via the P2P network are not relayed and transactions cannot be pushed via the "
-      "chain API.\n")("api-accept-transactions",
-                      bpo::value<bool>()->default_value(true),
-                      "Allow API transactions to be evaluated and relayed if valid.")(
+      "transactions received via the P2P network are not relayed and transactions cannot be pushed via the chain "
+      "API.\n")("api-accept-transactions",
+                bpo::value<bool>()->default_value(true),
+                "Allow API transactions to be evaluated and relayed if valid.")(
       "validation-mode",
       boost::program_options::value<eosio::chain::validation_mode>()->default_value(
          eosio::chain::validation_mode::FULL),
       "Chain validation mode (\"full\" or \"light\").\n"
       "In \"full\" mode all incoming blocks will be fully validated.\n"
-      "In \"light\" mode all incoming blocks headers will be fully validated; transactions in those "
-      "validated blocks will be trusted \n")(
+      "In \"light\" mode all incoming blocks headers will be fully validated; transactions in those validated blocks "
+      "will be trusted \n")(
       "disable-ram-billing-notify-checks",
       bpo::bool_switch()->default_value(false),
-      "Disable the check which subjectively fails a transaction if a contract bills more RAM to another "
-      "account within the context of a notification handler (i.e. when the receiver is not the code of the "
-      "action).")
+      "Disable the check which subjectively fails a transaction if a contract bills more RAM to another account within "
+      "the context of a notification handler (i.e. when the receiver is not the code of the action).")
 #ifdef EOSIO_DEVELOPER
       ("disable-all-subjective-mitigations",
        bpo::bool_switch()->default_value(false),
@@ -323,21 +314,19 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
 #endif
          ("maximum-variable-signature-length",
           bpo::value<uint32_t>()->default_value(16384u),
-          "Subjectively limit the maximum length of variable components in a variable legnth signature to "
-          "this size in bytes")("trusted-producer",
-                                bpo::value<vector<string>>()->composing(),
-                                "Indicate a producer whose blocks headers signed by it will be fully "
-                                "validated, but transactions in those validated blocks will be trusted.")(
+          "Subjectively limit the maximum length of variable components in a variable legnth signature to this size in "
+          "bytes")("trusted-producer",
+                   bpo::value<vector<string>>()->composing(),
+                   "Indicate a producer whose blocks headers signed by it will be fully validated, but transactions in "
+                   "those validated blocks will be trusted.")(
             "database-map-mode",
             bpo::value<chainbase::pinnable_mapped_file::map_mode>()->default_value(
                chainbase::pinnable_mapped_file::map_mode::mapped),
             "Database map mode (\"mapped\", \"heap\", or \"locked\").\n"
             "In \"mapped\" mode database is memory mapped as a file.\n"
 #ifndef _WIN32
-            "In \"heap\" mode database is preloaded in to swappable memory and will use huge pages if "
-            "available.\n"
-            "In \"locked\" mode database is preloaded, locked in to memory, and will use huge pages if "
-            "available.\n"
+            "In \"heap\" mode database is preloaded in to swappable memory and will use huge pages if available.\n"
+            "In \"locked\" mode database is preloaded, locked in to memory, and will use huge pages if available.\n"
 #endif
             )
 
@@ -363,52 +352,49 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
                   "maximum allowed size (in bytes) of an inline action for a nonprivileged account")(
                   "transaction-retry-max-storage-size-gb",
                   bpo::value<uint64_t>(),
-                  "Maximum size (in GiB) allowed to be allocated for the Transaction Retry feature. Setting "
-                  "above 0 enables this feature.")("transaction-retry-interval-sec",
-                                                   bpo::value<uint32_t>()->default_value(20),
-                                                   "How often, in seconds, to resend an incoming transaction "
-                                                   "to network if not seen in a block.")(
+                  "Maximum size (in GiB) allowed to be allocated for the Transaction Retry feature. Setting above 0 "
+                  "enables this feature.")(
+                  "transaction-retry-interval-sec",
+                  bpo::value<uint32_t>()->default_value(20),
+                  "How often, in seconds, to resend an incoming transaction to network if not seen in a block.")(
                   "transaction-retry-max-expiration-sec",
                   bpo::value<uint32_t>()->default_value(120),
-                  "Maximum allowed transaction expiration for retry transactions, will retry transactions up "
-                  "to this value.")("transaction-finality-status-max-storage-size-gb",
-                                    bpo::value<uint64_t>(),
-                                    "Maximum size (in GiB) allowed to be allocated for the Transaction "
-                                    "Finality Status feature. Setting above 0 enables this feature.")(
+                  "Maximum allowed transaction expiration for retry transactions, will retry transactions up to this "
+                  "value.")("transaction-finality-status-max-storage-size-gb",
+                            bpo::value<uint64_t>(),
+                            "Maximum size (in GiB) allowed to be allocated for the Transaction Finality Status "
+                            "feature. Setting above 0 enables this feature.")(
                   "transaction-finality-status-success-duration-sec",
                   bpo::value<uint64_t>()->default_value(
                      config::default_max_transaction_finality_status_success_duration_sec),
-                  "Duration (in seconds) a successful transaction's Finality Status will remain available "
-                  "from being first identified.")(
-                  "transaction-finality-status-failure-duration-sec",
-                  bpo::value<uint64_t>()->default_value(
-                     config::default_max_transaction_finality_status_failure_duration_sec),
-                  "Duration (in seconds) a failed transaction's Finality Status will remain available from "
-                  "being first identified.")(
+                  "Duration (in seconds) a successful transaction's Finality Status will remain available from being "
+                  "first identified.")("transaction-finality-status-failure-duration-sec",
+                                       bpo::value<uint64_t>()->default_value(
+                                          config::default_max_transaction_finality_status_failure_duration_sec),
+                                       "Duration (in seconds) a failed transaction's Finality Status will remain "
+                                       "available from being first identified.")(
                   "integrity-hash-on-start", bpo::bool_switch(), "Log the state integrity hash on startup")(
                   "integrity-hash-on-stop", bpo::bool_switch(), "Log the state integrity hash on shutdown");
 
    cfg.add_options()(
       "block-log-retain-blocks",
       bpo::value<uint32_t>(),
-      "If set to greater than 0, periodically prune the block log to store only configured number of most "
-      "recent blocks.\n"
+      "If set to greater than 0, periodically prune the block log to store only configured number of most recent "
+      "blocks.\n"
       "If set to 0, no blocks are be written to the block log; block log file is removed after startup.");
 
    // TODO: rate limiting
    /*("per-authorized-account-transaction-msg-rate-limit-time-frame-sec",
-   bpo::value<uint32_t>()->default_value(default_per_auth_account_time_frame_seconds), "The time frame, in
-   seconds, that the per-authorized-account-transaction-msg-rate-limit is imposed over.")
+   bpo::value<uint32_t>()->default_value(default_per_auth_account_time_frame_seconds), "The time frame, in seconds, that
+   the per-authorized-account-transaction-msg-rate-limit is imposed over.")
    ("per-authorized-account-transaction-msg-rate-limit",
-   bpo::value<uint32_t>()->default_value(default_per_auth_account), "Limits the maximum rate of transaction
-   messages that an account is allowed each
-   per-authorized-account-transaction-msg-rate-limit-time-frame-sec.")
+   bpo::value<uint32_t>()->default_value(default_per_auth_account), "Limits the maximum rate of transaction messages
+   that an account is allowed each per-authorized-account-transaction-msg-rate-limit-time-frame-sec.")
     ("per-code-account-transaction-msg-rate-limit-time-frame-sec",
-   bpo::value<uint32_t>()->default_value(default_per_code_account_time_frame_seconds), "The time frame, in
-   seconds, that the per-code-account-transaction-msg-rate-limit is imposed over.")
-    ("per-code-account-transaction-msg-rate-limit",
-   bpo::value<uint32_t>()->default_value(default_per_code_account), "Limits the maximum rate of transaction
-   messages that an account's code is allowed each
+   bpo::value<uint32_t>()->default_value(default_per_code_account_time_frame_seconds), "The time frame, in seconds, that
+   the per-code-account-transaction-msg-rate-limit is imposed over.")
+    ("per-code-account-transaction-msg-rate-limit", bpo::value<uint32_t>()->default_value(default_per_code_account),
+     "Limits the maximum rate of transaction messages that an account's code is allowed each
    per-code-account-transaction-msg-rate-limit-time-frame-sec.")*/
 
    cli.add_options()("genesis-json", bpo::value<bfs::path>(), "File to read Genesis State from")(
@@ -427,19 +413,17 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
       "extract build environment information as JSON, write into specified file, and exit")(
       "force-all-checks",
       bpo::bool_switch()->default_value(false),
-      "do not skip any validation checks while replaying blocks (useful for replaying blocks from untrusted "
-      "source)")("disable-replay-opts",
-                 bpo::bool_switch()->default_value(false),
-                 "disable optimizations that specifically target replay")(
-      "replay-blockchain",
+      "do not skip any validation checks while replaying blocks (useful for replaying blocks from untrusted source)")(
+      "disable-replay-opts",
       bpo::bool_switch()->default_value(false),
-      "clear chain state database and replay all blocks")(
+      "disable optimizations that specifically target replay")("replay-blockchain",
+                                                               bpo::bool_switch()->default_value(false),
+                                                               "clear chain state database and replay all blocks")(
       "hard-replay-blockchain",
       bpo::bool_switch()->default_value(false),
-      "clear chain state database, recover as many blocks as possible from the block log, and then replay "
-      "those blocks")("delete-all-blocks",
-                      bpo::bool_switch()->default_value(false),
-                      "clear chain state database and block log")(
+      "clear chain state database, recover as many blocks as possible from the block log, and then replay those "
+      "blocks")(
+      "delete-all-blocks", bpo::bool_switch()->default_value(false), "clear chain state database and block log")(
       "truncate-at-block",
       bpo::value<uint32_t>()->default_value(0),
       "stop hard replay / block log recovery at this block number (if set to non-zero number)")(
@@ -449,12 +433,12 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
       "snapshot", bpo::value<bfs::path>(), "File to read Snapshot State from");
 }
 
-#define LOAD_VALUE_SET(options, op_name, container)                                                          \
-   if (options.count(op_name)) {                                                                             \
-      const std::vector<std::string>& ops = options[op_name].as<std::vector<std::string>>();                 \
-      for (const auto& v : ops) {                                                                            \
-         container.emplace(eosio::chain::name(v));                                                           \
-      }                                                                                                      \
+#define LOAD_VALUE_SET(options, op_name, container)                                                                    \
+   if (options.count(op_name)) {                                                                                       \
+      const std::vector<std::string>& ops = options[op_name].as<std::vector<std::string>>();                           \
+      for (const auto& v : ops) {                                                                                      \
+         container.emplace(eosio::chain::name(v));                                                                     \
+      }                                                                                                                \
    }
 
 fc::time_point calculate_genesis_timestamp(string tstr) {
@@ -497,8 +481,7 @@ void clear_chainbase_files(const fc::path& p) {
 }
 
 namespace {
-// This can be removed when versions of eosio that support reversible chainbase state file no longer
-// supported.
+// This can be removed when versions of eosio that support reversible chainbase state file no longer supported.
 void upgrade_from_reversible_to_fork_db(chain_plugin_impl* my) {
    namespace bfs         = boost::filesystem;
    bfs::path old_fork_db = my->chain_config->state_dir / config::forkdb_filename;
@@ -623,11 +606,10 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
             auto item = fc::json::from_string(cp).as<std::pair<uint32_t, block_id_type>>();
             auto itr  = my->loaded_checkpoints.find(item.first);
             if (itr != my->loaded_checkpoints.end()) {
-               EOS_ASSERT(
-                  itr->second == item.second,
-                  plugin_config_exception,
-                  "redefining existing checkpoint at block number ${num}: original: ${orig} new: ${new}",
-                  ("num", item.first)("orig", itr->second)("new", item.second));
+               EOS_ASSERT(itr->second == item.second,
+                          plugin_config_exception,
+                          "redefining existing checkpoint at block number ${num}: original: ${orig} new: ${new}",
+                          ("num", item.first)("orig", itr->second)("new", item.second));
             } else {
                my->loaded_checkpoints[item.first] = item.second;
             }
@@ -639,8 +621,7 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
 
       LOAD_VALUE_SET(options, "profile-account", my->chain_config->profile_accounts);
 
-      my->abi_serializer_max_time_us =
-         fc::microseconds(options.at("abi-serializer-max-time-ms").as<uint32_t>() * 1000);
+      my->abi_serializer_max_time_us = fc::microseconds(options.at("abi-serializer-max-time-ms").as<uint32_t>() * 1000);
 
       my->chain_config->blocks_dir = my->blocks_dir;
       my->chain_config->state_dir  = app().data_dir() / config::default_state_dir_name;
@@ -655,8 +636,7 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
          my->chain_config->state_size = options.at("chain-state-db-size-mb").as<uint64_t>() * 1024 * 1024;
 
       if (options.count("chain-state-db-guard-size-mb"))
-         my->chain_config->state_guard_size =
-            options.at("chain-state-db-guard-size-mb").as<uint64_t>() * 1024 * 1024;
+         my->chain_config->state_guard_size = options.at("chain-state-db-guard-size-mb").as<uint64_t>() * 1024 * 1024;
 
       if (options.count("max-nonprivileged-inline-action-size"))
          my->chain_config->max_nonprivileged_inline_action_size =
@@ -670,8 +650,8 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
                fc::seconds(options.at("transaction-finality-status-success-duration-sec").as<uint64_t>());
             const fc::microseconds failure_duration =
                fc::seconds(options.at("transaction-finality-status-failure-duration-sec").as<uint64_t>());
-            my->_trx_finality_status_processing.reset(new chain_apis::trx_finality_status_processing(
-               max_storage_size, success_duration, failure_duration));
+            my->_trx_finality_status_processing.reset(
+               new chain_apis::trx_finality_status_processing(max_storage_size, success_duration, failure_duration));
          }
       }
 
@@ -693,11 +673,10 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
       if (my->wasm_runtime)
          my->chain_config->wasm_runtime = *my->wasm_runtime;
 
-      my->chain_config->force_all_checks    = options.at("force-all-checks").as<bool>();
-      my->chain_config->disable_replay_opts = options.at("disable-replay-opts").as<bool>();
-      my->chain_config->contracts_console   = options.at("contracts-console").as<bool>();
-      my->chain_config->allow_ram_billing_in_notify =
-         options.at("disable-ram-billing-notify-checks").as<bool>();
+      my->chain_config->force_all_checks            = options.at("force-all-checks").as<bool>();
+      my->chain_config->disable_replay_opts         = options.at("disable-replay-opts").as<bool>();
+      my->chain_config->contracts_console           = options.at("contracts-console").as<bool>();
+      my->chain_config->allow_ram_billing_in_notify = options.at("disable-ram-billing-notify-checks").as<bool>();
 
 #ifdef EOSIO_DEVELOPER
       my->chain_config->disable_all_subjective_mitigations =
@@ -757,16 +736,15 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
          if (my->chain_config->prune_config->prune_blocks == 0) {
             // clear out empty blocks.log. otherwise block_log::extract_genesis_state
             // will return version 0 which asserts.
-            if (fc::exists(my->blocks_dir / "blocks.log") &&
-                fc::file_size(my->blocks_dir / "blocks.log") == 0) {
+            if (fc::exists(my->blocks_dir / "blocks.log") && fc::file_size(my->blocks_dir / "blocks.log") == 0) {
                fc::remove(my->blocks_dir / "blocks.log");
                fc::remove(my->blocks_dir / "blocks.index");
             }
          } else {
             EOS_ASSERT(cfile::supports_hole_punching(),
                        plugin_config_exception,
-                       "block-log-retain-blocks cannot be greater than 0 because the file system does not "
-                       "support hole punching");
+                       "block-log-retain-blocks cannot be greater than 0 because the file system does not support hole "
+                       "punching");
          }
       }
 
@@ -805,12 +783,10 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
 
          EOS_ASSERT(options.count("genesis-timestamp") == 0,
                     plugin_config_exception,
-                    "--snapshot is incompatible with --genesis-timestamp as the snapshot contains genesis "
-                    "information");
-         EOS_ASSERT(
-            options.count("genesis-json") == 0,
-            plugin_config_exception,
-            "--snapshot is incompatible with --genesis-json as the snapshot contains genesis information");
+                    "--snapshot is incompatible with --genesis-timestamp as the snapshot contains genesis information");
+         EOS_ASSERT(options.count("genesis-json") == 0,
+                    plugin_config_exception,
+                    "--snapshot is incompatible with --genesis-json as the snapshot contains genesis information");
 
          auto shared_mem_path = my->chain_config->state_dir / "shared_memory.bin";
          EOS_ASSERT(!fc::is_regular_file(shared_mem_path),
@@ -823,8 +799,8 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
                const auto& block_log_chain_id = block_log_genesis->compute_chain_id();
                EOS_ASSERT(*chain_id == block_log_chain_id,
                           plugin_config_exception,
-                          "snapshot chain ID (${snapshot_chain_id}) does not match the chain ID from the "
-                          "genesis state in the block log (${block_log_chain_id})",
+                          "snapshot chain ID (${snapshot_chain_id}) does not match the chain ID from the genesis state "
+                          "in the block log (${block_log_chain_id})",
                           ("snapshot_chain_id", *chain_id)("block_log_chain_id", block_log_chain_id));
             } else {
                const auto& block_log_chain_id = block_log::extract_chain_id(my->blocks_dir);
@@ -861,8 +837,7 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
                ilog("Starting fresh blockchain state using genesis state extracted from blocks.log.");
                my->genesis = block_log_genesis;
                // Delay setting chain_id until later so that the code handling genesis-json below can know
-               // that chain_id still only represents a chain ID extracted from the state (assuming it
-               // exists).
+               // that chain_id still only represents a chain ID extracted from the state (assuming it exists).
             }
          }
 
@@ -886,40 +861,36 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
                ilog("Using genesis state provided in '${genesis}' but with adjusted genesis timestamp",
                     ("genesis", genesis_file.generic_string()));
             } else {
-               ilog("Using genesis state provided in '${genesis}'",
-                    ("genesis", genesis_file.generic_string()));
+               ilog("Using genesis state provided in '${genesis}'", ("genesis", genesis_file.generic_string()));
             }
 
             if (block_log_genesis) {
-               EOS_ASSERT(*block_log_genesis == provided_genesis,
-                          plugin_config_exception,
-                          "Genesis state, provided via command line arguments, does not match the existing "
-                          "genesis state"
-                          " in blocks.log. It is not necessary to provide genesis state arguments when a "
-                          "full blocks.log "
-                          "file already exists.");
+               EOS_ASSERT(
+                  *block_log_genesis == provided_genesis,
+                  plugin_config_exception,
+                  "Genesis state, provided via command line arguments, does not match the existing genesis state"
+                  " in blocks.log. It is not necessary to provide genesis state arguments when a full blocks.log "
+                  "file already exists.");
             } else {
                const auto& provided_genesis_chain_id = provided_genesis.compute_chain_id();
                if (chain_id) {
-                  EOS_ASSERT(
-                     provided_genesis_chain_id == *chain_id,
-                     plugin_config_exception,
-                     "Genesis state, provided via command line arguments, has a chain ID "
-                     "(${provided_genesis_chain_id}) "
-                     "that does not match the existing chain ID in the database state (${state_chain_id}). "
-                     "It is not necessary to provide genesis state arguments when an initialized database "
-                     "state already exists.",
-                     ("provided_genesis_chain_id", provided_genesis_chain_id)("state_chain_id", *chain_id));
+                  EOS_ASSERT(provided_genesis_chain_id == *chain_id,
+                             plugin_config_exception,
+                             "Genesis state, provided via command line arguments, has a chain ID "
+                             "(${provided_genesis_chain_id}) "
+                             "that does not match the existing chain ID in the database state (${state_chain_id}). "
+                             "It is not necessary to provide genesis state arguments when an initialized database "
+                             "state already exists.",
+                             ("provided_genesis_chain_id", provided_genesis_chain_id)("state_chain_id", *chain_id));
                } else {
                   if (block_log_chain_id) {
-                     EOS_ASSERT(
-                        provided_genesis_chain_id == *block_log_chain_id,
-                        plugin_config_exception,
-                        "Genesis state, provided via command line arguments, has a chain ID "
-                        "(${provided_genesis_chain_id}) "
-                        "that does not match the existing chain ID in blocks.log (${block_log_chain_id}).",
-                        ("provided_genesis_chain_id", provided_genesis_chain_id)("block_log_chain_id",
-                                                                                 *block_log_chain_id));
+                     EOS_ASSERT(provided_genesis_chain_id == *block_log_chain_id,
+                                plugin_config_exception,
+                                "Genesis state, provided via command line arguments, has a chain ID "
+                                "(${provided_genesis_chain_id}) "
+                                "that does not match the existing chain ID in blocks.log (${block_log_chain_id}).",
+                                ("provided_genesis_chain_id", provided_genesis_chain_id)("block_log_chain_id",
+                                                                                         *block_log_chain_id));
                   }
 
                   chain_id = provided_genesis_chain_id;
@@ -941,13 +912,12 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
             } else {
                // Uninitialized state database and no genesis state provided
 
-               EOS_ASSERT(!block_log_chain_id,
-                          plugin_config_exception,
-                          "Genesis state is necessary to initialize fresh blockchain state but genesis state "
-                          "could not be "
-                          "found in the blocks log. Please either load from snapshot or find a blocks log "
-                          "that starts "
-                          "from genesis.");
+               EOS_ASSERT(
+                  !block_log_chain_id,
+                  plugin_config_exception,
+                  "Genesis state is necessary to initialize fresh blockchain state but genesis state could not be "
+                  "found in the blocks log. Please either load from snapshot or find a blocks log that starts "
+                  "from genesis.");
 
                ilog("Starting fresh blockchain state using default genesis state.");
                my->genesis.emplace();
@@ -1001,10 +971,9 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
          const uint64_t max_storage_size =
             options.at("transaction-retry-max-storage-size-gb").as<uint64_t>() * 1024 * 1024 * 1024;
          if (max_storage_size > 0) {
-            const uint32_t p2p_dedup_time_s   = options.at("p2p-dedup-cache-expire-time-sec").as<uint32_t>();
-            const uint32_t trx_retry_interval = options.at("transaction-retry-interval-sec").as<uint32_t>();
-            const uint32_t trx_retry_max_expire =
-               options.at("transaction-retry-max-expiration-sec").as<uint32_t>();
+            const uint32_t p2p_dedup_time_s     = options.at("p2p-dedup-cache-expire-time-sec").as<uint32_t>();
+            const uint32_t trx_retry_interval   = options.at("transaction-retry-interval-sec").as<uint32_t>();
+            const uint32_t trx_retry_max_expire = options.at("transaction-retry-max-expiration-sec").as<uint32_t>();
             EOS_ASSERT(trx_retry_interval >= 2 * p2p_dedup_time_s,
                        plugin_config_exception,
                        "transaction-retry-interval-sec ${ri} must be greater than 2 times "
@@ -1063,9 +1032,7 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
 
       // set up method providers
       my->get_block_by_number_provider = app().get_method<methods::get_block_by_number>().register_provider(
-         [this](uint32_t block_num) -> signed_block_ptr {
-            return my->chain->fetch_block_by_number(block_num);
-         });
+         [this](uint32_t block_num) -> signed_block_ptr { return my->chain->fetch_block_by_number(block_num); });
 
       my->get_block_by_id_provider = app().get_method<methods::get_block_by_id>().register_provider(
          [this](block_id_type id) -> signed_block_ptr { return my->chain->fetch_block_by_id(id); });
@@ -1078,25 +1045,21 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
             [this]() { return my->chain->last_irreversible_block_num(); });
 
       // relay signals to channels
-      my->pre_accepted_block_connection = my->chain->pre_accepted_block.connect([this](const signed_block_ptr&
-                                                                                          blk) {
+      my->pre_accepted_block_connection = my->chain->pre_accepted_block.connect([this](const signed_block_ptr& blk) {
          auto itr = my->loaded_checkpoints.find(blk->block_num());
          if (itr != my->loaded_checkpoints.end()) {
             auto id = blk->calculate_id();
-            EOS_ASSERT(
-               itr->second == id,
-               checkpoint_exception,
-               "Checkpoint does not match for block number ${num}: expected: ${expected} actual: ${actual}",
-               ("num", blk->block_num())("expected", itr->second)("actual", id));
+            EOS_ASSERT(itr->second == id,
+                       checkpoint_exception,
+                       "Checkpoint does not match for block number ${num}: expected: ${expected} actual: ${actual}",
+                       ("num", blk->block_num())("expected", itr->second)("actual", id));
          }
 
          my->pre_accepted_block_channel.publish(priority::medium, blk);
       });
 
-      my->accepted_block_header_connection =
-         my->chain->accepted_block_header.connect([this](const block_state_ptr& blk) {
-            my->accepted_block_header_channel.publish(priority::medium, blk);
-         });
+      my->accepted_block_header_connection = my->chain->accepted_block_header.connect(
+         [this](const block_state_ptr& blk) { my->accepted_block_header_channel.publish(priority::medium, blk); });
 
       my->accepted_block_connection = my->chain->accepted_block.connect([this](const block_state_ptr& blk) {
          if (my->_account_query_db) {
@@ -1114,18 +1077,17 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
          my->accepted_block_channel.publish(priority::high, blk);
       });
 
-      my->irreversible_block_connection =
-         my->chain->irreversible_block.connect([this](const block_state_ptr& blk) {
-            if (my->_trx_retry_db) {
-               my->_trx_retry_db->on_irreversible_block(blk);
-            }
+      my->irreversible_block_connection = my->chain->irreversible_block.connect([this](const block_state_ptr& blk) {
+         if (my->_trx_retry_db) {
+            my->_trx_retry_db->on_irreversible_block(blk);
+         }
 
-            if (my->_trx_finality_status_processing) {
-               my->_trx_finality_status_processing->signal_irreversible_block(blk);
-            }
+         if (my->_trx_finality_status_processing) {
+            my->_trx_finality_status_processing->signal_irreversible_block(blk);
+         }
 
-            my->irreversible_block_channel.publish(priority::low, blk);
-         });
+         my->irreversible_block_channel.publish(priority::low, blk);
+      });
 
       my->accepted_transaction_connection =
          my->chain->accepted_transaction.connect([this](const transaction_metadata_ptr& meta) {
@@ -1143,8 +1105,7 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
             }
 
             if (my->_trx_finality_status_processing) {
-               my->_trx_finality_status_processing->signal_applied_transaction(std::get<0>(t),
-                                                                               std::get<1>(t));
+               my->_trx_finality_status_processing->signal_applied_transaction(std::get<0>(t), std::get<1>(t));
             }
 
             my->applied_transaction_channel.publish(priority::low, std::get<0>(t));
@@ -1169,10 +1130,9 @@ void chain_plugin::plugin_startup() {
    try {
       handle_sighup(); // Sets loggers
 
-      EOS_ASSERT(
-         my->chain_config->read_mode != db_read_mode::IRREVERSIBLE || !accept_transactions(),
-         plugin_config_exception,
-         "read-mode = irreversible. transactions should not be enabled by enable_accept_transactions");
+      EOS_ASSERT(my->chain_config->read_mode != db_read_mode::IRREVERSIBLE || !accept_transactions(),
+                 plugin_config_exception,
+                 "read-mode = irreversible. transactions should not be enabled by enable_accept_transactions");
       try {
          my->producer_plug = app().find_plugin<producer_plugin>();
          EOS_ASSERT(my->producer_plug, plugin_exception, "Failed to find producer_plugin");
@@ -1180,8 +1140,7 @@ void chain_plugin::plugin_startup() {
          auto shutdown       = []() { return app().quit(); };
          auto check_shutdown = []() { return app().is_quiting(); };
          if (my->snapshot_path) {
-            auto infile =
-               std::ifstream(my->snapshot_path->generic_string(), (std::ios::in | std::ios::binary));
+            auto infile = std::ifstream(my->snapshot_path->generic_string(), (std::ios::in | std::ios::binary));
             auto reader = std::make_shared<istream_snapshot_reader>(infile);
             my->chain->startup(shutdown, check_shutdown, reader);
             infile.close();
@@ -1257,11 +1216,8 @@ void chain_apis::read_write::validate() const {
 }
 
 chain_apis::read_write chain_plugin::get_read_write_api(const fc::microseconds& http_max_response_time) {
-   return chain_apis::read_write(chain(),
-                                 my->_trx_retry_db,
-                                 get_abi_serializer_max_time(),
-                                 http_max_response_time,
-                                 api_accept_transactions());
+   return chain_apis::read_write(
+      chain(), my->_trx_retry_db, get_abi_serializer_max_time(), http_max_response_time, api_accept_transactions());
 }
 
 chain_apis::read_only chain_plugin::get_read_only_api(const fc::microseconds& http_max_response_time) const {
@@ -1279,8 +1235,7 @@ bool chain_plugin::accept_block(const signed_block_ptr& block, const block_id_ty
 
 void chain_plugin::accept_transaction(const chain::packed_transaction_ptr&        trx,
                                       next_function<chain::transaction_trace_ptr> next) {
-   my->incoming_transaction_async_method(
-      trx, false, transaction_metadata::trx_type::input, false, std::move(next));
+   my->incoming_transaction_async_method(trx, false, transaction_metadata::trx_type::input, false, std::move(next));
 }
 
 controller& chain_plugin::chain() {
@@ -1361,8 +1316,7 @@ std::string itoh(I n, size_t hlen = sizeof(I) << 1) {
    return r;
 }
 
-read_only::get_info_results read_only::get_info(const read_only::get_info_params&,
-                                                const fc::time_point&) const {
+read_only::get_info_results read_only::get_info(const read_only::get_info_params&, const fc::time_point&) const {
    const auto& rm = db.get_resource_limits_manager();
 
    return { itoh(static_cast<uint32_t>(app().version())),
@@ -1400,8 +1354,8 @@ read_only::get_transaction_status_results read_only::get_transaction_status(
    trx_finality_status_processing::chain_state ch_state = trx_finality_status_proc->get_chain_state();
 
    const auto trx_st = trx_finality_status_proc->get_trx_state(param.id);
-   // check if block_id is set to a valid value, since trx_finality_status_proc does not use optionals for the
-   // block data
+   // check if block_id is set to a valid value, since trx_finality_status_proc does not use optionals for the block
+   // data
    const auto trx_block_valid = trx_st && trx_st->block_id != chain::block_id_type{};
 
    return { trx_st ? trx_st->status : "UNKNOWN",
@@ -1409,10 +1363,8 @@ read_only::get_transaction_status_results read_only::get_transaction_status(
                             : std::optional<uint32_t>{},
             trx_block_valid ? std::optional<chain::block_id_type>(trx_st->block_id)
                             : std::optional<chain::block_id_type>{},
-            trx_block_valid ? std::optional<fc::time_point>(trx_st->block_timestamp)
-                            : std::optional<fc::time_point>{},
-            trx_st ? std::optional<fc::time_point_sec>(trx_st->expiration)
-                   : std::optional<fc::time_point_sec>{},
+            trx_block_valid ? std::optional<fc::time_point>(trx_st->block_timestamp) : std::optional<fc::time_point>{},
+            trx_st ? std::optional<fc::time_point_sec>(trx_st->expiration) : std::optional<fc::time_point_sec>{},
             chain::block_header::num_from_id(ch_state.head_id),
             ch_state.head_id,
             ch_state.head_block_timestamp,
@@ -1479,12 +1431,11 @@ read_only::get_activated_protocol_features_results read_only::get_activated_prot
       return itr;
    };
 
-   auto lower = (params.search_by_block_num ? pfm.lower_bound(lower_bound_value)
-                                            : pfm.at_activation_ordinal(lower_bound_value));
+   auto lower =
+      (params.search_by_block_num ? pfm.lower_bound(lower_bound_value) : pfm.at_activation_ordinal(lower_bound_value));
 
-   auto upper =
-      (params.search_by_block_num ? pfm.upper_bound(upper_bound_value)
-                                  : get_next_if_not_end(pfm.at_activation_ordinal(upper_bound_value)));
+   auto upper = (params.search_by_block_num ? pfm.upper_bound(upper_bound_value)
+                                            : get_next_if_not_end(pfm.at_activation_ordinal(upper_bound_value)));
 
    if (params.reverse) {
       walk_range(std::make_reverse_iterator(upper), std::make_reverse_iterator(lower), [](auto&& ritr) {
@@ -1502,8 +1453,7 @@ uint64_t read_only::get_table_index_name(const read_only::get_table_rows_params&
    // see multi_index packing of index name
    const uint64_t table = p.table.to_uint64_t();
    uint64_t       index = table & 0xFFFFFFFFFFFFFFF0ULL;
-   EOS_ASSERT(
-      index == table, chain::contract_table_query_exception, "Unsupported table name: ${n}", ("n", p.table));
+   EOS_ASSERT(index == table, chain::contract_table_query_exception, "Unsupported table name: ${n}", ("n", p.table));
 
    primary      = false;
    uint64_t pos = 0;
@@ -1532,10 +1482,8 @@ uint64_t read_only::get_table_index_name(const read_only::get_table_rows_params&
       try {
          pos = fc::to_uint64(p.index_position);
       } catch (...) {
-         EOS_ASSERT(false,
-                    chain::contract_table_query_exception,
-                    "Invalid index_position: ${p}",
-                    ("p", p.index_position));
+         EOS_ASSERT(
+            false, chain::contract_table_query_exception, "Invalid index_position: ${p}", ("p", p.index_position));
       }
       if (pos < 2) {
          primary = true;
@@ -1590,8 +1538,7 @@ double convert_to_type(const string& str, const string& desc) {
    try {
       val = fc::variant(str).as<double>();
    }
-   FC_RETHROW_EXCEPTIONS(
-      warn, "Could not convert ${desc} string '${str}' to key type.", ("desc", desc)("str", str))
+   FC_RETHROW_EXCEPTIONS(warn, "Could not convert ${desc} string '${str}' to key type.", ("desc", desc)("str", str))
 
    EOS_ASSERT(!std::isnan(val),
               chain::contract_table_query_exception,
@@ -1602,10 +1549,7 @@ double convert_to_type(const string& str, const string& desc) {
 }
 
 template<typename Type>
-string convert_to_string(const Type&   source,
-                         const string& key_type,
-                         const string& encode_type,
-                         const string& desc) {
+string convert_to_string(const Type& source, const string& key_type, const string& encode_type, const string& desc) {
    try {
       return fc::variant(source).as<string>();
    }
@@ -1619,8 +1563,7 @@ string convert_to_string(const chain::key256_t& source,
                          const string&          encode_type,
                          const string&          desc) {
    try {
-      if (key_type == chain_apis::sha256 ||
-          (key_type == chain_apis::i256 && encode_type == chain_apis::hex)) {
+      if (key_type == chain_apis::sha256 || (key_type == chain_apis::i256 && encode_type == chain_apis::hex)) {
          auto       byte_array = fixed_bytes<32>(source).extract_as_byte_array();
          fc::sha256 val(reinterpret_cast<char*>(byte_array.data()), byte_array.size());
          return std::string(val);
@@ -1678,27 +1621,21 @@ string get_table_type(const abi_def& abi, const name& table_name) {
 }
 
 read_only::get_table_rows_result read_only::get_table_rows(const read_only::get_table_rows_params& p,
-                                                           const fc::time_point& deadline) const {
+                                                           const fc::time_point&                   deadline) const {
    const abi_def abi              = eosio::chain_apis::get_abi(db, p.code);
    bool          primary          = false;
    auto          table_with_index = get_table_index_name(p, primary);
    if (primary) {
-      EOS_ASSERT(p.table == table_with_index,
-                 chain::contract_table_query_exception,
-                 "Invalid table name ${t}",
-                 ("t", p.table));
+      EOS_ASSERT(
+         p.table == table_with_index, chain::contract_table_query_exception, "Invalid table name ${t}", ("t", p.table));
       auto table_type = get_table_type(abi, p.table);
       if (table_type == KEYi64 || p.key_type == "i64" || p.key_type == "name") {
          return get_table_rows_ex<key_value_index>(p, abi, deadline);
       }
-      EOS_ASSERT(false,
-                 chain::contract_table_query_exception,
-                 "Invalid table type ${type}",
-                 ("type", table_type)("abi", abi));
+      EOS_ASSERT(
+         false, chain::contract_table_query_exception, "Invalid table type ${type}", ("type", table_type)("abi", abi));
    } else {
-      EOS_ASSERT(!p.key_type.empty(),
-                 chain::contract_table_query_exception,
-                 "key type required for non-primary index");
+      EOS_ASSERT(!p.key_type.empty(), chain::contract_table_query_exception, "key type required for non-primary index");
 
       if (p.key_type == chain_apis::i64 || p.key_type == "name") {
          return get_table_rows_by_seckey<index64_index, uint64_t>(
@@ -1709,19 +1646,16 @@ read_only::get_table_rows_result read_only::get_table_rows(const read_only::get_
       } else if (p.key_type == chain_apis::i256) {
          if (p.encode_type == chain_apis::hex) {
             using conv = keytype_converter<chain_apis::sha256, chain_apis::hex>;
-            return get_table_rows_by_seckey<conv::index_type, conv::input_type>(
-               p, abi, deadline, conv::function());
+            return get_table_rows_by_seckey<conv::index_type, conv::input_type>(p, abi, deadline, conv::function());
          }
          using conv = keytype_converter<chain_apis::i256>;
-         return get_table_rows_by_seckey<conv::index_type, conv::input_type>(
-            p, abi, deadline, conv::function());
+         return get_table_rows_by_seckey<conv::index_type, conv::input_type>(p, abi, deadline, conv::function());
       } else if (p.key_type == chain_apis::float64) {
-         return get_table_rows_by_seckey<index_double_index, double>(
-            p, abi, deadline, [](double v) -> float64_t {
-               float64_t f;
-               double_to_float64(v, f);
-               return f;
-            });
+         return get_table_rows_by_seckey<index_double_index, double>(p, abi, deadline, [](double v) -> float64_t {
+            float64_t f;
+            double_to_float64(v, f);
+            return f;
+         });
       } else if (p.key_type == chain_apis::float128) {
          if (p.encode_type == chain_apis::hex) {
             return get_table_rows_by_seckey<index_long_double_index, uint128_t>(
@@ -1731,44 +1665,36 @@ read_only::get_table_rows_result read_only::get_table_rows(const read_only::get_
                   return f;
                });
          }
-         return get_table_rows_by_seckey<index_long_double_index, double>(
-            p, abi, deadline, [](double v) -> float128_t {
-               float64_t f;
-               double_to_float64(v, f);
-               float128_t f128;
-               f64_to_f128M(f, &f128);
-               return f128;
-            });
+         return get_table_rows_by_seckey<index_long_double_index, double>(p, abi, deadline, [](double v) -> float128_t {
+            float64_t f;
+            double_to_float64(v, f);
+            float128_t f128;
+            f64_to_f128M(f, &f128);
+            return f128;
+         });
       } else if (p.key_type == chain_apis::sha256) {
          using conv = keytype_converter<chain_apis::sha256, chain_apis::hex>;
-         return get_table_rows_by_seckey<conv::index_type, conv::input_type>(
-            p, abi, deadline, conv::function());
+         return get_table_rows_by_seckey<conv::index_type, conv::input_type>(p, abi, deadline, conv::function());
       } else if (p.key_type == chain_apis::ripemd160) {
          using conv = keytype_converter<chain_apis::ripemd160, chain_apis::hex>;
-         return get_table_rows_by_seckey<conv::index_type, conv::input_type>(
-            p, abi, deadline, conv::function());
+         return get_table_rows_by_seckey<conv::index_type, conv::input_type>(p, abi, deadline, conv::function());
       }
-      EOS_ASSERT(false,
-                 chain::contract_table_query_exception,
-                 "Unsupported secondary index type: ${t}",
-                 ("t", p.key_type));
+      EOS_ASSERT(
+         false, chain::contract_table_query_exception, "Unsupported secondary index type: ${t}", ("t", p.key_type));
    }
 }
 
-read_only::get_table_by_scope_result read_only::get_table_by_scope(
-   const read_only::get_table_by_scope_params& p,
-   const fc::time_point&                       deadline) const {
+read_only::get_table_by_scope_result read_only::get_table_by_scope(const read_only::get_table_by_scope_params& p,
+                                                                   const fc::time_point& deadline) const {
 
-   fc::microseconds params_time_limit = p.time_limit_ms ? fc::milliseconds(*p.time_limit_ms)
-                                                        : fc::milliseconds(10);
+   fc::microseconds params_time_limit = p.time_limit_ms ? fc::milliseconds(*p.time_limit_ms) : fc::milliseconds(10);
    fc::time_point   params_deadline   = fc::time_point::now() + params_time_limit;
 
    read_only::get_table_by_scope_result result;
    const auto&                          d = db.db();
 
-   const auto& idx = d.get_index<chain::table_id_multi_index, chain::by_code_scope_table>();
-   auto        lower_bound_lookup_tuple =
-      std::make_tuple(p.code, name(std::numeric_limits<uint64_t>::lowest()), p.table);
+   const auto& idx               = d.get_index<chain::table_id_multi_index, chain::by_code_scope_table>();
+   auto lower_bound_lookup_tuple = std::make_tuple(p.code, name(std::numeric_limits<uint64_t>::lowest()), p.table);
    auto upper_bound_lookup_tuple =
       std::make_tuple(p.code,
                       name(std::numeric_limits<uint64_t>::max()),
@@ -1849,8 +1775,7 @@ fc::variant read_only::get_currency_stats(const read_only::get_currency_stats_pa
    const abi_def abi = eosio::chain_apis::get_abi(db, p.code);
    (void)get_table_type(abi, name("stat"));
 
-   uint64_t scope =
-      (eosio::chain::string_to_symbol(0, boost::algorithm::to_upper_copy(p.symbol).c_str()) >> 8);
+   uint64_t scope = (eosio::chain::string_to_symbol(0, boost::algorithm::to_upper_copy(p.symbol).c_str()) >> 8);
 
    walk_key_value_table(p.code, name(scope), "stat"_n, [&](const key_value_object& obj) {
       EOS_ASSERT(obj.value.size() >= sizeof(read_only::get_currency_stats_result),
@@ -1899,7 +1824,7 @@ fc::variant get_global_row(const database&         db,
 }
 
 read_only::get_producers_result read_only::get_producers(const read_only::get_producers_params& params,
-                                                         const fc::time_point& deadline) const try {
+                                                         const fc::time_point&                  deadline) const try {
    const abi_def        abi        = eosio::chain_apis::get_abi(db, config::system_account_name);
    const auto           table_type = get_table_type(abi, "producers"_n);
    const abi_serializer abis{ abi, abi_serializer::create_yield_function(abi_serializer_max_time) };
@@ -1918,8 +1843,7 @@ read_only::get_producers_result read_only::get_producers(const read_only::get_pr
       boost::make_tuple(config::system_account_name,
                         config::system_account_name,
                         name("producers"_n.to_uint64_t() | secondary_index_num)));
-   EOS_ASSERT(
-      table_id && secondary_table_id, chain::contract_table_query_exception, "Missing producers table");
+   EOS_ASSERT(table_id && secondary_table_id, chain::contract_table_query_exception, "Missing producers table");
 
    const auto& kv_index                     = d.get_index<key_value_index, by_scope_primary>();
    const auto& secondary_index              = d.get_index<index_double_index>().indices();
@@ -1931,11 +1855,11 @@ read_only::get_producers_result read_only::get_producers(const read_only::get_pr
 
    auto it = [&] {
       if (lower.to_uint64_t() == 0)
-         return secondary_index_by_secondary.lower_bound(boost::make_tuple(
-            secondary_table_id->id, to_softfloat64(std::numeric_limits<double>::lowest()), 0));
+         return secondary_index_by_secondary.lower_bound(
+            boost::make_tuple(secondary_table_id->id, to_softfloat64(std::numeric_limits<double>::lowest()), 0));
       else
-         return secondary_index.project<by_secondary>(secondary_index_by_primary.lower_bound(
-            boost::make_tuple(secondary_table_id->id, lower.to_uint64_t())));
+         return secondary_index.project<by_secondary>(
+            secondary_index_by_primary.lower_bound(boost::make_tuple(secondary_table_id->id, lower.to_uint64_t())));
    }();
 
    fc::microseconds params_time_limit = params.time_limit_ms ? fc::milliseconds(*params.time_limit_ms)
@@ -1950,11 +1874,10 @@ read_only::get_producers_result read_only::get_producers(const read_only::get_pr
       }
       copy_inline_row(*kv_index.find(boost::make_tuple(table_id->id, it->primary_key)), data);
       if (params.json)
-         result.rows.emplace_back(
-            abis.binary_to_variant(abis.get_table_type("producers"_n),
-                                   data,
-                                   abi_serializer::create_yield_function(abi_serializer_max_time),
-                                   shorten_abi_errors));
+         result.rows.emplace_back(abis.binary_to_variant(abis.get_table_type("producers"_n),
+                                                         data,
+                                                         abi_serializer::create_yield_function(abi_serializer_max_time),
+                                                         shorten_abi_errors));
       else
          result.rows.emplace_back(fc::variant(data));
    }
@@ -1968,8 +1891,8 @@ read_only::get_producers_result read_only::get_producers(const read_only::get_pr
    result.rows.reserve(db.active_producers().producers.size());
 
    for (const auto& p : db.active_producers().producers) {
-      auto row = fc::mutable_variant_object()("owner", p.producer_name)("producer_authority", p.authority)(
-         "url", "")("total_votes", 0.0f);
+      auto row = fc::mutable_variant_object()("owner", p.producer_name)("producer_authority",
+                                                                        p.authority)("url", "")("total_votes", 0.0f);
 
       // detect a legacy key and maintain API compatibility for those entries
       if (std::holds_alternative<block_signing_authority_v0>(p.authority)) {
@@ -2000,17 +1923,16 @@ read_only::get_producer_schedule_result read_only::get_producer_schedule(
 
 struct resolver_factory {
    static auto make(const controller& control, abi_serializer::yield_function_t yield) {
-      return
-         [&control, yield{ std::move(yield) }](const account_name& name) -> std::optional<abi_serializer> {
-            const auto* accnt = control.db().template find<account_object, by_name>(name);
-            if (accnt != nullptr) {
-               abi_def abi;
-               if (abi_serializer::to_abi(accnt->abi, abi)) {
-                  return abi_serializer(abi, yield);
-               }
+      return [&control, yield{ std::move(yield) }](const account_name& name) -> std::optional<abi_serializer> {
+         const auto* accnt = control.db().template find<account_object, by_name>(name);
+         if (accnt != nullptr) {
+            abi_def abi;
+            if (abi_serializer::to_abi(accnt->abi, abi)) {
+               return abi_serializer(abi, yield);
             }
-            return std::optional<abi_serializer>();
-         };
+         }
+         return std::optional<abi_serializer>();
+      };
    }
 };
 
@@ -2022,8 +1944,7 @@ read_only::get_scheduled_transactions_result read_only::get_scheduled_transactio
    const read_only::get_scheduled_transactions_params& p,
    const fc::time_point&                               deadline) const {
 
-   fc::microseconds params_time_limit = p.time_limit_ms ? fc::milliseconds(*p.time_limit_ms)
-                                                        : fc::milliseconds(10);
+   fc::microseconds params_time_limit = p.time_limit_ms ? fc::milliseconds(*p.time_limit_ms) : fc::milliseconds(10);
    fc::time_point   params_deadline   = fc::time_point::now() + params_time_limit;
 
    const auto& d = db.db();
@@ -2072,10 +1993,8 @@ read_only::get_scheduled_transactions_result read_only::get_scheduled_transactio
          fc::datastream<const char*> ds(itr->packed_trx.data(), itr->packed_trx.size());
          fc::raw::unpack(ds, trx);
 
-         abi_serializer::to_variant(trx,
-                                    pretty_transaction,
-                                    resolver,
-                                    abi_serializer::create_yield_function(abi_serializer_max_time));
+         abi_serializer::to_variant(
+            trx, pretty_transaction, resolver, abi_serializer::create_yield_function(abi_serializer_max_time));
          row("transaction", pretty_transaction);
       } else {
          auto packed_transaction = bytes(itr->packed_trx.begin(), itr->packed_trx.end());
@@ -2094,8 +2013,7 @@ read_only::get_scheduled_transactions_result read_only::get_scheduled_transactio
    return result;
 }
 
-fc::variant read_only::get_block(const read_only::get_block_params& params,
-                                 const fc::time_point&              deadline) const {
+fc::variant read_only::get_block(const read_only::get_block_params& params, const fc::time_point& deadline) const {
    signed_block_ptr        block;
    std::optional<uint64_t> block_num;
 
@@ -2118,21 +2036,19 @@ fc::variant read_only::get_block(const read_only::get_block_params& params,
                              ("block_num_or_id", params.block_num_or_id))
    }
 
-   EOS_ASSERT(
-      block, unknown_block_exception, "Could not find block: ${block}", ("block", params.block_num_or_id));
+   EOS_ASSERT(block, unknown_block_exception, "Could not find block: ${block}", ("block", params.block_num_or_id));
 
    fc::variant pretty_output;
-   abi_serializer::to_variant(
-      *block,
-      pretty_output,
-      make_resolver(db, abi_serializer::create_yield_function(abi_serializer_max_time)),
-      abi_serializer::create_yield_function(abi_serializer_max_time));
+   abi_serializer::to_variant(*block,
+                              pretty_output,
+                              make_resolver(db, abi_serializer::create_yield_function(abi_serializer_max_time)),
+                              abi_serializer::create_yield_function(abi_serializer_max_time));
 
    const auto block_id         = block->calculate_id();
    uint32_t   ref_block_prefix = block_id._hash[1];
 
-   return fc::mutable_variant_object(pretty_output.get_object())("id", block_id)(
-      "block_num", block->block_num())("ref_block_prefix", ref_block_prefix);
+   return fc::mutable_variant_object(pretty_output.get_object())("id", block_id)("block_num", block->block_num())(
+      "ref_block_prefix", ref_block_prefix);
 }
 
 fc::variant read_only::get_block_info(const read_only::get_block_info_params& params,
@@ -2150,12 +2066,12 @@ fc::variant read_only::get_block_info(const read_only::get_block_info_params& pa
    const auto     id               = block->calculate_id();
    const uint32_t ref_block_prefix = id._hash[1];
 
-   return fc::mutable_variant_object()("block_num", block->block_num())(
-      "ref_block_num", static_cast<uint16_t>(block->block_num()))("id", id)("timestamp", block->timestamp)(
-      "producer", block->producer)("confirmed", block->confirmed)("previous", block->previous)(
-      "transaction_mroot", block->transaction_mroot)("action_mroot", block->action_mroot)(
-      "schedule_version", block->schedule_version)("producer_signature", block->producer_signature)(
-      "ref_block_prefix", ref_block_prefix);
+   return fc::mutable_variant_object()("block_num", block->block_num())("ref_block_num",
+                                                                        static_cast<uint16_t>(block->block_num()))(
+      "id", id)("timestamp", block->timestamp)("producer", block->producer)("confirmed", block->confirmed)(
+      "previous", block->previous)("transaction_mroot", block->transaction_mroot)("action_mroot", block->action_mroot)(
+      "schedule_version", block->schedule_version)("producer_signature", block->producer_signature)("ref_block_prefix",
+                                                                                                    ref_block_prefix);
 }
 
 fc::variant read_only::get_block_header_state(const get_block_header_state_params& params,
@@ -2178,10 +2094,8 @@ fc::variant read_only::get_block_header_state(const get_block_header_state_param
                              ("block_num_or_id", params.block_num_or_id))
    }
 
-   EOS_ASSERT(b,
-              unknown_block_exception,
-              "Could not find reversible block: ${block}",
-              ("block", params.block_num_or_id));
+   EOS_ASSERT(
+      b, unknown_block_exception, "Could not find reversible block: ${block}", ("block", params.block_num_or_id));
 
    fc::variant vo;
    fc::to_variant(static_cast<const block_header_state&>(*b), vo);
@@ -2208,10 +2122,8 @@ void read_write::push_transaction(const read_write::push_transaction_params&    
       auto pretty_input = std::make_shared<packed_transaction>();
       auto resolver     = make_resolver(db, abi_serializer::create_yield_function(abi_serializer_max_time));
       try {
-         abi_serializer::from_variant(params,
-                                      *pretty_input,
-                                      std::move(resolver),
-                                      abi_serializer::create_yield_function(abi_serializer_max_time));
+         abi_serializer::from_variant(
+            params, *pretty_input, std::move(resolver), abi_serializer::create_yield_function(abi_serializer_max_time));
       }
       EOS_RETHROW_EXCEPTIONS(chain::packed_transaction_type_exception, "Invalid packed transaction")
 
@@ -2229,19 +2141,16 @@ void read_write::push_transaction(const read_write::push_transaction_params&    
                try {
                   fc::variant output;
                   try {
-                     output = db.to_variant_with_abi(
-                        *trx_trace_ptr, abi_serializer::create_yield_function(abi_serializer_max_time));
+                     output = db.to_variant_with_abi(*trx_trace_ptr,
+                                                     abi_serializer::create_yield_function(abi_serializer_max_time));
 
-                     // Create map of (closest_unnotified_ancestor_action_ordinal, global_sequence) with
-                     // action trace
+                     // Create map of (closest_unnotified_ancestor_action_ordinal, global_sequence) with action trace
                      std::map<std::pair<uint32_t, uint64_t>, fc::mutable_variant_object> act_traces_map;
                      for (const auto& act_trace : output["action_traces"].get_array()) {
                         if (act_trace["receipt"].is_null() && act_trace["except"].is_null())
                            continue;
                         auto closest_unnotified_ancestor_action_ordinal =
-                           act_trace["closest_unnotified_ancestor_action_ordinal"]
-                              .as<fc::unsigned_int>()
-                              .value;
+                           act_trace["closest_unnotified_ancestor_action_ordinal"].as<fc::unsigned_int>().value;
                         auto global_sequence = act_trace["receipt"].is_null()
                                                   ? std::numeric_limits<uint64_t>::max()
                                                   : act_trace["receipt"]["global_sequence"].as<uint64_t>();
@@ -2253,24 +2162,21 @@ void read_write::push_transaction(const read_write::push_transaction_params&    
                      std::function<vector<fc::variant>(uint32_t)> convert_act_trace_to_tree_struct =
                         [&](uint32_t closest_unnotified_ancestor_action_ordinal) {
                            vector<fc::variant> restructured_act_traces;
-                           auto                it = act_traces_map.lower_bound(
-                              std::make_pair(closest_unnotified_ancestor_action_ordinal, 0));
+                           auto                it =
+                              act_traces_map.lower_bound(std::make_pair(closest_unnotified_ancestor_action_ordinal, 0));
                            for (; it != act_traces_map.end() &&
                                   it->first.first == closest_unnotified_ancestor_action_ordinal;
                                 ++it) {
                               auto& act_trace_mvo = it->second;
 
-                              auto action_ordinal =
-                                 act_trace_mvo["action_ordinal"].as<fc::unsigned_int>().value;
-                              act_trace_mvo["inline_traces"] =
-                                 convert_act_trace_to_tree_struct(action_ordinal);
+                              auto action_ordinal = act_trace_mvo["action_ordinal"].as<fc::unsigned_int>().value;
+                              act_trace_mvo["inline_traces"] = convert_act_trace_to_tree_struct(action_ordinal);
                               if (act_trace_mvo["receipt"].is_null()) {
                                  act_trace_mvo["receipt"] = fc::mutable_variant_object()("abi_sequence", 0)(
                                     "act_digest",
                                     digest_type::hash(trx_trace_ptr->action_traces[action_ordinal - 1].act))(
                                     "auth_sequence", flat_map<account_name, uint64_t>())("code_sequence", 0)(
-                                    "global_sequence", 0)("receiver",
-                                                          act_trace_mvo["receiver"])("recv_sequence", 0);
+                                    "global_sequence", 0)("receiver", act_trace_mvo["receiver"])("recv_sequence", 0);
                               }
                               restructured_act_traces.push_back(std::move(act_trace_mvo));
                            }
@@ -2304,24 +2210,23 @@ static void push_recurse(read_write*                                            
                          const std::shared_ptr<read_write::push_transactions_params>&  params,
                          const std::shared_ptr<read_write::push_transactions_results>& results,
                          const next_function<read_write::push_transactions_results>&   next) {
-   auto wrapped_next =
-      [=](const std::variant<fc::exception_ptr, read_write::push_transaction_results>& result) {
-         if (std::holds_alternative<fc::exception_ptr>(result)) {
-            const auto& e = std::get<fc::exception_ptr>(result);
-            results->emplace_back(read_write::push_transaction_results{
-               transaction_id_type(), fc::mutable_variant_object("error", e->to_detail_string()) });
-         } else {
-            const auto& r = std::get<read_write::push_transaction_results>(result);
-            results->emplace_back(r);
-         }
+   auto wrapped_next = [=](const std::variant<fc::exception_ptr, read_write::push_transaction_results>& result) {
+      if (std::holds_alternative<fc::exception_ptr>(result)) {
+         const auto& e = std::get<fc::exception_ptr>(result);
+         results->emplace_back(read_write::push_transaction_results{
+            transaction_id_type(), fc::mutable_variant_object("error", e->to_detail_string()) });
+      } else {
+         const auto& r = std::get<read_write::push_transaction_results>(result);
+         results->emplace_back(r);
+      }
 
-         size_t next_index = index + 1;
-         if (next_index < params->size()) {
-            push_recurse(rw, next_index, params, results, next);
-         } else {
-            next(*results);
-         }
-      };
+      size_t next_index = index + 1;
+      if (next_index < params->size()) {
+         push_recurse(rw, next_index, params, results, next);
+      } else {
+         next(*results);
+      }
+   };
 
    rw->push_transaction(params->at(index), wrapped_next);
 }
@@ -2369,8 +2274,8 @@ void read_write::send_transaction(const read_write::send_transaction_params&    
                try {
                   fc::variant output;
                   try {
-                     output = db.to_variant_with_abi(
-                        *trx_trace_ptr, abi_serializer::create_yield_function(abi_serializer_max_time));
+                     output = db.to_variant_with_abi(*trx_trace_ptr,
+                                                     abi_serializer::create_yield_function(abi_serializer_max_time));
                   } catch (chain::abi_exception&) {
                      output = *trx_trace_ptr;
                   }
@@ -2395,18 +2300,15 @@ void read_write::send_transaction2(const read_write::send_transaction2_params&  
       auto ptrx     = std::make_shared<packed_transaction>();
       auto resolver = make_resolver(db, abi_serializer::create_yield_function(abi_serializer_max_time));
       try {
-         abi_serializer::from_variant(params.transaction,
-                                      *ptrx,
-                                      resolver,
-                                      abi_serializer::create_yield_function(abi_serializer_max_time));
+         abi_serializer::from_variant(
+            params.transaction, *ptrx, resolver, abi_serializer::create_yield_function(abi_serializer_max_time));
       }
       EOS_RETHROW_EXCEPTIONS(chain::packed_transaction_type_exception, "Invalid packed transaction")
 
       bool                    retry            = params.retry_trx;
       std::optional<uint16_t> retry_num_blocks = params.retry_trx_num_blocks;
 
-      EOS_ASSERT(
-         !retry || trx_retry.has_value(), unsupported_feature, "Transaction retry not enabled on node");
+      EOS_ASSERT(!retry || trx_retry.has_value(), unsupported_feature, "Transaction retry not enabled on node");
       EOS_ASSERT(!retry || (ptrx->expiration() <= trx_retry->get_max_expiration_time()),
                  tx_exp_too_far_exception,
                  "retry transaction expiration ${e} larger than allowed ${m}",
@@ -2429,8 +2331,7 @@ void read_write::send_transaction2(const read_write::send_transaction2_params&  
                      trx_retry->track_transaction(
                         ptrx,
                         retry_num_blocks,
-                        [ptrx,
-                         next](const std::variant<fc::exception_ptr, std::unique_ptr<fc::variant>>& result) {
+                        [ptrx, next](const std::variant<fc::exception_ptr, std::unique_ptr<fc::variant>>& result) {
                            if (std::holds_alternative<fc::exception_ptr>(result)) {
                               next(std::get<fc::exception_ptr>(result));
                            } else {
@@ -2441,8 +2342,8 @@ void read_write::send_transaction2(const read_write::send_transaction2_params&  
                   } else {
                      fc::variant output;
                      try {
-                        output = db.to_variant_with_abi(
-                           *trx_trace_ptr, abi_serializer::create_yield_function(abi_serializer_max_time));
+                        output = db.to_variant_with_abi(*trx_trace_ptr,
+                                                        abi_serializer::create_yield_function(abi_serializer_max_time));
                      } catch (chain::abi_exception&) {
                         output = *trx_trace_ptr;
                      }
@@ -2461,8 +2362,7 @@ void read_write::send_transaction2(const read_write::send_transaction2_params&  
    CATCH_AND_CALL(next);
 }
 
-read_only::get_abi_results read_only::get_abi(const get_abi_params& params,
-                                              const fc::time_point& deadline) const {
+read_only::get_abi_results read_only::get_abi(const get_abi_params& params, const fc::time_point& deadline) const {
    get_abi_results result;
    result.account_name = params.account_name;
    const auto& d       = db.db();
@@ -2476,16 +2376,14 @@ read_only::get_abi_results read_only::get_abi(const get_abi_params& params,
    return result;
 }
 
-read_only::get_code_results read_only::get_code(const get_code_params& params,
-                                                const fc::time_point&  deadline) const {
+read_only::get_code_results read_only::get_code(const get_code_params& params, const fc::time_point& deadline) const {
    get_code_results result;
    result.account_name            = params.account_name;
    const auto& d                  = db.db();
    const auto& accnt_obj          = d.get<account_object, by_name>(params.account_name);
    const auto& accnt_metadata_obj = d.get<account_metadata_object, by_name>(params.account_name);
 
-   EOS_ASSERT(
-      params.code_as_wasm, unsupported_feature, "Returning WAST from get_code is no longer supported");
+   EOS_ASSERT(params.code_as_wasm, unsupported_feature, "Returning WAST from get_code is no longer supported");
 
    if (accnt_metadata_obj.code_hash != digest_type()) {
       const auto& code_obj = d.get<code_object, by_code_hash>(accnt_metadata_obj.code_hash);
@@ -2514,9 +2412,8 @@ read_only::get_code_hash_results read_only::get_code_hash(const get_code_hash_pa
    return result;
 }
 
-read_only::get_raw_code_and_abi_results read_only::get_raw_code_and_abi(
-   const get_raw_code_and_abi_params& params,
-   const fc::time_point&              deadline) const {
+read_only::get_raw_code_and_abi_results read_only::get_raw_code_and_abi(const get_raw_code_and_abi_params& params,
+                                                                        const fc::time_point& deadline) const {
    get_raw_code_and_abi_results result;
    result.account_name = params.account_name;
 
@@ -2578,25 +2475,21 @@ read_only::get_account_results read_only::get_account(const get_account_params& 
    uint32_t greylist_limit =
       db.is_resource_greylisted(result.account_name) ? 1 : config::maximum_elastic_resource_multiplier;
    const block_timestamp_type current_usage_time(db.head_block_time());
-   result.net_limit.set(
-      rm.get_account_net_limit_ex(result.account_name, greylist_limit, current_usage_time).first);
+   result.net_limit.set(rm.get_account_net_limit_ex(result.account_name, greylist_limit, current_usage_time).first);
    if (result.net_limit.last_usage_update_time &&
        (result.net_limit.last_usage_update_time->slot == 0)) { // account has no action yet
       result.net_limit.last_usage_update_time = accnt_obj.creation_date;
    }
-   result.cpu_limit.set(
-      rm.get_account_cpu_limit_ex(result.account_name, greylist_limit, current_usage_time).first);
+   result.cpu_limit.set(rm.get_account_cpu_limit_ex(result.account_name, greylist_limit, current_usage_time).first);
    if (result.cpu_limit.last_usage_update_time &&
        (result.cpu_limit.last_usage_update_time->slot == 0)) { // account has no action yet
       result.cpu_limit.last_usage_update_time = accnt_obj.creation_date;
    }
    result.ram_usage = rm.get_account_ram_usage(result.account_name);
 
-   if (producer_plug) { // producer_plug is null when called from chain_plugin_tests.cpp and
-                        // get_table_tests.cpp
+   if (producer_plug) { // producer_plug is null when called from chain_plugin_tests.cpp and get_table_tests.cpp
       eosio::chain::resource_limits::account_resource_limit subjective_cpu_bill_limit;
-      subjective_cpu_bill_limit.used =
-         producer_plug->get_subjective_bill(result.account_name, fc::time_point::now());
+      subjective_cpu_bill_limit.used   = producer_plug->get_subjective_bill(result.account_name, fc::time_point::now());
       result.subjective_cpu_bill_limit = subjective_cpu_bill_limit;
    }
 
@@ -2606,10 +2499,8 @@ read_only::get_account_results read_only::get_account(const get_account_params& 
 
       std::multimap<name, linked_action> result;
       while (iter != links.end() && iter->account == params.account_name) {
-         auto action = iter->message_type.empty() ? std::optional<name>()
-                                                  : std::optional<name>(iter->message_type);
-         result.emplace(
-            std::make_pair(iter->required_permission, linked_action{ iter->code, std::move(action) }));
+         auto action = iter->message_type.empty() ? std::optional<name>() : std::optional<name>(iter->message_type);
+         result.emplace(std::make_pair(iter->required_permission, linked_action{ iter->code, std::move(action) }));
          ++iter;
       }
 
@@ -2736,11 +2627,8 @@ read_only::get_account_results read_only::get_account(const get_account_params& 
          if (it != idx.end()) {
             vector<char> data;
             copy_inline_row(*it, data);
-            result.voter_info =
-               abis.binary_to_variant("voter_info",
-                                      data,
-                                      abi_serializer::create_yield_function(abi_serializer_max_time),
-                                      shorten_abi_errors);
+            result.voter_info = abis.binary_to_variant(
+               "voter_info", data, abi_serializer::create_yield_function(abi_serializer_max_time), shorten_abi_errors);
          }
       }
 
@@ -2752,11 +2640,8 @@ read_only::get_account_results read_only::get_account(const get_account_params& 
          if (it != idx.end()) {
             vector<char> data;
             copy_inline_row(*it, data);
-            result.rex_info =
-               abis.binary_to_variant("rex_balance",
-                                      data,
-                                      abi_serializer::create_yield_function(abi_serializer_max_time),
-                                      shorten_abi_errors);
+            result.rex_info = abis.binary_to_variant(
+               "rex_balance", data, abi_serializer::create_yield_function(abi_serializer_max_time), shorten_abi_errors);
          }
       }
    }
@@ -2765,8 +2650,7 @@ read_only::get_account_results read_only::get_account(const get_account_params& 
 
 static fc::variant action_abi_to_variant(const abi_def& abi, type_name action_type) {
    fc::variant v;
-   auto        it =
-      std::find_if(abi.structs.begin(), abi.structs.end(), [&](auto& x) { return x.name == action_type; });
+   auto it = std::find_if(abi.structs.begin(), abi.structs.end(), [&](auto& x) { return x.name == action_type; });
    if (it != abi.structs.end())
       to_variant(it->fields, v);
    return v;
@@ -2790,17 +2674,15 @@ read_only::abi_json_to_bin_result read_only::abi_json_to_bin(const read_only::ab
                  "Unknown action ${action} in contract ${contract}",
                  ("action", params.action)("contract", params.code));
       try {
-         result.binargs =
-            abis.variant_to_binary(action_type,
-                                   params.args,
-                                   abi_serializer::create_yield_function(abi_serializer_max_time),
-                                   shorten_abi_errors);
+         result.binargs = abis.variant_to_binary(action_type,
+                                                 params.args,
+                                                 abi_serializer::create_yield_function(abi_serializer_max_time),
+                                                 shorten_abi_errors);
       }
-      EOS_RETHROW_EXCEPTIONS(
-         chain::invalid_action_args_exception,
-         "'${args}' is invalid args for action '${action}' code '${code}'. expected '${proto}'",
-         ("args", params.args)("action", params.action)("code", params.code)(
-            "proto", action_abi_to_variant(abi, action_type)))
+      EOS_RETHROW_EXCEPTIONS(chain::invalid_action_args_exception,
+                             "'${args}' is invalid args for action '${action}' code '${code}'. expected '${proto}'",
+                             ("args", params.args)("action", params.action)("code", params.code)(
+                                "proto", action_abi_to_variant(abi, action_type)))
    } else {
       EOS_ASSERT(false, abi_not_found_exception, "No ABI found for ${contract}", ("contract", params.code));
    }
@@ -2811,7 +2693,7 @@ FC_RETHROW_EXCEPTIONS(warn,
                       ("code", params.code)("action", params.action)("args", params.args))
 
 read_only::abi_bin_to_json_result read_only::abi_bin_to_json(const read_only::abi_bin_to_json_params& params,
-                                                             const fc::time_point& deadline) const {
+                                                             const fc::time_point&                    deadline) const {
    abi_bin_to_json_result result;
    const auto&            code_account = db.db().get<account_object, by_name>(params.code);
    abi_def                abi;
@@ -2828,14 +2710,12 @@ read_only::abi_bin_to_json_result read_only::abi_bin_to_json(const read_only::ab
 }
 
 read_only::get_required_keys_result read_only::get_required_keys(const get_required_keys_params& params,
-                                                                 const fc::time_point& deadline) const {
+                                                                 const fc::time_point&           deadline) const {
    transaction pretty_input;
    auto        resolver = make_resolver(db, abi_serializer::create_yield_function(abi_serializer_max_time));
    try {
-      abi_serializer::from_variant(params.transaction,
-                                   pretty_input,
-                                   resolver,
-                                   abi_serializer::create_yield_function(abi_serializer_max_time));
+      abi_serializer::from_variant(
+         params.transaction, pretty_input, resolver, abi_serializer::create_yield_function(abi_serializer_max_time));
    }
    EOS_RETHROW_EXCEPTIONS(chain::transaction_type_exception, "Invalid transaction")
 
@@ -2873,8 +2753,8 @@ void read_only::compute_transaction(const compute_transaction_params&          p
                try {
                   fc::variant output;
                   try {
-                     output = db.to_variant_with_abi(
-                        *trx_trace_ptr, abi_serializer::create_yield_function(abi_serializer_max_time));
+                     output = db.to_variant_with_abi(*trx_trace_ptr,
+                                                     abi_serializer::create_yield_function(abi_serializer_max_time));
                   } catch (chain::abi_exception&) {
                      output = *trx_trace_ptr;
                   }
@@ -2892,9 +2772,8 @@ void read_only::compute_transaction(const compute_transaction_params&          p
    }
    CATCH_AND_CALL(next);
 }
-read_only::get_transaction_id_result read_only::get_transaction_id(
-   const read_only::get_transaction_id_params& params,
-   const fc::time_point&                       deadline) const {
+read_only::get_transaction_id_result read_only::get_transaction_id(const read_only::get_transaction_id_params& params,
+                                                                   const fc::time_point& deadline) const {
    return params.id();
 }
 
@@ -2918,8 +2797,8 @@ struct ram_market_exchange_state_t {
 chain::symbol read_only::extract_core_symbol() const {
    symbol core_symbol(0);
 
-   // The following code makes assumptions about the contract deployed on eosio account (i.e. the system
-   // contract) and how it stores its data.
+   // The following code makes assumptions about the contract deployed on eosio account (i.e. the system contract) and
+   // how it stores its data.
    const auto& d    = db.db();
    const auto* t_id = d.find<chain::table_id_object, chain::by_code_scope_table>(
       boost::make_tuple("eosio"_n, "eosio"_n, "rammarket"_n));
@@ -2946,9 +2825,8 @@ chain::symbol read_only::extract_core_symbol() const {
    return core_symbol;
 }
 
-read_only::get_consensus_parameters_results read_only::get_consensus_parameters(
-   const get_consensus_parameters_params&,
-   const fc::time_point& deadline) const {
+read_only::get_consensus_parameters_results read_only::get_consensus_parameters(const get_consensus_parameters_params&,
+                                                                                const fc::time_point& deadline) const {
    get_consensus_parameters_results results;
 
    results.chain_config = db.get_global_properties().configuration;
@@ -2965,8 +2843,7 @@ fc::variant chain_plugin::get_log_trx_trace(const transaction_trace_ptr& trx_tra
       abi_serializer::to_log_variant(
          trx_trace,
          pretty_output,
-         chain_apis::make_resolver(chain(),
-                                   abi_serializer::create_yield_function(get_abi_serializer_max_time())),
+         chain_apis::make_resolver(chain(), abi_serializer::create_yield_function(get_abi_serializer_max_time())),
          abi_serializer::create_yield_function(get_abi_serializer_max_time()));
    } catch (...) {
       pretty_output = trx_trace;
@@ -2980,8 +2857,7 @@ fc::variant chain_plugin::get_log_trx(const transaction& trx) const {
       abi_serializer::to_log_variant(
          trx,
          pretty_output,
-         chain_apis::make_resolver(chain(),
-                                   abi_serializer::create_yield_function(get_abi_serializer_max_time())),
+         chain_apis::make_resolver(chain(), abi_serializer::create_yield_function(get_abi_serializer_max_time())),
          abi_serializer::create_yield_function(get_abi_serializer_max_time()));
    } catch (...) {
       pretty_output = trx;
@@ -2990,5 +2866,4 @@ fc::variant chain_plugin::get_log_trx(const transaction& trx) const {
 }
 } // namespace eosio
 
-FC_REFLECT(eosio::chain_apis::detail::ram_market_exchange_state_t,
-           (ignore1)(ignore2)(ignore3)(core_symbol)(ignore4))
+FC_REFLECT(eosio::chain_apis::detail::ram_market_exchange_state_t, (ignore1)(ignore2)(ignore3)(core_symbol)(ignore4))

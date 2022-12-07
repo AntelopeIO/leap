@@ -48,8 +48,8 @@ constexpr auto downgrade_cast(GreaterIntType val)
    const GreaterIntType min = std::numeric_limits<LesserIntType>::min();
    EOS_ASSERT(val >= min && val <= max,
               rate_limiting_state_inconsistent,
-              "Casting a higher bit integer value ${v} to a lower bit integer value which cannot contain the "
-              "value, valid range is [${min}, ${max}]",
+              "Casting a higher bit integer value ${v} to a lower bit integer value which cannot contain the value, "
+              "valid range is [${min}, ${max}]",
               ("v", val)("min", min)("max", max));
    return LesserIntType(val);
 };
@@ -66,8 +66,8 @@ constexpr auto downgrade_cast(GreaterIntType val)
    const GreaterIntType min = 0;
    EOS_ASSERT(val >= min && val <= max,
               rate_limiting_state_inconsistent,
-              "Casting a higher bit integer value ${v} to a lower bit integer value which cannot contain the "
-              "value, valid range is [${min}, ${max}]",
+              "Casting a higher bit integer value ${v} to a lower bit integer value which cannot contain the value, "
+              "valid range is [${min}, ${max}]",
               ("v", val)("min", min)("max", max));
    return LesserIntType(val);
 };
@@ -113,9 +113,8 @@ struct exponential_moving_average_accumulator {
                  "Overflow in accumulated value when adding usage!");
 
       if (last_ordinal != ordinal) {
-         EOS_ASSERT(ordinal > last_ordinal,
-                    resource_limit_exception,
-                    "new ordinal cannot be less than the previous ordinal");
+         EOS_ASSERT(
+            ordinal > last_ordinal, resource_limit_exception, "new ordinal cannot be less than the previous ordinal");
          if ((uint64_t)last_ordinal + window_size > (uint64_t)ordinal) {
             const auto delta = ordinal - last_ordinal; // clearly 0 < delta < window_size
             const auto decay = make_ratio((uint64_t)window_size - delta, (uint64_t)window_size);
@@ -203,8 +202,7 @@ using usage_accumulator = impl::exponential_moving_average_accumulator<>;
  * Every account that authorizes a transaction is billed for the full size of that transaction. This object
  * tracks the average usage of that account.
  */
-struct resource_limits_object
-   : public chainbase::object<resource_limits_object_type, resource_limits_object> {
+struct resource_limits_object : public chainbase::object<resource_limits_object_type, resource_limits_object> {
 
    OBJECT_CTOR(resource_limits_object)
 
@@ -223,9 +221,8 @@ struct by_dirty;
 using resource_limits_index = chainbase::shared_multi_index_container<
    resource_limits_object,
    indexed_by<
-      ordered_unique<
-         tag<by_id>,
-         member<resource_limits_object, resource_limits_object::id_type, &resource_limits_object::id>>,
+      ordered_unique<tag<by_id>,
+                     member<resource_limits_object, resource_limits_object::id_type, &resource_limits_object::id>>,
       ordered_unique<tag<by_owner>,
                      composite_key<resource_limits_object,
                                    BOOST_MULTI_INDEX_MEMBER(resource_limits_object, bool, pending),
@@ -245,11 +242,10 @@ struct resource_usage_object : public chainbase::object<resource_usage_object_ty
 
 using resource_usage_index = chainbase::shared_multi_index_container<
    resource_usage_object,
-   indexed_by<ordered_unique<
-                 tag<by_id>,
-                 member<resource_usage_object, resource_usage_object::id_type, &resource_usage_object::id>>,
-              ordered_unique<tag<by_owner>,
-                             member<resource_usage_object, account_name, &resource_usage_object::owner>>>>;
+   indexed_by<
+      ordered_unique<tag<by_id>,
+                     member<resource_usage_object, resource_usage_object::id_type, &resource_usage_object::id>>,
+      ordered_unique<tag<by_owner>, member<resource_usage_object, account_name, &resource_usage_object::owner>>>>;
 
 class resource_limits_config_object
    : public chainbase::object<resource_limits_config_object_type, resource_limits_config_object> {
@@ -279,18 +275,16 @@ class resource_limits_config_object
       { 1000, 999}
    };
 
-   uint32_t account_cpu_usage_average_window =
-      config::account_cpu_usage_average_window_ms / config::block_interval_ms;
-   uint32_t account_net_usage_average_window =
-      config::account_net_usage_average_window_ms / config::block_interval_ms;
+   uint32_t account_cpu_usage_average_window = config::account_cpu_usage_average_window_ms / config::block_interval_ms;
+   uint32_t account_net_usage_average_window = config::account_net_usage_average_window_ms / config::block_interval_ms;
 };
 
-using resource_limits_config_index = chainbase::shared_multi_index_container<
-   resource_limits_config_object,
-   indexed_by<ordered_unique<tag<by_id>,
-                             member<resource_limits_config_object,
-                                    resource_limits_config_object::id_type,
-                                    &resource_limits_config_object::id>>>>;
+using resource_limits_config_index =
+   chainbase::shared_multi_index_container<resource_limits_config_object,
+                                           indexed_by<ordered_unique<tag<by_id>,
+                                                                     member<resource_limits_config_object,
+                                                                            resource_limits_config_object::id_type,
+                                                                            &resource_limits_config_object::id>>>>;
 
 class resource_limits_state_object
    : public chainbase::object<resource_limits_state_object_type, resource_limits_state_object> {
@@ -323,8 +317,7 @@ class resource_limits_state_object
     * real maximum block is less, this virtual number is only used for rate limiting users.
     *
     * It's lowest possible value is max_block_size * blocksize_average_window_ms / block_interval
-    * It's highest possible value is config::maximum_elastic_resource_multiplier (1000) times its lowest
-    *possible value
+    * It's highest possible value is config::maximum_elastic_resource_multiplier (1000) times its lowest possible value
     *
     * This means that the most an account can consume during idle periods is 1000x the bandwidth
     * it is gauranteed under congestion.
@@ -343,10 +336,9 @@ class resource_limits_state_object
 
 using resource_limits_state_index = chainbase::shared_multi_index_container<
    resource_limits_state_object,
-   indexed_by<ordered_unique<tag<by_id>,
-                             member<resource_limits_state_object,
-                                    resource_limits_state_object::id_type,
-                                    &resource_limits_state_object::id>>>>;
+   indexed_by<ordered_unique<
+      tag<by_id>,
+      member<resource_limits_state_object, resource_limits_state_object::id_type, &resource_limits_state_object::id>>>>;
 
 }
 }

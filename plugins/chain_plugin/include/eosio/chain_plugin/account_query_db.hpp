@@ -27,8 +27,8 @@ public:
    account_query_db& operator=(account_query_db&&);
 
    /**
-    * Add a transaction trace to the account query DB that has been applied to the contoller even though it
-    * may not yet be committed to by a block.
+    * Add a transaction trace to the account query DB that has been applied to the contoller even though it may
+    * not yet be committed to by a block.
     *
     * @param trace
     */
@@ -71,14 +71,13 @@ public:
       std::vector<account_result> accounts;
    };
    /**
-    * Given a set of account names and public keys, find all account permission authorities that are, in part
-    * or whole, satisfiable.
+    * Given a set of account names and public keys, find all account permission authorities that are, in part or whole,
+    * satisfiable.
     *
     * @param args
     * @return
     */
-   get_accounts_by_authorizers_result get_accounts_by_authorizers(
-      const get_accounts_by_authorizers_params& args) const;
+   get_accounts_by_authorizers_result get_accounts_by_authorizers(const get_accounts_by_authorizers_params& args) const;
 
 private:
    std::unique_ptr<struct account_query_db_impl> _impl;

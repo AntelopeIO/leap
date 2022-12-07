@@ -52,8 +52,8 @@ public:
    const permission_object& get_permission(const permission_level& level) const;
 
    /**
-    * @brief Find the lowest authority level required for @ref authorizer_account to authorize a message of
-    * the specified type
+    * @brief Find the lowest authority level required for @ref authorizer_account to authorize a message of the
+    * specified type
     * @param authorizer_account The account authorizing the message
     * @param code_account The account which publishes the contract that handles the message
     * @param type The type of message
@@ -67,11 +67,11 @@ public:
     *
     *  @param actions - the actions to check authorization across
     *  @param provided_keys - the set of public keys which have authorized the transaction
-    *  @param provided_permissions - the set of permissions which have authorized the transaction (empty
-    * permission name acts as wildcard)
+    *  @param provided_permissions - the set of permissions which have authorized the transaction (empty permission name
+    * acts as wildcard)
     *  @param provided_delay - the delay satisfied by the transaction
-    *  @param checktime - the function that can be called to track CPU usage and time during the process of
-    * checking authorization
+    *  @param checktime - the function that can be called to track CPU usage and time during the process of checking
+    * authorization
     *  @param allow_unused_keys - true if method should not assert on unused keys
     */
    void check_authorization(
@@ -90,21 +90,20 @@ public:
     *  @param account - the account owner of the permission
     *  @param permission - the permission name to check for authorization
     *  @param provided_keys - a set of public keys
-    *  @param provided_permissions - the set of permissions which can be considered satisfied (empty
-    * permission name acts as wildcard)
+    *  @param provided_permissions - the set of permissions which can be considered satisfied (empty permission name
+    * acts as wildcard)
     *  @param provided_delay - the delay considered to be satisfied for the authorization check
-    *  @param checktime - the function that can be called to track CPU usage and time during the process of
-    * checking authorization
+    *  @param checktime - the function that can be called to track CPU usage and time during the process of checking
+    * authorization
     *  @param allow_unused_keys - true if method does not require all keys to be used
     */
-   void check_authorization(
-      account_name                      account,
-      permission_name                   permission,
-      const flat_set<public_key_type>&  provided_keys,
-      const flat_set<permission_level>& provided_permissions = flat_set<permission_level>(),
-      fc::microseconds                  provided_delay       = fc::microseconds(0),
-      const std::function<void()>&      checktime            = std::function<void()>(),
-      bool                              allow_unused_keys    = false) const;
+   void check_authorization(account_name                      account,
+                            permission_name                   permission,
+                            const flat_set<public_key_type>&  provided_keys,
+                            const flat_set<permission_level>& provided_permissions = flat_set<permission_level>(),
+                            fc::microseconds                  provided_delay       = fc::microseconds(0),
+                            const std::function<void()>&      checktime            = std::function<void()>(),
+                            bool                              allow_unused_keys    = false) const;
 
    flat_set<public_key_type> get_required_keys(const transaction&               trx,
                                                const flat_set<public_key_type>& candidate_keys,

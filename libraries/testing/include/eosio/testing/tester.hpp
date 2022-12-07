@@ -12,25 +12,24 @@
 #include <iosfwd>
 #include <optional>
 
-#define REQUIRE_EQUAL_OBJECTS(left, right)                                                                   \
-   {                                                                                                         \
-      auto a = fc::variant(left);                                                                            \
-      auto b = fc::variant(right);                                                                           \
-      BOOST_REQUIRE_EQUAL(true, a.is_object());                                                              \
-      BOOST_REQUIRE_EQUAL(true, b.is_object());                                                              \
-      BOOST_REQUIRE_EQUAL_COLLECTIONS(                                                                       \
-         a.get_object().begin(), a.get_object().end(), b.get_object().begin(), b.get_object().end());        \
+#define REQUIRE_EQUAL_OBJECTS(left, right)                                                                             \
+   {                                                                                                                   \
+      auto a = fc::variant(left);                                                                                      \
+      auto b = fc::variant(right);                                                                                     \
+      BOOST_REQUIRE_EQUAL(true, a.is_object());                                                                        \
+      BOOST_REQUIRE_EQUAL(true, b.is_object());                                                                        \
+      BOOST_REQUIRE_EQUAL_COLLECTIONS(                                                                                 \
+         a.get_object().begin(), a.get_object().end(), b.get_object().begin(), b.get_object().end());                  \
    }
 
-#define REQUIRE_MATCHING_OBJECT(left, right)                                                                 \
-   {                                                                                                         \
-      auto a = fc::variant(left);                                                                            \
-      auto b = fc::variant(right);                                                                           \
-      BOOST_REQUIRE_EQUAL(true, a.is_object());                                                              \
-      BOOST_REQUIRE_EQUAL(true, b.is_object());                                                              \
-      auto filtered = ::eosio::testing::filter_fields(a.get_object(), b.get_object());                       \
-      BOOST_REQUIRE_EQUAL_COLLECTIONS(                                                                       \
-         a.get_object().begin(), a.get_object().end(), filtered.begin(), filtered.end());                    \
+#define REQUIRE_MATCHING_OBJECT(left, right)                                                                           \
+   {                                                                                                                   \
+      auto a = fc::variant(left);                                                                                      \
+      auto b = fc::variant(right);                                                                                     \
+      BOOST_REQUIRE_EQUAL(true, a.is_object());                                                                        \
+      BOOST_REQUIRE_EQUAL(true, b.is_object());                                                                        \
+      auto filtered = ::eosio::testing::filter_fields(a.get_object(), b.get_object());                                 \
+      BOOST_REQUIRE_EQUAL_COLLECTIONS(a.get_object().begin(), a.get_object().end(), filtered.begin(), filtered.end()); \
    }
 
 std::ostream& operator<<(std::ostream& osm, const fc::variant& v);
@@ -90,11 +89,9 @@ void copy_row(const chain::key_value_object& obj, vector<char>& data);
 
 bool expect_assert_message(const fc::exception& ex, string expected);
 
-using subjective_restriction_map =
-   std::map<builtin_protocol_feature_t, protocol_feature_subjective_restrictions>;
+using subjective_restriction_map = std::map<builtin_protocol_feature_t, protocol_feature_subjective_restrictions>;
 
-protocol_feature_set make_protocol_feature_set(
-   const subjective_restriction_map& custom_subjective_restrictions = {});
+protocol_feature_set make_protocol_feature_set(const subjective_restriction_map& custom_subjective_restrictions = {});
 
 namespace mock {
 using namespace fc::crypto;
@@ -115,8 +112,7 @@ struct webauthn_private_key {
    }
 
    signature sign(const sha256& digest, bool = true) const {
-      auto json = std::string("{\"origin\":\"https://") + _origin +
-                  "\",\"type\":\"webauthn.get\",\"challenge\":\"" +
+      auto json = std::string("{\"origin\":\"https://") + _origin + "\",\"type\":\"webauthn.get\",\"challenge\":\"" +
                   fc::base64url_encode(digest.data(), digest.data_size()) + "\"}";
       std::vector<uint8_t> auth_data(37);
       memcpy(auth_data.data(), _origin_hash.data(), sizeof(_origin_hash));
@@ -185,8 +181,7 @@ public:
    void open(std::optional<chain_id_type> expected_chain_id = {});
    bool is_same_chain(base_tester& other);
 
-   virtual signed_block_ptr produce_block(
-      fc::microseconds skip_time = fc::milliseconds(config::block_interval_ms)) = 0;
+   virtual signed_block_ptr produce_block(fc::microseconds skip_time = fc::milliseconds(config::block_interval_ms)) = 0;
    virtual signed_block_ptr produce_empty_block(
       fc::microseconds skip_time = fc::milliseconds(config::block_interval_ms)) = 0;
    virtual signed_block_ptr finish_block()                                      = 0;
@@ -195,8 +190,7 @@ public:
    void             produce_blocks(uint32_t n = 1, bool empty = false);
    void             produce_blocks_until_end_of_round();
    void             produce_blocks_for_n_rounds(const uint32_t num_of_rounds = 1);
-   // Produce minimal number of blocks as possible to spend the given time without having any producer become
-   // inactive
+   // Produce minimal number of blocks as possible to spend the given time without having any producer become inactive
    void produce_min_num_of_blocks_to_spend_time_wo_inactive_prod(
       const fc::microseconds target_elapsed_time = fc::microseconds());
    void push_block(signed_block_ptr b);
@@ -214,15 +208,14 @@ public:
    unapplied_transaction_queue& get_unapplied_transaction_queue() { return unapplied_transactions; }
 
    transaction_trace_ptr push_transaction(packed_transaction& trx,
-                                          fc::time_point      deadline = fc::time_point::maximum(),
-                                          uint32_t billed_cpu_time_us  = DEFAULT_BILLED_CPU_TIME_US);
+                                          fc::time_point      deadline           = fc::time_point::maximum(),
+                                          uint32_t            billed_cpu_time_us = DEFAULT_BILLED_CPU_TIME_US);
    transaction_trace_ptr push_transaction(signed_transaction& trx,
                                           fc::time_point      deadline           = fc::time_point::maximum(),
                                           uint32_t            billed_cpu_time_us = DEFAULT_BILLED_CPU_TIME_US,
                                           bool                no_throw           = false);
 
-   [[nodiscard]] action_result push_action(action&& cert_act,
-                                           uint64_t authorizer); // TODO/QUESTION: Is this needed?
+   [[nodiscard]] action_result push_action(action&& cert_act, uint64_t authorizer); // TODO/QUESTION: Is this needed?
 
    transaction_trace_ptr push_action(const account_name&   code,
                                      const action_name&    acttype,
@@ -302,11 +295,7 @@ public:
    transaction_trace_ptr push_dummy(account_name  from,
                                     const string& v                  = "blah",
                                     uint32_t      billed_cpu_time_us = DEFAULT_BILLED_CPU_TIME_US);
-   transaction_trace_ptr transfer(account_name from,
-                                  account_name to,
-                                  asset        amount,
-                                  string       memo,
-                                  account_name currency);
+   transaction_trace_ptr transfer(account_name from, account_name to, asset amount, string memo, account_name currency);
    transaction_trace_ptr transfer(account_name from,
                                   account_name to,
                                   string       amount,
@@ -358,9 +347,7 @@ public:
    vector<char> get_row_by_account(name code, name scope, name table, const account_name& act) const;
 
    map<account_name, block_id_type> get_last_produced_block_map() const { return last_produced_block; };
-   void                             set_last_produced_block_map(const map<account_name, block_id_type>& lpb) {
-                                  last_produced_block = lpb;
-   }
+   void set_last_produced_block_map(const map<account_name, block_id_type>& lpb) { last_produced_block = lpb; }
 
    static vector<uint8_t> to_uint8_vector(const string& s);
 
@@ -374,9 +361,7 @@ public:
 
    static action_result error(const string& msg) { return msg; }
 
-   static action_result wasm_assert_msg(const string& msg) {
-      return "assertion failure with message: " + msg;
-   }
+   static action_result wasm_assert_msg(const string& msg) { return "assertion failure with message: " + msg; }
 
    static action_result wasm_assert_code(uint64_t error_code) {
       return "assertion failure with error code: " + std::to_string(error_code);
@@ -400,8 +385,8 @@ public:
 
    const table_id_object* find_table(name code, name scope, name table);
 
-   // method treats key as a name type, if this is not appropriate in your case, pass require == false and
-   // report the correct behavior
+   // method treats key as a name type, if this is not appropriate in your case, pass require == false and report the
+   // correct behavior
    template<typename Object>
    bool get_table_entry(Object&      obj,
                         account_name code,
@@ -411,8 +396,8 @@ public:
                         bool         require = true) {
       auto* maybe_tid = find_table(code, scope, table);
       if (maybe_tid == nullptr) {
-         BOOST_FAIL("table for code=\"" + code.to_string() + "\" scope=\"" + scope.to_string() +
-                    "\" table=\"" + table.to_string() + "\" does not exist");
+         BOOST_FAIL("table for code=\"" + code.to_string() + "\" scope=\"" + scope.to_string() + "\" table=\"" +
+                    table.to_string() + "\" does not exist");
       }
 
       auto* o = control->db().find<key_value_object, by_scope_primary>(boost::make_tuple(maybe_tid->id, key));
@@ -484,8 +469,8 @@ protected:
 
    // Fields:
 protected:
-   // tempdir field must come before control so that during destruction the tempdir is deleted only after
-   // controller finishes
+   // tempdir field must come before control so that during destruction the tempdir is deleted only after controller
+   // finishes
    fc::temp_directory tempdir;
 
 public:
@@ -545,8 +530,7 @@ public:
 
    using base_tester::produce_block;
 
-   signed_block_ptr produce_block(
-      fc::microseconds skip_time = fc::milliseconds(config::block_interval_ms)) override {
+   signed_block_ptr produce_block(fc::microseconds skip_time = fc::milliseconds(config::block_interval_ms)) override {
       return _produce_block(skip_time, false);
    }
 
@@ -594,12 +578,11 @@ public:
    }
 
    static void config_validator(controller::config& vcfg) {
-      FC_ASSERT(vcfg.blocks_dir.filename().generic_string() != "." &&
-                   vcfg.state_dir.filename().generic_string() != ".",
+      FC_ASSERT(vcfg.blocks_dir.filename().generic_string() != "." && vcfg.state_dir.filename().generic_string() != ".",
                 "invalid path names in controller::config");
 
-      vcfg.blocks_dir = vcfg.blocks_dir.parent_path() /
-                        std::string("v_").append(vcfg.blocks_dir.filename().generic_string());
+      vcfg.blocks_dir =
+         vcfg.blocks_dir.parent_path() / std::string("v_").append(vcfg.blocks_dir.filename().generic_string());
       vcfg.state_dir =
          vcfg.state_dir.parent_path() / std::string("v_").append(vcfg.state_dir.filename().generic_string());
 
@@ -652,8 +635,7 @@ public:
       }
    }
 
-   signed_block_ptr produce_block(
-      fc::microseconds skip_time = fc::milliseconds(config::block_interval_ms)) override {
+   signed_block_ptr produce_block(fc::microseconds skip_time = fc::milliseconds(config::block_interval_ms)) override {
       auto                     sb  = _produce_block(skip_time, false);
       auto                     bsf = validating_node->create_block_state_future(sb->calculate_id(), sb);
       controller::block_report br;
@@ -690,14 +672,12 @@ public:
 
       auto hbh    = control->head_block_state()->header;
       auto vn_hbh = validating_node->head_block_state()->header;
-      bool ok     = control->head_block_id() == validating_node->head_block_id() &&
-                hbh.previous == vn_hbh.previous && hbh.timestamp == vn_hbh.timestamp &&
-                hbh.transaction_mroot == vn_hbh.transaction_mroot &&
+      bool ok     = control->head_block_id() == validating_node->head_block_id() && hbh.previous == vn_hbh.previous &&
+                hbh.timestamp == vn_hbh.timestamp && hbh.transaction_mroot == vn_hbh.transaction_mroot &&
                 hbh.action_mroot == vn_hbh.action_mroot && hbh.producer == vn_hbh.producer;
 
       validating_node.reset();
-      validating_node =
-         std::make_unique<controller>(vcfg, make_protocol_feature_set(), control->get_chain_id());
+      validating_node = std::make_unique<controller>(vcfg, make_protocol_feature_set(), control->get_chain_id());
       validating_node->add_indices();
       validating_node->startup([]() {}, []() { return false; });
 
