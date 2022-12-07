@@ -7,8 +7,8 @@ import subprocess
 The purpose of this script is to attempt to generate *PluginArgs.py files, containing respective dataclass objects,
 to encapsulate the configurations options available for each plugin as currently documented in nodeos's --help command.
 
-It currently makes use of the compiled nodeos program and runs the --help command, capturing the output.
-It then parses the output, breaking down the presented configuration options by plugin section (ignoring applicaiton and test plugin config options).
+It makes use of the compiled nodeos program and runs the --help command, capturing the output.
+It then parses the output, breaking down the presented configuration options by plugin section (ignoring application and test plugin config options).
 This provides a rudimentary list of plugins supported, config options for each plugin, and attempts to acertain default values and types.
 The script then uses the parsed output to generate *PluginArgs.py scripts, placing them in the NodeosPluginArgs directory.
 
@@ -29,11 +29,12 @@ Each config options is represented by 3 member variables, for example:
 1) blocksDir: str=None
     --This is the field that will be populated when the dataclass is used by other scripts to configure nodeos
 2) _blocksDirNodeosDefault: str='"blocks"'
-    --This field captures the default value in the nodeos output.  This will be compared against the first field to see if the configuration option will be required on the command line to override the default value when running nodeos.
+    --This field captures the default value in the nodeos output.  This will be compared against the first field to see if the configuration
+    option will be required on the command line to override the default value when running nodeos.
 3) _blocksDirNodeosArg: str="--blocks-dir"
     --This field captures the command line config option for use when creating the command line string
 
-The BasePluginArgs class provides implemenations for 2 useful functions for each of these classes:
+The BasePluginArgs class provides implementations for 2 useful functions for each of these classes:
 1) supportedNodeosArgs
     -- Provides a list of all the command line config options currently supported by the dataclass
 2) __str__
@@ -41,7 +42,7 @@ The BasePluginArgs class provides implemenations for 2 useful functions for each
        (this only provides command line options where configured values differ from defaults)
 
 Some current limitations:
-- There are some hardoded edge cases when trying to determine the types associated with certain default argument parameters.
+- There are some hardcoded edge cases when trying to determine the types associated with certain default argument parameters.
   These may need to be updated to account for new/different options as they are added/removed/modified by nodeos
 
 Note:
