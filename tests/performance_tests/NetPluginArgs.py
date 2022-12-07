@@ -58,7 +58,7 @@ class NetPluginArgs:
     _useSocketReadWatermarkNodeosDefault: int=0
     _useSocketReadWatermarkNodeosArg: str="--use-socket-read-watermark"
     peerLogFormat: str=None
-    _peerLogFormatNodeosDefault: str="["${_name}" - ${_cid} ${_ip}:${_port}] "
+    _peerLogFormatNodeosDefault: str='["${_name}" - ${_cid} ${_ip}:${_port}] '
     _peerLogFormatNodeosArg: str="--peer-log-format"
     p2pKeepaliveIntervalMs: int=None
     _p2pKeepaliveIntervalMsNodeosDefault: int=10000
