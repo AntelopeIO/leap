@@ -6,7 +6,9 @@
 #include <boost/interprocess/sync/file_lock.hpp>
 #include <chrono>
 
-namespace fc { class variant; }
+namespace fc {
+class variant;
+}
 
 namespace eosio {
 namespace wallet {
@@ -18,10 +20,10 @@ namespace wallet {
 class wallet_manager {
 public:
    wallet_manager();
-   wallet_manager(const wallet_manager&) = delete;
-   wallet_manager(wallet_manager&&) = delete;
+   wallet_manager(const wallet_manager&)            = delete;
+   wallet_manager(wallet_manager&&)                 = delete;
    wallet_manager& operator=(const wallet_manager&) = delete;
-   wallet_manager& operator=(wallet_manager&&) = delete;
+   wallet_manager& operator=(wallet_manager&&)      = delete;
    ~wallet_manager();
 
    /// Set the path for location of wallet files.
@@ -39,7 +41,7 @@ public:
    /// @see wallet_manager::set_timeout(const std::chrono::seconds& t)
    /// @param secs The timeout in seconds.
    void set_timeout(int64_t secs) { set_timeout(std::chrono::seconds(secs)); }
-      
+
    /// Sign transaction with the private keys specified via their public keys.
    /// Use chain_controller::get_required_keys to determine which keys are needed for txn.
    /// @param txn the transaction to sign.
@@ -47,9 +49,9 @@ public:
    /// @param id the chain_id to sign transaction with.
    /// @return txn signed
    /// @throws fc::exception if corresponding private keys not found in unlocked wallets
-   chain::signed_transaction sign_transaction(const chain::signed_transaction& txn, const flat_set<public_key_type>& keys,
-                                             const chain::chain_id_type& id);
-
+   chain::signed_transaction sign_transaction(const chain::signed_transaction& txn,
+                                              const flat_set<public_key_type>& keys,
+                                              const chain::chain_id_type&      id);
 
    /// Sign digest with the private keys specified via their public keys.
    /// @param digest the digest to sign.
@@ -77,7 +79,7 @@ public:
    std::vector<std::string> list_wallets();
 
    /// @return A list of private keys from a wallet provided password is correct to said wallet
-   map<public_key_type,private_key_type> list_keys(const string& name, const string& pw);
+   map<public_key_type, private_key_type> list_keys(const string& name, const string& pw);
 
    /// @return A set of public keys from all unlocked wallets, use with chain_controller::get_required_keys.
    flat_set<public_key_type> get_public_keys();
@@ -133,10 +135,10 @@ private:
 private:
    using timepoint_t = std::chrono::time_point<std::chrono::system_clock>;
    std::map<std::string, std::unique_ptr<wallet_api>> wallets;
-   std::chrono::seconds timeout = std::chrono::seconds::max(); ///< how long to wait before calling lock_all()
-   mutable timepoint_t timeout_time = timepoint_t::max(); ///< when to call lock_all()
-   boost::filesystem::path dir = ".";
-   boost::filesystem::path lock_path = dir / "wallet.lock";
+   std::chrono::seconds    timeout      = std::chrono::seconds::max(); ///< how long to wait before calling lock_all()
+   mutable timepoint_t     timeout_time = timepoint_t::max();          ///< when to call lock_all()
+   boost::filesystem::path dir          = ".";
+   boost::filesystem::path lock_path    = dir / "wallet.lock";
    std::unique_ptr<boost::interprocess::file_lock> wallet_dir_lock;
 
    void start_lock_watch(std::shared_ptr<boost::asio::deadline_timer> t);
@@ -145,5 +147,3 @@ private:
 
 } // namespace wallet
 } // namespace eosio
-
-

@@ -1,17 +1,17 @@
- #include <eosio/eosio.hpp>
- #include <eosio/print.hpp>
+#include <eosio/eosio.hpp>
+#include <eosio/print.hpp>
 
 #include "test_api.hpp"
 
 using namespace eosio::internal_use_do_not_use;
 
 void test_print::test_prints_l() {
-  char ab[] = { 'a', 'b' };
-  const char test[] = "test";
-  prints_l(ab, 2);
-  prints_l(ab, 1);
-  prints_l(ab, 0);
-  prints_l(test, sizeof(test)-1);
+   char       ab[]   = { 'a', 'b' };
+   const char test[] = "test";
+   prints_l(ab, 2);
+   prints_l(ab, 1);
+   prints_l(ab, 0);
+   prints_l(test, sizeof(test) - 1);
 }
 
 void test_print::test_prints() {
@@ -33,54 +33,53 @@ void test_print::test_printui() {
 }
 
 void test_print::test_printi128() {
-  int128_t a(1);
-  int128_t b(0);
-  int128_t c(std::numeric_limits<int128_t>::lowest());
-  int128_t d(-87654323456);
-  printi128(&a);
-  prints("\n");
-  printi128(&b);
-  prints("\n");
-  printi128(&c);
-  prints("\n");
-  printi128(&d);
-  prints("\n");
+   int128_t a(1);
+   int128_t b(0);
+   int128_t c(std::numeric_limits<int128_t>::lowest());
+   int128_t d(-87654323456);
+   printi128(&a);
+   prints("\n");
+   printi128(&b);
+   prints("\n");
+   printi128(&c);
+   prints("\n");
+   printi128(&d);
+   prints("\n");
 }
 
 void test_print::test_printui128() {
-  uint128_t a((uint128_t)-1);
-  uint128_t b(0);
-  uint128_t c(87654323456);
-  printui128(&a);
-  prints("\n");
-  printui128(&b);
-  prints("\n");
-  printui128(&c);
-  prints("\n");
+   uint128_t a((uint128_t)-1);
+   uint128_t b(0);
+   uint128_t c(87654323456);
+   printui128(&a);
+   prints("\n");
+   printui128(&b);
+   prints("\n");
+   printui128(&c);
+   prints("\n");
 }
 
 void test_print::test_printn() {
-   printn(eosio::name{"1"}.value);
-   printn(eosio::name{"5"}.value);
-   printn(eosio::name{"a"}.value);
-   printn(eosio::name{"z"}.value);
+   printn(eosio::name{ "1" }.value);
+   printn(eosio::name{ "5" }.value);
+   printn(eosio::name{ "a" }.value);
+   printn(eosio::name{ "z" }.value);
 
-   printn(eosio::name{"abc"}.value);
-   printn(eosio::name{"123"}.value);
+   printn(eosio::name{ "abc" }.value);
+   printn(eosio::name{ "123" }.value);
 
-   printn(eosio::name{"abc.123"}.value);
-   printn(eosio::name{"123.abc"}.value);
+   printn(eosio::name{ "abc.123" }.value);
+   printn(eosio::name{ "123.abc" }.value);
 
-   printn(eosio::name{"12345abcdefgj"}.value);
-   printn(eosio::name{"ijklmnopqrstj"}.value);
-   printn(eosio::name{"vwxyz.12345aj"}.value);
+   printn(eosio::name{ "12345abcdefgj" }.value);
+   printn(eosio::name{ "ijklmnopqrstj" }.value);
+   printn(eosio::name{ "vwxyz.12345aj" }.value);
 
-   printn(eosio::name{"111111111111j"}.value);
-   printn(eosio::name{"555555555555j"}.value);
-   printn(eosio::name{"aaaaaaaaaaaaj"}.value);
-   printn(eosio::name{"zzzzzzzzzzzzj"}.value);
+   printn(eosio::name{ "111111111111j" }.value);
+   printn(eosio::name{ "555555555555j" }.value);
+   printn(eosio::name{ "aaaaaaaaaaaaj" }.value);
+   printn(eosio::name{ "zzzzzzzzzzzzj" }.value);
 }
-
 
 void test_print::test_printsf() {
    float x = 1.0f / 2.0f;
@@ -119,8 +118,8 @@ void test_print::test_printqf() {
 }
 
 void test_print::test_print_simple() {
-    const std::string cvalue = "cvalue";
-    eosio::print(cvalue);
-    std::string value = "value";
-    eosio::print(std::move(value));
+   const std::string cvalue = "cvalue";
+   eosio::print(cvalue);
+   std::string value = "value";
+   eosio::print(std::move(value));
 }

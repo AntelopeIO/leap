@@ -6,6 +6,5 @@ class [[eosio::contract]] payloadless : public eosio::contract {
 public:
    using eosio::contract::contract;
 
-   [[eosio::action]]
-   void doit();
+   [[eosio::action]] void doit();
 };

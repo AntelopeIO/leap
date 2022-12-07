@@ -319,7 +319,9 @@ int main(int argc, char** argv) {
       return EXIT_FAILURE;
    }
    string s;
-   while (getline(ifs, s)) { ss << s; }
+   while (getline(ifs, s)) {
+      ss << s;
+   }
    ifs.close();
 
    picojson::value v;

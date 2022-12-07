@@ -4,71 +4,76 @@
 #include "../capi/eosio/types.h"
 #include "test_api_common.hpp"
 
-namespace eosio { class transaction; }
-
-// NOTE: including eosiolib/transaction.hpp here causes !"unresolvable": env._ZNKSt3__120__vector_base_commonILb1EE20__throw_length_errorEv
-//       errors in api_tests/memory_tests
-
-#define WASM_TEST_HANDLER(CLASS, METHOD) \
-  if( action == WASM_TEST_ACTION(#CLASS, #METHOD) ) { \
-     CLASS::METHOD(); \
-     return; \
-  }
-
-#define WASM_TEST_HANDLER_EX(CLASS, METHOD) \
-  if( action == WASM_TEST_ACTION(#CLASS, #METHOD) ) { \
-     CLASS::METHOD(receiver, code, action); \
-     return; \
-  }
-
-#define WASM_TEST_ERROR_HANDLER(CALLED_CLASS_STR, CALLED_METHOD_STR, HANDLER_CLASS, HANDLER_METHOD) \
-   if( error_action == name{WASM_TEST_ACTION(CALLED_CLASS_STR, CALLED_METHOD_STR)} ) { \
-   HANDLER_CLASS::HANDLER_METHOD(error_trx); \
-   return; \
+namespace eosio {
+class transaction;
 }
 
+// NOTE: including eosiolib/transaction.hpp here causes !"unresolvable":
+// env._ZNKSt3__120__vector_base_commonILb1EE20__throw_length_errorEv
+//       errors in api_tests/memory_tests
+
+#define WASM_TEST_HANDLER(CLASS, METHOD)                                                                               \
+   if (action == WASM_TEST_ACTION(#CLASS, #METHOD)) {                                                                  \
+      CLASS::METHOD();                                                                                                 \
+      return;                                                                                                          \
+   }
+
+#define WASM_TEST_HANDLER_EX(CLASS, METHOD)                                                                            \
+   if (action == WASM_TEST_ACTION(#CLASS, #METHOD)) {                                                                  \
+      CLASS::METHOD(receiver, code, action);                                                                           \
+      return;                                                                                                          \
+   }
+
+#define WASM_TEST_ERROR_HANDLER(CALLED_CLASS_STR, CALLED_METHOD_STR, HANDLER_CLASS, HANDLER_METHOD)                    \
+   if (error_action == name{ WASM_TEST_ACTION(CALLED_CLASS_STR, CALLED_METHOD_STR) }) {                                \
+      HANDLER_CLASS::HANDLER_METHOD(error_trx);                                                                        \
+      return;                                                                                                          \
+   }
+
 extern "C" {
-    __attribute__((eosio_wasm_import))
-    void set_action_return_value(const char*, size_t);
+__attribute__((eosio_wasm_import)) void set_action_return_value(const char*, size_t);
 
-    __attribute__((eosio_wasm_import))
-    void  eosio_assert( uint32_t test, const char* msg );
+__attribute__((eosio_wasm_import)) void eosio_assert(uint32_t test, const char* msg);
 
-    __attribute__((eosio_wasm_import))
-    void  eosio_assert_code( uint32_t test, uint64_t code );
+__attribute__((eosio_wasm_import)) void eosio_assert_code(uint32_t test, uint64_t code);
 
-    __attribute__((eosio_wasm_import))
-    uint64_t  current_time();
+__attribute__((eosio_wasm_import)) uint64_t current_time();
 
-    __attribute__((eosio_wasm_import))
-    int get_action( uint32_t type, uint32_t index, char* buff, size_t size );
+__attribute__((eosio_wasm_import)) int get_action(uint32_t type, uint32_t index, char* buff, size_t size);
 
-    //db.h
-    __attribute__((eosio_wasm_import))
-    int32_t db_store_i64(uint64_t scope, capi_name table, capi_name payer, uint64_t id,  const void* data, uint32_t len);
+// db.h
+__attribute__((eosio_wasm_import)) int32_t db_store_i64(uint64_t    scope,
+                                                        capi_name   table,
+                                                        capi_name   payer,
+                                                        uint64_t    id,
+                                                        const void* data,
+                                                        uint32_t    len);
 
-    __attribute__((eosio_wasm_import))
-    int32_t db_find_i64(capi_name code, uint64_t scope, capi_name table, uint64_t id);
+__attribute__((eosio_wasm_import)) int32_t db_find_i64(capi_name code, uint64_t scope, capi_name table, uint64_t id);
 
-    __attribute__((eosio_wasm_import))
-    int32_t db_idx64_store(uint64_t scope, capi_name table, capi_name payer, uint64_t id, const uint64_t* secondary);
+__attribute__((eosio_wasm_import)) int32_t db_idx64_store(uint64_t        scope,
+                                                          capi_name       table,
+                                                          capi_name       payer,
+                                                          uint64_t        id,
+                                                          const uint64_t* secondary);
 
-    __attribute__((eosio_wasm_import))
-    void db_remove_i64(int32_t iterator);
+__attribute__((eosio_wasm_import)) void db_remove_i64(int32_t iterator);
 
-    __attribute__((eosio_wasm_import))
-    int32_t db_lowerbound_i64(capi_name code, uint64_t scope, capi_name table, uint64_t id);
+__attribute__((eosio_wasm_import)) int32_t db_lowerbound_i64(capi_name code,
+                                                             uint64_t  scope,
+                                                             capi_name table,
+                                                             uint64_t  id);
 
-    __attribute__((eosio_wasm_import))
-    void db_update_i64(int32_t iterator, capi_name payer, const void* data, uint32_t len);
+__attribute__((eosio_wasm_import)) void db_update_i64(int32_t     iterator,
+                                                      capi_name   payer,
+                                                      const void* data,
+                                                      uint32_t    len);
 
-    //privilege.h
-    __attribute__((eosio_wasm_import))
-    bool is_privileged( capi_name account );
+// privilege.h
+__attribute__((eosio_wasm_import)) bool is_privileged(capi_name account);
 
-    // chain.h
-    __attribute__((eosio_wasm_import))
-    uint32_t get_active_producers( capi_name* producers, uint32_t datalen );
+// chain.h
+__attribute__((eosio_wasm_import)) uint32_t get_active_producers(capi_name* producers, uint32_t datalen);
 }
 
 struct test_types {
@@ -104,7 +109,7 @@ struct test_action {
    static void assert_true();
    static void assert_true_cf();
    static void test_current_time();
-   static void test_abort() __attribute__ ((noreturn)) ;
+   static void test_abort() __attribute__((noreturn));
    static void test_current_receiver(uint64_t receiver, uint64_t code, uint64_t action);
    static void test_publication_time();
    static void test_assert_code();

@@ -10,31 +10,31 @@ namespace bpo = boost::program_options;
 command_registration* command_registration::_list = nullptr;
 
 namespace {
-   auto create_command_map() {
-      auto result = std::map<std::string, command_registration*>();
-      command_registration* cur = command_registration::_list;
-      while (cur != nullptr) {
-         if (result.count(cur->name) > 0) {
-            std::cerr << "Illformed Program, duplicate subcommand: " << cur->name << "\n";
-            exit(1);
-         }
-         result[cur->name] = cur;
-         cur = cur->_next;
+auto create_command_map() {
+   auto                  result = std::map<std::string, command_registration*>();
+   command_registration* cur    = command_registration::_list;
+   while (cur != nullptr) {
+      if (result.count(cur->name) > 0) {
+         std::cerr << "Illformed Program, duplicate subcommand: " << cur->name << "\n";
+         exit(1);
       }
-
-      return result;
+      result[cur->name] = cur;
+      cur               = cur->_next;
    }
+
+   return result;
 }
+} // namespace
 
 int main(int argc, char** argv) {
    auto command_map = create_command_map();
 
    bpo::options_description vis_desc("Options");
-   auto vis_opts = vis_desc.add_options();
+   auto                     vis_opts = vis_desc.add_options();
    vis_opts("help,h", "show usage help message");
 
    bpo::options_description hidden_desc;
-   auto hidden_opts = hidden_desc.add_options();
+   auto                     hidden_opts = hidden_desc.add_options();
    hidden_opts("subargs", bpo::value<std::vector<std::string>>(), "args");
 
    bpo::positional_options_description pos_desc;
@@ -44,18 +44,18 @@ int main(int argc, char** argv) {
    cmdline_options.add(vis_desc).add(hidden_desc);
 
    bpo::variables_map vm;
-   auto parsed_args = bpo::command_line_parser(argc, argv).options(cmdline_options).positional(pos_desc).allow_unregistered().run();
+   auto               parsed_args =
+       bpo::command_line_parser(argc, argv).options(cmdline_options).positional(pos_desc).allow_unregistered().run();
    bpo::store(parsed_args, vm);
 
    std::vector<std::string> args = bpo::collect_unrecognized(parsed_args.options, bpo::include_positional);
 
    auto show_help = [&](std::ostream& os) {
-      os <<
-         "Usage: trace_api_util <options> command ...\n"
-         "\n"
-         "Commands:\n";
+      os << "Usage: trace_api_util <options> command ...\n"
+            "\n"
+            "Commands:\n";
 
-      for (const auto& e: command_map) {
+      for (const auto& e : command_map) {
          os << "  " << e.second->name << "              " << e.second->slug << "\n";
       }
 

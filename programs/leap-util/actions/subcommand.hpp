@@ -14,9 +14,11 @@ template<class subcommand_options, class exception_handler = leap_util_exception
 class sub_command {
 protected:
    std::shared_ptr<subcommand_options> opt;
-   std::unique_ptr<exception_handler> exh;
+   std::unique_ptr<exception_handler>  exh;
 
-   sub_command() : opt(std::make_shared<subcommand_options>()), exh(std::make_unique<exception_handler>()) {}
+   sub_command()
+      : opt(std::make_shared<subcommand_options>())
+      , exh(std::make_unique<exception_handler>()) {}
    void print_exception() noexcept { exh->print_exception(); };
 
 public:

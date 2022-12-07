@@ -4,7 +4,8 @@
 #include <boost/range/adaptor/filtered.hpp>
 #include <boost/range/adaptor/transformed.hpp>
 
-namespace eosio { namespace chain {
+namespace eosio {
+namespace chain {
 
 /**
  * @brief Return values in DataRange corresponding to matching Markers
@@ -23,17 +24,14 @@ namespace eosio { namespace chain {
  */
 template<typename DataRange, typename MarkerRange, typename Marker>
 DataRange filter_data_by_marker(DataRange data, MarkerRange markers, const Marker& markerValue) {
-   auto remove_mismatched_markers = boost::adaptors::filtered([&markerValue](const auto& tuple) {
-      return boost::get<0>(tuple) == markerValue;
-   });
-   auto ToData = boost::adaptors::transformed([](const auto& tuple) {
-      return boost::get<1>(tuple);
-   });
+   auto remove_mismatched_markers =
+      boost::adaptors::filtered([&markerValue](const auto& tuple) { return boost::get<0>(tuple) == markerValue; });
+   auto ToData = boost::adaptors::transformed([](const auto& tuple) { return boost::get<1>(tuple); });
 
    // Zip the ranges together, filter out data with markers that don't match, and return the data without the markers
    auto range = boost::combine(markers, data) | remove_mismatched_markers | ToData;
-   return {range.begin(), range.end()};
+   return { range.begin(), range.end() };
 }
 
-}} // namespace eosio::chain
-
+}
+} // namespace eosio::chain

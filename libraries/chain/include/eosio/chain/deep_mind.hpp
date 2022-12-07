@@ -18,35 +18,35 @@ struct packed_transaction;
 struct transaction_trace;
 struct ram_trace;
 namespace resource_limits {
-   class resource_limits_config_object;
-   class resource_limits_state_object;
-   struct resource_limits_object;
-   struct resource_usage_object;
+class resource_limits_config_object;
+class resource_limits_state_object;
+struct resource_limits_object;
+struct resource_usage_object;
 }
 
-#define RAM_EVENT_ID( FORMAT, ... ) \
-   fc::format_string( FORMAT, fc::mutable_variant_object()__VA_ARGS__ )
+#define RAM_EVENT_ID(FORMAT, ...) fc::format_string(FORMAT, fc::mutable_variant_object() __VA_ARGS__)
 
 struct ram_trace {
 public:
    ram_trace(std::string&& event_id, const char* family, const char* operation, const char* legacy_tag)
-      :event_id(std::move(event_id)),family(family),operation(operation),legacy_tag(legacy_tag)
-   {}
+      : event_id(std::move(event_id))
+      , family(family)
+      , operation(operation)
+      , legacy_tag(legacy_tag) {}
 
-   std::string  event_id   = "generic";
-   const char*  family     = "generic";
-   const char*  operation  = "generic";
-   const char*  legacy_tag = "generic";
+   std::string event_id   = "generic";
+   const char* family     = "generic";
+   const char* operation  = "generic";
+   const char* legacy_tag = "generic";
 
-   ram_trace()
-   {}
+   ram_trace() {}
 };
 
-class deep_mind_handler
-{
+class deep_mind_handler {
 public:
    struct deep_mind_config {
-      bool zero_elapsed = false; // if true, the elapsed field of transaction and action traces is always set to 0 (for reproducibility)
+      bool zero_elapsed =
+         false; // if true, the elapsed field of transaction and action traces is always set to 0 (for reproducibility)
    };
 
    void update_config(deep_mind_config config);
@@ -73,17 +73,25 @@ public:
    void on_send_context_free_inline();
    void on_cancel_deferred(operation_qualifier qual, const generated_transaction_object& gto);
    void on_send_deferred(operation_qualifier qual, const generated_transaction_object& gto);
-   void on_create_deferred(operation_qualifier qual, const generated_transaction_object& gto, const packed_transaction& packed_trx);
+   void on_create_deferred(operation_qualifier                 qual,
+                           const generated_transaction_object& gto,
+                           const packed_transaction&           packed_trx);
    void on_fail_deferred();
    void on_create_table(const table_id_object& tid);
    void on_remove_table(const table_id_object& tid);
    void on_db_store_i64(const table_id_object& tid, const key_value_object& kvo);
-   void on_db_update_i64(const table_id_object& tid, const key_value_object& kvo, account_name payer, const char* buffer, std::size_t buffer_size);
+   void on_db_update_i64(const table_id_object&  tid,
+                         const key_value_object& kvo,
+                         account_name            payer,
+                         const char*             buffer,
+                         std::size_t             buffer_size);
    void on_db_remove_i64(const table_id_object& tid, const key_value_object& kvo);
-   void on_init_resource_limits(const resource_limits::resource_limits_config_object& config, const resource_limits::resource_limits_state_object& state);
+   void on_init_resource_limits(const resource_limits::resource_limits_config_object& config,
+                                const resource_limits::resource_limits_state_object&  state);
    void on_update_resource_limits_config(const resource_limits::resource_limits_config_object& config);
    void on_update_resource_limits_state(const resource_limits::resource_limits_state_object& state);
-   void on_newaccount_resource_limits(const resource_limits::resource_limits_object& limits, const resource_limits::resource_usage_object& usage);
+   void on_newaccount_resource_limits(const resource_limits::resource_limits_object& limits,
+                                      const resource_limits::resource_usage_object&  usage);
    void on_update_account_usage(const resource_limits::resource_usage_object& usage);
    void on_set_account_limits(const resource_limits::resource_limits_object& limits);
    // The trace is consumed by the next ram_event or ram_correction
@@ -92,6 +100,7 @@ public:
    void on_create_permission(const permission_object& p);
    void on_modify_permission(const permission_object& old_permission, const permission_object& new_permission);
    void on_remove_permission(const permission_object& permission);
+
 private:
    uint32_t         _action_id = 0;
    ram_trace        _ram_trace;

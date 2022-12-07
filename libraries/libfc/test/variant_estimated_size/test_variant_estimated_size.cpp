@@ -9,9 +9,8 @@
 using namespace fc;
 
 BOOST_AUTO_TEST_SUITE(variant_estimated_size_suite)
-BOOST_AUTO_TEST_CASE(null_variant_estimated_size_test)
-{
-   constexpr nullptr_t np=nullptr;
+BOOST_AUTO_TEST_CASE(null_variant_estimated_size_test) {
+   constexpr nullptr_t np = nullptr;
 
    variant v;
    variant v_nullptr(np);
@@ -20,12 +19,11 @@ BOOST_AUTO_TEST_CASE(null_variant_estimated_size_test)
    BOOST_CHECK_EQUAL(v_nullptr.estimated_size(), sizeof(variant));
 }
 
-BOOST_AUTO_TEST_CASE(int64_variant_estimated_size_test)
-{
+BOOST_AUTO_TEST_CASE(int64_variant_estimated_size_test) {
    int64_t i = 1;
    int32_t j = 2;
    int16_t k = 3;
-   int8_t l = 4;
+   int8_t  l = 4;
 
    variant v_int_64(i);
    variant v_int_32(j);
@@ -38,12 +36,11 @@ BOOST_AUTO_TEST_CASE(int64_variant_estimated_size_test)
    BOOST_CHECK_EQUAL(v_int_8.estimated_size(), sizeof(variant));
 }
 
-BOOST_AUTO_TEST_CASE(uint64_variant_estimated_size_test)
-{
+BOOST_AUTO_TEST_CASE(uint64_variant_estimated_size_test) {
    uint64_t i = 1;
    uint32_t j = 2;
    uint16_t k = 3;
-   uint8_t l = 4;
+   uint8_t  l = 4;
 
    variant v_uint_64(i);
    variant v_uint_32(j);
@@ -56,9 +53,8 @@ BOOST_AUTO_TEST_CASE(uint64_variant_estimated_size_test)
    BOOST_CHECK_EQUAL(v_uint_8.estimated_size(), sizeof(variant));
 }
 
-BOOST_AUTO_TEST_CASE(double_variant_estimated_size_test)
-{
-   float f = 3.14;
+BOOST_AUTO_TEST_CASE(double_variant_estimated_size_test) {
+   float  f = 3.14;
    double d = 12.345;
 
    variant v_float(f);
@@ -68,13 +64,12 @@ BOOST_AUTO_TEST_CASE(double_variant_estimated_size_test)
    BOOST_CHECK_EQUAL(v_double.estimated_size(), sizeof(variant));
 }
 
-BOOST_AUTO_TEST_CASE(string_variant_estimated_size_test)
-{
-   char c[] = "Hello World";
-   const char* cc = "Goodbye";
-   wchar_t wc[] = L"0123456789";
-   const wchar_t* cwc = L"foo";
-   string s = "abcdefghijklmnopqrstuvwxyz";
+BOOST_AUTO_TEST_CASE(string_variant_estimated_size_test) {
+   char           c[]  = "Hello World";
+   const char*    cc   = "Goodbye";
+   wchar_t        wc[] = L"0123456789";
+   const wchar_t* cwc  = L"foo";
+   string         s    = "abcdefghijklmnopqrstuvwxyz";
 
    variant v_char(c);
    variant v_const_char(cc);
@@ -89,8 +84,7 @@ BOOST_AUTO_TEST_CASE(string_variant_estimated_size_test)
    BOOST_CHECK_EQUAL(v_string.estimated_size(), 26 + sizeof(variant) + sizeof(string));
 }
 
-BOOST_AUTO_TEST_CASE(blob_variant_estimated_size_test)
-{
+BOOST_AUTO_TEST_CASE(blob_variant_estimated_size_test) {
    blob bl;
    bl.data.push_back('f');
    bl.data.push_back('o');
@@ -101,17 +95,16 @@ BOOST_AUTO_TEST_CASE(blob_variant_estimated_size_test)
    BOOST_CHECK_EQUAL(v_blob.estimated_size(), 3 + sizeof(variant) + sizeof(blob));
 }
 
-BOOST_AUTO_TEST_CASE(variant_object_variant_estimated_size_test)
-{
+BOOST_AUTO_TEST_CASE(variant_object_variant_estimated_size_test) {
    string k1 = "key_bool";
    string k2 = "key_string";
    string k3 = "key_int16";
    string k4 = "key_blob"; // 35 + 4 * sizeof(string)
 
-   bool b = false;
-   string s = "HelloWorld"; // 10 + sizeof(string)
+   bool    b = false;
+   string  s = "HelloWorld"; // 10 + sizeof(string)
    int16_t i = 123;
-   blob bl;
+   blob    bl;
    bl.data.push_back('b');
    bl.data.push_back('a');
    bl.data.push_back('r'); // 3 + sizeof(blob)
@@ -126,20 +119,21 @@ BOOST_AUTO_TEST_CASE(variant_object_variant_estimated_size_test)
    mu(k2, v_string);
    mu(k3, v_int16);
    mu(k4, bl);
-   variant_object vo(mu); // + sizeof(variant_object) + sizeof(std::vector<variant_object::entry>)
-   variant v_vo(vo); // + sizeof(variant)
+   variant_object vo(mu);   // + sizeof(variant_object) + sizeof(std::vector<variant_object::entry>)
+   variant        v_vo(vo); // + sizeof(variant)
 
-   BOOST_CHECK_EQUAL(vo.estimated_size(), 48 + 5 * sizeof(string) + sizeof(blob) + 4 * sizeof(variant) +
-                     sizeof(variant_object) + sizeof(std::vector<variant_object::entry>));
-   BOOST_CHECK_EQUAL(v_vo.estimated_size(), 48 + 5 * sizeof(string) + sizeof(blob) + 5 * sizeof(variant) +
-                     sizeof(variant_object) + sizeof(std::vector<variant_object::entry>));
+   BOOST_CHECK_EQUAL(vo.estimated_size(),
+                     48 + 5 * sizeof(string) + sizeof(blob) + 4 * sizeof(variant) + sizeof(variant_object) +
+                        sizeof(std::vector<variant_object::entry>));
+   BOOST_CHECK_EQUAL(v_vo.estimated_size(),
+                     48 + 5 * sizeof(string) + sizeof(blob) + 5 * sizeof(variant) + sizeof(variant_object) +
+                        sizeof(std::vector<variant_object::entry>));
 }
 
-BOOST_AUTO_TEST_CASE(array_variant_estimated_size_test)
-{
-   bool b = true;
-   wchar_t wc[] = L"Goodbye"; // 7 + sizeof(string)
-   uint32_t i = 54321;
+BOOST_AUTO_TEST_CASE(array_variant_estimated_size_test) {
+   bool     b    = true;
+   wchar_t  wc[] = L"Goodbye"; // 7 + sizeof(string)
+   uint32_t i    = 54321;
 
    variant v_bool(b);
    variant v_wchar(wc);

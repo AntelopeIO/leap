@@ -55,14 +55,16 @@ FC_REFLECT(cf_action, (payload)(cfd_idx))
 #define DUMMY_ACTION_DEFAULT_C 0x7451ae12
 
 class replay_tester : public base_tester {
- public:
-   template <typename OnAppliedTrx>
+public:
+   template<typename OnAppliedTrx>
    replay_tester(controller::config config, const genesis_state& genesis, OnAppliedTrx&& on_applied_trx) {
       cfg = config;
-      base_tester::open(make_protocol_feature_set(), genesis.compute_chain_id(), [&genesis,&control=this->control, &on_applied_trx]() {        
-         control->applied_transaction.connect(on_applied_trx);
-         control->startup( [](){}, []() { return false; }, genesis );
-      });
+      base_tester::open(make_protocol_feature_set(),
+                        genesis.compute_chain_id(),
+                        [&genesis, &control = this->control, &on_applied_trx]() {
+                           control->applied_transaction.connect(on_applied_trx);
+                           control->startup([]() {}, []() { return false; }, genesis);
+                        });
    }
    using base_tester::produce_block;
 
@@ -70,8 +72,8 @@ class replay_tester : public base_tester {
       return _produce_block(skip_time, false);
    }
 
-   signed_block_ptr
-   produce_empty_block(fc::microseconds skip_time = fc::milliseconds(config::block_interval_ms)) override {
+   signed_block_ptr produce_empty_block(
+      fc::microseconds skip_time = fc::milliseconds(config::block_interval_ms)) override {
       unapplied_transactions.add_aborted(control->abort_block());
       return _produce_block(skip_time, true);
    }
@@ -132,8 +134,8 @@ BOOST_AUTO_TEST_CASE(test_restart_with_different_chain_id) {
    genesis.initial_timestamp = fc::time_point::from_iso_string("2020-01-01T00:00:01.000");
    genesis.initial_key       = eosio::testing::base_tester::get_public_key(config::system_account_name, "active");
    std::optional<chain_id_type> chain_id = genesis.compute_chain_id();
-   BOOST_REQUIRE_EXCEPTION(other.open(chain_id), chain_id_type_exception,
-                           fc_exception_message_starts_with("chain ID in state "));
+   BOOST_REQUIRE_EXCEPTION(
+      other.open(chain_id), chain_id_type_exception, fc_exception_message_starts_with("chain ID in state "));
 }
 
 BOOST_AUTO_TEST_CASE(test_restart_from_block_log) {
@@ -182,8 +184,12 @@ BOOST_AUTO_TEST_CASE(test_light_validation_restart_from_block_log) {
    trx.context_free_data.emplace_back(fc::raw::pack<uint32_t>(100)); // verify payload matches context free data
    trx.context_free_data.emplace_back(fc::raw::pack<uint32_t>(200));
    // add a normal action along with cfa
-   dummy_action da = {DUMMY_ACTION_DEFAULT_A, DUMMY_ACTION_DEFAULT_B, DUMMY_ACTION_DEFAULT_C};
-   action       act1(vector<permission_level>{{"testapi"_n, config::active_name}}, da);
+   dummy_action da = { DUMMY_ACTION_DEFAULT_A, DUMMY_ACTION_DEFAULT_B, DUMMY_ACTION_DEFAULT_C };
+   action       act1(
+      vector<permission_level>{
+               {"testapi"_n, config::active_name}
+   },
+      da);
    trx.actions.push_back(act1);
    chain.set_transaction_headers(trx);
    // run normal passing case
@@ -195,7 +201,7 @@ BOOST_AUTO_TEST_CASE(test_light_validation_restart_from_block_log) {
    BOOST_CHECK_EQUAL(trace->receipt->status, transaction_receipt::executed);
    BOOST_CHECK_EQUAL(2, trace->action_traces.size());
 
-   BOOST_CHECK(trace->action_traces.at(0).context_free); // cfa
+   BOOST_CHECK(trace->action_traces.at(0).context_free);            // cfa
    BOOST_CHECK_EQUAL("test\n", trace->action_traces.at(0).console); // cfa executed
 
    BOOST_CHECK(!trace->action_traces.at(1).context_free); // non-cfa
@@ -211,14 +217,13 @@ BOOST_AUTO_TEST_CASE(test_light_validation_restart_from_block_log) {
    remove_existing_states(copied_config);
    transaction_trace_ptr other_trace;
 
-   replay_tester from_block_log_chain(copied_config, *genesis,
-                                       [&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
-                                          auto& t = std::get<0>(x);
-                                          if (t && t->id == trace->id) {
-                                             other_trace = t;
-                                          }
-                                       });
-
+   replay_tester from_block_log_chain(
+      copied_config, *genesis, [&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
+         auto& t = std::get<0>(x);
+         if (t && t->id == trace->id) {
+            other_trace = t;
+         }
+      });
 
    BOOST_REQUIRE(other_trace);
    BOOST_REQUIRE(other_trace->receipt);
@@ -226,30 +231,30 @@ BOOST_AUTO_TEST_CASE(test_light_validation_restart_from_block_log) {
    BOOST_CHECK(*trace->receipt == *other_trace->receipt);
    BOOST_CHECK_EQUAL(2, other_trace->action_traces.size());
 
-   BOOST_CHECK(other_trace->action_traces.at(0).context_free); // cfa
+   BOOST_CHECK(other_trace->action_traces.at(0).context_free);      // cfa
    BOOST_CHECK_EQUAL("", other_trace->action_traces.at(0).console); // cfa not executed for replay
-   BOOST_CHECK_EQUAL(trace->action_traces.at(0).receipt->global_sequence, other_trace->action_traces.at(0).receipt->global_sequence);
+   BOOST_CHECK_EQUAL(trace->action_traces.at(0).receipt->global_sequence,
+                     other_trace->action_traces.at(0).receipt->global_sequence);
    BOOST_CHECK_EQUAL(trace->action_traces.at(0).receipt->digest(), other_trace->action_traces.at(0).receipt->digest());
 
    BOOST_CHECK(!other_trace->action_traces.at(1).context_free); // non-cfa
    BOOST_CHECK_EQUAL("", other_trace->action_traces.at(1).console);
-   BOOST_CHECK_EQUAL(trace->action_traces.at(1).receipt->global_sequence, other_trace->action_traces.at(1).receipt->global_sequence);
+   BOOST_CHECK_EQUAL(trace->action_traces.at(1).receipt->global_sequence,
+                     other_trace->action_traces.at(1).receipt->global_sequence);
    BOOST_CHECK_EQUAL(trace->action_traces.at(1).receipt->digest(), other_trace->action_traces.at(1).receipt->digest());
 }
 
-namespace{
-   struct scoped_temp_path {
-      boost::filesystem::path path;
-      scoped_temp_path() {
-         path = boost::filesystem::unique_path();
-         if (boost::unit_test::framework::master_test_suite().argc >= 2) {
-            path += boost::unit_test::framework::master_test_suite().argv[1];
-         }
+namespace {
+struct scoped_temp_path {
+   boost::filesystem::path path;
+   scoped_temp_path() {
+      path = boost::filesystem::unique_path();
+      if (boost::unit_test::framework::master_test_suite().argc >= 2) {
+         path += boost::unit_test::framework::master_test_suite().argv[1];
       }
-      ~scoped_temp_path() {
-         boost::filesystem::remove_all(path);
-      }
-   };
+   }
+   ~scoped_temp_path() { boost::filesystem::remove_all(path); }
+};
 }
 
 enum class buf_len_type { small, medium, large };
@@ -270,25 +275,18 @@ void trim_blocklog_front(uint32_t truncate_at_block, buf_len_type len_type) {
    bfs::copy(blocks_dir / "blocks.index", temp1.path / "blocks.index");
 
    trim_data old_log(temp1.path);
-   uint64_t blk_size = old_log.block_pos(30) - old_log.block_pos(29);
-   uint64_t log_size = old_log.block_pos(30) + blk_size;
+   uint64_t  blk_size = old_log.block_pos(30) - old_log.block_pos(29);
+   uint64_t  log_size = old_log.block_pos(30) + blk_size;
 
-   switch (len_type){
-      case buf_len_type::small:
-         block_log_set_buff_len( blk_size + (sizeof(uint64_t) - 1));
-         break;
-      case buf_len_type::medium:
-         block_log_set_buff_len( log_size / 3);
-         break;
-      case buf_len_type::large:
-         block_log_set_buff_len(log_size);
-         break;
-      default:
-         return;
+   switch (len_type) {
+      case buf_len_type::small: block_log_set_buff_len(blk_size + (sizeof(uint64_t) - 1)); break;
+      case buf_len_type::medium: block_log_set_buff_len(log_size / 3); break;
+      case buf_len_type::large: block_log_set_buff_len(log_size); break;
+      default: return;
    }
 
    block_num_type end = std::numeric_limits<block_num_type>::max();
-   BOOST_CHECK( block_log::extract_block_range(temp1.path, temp2.path, truncate_at_block, end, true) == true);
+   BOOST_CHECK(block_log::extract_block_range(temp1.path, temp2.path, truncate_at_block, end, true) == true);
    trim_data new_log(temp1.path);
    BOOST_CHECK(new_log.first_block == truncate_at_block);
    BOOST_CHECK(new_log.last_block == old_log.last_block);

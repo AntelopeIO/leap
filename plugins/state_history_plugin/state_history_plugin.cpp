@@ -27,20 +27,23 @@ extern const char* const state_history_plugin_abi;
    which includes unix sockets. */
 #if BOOST_VERSION < 107000
 namespace boost::beast::websocket {
-template<typename TeardownHandler>
+template <typename TeardownHandler>
 void async_teardown(role_type, unixs::socket& sock, TeardownHandler&& handler) {
    boost::system::error_code ec;
    sock.close(ec);
-   boost::asio::post(boost::asio::get_associated_executor(handler, sock.get_executor()), [h=std::move(handler),ec]() mutable {
-      h(ec);
-   });
+   boost::asio::post(boost::asio::get_associated_executor(handler, sock.get_executor()),
+                     [h = std::move(handler), ec]() mutable { h(ec); });
 }
-}
+} // namespace boost::beast::websocket
 #endif
 
 // overload pattern for variant visitation
-template<class... Ts> struct overload : Ts... { using Ts::operator()...; };
-template<class... Ts> overload(Ts...) -> overload<Ts...>;
+template <class... Ts>
+struct overload : Ts... {
+   using Ts::operator()...;
+};
+template <class... Ts>
+overload(Ts...) -> overload<Ts...>;
 
 namespace eosio {
 using namespace chain;
@@ -50,7 +53,7 @@ using boost::signals2::scoped_connection;
 static appbase::abstract_plugin& _state_history_plugin = app().register_plugin<state_history_plugin>();
 
 const std::string logger_name("state_history");
-fc::logger _log;
+fc::logger        _log;
 
 template <typename F>
 auto catch_and_log(F f) {
@@ -80,7 +83,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
    state_history::trace_converter   trace_converter;
 
    using acceptor_type = std::variant<std::unique_ptr<tcp::acceptor>, std::unique_ptr<unixs::acceptor>>;
-   std::set<acceptor_type>          acceptor;
+   std::set<acceptor_type> acceptor;
 
    std::thread                                                              thr;
    boost::asio::io_context                                                  ctx;
@@ -108,10 +111,10 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
    void get_block(uint32_t block_num, const block_state_ptr& block_state, std::optional<bytes>& result) {
       chain::signed_block_ptr p;
       try {
-         if( block_state && block_num == block_state->block_num ) {
+         if (block_state && block_num == block_state->block_num) {
             p = block_state->block;
          } else {
-            p = chain_plug->chain().fetch_block_by_number( block_num );
+            p = chain_plug->chain().fetch_block_by_number(block_num);
          }
       } catch (...) {
          return;
@@ -127,21 +130,21 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
          return chain_state_log->get_block_id(block_num);
       try {
          return chain_plug->chain().get_block_id_for_num(block_num);
-      } catch (...) {}
+      } catch (...) {
+      }
       return {};
    }
 
    struct session_base {
       virtual void send_update(const block_state_ptr& block_state) = 0;
       virtual void close()                                         = 0;
-      virtual ~session_base() = default;
-      std::optional<get_blocks_request_v0>       current_request;
+      virtual ~session_base()                                      = default;
+      std::optional<get_blocks_request_v0> current_request;
    };
-
 
    template <typename SocketType>
    struct session : session_base, std::enable_shared_from_this<session<SocketType>> {
-     std::shared_ptr<state_history_plugin_impl>  plugin;
+      std::shared_ptr<state_history_plugin_impl> plugin;
       ws::stream<SocketType>                     socket_stream;
       bool                                       sending  = false;
       bool                                       sent_abi = false;
@@ -149,7 +152,8 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
       bool                                       need_to_send_update = false;
 
       session(std::shared_ptr<state_history_plugin_impl> plugin, SocketType socket)
-          : plugin(std::move(plugin)), socket_stream(std::move(socket)) {}
+          : plugin(std::move(plugin))
+          , socket_stream(std::move(socket)) {}
 
       void start() {
          fc_ilog(_log, "incoming connection");
@@ -160,7 +164,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
          }
          socket_stream.next_layer().set_option(boost::asio::socket_base::send_buffer_size(1024 * 1024));
          socket_stream.next_layer().set_option(boost::asio::socket_base::receive_buffer_size(1024 * 1024));
-        
+
          socket_stream.async_accept([self = this->shared_from_this()](boost::system::error_code ec) {
             self->callback(ec, "async_accept", [self] {
                self->start_read();
@@ -168,7 +172,6 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
             });
          });
       }
-     
 
       void start_read() {
          auto in_buffer = std::make_shared<boost::beast::flat_buffer>();
@@ -186,7 +189,6 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
              });
       }
 
-     
       void send() {
          if (sending)
             return;
@@ -195,7 +197,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
          sending = true;
          socket_stream.binary(sent_abi);
          sent_abi = true;
-         socket_stream.async_write(             //
+         socket_stream.async_write(              //
              boost::asio::buffer(send_queue[0]), //
              [self = this->shared_from_this()](boost::system::error_code ec, size_t) {
                 self->callback(ec, "async_write", [self] {
@@ -207,7 +209,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
       }
 
       void send(const char* s) {
-          boost::asio::post(this->plugin->work_strand, [self = this->shared_from_this(), str = s ]() {
+         boost::asio::post(this->plugin->work_strand, [self = this->shared_from_this(), str = s]() {
             self->send_queue.push_back({str, str + strlen(str)});
             self->send();
          });
@@ -215,12 +217,12 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
 
       template <typename T>
       void send(T obj) {
-         boost::asio::post(this->plugin->work_strand, [self = this->shared_from_this(), obj = std::move(obj) ]() {
+         boost::asio::post(this->plugin->work_strand, [self = this->shared_from_this(), obj = std::move(obj)]() {
             self->send_queue.emplace_back(fc::raw::pack(state_result{std::move(obj)}));
             self->send();
          });
       }
-     
+
       using result_type = void;
       void operator()(get_status_request_v0&) {
          fc_ilog(_log, "got get_status_request_v0");
@@ -242,7 +244,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
       }
 
       void operator()(get_blocks_request_v0& req) {
-         fc_ilog(_log, "received get_blocks_request_v0 = ${req}", ("req",req) );
+         fc_ilog(_log, "received get_blocks_request_v0 = ${req}", ("req", req));
          for (auto& cp : req.have_positions) {
             if (req.start_block_num <= cp.block_num)
                continue;
@@ -253,8 +255,10 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
             if (!id) {
                fc_dlog(_log, "block ${block_num} is not available", ("block_num", cp.block_num));
             } else if (*id != cp.block_id) {
-               fc_dlog(_log, "the id for block ${block_num} in block request have_positions does not match the existing", ("block_num", cp.block_num));
-            }         
+               fc_dlog(_log,
+                       "the id for block ${block_num} in block request have_positions does not match the existing",
+                       ("block_num", cp.block_num));
+            }
          }
          req.have_positions.clear();
          fc_dlog(_log, "  get_blocks_request_v0 start_block_num set to ${num}", ("num", req.start_block_num));
@@ -263,7 +267,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
       }
 
       void operator()(get_blocks_ack_request_v0& req) {
-         fc_ilog(_log, "received get_blocks_ack_request_v0 = ${req}", ("req",req));
+         fc_ilog(_log, "received get_blocks_ack_request_v0 = ${req}", ("req", req));
          if (!current_request) {
             fc_dlog(_log, " no current get_blocks_request_v0, discarding the get_blocks_ack_request_v0");
             return;
@@ -292,7 +296,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
                if (prev_block_id)
                   result.prev_block = block_position{current_request->start_block_num - 1, *prev_block_id};
                if (current_request->fetch_block) {
-                  plugin->get_block( current_request->start_block_num, block_state, result.block );
+                  plugin->get_block(current_request->start_block_num, block_state, result.block);
                }
                if (current_request->fetch_traces && plugin->trace_log)
                   plugin->get_log_entry(*plugin->trace_log, current_request->start_block_num, result.traces);
@@ -303,7 +307,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
          }
 
          auto& block_num = current_request->start_block_num;
-         auto get_blk = [&chain, block_num, block_state]() -> signed_block_ptr {
+         auto  get_blk   = [&chain, block_num, block_state]() -> signed_block_ptr {
             try {
                if (block_state && block_state->block_num == block_num)
                   return block_state->block;
@@ -316,12 +320,14 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
 
          // during syncing if block is older than 5 min, log every 1000th block
          bool fresh_block = block && fc::time_point::now() - block->timestamp < fc::minutes(5);
-         if( fresh_block || (result.this_block && result.this_block->block_num % 1000 == 0) ) {
-            fc_ilog(_log, "pushing result "
-                  "{\"head\":{\"block_num\":${head}},\"last_irreversible\":{\"block_num\":${last_irr}},\"this_block\":{"
-                  "\"block_num\":${this_block}}} to send queue",
-                  ("head", result.head.block_num)("last_irr", result.last_irreversible.block_num)(
-                        "this_block", result.this_block ? result.this_block->block_num : fc::variant()));
+         if (fresh_block || (result.this_block && result.this_block->block_num % 1000 == 0)) {
+            fc_ilog(
+                _log,
+                "pushing result "
+                "{\"head\":{\"block_num\":${head}},\"last_irreversible\":{\"block_num\":${last_irr}},\"this_block\":{"
+                "\"block_num\":${this_block}}} to send queue",
+                ("head", result.head.block_num)("last_irr", result.last_irreversible.block_num)(
+                    "this_block", result.this_block ? result.this_block->block_num : fc::variant()));
          }
 
          send(std::move(result));
@@ -359,7 +365,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
             fc_elog(_log, "${e}", ("e", e.to_detail_string()));
             close();
          } catch (const std::exception& e) {
-            fc_elog(_log,"${e}", ("e", e.what()));
+            fc_elog(_log, "${e}", ("e", e.what()));
             close();
          } catch (...) {
             fc_elog(_log, "unknown exception");
@@ -387,7 +393,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
             }
             close();
          } catch (...) {
-            fc_elog(_log,"uncaught exception on close");
+            fc_elog(_log, "uncaught exception on close");
          }
       }
 
@@ -402,8 +408,8 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
    };
 
    class session_manager_t {
-      std::mutex                                                  mx;
-      boost::container::flat_set<std::shared_ptr<session_base>>   session_set;
+      std::mutex                                                mx;
+      boost::container::flat_set<std::shared_ptr<session_base>> session_set;
 
     public:
       template <typename SocketType>
@@ -461,8 +467,10 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
       };
 
       // create and configure acceptors, can be both
-      if (endpoint_address.size()) init_tcp_acceptor();
-      if (unix_path.size())        init_unix_acceptor();
+      if (endpoint_address.size())
+         init_tcp_acceptor();
+      if (unix_path.size())
+         init_unix_acceptor();
 
       // start it
       std::for_each(acceptor.begin(), acceptor.end(), [&](const acceptor_type& acc) {
@@ -494,19 +502,18 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
    template <typename Acceptor>
    void do_accept(Acceptor& acceptor) {
       auto socket = std::make_shared<typename Acceptor::protocol_type::socket>(this->ctx);
-      acceptor.async_accept(*socket, [self = shared_from_this(), this, socket, &acceptor](const boost::system::error_code& ec) {
-         if (stopping)
-            return;
-         if (ec) {
-            if (ec == boost::system::errc::too_many_files_open)
-               catch_and_log([&] { do_accept(acceptor); });
-            return;
-         }
-         catch_and_log([&] {
-            sessions.add(self, socket);
-         });
-         catch_and_log([&] { do_accept(acceptor); });
-      });
+      acceptor.async_accept(*socket,
+                            [self = shared_from_this(), this, socket, &acceptor](const boost::system::error_code& ec) {
+                               if (stopping)
+                                  return;
+                               if (ec) {
+                                  if (ec == boost::system::errc::too_many_files_open)
+                                     catch_and_log([&] { do_accept(acceptor); });
+                                  return;
+                               }
+                               catch_and_log([&] { sessions.add(self, socket); });
+                               catch_and_log([&] { do_accept(acceptor); });
+                            });
    }
 
    void on_applied_transaction(const transaction_trace_ptr& p, const packed_transaction_ptr& t) {
@@ -611,8 +618,10 @@ void state_history_plugin::set_program_options(options_description& cli, options
            "the path (relative to data-dir) to create a unix socket upon which to listen for incoming connections.");
    options("trace-history-debug-mode", bpo::bool_switch()->default_value(false), "enable debug mode for trace history");
 
-   if(cfile::supports_hole_punching())
-      options("state-history-log-retain-blocks", bpo::value<uint32_t>(), "if set, periodically prune the state history files to store only configured number of most recent blocks");
+   if (cfile::supports_hole_punching())
+      options(
+          "state-history-log-retain-blocks", bpo::value<uint32_t>(),
+          "if set, periodically prune the state history files to store only configured number of most recent blocks");
 }
 
 void state_history_plugin::plugin_initialize(const variables_map& options) {
@@ -674,9 +683,12 @@ void state_history_plugin::plugin_initialize(const variables_map& options) {
       if (options.count("state-history-log-retain-blocks")) {
          ship_log_prune_conf.emplace();
          ship_log_prune_conf->prune_blocks = options.at("state-history-log-retain-blocks").as<uint32_t>();
-         //the arbitrary limit of 1000 here is mainly so that there is enough buffer for newly applied forks to be delivered to clients
-         // before getting pruned out. ideally pruning would have been smart enough to know not to prune reversible blocks
-         EOS_ASSERT(ship_log_prune_conf->prune_blocks >= 1000, plugin_exception, "state-history-log-retain-blocks must be 1000 blocks or greater");
+         // the arbitrary limit of 1000 here is mainly so that there is enough buffer for newly applied forks to be
+         // delivered to clients
+         //  before getting pruned out. ideally pruning would have been smart enough to know not to prune reversible
+         //  blocks
+         EOS_ASSERT(ship_log_prune_conf->prune_blocks >= 1000, plugin_exception,
+                    "state-history-log-retain-blocks must be 1000 blocks or greater");
       }
 
       if (options.at("trace-history").as<bool>())
@@ -693,12 +705,12 @@ void state_history_plugin::plugin_startup() {
    handle_sighup(); // setup logging
 
    try {
-      my->thr = std::thread([ptr = my.get()] { ptr->ctx.run(); });
+      my->thr  = std::thread([ptr = my.get()] { ptr->ctx.run(); });
       auto bsp = my->chain_plug->chain().head_block_state();
-      if( bsp && my->chain_state_log && my->chain_state_log->begin_block() == my->chain_state_log->end_block() ) {
-         fc_ilog( _log, "Storing initial state on startup, this can take a considerable amount of time" );
-         my->store_chain_state( bsp );
-         fc_ilog( _log, "Done storing initial state on startup" );
+      if (bsp && my->chain_state_log && my->chain_state_log->begin_block() == my->chain_state_log->end_block()) {
+         fc_ilog(_log, "Storing initial state on startup, this can take a considerable amount of time");
+         my->store_chain_state(bsp);
+         fc_ilog(_log, "Done storing initial state on startup");
       }
       my->listen();
    } catch (std::exception& ex) {

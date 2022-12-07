@@ -9,12 +9,13 @@
 #include <mutex>
 #include <thread>
 
-namespace eosio { namespace chain {
+namespace eosio {
+namespace chain {
 
-//a thread is shared for all instances
-static std::mutex timer_ref_mutex;
-static unsigned refcount;
-static std::thread checktime_thread;
+// a thread is shared for all instances
+static std::mutex                               timer_ref_mutex;
+static unsigned                                 refcount;
+static std::thread                              checktime_thread;
 static std::unique_ptr<boost::asio::io_service> checktime_ios;
 
 struct platform_timer::impl {
@@ -26,10 +27,10 @@ platform_timer::platform_timer() {
 
    std::lock_guard guard(timer_ref_mutex);
 
-   if(refcount++ == 0) {
+   if (refcount++ == 0) {
       std::promise<void> p;
-      auto f = p.get_future();
-      checktime_thread = std::thread([&p]() {
+      auto               f = p.get_future();
+      checktime_thread     = std::thread([&p]() {
          fc::set_os_thread_name("checktime");
          checktime_ios = std::make_unique<boost::asio::io_service>();
          boost::asio::io_service::work work(*checktime_ios);
@@ -42,12 +43,12 @@ platform_timer::platform_timer() {
 
    my->timer = std::make_unique<boost::asio::high_resolution_timer>(*checktime_ios);
 
-   //compute_and_print_timer_accuracy(*this);
+   // compute_and_print_timer_accuracy(*this);
 }
 
 platform_timer::~platform_timer() {
    stop();
-   if(std::lock_guard guard(timer_ref_mutex); --refcount == 0) {
+   if (std::lock_guard guard(timer_ref_mutex); --refcount == 0) {
       checktime_ios->stop();
       checktime_thread.join();
       checktime_ios.reset();
@@ -55,12 +56,12 @@ platform_timer::~platform_timer() {
 }
 
 void platform_timer::start(fc::time_point tp) {
-   if(tp == fc::time_point::maximum()) {
+   if (tp == fc::time_point::maximum()) {
       expired = 0;
       return;
    }
    fc::microseconds x = tp.time_since_epoch() - fc::time_point::now().time_since_epoch();
-   if(x.count() <= 0)
+   if (x.count() <= 0)
       expired = 1;
    else {
 #if 0
@@ -75,7 +76,7 @@ void platform_timer::start(fc::time_point tp) {
       expired = 0;
       my->timer->expires_after(std::chrono::microseconds(x.count()));
       my->timer->async_wait([this](const boost::system::error_code& ec) {
-         if(ec)
+         if (ec)
             return;
          expired = 1;
          call_expiration_callback();
@@ -84,11 +85,12 @@ void platform_timer::start(fc::time_point tp) {
 }
 
 void platform_timer::stop() {
-   if(expired)
+   if (expired)
       return;
 
    my->timer->cancel();
    expired = 1;
 }
 
-}}
+}
+}

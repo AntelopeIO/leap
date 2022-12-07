@@ -4,14 +4,16 @@
 #include <limits>
 #include <string_view>
 
-namespace eosio { namespace chain { namespace eosvmoc {
-//NEVER reorder or remove indexes; the PIC uses the indexes in this table as an offset in to a jump
-// table. Adding on the bottom is fine and requires no other updates elsewhere
+namespace eosio {
+namespace chain {
+namespace eosvmoc {
+// NEVER reorder or remove indexes; the PIC uses the indexes in this table as an offset in to a jump
+//  table. Adding on the bottom is fine and requires no other updates elsewhere
 namespace detail {
-   template <typename... Args>
-   inline constexpr auto generate_table( Args&&... args ) {
-      return std::array<std::string_view, sizeof...(Args)> { args... };
-   }
+template<typename... Args>
+inline constexpr auto generate_table(Args&&... args) {
+   return std::array<std::string_view, sizeof...(Args)>{ args... };
+}
 } // ns eosio::chain::eosvmoc::detail
 
 inline constexpr auto get_intrinsic_table() {
@@ -22,8 +24,8 @@ inline constexpr auto get_intrinsic_table() {
       "eosvmoc_internal.indirect_call_mismatch",
       "eosvmoc_internal.indirect_call_oob",
       "eosvmoc_internal.depth_assert",
-      "eosio_injection.call_depth_assert",  //now unused; left for purposes of not upsetting existing code mappings
-      "eosio_injection.checktime",          //now unused; left for purposes of not upsetting existing code mappings
+      "eosio_injection.call_depth_assert", // now unused; left for purposes of not upsetting existing code mappings
+      "eosio_injection.checktime",         // now unused; left for purposes of not upsetting existing code mappings
       "env.__ashlti3",
       "env.__ashrti3",
       "env.__lshlti3",
@@ -267,18 +269,19 @@ inline constexpr auto get_intrinsic_table() {
       "env.sha3",
       "env.blake2_f",
       "env.k1_recover",
-      "env.get_block_num"
-   );
+      "env.get_block_num");
 }
 inline constexpr std::size_t find_intrinsic_index(std::string_view hf) {
    constexpr auto hosts = get_intrinsic_table();
-   for (  std::size_t i = 0; i < hosts.size(); ++i )
-      if ( hosts[i] == hf )
+   for (std::size_t i = 0; i < hosts.size(); ++i)
+      if (hosts[i] == hf)
          return i;
    return std::numeric_limits<std::size_t>::max();
 }
 
 inline constexpr std::size_t intrinsic_table_size() {
-    return std::tuple_size<decltype(get_intrinsic_table())>::value;
+   return std::tuple_size<decltype(get_intrinsic_table())>::value;
 }
-}}}
+}
+}
+}

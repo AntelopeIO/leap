@@ -38,7 +38,7 @@ FC_REFLECT(cf_action, (payload)(cfd_idx))
 #define DUMMY_ACTION_DEFAULT_C 0x7451ae12
 
 std::vector<eosio::chain::signed_block_ptr> deploy_test_api(eosio::testing::tester& chain);
-eosio::chain::transaction_trace_ptr push_test_cfd_transaction(eosio::testing::tester& chain);
+eosio::chain::transaction_trace_ptr         push_test_cfd_transaction(eosio::testing::tester& chain);
 
 struct scoped_temp_path {
    boost::filesystem::path path;
@@ -48,7 +48,5 @@ struct scoped_temp_path {
          path += boost::unit_test::framework::master_test_suite().argv[1];
       }
    }
-   ~scoped_temp_path() {
-      boost::filesystem::remove_all(path);
-   }
+   ~scoped_temp_path() { boost::filesystem::remove_all(path); }
 };

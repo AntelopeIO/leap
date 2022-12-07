@@ -8,19 +8,19 @@
 
 #include <boost/test/included/unit_test.hpp>
 
-//extern uint32_t EOS_TESTING_GENESIS_TIMESTAMP;
+// extern uint32_t EOS_TESTING_GENESIS_TIMESTAMP;
 
-void translate_fc_exception(const fc::exception &e) {
-   std::cerr << "\033[33m" <<  e.to_detail_string() << "\033[0m" << std::endl;
+void translate_fc_exception(const fc::exception& e) {
+   std::cerr << "\033[33m" << e.to_detail_string() << "\033[0m" << std::endl;
    throw std::runtime_error("Caught Unexpected Exception");
 }
 
 static bool is_verbose = false;
-void setup_test_logging() {
-   if(is_verbose) {
-      fc::logger::get(DEFAULT_LOGGER).set_log_level(fc::log_level::debug);
+void        setup_test_logging() {
+          if (is_verbose) {
+             fc::logger::get(DEFAULT_LOGGER).set_log_level(fc::log_level::debug);
    } else {
-      fc::logger::get(DEFAULT_LOGGER).set_log_level(fc::log_level::off);
+             fc::logger::get(DEFAULT_LOGGER).set_log_level(fc::log_level::off);
    }
 }
 

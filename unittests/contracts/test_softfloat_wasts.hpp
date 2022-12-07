@@ -10629,7 +10629,7 @@ static const char f32_bitwise_test_wast[] = R"=====(
    (call $assert_return (call $neg (f32.const nan)) (f32.const -nan) (i32.const 1456))
 ))
 )=====";
-static const char f64_test_wast[] = R"=====(
+static const char f64_test_wast[]         = R"=====(
 (module
   (import "env" "require_auth" (func $require_auth (param i64)))
   (import "env" "eosio_assert" (func $eosio_assert (param i32 i32)))
@@ -21648,7 +21648,6 @@ static const char f32_f64_conv_wast[] = R"=====(
     (call $assert_returnf64 (call $f64_convert_u_i64 (i64.const 9007199254740995)) (f64.const 9007199254740996) (i32.const 1040))
 ))
 )=====";
-
 
 static const char i32_overflow_wast[] = R"=====(
 (module

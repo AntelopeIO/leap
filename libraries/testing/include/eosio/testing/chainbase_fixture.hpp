@@ -3,7 +3,8 @@
 
 #include <memory>
 
-namespace eosio { namespace testing {
+namespace eosio {
+namespace testing {
 
 /**
  * Utility class to create and tear down a temporary chainbase::database using RAII
@@ -13,19 +14,17 @@ namespace eosio { namespace testing {
 template<uint64_t MAX_SIZE>
 struct chainbase_fixture {
    chainbase_fixture()
-   : _tempdir()
-   , _db(std::make_unique<chainbase::database>(_tempdir.path(), chainbase::database::read_write, MAX_SIZE))
-   {
-   }
+      : _tempdir()
+      , _db(std::make_unique<chainbase::database>(_tempdir.path(), chainbase::database::read_write, MAX_SIZE)) {}
 
-   ~chainbase_fixture()
-   {
+   ~chainbase_fixture() {
       _db.reset();
       _tempdir.remove();
    }
 
-   fc::temp_directory                    _tempdir;
-   std::unique_ptr<chainbase::database>  _db;
+   fc::temp_directory                   _tempdir;
+   std::unique_ptr<chainbase::database> _db;
 };
 
-} }  // eosio::testing
+}
+} // eosio::testing
