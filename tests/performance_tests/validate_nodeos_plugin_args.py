@@ -7,6 +7,9 @@ from NodeosPluginArgs import ChainPluginArgs, HttpClientPluginArgs, HttpPluginAr
 
 testSuccessful = False
 
+regenSuggestion = "Try updating *PluginArgs classes to nodeos's current config options by running the script: generate_nodeos_plugin_args_class_files.py. \
+    Updates to generation script may be required if a plugin was added/removed or in some default parameter cases."
+
 def parseNodeosConfigOptions() -> dict:
     result = subprocess.run(["programs/nodeos/nodeos", "--help"], capture_output=True, text=True)
 
@@ -69,7 +72,7 @@ curListOfUnsupportedOptionGroups = ["txn_test_gen_plugin", "Application Config O
 
 #Check whether nodeos has added any plugin configuration sections
 for confSection in nodeosPluginOptsDict.keys():
-    assert confSection in [paClass._pluginName for paClass in curListOfSupportedPlugins] or confSection in curListOfUnsupportedOptionGroups, f"ERROR: New config section \"{confSection}\" added to nodeos which may require updates."
+    assert confSection in [paClass._pluginName for paClass in curListOfSupportedPlugins] or confSection in curListOfUnsupportedOptionGroups, f"ERROR: New config section \"{confSection}\" added to nodeos which may require updates. {regenSuggestion}"
 
 def argStrToAttrName(argStr: str) -> str:
     attrName="".join([x.capitalize() for x in argStr.split('-')]).replace('--','')
@@ -78,11 +81,11 @@ def argStrToAttrName(argStr: str) -> str:
 
 for supportedPlugin in curListOfSupportedPlugins:
     #Check whether nodeos has removed any plugin configuration sections
-    assert supportedPlugin._pluginName in nodeosPluginOptsDict, f"ERROR: Supported config section \"{supportedPlugin}\" no longer supported by nodeos."
+    assert supportedPlugin._pluginName in nodeosPluginOptsDict, f"ERROR: Supported config section \"{supportedPlugin}\" no longer supported by nodeos. {regenSuggestion}"
 
     for opt in supportedPlugin.supportedNodeosArgs():
         #Check whether nodeos has removed any arguments in a plugin
-        assert opt in nodeosPluginOptsDict[supportedPlugin._pluginName].keys(), f"ERROR: nodeos no longer supports \"{opt}\" in \"{supportedPlugin._pluginName}\"."
+        assert opt in nodeosPluginOptsDict[supportedPlugin._pluginName].keys(), f"ERROR: nodeos no longer supports \"{opt}\" in \"{supportedPlugin._pluginName}\". {regenSuggestion}"
 
 
         ourDefault = getattr(supportedPlugin, f"_{argStrToAttrName(opt)}NodeosDefault")
@@ -90,16 +93,16 @@ for supportedPlugin in curListOfSupportedPlugins:
         if type(ourDefault) == bool and nodeosCurDefault is None:
             nodeosCurDefault=False
         #Check whether our defaults no longer match nodeos's
-        assert ourDefault == nodeosCurDefault, f"ERROR: {type(supportedPlugin)}'s default for \"{opt}\" is {ourDefault} and no longer matches nodeos's default {nodeosCurDefault} in \"{supportedPlugin._pluginName}\"."
+        assert ourDefault == nodeosCurDefault, f"ERROR: {type(supportedPlugin)}'s default for \"{opt}\" is {ourDefault} and no longer matches nodeos's default {nodeosCurDefault} in \"{supportedPlugin._pluginName}\". {regenSuggestion}"
 
     #Check whether nodeos has added/updated any argument defaults
     for nodeosOpt, defaultValue in nodeosPluginOptsDict[supportedPlugin._pluginName].items():
-        assert nodeosOpt in supportedPlugin.supportedNodeosArgs(), f"ERROR: New nodeos option \"{nodeosOpt}\". Support for this option needs to be added to {type(supportedPlugin)}."
+        assert nodeosOpt in supportedPlugin.supportedNodeosArgs(), f"ERROR: New nodeos option \"{nodeosOpt}\". Support for this option needs to be added to {type(supportedPlugin)}. {regenSuggestion}"
         
         ourDefault = getattr(supportedPlugin, f"_{argStrToAttrName(nodeosOpt)}NodeosDefault")
         if type(ourDefault) == bool and defaultValue is None:
             defaultValue=False
-        assert defaultValue == ourDefault, f"ERROR: nodeos's default for \"{nodeosOpt}\" is {nodeosCurDefault} and no longer matches {type(supportedPlugin)}'s default: {ourDefault} in \"{supportedPlugin._pluginName}\"."
+        assert defaultValue == ourDefault, f"ERROR: nodeos's default for \"{nodeosOpt}\" is {nodeosCurDefault} and no longer matches {type(supportedPlugin)}'s default: {ourDefault} in \"{supportedPlugin._pluginName}\". {regenSuggestion}"
 
 testSuccessful = True
 
