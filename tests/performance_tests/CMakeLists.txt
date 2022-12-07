@@ -9,6 +9,7 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_log_3_2.txt.gz ${CMAKE_CURRENT
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/genesis.json ${CMAKE_CURRENT_BINARY_DIR}/genesis.json COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/validate_nodeos_plugin_args.py ${CMAKE_CURRENT_BINARY_DIR}/validate_nodeos_plugin_args.py COPYONLY)
 
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/BasePluginArgs.py ${CMAKE_CURRENT_BINARY_DIR}/BasePluginArgs.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/ChainPluginArgs.py ${CMAKE_CURRENT_BINARY_DIR}/ChainPluginArgs.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/HttpClientPluginArgs.py ${CMAKE_CURRENT_BINARY_DIR}/HttpClientPluginArgs.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/HttpPluginArgs.py ${CMAKE_CURRENT_BINARY_DIR}/HttpPluginArgs.py COPYONLY)

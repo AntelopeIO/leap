@@ -37,7 +37,6 @@ def main():
             argument=secondSplit[0]
             argDefaultDesc=secondSplit[1].lstrip("\s")
             argDescDict[argument] = argDefaultDesc
-            # print(f"argDefaultDesc: {argDefaultDesc}")
         section=re.sub("@@@", "", section)
         section=re.sub("\n", "", section)
         sectionSplit=re.split("::", section)
@@ -67,11 +66,10 @@ def main():
         with open(pluginArgsFile, 'w') as dataclassFile:
             chainPluginArgs = dataFieldDict[newPlugin]
 
-            dataclassFile.write(f"#!/usr/bin/env python3\n\n")            
-            dataclassFile.write(f"import dataclasses\n")
-            dataclassFile.write(f"import re\n\n")            
-            dataclassFile.write(f"from dataclasses import dataclass\n\n")            
-            dataclassFile.write(f"@dataclass\nclass {newPlugin}Args:\n")
+            dataclassFile.write(f"#!/usr/bin/env python3\n\n")
+            dataclassFile.write(f"from dataclasses import dataclass\n")
+            dataclassFile.write(f"from BasePluginArgs import BasePluginArgs\n\n")
+            dataclassFile.write(f"@dataclass\nclass {newPlugin}Args(BasePluginArgs):\n")
             dataclassFile.write(f"    _pluginNamespace: str=\"eosio\"\n")
             dataclassFile.write(f"    _pluginName: str=\"{plugin[:-1]}\"\n")
 
@@ -134,33 +132,6 @@ def main():
                 else:
                     return ""
 
-            def writeSupportedNodeosArgs() -> str:
-                return f"""\
-    def supportedNodeosArgs(self) -> list:\n\
-        args = []\n\
-        for field in dataclasses.fields(self):\n\
-            match = re.search("\w*NodeosArg", field.name)\n\
-            if match is not None:\n\
-                args.append(getattr(self, field.name))\n\
-        return args\n\n"""
-
-            def writeStrFxn() -> str:
-                return f"""\
-    def __str__(self) -> str:\n\
-        args = [] \n\
-        for field in dataclasses.fields(self):\n\
-            match = re.search("[^_]", field.name[0])\n\
-            if match is not None:\n\
-                default = getattr(self, f"_{{field.name}}NodeosDefault")\n\
-                current = getattr(self, field.name)\n\
-                if current is not None and current != default:\n\
-                    if type(current) is bool:
-                        args.append(f"{{getattr(self, f'_{{field.name}}NodeosArg')}}")
-                    else:
-                        args.append(f"{{getattr(self, f'_{{field.name}}NodeosArg')}} {{getattr(self, field.name)}}")
-
-        return "--plugin " + self._pluginNamespace + "::" + self._pluginName + " " + " ".join(args) if len(args) > 0 else ""\n\n"""
-
             def writeMainFxn(pluginName: str) -> str:
                 return f"""\
 def main():\n\
@@ -171,7 +142,7 @@ if __name__ == '__main__':\n\
     main()\n"""
 
             def writeHelpers(pluginName: str) -> str:
-                return "\n" + writeThreadSetter(pluginName) + writeSupportedNodeosArgs() + writeStrFxn() + writeMainFxn(pluginName)
+                return "\n" + writeThreadSetter(pluginName) + writeMainFxn(pluginName)
 
             dataclassFile.write(writeHelpers(f"{newPlugin}Args"))
     
