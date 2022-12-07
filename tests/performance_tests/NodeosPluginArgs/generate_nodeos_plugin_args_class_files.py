@@ -67,7 +67,7 @@ def main():
 
             dataclassFile.write(f"#!/usr/bin/env python3\n\n")
             dataclassFile.write(f"from dataclasses import dataclass\n")
-            dataclassFile.write(f"from BasePluginArgs import BasePluginArgs\n\n")
+            dataclassFile.write(f"from .BasePluginArgs import BasePluginArgs\n\n")
             dataclassFile.write(f"@dataclass\nclass {newPlugin}Args(BasePluginArgs):\n")
             dataclassFile.write(f"    _pluginNamespace: str=\"eosio\"\n")
             dataclassFile.write(f"    _pluginName: str=\"{plugin[:-1]}\"\n")

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from dataclasses import dataclass
-from BasePluginArgs import BasePluginArgs
+from .BasePluginArgs import BasePluginArgs
 
 @dataclass
 class NetPluginArgs(BasePluginArgs):
