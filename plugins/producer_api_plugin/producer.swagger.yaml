@@ -70,7 +70,7 @@ paths:
   /producer/paused:
     post:
       summary: paused
-      description: Retreives paused status for producer node
+      description: Retrieves paused status for producer node
       operationId: paused
       parameters: []
       requestBody:
@@ -90,7 +90,7 @@ paths:
   /producer/get_runtime_options:
     post:
       summary: get_runtime_options
-      description: Retreives run time options for producer node
+      description: Retrieves runtime options for producer node
       operationId: get_runtime_options
       parameters: []
       requestBody:
@@ -151,7 +151,7 @@ paths:
   /producer/get_whitelist_blacklist:
     post:
       summary: get_whitelist_blacklist
-      description: Retreives the white list and black list for producer node. A json object containing whitelist and blacklist information. `actor_whitelist` , `actor_blacklist`, `contract_whitelist`, `contract_blacklist` are represented by an array of Names. `action_blacklist` is an array of tuples consisting of Name and Action. `key_blacklist` is an array of Public Keys. Name is a string represeting a NamePrivileged or NameBasic or NameBid or NameCatchAll
+      description: Retrieves the whitelist and blacklist for producer node. A JSON object containing whitelist and blacklist information. `actor_whitelist`, `actor_blacklist`, `contract_whitelist`, `contract_blacklist` are represented by an array of Names. `action_blacklist` is an array of tuples consisting of Name and Action. `key_blacklist` is an array of Public Keys. Name is a string represeting a NamePrivileged or NameBasic or NameBid or NameCatchAll
       operationId: get_whitelist_blacklist
 
       responses:
@@ -195,7 +195,7 @@ paths:
   /producer/set_whitelist_blacklist:
     post:
       summary: set_whitelist_blacklist
-      description: Defines the whitelist and blacklist for a producer node. Takes a json object containing whitelist and blacklist information. At least one of actor_whitelist, actor_blacklist, contract_whitelist, contract_blacklist, action_blacklist, and key_blacklist is required. `actor_whitelist` , `actor_blacklist`, `contract_whitelist`, `contract_blacklist` take an array of Names. `action_blacklist` is an array of tuples consisting of Name and Action. `key_blacklist` is an array of Public Keys. Name is a string represeting a NamePrivileged or NameBasic or NameBid or NameCatchAll
+      description: Defines the whitelist and blacklist for a producer node. Takes a JSON object containing whitelist and blacklist information. At least one of actor_whitelist, actor_blacklist, contract_whitelist, contract_blacklist, action_blacklist, or key_blacklist is required. `actor_whitelist`, `actor_blacklist`, `contract_whitelist`, `contract_blacklist` take an array of Names. `action_blacklist` is an array of tuples consisting of Name and Action. `key_blacklist` is an array of Public Keys. Name is a string represeting a NamePrivileged or NameBasic or NameBid or NameCatchAll
       operationId: set_whitelist_blacklist
       required: true
       requestBody:
@@ -289,7 +289,7 @@ paths:
   /producer/get_integrity_hash:
     post:
       summary: get_integrity_hash
-      description: Retreives the integrity hash for producer node
+      description: Retrieves the integrity hash for producer node
       operationId: get_integrity_hash
 
       responses:
@@ -339,7 +339,7 @@ paths:
   /producer/get_supported_protocol_features:
     post:
       summary: get_supported_protocol_features
-      description: Retreives supported protocol features for producer node. Pass filters in as part of the request body.
+      description: Retrieves supported protocol features for producer node. Pass filters in as part of the request body.
       operationId: get_supported_protocol_features
       requestBody:
         content:
@@ -402,7 +402,7 @@ paths:
   /producer/get_account_ram_corrections:
     post:
       summary: get_account_ram_corrections
-      description: Retreives accounts with ram corrections.
+      description: Retrieves accounts with ram corrections.
       operationId: get_account_ram_corrections
       requestBody:
         content:
@@ -465,7 +465,7 @@ paths:
             application/json:
               schema:
                 type: object
-                description: Returns run time options set for the producer
+                description: Returns runtime options set for the producer
                 properties:
                   max_transaction_time:
                     type: integer
@@ -487,11 +487,11 @@ paths:
                     description: Subjective CPU leeway
                   incoming_defer_ratio:
                     type: integer
-                    description: Incoming defer ration
+                    description: Incoming defer ratio
   /producer/update_runtime_options:
     post:
       summary: update_runtime_options
-      description: Update run time options for producer node
+      description: Update runtime options for producer node
       operationId: update_runtime_options
       parameters: []
       requestBody:
@@ -504,7 +504,7 @@ paths:
               properties:
                 options:
                   type: object
-                  description: Defines the run time options to set for the producer
+                  description: Defines the runtime options to set for the producer
                   properties:
                     max_transaction_time:
                       type: integer
@@ -538,7 +538,7 @@ paths:
   /producer/get_greylist:
     post:
       summary: get_greylist
-      description: Retreives the greylist for producer node
+      description: Retrieves the greylist for producer node
       operationId: get_greylist
       parameters: []
       requestBody:
@@ -625,7 +625,7 @@ paths:
   /producer/get_whitelist_blacklist:
     post:
       summary: get_whitelist_blacklist
-      description: Retreives the white list and black list for producer node
+      description: Retrieves the whitelist and blacklist for producer node
       operationId: get_whitelist_blacklist
       parameters: []
       requestBody:
@@ -677,7 +677,7 @@ paths:
   /producer/set_whitelist_blacklist:
     post:
       summary: set_whitelist_blacklist
-      description: Sets the white list and black list for producer node
+      description: Sets the whitelist and blacklist for producer node
       operationId: set_whitelist_blacklist
       parameters: []
       requestBody:
@@ -765,7 +765,7 @@ paths:
   /producer/get_integrity_hash:
     post:
       summary: get_integrity_hash
-      description: Retreives the integrity hash for producer node
+      description: Retrieves the integrity hash for producer node
       operationId: get_integrity_hash
       parameters: []
       requestBody:
@@ -823,7 +823,7 @@ paths:
   /producer/get_supported_protocol_features:
     post:
       summary: get_supported_protocol_features
-      description: Retreives supported protocol features for producer node
+      description: Retrieves supported protocol features for producer node
       operationId: get_supported_protocol_features
       parameters: []
       requestBody:
