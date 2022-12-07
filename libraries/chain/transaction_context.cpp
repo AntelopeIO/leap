@@ -142,7 +142,12 @@ namespace eosio { namespace chain {
 
       // Record accounts to be billed for network and CPU usage
       if( control.is_builtin_activated(builtin_protocol_feature_t::only_bill_first_authorizer) ) {
-         bill_to_accounts.insert( trx.first_authorizer() );
+         // first_authorizer can be empty in read only and dry run transactions.
+         // Empty account name in bill_to_accounts will cause unintended
+         // assert violation later
+         if ( trx.first_authorizer().good() ) {
+            bill_to_accounts.insert( trx.first_authorizer() );
+         }
       } else {
          for( const auto& act : trx.actions ) {
             for( const auto& auth : act.authorization ) {

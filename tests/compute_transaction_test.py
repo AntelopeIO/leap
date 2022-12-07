@@ -94,8 +94,14 @@ try:
     account2.activePublicKey = EOSIO_ACCT_PUBLIC_DEFAULT_KEY
     cluster.createAccountAndVerify(account2, cluster.eosioAccount, stakedDeposit=1000, stakeCPU=1)
 
+    Print("Creating payloadless")
+    payloadless = Account('payloadless')
+    payloadless.ownerPublicKey = EOSIO_ACCT_PUBLIC_DEFAULT_KEY
+    payloadless.activePublicKey = EOSIO_ACCT_PUBLIC_DEFAULT_KEY
+    cluster.createAccountAndVerify(payloadless, cluster.eosioAccount)
+
     Print("Validating accounts after bootstrap")
-    cluster.validateAccounts([account1, account2])
+    cluster.validateAccounts([account1, account2, payloadless])
 
     node = cluster.getNode()
 
@@ -178,6 +184,17 @@ try:
                      "compression": "none"}]
     }
     results = npnode.pushTransaction(trx3, opts="--read-only")
+    assert(results[0])
+
+    contractDir="unittests/test-contracts/payloadless"
+    wasmFile="payloadless.wasm"
+    abiFile="payloadless.abi"
+    Print("Publish payloadless contract")
+    node.publishContract(payloadless, contractDir, wasmFile, abiFile,waitForTransBlock=True)
+
+    # test a transaction without authorization works
+    trx4 = { "actions": [{"account": "payloadless", "name": "doit", "authorization": [], "data": ""}] };
+    results = npnode.pushTransaction(trx4, opts="--read-only")
     assert(results[0])
 
     testSuccessful = True
