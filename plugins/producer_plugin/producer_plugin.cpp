@@ -787,6 +787,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          exhausted
       };
 
+      inline bool start_block_interrupted( const fc::time_point& deadline );
       start_block_result start_block();
 
       fc::time_point calculate_pending_block_time() const;
@@ -1680,6 +1681,14 @@ fc::time_point producer_plugin_impl::calculate_block_deadline( const fc::time_po
    }
 }
 
+bool producer_plugin_impl::start_block_interrupted( const fc::time_point& deadline ) {
+   if( _pending_block_mode == pending_block_mode::speculating ) {
+      return _received_block;
+   } else {
+      return deadline <= fc::time_point::now();
+   }
+}
+
 producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
    chain::controller& chain = chain_plug->chain();
 
@@ -1857,17 +1866,11 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
       try {
          _account_fails.clear();
 
-         if( _pending_block_mode == pending_block_mode::speculating && _received_block )
-            return start_block_result::exhausted;
          if( !remove_expired_trxs( preprocess_deadline ) )
-            return start_block_result::exhausted;
-         if( _pending_block_mode == pending_block_mode::speculating && _received_block )
             return start_block_result::exhausted;
          if( !remove_expired_blacklisted_trxs( preprocess_deadline ) )
             return start_block_result::exhausted;
-         if( _pending_block_mode == pending_block_mode::speculating && _received_block )
-            return start_block_result::exhausted;
-         if( !_subjective_billing.remove_expired( _log, chain.pending_block_time(), fc::time_point::now(), preprocess_deadline ) )
+         if( !_subjective_billing.remove_expired( _log, chain.pending_block_time(), fc::time_point::now(), [&](){ return start_block_interrupted(preprocess_deadline); } ) )
             return start_block_result::exhausted;
 
          // limit execution of pending incoming to once per block
@@ -1890,7 +1893,7 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
 
          if( app().is_quiting() ) // db guard exception above in LOG_AND_DROP could have called app().quit()
             return start_block_result::failed;
-         if (preprocess_deadline <= fc::time_point::now() || block_is_exhausted()) {
+         if ( start_block_interrupted(preprocess_deadline) || block_is_exhausted()) {
             return start_block_result::exhausted;
          } else {
             if( !process_incoming_trxs( preprocess_deadline, pending_incoming_process_limit ) )
@@ -1921,7 +1924,7 @@ bool producer_plugin_impl::remove_expired_trxs( const fc::time_point& deadline )
    size_t num_expired_persistent = 0;
    size_t num_expired_other = 0;
    size_t orig_count = _unapplied_transactions.size();
-   bool exhausted = !_unapplied_transactions.clear_expired( pending_block_time, deadline,
+   bool exhausted = !_unapplied_transactions.clear_expired( pending_block_time, [&](){ return start_block_interrupted(deadline); },
                   [chain_plug = chain_plug, &num_expired_persistent, &num_expired_other, pbm = _pending_block_mode,
                    &chain, has_producers = !_producers.empty()]( const packed_transaction_ptr& packed_trx_ptr, trx_enum_type trx_type ) {
             if( trx_type == trx_enum_type::persisted ) {
@@ -1963,7 +1966,7 @@ bool producer_plugin_impl::remove_expired_trxs( const fc::time_point& deadline )
             }
    });
 
-   if( exhausted ) {
+   if( exhausted && _pending_block_mode == pending_block_mode::producing ) {
       fc_wlog( _log, "Unable to process all expired transactions in unapplied queue before deadline, "
                      "Persistent expired ${persistent_expired}, Other expired ${other_expired}",
                ("persistent_expired", num_expired_persistent)("other_expired", num_expired_other) );
@@ -1989,7 +1992,7 @@ bool producer_plugin_impl::remove_expired_blacklisted_trxs( const fc::time_point
       int orig_count = _blacklisted_transactions.size();
 
       while (!blacklist_by_expiry.empty() && blacklist_by_expiry.begin()->expiry <= lib_time) {
-         if (deadline <= fc::time_point::now()) {
+         if ( start_block_interrupted(deadline) ) {
             exhausted = true;
             break;
          }
@@ -2017,7 +2020,7 @@ bool producer_plugin_impl::process_unapplied_trxs( const fc::time_point& deadlin
       auto end_itr = (_pending_block_mode == pending_block_mode::producing) ?
                      _unapplied_transactions.unapplied_end()   : _unapplied_transactions.persisted_end();
       while( itr != end_itr ) {
-         if( deadline <= fc::time_point::now() || (_pending_block_mode == pending_block_mode::speculating && _received_block) ) {
+         if( start_block_interrupted(deadline) ) {
             exhausted = true;
             break;
          }
@@ -2218,7 +2221,7 @@ bool producer_plugin_impl::process_incoming_trxs( const fc::time_point& deadline
       auto itr = _unapplied_transactions.incoming_begin();
       auto end = _unapplied_transactions.incoming_end();
       while( pending_incoming_process_limit && itr != end ) {
-         if (deadline <= fc::time_point::now() || (_pending_block_mode == pending_block_mode::speculating && _received_block) ) {
+         if ( start_block_interrupted(deadline) ) {
             exhausted = true;
             break;
          }
