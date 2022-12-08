@@ -4,6 +4,7 @@ import subprocess
 import os
 
 from TestHarness import Cluster, TestHelper, Utils
+from pathlib import Path
 
 ###############################################################
 # nodeos_run_remote_test
@@ -57,7 +58,7 @@ try:
     producerKeys=Cluster.parseClusterKeys(1)
     defproduceraPrvtKey=producerKeys["defproducera"]["private"]
     defproducerbPrvtKey=producerKeys["defproducerb"]["private"]
-    errorLogPath = f"TestLogs/nodeos_run_remote_test.py{os.getpid()}/lib/node_00/stderr.txt"
+    errorLogPath = f"TestLogs/{Path(__file__).stem}{os.getpid()}/node_00/stderr.txt"
     cmd="%s --error-log-path %s --dont-launch --defproducera_prvt_key %s --defproducerb_prvt_key %s %s %s %s " % (actualTest, errorLogPath, defproduceraPrvtKey, defproducerbPrvtKey, "-v" if debug else "", "--leave-running" if dontKill else "", "--only-bios" if onlyBios else "")
     Print("Starting up %s test: %s" % ("nodeos", actualTest))
     Print("cmd: %s\n" % (cmd))

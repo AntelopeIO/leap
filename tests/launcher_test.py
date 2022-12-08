@@ -5,6 +5,7 @@ import re
 import os
 
 from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr
+from pathlib import Path
 
 ###############################################################
 # launcher-test
@@ -216,7 +217,7 @@ try:
         errorExit("Failed to bounce eos node.")
 
     p = re.compile('Assert')
-    errFileName=f"TestLogs/launcher_test.py{os.getpid()}/lib/node_00/stderr.txt"
+    errFileName=f"TestLogs/{Path(__file__).stem}{os.getpid()}/node_00/stderr.txt"
     assertionsFound=False
     with open(errFileName) as errFile:
         for line in errFile:
@@ -226,8 +227,8 @@ try:
     if assertionsFound:
         # Too many assertion logs, hard to validate how many are genuine. Make this a warning
         #  for now, hopefully the logs will get cleaned up in future.
-        Print(f"WARNING: Asserts in TestLogs/launcher_test.py{os.getpid()}/lib/node_00/stderr.txt")
-        #errorExit("FAILURE - Assert in launcher_test.py/lib/node_00/stderr.txt")
+        Print(f"WARNING: Asserts in TestLogs/{Path(__file__).stem}{os.getpid()}/node_00/stderr.txt")
+        #errorExit("FAILURE - Assert in launcher_test.py/node_00/stderr.txt")
 
     Print("Validating accounts at end of test")
     accounts=[testeraAccount, currencyAccount, exchangeAccount]

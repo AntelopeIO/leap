@@ -91,13 +91,13 @@ class TestHelper(object):
             parser.add_argument("--defproducerb_prvt_key", type=str, help="defproducerb private key.")
         if "--dump-error-details" in includeArgs:
             parser.add_argument("--dump-error-details",
-                                     help="Upon error print etc/eosio/node_*/config.ini and <test_name>.py/lib/node_*/stderr.log to stdout",
+                                     help="Upon error print etc/eosio/node_*/config.ini and <test_name><pid>/node_*/stderr.log to stdout",
                                      action='store_true')
         if "--dont-launch" in includeArgs:
             parser.add_argument("--dont-launch", help="Don't launch own node. Assume node is already running.",
                                      action='store_true')
         if "--keep-logs" in includeArgs:
-            parser.add_argument("--keep-logs", help="Don't delete <test_name>.py/lib/node_* folders upon test completion",
+            parser.add_argument("--keep-logs", help="Don't delete <test_name><pid>/node_* folders upon test completion",
                                      action='store_true')
         if "-v" in includeArgs:
             parser.add_argument("-v", help="verbose logging", action='store_true')

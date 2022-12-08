@@ -71,10 +71,10 @@ class Utils:
 
     FileDivider="================================================================="
     TestLogRoot="TestLogs"
-    DataRoot=os.path.basename(sys.argv[0])
+    DataRoot=os.path.basename(sys.argv[0]).split('.')[0]
     PID = os.getpid()
     DataPath= f"{TestLogRoot}/{DataRoot}{PID}"
-    DataDir= f"{DataPath}/lib/"
+    DataDir= f"{DataPath}/"
     ConfigDir="etc/eosio/"
 
     TimeFmt='%Y-%m-%dT%H:%M:%S.%f'

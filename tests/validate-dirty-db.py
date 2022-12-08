@@ -6,6 +6,7 @@ import signal
 
 from TestHarness import Cluster, TestHelper, Utils
 from os import getpid
+from pathlib import Path
 
 ###############################################################
 # validate-dirty-db
@@ -40,7 +41,7 @@ testSuccessful=False
 def runNodeosAndGetOutput(myTimeout=3):
     """Startup nodeos, wait for timeout (before forced shutdown) and collect output. Stdout, stderr and return code are returned in a dictionary."""
     Print("Launching nodeos process.")
-    cmd=f"programs/nodeos/nodeos --config-dir etc/eosio/node_bios --data-dir TestLogs/validate-dirty-db.py{getpid()}/lib/node_bios --verbose-http-errors --http-validate-host=false --resource-monitor-not-shutdown-on-threshold-exceeded"
+    cmd=f"programs/nodeos/nodeos --config-dir etc/eosio/node_bios --data-dir TestLogs/{Path(__file__).stem}{getpid()}/node_bios --verbose-http-errors --http-validate-host=false --resource-monitor-not-shutdown-on-threshold-exceeded"
     Print("cmd: %s" % (cmd))
     proc=subprocess.Popen(cmd.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if debug: Print("Nodeos process launched.")

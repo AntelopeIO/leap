@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from TestHarness import Account, Cluster, Node, ReturnType, TestHelper, Utils, WalletMgr
+from pathlib import Path
 
 import decimal
 import re
@@ -37,7 +38,7 @@ onlyBios=args.only_bios
 killAll=args.clean_run
 sanityTest=args.sanity_test
 walletPort=args.wallet_port
-errFileName=f"TestLogs/nodeos_run_test.py{os.getpid()}/lib/node_00/stderr.txt"
+errFileName=f"TestLogs/{Path(__file__).stem}{os.getpid()}/node_00/stderr.txt"
 if args.error_log_path:
     errFileName=args.error_log_path
 
@@ -750,7 +751,6 @@ try:
             # Too many assertion logs, hard to validate how many are genuine. Make this a warning
             #  for now, hopefully the logs will get cleaned up in future.
             Print(f"WARNING: Asserts in {errFileName}")
-            #errorExit("FAILURE - Assert in nodeos_run_test.py/lib/node_00/stderr.txt")
 
     Print("Validating accounts at end of test")
     accounts=[testeraAccount, currencyAccount, exchangeAccount]
