@@ -112,7 +112,7 @@ protected:
       // Request path must be absolute and not contain "..".
       if(req.target().empty() || req.target()[0] != '/' || req.target().find("..") != beast::string_view::npos) {
          error_results results{static_cast<uint16_t>(http::status::bad_request), "Illegal request-target"};
-         send_response(fc::json::to_string(results, fc::time_point::maximum()),
+         send_response( fc::json::to_string( results, fc::time_point::maximum() ),
                        static_cast<unsigned int>(http::status::bad_request) );
          return;
       }
@@ -197,8 +197,7 @@ public:
          ei.name = "Busy";
          ei.what = "Too many requests in flight: " + std::to_string( requests_in_flight_num );
          error_results results{static_cast<uint16_t>(http::status::too_many_requests), "Busy", ei};
-         send_response(fc::json::to_string(results, fc::time_point::maximum()),
-                       static_cast<unsigned int>(http::status::too_many_requests) );
+         send_response( fc::json::to_string( results, fc::time_point::maximum() ), static_cast<unsigned int>(http::status::too_many_requests) );
          return false;
       }
       return true;
@@ -257,8 +256,8 @@ public:
    }
 
    void on_read(beast::error_code ec,
-                std::size_t bytes_transferred) {
-      boost::ignore_unused(bytes_transferred);
+                std::size_t payload_size) {
+      plugin_state_->bytes_in_flight -= payload_size;
 
       // This means they closed the connection
       if(ec == http::error::end_of_stream)
@@ -279,10 +278,10 @@ public:
    }
 
    void on_write(beast::error_code ec,
-                 std::size_t payload_size,
+                 std::size_t bytes_transferred,
                  bool close) {
-      plugin_state_->bytes_in_flight -= payload_size;
-      
+      boost::ignore_unused(bytes_transferred);
+
       if(ec) {
          return fail(ec, "write", plugin_state_->logger, "closing connection");
       }
@@ -381,7 +380,7 @@ public:
       http::async_write(
             derived().stream(),
             *res_,
-            [self, close, payload_size](beast::error_code ec, std::size_t bytes_transferred) {
+            [self, payload_size, close](beast::error_code ec, std::size_t bytes_transferred) {
                self->on_write(ec, payload_size, close);
             });
    }

@@ -147,7 +147,6 @@ struct http_plugin_state {
 auto make_http_response_handler(std::shared_ptr<http_plugin_state> plugin_state, detail::abstract_conn_ptr session_ptr) {
    return [plugin_state{std::move(plugin_state)},
            session_ptr{std::move(session_ptr)}](int code, fc::time_point deadline, std::optional<fc::variant> response) {
-      //auto tracked_response = make_in_flight(std::move(response), plugin_state);
       auto payload_size = detail::in_flight_sizeof(response);
       if(!session_ptr->verify_max_bytes_in_flight(payload_size)) {
          return;
