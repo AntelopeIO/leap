@@ -96,15 +96,15 @@ public:
       return itr->trx_meta;
    }
 
-   template <typename Yeild, typename Callback>
-   bool clear_expired( const time_point& pending_block_time, Yeild&& yeild, Callback&& callback ) {
+   template <typename Yield, typename Callback>
+   bool clear_expired( const time_point& pending_block_time, Yield&& yield, Callback&& callback ) {
       auto& persisted_by_expiry = queue.get<by_expiry>();
       while( !persisted_by_expiry.empty() ) {
          const auto& itr = persisted_by_expiry.begin();
          if( itr->expiry > pending_block_time ) {
             break;
          }
-         if( yeild() ) {
+         if( yield() ) {
             return false;
          }
          callback( itr->trx_meta->packed_trx(), itr->trx_type );
