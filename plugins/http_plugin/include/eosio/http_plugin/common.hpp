@@ -56,8 +56,9 @@ namespace detail {
 */
 struct abstract_conn {
    virtual ~abstract_conn() = default;
-   virtual bool verify_max_bytes_in_flight(size_t extra_bytes) = 0;
-   virtual bool verify_max_requests_in_flight() = 0;
+   virtual std::string verify_max_bytes_in_flight(size_t extra_bytes) = 0;
+   virtual std::string verify_max_requests_in_flight() = 0;
+   virtual void send_busy_response(std::string&& what) = 0;
    virtual void handle_exception() = 0;
 
    virtual void send_response(std::string&& json_body, unsigned int code) = 0;
@@ -148,7 +149,8 @@ auto make_http_response_handler(std::shared_ptr<http_plugin_state> plugin_state,
    return [plugin_state{std::move(plugin_state)},
            session_ptr{std::move(session_ptr)}](int code, fc::time_point deadline, std::optional<fc::variant> response) {
       auto payload_size = detail::in_flight_sizeof(response);
-      if(!session_ptr->verify_max_bytes_in_flight(payload_size)) {
+      if(auto error_str = session_ptr->verify_max_bytes_in_flight(payload_size); !error_str.empty()) {
+         session_ptr->send_busy_response(std::move(error_str));
          return;
       }
 
@@ -166,8 +168,10 @@ auto make_http_response_handler(std::shared_ptr<http_plugin_state> plugin_state,
                               plugin_state->bytes_in_flight -= payload_size;
                               if (response.has_value()) {
                                  std::string json = fc::json::to_string(*response, deadline + (fc::time_point::now() - start));
-                                 if (session_ptr->verify_max_bytes_in_flight(json.size()))
+                                 if (auto error_str = session_ptr->verify_max_bytes_in_flight(json.size()); error_str.empty())
                                     session_ptr->send_response(std::move(json), code);
+                                 else
+                                    session_ptr->send_busy_response(std::move(error_str));
                               } else {
                                  session_ptr->send_response("{}", code);
                               }

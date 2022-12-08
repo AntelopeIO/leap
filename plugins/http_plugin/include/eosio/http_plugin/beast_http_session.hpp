@@ -157,10 +157,7 @@ protected:
                                   error_results::error_info( fc::exception( FC_LOG_MESSAGE( error, "Unknown Endpoint" ) ),
                                                              http_plugin::verbose_errors() )};
             auto json = fc::json::to_string(results, fc::time_point::maximum());
-            
-            // verify bytes in flight/requests in flight
-            if (verify_max_bytes_in_flight(json.size())) 
-               send_response(std::move(json), static_cast<unsigned int>(http::status::not_found) );
+            send_response(std::move(json), static_cast<unsigned int>(http::status::not_found) );
          }
       } catch(...) {
          handle_exception();
@@ -168,39 +165,36 @@ protected:
    }
 
 public:
+
+   virtual void send_busy_response(std::string&& what) final {
+      error_results::error_info ei;
+      ei.code = static_cast<int64_t>(http::status::too_many_requests);
+      ei.name = "Busy";
+      ei.what = std::move(what);
+      error_results results{static_cast<uint16_t>(http::status::too_many_requests), "Busy", ei};
+      send_response(fc::json::to_string(results, fc::time_point::maximum()),
+                    static_cast<unsigned int>(http::status::too_many_requests) );
+   }
    
-   virtual bool verify_max_bytes_in_flight(size_t extra_bytes) final {
+   virtual std::string verify_max_bytes_in_flight(size_t extra_bytes) final {
       auto bytes_in_flight_size = plugin_state_->bytes_in_flight.load() + extra_bytes;
       if(bytes_in_flight_size > plugin_state_->max_bytes_in_flight) {
          fc_dlog(plugin_state_->logger, "429 - too many bytes in flight: ${bytes}", ("bytes", bytes_in_flight_size));
-         error_results::error_info ei;
-         ei.code = static_cast<int64_t>(http::status::too_many_requests);
-         ei.name = "Busy";
-         ei.what = "Too many bytes in flight: " + std::to_string( bytes_in_flight_size );
-         error_results results{static_cast<uint16_t>(http::status::too_many_requests), "Busy", ei};
-         send_response(fc::json::to_string(results, fc::time_point::maximum()),
-                       static_cast<unsigned int>(http::status::too_many_requests) );
-         return false;
+         return "Too many bytes in flight: " + std::to_string( bytes_in_flight_size );
       }
-      return true;
+      return {};
    }
 
-   virtual bool verify_max_requests_in_flight() final {
+   virtual std::string verify_max_requests_in_flight() final {
       if(plugin_state_->max_requests_in_flight < 0)
-         return true;
+         return {};
 
       auto requests_in_flight_num = plugin_state_->requests_in_flight.load();
       if(requests_in_flight_num > plugin_state_->max_requests_in_flight) {
          fc_dlog(plugin_state_->logger, "429 - too many requests in flight: ${requests}", ("requests", requests_in_flight_num));
-         error_results::error_info ei;
-         ei.code = static_cast<int64_t>(http::status::too_many_requests);
-         ei.name = "Busy";
-         ei.what = "Too many requests in flight: " + std::to_string( requests_in_flight_num );
-         error_results results{static_cast<uint16_t>(http::status::too_many_requests), "Busy", ei};
-         send_response( fc::json::to_string( results, fc::time_point::maximum() ), static_cast<unsigned int>(http::status::too_many_requests) );
-         return false;
+         return "Too many requests in flight: " + std::to_string( requests_in_flight_num );
       }
-      return true;
+      return {};
    }
 
    // Access the derived class, this is part of
@@ -256,8 +250,8 @@ public:
    }
 
    void on_read(beast::error_code ec,
-                std::size_t payload_size) {
-      plugin_state_->bytes_in_flight -= payload_size;
+                std::size_t bytes_transferred) {
+      boost::ignore_unused(bytes_transferred);
 
       // This means they closed the connection
       if(ec == http::error::end_of_stream)
@@ -360,9 +354,17 @@ public:
       }
    }
 
+   void increment_bytes_in_flight(size_t sz) {
+      plugin_state_->bytes_in_flight += sz;
+   }
+
+   void decrement_bytes_in_flight(size_t sz) {
+      plugin_state_->bytes_in_flight -= sz;
+   }
+
    virtual void send_response(std::string&& json, unsigned int code) final {
       auto payload_size = json.size();
-      plugin_state_->bytes_in_flight += payload_size;
+      increment_bytes_in_flight(payload_size);
       write_begin_ = steady_clock::now();
       auto dt = write_begin_ - handle_begin_;
       handle_time_us_ += std::chrono::duration_cast<std::chrono::microseconds>(dt).count();
@@ -381,13 +383,16 @@ public:
             derived().stream(),
             *res_,
             [self, payload_size, close](beast::error_code ec, std::size_t bytes_transferred) {
-               self->on_write(ec, payload_size, close);
+               self->decrement_bytes_in_flight(payload_size);
+               self->on_write(ec, bytes_transferred, close);
             });
    }
 
    void run_session() {
-      if(!verify_max_requests_in_flight())
+      if(auto error_str = verify_max_requests_in_flight(); !error_str.empty()) {
+         send_busy_response(std::move(error_str));
          return derived().do_eof();
+      }
 
       derived().run();
    }
