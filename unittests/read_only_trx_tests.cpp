@@ -118,11 +118,11 @@ BOOST_FIXTURE_TEST_CASE(updateauth_test, read_only_trx_tester) { try {
 BOOST_FIXTURE_TEST_CASE(deleteauth_test, read_only_trx_tester) { try {
    produce_blocks( 1 );
 
+   name account = "alice"_n;
+   name permission = "active"_n;
    action act = {
       vector<permission_level>{{config::system_account_name,config::active_name}},
-      deleteauth {
-         .account = "alice"_n, .permission = "active"_n
-      }
+      deleteauth { account, permission }
    };
 
    BOOST_CHECK_THROW( send_native_function_transaction(act), transaction_exception );
@@ -131,11 +131,13 @@ BOOST_FIXTURE_TEST_CASE(deleteauth_test, read_only_trx_tester) { try {
 BOOST_FIXTURE_TEST_CASE(linkauth_test, read_only_trx_tester) { try {
    produce_blocks( 1 );
 
+   name account = "alice"_n;
+   name code = "eosio_token"_n;
+   name type = "transfer"_n;
+   name requirement = "first"_n;
    action act = {
       vector<permission_level>{{config::system_account_name,config::active_name}},
-      linkauth {
-         .account = "alice"_n, .code = "eosio_token"_n, .type = "transfer"_n, .requirement = "first"_n
-      }
+      linkauth { account, code, type, requirement }
    };
 
    BOOST_CHECK_THROW( send_native_function_transaction(act), transaction_exception );
@@ -144,11 +146,12 @@ BOOST_FIXTURE_TEST_CASE(linkauth_test, read_only_trx_tester) { try {
 BOOST_FIXTURE_TEST_CASE(unlinkauth_test, read_only_trx_tester) { try {
    produce_blocks( 1 );
 
+   name account = "alice"_n;
+   name code = "eosio_token"_n;
+   name type = "transfer"_n;
    action act = {
       vector<permission_level>{{config::system_account_name,config::active_name}},
-      unlinkauth {
-         .account = "alice"_n, .code = "eosio_token"_n, .type = "transfer"_n
-      }
+      unlinkauth { account, code, type }
    };
 
    BOOST_CHECK_THROW( send_native_function_transaction(act), transaction_exception );
