@@ -113,7 +113,7 @@ protected:
       if(req.target().empty() || req.target()[0] != '/' || req.target().find("..") != beast::string_view::npos) {
          error_results results{static_cast<uint16_t>(http::status::bad_request), "Illegal request-target"};
          send_response( fc::json::to_string( results, fc::time_point::maximum() ),
-                       static_cast<unsigned int>(http::status::bad_request) );
+                        static_cast<unsigned int>(http::status::bad_request) );
          return;
       }
 
