@@ -533,7 +533,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                                                                  trx_type,
                                                                  chain.configured_subjective_signature_length_limit() );
 
-         if( trx_type != transaction_metadata::trx_type::dry_run ) {
+         if( trx_type != transaction_metadata::trx_type::dry_run && trx_type != transaction_metadata::trx_type::read_only ) {
             next = [this, trx, next{std::move(next)}]( const std::variant<fc::exception_ptr, transaction_trace_ptr>& response ) {
                next( response );
 
@@ -1448,6 +1448,7 @@ producer_plugin::get_unapplied_transactions( const get_unapplied_transactions_pa
 
    auto get_trx_type = [&](trx_enum_type t, transaction_metadata::trx_type type) {
       if( type == transaction_metadata::trx_type::dry_run ) return "dry_run";
+      if( type == transaction_metadata::trx_type::read_only ) return "read_only";
       switch( t ) {
          case trx_enum_type::unknown:
             return "unknown";
@@ -1971,7 +1972,8 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
 
    bool disable_subjective_enforcement = (api_trx && _disable_subjective_api_billing)
                                          || (!api_trx && _disable_subjective_p2p_billing)
-                                         || trx->is_dry_run();
+                                         || trx->is_dry_run()
+                                         || trx->is_read_only();
 
    auto first_auth = trx->packed_trx()->get_transaction().first_authorizer();
    if( !disable_subjective_enforcement && _account_fails.failure_limit( first_auth ) ) {
@@ -2006,7 +2008,13 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
       }
    }
 
+   if( trx->is_read_only() ) {
+      chain.set_db_read_only_mode();
+   }
    auto trace = chain.push_transaction( trx, block_deadline, max_trx_time, prev_billed_cpu_time_us, false, sub_bill );
+   if( trx->is_read_only() ) {
+      chain.unset_db_read_only_mode();
+   }
    auto end = fc::time_point::now();
    push_result pr;
    if( trace->except ) {

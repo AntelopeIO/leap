@@ -65,6 +65,7 @@ void validate_authority_precondition( const apply_context& context, const author
  *  This method is called assuming precondition_system_newaccount succeeds a
  */
 void apply_eosio_newaccount(apply_context& context) {
+   EOS_ASSERT( !context.trx_context.is_read_only(), action_validate_exception, "newaccount not allowed in read-only transaction" );
    auto create = context.get_action().data_as<newaccount>();
    try {
    context.require_authorization(create.creator);
@@ -127,6 +128,7 @@ void apply_eosio_newaccount(apply_context& context) {
 } FC_CAPTURE_AND_RETHROW( (create) ) }
 
 void apply_eosio_setcode(apply_context& context) {
+   EOS_ASSERT( !context.trx_context.is_read_only(), action_validate_exception, "setcode not allowed in read-only transaction" );
    auto& db = context.db;
    auto  act = context.get_action().data_as<setcode>();
    context.require_authorization(act.account);
@@ -210,6 +212,7 @@ void apply_eosio_setcode(apply_context& context) {
 }
 
 void apply_eosio_setabi(apply_context& context) {
+   EOS_ASSERT( !context.trx_context.is_read_only(), action_validate_exception, "setabi ot allowed in read-only transaction" );
    auto& db  = context.db;
    auto  act = context.get_action().data_as<setabi>();
 
@@ -248,6 +251,7 @@ void apply_eosio_setabi(apply_context& context) {
 }
 
 void apply_eosio_updateauth(apply_context& context) {
+   EOS_ASSERT( !context.trx_context.is_read_only(), action_validate_exception, "updateauth not allowed in read-only transaction" );
 
    auto update = context.get_action().data_as<updateauth>();
    context.require_authorization(update.account); // only here to mark the single authority on this action as used
@@ -322,6 +326,8 @@ void apply_eosio_updateauth(apply_context& context) {
 void apply_eosio_deleteauth(apply_context& context) {
 //   context.require_write_lock( config::eosio_auth_scope );
 
+   EOS_ASSERT( !context.trx_context.is_read_only(), action_validate_exception, "deleteauth not allowed in read-only transaction" );
+
    auto remove = context.get_action().data_as<deleteauth>();
    context.require_authorization(remove.account); // only here to mark the single authority on this action as used
 
@@ -356,6 +362,8 @@ void apply_eosio_deleteauth(apply_context& context) {
 
 void apply_eosio_linkauth(apply_context& context) {
 //   context.require_write_lock( config::eosio_auth_scope );
+
+   EOS_ASSERT( !context.trx_context.is_read_only(), action_validate_exception, "linkauth not allowed in read-only transaction" );
 
    auto requirement = context.get_action().data_as<linkauth>();
    try {
@@ -416,6 +424,8 @@ void apply_eosio_linkauth(apply_context& context) {
 
 void apply_eosio_unlinkauth(apply_context& context) {
 //   context.require_write_lock( config::eosio_auth_scope );
+
+   EOS_ASSERT( !context.trx_context.is_read_only(), action_validate_exception, "unlinkauth not allowed in read-only transaction" );
 
    auto& db = context.db;
    auto unlink = context.get_action().data_as<unlinkauth>();

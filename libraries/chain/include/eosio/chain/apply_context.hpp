@@ -1,6 +1,7 @@
 #pragma once
 #include <eosio/chain/controller.hpp>
 #include <eosio/chain/transaction.hpp>
+#include <eosio/chain/transaction_context.hpp>
 #include <eosio/chain/contract_table_objects.hpp>
 #include <eosio/chain/deep_mind.hpp>
 #include <fc/utility.hpp>
@@ -13,7 +14,6 @@ namespace chainbase { class database; }
 namespace eosio { namespace chain {
 
 class controller;
-class transaction_context;
 
 class apply_context {
    private:
@@ -177,6 +177,7 @@ class apply_context {
             int store( uint64_t scope, uint64_t table, const account_name& payer,
                        uint64_t id, secondary_key_proxy_const_type value )
             {
+               EOS_ASSERT( !context.trx_context.is_read_only(), table_operation_not_permitted, "cannot store a db record when executing a readonly transaction" );
                EOS_ASSERT( payer != account_name(), invalid_table_payer, "must specify a valid account to pay for new record" );
 
 //               context.require_write_lock( scope );
@@ -211,6 +212,7 @@ class apply_context {
             }
 
             void remove( int iterator ) {
+               EOS_ASSERT( !context.trx_context.is_read_only(), table_operation_not_permitted, "cannot remove a db record when executing a readonly transaction" );
                const auto& obj = itr_cache.get( iterator );
 
                const auto& table_obj = itr_cache.get_table( obj.t_id );
@@ -243,6 +245,7 @@ class apply_context {
             }
 
             void update( int iterator, account_name payer, secondary_key_proxy_const_type secondary ) {
+               EOS_ASSERT( !context.trx_context.is_read_only(), table_operation_not_permitted, "cannot update a db record when executing a readonly transaction" );
                const auto& obj = itr_cache.get( iterator );
 
                const auto& table_obj = itr_cache.get_table( obj.t_id );

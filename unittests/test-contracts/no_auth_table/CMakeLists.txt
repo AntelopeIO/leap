@@ -1,0 +1,6 @@
+if( EOSIO_COMPILE_TEST_CONTRACTS )
+   add_contract( no_auth_table no_auth_table no_auth_table.cpp )
+else()
+   configure_file( ${CMAKE_CURRENT_SOURCE_DIR}/no_auth_table.wasm ${CMAKE_CURRENT_BINARY_DIR}/no_auth_table.wasm COPYONLY )
+   configure_file( ${CMAKE_CURRENT_SOURCE_DIR}/no_auth_table.abi  ${CMAKE_CURRENT_BINARY_DIR}/no_auth_table.abi  COPYONLY )
+endif()

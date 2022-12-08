@@ -1331,7 +1331,7 @@ struct controller_impl {
          trace->except_ptr = std::current_exception();
          trace->elapsed = fc::time_point::now() - start;
 
-         if (auto dm_logger = get_deep_mind_logger()) {
+         if (auto dm_logger = get_deep_mind_logger(); dm_logger && !trx_context.is_read_only()) {
             dm_logger->on_fail_deferred();
          }
       };
@@ -1565,7 +1565,7 @@ struct controller_impl {
                        trx_context.delay,
                        [&trx_context](){ trx_context.checktime(); },
                        false,
-                       trx->is_dry_run()
+                       trx->is_dry_run() || trx->is_read_only()
                );
             }
             trx_context.exec();
@@ -1592,7 +1592,7 @@ struct controller_impl {
                              std::move(trx_context.executed_action_receipt_digests) );
 
             // call the accept signal but only once for this transaction
-            if (!trx->is_dry_run()) {
+            if (!trx->is_dry_run() && !trx->is_read_only()) {
                 if (!trx->accepted) {
                     trx->accepted = true;
                     emit(self.accepted_transaction, trx);
@@ -1603,7 +1603,7 @@ struct controller_impl {
             }
 
 
-            if ( trx->is_dry_run() ) {
+            if ( trx->is_dry_run() || trx->is_read_only() ) {
                // remove trx from pending block by not canceling 'restore'
                trx_context.undo(); // this will happen automatically in destructor, but make it more explicit
             } else if ( pending->_block_status == controller::block_status::ephemeral ) {
@@ -1618,7 +1618,7 @@ struct controller_impl {
                trx_context.squash();
             }
 
-            if( !trx->is_dry_run() ) {
+            if( !trx->is_dry_run() && !trx->is_read_only() ) {
                pending->_block_report.total_net_usage += trace->net_usage;
                pending->_block_report.total_cpu_usage_us += trace->receipt->cpu_usage_us;
                pending->_block_report.total_elapsed_time += trace->elapsed;
@@ -1641,7 +1641,7 @@ struct controller_impl {
            handle_exception(wrapper);
          }
 
-         if (!trx->is_dry_run()) {
+         if (!trx->is_dry_run() && !trx->is_read_only()) {
             emit(self.accepted_transaction, trx);
             dmlog_applied_transaction(trace);
             emit(self.applied_transaction, std::tie(trace, trx->packed_trx()));
@@ -3576,6 +3576,14 @@ void controller::replace_account_keys( name account, name permission, const publ
    int64_t new_size = (int64_t)(chain::config::billable_size_v<permission_object> + perm->auth.get_billable_size());
    rlm.add_pending_ram_usage(account, new_size - old_size);
    rlm.verify_account_ram_usage(account);
+}
+
+void controller::set_db_read_only_mode() {
+   mutable_db().set_read_only_mode();
+}
+
+void controller::unset_db_read_only_mode() {
+   mutable_db().unset_read_only_mode();
 }
 
 /// Protocol feature activation handlers:

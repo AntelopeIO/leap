@@ -67,7 +67,7 @@ namespace eosio { namespace chain {
       trace->block_time = c.pending_block_time();
       trace->producer_block_id = c.pending_producer_block_id();
 
-      if(auto dm_logger = control.get_deep_mind_logger())
+      if(auto dm_logger = control.get_deep_mind_logger(); dm_logger && !is_read_only())
       {
          dm_logger->on_start_transaction();
       }
@@ -75,7 +75,7 @@ namespace eosio { namespace chain {
 
    transaction_context::~transaction_context()
    {
-      if(auto dm_logger = control.get_deep_mind_logger())
+      if(auto dm_logger = control.get_deep_mind_logger(); dm_logger && !is_read_only())
       {
          dm_logger->on_end_transaction();
       }
@@ -222,6 +222,66 @@ namespace eosio { namespace chain {
       is_initialized = true;
    }
 
+   void transaction_context::init_for_read_only_trx()
+   {
+      // For read-only transactions, net and ram limits are not enforced.
+      // CPU limit is enforced up to block cpu limit for now.
+      // Will change to the read-only mode duration when multi-threading
+      // of read-only transactions is supported.
+      EOS_ASSERT( !is_initialized, transaction_exception, "cannot initialize twice" );
+
+      // set maximum to a semi-valid deadline to allow for pause math and conversion to dates for logging
+      if( block_deadline == fc::time_point::maximum() ) block_deadline = start + fc::hours(24*7*52);
+
+      const auto& cfg = control.get_global_properties().configuration;
+      auto& rl = control.get_mutable_resource_limits_manager();
+
+      objective_duration_limit = fc::microseconds( rl.get_block_cpu_limit() );
+      _deadline = start + objective_duration_limit;
+
+      // Possibly lower objective_duration_limit to the maximum cpu usage a transaction is allowed to be billed
+      if( cfg.max_transaction_cpu_usage <= objective_duration_limit.count() ) {
+         objective_duration_limit = fc::microseconds(cfg.max_transaction_cpu_usage);
+         billing_timer_exception_code = tx_cpu_usage_exceeded::code_value;
+         _deadline = start + objective_duration_limit;
+      }
+
+      const transaction& trx = packed_trx.get_transaction();
+
+      // Possibly lower objective_duration_limit to optional limit set in transaction header
+      if( trx.max_cpu_usage_ms > 0 ) {
+         auto trx_specified_cpu_usage_limit = fc::milliseconds(trx.max_cpu_usage_ms);
+         if( trx_specified_cpu_usage_limit <= objective_duration_limit ) {
+            objective_duration_limit = trx_specified_cpu_usage_limit;
+            billing_timer_exception_code = tx_cpu_usage_exceeded::code_value;
+            _deadline = start + objective_duration_limit;
+         }
+      }
+
+      initial_objective_duration_limit = objective_duration_limit;
+
+      // Possibly limit deadline to subjective max_transaction_time
+      if( max_transaction_time_subjective != fc::microseconds::maximum() && (start + max_transaction_time_subjective) <= _deadline ) {
+         _deadline = start + max_transaction_time_subjective;
+         billing_timer_exception_code = tx_cpu_usage_exceeded::code_value;
+      }
+
+      // Possibly limit deadline to caller provided wall clock block deadline
+      if( block_deadline < _deadline ) {
+         _deadline = block_deadline;
+         billing_timer_exception_code = deadline_exception::code_value;
+      }
+
+      if(control.skip_trx_checks()) {
+         transaction_timer.start( fc::time_point::maximum() );
+      } else {
+         transaction_timer.start( _deadline );
+         checktime(); // Fail early if deadline has already been exceeded
+      }
+
+      is_initialized = true;
+   }
+
    void transaction_context::init_for_implicit_trx( uint64_t initial_net_usage  )
    {
       const transaction& trx = packed_trx.get_transaction();
@@ -270,8 +330,13 @@ namespace eosio { namespace chain {
          control.validate_tapos(trx);
          validate_referenced_accounts( trx, enforce_whiteblacklist && control.is_speculative_block() );
       }
-      init( initial_net_usage);
-      record_transaction( packed_trx.id(), trx.expiration ); /// checks for dupes
+
+      if ( is_read_only() ) {
+         init_for_read_only_trx();
+      } else {
+         init( initial_net_usage );
+         record_transaction( packed_trx.id(), trx.expiration );
+      }
    }
 
    void transaction_context::init_for_deferred_trx( fc::time_point p )
@@ -320,6 +385,8 @@ namespace eosio { namespace chain {
 
    void transaction_context::finalize() {
       EOS_ASSERT( is_initialized, transaction_exception, "must first initialize" );
+
+      if ( is_read_only() ) return;
 
       if( is_input ) {
          const transaction& trx = packed_trx.get_transaction();
@@ -677,7 +744,7 @@ namespace eosio { namespace chain {
       apply_context acontext( control, *this, action_ordinal, recurse_depth );
 
       if (recurse_depth == 0) {
-         if (auto dm_logger = control.get_deep_mind_logger()) {
+         if (auto dm_logger = control.get_deep_mind_logger(); dm_logger && !is_read_only()) {
             dm_logger->on_input_action();
          }
       }
@@ -709,7 +776,7 @@ namespace eosio { namespace chain {
         gto.expiration  = gto.delay_until + fc::seconds(control.get_global_properties().configuration.deferred_trx_expiration_window);
         trx_size = gto.set( trx );
 
-        if (auto dm_logger = control.get_deep_mind_logger()) {
+        if (auto dm_logger = control.get_deep_mind_logger(); dm_logger && !is_read_only()) {
            std::string event_id = RAM_EVENT_ID("${id}", ("id", gto.id));
 
            dm_logger->on_create_deferred(deep_mind_handler::operation_qualifier::push, gto, packed_trx);
@@ -757,6 +824,10 @@ namespace eosio { namespace chain {
          auto* code = db.find<account_object, by_name>(a.account);
          EOS_ASSERT( code != nullptr, transaction_exception,
                      "action's code account '${account}' does not exist", ("account", a.account) );
+         if ( is_read_only() ) {
+            EOS_ASSERT( a.authorization.size() == 0, transaction_exception,
+                       "read-only action '${name}' cannot have permissions", ("name", a.name) );
+         }
          for( const auto& auth : a.authorization ) {
             one_auth = true;
             auto* actor = db.find<account_object, by_name>(auth.actor);
@@ -769,7 +840,7 @@ namespace eosio { namespace chain {
                actors.insert( auth.actor );
          }
       }
-      EOS_ASSERT( one_auth || is_dry_run(), tx_no_auths, "transaction must have at least one authorization" );
+      EOS_ASSERT( one_auth || is_dry_run() || is_read_only(), tx_no_auths, "transaction must have at least one authorization" );
 
       if( enforce_actor_whitelist_blacklist ) {
          control.check_actor_list( actors );

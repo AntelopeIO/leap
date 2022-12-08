@@ -198,7 +198,7 @@ namespace eosio { namespace testing {
          unapplied_transaction_queue& get_unapplied_transaction_queue() { return unapplied_transactions; }
 
          transaction_trace_ptr    push_transaction( packed_transaction& trx, fc::time_point deadline = fc::time_point::maximum(), uint32_t billed_cpu_time_us = DEFAULT_BILLED_CPU_TIME_US );
-         transaction_trace_ptr    push_transaction( signed_transaction& trx, fc::time_point deadline = fc::time_point::maximum(), uint32_t billed_cpu_time_us = DEFAULT_BILLED_CPU_TIME_US, bool no_throw = false );
+         transaction_trace_ptr    push_transaction( signed_transaction& trx, fc::time_point deadline = fc::time_point::maximum(), uint32_t billed_cpu_time_us = DEFAULT_BILLED_CPU_TIME_US, bool no_throw = false, transaction_metadata::trx_type trx_type = transaction_metadata::trx_type::input );
 
          [[nodiscard]]
          action_result            push_action(action&& cert_act, uint64_t authorizer); // TODO/QUESTION: Is this needed?

@@ -182,7 +182,7 @@ void apply_context::exec_one()
       print_debug(receiver, trace);
    }
 
-   if (auto dm_logger = control.get_deep_mind_logger())
+   if (auto dm_logger = control.get_deep_mind_logger(); dm_logger && !trx_context.is_read_only())
    {
       dm_logger->on_end_action();
    }
@@ -289,7 +289,7 @@ void apply_context::require_recipient( account_name recipient ) {
          schedule_action( action_ordinal, recipient, false )
       );
 
-      if (auto dm_logger = control.get_deep_mind_logger()) {
+      if (auto dm_logger = control.get_deep_mind_logger(); dm_logger && !trx_context.is_read_only()) {
          dm_logger->on_require_recipient();
       }
    }
@@ -363,7 +363,7 @@ void apply_context::execute_inline( action&& a ) {
                                       control.pending_block_time() - trx_context.published,
                                       std::bind(&transaction_context::checktime, &this->trx_context),
                                       false,
-                                      trx_context.is_dry_run(),
+                                      trx_context.is_dry_run() || trx_context.is_read_only(), // check_but_dont_fail
                                       inherited_authorizations
                                     );
 
@@ -394,7 +394,7 @@ void apply_context::execute_inline( action&& a ) {
       schedule_action( std::move(a), inline_receiver, false )
    );
 
-   if (auto dm_logger = control.get_deep_mind_logger()) {
+   if (auto dm_logger = control.get_deep_mind_logger(); dm_logger && !trx_context.is_read_only()) {
       dm_logger->on_send_inline();
    }
 }
@@ -419,7 +419,7 @@ void apply_context::execute_context_free_inline( action&& a ) {
       schedule_action( std::move(a), inline_receiver, true )
    );
 
-   if (auto dm_logger = control.get_deep_mind_logger()) {
+   if (auto dm_logger = control.get_deep_mind_logger(); dm_logger && !trx_context.is_read_only()) {
       dm_logger->on_send_context_free_inline();
    }
 }
@@ -778,11 +778,13 @@ int apply_context::get_context_free_data( uint32_t index, char* buffer, size_t b
 }
 
 int apply_context::db_store_i64( name scope, name table, const account_name& payer, uint64_t id, const char* buffer, size_t buffer_size ) {
+   EOS_ASSERT( !trx_context.is_read_only(), table_operation_not_permitted, "cannot store a db record when executing a readonly transaction" );
    return db_store_i64( receiver, scope, table, payer, id, buffer, buffer_size);
 }
 
 int apply_context::db_store_i64( name code, name scope, name table, const account_name& payer, uint64_t id, const char* buffer, size_t buffer_size ) {
 //   require_write_lock( scope );
+   EOS_ASSERT( !trx_context.is_read_only(), table_operation_not_permitted, "cannot store a db record when executing a readonly transaction" );
    const auto& tab = find_or_create_table( code, scope, table, payer );
    auto tableid = tab.id;
 
@@ -822,6 +824,7 @@ int apply_context::db_store_i64( name code, name scope, name table, const accoun
 }
 
 void apply_context::db_update_i64( int iterator, account_name payer, const char* buffer, size_t buffer_size ) {
+   EOS_ASSERT( !trx_context.is_read_only(), table_operation_not_permitted, "cannot update a db record when executing a readonly transaction" );
    const key_value_object& obj = keyval_cache.get( iterator );
 
    const auto& table_obj = keyval_cache.get_table( obj.t_id );
@@ -878,6 +881,7 @@ void apply_context::db_update_i64( int iterator, account_name payer, const char*
 }
 
 void apply_context::db_remove_i64( int iterator ) {
+   EOS_ASSERT( !trx_context.is_read_only(), table_operation_not_permitted, "cannot remove a db record when executing a readonly transaction" );
    const key_value_object& obj = keyval_cache.get( iterator );
 
    const auto& table_obj = keyval_cache.get_table( obj.t_id );
@@ -1029,17 +1033,25 @@ int apply_context::db_end_i64( name code, name scope, name table ) {
 
 uint64_t apply_context::next_global_sequence() {
    const auto& p = control.get_dynamic_global_properties();
-   db.modify( p, [&]( auto& dgp ) {
-      ++dgp.global_action_sequence;
-   });
-   return p.global_action_sequence;
+   if ( trx_context.is_read_only() ) {
+      return p.global_action_sequence + 1;
+   } else {
+      db.modify( p, [&]( auto& dgp ) {
+         ++dgp.global_action_sequence;
+      });
+      return p.global_action_sequence;
+   }
 }
 
 uint64_t apply_context::next_recv_sequence( const account_metadata_object& receiver_account ) {
-   db.modify( receiver_account, [&]( auto& ra ) {
-      ++ra.recv_sequence;
-   });
-   return receiver_account.recv_sequence;
+   if ( trx_context.is_read_only() ) {
+      return receiver_account.recv_sequence + 1;
+   } else {
+      db.modify( receiver_account, [&]( auto& ra ) {
+         ++ra.recv_sequence;
+      });
+      return receiver_account.recv_sequence;
+   }
 }
 uint64_t apply_context::next_auth_sequence( account_name actor ) {
    const auto& amo = db.get<account_metadata_object,by_name>( actor );

@@ -84,11 +84,14 @@ namespace eosio { namespace chain {
          void validate_referenced_accounts( const transaction& trx, bool enforce_actor_whitelist_blacklist )const;
 
          bool is_dry_run()const { return trx_type == transaction_metadata::trx_type::dry_run; };
+         bool is_read_only()const { return trx_type == transaction_metadata::trx_type::read_only; };
 
       private:
 
          friend struct controller_impl;
          friend class apply_context;
+
+         void init_for_read_only_trx();
 
          void add_ram_usage( account_name account, int64_t ram_delta );
 

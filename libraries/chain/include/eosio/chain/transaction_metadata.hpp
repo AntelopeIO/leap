@@ -24,7 +24,8 @@ class transaction_metadata {
          input,
          implicit,
          scheduled,
-         dry_run
+         dry_run,
+         read_only
       };
 
    private:
@@ -73,6 +74,7 @@ class transaction_metadata {
       bool implicit() const { return _trx_type == trx_type::implicit; };
       bool scheduled() const { return _trx_type == trx_type::scheduled; };
       bool is_dry_run() const { return _trx_type == trx_type::dry_run; };
+      bool is_read_only() const { return _trx_type == trx_type::read_only; };
 
       /// Thread safe.
       /// @returns transaction_metadata_ptr or exception via future
