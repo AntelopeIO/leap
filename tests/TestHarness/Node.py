@@ -6,6 +6,8 @@ import os
 import re
 import json
 import signal
+import sys
+
 import urllib.request
 import urllib.parse
 import urllib.error
@@ -491,6 +493,32 @@ class Node(object):
         lam = lambda: self.isTransInAnyBlock(transId)
         ret=Utils.waitForBool(lam, timeout)
         return ret
+
+    def checkBlockForTransactions(self, transIds, blockNum):
+        block = self.processUrllibRequest("trace_api", "get_block", {"block_num":blockNum}, silentErrors=False, exitOnError=True)
+        if block['payload']['transactions']:
+            for trx in block['payload']['transactions']:
+                if trx['id'] in transIds:
+                    transIds.pop(trx['id'])
+        return transIds
+
+    def waitForTransactionsInBlockRange(self, transIds, startBlock=2, maxFutureBlocks=0):
+        lastBlockProcessed = startBlock
+        overallFinalBlock = startBlock + maxFutureBlocks
+        while len(transIds) > 0:
+            currentLoopEndBlock = self.getHeadBlockNum()
+            if currentLoopEndBlock >  overallFinalBlock:
+                currentLoopEndBlock = overallFinalBlock
+            for blockNum in range(currentLoopEndBlock, lastBlockProcessed - 1, -1):
+                transIds = self.checkBlockForTransactions(transIds, blockNum)
+                if len(transIds) == 0:
+                    return transIds
+            lastBlockProcessed = currentLoopEndBlock
+            if currentLoopEndBlock == overallFinalBlock:
+                Utils.Print("ERROR: Transactions were missing upon expiration of waitOnblockTransactions")
+                break
+            self.waitForHeadToAdvance()
+        return transIds
 
     def waitForTransactionsInBlock(self, transIds, timeout=None):
         for transId in transIds:
@@ -1039,8 +1067,8 @@ class Node(object):
             response = urllib.request.urlopen(req, data=data)
             if returnType==ReturnType.json:
                 rtn = {}
-                rtn["payload"] = json.load(response)
                 rtn["code"] = response.getcode()
+                rtn["payload"] = json.load(response)
             elif returnType==ReturnType.raw:
                 rtn = response.read()
             else:
@@ -1050,7 +1078,7 @@ class Node(object):
                 end=time.perf_counter()
                 Utils.Print("cmd Duration: %.3f sec" % (end-start))
                 printReturn=json.dumps(rtn) if returnType==ReturnType.json else rtn
-                Utils.Print("cmd returned: %s" % (printReturn))
+                Utils.Print("cmd returned: %s" % (printReturn[:1024]))
         except urllib.error.HTTPError as ex:
             if not silentErrors:
                 end=time.perf_counter()
