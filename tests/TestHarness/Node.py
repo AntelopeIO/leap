@@ -155,10 +155,10 @@ class Node(object):
         # could be a transaction response
         if cntxt.hasKey("processed"):
             cntxt.add("processed")
-            cntxt.add("action_traces")
-            cntxt.index(0)
             if not cntxt.isSectionNull("except"):
                 return "no_block"
+            cntxt.add("action_traces")
+            cntxt.index(0)
             return cntxt.add("block_num")
 
         # or what the trace api plugin returns
