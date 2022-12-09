@@ -159,7 +159,7 @@ protected:
             error_results results{static_cast<uint16_t>(http::status::not_found), "Not Found",
                                   error_results::error_info( fc::exception( FC_LOG_MESSAGE( error, "Unknown Endpoint" ) ),
                                                              http_plugin::verbose_errors() )};
-            send_response( fc::json::to_string( results, fc::time_point::now() + plugin_state_->max_response_time ),
+            send_response( fc::json::to_string( results, fc::time_point::maximum() ),
                            static_cast<unsigned int>(http::status::not_found) );
          }
       } catch(...) {
@@ -311,27 +311,33 @@ public:
          } catch(const fc::exception& e) {
             err_str = e.to_detail_string();
             fc_elog(plugin_state_->logger, "fc::exception: ${w}", ("w", err_str));
-            error_results results{static_cast<uint16_t>(http::status::internal_server_error),
-                                  "Internal Service Error",
-                                  error_results::error_info( e, http_plugin::verbose_errors() )};
-            err_str = fc::json::to_string( results, fc::time_point::now() + plugin_state_->max_response_time );
+            if( is_send_exception_response_ ) {
+               error_results results{static_cast<uint16_t>(http::status::internal_server_error),
+                                     "Internal Service Error",
+                                     error_results::error_info( e, http_plugin::verbose_errors() )};
+               err_str = fc::json::to_string( results, fc::time_point::now() + plugin_state_->max_response_time );
+            }
          } catch(std::exception& e) {
             err_str = e.what();
             fc_elog(plugin_state_->logger, "std::exception: ${w}", ("w", err_str));
-            error_results results{static_cast<uint16_t>(http::status::internal_server_error),
-                                  "Internal Service Error",
-                                  error_results::error_info( fc::exception( FC_LOG_MESSAGE( error, err_str )),
-                                                             http_plugin::verbose_errors() )};
-            err_str = fc::json::to_string( results, fc::time_point::now() + plugin_state_->max_response_time );
+            if( is_send_exception_response_ ) {
+               error_results results{static_cast<uint16_t>(http::status::internal_server_error),
+                                     "Internal Service Error",
+                                     error_results::error_info( fc::exception( FC_LOG_MESSAGE( error, err_str ) ),
+                                                                http_plugin::verbose_errors() )};
+               err_str = fc::json::to_string( results, fc::time_point::now() + plugin_state_->max_response_time );
+            }
          } catch(...) {
             err_str = "Unknown exception";
             fc_elog(plugin_state_->logger, err_str);
-            error_results results{static_cast<uint16_t>(http::status::internal_server_error),
-                                  "Internal Service Error",
-                                  error_results::error_info(
-                                        fc::exception( FC_LOG_MESSAGE( error, err_str )),
-                                        http_plugin::verbose_errors() )};
-            err_str = fc::json::to_string( results, fc::time_point::now() + plugin_state_->max_response_time );
+            if( is_send_exception_response_ ) {
+               error_results results{static_cast<uint16_t>(http::status::internal_server_error),
+                                     "Internal Service Error",
+                                     error_results::error_info(
+                                           fc::exception( FC_LOG_MESSAGE( error, err_str ) ),
+                                           http_plugin::verbose_errors() )};
+               err_str = fc::json::to_string( results, fc::time_point::maximum() );
+            }
          }
       } catch (fc::timeout_exception& e) {
          fc_elog( plugin_state_->logger, "Timeout exception ${te} attempting to handle exception: ${e}", ("te", e.to_detail_string())("e", err_str) );
