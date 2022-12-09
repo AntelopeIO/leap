@@ -476,6 +476,7 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
       my->plugin_state->url_handlers.clear();
 
       app().post( 0, [me = my](){} ); // keep my pointer alive until queue is drained
+      fc_ilog( logger(), "exit shutdown");
    }
 
    void http_plugin::add_handler(const string& url, const url_handler& handler, int priority) {
