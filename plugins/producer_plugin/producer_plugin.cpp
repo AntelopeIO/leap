@@ -1242,6 +1242,7 @@ void producer_plugin::plugin_shutdown() {
    }
 
    app().post( 0, [me = my](){} ); // keep my pointer alive until queue is drained
+   fc_ilog(_log, "exit shutdown");
 }
 
 void producer_plugin::handle_sighup() {
