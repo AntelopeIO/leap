@@ -475,6 +475,8 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
 
       // release http_plugin_impl_ptr shared_ptrs captured in url handlers
       my->plugin_state->url_handlers.clear();
+
+      fc_ilog( logger(), "exit shutdown");
    }
 
    void http_plugin::add_handler(const string& url, const url_handler& handler, int priority) {
