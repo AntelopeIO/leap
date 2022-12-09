@@ -20,12 +20,18 @@ using mvo = fc::mutable_variant_object;
 
 struct read_only_trx_tester : TESTER {
    read_only_trx_tester() {
-      produce_blocks( 1 );
-
+      produce_block();
       create_accounts( {"noauthtable"_n, "alice"_n} );
       set_code( "noauthtable"_n, contracts::no_auth_table_wasm() );
       set_abi( "noauthtable"_n, contracts::no_auth_table_abi().data() );
-      act.account = "noauthtable"_n;
+      produce_block();
+
+      insert_data = abi_ser.variant_to_binary( "insert", mutable_variant_object()
+         ("user", "alice") ("id", 1) ("age", 10),
+         abi_serializer::create_yield_function( abi_serializer_max_time ) );
+      getage_data = abi_ser.variant_to_binary("getage", mutable_variant_object()
+         ("user", "alice"),
+         abi_serializer::create_yield_function( abi_serializer_max_time ));
    }
 
    void send_native_function_transaction(const action& act) {
@@ -37,8 +43,10 @@ struct read_only_trx_tester : TESTER {
    }
 
    auto send_db_api_transaction( action_name name, bytes data, const vector<permission_level>& auth={{"alice"_n, config::active_name}}, transaction_metadata::trx_type type=transaction_metadata::trx_type::input ) {
+      action act;
       signed_transaction trx;
 
+      act.account = "noauthtable"_n;
       act.name = name;
       act.authorization = auth;
       act.data = data;
@@ -52,9 +60,15 @@ struct read_only_trx_tester : TESTER {
       return push_transaction( trx, fc::time_point::maximum(), DEFAULT_BILLED_CPU_TIME_US, false, type );
    }
 
-   action act;
-   abi_serializer abi_ser{ json::from_string(contracts::no_auth_table_abi().data()).as<abi_def>(), abi_serializer::create_yield_function(abi_serializer_max_time )};
+   void insert_a_record() {
+      auto res = send_db_api_transaction("insert"_n, insert_data);
+      BOOST_CHECK_EQUAL(res->receipt->status, transaction_receipt::executed);
+      produce_block();
+   }
 
+   abi_serializer abi_ser{ json::from_string(contracts::no_auth_table_abi().data()).as<abi_def>(), abi_serializer::create_yield_function(abi_serializer_max_time )};
+   bytes insert_data;
+   bytes getage_data;
 };
 
 BOOST_AUTO_TEST_SUITE(read_only_trx_tests)
@@ -158,39 +172,31 @@ BOOST_FIXTURE_TEST_CASE(unlinkauth_test, read_only_trx_tester) { try {
 } FC_LOG_AND_RETHROW() }
 
 BOOST_FIXTURE_TEST_CASE(db_read_only_mode_test, read_only_trx_tester) { try {
-   produce_blocks( 1 );
-
    control->set_db_read_only_mode();
    BOOST_CHECK_THROW( create_account("bob"_n), std::exception );
    control->unset_db_read_only_mode();
 } FC_LOG_AND_RETHROW() }
 
-
-BOOST_FIXTURE_TEST_CASE(db_apis_test, read_only_trx_tester) { try {
+BOOST_FIXTURE_TEST_CASE(db_insert_test, read_only_trx_tester) { try {
    // verify DB insert is not allowed by read-only transaction
-   auto insert_data = abi_ser.variant_to_binary("insert", mutable_variant_object()
-      ("user", "alice") ("id", 1) ("age", 10),
-      abi_serializer::create_yield_function( abi_serializer_max_time )
-   );
    BOOST_CHECK_THROW(send_db_api_transaction("insert"_n, insert_data, {}, transaction_metadata::trx_type::read_only), table_operation_not_permitted);
 
    // verify DB insert still works with non-read-only transaction after read-only
-   auto res = send_db_api_transaction("insert"_n, insert_data);
-   BOOST_CHECK_EQUAL(res->receipt->status, transaction_receipt::executed);
-
-   produce_block();
+   insert_a_record();
    
    // do a read-only transaction and verify the return value (age) is the same as inserted
-   auto getage_data = abi_ser.variant_to_binary("getage", mutable_variant_object()
-      ("user", "alice"),
-      abi_serializer::create_yield_function( abi_serializer_max_time )
-   );
-   res = send_db_api_transaction("getage"_n, getage_data, {}, transaction_metadata::trx_type::read_only);
+   auto res = send_db_api_transaction("getage"_n, getage_data, {}, transaction_metadata::trx_type::read_only);
    BOOST_CHECK_EQUAL(res->receipt->status, transaction_receipt::executed);
    BOOST_CHECK_EQUAL(res->action_traces[0].return_value[0], 10);
+} FC_LOG_AND_RETHROW() }
 
+BOOST_FIXTURE_TEST_CASE(permission_test, read_only_trx_tester) { try {
    // verify read-only transaction does not allow permissions.
    BOOST_CHECK_THROW(send_db_api_transaction("getage"_n, getage_data, {{"alice"_n, config::active_name}}, transaction_metadata::trx_type::read_only), transaction_exception);
+} FC_LOG_AND_RETHROW() }
+
+BOOST_FIXTURE_TEST_CASE(db_modify_test, read_only_trx_tester) { try {
+   insert_a_record();
 
    // verify DB update is not allowed by read-only transaction
    auto modify_data = abi_ser.variant_to_binary("modify", mutable_variant_object()
@@ -200,7 +206,7 @@ BOOST_FIXTURE_TEST_CASE(db_apis_test, read_only_trx_tester) { try {
    BOOST_CHECK_THROW(send_db_api_transaction("modify"_n, modify_data, {}, transaction_metadata::trx_type::read_only), table_operation_not_permitted);
 
    // verify DB update still works in by non-read-only transaction
-   res = send_db_api_transaction("modify"_n, modify_data);
+   auto res = send_db_api_transaction("modify"_n, modify_data);
    BOOST_CHECK_EQUAL(res->receipt->status, transaction_receipt::executed);
    produce_block();
 
@@ -225,6 +231,10 @@ BOOST_FIXTURE_TEST_CASE(db_apis_test, read_only_trx_tester) { try {
    res = send_db_api_transaction("getage"_n, getage_data, {}, transaction_metadata::trx_type::read_only);
    BOOST_CHECK_EQUAL(res->receipt->status, transaction_receipt::executed);
    BOOST_CHECK_EQUAL(res->action_traces[0].return_value[0], 50);
+} FC_LOG_AND_RETHROW() }
+
+BOOST_FIXTURE_TEST_CASE(db_erase_test, read_only_trx_tester) { try {
+   insert_a_record();
 
    // verify DB erase is not allowed by read-only transaction
    auto erase_data = abi_ser.variant_to_binary("erase", mutable_variant_object()
@@ -241,9 +251,8 @@ BOOST_FIXTURE_TEST_CASE(db_apis_test, read_only_trx_tester) { try {
    BOOST_CHECK_THROW(send_db_api_transaction("erasebyid"_n, erasebyid_data, {}, transaction_metadata::trx_type::read_only), table_operation_not_permitted);
 
    // verify DB erase still works in by non-read-only transaction
-   res = send_db_api_transaction("erase"_n, erase_data);
+   auto res = send_db_api_transaction("erase"_n, erase_data);
    BOOST_CHECK_EQUAL(res->receipt->status, transaction_receipt::executed);
-
 } FC_LOG_AND_RETHROW() }
 
 BOOST_FIXTURE_TEST_CASE(sequence_numbers_test, read_only_trx_tester) { try {
@@ -255,11 +264,10 @@ BOOST_FIXTURE_TEST_CASE(sequence_numbers_test, read_only_trx_tester) { try {
    auto prev_global_action_sequence = p.global_action_sequence;
    auto prev_recv_sequence = receiver_account->recv_sequence;
    auto prev_auth_sequence = amo->auth_sequence; 
-   auto insert_data = abi_ser.variant_to_binary("insert", mutable_variant_object()
-      ("user", "alice") ("id", 1) ("age", 10),
-      abi_serializer::create_yield_function( abi_serializer_max_time )
-   );
-   send_db_api_transaction("insert"_n, insert_data);
+
+   auto res = send_db_api_transaction("insert"_n, insert_data);
+   BOOST_CHECK_EQUAL(res->receipt->status, transaction_receipt::executed);
+
    BOOST_CHECK_EQUAL( prev_global_action_sequence + 1, p.global_action_sequence );
    BOOST_CHECK_EQUAL( prev_recv_sequence + 1, receiver_account->recv_sequence );
    BOOST_CHECK_EQUAL( prev_auth_sequence + 1, amo->auth_sequence );
@@ -270,11 +278,9 @@ BOOST_FIXTURE_TEST_CASE(sequence_numbers_test, read_only_trx_tester) { try {
    prev_global_action_sequence = p.global_action_sequence;
    prev_recv_sequence = receiver_account->recv_sequence;
    prev_auth_sequence = amo->auth_sequence; 
-   auto getage_data = abi_ser.variant_to_binary("getage", mutable_variant_object()
-      ("user", "alice"),
-      abi_serializer::create_yield_function( abi_serializer_max_time )
-   );
+
    send_db_api_transaction("getage"_n, getage_data, {}, transaction_metadata::trx_type::read_only);
+
    BOOST_CHECK_EQUAL( prev_global_action_sequence, p.global_action_sequence );
    BOOST_CHECK_EQUAL( prev_recv_sequence, receiver_account->recv_sequence );
    BOOST_CHECK_EQUAL( prev_auth_sequence, amo->auth_sequence );
