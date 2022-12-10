@@ -59,7 +59,7 @@ namespace eosio { namespace chain {
    ,net_usage(trace->net_usage)
    ,pseudo_start(s)
    {
-      if (!c.skip_db_sessions()) {
+      if (!c.skip_db_sessions() && !is_read_only()) {
          undo_session.emplace(c.mutable_db().start_undo_session(true));
       }
       trace->id = packed_trx.id();

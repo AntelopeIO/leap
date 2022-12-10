@@ -186,8 +186,16 @@ BOOST_FIXTURE_TEST_CASE(canceldelay_test, read_only_trx_tester) { try {
 } FC_LOG_AND_RETHROW() }
 
 BOOST_FIXTURE_TEST_CASE(db_read_only_mode_test, read_only_trx_tester) { try {
+   insert_a_record();
+
    control->set_db_read_only_mode();
+   // verify no write is allowed in read-only mode
    BOOST_CHECK_THROW( create_account("bob"_n), std::exception );
+
+   // verify a read-only transaction in read-only mode
+   auto res = send_db_api_transaction("getage"_n, getage_data, {}, transaction_metadata::trx_type::read_only);
+   BOOST_CHECK_EQUAL(res->receipt->status, transaction_receipt::executed);
+   BOOST_CHECK_EQUAL(res->action_traces[0].return_value[0], 10);
    control->unset_db_read_only_mode();
 } FC_LOG_AND_RETHROW() }
 
