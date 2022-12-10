@@ -85,13 +85,12 @@ namespace eosio { namespace chain {
 
          bool is_dry_run()const { return trx_type == transaction_metadata::trx_type::dry_run; };
          bool is_read_only()const { return trx_type == transaction_metadata::trx_type::read_only; };
+         bool is_transient()const { return trx_type == transaction_metadata::trx_type::read_only || trx_type == transaction_metadata::trx_type::dry_run; };
 
       private:
 
          friend struct controller_impl;
          friend class apply_context;
-
-         void init_for_read_only_trx();
 
          void add_ram_usage( account_name account, int64_t ram_delta );
 

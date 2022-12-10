@@ -1592,7 +1592,7 @@ struct controller_impl {
                              std::move(trx_context.executed_action_receipt_digests) );
 
             // call the accept signal but only once for this transaction
-            if (!trx->is_dry_run() && !trx->is_read_only()) {
+            if (!trx->is_transient()) {
                 if (!trx->accepted) {
                     trx->accepted = true;
                     emit(self.accepted_transaction, trx);
@@ -1603,7 +1603,7 @@ struct controller_impl {
             }
 
 
-            if ( trx->is_dry_run() || trx->is_read_only() ) {
+            if ( trx->is_transient() ) {
                // remove trx from pending block by not canceling 'restore'
                trx_context.undo(); // this will happen automatically in destructor, but make it more explicit
             } else if ( pending->_block_status == controller::block_status::ephemeral ) {
@@ -1618,7 +1618,7 @@ struct controller_impl {
                trx_context.squash();
             }
 
-            if( !trx->is_dry_run() && !trx->is_read_only() ) {
+            if( !trx->is_transient() ) {
                pending->_block_report.total_net_usage += trace->net_usage;
                pending->_block_report.total_cpu_usage_us += trace->receipt->cpu_usage_us;
                pending->_block_report.total_elapsed_time += trace->elapsed;
@@ -1641,7 +1641,7 @@ struct controller_impl {
            handle_exception(wrapper);
          }
 
-         if (!trx->is_dry_run() && !trx->is_read_only()) {
+         if (!trx->is_transient()) {
             emit(self.accepted_transaction, trx);
             dmlog_applied_transaction(trace);
             emit(self.applied_transaction, std::tie(trace, trx->packed_trx()));

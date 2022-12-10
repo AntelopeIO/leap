@@ -42,7 +42,7 @@ struct read_only_trx_tester : TESTER {
       push_transaction( trx, fc::time_point::maximum(), DEFAULT_BILLED_CPU_TIME_US, false, transaction_metadata::trx_type::read_only );
    }
 
-   auto send_db_api_transaction( action_name name, bytes data, const vector<permission_level>& auth={{"alice"_n, config::active_name}}, transaction_metadata::trx_type type=transaction_metadata::trx_type::input ) {
+   auto send_db_api_transaction( action_name name, bytes data, const vector<permission_level>& auth={{"alice"_n, config::active_name}}, transaction_metadata::trx_type type=transaction_metadata::trx_type::input, uint32_t delay_sec=0 ) {
       action act;
       signed_transaction trx;
 
@@ -53,6 +53,7 @@ struct read_only_trx_tester : TESTER {
 
       trx.actions.push_back( act );
       set_transaction_headers( trx );
+      trx.delay_sec = delay_sec;
       if ( type == transaction_metadata::trx_type::input ) {
          trx.sign(get_private_key("alice"_n, "active"), control->get_chain_id());
       }
@@ -171,6 +172,19 @@ BOOST_FIXTURE_TEST_CASE(unlinkauth_test, read_only_trx_tester) { try {
    BOOST_CHECK_THROW( send_native_function_transaction(act), transaction_exception );
 } FC_LOG_AND_RETHROW() }
 
+BOOST_FIXTURE_TEST_CASE(canceldelay_test, read_only_trx_tester) { try {
+   produce_blocks( 1 );
+
+   permission_level canceling_auth { config::system_account_name,config::active_name };
+   transaction_id_type trx_id { "0718886aa8a3895510218b523d3d694280d1dbc1f6d30e173a10b2039fc894f1" };
+   action act = {
+      vector<permission_level>{{config::system_account_name,config::active_name}},
+      canceldelay { canceling_auth, trx_id }
+   };
+
+   BOOST_CHECK_THROW( send_native_function_transaction(act), transaction_exception );
+} FC_LOG_AND_RETHROW() }
+
 BOOST_FIXTURE_TEST_CASE(db_read_only_mode_test, read_only_trx_tester) { try {
    control->set_db_read_only_mode();
    BOOST_CHECK_THROW( create_account("bob"_n), std::exception );
@@ -190,9 +204,14 @@ BOOST_FIXTURE_TEST_CASE(db_insert_test, read_only_trx_tester) { try {
    BOOST_CHECK_EQUAL(res->action_traces[0].return_value[0], 10);
 } FC_LOG_AND_RETHROW() }
 
-BOOST_FIXTURE_TEST_CASE(permission_test, read_only_trx_tester) { try {
-   // verify read-only transaction does not allow permissions.
+BOOST_FIXTURE_TEST_CASE(auth_test, read_only_trx_tester) { try {
+   // verify read-only transaction does not allow authorizations.
    BOOST_CHECK_THROW(send_db_api_transaction("getage"_n, getage_data, {{"alice"_n, config::active_name}}, transaction_metadata::trx_type::read_only), transaction_exception);
+} FC_LOG_AND_RETHROW() }
+
+BOOST_FIXTURE_TEST_CASE(delay_sec_test, read_only_trx_tester) { try {
+   // verify read-only transaction does not allow non-zero delay_sec.
+   BOOST_CHECK_THROW(send_db_api_transaction("getage"_n, getage_data, {}, transaction_metadata::trx_type::read_only, 3), transaction_exception);
 } FC_LOG_AND_RETHROW() }
 
 BOOST_FIXTURE_TEST_CASE(db_modify_test, read_only_trx_tester) { try {
