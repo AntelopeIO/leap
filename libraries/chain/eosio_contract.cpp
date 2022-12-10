@@ -449,6 +449,7 @@ void apply_eosio_unlinkauth(apply_context& context) {
 }
 
 void apply_eosio_canceldelay(apply_context& context) {
+   EOS_ASSERT( !context.trx_context.is_read_only(), action_validate_exception, "canceldelay not allowed in read-only transaction" );
    auto cancel = context.get_action().data_as<canceldelay>();
    context.require_authorization(cancel.canceling_auth.actor); // only here to mark the single authority on this action as used
 

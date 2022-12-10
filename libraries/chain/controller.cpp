@@ -1512,7 +1512,7 @@ struct controller_impl {
       transaction_trace_ptr trace;
       try {
          auto start = fc::time_point::now();
-         const bool check_auth = !self.skip_auth_check() && !trx->implicit();
+         const bool check_auth = !self.skip_auth_check() && !trx->implicit() && !trx->is_read_only();
          const fc::microseconds sig_cpu_usage = trx->signature_cpu_usage();
 
          if( !explicit_billed_cpu_time ) {
@@ -1565,7 +1565,7 @@ struct controller_impl {
                        trx_context.delay,
                        [&trx_context](){ trx_context.checktime(); },
                        false,
-                       trx->is_dry_run() || trx->is_read_only()
+                       trx->is_dry_run()
                );
             }
             trx_context.exec();

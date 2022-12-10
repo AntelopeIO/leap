@@ -354,7 +354,7 @@ void apply_context::execute_inline( action&& a ) {
                   "inline action too big for nonprivileged account ${account}", ("account", a.account));
    }
    // No need to check authorization if replaying irreversible blocks or contract is privileged
-   if( !control.skip_auth_check() && !privileged ) {
+   if( !control.skip_auth_check() && !privileged && !trx_context.is_read_only() ) {
       try {
          control.get_authorization_manager()
                 .check_authorization( {a},
@@ -363,7 +363,7 @@ void apply_context::execute_inline( action&& a ) {
                                       control.pending_block_time() - trx_context.published,
                                       std::bind(&transaction_context::checktime, &this->trx_context),
                                       false,
-                                      trx_context.is_dry_run() || trx_context.is_read_only(), // check_but_dont_fail
+                                      trx_context.is_dry_run(), // check_but_dont_fail
                                       inherited_authorizations
                                     );
 
