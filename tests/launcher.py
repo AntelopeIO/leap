@@ -8,6 +8,7 @@ from pathlib import Path
 import os
 import math
 import shlex
+import socket
 import string
 import subprocess
 import sys
@@ -17,6 +18,7 @@ from TestHarness import Cluster
 from TestHarness import Utils
 
 from libc import unshare, CLONE_NEWNET
+from interfaces import getInterfaceFlags, IFF_LOOPBACK
 
 block_dir = 'blocks'
 
@@ -538,6 +540,9 @@ plugin = eosio::chain_api_plugin
 
     def start_all(self):
         unshare(CLONE_NEWNET)
+        for index, name in socket.if_nameindex():
+            if getInterfaceFlags(name) & IFF_LOOPBACK:
+                os.system(f'ip link set {name} up')
         for instance in self.network.nodes.values():
             self.launch(instance)
     
