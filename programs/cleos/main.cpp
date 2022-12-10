@@ -484,25 +484,18 @@ fc::variant push_transaction( signed_transaction& trx, const std::vector<public_
             throw;
          }
       } else {
-         if( tx_dry_run || tx_read_only ) {
-            EOSC_ASSERT( !tx_retry_lib, "ERROR: --retry-irreversible can not be used with --dry-run or --read-only" );
-            EOSC_ASSERT( !tx_retry_num_blocks, "ERROR: --retry-num-blocks can not be used with --dry-run or --read-only" );
-            try {
-               auto compute_txn_arg = fc::mutable_variant_object ("transaction",
-                                                                  packed_transaction(trx,compression));
-               return call( compute_txn_func, compute_txn_arg);
-            } catch( chain::missing_chain_api_plugin_exception& ) {
-               std::cerr << "New RPC compute_transaction may not be supported. Submit to a different node." << std::endl;
-               throw;
-            }
-         } else if( tx_read ) {
-            EOSC_ASSERT( !tx_retry_lib, "ERROR: --retry-irreversible can not be used with --read" );
-            EOSC_ASSERT( !tx_retry_num_blocks, "ERROR: --retry-num-blocks can not be used with --read" );
+         if( tx_read || tx_dry_run || tx_read_only ) {
+            EOSC_ASSERT( !tx_retry_lib, "ERROR: --retry-irreversible can not be used with --read, --dry-run or --read-only" );
+            EOSC_ASSERT( !tx_retry_num_blocks, "ERROR: --retry-num-blocks can not be used with --read, --dry-run or --read-only" );
             try {
                auto args = fc::mutable_variant_object ("transaction", packed_transaction(trx,compression));
-               return call( send_read_only_txn_func, args );
+               if( tx_read ) {
+                  return call( send_read_only_txn_func, args );
+               } else {
+                  return call( compute_txn_func, args );
+               }
             } catch( chain::missing_chain_api_plugin_exception& ) {
-               std::cerr << "New RPC readonly_transaction may not be supported. Submit to a different node." << std::endl;
+               std::cerr << "New RPC compute_transaction or send_read_only_transaction may not be supported. Submit to a different node." << std::endl;
                throw;
             }
          } else {

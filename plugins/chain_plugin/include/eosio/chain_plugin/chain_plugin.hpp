@@ -720,6 +720,10 @@ public:
      chain::wasm_config         wasm_config;
    };
    get_consensus_parameters_results get_consensus_parameters(const get_consensus_parameters_params&, const fc::time_point& deadline) const;
+
+private:
+   template<typename Params, typename Results>
+   void send_transient_transaction(const Params& params, next_function<Results> next, chain::transaction_metadata::trx_type trx_type) const;
 };
 
 class read_write {
