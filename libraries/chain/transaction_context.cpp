@@ -333,13 +333,12 @@ namespace eosio { namespace chain {
    void transaction_context::finalize() {
       EOS_ASSERT( is_initialized, transaction_exception, "must first initialize" );
 
-      net_usage = ((net_usage + 7)/8)*8; // Round up to nearest multiple of word size (8 bytes)
-      auto now = fc::time_point::now();
-      trace->elapsed = now - start;
-
       // read-only transactions only need net_usage and elapsed in the trace
-      if ( is_read_only() )
+      if ( is_read_only() ) {
+         net_usage = ((net_usage + 7)/8)*8; // Round up to nearest multiple of word size (8 bytes)
+         trace->elapsed = fc::time_point::now() - start;
          return;
+      }
                                          
       if( is_input ) {
          const transaction& trx = packed_trx.get_transaction();
@@ -378,10 +377,13 @@ namespace eosio { namespace chain {
          billing_timer_exception_code = tx_cpu_usage_exceeded::code_value;
       }
 
+      net_usage = ((net_usage + 7)/8)*8; // Round up to nearest multiple of word size (8 bytes)
 
       eager_net_limit = net_limit;
       check_net_usage();
 
+      auto now = fc::time_point::now();
+      trace->elapsed = now - start;
 
       update_billed_cpu_time( now );
 
