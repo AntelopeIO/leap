@@ -18,7 +18,7 @@ namespace eosio { namespace chain { namespace plugin_interface {
    };
 
    struct runtime_metric {
-      metric_type type;
+      const metric_type type;
       const std::string family;
       const std::string label;
       std::atomic<int64_t> value;

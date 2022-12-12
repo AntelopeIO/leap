@@ -62,44 +62,41 @@ namespace eosio {
          std::shared_ptr<Registry> _registry;
 
 
-         std::vector<std::tuple<Family<Gauge>&, Gauge&, runtime_metric&>> _gauges;
-         std::vector<std::tuple<Family<Counter>&, Counter&, runtime_metric&>> _counters;
+         std::vector<std::tuple<Family<Gauge>&, Gauge&, const runtime_metric&>> _gauges;
+         std::vector<std::tuple<Family<Counter>&, Counter&, const runtime_metric&>> _counters;
 
          // metrics for prometheus_plugin itself
          std::unique_ptr<prometheus_plugin_metrics> _metrics;
 
          // hold onto other plugin metrics
-         std::shared_ptr<net_plugin_metrics> net_plugin_metrics_ptr;
-         std::shared_ptr<producer_plugin_metrics> producer_plugin_metrics_ptr;
-
          prometheus_plugin_impl() { }
 
-         void add_gauge_metric(runtime_metric& plugin_metric) {
+         void add_gauge_metric(const runtime_metric& plugin_metric) {
                auto &gauge_family = BuildGauge()
                      .Name(plugin_metric.family)
                      .Help("")
                      .Register(*_registry);
-            auto &gauge = gauge_family.Add({});
+            auto& gauge = gauge_family.Add({});
 
             _gauges.push_back(
-                  std::tuple<Family<Gauge> &, Gauge &, runtime_metric &>(gauge_family, gauge, plugin_metric));
+                  std::tuple<Family<Gauge>&, Gauge&, const runtime_metric&>(gauge_family, gauge, plugin_metric));
 
             ilog("Added gauge metric ${f}:${l}", ("f", plugin_metric.family) ("l", plugin_metric.label));
          }
 
-         void add_counter_metric(runtime_metric& plugin_metric) {
+         void add_counter_metric(const runtime_metric& plugin_metric) {
                   auto &counter_family = BuildCounter()
                         .Name(plugin_metric.family)
                         .Help("")
                         .Register(*_registry);
                   auto &counter = counter_family.Add({});
                   _counters.push_back(
-                        std::tuple<Family<Counter> &, Counter &, runtime_metric &>(counter_family, counter, plugin_metric));
+                        std::tuple<Family<Counter>&, Counter&, const runtime_metric&>(counter_family, counter, plugin_metric));
 
             ilog("Added counter metric ${f}:${l}", ("f", plugin_metric.family) ("l", plugin_metric.label));
          }
 
-         void add_plugin_metric(runtime_metric& plugin_metric) {
+         void add_plugin_metric(const runtime_metric& plugin_metric) {
             switch(plugin_metric.type) {
                case metric_type::gauge:
                   add_gauge_metric(plugin_metric);
@@ -113,24 +110,13 @@ namespace eosio {
             }
          }
 
-         void add_plugin_metrics(std::shared_ptr<net_plugin_metrics> metrics) {
-            add_plugin_metric(metrics->num_clients);
-            add_plugin_metric(metrics->num_peers);
-            add_plugin_metric(metrics->dropped_trxs);
+         template <typename T>
+         void add_plugin_metrics(const T& pm) {
+            for (const auto& m : pm.metrics) {
+               add_plugin_metric(m);
+            }
          }
-
-         void add_plugin_metrics(std::shared_ptr<producer_plugin_metrics> metrics) {
-            add_plugin_metric(metrics->unapplied_transactions);
-            add_plugin_metric(metrics->blacklisted_transactions);
-            add_plugin_metric(metrics->blocks_produced);
-            add_plugin_metric(metrics->trxs_produced);
-            add_plugin_metric(metrics->last_irreversible);
-            add_plugin_metric(metrics->block_num);
-            add_plugin_metric(metrics->subjective_bill_account_size);
-            add_plugin_metric(metrics->subjective_bill_block_size);
-            add_plugin_metric(metrics->scheduled_trxs);
-         }
-
+         
          void update_plugin_metrics() {
             for (auto& rtm : _gauges) {
                auto new_val = static_cast<double>(std::get<2>(rtm).value);
@@ -152,16 +138,14 @@ namespace eosio {
 
             net_plugin* np = app().find_plugin<net_plugin>();
             if (nullptr != np) {
-               net_plugin_metrics_ptr = np->metrics();
-               add_plugin_metrics(net_plugin_metrics_ptr);
+               add_plugin_metrics<net_plugin_metrics>(np->metrics());
             } else {
                dlog("net_plugin not found -- metrics not added");
             }
 
             producer_plugin* pp = app().find_plugin<producer_plugin>();
             if (nullptr != pp) {
-               producer_plugin_metrics_ptr = pp->metrics();
-               add_plugin_metrics(producer_plugin_metrics_ptr);
+               add_plugin_metrics<producer_plugin_metrics>(pp->metrics());
             } else {
                dlog("producer_plugin not found -- metrics not added");
             }

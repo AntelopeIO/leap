@@ -15,7 +15,7 @@ namespace eosio {
       prometheus_plugin();
       ~prometheus_plugin();
 
-      APPBASE_PLUGIN_REQUIRES((http_plugin) (chain_plugin) (net_plugin) (producer_plugin))
+      APPBASE_PLUGIN_REQUIRES((http_plugin))
 
       virtual void set_program_options(options_description&, options_description& cfg) override;
 

@@ -342,7 +342,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       std::optional<scoped_connection>                          _accepted_block_header_connection;
       std::optional<scoped_connection>                          _irreversible_block_connection;
 
-      std::shared_ptr<producer_plugin_metrics>                  _metrics;
+      producer_plugin_metrics                                   _metrics;
       /*
        * HACK ALERT
        * Boost timers can be in a state where a handler has not yet executed but is not abortable.
@@ -409,6 +409,21 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
 
             snapshots_by_height.erase(snapshots_by_height.begin());
          }
+      }
+
+      void update_block_metrics() {
+         _metrics.unapplied_transactions.value =  _unapplied_transactions.size();
+         _metrics.subjective_bill_account_size.value = _subjective_billing.get_account_cache_size();
+         _metrics.subjective_bill_block_size.value = _subjective_billing.get_block_cache_size();
+         _metrics.blacklisted_transactions.value = _blacklisted_transactions.size();
+         _metrics.unapplied_transactions.value = _unapplied_transactions.size();
+
+         auto& chain = chain_plug->chain();
+         _metrics.last_irreversible.value = chain.last_irreversible_block_num();
+         _metrics.block_num.value = chain.head_block_num();
+
+         const auto& sch_idx = chain.db().get_index<generated_transaction_multi_index,by_delay>();
+         _metrics.scheduled_trxs.value = sch_idx.size();
       }
 
       void abort_block() {
@@ -511,7 +526,6 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
 
          }
 
-         _metrics->last_irreversible.value = hbs->dpos_irreversible_blocknum;
          return true;
       }
 
@@ -819,7 +833,6 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
    LOAD_VALUE_SET(options, "producer-name", my->_producers)
 
    chain::controller& chain = my->chain_plug->chain();
-   my->_metrics = std::make_shared<producer_plugin_metrics>();
 
    if( options.count("private-key") )
    {
@@ -1581,6 +1594,7 @@ fc::time_point producer_plugin_impl::calculate_block_deadline( const fc::time_po
 
 producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
    chain::controller& chain = chain_plug->chain();
+   update_block_metrics();
 
    if( !chain_plug->accept_transactions() )
       return start_block_result::waiting_for_block;
@@ -1821,7 +1835,6 @@ bool producer_plugin_impl::remove_expired_trxs( const fc::time_point& deadline )
             ++num_expired;
    });
 
-   _metrics->unapplied_transactions.value = orig_count - num_expired;
 
    if( exhausted ) {
       fc_wlog( _log, "Unable to process all expired transactions of the ${n} transactions in the unapplied queue before deadline, "
@@ -1854,7 +1867,6 @@ bool producer_plugin_impl::remove_expired_blacklisted_trxs( const fc::time_point
          num_expired++;
       }
 
-      _metrics->blacklisted_transactions.value = orig_count - num_expired;
 
       fc_dlog(_log, "Processed ${n} blacklisted transactions, Expired ${expired}",
               ("n", orig_count)("expired", num_expired));
@@ -2067,8 +2079,6 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
       if( next ) next( trace );
    }
 
-   _metrics->subjective_bill_account_size.value = _subjective_billing.get_account_cache_size();
-   _metrics->subjective_bill_block_size.value = _subjective_billing.get_block_cache_size();
 
    return pr;
 }
@@ -2112,7 +2122,6 @@ bool producer_plugin_impl::process_unapplied_trxs( const fc::time_point& deadlin
          ++itr;
       }
 
-      _metrics->unapplied_transactions.value = _unapplied_transactions.size();
       fc_dlog( _log, "Processed ${m} of ${n} previously applied transactions, Applied ${applied}, Failed/Dropped ${failed}",
                ("m", num_processed)( "n", unapplied_trxs_size )("applied", num_applied)("failed", num_failed) );
    }
@@ -2251,7 +2260,6 @@ void producer_plugin_impl::process_scheduled_and_incoming_trxs( const fc::time_p
    }
 
 
-   _metrics->scheduled_trxs.value = sch_idx.size();
 }
 
 bool producer_plugin_impl::process_incoming_trxs( const fc::time_point& deadline, unapplied_transaction_queue::iterator& itr )
@@ -2452,6 +2460,7 @@ static auto maybe_make_debug_time_logger() -> std::optional<decltype(make_debug_
    }
 }
 
+
 void producer_plugin_impl::produce_block() {
    //ilog("produce_block ${t}", ("t", fc::time_point::now())); // for testing _produce_time_offset_us
    auto start = fc::time_point::now();
@@ -2501,10 +2510,8 @@ void producer_plugin_impl::produce_block() {
 
    br.total_time += fc::time_point::now() - start;
 
-   _metrics->blocks_produced.value++;
-   _metrics->trxs_produced.value += new_bs->block->transactions.size();
-   _metrics->block_num.value = new_bs->block_num;
-   _metrics->last_irreversible.value = chain.last_irreversible_block_num();
+   ++_metrics.blocks_produced.value;
+   _metrics.trxs_produced.value += new_bs->block->transactions.size();
 
    ilog("Produced block ${id}... #${n} @ ${t} signed by ${p} "
         "[trxs: ${count}, lib: ${lib}, confirmed: ${confs}, net: ${net}, cpu: ${cpu}, elapsed: ${et}, time: ${tt}]",
@@ -2524,7 +2531,7 @@ void producer_plugin::log_failed_transaction(const transaction_id_type& trx_id, 
             ("entire_trx", packed_trx_ptr ? my->chain_plug->get_log_trx(packed_trx_ptr->get_transaction()) : fc::variant{trx_id}));
 }
 
-std::shared_ptr<producer_plugin_metrics> producer_plugin::metrics() {
+const producer_plugin_metrics& producer_plugin::metrics() const {
    return my->_metrics;
 }
 } // namespace eosio
