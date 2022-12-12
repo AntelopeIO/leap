@@ -420,7 +420,7 @@ class Node(object):
 
     def getTable(self, contract, scope, table, exitOnError=False):
         cmdDesc = "get table"
-        cmd="%s %s %s %s" % (cmdDesc, contract, scope, table)
+        cmd="%s --time-limit 99999 %s %s %s" % (cmdDesc, contract, scope, table)
         msg="contract=%s, scope=%s, table=%s" % (contract, scope, table);
         return self.processCleosCmd(cmd, cmdDesc, exitOnError=exitOnError, exitMsg=msg)
 
