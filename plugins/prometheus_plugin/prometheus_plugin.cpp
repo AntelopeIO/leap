@@ -116,7 +116,7 @@ namespace eosio {
                add_plugin_metric(m);
             }
          }
-         
+
          void update_plugin_metrics() {
             for (auto& rtm : _gauges) {
                auto new_val = static_cast<double>(std::get<2>(rtm).value);
