@@ -91,13 +91,13 @@ class TestHelper(object):
             parser.add_argument("--defproducerb_prvt_key", type=str, help="defproducerb private key.")
         if "--dump-error-details" in includeArgs:
             parser.add_argument("--dump-error-details",
-                                     help="Upon error print etc/eosio/node_*/config.ini and var/lib/node_*/stderr.log to stdout",
+                                     help="Upon error print etc/eosio/node_*/config.ini and <test_name><pid>/node_*/stderr.log to stdout",
                                      action='store_true')
         if "--dont-launch" in includeArgs:
             parser.add_argument("--dont-launch", help="Don't launch own node. Assume node is already running.",
                                      action='store_true')
         if "--keep-logs" in includeArgs:
-            parser.add_argument("--keep-logs", help="Don't delete var/lib/node_* folders upon test completion",
+            parser.add_argument("--keep-logs", help="Don't delete <test_name><pid>/node_* folders upon test completion",
                                      action='store_true')
         if "-v" in includeArgs:
             parser.add_argument("-v", help="verbose logging", action='store_true')
@@ -111,6 +111,8 @@ class TestHelper(object):
             parser.add_argument("--sanity-test", help="Validates nodeos and kleos are in path and can be started up.", action='store_true')
         if "--alternate-version-labels-file" in includeArgs:
             parser.add_argument("--alternate-version-labels-file", type=str, help="Provide a file to define the labels that can be used in the test and the path to the version installation associated with that.")
+        if "--error-log-path" in includeArgs:
+            parser.add_argument("--error-log-path", type=str, help="Provide path to error file for use when remotely running a test from another test.")
 
         for arg in applicationSpecificArgs.args:
             if arg.type is not None:

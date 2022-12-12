@@ -82,7 +82,7 @@ deps/*
 dependencies/*
 
 etc/eosio/node_*
-var/lib/node_*
+TestLogs*
 .vscode
 .idea/
 *.iws

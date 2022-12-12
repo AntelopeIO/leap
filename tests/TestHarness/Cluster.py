@@ -166,7 +166,7 @@ class Cluster(object):
     # pylint: disable=too-many-statements
     def launch(self, pnodes=1, unstartedNodes=0, totalNodes=1, prodCount=1, topo="mesh", delay=1, onlyBios=False, dontBootstrap=False,
                totalProducers=None, sharedProducers=0, extraNodeosArgs="", useBiosBootFile=True, specificExtraNodeosArgs=None, onlySetProds=False,
-               pfSetupPolicy=PFSetupPolicy.FULL, alternateVersionLabelsFile=None, associatedNodeLabels=None, loadSystemContract=True):
+               pfSetupPolicy=PFSetupPolicy.FULL, alternateVersionLabelsFile=None, associatedNodeLabels=None, loadSystemContract=True, nodeosLogPath=f"TestLogs/{os.path.basename(sys.argv[0]).split('.')[0]}{os.getpid()}/"):
         """Launch cluster.
         pnodes: producer nodes count
         unstartedNodes: non-producer nodes that are configured into the launch, but not started.  Should be included in totalNodes.
@@ -279,6 +279,8 @@ class Cluster(object):
         cmdArr.append(str(160000000))
         cmdArr.append("--max-transaction-cpu-usage")
         cmdArr.append(str(150000000))
+        cmdArr.append("--nodeos-log-path")
+        cmdArr.append(nodeosLogPath)
 
         if associatedNodeLabels is not None:
             for nodeNum,label in associatedNodeLabels.items():
@@ -1539,7 +1541,7 @@ class Cluster(object):
         return node.waitForNextBlock(timeout)
 
     def cleanup(self):
-        for f in glob.glob(Utils.DataDir + "node_*"):
+        for f in glob.glob(Utils.DataPath):
             shutil.rmtree(f)
         for f in glob.glob(Utils.ConfigDir + "node_*"):
             shutil.rmtree(f)
