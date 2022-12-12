@@ -10,11 +10,13 @@ from ctypes import *
 # There are more than 100 relevant constants.  If support for a large number of them is desirable,
 # run h2py.py on sockios.h and if.h and import * from the resulting SOCKIOS.py and IF.py.
 # https://github.com/PexMor/unshare/blob/master/h2py.py
+IFF_UP       = 0x1
 IFF_LOOPBACK = 0x8
 
 IFNAMSIZ = 16
 
 SIOCGIFFLAGS = 0x00008913
+SIOCSIFFLAGS = 0x00008914
 
 class SockAddr_Gen(Structure):
     _fields_ = [
@@ -90,3 +92,11 @@ def getInterfaceFlags(name: str):
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, 0)
     fcntl.ioctl(sock, SIOCGIFFLAGS, ifr)
     return ifr.data.ifr_flags
+
+def setInterfaceUp(name: str):
+    _name = (c_ubyte * IFNAMSIZ)(*bytearray(name, 'utf-8'))
+    ifr = InterfaceReq()
+    ifr.ifr_name = _name
+    ifr.data.ifr_flags = IFF_UP
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, 0)
+    fcntl.ioctl(sock, SIOCSIFFLAGS, ifr)
