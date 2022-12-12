@@ -2010,22 +2010,14 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
 
    // setting and unsetting chainbase read_only mode will be moved to right
    // place when multi-threaded read-only transaction is implemented
-   if( trx->is_read_only() ) {
-      chain.set_db_read_only_mode();
-   }
-   transaction_trace_ptr trace = nullptr;
-   try {
-      trace = chain.push_transaction( trx, block_deadline, max_trx_time, prev_billed_cpu_time_us, false, sub_bill );
-   } catch (...) {
-      // prevent chainbase from stuck in read_only mode
-      if( trx->is_read_only() ) {
+   auto unset_db_read_only_mode = fc::make_scoped_exit([trx, &chain]{
+      if( trx->is_read_only() )
          chain.unset_db_read_only_mode();
-      }
-      throw;
-   }
-   if( trx->is_read_only() ) {
-      chain.unset_db_read_only_mode();
-   }
+   });
+   if( trx->is_read_only() )
+      chain.set_db_read_only_mode();
+
+   auto trace = chain.push_transaction( trx, block_deadline, max_trx_time, prev_billed_cpu_time_us, false, sub_bill );
 
    auto end = fc::time_point::now();
    push_result pr;
