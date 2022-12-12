@@ -1682,10 +1682,11 @@ fc::time_point producer_plugin_impl::calculate_block_deadline( const fc::time_po
 }
 
 bool producer_plugin_impl::start_block_interrupted( const fc::time_point& deadline ) const {
-   if( _pending_block_mode == pending_block_mode::speculating ) {
-      return _received_block;
+   if( _pending_block_mode == pending_block_mode::producing ) {
+      return deadline <= fc::time_point::now();
    }
-   return deadline <= fc::time_point::now();
+   // if we can produce then honor deadline so production starts on time
+   return (!_producers.empty() && deadline <= fc::time_point::now()) || _received_block;
 }
 
 producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
