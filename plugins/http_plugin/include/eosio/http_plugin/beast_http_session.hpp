@@ -156,8 +156,8 @@ protected:
             error_results results{static_cast<uint16_t>(http::status::not_found), "Not Found",
                                   error_results::error_info( fc::exception( FC_LOG_MESSAGE( error, "Unknown Endpoint" ) ),
                                                              http_plugin::verbose_errors() )};
-            auto json = fc::json::to_string(results, fc::time_point::maximum());
-            send_response(std::move(json), static_cast<unsigned int>(http::status::not_found) );
+            send_response( fc::json::to_string( results, fc::time_point::maximum() ),
+                           static_cast<unsigned int>(http::status::not_found) );
          }
       } catch(...) {
          handle_exception();
@@ -348,7 +348,7 @@ public:
          res_->set(http::field::content_type, "application/json");
          res_->keep_alive(false);
          res_->set(http::field::server, BOOST_BEAST_VERSION_STRING);
-         
+
          send_response(std::move(err_str), static_cast<unsigned int>(http::status::internal_server_error));
          derived().do_eof();
       }
