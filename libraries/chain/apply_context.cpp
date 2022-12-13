@@ -182,7 +182,7 @@ void apply_context::exec_one()
       print_debug(receiver, trace);
    }
 
-   if (auto dm_logger = control.get_deep_mind_logger(); dm_logger && !trx_context.is_read_only())
+   if (auto dm_logger = control.get_deep_mind_logger(); dm_logger && !trx_context.is_transient())
    {
       dm_logger->on_end_action();
    }
@@ -289,7 +289,7 @@ void apply_context::require_recipient( account_name recipient ) {
          schedule_action( action_ordinal, recipient, false )
       );
 
-      if (auto dm_logger = control.get_deep_mind_logger(); dm_logger && !trx_context.is_read_only()) {
+      if (auto dm_logger = control.get_deep_mind_logger(); dm_logger && !trx_context.is_transient()) {
          dm_logger->on_require_recipient();
       }
    }
@@ -394,7 +394,7 @@ void apply_context::execute_inline( action&& a ) {
       schedule_action( std::move(a), inline_receiver, false )
    );
 
-   if (auto dm_logger = control.get_deep_mind_logger(); dm_logger && !trx_context.is_read_only()) {
+   if (auto dm_logger = control.get_deep_mind_logger(); dm_logger && !trx_context.is_transient()) {
       dm_logger->on_send_inline();
    }
 }
@@ -419,7 +419,7 @@ void apply_context::execute_context_free_inline( action&& a ) {
       schedule_action( std::move(a), inline_receiver, true )
    );
 
-   if (auto dm_logger = control.get_deep_mind_logger(); dm_logger && !trx_context.is_read_only()) {
+   if (auto dm_logger = control.get_deep_mind_logger(); dm_logger && !trx_context.is_transient()) {
       dm_logger->on_send_context_free_inline();
    }
 }

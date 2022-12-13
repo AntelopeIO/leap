@@ -1331,7 +1331,7 @@ struct controller_impl {
          trace->except_ptr = std::current_exception();
          trace->elapsed = fc::time_point::now() - start;
 
-         if (auto dm_logger = get_deep_mind_logger(); dm_logger && !trx_context.is_read_only()) {
+         if (auto dm_logger = get_deep_mind_logger(); dm_logger && !trx_context.is_transient()) {
             dm_logger->on_fail_deferred();
          }
       };
