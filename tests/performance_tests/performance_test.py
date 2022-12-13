@@ -8,8 +8,8 @@ import sys
 import json
 import shutil
 
-harnessPath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(harnessPath)
+from pathlib import Path, PurePath
+sys.path.append(str(PurePath(PurePath(Path(__file__).absolute()).parent).parent))
 
 from NodeosPluginArgs import ChainPluginArgs, HttpPluginArgs, NetPluginArgs, ProducerPluginArgs
 from TestHarness import TestHelper, Utils
@@ -79,7 +79,7 @@ class PerformanceTest:
 
     @dataclass
     class LoggingConfig:
-        logDirBase: str = f"./{os.path.splitext(os.path.basename(__file__))[0]}"
+        logDirBase: str = f"./{PurePath(PurePath(__file__).name).stem[0]}"
         logDirTimestamp: str = f"{datetime.utcnow().strftime('%Y-%m-%d_%H-%M-%S')}"
         logDirPath: str = field(default_factory=str, init=False)
         ptbLogsDirPath: str = field(default_factory=str, init=False)
@@ -98,7 +98,7 @@ class PerformanceTest:
 
         self.testsStart = datetime.utcnow()
 
-        self.loggingConfig = PerformanceTest.LoggingConfig(logDirBase=f"{self.ptConfig.logDirRoot}/{os.path.splitext(os.path.basename(__file__))[0]}",
+        self.loggingConfig = PerformanceTest.LoggingConfig(logDirBase=f"{self.ptConfig.logDirRoot}/{PurePath(PurePath(__file__).name).stem[0]}",
                                                            logDirTimestamp=f"{self.testsStart.strftime('%Y-%m-%d_%H-%M-%S')}")
 
     def performPtbBinarySearch(self, clusterConfig: PerformanceTestBasic.ClusterConfig, logDirRoot: str, delReport: bool, quiet: bool, delPerfLogs: bool) -> TpsTestResult.PerfTestSearchResults:
@@ -311,7 +311,7 @@ class PerformanceTest:
         try:
             def removeArtifacts(path):
                 print(f"Checking if test artifacts dir exists: {path}")
-                if os.path.isdir(f"{path}"):
+                if Path(f"{path}").is_dir():
                     print(f"Cleaning up test artifacts dir and all contents of: {path}")
                     shutil.rmtree(f"{path}")
 
@@ -327,7 +327,7 @@ class PerformanceTest:
         try:
             def createArtifactsDir(path):
                 print(f"Checking if test artifacts dir exists: {path}")
-                if not os.path.isdir(f"{path}"):
+                if not Path(f"{path}").is_dir():
                     print(f"Creating test artifacts dir: {path}")
                     os.mkdir(f"{path}")
 

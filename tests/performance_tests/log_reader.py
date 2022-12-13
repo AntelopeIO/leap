@@ -9,8 +9,8 @@ import glob
 import gzip
 import math
 
-harnessPath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(harnessPath)
+from pathlib import Path, PurePath
+sys.path.append(str(PurePath(PurePath(Path(__file__).absolute()).parent).parent))
 
 from TestHarness import Utils
 from dataclasses import dataclass, asdict, field

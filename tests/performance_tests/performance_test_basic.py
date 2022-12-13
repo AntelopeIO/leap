@@ -10,8 +10,8 @@ import signal
 import log_reader
 import launch_transaction_generators as ltg
 
-harnessPath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(harnessPath)
+from pathlib import Path, PurePath
+sys.path.append(str(PurePath(PurePath(Path(__file__).absolute()).parent).parent))
 
 from NodeosPluginArgs import ChainPluginArgs, HttpClientPluginArgs, HttpPluginArgs, NetPluginArgs, ProducerPluginArgs, ResourceMonitorPluginArgs, SignatureProviderPluginArgs, StateHistoryPluginArgs, TraceApiPluginArgs
 from TestHarness import Cluster, TestHelper, Utils, WalletMgr
@@ -100,7 +100,7 @@ class PerformanceTestBasic:
 
     @dataclass
     class LoggingConfig:
-        logDirBase: str = f"./{os.path.splitext(os.path.basename(__file__))[0]}"
+        logDirBase: str = f"./{PurePath(PurePath(__file__).name).stem[0]}"
         logDirTimestamp: str = f"{datetime.utcnow().strftime('%Y-%m-%d_%H-%M-%S')}"
         logDirTimestampedOptSuffix: str = ""
         logDirPath: str = field(default_factory=str, init=False)
@@ -121,7 +121,7 @@ class PerformanceTestBasic:
 
         self.testStart = datetime.utcnow()
 
-        self.loggingConfig = PerformanceTestBasic.LoggingConfig(logDirBase=f"{self.ptbConfig.logDirRoot}/{os.path.splitext(os.path.basename(__file__))[0]}",
+        self.loggingConfig = PerformanceTestBasic.LoggingConfig(logDirBase=f"{self.ptbConfig.logDirRoot}/{PurePath(PurePath(__file__).name).stem[0]}",
                                                                 logDirTimestamp=f"{self.testStart.strftime('%Y-%m-%d_%H-%M-%S')}",
                                                                 logDirTimestampedOptSuffix = f"-{self.ptbConfig.targetTps}")
 
@@ -155,7 +155,7 @@ class PerformanceTestBasic:
         try:
             def removeArtifacts(path):
                 print(f"Checking if test artifacts dir exists: {path}")
-                if os.path.isdir(f"{path}"):
+                if Path(f"{path}").is_dir():
                     print(f"Cleaning up test artifacts dir and all contents of: {path}")
                     shutil.rmtree(f"{path}")
 
@@ -177,7 +177,7 @@ class PerformanceTestBasic:
         try:
             def createArtifactsDir(path):
                 print(f"Checking if test artifacts dir exists: {path}")
-                if not os.path.isdir(f"{path}"):
+                if not Path(f"{path}").is_dir():
                     print(f"Creating test artifacts dir: {path}")
                     os.mkdir(f"{path}")
 
@@ -194,7 +194,7 @@ class PerformanceTestBasic:
             print(error)
 
     def fileOpenMode(self, filePath) -> str:
-        if os.path.exists(filePath):
+        if Path(filePath).exists():
             append_write = 'a'
         else:
             append_write = 'w'
