@@ -467,34 +467,6 @@ paths:
                     items:
                       $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
 
-  /producer/log_failed_transaction:
-    requestBody:
-      content:
-        application/json:
-          schema:
-            type: object
-            properties:
-              transaction_id_type:
-                type: int
-                description: transaction type id
-              packed_trx_ptr:
-                type: int
-                description: key to transaction
-              reason:
-                type: string
-                description: explaination
-    post:
-      summary: log_failed_transaction
-      description:
-      operationId: log_failed_transaction
-      responses:
-        "201":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/component/schema/OK'
-
 component:
   schema:
     Error:
