@@ -24,18 +24,16 @@ class transaction_metadata {
          input,
          implicit,
          scheduled,
-         read_only
+         dry_run
       };
 
    private:
       const packed_transaction_ptr                               _packed_trx;
       const fc::microseconds                                     _sig_cpu_usage;
       const flat_set<public_key_type>                            _recovered_pub_keys;
+      const trx_type                                             _trx_type;
 
    public:
-      const bool                                                 implicit;
-      const bool                                                 scheduled;
-      const bool                                                 read_only;
       bool                                                       accepted = false;       // not thread safe
       uint32_t                                                   billed_cpu_time_us = 0; // not thread safe
 
@@ -52,13 +50,11 @@ class transaction_metadata {
       // creation of tranaction_metadata restricted to start_recover_keys and create_no_recover_keys below, public for make_shared
       explicit transaction_metadata( const private_type& pt, packed_transaction_ptr ptrx,
                                      fc::microseconds sig_cpu_usage, flat_set<public_key_type> recovered_pub_keys,
-                                     bool _implicit = false, bool _scheduled = false, bool _read_only = false)
+                                     trx_type t = trx_type::input )
          : _packed_trx( std::move( ptrx ) )
          , _sig_cpu_usage( sig_cpu_usage )
          , _recovered_pub_keys( std::move( recovered_pub_keys ) )
-         , implicit( _implicit )
-         , scheduled( _scheduled )
-         , read_only( _read_only) {
+         , _trx_type( t ) {
       }
 
       transaction_metadata() = delete;
@@ -73,6 +69,10 @@ class transaction_metadata {
       fc::microseconds signature_cpu_usage()const { return _sig_cpu_usage; }
       const flat_set<public_key_type>& recovered_keys()const { return _recovered_pub_keys; }
       size_t get_estimated_size() const;
+      trx_type get_trx_type() const { return _trx_type; };
+      bool implicit() const { return _trx_type == trx_type::implicit; };
+      bool scheduled() const { return _trx_type == trx_type::scheduled; };
+      bool is_dry_run() const { return _trx_type == trx_type::dry_run; };
 
       /// Thread safe.
       /// @returns transaction_metadata_ptr or exception via future
@@ -85,7 +85,7 @@ class transaction_metadata {
       static transaction_metadata_ptr
       create_no_recover_keys( packed_transaction_ptr trx, trx_type t ) {
          return std::make_shared<transaction_metadata>( private_type(), std::move(trx),
-               fc::microseconds(), flat_set<public_key_type>(), t == trx_type::implicit, t == trx_type::scheduled, t==trx_type::read_only );
+               fc::microseconds(), flat_set<public_key_type>(), t );
       }
 
 };

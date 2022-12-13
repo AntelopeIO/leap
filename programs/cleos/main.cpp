@@ -155,12 +155,10 @@ std::string clean_output( std::string str ) {
    return fc::escape_string( str, nullptr, escape_control_chars );
 }
 
-string default_url = "http://127.0.0.1:8888/";
+string default_url = "http://127.0.0.1:8888";
 string default_wallet_url = "unix://" + (determine_home_directory() / "eosio-wallet" / (string(key_store_executable_name) + ".sock")).string();
 string wallet_url; //to be set to default_wallet_url in main
 std::map<name, std::string>  abi_files_override;
-bool no_verify = false;
-vector<string> headers;
 
 auto   tx_expiration = fc::seconds(30);
 const fc::microseconds abi_serializer_max_time = fc::seconds(10); // No risk to client side serialization taking a long time
@@ -179,8 +177,7 @@ uint16_t tx_retry_num_blocks = 0;
 bool   tx_use_old_rpc = false;
 bool   tx_use_old_send_rpc = false;
 string tx_json_save_file;
-bool   print_request = false;
-bool   print_response = false;
+eosio::client::http::config_t http_config;
 bool   no_auto_keosd = false;
 bool   verbose = false;
 int    return_code = 0;
@@ -191,8 +188,6 @@ uint32_t tx_max_net_usage = 0;
 uint32_t delaysec = 0;
 
 vector<string> tx_permission;
-
-eosio::client::http::http_context context;
 
 enum class tx_compression_type {
    none,
@@ -320,10 +315,9 @@ fc::variant call( const std::string& url,
                   const std::string& path,
                   const T& v ) {
    try {
-      auto sp = std::make_unique<eosio::client::http::connection_param>(context, parse_url(url) + path, no_verify ? false : true, headers);
-      return eosio::client::http::do_http_call(*sp, fc::variant(v), print_request, print_response );
+      return eosio::client::http::do_http_call(http_config, url, path, fc::variant(v));
    }
-   catch(boost::system::system_error& e) {
+   catch(connection_exception& e) {
       std::string exec_name;
       if(url == ::default_url) {
          exec_name = node_executable_name;
@@ -331,9 +325,9 @@ fc::variant call( const std::string& url,
          exec_name = key_store_executable_name;
       }
       std::cerr << localized( "Failed http request to ${n} at ${u}; is ${n} running?\n"
-                              "  Error: ${e}",
-                              ("n", exec_name)("u", url)("e", e.what()) ) << std::endl;
-      throw connection_exception(fc::log_messages{FC_LOG_MESSAGE(error, e.what())});
+                              "  Error: Connection refused or malformed URL",
+                              ("n", exec_name)("u", url)) << std::endl;
+      throw;
    }
 }
 
@@ -2741,7 +2735,7 @@ CLI::callback_t header_opt_callback = [](CLI::results_t res) {
    vector<string>::iterator itr;
 
    for (itr = res.begin(); itr != res.end(); itr++) {
-       headers.push_back(*itr);
+       http_config.headers.push_back(*itr);
    }
 
    return true;
@@ -2764,11 +2758,19 @@ CLI::callback_t abi_files_overide_callback = [](CLI::results_t account_abis) {
    return true;
 };
 
+struct set_url_no_trailing_slash {
+   std::string& url;
+   set_url_no_trailing_slash(std::string& bind_arg) : url(bind_arg) {}
+   void operator()(const std::string& from) const {
+      url = from;
+      if (url.size() && url.back()=='/') url.resize(url.size()-1); // remove trailing slash
+   }
+};
 
 int main( int argc, char** argv ) {
 
    fc::logger::get(DEFAULT_LOGGER).set_log_level(fc::log_level::debug);
-   context = eosio::client::http::create_http_context();
+
    wallet_url = default_wallet_url;
 
    CLI::App app{"Command Line Interface to EOSIO Client"};
@@ -2788,18 +2790,22 @@ int main( int argc, char** argv ) {
    app.add_option( "--wallet-host", obsoleted_option_host_port, localized("The host where ${k} is running", ("k", key_store_executable_name)) )->group("");
    app.add_option( "--wallet-port", obsoleted_option_host_port, localized("The port where ${k} is running", ("k", key_store_executable_name)) )->group("");
 
-   app.add_option( "-u,--url", ::default_url, localized( "The http/https URL where ${n} is running", ("n", node_executable_name)))->capture_default_str();
-   app.add_option( "--wallet-url", wallet_url, localized("The http/https URL where ${k} is running", ("k", key_store_executable_name)))->capture_default_str();
+   app.add_option_function<std::string>( "-u,--url", set_url_no_trailing_slash(::default_url),
+      localized( "The http/https URL where ${n} is running", ("n", node_executable_name)))->default_str(::default_url);
+   app.add_option_function<std::string>( "--wallet-url", set_url_no_trailing_slash(wallet_url),
+      localized("The http/https URL where ${k} is running", ("k", key_store_executable_name)))->default_str(::default_wallet_url);
 
    app.add_option( "--abi-file", abi_files_overide_callback, localized("In form of <contract name>:<abi file path>, use a local abi file for serialization and deserialization instead of getting the abi data from the blockchain; repeat this option to pass multiple abi files for different contracts"))->type_size(0, 1000);
    app.add_option( "-r,--header", header_opt_callback, localized("Pass specific HTTP header; repeat this option to pass multiple headers"));
-   app.add_flag( "-n,--no-verify", no_verify, localized("Don't verify peer certificate when using HTTPS"));
+   app.add_flag( "-n,--no-verify", http_config.no_verify_cert, localized("Don't verify peer certificate when using HTTPS"));
    app.add_flag( "--no-auto-" + string(key_store_executable_name), no_auto_keosd, localized("Don't automatically launch a ${k} if one is not currently running", ("k", key_store_executable_name)));
    app.parse_complete_callback([&app]{ ensure_keosd_running(&app);});
 
    app.add_flag( "-v,--verbose", verbose, localized("Output verbose errors and action console output"));
-   app.add_flag("--print-request", print_request, localized("Print HTTP request to STDERR"));
-   app.add_flag("--print-response", print_response, localized("Print HTTP response to STDERR"));
+   app.add_flag("--print-request", http_config.print_request, localized("Print HTTP request to STDERR"));
+   app.add_flag("--print-response", http_config.print_response, localized("Print HTTP response to STDERR"));
+   app.add_flag("--http-verbose", http_config.verbose, localized("Print HTTP verbose information to STDERR"));
+   app.add_flag("--http-trace", http_config.trace, localized("Print HTTP debug trace information to STDERR"));
 
    auto version = app.add_subcommand("version", localized("Retrieve version information"));
    version->require_subcommand();
@@ -3450,9 +3456,9 @@ int main( int argc, char** argv ) {
         fc::path cpath = fc::canonical(fc::path(contractPath));
 
         if( wasmPath.empty() ) {
-           wasmPath = (cpath / (cpath.filename().generic_string()+".wasm")).generic_string();
+           wasmPath = (cpath / fc::path(cpath.filename().generic_string()+".wasm")).generic_string();
         } else if ( boost::filesystem::path(wasmPath).is_relative() ) {
-           wasmPath = (cpath / wasmPath).generic_string();
+           wasmPath = (cpath / fc::path(wasmPath)).generic_string();
         }
 
         std::cerr << localized(("Reading WASM from " + wasmPath + "...").c_str()) << std::endl;
@@ -3506,9 +3512,9 @@ int main( int argc, char** argv ) {
         fc::path cpath = fc::canonical(fc::path(contractPath));
 
         if( abiPath.empty() ) {
-           abiPath = (cpath / (cpath.filename().generic_string()+".abi")).generic_string();
+           abiPath = (cpath / fc::path(cpath.filename().generic_string()+".abi")).generic_string();
         } else if ( boost::filesystem::path(abiPath).is_relative() ) {
-           abiPath = (cpath / abiPath).generic_string();
+           abiPath = (cpath / fc::path(abiPath)).generic_string();
         }
 
         EOS_ASSERT( fc::exists( abiPath ), abi_file_not_found, "no abi file found ${f}", ("f", abiPath)  );

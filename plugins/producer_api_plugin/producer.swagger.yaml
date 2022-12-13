@@ -7,7 +7,7 @@ info:
     name: MIT
     url: https://opensource.org/licenses/MIT
   contact:
-    url: https://eosnetwork.com
+    url: https://antelope.io
 tags:
   - name: eosio
 servers:
@@ -39,7 +39,8 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/component/schema/OK'
+                $ref: '#/component/schema/OK_PAUSED'
+
   /producer/resume:
     post:
       summary: resume
@@ -52,10 +53,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/component/schema/OK'
+
   /producer/paused:
     post:
       summary: paused
-      description: Retreives paused status for producer node. Takes no arguments returns no values.
+      description: Retrieves paused status for producer node. Takes no arguments returns no values.
       operationId: paused
       responses:
         "201":
@@ -64,10 +66,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/component/schema/OK'
+
   /producer/get_runtime_options:
     post:
       summary: get_runtime_options
-      description: Retreives run time options for producer node. Only `incoming_defer_ratio` is a floating point number the other return values are signed integers.
+      description: Retrieves runtime options for producer node. `incoming_defer_ratio` is a floating point number the other return values are integers.
       operationId: get_runtime_options
       responses:
         "201":
@@ -80,14 +83,13 @@ paths:
   /producer/update_runtime_options:
     post:
       summary: update_runtime_options
-      description: Update run time options for producer node. May post any of the runtime options in combination or along. Only `incoming_defer_ratio` is a floating point number the other values are signed integers.
+      description: Update runtime options for producer node. May post any of the runtime options in combination or alone. `incoming_defer_ratio` is a floating point number the other values are integers.
       operationId: update_runtime_options
       requestBody:
         content:
           application/json:
             schema:
               $ref: '#/component/schema/Runtime_Options'
-
       responses:
         "201":
           description: OK
@@ -95,10 +97,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/component/schema/OK'
+
   /producer/get_greylist:
     post:
       summary: get_greylist
-      description: Retreives the greylist for producer node.
+      description: Retrieves the greylist for producer node.
       operationId: get_greylist
       responses:
         "201":
@@ -130,7 +133,6 @@ paths:
                     description: List of account names to add
                     items:
                       $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
-
       responses:
         "201":
           description: OK
@@ -144,6 +146,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/component/schema/Error'
+
   /producer/remove_greylist_accounts:
     post:
       summary: remove_greylist_accounts
@@ -160,7 +163,6 @@ paths:
                   description: List of account names to remove
                   items:
                     $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
-
       responses:
         "201":
           description: OK
@@ -174,12 +176,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/component/schema/Error'
+
   /producer/get_whitelist_blacklist:
     post:
       summary: get_whitelist_blacklist
-      description: Retreives the white list and black list for producer node. A json object containing whitelist and blacklist information. `actor_whitelist` , `actor_blacklist`, `contract_whitelist`, `contract_blacklist` are represented by an array of Names. `action_blacklist` is an array of tuples consisting of Name and Action. `key_blacklist` is an array of Public Keys. Name is a string represeting a NamePrivileged or NameBasic or NameBid or NameCatchAll
+      description: Retrieves the whitelist and blacklist for producer node. A JSON object containing whitelist and blacklist information. `actor_whitelist`, `actor_blacklist`, `contract_whitelist`, `contract_blacklist` are represented by an array of Names. `action_blacklist` is an array of tuples consisting of Name and Action. `key_blacklist` is an array of Public Keys. Name is a string represeting a NamePrivileged or NameBasic or NameBid or NameCatchAll
       operationId: get_whitelist_blacklist
-
       responses:
         "201":
           description: OK
@@ -221,7 +223,7 @@ paths:
   /producer/set_whitelist_blacklist:
     post:
       summary: set_whitelist_blacklist
-      description: Defines the whitelist and blacklist for a producer node. Takes a json object containing whitelist and blacklist information. At least one of actor_whitelist, actor_blacklist, contract_whitelist, contract_blacklist, action_blacklist, and key_blacklist is required. `actor_whitelist` , `actor_blacklist`, `contract_whitelist`, `contract_blacklist` take an array of Names. `action_blacklist` is an array of tuples consisting of Name and Action. `key_blacklist` is an array of Public Keys. Name is a string represeting a NamePrivileged or NameBasic or NameBid or NameCatchAll
+      description: Defines the whitelist and blacklist for a producer node. Takes a JSON object containing whitelist and blacklist information. At least one of actor_whitelist, actor_blacklist, contract_whitelist, contract_blacklist, action_blacklist, and key_blacklist is required. `actor_whitelist`, `actor_blacklist`, `contract_whitelist`, `contract_blacklist` take an array of Names. `action_blacklist` is an array of tuples consisting of Name and Action. `key_blacklist` is an array of Public Keys. Name is a string represeting a NamePrivileged or NameBasic or NameBid or NameCatchAll
       operationId: set_whitelist_blacklist
       required: true
       requestBody:
@@ -266,7 +268,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/component/schema/OK'
-
         "400":
           description: client error
           content:
@@ -315,9 +316,8 @@ paths:
   /producer/get_integrity_hash:
     post:
       summary: get_integrity_hash
-      description: Retreives the integrity hash for producer node
+      description: Retrieves the integrity hash for producer node
       operationId: get_integrity_hash
-
       responses:
         "201":
           description: OK
@@ -365,7 +365,7 @@ paths:
   /producer/get_supported_protocol_features:
     post:
       summary: get_supported_protocol_features
-      description: Retreives supported protocol features for producer node. Pass filters in as part of the request body.
+      description: Retrieves supported protocol features for producer node. Pass filters in as part of the request body.
       operationId: get_supported_protocol_features
       requestBody:
         content:
@@ -428,7 +428,7 @@ paths:
   /producer/get_account_ram_corrections:
     post:
       summary: get_account_ram_corrections
-      description: Retreives accounts with ram corrections.
+      description: Retrieves accounts with ram corrections.
       operationId: get_account_ram_corrections
       requestBody:
         content:
@@ -462,81 +462,10 @@ paths:
                     type: array
                     items:
                       type: string
-
-  /producer/producer/get_unapplied_transactions:
-    post:
-      summary: get_unapplied_transactions
-      description: Get Unapplied Transactions. No required parameters.
-      operationId: get_unapplied_transactions
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                limit:
-                  type: int
-                  description: number of transactions to return, defaults to 4,294,967,295
-                  example: 2
-                lower_bound:
-                  $ref: "https://docs.eosnetwork.com/openapi/v2.0/Sha256.yaml"
-                time_limit_ms:
-                  type: int
-                  description: defaults to 10ms
-                  example: 10
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  size:
-                    type: integer
-                    example: 12428
-                  incoming_size:
-                    type: integer
-                    example: 4475
-                  trxs:
+                  more:
                     type: array
                     items:
-                      type: object
-                      properties:
-                        trx_id:
-                          $ref: "https://docs.eosnetwork.com/openapi/v2.0/Sha256.yaml"
-                        expiration:
-                          type: string
-                          example: "2022-09-17T16:30:16"
-                        trx_type:
-                          type: string
-                          example: "aborted"
-                        first_auth:
-                          type: string
-                          example: "jkbsg.wam"
-                        first_receiver:
-                          type: string
-                          example: "m.federation"
-                        first_action:
-                          type: string
-                          example: "mine"
-                        total_actions:
-                          type: integer
-                          example: 1
-                        billed_cpu_time_us:
-                          type: integer
-                          example: 504
-                        size:
-                          type: integer
-                          example: 934
-                  more:
-                    $ref: "https://docs.eosnetwork.com/openapi/v2.0/Sha256.yaml"
-        "400":
-          description: client error
-          content:
-            application/json:
-              schema:
-                $ref: '#/component/schema/Error'
+                      $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
 
 component:
   schema:
@@ -596,6 +525,13 @@ component:
           type: string
           description: status
           example: ok
+    OK_PAUSED:
+      type: object
+      properties:
+        json:
+          type: boolean
+          description: true/false indicating paused state
+          example: true
     Runtime_Options:
       type: object
       properties:
@@ -619,11 +555,15 @@ component:
           type: integer
           description: Max scheduled transaction time per block in ms
           example: 100
+        subjective_cpu_leeway_us:
+          type: integer
+          description: in micro seconds
+          example: 10
         incoming_defer_ratio:
           type: string
-          description: Incoming defer ration, parsed to double
+          description: Incoming defer ratio, parsed to double
           example: "1.00000000000000000"
         greylist_limit:
           type: integer
-          description: limit on number of Names supported by greylist
+          description: unsigned int, limit on number of Names supported by greylist
           example: 1000

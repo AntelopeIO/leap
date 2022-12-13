@@ -12,6 +12,7 @@ jobs:
       label: triage
       org-project: 'Team Backlog'
       project-field: Status=Todo
+      skip-if-existing-project: true
     secrets:
       token: ${{secrets.ENFCIBOT_REPO_AND_PROJECTS}}
 

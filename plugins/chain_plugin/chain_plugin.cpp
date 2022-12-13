@@ -45,16 +45,12 @@ eosio::chain::deep_mind_handler _deep_mind_log;
 
 namespace eosio {
 
-//declare operator<< and validate funciton for read_mode in the same namespace as read_mode itself
+//declare operator<< and validate function for read_mode in the same namespace as read_mode itself
 namespace chain {
 
 std::ostream& operator<<(std::ostream& osm, eosio::chain::db_read_mode m) {
-   if ( m == eosio::chain::db_read_mode::SPECULATIVE ) {
-      osm << "speculative";
-   } else if ( m == eosio::chain::db_read_mode::HEAD ) {
+   if ( m == eosio::chain::db_read_mode::HEAD ) {
       osm << "head";
-   } else if ( m == eosio::chain::db_read_mode::READ_ONLY ) { // deprecated
-      osm << "read-only";
    } else if ( m == eosio::chain::db_read_mode::IRREVERSIBLE ) {
       osm << "irreversible";
    }
@@ -76,12 +72,8 @@ void validate(boost::any& v,
   // one string, it's an error, and exception will be thrown.
   std::string const& s = validators::get_single_string(values);
 
-  if ( s == "speculative" ) {
-     v = boost::any(eosio::chain::db_read_mode::SPECULATIVE);
-  } else if ( s == "head" ) {
+ if ( s == "head" ) {
      v = boost::any(eosio::chain::db_read_mode::HEAD);
-  } else if ( s == "read-only" ) {
-     v = boost::any(eosio::chain::db_read_mode::READ_ONLY);
   } else if ( s == "irreversible" ) {
      v = boost::any(eosio::chain::db_read_mode::IRREVERSIBLE);
   } else {
@@ -278,12 +270,11 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
           "Public key added to blacklist of keys that should not be included in authorities (may specify multiple times)")
          ("sender-bypass-whiteblacklist", boost::program_options::value<vector<string>>()->composing()->multitoken(),
           "Deferred transactions sent by accounts in this list do not have any of the subjective whitelist/blacklist checks applied to them (may specify multiple times)")
-         ("read-mode", boost::program_options::value<eosio::chain::db_read_mode>()->default_value(eosio::chain::db_read_mode::SPECULATIVE),
-          "Database read mode (\"speculative\", \"head\", \"read-only\", \"irreversible\").\n"
-          "In \"speculative\" mode: database contains state changes by transactions in the blockchain up to the head block as well as some transactions not yet included in the blockchain.\n"
-          "In \"head\" mode: database contains state changes by only transactions in the blockchain up to the head block; transactions received by the node are relayed if valid.\n"
-          "In \"read-only\" mode: (DEPRECATED: see p2p-accept-transactions & api-accept-transactions) database contains state changes by only transactions in the blockchain up to the head block; transactions received via the P2P network are not relayed and transactions cannot be pushed via the chain API.\n"
-          "In \"irreversible\" mode: database contains state changes by only transactions in the blockchain up to the last irreversible block; transactions received via the P2P network are not relayed and transactions cannot be pushed via the chain API.\n"
+         ("read-mode", boost::program_options::value<eosio::chain::db_read_mode>()->default_value(eosio::chain::db_read_mode::HEAD),
+          "Database read mode (\"head\", \"irreversible\").\n"
+          "In \"head\" mode: database contains state changes up to the head block; transactions received by the node are relayed if valid.\n"
+          "In \"irreversible\" mode: database contains state changes up to the last irreversible block; "
+          "transactions received via the P2P network are not relayed and transactions cannot be pushed via the chain API.\n"
           )
          ( "api-accept-transactions", bpo::value<bool>()->default_value(true), "Allow API transactions to be evaluated and relayed if valid.")
          ("validation-mode", boost::program_options::value<eosio::chain::validation_mode>()->default_value(eosio::chain::validation_mode::FULL),
@@ -424,203 +415,6 @@ void clear_chainbase_files( const fc::path& p ) {
 
    fc::remove( p / "shared_memory.bin" );
    fc::remove( p / "shared_memory.meta" );
-}
-
-std::optional<builtin_protocol_feature> read_builtin_protocol_feature( const fc::path& p  ) {
-   try {
-      return fc::json::from_file<builtin_protocol_feature>( p );
-   } catch( const fc::exception& e ) {
-      wlog( "problem encountered while reading '${path}':\n${details}",
-            ("path", p.generic_string())("details",e.to_detail_string()) );
-   } catch( ... ) {
-      dlog( "unknown problem encountered while reading '${path}'",
-            ("path", p.generic_string()) );
-   }
-   return {};
-}
-
-protocol_feature_set initialize_protocol_features( const fc::path& p, bool populate_missing_builtins = true ) {
-   using boost::filesystem::directory_iterator;
-
-   protocol_feature_set pfs;
-
-   bool directory_exists = true;
-
-   if( fc::exists( p ) ) {
-      EOS_ASSERT( fc::is_directory( p ), plugin_exception,
-                  "Path to protocol-features is not a directory: ${path}",
-                  ("path", p.generic_string())
-      );
-   } else {
-      if( populate_missing_builtins )
-         bfs::create_directories( p );
-      else
-         directory_exists = false;
-   }
-
-   auto log_recognized_protocol_feature = []( const builtin_protocol_feature& f, const digest_type& feature_digest ) {
-      if( f.subjective_restrictions.enabled ) {
-         if( f.subjective_restrictions.preactivation_required ) {
-            if( f.subjective_restrictions.earliest_allowed_activation_time == time_point{} ) {
-               ilog( "Support for builtin protocol feature '${codename}' (with digest of '${digest}') is enabled with preactivation required",
-                     ("codename", builtin_protocol_feature_codename(f.get_codename()))
-                     ("digest", feature_digest)
-               );
-            } else {
-               ilog( "Support for builtin protocol feature '${codename}' (with digest of '${digest}') is enabled with preactivation required and with an earliest allowed activation time of ${earliest_time}",
-                     ("codename", builtin_protocol_feature_codename(f.get_codename()))
-                     ("digest", feature_digest)
-                     ("earliest_time", f.subjective_restrictions.earliest_allowed_activation_time)
-               );
-            }
-         } else {
-            if( f.subjective_restrictions.earliest_allowed_activation_time == time_point{} ) {
-               ilog( "Support for builtin protocol feature '${codename}' (with digest of '${digest}') is enabled without activation restrictions",
-                     ("codename", builtin_protocol_feature_codename(f.get_codename()))
-                     ("digest", feature_digest)
-               );
-            } else {
-               ilog( "Support for builtin protocol feature '${codename}' (with digest of '${digest}') is enabled without preactivation required but with an earliest allowed activation time of ${earliest_time}",
-                     ("codename", builtin_protocol_feature_codename(f.get_codename()))
-                     ("digest", feature_digest)
-                     ("earliest_time", f.subjective_restrictions.earliest_allowed_activation_time)
-               );
-            }
-         }
-      } else {
-         ilog( "Recognized builtin protocol feature '${codename}' (with digest of '${digest}') but support for it is not enabled",
-               ("codename", builtin_protocol_feature_codename(f.get_codename()))
-               ("digest", feature_digest)
-         );
-      }
-   };
-
-   map<builtin_protocol_feature_t, fc::path>  found_builtin_protocol_features;
-   map<digest_type, std::pair<builtin_protocol_feature, bool> > builtin_protocol_features_to_add;
-   // The bool in the pair is set to true if the builtin protocol feature has already been visited to add
-   map< builtin_protocol_feature_t, std::optional<digest_type> > visited_builtins;
-
-   // Read all builtin protocol features
-   if( directory_exists ) {
-      for( directory_iterator enditr, itr{p}; itr != enditr; ++itr ) {
-         auto file_path = itr->path();
-         if( !fc::is_regular_file( file_path ) || file_path.extension().generic_string().compare( ".json" ) != 0 )
-            continue;
-
-         auto f = read_builtin_protocol_feature( file_path );
-
-         if( !f ) continue;
-
-         auto res = found_builtin_protocol_features.emplace( f->get_codename(), file_path );
-
-         EOS_ASSERT( res.second, plugin_exception,
-                     "Builtin protocol feature '${codename}' was already included from a previous_file",
-                     ("codename", builtin_protocol_feature_codename(f->get_codename()))
-                     ("current_file", file_path.generic_string())
-                     ("previous_file", res.first->second.generic_string())
-         );
-
-         const auto feature_digest = f->digest();
-
-         builtin_protocol_features_to_add.emplace( std::piecewise_construct,
-                                                   std::forward_as_tuple( feature_digest ),
-                                                   std::forward_as_tuple( *f, false ) );
-      }
-   }
-
-   // Add builtin protocol features to the protocol feature manager in the right order (to satisfy dependencies)
-   using itr_type = map<digest_type, std::pair<builtin_protocol_feature, bool>>::iterator;
-   std::function<void(const itr_type&)> add_protocol_feature =
-   [&pfs, &builtin_protocol_features_to_add, &visited_builtins, &log_recognized_protocol_feature, &add_protocol_feature]( const itr_type& itr ) -> void {
-      if( itr->second.second ) {
-         return;
-      } else {
-         itr->second.second = true;
-         visited_builtins.emplace( itr->second.first.get_codename(), itr->first );
-      }
-
-      for( const auto& d : itr->second.first.dependencies ) {
-         auto itr2 = builtin_protocol_features_to_add.find( d );
-         if( itr2 != builtin_protocol_features_to_add.end() ) {
-            add_protocol_feature( itr2 );
-         }
-      }
-
-      pfs.add_feature( itr->second.first );
-
-      log_recognized_protocol_feature( itr->second.first, itr->first );
-   };
-
-   for( auto itr = builtin_protocol_features_to_add.begin(); itr != builtin_protocol_features_to_add.end(); ++itr ) {
-      add_protocol_feature( itr );
-   }
-
-   auto output_protocol_feature = [&p]( const builtin_protocol_feature& f, const digest_type& feature_digest ) {
-      string filename( "BUILTIN-" );
-      filename += builtin_protocol_feature_codename( f.get_codename() );
-      filename += ".json";
-
-      auto file_path = p / filename;
-
-      EOS_ASSERT( !fc::exists( file_path ), plugin_exception,
-                  "Could not save builtin protocol feature with codename '${codename}' because a file at the following path already exists: ${path}",
-                  ("codename", builtin_protocol_feature_codename( f.get_codename() ))
-                  ("path", file_path.generic_string())
-      );
-
-      if( fc::json::save_to_file( f, file_path ) ) {
-         ilog( "Saved default specification for builtin protocol feature '${codename}' (with digest of '${digest}') to: ${path}",
-               ("codename", builtin_protocol_feature_codename(f.get_codename()))
-               ("digest", feature_digest)
-               ("path", file_path.generic_string())
-         );
-      } else {
-         elog( "Error occurred while writing default specification for builtin protocol feature '${codename}' (with digest of '${digest}') to: ${path}",
-               ("codename", builtin_protocol_feature_codename(f.get_codename()))
-               ("digest", feature_digest)
-               ("path", file_path.generic_string())
-         );
-      }
-   };
-
-   std::function<digest_type(builtin_protocol_feature_t)> add_missing_builtins =
-   [&pfs, &visited_builtins, &output_protocol_feature, &log_recognized_protocol_feature, &add_missing_builtins, populate_missing_builtins]
-   ( builtin_protocol_feature_t codename ) -> digest_type {
-      auto res = visited_builtins.emplace( codename, std::optional<digest_type>() );
-      if( !res.second ) {
-         EOS_ASSERT( res.first->second, protocol_feature_exception,
-                     "invariant failure: cycle found in builtin protocol feature dependencies"
-         );
-         return *res.first->second;
-      }
-
-      auto f = protocol_feature_set::make_default_builtin_protocol_feature( codename,
-      [&add_missing_builtins]( builtin_protocol_feature_t d ) {
-         return add_missing_builtins( d );
-      } );
-
-      if( !populate_missing_builtins )
-         f.subjective_restrictions.enabled = false;
-
-      const auto& pf = pfs.add_feature( f );
-      res.first->second = pf.feature_digest;
-
-      log_recognized_protocol_feature( f, pf.feature_digest );
-
-      if( populate_missing_builtins )
-         output_protocol_feature( f, pf.feature_digest );
-
-      return pf.feature_digest;
-   };
-
-   for( const auto& p : builtin_protocol_feature_codenames ) {
-      auto itr = found_builtin_protocol_features.find( p.first );
-      if( itr != found_builtin_protocol_features.end() ) continue;
-
-      add_missing_builtins( p.first );
-   }
-
-   return pfs;
 }
 
 namespace {
@@ -1057,14 +851,10 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
       }
       my->api_accept_transactions = options.at( "api-accept-transactions" ).as<bool>();
 
-      if( my->chain_config->read_mode == db_read_mode::IRREVERSIBLE || my->chain_config->read_mode == db_read_mode::READ_ONLY ) {
-         if( my->chain_config->read_mode == db_read_mode::READ_ONLY ) {
-            wlog( "read-mode = read-only is deprecated use p2p-accept-transactions = false, api-accept-transactions = false instead." );
-         }
+      if( my->chain_config->read_mode == db_read_mode::IRREVERSIBLE ) {
          if( my->api_accept_transactions ) {
             my->api_accept_transactions = false;
-            std::stringstream ss; ss << my->chain_config->read_mode;
-            wlog( "api-accept-transactions set to false due to read-mode: ${m}", ("m", ss.str()) );
+            wlog( "api-accept-transactions set to false due to read-mode: irreversible" );
          }
       }
       if( my->api_accept_transactions ) {
@@ -1357,7 +1147,7 @@ bool chain_plugin::accept_block(const signed_block_ptr& block, const block_id_ty
 }
 
 void chain_plugin::accept_transaction(const chain::packed_transaction_ptr& trx, next_function<chain::transaction_trace_ptr> next) {
-   my->incoming_transaction_async_method(trx, false, false, false, std::move(next));
+   my->incoming_transaction_async_method(trx, false, transaction_metadata::trx_type::input, false, std::move(next));
 }
 
 controller& chain_plugin::chain() { return *my->chain; }
@@ -2189,7 +1979,7 @@ void read_write::push_transaction(const read_write::push_transaction_params& par
          abi_serializer::from_variant(params, *pretty_input, std::move( resolver ), abi_serializer::create_yield_function( abi_serializer_max_time ));
       } EOS_RETHROW_EXCEPTIONS(chain::packed_transaction_type_exception, "Invalid packed transaction")
 
-      app().get_method<incoming::methods::transaction_async>()(pretty_input, true, false, false,
+      app().get_method<incoming::methods::transaction_async>()(pretty_input, true, transaction_metadata::trx_type::input, false,
             [this, next](const std::variant<fc::exception_ptr, transaction_trace_ptr>& result) -> void {
          if (std::holds_alternative<fc::exception_ptr>(result)) {
             next(std::get<fc::exception_ptr>(result));
@@ -2308,7 +2098,7 @@ void read_write::send_transaction(const read_write::send_transaction_params& par
          abi_serializer::from_variant(params, *pretty_input, resolver, abi_serializer::create_yield_function( abi_serializer_max_time ));
       } EOS_RETHROW_EXCEPTIONS(chain::packed_transaction_type_exception, "Invalid packed transaction")
 
-      app().get_method<incoming::methods::transaction_async>()(pretty_input, true, false, false,
+      app().get_method<incoming::methods::transaction_async>()(pretty_input, true, transaction_metadata::trx_type::input, false,
             [this, next](const std::variant<fc::exception_ptr, transaction_trace_ptr>& result) -> void {
          if (std::holds_alternative<fc::exception_ptr>(result)) {
             next(std::get<fc::exception_ptr>(result));
@@ -2351,7 +2141,7 @@ void read_write::send_transaction2(const read_write::send_transaction2_params& p
                   "retry transaction expiration ${e} larger than allowed ${m}",
                   ("e", ptrx->expiration())("m", trx_retry->get_max_expiration_time()) );
 
-      app().get_method<incoming::methods::transaction_async>()(ptrx, true, false, static_cast<bool>(params.return_failure_trace),
+      app().get_method<incoming::methods::transaction_async>()(ptrx, true, transaction_metadata::trx_type::input, static_cast<bool>(params.return_failure_trace),
          [this, ptrx, next, retry, retry_num_blocks](const std::variant<fc::exception_ptr, transaction_trace_ptr>& result) -> void {
             if( std::holds_alternative<fc::exception_ptr>( result ) ) {
                next( std::get<fc::exception_ptr>( result ) );
@@ -2705,7 +2495,7 @@ void read_only::compute_transaction(const compute_transaction_params& params, ne
             abi_serializer::from_variant(params.transaction, *pretty_input, resolver, abi_serializer::create_yield_function( abi_serializer_max_time ));
         } EOS_RETHROW_EXCEPTIONS(chain::packed_transaction_type_exception, "Invalid packed transaction")
 
-        app().get_method<incoming::methods::transaction_async>()(pretty_input, false, true, true,
+        app().get_method<incoming::methods::transaction_async>()(pretty_input, false, transaction_metadata::trx_type::dry_run, true,
              [this, next](const std::variant<fc::exception_ptr, transaction_trace_ptr>& result) -> void {
                  if (std::holds_alternative<fc::exception_ptr>(result)) {
                      next(std::get<fc::exception_ptr>(result));
