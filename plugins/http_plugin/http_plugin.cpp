@@ -88,22 +88,22 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
             auto next_ptr = std::make_shared<url_handler>(std::move(next));
             return [my=std::move(my), priority, next_ptr=std::move(next_ptr)]
                        ( detail::abstract_conn_ptr conn, string r, string b, url_response_callback then ) {
-               auto tracked_b = make_in_flight<string>(std::move(b), my->plugin_state);
-               if (!conn->verify_max_bytes_in_flight()) {
+               if (auto error_str = conn->verify_max_bytes_in_flight(b.size()); !error_str.empty()) {
+                  conn->send_busy_response(std::move(error_str));
                   return;
                }
 
-               url_response_callback wrapped_then = [tracked_b, then=std::move(then)](int code, const fc::time_point& deadline, std::optional<fc::variant> resp) {
+               url_response_callback wrapped_then = [then=std::move(then)](int code, const fc::time_point& deadline, std::optional<fc::variant> resp) {
                   then(code, deadline, std::move(resp));
                };
 
                // post to the app thread taking shared ownership of next (via std::shared_ptr),
                // sole ownership of the tracked body and the passed in parameters
-               app().post( priority, [next_ptr, conn=std::move(conn), r=std::move(r), tracked_b, wrapped_then=std::move(wrapped_then)]() mutable {
+               app().post( priority, [next_ptr, conn=std::move(conn), r=std::move(r), b = std::move(b), wrapped_then=std::move(wrapped_then)]() mutable {
                   try {
                      if( app().is_quiting() ) return; // http_plugin shutting down, do not call callback
                      // call the `next` url_handler and wrap the response handler
-                     (*next_ptr)( std::move( r ), std::move(tracked_b->obj()), std::move(wrapped_then)) ;
+                     (*next_ptr)( std::move( r ), std::move(b), std::move(wrapped_then)) ;
                   } catch( ... ) {
                      conn->handle_exception();
                   }
