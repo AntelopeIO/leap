@@ -94,7 +94,7 @@ class PerformanceBasicTest:
         maximumClients: int = 0
         loggingDict: dict = field(default_factory=lambda: { "bios": "off" })
         prodsEnableTraceApi: bool = False
-        oldNodeos: bool = False
+        isNodeosv2: bool = False
         specificExtraNodeosArgs: dict = field(default_factory=dict)
         _totalNodes: int = 2
 
@@ -105,7 +105,7 @@ class PerformanceBasicTest:
 
     def __init__(self, testHelperConfig: TestHelperConfig=TestHelperConfig(), clusterConfig: ClusterConfig=ClusterConfig(), targetTps: int=8000,
                  testTrxGenDurationSec: int=30, tpsLimitPerGenerator: int=4000, numAddlBlocksToPrune: int=2,
-                 rootLogDir: str=".", delReport: bool=False, quiet: bool=False, delPerfLogs: bool=False, oldNodeos: bool=False):
+                 rootLogDir: str=".", delReport: bool=False, quiet: bool=False, delPerfLogs: bool=False, isNodeosv2: bool=False):
         self.testHelperConfig = testHelperConfig
         self.clusterConfig = clusterConfig
         self.targetTps = targetTps
@@ -116,7 +116,7 @@ class PerformanceBasicTest:
         self.delReport = delReport
         self.quiet = quiet
         self.delPerfLogs=delPerfLogs
-        self.clusterConfig.oldNodeos=oldNodeos
+        self.clusterConfig.isNodeosv2=isNodeosv2
         self.testHelperConfig.keepLogs = not self.delPerfLogs
 
         Utils.Debug = self.testHelperConfig.verbose
@@ -147,7 +147,7 @@ class PerformanceBasicTest:
 
         # Setup cluster and its wallet manager
         self.walletMgr=WalletMgr(True)
-        self.cluster=Cluster(walletd=True, loggingLevel="info", loggingLevelDict=self.clusterConfig.loggingDict, oldNodeos=oldNodeos)
+        self.cluster=Cluster(walletd=True, loggingLevel="info", loggingLevelDict=self.clusterConfig.loggingDict, isNodeosv2=isNodeosv2)
         self.cluster.setWalletMgr(self.walletMgr)
 
     def cleanupOldClusters(self):
@@ -205,13 +205,13 @@ class PerformanceBasicTest:
 
     def queryBlockTrxData(self, node, blockDataPath, blockTrxDataPath, startBlockNum, endBlockNum):
         for blockNum in range(startBlockNum, endBlockNum):
-            if self.clusterConfig.oldNodeos:
+            if self.clusterConfig.isNodeosv2:
                 block = node.processUrllibRequest("chain", "get_block", {"block_num_or_id":blockNum}, silentErrors=False, exitOnError=True)
             else:
                 block = node.processUrllibRequest("trace_api", "get_block", {"block_num":blockNum}, silentErrors=False, exitOnError=True)
             btdf_append_write = self.fileOpenMode(blockTrxDataPath)
             with open(blockTrxDataPath, btdf_append_write) as trxDataFile:
-                if self.clusterConfig.oldNodeos:
+                if self.clusterConfig.isNodeosv2:
                     [trxDataFile.write(f"{trx['trx']['id']},{blockNum},{trx['cpu_usage_us']},{trx['net_usage_words']}\n") for trx in block['payload']['transactions'] if block['payload']['transactions']]
                 else:
                     [trxDataFile.write(f"{trx['id']},{trx['block_num']},{trx['cpu_usage_us']},{trx['net_usage_words']}\n") for trx in block['payload']['transactions'] if block['payload']['transactions']]
@@ -219,7 +219,7 @@ class PerformanceBasicTest:
 
             bdf_append_write = self.fileOpenMode(blockDataPath)
             with open(blockDataPath, bdf_append_write) as blockDataFile:
-                if self.clusterConfig.oldNodeos:
+                if self.clusterConfig.isNodeosv2:
                     blockDataFile.write(f"{block['payload']['block_num']},{block['payload']['id']},{block['payload']['producer']},{block['payload']['confirmed']},{block['payload']['timestamp']}\n")
                 else:
                     blockDataFile.write(f"{block['payload']['number']},{block['payload']['id']},{block['payload']['producer']},{block['payload']['status']},{block['payload']['timestamp']}\n")
@@ -229,7 +229,7 @@ class PerformanceBasicTest:
         emptyBlocks = 0
         while emptyBlocks < numEmptyToWaitOn:
             headBlock = node.getHeadBlockNum()
-            if self.clusterConfig.oldNodeos:
+            if self.clusterConfig.isNodeosv2:
                 block = node.processUrllibRequest("chain", "get_block", {"block_num_or_id":headBlock}, silentErrors=False, exitOnError=True)
             else:
                 block = node.processUrllibRequest("chain", "get_block_info", {"block_num":headBlock}, silentErrors=False, exitOnError=True)
@@ -241,7 +241,7 @@ class PerformanceBasicTest:
         return node.getHeadBlockNum()
 
     def launchCluster(self):
-        if self.clusterConfig.oldNodeos:
+        if self.clusterConfig.isNodeosv2:
             self.clusterConfig.specificExtraNodeosArgs.update({f"{node}" : "--plugin eosio::history_api_plugin --filter-on \"*\"" for node in range(self.clusterConfig.pnodes, self.clusterConfig._totalNodes)})
         return self.cluster.launch(
             pnodes=self.clusterConfig.pnodes,
@@ -460,14 +460,14 @@ def main():
     extraNodeosHttpPluginArgs = PerformanceBasicTest.ClusterConfig.ExtraNodeosArgs.ExtraNodeosHttpPluginArgs(httpMaxResponseTimeMs=args.http_max_response_time_ms)
     extraNodeosArgs = PerformanceBasicTest.ClusterConfig.ExtraNodeosArgs(chainPluginArgs=extraNodeosChainPluginArgs, httpPluginArgs=extraNodeosHttpPluginArgs, producerPluginArgs=extraNodeosProducerPluginArgs)
     testClusterConfig = PerformanceBasicTest.ClusterConfig(pnodes=args.p, totalNodes=args.n, topo=args.s, genesisPath=args.genesis, prodsEnableTraceApi=args.prods_enable_trace_api, extraNodeosArgs=extraNodeosArgs)
-    oldNodeos = False
+    isNodeosv2 = False
 
     if Utils.getNodeosVersion().split('.')[0] == "v2":
-        oldNodeos = True
+        isNodeosv2 = True
     myTest = PerformanceBasicTest(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, targetTps=args.target_tps,
                                   testTrxGenDurationSec=args.test_duration_sec, tpsLimitPerGenerator=args.tps_limit_per_generator,
                                   numAddlBlocksToPrune=args.num_blocks_to_prune, delReport=args.del_report, quiet=args.quiet,
-                                  delPerfLogs=args.del_perf_logs, oldNodeos=oldNodeos)
+                                  delPerfLogs=args.del_perf_logs, isNodeosv2=isNodeosv2)
     testSuccessful = myTest.runTest()
 
     exitCode = 0 if testSuccessful else 1

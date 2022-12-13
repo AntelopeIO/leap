@@ -33,7 +33,7 @@ class Node(object):
 
     # pylint: disable=too-many-instance-attributes
     # pylint: disable=too-many-arguments
-    def __init__(self, host, port, nodeId, pid=None, cmd=None, walletMgr=None, oldNodeos=False):
+    def __init__(self, host, port, nodeId, pid=None, cmd=None, walletMgr=None, isNodeosv2=False):
         self.host=host
         self.port=port
         self.pid=pid
@@ -54,7 +54,7 @@ class Node(object):
         self.missingTransaction=False
         self.popenProc=None           # initial process is started by launcher, this will only be set on relaunch
         self.lastTrackedTransactionId=None
-        self.oldNodeos=oldNodeos
+        self.isNodeosv2=isNodeosv2
 
     def eosClientArgs(self):
         walletArgs=" " + self.walletMgr.getWalletEndpointArgs() if self.walletMgr is not None else ""
@@ -281,7 +281,7 @@ class Node(object):
         assert(isinstance(transId, str))
         exitOnErrorForDelayed=not delayedRetry and exitOnError
         timeout=3
-        if self.oldNodeos:
+        if self.isNodeosv2:
             cmdDesc="get transaction"
         else:
             cmdDesc="get transaction_trace"
@@ -337,7 +337,7 @@ class Node(object):
         refBlockNum=None
         key=""
         try:
-            if self.oldNodeos:
+            if self.isNodeosv2:
                 key="[trx][trx][ref_block_num]"
                 refBlockNum=trans["trx"]["trx"]["ref_block_num"]
             else:
@@ -503,13 +503,13 @@ class Node(object):
         return ret
 
     def checkBlockForTransactions(self, transIds, blockNum):
-        if self.oldNodeos:
+        if self.isNodeosv2:
             block = self.processUrllibRequest("chain", "get_block", {"block_num_or_id":blockNum}, silentErrors=False, exitOnError=True)
         else:
             block = self.processUrllibRequest("trace_api", "get_block", {"block_num":blockNum}, silentErrors=False, exitOnError=True)
         if block['payload']['transactions']:
             for trx in block['payload']['transactions']:
-                if self.oldNodeos:
+                if self.isNodeosv2:
                     if trx['trx']['id'] in transIds:
                         transIds.pop(trx['trx']['id'])
                 else:

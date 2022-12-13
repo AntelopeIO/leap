@@ -55,7 +55,7 @@ def performPtbBinarySearch(tpsTestFloor: int, tpsTestCeiling: int, minStep: int,
     maxTpsReport = {}
     searchResults = []
     if Utils.getNodeosVersion().split('.')[0] == "v2":
-        oldNodeos = True
+        isNodeosv2 = True
 
     while ceiling >= floor:
         print(f"Running scenario: floor {floor} binSearchTarget {binSearchTarget} ceiling {ceiling}")
@@ -64,7 +64,7 @@ def performPtbBinarySearch(tpsTestFloor: int, tpsTestCeiling: int, minStep: int,
 
         myTest = PerformanceBasicTest(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, targetTps=binSearchTarget,
                                     testTrxGenDurationSec=testDurationSec, tpsLimitPerGenerator=tpsLimitPerGenerator,
-                                    numAddlBlocksToPrune=numAddlBlocksToPrune, rootLogDir=testLogDir, delReport=delReport, quiet=quiet, delPerfLogs=delPerfLogs, oldNodeos=oldNodeos)
+                                    numAddlBlocksToPrune=numAddlBlocksToPrune, rootLogDir=testLogDir, delReport=delReport, quiet=quiet, delPerfLogs=delPerfLogs, isNodeosv2=isNodeosv2)
         testSuccessful = myTest.runTest()
         if evaluateSuccess(myTest, testSuccessful, ptbResult):
             maxTpsAchieved = binSearchTarget
@@ -98,7 +98,7 @@ def performPtbReverseLinearSearch(tpsInitial: int, step: int, testHelperConfig: 
     searchResults = []
     maxFound = False
     if Utils.getNodeosVersion().split('.')[0] == "v2":
-        oldNodeos = True
+        isNodeosv2 = True
 
     while not maxFound:
         print(f"Running scenario: floor {absFloor} searchTarget {searchTarget} ceiling {absCeiling}")
@@ -107,7 +107,7 @@ def performPtbReverseLinearSearch(tpsInitial: int, step: int, testHelperConfig: 
 
         myTest = PerformanceBasicTest(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, targetTps=searchTarget,
                                     testTrxGenDurationSec=testDurationSec, tpsLimitPerGenerator=tpsLimitPerGenerator,
-                                    numAddlBlocksToPrune=numAddlBlocksToPrune, rootLogDir=testLogDir, delReport=delReport, quiet=quiet, delPerfLogs=delPerfLogs, oldNodeos=oldNodeos)
+                                    numAddlBlocksToPrune=numAddlBlocksToPrune, rootLogDir=testLogDir, delReport=delReport, quiet=quiet, delPerfLogs=delPerfLogs, isNodeosv2=isNodeosv2)
         testSuccessful = myTest.runTest()
         if evaluateSuccess(myTest, testSuccessful, ptbResult):
             maxTpsAchieved = searchTarget
