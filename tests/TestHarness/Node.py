@@ -33,7 +33,7 @@ class Node(object):
 
     # pylint: disable=too-many-instance-attributes
     # pylint: disable=too-many-arguments
-    def __init__(self, host, port, nodeId, pid=None, cmd=None, walletMgr=None):
+    def __init__(self, host, port, nodeId, pid=None, cmd=None, walletMgr=None, oldNodeos=False):
         self.host=host
         self.port=port
         self.pid=pid
@@ -54,6 +54,7 @@ class Node(object):
         self.missingTransaction=False
         self.popenProc=None           # initial process is started by launcher, this will only be set on relaunch
         self.lastTrackedTransactionId=None
+        self.oldNodeos=oldNodeos
 
     def eosClientArgs(self):
         walletArgs=" " + self.walletMgr.getWalletEndpointArgs() if self.walletMgr is not None else ""
@@ -280,7 +281,10 @@ class Node(object):
         assert(isinstance(transId, str))
         exitOnErrorForDelayed=not delayedRetry and exitOnError
         timeout=3
-        cmdDesc="get transaction_trace"
+        if self.oldNodeos:
+            cmdDesc="get transaction"
+        else:
+            cmdDesc="get transaction_trace"
         cmd="%s %s" % (cmdDesc, transId)
         msg="(transaction id=%s)" % (transId);
         for i in range(0,(int(60/timeout) - 1)):
@@ -333,8 +337,12 @@ class Node(object):
         refBlockNum=None
         key=""
         try:
-            key="[transaction][transaction_header][ref_block_num]"
-            refBlockNum=trans["transaction_header"]["ref_block_num"]
+            if self.oldNodeos:
+                key="[trx][trx][ref_block_num]"
+                refBlockNum=trans["trx"]["trx"]["ref_block_num"]
+            else:
+                key="[transaction][transaction_header][ref_block_num]"
+                refBlockNum=trans["transaction_header"]["ref_block_num"]
             refBlockNum=int(refBlockNum)+1
         except (TypeError, ValueError, KeyError) as _:
             Utils.Print("transaction%s not found. Transaction: %s" % (key, trans))
@@ -495,11 +503,18 @@ class Node(object):
         return ret
 
     def checkBlockForTransactions(self, transIds, blockNum):
-        block = self.processUrllibRequest("trace_api", "get_block", {"block_num":blockNum}, silentErrors=False, exitOnError=True)
+        if self.oldNodeos:
+            block = self.processUrllibRequest("chain", "get_block", {"block_num_or_id":blockNum}, silentErrors=False, exitOnError=True)
+        else:
+            block = self.processUrllibRequest("trace_api", "get_block", {"block_num":blockNum}, silentErrors=False, exitOnError=True)
         if block['payload']['transactions']:
             for trx in block['payload']['transactions']:
-                if trx['id'] in transIds:
-                    transIds.pop(trx['id'])
+                if self.oldNodeos:
+                    if trx['trx']['id'] in transIds:
+                        transIds.pop(trx['trx']['id'])
+                else:
+                    if trx['id'] in transIds:
+                        transIds.pop(trx['id'])
         return transIds
 
     def waitForTransactionsInBlockRange(self, transIds, startBlock=2, maxFutureBlocks=0):
