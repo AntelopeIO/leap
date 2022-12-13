@@ -1972,8 +1972,7 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
 
    bool disable_subjective_enforcement = (api_trx && _disable_subjective_api_billing)
                                          || (!api_trx && _disable_subjective_p2p_billing)
-                                         || trx->is_dry_run()
-                                         || trx->is_read_only();
+                                         || trx->is_transient();
 
    auto first_auth = trx->packed_trx()->get_transaction().first_authorizer();
    if( !disable_subjective_enforcement && _account_fails.failure_limit( first_auth ) ) {

@@ -21,6 +21,9 @@ using mvo = fc::mutable_variant_object;
 struct read_only_trx_tester : TESTER {
    read_only_trx_tester() {
       produce_block();
+   };
+
+   void set_up_test_contract() {
       create_accounts( {"noauthtable"_n, "alice"_n} );
       set_code( "noauthtable"_n, contracts::no_auth_table_wasm() );
       set_abi( "noauthtable"_n, contracts::no_auth_table_abi().data() );
@@ -32,9 +35,10 @@ struct read_only_trx_tester : TESTER {
       getage_data = abi_ser.variant_to_binary("getage", mutable_variant_object()
          ("user", "alice"),
          abi_serializer::create_yield_function( abi_serializer_max_time ));
+      produce_block();
    }
 
-   void send_native_function_transaction(const action& act) {
+   void send_action(const action& act) {
       signed_transaction trx;
       trx.actions.push_back( act );
       set_transaction_headers( trx );
@@ -87,7 +91,7 @@ BOOST_FIXTURE_TEST_CASE(newaccount_test, read_only_trx_tester) { try {
       }
    };
 
-   BOOST_CHECK_THROW( send_native_function_transaction(act), action_validate_exception );
+   BOOST_CHECK_THROW( send_action(act), action_validate_exception );
 } FC_LOG_AND_RETHROW() }
 
 BOOST_FIXTURE_TEST_CASE(setcode_test, read_only_trx_tester) { try {
@@ -98,7 +102,7 @@ BOOST_FIXTURE_TEST_CASE(setcode_test, read_only_trx_tester) { try {
       {}, setcode { "eosio"_n, 0, 0, bytes(code.begin(), code.end()) }
    };
 
-   BOOST_CHECK_THROW( send_native_function_transaction(act), action_validate_exception );
+   BOOST_CHECK_THROW( send_action(act), action_validate_exception );
 } FC_LOG_AND_RETHROW() }
 
 BOOST_FIXTURE_TEST_CASE(setabi_test, read_only_trx_tester) { try {
@@ -112,7 +116,7 @@ BOOST_FIXTURE_TEST_CASE(setabi_test, read_only_trx_tester) { try {
       }
    };
 
-   BOOST_CHECK_THROW( send_native_function_transaction(act), action_validate_exception );
+   BOOST_CHECK_THROW( send_action(act), action_validate_exception );
 } FC_LOG_AND_RETHROW() }
 
 BOOST_FIXTURE_TEST_CASE(updateauth_test, read_only_trx_tester) { try {
@@ -126,7 +130,7 @@ BOOST_FIXTURE_TEST_CASE(updateauth_test, read_only_trx_tester) { try {
       }
    };
 
-   BOOST_CHECK_THROW( send_native_function_transaction(act), transaction_exception );
+   BOOST_CHECK_THROW( send_action(act), transaction_exception );
 } FC_LOG_AND_RETHROW() }
 
 
@@ -140,7 +144,7 @@ BOOST_FIXTURE_TEST_CASE(deleteauth_test, read_only_trx_tester) { try {
       deleteauth { account, permission }
    };
 
-   BOOST_CHECK_THROW( send_native_function_transaction(act), transaction_exception );
+   BOOST_CHECK_THROW( send_action(act), transaction_exception );
 } FC_LOG_AND_RETHROW() }
 
 BOOST_FIXTURE_TEST_CASE(linkauth_test, read_only_trx_tester) { try {
@@ -155,7 +159,7 @@ BOOST_FIXTURE_TEST_CASE(linkauth_test, read_only_trx_tester) { try {
       linkauth { account, code, type, requirement }
    };
 
-   BOOST_CHECK_THROW( send_native_function_transaction(act), transaction_exception );
+   BOOST_CHECK_THROW( send_action(act), transaction_exception );
 } FC_LOG_AND_RETHROW() }
 
 BOOST_FIXTURE_TEST_CASE(unlinkauth_test, read_only_trx_tester) { try {
@@ -169,7 +173,7 @@ BOOST_FIXTURE_TEST_CASE(unlinkauth_test, read_only_trx_tester) { try {
       unlinkauth { account, code, type }
    };
 
-   BOOST_CHECK_THROW( send_native_function_transaction(act), transaction_exception );
+   BOOST_CHECK_THROW( send_action(act), transaction_exception );
 } FC_LOG_AND_RETHROW() }
 
 BOOST_FIXTURE_TEST_CASE(canceldelay_test, read_only_trx_tester) { try {
@@ -182,10 +186,12 @@ BOOST_FIXTURE_TEST_CASE(canceldelay_test, read_only_trx_tester) { try {
       canceldelay { canceling_auth, trx_id }
    };
 
-   BOOST_CHECK_THROW( send_native_function_transaction(act), transaction_exception );
+   BOOST_CHECK_THROW( send_action(act), transaction_exception );
 } FC_LOG_AND_RETHROW() }
 
 BOOST_FIXTURE_TEST_CASE(db_read_only_mode_test, read_only_trx_tester) { try {
+   set_up_test_contract();
+
    insert_a_record();
 
    control->set_db_read_only_mode();
@@ -200,6 +206,8 @@ BOOST_FIXTURE_TEST_CASE(db_read_only_mode_test, read_only_trx_tester) { try {
 } FC_LOG_AND_RETHROW() }
 
 BOOST_FIXTURE_TEST_CASE(db_insert_test, read_only_trx_tester) { try {
+   set_up_test_contract();
+
    // verify DB insert is not allowed by read-only transaction
    BOOST_CHECK_THROW(send_db_api_transaction("insert"_n, insert_data, {}, transaction_metadata::trx_type::read_only), table_operation_not_permitted);
 
@@ -215,16 +223,22 @@ BOOST_FIXTURE_TEST_CASE(db_insert_test, read_only_trx_tester) { try {
 } FC_LOG_AND_RETHROW() }
 
 BOOST_FIXTURE_TEST_CASE(auth_test, read_only_trx_tester) { try {
+   set_up_test_contract();
+
    // verify read-only transaction does not allow authorizations.
    BOOST_CHECK_THROW(send_db_api_transaction("getage"_n, getage_data, {{"alice"_n, config::active_name}}, transaction_metadata::trx_type::read_only), transaction_exception);
 } FC_LOG_AND_RETHROW() }
 
 BOOST_FIXTURE_TEST_CASE(delay_sec_test, read_only_trx_tester) { try {
+   set_up_test_contract();
+
    // verify read-only transaction does not allow non-zero delay_sec.
    BOOST_CHECK_THROW(send_db_api_transaction("getage"_n, getage_data, {}, transaction_metadata::trx_type::read_only, 3), transaction_exception);
 } FC_LOG_AND_RETHROW() }
 
 BOOST_FIXTURE_TEST_CASE(db_modify_test, read_only_trx_tester) { try {
+   set_up_test_contract();
+
    insert_a_record();
 
    // verify DB update is not allowed by read-only transaction
@@ -263,6 +277,8 @@ BOOST_FIXTURE_TEST_CASE(db_modify_test, read_only_trx_tester) { try {
 } FC_LOG_AND_RETHROW() }
 
 BOOST_FIXTURE_TEST_CASE(db_erase_test, read_only_trx_tester) { try {
+   set_up_test_contract();
+
    insert_a_record();
 
    // verify DB erase is not allowed by read-only transaction
@@ -285,6 +301,8 @@ BOOST_FIXTURE_TEST_CASE(db_erase_test, read_only_trx_tester) { try {
 } FC_LOG_AND_RETHROW() }
 
 BOOST_FIXTURE_TEST_CASE(sequence_numbers_test, read_only_trx_tester) { try {
+   set_up_test_contract();
+
    const auto& p = control->get_dynamic_global_properties();
    auto receiver_account = control->db().find<account_metadata_object,by_name>("noauthtable"_n);
    auto amo = control->db().find<account_metadata_object,by_name>("alice"_n);
