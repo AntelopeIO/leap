@@ -440,7 +440,6 @@ def parseArgs():
     appArgs.add_bool(flag="--del-report", help="Whether to delete overarching performance run report.")
     appArgs.add_bool(flag="--quiet", help="Whether to quiet printing intermediate results and reports to stdout")
     appArgs.add_bool(flag="--prods-enable-trace-api", help="Determines whether producer nodes should have eosio::trace_api_plugin enabled")
-    appArgs.add_bool(flag="--old-nodeos", help="If running 2.0 nodeos and cleos, set to true")
     args=TestHelper.parse_args({"-p","-n","-d","-s","--nodes-file"
                                 ,"--dump-error-details","-v","--leave-running"
                                 ,"--clean-run"}, applicationSpecificArgs=appArgs)
