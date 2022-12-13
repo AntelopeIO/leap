@@ -39,7 +39,8 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/component/schema/OK'
+                $ref: '#/component/schema/OK_PAUSED'
+
   /producer/resume:
     post:
       summary: resume
@@ -52,6 +53,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/component/schema/OK'
+
   /producer/paused:
     post:
       summary: paused
@@ -64,10 +66,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/component/schema/OK'
+
   /producer/get_runtime_options:
     post:
       summary: get_runtime_options
-      description: Retrieves runtime options for producer node. Only `incoming_defer_ratio` is a floating point number the other return values are signed integers.
+      description: Retrieves runtime options for producer node. `incoming_defer_ratio` is a floating point number the other return values are integers.
       operationId: get_runtime_options
       responses:
         "201":
@@ -80,14 +83,13 @@ paths:
   /producer/update_runtime_options:
     post:
       summary: update_runtime_options
-      description: Update runtime options for producer node. May post any of the runtime options in combination or along. Only `incoming_defer_ratio` is a floating point number the other values are signed integers.
+      description: Update runtime options for producer node. May post any of the runtime options in combination or alone. `incoming_defer_ratio` is a floating point number the other values are integers.
       operationId: update_runtime_options
       requestBody:
         content:
           application/json:
             schema:
               $ref: '#/component/schema/Runtime_Options'
-
       responses:
         "201":
           description: OK
@@ -95,6 +97,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/component/schema/OK'
+
   /producer/get_greylist:
     post:
       summary: get_greylist
@@ -130,7 +133,6 @@ paths:
                     description: List of account names to add
                     items:
                       $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
-
       responses:
         "201":
           description: OK
@@ -144,6 +146,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/component/schema/Error'
+
   /producer/remove_greylist_accounts:
     post:
       summary: remove_greylist_accounts
@@ -160,7 +163,6 @@ paths:
                   description: List of account names to remove
                   items:
                     $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
-
       responses:
         "201":
           description: OK
@@ -174,12 +176,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/component/schema/Error'
+
   /producer/get_whitelist_blacklist:
     post:
       summary: get_whitelist_blacklist
       description: Retrieves the whitelist and blacklist for producer node. A JSON object containing whitelist and blacklist information. `actor_whitelist`, `actor_blacklist`, `contract_whitelist`, `contract_blacklist` are represented by an array of Names. `action_blacklist` is an array of tuples consisting of Name and Action. `key_blacklist` is an array of Public Keys. Name is a string represeting a NamePrivileged or NameBasic or NameBid or NameCatchAll
       operationId: get_whitelist_blacklist
-
       responses:
         "201":
           description: OK
@@ -266,7 +268,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/component/schema/OK'
-
         "400":
           description: client error
           content:
@@ -317,7 +318,6 @@ paths:
       summary: get_integrity_hash
       description: Retrieves the integrity hash for producer node
       operationId: get_integrity_hash
-
       responses:
         "201":
           description: OK
@@ -462,6 +462,38 @@ paths:
                     type: array
                     items:
                       type: string
+                  more:
+                    type: array
+                    items:
+                      $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
+
+  /producer/log_failed_transaction:
+    requestBody:
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              transaction_id_type:
+                type: int
+                description: transaction type id
+              packed_trx_ptr:
+                type: int
+                description: key to transaction
+              reason:
+                type: string
+                description: explaination
+    post:
+      summary: log_failed_transaction
+      description:
+      operationId: log_failed_transaction
+      responses:
+        "201":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/component/schema/OK'
 
 component:
   schema:
@@ -521,6 +553,13 @@ component:
           type: string
           description: status
           example: ok
+    OK_PAUSED:
+      type: object
+      properties:
+        json:
+          type: boolean
+          description: true/false indicating paused state
+          example: true
     Runtime_Options:
       type: object
       properties:
@@ -544,11 +583,15 @@ component:
           type: integer
           description: Max scheduled transaction time per block in ms
           example: 100
+        subjective_cpu_leeway_us:
+          type: integer
+          description: in micro seconds
+          example: 10
         incoming_defer_ratio:
           type: string
           description: Incoming defer ratio, parsed to double
           example: "1.00000000000000000"
         greylist_limit:
           type: integer
-          description: limit on number of Names supported by greylist
+          description: unsigned int, limit on number of Names supported by greylist
           example: 1000
