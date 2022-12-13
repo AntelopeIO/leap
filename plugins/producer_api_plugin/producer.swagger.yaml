@@ -9,9 +9,12 @@ info:
   contact:
     url: https://antelope.io
 tags:
-  - name: eosio
+  - name: eos
+    description: distributed organization and related software infrastructure supporting EOS
+  - name: antelope
+    description: protocol and framework powering this blockchain
 servers:
-  - url: "{protocol}://{host}:{port}/v1/"
+  - url: "{protocol}://{host}:{port}/v1"
     variables:
       protocol:
         enum:
@@ -37,6 +40,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/OK_PAUSED'
+        "400":
+          description: client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /producer/resume:
     post:
@@ -50,6 +59,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/OK'
+        "400":
+          description: client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /producer/paused:
     post:
@@ -63,6 +78,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/OK'
+        "400":
+          description: client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /producer/get_runtime_options:
     post:
@@ -76,6 +97,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Runtime_Options'
+        "400":
+          description: client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /producer/update_runtime_options:
     post:
@@ -94,6 +121,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/OK'
+        "400":
+          description: client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /producer/get_greylist:
     post:
@@ -113,6 +146,12 @@ paths:
                     description: Array of account names stored in the greylist
                     items:
                       $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
+        "400":
+          description: client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /producer/add_greylist_accounts:
     post:
@@ -216,6 +255,12 @@ paths:
                     type: array
                     items:
                       - $ref: "https://docs.eosnetwork.com/openapi/v2.0/KeyType.yaml"
+        "400":
+          description: client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /producer/set_whitelist_blacklist:
     post:
@@ -288,7 +333,7 @@ paths:
                     $ref: "https://docs.eosnetwork.com/openapi/v2.0/Sha256.yaml"
                   head_block_num:
                     type: integer
-                    descripiton: Highest block number on the chain
+                    description: Highest block number on the chain
                     example: 5102
                   head_block_time:
                     type: string
@@ -327,6 +372,12 @@ paths:
                     $ref: "https://docs.eosnetwork.com/openapi/v2.0/Sha256.yaml"
                   integrity_hash:
                     $ref: "https://docs.eosnetwork.com/openapi/v2.0/Sha256.yaml"
+        "400":
+          description: client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /producer/schedule_protocol_feature_activations:
     post:
@@ -419,6 +470,12 @@ paths:
                                 type: string
                               value:
                                 type: string
+        "400":
+          description: client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
 
   /producer/get_account_ram_corrections:
@@ -464,6 +521,13 @@ paths:
                     type: array
                     items:
                       - $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
+        "400":
+          description: client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+                
 components:
   securitySchemes: {}
   schemas:
