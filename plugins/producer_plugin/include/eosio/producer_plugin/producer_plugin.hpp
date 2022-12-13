@@ -24,6 +24,7 @@ struct producer_plugin_metrics {
    runtime_metric scheduled_trxs{metric_type::gauge, "scheduled_trxs", "scheduled_trxs", 0};
 
    std::vector<std::reference_wrapper<runtime_metric>> metrics;
+   bool collect_metrics = false;
 
    producer_plugin_metrics() {
       metrics.emplace_back(std::ref(unapplied_transactions));

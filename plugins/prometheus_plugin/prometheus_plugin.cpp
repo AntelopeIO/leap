@@ -72,10 +72,10 @@ namespace eosio {
          prometheus_plugin_impl() { }
 
          void add_gauge_metric(const runtime_metric& plugin_metric) {
-               auto &gauge_family = BuildGauge()
-                     .Name(plugin_metric.family)
-                     .Help("")
-                     .Register(*_registry);
+            auto& gauge_family = BuildGauge()
+                  .Name(plugin_metric.family)
+                  .Help("")
+                  .Register(*_registry);
             auto& gauge = gauge_family.Add({});
 
             _gauges.push_back(

@@ -523,7 +523,6 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                     ("elapsed", br.total_elapsed_time)("time", br.total_time)
                     ("latency", (now - hbs->block->timestamp).count()/1000 ) );
             }
-
          }
 
          return true;
@@ -1594,7 +1593,9 @@ fc::time_point producer_plugin_impl::calculate_block_deadline( const fc::time_po
 
 producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
    chain::controller& chain = chain_plug->chain();
-   update_block_metrics();
+   if (_metrics.collect_metrics) {
+      update_block_metrics();
+   }
 
    if( !chain_plug->accept_transactions() )
       return start_block_result::waiting_for_block;
@@ -1835,7 +1836,6 @@ bool producer_plugin_impl::remove_expired_trxs( const fc::time_point& deadline )
             ++num_expired;
    });
 
-
    if( exhausted ) {
       fc_wlog( _log, "Unable to process all expired transactions of the ${n} transactions in the unapplied queue before deadline, "
                      "Expired ${expired}", ("n", orig_count)("expired", num_expired) );
@@ -1866,7 +1866,6 @@ bool producer_plugin_impl::remove_expired_blacklisted_trxs( const fc::time_point
          blacklist_by_expiry.erase(blacklist_by_expiry.begin());
          num_expired++;
       }
-
 
       fc_dlog(_log, "Processed ${n} blacklisted transactions, Expired ${expired}",
               ("n", orig_count)("expired", num_expired));
@@ -2079,7 +2078,6 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
       if( next ) next( trace );
    }
 
-
    return pr;
 }
 
@@ -2258,8 +2256,6 @@ void producer_plugin_impl::process_scheduled_and_incoming_trxs( const fc::time_p
                "Processed ${m} of ${n} scheduled transactions, Applied ${applied}, Failed/Dropped ${failed}",
                ( "m", num_processed )( "n", scheduled_trxs_size )( "applied", num_applied )( "failed", num_failed ) );
    }
-
-
 }
 
 bool producer_plugin_impl::process_incoming_trxs( const fc::time_point& deadline, unapplied_transaction_queue::iterator& itr )
@@ -2460,7 +2456,6 @@ static auto maybe_make_debug_time_logger() -> std::optional<decltype(make_debug_
    }
 }
 
-
 void producer_plugin_impl::produce_block() {
    //ilog("produce_block ${t}", ("t", fc::time_point::now())); // for testing _produce_time_offset_us
    auto start = fc::time_point::now();
@@ -2532,6 +2527,7 @@ void producer_plugin::log_failed_transaction(const transaction_id_type& trx_id, 
 }
 
 const producer_plugin_metrics& producer_plugin::metrics() const {
+   my->_metrics.collect_metrics = true;
    return my->_metrics;
 }
 } // namespace eosio
