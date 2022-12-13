@@ -22,9 +22,6 @@ servers:
         default: localhost
       port:
         default: "8080"
-components:
-  securitySchemes: {}
-  schemas: {}
 security:
   - {}
 paths:
@@ -39,7 +36,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/component/schema/OK_PAUSED'
+                $ref: '#/components/schemas/OK_PAUSED'
 
   /producer/resume:
     post:
@@ -52,7 +49,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/component/schema/OK'
+                $ref: '#/components/schemas/OK'
 
   /producer/paused:
     post:
@@ -65,7 +62,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/component/schema/OK'
+                $ref: '#/components/schemas/OK'
 
   /producer/get_runtime_options:
     post:
@@ -78,7 +75,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/component/schema/Runtime_Options'
+                $ref: '#/components/schemas/Runtime_Options'
 
   /producer/update_runtime_options:
     post:
@@ -89,14 +86,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/component/schema/Runtime_Options'
+              $ref: '#/components/schemas/Runtime_Options'
       responses:
         "201":
           description: OK
           content:
             application/json:
               schema:
-                $ref: '#/component/schema/OK'
+                $ref: '#/components/schemas/OK'
 
   /producer/get_greylist:
     post:
@@ -139,13 +136,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/component/schema/OK'
+                $ref: '#/components/schemas/OK'
         "400":
           description: client error
           content:
             application/json:
               schema:
-                $ref: '#/component/schema/Error'
+                $ref: '#/components/schemas/Error'
 
   /producer/remove_greylist_accounts:
     post:
@@ -169,13 +166,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/component/schema/OK'
+                $ref: '#/components/schemas/OK'
         "400":
           description: client error
           content:
             application/json:
               schema:
-                $ref: '#/component/schema/Error'
+                $ref: '#/components/schemas/Error'
 
   /producer/get_whitelist_blacklist:
     post:
@@ -218,14 +215,13 @@ paths:
                   key_blacklist:
                     type: array
                     items:
-                      $ref: "https://docs.eosnetwork.com/openapi/v2.0/KeyType.yaml"
+                      - $ref: "https://docs.eosnetwork.com/openapi/v2.0/KeyType.yaml"
 
   /producer/set_whitelist_blacklist:
     post:
       summary: set_whitelist_blacklist
       description: Defines the whitelist and blacklist for a producer node. Takes a JSON object containing whitelist and blacklist information. At least one of actor_whitelist, actor_blacklist, contract_whitelist, contract_blacklist, action_blacklist, and key_blacklist is required. `actor_whitelist`, `actor_blacklist`, `contract_whitelist`, `contract_blacklist` take an array of Names. `action_blacklist` is an array of tuples consisting of Name and Action. `key_blacklist` is an array of Public Keys. Name is a string represeting a NamePrivileged or NameBasic or NameBid or NameCatchAll
       operationId: set_whitelist_blacklist
-      required: true
       requestBody:
         content:
           application/json:
@@ -267,13 +263,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/component/schema/OK'
+                $ref: '#/components/schemas/OK'
         "400":
           description: client error
           content:
             application/json:
               schema:
-                $ref: '#/component/schema/Error'
+                $ref: '#/components/schemas/Error'
 
   /producer/create_snapshot:
     post:
@@ -311,7 +307,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/component/schema/Error'
+                $ref: '#/components/schemas/Error'
 
   /producer/get_integrity_hash:
     post:
@@ -354,13 +350,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/component/schema/OK'
+                $ref: '#/components/schemas/OK'
         "400":
           description: client error
           content:
             application/json:
               schema:
-                $ref: '#/component/schema/Error'
+                $ref: '#/components/schemas/Error'
 
   /producer/get_supported_protocol_features:
     post:
@@ -437,13 +433,13 @@ paths:
               type: object
               properties:
                 lower_bound:
-                  type: int
+                  type: integer
                   description: lowest account key
                 upper_bound:
-                  type: int
+                  type: integer
                   description: highest account key
                 limit:
-                  type: int
+                  type: integer
                   description: number of rows to scans
                   example: 10
                 reverse:
@@ -457,6 +453,8 @@ paths:
             application/json:
               schema:
                 type: object
+                required:
+                  - rows
                 properties:
                   rows:
                     type: array
@@ -465,10 +463,10 @@ paths:
                   more:
                     type: array
                     items:
-                      $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
-
-component:
-  schema:
+                      - $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
+components:
+  securitySchemes: {}
+  schemas:
     Error:
       type: object
       properties:
