@@ -1,17 +1,13 @@
 #!/usr/bin/env python3
 
-from core_symbol import CORE_SYMBOL
-from testUtils import Utils
 from datetime import datetime
 from datetime import timedelta
 import time
-from Cluster import Cluster
 import json
-from WalletMgr import WalletMgr
-from Node import Node
-from TestHelper import TestHelper
-
 import signal
+
+from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr
+from core_symbol import CORE_SYMBOL
 
 ###############################################################
 # nodeos_contrl_c_lr_test
@@ -52,8 +48,7 @@ try:
     # producer nodes will be mapped to 0 through totalProducerNodes-1, so the number totalProducerNodes will be the non-producing node
     specificExtraNodeosArgs[totalProducerNodes] = "--plugin eosio::producer_plugin --plugin eosio::chain_api_plugin --plugin eosio::http_plugin "
     "--plugin eosio::txn_test_gen_plugin --plugin eosio::producer_api_plugin "
-    extraNodeosArgs = " --plugin eosio::trace_api_plugin --trace-no-abis "
-    extraNodeosArgs+= " --http-max-response-time-ms 990000"
+    extraNodeosArgs = " --http-max-response-time-ms 990000 "
 
     # ***   setup topogrophy   ***
 

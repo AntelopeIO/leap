@@ -844,7 +844,7 @@ namespace webassembly {
 
          /**
           * Find the table row in a primary 64-bit integer index table that matches the lowerbound condition for a given primary key.
-          * Lowerbound record is the first nearest record which primary key is <= the given key.
+          * Lowerbound record is the first nearest record which primary key is >= the given key.
           *
           * @ingroup database primary-index
           * @param code - the name of the owner of the table.
@@ -954,7 +954,7 @@ namespace webassembly {
 
          /**
           * Find the table row in a secondary 64-bit integer index table that matches the lowerbound condition for a given secondary key.
-          * Lowerbound secondary index is the first secondary index which key is <= the given secondary index key.
+          * Lowerbound secondary index is the first secondary index which key is >= the given secondary index key.
           *
           * @ingroup database uint64_t-secondary-index
           * @param code - the name of the owner of the table.
@@ -1095,7 +1095,7 @@ namespace webassembly {
 
          /**
           * Find the table row in a secondary 128-bit integer index table that matches the lowerbound condition for a given secondary key.
-          * Lowerbound secondary index is the first secondary index which key is <= the given secondary index key.
+          * Lowerbound secondary index is the first secondary index which key is >= the given secondary index key.
           *
           * @ingroup database uint128_t-secondary-index
           * @param code - the name of the owner of the table.
@@ -1236,7 +1236,7 @@ namespace webassembly {
 
          /**
           * Find the table row in a secondary 256-bit integer index table that matches the lowerbound condition for a given secondary key.
-          * Lowerbound secondary index is the first secondary index which key is <= the given secondary index key.
+          * Lowerbound secondary index is the first secondary index which key is >= the given secondary index key.
           *
           * @ingroup database 256-bit-secondary-index
           * @param code - the name of the owner of the table.
@@ -1380,7 +1380,7 @@ namespace webassembly {
 
          /**
           * Find the table row in a secondary double-precision floating-point index table that matches the lowerbound condition for a given secondary key.
-          * Lowerbound secondary index is the first secondary index which key is <= the given secondary index key.
+          * Lowerbound secondary index is the first secondary index which key is >= the given secondary index key.
           *
           * @ingroup database double-secondary-index
           * @param code - the name of the owner of the table.
@@ -1524,7 +1524,7 @@ namespace webassembly {
 
          /**
           * Find the table row in a secondary quadruple-precision floating-point index table that matches the lowerbound condition for a given secondary key.
-          * Lowerbound secondary index is the first secondary index which key is <= the given secondary index key.
+          * Lowerbound secondary index is the first secondary index which key is >= the given secondary index key.
           *
           * @ingroup database long-double-secondary-index
           * @param code - the name of the owner of the table.

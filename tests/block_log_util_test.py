@@ -1,16 +1,14 @@
 #!/usr/bin/env python3
 
-from testUtils import Utils
-from testUtils import BlockLogAction
 import time
-from Cluster import Cluster
-from WalletMgr import WalletMgr
-from Node import BlockType
 import os
 import signal
 import subprocess
-from TestHelper import AppArgs
-from TestHelper import TestHelper
+
+from TestHarness import Cluster, TestHelper, Utils, WalletMgr
+from TestHarness.testUtils import BlockLogAction
+from TestHarness.TestHelper import AppArgs
+from TestHarness.Node import BlockType
 
 ###############################################################
 # block_log_util_test
@@ -60,8 +58,7 @@ try:
     cluster.killall(allInstances=killAll)
     cluster.cleanup()
     Print("Stand up cluster")
-    traceNodeosArgs=" --plugin eosio::trace_api_plugin --trace-no-abis "
-    if cluster.launch(prodCount=prodCount, onlyBios=False, pnodes=pnodes, totalNodes=totalNodes, totalProducers=pnodes*prodCount, useBiosBootFile=False, extraNodeosArgs=traceNodeosArgs) is False:
+    if cluster.launch(prodCount=prodCount, onlyBios=False, pnodes=pnodes, totalNodes=totalNodes, totalProducers=pnodes*prodCount, useBiosBootFile=False) is False:
         Utils.errorExit("Failed to stand up eos cluster.")
 
     Print("Validating system accounts after bootstrap")

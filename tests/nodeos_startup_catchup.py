@@ -1,19 +1,14 @@
 #!/usr/bin/env python3
 
-from testUtils import Utils
-import testUtils
 import time
-from Cluster import Cluster
-from WalletMgr import WalletMgr
-from Node import BlockType
-from Node import Node
 import signal
-from TestHelper import AppArgs
-from TestHelper import TestHelper
-
 import decimal
 import math
 import re
+
+from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr
+from TestHarness.Node import BlockType
+from TestHarness.TestHelper import AppArgs
 
 ###############################################################
 # nodeos_startup_catchup
@@ -71,10 +66,9 @@ try:
     txnGenNodeNum=pnodes  # next node after producer nodes
     for nodeNum in range(txnGenNodeNum, txnGenNodeNum+startedNonProdNodes):
         specificExtraNodeosArgs[nodeNum]="--plugin eosio::txn_test_gen_plugin --txn-test-gen-account-prefix txntestacct"
-    traceNodeosArgs = " --plugin eosio::trace_api_plugin --trace-no-abis "
     Print("Stand up cluster")
     if cluster.launch(prodCount=prodCount, onlyBios=False, pnodes=pnodes, totalNodes=totalNodes, totalProducers=pnodes*prodCount,
-                      useBiosBootFile=False, specificExtraNodeosArgs=specificExtraNodeosArgs, unstartedNodes=catchupCount, loadSystemContract=False, extraNodeosArgs=traceNodeosArgs) is False:
+                      useBiosBootFile=False, specificExtraNodeosArgs=specificExtraNodeosArgs, unstartedNodes=catchupCount, loadSystemContract=False) is False:
         Utils.errorExit("Failed to stand up eos cluster.")
 
     Print("Validating system accounts after bootstrap")
@@ -130,17 +124,20 @@ try:
     numBlocks=20
     endBlockNum=startBlockNum+numBlocks
     waitForBlock(node0, endBlockNum)
-    transactions=0
-    avg=0
-    for blockNum in range(startBlockNum, endBlockNum):
-        block=node0.getBlock(blockNum)
-        transactions+=len(block["transactions"])
+    steadyStateWindowTrxs=0
+    steadyStateAvg=0
+    steadyStateWindowBlks=0
+    for bNum in range(startBlockNum, endBlockNum):
+        steadyStateWindowBlks=steadyStateWindowBlks+1
+        block=node0.getBlock(bNum)
+        steadyStateWindowTrxs+=len(block["transactions"])
 
-    avg=transactions / (blockNum - startBlockNum + 1)
+    steadyStateAvg=steadyStateWindowTrxs / steadyStateWindowBlks
 
     Print("Validate transactions are generating")
-    minRequiredTransactions=transactionsPerBlock
-    assert avg>minRequiredTransactions, "Expected to at least receive %s transactions per block, but only getting %s" % (minRequiredTransactions, avg)
+    minReqPctLeeway=0.9
+    minRequiredTransactions=minReqPctLeeway*transactionsPerBlock
+    assert steadyStateAvg>=minRequiredTransactions, "Expected to at least receive %s transactions per block, but only getting %s" % (minRequiredTransactions, steadyStateAvg)
 
     Print("Cycle through catchup scenarios")
     twoRounds=21*2*12

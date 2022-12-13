@@ -15,3 +15,9 @@ add_executable( test_trx_finality_status_processing test_trx_finality_status_pro
 target_link_libraries( test_trx_finality_status_processing chain_plugin eosio_testing)
 
 add_test(NAME test_trx_finality_status_processing COMMAND plugins/chain_plugin/test/test_trx_finality_status_processing WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+
+add_executable( test_chain_plugin test_chain_plugin.cpp )
+
+target_link_libraries( test_chain_plugin chain_plugin eosio_testing)
+
+add_test(NAME test_chain_plugin COMMAND plugins/chain_plugin/test/test_chain_plugin WORKING_DIRECTORY ${CMAKE_BINARY_DIR})

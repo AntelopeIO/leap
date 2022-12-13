@@ -1,7 +1,7 @@
 #pragma once
 
 #include <eosio/chain_plugin/chain_plugin.hpp>
-#include <eosio/http_client_plugin/http_client_plugin.hpp>
+#include <eosio/signature_provider_plugin/signature_provider_plugin.hpp>
 
 #include <appbase/application.hpp>
 
@@ -11,7 +11,7 @@ using boost::signals2::signal;
 
 class producer_plugin : public appbase::plugin<producer_plugin> {
 public:
-   APPBASE_PLUGIN_REQUIRES((chain_plugin)(http_client_plugin))
+   APPBASE_PLUGIN_REQUIRES((chain_plugin)(signature_provider_plugin))
 
    struct runtime_options {
       std::optional<int32_t>   max_transaction_time;
@@ -114,7 +114,35 @@ public:
 
    get_account_ram_corrections_result  get_account_ram_corrections( const get_account_ram_corrections_params& params ) const;
 
-    void log_failed_transaction(const transaction_id_type& trx_id, const chain::packed_transaction_ptr& packed_trx_ptr, const char* reason) const;
+   struct get_unapplied_transactions_params {
+      string      lower_bound;  /// transaction id
+      std::optional<uint32_t>    limit = 100;
+      std::optional<uint32_t>    time_limit_ms; // defaults to 10ms
+   };
+
+   struct unapplied_trx {
+      transaction_id_type       trx_id;
+      fc::time_point_sec        expiration;
+      string                    trx_type; // eosio::chain::trx_enum_type values or "read_only"
+      account_name              first_auth;
+      account_name              first_receiver;
+      action_name               first_action;
+      uint16_t                  total_actions = 0;
+      uint32_t                  billed_cpu_time_us = 0;
+      size_t                    size = 0;
+   };
+
+   struct get_unapplied_transactions_result {
+      size_t                     size = 0;
+      size_t                     incoming_size = 0;
+      std::vector<unapplied_trx> trxs;
+      string                     more; ///< fill lower_bound with trx id to fetch next set of transactions
+   };
+
+   get_unapplied_transactions_result get_unapplied_transactions( const get_unapplied_transactions_params& params, const fc::time_point& deadline ) const;
+
+
+   void log_failed_transaction(const transaction_id_type& trx_id, const chain::packed_transaction_ptr& packed_trx_ptr, const char* reason) const;
 
  private:
    std::shared_ptr<class producer_plugin_impl> my;
@@ -131,3 +159,6 @@ FC_REFLECT(eosio::producer_plugin::scheduled_protocol_feature_activations, (prot
 FC_REFLECT(eosio::producer_plugin::get_supported_protocol_features_params, (exclude_disabled)(exclude_unactivatable))
 FC_REFLECT(eosio::producer_plugin::get_account_ram_corrections_params, (lower_bound)(upper_bound)(limit)(reverse))
 FC_REFLECT(eosio::producer_plugin::get_account_ram_corrections_result, (rows)(more))
+FC_REFLECT(eosio::producer_plugin::get_unapplied_transactions_params, (lower_bound)(limit)(time_limit_ms))
+FC_REFLECT(eosio::producer_plugin::unapplied_trx, (trx_id)(expiration)(trx_type)(first_auth)(first_receiver)(first_action)(total_actions)(billed_cpu_time_us)(size))
+FC_REFLECT(eosio::producer_plugin::get_unapplied_transactions_result, (size)(incoming_size)(trxs)(more))

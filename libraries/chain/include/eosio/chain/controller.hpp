@@ -48,9 +48,7 @@ namespace eosio { namespace chain {
    class fork_database;
 
    enum class db_read_mode {
-      SPECULATIVE,
       HEAD,
-      READ_ONLY,
       IRREVERSIBLE
    };
 
@@ -85,12 +83,14 @@ namespace eosio { namespace chain {
             uint32_t                 maximum_variable_signature_length = chain::config::default_max_variable_signature_length;
             bool                     disable_all_subjective_mitigations = false; //< for developer & testing purposes, can be configured using `disable-all-subjective-mitigations` when `EOSIO_DEVELOPER` build option is provided
             uint32_t                 terminate_at_block     = 0; //< primarily for testing purposes
+            bool                     integrity_hash_on_start= false;
+            bool                     integrity_hash_on_stop = false;
 
             wasm_interface::vm_type  wasm_runtime = chain::config::default_wasm_runtime;
             eosvmoc::config          eosvmoc_config;
             bool                     eosvmoc_tierup         = false;
 
-            db_read_mode             read_mode              = db_read_mode::SPECULATIVE;
+            db_read_mode             read_mode              = db_read_mode::HEAD;
             validation_mode          block_validation_mode  = validation_mode::FULL;
 
             pinnable_mapped_file::map_mode db_map_mode      = pinnable_mapped_file::map_mode::mapped;
@@ -106,7 +106,8 @@ namespace eosio { namespace chain {
             irreversible = 0, ///< this block has already been applied before by this node and is considered irreversible
             validated   = 1, ///< this is a complete block signed by a valid producer and has been previously applied by this node and therefore validated but it is not yet irreversible
             complete   = 2, ///< this is a complete block signed by a valid producer but is not yet irreversible nor has it yet been applied by this node
-            incomplete  = 3, ///< this is an incomplete block (either being produced by a producer or speculatively produced by a node)
+            incomplete  = 3, ///< this is an incomplete block being produced by a producer
+            ephemeral = 4  ///< this is an incomplete block created for speculative execution of trxs, will always be aborted
          };
 
          controller( const config& cfg, const chain_id_type& chain_id );
@@ -125,26 +126,18 @@ namespace eosio { namespace chain {
          void validate_protocol_features( const vector<digest_type>& features_to_activate )const;
 
          /**
-          *  Starts a new pending block session upon which new transactions can
-          *  be pushed.
-          *
-          *  Will only activate protocol features that have been pre-activated.
-          */
-         void start_block( block_timestamp_type time = block_timestamp_type(), uint16_t confirm_block_count = 0 );
-
-         /**
-          * Starts a new pending block session upon which new transactions can
-          * be pushed.
+          * Starts a new pending block session upon which new transactions can be pushed.
           */
          void start_block( block_timestamp_type time,
                            uint16_t confirm_block_count,
                            const vector<digest_type>& new_protocol_feature_activations,
+                           block_status bs,
                            const fc::time_point& deadline = fc::time_point::maximum() );
 
          /**
           * @return transactions applied in aborted block
           */
-         vector<transaction_metadata_ptr> abort_block();
+         deque<transaction_metadata_ptr> abort_block();
 
        /**
         *
@@ -162,18 +155,27 @@ namespace eosio { namespace chain {
                                                            fc::time_point block_deadline, fc::microseconds max_transaction_time,
                                                            uint32_t billed_cpu_time_us, bool explicit_billed_cpu_time );
 
-         block_state_ptr finalize_block( const signer_callback_type& signer_callback );
+         struct block_report {
+            size_t             total_net_usage = 0;
+            size_t             total_cpu_usage_us = 0;
+            fc::microseconds   total_elapsed_time{};
+            fc::microseconds   total_time{};
+         };
+
+         block_state_ptr finalize_block( block_report& br, const signer_callback_type& signer_callback );
          void sign_block( const signer_callback_type& signer_callback );
          void commit_block();
 
          std::future<block_state_ptr> create_block_state_future( const block_id_type& id, const signed_block_ptr& b );
 
          /**
+          * @param br returns statistics for block
           * @param block_state_future provide from call to create_block_state_future
           * @param cb calls cb with forked applied transactions for each forked block
           * @param trx_lookup user provided lookup function for externally cached transaction_metadata
           */
-         void push_block( std::future<block_state_ptr>& block_state_future,
+         void push_block( block_report& br,
+                          std::future<block_state_ptr>& block_state_future,
                           const forked_branch_callback& cb,
                           const trx_meta_cache_lookup& trx_lookup );
 
@@ -230,8 +232,6 @@ namespace eosio { namespace chain {
          std::optional<block_id_type>   pending_producer_block_id()const;
          uint32_t                       pending_block_num()const;
 
-         const vector<transaction_receipt>& get_pending_trx_receipts()const;
-
          const producer_authority_schedule&         active_producers()const;
          const producer_authority_schedule&         pending_producers()const;
          std::optional<producer_authority_schedule> proposed_producers()const;
@@ -257,7 +257,7 @@ namespace eosio { namespace chain {
          void check_action_list( account_name code, action_name action )const;
          void check_key_list( const public_key_type& key )const;
          bool is_building_block()const;
-         bool is_producing_block()const;
+         bool is_speculative_block()const;
 
          bool is_ram_billing_in_notify_allowed()const;
 

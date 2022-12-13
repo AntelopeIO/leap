@@ -45,6 +45,7 @@ struct abi_serializer {
    /// @return string_view of `t` or internal string type
    std::string_view resolve_type(const std::string_view& t)const;
    bool      is_array(const std::string_view& type)const;
+   bool      is_szarray(const std::string_view& type)const;
    bool      is_optional(const std::string_view& type)const;
    bool      is_type( const std::string_view& type, const yield_function_t& yield )const;
    [[deprecated("use the overload with yield_function_t[=create_yield_function(max_serialization_time)]")]]
@@ -367,6 +368,23 @@ namespace impl {
       }
 
       /**
+      * template which overloads add for deques of types which contain ABI information in their trees
+      * for these members we call ::add in order to trigger further processing
+      */
+      template<typename M, typename Resolver, require_abi_t<M> = 1>
+      static void add( mutable_variant_object &mvo, const char* name, const deque<M>& v, Resolver resolver, abi_traverse_context& ctx )
+      {
+         auto h = ctx.enter_scope();
+         deque<fc::variant> array;
+
+         for (const auto& iter: v) {
+            mutable_variant_object elem_mvo;
+            add(elem_mvo, "_", iter, resolver, ctx);
+            array.emplace_back(std::move(elem_mvo["_"]));
+         }
+         mvo(name, std::move(array));
+      }
+      /**
        * template which overloads add for shared_ptr of types which contain ABI information in their trees
        * for these members we call ::add in order to trigger further processing
        */
@@ -475,7 +493,6 @@ namespace impl {
                      binary_to_variant_context _ctx(*abi, ctx, type);
                      _ctx.short_path = true; // Just to be safe while avoiding the complexity of threading an override boolean all over the place
                      mvo( "data", abi->_binary_to_variant( type, act.data, _ctx ));
-                     set_hex_data(mvo, "hex_data", act.data);
                   } catch(...) {
                      // any failure to serialize data, then leave as not serailzed
                      set_hex_data(mvo, "data", act.data);
@@ -489,6 +506,7 @@ namespace impl {
          } catch(...) {
             set_hex_data(mvo, "data", act.data);
          }
+         set_hex_data(mvo, "hex_data", act.data);
          out(name, std::move(mvo));
       }
 
@@ -729,6 +747,24 @@ namespace impl {
             o.emplace_back(std::move(o_iter));
          }
       }
+
+ /**
+  * template which overloads extract for deque of types which contain ABI information in their trees
+  * for these members we call ::extract in order to trigger further processing
+  */
+      template<typename M, typename Resolver, require_abi_t<M> = 1>
+      static void extract( const fc::variant& v, deque<M>& o, Resolver resolver, abi_traverse_context& ctx )
+      {
+         auto h = ctx.enter_scope();
+         const variants& array = v.get_array();
+         o.clear();
+         for( auto itr = array.begin(); itr != array.end(); ++itr ) {
+            M o_iter;
+            extract(*itr, o_iter, resolver, ctx);
+            o.emplace_back(std::move(o_iter));
+         }
+      }
+
 
       /**
        * template which overloads extract for shared_ptr of types which contain ABI information in their trees

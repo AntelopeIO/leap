@@ -39,7 +39,7 @@ namespace eosio { namespace chain {
                               const packed_transaction& t,
                               transaction_checktime_timer&& timer,
                               fc::time_point start = fc::time_point::now(),
-                              bool read_only=false);
+                              transaction_metadata::trx_type type = transaction_metadata::trx_type::input);
          ~transaction_context();
 
          void init_for_implicit_trx( uint64_t initial_net_usage = 0 );
@@ -83,6 +83,8 @@ namespace eosio { namespace chain {
 
          void validate_referenced_accounts( const transaction& trx, bool enforce_actor_whitelist_blacklist )const;
 
+         bool is_dry_run()const { return trx_type == transaction_metadata::trx_type::dry_run; };
+
       private:
 
          friend struct controller_impl;
@@ -110,9 +112,9 @@ namespace eosio { namespace chain {
          void schedule_transaction();
          void record_transaction( const transaction_id_type& id, fc::time_point_sec expire );
 
-         void validate_cpu_usage_to_bill( int64_t billed_us, int64_t account_cpu_limit, bool check_minimum )const;
-         void validate_account_cpu_usage( int64_t billed_us, int64_t account_cpu_limit )const;
-         void validate_account_cpu_usage_estimate( int64_t billed_us, int64_t account_cpu_limit )const;
+         void validate_cpu_usage_to_bill( int64_t billed_us, int64_t account_cpu_limit, bool check_minimum, int64_t subjective_billed_us )const;
+         void validate_account_cpu_usage( int64_t billed_us, int64_t account_cpu_limit,  int64_t subjective_billed_us )const;
+         void validate_account_cpu_usage_estimate( int64_t billed_us, int64_t account_cpu_limit, int64_t subjective_billed_us )const;
 
          void disallow_transaction_extensions( const char* error_msg )const;
 
@@ -128,7 +130,7 @@ namespace eosio { namespace chain {
          fc::time_point                published;
 
 
-         vector<digest_type>           executed_action_receipt_digests;
+         deque<digest_type>           executed_action_receipt_digests;
          flat_set<account_name>        bill_to_accounts;
          flat_set<account_name>        validate_ram_usage;
 
@@ -148,9 +150,9 @@ namespace eosio { namespace chain {
 
          transaction_checktime_timer   transaction_timer;
 
-         const bool                    is_read_only;
    private:
          bool                          is_initialized = false;
+         transaction_metadata::trx_type trx_type;
 
          uint64_t                      net_limit = 0;
          bool                          net_limit_due_to_block = true;

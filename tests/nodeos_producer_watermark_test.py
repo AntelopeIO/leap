@@ -1,16 +1,11 @@
 #!/usr/bin/env python3
 
-from testUtils import Utils
-import testUtils
-from Cluster import Cluster
-from WalletMgr import WalletMgr
-from Node import Node
-from TestHelper import TestHelper
-
 import time
 import decimal
 import math
 import re
+
+from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr
 
 ###############################################################
 # nodeos_producer_watermark_test
@@ -181,8 +176,7 @@ try:
     cluster.killall(allInstances=killAll)
     cluster.cleanup()
     Print("Stand up cluster")
-    traceNodeosArgs = " --plugin eosio::trace_api_plugin --trace-no-abis "
-    if cluster.launch(prodCount=prodCount, onlyBios=False, pnodes=totalNodes, totalNodes=totalNodes, totalProducers=totalNodes, useBiosBootFile=False, onlySetProds=True, sharedProducers=1, extraNodeosArgs=traceNodeosArgs) is False:
+    if cluster.launch(prodCount=prodCount, onlyBios=False, pnodes=totalNodes, totalNodes=totalNodes, totalProducers=totalNodes, useBiosBootFile=False, onlySetProds=True, sharedProducers=1) is False:
         Utils.cmdError("launcher")
         Utils.errorExit("Failed to stand up eos cluster.")
 

@@ -30,6 +30,7 @@
 #include <netinet/in.h>
 #include <net/if.h>
 #include <eosio/chain/genesis_state.hpp>
+#include <eosio/version/version.hpp>
 
 #include "config.hpp"
 
@@ -2024,7 +2025,7 @@ int main (int argc, char *argv[]) {
       return 0;
     }
     if (vmap.count("version") > 0) {
-      cout << eosio::launcher::config::version_str << endl;
+      cout << eosio::version::version_full() << endl;
       return 0;
     }
 
