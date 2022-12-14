@@ -38,7 +38,6 @@ namespace eosio { namespace chain { namespace plugin_interface {
 
    namespace incoming {
       namespace channels {
-         using block                 = channel_decl<struct block_tag, signed_block_ptr>;
          using transaction           = channel_decl<struct transaction_tag, packed_transaction_ptr>;
       }
 

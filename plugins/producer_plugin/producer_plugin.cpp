@@ -340,7 +340,6 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
 
       chain_plugin* chain_plug = nullptr;
 
-      incoming::channels::block::channel_type::handle         _incoming_block_subscription;
       incoming::channels::transaction::channel_type::handle   _incoming_transaction_subscription;
 
       compat::channels::transaction_ack::channel_type&        _transaction_ack_channel;
@@ -1129,13 +1128,6 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
          resmon_plugin->monitor_directory(my->_snapshots_dir);
       }
    }
-
-   my->_incoming_block_subscription = app().get_channel<incoming::channels::block>().subscribe(
-         [this](const signed_block_ptr& block) {
-      try {
-         my->on_incoming_block(block, {});
-      } LOG_AND_DROP();
-   });
 
    my->_incoming_transaction_subscription = app().get_channel<incoming::channels::transaction>().subscribe(
          [this](const packed_transaction_ptr& trx) {
