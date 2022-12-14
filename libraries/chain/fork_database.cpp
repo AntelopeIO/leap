@@ -9,6 +9,7 @@
 #include <boost/multi_index/composite_key.hpp>
 #include <fc/io/fstream.hpp>
 #include <fstream>
+#include <shared_mutex>
 
 namespace eosio { namespace chain {
    using boost::multi_index_container;
@@ -64,7 +65,7 @@ namespace eosio { namespace chain {
       :datadir(data_dir)
       {}
 
-      std::mutex            mtx;
+      std::shared_mutex     mtx;
       fork_multi_index_type index;
       block_state_ptr       root; // Only uses the block_header_state portion
       block_state_ptr       head;
@@ -99,7 +100,7 @@ namespace eosio { namespace chain {
                                                        const flat_set<digest_type>&,
                                                        const vector<digest_type>& )>& validator )
    {
-      std::lock_guard<std::mutex> g( my->mtx );
+      std::lock_guard g( my->mtx );
       if (!fc::is_directory(my->datadir))
          fc::create_directories(my->datadir);
 
@@ -175,7 +176,7 @@ namespace eosio { namespace chain {
    }
 
    void fork_database::close() {
-      std::lock_guard<std::mutex> g( my->mtx );
+      std::lock_guard g( my->mtx );
       auto fork_db_dat = my->datadir / config::forkdb_filename;
 
       if( !my->root ) {
@@ -243,7 +244,7 @@ namespace eosio { namespace chain {
    }
 
    void fork_database::reset( const block_header_state& root_bhs ) {
-      std::lock_guard<std::mutex> g( my->mtx );
+      std::lock_guard g( my->mtx );
       my->reset_impl(root_bhs);
    }
 
@@ -256,7 +257,7 @@ namespace eosio { namespace chain {
    }
 
    void fork_database::rollback_head_to_root() {
-      std::lock_guard<std::mutex> g( my->mtx );
+      std::lock_guard g( my->mtx );
       my->rollback_head_to_root_impl();
    }
 
@@ -273,7 +274,7 @@ namespace eosio { namespace chain {
    }
 
    void fork_database::advance_root( const block_id_type& id ) {
-      std::lock_guard<std::mutex> g( my->mtx );
+      std::lock_guard g( my->mtx );
       my->advance_root_impl( id );
    }
 
@@ -311,7 +312,7 @@ namespace eosio { namespace chain {
    }
 
    block_header_state_ptr fork_database::get_block_header( const block_id_type& id )const {
-      std::lock_guard<std::mutex> g( my->mtx );
+      std::shared_lock g( my->mtx );
       return my->get_block_header_impl( id );
    }
 
@@ -365,7 +366,7 @@ namespace eosio { namespace chain {
    }
 
    void fork_database::add( const block_state_ptr& n, bool ignore_duplicate ) {
-      std::lock_guard<std::mutex> g( my->mtx );
+      std::lock_guard g( my->mtx );
       my->add_impl( n, ignore_duplicate, false,
                     []( block_timestamp_type timestamp,
                         const flat_set<digest_type>& cur_features,
@@ -375,17 +376,17 @@ namespace eosio { namespace chain {
    }
 
    block_state_ptr fork_database::root()const {
-      std::lock_guard<std::mutex> g( my->mtx );
+      std::shared_lock g( my->mtx );
       return my->root;
    }
 
    block_state_ptr fork_database::head()const {
-      std::lock_guard<std::mutex> g( my->mtx );
+      std::shared_lock g( my->mtx );
       return my->head;
    }
 
    block_state_ptr fork_database::pending_head()const {
-      std::lock_guard<std::mutex> g( my->mtx );
+      std::shared_lock g( my->mtx );
       const auto& indx = my->index.get<by_lib_block_num>();
 
       auto itr = indx.lower_bound( false );
@@ -398,7 +399,7 @@ namespace eosio { namespace chain {
    }
 
    branch_type fork_database::fetch_branch( const block_id_type& h, uint32_t trim_after_block_num )const {
-      std::lock_guard<std::mutex> g( my->mtx );
+      std::shared_lock g( my->mtx );
       return my->fetch_branch_impl( h, trim_after_block_num );
    }
 
@@ -413,7 +414,7 @@ namespace eosio { namespace chain {
    }
 
    block_state_ptr fork_database::search_on_branch( const block_id_type& h, uint32_t block_num )const {
-      std::lock_guard<std::mutex> g( my->mtx );
+      std::shared_lock g( my->mtx );
       return my->search_on_branch_impl( h, block_num );
    }
 
@@ -432,7 +433,7 @@ namespace eosio { namespace chain {
     */
    pair< branch_type, branch_type >  fork_database::fetch_branch_from( const block_id_type& first,
                                                                        const block_id_type& second )const {
-      std::lock_guard<std::mutex> g( my->mtx );
+      std::shared_lock g( my->mtx );
       return my->fetch_branch_from_impl( first, second );
    }
 
@@ -497,7 +498,7 @@ namespace eosio { namespace chain {
 
    /// remove all of the invalid forks built off of this id including this id
    void fork_database::remove( const block_id_type& id ) {
-      std::lock_guard<std::mutex> g( my->mtx );
+      std::lock_guard g( my->mtx );
       return my->remove_impl( id );
    }
 
@@ -525,7 +526,7 @@ namespace eosio { namespace chain {
    }
 
    void fork_database::mark_valid( const block_state_ptr& h ) {
-      std::lock_guard<std::mutex> g( my->mtx );
+      std::lock_guard g( my->mtx );
       my->mark_valid_impl( h );
    }
 
@@ -550,7 +551,7 @@ namespace eosio { namespace chain {
    }
 
    block_state_ptr   fork_database::get_block(const block_id_type& id)const {
-      std::lock_guard<std::mutex> g( my->mtx );
+      std::shared_lock g( my->mtx );
       return my->get_block_impl(id);
    }
 
