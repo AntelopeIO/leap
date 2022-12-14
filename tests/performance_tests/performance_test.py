@@ -11,6 +11,7 @@ sys.path.append(harnessPath)
 
 from TestHarness import TestHelper, Utils
 from TestHarness.TestHelper import AppArgs
+from TestHarness.Node import NodeosVersion
 from performance_test_basic import PerformanceBasicTest
 from platform import release, system
 from dataclasses import dataclass, asdict, field
@@ -280,7 +281,11 @@ def main():
                 lastBlockCpuEffortPercent=args.last_block_cpu_effort_percent)
     extraNodeosHttpPluginArgs = PerformanceBasicTest.ClusterConfig.ExtraNodeosArgs.ExtraNodeosHttpPluginArgs(httpMaxResponseTimeMs=args.http_max_response_time_ms)
     extraNodeosArgs = PerformanceBasicTest.ClusterConfig.ExtraNodeosArgs(chainPluginArgs=extraNodeosChainPluginArgs, httpPluginArgs=extraNodeosHttpPluginArgs, producerPluginArgs=extraNodeosProducerPluginArgs)
-    testClusterConfig = PerformanceBasicTest.ClusterConfig(pnodes=pnodes, totalNodes=totalNodes, topo=topo, genesisPath=genesisPath, prodsEnableTraceApi=prodsEnableTraceApi, extraNodeosArgs=extraNodeosArgs, isNodeosv2=Utils.getNodeosVersion().split('.')[0] == "v2")
+    if Utils.getNodeosVersion().split('.')[0] == "v2":
+        nodeosVers = NodeosVersion.v2
+    else:
+        nodeosVers = NodeosVersion.v3
+    testClusterConfig = PerformanceBasicTest.ClusterConfig(pnodes=pnodes, totalNodes=totalNodes, topo=topo, genesisPath=genesisPath, prodsEnableTraceApi=prodsEnableTraceApi, extraNodeosArgs=extraNodeosArgs, nodeosVers=nodeosVers)
 
     argsDict = prepArgsDict(testDurationSec=testDurationSec, finalDurationSec=finalDurationSec, logsDir=testTimeStampDirPath,
                         maxTpsToTest=maxTpsToTest, testIterationMinStep=testIterationMinStep, tpsLimitPerGenerator=tpsLimitPerGenerator,
