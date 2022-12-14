@@ -424,7 +424,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          _idle_trx_time = fc::time_point::now();
       }
 
-      bool on_incoming_block(const signed_block_ptr& block, const std::optional<block_id_type>& block_id) {
+      bool on_incoming_block(const signed_block_ptr& block, const std::optional<block_id_type>& block_id, const block_state_ptr& bsp) {
          auto& chain = chain_plug->chain();
          if ( _pending_block_mode == pending_block_mode::producing ) {
             fc_wlog( _log, "dropped incoming block #${num} id: ${id}",
@@ -450,7 +450,10 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          if( existing ) { return false; }
 
          // start processing of block
-         auto bsf = chain.create_block_state_future( id, block );
+         std::future<block_state_ptr> bsf;
+         if( !bsp ) {
+            bsf = chain.create_block_state_future( id, block );
+         }
 
          // abort the pending block
          abort_block();
@@ -465,7 +468,8 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
 
          controller::block_report br;
          try {
-            chain.push_block( br, bsf, [this]( const branch_type& forked_branch ) {
+            const block_state_ptr& bspr = bsp ? bsp : bsf.get();
+            chain.push_block( br, bspr, [this]( const branch_type& forked_branch ) {
                _unapplied_transactions.add_forked( forked_branch );
             }, [this]( const transaction_id_type& id ) {
                return _unapplied_transactions.get_trx( id );
@@ -966,8 +970,8 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
    });
 
    my->_incoming_block_sync_provider = app().get_method<incoming::methods::block_sync>().register_provider(
-         [this](const signed_block_ptr& block, const std::optional<block_id_type>& block_id) {
-      return my->on_incoming_block(block, block_id);
+         [this](const signed_block_ptr& block, const std::optional<block_id_type>& block_id, const block_state_ptr& bsp) {
+      return my->on_incoming_block(block, block_id, bsp);
    });
 
    my->_incoming_transaction_async_provider = app().get_method<incoming::methods::transaction_async>().register_provider(
