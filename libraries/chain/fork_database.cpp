@@ -60,27 +60,38 @@ namespace eosio { namespace chain {
    }
 
    struct fork_database_impl {
-      fork_database_impl( fork_database& self, const fc::path& data_dir )
-      :self(self)
-      ,datadir(data_dir)
+      explicit fork_database_impl( const fc::path& data_dir )
+      :datadir(data_dir)
       {}
 
-      fork_database&        self;
+      std::mutex            mtx;
       fork_multi_index_type index;
       block_state_ptr       root; // Only uses the block_header_state portion
       block_state_ptr       head;
       fc::path              datadir;
 
-      void add( const block_state_ptr& n,
-                bool ignore_duplicate, bool validate,
-                const std::function<void( block_timestamp_type,
-                                          const flat_set<digest_type>&,
-                                          const vector<digest_type>& )>& validator );
+      block_header_state_ptr  get_block_header_impl( const block_id_type& id )const;
+      block_state_ptr         get_block_impl( const block_id_type& id )const;
+      void            reset_impl( const block_header_state& root_bhs );
+      void            rollback_head_to_root_impl();
+      void            advance_root_impl( const block_id_type& id );
+      void            remove_impl( const block_id_type& id );
+      branch_type     fetch_branch_impl( const block_id_type& h, uint32_t trim_after_block_num )const;
+      block_state_ptr search_on_branch_impl( const block_id_type& h, uint32_t block_num )const;
+      pair<branch_type, branch_type> fetch_branch_from_impl( const block_id_type& first,
+                                                             const block_id_type& second )const;
+      void mark_valid_impl( const block_state_ptr& h );
+
+      void add_impl( const block_state_ptr& n,
+                     bool ignore_duplicate, bool validate,
+                     const std::function<void( block_timestamp_type,
+                                               const flat_set<digest_type>&,
+                                               const vector<digest_type>& )>& validator );
    };
 
 
    fork_database::fork_database( const fc::path& data_dir )
-   :my( new fork_database_impl( *this, data_dir ) )
+   :my( new fork_database_impl( data_dir ) )
    {}
 
 
@@ -88,6 +99,7 @@ namespace eosio { namespace chain {
                                                        const flat_set<digest_type>&,
                                                        const vector<digest_type>& )>& validator )
    {
+      std::lock_guard<std::mutex> g( my->mtx );
       if (!fc::is_directory(my->datadir))
          fc::create_directories(my->datadir);
 
@@ -124,7 +136,7 @@ namespace eosio { namespace chain {
 
             block_header_state bhs;
             fc::raw::unpack( ds, bhs );
-            reset( bhs );
+            my->reset_impl( bhs );
 
             unsigned_int size; fc::raw::unpack( ds, size );
             for( uint32_t i = 0, n = size.value; i < n; ++i ) {
@@ -132,7 +144,7 @@ namespace eosio { namespace chain {
                fc::raw::unpack( ds, s );
                // do not populate transaction_metadatas, they will be created as needed in apply_block with appropriate key recovery
                s.header_exts = s.block->validate_and_extract_header_extensions();
-               my->add( std::make_shared<block_state>( move( s ) ), false, true, validator );
+               my->add_impl( std::make_shared<block_state>( std::move( s ) ), false, true, validator );
             }
             block_id_type head_id;
             fc::raw::unpack( ds, head_id );
@@ -140,7 +152,7 @@ namespace eosio { namespace chain {
             if( my->root->id == head_id ) {
                my->head = my->root;
             } else {
-               my->head = get_block( head_id );
+               my->head = my->get_block_impl( head_id );
                EOS_ASSERT( my->head, fork_database_exception,
                            "could not find head while reconstructing fork database from file; '${filename}' is likely corrupted",
                            ("filename", fork_db_dat.generic_string()) );
@@ -163,6 +175,7 @@ namespace eosio { namespace chain {
    }
 
    void fork_database::close() {
+      std::lock_guard<std::mutex> g( my->mtx );
       auto fork_db_dat = my->datadir / config::forkdb_filename;
 
       if( !my->root ) {
@@ -230,15 +243,25 @@ namespace eosio { namespace chain {
    }
 
    void fork_database::reset( const block_header_state& root_bhs ) {
-      my->index.clear();
-      my->root = std::make_shared<block_state>();
-      static_cast<block_header_state&>(*my->root) = root_bhs;
-      my->root->validated = true;
-      my->head = my->root;
+      std::lock_guard<std::mutex> g( my->mtx );
+      my->reset_impl(root_bhs);
+   }
+
+   void fork_database_impl::reset_impl( const block_header_state& root_bhs ) {
+      index.clear();
+      root = std::make_shared<block_state>();
+      static_cast<block_header_state&>(*root) = root_bhs;
+      root->validated = true;
+      head = root;
    }
 
    void fork_database::rollback_head_to_root() {
-      auto& by_id_idx = my->index.get<by_block_id>();
+      std::lock_guard<std::mutex> g( my->mtx );
+      my->rollback_head_to_root_impl();
+   }
+
+   void fork_database_impl::rollback_head_to_root_impl() {
+      auto& by_id_idx = index.get<by_block_id>();
       auto itr = by_id_idx.begin();
       while (itr != by_id_idx.end()) {
          by_id_idx.modify( itr, [&]( block_state_ptr& bsp ) {
@@ -246,13 +269,18 @@ namespace eosio { namespace chain {
          } );
          ++itr;
       }
-      my->head = my->root;
+      head = root;
    }
 
    void fork_database::advance_root( const block_id_type& id ) {
-      EOS_ASSERT( my->root, fork_database_exception, "root not yet set" );
+      std::lock_guard<std::mutex> g( my->mtx );
+      my->advance_root_impl( id );
+   }
 
-      auto new_root = get_block( id );
+   void fork_database_impl::advance_root_impl( const block_id_type& id ) {
+      EOS_ASSERT( root, fork_database_exception, "root not yet set" );
+
+      auto new_root = get_block_impl( id );
       EOS_ASSERT( new_root, fork_database_exception,
                   "cannot advance root to a block that does not exist in the fork database" );
       EOS_ASSERT( new_root->is_valid(), fork_database_exception,
@@ -262,48 +290,53 @@ namespace eosio { namespace chain {
       deque<block_id_type> blocks_to_remove;
       for( auto b = new_root; b; ) {
          blocks_to_remove.emplace_back( b->header.previous );
-         b = get_block( blocks_to_remove.back() );
-         EOS_ASSERT( b || blocks_to_remove.back() == my->root->id, fork_database_exception, "invariant violation: orphaned branch was present in forked database" );
+         b = get_block_impl( blocks_to_remove.back() );
+         EOS_ASSERT( b || blocks_to_remove.back() == root->id, fork_database_exception, "invariant violation: orphaned branch was present in forked database" );
       }
 
       // The new root block should be erased from the fork database index individually rather than with the remove method,
       // because we do not want the blocks branching off of it to be removed from the fork database.
-      my->index.erase( my->index.find( id ) );
+      index.erase( index.find( id ) );
 
       // The other blocks to be removed are removed using the remove method so that orphaned branches do not remain in the fork database.
       for( const auto& block_id : blocks_to_remove ) {
-         remove( block_id );
+         remove_impl( block_id );
       }
 
       // Even though fork database no longer needs block or trxs when a block state becomes a root of the tree,
       // avoid mutating the block state at all, for example clearing the block shared pointer, because other
       // parts of the code which run asynchronously may later expect it remain unmodified.
 
-      my->root = new_root;
+      root = new_root;
    }
 
    block_header_state_ptr fork_database::get_block_header( const block_id_type& id )const {
-      if( my->root->id == id ) {
-         return my->root;
+      std::lock_guard<std::mutex> g( my->mtx );
+      return my->get_block_header_impl( id );
+   }
+
+   block_header_state_ptr fork_database_impl::get_block_header_impl( const block_id_type& id )const {
+      if( root->id == id ) {
+         return root;
       }
 
-      auto itr = my->index.find( id );
-      if( itr != my->index.end() )
+      auto itr = index.find( id );
+      if( itr != index.end() )
          return *itr;
 
       return block_header_state_ptr();
    }
 
-   void fork_database_impl::add( const block_state_ptr& n,
-                                 bool ignore_duplicate, bool validate,
-                                 const std::function<void( block_timestamp_type,
-                                                           const flat_set<digest_type>&,
-                                                           const vector<digest_type>& )>& validator )
+   void fork_database_impl::add_impl( const block_state_ptr& n,
+                                      bool ignore_duplicate, bool validate,
+                                      const std::function<void( block_timestamp_type,
+                                                                const flat_set<digest_type>&,
+                                                                const vector<digest_type>& )>& validator )
    {
       EOS_ASSERT( root, fork_database_exception, "root not yet set" );
       EOS_ASSERT( n, fork_database_exception, "attempt to add null block state" );
 
-      auto prev_bh = self.get_block_header( n->header.previous );
+      auto prev_bh = get_block_header_impl( n->header.previous );
 
       EOS_ASSERT( prev_bh, unlinkable_block_exception,
                   "unlinkable block", ("id", n->id)("previous", n->header.previous) );
@@ -332,19 +365,27 @@ namespace eosio { namespace chain {
    }
 
    void fork_database::add( const block_state_ptr& n, bool ignore_duplicate ) {
-      my->add( n, ignore_duplicate, false,
-               []( block_timestamp_type timestamp,
-                   const flat_set<digest_type>& cur_features,
-                   const vector<digest_type>& new_features )
-               {}
+      std::lock_guard<std::mutex> g( my->mtx );
+      my->add_impl( n, ignore_duplicate, false,
+                    []( block_timestamp_type timestamp,
+                        const flat_set<digest_type>& cur_features,
+                        const vector<digest_type>& new_features )
+                    {}
       );
    }
 
-   const block_state_ptr& fork_database::root()const { return my->root; }
+   block_state_ptr fork_database::root()const {
+      std::lock_guard<std::mutex> g( my->mtx );
+      return my->root;
+   }
 
-   const block_state_ptr& fork_database::head()const { return my->head; }
+   block_state_ptr fork_database::head()const {
+      std::lock_guard<std::mutex> g( my->mtx );
+      return my->head;
+   }
 
    block_state_ptr fork_database::pending_head()const {
+      std::lock_guard<std::mutex> g( my->mtx );
       const auto& indx = my->index.get<by_lib_block_num>();
 
       auto itr = indx.lower_bound( false );
@@ -357,8 +398,13 @@ namespace eosio { namespace chain {
    }
 
    branch_type fork_database::fetch_branch( const block_id_type& h, uint32_t trim_after_block_num )const {
+      std::lock_guard<std::mutex> g( my->mtx );
+      return my->fetch_branch_impl( h, trim_after_block_num );
+   }
+
+   branch_type fork_database_impl::fetch_branch_impl( const block_id_type& h, uint32_t trim_after_block_num )const {
       branch_type result;
-      for( auto s = get_block(h); s; s = get_block( s->header.previous ) ) {
+      for( auto s = get_block_impl(h); s; s = get_block_impl( s->header.previous ) ) {
          if( s->block_num <= trim_after_block_num )
              result.push_back( s );
       }
@@ -367,7 +413,12 @@ namespace eosio { namespace chain {
    }
 
    block_state_ptr fork_database::search_on_branch( const block_id_type& h, uint32_t block_num )const {
-      for( auto s = get_block(h); s; s = get_block( s->header.previous ) ) {
+      std::lock_guard<std::mutex> g( my->mtx );
+      return my->search_on_branch_impl( h, block_num );
+   }
+
+   block_state_ptr fork_database_impl::search_on_branch_impl( const block_id_type& h, uint32_t block_num )const {
+      for( auto s = get_block_impl(h); s; s = get_block_impl( s->header.previous ) ) {
          if( s->block_num == block_num )
              return s;
       }
@@ -381,9 +432,15 @@ namespace eosio { namespace chain {
     */
    pair< branch_type, branch_type >  fork_database::fetch_branch_from( const block_id_type& first,
                                                                        const block_id_type& second )const {
+      std::lock_guard<std::mutex> g( my->mtx );
+      return my->fetch_branch_from_impl( first, second );
+   }
+
+   pair< branch_type, branch_type >  fork_database_impl::fetch_branch_from_impl( const block_id_type& first,
+                                                                                 const block_id_type& second )const {
       pair<branch_type,branch_type> result;
-      auto first_branch = (first == my->root->id) ? my->root : get_block(first);
-      auto second_branch = (second == my->root->id) ? my->root : get_block(second);
+      auto first_branch = (first == root->id) ? root : get_block_impl(first);
+      auto second_branch = (second == root->id) ? root : get_block_impl(second);
 
       EOS_ASSERT(first_branch, fork_db_block_not_found, "block ${id} does not exist", ("id", first));
       EOS_ASSERT(second_branch, fork_db_block_not_found, "block ${id} does not exist", ("id", second));
@@ -392,7 +449,7 @@ namespace eosio { namespace chain {
       {
          result.first.push_back(first_branch);
          const auto& prev = first_branch->header.previous;
-         first_branch = (prev == my->root->id) ? my->root : get_block( prev );
+         first_branch = (prev == root->id) ? root : get_block_impl( prev );
          EOS_ASSERT( first_branch, fork_db_block_not_found,
                      "block ${id} does not exist",
                      ("id", prev)
@@ -403,7 +460,7 @@ namespace eosio { namespace chain {
       {
          result.second.push_back( second_branch );
          const auto& prev = second_branch->header.previous;
-         second_branch = (prev == my->root->id) ? my->root : get_block( prev );
+         second_branch = (prev == root->id) ? root : get_block_impl( prev );
          EOS_ASSERT( second_branch, fork_db_block_not_found,
                      "block ${id} does not exist",
                      ("id", prev)
@@ -417,9 +474,9 @@ namespace eosio { namespace chain {
          result.first.push_back(first_branch);
          result.second.push_back(second_branch);
          const auto &first_prev = first_branch->header.previous;
-         first_branch = get_block( first_prev );
+         first_branch = get_block_impl( first_prev );
          const auto &second_prev = second_branch->header.previous;
-         second_branch = get_block( second_prev );
+         second_branch = get_block_impl( second_prev );
          EOS_ASSERT( first_branch, fork_db_block_not_found,
                      "block ${id} does not exist",
                      ("id", first_prev)
@@ -436,13 +493,18 @@ namespace eosio { namespace chain {
          result.second.push_back(second_branch);
       }
       return result;
-   } /// fetch_branch_from
+   } /// fetch_branch_from_impl
 
    /// remove all of the invalid forks built off of this id including this id
    void fork_database::remove( const block_id_type& id ) {
+      std::lock_guard<std::mutex> g( my->mtx );
+      return my->remove_impl( id );
+   }
+
+   void fork_database_impl::remove_impl( const block_id_type& id ) {
       deque<block_id_type> remove_queue{id};
-      const auto& previdx = my->index.get<by_prev>();
-      const auto& head_id = my->head->id;
+      const auto& previdx = index.get<by_prev>();
+      const auto& head_id = head->id;
 
       for( uint32_t i = 0; i < remove_queue.size(); ++i ) {
          EOS_ASSERT( remove_queue[i] != head_id, fork_database_exception,
@@ -456,16 +518,21 @@ namespace eosio { namespace chain {
       }
 
       for( const auto& block_id : remove_queue ) {
-         auto itr = my->index.find( block_id );
-         if( itr != my->index.end() )
-            my->index.erase(itr);
+         auto itr = index.find( block_id );
+         if( itr != index.end() )
+            index.erase(itr);
       }
    }
 
    void fork_database::mark_valid( const block_state_ptr& h ) {
+      std::lock_guard<std::mutex> g( my->mtx );
+      my->mark_valid_impl( h );
+   }
+
+   void fork_database_impl::mark_valid_impl( const block_state_ptr& h ) {
       if( h->validated ) return;
 
-      auto& by_id_idx = my->index.get<by_block_id>();
+      auto& by_id_idx = index.get<by_block_id>();
 
       auto itr = by_id_idx.find( h->id );
       EOS_ASSERT( itr != by_id_idx.end(), fork_database_exception,
@@ -476,15 +543,20 @@ namespace eosio { namespace chain {
          bsp->validated = true;
       } );
 
-      auto candidate = my->index.get<by_lib_block_num>().begin();
-      if( first_preferred( **candidate, *my->head ) ) {
-         my->head = *candidate;
+      auto candidate = index.get<by_lib_block_num>().begin();
+      if( first_preferred( **candidate, *head ) ) {
+         head = *candidate;
       }
    }
 
    block_state_ptr   fork_database::get_block(const block_id_type& id)const {
-      auto itr = my->index.find( id );
-      if( itr != my->index.end() )
+      std::lock_guard<std::mutex> g( my->mtx );
+      return my->get_block_impl(id);
+   }
+
+   block_state_ptr   fork_database_impl::get_block_impl(const block_id_type& id)const {
+      auto itr = index.find( id );
+      if( itr != index.end() )
          return *itr;
       return block_state_ptr();
    }
