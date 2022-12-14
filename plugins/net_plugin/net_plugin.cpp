@@ -3830,7 +3830,7 @@ namespace eosio {
       FC_CAPTURE_AND_RETHROW()
    }
 
-   const net_plugin_metrics& net_plugin::metrics() const {
+   net_plugin_metrics& net_plugin::metrics() {
       return my->metrics;
    }
 

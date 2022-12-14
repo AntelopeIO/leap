@@ -111,7 +111,8 @@ namespace eosio {
          }
 
          template <typename T>
-         void add_plugin_metrics(const T& pm) {
+         void add_plugin_metrics(T& pm) {
+            pm.enable(true);
             for (const auto& m : pm.metrics) {
                add_plugin_metric(m);
             }

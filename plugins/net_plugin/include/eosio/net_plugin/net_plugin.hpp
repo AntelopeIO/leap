@@ -22,11 +22,16 @@ namespace eosio {
 
       std::vector<std::reference_wrapper<runtime_metric>> metrics;
 
+      void enable(bool enabled)  {_enabled = enabled; }
+      bool enabled() {return _enabled;}
+
       net_plugin_metrics() {
          metrics.emplace_back(std::ref(num_peers));
          metrics.emplace_back(std::ref(num_clients));
          metrics.emplace_back(std::ref(dropped_trxs));
       }
+   private:
+      bool _enabled = false;
    };
 
    class net_plugin : public appbase::plugin<net_plugin>
@@ -48,7 +53,7 @@ namespace eosio {
         std::optional<connection_status>  status( const string& endpoint )const;
         vector<connection_status>         connections()const;
 
-        const net_plugin_metrics& metrics() const;
+        net_plugin_metrics& metrics();
 
       private:
         std::shared_ptr<class net_plugin_impl> my;

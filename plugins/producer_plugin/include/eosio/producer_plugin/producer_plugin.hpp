@@ -24,7 +24,8 @@ struct producer_plugin_metrics {
    runtime_metric scheduled_trxs{metric_type::gauge, "scheduled_trxs", "scheduled_trxs", 0};
 
    std::vector<std::reference_wrapper<runtime_metric>> metrics;
-   bool collect_metrics = false;
+   void enable(bool enabled)  {_enabled = enabled; }
+   bool enabled() {return _enabled;}
 
    producer_plugin_metrics() {
       metrics.emplace_back(std::ref(unapplied_transactions));
@@ -37,6 +38,8 @@ struct producer_plugin_metrics {
       metrics.emplace_back(std::ref(subjective_bill_block_size));
       metrics.emplace_back(std::ref(scheduled_trxs));
    }
+private:
+   bool _enabled = false;
 };
 
 class producer_plugin : public appbase::plugin<producer_plugin> {
@@ -173,7 +176,7 @@ public:
 
 
    void log_failed_transaction(const transaction_id_type& trx_id, const chain::packed_transaction_ptr& packed_trx_ptr, const char* reason) const;
-   const producer_plugin_metrics& metrics() const;
+   producer_plugin_metrics& metrics();
 
  private:
    std::shared_ptr<class producer_plugin_impl> my;

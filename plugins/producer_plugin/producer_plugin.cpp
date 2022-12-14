@@ -1593,7 +1593,7 @@ fc::time_point producer_plugin_impl::calculate_block_deadline( const fc::time_po
 
 producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
    chain::controller& chain = chain_plug->chain();
-   if (_metrics.collect_metrics) {
+   if (_metrics.enabled()) {
       update_block_metrics();
    }
 
@@ -2526,8 +2526,7 @@ void producer_plugin::log_failed_transaction(const transaction_id_type& trx_id, 
             ("entire_trx", packed_trx_ptr ? my->chain_plug->get_log_trx(packed_trx_ptr->get_transaction()) : fc::variant{trx_id}));
 }
 
-const producer_plugin_metrics& producer_plugin::metrics() const {
-   my->_metrics.collect_metrics = true;
+producer_plugin_metrics& producer_plugin::metrics() {
    return my->_metrics;
 }
 } // namespace eosio
