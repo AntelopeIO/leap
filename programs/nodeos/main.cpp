@@ -142,7 +142,6 @@ int main(int argc, char** argv)
             ("fv", app().version_string() == app().full_version_string() ? "" : app().full_version_string()) );
       ilog("${name} using configuration file ${c}", ("name", nodeos::config::node_executable_name)("c", app().full_config_file_path().string()));
       ilog("${name} data directory is ${d}", ("name", nodeos::config::node_executable_name)("d", app().data_dir().string()));
-      ilog("${name} state directory is ${d}", ("name", nodeos::config::node_executable_name)("d", app().state_dir().string()));
       app().startup();
       app().set_thread_priority_max();
       app().exec();
