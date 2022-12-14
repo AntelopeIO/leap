@@ -439,6 +439,11 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
             return false;
          }
 
+         // start a new speculative block, speculative start_block may have been interrupted
+         auto ensure = fc::make_scoped_exit([this](){
+            schedule_production_loop();
+         });
+
          const auto& id = block_id ? *block_id : block->calculate_id();
          auto blk_num = block->block_num();
 
@@ -456,11 +461,6 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
 
          // abort the pending block
          abort_block();
-
-         // exceptions throw out, make sure we restart our loop
-         auto ensure = fc::make_scoped_exit([this](){
-            schedule_production_loop();
-         });
 
          // push the new block
          auto handle_error = [&](const auto& e)
