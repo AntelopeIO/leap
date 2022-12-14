@@ -54,8 +54,6 @@ def performPtbBinarySearch(tpsTestFloor: int, tpsTestCeiling: int, minStep: int,
     maxTpsAchieved = 0
     maxTpsReport = {}
     searchResults = []
-    if Utils.getNodeosVersion().split('.')[0] == "v2":
-        isNodeosv2 = True
 
     while ceiling >= floor:
         print(f"Running scenario: floor {floor} binSearchTarget {binSearchTarget} ceiling {ceiling}")
@@ -64,7 +62,7 @@ def performPtbBinarySearch(tpsTestFloor: int, tpsTestCeiling: int, minStep: int,
 
         myTest = PerformanceBasicTest(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, targetTps=binSearchTarget,
                                     testTrxGenDurationSec=testDurationSec, tpsLimitPerGenerator=tpsLimitPerGenerator,
-                                    numAddlBlocksToPrune=numAddlBlocksToPrune, rootLogDir=testLogDir, delReport=delReport, quiet=quiet, delPerfLogs=delPerfLogs, isNodeosv2=isNodeosv2)
+                                    numAddlBlocksToPrune=numAddlBlocksToPrune, rootLogDir=testLogDir, delReport=delReport, quiet=quiet, delPerfLogs=delPerfLogs)
         testSuccessful = myTest.runTest()
         if evaluateSuccess(myTest, testSuccessful, ptbResult):
             maxTpsAchieved = binSearchTarget
@@ -97,8 +95,6 @@ def performPtbReverseLinearSearch(tpsInitial: int, step: int, testHelperConfig: 
     maxTpsReport = {}
     searchResults = []
     maxFound = False
-    if Utils.getNodeosVersion().split('.')[0] == "v2":
-        isNodeosv2 = True
 
     while not maxFound:
         print(f"Running scenario: floor {absFloor} searchTarget {searchTarget} ceiling {absCeiling}")
@@ -107,7 +103,7 @@ def performPtbReverseLinearSearch(tpsInitial: int, step: int, testHelperConfig: 
 
         myTest = PerformanceBasicTest(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, targetTps=searchTarget,
                                     testTrxGenDurationSec=testDurationSec, tpsLimitPerGenerator=tpsLimitPerGenerator,
-                                    numAddlBlocksToPrune=numAddlBlocksToPrune, rootLogDir=testLogDir, delReport=delReport, quiet=quiet, delPerfLogs=delPerfLogs, isNodeosv2=isNodeosv2)
+                                    numAddlBlocksToPrune=numAddlBlocksToPrune, rootLogDir=testLogDir, delReport=delReport, quiet=quiet, delPerfLogs=delPerfLogs)
         testSuccessful = myTest.runTest()
         if evaluateSuccess(myTest, testSuccessful, ptbResult):
             maxTpsAchieved = searchTarget
@@ -284,7 +280,7 @@ def main():
                 lastBlockCpuEffortPercent=args.last_block_cpu_effort_percent)
     extraNodeosHttpPluginArgs = PerformanceBasicTest.ClusterConfig.ExtraNodeosArgs.ExtraNodeosHttpPluginArgs(httpMaxResponseTimeMs=args.http_max_response_time_ms)
     extraNodeosArgs = PerformanceBasicTest.ClusterConfig.ExtraNodeosArgs(chainPluginArgs=extraNodeosChainPluginArgs, httpPluginArgs=extraNodeosHttpPluginArgs, producerPluginArgs=extraNodeosProducerPluginArgs)
-    testClusterConfig = PerformanceBasicTest.ClusterConfig(pnodes=pnodes, totalNodes=totalNodes, topo=topo, genesisPath=genesisPath, prodsEnableTraceApi=prodsEnableTraceApi, extraNodeosArgs=extraNodeosArgs)
+    testClusterConfig = PerformanceBasicTest.ClusterConfig(pnodes=pnodes, totalNodes=totalNodes, topo=topo, genesisPath=genesisPath, prodsEnableTraceApi=prodsEnableTraceApi, extraNodeosArgs=extraNodeosArgs, isNodeosv2=Utils.getNodeosVersion().split('.')[0] == "v2")
 
     argsDict = prepArgsDict(testDurationSec=testDurationSec, finalDurationSec=finalDurationSec, logsDir=testTimeStampDirPath,
                         maxTpsToTest=maxTpsToTest, testIterationMinStep=testIterationMinStep, tpsLimitPerGenerator=tpsLimitPerGenerator,

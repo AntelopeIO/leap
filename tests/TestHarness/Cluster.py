@@ -431,10 +431,11 @@ class Cluster(object):
             cmdArr.append("--shape")
             cmdArr.append(topo)
 
-        for args in specificExtraNodeosArgs.values():
-            if "--plugin eosio::history_api_plugin" in args:
-                cmdArr.append("--is-nodeos-v2")
-                break
+        if type(specificExtraNodeosArgs) is dict:
+            for args in specificExtraNodeosArgs.values():
+                if "--plugin eosio::history_api_plugin" in args:
+                    cmdArr.append("--is-nodeos-v2")
+                    break
         Cluster.__LauncherCmdArr = cmdArr.copy()
 
         s=" ".join([("'{0}'".format(element) if (' ' in element) else element) for element in cmdArr.copy()])

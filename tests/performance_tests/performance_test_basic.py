@@ -102,6 +102,8 @@ class PerformanceBasicTest:
             self._totalNodes = self.pnodes + 1 if self.totalNodes <= self.pnodes else self.totalNodes
             if not self.prodsEnableTraceApi:
                 self.specificExtraNodeosArgs.update({f"{node}" : "--plugin eosio::trace_api_plugin" for node in range(self.pnodes, self._totalNodes)})
+            if self.isNodeosv2:
+                self.specificExtraNodeosArgs.update({f"{node}" : "--plugin eosio::history_api_plugin --filter-on \"*\"" for node in range(self.pnodes, self._totalNodes)})
 
     def __init__(self, testHelperConfig: TestHelperConfig=TestHelperConfig(), clusterConfig: ClusterConfig=ClusterConfig(), targetTps: int=8000,
                  testTrxGenDurationSec: int=30, tpsLimitPerGenerator: int=4000, numAddlBlocksToPrune: int=2,
@@ -116,7 +118,6 @@ class PerformanceBasicTest:
         self.delReport = delReport
         self.quiet = quiet
         self.delPerfLogs=delPerfLogs
-        self.clusterConfig.isNodeosv2=isNodeosv2
         self.testHelperConfig.keepLogs = not self.delPerfLogs
 
         Utils.Debug = self.testHelperConfig.verbose
@@ -147,7 +148,7 @@ class PerformanceBasicTest:
 
         # Setup cluster and its wallet manager
         self.walletMgr=WalletMgr(True)
-        self.cluster=Cluster(walletd=True, loggingLevel="info", loggingLevelDict=self.clusterConfig.loggingDict, isNodeosv2=isNodeosv2)
+        self.cluster=Cluster(walletd=True, loggingLevel="info", loggingLevelDict=self.clusterConfig.loggingDict, isNodeosv2=self.clusterConfig.isNodeosv2)
         self.cluster.setWalletMgr(self.walletMgr)
 
     def cleanupOldClusters(self):
@@ -241,8 +242,6 @@ class PerformanceBasicTest:
         return node.getHeadBlockNum()
 
     def launchCluster(self):
-        if self.clusterConfig.isNodeosv2:
-            self.clusterConfig.specificExtraNodeosArgs.update({f"{node}" : "--plugin eosio::history_api_plugin --filter-on \"*\"" for node in range(self.clusterConfig.pnodes, self.clusterConfig._totalNodes)})
         return self.cluster.launch(
             pnodes=self.clusterConfig.pnodes,
             totalNodes=self.clusterConfig._totalNodes,
@@ -459,15 +458,12 @@ def main():
                 lastBlockCpuEffortPercent=args.last_block_cpu_effort_percent)
     extraNodeosHttpPluginArgs = PerformanceBasicTest.ClusterConfig.ExtraNodeosArgs.ExtraNodeosHttpPluginArgs(httpMaxResponseTimeMs=args.http_max_response_time_ms)
     extraNodeosArgs = PerformanceBasicTest.ClusterConfig.ExtraNodeosArgs(chainPluginArgs=extraNodeosChainPluginArgs, httpPluginArgs=extraNodeosHttpPluginArgs, producerPluginArgs=extraNodeosProducerPluginArgs)
-    testClusterConfig = PerformanceBasicTest.ClusterConfig(pnodes=args.p, totalNodes=args.n, topo=args.s, genesisPath=args.genesis, prodsEnableTraceApi=args.prods_enable_trace_api, extraNodeosArgs=extraNodeosArgs)
-    isNodeosv2 = False
+    testClusterConfig = PerformanceBasicTest.ClusterConfig(pnodes=args.p, totalNodes=args.n, topo=args.s, genesisPath=args.genesis, prodsEnableTraceApi=args.prods_enable_trace_api, extraNodeosArgs=extraNodeosArgs, isNodeosv2= Utils.getNodeosVersion().split('.')[0] == "v2")
 
-    if Utils.getNodeosVersion().split('.')[0] == "v2":
-        isNodeosv2 = True
     myTest = PerformanceBasicTest(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, targetTps=args.target_tps,
                                   testTrxGenDurationSec=args.test_duration_sec, tpsLimitPerGenerator=args.tps_limit_per_generator,
                                   numAddlBlocksToPrune=args.num_blocks_to_prune, delReport=args.del_report, quiet=args.quiet,
-                                  delPerfLogs=args.del_perf_logs, isNodeosv2=isNodeosv2)
+                                  delPerfLogs=args.del_perf_logs)
     testSuccessful = myTest.runTest()
 
     exitCode = 0 if testSuccessful else 1

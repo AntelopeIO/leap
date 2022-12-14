@@ -55,6 +55,18 @@ class Node(object):
         self.popenProc=None           # initial process is started by launcher, this will only be set on relaunch
         self.lastTrackedTransactionId=None
         self.isNodeosv2=isNodeosv2
+        if isNodeosv2:
+            self.fetchTransactionCommand = lambda: "get transaction"
+            self.fetchTransactionFromTrace = lambda trx: trx['trx']['id']
+            self.fetchBlock = lambda blockNum: self.processUrllibRequest("chain", "get_block", {"block_num_or_id":blockNum}, silentErrors=False, exitOnError=True)
+            self.fetchKeyCommand = lambda: "[trx][trx][ref_block_num]"
+            self.fetchRefBlock = lambda trans: trans["trx"]["trx"]["ref_block_num"]
+        else:
+            self.fetchTransactionCommand = lambda: "get transaction_trace"
+            self.fetchTransactionFromTrace = lambda trx: trx['id']
+            self.fetchBlock = lambda blockNum: self.processUrllibRequest("trace_api", "get_block", {"block_num":blockNum}, silentErrors=False, exitOnError=True)
+            self.fetchKeyCommand = lambda: "[transaction][transaction_header][ref_block_num]"
+            self.fetchRefBlock = lambda trans: trans["transaction_header"]["ref_block_num"]
 
     def eosClientArgs(self):
         walletArgs=" " + self.walletMgr.getWalletEndpointArgs() if self.walletMgr is not None else ""
@@ -281,10 +293,7 @@ class Node(object):
         assert(isinstance(transId, str))
         exitOnErrorForDelayed=not delayedRetry and exitOnError
         timeout=3
-        if self.isNodeosv2:
-            cmdDesc="get transaction"
-        else:
-            cmdDesc="get transaction_trace"
+        cmdDesc=self.fetchTransactionCommand()
         cmd="%s %s" % (cmdDesc, transId)
         msg="(transaction id=%s)" % (transId);
         for i in range(0,(int(60/timeout) - 1)):
@@ -337,12 +346,8 @@ class Node(object):
         refBlockNum=None
         key=""
         try:
-            if self.isNodeosv2:
-                key="[trx][trx][ref_block_num]"
-                refBlockNum=trans["trx"]["trx"]["ref_block_num"]
-            else:
-                key="[transaction][transaction_header][ref_block_num]"
-                refBlockNum=trans["transaction_header"]["ref_block_num"]
+            key = self.fetchKeyCommand()
+            refBlockNum = self.fetchRefBlock(trans)
             refBlockNum=int(refBlockNum)+1
         except (TypeError, ValueError, KeyError) as _:
             Utils.Print("transaction%s not found. Transaction: %s" % (key, trans))
@@ -503,18 +508,11 @@ class Node(object):
         return ret
 
     def checkBlockForTransactions(self, transIds, blockNum):
-        if self.isNodeosv2:
-            block = self.processUrllibRequest("chain", "get_block", {"block_num_or_id":blockNum}, silentErrors=False, exitOnError=True)
-        else:
-            block = self.processUrllibRequest("trace_api", "get_block", {"block_num":blockNum}, silentErrors=False, exitOnError=True)
+        block = self.fetchBlock(blockNum)
         if block['payload']['transactions']:
             for trx in block['payload']['transactions']:
-                if self.isNodeosv2:
-                    if trx['trx']['id'] in transIds:
-                        transIds.pop(trx['trx']['id'])
-                else:
-                    if trx['id'] in transIds:
-                        transIds.pop(trx['id'])
+                if self.fetchTransactionFromTrace(trx) in transIds:
+                    transIds.pop(self.fetchTransactionFromTrace(trx))
         return transIds
 
     def waitForTransactionsInBlockRange(self, transIds, startBlock=2, maxFutureBlocks=0):
