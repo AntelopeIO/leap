@@ -9,10 +9,8 @@ info:
   contact:
     url: https://antelope.io
 tags:
-  - name: eos
-    description: distributed organization and related software infrastructure supporting EOS
-  - name: antelope
-    description: protocol and framework powering this blockchain
+  - name: Protocol Version 3.1
+    description: The release tag for Leap binaries is also the protocol version
 servers:
   - url: "{protocol}://{host}:{port}/v1"
     variables:
