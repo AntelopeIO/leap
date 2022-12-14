@@ -39,7 +39,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OK_PAUSED'
+                $ref: '#/components/schemas/OK'
         "400":
           description: client error
           content:
@@ -77,7 +77,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OK'
+                $ref: '#/components/schemas/OK_PAUSED'
         "400":
           description: client error
           content:
@@ -527,7 +527,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-                
+
 components:
   securitySchemes: {}
   schemas:
