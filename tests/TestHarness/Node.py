@@ -22,12 +22,6 @@ from .testUtils import addEnum
 from .testUtils import unhandledEnumType
 from .testUtils import ReturnType
 
-class NodeosVersion(EnumType):
-    v1 = 1
-    v2 = 2
-    v3 = 3
-    v4 = 4
-
 class BlockType(EnumType):
     pass
 
@@ -39,7 +33,7 @@ class Node(object):
 
     # pylint: disable=too-many-instance-attributes
     # pylint: disable=too-many-arguments
-    def __init__(self, host, port, nodeId, pid=None, cmd=None, walletMgr=None, nodeosVers=NodeosVersion.v3):
+    def __init__(self, host, port, nodeId, pid=None, cmd=None, walletMgr=None, nodeosVers=""):
         self.host=host
         self.port=port
         self.pid=pid
@@ -61,7 +55,7 @@ class Node(object):
         self.popenProc=None           # initial process is started by launcher, this will only be set on relaunch
         self.lastTrackedTransactionId=None
         self.nodeosVers=nodeosVers
-        if self.nodeosVers==NodeosVersion.v2:
+        if self.nodeosVers=="v2":
             self.fetchTransactionCommand = lambda: "get transaction"
             self.fetchTransactionFromTrace = lambda trx: trx['trx']['id']
             self.fetchBlock = lambda blockNum: self.processUrllibRequest("chain", "get_block", {"block_num_or_id":blockNum}, silentErrors=False, exitOnError=True)

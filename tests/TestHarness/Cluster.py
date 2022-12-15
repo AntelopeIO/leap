@@ -16,7 +16,6 @@ from core_symbol import CORE_SYMBOL
 from .testUtils import Utils
 from .testUtils import Account
 from .testUtils import BlockLogAction
-from .Node import NodeosVersion
 from .Node import BlockType
 from .Node import Node
 from .WalletMgr import WalletMgr
@@ -83,7 +82,7 @@ class Cluster(object):
     # pylint: disable=too-many-arguments
     # walletd [True|False] Is keosd running. If not load the wallet plugin
     def __init__(self, walletd=False, localCluster=True, host="localhost", port=8888, walletHost="localhost", walletPort=9899
-                 , defproduceraPrvtKey=None, defproducerbPrvtKey=None, staging=False, loggingLevel="debug", loggingLevelDict={}, nodeosVers=NodeosVersion.v3):
+                 , defproduceraPrvtKey=None, defproducerbPrvtKey=None, staging=False, loggingLevel="debug", loggingLevelDict={}, nodeosVers=""):
         """Cluster container.
         walletd [True|False] Is wallet keosd running. If not load the wallet plugin
         localCluster [True|False] Is cluster local to host.
