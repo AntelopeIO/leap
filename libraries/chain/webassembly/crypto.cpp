@@ -2,7 +2,6 @@
 #include <eosio/chain/protocol_state_object.hpp>
 #include <eosio/chain/transaction_context.hpp>
 #include <eosio/chain/apply_context.hpp>
-#include <fc/crypto/alt_bn128.hpp>
 #include <fc/crypto/modular_arithmetic.hpp>
 #include <fc/crypto/blake2.hpp>
 #include <fc/crypto/sha3.hpp>
