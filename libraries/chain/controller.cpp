@@ -2057,14 +2057,14 @@ struct controller_impl {
    } FC_CAPTURE_AND_RETHROW() } /// apply_block
 
 
-   block_state_ptr create_block_state( const block_id_type& id, const signed_block_ptr& b, const block_header_state_ptr& prev ) {
+   block_state_ptr create_block_state( const block_id_type& id, const signed_block_ptr& b, const block_header_state& prev ) {
       auto trx_mroot = calculate_trx_merkle( b->transactions );
       EOS_ASSERT( b->transaction_mroot == trx_mroot, block_validate_exception,
                   "invalid block transaction merkle root ${b} != ${c}", ("b", b->transaction_mroot)("c", trx_mroot) );
 
       const bool skip_validate_signee = false;
       auto bsp = std::make_shared<block_state>(
-            *prev,
+            prev,
             b,
             protocol_features.get_protocol_feature_set(),
             [this]( block_timestamp_type timestamp,
@@ -2091,19 +2091,18 @@ struct controller_impl {
          EOS_ASSERT( prev, unlinkable_block_exception,
                      "unlinkable block ${id}", ("id", id)("previous", b->previous) );
 
-         return control->create_block_state( id, b, prev );
+         return control->create_block_state( id, b, *prev );
       } );
    }
 
    block_state_ptr create_block_state( const block_id_type& id, const signed_block_ptr& b ) {
       EOS_ASSERT( b, block_validate_exception, "null block" );
 
-      block_state_ptr bsp;
       // previous not found could mean that previous block not applied yet
       auto prev = fork_db.get_block_header( b->previous );
-      if( !prev ) return bsp;
+      if( !prev ) return {};
 
-      return create_block_state( id, b, prev );
+      return create_block_state( id, b, *prev );
    }
 
    void push_block( const block_state_ptr& bsp,

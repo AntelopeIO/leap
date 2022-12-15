@@ -519,9 +519,7 @@ namespace eosio { namespace chain {
       }
 
       for( const auto& block_id : remove_queue ) {
-         auto itr = index.find( block_id );
-         if( itr != index.end() )
-            index.erase(itr);
+         index.erase( block_id );
       }
    }
 
