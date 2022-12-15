@@ -85,6 +85,16 @@ datastream<ST>& operator<<(datastream<ST>& ds, const eosio::state_history::big_v
    return ds;
 }
 
+template <typename ST, typename T>
+datastream<ST>& operator>>(datastream<ST>& ds, eosio::state_history::big_vector_wrapper<T>& obj) {
+   fc::unsigned_int sz;
+   fc::raw::unpack(ds, sz);
+   obj.obj.resize(sz);
+   for (auto& x : obj.obj)
+      fc::raw::unpack(ds, x);
+   return ds;
+}
+
 template <typename ST>
 inline void history_pack_varuint64(datastream<ST>& ds, uint64_t val) {
    do {
@@ -714,5 +724,16 @@ datastream<ST>& operator<<(datastream<ST>& ds, const eosio::state_history::get_b
    history_pack_big_bytes(ds, obj.deltas);
    return ds;
 }
+
+template <typename ST>
+datastream<ST>& operator<<(datastream<ST>& ds, const eosio::state_history::get_blocks_result_base& obj) {
+   fc::raw::pack(ds, obj.head);
+   fc::raw::pack(ds, obj.last_irreversible);
+   fc::raw::pack(ds, obj.this_block);
+   fc::raw::pack(ds, obj.prev_block);
+   history_pack_big_bytes(ds, obj.block);
+   return ds;
+}
+
 
 } // namespace fc

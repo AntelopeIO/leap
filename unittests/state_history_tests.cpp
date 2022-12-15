@@ -1,3 +1,4 @@
+#include <eosio/state_history/serialization.hpp>
 #include <eosio/chain/authorization_manager.hpp>
 #include <boost/test/unit_test.hpp>
 #include <contracts.hpp>
@@ -13,6 +14,7 @@
 
 #include <eosio/stream.hpp>
 #include <eosio/ship_protocol.hpp>
+#include <boost/iostreams/device/back_inserter.hpp>
 
 using namespace eosio::chain;
 using namespace eosio::testing;
@@ -22,6 +24,22 @@ extern const char* const state_history_plugin_abi;
 
 bool operator==(const eosio::checksum256& lhs, const transaction_id_type& rhs) {
    return memcmp(lhs.extract_as_byte_array().data(), rhs.data(), rhs.data_size()) == 0;
+}
+
+namespace eosio::state_history {
+
+std::vector<table_delta> create_deltas(const chainbase::database& db, bool full_snapshot) {
+   namespace bio = boost::iostreams;
+   std::vector<char> buf;
+   bio::filtering_ostreambuf obuf;
+   obuf.push(bio::back_inserter(buf));
+   pack_deltas(obuf, db, full_snapshot);
+
+   fc::datastream<const char*> is{buf.data(), buf.size()};
+   std::vector<table_delta> result;
+   fc::raw::unpack(is, result);
+   return result;
+}
 }
 
 BOOST_AUTO_TEST_SUITE(test_state_history)

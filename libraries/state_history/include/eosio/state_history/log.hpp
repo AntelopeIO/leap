@@ -99,7 +99,7 @@ class state_history_log {
        , prune_config(prune_conf) {
       open_log();
       open_index();
-     
+
       if(prune_config) {
          EOS_ASSERT(prune_config->prune_blocks, chain::plugin_exception, "state history log prune configuration requires at least one block");
          EOS_ASSERT(__builtin_popcount(prune_config->prune_threshold) == 1, chain::plugin_exception, "state history prune threshold must be power of 2");
@@ -144,6 +144,10 @@ class state_history_log {
       });
    }
 
+   bool is_pruned() const {
+      return prune_config.has_value();
+   }
+
    void stop() {
       if (thr.joinable()) {
          work_guard.reset();
@@ -156,7 +160,7 @@ class state_history_log {
       if (thr.joinable()) {
          work_guard.reset();
          thr.join();
-      }     
+      }
 
       //nothing to do if log is empty or we aren't pruning
       if(_begin_block == _end_block)
@@ -199,7 +203,7 @@ class state_history_log {
       }
 
       std::unique_lock<std::recursive_mutex> lock(mx);
-      
+
       auto block_num = chain::block_header::num_from_id(header.block_id);
       EOS_ASSERT(_begin_block == _end_block || block_num <= _end_block, chain::plugin_exception,
                  "missed a block in ${name}.log", ("name", name));
@@ -228,12 +232,13 @@ class state_history_log {
          header.magic = ship_magic(get_ship_version(header.magic), ship_feature_pruned_log);
 
       uint64_t pos = log.tellp();
-            
+
       write_header(header);
       write_payload(log);
 
-      EOS_ASSERT(log.tellp() == pos + state_history_log_header_serial_size + header.payload_size, chain::plugin_exception,
-                 "wrote payload with incorrect size to ${name}.log", ("name", name));
+      if (header.payload_size != 0)
+         EOS_ASSERT(log.tellp() == pos + state_history_log_header_serial_size + header.payload_size, chain::plugin_exception,
+                  "wrote payload with incorrect size to ${name}.log", ("name", name));
       fc::raw::pack(log, pos);
 
       fc::raw::pack(index, pos);
@@ -270,7 +275,7 @@ class state_history_log {
 
  private:
    //file position must be at start of last block's suffix (back pointer)
-   //called from open_log / ctor 
+   //called from open_log / ctor
    bool get_last_block() {
       state_history_log_header header;
       uint64_t                 suffix;
