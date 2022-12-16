@@ -29,7 +29,7 @@ paths:
   /producer/pause:
     post:
       summary: pause
-      description: Pause producer node. Takes no arguments returns no values.
+      description: Pause producer node. Takes no arguments and returns no values.
       operationId: pause
       responses:
         "201":
@@ -48,7 +48,7 @@ paths:
   /producer/resume:
     post:
       summary: resume
-      description: Resume producer node. Takes no arguments returns no values.
+      description: Resume producer node. Takes no arguments and returns no values.
       operationId: resume
       responses:
         "201":
@@ -67,7 +67,7 @@ paths:
   /producer/paused:
     post:
       summary: paused
-      description: Retrieves paused status for producer node. Takes no arguments returns no values.
+      description: Retrieves paused status for producer node. Takes no arguments and returns no values.
       operationId: paused
       responses:
         "201":
