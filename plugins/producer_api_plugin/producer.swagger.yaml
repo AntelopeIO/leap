@@ -263,7 +263,7 @@ paths:
   /producer/set_whitelist_blacklist:
     post:
       summary: set_whitelist_blacklist
-      description: Defines the whitelist and blacklist for a producer node. Takes a JSON object containing whitelist and blacklist information. At least one of actor_whitelist, actor_blacklist, contract_whitelist, contract_blacklist, action_blacklist, and key_blacklist is required. `actor_whitelist`, `actor_blacklist`, `contract_whitelist`, `contract_blacklist` take an array of Names. `action_blacklist` is an array of tuples consisting of Name and Action. `key_blacklist` is an array of Public Keys. Name is a string represeting a NamePrivileged or NameBasic or NameBid or NameCatchAll
+      description: Defines the whitelist and blacklist for a producer node. Takes a JSON object containing whitelist and blacklist information. At least one of actor_whitelist, actor_blacklist, contract_whitelist, contract_blacklist, action_blacklist, and key_blacklist is required. `actor_whitelist`, `actor_blacklist`, `contract_whitelist`, `contract_blacklist` take an array of Names. `action_blacklist` is an array of tuples consisting of Name and Action. `key_blacklist` is an array of Public Keys. Name is a string representing a NamePrivileged or NameBasic or NameBid or NameCatchAll
       operationId: set_whitelist_blacklist
       requestBody:
         content:
