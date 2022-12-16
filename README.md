@@ -138,7 +138,8 @@ sudo apt-get install -y \
         libcurl4-openssl-dev \
         libgmp-dev \
         libssl-dev \
-        llvm-11-dev
+        llvm-11-dev \
+        python3-numpy
 ```
 To build, make sure you are in the root of the `leap` repo, then run the following command:
 ```bash
@@ -165,7 +166,11 @@ sudo apt-get install -y \
         libssl-dev \
         llvm-7-dev \
         python3 \
+        python3-numpy \
+        python3-pip \
         zlib1g-dev
+
+python3 -m pip install dataclasses
 ```
 You need to build Boost from source on this distribution:
 ```bash
