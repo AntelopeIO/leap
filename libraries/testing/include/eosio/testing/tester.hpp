@@ -676,6 +676,18 @@ namespace eosio { namespace testing {
   };
 
   /**
+   * Utility predicate to check whether an fc::exception message contains a given string
+   */
+  struct fc_exception_message_contains {
+     explicit fc_exception_message_contains( const string& msg )
+           : expected( msg ) {}
+
+     bool operator()( const fc::exception& ex );
+
+     string expected;
+  };
+
+  /**
    * Utility predicate to check whether an fc::assert_exception message is equivalent to a given string
    */
   struct fc_assert_exception_message_is {
