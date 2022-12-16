@@ -24,6 +24,14 @@ namespace eosio { namespace chain { namespace plugin_interface {
       std::atomic<int64_t> value;
    };
 
+   struct plugin_metrics {
+      std::vector<std::reference_wrapper<runtime_metric>> metrics;
+      void enable(bool enabled)  {_enabled = enabled; }
+      bool enabled() {return _enabled;}
+
+   private:
+      bool _enabled = false;
+   };
    template<typename T>
    using next_function = std::function<void(const std::variant<fc::exception_ptr, T>&)>;
 

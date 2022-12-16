@@ -15,23 +15,16 @@ namespace eosio {
 
    using namespace plugin_interface;
 
-   struct net_plugin_metrics {
+   struct net_plugin_metrics : plugin_metrics {
       runtime_metric num_peers{metric_type::gauge, "num_peers", "num_peers", 0};
       runtime_metric num_clients{metric_type::gauge, "num_clients", "num_clients", 0};
       runtime_metric dropped_trxs{metric_type::counter, "dropped_trxs", "dropped_trxs", 0};
-
-      std::vector<std::reference_wrapper<runtime_metric>> metrics;
-
-      void enable(bool enabled)  {_enabled = enabled; }
-      bool enabled() {return _enabled;}
 
       net_plugin_metrics() {
          metrics.emplace_back(std::ref(num_peers));
          metrics.emplace_back(std::ref(num_clients));
          metrics.emplace_back(std::ref(dropped_trxs));
       }
-   private:
-      bool _enabled = false;
    };
 
    class net_plugin : public appbase::plugin<net_plugin>
