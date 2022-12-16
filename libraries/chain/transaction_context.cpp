@@ -194,21 +194,27 @@ namespace eosio { namespace chain {
          billing_timer_exception_code = deadline_exception::code_value;
       }
 
+      if( !explicit_billed_cpu_time ) {
+         int64_t validate_account_cpu_limit = account_cpu_limit - subjective_cpu_bill_us + leeway.count(); // Add leeway to allow powerup
+         // Possibly limit deadline to account subjective cpu left
+         if( subjective_cpu_bill_us > 0 && (start + fc::microseconds(validate_account_cpu_limit) < _deadline) ) {
+            _deadline = start + fc::microseconds(validate_account_cpu_limit);
+            billing_timer_exception_code = tx_cpu_usage_exceeded::code_value;
+         }
+
+         // Fail early if amount of the previous speculative execution is within 10% of remaining account cpu available
+         if( validate_account_cpu_limit > 0 )
+            validate_account_cpu_limit -= EOS_PERCENT( validate_account_cpu_limit, 10 * config::percent_1 );
+         if( validate_account_cpu_limit < 0 ) validate_account_cpu_limit = 0;
+         validate_account_cpu_usage_estimate( billed_cpu_time_us, validate_account_cpu_limit, subjective_cpu_bill_us );
+      }
+
       // Explicit billed_cpu_time_us should be used, block_deadline will be maximum unless in test code
       if( explicit_billed_cpu_time ) {
          _deadline = block_deadline;
          deadline_exception_code = deadline_exception::code_value;
       } else {
          deadline_exception_code = billing_timer_exception_code;
-      }
-
-      if( !explicit_billed_cpu_time ) {
-         // Fail early if amount of the previous speculative execution is within 10% of remaining account cpu available
-         int64_t validate_account_cpu_limit = account_cpu_limit - subjective_cpu_bill_us + leeway.count(); // Add leeway to allow powerup
-         if( validate_account_cpu_limit > 0 )
-            validate_account_cpu_limit -= EOS_PERCENT( validate_account_cpu_limit, 10 * config::percent_1 );
-         if( validate_account_cpu_limit < 0 ) validate_account_cpu_limit = 0;
-         validate_account_cpu_usage_estimate( billed_cpu_time_us, validate_account_cpu_limit, subjective_cpu_bill_us );
       }
 
       eager_net_limit = (eager_net_limit/8)*8; // Round down to nearest multiple of word size (8 bytes) so check_net_usage can be efficient
