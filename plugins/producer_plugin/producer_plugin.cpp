@@ -342,6 +342,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       std::optional<scoped_connection>                          _accepted_block_header_connection;
       std::optional<scoped_connection>                          _irreversible_block_connection;
 
+      producer_plugin_metrics                                   _metrics;
       /*
        * HACK ALERT
        * Boost timers can be in a state where a handler has not yet executed but is not abortable.
@@ -408,6 +409,21 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
 
             snapshots_by_height.erase(snapshots_by_height.begin());
          }
+      }
+
+      void update_block_metrics() {
+         _metrics.unapplied_transactions.value =  _unapplied_transactions.size();
+         _metrics.subjective_bill_account_size.value = _subjective_billing.get_account_cache_size();
+         _metrics.subjective_bill_block_size.value = _subjective_billing.get_block_cache_size();
+         _metrics.blacklisted_transactions.value = _blacklisted_transactions.size();
+         _metrics.unapplied_transactions.value = _unapplied_transactions.size();
+
+         auto& chain = chain_plug->chain();
+         _metrics.last_irreversible.value = chain.last_irreversible_block_num();
+         _metrics.block_num.value = chain.head_block_num();
+
+         const auto& sch_idx = chain.db().get_index<generated_transaction_multi_index,by_delay>();
+         _metrics.scheduled_trxs.value = sch_idx.size();
       }
 
       void abort_block() {
@@ -1577,6 +1593,9 @@ fc::time_point producer_plugin_impl::calculate_block_deadline( const fc::time_po
 
 producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
    chain::controller& chain = chain_plug->chain();
+   if (_metrics.enabled()) {
+      update_block_metrics();
+   }
 
    if( !chain_plug->accept_transactions() )
       return start_block_result::waiting_for_block;
@@ -2486,6 +2505,9 @@ void producer_plugin_impl::produce_block() {
 
    br.total_time += fc::time_point::now() - start;
 
+   ++_metrics.blocks_produced.value;
+   _metrics.trxs_produced.value += new_bs->block->transactions.size();
+
    ilog("Produced block ${id}... #${n} @ ${t} signed by ${p} "
         "[trxs: ${count}, lib: ${lib}, confirmed: ${confs}, net: ${net}, cpu: ${cpu}, elapsed: ${et}, time: ${tt}]",
         ("p",new_bs->header.producer)("id",new_bs->id.str().substr(8,16))
@@ -2504,4 +2526,7 @@ void producer_plugin::log_failed_transaction(const transaction_id_type& trx_id, 
             ("entire_trx", packed_trx_ptr ? my->chain_plug->get_log_trx(packed_trx_ptr->get_transaction()) : fc::variant{trx_id}));
 }
 
+producer_plugin_metrics& producer_plugin::metrics() {
+   return my->_metrics;
+}
 } // namespace eosio

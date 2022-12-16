@@ -12,12 +12,26 @@ namespace eosio { namespace chain { namespace plugin_interface {
    using namespace eosio::chain;
    using namespace appbase;
 
+   enum class metric_type {
+      gauge = 1,
+      counter = 2
+   };
+
    struct runtime_metric {
+      const metric_type type;
       const std::string family;
       const std::string label;
       std::atomic<int64_t> value;
    };
 
+   struct plugin_metrics {
+      std::vector<std::reference_wrapper<runtime_metric>> metrics;
+      void enable(bool enabled)  {_enabled = enabled; }
+      bool enabled() {return _enabled;}
+
+   private:
+      bool _enabled = false;
+   };
    template<typename T>
    using next_function = std::function<void(const std::variant<fc::exception_ptr, T>&)>;
 

@@ -154,6 +154,7 @@ public:
    fc::microseconds                  abi_serializer_max_time_us;
    std::optional<bfs::path>          snapshot_path;
 
+   chain_plugin_metrics              chain_metrics;
 
    // retained references to channels for easy publication
    channels::pre_accepted_block::channel_type&     pre_accepted_block_channel;
@@ -2796,6 +2797,10 @@ fc::variant chain_plugin::get_log_trx(const transaction& trx) const {
         pretty_output = trx;
     }
     return pretty_output;
+}
+
+const chain_plugin_metrics& chain_plugin::metrics() const {
+   return my->chain_metrics;
 }
 } // namespace eosio
 
