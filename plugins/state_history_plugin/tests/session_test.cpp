@@ -366,13 +366,13 @@ BOOST_AUTO_TEST_CASE(store_read_entry_no_prune) {
       BOOST_REQUIRE_EQUAL(stream.tellp(), pos);
    });
 
-   std::variant<std::vector<char>, bio::filtering_istreambuf> buf;
+   std::variant<std::vector<char>, eosio::maybe_locked_compress_stream> buf;
    read_log_entry(&log, 1, buf);
 
-   BOOST_REQUIRE(std::holds_alternative<bio::filtering_istreambuf>(buf));
-
    std::vector<char> decompressed;
-   bio::copy(std::get<bio::filtering_istreambuf>(buf), bio::back_inserter(decompressed));
+   auto& locked_strm = std::get<eosio::maybe_locked_compress_stream>(buf);
+   BOOST_CHECK(!locked_strm.lock.owns_lock());
+   bio::copy(locked_strm.buf, bio::back_inserter(decompressed));
 
    BOOST_CHECK_EQUAL(data.size() * sizeof(data[0]), decompressed.size());
    BOOST_CHECK(std::equal(decompressed.begin(), decompressed.end(), (const char*)data.data()));
@@ -399,12 +399,13 @@ BOOST_AUTO_TEST_CASE(store_read_entry_prune_enabled) {
       BOOST_REQUIRE_EQUAL(stream.tellp(), pos);
    });
 
-   std::variant<std::vector<char>, bio::filtering_istreambuf> buf;
+   std::variant<std::vector<char>, eosio::maybe_locked_compress_stream> buf;
    read_log_entry(&log, 1, buf);
 
-   BOOST_REQUIRE(std::holds_alternative<std::vector<char>>(buf));
-
-   auto decompressed = std::get<std::vector<char>>(buf);
+   std::vector<char> decompressed;
+   auto& locked_strm = std::get<eosio::maybe_locked_compress_stream>(buf);
+   BOOST_CHECK(locked_strm.lock.owns_lock());
+   bio::copy(locked_strm.buf, bio::back_inserter(decompressed));
 
    BOOST_CHECK_EQUAL(data.size() * sizeof(data[0]), decompressed.size());
    BOOST_CHECK(std::equal(decompressed.begin(), decompressed.end(), (const char*)data.data()));

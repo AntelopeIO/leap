@@ -89,6 +89,7 @@ class state_history_log {
    boost::asio::executor_work_guard<boost::asio::io_context::executor_type> work_guard =
        boost::asio::make_work_guard(ctx);
    std::recursive_mutex                                                     mx;
+   std::optional<std::recursive_mutex>                                      prune_mx;
 
  public:
    state_history_log(const char* const name, std::string log_filename, std::string index_filename,
@@ -105,6 +106,7 @@ class state_history_log {
          EOS_ASSERT(__builtin_popcount(prune_config->prune_threshold) == 1, chain::plugin_exception, "state history prune threshold must be power of 2");
          //switch this over to the mask that will be used
          prune_config->prune_threshold = ~(prune_config->prune_threshold-1);
+         prune_mx.emplace();
       }
 
       //check for conversions to/from pruned log, as long as log contains something
@@ -146,6 +148,13 @@ class state_history_log {
 
    bool is_pruned() const {
       return prune_config.has_value();
+   }
+
+   void acquire_prune_lock(std::unique_lock<std::recursive_mutex>& lock) {
+      if (prune_mx) {
+         std::unique_lock<std::recursive_mutex> prune_lock(*prune_mx);
+         lock.swap(prune_lock);
+      }
    }
 
    void stop() {
@@ -308,13 +317,22 @@ class state_history_log {
       if(_end_block - _begin_block <= prune_config->prune_blocks)
          return;
 
-      const uint32_t prune_to_num = _end_block - prune_config->prune_blocks;
-      uint64_t prune_to_pos = get_pos(prune_to_num);
+      auto do_prune = [&]() {
+         const uint32_t prune_to_num = _end_block - prune_config->prune_blocks;
+         uint64_t prune_to_pos = get_pos(prune_to_num);
 
-      log.punch_hole(state_history_log_header_serial_size, prune_to_pos);
+         log.punch_hole(state_history_log_header_serial_size, prune_to_pos);
 
-      _begin_block = prune_to_num;
-      log.flush();
+         _begin_block = prune_to_num;
+         log.flush();
+      };
+
+      if (prune_mx) {
+         std::unique_lock<std::recursive_mutex> lock(*prune_mx);
+         do_prune();
+      } else {
+         do_prune();
+      }
 
       if(auto l = fc::logger::get(); l.is_enabled(loglevel))
          l.log(fc::log_message(fc::log_context(loglevel, __FILE__, __LINE__, __func__),
