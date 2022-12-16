@@ -26,6 +26,9 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 else()
    add_subdirectory(abieos)
 endif()
+
+get_target_property(ABIEOS_INCLUDE_DIRS abieos INTERFACE_INCLUDE_DIRECTORIES)
+message("ABIEOS_INCLUDE_DIRS=${ABIEOS_INCLUDE_DIRS}")
 add_subdirectory( state_history )
 
 set(USE_EXISTING_SOFTFLOAT ON CACHE BOOL "use pre-exisiting softfloat lib")

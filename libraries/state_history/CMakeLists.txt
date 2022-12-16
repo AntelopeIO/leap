@@ -46,3 +46,27 @@ if (NOT CMAKE_CROSSCOMPILING)
                             "======================================================================================================================================================="
                     VERBATIM)
 endif()
+
+add_library(ship_protocol INTERFACE)
+target_link_libraries(ship_protocol INTERFACE abieos)
+target_include_directories(ship_protocol INTERFACE
+  "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
+  "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
+)
+
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/include/eosio/ship_protocol.hpp
+        DESTINATION ${CMAKE_INSTALL_FULL_INCLUDEDIR}/eosio/
+        COMPONENT dev EXCLUDE_FROM_ALL)
+
+install(TARGETS ship_protocol
+        EXPORT ship)
+
+
+install(EXPORT ship
+        DESTINATION "lib/cmake/leap"
+        FILE ship-targets.cmake
+        COMPONENT dev EXCLUDE_FROM_ALL
+      )
+
+export(EXPORT ship
+       FILE ${CMAKE_BINARY_DIR}/lib/cmake/leap/ship-targets.cmake)
