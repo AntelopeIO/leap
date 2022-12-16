@@ -27,8 +27,8 @@ namespace ws  = boost::beast::websocket;
 namespace bio = boost::iostreams;
 
 struct maybe_locked_compress_stream {
-   std::unique_lock<std::recursive_mutex> lock;
-   bio::filtering_istreambuf              buf;
+   std::unique_lock<std::mutex> lock;
+   bio::filtering_istreambuf    buf;
 
    maybe_locked_compress_stream() = default;
 
@@ -41,7 +41,8 @@ struct maybe_locked_compress_stream {
 };
 
 template <typename T>
-uint64_t read_log_entry(T&& log, uint32_t block_num, std::variant<std::vector<char>, maybe_locked_compress_stream>& result) {
+uint64_t read_log_entry(T&& log, uint32_t block_num,
+                        std::variant<std::vector<char>, maybe_locked_compress_stream>& result) {
    if (block_num < log->begin_block() || block_num >= log->end_block())
       return 0;
 
@@ -139,8 +140,8 @@ struct basic_send_queue_entry : send_queue_entry_base<Session> {
 
 template <typename Session>
 struct blocks_result_send_queue_entry : send_queue_entry_base<Session> {
-   eosio::state_history::get_blocks_result_v0              r;
-   std::vector<char>                                       data;
+   eosio::state_history::get_blocks_result_v0                    r;
+   std::vector<char>                                             data;
    std::variant<std::vector<char>, maybe_locked_compress_stream> buf;
 
    blocks_result_send_queue_entry(get_blocks_result_v0&& r)
@@ -329,14 +330,14 @@ struct session : session_base, std::enable_shared_from_this<session<Plugin, Sock
       send();
    }
 
-   uint64_t get_trace_log_entry(const eosio::state_history::get_blocks_result_v0&        result,
+   uint64_t get_trace_log_entry(const eosio::state_history::get_blocks_result_v0&              result,
                                 std::variant<std::vector<char>, maybe_locked_compress_stream>& buf) {
       if (result.traces.has_value())
          return read_log_entry(plugin->get_trace_log(), result.this_block->block_num, buf);
       return 0;
    }
 
-   uint64_t get_delta_log_entry(const eosio::state_history::get_blocks_result_v0&        result,
+   uint64_t get_delta_log_entry(const eosio::state_history::get_blocks_result_v0&              result,
                                 std::variant<std::vector<char>, maybe_locked_compress_stream>& buf) {
       if (result.deltas.has_value())
          return read_log_entry(plugin->get_chain_state_log(), result.this_block->block_num, buf);

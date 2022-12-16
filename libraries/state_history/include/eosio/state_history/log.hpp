@@ -89,7 +89,7 @@ class state_history_log {
    boost::asio::executor_work_guard<boost::asio::io_context::executor_type> work_guard =
        boost::asio::make_work_guard(ctx);
    std::recursive_mutex                                                     mx;
-   std::optional<std::recursive_mutex>                                      prune_mx;
+   std::optional<std::mutex>                                                prune_mx;
 
  public:
    state_history_log(const char* const name, std::string log_filename, std::string index_filename,
@@ -150,9 +150,9 @@ class state_history_log {
       return prune_config.has_value();
    }
 
-   void acquire_prune_lock(std::unique_lock<std::recursive_mutex>& lock) {
+   void acquire_prune_lock(std::unique_lock<std::mutex>& lock) {
       if (prune_mx) {
-         std::unique_lock<std::recursive_mutex> prune_lock(*prune_mx);
+         std::unique_lock<std::mutex> prune_lock(*prune_mx);
          lock.swap(prune_lock);
       }
    }
@@ -328,7 +328,7 @@ class state_history_log {
       };
 
       if (prune_mx) {
-         std::unique_lock<std::recursive_mutex> lock(*prune_mx);
+         std::unique_lock<std::mutex> lock(*prune_mx);
          do_prune();
       } else {
          do_prune();
