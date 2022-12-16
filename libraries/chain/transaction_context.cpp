@@ -200,6 +200,7 @@ namespace eosio { namespace chain {
          if( subjective_cpu_bill_us > 0 && (start + fc::microseconds(validate_account_cpu_limit) < _deadline) ) {
             _deadline = start + fc::microseconds(validate_account_cpu_limit);
             billing_timer_exception_code = tx_cpu_usage_exceeded::code_value;
+            tx_cpu_usage_reason = tx_cpu_usage_exceeded_reason::account_cpu_limit;
          }
 
          // Fail early if amount of the previous speculative execution is within 10% of remaining account cpu available
@@ -562,19 +563,18 @@ namespace eosio { namespace chain {
             auto account_limit = graylisted ? account_cpu_limit : (cpu_limited_by_account ? account_cpu_limit : objective_duration_limit.count());
 
             if( prev_billed_us >= account_limit ) {
-               fc::microseconds tx_limit;
                std::string assert_msg = "estimated CPU time (${billed} us) is not less than the maximum";
                assert_msg += graylisted ? " greylisted" : "";
                assert_msg += " billable CPU time for the transaction (${billable} us)";
                assert_msg += subjective_billed_us > 0 ? " with a subjective cpu of (${subjective} us)" : "";
-               assert_msg += get_tx_cpu_usage_exceeded_reason_msg( tx_limit );
+               assert_msg += " reached account cpu limit";
 
                if( graylisted ) {
                   EOS_ASSERT( false, greylist_cpu_usage_exceeded, std::move(assert_msg),
-                              ("billed", prev_billed_us)("billable", account_limit)("subjective", subjective_billed_us)("limit", tx_limit) );
+                              ("billed", prev_billed_us)("billable", account_limit)("subjective", subjective_billed_us) );
                } else {
                   EOS_ASSERT( false, tx_cpu_usage_exceeded, std::move(assert_msg),
-                              ("billed", prev_billed_us)("billable", account_limit)("subjective", subjective_billed_us)("limit", tx_limit) );
+                              ("billed", prev_billed_us)("billable", account_limit)("subjective", subjective_billed_us) );
                }
             }
          }
