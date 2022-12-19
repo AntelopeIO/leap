@@ -86,7 +86,7 @@ paths:
   /producer/get_runtime_options:
     post:
       summary: get_runtime_options
-      description: Retrieves runtime options for producer node. `incoming_defer_ratio` is a floating point number. The other return values are integers.
+      description: Retrieves runtime options for producer node.
       operationId: get_runtime_options
       responses:
         "201":
@@ -105,7 +105,7 @@ paths:
   /producer/update_runtime_options:
     post:
       summary: update_runtime_options
-      description: Update runtime options for producer node. May post any of the runtime options in combination or alone. `incoming_defer_ratio` is a floating point number. The other values are integers.
+      description: Update runtime options for producer node. May post any of the runtime options in combination or alone.
       operationId: update_runtime_options
       requestBody:
         content:
@@ -214,7 +214,7 @@ paths:
   /producer/get_whitelist_blacklist:
     post:
       summary: get_whitelist_blacklist
-      description: Retrieves the whitelist and blacklist for producer node. A JSON object containing whitelist and blacklist information. `actor_whitelist`, `actor_blacklist`, `contract_whitelist`, `contract_blacklist` are represented by an array of Names. `action_blacklist` is an array of tuples consisting of Name and Action. `key_blacklist` is an array of Public Keys. Name is a string representing a NamePrivileged or NameBasic or NameBid or NameCatchAll
+      description: Retrieves the whitelist and blacklist for producer node. A JSON object containing whitelist and blacklist information.
       operationId: get_whitelist_blacklist
       responses:
         "201":
@@ -263,7 +263,7 @@ paths:
   /producer/set_whitelist_blacklist:
     post:
       summary: set_whitelist_blacklist
-      description: Defines the whitelist and blacklist for a producer node. Takes a JSON object containing whitelist and blacklist information. At least one of actor_whitelist, actor_blacklist, contract_whitelist, contract_blacklist, action_blacklist, and key_blacklist is required. `actor_whitelist`, `actor_blacklist`, `contract_whitelist`, `contract_blacklist` take an array of Names. `action_blacklist` is an array of tuples consisting of Name and Action. `key_blacklist` is an array of Public Keys. Name is a string representing a NamePrivileged or NameBasic or NameBid or NameCatchAll
+      description: Defines the whitelist and blacklist for a producer node. Takes a JSON object containing whitelist and blacklist information.
       operationId: set_whitelist_blacklist
       requestBody:
         content:
@@ -452,7 +452,7 @@ paths:
                           example: "1970-01-01T00:00:00.000"
                         description_digest:
                           $ref: "https://docs.eosnetwork.com/openapi/v2.0/Sha256.yaml"
-                        dependancies:
+                        dependencies:
                           type: array
                           items:
                             $ref: "https://docs.eosnetwork.com/openapi/v2.0/Sha256.yaml"
@@ -576,7 +576,7 @@ components:
                     example: 246
                   method:
                     type: string
-                    description: function executed when error occured
+                    description: function executed when error occurred
                     example: parse_params
     OK:
       type: object
@@ -625,5 +625,5 @@ components:
           example: "1.00000000000000000"
         greylist_limit:
           type: integer
-          description: unsigned int, limit on number of Names supported by greylist
+          description: limit on number of Names supported by greylist
           example: 1000
