@@ -1,5 +1,4 @@
 add_library(leap-cli11 INTERFACE)
-#target_include_directories(leap-cli11 INTERFACE include)
 
 set(CLI11_TESTING OFF)
 add_subdirectory(cli11)
