@@ -9,7 +9,7 @@ using namespace eosio::chain;
 
 struct block_log_extract_fixture {
    block_log_extract_fixture() {
-      log.emplace(dir.path(), std::optional<block_log_prune_config>());
+      log.emplace(dir.path());
       log->reset(genesis_state(), std::make_shared<signed_block>());
       BOOST_REQUIRE_EQUAL(log->first_block_num(), 1);
       BOOST_REQUIRE_EQUAL(log->head()->block_num(), 1);
@@ -38,7 +38,7 @@ BOOST_FIXTURE_TEST_CASE(extract_from_middle, block_log_extract_fixture) try {
    block_num_type start=3, end=7;
    block_log::extract_block_range(dir.path(), output_dir.path(), start, end);
 
-   block_log new_log(output_dir.path(), std::optional<block_log_prune_config>());
+   block_log new_log(output_dir.path());
 
    auto id = gs.compute_chain_id();
    BOOST_REQUIRE_EQUAL(new_log.extract_chain_id(output_dir.path()), id);
@@ -51,10 +51,10 @@ BOOST_FIXTURE_TEST_CASE(extract_from_middle, block_log_extract_fixture) try {
 BOOST_FIXTURE_TEST_CASE(extract_from_start, block_log_extract_fixture) try {
 
    fc::temp_directory output_dir;
-   block_num_type start=0, end=7;
+   block_num_type start=1, end=7;
    block_log::extract_block_range(dir.path(), output_dir.path(), start, end);
 
-   block_log new_log(output_dir.path(), std::optional<block_log_prune_config>());
+   block_log new_log(output_dir.path());
 
    auto id = gs.compute_chain_id();
    BOOST_REQUIRE_EQUAL(new_log.extract_chain_id(output_dir.path()), id);
@@ -66,14 +66,14 @@ BOOST_FIXTURE_TEST_CASE(extract_from_start, block_log_extract_fixture) try {
 BOOST_FIXTURE_TEST_CASE(reextract_from_start, block_log_extract_fixture) try {
 
    fc::temp_directory output_dir;
-   block_num_type start=0, end=9;
+   block_num_type start=1, end=9;
    block_log::extract_block_range(dir.path(), output_dir.path(), start, end);
 
    fc::temp_directory output_dir2;
    end=6;
    block_log::extract_block_range(output_dir.path(), output_dir2.path(), start, end);
 
-   block_log new_log(output_dir2.path(), std::optional<block_log_prune_config>());
+   block_log new_log(output_dir2.path());
 
    auto id = gs.compute_chain_id();
    BOOST_REQUIRE_EQUAL(new_log.extract_chain_id(output_dir2.path()), id);
@@ -88,7 +88,7 @@ BOOST_FIXTURE_TEST_CASE(extract_to_end, block_log_extract_fixture) try {
    block_num_type start=5, end=std::numeric_limits<block_num_type>::max();
    block_log::extract_block_range(dir.path(), output_dir.path(), start, end);
 
-   block_log new_log(output_dir.path(), std::optional<block_log_prune_config>());
+   block_log new_log(output_dir.path());
 
    auto id = gs.compute_chain_id();
    BOOST_REQUIRE_EQUAL(new_log.extract_chain_id(output_dir.path()), id);
