@@ -417,7 +417,8 @@ namespace eosio { namespace chain {
    std::string transaction_context::get_tx_cpu_usage_exceeded_reason_msg(fc::microseconds& limit) const {
       switch( tx_cpu_usage_reason ) {
          case tx_cpu_usage_exceeded_reason::account_cpu_limit:
-            return " reached account cpu limit";
+            limit = objective_duration_limit;
+            return " reached account cpu limit ${limit}us";
          case tx_cpu_usage_exceeded_reason::on_chain_consensus_max_transaction_cpu_usage:
             limit = objective_duration_limit;
             return " reached on chain max_transaction_cpu_usage ${limit}us";
@@ -567,14 +568,14 @@ namespace eosio { namespace chain {
                assert_msg += graylisted ? " greylisted" : "";
                assert_msg += " billable CPU time for the transaction (${billable} us)";
                assert_msg += subjective_billed_us > 0 ? " with a subjective cpu of (${subjective} us)" : "";
-               assert_msg += " reached account cpu limit";
+               assert_msg += " reached account cpu limit ${limit}us";
 
                if( graylisted ) {
                   EOS_ASSERT( false, greylist_cpu_usage_exceeded, std::move(assert_msg),
-                              ("billed", prev_billed_us)("billable", account_limit)("subjective", subjective_billed_us) );
+                              ("billed", prev_billed_us)("billable", account_limit)("subjective", subjective_billed_us)("limit", account_limit) );
                } else {
                   EOS_ASSERT( false, tx_cpu_usage_exceeded, std::move(assert_msg),
-                              ("billed", prev_billed_us)("billable", account_limit)("subjective", subjective_billed_us) );
+                              ("billed", prev_billed_us)("billable", account_limit)("subjective", subjective_billed_us)("limit", account_limit) );
                }
             }
          }
