@@ -35,9 +35,9 @@ Config Options for eosio::net_plugin:
                                         indicates to node that only
                                         transactions 'trx' or blocks 'blk'
                                         should be sent.  Examples:
-                                            p2p.eos.io:9876
-                                            p2p.trx.eos.io:9876:trx
-                                            p2p.blk.eos.io:9876:blk
+                                            p2p.example.org:9876
+                                            p2p.trx.example.org:9876:trx
+                                            p2p.blk.example.org:9876:blk
 
   --p2p-max-nodes-per-host arg (=1)     Maximum number of client nodes from any
                                         single IP address
