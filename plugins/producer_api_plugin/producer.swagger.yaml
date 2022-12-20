@@ -73,9 +73,11 @@ paths:
         "201":
           description: OK
           content:
-            application/json:
+            text/plain:
               schema:
-                $ref: '#/components/schemas/OK_PAUSED'
+                description: true or false
+                type: string
+                example: false
         "400":
           description: client error
           content:
@@ -661,13 +663,6 @@ components:
           type: string
           description: status
           example: ok
-    OK_PAUSED:
-      type: object
-      properties:
-        json:
-          type: boolean
-          description: true/false indicating paused state
-          example: true
     Runtime_Options:
       type: object
       properties:
