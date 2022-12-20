@@ -328,9 +328,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
 
       chain_plugin* chain_plug = nullptr;
 
-      incoming::channels::transaction::channel_type::handle   _incoming_transaction_subscription;
-
-      compat::channels::transaction_ack::channel_type&        _transaction_ack_channel;
+      compat::channels::transaction_ack::channel_type&          _transaction_ack_channel;
 
       incoming::methods::block_sync::method_type::handle        _incoming_block_sync_provider;
       incoming::methods::transaction_async::method_type::handle _incoming_transaction_async_provider;
@@ -961,13 +959,6 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
          resmon_plugin->monitor_directory(my->_snapshots_dir);
       }
    }
-
-   my->_incoming_transaction_subscription = app().get_channel<incoming::channels::transaction>().subscribe(
-         [this](const packed_transaction_ptr& trx) {
-      try {
-         my->on_incoming_transaction_async(trx, false, false, false, [](const auto&){});
-      } LOG_AND_DROP();
-   });
 
    my->_incoming_block_sync_provider = app().get_method<incoming::methods::block_sync>().register_provider(
          [this](const signed_block_ptr& block, const std::optional<block_id_type>& block_id, const block_state_ptr& bsp) {

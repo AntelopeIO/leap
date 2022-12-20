@@ -71,6 +71,12 @@ namespace eosio { namespace chain {
       block_state_ptr       head;
       fc::path              datadir;
 
+      void open_impl( const std::function<void( block_timestamp_type,
+                                                const flat_set<digest_type>&,
+                                                const vector<digest_type>& )>& validator );
+      void close_impl();
+
+
       block_header_state_ptr  get_block_header_impl( const block_id_type& id )const;
       block_state_ptr         get_block_impl( const block_id_type& id )const;
       void            reset_impl( const block_header_state& root_bhs );
@@ -101,10 +107,17 @@ namespace eosio { namespace chain {
                                                        const vector<digest_type>& )>& validator )
    {
       std::lock_guard g( my->mtx );
-      if (!fc::is_directory(my->datadir))
-         fc::create_directories(my->datadir);
+      my->open_impl( validator );
+   }
 
-      auto fork_db_dat = my->datadir / config::forkdb_filename;
+   void fork_database_impl::open_impl( const std::function<void( block_timestamp_type,
+                                                                 const flat_set<digest_type>&,
+                                                                 const vector<digest_type>& )>& validator )
+   {
+      if (!fc::is_directory(datadir))
+         fc::create_directories(datadir);
+
+      auto fork_db_dat = datadir / config::forkdb_filename;
       if( fc::exists( fork_db_dat ) ) {
          try {
             string content;
@@ -115,29 +128,29 @@ namespace eosio { namespace chain {
             // validate totem
             uint32_t totem = 0;
             fc::raw::unpack( ds, totem );
-            EOS_ASSERT( totem == magic_number, fork_database_exception,
+            EOS_ASSERT( totem == fork_database::magic_number, fork_database_exception,
                         "Fork database file '${filename}' has unexpected magic number: ${actual_totem}. Expected ${expected_totem}",
                         ("filename", fork_db_dat.generic_string())
                         ("actual_totem", totem)
-                        ("expected_totem", magic_number)
+                        ("expected_totem", fork_database::magic_number)
             );
 
             // validate version
             uint32_t version = 0;
             fc::raw::unpack( ds, version );
-            EOS_ASSERT( version >= min_supported_version && version <= max_supported_version,
+            EOS_ASSERT( version >= fork_database::min_supported_version && version <= fork_database::max_supported_version,
                         fork_database_exception,
                        "Unsupported version of fork database file '${filename}'. "
                        "Fork database version is ${version} while code supports version(s) [${min},${max}]",
                        ("filename", fork_db_dat.generic_string())
                        ("version", version)
-                       ("min", min_supported_version)
-                       ("max", max_supported_version)
+                       ("min", fork_database::min_supported_version)
+                       ("max", fork_database::max_supported_version)
             );
 
             block_header_state bhs;
             fc::raw::unpack( ds, bhs );
-            my->reset_impl( bhs );
+            reset_impl( bhs );
 
             unsigned_int size; fc::raw::unpack( ds, size );
             for( uint32_t i = 0, n = size.value; i < n; ++i ) {
@@ -145,27 +158,27 @@ namespace eosio { namespace chain {
                fc::raw::unpack( ds, s );
                // do not populate transaction_metadatas, they will be created as needed in apply_block with appropriate key recovery
                s.header_exts = s.block->validate_and_extract_header_extensions();
-               my->add_impl( std::make_shared<block_state>( std::move( s ) ), false, true, validator );
+               add_impl( std::make_shared<block_state>( std::move( s ) ), false, true, validator );
             }
             block_id_type head_id;
             fc::raw::unpack( ds, head_id );
 
-            if( my->root->id == head_id ) {
-               my->head = my->root;
+            if( root->id == head_id ) {
+               head = root;
             } else {
-               my->head = my->get_block_impl( head_id );
-               EOS_ASSERT( my->head, fork_database_exception,
+               head = get_block_impl( head_id );
+               EOS_ASSERT( head, fork_database_exception,
                            "could not find head while reconstructing fork database from file; '${filename}' is likely corrupted",
                            ("filename", fork_db_dat.generic_string()) );
             }
 
-            auto candidate = my->index.get<by_lib_block_num>().begin();
-            if( candidate == my->index.get<by_lib_block_num>().end() || !(*candidate)->is_valid() ) {
-               EOS_ASSERT( my->head->id == my->root->id, fork_database_exception,
+            auto candidate = index.get<by_lib_block_num>().begin();
+            if( candidate == index.get<by_lib_block_num>().end() || !(*candidate)->is_valid() ) {
+               EOS_ASSERT( head->id == root->id, fork_database_exception,
                            "head not set to root despite no better option available; '${filename}' is likely corrupted",
                            ("filename", fork_db_dat.generic_string()) );
             } else {
-               EOS_ASSERT( !first_preferred( **candidate, *my->head ), fork_database_exception,
+               EOS_ASSERT( !first_preferred( **candidate, *head ), fork_database_exception,
                            "head not set to best available option available; '${filename}' is likely corrupted",
                            ("filename", fork_db_dat.generic_string()) );
             }
@@ -177,10 +190,14 @@ namespace eosio { namespace chain {
 
    void fork_database::close() {
       std::lock_guard g( my->mtx );
-      auto fork_db_dat = my->datadir / config::forkdb_filename;
+      my->close_impl();
+   }
 
-      if( !my->root ) {
-         if( my->index.size() > 0 ) {
+   void fork_database_impl::close_impl() {
+      auto fork_db_dat = datadir / config::forkdb_filename;
+
+      if( !root ) {
+         if( index.size() > 0 ) {
             elog( "fork_database is in a bad state when closing; not writing out '${filename}'",
                   ("filename", fork_db_dat.generic_string()) );
          }
@@ -188,13 +205,13 @@ namespace eosio { namespace chain {
       }
 
       std::ofstream out( fork_db_dat.generic_string().c_str(), std::ios::out | std::ios::binary | std::ofstream::trunc );
-      fc::raw::pack( out, magic_number );
-      fc::raw::pack( out, max_supported_version ); // write out current version which is always max_supported_version
-      fc::raw::pack( out, *static_cast<block_header_state*>(&*my->root) );
-      uint32_t num_blocks_in_fork_db = my->index.size();
+      fc::raw::pack( out, fork_database::magic_number );
+      fc::raw::pack( out, fork_database::max_supported_version ); // write out current version which is always max_supported_version
+      fc::raw::pack( out, *static_cast<block_header_state*>(&*root) );
+      uint32_t num_blocks_in_fork_db = index.size();
       fc::raw::pack( out, unsigned_int{num_blocks_in_fork_db} );
 
-      const auto& indx = my->index.get<by_lib_block_num>();
+      const auto& indx = index.get<by_lib_block_num>();
 
       auto unvalidated_itr = indx.rbegin();
       auto unvalidated_end = boost::make_reverse_iterator( indx.lower_bound( false ) );
@@ -229,18 +246,18 @@ namespace eosio { namespace chain {
          fc::raw::pack( out, *(*itr) );
       }
 
-      if( my->head ) {
-         fc::raw::pack( out, my->head->id );
+      if( head ) {
+         fc::raw::pack( out, head->id );
       } else {
          elog( "head not set in fork database; '${filename}' will be corrupted",
                ("filename", fork_db_dat.generic_string()) );
       }
 
-      my->index.clear();
+      index.clear();
    }
 
    fork_database::~fork_database() {
-      close();
+      my->close_impl();
    }
 
    void fork_database::reset( const block_header_state& root_bhs ) {
@@ -519,9 +536,7 @@ namespace eosio { namespace chain {
       }
 
       for( const auto& block_id : remove_queue ) {
-         auto itr = index.find( block_id );
-         if( itr != index.end() )
-            index.erase(itr);
+         index.erase( block_id );
       }
    }
 
@@ -550,12 +565,12 @@ namespace eosio { namespace chain {
       }
    }
 
-   block_state_ptr   fork_database::get_block(const block_id_type& id)const {
+   block_state_ptr fork_database::get_block(const block_id_type& id)const {
       std::shared_lock g( my->mtx );
       return my->get_block_impl(id);
    }
 
-   block_state_ptr   fork_database_impl::get_block_impl(const block_id_type& id)const {
+   block_state_ptr fork_database_impl::get_block_impl(const block_id_type& id)const {
       auto itr = index.find( id );
       if( itr != index.end() )
          return *itr;
