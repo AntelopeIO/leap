@@ -9,11 +9,20 @@
 #include <eosio/chain/block_header.hpp>
 #include <eosio/chain/exceptions.hpp>
 #include <eosio/chain/types.hpp>
+#include <eosio/state_history/compression.hpp>
 #include <fc/io/cfile.hpp>
 #include <fc/log/logger.hpp>
 #include <fc/log/logger_config.hpp> //set_thread_name
 
+#include <boost/iostreams/device/file.hpp>
+#include <boost/iostreams/device/file_descriptor.hpp>
+#include <boost/iostreams/filter/counter.hpp>
+#include <boost/iostreams/filter/zlib.hpp>
+#include <boost/iostreams/filtering_streambuf.hpp>
+#include <boost/iostreams/restrict.hpp>
+
 namespace eosio {
+namespace bio = boost::iostreams;
 
 /*
  *   *.log:
@@ -67,6 +76,21 @@ struct state_history_log_prune_config {
    size_t                  prune_threshold = 4*1024*1024; //(approximately) how many bytes need to be added before a prune is performed
    std::optional<size_t>   vacuum_on_close;               //when set, a vacuum is performed on dtor if log contains less than this many bytes
 };
+
+struct maybe_locked_compress_stream {
+   std::optional<std::unique_lock<std::mutex>> lock;
+   bio::filtering_istreambuf    buf;
+
+   maybe_locked_compress_stream() = default;
+
+   template <typename T>
+   maybe_locked_compress_stream(T&& log, fc::cfile& stream, uint64_t compressed_size) {
+      log->acquire_prune_lock(lock);
+      buf.push(bio::zlib_decompressor());
+      buf.push(bio::restrict(bio::file_source(stream.get_file_path().string()), stream.tellp(), compressed_size));
+   }
+};
+
 
 class state_history_log {
  private:
@@ -146,14 +170,10 @@ class state_history_log {
       });
    }
 
-   bool is_pruned() const {
-      return prune_config.has_value();
-   }
 
-   void acquire_prune_lock(std::unique_lock<std::mutex>& lock) {
+   void acquire_prune_lock(std::optional<std::unique_lock<std::mutex>>& lock) {
       if (prune_mx) {
-         std::unique_lock<std::mutex> prune_lock(*prune_mx);
-         lock.swap(prune_lock);
+         lock.emplace(*prune_mx);
       }
    }
 
@@ -275,12 +295,97 @@ class state_history_log {
       return log;
    }
 
+   /// @return the decompressed entry size
+   uint64_t get_unpacked_entry(uint32_t block_num, std::variant<std::vector<char>, maybe_locked_compress_stream>& result) {
+      if (block_num < _begin_block || block_num >= _end_block)
+         return 0;
+
+      state_history_log_header header;
+      std::lock_guard lock(mx);
+      log.seek(get_pos(block_num));
+      read_header(header);
+
+      uint64_t payload_size = header.payload_size;
+      uint32_t s;
+      uint64_t compressed_size;
+
+      log.read((char*)&s, sizeof(s));
+      if (s == 1 && payload_size > (s + sizeof(uint32_t))) {
+         compressed_size = payload_size - sizeof(uint32_t) - sizeof(uint64_t);
+         uint64_t decompressed_size;
+         log.read((char*)&decompressed_size, sizeof(decompressed_size));
+         result.emplace<maybe_locked_compress_stream>(this, log, compressed_size);
+         return decompressed_size;
+
+      } else {
+         // Compressed deltas now exceeds 4GB on one of the public chains. This length prefix
+         // was intended to support adding additional fields in the future after the
+         // packed deltas or packed traces. For now we're going to ignore on read.
+
+         compressed_size = payload_size - sizeof(uint32_t);
+      }
+
+      chain::bytes compressed(compressed_size);
+      if (compressed_size)
+         log.read(compressed.data(), compressed_size);
+      return result.emplace<std::vector<char>>(state_history::zlib_decompress(compressed)).size();
+   }
+
+   template <typename F>
+   void pack_and_write_entry(state_history_log_header header, const chain::block_id_type& prev_id, F&& pack_to) {
+      write_entry(header, prev_id, [&, pack_to = std::forward<F>(pack_to)](auto& stream) {
+         size_t payload_pos = stream.tellp();
+
+         // In order to conserve memory usage for reading the chain state later, we need to
+         // encode the uncompressed data size to the disk so that the reader can send the
+         // decompressed data size before decompressing data. Here we use the number
+         // 1 indicates the format contains a 64 bits unsigned integer for decompressed data
+         // size and then the actually compressed data. The compressed data size can be
+         // computed from the payload size in the header minus sizeof(uint32_t) + sizeof(uint64_t).
+
+         uint32_t s = 1;
+         stream.write((char*)&s, sizeof(s));
+         uint64_t uncompressioned_size = 0;
+         stream.skip(sizeof(uncompressioned_size));
+
+         namespace bio = boost::iostreams;
+
+         bio::counter cnt;
+         {
+            bio::filtering_ostreambuf buf;
+            buf.push(boost::ref(cnt));
+            buf.push(bio::zlib_compressor());
+            buf.push(bio::file_descriptor_sink(stream.fileno(), bio::never_close_handle));
+            pack_to(buf);
+         }
+
+         // calculate the payload size and rewind back header to write the payload size
+         stream.seek_end(0);
+         size_t   end_payload_pos = stream.tellp();
+         uint64_t payload_size    = end_payload_pos - payload_pos;
+         stream.seek(payload_pos - sizeof(uint64_t));
+         stream.write((char*)&payload_size, sizeof(payload_size));
+
+         // write the uncompressed data size
+         stream.skip(sizeof(s));
+         uncompressioned_size = cnt.characters();
+         stream.write((char*)&uncompressioned_size, sizeof(uncompressioned_size));
+
+         // make sure we resets the file position to end_payload_pos to preserve API behavior
+         stream.seek(end_payload_pos);
+      });
+   }
+
    chain::block_id_type get_block_id(uint32_t block_num) {
       std::lock_guard          lock(mx);
       state_history_log_header header;
       get_entry(block_num, header);
       return header.block_id;
    }
+
+#ifdef BOOST_TEST_MODULE
+   fc::cfile& get_log_file() { return log;}
+#endif
 
  private:
    //file position must be at start of last block's suffix (back pointer)

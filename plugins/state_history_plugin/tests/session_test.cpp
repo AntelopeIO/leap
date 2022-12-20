@@ -356,22 +356,21 @@ BOOST_AUTO_TEST_CASE(store_read_entry_no_prune) {
    header.payload_size = 0;
    auto data           = generate_data(1024);
 
-   log.write_entry(header, block_id_for(0), [&](auto& stream) {
-      eosio::store_log_entry(
-          stream, [&](auto&& buf) { bio::write(buf, (const char*)data.data(), data.size() * sizeof(data[0])); });
+   log.pack_and_write_entry(header, block_id_for(0),
+      [&](auto&& buf) { bio::write(buf, (const char*)data.data(), data.size() * sizeof(data[0])); });
 
-      // make sure the current file position is at the end of file
-      auto pos = stream.tellp();
-      stream.seek_end(0);
-      BOOST_REQUIRE_EQUAL(stream.tellp(), pos);
-   });
+   // make sure the current file position is at the end of file
+   auto pos = log.get_log_file().tellp();
+   log.get_log_file().seek_end(0);
+   BOOST_REQUIRE_EQUAL(log.get_log_file().tellp(), pos);
+
 
    std::variant<std::vector<char>, eosio::maybe_locked_compress_stream> buf;
-   read_log_entry(&log, 1, buf);
+   log.get_unpacked_entry(1, buf);
 
    std::vector<char> decompressed;
    auto& locked_strm = std::get<eosio::maybe_locked_compress_stream>(buf);
-   BOOST_CHECK(!locked_strm.lock.owns_lock());
+   BOOST_CHECK(!locked_strm.lock.has_value());
    bio::copy(locked_strm.buf, bio::back_inserter(decompressed));
 
    BOOST_CHECK_EQUAL(data.size() * sizeof(data[0]), decompressed.size());
@@ -389,22 +388,20 @@ BOOST_AUTO_TEST_CASE(store_read_entry_prune_enabled) {
    header.payload_size = 0;
    auto data           = generate_data(1024);
 
-   log.write_entry(header, block_id_for(0), [&](auto& stream) {
-      eosio::store_log_entry(
-          stream, [&](auto&& buf) { bio::write(buf, (const char*)data.data(), data.size() * sizeof(data[0])); });
+   log.pack_and_write_entry(header, block_id_for(0),
+          [&](auto&& buf) { bio::write(buf, (const char*)data.data(), data.size() * sizeof(data[0])); });
 
-      // make sure the current file position is at the end of file
-      auto pos = stream.tellp();
-      stream.seek_end(0);
-      BOOST_REQUIRE_EQUAL(stream.tellp(), pos);
-   });
+   // make sure the current file position is at the end of file
+   auto pos = log.get_log_file().tellp();
+   log.get_log_file().seek_end(0);
+   BOOST_REQUIRE_EQUAL(log.get_log_file().tellp(), pos);
 
    std::variant<std::vector<char>, eosio::maybe_locked_compress_stream> buf;
-   read_log_entry(&log, 1, buf);
+   log.get_unpacked_entry(1, buf);
 
    std::vector<char> decompressed;
    auto& locked_strm = std::get<eosio::maybe_locked_compress_stream>(buf);
-   BOOST_CHECK(locked_strm.lock.owns_lock());
+   BOOST_CHECK(locked_strm.lock.has_value());
    bio::copy(locked_strm.buf, bio::back_inserter(decompressed));
 
    BOOST_CHECK_EQUAL(data.size() * sizeof(data[0]), decompressed.size());

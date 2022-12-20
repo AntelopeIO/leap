@@ -6,6 +6,7 @@
 #include <eosio/state_history/serialization.hpp>
 #include <eosio/state_history/trace_converter.hpp>
 #include <eosio/state_history_plugin/state_history_plugin.hpp>
+#include "session.hpp"
 
 #include <boost/asio/bind_executor.hpp>
 #include <boost/asio/ip/host_name.hpp>
@@ -14,7 +15,6 @@
 #include <boost/beast/core.hpp>
 
 #include <boost/signals2/connection.hpp>
-#include "session.hpp"
 
 
 namespace ws = boost::beast::websocket;
@@ -222,7 +222,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
 
       // start it
       std::for_each(acceptor.begin(), acceptor.end(), [&](const acceptor_type& acc) {
-         std::visit(overload{[&](const std::unique_ptr<tcp::acceptor>& tcp_acc) {
+         std::visit(overloaded{[&](const std::unique_ptr<tcp::acceptor>& tcp_acc) {
                                 auto address  = boost::asio::ip::make_address(endpoint_address);
                                 auto endpoint = tcp::endpoint{address, endpoint_port};
                                 tcp_acc->open(endpoint.protocol(), ec);
@@ -309,10 +309,8 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
       state_history_log_header header{.magic        = ship_magic(ship_current_version, 0),
                                       .block_id     = block_state->id,
                                       .payload_size = 0};
-      trace_log->write_entry(header, block_state->block->previous, [&](auto& stream) {
-         store_log_entry(stream, [this, &block_state](auto&& buf) {
-            trace_converter.pack(buf, chain_plug->chain().db(), trace_debug_mode, block_state);
-         });
+      trace_log->pack_and_write_entry(header, block_state->block->previous, [this, &block_state](auto&& buf) {
+         trace_converter.pack(buf, chain_plug->chain().db(), trace_debug_mode, block_state);
       });
    }
 
@@ -325,10 +323,8 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
 
       state_history_log_header header{
           .magic = ship_magic(ship_current_version, 0), .block_id = block_state->id, .payload_size = 0};
-      chain_state_log->write_entry(header, block_state->header.previous, [&](auto& stream) {
-         store_log_entry(stream, [this, fresh](auto&& buf) {
-            pack_deltas(buf, chain_plug->chain().db(), fresh);
-         });
+      chain_state_log->pack_and_write_entry(header, block_state->header.previous, [this, fresh](auto&& buf) {
+         pack_deltas(buf, chain_plug->chain().db(), fresh);
       });
    } // store_chain_state
 };   // state_history_plugin_impl

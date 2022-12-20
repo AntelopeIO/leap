@@ -28,6 +28,16 @@ bool operator==(const eosio::checksum256& lhs, const transaction_id_type& rhs) {
 
 namespace eosio::state_history {
 
+template <typename ST, typename T>
+datastream<ST>& operator>>(datastream<ST>& ds, eosio::state_history::big_vector_wrapper<T>& obj) {
+   fc::unsigned_int sz;
+   fc::raw::unpack(ds, sz);
+   obj.obj.resize(sz);
+   for (auto& x : obj.obj)
+      fc::raw::unpack(ds, x);
+   return ds;
+}
+
 std::vector<table_delta> create_deltas(const chainbase::database& db, bool full_snapshot) {
    namespace bio = boost::iostreams;
    std::vector<char> buf;

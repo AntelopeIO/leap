@@ -1,7 +1,5 @@
 #include <eosio/state_history/create_deltas.hpp>
 #include <eosio/state_history/serialization.hpp>
-#include <boost/hana/count_if.hpp>
-#include <boost/hana/tuple.hpp>
 
 namespace eosio {
 namespace state_history {
@@ -59,11 +57,8 @@ bool include_delta(const chain::protocol_state_object& old, const chain::protoco
    return old.activated_protocol_features != curr.activated_protocol_features;
 }
 
-
-// std::vector<table_delta> create_deltas(const chainbase::database& db, bool full_snapshot) {
 void pack_deltas(boost::iostreams::filtering_ostreambuf& obuf, const chainbase::database& db, bool full_snapshot) {
 
-   // std::vector<table_delta>                          deltas;
    fc::datastream<boost::iostreams::filtering_ostreambuf&> ds{obuf};
 
    const auto&                                       table_id_index = db.get_index<chain::table_id_multi_index>();
@@ -99,7 +94,7 @@ void pack_deltas(boost::iostreams::filtering_ostreambuf& obuf, const chainbase::
          if (index.indices().empty())
             return;
 
-         fc::raw::pack(ds, fc::unsigned_int(0));
+         fc::raw::pack(ds, fc::unsigned_int(0)); // table_delta = std::variant<table_delta_v0> and fc::unsigned_int struct_version
          fc::raw::pack(ds, name);
          fc::raw::pack(ds, fc::unsigned_int(index.indices().size()));
          for (auto& row : index.indices()) {
@@ -117,7 +112,7 @@ void pack_deltas(boost::iostreams::filtering_ostreambuf& obuf, const chainbase::
              std::distance(undo.new_values.begin(), undo.new_values.end());
 
          if (num_entries) {
-            fc::raw::pack(ds, fc::unsigned_int(0));
+            fc::raw::pack(ds, fc::unsigned_int(0)); // table_delta = std::variant<table_delta_v0> and fc::unsigned_int struct_version
             fc::raw::pack(ds, name);
             fc::raw::pack(ds, fc::unsigned_int((uint32_t)num_entries));
 
@@ -139,16 +134,8 @@ void pack_deltas(boost::iostreams::filtering_ostreambuf& obuf, const chainbase::
       }
    };
 
-   constexpr auto types = boost::hana::tuple_t<chain::account_index, chain::account_metadata_index, chain::code_index, chain::table_id_multi_index,
-                  chain::key_value_index, chain::index64_index, chain::index128_index, chain::index256_index,
-                  chain::index_double_index, chain::index_long_double_index, chain::global_property_multi_index,
-                  chain::generated_transaction_multi_index, chain::protocol_state_multi_index, chain::permission_index,
-                  chain::permission_link_index, chain::resource_limits::resource_limits_index,
-                  chain::resource_limits::resource_usage_index, chain::resource_limits::resource_limits_state_index,
-                  chain::resource_limits::resource_limits_config_index>;
-
-   auto num_tables = boost::hana::count_if(types, [full_snapshot, &db](auto x) {
-      auto& index = db.get_index<typename decltype(x)::type>();
+   auto has_table = [&](auto x) -> int {
+      auto& index = db.get_index<std::remove_pointer_t<decltype(x)>>();
       if (full_snapshot) {
          return !index.indices().empty();
       } else {
@@ -157,7 +144,18 @@ void pack_deltas(boost::iostreams::filtering_ostreambuf& obuf, const chainbase::
                            [&index](const auto& old) { return include_delta(old, index.get(old.id)); }) != undo.old_values.end() ||
              !undo.removed_values.empty() || !undo.new_values.empty();
       }
-   });
+   };
+
+   int num_tables = std::apply(
+       [&has_table](auto... args) { return (has_table(args) + ... ); },
+       std::tuple<chain::account_index*, chain::account_metadata_index*, chain::code_index*,
+                  chain::table_id_multi_index*, chain::key_value_index*, chain::index64_index*, chain::index128_index*,
+                  chain::index256_index*, chain::index_double_index*, chain::index_long_double_index*,
+                  chain::global_property_multi_index*, chain::generated_transaction_multi_index*,
+                  chain::protocol_state_multi_index*, chain::permission_index*, chain::permission_link_index*,
+                  chain::resource_limits::resource_limits_index*, chain::resource_limits::resource_usage_index*,
+                  chain::resource_limits::resource_limits_state_index*,
+                  chain::resource_limits::resource_limits_config_index*>());
 
    fc::raw::pack(ds, fc::unsigned_int(num_tables));
 

@@ -8,14 +8,6 @@
 #include <boost/asio/local/stream_protocol.hpp>
 #include <boost/beast/websocket.hpp>
 
-#include <boost/iostreams/device/file.hpp>
-#include <boost/iostreams/device/file_descriptor.hpp>
-#include <boost/iostreams/filter/counter.hpp>
-#include <boost/iostreams/filter/zlib.hpp>
-#include <boost/iostreams/filtering_streambuf.hpp>
-#include <boost/iostreams/restrict.hpp>
-
-#include <fc/io/cfile.hpp>
 
 extern const char* const state_history_plugin_abi;
 
@@ -25,98 +17,6 @@ using tcp     = boost::asio::ip::tcp;
 using unixs   = boost::asio::local::stream_protocol;
 namespace ws  = boost::beast::websocket;
 namespace bio = boost::iostreams;
-
-struct maybe_locked_compress_stream {
-   std::unique_lock<std::mutex> lock;
-   bio::filtering_istreambuf    buf;
-
-   maybe_locked_compress_stream() = default;
-
-   template <typename T>
-   maybe_locked_compress_stream(T&& log, fc::cfile& stream, uint64_t compressed_size) {
-      log->acquire_prune_lock(lock);
-      buf.push(bio::zlib_decompressor());
-      buf.push(bio::restrict(bio::file_source(stream.get_file_path().string()), stream.tellp(), compressed_size));
-   }
-};
-
-template <typename T>
-uint64_t read_log_entry(T&& log, uint32_t block_num,
-                        std::variant<std::vector<char>, maybe_locked_compress_stream>& result) {
-   if (block_num < log->begin_block() || block_num >= log->end_block())
-      return 0;
-
-   state_history_log_header header;
-   auto&                    stream = log->get_entry(block_num, header);
-
-   uint64_t payload_size = header.payload_size;
-   uint32_t s;
-   uint64_t compressed_size;
-
-   stream.read((char*)&s, sizeof(s));
-   if (s == 1 && payload_size > (s + sizeof(uint32_t))) {
-      compressed_size = payload_size - sizeof(uint32_t) - sizeof(uint64_t);
-      uint64_t decompressed_size;
-      stream.read((char*)&decompressed_size, sizeof(decompressed_size));
-      result.emplace<maybe_locked_compress_stream>(log, stream, compressed_size);
-      return decompressed_size;
-
-   } else {
-      // Compressed deltas now exceeds 4GB on one of the public chains. This length prefix
-      // was intended to support adding additional fields in the future after the
-      // packed deltas or packed traces. For now we're going to ignore on read.
-
-      compressed_size = payload_size - sizeof(uint32_t);
-   }
-
-   bytes compressed(compressed_size);
-   if (compressed_size)
-      stream.read(compressed.data(), compressed_size);
-   return result.emplace<std::vector<char>>(state_history::zlib_decompress(compressed)).size();
-}
-
-template <typename PackTo>
-void store_log_entry(fc::cfile& stream, PackTo&& pack_to) {
-   size_t payload_pos = stream.tellp();
-
-   // In order to conserve memory usage for reading the chain state later, we need to
-   // encode the uncompressed data size to the disk so that the reader can send the
-   // uncompressed data size before decompressing data. Here we use the number
-   // 1 indicates the format contains a 64 bits unsigned integer for uncompressed data
-   // size and then the actually compressed data. The compressed data data size can be
-   // computed from the payload size in the header minus sizeof(uint32_t) + sizeof(uint64_t).
-
-   uint32_t s = 1;
-   stream.write((char*)&s, sizeof(s));
-   uint64_t uncompressioned_size = 0;
-   stream.skip(sizeof(uncompressioned_size));
-
-   namespace bio = boost::iostreams;
-
-   bio::counter cnt;
-   {
-      bio::filtering_ostreambuf buf;
-      buf.push(boost::ref(cnt));
-      buf.push(bio::zlib_compressor());
-      buf.push(bio::file_descriptor_sink(stream.fileno(), bio::never_close_handle));
-      pack_to(buf);
-   }
-
-   // calculate the payload size and rewind back header to write the payload size
-   stream.seek_end(0);
-   size_t   end_payload_pos = stream.tellp();
-   uint64_t payload_size    = end_payload_pos - payload_pos;
-   stream.seek(payload_pos - sizeof(uint64_t));
-   stream.write((char*)&payload_size, sizeof(payload_size));
-
-   // write the uncompressed data size
-   stream.skip(sizeof(s));
-   uncompressioned_size = cnt.characters();
-   stream.write((char*)&uncompressioned_size, sizeof(uncompressioned_size));
-
-   // make sure we resets the file position to end_payload_pos to preserve API behavior
-   stream.seek(end_payload_pos);
-}
 
 template <typename Session>
 struct send_queue_entry_base {
@@ -139,25 +39,22 @@ struct basic_send_queue_entry : send_queue_entry_base<Session> {
 };
 
 template <typename Session>
-struct blocks_result_send_queue_entry : send_queue_entry_base<Session> {
+class blocks_result_send_queue_entry : public send_queue_entry_base<Session> {
    eosio::state_history::get_blocks_result_v0                    r;
    std::vector<char>                                             data;
    std::variant<std::vector<char>, maybe_locked_compress_stream> buf;
 
-   blocks_result_send_queue_entry(get_blocks_result_v0&& r)
-       : r(std::move(r)) {}
-
    template <typename Next>
-   void send_some(Session* s, bool fin, const std::vector<char>& data, Next&& next) {
+   void async_send(Session* s, bool fin, const std::vector<char>& data, Next&& next) {
       s->socket_stream.async_write_some(
           fin, boost::asio::buffer(data),
-          [s = s->shared_from_this(), next = std::move(next)](boost::system::error_code ec, size_t) mutable {
-             s->callback(ec, "async_write", [s, next = std::move(next)] { next(s.get()); });
+          [s = s->shared_from_this(), next = std::forward<Next>(next)](boost::system::error_code ec, size_t) mutable {
+             s->callback(ec, "async_write", [s, next = std::move(next)]() mutable { next(s.get()); });
           });
    }
 
    template <typename Next>
-   void send_some(Session* s, bool fin, maybe_locked_compress_stream& locked_strm, Next&& next) {
+   void async_send(Session* s, bool fin, maybe_locked_compress_stream& locked_strm, Next&& next) {
       data.resize(s->default_frame_size);
       auto size = bio::read(locked_strm.buf, data.data(), s->default_frame_size);
       data.resize(size);
@@ -166,31 +63,31 @@ struct blocks_result_send_queue_entry : send_queue_entry_base<Session> {
       s->socket_stream.async_write_some(
           fin && eof, boost::asio::buffer(data),
           [this, s = s->shared_from_this(), fin, &locked_strm, eof,
-           next = std::move(next)](boost::system::error_code ec, size_t) mutable {
+           next = std::forward<Next>(next)](boost::system::error_code ec, size_t) mutable {
+             if (ec) locked_strm.lock.reset();
              s->callback(ec, "async_write", [this, s, fin, &locked_strm, eof, next = std::move(next)]() mutable {
                 if (eof) {
-                   if (locked_strm.lock.owns_lock())
-                      locked_strm.lock.unlock();
+                   locked_strm.lock.reset();
                    next(s.get());
                 } else {
-                   send_some(s.get(), fin, locked_strm, next);
+                   async_send(s.get(), fin, locked_strm, std::move(next));
                 }
              });
           });
    }
 
    template <typename Next>
-   void send_some(Session* s, bool fin, std::variant<std::vector<char>, maybe_locked_compress_stream>& buf,
+   void async_send(Session* s, bool fin, std::variant<std::vector<char>, maybe_locked_compress_stream>& buf,
                   Next&& next) {
       std::visit([this, s, fin,
-                  next = std::move(next)](auto& data) mutable { this->send_some(s, fin, data, std::move(next)); },
+                  next = std::forward<Next>(next)](auto& data) mutable { this->async_send(s, fin, data, std::move(next)); },
                  buf);
    }
 
    template <typename Next>
    void send_log(Session* s, uint64_t entry_size, bool is_deltas, Next&& next) {
       if (entry_size) {
-         data.resize(16);
+         data.resize(16); // should be at least for 1 byte (optional) + 10 bytes (variable sized uint64_t)
          fc::datastream<char*> ds(data.data(), data.size());
          fc::raw::pack(ds, true); // optional true
          history_pack_varuint64(ds, entry_size);
@@ -199,10 +96,10 @@ struct blocks_result_send_queue_entry : send_queue_entry_base<Session> {
          data = {'\0'}; // optional false
       }
 
-      send_some(s, is_deltas && entry_size == 0, data,
-                [this, is_deltas, entry_size, next = std::move(next)](Session* s) {
+      async_send(s, is_deltas && entry_size == 0, data,
+                [this, is_deltas, entry_size, next = std::forward<Next>(next)](Session* s) mutable {
                    if (entry_size) {
-                      send_some(s, is_deltas, buf, [next = std::move(next)](Session* s) { next(s); });
+                      async_send(s, is_deltas, buf, [next = std::move(next)](Session* s) { next(s); });
                    } else
                       next(s);
                 });
@@ -216,6 +113,11 @@ struct blocks_result_send_queue_entry : send_queue_entry_base<Session> {
       send_log(s, s->get_delta_log_entry(r, buf), true, [](Session* s) { s->pop_entry(); });
    }
 
+public:
+
+   explicit blocks_result_send_queue_entry(get_blocks_result_v0&& r)
+       : r(std::move(r)) {}
+
    void send(Session* s) override {
       // pack the state_result{get_blocks_result} excluding the fields `traces` and `deltas`
       fc::datastream<size_t> ss;
@@ -226,7 +128,7 @@ struct blocks_result_send_queue_entry : send_queue_entry_base<Session> {
       fc::raw::pack(ds, fc::unsigned_int(1)); // pack the variant index of state_result{r}
       fc::raw::pack(ds, static_cast<const get_blocks_result_base&>(r));
 
-      send_some(s, false, data, [this](Session* s) { send_traces(s); });
+      async_send(s, false, data, [this](Session* s) { send_traces(s); });
    }
 };
 
@@ -268,7 +170,7 @@ struct session : session_base, std::enable_shared_from_this<session<Plugin, Sock
       socket_stream.async_accept([self = this->shared_from_this()](boost::system::error_code ec) {
          self->callback(ec, "async_accept", [self] {
             self->start_read();
-            self->send(state_history_plugin_abi);
+            self->send_abi();
          });
       });
    }
@@ -283,7 +185,6 @@ struct session : session_base, std::enable_shared_from_this<session<Plugin, Sock
                 fc::datastream<const char*> ds(d, s);
                 state_request               req;
                 fc::raw::unpack(ds, req);
-                // app().post(priority::medium, [self, req = std::move(req)]() mutable { std::visit(*self, req); });
                 self->plugin->post_task([self, req = std::move(req)]() mutable { std::visit(*self, req); });
                 self->start_read();
              });
@@ -301,16 +202,17 @@ struct session : session_base, std::enable_shared_from_this<session<Plugin, Sock
       send_queue[0]->send(this);
    }
 
-   void send(const char* s) {
-      boost::asio::post(this->plugin->work_strand, [self = this->shared_from_this(), str = s]() {
-         self->send_queue.push_back(std::make_unique<basic_send_queue_entry<session>>(str, str + strlen(str)));
+   void send_abi() {
+      boost::asio::post(this->plugin->work_strand, [self = this->shared_from_this()]() {
+         std::string_view str(state_history_plugin_abi);
+         self->send_queue.push_back(std::make_unique<basic_send_queue_entry<session>>(str.begin(), str.end()));
          self->send();
       });
    }
 
    template <typename T>
    void send(T obj) {
-      boost::asio::post(this->plugin->work_strand, [self = this->shared_from_this(), obj = std::move(obj)]() {
+      boost::asio::post(this->plugin->work_strand, [self = this->shared_from_this(), obj = std::move(obj)]() mutable {
          self->send_queue.push_back(
              std::make_unique<basic_send_queue_entry<session>>(fc::raw::pack(state_result{std::move(obj)})));
          self->send();
@@ -333,14 +235,14 @@ struct session : session_base, std::enable_shared_from_this<session<Plugin, Sock
    uint64_t get_trace_log_entry(const eosio::state_history::get_blocks_result_v0&              result,
                                 std::variant<std::vector<char>, maybe_locked_compress_stream>& buf) {
       if (result.traces.has_value())
-         return read_log_entry(plugin->get_trace_log(), result.this_block->block_num, buf);
+         return plugin->get_trace_log()->get_unpacked_entry(result.this_block->block_num, buf);
       return 0;
    }
 
    uint64_t get_delta_log_entry(const eosio::state_history::get_blocks_result_v0&              result,
                                 std::variant<std::vector<char>, maybe_locked_compress_stream>& buf) {
       if (result.deltas.has_value())
-         return read_log_entry(plugin->get_chain_state_log(), result.this_block->block_num, buf);
+         return plugin->get_chain_state_log()->get_unpacked_entry(result.this_block->block_num, buf);
       return 0;
    }
 
