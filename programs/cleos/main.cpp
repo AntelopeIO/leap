@@ -522,8 +522,6 @@ fc::variant push_transaction( signed_transaction& trx, const std::vector<public_
          return fc::variant(packed_transaction(trx, compression));
       }
    }
-   assert(0);
-   return {}; // fix warning: control reaches end of non-void function [-Wreturn-type]
 }
 
 fc::variant push_actions(std::vector<chain::action>&& actions, const std::vector<public_key_type>& signing_keys = std::vector<public_key_type>() ) {
