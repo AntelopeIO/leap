@@ -59,7 +59,6 @@ private:
    bool                                      _disabled = false;
    trx_cache_index                           _trx_cache_index;
    account_subjective_bill_cache             _account_subjective_bill_cache;
-   block_subjective_bill_cache               _block_subjective_bill_cache;
    std::set<chain::account_name>             _disabled_accounts;
    uint32_t                                  _expired_accumulator_average_window = config::account_cpu_usage_average_window_ms / subjective_time_interval_ms;
 
@@ -116,9 +115,8 @@ public:
    void disable_account( chain::account_name a ) { _disabled_accounts.emplace( a ); }
    bool is_account_disabled(const account_name& a ) const { return _disabled || _disabled_accounts.count( a ); }
 
-   /// @param in_pending_block pass true if pt's bill time is accounted for in the pending block
    void subjective_bill( const transaction_id_type& id, const fc::time_point& expire, const account_name& first_auth,
-                         const fc::microseconds& elapsed, bool in_pending_block )
+                         const fc::microseconds& elapsed )
    {
       if( !_disabled && !_disabled_accounts.count( first_auth ) ) {
          int64_t bill = std::max<int64_t>( 0, elapsed.count() );
@@ -129,9 +127,6 @@ public:
                                expire} );
          if( p.second ) {
             _account_subjective_bill_cache[first_auth].pending_cpu_us += bill;
-            if( in_pending_block ) {
-               _block_subjective_bill_cache[first_auth] += bill;
-            }
          }
       }
    }
@@ -153,15 +148,9 @@ public:
       if( aitr != _account_subjective_bill_cache.end() ) {
          sub_bill_info = &aitr->second;
       }
-      uint64_t in_block_pending_cpu_us = 0;
-      auto bitr = _block_subjective_bill_cache.find( first_auth );
-      if( bitr != _block_subjective_bill_cache.end() ) {
-         in_block_pending_cpu_us = bitr->second;
-      }
 
       if (sub_bill_info) {
-         EOS_ASSERT(sub_bill_info->pending_cpu_us >= in_block_pending_cpu_us, chain::tx_resource_exhaustion, "Logic error subjective billing ${a}", ("a", first_auth) );
-         int64_t sub_bill = sub_bill_info->pending_cpu_us - in_block_pending_cpu_us + sub_bill_info->expired_accumulator.value_at(time_ordinal, _expired_accumulator_average_window );
+         int64_t sub_bill = sub_bill_info->pending_cpu_us + sub_bill_info->expired_accumulator.value_at(time_ordinal, _expired_accumulator_average_window );
          return sub_bill;
       } else {
          return 0;
@@ -169,7 +158,6 @@ public:
    }
 
    void abort_block() {
-      _block_subjective_bill_cache.clear();
    }
 
    void on_block( fc::logger& log, const block_state_ptr& bsp, const fc::time_point& now ) {
