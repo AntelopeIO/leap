@@ -597,7 +597,7 @@ namespace eosio { namespace testing {
          auto sb = _produce_block(skip_time, false);
          auto bsf = validating_node->create_block_state_future( sb->calculate_id(), sb );
          controller::block_report br;
-         validating_node->push_block( br, bsf, forked_branch_callback{}, trx_meta_cache_lookup{} );
+         validating_node->push_block( br, bsf.get(), forked_branch_callback{}, trx_meta_cache_lookup{} );
 
          return sb;
       }
@@ -607,9 +607,9 @@ namespace eosio { namespace testing {
       }
 
       void validate_push_block(const signed_block_ptr& sb) {
-         auto bs = validating_node->create_block_state_future( sb->calculate_id(), sb );
+         auto bsf = validating_node->create_block_state_future( sb->calculate_id(), sb );
          controller::block_report br;
-         validating_node->push_block( br, bs, forked_branch_callback{}, trx_meta_cache_lookup{} );
+         validating_node->push_block( br, bsf.get(), forked_branch_callback{}, trx_meta_cache_lookup{} );
       }
 
       signed_block_ptr produce_empty_block( fc::microseconds skip_time = fc::milliseconds(config::block_interval_ms) )override {
@@ -617,7 +617,7 @@ namespace eosio { namespace testing {
          auto sb = _produce_block(skip_time, true);
          auto bsf = validating_node->create_block_state_future( sb->calculate_id(), sb );
          controller::block_report br;
-         validating_node->push_block( br, bsf, forked_branch_callback{}, trx_meta_cache_lookup{} );
+         validating_node->push_block( br, bsf.get(), forked_branch_callback{}, trx_meta_cache_lookup{} );
 
          return sb;
       }

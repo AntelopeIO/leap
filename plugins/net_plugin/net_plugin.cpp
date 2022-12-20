@@ -785,7 +785,7 @@ namespace eosio {
       void handle_message( const packed_transaction& msg ) = delete; // packed_transaction_ptr overload used instead
       void handle_message( packed_transaction_ptr msg );
 
-      void process_signed_block( const block_id_type& id, signed_block_ptr msg );
+      void process_signed_block( const block_id_type& id, signed_block_ptr msg, block_state_ptr bsp );
 
       fc::variant_object get_logger_variant() const {
          fc::mutable_variant_object mvo;
@@ -3143,13 +3143,44 @@ namespace eosio {
    // called from connection strand
    void connection::handle_message( const block_id_type& id, signed_block_ptr ptr ) {
       peer_dlog( this, "received signed_block ${num}, id ${id}", ("num", ptr->block_num())("id", id) );
-      app().post(priority::medium, [ptr{std::move(ptr)}, id, c = shared_from_this()]() mutable {
-         c->process_signed_block( id, std::move( ptr ) );
+
+      controller& cc = my_impl->chain_plug->chain();
+      block_state_ptr bsp;
+      bool exception = false;
+      try {
+         if( cc.fetch_block_state_by_id( id ) ) {
+            my_impl->dispatcher->add_peer_block( id, connection_id );
+            my_impl->sync_master->sync_recv_block( shared_from_this(), id, ptr->block_num(), false );
+            return;
+         }
+         // this may return null if block is not immediately ready to be processed
+         bsp = cc.create_block_state( id, ptr );
+      } catch( const fc::exception& ex ) {
+         exception = true;
+         peer_elog(this, "bad block exception: #${n} ${id}...: ${m}",
+                   ("n", ptr->block_num())("id", id.str().substr(8,16))("m",ex.to_string()));
+      } catch( ... ) {
+         exception = true;
+         peer_elog(this, "bad block: #${n} ${id}...: unknown exception",
+                   ("n", ptr->block_num())("id", id.str().substr(8,16)));
+      }
+      if( exception ) {
+         my_impl->sync_master->rejected_block( shared_from_this(), ptr->block_num() );
+         my_impl->dispatcher->rejected_block( id );
+         return;
+      }
+
+      bool signal_producer = !!bsp; // ready to process immediately, so signal producer to interrupt start_block
+      app().post(priority::medium, [ptr{std::move(ptr)}, bsp{std::move(bsp)}, id, c = shared_from_this()]() mutable {
+         c->process_signed_block( id, std::move(ptr), std::move(bsp) );
       });
+
+      if( signal_producer )
+         my_impl->producer_plug->received_block();
    }
 
    // called from application thread
-   void connection::process_signed_block( const block_id_type& blk_id, signed_block_ptr msg ) {
+   void connection::process_signed_block( const block_id_type& blk_id, signed_block_ptr msg, block_state_ptr bsp ) {
       controller& cc = my_impl->chain_plug->chain();
       uint32_t blk_num = msg->block_num();
       // use c in this method instead of this to highlight that all methods called on c-> must be thread safe
@@ -3179,7 +3210,7 @@ namespace eosio {
 
       go_away_reason reason = fatal_other;
       try {
-         bool accepted = my_impl->chain_plug->accept_block(msg, blk_id);
+         bool accepted = my_impl->chain_plug->accept_block(msg, blk_id, bsp);
          my_impl->update_chain_info();
          if( !accepted ) return;
          reason = no_reason;
