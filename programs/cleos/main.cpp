@@ -519,7 +519,7 @@ fc::variant push_transaction( signed_transaction& trx, const std::vector<public_
          }
       } else {
          EOSC_ASSERT( !tx_unpack_data, "ERROR: --unpack-action-data not supported with --return-packed" );
-         return fc::variant(packed_transaction(trx, compression));
+        return fc::variant(packed_transaction(trx, compression));
       }
    }
 }
