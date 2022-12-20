@@ -34,7 +34,7 @@ class PerformanceTest:
             trxExpectMet: bool = False
             basicTestSuccess: bool = False
             testAnalysisBlockCnt: int = 0
-            logsDir: str = ""
+            logsDir: Path = Path("")
             testStart: datetime = None
             testEnd: datetime = None
 
@@ -56,7 +56,7 @@ class PerformanceTest:
         delTestReport: bool=False
         numAddlBlocksToPrune: int=2
         quiet: bool=False
-        logDirRoot: str="."
+        logDirRoot: Path=Path(".")
         skipTpsTests: bool=False
         calcProducerThreads: str="none"
         calcChainThreads: str="none"
@@ -79,16 +79,16 @@ class PerformanceTest:
 
     @dataclass
     class LoggingConfig:
-        logDirBase: str = f"./{PurePath(PurePath(__file__).name).stem[0]}"
+        logDirBase: Path = Path(".")/PurePath(PurePath(__file__).name).stem[0]
         logDirTimestamp: str = f"{datetime.utcnow().strftime('%Y-%m-%d_%H-%M-%S')}"
-        logDirPath: str = field(default_factory=str, init=False)
-        ptbLogsDirPath: str = field(default_factory=str, init=False)
-        pluginThreadOptLogsDirPath: str = field(default_factory=str, init=False)
+        logDirPath: Path = field(default_factory=Path, init=False)
+        ptbLogsDirPath: Path = field(default_factory=Path, init=False)
+        pluginThreadOptLogsDirPath: Path = field(default_factory=Path, init=False)
 
         def __post_init__(self):
-            self.logDirPath = f"{self.logDirBase}/{self.logDirTimestamp}"
-            self.ptbLogsDirPath = f"{self.logDirPath}/testRunLogs"
-            self.pluginThreadOptLogsDirPath = f"{self.logDirPath}/pluginThreadOptRunLogs"
+            self.logDirPath = Path(self.logDirBase)/Path(self.logDirTimestamp)
+            self.ptbLogsDirPath = Path(self.logDirPath)/Path("testRunLogs")
+            self.pluginThreadOptLogsDirPath = Path(self.logDirPath)/Path("pluginThreadOptRunLogs")
 
     def __init__(self, testHelperConfig: PerformanceTestBasic.TestHelperConfig=PerformanceTestBasic.TestHelperConfig(),
                  clusterConfig: PerformanceTestBasic.ClusterConfig=PerformanceTestBasic.ClusterConfig(), ptConfig=PtConfig()):
@@ -98,11 +98,11 @@ class PerformanceTest:
 
         self.testsStart = datetime.utcnow()
 
-        self.loggingConfig = PerformanceTest.LoggingConfig(logDirBase=f"{self.ptConfig.logDirRoot}/{PurePath(PurePath(__file__).name).stem[0]}",
+        self.loggingConfig = PerformanceTest.LoggingConfig(logDirBase=Path(self.ptConfig.logDirRoot)/PurePath(PurePath(__file__).name).stem[0],
                                                            logDirTimestamp=f"{self.testsStart.strftime('%Y-%m-%d_%H-%M-%S')}")
 
-    def performPtbBinarySearch(self, clusterConfig: PerformanceTestBasic.ClusterConfig, logDirRoot: str, delReport: bool, quiet: bool, delPerfLogs: bool) -> TpsTestResult.PerfTestSearchResults:
-        floor = 0
+    def performPtbBinarySearch(self, clusterConfig: PerformanceTestBasic.ClusterConfig, logDirRoot: Path, delReport: bool, quiet: bool, delPerfLogs: bool) -> TpsTestResult.PerfTestSearchResults:
+        floor = 5000
         ceiling = self.ptConfig.maxTpsToTest
         binSearchTarget = self.ptConfig.maxTpsToTest
         minStep = self.ptConfig.testIterationMinStep
@@ -216,7 +216,7 @@ class PerformanceTest:
     def optimizePluginThreadCount(self,  optPlugin: PluginThreadOpt, optType: PluginThreadOptRunType=PluginThreadOptRunType.LOCAL_MAX,
                                   minThreadCount: int=2, maxThreadCount: int=os.cpu_count()) -> PluginThreadOptResult:
 
-        resultsFile = f"{self.loggingConfig.pluginThreadOptLogsDirPath}/{optPlugin.value}ThreadResults.txt"
+        resultsFile = Path(self.loggingConfig.pluginThreadOptLogsDirPath)/Path(f"{optPlugin.value}ThreadResults.txt")
 
         threadToMaxTpsDict: dict = {}
 
@@ -432,7 +432,7 @@ class PerformanceTest:
             print(f"Full Performance Test Report: {jsonReport}")
 
         if not self.ptConfig.delReport:
-            self.exportReportAsJSON(jsonReport, f"{self.loggingConfig.logDirPath}/report.json")
+            self.exportReportAsJSON(jsonReport, Path(self.loggingConfig.logDirPath)/Path("report.json"))
 
         if self.ptConfig.delPerfLogs:
             print(f"Cleaning up logs directory: {self.loggingConfig.logDirPath}")
@@ -519,7 +519,7 @@ def main():
                                         delTestReport=args.del_test_report,
                                         numAddlBlocksToPrune=args.num_blocks_to_prune,
                                         quiet=args.quiet,
-                                        logDirRoot=".",
+                                        logDirRoot=Path("."),
                                         skipTpsTests=args.skip_tps_test,
                                         calcProducerThreads=args.calc_producer_threads,
                                         calcChainThreads=args.calc_chain_threads,
