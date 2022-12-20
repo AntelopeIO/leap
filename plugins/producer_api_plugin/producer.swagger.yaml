@@ -527,7 +527,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  /producer/producer/get_unapplied_transactions:
+  /producer/get_unapplied_transactions:
     post:
       summary: get_unapplied_transactions
       description: Get Unapplied Transactions. No required parameters.
