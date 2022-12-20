@@ -86,9 +86,9 @@ class PerformanceTest:
         pluginThreadOptLogsDirPath: Path = field(default_factory=Path, init=False)
 
         def __post_init__(self):
-            self.logDirPath = Path(self.logDirBase)/Path(self.logDirTimestamp)
-            self.ptbLogsDirPath = Path(self.logDirPath)/Path("testRunLogs")
-            self.pluginThreadOptLogsDirPath = Path(self.logDirPath)/Path("pluginThreadOptRunLogs")
+            self.logDirPath = self.logDirBase/Path(self.logDirTimestamp)
+            self.ptbLogsDirPath = self.logDirPath/Path("testRunLogs")
+            self.pluginThreadOptLogsDirPath = self.logDirPath/Path("pluginThreadOptRunLogs")
 
     def __init__(self, testHelperConfig: PerformanceTestBasic.TestHelperConfig=PerformanceTestBasic.TestHelperConfig(),
                  clusterConfig: PerformanceTestBasic.ClusterConfig=PerformanceTestBasic.ClusterConfig(), ptConfig=PtConfig()):
@@ -102,7 +102,7 @@ class PerformanceTest:
                                                            logDirTimestamp=f"{self.testsStart.strftime('%Y-%m-%d_%H-%M-%S')}")
 
     def performPtbBinarySearch(self, clusterConfig: PerformanceTestBasic.ClusterConfig, logDirRoot: Path, delReport: bool, quiet: bool, delPerfLogs: bool) -> TpsTestResult.PerfTestSearchResults:
-        floor = 5000
+        floor = 0
         ceiling = self.ptConfig.maxTpsToTest
         binSearchTarget = self.ptConfig.maxTpsToTest
         minStep = self.ptConfig.testIterationMinStep
@@ -216,7 +216,7 @@ class PerformanceTest:
     def optimizePluginThreadCount(self,  optPlugin: PluginThreadOpt, optType: PluginThreadOptRunType=PluginThreadOptRunType.LOCAL_MAX,
                                   minThreadCount: int=2, maxThreadCount: int=os.cpu_count()) -> PluginThreadOptResult:
 
-        resultsFile = Path(self.loggingConfig.pluginThreadOptLogsDirPath)/Path(f"{optPlugin.value}ThreadResults.txt")
+        resultsFile = self.loggingConfig.pluginThreadOptLogsDirPath/Path(f"{optPlugin.value}ThreadResults.txt")
 
         threadToMaxTpsDict: dict = {}
 
@@ -311,7 +311,7 @@ class PerformanceTest:
         try:
             def removeArtifacts(path):
                 print(f"Checking if test artifacts dir exists: {path}")
-                if Path(f"{path}").is_dir():
+                if Path(path).is_dir():
                     print(f"Cleaning up test artifacts dir and all contents of: {path}")
                     shutil.rmtree(f"{path}")
 
@@ -327,7 +327,7 @@ class PerformanceTest:
         try:
             def createArtifactsDir(path):
                 print(f"Checking if test artifacts dir exists: {path}")
-                if not Path(f"{path}").is_dir():
+                if not Path(path).is_dir():
                     print(f"Creating test artifacts dir: {path}")
                     os.mkdir(f"{path}")
 
@@ -432,7 +432,7 @@ class PerformanceTest:
             print(f"Full Performance Test Report: {jsonReport}")
 
         if not self.ptConfig.delReport:
-            self.exportReportAsJSON(jsonReport, Path(self.loggingConfig.logDirPath)/Path("report.json"))
+            self.exportReportAsJSON(jsonReport, self.loggingConfig.logDirPath/Path("report.json"))
 
         if self.ptConfig.delPerfLogs:
             print(f"Cleaning up logs directory: {self.loggingConfig.logDirPath}")

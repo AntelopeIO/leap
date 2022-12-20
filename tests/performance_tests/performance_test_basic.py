@@ -106,7 +106,7 @@ class PerformanceTestBasic:
         logDirPath: Path = field(default_factory=Path, init=False)
 
         def __post_init__(self):
-            self.logDirPath = Path(self.logDirBase)/Path(f"{self.logDirTimestamp}{self.logDirTimestampedOptSuffix}")
+            self.logDirPath = self.logDirBase/Path(f"{self.logDirTimestamp}{self.logDirTimestampedOptSuffix}")
 
     def __init__(self, testHelperConfig: TestHelperConfig=TestHelperConfig(), clusterConfig: ClusterConfig=ClusterConfig(), ptbConfig=PtbConfig()):
         self.testHelperConfig = testHelperConfig
@@ -130,9 +130,7 @@ class PerformanceTestBasic:
         self.etcLogsDirPath = self.loggingConfig.logDirPath/Path("etc")
         self.etcEosioLogsDirPath = self.etcLogsDirPath/Path("eosio")
         self.blockDataLogDirPath = self.loggingConfig.logDirPath/Path("blockDataLogs")
-        # self.blockDataPath = f"{self.blockDataLogDirPath}/blockData.txt"
         self.blockDataPath = self.blockDataLogDirPath/Path("blockData.txt")
-        # self.blockTrxDataPath = f"{self.blockDataLogDirPath}/blockTrxData.txt"
         self.blockTrxDataPath = self.blockDataLogDirPath/Path("blockTrxData.txt")
         self.reportPath = self.loggingConfig.logDirPath/Path("data.json")
 
@@ -195,7 +193,7 @@ class PerformanceTestBasic:
             print(error)
 
     def fileOpenMode(self, filePath) -> str:
-        if Path(filePath).exists():
+        if filePath.exists():
             append_write = 'a'
         else:
             append_write = 'w'
@@ -361,6 +359,7 @@ class PerformanceTestBasic:
             self.preTestSpinup()
 
             self.ptbTestResult = self.runTpsTest()
+
             self.postTpsTestSteps()
 
             self.analyzeResultsAndReport(self.ptbTestResult)
