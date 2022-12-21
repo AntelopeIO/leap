@@ -346,15 +346,14 @@ struct state_history_test_fixture {
    ~state_history_test_fixture() { ws.close(websocket::close_code::normal); }
 };
 
-BOOST_AUTO_TEST_CASE(store_read_entry_no_prune) {
-
+void store_read_test_case(uint64_t data_size, std::optional<eosio::state_history_log_prune_config> config) {
    fc::temp_file            log_file, index_file;
-   eosio::state_history_log log("ship", log_file.path().string(), index_file.path().string());
+   eosio::state_history_log log("ship", log_file.path().string(), index_file.path().string(), config);
 
    eosio::state_history_log_header header;
    header.block_id     = block_id_for(1);
    header.payload_size = 0;
-   auto data           = generate_data(1024);
+   auto data           = generate_data(data_size);
 
    log.pack_and_write_entry(header, block_id_for(0),
       [&](auto&& buf) { bio::write(buf, (const char*)data.data(), data.size() * sizeof(data[0])); });
@@ -370,42 +369,24 @@ BOOST_AUTO_TEST_CASE(store_read_entry_no_prune) {
 
    std::vector<char> decompressed;
    auto& locked_strm = std::get<eosio::maybe_locked_compress_stream>(buf);
-   BOOST_CHECK(!locked_strm.lock.has_value());
+   BOOST_CHECK(locked_strm.lock.has_value() == config.has_value());
    bio::copy(locked_strm.buf, bio::back_inserter(decompressed));
 
    BOOST_CHECK_EQUAL(data.size() * sizeof(data[0]), decompressed.size());
    BOOST_CHECK(std::equal(decompressed.begin(), decompressed.end(), (const char*)data.data()));
 }
 
+BOOST_AUTO_TEST_CASE(store_read_entry_no_prune) {
+   store_read_test_case(1024, {});
+}
+
+BOOST_AUTO_TEST_CASE(store_read_big_entry_no_prune) {
+   // test the case where the uncompressed data size exceeds 4GB
+   store_read_test_case( (1ULL<< 32) + (1ULL << 20), {});
+}
+
 BOOST_AUTO_TEST_CASE(store_read_entry_prune_enabled) {
-
-   fc::temp_file            log_file, index_file;
-   eosio::state_history_log log("ship", log_file.path().string(), index_file.path().string(),
-                                eosio::state_history_log_prune_config{.prune_blocks = 100});
-
-   eosio::state_history_log_header header;
-   header.block_id     = block_id_for(1);
-   header.payload_size = 0;
-   auto data           = generate_data(1024);
-
-   log.pack_and_write_entry(header, block_id_for(0),
-          [&](auto&& buf) { bio::write(buf, (const char*)data.data(), data.size() * sizeof(data[0])); });
-
-   // make sure the current file position is at the end of file
-   auto pos = log.get_log_file().tellp();
-   log.get_log_file().seek_end(0);
-   BOOST_REQUIRE_EQUAL(log.get_log_file().tellp(), pos);
-
-   std::variant<std::vector<char>, eosio::maybe_locked_compress_stream> buf;
-   log.get_unpacked_entry(1, buf);
-
-   std::vector<char> decompressed;
-   auto& locked_strm = std::get<eosio::maybe_locked_compress_stream>(buf);
-   BOOST_CHECK(locked_strm.lock.has_value());
-   bio::copy(locked_strm.buf, bio::back_inserter(decompressed));
-
-   BOOST_CHECK_EQUAL(data.size() * sizeof(data[0]), decompressed.size());
-   BOOST_CHECK(std::equal(decompressed.begin(), decompressed.end(), (const char*)data.data()));
+   store_read_test_case(1024, eosio::state_history_log_prune_config{.prune_blocks = 100});
 }
 
 BOOST_FIXTURE_TEST_CASE(test_session_no_prune, state_history_test_fixture) {

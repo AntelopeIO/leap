@@ -16,7 +16,6 @@
 
 #include <boost/iostreams/device/file.hpp>
 #include <boost/iostreams/device/file_descriptor.hpp>
-// #include <boost/iostreams/filter/counter.hpp>
 #include <boost/iostreams/filter/zlib.hpp>
 #include <boost/iostreams/filtering_streambuf.hpp>
 #include <boost/iostreams/restrict.hpp>
@@ -349,10 +348,8 @@ class state_history_log {
       log.read((char*)&s, sizeof(s));
       if (s == 1 && payload_size > (s + sizeof(uint32_t))) {
          compressed_size = payload_size - sizeof(uint32_t) - sizeof(uint64_t);
-         uint64_t decompressed_size = 0;
+         uint64_t decompressed_size;
          log.read((char*)&decompressed_size, sizeof(decompressed_size));
-
-         EOS_ASSERT(decompressed_size < 0x8000000000000000, chain::plugin_exception, "error reading decompressed_size=${decompressed_size},  file = ${fn}, pos=${pos}", ("decompressed_size", decompressed_size)("fn", log.get_file_path().string())("pos", log.tellp()));
          result.emplace<maybe_locked_compress_stream>(this, log, compressed_size);
          return decompressed_size;
 
