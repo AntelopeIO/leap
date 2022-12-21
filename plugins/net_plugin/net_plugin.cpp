@@ -88,28 +88,20 @@ namespace eosio {
       block_id_type id;
       uint32_t      block_num = 0;
       uint32_t      connection_id = 0;
-      bool          have_block = false; // true if we have received the block, false if only received id notification
    };
 
-   struct by_peer_block_id;
+   struct by_connection_id;
    struct by_block_num;
 
    typedef multi_index_container<
       eosio::peer_block_state,
       indexed_by<
-         ordered_unique< tag<by_id>,
-               composite_key< peer_block_state,
-                     member<peer_block_state, uint32_t, &eosio::peer_block_state::connection_id>,
-                     member<peer_block_state, block_id_type, &eosio::peer_block_state::id>
-               >,
-               composite_key_compare< std::less<uint32_t>, sha256_less >
-         >,
-         ordered_non_unique< tag<by_peer_block_id>,
+         ordered_unique< tag<by_connection_id>,
                composite_key< peer_block_state,
                      member<peer_block_state, block_id_type, &eosio::peer_block_state::id>,
-                     member<peer_block_state, bool, &eosio::peer_block_state::have_block>
+                     member<peer_block_state, uint32_t, &eosio::peer_block_state::connection_id>
                >,
-               composite_key_compare< sha256_less, std::greater<bool> >
+               composite_key_compare< sha256_less, std::less<> >
          >,
          ordered_non_unique< tag<by_block_num>, member<eosio::peer_block_state, uint32_t, &eosio::peer_block_state::block_num > >
       >
@@ -1112,7 +1104,6 @@ namespace eosio {
             if( b ) {
                fc_dlog( logger, "fetch_block_by_id num ${n}, connection ${cid}",
                         ("n", b->block_num())("cid", c->connection_id) );
-               my_impl->dispatcher->add_peer_block( blkid, c->connection_id );
                c->strand.post( [c, b{std::move(b)}]() {
                   c->enqueue_block( b );
                } );
@@ -2059,33 +2050,25 @@ namespace eosio {
    // thread safe
    bool dispatch_manager::add_peer_block( const block_id_type& blkid, uint32_t connection_id) {
       std::lock_guard<std::mutex> g( blk_state_mtx );
-      auto bptr = blk_state.get<by_id>().find( std::make_tuple( connection_id, std::ref( blkid )));
+      auto bptr = blk_state.get<by_connection_id>().find( std::make_tuple(std::ref(blkid), connection_id) );
       bool added = (bptr == blk_state.end());
       if( added ) {
-         blk_state.insert( {blkid, block_header::num_from_id( blkid ), connection_id, true} );
-      } else if( !bptr->have_block ) {
-         blk_state.modify( bptr, []( auto& pb ) {
-            pb.have_block = true;
-         });
+         blk_state.insert( {blkid, block_header::num_from_id( blkid ), connection_id} );
       }
       return added;
    }
 
    bool dispatch_manager::peer_has_block( const block_id_type& blkid, uint32_t connection_id ) const {
       std::lock_guard<std::mutex> g(blk_state_mtx);
-      const auto blk_itr = blk_state.get<by_id>().find( std::make_tuple( connection_id, std::ref( blkid )));
+      const auto blk_itr = blk_state.get<by_connection_id>().find( std::make_tuple(std::ref(blkid), connection_id) );
       return blk_itr != blk_state.end();
    }
 
    bool dispatch_manager::have_block( const block_id_type& blkid ) const {
       std::lock_guard<std::mutex> g(blk_state_mtx);
-      // by_peer_block_id sorts have_block by greater so have_block == true will be the first one found
-      const auto& index = blk_state.get<by_peer_block_id>();
+      const auto& index = blk_state.get<by_connection_id>();
       auto blk_itr = index.find( blkid );
-      if( blk_itr != index.end() ) {
-         return blk_itr->have_block;
-      }
-      return false;
+      return blk_itr != index.end();
    }
 
    bool dispatch_manager::add_peer_txn( const transaction_id_type id, const time_point_sec& trx_expires,
@@ -2143,18 +2126,20 @@ namespace eosio {
          fc_dlog( logger, "socket_is_open ${s}, connecting ${c}, syncing ${ss}, connection ${cid}",
                   ("s", cp->socket_is_open())("c", cp->connecting.load())("ss", cp->syncing.load())("cid", cp->connection_id) );
          if( !cp->current() ) return true;
+
+         if( !add_peer_block( id, cp->connection_id ) ) {
+            fc_dlog( logger, "not bcast block ${b} to connection ${cid}", ("b", bnum)("cid", cp->connection_id) );
+            return true;
+         }
+
          send_buffer_type sb = buff_factory.get_send_buffer( b );
 
-         cp->strand.post( [this, cp, id, bnum, sb{std::move(sb)}]() {
+         cp->strand.post( [cp, bnum, sb{std::move(sb)}]() {
             cp->latest_blk_time = cp->get_time();
             std::unique_lock<std::mutex> g_conn( cp->conn_mtx );
             bool has_block = cp->last_handshake_recv.last_irreversible_block_num >= bnum;
             g_conn.unlock();
             if( !has_block ) {
-               if( !add_peer_block( id, cp->connection_id ) ) {
-                  peer_dlog( cp, "not bcast block ${b}", ("b", bnum) );
-                  return;
-               }
                peer_dlog( cp, "bcast block ${b}", ("b", bnum) );
                cp->enqueue_buffer( sb, no_reason );
             }
@@ -2606,6 +2591,7 @@ namespace eosio {
 
       const block_id_type blk_id = bh.calculate_id();
       const uint32_t blk_num = bh.block_num();
+      // don't add_peer_block because we have not validated this block yet
       if( my_impl->dispatcher->have_block( blk_id ) ) {
          peer_dlog( this, "canceling wait, already received block ${num}, id ${id}...",
                     ("num", blk_num)("id", blk_id.str().substr(8,16)) );
