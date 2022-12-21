@@ -3,7 +3,7 @@
 # Also ensures that all versions of nodeos logs can be handled
 import log_reader
 
-from pathlib import Path, PurePath
+from pathlib import Path
 
 testSuccessful = False
 
