@@ -158,7 +158,7 @@ jobs:
         with:
           container: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
             options: --privileged
-          error-log-paths: '["build/etc", "build/var", "build/leap-ignition-wd"]'
+          error-log-paths: '["build/etc", "build/var", "build/leap-ignition-wd", "build/TestLogs"]'
           log-tarball-prefix: ${{matrix.platform}}
           tests-label: nonparallelizable_tests
       - name: Upload logs from failed tests  
@@ -187,7 +187,7 @@ jobs:
         uses: ./.github/actions/parallel-ctest-containers
         with:
           container: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
-          error-log-paths: '["build/etc", "build/var", "build/leap-ignition-wd"]'
+          error-log-paths: '["build/etc", "build/var", "build/leap-ignition-wd", "build/TestLogs"]'
           log-tarball-prefix: ${{matrix.platform}}
           tests-label: long_running_tests
       - name: Upload logs from failed tests
