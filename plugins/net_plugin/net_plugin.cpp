@@ -180,6 +180,7 @@ namespace eosio {
       bool add_peer_block( const block_id_type& blkid, uint32_t connection_id );
       bool peer_has_block(const block_id_type& blkid, uint32_t connection_id) const;
       bool have_block(const block_id_type& blkid) const;
+      void rm_block(const block_id_type& blkid);
 
       bool add_peer_txn( const transaction_id_type id, const time_point_sec& trx_expires, uint32_t connection_id,
                          const time_point_sec& now = time_point::now() );
@@ -275,7 +276,7 @@ namespace eosio {
 
       compat::channels::transaction_ack::channel_type::handle  incoming_transaction_ack_subscription;
 
-      uint16_t                                       thread_pool_size = 2;
+      uint16_t                                       thread_pool_size = 4;
       std::optional<eosio::chain::named_thread_pool> thread_pool;
 
    private:
@@ -2071,6 +2072,13 @@ namespace eosio {
       return blk_itr != index.end();
    }
 
+   void dispatch_manager::rm_block( const block_id_type& blkid ) {
+      std::lock_guard<std::mutex> g(blk_state_mtx);
+      auto& index = blk_state.get<by_connection_id>();
+      auto p = index.equal_range(blkid);
+      index.erase(p.first, p.second);
+   }
+
    bool dispatch_manager::add_peer_txn( const transaction_id_type id, const time_point_sec& trx_expires,
                                         uint32_t connection_id, const time_point_sec& now ) {
       std::lock_guard<std::mutex> g( local_txns_mtx );
@@ -3156,20 +3164,26 @@ namespace eosio {
          return;
       }
 
-      app().post(priority::medium, [ptr{std::move(ptr)}, bsp, id, c = shared_from_this()]() mutable {
+      bool valid_block_header = !!bsp;
+
+      if( valid_block_header ) {
+         // post to dispatcher strond the bcast_block so that if process_signed_block fails its rm_block will post
+         // to the dispatcher strand after the add_peer_block calls of bcast_block
+         my_impl->dispatcher->strand.post( [bsp, cid=connection_id]() {
+            fc_dlog( logger, "validated block header, broadcasting immediately, blk num = ${num}, id = ${id}",
+                     ("num", bsp->block_num)("id", bsp->id) );
+            my_impl->dispatcher->add_peer_block( bsp->id, cid ); // no need to send back to sender
+            my_impl->dispatcher->bcast_block( bsp->block, bsp->id );
+         });
+      }
+
+      app().post(priority::medium, [ptr{std::move(ptr)}, bsp{std::move(bsp)}, id, c = shared_from_this()]() mutable {
          c->process_signed_block( id, std::move(ptr), std::move(bsp) );
       });
 
-      if( bsp ) { // validated block header
+      if( valid_block_header ) {
          // ready to process immediately, so signal producer to interrupt start_block
          my_impl->producer_plug->received_block();
-         my_impl->dispatcher->add_peer_block( bsp->id, connection_id ); // no need to send back to sender
-         my_impl->dispatcher->strand.post( [bsp{std::move(bsp)}]() {
-            fc_dlog( logger, "validated block header, broadcasting immediately, blk num = ${num}, id = ${id}",
-                     ("num", bsp->block_num)("id", bsp->id) );
-            my_impl->dispatcher->bcast_block( bsp->block, bsp->id );
-         });
-
       }
    }
 
@@ -3202,12 +3216,11 @@ namespace eosio {
       fc_dlog( logger, "received signed_block: #${n} block age in secs = ${age}, connection ${cid}",
                ("n", blk_num)("age", age.to_seconds())("cid", c->connection_id) );
 
-      go_away_reason reason = fatal_other;
+      go_away_reason reason = no_reason;
       try {
          bool accepted = my_impl->chain_plug->accept_block(msg, blk_id, bsp);
          my_impl->update_chain_info();
-         if( !accepted ) return;
-         reason = no_reason;
+         if( !accepted ) reason = unlinkable;
       } catch( const unlinkable_block_exception &ex) {
          fc_elog(logger, "unlinkable_block_exception connection ${cid}: #${n} ${id}...: ${m}",
                  ("cid", c->connection_id)("n", blk_num)("id", blk_id.str().substr(8,16))("m",ex.to_string()));
@@ -3219,12 +3232,15 @@ namespace eosio {
       } catch( const assert_exception &ex ) {
          fc_elog(logger, "block assert_exception connection ${cid}: #${n} ${id}...: ${m}",
                  ("cid", c->connection_id)("n", blk_num)("id", blk_id.str().substr(8,16))("m",ex.to_string()));
+         reason = fatal_other;
       } catch( const fc::exception &ex ) {
          fc_elog(logger, "bad block exception connection ${cid}: #${n} ${id}...: ${m}",
                  ("cid", c->connection_id)("n", blk_num)("id", blk_id.str().substr(8,16))("m",ex.to_string()));
+         reason = fatal_other;
       } catch( ... ) {
          fc_elog(logger, "bad block connection ${cid}: #${n} ${id}...: unknown exception",
                  ("cid", c->connection_id)("n", blk_num)("id", blk_id.str().substr(8,16)));
+         reason = fatal_other;
       }
 
       if( reason == no_reason ) {
@@ -3237,7 +3253,14 @@ namespace eosio {
             sync_master->sync_recv_block( c, blk_id, blk_num, true );
          });
       } else {
-         c->strand.post( [sync_master = my_impl->sync_master.get(), dispatcher = my_impl->dispatcher.get(), c, blk_id, blk_num]() {
+         c->strand.post( [sync_master = my_impl->sync_master.get(), dispatcher = my_impl->dispatcher.get(), c, blk_id, blk_num, reason]() {
+            if( reason == unlinkable ) {
+               // unlinkable may be linkable in the future, so indicate we have not received it
+               // call on dispatch strand to serialize with the add_peer_block calls
+               my_impl->dispatcher->strand.post( [blk_id]() {
+                  my_impl->dispatcher->rm_block( blk_id );
+               } );
+            }
             sync_master->rejected_block( c, blk_num );
             dispatcher->rejected_block( blk_id );
          });

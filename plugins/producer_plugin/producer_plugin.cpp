@@ -443,7 +443,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
 
          /* de-dupe here... no point in aborting block if we already know the block */
          auto existing = chain.fetch_block_by_id( id );
-         if( existing ) { return false; }
+         if( existing ) { return true; } // return true because the block is valid
 
          // start processing of block
          std::future<block_state_ptr> bsf;
@@ -480,6 +480,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          } catch ( const fork_database_exception& e ) {
             elog("Cannot recover from ${e}. Shutting down.", ("e", e.to_detail_string()));
             appbase::app().quit();
+            return false;
          } catch( const fc::exception& e ) {
             handle_error(e);
          } catch (const std::exception& e) {
