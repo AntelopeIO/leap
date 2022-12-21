@@ -245,8 +245,9 @@ class Cluster(object):
             time.sleep(2)
 
         cmd="%s -p %s -n %s -d %s -i %s -f %s --unstarted-nodes %s" % (
-            "python3.8 tests/launcher.py", #Utils.EosLauncherPath, 
-            pnodes, totalNodes, delay, datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3],
+            "python tests/launcher.py",  
+            pnodes, totalNodes, delay, 
+            datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3],
             producerFlag, unstartedNodes)
         cmdArr=cmd.split()
         if self.staging:
