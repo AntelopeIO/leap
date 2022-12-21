@@ -18,8 +18,7 @@ recover_keys_future transaction_metadata::start_recover_keys( packed_transaction
          const signed_transaction& trn = trx->get_signed_transaction();
          flat_set<public_key_type> recovered_pub_keys;
          fc::microseconds cpu_usage = trn.get_signature_keys( chain_id, deadline, recovered_pub_keys );
-         return std::make_shared<transaction_metadata>( private_type(), std::move( trx ), cpu_usage, std::move( recovered_pub_keys ),
-                                                        t==trx_type::implicit, t==trx_type::scheduled, t==trx_type::read_only);
+         return std::make_shared<transaction_metadata>( private_type(), std::move( trx ), cpu_usage, std::move( recovered_pub_keys ), t );
       }
    );
 }

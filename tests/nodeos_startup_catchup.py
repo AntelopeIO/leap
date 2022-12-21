@@ -124,17 +124,20 @@ try:
     numBlocks=20
     endBlockNum=startBlockNum+numBlocks
     waitForBlock(node0, endBlockNum)
-    transactions=0
-    avg=0
-    for blockNum in range(startBlockNum, endBlockNum):
-        block=node0.getBlock(blockNum)
-        transactions+=len(block["transactions"])
+    steadyStateWindowTrxs=0
+    steadyStateAvg=0
+    steadyStateWindowBlks=0
+    for bNum in range(startBlockNum, endBlockNum):
+        steadyStateWindowBlks=steadyStateWindowBlks+1
+        block=node0.getBlock(bNum)
+        steadyStateWindowTrxs+=len(block["transactions"])
 
-    avg=transactions / (blockNum - startBlockNum + 1)
+    steadyStateAvg=steadyStateWindowTrxs / steadyStateWindowBlks
 
     Print("Validate transactions are generating")
-    minRequiredTransactions=transactionsPerBlock
-    assert avg>minRequiredTransactions, "Expected to at least receive %s transactions per block, but only getting %s" % (minRequiredTransactions, avg)
+    minReqPctLeeway=0.9
+    minRequiredTransactions=minReqPctLeeway*transactionsPerBlock
+    assert steadyStateAvg>=minRequiredTransactions, "Expected to at least receive %s transactions per block, but only getting %s" % (minRequiredTransactions, steadyStateAvg)
 
     Print("Cycle through catchup scenarios")
     twoRounds=21*2*12
