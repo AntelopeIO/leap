@@ -6,7 +6,6 @@ import re
 import numpy as np
 import json
 import gzip
-import math
 
 from pathlib import Path, PurePath
 sys.path.append(str(PurePath(PurePath(Path(__file__).absolute()).parent).parent))

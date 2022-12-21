@@ -4,7 +4,7 @@ import argparse
 import log_reader
 import launch_transaction_generators as ltg
 
-from pathlib import Path, PurePath
+from pathlib import Path
 
 parser = argparse.ArgumentParser(add_help=False)
 parser.add_argument("--target-tps", type=int, help="The target transfers per second to send during test", default=8000)
