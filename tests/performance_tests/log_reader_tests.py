@@ -3,13 +3,15 @@
 # Also ensures that all versions of nodeos logs can be handled
 import log_reader
 
+from pathlib import Path, PurePath
+
 testSuccessful = False
 
 # Test log scraping for 3.2 log format
 dataCurrent = log_reader.chainData()
 dataCurrent.startBlock = None
 dataCurrent.ceaseBlock = None
-log_reader.scrapeLog(dataCurrent, "tests/performance_tests/nodeos_log_3_2.txt.gz")
+log_reader.scrapeLog(dataCurrent, Path("tests")/Path("performance_tests")/Path("nodeos_log_3_2.txt.gz"))
 
 expectedCurrent = log_reader.chainData()
 expectedCurrent.startBlock = 2
@@ -101,7 +103,7 @@ assert expectedTpsStats == stats , f"Error: Stats calculated: {stats} did not ma
 dataOld = log_reader.chainData()
 dataOld.startBlock = None
 dataOld.ceaseBlock = None
-log_reader.scrapeLog(dataOld, "tests/performance_tests/nodeos_log_2_0_14.txt.gz")
+log_reader.scrapeLog(dataOld, Path("tests")/Path("performance_tests")/Path("nodeos_log_2_0_14.txt.gz"))
 expectedOld = log_reader.chainData()
 expectedOld.startBlock = 2
 expectedOld.ceaseBlock = 93
