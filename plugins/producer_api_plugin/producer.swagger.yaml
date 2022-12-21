@@ -9,7 +9,7 @@ info:
   contact:
     url: https://antelope.io
 tags:
-  - name: Protocol Version 3.2
+  - name: Protocol Version 4.0
     description: The release tag for Leap binaries is also the protocol version
 servers:
   - url: "{protocol}://{host}:{port}/v1"
