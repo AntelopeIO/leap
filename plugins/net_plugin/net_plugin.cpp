@@ -295,7 +295,7 @@ namespace eosio {
       void start_listen_loop();
 
       void on_accepted_block( const block_state_ptr& bs );
-      void on_pre_accepted_block( const signed_block_ptr& bs );
+      void on_accepted_block_header( const block_state_ptr& bs );
       void transaction_ack(const std::pair<fc::exception_ptr, packed_transaction_ptr>&);
       void on_irreversible_block( const block_state_ptr& blk );
 
@@ -3156,13 +3156,21 @@ namespace eosio {
          return;
       }
 
-      bool signal_producer = !!bsp; // ready to process immediately, so signal producer to interrupt start_block
-      app().post(priority::medium, [ptr{std::move(ptr)}, bsp{std::move(bsp)}, id, c = shared_from_this()]() mutable {
+      app().post(priority::medium, [ptr{std::move(ptr)}, bsp, id, c = shared_from_this()]() mutable {
          c->process_signed_block( id, std::move(ptr), std::move(bsp) );
       });
 
-      if( signal_producer )
+      if( bsp ) { // validated block header
+         // ready to process immediately, so signal producer to interrupt start_block
          my_impl->producer_plug->received_block();
+         my_impl->dispatcher->add_peer_block( bsp->id, connection_id ); // no need to send back to sender
+         my_impl->dispatcher->strand.post( [bsp{std::move(bsp)}]() {
+            fc_dlog( logger, "validated block header, broadcasting immediately, blk num = ${num}, id = ${id}",
+                     ("num", bsp->block_num)("id", bsp->id) );
+            my_impl->dispatcher->bcast_block( bsp->block, bsp->id );
+         });
+
+      }
    }
 
    // called from application thread
@@ -3372,25 +3380,21 @@ namespace eosio {
    // called from application thread
    void net_plugin_impl::on_accepted_block(const block_state_ptr& bs) {
       update_chain_info();
-      dispatcher->strand.post( [this, bs]() {
+      dispatcher->strand.post( [bs]() {
          fc_dlog( logger, "signaled accepted_block, blk num = ${num}, id = ${id}", ("num", bs->block_num)("id", bs->id) );
 
-         dispatcher->bcast_block( bs->block, bs->id );
+         my_impl->dispatcher->bcast_block( bs->block, bs->id );
       });
    }
 
    // called from application thread
-   void net_plugin_impl::on_pre_accepted_block(const signed_block_ptr& block) {
+   void net_plugin_impl::on_accepted_block_header(const block_state_ptr& bs) {
       update_chain_info();
-      controller& cc = chain_plug->chain();
-      if( cc.is_trusted_producer(block->producer) ) {
-         dispatcher->strand.post( [this, block]() {
-            auto id = block->calculate_id();
-            fc_dlog( logger, "signaled pre_accepted_block, blk num = ${num}, id = ${id}", ("num", block->block_num())("id", id) );
+      dispatcher->strand.post( [bs]() {
+         fc_dlog( logger, "signaled accepted_block_header, blk num = ${num}, id = ${id}", ("num", bs->block_num)("id", bs->id) );
 
-            dispatcher->bcast_block( block, id );
-         });
-      }
+         my_impl->dispatcher->bcast_block( bs->block, bs->id );
+      });
    }
 
    // called from application thread
@@ -3730,8 +3734,8 @@ namespace eosio {
          cc.accepted_block.connect( [my = my]( const block_state_ptr& s ) {
             my->on_accepted_block( s );
          } );
-         cc.pre_accepted_block.connect( [my = my]( const signed_block_ptr& s ) {
-            my->on_pre_accepted_block( s );
+         cc.accepted_block_header.connect( [my = my]( const block_state_ptr& s ) {
+            my->on_accepted_block_header( s );
          } );
          cc.irreversible_block.connect( [my = my]( const block_state_ptr& s ) {
             my->on_irreversible_block( s );
