@@ -11,6 +11,7 @@ import datetime
 import sys
 import random
 import json
+import socket
 
 from core_symbol import CORE_SYMBOL
 from .testUtils import Utils
@@ -19,6 +20,10 @@ from .testUtils import BlockLogAction
 from .Node import BlockType
 from .Node import Node
 from .WalletMgr import WalletMgr
+
+from .libc import unshare, CLONE_NEWNET
+from .interfaces import getInterfaceFlags, setInterfaceUp, IFF_LOOPBACK
+
 
 # Protocol Feature Setup Policy
 class PFSetupPolicy:
@@ -120,6 +125,11 @@ class Cluster(object):
         self.filesToCleanup=[]
         self.alternateVersionLabels=Cluster.__defaultAlternateVersionLabels()
         self.biosNode = None
+
+        unshare(CLONE_NEWNET)
+        for index, name in socket.if_nameindex():
+            if getInterfaceFlags(name) & IFF_LOOPBACK:
+                setInterfaceUp(name)
 
 
     def setChainStrategy(self, chainSyncStrategy=Utils.SyncReplayTag):
@@ -235,7 +245,8 @@ class Cluster(object):
             time.sleep(2)
 
         cmd="%s -p %s -n %s -d %s -i %s -f %s --unstarted-nodes %s" % (
-            Utils.EosLauncherPath, pnodes, totalNodes, delay, datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3],
+            "python3.8 tests/launcher.py", #Utils.EosLauncherPath, 
+            pnodes, totalNodes, delay, datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3],
             producerFlag, unstartedNodes)
         cmdArr=cmd.split()
         if self.staging:
@@ -437,6 +448,7 @@ class Cluster(object):
             self.unstartedNodes=self.discoverUnstartedLocalNodes(unstartedNodes, totalNodes)
 
         biosNode=self.discoverBiosNode(timeout=Utils.systemWaitTimeout)
+
         if not biosNode or not Utils.waitForBool(biosNode.checkPulse, Utils.systemWaitTimeout):
             Utils.Print("ERROR: Bios node doesn't appear to be running...")
             return False
@@ -1002,7 +1014,7 @@ class Cluster(object):
             Utils.Print("Set FEATURE_DIGESTS to: %s" % env["FEATURE_DIGESTS"])
 
         if 0 != subprocess.call(cmd.split(), stdout=Utils.FNull, env=env):
-            if not silent: Utils.Print("Launcher failed to shut down eos cluster.")
+            if not silent: Utils.Print("Launcher failed to initialize leap cluster using bios_boot.sh.")
             return None
 
         p = re.compile(r"\berror\b", re.IGNORECASE)

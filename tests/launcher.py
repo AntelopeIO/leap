@@ -8,7 +8,6 @@ from pathlib import Path
 import os
 import math
 import shlex
-import socket
 import string
 import subprocess
 import sys
@@ -16,9 +15,6 @@ from typing import ClassVar, Dict, List
 
 from TestHarness import Cluster
 from TestHarness import Utils
-
-from libc import unshare, CLONE_NEWNET
-from interfaces import getInterfaceFlags, setInterfaceUp, IFF_LOOPBACK
 
 block_dir = 'blocks'
 
@@ -189,7 +185,7 @@ class launcher(object):
         cfg.add_argument('--network-name', help='network name prefix used in GELF logging source', default='testnet_')
         cfg.add_argument('--enable-gelf-logging', action='store_true', help='enable gelf logging appender in logging configuration file', default=False)
         cfg.add_argument('--gelf-endpoint', help='hostname:port or ip:port of GELF endpoint', default='128.0.0.1:12201')
-        cfg.add_argument('--template', help='the startup script template')
+        cfg.add_argument('--template', help='the startup script template', default='testnet.template')
         cfg.add_argument('--script', help='the optionally generated startup script name', default='bios_boot.sh')
         cfg.add_argument('--max-block-cpu-usage', type=int, help='the "max-block-cpu-usage" value to use in the genesis.json file', default=200000)
         cfg.add_argument('--max-transaction-cpu-usage', type=int, help='the "max-transaction-cpu-usage" value to use in the genesis.json file', default=150000)
@@ -539,12 +535,35 @@ plugin = eosio::chain_api_plugin
             err_sl.symlink_to(err.name)
 
     def start_all(self):
-        unshare(CLONE_NEWNET)
-        for index, name in socket.if_nameindex():
-            if getInterfaceFlags(name) & IFF_LOOPBACK:
-                setInterfaceUp(name)
         for instance in self.network.nodes.values():
             self.launch(instance)
+        self.write_bios_boot()
+
+    def write_bios_boot(self):
+        templatePath = Path(self.args.config_dir) / 'launcher' / self.args.template
+        with open(templatePath, 'r') as f:
+            template = f.read()
+        scriptPath = Path('.') / self.args.script
+        with open(scriptPath, 'w') as f:
+            bhost = self.network.nodes['bios'].host_name
+            biosport = self.network.nodes['bios'].http_port
+            prefix = '###INSERT '
+            for line in template.split('\n'):
+                if prefix in line:
+                    if 'envars' in line:
+                        f.write(f'bioshost={bhost}\n')
+                        f.write(f'biosport={biosport}\n')
+                    elif 'prodkeys' in line:
+                        for node in self.network.nodes.values():
+                            f.write(f'wcmd import -n ignition --private-key {node.keys[0].privkey}\n')
+                    elif 'cacmd' in line:
+                        for node in self.network.nodes.values():
+                            if node.producers[0] == 'eosio':
+                                continue
+                            for producer in node.producers:
+                                f.write(f'cacmd {producer} {node.keys[0].pubkey} {node.keys[0].pubkey}\n')
+                f.write(f'{line}\n')
+
     
     def write_dot_file(self):
         with open('testnet.dot', 'w') as f:
