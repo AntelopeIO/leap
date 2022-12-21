@@ -424,9 +424,11 @@ paths:
                   type: boolean
                   description: Exclude disabled protocol features
                   example: false
+                  default: false
                 exclude_unactivatable:
                   type: boolean
                   description: Exclude unactivatable protocol features
+                  default: false
                   example: false
       responses:
         "201":
@@ -499,11 +501,13 @@ paths:
                 limit:
                   type: integer
                   description: number of rows to scan
+                  default: 10
                   example: 10
                 reverse:
                   type: boolean
                   description: direction of search
                   example: false
+                  default: false
       responses:
         "201":
           description: OK
@@ -532,7 +536,7 @@ paths:
   /producer/get_unapplied_transactions:
     post:
       summary: get_unapplied_transactions
-      description: Get Unapplied Transactions. No required parameters.
+      description: Get Unapplied Transactions.
       operationId: get_unapplied_transactions
       requestBody:
         content:
@@ -543,12 +547,13 @@ paths:
                 limit:
                   type: integer
                   description: limit number of transactions to return
-                  example: 2
+                  default: 100
+                  example: 100
                 lower_bound:
                   $ref: "https://docs.eosnetwork.com/openapi/v2.0/Sha256.yaml"
                 time_limit_ms:
                   type: integer
-                  description: defaults to 10ms
+                  default: 10
                   example: 10
       responses:
         "200":
@@ -560,9 +565,11 @@ paths:
                 properties:
                   size:
                     type: integer
+                    default: 0
                     example: 12428
                   incoming_size:
                     type: integer
+                    default: 0
                     example: 4475
                   trxs:
                     type: array
@@ -588,12 +595,15 @@ paths:
                           example: "mine"
                         total_actions:
                           type: integer
+                          default: 0
                           example: 1
                         billed_cpu_time_us:
                           type: integer
+                          default: 0
                           example: 504
                         size:
                           type: integer
+                          default: 0
                           example: 934
                   more:
                     $ref: "https://docs.eosnetwork.com/openapi/v2.0/Sha256.yaml"
