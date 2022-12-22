@@ -529,18 +529,20 @@ namespace eosio { namespace chain {
 
             if( billed_us > account_limit ) {
                fc::microseconds tx_limit;
-               std::string assert_msg = "billed CPU time (${billed} us) is greater than the maximum";
+               std::string assert_msg;
+               assert_msg.reserve(1024);
+               assert_msg += "billed CPU time (${billed} us) is greater than the maximum";
                assert_msg += graylisted ? " greylisted" : "";
                assert_msg += " billable CPU time for the transaction (${billable} us)";
                assert_msg += subjective_billed_us > 0 ? " with a subjective cpu of (${subjective} us)" : "";
                assert_msg += get_tx_cpu_usage_exceeded_reason_msg( tx_limit );
 
                if( graylisted ) {
-                  EOS_ASSERT( false, greylist_cpu_usage_exceeded, std::move(assert_msg),
-                              ("billed", billed_us)("billable", account_limit)("subjective", subjective_billed_us)("limit", tx_limit) );
+                  FC_THROW_EXCEPTION( greylist_cpu_usage_exceeded, std::move(assert_msg),
+                                      ("billed", billed_us)("billable", account_limit)("subjective", subjective_billed_us)("limit", tx_limit) );
                } else {
-                  EOS_ASSERT( false, tx_cpu_usage_exceeded, std::move(assert_msg),
-                              ("billed", billed_us)("billable", account_limit)("subjective", subjective_billed_us)("limit", tx_limit) );
+                  FC_THROW_EXCEPTION( tx_cpu_usage_exceeded, std::move(assert_msg),
+                                      ("billed", billed_us)("billable", account_limit)("subjective", subjective_billed_us)("limit", tx_limit) );
                }
             }
          }
@@ -564,18 +566,20 @@ namespace eosio { namespace chain {
             auto account_limit = graylisted ? account_cpu_limit : (cpu_limited_by_account ? account_cpu_limit : objective_duration_limit.count());
 
             if( prev_billed_us >= account_limit ) {
-               std::string assert_msg = "estimated CPU time (${billed} us) is not less than the maximum";
+               std::string assert_msg;
+               assert_msg.reserve(1024);
+               assert_msg += "estimated CPU time (${billed} us) is not less than the maximum";
                assert_msg += graylisted ? " greylisted" : "";
                assert_msg += " billable CPU time for the transaction (${billable} us)";
                assert_msg += subjective_billed_us > 0 ? " with a subjective cpu of (${subjective} us)" : "";
                assert_msg += " reached account cpu limit ${limit}us";
 
                if( graylisted ) {
-                  EOS_ASSERT( false, greylist_cpu_usage_exceeded, std::move(assert_msg),
-                              ("billed", prev_billed_us)("billable", account_limit)("subjective", subjective_billed_us)("limit", account_limit) );
+                  FC_THROW_EXCEPTION( greylist_cpu_usage_exceeded, std::move(assert_msg),
+                                      ("billed", prev_billed_us)("billable", account_limit)("subjective", subjective_billed_us)("limit", account_limit) );
                } else {
-                  EOS_ASSERT( false, tx_cpu_usage_exceeded, std::move(assert_msg),
-                              ("billed", prev_billed_us)("billable", account_limit)("subjective", subjective_billed_us)("limit", account_limit) );
+                  FC_THROW_EXCEPTION( tx_cpu_usage_exceeded, std::move(assert_msg),
+                                      ("billed", prev_billed_us)("billable", account_limit)("subjective", subjective_billed_us)("limit", account_limit) );
                }
             }
          }
