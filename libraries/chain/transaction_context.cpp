@@ -137,25 +137,19 @@ namespace eosio { namespace chain {
          net_limit_due_to_block = false;
       }
 
+      // Possibly lower objective_duration_limit to optional limit set in transaction header
       if( trx.max_cpu_usage_ms > 0 ) {
          auto trx_specified_cpu_usage_limit = fc::milliseconds(trx.max_cpu_usage_ms);
-         if( is_read_only() ) {
-            // Possibly limit deadline to optional limit set in transaction header
-            if( trx_specified_cpu_usage_limit <= read_only_trx_cpu_usage_limit ) {
-               billing_timer_exception_code = tx_cpu_usage_exceeded::code_value;
-               _deadline = start + trx_specified_cpu_usage_limit;
-            }
-         } else {
-            // Possibly lower objective_duration_limit to optional limit set in transaction header
-            if( trx_specified_cpu_usage_limit <= objective_duration_limit ) {
-               objective_duration_limit = trx_specified_cpu_usage_limit;
-               billing_timer_exception_code = tx_cpu_usage_exceeded::code_value;
-               _deadline = start + objective_duration_limit;
-            }
+         if( trx_specified_cpu_usage_limit <= objective_duration_limit ) {
+            objective_duration_limit = trx_specified_cpu_usage_limit;
+            billing_timer_exception_code = tx_cpu_usage_exceeded::code_value;
+            _deadline = start + objective_duration_limit;
          }
       }
 
       initial_objective_duration_limit = objective_duration_limit;
+      int64_t account_net_limit = 0;
+      int64_t account_cpu_limit = 0;
 
       if ( !is_read_only() ) {
          if( explicit_billed_cpu_time )
@@ -177,15 +171,15 @@ namespace eosio { namespace chain {
          rl.update_account_usage( bill_to_accounts, block_timestamp_type(control.pending_block_time()).slot );
 
          // Calculate the highest network usage and CPU time that all of the billed accounts can afford to be billed
-         int64_t account_net_limit = 0;
-         int64_t account_cpu_limit = 0;
          bool greylisted_net = false, greylisted_cpu = false;
          std::tie( account_net_limit, account_cpu_limit, greylisted_net, greylisted_cpu) = max_bandwidth_billed_accounts_can_pay();
          net_limit_due_to_greylist |= greylisted_net;
          cpu_limit_due_to_greylist |= greylisted_cpu;
+      }
 
-         eager_net_limit = net_limit;
+      eager_net_limit = net_limit;
 
+      if ( !is_read_only() ) {
          // Possibly lower eager_net_limit to what the billed accounts can pay plus some (objective) leeway
          auto new_eager_net_limit = std::min( eager_net_limit, static_cast<uint64_t>(account_net_limit + cfg.net_usage_leeway) );
          if( new_eager_net_limit < eager_net_limit ) {
@@ -204,13 +198,15 @@ namespace eosio { namespace chain {
             _deadline = start + max_transaction_time_subjective;
             billing_timer_exception_code = tx_cpu_usage_exceeded::code_value;
          }
+      }
 
-         // Possibly limit deadline to caller provided wall clock block deadline
-         if( block_deadline < _deadline ) {
-            _deadline = block_deadline;
-            billing_timer_exception_code = deadline_exception::code_value;
-         }
+      // Possibly limit deadline to caller provided wall clock block deadline
+      if( block_deadline < _deadline ) {
+         _deadline = block_deadline;
+         billing_timer_exception_code = deadline_exception::code_value;
+      }
 
+      if ( !is_read_only() ) {
          if( !explicit_billed_cpu_time ) {
             int64_t validate_account_cpu_limit = account_cpu_limit - subjective_cpu_bill_us + leeway.count(); // Add leeway to allow powerup
             // Possibly limit deadline to account subjective cpu left
@@ -225,16 +221,14 @@ namespace eosio { namespace chain {
             if( validate_account_cpu_limit < 0 ) validate_account_cpu_limit = 0;
             validate_account_cpu_usage_estimate( billed_cpu_time_us, validate_account_cpu_limit, subjective_cpu_bill_us );
          }
+      }
 
-         // Explicit billed_cpu_time_us should be used, block_deadline will be maximum unless in test code
-         if( explicit_billed_cpu_time ) {
-            _deadline = block_deadline;
-            deadline_exception_code = deadline_exception::code_value;
-         } else {
-            deadline_exception_code = billing_timer_exception_code;
-         }
+      // Explicit billed_cpu_time_us should be used, block_deadline will be maximum unless in test code
+      if( explicit_billed_cpu_time ) {
+         _deadline = block_deadline;
+         deadline_exception_code = deadline_exception::code_value;
       } else {
-         eager_net_limit = net_limit;
+         deadline_exception_code = billing_timer_exception_code;
       }
 
       eager_net_limit = (eager_net_limit/8)*8; // Round down to nearest multiple of word size (8 bytes) so check_net_usage can be efficient
