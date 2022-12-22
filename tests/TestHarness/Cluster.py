@@ -891,11 +891,11 @@ class Cluster(object):
 
         node.validateAccounts(myAccounts)
 
-    def createAccountAndVerify(self, account, creator, stakedDeposit=1000, stakeNet=100, stakeCPU=100, buyRAM=10000):
+    def createAccountAndVerify(self, account, creator, stakedDeposit=1000, stakeNet=100, stakeCPU=100, buyRAM=10000, validationNodeIndex=0):
         """create account, verify account and return transaction id"""
-        assert(len(self.nodes) > 0)
-        node=self.nodes[0]
-        trans=node.createInitializeAccount(account, creator, stakedDeposit, stakeNet=stakeNet, stakeCPU=stakeCPU, buyRAM=buyRAM, exitOnError=True)
+        assert(len(self.nodes) > validationNodeIndex)
+        node=self.nodes[validationNodeIndex]
+        trans=node.createInitializeAccount(account, creator, stakedDeposit, waitForTransBlock=True, stakeNet=stakeNet, stakeCPU=stakeCPU, buyRAM=buyRAM, exitOnError=True)
         assert(node.verifyAccount(account))
         return trans
 
@@ -1578,7 +1578,8 @@ class Cluster(object):
         transId=None
         for account in self.accounts:
             if Utils.Debug: Utils.Print("Create account %s." % (account.name))
-            trans=self.createAccountAndVerify(account, creator, stakedDeposit)
+            if Utils.Debug: Utils.Print("Validation node %s" % validationNodeIndex)
+            trans=self.createAccountAndVerify(account, creator, stakedDeposit, validationNodeIndex=validationNodeIndex)
             if trans is None:
                 Utils.Print("ERROR: Failed to create account %s." % (account.name))
                 return False
