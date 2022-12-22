@@ -44,8 +44,8 @@ namespace eosio::testing {
       trxs.reserve(2 * action_pairs_vector.size());
 
       for(action_pair_w_keys ap: action_pairs_vector) {
-         trxs.emplace_back(std::move(create_transfer_trx_w_signer(ap._first_act, ap._first_act_priv_key, nonce_prefix, nonce, trx_expiration, chain_id, last_irr_block_id)));
-         trxs.emplace_back(std::move(create_transfer_trx_w_signer(ap._second_act, ap._second_act_priv_key, nonce_prefix, nonce, trx_expiration, chain_id, last_irr_block_id)));
+         trxs.emplace_back(create_transfer_trx_w_signer(ap._first_act, ap._first_act_priv_key, nonce_prefix, nonce, trx_expiration, chain_id, last_irr_block_id));
+         trxs.emplace_back(create_transfer_trx_w_signer(ap._second_act, ap._second_act_priv_key, nonce_prefix, nonce, trx_expiration, chain_id, last_irr_block_id));
       }
 
       return trxs;

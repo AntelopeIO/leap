@@ -3,7 +3,7 @@
 #include <fc/io/json.hpp>
 #include <fc/variant.hpp>
 
-#include <cli11/CLI11.hpp>
+#include <CLI/CLI.hpp>
 
 #include "actions/blocklog.hpp"
 #include "actions/chain.hpp"

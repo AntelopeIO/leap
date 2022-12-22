@@ -25,3 +25,6 @@
 [submodule "libraries/libfc/libraries/bn256"]
 	path = libraries/libfc/libraries/bn256
 	url = https://github.com/AntelopeIO/bn256
+[submodule "libraries/cli11/cli11"]
+	path = libraries/cli11/cli11
+	url = https://github.com/AntelopeIO/CLI11.git
