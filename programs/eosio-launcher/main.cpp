@@ -418,6 +418,7 @@ struct launcher_def {
    bool nogen;
    bool boot;
    bool add_enable_stale_production = false;
+   bool is_nodeos_v2 = false;
    string launch_name;
    string launch_time;
    server_identities servers;
@@ -510,6 +511,7 @@ launcher_def::set_options (bpo::options_description &cfg) {
     ("max-transaction-cpu-usage",bpo::value<uint32_t>(),"Provide the \"max-transaction-cpu-usage\" value to use in the genesis.json file")
     ("logging-level",bpo::value<string>(),"Provide the \"level\" value to use in the logging.json file ")
     ("logging-level-map",bpo::value<string>(),"String of a dict which specifies \"level\" value to use in the logging.json file for specific nodes, matching based on node number. Ex: {\"bios\":\"off\",\"00\":\"info\"}")
+    ("is-nodeos-v2", bpo::bool_switch(&is_nodeos_v2)->default_value(false), "Toggles old nodeos compatibility")
         ;
 }
 
@@ -1639,7 +1641,11 @@ launcher_def::launch (eosd_def &instance, string &gts) {
 
   //Always enable the trace_api_plugin on the bios node
   if (instance.name == "bios") {
-    eosdcmd += "--plugin eosio::trace_api_plugin ";
+    if (is_nodeos_v2) {
+      eosdcmd += "--plugin eosio::history_api_plugin  --filter-on \"*\"";
+    } else {
+      eosdcmd += "--plugin eosio::trace_api_plugin ";
+    }
   }
 
   if( add_enable_stale_production ) {
