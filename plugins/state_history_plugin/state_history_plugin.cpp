@@ -6,7 +6,7 @@
 #include <eosio/state_history/serialization.hpp>
 #include <eosio/state_history/trace_converter.hpp>
 #include <eosio/state_history_plugin/state_history_plugin.hpp>
-#include "session.hpp"
+#include <eosio/state_history_plugin/session.hpp>
 
 #include <boost/asio/bind_executor.hpp>
 #include <boost/asio/ip/host_name.hpp>

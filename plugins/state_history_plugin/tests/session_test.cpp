@@ -17,7 +17,7 @@
 #include <thread>
 #include <vector>
 
-#include "session.hpp"
+#include <eosio/state_history_plugin/session.hpp>
 #include <boost/iostreams/copy.hpp>
 #include <boost/iostreams/device/back_inserter.hpp>
 #include <boost/iostreams/filtering_stream.hpp>
