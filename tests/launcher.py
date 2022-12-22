@@ -189,6 +189,7 @@ class launcher(object):
         cfg.add_argument('--script', help='the optionally generated startup script name', default='bios_boot.sh')
         cfg.add_argument('--max-block-cpu-usage', type=int, help='the "max-block-cpu-usage" value to use in the genesis.json file', default=200000)
         cfg.add_argument('--max-transaction-cpu-usage', type=int, help='the "max-transaction-cpu-usage" value to use in the genesis.json file', default=150000)
+        cfg.add_argument('--nodeos-log-path', type=Path, help='path to nodeos log directory')
         r = parser.parse_args(args)
         if r.shape not in ['star', 'mesh', 'ring', 'line'] and not Path(r.shape).is_file():
             parser.error('-s, --shape must be one of "star", "mesh", "ring", "line", or a file')
@@ -198,7 +199,6 @@ class launcher(object):
             parser.error(f'Count of uses of --spcfc-inst-num and --spcfc-inst-{Utils.EosServerName} must match')
         r.pnodes += 1 # add one for the bios node
         r.total_nodes += 1
-        print(r)
         return r
 
     def assign_name(self, is_bios):
@@ -214,7 +214,7 @@ class launcher(object):
         if self.args.per_host == 0:
             for i in range(self.args.total_nodes):
                 index, node_name, cfg_name = self.assign_name(i == 0)
-                node = nodeDefinition(index, node_name, cfg_name, self.args.base_dir, self.args.config_dir, self.args.data_dir)
+                node = nodeDefinition(index, node_name, cfg_name, self.args.base_dir, self.args.config_dir, self.args.nodeos_log_path)
                 node.set_host(i == 0)
                 self.aliases.append(node.name)
                 self.network.nodes[node.name] = node
@@ -226,7 +226,7 @@ class launcher(object):
             for i in range(self.args.total_nodes, 0, -1):
                 do_bios = False
                 index, node_name, cfg_name = self.assign_name(i == 0)
-                lhost = nodeDefinition(index, node_name, cfg_name, self.args.base_dir, self.args.config_dir, self.args.data_dir)
+                lhost = nodeDefinition(index, node_name, cfg_name, self.args.base_dir, self.args.config_dir, self.args.nodeos_log_path)
                 lhost.set_host(i == 0)
                 if ph_count == 0:
                     if host_ndx < num_prod_addr:
@@ -401,7 +401,7 @@ plugin = eosio::chain_api_plugin
         return ndx
 
     def old_make_line(self, make_ring: bool = True):
-        print(f"making {'ring' if make_ring else 'line'}")
+        if Utils.Debug: Utils.Print(f"making {'ring' if make_ring else 'line'}")
         self.bind_nodes()
         non_bios = self.args.total_nodes - 1
         if non_bios > 2:
@@ -423,7 +423,7 @@ plugin = eosio::chain_api_plugin
                 self.network.nodes[self.aliases[n1]].peers.append(self.aliases[n0])
 
     def make_line(self, make_ring: bool = True):
-        print(f"making {'ring' if make_ring else 'line'}")
+        if Utils.Debug: Utils.Print(f"making {'ring' if make_ring else 'line'}")
         self.bind_nodes()
         nl = list(self.network.nodes.values())
         for node, nextNode in zip(nl, nl[1:]):
@@ -432,7 +432,7 @@ plugin = eosio::chain_api_plugin
             nl[-1].peers.append(nl[1].name)
 
     def make_star(self):
-        print('making star')
+        if Utils.Debug: Utils.Print('making star')
         non_bios = self.args.total_nodes - 1
         if non_bios < 4:
             self.make_line()
@@ -470,7 +470,7 @@ plugin = eosio::chain_api_plugin
             i, loop = self.next_ndx(i)
 
     def make_mesh(self):
-        print('making mesh')
+        if Utils.Debug: Utils.Print('making mesh')
         non_bios = self.args.total_nodes - 1
         self.bind_nodes()
         loop = False
@@ -485,7 +485,7 @@ plugin = eosio::chain_api_plugin
             i, loop = self.next_ndx(i)
 
     def make_custom(self):
-        print('making custom')
+        if Utils.Debug: Utils.Print('making custom not supported')
 
     def launch(self, instance: nodeDefinition):
         dd = Path(instance.data_dir_name)
@@ -558,7 +558,7 @@ plugin = eosio::chain_api_plugin
                             f.write(f'wcmd import -n ignition --private-key {node.keys[0].privkey}\n')
                     elif 'cacmd' in line:
                         for node in self.network.nodes.values():
-                            if node.producers[0] == 'eosio':
+                            if node.producers and node.producers[0] == 'eosio':
                                 continue
                             for producer in node.producers:
                                 f.write(f'cacmd {producer} {node.keys[0].pubkey} {node.keys[0].pubkey}\n')
