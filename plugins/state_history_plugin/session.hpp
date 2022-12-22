@@ -40,21 +40,21 @@ struct basic_send_queue_entry : send_queue_entry_base<Session> {
 
 template <typename Session>
 class blocks_result_send_queue_entry : public send_queue_entry_base<Session> {
-   eosio::state_history::get_blocks_result_v0                    r;
-   std::vector<char>                                             data;
-   std::variant<std::vector<char>, maybe_locked_compress_stream> buf;
+   eosio::state_history::get_blocks_result_v0                      r;
+   std::vector<char>                                               data;
+   std::variant<std::vector<char>, maybe_locked_decompress_stream> buf;
 
    template <typename Next>
-   void async_send(Session* s, bool fin, const std::vector<char>& data, Next&& next) {
+   void async_send(Session* s, bool fin, const std::vector<char>& d, Next&& next) {
       s->socket_stream.async_write_some(
-          fin, boost::asio::buffer(data),
+          fin, boost::asio::buffer(d),
           [s = s->shared_from_this(), next = std::forward<Next>(next)](boost::system::error_code ec, size_t) mutable {
              s->callback(ec, "async_write", [s, next = std::move(next)]() mutable { next(s.get()); });
           });
    }
 
    template <typename Next>
-   void async_send(Session* s, bool fin, maybe_locked_compress_stream& locked_strm, Next&& next) {
+   void async_send(Session* s, bool fin, maybe_locked_decompress_stream& locked_strm, Next&& next) {
       data.resize(s->default_frame_size);
       auto size = bio::read(locked_strm.buf, data.data(), s->default_frame_size);
       data.resize(size);
@@ -77,10 +77,9 @@ class blocks_result_send_queue_entry : public send_queue_entry_base<Session> {
    }
 
    template <typename Next>
-   void async_send(Session* s, bool fin, std::variant<std::vector<char>, maybe_locked_compress_stream>& buf,
-                  Next&& next) {
+   void async_send_buf(Session* s, bool fin, Next&& next) {
       std::visit([this, s, fin,
-                  next = std::forward<Next>(next)](auto& data) mutable { this->async_send(s, fin, data, std::move(next)); },
+                  next = std::forward<Next>(next)](auto& d) mutable { this->async_send(s, fin, d, std::move(next)); },
                  buf);
    }
 
@@ -99,7 +98,7 @@ class blocks_result_send_queue_entry : public send_queue_entry_base<Session> {
       async_send(s, is_deltas && entry_size == 0, data,
                 [this, is_deltas, entry_size, next = std::forward<Next>(next)](Session* s) mutable {
                    if (entry_size) {
-                      async_send(s, is_deltas, buf, [next = std::move(next)](Session* s) { next(s); });
+                      async_send_buf(s, is_deltas, [next = std::move(next)](Session* s) { next(s); });
                    } else
                       next(s);
                 });
@@ -233,14 +232,14 @@ struct session : session_base, std::enable_shared_from_this<session<Plugin, Sock
    }
 
    uint64_t get_trace_log_entry(const eosio::state_history::get_blocks_result_v0&              result,
-                                std::variant<std::vector<char>, maybe_locked_compress_stream>& buf) {
+                                std::variant<std::vector<char>, maybe_locked_decompress_stream>& buf) {
       if (result.traces.has_value())
          return plugin->get_trace_log()->get_unpacked_entry(result.this_block->block_num, buf);
       return 0;
    }
 
    uint64_t get_delta_log_entry(const eosio::state_history::get_blocks_result_v0&              result,
-                                std::variant<std::vector<char>, maybe_locked_compress_stream>& buf) {
+                                std::variant<std::vector<char>, maybe_locked_decompress_stream>& buf) {
       if (result.deltas.has_value())
          return plugin->get_chain_state_log()->get_unpacked_entry(result.this_block->block_num, buf);
       return 0;

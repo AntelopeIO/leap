@@ -76,14 +76,14 @@ struct state_history_log_prune_config {
    std::optional<size_t>   vacuum_on_close;               //when set, a vacuum is performed on dtor if log contains less than this many bytes
 };
 
-struct maybe_locked_compress_stream {
+struct maybe_locked_decompress_stream {
    std::optional<std::unique_lock<std::mutex>> lock;
    bio::filtering_istreambuf    buf;
 
-   maybe_locked_compress_stream() = default;
+   maybe_locked_decompress_stream() = default;
 
    template <typename T>
-   maybe_locked_compress_stream(T&& log, fc::cfile& stream, uint64_t compressed_size) {
+   maybe_locked_decompress_stream(T&& log, fc::cfile& stream, uint64_t compressed_size) {
       log->acquire_prune_lock(lock);
       buf.push(bio::zlib_decompressor());
       buf.push(bio::restrict(bio::file_source(stream.get_file_path().string()), stream.tellp(), compressed_size));
@@ -332,7 +332,7 @@ class state_history_log {
    }
 
    /// @return the decompressed entry size
-   uint64_t get_unpacked_entry(uint32_t block_num, std::variant<std::vector<char>, maybe_locked_compress_stream>& result) {
+   uint64_t get_unpacked_entry(uint32_t block_num, std::variant<std::vector<char>, maybe_locked_decompress_stream>& result) {
       if (block_num < _begin_block || block_num >= _end_block)
          return 0;
 
@@ -350,7 +350,7 @@ class state_history_log {
          compressed_size = payload_size - sizeof(uint32_t) - sizeof(uint64_t);
          uint64_t decompressed_size;
          log.read((char*)&decompressed_size, sizeof(decompressed_size));
-         result.emplace<maybe_locked_compress_stream>(this, log, compressed_size);
+         result.emplace<maybe_locked_decompress_stream>(this, log, compressed_size);
          return decompressed_size;
 
       } else {

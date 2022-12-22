@@ -364,11 +364,11 @@ void store_read_test_case(uint64_t data_size, std::optional<eosio::state_history
    BOOST_REQUIRE_EQUAL(log.get_log_file().tellp(), pos);
 
 
-   std::variant<std::vector<char>, eosio::maybe_locked_compress_stream> buf;
+   std::variant<std::vector<char>, eosio::maybe_locked_decompress_stream> buf;
    log.get_unpacked_entry(1, buf);
 
    std::vector<char> decompressed;
-   auto& locked_strm = std::get<eosio::maybe_locked_compress_stream>(buf);
+   auto& locked_strm = std::get<eosio::maybe_locked_decompress_stream>(buf);
    BOOST_CHECK(locked_strm.lock.has_value() == config.has_value());
    bio::copy(locked_strm.buf, bio::back_inserter(decompressed));
 
