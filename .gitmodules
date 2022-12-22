@@ -25,3 +25,6 @@
 [submodule "libraries/libfc/libraries/ff"]
 	path = libraries/libfc/libraries/ff
 	url = https://github.com/AntelopeIO/libff
+[submodule "libraries/cli11/cli11"]
+	path = libraries/cli11/cli11
+	url = https://github.com/AntelopeIO/CLI11.git
