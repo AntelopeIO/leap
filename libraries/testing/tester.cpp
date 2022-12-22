@@ -1218,6 +1218,15 @@ namespace eosio { namespace testing {
       return match;
    }
 
+   bool fc_exception_message_contains::operator()( const fc::exception& ex ) {
+      auto message = ex.get_log().at( 0 ).get_message();
+      bool match = message.find(expected) != std::string::npos;
+      if( !match ) {
+         BOOST_TEST_MESSAGE( "LOG: expected: " << expected << ", actual: " << message );
+      }
+      return match;
+   }
+
    bool fc_assert_exception_message_is::operator()( const fc::assert_exception& ex ) {
       auto message = ex.get_log().at( 0 ).get_message();
       bool match = false;
