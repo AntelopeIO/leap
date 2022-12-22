@@ -3224,14 +3224,14 @@ namespace eosio {
       }
 
       fc::microseconds age( fc::time_point::now() - msg->timestamp);
-      fc_dlog( logger, "received signed_block: #${n} block age in secs = ${age}, connection ${cid}",
-               ("n", blk_num)("age", age.to_seconds())("cid", c->connection_id) );
+      fc_dlog( logger, "received signed_block: #${n} block age in secs = ${age}, connection ${cid}, ${v}",
+               ("n", blk_num)("age", age.to_seconds())("cid", c->connection_id)("v", bsp ? "pre-validated" : "validation pending") );
 
       go_away_reason reason = no_reason;
+      bool accepted = false;
       try {
-         bool accepted = my_impl->chain_plug->accept_block(msg, blk_id, bsp);
+         accepted = my_impl->chain_plug->accept_block(msg, blk_id, bsp);
          my_impl->update_chain_info();
-         if( !accepted ) reason = unlinkable;
       } catch( const unlinkable_block_exception &ex) {
          fc_elog(logger, "unlinkable_block_exception connection ${cid}: #${n} ${id}...: ${m}",
                  ("cid", c->connection_id)("n", blk_num)("id", blk_id.str().substr(8,16))("m",ex.to_string()));
@@ -3254,7 +3254,7 @@ namespace eosio {
          reason = fatal_other;
       }
 
-      if( reason == no_reason ) {
+      if( accepted ) {
          boost::asio::post( my_impl->thread_pool->get_executor(), [dispatcher = my_impl->dispatcher.get(), cid=c->connection_id, blk_id, msg]() {
             fc_dlog( logger, "accepted signed_block : #${n} ${id}...", ("n", msg->block_num())("id", blk_id.str().substr(8,16)) );
             dispatcher->add_peer_block( blk_id, cid );
@@ -3265,14 +3265,17 @@ namespace eosio {
          });
       } else {
          c->strand.post( [sync_master = my_impl->sync_master.get(), dispatcher = my_impl->dispatcher.get(), c, blk_id, blk_num, reason]() {
-            if( reason == unlinkable ) {
+            if( reason == unlinkable || reason == no_reason ) {
                // unlinkable may be linkable in the future, so indicate we have not received it
                // call on dispatch strand to serialize with the add_peer_block calls
                my_impl->dispatcher->strand.post( [blk_id]() {
                   my_impl->dispatcher->rm_block( blk_id );
                } );
             }
-            sync_master->rejected_block( c, blk_num );
+            if( reason != no_reason ) {
+               // dropped block because we are producing, so no need to send handshake
+               sync_master->rejected_block( c, blk_num );
+            }
             dispatcher->rejected_block( blk_id );
          });
       }
