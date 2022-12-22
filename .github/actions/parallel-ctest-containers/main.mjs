@@ -12,7 +12,7 @@ const log_tarball_prefix = core.getInput('log-tarball-prefix', {required: true})
 const tests_label = core.getInput('tests-label', {required: true});
 
 try {
-   if(child_process.spawnSync("docker", ["run", "--name", "base", "-v", `${process.cwd()}/build.tar.zst:/build.tar.zst`, "--workdir", "/__w/leap/leap", container, "sh", "-c", "zstdcat /build.tar.zst | tar x"], {stdio:"inherit"}).status)
+   if(child_process.spawnSync("docker", ["run", "--privileged", "--name", "base", "-v", `${process.cwd()}/build.tar.zst:/build.tar.zst`, "--workdir", "/__w/leap/leap", container, "sh", "-c", "zstdcat /build.tar.zst | tar x"], {stdio:"inherit"}).status)
       throw new Error("Failed to create base container");
    if(child_process.spawnSync("docker", ["commit", "base", "baseimage"], {stdio:"inherit"}).status)
       throw new Error("Failed to create base image");

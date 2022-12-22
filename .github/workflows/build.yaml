@@ -120,7 +120,8 @@ jobs:
       matrix:
         platform: [ubuntu20, ubuntu22]
     runs-on: ["self-hosted", "enf-x86-hightier"]
-    container: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
+    container: 
+      image: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
       options: --privileged
     steps:
       - uses: actions/checkout@v3
@@ -158,7 +159,6 @@ jobs:
         uses: ./.github/actions/parallel-ctest-containers
         with:
           container: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
-          options: --privileged
           error-log-paths: '["build/etc", "build/var", "build/leap-ignition-wd", "build/TestLogs"]'
           log-tarball-prefix: ${{matrix.platform}}
           tests-label: nonparallelizable_tests
@@ -187,8 +187,9 @@ jobs:
       - name: Run tests in parallel containers
         uses: ./.github/actions/parallel-ctest-containers
         with:
-          container: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
-          options: --privileged
+          container:
+            image: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
+            options: --privileged
           error-log-paths: '["build/etc", "build/var", "build/leap-ignition-wd", "build/TestLogs"]'
           log-tarball-prefix: ${{matrix.platform}}
           tests-label: long_running_tests
