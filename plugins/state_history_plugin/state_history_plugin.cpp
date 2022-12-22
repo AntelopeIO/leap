@@ -114,9 +114,9 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
    }
 
    std::optional<chain::block_id_type> get_block_id(uint32_t block_num) {
-      if (trace_log && block_num >= trace_log->begin_block() && block_num < trace_log->end_block())
+      if (trace_log)
          return trace_log->get_block_id(block_num);
-      if (chain_state_log && block_num >= chain_state_log->begin_block() && block_num < chain_state_log->end_block())
+      if (chain_state_log)
          return chain_state_log->get_block_id(block_num);
       try {
          return chain_plug->chain().get_block_id_for_num(block_num);
@@ -330,6 +330,22 @@ void state_history_plugin::set_program_options(options_description& cli, options
    auto options = cfg.add_options();
    options("state-history-dir", bpo::value<bfs::path>()->default_value("state-history"),
            "the location of the state-history directory (absolute path or relative to application data dir)");
+   options("state-history-retained-dir", bpo::value<bfs::path>(),
+           "the location of the state history retained directory (absolute path or relative to state-history dir).\n"
+           "If the value is empty, it is set to the value of state-history directory.");
+   options("state-history-archive-dir", bpo::value<bfs::path>(),
+           "the location of the state history archive directory (absolute path or relative to state-history dir).\n"
+           "If the value is empty, blocks files beyond the retained limit will be deleted.\n"
+           "All files in the archive directory are completely under user's control, i.e. they won't be accessed by nodeos anymore.");
+   options("state-history-stride", bpo::value<uint32_t>(),
+         "split the state history log files when the block number is the multiple of the stride\n"
+         "When the stride is reached, the current history log and index will be renamed '*-history-<start num>-<end num>.log/index'\n"
+         "and a new current history log and index will be created with the most recent blocks. All files following\n"
+         "this format will be used to construct an extended history log.");
+   options("max-retained-history-files", bpo::value<uint32_t>(),
+          "the maximum number of history file groups to retain so that the blocks in those files can be queried.\n"
+          "When the number is reached, the oldest history file would be moved to archive dir or deleted if the archive dir is empty.\n"
+          "The retained history log files should not be manipulated by users." );
    cli.add_options()("delete-state-history", bpo::bool_switch()->default_value(false), "clear state history files");
    options("trace-history", bpo::bool_switch()->default_value(false), "enable trace history");
    options("chain-state-history", bpo::bool_switch()->default_value(false), "enable chain state history");
@@ -399,21 +415,35 @@ void state_history_plugin::plugin_initialize(const variables_map& options) {
          my->trace_debug_mode = true;
       }
 
-      std::optional<state_history_log_prune_config> ship_log_prune_conf;
+      bool has_state_history_partition_options =
+          options.count("state-history-retained-dir") || options.count("state-history-archive-dir") ||
+          options.count("state-history-stride") || options.count("max-retained-history-files");
+
+      state_history_log_config ship_log_conf;
       if (options.count("state-history-log-retain-blocks")) {
-         ship_log_prune_conf.emplace();
-         ship_log_prune_conf->prune_blocks = options.at("state-history-log-retain-blocks").as<uint32_t>();
+         auto ship_log_prune_conf = ship_log_conf.emplace<state_history::prune_config>();
+         ship_log_prune_conf.prune_blocks = options.at("state-history-log-retain-blocks").as<uint32_t>();
          //the arbitrary limit of 1000 here is mainly so that there is enough buffer for newly applied forks to be delivered to clients
          // before getting pruned out. ideally pruning would have been smart enough to know not to prune reversible blocks
-         EOS_ASSERT(ship_log_prune_conf->prune_blocks >= 1000, plugin_exception, "state-history-log-retain-blocks must be 1000 blocks or greater");
+         EOS_ASSERT(ship_log_prune_conf.prune_blocks >= 1000, plugin_exception, "state-history-log-retain-blocks must be 1000 blocks or greater");
+         EOS_ASSERT(!has_state_history_partition_options, plugin_exception, "state-history-log-retain-blocks cannot be used together with state-history-retained-dir,"
+                  " state-history-archive-dir, state-history-stride or max-retained-history-files");
+      } else if (has_state_history_partition_options){
+         auto& config  = ship_log_conf.emplace<state_history::partition_config>();
+         if (options.count("state-history-retained-dir"))
+            config.retained_dir       = options.at("state-history-retained-dir").as<bfs::path>();
+         if (options.count("state-history-archive-dir"))
+            config.archive_dir        = options.at("state-history-archive-dir").as<bfs::path>();
+         if (options.count("state-history-stride"))
+            config.stride             = options.at("state-history-stride").as<uint32_t>();
+         if (options.count("max-retained-history-files"))
+            config.max_retained_files = options.at("max-retained-history-files").as<uint32_t>();
       }
 
       if (options.at("trace-history").as<bool>())
-         my->trace_log.emplace("trace_history", (state_history_dir / "trace_history.log").string(),
-                               (state_history_dir / "trace_history.index").string(), ship_log_prune_conf);
+         my->trace_log.emplace("trace_history", state_history_dir , ship_log_conf);
       if (options.at("chain-state-history").as<bool>())
-         my->chain_state_log.emplace("chain_state_history", (state_history_dir / "chain_state_history.log").string(),
-                                     (state_history_dir / "chain_state_history.index").string(), ship_log_prune_conf);
+         my->chain_state_log.emplace("chain_state_history", state_history_dir, ship_log_conf);
    }
    FC_LOG_AND_RETHROW()
 } // state_history_plugin::plugin_initialize

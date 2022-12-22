@@ -13,12 +13,18 @@
 #include <fc/io/cfile.hpp>
 #include <fc/log/logger.hpp>
 #include <fc/log/logger_config.hpp> //set_thread_name
+#include <fc/bitutil.hpp>
 
 #include <boost/iostreams/device/file.hpp>
 #include <boost/iostreams/device/file_descriptor.hpp>
 #include <boost/iostreams/filter/zlib.hpp>
 #include <boost/iostreams/filtering_streambuf.hpp>
 #include <boost/iostreams/restrict.hpp>
+
+
+#include <eosio/chain/log_catalog.hpp>
+#include <eosio/chain/log_data_base.hpp>
+#include <eosio/chain/log_index.hpp>
 
 namespace eosio {
 namespace bio = boost::iostreams;
@@ -70,11 +76,40 @@ struct state_history_log_header {
 static const int state_history_log_header_serial_size = sizeof(state_history_log_header::magic) +
                                                         sizeof(state_history_log_header::block_id) +
                                                         sizeof(state_history_log_header::payload_size);
-struct state_history_log_prune_config {
-   uint32_t                prune_blocks;                  //number of blocks to prune to when doing a prune
-   size_t                  prune_threshold = 4*1024*1024; //(approximately) how many bytes need to be added before a prune is performed
-   std::optional<size_t>   vacuum_on_close;               //when set, a vacuum is performed on dtor if log contains less than this many bytes
-};
+
+namespace state_history {
+   struct prune_config {
+      uint32_t                prune_blocks;                  //number of blocks to prune to when doing a prune
+      size_t                  prune_threshold = 4*1024*1024; //(approximately) how many bytes need to be added before a prune is performed
+      std::optional<size_t>   vacuum_on_close;               //when set, a vacuum is performed on dtor if log contains less than this many bytes
+   };
+
+   struct partition_config {
+      fc::path retained_dir       = "retained";
+      fc::path archive_dir        = "archive";
+      uint32_t stride             = 1000000;
+      uint32_t max_retained_files = 10;
+   };
+} // namespace state_history
+
+using state_history_log_config = std::variant<std::monostate, state_history::prune_config, state_history::partition_config>;
+
+
+std::vector<char> zlib_decompress(fc::cfile& file, uint64_t compressed_size) {
+   if (compressed_size) {
+      std::vector<char> compressed(compressed_size);
+      file.read(compressed.data(), compressed_size);
+      return state_history::zlib_decompress(compressed.data(), compressed_size);
+   }
+   return {};
+}
+
+std::vector<char> zlib_decompress(fc::datastream<const char*>& strm, uint64_t compressed_size) {
+   if (compressed_size) {
+      return state_history::zlib_decompress(strm.pos(), compressed_size);
+   }
+   return {};
+}
 
 struct maybe_locked_decompress_stream {
    std::optional<std::unique_lock<std::mutex>> lock;
@@ -82,11 +117,116 @@ struct maybe_locked_decompress_stream {
 
    maybe_locked_decompress_stream() = default;
 
-   template <typename T>
-   maybe_locked_decompress_stream(T&& log, fc::cfile& stream, uint64_t compressed_size) {
-      log->acquire_prune_lock(lock);
+   template <typename StateHistoryLog>
+   maybe_locked_decompress_stream(StateHistoryLog&& log, fc::cfile& stream, uint64_t compressed_size) {
+      log.acquire_prune_lock(lock);
       buf.push(bio::zlib_decompressor());
       buf.push(bio::restrict(bio::file_source(stream.get_file_path().string()), stream.tellp(), compressed_size));
+   }
+
+   template <typename LogData>
+   maybe_locked_decompress_stream(LogData&& log, fc::datastream<const char*>& stream, uint64_t compressed_size) {
+      buf.push(bio::zlib_decompressor());
+      buf.push(bio::restrict(bio::file_source(log.filename), stream.pos() - log.data(), compressed_size));
+   }
+};
+
+template <typename Log, typename Stream>
+uint64_t read_unpacked_entry(Log&& log, Stream& stream, uint64_t payload_size, std::variant<std::vector<char>, maybe_locked_decompress_stream>& result) {
+   uint32_t s;
+   uint64_t compressed_size;
+
+   stream.read((char*)&s, sizeof(s));
+   if (s == 1 && payload_size > (s + sizeof(uint32_t))) {
+      compressed_size = payload_size - sizeof(uint32_t) - sizeof(uint64_t);
+      uint64_t decompressed_size;
+      stream.read((char*)&decompressed_size, sizeof(decompressed_size));
+      result.emplace<maybe_locked_decompress_stream>(log, stream, compressed_size);
+      return decompressed_size;
+
+   } else {
+      // Compressed deltas now exceeds 4GB on one of the public chains. This length prefix
+      // was intended to support adding additional fields in the future after the
+      // packed deltas or packed traces. For now we're going to ignore on read.
+
+      compressed_size = payload_size - sizeof(uint32_t);
+   }
+   return result.emplace<std::vector<char>>( zlib_decompress(stream, compressed_size)).size();
+}
+
+class state_history_log_data : public chain::log_data_base<state_history_log_data> {
+ public:
+   std::string filename;
+
+   state_history_log_data() = default;
+   state_history_log_data(const fc::path& path, mapmode mode = mapmode::readonly){
+      open(path, mode);
+   }
+
+   void open(const fc::path& path, mapmode mode = mapmode::readonly) {
+      filename = path.string();
+      if (file.is_open())
+         file.close();
+      file.open(filename, mode);
+      return;
+   }
+
+   uint32_t version() const { return get_ship_version(chain::read_buffer<uint64_t>(file.const_data())); }
+   uint32_t first_block_num() const { return block_num_at(0); }
+   uint32_t first_block_position() const { return 0; }
+
+   bool is_currently_pruned() const { return is_ship_log_pruned(chain::read_buffer<uint64_t>(file.const_data())); }
+
+   std::pair<fc::datastream<const char*>, uint32_t> ro_stream_at(uint64_t pos) const {
+      uint32_t ver = get_ship_version(chain::read_buffer<uint64_t>(file.const_data() + pos));
+      return std::make_pair(
+          fc::datastream<const char*>(file.const_data() + pos + sizeof(state_history_log_header), payload_size_at(pos)),
+          ver);
+   }
+
+   uint64_t ro_stream_at(uint64_t pos, std::variant<std::vector<char>, maybe_locked_decompress_stream>& result) const {
+      uint64_t                    payload_size = payload_size_at(pos);
+      fc::datastream<const char*> stream(file.const_data() + pos + sizeof(state_history_log_header), payload_size);
+      return read_unpacked_entry(*this, stream, payload_size, result);
+   }
+
+   uint32_t block_num_at(uint64_t position) const {
+      return fc::endian_reverse_u32(
+          chain::read_buffer<uint32_t>(file.const_data() + position + offsetof(state_history_log_header, block_id)));
+   }
+
+   chain::block_id_type block_id_at(uint64_t position) const {
+      return chain::read_buffer<chain::block_id_type>(file.const_data() + position +
+                                                      offsetof(state_history_log_header, block_id));
+   }
+
+   uint64_t payload_size_at(uint64_t pos) const {
+      EOS_ASSERT(file.size() >= pos + sizeof(state_history_log_header), chain::plugin_exception,
+                 "corrupt ${name}: invalid entry size at at position ${pos}", ("name", filename)("pos", pos));
+
+      fc::datastream<const char*> ds(file.const_data() + pos, sizeof(state_history_log_header));
+      state_history_log_header    header;
+      fc::raw::unpack(ds, header);
+
+      EOS_ASSERT(is_ship(header.magic) && is_ship_supported_version(header.magic), chain::plugin_exception,
+                 "corrupt ${name}: invalid header for entry at position ${pos}", ("name", filename)("pos", pos));
+
+      EOS_ASSERT(file.size() >= pos + sizeof(state_history_log_header) + header.payload_size, chain::plugin_exception,
+                 "corrupt ${name}: invalid payload size for entry at position ${pos}", ("name", filename)("pos", pos));
+      return header.payload_size;
+   }
+
+   void construct_index(const fc::path& index_file_name) const {
+      fc::cfile index;
+      index.set_file_path(index_file_name);
+      index.open("w+b");
+
+      uint64_t pos = 0;
+      while (pos < file.size()) {
+         uint64_t payload_size = payload_size_at(pos);
+         index.write(reinterpret_cast<const char*>(&pos), sizeof(pos));
+         pos += (sizeof(state_history_log_header) + payload_size + sizeof(uint64_t));
+      }
    }
 };
 
@@ -131,9 +271,7 @@ private:
 class state_history_log {
  private:
    const char* const       name = "";
-   std::string             log_filename;
-   std::string             index_filename;
-   std::optional<state_history_log_prune_config> prune_config; //is set, log is in pruned mode
+   state_history_log_config config;
    fc::cfile               log;
    fc::cfile               index;
    uint32_t                _begin_block = 0;        //always tracks the first block available even after pruning
@@ -151,29 +289,45 @@ class state_history_log {
    std::recursive_mutex                                                     mx;
    std::optional<std::mutex>                                                prune_mx;
 
+   using catalog_t = chain::log_catalog<state_history_log_data, chain::log_index<chain::plugin_exception>>;
+   catalog_t catalog;
+
  public:
-   state_history_log(const char* const name, std::string log_filename, std::string index_filename,
-                     std::optional<state_history_log_prune_config> prune_conf = std::optional<state_history_log_prune_config>())
+   state_history_log(const char* name, const fc::path& log_dir ,
+                     state_history_log_config conf = {})
        : name(name)
-       , log_filename(std::move(log_filename))
-       , index_filename(std::move(index_filename))
-       , prune_config(prune_conf) {
+       , config(conf) {
+
+      log.set_file_path(log_dir/(std::string(name) + ".log"));
+      index.set_file_path(log_dir/(std::string(name) + ".index"));
+
       open_log();
       open_index();
 
-      if(prune_config) {
-         EOS_ASSERT(prune_config->prune_blocks, chain::plugin_exception, "state history log prune configuration requires at least one block");
-         EOS_ASSERT(__builtin_popcount(prune_config->prune_threshold) == 1, chain::plugin_exception, "state history prune threshold must be power of 2");
-         //switch this over to the mask that will be used
-         prune_config->prune_threshold = ~(prune_config->prune_threshold-1);
-         prune_mx.emplace();
-      }
+      std::visit(eosio::chain::overloaded{
+         [](std::monostate&) {},
+         [this](state_history::prune_config& conf) {
+            EOS_ASSERT(conf.prune_blocks, chain::plugin_exception, "state history log prune configuration requires at least one block");
+            EOS_ASSERT(__builtin_popcount(conf.prune_threshold) == 1, chain::plugin_exception, "state history prune threshold must be power of 2");
+            //switch this over to the mask that will be used
+            conf.prune_threshold = ~(conf.prune_threshold-1);
+            prune_mx.emplace();
+         }, [name, log_dir, this](state_history::partition_config& conf) {
+            catalog.open(log_dir, conf.retained_dir, conf.archive_dir, name);
+            catalog.max_retained_files = conf.max_retained_files;
+            if (_end_block == 0) {
+               _begin_block = _end_block = catalog.last_block_num() +1;
+            }
+         }
+      }, config);
 
       //check for conversions to/from pruned log, as long as log contains something
       if(_begin_block != _end_block) {
          state_history_log_header first_header;
          log.seek(0);
          read_header(first_header);
+
+         auto prune_config = std::get_if<state_history::prune_config>(&config);
 
          if((is_ship_log_pruned(first_header.magic) == false) && prune_config) {
             //need to convert non-pruned to pruned; first prune any ranges we can (might be none)
@@ -230,6 +384,8 @@ class state_history_log {
       //nothing to do if log is empty or we aren't pruning
       if(_begin_block == _end_block)
          return;
+
+      auto prune_config = std::get_if<state_history::prune_config>(&config);
       if(!prune_config || !prune_config->vacuum_on_close)
          return;
 
@@ -239,7 +395,11 @@ class state_history_log {
          vacuum();
    }
 
-   uint32_t begin_block() const { return _begin_block; }
+   uint32_t begin_block() const {
+      uint32_t result = catalog.first_block_num();
+      return result != 0 ? result : _begin_block;
+   }
+
    uint32_t end_block() const { return _end_block; }
 
    void read_header(state_history_log_header& header, bool assert_version = true) {
@@ -285,6 +445,7 @@ class state_history_log {
          }
       }
 
+      auto prune_config = std::get_if<state_history::prune_config>(&config);
       if (block_num < _end_block)
          truncate(block_num); //truncate is expected to always leave file pointer at the end
       else if (!prune_config)
@@ -319,20 +480,19 @@ class state_history_log {
          const uint32_t num_blocks_in_log = _end_block - _begin_block;
          fc::raw::pack(log, num_blocks_in_log);
       }
-   }
 
-   // returns cfile positioned at payload
-   fc::cfile& get_entry(uint32_t block_num, state_history_log_header& header) {
-      EOS_ASSERT(block_num >= _begin_block && block_num < _end_block, chain::plugin_exception,
-                 "read non-existing block in ${name}.log", ("name", name));
-      std::lock_guard lock(mx);
-      log.seek(get_pos(block_num));
-      read_header(header);
-      return log;
+      auto partition_config = std::get_if<state_history::partition_config>(&config);
+      if (partition_config && block_num % partition_config->stride == 0) {
+         split_log();
+      }
    }
 
    /// @return the decompressed entry size
    uint64_t get_unpacked_entry(uint32_t block_num, std::variant<std::vector<char>, maybe_locked_decompress_stream>& result) {
+      auto opt_decompressed_size = catalog.ro_stream_for_block(block_num, result);
+      if (opt_decompressed_size)
+         return *opt_decompressed_size;
+
       if (block_num < _begin_block || block_num >= _end_block)
          return 0;
 
@@ -341,30 +501,7 @@ class state_history_log {
       log.seek(get_pos(block_num));
       read_header(header);
 
-      uint64_t payload_size = header.payload_size;
-      uint32_t s;
-      uint64_t compressed_size;
-
-      log.read((char*)&s, sizeof(s));
-      if (s == 1 && payload_size > (s + sizeof(uint32_t))) {
-         compressed_size = payload_size - sizeof(uint32_t) - sizeof(uint64_t);
-         uint64_t decompressed_size;
-         log.read((char*)&decompressed_size, sizeof(decompressed_size));
-         result.emplace<maybe_locked_decompress_stream>(this, log, compressed_size);
-         return decompressed_size;
-
-      } else {
-         // Compressed deltas now exceeds 4GB on one of the public chains. This length prefix
-         // was intended to support adding additional fields in the future after the
-         // packed deltas or packed traces. For now we're going to ignore on read.
-
-         compressed_size = payload_size - sizeof(uint32_t);
-      }
-
-      chain::bytes compressed(compressed_size);
-      if (compressed_size)
-         log.read(compressed.data(), compressed_size);
-      return result.emplace<std::vector<char>>(state_history::zlib_decompress(compressed)).size();
+      return read_unpacked_entry(*this, log, header.payload_size, result);
    }
 
    template <typename F>
@@ -395,7 +532,7 @@ class state_history_log {
             pack_to(buf);
          }
 
-         // calculate the payload size and rewind back header to write the payload size
+         // calculate the payload size and rewind back to header to write the payload size
          stream.seek_end(0);
          size_t   end_payload_pos = stream.tellp();
          uint64_t payload_size    = end_payload_pos - payload_pos;
@@ -407,16 +544,23 @@ class state_history_log {
          uncompressioned_size = cnt.characters();
          stream.write((char*)&uncompressioned_size, sizeof(uncompressioned_size));
 
-         // make sure we resets the file position to end_payload_pos to preserve API behavior
+         // make sure we reset the file position to end_payload_pos to preserve API behavior
          stream.seek(end_payload_pos);
       });
    }
 
-   chain::block_id_type get_block_id(uint32_t block_num) {
-      std::lock_guard          lock(mx);
-      state_history_log_header header;
-      get_entry(block_num, header);
-      return header.block_id;
+   std::optional<chain::block_id_type> get_block_id(uint32_t block_num) {
+      auto result = catalog.id_for_block(block_num);
+      if (!result) {
+         if (block_num >= _begin_block && block_num < _end_block) {
+            std::lock_guard          lock(mx);
+            state_history_log_header header;
+            get_entry(block_num, header);
+            return header.block_id;
+         }
+         return {};
+      }
+      return result;
    }
 
 #ifdef BOOST_TEST_MODULE
@@ -424,6 +568,16 @@ class state_history_log {
 #endif
 
  private:
+   // returns cfile positioned at payload
+   fc::cfile& get_entry(uint32_t block_num, state_history_log_header& header) {
+      EOS_ASSERT(block_num >= _begin_block && block_num < _end_block, chain::plugin_exception,
+                 "read non-existing block in ${name}.log", ("name", name));
+      std::lock_guard lock(mx);
+      log.seek(get_pos(block_num));
+      read_header(header);
+      return log;
+   }
+
    //file position must be at start of last block's suffix (back pointer)
    //called from open_log / ctor
    bool get_last_block() {
@@ -453,6 +607,8 @@ class state_history_log {
    }
 
    void prune(const fc::log_level& loglevel) {
+      auto prune_config = std::get_if<state_history::prune_config>(&config);
+
       if(!prune_config)
          return;
       if(_end_block - _begin_block <= prune_config->prune_blocks)
@@ -511,7 +667,7 @@ class state_history_log {
          }
       }
       log.flush();
-      boost::filesystem::resize_file(log_filename, pos);
+      boost::filesystem::resize_file(log.get_file_path().string(), pos);
       log.flush();
 
       log.seek_end(-sizeof(pos));
@@ -520,7 +676,7 @@ class state_history_log {
 
    // only called from constructor
    void open_log() {
-      log.set_file_path(log_filename);
+      log.set_file_path(log.get_file_path().string());
       log.open("a+b");
       log.seek_end(0);
       uint64_t size = log.tellp();
@@ -567,7 +723,6 @@ class state_history_log {
 
    // only called from constructor
    void open_index() {
-      index.set_file_path(index_filename);
       index.open("a+b");
       index.seek_end(0);
       if (index.tellp() == (static_cast<int>(_end_block) - _index_begin_block) * sizeof(uint64_t))
@@ -625,15 +780,15 @@ class state_history_log {
       if (block_num <= _begin_block) {
          num_removed = _end_block - _begin_block;
          log.seek(0);
-         boost::filesystem::resize_file(log_filename, 0);
-         boost::filesystem::resize_file(index_filename, 0);
+         boost::filesystem::resize_file(log.get_file_path().string(), 0);
+         boost::filesystem::resize_file(index.get_file_path().string(), 0);
          _begin_block = _end_block = 0;
       } else {
          num_removed  = _end_block - block_num;
          uint64_t pos = get_pos(block_num);
          log.seek(0);
-         boost::filesystem::resize_file(log_filename, pos);
-         boost::filesystem::resize_file(index_filename, (block_num - _index_begin_block) * sizeof(uint64_t));
+         boost::filesystem::resize_file(log.get_file_path().string(), pos);
+         boost::filesystem::resize_file(index.get_file_path().string(), (block_num - _index_begin_block) * sizeof(uint64_t));
          _end_block = block_num;
          //this will leave the end of the log with the last block's suffix no matter if the log is operating in pruned
          // mode or not. The assumption is truncate() is always immediately followed up with an append to the log thus
@@ -720,6 +875,18 @@ class state_history_log {
 
       _index_begin_block = _begin_block;
       ilog("Vacuum of pruned log ${n} complete",("n", name));
+   }
+
+   void split_log() {
+      index.close();
+      log.close();
+
+      catalog.add(_begin_block, _end_block - 1, log.get_file_path().parent_path(), name);
+
+      _begin_block = _end_block;
+
+      log.open("w+b");
+      index.open("w+b");
    }
 }; // state_history_log
 

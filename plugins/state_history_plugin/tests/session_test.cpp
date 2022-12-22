@@ -94,7 +94,7 @@ struct mock_state_history_plugin {
    boost::asio::io_context::strand         work_strand{ioc};
    std::shared_ptr<eosio::session_base>    session;
    eosio::state_history::block_position    block_head;
-   fc::temp_file                           log_file, index_file;
+   fc::temp_directory                      log_dir;
    std::optional<eosio::state_history_log> log;
    bool                                    stopping = false;
 
@@ -104,9 +104,8 @@ struct mock_state_history_plugin {
    std::optional<eosio::state_history_log>& get_chain_state_log() { return log; }
    fc::sha256                get_chain_id() { return {}; }
 
-   void setup_state_history_log(std::optional<eosio::state_history_log_prune_config> prune_conf =
-                                    std::optional<eosio::state_history_log_prune_config>()) {
-      log.emplace("ship", log_file.path().string(), index_file.path().string(), prune_conf);
+   void setup_state_history_log(eosio::state_history_log_config conf = {}) {
+      log.emplace("ship", log_dir.path(), conf);
    }
 
    fc::logger logger() { return fc::logger::get(DEFAULT_LOGGER); }
@@ -346,9 +345,10 @@ struct state_history_test_fixture {
    ~state_history_test_fixture() { ws.close(websocket::close_code::normal); }
 };
 
-void store_read_test_case(uint64_t data_size, std::optional<eosio::state_history_log_prune_config> config) {
-   fc::temp_file            log_file, index_file;
-   eosio::state_history_log log("ship", log_file.path().string(), index_file.path().string(), config);
+void store_read_test_case(uint64_t data_size, eosio::state_history_log_config config) {
+   fc::temp_directory       log_dir;
+   eosio::state_history_log log("ship", log_dir.path(), config);
+
 
    eosio::state_history_log_header header;
    header.block_id     = block_id_for(1);
@@ -369,7 +369,7 @@ void store_read_test_case(uint64_t data_size, std::optional<eosio::state_history
 
    std::vector<char> decompressed;
    auto& locked_strm = std::get<eosio::maybe_locked_decompress_stream>(buf);
-   BOOST_CHECK(locked_strm.lock.has_value() == config.has_value());
+   BOOST_CHECK(locked_strm.lock.has_value() == std::holds_alternative<eosio::state_history::prune_config>(config));
    bio::copy(locked_strm.buf, bio::back_inserter(decompressed));
 
    BOOST_CHECK_EQUAL(data.size() * sizeof(data[0]), decompressed.size());
@@ -386,7 +386,7 @@ BOOST_AUTO_TEST_CASE(store_read_big_entry_no_prune) {
 }
 
 BOOST_AUTO_TEST_CASE(store_read_entry_prune_enabled) {
-   store_read_test_case(1024, eosio::state_history_log_prune_config{.prune_blocks = 100});
+   store_read_test_case(1024, eosio::state_history::prune_config{.prune_blocks = 100});
 }
 
 BOOST_FIXTURE_TEST_CASE(test_session_no_prune, state_history_test_fixture) {
@@ -448,7 +448,7 @@ BOOST_FIXTURE_TEST_CASE(test_session_with_prune, state_history_test_fixture) {
    try {
       // setup block head for the server
       server.setup_state_history_log(
-          eosio::state_history_log_prune_config{.prune_blocks = 2, .prune_threshold = 4 * 1024});
+          eosio::state_history::prune_config{.prune_blocks = 2, .prune_threshold = 4 * 1024});
 
       uint32_t head_block_num = 3;
       server.block_head       = {head_block_num, block_id_for(head_block_num)};
