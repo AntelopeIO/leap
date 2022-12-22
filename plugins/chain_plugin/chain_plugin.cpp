@@ -139,6 +139,7 @@ public:
    {}
 
    bfs::path                        blocks_dir;
+   bfs::path                        state_dir;
    bool                             readonly = false;
    flat_map<uint32_t,block_id_type> loaded_checkpoints;
    bool                             accept_transactions = false;
@@ -227,6 +228,8 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
    cfg.add_options()
          ("blocks-dir", bpo::value<bfs::path>()->default_value("blocks"),
           "the location of the blocks directory (absolute path or relative to application data dir)")
+         ("state-dir", bpo::value<bfs::path>()->default_value(config::default_state_dir_name),
+          "the location of the state directory (absolute path or relative to application data dir)")
          ("protocol-features-dir", bpo::value<bfs::path>()->default_value("protocol_features"),
           "the location of the protocol_features directory (absolute path or relative to application config dir)")
          ("checkpoint", bpo::value<vector<string>>()->composing(), "Pairs of [BLOCK_NUM,BLOCK_ID] that should be enforced as checkpoints.")
@@ -519,6 +522,14 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
             my->blocks_dir = bld;
       }
 
+      if( options.count( "state-dir" )) {
+         auto sd = options.at( "state-dir" ).as<bfs::path>();
+         if( sd.is_relative())
+            my->state_dir = app().data_dir() / sd;
+         else
+            my->state_dir = sd;
+      }
+
       protocol_feature_set pfs;
       {
          fc::path protocol_features_dir;
@@ -557,7 +568,7 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
       my->abi_serializer_max_time_us = fc::microseconds(options.at("abi-serializer-max-time-ms").as<uint32_t>() * 1000);
 
       my->chain_config->blocks_dir = my->blocks_dir;
-      my->chain_config->state_dir = app().data_dir() / config::default_state_dir_name;
+      my->chain_config->state_dir = my->state_dir;
       my->chain_config->read_only = my->readonly;
 
       if (auto resmon_plugin = app().find_plugin<resource_monitor_plugin>()) {
