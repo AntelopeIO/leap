@@ -625,6 +625,8 @@ namespace eosio {
       string                  log_remote_endpoint_port;
       string                  local_endpoint_ip;
       string                  local_endpoint_port;
+      // kept in sync with last_handshake_recv.last_irreversible_block_num, only accessed from connection strand
+      uint32_t                peer_lib_num = 0;
 
       std::atomic<uint32_t>   trx_in_progress_size{0};
       fc::time_point          last_dropped_trx_msg_time;
@@ -1007,6 +1009,7 @@ namespace eosio {
       if( has_last_req && !shutdown ) {
          my_impl->dispatcher->retry_fetch( self->shared_from_this() );
       }
+      self->peer_lib_num = 0;
       self->peer_requested.reset();
       self->sent_handshake_count = 0;
       if( !shutdown) my_impl->sync_master->sync_reset_lib_num( self->shared_from_this(), true );
@@ -1032,15 +1035,15 @@ namespace eosio {
          enqueue(note);
          return;
       }
-      std::unique_lock<std::mutex> g_conn( conn_mtx );
-      if( last_handshake_recv.generation >= 1 ) {
-         peer_dlog( this, "maybe truncating branch at = ${h}:${id}",
-                    ("h", block_header::num_from_id(last_handshake_recv.head_id))("id", last_handshake_recv.head_id) );
-      }
 
-      block_id_type lib_id = last_handshake_recv.last_irreversible_block_id;
-      g_conn.unlock();
-      const auto lib_num = block_header::num_from_id(lib_id);
+      if( logger.is_enabled( fc::log_level::debug ) ) {
+         std::unique_lock<std::mutex> g_conn( conn_mtx );
+         if( last_handshake_recv.generation >= 1 ) {
+            peer_dlog( this, "maybe truncating branch at = ${h}:${id}",
+                       ("h", block_header::num_from_id(last_handshake_recv.head_id))("id", last_handshake_recv.head_id) );
+         }
+      }
+      const auto lib_num = peer_lib_num;
       if( lib_num == 0 ) return; // if last_irreversible_block_id is null (we have not received handshake or reset)
 
       app().post( priority::medium, [chain_plug = my_impl->chain_plug, c = shared_from_this(),
@@ -1562,9 +1565,8 @@ namespace eosio {
       }
       if( !c ) return;
       if( !closing ) {
-         std::lock_guard<std::mutex> g_conn( c->conn_mtx );
-         if( c->last_handshake_recv.last_irreversible_block_num > sync_known_lib_num ) {
-            sync_known_lib_num = c->last_handshake_recv.last_irreversible_block_num;
+         if( c->peer_lib_num > sync_known_lib_num ) {
+            sync_known_lib_num = c->peer_lib_num;
          }
       } else {
          // Closing connection, therefore its view of LIB can no longer be considered as we will no longer be connected.
@@ -1946,6 +1948,7 @@ namespace eosio {
          }
       } else if (msg.known_blocks.mode == last_irr_catch_up) {
          {
+            c->peer_lib_num = msg.known_trx.pending;
             std::lock_guard<std::mutex> g_conn( c->conn_mtx );
             c->last_handshake_recv.last_irreversible_block_num = msg.known_trx.pending;
          }
@@ -2145,9 +2148,7 @@ namespace eosio {
 
          cp->strand.post( [cp, bnum, sb{std::move(sb)}]() {
             cp->latest_blk_time = cp->get_time();
-            std::unique_lock<std::mutex> g_conn( cp->conn_mtx );
-            bool has_block = cp->last_handshake_recv.last_irreversible_block_num >= bnum;
-            g_conn.unlock();
+            bool has_block = cp->peer_lib_num >= bnum;
             if( !has_block ) {
                peer_dlog( cp, "bcast block ${b}", ("b", bnum) );
                cp->enqueue_buffer( sb, no_reason );
@@ -2774,6 +2775,7 @@ namespace eosio {
       peer_dlog( this, "received handshake gen ${g}, lib ${lib}, head ${head}",
                  ("g", msg.generation)("lib", msg.last_irreversible_block_num)("head", msg.head_num) );
 
+      peer_lib_num = msg.last_irreversible_block_num;
       std::unique_lock<std::mutex> g_conn( conn_mtx );
       last_handshake_recv = msg;
       g_conn.unlock();
