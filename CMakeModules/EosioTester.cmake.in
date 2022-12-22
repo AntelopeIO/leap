@@ -56,8 +56,8 @@ find_library(libtester eosio_testing @CMAKE_INSTALL_FULL_LIBDIR@ NO_DEFAULT_PATH
 find_library(libchain eosio_chain @CMAKE_INSTALL_FULL_LIBDIR@ NO_DEFAULT_PATH)
 find_library(libfc fc @CMAKE_INSTALL_FULL_LIBDIR@ NO_DEFAULT_PATH)
 find_library(libsecp256k1 secp256k1 @CMAKE_INSTALL_FULL_LIBDIR@ NO_DEFAULT_PATH)
+find_library(libbn256 bn256 @CMAKE_INSTALL_FULL_LIBDIR@ NO_DEFAULT_PATH)
 
-find_library(libff ff @CMAKE_INSTALL_FULL_LIBDIR@ NO_DEFAULT_PATH)
 find_library(libwasm WASM @CMAKE_INSTALL_FULL_LIBDIR@ NO_DEFAULT_PATH)
 find_library(libwast WAST @CMAKE_INSTALL_FULL_LIBDIR@ NO_DEFAULT_PATH)
 find_library(libir IR     @CMAKE_INSTALL_FULL_LIBDIR@ NO_DEFAULT_PATH)
@@ -98,7 +98,7 @@ macro(add_eosio_test_executable test_name)
        ${libchainbase}
        ${libbuiltins}
        ${libsecp256k1}
-       ${libff}
+       ${libbn256}
        @GMP_LIBRARY@
 
        ${Boost_FILESYSTEM_LIBRARY}
@@ -115,7 +115,7 @@ macro(add_eosio_test_executable test_name)
        ${WRAP_MAIN}
        Threads::Threads
       )
-   
+
    #adds -ltr. Ubuntu eosio.contracts build breaks without this
    if(UNIX AND NOT APPLE)
       target_link_libraries(${test_name} ${LIBRT})
