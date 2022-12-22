@@ -2073,6 +2073,7 @@ namespace eosio {
    }
 
    void dispatch_manager::rm_block( const block_id_type& blkid ) {
+      fc_dlog( logger, "rm_block ${n}, id: ${id}", ("n", block_header::num_from_id( blkid ))("id", blkid));
       std::lock_guard<std::mutex> g(blk_state_mtx);
       auto& index = blk_state.get<by_connection_id>();
       auto p = index.equal_range(blkid);
@@ -3195,8 +3196,16 @@ namespace eosio {
       connection_ptr c = shared_from_this();
 
       // if we have closed connection then stop processing
-      if( !c->socket_is_open() )
+      if( !c->socket_is_open() ) {
+         if( bsp ) {
+            // valid bsp means add_peer_block already called, need to remove it since we are not going to process the block
+            // call on dispatch strand to serialize with the add_peer_block calls
+            my_impl->dispatcher->strand.post( [blk_id]() {
+               my_impl->dispatcher->rm_block( blk_id );
+            } );
+         }
          return;
+      }
 
       try {
          if( cc.fetch_block_by_id(blk_id) ) {
