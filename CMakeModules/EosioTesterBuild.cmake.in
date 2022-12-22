@@ -53,8 +53,8 @@ find_library(libtester eosio_testing @CMAKE_BINARY_DIR@/libraries/testing NO_DEF
 find_library(libchain eosio_chain @CMAKE_BINARY_DIR@/libraries/chain NO_DEFAULT_PATH)
 find_library(libfc fc @CMAKE_BINARY_DIR@/libraries/libfc NO_DEFAULT_PATH)
 find_library(libsecp256k1 secp256k1 @CMAKE_BINARY_DIR@/libraries/libfc/secp256k1 NO_DEFAULT_PATH)
+find_library(libbn256 bn256 @CMAKE_BINARY_DIR@/libraries/libfc/libraries/bn256/src NO_DEFAULT_PATH)
 
-find_library(libff ff @CMAKE_BINARY_DIR@/libraries/libfc/libraries/ff/libff NO_DEFAULT_PATH)
 find_library(libwasm WASM @CMAKE_BINARY_DIR@/libraries/wasm-jit/Source/WASM NO_DEFAULT_PATH)
 find_library(libwast WAST @CMAKE_BINARY_DIR@/libraries/wasm-jit/Source/WAST NO_DEFAULT_PATH)
 find_library(libir IR     @CMAKE_BINARY_DIR@/libraries/wasm-jit/Source/IR NO_DEFAULT_PATH)
@@ -95,7 +95,7 @@ macro(add_eosio_test_executable test_name)
        ${libchainbase}
        ${libbuiltins}
        ${libsecp256k1}
-       ${libff}
+       ${libbn256}
        @GMP_LIBRARY@
 
        ${Boost_FILESYSTEM_LIBRARY}
@@ -112,7 +112,7 @@ macro(add_eosio_test_executable test_name)
        ${WRAP_MAIN}
        Threads::Threads
       )
-   
+
    #adds -ltr. Ubuntu eosio.contracts build breaks without this
    if(UNIX AND NOT APPLE)
       target_link_libraries(${test_name} ${LIBRT})
