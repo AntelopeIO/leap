@@ -35,14 +35,6 @@ void async_teardown(role_type, unixs::socket& sock, TeardownHandler&& handler) {
 } // namespace boost::beast::websocket
 #endif
 
-// overload pattern for variant visitation
-template <class... Ts>
-struct overload : Ts... {
-   using Ts::operator()...;
-};
-template <class... Ts>
-overload(Ts...) -> overload<Ts...>;
-
 namespace eosio {
 using namespace chain;
 using namespace state_history;
