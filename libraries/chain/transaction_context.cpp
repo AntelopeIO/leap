@@ -106,12 +106,15 @@ namespace eosio { namespace chain {
 
       net_limit = rl.get_block_net_limit();
 
+      objective_duration_limit = fc::microseconds( rl.get_block_cpu_limit() );
+
       if( is_read_only() ) {
-         objective_duration_limit = read_only_trx_cpu_usage_limit;
+         // Possibly limit deadline to node configurable read_only_trx_cpu_usage_limit
+         _deadline = start + read_only_trx_cpu_usage_limit;
+         billing_timer_exception_code = tx_cpu_usage_exceeded::code_value;
       } else {
-         objective_duration_limit = fc::microseconds( rl.get_block_cpu_limit() );
+         _deadline = start + objective_duration_limit;
       }
-      _deadline = start + objective_duration_limit;
 
       // Possibly lower net_limit to the maximum net usage a transaction is allowed to be billed
       if( cfg.max_transaction_net_usage <= net_limit && !is_read_only() ) {
@@ -134,13 +137,21 @@ namespace eosio { namespace chain {
          net_limit_due_to_block = false;
       }
 
-      // Possibly lower objective_duration_limit to optional limit set in transaction header
       if( trx.max_cpu_usage_ms > 0 ) {
          auto trx_specified_cpu_usage_limit = fc::milliseconds(trx.max_cpu_usage_ms);
-         if( trx_specified_cpu_usage_limit <= objective_duration_limit ) {
-            objective_duration_limit = trx_specified_cpu_usage_limit;
-            billing_timer_exception_code = tx_cpu_usage_exceeded::code_value;
-            _deadline = start + objective_duration_limit;
+         if( is_read_only() ) {
+            // Possibly limit deadline to optional limit set in transaction header
+            if( trx_specified_cpu_usage_limit <= read_only_trx_cpu_usage_limit ) {
+               billing_timer_exception_code = tx_cpu_usage_exceeded::code_value;
+               _deadline = start + trx_specified_cpu_usage_limit;
+            }
+         } else {
+            // Possibly lower objective_duration_limit to optional limit set in transaction header
+            if( trx_specified_cpu_usage_limit <= objective_duration_limit ) {
+               objective_duration_limit = trx_specified_cpu_usage_limit;
+               billing_timer_exception_code = tx_cpu_usage_exceeded::code_value;
+               _deadline = start + objective_duration_limit;
+            }
          }
       }
 
@@ -200,6 +211,21 @@ namespace eosio { namespace chain {
             billing_timer_exception_code = deadline_exception::code_value;
          }
 
+         if( !explicit_billed_cpu_time ) {
+            int64_t validate_account_cpu_limit = account_cpu_limit - subjective_cpu_bill_us + leeway.count(); // Add leeway to allow powerup
+            // Possibly limit deadline to account subjective cpu left
+            if( subjective_cpu_bill_us > 0 && (start + fc::microseconds(validate_account_cpu_limit) < _deadline) ) {
+               _deadline = start + fc::microseconds(validate_account_cpu_limit);
+               billing_timer_exception_code = tx_cpu_usage_exceeded::code_value;
+            }
+
+            // Fail early if amount of the previous speculative execution is within 10% of remaining account cpu available
+            if( validate_account_cpu_limit > 0 )
+               validate_account_cpu_limit -= EOS_PERCENT( validate_account_cpu_limit, 10 * config::percent_1 );
+            if( validate_account_cpu_limit < 0 ) validate_account_cpu_limit = 0;
+            validate_account_cpu_usage_estimate( billed_cpu_time_us, validate_account_cpu_limit, subjective_cpu_bill_us );
+         }
+
          // Explicit billed_cpu_time_us should be used, block_deadline will be maximum unless in test code
          if( explicit_billed_cpu_time ) {
             _deadline = block_deadline;
@@ -207,29 +233,6 @@ namespace eosio { namespace chain {
          } else {
             deadline_exception_code = billing_timer_exception_code;
          }
-
-        if( !explicit_billed_cpu_time ) {
-           int64_t validate_account_cpu_limit = account_cpu_limit - subjective_cpu_bill_us + leeway.count(); // Add leeway to allow powerup
-           // Possibly limit deadline to account subjective cpu left
-           if( subjective_cpu_bill_us > 0 && (start + fc::microseconds(validate_account_cpu_limit) < _deadline) ) {
-              _deadline = start + fc::microseconds(validate_account_cpu_limit);
-              billing_timer_exception_code = tx_cpu_usage_exceeded::code_value;
-           }
-
-           // Fail early if amount of the previous speculative execution is within 10% of remaining account cpu available
-           if( validate_account_cpu_limit > 0 )
-              validate_account_cpu_limit -= EOS_PERCENT( validate_account_cpu_limit, 10 * config::percent_1 );
-           if( validate_account_cpu_limit < 0 ) validate_account_cpu_limit = 0;
-           validate_account_cpu_usage_estimate( billed_cpu_time_us, validate_account_cpu_limit, subjective_cpu_bill_us );
-        }
-
-        // Explicit billed_cpu_time_us should be used, block_deadline will be maximum unless in test code
-        if( explicit_billed_cpu_time ) {
-           _deadline = block_deadline;
-           deadline_exception_code = deadline_exception::code_value;
-        } else {
-           deadline_exception_code = billing_timer_exception_code;
-        }
       } else {
          eager_net_limit = net_limit;
       }
