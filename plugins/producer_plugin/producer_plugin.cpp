@@ -27,6 +27,8 @@
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/signals2/connection.hpp>
 
+#include <unistd.h>
+
 namespace bmi = boost::multi_index;
 using bmi::indexed_by;
 using bmi::ordered_non_unique;
@@ -270,8 +272,9 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
 
       std::optional<fc::time_point> calculate_next_block_time(const account_name& producer_name, const block_timestamp_type& current_block_time) const;
       void schedule_production_loop();
-      void schedule_hotstuff_loop();
       void schedule_maybe_produce_block( bool exhausted );
+      void notify_confirmation_message( const confirmation_message_ptr& msg);
+      void notify_consensus_message( const consensus_message_ptr& msg );
       void produce_block();
       bool maybe_produce_block();
       bool block_is_exhausted() const;
@@ -345,6 +348,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       std::optional<scoped_connection>                          _accepted_block_header_connection;
       std::optional<scoped_connection>                          _irreversible_block_connection;
 
+      qc_chain                                                  _qc_chain;
       /*
        * HACK ALERT
        * Boost timers can be in a state where a handler has not yet executed but is not abortable.
@@ -382,6 +386,11 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       }
 
       void on_block( const block_state_ptr& bsp ) {
+         
+         //ilog("block");
+
+         if (bsp->block_num % 120 == 0) _qc_chain.print_state();
+
          auto before = _unapplied_transactions.size();
          _unapplied_transactions.clear_applied( bsp );
          _subjective_billing.on_block( _log, bsp, fc::time_point::now() );
@@ -1003,6 +1012,8 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
       }
    }
 
+   my->_qc_chain.init(my->chain_plug, my->_producers);
+
 } FC_LOG_AND_RETHROW() }
 
 void producer_plugin::plugin_startup()
@@ -1353,6 +1364,14 @@ void producer_plugin::schedule_protocol_feature_activations( const scheduled_pro
    my->_protocol_features_to_activate = schedule.protocol_features_to_activate;
    my->_protocol_features_signaled = false;
 }
+
+void producer_plugin::notify_confirmation_message( const confirmation_message_ptr& msg){
+   my->notify_confirmation_message(msg);
+};
+
+void producer_plugin::notify_consensus_message( const consensus_message_ptr& msg ){
+   my->notify_consensus_message(msg);
+};
 
 fc::variants producer_plugin::get_supported_protocol_features( const get_supported_protocol_features_params& params ) const {
    fc::variants results;
@@ -2383,10 +2402,6 @@ void producer_plugin_impl::schedule_production_loop() {
    }
 }
 
-void producer_plugin_impl::schedule_hotstuff_loop() {
-
-}
-
 void producer_plugin_impl::schedule_maybe_produce_block( bool exhausted ) {
    chain::controller& chain = chain_plug->chain();
 
@@ -2491,6 +2506,15 @@ static auto maybe_make_debug_time_logger() -> std::optional<decltype(make_debug_
    }
 }
 
+
+void producer_plugin_impl::notify_confirmation_message( const confirmation_message_ptr& msg){
+   _qc_chain.on_confirmation_msg(*msg);
+};
+
+void producer_plugin_impl::notify_consensus_message( const consensus_message_ptr& msg ){
+   _qc_chain.on_consensus_msg(*msg);
+};
+
 void producer_plugin_impl::produce_block() {
    //ilog("produce_block ${t}", ("t", fc::time_point::now())); // for testing _produce_time_offset_us
    auto start = fc::time_point::now();
@@ -2537,6 +2561,15 @@ void producer_plugin_impl::produce_block() {
 
    _account_fails.report(_idle_trx_time);
    _account_fails.clear();
+
+   const auto& hbs = chain.head_block_state();
+   const auto& active_schedule = hbs->active_schedule.producers;
+
+   //if we're producing after chain has activated, and we're not currently in the middle of a view
+   if (hbs->header.producer != name("eosio")  && 
+      (_qc_chain._qc_chain_state == qc_chain::qc_chain_state::initializing || _qc_chain._qc_chain_state == qc_chain::qc_chain_state::finished_view)){
+      _qc_chain.create_new_view(*hbs); //we create a new view 
+   }
 
    br.total_time += fc::time_point::now() - start;
 

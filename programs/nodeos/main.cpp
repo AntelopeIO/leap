@@ -107,6 +107,9 @@ enum return_codes {
 
 int main(int argc, char** argv)
 {
+
+   ilog("nodeos started");
+
    try {
       uint32_t short_hash = 0;
       fc::from_hex(eosio::version::version_hash(), (char*)&short_hash, sizeof(short_hash));
@@ -152,6 +155,7 @@ int main(int argc, char** argv)
    } catch( const node_management_success& e ) {
       return NODE_MANAGEMENT_SUCCESS;
    } catch( const fc::exception& e ) {
+
       if( e.code() == fc::std_exception_code ) {
          if( e.top_message().find( "atabase dirty flag set" ) != std::string::npos ) {
             elog( "database dirty flag set (likely due to unclean shutdown): replay required" );

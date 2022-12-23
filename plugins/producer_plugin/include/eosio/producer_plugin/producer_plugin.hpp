@@ -1,6 +1,7 @@
 #pragma once
 
 #include <eosio/chain_plugin/chain_plugin.hpp>
+#include <eosio/producer_plugin/qc_chain.hpp>
 #include <eosio/signature_provider_plugin/signature_provider_plugin.hpp>
 
 #include <appbase/application.hpp>
@@ -109,6 +110,9 @@ public:
 
    scheduled_protocol_feature_activations get_scheduled_protocol_feature_activations() const;
    void schedule_protocol_feature_activations(const scheduled_protocol_feature_activations& schedule);
+
+   void notify_confirmation_message( const chain::confirmation_message_ptr& msg);
+   void notify_consensus_message( const chain::consensus_message_ptr& msg );
 
    fc::variants get_supported_protocol_features( const get_supported_protocol_features_params& params ) const;
 

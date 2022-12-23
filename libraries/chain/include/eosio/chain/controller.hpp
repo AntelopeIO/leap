@@ -5,6 +5,7 @@
 #include <eosio/chain/genesis_state.hpp>
 #include <chainbase/pinnable_mapped_file.hpp>
 #include <boost/signals2/signal.hpp>
+#include <eosio/chain/hotstuff.hpp>
 
 #include <eosio/chain/abi_serializer.hpp>
 #include <eosio/chain/account_object.hpp>
@@ -174,6 +175,9 @@ namespace eosio { namespace chain {
          block_state_ptr finalize_block( block_report& br, const signer_callback_type& signer_callback );
          void sign_block( const signer_callback_type& signer_callback );
          void commit_block();
+         
+         void commit_consensus_msg(consensus_message_ptr msg);
+         void commit_confirmation_msg(confirmation_message_ptr msg);
 
          std::future<block_state_ptr> create_block_state_future( const block_id_type& id, const signed_block_ptr& b );
 
@@ -334,6 +338,8 @@ namespace eosio { namespace chain {
          signal<void(const transaction_metadata_ptr&)> accepted_transaction;
          signal<void(std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&>)> applied_transaction;
          signal<void(const int&)>                      bad_alloc;
+         signal<void(const consensus_message_ptr&)>    new_consensus_message;
+         signal<void(const confirmation_message_ptr&)> new_confirmation_message;
 
          /*
          signal<void()>                                  pre_apply_block;

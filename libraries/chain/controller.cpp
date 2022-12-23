@@ -1659,6 +1659,8 @@ struct controller_impl {
    {
       EOS_ASSERT( !pending, block_validate_exception, "pending block already exists" );
 
+      //ilog("starting block... ");
+
       emit( self.block_start, head->block_num + 1 );
 
       if (auto dm_logger = get_deep_mind_logger()) {
@@ -1930,6 +1932,14 @@ struct controller_impl {
 
       // push the state for pending.
       pending->push();
+   }
+
+   void commit_consensus_msg(consensus_message_ptr msg){
+      emit( self.new_consensus_message, msg );
+   }
+
+   void commit_confirmation_msg(confirmation_message_ptr msg){
+      emit( self.new_confirmation_message, msg );
    }
 
    /**
@@ -2887,6 +2897,14 @@ block_state_ptr controller::finalize_block( block_report& br, const signer_callb
 void controller::commit_block() {
    validate_db_available_size();
    my->commit_block(true);
+}
+
+void controller::commit_consensus_msg(consensus_message_ptr msg) {
+   my->commit_consensus_msg(msg);
+}
+
+void controller::commit_confirmation_msg(confirmation_message_ptr msg) {
+   my->commit_confirmation_msg(msg);
 }
 
 deque<transaction_metadata_ptr> controller::abort_block() {
