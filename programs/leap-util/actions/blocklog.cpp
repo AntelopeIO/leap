@@ -61,7 +61,7 @@ void blocklog_actions::setup(CLI::App& app) {
 
    // main command
    auto* sub = app.add_subcommand("block-log", "Blocklog utility");
-   sub->require_subcommand(1);
+   sub->require_subcommand();
    sub->fallthrough();
 
    // fallthrough options
