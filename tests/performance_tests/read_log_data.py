@@ -26,8 +26,8 @@ trxGenLogDirPath = Path(args.trx_data_logs_dir)
 data = log_reader.chainData()
 data.startBlock = args.start_block
 data.ceaseBlock = args.cease_block
-blockDataPath = Path(blockDataLogDirPath)/Path("blockData.txt")
-blockTrxDataPath = Path(blockDataLogDirPath)/Path("blockTrxData.txt")
+blockDataPath = Path(blockDataLogDirPath)/"blockData.txt"
+blockTrxDataPath = Path(blockDataLogDirPath)/"blockTrxData.txt"
 tpsLimitPerGenerator=args.tps_limit_per_generator
 targetTps=args.target_tps
 tpsTrxGensConfig = ltg.TpsTrxGensConfig(targetTps=targetTps, tpsLimitPerGenerator=tpsLimitPerGenerator)

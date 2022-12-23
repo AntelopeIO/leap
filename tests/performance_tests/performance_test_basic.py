@@ -70,7 +70,7 @@ class PerformanceTestBasic:
         topo: str = "mesh"
         extraNodeosArgs: ExtraNodeosArgs = ExtraNodeosArgs()
         useBiosBootFile: bool = False
-        genesisPath: Path = Path("tests")/Path("performance_tests")/Path("genesis.json")
+        genesisPath: Path = Path("tests")/"performance_tests"/"genesis.json"
         maximumP2pPerHost: int = 5000
         maximumClients: int = 0
         loggingDict: dict = field(default_factory=lambda: { "bios": "off" })
@@ -139,7 +139,7 @@ class PerformanceTestBasic:
         # Use first producer node and first non-producer node
         self.producerNodeId = 0
         self.validationNodeId = self.clusterConfig.pnodes
-        self.nodeosLogPath = Path("var")/Path("lib")/Path(f"node_{str(self.validationNodeId).zfill(2)}")/Path("stderr.txt")
+        self.nodeosLogPath = Path("var")/"lib"/f"node_{str(self.validationNodeId).zfill(2)}"/"stderr.txt"
 
         # Setup cluster and its wallet manager
         self.walletMgr=WalletMgr(True)
@@ -298,7 +298,7 @@ class PerformanceTestBasic:
         except Exception as e:
             print(f"Failed to move 'var' to '{self.varLogsDirPath}': {type(e)}: {e}")
 
-        etcEosioDir = Path("etc")/Path("eosio")
+        etcEosioDir = Path("etc")/"eosio"
         for path in os.listdir(etcEosioDir):
             if path == "launcher":
                 try:
