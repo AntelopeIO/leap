@@ -42,6 +42,9 @@ Config Options for eosio::state_history_plugin:
                                         incoming connections. Caution: only
                                         expose this port to your internal
                                         network.
+  --state-history-unix-socket-path arg  the path (relative to data-dir) to
+                                        create a unix socket upon which to
+                                        listen for incoming connections.
   --trace-history-debug-mode            enable debug mode for trace history
   --state-history-log-retain-blocks arg if set, periodically prune the state
                                         history files to store only configured
