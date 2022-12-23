@@ -55,7 +55,7 @@ Config Options for eosio::producer_plugin:
                                                            form <provider-type>
                                                            :<data>
 
-                                           <provider-type> is KEY, or KEOSD
+                                           <provider-type> is KEY, KEOSD, or SE
 
                                            KEY:<data>      is a string form of
                                                            a valid EOS
@@ -68,10 +68,6 @@ Config Options for eosio::producer_plugin:
                                                            and the approptiate
                                                            wallet(s) are
                                                            unlocked
-  --keosd-provider-timeout arg (=5)     Limits the maximum time (in
-                                        milliseconds) that is allowed for
-                                        sending blocks to a keosd provider for
-                                        signing
   --greylist-account arg                account that can not access to extended
                                         CPU/NET virtual resources
   --greylist-limit arg (=1000)          Limit (between 1 and 1000) on the
@@ -106,9 +102,10 @@ Config Options for eosio::producer_plugin:
   --max-scheduled-transaction-time-per-block-ms arg (=100)
                                         Maximum wall-clock time, in
                                         milliseconds, spent retiring scheduled
-                                        transactions in any block before
-                                        returning to normal transaction
-                                        processing.
+                                        transactions (and incoming transactions
+                                        according to incoming-defer-ratio) in
+                                        any block before returning to normal
+                                        transaction processing.
   --subjective-cpu-leeway-us arg (=31000)
                                         Time in microseconds allowed for a
                                         transaction that starts with
