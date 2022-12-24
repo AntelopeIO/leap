@@ -91,10 +91,12 @@ class PerformanceTest:
             self.pluginThreadOptLogsDirPath = f"{self.logDirPath}/pluginThreadOptRunLogs"
 
     def __init__(self, testHelperConfig: PerformanceTestBasic.TestHelperConfig=PerformanceTestBasic.TestHelperConfig(),
-                 clusterConfig: PerformanceTestBasic.ClusterConfig=PerformanceTestBasic.ClusterConfig(), ptConfig=PtConfig()):
+                 clusterConfig: PerformanceTestBasic.ClusterConfig=PerformanceTestBasic.ClusterConfig(), ptConfig=PtConfig(),
+                 specifiedContract: PerformanceTestBasic.SpecifiedContract=PerformanceTestBasic.SpecifiedContract()):
         self.testHelperConfig = testHelperConfig
         self.clusterConfig = clusterConfig
         self.ptConfig = ptConfig
+        self.specifiedContract = specifiedContract
 
         self.testsStart = datetime.utcnow()
 
@@ -120,6 +122,9 @@ class PerformanceTest:
                                                        quiet=quiet, delPerfLogs=delPerfLogs)
 
             myTest = PerformanceTestBasic(testHelperConfig=self.testHelperConfig, clusterConfig=clusterConfig, ptbConfig=ptbConfig)
+            if self.specifiedContract.accountName != "":
+                print("using specified contract")
+                myTest.specifiedContract = self.specifiedContract
             testSuccessful = myTest.runTest()
             if self.evaluateSuccess(myTest, testSuccessful, ptbResult):
                 maxTpsAchieved = binSearchTarget
@@ -161,6 +166,9 @@ class PerformanceTest:
                                                     numAddlBlocksToPrune=self.ptConfig.numAddlBlocksToPrune, logDirRoot=self.loggingConfig.ptbLogsDirPath, delReport=self.ptConfig.delReport, quiet=self.ptConfig.quiet, delPerfLogs=self.ptConfig.delPerfLogs)
 
             myTest = PerformanceTestBasic(testHelperConfig=self.testHelperConfig, clusterConfig=self.clusterConfig, ptbConfig=ptbConfig)
+            if self.specifiedContract.accountName != "":
+                print("using specified contract")
+                myTest.specifiedContract = self.specifiedContract
             testSuccessful = myTest.runTest()
             if self.evaluateSuccess(myTest, testSuccessful, ptbResult):
                 maxTpsAchieved = searchTarget
@@ -526,6 +534,10 @@ def main():
                                         calcNetThreads=args.calc_net_threads)
 
     myTest = PerformanceTest(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, ptConfig=ptConfig)
+    if args.account_name and args.owner_public_key and args.active_public_key and args.contract_dir and args.wasm_file and args.abi_file:
+        print("using specified contract")
+        specifiedContract = PerformanceTestBasic.SpecifiedContract(args.account_name, args.owner_public_key, args.active_public_key, args.contract_dir, args.wasm_file, args.abi_file)
+        myTest.specifiedContract = specifiedContract
     perfRunSuccessful = myTest.runTest()
 
     exitCode = 0 if perfRunSuccessful else 1

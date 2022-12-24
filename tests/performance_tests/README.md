@@ -273,6 +273,12 @@ The Performance Harness main script `performance_test.py` can be configured usin
                           In "none" mode, the default, no calculation will be attempted and default configured --net-threads value will be used.
                           In "lmax" mode, producer threads will incrementally be tested until the performance rate ceases to increase with the addition of additional threads.
                           In "full" mode producer threads will incrementally be tested from 2..num logical processors, recording each performance and choosing the local max performance (same value as would be discovered in "lmax" mode). Useful for graphing the full performance impact of each available thread. (default: none)
+* `--account-name`        Name of the account to create and assign a contract to
+* `--owner-public-key`    Owner public key to use with specified account name
+* `--active-public-key`   Active public key to use with specified account name
+* `--contract-dir`        Path to contract dir
+* `--wasm-file`           WASM file name for contract
+* `--abi-file`            ABI file name for contract
 </details>
 
 ### Support Scripts
@@ -338,6 +344,12 @@ The following scripts are typically used by the Performance Harness main script 
 * `--quiet`               Whether to quiet printing intermediate results and reports to stdout (default: False)
 * `--prods-enable-trace-api`
                           Determines whether producer nodes should have eosio::trace_api_plugin enabled (default: False)
+* `--account-name`        Name of the account to create and assign a contract to
+* `--owner-public-key`    Owner public key to use with specified account name
+* `--active-public-key`   Active public key to use with specified account name
+* `--contract-dir`        Path to contract dir
+* `--wasm-file`           WASM file name for contract
+* `--abi-file`            ABI file name for contract
 </details>
 
 #### Launch Transaction Generators
