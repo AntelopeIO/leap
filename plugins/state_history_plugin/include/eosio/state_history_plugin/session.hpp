@@ -194,8 +194,11 @@ struct session : session_base, std::enable_shared_from_this<session<Plugin, Sock
    void send() {
       if (sending)
          return;
-      if (send_queue.empty())
-         return send_update();
+      if (send_queue.empty()) {
+         plugin->post_task(
+             [self = this->shared_from_this()]() { self->send_update(); });
+         return;
+      }
       sending = true;
       socket_stream.binary(sent_abi);
       sent_abi = true;
