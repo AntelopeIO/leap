@@ -18,6 +18,7 @@ using unixs   = boost::asio::local::stream_protocol;
 namespace ws  = boost::beast::websocket;
 namespace bio = boost::iostreams;
 
+
 template <typename Session>
 struct send_queue_entry_base {
    virtual ~send_queue_entry_base() {}
