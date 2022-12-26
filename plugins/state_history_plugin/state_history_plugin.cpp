@@ -331,11 +331,10 @@ void state_history_plugin::set_program_options(options_description& cli, options
    options("state-history-dir", bpo::value<bfs::path>()->default_value("state-history"),
            "the location of the state-history directory (absolute path or relative to application data dir)");
    options("state-history-retained-dir", bpo::value<bfs::path>(),
-           "the location of the state history retained directory (absolute path or relative to state-history dir).\n"
-           "If the value is empty, it is set to the value of state-history directory.");
+           "the location of the state history retained directory (absolute path or relative to state-history dir).");
    options("state-history-archive-dir", bpo::value<bfs::path>(),
            "the location of the state history archive directory (absolute path or relative to state-history dir).\n"
-           "If the value is empty, blocks files beyond the retained limit will be deleted.\n"
+           "If the value is empty string, blocks files beyond the retained limit will be deleted.\n"
            "All files in the archive directory are completely under user's control, i.e. they won't be accessed by nodeos anymore.");
    options("state-history-stride", bpo::value<uint32_t>(),
          "split the state history log files when the block number is the multiple of the stride\n"

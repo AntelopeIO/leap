@@ -776,17 +776,37 @@ class state_history_log {
    void truncate(uint32_t block_num) {
       log.flush();
       index.flush();
-      uint64_t num_removed = 0;
+
+      log.close();
+      index.close();
+
+      auto first_block_num     = catalog.empty() ? _begin_block : catalog.first_block_num();
+      auto new_begin_block_num = catalog.truncate(block_num, log.get_file_path());
+
+      // notice that catalog.truncate() can replace existing log and index files, so we have to
+      // close the files and reopen them again; otherwise we might operate on the obsolete files instead.
+
+      if (new_begin_block_num > 0) {
+         _begin_block = new_begin_block_num;
+         _index_begin_block = new_begin_block_num;
+      }
+
+      uint32_t num_removed;
+
       if (block_num <= _begin_block) {
-         num_removed = _end_block - _begin_block;
-         log.seek(0);
+         num_removed = _end_block - first_block_num;
          boost::filesystem::resize_file(log.get_file_path().string(), 0);
          boost::filesystem::resize_file(index.get_file_path().string(), 0);
-         _begin_block = _end_block = 0;
+         _begin_block = _end_block = block_num;
       } else {
          num_removed  = _end_block - block_num;
+
+         index.open("rb");
          uint64_t pos = get_pos(block_num);
-         log.seek(0);
+         index.close();
+
+         auto path = log.get_file_path().string();
+
          boost::filesystem::resize_file(log.get_file_path().string(), pos);
          boost::filesystem::resize_file(index.get_file_path().string(), (block_num - _index_begin_block) * sizeof(uint64_t));
          _end_block = block_num;
@@ -794,7 +814,11 @@ class state_history_log {
          // mode or not. The assumption is truncate() is always immediately followed up with an append to the log thus
          // restoring the prune trailer if required
       }
+
+      log.open("r+b");
       log.seek_end(0);
+      index.open("a+b");
+
       ilog("fork or replay: removed ${n} blocks from ${name}.log", ("n", num_removed)("name", name));
    }
 
