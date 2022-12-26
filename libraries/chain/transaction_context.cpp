@@ -93,11 +93,6 @@ namespace eosio { namespace chain {
    {
       EOS_ASSERT( !is_initialized, transaction_exception, "cannot initialize twice" );
 
-      // For read-only transactions, we will only enforce read_only_trx_cpu_usage_limit
-      // and transaction-provided limit. read_only_trx_cpu_usage_limit
-      // will be replaced with a node configurable option
-      constexpr auto read_only_trx_cpu_usage_limit = fc::milliseconds(150);
-
       // set maximum to a semi-valid deadline to allow for pause math and conversion to dates for logging
       if( block_deadline == fc::time_point::maximum() ) block_deadline = start + fc::hours(24*7*52);
 
@@ -107,14 +102,7 @@ namespace eosio { namespace chain {
       net_limit = rl.get_block_net_limit();
 
       objective_duration_limit = fc::microseconds( rl.get_block_cpu_limit() );
-
-      if( is_read_only() ) {
-         // Possibly limit deadline to node configurable read_only_trx_cpu_usage_limit
-         _deadline = start + read_only_trx_cpu_usage_limit;
-         billing_timer_exception_code = tx_cpu_usage_exceeded::code_value;
-      } else {
-         _deadline = start + objective_duration_limit;
-      }
+      _deadline = start + objective_duration_limit;
 
       // Possibly lower net_limit to the maximum net usage a transaction is allowed to be billed
       if( cfg.max_transaction_net_usage <= net_limit && !is_read_only() ) {
@@ -194,14 +182,17 @@ namespace eosio { namespace chain {
             _deadline = start + fc::microseconds(account_cpu_limit) + leeway;
             billing_timer_exception_code = leeway_deadline_exception::code_value;
          }
+      }
 
-         // Possibly limit deadline to subjective max_transaction_time
-         if( max_transaction_time_subjective != fc::microseconds::maximum() && (start + max_transaction_time_subjective) <= _deadline ) {
-            _deadline = start + max_transaction_time_subjective;
-            tx_cpu_usage_reason = billed_cpu_time_us > 0 ? tx_cpu_usage_exceeded_reason::speculative_executed_adjusted_max_transaction_time :
-                                                           tx_cpu_usage_exceeded_reason::node_configured_max_transaction_time;
-            billing_timer_exception_code = tx_cpu_usage_exceeded::code_value;
-         }
+      // Possibly limit deadline to subjective max_transaction_time
+      if( max_transaction_time_subjective != fc::microseconds::maximum() && (start + max_transaction_time_subjective) <= _deadline ) {
+         _deadline = start + max_transaction_time_subjective;
+         tx_cpu_usage_reason = billed_cpu_time_us > 0 ?
+            tx_cpu_usage_exceeded_reason::speculative_executed_adjusted_max_transaction_time :
+            ( is_read_only() ?
+               tx_cpu_usage_exceeded_reason::node_configured_max_read_only_transaction_time :
+               tx_cpu_usage_exceeded_reason::node_configured_max_transaction_time );
+         billing_timer_exception_code = tx_cpu_usage_exceeded::code_value;
       }
 
       // Possibly limit deadline to caller provided wall clock block deadline
@@ -464,6 +455,9 @@ namespace eosio { namespace chain {
          case tx_cpu_usage_exceeded_reason::speculative_executed_adjusted_max_transaction_time:
             limit = max_transaction_time_subjective;
             return " reached speculative executed adjusted trx max time ${limit}us";
+         case tx_cpu_usage_exceeded_reason::node_configured_max_read_only_transaction_time:
+            limit = max_transaction_time_subjective;
+            return " reached node configured max-read-only-transaction-time ${limit}us";
       }
       return "unknown tx_cpu_usage_exceeded";
    }

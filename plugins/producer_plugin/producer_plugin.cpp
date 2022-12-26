@@ -360,6 +360,9 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       // path to write the snapshots to
       bfs::path _snapshots_dir;
 
+      // max time in millisecons that a read-only transaction is allowed to run
+      int32_t _max_read_only_transaction_time_ms = 150;
+
       void consider_new_watermark( account_name producer, uint32_t block_num, block_timestamp_type timestamp) {
          auto itr = _producer_watermarks.find( producer );
          if( itr != _producer_watermarks.end() ) {
@@ -525,7 +528,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                                          bool return_failure_traces,
                                          next_function<transaction_trace_ptr> next) {
          chain::controller& chain = chain_plug->chain();
-         const auto max_trx_time_ms = _max_transaction_time_ms.load();
+         const auto max_trx_time_ms = ( trx_type == transaction_metadata::trx_type::read_only ) ? _max_read_only_transaction_time_ms : _max_transaction_time_ms.load();
          fc::microseconds max_trx_cpu_usage = max_trx_time_ms < 0 ? fc::microseconds::maximum() : fc::milliseconds( max_trx_time_ms );
 
          auto future = transaction_metadata::start_recover_keys( trx, _thread_pool->get_executor(),
@@ -765,6 +768,8 @@ void producer_plugin::set_program_options(
           "Number of worker threads in producer thread pool")
          ("snapshots-dir", bpo::value<bfs::path>()->default_value("snapshots"),
           "the location of the snapshots directory (absolute path or relative to application data dir)")
+         ("max-read-only-transaction-time", bpo::value<int32_t>()->default_value(150),
+          "Limits the maximum time (in milliseconds) that is allowed a pushed read-only transaction's code to execute before being considered invalid")
          ;
    config_file_options.add(producer_options);
 }
@@ -949,6 +954,8 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
          resmon_plugin->monitor_directory(my->_snapshots_dir);
       }
    }
+
+   my->_max_read_only_transaction_time_ms = options.at("max-read-only-transaction-time").as<int32_t>();
 
    my->_incoming_block_subscription = app().get_channel<incoming::channels::block>().subscribe(
          [this](const signed_block_ptr& block) {
@@ -1142,6 +1149,10 @@ void producer_plugin::update_runtime_options(const runtime_options& options) {
    if (options.greylist_limit) {
       chain.set_greylist_limit(*options.greylist_limit);
    }
+
+   if (options.max_read_only_transaction_time) {
+      my->_max_read_only_transaction_time_ms = *options.max_read_only_transaction_time;
+   }
 }
 
 producer_plugin::runtime_options producer_plugin::get_runtime_options() const {
@@ -1155,7 +1166,8 @@ producer_plugin::runtime_options producer_plugin::get_runtime_options() const {
             my->chain_plug->chain().get_subjective_cpu_leeway()->count() :
             std::optional<int32_t>(),
       my->_incoming_defer_ratio,
-      my->chain_plug->chain().get_greylist_limit()
+      my->chain_plug->chain().get_greylist_limit(),
+      my->_max_read_only_transaction_time_ms
    };
 }
 
@@ -1989,7 +2001,7 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
    }
 
    chain::controller& chain = chain_plug->chain();
-   fc::microseconds max_trx_time = fc::milliseconds( _max_transaction_time_ms.load() );
+   fc::microseconds max_trx_time = trx->is_read_only() ? fc::milliseconds( _max_read_only_transaction_time_ms ) : fc::milliseconds( _max_transaction_time_ms.load() );
    if( max_trx_time.count() < 0 ) max_trx_time = fc::microseconds::maximum();
 
    bool disable_subjective_billing = ( _pending_block_mode == pending_block_mode::producing )
