@@ -232,6 +232,7 @@ struct controller_impl {
    const chain_id_type             chain_id; // read by thread_pool threads, value will not be changed
    bool                            replaying = false;
    db_read_mode                    read_mode = db_read_mode::HEAD;
+   trx_execution_mode              execution_mode = trx_execution_mode::REGULAR;
    bool                            in_trx_requiring_checks = false; ///< if true, checks that are normally skipped on replay (e.g. auth checks) cannot be skipped
    std::optional<fc::microseconds> subjective_cpu_leeway;
    bool                            trusted_producer_light_validation = false;
@@ -2627,6 +2628,16 @@ struct controller_impl {
       return (blog.first_block_num() != 0) ? blog.first_block_num() : fork_db.root()->block_num;
    }
 
+   void set_execution_mode( trx_execution_mode mode ) {
+      if ( mode == trx_execution_mode::READ_ONLY ) {
+         db.set_read_only_mode();
+      } else if ( execution_mode == trx_execution_mode::READ_ONLY ) {
+         // previous mode is read-only, reset chainbase state
+         db.unset_read_only_mode();
+      }
+      execution_mode = mode;
+   }
+
 }; /// controller_impl
 
 const resource_limits_manager&   controller::get_resource_limits_manager()const
@@ -3288,6 +3299,10 @@ validation_mode controller::get_validation_mode()const {
    return my->conf.block_validation_mode;
 }
 
+void controller::set_execution_mode( trx_execution_mode mode ) {
+   my->set_execution_mode( mode );
+}
+
 uint32_t controller::get_terminate_at_block()const {
    return my->conf.terminate_at_block;
 }
@@ -3576,14 +3591,6 @@ void controller::replace_account_keys( name account, name permission, const publ
    int64_t new_size = (int64_t)(chain::config::billable_size_v<permission_object> + perm->auth.get_billable_size());
    rlm.add_pending_ram_usage(account, new_size - old_size);
    rlm.verify_account_ram_usage(account);
-}
-
-void controller::set_db_read_only_mode() {
-   mutable_db().set_read_only_mode();
-}
-
-void controller::unset_db_read_only_mode() {
-   mutable_db().unset_read_only_mode();
 }
 
 /// Protocol feature activation handlers:

@@ -2020,16 +2020,21 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
       }
    }
 
-   // setting and unsetting chainbase read_only mode will be moved to right
+   // setting execution mode will be moved to final
    // place when multi-threaded read-only transaction is implemented
-   auto unset_db_read_only_mode = fc::make_scoped_exit([trx, &chain]{
-      if( trx->is_read_only() )
-         chain.unset_db_read_only_mode();
+   auto set_execution_mode_scoped_exit = fc::make_scoped_exit([trx, &chain]{
+      if( trx->is_transient() )
+         chain.set_execution_mode( trx_execution_mode::REGULAR );
    });
    if( trx->is_read_only() )
-      chain.set_db_read_only_mode();
-
+      chain.set_execution_mode(trx_execution_mode::READ_ONLY);
+   else if ( trx->is_dry_run() )
+      chain.set_execution_mode(trx_execution_mode::DRY_RUN);
    auto trace = chain.push_transaction( trx, block_deadline, max_trx_time, prev_billed_cpu_time_us, false, sub_bill );
+   if( trx->is_transient() ) {
+      chain.set_execution_mode( trx_execution_mode::REGULAR );
+      set_execution_mode_scoped_exit.cancel();
+   }
 
    auto end = fc::time_point::now();
    push_result pr;
