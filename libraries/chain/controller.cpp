@@ -1332,7 +1332,7 @@ struct controller_impl {
          trace->except_ptr = std::current_exception();
          trace->elapsed = fc::time_point::now() - start;
 
-         if (auto dm_logger = get_deep_mind_logger(); dm_logger && !trx_context.is_transient()) {
+         if (auto dm_logger = get_deep_mind_logger()) {
             dm_logger->on_fail_deferred();
          }
       };
@@ -2621,7 +2621,8 @@ struct controller_impl {
    }
 
    inline deep_mind_handler* get_deep_mind_logger() const {
-      return deep_mind_logger;
+      // Do not do deep mind logging for read-only and dry-run transactions
+      return ( execution_mode == trx_execution_mode::READ_ONLY || execution_mode == trx_execution_mode::DRY_RUN ) ? nullptr : deep_mind_logger;
    }
 
    uint32_t earliest_available_block_num() const {
