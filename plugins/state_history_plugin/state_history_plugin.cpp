@@ -154,8 +154,10 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
       void send() {
          if (sending)
             return;
-         if (send_queue.empty())
-            return send_update();
+         if (send_queue.empty()) {
+            app().post(priority::medium, [self = this->shared_from_this()]() { self->send_update(); });
+            return;
+         }
          sending = true;
          socket_stream->binary(sent_abi);
          sent_abi = true;
