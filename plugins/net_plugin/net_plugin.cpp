@@ -167,7 +167,7 @@ namespace eosio {
       : strand( io_context ) {}
 
       void bcast_transaction(const packed_transaction_ptr& trx);
-      void rejected_transaction(const packed_transaction_ptr& trx, uint32_t head_blk_num);
+      void rejected_transaction(const packed_transaction_ptr& trx);
       void bcast_block( const signed_block_ptr& b, const block_id_type& id );
       void rejected_block(const block_id_type& id);
 
@@ -2179,6 +2179,7 @@ namespace eosio {
       fc_dlog( logger, "rejected block ${id}", ("id", id) );
    }
 
+   // called from any thread
    void dispatch_manager::bcast_transaction(const packed_transaction_ptr& trx) {
       trx_buffer_factory buff_factory;
       const auto now = fc::time_point::now();
@@ -2199,7 +2200,8 @@ namespace eosio {
       } );
    }
 
-   void dispatch_manager::rejected_transaction(const packed_transaction_ptr& trx, uint32_t head_blk_num) {
+   // called from any thread
+   void dispatch_manager::rejected_transaction(const packed_transaction_ptr& trx) {
       fc_dlog( logger, "not sending rejected transaction ${tid}", ("tid", trx->id()) );
       // keep rejected transaction around for awhile so we don't broadcast it, don't remove from local_txns
    }
@@ -3141,53 +3143,60 @@ namespace eosio {
    void connection::handle_message( const block_id_type& id, signed_block_ptr ptr ) {
       peer_dlog( this, "received signed_block ${num}, id ${id}", ("num", ptr->block_num())("id", id) );
 
-      controller& cc = my_impl->chain_plug->chain();
-      block_state_ptr bsp;
-      bool exception = false;
-      try {
-         if( cc.fetch_block_state_by_id( id ) ) {
-            my_impl->dispatcher->add_peer_block( id, connection_id );
-            my_impl->sync_master->sync_recv_block( shared_from_this(), id, ptr->block_num(), false );
+      // post to dispatcher strand so that we don't have multiple threads validating the block header
+      // the dispatcher strand will sync the add_peer_block and rm_block calls
+      my_impl->dispatcher->strand.post([id, c{shared_from_this()}, ptr{std::move(ptr)}, cid=connection_id]() mutable {
+         controller& cc = my_impl->chain_plug->chain();
+
+         // may have come in on a different connection and posted into dispatcher strand before this one
+         if( my_impl->dispatcher->have_block( id ) || cc.fetch_block_state_by_id( id ) ) {
+            my_impl->dispatcher->add_peer_block( id, c->connection_id );
+            c->strand.post( [c, id, blk_num=ptr->block_num()]() {
+               my_impl->sync_master->sync_recv_block( c, id, blk_num, false );
+            });
             return;
          }
-         // this may return null if block is not immediately ready to be processed
-         bsp = cc.create_block_state( id, ptr );
-      } catch( const fc::exception& ex ) {
-         exception = true;
-         peer_elog(this, "bad block exception: #${n} ${id}...: ${m}",
-                   ("n", ptr->block_num())("id", id.str().substr(8,16))("m",ex.to_string()));
-      } catch( ... ) {
-         exception = true;
-         peer_elog(this, "bad block: #${n} ${id}...: unknown exception",
-                   ("n", ptr->block_num())("id", id.str().substr(8,16)));
-      }
-      if( exception ) {
-         my_impl->sync_master->rejected_block( shared_from_this(), ptr->block_num() );
-         my_impl->dispatcher->rejected_block( id );
-         return;
-      }
 
-      bool valid_block_header = !!bsp;
+         block_state_ptr bsp;
+         bool exception = false;
+         try {
+            // this may return null if block is not immediately ready to be processed
+            bsp = cc.create_block_state( id, ptr );
+         } catch( const fc::exception& ex ) {
+            exception = true;
+            fc_elog( logger, "bad block exception connection ${cid}: #${n} ${id}...: ${m}",
+                     ("cid", cid)("n", ptr->block_num())("id", id.str().substr(8,16))("m",ex.to_string()));
+         } catch( ... ) {
+            exception = true;
+            fc_elog( logger, "bad block connection ${cid}: #${n} ${id}...: unknown exception",
+                     ("cid", cid)("n", ptr->block_num())("id", id.str().substr(8,16)));
+         }
+         if( exception ) {
+            c->strand.post( [c, id, blk_num=ptr->block_num()]() {
+               my_impl->sync_master->rejected_block( c, blk_num );
+               my_impl->dispatcher->rejected_block( id );
+            });
+            return;
+         }
 
-      if( valid_block_header ) {
-         // post to dispatcher strond the bcast_block so that if process_signed_block fails its rm_block will post
-         // to the dispatcher strand after the add_peer_block calls of bcast_block
-         my_impl->dispatcher->strand.post( [bsp, cid=connection_id]() {
-            fc_dlog( logger, "validated block header, broadcasting immediately, blk num = ${num}, id = ${id}",
-                     ("num", bsp->block_num)("id", bsp->id) );
+         bool valid_block_header = !!bsp;
+
+         if( valid_block_header ) {
+            fc_dlog( logger, "validated block header, broadcasting immediately, connection ${cid}, blk num = ${num}, id = ${id}",
+                     ("cid", cid)("num", bsp->block_num)("id", bsp->id) );
             my_impl->dispatcher->add_peer_block( bsp->id, cid ); // no need to send back to sender
             my_impl->dispatcher->bcast_block( bsp->block, bsp->id );
+         }
+
+         app().post(priority::medium, [ptr{std::move(ptr)}, bsp{std::move(bsp)}, id, c{std::move(c)}]() mutable {
+            c->process_signed_block( id, std::move(ptr), std::move(bsp) );
          });
-      }
 
-      app().post(priority::medium, [ptr{std::move(ptr)}, bsp{std::move(bsp)}, id, c = shared_from_this()]() mutable {
-         c->process_signed_block( id, std::move(ptr), std::move(bsp) );
+         if( valid_block_header ) {
+            // ready to process immediately, so signal producer to interrupt start_block
+            my_impl->producer_plug->received_block();
+         }
       });
-
-      if( valid_block_header ) {
-         // ready to process immediately, so signal producer to interrupt start_block
-         my_impl->producer_plug->received_block();
-      }
    }
 
    // called from application thread
@@ -3442,14 +3451,11 @@ namespace eosio {
 
    // called from application thread
    void net_plugin_impl::transaction_ack(const std::pair<fc::exception_ptr, packed_transaction_ptr>& results) {
-      dispatcher->strand.post( [this, results]() {
+      boost::asio::post( my_impl->thread_pool->get_executor(), [dispatcher = my_impl->dispatcher.get(), results]() {
          const auto& id = results.second->id();
          if (results.first) {
             fc_dlog( logger, "signaled NACK, trx-id = ${id} : ${why}", ("id", id)( "why", results.first->to_detail_string() ) );
-
-            uint32_t head_blk_num = 0;
-            std::tie( std::ignore, head_blk_num, std::ignore, std::ignore, std::ignore, std::ignore ) = get_chain_info();
-            dispatcher->rejected_transaction(results.second, head_blk_num);
+            dispatcher->rejected_transaction(results.second);
          } else {
             fc_dlog( logger, "signaled ACK, trx-id = ${id}", ("id", id) );
             dispatcher->bcast_transaction(results.second);
