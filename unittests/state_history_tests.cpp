@@ -641,11 +641,14 @@ struct state_history_tester : state_history_tester_logs, tester {
 };
 
 static std::vector<char> get_decompressed_entry(eosio::state_history_log& log, block_num_type block_num) {
-   std::variant<std::vector<char>, eosio::maybe_locked_decompress_stream> buf;
+   eosio::log_entry_type buf;
    log.get_unpacked_entry(block_num, buf);
    namespace bio = boost::iostreams;
    return std::visit(eosio::chain::overloaded{ [](std::vector<char>& bytes) {
                                                  return bytes;
+                                              },
+                                              [](std::shared_ptr<std::vector<char>>& bytes) {
+                                                 return *bytes;
                                               },
                                                [](eosio::maybe_locked_decompress_stream& strm) {
                                                   std::vector<char> bytes;

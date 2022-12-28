@@ -43,7 +43,7 @@ template <typename Session>
 class blocks_result_send_queue_entry : public send_queue_entry_base<Session> {
    eosio::state_history::get_blocks_result_v0                      r;
    std::vector<char>                                               data;
-   std::variant<std::vector<char>, maybe_locked_decompress_stream> buf;
+   eosio::log_entry_type                                buf;
 
    template <typename Next>
    void async_send(Session* s, bool fin, const std::vector<char>& d, Next&& next) {
@@ -74,6 +74,15 @@ class blocks_result_send_queue_entry : public send_queue_entry_base<Session> {
                    async_send(s.get(), fin, locked_strm, std::move(next));
                 }
              });
+          });
+   }
+
+   template <typename Next>
+   void async_send(Session* s, bool fin, const std::shared_ptr<std::vector<char>>& d, Next&& next) {
+      s->socket_stream.async_write_some(
+          fin, boost::asio::buffer(*d),
+          [s = s->shared_from_this(), next = std::forward<Next>(next)](boost::system::error_code ec, size_t) mutable {
+             s->callback(ec, "async_write", [s, next = std::move(next)]() mutable { next(s.get()); });
           });
    }
 
@@ -235,15 +244,13 @@ struct session : session_base, std::enable_shared_from_this<session<Plugin, Sock
       send();
    }
 
-   uint64_t get_trace_log_entry(const eosio::state_history::get_blocks_result_v0&              result,
-                                std::variant<std::vector<char>, maybe_locked_decompress_stream>& buf) {
+   uint64_t get_trace_log_entry(const eosio::state_history::get_blocks_result_v0& result, eosio::log_entry_type& buf) {
       if (result.traces.has_value())
          return plugin->get_trace_log()->get_unpacked_entry(result.this_block->block_num, buf);
       return 0;
    }
 
-   uint64_t get_delta_log_entry(const eosio::state_history::get_blocks_result_v0&              result,
-                                std::variant<std::vector<char>, maybe_locked_decompress_stream>& buf) {
+   uint64_t get_delta_log_entry(const eosio::state_history::get_blocks_result_v0& result, eosio::log_entry_type& buf) {
       if (result.deltas.has_value())
          return plugin->get_chain_state_log()->get_unpacked_entry(result.this_block->block_num, buf);
       return 0;

@@ -109,11 +109,16 @@ int main(int argc, char* argv[]) {
 
       stream.binary(true);
       stream.write(boost::asio::buffer(request_type.json_to_bin(request_sb.GetString(), [](){})));
+      stream.read_message_max(0);
 
       bool is_first = true;
       for(;;) {
          boost::beast::flat_buffer buffer;
          stream.read(buffer);
+
+         FILE* f = fopen("last_result.bin", "wb");
+         fwrite((const char*)buffer.data().data(), buffer.data().size(), 1, f);
+         fclose(f);
 
          eosio::input_stream is((const char*)buffer.data().data(), buffer.data().size());
          rapidjson::Document result_doucment;

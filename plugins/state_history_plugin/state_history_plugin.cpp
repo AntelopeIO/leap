@@ -301,7 +301,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
       state_history_log_header header{.magic        = ship_magic(ship_current_version, 0),
                                       .block_id     = block_state->id,
                                       .payload_size = 0};
-      trace_log->pack_and_write_entry(header, block_state->block->previous, [this, &block_state](auto&& buf) {
+      trace_log->pack_and_async_write_entry(header, block_state->block->previous, [this, &block_state](auto&& buf) {
          trace_converter.pack(buf, chain_plug->chain().db(), trace_debug_mode, block_state);
       });
    }
@@ -315,9 +315,15 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
 
       state_history_log_header header{
           .magic = ship_magic(ship_current_version, 0), .block_id = block_state->id, .payload_size = 0};
-      chain_state_log->pack_and_write_entry(header, block_state->header.previous, [this, fresh](auto&& buf) {
-         pack_deltas(buf, chain_plug->chain().db(), fresh);
-      });
+      if (fresh) {
+         chain_state_log->pack_and_write_entry(header, block_state->header.previous, [this](auto&& buf) {
+            pack_deltas(buf, chain_plug->chain().db(), true);
+         });
+      } else {
+         chain_state_log->pack_and_async_write_entry(header, block_state->header.previous, [this](auto&& buf) {
+            pack_deltas(buf, chain_plug->chain().db(), false);
+         });
+      }
    } // store_chain_state
 };   // state_history_plugin_impl
 

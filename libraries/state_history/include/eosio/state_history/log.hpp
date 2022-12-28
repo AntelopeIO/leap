@@ -14,12 +14,14 @@
 #include <fc/log/logger.hpp>
 #include <fc/log/logger_config.hpp> //set_thread_name
 #include <fc/bitutil.hpp>
+#include <fc/scoped_exit.hpp>
 
 #include <boost/iostreams/device/file.hpp>
 #include <boost/iostreams/device/file_descriptor.hpp>
 #include <boost/iostreams/filter/zlib.hpp>
 #include <boost/iostreams/filtering_streambuf.hpp>
 #include <boost/iostreams/restrict.hpp>
+#include <boost/iostreams/device/back_inserter.hpp>
 
 
 #include <eosio/chain/log_catalog.hpp>
@@ -131,8 +133,10 @@ struct maybe_locked_decompress_stream {
    }
 };
 
+using log_entry_type = std::variant<std::vector<char>, maybe_locked_decompress_stream, std::shared_ptr<std::vector<char>>>;
+
 template <typename Log, typename Stream>
-uint64_t read_unpacked_entry(Log&& log, Stream& stream, uint64_t payload_size, std::variant<std::vector<char>, maybe_locked_decompress_stream>& result) {
+uint64_t read_unpacked_entry(Log&& log, Stream& stream, uint64_t payload_size, log_entry_type& result) {
    uint32_t s;
    uint64_t compressed_size;
 
@@ -184,7 +188,7 @@ class state_history_log_data : public chain::log_data_base<state_history_log_dat
           ver);
    }
 
-   uint64_t ro_stream_at(uint64_t pos, std::variant<std::vector<char>, maybe_locked_decompress_stream>& result) const {
+   uint64_t ro_stream_at(uint64_t pos, log_entry_type& result) const {
       uint64_t                    payload_size = payload_size_at(pos);
       fc::datastream<const char*> stream(file.const_data() + pos + sizeof(state_history_log_header), payload_size);
       return read_unpacked_entry(*this, stream, payload_size, result);
@@ -272,7 +276,8 @@ class state_history_log {
  private:
    const char* const       name = "";
    state_history_log_config config;
-   fc::cfile               log;
+   fc::cfile               read_log;
+   fc::cfile               write_log;
    fc::cfile               index;
    uint32_t                _begin_block = 0;        //always tracks the first block available even after pruning
    uint32_t                _index_begin_block = 0;  //the first block of the file; even after pruning. it's what index 0 in the index file points to
@@ -292,16 +297,23 @@ class state_history_log {
    using catalog_t = chain::log_catalog<state_history_log_data, chain::log_index<chain::plugin_exception>>;
    catalog_t catalog;
 
+   struct cached_entry {
+      chain::block_id_type block_id;
+      std::shared_ptr<std::vector<char>> data;
+   };
+
+   using cached_data_map = boost::container::flat_map<uint32_t, cached_entry>;
+   cached_data_map cached;
+
  public:
    state_history_log(const char* name, const fc::path& log_dir ,
                      state_history_log_config conf = {})
        : name(name)
        , config(conf) {
 
-      log.set_file_path(log_dir/(std::string(name) + ".log"));
       index.set_file_path(log_dir/(std::string(name) + ".index"));
 
-      open_log();
+      open_log(log_dir/(std::string(name) + ".log"));
       open_index();
 
       std::visit(eosio::chain::overloaded{
@@ -324,7 +336,7 @@ class state_history_log {
       //check for conversions to/from pruned log, as long as log contains something
       if(_begin_block != _end_block) {
          state_history_log_header first_header;
-         log.seek(0);
+         read_log.seek(0);
          read_header(first_header);
 
          auto prune_config = std::get_if<state_history::prune_config>(&config);
@@ -334,14 +346,14 @@ class state_history_log {
             prune(fc::log_level::info);
 
             //update first header to indicate prune feature is enabled
-            log.seek(0);
+            write_log.seek(0);
             first_header.magic = ship_magic(get_ship_version(first_header.magic), ship_feature_pruned_log);
             write_header(first_header);
 
             //write trailer on log with num blocks
-            log.seek_end(0);
+            write_log.seek_end(0);
             const uint32_t num_blocks_in_log = _end_block - _begin_block;
-            fc::raw::pack(log, num_blocks_in_log);
+            fc::raw::pack(write_log, num_blocks_in_log);
          }
          else if(is_ship_log_pruned(first_header.magic) && !prune_config) {
             vacuum();
@@ -371,15 +383,13 @@ class state_history_log {
       if (thr.joinable()) {
          work_guard.reset();
          thr.join();
+         cached.clear();
       }
    }
 
    ~state_history_log() {
       // complete execution before possible vacuuming
-      if (thr.joinable()) {
-         work_guard.reset();
-         thr.join();
-      }
+      stop();
 
       //nothing to do if log is empty or we aren't pruning
       if(_begin_block == _end_block)
@@ -390,7 +400,7 @@ class state_history_log {
          return;
 
       const size_t first_data_pos = get_pos(_begin_block);
-      const size_t last_data_pos = fc::file_size(log.get_file_path());
+      const size_t last_data_pos = fc::file_size(read_log.get_file_path());
       if(last_data_pos - first_data_pos < *prune_config->vacuum_on_close)
          vacuum();
    }
@@ -404,7 +414,7 @@ class state_history_log {
 
    void read_header(state_history_log_header& header, bool assert_version = true) {
       char bytes[state_history_log_header_serial_size];
-      log.read(bytes, sizeof(bytes));
+      read_log.read(bytes, sizeof(bytes));
       fc::datastream<const char*> ds(bytes, sizeof(bytes));
       fc::raw::unpack(ds, header);
       EOS_ASSERT(!ds.remaining(), chain::plugin_exception, "state_history_log_header_serial_size mismatch");
@@ -418,7 +428,7 @@ class state_history_log {
       fc::datastream<char*> ds(bytes, sizeof(bytes));
       fc::raw::pack(ds, header);
       EOS_ASSERT(!ds.remaining(), chain::plugin_exception, "state_history_log_header_serial_size mismatch");
-      log.write(bytes, sizeof(bytes));
+      write_log.write(bytes, sizeof(bytes));
    }
 
    template <typename F>
@@ -449,24 +459,30 @@ class state_history_log {
       if (block_num < _end_block)
          truncate(block_num); //truncate is expected to always leave file pointer at the end
       else if (!prune_config)
-         log.seek_end(0);
+         write_log.seek_end(0);
       else if (prune_config && _begin_block != _end_block)
-         log.seek_end(-sizeof(uint32_t));  //overwrite the trailing block count marker on this write
+         write_log.seek_end(-sizeof(uint32_t));  //overwrite the trailing block count marker on this write
 
       //if we're operating on a pruned block log and this is the first entry in the log, make note of the feature in the header
       if(prune_config && _begin_block == _end_block)
          header.magic = ship_magic(get_ship_version(header.magic), ship_feature_pruned_log);
 
-      uint64_t pos = log.tellp();
+      uint64_t pos = write_log.tellp();
+      lock.unlock();
+      {
+         auto on_ext = fc::make_scoped_exit([&lock]{ lock.lock();});
 
-      write_header(header);
-      write_payload(log);
+         write_header(header);
+         write_payload(write_log);
 
-      if (header.payload_size != 0)
-         EOS_ASSERT(log.tellp() == pos + state_history_log_header_serial_size + header.payload_size, chain::plugin_exception,
-                  "wrote payload with incorrect size to ${name}.log", ("name", name));
-      fc::raw::pack(log, pos);
+         if (header.payload_size != 0)
+            EOS_ASSERT(write_log.tellp() == pos + state_history_log_header_serial_size + header.payload_size, chain::plugin_exception,
+                     "wrote payload with incorrect size to ${name}.log", ("name", name));
+         fc::raw::pack(write_log, pos);
 
+      }
+
+      index.seek_end(0);
       fc::raw::pack(index, pos);
       if (_begin_block == _end_block)
          _index_begin_block = _begin_block = block_num;
@@ -474,12 +490,14 @@ class state_history_log {
       last_block_id = header.block_id;
 
       if(prune_config) {
-         if((pos&prune_config->prune_threshold) != (log.tellp()&prune_config->prune_threshold))
+         if((pos&prune_config->prune_threshold) != (write_log.tellp()&prune_config->prune_threshold))
             prune(fc::log_level::debug);
 
          const uint32_t num_blocks_in_log = _end_block - _begin_block;
-         fc::raw::pack(log, num_blocks_in_log);
+         fc::raw::pack(write_log, num_blocks_in_log);
       }
+      write_log.flush();
+      index.flush();
 
       auto partition_config = std::get_if<state_history::partition_config>(&config);
       if (partition_config && block_num % partition_config->stride == 0) {
@@ -488,7 +506,15 @@ class state_history_log {
    }
 
    /// @return the decompressed entry size
-   uint64_t get_unpacked_entry(uint32_t block_num, std::variant<std::vector<char>, maybe_locked_decompress_stream>& result) {
+   uint64_t get_unpacked_entry(uint32_t block_num, log_entry_type& result) {
+
+      auto itr = cached.find(block_num);
+      if (itr != cached.end()) {
+         auto data = itr->second.data;
+         result = data;
+         return data->size();
+      }
+
       auto opt_decompressed_size = catalog.ro_stream_for_block(block_num, result);
       if (opt_decompressed_size)
          return *opt_decompressed_size;
@@ -498,14 +524,14 @@ class state_history_log {
 
       state_history_log_header header;
       std::lock_guard lock(mx);
-      log.seek(get_pos(block_num));
+      read_log.seek(get_pos(block_num));
       read_header(header);
 
-      return read_unpacked_entry(*this, log, header.payload_size, result);
+      return read_unpacked_entry(*this, read_log, header.payload_size, result);
    }
 
    template <typename F>
-   void pack_and_write_entry(state_history_log_header header, const chain::block_id_type& prev_id, F&& pack_to) {
+   void pack_and_write_entry(const state_history_log_header& header, const chain::block_id_type& prev_id, F&& pack_to) {
       write_entry(header, prev_id, [&, pack_to = std::forward<F>(pack_to)](auto& stream) {
          size_t payload_pos = stream.tellp();
 
@@ -549,7 +575,58 @@ class state_history_log {
       });
    }
 
+   template <typename F>
+   void pack_and_async_write_entry(const state_history_log_header& header, const chain::block_id_type& prev_id, F&& pack_to) {
+
+      fc::datastream<std::size_t> ss;
+      auto shared_data = std::make_shared<std::vector<char>>();
+      bio::filtering_ostreambuf buf;
+      buf.push(bio::back_inserter(*shared_data));
+      pack_to(buf);
+
+      boost::asio::post(work_strand, [this, header, prev_id, shared_data ]() {
+         write_entry(header, prev_id, [&, shared_data](auto& stream) {
+            size_t payload_pos = stream.tellp();
+
+            uint32_t s = 1;
+            stream.write((char*)&s, sizeof(s));
+            uint64_t uncompressed_size = shared_data->size();
+            stream.write((char*)&uncompressed_size, sizeof(uncompressed_size));
+            stream.flush();
+            {
+               bio::filtering_ostreambuf buf;
+               buf.push(bio::zlib_compressor());
+               buf.push(bio::file_descriptor_sink(stream.fileno(), bio::never_close_handle));
+               bio::write(buf, shared_data->data(), shared_data->size());
+            }
+
+            // calculate the payload size and rewind back to header to write the payload size
+            stream.seek_end(0);
+            size_t   end_payload_pos = stream.tellp();
+            uint64_t payload_size    = end_payload_pos - payload_pos;
+            stream.seek(payload_pos - sizeof(uint64_t));
+            stream.write((char*)&payload_size, sizeof(payload_size));
+
+            // make sure we reset the file position to end_payload_pos to preserve API behavior
+            stream.seek(end_payload_pos);
+         });
+      });
+
+      uint32_t block_num = chain::block_header::num_from_id(header.block_id);
+      cached[block_num] = cached_entry{header.block_id, std::move(shared_data)};
+      uint32_t  num_buffered_entries = 2;
+      while (cached.size() > num_buffered_entries && cached.begin()->second.data.use_count() == 1) {
+         // the first entry of cached has been written to disk, so we can safely erase it.
+         cached.erase(cached.begin());
+      }
+   }
+
    std::optional<chain::block_id_type> get_block_id(uint32_t block_num) {
+      auto itr = cached.find(block_num);
+      if (itr != cached.end()) {
+         return itr->second.block_id;
+      }
+
       auto result = catalog.id_for_block(block_num);
       if (!result) {
          if (block_num >= _begin_block && block_num < _end_block) {
@@ -564,7 +641,8 @@ class state_history_log {
    }
 
 #ifdef BOOST_TEST_MODULE
-   fc::cfile& get_log_file() { return log;}
+   fc::cfile& get_log_file() { return write_log;}
+   void clear_cache() { cached.clear(); }
 #endif
 
  private:
@@ -573,9 +651,9 @@ class state_history_log {
       EOS_ASSERT(block_num >= _begin_block && block_num < _end_block, chain::plugin_exception,
                  "read non-existing block in ${name}.log", ("name", name));
       std::lock_guard lock(mx);
-      log.seek(get_pos(block_num));
+      read_log.seek(get_pos(block_num));
       read_header(header);
-      return log;
+      return read_log;
    }
 
    //file position must be at start of last block's suffix (back pointer)
@@ -584,13 +662,13 @@ class state_history_log {
       state_history_log_header header;
       uint64_t                 suffix;
 
-      fc::raw::unpack(log, suffix);
-      const size_t after_suffix_pos = log.tellp();
+      fc::raw::unpack(read_log, suffix);
+      const size_t after_suffix_pos = read_log.tellp();
       if (suffix > after_suffix_pos || suffix + state_history_log_header_serial_size > after_suffix_pos) {
          elog("corrupt ${name}.log (2)", ("name", name));
          return false;
       }
-      log.seek(suffix);
+      read_log.seek(suffix);
       read_header(header, false);
       if (!is_ship(header.magic) || !is_ship_supported_version(header.magic) ||
           suffix + state_history_log_header_serial_size + header.payload_size + sizeof(suffix) != after_suffix_pos) {
@@ -618,10 +696,10 @@ class state_history_log {
          const uint32_t prune_to_num = _end_block - prune_config->prune_blocks;
          uint64_t prune_to_pos = get_pos(prune_to_num);
 
-         log.punch_hole(state_history_log_header_serial_size, prune_to_pos);
+         write_log.punch_hole(state_history_log_header_serial_size, prune_to_pos);
 
          _begin_block = prune_to_num;
-         log.flush();
+         write_log.flush();
       };
 
       if (prune_mx) {
@@ -641,14 +719,14 @@ class state_history_log {
       ilog("recover ${name}.log", ("name", name));
       uint64_t pos       = 0;
       uint32_t num_found = 0;
-      log.seek_end(0);
-      const size_t size = log.tellp();
+      read_log.seek_end(0);
+      const size_t size = read_log.tellp();
 
       while (true) {
          state_history_log_header header;
          if (pos + state_history_log_header_serial_size > size)
             break;
-         log.seek(pos);
+         read_log.seek(pos);
          read_header(header, false);
          uint64_t suffix;
          if (!is_ship(header.magic) || !is_ship_supported_version(header.magic) || header.payload_size > size ||
@@ -657,8 +735,8 @@ class state_history_log {
                        "${name}.log has an unsupported version", ("name", name));
             break;
          }
-         log.seek(pos + state_history_log_header_serial_size + header.payload_size);
-         log.read((char*)&suffix, sizeof(suffix));
+         read_log.seek(pos + state_history_log_header_serial_size + header.payload_size);
+         read_log.read((char*)&suffix, sizeof(suffix));
          if (suffix != pos)
             break;
          pos = pos + state_history_log_header_serial_size + header.payload_size + sizeof(suffix);
@@ -666,46 +744,48 @@ class state_history_log {
             ilog("${num_found} blocks found, log pos = ${pos}", ("num_found", num_found)("pos", pos));
          }
       }
-      log.flush();
-      boost::filesystem::resize_file(log.get_file_path().string(), pos);
-      log.flush();
+      read_log.flush();
+      boost::filesystem::resize_file(read_log.get_file_path().string(), pos);
+      read_log.flush();
 
-      log.seek_end(-sizeof(pos));
+      read_log.seek_end(-sizeof(pos));
       EOS_ASSERT(get_last_block(), chain::plugin_exception, "recover ${name}.log failed", ("name", name));
    }
 
    // only called from constructor
-   void open_log() {
-      log.set_file_path(log.get_file_path().string());
-      log.open("a+b");
-      log.seek_end(0);
-      uint64_t size = log.tellp();
-      log.close();
+   void open_log(fc::path log_filename) {
+      write_log.set_file_path(log_filename);
+      read_log.set_file_path(log_filename);
+      write_log.open("a+b"); // create file if not exists
+      write_log.close();
+      write_log.open("rb+"); // fseek doesn't work for append mode, need to open with update mode.
+      write_log.seek_end(0);
+      read_log.open("rb");
 
-      log.open("r+b");
+      uint64_t size = write_log.tellp();
       if (size >= state_history_log_header_serial_size) {
          state_history_log_header header;
-         log.seek(0);
+         read_log.seek(0);
          read_header(header, false);
          EOS_ASSERT(is_ship(header.magic) && is_ship_supported_version(header.magic) &&
                         state_history_log_header_serial_size + header.payload_size + sizeof(uint64_t) <= size,
                     chain::plugin_exception, "corrupt ${name}.log (1)", ("name", name));
 
-         log.seek_end(0);
+         read_log.seek_end(0);
 
          std::optional<uint32_t> pruned_count;
          if(is_ship_log_pruned(header.magic)) {
             //the existing log is a prune'ed log. find the count of blocks at the end
-            log.skip(-sizeof(uint32_t));
+            read_log.skip(-sizeof(uint32_t));
             uint32_t count;
-            fc::raw::unpack(log, count);
+            fc::raw::unpack(read_log, count);
             pruned_count = count;
-            log.skip(-sizeof(uint32_t));
+            read_log.skip(-sizeof(uint32_t));
          }
 
          _index_begin_block = _begin_block  = chain::block_header::num_from_id(header.block_id);
          last_block_id = header.block_id;
-         log.skip(-sizeof(uint64_t));
+         read_log.skip(-sizeof(uint64_t));
          if(!get_last_block()) {
             EOS_ASSERT(!is_ship_log_pruned(header.magic), chain::plugin_exception, "${name}.log is pruned and cannot have recovery attempted", ("name", name));
             recover_blocks();
@@ -717,7 +797,7 @@ class state_history_log {
          ilog("${name}.log has blocks ${b}-${e}", ("name", name)("b", _begin_block)("e", _end_block - 1));
       } else {
          EOS_ASSERT(!size, chain::plugin_exception, "corrupt ${name}.log (5)", ("name", name));
-         ilog("${name}.log is empty", ("name", name));
+         ilog("${name} is empty", ("name", log_filename));
       }
    }
 
@@ -731,26 +811,26 @@ class state_history_log {
       index.close();
 
       index.open("wb");
-      log.seek_end(0);
-      if(log.tellp()) {
+      read_log.seek_end(0);
+      if(read_log.tellp()) {
          uint32_t remaining = _end_block - _begin_block;
          index.seek((_end_block - _index_begin_block)*sizeof(uint64_t));  //this can make the index sparse for a pruned log; but that's okay
 
-         log.seek(0);
+         read_log.seek(0);
          state_history_log_header first_entry_header;
          read_header(first_entry_header);
-         log.seek_end(0);
+         read_log.seek_end(0);
          if(is_ship_log_pruned(first_entry_header.magic))
-            log.skip(-sizeof(uint32_t));
+            read_log.skip(-sizeof(uint32_t));
 
          while(remaining--) {
             uint64_t pos = 0;
             state_history_log_header header;
-            log.skip(-sizeof(pos));
-            fc::raw::unpack(log, pos);
-            log.seek(pos);
+            read_log.skip(-sizeof(pos));
+            fc::raw::unpack(read_log, pos);
+            read_log.seek(pos);
             read_header(header, false);
-            log.seek(pos);
+            read_log.seek(pos);
             EOS_ASSERT(is_ship(header.magic) && is_ship_supported_version(header.magic), chain::plugin_exception, "corrupt ${name}.log (6)", ("name", name));
 
             index.skip(-sizeof(uint64_t));
@@ -774,19 +854,21 @@ class state_history_log {
    }
 
    void truncate(uint32_t block_num) {
-      log.flush();
+      write_log.flush();
       index.flush();
 
-      log.close();
-      index.close();
-
       auto first_block_num     = catalog.empty() ? _begin_block : catalog.first_block_num();
-      auto new_begin_block_num = catalog.truncate(block_num, log.get_file_path());
+      auto new_begin_block_num = catalog.truncate(block_num, write_log.get_file_path());
 
       // notice that catalog.truncate() can replace existing log and index files, so we have to
       // close the files and reopen them again; otherwise we might operate on the obsolete files instead.
 
       if (new_begin_block_num > 0) {
+         // in this case, the original index/log file has been replaced from some files from the catalog, we need to
+         // reopen read_log, write_log and index.
+         index.close();
+         index.open("rb");
+
          _begin_block = new_begin_block_num;
          _index_begin_block = new_begin_block_num;
       }
@@ -795,19 +877,13 @@ class state_history_log {
 
       if (block_num <= _begin_block) {
          num_removed = _end_block - first_block_num;
-         boost::filesystem::resize_file(log.get_file_path().string(), 0);
+         boost::filesystem::resize_file(write_log.get_file_path().string(), 0);
          boost::filesystem::resize_file(index.get_file_path().string(), 0);
          _begin_block = _end_block = block_num;
       } else {
          num_removed  = _end_block - block_num;
-
-         index.open("rb");
          uint64_t pos = get_pos(block_num);
-         index.close();
-
-         auto path = log.get_file_path().string();
-
-         boost::filesystem::resize_file(log.get_file_path().string(), pos);
+         boost::filesystem::resize_file(read_log.get_file_path().string(), pos);
          boost::filesystem::resize_file(index.get_file_path().string(), (block_num - _index_begin_block) * sizeof(uint64_t));
          _end_block = block_num;
          //this will leave the end of the log with the last block's suffix no matter if the log is operating in pruned
@@ -815,8 +891,11 @@ class state_history_log {
          // restoring the prune trailer if required
       }
 
-      log.open("r+b");
-      log.seek_end(0);
+      read_log.close();
+      read_log.open("rb");
+      write_log.close();
+      write_log.open("rb+");
+      index.close();
       index.open("a+b");
 
       ilog("fork or replay: removed ${n} blocks from ${name}.log", ("n", num_removed)("name", name));
@@ -827,19 +906,19 @@ class state_history_log {
       if(_begin_block == _end_block)
          return;
 
-      log.seek(0);
+      read_log.seek(0);
       uint64_t magic;
-      fc::raw::unpack(log, magic);
+      fc::raw::unpack(read_log, magic);
       EOS_ASSERT(is_ship_log_pruned(magic), chain::plugin_exception, "vacuum can only be performed on pruned logs");
 
       //may happen if _begin_block is still first block on-disk of log. clear the pruned feature flag & erase
       // the 4 byte trailer. The pruned flag is only set on the first header in the log, so it does not need
       // to be touched up if we actually vacuum up any other blocks to the front.
       if(_begin_block == _index_begin_block) {
-         log.seek(0);
-         fc::raw::pack(log, clear_ship_log_pruned_feature(magic));
-         log.flush();
-         fc::resize_file(log.get_file_path(), fc::file_size(log.get_file_path()) - sizeof(uint32_t));
+         write_log.seek(0);
+         fc::raw::pack(write_log, clear_ship_log_pruned_feature(magic));
+         write_log.flush();
+         fc::resize_file(write_log.get_file_path(), fc::file_size(write_log.get_file_path()) - sizeof(uint32_t));
          return;
       }
 
@@ -850,8 +929,8 @@ class state_history_log {
 
       const size_t offset_bytes = copy_from_pos - copy_to_pos;
       const size_t offset_blocks = _begin_block - _index_begin_block;
-      log.seek_end(0);
-      size_t copy_sz = log.tellp() - copy_from_pos - sizeof(uint32_t); //don't copy trailer in to new unpruned log
+      write_log.seek_end(0);
+      size_t copy_sz = write_log.tellp() - copy_from_pos - sizeof(uint32_t); //don't copy trailer in to new unpruned log
       const uint32_t num_blocks_in_log = _end_block - _begin_block;
 
       std::vector<char> buff;
@@ -860,11 +939,11 @@ class state_history_log {
       auto tick = std::chrono::time_point_cast<std::chrono::seconds>(std::chrono::system_clock::now());
       while(copy_sz) {
          const size_t copy_this_round = std::min(buff.size(), copy_sz);
-         log.seek(copy_from_pos);
-         log.read(buff.data(), copy_this_round);
-         log.punch_hole(copy_to_pos, copy_from_pos+copy_this_round);
-         log.seek(copy_to_pos);
-         log.write(buff.data(), copy_this_round);
+         write_log.seek(copy_from_pos);
+         write_log.read(buff.data(), copy_this_round);
+         write_log.punch_hole(copy_to_pos, copy_from_pos+copy_this_round);
+         write_log.seek(copy_to_pos);
+         write_log.write(buff.data(), copy_this_round);
 
          copy_from_pos += copy_this_round;
          copy_to_pos += copy_this_round;
@@ -876,8 +955,8 @@ class state_history_log {
             tick = tock;
          }
       }
-      log.flush();
-      fc::resize_file(log.get_file_path(), log.tellp());
+      write_log.flush();
+      fc::resize_file(write_log.get_file_path(), write_log.tellp());
 
       index.flush();
       {
@@ -889,10 +968,10 @@ class state_history_log {
             index_ptr[new_block_num] = new_pos;
 
             if(new_block_num + 1 != num_blocks_in_log)
-               log.seek(index_ptr[new_block_num + offset_blocks + 1] - offset_bytes - sizeof(uint64_t));
+               write_log.seek(index_ptr[new_block_num + offset_blocks + 1] - offset_bytes - sizeof(uint64_t));
             else
-               log.seek_end(-sizeof(uint64_t));
-            log.write((char*)&new_pos, sizeof(new_pos));
+               write_log.seek_end(-sizeof(uint64_t));
+            write_log.write((char*)&new_pos, sizeof(new_pos));
          }
       }
       fc::resize_file(index.get_file_path(), num_blocks_in_log*sizeof(uint64_t));
@@ -903,13 +982,15 @@ class state_history_log {
 
    void split_log() {
       index.close();
-      log.close();
+      read_log.close();
+      write_log.close();
 
-      catalog.add(_begin_block, _end_block - 1, log.get_file_path().parent_path(), name);
+      catalog.add(_begin_block, _end_block - 1, read_log.get_file_path().parent_path(), name);
 
       _begin_block = _end_block;
 
-      log.open("w+b");
+      write_log.open("w+b");
+      read_log.open("rb");
       index.open("w+b");
    }
 }; // state_history_log
