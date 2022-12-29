@@ -28,6 +28,8 @@ private:
    typename protocol_type::acceptor acceptor_;
    socket_type socket_;
 
+   boost::asio::deadline_timer timer_;
+
 public:
    beast_http_listener() = default;
    beast_http_listener(const beast_http_listener&) = delete;
@@ -36,7 +38,7 @@ public:
    beast_http_listener& operator=(const beast_http_listener&) = delete;
    beast_http_listener& operator=(beast_http_listener&&) = delete;
 
-   beast_http_listener(std::shared_ptr<http_plugin_state> plugin_state) : is_listening_(false), plugin_state_(std::move(plugin_state)), acceptor_(plugin_state_->thread_pool->get_executor()), socket_(plugin_state_->thread_pool->get_executor()) {}
+   beast_http_listener(std::shared_ptr<http_plugin_state> plugin_state) : is_listening_(false), plugin_state_(std::move(plugin_state)), acceptor_(plugin_state_->thread_pool->get_executor()), socket_(plugin_state_->thread_pool->get_executor()), timer_(plugin_state_->thread_pool->get_executor(), boost::posix_time::seconds(0)) {}
 
    virtual ~beast_http_listener() {
       try {
@@ -107,7 +109,13 @@ private:
       auto self = this->shared_from_this();
       acceptor_.async_accept(socket_, [self](beast::error_code ec) {
          if(ec) {
-            fail(ec, "accept", self->plugin_state_->logger, "closing connection");
+            if (ec == boost::system::errc::too_many_files_open) {
+               fail(ec, "accept", self->plugin_state_->logger, "too many files open - waiting 500ms");
+               self->timer_.expires_from_now(boost::posix_time::milliseconds(500));
+               self->timer_.wait(); //([self = self->shared_from_this()]() { self->do_accept(); });
+            }
+            else
+               fail(ec, "accept", self->plugin_state_->logger, "closing connection");
          } else {
             // Create the session object and run it
             std::make_shared<session_type>(
