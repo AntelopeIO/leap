@@ -364,53 +364,16 @@ void store_read_test_case(uint64_t data_size, eosio::state_history_log_config co
    BOOST_REQUIRE_EQUAL(log.get_log_file().tellp(), pos);
 
 
-   auto same_data = [](const std::vector<int32_t>& lhs, std::vector<char>& rhs) -> bool {
-      return (lhs.size() * sizeof(int32_t) == rhs.size()) && std::equal(rhs.begin(), rhs.end(), (const char*)lhs.data());
-   };
-
-
-   eosio::log_entry_type buf;
+   std::variant<std::vector<char>, eosio::locked_decompress_stream> buf;
    log.get_unpacked_entry(1, buf);
 
-   {
-      std::vector<char> decompressed;
-      auto locked_strm_ptr = std::get_if<eosio::maybe_locked_decompress_stream>(&buf);
-      BOOST_REQUIRE(locked_strm_ptr);
-      BOOST_CHECK(locked_strm_ptr->lock.has_value() == std::holds_alternative<eosio::state_history::prune_config>(config));
-      bio::copy(locked_strm_ptr->buf, bio::back_inserter(decompressed));
-      BOOST_CHECK(same_data(data, decompressed));
-   }
+   std::vector<char> decompressed;
+   auto& locked_strm = std::get<eosio::locked_decompress_stream>(buf);
+   BOOST_CHECK(locked_strm.lock.has_value());
+   bio::copy(locked_strm.buf, bio::back_inserter(decompressed));
 
-   data = generate_data(data_size);
-
-   header.block_id     = block_id_for(2);
-   log.pack_and_async_write_entry(header, block_id_for(1),
-      [&](auto&& buf) { bio::write(buf, (const char*)data.data(), data.size() * sizeof(data[0])); });
-
-   // in this case, we should get the cached value
-   {
-      log.get_unpacked_entry(2, buf);
-      auto decompressed = std::get_if<std::shared_ptr<eosio::chain::bytes>>(&buf);
-      BOOST_REQUIRE(decompressed);
-      BOOST_CHECK( same_data(data, *decompressed->get()));
-   }
-
-   {
-      // let's wait until the index has been writeen
-      while (boost::filesystem::file_size( log_dir.path()/"ship.index" ) < 2*sizeof(uint64_t)) {
-         using namespace std::chrono_literals;
-         std::this_thread::sleep_for(200ms);
-      };
-
-      log.clear_cache(); // clear the cache so we can read the entry directly from disk
-      log.get_unpacked_entry(2, buf);
-      auto locked_strm_ptr = std::get_if<eosio::maybe_locked_decompress_stream>(&buf);
-      BOOST_REQUIRE(locked_strm_ptr);
-      std::vector<char> decompressed;
-      bio::copy(locked_strm_ptr->buf, bio::back_inserter(decompressed));
-      BOOST_CHECK(same_data(data, decompressed));
-   }
-
+   BOOST_CHECK_EQUAL(data.size() * sizeof(data[0]), decompressed.size());
+   BOOST_CHECK(std::equal(decompressed.begin(), decompressed.end(), (const char*)data.data()));
 }
 
 BOOST_AUTO_TEST_CASE(store_read_entry_no_prune) {

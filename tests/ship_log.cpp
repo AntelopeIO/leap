@@ -50,12 +50,11 @@ struct ship_log_fixture {
       BOOST_REQUIRE_EQUAL(log->end_block()-1, last);
       if(enable_read) {
          for(auto i = first; i <= last; i++) {
-            eosio::log_entry_type result;
+            std::variant<std::vector<char>, eosio::locked_decompress_stream> result;
             log->get_unpacked_entry(i, result);
             std::visit(eosio::chain::overloaded{
                [&](std::vector<char>& buff) { BOOST_REQUIRE(buff == written_data.at(i)); },
-               [&](std::shared_ptr<std::vector<char>>& buff) { BOOST_REQUIRE(*buff == written_data.at(i)); },
-               [&](eosio::maybe_locked_decompress_stream& strm) {
+               [&](eosio::locked_decompress_stream& strm) {
                   std::vector<char> buff;
                   boost::iostreams::copy(strm.buf, boost::iostreams::back_inserter(buff));
                   BOOST_REQUIRE(buff == written_data.at(i));
@@ -65,7 +64,7 @@ struct ship_log_fixture {
    }
 
    void check_not_present(uint32_t index) {
-      eosio::log_entry_type result;
+      std::variant<std::vector<char>, eosio::locked_decompress_stream> result;
       BOOST_REQUIRE_EQUAL(log->get_unpacked_entry(index, result), 0);
    }
 

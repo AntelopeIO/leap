@@ -116,10 +116,6 @@ int main(int argc, char* argv[]) {
          boost::beast::flat_buffer buffer;
          stream.read(buffer);
 
-         FILE* f = fopen("last_result.bin", "wb");
-         fwrite((const char*)buffer.data().data(), buffer.data().size(), 1, f);
-         fclose(f);
-
          eosio::input_stream is((const char*)buffer.data().data(), buffer.data().size());
          rapidjson::Document result_doucment;
          result_doucment.Parse(result_type.bin_to_json(is).c_str());

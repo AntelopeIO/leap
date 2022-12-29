@@ -173,11 +173,11 @@ struct log_catalog {
       return {fc::datastream<const char*>(nullptr, 0), static_cast<uint32_t>(0)};
    }
 
-   template <typename Result>
-   auto ro_stream_for_block(uint32_t block_num, Result& result) -> std::optional<decltype( std::declval<LogData>().ro_stream_at(0, result))> {
+   template <typename ...Rest>
+   auto ro_stream_for_block(uint32_t block_num, Rest&& ...rest) -> std::optional<decltype( std::declval<LogData>().ro_stream_at(0, std::forward<Rest&&>(rest)...))> {
       auto pos = get_block_position(block_num, mapmode::readonly);
       if (pos) {
-         return log_data.ro_stream_at(*pos, result);
+         return log_data.ro_stream_at(*pos, std::forward<Rest&&>(rest)...);
       }
       return {};
    }
