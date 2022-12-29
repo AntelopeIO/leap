@@ -112,7 +112,7 @@ private:
             if (ec == boost::system::errc::too_many_files_open) {
                fail(ec, "accept", self->plugin_state_->logger, "too many files open - waiting 500ms");
                self->timer_.expires_from_now(boost::posix_time::milliseconds(500));
-               self->timer_.wait(); //([self = self->shared_from_this()]() { self->do_accept(); });
+               self->timer_.wait();
             }
             else
                fail(ec, "accept", self->plugin_state_->logger, "closing connection");
