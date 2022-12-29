@@ -766,8 +766,9 @@ class state_history_log {
    }
 
    void truncate(uint32_t block_num) {
-      log.close();
-      index.close();
+      log.flush();
+      index.flush();
+
       std::unique_lock lock(rewrite_mx);
 
       auto first_block_num     = catalog.empty() ? _begin_block : catalog.first_block_num();
