@@ -42,7 +42,7 @@ template <typename Session>
 class blocks_result_send_queue_entry : public send_queue_entry_base<Session> {
    eosio::state_history::get_blocks_result_v0                      r;
    std::vector<char>                                               data;
-   std::variant<std::vector<char>, maybe_locked_decompress_stream> buf;
+   std::variant<std::vector<char>, locked_decompress_stream> buf;
 
    template <typename Next>
    void async_send(Session* s, bool fin, const std::vector<char>& d, Next&& next) {
@@ -54,7 +54,7 @@ class blocks_result_send_queue_entry : public send_queue_entry_base<Session> {
    }
 
    template <typename Next>
-   void async_send(Session* s, bool fin, maybe_locked_decompress_stream& locked_strm, Next&& next) {
+   void async_send(Session* s, bool fin, locked_decompress_stream& locked_strm, Next&& next) {
       data.resize(s->default_frame_size);
       auto size = bio::read(locked_strm.buf, data.data(), s->default_frame_size);
       data.resize(size);
@@ -235,14 +235,14 @@ struct session : session_base, std::enable_shared_from_this<session<Plugin, Sock
    }
 
    uint64_t get_trace_log_entry(const eosio::state_history::get_blocks_result_v0&              result,
-                                std::variant<std::vector<char>, maybe_locked_decompress_stream>& buf) {
+                                std::variant<std::vector<char>, locked_decompress_stream>& buf) {
       if (result.traces.has_value())
          return plugin->get_trace_log()->get_unpacked_entry(result.this_block->block_num, buf);
       return 0;
    }
 
    uint64_t get_delta_log_entry(const eosio::state_history::get_blocks_result_v0&              result,
-                                std::variant<std::vector<char>, maybe_locked_decompress_stream>& buf) {
+                                std::variant<std::vector<char>, locked_decompress_stream>& buf) {
       if (result.deltas.has_value())
          return plugin->get_chain_state_log()->get_unpacked_entry(result.this_block->block_num, buf);
       return 0;

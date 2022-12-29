@@ -76,15 +76,15 @@ struct state_history_log_prune_config {
    std::optional<size_t>   vacuum_on_close;               //when set, a vacuum is performed on dtor if log contains less than this many bytes
 };
 
-struct maybe_locked_decompress_stream {
+struct locked_decompress_stream {
    std::optional<std::unique_lock<std::mutex>> lock;
    bio::filtering_istreambuf    buf;
 
-   maybe_locked_decompress_stream() = default;
+   locked_decompress_stream() = default;
 
    template <typename T>
-   maybe_locked_decompress_stream(T&& log, fc::cfile& stream, uint64_t compressed_size) {
-      log->acquire_prune_lock(lock);
+   locked_decompress_stream(T&& log, fc::cfile& stream, uint64_t compressed_size) {
+      log->acquire_lock(lock);
       buf.push(bio::zlib_decompressor());
       buf.push(bio::restrict(bio::file_source(stream.get_file_path().string()), stream.tellp(), compressed_size));
    }
@@ -149,7 +149,7 @@ class state_history_log {
    boost::asio::executor_work_guard<boost::asio::io_context::executor_type> work_guard =
        boost::asio::make_work_guard(ctx);
    std::recursive_mutex                                                     mx;
-   std::optional<std::mutex>                                                prune_mx;
+   std::mutex                                                               rewrite_mx; // used during prune or truncate
 
  public:
    state_history_log(const char* const name, std::string log_filename, std::string index_filename,
@@ -166,7 +166,6 @@ class state_history_log {
          EOS_ASSERT(__builtin_popcount(prune_config->prune_threshold) == 1, chain::plugin_exception, "state history prune threshold must be power of 2");
          //switch this over to the mask that will be used
          prune_config->prune_threshold = ~(prune_config->prune_threshold-1);
-         prune_mx.emplace();
       }
 
       //check for conversions to/from pruned log, as long as log contains something
@@ -207,10 +206,8 @@ class state_history_log {
    }
 
 
-   void acquire_prune_lock(std::optional<std::unique_lock<std::mutex>>& lock) {
-      if (prune_mx) {
-         lock.emplace(*prune_mx);
-      }
+   void acquire_lock(std::optional<std::unique_lock<std::mutex>>& lock) {
+      lock.emplace(rewrite_mx);
    }
 
    void stop() {
@@ -332,7 +329,7 @@ class state_history_log {
    }
 
    /// @return the decompressed entry size
-   uint64_t get_unpacked_entry(uint32_t block_num, std::variant<std::vector<char>, maybe_locked_decompress_stream>& result) {
+   uint64_t get_unpacked_entry(uint32_t block_num, std::variant<std::vector<char>, locked_decompress_stream>& result) {
       if (block_num < _begin_block || block_num >= _end_block)
          return 0;
 
@@ -350,7 +347,7 @@ class state_history_log {
          compressed_size = payload_size - sizeof(uint32_t) - sizeof(uint64_t);
          uint64_t decompressed_size;
          log.read((char*)&decompressed_size, sizeof(decompressed_size));
-         result.emplace<maybe_locked_decompress_stream>(this, log, compressed_size);
+         result.emplace<locked_decompress_stream>(this, log, compressed_size);
          return decompressed_size;
 
       } else {
@@ -458,7 +455,8 @@ class state_history_log {
       if(_end_block - _begin_block <= prune_config->prune_blocks)
          return;
 
-      auto do_prune = [&]() {
+      {
+         std::unique_lock<std::mutex> lock(rewrite_mx);
          const uint32_t prune_to_num = _end_block - prune_config->prune_blocks;
          uint64_t prune_to_pos = get_pos(prune_to_num);
 
@@ -466,13 +464,6 @@ class state_history_log {
 
          _begin_block = prune_to_num;
          log.flush();
-      };
-
-      if (prune_mx) {
-         std::unique_lock<std::mutex> lock(*prune_mx);
-         do_prune();
-      } else {
-         do_prune();
       }
 
       if(auto l = fc::logger::get(); l.is_enabled(loglevel))
@@ -621,6 +612,7 @@ class state_history_log {
    void truncate(uint32_t block_num) {
       log.flush();
       index.flush();
+      std::unique_lock lock(rewrite_mx);
       uint64_t num_removed = 0;
       if (block_num <= _begin_block) {
          num_removed = _end_block - _begin_block;
