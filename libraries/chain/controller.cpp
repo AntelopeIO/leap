@@ -1934,12 +1934,20 @@ struct controller_impl {
       pending->push();
    }
 
-   void commit_consensus_msg(consensus_message_ptr msg){
-      emit( self.new_consensus_message, msg );
+   void commit_hs_proposal_msg(hs_proposal_message_ptr msg){
+      emit( self.new_hs_proposal_message, msg );
    }
 
-   void commit_confirmation_msg(confirmation_message_ptr msg){
-      emit( self.new_confirmation_message, msg );
+   void commit_hs_vote_msg(hs_vote_message_ptr msg){
+      emit( self.new_hs_vote_message, msg );
+   }
+
+   void commit_hs_new_view_msg(hs_new_view_message_ptr msg){
+      emit( self.new_hs_new_view_message, msg );
+   }
+
+   void commit_hs_new_block_msg(hs_new_block_message_ptr msg){
+      emit( self.new_hs_new_block_message, msg );
    }
 
    /**
@@ -2899,12 +2907,20 @@ void controller::commit_block() {
    my->commit_block(true);
 }
 
-void controller::commit_consensus_msg(consensus_message_ptr msg) {
-   my->commit_consensus_msg(msg);
+void controller::commit_hs_proposal_msg(hs_proposal_message_ptr msg) {
+   my->commit_hs_proposal_msg(msg);
 }
 
-void controller::commit_confirmation_msg(confirmation_message_ptr msg) {
-   my->commit_confirmation_msg(msg);
+void controller::commit_hs_vote_msg(hs_vote_message_ptr msg) {
+   my->commit_hs_vote_msg(msg);
+}
+
+void controller::commit_hs_new_view_msg(hs_new_view_message_ptr msg) {
+   my->commit_hs_new_view_msg(msg);
+}
+
+void controller::commit_hs_new_block_msg(hs_new_block_message_ptr msg) {
+   my->commit_hs_new_block_msg(msg);
 }
 
 deque<transaction_metadata_ptr> controller::abort_block() {

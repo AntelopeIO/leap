@@ -74,11 +74,12 @@ namespace fc { namespace crypto { namespace blslib {
       s << "bls_signature(" << k.to_string() << ')';
       return s;
    }
-/*
+
    bool operator == ( const bls_signature& p1, const bls_signature& p2) {
-      return eq_comparator<bls_signature::storage_type>::apply(p1._storage, p2._storage);
+      return p1._sig == p2._sig;
    }
 
+/*
    bool operator != ( const bls_signature& p1, const bls_signature& p2) {
       return !eq_comparator<bls_signature::storage_type>::apply(p1._storage, p2._storage);
    }

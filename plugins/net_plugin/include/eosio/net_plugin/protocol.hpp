@@ -145,8 +145,10 @@ namespace eosio {
                                     sync_request_message,
                                     signed_block,         // which = 7
                                     packed_transaction,  // which = 8
-                                    confirmation_message, // which = 9
-                                    consensus_message>; // which = 10
+                                    hs_vote_message, // hotstuff vote message, which = 9
+                                    hs_proposal_message, // hotstuff proposal message, which = 10
+                                    hs_new_view_message, // hotstuff proposal message, which = 11
+                                    hs_new_block_message>; // hotstuff new block message, which = 12
 
 } // namespace eosio
 

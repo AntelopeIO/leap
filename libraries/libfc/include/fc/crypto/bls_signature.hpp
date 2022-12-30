@@ -58,6 +58,7 @@ namespace fc { namespace crypto { namespace blslib {
          //friend bool operator != ( const bls_signature& p1, const bls_signature& p2);
         //friend bool operator < ( const bls_signature& p1, const bls_signature& p2);
          friend std::size_t hash_value(const bls_signature& b); //not cryptographic; for containers
+         friend bool operator == ( const bls_signature& p1, const bls_signature& p2);
          friend struct reflector<bls_signature>;
          friend class bls_private_key;
          friend class bls_public_key;
