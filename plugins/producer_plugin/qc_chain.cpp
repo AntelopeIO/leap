@@ -9,6 +9,22 @@
 #include <boost/multi_index/global_fun.hpp>
 #include <boost/multi_index/composite_key.hpp>
 
+
+//todo list notes : 
+
+//	add QC to block header
+//
+//	add optimistically responsive mode
+//
+// under optimistically responsive mode, proposal height also includes a phase counter.
+//
+// 	0 for proposal (prepare phase)
+//		1 for prepareQC (precommit phase)
+//		2 for precommitQC (commit phase)
+//		3 for commitQC (decide phase)). 
+//	
+//		The phase counter extends the block height for the monotony check, so that a proposal where block height equals 2,131,059 and is in precommit phase (prepareQC reached) would have a view number of (2131059, 2). If the proposal is accepted and completes the commit phase , the view number becomes (2131059, 3) which respects the monotony rule
+
 namespace eosio { namespace chain {
    using boost::multi_index_container;
    using namespace boost::multi_index;
@@ -58,7 +74,7 @@ namespace eosio { namespace chain {
 	        tag<by_block_id>,
       		BOOST_MULTI_INDEX_MEMBER(eosio::chain::quorum_certificate,block_id_type,block_id)
 	   	  >,
-	      ordered_non_unique<
+	      ordered_unique<
 	        tag<by_block_num>,
 	        BOOST_MULTI_INDEX_CONST_MEM_FUN(eosio::chain::quorum_certificate,uint32_t,block_num)
 	      >
@@ -72,7 +88,7 @@ namespace eosio { namespace chain {
 	        tag<by_block_id>,
       		BOOST_MULTI_INDEX_MEMBER(hs_proposal_message,block_id_type,block_id)
 	   	  >,
-	      ordered_non_unique<
+	      ordered_unique<
 	        tag<by_block_num>,
 	        BOOST_MULTI_INDEX_CONST_MEM_FUN(hs_proposal_message,uint32_t,block_num)
 	      >
@@ -155,50 +171,49 @@ namespace eosio { namespace chain {
 		return b;
 	}
 
-	bool _quorum_met(extended_schedule es, vector<name> finalizers, fc::crypto::blslib::bls_signature agg_sig){
+	bool _quorum_met(extended_schedule es, vector<name> finalizers, fc::crypto::blslib::bls_signature agg_sig, hs_proposal_message proposal){
          
-         //ilog("evaluating if _quorum_met");
 
          if (finalizers.size() != _threshold){
-         
             //ilog("finalizers.size() ${size}", ("size",finalizers.size()));
             return false;
-         
          }
 
-         //ilog("correct threshold");
+         ilog("correct threshold of finalizers. Verifying signatures");
          
-         /* fc::crypto::blslib::bls_public_key agg_key;
+         fc::crypto::blslib::bls_public_key agg_key;
 
-         for (name f : finalizers) {
+         for (int i = 0; i < finalizers.size(); i++) {
 
-            auto itr = es.bls_pub_keys.find(f);
-
-            if (itr==es.bls_pub_keys.end()) return false;
-
-            agg_key = fc::crypto::blslib::aggregate({agg_key, itr->second });
+         	//adding finalizer's key to the aggregate pub key
+         	if (i==0) agg_key = _private_key.get_public_key(); 
+            else agg_key = fc::crypto::blslib::aggregate({agg_key, _private_key.get_public_key() }); 
 
          }
 
-         std::vector<unsigned char> msg = std::vector<unsigned char>(block_id.data(), block_id.data() + 32);
+         fc::crypto::blslib::bls_signature justification_agg_sig;
 
-         bool ok = fc::crypto::blslib::verify(agg_key, msg, agg_sig);
+			if (proposal.justify.has_value()) justification_agg_sig = proposal.justify.value().active_agg_sig;
 
-         return ok; */
+			digest_type digest = get_digest_to_sign(justification_agg_sig, proposal.block_id);
 
-         return true; //temporary
+			std::vector<uint8_t> h = std::vector<uint8_t>(digest.data(), digest.data() + 32);
+
+         bool ok = fc::crypto::blslib::verify(agg_key, h, agg_sig);
+
+         return ok;
 
       }
 
-	bool qc_chain::is_quorum_met(eosio::chain::quorum_certificate qc, extended_schedule schedule, bool dual_set_mode){
+	bool qc_chain::is_quorum_met(eosio::chain::quorum_certificate qc, extended_schedule schedule, hs_proposal_message proposal, bool dual_set_mode){
 
       if (  dual_set_mode && 
             qc.incoming_finalizers.has_value() && 
             qc.incoming_agg_sig.has_value()){
-         return _quorum_met(schedule, qc.active_finalizers, qc.active_agg_sig) && _quorum_met(schedule, qc.incoming_finalizers.value(), qc.incoming_agg_sig.value());
+         return _quorum_met(schedule, qc.active_finalizers, qc.active_agg_sig, proposal) && _quorum_met(schedule, qc.incoming_finalizers.value(), qc.incoming_agg_sig.value(), proposal);
       }
       else {
-         return _quorum_met(schedule, qc.active_finalizers, qc.active_agg_sig);
+         return _quorum_met(schedule, qc.active_finalizers, qc.active_agg_sig, proposal);
       }
 
 	}
@@ -210,13 +225,6 @@ namespace eosio { namespace chain {
  		
 		ilog("qc chain initialized -> my producers : ");
 
-		auto itr = _my_producers.begin();
-		while ( itr != _my_producers.end()){
-
-			ilog("${producer}", ("producer", *itr));
-
-			itr++;
-		}
 
 	}
 
@@ -303,15 +311,22 @@ namespace eosio { namespace chain {
 
 		ilog("=== Process proposal #${block_num} ${block_id}", ("block_id", msg.block_id)("block_num", msg.block_num()));
 
-		auto itr = _proposal_store.get<by_block_id>().find( msg.block_id );
+		bool skip_sign = false;
 
-		if (itr != _proposal_store.get<by_block_id>().end()){
+		auto itr = _proposal_store.get<by_block_num>().find( msg.block_num() );
 
-			ilog("duplicate proposal");
-		
-			return; //duplicate 
+		//if we already received a proposal at this block height
+		if (itr != _proposal_store.get<by_block_num>().end()){
+
+			//we check if it is the same proposal we already received. If it is, it is a duplicate message and we don't have anything else to do. If it isn't, it may indicate double signing
+			//todo : store conflicting proposals for accountability purposes
+			if (itr->block_id != msg.block_id){
+
+				ilog("conflicting proposal at block height : ${block_num} ", ("block_num", msg.block_num()));
 			
-			//if (itr->justify.has_value() && msg.justify.has_value() && itr->justify.value().active_agg_sig == msg.justify.value().active_agg_sig) return; 
+			}
+
+			skip_sign = true; //duplicate 
 
 		} 
 		else {
@@ -337,7 +352,7 @@ namespace eosio { namespace chain {
 		//ilog("am_finalizer : ${am_finalizer}", ("am_finalizer", am_finalizer));
 		//ilog("node_safe : ${node_safe}", ("node_safe", node_safe));
 
-		bool signature_required = am_finalizer && node_safe;
+		bool signature_required = !skip_sign && am_finalizer && node_safe;
 
 
 		//if I am a finalizer for this proposal, test safenode predicate for possible vote
@@ -420,7 +435,13 @@ namespace eosio { namespace chain {
 
 		if (itr!=_qc_store.get<by_block_id>().end()){
 
-			bool quorum_met = is_quorum_met(*itr, _schedule, false);
+			proposal_store_type::nth_index<0>::type::iterator p_itr = _proposal_store.get<by_block_id>().find( msg.block_id  );
+
+			if (p_itr==_proposal_store.get<by_block_id>().end()){
+				ilog("couldn't find proposal");
+			}
+
+			bool quorum_met = is_quorum_met(*itr, _schedule, *p_itr, false);
 
 			if (!quorum_met){
 			
@@ -429,7 +450,7 @@ namespace eosio { namespace chain {
 					qc.active_agg_sig = fc::crypto::blslib::aggregate({qc.active_agg_sig, msg.sig });
             });
 
-            quorum_met = is_quorum_met(*itr, _schedule, false);
+            quorum_met = is_quorum_met(*itr, _schedule, *p_itr, false);
 
             if (quorum_met){
 
@@ -643,7 +664,7 @@ namespace eosio { namespace chain {
 
 		block_timestamp_type next_block_time = current_block_header.timestamp.next();
 
-			ilog("timestamps : old ${old_timestamp} -> new ${new_timestamp} ", 
+		ilog("timestamps : old ${old_timestamp} -> new ${new_timestamp} ", 
 				("old_timestamp", current_block_header.timestamp)("new_timestamp", current_block_header.timestamp.next()));
 
 		producer_authority p_auth = chain.head_block_state()->get_scheduled_producer(next_block_time);

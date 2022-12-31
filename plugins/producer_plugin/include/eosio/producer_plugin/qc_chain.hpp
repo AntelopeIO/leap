@@ -43,7 +43,7 @@ namespace eosio { namespace chain {
                 name get_leader();
                 name get_incoming_leader();
 
-                bool is_quorum_met(eosio::chain::quorum_certificate qc, extended_schedule schedule, bool dual_set_mode);
+                bool is_quorum_met(eosio::chain::quorum_certificate qc, extended_schedule schedule, hs_proposal_message proposal, bool dual_set_mode);
 
                 std::vector<producer_authority> get_finalizers();
 
