@@ -405,25 +405,25 @@ hotstuff.on_proposal_received(msg){
 
 	/*
 
-		First, we verify if we have already are aware of the proposal, and if the QC was updated
+		First, we verify if we have already are aware of a proposal at this block height
 
 	*/
 
 	//Lemma 1
-	stored_block = me._b_temporary.get(msg.block_candidate.block_id);
-
-	//If we already have this proposal, we return, else we store it and we continue
-	if (stored_block) {
-		if (stored_block.justify.agg_sig == msg.block_candidate.justify.agg_sig) return;
-	}
-	else me._b_temporary.add(msg.block_candidate); //new block 
+	stored_block = me._b_temporary.get(msg.block_candidate.get_height());
 
 	//check if I'm finalizer, in which case I will optionally sign and update my internal state
 	
 	am_i_finalizer = get_finalizers.contains(me) || get_incoming_finalizers(me);
 
-	//if I am a finalizer for this proposal, test safenode predicate for possible vote
-	if (am_i_finalizer && hotstuff.is_node_safe(msg.block_candidate)){
+	skip_sign = false;
+
+	//If we already have a proposal at this height, we must not double sign so we skip signing, else we store the proposal and and we continue
+	if (stored_block) skip_sign = true;
+	else me._b_temporary.add(msg.block_candidate); //new proposal 
+
+	//if I am a finalizer for this proposal and allowed to sign, test safenode predicate for possible vote
+	if (am_i_finalizer && !skip_sign && hotstuff.is_node_safe(msg.block_candidate)){
 		
 		me._v_height = msg.block_candidate.get_height();
 
@@ -432,9 +432,9 @@ hotstuff.on_proposal_received(msg){
 
 			In Hotstuff, we need to sign a tuple of (msg.view_type, msg.view_number and msg.node).
 
-			In our implementation, the view_type is generic, and the view_number and message node are both contained in the block_id.
+			In our implementation, the view_type is generic, and the view_number is contained in the block_id, which is also the message.
 
-			Therefore, we can ensure uniqueness by replacing the view_type with msg.block_candidate.justify.agg_sig.
+			Therefore, we can ensure uniqueness by replacing the view_type part of the tuple with msg.block_candidate.justify.agg_sig.
 
 			The digest to sign now becomes the tuple (msg.block_candidate.justify.agg_sig,  msg.block_candidate.block_id).
 
@@ -567,7 +567,7 @@ hotstuff.commit(block_candidate){
 		voting for each block_candidate, then there must be an honest replica that votes for both, which is impossible because b and w
 		are of the same height.
 
-		This is enforced by the line labeled "Lemma 1".
+		This is enforced by the function labeled "Lemma 1".
 
 		Lemma 2. Let b and w be two conflicting block_candidates. Then they cannot both become committed, each by an honest replica.
 
@@ -627,7 +627,7 @@ hotstuff.commit(block_candidate){
 
 		For each of b_root and w_root, we can identify and verify the signatures of finalizers, by ensuring the justification's agg_sig matches the aggregate key calculated from the sig_bitset and the schedule.
 
-		Therefore, for b_root and w_root to both be included as qc justification into descendant blocks, at least one correct replica must have signed two vote messages on conflicting block candidates at the same height, which is impossible due to the check performed on the line with comment "Lemma 1", unless a finality violation occurred.
+		Therefore, for b_root and w_root to both be included as qc justification into descendant blocks, at least one correct replica must have signed two vote messages on conflicting block candidates at the same height, which is impossible due to the checks performed in the function with comment "Lemma 1". Such an event would be a finality violation.
 
 		For a finality violation to occur, the intersection of the finalizers that have voted for both b_root and w_root, as evidenced by the high_qc of b_descendant and w_descendant must represent a minimum of f + 1 faulty nodes.
 
@@ -658,7 +658,6 @@ hotstuff.commit(block_candidate){
 		Therefore, the safety property is not weakened while transitioning into dual_set mode.
 
 */
-
 
 
 
