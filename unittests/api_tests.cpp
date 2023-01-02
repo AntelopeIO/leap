@@ -947,7 +947,8 @@ BOOST_FIXTURE_TEST_CASE(checktime_pass_tests, TESTER) { try {
 } FC_LOG_AND_RETHROW() }
 
 template<class T, typename Tester>
-void call_test(Tester& test, T ac, uint32_t billed_cpu_time_us , uint32_t max_cpu_usage_ms, uint32_t max_block_cpu_ms, std::vector<char> payload = {}, name account = "testapi"_n ) {
+void push_trx(Tester& test, T ac, uint32_t billed_cpu_time_us , uint32_t max_cpu_usage_ms, uint32_t max_block_cpu_ms,
+              bool explicit_bill, std::vector<char> payload = {}, name account = "testapi"_n ) {
    signed_transaction trx;
 
    auto pl = vector<permission_level>{{account, config::active_name}};
@@ -965,11 +966,17 @@ void call_test(Tester& test, T ac, uint32_t billed_cpu_time_us , uint32_t max_cp
                                                         test.control->get_chain_id(), fc::microseconds::maximum(),
                                                         transaction_metadata::trx_type::input );
    auto res = test.control->push_transaction( fut.get(), fc::time_point::now() + fc::milliseconds(max_block_cpu_ms),
-                                              fc::milliseconds(max_cpu_usage_ms), billed_cpu_time_us, billed_cpu_time_us > 0, 0 );
+                                              fc::milliseconds(max_cpu_usage_ms), billed_cpu_time_us, explicit_bill, 0 );
    if( res->except_ptr ) std::rethrow_exception( res->except_ptr );
    if( res->except ) throw *res->except;
-   test.produce_block();
 };
+
+template<class T, typename Tester>
+void call_test(Tester& test, T ac, uint32_t billed_cpu_time_us , uint32_t max_cpu_usage_ms, uint32_t max_block_cpu_ms,
+               std::vector<char> payload = {}, name account = "testapi"_n ) {
+   push_trx(test, ac, billed_cpu_time_us, max_cpu_usage_ms, max_block_cpu_ms, billed_cpu_time_us > 0, payload, account);
+   test.produce_block();
+}
 
 BOOST_AUTO_TEST_CASE(checktime_fail_tests) { try {
    TESTER t;
@@ -992,7 +999,11 @@ BOOST_AUTO_TEST_CASE(checktime_fail_tests) { try {
 
    BOOST_CHECK_EXCEPTION( call_test( t, test_api_action<TEST_METHOD("test_checktime", "checktime_failure")>{},
                                      0, 200, 200, fc::raw::pack(10000000000000000000ULL) ),
-                          tx_cpu_usage_exceeded, is_tx_cpu_usage_exceeded );
+                          tx_cpu_usage_exceeded, fc_exception_message_contains("reached on chain max_transaction_cpu_usage") );
+
+   BOOST_CHECK_EXCEPTION( push_trx( t, test_api_action<TEST_METHOD("test_checktime", "checktime_failure")>{},
+                                    5000, 10, 200, false, fc::raw::pack(10000000000000000000ULL) ),
+                          tx_cpu_usage_exceeded, fc_exception_message_contains("reached speculative executed adjusted trx max time") );
 
    uint32_t time_left_in_block_us = config::default_max_block_cpu_usage - config::default_min_transaction_cpu_usage;
    std::string dummy_string = "nonce";
@@ -1046,7 +1057,7 @@ BOOST_AUTO_TEST_CASE(checktime_pause_max_trx_cpu_extended_test) { try {
    auto before = fc::time_point::now();
    BOOST_CHECK_EXCEPTION( call_test( t, test_pause_action<TEST_METHOD("test_checktime", "checktime_failure")>{},
                                      0, 9999, 500, fc::raw::pack(10000000000000000000ULL), "pause"_n ),
-                          tx_cpu_usage_exceeded, is_tx_cpu_usage_exceeded );
+                          tx_cpu_usage_exceeded, fc_exception_message_contains("reached on chain max_transaction_cpu_usage") );
    auto after = fc::time_point::now();
    // Test that it runs longer than specified limit of 24'999 to allow for wasm load time.
    auto dur = (after - before).count();
@@ -1061,7 +1072,7 @@ BOOST_AUTO_TEST_CASE(checktime_pause_max_trx_cpu_extended_test) { try {
    // Test hitting max_transaction_time throws tx_cpu_usage_exceeded
    BOOST_CHECK_EXCEPTION( call_test( t, test_pause_action<TEST_METHOD("test_checktime", "checktime_failure")>{},
                                      0, 5, 50, fc::raw::pack(10000000000000000000ULL), "pause"_n ),
-                          tx_cpu_usage_exceeded, is_tx_cpu_usage_exceeded );
+                          tx_cpu_usage_exceeded, fc_exception_message_contains("reached node configured max-transaction-time") );
 
    // Test hitting block deadline throws deadline_exception
    BOOST_CHECK_EXCEPTION( call_test( t, test_pause_action<TEST_METHOD("test_checktime", "checktime_failure")>{},
@@ -1101,7 +1112,7 @@ BOOST_AUTO_TEST_CASE(checktime_pause_max_trx_extended_test) { try {
    auto before = fc::time_point::now();
    BOOST_CHECK_EXCEPTION( call_test( t, test_pause_action<TEST_METHOD("test_checktime", "checktime_failure")>{},
                                      0, 25, 500, fc::raw::pack(10000000000000000000ULL), "pause"_n ),
-                          tx_cpu_usage_exceeded, is_tx_cpu_usage_exceeded );
+                          tx_cpu_usage_exceeded, fc_exception_message_contains("reached node configured max-transaction-time") );
    auto after = fc::time_point::now();
    // Test that it runs longer than specified limit of 24'999 to allow for wasm load time.
    auto dur = (after - before).count();
