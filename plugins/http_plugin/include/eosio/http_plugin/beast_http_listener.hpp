@@ -28,7 +28,7 @@ private:
    typename protocol_type::acceptor acceptor_;
    socket_type socket_;
 
-   boost::asio::deadline_timer timer_;
+   boost::asio::deadline_timer accept_error_timer_;
 
 public:
    beast_http_listener() = default;
@@ -38,7 +38,7 @@ public:
    beast_http_listener& operator=(const beast_http_listener&) = delete;
    beast_http_listener& operator=(beast_http_listener&&) = delete;
 
-   beast_http_listener(std::shared_ptr<http_plugin_state> plugin_state) : is_listening_(false), plugin_state_(std::move(plugin_state)), acceptor_(plugin_state_->thread_pool->get_executor()), socket_(plugin_state_->thread_pool->get_executor()), timer_(plugin_state_->thread_pool->get_executor(), boost::posix_time::seconds(0)) {}
+   beast_http_listener(std::shared_ptr<http_plugin_state> plugin_state) : is_listening_(false), plugin_state_(std::move(plugin_state)), acceptor_(plugin_state_->thread_pool->get_executor()), socket_(plugin_state_->thread_pool->get_executor()), accept_error_timer_(plugin_state_->thread_pool->get_executor(), boost::posix_time::seconds(0)) {}
 
    virtual ~beast_http_listener() {
       try {
@@ -108,24 +108,31 @@ private:
    void do_accept() {
       auto self = this->shared_from_this();
       acceptor_.async_accept(socket_, [self](beast::error_code ec) {
-         if(ec) {
-            if (ec == boost::system::errc::too_many_files_open) {
-               fail(ec, "accept", self->plugin_state_->logger, "too many files open - waiting 500ms");
-               self->timer_.expires_from_now(boost::posix_time::milliseconds(500));
-               self->timer_.wait();
-            }
-            else
-               fail(ec, "accept", self->plugin_state_->logger, "closing connection");
+         if(ec == boost::system::errc::too_many_files_open) {
+            // retry accept() after timeout to avoid cpu loop on accept
+            fail(ec, "accept", self->plugin_state_->logger, "too many files open - waiting 500ms");
+            self->accept_error_timer_.expires_from_now(boost::posix_time::milliseconds(500));
+            self->accept_error_timer_.async_wait([self = self->shared_from_this()](beast::error_code ec) {
+               if (!ec)
+                  self->do_accept();
+            });
+         } else if (ec) {
+            fail(ec, "accept", self->plugin_state_->logger, "closing connection");
+            // check pass thru error from linux accept - see https://man7.org/linux/man-pages/man2/accept.2.html
+            int err = ec.value();
+            if (err == ENETDOWN || err == EPROTO || err == ENOPROTOOPT || err == EHOSTDOWN ||
+                err == ENONET || err == EHOSTUNREACH || err == EOPNOTSUPP || err == ENETUNREACH)
+               self->do_accept(); // accept another connection
          } else {
             // Create the session object and run it
             std::make_shared<session_type>(
-                  std::move(self->socket_),
-                  self->plugin_state_)
-                  ->run_session();
+               std::move(self->socket_),
+               self->plugin_state_)
+               ->run_session();
+            
+            // and wait on accept for another connection
+            self->do_accept();
          }
-
-         // Accept another connection
-         self->do_accept();
       });
    }
 };// end class beast_http_Listener
