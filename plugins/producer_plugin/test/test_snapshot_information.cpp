@@ -1,15 +1,11 @@
 #define BOOST_TEST_MODULE snapshot_information
 #include <boost/test/included/unit_test.hpp>
 
-#include <fc/variant_object.hpp>
-
 #include <eosio/chain/snapshot.hpp>
 #include <eosio/testing/tester.hpp>
-#include <eosio/testing/snapshot_suites.hpp>
 #include <eosio/producer_plugin/producer_plugin.hpp>
 #include <eosio/producer_plugin/pending_snapshot.hpp>
 #include <contracts.hpp>
-#include <snapshots.hpp>
 
 using namespace eosio;
 using namespace eosio::testing;
@@ -23,7 +19,7 @@ BOOST_AUTO_TEST_SUITE(snapshot_tests)
 
 using next_t = eosio::producer_plugin::next_function<eosio::producer_plugin::snapshot_information>;
 
-BOOST_AUTO_TEST_CASE_TEMPLATE(test_snapshot_information, SNAPSHOT_SUITE, snapshot_suites) {
+BOOST_AUTO_TEST_CASE(test_snapshot_information) {
    tester chain;
    const chainbase::bfs::path parent_path = chain.get_config().blocks_dir.parent_path();
 

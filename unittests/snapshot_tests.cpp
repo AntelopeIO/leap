@@ -4,7 +4,7 @@
 #include <eosio/chain/global_property_object.hpp>
 #include <eosio/chain/snapshot.hpp>
 #include <eosio/testing/tester.hpp>
-#include <eosio/testing/snapshot_suites.hpp>
+#include "snapshot_suites.hpp"
 
 #include <boost/mpl/list.hpp>
 #include <boost/test/unit_test.hpp>
