@@ -1011,12 +1011,12 @@ class Cluster(object):
         cmd="bash bios_boot.sh"
         if Utils.Debug: Utils.Print("cmd: %s" % (cmd))
         env = {
-            "BIOS_CONTRACT_PATH": "unittests/contracts/old_versions/v1.6.0-rc3/eosio.bios",
+            "BIOS_CONTRACT_PATH": "libraries/testing/contracts/old_versions/v1.6.0-rc3/eosio.bios",
             "BIOS_CURRENCY_SYMBOL": CORE_SYMBOL,
             "FEATURE_DIGESTS": ""
         }
         if PFSetupPolicy.hasPreactivateFeature(pfSetupPolicy):
-            env["BIOS_CONTRACT_PATH"] = "unittests/contracts/old_versions/v1.7.0-develop-preactivate_feature/eosio.bios"
+            env["BIOS_CONTRACT_PATH"] = "libraries/testing/contracts/old_versions/v1.7.0-develop-preactivate_feature/eosio.bios"
 
         if pfSetupPolicy == PFSetupPolicy.FULL:
             allBuiltinProtocolFeatureDigests = biosNode.getAllBuiltinFeatureDigestsToPreactivate()
