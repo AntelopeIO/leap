@@ -376,7 +376,7 @@ BOOST_AUTO_TEST_CASE(test_deltas_resources_history) {
    chain.push_action(config::system_account_name, "init"_n, config::system_account_name,
                         mutable_variant_object()
                         ("version", 0)
-                        ("core", CORE_SYM_STR));
+                        ("core", CORE_SYMBOL_NAME));
 
    signed_transaction trx;
    chain.set_transaction_headers(trx);

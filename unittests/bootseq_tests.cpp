@@ -72,7 +72,7 @@ public:
          base_tester::push_action(config::system_account_name, "init"_n,
                                   config::system_account_name,  mutable_variant_object()
                                   ("version", 0)
-                                  ("core", CORE_SYM_STR)
+                                  ("core", CORE_SYMBOL_NAME)
             );
       }
       const auto& accnt = control->db().get<account_object,by_name>( config::system_account_name );
