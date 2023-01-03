@@ -14,7 +14,7 @@ namespace IR
 
 	struct ControlStructureImm
 	{
-		ResultType resultType;
+		ResultType resultType{};
 	};
 
 	struct BranchImm

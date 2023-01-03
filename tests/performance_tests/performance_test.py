@@ -507,7 +507,8 @@ def main():
     netPluginArgs = NetPluginArgs(netThreads=args.net_threads)
     extraNodeosArgs = ENA(chainPluginArgs=chainPluginArgs, httpPluginArgs=httpPluginArgs, producerPluginArgs=producerPluginArgs, netPluginArgs=netPluginArgs)
     testClusterConfig = PerformanceTestBasic.ClusterConfig(pnodes=args.p, totalNodes=args.n, topo=args.s, genesisPath=args.genesis,
-                                                           prodsEnableTraceApi=args.prods_enable_trace_api, extraNodeosArgs=extraNodeosArgs)
+                                                           prodsEnableTraceApi=args.prods_enable_trace_api, extraNodeosArgs=extraNodeosArgs,
+                                                           nodeosVers=Utils.getNodeosVersion().split('.')[0])
 
     ptConfig = PerformanceTest.PtConfig(testDurationSec=args.test_iteration_duration_sec,
                                         finalDurationSec=args.final_iterations_duration_sec,
