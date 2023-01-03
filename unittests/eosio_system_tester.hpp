@@ -60,7 +60,7 @@ public:
       base_tester::push_action(config::system_account_name, "init"_n,
                             config::system_account_name,  mutable_variant_object()
                             ("version", 0)
-                            ("core", CORE_SYM_STR));
+                            ("core", symbol(CORE_SYMBOL).to_string()));
 
       {
          const auto& accnt = control->db().get<account_object,by_name>( config::system_account_name );
