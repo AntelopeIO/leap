@@ -1132,11 +1132,11 @@ class Cluster(object):
             return None
 
         contract="eosio.bios"
-        contractDir="unittests/contracts/%s" % (contract)
+        contractDir="libraries/testing/contracts/%s" % (contract)
         if PFSetupPolicy.hasPreactivateFeature(pfSetupPolicy):
-            contractDir="unittests/contracts/old_versions/v1.7.0-develop-preactivate_feature/%s" % (contract)
+            contractDir="libraries/testing/contracts/old_versions/v1.7.0-develop-preactivate_feature/%s" % (contract)
         else:
-            contractDir="unittests/contracts/old_versions/v1.6.0-rc3/%s" % (contract)
+            contractDir="libraries/testing/contracts/old_versions/v1.6.0-rc3/%s" % (contract)
         wasmFile="%s.wasm" % (contract)
         abiFile="%s.abi" % (contract)
         Utils.Print("Publish %s contract" % (contract))
