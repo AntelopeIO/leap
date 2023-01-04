@@ -117,7 +117,7 @@ ecmd create account eosio eosio.token $pubsyskey $pubsyskey
 ecmd create account eosio eosio.vpay $pubsyskey $pubsyskey
 ecmd create account eosio eosio.wrap $pubsyskey $pubsyskey
 
-ecmd set contract eosio.token unittests/contracts/eosio.token eosio.token.wasm eosio.token.abi
+ecmd set contract eosio.token libraries/testing/contracts/eosio.token eosio.token.wasm eosio.token.abi
 ecmd set contract eosio.msig unittests/contracts/eosio.msig eosio.msig.wasm eosio.msig.abi
 ecmd set contract eosio.wrap unittests/contracts/eosio.wrap eosio.wrap.wasm eosio.wrap.abi
 
