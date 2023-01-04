@@ -10,8 +10,8 @@ import signal
 import log_reader
 import launch_transaction_generators as ltg
 
-harnessPath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(harnessPath)
+from pathlib import Path, PurePath
+sys.path.append(str(PurePath(PurePath(Path(__file__).absolute()).parent).parent))
 
 from NodeosPluginArgs import ChainPluginArgs, HttpClientPluginArgs, HttpPluginArgs, NetPluginArgs, ProducerPluginArgs, ResourceMonitorPluginArgs, SignatureProviderPluginArgs, StateHistoryPluginArgs, TraceApiPluginArgs
 from TestHarness import Cluster, TestHelper, Utils, WalletMgr
@@ -70,7 +70,7 @@ class PerformanceTestBasic:
         topo: str = "mesh"
         extraNodeosArgs: ExtraNodeosArgs = ExtraNodeosArgs()
         useBiosBootFile: bool = False
-        genesisPath: str = "tests/performance_tests/genesis.json"
+        genesisPath: Path = Path("tests")/"performance_tests"/"genesis.json"
         maximumP2pPerHost: int = 5000
         maximumClients: int = 0
         loggingDict: dict = field(default_factory=lambda: { "bios": "off" })
@@ -102,7 +102,7 @@ class PerformanceTestBasic:
         testTrxGenDurationSec: int=30
         tpsLimitPerGenerator: int=4000
         numAddlBlocksToPrune: int=2
-        logDirRoot: str="."
+        logDirRoot: Path=Path(".")
         delReport: bool=False
         quiet: bool=False
         delPerfLogs: bool=False
@@ -113,13 +113,13 @@ class PerformanceTestBasic:
 
     @dataclass
     class LoggingConfig:
-        logDirBase: str = f"./{os.path.splitext(os.path.basename(__file__))[0]}"
+        logDirBase: Path = Path(".")/PurePath(PurePath(__file__).name).stem[0]
         logDirTimestamp: str = f"{datetime.utcnow().strftime('%Y-%m-%d_%H-%M-%S')}"
         logDirTimestampedOptSuffix: str = ""
-        logDirPath: str = field(default_factory=str, init=False)
+        logDirPath: Path = field(default_factory=Path, init=False)
 
         def __post_init__(self):
-            self.logDirPath = f"{self.logDirBase}/{self.logDirTimestamp}{self.logDirTimestampedOptSuffix}"
+            self.logDirPath = self.logDirBase/Path(f"{self.logDirTimestamp}{self.logDirTimestampedOptSuffix}")
 
     def __init__(self, testHelperConfig: TestHelperConfig=TestHelperConfig(), clusterConfig: ClusterConfig=ClusterConfig(), ptbConfig=PtbConfig()):
         self.testHelperConfig = testHelperConfig
@@ -134,26 +134,25 @@ class PerformanceTestBasic:
 
         self.testStart = datetime.utcnow()
 
-        self.loggingConfig = PerformanceTestBasic.LoggingConfig(logDirBase=f"{self.ptbConfig.logDirRoot}/{os.path.splitext(os.path.basename(__file__))[0]}",
+        self.loggingConfig = PerformanceTestBasic.LoggingConfig(logDirBase=Path(self.ptbConfig.logDirRoot)/PurePath(PurePath(__file__).name).stem[0],
                                                                 logDirTimestamp=f"{self.testStart.strftime('%Y-%m-%d_%H-%M-%S')}",
                                                                 logDirTimestampedOptSuffix = f"-{self.ptbConfig.targetTps}")
 
-        self.trxGenLogDirPath = f"{self.loggingConfig.logDirPath}/trxGenLogs"
-        self.varLogsDirPath = f"{self.loggingConfig.logDirPath}/var"
-        self.etcLogsDirPath = f"{self.loggingConfig.logDirPath}/etc"
-        self.etcEosioLogsDirPath = f"{self.etcLogsDirPath}/eosio"
-        self.blockDataLogDirPath = f"{self.loggingConfig.logDirPath}/blockDataLogs"
-        self.blockDataPath = f"{self.blockDataLogDirPath}/blockData.txt"
-        self.blockTrxDataPath = f"{self.blockDataLogDirPath}/blockTrxData.txt"
-        self.reportPath = f"{self.loggingConfig.logDirPath}/data.json"
+        self.trxGenLogDirPath = self.loggingConfig.logDirPath/Path("trxGenLogs")
+        self.varLogsDirPath = self.loggingConfig.logDirPath/Path("var")
+        self.etcLogsDirPath = self.loggingConfig.logDirPath/Path("etc")
+        self.etcEosioLogsDirPath = self.etcLogsDirPath/Path("eosio")
+        self.blockDataLogDirPath = self.loggingConfig.logDirPath/Path("blockDataLogs")
+        self.blockDataPath = self.blockDataLogDirPath/Path("blockData.txt")
+        self.blockTrxDataPath = self.blockDataLogDirPath/Path("blockTrxData.txt")
+        self.reportPath = self.loggingConfig.logDirPath/Path("data.json")
 
         # Setup Expectations for Producer and Validation Node IDs
         # Producer Nodes are index [0, pnodes) and validation nodes/non-producer nodes [pnodes, _totalNodes)
         # Use first producer node and first non-producer node
         self.producerNodeId = 0
         self.validationNodeId = self.clusterConfig.pnodes
-
-        self.nodeosLogPath = f'var/lib/node_{str(self.validationNodeId).zfill(2)}/stderr.txt'
+        self.nodeosLogPath = Path("var")/"lib"/f"node_{str(self.validationNodeId).zfill(2)}"/"stderr.txt"
 
         # Setup cluster and its wallet manager
         self.walletMgr=WalletMgr(True)
@@ -169,7 +168,7 @@ class PerformanceTestBasic:
         try:
             def removeArtifacts(path):
                 print(f"Checking if test artifacts dir exists: {path}")
-                if os.path.isdir(f"{path}"):
+                if Path(path).is_dir():
                     print(f"Cleaning up test artifacts dir and all contents of: {path}")
                     shutil.rmtree(f"{path}")
 
@@ -191,7 +190,7 @@ class PerformanceTestBasic:
         try:
             def createArtifactsDir(path):
                 print(f"Checking if test artifacts dir exists: {path}")
-                if not os.path.isdir(f"{path}"):
+                if not Path(path).is_dir():
                     print(f"Creating test artifacts dir: {path}")
                     os.mkdir(f"{path}")
 
@@ -208,7 +207,7 @@ class PerformanceTestBasic:
             print(error)
 
     def fileOpenMode(self, filePath) -> str:
-        if os.path.exists(filePath):
+        if filePath.exists():
             append_write = 'a'
         else:
             append_write = 'w'
@@ -313,18 +312,18 @@ class PerformanceTestBasic:
         except Exception as e:
             print(f"Failed to move 'var' to '{self.varLogsDirPath}': {type(e)}: {e}")
 
-        etcEosioDir = "etc/eosio"
+        etcEosioDir = Path("etc")/"eosio"
         for path in os.listdir(etcEosioDir):
             if path == "launcher":
                 try:
                     # Need to copy here since testnet.template is only generated at compile time then reused, therefore
                     # it needs to remain in etc/eosio/launcher for subsequent tests.
-                    shutil.copytree(f"{etcEosioDir}/{path}", f"{self.etcEosioLogsDirPath}/{path}")
+                    shutil.copytree(etcEosioDir/Path(path), self.etcEosioLogsDirPath/Path(path))
                 except Exception as e:
                     print(f"Failed to copy '{etcEosioDir}/{path}' to '{self.etcEosioLogsDirPath}/{path}': {type(e)}: {e}")
             else:
                 try:
-                    shutil.move(f"{etcEosioDir}/{path}", f"{self.etcEosioLogsDirPath}/{path}")
+                    shutil.move(etcEosioDir/Path(path), self.etcEosioLogsDirPath/Path(path))
                 except Exception as e:
                     print(f"Failed to move '{etcEosioDir}/{path}' to '{self.etcEosioLogsDirPath}/{path}': {type(e)}: {e}")
 
