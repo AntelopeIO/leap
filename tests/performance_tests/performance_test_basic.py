@@ -515,7 +515,6 @@ def main():
                                   numAddlBlocksToPrune=args.num_blocks_to_prune, logDirRoot=".", delReport=args.del_report, quiet=args.quiet, delPerfLogs=args.del_perf_logs)
     myTest = PerformanceTestBasic(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, ptbConfig=ptbConfig)
 
-
     testSuccessful = myTest.runTest()
 
     exitCode = 0 if testSuccessful else 1
