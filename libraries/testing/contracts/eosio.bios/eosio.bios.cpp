@@ -47,11 +47,6 @@ void bios::setparams( const eosio::blockchain_parameters& params ) {
    set_blockchain_parameters( params );
 }
 
-void bios::setpparams( const std::vector<char>& params ) {
-   require_auth( get_self() );
-   set_parameters_packed( params.data(), params.size() );
-}
-
 void bios::reqauth( name from ) {
    require_auth( from );
 }

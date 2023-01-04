@@ -229,14 +229,6 @@ namespace eosiobios {
          void setparams( const eosio::blockchain_parameters& params );
 
          /**
-          * Set params action, sets the blockchain parameters. By tuning these parameters, various degrees of customization can be achieved.
-          *
-          * @param params - New blockchain parameters to set
-          */
-         [[eosio::action]]
-         void setpparams( const std::vector<char>& bytes);
-
-         /**
           * Require authorization action, checks if the account name `from` passed in as param has authorization to access
           * current action, that is, if it is listed in the action’s allowed permissions vector.
           *
@@ -283,7 +275,6 @@ namespace eosiobios {
          using setalimits_action = action_wrapper<"setalimits"_n, &bios::setalimits>;
          using setprods_action = action_wrapper<"setprods"_n, &bios::setprods>;
          using setparams_action = action_wrapper<"setparams"_n, &bios::setparams>;
-         using setpparams_action = action_wrapper<"setpparams"_n, &bios::setpparams>;
          using reqauth_action = action_wrapper<"reqauth"_n, &bios::reqauth>;
          using activate_action = action_wrapper<"activate"_n, &bios::activate>;
          using reqactivated_action = action_wrapper<"reqactivated"_n, &bios::reqactivated>;
