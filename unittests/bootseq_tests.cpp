@@ -8,6 +8,7 @@
 #include <boost/test/unit_test.hpp>
 
 #include <contracts.hpp>
+#include <test_contracts.hpp>
 
 #ifdef NON_VALIDATING_TEST
 #define TESTER tester
@@ -66,8 +67,8 @@ std::vector<genesis_account> test_genesis( {
 class bootseq_tester : public TESTER {
 public:
    void deploy_contract( bool call_init = true ) {
-      set_code( config::system_account_name, contracts::eosio_system_wasm() );
-      set_abi( config::system_account_name, contracts::eosio_system_abi().data() );
+      set_code( config::system_account_name, test_contracts::eosio_system_wasm() );
+      set_abi( config::system_account_name, test_contracts::eosio_system_abi().data() );
       if( call_init ) {
          base_tester::push_action(config::system_account_name, "init"_n,
                                   config::system_account_name,  mutable_variant_object()
@@ -198,8 +199,8 @@ BOOST_FIXTURE_TEST_CASE( bootseq_test, bootseq_tester ) {
         // set_code_abi("eosio.token"_n, contracts::eosio_token_wasm(), contracts::eosio_token_abi().data()); //, &eosio_active_pk);
 
         set_code_abi("eosio.msig"_n,
-                     contracts::eosio_msig_wasm(),
-                     contracts::eosio_msig_abi().data());//, &eosio_active_pk);
+                     test_contracts::eosio_msig_wasm(),
+                     test_contracts::eosio_msig_abi().data());//, &eosio_active_pk);
         set_code_abi("eosio.token"_n,
                      contracts::eosio_token_wasm(),
                      contracts::eosio_token_abi().data()); //, &eosio_active_pk);

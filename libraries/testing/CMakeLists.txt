@@ -37,10 +37,12 @@ endif()
 file(GLOB HEADERS "include/eosio/testing/*.hpp")
 
 configure_file(contracts.hpp.in include/testing_contracts/contracts.hpp ESCAPE_QUOTES)
-add_library(eosio_testing_contracts INTERFACE)
-target_include_directories(eosio_testing_contracts INTERFACE ${CMAKE_CURRENT_BINARY_DIR}/include/testing_contracts)
+add_library(eosio_testing_contracts ${CMAKE_CURRENT_BINARY_DIR}/contracts.cpp)
+target_include_directories( eosio_testing_contracts
+                            PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/include/testing_contracts"
+                                   "${CMAKE_SOURCE_DIR}/libraries/libfc/include")
 if( EOSIO_COMPILE_TEST_CONTRACTS )
-   add_dependencies( eosio_testing_contracts INTERFACE testing_contracts_project)
+   add_dependencies( eosio_testing_contracts testing_contracts_project)
 endif()
 
 configure_file(contracts.cpp.in contracts.cpp ESCAPE_QUOTES)
@@ -49,7 +51,6 @@ configure_file(contracts.cpp.in contracts.cpp ESCAPE_QUOTES)
 add_library( eosio_testing
              tester.cpp
              tester_network.cpp
-             ${CMAKE_CURRENT_BINARY_DIR}/contracts.cpp
              ${HEADERS}
         )
 
@@ -59,8 +60,7 @@ target_include_directories( eosio_testing
                                    "${CMAKE_CURRENT_SOURCE_DIR}/../wasm-jit/Include"
                                    "${CMAKE_CURRENT_SOURCE_DIR}/contracts"
                                    "${CMAKE_CURRENT_BINARY_DIR}/contracts"
-                                   "${CMAKE_BINARY_DIR}/unittests/include"
-        )
+                          )
 
 set_target_properties( eosio_testing PROPERTIES PUBLIC_HEADER "${HEADERS}" )
 install( TARGETS eosio_testing
