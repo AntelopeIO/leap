@@ -14,7 +14,7 @@ Please refer to [Leap: Build and Install from Source](https://github.com/Antelop
 
 ## Steps
 
-1. Build Leap. For complete instructions on building from source please refer to [Leap: Build and Install from Source](https://github.com/AntelopeIO/leap/#build-and-install-from-source)
+1. Build Leap. For complete instructions on building from source please refer to [Leap: Build and Install from Source](https://github.com/AntelopeIO/leap/#build-and-install-from-source) For older compatible nodeos versions, such as 2.X, the following binaries need to be replaced with the older version: `build/programs/nodeos/nodeos`, `build/programs/cleos/cleos`, `bin/nodeos`, and `bin/cleos`.
 2. Run Performance Tests
     1. Full Performance Harness Test Run (Standard):
         ``` bash
