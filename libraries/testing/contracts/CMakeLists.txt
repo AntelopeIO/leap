@@ -18,6 +18,10 @@ elseif( USE_EOSIO_CDT_1_8_X )
 endif()
 
 add_subdirectory(eosio.bios)
+
+# Once the deprecated txn_test_gen_plugin is removed this can move back to ./unittests/contracts
+# Also ./libraries/testing/CMakeLists.txt can go back to eosio_testing_contracts being INTERFACE only
+# See diff: https://github.com/AntelopeIO/leap/pull/612/commits/b9e99f0902aeba99bc4dc0ad90abf79b24f36523
 add_subdirectory(eosio.token)
 
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/old_versions/v1.6.0-rc3/eosio.bios/ DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/old_versions/v1.6.0-rc3/eosio.bios/)
