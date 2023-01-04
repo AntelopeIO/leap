@@ -2,12 +2,6 @@
 
 namespace eosiobios {
 
-// move this to CDT after this release
-extern "C" {
-   __attribute__((eosio_wasm_import))
-   void set_parameters_packed(const char*, std::size_t);
-}
-
 void bios::setabi( name account, const std::vector<char>& abi ) {
    abi_hash_table table(get_self(), get_self().value);
    auto itr = table.find( account.value );
