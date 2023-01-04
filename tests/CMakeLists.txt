@@ -148,7 +148,7 @@ set_property(TEST trx_finality_status_test PROPERTY LABELS nonparallelizable_tes
 add_test(NAME trx_finality_status_forked_test COMMAND tests/trx_finality_status_forked_test.py -v --clean-run WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST trx_finality_status_forked_test PROPERTY LABELS nonparallelizable_tests)
 
-add_test(NAME db_modes_test COMMAND tests/db_modes_test.sh WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+add_test(NAME db_modes_test COMMAND tests/db_modes_test.sh -v WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_tests_properties(db_modes_test PROPERTIES COST 6000)
 add_test(NAME release-build-test COMMAND tests/release-build.sh WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 add_test(NAME version-label-test COMMAND tests/version-label.sh "v${VERSION_FULL}" WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
