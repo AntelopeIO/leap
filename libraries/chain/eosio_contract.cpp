@@ -108,9 +108,9 @@ void apply_eosio_newaccount(apply_context& context) {
    }
 
    const auto& owner_permission  = authorization.create_permission( create.name, config::owner_name, 0,
-                                                                    std::move(create.owner) );
+                                                                    std::move(create.owner), time_point(), context.trx_context.is_transient() );
    const auto& active_permission = authorization.create_permission( create.name, config::active_name, owner_permission.id,
-                                                                    std::move(create.active) );
+                                                                    std::move(create.active), time_point(),context.trx_context.is_transient() );
 
    context.control.get_mutable_resource_limits_manager().initialize_account(create.name);
 
@@ -119,7 +119,7 @@ void apply_eosio_newaccount(apply_context& context) {
    ram_delta += owner_permission.auth.get_billable_size();
    ram_delta += active_permission.auth.get_billable_size();
 
-   if (auto dm_logger = context.control.get_deep_mind_logger()) {
+   if (auto dm_logger = context.trx_context.get_deep_mind_logger()) {
       dm_logger->on_ram_trace(RAM_EVENT_ID("${name}", ("name", create.name)), "account", "add", "newaccount");
    }
 
@@ -196,7 +196,7 @@ void apply_eosio_setcode(apply_context& context) {
    });
 
    if (new_size != old_size) {
-      if (auto dm_logger = context.control.get_deep_mind_logger()) {
+      if (auto dm_logger = context.trx_context.get_deep_mind_logger()) {
          const char* operation = "update";
          if (old_size <= 0) {
             operation = "add";
@@ -235,7 +235,7 @@ void apply_eosio_setabi(apply_context& context) {
    });
 
    if (new_size != old_size) {
-      if (auto dm_logger = context.control.get_deep_mind_logger()) {
+      if (auto dm_logger = context.trx_context.get_deep_mind_logger()) {
          const char* operation = "update";
          if (old_size <= 0) {
             operation = "add";
@@ -301,11 +301,11 @@ void apply_eosio_updateauth(apply_context& context) {
 
       int64_t old_size = (int64_t)(config::billable_size_v<permission_object> + permission->auth.get_billable_size());
 
-      authorization.modify_permission( *permission, update.auth );
+      authorization.modify_permission( *permission, update.auth, context.trx_context.is_transient() );
 
       int64_t new_size = (int64_t)(config::billable_size_v<permission_object> + permission->auth.get_billable_size());
 
-      if (auto dm_logger = context.control.get_deep_mind_logger()) {
+      if (auto dm_logger = context.trx_context.get_deep_mind_logger()) {
          dm_logger->on_ram_trace(RAM_EVENT_ID("${id}", ("id", permission->id)), "auth", "update", "updateauth_update");
       }
 
@@ -315,7 +315,7 @@ void apply_eosio_updateauth(apply_context& context) {
 
       int64_t new_size = (int64_t)(config::billable_size_v<permission_object> + p.auth.get_billable_size());
 
-      if (auto dm_logger = context.control.get_deep_mind_logger()) {
+      if (auto dm_logger = context.trx_context.get_deep_mind_logger()) {
          dm_logger->on_ram_trace(RAM_EVENT_ID("${id}", ("id", p.id)), "auth", "add", "updateauth_create");
       }
 
@@ -350,11 +350,11 @@ void apply_eosio_deleteauth(apply_context& context) {
    const auto& permission = authorization.get_permission({remove.account, remove.permission});
    int64_t old_size = config::billable_size_v<permission_object> + permission.auth.get_billable_size();
 
-   if (auto dm_logger = context.control.get_deep_mind_logger()) {
+   if (auto dm_logger = context.trx_context.get_deep_mind_logger()) {
       dm_logger->on_ram_trace(RAM_EVENT_ID("${id}", ("id", permission.id)), "auth", "remove", "deleteauth");
    }
 
-   authorization.remove_permission( permission );
+   authorization.remove_permission( permission, context.trx_context.is_transient() );
 
    context.add_ram_usage( remove.account, -old_size );
 
@@ -409,7 +409,7 @@ void apply_eosio_linkauth(apply_context& context) {
             link.required_permission = requirement.requirement;
          });
 
-         if (auto dm_logger = context.control.get_deep_mind_logger()) {
+         if (auto dm_logger = context.trx_context.get_deep_mind_logger()) {
             dm_logger->on_ram_trace(RAM_EVENT_ID("${id}", ("id", l.id)), "auth_link", "add", "linkauth");
          }
 
@@ -436,7 +436,7 @@ void apply_eosio_unlinkauth(apply_context& context) {
    auto link = db.find<permission_link_object, by_action_name>(link_key);
    EOS_ASSERT(link != nullptr, action_validate_exception, "Attempting to unlink authority, but no link found");
 
-   if (auto dm_logger = context.control.get_deep_mind_logger()) {
+   if (auto dm_logger = context.trx_context.get_deep_mind_logger()) {
       dm_logger->on_ram_trace(RAM_EVENT_ID("${id}", ("id", link->id)), "auth_link", "remove", "unlinkauth");
    }
 

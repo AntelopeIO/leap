@@ -133,7 +133,7 @@ void resource_limits_manager::update_account_usage(const flat_set<account_name>&
    }
 }
 
-void resource_limits_manager::add_transaction_usage(const flat_set<account_name>& accounts, uint64_t cpu_usage, uint64_t net_usage, uint32_t time_slot ) {
+void resource_limits_manager::add_transaction_usage(const flat_set<account_name>& accounts, uint64_t cpu_usage, uint64_t net_usage, uint32_t time_slot, bool trx_is_transient ) {
    const auto& state = _db.get<resource_limits_state_object>();
    const auto& config = _db.get<resource_limits_config_object>();
 
@@ -149,7 +149,7 @@ void resource_limits_manager::add_transaction_usage(const flat_set<account_name>
           bu.net_usage.add( net_usage, time_slot, config.account_net_usage_average_window );
           bu.cpu_usage.add( cpu_usage, time_slot, config.account_cpu_usage_average_window );
 
-         if (auto dm_logger = _get_deep_mind_logger()) {
+         if (auto dm_logger = _get_deep_mind_logger(); dm_logger && !trx_is_transient) {
             dm_logger->on_update_account_usage(bu);
          }
       });

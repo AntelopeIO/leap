@@ -87,6 +87,10 @@ namespace eosio { namespace chain {
          bool is_read_only()const { return trx_type == transaction_metadata::trx_type::read_only; };
          bool is_transient()const { return trx_type == transaction_metadata::trx_type::read_only || trx_type == transaction_metadata::trx_type::dry_run; };
 
+         deep_mind_handler* get_deep_mind_logger() const {
+            return is_transient() ? nullptr : control.get_deep_mind_logger();
+         }
+
       private:
 
          friend struct controller_impl;

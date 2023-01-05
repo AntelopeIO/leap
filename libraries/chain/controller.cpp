@@ -1148,13 +1148,13 @@ struct controller_impl {
          etrx.set_reference_block( self.head_block_id() );
       }
 
-      if (auto dm_logger = get_deep_mind_logger()) {
-         dm_logger->on_onerror(etrx);
-      }
-
       transaction_checktime_timer trx_timer(timer);
       const packed_transaction trx( std::move( etrx ) );
       transaction_context trx_context( self, trx, std::move(trx_timer), start );
+
+      if (auto dm_logger = get_deep_mind_logger(); dm_logger && !trx_context.is_transient()) {
+         dm_logger->on_onerror(etrx);
+      }
 
       trx_context.block_deadline = block_deadline;
       trx_context.max_transaction_time_subjective = max_transaction_time;
@@ -2621,8 +2621,7 @@ struct controller_impl {
    }
 
    inline deep_mind_handler* get_deep_mind_logger() const {
-      // Do not do deep mind logging for read-only and dry-run transactions
-      return ( execution_mode == trx_execution_mode::READ_ONLY || execution_mode == trx_execution_mode::DRY_RUN ) ? nullptr : deep_mind_logger;
+      return deep_mind_logger;
    }
 
    uint32_t earliest_available_block_num() const {
