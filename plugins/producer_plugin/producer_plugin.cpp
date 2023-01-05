@@ -537,7 +537,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
 
       void on_incoming_transaction_async(const packed_transaction_ptr& trx,
                                          bool api_trx,
-                                         bool read_only,
+                                         transaction_metadata::trx_type trx_type,
                                          bool return_failure_traces,
                                          next_function<transaction_trace_ptr> next) {
          chain::controller& chain = chain_plug->chain();
@@ -546,10 +546,10 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
 
          auto future = transaction_metadata::start_recover_keys( trx, _thread_pool->get_executor(),
                                                                  chain.get_chain_id(), fc::microseconds( max_trx_cpu_usage ),
-                                                                 read_only ? transaction_metadata::trx_type::read_only : transaction_metadata::trx_type::input,
+                                                                 trx_type,
                                                                  chain.configured_subjective_signature_length_limit() );
 
-         if( !read_only ) {
+         if( trx_type != transaction_metadata::trx_type::dry_run ) {
             next = [this, trx, next{std::move(next)}]( const std::variant<fc::exception_ptr, transaction_trace_ptr>& response ) {
                next( response );
 
@@ -976,7 +976,7 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
    my->_incoming_transaction_subscription = app().get_channel<incoming::channels::transaction>().subscribe(
          [this](const packed_transaction_ptr& trx) {
       try {
-         my->on_incoming_transaction_async(trx, false, false, false, [](const auto&){});
+         my->on_incoming_transaction_async(trx, false, transaction_metadata::trx_type::input, false, [](const auto&){});
       } LOG_AND_DROP();
    });
 
@@ -986,8 +986,8 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
    });
 
    my->_incoming_transaction_async_provider = app().get_method<incoming::methods::transaction_async>().register_provider(
-         [this](const packed_transaction_ptr& trx, bool api_trx, bool read_only, bool return_failure_traces, next_function<transaction_trace_ptr> next) -> void {
-      return my->on_incoming_transaction_async(trx, api_trx, read_only, return_failure_traces, next );
+         [this](const packed_transaction_ptr& trx, bool api_trx, transaction_metadata::trx_type trx_type, bool return_failure_traces, next_function<transaction_trace_ptr> next) -> void {
+      return my->on_incoming_transaction_async(trx, api_trx, trx_type, return_failure_traces, next );
    });
 
    if (options.count("greylist-account")) {
@@ -1082,6 +1082,7 @@ void producer_plugin::plugin_shutdown() {
    my->_unapplied_transactions.clear();
 
    app().post( 0, [me = my](){} ); // keep my pointer alive until queue is drained
+   fc_ilog(_log, "exit shutdown");
 }
 
 void producer_plugin::handle_sighup() {
@@ -1462,8 +1463,8 @@ producer_plugin::get_unapplied_transactions( const get_unapplied_transactions_pa
       }
    })();
 
-   auto get_trx_type = [&](trx_enum_type t, bool read_only) {
-      if( read_only ) return "read_only";
+   auto get_trx_type = [&](trx_enum_type t, transaction_metadata::trx_type type) {
+      if( type == transaction_metadata::trx_type::dry_run ) return "dry_run";
       switch( t ) {
          case trx_enum_type::unknown:
             return "unknown";
@@ -1490,7 +1491,7 @@ producer_plugin::get_unapplied_transactions( const get_unapplied_transactions_pa
       r.trx_id = itr->id();
       r.expiration = itr->expiration();
       const auto& pt = itr->trx_meta->packed_trx();
-      r.trx_type = get_trx_type( itr->trx_type, itr->trx_meta->read_only );
+      r.trx_type = get_trx_type( itr->trx_type, itr->trx_meta->get_trx_type() );
       r.first_auth = pt->get_transaction().first_authorizer();
       const auto& actions = pt->get_transaction().actions;
       if( !actions.empty() ) {
@@ -1990,7 +1991,7 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
 
    bool disable_subjective_enforcement = (api_trx && _disable_subjective_api_billing)
                                          || (!api_trx && _disable_subjective_p2p_billing)
-                                         || trx->read_only;
+                                         || trx->is_dry_run();
 
    auto first_auth = trx->packed_trx()->get_transaction().first_authorizer();
    if( !disable_subjective_enforcement && _account_fails.failure_limit( first_auth ) ) {

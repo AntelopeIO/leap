@@ -2690,7 +2690,7 @@ namespace eosio {
          my_impl->producer_plug->log_failed_transaction(ptr->id(), ptr, reason);
          if (fc::time_point::now() - fc::seconds(1) >= last_dropped_trx_msg_time) {
             last_dropped_trx_msg_time = fc::time_point::now();
-            wlog(reason);
+            peer_wlog(this, reason);
          }
          return true;
       }
