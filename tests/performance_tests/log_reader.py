@@ -5,12 +5,10 @@ import sys
 import re
 import numpy as np
 import json
-import glob
 import gzip
-import math
 
-harnessPath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(harnessPath)
+from pathlib import Path, PurePath
+sys.path.append(str(PurePath(PurePath(Path(__file__).absolute()).parent).parent))
 
 from TestHarness import Utils
 from dataclasses import dataclass, asdict, field
@@ -24,10 +22,10 @@ cmdError = Utils.cmdError
 
 @dataclass
 class ArtifactPaths:
-    nodeosLogPath: str = ""
-    trxGenLogDirPath: str = ""
-    blockTrxDataPath: str = ""
-    blockDataPath: str = ""
+    nodeosLogPath: Path = Path("")
+    trxGenLogDirPath: Path = Path("")
+    blockTrxDataPath: Path = Path("")
+    blockDataPath: Path = Path("")
 
 @dataclass
 class TpsTestConfig:
@@ -179,8 +177,11 @@ class chainData():
     def assertEquality(self, other):
         assert self == other, f"Error: Actual log:\n{self}\ndid not match expected log:\n{other}"
 
-def scrapeLog(data: chainData, path):
-    selectedopen = gzip.open if path.endswith('.gz') else open
+def selectedOpen(path):
+    return gzip.open if path.suffix == '.gz' else open
+
+def scrapeLog(data, path):
+    selectedopen = selectedOpen(path)
     with selectedopen(path, 'rt') as f:
         line = f.read()
         blockResult = re.findall(r'Received block ([0-9a-fA-F]*).* #(\d+) .*trxs: (\d+)(.*)', line)
@@ -207,23 +208,23 @@ def scrapeLog(data: chainData, path):
             data.forkedBlocks.append(int(fork[1]) - int(fork[3]))
 
 def scrapeTrxGenLog(trxSent, path):
-    selectedopen = gzip.open if path.endswith('.gz') else open
+    selectedopen = selectedOpen(path)
     with selectedopen(path, 'rt') as f:
         trxSent.update(dict([(x[0], x[1]) for x in (line.rstrip('\n').split(',') for line in f)]))
 
 def scrapeBlockTrxDataLog(trxDict, path):
-    selectedopen = gzip.open if path.endswith('.gz') else open
+    selectedopen = selectedOpen(path)
     with selectedopen(path, 'rt') as f:
         trxDict.update(dict([(x[0], trxData(x[1], x[2], x[3])) for x in (line.rstrip('\n').split(',') for line in f)]))
 
 def scrapeBlockDataLog(blockDict, path):
-    selectedopen = gzip.open if path.endswith('.gz') else open
+    selectedopen = selectedOpen(path)
     with selectedopen(path, 'rt') as f:
         blockDict.update(dict([(x[0], blkData(x[1], x[2], x[3], x[4])) for x in (line.rstrip('\n').split(',') for line in f)]))
 
 def scrapeTrxGenTrxSentDataLogs(trxSent, trxGenLogDirPath, quiet):
     filesScraped = []
-    for fileName in glob.glob(f"{trxGenLogDirPath}/trx_data_output_*.txt"):
+    for fileName in trxGenLogDirPath.glob("trx_data_output_*.txt"):
         filesScraped.append(fileName)
         scrapeTrxGenLog(trxSent, fileName)
 
@@ -387,6 +388,8 @@ class LogReaderEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, datetime):
             return obj.isoformat()
+        if isinstance(obj, PurePath):
+            return str(obj)
         if obj is None:
             return "Unknown"
         return json.JSONEncoder.default(self, obj)

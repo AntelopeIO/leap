@@ -14,6 +14,9 @@ class ChainPluginArgs(BasePluginArgs):
     blocksDir: str=None
     _blocksDirNodeosDefault: str='"blocks"'
     _blocksDirNodeosArg: str="--blocks-dir"
+    stateDir: str=None
+    _stateDirNodeosDefault: str='"state"'
+    _stateDirNodeosArg: str="--state-dir"
     protocolFeaturesDir: str=None
     _protocolFeaturesDirNodeosDefault: str='"protocol_features"'
     _protocolFeaturesDirNodeosArg: str="--protocol-features-dir"

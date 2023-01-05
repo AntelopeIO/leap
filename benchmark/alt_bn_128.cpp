@@ -1,6 +1,6 @@
 #include <iostream>
 
-#include <fc/crypto/alt_bn128.hpp>
+#include <bn256/bn256.h>
 
 #include <benchmark.hpp>
 
@@ -10,22 +10,20 @@ using bytes = std::vector<char>;
 using g1g2_pair = std::vector<std::string>;
 
 void add_benchmarking() {
-   std::vector<unsigned char>  point1_raw = {
+   const unsigned char  point1[64] = {
       12,175,215,144,98,95,151,228,179,85,31,170,172,159,40,255,250,252,68,28,235,65,172,180,69,164,153,29,187,239,220,201,   // x
       18,102,219,76,79,148,120,28,39,149,42,172,41,248,120,249,255,69,42,51,160,239,13,219,239,183,77,174,217,158,130,10,};  // y
-   std::vector<unsigned char>  point2_raw = {
+   const unsigned char  point2[64] = {
       12,144,10,32,104,85,103,36,222,232,48,152,108,217,40,145,230,48,8,54,0,7,134,164,7,10,139,110,95,205,124,121,       // x
-      22,254,176,251,18,168,78,220,142,100,102,113,58,176,83,186,212,62,154,138,235,135,34,46,237,117,54,36,198,40,79,73,};   // y 
-   
-   bytes point1, point2;
-   point1.insert(point1.begin(), point1_raw.begin(), point1_raw.end());
-   point2.insert(point2.begin(), point2_raw.begin(), point2_raw.end());
+      22,254,176,251,18,168,78,220,142,100,102,113,58,176,83,186,212,62,154,138,235,135,34,46,237,117,54,36,198,40,79,73,};   // y
+
+   unsigned char  ans[64] ={};
+
 
    auto f = [&]() {
-      auto res = fc::alt_bn128_add(point1, point2);
-      if (std::holds_alternative<fc::alt_bn128_error>(res)) {
-         std::cout << "alt_bn128_add failed: " 
-            << (int)std::get<fc::alt_bn128_error>(res) << std::endl;
+      auto res = bn256::g1_add(point1, point2, ans);
+      if (res == -1) {
+         std::cout << "alt_bn128_add failed" << std::endl;
       }
    };
 
@@ -33,21 +31,18 @@ void add_benchmarking() {
 }
 
 void mul_benchmarking() {
-   std::vector<unsigned char>  point_raw = {
+   const unsigned char  point[64] = {
       12,175,215,144,98,95,151,228,179,85,31,170,172,159,40,255,250,252,68,28,235,65,172,180,69,164,153,29,187,239,220,201,   // x
       18,102,219,76,79,148,120,28,39,149,42,172,41,248,120,249,255,69,42,51,160,239,13,219,239,183,77,174,217,158,130,10,}; // y
-   std::vector<unsigned char>  scaler_raw = {
+   const unsigned char  scalar[32] = {
      25,62,182,170,104,140,135,90,37,150,0,77,2,77,146,71,54,101,113,69,177,216,157,4,229,213,33,215,169,99,150,91, }; // scaler size 256 bits
-   
-   bytes point, scaler;
-   point.insert(point.begin(), point_raw.begin(), point_raw.end());
-   scaler.insert(scaler.begin(), scaler_raw.begin(), scaler_raw.end());
+
+   unsigned char  ans[64] = {};
 
    auto f = [&]() {
-      auto res = fc::alt_bn128_mul(point, scaler);
-      if (std::holds_alternative<fc::alt_bn128_error>(res)) {
-         std::cout << "alt_bn128_mul failed: "
-            << (int)std::get<fc::alt_bn128_error>(res) << std::endl;
+      auto res = bn256::g1_scalar_mul(point, scalar, ans);
+      if (res == -1) {
+         std::cout << "alt_bn128_mul failed" << std::endl;
       }
    };
 
@@ -55,7 +50,7 @@ void mul_benchmarking() {
 }
 
 void pair_benchmarking() {
-   std::vector<unsigned char>  g1_g2_pairs_raw = {
+   const unsigned char  g1_g2_pairs[] = {
       /* pair 1 */
       12,175,215,144,98,95,151,228,179,85,31,170,172,159,40,255,250,252,68,28,235,65,172,180,69,164,153,29,187,239,220,201,18,102,219,76,79,148,120,28,39,149,42,172,41,248,120,249,255,69,42,51,160,239,13,219,239,183,77,174,217,158,130,10,
       46,24,234,176,148,82,198,136,44,30,157,18,217,25,49,241,63,197,2,151,14,150,136,210,114,4,74,124,145,225,131,139,13,60,0,50,236,103,39,15,150,226,246,189,209,113,0,46,151,39,41,6,87,119,228,213,45,225,29,234,161,110,43,87,3,237,74,227,93,23,171,129,49,118,228,173,154,111,168,220,161,46,140,103,155,56,168,207,254,90,228,76,188,232,25,34,44,102,159,35,193,216,177,31,131,247,226,19,170,222,26,227,86,37,81,149,202,144,188,126,120,168,9,195,32,169,147,161,
@@ -87,27 +82,21 @@ void pair_benchmarking() {
      30,204,212,77,212,159,135,173,195,194,165,112,62,248,180,204,66,73,253,99,65,111,39,171,19,211,171,203,35,66,146,20,33,241,46,6,167,133,80,76,238,165,59,232,120,58,211,157,50,212,86,191,95,6,134,164,36,227,79,58,119,98,108,171,
      48,49,12,141,166,151,158,56,136,255,197,138,114,195,39,59,71,236,82,57,149,249,170,55,187,95,193,171,14,124,45,87,7,157,47,178,153,237,194,157,142,194,100,14,40,51,61,201,244,93,61,196,154,59,14,135,209,72,102,186,14,228,228,152,40,246,109,82,93,249,92,105,191,121,77,108,20,87,3,87,167,173,171,255,189,34,155,239,218,95,181,153,222,20,120,195,27,28,47,82,113,3,218,129,54,210,185,165,206,99,126,61,217,19,237,5,12,90,148,246,128,231,63,53,37,223,204,195
    };
-   
+
    // benchmarking 1 pair of points
-   bytes g1_g2_1_pair;
-   g1_g2_1_pair.insert(g1_g2_1_pair.begin(), g1_g2_pairs_raw.begin(), g1_g2_pairs_raw.begin() + 384);
    auto f_1_pair = [&]() {
-      auto res = fc::alt_bn128_pair(g1_g2_1_pair, [](){});
-      if (std::holds_alternative<fc::alt_bn128_error>(res)) {
-         std::cout << "alt_bn128_pair 1 pair failed: "
-            << (int)std::get<fc::alt_bn128_error>(res) << std::endl;
+      auto res = bn256::pairing_check({ g1_g2_pairs, 384}, [](){});
+      if (res == -1) {
+         std::cout << "alt_bn128_pair 1 pair failed" << std::endl;
       }
    };
    benchmarking("alt_bn128_pair (1 pair)", f_1_pair);
 
    // benchmarking 10 pair of points
-   bytes g1_g2_10_pairs;
-   g1_g2_10_pairs.insert(g1_g2_10_pairs.begin(), g1_g2_pairs_raw.begin(), g1_g2_pairs_raw.end());
    auto f_10_pairs = [&]() {
-      auto res = fc::alt_bn128_pair(g1_g2_10_pairs, [](){});
-      if (std::holds_alternative<fc::alt_bn128_error>(res)) {
-         std::cout << "alt_bn128_pair 10 pairs failed: "
-            << (int)std::get<fc::alt_bn128_error>(res) << std::endl;
+      auto res = bn256::pairing_check(g1_g2_pairs, [](){});
+      if (res == -1) {
+         std::cout << "alt_bn128_pair 10 pair failed" << std::endl;
       }
    };
 
