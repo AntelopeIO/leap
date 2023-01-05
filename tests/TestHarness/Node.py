@@ -61,12 +61,14 @@ class Node(object):
             self.fetchBlock = lambda blockNum: self.processUrllibRequest("chain", "get_block", {"block_num_or_id":blockNum}, silentErrors=False, exitOnError=True)
             self.fetchKeyCommand = lambda: "[trx][trx][ref_block_num]"
             self.fetchRefBlock = lambda trans: trans["trx"]["trx"]["ref_block_num"]
+            self.cleosLimit = ""
         else:
             self.fetchTransactionCommand = lambda: "get transaction_trace"
             self.fetchTransactionFromTrace = lambda trx: trx['id']
             self.fetchBlock = lambda blockNum: self.processUrllibRequest("trace_api", "get_block", {"block_num":blockNum}, silentErrors=False, exitOnError=True)
             self.fetchKeyCommand = lambda: "[transaction][transaction_header][ref_block_num]"
             self.fetchRefBlock = lambda trans: trans["transaction_header"]["ref_block_num"]
+            self.cleosLimit = "--time-limit 99999"
 
     def eosClientArgs(self):
         walletArgs=" " + self.walletMgr.getWalletEndpointArgs() if self.walletMgr is not None else ""
@@ -438,7 +440,7 @@ class Node(object):
 
     def getTable(self, contract, scope, table, exitOnError=False):
         cmdDesc = "get table"
-        cmd="%s --time-limit 99999 %s %s %s" % (cmdDesc, contract, scope, table)
+        cmd="%s %s %s %s %s" % (cmdDesc, self.cleosLimit, contract, scope, table)
         msg="contract=%s, scope=%s, table=%s" % (contract, scope, table);
         return self.processCleosCmd(cmd, cmdDesc, exitOnError=exitOnError, exitMsg=msg)
 
