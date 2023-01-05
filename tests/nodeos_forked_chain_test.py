@@ -562,7 +562,7 @@ try:
     blockProducers0=[]
     blockProducers1=[]
 
-    testSuccessful=False
+    testSuccessful=True
 finally:
     TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, killEosInstances=killEosInstances, killWallet=killWallet, keepLogs=keepLogs, cleanRun=killAll, dumpErrorDetails=dumpErrorDetails)
 
