@@ -205,7 +205,7 @@ def scrapeLog(data, path):
                     print("Error: Unknown log format")
         forks = re.findall(r'switching forks from ([0-9a-fA-F]+) \(block number (\d+)\) to ([0-9a-fA-F]+) \(block number (\d+)\)', line)
         for fork in forks:
-            data.forkedBlocks.append(int(fork[1]) - int(fork[3]))
+            data.forkedBlocks.append(int(fork[1]) - int(fork[3]) + 1)
 
 def scrapeTrxGenLog(trxSent, path):
     selectedopen = selectedOpen(path)
