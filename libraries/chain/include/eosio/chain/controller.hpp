@@ -57,12 +57,6 @@ namespace eosio { namespace chain {
       LIGHT
    };
 
-   enum class trx_execution_mode {
-      REGULAR,  // window in which a transation is neither dry-run nor read-only
-      DRY_RUN,  // window in which a transaction is dry-run
-      READ_ONLY // window in which transactions are read-only
-   };
-
    class controller {
       public:
          struct config {
@@ -303,7 +297,6 @@ namespace eosio { namespace chain {
 
          db_read_mode get_read_mode()const;
          validation_mode get_validation_mode()const;
-         void set_execution_mode( trx_execution_mode mode );
          uint32_t get_terminate_at_block()const;
 
          void set_subjective_cpu_leeway(fc::microseconds leeway);
@@ -373,6 +366,9 @@ namespace eosio { namespace chain {
 
       void replace_producer_keys( const public_key_type& key );
       void replace_account_keys( name account, name permission, const public_key_type& key );
+
+      void set_db_read_only_mode();
+      void unset_db_read_only_mode();
 
       private:
          friend class apply_context;
