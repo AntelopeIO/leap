@@ -64,7 +64,7 @@ namespace eosio { namespace chain {
          void exit();
 
          //Returns true if the code is cached
-         size_t is_code_cached(const digest_type& code_hash, const uint8_t& vm_type, const uint8_t& vm_version) const;
+         bool is_code_cached(const digest_type& code_hash, const uint8_t& vm_type, const uint8_t& vm_version) const;
 
          // If substitute_apply is set, then apply calls it before doing anything else. If substitute_apply returns true,
          // then apply returns immediately.
