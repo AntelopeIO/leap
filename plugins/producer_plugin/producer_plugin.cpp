@@ -360,7 +360,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       // path to write the snapshots to
       bfs::path _snapshots_dir;
 
-      // max time in millisecons that a read-only transaction is allowed to run
+      // max time in milliseconds that a read-only transaction is allowed to run
       int32_t _max_read_only_transaction_time_ms = 150;
 
       void consider_new_watermark( account_name producer, uint32_t block_num, block_timestamp_type timestamp) {
@@ -528,7 +528,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                                          bool return_failure_traces,
                                          next_function<transaction_trace_ptr> next) {
          chain::controller& chain = chain_plug->chain();
-         const auto max_trx_time_ms = ( trx_type == transaction_metadata::trx_type::read_only ) ? _max_read_only_transaction_time_ms : _max_transaction_time_ms.load();
+         const auto max_trx_time_ms = ( trx_type == transaction_metadata::trx_type::read_only ) ? -1 : _max_transaction_time_ms.load();
          fc::microseconds max_trx_cpu_usage = max_trx_time_ms < 0 ? fc::microseconds::maximum() : fc::milliseconds( max_trx_time_ms );
 
          auto future = transaction_metadata::start_recover_keys( trx, _thread_pool->get_executor(),
@@ -768,8 +768,8 @@ void producer_plugin::set_program_options(
           "Number of worker threads in producer thread pool")
          ("snapshots-dir", bpo::value<bfs::path>()->default_value("snapshots"),
           "the location of the snapshots directory (absolute path or relative to application data dir)")
-         ("max-read-only-transaction-time", bpo::value<int32_t>()->default_value(150),
-          "Limits the maximum time (in milliseconds) that is allowed a pushed read-only transaction's code to execute before being considered invalid")
+         ("max-read-only-transaction-time", bpo::value<int32_t>()->default_value(my->_max_read_only_transaction_time_ms),
+          "Limits the maximum time (in milliseconds) a read-only transaction can execute before being considered invalid")
          ;
    config_file_options.add(producer_options);
 }
