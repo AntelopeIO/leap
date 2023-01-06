@@ -158,7 +158,7 @@ namespace eosio { namespace chain {
          p.last_updated = creation_time;
          p.auth         = auth;
 
-         if (auto dm_logger = _control.get_deep_mind_logger()) {
+         if (auto dm_logger = _control.get_deep_mind_logger(false)) {
             dm_logger->on_create_permission(p);
          }
       });
@@ -194,7 +194,7 @@ namespace eosio { namespace chain {
          p.last_updated = creation_time;
          p.auth         = std::move(auth);
 
-         if (auto dm_logger = _control.get_deep_mind_logger(); dm_logger && !trx_is_transient) {
+         if (auto dm_logger = _control.get_deep_mind_logger(trx_is_transient)) {
             dm_logger->on_create_permission(p);
          }
       });
@@ -207,7 +207,7 @@ namespace eosio { namespace chain {
            "Unactivated key type used when modifying permission");
 
       _db.modify( permission, [&](permission_object& po) {
-         auto dm_logger = _control.get_deep_mind_logger();
+         auto dm_logger = _control.get_deep_mind_logger(false);
 
          std::optional<permission_object> old_permission;
          if (dm_logger) {
@@ -217,7 +217,7 @@ namespace eosio { namespace chain {
          po.auth = auth;
          po.last_updated = _control.pending_block_time();
 
-         if (auto dm_logger = _control.get_deep_mind_logger(); dm_logger && !trx_is_transient) {
+         if (auto dm_logger = _control.get_deep_mind_logger(trx_is_transient)) {
             dm_logger->on_modify_permission(*old_permission, po);
          }
       });
@@ -231,7 +231,7 @@ namespace eosio { namespace chain {
 
       _db.get_mutable_index<permission_usage_index>().remove_object( permission.usage_id._id );
 
-      if (auto dm_logger = _control.get_deep_mind_logger(); dm_logger && !trx_is_transient) {
+      if (auto dm_logger = _control.get_deep_mind_logger(trx_is_transient)) {
          dm_logger->on_remove_permission(permission);
       }
 

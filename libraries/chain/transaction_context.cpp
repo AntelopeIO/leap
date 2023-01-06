@@ -67,7 +67,7 @@ namespace eosio { namespace chain {
       trace->block_time = c.pending_block_time();
       trace->producer_block_id = c.pending_producer_block_id();
 
-      if(auto dm_logger = get_deep_mind_logger())
+      if(auto dm_logger = c.get_deep_mind_logger(is_transient()))
       {
          dm_logger->on_start_transaction();
       }
@@ -75,7 +75,7 @@ namespace eosio { namespace chain {
 
    transaction_context::~transaction_context()
    {
-      if(auto dm_logger = get_deep_mind_logger())
+      if(auto dm_logger = control.get_deep_mind_logger(is_transient()))
       {
          dm_logger->on_end_transaction();
       }
@@ -736,7 +736,7 @@ namespace eosio { namespace chain {
       apply_context acontext( control, *this, action_ordinal, recurse_depth );
 
       if (recurse_depth == 0) {
-         if (auto dm_logger = get_deep_mind_logger()) {
+         if (auto dm_logger = control.get_deep_mind_logger(is_transient())) {
             dm_logger->on_input_action();
          }
       }
@@ -768,7 +768,7 @@ namespace eosio { namespace chain {
         gto.expiration  = gto.delay_until + fc::seconds(control.get_global_properties().configuration.deferred_trx_expiration_window);
         trx_size = gto.set( trx );
 
-        if (auto dm_logger = get_deep_mind_logger()) {
+        if (auto dm_logger = control.get_deep_mind_logger(is_transient())) {
            std::string event_id = RAM_EVENT_ID("${id}", ("id", gto.id));
 
            dm_logger->on_create_deferred(deep_mind_handler::operation_qualifier::push, gto, packed_trx);

@@ -194,7 +194,7 @@ class apply_context {
                context.db.modify( tab, [&]( auto& t ) {
                  ++t.count;
 
-                  if (auto dm_logger = context.trx_context.get_deep_mind_logger()) {
+                  if (auto dm_logger = context.control.get_deep_mind_logger(context.trx_context.is_transient())) {
                      std::string event_id = RAM_EVENT_ID("${code}:${scope}:${table}:${index_name}",
                         ("code", t.code)
                         ("scope", t.scope)
@@ -218,7 +218,7 @@ class apply_context {
                const auto& table_obj = itr_cache.get_table( obj.t_id );
                EOS_ASSERT( table_obj.code == context.receiver, table_access_violation, "db access violation" );
 
-               if (auto dm_logger = context.trx_context.get_deep_mind_logger()) {
+               if (auto dm_logger = context.control.get_deep_mind_logger(context.trx_context.is_transient())) {
                   std::string event_id = RAM_EVENT_ID("${code}:${scope}:${table}:${index_name}",
                      ("code", table_obj.code)
                      ("scope", table_obj.scope)
@@ -258,7 +258,7 @@ class apply_context {
                int64_t billing_size =  config::billable_size_v<ObjectType>;
 
                std::string event_id;
-               if (context.trx_context.get_deep_mind_logger() != nullptr) {
+               if (context.control.get_deep_mind_logger(context.trx_context.is_transient()) != nullptr) {
                   event_id = RAM_EVENT_ID("${code}:${scope}:${table}:${index_name}",
                      ("code", table_obj.code)
                      ("scope", table_obj.scope)
@@ -268,12 +268,12 @@ class apply_context {
                }
 
                if( obj.payer != payer ) {
-                  if (auto dm_logger = context.trx_context.get_deep_mind_logger())
+                  if (auto dm_logger = context.control.get_deep_mind_logger(context.trx_context.is_transient()))
                   {
                      dm_logger->on_ram_trace(std::string(event_id), "secondary_index", "remove", "secondary_index_remove");
                   }
                   context.update_db_usage( obj.payer, -(billing_size) );
-                  if (auto dm_logger = context.trx_context.get_deep_mind_logger())
+                  if (auto dm_logger = context.control.get_deep_mind_logger(context.trx_context.is_transient()))
                   {
                      dm_logger->on_ram_trace(std::move(event_id), "secondary_index", "add", "secondary_index_update_add_new_payer");
                   }

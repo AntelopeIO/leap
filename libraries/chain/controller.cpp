@@ -295,9 +295,9 @@ struct controller_impl {
     blog( cfg.blocks_dir, cfg.prune_config ),
     fork_db( cfg.blocks_dir / config::reversible_blocks_dir_name ),
     wasmif( cfg.wasm_runtime, cfg.eosvmoc_tierup, db, cfg.state_dir, cfg.eosvmoc_config, !cfg.profile_accounts.empty() ),
-    resource_limits( db, [&s]() { return s.get_deep_mind_logger(); }),
+    resource_limits( db, [&s]() { return s.get_deep_mind_logger(false); }),
     authorization( s, db ),
-    protocol_features( std::move(pfs), [&s]() { return s.get_deep_mind_logger(); } ),
+    protocol_features( std::move(pfs), [&s]() { return s.get_deep_mind_logger(false); } ),
     conf( cfg ),
     chain_id( chain_id ),
     read_mode( cfg.read_mode ),
@@ -378,7 +378,7 @@ struct controller_impl {
    }
 
    void dmlog_applied_transaction(const transaction_trace_ptr& t) {
-      if (auto dm_logger = get_deep_mind_logger()) {
+      if (auto dm_logger = get_deep_mind_logger(false)) {
          dm_logger->on_applied_transaction(self.head_block_num() + 1, t);
       }
    }
@@ -706,7 +706,7 @@ struct controller_impl {
 
       protocol_features.init( db );
 
-      if (auto dm_logger = get_deep_mind_logger()) {
+      if (auto dm_logger = get_deep_mind_logger(false)) {
          dm_logger->on_startup(db, head->block_num);
       }
 
@@ -1033,7 +1033,7 @@ struct controller_impl {
       ram_delta += owner_permission.auth.get_billable_size();
       ram_delta += active_permission.auth.get_billable_size();
 
-      if (auto dm_logger = get_deep_mind_logger()) {
+      if (auto dm_logger = get_deep_mind_logger(false)) {
          dm_logger->on_ram_trace(RAM_EVENT_ID("${name}", ("name", name)), "account", "add", "newaccount");
       }
 
@@ -1151,7 +1151,7 @@ struct controller_impl {
       const packed_transaction trx( std::move( etrx ) );
       transaction_context trx_context( self, trx, std::move(trx_timer), start );
 
-      if (auto dm_logger = get_deep_mind_logger(); dm_logger && !trx_context.is_transient()) {
+      if (auto dm_logger = get_deep_mind_logger(trx_context.is_transient())) {
          dm_logger->on_onerror(etrx);
       }
 
@@ -1203,7 +1203,7 @@ struct controller_impl {
    }
 
    int64_t remove_scheduled_transaction( const generated_transaction_object& gto ) {
-      if (auto dm_logger = get_deep_mind_logger()) {
+      if (auto dm_logger = get_deep_mind_logger(false)) {
          dm_logger->on_ram_trace(RAM_EVENT_ID("${id}", ("id", gto.id)), "deferred_trx", "remove", "deferred_trx_removed");
       }
 
@@ -1331,7 +1331,7 @@ struct controller_impl {
          trace->except_ptr = std::current_exception();
          trace->elapsed = fc::time_point::now() - start;
 
-         if (auto dm_logger = get_deep_mind_logger()) {
+         if (auto dm_logger = get_deep_mind_logger(false)) {
             dm_logger->on_fail_deferred();
          }
       };
@@ -1667,7 +1667,7 @@ struct controller_impl {
 
       emit( self.block_start, head->block_num + 1 );
 
-      if (auto dm_logger = get_deep_mind_logger()) {
+      if (auto dm_logger = get_deep_mind_logger(false)) {
          // The head block represents the block just before this one that is about to start, so add 1 to get this block num
          dm_logger->on_start_block(head->block_num + 1);
       }
@@ -1919,7 +1919,7 @@ struct controller_impl {
             EOS_ASSERT( bsp == head, fork_database_exception, "committed block did not become the new head in fork database");
          }
 
-         if (auto dm_logger = get_deep_mind_logger()) {
+         if (auto dm_logger = get_deep_mind_logger(false)) {
             dm_logger->on_accepted_block(bsp);
          }
 
@@ -2293,7 +2293,7 @@ struct controller_impl {
          ilog("switching forks from ${current_head_id} (block number ${current_head_num}) to ${new_head_id} (block number ${new_head_num})",
               ("current_head_id", head->id)("current_head_num", head->block_num)("new_head_id", new_head->id)("new_head_num", new_head->block_num) );
 
-         if (auto dm_logger = get_deep_mind_logger()) {
+         if (auto dm_logger = get_deep_mind_logger(false)) {
             dm_logger->on_switch_forks(head->id, new_head->id);
          }
 
@@ -2612,15 +2612,16 @@ struct controller_impl {
          trx.set_reference_block( self.head_block_id() );
       }
 
-      if (auto dm_logger = get_deep_mind_logger()) {
+      if (auto dm_logger = get_deep_mind_logger(false)) {
          dm_logger->on_onblock(trx);
       }
 
       return trx;
    }
 
-   inline deep_mind_handler* get_deep_mind_logger() const {
-      return deep_mind_logger;
+   inline deep_mind_handler* get_deep_mind_logger(bool trx_is_transient) const {
+      // do not perform deep mind logging for read-only and dry-run transactions
+      return trx_is_transient ? nullptr : deep_mind_logger;
    }
 
    uint32_t earliest_available_block_num() const {
@@ -2795,7 +2796,7 @@ void controller::preactivate_feature( const digest_type& feature_digest ) {
                ("digest", feature_digest)
    );
 
-   if (auto dm_logger = get_deep_mind_logger()) {
+   if (auto dm_logger = get_deep_mind_logger(false)) {
       const auto feature = pfs.get_protocol_feature(feature_digest);
 
       dm_logger->on_preactivate_feature(feature);
@@ -3453,7 +3454,7 @@ void controller::add_to_ram_correction( account_name account, uint64_t ram_bytes
       } );
    }
 
-   if (auto dm_logger = get_deep_mind_logger()) {
+   if (auto dm_logger = get_deep_mind_logger(false)) {
       dm_logger->on_add_ram_correction(*ptr, ram_bytes);
    }
 }
@@ -3462,8 +3463,8 @@ bool controller::all_subjective_mitigations_disabled()const {
    return my->conf.disable_all_subjective_mitigations;
 }
 
-deep_mind_handler* controller::get_deep_mind_logger()const {
-   return my->get_deep_mind_logger();
+deep_mind_handler* controller::get_deep_mind_logger(bool trx_is_transient)const {
+   return my->get_deep_mind_logger(trx_is_transient);
 }
 
 void controller::enable_deep_mind(deep_mind_handler* logger) {
@@ -3614,7 +3615,7 @@ void controller_impl::on_activation<builtin_protocol_feature_t::replace_deferred
                ("name", itr->name)("adjust", itr->ram_correction)("current", current_ram_usage) );
       }
 
-      if (auto dm_logger = get_deep_mind_logger()) {
+      if (auto dm_logger = get_deep_mind_logger(false)) {
          dm_logger->on_ram_trace(RAM_EVENT_ID("${id}", ("id", itr->id._id)), "deferred_trx", "correction", "deferred_trx_ram_correction");
       }
 
