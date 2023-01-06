@@ -37,6 +37,11 @@ namespace eosio {
     */
    using api_description = std::map<string, url_handler>;
 
+   enum class http_content_type {
+      json = 1,
+      plaintext = 2
+   };
+
    struct http_plugin_defaults {
       //If empty, unix socket support will be completely disabled. If not empty,
       // unix socket support is enabled with the given default path (treated relative
@@ -80,16 +85,16 @@ namespace eosio {
         void plugin_shutdown();
         void handle_sighup() override;
 
-        void add_handler(const string& url, const url_handler&, int priority = appbase::priority::medium_low);
-        void add_api(const api_description& api, int priority = appbase::priority::medium_low) {
+        void add_handler(const string& url, const url_handler&, int priority = appbase::priority::medium_low, http_content_type content_type = http_content_type::json);
+        void add_api(const api_description& api, int priority = appbase::priority::medium_low, http_content_type content_type = http_content_type::json) {
            for (const auto& call : api)
-              add_handler(call.first, call.second, priority);
+              add_handler(call.first, call.second, priority, content_type);
         }
 
-        void add_async_handler(const string& url, const url_handler& handler);
-        void add_async_api(const api_description& api) {
+        void add_async_handler(const string& url, const url_handler& handler, http_content_type content_type = http_content_type::json);
+        void add_async_api(const api_description& api, http_content_type content_type = http_content_type::json) {
            for (const auto& call : api)
-              add_async_handler(call.first, call.second);
+              add_async_handler(call.first, call.second, content_type);
         }
 
         // standard exception handling for api handlers
