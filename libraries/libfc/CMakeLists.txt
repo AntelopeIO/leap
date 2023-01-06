@@ -1,11 +1,5 @@
 add_subdirectory( secp256k1 )
-
-set( WITH_PROCPS OFF CACHE BOOL "" FORCE)
-set( CURVE "ALT_BN128" CACHE STRING "" FORCE)
-set( USE_ASM OFF CACHE BOOL "" FORCE)
-set( IS_LIBFF_PARENT OFF CACHE BOOL "" FORCE)
-set( FF_INSTALL_COMPONENT "${FC_INSTALL_COMPONENT}")
-add_subdirectory( libraries/ff )
+add_subdirectory( libraries/bn256/src )
 
 set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)
@@ -30,19 +24,16 @@ set( fc_sources
      src/io/console.cpp
      src/filesystem.cpp
      src/interprocess/file_mapping.cpp
-     src/interprocess/mmap_struct.cpp
      src/log/log_message.cpp
      src/log/logger.cpp
      src/log/appender.cpp
-     src/log/console_appender.cpp    
+     src/log/console_appender.cpp
      src/log/dmlog_appender.cpp
      src/log/logger_config.cpp
      src/crypto/_digest_common.cpp
      src/crypto/aes.cpp
      src/crypto/crc.cpp
      src/crypto/city.cpp
-#     src/crypto/base32.cpp
-     src/crypto/base36.cpp
      src/crypto/base58.cpp
      src/crypto/base64.cpp
      src/crypto/bigint.cpp
@@ -53,8 +44,6 @@ set( fc_sources
      src/crypto/sha256.cpp
      src/crypto/sha224.cpp
      src/crypto/sha512.cpp
-     src/crypto/dh.cpp
-     src/crypto/blowfish.cpp
      src/crypto/elliptic_common.cpp
      src/crypto/elliptic_impl_priv.cpp
      src/crypto/elliptic_secp256k1.cpp
@@ -64,17 +53,14 @@ set( fc_sources
      src/crypto/public_key.cpp
      src/crypto/private_key.cpp
      src/crypto/signature.cpp
-     src/crypto/alt_bn128.cpp
      src/crypto/modular_arithmetic.cpp
      src/crypto/blake2.cpp
      src/crypto/k1_recover.cpp
      src/network/ip.cpp
-     src/network/platform_root_ca.cpp
      src/network/resolve.cpp
      src/network/udp_socket.cpp
      src/network/url.cpp
      src/network/http/http_client.cpp
-     src/compress/smaz.cpp
      src/compress/zlib.cpp
      src/log/gelf_appender.cpp
      src/log/zipkin.cpp
@@ -117,6 +103,22 @@ find_package(Boost 1.66 REQUIRED COMPONENTS
     unit_test_framework
     iostreams)
 
+find_path(GMP_INCLUDE_DIR NAMES gmp.h)
+find_library(GMP_LIBRARY gmp)
+if(NOT GMP_LIBRARY MATCHES ${CMAKE_SHARED_LIBRARY_SUFFIX})
+  message( FATAL_ERROR "GMP shared library not found" )
+endif()
+set(gmp_library_type SHARED)
+message(STATUS "GMP: ${GMP_LIBRARY}, ${GMP_INCLUDE_DIR}")
+add_library(GMP::gmp ${gmp_library_type} IMPORTED)
+set_target_properties(
+  GMP::gmp PROPERTIES
+  IMPORTED_LOCATION ${GMP_LIBRARY}
+  INTERFACE_INCLUDE_DIRECTORIES ${GMP_INCLUDE_DIR}
+)
+
+target_link_libraries(fc PUBLIC GMP::gmp)
+
 # fc picks up a dependency on zlib via Boost::iostreams, however in some versions of cmake/boost (depending on if CMake config
 #  files are used) the Boost::iostreams target does not have a dependency on zlib itself so add it explicitly
 find_package(ZLIB REQUIRED)
@@ -138,9 +140,8 @@ if(APPLE)
   find_library(security_framework Security)
   find_library(corefoundation_framework CoreFoundation)
 endif()
-target_link_libraries( fc PUBLIC ff
-                                 Boost::date_time Boost::filesystem Boost::chrono Boost::iostreams Threads::Threads
-                                 OpenSSL::Crypto OpenSSL::SSL ZLIB::ZLIB ${PLATFORM_SPECIFIC_LIBS} ${CMAKE_DL_LIBS} secp256k1 ${security_framework} ${corefoundation_framework} )
+target_link_libraries( fc PUBLIC Boost::date_time Boost::filesystem Boost::chrono Boost::iostreams Threads::Threads
+                                 OpenSSL::Crypto OpenSSL::SSL ZLIB::ZLIB ${PLATFORM_SPECIFIC_LIBS} ${CMAKE_DL_LIBS} secp256k1 ${security_framework} ${corefoundation_framework})
 
 # Critically, this ensures that OpenSSL 1.1 & 3.0 both have a variant of BN_zero() with void return value. But it also allows access
 #  to some obsoleted AES functions in 3.0 too, since 3.0's API_COMPAT is effectively 3.0 by default
@@ -152,4 +153,3 @@ install(TARGETS fc
    LIBRARY DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR} COMPONENT dev EXCLUDE_FROM_ALL
    ARCHIVE DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR} COMPONENT dev EXCLUDE_FROM_ALL)
 install(DIRECTORY include/fc DESTINATION ${CMAKE_INSTALL_FULL_INCLUDEDIR} COMPONENT dev EXCLUDE_FROM_ALL)
-
