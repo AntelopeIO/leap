@@ -95,7 +95,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
-          submodules: true
+          submodules: recursive
       - name: Download builddir
         uses: actions/download-artifact@v3
         with:
@@ -160,7 +160,7 @@ jobs:
           error-log-paths: '["build/etc", "build/var", "build/leap-ignition-wd"]'
           log-tarball-prefix: ${{matrix.platform}}
           tests-label: nonparallelizable_tests
-      - name: Upload logs from failed tests  
+      - name: Upload logs from failed tests
         uses: actions/upload-artifact@v3
         if: failure()
         with:
