@@ -317,13 +317,13 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
             if (prev_block_id)
                result.prev_block = block_position{to_send_block_num - 1, *prev_block_id};
             if (current_request->fetch_block) {
-               plugin->get_block( current_request->start_block_num, head_block_state, result.block );
+               plugin->get_block( to_send_block_num, head_block_state, result.block );
             }
             if (current_request->fetch_traces && plugin->trace_log) {
-               get_log_entry(*plugin->trace_log, current_request->start_block_num, result.traces);
+               get_log_entry(*plugin->trace_log, to_send_block_num, result.traces);
             }
             if (current_request->fetch_deltas && plugin->chain_state_log) {
-               plugin->get_log_entry(*plugin->chain_state_log, current_request->start_block_num, result.deltas);
+               plugin->get_log_entry(*plugin->chain_state_log, to_send_block_num, result.deltas);
             }
          }
          ++to_send_block_num;
