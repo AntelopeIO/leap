@@ -17,6 +17,7 @@ from NodeosPluginArgs import ChainPluginArgs, HttpClientPluginArgs, HttpPluginAr
 from TestHarness import Cluster, TestHelper, Utils, WalletMgr
 from dataclasses import dataclass, asdict, field
 from datetime import datetime
+from pathlib import Path
 
 class PerformanceTestBasic:
     @dataclass
@@ -107,6 +108,7 @@ class PerformanceTestBasic:
         quiet: bool=False
         delPerfLogs: bool=False
         expectedTransactionsSent: int = field(default_factory=int, init=False)
+        exerciseTrxSpecification: bool=False
 
         def __post_init__(self):
             self.expectedTransactionsSent = self.testTrxGenDurationSec * self.targetTps
@@ -275,10 +277,15 @@ class PerformanceTestBasic:
 
         self.data.startBlock = self.waitForEmptyBlocks(self.validationNode, self.emptyBlockGoal)
         tpsTrxGensConfig = ltg.TpsTrxGensConfig(targetTps=self.ptbConfig.targetTps, tpsLimitPerGenerator=self.ptbConfig.tpsLimitPerGenerator)
+
+        abiFile = Path("unittests")/"contracts"/"eosio.token"/"eosio.token.abi" if self.ptbConfig.exerciseTrxSpecification else None
+        actionName = "transfer" if self.ptbConfig.exerciseTrxSpecification else None
+        actionData = f'{{"from":"{self.account1Name}","to":"{self.account2Name}","quantity":"0.0001 CUR","memo":"transaction specified"}}'  if self.ptbConfig.exerciseTrxSpecification else None
+
         trxGenLauncher = ltg.TransactionGeneratorsLauncher(chainId=chainId, lastIrreversibleBlockId=lib_id,
-                                                           handlerAcct=self.cluster.eosioAccount.name, accts=f"{self.account1Name},{self.account2Name}",
+                                                           contractOwnerAccount=self.cluster.eosioAccount.name, accts=f"{self.account1Name},{self.account2Name}",
                                                            privateKeys=f"{self.account1PrivKey},{self.account2PrivKey}", trxGenDurationSec=self.ptbConfig.testTrxGenDurationSec,
-                                                           logDir=self.trxGenLogDirPath, tpsTrxGensConfig=tpsTrxGensConfig)
+                                                           logDir=self.trxGenLogDirPath, abiFile=abiFile, actionName=actionName, actionData=actionData, tpsTrxGensConfig=tpsTrxGensConfig)
 
         trxGenExitCodes = trxGenLauncher.launch()
         print(f"Transaction Generator exit codes: {trxGenExitCodes}")
@@ -466,6 +473,7 @@ class PtbArgumentsHandler(object):
 
         ptbParserGroup.add_argument("--target-tps", type=int, help="The target transfers per second to send during test", default=8000)
         ptbParserGroup.add_argument("--test-duration-sec", type=int, help="The duration of transfer trx generation for the test in seconds", default=90)
+        ptbParserGroup.add_argument("--exercise-trx-specification", help="Test Transaction Generator: abi, action name, action data api", action='store_true')
         return ptbParser
 
     @staticmethod
@@ -496,7 +504,8 @@ def main():
                                                            prodsEnableTraceApi=args.prods_enable_trace_api, extraNodeosArgs=extraNodeosArgs,
                                                            nodeosVers=Utils.getNodeosVersion().split('.')[0])
     ptbConfig = PerformanceTestBasic.PtbConfig(targetTps=args.target_tps, testTrxGenDurationSec=args.test_duration_sec, tpsLimitPerGenerator=args.tps_limit_per_generator,
-                                  numAddlBlocksToPrune=args.num_blocks_to_prune, logDirRoot=".", delReport=args.del_report, quiet=args.quiet, delPerfLogs=args.del_perf_logs)
+                                  numAddlBlocksToPrune=args.num_blocks_to_prune, logDirRoot=".", delReport=args.del_report, quiet=args.quiet, delPerfLogs=args.del_perf_logs,
+                                  exerciseTrxSpecification=args.exercise_trx_specification)
     myTest = PerformanceTestBasic(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, ptbConfig=ptbConfig)
     testSuccessful = myTest.runTest()
 
