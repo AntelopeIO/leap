@@ -126,6 +126,9 @@ def parseArgs():
     parser.add_argument("target_tps", type=int, help="Goal transactions per second")
     parser.add_argument("tps_limit_per_generator", type=int, help="Maximum amount of transactions per second a single generator can have.", default=4000)
     parser.add_argument("log_dir", type=str, help="Path to directory where trx logs should be written.")
+    parser.add_argument("action_name", type=str, help="The action name applied to the provided action data input")
+    parser.add_argument("action_data", type=str, help="The path to the json action data file or json action data description string to use")
+    parser.add_argument("abi_file", type=str, help="The path to the contract abi file to use for the supplied transaction action data")
     args = parser.parse_args()
     return args
 
@@ -135,6 +138,7 @@ def main():
     trxGenLauncher = TransactionGeneratorsLauncher(chainId=args.chain_id, lastIrreversibleBlockId=args.last_irreversible_block_id,
                                                    contractOwnerAccount=args.contract_owner_account, accts=args.accounts,
                                                    privateKeys=args.priv_keys, trxGenDurationSec=args.trx_gen_duration, logDir=args.log_dir,
+                                                   abiFile=args.abi_file, actionName=args.action_name, actionData=args.action_data,
                                                    tpsTrxGensConfig=TpsTrxGensConfig(targetTps=args.target_tps, tpsLimitPerGenerator=args.tps_limit_per_generator))
 
 
