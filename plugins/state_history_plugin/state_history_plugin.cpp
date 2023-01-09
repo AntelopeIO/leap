@@ -135,7 +135,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
    template <typename SocketType>
    struct session : session_base, std::enable_shared_from_this<session<SocketType>> {
       std::shared_ptr<state_history_plugin_impl> plugin;
-      ws::stream<SocketType>                     socket_stream; // ship thread only after creation
+      std::optional<ws::stream<SocketType>>      socket_stream; // ship thread only after creation
       bool                                       sending  = false; // ship thread only
       std::vector<std::vector<char>>             send_queue; // ship thread only
       bool                                       need_to_send_update = false; // main thread only
@@ -148,22 +148,22 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
 
       void start() {
          fc_ilog(_log, "incoming connection");
-         socket_stream.auto_fragment(false);
-         socket_stream.binary(true);
+         socket_stream->auto_fragment(false);
+         socket_stream->binary(true);
          if constexpr (std::is_same_v<SocketType, tcp::socket>) {
-            socket_stream.next_layer().set_option(boost::asio::ip::tcp::no_delay(true));
+            socket_stream->next_layer().set_option(boost::asio::ip::tcp::no_delay(true));
          }
-         socket_stream.next_layer().set_option(boost::asio::socket_base::send_buffer_size(1024 * 1024));
-         socket_stream.next_layer().set_option(boost::asio::socket_base::receive_buffer_size(1024 * 1024));
+         socket_stream->next_layer().set_option(boost::asio::socket_base::send_buffer_size(1024 * 1024));
+         socket_stream->next_layer().set_option(boost::asio::socket_base::receive_buffer_size(1024 * 1024));
 
-         socket_stream.async_accept([self = this->shared_from_this()](boost::system::error_code ec) {
+         socket_stream->async_accept([self = this->shared_from_this()](boost::system::error_code ec) {
             self->callback(ec, "async_accept", [self] {
-               self->socket_stream.binary(false);
-               self->socket_stream.async_write(
+               self->socket_stream->binary(false);
+               self->socket_stream->async_write(
                      boost::asio::buffer(state_history_plugin_abi, strlen(state_history_plugin_abi)),
                      [self](boost::system::error_code ec, size_t) {
                         self->callback(ec, "async_write", [self] {
-                           self->socket_stream.binary(true);
+                           self->socket_stream->binary(true);
                            self->start_read();
                         });
                      });
@@ -174,7 +174,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
 
       void start_read() {
          auto in_buffer = std::make_shared<boost::beast::flat_buffer>();
-         socket_stream.async_read(
+         socket_stream->async_read(
              *in_buffer, [self = this->shared_from_this(), in_buffer](boost::system::error_code ec, size_t) {
                 self->callback(ec, "async_read", [self, in_buffer] {
                    auto d = boost::asio::buffer_cast<char const*>(boost::beast::buffers_front(in_buffer->data()));
@@ -201,7 +201,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
          }
          sending = true;
 
-         socket_stream.async_write(
+         socket_stream->async_write(
              boost::asio::buffer(send_queue[0]),
              [self = this->shared_from_this()](boost::system::error_code ec, size_t) {
                 self->send_queue.erase( self->send_queue.begin() );
@@ -393,21 +393,19 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
       }
 
       void close() override {
-         boost::asio::post(plugin->thread_pool.get_executor(), [p = std::weak_ptr(this->weak_from_this())]() {
-            auto self = p.lock();
-            if (self) {
-               self->close_i();
-            }
+         boost::asio::post(plugin->thread_pool.get_executor(), [self = this->shared_from_this()]() {
+            self->close_i();
          });
       }
 
       // called from ship thread
       void close_i() {
          boost::system::error_code ec;
-         socket_stream.next_layer().close(ec);
+         socket_stream->next_layer().close(ec);
          if (ec) {
             fc_elog(_log, "close: ${m}", ("m", ec.message()));
          }
+         socket_stream.reset();
          app().post(priority::high,
                     [self = this->shared_from_this(), plugin=plugin]() { plugin->session_set.erase(self); });
       }
