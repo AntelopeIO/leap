@@ -65,7 +65,8 @@ void resource_limits_manager::initialize_database() {
       state.virtual_net_limit = config.net_limit_parameters.max;
    });
 
-   if (auto dm_logger = _get_deep_mind_logger()) {
+   // At startup, no transaction specific logging is possible
+   if (auto dm_logger = _get_deep_mind_logger(false)) {
       dm_logger->on_init_resource_limits(config, state);
    }
 }
@@ -93,7 +94,7 @@ void resource_limits_manager::read_from_snapshot( const snapshot_reader_ptr& sna
    });
 }
 
-void resource_limits_manager::initialize_account(const account_name& account) {
+void resource_limits_manager::initialize_account(const account_name& account, bool is_trx_transient) {
    const auto& limits = _db.create<resource_limits_object>([&]( resource_limits_object& bl ) {
       bl.owner = account;
    });
@@ -101,7 +102,7 @@ void resource_limits_manager::initialize_account(const account_name& account) {
    const auto& usage = _db.create<resource_usage_object>([&]( resource_usage_object& bu ) {
       bu.owner = account;
    });
-   if (auto dm_logger = _get_deep_mind_logger()) {
+   if (auto dm_logger = _get_deep_mind_logger(is_trx_transient)) {
       dm_logger->on_newaccount_resource_limits(limits, usage);
    }
 }
@@ -116,7 +117,9 @@ void resource_limits_manager::set_block_parameters(const elastic_limit_parameter
       c.cpu_limit_parameters = cpu_limit_parameters;
       c.net_limit_parameters = net_limit_parameters;
 
-      if (auto dm_logger = _get_deep_mind_logger()) {
+      // set_block_parameters is called by controller::finalize_block,
+      // where transaction specific logging is not possible
+      if (auto dm_logger = _get_deep_mind_logger(false)) {
          dm_logger->on_update_resource_limits_config(c);
       }
    });
@@ -133,7 +136,7 @@ void resource_limits_manager::update_account_usage(const flat_set<account_name>&
    }
 }
 
-void resource_limits_manager::add_transaction_usage(const flat_set<account_name>& accounts, uint64_t cpu_usage, uint64_t net_usage, uint32_t time_slot, bool trx_is_transient ) {
+void resource_limits_manager::add_transaction_usage(const flat_set<account_name>& accounts, uint64_t cpu_usage, uint64_t net_usage, uint32_t time_slot, bool is_trx_transient ) {
    const auto& state = _db.get<resource_limits_state_object>();
    const auto& config = _db.get<resource_limits_config_object>();
 
@@ -149,7 +152,7 @@ void resource_limits_manager::add_transaction_usage(const flat_set<account_name>
           bu.net_usage.add( net_usage, time_slot, config.account_net_usage_average_window );
           bu.cpu_usage.add( cpu_usage, time_slot, config.account_cpu_usage_average_window );
 
-         if (auto dm_logger = _get_deep_mind_logger(); dm_logger && !trx_is_transient) {
+         if (auto dm_logger = _get_deep_mind_logger(is_trx_transient)) {
             dm_logger->on_update_account_usage(bu);
          }
       });
@@ -220,7 +223,9 @@ void resource_limits_manager::add_pending_ram_usage( const account_name account,
    _db.modify( usage, [&]( auto& u ) {
       u.ram_usage += ram_delta;
 
-      if (auto dm_logger = _get_deep_mind_logger()) {
+      // add_pending_ram_usage is only called by transaction_context::schedule_transaction,
+      // where transient transaction is not possible
+      if (auto dm_logger = _get_deep_mind_logger(false)) {
          dm_logger->on_ram_event(account, u.ram_usage, ram_delta);
       }
    });
@@ -243,7 +248,7 @@ int64_t resource_limits_manager::get_account_ram_usage( const account_name& name
 }
 
 
-bool resource_limits_manager::set_account_limits( const account_name& account, int64_t ram_bytes, int64_t net_weight, int64_t cpu_weight) {
+bool resource_limits_manager::set_account_limits( const account_name& account, int64_t ram_bytes, int64_t net_weight, int64_t cpu_weight, bool is_trx_transient) {
    //const auto& usage = _db.get<resource_usage_object,by_owner>( account );
    /*
     * Since we need to delay these until the next resource limiting boundary, these are created in a "pending"
@@ -289,7 +294,7 @@ bool resource_limits_manager::set_account_limits( const account_name& account, i
       pending_limits.net_weight = net_weight;
       pending_limits.cpu_weight = cpu_weight;
 
-      if (auto dm_logger = _get_deep_mind_logger()) {
+      if (auto dm_logger = _get_deep_mind_logger(is_trx_transient)) {
          dm_logger->on_set_account_limits(pending_limits);
       }
    });
@@ -356,7 +361,9 @@ void resource_limits_manager::process_account_limit_updates() {
          multi_index.remove(*itr);
       }
 
-      if (auto dm_logger = _get_deep_mind_logger()) {
+      // process_account_limit_updates is called by controller::finalize_block,
+      // where transaction specific logging is not possible
+      if (auto dm_logger = _get_deep_mind_logger(false)) {
          dm_logger->on_update_resource_limits_state(state);
       }
    });
@@ -376,7 +383,9 @@ void resource_limits_manager::process_block_usage(uint32_t block_num) {
       state.update_virtual_net_limit(config);
       state.pending_net_usage = 0;
 
-      if (auto dm_logger = _get_deep_mind_logger()) {
+      // process_block_usage is called by controller::finalize_block,
+      // where transaction specific logging is not possible
+      if (auto dm_logger = _get_deep_mind_logger(false)) {
          dm_logger->on_update_resource_limits_state(state);
       }
    });

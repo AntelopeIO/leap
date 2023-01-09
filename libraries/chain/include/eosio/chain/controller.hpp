@@ -119,7 +119,7 @@ namespace eosio { namespace chain {
          void startup( std::function<void()> shutdown, std::function<bool()> check_shutdown, const genesis_state& genesis);
          void startup( std::function<void()> shutdown, std::function<bool()> check_shutdown);
 
-         void preactivate_feature( const digest_type& feature_digest );
+         void preactivate_feature( const digest_type& feature_digest, bool is_trx_transient );
 
          vector<digest_type> get_preactivated_protocol_features()const;
 
@@ -307,7 +307,7 @@ namespace eosio { namespace chain {
          void add_to_ram_correction( account_name account, uint64_t ram_bytes );
          bool all_subjective_mitigations_disabled()const;
 
-         deep_mind_handler* get_deep_mind_logger(bool trx_is_transient) const;
+         deep_mind_handler* get_deep_mind_logger(bool is_trx_transient) const;
          void enable_deep_mind( deep_mind_handler* logger );
          uint32_t earliest_available_block_num() const;
 

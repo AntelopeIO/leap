@@ -31,6 +31,7 @@ namespace eosio { namespace chain {
                                                      permission_name name,
                                                      permission_id_type parent,
                                                      const authority& auth,
+                                                     bool is_trx_transient,
                                                      time_point initial_creation_time = time_point()
                                                    );
 
@@ -38,13 +39,13 @@ namespace eosio { namespace chain {
                                                      permission_name name,
                                                      permission_id_type parent,
                                                      authority&& auth,
-                                                     time_point initial_creation_time = time_point(),
-                                                     bool trx_is_transient = false
+                                                     bool is_trx_transient,
+                                                     time_point initial_creation_time = time_point()
                                                    );
 
-         void modify_permission( const permission_object& permission, const authority& auth, bool trx_is_transient = false );
+         void modify_permission( const permission_object& permission, const authority& auth, bool is_trx_transient );
 
-         void remove_permission( const permission_object& permission, bool trx_is_transient = false );
+         void remove_permission( const permission_object& permission, bool is_trx_transient );
 
          void update_permission_usage( const permission_object& permission );
 

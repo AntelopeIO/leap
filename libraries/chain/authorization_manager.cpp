@@ -134,6 +134,7 @@ namespace eosio { namespace chain {
                                                                       permission_name name,
                                                                       permission_id_type parent,
                                                                       const authority& auth,
+                                                                      bool is_trx_transient,
                                                                       time_point initial_creation_time
                                                                     )
    {
@@ -158,7 +159,7 @@ namespace eosio { namespace chain {
          p.last_updated = creation_time;
          p.auth         = auth;
 
-         if (auto dm_logger = _control.get_deep_mind_logger(false)) {
+         if (auto dm_logger = _control.get_deep_mind_logger(is_trx_transient)) {
             dm_logger->on_create_permission(p);
          }
       });
@@ -169,8 +170,8 @@ namespace eosio { namespace chain {
                                                                       permission_name name,
                                                                       permission_id_type parent,
                                                                       authority&& auth,
-                                                                      time_point initial_creation_time,
-                                                                      bool trx_is_transient
+                                                                      bool is_trx_transient,
+                                                                      time_point initial_creation_time
                                                                     )
    {
       for(const key_weight& k: auth.keys)
@@ -194,20 +195,20 @@ namespace eosio { namespace chain {
          p.last_updated = creation_time;
          p.auth         = std::move(auth);
 
-         if (auto dm_logger = _control.get_deep_mind_logger(trx_is_transient)) {
+         if (auto dm_logger = _control.get_deep_mind_logger(is_trx_transient)) {
             dm_logger->on_create_permission(p);
          }
       });
       return perm;
    }
 
-   void authorization_manager::modify_permission( const permission_object& permission, const authority& auth, bool trx_is_transient ) {
+   void authorization_manager::modify_permission( const permission_object& permission, const authority& auth, bool is_trx_transient ) {
       for(const key_weight& k: auth.keys)
          EOS_ASSERT(k.key.which() < _db.get<protocol_state_object>().num_supported_key_types, unactivated_key_type,
            "Unactivated key type used when modifying permission");
 
       _db.modify( permission, [&](permission_object& po) {
-         auto dm_logger = _control.get_deep_mind_logger(false);
+         auto dm_logger = _control.get_deep_mind_logger(is_trx_transient);
 
          std::optional<permission_object> old_permission;
          if (dm_logger) {
@@ -217,13 +218,13 @@ namespace eosio { namespace chain {
          po.auth = auth;
          po.last_updated = _control.pending_block_time();
 
-         if (auto dm_logger = _control.get_deep_mind_logger(trx_is_transient)) {
+         if (auto dm_logger = _control.get_deep_mind_logger(is_trx_transient)) {
             dm_logger->on_modify_permission(*old_permission, po);
          }
       });
    }
 
-   void authorization_manager::remove_permission( const permission_object& permission, bool trx_is_transient ) {
+   void authorization_manager::remove_permission( const permission_object& permission, bool is_trx_transient ) {
       const auto& index = _db.template get_index<permission_index, by_parent>();
       auto range = index.equal_range(permission.id);
       EOS_ASSERT( range.first == range.second, action_validate_exception,
@@ -231,7 +232,7 @@ namespace eosio { namespace chain {
 
       _db.get_mutable_index<permission_usage_index>().remove_object( permission.usage_id._id );
 
-      if (auto dm_logger = _control.get_deep_mind_logger(trx_is_transient)) {
+      if (auto dm_logger = _control.get_deep_mind_logger(is_trx_transient)) {
          dm_logger->on_remove_permission(permission);
       }
 

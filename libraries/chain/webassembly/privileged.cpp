@@ -17,14 +17,14 @@ namespace eosio { namespace chain { namespace webassembly {
    }
 
    void interface::preactivate_feature( legacy_ptr<const digest_type> feature_digest ) {
-      context.control.preactivate_feature( *feature_digest );
+      context.control.preactivate_feature( *feature_digest, context.trx_context.is_transient() );
    }
 
    void interface::set_resource_limits( account_name account, int64_t ram_bytes, int64_t net_weight, int64_t cpu_weight ) {
       EOS_ASSERT(ram_bytes >= -1, wasm_execution_error, "invalid value for ram resource limit expected [-1,INT64_MAX]");
       EOS_ASSERT(net_weight >= -1, wasm_execution_error, "invalid value for net resource weight expected [-1,INT64_MAX]");
       EOS_ASSERT(cpu_weight >= -1, wasm_execution_error, "invalid value for cpu resource weight expected [-1,INT64_MAX]");
-      if( context.control.get_mutable_resource_limits_manager().set_account_limits(account, ram_bytes, net_weight, cpu_weight) ) {
+      if( context.control.get_mutable_resource_limits_manager().set_account_limits(account, ram_bytes, net_weight, cpu_weight, context.trx_context.is_transient()) ) {
          context.trx_context.validate_ram_usage.insert( account );
       }
    }
