@@ -150,6 +150,7 @@ class chainData():
         self.totalElapsed = 0
         self.totalTime = 0
         self.totalLatency = 0
+        self.forkedBlocks = []
     def __eq__(self, other):
         return self.startBlock == other.startBlock and\
          self.ceaseBlock == other.ceaseBlock and\
@@ -182,7 +183,8 @@ def selectedOpen(path):
 def scrapeLog(data, path):
     selectedopen = selectedOpen(path)
     with selectedopen(path, 'rt') as f:
-        blockResult = re.findall(r'Received block ([0-9a-fA-F]*).* #(\d+) .*trxs: (\d+)(.*)', f.read())
+        line = f.read()
+        blockResult = re.findall(r'Received block ([0-9a-fA-F]*).* #(\d+) .*trxs: (\d+)(.*)', line)
         if data.startBlock is None:
             data.startBlock = 2
         if data.ceaseBlock is None:
@@ -201,6 +203,9 @@ def scrapeLog(data, path):
                         data.updateTotal(int(value[2]), 0, 0, 0, 0, int(v2Logging[0]))
                 else:
                     print("Error: Unknown log format")
+        forks = re.findall(r'switching forks from ([0-9a-fA-F]+) \(block number (\d+)\) to ([0-9a-fA-F]+) \(block number (\d+)\)', line)
+        for fork in forks:
+            data.forkedBlocks.append(int(fork[1]) - int(fork[3]) + 1)
 
 def scrapeTrxGenLog(trxSent, path):
     selectedopen = selectedOpen(path)
@@ -356,7 +361,7 @@ def calcTrxLatencyCpuNetStats(trxDict : dict, blockDict: dict):
            basicStats(float(np.min(npLatencyCpuNetList[:,2])), float(np.max(npLatencyCpuNetList[:,2])), float(np.average(npLatencyCpuNetList[:,2])), float(np.std(npLatencyCpuNetList[:,2])), len(npLatencyCpuNetList))
 
 def createReport(guide: chainBlocksGuide, tpsTestConfig: TpsTestConfig, tpsStats: stats, blockSizeStats: stats, trxLatencyStats: basicStats, trxCpuStats: basicStats,
-                 trxNetStats: basicStats, testStart: datetime, testFinish: datetime, argsDict: dict, completedRun: bool) -> dict:
+                 trxNetStats: basicStats, forkedBlocks, testStart: datetime, testFinish: datetime, argsDict: dict, completedRun: bool) -> dict:
     report = {}
     report['completedRun'] = completedRun
     report['testStart'] = testStart
@@ -372,6 +377,8 @@ def createReport(guide: chainBlocksGuide, tpsTestConfig: TpsTestConfig, tpsStats
     report['Analysis']['TrxCPU'] = asdict(trxCpuStats)
     report['Analysis']['TrxLatency'] = asdict(trxLatencyStats)
     report['Analysis']['TrxNet'] = asdict(trxNetStats)
+    report['Analysis']['ForkedBlocks'] = forkedBlocks
+    report['Analysis']['NumForks'] = len(forkedBlocks)
     report['args'] =  argsDict
     report['env'] = {'system': system(), 'os': os.name, 'release': release(), 'logical_cpu_count': os.cpu_count()}
     report['nodeosVersion'] = Utils.getNodeosVersion()
@@ -423,7 +430,7 @@ def calcAndReport(data: chainData, tpsTestConfig: TpsTestConfig, artifacts: Arti
         finish = datetime.utcnow()
 
     report = createReport(guide=guide, tpsTestConfig=tpsTestConfig, tpsStats=tpsStats, blockSizeStats=blkSizeStats, trxLatencyStats=trxLatencyStats,
-                          trxCpuStats=trxCpuStats, trxNetStats=trxNetStats, testStart=start, testFinish=finish, argsDict=argsDict, completedRun=completedRun)
+                          trxCpuStats=trxCpuStats, trxNetStats=trxNetStats, forkedBlocks=data.forkedBlocks, testStart=start, testFinish=finish, argsDict=argsDict, completedRun=completedRun)
     return report
 
 def exportReportAsJSON(report: json, exportPath):
