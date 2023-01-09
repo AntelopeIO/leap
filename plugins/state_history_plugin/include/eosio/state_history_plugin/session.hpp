@@ -254,7 +254,7 @@ struct session : session_base, std::enable_shared_from_this<session<Plugin, Sock
 
    using result_type = void;
    void operator()(get_status_request_v0&) {
-      fc_ilog(plugin->logger(), "got get_status_request_v0");
+      fc_dlog(plugin->logger(), "got get_status_request_v0");
 
       get_status_result_v0 result;
       result.head              = plugin->get_block_head();
@@ -270,13 +270,13 @@ struct session : session_base, std::enable_shared_from_this<session<Plugin, Sock
          result.chain_state_begin_block = chain_state_log->begin_block();
          result.chain_state_end_block   = chain_state_log->end_block();
       }
-      fc_ilog(plugin->logger(), "pushing get_status_result_v0 to send queue");
+      fc_dlog(plugin->logger(), "pushing get_status_result_v0 to send queue");
       send(std::move(result));
    }
 
    // called from main thread
    void operator()(get_blocks_request_v0& req) {
-      fc_ilog(plugin->logger(), "received get_blocks_request_v0 = ${req}", ("req", req));
+      fc_dlog(plugin->logger(), "received get_blocks_request_v0 = ${req}", ("req", req));
       to_send_block_num = req.start_block_num;
       for (auto& cp : req.have_positions) {
          if (req.start_block_num <= cp.block_num)
@@ -307,7 +307,7 @@ struct session : session_base, std::enable_shared_from_this<session<Plugin, Sock
 
    // called from main thread
    void operator()(get_blocks_ack_request_v0& req) {
-      fc_ilog(plugin->logger(), "received get_blocks_ack_request_v0 = ${req}", ("req", req));
+      fc_dlog(plugin->logger(), "received get_blocks_ack_request_v0 = ${req}", ("req", req));
       if (!current_request) {
          fc_dlog(plugin->logger(), " no current get_blocks_request_v0, discarding the get_blocks_ack_request_v0");
          return;
