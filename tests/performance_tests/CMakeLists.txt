@@ -10,6 +10,7 @@ configure_file(genesis.json genesis.json COPYONLY)
 configure_file(validate_nodeos_plugin_args.py validate_nodeos_plugin_args.py COPYONLY)
 
 add_test(NAME performance_test_basic COMMAND tests/performance_tests/performance_test_basic.py -v -p 1 -n 1 --target-tps 20 --tps-limit-per-generator 10 --clean-run WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+add_test(NAME performance_test_basic_ex_trx_spec COMMAND tests/performance_tests/performance_test_basic.py -v -p 1 -n 1 --target-tps 20 --tps-limit-per-generator 10 --clean-run --exercise-trx-specification WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 add_test(NAME log_reader_tests COMMAND tests/performance_tests/log_reader_tests.py WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 add_test(NAME validate_nodeos_plugin_args COMMAND tests/performance_tests/validate_nodeos_plugin_args.py WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST performance_test_basic PROPERTY LABELS nonparallelizable_tests)

@@ -28,7 +28,7 @@ int main(int argc, char** argv) {
    variables_map vmap;
    options_description cli("Transaction Generator command line options.");
    string chain_id_in;
-   string h_acct;
+   string contract_owner_acct;
    string accts;
    string p_keys;
    int64_t trx_expr;
@@ -40,6 +40,10 @@ int main(int argc, char** argv) {
    int64_t max_lag_duration_us;
    string log_dir_in;
 
+   bool transaction_specified = false;
+   std::string action_name_in;
+   std::string action_data_file_or_str;
+   std::string abi_file_path_in;
 
    vector<string> account_str_vector;
    vector<string> private_keys_str_vector;
@@ -47,7 +51,7 @@ int main(int argc, char** argv) {
 
    cli.add_options()
          ("chain-id", bpo::value<string>(&chain_id_in), "set the chain id")
-         ("handler-account", bpo::value<string>(&h_acct), "Account name of the handler account for the transfer actions")
+         ("contract-owner-account", bpo::value<string>(&contract_owner_acct), "Account name of the contract account for the transaction actions")
          ("accounts", bpo::value<string>(&accts), "comma-separated list of accounts that will be used for transfers. Minimum required accounts: 2.")
          ("priv-keys", bpo::value<string>(&p_keys), "comma-separated list of private keys in same order of accounts list that will be used to sign transactions. Minimum required: 2.")
          ("trx-expiration", bpo::value<int64_t>(&trx_expr)->default_value(3600), "transaction expiration time in seconds. Defaults to 3,600. Maximum allowed: 3,600")
@@ -58,6 +62,9 @@ int main(int argc, char** argv) {
          ("monitor-max-lag-percent", bpo::value<uint32_t>(&max_lag_per)->default_value(5), "Max percentage off from expected transactions sent before being in violation. Defaults to 5.")
          ("monitor-max-lag-duration-us", bpo::value<int64_t>(&max_lag_duration_us)->default_value(1000000), "Max microseconds that transaction generation can be in violation before quitting. Defaults to 1000000 (1s).")
          ("log-dir", bpo::value<string>(&log_dir_in), "set the logs directory")
+         ("action-name", bpo::value<string>(&action_name_in), "The action name applied to the provided action data input")
+         ("action-data", bpo::value<string>(&action_data_file_or_str), "The path to the json action data file or json action data description string to use")
+         ("abi-file", bpo::value<string>(&abi_file_path_in), "The path to the contract abi file to use for the supplied transaction action data")
          ("help,h", "print this list")
          ;
 
@@ -68,6 +75,17 @@ int main(int argc, char** argv) {
       if(vmap.count("help") > 0) {
          cli.print(std::cerr);
          return SUCCESS;
+      }
+
+      if((vmap.count("action-name") || vmap.count("action-data") || vmap.count("abi-file")) && !(vmap.count("action-name") && vmap.count("action-data") && vmap.count("abi-file"))) {
+         ilog("Initialization error: If using action-name, action-data, or abi-file to specify a transaction type to generate, must provide all three inputs.");
+         cli.print(std::cerr);
+         return INITIALIZE_FAIL;
+      }
+
+      if(vmap.count("action-name") && vmap.count("action-data") && vmap.count("abi-file")) {
+         ilog("Specifying transaction to generate directly using action-name, action-data, and abi-file.");
+         transaction_specified = true;
       }
 
       if(!vmap.count("chain-id")) {
@@ -88,35 +106,45 @@ int main(int argc, char** argv) {
          return INITIALIZE_FAIL;
       }
 
-      if(vmap.count("handler-account")) {
+      if(vmap.count("contract-owner-account")) {
       } else {
-         ilog("Initialization error: missing handler-account");
+         ilog("Initialization error: missing contract-owner-account");
          cli.print(std::cerr);
          return INITIALIZE_FAIL;
       }
 
       if(vmap.count("accounts")) {
          boost::split(account_str_vector, accts, boost::is_any_of(","));
-         if(account_str_vector.size() < 2) {
+         if(!transaction_specified && account_str_vector.size() < 2) {
             ilog("Initialization error: requires at minimum 2 transfer accounts");
             cli.print(std::cerr);
             return INITIALIZE_FAIL;
          }
+         if (transaction_specified && account_str_vector.size() < 1) {
+            ilog("Initialization error: Specifying transaction to generate requires at minimum 1 account.");
+            cli.print(std::cerr);
+            return INITIALIZE_FAIL;
+         }
       } else {
-         ilog("Initialization error: did not specify transfer accounts. requires at minimum 2 transfer accounts");
+         ilog("Initialization error: did not specify transfer accounts. Auto transfer transaction generation requires at minimum 2 transfer accounts, while providing transaction action data requires at least one.");
          cli.print(std::cerr);
          return INITIALIZE_FAIL;
       }
 
       if(vmap.count("priv-keys")) {
          boost::split(private_keys_str_vector, p_keys, boost::is_any_of(","));
-         if(private_keys_str_vector.size() < 2) {
+         if(!transaction_specified && private_keys_str_vector.size() < 2) {
             ilog("Initialization error: requires at minimum 2 private keys");
             cli.print(std::cerr);
             return INITIALIZE_FAIL;
          }
+         if (transaction_specified && private_keys_str_vector.size() < 1) {
+            ilog("Initialization error: Specifying transaction to generate requires at minimum 1 private key");
+            cli.print(std::cerr);
+            return INITIALIZE_FAIL;
+         }
       } else {
-         ilog("Initialization error: did not specify accounts' private keys. requires at minimum 2 private keys");
+         ilog("Initialization error: did not specify accounts' private keys. Auto transfer transaction generation requires at minimum 2 private keys, while providing transaction action data requires at least one.");
          cli.print(std::cerr);
          return INITIALIZE_FAIL;
       }
@@ -159,7 +187,7 @@ int main(int argc, char** argv) {
    }
 
    ilog("Initial chain id ${chainId}", ("chainId", chain_id_in));
-   ilog("Handler account ${acct}", ("acct", h_acct));
+   ilog("Contract owner account ${acct}", ("acct", contract_owner_acct));
    ilog("Transfer accounts ${accts}", ("accts", accts));
    ilog("Account private keys ${priv_keys}", ("priv_keys", p_keys));
    ilog("Transaction expiration microsections ${expr}", ("expr", trx_expr));
@@ -168,14 +196,26 @@ int main(int argc, char** argv) {
    ilog("Target generation Transaction Per Second (TPS) ${tps}", ("tps", target_tps));
    ilog("Logs directory ${logDir}", ("logDir", log_dir_in));
 
-   auto generator = std::make_shared<transfer_trx_generator>(chain_id_in, h_acct,
-                                                             account_str_vector, trx_expr, private_keys_str_vector, lib_id_str, log_dir_in);
-   std::shared_ptr<tps_performance_monitor> monitor = std::make_shared<tps_performance_monitor>(spinup_time_us, max_lag_per, max_lag_duration_us);
+   std::shared_ptr<tps_performance_monitor> monitor;
+   if (transaction_specified) {
+      auto generator = std::make_shared<trx_generator>(chain_id_in, abi_file_path_in, contract_owner_acct, account_str_vector.at(0), action_name_in,
+                                                       action_data_file_or_str, trx_expr, private_keys_str_vector.at(0), lib_id_str, log_dir_in);
+      monitor = std::make_shared<tps_performance_monitor>(spinup_time_us, max_lag_per, max_lag_duration_us);
+      trx_tps_tester<trx_generator, tps_performance_monitor> tester{generator, monitor, gen_duration, target_tps};
 
-   trx_tps_tester<transfer_trx_generator, tps_performance_monitor> tester{generator, monitor, gen_duration, target_tps};
+      if (!tester.run()) {
+         return OTHER_FAIL;
+      }
+   } else {
+      auto generator = std::make_shared<transfer_trx_generator>(chain_id_in, contract_owner_acct, account_str_vector, trx_expr, private_keys_str_vector,
+                                                                lib_id_str, log_dir_in);
 
-   if (!tester.run()) {
-      return OTHER_FAIL;
+      monitor = std::make_shared<tps_performance_monitor>(spinup_time_us, max_lag_per, max_lag_duration_us);
+      trx_tps_tester<transfer_trx_generator, tps_performance_monitor> tester{generator, monitor, gen_duration, target_tps};
+
+      if (!tester.run()) {
+         return OTHER_FAIL;
+      }
    }
 
    if (monitor->terminated_early()) {
