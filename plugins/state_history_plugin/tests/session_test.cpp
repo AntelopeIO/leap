@@ -90,19 +90,26 @@ fc::sha256 block_id_for(const uint32_t bnum) {
 void fail(beast::error_code ec, char const* what) { std::cerr << what << ": " << ec.message() << "\n"; }
 
 struct mock_state_history_plugin {
-   net::io_context                         ioc;
-   boost::asio::io_context::strand         work_strand{ioc};
+   net::io_context                         main_ioc;
+   net::io_context                         ship_ioc;
+   using ioc_work_t = boost::asio::executor_work_guard<boost::asio::io_context::executor_type>;
+   std::optional<ioc_work_t>               main_ioc_work;
+   std::optional<ioc_work_t>               ship_ioc_work;
+
    std::shared_ptr<eosio::session_base>    session;
    eosio::state_history::block_position    block_head;
    fc::temp_directory                      log_dir;
    std::optional<eosio::state_history_log> log;
    bool                                    stopping = false;
+   std::set<std::shared_ptr<eosio::session_base>> session_set;
 
    constexpr static uint32_t default_frame_size = 1024;
 
    std::optional<eosio::state_history_log>& get_trace_log() { return log; }
    std::optional<eosio::state_history_log>& get_chain_state_log() { return log; }
-   fc::sha256                get_chain_id() { return {}; }
+   fc::sha256                get_chain_id() const { return {}; }
+
+   boost::asio::io_context& get_ship_executor() { return ship_ioc; }
 
    void setup_state_history_log(eosio::state_history_log_config conf = {}) {
       log.emplace("ship", log_dir.path(), conf);
@@ -111,13 +118,12 @@ struct mock_state_history_plugin {
    fc::logger logger() { return fc::logger::get(DEFAULT_LOGGER); }
 
    void get_block(uint32_t block_num, const eosio::chain::block_state_ptr& block_state,
-                  std::optional<eosio::bytes>& result) {
+                  std::optional<eosio::bytes>& result) const {
       result.emplace().resize(16);
    }
 
-   std::optional<eosio::chain::block_timestamp_type>
-   get_block_timestamp(uint32_t block_num, const eosio::chain::block_state_ptr& block_state) {
-      return {};
+   fc::time_point get_head_block_timestamp() const {
+      return fc::time_point{};
    }
 
    std::optional<eosio::chain::block_id_type> get_block_id(uint32_t block_num) { return block_id_for(block_num); }
@@ -133,9 +139,15 @@ struct mock_state_history_plugin {
    }
 
    template <typename Task>
-   void post_task(Task&& task) {
-      boost::asio::post(ioc, std::move(task));
+   void post_task_main_thread_high(Task&& task) {
+      boost::asio::post(main_ioc, std::forward<Task>(task));
    }
+
+   template <typename Task>
+   void post_task_main_thread_medium(Task&& task) {
+      boost::asio::post(main_ioc, std::forward<Task>(task));
+   }
+
 };
 
 using session_type = eosio::session<mock_state_history_plugin*, tcp::socket>;
@@ -148,7 +160,7 @@ class listener : public std::enable_shared_from_this<listener> {
  public:
    listener(mock_state_history_plugin* server, tcp::endpoint& endpoint)
        : server_(server)
-       , acceptor_(server->ioc) {
+       , acceptor_(server->ship_ioc) {
       beast::error_code ec;
 
       // Open the acceptor
@@ -192,7 +204,7 @@ class listener : public std::enable_shared_from_this<listener> {
  private:
    void do_accept() {
       // The new connection gets its own strand
-      acceptor_.async_accept(boost::asio::make_strand(server_->ioc),
+      acceptor_.async_accept(boost::asio::make_strand(server_->ship_ioc),
                              [self = shared_from_this()](beast::error_code ec, boost::asio::ip::tcp::socket&& socket) {
                                 self->on_accept(ec, std::move(socket));
                              });
@@ -214,16 +226,26 @@ struct test_server : mock_state_history_plugin {
    std::vector<std::thread> threads;
    tcp::endpoint            local_address{net::ip::make_address("127.0.0.1"), 0};
 
-   void run(uint32_t num_threads) {
+   void run() {
+
+      main_ioc_work.emplace( boost::asio::make_work_guard( main_ioc ) );
+      ship_ioc_work.emplace( boost::asio::make_work_guard( ship_ioc ) );
+
+      threads.emplace_back([this]{ main_ioc.run(); });
+      threads.emplace_back([this]{ ship_ioc.run(); });
+
       // Create and launch a listening port
       std::make_shared<listener>(this, local_address)->run();
-
-      threads.reserve(num_threads);
-      for (auto i = num_threads - 1; i > 0; --i)
-         threads.emplace_back([this] { ioc.run(); });
    }
 
    ~test_server() {
+      session->close();
+      ship_ioc_work.reset();
+      main_ioc_work.reset();
+
+      ship_ioc.stop();
+      main_ioc.stop();
+
       for (auto& thr : threads) {
          thr.join();
       }
@@ -259,7 +281,7 @@ struct state_history_test_fixture {
        : ws(ioc) {
 
       // start the server with 2 threads
-      server.run(2);
+      server.run();
       connect_to(server.local_address);
 
       // receives the ABI

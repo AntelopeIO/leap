@@ -1,4 +1,5 @@
 #include <eosio/chain/config.hpp>
+#include <eosio/chain/thread_utils.hpp>
 #include <eosio/resource_monitor_plugin/resource_monitor_plugin.hpp>
 #include <eosio/state_history/compression.hpp>
 #include <eosio/state_history/create_deltas.hpp>
@@ -72,25 +73,24 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
    uint16_t                         endpoint_port = 8080;
    string                           unix_path;
    state_history::trace_converter   trace_converter;
+   std::set<std::shared_ptr<session_base>> session_set;
 
    constexpr static uint64_t default_frame_size =  1024 * 1024;
 
 
    using acceptor_type = std::variant<std::unique_ptr<tcp::acceptor>, std::unique_ptr<unixs::acceptor>>;
-   std::set<acceptor_type> acceptor;
+   std::set<acceptor_type> acceptors;
 
-   std::thread                                                              thr;
-   boost::asio::io_context                                                  ctx;
-   boost::asio::io_context::strand                                          work_strand{ctx};
-   boost::asio::executor_work_guard<boost::asio::io_context::executor_type> work_guard =
-       boost::asio::make_work_guard(ctx);
+   named_thread_pool                thread_pool{"SHiP", 1}; // use of executor assumes only one thread
 
-   fc::logger& logger() { return _log; }
+   static fc::logger& logger() { return _log; }
 
    std::optional<state_history_log>& get_trace_log() { return trace_log; }
    std::optional<state_history_log>& get_chain_state_log(){ return chain_state_log; }
 
-   signed_block_ptr get_block(uint32_t block_num, const block_state_ptr& block_state) {
+   boost::asio::io_context& get_ship_executor() { return thread_pool.get_executor(); }
+
+   signed_block_ptr get_block(uint32_t block_num, const block_state_ptr& block_state) const {
       chain::signed_block_ptr p;
       try {
          if (block_state && block_num == block_state->block_num) {
@@ -103,11 +103,12 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
       return p;
    }
 
-   fc::sha256 get_chain_id() {
+   // thread safe
+   fc::sha256 get_chain_id() const {
       return chain_plug->chain().get_chain_id();
    }
 
-   void get_block(uint32_t block_num, const block_state_ptr& block_state, std::optional<bytes>& result) {
+   void get_block(uint32_t block_num, const block_state_ptr& block_state, std::optional<bytes>& result) const {
       auto p = get_block(block_num, block_state);
       if (p)
          result = fc::raw::pack(*p);
@@ -125,56 +126,30 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
       return {};
    }
 
-   block_position get_block_head() {
+   block_position get_block_head() const {
       auto& chain              = chain_plug->chain();
       return {chain.head_block_num(), chain.head_block_id()};
    }
 
-   block_position get_last_irreversible() {
+   block_position get_last_irreversible() const {
       auto& chain              = chain_plug->chain();
       return {chain.last_irreversible_block_num(), chain.last_irreversible_block_id()};
    }
 
-   std::optional<block_timestamp_type> get_block_timestamp(uint32_t block_num, const block_state_ptr& block_state) {
-      auto p = get_block(block_num, block_state);
-      if (p)
-         return p->timestamp;
-      return {};
+   time_point get_head_block_timestamp() const {
+      auto& chain = chain_plug->chain();
+      return chain.head_block_time();
    }
 
    template <typename Task>
-   void post_task(Task&& task) {
-      app().post(priority::medium, std::move(task));
+   void post_task_main_thread_medium(Task&& task) {
+      app().post(priority::medium, std::forward<Task>(task));
    }
 
-   class session_manager_t {
-      std::mutex                                                mx;
-      boost::container::flat_set<std::shared_ptr<session_base>> session_set;
-
-    public:
-      template <typename SocketType>
-      void add(std::shared_ptr<state_history_plugin_impl> plugin, std::shared_ptr<SocketType> socket) {
-         auto s = std::make_shared<session<std::shared_ptr<state_history_plugin_impl>, SocketType>>(plugin, std::move(*socket));
-         s->start();
-         std::lock_guard lock(mx);
-         session_set.insert(std::move(s));
-      }
-
-      void remove(std::shared_ptr<session_base> s) {
-         std::lock_guard lock(mx);
-         session_set.erase(s);
-      }
-
-      template <typename F>
-      void for_each(F&& f) {
-         std::lock_guard lock(mx);
-         for (auto& s : session_set) {
-            f(s);
-         }
-      }
-   } sessions;
-
-   void remove_session(std::shared_ptr<session_base> s) { sessions.remove(s); }
+   template <typename Task>
+   void post_task_main_thread_high(Task&& task) {
+      app().post(priority::high, std::forward<Task>(task));
+   }
 
    void listen() {
       boost::system::error_code ec;
@@ -183,10 +158,10 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
          if (!ec)
             return;
          fc_elog(_log, "${w}: ${m}", ("w", what)("m", ec.message()));
-         EOS_ASSERT(false, plugin_exception, "unable to open listen socket");
+         FC_THROW_EXCEPTION(plugin_exception, "unable to open listen socket");
       };
 
-      auto init_tcp_acceptor  = [&]() { acceptor.insert(std::make_unique<tcp::acceptor>(app().get_io_service())); };
+      auto init_tcp_acceptor  = [&]() { acceptors.insert(std::make_unique<tcp::acceptor>(thread_pool.get_executor())); };
       auto init_unix_acceptor = [&]() {
          // take a sniff and see if anything is already listening at the given socket path, or if the socket path exists
          //  but nothing is listening
@@ -205,7 +180,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
                ec = test_ec;
          }
          check_ec("open");
-         acceptor.insert(std::make_unique<unixs::acceptor>(this->ctx));
+         acceptors.insert(std::make_unique<unixs::acceptor>(thread_pool.get_executor()));
       };
 
       // create and configure acceptors, can be both
@@ -213,7 +188,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
       if (unix_path.size())        init_unix_acceptor();
 
       // start it
-      std::for_each(acceptor.begin(), acceptor.end(), [&](const acceptor_type& acc) {
+      std::for_each(acceptors.begin(), acceptors.end(), [&](const acceptor_type& acc) {
          std::visit(overloaded{[&](const std::unique_ptr<tcp::acceptor>& tcp_acc) {
                                 auto address  = boost::asio::ip::make_address(endpoint_address);
                                 auto endpoint = tcp::endpoint{address, endpoint_port};
@@ -241,7 +216,8 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
 
    template <typename Acceptor>
    void do_accept(Acceptor& acceptor) {
-      auto socket = std::make_shared<typename Acceptor::protocol_type::socket>(this->ctx);
+      auto socket = std::make_shared<typename Acceptor::protocol_type::socket>(thread_pool.get_executor());
+      // &acceptor kept alive by self, reference into acceptors set
       acceptor.async_accept(*socket, [self = shared_from_this(), this, socket, &acceptor](const boost::system::error_code& ec) {
          if (stopping)
             return;
@@ -251,17 +227,21 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
             return;
          }
          catch_and_log([&] {
-            sessions.add(self, socket);
+            auto s = std::make_shared<session<std::shared_ptr<state_history_plugin_impl>, typename Acceptor::protocol_type::socket>>(self, std::move(*socket));
+            s->start();
+            post_task_main_thread_high([self, s]() mutable { self->session_set.insert(std::move(s)); });
          });
          catch_and_log([&] { do_accept(acceptor); });
       });
    }
 
+   // called from main thread
    void on_applied_transaction(const transaction_trace_ptr& p, const packed_transaction_ptr& t) {
       if (trace_log)
          trace_converter.add_transaction(p, t);
    }
 
+   // called from main thread
    void on_accepted_block(const block_state_ptr& block_state) {
       try {
          store_traces(block_state);
@@ -278,22 +258,23 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
              "the process");
       }
 
-      sessions.for_each([&block_state](auto& p) {
-         if (p) {
-            if (p->current_request && block_state->block_num < p->current_request->start_block_num)
-               p->current_request->start_block_num = block_state->block_num;
-            p->send_update(block_state);
-         }
-      });
+      for( auto& s : session_set ) {
+         s->send_update(block_state);
+      }
    }
 
-   void on_block_start(uint32_t block_num) { clear_caches(); }
+   // called from main thread
+   void on_block_start(uint32_t block_num) {
+      clear_caches();
+   }
 
+   // called from main thread
    void clear_caches() {
       trace_converter.cached_traces.clear();
       trace_converter.onblock_trace.reset();
    }
 
+   // called from main thread
    void store_traces(const block_state_ptr& block_state) {
       if (!trace_log)
          return;
@@ -306,6 +287,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
       });
    }
 
+   // calle from main thread
    void store_chain_state(const block_state_ptr& block_state) {
       if (!chain_state_log)
          return;
@@ -319,12 +301,28 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
          pack_deltas(buf, chain_plug->chain().db(), fresh);
       });
    } // store_chain_state
+
+   ~state_history_plugin_impl() {
+      std::for_each(acceptors.begin(), acceptors.end(), [&](const acceptor_type& acc) {
+         std::visit(overloaded{
+               []( const std::unique_ptr<unixs::acceptor>& a ) {
+                  boost::system::error_code ec;
+                  if( const auto ep = a->local_endpoint( ec ); !ec )
+                     ::unlink( ep.path().c_str() );
+               },
+               []( const std::unique_ptr<tcp::acceptor>& a) {}
+         }, acc);
+      });
+   }
+
 };   // state_history_plugin_impl
+
+
 
 state_history_plugin::state_history_plugin()
     : my(std::make_shared<state_history_plugin_impl>()) {}
 
-state_history_plugin::~state_history_plugin() {}
+state_history_plugin::~state_history_plugin() = default;
 
 void state_history_plugin::set_program_options(options_description& cli, options_description& cfg) {
    auto options = cfg.add_options();
@@ -387,7 +385,7 @@ void state_history_plugin::plugin_initialize(const variables_map& options) {
 
       auto ip_port = options.at("state-history-endpoint").as<string>();
 
-      if (ip_port.size()) {
+      if (!ip_port.empty()) {
          auto port            = ip_port.substr(ip_port.find(':') + 1, ip_port.size());
          auto host            = ip_port.substr(0, ip_port.find(':'));
          my->endpoint_address = host;
@@ -451,7 +449,6 @@ void state_history_plugin::plugin_startup() {
    handle_sighup(); // setup logging
 
    try {
-      my->thr = std::thread([ptr = my.get()] { ptr->ctx.run(); });
       auto bsp = my->chain_plug->chain().head_block_state();
       if( bsp && my->chain_state_log && my->chain_state_log->begin_block() == my->chain_state_log->end_block() ) {
          fc_ilog( _log, "Storing initial state on startup, this can take a considerable amount of time" );
@@ -468,14 +465,11 @@ void state_history_plugin::plugin_shutdown() {
    my->applied_transaction_connection.reset();
    my->accepted_block_connection.reset();
    my->block_start_connection.reset();
+   std::for_each(my->session_set.begin(), my->session_set.end(), [](auto& s){ s->close(); } );
    my->stopping = true;
    my->trace_log->stop();
    my->chain_state_log->stop();
-   if (my->thr.joinable()) {
-      my->work_guard.reset();
-      my->ctx.stop();
-      my->thr.join();
-   }
+   my->thread_pool.stop();
 }
 
 void state_history_plugin::handle_sighup() { fc::logger::update(logger_name, _log); }
