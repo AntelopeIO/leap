@@ -1,6 +1,12 @@
 {
-    "____comment": "This file was generated with eosio-abigen. DO NOT EDIT Thu Dec 13 12:22:07 2018",
-    "version": "eosio::abi/1.0",
+    "____comment": "This file was generated with eosio-abigen. DO NOT EDIT ",
+    "version": "eosio::abi/1.2",
+    "types": [
+        {
+            "new_type_name": "B_pair_time_point_sec_int64_E",
+            "type": "pair_time_point_sec_int64"
+        }
+    ],
     "structs": [
         {
             "name": "abi_hash",
@@ -939,6 +945,10 @@
             "base": "",
             "fields": [
                 {
+                    "name": "version",
+                    "type": "uint8"
+                },
+                {
                     "name": "owner",
                     "type": "name"
                 },
@@ -956,7 +966,7 @@
                 },
                 {
                     "name": "rex_maturities",
-                    "type": "pair_time_point_sec_int64[]"
+                    "type": "B_pair_time_point_sec_int64_E[]"
                 }
             ]
         },
@@ -964,6 +974,10 @@
             "name": "rex_fund",
             "base": "",
             "fields": [
+                {
+                    "name": "version",
+                    "type": "uint8"
+                },
                 {
                     "name": "owner",
                     "type": "name"
@@ -978,6 +992,10 @@
             "name": "rex_loan",
             "base": "",
             "fields": [
+                {
+                    "name": "version",
+                    "type": "uint8"
+                },
                 {
                     "name": "from",
                     "type": "name"
@@ -1013,6 +1031,10 @@
             "base": "",
             "fields": [
                 {
+                    "name": "version",
+                    "type": "uint8"
+                },
+                {
                     "name": "owner",
                     "type": "name"
                 },
@@ -1042,6 +1064,10 @@
             "name": "rex_pool",
             "base": "",
             "fields": [
+                {
+                    "name": "version",
+                    "type": "uint8"
+                },
                 {
                     "name": "total_lent",
                     "type": "asset"
@@ -1455,7 +1481,6 @@
             ]
         }
     ],
-    "types": [],
     "actions": [
         {
             "name": "bidname",
@@ -1829,5 +1854,6 @@
         }
     ],
     "ricardian_clauses": [],
-    "abi_extensions": []
+    "variants": [],
+    "action_results": []
 }

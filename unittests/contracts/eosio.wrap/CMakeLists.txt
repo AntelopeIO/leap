@@ -1,0 +1,6 @@
+if( EOSIO_COMPILE_TEST_CONTRACTS )
+   add_contract( eosio.wrap eosio.wrap eosio.wrap.cpp )
+else()
+   configure_file( ${CMAKE_CURRENT_SOURCE_DIR}/eosio.wrap.wasm ${CMAKE_CURRENT_BINARY_DIR}/eosio.wrap.wasm COPYONLY )
+   configure_file( ${CMAKE_CURRENT_SOURCE_DIR}/eosio.wrap.abi  ${CMAKE_CURRENT_BINARY_DIR}/eosio.wrap.abi  COPYONLY )
+endif()

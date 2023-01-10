@@ -8,6 +8,7 @@
 #include <boost/test/unit_test.hpp>
 
 #include <contracts.hpp>
+#include <test_contracts.hpp>
 
 #ifdef NON_VALIDATING_TEST
 #define TESTER tester
@@ -336,10 +337,10 @@ BOOST_AUTO_TEST_CASE( deferred_blacklist_failure ) { try {
    tester1.chain->execute_setup_policy( setup_policy::preactivate_feature_and_new_bios );
    tester1.chain->preactivate_builtin_protocol_features( {builtin_protocol_feature_t::crypto_primitives} );
    tester1.chain->produce_blocks();
-   tester1.chain->set_code( "bob"_n, contracts::deferred_test_wasm() );
-   tester1.chain->set_abi( "bob"_n,  contracts::deferred_test_abi().data() );
-   tester1.chain->set_code( "charlie"_n, contracts::deferred_test_wasm() );
-   tester1.chain->set_abi( "charlie"_n,  contracts::deferred_test_abi().data() );
+   tester1.chain->set_code( "bob"_n, test_contracts::deferred_test_wasm() );
+   tester1.chain->set_abi( "bob"_n,  test_contracts::deferred_test_abi().data() );
+   tester1.chain->set_code( "charlie"_n, test_contracts::deferred_test_wasm() );
+   tester1.chain->set_abi( "charlie"_n,  test_contracts::deferred_test_abi().data() );
    tester1.chain->produce_blocks();
 
    tester1.chain->push_action( "bob"_n, "defercall"_n, "alice"_n, mvo()
@@ -389,10 +390,10 @@ BOOST_AUTO_TEST_CASE( blacklist_onerror ) { try {
    tester1.chain->execute_setup_policy( setup_policy::preactivate_feature_and_new_bios );
    tester1.chain->preactivate_builtin_protocol_features( {builtin_protocol_feature_t::crypto_primitives} );
    tester1.chain->produce_blocks();
-   tester1.chain->set_code( "bob"_n, contracts::deferred_test_wasm() );
-   tester1.chain->set_abi( "bob"_n,  contracts::deferred_test_abi().data() );
-   tester1.chain->set_code( "charlie"_n, contracts::deferred_test_wasm() );
-   tester1.chain->set_abi( "charlie"_n,  contracts::deferred_test_abi().data() );
+   tester1.chain->set_code( "bob"_n, test_contracts::deferred_test_wasm() );
+   tester1.chain->set_abi( "bob"_n,  test_contracts::deferred_test_abi().data() );
+   tester1.chain->set_code( "charlie"_n, test_contracts::deferred_test_wasm() );
+   tester1.chain->set_abi( "charlie"_n,  test_contracts::deferred_test_abi().data() );
    tester1.chain->produce_blocks();
 
    tester1.chain->push_action( "bob"_n, "defercall"_n, "alice"_n, mvo()
@@ -427,12 +428,12 @@ BOOST_AUTO_TEST_CASE( actor_blacklist_inline_deferred ) { try {
    tester1.chain->execute_setup_policy( setup_policy::preactivate_feature_and_new_bios );
    tester1.chain->preactivate_builtin_protocol_features( {builtin_protocol_feature_t::crypto_primitives} );
    tester1.chain->produce_blocks();
-   tester1.chain->set_code( "alice"_n, contracts::deferred_test_wasm() );
-   tester1.chain->set_abi( "alice"_n,  contracts::deferred_test_abi().data() );
-   tester1.chain->set_code( "bob"_n, contracts::deferred_test_wasm() );
-   tester1.chain->set_abi( "bob"_n,  contracts::deferred_test_abi().data() );
-   tester1.chain->set_code( "charlie"_n, contracts::deferred_test_wasm() );
-   tester1.chain->set_abi( "charlie"_n,  contracts::deferred_test_abi().data() );
+   tester1.chain->set_code( "alice"_n, test_contracts::deferred_test_wasm() );
+   tester1.chain->set_abi( "alice"_n,  test_contracts::deferred_test_abi().data() );
+   tester1.chain->set_code( "bob"_n, test_contracts::deferred_test_wasm() );
+   tester1.chain->set_abi( "bob"_n,  test_contracts::deferred_test_abi().data() );
+   tester1.chain->set_code( "charlie"_n, test_contracts::deferred_test_wasm() );
+   tester1.chain->set_abi( "charlie"_n,  test_contracts::deferred_test_abi().data() );
    tester1.chain->produce_blocks();
 
    auto auth = authority(eosio::testing::base_tester::get_public_key(name("alice"), "active"));
@@ -573,12 +574,12 @@ BOOST_AUTO_TEST_CASE( blacklist_sender_bypass ) { try {
    tester1.chain->execute_setup_policy( setup_policy::preactivate_feature_and_new_bios );
    tester1.chain->preactivate_builtin_protocol_features( {builtin_protocol_feature_t::crypto_primitives} );
    tester1.chain->produce_blocks();
-   tester1.chain->set_code( "alice"_n, contracts::deferred_test_wasm() );
-   tester1.chain->set_abi( "alice"_n,  contracts::deferred_test_abi().data() );
-   tester1.chain->set_code( "bob"_n, contracts::deferred_test_wasm() );
-   tester1.chain->set_abi( "bob"_n,  contracts::deferred_test_abi().data() );
-   tester1.chain->set_code( "charlie"_n, contracts::deferred_test_wasm() );
-   tester1.chain->set_abi( "charlie"_n,  contracts::deferred_test_abi().data() );
+   tester1.chain->set_code( "alice"_n, test_contracts::deferred_test_wasm() );
+   tester1.chain->set_abi( "alice"_n,  test_contracts::deferred_test_abi().data() );
+   tester1.chain->set_code( "bob"_n, test_contracts::deferred_test_wasm() );
+   tester1.chain->set_abi( "bob"_n,  test_contracts::deferred_test_abi().data() );
+   tester1.chain->set_code( "charlie"_n, test_contracts::deferred_test_wasm() );
+   tester1.chain->set_abi( "charlie"_n,  test_contracts::deferred_test_abi().data() );
    tester1.chain->produce_blocks();
 
    auto auth = authority(eosio::testing::base_tester::get_public_key(name("alice"), "active"));

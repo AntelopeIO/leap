@@ -1,0 +1,6 @@
+if( EOSIO_COMPILE_TEST_CONTRACTS )
+   add_contract( eosio.msig eosio.msig eosio.msig.cpp )
+else()
+   configure_file( ${CMAKE_CURRENT_SOURCE_DIR}/eosio.msig.wasm ${CMAKE_CURRENT_BINARY_DIR}/eosio.msig.wasm COPYONLY )
+   configure_file( ${CMAKE_CURRENT_SOURCE_DIR}/eosio.msig.abi  ${CMAKE_CURRENT_BINARY_DIR}/eosio.msig.abi  COPYONLY )
+endif()

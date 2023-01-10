@@ -1,14 +1,10 @@
-#define BOOST_TEST_MODULE snapshot_information
-#include <boost/test/included/unit_test.hpp>
-
-#include <fc/variant_object.hpp>
-
+#include <boost/test/unit_test.hpp>
 #include <eosio/chain/snapshot.hpp>
 #include <eosio/testing/tester.hpp>
-#include <eosio/testing/snapshot_suites.hpp>
+#include "snapshot_suites.hpp"
 #include <eosio/producer_plugin/producer_plugin.hpp>
 #include <eosio/producer_plugin/pending_snapshot.hpp>
-#include <contracts.hpp>
+#include <test_contracts.hpp>
 #include <snapshots.hpp>
 
 using namespace eosio;
@@ -19,7 +15,7 @@ namespace {
     eosio::producer_plugin::snapshot_information test_snap_info;
 }
 
-BOOST_AUTO_TEST_SUITE(snapshot_tests)
+BOOST_AUTO_TEST_SUITE(producer_snapshot_tests)
 
 using next_t = eosio::producer_plugin::next_function<eosio::producer_plugin::snapshot_information>;
 
@@ -29,8 +25,8 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(test_snapshot_information, SNAPSHOT_SUITE, snapsho
 
    chain.create_account("snapshot"_n);
    chain.produce_blocks(1);
-   chain.set_code("snapshot"_n, contracts::snapshot_test_wasm());
-   chain.set_abi("snapshot"_n, contracts::snapshot_test_abi().data());
+   chain.set_code("snapshot"_n, test_contracts::snapshot_test_wasm());
+   chain.set_abi("snapshot"_n, test_contracts::snapshot_test_abi().data());
    chain.produce_blocks(1);
 
    auto block = chain.produce_block();

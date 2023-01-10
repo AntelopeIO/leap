@@ -8,7 +8,7 @@
 #include <boost/mpl/list.hpp>
 #include <boost/test/unit_test.hpp>
 
-#include <contracts.hpp>
+#include <test_contracts.hpp>
 #include <snapshots.hpp>
 
 using namespace eosio;
@@ -172,7 +172,7 @@ BOOST_AUTO_TEST_CASE(test_light_validation_restart_from_block_log) {
    chain.create_account("testapi"_n);
    chain.create_account("dummy"_n);
    chain.produce_block();
-   chain.set_code("testapi"_n, contracts::test_api_wasm());
+   chain.set_code("testapi"_n, test_contracts::test_api_wasm());
    chain.produce_block();
 
    cf_action          cfa;

@@ -12,6 +12,7 @@
 #include "test_wasts.hpp"
 
 #include <contracts.hpp>
+#include <test_contracts.hpp>
 
 using namespace eosio;
 using namespace eosio::chain;
@@ -28,8 +29,8 @@ namespace data = boost::unit_test::data;
 namespace {
 struct wasm_config_tester : TESTER {
    wasm_config_tester() {
-      set_abi(config::system_account_name, contracts::wasm_config_bios_abi().data());
-      set_code(config::system_account_name, contracts::wasm_config_bios_wasm());
+      set_abi(config::system_account_name, test_contracts::wasm_config_bios_abi().data());
+      set_code(config::system_account_name, test_contracts::wasm_config_bios_wasm());
       bios_abi_ser = *get_resolver()(config::system_account_name);
    }
    void set_wasm_params(const wasm_config& params) {
