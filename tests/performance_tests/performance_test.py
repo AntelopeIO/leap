@@ -508,6 +508,7 @@ def main():
     extraNodeosArgs = ENA(chainPluginArgs=chainPluginArgs, httpPluginArgs=httpPluginArgs, producerPluginArgs=producerPluginArgs, netPluginArgs=netPluginArgs)
     testClusterConfig = PerformanceTestBasic.ClusterConfig(pnodes=args.p, totalNodes=args.n, topo=args.s, genesisPath=args.genesis,
                                                            prodsEnableTraceApi=args.prods_enable_trace_api, extraNodeosArgs=extraNodeosArgs,
+                                                           specifiedContract=PerformanceTestBasic.ClusterConfig.SpecifiedContract(args.account_name, args.owner_public_key, args.active_public_key, args.contract_dir, args.wasm_file, args.abi_file),
                                                            nodeosVers=Utils.getNodeosVersion().split('.')[0])
 
     ptConfig = PerformanceTest.PtConfig(testDurationSec=args.test_iteration_duration_sec,
