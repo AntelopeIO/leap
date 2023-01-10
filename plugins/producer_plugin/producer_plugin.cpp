@@ -1991,11 +1991,8 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
    fc::microseconds max_trx_time = fc::milliseconds( _max_transaction_time_ms.load() );
    if( max_trx_time.count() < 0 ) max_trx_time = fc::microseconds::maximum();
 
-   bool disable_subjective_billing = ( _pending_block_mode == pending_block_mode::producing )
-                                     || disable_subjective_enforcement;
-
    int64_t sub_bill = 0;
-   if( !disable_subjective_billing )
+   if( !disable_subjective_enforcement )
       sub_bill = _subjective_billing.get_subjective_bill( first_auth, fc::time_point::now() );
 
    auto prev_billed_cpu_time_us = trx->billed_cpu_time_us;
@@ -2027,7 +2024,7 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
          if( failure_code != tx_duplicate::code_value ) {
             fc_dlog( _trx_failed_trace_log, "Subjective bill for failed ${a}: ${b} elapsed ${t}us, time ${r}us",
                      ("a",first_auth)("b",sub_bill)("t",trace->elapsed)("r", end - start));
-            if (!disable_subjective_billing)
+            if (!disable_subjective_enforcement) // subjectively bill failure when producing since not in objective cpu account billing
                _subjective_billing.subjective_bill_failure( first_auth, trace->elapsed, fc::time_point::now() );
 
             log_trx_results( trx, trace, start );
@@ -2052,10 +2049,9 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
                ("a",first_auth)("b",sub_bill)("t",trace->elapsed)("r", end - start));
       _account_fails.add_success_time(end - start);
       log_trx_results( trx, trace, start );
-      // if producing then trx is in the pending block and not immediately reverted
-      if (!disable_subjective_billing) {
-         _subjective_billing.subjective_bill( trx->id(), trx->packed_trx()->expiration(), first_auth, trace->elapsed,
-                                              _pending_block_mode == pending_block_mode::producing );
+      // if producing then trx is in objective cpu account billing
+      if (!disable_subjective_enforcement && _pending_block_mode != pending_block_mode::producing) {
+         _subjective_billing.subjective_bill( trx->id(), trx->packed_trx()->expiration(), first_auth, trace->elapsed );
       }
       if( next ) next( trace );
    }
