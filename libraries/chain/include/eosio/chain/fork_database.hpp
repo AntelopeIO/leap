@@ -16,6 +16,8 @@ namespace eosio { namespace chain {
     * database tracks the longest chain and the last irreversible block number. All
     * blocks older than the last irreversible block are freed after emitting the
     * irreversible signal.
+    *
+    * An internal mutex is used to provide thread-safety.
     */
    class fork_database {
       public:
@@ -55,9 +57,9 @@ namespace eosio { namespace chain {
 
          void            remove( const block_id_type& id );
 
-         const block_state_ptr& root()const;
-         const block_state_ptr& head()const;
-         block_state_ptr        pending_head()const;
+         block_state_ptr root()const;
+         block_state_ptr head()const;
+         block_state_ptr pending_head()const;
 
          /**
           *  Returns the sequence of block states resulting from trimming the branch from the

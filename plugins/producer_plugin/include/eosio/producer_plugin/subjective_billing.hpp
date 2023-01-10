@@ -180,7 +180,8 @@ public:
       fc_dlog( log, "Subjective billed accounts ${n} removed ${r}", ("n", orig_count)("r", orig_count - _account_subjective_bill_cache.size()) );
    }
 
-   bool remove_expired( fc::logger& log, const fc::time_point& pending_block_time, const fc::time_point& now, const fc::time_point& deadline ) {
+   template <typename Yield>
+   bool remove_expired( fc::logger& log, const fc::time_point& pending_block_time, const fc::time_point& now, Yield&& yield ) {
       bool exhausted = false;
       auto& idx = _trx_cache_index.get<by_expiry>();
       if( !idx.empty() ) {
@@ -189,7 +190,7 @@ public:
          uint32_t num_expired = 0;
 
          while( !idx.empty() ) {
-            if( deadline <= fc::time_point::now() ) {
+            if( yield() ) {
                exhausted = true;
                break;
             }
