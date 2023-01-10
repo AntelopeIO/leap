@@ -97,9 +97,11 @@ class datastream<size_t, void> {
 };
 
 template <typename Streambuf>
-class datastream<Streambuf, typename std::enable_if_t<std::is_base_of_v<std::streambuf, Streambuf>>> {
+class datastream<Streambuf, typename std::enable_if_t<std::is_base_of_v<std::streambuf, std::remove_reference_t<Streambuf>>>> {
  private:
    Streambuf buf;
+
+   using reference_type = std::add_lvalue_reference_t<Streambuf>;
 
  public:
    template <typename... Args>
@@ -120,8 +122,8 @@ class datastream<Streambuf, typename std::enable_if_t<std::is_base_of_v<std::str
    }
    bool remaining() { return buf.in_avail(); }
 
-   Streambuf&       storage() { return buf; }
-   const Streambuf& storage() const { return buf; }
+   reference_type       storage() { return buf; }
+   const reference_type storage() const { return buf; }
 };
 
 template <typename Container>

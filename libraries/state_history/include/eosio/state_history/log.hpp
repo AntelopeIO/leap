@@ -9,11 +9,19 @@
 #include <eosio/chain/block_header.hpp>
 #include <eosio/chain/exceptions.hpp>
 #include <eosio/chain/types.hpp>
+#include <eosio/state_history/compression.hpp>
 #include <fc/io/cfile.hpp>
 #include <fc/log/logger.hpp>
 #include <fc/log/logger_config.hpp> //set_thread_name
 
+#include <boost/iostreams/device/file.hpp>
+#include <boost/iostreams/device/file_descriptor.hpp>
+#include <boost/iostreams/filter/zlib.hpp>
+#include <boost/iostreams/filtering_streambuf.hpp>
+#include <boost/iostreams/restrict.hpp>
+
 namespace eosio {
+namespace bio = boost::iostreams;
 
 /*
  *   *.log:
@@ -68,6 +76,58 @@ struct state_history_log_prune_config {
    std::optional<size_t>   vacuum_on_close;               //when set, a vacuum is performed on dtor if log contains less than this many bytes
 };
 
+struct locked_decompress_stream {
+   std::optional<std::unique_lock<std::mutex>> lock;
+   bio::filtering_istreambuf    buf;
+
+   locked_decompress_stream() = default;
+
+   template <typename T>
+   locked_decompress_stream(T&& log, fc::cfile& stream, uint64_t compressed_size) {
+      log->acquire_lock(lock);
+      buf.push(bio::zlib_decompressor());
+      buf.push(bio::restrict(bio::file_source(stream.get_file_path().string()), stream.tellp(), compressed_size));
+   }
+};
+
+// directly adapt from boost/iostreams/filter/counter.hpp and change the type of chars_ to uint64_t.
+class counter  {
+public:
+    typedef char char_type;
+    struct category
+        : bio::dual_use,
+          bio::filter_tag,
+          bio::multichar_tag,
+          bio::optimally_buffered_tag
+        { };
+    explicit counter(uint64_t first_char = 0)
+        : chars_(first_char)
+        { }
+    uint64_t characters() const { return chars_; }
+    std::streamsize optimal_buffer_size() const { return 0; }
+
+    template<typename Source>
+    std::streamsize read(Source& src, char_type* s, std::streamsize n)
+    {
+        std::streamsize result = bio::read(src, s, n);
+        if (result == -1)
+            return -1;
+        chars_ += result;
+        return result;
+    }
+
+    template<typename Sink>
+    std::streamsize write(Sink& snk, const char_type* s, std::streamsize n)
+    {
+        std::streamsize result = bio::write(snk, s, n);
+        chars_ += result;
+        return result;
+    }
+private:
+    uint64_t chars_;
+};
+
+
 class state_history_log {
  private:
    const char* const       name = "";
@@ -89,6 +149,7 @@ class state_history_log {
    boost::asio::executor_work_guard<boost::asio::io_context::executor_type> work_guard =
        boost::asio::make_work_guard(ctx);
    std::recursive_mutex                                                     mx;
+   std::mutex                                                               rewrite_mx; // used during prune or truncate
 
  public:
    state_history_log(const char* const name, std::string log_filename, std::string index_filename,
@@ -99,7 +160,7 @@ class state_history_log {
        , prune_config(prune_conf) {
       open_log();
       open_index();
-     
+
       if(prune_config) {
          EOS_ASSERT(prune_config->prune_blocks, chain::plugin_exception, "state history log prune configuration requires at least one block");
          EOS_ASSERT(__builtin_popcount(prune_config->prune_threshold) == 1, chain::plugin_exception, "state history prune threshold must be power of 2");
@@ -144,6 +205,11 @@ class state_history_log {
       });
    }
 
+
+   void acquire_lock(std::optional<std::unique_lock<std::mutex>>& lock) {
+      lock.emplace(rewrite_mx);
+   }
+
    void stop() {
       if (thr.joinable()) {
          work_guard.reset();
@@ -156,7 +222,7 @@ class state_history_log {
       if (thr.joinable()) {
          work_guard.reset();
          thr.join();
-      }     
+      }
 
       //nothing to do if log is empty or we aren't pruning
       if(_begin_block == _end_block)
@@ -199,7 +265,7 @@ class state_history_log {
       }
 
       std::unique_lock<std::recursive_mutex> lock(mx);
-      
+
       auto block_num = chain::block_header::num_from_id(header.block_id);
       EOS_ASSERT(_begin_block == _end_block || block_num <= _end_block, chain::plugin_exception,
                  "missed a block in ${name}.log", ("name", name));
@@ -228,12 +294,13 @@ class state_history_log {
          header.magic = ship_magic(get_ship_version(header.magic), ship_feature_pruned_log);
 
       uint64_t pos = log.tellp();
-            
+
       write_header(header);
       write_payload(log);
 
-      EOS_ASSERT(log.tellp() == pos + state_history_log_header_serial_size + header.payload_size, chain::plugin_exception,
-                 "wrote payload with incorrect size to ${name}.log", ("name", name));
+      if (header.payload_size != 0)
+         EOS_ASSERT(log.tellp() == pos + state_history_log_header_serial_size + header.payload_size, chain::plugin_exception,
+                  "wrote payload with incorrect size to ${name}.log", ("name", name));
       fc::raw::pack(log, pos);
 
       fc::raw::pack(index, pos);
@@ -261,6 +328,87 @@ class state_history_log {
       return log;
    }
 
+   /// @return the decompressed entry size
+   uint64_t get_unpacked_entry(uint32_t block_num, std::variant<std::vector<char>, locked_decompress_stream>& result) {
+      if (block_num < _begin_block || block_num >= _end_block)
+         return 0;
+
+      state_history_log_header header;
+      std::lock_guard lock(mx);
+      log.seek(get_pos(block_num));
+      read_header(header);
+
+      uint64_t payload_size = header.payload_size;
+      uint32_t s;
+      uint64_t compressed_size;
+
+      log.read((char*)&s, sizeof(s));
+      if (s == 1 && payload_size > (s + sizeof(uint32_t))) {
+         compressed_size = payload_size - sizeof(uint32_t) - sizeof(uint64_t);
+         uint64_t decompressed_size;
+         log.read((char*)&decompressed_size, sizeof(decompressed_size));
+         result.emplace<locked_decompress_stream>(this, log, compressed_size);
+         return decompressed_size;
+
+      } else {
+         // Compressed deltas now exceeds 4GB on one of the public chains. This length prefix
+         // was intended to support adding additional fields in the future after the
+         // packed deltas or packed traces. For now we're going to ignore on read.
+
+         compressed_size = payload_size - sizeof(uint32_t);
+      }
+
+      chain::bytes compressed(compressed_size);
+      if (compressed_size)
+         log.read(compressed.data(), compressed_size);
+      return result.emplace<std::vector<char>>(state_history::zlib_decompress(compressed)).size();
+   }
+
+   template <typename F>
+   void pack_and_write_entry(state_history_log_header header, const chain::block_id_type& prev_id, F&& pack_to) {
+      write_entry(header, prev_id, [&, pack_to = std::forward<F>(pack_to)](auto& stream) {
+         size_t payload_pos = stream.tellp();
+
+         // In order to conserve memory usage for reading the chain state later, we need to
+         // encode the uncompressed data size to the disk so that the reader can send the
+         // decompressed data size before decompressing data. Here we use the number
+         // 1 indicates the format contains a 64 bits unsigned integer for decompressed data
+         // size and then the actually compressed data. The compressed data size can be
+         // computed from the payload size in the header minus sizeof(uint32_t) + sizeof(uint64_t).
+
+         uint32_t s = 1;
+         stream.write((char*)&s, sizeof(s));
+         uint64_t uncompressioned_size = 0;
+         stream.skip(sizeof(uncompressioned_size));
+
+         namespace bio = boost::iostreams;
+
+         counter cnt;
+         {
+            bio::filtering_ostreambuf buf;
+            buf.push(boost::ref(cnt));
+            buf.push(bio::zlib_compressor());
+            buf.push(bio::file_descriptor_sink(stream.fileno(), bio::never_close_handle));
+            pack_to(buf);
+         }
+
+         // calculate the payload size and rewind back header to write the payload size
+         stream.seek_end(0);
+         size_t   end_payload_pos = stream.tellp();
+         uint64_t payload_size    = end_payload_pos - payload_pos;
+         stream.seek(payload_pos - sizeof(uint64_t));
+         stream.write((char*)&payload_size, sizeof(payload_size));
+
+         // write the uncompressed data size
+         stream.skip(sizeof(s));
+         uncompressioned_size = cnt.characters();
+         stream.write((char*)&uncompressioned_size, sizeof(uncompressioned_size));
+
+         // make sure we resets the file position to end_payload_pos to preserve API behavior
+         stream.seek(end_payload_pos);
+      });
+   }
+
    chain::block_id_type get_block_id(uint32_t block_num) {
       std::lock_guard          lock(mx);
       state_history_log_header header;
@@ -268,9 +416,13 @@ class state_history_log {
       return header.block_id;
    }
 
+#ifdef BOOST_TEST_MODULE
+   fc::cfile& get_log_file() { return log;}
+#endif
+
  private:
    //file position must be at start of last block's suffix (back pointer)
-   //called from open_log / ctor 
+   //called from open_log / ctor
    bool get_last_block() {
       state_history_log_header header;
       uint64_t                 suffix;
@@ -303,13 +455,16 @@ class state_history_log {
       if(_end_block - _begin_block <= prune_config->prune_blocks)
          return;
 
-      const uint32_t prune_to_num = _end_block - prune_config->prune_blocks;
-      uint64_t prune_to_pos = get_pos(prune_to_num);
+      {
+         std::unique_lock<std::mutex> lock(rewrite_mx);
+         const uint32_t prune_to_num = _end_block - prune_config->prune_blocks;
+         uint64_t prune_to_pos = get_pos(prune_to_num);
 
-      log.punch_hole(state_history_log_header_serial_size, prune_to_pos);
+         log.punch_hole(state_history_log_header_serial_size, prune_to_pos);
 
-      _begin_block = prune_to_num;
-      log.flush();
+         _begin_block = prune_to_num;
+         log.flush();
+      }
 
       if(auto l = fc::logger::get(); l.is_enabled(loglevel))
          l.log(fc::log_message(fc::log_context(loglevel, __FILE__, __LINE__, __func__),
@@ -457,6 +612,7 @@ class state_history_log {
    void truncate(uint32_t block_num) {
       log.flush();
       index.flush();
+      std::unique_lock lock(rewrite_mx);
       uint64_t num_removed = 0;
       if (block_num <= _begin_block) {
          num_removed = _end_block - _begin_block;
