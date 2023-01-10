@@ -910,7 +910,7 @@ BOOST_AUTO_TEST_CASE(transaction_metadata_test) { try {
       BOOST_CHECK_EQUAL(trx.id(), ptrx->id());
       BOOST_CHECK_EQUAL(trx.id(), ptrx2->id());
 
-      named_thread_pool thread_pool( "misc", 5 );
+      named_thread_pool thread_pool( "misc", 5, nullptr );
 
       auto fut = transaction_metadata::start_recover_keys( ptrx, thread_pool.get_executor(), test.control->get_chain_id(), fc::microseconds::maximum(), transaction_metadata::trx_type::input );
       auto fut2 = transaction_metadata::start_recover_keys( ptrx2, thread_pool.get_executor(), test.control->get_chain_id(), fc::microseconds::maximum(), transaction_metadata::trx_type::input );

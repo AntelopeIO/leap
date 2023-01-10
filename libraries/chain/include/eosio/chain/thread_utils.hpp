@@ -1,5 +1,6 @@
 #pragma once
 
+#include <fc/exception/exception.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/thread_pool.hpp>
 #include <boost/asio/post.hpp>
@@ -15,16 +16,21 @@ namespace eosio { namespace chain {
     */
    class named_thread_pool {
    public:
-      // name_prefix is name appended with -## of thread.
-      // short name_prefix (6 chars or under) is recommended as console_appender uses 9 chars for thread name
-      named_thread_pool( std::string name_prefix, size_t num_threads );
+      using on_except_t = std::function<void(const fc::exception& e)>;
 
-      // calls stop()
+      /// @param name_prefix is name appended with -## of thread.
+      ///                    A short name_prefix (6 chars or under) is recommended as console_appender uses 9 chars
+      ///                    for the thread name.
+      /// @param num_threads is number of threads spawned in the constructor
+      /// @param on_except is the function to call if io_context throws an exception, is called from thread pool thread
+      named_thread_pool( std::string name_prefix, size_t num_threads, on_except_t on_except );
+
+      /// calls stop()
       ~named_thread_pool();
 
       boost::asio::io_context& get_executor() { return _ioc; }
 
-      // destroy work guard, stop io_context, join thread_pool, and stop thread_pool
+      /// destroy work guard, stop io_context, join thread_pool, and stop thread_pool
       void stop();
 
    private:
@@ -33,6 +39,7 @@ namespace eosio { namespace chain {
       boost::asio::thread_pool       _thread_pool;
       boost::asio::io_context        _ioc;
       std::optional<ioc_work_t>      _ioc_work;
+      on_except_t                    _on_except;
    };
 
 
