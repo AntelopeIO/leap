@@ -26,6 +26,7 @@ namespace eosio { namespace client { namespace http {
    const string send_txn_func = chain_func_base + "/send_transaction";
    const string push_txn_func = chain_func_base + "/push_transaction";
    const string send2_txn_func = chain_func_base + "/send_transaction2";
+   const string send_read_only_txn_func = chain_func_base + "/send_read_only_transaction";
    const string compute_txn_func = chain_func_base + "/compute_transaction";
    const string push_txns_func = chain_func_base + "/push_transactions";
    const string json_to_bin_func = chain_func_base + "/abi_json_to_bin";

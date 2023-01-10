@@ -291,6 +291,7 @@ struct test_memory {
 struct test_checktime {
    static void checktime_pass();
    static void checktime_failure();
+   static void checktime_no_auth_failure();
    static void checktime_sha1_failure();
    static void checktime_assert_sha1_failure();
    static void checktime_sha256_failure();

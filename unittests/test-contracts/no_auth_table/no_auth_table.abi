@@ -1,0 +1,150 @@
+{
+    "____comment": "This file was generated with eosio-abigen. DO NOT EDIT ",
+    "version": "eosio::abi/1.2",
+    "types": [],
+    "structs": [
+        {
+            "name": "erase",
+            "base": "",
+            "fields": [
+                {
+                    "name": "user",
+                    "type": "name"
+                }
+            ]
+        },
+        {
+            "name": "erasebyid",
+            "base": "",
+            "fields": [
+                {
+                    "name": "id",
+                    "type": "uint64"
+                }
+            ]
+        },
+        {
+            "name": "getage",
+            "base": "",
+            "fields": [
+                {
+                    "name": "user",
+                    "type": "name"
+                }
+            ]
+        },
+        {
+            "name": "insert",
+            "base": "",
+            "fields": [
+                {
+                    "name": "user",
+                    "type": "name"
+                },
+                {
+                    "name": "id",
+                    "type": "uint64"
+                },
+                {
+                    "name": "age",
+                    "type": "uint64"
+                }
+            ]
+        },
+        {
+            "name": "modify",
+            "base": "",
+            "fields": [
+                {
+                    "name": "user",
+                    "type": "name"
+                },
+                {
+                    "name": "age",
+                    "type": "uint64"
+                }
+            ]
+        },
+        {
+            "name": "modifybyid",
+            "base": "",
+            "fields": [
+                {
+                    "name": "id",
+                    "type": "uint64"
+                },
+                {
+                    "name": "age",
+                    "type": "uint64"
+                }
+            ]
+        },
+        {
+            "name": "person",
+            "base": "",
+            "fields": [
+                {
+                    "name": "key",
+                    "type": "name"
+                },
+                {
+                    "name": "id",
+                    "type": "uint64"
+                },
+                {
+                    "name": "age",
+                    "type": "uint64"
+                }
+            ]
+        }
+    ],
+    "actions": [
+        {
+            "name": "erase",
+            "type": "erase",
+            "ricardian_contract": ""
+        },
+        {
+            "name": "erasebyid",
+            "type": "erasebyid",
+            "ricardian_contract": ""
+        },
+        {
+            "name": "getage",
+            "type": "getage",
+            "ricardian_contract": ""
+        },
+        {
+            "name": "insert",
+            "type": "insert",
+            "ricardian_contract": ""
+        },
+        {
+            "name": "modify",
+            "type": "modify",
+            "ricardian_contract": ""
+        },
+        {
+            "name": "modifybyid",
+            "type": "modifybyid",
+            "ricardian_contract": ""
+        }
+    ],
+    "tables": [
+        {
+            "name": "people",
+            "type": "person",
+            "index_type": "i64",
+            "key_names": [],
+            "key_types": []
+        }
+    ],
+    "ricardian_clauses": [],
+    "variants": [],
+    "action_results": [
+        {
+            "name": "getage",
+            "result_type": "uint64"
+        }
+    ]
+}

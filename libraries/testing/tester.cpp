@@ -582,7 +582,8 @@ namespace eosio { namespace testing {
    transaction_trace_ptr base_tester::push_transaction( signed_transaction& trx,
                                                         fc::time_point deadline,
                                                         uint32_t billed_cpu_time_us,
-                                                        bool no_throw
+                                                        bool no_throw,
+                                                        transaction_metadata::trx_type trx_type
                                                       )
    { try {
       if( !control->is_building_block() )
@@ -597,7 +598,7 @@ namespace eosio { namespace testing {
             fc::microseconds::maximum() :
             fc::microseconds( deadline - fc::time_point::now() );
       auto ptrx = std::make_shared<packed_transaction>( trx, c );
-      auto fut = transaction_metadata::start_recover_keys( ptrx, control->get_thread_pool(), control->get_chain_id(), time_limit, transaction_metadata::trx_type::input );
+      auto fut = transaction_metadata::start_recover_keys( ptrx, control->get_thread_pool(), control->get_chain_id(), time_limit, trx_type );
       auto r = control->push_transaction( fut.get(), deadline, fc::microseconds::maximum(), billed_cpu_time_us, billed_cpu_time_us > 0, 0 );
       if (no_throw) return r;
       if( r->except_ptr ) std::rethrow_exception( r->except_ptr );
