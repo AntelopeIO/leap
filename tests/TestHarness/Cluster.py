@@ -175,7 +175,7 @@ class Cluster(object):
     # pylint: disable=too-many-branches
     # pylint: disable=too-many-statements
     def launch(self, pnodes=1, unstartedNodes=0, totalNodes=1, prodCount=1, topo="mesh", delay=1, onlyBios=False, dontBootstrap=False,
-               totalProducers=None, sharedProducers=0, extraNodeosArgs="", useBiosBootFile=True, specificExtraNodeosArgs=None, onlySetProds=False,
+               totalProducers=None, sharedProducers=0, extraNodeosArgs="", useBiosBootFile=True, specificExtraNodeosArgs=None, specificNodeosInstances=None, onlySetProds=False,
                pfSetupPolicy=PFSetupPolicy.FULL, alternateVersionLabelsFile=None, associatedNodeLabels=None, loadSystemContract=True, nodeosLogPath=f"TestLogs/{os.path.basename(sys.argv[0]).split('.')[0]}{os.getpid()}/"):
         """Launch cluster.
         pnodes: producer nodes count
@@ -193,6 +193,8 @@ class Cluster(object):
           A value of false uses manual bootstrapping in this script, which does not do things like stake votes for producers.
         specificExtraNodeosArgs: dictionary of arguments to pass to a specific node (via --specific-num and
                                  --specific-nodeos flags on launcher), example: { "5" : "--plugin eosio::test_control_api_plugin" }
+        specificNodeosInstances: dictionary of paths to launch specific nodeos binaries (via --spcfc-inst-num and
+                                 --spcfc_inst_nodeos flags to launcher), example: { "4" : "bin/nodeos"}
         onlySetProds: Stop the bootstrap process after setting the producers (only if useBiosBootFile is false)
         pfSetupPolicy: determine the protocol feature setup policy (none, preactivate_feature_only, or full)
         alternateVersionLabelsFile: Supply an alternate version labels file to use with associatedNodeLabels.
@@ -274,6 +276,15 @@ class Cluster(object):
                 cmdArr.append("--specific-nodeos")
                 if arg.find("--http-max-response-time-ms") != -1:
                     httpMaxResponseTimeSet = True
+                cmdArr.append(arg)
+        if specificNodeosInstances is not None:
+            assert(isinstance(specificNodeosInstances, dict))
+            for nodeNum,arg in specificNodeosInstances.items():
+                assert(isinstance(nodeNum, (str,int)))
+                assert(isinstance(arg, str))
+                cmdArr.append("--spcfc-inst-num")
+                cmdArr.append(str(nodeNum))
+                cmdArr.append("--spcfc-inst-nodeos")
                 cmdArr.append(arg)
 
         if not httpMaxResponseTimeSet and extraNodeosArgs.find("--http-max-response-time-ms") == -1:

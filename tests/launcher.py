@@ -494,7 +494,10 @@ plugin = eosio::chain_api_plugin
         err = dd / Path(f'stderr.{self.launch_time}.txt')
         pidf = dd / Path(f'{Utils.EosServerName}.pid')
 
-        eosdcmd = [Utils.EosServerPath]
+        if instance.index in self.args.spcfc_inst_nums:
+            eosdcmd = [f"{getattr(self.args, f'spcfc_inst_{Utils.EosServerName}es')[self.args.spcfc_inst_nums.index(instance.index)]}"]
+        else:
+            eosdcmd = [Utils.EosServerPath]
         if self.args.skip_signature:
             eosdcmd.append('--skip-transaction-signatures')
         if getattr(self.args, Utils.EosServerName):
