@@ -164,6 +164,7 @@ class chainData():
         self.totalTime = 0
         self.totalLatency = 0
         self.droppedBlocks = {}
+        self.forkedBlocks = []
     def __eq__(self, other):
         return self.startBlock == other.startBlock and\
          self.ceaseBlock == other.ceaseBlock and\
@@ -219,6 +220,9 @@ def scrapeLog(data: chainData, path):
         droppedBlocks = re.findall(r'dropped incoming block #(\d+) id: ([0-9a-fA-F]+)', line)
         for block in droppedBlocks:
             data.droppedBlocks[block[0]] = block[1]
+        forks = re.findall(r'switching forks from ([0-9a-fA-F]+) \(block number (\d+)\) to ([0-9a-fA-F]+) \(block number (\d+)\)', line)
+        for fork in forks:
+            data.forkedBlocks.append(int(fork[1]) - int(fork[3]) + 1)
 
 def scrapeTrxGenLog(trxSent, path):
     selectedopen = selectedOpen(path)
@@ -408,7 +412,7 @@ def calcTrxLatencyCpuNetStats(trxDict : dict, blockDict: dict):
            basicStats(float(np.min(npLatencyCpuNetList[:,2])), float(np.max(npLatencyCpuNetList[:,2])), float(np.average(npLatencyCpuNetList[:,2])), float(np.std(npLatencyCpuNetList[:,2])), len(npLatencyCpuNetList))
 
 def createReport(guide: chainBlocksGuide, tpsTestConfig: TpsTestConfig, tpsStats: stats, blockSizeStats: stats, trxLatencyStats: basicStats, trxCpuStats: basicStats,
-                 trxNetStats: basicStats, droppedBlocks, prodWindows: productionWindows, testStart: datetime, testFinish: datetime, argsDict: dict, completedRun: bool) -> dict:
+                 trxNetStats: basicStats, forkedBlocks, droppedBlocks, prodWindows: productionWindows, testStart: datetime, testFinish: datetime, argsDict: dict, completedRun: bool) -> dict:
     report = {}
     report['completedRun'] = completedRun
     report['testStart'] = testStart
@@ -429,6 +433,8 @@ def createReport(guide: chainBlocksGuide, tpsTestConfig: TpsTestConfig, tpsStats
     report['Analysis']['ProductionWindowsTotal'] = prodWindows.totalWindows
     report['Analysis']['ProductionWindowsAverageSize'] = prodWindows.averageWindowSize
     report['Analysis']['ProductionWindowsMissed'] = prodWindows.missedWindows
+    report['Analysis']['ForkedBlocks'] = forkedBlocks
+    report['Analysis']['ForksCount'] = len(forkedBlocks)
     report['args'] =  argsDict
     report['env'] = {'system': system(), 'os': os.name, 'release': release(), 'logical_cpu_count': os.cpu_count()}
     report['nodeosVersion'] = Utils.getNodeosVersion()
@@ -486,7 +492,7 @@ def calcAndReport(data: chainData, tpsTestConfig: TpsTestConfig, artifacts: Arti
         finish = datetime.utcnow()
 
     report = createReport(guide=guide, tpsTestConfig=tpsTestConfig, tpsStats=tpsStats, blockSizeStats=blkSizeStats, trxLatencyStats=trxLatencyStats,
-                          trxCpuStats=trxCpuStats, trxNetStats=trxNetStats, droppedBlocks=data.droppedBlocks, prodWindows=prodWindows, testStart=start, testFinish=finish, argsDict=argsDict, completedRun=completedRun)
+                          trxCpuStats=trxCpuStats, trxNetStats=trxNetStats, forkedBlocks=data.forkedBlocks, droppedBlocks=data.droppedBlocks, prodWindows=prodWindows, testStart=start, testFinish=finish, argsDict=argsDict, completedRun=completedRun)
     return report
 
 def exportReportAsJSON(report: json, exportPath):
