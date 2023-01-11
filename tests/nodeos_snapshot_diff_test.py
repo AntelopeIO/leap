@@ -18,7 +18,7 @@ from performance_tests import TransactionGeneratorsLauncher, TpsTrxGensConfig
 # nodeos_snapshot_diff_test
 #
 #  Test configures a producing node and 2 non-producing nodes.
-#  Configures 2 trx_generators and starts generating transactions and sending them
+#  Configures trx_generator(s) and starts generating transactions and sending them
 #  to the producing node.
 #  - Create a snapshot from producing node
 #  - Convert snapshot to JSON
@@ -57,6 +57,8 @@ killWallet=not dontKill
 
 WalletdName=Utils.EosWalletName
 ClientName="cleos"
+
+trxGenLauncher=None
 
 def getLatestSnapshot(nodeId):
     snapshotDir = os.path.join(Utils.getNodeDataDir(nodeId), "snapshots")
@@ -207,7 +209,8 @@ try:
     testSuccessful=True
 
 finally:
-    trxGenLauncher.killAll()
+    if trxGenLauncher is not None:
+        trxGenLauncher.killAll()
     TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, killEosInstances=killEosInstances, killWallet=killWallet, keepLogs=keepLogs, cleanRun=killAll, dumpErrorDetails=dumpErrorDetails)
 
 exitCode = 0 if testSuccessful else 1
