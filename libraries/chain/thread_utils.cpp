@@ -22,6 +22,7 @@ named_thread_pool::~named_thread_pool() {
 void named_thread_pool::start() {
    FC_ASSERT( !_ioc_work, "Thread pool already started" );
    _ioc_work.emplace( boost::asio::make_work_guard( _ioc ) );
+   _ioc.restart();
    for( size_t i = 0; i < _num_threads; ++i ) {
       _thread_pool.emplace_back( [&ioc = _ioc, &name_prefix = _name_prefix, on_except = _on_except, i]() {
          std::string tn = name_prefix + "-" + std::to_string( i );

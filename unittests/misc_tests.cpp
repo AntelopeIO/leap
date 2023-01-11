@@ -1199,6 +1199,54 @@ BOOST_AUTO_TEST_CASE(bad_alloc_test) {
    BOOST_CHECK( ptr == nullptr );
 }
 
+BOOST_AUTO_TEST_CASE(named_thread_pool_test) {
+   {
+      named_thread_pool thread_pool( "misc", 5, nullptr );
+
+      std::promise<void> p;
+      auto f = p.get_future();
+      boost::asio::post( thread_pool.get_executor(), [&p](){
+         p.set_value();
+      });
+      BOOST_TEST( (f.wait_for( 100ms ) == std::future_status::ready) );
+   }
+   { // delayed start
+      named_thread_pool thread_pool( "misc", 5, nullptr, true );
+
+      std::promise<void> p;
+      auto f = p.get_future();
+      boost::asio::post( thread_pool.get_executor(), [&p](){
+         p.set_value();
+      });
+      BOOST_TEST( (f.wait_for( 10ms ) == std::future_status::timeout) );
+      thread_pool.start();
+      BOOST_TEST( (f.wait_for( 100ms ) == std::future_status::ready) );
+   }
+   { // exception
+      std::promise<fc::exception> ep;
+      auto ef = ep.get_future();
+      named_thread_pool thread_pool( "misc", 5, [&ep](const fc::exception& e) { ep.set_value(e); } );
+
+      boost::asio::post( thread_pool.get_executor(), [](){
+         FC_ASSERT( false, "oops throw in thread pool" );
+      });
+      BOOST_TEST( (ef.wait_for( 100ms ) == std::future_status::ready) );
+      BOOST_TEST( ef.get().to_detail_string().find("oops throw in thread pool") != std::string::npos );
+
+      // we can restart, after a stop
+      BOOST_REQUIRE_THROW( thread_pool.start(), fc::assert_exception );
+      thread_pool.stop();
+
+      std::promise<void> p;
+      auto f = p.get_future();
+      boost::asio::post( thread_pool.get_executor(), [&p](){
+         p.set_value();
+      });
+      thread_pool.start();
+      BOOST_TEST( (f.wait_for( 100ms ) == std::future_status::ready) );
+   }
+}
+
 BOOST_AUTO_TEST_CASE(public_key_from_hash) {
    auto private_key_string = std::string("5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3");
    auto expected_public_key = std::string("EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV");
