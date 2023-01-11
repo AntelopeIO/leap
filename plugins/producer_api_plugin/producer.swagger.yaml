@@ -334,35 +334,37 @@ paths:
                   type: integer
                   description: Block number at which schedule ends
                   example: 15102
+                snapshot_description:
+                    type: string
+                    description: Description of the snapshot
+                    example: Daily snapshot
+
       responses:
         "201":
           description: OK
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  head_block_id:
-                    $ref: "https://docs.eosnetwork.com/openapi/v2.0/Sha256.yaml"
-                  head_block_num:
-                    type: integer
-                    description: Highest block number on the chain
-                    example: 5102
-                  head_block_time:
-                    type: string
-                    description: Highest block unix timestamp
-                    example: 2020-11-16T00:00:00.000
-                  version:
-                    type: integer
-                    description: version number
-                    example: 6
-                  snapshot_id:
-                    type: integer
-                    description: snapshot id
-                  snapshot_name:
-                    type: string
-                    description: The path and file name of the snapshot
-                    example: /home/me/nodes/node-name/snapshots/snapshot-0000999f99999f9f999f99f99ff9999f999f9fff99ff99ffff9f9f9fff9f9999.bin
+                  type: object
+                  properties:
+                    snapshot_request_id:
+                      type: integer
+                      description: Unique id identifying current snapshot request
+                    blocks_count:
+                      type: integer
+                      description: Generate snapshot every blocks_count blocks
+                    start_block_num:
+                      type: integer
+                      description: Block number at which schedule starts
+                      example: 5102
+                    end_block_num:
+                      type: integer
+                      description: Block number at which schedule ends
+                      example: 15102
+                    snapshot_description:
+                        type: string
+                        description: Description of the snapshot
+                        example: Daily snapshot
         "400":
           description: client error
           content:
@@ -370,9 +372,76 @@ paths:
               schema:
                 $ref: "#/component/schema/Error"
 
-  /producer/get_snapshot_status:
+  /producer/get_snapshot_requests:
     post:
-      summary: get_snapshot_status
+      summary: get_snapshot_request_status
+      description: Returns a list of scheduled snapshots
+      operationId: get_snapshot_status
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                offset:
+                  type: integer
+                  description: Snapshot offset
+                limit:
+                  type: integer
+                  description: Number of snapshots to return
+                
+      responses:
+        "201":
+          description: OK
+          content:
+            application/json:
+             schema:
+                type: object
+                properties:
+                  offset:
+                    type: integer
+                    description: Snapshot offset
+                  limit:
+                    type: integer
+                    description: Number of snapshots to return
+                  count:
+                    type: integer
+                    description: Total amount of snapshots
+                  snapshot_requests:
+                    type: array
+                    description: An array of scheduled snapshots
+                    items:
+                      type: object
+                      properties:
+                          snapshot_request_id:
+                            type: integer
+                            description: Unique id identifying current snapshot request
+                          blocks_count:
+                            type: integer
+                            description: Generate snapshot every blocks_count blocks
+                          start_block_num:
+                            type: integer
+                            description: Block number at which schedule starts
+                            example: 5102
+                          end_block_num:
+                            type: integer
+                            description: Block number at which schedule ends
+                            example: 15102
+                          snapshot_description:
+                              type: string
+                              description: Description of the snapshot
+                              example: Daily snapshot                
+        "400":
+          description: client error
+          content:
+            application/json:
+              schema:
+                $ref: "#/component/schema/Error"
+
+  /producer/get_snapshot_request_status:
+    post:
+      summary: get_snapshot_request_status
       description: Queries a status of the existing scheduled snapshot. Returns error when unable to find snapshot requested or query its status.
       operationId: get_snapshot_status
       requestBody:
@@ -393,36 +462,53 @@ paths:
               schema:
                 type: object
                 properties:
-                  head_block_id:
-                    $ref: "https://docs.eosnetwork.com/openapi/v2.0/Sha256.yaml"
-                  head_block_num:
+                  snapshot_request_id:
                     type: integer
-                    description: Highest block number on the chain
-                    example: 5102
-                  head_block_time:
+                    description: Unique id identifying current snapshot request
+                  snapshot_request_time:
                     type: string
-                    description: Highest block unix timestamp
+                    description: Snapshot unix timestamp
                     example: 2020-11-16T00:00:00.000
-                  version:
-                    type: integer
-                    description: version number
-                    example: 6
-                  snapshot_id:
-                    type: integer
-                    description: unique snapshot id
-                  snapshot_name:
-                    type: string
-                    description: The path and file name of the snapshot
-                    example: /home/me/nodes/node-name/snapshots/snapshot-0000999f99999f9f999f99f99ff9999f999f9fff99ff99ffff9f9f9fff9f9999.bin
                   blocks_count:
                     type: integer
                     description: Generate snapshot every blocks_count blocks
                   start_block_num:
                     type: integer
-                    description: Block number at which schedule starts                    
+                    description: Block number at which schedule starts
+                    example: 5102
                   end_block_num:
                     type: integer
-                    description: Block number at which schedule ends                    
+                    description: Block number at which schedule ends
+                    example: 15102
+                  snapshot_description:
+                      type: string
+                      description: Description of the snapshot
+                      example: Daily snapshot
+                  pending_snapshots:                  
+                      type: array
+                      description: List of pending snapshots
+                      items:
+                        type: object
+                        properties:  
+                          head_block_id:
+                            $ref: "https://docs.eosnetwork.com/openapi/v2.0/Sha256.yaml"
+                          head_block_num:
+                            type: integer
+                            description: Highest block number on the chain
+                            example: 5102
+                          head_block_time:
+                            type: string
+                            description: Highest block unix timestamp
+                            example: 2020-11-16T00:00:00.000
+                          version:
+                            type: integer
+                            description: version number
+                            example: 6
+                          snapshot_name:
+                            type: string
+                            description: The path and file name of the snapshot
+                            example: /home/me/nodes/node-name/snapshots/snapshot-0000999f99999f9f999f99f99ff9999f999f9fff99ff99ffff9f9f9fff9f9999.bin
+                                   
         "400":
           description: client error
           content:
@@ -453,36 +539,24 @@ paths:
               schema:
                 type: object
                 properties:
-                  head_block_id:
-                    $ref: "https://docs.eosnetwork.com/openapi/v2.0/Sha256.yaml"
-                  head_block_num:
-                    type: integer
-                    description: Highest block number on the chain
-                    example: 5102
-                  head_block_time:
-                    type: string
-                    description: Highest block unix timestamp
-                    example: 2020-11-16T00:00:00.000
-                  version:
-                    type: integer
-                    description: version number
-                    example: 6
-                  snapshot_id:
-                    type: integer
-                    description: unique snapshot id
-                  snapshot_name:
-                    type: string
-                    description: The path and file name of the snapshot
-                    example: /home/me/nodes/node-name/snapshots/snapshot-0000999f99999f9f999f99f99ff9999f999f9fff99ff99ffff9f9f9fff9f9999.bin
+                  snapshot_request_id:
+                      type: integer
+                      description: Unique id identifying current snapshot request
                   blocks_count:
                     type: integer
                     description: Generate snapshot every blocks_count blocks
                   start_block_num:
                     type: integer
-                    description: Block number at which schedule starts                    
+                    description: Block number at which schedule starts
+                    example: 5102
                   end_block_num:
                     type: integer
-                    description: Block number at which schedule ends                    
+                    description: Block number at which schedule ends
+                    example: 15102
+                  snapshot_description:
+                      type: string
+                      description: Description of the snapshot
+                      example: Daily snapshot                
         "400":
           description: client error
           content:
