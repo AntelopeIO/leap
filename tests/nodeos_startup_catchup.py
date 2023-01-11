@@ -39,6 +39,7 @@ args = TestHelper.parse_args({"--prod-count","--dump-error-details","--keep-logs
 Utils.Debug=args.v
 pnodes=args.p if args.p > 0 else 1
 startedNonProdNodes = args.txn_gen_nodes if args.txn_gen_nodes >= 2 else 2
+trxGeneratorCnt=startedNonProdNodes
 cluster=Cluster(walletd=True)
 dumpErrorDetails=args.dump_error_details
 keepLogs=args.keep_logs
@@ -67,7 +68,8 @@ try:
     specificExtraNodeosArgs={}
     Print("Stand up cluster")
     if cluster.launch(prodCount=prodCount, onlyBios=False, pnodes=pnodes, totalNodes=totalNodes, totalProducers=pnodes*prodCount,
-                      useBiosBootFile=False, specificExtraNodeosArgs=specificExtraNodeosArgs, unstartedNodes=catchupCount, loadSystemContract=True) is False:
+                      useBiosBootFile=False, specificExtraNodeosArgs=specificExtraNodeosArgs, unstartedNodes=catchupCount, loadSystemContract=True,
+                      maximumP2pPerHost=totalNodes+trxGeneratorCnt) is False:
         Utils.errorExit("Failed to stand up eos cluster.")
 
     Print("Create test wallet")
@@ -117,8 +119,8 @@ try:
     lib_id = info['last_irreversible_block_id']
 
     targetTpsPerGenerator = 100
-    targetTps = targetTpsPerGenerator*startedNonProdNodes
-    tpsLimitPerGenerator=2000
+    targetTps = targetTpsPerGenerator*trxGeneratorCnt
+    tpsLimitPerGenerator=targetTpsPerGenerator
     testTrxGenDurationSec=60*60
 
     tpsTrxGensConfig = TpsTrxGensConfig(targetTps=targetTps, tpsLimitPerGenerator=tpsLimitPerGenerator)
