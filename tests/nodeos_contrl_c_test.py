@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 
 import signal
+import time
 
 from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr
 from core_symbol import CORE_SYMBOL
+from performance_tests import TransactionGeneratorsLauncher, TpsTrxGensConfig
 
 ###############################################################
 # nodeos_contrl_c_lr_test
@@ -33,6 +35,7 @@ producerEndpoint = '127.0.0.1:8888'
 httpServerAddress = '127.0.0.1:8889'
 
 testSuccessful=False
+trxGenLauncher=None
 
 try:
     TestHelper.printSystemInfo("BEGIN")
@@ -62,6 +65,7 @@ try:
 
     prodNode = cluster.getNode(0)
     nonProdNode = cluster.getNode(1)
+    nonProducerP2pPort = cluster.getNodeP2pPort(1)
 
     accounts=cluster.createAccountKeys(2)
     if accounts is None:
@@ -69,6 +73,9 @@ try:
 
     accounts[0].name="tester111111"
     accounts[1].name="tester222222"
+
+    account1PrivKey = accounts[0].activePrivateKey
+    account2PrivKey = accounts[1].activePrivateKey
 
     testWalletName="test"
 
@@ -92,10 +99,29 @@ try:
     #Reset test success flag for next check
     testSuccessful=False
 
-    for amt in range(1, 500, 1):
-        xferAmount = Node.currencyIntToStr(amt, CORE_SYMBOL)
-        nonProdNode.transferFundsAsync(accounts[0], accounts[1], xferAmount, "test transfer", exitOnError=False)
+    Print("Configure txn generators")
+    info = nonProdNode.getInfo()
+    chainId = info['chain_id']
+    lib_id = info['last_irreversible_block_id']
 
+    targetTpsPerGenerator = 500
+    targetTps = targetTpsPerGenerator
+    tpsLimitPerGenerator=targetTpsPerGenerator
+    testTrxGenDurationSec=60
+
+    tpsTrxGensConfig = TpsTrxGensConfig(targetTps=targetTps, tpsLimitPerGenerator=tpsLimitPerGenerator)
+    trxGenLauncher = TransactionGeneratorsLauncher(chainId=chainId, lastIrreversibleBlockId=lib_id,
+                                                   handlerAcct=cluster.eosioAccount.name, accts=f"{accounts[0].name},{accounts[1].name}",
+                                                   privateKeys=f"{account1PrivKey},{account2PrivKey}", trxGenDurationSec=testTrxGenDurationSec,
+                                                   logDir=Utils.DataDir, peerEndpoint=nonProdNode.host, port=nonProducerP2pPort, tpsTrxGensConfig=tpsTrxGensConfig)
+
+    Print("Launch txn generators and start generating/sending transactions")
+    trxGenLauncher.launch(waitToComplete=False)
+
+    Print("Give txn generator time to spin up and begin producing trxs")
+    time.sleep(10)
+
+    Print("Kill non-producer bridge node")
     testSuccessful = nonProdNode.kill(signal.SIGTERM)
 
     if not testSuccessful:
@@ -103,6 +129,8 @@ try:
         errorExit("Failed to kill the seed node")
 
 finally:
+    if trxGenLauncher is not None:
+        trxGenLauncher.killAll()
     TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, killEosInstances=True, killWallet=True, keepLogs=True, cleanRun=True, dumpErrorDetails=True)
 
 errorCode = 0 if testSuccessful else 1
