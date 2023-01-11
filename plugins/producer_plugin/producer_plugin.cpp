@@ -929,7 +929,10 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
    auto thread_pool_size = options.at( "producer-threads" ).as<uint16_t>();
    EOS_ASSERT( thread_pool_size > 0, plugin_config_exception,
                "producer-threads ${num} must be greater than 0", ("num", thread_pool_size));
-   my->_thread_pool.emplace( "prod", thread_pool_size );
+   my->_thread_pool.emplace( "prod", thread_pool_size, []( const fc::exception& e ) {
+         fc_elog( _log, "Exception in producer thread pool, exiting: ${e}", ("e", e.to_detail_string()) );
+         app().quit();
+      } );
 
    if( options.count( "snapshots-dir" )) {
       auto sd = options.at( "snapshots-dir" ).as<bfs::path>();

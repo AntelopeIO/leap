@@ -374,7 +374,10 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
       {
          try {
             my->plugin_state->thread_pool =
-                  std::make_unique<eosio::chain::named_thread_pool>( "http", my->plugin_state->thread_pool_size );
+                  std::make_unique<eosio::chain::named_thread_pool>( "http", my->plugin_state->thread_pool_size, [](const fc::exception& e) {
+                     fc_elog( logger(), "Exception in http thread pool, exiting: ${e}", ("e", e.to_detail_string()) );
+                     app().quit();
+                  } );
             if(my->listen_endpoint) {
                try {
                   my->create_beast_server(false);

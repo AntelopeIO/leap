@@ -910,7 +910,7 @@ BOOST_AUTO_TEST_CASE(transaction_metadata_test) { try {
       BOOST_CHECK_EQUAL(trx.id(), ptrx->id());
       BOOST_CHECK_EQUAL(trx.id(), ptrx2->id());
 
-      named_thread_pool thread_pool( "misc", 5 );
+      named_thread_pool thread_pool( "misc", 5, nullptr );
 
       auto fut = transaction_metadata::start_recover_keys( ptrx, thread_pool.get_executor(), test.control->get_chain_id(), fc::microseconds::maximum(), transaction_metadata::trx_type::input );
       auto fut2 = transaction_metadata::start_recover_keys( ptrx2, thread_pool.get_executor(), test.control->get_chain_id(), fc::microseconds::maximum(), transaction_metadata::trx_type::input );
@@ -1197,6 +1197,54 @@ BOOST_AUTO_TEST_CASE(bad_alloc_test) {
    };
    BOOST_CHECK_THROW( fail(), std::bad_alloc );
    BOOST_CHECK( ptr == nullptr );
+}
+
+BOOST_AUTO_TEST_CASE(named_thread_pool_test) {
+   {
+      named_thread_pool thread_pool( "misc", 5, nullptr );
+
+      std::promise<void> p;
+      auto f = p.get_future();
+      boost::asio::post( thread_pool.get_executor(), [&p](){
+         p.set_value();
+      });
+      BOOST_TEST( (f.wait_for( 100ms ) == std::future_status::ready) );
+   }
+   { // delayed start
+      named_thread_pool thread_pool( "misc", 5, nullptr, true );
+
+      std::promise<void> p;
+      auto f = p.get_future();
+      boost::asio::post( thread_pool.get_executor(), [&p](){
+         p.set_value();
+      });
+      BOOST_TEST( (f.wait_for( 10ms ) == std::future_status::timeout) );
+      thread_pool.start();
+      BOOST_TEST( (f.wait_for( 100ms ) == std::future_status::ready) );
+   }
+   { // exception
+      std::promise<fc::exception> ep;
+      auto ef = ep.get_future();
+      named_thread_pool thread_pool( "misc", 5, [&ep](const fc::exception& e) { ep.set_value(e); } );
+
+      boost::asio::post( thread_pool.get_executor(), [](){
+         FC_ASSERT( false, "oops throw in thread pool" );
+      });
+      BOOST_TEST( (ef.wait_for( 100ms ) == std::future_status::ready) );
+      BOOST_TEST( ef.get().to_detail_string().find("oops throw in thread pool") != std::string::npos );
+
+      // we can restart, after a stop
+      BOOST_REQUIRE_THROW( thread_pool.start(), fc::assert_exception );
+      thread_pool.stop();
+
+      std::promise<void> p;
+      auto f = p.get_future();
+      boost::asio::post( thread_pool.get_executor(), [&p](){
+         p.set_value();
+      });
+      thread_pool.start();
+      BOOST_TEST( (f.wait_for( 100ms ) == std::future_status::ready) );
+   }
 }
 
 BOOST_AUTO_TEST_CASE(public_key_from_hash) {
