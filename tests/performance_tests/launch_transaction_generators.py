@@ -45,8 +45,8 @@ class TransactionGeneratorsLauncher:
         self.tpsTrxGensConfig = tpsTrxGensConfig
         self.logDir = logDir
 
-    def launch(self):
-        subprocess_ret_codes = []
+    def launch(self, waitToComplete=True):
+        self.subprocess_ret_codes = []
         for targetTps in self.tpsTrxGensConfig.targetTpsPerGenList:
             if Utils.Debug:
                 Print(
@@ -60,7 +60,7 @@ class TransactionGeneratorsLauncher:
                     f'--target-tps {targetTps} '
                     f'--log-dir {self.logDir}'
                 )
-            subprocess_ret_codes.append(
+            self.subprocess_ret_codes.append(
                 subprocess.Popen([
                     './tests/trx_generator/trx_generator',
                     '--chain-id', f'{self.chainId}',
@@ -73,8 +73,16 @@ class TransactionGeneratorsLauncher:
                     '--log-dir', f'{self.logDir}'
                 ])
             )
-        exitCodes = [ret_code.wait() for ret_code in subprocess_ret_codes]
+        exitCodes=None
+        if waitToComplete:
+            exitCodes = [ret_code.wait() for ret_code in self.subprocess_ret_codes]
         return exitCodes
+
+    def killAll(self):
+        for ret_code in self.subprocess_ret_codes:
+            ret_code.kill()
+        for ret_code in self.subprocess_ret_codes:
+            ret_code.wait()
 
 def parseArgs():
     parser = argparse.ArgumentParser(add_help=False)

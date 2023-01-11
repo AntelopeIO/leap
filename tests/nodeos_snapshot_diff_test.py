@@ -12,12 +12,13 @@ from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr
 from TestHarness.Node import BlockType
 from TestHarness.TestHelper import AppArgs
 from TestHarness.testUtils import BlockLogAction
+from performance_tests import TransactionGeneratorsLauncher, TpsTrxGensConfig
 
 ###############################################################
 # nodeos_snapshot_diff_test
 #
-#  Test configures a producing node and 2 non-producing nodes with the
-#  txn_test_gen_plugin.  Each non-producing node starts generating transactions and sending them
+#  Test configures a producing node and 2 non-producing nodes.
+#  Configures 2 trx_generators and starts generating transactions and sending them
 #  to the producing node.
 #  - Create a snapshot from producing node
 #  - Convert snapshot to JSON
@@ -38,6 +39,7 @@ args = TestHelper.parse_args({"--dump-error-details","--keep-logs","-v","--leave
 relaunchTimeout = 30
 Utils.Debug=args.v
 pnodes=1
+testAccounts = 2
 startedNonProdNodes = 2
 cluster=Cluster(walletd=True)
 dumpErrorDetails=args.dump_error_details
@@ -75,24 +77,26 @@ try:
     cluster.killall(allInstances=killAll)
     cluster.cleanup()
     specificExtraNodeosArgs={}
-    txnGenNodeNum=0 #pnodes  # next node after producer nodes
-    for nodeNum in range(txnGenNodeNum, txnGenNodeNum+startedNonProdNodes):
-        specificExtraNodeosArgs[nodeNum]="--plugin eosio::txn_test_gen_plugin --txn-test-gen-account-prefix txntestacct"
     Print("Stand up cluster")
     if cluster.launch(prodCount=prodCount, onlyBios=False, pnodes=pnodes, totalNodes=totalNodes, totalProducers=pnodes*prodCount,
-                      useBiosBootFile=False, specificExtraNodeosArgs=specificExtraNodeosArgs, loadSystemContract=False) is False:
+                      useBiosBootFile=False, specificExtraNodeosArgs=specificExtraNodeosArgs, loadSystemContract=True) is False:
         Utils.errorExit("Failed to stand up eos cluster.")
 
+    Print("Create test wallet")
+    wallet = walletMgr.create('txntestwallet')
+    cluster.populateWallet(2, wallet)
+
+    Print("Create test accounts for transactions.")
+    cluster.createAccounts(cluster.eosioAccount, stakedDeposit=0, validationNodeIndex=0)
+
+    account1Name = cluster.accounts[0].name
+    account2Name = cluster.accounts[1].name
+
+    account1PrivKey = cluster.accounts[0].activePrivateKey
+    account2PrivKey = cluster.accounts[1].activePrivateKey
+
     Print("Validating system accounts after bootstrap")
-    cluster.validateAccounts(None)
-
-    Print("Create txn generate nodes")
-    txnGenNodes=[]
-    for nodeNum in range(txnGenNodeNum, txnGenNodeNum+startedNonProdNodes):
-        txnGenNodes.append(cluster.getNode(nodeNum))
-
-    Print("Create accounts for generated txns")
-    txnGenNodes[0].txnGenCreateTestAccounts(cluster.eosioAccount.name, cluster.eosioAccount.activePrivateKey)
+    cluster.validateAccounts([cluster.accounts[0], cluster.accounts[1]])
 
     def waitForBlock(node, blockNum, blockType=BlockType.head, timeout=None, reportInterval=20):
         if not node.waitForBlock(blockNum, timeout=timeout, blockType=blockType, reportInterval=reportInterval):
@@ -113,17 +117,28 @@ try:
     blockNum=node0.getBlockNum(BlockType.head)
     waitForBlock(node0, blockNum, blockType=BlockType.lib)
 
-    Print("Startup txn generation")
-    period=30
-    transPerPeriod=20
-    for genNum in range(0, len(txnGenNodes)):
-        salt="%d" % genNum
-        txnGenNodes[genNum].txnGenStart(salt, period, transPerPeriod)
+    Print("Configure txn generators")
+    info = node0.getInfo()
+    chainId = info['chain_id']
+    lib_id = info['last_irreversible_block_id']
+
+    targetTpsPerGenerator = 667
+    targetTps = targetTpsPerGenerator*startedNonProdNodes
+    tpsLimitPerGenerator=2000
+    testTrxGenDurationSec=60*30
+
+    tpsTrxGensConfig = TpsTrxGensConfig(targetTps=targetTps, tpsLimitPerGenerator=tpsLimitPerGenerator)
+    trxGenLauncher = TransactionGeneratorsLauncher(chainId=chainId, lastIrreversibleBlockId=lib_id,
+                                                   handlerAcct=cluster.eosioAccount.name, accts=f"{account1Name},{account2Name}",
+                                                   privateKeys=f"{account1PrivKey},{account2PrivKey}", trxGenDurationSec=testTrxGenDurationSec,
+                                                   logDir=Utils.DataDir, tpsTrxGensConfig=tpsTrxGensConfig)
+
+    Print("Launch txn generators and start generating/sending transactions")
+    trxGenLauncher.launch(waitToComplete=False)
 
     blockNum=node0.getBlockNum(BlockType.head)
     timePerBlock=500
-    blocksPerPeriod=period/timePerBlock
-    transactionsPerBlock=transPerPeriod/blocksPerPeriod
+    transactionsPerBlock=targetTps*timePerBlock/1000
     steadyStateWait=30
     startBlockNum=blockNum+steadyStateWait
     numBlocks=30
@@ -192,6 +207,7 @@ try:
     testSuccessful=True
 
 finally:
+    trxGenLauncher.killAll()
     TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, killEosInstances=killEosInstances, killWallet=killWallet, keepLogs=keepLogs, cleanRun=killAll, dumpErrorDetails=dumpErrorDetails)
 
 exitCode = 0 if testSuccessful else 1
