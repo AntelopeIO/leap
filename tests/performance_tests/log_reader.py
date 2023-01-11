@@ -20,6 +20,8 @@ Print = Utils.Print
 errorExit = Utils.errorExit
 cmdError = Utils.cmdError
 
+COMPLETEPRODUCTIONWINDOWSIZE = 12
+
 @dataclass
 class ArtifactPaths:
     nodeosLogPath: Path = Path("")
@@ -279,7 +281,7 @@ def calcProductionWindows(prodDict: dict):
     totalBlocksForAverage = 0
     for k, v in prodDict.items():
         if k != "0" and k != str(prodWindows.totalWindows+1):
-            if v.blockCount < 12:
+            if v.blockCount < COMPLETEPRODUCTIONWINDOWSIZE:
                 prodWindows.missedWindows += 1
             totalBlocksForAverage += v.blockCount
     if prodWindows.totalWindows <= 0:
