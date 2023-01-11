@@ -247,7 +247,7 @@ class Cluster(object):
             time.sleep(2)
 
         cmd="%s -p %s -n %s -d %s -i %s -f %s --unstarted-nodes %s" % (
-            "python tests/launcher.py",  
+            "python3 tests/launcher.py",  
             pnodes, totalNodes, delay, 
             datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3],
             producerFlag, unstartedNodes)
