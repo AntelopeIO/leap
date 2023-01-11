@@ -317,7 +317,7 @@ struct txn_test_gen_plugin_impl {
       batch = batch_size/2;
       nonce_prefix = 0;
 
-      thread_pool.emplace( "txntest", thread_pool_size );
+      thread_pool.emplace( "txntest", thread_pool_size, nullptr ); // txn_test_gen_plugin is being removed
       timer = std::make_shared<boost::asio::high_resolution_timer>(thread_pool->get_executor());
 
       ilog("Started transaction test plugin; generating ${p} transactions every ${m} ms by ${t} load generation threads",

@@ -2341,14 +2341,6 @@ namespace eosio {
 
    // called from connection strand
    void connection::connect( const std::shared_ptr<tcp::resolver>& resolver, tcp::resolver::results_type endpoints ) {
-      switch ( no_retry ) {
-         case no_reason:
-         case wrong_version:
-         case benign_other:
-            break;
-         default:
-            return;
-      }
       connecting = true;
       pending_message_buffer.reset();
       buffer_queue.clear_out_queue();
@@ -3681,7 +3673,10 @@ namespace eosio {
 
       my->producer_plug = app().find_plugin<producer_plugin>();
 
-      my->thread_pool.emplace( "net", my->thread_pool_size );
+      my->thread_pool.emplace( "net", my->thread_pool_size, []( const fc::exception& e ) {
+            fc_elog( logger, "Exception in net plugin thread pool, exiting: ${e}", ("e", e.to_detail_string()) );
+            app().quit();
+         } );
 
       my->dispatcher.reset( new dispatch_manager( my_impl->thread_pool->get_executor() ) );
 

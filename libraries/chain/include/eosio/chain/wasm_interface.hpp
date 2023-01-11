@@ -63,6 +63,9 @@ namespace eosio { namespace chain {
          //Immediately exits currently running wasm. UB is called when no wasm running
          void exit();
 
+         //Returns true if the code is cached
+         bool is_code_cached(const digest_type& code_hash, const uint8_t& vm_type, const uint8_t& vm_version) const;
+
          // If substitute_apply is set, then apply calls it before doing anything else. If substitute_apply returns true,
          // then apply returns immediately.
          std::function<bool(

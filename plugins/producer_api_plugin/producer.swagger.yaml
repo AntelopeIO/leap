@@ -7,11 +7,12 @@ info:
     name: MIT
     url: https://opensource.org/licenses/MIT
   contact:
-    url: https://eosnetwork.com
+    url: https://antelope.io
 tags:
-  - name: eosio
+  - name: Protocol Version 4.0
+    description: The release tag for Leap binaries is also the protocol version
 servers:
-  - url: "{protocol}://{host}:{port}/v1/"
+  - url: "{protocol}://{host}:{port}/v1"
     variables:
       protocol:
         enum:
@@ -22,16 +23,13 @@ servers:
         default: localhost
       port:
         default: "8080"
-components:
-  securitySchemes: {}
-  schemas: {}
 security:
   - {}
 paths:
   /producer/pause:
     post:
       summary: pause
-      description: Pause producer node. Takes no arguments returns no values.
+      description: Pause producer node. Takes no arguments and returns no values.
       operationId: pause
       responses:
         "201":
@@ -39,11 +37,18 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/component/schema/OK'
+                $ref: '#/components/schemas/OK'
+        "400":
+          description: client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /producer/resume:
     post:
       summary: resume
-      description: Resume producer node. Takes no arguments returns no values.
+      description: Resume producer node. Takes no arguments and returns no values.
       operationId: resume
       responses:
         "201":
@@ -51,23 +56,39 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/component/schema/OK'
+                $ref: '#/components/schemas/OK'
+        "400":
+          description: client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /producer/paused:
     post:
       summary: paused
-      description: Retreives paused status for producer node. Takes no arguments returns no values.
+      description: Retrieves paused status for producer node. Takes no arguments and returns no values.
       operationId: paused
       responses:
         "201":
           description: OK
           content:
+            text/plain:
+              schema:
+                description: true or false
+                type: string
+                example: false
+        "400":
+          description: client error
+          content:
             application/json:
               schema:
-                $ref: '#/component/schema/OK'
+                $ref: '#/components/schemas/Error'
+
   /producer/get_runtime_options:
     post:
       summary: get_runtime_options
-      description: Retreives run time options for producer node. Only `incoming_defer_ratio` is a floating point number the other return values are signed integers.
+      description: Retrieves runtime options for producer node.
       operationId: get_runtime_options
       responses:
         "201":
@@ -75,30 +96,42 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/component/schema/Runtime_Options'
+                $ref: '#/components/schemas/Runtime_Options'
+        "400":
+          description: client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /producer/update_runtime_options:
     post:
       summary: update_runtime_options
-      description: Update run time options for producer node. May post any of the runtime options in combination or along. Only `incoming_defer_ratio` is a floating point number the other values are signed integers.
+      description: Update runtime options for producer node. May post any of the runtime options in combination or alone.
       operationId: update_runtime_options
       requestBody:
         content:
           application/json:
             schema:
-              $ref: '#/component/schema/Runtime_Options'
-
+              $ref: '#/components/schemas/Runtime_Options'
       responses:
         "201":
           description: OK
           content:
             application/json:
               schema:
-                $ref: '#/component/schema/OK'
+                $ref: '#/components/schemas/OK'
+        "400":
+          description: client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /producer/get_greylist:
     post:
       summary: get_greylist
-      description: Retreives the greylist for producer node.
+      description: Retrieves the greylist for producer node.
       operationId: get_greylist
       responses:
         "201":
@@ -113,11 +146,17 @@ paths:
                     description: Array of account names stored in the greylist
                     items:
                       $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
+        "400":
+          description: client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /producer/add_greylist_accounts:
     post:
       summary: add_greylist_accounts
-      description: Adds accounts to grey list for producer node. At least one account is required.
+      description: Adds accounts to greylist for producer node. At least one account is required.
       operationId: add_greylist_accounts
       requestBody:
         content:
@@ -130,20 +169,20 @@ paths:
                     description: List of account names to add
                     items:
                       $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
-
       responses:
         "201":
           description: OK
           content:
             application/json:
               schema:
-                $ref: '#/component/schema/OK'
+                $ref: '#/components/schemas/OK'
         "400":
           description: client error
           content:
             application/json:
               schema:
-                $ref: '#/component/schema/Error'
+                $ref: '#/components/schemas/Error'
+
   /producer/remove_greylist_accounts:
     post:
       summary: remove_greylist_accounts
@@ -160,26 +199,25 @@ paths:
                   description: List of account names to remove
                   items:
                     $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
-
       responses:
         "201":
           description: OK
           content:
             application/json:
               schema:
-                $ref: '#/component/schema/OK'
+                $ref: '#/components/schemas/OK'
         "400":
           description: client error
           content:
             application/json:
               schema:
-                $ref: '#/component/schema/Error'
+                $ref: '#/components/schemas/Error'
+
   /producer/get_whitelist_blacklist:
     post:
       summary: get_whitelist_blacklist
-      description: Retreives the white list and black list for producer node. A json object containing whitelist and blacklist information. `actor_whitelist` , `actor_blacklist`, `contract_whitelist`, `contract_blacklist` are represented by an array of Names. `action_blacklist` is an array of tuples consisting of Name and Action. `key_blacklist` is an array of Public Keys. Name is a string represeting a NamePrivileged or NameBasic or NameBid or NameCatchAll
+      description: Retrieves the whitelist and blacklist for producer node. A JSON object containing whitelist and blacklist information.
       operationId: get_whitelist_blacklist
-
       responses:
         "201":
           description: OK
@@ -216,14 +254,19 @@ paths:
                   key_blacklist:
                     type: array
                     items:
-                      $ref: "https://docs.eosnetwork.com/openapi/v2.0/KeyType.yaml"
+                      - $ref: "https://docs.eosnetwork.com/openapi/v2.0/KeyType.yaml"
+        "400":
+          description: client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /producer/set_whitelist_blacklist:
     post:
       summary: set_whitelist_blacklist
-      description: Defines the whitelist and blacklist for a producer node. Takes a json object containing whitelist and blacklist information. At least one of actor_whitelist, actor_blacklist, contract_whitelist, contract_blacklist, action_blacklist, and key_blacklist is required. `actor_whitelist` , `actor_blacklist`, `contract_whitelist`, `contract_blacklist` take an array of Names. `action_blacklist` is an array of tuples consisting of Name and Action. `key_blacklist` is an array of Public Keys. Name is a string represeting a NamePrivileged or NameBasic or NameBid or NameCatchAll
+      description: Defines the whitelist and blacklist for a producer node. Takes a JSON object containing whitelist and blacklist information.
       operationId: set_whitelist_blacklist
-      required: true
       requestBody:
         content:
           application/json:
@@ -265,19 +308,18 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/component/schema/OK'
-
+                $ref: '#/components/schemas/OK'
         "400":
           description: client error
           content:
             application/json:
               schema:
-                $ref: '#/component/schema/Error'
+                $ref: '#/components/schemas/Error'
 
   /producer/create_snapshot:
     post:
       summary: create_snapshot
-      description: Creates a snapshot for producer node. Returns error when unable to create snapshot.
+      description: Creates a snapshot for producer node. Returns error when unable to create a snapshot.
       operationId: create_snapshot
       responses:
         "201":
@@ -291,7 +333,7 @@ paths:
                     $ref: "https://docs.eosnetwork.com/openapi/v2.0/Sha256.yaml"
                   head_block_num:
                     type: integer
-                    descripiton: Highest block number on the chain
+                    description: Highest block number on the chain
                     example: 5102
                   head_block_time:
                     type: string
@@ -310,14 +352,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/component/schema/Error'
+                $ref: '#/components/schemas/Error'
 
   /producer/get_integrity_hash:
     post:
       summary: get_integrity_hash
-      description: Retreives the integrity hash for producer node
+      description: Retrieves the integrity hash for producer node
       operationId: get_integrity_hash
-
       responses:
         "201":
           description: OK
@@ -331,6 +372,12 @@ paths:
                     $ref: "https://docs.eosnetwork.com/openapi/v2.0/Sha256.yaml"
                   integrity_hash:
                     $ref: "https://docs.eosnetwork.com/openapi/v2.0/Sha256.yaml"
+        "400":
+          description: client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /producer/schedule_protocol_feature_activations:
     post:
@@ -354,18 +401,18 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/component/schema/OK'
+                $ref: '#/components/schemas/OK'
         "400":
           description: client error
           content:
             application/json:
               schema:
-                $ref: '#/component/schema/Error'
+                $ref: '#/components/schemas/Error'
 
   /producer/get_supported_protocol_features:
     post:
       summary: get_supported_protocol_features
-      description: Retreives supported protocol features for producer node. Pass filters in as part of the request body.
+      description: Retrieves supported protocol features for producer node. Pass filters in as part of the request body.
       operationId: get_supported_protocol_features
       requestBody:
         content:
@@ -376,9 +423,12 @@ paths:
                 exclude_disabled:
                   type: boolean
                   description: Exclude disabled protocol features
+                  example: false
+                  default: false
                 exclude_unactivatable:
                   type: boolean
                   description: Exclude unactivatable protocol features
+                  default: false
                   example: false
       responses:
         "201":
@@ -407,7 +457,7 @@ paths:
                           example: "1970-01-01T00:00:00.000"
                         description_digest:
                           $ref: "https://docs.eosnetwork.com/openapi/v2.0/Sha256.yaml"
-                        dependancies:
+                        dependencies:
                           type: array
                           items:
                             $ref: "https://docs.eosnetwork.com/openapi/v2.0/Sha256.yaml"
@@ -423,12 +473,18 @@ paths:
                                 type: string
                               value:
                                 type: string
+        "400":
+          description: client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
 
   /producer/get_account_ram_corrections:
     post:
       summary: get_account_ram_corrections
-      description: Retreives accounts with ram corrections.
+      description: Retrieves accounts with ram corrections.
       operationId: get_account_ram_corrections
       requestBody:
         content:
@@ -437,19 +493,21 @@ paths:
               type: object
               properties:
                 lower_bound:
-                  type: int
+                  type: integer
                   description: lowest account key
                 upper_bound:
-                  type: int
+                  type: integer
                   description: highest account key
                 limit:
-                  type: int
-                  description: number of rows to scans
+                  type: integer
+                  description: number of rows to scan
+                  default: 10
                   example: 10
                 reverse:
                   type: boolean
                   description: direction of search
                   example: false
+                  default: false
       responses:
         "201":
           description: OK
@@ -457,16 +515,28 @@ paths:
             application/json:
               schema:
                 type: object
+                required:
+                  - rows
                 properties:
                   rows:
                     type: array
                     items:
                       type: string
+                  more:
+                    type: array
+                    items:
+                      - $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
+        "400":
+          description: client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
-  /producer/producer/get_unapplied_transactions:
+  /producer/get_unapplied_transactions:
     post:
       summary: get_unapplied_transactions
-      description: Get Unapplied Transactions. No required parameters.
+      description: Get Unapplied Transactions.
       operationId: get_unapplied_transactions
       requestBody:
         content:
@@ -475,14 +545,15 @@ paths:
               type: object
               properties:
                 limit:
-                  type: int
-                  description: number of transactions to return, defaults to 4,294,967,295
-                  example: 2
+                  type: integer
+                  description: limit number of transactions to return
+                  default: 100
+                  example: 100
                 lower_bound:
                   $ref: "https://docs.eosnetwork.com/openapi/v2.0/Sha256.yaml"
                 time_limit_ms:
-                  type: int
-                  description: defaults to 10ms
+                  type: integer
+                  default: 10
                   example: 10
       responses:
         "200":
@@ -494,9 +565,11 @@ paths:
                 properties:
                   size:
                     type: integer
+                    default: 0
                     example: 12428
                   incoming_size:
                     type: integer
+                    default: 0
                     example: 4475
                   trxs:
                     type: array
@@ -522,12 +595,15 @@ paths:
                           example: "mine"
                         total_actions:
                           type: integer
+                          default: 0
                           example: 1
                         billed_cpu_time_us:
                           type: integer
+                          default: 0
                           example: 504
                         size:
                           type: integer
+                          default: 0
                           example: 934
                   more:
                     $ref: "https://docs.eosnetwork.com/openapi/v2.0/Sha256.yaml"
@@ -536,10 +612,11 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/component/schema/Error'
+                $ref: '#/components/schemas/Error'
 
-component:
-  schema:
+components:
+  securitySchemes: {}
+  schemas:
     Error:
       type: object
       properties:
@@ -587,7 +664,7 @@ component:
                     example: 246
                   method:
                     type: string
-                    description: function executed when error occured
+                    description: function executed when error occurred
                     example: parse_params
     OK:
       type: object
@@ -619,9 +696,13 @@ component:
           type: integer
           description: Max scheduled transaction time per block in ms
           example: 100
+        subjective_cpu_leeway_us:
+          type: integer
+          description: in micro seconds
+          example: 10
         incoming_defer_ratio:
           type: string
-          description: Incoming defer ration, parsed to double
+          description: Incoming defer ratio, parsed to double
           example: "1.00000000000000000"
         greylist_limit:
           type: integer

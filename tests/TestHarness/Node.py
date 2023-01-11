@@ -61,12 +61,14 @@ class Node(object):
             self.fetchBlock = lambda blockNum: self.processUrllibRequest("chain", "get_block", {"block_num_or_id":blockNum}, silentErrors=False, exitOnError=True)
             self.fetchKeyCommand = lambda: "[trx][trx][ref_block_num]"
             self.fetchRefBlock = lambda trans: trans["trx"]["trx"]["ref_block_num"]
+            self.cleosLimit = ""
         else:
             self.fetchTransactionCommand = lambda: "get transaction_trace"
             self.fetchTransactionFromTrace = lambda trx: trx['id']
             self.fetchBlock = lambda blockNum: self.processUrllibRequest("trace_api", "get_block", {"block_num":blockNum}, silentErrors=False, exitOnError=True)
             self.fetchKeyCommand = lambda: "[transaction][transaction_header][ref_block_num]"
             self.fetchRefBlock = lambda trans: trans["transaction_header"]["ref_block_num"]
+            self.cleosLimit = "--time-limit 99999"
 
     def eosClientArgs(self):
         walletArgs=" " + self.walletMgr.getWalletEndpointArgs() if self.walletMgr is not None else ""
@@ -438,7 +440,7 @@ class Node(object):
 
     def getTable(self, contract, scope, table, exitOnError=False):
         cmdDesc = "get table"
-        cmd="%s --time-limit 99999 %s %s %s" % (cmdDesc, contract, scope, table)
+        cmd="%s %s %s %s %s" % (cmdDesc, self.cleosLimit, contract, scope, table)
         msg="contract=%s, scope=%s, table=%s" % (contract, scope, table);
         return self.processCleosCmd(cmd, cmdDesc, exitOnError=exitOnError, exitMsg=msg)
 
@@ -834,8 +836,9 @@ class Node(object):
         except subprocess.CalledProcessError as ex:
             if not shouldFail:
                 end=time.perf_counter()
+                out=ex.output.decode("utf-8")
                 msg=ex.stderr.decode("utf-8")
-                Utils.Print("ERROR: Exception during set contract.  cmd Duration: %.3f sec.  %s" % (end-start, msg))
+                Utils.Print("ERROR: Exception during set contract. stderr: %s.  stdout: %s.  cmd Duration: %.3f sec." % (msg, out, end-start))
                 return None
             else:
                 retMap={}
@@ -918,13 +921,15 @@ class Node(object):
             return (False, msg)
 
     # returns tuple with transaction execution status and transaction
-    def pushMessage(self, account, action, data, opts, silentErrors=False, signatures=None, expectTrxTrace=True):
+    def pushMessage(self, account, action, data, opts, silentErrors=False, signatures=None, expectTrxTrace=True, force=False):
         cmd="%s %s push action -j %s %s" % (Utils.EosClientPath, self.eosClientArgs(), account, action)
         cmdArr=cmd.split()
         # not using __sign_str, since cmdArr messes up the string
         if signatures is not None:
             cmdArr.append("--sign-with")
             cmdArr.append("[ \"%s\" ]" % ("\", \"".join(signatures)))
+        if force:
+            cmdArr.append("-f")
         if data is not None:
             cmdArr.append(data)
         if opts is not None:
@@ -940,9 +945,10 @@ class Node(object):
             return (Node.getTransStatus(trans) == 'executed' if expectTrxTrace else True, trans)
         except subprocess.CalledProcessError as ex:
             msg=ex.stderr.decode("utf-8")
+            output=ex.output.decode("utf-8")
             if not silentErrors:
                 end=time.perf_counter()
-                Utils.Print("ERROR: Exception during push message.  cmd Duration=%.3f sec.  %s" % (end - start, msg))
+                Utils.Print("ERROR: Exception during push message. stderr: %s. stdout: %s.  cmd Duration=%.3f sec." % (msg, output, end - start))
             return (False, msg)
 
     @staticmethod
@@ -1040,8 +1046,9 @@ class Node(object):
         except subprocess.CalledProcessError as ex:
             if not silentErrors:
                 end=time.perf_counter()
+                out=ex.output.decode("utf-8")
                 msg=ex.stderr.decode("utf-8")
-                errorMsg="Exception during \"%s\". Exception message: %s.  cmd Duration=%.3f sec. %s" % (cmdDesc, msg, end-start, exitMsg)
+                errorMsg="Exception during \"%s\". Exception message: %s.  stdout: %s.  cmd Duration=%.3f sec. %s" % (cmdDesc, msg, out, end-start, exitMsg)
                 if exitOnError:
                     Utils.cmdError(errorMsg)
                     Utils.errorExit(errorMsg)

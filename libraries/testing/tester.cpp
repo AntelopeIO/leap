@@ -950,6 +950,13 @@ namespace eosio { namespace testing {
       push_transaction( trx );
    }
 
+   bool base_tester::is_code_cached( eosio::chain::account_name name ) const {
+      const auto& db  = control->db();
+      const account_metadata_object* receiver_account = &db.template get<account_metadata_object,by_name>( name );
+      if ( receiver_account->code_hash == digest_type() ) return false;
+      return control->get_wasm_interface().is_code_cached( receiver_account->code_hash, receiver_account->vm_type, receiver_account->vm_version );
+   }
+
 
    bool base_tester::chain_has_transaction( const transaction_id_type& txid ) const {
       return chain_transactions.count(txid) != 0;
@@ -1225,6 +1232,15 @@ namespace eosio { namespace testing {
    bool fc_exception_message_starts_with::operator()( const fc::exception& ex ) {
       auto message = ex.get_log().at( 0 ).get_message();
       bool match = boost::algorithm::starts_with( message, expected );
+      if( !match ) {
+         BOOST_TEST_MESSAGE( "LOG: expected: " << expected << ", actual: " << message );
+      }
+      return match;
+   }
+
+   bool fc_exception_message_contains::operator()( const fc::exception& ex ) {
+      auto message = ex.get_log().at( 0 ).get_message();
+      bool match = message.find(expected) != std::string::npos;
       if( !match ) {
          BOOST_TEST_MESSAGE( "LOG: expected: " << expected << ", actual: " << message );
       }

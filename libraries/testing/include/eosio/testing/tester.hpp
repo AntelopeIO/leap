@@ -307,6 +307,8 @@ namespace eosio { namespace testing {
          void              set_code( account_name name, const vector<uint8_t> wasm, const private_key_type* signer = nullptr  );
          void              set_abi( account_name name, const char* abi_json, const private_key_type* signer = nullptr );
 
+         bool is_code_cached( account_name name ) const;
+
          bool                          chain_has_transaction( const transaction_id_type& txid ) const;
          const transaction_receipt&    get_transaction_receipt( const transaction_id_type& txid ) const;
 
@@ -672,6 +674,18 @@ namespace eosio { namespace testing {
   struct fc_exception_message_starts_with {
      fc_exception_message_starts_with( const string& msg )
            : expected( msg ) {}
+
+     bool operator()( const fc::exception& ex );
+
+     string expected;
+  };
+
+  /**
+   * Utility predicate to check whether an fc::exception message contains a given string
+   */
+  struct fc_exception_message_contains {
+     explicit fc_exception_message_contains( string msg )
+           : expected( std::move(msg) ) {}
 
      bool operator()( const fc::exception& ex );
 
