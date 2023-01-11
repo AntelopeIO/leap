@@ -90,8 +90,8 @@ namespace eosio::testing {
 
    transfer_trx_generator::transfer_trx_generator(std::string chain_id_in, std::string handler_acct,
       const std::vector<std::string>& accts, int64_t trx_expr, const std::vector<std::string>& private_keys_str_vector,
-      std::string lib_id_str, std::string log_dir, bool stop_on_trx_failed) :
-      _provider(), _chain_id(chain_id_in), _handler_acct(handler_acct), _accts(accts),
+      std::string lib_id_str, std::string log_dir, bool stop_on_trx_failed, const std::string& peer_endpoint, unsigned short port) :
+      _provider(peer_endpoint, port), _chain_id(chain_id_in), _handler_acct(handler_acct), _accts(accts),
       _trx_expiration(trx_expr*1000000), _private_keys_str_vector(private_keys_str_vector),
       _last_irr_block_id(fc::variant(lib_id_str).as<block_id_type>()), _log_dir(log_dir),
       _stop_on_trx_failed(stop_on_trx_failed) {

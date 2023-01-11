@@ -36,7 +36,8 @@ namespace eosio::testing {
 
 
       transfer_trx_generator(std::string chain_id_in, std::string handler_acct, const std::vector<std::string>& accts,
-         int64_t trx_expr, const std::vector<std::string>& private_keys_str_vector, std::string lib_id_str, std::string log_dir, bool stop_on_trx_failed);
+         int64_t trx_expr, const std::vector<std::string>& private_keys_str_vector, std::string lib_id_str, std::string log_dir, bool stop_on_trx_failed,
+         const std::string& peer_endpoint="127.0.0.1", unsigned short port=9876);
 
       void push_transaction(p2p_trx_provider& provider, signed_transaction_w_signer& trx, uint64_t& nonce_prefix,
                             uint64_t& nonce, const fc::microseconds& trx_expiration, const eosio::chain::chain_id_type& chain_id,

@@ -108,6 +108,7 @@ try:
             sleepTime+=1
 
     node0=cluster.getNode(0)
+    producerP2pPort = cluster.getNodeP2pPort(0)
 
     Print("Wait for account creation to be irreversible")
     blockNum=head(node0)
@@ -127,7 +128,7 @@ try:
     trxGenLauncher = TransactionGeneratorsLauncher(chainId=chainId, lastIrreversibleBlockId=lib_id,
                                                    handlerAcct=cluster.eosioAccount.name, accts=f"{account1Name},{account2Name}",
                                                    privateKeys=f"{account1PrivKey},{account2PrivKey}", trxGenDurationSec=testTrxGenDurationSec,
-                                                   logDir=Utils.DataDir, tpsTrxGensConfig=tpsTrxGensConfig)
+                                                   logDir=Utils.DataDir, peerEndpoint=node0.host, port=producerP2pPort, tpsTrxGensConfig=tpsTrxGensConfig)
 
     Print("Launch txn generators and start generating/sending transactions")
     trxGenLauncher.launch(waitToComplete=False)

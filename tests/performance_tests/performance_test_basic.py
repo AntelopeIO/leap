@@ -267,6 +267,7 @@ class PerformanceBasicTest:
     def runTpsTest(self) -> PbtTpsTestResult:
         completedRun = False
         self.producerNode = self.cluster.getNode(self.producerNodeId)
+        self.producerP2pPort = self.cluster.getNodeP2pPort(self.producerNodeId)
         self.validationNode = self.cluster.getNode(self.validationNodeId)
         info = self.producerNode.getInfo()
         chainId = info['chain_id']
@@ -280,7 +281,8 @@ class PerformanceBasicTest:
         trxGenLauncher = ltg.TransactionGeneratorsLauncher(chainId=chainId, lastIrreversibleBlockId=lib_id,
                                                            handlerAcct=self.cluster.eosioAccount.name, accts=f"{self.account1Name},{self.account2Name}",
                                                            privateKeys=f"{self.account1PrivKey},{self.account2PrivKey}", trxGenDurationSec=self.testTrxGenDurationSec,
-                                                           logDir=self.trxGenLogDirPath, tpsTrxGensConfig=tpsTrxGensConfig)
+                                                           logDir=self.trxGenLogDirPath, peerEndpoint=self.producerNode.host, port=self.producerP2pPort,
+                                                           tpsTrxGensConfig=tpsTrxGensConfig)
 
         trxGenExitCodes = trxGenLauncher.launch()
         print(f"Transaction Generator exit codes: {trxGenExitCodes}")
