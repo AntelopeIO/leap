@@ -116,21 +116,18 @@ private:
                if (!ec)
                   self->do_accept();
             });
-         } else if (ec) {
-            fail(ec, "accept", self->plugin_state_->logger, "closing connection");
-            // check pass thru error from linux accept - see https://man7.org/linux/man-pages/man2/accept.2.html
-            int err = ec.value();
-            if (err == ENETDOWN || err == EPROTO || err == ENOPROTOOPT || err == EHOSTDOWN ||
-                err == ENONET || err == EHOSTUNREACH || err == EOPNOTSUPP || err == ENETUNREACH)
-               self->do_accept(); // accept another connection
          } else {
-            // Create the session object and run it
-            std::make_shared<session_type>(
-               std::move(self->socket_),
-               self->plugin_state_)
-               ->run_session();
+            if (ec) {
+               fail(ec, "accept", self->plugin_state_->logger, "closing connection");
+            } else {
+               // Create the session object and run it
+               std::make_shared<session_type>(
+                  std::move(self->socket_),
+                  self->plugin_state_)
+                  ->run_session();
+            }
             
-            // and wait on accept for another connection
+            // Accept another connection
             self->do_accept();
          }
       });
