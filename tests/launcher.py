@@ -11,6 +11,7 @@ import shlex
 import string
 import subprocess
 import sys
+import time
 from typing import ClassVar, Dict, List
 
 from TestHarness import Cluster
@@ -254,7 +255,7 @@ class launcher(object):
         if self.args.pnodes < 2:
             raise RuntimeError(f'Unable to allocate producers due to insufficient pnodes = {self.args.pnodes}')
         non_bios = self.args.pnodes - 1
-        per_node = self.args.producers / non_bios
+        per_node = int(self.args.producers / non_bios)
         extra = self.args.producers % non_bios
         i = 0
         producer_number = 0
@@ -273,7 +274,7 @@ class launcher(object):
                     if extra:
                         count += 1
                         extra -= 1
-                    while count:
+                    while count > 0:
                         prodname = producer_name(producer_number)
                         node.producers.append(prodname)
                         producer_number += 1
@@ -538,8 +539,10 @@ plugin = eosio::chain_api_plugin
             err_sl.symlink_to(err.name)
 
     def start_all(self):
-        for instance in self.network.nodes.values():
-            self.launch(instance)
+        if self.args.launch.lower() != 'none':
+            for instance in self.network.nodes.values():
+                self.launch(instance)
+                time.sleep(self.args.delay)
         self.write_bios_boot()
 
     def write_bios_boot(self):
