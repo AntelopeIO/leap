@@ -7,6 +7,7 @@ import re
 import sys
 import shutil
 import signal
+import json
 import log_reader
 import launch_transaction_generators as ltg
 
@@ -18,13 +19,6 @@ from TestHarness import Cluster, TestHelper, Utils, WalletMgr
 from dataclasses import dataclass, asdict, field
 from datetime import datetime
 from pathlib import Path
-
-@dataclass
-class UserTrxData:
-    accounts: list = field(default_factory=lambda: ["testacct1", "testacct2"])
-    abiFile: Path = Path("unittests")/"contracts"/"eosio.token"/"eosio.token.abi"
-    actionName: str = "transfer"
-    actionData: str = f'{{"from":"testacct1","to":"testacct2","quantity":"0.0001 CUR","memo":"transaction specified"}}'
 
 class PerformanceTestBasic:
     @dataclass
@@ -115,7 +109,7 @@ class PerformanceTestBasic:
         quiet: bool=False
         delPerfLogs: bool=False
         expectedTransactionsSent: int = field(default_factory=int, init=False)
-        useUserTrxData: bool=False
+        userTrxDataFile: Path=None
 
         def __post_init__(self):
             self.expectedTransactionsSent = self.testTrxGenDurationSec * self.targetTps
@@ -277,6 +271,10 @@ class PerformanceTestBasic:
                 self.accountNames.append(self.cluster.accounts[index].name)
                 self.accountPrivKeys.append(self.cluster.accounts[index].activePrivateKey)
 
+    def readUserTrxDataFromFile(self, userTrxDataFile: Path):
+        with open(userTrxDataFile) as f:
+            self.userTrxDataDict = json.load(f)
+
     def runTpsTest(self) -> PtbTpsTestResult:
         completedRun = False
         self.producerNode = self.cluster.getNode(self.producerNodeId)
@@ -289,12 +287,12 @@ class PerformanceTestBasic:
         abiFile=None
         actionName=None
         actionData=None
-        if (self.ptbConfig.useUserTrxData):
-            self.userTrxData = UserTrxData()
-            self.setupWalletAndAccounts(accountCnt=len(self.userTrxData.accounts), accountNames=self.userTrxData.accounts)
-            abiFile = self.userTrxData.abiFile
-            actionName = self.userTrxData.actionName
-            actionData = self.userTrxData.actionData
+        if (self.ptbConfig.userTrxDataFile is not None):
+            self.readUserTrxDataFromFile(self.ptbConfig.userTrxDataFile)
+            self.setupWalletAndAccounts(accountCnt=len(self.userTrxDataDict['accounts']), accountNames=self.userTrxDataDict['accounts'])
+            abiFile = self.userTrxDataDict['abiFile']
+            actionName = self.userTrxDataDict['actionName']
+            actionData = json.dumps(self.userTrxDataDict['actionData'])
         else:
             self.setupWalletAndAccounts()
 
@@ -492,7 +490,8 @@ class PtbArgumentsHandler(object):
 
         ptbParserGroup.add_argument("--target-tps", type=int, help="The target transfers per second to send during test", default=8000)
         ptbParserGroup.add_argument("--test-duration-sec", type=int, help="The duration of transfer trx generation for the test in seconds", default=90)
-        ptbParserGroup.add_argument("--user-trx-data", help="Make use of user defined trx data in UserTrxData class", action='store_true')
+        ptbParserGroup.add_argument("--user-trx-data-file", type=str, help="Path to userTrxData.json")
+
         return ptbParser
 
     @staticmethod
@@ -524,8 +523,9 @@ def main():
                                                            nodeosVers=Utils.getNodeosVersion().split('.')[0])
     ptbConfig = PerformanceTestBasic.PtbConfig(targetTps=args.target_tps, testTrxGenDurationSec=args.test_duration_sec, tpsLimitPerGenerator=args.tps_limit_per_generator,
                                   numAddlBlocksToPrune=args.num_blocks_to_prune, logDirRoot=".", delReport=args.del_report, quiet=args.quiet, delPerfLogs=args.del_perf_logs,
-                                  useUserTrxData=args.user_trx_data)
+                                  userTrxDataFile=Path(args.user_trx_data_file) if args.user_trx_data_file is not None else None)
     myTest = PerformanceTestBasic(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, ptbConfig=ptbConfig)
+
     testSuccessful = myTest.runTest()
 
     exitCode = 0 if testSuccessful else 1
