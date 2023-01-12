@@ -127,18 +127,14 @@ namespace eosio::testing {
       _nonce_prefix = 0;
       _nonce = static_cast<uint64_t>(fc::time_point::now().sec_since_epoch()) << 32;
 
-      std::cout
-            << "Create All Initial Transfer Action/Reaction Pairs (acct 1 -> acct 2, acct 2 -> acct 1) between all provided accounts."
-            << std::endl;
+      ilog("Create All Initial Transfer Action/Reaction Pairs (acct 1 -> acct 2, acct 2 -> acct 1) between all provided accounts.");
       const auto action_pairs_vector = create_initial_transfer_actions(salt, period, _contract_owner_account, accounts,
                                                                        private_key_vector);
 
-      std::cout
-            << "Stop Generation (form potential ongoing generation in preparation for starting new generation run)."
-            << std::endl;
+      ilog("Stop Generation (form potential ongoing generation in preparation for starting new generation run).");
       stop_generation();
 
-      std::cout << "Create All Initial Transfer Transactions (one for each created action)." << std::endl;
+      ilog("Create All Initial Transfer Transactions (one for each created action).");
       _trxs = create_initial_transfer_transactions(action_pairs_vector,
                                                    ++_nonce_prefix,
                                                    _nonce,
@@ -146,11 +142,9 @@ namespace eosio::testing {
                                                    _chain_id,
                                                    _last_irr_block_id);
 
-      std::cout << "Setup p2p transaction provider" << std::endl;
+      ilog("Setup p2p transaction provider");
 
-      std::cout
-            << "Update each trx to qualify as unique and fresh timestamps, re-sign trx, and send each updated transactions via p2p transaction provider"
-            << std::endl;
+      ilog("Update each trx to qualify as unique and fresh timestamps, re-sign trx, and send each updated transactions via p2p transaction provider");
 
       _provider.setup();
       return true;
@@ -180,15 +174,13 @@ namespace eosio::testing {
       _nonce_prefix = 0;
       _nonce = static_cast<uint64_t>(fc::time_point::now().sec_since_epoch()) << 32;
 
-      std::cout
-            << "Stop Generation (form potential ongoing generation in preparation for starting new generation run)."
-            << std::endl;
+      ilog("Stop Generation (form potential ongoing generation in preparation for starting new generation run).");
       stop_generation();
 
-      std::cout << "Create Initial Transaction with action data." << std::endl;
+      ilog("Create Initial Transaction with action data.");
       abi_serializer abi = abi_serializer(fc::json::from_file(_abi_data_file_path).as<abi_def>(), abi_serializer::create_yield_function( abi_serializer_max_time ));
       fc::variant unpacked_action_data_json = json_from_file_or_string(_action_data_file_or_str);
-      std::cout << "action data variant: " << fc::json::to_pretty_string(unpacked_action_data_json) << std::endl;
+      ilog("action data variant: ${data}", ("data", fc::json::to_pretty_string(unpacked_action_data_json)));
 
       bytes packed_action_data;
       try {
@@ -198,7 +190,7 @@ namespace eosio::testing {
 
       } EOS_RETHROW_EXCEPTIONS(transaction_type_exception, "Fail to parse unpacked action data JSON")
 
-      std::cout << fc::to_hex(packed_action_data.data(), packed_action_data.size()) << std::endl;
+      ilog("${packed_data}", ("packed_data", fc::to_hex(packed_action_data.data(), packed_action_data.size())));
 
       eosio::chain::action act;
       act.account = _contract_owner_account;
@@ -208,11 +200,9 @@ namespace eosio::testing {
 
       _trxs.emplace_back(create_transfer_trx_w_signer(act, _private_key, ++_nonce_prefix, _nonce, _trx_expiration, _chain_id, _last_irr_block_id));
 
-      std::cout << "Setup p2p transaction provider" << std::endl;
+      ilog("Setup p2p transaction provider");
 
-      std::cout
-            << "Update each trx to qualify as unique and fresh timestamps, re-sign trx, and send each updated transactions via p2p transaction provider"
-            << std::endl;
+      ilog("Update each trx to qualify as unique and fresh timestamps, re-sign trx, and send each updated transactions via p2p transaction provider");
 
       _provider.setup();
       return true;
@@ -222,11 +212,11 @@ namespace eosio::testing {
       _provider.log_trxs(_log_dir);
       _provider.teardown();
 
-      std::cout << "Sent transactions: " << _txcount << std::endl;
-      std::cout << "Tear down p2p transaction provider" << std::endl;
+      ilog("Sent transactions: ${cnt}", ("cnt", _txcount));
+      ilog("Tear down p2p transaction provider");
 
       //Stop & Cleanup
-      std::cout << "Stop Generation." << std::endl;
+      ilog("Stop Generation.");
       stop_generation();
       return true;
    }
