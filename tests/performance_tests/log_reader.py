@@ -284,6 +284,10 @@ def calcProductionWindows(prodDict: dict):
             if v.blockCount < COMPLETEPRODUCTIONWINDOWSIZE:
                 prodWindows.missedWindows += 1
             totalBlocksForAverage += v.blockCount
+        else:
+            if v.blockCount == COMPLETEPRODUCTIONWINDOWSIZE:
+                prodWindows.totalWindows += 1
+                totalBlocksForAverage += v.blockCount
     if prodWindows.totalWindows <= 0:
         prodWindows.totalWindows = 0
         prodWindows.averageWindowSize = 0
