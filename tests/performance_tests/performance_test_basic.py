@@ -489,6 +489,7 @@ def main():
     lbto = args.last_block_time_offset_us
     lbcep = args.last_block_cpu_effort_percent
     if args.p > 1 and lbto == 0 and lbcep == 100:
+        print("Overriding defaults for last_block_time_offset_us and last_block_cpu_effort_percent to ensure proper production windows.")
         lbto = -200000
         lbcep = 80
     producerPluginArgs = ProducerPluginArgs(disableSubjectiveBilling=args.disable_subjective_billing,
