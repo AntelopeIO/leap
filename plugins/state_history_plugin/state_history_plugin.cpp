@@ -81,7 +81,11 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
    using acceptor_type = std::variant<std::unique_ptr<tcp::acceptor>, std::unique_ptr<unixs::acceptor>>;
    std::set<acceptor_type> acceptors;
 
-   named_thread_pool                thread_pool{"SHiP", 1}; // use of executor assumes only one thread
+   // use of executor assumes only one thread, delay start
+   named_thread_pool                thread_pool{"SHiP", 1, [](const fc::exception& e) {
+                                       fc_elog( _log, "SHiP thread exception, exiting: ${e}", ("e", e.to_detail_string()) );
+                                       app().quit();
+                                    }, true };
 
    static fc::logger& logger() { return _log; }
 
@@ -250,10 +254,10 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
          fc_elog(_log, "fc::exception: ${details}", ("details", e.to_detail_string()));
          // Both app().quit() and exception throwing are required. Without app().quit(),
          // the exception would be caught and drop before reaching main(). The exception is
-         // to ensure the block won't be commited.
+         // to ensure the block won't be committed.
          appbase::app().quit();
          EOS_THROW(
-             chain::state_history_write_exception,
+             chain::state_history_write_exception, // controller_emit_signal_exception, so it flow through emit()
              "State history encountered an Error which it cannot recover from.  Please resolve the error and relaunch "
              "the process");
       }
@@ -456,6 +460,7 @@ void state_history_plugin::plugin_startup() {
          fc_ilog( _log, "Done storing initial state on startup" );
       }
       my->listen();
+      my->thread_pool.start();
    } catch (std::exception& ex) {
       appbase::app().quit();
    }
