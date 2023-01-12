@@ -101,11 +101,6 @@ int main(int argc, char** argv) {
          return INITIALIZE_FAIL;
       }
 
-      if(vmap.count("peer-endpoint") && peer_endpoint == "localhost") {
-         ilog("Initializing peer-endpoint from localhost to 127.0.0.1");
-         peer_endpoint = "127.0.0.1";
-      }
-
       if(vmap.count("accounts")) {
          boost::split(account_str_vector, accts, boost::is_any_of(","));
          if(account_str_vector.size() < 2) {
