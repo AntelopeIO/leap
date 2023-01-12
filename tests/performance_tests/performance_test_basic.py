@@ -7,6 +7,7 @@ import re
 import sys
 import shutil
 import signal
+import json
 import log_reader
 import launch_transaction_generators as ltg
 
@@ -17,6 +18,7 @@ from NodeosPluginArgs import ChainPluginArgs, HttpClientPluginArgs, HttpPluginAr
 from TestHarness import Account, Cluster, TestHelper, Utils, WalletMgr
 from dataclasses import dataclass, asdict, field
 from datetime import datetime
+from pathlib import Path
 
 class PerformanceTestBasic:
     @dataclass
@@ -117,6 +119,7 @@ class PerformanceTestBasic:
         quiet: bool=False
         delPerfLogs: bool=False
         expectedTransactionsSent: int = field(default_factory=int, init=False)
+        userTrxDataFile: Path=None
 
         def __post_init__(self):
             self.expectedTransactionsSent = self.testTrxGenDurationSec * self.targetTps
@@ -260,16 +263,26 @@ class PerformanceTestBasic:
             specificExtraNodeosArgs=self.clusterConfig.specificExtraNodeosArgs
             )
 
-    def setupWalletAndAccounts(self):
+    def setupWalletAndAccounts(self, accountCnt: int=2, accountNames: list=None):
         self.wallet = self.walletMgr.create('default')
-        self.cluster.populateWallet(2, self.wallet)
-        self.cluster.createAccounts(self.cluster.eosioAccount, stakedDeposit=0, validationNodeIndex=self.validationNodeId)
+        self.accountNames=[]
+        self.accountPrivKeys=[]
+        if accountNames is not None:
+            self.cluster.populateWallet(accountsCount=len(accountNames), wallet=self.wallet, accountNames=accountNames)
+            self.cluster.createAccounts(self.cluster.eosioAccount, stakedDeposit=0, validationNodeIndex=self.validationNodeId)
+            for index in range(0, len(accountNames)):
+                self.accountNames.append(self.cluster.accounts[index].name)
+                self.accountPrivKeys.append(self.cluster.accounts[index].activePrivateKey)
+        else:
+            self.cluster.populateWallet(accountsCount=accountCnt, wallet=self.wallet)
+            self.cluster.createAccounts(self.cluster.eosioAccount, stakedDeposit=0, validationNodeIndex=self.validationNodeId)
+            for index in range(0, accountCnt):
+                self.accountNames.append(self.cluster.accounts[index].name)
+                self.accountPrivKeys.append(self.cluster.accounts[index].activePrivateKey)
 
-        self.account1Name = self.cluster.accounts[0].name
-        self.account2Name = self.cluster.accounts[1].name
-
-        self.account1PrivKey = self.cluster.accounts[0].activePrivateKey
-        self.account2PrivKey = self.cluster.accounts[1].activePrivateKey
+    def readUserTrxDataFromFile(self, userTrxDataFile: Path):
+        with open(userTrxDataFile) as f:
+            self.userTrxDataDict = json.load(f)
 
     def setupContract(self):
         specifiedAccount = Account(self.clusterConfig.specifiedContract.accountName)
@@ -294,14 +307,27 @@ class PerformanceTestBasic:
         lib_id = info['last_irreversible_block_id']
         self.data = log_reader.chainData()
 
+        abiFile=None
+        actionName=None
+        actionData=None
+        if (self.ptbConfig.userTrxDataFile is not None):
+            self.readUserTrxDataFromFile(self.ptbConfig.userTrxDataFile)
+            self.setupWalletAndAccounts(accountCnt=len(self.userTrxDataDict['accounts']), accountNames=self.userTrxDataDict['accounts'])
+            abiFile = self.userTrxDataDict['abiFile']
+            actionName = self.userTrxDataDict['actionName']
+            actionData = json.dumps(self.userTrxDataDict['actionData'])
+        else:
+            self.setupWalletAndAccounts()
+
         self.cluster.biosNode.kill(signal.SIGTERM)
 
         self.data.startBlock = self.waitForEmptyBlocks(self.validationNode, self.emptyBlockGoal)
         tpsTrxGensConfig = ltg.TpsTrxGensConfig(targetTps=self.ptbConfig.targetTps, tpsLimitPerGenerator=self.ptbConfig.tpsLimitPerGenerator)
+
         trxGenLauncher = ltg.TransactionGeneratorsLauncher(chainId=chainId, lastIrreversibleBlockId=lib_id,
-                                                           handlerAcct=self.clusterConfig.specifiedContract.accountName, accts=f"{self.account1Name},{self.account2Name}",
-                                                           privateKeys=f"{self.account1PrivKey},{self.account2PrivKey}", trxGenDurationSec=self.ptbConfig.testTrxGenDurationSec,
-                                                           logDir=self.trxGenLogDirPath, tpsTrxGensConfig=tpsTrxGensConfig)
+                                                           contractOwnerAccount=self.clusterConfig.specifiedContract.accountName, accts=','.join(map(str, self.accountNames)),
+                                                           privateKeys=','.join(map(str, self.accountPrivKeys)), trxGenDurationSec=self.ptbConfig.testTrxGenDurationSec,
+                                                           logDir=self.trxGenLogDirPath, abiFile=abiFile, actionName=actionName, actionData=actionData, tpsTrxGensConfig=tpsTrxGensConfig)
 
         trxGenExitCodes = trxGenLauncher.launch()
         print(f"Transaction Generator exit codes: {trxGenExitCodes}")
@@ -381,8 +407,6 @@ class PerformanceTestBasic:
 
         if self.launchCluster() == False:
             self.errorExit('Failed to stand up cluster.')
-
-        self.setupWalletAndAccounts()
 
     def postTpsTestSteps(self):
         self.queryBlockTrxData(self.validationNode, self.blockDataPath, self.blockTrxDataPath, self.data.startBlock, self.data.ceaseBlock)
@@ -495,6 +519,8 @@ class PtbArgumentsHandler(object):
 
         ptbParserGroup.add_argument("--target-tps", type=int, help="The target transfers per second to send during test", default=8000)
         ptbParserGroup.add_argument("--test-duration-sec", type=int, help="The duration of transfer trx generation for the test in seconds", default=90)
+        ptbParserGroup.add_argument("--user-trx-data-file", type=str, help="Path to userTrxData.json")
+
         return ptbParser
 
     @staticmethod
@@ -528,7 +554,8 @@ def main():
                                                                wasmFile=args.wasm_file, abiFile=args.abi_file),
                                                            nodeosVers=Utils.getNodeosVersion().split('.')[0])
     ptbConfig = PerformanceTestBasic.PtbConfig(targetTps=args.target_tps, testTrxGenDurationSec=args.test_duration_sec, tpsLimitPerGenerator=args.tps_limit_per_generator,
-                                  numAddlBlocksToPrune=args.num_blocks_to_prune, logDirRoot=".", delReport=args.del_report, quiet=args.quiet, delPerfLogs=args.del_perf_logs)
+                                  numAddlBlocksToPrune=args.num_blocks_to_prune, logDirRoot=".", delReport=args.del_report, quiet=args.quiet, delPerfLogs=args.del_perf_logs,
+                                  userTrxDataFile=Path(args.user_trx_data_file) if args.user_trx_data_file is not None else None)
     myTest = PerformanceTestBasic(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, ptbConfig=ptbConfig)
 
     testSuccessful = myTest.runTest()

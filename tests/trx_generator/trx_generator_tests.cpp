@@ -1,4 +1,5 @@
-#include "trx_provider.hpp"
+#include <trx_provider.hpp>
+#include <trx_generator.cpp>
 #define BOOST_TEST_MODULE trx_generator_tests
 #include <boost/test/included/unit_test.hpp>
 
@@ -317,4 +318,20 @@ BOOST_AUTO_TEST_CASE(tps_cant_keep_up_monitored)
    BOOST_REQUIRE_LT(generator->_calls.size(), expected_trxs);
 
 }
+
+BOOST_AUTO_TEST_CASE(trx_generator_constructor)
+{
+   std::string chain_id = "999";
+   std::string h_acct = "eosio";
+   std::string acct = "aaa";
+   std::string action_name = "transfer";
+   const std::string action_data = "{\"from\":\"aaa\",\"to\":\"bbb\",\"quantity\":\"10.0000 SYS\",\"memo\":\"hello\"}";
+   const std::string abi_file = "../../unittests/contracts/eosio.token/eosio.token.abi";
+   fc::microseconds trx_expr = fc::seconds(3600);
+   std::string log_dir = ".";
+   std::string lib_id_str = "00000062989f69fd251df3e0b274c3364ffc2f4fce73de3f1c7b5e11a4c92f21";
+   std::string private_key_str = "5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3";
+   auto generator = trx_generator(chain_id, abi_file, h_acct, acct, action_name, action_data, trx_expr, private_key_str, lib_id_str, log_dir);
+}
+
 BOOST_AUTO_TEST_SUITE_END()

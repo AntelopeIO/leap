@@ -361,7 +361,7 @@ The following scripts are typically used by the Performance Harness main script 
 
 * `chain_id`                    set the chain id
 * `last_irreversible_block_id`  Current last-irreversible-block-id (LIB ID) to use for transactions.
-* `handler_account`             Account name of the handler account for the transfer actions
+* `contract_owner_account`      Account name of the contract owner account for the transfer actions
 * `accounts`                    Comma separated list of account names
 * `priv_keys`                   Comma separated list of private keys.
 * `trx_gen_duration`            Transaction generation duration (seconds). Defaults to 60 seconds.
@@ -377,7 +377,7 @@ The following scripts are typically used by the Performance Harness main script 
     <summary>Expand Argument List</summary>
 
 * `--chain-id arg`                  set the chain id
-* `--handler-account arg`           Account name of the handler account for
+* `--contract-owner-account arg`    Account name of the contract owner account for
                                     the transfer actions
 * `--accounts arg`                  comma-separated list of accounts that 
                                     will be used for transfers. Minimum 

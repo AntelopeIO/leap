@@ -15,6 +15,7 @@ from dataclasses import dataclass, asdict, field
 from platform import release, system
 from datetime import datetime
 from typing import List
+from pathlib import Path
 
 Print = Utils.Print
 errorExit = Utils.errorExit
@@ -392,6 +393,8 @@ class LogReaderEncoder(json.JSONEncoder):
             return str(obj)
         if obj is None:
             return "Unknown"
+        if isinstance(obj, Path):
+            return str(obj)
         return json.JSONEncoder.default(self, obj)
 
 def reportAsJSON(report: dict) -> json:
