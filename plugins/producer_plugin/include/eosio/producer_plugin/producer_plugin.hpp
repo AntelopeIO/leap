@@ -11,9 +11,9 @@ using boost::signals2::signal;
 
 using chain::plugin_interface::runtime_metric;
 using chain::plugin_interface::metric_type;
-using chain::plugin_interface::plugin_metrics;
+using chain::plugin_interface::metrics_listener;
 
-struct producer_plugin_metrics : public plugin_metrics {
+struct producer_plugin_metrics {
    runtime_metric unapplied_transactions{metric_type::gauge, "unapplied_transactions", "unapplied_transactions", 0};
    runtime_metric blacklisted_transactions{metric_type::gauge, "blacklisted_transactions", "blacklisted_transactions", 0};
    runtime_metric blocks_produced{metric_type::counter, "blocks_produced", "blocks_produced", 0};
@@ -24,16 +24,19 @@ struct producer_plugin_metrics : public plugin_metrics {
    runtime_metric subjective_bill_block_size{metric_type::gauge, "subjective_bill_block_size", "subjective_bill_block_size", 0};
    runtime_metric scheduled_trxs{metric_type::gauge, "scheduled_trxs", "scheduled_trxs", 0};
 
-   producer_plugin_metrics() {
-      metrics.emplace_back(std::ref(unapplied_transactions));
-      metrics.emplace_back(std::ref(blacklisted_transactions));
-      metrics.emplace_back(std::ref(blocks_produced));
-      metrics.emplace_back(std::ref(trxs_produced));
-      metrics.emplace_back(std::ref(last_irreversible));
-      metrics.emplace_back(std::ref(block_num));
-      metrics.emplace_back(std::ref(subjective_bill_account_size));
-      metrics.emplace_back(std::ref(subjective_bill_block_size));
-      metrics.emplace_back(std::ref(scheduled_trxs));
+   vector<runtime_metric> metrics() {
+      vector<runtime_metric> metrics;
+      metrics.emplace_back(unapplied_transactions);
+      metrics.emplace_back(blacklisted_transactions);
+      metrics.emplace_back(blocks_produced);
+      metrics.emplace_back(trxs_produced);
+      metrics.emplace_back(last_irreversible);
+      metrics.emplace_back(block_num);
+      metrics.emplace_back(subjective_bill_account_size);
+      metrics.emplace_back(subjective_bill_block_size);
+      metrics.emplace_back(scheduled_trxs);
+
+      return metrics;
    }
 };
 
@@ -172,6 +175,7 @@ public:
 
    void log_failed_transaction(const transaction_id_type& trx_id, const chain::packed_transaction_ptr& packed_trx_ptr, const char* reason) const;
    producer_plugin_metrics& metrics();
+   void register_metrics_listener(metrics_listener listener);
 
  private:
    std::shared_ptr<class producer_plugin_impl> my;

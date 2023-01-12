@@ -60,7 +60,8 @@ namespace eosio {
          std::vector<std::shared_ptr<Collectable>> _collectables;
          const prometheus::TextSerializer _serializer;
          std::shared_ptr<Registry> _registry;
-
+         boost::asio::io_context _context;
+         boost::asio::io_context::strand _metrics_updater{_context};
 
          std::vector<std::tuple<Family<Gauge>&, Gauge&, const runtime_metric&>> _gauges;
          std::vector<std::tuple<Family<Counter>&, Counter&, const runtime_metric&>> _counters;
@@ -69,7 +70,7 @@ namespace eosio {
          std::unique_ptr<prometheus_plugin_metrics> _metrics;
 
          // hold onto other plugin metrics
-         prometheus_plugin_impl() { }
+         prometheus_plugin_impl(boost::asio::io_context& ctx): _metrics_updater(ctx){ }
 
          void add_gauge_metric(const runtime_metric& plugin_metric) {
             auto& gauge_family = BuildGauge()
@@ -110,14 +111,6 @@ namespace eosio {
             }
          }
 
-         template <typename T>
-         void add_plugin_metrics(T& pm) {
-            pm.enable(true);
-            for (const auto& m : pm.metrics) {
-               add_plugin_metric(m);
-            }
-         }
-
          void update_plugin_metrics() {
             for (auto& rtm : _gauges) {
                auto new_val = static_cast<double>(std::get<2>(rtm).value);
@@ -130,6 +123,20 @@ namespace eosio {
             }
          }
 
+         void update_metrics(vector<runtime_metric> metrics) {
+
+         }
+
+         metrics_listener create_metrics_listener() {
+            return  [self=this](vector<runtime_metric> metrics) {
+               self->_metrics_updater.post(
+                     [self, metrics]() {
+                        self->update_metrics(metrics);
+                     }
+               );
+            };
+         }
+
          void initialize_metrics() {
             _registry = std::make_shared<Registry>();
             _metrics = std::make_unique<prometheus_plugin_metrics>(*_registry);
@@ -139,14 +146,14 @@ namespace eosio {
 
             net_plugin* np = app().find_plugin<net_plugin>();
             if (nullptr != np) {
-               add_plugin_metrics<net_plugin_metrics>(np->metrics());
+               np->register_metrics_listener(create_metrics_listener());
             } else {
                dlog("net_plugin not found -- metrics not added");
             }
 
             producer_plugin* pp = app().find_plugin<producer_plugin>();
             if (nullptr != pp) {
-               add_plugin_metrics<producer_plugin_metrics>(pp->metrics());
+               pp->register_metrics_listener(create_metrics_listener());
             } else {
                dlog("producer_plugin not found -- metrics not added");
             }
@@ -194,7 +201,7 @@ namespace eosio {
    };
 
    prometheus_plugin::prometheus_plugin() {
-     my.reset(new prometheus_plugin_impl{});
+
 
       app().get_plugin<http_plugin>().add_async_api({
         CALL_WITH_400(prometheus, this, metrics,  INVOKE_R_V(this, metrics), 200), }, http_content_type::plaintext);
