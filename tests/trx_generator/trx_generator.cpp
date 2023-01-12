@@ -91,27 +91,13 @@ namespace eosio::testing {
       return actions_pairs_vector;
    }
 
-   transfer_trx_generator::transfer_trx_generator(std::string chain_id_in, std::string contract_owner_account,
-      const std::vector<std::string>& accts, int64_t trx_expr, const std::vector<std::string>& private_keys_str_vector,
-      std::string lib_id_str, std::string log_dir) :
-      _provider(), _chain_id(chain_id_in), _contract_owner_account(contract_owner_account), _accts(accts),
-      _trx_expiration(trx_expr*1000000), _private_keys_str_vector(private_keys_str_vector),
-      _last_irr_block_id(fc::variant(lib_id_str).as<block_id_type>()), _log_dir(log_dir) {
-   }
+   trx_generator_base::trx_generator_base(std::string chain_id_in, std::string contract_owner_account, fc::microseconds trx_expr, std::string lib_id_str, std::string log_dir)
+    : _provider(), _chain_id(chain_id_in), _contract_owner_account(contract_owner_account), _trx_expiration(trx_expr),
+      _last_irr_block_id(fc::variant(lib_id_str).as<block_id_type>()), _log_dir(log_dir){}
 
-   void transfer_trx_generator::push_transaction(p2p_trx_provider& provider, signed_transaction_w_signer& trx, uint64_t& nonce_prefix, uint64_t& nonce, const fc::microseconds& trx_expiration, const chain_id_type& chain_id, const block_id_type& last_irr_block_id) {
-      update_resign_transaction(trx._trx, trx._signer, ++nonce_prefix, nonce, trx_expiration, chain_id, last_irr_block_id);
-      provider.send(trx._trx);
-   }
-
-   void transfer_trx_generator::stop_generation() {
-      ilog("Stopping transaction generation");
-
-      if(_txcount) {
-         ilog("${d} transactions executed, ${t}us / transaction", ("d", _txcount)("t", _total_us / (double) _txcount));
-         _txcount = _total_us = 0;
-      }
-   }
+   transfer_trx_generator::transfer_trx_generator(std::string chain_id_in, std::string contract_owner_account, const std::vector<std::string>& accts,
+         fc::microseconds trx_expr, const std::vector<std::string>& private_keys_str_vector, std::string lib_id_str, std::string log_dir)
+       : trx_generator_base(chain_id_in, contract_owner_account, trx_expr, lib_id_str, log_dir), _accts(accts), _private_keys_str_vector(private_keys_str_vector) {}
 
    vector<name> transfer_trx_generator::get_accounts(const vector<string>& account_str_vector) {
       vector<name> acct_name_list;
@@ -170,41 +156,6 @@ namespace eosio::testing {
       return true;
    }
 
-   bool transfer_trx_generator::tear_down() {
-      _provider.log_trxs(_log_dir);
-      _provider.teardown();
-
-      std::cout << "Sent transactions: " << _txcount << std::endl;
-      std::cout << "Tear down p2p transaction provider" << std::endl;
-
-      //Stop & Cleanup
-      std::cout << "Stop Generation." << std::endl;
-      stop_generation();
-      return true;
-   }
-
-   bool transfer_trx_generator::generate_and_send() {
-      try {
-         if (_trxs.size()) {
-            size_t index_to_send = _txcount % _trxs.size();
-            push_transaction(_provider, _trxs.at(index_to_send), ++_nonce_prefix, _nonce, _trx_expiration, _chain_id,
-                             _last_irr_block_id);
-            ++_txcount;
-         } else {
-            elog("no transactions available to send");
-            return false;
-         }
-      } catch (const std::exception &e) {
-         elog("${e}", ("e", e.what()));
-         return false;
-      } catch (...) {
-         elog("unknown exception");
-         return false;
-      }
-
-      return true;
-   }
-
    fc::variant json_from_file_or_string(const string& file_or_str, fc::json::parse_type ptype = fc::json::parse_type::legacy_parser)
    {
       regex r("^[ \t]*[\{\[]");
@@ -221,12 +172,9 @@ namespace eosio::testing {
    }
 
    trx_generator::trx_generator(std::string chain_id_in, const std::string& abi_data_file, std::string contract_owner_account, std::string auth_account, std::string action_name,
-         const std::string& action_data_file_or_str, int64_t trx_expr, const std::string& private_key_str, std::string lib_id_str, std::string log_dir) :
-      _provider(), _chain_id(chain_id_in), _abi_data_file_path(abi_data_file), _contract_owner_account(contract_owner_account), _auth_account(auth_account), _action(action_name), _action_data_file_or_str(action_data_file_or_str),
-      _trx_expiration(trx_expr*1000000), _private_key(fc::crypto::private_key(private_key_str)),
-      _last_irr_block_id(fc::variant(lib_id_str).as<block_id_type>()), _log_dir(log_dir)
-      {
-      }
+         const std::string& action_data_file_or_str, fc::microseconds trx_expr, const std::string& private_key_str, std::string lib_id_str, std::string log_dir)
+       : trx_generator_base(chain_id_in, contract_owner_account, trx_expr, lib_id_str, log_dir), _abi_data_file_path(abi_data_file), _auth_account(auth_account),
+         _action(action_name), _action_data_file_or_str(action_data_file_or_str), _private_key(fc::crypto::private_key(private_key_str)) {}
 
    bool trx_generator::setup() {
       _nonce_prefix = 0;
@@ -270,7 +218,7 @@ namespace eosio::testing {
       return true;
    }
 
-   bool trx_generator::tear_down() {
+   bool trx_generator_base::tear_down() {
       _provider.log_trxs(_log_dir);
       _provider.teardown();
 
@@ -283,12 +231,7 @@ namespace eosio::testing {
       return true;
    }
 
-   void trx_generator::push_transaction(p2p_trx_provider& provider, signed_transaction_w_signer& trx, uint64_t& nonce_prefix, uint64_t& nonce, const fc::microseconds& trx_expiration, const chain_id_type& chain_id, const block_id_type& last_irr_block_id) {
-      update_resign_transaction(trx._trx, trx._signer, ++nonce_prefix, nonce, trx_expiration, chain_id, last_irr_block_id);
-      provider.send(trx._trx);
-   }
-
-   bool trx_generator::generate_and_send() {
+   bool trx_generator_base::generate_and_send() {
       try {
          if (_trxs.size()) {
             size_t index_to_send = _txcount % _trxs.size();
@@ -310,7 +253,12 @@ namespace eosio::testing {
       return true;
    }
 
-   void trx_generator::stop_generation() {
+   void trx_generator_base::push_transaction(p2p_trx_provider& provider, signed_transaction_w_signer& trx, uint64_t& nonce_prefix, uint64_t& nonce, const fc::microseconds& trx_expiration, const chain_id_type& chain_id, const block_id_type& last_irr_block_id) {
+      update_resign_transaction(trx._trx, trx._signer, ++nonce_prefix, nonce, trx_expiration, chain_id, last_irr_block_id);
+      provider.send(trx._trx);
+   }
+
+   void trx_generator_base::stop_generation() {
       ilog("Stopping transaction generation");
 
       if(_txcount) {

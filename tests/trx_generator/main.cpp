@@ -190,16 +190,18 @@ int main(int argc, char** argv) {
    ilog("Contract owner account ${acct}", ("acct", contract_owner_acct));
    ilog("Transfer accounts ${accts}", ("accts", accts));
    ilog("Account private keys ${priv_keys}", ("priv_keys", p_keys));
-   ilog("Transaction expiration microsections ${expr}", ("expr", trx_expr));
+   ilog("Transaction expiration seconds ${expr}", ("expr", trx_expr));
    ilog("Reference LIB block id ${LIB}", ("LIB", lib_id_str));
    ilog("Transaction Generation Duration (sec) ${dur}", ("dur", gen_duration));
    ilog("Target generation Transaction Per Second (TPS) ${tps}", ("tps", target_tps));
    ilog("Logs directory ${logDir}", ("logDir", log_dir_in));
 
+   fc::microseconds trx_expr_ms = fc::seconds(trx_expr);
+
    std::shared_ptr<tps_performance_monitor> monitor;
    if (transaction_specified) {
       auto generator = std::make_shared<trx_generator>(chain_id_in, abi_file_path_in, contract_owner_acct, account_str_vector.at(0), action_name_in,
-                                                       action_data_file_or_str, trx_expr, private_keys_str_vector.at(0), lib_id_str, log_dir_in);
+                                                       action_data_file_or_str, trx_expr_ms, private_keys_str_vector.at(0), lib_id_str, log_dir_in);
       monitor = std::make_shared<tps_performance_monitor>(spinup_time_us, max_lag_per, max_lag_duration_us);
       trx_tps_tester<trx_generator, tps_performance_monitor> tester{generator, monitor, gen_duration, target_tps};
 
@@ -207,7 +209,7 @@ int main(int argc, char** argv) {
          return OTHER_FAIL;
       }
    } else {
-      auto generator = std::make_shared<transfer_trx_generator>(chain_id_in, contract_owner_acct, account_str_vector, trx_expr, private_keys_str_vector,
+      auto generator = std::make_shared<transfer_trx_generator>(chain_id_in, contract_owner_acct, account_str_vector, trx_expr_ms, private_keys_str_vector,
                                                                 lib_id_str, log_dir_in);
 
       monitor = std::make_shared<tps_performance_monitor>(spinup_time_us, max_lag_per, max_lag_duration_us);

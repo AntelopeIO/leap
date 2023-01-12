@@ -327,7 +327,7 @@ BOOST_AUTO_TEST_CASE(trx_generator_constructor)
    std::string action_name = "transfer";
    const std::string action_data = "{\"from\":\"aaa\",\"to\":\"bbb\",\"quantity\":\"10.0000 SYS\",\"memo\":\"hello\"}";
    const std::string abi_file = "../../unittests/contracts/eosio.token/eosio.token.abi";
-   int64_t trx_expr = 3600;
+   fc::microseconds trx_expr = fc::seconds(3600);
    std::string log_dir = ".";
    std::string lib_id_str = "00000062989f69fd251df3e0b274c3364ffc2f4fce73de3f1c7b5e11a4c92f21";
    std::string private_key_str = "5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3";
