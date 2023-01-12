@@ -12,7 +12,6 @@ from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr
 from TestHarness.Node import BlockType
 from TestHarness.TestHelper import AppArgs
 from TestHarness.testUtils import BlockLogAction
-from performance_tests import TransactionGeneratorsLauncher, TpsTrxGensConfig
 
 ###############################################################
 # nodeos_snapshot_diff_test
@@ -112,7 +111,6 @@ try:
 
     snapshotNodeId = 0
     irrNodeId = snapshotNodeId+1
-    producerP2pPort = cluster.getNodeP2pPort(snapshotNodeId)
 
     nodeSnap=cluster.getNode(snapshotNodeId)
     nodeIrr=cluster.getNode(irrNodeId)
@@ -121,28 +119,17 @@ try:
     blockNum=node0.getBlockNum(BlockType.head)
     waitForBlock(node0, blockNum, blockType=BlockType.lib)
 
-    Print("Configure txn generators")
-    info = node0.getInfo()
-    chainId = info['chain_id']
-    lib_id = info['last_irreversible_block_id']
-
+    Print("Configure and launch txn generators")
+    producerP2pPort = cluster.getNodeP2pPort(snapshotNodeId)
     targetTpsPerGenerator = 667
-    targetTps = targetTpsPerGenerator*trxGeneratorCnt
-    tpsLimitPerGenerator=targetTpsPerGenerator
     testTrxGenDurationSec=60*30
-
-    tpsTrxGensConfig = TpsTrxGensConfig(targetTps=targetTps, tpsLimitPerGenerator=tpsLimitPerGenerator)
-    trxGenLauncher = TransactionGeneratorsLauncher(chainId=chainId, lastIrreversibleBlockId=lib_id,
-                                                   handlerAcct=cluster.eosioAccount.name, accts=f"{account1Name},{account2Name}",
-                                                   privateKeys=f"{account1PrivKey},{account2PrivKey}", trxGenDurationSec=testTrxGenDurationSec,
-                                                   logDir=Utils.DataDir, peerEndpoint=node0.host, port=producerP2pPort, tpsTrxGensConfig=tpsTrxGensConfig)
-
-    Print("Launch txn generators and start generating/sending transactions")
-    trxGenLauncher.launch(waitToComplete=False)
+    node0.launchTrxGenerators(tpsPerGenerator=targetTpsPerGenerator, numGenerators=trxGeneratorCnt, durationSec=testTrxGenDurationSec,
+                              contractOwnerAcctName=cluster.eosioAccount.name, acctNamesList=[account1Name, account2Name],
+                              acctPrivKeysList=[account1PrivKey,account2PrivKey], p2pListenPort=producerP2pPort, waitToComplete=False)
 
     blockNum=node0.getBlockNum(BlockType.head)
     timePerBlock=500
-    transactionsPerBlock=targetTps*timePerBlock/1000
+    transactionsPerBlock=targetTpsPerGenerator*trxGeneratorCnt*timePerBlock/1000
     steadyStateWait=30
     startBlockNum=blockNum+steadyStateWait
     numBlocks=30

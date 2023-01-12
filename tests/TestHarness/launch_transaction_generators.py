@@ -10,7 +10,7 @@ import subprocess
 harnessPath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(harnessPath)
 
-from TestHarness import Utils
+from .testUtils import Utils
 Print = Utils.Print
 
 class TpsTrxGensConfig:

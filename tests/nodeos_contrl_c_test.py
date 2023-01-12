@@ -5,7 +5,6 @@ import time
 
 from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr
 from core_symbol import CORE_SYMBOL
-from performance_tests import TransactionGeneratorsLauncher, TpsTrxGensConfig
 
 ###############################################################
 # nodeos_contrl_c_lr_test
@@ -65,7 +64,6 @@ try:
 
     prodNode = cluster.getNode(0)
     nonProdNode = cluster.getNode(1)
-    nonProducerP2pPort = cluster.getNodeP2pPort(1)
 
     accounts=cluster.createAccountKeys(2)
     if accounts is None:
@@ -99,24 +97,14 @@ try:
     #Reset test success flag for next check
     testSuccessful=False
 
-    Print("Configure txn generators")
-    info = nonProdNode.getInfo()
-    chainId = info['chain_id']
-    lib_id = info['last_irreversible_block_id']
-
+    Print("Configure and launch txn generators")
+    nonProducerP2pPort = cluster.getNodeP2pPort(nonProdNode.nodeId)
     targetTpsPerGenerator = 500
-    targetTps = targetTpsPerGenerator
-    tpsLimitPerGenerator=targetTpsPerGenerator
     testTrxGenDurationSec=60
-
-    tpsTrxGensConfig = TpsTrxGensConfig(targetTps=targetTps, tpsLimitPerGenerator=tpsLimitPerGenerator)
-    trxGenLauncher = TransactionGeneratorsLauncher(chainId=chainId, lastIrreversibleBlockId=lib_id,
-                                                   handlerAcct=cluster.eosioAccount.name, accts=f"{accounts[0].name},{accounts[1].name}",
-                                                   privateKeys=f"{account1PrivKey},{account2PrivKey}", trxGenDurationSec=testTrxGenDurationSec,
-                                                   logDir=Utils.DataDir, peerEndpoint=nonProdNode.host, port=nonProducerP2pPort, tpsTrxGensConfig=tpsTrxGensConfig)
-
-    Print("Launch txn generators and start generating/sending transactions")
-    trxGenLauncher.launch(waitToComplete=False)
+    trxGeneratorCnt=1
+    nonProdNode.launchTrxGenerators(tpsPerGenerator=targetTpsPerGenerator, numGenerators=trxGeneratorCnt, durationSec=testTrxGenDurationSec,
+                                    contractOwnerAcctName=cluster.eosioAccount.name, acctNamesList=[accounts[0].name,accounts[1].name],
+                                    acctPrivKeysList=[account1PrivKey,account2PrivKey], p2pListenPort=nonProducerP2pPort, waitToComplete=False)
 
     Print("Give txn generator time to spin up and begin producing trxs")
     time.sleep(10)

@@ -8,12 +8,11 @@ import signal
 from unittest import TestResult
 import log_reader
 import inspect
-import launch_transaction_generators as ltg
 
 harnessPath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(harnessPath)
 
-from TestHarness import Cluster, TestHelper, Utils, WalletMgr
+from TestHarness import Cluster, TestHelper, Utils, WalletMgr, TransactionGeneratorsLauncher, TpsTrxGensConfig
 from TestHarness.TestHelper import AppArgs
 from dataclasses import dataclass, asdict, field
 from datetime import datetime
@@ -277,8 +276,8 @@ class PerformanceBasicTest:
         self.cluster.biosNode.kill(signal.SIGTERM)
 
         self.data.startBlock = self.waitForEmptyBlocks(self.validationNode, self.emptyBlockGoal)
-        tpsTrxGensConfig = ltg.TpsTrxGensConfig(targetTps=self.targetTps, tpsLimitPerGenerator=self.tpsLimitPerGenerator)
-        trxGenLauncher = ltg.TransactionGeneratorsLauncher(chainId=chainId, lastIrreversibleBlockId=lib_id,
+        tpsTrxGensConfig = TpsTrxGensConfig(targetTps=self.targetTps, tpsLimitPerGenerator=self.tpsLimitPerGenerator)
+        trxGenLauncher = TransactionGeneratorsLauncher(chainId=chainId, lastIrreversibleBlockId=lib_id,
                                                            handlerAcct=self.cluster.eosioAccount.name, accts=f"{self.account1Name},{self.account2Name}",
                                                            privateKeys=f"{self.account1PrivKey},{self.account2PrivKey}", trxGenDurationSec=self.testTrxGenDurationSec,
                                                            logDir=self.trxGenLogDirPath, peerEndpoint=self.producerNode.host, port=self.producerP2pPort,
