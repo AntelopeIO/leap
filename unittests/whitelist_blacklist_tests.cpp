@@ -44,8 +44,8 @@ class whitelist_blacklist_tester {
          if( !bootstrap ) return;
 
          chain->create_accounts({"eosio.token"_n, "alice"_n, "bob"_n, "charlie"_n});
-         chain->set_code("eosio.token"_n, contracts::eosio_token_wasm() );
-         chain->set_abi("eosio.token"_n, contracts::eosio_token_abi().data() );
+         chain->set_code("eosio.token"_n, test_contracts::eosio_token_wasm() );
+         chain->set_abi("eosio.token"_n, test_contracts::eosio_token_abi().data() );
          chain->push_action( "eosio.token"_n, "create"_n, "eosio.token"_n, mvo()
               ( "issuer", "eosio.token" )
               ( "maximum_supply", "1000000.00 TOK" )
@@ -184,13 +184,13 @@ BOOST_AUTO_TEST_CASE( contract_whitelist ) { try {
 
    test.chain->produce_blocks();
 
-   test.chain->set_code("bob"_n, contracts::eosio_token_wasm() );
-   test.chain->set_abi("bob"_n, contracts::eosio_token_abi().data() );
+   test.chain->set_code("bob"_n, test_contracts::eosio_token_wasm() );
+   test.chain->set_abi("bob"_n, test_contracts::eosio_token_abi().data() );
 
    test.chain->produce_blocks();
 
-   test.chain->set_code("charlie"_n, contracts::eosio_token_wasm() );
-   test.chain->set_abi("charlie"_n, contracts::eosio_token_abi().data() );
+   test.chain->set_code("charlie"_n, test_contracts::eosio_token_wasm() );
+   test.chain->set_abi("charlie"_n, test_contracts::eosio_token_abi().data() );
 
    test.chain->produce_blocks();
 
@@ -233,13 +233,13 @@ BOOST_AUTO_TEST_CASE( contract_blacklist ) { try {
 
    test.chain->produce_blocks();
 
-   test.chain->set_code("bob"_n, contracts::eosio_token_wasm() );
-   test.chain->set_abi("bob"_n, contracts::eosio_token_abi().data() );
+   test.chain->set_code("bob"_n, test_contracts::eosio_token_wasm() );
+   test.chain->set_abi("bob"_n, test_contracts::eosio_token_abi().data() );
 
    test.chain->produce_blocks();
 
-   test.chain->set_code("charlie"_n, contracts::eosio_token_wasm() );
-   test.chain->set_abi("charlie"_n, contracts::eosio_token_abi().data() );
+   test.chain->set_code("charlie"_n, test_contracts::eosio_token_wasm() );
+   test.chain->set_abi("charlie"_n, test_contracts::eosio_token_abi().data() );
 
    test.chain->produce_blocks();
 
@@ -276,13 +276,13 @@ BOOST_AUTO_TEST_CASE( action_blacklist ) { try {
 
    test.chain->produce_blocks();
 
-   test.chain->set_code("bob"_n, contracts::eosio_token_wasm() );
-   test.chain->set_abi("bob"_n, contracts::eosio_token_abi().data() );
+   test.chain->set_code("bob"_n, test_contracts::eosio_token_wasm() );
+   test.chain->set_abi("bob"_n, test_contracts::eosio_token_abi().data() );
 
    test.chain->produce_blocks();
 
-   test.chain->set_code("charlie"_n, contracts::eosio_token_wasm() );
-   test.chain->set_abi("charlie"_n, contracts::eosio_token_abi().data() );
+   test.chain->set_code("charlie"_n, test_contracts::eosio_token_wasm() );
+   test.chain->set_abi("charlie"_n, test_contracts::eosio_token_abi().data() );
 
    test.chain->produce_blocks();
 
@@ -309,7 +309,7 @@ BOOST_AUTO_TEST_CASE( blacklist_eosio ) { try {
    whitelist_blacklist_tester<tester> tester1;
    tester1.init();
    tester1.chain->produce_blocks();
-   tester1.chain->set_code(config::system_account_name, contracts::eosio_token_wasm() );
+   tester1.chain->set_code(config::system_account_name, test_contracts::eosio_token_wasm() );
    tester1.chain->produce_blocks();
    tester1.shutdown();
    tester1.contract_blacklist = {config::system_account_name};

@@ -63,7 +63,7 @@ try:
         cluster.cleanup()
         Print("Stand up cluster")
 
-        abs_path = os.path.abspath(os.getcwd() + '/libraries/testing/contracts/eosio.token/eosio.token.abi')
+        abs_path = os.path.abspath(os.getcwd() + '/unittests/contracts/eosio.token/eosio.token.abi')
         traceNodeosArgs=" --http-max-response-time-ms 990000 --trace-rpc-abi eosio.token=" + abs_path
         if cluster.launch(prodCount=prodCount, onlyBios=onlyBios, dontBootstrap=dontBootstrap, extraNodeosArgs=traceNodeosArgs) is False:
             cmdError("launcher")
@@ -308,7 +308,7 @@ try:
     if hashNum != 0:
         errorExit("FAILURE - get code currency1111 failed", raw=True)
 
-    contractDir="libraries/testing/contracts/eosio.token"
+    contractDir="unittests/contracts/eosio.token"
     wasmFile="eosio.token.wasm"
     abiFile="eosio.token.abi"
     Print("Publish contract")

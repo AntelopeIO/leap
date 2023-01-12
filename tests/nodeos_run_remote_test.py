@@ -44,7 +44,7 @@ try:
            (pnodes, total_nodes-pnodes, topo, delay))
     Print("Stand up cluster")
 
-    abs_path = os.path.abspath(os.getcwd() + '/libraries/testing/contracts/eosio.token/eosio.token.abi')
+    abs_path = os.path.abspath(os.getcwd() + '/unittests/contracts/eosio.token/eosio.token.abi')
     traceNodeosArgs = " --trace-rpc-abi eosio.token=" + abs_path
     if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, prodCount=prodCount, topo=topo, delay=delay, onlyBios=onlyBios, extraNodeosArgs=traceNodeosArgs) is False:
         errorExit("Failed to stand up eos cluster.")

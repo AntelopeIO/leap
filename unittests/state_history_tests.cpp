@@ -353,8 +353,8 @@ BOOST_AUTO_TEST_CASE(test_deltas_resources_history) {
 
    chain.produce_blocks( 100 );
 
-   chain.set_code( "eosio.token"_n, contracts::eosio_token_wasm() );
-   chain.set_abi( "eosio.token"_n, contracts::eosio_token_abi().data() );
+   chain.set_code( "eosio.token"_n, test_contracts::eosio_token_wasm() );
+   chain.set_abi( "eosio.token"_n, test_contracts::eosio_token_abi().data() );
 
    chain.produce_block();
 

@@ -198,8 +198,8 @@ public:
        create_accounts({ "eosio.token"_n, "eosio.ram"_n, "eosio.ramfee"_n, "eosio.stake"_n,
                          "eosio.bpay"_n, "eosio.vpay"_n, "eosio.saving"_n, "eosio.names"_n, "eosio.rex"_n });
 
-       set_code( "eosio.token"_n, contracts::eosio_token_wasm() );
-       set_abi( "eosio.token"_n, contracts::eosio_token_abi().data() );
+       set_code( "eosio.token"_n, test_contracts::eosio_token_wasm() );
+       set_abi( "eosio.token"_n, test_contracts::eosio_token_abi().data() );
 
        {
            const auto& accnt = control->db().get<account_object,by_name>( "eosio.token"_n );

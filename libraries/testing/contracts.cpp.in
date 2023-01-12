@@ -20,6 +20,5 @@ namespace eosio::testing {                                                      
 }
 
 MAKE_EMBEDDED_WASM_ABI(eosio_bios,                             eosio.bios, contracts)
-MAKE_EMBEDDED_WASM_ABI(eosio_token,                            eosio.token, contracts)
 MAKE_EMBEDDED_WASM_ABI(before_producer_authority_eosio_bios,   eosio.bios, contracts/old_versions/v1.7.0-develop-preactivate_feature)
 MAKE_EMBEDDED_WASM_ABI(before_preactivate_eosio_bios,          eosio.bios, contracts/old_versions/v1.6.0-rc3)

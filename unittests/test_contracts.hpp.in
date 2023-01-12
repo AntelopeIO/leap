@@ -22,6 +22,7 @@ namespace eosio {
          // Contracts in `unittests/contracts' directory
          MAKE_READ_WASM_ABI(eosio_msig,   eosio.msig, contracts)
          MAKE_READ_WASM_ABI(eosio_system, eosio.system, contracts)
+         MAKE_READ_WASM_ABI(eosio_token,  eosio.token, contracts)
          MAKE_READ_WASM_ABI(eosio_wrap,   eosio.wrap,   contracts)
 
          // Contracts in `unittests/unittests/test-contracts' directory

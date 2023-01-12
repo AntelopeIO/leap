@@ -37,13 +37,8 @@ endif()
 file(GLOB HEADERS "include/eosio/testing/*.hpp")
 
 configure_file(contracts.hpp.in include/testing_contracts/contracts.hpp ESCAPE_QUOTES)
-add_library(eosio_testing_contracts ${CMAKE_CURRENT_BINARY_DIR}/contracts.cpp)
-target_include_directories( eosio_testing_contracts
-                            PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/include/testing_contracts"
-                                   "${CMAKE_SOURCE_DIR}/libraries/libfc/include")
-if( EOSIO_COMPILE_TEST_CONTRACTS )
-   add_dependencies( eosio_testing_contracts testing_contracts_project)
-endif()
+add_library(eosio_testing_contracts INTERFACE)
+target_include_directories(eosio_testing_contracts INTERFACE ${CMAKE_CURRENT_BINARY_DIR}/include/testing_contracts)
 
 configure_file(contracts.cpp.in contracts.cpp ESCAPE_QUOTES)
 
@@ -51,6 +46,7 @@ configure_file(contracts.cpp.in contracts.cpp ESCAPE_QUOTES)
 add_library( eosio_testing
              tester.cpp
              tester_network.cpp
+             ${CMAKE_CURRENT_BINARY_DIR}/contracts.cpp
              ${HEADERS}
         )
 

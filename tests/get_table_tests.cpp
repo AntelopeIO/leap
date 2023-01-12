@@ -73,8 +73,8 @@ BOOST_FIXTURE_TEST_CASE( get_scope_test, TESTER ) try {
    create_accounts(accs);
    produce_block();
 
-   set_code( "eosio.token"_n, contracts::eosio_token_wasm() );
-   set_abi( "eosio.token"_n, contracts::eosio_token_abi().data() );
+   set_code( "eosio.token"_n, test_contracts::eosio_token_wasm() );
+   set_abi( "eosio.token"_n, test_contracts::eosio_token_abi().data() );
    produce_blocks(1);
 
    // create currency
@@ -145,8 +145,8 @@ BOOST_FIXTURE_TEST_CASE( get_table_test, TESTER ) try {
    create_accounts(accs);
    produce_block();
 
-   set_code( "eosio.token"_n, contracts::eosio_token_wasm() );
-   set_abi( "eosio.token"_n, contracts::eosio_token_abi().data() );
+   set_code( "eosio.token"_n, test_contracts::eosio_token_wasm() );
+   set_abi( "eosio.token"_n, test_contracts::eosio_token_abi().data() );
    produce_blocks(1);
 
    // create currency
@@ -324,8 +324,8 @@ BOOST_FIXTURE_TEST_CASE( get_table_by_seckey_test, TESTER ) try {
    create_accounts(accs);
    produce_block();
 
-   set_code( "eosio.token"_n, contracts::eosio_token_wasm() );
-   set_abi( "eosio.token"_n, contracts::eosio_token_abi().data() );
+   set_code( "eosio.token"_n, test_contracts::eosio_token_wasm() );
+   set_abi( "eosio.token"_n, test_contracts::eosio_token_abi().data() );
    produce_blocks(1);
 
    // create currency

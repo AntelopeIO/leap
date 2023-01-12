@@ -202,8 +202,8 @@ BOOST_FIXTURE_TEST_CASE( bootseq_test, bootseq_tester ) {
                      test_contracts::eosio_msig_wasm(),
                      test_contracts::eosio_msig_abi().data());//, &eosio_active_pk);
         set_code_abi("eosio.token"_n,
-                     contracts::eosio_token_wasm(),
-                     contracts::eosio_token_abi().data()); //, &eosio_active_pk);
+                     test_contracts::eosio_token_wasm(),
+                     test_contracts::eosio_token_abi().data()); //, &eosio_active_pk);
 
         // Set privileged for eosio.msig and eosio.token
         set_privileged("eosio.msig"_n);

@@ -41,8 +41,8 @@ public:
 
       produce_blocks( 100 );
 
-      set_code( "eosio.token"_n, contracts::eosio_token_wasm() );
-      set_abi( "eosio.token"_n, contracts::eosio_token_abi().data() );
+      set_code( "eosio.token"_n, test_contracts::eosio_token_wasm() );
+      set_abi( "eosio.token"_n, test_contracts::eosio_token_abi().data() );
 
       {
          const auto& accnt = control->db().get<account_object,by_name>( "eosio.token"_n );
