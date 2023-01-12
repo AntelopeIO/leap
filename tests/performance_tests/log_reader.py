@@ -414,7 +414,7 @@ def calcTrxLatencyCpuNetStats(trxDict : dict, blockDict: dict):
            basicStats(float(np.min(npLatencyCpuNetList[:,2])), float(np.max(npLatencyCpuNetList[:,2])), float(np.average(npLatencyCpuNetList[:,2])), float(np.std(npLatencyCpuNetList[:,2])), len(npLatencyCpuNetList))
 
 def createReport(guide: chainBlocksGuide, tpsTestConfig: TpsTestConfig, tpsStats: stats, blockSizeStats: stats, trxLatencyStats: basicStats, trxCpuStats: basicStats,
-                 trxNetStats: basicStats, forkedBlocks, droppedBlocks, prodWindows: productionWindows, testStart: datetime, testFinish: datetime, argsDict: dict, completedRun: bool) -> dict:
+                 trxNetStats: basicStats, forkedBlocks, droppedBlocks, prodWindows: productionWindows, notFound: dict, testStart: datetime, testFinish: datetime, argsDict: dict, completedRun: bool) -> dict:
     report = {}
     report['completedRun'] = completedRun
     report['testStart'] = testStart
@@ -432,6 +432,7 @@ def createReport(guide: chainBlocksGuide, tpsTestConfig: TpsTestConfig, tpsStats
     report['Analysis']['TrxNet'] = asdict(trxNetStats)
     report['Analysis']['DroppedBlocks'] = droppedBlocks
     report['Analysis']['DroppedBlocksCount'] = len(droppedBlocks)
+    report['Analysis']['DroppedTransactions'] = len(notFound)
     report['Analysis']['ProductionWindowsTotal'] = prodWindows.totalWindows
     report['Analysis']['ProductionWindowsAverageSize'] = prodWindows.averageWindowSize
     report['Analysis']['ProductionWindowsMissed'] = prodWindows.missedWindows
@@ -494,7 +495,8 @@ def calcAndReport(data: chainData, tpsTestConfig: TpsTestConfig, artifacts: Arti
         finish = datetime.utcnow()
 
     report = createReport(guide=guide, tpsTestConfig=tpsTestConfig, tpsStats=tpsStats, blockSizeStats=blkSizeStats, trxLatencyStats=trxLatencyStats,
-                          trxCpuStats=trxCpuStats, trxNetStats=trxNetStats, forkedBlocks=data.forkedBlocks, droppedBlocks=data.droppedBlocks, prodWindows=prodWindows, testStart=start, testFinish=finish, argsDict=argsDict, completedRun=completedRun)
+                          trxCpuStats=trxCpuStats, trxNetStats=trxNetStats, forkedBlocks=data.forkedBlocks, droppedBlocks=data.droppedBlocks,
+                          prodWindows=prodWindows, notFound=notFound, testStart=start, testFinish=finish, argsDict=argsDict, completedRun=completedRun)
     return report
 
 def exportReportAsJSON(report: json, exportPath):

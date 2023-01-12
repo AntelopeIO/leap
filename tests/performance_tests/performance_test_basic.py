@@ -441,10 +441,10 @@ class PtbArgumentsHandler(object):
                                                                 choices=["mapped", "heap", "locked"], default="mapped")
         ptbBaseParserGroup.add_argument("--net-threads", type=int, help="Number of worker threads in net_plugin thread pool", default=2)
         ptbBaseParserGroup.add_argument("--disable-subjective-billing", type=bool, help="Disable subjective CPU billing for API/P2P transactions", default=True)
-        ptbBaseParserGroup.add_argument("--last-block-time-offset-us", type=int, help="Offset of last block producing time in microseconds. Valid range 0 .. -block_time_interval.", default=-200000)
-        ptbBaseParserGroup.add_argument("--produce-time-offset-us", type=int, help="Offset of non last block producing time in microseconds. Valid range 0 .. -block_time_interval.", default=-200000)
-        ptbBaseParserGroup.add_argument("--cpu-effort-percent", type=int, help="Percentage of cpu block production time used to produce block. Whole number percentages, e.g. 80 for 80%%", default=80)
-        ptbBaseParserGroup.add_argument("--last-block-cpu-effort-percent", type=int, help="Percentage of cpu block production time used to produce last block. Whole number percentages, e.g. 80 for 80%%", default=80)
+        ptbBaseParserGroup.add_argument("--last-block-time-offset-us", type=int, help="Offset of last block producing time in microseconds. Valid range 0 .. -block_time_interval.", default=0)
+        ptbBaseParserGroup.add_argument("--produce-time-offset-us", type=int, help="Offset of non last block producing time in microseconds. Valid range 0 .. -block_time_interval.", default=0)
+        ptbBaseParserGroup.add_argument("--cpu-effort-percent", type=int, help="Percentage of cpu block production time used to produce block. Whole number percentages, e.g. 80 for 80%%", default=100)
+        ptbBaseParserGroup.add_argument("--last-block-cpu-effort-percent", type=int, help="Percentage of cpu block production time used to produce last block. Whole number percentages, e.g. 80 for 80%%", default=100)
         ptbBaseParserGroup.add_argument("--producer-threads", type=int, help="Number of worker threads in producer thread pool", default=2)
         ptbBaseParserGroup.add_argument("--http-max-response-time-ms", type=int, help="Maximum time for processing a request, -1 for unlimited", default=990000)
         ptbBaseParserGroup.add_argument("--del-perf-logs", help="Whether to delete performance test specific logs.", action='store_true')
@@ -488,7 +488,7 @@ def main():
 
     lbto = args.last_block_time_offset_us
     lbcep = args.last_block_cpu_effort_percent
-    if args.p > 1:
+    if args.p > 1 and lbto == 0 and lbcep == 100:
         lbto = -200000
         lbcep = 80
     producerPluginArgs = ProducerPluginArgs(disableSubjectiveBilling=args.disable_subjective_billing,
