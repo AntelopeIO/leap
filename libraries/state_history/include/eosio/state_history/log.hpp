@@ -160,7 +160,7 @@ class state_history_log_data : public chain::log_data_base<state_history_log_dat
    std::string filename;
 
    state_history_log_data() = default;
-   state_history_log_data(const fc::path& path, mapmode mode = mapmode::readonly){
+   explicit state_history_log_data(const fc::path& path, mapmode mode = mapmode::readonly){
       open(path, mode);
    }
 
@@ -280,14 +280,6 @@ class state_history_log {
    uint32_t                _end_block   = 0;
    chain::block_id_type    last_block_id;
 
-   std::thread                                                              thr;
-   std::atomic<bool>                                                        write_thread_has_exception = false;
-   std::exception_ptr                                                       eptr;
-   boost::asio::io_context                                                  ctx;
-   boost::asio::io_context::strand                                          work_strand{ctx};
-   boost::asio::executor_work_guard<boost::asio::io_context::executor_type> work_guard =
-       boost::asio::make_work_guard(ctx);
-   std::recursive_mutex                                                     mx;
    std::mutex                                                               rewrite_mx; // used during prune or truncate
 
    using catalog_t = chain::log_catalog<state_history_log_data, chain::log_index<chain::plugin_exception>>;
@@ -347,17 +339,6 @@ class state_history_log {
             vacuum();
          }
       }
-
-       thr = std::thread([this] {
-         try {
-            fc::set_os_thread_name(this->name);
-            this->ctx.run();
-         } catch (...) {
-            elog("catched exception from ${name} write thread", ("name", this->name));
-            eptr                       = std::current_exception();
-            write_thread_has_exception = true;
-         }
-      });
    }
 
 
@@ -366,19 +347,9 @@ class state_history_log {
    }
 
    void stop() {
-      if (thr.joinable()) {
-         work_guard.reset();
-         thr.join();
-      }
    }
 
    ~state_history_log() {
-      // complete execution before possible vacuuming
-      if (thr.joinable()) {
-         work_guard.reset();
-         thr.join();
-      }
-
       //nothing to do if log is empty or we aren't pruning
       if(_begin_block == _end_block)
          return;
@@ -421,12 +392,6 @@ class state_history_log {
 
    template <typename F>
    void write_entry(state_history_log_header header, const chain::block_id_type& prev_id, F write_payload) {
-      if (write_thread_has_exception) {
-         std::rethrow_exception(eptr);
-      }
-
-      std::unique_lock<std::recursive_mutex> lock(mx);
-
       auto block_num = chain::block_header::num_from_id(header.block_id);
       EOS_ASSERT(_begin_block == _end_block || block_num <= _end_block, chain::plugin_exception,
                  "missed a block in ${name}.log", ("name", name));
@@ -495,7 +460,6 @@ class state_history_log {
          return 0;
 
       state_history_log_header header;
-      std::lock_guard lock(mx);
       log.seek(get_pos(block_num));
       read_header(header);
 
@@ -551,7 +515,6 @@ class state_history_log {
       auto result = catalog.id_for_block(block_num);
       if (!result) {
          if (block_num >= _begin_block && block_num < _end_block) {
-            std::lock_guard          lock(mx);
             state_history_log_header header;
             get_entry(block_num, header);
             return header.block_id;
@@ -570,7 +533,6 @@ class state_history_log {
    fc::cfile& get_entry(uint32_t block_num, state_history_log_header& header) {
       EOS_ASSERT(block_num >= _begin_block && block_num < _end_block, chain::plugin_exception,
                  "read non-existing block in ${name}.log", ("name", name));
-      std::lock_guard lock(mx);
       log.seek(get_pos(block_num));
       read_header(header);
       return log;

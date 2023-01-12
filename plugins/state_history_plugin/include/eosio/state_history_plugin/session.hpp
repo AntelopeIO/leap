@@ -238,14 +238,14 @@ struct session : session_base, std::enable_shared_from_this<session<Plugin, Sock
       send();
    }
 
-   uint64_t get_trace_log_entry(const eosio::state_history::get_blocks_result_v0&              result,
+   uint64_t get_trace_log_entry(const eosio::state_history::get_blocks_result_v0& result,
                                 std::variant<std::vector<char>, locked_decompress_stream>& buf) {
       if (result.traces.has_value())
          return plugin->get_trace_log()->get_unpacked_entry(result.this_block->block_num, buf);
       return 0;
    }
 
-   uint64_t get_delta_log_entry(const eosio::state_history::get_blocks_result_v0&              result,
+   uint64_t get_delta_log_entry(const eosio::state_history::get_blocks_result_v0& result,
                                 std::variant<std::vector<char>, locked_decompress_stream>& buf) {
       if (result.deltas.has_value())
          return plugin->get_chain_state_log()->get_unpacked_entry(result.this_block->block_num, buf);
