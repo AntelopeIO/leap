@@ -19,6 +19,13 @@ from dataclasses import dataclass, asdict, field
 from datetime import datetime
 from pathlib import Path
 
+@dataclass
+class UserTrxData:
+    accounts: list = field(default_factory=lambda: ["testacct1", "testacct2"])
+    abiFile: Path = Path("unittests")/"contracts"/"eosio.token"/"eosio.token.abi"
+    actionName: str = "transfer"
+    actionData: str = f'{{"from":"testacct1","to":"testacct2","quantity":"0.0001 CUR","memo":"transaction specified"}}'
+
 class PerformanceTestBasic:
     @dataclass
     class PtbTpsTestResult:
@@ -108,7 +115,7 @@ class PerformanceTestBasic:
         quiet: bool=False
         delPerfLogs: bool=False
         expectedTransactionsSent: int = field(default_factory=int, init=False)
-        exerciseTrxSpecification: bool=False
+        useUserTrxData: bool=False
 
         def __post_init__(self):
             self.expectedTransactionsSent = self.testTrxGenDurationSec * self.targetTps
@@ -253,16 +260,22 @@ class PerformanceTestBasic:
             specificExtraNodeosArgs=self.clusterConfig.specificExtraNodeosArgs
             )
 
-    def setupWalletAndAccounts(self):
+    def setupWalletAndAccounts(self, accountCnt: int=2, accountNames: list=None):
         self.wallet = self.walletMgr.create('default')
-        self.cluster.populateWallet(2, self.wallet)
-        self.cluster.createAccounts(self.cluster.eosioAccount, stakedDeposit=0, validationNodeIndex=self.validationNodeId)
-
-        self.account1Name = self.cluster.accounts[0].name
-        self.account2Name = self.cluster.accounts[1].name
-
-        self.account1PrivKey = self.cluster.accounts[0].activePrivateKey
-        self.account2PrivKey = self.cluster.accounts[1].activePrivateKey
+        self.accountNames=[]
+        self.accountPrivKeys=[]
+        if accountNames is not None:
+            self.cluster.populateWallet(accountsCount=len(accountNames), wallet=self.wallet, accountNames=accountNames)
+            self.cluster.createAccounts(self.cluster.eosioAccount, stakedDeposit=0, validationNodeIndex=self.validationNodeId)
+            for index in range(0, len(accountNames)):
+                self.accountNames.append(self.cluster.accounts[index].name)
+                self.accountPrivKeys.append(self.cluster.accounts[index].activePrivateKey)
+        else:
+            self.cluster.populateWallet(accountsCount=accountCnt, wallet=self.wallet)
+            self.cluster.createAccounts(self.cluster.eosioAccount, stakedDeposit=0, validationNodeIndex=self.validationNodeId)
+            for index in range(0, accountCnt):
+                self.accountNames.append(self.cluster.accounts[index].name)
+                self.accountPrivKeys.append(self.cluster.accounts[index].activePrivateKey)
 
     def runTpsTest(self) -> PtbTpsTestResult:
         completedRun = False
@@ -273,18 +286,26 @@ class PerformanceTestBasic:
         lib_id = info['last_irreversible_block_id']
         self.data = log_reader.chainData()
 
+        abiFile=None
+        actionName=None
+        actionData=None
+        if (self.ptbConfig.useUserTrxData):
+            self.userTrxData = UserTrxData()
+            self.setupWalletAndAccounts(accountCnt=len(self.userTrxData.accounts), accountNames=self.userTrxData.accounts)
+            abiFile = self.userTrxData.abiFile
+            actionName = self.userTrxData.actionName
+            actionData = self.userTrxData.actionData
+        else:
+            self.setupWalletAndAccounts()
+
         self.cluster.biosNode.kill(signal.SIGTERM)
 
         self.data.startBlock = self.waitForEmptyBlocks(self.validationNode, self.emptyBlockGoal)
         tpsTrxGensConfig = ltg.TpsTrxGensConfig(targetTps=self.ptbConfig.targetTps, tpsLimitPerGenerator=self.ptbConfig.tpsLimitPerGenerator)
 
-        abiFile = Path("unittests")/"contracts"/"eosio.token"/"eosio.token.abi" if self.ptbConfig.exerciseTrxSpecification else None
-        actionName = "transfer" if self.ptbConfig.exerciseTrxSpecification else None
-        actionData = f'{{"from":"{self.account1Name}","to":"{self.account2Name}","quantity":"0.0001 CUR","memo":"transaction specified"}}'  if self.ptbConfig.exerciseTrxSpecification else None
-
         trxGenLauncher = ltg.TransactionGeneratorsLauncher(chainId=chainId, lastIrreversibleBlockId=lib_id,
-                                                           contractOwnerAccount=self.cluster.eosioAccount.name, accts=f"{self.account1Name},{self.account2Name}",
-                                                           privateKeys=f"{self.account1PrivKey},{self.account2PrivKey}", trxGenDurationSec=self.ptbConfig.testTrxGenDurationSec,
+                                                           contractOwnerAccount=self.cluster.eosioAccount.name, accts=','.join(map(str, self.accountNames)),
+                                                           privateKeys=','.join(map(str, self.accountPrivKeys)), trxGenDurationSec=self.ptbConfig.testTrxGenDurationSec,
                                                            logDir=self.trxGenLogDirPath, abiFile=abiFile, actionName=actionName, actionData=actionData, tpsTrxGensConfig=tpsTrxGensConfig)
 
         trxGenExitCodes = trxGenLauncher.launch()
@@ -365,8 +386,6 @@ class PerformanceTestBasic:
 
         if self.launchCluster() == False:
             self.errorExit('Failed to stand up cluster.')
-
-        self.setupWalletAndAccounts()
 
     def postTpsTestSteps(self):
         self.queryBlockTrxData(self.validationNode, self.blockDataPath, self.blockTrxDataPath, self.data.startBlock, self.data.ceaseBlock)
@@ -473,7 +492,7 @@ class PtbArgumentsHandler(object):
 
         ptbParserGroup.add_argument("--target-tps", type=int, help="The target transfers per second to send during test", default=8000)
         ptbParserGroup.add_argument("--test-duration-sec", type=int, help="The duration of transfer trx generation for the test in seconds", default=90)
-        ptbParserGroup.add_argument("--exercise-trx-specification", help="Test Transaction Generator: abi, action name, action data api", action='store_true')
+        ptbParserGroup.add_argument("--user-trx-data", help="Make use of user defined trx data in UserTrxData class", action='store_true')
         return ptbParser
 
     @staticmethod
@@ -505,7 +524,7 @@ def main():
                                                            nodeosVers=Utils.getNodeosVersion().split('.')[0])
     ptbConfig = PerformanceTestBasic.PtbConfig(targetTps=args.target_tps, testTrxGenDurationSec=args.test_duration_sec, tpsLimitPerGenerator=args.tps_limit_per_generator,
                                   numAddlBlocksToPrune=args.num_blocks_to_prune, logDirRoot=".", delReport=args.del_report, quiet=args.quiet, delPerfLogs=args.del_perf_logs,
-                                  exerciseTrxSpecification=args.exercise_trx_specification)
+                                  useUserTrxData=args.user_trx_data)
     myTest = PerformanceTestBasic(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, ptbConfig=ptbConfig)
     testSuccessful = myTest.runTest()
 

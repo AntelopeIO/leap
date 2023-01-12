@@ -700,7 +700,7 @@ class Cluster(object):
 
     # create account keys and import into wallet. Wallet initialization will be user responsibility
     # also imports defproducera and defproducerb accounts
-    def populateWallet(self, accountsCount, wallet):
+    def populateWallet(self, accountsCount, wallet, accountNames: list=None):
         if self.walletMgr is None:
             Utils.Print("ERROR: WalletMgr hasn't been initialized.")
             return False
@@ -722,6 +722,10 @@ class Cluster(object):
         if not self.walletMgr.importKey(self.defproducerbAccount, wallet):
             Utils.Print("ERROR: Failed to import key for account %s" % (self.defproducerbAccount.name))
             return False
+
+        if accountNames is not None:
+            for idx, name in enumerate(accountNames):
+                accounts[idx].name =  name
 
         for account in accounts:
             Utils.Print("Importing keys for account %s into wallet %s." % (account.name, wallet.name))
@@ -1568,7 +1572,6 @@ class Cluster(object):
 
         for f in self.filesToCleanup:
             os.remove(f)
-
 
     # Create accounts and validates that the last transaction is received on root node
     def createAccounts(self, creator, waitForTransBlock=True, stakedDeposit=1000, validationNodeIndex=0):
