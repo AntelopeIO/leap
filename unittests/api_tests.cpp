@@ -1052,6 +1052,8 @@ BOOST_AUTO_TEST_CASE(checktime_pause_max_trx_cpu_extended_test) { try {
 
    // Test deadline is extended when max_transaction_cpu_time is the limiting factor
 
+   BOOST_TEST( !t.is_code_cached("pause"_n) );
+
    // First call to contract which should cause the WASM to load and trx_context.pause_billing_timer() to be called.
    // Verify that the restriction on the transaction of 24'999 is honored even though there is wall clock time to
    // load the wasm. If this test fails it is possible that the wasm loaded faster or slower than expected.
@@ -1064,7 +1066,8 @@ BOOST_AUTO_TEST_CASE(checktime_pause_max_trx_cpu_extended_test) { try {
    auto dur = (after - before).count();
    dlog("elapsed ${e}us", ("e", dur) );
    BOOST_CHECK( dur >= 24'999 ); // should never fail
-   // This assumes that loading the WASM takes at least 1.5 ms
+   BOOST_TEST( t.is_code_cached("pause"_n) );
+      // This assumes that loading the WASM takes at least 1.5 ms
    // If this check fails but duration is >= 24'999 (previous check did not fail), then the check here is likely
    // because WASM took less than 1.5 ms to load.
    BOOST_CHECK_MESSAGE( dur > 26'500, "elapsed " << dur << "us" );
@@ -1107,6 +1110,8 @@ BOOST_AUTO_TEST_CASE(checktime_pause_max_trx_extended_test) { try {
 
    // Test deadline is extended when max_transaction_time is the limiting factor
 
+   BOOST_TEST( !t.is_code_cached("pause"_n) );
+
    // First call to contract which should cause the WASM to load and trx_context.pause_billing_timer() to be called.
    // Verify that the restriction on the max_transaction_time of 25ms is honored even though there is wall clock time to
    // load the wasm. If this test fails it is possible that the wasm loaded faster or slower than expected.
@@ -1119,6 +1124,7 @@ BOOST_AUTO_TEST_CASE(checktime_pause_max_trx_extended_test) { try {
    auto dur = (after - before).count();
    dlog("elapsed ${e}us", ("e", dur) );
    BOOST_CHECK( dur >= 25'000 ); // should never fail
+   BOOST_TEST( t.is_code_cached("pause"_n) );
    // This assumes that loading the WASM takes at least 1.5 ms
    // If this check fails but duration is >= 25'000 (previous check did not fail), then the check here is likely
    // because WASM took less than 1.5 ms to load.
@@ -1153,6 +1159,8 @@ BOOST_AUTO_TEST_CASE(checktime_pause_block_deadline_not_extended_test) { try {
    // Test block deadline is not extended when it is the limiting factor
    // Specify large enough time so that WASM is completely loaded.
 
+   BOOST_TEST( !t.is_code_cached("pause"_n) );
+
    // First call to contract which should cause the WASM to load and trx_context.pause_billing_timer() to be called.
    auto before = fc::time_point::now();
    BOOST_CHECK_EXCEPTION( call_test( t, test_pause_action<TEST_METHOD("test_checktime", "checktime_failure")>{},
@@ -1163,6 +1171,8 @@ BOOST_AUTO_TEST_CASE(checktime_pause_block_deadline_not_extended_test) { try {
    auto dur = (after - before).count();
    dlog("elapsed ${e}us", ("e", dur) );
    BOOST_CHECK( dur >= 75'000 ); // should never fail
+   BOOST_TEST( t.is_code_cached("pause"_n) );
+
    // If this check fails but duration is >= 75'000 (previous check did not fail), then the check here is likely
    // because it took longer than 10 ms for checktime to trigger, trace to be created, and to get to the now() call.
    BOOST_CHECK_MESSAGE( dur < 85'000, "elapsed " << dur << "us" );
@@ -1199,6 +1209,8 @@ BOOST_AUTO_TEST_CASE(checktime_pause_block_deadline_not_extended_while_loading_t
    // This is difficult to determine as checktime is not checked until WASM has completed loading.
    // We want to test that blocktime is enforced immediately after timer is unpaused.
 
+   BOOST_TEST( !t.is_code_cached("pause"_n) );
+
    // First call to contract which should cause the WASM to load and trx_context.pause_billing_timer() to be called.
    auto before = fc::time_point::now();
    BOOST_CHECK_EXCEPTION( call_test( t, test_pause_action<TEST_METHOD("test_checktime", "checktime_failure")>{},
@@ -1210,6 +1222,8 @@ BOOST_AUTO_TEST_CASE(checktime_pause_block_deadline_not_extended_while_loading_t
    auto dur = (after - before).count();
    dlog("elapsed ${e}us", ("e", dur) );
    BOOST_CHECK( dur >= 5'000 ); // should never fail
+   BOOST_TEST( t.is_code_cached("pause"_n) );
+
    // WASM load times on my machine was 35ms.
    // Since checktime only kicks in after WASM is loaded this needs to be large enough to load the WASM, but should be
    // considerably lower than the 150ms max_transaction_time
@@ -1265,14 +1279,14 @@ BOOST_FIXTURE_TEST_CASE(checktime_intrinsic, TESTER) { try {
 	set_code( "testapi"_n, ss.str().c_str() );
 	produce_blocks(1);
 
+        BOOST_TEST( !is_code_cached("testapi"_n) );
+
         //initialize cache
         BOOST_CHECK_EXCEPTION( call_test( *this, test_api_action<TEST_METHOD("doesn't matter", "doesn't matter")>{},
                                           5000, 10, 10 ),
                                deadline_exception, is_deadline_exception );
 
-// https://github.com/AntelopeIO/leap/issues/260 was created to track this TODO.
-// Remove those comments after the issue is resolved.
-// #warning TODO validate that the contract was successfully cached
+        BOOST_TEST( is_code_cached("testapi"_n) );
 
         //it will always call
         BOOST_CHECK_EXCEPTION( call_test( *this, test_api_action<TEST_METHOD("doesn't matter", "doesn't matter")>{},
@@ -1304,14 +1318,14 @@ BOOST_FIXTURE_TEST_CASE(checktime_grow_memory, TESTER) { try {
 	set_code( "testapi"_n, ss.str().c_str() );
 	produce_blocks(1);
 
+        BOOST_TEST( !is_code_cached("testapi"_n) );
+
         //initialize cache
         BOOST_CHECK_EXCEPTION( call_test( *this, test_api_action<TEST_METHOD("doesn't matter", "doesn't matter")>{},
                                           5000, 10, 10 ),
                                deadline_exception, is_deadline_exception );
 
-// https://github.com/AntelopeIO/leap/issues/260 was created to track this TODO.
-// Remove those comments after the issue is resolved.
-//#warning TODO validate that the contract was successfully cached
+        BOOST_TEST( is_code_cached("testapi"_n) );
 
         //it will always call
         BOOST_CHECK_EXCEPTION( call_test( *this, test_api_action<TEST_METHOD("doesn't matter", "doesn't matter")>{},
@@ -1326,14 +1340,14 @@ BOOST_FIXTURE_TEST_CASE(checktime_hashing_fail, TESTER) { try {
 	set_code( "testapi"_n, test_contracts::test_api_wasm() );
 	produce_blocks(1);
 
+        BOOST_TEST( !is_code_cached("testapi"_n) );
+
         //hit deadline exception, but cache the contract
         BOOST_CHECK_EXCEPTION( call_test( *this, test_api_action<TEST_METHOD("test_checktime", "checktime_sha1_failure")>{},
                                           5000, 3, 3 ),
                                deadline_exception, is_deadline_exception );
 
-// https://github.com/AntelopeIO/leap/issues/260 was created to track this TODO.
-// Remove those comments after the issue is resolved.
-//#warning TODO validate that the contract was successfully cached
+        BOOST_TEST( is_code_cached("testapi"_n) );
 
         //the contract should be cached, now we should get deadline_exception because of calls to checktime() from hashing function
         BOOST_CHECK_EXCEPTION( call_test( *this, test_api_action<TEST_METHOD("test_checktime", "checktime_sha1_failure")>{},

@@ -2,7 +2,8 @@
  
 import argparse
 import log_reader
-import launch_transaction_generators as ltg
+
+from TestHarness import TpsTrxGensConfig
 
 parser = argparse.ArgumentParser(add_help=False)
 parser.add_argument("--target-tps", type=int, help="The target transfers per second to send during test", default=8000)
@@ -28,7 +29,7 @@ blockDataPath = f"{blockDataLogDirPath}/blockData.txt"
 blockTrxDataPath = f"{blockDataLogDirPath}/blockTrxData.txt"
 tpsLimitPerGenerator=args.tps_limit_per_generator
 targetTps=args.target_tps
-tpsTrxGensConfig = ltg.TpsTrxGensConfig(targetTps=targetTps, tpsLimitPerGenerator=tpsLimitPerGenerator)
+tpsTrxGensConfig = TpsTrxGensConfig(targetTps=targetTps, tpsLimitPerGenerator=tpsLimitPerGenerator)
 
 artifactsLocate = log_reader.ArtifactPaths(nodeosLogPath=nodeosLogPath, trxGenLogDirPath=trxGenLogDirPath, blockTrxDataPath=blockTrxDataPath, blockDataPath=blockDataPath)
 tpsTestConfig = log_reader.TpsTestConfig(targetTps=targetTps, testDurationSec=args.test_duration_sec, tpsLimitPerGenerator=tpsLimitPerGenerator,
