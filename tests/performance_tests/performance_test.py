@@ -8,8 +8,8 @@ import sys
 import json
 import shutil
 
-harnessPath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(harnessPath)
+from pathlib import Path, PurePath
+sys.path.append(str(PurePath(PurePath(Path(__file__).absolute()).parent).parent))
 
 from NodeosPluginArgs import ChainPluginArgs, HttpPluginArgs, NetPluginArgs, ProducerPluginArgs
 from TestHarness import TestHelper, Utils
@@ -34,7 +34,7 @@ class PerformanceTest:
             trxExpectMet: bool = False
             basicTestSuccess: bool = False
             testAnalysisBlockCnt: int = 0
-            logsDir: str = ""
+            logsDir: Path = Path("")
             testStart: datetime = None
             testEnd: datetime = None
 
@@ -56,7 +56,7 @@ class PerformanceTest:
         delTestReport: bool=False
         numAddlBlocksToPrune: int=2
         quiet: bool=False
-        logDirRoot: str="."
+        logDirRoot: Path=Path(".")
         skipTpsTests: bool=False
         calcProducerThreads: str="none"
         calcChainThreads: str="none"
@@ -79,16 +79,16 @@ class PerformanceTest:
 
     @dataclass
     class LoggingConfig:
-        logDirBase: str = f"./{os.path.splitext(os.path.basename(__file__))[0]}"
+        logDirBase: Path = Path(".")/PurePath(PurePath(__file__).name).stem[0]
         logDirTimestamp: str = f"{datetime.utcnow().strftime('%Y-%m-%d_%H-%M-%S')}"
-        logDirPath: str = field(default_factory=str, init=False)
-        ptbLogsDirPath: str = field(default_factory=str, init=False)
-        pluginThreadOptLogsDirPath: str = field(default_factory=str, init=False)
+        logDirPath: Path = field(default_factory=Path, init=False)
+        ptbLogsDirPath: Path = field(default_factory=Path, init=False)
+        pluginThreadOptLogsDirPath: Path = field(default_factory=Path, init=False)
 
         def __post_init__(self):
-            self.logDirPath = f"{self.logDirBase}/{self.logDirTimestamp}"
-            self.ptbLogsDirPath = f"{self.logDirPath}/testRunLogs"
-            self.pluginThreadOptLogsDirPath = f"{self.logDirPath}/pluginThreadOptRunLogs"
+            self.logDirPath = self.logDirBase/Path(self.logDirTimestamp)
+            self.ptbLogsDirPath = self.logDirPath/Path("testRunLogs")
+            self.pluginThreadOptLogsDirPath = self.logDirPath/Path("pluginThreadOptRunLogs")
 
     def __init__(self, testHelperConfig: PerformanceTestBasic.TestHelperConfig=PerformanceTestBasic.TestHelperConfig(),
                  clusterConfig: PerformanceTestBasic.ClusterConfig=PerformanceTestBasic.ClusterConfig(), ptConfig=PtConfig()):
@@ -98,10 +98,10 @@ class PerformanceTest:
 
         self.testsStart = datetime.utcnow()
 
-        self.loggingConfig = PerformanceTest.LoggingConfig(logDirBase=f"{self.ptConfig.logDirRoot}/{os.path.splitext(os.path.basename(__file__))[0]}",
+        self.loggingConfig = PerformanceTest.LoggingConfig(logDirBase=Path(self.ptConfig.logDirRoot)/PurePath(PurePath(__file__).name).stem[0],
                                                            logDirTimestamp=f"{self.testsStart.strftime('%Y-%m-%d_%H-%M-%S')}")
 
-    def performPtbBinarySearch(self, clusterConfig: PerformanceTestBasic.ClusterConfig, logDirRoot: str, delReport: bool, quiet: bool, delPerfLogs: bool) -> TpsTestResult.PerfTestSearchResults:
+    def performPtbBinarySearch(self, clusterConfig: PerformanceTestBasic.ClusterConfig, logDirRoot: Path, delReport: bool, quiet: bool, delPerfLogs: bool) -> TpsTestResult.PerfTestSearchResults:
         floor = 0
         ceiling = self.ptConfig.maxTpsToTest
         binSearchTarget = self.ptConfig.maxTpsToTest
@@ -216,7 +216,7 @@ class PerformanceTest:
     def optimizePluginThreadCount(self,  optPlugin: PluginThreadOpt, optType: PluginThreadOptRunType=PluginThreadOptRunType.LOCAL_MAX,
                                   minThreadCount: int=2, maxThreadCount: int=os.cpu_count()) -> PluginThreadOptResult:
 
-        resultsFile = f"{self.loggingConfig.pluginThreadOptLogsDirPath}/{optPlugin.value}ThreadResults.txt"
+        resultsFile = self.loggingConfig.pluginThreadOptLogsDirPath/Path(f"{optPlugin.value}ThreadResults.txt")
 
         threadToMaxTpsDict: dict = {}
 
@@ -311,7 +311,7 @@ class PerformanceTest:
         try:
             def removeArtifacts(path):
                 print(f"Checking if test artifacts dir exists: {path}")
-                if os.path.isdir(f"{path}"):
+                if Path(path).is_dir():
                     print(f"Cleaning up test artifacts dir and all contents of: {path}")
                     shutil.rmtree(f"{path}")
 
@@ -327,7 +327,7 @@ class PerformanceTest:
         try:
             def createArtifactsDir(path):
                 print(f"Checking if test artifacts dir exists: {path}")
-                if not os.path.isdir(f"{path}"):
+                if not Path(path).is_dir():
                     print(f"Creating test artifacts dir: {path}")
                     os.mkdir(f"{path}")
 
@@ -432,7 +432,7 @@ class PerformanceTest:
             print(f"Full Performance Test Report: {jsonReport}")
 
         if not self.ptConfig.delReport:
-            self.exportReportAsJSON(jsonReport, f"{self.loggingConfig.logDirPath}/report.json")
+            self.exportReportAsJSON(jsonReport, self.loggingConfig.logDirPath/Path("report.json"))
 
         if self.ptConfig.delPerfLogs:
             print(f"Cleaning up logs directory: {self.loggingConfig.logDirPath}")
@@ -508,6 +508,9 @@ def main():
     extraNodeosArgs = ENA(chainPluginArgs=chainPluginArgs, httpPluginArgs=httpPluginArgs, producerPluginArgs=producerPluginArgs, netPluginArgs=netPluginArgs)
     testClusterConfig = PerformanceTestBasic.ClusterConfig(pnodes=args.p, totalNodes=args.n, topo=args.s, genesisPath=args.genesis,
                                                            prodsEnableTraceApi=args.prods_enable_trace_api, extraNodeosArgs=extraNodeosArgs,
+                                                           specifiedContract=PerformanceTestBasic.ClusterConfig.SpecifiedContract(accountName=args.account_name,
+                                                                ownerPublicKey=args.owner_public_key, activePublicKey=args.active_public_key,
+                                                                contractDir=args.contract_dir, wasmFile=args.wasm_file, abiFile=args.abi_file),
                                                            nodeosVers=Utils.getNodeosVersion().split('.')[0])
 
     ptConfig = PerformanceTest.PtConfig(testDurationSec=args.test_iteration_duration_sec,
@@ -520,7 +523,7 @@ def main():
                                         delTestReport=args.del_test_report,
                                         numAddlBlocksToPrune=args.num_blocks_to_prune,
                                         quiet=args.quiet,
-                                        logDirRoot=".",
+                                        logDirRoot=Path("."),
                                         skipTpsTests=args.skip_tps_test,
                                         calcProducerThreads=args.calc_producer_threads,
                                         calcChainThreads=args.calc_chain_threads,
