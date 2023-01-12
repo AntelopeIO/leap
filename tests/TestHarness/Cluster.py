@@ -1269,7 +1269,7 @@ class Cluster(object):
             return None
 
         contract="eosio.token"
-        contractDir="libraries/testing/contracts/%s" % (contract)
+        contractDir="unittests/contracts/%s" % (contract)
         wasmFile="%s.wasm" % (contract)
         abiFile="%s.abi" % (contract)
         Utils.Print("Publish %s contract" % (contract))
