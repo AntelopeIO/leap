@@ -242,21 +242,21 @@ namespace eosio::testing {
       fc::variant unpacked_action_data_json = json_from_file_or_string(_action_data_file_or_str);
       std::cout << "action data variant: " << fc::json::to_pretty_string(unpacked_action_data_json) << std::endl;
 
-      bytes packed_action_data_string;
+      bytes packed_action_data;
       try {
          auto action_type = abi.get_action_type( _action );
          FC_ASSERT( !action_type.empty(), "Unknown action ${action} in contract ${contract}", ("action", _action)( "contract", _auth_account ));
-         packed_action_data_string = abi.variant_to_binary( action_type, unpacked_action_data_json, abi_serializer::create_yield_function( abi_serializer_max_time ) );
+         packed_action_data = abi.variant_to_binary( action_type, unpacked_action_data_json, abi_serializer::create_yield_function( abi_serializer_max_time ) );
 
       } EOS_RETHROW_EXCEPTIONS(transaction_type_exception, "Fail to parse unpacked action data JSON")
 
-      std::cout << fc::to_hex(packed_action_data_string.data(), packed_action_data_string.size()) << std::endl;
+      std::cout << fc::to_hex(packed_action_data.data(), packed_action_data.size()) << std::endl;
 
       eosio::chain::action act;
       act.account = _contract_owner_account;
       act.name = _action;
       act.authorization = vector<permission_level>{{_auth_account, config::active_name}};
-      act.data = std::move(packed_action_data_string);
+      act.data = std::move(packed_action_data);
 
       _trxs.emplace_back(create_transfer_trx_w_signer(act, _private_key, ++_nonce_prefix, _nonce, _trx_expiration, _chain_id, _last_irr_block_id));
 
