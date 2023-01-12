@@ -14,7 +14,7 @@ from pathlib import Path, PurePath
 sys.path.append(str(PurePath(PurePath(Path(__file__).absolute()).parent).parent))
 
 from NodeosPluginArgs import ChainPluginArgs, HttpClientPluginArgs, HttpPluginArgs, NetPluginArgs, ProducerPluginArgs, ResourceMonitorPluginArgs, SignatureProviderPluginArgs, StateHistoryPluginArgs, TraceApiPluginArgs
-from TestHarness import Cluster, TestHelper, Utils, WalletMgr
+from TestHarness import Account, Cluster, TestHelper, Utils, WalletMgr
 from dataclasses import dataclass, asdict, field
 from datetime import datetime
 
@@ -65,10 +65,20 @@ class PerformanceTestBasic:
                         args.append(f"{getattr(self, field.name)}")
                 return " ".join(args)
 
+        @dataclass
+        class SpecifiedContract:
+            accountName: str = "c"
+            ownerPublicKey: str = "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
+            activePublicKey: str = "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
+            contractDir: str = "unittests/contracts/eosio.system"
+            wasmFile: str = "eosio.system.wasm"
+            abiFile: str = "eosio.system.abi"
+
         pnodes: int = 1
         totalNodes: int = 2
         topo: str = "mesh"
         extraNodeosArgs: ExtraNodeosArgs = ExtraNodeosArgs()
+        specifiedContract: SpecifiedContract = SpecifiedContract()
         useBiosBootFile: bool = False
         genesisPath: Path = Path("tests")/"performance_tests"/"genesis.json"
         maximumP2pPerHost: int = 5000
@@ -261,10 +271,24 @@ class PerformanceTestBasic:
         self.account1PrivKey = self.cluster.accounts[0].activePrivateKey
         self.account2PrivKey = self.cluster.accounts[1].activePrivateKey
 
+    def setupContract(self):
+        specifiedAccount = Account(self.clusterConfig.specifiedContract.accountName)
+        specifiedAccount.ownerPublicKey = self.clusterConfig.specifiedContract.ownerPublicKey
+        specifiedAccount.activePublicKey = self.clusterConfig.specifiedContract.activePublicKey
+        self.cluster.createAccountAndVerify(specifiedAccount, self.cluster.eosioAccount, validationNodeIndex=self.validationNodeId)
+        print("Publishing contract")
+        transaction=self.cluster.biosNode.publishContract(specifiedAccount, self.clusterConfig.specifiedContract.contractDir,
+                                                          self.clusterConfig.specifiedContract.wasmFile,
+                                                          self.clusterConfig.specifiedContract.abiFile, waitForTransBlock=True)
+        if transaction is None:
+            print("ERROR: Failed to publish contract.")
+            return None
+
     def runTpsTest(self) -> PtbTpsTestResult:
         completedRun = False
         self.producerNode = self.cluster.getNode(self.producerNodeId)
         self.validationNode = self.cluster.getNode(self.validationNodeId)
+        self.setupContract()
         info = self.producerNode.getInfo()
         chainId = info['chain_id']
         lib_id = info['last_irreversible_block_id']
@@ -275,7 +299,7 @@ class PerformanceTestBasic:
         self.data.startBlock = self.waitForEmptyBlocks(self.validationNode, self.emptyBlockGoal)
         tpsTrxGensConfig = ltg.TpsTrxGensConfig(targetTps=self.ptbConfig.targetTps, tpsLimitPerGenerator=self.ptbConfig.tpsLimitPerGenerator)
         trxGenLauncher = ltg.TransactionGeneratorsLauncher(chainId=chainId, lastIrreversibleBlockId=lib_id,
-                                                           handlerAcct=self.cluster.eosioAccount.name, accts=f"{self.account1Name},{self.account2Name}",
+                                                           handlerAcct=self.clusterConfig.specifiedContract.accountName, accts=f"{self.account1Name},{self.account2Name}",
                                                            privateKeys=f"{self.account1PrivKey},{self.account2PrivKey}", trxGenDurationSec=self.ptbConfig.testTrxGenDurationSec,
                                                            logDir=self.trxGenLogDirPath, tpsTrxGensConfig=tpsTrxGensConfig)
 
@@ -450,6 +474,12 @@ class PtbArgumentsHandler(object):
         ptbBaseParserGroup.add_argument("--del-report", help="Whether to delete overarching performance run report.", action='store_true')
         ptbBaseParserGroup.add_argument("--quiet", help="Whether to quiet printing intermediate results and reports to stdout", action='store_true')
         ptbBaseParserGroup.add_argument("--prods-enable-trace-api", help="Determines whether producer nodes should have eosio::trace_api_plugin enabled", action='store_true')
+        ptbBaseParserGroup.add_argument("--account-name", type=str, help="Name of the account to create and assign a contract to", default="c")
+        ptbBaseParserGroup.add_argument("--owner-public-key", type=str, help="Owner public key to use with specified account name", default="EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV")
+        ptbBaseParserGroup.add_argument("--active-public-key", type=str, help="Active public key to use with specified account name", default="EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV")
+        ptbBaseParserGroup.add_argument("--contract-dir", type=str, help="Path to contract dir", default="unittests/contracts/eosio.system")
+        ptbBaseParserGroup.add_argument("--wasm-file", type=str, help="WASM file name for contract", default="eosio.system.wasm")
+        ptbBaseParserGroup.add_argument("--abi-file", type=str, help="ABI file name for contract", default="eosio.system.abi")
         return ptbBaseParser
 
     @staticmethod
@@ -493,10 +523,14 @@ def main():
     extraNodeosArgs = ENA(chainPluginArgs=chainPluginArgs, httpPluginArgs=httpPluginArgs, producerPluginArgs=producerPluginArgs, netPluginArgs=netPluginArgs)
     testClusterConfig = PerformanceTestBasic.ClusterConfig(pnodes=args.p, totalNodes=args.n, topo=args.s, genesisPath=args.genesis,
                                                            prodsEnableTraceApi=args.prods_enable_trace_api, extraNodeosArgs=extraNodeosArgs,
+                                                           specifiedContract=PerformanceTestBasic.ClusterConfig.SpecifiedContract(accountName=args.account_name,
+                                                               ownerPublicKey=args.owner_public_key, activePublicKey=args.active_public_key, contractDir=args.contract_dir,
+                                                               wasmFile=args.wasm_file, abiFile=args.abi_file),
                                                            nodeosVers=Utils.getNodeosVersion().split('.')[0])
     ptbConfig = PerformanceTestBasic.PtbConfig(targetTps=args.target_tps, testTrxGenDurationSec=args.test_duration_sec, tpsLimitPerGenerator=args.tps_limit_per_generator,
                                   numAddlBlocksToPrune=args.num_blocks_to_prune, logDirRoot=".", delReport=args.del_report, quiet=args.quiet, delPerfLogs=args.del_perf_logs)
     myTest = PerformanceTestBasic(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, ptbConfig=ptbConfig)
+
     testSuccessful = myTest.runTest()
 
     exitCode = 0 if testSuccessful else 1
