@@ -102,6 +102,7 @@ class Cluster(object):
         self.walletMgr=None
         self.host=host
         self.port=port
+        self.p2pBasePort=9876
         self.walletHost=walletHost
         self.walletPort=walletPort
         self.staging=staging
@@ -700,7 +701,7 @@ class Cluster(object):
 
     # create account keys and import into wallet. Wallet initialization will be user responsibility
     # also imports defproducera and defproducerb accounts
-    def populateWallet(self, accountsCount, wallet):
+    def populateWallet(self, accountsCount, wallet, accountNames: list=None):
         if self.walletMgr is None:
             Utils.Print("ERROR: WalletMgr hasn't been initialized.")
             return False
@@ -723,6 +724,10 @@ class Cluster(object):
             Utils.Print("ERROR: Failed to import key for account %s" % (self.defproducerbAccount.name))
             return False
 
+        if accountNames is not None:
+            for idx, name in enumerate(accountNames):
+                accounts[idx].name =  name
+
         for account in accounts:
             Utils.Print("Importing keys for account %s into wallet %s." % (account.name, wallet.name))
             if not self.walletMgr.importKey(account, wallet):
@@ -731,6 +736,9 @@ class Cluster(object):
 
         self.accounts=accounts
         return True
+
+    def getNodeP2pPort(self, nodeId: int):
+        return self.p2pBasePort + nodeId
 
     def getNode(self, nodeId=0, exitOnError=True):
         if exitOnError and nodeId >= len(self.nodes):
@@ -1568,7 +1576,6 @@ class Cluster(object):
 
         for f in self.filesToCleanup:
             os.remove(f)
-
 
     # Create accounts and validates that the last transaction is received on root node
     def createAccounts(self, creator, waitForTransBlock=True, stakedDeposit=1000, validationNodeIndex=0):

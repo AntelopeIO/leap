@@ -1,4 +1,5 @@
-#include "trx_provider.hpp"
+#include <trx_provider.hpp>
+#include <trx_generator.cpp>
 #define BOOST_TEST_MODULE trx_generator_tests
 #include <boost/test/included/unit_test.hpp>
 
@@ -27,6 +28,10 @@ struct mock_trx_generator {
          std::this_thread::sleep_for(_delay);
       }
       return true;
+   }
+
+   bool stop_on_trx_fail() {
+      return false;
    }
 
    mock_trx_generator(size_t expected_num_calls, uint32_t delay=0) :_calls(), _delay(delay) {
@@ -317,4 +322,24 @@ BOOST_AUTO_TEST_CASE(tps_cant_keep_up_monitored)
    BOOST_REQUIRE_LT(generator->_calls.size(), expected_trxs);
 
 }
+
+BOOST_AUTO_TEST_CASE(trx_generator_constructor)
+{
+   std::string chain_id = "999";
+   std::string contract_owner_account = "eosio";
+   std::string acct = "aaa";
+   std::string action_name = "transfer";
+   const std::string action_data = "{\"from\":\"aaa\",\"to\":\"bbb\",\"quantity\":\"10.0000 SYS\",\"memo\":\"hello\"}";
+   const std::string abi_file = "../../unittests/contracts/eosio.token/eosio.token.abi";
+   fc::microseconds trx_expr = fc::seconds(3600);
+   std::string log_dir = ".";
+   std::string lib_id_str = "00000062989f69fd251df3e0b274c3364ffc2f4fce73de3f1c7b5e11a4c92f21";
+   std::string private_key_str = "5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3";
+   std::string peer_endpoint = "127.0.0.1";
+   unsigned short port = 9876;
+   bool stop_on_trx_failed = true;
+
+   auto generator = trx_generator(chain_id, abi_file, contract_owner_account, acct, action_name, action_data, trx_expr, private_key_str, lib_id_str, log_dir, stop_on_trx_failed, peer_endpoint, port);
+}
+
 BOOST_AUTO_TEST_SUITE_END()

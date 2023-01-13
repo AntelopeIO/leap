@@ -273,6 +273,12 @@ The Performance Harness main script `performance_test.py` can be configured usin
                           In "none" mode, the default, no calculation will be attempted and default configured --net-threads value will be used.
                           In "lmax" mode, producer threads will incrementally be tested until the performance rate ceases to increase with the addition of additional threads.
                           In "full" mode producer threads will incrementally be tested from 2..num logical processors, recording each performance and choosing the local max performance (same value as would be discovered in "lmax" mode). Useful for graphing the full performance impact of each available thread. (default: none)
+* `--account-name`        Name of the account to create and assign a contract to
+* `--owner-public-key`    Owner public key to use with specified account name
+* `--active-public-key`   Active public key to use with specified account name
+* `--contract-dir`        Path to contract dir
+* `--wasm-file`           WASM file name for contract
+* `--abi-file`            ABI file name for contract
 </details>
 
 ### Support Scripts
@@ -340,9 +346,15 @@ The following scripts are typically used by the Performance Harness main script 
                           Determines whether producer nodes should have eosio::trace_api_plugin enabled (default: False)
 * `--print-missing-transactions`
                           Toggles if missing transactions are be printed upon test completion. (default: False)
+* `--account-name`        Name of the account to create and assign a contract to
+* `--owner-public-key`    Owner public key to use with specified account name
+* `--active-public-key`   Active public key to use with specified account name
+* `--contract-dir`        Path to contract dir
+* `--wasm-file`           WASM file name for contract
+* `--abi-file`            ABI file name for contract
 </details>
 
-#### Launch Transaction Generators
+#### Launch Transaction Generators (TestHarness)
 
 `launch_transaction_generators.py` can be configured using the following command line arguments:
 
@@ -351,7 +363,7 @@ The following scripts are typically used by the Performance Harness main script 
 
 * `chain_id`                    set the chain id
 * `last_irreversible_block_id`  Current last-irreversible-block-id (LIB ID) to use for transactions.
-* `handler_account`             Account name of the handler account for the transfer actions
+* `contract_owner_account`      Account name of the contract owner account for the transfer actions
 * `accounts`                    Comma separated list of account names
 * `priv_keys`                   Comma separated list of private keys.
 * `trx_gen_duration`            Transaction generation duration (seconds). Defaults to 60 seconds.
@@ -367,7 +379,7 @@ The following scripts are typically used by the Performance Harness main script 
     <summary>Expand Argument List</summary>
 
 * `--chain-id arg`                  set the chain id
-* `--handler-account arg`           Account name of the handler account for
+* `--contract-owner-account arg`    Account name of the contract owner account for
                                     the transfer actions
 * `--accounts arg`                  comma-separated list of accounts that 
                                     will be used for transfers. Minimum 
