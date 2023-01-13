@@ -1668,7 +1668,7 @@ class Node(object):
 
         tpsTrxGensConfig = TpsTrxGensConfig(targetTps=targetTps, tpsLimitPerGenerator=tpsLimitPerGenerator)
         trxGenLauncher = TransactionGeneratorsLauncher(chainId=chainId, lastIrreversibleBlockId=lib_id,
-                                                    handlerAcct=contractOwnerAcctName, accts=','.join(map(str, acctNamesList)),
+                                                    contractOwnerAccount=contractOwnerAcctName, accts=','.join(map(str, acctNamesList)),
                                                     privateKeys=','.join(map(str, acctPrivKeysList)), trxGenDurationSec=durationSec,
                                                     logDir=Utils.DataDir, peerEndpoint=self.host, port=p2pListenPort, tpsTrxGensConfig=tpsTrxGensConfig)
 
