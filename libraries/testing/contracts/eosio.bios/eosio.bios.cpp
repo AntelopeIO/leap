@@ -48,6 +48,7 @@ void bios::reqauth( name from ) {
 void bios::activate( const eosio::checksum256& feature_digest ) {
    require_auth( get_self() );
    preactivate_feature( feature_digest );
+   print( "feature digest activated: ", feature_digest, "\n" );
 }
 
 void bios::reqactivated( const eosio::checksum256& feature_digest ) {
