@@ -1657,7 +1657,8 @@ class Node(object):
 
         return blockAnalysis
 
-    def launchTrxGenerators(self, tpsPerGenerator: int, numGenerators: int, durationSec: int, contractOwnerAcctName: str, acctNamesList: list, acctPrivKeysList: list, p2pListenPort: int, waitToComplete:bool=False):
+    def launchTrxGenerators(self, tpsPerGenerator: int, numGenerators: int, durationSec: int, contractOwnerAcctName: str, acctNamesList: list,
+                            acctPrivKeysList: list, p2pListenPort: int, waitToComplete:bool=False, abiFile=None, actionName=None, actionData=None):
         Utils.Print("Configure txn generators")
         info = self.getInfo()
         chainId = info['chain_id']
@@ -1670,7 +1671,8 @@ class Node(object):
         trxGenLauncher = TransactionGeneratorsLauncher(chainId=chainId, lastIrreversibleBlockId=lib_id,
                                                     contractOwnerAccount=contractOwnerAcctName, accts=','.join(map(str, acctNamesList)),
                                                     privateKeys=','.join(map(str, acctPrivKeysList)), trxGenDurationSec=durationSec,
-                                                    logDir=Utils.DataDir, peerEndpoint=self.host, port=p2pListenPort, tpsTrxGensConfig=tpsTrxGensConfig)
+                                                    logDir=Utils.DataDir, abiFile=abiFile, actionName=actionName, actionData=actionData, peerEndpoint=self.host,
+                                                    port=p2pListenPort, tpsTrxGensConfig=tpsTrxGensConfig)
 
         Utils.Print("Launch txn generators and start generating/sending transactions")
         trxGenLauncher.launch(waitToComplete=waitToComplete)
