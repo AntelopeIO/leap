@@ -278,21 +278,19 @@ def getProductionWindows(prodDict: dict, blockDict: dict, data: chainData):
 
 def calcProductionWindows(prodDict: dict):
     prodWindows = productionWindows()
-    prodWindows.totalWindows = len(prodDict) - 2
     totalBlocksForAverage = 0
-    for k, v in prodDict.items():
-        if k != "0" and k != str(prodWindows.totalWindows+1):
-            if v.blockCount < COMPLETEPRODUCTIONWINDOWSIZE:
-                prodWindows.missedWindows += 1
+    for i, (k, v) in enumerate(prodDict.items()):
+        if v.blockCount == COMPLETEPRODUCTIONWINDOWSIZE:
+            prodWindows.totalWindows += 1
             totalBlocksForAverage += v.blockCount
         else:
-            if v.blockCount == COMPLETEPRODUCTIONWINDOWSIZE:
-                prodWindows.totalWindows += 1
+            #First and last production windows are possibly incomplete but
+            #should not count against total or missed windows
+            if i != 0 and i != len(prodDict)-1:
+                prodWindows.missedWindows += 1
                 totalBlocksForAverage += v.blockCount
-    if prodWindows.totalWindows <= 0:
-        prodWindows.totalWindows = 0
-        prodWindows.averageWindowSize = 0
-    else:
+                prodWindows.totalWindows += 1
+    if prodWindows.totalWindows > 0:
         prodWindows.averageWindowSize = totalBlocksForAverage / prodWindows.totalWindows
     return prodWindows
 
