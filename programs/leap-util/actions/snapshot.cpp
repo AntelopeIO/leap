@@ -23,7 +23,8 @@ namespace bfs = boost::filesystem;
 
 void snapshot_actions::setup(CLI::App& app) {
    auto* sub = app.add_subcommand("snapshot", "Snapshot utility");
-   sub->require_subcommand(1);
+   sub->require_subcommand();
+   sub->fallthrough();
 
    // subcommand -convert snapshot to json
    auto to_json = sub->add_subcommand("to-json", "Convert snapshot file to json format");

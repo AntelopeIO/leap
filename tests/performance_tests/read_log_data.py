@@ -2,7 +2,8 @@
  
 import argparse
 import log_reader
-import launch_transaction_generators as ltg
+
+from TestHarness import TpsTrxGensConfig
 
 from pathlib import Path
 
@@ -30,7 +31,7 @@ blockDataPath = Path(blockDataLogDirPath)/"blockData.txt"
 blockTrxDataPath = Path(blockDataLogDirPath)/"blockTrxData.txt"
 tpsLimitPerGenerator=args.tps_limit_per_generator
 targetTps=args.target_tps
-tpsTrxGensConfig = ltg.TpsTrxGensConfig(targetTps=targetTps, tpsLimitPerGenerator=tpsLimitPerGenerator)
+tpsTrxGensConfig = TpsTrxGensConfig(targetTps=targetTps, tpsLimitPerGenerator=tpsLimitPerGenerator)
 
 artifactsLocate = log_reader.ArtifactPaths(nodeosLogPath=nodeosLogPath, trxGenLogDirPath=trxGenLogDirPath, blockTrxDataPath=blockTrxDataPath, blockDataPath=blockDataPath)
 tpsTestConfig = log_reader.TpsTestConfig(targetTps=targetTps, testDurationSec=args.test_duration_sec, tpsLimitPerGenerator=tpsLimitPerGenerator,

@@ -352,7 +352,7 @@ The following scripts are typically used by the Performance Harness main script 
 * `--abi-file`            ABI file name for contract
 </details>
 
-#### Launch Transaction Generators
+#### Launch Transaction Generators (TestHarness)
 
 `launch_transaction_generators.py` can be configured using the following command line arguments:
 

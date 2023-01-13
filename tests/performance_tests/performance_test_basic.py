@@ -9,13 +9,14 @@ import shutil
 import signal
 import json
 import log_reader
-import launch_transaction_generators as ltg
+import inspect
 
 from pathlib import Path, PurePath
 sys.path.append(str(PurePath(PurePath(Path(__file__).absolute()).parent).parent))
 
 from NodeosPluginArgs import ChainPluginArgs, HttpClientPluginArgs, HttpPluginArgs, NetPluginArgs, ProducerPluginArgs, ResourceMonitorPluginArgs, SignatureProviderPluginArgs, StateHistoryPluginArgs, TraceApiPluginArgs
-from TestHarness import Account, Cluster, TestHelper, Utils, WalletMgr
+from TestHarness import Account, Cluster, TestHelper, Utils, WalletMgr, TransactionGeneratorsLauncher, TpsTrxGensConfig
+from TestHarness.TestHelper import AppArgs
 from dataclasses import dataclass, asdict, field
 from datetime import datetime
 from pathlib import Path
@@ -300,6 +301,7 @@ class PerformanceTestBasic:
     def runTpsTest(self) -> PtbTpsTestResult:
         completedRun = False
         self.producerNode = self.cluster.getNode(self.producerNodeId)
+        self.producerP2pPort = self.cluster.getNodeP2pPort(self.producerNodeId)
         self.validationNode = self.cluster.getNode(self.validationNodeId)
         self.setupContract()
         info = self.producerNode.getInfo()
@@ -322,12 +324,13 @@ class PerformanceTestBasic:
         self.cluster.biosNode.kill(signal.SIGTERM)
 
         self.data.startBlock = self.waitForEmptyBlocks(self.validationNode, self.emptyBlockGoal)
-        tpsTrxGensConfig = ltg.TpsTrxGensConfig(targetTps=self.ptbConfig.targetTps, tpsLimitPerGenerator=self.ptbConfig.tpsLimitPerGenerator)
+        tpsTrxGensConfig = TpsTrxGensConfig(targetTps=self.ptbConfig.targetTps, tpsLimitPerGenerator=self.ptbConfig.tpsLimitPerGenerator)
 
-        trxGenLauncher = ltg.TransactionGeneratorsLauncher(chainId=chainId, lastIrreversibleBlockId=lib_id,
+        trxGenLauncher = TransactionGeneratorsLauncher(chainId=chainId, lastIrreversibleBlockId=lib_id,
                                                            contractOwnerAccount=self.clusterConfig.specifiedContract.accountName, accts=','.join(map(str, self.accountNames)),
                                                            privateKeys=','.join(map(str, self.accountPrivKeys)), trxGenDurationSec=self.ptbConfig.testTrxGenDurationSec,
-                                                           logDir=self.trxGenLogDirPath, abiFile=abiFile, actionName=actionName, actionData=actionData, tpsTrxGensConfig=tpsTrxGensConfig)
+                                                           logDir=self.trxGenLogDirPath, abiFile=abiFile, actionName=actionName, actionData=actionData,
+                                                           peerEndpoint=self.producerNode.host, port=self.producerP2pPort, tpsTrxGensConfig=tpsTrxGensConfig)
 
         trxGenExitCodes = trxGenLauncher.launch()
         print(f"Transaction Generator exit codes: {trxGenExitCodes}")

@@ -102,6 +102,7 @@ class Cluster(object):
         self.walletMgr=None
         self.host=host
         self.port=port
+        self.p2pBasePort=9876
         self.walletHost=walletHost
         self.walletPort=walletPort
         self.staging=staging
@@ -735,6 +736,9 @@ class Cluster(object):
 
         self.accounts=accounts
         return True
+
+    def getNodeP2pPort(self, nodeId: int):
+        return self.p2pBasePort + nodeId
 
     def getNode(self, nodeId=0, exitOnError=True):
         if exitOnError and nodeId >= len(self.nodes):

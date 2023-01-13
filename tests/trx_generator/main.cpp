@@ -39,6 +39,9 @@ int main(int argc, char** argv) {
    uint32_t max_lag_per;
    int64_t max_lag_duration_us;
    string log_dir_in;
+   bool stop_on_trx_failed;
+   std::string peer_endpoint;
+   unsigned short port;
 
    bool transaction_specified = false;
    std::string action_name_in;
@@ -65,6 +68,9 @@ int main(int argc, char** argv) {
          ("action-name", bpo::value<string>(&action_name_in), "The action name applied to the provided action data input")
          ("action-data", bpo::value<string>(&action_data_file_or_str), "The path to the json action data file or json action data description string to use")
          ("abi-file", bpo::value<string>(&abi_file_path_in), "The path to the contract abi file to use for the supplied transaction action data")
+         ("stop-on-trx-failed", bpo::value<bool>(&stop_on_trx_failed)->default_value(true), "stop transaction generation if sending fails.")
+         ("peer-endpoint", bpo::value<string>(&peer_endpoint)->default_value("127.0.0.1"), "set the peer endpoint to send transactions to")
+         ("port", bpo::value<uint16_t>(&port)->default_value(9876), "set the peer endpoint port to send transactions to")
          ("help,h", "print this list")
          ;
 
@@ -195,13 +201,15 @@ int main(int argc, char** argv) {
    ilog("Transaction Generation Duration (sec) ${dur}", ("dur", gen_duration));
    ilog("Target generation Transaction Per Second (TPS) ${tps}", ("tps", target_tps));
    ilog("Logs directory ${logDir}", ("logDir", log_dir_in));
+   ilog("Peer Endpoint ${peer-endpoint}:${peer-port}", ("peer-endpoint", peer_endpoint)("peer-port", port));
 
    fc::microseconds trx_expr_ms = fc::seconds(trx_expr);
 
    std::shared_ptr<tps_performance_monitor> monitor;
    if (transaction_specified) {
       auto generator = std::make_shared<trx_generator>(chain_id_in, abi_file_path_in, contract_owner_acct, account_str_vector.at(0), action_name_in,
-                                                       action_data_file_or_str, trx_expr_ms, private_keys_str_vector.at(0), lib_id_str, log_dir_in);
+                                                       action_data_file_or_str, trx_expr_ms, private_keys_str_vector.at(0), lib_id_str, log_dir_in,
+                                                       stop_on_trx_failed, peer_endpoint, port);
       monitor = std::make_shared<tps_performance_monitor>(spinup_time_us, max_lag_per, max_lag_duration_us);
       trx_tps_tester<trx_generator, tps_performance_monitor> tester{generator, monitor, gen_duration, target_tps};
 
@@ -210,7 +218,7 @@ int main(int argc, char** argv) {
       }
    } else {
       auto generator = std::make_shared<transfer_trx_generator>(chain_id_in, contract_owner_acct, account_str_vector, trx_expr_ms, private_keys_str_vector,
-                                                                lib_id_str, log_dir_in);
+                                                                lib_id_str, log_dir_in, stop_on_trx_failed, peer_endpoint, port);
 
       monitor = std::make_shared<tps_performance_monitor>(spinup_time_us, max_lag_per, max_lag_duration_us);
       trx_tps_tester<transfer_trx_generator, tps_performance_monitor> tester{generator, monitor, gen_duration, target_tps};

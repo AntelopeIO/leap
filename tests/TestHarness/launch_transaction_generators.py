@@ -10,7 +10,7 @@ import subprocess
 harnessPath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(harnessPath)
 
-from TestHarness import Utils
+from .testUtils import Utils
 from pathlib import Path
 
 Print = Utils.Print
@@ -37,7 +37,7 @@ class TpsTrxGensConfig:
 class TransactionGeneratorsLauncher:
 
     def __init__(self, chainId: int, lastIrreversibleBlockId: int, contractOwnerAccount: str, accts: str, privateKeys: str,
-                 trxGenDurationSec: int, logDir: str, abiFile: Path, actionName: str, actionData, tpsTrxGensConfig: TpsTrxGensConfig):
+                 trxGenDurationSec: int, logDir: str, abiFile: Path, actionName: str, actionData, peerEndpoint: str, port: int, tpsTrxGensConfig: TpsTrxGensConfig):
         self.chainId = chainId
         self.lastIrreversibleBlockId = lastIrreversibleBlockId
         self.contractOwnerAccount  = contractOwnerAccount
@@ -49,9 +49,11 @@ class TransactionGeneratorsLauncher:
         self.abiFile = abiFile
         self.actionName = actionName
         self.actionData = actionData
+        self.peerEndpoint = peerEndpoint
+        self.port = port
 
-    def launch(self):
-        subprocess_ret_codes = []
+    def launch(self, waitToComplete=True):
+        self.subprocess_ret_codes = []
         for targetTps in self.tpsTrxGensConfig.targetTpsPerGenList:
             if self.abiFile is not None and self.actionName is not None and self.actionData is not None:
                 if Utils.Debug:
@@ -67,9 +69,11 @@ class TransactionGeneratorsLauncher:
                         f'--log-dir {self.logDir} '
                         f'--action-name {self.actionName} '
                         f'--action-data {self.actionData} '
-                        f'--abi-file {self.abiFile}'
+                        f'--abi-file {self.abiFile} '
+                        f'--peer-endpoint {self.peerEndpoint} '
+                        f'--port {self.port}'
                     )
-                subprocess_ret_codes.append(
+                self.subprocess_ret_codes.append(
                     subprocess.Popen([
                         './tests/trx_generator/trx_generator',
                         '--chain-id', f'{self.chainId}',
@@ -82,7 +86,9 @@ class TransactionGeneratorsLauncher:
                         '--log-dir', f'{self.logDir}',
                         '--action-name', f'{self.actionName}',
                         '--action-data', f'{self.actionData}',
-                        '--abi-file', f'{self.abiFile}'
+                        '--abi-file', f'{self.abiFile}',
+                        '--peer-endpoint', f'{self.peerEndpoint}',
+                        '--port', f'{self.port}'
                     ])
                 )
             else:
@@ -96,9 +102,11 @@ class TransactionGeneratorsLauncher:
                         f'--priv-keys {self.privateKeys} '
                         f'--trx-gen-duration {self.trxGenDurationSec} '
                         f'--target-tps {targetTps} '
-                        f'--log-dir {self.logDir}'
+                        f'--log-dir {self.logDir} '
+                        f'--peer-endpoint {self.peerEndpoint} '
+                        f'--port {self.port}'
                     )
-                subprocess_ret_codes.append(
+                self.subprocess_ret_codes.append(
                     subprocess.Popen([
                         './tests/trx_generator/trx_generator',
                         '--chain-id', f'{self.chainId}',
@@ -108,11 +116,21 @@ class TransactionGeneratorsLauncher:
                         '--priv-keys', f'{self.privateKeys}',
                         '--trx-gen-duration', f'{self.trxGenDurationSec}',
                         '--target-tps', f'{targetTps}',
-                        '--log-dir', f'{self.logDir}'
+                        '--log-dir', f'{self.logDir}',
+                        '--peer-endpoint', f'{self.peerEndpoint}',
+                        '--port', f'{self.port}'
                     ])
                 )
-        exitCodes = [ret_code.wait() for ret_code in subprocess_ret_codes]
+        exitCodes=None
+        if waitToComplete:
+            exitCodes = [ret_code.wait() for ret_code in self.subprocess_ret_codes]
         return exitCodes
+
+    def killAll(self):
+        for ret_code in self.subprocess_ret_codes:
+            ret_code.kill()
+        for ret_code in self.subprocess_ret_codes:
+            ret_code.wait()
 
 def parseArgs():
     parser = argparse.ArgumentParser(add_help=False)
@@ -129,6 +147,8 @@ def parseArgs():
     parser.add_argument("action_name", type=str, help="The action name applied to the provided action data input")
     parser.add_argument("action_data", type=str, help="The path to the json action data file or json action data description string to use")
     parser.add_argument("abi_file", type=str, help="The path to the contract abi file to use for the supplied transaction action data")
+    parser.add_argument("peer_endpoint", type=str, help="set the peer endpoint to send transactions to", default="127.0.0.1")
+    parser.add_argument("port", type=int, help="set the peer endpoint port to send transactions to", default=9876)
     args = parser.parse_args()
     return args
 
@@ -139,6 +159,7 @@ def main():
                                                    contractOwnerAccount=args.contract_owner_account, accts=args.accounts,
                                                    privateKeys=args.priv_keys, trxGenDurationSec=args.trx_gen_duration, logDir=args.log_dir,
                                                    abiFile=args.abi_file, actionName=args.action_name, actionData=args.action_data,
+                                                   peerEndpoint=args.peer_endpoint, port=args.port,
                                                    tpsTrxGensConfig=TpsTrxGensConfig(targetTps=args.target_tps, tpsLimitPerGenerator=args.tps_limit_per_generator))
 
 

@@ -21,6 +21,7 @@ from .testUtils import EnumType
 from .testUtils import addEnum
 from .testUtils import unhandledEnumType
 from .testUtils import ReturnType
+from .launch_transaction_generators import TransactionGeneratorsLauncher, TpsTrxGensConfig
 
 class BlockType(EnumType):
     pass
@@ -1128,23 +1129,6 @@ class Node(object):
 
         return rtn
 
-    def txnGenCreateTestAccounts(self, genAccount, genKey, silentErrors=True, exitOnError=False, exitMsg=None, returnType=ReturnType.json):
-        assert(isinstance(genAccount, str))
-        assert(isinstance(genKey, str))
-        assert(isinstance(returnType, ReturnType))
-
-        payload=[ genAccount, genKey ]
-        return self.processUrllibRequest("txn_test_gen", "create_test_accounts", payload, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=exitMsg, returnType=returnType)
-
-    def txnGenStart(self, salt, period, batchSize, silentErrors=True, exitOnError=False, exitMsg=None, returnType=ReturnType.json):
-        assert(isinstance(salt, str))
-        assert(isinstance(period, int))
-        assert(isinstance(batchSize, int))
-        assert(isinstance(returnType, ReturnType))
-
-        payload=[ salt, period, batchSize ]
-        return self.processUrllibRequest("txn_test_gen", "start_generation", payload, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=exitMsg, returnType=returnType)
-
     def waitForTransBlockIfNeeded(self, trans, waitForTransBlock, exitOnError=False):
         if not waitForTransBlock:
             return trans
@@ -1672,3 +1656,21 @@ class Node(object):
             blockAnalysis[specificBlockNum] = { "slot": None, "prod": None}
 
         return blockAnalysis
+
+    def launchTrxGenerators(self, tpsPerGenerator: int, numGenerators: int, durationSec: int, contractOwnerAcctName: str, acctNamesList: list, acctPrivKeysList: list, p2pListenPort: int, waitToComplete:bool=False):
+        Utils.Print("Configure txn generators")
+        info = self.getInfo()
+        chainId = info['chain_id']
+        lib_id = info['last_irreversible_block_id']
+
+        targetTps = tpsPerGenerator*numGenerators
+        tpsLimitPerGenerator=tpsPerGenerator
+
+        tpsTrxGensConfig = TpsTrxGensConfig(targetTps=targetTps, tpsLimitPerGenerator=tpsLimitPerGenerator)
+        trxGenLauncher = TransactionGeneratorsLauncher(chainId=chainId, lastIrreversibleBlockId=lib_id,
+                                                    handlerAcct=contractOwnerAcctName, accts=','.join(map(str, acctNamesList)),
+                                                    privateKeys=','.join(map(str, acctPrivKeysList)), trxGenDurationSec=durationSec,
+                                                    logDir=Utils.DataDir, peerEndpoint=self.host, port=p2pListenPort, tpsTrxGensConfig=tpsTrxGensConfig)
+
+        Utils.Print("Launch txn generators and start generating/sending transactions")
+        trxGenLauncher.launch(waitToComplete=waitToComplete)

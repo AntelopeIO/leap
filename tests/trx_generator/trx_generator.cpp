@@ -91,13 +91,14 @@ namespace eosio::testing {
       return actions_pairs_vector;
    }
 
-   trx_generator_base::trx_generator_base(std::string chain_id_in, std::string contract_owner_account, fc::microseconds trx_expr, std::string lib_id_str, std::string log_dir)
-    : _provider(), _chain_id(chain_id_in), _contract_owner_account(contract_owner_account), _trx_expiration(trx_expr),
-      _last_irr_block_id(fc::variant(lib_id_str).as<block_id_type>()), _log_dir(log_dir){}
+   trx_generator_base::trx_generator_base(std::string chain_id_in, std::string contract_owner_account, fc::microseconds trx_expr, std::string lib_id_str, std::string log_dir,
+      bool stop_on_trx_failed, const std::string& peer_endpoint, unsigned short port)
+    : _provider(peer_endpoint, port), _chain_id(chain_id_in), _contract_owner_account(contract_owner_account), _trx_expiration(trx_expr),
+      _last_irr_block_id(fc::variant(lib_id_str).as<block_id_type>()), _log_dir(log_dir), _stop_on_trx_failed(stop_on_trx_failed) {}
 
    transfer_trx_generator::transfer_trx_generator(std::string chain_id_in, std::string contract_owner_account, const std::vector<std::string>& accts,
-         fc::microseconds trx_expr, const std::vector<std::string>& private_keys_str_vector, std::string lib_id_str, std::string log_dir)
-       : trx_generator_base(chain_id_in, contract_owner_account, trx_expr, lib_id_str, log_dir), _accts(accts), _private_keys_str_vector(private_keys_str_vector) {}
+         fc::microseconds trx_expr, const std::vector<std::string>& private_keys_str_vector, std::string lib_id_str, std::string log_dir, bool stop_on_trx_failed, const std::string& peer_endpoint, unsigned short port)
+       : trx_generator_base(chain_id_in, contract_owner_account, trx_expr, lib_id_str, log_dir, stop_on_trx_failed, peer_endpoint, port), _accts(accts), _private_keys_str_vector(private_keys_str_vector) {}
 
    vector<name> transfer_trx_generator::get_accounts(const vector<string>& account_str_vector) {
       vector<name> acct_name_list;
@@ -166,8 +167,8 @@ namespace eosio::testing {
    }
 
    trx_generator::trx_generator(std::string chain_id_in, const std::string& abi_data_file, std::string contract_owner_account, std::string auth_account, std::string action_name,
-         const std::string& action_data_file_or_str, fc::microseconds trx_expr, const std::string& private_key_str, std::string lib_id_str, std::string log_dir)
-       : trx_generator_base(chain_id_in, contract_owner_account, trx_expr, lib_id_str, log_dir), _abi_data_file_path(abi_data_file), _auth_account(auth_account),
+         const std::string& action_data_file_or_str, fc::microseconds trx_expr, const std::string& private_key_str, std::string lib_id_str, std::string log_dir, bool stop_on_trx_failed, const std::string& peer_endpoint, unsigned short port)
+       : trx_generator_base(chain_id_in, contract_owner_account, trx_expr, lib_id_str, log_dir, stop_on_trx_failed, peer_endpoint, port), _abi_data_file_path(abi_data_file), _auth_account(auth_account),
          _action(action_name), _action_data_file_or_str(action_data_file_or_str), _private_key(fc::crypto::private_key(private_key_str)) {}
 
    bool trx_generator::setup() {
@@ -255,5 +256,9 @@ namespace eosio::testing {
          ilog("${d} transactions executed, ${t}us / transaction", ("d", _txcount)("t", _total_us / (double) _txcount));
          _txcount = _total_us = 0;
       }
+   }
+
+   bool trx_generator_base::stop_on_trx_fail() {
+      return _stop_on_trx_failed;
    }
 }
