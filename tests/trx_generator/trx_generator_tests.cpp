@@ -29,6 +29,10 @@ struct mock_trx_generator {
       return true;
    }
 
+   bool stop_on_trx_fail() {
+      return false;
+   }
+
    mock_trx_generator(size_t expected_num_calls, uint32_t delay=0) :_calls(), _delay(delay) {
       _calls.reserve(expected_num_calls);
    }

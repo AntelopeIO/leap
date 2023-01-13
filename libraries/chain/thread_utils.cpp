@@ -8,7 +8,7 @@ named_thread_pool::named_thread_pool( std::string name_prefix, size_t num_thread
 : _name_prefix( std::move(name_prefix) )
 , _num_threads( num_threads )
 , _ioc( num_threads )
-, _on_except( on_except )
+, _on_except( std::move(on_except) )
 {
    if( !delay_start ) {
       start();
