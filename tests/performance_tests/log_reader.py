@@ -458,7 +458,7 @@ class LogReaderEncoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, obj)
 
 def reportAsJSON(report: dict) -> json:
-    return json.dumps(report, sort_keys=True, indent=2, cls=LogReaderEncoder)
+    return json.dumps(report, indent=2, cls=LogReaderEncoder)
 
 def calcAndReport(data: chainData, tpsTestConfig: TpsTestConfig, artifacts: ArtifactPaths, argsDict: dict, testStart: datetime=None, completedRun: bool=True) -> dict:
     scrapeLog(data, artifacts.nodeosLogPath)
