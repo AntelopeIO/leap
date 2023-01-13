@@ -820,35 +820,35 @@ The Performance Test Basic generates, by default, a report that details results 
 ``` json
 {
   "completedRun": true,
-  "testStart": "2023-01-13T17:51:38.885663",
-  "testFinish": "2023-01-13T17:54:16.588906",
+  "testStart": "2023-01-13T18:00:42.465802",
+  "testFinish": "2023-01-13T18:03:11.831277",
   "Analysis": {
     "BlockSize": {
-      "min": 1152,
-      "max": 2688,
+      "min": 1920,
+      "max": 1920,
       "avg": 1920.0,
-      "sigma": 316.1805963235654,
+      "sigma": 0.0,
       "emptyBlocks": 0,
       "numBlocks": 177
     },
     "BlocksGuide": {
       "firstBlockNum": 2,
-      "lastBlockNum": 316,
-      "totalBlocks": 315,
-      "testStartBlockNum": 129,
-      "testEndBlockNum": 315,
-      "setupBlocksCnt": 127,
-      "tearDownBlocksCnt": 1,
+      "lastBlockNum": 299,
+      "totalBlocks": 298,
+      "testStartBlockNum": 112,
+      "testEndBlockNum": 299,
+      "setupBlocksCnt": 110,
+      "tearDownBlocksCnt": 0,
       "leadingEmptyBlocksCnt": 1,
-      "trailingEmptyBlocksCnt": 5,
+      "trailingEmptyBlocksCnt": 6,
       "configAddlDropCnt": 2,
       "testAnalysisBlockCnt": 177
     },
     "TPS": {
-      "min": 16,
-      "max": 24,
+      "min": 20,
+      "max": 20,
       "avg": 20.0,
-      "sigma": 1.651445647689541,
+      "sigma": 0.0,
       "emptyBlocks": 0,
       "numBlocks": 177,
       "configTps": 20,
@@ -860,17 +860,17 @@ The Performance Test Basic generates, by default, a report that details results 
       "generatorCount": 2
     },
     "TrxCPU": {
-      "min": 8.0,
-      "max": 225.0,
-      "avg": 65.61944444444444,
-      "sigma": 39.33333558929686,
+      "min": 11.0,
+      "max": 360.0,
+      "avg": 63.10444444444445,
+      "sigma": 33.234456387280126,
       "samples": 1800
     },
     "TrxLatency": {
-      "min": 0.09500002861022949,
-      "max": 0.6970000267028809,
-      "avg": 0.3131494364473555,
-      "sigma": 0.15184769957733368,
+      "min": 0.06500005722045898,
+      "max": 0.4679999351501465,
+      "avg": 0.26723387837409973,
+      "sigma": 0.1414459711179884,
       "samples": 1800
     },
     "TrxNet": {
@@ -883,8 +883,8 @@ The Performance Test Basic generates, by default, a report that details results 
     "DroppedBlocks": {},
     "DroppedBlocksCount": 0,
     "DroppedTransactions": 0,
-    "ProductionWindowsTotal": 14,
-    "ProductionWindowsAverageSize": 12.0,
+    "ProductionWindowsTotal": 0,
+    "ProductionWindowsAverageSize": 0,
     "ProductionWindowsMissed": 0,
     "ForkedBlocks": [],
     "ForksCount": 0
@@ -899,7 +899,7 @@ The Performance Test Basic generates, by default, a report that details results 
     "verbose": true,
     "_killEosInstances": true,
     "_killWallet": true,
-    "pnodes": 2,
+    "pnodes": 1,
     "totalNodes": 1,
     "topo": "mesh",
     "extraNodeosArgs": {
@@ -1234,13 +1234,13 @@ The Performance Test Basic generates, by default, a report that details results 
         "produceTimeOffsetUs": 0,
         "_produceTimeOffsetUsNodeosDefault": 0,
         "_produceTimeOffsetUsNodeosArg": "--produce-time-offset-us",
-        "lastBlockTimeOffsetUs": -200000,
+        "lastBlockTimeOffsetUs": 0,
         "_lastBlockTimeOffsetUsNodeosDefault": -200000,
         "_lastBlockTimeOffsetUsNodeosArg": "--last-block-time-offset-us",
         "cpuEffortPercent": 100,
         "_cpuEffortPercentNodeosDefault": 80,
         "_cpuEffortPercentNodeosArg": "--cpu-effort-percent",
-        "lastBlockCpuEffortPercent": 80,
+        "lastBlockCpuEffortPercent": 100,
         "_lastBlockCpuEffortPercentNodeosDefault": 80,
         "_lastBlockCpuEffortPercentNodeosArg": "--last-block-cpu-effort-percent",
         "maxBlockCpuUsageThresholdUs": null,
@@ -1370,9 +1370,9 @@ The Performance Test Basic generates, by default, a report that details results 
     "prodsEnableTraceApi": false,
     "nodeosVers": "v4",
     "specificExtraNodeosArgs": {
-      "2": "--plugin eosio::trace_api_plugin"
+      "1": "--plugin eosio::trace_api_plugin"
     },
-    "_totalNodes": 3,
+    "_totalNodes": 2,
     "targetTps": 20,
     "testTrxGenDurationSec": 90,
     "tpsLimitPerGenerator": 10,
@@ -1384,9 +1384,9 @@ The Performance Test Basic generates, by default, a report that details results 
     "expectedTransactionsSent": 1800,
     "printMissingTransactions": false,
     "logDirBase": "p",
-    "logDirTimestamp": "2023-01-13_17-51-38",
+    "logDirTimestamp": "2023-01-13_18-00-42",
     "logDirTimestampedOptSuffix": "-20",
-    "logDirPath": "p/2023-01-13_17-51-38-20"
+    "logDirPath": "p/2023-01-13_18-00-42-20"
   },
   "env": {
     "system": "Linux",
