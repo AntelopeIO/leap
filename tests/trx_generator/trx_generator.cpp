@@ -108,8 +108,7 @@ namespace eosio::testing {
 
    void transfer_trx_generator::push_transaction(p2p_trx_provider& provider, signed_transaction_w_signer& trx, uint64_t& nonce_prefix, uint64_t& nonce, const fc::microseconds& trx_expiration, const chain_id_type& chain_id, const block_id_type& last_irr_block_id) {
       update_resign_transaction(trx._trx, trx._signer, ++nonce_prefix, nonce, trx_expiration, chain_id, last_irr_block_id);
-      if (_txcount == 0)
-      {
+      if (_txcount == 0) {
          log_first_trx(_log_dir, trx._trx);
       }
       provider.send(trx._trx);

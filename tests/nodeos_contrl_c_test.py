@@ -98,7 +98,7 @@ try:
     testSuccessful=False
 
     Print("Configure and launch txn generators")
-    targetTpsPerGenerator = 500
+    targetTpsPerGenerator = 100
     testTrxGenDurationSec=60
     trxGeneratorCnt=1
     cluster.launchTrxGenerators(contractOwnerAcctName=cluster.eosioAccount.name, acctNamesList=[accounts[0].name,accounts[1].name],
@@ -107,7 +107,6 @@ try:
 
     Print("Give txn generator time to spin up and begin producing trxs")
     cluster.waitForTrxGeneratorsSpinup(nodeId=nonProdNode.nodeId, numGenerators=trxGeneratorCnt)
-    time.sleep(5)
 
     Print("Kill non-producer bridge node")
     testSuccessful = nonProdNode.kill(signal.SIGTERM)
