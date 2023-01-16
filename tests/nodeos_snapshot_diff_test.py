@@ -199,8 +199,6 @@ try:
     testSuccessful=True
 
 finally:
-    if trxGenLauncher is not None:
-        trxGenLauncher.killAll()
     TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, killEosInstances=killEosInstances, killWallet=killWallet, keepLogs=keepLogs, cleanRun=killAll, dumpErrorDetails=dumpErrorDetails)
 
 exitCode = 0 if testSuccessful else 1

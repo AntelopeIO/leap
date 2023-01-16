@@ -1535,6 +1535,10 @@ class Cluster(object):
             except OSError as _:
                 pass
 
+        # Make sure to cleanup all trx generators that may have been started and still generating trxs
+        if self.trxGenLauncher is not None:
+            self.trxGenLauncher.killAll()
+
     def bounce(self, nodes, silent=True):
         """Bounces nodeos instances as indicated by parameter nodes.
         nodes should take the form of a comma-separated list as accepted by the launcher --bounce command (e.g. '00' or '00,01')"""
@@ -1769,13 +1773,13 @@ class Cluster(object):
         self.preExistingFirstTrxFiles = glob.glob(f"{Utils.DataDir}/first_trx_*.txt")
 
         tpsTrxGensConfig = TpsTrxGensConfig(targetTps=targetTps, tpsLimitPerGenerator=tpsLimitPerGenerator)
-        trxGenLauncher = TransactionGeneratorsLauncher(chainId=chainId, lastIrreversibleBlockId=lib_id,
+        self.trxGenLauncher = TransactionGeneratorsLauncher(chainId=chainId, lastIrreversibleBlockId=lib_id,
                                                     handlerAcct=contractOwnerAcctName, accts=','.join(map(str, acctNamesList)),
                                                     privateKeys=','.join(map(str, acctPrivKeysList)), trxGenDurationSec=durationSec,
                                                     logDir=Utils.DataDir, peerEndpoint=self.host, port=p2pListenPort, tpsTrxGensConfig=tpsTrxGensConfig)
 
         Utils.Print("Launch txn generators and start generating/sending transactions")
-        trxGenLauncher.launch(waitToComplete=waitToComplete)
+        self.trxGenLauncher.launch(waitToComplete=waitToComplete)
 
     def waitForTrxGeneratorsSpinup(self, nodeId: int, numGenerators: int, timeout: int=None):
         node=self.getNode(nodeId)

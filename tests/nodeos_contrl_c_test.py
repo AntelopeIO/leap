@@ -116,8 +116,6 @@ try:
         errorExit("Failed to kill the seed node")
 
 finally:
-    if trxGenLauncher is not None:
-        trxGenLauncher.killAll()
     TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, killEosInstances=True, killWallet=True, keepLogs=True, cleanRun=True, dumpErrorDetails=True)
 
 errorCode = 0 if testSuccessful else 1
