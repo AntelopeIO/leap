@@ -297,7 +297,7 @@ The following scripts are typically used by the Performance Harness main script 
                           Determines whether producer nodes should have eosio::trace_api_plugin enabled (default: False)
 </details>
 
-#### Launch Transaction Generators
+#### Launch Transaction Generators (TestHarness)
 
 `launch_transaction_generators.py` can be configured using the following command line arguments:
 

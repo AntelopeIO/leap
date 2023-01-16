@@ -188,8 +188,8 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
       };
 
       // create and configure acceptors, can be both
-      if (endpoint_address.size()) init_tcp_acceptor();
-      if (unix_path.size())        init_unix_acceptor();
+      if (!endpoint_address.empty()) init_tcp_acceptor();
+      if (!unix_path.empty())        init_unix_acceptor();
 
       // start it
       std::for_each(acceptors.begin(), acceptors.end(), [&](const acceptor_type& acc) {
@@ -227,7 +227,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
             return;
          if (ec) {
             if (ec == boost::system::errc::too_many_files_open)
-               catch_and_log([&] { do_accept(acceptor); });
+               catch_and_log([&] { self->do_accept(acceptor); });
             return;
          }
          catch_and_log([&] {
@@ -235,7 +235,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
             s->start();
             post_task_main_thread_high([self, s]() mutable { self->session_set.insert(std::move(s)); });
          });
-         catch_and_log([&] { do_accept(acceptor); });
+         catch_and_log([&] { self->do_accept(acceptor); });
       });
    }
 
@@ -291,7 +291,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
       });
    }
 
-   // calle from main thread
+   // called from main thread
    void store_chain_state(const block_state_ptr& block_state) {
       if (!chain_state_log)
          return;
