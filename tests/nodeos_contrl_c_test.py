@@ -106,7 +106,7 @@ try:
                                 numGenerators=trxGeneratorCnt, durationSec=testTrxGenDurationSec, waitToComplete=False)
 
     Print("Give txn generator time to spin up and begin producing trxs")
-    cluster.waitForTrxGeneratorsSpinup(nodeId=nonProdNode.nodeId, numGenerators=trxGeneratorCnt)
+    time.sleep(10)
 
     Print("Kill non-producer bridge node")
     testSuccessful = nonProdNode.kill(signal.SIGTERM)
