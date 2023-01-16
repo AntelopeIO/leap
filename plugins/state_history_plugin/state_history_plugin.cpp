@@ -472,8 +472,6 @@ void state_history_plugin::plugin_shutdown() {
    my->block_start_connection.reset();
    std::for_each(my->session_set.begin(), my->session_set.end(), [](auto& s){ s->close(); } );
    my->stopping = true;
-   my->trace_log->stop();
-   my->chain_state_log->stop();
    my->thread_pool.stop();
 }
 

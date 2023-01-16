@@ -341,14 +341,6 @@ class state_history_log {
       }
    }
 
-
-   void acquire_lock(std::optional<std::unique_lock<std::mutex>>& lock) {
-      lock.emplace(rewrite_mx);
-   }
-
-   void stop() {
-   }
-
    ~state_history_log() {
       //nothing to do if log is empty or we aren't pruning
       if(_begin_block == _end_block)
