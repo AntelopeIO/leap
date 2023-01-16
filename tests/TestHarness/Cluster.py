@@ -120,6 +120,7 @@ class Cluster(object):
         self.defproducerbAccount.ownerPrivateKey=defproducerbPrvtKey
         self.defproducerbAccount.activePrivateKey=defproducerbPrvtKey
 
+        self.trxGenLauncher=None
         self.preExistingFirstTrxFiles=[]
 
         self.useBiosBootFile=False
