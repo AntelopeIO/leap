@@ -19,6 +19,7 @@ from .testUtils import BlockLogAction
 from .Node import BlockType
 from .Node import Node
 from .WalletMgr import WalletMgr
+from .launch_transaction_generators import TransactionGeneratorsLauncher, TpsTrxGensConfig
 
 # Protocol Feature Setup Policy
 class PFSetupPolicy:
@@ -118,6 +119,8 @@ class Cluster(object):
         self.defproduceraAccount.activePrivateKey=defproduceraPrvtKey
         self.defproducerbAccount.ownerPrivateKey=defproducerbPrvtKey
         self.defproducerbAccount.activePrivateKey=defproducerbPrvtKey
+
+        self.preExistingFirstTrxFiles=[]
 
         self.useBiosBootFile=False
         self.filesToCleanup=[]
@@ -1570,6 +1573,12 @@ class Cluster(object):
         for f in glob.glob(Utils.ConfigDir + "node_*"):
             shutil.rmtree(f)
 
+        # Cleanup transaction generator files
+        for f in glob.glob(f"{Utils.DataDir}/trx_data_output_*.txt"):
+            os.remove(f)
+        for f in glob.glob(f"{Utils.DataDir}/first_trx_*.txt"):
+            os.remove(f)
+
         for f in self.filesToCleanup:
             os.remove(f)
 
@@ -1743,3 +1752,45 @@ class Cluster(object):
         while len(lowestMaxes)>0 and compareCommon(blockLogs, blockNameExtensions, first, lowestMaxes[0]):
             first=lowestMaxes[0]+1
             lowestMaxes=stripValues(lowestMaxes,lowestMaxes[0])
+
+    def launchTrxGenerators(self, contractOwnerAcctName: str, acctNamesList: list, acctPrivKeysList: list,
+                            nodeId: int=0, tpsPerGenerator: int=10, numGenerators: int=1, durationSec: int=60,
+                            waitToComplete:bool=False):
+        Utils.Print("Configure txn generators")
+        node=self.getNode(nodeId)
+        p2pListenPort = self.getNodeP2pPort(nodeId)
+        info = node.getInfo()
+        chainId = info['chain_id']
+        lib_id = info['last_irreversible_block_id']
+
+        targetTps = tpsPerGenerator*numGenerators
+        tpsLimitPerGenerator=tpsPerGenerator
+
+        self.preExistingFirstTrxFiles = glob.glob(f"{Utils.DataDir}/first_trx_*.txt")
+
+        tpsTrxGensConfig = TpsTrxGensConfig(targetTps=targetTps, tpsLimitPerGenerator=tpsLimitPerGenerator)
+        trxGenLauncher = TransactionGeneratorsLauncher(chainId=chainId, lastIrreversibleBlockId=lib_id,
+                                                    handlerAcct=contractOwnerAcctName, accts=','.join(map(str, acctNamesList)),
+                                                    privateKeys=','.join(map(str, acctPrivKeysList)), trxGenDurationSec=durationSec,
+                                                    logDir=Utils.DataDir, peerEndpoint=self.host, port=p2pListenPort, tpsTrxGensConfig=tpsTrxGensConfig)
+
+        Utils.Print("Launch txn generators and start generating/sending transactions")
+        trxGenLauncher.launch(waitToComplete=waitToComplete)
+
+    def waitForTrxGeneratorsSpinup(self, nodeId: int, numGenerators: int, timeout: int=None):
+        node=self.getNode(nodeId)
+
+        lam = lambda: len([ftf for ftf in glob.glob(f"{Utils.DataDir}/first_trx_*.txt") if ftf not in self.preExistingFirstTrxFiles]) >= numGenerators
+        Utils.waitForBool(lam, timeout)
+
+        firstTrxFiles = glob.glob(f"{Utils.DataDir}/first_trx_*.txt")
+        curFirstTrxFiles = [ftf for ftf in firstTrxFiles if ftf not in self.preExistingFirstTrxFiles]
+
+        firstTrxs = []
+        for fileName in curFirstTrxFiles:
+            Utils.Print(f"Found first trx record: {fileName}")
+            with open(fileName, 'rt') as f:
+                for line in f:
+                    firstTrxs.append(line.rstrip('\n'))
+        Utils.Print(f"first transactions: {firstTrxs}")
+        node.waitForTransactionsInBlock(firstTrxs)

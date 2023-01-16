@@ -107,9 +107,9 @@ try:
             libBlockNum=info["last_irreversible_block_num"]
             Utils.errorExit("Failed to get to %s block number %d. Last had head block number %d and lib %d" % (blockType, blockNum, headBlockNum, libBlockNum))
 
-    node0=cluster.getNode(0)
 
     snapshotNodeId = 0
+    node0=cluster.getNode(snapshotNodeId)
     irrNodeId = snapshotNodeId+1
 
     nodeSnap=cluster.getNode(snapshotNodeId)
@@ -120,12 +120,13 @@ try:
     waitForBlock(node0, blockNum, blockType=BlockType.lib)
 
     Print("Configure and launch txn generators")
-    producerP2pPort = cluster.getNodeP2pPort(snapshotNodeId)
     targetTpsPerGenerator = 667
     testTrxGenDurationSec=60*30
-    node0.launchTrxGenerators(tpsPerGenerator=targetTpsPerGenerator, numGenerators=trxGeneratorCnt, durationSec=testTrxGenDurationSec,
-                              contractOwnerAcctName=cluster.eosioAccount.name, acctNamesList=[account1Name, account2Name],
-                              acctPrivKeysList=[account1PrivKey,account2PrivKey], p2pListenPort=producerP2pPort, waitToComplete=False)
+    cluster.launchTrxGenerators(contractOwnerAcctName=cluster.eosioAccount.name, acctNamesList=[account1Name, account2Name],
+                                acctPrivKeysList=[account1PrivKey,account2PrivKey], nodeId=snapshotNodeId, tpsPerGenerator=targetTpsPerGenerator,
+                                numGenerators=trxGeneratorCnt, durationSec=testTrxGenDurationSec, waitToComplete=False)
+
+    cluster.waitForTrxGeneratorsSpinup(nodeId=snapshotNodeId, numGenerators=trxGeneratorCnt)
 
     blockNum=node0.getBlockNum(BlockType.head)
     timePerBlock=500

@@ -98,16 +98,16 @@ try:
     testSuccessful=False
 
     Print("Configure and launch txn generators")
-    nonProducerP2pPort = cluster.getNodeP2pPort(nonProdNode.nodeId)
     targetTpsPerGenerator = 500
     testTrxGenDurationSec=60
     trxGeneratorCnt=1
-    nonProdNode.launchTrxGenerators(tpsPerGenerator=targetTpsPerGenerator, numGenerators=trxGeneratorCnt, durationSec=testTrxGenDurationSec,
-                                    contractOwnerAcctName=cluster.eosioAccount.name, acctNamesList=[accounts[0].name,accounts[1].name],
-                                    acctPrivKeysList=[account1PrivKey,account2PrivKey], p2pListenPort=nonProducerP2pPort, waitToComplete=False)
+    cluster.launchTrxGenerators(contractOwnerAcctName=cluster.eosioAccount.name, acctNamesList=[accounts[0].name,accounts[1].name],
+                                acctPrivKeysList=[account1PrivKey,account2PrivKey], nodeId=nonProdNode.nodeId, tpsPerGenerator=targetTpsPerGenerator,
+                                numGenerators=trxGeneratorCnt, durationSec=testTrxGenDurationSec, waitToComplete=False)
 
     Print("Give txn generator time to spin up and begin producing trxs")
-    time.sleep(10)
+    cluster.waitForTrxGeneratorsSpinup(nodeId=nonProdNode.nodeId, numGenerators=trxGeneratorCnt)
+    time.sleep(5)
 
     Print("Kill non-producer bridge node")
     testSuccessful = nonProdNode.kill(signal.SIGTERM)

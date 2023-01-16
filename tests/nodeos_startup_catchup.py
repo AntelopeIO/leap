@@ -113,12 +113,14 @@ try:
     waitForBlock(node0, blockNum, blockType=BlockType.lib)
 
     Print("Configure and launch txn generators")
-    producerP2pPort = cluster.getNodeP2pPort(node0.nodeId)
     targetTpsPerGenerator = 100
     testTrxGenDurationSec=60*60
-    node0.launchTrxGenerators(tpsPerGenerator=targetTpsPerGenerator, numGenerators=trxGeneratorCnt, durationSec=testTrxGenDurationSec,
-                              contractOwnerAcctName=cluster.eosioAccount.name, acctNamesList=[account1Name, account2Name],
-                              acctPrivKeysList=[account1PrivKey,account2PrivKey], p2pListenPort=producerP2pPort, waitToComplete=False)
+    cluster.launchTrxGenerators(contractOwnerAcctName=cluster.eosioAccount.name, acctNamesList=[account1Name, account2Name],
+                                acctPrivKeysList=[account1PrivKey,account2PrivKey], nodeId=node0.nodeId,
+                                tpsPerGenerator=targetTpsPerGenerator, numGenerators=trxGeneratorCnt, durationSec=testTrxGenDurationSec,
+                                waitToComplete=False)
+
+    cluster.waitForTrxGeneratorsSpinup(nodeId=node0.nodeId, numGenerators=trxGeneratorCnt)
 
     blockNum=head(node0)
     timePerBlock=500
