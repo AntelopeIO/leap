@@ -1,0 +1,14 @@
+{
+    "compilerOptions": {
+        "module": "es2015",
+        "target": "es2017",
+        "outDir": "dist",
+        "sourceMap": true,
+        "noImplicitAny": true,
+    },
+    "include": [
+        "src/*.ts",
+        "../external/eosjs2/src/eosjs2-numeric.ts",
+        "../external/eosjs2/src/eosjs2-serialize.ts"
+    ]
+}
