@@ -374,7 +374,7 @@ paths:
 
   /producer/get_snapshot_requests:
     post:
-      summary: get_snapshot_request_status
+      summary: get_snapshot_requests
       description: Returns a list of scheduled snapshots
       operationId: get_snapshot_status
       requestBody:
@@ -384,13 +384,13 @@ paths:
             schema:
               type: object
               properties:
-                offset:
+                start_snapshot_request_id:
                   type: integer
                   description: Snapshot offset
                 limit:
                   type: integer
                   description: Number of snapshots to return
-                
+
       responses:
         "201":
           description: OK
@@ -399,21 +399,19 @@ paths:
              schema:
                 type: object
                 properties:
-                  offset:
+                  next_request_id:
                     type: integer
-                    description: Snapshot offset
-                  limit:
-                    type: integer
-                    description: Number of snapshots to return
-                  count:
-                    type: integer
-                    description: Total amount of snapshots
+                    description: Next available snapshot ID
                   snapshot_requests:
                     type: array
                     description: An array of scheduled snapshots
                     items:
                       type: object
                       properties:
+                          snapshot_request_time:
+                            type: string
+                            description: Snapshot unix timestamp
+                            example: 2020-11-16T00:00:00.000
                           snapshot_request_id:
                             type: integer
                             description: Unique id identifying current snapshot request
@@ -431,7 +429,7 @@ paths:
                           snapshot_description:
                               type: string
                               description: Description of the snapshot
-                              example: Daily snapshot                
+                              example: Daily snapshot
         "400":
           description: client error
           content:
@@ -451,7 +449,7 @@ paths:
             schema:
               type: object
               properties:
-                snapshot_id:
+                snapshot_request_id:
                   type: integer
                   description: snapshot id
       responses:
@@ -484,12 +482,12 @@ paths:
                       type: string
                       description: Description of the snapshot
                       example: Daily snapshot
-                  pending_snapshots:                  
+                  pending_snapshots:
                       type: array
                       description: List of pending snapshots
                       items:
                         type: object
-                        properties:  
+                        properties:
                           head_block_id:
                             $ref: "https://docs.eosnetwork.com/openapi/v2.0/Sha256.yaml"
                           head_block_num:
@@ -508,7 +506,7 @@ paths:
                             type: string
                             description: The path and file name of the snapshot
                             example: /home/me/nodes/node-name/snapshots/snapshot-0000999f99999f9f999f99f99ff9999f999f9fff99ff99ffff9f9f9fff9f9999.bin
-                                   
+
         "400":
           description: client error
           content:
@@ -528,7 +526,7 @@ paths:
             schema:
               type: object
               properties:
-                snapshot_id:
+                snapshot_request_id:
                   type: integer
                   description: snapshot id
       responses:
@@ -556,7 +554,7 @@ paths:
                   snapshot_description:
                       type: string
                       description: Description of the snapshot
-                      example: Daily snapshot                
+                      example: Daily snapshot
         "400":
           description: client error
           content:
