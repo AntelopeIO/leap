@@ -343,18 +343,17 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       std::optional<scoped_connection>                          _irreversible_block_connection;
 
       producer_plugin_metrics                                   _metrics;
-      metrics_listener                                          _metrics_listener = nullptr;
 
-   /*
-    * HACK ALERT
-    * Boost timers can be in a state where a handler has not yet executed but is not abortable.
-    * As this method needs to mutate state handlers depend on for proper functioning to maintain
-    * invariants for other code (namely accepting incoming transactions in a nearly full block)
-    * the handlers capture a corelation ID at the time they are set.  When they are executed
-    * they must check that correlation_id against the global ordinal.  If it does not match that
-    * implies that this method has been called with the handler in the state where it should be
-    * cancelled but wasn't able to be.
-    */
+      /*
+       * HACK ALERT
+       * Boost timers can be in a state where a handler has not yet executed but is not abortable.
+       * As this method needs to mutate state handlers depend on for proper functioning to maintain
+       * invariants for other code (namely accepting incoming transactions in a nearly full block)
+       * the handlers capture a corelation ID at the time they are set.  When they are executed
+       * they must check that correlation_id against the global ordinal.  If it does not match that
+       * implies that this method has been called with the handler in the state where it should be
+       * cancelled but wasn't able to be.
+       */
       uint32_t _timer_corelation_id = 0;
 
       // keep a expected ratio between defer txn and incoming txn
@@ -414,7 +413,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       }
 
       void update_block_metrics() {
-         if (_metrics_listener) {
+         if (_metrics.should_post()) {
             _metrics.unapplied_transactions.value = _unapplied_transactions.size();
             _metrics.subjective_bill_account_size.value = _subjective_billing.get_account_cache_size();
             _metrics.subjective_bill_block_size.value = _subjective_billing.get_block_cache_size();
@@ -428,7 +427,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
             const auto &sch_idx = chain.db().get_index<generated_transaction_multi_index, by_delay>();
             _metrics.scheduled_trxs.value = sch_idx.size();
 
-            _metrics_listener(_metrics.metrics());
+            _metrics.post_metrics();
          }
       }
 
@@ -530,6 +529,8 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                     ("latency", (now - hbs->block->timestamp).count()/1000 ) );
             }
          }
+
+         update_block_metrics();
 
          return true;
       }
@@ -2532,7 +2533,7 @@ void producer_plugin::log_failed_transaction(const transaction_id_type& trx_id, 
 }
 
 void producer_plugin::register_metrics_listener(metrics_listener listener) {
-   my->_metrics_listener = listener;
+   my->_metrics.register_listener(listener);
 }
 
 } // namespace eosio

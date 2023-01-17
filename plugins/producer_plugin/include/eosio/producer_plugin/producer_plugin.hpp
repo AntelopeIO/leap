@@ -12,8 +12,9 @@ using boost::signals2::signal;
 using chain::plugin_interface::runtime_metric;
 using chain::plugin_interface::metric_type;
 using chain::plugin_interface::metrics_listener;
+using chain::plugin_interface::plugin_metrics;
 
-struct producer_plugin_metrics {
+struct producer_plugin_metrics : public plugin_metrics {
    runtime_metric unapplied_transactions{metric_type::gauge, "unapplied_transactions", "unapplied_transactions", 0};
    runtime_metric blacklisted_transactions{metric_type::gauge, "blacklisted_transactions", "blacklisted_transactions", 0};
    runtime_metric blocks_produced{metric_type::counter, "blocks_produced", "blocks_produced", 0};
@@ -24,8 +25,9 @@ struct producer_plugin_metrics {
    runtime_metric subjective_bill_block_size{metric_type::gauge, "subjective_bill_block_size", "subjective_bill_block_size", 0};
    runtime_metric scheduled_trxs{metric_type::gauge, "scheduled_trxs", "scheduled_trxs", 0};
 
-   vector<runtime_metric> metrics() {
+   virtual vector<runtime_metric> metrics() {
       vector<runtime_metric> metrics;
+      metrics.reserve(9);
       metrics.emplace_back(unapplied_transactions);
       metrics.emplace_back(blacklisted_transactions);
       metrics.emplace_back(blocks_produced);

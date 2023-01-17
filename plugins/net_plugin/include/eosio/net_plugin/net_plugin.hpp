@@ -15,13 +15,14 @@ namespace eosio {
 
    using namespace plugin_interface;
 
-   struct net_plugin_metrics {
+   struct net_plugin_metrics : plugin_metrics {
       runtime_metric num_peers{metric_type::gauge, "num_peers", "num_peers", 0};
       runtime_metric num_clients{metric_type::gauge, "num_clients", "num_clients", 0};
       runtime_metric dropped_trxs{metric_type::counter, "dropped_trxs", "dropped_trxs", 0};
 
-      vector<runtime_metric> metrics() {
+      virtual vector<runtime_metric> metrics() {
          vector<runtime_metric> metrics;
+         metrics.reserve(3);
          metrics.emplace_back(num_peers);
          metrics.emplace_back(num_clients);
          metrics.emplace_back(dropped_trxs);
