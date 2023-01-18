@@ -46,30 +46,32 @@ struct ship_log_fixture {
    }
 
    void check_range_present(uint32_t first, uint32_t last) {
-      BOOST_REQUIRE_EQUAL(log->begin_block(), first);
-      BOOST_REQUIRE_EQUAL(log->end_block()-1, last);
+      namespace bio = boost::iostreams;
+      auto r = log->block_range();
+      BOOST_REQUIRE_EQUAL(r.first, first);
+      BOOST_REQUIRE_EQUAL(r.second-1, last);
       if(enable_read) {
          for(auto i = first; i <= last; i++) {
-            std::variant<std::vector<char>, eosio::locked_decompress_stream> result;
+            auto result = log->create_locked_decompress_stream();
             log->get_unpacked_entry(i, result);
             std::visit(eosio::chain::overloaded{
                [&](std::vector<char>& buff) { BOOST_REQUIRE(buff == written_data.at(i)); },
-               [&](eosio::locked_decompress_stream& strm) {
+               [&](std::unique_ptr<bio::filtering_istreambuf>& strm) {
                   std::vector<char> buff;
-                  boost::iostreams::copy(strm.buf, boost::iostreams::back_inserter(buff));
+                  boost::iostreams::copy(*strm, boost::iostreams::back_inserter(buff));
                   BOOST_REQUIRE(buff == written_data.at(i));
-               }} , result);
+               }} , result.buf);
          }
       }
    }
 
    void check_not_present(uint32_t index) {
-      std::variant<std::vector<char>, eosio::locked_decompress_stream> result;
+      auto result = log->create_locked_decompress_stream();
       BOOST_REQUIRE_EQUAL(log->get_unpacked_entry(index, result), 0);
    }
 
    void check_empty() {
-      BOOST_REQUIRE_EQUAL(log->begin_block(), log->end_block());
+      BOOST_REQUIRE(log->empty());
    }
 
    //double the fun
@@ -265,12 +267,12 @@ BOOST_AUTO_TEST_CASE(empty) { try {
 
    {
       eosio::state_history_log log("empty", log_dir.path());
-      BOOST_REQUIRE_EQUAL(log.begin_block(), log.end_block());
+      BOOST_REQUIRE(log.empty());
    }
    //reopen
    {
       eosio::state_history_log log("empty", log_dir.path());
-      BOOST_REQUIRE_EQUAL(log.begin_block(), log.end_block());
+      BOOST_REQUIRE(log.empty());
    }
    //reopen but prunned set
    const eosio::state_history::prune_config simple_prune_conf = {
@@ -278,20 +280,20 @@ BOOST_AUTO_TEST_CASE(empty) { try {
    };
    {
       eosio::state_history_log log("empty", log_dir.path(), simple_prune_conf);
-      BOOST_REQUIRE_EQUAL(log.begin_block(), log.end_block());
+      BOOST_REQUIRE(log.empty());
    }
    {
       eosio::state_history_log log("empty", log_dir.path(), simple_prune_conf);
-      BOOST_REQUIRE_EQUAL(log.begin_block(), log.end_block());
+      BOOST_REQUIRE(log.empty());
    }
    //back to non pruned
    {
       eosio::state_history_log log("empty", log_dir.path());
-      BOOST_REQUIRE_EQUAL(log.begin_block(), log.end_block());
+      BOOST_REQUIRE(log.empty());
    }
    {
       eosio::state_history_log log("empty", log_dir.path());
-      BOOST_REQUIRE_EQUAL(log.begin_block(), log.end_block());
+      BOOST_REQUIRE(log.empty());
    }
 
    auto log_file = (log_dir.path()/ (std::string("empty") + ".log")).string();
@@ -303,7 +305,7 @@ BOOST_AUTO_TEST_CASE(empty) { try {
    //one more time to pruned, just to make sure
    {
       eosio::state_history_log log("empty", log_dir.path(), simple_prune_conf);
-      BOOST_REQUIRE_EQUAL(log.begin_block(), log.end_block());
+      BOOST_REQUIRE(log.empty());
    }
    BOOST_REQUIRE(fc::file_size(log_file.c_str()) == 0);
    BOOST_REQUIRE(fc::file_size(index_file.c_str()) == 0);

@@ -23,7 +23,7 @@ namespace bio = boost::iostreams;
 template <typename Session>
 struct send_queue_entry_base {
    virtual ~send_queue_entry_base() = default;
-   virtual void send(Session* s) = 0;
+   virtual void send(std::shared_ptr<Session> s) = 0;
 };
 
 template <typename Session>
@@ -32,9 +32,9 @@ struct basic_send_queue_entry : send_queue_entry_base<Session> {
    template <typename... Args>
    explicit basic_send_queue_entry(Args&&... args)
        : data(std::forward<Args>(args)...) {}
-   void send(Session* s) override {
+   void send(std::shared_ptr<Session> s) override {
       s->socket_stream->async_write(boost::asio::buffer(data),
-                                   [s = s->shared_from_this()](boost::system::error_code ec, size_t) {
+                                   [s{std::move(s)}](boost::system::error_code ec, size_t) {
                                       s->callback(ec, "async_write", [s] { s->pop_entry(); });
                                    });
    }
@@ -42,51 +42,56 @@ struct basic_send_queue_entry : send_queue_entry_base<Session> {
 
 template <typename Session>
 class blocks_result_send_queue_entry : public send_queue_entry_base<Session> {
+   std::shared_ptr<Session>                                        session;
    eosio::state_history::get_blocks_result_v0                      r;
    std::vector<char>                                               data;
-   std::variant<std::vector<char>, locked_decompress_stream> buf;
+   std::optional<locked_decompress_stream>                         stream;
 
    template <typename Next>
-   void async_send(Session* s, bool fin, const std::vector<char>& d, Next&& next) {
-      s->socket_stream->async_write_some(
+   void async_send(bool fin, const std::vector<char>& d, Next&& next) {
+      session->socket_stream->async_write_some(
           fin, boost::asio::buffer(d),
-          [s = s->shared_from_this(), next = std::forward<Next>(next)](boost::system::error_code ec, size_t) mutable {
-             s->callback(ec, "async_write", [s, next = std::move(next)]() mutable { next(s.get()); });
+          [this, s=session, next = std::forward<Next>(next)](boost::system::error_code ec, size_t) mutable {
+             if( ec ) {
+                stream.reset();
+                s->sending_block_session.reset();
+             }
+             s->callback(ec, "async_write", [next = std::move(next)]() mutable { next(); });
           });
    }
 
    template <typename Next>
-   void async_send(Session* s, bool fin, locked_decompress_stream& locked_strm, Next&& next) {
-      data.resize(s->default_frame_size);
-      auto size = bio::read(locked_strm.buf, data.data(), s->default_frame_size);
+   void async_send(bool fin, std::unique_ptr<bio::filtering_istreambuf>& strm, Next&& next) {
+      data.resize(session->default_frame_size);
+      auto size = bio::read(*strm, data.data(), session->default_frame_size);
       data.resize(size);
-      bool eof = (locked_strm.buf.sgetc() == EOF);
+      bool eof = (strm->sgetc() == EOF);
 
-      s->socket_stream->async_write_some(
-          fin && eof, boost::asio::buffer(data),
-          [this, s = s->shared_from_this(), fin, &locked_strm, eof,
-           next = std::forward<Next>(next)](boost::system::error_code ec, size_t) mutable {
-             if (ec) locked_strm.lock.reset();
-             s->callback(ec, "async_write", [this, s, fin, &locked_strm, eof, next = std::move(next)]() mutable {
+      session->socket_stream->async_write_some( fin && eof, boost::asio::buffer(data),
+          [this, s=session, fin, eof, next = std::forward<Next>(next)](boost::system::error_code ec, size_t) mutable {
+             if( ec ) {
+                stream.reset();
+                s->sending_block_session.reset();
+             }
+             s->callback(ec, "async_write", [this, fin, eof, next = std::move(next)]() mutable {
                 if (eof) {
-                   locked_strm.lock.reset();
-                   next(s.get());
+                   next();
                 } else {
-                   async_send(s.get(), fin, locked_strm, std::move(next));
+                   async_send_buf(fin, std::move(next));
                 }
              });
           });
    }
 
    template <typename Next>
-   void async_send_buf(Session* s, bool fin, Next&& next) {
-      std::visit([this, s, fin,
-                  next = std::forward<Next>(next)](auto& d) mutable { this->async_send(s, fin, d, std::move(next)); },
-                 buf);
+   void async_send_buf(bool fin, Next&& next) {
+      std::visit([this, fin,
+                  next = std::forward<Next>(next)](auto& d) mutable { this->async_send(fin, d, std::move(next)); },
+                 stream->buf);
    }
 
    template <typename Next>
-   void send_log(Session* s, uint64_t entry_size, bool is_deltas, Next&& next) {
+   void send_log(uint64_t entry_size, bool is_deltas, Next&& next) {
       if (entry_size) {
          data.resize(16); // should be at least for 1 byte (optional) + 10 bytes (variable sized uint64_t)
          fc::datastream<char*> ds(data.data(), data.size());
@@ -97,21 +102,26 @@ class blocks_result_send_queue_entry : public send_queue_entry_base<Session> {
          data = {'\0'}; // optional false
       }
 
-      async_send(s, is_deltas && entry_size == 0, data,
-                [this, is_deltas, entry_size, next = std::forward<Next>(next)](Session* s) mutable {
+      async_send(is_deltas && entry_size == 0, data,
+                [this, is_deltas, entry_size, next = std::forward<Next>(next)]() mutable {
                    if (entry_size) {
-                      async_send_buf(s, is_deltas, [next = std::move(next)](Session* s) { next(s); });
+                      async_send_buf(is_deltas, [next = std::move(next)]() { next(); });
                    } else
-                      next(s);
+                      next();
                 });
    }
 
-   void send_traces(Session* s) {
-      send_log(s, s->get_trace_log_entry(r, buf), false, [this](Session* s) { this->send_deltas(s); });
+   void send_deltas() {
+      stream.reset();
+      send_log(session->get_delta_log_entry(r, stream), true, [this]() {
+         session->sending_block_session.reset();
+         session->pop_entry();
+      });
    }
 
-   void send_deltas(Session* s) {
-      send_log(s, s->get_delta_log_entry(r, buf), true, [](Session* s) { s->pop_entry(); });
+   void send_traces() {
+      stream.reset();
+      send_log(session->get_trace_log_entry(r, stream), false, [this]() { this->send_deltas(); });
    }
 
 public:
@@ -119,7 +129,13 @@ public:
    explicit blocks_result_send_queue_entry(get_blocks_result_v0&& r)
        : r(std::move(r)) {}
 
-   void send(Session* s) override {
+   ~blocks_result_send_queue_entry() override {
+      session->sending_block_session.reset();
+   }
+
+   void send(std::shared_ptr<Session> s) override {
+      s->sending_block_session = s;
+      session = std::move(s);
       // pack the state_result{get_blocks_result} excluding the fields `traces` and `deltas`
       fc::datastream<size_t> ss;
       fc::raw::pack(ss, fc::unsigned_int(1)); // pack the variant index of state_result{r}
@@ -129,15 +145,22 @@ public:
       fc::raw::pack(ds, fc::unsigned_int(1)); // pack the variant index of state_result{r}
       fc::raw::pack(ds, static_cast<const get_blocks_result_base&>(r));
 
-      async_send(s, false, data, [this](Session* s) { send_traces(s); });
+      async_send(false, data, [this]() { send_traces(); });
    }
 };
 
 struct session_base {
+   virtual void send()                                                        = 0;
    virtual void send_update(const eosio::chain::block_state_ptr& block_state) = 0;
    virtual void close()                                                       = 0;
    virtual ~session_base()                                                    = default;
    std::optional<get_blocks_request_v0> current_request;
+
+   // static across all sessions. blocks_result_send_queue_entry locks state_history_log mutex
+   // and holds until done streaming the block. Only one of these can be in progress at a time.
+   inline static std::shared_ptr<session_base> sending_block_session{}; // ship thread only
+   // other session waiting on this session to complete block sending before they can continue
+   std::set<std::weak_ptr<session_base>, std::owner_less<>> others_waiting; // ship thread only
 };
 
 template <typename Plugin, typename SocketType>
@@ -202,7 +225,7 @@ struct session : session_base, std::enable_shared_from_this<session<Plugin, Sock
           });
    }
 
-   void send() {
+   void send() override {
       if (sending)
          return;
       if (send_queue.empty()) {
@@ -211,9 +234,13 @@ struct session : session_base, std::enable_shared_from_this<session<Plugin, Sock
          });
          return;
       }
+      if (sending_block_session) {
+         sending_block_session->others_waiting.insert( this->weak_from_this() );
+         return;
+      }
       sending = true;
 
-      send_queue[0]->send(this);
+      send_queue[0]->send(this->shared_from_this());
    }
 
    template <typename T>
@@ -236,19 +263,40 @@ struct session : session_base, std::enable_shared_from_this<session<Plugin, Sock
       send_queue.erase(send_queue.begin());
       sending = false;
       send();
+      send_others_waiting();
+   }
+
+   void send_others_waiting() {
+      for( auto& w : others_waiting ) {
+         auto s = w.lock();
+         if( s ) {
+            s->send();
+         }
+      }
+      others_waiting.clear();
    }
 
    uint64_t get_trace_log_entry(const eosio::state_history::get_blocks_result_v0& result,
-                                std::variant<std::vector<char>, locked_decompress_stream>& buf) {
-      if (result.traces.has_value())
-         return plugin->get_trace_log()->get_unpacked_entry(result.this_block->block_num, buf);
+                                std::optional<locked_decompress_stream>& buf) {
+      if (result.traces.has_value()) {
+         auto& optional_log = plugin->get_trace_log();
+         if( optional_log ) {
+            buf.emplace( optional_log->create_locked_decompress_stream() );
+            return optional_log->get_unpacked_entry( result.this_block->block_num, *buf );
+         }
+      }
       return 0;
    }
 
    uint64_t get_delta_log_entry(const eosio::state_history::get_blocks_result_v0& result,
-                                std::variant<std::vector<char>, locked_decompress_stream>& buf) {
-      if (result.deltas.has_value())
-         return plugin->get_chain_state_log()->get_unpacked_entry(result.this_block->block_num, buf);
+                                std::optional<locked_decompress_stream>& buf) {
+      if (result.deltas.has_value()) {
+         auto& optional_log = plugin->get_chain_state_log();
+         if( optional_log ) {
+            buf.emplace( optional_log->create_locked_decompress_stream() );
+            return optional_log->get_unpacked_entry( result.this_block->block_num, *buf );
+         }
+      }
       return 0;
    }
 
@@ -262,13 +310,15 @@ struct session : session_base, std::enable_shared_from_this<session<Plugin, Sock
       result.chain_id          = plugin->get_chain_id();
       auto&& trace_log         = plugin->get_trace_log();
       if (trace_log) {
-         result.trace_begin_block = trace_log->begin_block();
-         result.trace_end_block   = trace_log->end_block();
+         auto r = trace_log->block_range();
+         result.trace_begin_block = r.first;
+         result.trace_end_block   = r.second;
       }
       auto&& chain_state_log = plugin->get_chain_state_log();
       if (chain_state_log) {
-         result.chain_state_begin_block = chain_state_log->begin_block();
-         result.chain_state_end_block   = chain_state_log->end_block();
+         auto r = chain_state_log->block_range();
+         result.chain_state_begin_block = r.first;
+         result.chain_state_end_block   = r.second;
       }
       fc_dlog(plugin->logger(), "pushing get_status_result_v0 to send queue");
       send(std::move(result));
@@ -419,13 +469,13 @@ struct session : session_base, std::enable_shared_from_this<session<Plugin, Sock
          f();
       } catch (const fc::exception& e) {
          fc_elog(plugin->logger(), "${e}", ("e", e.to_detail_string()));
-         close();
+         close_i();
       } catch (const std::exception& e) {
          fc_elog(plugin->logger(), "${e}", ("e", e.what()));
-         close();
+         close_i();
       } catch (...) {
          fc_elog(plugin->logger(), "unknown exception");
-         close();
+         close_i();
       }
    }
 
@@ -443,6 +493,8 @@ struct session : session_base, std::enable_shared_from_this<session<Plugin, Sock
          fc_elog(plugin->logger(), "close: ${m}", ("m", ec.message()));
       }
       socket_stream.reset();
+      send_queue.clear();
+      send_others_waiting();
       plugin->post_task_main_thread_high([self = this->shared_from_this(), plugin=plugin]() {
          plugin->session_set.erase(self);
       });

@@ -641,18 +641,18 @@ struct state_history_tester : state_history_tester_logs, tester {
 };
 
 static std::vector<char> get_decompressed_entry(eosio::state_history_log& log, block_num_type block_num) {
-   std::variant<std::vector<char>, eosio::locked_decompress_stream> buf;
-   log.get_unpacked_entry(block_num, buf);
+   auto result = log.create_locked_decompress_stream();
+   log.get_unpacked_entry(block_num, result);
    namespace bio = boost::iostreams;
    return std::visit(eosio::chain::overloaded{ [](std::vector<char>& bytes) {
                                                  return bytes;
                                               },
-                                               [](eosio::locked_decompress_stream& strm) {
+                                               [](std::unique_ptr<bio::filtering_istreambuf>& strm) {
                                                   std::vector<char> bytes;
-                                                  bio::copy(strm.buf, bio::back_inserter(bytes));
+                                                  bio::copy(*strm, bio::back_inserter(bytes));
                                                   return bytes;
                                                } },
-                     buf);
+                     result.buf);
 }
 
 static std::vector<eosio::ship_protocol::transaction_trace> get_traces(eosio::state_history_log& log,
@@ -712,7 +712,7 @@ BOOST_AUTO_TEST_CASE(test_splitted_log) {
    BOOST_CHECK(bfs::exists( retained_dir / "trace_history-121-140.log" ));
    BOOST_CHECK(bfs::exists( retained_dir / "trace_history-121-140.index" ));
 
-   BOOST_CHECK_EQUAL(chain.traces_log.begin_block(), 41);
+   BOOST_CHECK_EQUAL(chain.traces_log.block_range().first, 41);
 
    BOOST_CHECK(bfs::exists( retained_dir / "chain_state_history-41-60.log" ));
    BOOST_CHECK(bfs::exists( retained_dir / "chain_state_history-41-60.index" ));
@@ -725,7 +725,7 @@ BOOST_AUTO_TEST_CASE(test_splitted_log) {
    BOOST_CHECK(bfs::exists( retained_dir / "chain_state_history-121-140.log" ));
    BOOST_CHECK(bfs::exists( retained_dir / "chain_state_history-121-140.index" ));
 
-   BOOST_CHECK_EQUAL(chain.chain_state_log.begin_block(), 41);
+   BOOST_CHECK_EQUAL(chain.chain_state_log.block_range().first, 41);
 
    BOOST_CHECK(get_traces(chain.traces_log, 10).empty());
    BOOST_CHECK(get_traces(chain.traces_log, 100).size());

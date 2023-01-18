@@ -295,7 +295,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
    void store_chain_state(const block_state_ptr& block_state) {
       if (!chain_state_log)
          return;
-      bool fresh = chain_state_log->begin_block() == chain_state_log->end_block();
+      bool fresh = chain_state_log->empty();
       if (fresh)
          fc_ilog(_log, "Placing initial state in block ${n}", ("n", block_state->block_num));
 
@@ -454,7 +454,7 @@ void state_history_plugin::plugin_startup() {
 
    try {
       auto bsp = my->chain_plug->chain().head_block_state();
-      if( bsp && my->chain_state_log && my->chain_state_log->begin_block() == my->chain_state_log->end_block() ) {
+      if( bsp && my->chain_state_log && my->chain_state_log->empty() ) {
          fc_ilog( _log, "Storing initial state on startup, this can take a considerable amount of time" );
          my->store_chain_state( bsp );
          fc_ilog( _log, "Done storing initial state on startup" );

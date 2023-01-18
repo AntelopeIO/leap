@@ -386,13 +386,14 @@ void store_read_test_case(uint64_t data_size, eosio::state_history_log_config co
    BOOST_REQUIRE_EQUAL(log.get_log_file().tellp(), pos);
 
 
-   std::variant<std::vector<char>, eosio::locked_decompress_stream> buf;
+   eosio::locked_decompress_stream buf = log.create_locked_decompress_stream();
    log.get_unpacked_entry(1, buf);
 
    std::vector<char> decompressed;
-   auto& locked_strm = std::get<eosio::locked_decompress_stream>(buf);
-   BOOST_CHECK(locked_strm.lock.has_value());
-   bio::copy(locked_strm.buf, bio::back_inserter(decompressed));
+   auto& strm = std::get<std::unique_ptr<bio::filtering_istreambuf>>(buf.buf);
+   BOOST_CHECK(!!strm);
+   BOOST_CHECK(buf.lock.owns_lock());
+   bio::copy(*strm, bio::back_inserter(decompressed));
 
    BOOST_CHECK_EQUAL(data.size() * sizeof(data[0]), decompressed.size());
    BOOST_CHECK(std::equal(decompressed.begin(), decompressed.end(), (const char*)data.data()));

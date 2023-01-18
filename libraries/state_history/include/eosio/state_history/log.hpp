@@ -1,8 +1,7 @@
 #pragma once
-
 #include <boost/filesystem.hpp>
 #include <fstream>
-#include <stdint.h>
+#include <cstdint>
 
 #include <boost/asio.hpp>
 
@@ -25,6 +24,9 @@
 #include <eosio/chain/log_catalog.hpp>
 #include <eosio/chain/log_data_base.hpp>
 #include <eosio/chain/log_index.hpp>
+
+
+struct state_history_test_fixture;
 
 namespace eosio {
 namespace bio = boost::iostreams;
@@ -94,6 +96,37 @@ namespace state_history {
 
 using state_history_log_config = std::variant<std::monostate, state_history::prune_config, state_history::partition_config>;
 
+struct locked_decompress_stream {
+   std::unique_lock<std::mutex> lock; // state_history_log mutex
+   std::variant<std::vector<char>, std::unique_ptr<bio::filtering_istreambuf>> buf;
+
+   locked_decompress_stream() = delete;
+   locked_decompress_stream(locked_decompress_stream&&) = default;
+
+   explicit locked_decompress_stream(std::unique_lock<std::mutex> l)
+   : lock(std::move(l)) {};
+
+   template <typename StateHistoryLog>
+   void init(StateHistoryLog&& log, fc::cfile& stream, uint64_t compressed_size) {
+      buf = std::make_unique<bio::filtering_istreambuf>();
+      std::get<std::unique_ptr<bio::filtering_istreambuf>>(buf)->push(bio::zlib_decompressor());
+      std::get<std::unique_ptr<bio::filtering_istreambuf>>(buf)->push(bio::restrict(bio::file_source(stream.get_file_path().string()), stream.tellp(), compressed_size));
+   }
+
+   template <typename LogData>
+   void init(LogData&& log, fc::datastream<const char*>& stream, uint64_t compressed_size) {
+      buf = std::make_unique<bio::filtering_istreambuf>();
+      std::get<std::unique_ptr<bio::filtering_istreambuf>>(buf)->push(bio::zlib_decompressor());
+      std::get<std::unique_ptr<bio::filtering_istreambuf>>(buf)->push(bio::restrict(bio::file_source(log.filename), stream.pos() - log.data(), compressed_size));
+   }
+
+   size_t init(std::vector<char> cbuf) {
+      buf.emplace<std::vector<char>>( std::move(cbuf) );
+      return std::get<std::vector<char>>(buf).size();
+   }
+};
+
+namespace detail {
 
 std::vector<char> zlib_decompress(fc::cfile& file, uint64_t compressed_size) {
    if (compressed_size) {
@@ -111,38 +144,18 @@ std::vector<char> zlib_decompress(fc::datastream<const char*>& strm, uint64_t co
    return {};
 }
 
-struct locked_decompress_stream {
-   std::optional<std::unique_lock<std::mutex>> lock;
-   bio::filtering_istreambuf    buf;
-
-   locked_decompress_stream() = default;
-
-   template <typename StateHistoryLog>
-   locked_decompress_stream(StateHistoryLog&& log, std::mutex& mx, fc::cfile& stream, uint64_t compressed_size) {
-      lock.emplace(mx);
-      buf.push(bio::zlib_decompressor());
-      buf.push(bio::restrict(bio::file_source(stream.get_file_path().string()), stream.tellp(), compressed_size));
-   }
-
-   template <typename LogData>
-   locked_decompress_stream(LogData&& log, std::mutex& mx, fc::datastream<const char*>& stream, uint64_t compressed_size) {
-      lock.emplace(mx);
-      buf.push(bio::zlib_decompressor());
-      buf.push(bio::restrict(bio::file_source(log.filename), stream.pos() - log.data(), compressed_size));
-   }
-};
-
 template <typename Log, typename Stream>
-uint64_t read_unpacked_entry(Log&& log, std::mutex& mx, Stream& stream, uint64_t payload_size, std::variant<std::vector<char>, locked_decompress_stream>& result) {
+uint64_t read_unpacked_entry(Log&& log, Stream& stream, uint64_t payload_size, locked_decompress_stream& result) {
    uint32_t s;
    uint64_t compressed_size;
 
+   // result has state_history_log mutex locked
    stream.read((char*)&s, sizeof(s));
    if (s == 1 && payload_size > (s + sizeof(uint32_t))) {
       compressed_size = payload_size - sizeof(uint32_t) - sizeof(uint64_t);
       uint64_t decompressed_size;
       stream.read((char*)&decompressed_size, sizeof(decompressed_size));
-      result.emplace<locked_decompress_stream>(log, mx, stream, compressed_size);
+      result.init(log, stream, compressed_size);
       return decompressed_size;
 
    } else {
@@ -152,7 +165,7 @@ uint64_t read_unpacked_entry(Log&& log, std::mutex& mx, Stream& stream, uint64_t
 
       compressed_size = payload_size - sizeof(uint32_t);
    }
-   return result.emplace<std::vector<char>>( zlib_decompress(stream, compressed_size)).size();
+   return result.init( zlib_decompress(stream, compressed_size) );
 }
 
 class state_history_log_data : public chain::log_data_base<state_history_log_data> {
@@ -185,10 +198,10 @@ class state_history_log_data : public chain::log_data_base<state_history_log_dat
           ver);
    }
 
-   uint64_t ro_stream_at(uint64_t pos, std::mutex& mx, std::variant<std::vector<char>, locked_decompress_stream>& result) const {
+   uint64_t ro_stream_at(uint64_t pos, locked_decompress_stream& result) const {
       uint64_t                    payload_size = payload_size_at(pos);
       fc::datastream<const char*> stream(file.const_data() + pos + sizeof(state_history_log_header), payload_size);
-      return read_unpacked_entry(*this, mx, stream, payload_size, result);
+      return read_unpacked_entry(*this, stream, payload_size, result);
    }
 
    uint32_t block_num_at(uint64_t position) const {
@@ -268,6 +281,7 @@ private:
     uint64_t chars_;
 };
 
+} // namespace detail
 
 class state_history_log {
  private:
@@ -280,16 +294,18 @@ class state_history_log {
    uint32_t                _end_block   = 0;
    chain::block_id_type    last_block_id;
 
-   std::mutex                                                               rewrite_mx; // used during prune or truncate
+   mutable std::mutex      _mx;
 
-   using catalog_t = chain::log_catalog<state_history_log_data, chain::log_index<chain::plugin_exception>>;
+   using catalog_t = chain::log_catalog<detail::state_history_log_data, chain::log_index<chain::plugin_exception>>;
    catalog_t catalog;
 
  public:
-   state_history_log(const char* name, const fc::path& log_dir ,
+   friend struct ::state_history_test_fixture;
+
+   state_history_log(const char* name, const fc::path& log_dir,
                      state_history_log_config conf = {})
        : name(name)
-       , config(conf) {
+       , config(std::move(conf)) {
 
       log.set_file_path(log_dir/(std::string(name) + ".log"));
       index.set_file_path(log_dir/(std::string(name) + ".index"));
@@ -356,12 +372,106 @@ class state_history_log {
          vacuum();
    }
 
-   uint32_t begin_block() const {
+   //        begin     end
+   std::pair<uint32_t, uint32_t> block_range() const {
+      std::lock_guard g(_mx);
       uint32_t result = catalog.first_block_num();
-      return result != 0 ? result : _begin_block;
+      return { result != 0 ? result : _begin_block, _end_block };
    }
 
-   uint32_t end_block() const { return _end_block; }
+   bool empty() const {
+      auto r = block_range();
+      return r.first == r.second;
+   }
+
+   locked_decompress_stream create_locked_decompress_stream() {
+      return locked_decompress_stream{ std::unique_lock<std::mutex>( _mx ) };
+   }
+
+   /// @return the decompressed entry size
+   uint64_t get_unpacked_entry(uint32_t block_num, locked_decompress_stream& result) {
+
+      // result has mx locked
+
+      auto opt_decompressed_size = catalog.ro_stream_for_block(block_num, result);
+      if (opt_decompressed_size)
+         return *opt_decompressed_size;
+
+      if (block_num < _begin_block || block_num >= _end_block)
+         return 0;
+
+      state_history_log_header header;
+      log.seek(get_pos(block_num));
+      read_header(header);
+
+      return detail::read_unpacked_entry(*this, log, header.payload_size, result);
+   }
+
+   template <typename F>
+   void pack_and_write_entry(state_history_log_header header, const chain::block_id_type& prev_id, F&& pack_to) {
+      std::lock_guard g(_mx);
+      write_entry(header, prev_id, [&, pack_to = std::forward<F>(pack_to)](auto& stream) {
+         size_t payload_pos = stream.tellp();
+
+         // In order to conserve memory usage for reading the chain state later, we need to
+         // encode the uncompressed data size to the disk so that the reader can send the
+         // decompressed data size before decompressing data. Here we use the number
+         // 1 indicates the format contains a 64 bits unsigned integer for decompressed data
+         // size and then the actually compressed data. The compressed data size can be
+         // computed from the payload size in the header minus sizeof(uint32_t) + sizeof(uint64_t).
+
+         uint32_t s = 1;
+         stream.write((char*)&s, sizeof(s));
+         uint64_t uncompressioned_size = 0;
+         stream.skip(sizeof(uncompressioned_size));
+
+         namespace bio = boost::iostreams;
+
+         detail::counter cnt;
+         {
+            bio::filtering_ostreambuf buf;
+            buf.push(boost::ref(cnt));
+            buf.push(bio::zlib_compressor());
+            buf.push(bio::file_descriptor_sink(stream.fileno(), bio::never_close_handle));
+            pack_to(buf);
+         }
+
+         // calculate the payload size and rewind back to header to write the payload size
+         stream.seek_end(0);
+         size_t   end_payload_pos = stream.tellp();
+         uint64_t payload_size    = end_payload_pos - payload_pos;
+         stream.seek(payload_pos - sizeof(uint64_t));
+         stream.write((char*)&payload_size, sizeof(payload_size));
+
+         // write the uncompressed data size
+         stream.skip(sizeof(s));
+         uncompressioned_size = cnt.characters();
+         stream.write((char*)&uncompressioned_size, sizeof(uncompressioned_size));
+
+         // make sure we reset the file position to end_payload_pos to preserve API behavior
+         stream.seek(end_payload_pos);
+      });
+   }
+
+   std::optional<chain::block_id_type> get_block_id(uint32_t block_num) {
+      std::lock_guard g(_mx);
+      auto result = catalog.id_for_block(block_num);
+      if (!result) {
+         if (block_num >= _begin_block && block_num < _end_block) {
+            state_history_log_header header;
+            get_entry(block_num, header);
+            return header.block_id;
+         }
+         return {};
+      }
+      return result;
+   }
+
+#ifdef BOOST_TEST_MODULE
+   fc::cfile& get_log_file() { return log;}
+#endif
+
+ private:
 
    void read_header(state_history_log_header& header, bool assert_version = true) {
       char bytes[state_history_log_header_serial_size];
@@ -419,7 +529,7 @@ class state_history_log {
 
       if (header.payload_size != 0)
          EOS_ASSERT(log.tellp() == pos + state_history_log_header_serial_size + header.payload_size, chain::plugin_exception,
-                  "wrote payload with incorrect size to ${name}.log", ("name", name));
+                    "wrote payload with incorrect size to ${name}.log", ("name", name));
       fc::raw::pack(log, pos);
 
       fc::raw::pack(index, pos);
@@ -442,85 +552,6 @@ class state_history_log {
       }
    }
 
-   /// @return the decompressed entry size
-   uint64_t get_unpacked_entry(uint32_t block_num, std::variant<std::vector<char>,locked_decompress_stream>& result) {
-      auto opt_decompressed_size = catalog.ro_stream_for_block(block_num, rewrite_mx, result);
-      if (opt_decompressed_size)
-         return *opt_decompressed_size;
-
-      if (block_num < _begin_block || block_num >= _end_block)
-         return 0;
-
-      state_history_log_header header;
-      log.seek(get_pos(block_num));
-      read_header(header);
-
-      return read_unpacked_entry(*this, rewrite_mx, log, header.payload_size, result);
-   }
-
-   template <typename F>
-   void pack_and_write_entry(state_history_log_header header, const chain::block_id_type& prev_id, F&& pack_to) {
-      write_entry(header, prev_id, [&, pack_to = std::forward<F>(pack_to)](auto& stream) {
-         size_t payload_pos = stream.tellp();
-
-         // In order to conserve memory usage for reading the chain state later, we need to
-         // encode the uncompressed data size to the disk so that the reader can send the
-         // decompressed data size before decompressing data. Here we use the number
-         // 1 indicates the format contains a 64 bits unsigned integer for decompressed data
-         // size and then the actually compressed data. The compressed data size can be
-         // computed from the payload size in the header minus sizeof(uint32_t) + sizeof(uint64_t).
-
-         uint32_t s = 1;
-         stream.write((char*)&s, sizeof(s));
-         uint64_t uncompressioned_size = 0;
-         stream.skip(sizeof(uncompressioned_size));
-
-         namespace bio = boost::iostreams;
-
-         counter cnt;
-         {
-            bio::filtering_ostreambuf buf;
-            buf.push(boost::ref(cnt));
-            buf.push(bio::zlib_compressor());
-            buf.push(bio::file_descriptor_sink(stream.fileno(), bio::never_close_handle));
-            pack_to(buf);
-         }
-
-         // calculate the payload size and rewind back to header to write the payload size
-         stream.seek_end(0);
-         size_t   end_payload_pos = stream.tellp();
-         uint64_t payload_size    = end_payload_pos - payload_pos;
-         stream.seek(payload_pos - sizeof(uint64_t));
-         stream.write((char*)&payload_size, sizeof(payload_size));
-
-         // write the uncompressed data size
-         stream.skip(sizeof(s));
-         uncompressioned_size = cnt.characters();
-         stream.write((char*)&uncompressioned_size, sizeof(uncompressioned_size));
-
-         // make sure we reset the file position to end_payload_pos to preserve API behavior
-         stream.seek(end_payload_pos);
-      });
-   }
-
-   std::optional<chain::block_id_type> get_block_id(uint32_t block_num) {
-      auto result = catalog.id_for_block(block_num);
-      if (!result) {
-         if (block_num >= _begin_block && block_num < _end_block) {
-            state_history_log_header header;
-            get_entry(block_num, header);
-            return header.block_id;
-         }
-         return {};
-      }
-      return result;
-   }
-
-#ifdef BOOST_TEST_MODULE
-   fc::cfile& get_log_file() { return log;}
-#endif
-
- private:
    // returns cfile positioned at payload
    fc::cfile& get_entry(uint32_t block_num, state_history_log_header& header) {
       EOS_ASSERT(block_num >= _begin_block && block_num < _end_block, chain::plugin_exception,
@@ -567,7 +598,7 @@ class state_history_log {
          return;
 
       {
-         std::unique_lock<std::mutex> lock(rewrite_mx);
+         std::unique_lock<std::mutex> lock(_mx);
          const uint32_t prune_to_num = _end_block - prune_config->prune_blocks;
          uint64_t prune_to_pos = get_pos(prune_to_num);
 
@@ -722,7 +753,7 @@ class state_history_log {
    void truncate(uint32_t block_num) {
       log.close();
       index.close();
-      std::unique_lock lock(rewrite_mx);
+      std::unique_lock lock(_mx);
 
       auto first_block_num     = catalog.empty() ? _begin_block : catalog.first_block_num();
       auto new_begin_block_num = catalog.truncate(block_num, log.get_file_path());
