@@ -50,7 +50,7 @@ BOOST_AUTO_TEST_CASE( subjective_bill_test ) {
       BOOST_CHECK_EQUAL( 9, sub_bill.get_subjective_bill(b, now) );
 
       // expires transactions but leaves them in the decay at full value
-      sub_bill.remove_expired( log, now + fc::microseconds(1), now, fc::time_point::maximum() );
+      sub_bill.remove_expired( log, now + fc::microseconds(1), now, [](){ return false; } );
 
       BOOST_CHECK_EQUAL( 13+11, sub_bill.get_subjective_bill(a, now) );
       BOOST_CHECK_EQUAL( 9, sub_bill.get_subjective_bill(b, now) );
@@ -138,7 +138,7 @@ BOOST_AUTO_TEST_CASE( subjective_bill_test ) {
       BOOST_CHECK_EQUAL( 1024 + 1024, sub_bill.get_subjective_bill(a, now) );
       BOOST_CHECK_EQUAL( 1024, sub_bill.get_subjective_bill(b, now) );
 
-      sub_bill.remove_expired( log, now, now, fc::time_point::maximum() );
+      sub_bill.remove_expired( log, now, now, [](){ return false; } );
       BOOST_CHECK_EQUAL( 1024 + 1024, sub_bill.get_subjective_bill(a, now) );
       BOOST_CHECK_EQUAL( 1024, sub_bill.get_subjective_bill(b, now) );
 
@@ -148,7 +148,7 @@ BOOST_AUTO_TEST_CASE( subjective_bill_test ) {
       BOOST_CHECK_EQUAL( 1024, sub_bill.get_subjective_bill(a, endtime) );
       BOOST_CHECK_EQUAL( 0, sub_bill.get_subjective_bill(b, endtime) );
 
-      sub_bill.remove_expired( log, now + fc::microseconds(1), now, fc::time_point::maximum() );
+      sub_bill.remove_expired( log, now + fc::microseconds(1), now, [](){ return false; } );
       BOOST_CHECK_EQUAL( 1024 + 1024, sub_bill.get_subjective_bill(a, now) );
       BOOST_CHECK_EQUAL( 1024, sub_bill.get_subjective_bill(b, now) );
 
