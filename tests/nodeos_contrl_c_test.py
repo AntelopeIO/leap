@@ -98,13 +98,12 @@ try:
     testSuccessful=False
 
     Print("Configure and launch txn generators")
-    nonProducerP2pPort = cluster.getNodeP2pPort(nonProdNode.nodeId)
-    targetTpsPerGenerator = 500
+    targetTpsPerGenerator = 100
     testTrxGenDurationSec=60
     trxGeneratorCnt=1
-    nonProdNode.launchTrxGenerators(tpsPerGenerator=targetTpsPerGenerator, numGenerators=trxGeneratorCnt, durationSec=testTrxGenDurationSec,
-                                    contractOwnerAcctName=cluster.eosioAccount.name, acctNamesList=[accounts[0].name,accounts[1].name],
-                                    acctPrivKeysList=[account1PrivKey,account2PrivKey], p2pListenPort=nonProducerP2pPort, waitToComplete=False)
+    cluster.launchTrxGenerators(contractOwnerAcctName=cluster.eosioAccount.name, acctNamesList=[accounts[0].name,accounts[1].name],
+                                acctPrivKeysList=[account1PrivKey,account2PrivKey], nodeId=nonProdNode.nodeId, tpsPerGenerator=targetTpsPerGenerator,
+                                numGenerators=trxGeneratorCnt, durationSec=testTrxGenDurationSec, waitToComplete=False)
 
     Print("Give txn generator time to spin up and begin producing trxs")
     time.sleep(10)
@@ -117,8 +116,6 @@ try:
         errorExit("Failed to kill the seed node")
 
 finally:
-    if trxGenLauncher is not None:
-        trxGenLauncher.killAll()
     TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, killEosInstances=True, killWallet=True, keepLogs=True, cleanRun=True, dumpErrorDetails=True)
 
 errorCode = 0 if testSuccessful else 1
