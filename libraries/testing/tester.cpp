@@ -322,7 +322,7 @@ namespace eosio { namespace testing {
       auto bsf = control->create_block_state_future(b->calculate_id(), b);
       unapplied_transactions.add_aborted( control->abort_block() );
       controller::block_report br;
-      control->push_block( br, bsf, [this]( const branch_type& forked_branch ) {
+      control->push_block( br, bsf.get(), [this]( const branch_type& forked_branch ) {
          unapplied_transactions.add_forked( forked_branch );
       }, [this]( const transaction_id_type& id ) {
          return unapplied_transactions.get_trx( id );
@@ -1052,7 +1052,7 @@ namespace eosio { namespace testing {
                auto bsf = b.control->create_block_state_future( block->calculate_id(), block );
                b.control->abort_block();
                controller::block_report br;
-               b.control->push_block(br, bsf, forked_branch_callback{}, trx_meta_cache_lookup{}); //, eosio::chain::validation_steps::created_block);
+               b.control->push_block(br, bsf.get(), forked_branch_callback{}, trx_meta_cache_lookup{}); //, eosio::chain::validation_steps::created_block);
             }
          }
       };
