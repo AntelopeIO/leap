@@ -2056,43 +2056,64 @@ struct controller_impl {
       }
    } FC_CAPTURE_AND_RETHROW() } /// apply_block
 
+
+   // thread safe, expected to be called from thread other than the main thread
+   block_state_ptr create_block_state_i( const block_id_type& id, const signed_block_ptr& b, const block_header_state& prev ) {
+      auto trx_mroot = calculate_trx_merkle( b->transactions );
+      EOS_ASSERT( b->transaction_mroot == trx_mroot, block_validate_exception,
+                  "invalid block transaction merkle root ${b} != ${c}", ("b", b->transaction_mroot)("c", trx_mroot) );
+
+      const bool skip_validate_signee = false;
+      auto bsp = std::make_shared<block_state>(
+            prev,
+            b,
+            protocol_features.get_protocol_feature_set(),
+            [this]( block_timestamp_type timestamp,
+                    const flat_set<digest_type>& cur_features,
+                    const vector<digest_type>& new_features )
+            { check_protocol_features( timestamp, cur_features, new_features ); },
+            skip_validate_signee
+      );
+
+      EOS_ASSERT( id == bsp->id, block_validate_exception,
+                  "provided id ${id} does not match block id ${bid}", ("id", id)("bid", bsp->id) );
+      return bsp;
+   }
+
    std::future<block_state_ptr> create_block_state_future( const block_id_type& id, const signed_block_ptr& b ) {
+      EOS_ASSERT( b, block_validate_exception, "null block" );
+
+      return async_thread_pool( thread_pool.get_executor(), [b, id, control=this]() {
+         // no reason for a block_state if fork_db already knows about block
+         auto existing = control->fork_db.get_block( id );
+         EOS_ASSERT( !existing, fork_database_exception, "we already know about this block: ${id}", ("id", id) );
+
+         auto prev = control->fork_db.get_block_header( b->previous );
+         EOS_ASSERT( prev, unlinkable_block_exception,
+                     "unlinkable block ${id}", ("id", id)("previous", b->previous) );
+
+         return control->create_block_state_i( id, b, *prev );
+      } );
+   }
+
+   // thread safe, expected to be called from thread other than the main thread
+   block_state_ptr create_block_state( const block_id_type& id, const signed_block_ptr& b ) {
       EOS_ASSERT( b, block_validate_exception, "null block" );
 
       // no reason for a block_state if fork_db already knows about block
       auto existing = fork_db.get_block( id );
       EOS_ASSERT( !existing, fork_database_exception, "we already know about this block: ${id}", ("id", id) );
 
+      // previous not found could mean that previous block not applied yet
       auto prev = fork_db.get_block_header( b->previous );
-      EOS_ASSERT( prev, unlinkable_block_exception,
-                  "unlinkable block ${id}", ("id", id)("previous", b->previous) );
+      if( !prev ) return {};
 
-      return async_thread_pool( thread_pool.get_executor(), [b, prev, id, control=this]() {
-         const bool skip_validate_signee = false;
-
-         auto trx_mroot = calculate_trx_merkle( b->transactions );
-         EOS_ASSERT( b->transaction_mroot == trx_mroot, block_validate_exception,
-                     "invalid block transaction merkle root ${b} != ${c}", ("b", b->transaction_mroot)("c", trx_mroot) );
-
-         auto bsp = std::make_shared<block_state>(
-                        *prev,
-                        move( b ),
-                        control->protocol_features.get_protocol_feature_set(),
-                        [control]( block_timestamp_type timestamp,
-                                   const flat_set<digest_type>& cur_features,
-                                   const vector<digest_type>& new_features )
-                        { control->check_protocol_features( timestamp, cur_features, new_features ); },
-                        skip_validate_signee
-         );
-
-         EOS_ASSERT( id == bsp->id, block_validate_exception,
-                     "provided id ${id} does not match block id ${bid}", ("id", id)("bid", bsp->id) );
-         return bsp;
-      } );
+      return create_block_state_i( id, b, *prev );
    }
 
-   void push_block( std::future<block_state_ptr>& block_state_future,
-                    const forked_branch_callback& forked_branch_cb, const trx_meta_cache_lookup& trx_lookup )
+   void push_block( const block_state_ptr& bsp,
+                    const forked_branch_callback& forked_branch_cb,
+                    const trx_meta_cache_lookup& trx_lookup )
    {
       controller::block_status s = controller::block_status::complete;
       EOS_ASSERT(!pending, block_validate_exception, "it is not valid to push a block when there is a pending block");
@@ -2101,7 +2122,7 @@ struct controller_impl {
          trusted_producer_light_validation = old_value;
       });
       try {
-         block_state_ptr bsp = block_state_future.get();
+         EOS_ASSERT( bsp, block_validate_exception, "null block" );
          const auto& b = bsp->block;
 
          if( conf.terminate_at_block > 0 && conf.terminate_at_block < self.head_block_num()) {
@@ -2816,11 +2837,16 @@ std::future<block_state_ptr> controller::create_block_state_future( const block_
    return my->create_block_state_future( id, b );
 }
 
-void controller::push_block( std::future<block_state_ptr>& block_state_future,
-                             const forked_branch_callback& forked_branch_cb, const trx_meta_cache_lookup& trx_lookup )
+block_state_ptr controller::create_block_state( const block_id_type& id, const signed_block_ptr& b ) const {
+   return my->create_block_state( id, b );
+}
+
+void controller::push_block( const block_state_ptr& bsp,
+                             const forked_branch_callback& forked_branch_cb,
+                             const trx_meta_cache_lookup& trx_lookup )
 {
    validate_db_available_size();
-   my->push_block( block_state_future, forked_branch_cb, trx_lookup );
+   my->push_block( bsp, forked_branch_cb, trx_lookup );
 }
 
 transaction_trace_ptr controller::push_transaction( const transaction_metadata_ptr& trx,
