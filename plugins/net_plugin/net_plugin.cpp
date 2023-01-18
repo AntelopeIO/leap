@@ -2337,14 +2337,6 @@ namespace eosio {
 
    // called from connection strand
    void connection::connect( const std::shared_ptr<tcp::resolver>& resolver, tcp::resolver::results_type endpoints ) {
-      switch ( no_retry ) {
-         case no_reason:
-         case wrong_version:
-         case benign_other:
-            break;
-         default:
-            return;
-      }
       connecting = true;
       pending_message_buffer.reset();
       buffer_queue.clear_out_queue();

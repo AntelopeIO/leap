@@ -94,6 +94,11 @@ namespace eosio { namespace chain {
                });
       }
 
+      bool is_code_cached(const digest_type& code_hash, const uint8_t& vm_type, const uint8_t& vm_version) const {
+         wasm_cache_index::iterator it = wasm_instantiation_cache.find( boost::make_tuple(code_hash, vm_type, vm_version) );
+         return it != wasm_instantiation_cache.end();
+      }
+
       std::vector<uint8_t> parse_initial_memory(const Module& module) {
          std::vector<uint8_t> mem_image;
 

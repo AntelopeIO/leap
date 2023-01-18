@@ -2144,7 +2144,8 @@ struct controller_impl {
    } FC_CAPTURE_AND_RETHROW() } /// apply_block
 
 
-   block_state_ptr create_block_state( const block_id_type& id, const signed_block_ptr& b, const block_header_state& prev ) {
+   // thread safe, expected to be called from thread other than the main thread
+   block_state_ptr create_block_state_i( const block_id_type& id, const signed_block_ptr& b, const block_header_state& prev ) {
       auto trx_mroot = calculate_trx_merkle( b->transactions );
       EOS_ASSERT( b->transaction_mroot == trx_mroot, block_validate_exception,
                   "invalid block transaction merkle root ${b} != ${c}", ("b", b->transaction_mroot)("c", trx_mroot) );
@@ -2178,18 +2179,23 @@ struct controller_impl {
          EOS_ASSERT( prev, unlinkable_block_exception,
                      "unlinkable block ${id}", ("id", id)("previous", b->previous) );
 
-         return control->create_block_state( id, b, *prev );
+         return control->create_block_state_i( id, b, *prev );
       } );
    }
 
+   // thread safe, expected to be called from thread other than the main thread
    block_state_ptr create_block_state( const block_id_type& id, const signed_block_ptr& b ) {
       EOS_ASSERT( b, block_validate_exception, "null block" );
+
+      // no reason for a block_state if fork_db already knows about block
+      auto existing = fork_db.get_block( id );
+      EOS_ASSERT( !existing, fork_database_exception, "we already know about this block: ${id}", ("id", id) );
 
       // previous not found could mean that previous block not applied yet
       auto prev = fork_db.get_block_header( b->previous );
       if( !prev ) return {};
 
-      return create_block_state( id, b, *prev );
+      return create_block_state_i( id, b, *prev );
    }
 
    void push_block( controller::block_report& br,
