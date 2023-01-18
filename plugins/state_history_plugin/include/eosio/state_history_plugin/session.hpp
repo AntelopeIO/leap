@@ -113,9 +113,9 @@ class blocks_result_send_queue_entry : public send_queue_entry_base<Session> {
 
    void send_deltas() {
       stream.reset();
-      send_log(session->get_delta_log_entry(r, stream), true, [this]() {
-         session->sending_block_session.reset();
-         session->pop_entry();
+      send_log(session->get_delta_log_entry(r, stream), true, [s=session]() {
+         s->sending_block_session.reset();
+         s->pop_entry();
       });
    }
 
@@ -128,10 +128,6 @@ public:
 
    explicit blocks_result_send_queue_entry(get_blocks_result_v0&& r)
        : r(std::move(r)) {}
-
-   ~blocks_result_send_queue_entry() override {
-      session->sending_block_session.reset();
-   }
 
    void send(std::shared_ptr<Session> s) override {
       s->sending_block_session = s;
@@ -492,8 +488,6 @@ struct session : session_base, std::enable_shared_from_this<session<Plugin, Sock
       if (ec) {
          fc_elog(plugin->logger(), "close: ${m}", ("m", ec.message()));
       }
-      socket_stream.reset();
-      send_queue.clear();
       send_others_waiting();
       plugin->post_task_main_thread_high([self = this->shared_from_this(), plugin=plugin]() {
          plugin->session_set.erase(self);
