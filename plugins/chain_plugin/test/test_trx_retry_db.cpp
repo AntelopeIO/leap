@@ -1,3 +1,4 @@
+#include "eosio/chain_plugin/chain_plugin.hpp"
 #define BOOST_TEST_MODULE transaction_retry
 #include <boost/test/included/unit_test.hpp>
 
@@ -221,10 +222,17 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       fc::mock_time_traits::set_now(pnow);
 
       // run app() so that channels::transaction_ack work
+      std::promise<chain_plugin*> plugin_promise;
+      std::future<chain_plugin*> plugin_fut = plugin_promise.get_future();
       std::thread app_thread( [&]() {
+         std::vector<const char*> argv = {"test"};
+         appbase::app().initialize( argv.size(), (char**) &argv[0] );
+         appbase::app().startup();
+         plugin_promise.set_value(appbase::app().find_plugin<chain_plugin>());
          appbase::app().exec();
       } );
-
+      (void)plugin_fut.get(); // wait for app to be started
+      
       size_t max_mem_usage_size = 5ul*1024*1024*1024;
       fc::microseconds retry_interval = fc::seconds(10);
       boost::posix_time::seconds pretry_interval = boost::posix_time::seconds(10);

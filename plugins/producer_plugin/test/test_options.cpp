@@ -1,4 +1,4 @@
-#define BOOST_TEST_MODULE full_producer_trxs
+#define BOOST_TEST_MODULE test --state-dir option
 #include <boost/test/included/unit_test.hpp>
 
 #include <eosio/producer_plugin/producer_plugin.hpp>
