@@ -1,29 +1,28 @@
 #pragma once
-#include <boost/filesystem.hpp>
-#include <fstream>
-#include <cstdint>
 
-#include <boost/asio.hpp>
-
+#include <eosio/state_history/compression.hpp>
 #include <eosio/chain/block_header.hpp>
 #include <eosio/chain/exceptions.hpp>
 #include <eosio/chain/types.hpp>
-#include <eosio/state_history/compression.hpp>
+#include <eosio/chain/log_catalog.hpp>
+#include <eosio/chain/log_data_base.hpp>
+#include <eosio/chain/log_index.hpp>
+
 #include <fc/io/cfile.hpp>
 #include <fc/log/logger.hpp>
 #include <fc/log/logger_config.hpp> //set_thread_name
 #include <fc/bitutil.hpp>
 
+#include <boost/asio.hpp>
+#include <boost/filesystem.hpp>
 #include <boost/iostreams/device/file.hpp>
 #include <boost/iostreams/device/file_descriptor.hpp>
 #include <boost/iostreams/filter/zlib.hpp>
 #include <boost/iostreams/filtering_streambuf.hpp>
 #include <boost/iostreams/restrict.hpp>
 
-
-#include <eosio/chain/log_catalog.hpp>
-#include <eosio/chain/log_data_base.hpp>
-#include <eosio/chain/log_index.hpp>
+#include <fstream>
+#include <cstdint>
 
 
 struct state_history_test_fixture;
@@ -597,16 +596,13 @@ class state_history_log {
       if(_end_block - _begin_block <= prune_config->prune_blocks)
          return;
 
-      {
-         std::unique_lock<std::mutex> lock(_mx);
-         const uint32_t prune_to_num = _end_block - prune_config->prune_blocks;
-         uint64_t prune_to_pos = get_pos(prune_to_num);
+      const uint32_t prune_to_num = _end_block - prune_config->prune_blocks;
+      uint64_t prune_to_pos = get_pos(prune_to_num);
 
-         log.punch_hole(state_history_log_header_serial_size, prune_to_pos);
+      log.punch_hole(state_history_log_header_serial_size, prune_to_pos);
 
-         _begin_block = prune_to_num;
-         log.flush();
-      }
+      _begin_block = prune_to_num;
+      log.flush();
 
       if(auto l = fc::logger::get(); l.is_enabled(loglevel))
          l.log(fc::log_message(fc::log_context(loglevel, __FILE__, __LINE__, __func__),
@@ -753,7 +749,6 @@ class state_history_log {
    void truncate(uint32_t block_num) {
       log.close();
       index.close();
-      std::unique_lock lock(_mx);
 
       auto first_block_num     = catalog.empty() ? _begin_block : catalog.first_block_num();
       auto new_begin_block_num = catalog.truncate(block_num, log.get_file_path());
