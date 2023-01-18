@@ -105,7 +105,7 @@ class PerformanceTestBasic:
                 self.specificExtraNodeosArgs.update({f"{node}" : '--plugin eosio::history_api_plugin --filter-on "*"' for node in range(self.pnodes, self._totalNodes)})
             else:
                 self.fetchBlock = lambda node, blockNum: node.processUrllibRequest("trace_api", "get_block", {"block_num":blockNum}, silentErrors=False, exitOnError=True)
-                self.writeTrx = lambda trxDataFile, block, blockNum: [trxDataFile.write(f"{trx['id']},{trx['block_num']},{trx['cpu_usage_us']},{trx['net_usage_words']}\n") for trx in block['payload']['transactions'] if block['payload']['transactions']]
+                self.writeTrx = lambda trxDataFile, block, blockNum: [trxDataFile.write(f"{trx['id']},{trx['block_num']},{trx['block_time']},{trx['cpu_usage_us']},{trx['net_usage_words']}\n") for trx in block['payload']['transactions'] if block['payload']['transactions']]
                 self.writeBlock = lambda blockDataFile, block: blockDataFile.write(f"{block['payload']['number']},{block['payload']['id']},{block['payload']['producer']},{block['payload']['status']},{block['payload']['timestamp']}\n")
                 self.fetchHeadBlock = lambda node, headBlock: node.processUrllibRequest("chain", "get_block_info", {"block_num":headBlock}, silentErrors=False, exitOnError=True)
 
@@ -159,6 +159,7 @@ class PerformanceTestBasic:
         self.etcEosioLogsDirPath = self.etcLogsDirPath/Path("eosio")
         self.blockDataLogDirPath = self.loggingConfig.logDirPath/Path("blockDataLogs")
         self.blockDataPath = self.blockDataLogDirPath/Path("blockData.txt")
+        self.csvDataPath = self.blockDataLogDirPath/Path("csv.txt")
         self.blockTrxDataPath = self.blockDataLogDirPath/Path("blockTrxData.txt")
         self.reportPath = self.loggingConfig.logDirPath/Path("data.json")
 
@@ -385,7 +386,7 @@ class PerformanceTestBasic:
     def analyzeResultsAndReport(self, testResult: PtbTpsTestResult):
         args = self.prepArgs()
         artifactsLocate = log_reader.ArtifactPaths(nodeosLogPath=self.nodeosLogPath, trxGenLogDirPath=self.trxGenLogDirPath, blockTrxDataPath=self.blockTrxDataPath,
-                                                   blockDataPath=self.blockDataPath)
+                                                   blockDataPath=self.blockDataPath, csvDataPath=self.csvDataPath)
         tpsTestConfig = log_reader.TpsTestConfig(targetTps=self.ptbConfig.targetTps, testDurationSec=self.ptbConfig.testTrxGenDurationSec, tpsLimitPerGenerator=self.ptbConfig.tpsLimitPerGenerator,
                                                  numBlocksToPrune=self.ptbConfig.numAddlBlocksToPrune, numTrxGensUsed=testResult.numGeneratorsUsed,
                                                  targetTpsPerGenList=testResult.targetTpsPerGenList, quiet=self.ptbConfig.quiet)
