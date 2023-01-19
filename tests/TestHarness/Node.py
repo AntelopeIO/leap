@@ -21,7 +21,6 @@ from .testUtils import EnumType
 from .testUtils import addEnum
 from .testUtils import unhandledEnumType
 from .testUtils import ReturnType
-from .launch_transaction_generators import TransactionGeneratorsLauncher, TpsTrxGensConfig
 
 class BlockType(EnumType):
     pass
@@ -1656,23 +1655,3 @@ class Node(object):
             blockAnalysis[specificBlockNum] = { "slot": None, "prod": None}
 
         return blockAnalysis
-
-    def launchTrxGenerators(self, tpsPerGenerator: int, numGenerators: int, durationSec: int, contractOwnerAcctName: str, acctNamesList: list,
-                            acctPrivKeysList: list, p2pListenPort: int, waitToComplete:bool=False, abiFile=None, actionName=None, actionData=None):
-        Utils.Print("Configure txn generators")
-        info = self.getInfo()
-        chainId = info['chain_id']
-        lib_id = info['last_irreversible_block_id']
-
-        targetTps = tpsPerGenerator*numGenerators
-        tpsLimitPerGenerator=tpsPerGenerator
-
-        tpsTrxGensConfig = TpsTrxGensConfig(targetTps=targetTps, tpsLimitPerGenerator=tpsLimitPerGenerator)
-        trxGenLauncher = TransactionGeneratorsLauncher(chainId=chainId, lastIrreversibleBlockId=lib_id,
-                                                    contractOwnerAccount=contractOwnerAcctName, accts=','.join(map(str, acctNamesList)),
-                                                    privateKeys=','.join(map(str, acctPrivKeysList)), trxGenDurationSec=durationSec,
-                                                    logDir=Utils.DataDir, abiFile=abiFile, actionName=actionName, actionData=actionData, peerEndpoint=self.host,
-                                                    port=p2pListenPort, tpsTrxGensConfig=tpsTrxGensConfig)
-
-        Utils.Print("Launch txn generators and start generating/sending transactions")
-        trxGenLauncher.launch(waitToComplete=waitToComplete)
