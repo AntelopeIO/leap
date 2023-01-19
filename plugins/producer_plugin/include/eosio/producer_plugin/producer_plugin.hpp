@@ -144,6 +144,9 @@ public:
 
    void log_failed_transaction(const transaction_id_type& trx_id, const chain::packed_transaction_ptr& packed_trx_ptr, const char* reason) const;
 
+   // thread-safe, called when a new block is received
+   void received_block();
+
  private:
    std::shared_ptr<class producer_plugin_impl> my;
 };
