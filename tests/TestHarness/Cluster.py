@@ -276,7 +276,10 @@ class Cluster(object):
                 cmdArr.append("--specific-nodeos")
                 if arg.find("--http-max-response-time-ms") != -1:
                     httpMaxResponseTimeSet = True
-                cmdArr.append(arg)
+                if arg[0] != "'" and arg[-1] != "'":
+                    cmdArr.append("'" + arg + "'")
+                else:
+                    cmdArr.append(arg)
         if specificNodeosInstances is not None:
             assert(isinstance(specificNodeosInstances, dict))
             for nodeNum,arg in specificNodeosInstances.items():
@@ -337,9 +340,10 @@ class Cluster(object):
             f.close()
             shapeFileObject = json.loads(shapeFileJsonStr)
             Utils.Print("shapeFileObject=%s" % (shapeFileObject))
-            # retrieve the nodes, which as a map of node name to node definition, which the fc library prints out as
+            # retrieve the nodes, which is a map of node name to node definition, which the fc library prints out as
             # an array of array, the first level of arrays is the pair entries of the map, the second is an array
             # of two entries - [ <first>, <second> ] with first being the name and second being the node definition
+            # also support Python launcher format, which is nested objects
             shapeFileNodes = shapeFileObject["nodes"]
 
             numProducers=totalProducers if totalProducers is not None else (totalNodes - unstartedNodes)
@@ -370,11 +374,14 @@ class Cluster(object):
                 return int(m.group(1))
 
             for shapeFileNodePair in shapeFileNodes:
-                assert(len(shapeFileNodePair)==2)
-                nodeName=shapeFileNodePair[0]
-                shapeFileNode=shapeFileNodePair[1]
+                if len(shapeFileNodePair) == 2:
+                    nodeName=shapeFileNodePair[0]
+                    shapeFileNode=shapeFileNodePair[1]
+                elif type(shapeFileNodePair) == str:
+                    nodeName=shapeFileNodePair
+                    shapeFileNode=shapeFileNodes[shapeFileNodePair]
                 shapeFileNodeMap[nodeName]=shapeFileNode
-                Utils.Print("name=%s, shapeFileNode=%s" % (nodeName, shapeFileNodeMap[shapeFileNodePair[0]]))
+                Utils.Print("name=%s, shapeFileNode=%s" % (nodeName, shapeFileNodeMap[nodeName]))
                 if nodeName=="bios":
                     biosNodeObject=shapeFileNode
                     continue
@@ -448,7 +455,6 @@ class Cluster(object):
             return False
 
         startedNodes=totalNodes-unstartedNodes
-        self.nodes=list(range(startedNodes)) # placeholder for cleanup purposes only
 
         nodes=self.discoverLocalNodes(startedNodes, timeout=Utils.systemWaitTimeout)
         if nodes is None or startedNodes != len(nodes):

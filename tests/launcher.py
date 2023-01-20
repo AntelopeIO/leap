@@ -2,7 +2,7 @@
 
 import argparse
 import datetime
-from dataclasses import InitVar, dataclass, field
+from dataclasses import InitVar, dataclass, field, is_dataclass, asdict
 import json
 from pathlib import Path
 import os
@@ -18,6 +18,14 @@ from TestHarness import Cluster
 from TestHarness import Utils
 
 block_dir = 'blocks'
+
+class EnhancedEncoder(json.JSONEncoder):
+    def default(self, o):
+        if is_dataclass(o):
+            return asdict(o)
+        elif isinstance(o, Path):
+            return str(o)
+        return super().default(o)
 
 @dataclass
 class KeyStrings(object):
@@ -44,7 +52,7 @@ class nodeDefinition:
     base_p2p_port: ClassVar[int] = 9876
     base_http_port: ClassVar[int] = 8888
     #file_size: int
-    instance_name: str = field(init=False, repr=False)
+    #instance_name: str = field(init=False, repr=False)
     #host: str
     host_name: str = 'localhost'
     public_name: str = 'localhost'
@@ -306,6 +314,10 @@ class launcher(object):
         
         self.write_dot_file()
 
+        if self.args.topology_filename:
+            with open(self.args.topology_filename, 'w') as topo:
+                json.dump(self.network, topo, cls=EnhancedEncoder, indent=2, separators=[', ', ': '])
+
     def write_config_file(self, node):
         with open(node.config_dir_name / 'config.ini', 'w') as cfg:
             is_bios = node.name == 'bios'
@@ -486,7 +498,19 @@ plugin = eosio::chain_api_plugin
             i, loop = self.next_ndx(i)
 
     def make_custom(self):
-        if Utils.Debug: Utils.Print('making custom not supported')
+        if Utils.Debug: Utils.Print('making custom')
+        with open(self.args.shape, 'r') as source:
+            topo = json.load(source)
+            self.network.name = topo['name']
+            for nodeName in topo['nodes']:
+                node = topo['nodes'][nodeName]
+                self.network.nodes[nodeName].dont_start = node['dont_start']
+                for keyObj in node['keys']:
+                    self.network.nodes[nodeName].keys.append(KeyStrings(keyObj['pubkey'], keyObj['privkey']))
+                for peer in node['peers']:
+                    self.network.nodes[nodeName].peers.append(peer)
+                for producer in node['producers']:
+                    self.network.nodes[nodeName].producers.append(producer)
 
     def launch(self, instance: nodeDefinition):
         dd = Path(instance.data_dir_name)
@@ -505,7 +529,11 @@ plugin = eosio::chain_api_plugin
             eosdcmd.extend(shlex.split(getattr(self.args, Utils.EosServerName)))
         if instance.index in self.args.specific_nums:
             i = self.args.specific_nums.index(instance.index)
-            eosdcmd.extend(shlex.split(getattr(self.args, f'specific_{Utils.EosServerName}es')[i]))
+            specifics = getattr(self.args, f'specific_{Utils.EosServerName}es')[i]
+            if specifics[0] == "'" and specifics[-1] == "'":
+                eosdcmd.extend(shlex.split(specifics[1:-1]))
+            else:
+                eosdcmd.extend(shlex.split(specifics))
         eosdcmd.append('--config-dir')
         eosdcmd.append(str(instance.config_dir_name))
         eosdcmd.append('--data-dir')
