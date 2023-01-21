@@ -34,6 +34,7 @@ void named_thread_pool::start() {
                on_except( e );
             } else {
                elog( "Exiting thread ${t} on exception: ${e}", ("t", tn)("e", e.to_detail_string()) );
+               throw;
             }
          } catch( const std::exception& e ) {
             fc::std_exception_wrapper se( FC_LOG_MESSAGE( warn, "${what}: ", ("what", e.what()) ),
@@ -42,6 +43,7 @@ void named_thread_pool::start() {
                on_except( se );
             } else {
                elog( "Exiting thread ${t} on exception: ${e}", ("t", tn)("e", se.to_detail_string()) );
+               throw;
             }
          } catch( ... ) {
             if( on_except ) {
@@ -49,6 +51,7 @@ void named_thread_pool::start() {
                on_except( ue );
             } else {
                elog( "Exiting thread ${t} on unknown exception", ("t", tn) );
+               throw;
             }
          }
       } );

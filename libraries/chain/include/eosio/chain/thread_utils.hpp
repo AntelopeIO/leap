@@ -22,7 +22,8 @@ namespace eosio { namespace chain {
       ///                    A short name_prefix (6 chars or under) is recommended as console_appender uses 9 chars
       ///                    for the thread name.
       /// @param num_threads is number of threads spawned in the constructor
-      /// @param on_except is the function to call if io_context throws an exception, is called from thread pool thread
+      /// @param on_except is the function to call if io_context throws an exception, is called from thread pool thread.
+      ///                  if an empty function then logs and rethrows exception on thread which will terminate.
       /// @param delay_start do not spawn threads in constructor, wait for start() call
       named_thread_pool( std::string name_prefix, size_t num_threads, on_except_t on_except, bool delay_start = false );
 
