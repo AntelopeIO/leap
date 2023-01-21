@@ -12,11 +12,6 @@ namespace fc { namespace crypto { namespace blslib {
 
    using namespace bls;
 
-/*   namespace config {
-      constexpr const char* bls_private_key_base_prefix = "PVT";
-      constexpr const char* bls_private_key_prefix = "BLS";
-   };*/
-
    class bls_private_key
    {
       public:
