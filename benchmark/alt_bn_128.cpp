@@ -21,7 +21,7 @@ void add_benchmarking() {
 
 
    auto f = [&]() {
-      auto res = bn256::bn256_g1_add(point1, point2, ans);
+      auto res = bn256::g1_add(point1, point2, ans);
       if (res == -1) {
          std::cout << "alt_bn128_add failed" << std::endl;
       }

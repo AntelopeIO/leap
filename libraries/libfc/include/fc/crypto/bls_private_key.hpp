@@ -6,11 +6,11 @@
 #include <fc/reflect/reflect.hpp>
 #include <fc/reflect/variant.hpp>
 #include <fc/static_variant.hpp>
-#include <bls.hpp>
 
 namespace fc { namespace crypto { namespace blslib {
 
-   using namespace bls;
+
+   //using namespace bls;
 
    class bls_private_key
    {
@@ -21,12 +21,12 @@ namespace fc { namespace crypto { namespace blslib {
          bls_private_key( const bls_private_key& ) = default;
          bls_private_key& operator= (const bls_private_key& ) = default;
 
-         bls_private_key( vector<uint8_t> seed ){
+         bls_private_key( std::vector<uint8_t> seed ){
             _seed = seed;
          }
 
          bls_public_key     get_public_key() const;
-         bls_signature      sign( vector<uint8_t> message ) const;
+         bls_signature      sign( std::vector<uint8_t> message ) const;
          sha512         generate_shared_secret( const bls_public_key& pub ) const;
 
          std::string to_string(const fc::yield_function_t& yield = fc::yield_function_t()) const;
@@ -37,12 +37,12 @@ namespace fc { namespace crypto { namespace blslib {
 
             rand_bytes(r, 32);
 
-            vector<uint8_t> v(r, r+32);
+            std::vector<uint8_t> v(r, r+32);
 
             return bls_private_key(v);
          }
 
-         static bls_private_key regenerate( vector<uint8_t> seed ) {
+         static bls_private_key regenerate( std::vector<uint8_t> seed ) {
             return bls_private_key(seed);
          }
 
@@ -52,7 +52,7 @@ namespace fc { namespace crypto { namespace blslib {
          std::string serialize();
 
       private:
-         vector<uint8_t> _seed;
+         std::vector<uint8_t> _seed;
 
          friend bool operator == ( const bls_private_key& p1, const bls_private_key& p2);
          friend bool operator != ( const bls_private_key& p1, const bls_private_key& p2);

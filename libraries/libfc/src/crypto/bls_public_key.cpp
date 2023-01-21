@@ -1,10 +1,11 @@
 #include <fc/crypto/bls_public_key.hpp>
 #include <fc/crypto/common.hpp>
 #include <fc/exception/exception.hpp>
+#include <bls.hpp>
 
 namespace fc { namespace crypto { namespace blslib {
 
-   static vector<uint8_t> parse_base58(const std::string& base58str)
+   static std::vector<uint8_t> parse_base58(const std::string& base58str)
    {  
 
       std::vector<char> v1 = fc::from_base58(base58str);

@@ -1,14 +1,15 @@
 #include <fc/crypto/bls_private_key.hpp>
 #include <fc/utility.hpp>
 #include <fc/exception/exception.hpp>
+#include <bls.hpp>
 
 namespace fc { namespace crypto { namespace blslib {
 
-   using namespace std;
+   //using namespace std;
 
    bls_public_key bls_private_key::get_public_key() const
    {  
-      G1Element pk = AugSchemeMPL().KeyGen(_seed).GetG1Element();
+      bls::G1Element pk = bls::AugSchemeMPL().KeyGen(_seed).GetG1Element();
 
       return bls_public_key(pk.Serialize());
    }
@@ -16,9 +17,9 @@ namespace fc { namespace crypto { namespace blslib {
    bls_signature bls_private_key::sign( vector<uint8_t> message ) const
    {  
 
-   PrivateKey sk = AugSchemeMPL().KeyGen(_seed);
+   bls::PrivateKey sk = bls::AugSchemeMPL().KeyGen(_seed);
 
-      G2Element s = PopSchemeMPL().Sign(sk, message);
+      bls::G2Element s = bls::PopSchemeMPL().Sign(sk, message);
       return bls_signature(s.Serialize());
    }
 
@@ -27,9 +28,9 @@ namespace fc { namespace crypto { namespace blslib {
    std::string bls_private_key::to_string(const fc::yield_function_t& yield) const
    {
 
-      PrivateKey pk = AugSchemeMPL().KeyGen(_seed);
+      bls::PrivateKey pk = bls::AugSchemeMPL().KeyGen(_seed);
       vector<uint8_t> pkBytes = pk.Serialize();
-      auto data_str = Util::HexStr(pkBytes);
+      auto data_str = bls::Util::HexStr(pkBytes);
       return data_str;/**/
    }
 

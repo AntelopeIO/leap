@@ -10,15 +10,6 @@
 
 namespace fc { namespace crypto { namespace blslib {
 
-   using namespace std;
-/*
-   namespace config {
-      constexpr const char* bls_public_key_legacy_prefix = "EOS";
-      constexpr const char* bls_public_key_base_prefix = "PUB";
-      constexpr const char* bls_public_key_prefix = "BLS";
-
-   };*/
-
    class bls_public_key
    {
       public:
@@ -38,12 +29,9 @@ namespace fc { namespace crypto { namespace blslib {
 
          // serialize to/from string
          explicit bls_public_key(const string& base58str);
-         //std::string to_string() const;
-         //std::string to_string() ;
 
          std::string to_string(const fc::yield_function_t& yield = fc::yield_function_t()) const;
 
-         //storage_type _storage;
 
          std::vector<uint8_t> _pkey;
 

@@ -121,7 +121,7 @@ namespace eosio { namespace chain { namespace webassembly {
 
    int32_t interface::alt_bn128_add(span<const char> op1, span<const char> op2, span<char> result ) const {
       if (op1.size() != 64 ||  op2.size() != 64 ||  result.size() < 64 ||
-         bn256::bn256_g1_add({(const uint8_t*)op1.data(), 64}, {(const uint8_t*)op2.data(), 64}, { (uint8_t*)result.data(), 64}) == -1)
+         bn256::g1_add({(const uint8_t*)op1.data(), 64}, {(const uint8_t*)op2.data(), 64}, { (uint8_t*)result.data(), 64}) == -1)
          return return_code::failure;
       return return_code::success;
    }
@@ -267,7 +267,7 @@ namespace eosio { namespace chain { namespace webassembly {
       std::cerr << u_pub.to_string() << "\n";
       std::cerr << u_sig.to_string() << "\n";
 
-      bool result = fc::crypto::blslib::verify(u_pub, u_digest, u_sig);
+      bool result = fc::crypto::blslib::bls_utils::verify(u_pub, u_digest, u_sig);
 
       return result;
 
@@ -281,7 +281,7 @@ namespace eosio { namespace chain { namespace webassembly {
 
       fc::raw::unpack( s_pubkeys, u_pubkeys );
 
-      fc::crypto::blslib::bls_public_key agg_pubkey = fc::crypto::blslib::aggregate(u_pubkeys);
+      fc::crypto::blslib::bls_public_key agg_pubkey = fc::crypto::blslib::bls_utils::aggregate(u_pubkeys);
 
       auto packed = fc::raw::pack(agg_pubkey);
 
@@ -301,7 +301,7 @@ namespace eosio { namespace chain { namespace webassembly {
 
       fc::raw::unpack( s_sigs, u_sigs );
 
-      fc::crypto::blslib::bls_signature agg_sig = fc::crypto::blslib::aggregate(u_sigs);
+      fc::crypto::blslib::bls_signature agg_sig = fc::crypto::blslib::bls_utils::aggregate(u_sigs);
 
       auto packed = fc::raw::pack(agg_sig);
 
@@ -327,7 +327,7 @@ namespace eosio { namespace chain { namespace webassembly {
       fc::raw::unpack( s_pubs, u_pubs );
       fc::raw::unpack( s_digests, u_digests );
 
-      bool result = fc::crypto::blslib::aggregate_verify(u_pubs, u_digests, u_sig);
+      bool result = fc::crypto::blslib::bls_utils::aggregate_verify(u_pubs, u_digests, u_sig);
 
       return result;
 

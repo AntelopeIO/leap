@@ -4,7 +4,7 @@
 
 namespace fc { namespace crypto { namespace blslib {
 
-   static vector<uint8_t> sig_parse_base58(const std::string& base58str)
+   static std::vector<uint8_t> sig_parse_base58(const std::string& base58str)
    { try {
 
       std::vector<char> v1 = fc::from_base58(base58str);
@@ -19,10 +19,6 @@ namespace fc { namespace crypto { namespace blslib {
    bls_signature::bls_signature(const std::string& base58str)
      :_sig(sig_parse_base58(base58str))
    {}
-
-   size_t bls_signature::which() const {
-      //return _storage.index();
-   }
 
    std::string bls_signature::to_string(const fc::yield_function_t& yield) const
    {

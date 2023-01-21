@@ -57,6 +57,7 @@ set( fc_sources
      src/crypto/bls_private_key.cpp
      src/crypto/bls_public_key.cpp
      src/crypto/bls_signature.cpp
+     src/crypto/bls_utils.cpp
      src/crypto/modular_arithmetic.cpp
      src/crypto/blake2.cpp
      src/crypto/k1_recover.cpp

@@ -14,6 +14,7 @@ using std::cout;
 
 //using namespace fc;
 using namespace fc::crypto::blslib;
+using namespace fc::crypto::blslib::bls_utils;
 
 BOOST_AUTO_TEST_SUITE(bls)
 
@@ -138,8 +139,8 @@ BOOST_AUTO_TEST_CASE(bls_agg_tree_verif) try {
 
   //cout << "aggSig : "  << aggSig.to_string() << "\n";
 
-  vector<bls_public_key> pubkeys = {pk1, pk2};
-  vector<vector<uint8_t>> messages = {message_1, message_2};
+  std::vector<bls_public_key> pubkeys = {pk1, pk2};
+  std::vector<std::vector<uint8_t>> messages = {message_1, message_2};
 
   // Verify the signature
   bool ok = aggregate_verify(pubkeys, messages, aggSig);
