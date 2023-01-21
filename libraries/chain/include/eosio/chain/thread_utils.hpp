@@ -53,7 +53,7 @@ namespace eosio { namespace chain {
 
    // async on io_context and return future
    template<typename F>
-   auto async_thread_pool( boost::asio::io_context& ioc, F&& f ) {
+   auto post_async_task( boost::asio::io_context& ioc, F&& f ) {
       auto task = std::make_shared<std::packaged_task<decltype( f() )()>>( std::forward<F>( f ) );
       boost::asio::post( ioc, [task]() { (*task)(); } );
       return task->get_future();
