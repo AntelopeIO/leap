@@ -257,6 +257,16 @@ Adds new cryptographic host functions
 /*
 Builtin protocol feature: GET_BLOCK_NUM
 
+*/
+            {}
+         } )
+         (  builtin_protocol_feature_t::aggregate_signatures, builtin_protocol_feature_spec{
+            "AGGREGATE_SIGNATURES",
+            fc::variant("997de2624c039e38993953ff1091aeb1ecff723d06fe78a5ade08931b0b22896").as<digest_type>(),
+            // SHA256 hash of the raw message below within the comment delimiters (do not modify message below).
+/*
+Builtin protocol feature: AGGREGATE_SIGNATURES
+
 Enables new `get_block_num` intrinsic which returns the current block number.
 */
             {}

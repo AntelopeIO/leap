@@ -1784,6 +1784,24 @@ namespace webassembly {
           * @return -1 if there was an error 0 otherwise.
          */
          int32_t k1_recover( span<const char> signature, span<const char> digest, span<char> pub) const;
+         
+         /**
+          * Verifies that a signature over a message matches the specified public key.
+          *
+          * @ingroup crypto
+          * @param signatue - signature.
+          * @param digest - digest of the message that was signed.
+          * @param[out] pub - output buffer for the public key result.
+          *
+          * @return true if the signature over the message matches the public key, false otherwise.
+         */
+         bool bls_verify( span<const char> signature, span<const char> digest, span<const char> pub) const;
+         
+         int32_t bls_aggregate_pubkeys( span<const char> pubkeys, span<char> aggregate) const;
+
+         int32_t bls_aggregate_sigs( span<const char> signatures, span<char> aggregate) const;
+
+         bool bls_aggregate_verify( span<const char> signature, span<const char> digests, span<const char> pubs) const;
 
          // compiler builtins api
          void __ashlti3(legacy_ptr<int128_t>, uint64_t, uint64_t, uint32_t) const;

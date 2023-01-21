@@ -1,5 +1,6 @@
 add_subdirectory( secp256k1 )
 add_subdirectory( libraries/bn256/src )
+add_subdirectory( libraries/bls-signatures )
 
 set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)
@@ -53,6 +54,9 @@ set( fc_sources
      src/crypto/public_key.cpp
      src/crypto/private_key.cpp
      src/crypto/signature.cpp
+     src/crypto/bls_private_key.cpp
+     src/crypto/bls_public_key.cpp
+     src/crypto/bls_signature.cpp
      src/crypto/modular_arithmetic.cpp
      src/crypto/blake2.cpp
      src/crypto/k1_recover.cpp
@@ -140,7 +144,7 @@ if(APPLE)
   find_library(security_framework Security)
   find_library(corefoundation_framework CoreFoundation)
 endif()
-target_link_libraries( fc PUBLIC Boost::date_time Boost::filesystem Boost::chrono Boost::iostreams Threads::Threads
+target_link_libraries( fc PUBLIC bls Boost::date_time Boost::filesystem Boost::chrono Boost::iostreams Threads::Threads
                                  OpenSSL::Crypto OpenSSL::SSL ZLIB::ZLIB ${PLATFORM_SPECIFIC_LIBS} ${CMAKE_DL_LIBS} secp256k1 ${security_framework} ${corefoundation_framework})
 
 # Critically, this ensures that OpenSSL 1.1 & 3.0 both have a variant of BN_zero() with void return value. But it also allows access
