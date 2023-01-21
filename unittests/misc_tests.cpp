@@ -910,7 +910,7 @@ BOOST_AUTO_TEST_CASE(transaction_metadata_test) { try {
       BOOST_CHECK_EQUAL(trx.id(), ptrx->id());
       BOOST_CHECK_EQUAL(trx.id(), ptrx2->id());
 
-      named_thread_pool thread_pool( "misc", 5, nullptr );
+      named_thread_pool thread_pool( "misc", 5, {} );
 
       auto fut = transaction_metadata::start_recover_keys( ptrx, thread_pool.get_executor(), test.control->get_chain_id(), fc::microseconds::maximum(), transaction_metadata::trx_type::input );
       auto fut2 = transaction_metadata::start_recover_keys( ptrx2, thread_pool.get_executor(), test.control->get_chain_id(), fc::microseconds::maximum(), transaction_metadata::trx_type::input );
@@ -1201,7 +1201,7 @@ BOOST_AUTO_TEST_CASE(bad_alloc_test) {
 
 BOOST_AUTO_TEST_CASE(named_thread_pool_test) {
    {
-      named_thread_pool thread_pool( "misc", 5, nullptr );
+      named_thread_pool thread_pool( "misc", 5, {} );
 
       std::promise<void> p;
       auto f = p.get_future();
@@ -1211,7 +1211,7 @@ BOOST_AUTO_TEST_CASE(named_thread_pool_test) {
       BOOST_TEST( (f.wait_for( 100ms ) == std::future_status::ready) );
    }
    { // delayed start
-      named_thread_pool thread_pool( "misc", 5, nullptr, true );
+      named_thread_pool thread_pool( "misc", 5, {}, true );
 
       std::promise<void> p;
       auto f = p.get_future();

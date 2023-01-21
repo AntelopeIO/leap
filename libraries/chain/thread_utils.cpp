@@ -24,7 +24,7 @@ void named_thread_pool::start() {
    _ioc_work.emplace( boost::asio::make_work_guard( _ioc ) );
    _ioc.restart();
    for( size_t i = 0; i < _num_threads; ++i ) {
-      _thread_pool.emplace_back( [&ioc = _ioc, &name_prefix = _name_prefix, on_except = _on_except, i]() {
+      _thread_pool.emplace_back( [&ioc = _ioc, &name_prefix = _name_prefix, &on_except = _on_except, i]() {
          std::string tn = name_prefix + "-" + std::to_string( i );
          try {
             fc::set_os_thread_name( tn );
