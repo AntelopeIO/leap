@@ -36,7 +36,7 @@ namespace eosio { namespace chain { namespace plugin_interface {
 
       bool post_metrics() {
          if (should_post()){
-            _listener(std::move(metrics()));
+            _listener(metrics());
             _last_post = fc::time_point::now();
             return true;
          }

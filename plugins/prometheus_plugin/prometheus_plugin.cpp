@@ -7,46 +7,8 @@
 #include <prometheus/text_serializer.h>
 #include <prometheus/registry.h>
 #include <eosio/chain/thread_utils.hpp>
+#include <eosio/http_plugin/macros.hpp>
 
-#define CALL_ASYNC_WITH_400(api_name, api_handle, api_namespace, call_name, call_result, http_response_code, params_type) \
-{std::string("/v1/" #api_name "/" #call_name), \
-   [api_handle](string, string body, url_response_callback cb) mutable { \
-      auto deadline = api_handle.start(); \
-      try { \
-         auto params = parse_params<api_namespace::call_name ## _params, params_type>(body);\
-         FC_CHECK_DEADLINE(deadline);\
-         api_handle.call_name( std::move(params), \
-            [cb, body](const std::variant<fc::exception_ptr, call_result>& result){\
-               if (std::holds_alternative<fc::exception_ptr>(result)) {\
-                  try {\
-                     std::get<fc::exception_ptr>(result)->dynamic_rethrow_exception();\
-                  } catch (...) {\
-                     http_plugin::handle_exception(#api_name, #call_name, body, cb);\
-                  }\
-               } else {\
-                  cb(http_response_code, fc::time_point::maximum(), std::visit(async_result_visitor(), result));\
-               }\
-            });\
-      } catch (...) { \
-         http_plugin::handle_exception(#api_name, #call_name, body, cb); \
-      } \
-   }\
-}
-
-#define CALL_WITH_400(api_name, api_handle, call_name, INVOKE, http_response_code) \
-{std::string("/v1/" #api_name "/" #call_name), \
-   [api_handle](string, string body, url_response_callback cb) mutable { \
-          try { \
-             body = parse_params<std::string, http_params_types::no_params>(body); \
-             INVOKE \
-             cb(http_response_code, fc::time_point::maximum(), fc::variant(std::move(result))); \
-          } catch (...) { \
-             http_plugin::handle_exception(#api_name, #call_name, body, cb); \
-          } \
-       }}
-
-#define INVOKE_R_V(api_handle, call_name) \
-     auto result = api_handle->call_name();
 
 namespace eosio {
    using namespace prometheus;
@@ -81,19 +43,11 @@ namespace eosio {
             {}, Summary::Quantiles{{0.5, 0.05}, {0.9, 0.01}, {0.99, 0.001}})) {}
       };
 
-      struct async_result_visitor : public fc::visitor<fc::variant> {
-         template<typename T>
-         fc::variant operator()(const T& v) const {
-            return fc::variant(v);
-         }
-      };
-
 
       struct prometheus_plugin_impl {
          std::vector<std::shared_ptr<Collectable>> _collectables;
          const prometheus::TextSerializer _serializer;
          std::shared_ptr<Registry> _registry;
-         // boost::asio::io_context _context;
          eosio::chain::named_thread_pool _prometheus_thread_pool;
          boost::asio::io_context::strand _prometheus_strand;
 
@@ -104,7 +58,7 @@ namespace eosio {
          std::unique_ptr<prometheus_plugin_metrics> _metrics;
 
          // hold onto other plugin metrics
-         prometheus_plugin_impl(boost::asio::io_context& ctx): _prometheus_thread_pool("prometheus", 1), _prometheus_strand(_prometheus_thread_pool.get_executor()){ }
+         prometheus_plugin_impl(): _prometheus_thread_pool("prom", 1), _prometheus_strand(_prometheus_thread_pool.get_executor()){ }
 
          void add_gauge_metric(const runtime_metric& plugin_metric) {
             auto& gauge_family = BuildGauge()
@@ -164,7 +118,7 @@ namespace eosio {
          metrics_listener create_metrics_listener() {
             return  [self=this] (vector<runtime_metric> metrics) mutable {
                self->_prometheus_strand.post(
-                     [self, metrics=std::move(metrics)]() {
+                     [self, metrics=std::move(metrics)]() mutable {
                         self->update_metrics(metrics);
                      }
                );
@@ -216,7 +170,7 @@ namespace eosio {
          }
 
          void metrics_async(chain::plugin_interface::next_function<std::string> results) {
-            _prometheus_strand.post([self=this, results]() {
+            _prometheus_strand.post([self=this, results=std::move(results)]() {
                results(self->metrics());
             });
          }
@@ -256,9 +210,10 @@ namespace eosio {
 
    };
    prometheus_plugin::prometheus_plugin() {
-      prometheus_api handle(*this->my);
-      app().get_plugin<http_plugin>().add_api({
-        CALL_ASYNC_WITH_400(prometheus, handle, eosio, metrics, std::string, 200, http_params_types::no_params)});
+      my.reset(new prometheus_plugin_impl{});
+      prometheus_api handle(*my);
+      app().get_plugin<http_plugin>().add_async_api({
+        CALL_ASYNC_WITH_400(prometheus, handle, eosio, metrics, std::string, 200, http_params_types::no_params)}, http_content_type::plaintext);
    }
 
    prometheus_plugin::~prometheus_plugin() {}
@@ -278,6 +233,7 @@ namespace eosio {
    }
 
    void prometheus_plugin::plugin_shutdown() {
+      my->_prometheus_thread_pool.stop();
       ilog("Prometheus plugin shutdown.");
    }
 }

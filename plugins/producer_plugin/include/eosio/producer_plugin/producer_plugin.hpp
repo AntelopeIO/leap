@@ -26,17 +26,17 @@ struct producer_plugin_metrics : public plugin_metrics {
    runtime_metric scheduled_trxs{metric_type::gauge, "scheduled_trxs", "scheduled_trxs", 0};
 
    virtual vector<runtime_metric> metrics() {
-      vector<runtime_metric> metrics;
-      metrics.reserve(9);
-      metrics.emplace_back(unapplied_transactions);
-      metrics.emplace_back(blacklisted_transactions);
-      metrics.emplace_back(blocks_produced);
-      metrics.emplace_back(trxs_produced);
-      metrics.emplace_back(last_irreversible);
-      metrics.emplace_back(block_num);
-      metrics.emplace_back(subjective_bill_account_size);
-      metrics.emplace_back(subjective_bill_block_size);
-      metrics.emplace_back(scheduled_trxs);
+      vector<runtime_metric> metrics{
+            unapplied_transactions,
+            blacklisted_transactions,
+            blocks_produced,
+            trxs_produced,
+            last_irreversible,
+            block_num,
+            subjective_bill_account_size,
+            subjective_bill_block_size,
+            scheduled_trxs
+      };
 
       return metrics;
    }

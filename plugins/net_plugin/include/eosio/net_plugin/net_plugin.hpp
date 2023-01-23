@@ -20,12 +20,12 @@ namespace eosio {
       runtime_metric num_clients{metric_type::gauge, "num_clients", "num_clients", 0};
       runtime_metric dropped_trxs{metric_type::counter, "dropped_trxs", "dropped_trxs", 0};
 
-      virtual vector<runtime_metric> metrics() {
-         vector<runtime_metric> metrics;
-         metrics.reserve(3);
-         metrics.emplace_back(num_peers);
-         metrics.emplace_back(num_clients);
-         metrics.emplace_back(dropped_trxs);
+      vector<runtime_metric> metrics() final {
+         vector<runtime_metric> metrics {
+            num_peers,
+            num_clients,
+            dropped_trxs
+         };
 
          return metrics;
       }
