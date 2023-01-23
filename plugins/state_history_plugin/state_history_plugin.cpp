@@ -84,7 +84,21 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
    state_history::trace_converter   trace_converter;
    std::set<std::shared_ptr<session_base>> session_set;
 
-   using acceptor_type = std::variant<std::unique_ptr<tcp::acceptor>, std::unique_ptr<unixs::acceptor>>;
+   struct tcp_acceptor  {
+      using socket_type = tcp::acceptor::protocol_type::socket;
+      tcp_acceptor(boost::asio::io_context& ioc) : acceptor_(ioc), error_timer_(ioc) {}
+      tcp::acceptor               acceptor_;
+      boost::asio::deadline_timer error_timer_;
+   };
+   
+   struct unix_acceptor {
+      using socket_type = unixs::acceptor::protocol_type::socket;
+      unix_acceptor(boost::asio::io_context& ioc) : acceptor_(ioc), error_timer_(ioc) {}
+      unixs::acceptor             acceptor_;
+      boost::asio::deadline_timer error_timer_;
+   };
+   
+   using acceptor_type = std::variant<std::unique_ptr<tcp_acceptor>, std::unique_ptr<unix_acceptor>>;
    std::set<acceptor_type>          acceptors;
 
    named_thread_pool                thread_pool{"SHiP", 1, true}; // use of executor assumes only one thread
@@ -422,7 +436,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
          FC_THROW_EXCEPTION(plugin_exception, "unable to open listen socket");
       };
 
-      auto init_tcp_acceptor  = [&]() { acceptors.insert(std::make_unique<tcp::acceptor>(thread_pool.get_executor())); };
+      auto init_tcp_acceptor  = [&]() { acceptors.insert(std::make_unique<tcp_acceptor>(thread_pool.get_executor())); };
       auto init_unix_acceptor = [&]() {
          // take a sniff and see if anything is already listening at the given socket path, or if the socket path exists
          //  but nothing is listening
@@ -441,7 +455,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
                ec = test_ec;
          }
          check_ec("open");
-         acceptors.insert(std::make_unique<unixs::acceptor>(thread_pool.get_executor()));
+         acceptors.insert(std::make_unique<unix_acceptor>(thread_pool.get_executor()));
       };
 
       // create and configure acceptors, can be both
@@ -450,24 +464,24 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
 
       // start it
       std::for_each(acceptors.begin(), acceptors.end(), [&](const acceptor_type& acc) {
-         std::visit(overloaded{[&](const std::unique_ptr<tcp::acceptor>& tcp_acc) {
+         std::visit(overloaded{[&](const std::unique_ptr<tcp_acceptor>& tcp_acc) {
                                 auto address  = boost::asio::ip::make_address(endpoint_address);
                                 auto endpoint = tcp::endpoint{address, endpoint_port};
-                                tcp_acc->open(endpoint.protocol(), ec);
+                                tcp_acc->acceptor_.open(endpoint.protocol(), ec);
                                 check_ec("open");
-                                tcp_acc->set_option(boost::asio::socket_base::reuse_address(true));
-                                tcp_acc->bind(endpoint, ec);
+                                tcp_acc->acceptor_.set_option(boost::asio::socket_base::reuse_address(true));
+                                tcp_acc->acceptor_.bind(endpoint, ec);
                                 check_ec("bind");
-                                tcp_acc->listen(boost::asio::socket_base::max_listen_connections, ec);
+                                tcp_acc->acceptor_.listen(boost::asio::socket_base::max_listen_connections, ec);
                                 check_ec("listen");
                                 do_accept(*tcp_acc);
                              },
-                             [&](const std::unique_ptr<unixs::acceptor>& unx_acc) {
-                                unx_acc->open(unixs::acceptor::protocol_type(), ec);
+                             [&](const std::unique_ptr<unix_acceptor>& unx_acc) {
+                                unx_acc->acceptor_.open(unixs::acceptor::protocol_type(), ec);
                                 check_ec("open");
-                                unx_acc->bind(unix_path.c_str(), ec);
+                                unx_acc->acceptor_.bind(unix_path.c_str(), ec);
                                 check_ec("bind");
-                                unx_acc->listen(boost::asio::socket_base::max_listen_connections, ec);
+                                unx_acc->acceptor_.listen(boost::asio::socket_base::max_listen_connections, ec);
                                 check_ec("listen");
                                 do_accept(*unx_acc);
                              }},
@@ -476,23 +490,34 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
    }
 
    template <typename Acceptor>
-   void do_accept(Acceptor& acceptor) {
-      auto socket = std::make_shared<typename Acceptor::protocol_type::socket>(this->thread_pool.get_executor());
+   void do_accept(Acceptor& acc) {
+      auto socket = std::make_shared<typename Acceptor::socket_type>(this->thread_pool.get_executor());
       // &acceptor kept alive by self, reference into acceptors set
-      acceptor.async_accept(*socket, [self = shared_from_this(), socket, &acceptor](const boost::system::error_code& ec) {
+      acc.acceptor_.async_accept(*socket, [self = shared_from_this(), socket, &acc](const boost::system::error_code& ec) {
          if (self->stopping)
             return;
-         if (ec) {
-            if (ec == boost::system::errc::too_many_files_open)
-               catch_and_log([&] { self->do_accept(acceptor); });
-            return;
+         if (ec == boost::system::errc::too_many_files_open) {
+            fc_elog(_log, "ship accept() error: too many files open - waiting 200ms");
+            acc.error_timer_.expires_from_now(boost::posix_time::milliseconds(200));
+            acc.error_timer_.async_wait([self = self->shared_from_this(), &acc](const boost::system::error_code& ec) {
+               if (!ec)
+                  catch_and_log([&] { self->do_accept(acc); });
+            });
+         } else {
+            if (ec)
+               fc_elog(_log, "ship accept() error: ${m} - closing connection", ("m", ec.message()));
+            else {
+               // Create a session object and run it
+               catch_and_log([&] {
+                  auto s = std::make_shared<session<typename Acceptor::socket_type>>(self, std::move(*socket));
+                  s->start();
+                  app().post(priority::high, [self, s]() mutable { self->session_set.insert(std::move(s)); });
+               });
+            }
+
+            // Accept another connection
+            catch_and_log([&] { self->do_accept(acc); });
          }
-         catch_and_log([&] {
-            auto s = std::make_shared<session<typename Acceptor::protocol_type::socket>>(self, std::move(*socket));
-            s->start();
-            app().post(priority::high, [self, s]() mutable { self->session_set.insert(std::move(s)); });
-         });
-         catch_and_log([&] { self->do_accept(acceptor); });
       });
    }
 
@@ -585,12 +610,12 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
    ~state_history_plugin_impl() {
       std::for_each(acceptors.begin(), acceptors.end(), [&](const acceptor_type& acc) {
          std::visit(overloaded{
-            []( const std::unique_ptr<unixs::acceptor>& a ) {
+            []( const std::unique_ptr<unix_acceptor>& a ) {
                boost::system::error_code ec;
-               if( const auto ep = a->local_endpoint( ec ); !ec )
+               if( const auto ep = a->acceptor_.local_endpoint( ec ); !ec )
                   ::unlink( ep.path().c_str() );
             },
-            []( const std::unique_ptr<tcp::acceptor>& a) {}
+            []( const std::unique_ptr<tcp_acceptor>& a) {}
          }, acc);
       });
    }
