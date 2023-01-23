@@ -86,15 +86,17 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
 
    struct tcp_acceptor  {
       using socket_type = tcp::acceptor::protocol_type::socket;
-      tcp_acceptor(boost::asio::io_context& ioc) : acceptor_(ioc), error_timer_(ioc) {}
+      tcp_acceptor(boost::asio::io_context& ioc) : acceptor_(ioc), socket_(ioc), error_timer_(ioc) {}
       tcp::acceptor               acceptor_;
+      socket_type                 socket_;
       boost::asio::deadline_timer error_timer_;
    };
    
    struct unix_acceptor {
       using socket_type = unixs::acceptor::protocol_type::socket;
-      unix_acceptor(boost::asio::io_context& ioc) : acceptor_(ioc), error_timer_(ioc) {}
+      unix_acceptor(boost::asio::io_context& ioc) : acceptor_(ioc), socket_(ioc), error_timer_(ioc) {}
       unixs::acceptor             acceptor_;
+      socket_type                 socket_;
       boost::asio::deadline_timer error_timer_;
    };
    
@@ -491,9 +493,8 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
 
    template <typename Acceptor>
    void do_accept(Acceptor& acc) {
-      auto socket = std::make_shared<typename Acceptor::socket_type>(this->thread_pool.get_executor());
       // &acceptor kept alive by self, reference into acceptors set
-      acc.acceptor_.async_accept(*socket, [self = shared_from_this(), socket, &acc](const boost::system::error_code& ec) {
+      acc.acceptor_.async_accept(acc.socket_, [self = shared_from_this(), &acc](const boost::system::error_code& ec) {
          if (self->stopping)
             return;
          if (ec == boost::system::errc::too_many_files_open) {
@@ -509,7 +510,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
             else {
                // Create a session object and run it
                catch_and_log([&] {
-                  auto s = std::make_shared<session<typename Acceptor::socket_type>>(self, std::move(*socket));
+                  auto s = std::make_shared<session<typename Acceptor::socket_type>>(self, std::move(acc.socket_));
                   s->start();
                   app().post(priority::high, [self, s]() mutable { self->session_set.insert(std::move(s)); });
                });
