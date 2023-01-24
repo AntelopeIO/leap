@@ -50,10 +50,14 @@ namespace eosio {
    using connection_ptr = std::shared_ptr<connection>;
    using connection_wptr = std::weak_ptr<connection>;
 
+   const fc::string logger_name("net_plugin_impl");
+   fc::logger logger;
+   std::string peer_log_format;
+
    template <typename Strand>
    void verify_strand_in_this_thread(const Strand& strand, const char* func, int line) {
       if( !strand.running_in_this_thread() ) {
-         elog( "wrong strand: ${f} : line ${n}, exiting", ("f", func)("n", line) );
+         fc_elog( logger, "wrong strand: ${f} : line ${n}, exiting", ("f", func)("n", line) );
          app().quit();
       }
    }
@@ -354,10 +358,6 @@ namespace eosio {
 
       void plugin_shutdown();
    };
-
-   const fc::string logger_name("net_plugin_impl");
-   fc::logger logger;
-   std::string peer_log_format;
 
    // peer_[x]log must be called from thread in connection strand
 #define peer_dlog( PEER, FORMAT, ... ) \
