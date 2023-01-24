@@ -295,6 +295,8 @@ namespace eosio {
       block_id_type                 chain_head_blk_id;
       block_id_type                 chain_fork_head_blk_id;
 
+      unique_ptr<boost::asio::deadline_timer> accept_error_timer;
+
    public:
       void update_chain_info();
       //         lib_num, head_block_num, fork_head_blk_num, lib_id, head_blk_id, fork_head_blk_id
@@ -349,6 +351,8 @@ namespace eosio {
 
       connection_ptr find_connection(const string& host)const; // must call with held mutex
       string connect( const string& host );
+
+      void plugin_shutdown();
    };
 
    const fc::string logger_name("net_plugin_impl");
@@ -2412,8 +2416,28 @@ namespace eosio {
                fc_elog( logger, "Error accepting connection: ${m}", ("m", ec.message()));
                // For the listed error codes below, recall start_listen_loop()
                switch (ec.value()) {
+                  case EMFILE: // same as boost::system::errc::too_many_files_open
+                  {
+                     // no file descriptors available to accept the connection. Wait on async_timer
+                     // and retry listening
+                     if (!accept_error_timer) {
+                        try {
+                           accept_error_timer = std::make_unique<boost::asio::deadline_timer>(my_impl->thread_pool->get_executor());
+                        } catch(...) {
+                           this->plugin_shutdown();
+                           throw;
+                        }
+                     }
+                     if (accept_error_timer) {
+                        accept_error_timer->expires_from_now(boost::posix_time::milliseconds(50));
+                        accept_error_timer->async_wait([self = shared_from_this()]( const boost::system::error_code &ec) {
+                           if (!ec)
+                              self->start_listen_loop();
+                        });
+                     }
+                     return;
+                  }
                   case ECONNABORTED:
-                  case EMFILE:
                   case ENFILE:
                   case ENOBUFS:
                   case ENOMEM:
@@ -2692,6 +2716,45 @@ namespace eosio {
 
       handle_message( std::move( ptr ) );
       return true;
+   }
+
+   void net_plugin_impl::plugin_shutdown() {
+         in_shutdown = true;
+         {
+            std::lock_guard<std::mutex> g( connector_check_timer_mtx );
+            if( connector_check_timer )
+               connector_check_timer->cancel();
+         }
+         {
+            std::lock_guard<std::mutex> g( expire_timer_mtx );
+            if( expire_timer )
+               expire_timer->cancel();
+         }
+         {
+            std::lock_guard<std::mutex> g( keepalive_timer_mtx );
+            if( keepalive_timer )
+               keepalive_timer->cancel();
+         }
+
+         {
+            fc_ilog( logger, "close ${s} connections", ("s", connections.size()) );
+            std::lock_guard<std::shared_mutex> g( connections_mtx );
+            for( auto& con : connections ) {
+               fc_dlog( logger, "close: ${cid}", ("cid", con->connection_id) );
+               con->close( false, true );
+            }
+            connections.clear();
+         }
+
+         if( thread_pool ) {
+            thread_pool->stop();
+         }
+
+         if( acceptor ) {
+            boost::system::error_code ec;
+            acceptor->cancel( ec );
+            acceptor->close( ec );
+         }      
    }
 
    // call only from main application thread
@@ -3804,41 +3867,9 @@ namespace eosio {
    void net_plugin::plugin_shutdown() {
       try {
          fc_ilog( logger, "shutdown.." );
-         my->in_shutdown = true;
-         {
-            std::lock_guard<std::mutex> g( my->connector_check_timer_mtx );
-            if( my->connector_check_timer )
-               my->connector_check_timer->cancel();
-         }{
-            std::lock_guard<std::mutex> g( my->expire_timer_mtx );
-            if( my->expire_timer )
-               my->expire_timer->cancel();
-         }{
-            std::lock_guard<std::mutex> g( my->keepalive_timer_mtx );
-            if( my->keepalive_timer )
-               my->keepalive_timer->cancel();
-         }
-
-         {
-            fc_ilog( logger, "close ${s} connections", ("s", my->connections.size()) );
-            std::lock_guard<std::shared_mutex> g( my->connections_mtx );
-            for( auto& con : my->connections ) {
-               fc_dlog( logger, "close: ${cid}", ("cid", con->connection_id) );
-               con->close( false, true );
-            }
-            my->connections.clear();
-         }
-
-         if( my->thread_pool ) {
-            my->thread_pool->stop();
-         }
-
-         if( my->acceptor ) {
-            boost::system::error_code ec;
-            my->acceptor->cancel( ec );
-            my->acceptor->close( ec );
-         }
-
+         
+         my->plugin_shutdown();
+         
          app().post( 0, [me = my](){} ); // keep my pointer alive until queue is drained
          fc_ilog( logger, "exit shutdown" );
       }
