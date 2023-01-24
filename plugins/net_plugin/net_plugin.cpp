@@ -2429,13 +2429,14 @@ namespace eosio {
                         }
                      }
                      if (accept_error_timer) {
+                        // using shorter 50ms timer than SHiP or http_plugin as net_pluging is more critical
                         accept_error_timer->expires_from_now(boost::posix_time::milliseconds(50));
                         accept_error_timer->async_wait([self = shared_from_this()]( const boost::system::error_code &ec) {
                            if (!ec)
                               self->start_listen_loop();
                         });
                      }
-                     return;
+                     return; // wait for timer!!
                   }
                   case ECONNABORTED:
                   case ENFILE:
