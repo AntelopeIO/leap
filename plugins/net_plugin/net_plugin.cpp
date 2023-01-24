@@ -2424,7 +2424,7 @@ namespace eosio {
                         try {
                            accept_error_timer = std::make_unique<boost::asio::deadline_timer>(my_impl->thread_pool->get_executor());
                         } catch(...) {
-                           elog( "net_plugin_impl::start_listen_loop() - exception when allocating memory" );
+                           fc_elog( logger, "net_plugin_impl::start_listen_loop() - exception when allocating memory" );
                            app().quit();
                         }
                      }
@@ -3837,7 +3837,7 @@ namespace eosio {
                my->acceptor->bind(listen_endpoint);
                my->acceptor->listen();
             } catch (const std::exception& e) {
-               elog( "net_plugin::plugin_startup failed to bind to port ${port}, ${what}",
+               fc_elog( logger, "net_plugin::plugin_startup failed to bind to port ${port}, ${what}",
                      ("port", listen_endpoint.port())("what", e.what()) );
                app().quit();
                return;
