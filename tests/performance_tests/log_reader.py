@@ -272,6 +272,7 @@ def populateTrxLatencies(blockDict: dict, trxDict: dict):
 
 def writeTransactionCsv(trxDict: dict, path):
     with open(path, 'wt') as csvFile:
+        csvFile.write("TransactionId,BlockNumber,BlockTime,CpuUsageUs,NetUsageUs,Latency,SentTimestamp,CalcdTimeEpoch\n")
         for trxId, data in trxDict.items():
             csvFile.write(f"{trxId},{data.blockNum},{data.blockTime},{data.cpuUsageUs},{data.netUsageUs},{data.latency},{data._sentTimestamp},{data._calcdTimeEpoch}\n")
 
