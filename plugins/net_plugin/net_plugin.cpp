@@ -3750,7 +3750,7 @@ namespace eosio {
          if( cc.get_read_mode() == db_read_mode::IRREVERSIBLE ) {
             if( my->p2p_accept_transactions ) {
                my->p2p_accept_transactions = false;
-               wlog( "p2p-accept-transactions set to false due to read-mode: irreversible" );
+               fc_wlog( logger, "p2p-accept-transactions set to false due to read-mode: irreversible" );
             }
          }
          if( my->p2p_accept_transactions ) {
