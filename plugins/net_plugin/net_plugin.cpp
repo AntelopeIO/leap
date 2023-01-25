@@ -290,6 +290,8 @@ namespace eosio {
       uint16_t                                       thread_pool_size = 2;
       std::optional<eosio::chain::named_thread_pool> thread_pool;
 
+      unique_ptr<boost::asio::deadline_timer> accept_error_timer;
+
    private:
       mutable std::mutex            chain_info_mtx; // protects chain_*
       uint32_t                      chain_lib_num{0};
@@ -298,8 +300,6 @@ namespace eosio {
       block_id_type                 chain_lib_id;
       block_id_type                 chain_head_blk_id;
       block_id_type                 chain_fork_head_blk_id;
-
-      unique_ptr<boost::asio::deadline_timer> accept_error_timer;
 
    public:
       void update_chain_info();
@@ -2419,23 +2419,13 @@ namespace eosio {
                   case EMFILE: // same as boost::system::errc::too_many_files_open
                   {
                      // no file descriptors available to accept the connection. Wait on async_timer
-                     // and retry listening
-                     if (!accept_error_timer) {
-                        try {
-                           accept_error_timer = std::make_unique<boost::asio::deadline_timer>(my_impl->thread_pool->get_executor());
-                        } catch(...) {
-                           fc_elog( logger, "net_plugin_impl::start_listen_loop() - exception when allocating memory" );
-                           app().quit();
-                        }
-                     }
-                     if (accept_error_timer) {
-                        // using shorter 100ms timer than SHiP or http_plugin as net_pluging is more critical
-                        accept_error_timer->expires_from_now(boost::posix_time::milliseconds(100));
-                        accept_error_timer->async_wait([self = shared_from_this()]( const boost::system::error_code &ec) {
-                           if (!ec)
-                              self->start_listen_loop();
-                        });
-                     }
+                     // and retry listening using shorter 100ms timer than SHiP or http_plugin
+                     // as net_pluging is more critical
+                     accept_error_timer->expires_from_now(boost::posix_time::milliseconds(100));
+                     accept_error_timer->async_wait([self = shared_from_this()]( const boost::system::error_code &ec) {
+                        if (!ec)
+                           self->start_listen_loop();
+                     });
                      return; // wait for timer!!
                   }
                   case ECONNABORTED:
@@ -3769,6 +3759,8 @@ namespace eosio {
       my->producer_plug = app().find_plugin<producer_plugin>();
 
       my->thread_pool.emplace( "net", my->thread_pool_size );
+
+      my->accept_error_timer = std::make_unique<boost::asio::deadline_timer>(my->thread_pool->get_executor());
 
       my->dispatcher.reset( new dispatch_manager( my_impl->thread_pool->get_executor() ) );
 
