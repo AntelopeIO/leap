@@ -283,8 +283,9 @@ namespace eosio {
 
       compat::channels::transaction_ack::channel_type::handle  incoming_transaction_ack_subscription;
 
-      uint16_t                                       thread_pool_size = 2;
-      std::optional<eosio::chain::named_thread_pool> thread_pool;
+      uint16_t                              thread_pool_size = 2;
+      eosio::chain::named_thread_pool       thread_pool{ "net" };
+
 
    private:
       mutable std::mutex            chain_info_mtx; // protects chain_*
@@ -877,11 +878,11 @@ namespace eosio {
 
    connection::connection( const string& endpoint )
       : peer_addr( endpoint ),
-        strand( my_impl->thread_pool->get_executor() ),
-        socket( new tcp::socket( my_impl->thread_pool->get_executor() ) ),
+        strand( my_impl->thread_pool.get_executor() ),
+        socket( new tcp::socket( my_impl->thread_pool.get_executor() ) ),
         log_p2p_address( endpoint ),
         connection_id( ++my_impl->current_connection_id ),
-        response_expected_timer( my_impl->thread_pool->get_executor() ),
+        response_expected_timer( my_impl->thread_pool.get_executor() ),
         last_handshake_recv(),
         last_handshake_sent()
    {
@@ -890,10 +891,10 @@ namespace eosio {
 
    connection::connection()
       : peer_addr(),
-        strand( my_impl->thread_pool->get_executor() ),
-        socket( new tcp::socket( my_impl->thread_pool->get_executor() ) ),
+        strand( my_impl->thread_pool.get_executor() ),
+        socket( new tcp::socket( my_impl->thread_pool.get_executor() ) ),
         connection_id( ++my_impl->current_connection_id ),
-        response_expected_timer( my_impl->thread_pool->get_executor() ),
+        response_expected_timer( my_impl->thread_pool.get_executor() ),
         last_handshake_recv(),
         last_handshake_sent()
    {
@@ -996,7 +997,7 @@ namespace eosio {
          self->socket->shutdown( tcp::socket::shutdown_both, ec );
          self->socket->close( ec );
       }
-      self->socket.reset( new tcp::socket( my_impl->thread_pool->get_executor() ) );
+      self->socket.reset( new tcp::socket( my_impl->thread_pool.get_executor() ) );
       self->flush_queues();
       self->connecting = false;
       self->syncing = false;
@@ -2319,7 +2320,7 @@ namespace eosio {
          string port = c->peer_address().substr( colon + 1, colon2 == string::npos ? string::npos : colon2 - (colon + 1));
          c->set_connection_type( c->peer_address() );
 
-         auto resolver = std::make_shared<tcp::resolver>( my_impl->thread_pool->get_executor() );
+         auto resolver = std::make_shared<tcp::resolver>( my_impl->thread_pool.get_executor() );
          connection_wptr weak_conn = c;
          // Note: need to add support for IPv6 too
          resolver->async_resolve( tcp::v4(), host, port, boost::asio::bind_executor( c->strand,
@@ -3226,7 +3227,7 @@ namespace eosio {
       }
 
       if( reason == no_reason ) {
-         boost::asio::post( my_impl->thread_pool->get_executor(), [dispatcher = my_impl->dispatcher.get(), cid=c->connection_id, blk_id, msg]() {
+         boost::asio::post( my_impl->thread_pool.get_executor(), [dispatcher = my_impl->dispatcher.get(), cid=c->connection_id, blk_id, msg]() {
             fc_dlog( logger, "accepted signed_block : #${n} ${id}...", ("n", msg->block_num())("id", blk_id.str().substr(8,16)) );
             dispatcher->add_peer_block( blk_id, cid );
          });
@@ -3307,11 +3308,11 @@ namespace eosio {
    void net_plugin_impl::start_monitors() {
       {
          std::lock_guard<std::mutex> g( connector_check_timer_mtx );
-         connector_check_timer.reset(new boost::asio::steady_timer( my_impl->thread_pool->get_executor() ));
+         connector_check_timer.reset(new boost::asio::steady_timer( my_impl->thread_pool.get_executor() ));
       }
       {
          std::lock_guard<std::mutex> g( expire_timer_mtx );
-         expire_timer.reset( new boost::asio::steady_timer( my_impl->thread_pool->get_executor() ) );
+         expire_timer.reset( new boost::asio::steady_timer( my_impl->thread_pool.get_executor() ) );
       }
       start_conn_timer(connector_period, std::weak_ptr<connection>());
       start_expire_timer();
@@ -3704,9 +3705,12 @@ namespace eosio {
 
       my->producer_plug = app().find_plugin<producer_plugin>();
 
-      my->thread_pool.emplace( "net", my->thread_pool_size );
+      my->thread_pool.start( my->thread_pool_size, []( const fc::exception& e ) {
+         fc_elog( logger, "Exception in net plugin thread pool, exiting: ${e}", ("e", e.to_detail_string()) );
+         app().quit();
+      } );
 
-      my->dispatcher.reset( new dispatch_manager( my_impl->thread_pool->get_executor() ) );
+      my->dispatcher.reset( new dispatch_manager( my_impl->thread_pool.get_executor() ) );
 
       if( !my->p2p_accept_transactions && my->p2p_address.size() ) {
          fc_ilog( logger, "\n"
@@ -3720,11 +3724,11 @@ namespace eosio {
       if( my->p2p_address.size() > 0 ) {
          auto host = my->p2p_address.substr( 0, my->p2p_address.find( ':' ));
          auto port = my->p2p_address.substr( host.size() + 1, my->p2p_address.size());
-         tcp::resolver resolver( my->thread_pool->get_executor() );
+         tcp::resolver resolver( my->thread_pool.get_executor() );
          // Note: need to add support for IPv6 too?
          listen_endpoint = *resolver.resolve( tcp::v4(), host, port );
 
-         my->acceptor.reset( new tcp::acceptor( my_impl->thread_pool->get_executor() ) );
+         my->acceptor.reset( new tcp::acceptor( my_impl->thread_pool.get_executor() ) );
 
          if( !my->p2p_server_address.empty() ) {
             my->p2p_address = my->p2p_server_address;
@@ -3759,7 +3763,7 @@ namespace eosio {
 
       {
          std::lock_guard<std::mutex> g( my->keepalive_timer_mtx );
-         my->keepalive_timer.reset( new boost::asio::steady_timer( my->thread_pool->get_executor() ) );
+         my->keepalive_timer.reset( new boost::asio::steady_timer( my->thread_pool.get_executor() ) );
       }
 
       my->incoming_transaction_ack_subscription = app().get_channel<compat::channels::transaction_ack>().subscribe(
@@ -3829,9 +3833,7 @@ namespace eosio {
             my->connections.clear();
          }
 
-         if( my->thread_pool ) {
-            my->thread_pool->stop();
-         }
+         my->thread_pool.stop();
 
          if( my->acceptor ) {
             boost::system::error_code ec;
