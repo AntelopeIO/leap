@@ -4,27 +4,23 @@
 
 namespace eosio { namespace chain {
 
-named_thread_pool::named_thread_pool( std::string name_prefix, size_t num_threads, on_except_t on_except, bool delay_start )
+named_thread_pool::named_thread_pool( std::string name_prefix )
 : _name_prefix( std::move(name_prefix) )
-, _num_threads( num_threads )
-, _ioc( num_threads )
-, _on_except( on_except )
+, _ioc()
 {
-   if( !delay_start ) {
-      start();
-   }
 }
 
 named_thread_pool::~named_thread_pool() {
    stop();
 }
 
-void named_thread_pool::start() {
+void named_thread_pool::start( size_t num_threads, on_except_t on_except ) {
    FC_ASSERT( !_ioc_work, "Thread pool already started" );
    _ioc_work.emplace( boost::asio::make_work_guard( _ioc ) );
    _ioc.restart();
-   for( size_t i = 0; i < _num_threads; ++i ) {
-      _thread_pool.emplace_back( [&ioc = _ioc, &name_prefix = _name_prefix, on_except = _on_except, i]() {
+   _thread_pool.reserve( num_threads );
+   for( size_t i = 0; i < num_threads; ++i ) {
+      _thread_pool.emplace_back( [&ioc = _ioc, &name_prefix = _name_prefix, on_except, i]() {
          std::string tn = name_prefix + "-" + std::to_string( i );
          try {
             fc::set_os_thread_name( tn );
@@ -34,6 +30,7 @@ void named_thread_pool::start() {
                on_except( e );
             } else {
                elog( "Exiting thread ${t} on exception: ${e}", ("t", tn)("e", e.to_detail_string()) );
+               throw;
             }
          } catch( const std::exception& e ) {
             fc::std_exception_wrapper se( FC_LOG_MESSAGE( warn, "${what}: ", ("what", e.what()) ),
@@ -42,6 +39,7 @@ void named_thread_pool::start() {
                on_except( se );
             } else {
                elog( "Exiting thread ${t} on exception: ${e}", ("t", tn)("e", se.to_detail_string()) );
+               throw;
             }
          } catch( ... ) {
             if( on_except ) {
@@ -49,6 +47,7 @@ void named_thread_pool::start() {
                on_except( ue );
             } else {
                elog( "Exiting thread ${t} on unknown exception", ("t", tn) );
+               throw;
             }
          }
       } );

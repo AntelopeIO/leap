@@ -301,16 +301,18 @@ struct controller_impl {
     conf( cfg ),
     chain_id( chain_id ),
     read_mode( cfg.read_mode ),
-    thread_pool( "chain", cfg.thread_pool_size, [this]( const fc::exception& e ) {
-       elog( "Exception in chain thread pool, exiting: ${e}", ("e", e.to_detail_string()) );
-       if( shutdown ) shutdown();
-    } )
+    thread_pool( "chain" )
    {
       fork_db.open( [this]( block_timestamp_type timestamp,
                             const flat_set<digest_type>& cur_features,
                             const vector<digest_type>& new_features )
                            { check_protocol_features( timestamp, cur_features, new_features ); }
       );
+
+      thread_pool.start( cfg.thread_pool_size, [this]( const fc::exception& e ) {
+         elog( "Exception in chain thread pool, exiting: ${e}", ("e", e.to_detail_string()) );
+         if( shutdown ) shutdown();
+      } );
 
       set_activation_handler<builtin_protocol_feature_t::preactivate_feature>();
       set_activation_handler<builtin_protocol_feature_t::replace_deferred>();
@@ -413,7 +415,7 @@ struct controller_impl {
          std::vector<std::future<std::vector<char>>> v;
          v.reserve( branch.size() );
          for( auto bitr = branch.rbegin(); bitr != branch.rend(); ++bitr ) {
-            v.emplace_back( async_thread_pool( thread_pool.get_executor(), [b=(*bitr)->block]() { return fc::raw::pack(*b); } ) );
+            v.emplace_back( post_async_task( thread_pool.get_executor(), [b=(*bitr)->block]() { return fc::raw::pack(*b); } ) );
          }
          auto it = v.begin();
 
@@ -1838,17 +1840,17 @@ struct controller_impl {
 
       auto& bb = std::get<building_block>(pending->_block_stage);
 
-      auto action_merkle_fut = async_thread_pool( thread_pool.get_executor(),
-                                                  [ids{std::move( bb._action_receipt_digests )}]() mutable {
-                                                     return merkle( std::move( ids ) );
-                                                  } );
+      auto action_merkle_fut = post_async_task( thread_pool.get_executor(),
+                                                [ids{std::move( bb._action_receipt_digests )}]() mutable {
+                                                   return merkle( std::move( ids ) );
+                                                } );
       const bool calc_trx_merkle = !std::holds_alternative<checksum256_type>(bb._trx_mroot_or_receipt_digests);
       std::future<checksum256_type> trx_merkle_fut;
       if( calc_trx_merkle ) {
-         trx_merkle_fut = async_thread_pool( thread_pool.get_executor(),
-                                             [ids{std::move( std::get<digests_t>(bb._trx_mroot_or_receipt_digests) )}]() mutable {
-                                                return merkle( std::move( ids ) );
-                                             } );
+         trx_merkle_fut = post_async_task( thread_pool.get_executor(),
+                                           [ids{std::move( std::get<digests_t>(bb._trx_mroot_or_receipt_digests) )}]() mutable {
+                                              return merkle( std::move( ids ) );
+                                           } );
       }
 
       // Update resource limits:
@@ -2173,7 +2175,7 @@ struct controller_impl {
    std::future<block_state_ptr> create_block_state_future( const block_id_type& id, const signed_block_ptr& b ) {
       EOS_ASSERT( b, block_validate_exception, "null block" );
 
-      return async_thread_pool( thread_pool.get_executor(), [b, id, control=this]() {
+      return post_async_task( thread_pool.get_executor(), [b, id, control=this]() {
          // no reason for a block_state if fork_db already knows about block
          auto existing = control->fork_db.get_block( id );
          EOS_ASSERT( !existing, fork_database_exception, "we already know about this block: ${id}", ("id", id) );

@@ -81,11 +81,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
    using acceptor_type = std::variant<std::unique_ptr<tcp::acceptor>, std::unique_ptr<unixs::acceptor>>;
    std::set<acceptor_type> acceptors;
 
-   // use of executor assumes only one thread, delay start
-   named_thread_pool                thread_pool{"SHiP", 1, [](const fc::exception& e) {
-                                       fc_elog( _log, "SHiP thread exception, exiting: ${e}", ("e", e.to_detail_string()) );
-                                       app().quit();
-                                    }, true };
+   named_thread_pool                thread_pool{"SHiP"};
 
    static fc::logger& logger() { return _log; }
 
@@ -460,7 +456,11 @@ void state_history_plugin::plugin_startup() {
          fc_ilog( _log, "Done storing initial state on startup" );
       }
       my->listen();
-      my->thread_pool.start();
+      // use of executor assumes only one thread
+      my->thread_pool.start( 1, [](const fc::exception& e) {
+         fc_elog( _log, "Exception in SHiP thread pool, exiting: ${e}", ("e", e.to_detail_string()) );
+         app().quit();
+      } );
    } catch (std::exception& ex) {
       appbase::app().quit();
    }
