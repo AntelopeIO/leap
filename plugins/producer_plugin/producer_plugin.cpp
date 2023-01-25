@@ -306,7 +306,8 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       std::map<chain::account_name, producer_watermark>         _producer_watermarks;
       pending_block_mode                                        _pending_block_mode = pending_block_mode::speculating;
       unapplied_transaction_queue                               _unapplied_transactions;
-      std::optional<named_thread_pool>                          _thread_pool;
+      size_t                                                    _thread_pool_size = config::default_controller_thread_pool_size;
+      named_thread_pool                                         _thread_pool{ "prod" };
 
       std::atomic<int32_t>                                      _max_transaction_time_ms; // modified by app thread, read by net_plugin thread pool
       std::atomic<bool>                                         _received_block{false}; // modified by net_plugin thread pool and app thread
@@ -530,7 +531,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          const auto max_trx_time_ms = _max_transaction_time_ms.load();
          fc::microseconds max_trx_cpu_usage = max_trx_time_ms < 0 ? fc::microseconds::maximum() : fc::milliseconds( max_trx_time_ms );
 
-         auto future = transaction_metadata::start_recover_keys( trx, _thread_pool->get_executor(),
+         auto future = transaction_metadata::start_recover_keys( trx, _thread_pool.get_executor(),
                                                                  chain.get_chain_id(), fc::microseconds( max_trx_cpu_usage ),
                                                                  trx_type,
                                                                  chain.configured_subjective_signature_length_limit() );
@@ -550,7 +551,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
             };
          }
 
-         boost::asio::post(_thread_pool->get_executor(), [self = this, future{std::move(future)}, api_trx, return_failure_traces,
+         boost::asio::post(_thread_pool.get_executor(), [self = this, future{std::move(future)}, api_trx, return_failure_traces,
                                                           next{std::move(next)}, trx=trx]() mutable {
             if( future.valid() ) {
                future.wait();
@@ -764,7 +765,7 @@ void producer_plugin::set_program_options(
           "Disable subjective CPU billing for P2P transactions")
          ("disable-subjective-api-billing", bpo::value<bool>()->default_value(true),
           "Disable subjective CPU billing for API transactions")
-         ("producer-threads", bpo::value<uint16_t>()->default_value(config::default_controller_thread_pool_size),
+         ("producer-threads", bpo::value<uint16_t>()->default_value(my->_thread_pool_size),
           "Number of worker threads in producer thread pool")
          ("snapshots-dir", bpo::value<bfs::path>()->default_value("snapshots"),
           "the location of the snapshots directory (absolute path or relative to application data dir)")
@@ -929,13 +930,9 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
        if( my->_disable_subjective_api_billing ) ilog( "Subjective CPU billing of API trxs disabled " );
    }
 
-   auto thread_pool_size = options.at( "producer-threads" ).as<uint16_t>();
-   EOS_ASSERT( thread_pool_size > 0, plugin_config_exception,
-               "producer-threads ${num} must be greater than 0", ("num", thread_pool_size));
-   my->_thread_pool.emplace( "prod", thread_pool_size, []( const fc::exception& e ) {
-         fc_elog( _log, "Exception in producer thread pool, exiting: ${e}", ("e", e.to_detail_string()) );
-         app().quit();
-      } );
+   my->_thread_pool_size = options.at( "producer-threads" ).as<uint16_t>();
+   EOS_ASSERT( my->_thread_pool_size > 0, plugin_config_exception,
+               "producer-threads ${num} must be greater than 0", ("num", my->_thread_pool_size));
 
    if( options.count( "snapshots-dir" )) {
       auto sd = options.at( "snapshots-dir" ).as<bfs::path>();
@@ -996,6 +993,11 @@ void producer_plugin::plugin_startup()
    try {
    ilog("producer plugin:  plugin_startup() begin");
 
+   my->_thread_pool.start( my->_thread_pool_size, []( const fc::exception& e ) {
+      fc_elog( _log, "Exception in producer thread pool, exiting: ${e}", ("e", e.to_detail_string()) );
+      app().quit();
+   } );
+
    chain::controller& chain = my->chain_plug->chain();
    EOS_ASSERT( my->_producers.empty() || chain.get_read_mode() != chain::db_read_mode::IRREVERSIBLE, plugin_config_exception,
               "node cannot have any producer-name configured because block production is impossible when read_mode is \"irreversible\"" );
@@ -1051,9 +1053,7 @@ void producer_plugin::plugin_shutdown() {
       edump((fc::std_exception_wrapper::from_current_exception(e).to_detail_string()));
    }
 
-   if( my->_thread_pool ) {
-      my->_thread_pool->stop();
-   }
+   my->_thread_pool.stop();
 
    my->_unapplied_transactions.clear();
 

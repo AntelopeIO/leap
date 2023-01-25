@@ -4,27 +4,22 @@
 
 namespace eosio { namespace chain {
 
-named_thread_pool::named_thread_pool( std::string name_prefix, size_t num_threads, on_except_t on_except, bool delay_start )
+named_thread_pool::named_thread_pool( std::string name_prefix )
 : _name_prefix( std::move(name_prefix) )
-, _num_threads( num_threads )
-, _ioc( num_threads )
-, _on_except( std::move(on_except) )
+, _ioc()
 {
-   if( !delay_start ) {
-      start();
-   }
 }
 
 named_thread_pool::~named_thread_pool() {
    stop();
 }
 
-void named_thread_pool::start() {
+void named_thread_pool::start( size_t num_threads, on_except_t on_except ) {
    FC_ASSERT( !_ioc_work, "Thread pool already started" );
    _ioc_work.emplace( boost::asio::make_work_guard( _ioc ) );
    _ioc.restart();
-   for( size_t i = 0; i < _num_threads; ++i ) {
-      _thread_pool.emplace_back( [&ioc = _ioc, &name_prefix = _name_prefix, &on_except = _on_except, i]() {
+   for( size_t i = 0; i < num_threads; ++i ) {
+      _thread_pool.emplace_back( [&ioc = _ioc, &name_prefix = _name_prefix, on_except, i]() {
          std::string tn = name_prefix + "-" + std::to_string( i );
          try {
             fc::set_os_thread_name( tn );

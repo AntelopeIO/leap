@@ -301,16 +301,18 @@ struct controller_impl {
     conf( cfg ),
     chain_id( chain_id ),
     read_mode( cfg.read_mode ),
-    thread_pool( "chain", cfg.thread_pool_size, [this]( const fc::exception& e ) {
-       elog( "Exception in chain thread pool, exiting: ${e}", ("e", e.to_detail_string()) );
-       if( shutdown ) shutdown();
-    } )
+    thread_pool( "chain" )
    {
       fork_db.open( [this]( block_timestamp_type timestamp,
                             const flat_set<digest_type>& cur_features,
                             const vector<digest_type>& new_features )
                            { check_protocol_features( timestamp, cur_features, new_features ); }
       );
+
+      thread_pool.start( cfg.thread_pool_size, [this]( const fc::exception& e ) {
+         elog( "Exception in chain thread pool, exiting: ${e}", ("e", e.to_detail_string()) );
+         if( shutdown ) shutdown();
+      } );
 
       set_activation_handler<builtin_protocol_feature_t::preactivate_feature>();
       set_activation_handler<builtin_protocol_feature_t::replace_deferred>();
