@@ -158,9 +158,9 @@ class launcher(object):
                                          formatter_class=argparse.ArgumentDefaultsHelpFormatter)
         parser.add_argument('-i', '--timestamp', help='set the timestamp for the first block.  Use "now" to indicate the current time')
         parser.add_argument('-l', '--launch', choices=['all', 'none', 'local'], help='select a subset of nodes to launch.  If not set, the default is to launch all unless an output file is named, in which case none are started.', default='all')
-        parser.add_argument('-o', '--output', help='save a copy of the generated topology in this file', dest='topology_filename')
+        parser.add_argument('-o', '--output', help='save a copy of the generated topology in this file and exit without launching', dest='topology_filename')
         parser.add_argument('-k', '--kill', help='retrieve the list of previously started process ids and issue a kill to each')
-        parser.add_argument('--down', type=comma_separated, help='comma-separated list of node numbers that will be shut down')
+        parser.add_argument('--down', type=comma_separated, help='comma-separated list of node numbers that will be shut down', default=[])
         parser.add_argument('--bounce', type=comma_separated, help='comma-separated list of node numbers that will be restarted')
         parser.add_argument('--roll', type=comma_separated, help='comma-separated list of host names where the nodes will be rolled to a new version')
         parser.add_argument('-b', '--base_dir', type=Path, help='base directory where configuration and data files will be written', default=Path('.'))
@@ -200,6 +200,9 @@ class launcher(object):
         cfg.add_argument('--max-transaction-cpu-usage', type=int, help='the "max-transaction-cpu-usage" value to use in the genesis.json file', default=150000)
         cfg.add_argument('--nodeos-log-path', type=Path, help='path to nodeos log directory')
         r = parser.parse_args(args)
+        if r.launch != 'none' and r.topology_filename:
+            Utils.Print('Output file specified--overriding launch to "none"')
+            r.launch = 'none'
         if r.shape not in ['star', 'mesh', 'ring', 'line'] and not Path(r.shape).is_file():
             parser.error('-s, --shape must be one of "star", "mesh", "ring", "line", or a file')
         if len(r.specific_nums) != len(getattr(r, f'specific_{Utils.EosServerName}es')):
@@ -566,6 +569,14 @@ plugin = eosio::chain_api_plugin
                 pass
             err_sl.symlink_to(err.name)
 
+    def down(self, nodeNumbers):
+        for num in nodeNumbers:
+            for node in self.network.nodes:
+                if self.network.name + num == node.name:
+                    with open(node.data_dir_name + '/nodeos.pid', 'r') as f:
+                        pid = f.readline()
+                        subprocess.call(f'kill -15 {pid}')
+
     def start_all(self):
         if self.args.launch.lower() != 'none':
             for instance in self.network.nodes.values():
@@ -610,4 +621,7 @@ plugin = eosio::chain_api_plugin
 
 if __name__ == '__main__':
     l = launcher(sys.argv[1:])
-    l.start_all()
+    if len(l.args.down):
+        l.down(l.args.down)
+    elif l.args.launch == 'all' or l.args.launch == 'local':
+        l.start_all()

@@ -207,7 +207,7 @@ class Node(Transactions):
         data = payload
         data = json.dumps(data)
         data = data.encode()
-        if Utils.Debug: Utils.Print("cmd: %s" % (cmd))
+        if Utils.Debug: Utils.Print("cmd: %s %s" % (cmd, payload))
         rtn=None
         start=time.perf_counter()
         try:

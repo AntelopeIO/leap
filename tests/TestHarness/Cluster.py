@@ -12,6 +12,7 @@ import sys
 import random
 import json
 import socket
+from pathlib import Path
 
 from core_symbol import CORE_SYMBOL
 from .testUtils import Utils
@@ -176,7 +177,7 @@ class Cluster(object):
     # pylint: disable=too-many-statements
     def launch(self, pnodes=1, unstartedNodes=0, totalNodes=1, prodCount=1, topo="mesh", delay=1, onlyBios=False, dontBootstrap=False,
                totalProducers=None, sharedProducers=0, extraNodeosArgs="", useBiosBootFile=True, specificExtraNodeosArgs=None, specificNodeosInstances=None, onlySetProds=False,
-               pfSetupPolicy=PFSetupPolicy.FULL, alternateVersionLabelsFile=None, associatedNodeLabels=None, loadSystemContract=True, nodeosLogPath=f"TestLogs/{os.path.basename(sys.argv[0]).split('.')[0]}{os.getpid()}/"):
+               pfSetupPolicy=PFSetupPolicy.FULL, alternateVersionLabelsFile=None, associatedNodeLabels=None, loadSystemContract=True, nodeosLogPath=Path(f"TestLogs/{os.path.basename(sys.argv[0]).split('.')[0]}{os.getpid()}")):
         """Launch cluster.
         pnodes: producer nodes count
         unstartedNodes: non-producer nodes that are configured into the launch, but not started.  Should be included in totalNodes.
@@ -306,7 +307,7 @@ class Cluster(object):
         cmdArr.append("--max-transaction-cpu-usage")
         cmdArr.append(str(150000000))
         cmdArr.append("--nodeos-log-path")
-        cmdArr.append(nodeosLogPath)
+        cmdArr.append(str(nodeosLogPath))
 
         if associatedNodeLabels is not None:
             for nodeNum,label in associatedNodeLabels.items():
@@ -327,15 +328,17 @@ class Cluster(object):
             shapeFile=shapeFilePrefix+".json"
             cmdArrForOutput=copy.deepcopy(cmdArr)
             cmdArrForOutput.append("--output")
-            cmdArrForOutput.append(shapeFile)
+            cmdArrForOutput.append(str(nodeosLogPath / shapeFile))
+            cmdArrForOutput.append("--shape")
+            cmdArrForOutput.append("line")
             s=" ".join(cmdArrForOutput)
             if Utils.Debug: Utils.Print("cmd: %s" % (s))
             if 0 != subprocess.call(cmdArrForOutput):
                 Utils.Print("ERROR: Launcher failed to create shape file \"%s\"." % (shapeFile))
                 return False
 
-            Utils.Print("opening %s shape file: %s, current dir: %s" % (topo, shapeFile, os.getcwd()))
-            f = open(shapeFile, "r")
+            Utils.Print(f"opening {topo} shape file: {nodeosLogPath / shapeFile}")
+            f = open(nodeosLogPath / shapeFile, "r")
             shapeFileJsonStr = f.read()
             f.close()
             shapeFileObject = json.loads(shapeFileJsonStr)
