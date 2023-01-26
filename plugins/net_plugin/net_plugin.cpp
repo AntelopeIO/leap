@@ -291,7 +291,7 @@ namespace eosio {
       eosio::chain::named_thread_pool       thread_pool{ "net" };
 
 
-      unique_ptr<boost::asio::deadline_timer> accept_error_timer;
+      boost::asio::deadline_timer           accept_error_timer{thread_pool.get_executor()};
 
    private:
       mutable std::mutex            chain_info_mtx; // protects chain_*
@@ -2422,8 +2422,8 @@ namespace eosio {
                      // no file descriptors available to accept the connection. Wait on async_timer
                      // and retry listening using shorter 100ms timer than SHiP or http_plugin
                      // as net_pluging is more critical
-                     accept_error_timer->expires_from_now(boost::posix_time::milliseconds(100));
-                     accept_error_timer->async_wait([this]( const boost::system::error_code &ec) {
+                     accept_error_timer.expires_from_now(boost::posix_time::milliseconds(100));
+                     accept_error_timer.async_wait([this]( const boost::system::error_code &ec) {
                         if (!ec)
                            start_listen_loop();
                      });
@@ -3772,8 +3772,6 @@ namespace eosio {
                "***********************************\n" );
       }
 
-      my->accept_error_timer = std::make_unique<boost::asio::deadline_timer>(my_impl->thread_pool.get_executor());
-      
       tcp::endpoint listen_endpoint;
       if( my->p2p_address.size() > 0 ) {
          auto host = my->p2p_address.substr( 0, my->p2p_address.find( ':' ));
