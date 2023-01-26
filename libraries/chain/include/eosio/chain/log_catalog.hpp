@@ -69,7 +69,7 @@ struct log_catalog {
       return collection.rbegin()->second.last_block_num;
    }
 
-   static bfs::path make_abosolute_dir(const bfs::path& base_dir, bfs::path new_dir) {
+   static bfs::path make_absolute_dir(const bfs::path& base_dir, bfs::path new_dir) {
       if (new_dir.is_relative())
          new_dir = base_dir / new_dir;
 
@@ -82,9 +82,9 @@ struct log_catalog {
    void open(const bfs::path& log_dir, const bfs::path& retained_dir, const bfs::path& archive_dir, const char* name,
              const char* suffix_pattern = R"(-\d+-\d+\.log)") {
 
-      this->retained_dir = make_abosolute_dir(log_dir, retained_dir.empty() ? log_dir : retained_dir);
+      this->retained_dir = make_absolute_dir(log_dir, retained_dir.empty() ? log_dir : retained_dir);
       if (!archive_dir.empty()) {
-         this->archive_dir = make_abosolute_dir(log_dir, archive_dir);
+         this->archive_dir = make_absolute_dir(log_dir, archive_dir);
       }
 
       for_each_file_in_dir_matches(this->retained_dir, std::string(name) + suffix_pattern, [this](bfs::path path) {
