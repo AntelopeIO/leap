@@ -27,7 +27,7 @@
 #include "test_wasts.hpp"
 #include "test_softfloat_wasts.hpp"
 
-#include <contracts.hpp>
+#include <test_contracts.hpp>
 
 #ifdef NON_VALIDATING_TEST
 #define TESTER tester
@@ -87,7 +87,7 @@ BOOST_FIXTURE_TEST_CASE( basic_test, TESTER ) try {
    create_accounts( {"asserter"_n} );
    produce_block();
 
-   set_code("asserter"_n, contracts::asserter_wasm());
+   set_code("asserter"_n, test_contracts::asserter_wasm());
    produce_blocks(1);
 
    transaction_id_type no_assert_id;
@@ -146,7 +146,7 @@ BOOST_FIXTURE_TEST_CASE( prove_mem_reset, TESTER ) try {
    create_accounts( {"asserter"_n} );
    produce_block();
 
-   set_code("asserter"_n, contracts::asserter_wasm());
+   set_code("asserter"_n, test_contracts::asserter_wasm());
    produce_blocks(1);
 
    // repeat the action multiple times, each time the action handler checks for the expected
@@ -176,8 +176,8 @@ BOOST_FIXTURE_TEST_CASE( abi_from_variant, TESTER ) try {
    create_accounts( {"asserter"_n} );
    produce_block();
 
-   set_code("asserter"_n, contracts::asserter_wasm());
-   set_abi("asserter"_n, contracts::asserter_abi().data());
+   set_code("asserter"_n, test_contracts::asserter_wasm());
+   set_abi("asserter"_n, test_contracts::asserter_abi().data());
    produce_blocks(1);
 
    auto resolver = [&,this]( const account_name& name ) -> std::optional<abi_serializer> {
@@ -1043,9 +1043,9 @@ BOOST_FIXTURE_TEST_CASE(noop, TESTER) try {
    create_accounts( {"noop"_n, "alice"_n} );
    produce_block();
 
-   set_code("noop"_n, contracts::noop_wasm());
+   set_code("noop"_n, test_contracts::noop_wasm());
 
-   set_abi("noop"_n, contracts::noop_abi().data());
+   set_abi("noop"_n, test_contracts::noop_abi().data());
    const auto& accnt  = control->db().get<account_object,by_name>("noop"_n);
    abi_def abi;
    BOOST_REQUIRE_EQUAL(abi_serializer::to_abi(accnt.abi, abi), true);
