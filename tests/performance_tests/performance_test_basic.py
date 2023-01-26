@@ -165,7 +165,7 @@ class PerformanceTestBasic:
         self.etcEosioLogsDirPath = self.etcLogsDirPath/Path("eosio")
         self.blockDataLogDirPath = self.loggingConfig.logDirPath/Path("blockDataLogs")
         self.blockDataPath = self.blockDataLogDirPath/Path("blockData.txt")
-        self.csvDataPath = self.blockDataLogDirPath/Path("transaction_metrics.txt")
+        self.csvDataPath = self.blockDataLogDirPath/Path("transaction_metrics.csv")
         self.blockTrxDataPath = self.blockDataLogDirPath/Path("blockTrxData.txt")
         self.reportPath = self.loggingConfig.logDirPath/Path("data.json")
 
