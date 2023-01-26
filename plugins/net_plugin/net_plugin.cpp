@@ -2423,9 +2423,9 @@ namespace eosio {
                      // and retry listening using shorter 100ms timer than SHiP or http_plugin
                      // as net_pluging is more critical
                      accept_error_timer->expires_from_now(boost::posix_time::milliseconds(100));
-                     accept_error_timer->async_wait([self = shared_from_this()]( const boost::system::error_code &ec) {
+                     accept_error_timer->async_wait([this]( const boost::system::error_code &ec) {
                         if (!ec)
-                           self->start_listen_loop();
+                           start_listen_loop();
                      });
                      return; // wait for timer!!
                   }
@@ -3772,6 +3772,8 @@ namespace eosio {
                "***********************************\n" );
       }
 
+      my->accept_error_timer = std::make_unique<boost::asio::deadline_timer>(my_impl->thread_pool.get_executor());
+      
       tcp::endpoint listen_endpoint;
       if( my->p2p_address.size() > 0 ) {
          auto host = my->p2p_address.substr( 0, my->p2p_address.find( ':' ));
