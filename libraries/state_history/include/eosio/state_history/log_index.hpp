@@ -1,5 +1,7 @@
 #pragma once
 
+#include <eosio/chain/exceptions.hpp>
+
 #include <boost/filesystem/path.hpp>
 #include <boost/iostreams/device/mapped_file.hpp>
 
