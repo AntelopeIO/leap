@@ -96,11 +96,10 @@ struct mock_state_history_plugin {
    std::optional<ioc_work_t>               main_ioc_work;
    std::optional<ioc_work_t>               ship_ioc_work;
 
-   std::shared_ptr<eosio::session_base>    session;
    eosio::state_history::block_position    block_head;
    fc::temp_directory                      log_dir;
    std::optional<eosio::state_history_log> log;
-   bool                                    stopping = false;
+   std::atomic<bool>                       stopping = false;
    std::set<std::shared_ptr<eosio::session_base>> session_set;
 
    constexpr static uint32_t default_frame_size = 1024;
@@ -131,16 +130,8 @@ struct mock_state_history_plugin {
    eosio::state_history::block_position get_block_head() { return block_head; }
    eosio::state_history::block_position get_last_irreversible() { return block_head; }
 
-   void add_session(std::shared_ptr<eosio::session_base> s) { session = s; }
-
-   void remove_session(std::shared_ptr<eosio::session_base>) {
-      stopping = true;
-      session.reset();
-   }
-
-   template <typename Task>
-   void post_task_main_thread_high(Task&& task) {
-      boost::asio::post(main_ioc, std::forward<Task>(task));
+   void add_session(std::shared_ptr<eosio::session_base> s) {
+      session_set.insert(s);
    }
 
    template <typename Task>
@@ -206,7 +197,12 @@ class listener : public std::enable_shared_from_this<listener> {
       // The new connection gets its own strand
       acceptor_.async_accept(boost::asio::make_strand(server_->ship_ioc),
                              [self = shared_from_this()](beast::error_code ec, boost::asio::ip::tcp::socket&& socket) {
-                                self->on_accept(ec, std::move(socket));
+                                if( self->server_->stopping ) return;
+                                if (ec) {
+                                   fail(ec, "async_accept");
+                                } else {
+                                   self->on_accept( ec, std::move( socket ) );
+                                }
                              });
    }
 
@@ -239,12 +235,9 @@ struct test_server : mock_state_history_plugin {
    }
 
    ~test_server() {
-      session->close();
+      stopping = true;
       ship_ioc_work.reset();
       main_ioc_work.reset();
-
-      ship_ioc.stop();
-      main_ioc.stop();
 
       for (auto& thr : threads) {
          thr.join();
