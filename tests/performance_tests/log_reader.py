@@ -29,6 +29,7 @@ class ArtifactPaths:
     trxGenLogDirPath: Path = Path("")
     blockTrxDataPath: Path = Path("")
     blockDataPath: Path = Path("")
+    transactionMetricsDataPath: Path = Path("")
 
 @dataclass
 class TpsTestConfig:
@@ -62,6 +63,8 @@ class trxData():
     blockNum: int = 0
     cpuUsageUs: int = 0
     netUsageUs: int = 0
+    blockTime: datetime = None
+    latency: float = 0
     _sentTimestamp: str = ""
     _calcdTimeEpoch: float = 0
 
@@ -198,6 +201,7 @@ def selectedOpen(path):
     return gzip.open if path.suffix == '.gz' else open
 
 def scrapeLog(data: chainData, path):
+    #node_00/stderr.txt
     selectedopen = selectedOpen(path)
     with selectedopen(path, 'rt') as f:
         line = f.read()
@@ -228,16 +232,19 @@ def scrapeLog(data: chainData, path):
             data.forkedBlocks.append(int(fork[1]) - int(fork[3]) + 1)
 
 def scrapeTrxGenLog(trxSent, path):
+    #trxGenLogs/trx_data_output_*.txt
     selectedopen = selectedOpen(path)
     with selectedopen(path, 'rt') as f:
         trxSent.update(dict([(x[0], x[1]) for x in (line.rstrip('\n').split(',') for line in f)]))
 
 def scrapeBlockTrxDataLog(trxDict, path):
+    #blockTrxData.txt
     selectedopen = selectedOpen(path)
     with selectedopen(path, 'rt') as f:
-        trxDict.update(dict([(x[0], trxData(x[1], x[2], x[3])) for x in (line.rstrip('\n').split(',') for line in f)]))
+        trxDict.update(dict([(x[0], trxData(blockNum=x[1], blockTime=x[2], cpuUsageUs=x[3], netUsageUs=x[4])) for x in (line.rstrip('\n').split(',') for line in f)]))
 
 def scrapeBlockDataLog(blockDict, path):
+    #blockData.txt
     selectedopen = selectedOpen(path)
     with selectedopen(path, 'rt') as f:
         blockDict.update(dict([(x[0], blkData(x[1], x[2], x[3], x[4])) for x in (line.rstrip('\n').split(',') for line in f)]))
@@ -257,6 +264,17 @@ def populateTrxSentTimestamp(trxSent: dict, trxDict: dict, notFound):
             trxDict[sentTrxId].sentTimestamp = trxSent[sentTrxId]
         else:
             notFound.append(sentTrxId)
+
+def populateTrxLatencies(blockDict: dict, trxDict: dict):
+    for trxId, data in trxDict.items():
+        if data.calcdTimeEpoch != 0:
+            trxDict[trxId].latency = blockDict[data.blockNum].calcdTimeEpoch - data.calcdTimeEpoch
+
+def writeTransactionMetrics(trxDict: dict, path):
+    with open(path, 'wt') as transactionMetricsFile:
+        transactionMetricsFile.write("TransactionId,BlockNumber,BlockTime,CpuUsageUs,NetUsageUs,Latency,SentTimestamp,CalcdTimeEpoch\n")
+        for trxId, data in trxDict.items():
+            transactionMetricsFile.write(f"{trxId},{data.blockNum},{data.blockTime},{data.cpuUsageUs},{data.netUsageUs},{data.latency},{data._sentTimestamp},{data._calcdTimeEpoch}\n")
 
 def getProductionWindows(prodDict: dict, blockDict: dict, data: chainData):
     prod = ""
@@ -408,7 +426,7 @@ def calcTrxLatencyCpuNetStats(trxDict : dict, blockDict: dict):
     Returns:
     transaction latency stats as a basicStats object
     """
-    trxLatencyCpuNetList = [((blockDict[data.blockNum].calcdTimeEpoch - data.calcdTimeEpoch), data.cpuUsageUs, data.netUsageUs) for trxId, data in trxDict.items() if data.calcdTimeEpoch != 0]
+    trxLatencyCpuNetList = [(data.latency, data.cpuUsageUs, data.netUsageUs) for trxId, data in trxDict.items() if data.calcdTimeEpoch != 0]
 
     npLatencyCpuNetList = np.array(trxLatencyCpuNetList, dtype=np.float)
 
@@ -484,6 +502,8 @@ def calcAndReport(data: chainData, tpsTestConfig: TpsTestConfig, artifacts: Arti
         if argsDict.get("printMissingTransactions"):
             print(notFound)
 
+    populateTrxLatencies(blockDict, trxDict)
+    writeTransactionMetrics(trxDict, artifacts.transactionMetricsDataPath)
     guide = calcChainGuide(data, tpsTestConfig.numBlocksToPrune)
     trxLatencyStats, trxCpuStats, trxNetStats = calcTrxLatencyCpuNetStats(trxDict, blockDict)
     tpsStats = scoreTransfersPerSecond(data, guide)
