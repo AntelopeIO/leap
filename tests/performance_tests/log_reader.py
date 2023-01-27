@@ -29,7 +29,7 @@ class ArtifactPaths:
     trxGenLogDirPath: Path = Path("")
     blockTrxDataPath: Path = Path("")
     blockDataPath: Path = Path("")
-    csvDataPath: Path = Path("")
+    transactionMetricsDataPath: Path = Path("")
 
 @dataclass
 class TpsTestConfig:
@@ -270,11 +270,11 @@ def populateTrxLatencies(blockDict: dict, trxDict: dict):
         if data.calcdTimeEpoch != 0:
             trxDict[trxId].latency = blockDict[data.blockNum].calcdTimeEpoch - data.calcdTimeEpoch
 
-def writeTransactionCsv(trxDict: dict, path):
-    with open(path, 'wt') as csvFile:
-        csvFile.write("TransactionId,BlockNumber,BlockTime,CpuUsageUs,NetUsageUs,Latency,SentTimestamp,CalcdTimeEpoch\n")
+def writeTransactionMetrics(trxDict: dict, path):
+    with open(path, 'wt') as transactionMetricsFile:
+        transactionMetricsFile.write("TransactionId,BlockNumber,BlockTime,CpuUsageUs,NetUsageUs,Latency,SentTimestamp,CalcdTimeEpoch\n")
         for trxId, data in trxDict.items():
-            csvFile.write(f"{trxId},{data.blockNum},{data.blockTime},{data.cpuUsageUs},{data.netUsageUs},{data.latency},{data._sentTimestamp},{data._calcdTimeEpoch}\n")
+            transactionMetricsFile.write(f"{trxId},{data.blockNum},{data.blockTime},{data.cpuUsageUs},{data.netUsageUs},{data.latency},{data._sentTimestamp},{data._calcdTimeEpoch}\n")
 
 def getProductionWindows(prodDict: dict, blockDict: dict, data: chainData):
     prod = ""
@@ -503,7 +503,7 @@ def calcAndReport(data: chainData, tpsTestConfig: TpsTestConfig, artifacts: Arti
             print(notFound)
 
     populateTrxLatencies(blockDict, trxDict)
-    writeTransactionCsv(trxDict, artifacts.csvDataPath)
+    writeTransactionMetrics(trxDict, artifacts.transactionMetricsDataPath)
     guide = calcChainGuide(data, tpsTestConfig.numBlocksToPrune)
     trxLatencyStats, trxCpuStats, trxNetStats = calcTrxLatencyCpuNetStats(trxDict, blockDict)
     tpsStats = scoreTransfersPerSecond(data, guide)
