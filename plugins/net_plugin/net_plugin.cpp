@@ -294,7 +294,6 @@ namespace eosio {
 
       void start_listen_loop();
 
-      void on_accepted_block( const block_state_ptr& bs );
       void on_accepted_block_header( const block_state_ptr& bs );
       void transaction_ack(const std::pair<fc::exception_ptr, packed_transaction_ptr>&);
       void on_irreversible_block( const block_state_ptr& blk );
@@ -3415,16 +3414,6 @@ namespace eosio {
    }
 
    // called from application thread
-   void net_plugin_impl::on_accepted_block(const block_state_ptr& bs) {
-      update_chain_info();
-      dispatcher->strand.post( [bs]() {
-         fc_dlog( logger, "signaled accepted_block, blk num = ${num}, id = ${id}", ("num", bs->block_num)("id", bs->id) );
-
-         my_impl->dispatcher->bcast_block( bs->block, bs->id );
-      });
-   }
-
-   // called from application thread
    void net_plugin_impl::on_accepted_block_header(const block_state_ptr& bs) {
       update_chain_info();
       dispatcher->strand.post( [bs]() {
@@ -3768,9 +3757,6 @@ namespace eosio {
 
       {
          chain::controller& cc = my->chain_plug->chain();
-         cc.accepted_block.connect( [my = my]( const block_state_ptr& s ) {
-            my->on_accepted_block( s );
-         } );
          cc.accepted_block_header.connect( [my = my]( const block_state_ptr& s ) {
             my->on_accepted_block_header( s );
          } );
