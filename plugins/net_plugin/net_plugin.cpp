@@ -180,10 +180,10 @@ namespace eosio {
 
       void retry_fetch(const connection_ptr& conn);
 
-      bool add_peer_block( uint32_t block_num, const block_id_type& blkid, uint32_t connection_id );
-      bool peer_has_block(uint32_t block_num, const block_id_type& blkid, uint32_t connection_id) const;
-      bool have_block(uint32_t block_num, const block_id_type& blkid) const;
-      void rm_block(uint32_t block_num, const block_id_type& blkid);
+      bool add_peer_block( const block_id_type& blkid, uint32_t connection_id );
+      bool peer_has_block(const block_id_type& blkid, uint32_t connection_id) const;
+      bool have_block(const block_id_type& blkid) const;
+      void rm_block(const block_id_type& blkid);
 
       bool add_peer_txn( const transaction_id_type id, const time_point_sec& trx_expires, uint32_t connection_id,
                          const time_point_sec& now = time_point::now() );
@@ -1939,10 +1939,9 @@ namespace eosio {
             peer_elog( c, "got a catch up with ids size = 0" );
          } else {
             const block_id_type& id = msg.known_blocks.ids.back();
-            uint32_t block_num = block_header::num_from_id(id);
             peer_ilog( c, "notice_message, pending ${p}, blk_num ${n}, id ${id}...",
-                     ("p", msg.known_blocks.pending)("n", block_num)("id",id.str().substr(8,16)) );
-            if( !my_impl->dispatcher->have_block( block_num, id ) ) {
+                     ("p", msg.known_blocks.pending)("n", block_header::num_from_id(id))("id",id.str().substr(8,16)) );
+            if( !my_impl->dispatcher->have_block( id ) ) {
                verify_catchup( c, msg.known_blocks.pending, id );
             } else {
                // we already have the block, so update peer with our view of the world
@@ -2055,7 +2054,8 @@ namespace eosio {
    //------------------------------------------------------------------------
 
    // thread safe
-   bool dispatch_manager::add_peer_block( uint32_t block_num, const block_id_type& blkid, uint32_t connection_id) {
+   bool dispatch_manager::add_peer_block( const block_id_type& blkid, uint32_t connection_id) {
+      uint32_t block_num = block_header::num_from_id(blkid);
       std::lock_guard<std::mutex> g( blk_state_mtx );
       auto bptr = blk_state.get<by_connection_id>().find( std::make_tuple(block_num, std::ref(blkid), connection_id) );
       bool added = (bptr == blk_state.end());
@@ -2065,20 +2065,23 @@ namespace eosio {
       return added;
    }
 
-   bool dispatch_manager::peer_has_block( uint32_t block_num, const block_id_type& blkid, uint32_t connection_id ) const {
+   bool dispatch_manager::peer_has_block( const block_id_type& blkid, uint32_t connection_id ) const {
+      uint32_t block_num = block_header::num_from_id(blkid);
       std::lock_guard<std::mutex> g(blk_state_mtx);
       const auto blk_itr = blk_state.get<by_connection_id>().find( std::make_tuple(block_num, std::ref(blkid), connection_id) );
       return blk_itr != blk_state.end();
    }
 
-   bool dispatch_manager::have_block( uint32_t block_num, const block_id_type& blkid ) const {
+   bool dispatch_manager::have_block( const block_id_type& blkid ) const {
+      uint32_t block_num = block_header::num_from_id(blkid);
       std::lock_guard<std::mutex> g(blk_state_mtx);
       const auto& index = blk_state.get<by_connection_id>();
       auto blk_itr = index.find( std::make_tuple(block_num, std::ref(blkid)) );
       return blk_itr != index.end();
    }
 
-   void dispatch_manager::rm_block( uint32_t block_num, const block_id_type& blkid ) {
+   void dispatch_manager::rm_block( const block_id_type& blkid ) {
+      uint32_t block_num = block_header::num_from_id(blkid);
       fc_dlog( logger, "rm_block ${n}, id: ${id}", ("n", block_num)("id", blkid));
       std::lock_guard<std::mutex> g(blk_state_mtx);
       auto& index = blk_state.get<by_connection_id>();
@@ -2142,7 +2145,7 @@ namespace eosio {
                   ("s", cp->socket_is_open())("c", cp->connecting.load())("ss", cp->syncing.load())("cid", cp->connection_id) );
          if( !cp->current() ) return true;
 
-         if( !add_peer_block( bnum, id, cp->connection_id ) ) {
+         if( !add_peer_block( id, cp->connection_id ) ) {
             fc_dlog( logger, "not bcast block ${b} to connection ${cid}", ("b", bnum)("cid", cp->connection_id) );
             return true;
          }
@@ -2249,8 +2252,7 @@ namespace eosio {
          }
          last_req = *c->last_req;
       }
-      uint32_t blk_num = block_header::num_from_id(bid);
-      for_each_block_connection( [this, &c, &last_req, blk_num, &bid]( auto& conn ) {
+      for_each_block_connection( [this, &c, &last_req, &bid]( auto& conn ) {
          if( conn == c )
             return true;
 
@@ -2261,7 +2263,7 @@ namespace eosio {
             }
          }
 
-         bool sendit = peer_has_block( blk_num, bid, conn->connection_id );
+         bool sendit = peer_has_block( bid, conn->connection_id );
          if( sendit ) {
             conn->strand.post( [conn, last_req{std::move(last_req)}]() {
                conn->enqueue( last_req );
@@ -2611,7 +2613,7 @@ namespace eosio {
       const block_id_type blk_id = bh.calculate_id();
       const uint32_t blk_num = block_header::num_from_id(blk_id);
       // don't add_peer_block because we have not validated this block header yet
-      if( my_impl->dispatcher->have_block( blk_num, blk_id ) ) {
+      if( my_impl->dispatcher->have_block( blk_id ) ) {
          peer_dlog( this, "canceling wait, already received block ${num}, id ${id}...",
                     ("num", blk_num)("id", blk_id.str().substr(8,16)) );
          my_impl->sync_master->sync_recv_block( shared_from_this(), blk_id, blk_num, false );
@@ -3185,19 +3187,18 @@ namespace eosio {
 
    // called from connection strand
    void connection::handle_message( const block_id_type& id, signed_block_ptr ptr ) {
-      uint32_t block_num = block_header::num_from_id(id);
-      peer_dlog( this, "received signed_block ${num}, id ${id}", ("num", block_num)("id", id) );
+      peer_dlog( this, "received signed_block ${num}, id ${id}", ("num", block_header::num_from_id(id))("id", id) );
 
       // post to dispatcher strand so that we don't have multiple threads validating the block header
       // the dispatcher strand will sync the add_peer_block and rm_block calls
-      my_impl->dispatcher->strand.post([block_num, id, c{shared_from_this()}, ptr{std::move(ptr)}, cid=connection_id]() mutable {
+      my_impl->dispatcher->strand.post([id, c{shared_from_this()}, ptr{std::move(ptr)}, cid=connection_id]() mutable {
          controller& cc = my_impl->chain_plug->chain();
 
          // may have come in on a different connection and posted into dispatcher strand before this one
-         if( my_impl->dispatcher->have_block( block_num, id ) || cc.fetch_block_state_by_id( id ) ) {
-            my_impl->dispatcher->add_peer_block( block_num, id, c->connection_id );
-            c->strand.post( [c, id, block_num]() {
-               my_impl->sync_master->sync_recv_block( c, id, block_num, false );
+         if( my_impl->dispatcher->have_block( id ) || cc.fetch_block_state_by_id( id ) ) {
+            my_impl->dispatcher->add_peer_block( id, c->connection_id );
+            c->strand.post( [c, id]() {
+               my_impl->sync_master->sync_recv_block( c, id, block_header::num_from_id(id), false );
             });
             return;
          }
@@ -3229,7 +3230,7 @@ namespace eosio {
          if( valid_block_header ) {
             fc_dlog( logger, "validated block header, broadcasting immediately, connection ${cid}, blk num = ${num}, id = ${id}",
                      ("cid", cid)("num", bsp->block_num)("id", bsp->id) );
-            my_impl->dispatcher->add_peer_block( bsp->block_num, bsp->id, cid ); // no need to send back to sender
+            my_impl->dispatcher->add_peer_block( bsp->id, cid ); // no need to send back to sender
             my_impl->dispatcher->bcast_block( bsp->block, bsp->id );
          }
 
@@ -3256,8 +3257,8 @@ namespace eosio {
          if( bsp ) {
             // valid bsp means add_peer_block already called, need to remove it since we are not going to process the block
             // call on dispatch strand to serialize with the add_peer_block calls
-            my_impl->dispatcher->strand.post( [blk_num, blk_id]() {
-               my_impl->dispatcher->rm_block( blk_num, blk_id );
+            my_impl->dispatcher->strand.post( [blk_id]() {
+               my_impl->dispatcher->rm_block( blk_id );
             } );
          }
          return;
@@ -3267,7 +3268,7 @@ namespace eosio {
          if( cc.fetch_block_by_id(blk_id) ) {
             c->strand.post( [sync_master = my_impl->sync_master.get(),
                              dispatcher = my_impl->dispatcher.get(), c, blk_id, blk_num]() {
-               dispatcher->add_peer_block( blk_num, blk_id, c->connection_id );
+               dispatcher->add_peer_block( blk_id, c->connection_id );
                sync_master->sync_recv_block( c, blk_id, blk_num, false );
             });
             return;
@@ -3309,9 +3310,9 @@ namespace eosio {
       }
 
       if( accepted ) {
-         boost::asio::post( my_impl->thread_pool.get_executor(), [dispatcher = my_impl->dispatcher.get(), cid=c->connection_id, blk_num, blk_id, msg]() {
+         boost::asio::post( my_impl->thread_pool.get_executor(), [dispatcher = my_impl->dispatcher.get(), cid=c->connection_id, blk_id, msg]() {
             fc_dlog( logger, "accepted signed_block : #${n} ${id}...", ("n", msg->block_num())("id", blk_id.str().substr(8,16)) );
-            dispatcher->add_peer_block( blk_num, blk_id, cid );
+            dispatcher->add_peer_block( blk_id, cid );
          });
          c->strand.post( [sync_master = my_impl->sync_master.get(), dispatcher = my_impl->dispatcher.get(), c, blk_id, blk_num]() {
             dispatcher->recv_block( c, blk_id, blk_num );
@@ -3322,12 +3323,12 @@ namespace eosio {
             if( reason == unlinkable || reason == no_reason ) {
                // unlinkable may be linkable in the future, so indicate we have not received it
                // call on dispatch strand to serialize with the add_peer_block calls
-               my_impl->dispatcher->strand.post( [blk_num, blk_id]() {
-                  my_impl->dispatcher->rm_block( blk_num, blk_id );
+               my_impl->dispatcher->strand.post( [blk_id]() {
+                  my_impl->dispatcher->rm_block( blk_id );
                } );
             }
+            // reason==no_reason means accept_block() return false because we are producing, don't call rejected_block which sends handshake
             if( reason != no_reason ) {
-               // dropped block because we are producing, so no need to send handshake
                sync_master->rejected_block( c, blk_num );
             }
             dispatcher->rejected_block( blk_id );
