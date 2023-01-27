@@ -78,7 +78,7 @@ namespace eosio {
                member<node_transaction_state, transaction_id_type, &node_transaction_state::id>,
                member<node_transaction_state, uint32_t, &node_transaction_state::connection_id>
             >,
-            composite_key_compare< sha256_less, std::less<uint32_t> >
+            composite_key_compare< sha256_less, std::less<> >
          >,
          ordered_non_unique<
             tag< by_expiry >,
@@ -88,9 +88,10 @@ namespace eosio {
    node_transaction_index;
 
    struct peer_block_state {
-      uint32_t      block_num = 0;
       block_id_type id;
       uint32_t      connection_id = 0;
+
+      uint32_t block_num() const { return block_header::num_from_id(id); }
    };
 
    struct by_connection_id;
@@ -100,7 +101,7 @@ namespace eosio {
       indexed_by<
          ordered_unique< tag<by_connection_id>,
                composite_key< peer_block_state,
-                     member<peer_block_state, uint32_t, &eosio::peer_block_state::block_num>,
+                     const_mem_fun<peer_block_state, uint32_t , &eosio::peer_block_state::block_num>,
                      member<peer_block_state, block_id_type, &eosio::peer_block_state::id>,
                      member<peer_block_state, uint32_t, &eosio::peer_block_state::connection_id>
                >,
@@ -2059,7 +2060,7 @@ namespace eosio {
       auto bptr = blk_state.get<by_connection_id>().find( std::make_tuple(block_num, std::ref(blkid), connection_id) );
       bool added = (bptr == blk_state.end());
       if( added ) {
-         blk_state.insert( {block_num, blkid, connection_id} );
+         blk_state.insert( {blkid, connection_id} );
       }
       return added;
    }
