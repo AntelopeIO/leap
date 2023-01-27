@@ -79,15 +79,15 @@ struct log_catalog {
       return new_dir;
    }
 
-   void open(const bfs::path& log_dir, const bfs::path& retained_dir, const bfs::path& archive_dir, const char* name,
+   void open(const bfs::path& log_dir, const bfs::path& retained_path, const bfs::path& archive_path, const char* name,
              const char* suffix_pattern = R"(-\d+-\d+\.log)") {
 
-      this->retained_dir = make_absolute_dir(log_dir, retained_dir.empty() ? log_dir : retained_dir);
-      if (!archive_dir.empty()) {
-         this->archive_dir = make_absolute_dir(log_dir, archive_dir);
+      retained_dir = make_absolute_dir(log_dir, retained_path.empty() ? log_dir : retained_path);
+      if (!archive_path.empty()) {
+         archive_dir = make_absolute_dir(log_dir, archive_path);
       }
 
-      for_each_file_in_dir_matches(this->retained_dir, std::string(name) + suffix_pattern, [this](bfs::path path) {
+      for_each_file_in_dir_matches(retained_dir, std::string(name) + suffix_pattern, [this](bfs::path path) {
          auto log_path               = path;
          auto index_path             = path.replace_extension("index");
          auto path_without_extension = log_path.parent_path() / log_path.stem().string();
@@ -155,12 +155,12 @@ struct log_catalog {
             auto name = it->second.filename_base;
             log_data.open(name.replace_extension("log"), mode);
             log_index.open(name.replace_extension("index"));
-            this->active_index = collection.index_of(it);
+            active_index = collection.index_of(it);
             return log_index.nth_block_position(block_num - log_data.first_block_num());
          }
          return {};
       } catch (...) {
-         this->active_index = npos;
+         active_index = npos;
          return {};
       }
    }
@@ -228,14 +228,14 @@ struct log_catalog {
       bfs::path new_path = retained_dir / buf;
       rename_bundle(dir / name, new_path);
       size_type items_to_erase = 0;
-      this->collection.emplace(start_block_num, mapped_type{end_block_num, new_path});
-      if (this->collection.size() >= max_retained_files) {
+      collection.emplace(start_block_num, mapped_type{end_block_num, new_path});
+      if (collection.size() >= max_retained_files) {
          if(max_retained_files < UINT32_MAX){
             items_to_erase =
-               max_retained_files > 0 ? this->collection.size() - max_retained_files : this->collection.size();
+               max_retained_files > 0 ? collection.size() - max_retained_files : collection.size();
          }
 
-         for (auto it = this->collection.begin(); it < this->collection.begin() + items_to_erase; ++it) {
+         for (auto it = collection.begin(); it < collection.begin() + items_to_erase; ++it) {
             auto orig_name = it->second.filename_base;
             if (archive_dir.empty()) {
                // delete the old files when no backup dir is specified
@@ -246,10 +246,10 @@ struct log_catalog {
                rename_bundle(orig_name, archive_dir / orig_name.filename());
             }
          }
-         this->collection.erase(this->collection.begin(), this->collection.begin() + items_to_erase);
-         this->active_index = this->active_index == npos || this->active_index < items_to_erase
-                                  ? npos
-                                  : this->active_index - items_to_erase;
+         collection.erase(collection.begin(), collection.begin() + items_to_erase);
+         active_index = active_index == npos || active_index < items_to_erase
+                        ? npos
+                        : active_index - items_to_erase;
       }
    }
 
