@@ -146,11 +146,6 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
       app().post(priority::medium, std::forward<Task>(task));
    }
 
-   template <typename Task>
-   void post_task_main_thread_high(Task&& task) {
-      app().post(priority::high, std::forward<Task>(task));
-   }
-
    void listen() {
       boost::system::error_code ec;
 
@@ -229,7 +224,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
          catch_and_log([&] {
             auto s = std::make_shared<session<std::shared_ptr<state_history_plugin_impl>, typename Acceptor::protocol_type::socket>>(self, std::move(*socket));
             s->start();
-            post_task_main_thread_high([self, s]() mutable { self->session_set.insert(std::move(s)); });
+            self->session_set.insert( std::move(s) );
          });
          catch_and_log([&] { self->do_accept(acceptor); });
       });
@@ -258,9 +253,14 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
              "the process");
       }
 
-      for( auto& s : session_set ) {
-         s->send_update(block_state);
-      }
+      boost::asio::post(get_ship_executor(), [self = this->shared_from_this(), block_state]() mutable {
+         for( auto& s : self->session_set ) {
+            self->post_task_main_thread_medium( [s, block_state]() {
+               s->send_update(block_state);
+            } );
+         }
+      });
+
    }
 
    // called from main thread
@@ -470,7 +470,6 @@ void state_history_plugin::plugin_shutdown() {
    my->applied_transaction_connection.reset();
    my->accepted_block_connection.reset();
    my->block_start_connection.reset();
-   std::for_each(my->session_set.begin(), my->session_set.end(), [](auto& s){ s->close(); } );
    my->stopping = true;
    my->thread_pool.stop();
 }

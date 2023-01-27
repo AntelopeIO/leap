@@ -148,7 +148,6 @@ public:
 struct session_base {
    virtual void send()                                                        = 0;
    virtual void send_update(const eosio::chain::block_state_ptr& block_state) = 0;
-   virtual void close()                                                       = 0;
    virtual ~session_base()                                                    = default;
    std::optional<get_blocks_request_v0> current_request;
 
@@ -451,47 +450,29 @@ struct session : session_base, std::enable_shared_from_this<session<Plugin, Sock
       if (plugin->stopping)
          return;
 
+      // On errors let session be destroyed by not calling f()
       if (ec) {
          if (ec == boost::asio::error::eof || ec == boost::beast::websocket::error::closed) {
             fc_dlog(plugin->logger(), "${w}: ${m}", ("w", what)("m", ec.message()));
          } else {
             fc_elog(plugin->logger(), "${w}: ${m}", ("w", what)("m", ec.message()));
          }
-         close_i();
-         return;
+      } else {
+         try {
+            f();
+         } catch( const fc::exception& e ) {
+            fc_elog( plugin->logger(), "${e}", ("e", e.to_detail_string()) );
+         } catch( const std::exception& e ) {
+            fc_elog( plugin->logger(), "${e}", ("e", e.what()) );
+         } catch( ... ) {
+            fc_elog( plugin->logger(), "unknown exception" );
+         }
       }
 
-      try {
-         f();
-      } catch (const fc::exception& e) {
-         fc_elog(plugin->logger(), "${e}", ("e", e.to_detail_string()));
-         close_i();
-      } catch (const std::exception& e) {
-         fc_elog(plugin->logger(), "${e}", ("e", e.what()));
-         close_i();
-      } catch (...) {
-         fc_elog(plugin->logger(), "unknown exception");
-         close_i();
-      }
-   }
+      // on exception allow session to be destroyed
 
-   void close() override {
-      boost::asio::post(plugin->get_ship_executor(), [self = this->shared_from_this()]() {
-         self->close_i();
-      });
-   }
-
-   // called from ship thread
-   void close_i() {
-      boost::system::error_code ec;
-      socket_stream->next_layer().close(ec);
-      if (ec) {
-         fc_elog(plugin->logger(), "close: ${m}", ("m", ec.message()));
-      }
       send_others_waiting();
-      plugin->post_task_main_thread_high([self = this->shared_from_this(), plugin=plugin]() {
-         plugin->session_set.erase(self);
-      });
+      plugin->session_set.erase( this->shared_from_this() );
    }
 };
 } // namespace eosio
