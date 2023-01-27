@@ -49,10 +49,14 @@ namespace eosio {
    using connection_ptr = std::shared_ptr<connection>;
    using connection_wptr = std::weak_ptr<connection>;
 
+   const fc::string logger_name("net_plugin_impl");
+   fc::logger logger;
+   std::string peer_log_format;
+
    template <typename Strand>
    void verify_strand_in_this_thread(const Strand& strand, const char* func, int line) {
       if( !strand.running_in_this_thread() ) {
-         elog( "wrong strand: ${f} : line ${n}, exiting", ("f", func)("n", line) );
+         fc_elog( logger, "wrong strand: ${f} : line ${n}, exiting", ("f", func)("n", line) );
          app().quit();
       }
    }
@@ -277,6 +281,8 @@ namespace eosio {
       uint16_t                              thread_pool_size = 4;
       eosio::chain::named_thread_pool       thread_pool{ "net" };
 
+      boost::asio::deadline_timer           accept_error_timer{thread_pool.get_executor()};
+
    private:
       mutable std::mutex            chain_info_mtx; // protects chain_*
       uint32_t                      chain_lib_num{0};
@@ -339,11 +345,9 @@ namespace eosio {
 
       connection_ptr find_connection(const string& host)const; // must call with held mutex
       string connect( const string& host );
-   };
 
-   const fc::string logger_name("net_plugin_impl");
-   fc::logger logger;
-   std::string peer_log_format;
+      void plugin_shutdown();
+   };
 
    // peer_[x]log must be called from thread in connection strand
 #define peer_dlog( PEER, FORMAT, ... ) \
@@ -2408,8 +2412,19 @@ namespace eosio {
                fc_elog( logger, "Error accepting connection: ${m}", ("m", ec.message()));
                // For the listed error codes below, recall start_listen_loop()
                switch (ec.value()) {
+                  case EMFILE: // same as boost::system::errc::too_many_files_open
+                  {
+                     // no file descriptors available to accept the connection. Wait on async_timer
+                     // and retry listening using shorter 100ms timer than SHiP or http_plugin
+                     // as net_pluging is more critical
+                     accept_error_timer.expires_from_now(boost::posix_time::milliseconds(100));
+                     accept_error_timer.async_wait([this]( const boost::system::error_code &ec) {
+                        if (!ec)
+                           start_listen_loop();
+                     });
+                     return; // wait for timer!!
+                  }
                   case ECONNABORTED:
-                  case EMFILE:
                   case ENFILE:
                   case ENOBUFS:
                   case ENOMEM:
@@ -2689,6 +2704,43 @@ namespace eosio {
 
       handle_message( std::move( ptr ) );
       return true;
+   }
+
+   void net_plugin_impl::plugin_shutdown() {
+         in_shutdown = true;
+         {
+            std::lock_guard<std::mutex> g( connector_check_timer_mtx );
+            if( connector_check_timer )
+               connector_check_timer->cancel();
+         }
+         {
+            std::lock_guard<std::mutex> g( expire_timer_mtx );
+            if( expire_timer )
+               expire_timer->cancel();
+         }
+         {
+            std::lock_guard<std::mutex> g( keepalive_timer_mtx );
+            if( keepalive_timer )
+               keepalive_timer->cancel();
+         }
+
+         {
+            fc_ilog( logger, "close ${s} connections", ("s", connections.size()) );
+            std::lock_guard<std::shared_mutex> g( connections_mtx );
+            for( auto& con : connections ) {
+               fc_dlog( logger, "close: ${cid}", ("cid", con->connection_id) );
+               con->close( false, true );
+            }
+            connections.clear();
+         }
+
+         thread_pool.stop();
+
+         if( acceptor ) {
+            boost::system::error_code ec;
+            acceptor->cancel( ec );
+            acceptor->close( ec );
+         }      
    }
 
    // call only from main application thread
@@ -3696,7 +3748,7 @@ namespace eosio {
          if( cc.get_read_mode() == db_read_mode::IRREVERSIBLE ) {
             if( my->p2p_accept_transactions ) {
                my->p2p_accept_transactions = false;
-               wlog( "p2p-accept-transactions set to false due to read-mode: irreversible" );
+               fc_wlog( logger, "p2p-accept-transactions set to false due to read-mode: irreversible" );
             }
          }
          if( my->p2p_accept_transactions ) {
@@ -3783,7 +3835,7 @@ namespace eosio {
                my->acceptor->bind(listen_endpoint);
                my->acceptor->listen();
             } catch (const std::exception& e) {
-               elog( "net_plugin::plugin_startup failed to bind to port ${port}, ${what}",
+               fc_elog( logger, "net_plugin::plugin_startup failed to bind to port ${port}, ${what}",
                      ("port", listen_endpoint.port())("what", e.what()) );
                app().quit();
                return;
@@ -3814,39 +3866,9 @@ namespace eosio {
    void net_plugin::plugin_shutdown() {
       try {
          fc_ilog( logger, "shutdown.." );
-         my->in_shutdown = true;
-         {
-            std::lock_guard<std::mutex> g( my->connector_check_timer_mtx );
-            if( my->connector_check_timer )
-               my->connector_check_timer->cancel();
-         }{
-            std::lock_guard<std::mutex> g( my->expire_timer_mtx );
-            if( my->expire_timer )
-               my->expire_timer->cancel();
-         }{
-            std::lock_guard<std::mutex> g( my->keepalive_timer_mtx );
-            if( my->keepalive_timer )
-               my->keepalive_timer->cancel();
-         }
-
-         {
-            fc_ilog( logger, "close ${s} connections", ("s", my->connections.size()) );
-            std::lock_guard<std::shared_mutex> g( my->connections_mtx );
-            for( auto& con : my->connections ) {
-               fc_dlog( logger, "close: ${cid}", ("cid", con->connection_id) );
-               con->close( false, true );
-            }
-            my->connections.clear();
-         }
-
-         my->thread_pool.stop();
-
-         if( my->acceptor ) {
-            boost::system::error_code ec;
-            my->acceptor->cancel( ec );
-            my->acceptor->close( ec );
-         }
-
+         
+         my->plugin_shutdown();
+         
          app().post( 0, [me = my](){} ); // keep my pointer alive until queue is drained
          fc_ilog( logger, "exit shutdown" );
       }
