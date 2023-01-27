@@ -327,7 +327,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
 
       chain_plugin* chain_plug = nullptr;
 
-      compat::channels::transaction_ack::channel_type&        _transaction_ack_channel;
+      compat::channels::transaction_ack::channel_type&          _transaction_ack_channel;
 
       incoming::methods::block_sync::method_type::handle        _incoming_block_sync_provider;
       incoming::methods::transaction_async::method_type::handle _incoming_transaction_async_provider;
@@ -444,7 +444,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
 
          /* de-dupe here... no point in aborting block if we already know the block */
          auto existing = chain.fetch_block_by_id( id );
-         if( existing ) { return false; }
+         if( existing ) { return true; } // return true because the block is valid
 
          // start processing of block
          std::future<block_state_ptr> bsf;
@@ -481,6 +481,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          } catch ( const fork_database_exception& e ) {
             elog("Cannot recover from ${e}. Shutting down.", ("e", e.to_detail_string()));
             appbase::app().quit();
+            return false;
          } catch( const fc::exception& e ) {
             handle_error(e);
          } catch (const std::exception& e) {
@@ -1753,8 +1754,6 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
       }
 
       try {
-         _account_fails.clear();
-
          if( !remove_expired_trxs( preprocess_deadline ) )
             return start_block_result::exhausted;
          if( !remove_expired_blacklisted_trxs( preprocess_deadline ) )
