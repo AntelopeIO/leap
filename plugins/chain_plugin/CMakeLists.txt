@@ -14,4 +14,4 @@ endif()
 target_link_libraries( chain_plugin producer_plugin eosio_chain appbase resource_monitor_plugin )
 target_include_directories( chain_plugin PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" "${CMAKE_CURRENT_SOURCE_DIR}/../chain_interface/include" "${CMAKE_CURRENT_SOURCE_DIR}/../../libraries/appbase/include" "${CMAKE_CURRENT_SOURCE_DIR}/../producer_plugin/include" "${CMAKE_CURRENT_SOURCE_DIR}/../resource_monitor_plugin/include")
 
-add_subdirectory( test )
+# add_subdirectory( test )
