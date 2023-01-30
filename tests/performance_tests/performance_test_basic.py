@@ -524,7 +524,7 @@ class PtbArgumentsHandler(object):
 
         ptbParserGroup.add_argument("--target-tps", type=int, help="The target transfers per second to send during test", default=8000)
         ptbParserGroup.add_argument("--test-duration-sec", type=int, help="The duration of transfer trx generation for the test in seconds", default=90)
-        ptbParserGroup.add_argument("--user-trx-data-file", type=str, help="Path to userTrxData.json")
+        ptbParserGroup.add_argument("--user-trx-data-file", type=str, help="Path to userTrxDataTransfer.json")
 
         return ptbParser
 
