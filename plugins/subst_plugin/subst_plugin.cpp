@@ -24,18 +24,19 @@ namespace eosio {
     struct subst_plugin_impl : std::enable_shared_from_this<subst_plugin_impl> {
         debug_contract::substitution_cache<debug_contract_backend> cache;
 
-        void subst(const std::string& old_code_hash, const std::string& new_code_path) {
+        void subst(const std::string& old_code_hash_str, const std::string& new_code_path) {
             std::vector<uint8_t> new_code;
 
             new_code = eosio::vm::read_wasm(new_code_path);
 
             wlog("===================SUBST-PLUGIN==================");
-            wlog("Loaded new wasm for ${h}", ("h", old_code_hash));
+            wlog("Loaded new wasm for ${h}", ("h", old_code_hash_str));
             wlog("New size: ${s}", ("s", new_code.size()));
             wlog("=================================================");
 
             auto new_hash = fc::sha256::hash((const char*)new_code.data(), new_code.size());
-            cache.substitutions[old_code_hash] = new_hash;
+            auto old_hash = fc::sha256::hash(old_code_hash_str.c_str());
+            cache.substitutions[old_hash] = new_hash;
             cache.codes[new_hash] = std::move(new_code);
         }
     };  // subst_plugin_impl
