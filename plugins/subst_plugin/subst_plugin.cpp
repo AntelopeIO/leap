@@ -24,26 +24,19 @@ namespace eosio {
     struct subst_plugin_impl : std::enable_shared_from_this<subst_plugin_impl> {
         debug_contract::substitution_cache<debug_contract_backend> cache;
 
-        void subst(const std::string& a, const std::string& b) {
-            std::vector<uint8_t> acode;
-            std::vector<uint8_t> bcode;
-            try {
-                acode = eosio::vm::read_wasm(a);
-            } catch (...) {
-                elog("skipping substitution: can not read ${f}", ("f", a));
-                return;
-            }
+        void subst(const std::string& old_code_hash, const std::string& new_code_path) {
+            std::vector<uint8_t> new_code;
 
-            try {
-                bcode = eosio::vm::read_wasm(b);
-            } catch (...) {
-                elog("skipping substitution: can not read ${f}", ("f", b));
-                return;
-            }
-            auto ahash = fc::sha256::hash((const char*)acode.data(), acode.size());
-            auto bhash = fc::sha256::hash((const char*)bcode.data(), bcode.size());
-            cache.substitutions[ahash] = bhash;
-            cache.codes[bhash] = std::move(bcode);
+            new_code = eosio::vm::read_wasm(new_code_path);
+
+            wlog("===================SUBST-PLUGIN==================");
+            wlog("Loaded new wasm for ${h}", ("h", old_code_hash));
+            wlog("New size: ${s}", ("s", new_code.size()));
+            wlog("=================================================");
+
+            auto new_hash = fc::sha256::hash((const char*)new_code.data(), new_code.size());
+            cache.substitutions[old_code_hash] = new_hash;
+            cache.codes[new_hash] = std::move(new_code);
         }
     };  // subst_plugin_impl
 
@@ -55,7 +48,8 @@ namespace eosio {
         auto options = cfg.add_options();
         cfg.add_options()(
             "subst", bpo::value<vector<string>>()->composing(),
-            "contract.wasm:debug.wasm. Whenever contract.wasm needs to run, substitute debug.wasm in "
+            "contract_hash:new_contract.wasm. Whenever the contrac with the hash \"contract_hash\""
+            "needs to run, substitute debug.wasm in "
             "its place and enable debugging support. This bypasses size limits, timer limits, and "
             "other constraints on debug.wasm. nodeos still enforces constraints on contract.wasm. "
             "(may specify multiple times)");
