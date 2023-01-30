@@ -145,26 +145,24 @@ std::vector<char> zlib_decompress(fc::datastream<const char*>& strm, uint64_t co
 
 template <typename Log, typename Stream>
 uint64_t read_unpacked_entry(Log&& log, Stream& stream, uint64_t payload_size, locked_decompress_stream& result) {
-   uint32_t s;
-   uint64_t compressed_size;
-
    // result has state_history_log mutex locked
+
+   uint32_t s;
    stream.read((char*)&s, sizeof(s));
    if (s == 1 && payload_size > (s + sizeof(uint32_t))) {
-      compressed_size = payload_size - sizeof(uint32_t) - sizeof(uint64_t);
+      uint64_t compressed_size = payload_size - sizeof(uint32_t) - sizeof(uint64_t);
       uint64_t decompressed_size;
       stream.read((char*)&decompressed_size, sizeof(decompressed_size));
       result.init(log, stream, compressed_size);
       return decompressed_size;
-
    } else {
       // Compressed deltas now exceeds 4GB on one of the public chains. This length prefix
       // was intended to support adding additional fields in the future after the
       // packed deltas or packed traces. For now we're going to ignore on read.
 
-      compressed_size = payload_size - sizeof(uint32_t);
+      uint64_t compressed_size = payload_size - sizeof(uint32_t);
+      return result.init( zlib_decompress(stream, compressed_size) );
    }
-   return result.init( zlib_decompress(stream, compressed_size) );
 }
 
 class state_history_log_data : public chain::log_data_base<state_history_log_data> {
@@ -230,14 +228,14 @@ class state_history_log_data : public chain::log_data_base<state_history_log_dat
    }
 
    void construct_index(const fc::path& index_file_name) const {
-      fc::cfile index;
-      index.set_file_path(index_file_name);
-      index.open("w+b");
+      fc::cfile index_file;
+      index_file.set_file_path(index_file_name);
+      index_file.open("w+b");
 
       uint64_t pos = 0;
       while (pos < file.size()) {
          uint64_t payload_size = payload_size_at(pos);
-         index.write(reinterpret_cast<const char*>(&pos), sizeof(pos));
+         index_file.write(reinterpret_cast<const char*>(&pos), sizeof(pos));
          pos += (sizeof(state_history_log_header) + payload_size + sizeof(uint64_t));
       }
    }

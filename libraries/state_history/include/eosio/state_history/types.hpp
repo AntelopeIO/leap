@@ -109,7 +109,6 @@ struct get_blocks_result_base {
    std::optional<bytes>          block;
 };
 
-
 struct get_blocks_result_v0 : get_blocks_result_base {
    std::optional<bytes>          traces;
    std::optional<bytes>          deltas;
