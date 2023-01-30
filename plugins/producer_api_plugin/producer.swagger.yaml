@@ -377,20 +377,6 @@ paths:
       summary: get_snapshot_requests
       description: Returns a list of scheduled snapshots
       operationId: get_snapshot_status
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                start_snapshot_request_id:
-                  type: integer
-                  description: Snapshot offset
-                limit:
-                  type: integer
-                  description: Number of snapshots to return
-
       responses:
         "201":
           description: OK
@@ -399,19 +385,12 @@ paths:
              schema:
                 type: object
                 properties:
-                  next_request_id:
-                    type: integer
-                    description: Next available snapshot ID
                   snapshot_requests:
                     type: array
                     description: An array of scheduled snapshots
                     items:
                       type: object
                       properties:
-                          snapshot_request_time:
-                            type: string
-                            description: Snapshot unix timestamp
-                            example: 2020-11-16T00:00:00.000
                           snapshot_request_id:
                             type: integer
                             description: Unique id identifying current snapshot request
