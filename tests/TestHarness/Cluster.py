@@ -272,6 +272,8 @@ class Cluster(object):
             for nodeNum,arg in specificExtraNodeosArgs.items():
                 assert(isinstance(nodeNum, (str,int)))
                 assert(isinstance(arg, str))
+                if not len(arg):
+                    continue
                 cmdArr.append("--specific-num")
                 cmdArr.append(str(nodeNum))
                 cmdArr.append("--specific-nodeos")
@@ -1097,7 +1099,7 @@ class Cluster(object):
 
         Utils.Print("Wait for last transfer transaction to become finalized.")
         transId=Node.getTransId(trans[1])
-        if not biosNode.waitForTransactionInBlock(transId):
+        if not biosNode.waitForTransactionInBlock(transId, silentErrors=True):
             Utils.Print("ERROR: Failed to validate transaction %s got rolled into a block on server port %d." % (transId, biosNode.port))
             return None
 
