@@ -450,22 +450,22 @@ struct session : session_base, std::enable_shared_from_this<session<Plugin, Sock
       if (plugin->stopping)
          return;
 
-      // On errors let session be destroyed by not calling f()
-      if (ec) {
-         if (ec == boost::asio::error::eof || ec == boost::beast::websocket::error::closed) {
-            fc_dlog(plugin->logger(), "${w}: ${m}", ("w", what)("m", ec.message()));
-         } else {
-            fc_elog(plugin->logger(), "${w}: ${m}", ("w", what)("m", ec.message()));
-         }
-      } else {
+      if( !ec ) {
          try {
             f();
+            return;
          } catch( const fc::exception& e ) {
             fc_elog( plugin->logger(), "${e}", ("e", e.to_detail_string()) );
          } catch( const std::exception& e ) {
             fc_elog( plugin->logger(), "${e}", ("e", e.what()) );
          } catch( ... ) {
             fc_elog( plugin->logger(), "unknown exception" );
+         }
+      } else {
+         if (ec == boost::asio::error::eof || ec == boost::beast::websocket::error::closed) {
+            fc_dlog(plugin->logger(), "${w}: ${m}", ("w", what)("m", ec.message()));
+         } else {
+            fc_elog(plugin->logger(), "${w}: ${m}", ("w", what)("m", ec.message()));
          }
       }
 
