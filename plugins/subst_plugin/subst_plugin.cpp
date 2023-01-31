@@ -29,15 +29,16 @@ namespace eosio {
 
             new_code = eosio::vm::read_wasm(new_code_path);
 
-            ilog("===================SUBST-PLUGIN==================");
-            ilog("Loaded new wasm for ${h}", ("h", old_code_hash_str));
-            ilog("New size: ${s}", ("s", new_code.size()));
-            ilog("=================================================");
-
             auto new_hash = fc::sha256::hash((const char*)new_code.data(), new_code.size());
             auto old_hash = fc::sha256::hash(old_code_hash_str.c_str());
             cache.substitutions[old_hash] = new_hash;
             cache.codes[new_hash] = std::move(new_code);
+
+            ilog("===================SUBST-PLUGIN==================");
+            ilog("Loaded new wasm for ${h}", ("h", old_code_hash_str));
+            ilog("New hash is: ${n}", ("n", new_hash.str()));
+            ilog("New size: ${s}", ("s", new_code.size()));
+            ilog("=================================================");
         }
     };  // subst_plugin_impl
 
@@ -75,12 +76,13 @@ namespace eosio {
                     uint8_t vm_type, uint8_t vm_version,
                     eosio::chain::apply_context& context
                 ) {
-                    if (context.get_action().account == eosio::name(std::string("eosio.evm")))
-                        ilog("SUBST: new eosio evm call, contract digest: ${d}", ("d", code_hash));
-
                     auto timer_pause =
                         fc::make_scoped_exit([&]() { context.trx_context.resume_billing_timer(); });
                     context.trx_context.pause_billing_timer();
+                    ilog("calling substitute_apply with params:");
+                    ilog("code_hash: ${h}", ("h", code_hash));
+                    ilog("vm_type: ${v}", ("v", vm_type));
+                    ilog("vm_version: ${r}", ("r", vm_version));
                     return my->cache.substitute_apply(code_hash, vm_type, vm_version, context);
                 };
             }
