@@ -1099,7 +1099,7 @@ class Cluster(object):
 
         Utils.Print("Wait for last transfer transaction to become finalized.")
         transId=Node.getTransId(trans[1])
-        if not biosNode.waitForTransactionInBlock(transId, silentErrors=True):
+        if not biosNode.waitForTransactionInBlock(transId):
             Utils.Print("ERROR: Failed to validate transaction %s got rolled into a block on server port %d." % (transId, biosNode.port))
             return None
 
