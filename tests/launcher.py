@@ -574,6 +574,11 @@ plugin = eosio::chain_api_plugin
             except FileNotFoundError:
                 pass
             err_sl.symlink_to(err.name)
+        else:
+            Utils.Print(f'unstarted node command: {" ".join(eosdcmd)}')
+
+            with open(instance.data_dir_name / 'start.cmd', 'w') as f:
+                f.write(' '.join(eosdcmd))
 
     def down(self, nodeNumbers):
         for num in nodeNumbers:
