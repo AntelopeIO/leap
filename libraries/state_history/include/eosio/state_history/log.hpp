@@ -1,12 +1,12 @@
 #pragma once
 
 #include <eosio/state_history/compression.hpp>
-#include <eosio/state_history/log_catalog.hpp>
-#include <eosio/state_history/log_data_base.hpp>
-#include <eosio/state_history/log_index.hpp>
 #include <eosio/chain/block_header.hpp>
 #include <eosio/chain/exceptions.hpp>
 #include <eosio/chain/types.hpp>
+#include <eosio/chain/log_catalog.hpp>
+#include <eosio/chain/log_data_base.hpp>
+#include <eosio/chain/log_index.hpp>
 
 #include <fc/io/cfile.hpp>
 #include <fc/log/logger.hpp>
