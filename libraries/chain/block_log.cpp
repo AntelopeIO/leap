@@ -1,6 +1,5 @@
 #include <eosio/chain/block_log.hpp>
 #include <eosio/chain/exceptions.hpp>
-#include <fstream>
 #include <fc/bitutil.hpp>
 #include <fc/io/cfile.hpp>
 #include <fc/io/raw.hpp>
@@ -49,14 +48,21 @@ namespace eosio { namespace chain {
             uint32_t                 first_block_num = 0;       //the first number available to read
             uint32_t                 index_first_block_num = 0; //the first number in index & the log had it not been pruned
             std::optional<block_log_prune_config> prune_config;
+            bool                     not_generate_block_log = false;
 
-            block_log_impl(std::optional<block_log_prune_config> prune_conf) :
+            explicit block_log_impl(std::optional<block_log_prune_config> prune_conf) :
               prune_config(prune_conf) {
                if(prune_config) {
-                  EOS_ASSERT(prune_config->prune_blocks, block_log_exception, "block log prune configuration requires at least one block");
-                  EOS_ASSERT(__builtin_popcount(prune_config->prune_threshold) == 1, block_log_exception, "block log prune threshold must be power of 2");
-                  //switch this over to the mask that will be used
-                  prune_config->prune_threshold = ~(prune_config->prune_threshold-1);
+                  if (prune_config->prune_blocks == 0 ) {
+                     // not to generate blocks.log
+                     // disable prune log handling by resetting prune_config
+                     prune_config.reset();
+                     not_generate_block_log = true;
+                  } else {
+                     EOS_ASSERT(__builtin_popcount(prune_config->prune_threshold) == 1, block_log_exception, "block log prune threshold must be power of 2");
+                     //switch this over to the mask that will be used
+                     prune_config->prune_threshold = ~(prune_config->prune_threshold-1);
+                  }
                }
             }
 
@@ -65,6 +71,7 @@ namespace eosio { namespace chain {
                   reopen();
                }
             }
+
             void reopen();
 
             //close() is called all over the place. Let's make this an explict call to ensure it only is called when
@@ -99,13 +106,17 @@ namespace eosio { namespace chain {
             template<typename T>
             void reset( const T& t, const signed_block_ptr& genesis_block, uint32_t first_block_num );
 
+            void remove();
+
             void write( const genesis_state& gs );
 
             void write( const chain_id_type& chain_id );
 
             void flush();
 
-            void append(const signed_block_ptr& b);
+            void append(const signed_block_ptr& b, const block_id_type& id, const std::vector<char>& packed_block);
+
+            void update_head(const signed_block_ptr& b, const std::optional<block_id_type>& id={});
 
             void prune(const fc::log_level& loglevel);
 
@@ -291,12 +302,7 @@ namespace eosio { namespace chain {
          }
          my->index_first_block_num = my->first_block_num;
 
-         my->head = read_head();
-         if( my->head ) {
-            my->head_id = my->head->calculate_id();
-         } else {
-            my->head_id = {};
-         }
+         my->update_head(read_head());
 
          my->block_file.seek_end(0);
          if(is_currently_pruned && my->head) {
@@ -355,13 +361,22 @@ namespace eosio { namespace chain {
       }
    }
 
-   void block_log::append(const signed_block_ptr& b) {
-      my->append(b);
+   void block_log::append(const signed_block_ptr& b, const block_id_type& id) {
+      my->append(b, id, fc::raw::pack(*b));
    }
 
-   void detail::block_log_impl::append(const signed_block_ptr& b) {
+   void block_log::append(const signed_block_ptr& b, const block_id_type& id, const std::vector<char>& packed_block) {
+      my->append(b, id, packed_block);
+   }
+
+   void detail::block_log_impl::append(const signed_block_ptr& b, const block_id_type& id, const std::vector<char>& packed_block) {
       try {
          EOS_ASSERT( genesis_written_to_block_log, block_log_append_fail, "Cannot append to block log until the genesis is first written" );
+
+         if (not_generate_block_log) {
+            update_head(b, id);
+            return;
+         }
 
          check_open_files();
 
@@ -377,13 +392,12 @@ namespace eosio { namespace chain {
                    "Append to index file occuring at wrong position.",
                    ("position", (uint64_t) index_file.tellp())
                    ("expected", (b->block_num() - index_first_block_num) * sizeof(uint64_t)));
-         auto data = fc::raw::pack(*b);
-         block_file.write(data.data(), data.size());
+         block_file.write(packed_block.data(), packed_block.size());
          block_file.write((char*)&pos, sizeof(pos));
          const uint64_t end = block_file.tellp();
          index_file.write((char*)&pos, sizeof(pos));
-         head = b;
-         head_id = b->calculate_id();
+
+         update_head(b, id);
 
          if(prune_config) {
             if((pos&prune_config->prune_threshold) != (end&prune_config->prune_threshold))
@@ -396,6 +410,19 @@ namespace eosio { namespace chain {
          flush();
       }
       FC_LOG_AND_RETHROW()
+   }
+
+   void detail::block_log_impl::update_head(const signed_block_ptr& b, const std::optional<block_id_type>& id) {
+      head = b;
+      if (id) {
+         head_id = *id;
+      } else {
+         if (head) {
+            head_id = b->calculate_id();
+         } else {
+            head_id = {};
+         }
+      }
    }
 
    void detail::block_log_impl::prune(const fc::log_level& loglevel) {
@@ -424,6 +451,9 @@ namespace eosio { namespace chain {
    }
 
    void block_log::flush() {
+      if (my->not_generate_block_log) {
+         return;
+      }
       my->flush();
    }
 
@@ -568,7 +598,7 @@ namespace eosio { namespace chain {
       block_file.write((char*)&totem, sizeof(totem));
 
       if (first_block) {
-         append(first_block);
+         append(first_block, first_block->calculate_id(), fc::raw::pack(*first_block));
       } else {
          head.reset();
          head_id = {};
@@ -591,13 +621,28 @@ namespace eosio { namespace chain {
    }
 
    void block_log::reset( const genesis_state& gs, const signed_block_ptr& first_block ) {
+      // At startup, OK to be called in no blocks.log mode from controller.cpp
       my->reset(gs, first_block, 1);
    }
 
    void block_log::reset( const chain_id_type& chain_id, uint32_t first_block_num ) {
+      // At startup, OK to be called in no blocks.log mode from controller.cpp
       EOS_ASSERT( first_block_num > 1, block_log_exception,
                   "Block log version ${ver} needs to be created with a genesis state if starting from block number 1." );
       my->reset(chain_id, signed_block_ptr(), first_block_num);
+   }
+
+   void detail::block_log_impl::remove() {
+      close();
+
+      fc::remove( block_file.get_file_path() );
+      fc::remove( index_file.get_file_path() );
+
+      ilog("block log ${l}, block index ${i} removed", ("l", block_file.get_file_path()) ("i", index_file.get_file_path()));
+   }
+
+   void block_log::remove() {
+      my->remove();
    }
 
    void detail::block_log_impl::write( const genesis_state& gs ) {
@@ -610,6 +655,10 @@ namespace eosio { namespace chain {
    }
 
    signed_block_ptr block_log::read_block(uint64_t pos)const {
+      if (my->not_generate_block_log) {
+         return nullptr;
+      }
+
       my->check_open_files();
 
       my->block_file.seek(pos);
@@ -620,6 +669,10 @@ namespace eosio { namespace chain {
    }
 
    void block_log::read_block_header(block_header& bh, uint64_t pos)const {
+      if (my->not_generate_block_log) {
+         return;
+      }
+
       my->check_open_files();
 
       my->block_file.seek(pos);
@@ -630,6 +683,12 @@ namespace eosio { namespace chain {
    signed_block_ptr block_log::read_block_by_num(uint32_t block_num)const {
       try {
          signed_block_ptr b;
+
+         if (my->not_generate_block_log) {
+            // No blocks exist. Avoid cascading failures if going further.
+            return b;
+         }
+
          uint64_t pos = get_block_pos(block_num);
          if (pos != npos) {
             b = read_block(pos);
@@ -642,6 +701,9 @@ namespace eosio { namespace chain {
 
    block_id_type block_log::read_block_id_by_num(uint32_t block_num)const {
       try {
+         if (my->not_generate_block_log) {
+            return {};
+         }
          uint64_t pos = get_block_pos(block_num);
          if (pos != npos) {
             block_header bh;
@@ -665,10 +727,17 @@ namespace eosio { namespace chain {
    }
 
    uint64_t block_log::get_block_pos(uint32_t block_num) const {
+      if (my->not_generate_block_log) {
+         return block_log::npos;
+      }
       return my->get_block_pos(block_num);
    }
 
    signed_block_ptr block_log::read_head()const {
+      if (my->not_generate_block_log) {
+         return {};
+      }
+
       my->check_open_files();
 
       uint64_t pos;
@@ -708,6 +777,11 @@ namespace eosio { namespace chain {
    }
 
    void block_log::construct_index() {
+      if (my->not_generate_block_log) {
+         ilog("Not need to construct index in no blocks.log mode (block-log-retain-blocks=0)");
+         return;
+      }
+
       ilog("Reconstructing Block Log Index...");
       my->close();
 
@@ -1187,31 +1261,29 @@ namespace eosio { namespace chain {
       }
    }
 
-   bool block_log::trim_blocklog_front(const fc::path& block_dir, const fc::path& temp_dir, uint32_t truncate_at_block) {
-      using namespace std;
-      EOS_ASSERT( block_dir != temp_dir, block_log_exception, "block_dir and temp_dir need to be different directories" );
-      ilog("In directory ${dir} will trim all blocks before block ${n} from blocks.log and blocks.index.",
-           ("dir", block_dir.generic_string())("n", truncate_at_block));
+   bool block_log::extract_block_range(const fc::path& block_dir, const fc::path&output_dir, block_num_type& start, block_num_type& end, bool rename_input) {
+      EOS_ASSERT( block_dir != output_dir, block_log_exception, "block_dir and output_dir need to be different directories" );
       trim_data original_block_log(block_dir);
-      if (truncate_at_block <= original_block_log.first_block) {
-         ilog("There are no blocks before block ${n} so do nothing.", ("n", truncate_at_block));
-         return false;
+      if(start < original_block_log.first_block) {
+         dlog("Requested start block of ${start} is less than the first available block ${n}; adjusting to ${n}", ("start", start)("n", original_block_log.first_block));
+         start = original_block_log.first_block;
       }
-      if (truncate_at_block > original_block_log.last_block) {
-         ilog("All blocks are before block ${n} so do nothing (trim front would delete entire blocks.log).", ("n", truncate_at_block));
-         return false;
+      if(end > original_block_log.last_block) {
+         dlog("Requested end block of ${end} is greater than the last available block ${n}; adjusting to ${n}", ("end", end)("n", original_block_log.last_block));
+         end = original_block_log.last_block;
       }
-
+      ilog("In directory ${output} will create new block log with range ${start}-${end}",
+           ("output", output_dir.generic_string())("start", start)("end", end));
       // ****** create the new block log file and write out the header for the file
-      fc::create_directories(temp_dir);
-      fc::path new_block_filename = temp_dir / "blocks.log";
+      fc::create_directories(output_dir);
+      fc::path new_block_filename = output_dir / "blocks.log";
       if (fc::remove(new_block_filename)) {
-         ilog("Removing old blocks.out file");
+         ilog("Removing existing blocks.log file");
       }
       fc::cfile new_block_file;
       new_block_file.set_file_path(new_block_filename);
-      // need to open as append since the file doesn't already exist, then reopen without append to allow writing the
-      // file in any order
+      // need to open as write since the file doesn't already exist, then reopen
+      // with read/write to allow writing the file in any order
       new_block_file.open( LOG_WRITE_C );
       new_block_file.close();
       new_block_file.open( LOG_RW_C );
@@ -1221,37 +1293,49 @@ namespace eosio { namespace chain {
       uint32_t version = block_log::max_supported_version;
       new_block_file.seek(0);
       new_block_file.write((char*)&version, sizeof(version));
-      new_block_file.write((char*)&truncate_at_block, sizeof(truncate_at_block));
+      new_block_file.write((char*)&start, sizeof(start));
 
-      new_block_file << original_block_log.chain_id;
+      if (start > 1) {
+         new_block_file << original_block_log.chain_id;
+      } else {
+         fc::raw::pack(new_block_file, original_block_log.gs);
+      }
 
       // append a totem to indicate the division between blocks and header
       auto totem = block_log::npos;
       new_block_file.write((char*)&totem, sizeof(totem));
-
-      const auto new_block_file_first_block_pos = new_block_file.tellp();
       // ****** end of new block log header
 
+      const auto new_block_file_first_block_pos = new_block_file.tellp();
+
       // copy over remainder of block log to new block log
-      auto buffer =  make_unique<char[]>(detail::reverse_iterator::_buf_len);
+      auto buffer =  std::make_unique<char[]>(detail::reverse_iterator::_buf_len);
       char* buf =  buffer.get();
 
       // offset bytes to shift from old blocklog position to new blocklog position
-      const uint64_t original_file_block_pos = original_block_log.block_pos(truncate_at_block);
-      const uint64_t pos_delta = original_file_block_pos - new_block_file_first_block_pos;
-      auto status = fseek(original_block_log.blk_in, 0, SEEK_END);
-      EOS_ASSERT( status == 0, block_log_exception, "blocks.log seek failed" );
+      const uint64_t original_file_start_block_pos = original_block_log.block_pos(start);
+      const uint64_t pos_delta = original_file_start_block_pos - new_block_file_first_block_pos;
+      uint64_t original_file_end_block_pos;
+      if (end == original_block_log.last_block) {
+         auto status = fseek(original_block_log.blk_in, 0, SEEK_END);
+         EOS_ASSERT( status == 0, block_log_exception, "blocks.log seek failed" );
+         original_file_end_block_pos = ftell(original_block_log.blk_in);
+      } else {
+         original_file_end_block_pos = original_block_log.block_pos(end+1);
+         auto status = fseek(original_block_log.blk_in, original_file_end_block_pos, SEEK_SET);
+         EOS_ASSERT( status == 0, block_log_exception, "blocks.log seek failed" );
+      }
 
-      // all blocks to copy to the new blocklog
-      const uint64_t to_write = ftell(original_block_log.blk_in) - original_file_block_pos;
-      const auto pos_size = sizeof(uint64_t);
+      // all bytes to copy to the new blocklog
+      const uint64_t to_write = original_file_end_block_pos - original_file_start_block_pos;
 
       // start with the last block's position stored at the end of the block
-      uint64_t original_pos = ftell(original_block_log.blk_in) - pos_size;
+      const auto pos_size = sizeof(uint64_t);
+      uint64_t original_pos = original_file_end_block_pos - pos_size;
 
-      const auto num_blocks = original_block_log.last_block - truncate_at_block + 1;
+      const auto num_blocks = end - start + 1;
 
-      fc::path new_index_filename = temp_dir / "blocks.index";
+      fc::path new_index_filename = output_dir / "blocks.index";
       detail::index_writer index(new_index_filename, num_blocks);
 
       uint64_t read_size = 0;
@@ -1263,10 +1347,11 @@ namespace eosio { namespace chain {
          }
 
          // read in the previous contiguous memory into the read buffer
-         const auto start_of_blk_buffer_pos = original_file_block_pos + to_write_remaining - read_size;
-         status = fseek(original_block_log.blk_in, start_of_blk_buffer_pos, SEEK_SET);
+         const auto start_of_blk_buffer_pos = original_file_start_block_pos + to_write_remaining - read_size;
+         auto status = fseek(original_block_log.blk_in, start_of_blk_buffer_pos, SEEK_SET);
+         EOS_ASSERT( status == 0, block_log_exception, "original blocks.log seek failed" );
          const auto num_read = fread(buf, read_size, 1, original_block_log.blk_in);
-         EOS_ASSERT( num_read == 1, block_log_exception, "blocks.log read failed" );
+         EOS_ASSERT( num_read == 1, block_log_exception, "original blocks.log read failed" );
 
          // walk this memory section to adjust block position to match the adjusted location
          // of the block start and store in the new index file
@@ -1295,12 +1380,14 @@ namespace eosio { namespace chain {
       new_block_file.flush();
       new_block_file.close();
 
-      fc::path old_log = temp_dir / "old.log";
-      rename(original_block_log.block_file_name, old_log);
-      rename(new_block_filename, original_block_log.block_file_name);
-      fc::path old_ind = temp_dir / "old.index";
-      rename(original_block_log.index_file_name, old_ind);
-      rename(new_index_filename, original_block_log.index_file_name);
+      if (rename_input) {
+         fc::path old_log = output_dir / "old.log";
+         rename(original_block_log.block_file_name, old_log);
+         rename(new_block_filename, original_block_log.block_file_name);
+         fc::path old_ind = output_dir / "old.index";
+         rename(original_block_log.index_file_name, old_ind);
+         rename(new_index_filename, original_block_log.index_file_name);
+      }
 
       return true;
    }
@@ -1335,7 +1422,6 @@ namespace eosio { namespace chain {
          EOS_ASSERT(size == 1, block_log_exception, "invalid format for file ${file}",
                     ("file", block_file_name.string()));
          if (block_log::contains_genesis_state(version, first_block)) {
-            genesis_state gs;
             fc::raw::unpack(ds, gs);
             chain_id = gs.compute_chain_id();
          }

@@ -1,15 +1,10 @@
 #!/usr/bin/env python3
 
-from testUtils import Utils
-import testUtils
-from Cluster import Cluster
-from WalletMgr import WalletMgr
-from Node import Node
-from TestHelper import TestHelper
-
 import decimal
 import math
 import re
+
+from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr
 
 ###############################################################
 # nodeos_voting_test
@@ -174,8 +169,7 @@ try:
     cluster.killall(allInstances=killAll)
     cluster.cleanup()
     Print("Stand up cluster")
-    traceNodeosArgs = " --plugin eosio::trace_api_plugin --trace-no-abis "
-    if cluster.launch(prodCount=prodCount, onlyBios=False, pnodes=totalNodes, totalNodes=totalNodes, totalProducers=totalNodes*21, useBiosBootFile=False, extraNodeosArgs=traceNodeosArgs) is False:
+    if cluster.launch(prodCount=prodCount, onlyBios=False, pnodes=totalNodes, totalNodes=totalNodes, totalProducers=totalNodes*21, useBiosBootFile=False) is False:
         Utils.cmdError("launcher")
         Utils.errorExit("Failed to stand up eos cluster.")
 
@@ -214,13 +208,23 @@ try:
 
     node=node0
     # create accounts via eosio as otherwise a bid is needed
+    transferAmount="100000000.0000 {0}".format(CORE_SYMBOL)
     for account in accounts:
         Print("Create new account %s via %s" % (account.name, cluster.eosioAccount.name))
         trans=node.createInitializeAccount(account, cluster.eosioAccount, stakedDeposit=0, waitForTransBlock=False, stakeNet=1000, stakeCPU=1000, buyRAM=1000, exitOnError=True)
-        transferAmount="100000000.0000 {0}".format(CORE_SYMBOL)
+
+    node.waitForTransBlockIfNeeded(trans, True, exitOnError=True)
+
+    for account in accounts:
         Print("Transfer funds %s from account %s to %s" % (transferAmount, cluster.eosioAccount.name, account.name))
-        node.transferFunds(cluster.eosioAccount, account, transferAmount, "test transfer")
-        trans=node.delegatebw(account, 20000000.0000, 20000000.0000, waitForTransBlock=True, exitOnError=True)
+        node.transferFunds(cluster.eosioAccount, account, transferAmount, "test transfer", waitForTransBlock=False)
+
+    node.waitForTransBlockIfNeeded(trans, True, exitOnError=True)
+
+    for account in accounts:
+        trans=node.delegatebw(account, 20000000.0000, 20000000.0000, waitForTransBlock=False, exitOnError=True)
+
+    node.waitForTransBlockIfNeeded(trans, True, exitOnError=True)
 
     # containers for tracking producers
     prodsActive={}

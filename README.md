@@ -50,9 +50,8 @@ Requirements to build:
 - LLVM 7 - 11 - for Linux only
   - newer versions do not work
 - openssl 1.1+
-- libcurl
 - curl
-- libusb
+- libcurl 7.40.0+
 - git
 - GMP
 - Python 3
@@ -72,7 +71,7 @@ git clone --recursive https://github.com/AntelopeIO/leap.git
 git clone --recursive git@github.com:AntelopeIO/leap.git
 ```
 
-> ℹ️ **HTTPS vs. SSH Clone** ℹ️  
+> ℹ️ **HTTPS vs. SSH Clone** ℹ️
 Both an HTTPS or SSH git clone will yield the same result - a folder named `leap` containing our source code. It doesn't matter which type you use.
 
 Navigate into that folder:
@@ -96,13 +95,13 @@ git submodule update --init --recursive
 ### Step 3 - Build
 Select build instructions below for a [pinned build](#pinned-build) (preferred) or an [unpinned build](#unpinned-build).
 
-> ℹ️ **Pinned vs. Unpinned Build** ℹ️  
+> ℹ️ **Pinned vs. Unpinned Build** ℹ️
 We have two types of builds for Leap: "pinned" and "unpinned." The only difference is that pinned builds use specific versions for some dependencies hand-picked by the Leap engineers - they are "pinned" to those versions. In contrast, unpinned builds use the default dependency versions available on the build system at the time. We recommend performing a "pinned" build to ensure the compiler and boost versions remain the same between builds of different Leap versions. Leap requires these versions to remain the same, otherwise its state might need to be recovered from a portable snapshot or the chain needs to be replayed.
 
-> ⚠️ **A Warning On Parallel Compilation Jobs (`-j` flag)** ⚠️  
+> ⚠️ **A Warning On Parallel Compilation Jobs (`-j` flag)** ⚠️
 When building C/C++ software, often the build is performed in parallel via a command such as `make -j "$(nproc)"` which uses all available CPU threads. However, be aware that some compilation units (`*.cpp` files) in Leap will consume nearly 4GB of memory. Failures due to memory exhaustion will typically, but not always, manifest as compiler crashes. Using all available CPU threads may also prevent you from doing other things on your computer during compilation. For these reasons, consider reducing this value.
 
-> 🐋 **Docker and `sudo`** 🐋  
+> 🐋 **Docker and `sudo`** 🐋
 If you are in an Ubuntu docker container, omit `sudo` from all commands because you run as `root` by default. Most other docker containers also exclude `sudo`, especially Debian-family containers. If your shell prompt is a hash tag (`#`), omit `sudo`.
 
 #### Pinned Build
@@ -139,16 +138,15 @@ sudo apt-get install -y \
         libcurl4-openssl-dev \
         libgmp-dev \
         libssl-dev \
-        libusb-1.0-0-dev \
         llvm-11-dev \
-        pkg-config
+        python3-numpy
 ```
 To build, make sure you are in the root of the `leap` repo, then run the following command:
 ```bash
 mkdir -p build
 cd build
 cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/usr/lib/llvm-11 ..
-make -j $(nproc) package
+make -j "$(nproc)" package
 ```
 </details>
 
@@ -166,11 +164,13 @@ sudo apt-get install -y \
         libcurl4-openssl-dev \
         libgmp-dev \
         libssl-dev \
-        libusb-1.0-0-dev \
         llvm-7-dev \
-        pkg-config \
         python3 \
+        python3-numpy \
+        python3-pip \
         zlib1g-dev
+
+python3 -m pip install dataclasses
 ```
 You need to build Boost from source on this distribution:
 ```bash

@@ -81,7 +81,8 @@ int main(int argc, char** argv)
       app().set_default_config_dir(home / "eosio-wallet");
       http_plugin::set_defaults({
          .default_unix_socket_path = keosd::config::key_store_executable_name + ".sock",
-         .default_http_port = 0
+         .default_http_port = 0,
+         .server_header = keosd::config::key_store_executable_name + "/" + app().version_string()
       });
       app().register_plugin<wallet_api_plugin>();
       if(!app().initialize<wallet_plugin, wallet_api_plugin, http_plugin>(argc, argv)) {
@@ -93,7 +94,11 @@ int main(int argc, char** argv)
       }
       initialize_logging();
       auto& http = app().get_plugin<http_plugin>();
-      http.add_handler("/v1/" + keosd::config::key_store_executable_name + "/stop", [&a=app()](string, string, url_response_callback cb) { cb(200, fc::variant(fc::variant_object())); a.quit(); } );
+      http.add_handler("/v1/" + keosd::config::key_store_executable_name + "/stop",
+                       [&a=app()](string, string, url_response_callback cb) {
+         cb(200, fc::time_point::maximum(), fc::variant(fc::variant_object()));
+         a.quit();
+      } );
       app().startup();
       app().exec();
    } catch (const fc::exception& e) {

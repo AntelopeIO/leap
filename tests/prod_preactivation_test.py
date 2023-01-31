@@ -1,15 +1,11 @@
 #!/usr/bin/env python3
 
-from testUtils import Utils
-from Cluster import Cluster, PFSetupPolicy
-from WalletMgr import WalletMgr
-from Node import Node
-from Node import ReturnType
-from TestHelper import TestHelper
-
 import decimal
 import re
 import time
+
+from TestHarness import Cluster, Node, ReturnType, TestHelper, Utils, WalletMgr
+from TestHarness.Cluster import PFSetupPolicy
 
 ###############################################################
 # prod_preactivation_test
@@ -62,10 +58,9 @@ try:
         cluster.killall(allInstances=killAll)
         cluster.cleanup()
         Print("Stand up cluster")
-        traceNodeosArgs=" --plugin eosio::trace_api_plugin --trace-no-abis "
         if cluster.launch(pnodes=prodCount, totalNodes=prodCount, prodCount=1, onlyBios=onlyBios,
                          dontBootstrap=dontBootstrap, useBiosBootFile=False,
-                         pfSetupPolicy=PFSetupPolicy.NONE, extraNodeosArgs=" --plugin eosio::producer_api_plugin  --http-max-response-time-ms 990000 " + traceNodeosArgs) is False:
+                         pfSetupPolicy=PFSetupPolicy.NONE, extraNodeosArgs=" --plugin eosio::producer_api_plugin  --http-max-response-time-ms 990000 ") is False:
             cmdError("launcher")
             errorExit("Failed to stand up eos cluster.")
 
@@ -73,14 +68,14 @@ try:
     cluster.validateAccounts(None)
 
     node = cluster.getNode(0)
-    cmd = "curl %s/v1/producer/get_supported_protocol_features" % (node.endpointHttp)
-    Print("try to get supported feature list from Node 0 with cmd: %s" % (cmd))
-    feature0=Utils.runCmdReturnJson(cmd)
+    resource = "producer"
+    command = "get_supported_protocol_features"
+    Print("try to get supported feature list from Node 0 with cmd: %s" % (command))
+    feature0 = node.processUrllibRequest(resource, command)
 
     node = cluster.getNode(1)
-    cmd = "curl %s/v1/producer/get_supported_protocol_features" % (node.endpointHttp)
-    Print("try to get supported feature list from Node 1 with cmd: %s" % (cmd))
-    feature1=Utils.runCmdReturnJson(cmd)
+    Print("try to get supported feature list from Node 1 with cmd: %s" % (command))
+    feature1 = node.processUrllibRequest(resource, command)
 
     if feature0 != feature1:
         errorExit("feature list mismatch between node 0 and node 1")
@@ -91,8 +86,8 @@ try:
         errorExit("No supported feature list")
 
     digest = ""
-    for i in range(0, len(feature0)):
-       feature = feature0[i]
+    for i in range(0, len(feature0["payload"])):
+       feature = feature0["payload"][i]
        if feature["specification"][0]["value"] != "PREACTIVATE_FEATURE":
            continue
        else:
@@ -105,12 +100,12 @@ try:
 
     node0 = cluster.getNode(0)
     contract="eosio.bios"
-    contractDir="unittests/contracts/old_versions/v1.7.0-develop-preactivate_feature/%s" % (contract)
+    contractDir="libraries/testing/contracts/old_versions/v1.7.0-develop-preactivate_feature/%s" % (contract)
     wasmFile="%s.wasm" % (contract)
     abiFile="%s.abi" % (contract)
 
     Print("publish a new bios contract %s should fails because env.is_feature_activated unresolveable" % (contractDir))
-    retMap = node0.publishContract("eosio", contractDir, wasmFile, abiFile, True, shouldFail=True)
+    retMap = node0.publishContract(cluster.eosioAccount, contractDir, wasmFile, abiFile, True, shouldFail=True)
 
     outPut = retMap["output"].decode("utf-8")
     if outPut.find("unresolveable") < 0:
@@ -138,20 +133,21 @@ try:
 
     if secwait <= 0:
        errorExit("No producer of node 0")
+    resource = "producer"
+    command = "schedule_protocol_feature_activations"
+    payload = {"protocol_features_to_activate":[digest]}
 
-    cmd = "curl --data-binary '{\"protocol_features_to_activate\":[\"%s\"]}' %s/v1/producer/schedule_protocol_feature_activations" % (digest, node.endpointHttp)
+    Print("try to preactivate feature on node 1, cmd: /v1/%s/%s %s" % (resource, command, payload))
+    result = node.processUrllibRequest(resource, command, payload)
 
-    Print("try to preactivate feature on node 1, cmd: %s" % (cmd))
-    result = Utils.runCmdReturnJson(cmd)
-
-    if result["result"] != "ok":
+    if result["payload"]["result"] != "ok":
         errorExit("failed to preactivate feature from producer plugin on node 1")
     else:
         Print("feature PREACTIVATE_FEATURE (%s) preactivation success" % (digest))
 
     time.sleep(0.6)
     Print("publish a new bios contract %s should fails because node1 is not producing block yet" % (contractDir))
-    retMap = node0.publishContract("eosio", contractDir, wasmFile, abiFile, True, shouldFail=True)
+    retMap = node0.publishContract(cluster.eosioAccount, contractDir, wasmFile, abiFile, True, shouldFail=True)
     if retMap["output"].decode("utf-8").find("unresolveable") < 0:
         errorExit("bios contract not result in expected unresolveable error")
 
@@ -168,7 +164,7 @@ try:
        errorExit("No blocks produced by node 1")
 
     time.sleep(0.6)
-    retMap = node0.publishContract("eosio", contractDir, wasmFile, abiFile, True)
+    retMap = node0.publishContract(cluster.eosioAccount, contractDir, wasmFile, abiFile, True)
     Print("sucessfully set new contract with new intrinsic!!!")
 
     testSuccessful=True

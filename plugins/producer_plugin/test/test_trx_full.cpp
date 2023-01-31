@@ -100,15 +100,17 @@ BOOST_AUTO_TEST_SUITE(ordered_trxs_full)
 // Test verifies that transactions are processed, reported to caller, and not lost
 // even when blocks are aborted and some transactions fail.
 BOOST_AUTO_TEST_CASE(producer) {
-   boost::filesystem::path temp = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
+   
+   fc::temp_directory temp;
+   auto temp_dir_str = temp.path().string();
 
-   try {
+   {
       std::promise<std::tuple<producer_plugin*, chain_plugin*>> plugin_promise;
       std::future<std::tuple<producer_plugin*, chain_plugin*>> plugin_fut = plugin_promise.get_future();
       std::thread app_thread( [&]() {
          fc::logger::get(DEFAULT_LOGGER).set_log_level(fc::log_level::debug);
          std::vector<const char*> argv =
-               {"test", "--data-dir", temp.c_str(), "--config-dir", temp.c_str(),
+               {"test", "--data-dir", temp_dir_str.c_str(), "--config-dir", temp_dir_str.c_str(),
                 "-p", "eosio", "-e", "--max-transaction-time", "475", "--disable-subjective-billing=true" };
          appbase::app().initialize<chain_plugin, producer_plugin>( argv.size(), (char**) &argv[0] );
          appbase::app().startup();
@@ -136,6 +138,13 @@ BOOST_AUTO_TEST_CASE(producer) {
       auto bs = chain_plug->chain().block_start.connect( [&]( uint32_t bn ) {
       } );
 
+      std::atomic<size_t> num_acked = 0;
+      plugin_interface::compat::channels::transaction_ack::channel_type::handle incoming_transaction_ack_subscription =
+            appbase::app().get_channel<plugin_interface::compat::channels::transaction_ack>().subscribe(
+                  [&num_acked]( const std::pair<fc::exception_ptr, packed_transaction_ptr>& t){
+                     ++num_acked;
+                  } );
+
       std::deque<packed_transaction_ptr> trxs;
       std::atomic<size_t> next_calls = 0;
       std::atomic<size_t> num_posts = 0;
@@ -147,11 +156,11 @@ BOOST_AUTO_TEST_CASE(producer) {
          dlog( "posting ${id}", ("id", ptrx->id()) );
          app().post( priority::low, [ptrx, &next_calls, &num_posts, &trace_with_except, &trx_match, &trxs]() {
             ++num_posts;
-            bool return_failure_traces = false; // 2.2.x+ = num_posts % 2 == 0;
+            bool return_failure_traces = num_posts % 2;
             app().get_method<plugin_interface::incoming::methods::transaction_async>()(ptrx,
-               false, // persist_until_expiried
-               false, // read_only
-               false, // return_failure_traces
+               false, // api_trx
+               transaction_metadata::trx_type::input, // trx_type
+               return_failure_traces, // return_failure_traces
                [ptrx, &next_calls, &trace_with_except, &trx_match, &trxs, return_failure_traces]
                (const std::variant<fc::exception_ptr, transaction_trace_ptr>& result) {
                   if( !std::holds_alternative<fc::exception_ptr>( result ) && !std::get<chain::transaction_trace_ptr>( result )->except ) {
@@ -189,6 +198,7 @@ BOOST_AUTO_TEST_CASE(producer) {
       BOOST_CHECK( all_blocks.size() > 3 ); // should have a few blocks otherwise test is running too fast
       BOOST_CHECK_EQUAL( num_pushes, num_posts );
       BOOST_CHECK_EQUAL( num_pushes, next_calls );
+      BOOST_CHECK_EQUAL( num_pushes, num_acked );
       BOOST_CHECK( trx_match.load() );
 
       appbase::app().quit();
@@ -196,11 +206,7 @@ BOOST_AUTO_TEST_CASE(producer) {
 
       BOOST_REQUIRE( verify_equal(trxs, all_blocks ) );
 
-   } catch ( ... ) {
-      bfs::remove_all( temp );
-      throw;
-   }
-   bfs::remove_all( temp );
+   } 
 }
 
 

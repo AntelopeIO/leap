@@ -8,6 +8,7 @@
 #include <boost/test/unit_test.hpp>
 
 #include <contracts.hpp>
+#include <test_contracts.hpp>
 
 using namespace eosio::testing;
 using namespace eosio;
@@ -27,8 +28,8 @@ public:
       create_accounts( { "alice"_n, "bob"_n, "carol"_n, "eosio.token"_n } );
       produce_blocks( 2 );
 
-      set_code( "eosio.token"_n, contracts::eosio_token_wasm() );
-      set_abi( "eosio.token"_n, contracts::eosio_token_abi().data() );
+      set_code( "eosio.token"_n, test_contracts::eosio_token_wasm() );
+      set_abi( "eosio.token"_n, test_contracts::eosio_token_abi().data() );
 
       produce_blocks();
 
@@ -152,7 +153,8 @@ BOOST_FIXTURE_TEST_CASE( create_max_supply, eosio_token_tester ) try {
    share_type amount = 4611686018427387904;
    static_assert(sizeof(share_type) <= sizeof(asset), "asset changed so test is no longer valid");
    static_assert(std::is_trivially_copyable<asset>::value, "asset is not trivially copyable");
-   memcpy(&max, &amount, sizeof(share_type)); // hack in an invalid amount
+   // OK to cast as this is a test and it is a hack to construct an invalid amount
+   memcpy((char*)&max, (char*)&amount, sizeof(share_type)); // hack in an invalid amount.
 
    BOOST_CHECK_EXCEPTION( create( "alice"_n, max) , asset_type_exception, [](const asset_type_exception& e) {
       return expect_assert_message(e, "magnitude of asset amount must be less than 2^62");
@@ -177,7 +179,8 @@ BOOST_FIXTURE_TEST_CASE( create_max_decimals, eosio_token_tester ) try {
    share_type amount = 0x8ac7230489e80000L;
    static_assert(sizeof(share_type) <= sizeof(asset), "asset changed so test is no longer valid");
    static_assert(std::is_trivially_copyable<asset>::value, "asset is not trivially copyable");
-   memcpy(&max, &amount, sizeof(share_type)); // hack in an invalid amount
+   // OK to cast as this is a test and it is a hack to construct an invalid amount
+   memcpy((char*)&max, (char*)&amount, sizeof(share_type)); // hack in an invalid amount
 
    BOOST_CHECK_EXCEPTION( create( "alice"_n, max) , asset_type_exception, [](const asset_type_exception& e) {
       return expect_assert_message(e, "magnitude of asset amount must be less than 2^62");

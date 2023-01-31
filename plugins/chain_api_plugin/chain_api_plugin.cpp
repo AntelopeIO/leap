@@ -51,11 +51,12 @@ parse_params<chain_apis::read_only::get_transaction_status_params, http_params_t
 #define CALL_WITH_400(api_name, api_handle, api_namespace, call_name, http_response_code, params_type) \
 {std::string("/v1/" #api_name "/" #call_name), \
    [api_handle](string, string body, url_response_callback cb) mutable { \
-          api_handle.validate(); \
+          auto deadline = api_handle.start(); \
           try { \
              auto params = parse_params<api_namespace::call_name ## _params, params_type>(body);\
-             fc::variant result( api_handle.call_name( std::move(params) ) ); \
-             cb(http_response_code, std::move(result)); \
+             FC_CHECK_DEADLINE(deadline);\
+             fc::variant result( api_handle.call_name( std::move(params), deadline ) ); \
+             cb(http_response_code, deadline, std::move(result)); \
           } catch (...) { \
              http_plugin::handle_exception(#api_name, #call_name, body, cb); \
           } \
@@ -64,10 +65,11 @@ parse_params<chain_apis::read_only::get_transaction_status_params, http_params_t
 #define CALL_ASYNC_WITH_400(api_name, api_handle, api_namespace, call_name, call_result, http_response_code, params_type) \
 {std::string("/v1/" #api_name "/" #call_name), \
    [api_handle](string, string body, url_response_callback cb) mutable { \
-      api_handle.validate(); \
+      auto deadline = api_handle.start(); \
       try { \
          auto params = parse_params<api_namespace::call_name ## _params, params_type>(body);\
-         api_handle.call_name( std::move(params),\
+         FC_CHECK_DEADLINE(deadline);\
+         api_handle.call_name( std::move(params), \
             [cb, body](const std::variant<fc::exception_ptr, call_result>& result){\
                if (std::holds_alternative<fc::exception_ptr>(result)) {\
                   try {\
@@ -76,7 +78,7 @@ parse_params<chain_apis::read_only::get_transaction_status_params, http_params_t
                      http_plugin::handle_exception(#api_name, #call_name, body, cb);\
                   }\
                } else {\
-                  cb(http_response_code, std::visit(async_result_visitor(), result));\
+                  cb(http_response_code, fc::time_point::maximum(), std::visit(async_result_visitor(), result));\
                }\
             });\
       } catch (...) { \
@@ -96,11 +98,14 @@ void chain_api_plugin::plugin_startup() {
    ilog( "starting chain_api_plugin" );
    my.reset(new chain_api_plugin_impl(app().get_plugin<chain_plugin>().chain()));
    auto& chain = app().get_plugin<chain_plugin>();
-   auto ro_api = chain.get_read_only_api();
-   auto rw_api = chain.get_read_write_api();
+   auto& http = app().get_plugin<http_plugin>();
+   fc::microseconds max_response_time = http.get_max_response_time();
+
+   auto ro_api = chain.get_read_only_api(max_response_time);
+   auto rw_api = chain.get_read_write_api(max_response_time);
 
    auto& _http_plugin = app().get_plugin<http_plugin>();
-   ro_api.set_shorten_abi_errors( !_http_plugin.verbose_errors() );
+   ro_api.set_shorten_abi_errors( !http_plugin::verbose_errors() );
 
    _http_plugin.add_api( {
       CHAIN_RO_CALL(get_info, 200, http_params_types::no_params)}, appbase::priority::medium_high);
@@ -131,7 +136,8 @@ void chain_api_plugin::plugin_startup() {
       CHAIN_RW_CALL_ASYNC(push_transaction, chain_apis::read_write::push_transaction_results, 202, http_params_types::params_required),
       CHAIN_RW_CALL_ASYNC(push_transactions, chain_apis::read_write::push_transactions_results, 202, http_params_types::params_required),
       CHAIN_RW_CALL_ASYNC(send_transaction, chain_apis::read_write::send_transaction_results, 202, http_params_types::params_required),
-      CHAIN_RW_CALL_ASYNC(send_transaction2, chain_apis::read_write::send_transaction_results, 202, http_params_types::params_required)
+      CHAIN_RW_CALL_ASYNC(send_transaction2, chain_apis::read_write::send_transaction_results, 202, http_params_types::params_required),
+      CHAIN_RO_CALL(get_consensus_parameters, 200, http_params_types::no_params)
    });
 
    if (chain.account_queries_enabled()) {
@@ -141,7 +147,7 @@ void chain_api_plugin::plugin_startup() {
    }
 
    if (chain.transaction_finality_status_enabled()) {
-      _http_plugin.add_async_api({
+      _http_plugin.add_api({
          CHAIN_RO_CALL_WITH_400(get_transaction_status, 200, http_params_types::params_required),
       });
    }

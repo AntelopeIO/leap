@@ -4,17 +4,13 @@ import re
 import signal
 import time
 
-from testUtils import Utils
-from Cluster import Cluster
-from WalletMgr import WalletMgr
-from TestHelper import TestHelper
-
+from TestHarness import Cluster, TestHelper, Utils, WalletMgr
 
 ###############################################################
 # nodeos_read_terminate_at_block_test
 #
 # A few tests centered around read mode of irreversible,
-# speculative and head with terminate-at-block set
+# and head with terminate-at-block set
 #
 ###############################################################
 
@@ -216,10 +212,9 @@ try:
     specificNodeosArgs = {
         0 : "--enable-stale-production",
         1 : "--read-mode irreversible --terminate-at-block=250",
-        2 : "--read-mode speculative --terminate-at-block=550",
+        2 : "--read-mode head --terminate-at-block=550",
         3 : "--read-mode head --terminate-at-block=850",
     }
-    traceNodeosArgs = " --plugin eosio::trace_api_plugin --trace-no-abis "
 
     # Kill any existing instances and launch cluster
     TestHelper.printSystemInfo("BEGIN")
@@ -234,7 +229,6 @@ try:
         useBiosBootFile=False,
         topo="mesh",
         specificExtraNodeosArgs=specificNodeosArgs,
-        extraNodeosArgs=traceNodeosArgs
     )
 
     producingNodeId = 0

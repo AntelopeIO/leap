@@ -63,6 +63,9 @@ Config Options for eosio::chain_plugin:
   --blocks-dir arg (="blocks")          the location of the blocks directory
                                         (absolute path or relative to
                                         application data dir)
+  --state-dir arg (="state")            the location of the state directory
+                                        (absolute path or relative to
+                                        application data dir)
   --protocol-features-dir arg (="protocol_features")
                                         the location of the protocol_features
                                         directory (absolute path or relative to
@@ -116,35 +119,18 @@ Config Options for eosio::chain_plugin:
                                         subjective whitelist/blacklist checks
                                         applied to them (may specify multiple
                                         times)
-  --read-mode arg (=speculative)        Database read mode ("speculative",
-                                        "head", "read-only", "irreversible").
-                                        In "speculative" mode: database
-                                        contains state changes by transactions
-                                        in the blockchain up to the head block
-                                        as well as some transactions not yet
-                                        included in the blockchain.
+  --read-mode arg (=head)               Database read mode ("head",
+                                        "irreversible").
                                         In "head" mode: database contains state
-                                        changes by only transactions in the
-                                        blockchain up to the head block;
+                                        changes up to the head block;
                                         transactions received by the node are
                                         relayed if valid.
-                                        In "read-only" mode: (DEPRECATED: see
-                                        p2p-accept-transactions &
-                                        api-accept-transactions) database
-                                        contains state changes by only
-                                        transactions in the blockchain up to
-                                        the head block; transactions received
-                                        via the P2P network are not relayed and
-                                        transactions cannot be pushed via the
-                                        chain API.
                                         In "irreversible" mode: database
-                                        contains state changes by only
-                                        transactions in the blockchain up to
-                                        the last irreversible block;
-                                        transactions received via the P2P
-                                        network are not relayed and
-                                        transactions cannot be pushed via the
-                                        chain API.
+                                        contains state changes up to the last
+                                        irreversible block; transactions
+                                        received via the P2P network are not
+                                        relayed and transactions cannot be
+                                        pushed via the chain API.
 
   --api-accept-transactions arg (=1)    Allow API transactions to be evaluated
                                         and relayed if valid.
@@ -221,9 +207,16 @@ Config Options for eosio::chain_plugin:
                                         transaction's Finality Status will
                                         remain available from being first
                                         identified.
-  --block-log-retain-blocks arg         if set, periodically prune the block
-                                        log to store only configured number of
-                                        most recent blocks
+  --integrity-hash-on-start             Log the state integrity hash on startup
+  --integrity-hash-on-stop              Log the state integrity hash on
+                                        shutdown
+  --block-log-retain-blocks arg         If set to greater than 0, periodically
+                                        prune the block log to store only
+                                        configured number of most recent
+                                        blocks.
+                                        If set to 0, no blocks are be written
+                                        to the block log; block log file is
+                                        removed after startup.
 
 ```
 

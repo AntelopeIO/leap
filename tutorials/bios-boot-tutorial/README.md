@@ -25,7 +25,7 @@ The `bios-boot-tutorial.py` script simulates the bios boot sequence.
 
 ```bash
 $ cd ~
-$ git clone https://github.com/eosnetworkfoundation/mandel-contracts system-contracts-3.1
+$ git clone https://github.com/eosnetworkfoundation/eos-system-contracts system-contracts-3.1
 $ cd ./system-contracts-3.1/
 $ git checkout release/3.1
 $ mkdir build

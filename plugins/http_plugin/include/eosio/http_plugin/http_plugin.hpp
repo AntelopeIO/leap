@@ -12,16 +12,16 @@ namespace eosio {
     * @brief A callback function provided to a URL handler to
     * allow it to specify the HTTP response code and body
     *
-    * Arguments: response_code, response_body
+    * Arguments: response_code, deadline, response_body
     */
-   using url_response_callback = std::function<void(int,fc::variant)>;
+   using url_response_callback = std::function<void(int,fc::time_point,std::optional<fc::variant>)>;
 
    /**
     * @brief Callback type for a URL handler
     *
     * URL handlers have this type
     *
-    * The handler must gaurantee that url_response_callback() is called;
+    * The handler must guarantee that url_response_callback() is called;
     * otherwise, the connection will hang and result in a memory leak.
     *
     * Arguments: url, request_body, response_callback
@@ -45,6 +45,8 @@ namespace eosio {
       //If non 0, HTTP will be enabled by default on the given port number. If
       // 0, HTTP will not be enabled by default
       uint16_t default_http_port{0};
+      //If set, a Server header will be added to the HTTP reply with this value
+      string server_header;
    };
 
    /**
@@ -65,13 +67,13 @@ namespace eosio {
    {
       public:
         http_plugin();
-        virtual ~http_plugin();
+        ~http_plugin() override;
 
         //must be called before initialize
-        static void set_defaults(const http_plugin_defaults config);
+        static void set_defaults(const http_plugin_defaults& config);
 
         APPBASE_PLUGIN_REQUIRES()
-        virtual void set_program_options(options_description&, options_description& cfg) override;
+        void set_program_options(options_description&, options_description& cfg) override;
 
         void plugin_initialize(const variables_map& options);
         void plugin_startup();
@@ -87,16 +89,16 @@ namespace eosio {
         void add_async_handler(const string& url, const url_handler& handler);
         void add_async_api(const api_description& api) {
            for (const auto& call : api)
-              add_handler(call.first, call.second);
+              add_async_handler(call.first, call.second);
         }
 
         // standard exception handling for api handlers
-        static void handle_exception( const char *api_name, const char *call_name, const string& body, url_response_callback cb );
+        static void handle_exception( const char *api_name, const char *call_name, const string& body, const url_response_callback& cb );
 
         bool is_on_loopback() const;
         bool is_secure() const;
 
-        bool verbose_errors()const;
+        static bool verbose_errors();
 
         struct get_supported_apis_result {
            vector<string> apis;
@@ -134,7 +136,7 @@ namespace eosio {
 
          static const uint8_t details_limit = 10;
 
-         error_info() {};
+         error_info() = default;
 
          error_info(const fc::exception& exc, bool include_full_log) {
             code = exc.code();

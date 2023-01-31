@@ -1,10 +1,6 @@
 #!/usr/bin/env python3
 
-from testUtils import Utils
-from Cluster import Cluster
-from Node import Node
-from Node import ReturnType
-from TestHelper import TestHelper
+from TestHarness import Cluster, Node, ReturnType, TestHelper, Utils
 
 ###############################################################
 # http_plugin_tests.py

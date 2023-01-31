@@ -910,7 +910,8 @@ BOOST_AUTO_TEST_CASE(transaction_metadata_test) { try {
       BOOST_CHECK_EQUAL(trx.id(), ptrx->id());
       BOOST_CHECK_EQUAL(trx.id(), ptrx2->id());
 
-      named_thread_pool thread_pool( "misc", 5 );
+      named_thread_pool thread_pool( "misc" );
+      thread_pool.start( 5, {} );
 
       auto fut = transaction_metadata::start_recover_keys( ptrx, thread_pool.get_executor(), test.control->get_chain_id(), fc::microseconds::maximum(), transaction_metadata::trx_type::input );
       auto fut2 = transaction_metadata::start_recover_keys( ptrx2, thread_pool.get_executor(), test.control->get_chain_id(), fc::microseconds::maximum(), transaction_metadata::trx_type::input );
@@ -1197,6 +1198,76 @@ BOOST_AUTO_TEST_CASE(bad_alloc_test) {
    };
    BOOST_CHECK_THROW( fail(), std::bad_alloc );
    BOOST_CHECK( ptr == nullptr );
+}
+
+BOOST_AUTO_TEST_CASE(named_thread_pool_test) {
+   {
+      named_thread_pool thread_pool( "misc" );
+      thread_pool.start( 5, {} );
+
+      std::promise<void> p;
+      auto f = p.get_future();
+      boost::asio::post( thread_pool.get_executor(), [&p](){
+         p.set_value();
+      });
+      BOOST_TEST( (f.wait_for( 100ms ) == std::future_status::ready) );
+   }
+   { // delayed start
+      named_thread_pool thread_pool( "misc" );
+
+      std::promise<void> p;
+      auto f = p.get_future();
+      boost::asio::post( thread_pool.get_executor(), [&p](){
+         p.set_value();
+      });
+      BOOST_TEST( (f.wait_for( 10ms ) == std::future_status::timeout) );
+      thread_pool.start( 5, {} );
+      BOOST_TEST( (f.wait_for( 100ms ) == std::future_status::ready) );
+   }
+   { // exception
+      std::promise<fc::exception> ep;
+      auto ef = ep.get_future();
+      named_thread_pool thread_pool( "misc" );
+      thread_pool.start( 5, [&ep](const fc::exception& e) { ep.set_value(e); } );
+
+      boost::asio::post( thread_pool.get_executor(), [](){
+         FC_ASSERT( false, "oops throw in thread pool" );
+      });
+      BOOST_TEST( (ef.wait_for( 100ms ) == std::future_status::ready) );
+      BOOST_TEST( ef.get().to_detail_string().find("oops throw in thread pool") != std::string::npos );
+
+      // we can restart, after a stop
+      BOOST_REQUIRE_THROW( thread_pool.start( 5, [&ep](const fc::exception& e) { ep.set_value(e); } ), fc::assert_exception );
+      thread_pool.stop();
+
+      std::promise<void> p;
+      auto f = p.get_future();
+      boost::asio::post( thread_pool.get_executor(), [&p](){
+         p.set_value();
+      });
+      thread_pool.start( 5, [&ep](const fc::exception& e) { ep.set_value(e); } );
+      BOOST_TEST( (f.wait_for( 100ms ) == std::future_status::ready) );
+   }
+}
+
+BOOST_AUTO_TEST_CASE(public_key_from_hash) {
+   auto private_key_string = std::string("5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3");
+   auto expected_public_key = std::string("EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV");
+   auto test_private_key = fc::crypto::private_key(private_key_string);
+   auto test_public_key = test_private_key.get_public_key();
+   fc::crypto::public_key eos_pk(expected_public_key);
+
+   BOOST_CHECK_EQUAL(private_key_string, test_private_key.to_string());
+   BOOST_CHECK_EQUAL(expected_public_key, test_public_key.to_string());
+   BOOST_CHECK_EQUAL(expected_public_key, eos_pk.to_string());
+
+   fc::ecc::public_key_data data;
+   data.data[0] = 0x80; // not necessary, 0 also works
+   fc::sha256 hash = fc::sha256::hash("unknown private key");
+   std::memcpy(&data.data[1], hash.data(), hash.data_size() );
+   fc::ecc::public_key_shim shim(data);
+   fc::crypto::public_key eos_unknown_pk(std::move(shim));
+   ilog( "public key with no known private key: ${k}", ("k", eos_unknown_pk) );
 }
 
 BOOST_AUTO_TEST_SUITE_END()

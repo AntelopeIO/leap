@@ -154,7 +154,7 @@ namespace eosio { namespace testing {
 
          virtual ~base_tester() {};
 
-         void              init(const setup_policy policy = setup_policy::full, db_read_mode read_mode = db_read_mode::SPECULATIVE, std::optional<uint32_t> genesis_max_inline_action_size = std::optional<uint32_t>{}, std::optional<uint32_t> config_max_nonprivileged_inline_action_size = std::optional<uint32_t>{});
+         void              init(const setup_policy policy = setup_policy::full, db_read_mode read_mode = db_read_mode::HEAD, std::optional<uint32_t> genesis_max_inline_action_size = std::optional<uint32_t>{}, std::optional<uint32_t> config_max_nonprivileged_inline_action_size = std::optional<uint32_t>{});
          void              init(controller::config config, const snapshot_reader_ptr& snapshot);
          void              init(controller::config config, const genesis_state& genesis);
          void              init(controller::config config);
@@ -164,8 +164,7 @@ namespace eosio { namespace testing {
          void              execute_setup_policy(const setup_policy policy);
 
          void              close();
-         template <typename Lambda>
-         void              open( protocol_feature_set&& pfs, std::optional<chain_id_type> expected_chain_id, Lambda lambda );
+         void              open( protocol_feature_set&& pfs, std::optional<chain_id_type> expected_chain_id, const std::function<void()>& lambda );
          void              open( protocol_feature_set&& pfs, const snapshot_reader_ptr& snapshot );
          void              open( protocol_feature_set&& pfs, const genesis_state& genesis );
          void              open( protocol_feature_set&& pfs, std::optional<chain_id_type> expected_chain_id = {} );
@@ -308,6 +307,8 @@ namespace eosio { namespace testing {
          void              set_code( account_name name, const vector<uint8_t> wasm, const private_key_type* signer = nullptr  );
          void              set_abi( account_name name, const char* abi_json, const private_key_type* signer = nullptr );
 
+         bool is_code_cached( account_name name ) const;
+
          bool                          chain_has_transaction( const transaction_id_type& txid ) const;
          const transaction_receipt&    get_transaction_receipt( const transaction_id_type& txid ) const;
 
@@ -447,7 +448,7 @@ namespace eosio { namespace testing {
 
    class tester : public base_tester {
    public:
-      tester(setup_policy policy = setup_policy::full, db_read_mode read_mode = db_read_mode::SPECULATIVE, std::optional<uint32_t> genesis_max_inline_action_size = std::optional<uint32_t>{}, std::optional<uint32_t> config_max_nonprivileged_inline_action_size = std::optional<uint32_t>{}) {
+      tester(setup_policy policy = setup_policy::full, db_read_mode read_mode = db_read_mode::HEAD, std::optional<uint32_t> genesis_max_inline_action_size = std::optional<uint32_t>{}, std::optional<uint32_t> config_max_nonprivileged_inline_action_size = std::optional<uint32_t>{}) {
          init(policy, read_mode, genesis_max_inline_action_size, config_max_nonprivileged_inline_action_size);
       }
 
@@ -517,8 +518,8 @@ namespace eosio { namespace testing {
          try {
             if( num_blocks_to_producer_before_shutdown > 0 )
                produce_blocks( num_blocks_to_producer_before_shutdown );
-            if (!skip_validate)
-               BOOST_REQUIRE_EQUAL( validate(), true );
+            if (!skip_validate && std::uncaught_exceptions() == 0)
+               BOOST_CHECK_EQUAL( validate(), true );
          } catch( const fc::exception& e ) {
             wdump((e.to_detail_string()));
          }
@@ -597,7 +598,8 @@ namespace eosio { namespace testing {
       signed_block_ptr produce_block( fc::microseconds skip_time = fc::milliseconds(config::block_interval_ms) )override {
          auto sb = _produce_block(skip_time, false);
          auto bsf = validating_node->create_block_state_future( sb->calculate_id(), sb );
-         validating_node->push_block( bsf.get(), forked_branch_callback{}, trx_meta_cache_lookup{} );
+         controller::block_report br;
+         validating_node->push_block( br, bsf.get(), forked_branch_callback{}, trx_meta_cache_lookup{} );
 
          return sb;
       }
@@ -608,14 +610,16 @@ namespace eosio { namespace testing {
 
       void validate_push_block(const signed_block_ptr& sb) {
          auto bsf = validating_node->create_block_state_future( sb->calculate_id(), sb );
-         validating_node->push_block( bsf.get(), forked_branch_callback{}, trx_meta_cache_lookup{} );
+         controller::block_report br;
+         validating_node->push_block( br, bsf.get(), forked_branch_callback{}, trx_meta_cache_lookup{} );
       }
 
       signed_block_ptr produce_empty_block( fc::microseconds skip_time = fc::milliseconds(config::block_interval_ms) )override {
          unapplied_transactions.add_aborted( control->abort_block() );
          auto sb = _produce_block(skip_time, true);
          auto bsf = validating_node->create_block_state_future( sb->calculate_id(), sb );
-         validating_node->push_block( bsf.get(), forked_branch_callback{}, trx_meta_cache_lookup{} );
+         controller::block_report br;
+         validating_node->push_block( br, bsf.get(), forked_branch_callback{}, trx_meta_cache_lookup{} );
 
          return sb;
       }
@@ -667,6 +671,18 @@ namespace eosio { namespace testing {
   struct fc_exception_message_starts_with {
      fc_exception_message_starts_with( const string& msg )
            : expected( msg ) {}
+
+     bool operator()( const fc::exception& ex );
+
+     string expected;
+  };
+
+  /**
+   * Utility predicate to check whether an fc::exception message contains a given string
+   */
+  struct fc_exception_message_contains {
+     explicit fc_exception_message_contains( string msg )
+           : expected( std::move(msg) ) {}
 
      bool operator()( const fc::exception& ex );
 

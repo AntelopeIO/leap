@@ -9,7 +9,7 @@ info:
   contact:
     url: https://antelope.io
 tags:
-  - name: Protocol Version 3.1
+  - name: Protocol Version 4.0
     description: The release tag for Leap binaries is also the protocol version
 servers:
   - url: "{protocol}://{host}:{port}/v1"
@@ -73,9 +73,11 @@ paths:
         "201":
           description: OK
           content:
-            application/json:
+            text/plain:
               schema:
-                $ref: '#/components/schemas/OK_PAUSED'
+                description: true or false
+                type: string
+                example: false
         "400":
           description: client error
           content:
@@ -421,9 +423,12 @@ paths:
                 exclude_disabled:
                   type: boolean
                   description: Exclude disabled protocol features
+                  example: false
+                  default: false
                 exclude_unactivatable:
                   type: boolean
                   description: Exclude unactivatable protocol features
+                  default: false
                   example: false
       responses:
         "201":
@@ -496,11 +501,13 @@ paths:
                 limit:
                   type: integer
                   description: number of rows to scan
+                  default: 10
                   example: 10
                 reverse:
                   type: boolean
                   description: direction of search
                   example: false
+                  default: false
       responses:
         "201":
           description: OK
@@ -519,6 +526,87 @@ paths:
                     type: array
                     items:
                       - $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
+        "400":
+          description: client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /producer/get_unapplied_transactions:
+    post:
+      summary: get_unapplied_transactions
+      description: Get Unapplied Transactions.
+      operationId: get_unapplied_transactions
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                limit:
+                  type: integer
+                  description: limit number of transactions to return
+                  default: 100
+                  example: 100
+                lower_bound:
+                  $ref: "https://docs.eosnetwork.com/openapi/v2.0/Sha256.yaml"
+                time_limit_ms:
+                  type: integer
+                  default: 10
+                  example: 10
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  size:
+                    type: integer
+                    default: 0
+                    example: 12428
+                  incoming_size:
+                    type: integer
+                    default: 0
+                    example: 4475
+                  trxs:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        trx_id:
+                          $ref: "https://docs.eosnetwork.com/openapi/v2.0/Sha256.yaml"
+                        expiration:
+                          type: string
+                          example: "2022-09-17T16:30:16"
+                        trx_type:
+                          type: string
+                          example: "aborted"
+                        first_auth:
+                          type: string
+                          example: "jkbsg.wam"
+                        first_receiver:
+                          type: string
+                          example: "m.federation"
+                        first_action:
+                          type: string
+                          example: "mine"
+                        total_actions:
+                          type: integer
+                          default: 0
+                          example: 1
+                        billed_cpu_time_us:
+                          type: integer
+                          default: 0
+                          example: 504
+                        size:
+                          type: integer
+                          default: 0
+                          example: 934
+                  more:
+                    $ref: "https://docs.eosnetwork.com/openapi/v2.0/Sha256.yaml"
         "400":
           description: client error
           content:
@@ -585,13 +673,6 @@ components:
           type: string
           description: status
           example: ok
-    OK_PAUSED:
-      type: object
-      properties:
-        json:
-          type: boolean
-          description: true/false indicating paused state
-          example: true
     Runtime_Options:
       type: object
       properties:

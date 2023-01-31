@@ -1,14 +1,10 @@
 #!/usr/bin/env python3
 
-from core_symbol import CORE_SYMBOL
-from testUtils import Account
-from testUtils import Utils
-from testUtils import ReturnType
-from Cluster import Cluster
-from WalletMgr import WalletMgr
-from TestHelper import TestHelper
 import time
 import random
+
+from TestHarness import Account, Cluster, ReturnType, TestHelper, Utils, WalletMgr
+from core_symbol import CORE_SYMBOL
 
 ###############################################################
 # subjective-billing-test
@@ -77,7 +73,7 @@ try:
 
     Print("Stand up cluster")
     if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, topo=topo, delay=delay,
-                      extraNodeosArgs=" --http-max-response-time-ms 990000 --disable-subjective-api-billing false --plugin eosio::trace_api_plugin --trace-no-abis ",
+                      extraNodeosArgs=" --http-max-response-time-ms 990000 --disable-subjective-api-billing false ",
                       specificExtraNodeosArgs=specificArgs ) is False:
        errorExit("Failed to stand up eos cluster.")
 

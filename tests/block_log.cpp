@@ -58,7 +58,7 @@ struct block_log_fixture {
       p->previous._hash[0] = fc::endian_reverse_u32(index-1);
       p->header_extensions.push_back(std::make_pair<uint16_t, std::vector<char>>(0, std::vector<char>(a)));
 
-      log->append(p);
+      log->append(p, p->calculate_id());
 
       if(index + 1 > written_data.size())
          written_data.resize(index + 1);
@@ -529,6 +529,79 @@ BOOST_DATA_TEST_CASE(empty_prune_to_nonprune_transitions, bdata::xrange(2) * bda
    }
    else
       t.check_not_present(starting_block);
+}  FC_LOG_AND_RETHROW() }
+
+// Test when prune_blocks is set to 0, no block log is generated
+BOOST_DATA_TEST_CASE(no_block_log_basic_genesis, bdata::xrange(2) * bdata::xrange(2) * bdata::xrange(2) * bdata::xrange(2),
+                                               enable_read, reopen_on_mark, remove_index_on_reopen, vacuum_on_exit_if_small)  { try {
+   // set enable_read to false: when it is true, startup calls
+   // log->read_block_by_num which always returns null when block log does not exist.
+   // set reopen_on_mark to false: when it is ture, check_n_bounce resets block
+   // object but does not reinitialze.
+   block_log_fixture t(false, false, remove_index_on_reopen, vacuum_on_exit_if_small, 0);
+
+   t.startup(1);
+
+   t.add(2, payload_size(), 'A');
+   t.check_not_present(2);
+
+   t.add(3, payload_size(), 'B');
+   t.add(4, payload_size(), 'C');
+   t.check_not_present(3);
+   t.check_not_present(4);
+
+   t.add(5, payload_size(), 'D');
+   t.check_not_present(5);
+}  FC_LOG_AND_RETHROW() }
+
+// Test when prune_blocks is set to 0, no block log is generated
+BOOST_DATA_TEST_CASE(no_block_log_basic_nongenesis, bdata::xrange(2) * bdata::xrange(2) * bdata::xrange(2) * bdata::xrange(2),
+                                               enable_read, reopen_on_mark, remove_index_on_reopen, vacuum_on_exit_if_small)  { try {
+   block_log_fixture t(enable_read, reopen_on_mark, remove_index_on_reopen, vacuum_on_exit_if_small, 0);
+
+   t.startup(10);
+
+   t.add(10, payload_size(), 'A');
+   t.check_not_present(10);
+
+   t.add(11, payload_size(), 'B');
+   t.add(12, payload_size(), 'C');
+   t.check_not_present(11);
+   t.check_not_present(12);
+
+   t.add(13, payload_size(), 'D');
+   t.check_not_present(13);
+}  FC_LOG_AND_RETHROW() }
+
+void no_block_log_public_functions_test( block_log_fixture& t) {
+   BOOST_REQUIRE_NO_THROW(t.log->flush());
+   BOOST_REQUIRE(t.log->read_block(1) == nullptr);
+   BOOST_REQUIRE_NO_THROW(
+      eosio::chain::block_header bh;
+      t.log->read_block_header(bh, 1);
+   );
+   BOOST_REQUIRE(t.log->read_block_by_num(1) == nullptr);
+   BOOST_REQUIRE(t.log->read_block_id_by_num(1) == eosio::chain::block_id_type{});
+   BOOST_REQUIRE(t.log->get_block_pos(1) == eosio::chain::block_log::npos);
+   BOOST_REQUIRE(t.log->read_head() == nullptr);
+}
+
+// Test when prune_blocks is set to 0, block_log's public methods work
+BOOST_DATA_TEST_CASE(no_block_log_public_functions_genesis, bdata::xrange(2) * bdata::xrange(2) * bdata::xrange(2) * bdata::xrange(2),
+                                               enable_read, reopen_on_mark, remove_index_on_reopen, vacuum_on_exit_if_small)  { try {
+   block_log_fixture t(false, false, remove_index_on_reopen, vacuum_on_exit_if_small, 0);
+
+   t.startup(1);
+   no_block_log_public_functions_test(t);
+}  FC_LOG_AND_RETHROW() }
+
+// Test when prune_blocks is set to 0, block_log's public methods work
+BOOST_DATA_TEST_CASE(no_block_log_public_functions_nogenesis, bdata::xrange(2) * bdata::xrange(2) * bdata::xrange(2) * bdata::xrange(2),
+                                               enable_read, reopen_on_mark, remove_index_on_reopen, vacuum_on_exit_if_small)  { try {
+   block_log_fixture t(enable_read, reopen_on_mark, remove_index_on_reopen, vacuum_on_exit_if_small, 0);
+
+   t.startup(10);
+   no_block_log_public_functions_test(t);
 }  FC_LOG_AND_RETHROW() }
 
 BOOST_AUTO_TEST_SUITE_END()

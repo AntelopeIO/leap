@@ -10,14 +10,16 @@ RUN apt-get update && apt-get upgrade -y && \
                                                       libcurl4-openssl-dev        \
                                                       libgmp-dev                  \
                                                       libssl-dev                  \
-                                                      libusb-1.0-0-dev            \
                                                       llvm-7-dev                  \
                                                       ninja-build                 \
-                                                      pkg-config                  \
                                                       python3                     \
+                                                      python3-numpy               \
+                                                      python3-pip                 \
                                                       software-properties-common  \
                                                       zlib1g-dev                  \
                                                       zstd
+
+RUN python3 -m pip install dataclasses
 
 # GitHub's actions/checkout requires git 2.18+ but Ubuntu 18 only provides 2.17
 RUN add-apt-repository ppa:git-core/ppa && apt update && apt install -y git

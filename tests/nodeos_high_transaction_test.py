@@ -1,16 +1,13 @@
 #!/usr/bin/env python3
 
-from testUtils import Utils
+import signal
 import time
-from Cluster import Cluster
-from Cluster import NamedAccounts
-from core_symbol import CORE_SYMBOL
-from WalletMgr import WalletMgr
-from Node import Node
-from TestHelper import TestHelper
-from TestHelper import AppArgs
-
 import json
+
+from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr
+from TestHarness.Cluster import NamedAccounts
+from TestHarness.TestHelper import AppArgs
+from core_symbol import CORE_SYMBOL
 
 ###############################################################
 # nodeos_high_transaction_test
@@ -26,10 +23,11 @@ Print=Utils.Print
 
 appArgs = AppArgs()
 minTotalAccounts = 20
-extraArgs = appArgs.add(flag="--transaction-time-delta", type=int, help="How many seconds seconds behind an earlier sent transaction should be received after a later one", default=5)
+extraArgs = appArgs.add(flag="--transaction-time-delta", type=int, help="How many seconds seconds behind an earlier sent transaction should be received after a later one", default=7)
 extraArgs = appArgs.add(flag="--num-transactions", type=int, help="How many total transactions should be sent", default=10000)
 extraArgs = appArgs.add(flag="--max-transactions-per-second", type=int, help="How many transactions per second should be sent", default=500)
 extraArgs = appArgs.add(flag="--total-accounts", type=int, help="How many accounts should be involved in sending transfers.  Must be greater than %d" % (minTotalAccounts), default=100)
+extraArgs = appArgs.add_bool(flag="--send-duplicates", help="If identical transactions should be sent to all nodes")
 args = TestHelper.parse_args({"-p", "-n","--dump-error-details","--keep-logs","-v","--leave-running","--clean-run"}, applicationSpecificArgs=appArgs)
 
 Utils.Debug=args.v
@@ -50,7 +48,7 @@ blocksPerSec=2
 transBlocksBehind=args.transaction_time_delta * blocksPerSec
 numTransactions = args.num_transactions
 maxTransactionsPerSecond = args.max_transactions_per_second
-assert args.total_accounts >= minTotalAccounts, Print("ERROR: Only %d was selected for --total-accounts, must have at least %d" % (args.total_accounts, minTotalAccounts))
+assert args.total_accounts >= minTotalAccounts, "ERROR: Only %d was selected for --total-accounts, must have at least %d" % (args.total_accounts, minTotalAccounts)
 if numTransactions % args.total_accounts > 0:
     oldNumTransactions = numTransactions
     numTransactions = int((oldNumTransactions + args.total_accounts - 1)/args.total_accounts) * args.total_accounts
@@ -67,6 +65,9 @@ killWallet=not dontKill
 WalletdName=Utils.EosWalletName
 ClientName="cleos"
 
+maxTransactionAttempts = 2            # max number of attempts to try to send a transaction
+maxTransactionAttemptsNoSend = 1      # max number of attempts to try to create a transaction to be sent as a duplicate
+
 try:
     TestHelper.printSystemInfo("BEGIN")
 
@@ -75,11 +76,9 @@ try:
     cluster.cleanup()
     Print("Stand up cluster")
 
-    traceNodeosArgs = " --plugin eosio::trace_api_plugin --trace-no-abis "
     if cluster.launch(pnodes=totalProducerNodes,
                       totalNodes=totalNodes, totalProducers=totalProducers,
-                      useBiosBootFile=False,
-                      extraNodeosArgs=traceNodeosArgs) is False:
+                      useBiosBootFile=False, topo="ring") is False:
         Utils.cmdError("launcher")
         Utils.errorExit("Failed to stand up eos cluster.")
 
@@ -110,8 +109,9 @@ try:
 
     nonProdNodes=[]
     prodNodes=[]
+    allNodes=cluster.getNodes()
     for i in range(0, totalNodes):
-        node=cluster.getNode(i)
+        node=allNodes[i]
         nodeProducers=Cluster.parseProducers(i)
         numProducers=len(nodeProducers)
         Print("node has producers=%s" % (nodeProducers))
@@ -171,20 +171,21 @@ try:
                         Print("Transaction not found for trans id: %s. Will wait %d seconds to see if it arrives in a block." %
                               (transId, args.transaction_time_delta))
                     transTimeDelayed = True
-                    node.waitForTransInBlock(transId, timeout = args.transaction_time_delta)
+                    node.waitForTransactionInBlock(transId, timeout = args.transaction_time_delta)
                     continue
 
             lastIrreversibleBlockNum = node.getIrreversibleBlockNum()
             blockNum = Node.getTransBlockNum(trans)
-            assert blockNum is not None, Print("ERROR: could not retrieve block num from transId: %s, trans: %s" % (transId, json.dumps(trans, indent=2)))
+            assert blockNum is not None, "ERROR: could not retrieve block num from transId: %s, trans: %s" % (transId, json.dumps(trans, indent=2))
             block = node.getBlock(blockNum)
             if block is not None:
                 transactions = block["transactions"]
                 for trans_receipt in transactions:
                     btrans = trans_receipt["trx"]
-                    assert btrans is not None, Print("ERROR: could not retrieve \"trx\" from transaction_receipt: %s, from transId: %s that led to block: %s" % (json.dumps(trans_receipt, indent=2), transId, json.dumps(block, indent=2)))
+                    assert btrans is not None, "ERROR: could not retrieve \"trx\" from transaction_receipt: %s, from transId: %s that led to block: %s" % (json.dumps(trans_receipt, indent=2), transId, json.dumps(block, indent=2))
                     btransId = btrans["id"]
-                    assert btransId is not None, Print("ERROR: could not retrieve \"id\" from \"trx\": %s, from transId: %s that led to block: %s" % (json.dumps(btrans, indent=2), transId, json.dumps(block, indent=2)))
+                    assert btransId is not None, "ERROR: could not retrieve \"id\" from \"trx\": %s, from transId: %s that led to block: %s" % (json.dumps(btrans, indent=2), transId, json.dumps(block, indent=2))
+                    assert btransId not in transToBlock, "ERROR: transaction_id: %s found in block: %d, but originally seen in block number: %d" % (btransId, blockNum, transToBlock[btransId]["block_num"])
                     transToBlock[btransId] = block
 
                 break
@@ -205,8 +206,8 @@ try:
         if transId in transToBlock:
             return
         (block, trans) = cacheTransIdInBlock(transId, transToBlock, node)
-        assert trans is not None, Print("ERROR: could not find transaction for transId: %s" % (transId))
-        assert block is not None, Print("ERROR: could not retrieve block with block num: %d, from transId: %s, trans: %s" % (blockNum, transId, json.dumps(trans, indent=2)))
+        assert trans is not None, "ERROR: could not find transaction for transId: %s" % (transId)
+        assert block is not None, "ERROR: could not retrieve block with block num: %d, from transId: %s, trans: %s" % (blockNum, transId, json.dumps(trans, indent=2))
 
     transToBlock = {}
     for transId in checkTransIds:
@@ -218,6 +219,20 @@ try:
 
     #verify nodes are in sync and advancing
     cluster.waitOnClusterSync(blockAdvancing=5)
+
+    nodeOrder = []
+    if args.send_duplicates:
+        # kill bios, since it prevents the ring topography from really being a ring
+        cluster.biosNode.kill(signal.SIGTERM)
+        nodeOrder.append(0)
+        # jump to node furthest in ring from node 0
+        next = int((totalNodes + 1) / 2)
+        nodeOrder.append(next)
+        # then just fill in the rest of the nodes
+        for i in range(1, next):
+            nodeOrder.append(i)
+        for i in range(next + 1, totalNodes):
+            nodeOrder.append(i)
 
     Print("Sending %d transfers" % (numTransactions))
     delayAfterRounds = int(maxTransactionsPerSecond / args.total_accounts)
@@ -238,22 +253,46 @@ try:
             time.sleep(delayTime)
 
         transferAmount = Node.currencyIntToStr(round + 1, CORE_SYMBOL)
+
         Print("Sending round %d, transfer: %s" % (round, transferAmount))
         for accountIndex in range(0, args.total_accounts):
             fromAccount = accounts[accountIndex]
             toAccountIndex = accountIndex + 1 if accountIndex + 1 < args.total_accounts else 0
             toAccount = accounts[toAccountIndex]
             node = nonProdNodes[accountIndex % nonProdNodeCount]
-            trans=node.transferFunds(fromAccount, toAccount, transferAmount, "transfer round %d" % (round), exitOnError=False, reportStatus=False)
-            if trans is None:
-                # delay and see if transfer is accepted now
-                Utils.Print("Transfer rejected, delay 1 second and see if it is then accepted")
-                time.sleep(1)
-                trans=node.transferFunds(fromAccount, toAccount, transferAmount, "transfer round %d" % (round), exitOnError=False, reportStatus=False)
+            trans = None
+            attempts = 0
+            maxAttempts = maxTransactionAttempts if not args.send_duplicates else maxTransactionAttemptsNoSend  # for send_duplicates we are just constructing a transaction, so should never require a second attempt
+            # can try up to maxAttempts times to send the transfer
+            while trans is None and attempts < maxAttempts:
+                if attempts > 0:
+                    # delay and see if transfer is accepted now
+                    Utils.Print("Transfer rejected, delay 1 second and see if it is then accepted")
+                    time.sleep(1)
+                expiration=None if args.send_duplicates else 90
+                trans=node.transferFunds(fromAccount, toAccount, transferAmount, "transfer round %d" % (round), exitOnError=False, reportStatus=False, sign=True, dontSend=args.send_duplicates, expiration=expiration)
+                attempts += 1
 
-            assert trans is not None, Print("ERROR: failed round: %d, fromAccount: %s, toAccount: %s" % (round, accountIndex, toAccountIndex))
-            # store off the transaction id, which we can use with the node.transCache
-            history.append(Node.getTransId(trans))
+            if args.send_duplicates:
+                sendTrans = trans
+                trans = None
+                numAccepted = 0
+                attempts = 0
+                while trans is None and attempts < maxTransactionAttempts:
+                    for node in map(lambda ordinal: allNodes[ordinal], nodeOrder):
+                        repeatTrans = node.pushTransaction(sendTrans, opts="--skip-sign", silentErrors=True)
+                        if repeatTrans is not None:
+                            if trans is None and repeatTrans[0]:
+                                trans = repeatTrans[1]
+                                transId = Node.getTransId(trans)
+
+                            numAccepted += 1
+
+                    attempts += 1
+
+            assert trans is not None, "ERROR: failed round: %d, fromAccount: %s, toAccount: %s" % (round, accountIndex, toAccountIndex)
+            transId = Node.getTransId(trans)
+            history.append(transId)
 
     nextTime = time.perf_counter()
     Print("Sending transfers took %s sec" % (nextTime - startTransferTime))
@@ -288,11 +327,11 @@ try:
                 if newestBlockNum > lastBlockNum:
                     missingTransactions[-1]["highest_block_seen"] = newestBlockNum
             blockNum = Node.getTransBlockNum(trans)
-            assert blockNum is not None, Print("ERROR: could not retrieve block num from transId: %s, trans: %s" % (transId, json.dumps(trans, indent=2)))
+            assert blockNum is not None, "ERROR: could not retrieve block num from transId: %s, trans: %s" % (transId, json.dumps(trans, indent=2))
         else:
             block = transToBlock[transId]
             blockNum = block["block_num"]
-            assert blockNum is not None, Print("ERROR: could not retrieve block num for block retrieved for transId: %s, block: %s" % (transId, json.dumps(block, indent=2)))
+            assert blockNum is not None, "ERROR: could not retrieve block num for block retrieved for transId: %s, block: %s" % (transId, json.dumps(block, indent=2))
 
         if lastBlockNum is not None:
             if blockNum > lastBlockNum + transBlocksBehind or blockNum + transBlocksBehind < lastBlockNum:
