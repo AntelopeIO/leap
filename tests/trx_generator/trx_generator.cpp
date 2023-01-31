@@ -28,7 +28,7 @@ namespace eosio::testing {
       fc::crypto::private_key _second_act_priv_key;
    };
 
-   signed_transaction_w_signer create_transfer_trx_w_signer(const action& act, const fc::crypto::private_key& priv_key, uint64_t& nonce_prefix, uint64_t& nonce, const fc::microseconds& trx_expiration, const chain_id_type& chain_id, const block_id_type& last_irr_block_id) {
+   signed_transaction_w_signer create_trx_w_action_and_signer(const action& act, const fc::crypto::private_key& priv_key, uint64_t& nonce_prefix, uint64_t& nonce, const fc::microseconds& trx_expiration, const chain_id_type& chain_id, const block_id_type& last_irr_block_id) {
       signed_transaction trx;
       trx.actions.push_back(act);
       trx.context_free_actions.emplace_back(action({}, config::null_account_name, name("nonce"),
@@ -47,8 +47,8 @@ namespace eosio::testing {
       trxs.reserve(2 * action_pairs_vector.size());
 
       for(action_pair_w_keys ap: action_pairs_vector) {
-         trxs.emplace_back(create_transfer_trx_w_signer(ap._first_act, ap._first_act_priv_key, nonce_prefix, nonce, trx_expiration, chain_id, last_irr_block_id));
-         trxs.emplace_back(create_transfer_trx_w_signer(ap._second_act, ap._second_act_priv_key, nonce_prefix, nonce, trx_expiration, chain_id, last_irr_block_id));
+         trxs.emplace_back(create_trx_w_action_and_signer(ap._first_act, ap._first_act_priv_key, nonce_prefix, nonce, trx_expiration, chain_id, last_irr_block_id));
+         trxs.emplace_back(create_trx_w_action_and_signer(ap._second_act, ap._second_act_priv_key, nonce_prefix, nonce, trx_expiration, chain_id, last_irr_block_id));
       }
 
       return trxs;
@@ -199,7 +199,7 @@ namespace eosio::testing {
       act.authorization = vector<permission_level>{{_auth_account, config::active_name}};
       act.data = std::move(packed_action_data);
 
-      _trxs.emplace_back(create_transfer_trx_w_signer(act, _private_key, ++_nonce_prefix, _nonce, _trx_expiration, _chain_id, _last_irr_block_id));
+      _trxs.emplace_back(create_trx_w_action_and_signer(act, _private_key, ++_nonce_prefix, _nonce, _trx_expiration, _chain_id, _last_irr_block_id));
 
       ilog("Setup p2p transaction provider");
 
