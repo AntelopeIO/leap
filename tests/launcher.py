@@ -211,6 +211,12 @@ class launcher(object):
             parser.error(f'Count of uses of --spcfc-inst-num and --spcfc-inst-{Utils.EosServerName} must match')
         r.pnodes += 1 # add one for the bios node
         r.total_nodes += 1
+        if r.pnodes > r.producers + 1:
+            r.pnodes = r.producers
+        if r.pnodes > r.total_nodes:
+            r.total_nodes = r.pnodes + r.unstarted_nodes
+        elif r.total_nodes < r.pnodes + r.unstarted_nodes:
+            Utils.errorExit('if provided, "--nodes" must be equal to or greater than the number of nodes indicated by "--pnodes" and "--unstarted-nodes".')
         return r
 
     def assign_name(self, is_bios):
@@ -571,9 +577,9 @@ plugin = eosio::chain_api_plugin
 
     def down(self, nodeNumbers):
         for num in nodeNumbers:
-            for node in self.network.nodes:
+            for node in self.network.nodes.values():
                 if self.network.name + num == node.name:
-                    with open(node.data_dir_name + '/nodeos.pid', 'r') as f:
+                    with open(node.data_dir_name / 'nodeos.pid', 'r') as f:
                         pid = f.readline()
                         subprocess.call(f'kill -15 {pid}')
 
