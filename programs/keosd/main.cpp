@@ -84,7 +84,7 @@ int main(int argc, char** argv)
          .default_http_port = 0,
          .server_header = keosd::config::key_store_executable_name + "/" + app().version_string()
       });
-      app().register_plugin<wallet_api_plugin>();
+      application::register_plugin<wallet_api_plugin>();
       if(!app().initialize<wallet_plugin, wallet_api_plugin, http_plugin>(argc, argv)) {
          const auto &opts = app().get_options();
          if (opts.count("help") || opts.count("version") || opts.count("full-version") ||

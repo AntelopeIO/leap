@@ -5,7 +5,7 @@
 
 namespace eosio {
 
-static auto _test_control_api_plugin = app().register_plugin<test_control_api_plugin>();
+   static auto _test_control_api_plugin = application::register_plugin<test_control_api_plugin>();
 
 using namespace eosio;
 
