@@ -16,7 +16,7 @@ bioscontractpath=$BIOS_CONTRACT_PATH
 if [ -z "$bioscontractpath" ]; then
     # this is defaulted to the version of bios that only requires the preactivate_feature
     # newer versions may require 
-    bioscontractpath="unittests/contracts/old_versions/v1.7.0-develop-preactivate_feature/eosio.bios"
+    bioscontractpath="libraries/testing/contracts/old_versions/v1.7.0-develop-preactivate_feature/eosio.bios"
 fi
 
 bioscurrencysymbol=$BIOS_CURRENCY_SYMBOL
