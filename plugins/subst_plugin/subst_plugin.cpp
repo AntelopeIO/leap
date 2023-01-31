@@ -29,10 +29,10 @@ namespace eosio {
 
             new_code = eosio::vm::read_wasm(new_code_path);
 
-            wlog("===================SUBST-PLUGIN==================");
-            wlog("Loaded new wasm for ${h}", ("h", old_code_hash_str));
-            wlog("New size: ${s}", ("s", new_code.size()));
-            wlog("=================================================");
+            ilog("===================SUBST-PLUGIN==================");
+            ilog("Loaded new wasm for ${h}", ("h", old_code_hash_str));
+            ilog("New size: ${s}", ("s", new_code.size()));
+            ilog("=================================================");
 
             auto new_hash = fc::sha256::hash((const char*)new_code.data(), new_code.size());
             auto old_hash = fc::sha256::hash(old_code_hash_str.c_str());
@@ -75,6 +75,9 @@ namespace eosio {
                     uint8_t vm_type, uint8_t vm_version,
                     eosio::chain::apply_context& context
                 ) {
+                    if (context.get_action().account == eosio::name(std::string("eosio.evm")))
+                        ilog("SUBST: new eosio evm call, contract digest: ${d}", ("d", code_hash));
+
                     auto timer_pause =
                         fc::make_scoped_exit([&]() { context.trx_context.resume_billing_timer(); });
                     context.trx_context.pause_billing_timer();
