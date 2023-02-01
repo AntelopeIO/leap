@@ -26,6 +26,7 @@
 #include <boost/asio/steady_timer.hpp>
 
 #include <atomic>
+#include <cmath>
 #include <shared_mutex>
 
 using namespace eosio::chain::plugin_interface;
@@ -1789,8 +1790,8 @@ namespace eosio {
          peer_wlog(c, "Peer sent a handshake with a timestamp skewed by at least ${t}ms", ("t", network_latency_ns/1000000));
          network_latency_ns = 0;
       }
-      // number of blocks syncing node is behind from a peer node
-      uint32_t nblk_behind_by_net_latency = static_cast<uint32_t>(network_latency_ns / block_interval_ns);
+      // number of blocks syncing node is behind from a peer node, round up
+      uint32_t nblk_behind_by_net_latency = std::lround( static_cast<double>(network_latency_ns) / static_cast<double>(block_interval_ns) );
       // 2x for time it takes for message to reach back to peer node
       uint32_t nblk_combined_latency = 2 * nblk_behind_by_net_latency;
       // message in the log below is used in p2p_high_latency_test.py test
