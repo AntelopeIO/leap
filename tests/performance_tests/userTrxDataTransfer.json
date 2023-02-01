@@ -2,6 +2,7 @@
     "accounts": ["testacct1", "testacct2"],
     "abiFile": "unittests/contracts/eosio.token/eosio.token.abi",
     "actionName": "transfer",
+    "actionAuthAcct": "testacct1",
     "actionData": 
         {
             "from":"testacct1",

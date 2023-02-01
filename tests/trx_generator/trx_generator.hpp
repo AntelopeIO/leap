@@ -17,6 +17,7 @@ namespace eosio::testing {
 
    struct trx_generator_base {
       p2p_trx_provider _provider;
+      uint16_t _id;
       eosio::chain::chain_id_type _chain_id;
       eosio::chain::name _contract_owner_account;
       fc::microseconds _trx_expiration;
@@ -33,12 +34,14 @@ namespace eosio::testing {
       bool _stop_on_trx_failed = true;
 
 
-      trx_generator_base(std::string chain_id_in, std::string contract_owner_account, fc::microseconds trx_expr, std::string lib_id_str, std::string log_dir, bool stop_on_trx_failed,
+      trx_generator_base(uint16_t id, std::string chain_id_in, std::string contract_owner_account, fc::microseconds trx_expr, std::string lib_id_str, std::string log_dir, bool stop_on_trx_failed,
          const std::string& peer_endpoint="127.0.0.1", unsigned short port=9876);
 
       void push_transaction(p2p_trx_provider& provider, signed_transaction_w_signer& trx, uint64_t& nonce_prefix,
                             uint64_t& nonce, const fc::microseconds& trx_expiration, const eosio::chain::chain_id_type& chain_id,
                             const eosio::chain::block_id_type& last_irr_block_id);
+
+
       bool generate_and_send();
       bool tear_down();
       void stop_generation();
@@ -49,7 +52,7 @@ namespace eosio::testing {
       const std::vector<std::string> _accts;
       std::vector<std::string> _private_keys_str_vector;
 
-      transfer_trx_generator(std::string chain_id_in, std::string contract_owner_account, const std::vector<std::string>& accts,
+      transfer_trx_generator(uint16_t id, std::string chain_id_in, std::string contract_owner_account, const std::vector<std::string>& accts,
          fc::microseconds trx_expr, const std::vector<std::string>& private_keys_str_vector, std::string lib_id_str, std::string log_dir, bool stop_on_trx_failed,
          const std::string& peer_endpoint="127.0.0.1", unsigned short port=9876);
 
@@ -61,15 +64,16 @@ namespace eosio::testing {
 
    struct trx_generator : public trx_generator_base{
       std::string _abi_data_file_path;
-      eosio::chain::name _auth_account;
       eosio::chain::name _action;
+      eosio::chain::name _action_auth_account;
+      fc::crypto::private_key _action_auth_priv_key;
       std::string _action_data_file_or_str;
-      fc::crypto::private_key _private_key;
 
       const fc::microseconds abi_serializer_max_time = fc::seconds(10); // No risk to client side serialization taking a long time
 
-      trx_generator(std::string chain_id_in, const std::string& abi_data_file, std::string contract_owner_account, std::string auth_account, std::string action_name, const std::string& action_data_file_or_str,
-         fc::microseconds trx_expr, const std::string& private_key_str, std::string lib_id_str, std::string log_dir, bool stop_on_trx_failed,
+      trx_generator(uint16_t id, std::string chain_id_in, const std::string& abi_data_file, std::string contract_owner_account,
+         std::string action_name, std::string action_auth_account, const std::string& action_auth_priv_key_str, const std::string& action_data_file_or_str,
+         fc::microseconds trx_expr, std::string lib_id_str, std::string log_dir, bool stop_on_trx_failed,
          const std::string& peer_endpoint="127.0.0.1", unsigned short port=9876);
 
       bool setup();
