@@ -129,8 +129,18 @@ class testnetDefinition:
 
 
 def producer_name(producer_number: int, shared_producer: bool = False):
-    '''Currently only supports 26 producer names; original supports approx. 26^6'''
-    return ('shr' if shared_producer else 'def') + 'producer' + string.ascii_lowercase[producer_number]
+    '''For first 26 return "defproducera" ... "defproducerz".
+       After 26 return "defpraaaaaab", "defpraaaaaac"...'''
+    if producer_number > len(string.ascii_lowercase) - 1:
+        def alpha_str_base(number: int, base: str):
+            '''Convert number to base represented as string of "digits"'''
+            d,m = divmod(number, len(base))
+            if d > 0:
+                return alpha_str_base(d, base) + base[m]
+            return base[m]
+        return ('shr' if shared_producer else 'def') + 'pr' + alpha_str_base(producer_number - len(string.ascii_lowercase) + 1, string.ascii_lowercase).rjust(7, string.ascii_lowercase[0])
+    else:
+        return ('shr' if shared_producer else 'def') + 'producer' + string.ascii_lowercase[producer_number]
 
 class launcher(object):
     def __init__(self, args):
