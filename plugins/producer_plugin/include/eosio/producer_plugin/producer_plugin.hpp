@@ -50,6 +50,19 @@ public:
       std::string          snapshot_name;
    };
 
+   struct snapshot_request_information {
+      uint32_t             snapshot_request_id;
+      uint32_t             block_spacing;
+      uint32_t             start_block_num;
+      uint32_t             end_block_num;
+      std::string          snapshot_description;
+   };
+
+   struct snapshot_requests {
+      std::vector<snapshot_request_information> requests;
+      std::map<uint32_t, snapshot_information>  pending_snapshots;
+   };
+
    struct scheduled_protocol_feature_activations {
       std::vector<chain::digest_type> protocol_features_to_activate;
    };
@@ -105,7 +118,11 @@ public:
    void set_whitelist_blacklist(const whitelist_blacklist& params);
 
    integrity_hash_information get_integrity_hash() const;
+
    void create_snapshot(next_function<snapshot_information> next);
+   void schedule_snapshot(const snapshot_request_information& schedule);
+   void unschedule_snapshot(const snapshot_request_information& schedule);
+   snapshot_requests get_snapshot_requests() const;
 
    scheduled_protocol_feature_activations get_scheduled_protocol_feature_activations() const;
    void schedule_protocol_feature_activations(const scheduled_protocol_feature_activations& schedule);
@@ -155,6 +172,8 @@ FC_REFLECT(eosio::producer_plugin::greylist_params, (accounts));
 FC_REFLECT(eosio::producer_plugin::whitelist_blacklist, (actor_whitelist)(actor_blacklist)(contract_whitelist)(contract_blacklist)(action_blacklist)(key_blacklist) )
 FC_REFLECT(eosio::producer_plugin::integrity_hash_information, (head_block_id)(integrity_hash))
 FC_REFLECT(eosio::producer_plugin::snapshot_information, (head_block_id)(head_block_num)(head_block_time)(version)(snapshot_name))
+FC_REFLECT(eosio::producer_plugin::snapshot_request_information, (snapshot_request_id)(block_spacing)(start_block_num)(end_block_num)(snapshot_description))
+FC_REFLECT(eosio::producer_plugin::snapshot_requests, (requests)(pending_snapshots))
 FC_REFLECT(eosio::producer_plugin::scheduled_protocol_feature_activations, (protocol_features_to_activate))
 FC_REFLECT(eosio::producer_plugin::get_supported_protocol_features_params, (exclude_disabled)(exclude_unactivatable))
 FC_REFLECT(eosio::producer_plugin::get_account_ram_corrections_params, (lower_bound)(upper_bound)(limit)(reverse))

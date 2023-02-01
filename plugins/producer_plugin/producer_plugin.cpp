@@ -1321,6 +1321,20 @@ void producer_plugin::create_snapshot(producer_plugin::next_function<producer_pl
    }
 }
 
+void producer_plugin::schedule_snapshot(const snapshot_request_information& schedule)
+{
+}
+
+void producer_plugin::unschedule_snapshot(const snapshot_request_information& schedule)
+{
+}
+
+producer_plugin::snapshot_requests producer_plugin::get_snapshot_requests() const
+{
+   snapshot_requests results;
+   return results;
+}
+
 producer_plugin::scheduled_protocol_feature_activations
 producer_plugin::get_scheduled_protocol_feature_activations()const {
    return {my->_protocol_features_to_activate};

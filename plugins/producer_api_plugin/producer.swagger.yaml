@@ -323,9 +323,9 @@ paths:
             schema:
               type: object
               properties:
-                blocks_count:
+                block_spacing:
                   type: integer
-                  description: Generate snapshot every blocks_count blocks
+                  description: Generate snapshot every block_spacing blocks
                 start_block_num:
                   type: integer
                   description: Block number at which schedule starts
@@ -350,9 +350,9 @@ paths:
                     snapshot_request_id:
                       type: integer
                       description: Unique id identifying current snapshot request
-                    blocks_count:
+                    block_spacing:
                       type: integer
-                      description: Generate snapshot every blocks_count blocks
+                      description: Generate snapshot every block_spacing blocks
                     start_block_num:
                       type: integer
                       description: Block number at which schedule starts
@@ -394,9 +394,9 @@ paths:
                           snapshot_request_id:
                             type: integer
                             description: Unique id identifying current snapshot request
-                          blocks_count:
+                          block_spacing:
                             type: integer
-                            description: Generate snapshot every blocks_count blocks
+                            description: Generate snapshot every block_spacing blocks
                           start_block_num:
                             type: integer
                             description: Block number at which schedule starts
@@ -466,9 +466,9 @@ paths:
                   snapshot_request_id:
                       type: integer
                       description: Unique id identifying current snapshot request
-                  blocks_count:
+                  block_spacing:
                     type: integer
-                    description: Generate snapshot every blocks_count blocks
+                    description: Generate snapshot every block_spacing blocks
                   start_block_num:
                     type: integer
                     description: Block number at which schedule starts
