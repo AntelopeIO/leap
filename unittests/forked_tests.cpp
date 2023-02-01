@@ -11,6 +11,7 @@
 #include <boost/test/unit_test.hpp>
 
 #include <contracts.hpp>
+#include <test_contracts.hpp>
 
 #include "fork_test_utilities.hpp"
 
@@ -142,8 +143,8 @@ BOOST_AUTO_TEST_CASE( forking ) try {
 
    auto r2 = c.create_accounts( {"eosio.token"_n} );
    wdump((fc::json::to_pretty_string(r2)));
-   c.set_code( "eosio.token"_n, contracts::eosio_token_wasm() );
-   c.set_abi( "eosio.token"_n, contracts::eosio_token_abi().data() );
+   c.set_code( "eosio.token"_n, test_contracts::eosio_token_wasm() );
+   c.set_abi( "eosio.token"_n, test_contracts::eosio_token_abi().data() );
    c.produce_blocks(10);
 
 
@@ -267,10 +268,10 @@ BOOST_AUTO_TEST_CASE( forking ) try {
    signed_block bad_block = std::move(*b);
    bad_block.action_mroot = bad_block.previous;
    auto bad_id = bad_block.calculate_id();
-   auto bad_block_bs = c.control->create_block_state_future( bad_id, std::make_shared<signed_block>(std::move(bad_block)) );
+   auto bad_block_bsf = c.control->create_block_state_future( bad_id, std::make_shared<signed_block>(std::move(bad_block)) );
    c.control->abort_block();
    controller::block_report br;
-   BOOST_REQUIRE_EXCEPTION(c.control->push_block( br, bad_block_bs, forked_branch_callback{}, trx_meta_cache_lookup{} ), fc::exception,
+   BOOST_REQUIRE_EXCEPTION(c.control->push_block( br, bad_block_bsf.get(), forked_branch_callback{}, trx_meta_cache_lookup{} ), fc::exception,
       [] (const fc::exception &ex)->bool {
          return ex.to_detail_string().find("block signed by unexpected key") != std::string::npos;
       });

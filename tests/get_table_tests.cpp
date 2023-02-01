@@ -10,6 +10,7 @@
 #include <eosio/chain_plugin/chain_plugin.hpp>
 
 #include <contracts.hpp>
+#include <test_contracts.hpp>
 
 #include <fc/io/fstream.hpp>
 
@@ -72,8 +73,8 @@ BOOST_FIXTURE_TEST_CASE( get_scope_test, TESTER ) try {
    create_accounts(accs);
    produce_block();
 
-   set_code( "eosio.token"_n, contracts::eosio_token_wasm() );
-   set_abi( "eosio.token"_n, contracts::eosio_token_abi().data() );
+   set_code( "eosio.token"_n, test_contracts::eosio_token_wasm() );
+   set_abi( "eosio.token"_n, test_contracts::eosio_token_abi().data() );
    produce_blocks(1);
 
    // create currency
@@ -144,8 +145,8 @@ BOOST_FIXTURE_TEST_CASE( get_table_test, TESTER ) try {
    create_accounts(accs);
    produce_block();
 
-   set_code( "eosio.token"_n, contracts::eosio_token_wasm() );
-   set_abi( "eosio.token"_n, contracts::eosio_token_abi().data() );
+   set_code( "eosio.token"_n, test_contracts::eosio_token_wasm() );
+   set_abi( "eosio.token"_n, test_contracts::eosio_token_abi().data() );
    produce_blocks(1);
 
    // create currency
@@ -317,14 +318,14 @@ BOOST_FIXTURE_TEST_CASE( get_table_by_seckey_test, TESTER ) try {
    produce_blocks(2);
 
    create_accounts({ "eosio.token"_n, "eosio.ram"_n, "eosio.ramfee"_n, "eosio.stake"_n,
-      "eosio.bpay"_n, "eosio.vpay"_n, "eosio.saving"_n, "eosio.names"_n });
+      "eosio.bpay"_n, "eosio.vpay"_n, "eosio.saving"_n, "eosio.names"_n, "eosio.rex"_n });
 
    std::vector<account_name> accs{"inita"_n, "initb"_n, "initc"_n, "initd"_n};
    create_accounts(accs);
    produce_block();
 
-   set_code( "eosio.token"_n, contracts::eosio_token_wasm() );
-   set_abi( "eosio.token"_n, contracts::eosio_token_abi().data() );
+   set_code( "eosio.token"_n, test_contracts::eosio_token_wasm() );
+   set_abi( "eosio.token"_n, test_contracts::eosio_token_abi().data() );
    produce_blocks(1);
 
    // create currency
@@ -339,8 +340,8 @@ BOOST_FIXTURE_TEST_CASE( get_table_by_seckey_test, TESTER ) try {
    }
    produce_blocks(1);
 
-   set_code( config::system_account_name, contracts::eosio_system_wasm() );
-   set_abi( config::system_account_name, contracts::eosio_system_abi().data() );
+   set_code( config::system_account_name, test_contracts::eosio_system_wasm() );
+   set_abi( config::system_account_name, test_contracts::eosio_system_abi().data() );
 
    base_tester::push_action(config::system_account_name, "init"_n,
                             config::system_account_name,  mutable_variant_object()
@@ -453,8 +454,8 @@ BOOST_FIXTURE_TEST_CASE( get_table_next_key_test, TESTER ) try {
    create_account("test"_n);
 
    // setup contract and abi
-   set_code( "test"_n, contracts::get_table_test_wasm() );
-   set_abi( "test"_n, contracts::get_table_test_abi().data() );
+   set_code( "test"_n, test_contracts::get_table_test_wasm() );
+   set_abi( "test"_n, test_contracts::get_table_test_abi().data() );
    produce_block();
 
    // Init some data
