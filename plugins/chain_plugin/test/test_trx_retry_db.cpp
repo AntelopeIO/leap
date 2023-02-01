@@ -201,6 +201,7 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
    boost::filesystem::path temp = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
 
    try {
+      appbase::scoped_app app;
       fc::logger::get(DEFAULT_LOGGER).set_log_level(fc::log_level::debug);
 
       // just need a controller for trx_retry_db, doesn't actually have to do anything
@@ -226,10 +227,10 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       std::future<chain_plugin*> plugin_fut = plugin_promise.get_future();
       std::thread app_thread( [&]() {
          std::vector<const char*> argv = {"test"};
-         appbase::app().initialize( argv.size(), (char**) &argv[0] );
-         appbase::app().startup();
-         plugin_promise.set_value(appbase::app().find_plugin<chain_plugin>());
-         appbase::app().exec();
+         app->initialize( argv.size(), (char**) &argv[0] );
+         app->startup();
+         plugin_promise.set_value(app->find_plugin<chain_plugin>());
+         app->exec();
       } );
       (void)plugin_fut.get(); // wait for app to be started
       
@@ -243,7 +244,7 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       // provide a subscriber for the transaction_ack channel
       blocking_queue<std::pair<fc::exception_ptr, packed_transaction_ptr>> transactions_acked;
       plugin_interface::compat::channels::transaction_ack::channel_type::handle incoming_transaction_ack_subscription =
-            appbase::app().get_channel<plugin_interface::compat::channels::transaction_ack>().subscribe(
+            app->get_channel<plugin_interface::compat::channels::transaction_ack>().subscribe(
                   [&transactions_acked]( const std::pair<fc::exception_ptr, packed_transaction_ptr>& t){
                      transactions_acked.push( t );
                   } );
@@ -618,7 +619,7 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
 
 
       // shutdown
-      appbase::app().quit();
+      app->quit();
       app_thread.join();
 
    } catch ( ... ) {
