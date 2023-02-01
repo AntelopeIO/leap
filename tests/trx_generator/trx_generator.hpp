@@ -5,6 +5,8 @@
 #include <appbase/plugin.hpp>
 #include <boost/program_options.hpp>
 #include <eosio/chain/transaction.hpp>
+#include <eosio/chain/asset.hpp>
+#include <fc/io/json.hpp>
 
 namespace eosio::testing {
 
@@ -13,6 +15,16 @@ namespace eosio::testing {
 
       eosio::chain::signed_transaction _trx;
       fc::crypto::private_key _signer;
+   };
+
+   struct action_pair_w_keys {
+      action_pair_w_keys(eosio::chain::action first_action, eosio::chain::action second_action, fc::crypto::private_key first_act_signer, fc::crypto::private_key second_act_signer)
+            : _first_act(first_action), _second_act(second_action), _first_act_priv_key(first_act_signer), _second_act_priv_key(second_act_signer) {}
+
+      eosio::chain::action _first_act;
+      eosio::chain::action _second_act;
+      fc::crypto::private_key _first_act_priv_key;
+      fc::crypto::private_key _second_act_priv_key;
    };
 
    struct trx_generator_base {
@@ -37,10 +49,17 @@ namespace eosio::testing {
       trx_generator_base(uint16_t id, std::string chain_id_in, std::string contract_owner_account, fc::microseconds trx_expr, std::string lib_id_str, std::string log_dir, bool stop_on_trx_failed,
          const std::string& peer_endpoint="127.0.0.1", unsigned short port=9876);
 
+      void update_resign_transaction(eosio::chain::signed_transaction& trx, fc::crypto::private_key priv_key, uint64_t& nonce_prefix, uint64_t& nonce,
+                                     const fc::microseconds& trx_expiration, const eosio::chain::chain_id_type& chain_id, const eosio::chain::block_id_type& last_irr_block_id);
+
       void push_transaction(p2p_trx_provider& provider, signed_transaction_w_signer& trx, uint64_t& nonce_prefix,
                             uint64_t& nonce, const fc::microseconds& trx_expiration, const eosio::chain::chain_id_type& chain_id,
                             const eosio::chain::block_id_type& last_irr_block_id);
+      void set_transaction_headers(eosio::chain::transaction& trx, const eosio::chain::block_id_type& last_irr_block_id, const fc::microseconds expiration, uint32_t delay_sec = 0);
+      signed_transaction_w_signer create_trx_w_action_and_signer(const eosio::chain::action& act, const fc::crypto::private_key& priv_key, uint64_t& nonce_prefix, uint64_t& nonce,
+                                                                 const fc::microseconds& trx_expiration, const eosio::chain::chain_id_type& chain_id, const eosio::chain::block_id_type& last_irr_block_id);
 
+      void log_first_trx(const std::string& log_dir, const eosio::chain::signed_transaction& trx);
 
       bool generate_and_send();
       bool tear_down();
@@ -59,6 +78,12 @@ namespace eosio::testing {
       std::vector<eosio::chain::name> get_accounts(const std::vector<std::string>& account_str_vector);
       std::vector<fc::crypto::private_key> get_private_keys(const std::vector<std::string>& priv_key_str_vector);
 
+      std::vector<signed_transaction_w_signer> create_initial_transfer_transactions(const std::vector<action_pair_w_keys>& action_pairs_vector, uint64_t& nonce_prefix, uint64_t& nonce, const fc::microseconds& trx_expiration, const eosio::chain::chain_id_type& chain_id, const eosio::chain::block_id_type& last_irr_block_id);
+      eosio::chain::bytes make_transfer_data(const eosio::chain::name& from, const eosio::chain::name& to, const eosio::chain::asset& quantity, const std::string&& memo);
+      auto make_transfer_action(eosio::chain::name account, eosio::chain::name from, eosio::chain::name to, eosio::chain::asset quantity, std::string memo);
+      std::vector<action_pair_w_keys> create_initial_transfer_actions(const std::string& salt, const uint64_t& period, const eosio::chain::name& contract_owner_account,
+                                                                 const std::vector<eosio::chain::name>& accounts, const std::vector<fc::crypto::private_key>& priv_keys);
+
       bool setup();
    };
 
@@ -75,6 +100,8 @@ namespace eosio::testing {
          std::string action_name, std::string action_auth_account, const std::string& action_auth_priv_key_str, const std::string& action_data_file_or_str,
          fc::microseconds trx_expr, std::string lib_id_str, std::string log_dir, bool stop_on_trx_failed,
          const std::string& peer_endpoint="127.0.0.1", unsigned short port=9876);
+
+      fc::variant json_from_file_or_string(const std::string& file_or_str, fc::json::parse_type ptype = fc::json::parse_type::legacy_parser);
 
       bool setup();
    };
