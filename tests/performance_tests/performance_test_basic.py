@@ -86,6 +86,7 @@ class PerformanceTestBasic:
         genesisPath: Path = Path("tests")/"performance_tests"/"genesis.json"
         maximumP2pPerHost: int = 5000
         maximumClients: int = 0
+        loggingLevel: str = "info"
         loggingDict: dict = field(default_factory=lambda: { "bios": "off" })
         prodsEnableTraceApi: bool = False
         nodeosVers: str = ""
@@ -171,7 +172,7 @@ class PerformanceTestBasic:
 
         # Setup cluster and its wallet manager
         self.walletMgr=WalletMgr(True)
-        self.cluster=Cluster(walletd=True, loggingLevel="info", loggingLevelDict=self.clusterConfig.loggingDict,
+        self.cluster=Cluster(walletd=True, loggingLevel=self.clusterConfig.loggingLevel, loggingLevelDict=self.clusterConfig.loggingDict,
                              nodeosVers=self.clusterConfig.nodeosVers)
         self.cluster.setWalletMgr(self.walletMgr)
 
@@ -502,6 +503,10 @@ class PtbArgumentsHandler(object):
                                                                 In \"heap\" mode database is preloaded in to swappable memory and will use huge pages if available. \
                                                                 In \"locked\" mode database is preloaded, locked in to memory, and will use huge pages if available.",
                                                                 choices=["mapped", "heap", "locked"], default="mapped")
+        ptbBaseParserGroup.add_argument("--cluster-log-lvl", type=str, help="Cluster log level (\"all\", \"debug\", \"info\", \"warn\", \"error\", or \"off\"). \
+                                                                Performance Harness Test Basic relies on some logging at \"info\" level, so it is recommended lowest logging level to use. \
+                                                                However, there are instances where more verbose logging can be useful.",
+                                                                choices=["all", "debug", "info", "warn", "error", "off"], default="info")
         ptbBaseParserGroup.add_argument("--net-threads", type=int, help="Number of worker threads in net_plugin thread pool", default=2)
         ptbBaseParserGroup.add_argument("--disable-subjective-billing", type=bool, help="Disable subjective CPU billing for API/P2P transactions", default=True)
         ptbBaseParserGroup.add_argument("--last-block-time-offset-us", type=int, help="Offset of last block producing time in microseconds. Valid range 0 .. -block_time_interval.", default=0)
@@ -571,11 +576,12 @@ def main():
     netPluginArgs = NetPluginArgs(netThreads=args.net_threads)
     ENA = PerformanceTestBasic.ClusterConfig.ExtraNodeosArgs
     extraNodeosArgs = ENA(chainPluginArgs=chainPluginArgs, httpPluginArgs=httpPluginArgs, producerPluginArgs=producerPluginArgs, netPluginArgs=netPluginArgs)
+    SC = PerformanceTestBasic.ClusterConfig.SpecifiedContract
+    specifiedContract=SC(accountName=args.account_name, ownerPublicKey=args.owner_public_key, activePublicKey=args.active_public_key,
+                         contractDir=args.contract_dir, wasmFile=args.wasm_file, abiFile=args.abi_file)
     testClusterConfig = PerformanceTestBasic.ClusterConfig(pnodes=args.p, totalNodes=args.n, topo=args.s, genesisPath=args.genesis,
                                                            prodsEnableTraceApi=args.prods_enable_trace_api, extraNodeosArgs=extraNodeosArgs,
-                                                           specifiedContract=PerformanceTestBasic.ClusterConfig.SpecifiedContract(accountName=args.account_name,
-                                                               ownerPublicKey=args.owner_public_key, activePublicKey=args.active_public_key, contractDir=args.contract_dir,
-                                                               wasmFile=args.wasm_file, abiFile=args.abi_file),
+                                                           specifiedContract=specifiedContract, loggingLevel=args.cluster_log_lvl,
                                                            nodeosVers=Utils.getNodeosVersion().split('.')[0])
     ptbConfig = PerformanceTestBasic.PtbConfig(targetTps=args.target_tps, testTrxGenDurationSec=args.test_duration_sec, tpsLimitPerGenerator=args.tps_limit_per_generator,
                                   numAddlBlocksToPrune=args.num_blocks_to_prune, logDirRoot=".", delReport=args.del_report, quiet=args.quiet, delPerfLogs=args.del_perf_logs,
