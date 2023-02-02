@@ -38,7 +38,7 @@ namespace eosio { namespace chain { namespace plugin_interface {
 
    namespace incoming {
       namespace methods {
-      // synchronously push a block/trx to a single provider, block_state_ptr may be null
+         // synchronously push a block/trx to a single provider, block_state_ptr may be null
          using block_sync            = method_decl<chain_plugin_interface, bool(const signed_block_ptr&, const std::optional<block_id_type>&, const block_state_ptr&), first_provider_policy>;
          using transaction_async     = method_decl<chain_plugin_interface, void(const packed_transaction_ptr&, bool, transaction_metadata::trx_type, bool, next_function<transaction_trace_ptr>), first_provider_policy>;
       }
