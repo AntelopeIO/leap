@@ -2125,7 +2125,7 @@ struct controller_impl {
          EOS_ASSERT( bsp, block_validate_exception, "null block" );
          const auto& b = bsp->block;
 
-         if( conf.terminate_at_block > 0 && conf.terminate_at_block < self.head_block_num()) {
+         if( conf.terminate_at_block > 0 && conf.terminate_at_block <= self.head_block_num()) {
             ilog("Reached configured maximum block ${num}; terminating", ("num", conf.terminate_at_block) );
             shutdown();
             return;
@@ -2160,7 +2160,7 @@ struct controller_impl {
          EOS_ASSERT( (s == controller::block_status::irreversible || s == controller::block_status::validated),
                      block_validate_exception, "invalid block status for replay" );
 
-         if( conf.terminate_at_block > 0 && conf.terminate_at_block < self.head_block_num() ) {
+         if( conf.terminate_at_block > 0 && conf.terminate_at_block <= self.head_block_num() ) {
             ilog("Reached configured maximum block ${num}; terminating", ("num", conf.terminate_at_block) );
             shutdown();
             return;
