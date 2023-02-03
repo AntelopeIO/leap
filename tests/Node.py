@@ -1210,7 +1210,7 @@ class Node(object):
 
     # pylint: disable=too-many-locals
     # If nodeosPath is equal to None, it will use the existing nodeos path
-    def relaunch(self, chainArg=None, newChain=False, skipGenesis=True, timeout=Utils.systemWaitTimeout, addSwapFlags=None, cachePopen=False, nodeosPath=None):
+    def relaunch(self, chainArg=None, newChain=False, skipGenesis=True, timeout=Utils.systemWaitTimeout, addSwapFlags=None, cachePopen=False, nodeosPath=None, waitForTerm=False):
 
         assert(self.pid is None)
         assert(self.killed)
@@ -1259,7 +1259,22 @@ class Node(object):
                 pass
             return False
 
-        isAlive=Utils.waitForBool(isNodeAlive, timeout, sleepTime=1)
+        def didNodeExitGracefully(popen, timeout):
+            try:
+                popen.communicate(timeout=timeout)
+            except subprocess.TimeoutExpired:
+                return False
+            with open(popen.errfile.name, 'r') as f:
+                if "successfully exiting" in f.read():
+                    return True
+                else:
+                    return False
+
+        if waitForTerm:
+            isAlive=Utils.waitForBoolWithArg(didNodeExitGracefully, self.popenProc, timeout, sleepTime=1)
+        else:
+            isAlive=Utils.waitForBool(isNodeAlive, timeout, sleepTime=1)
+
         if isAlive:
             Utils.Print("Node relaunch was successful.")
         else:
