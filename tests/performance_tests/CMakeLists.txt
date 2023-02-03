@@ -1,0 +1,12 @@
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/performance_test_basic.py ${CMAKE_CURRENT_BINARY_DIR}/performance_test_basic.py COPYONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/performance_test.py ${CMAKE_CURRENT_BINARY_DIR}/performance_test.py COPYONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/log_reader.py ${CMAKE_CURRENT_BINARY_DIR}/log_reader.py COPYONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/read_log_data.py ${CMAKE_CURRENT_BINARY_DIR}/read_log_data.py COPYONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/log_reader_tests.py ${CMAKE_CURRENT_BINARY_DIR}/log_reader_tests.py COPYONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_log_2_0_14.txt.gz ${CMAKE_CURRENT_BINARY_DIR}/nodeos_log_2_0_14.txt.gz COPYONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_log_3_2.txt.gz ${CMAKE_CURRENT_BINARY_DIR}/nodeos_log_3_2.txt.gz COPYONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/genesis.json ${CMAKE_CURRENT_BINARY_DIR}/genesis.json COPYONLY)
+
+add_test(NAME performance_test_basic COMMAND tests/performance_tests/performance_test_basic.py -v -p 1 -n 1 --target-tps 20 --tps-limit-per-generator 10 --clean-run WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+add_test(NAME log_reader_tests COMMAND tests/performance_tests/log_reader_tests.py WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+set_property(TEST performance_test_basic PROPERTY LABELS nonparallelizable_tests)

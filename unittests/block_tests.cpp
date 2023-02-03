@@ -44,10 +44,10 @@ BOOST_AUTO_TEST_CASE(block_with_invalid_tx_test)
 
    // Push block with invalid transaction to other chain
    tester validator;
-   auto bs = validator.control->create_block_state_future( copy_b->calculate_id(), copy_b );
+   auto bsf = validator.control->create_block_state_future( copy_b->calculate_id(), copy_b );
    validator.control->abort_block();
    controller::block_report br;
-   BOOST_REQUIRE_EXCEPTION(validator.control->push_block( br, bs, forked_branch_callback{}, trx_meta_cache_lookup{} ), fc::exception ,
+   BOOST_REQUIRE_EXCEPTION(validator.control->push_block( br, bsf.get(), forked_branch_callback{}, trx_meta_cache_lookup{} ), fc::exception ,
    [] (const fc::exception &e)->bool {
       return e.code() == account_name_exists_exception::code_value ;
    }) ;
@@ -83,10 +83,10 @@ BOOST_AUTO_TEST_CASE(block_with_invalid_tx_mroot_test)
 
    // Push block with invalid transaction to other chain
    tester validator;
-   auto bs = validator.control->create_block_state_future( copy_b->calculate_id(), copy_b );
+   auto bsf = validator.control->create_block_state_future( copy_b->calculate_id(), copy_b );
    validator.control->abort_block();
    controller::block_report br;
-   BOOST_REQUIRE_EXCEPTION(validator.control->push_block( br, bs, forked_branch_callback{}, trx_meta_cache_lookup{} ), fc::exception ,
+   BOOST_REQUIRE_EXCEPTION(validator.control->push_block( br, bsf.get(), forked_branch_callback{}, trx_meta_cache_lookup{} ), fc::exception,
                            [] (const fc::exception &e)->bool {
                               return e.code() == block_validate_exception::code_value &&
                                      e.to_detail_string().find("invalid block transaction merkle root") != std::string::npos;

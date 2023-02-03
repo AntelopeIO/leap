@@ -230,7 +230,7 @@ try:
         transferAmount="100000000.0000 {0}".format(CORE_SYMBOL)
         Print("Transfer funds %s from account %s to %s" % (transferAmount, cluster.eosioAccount.name, account.name))
         node.transferFunds(cluster.eosioAccount, account, transferAmount, "test transfer", waitForTransBlock=True)
-        trans=node.delegatebw(account, 20000000.0000, 20000000.0000, waitForTransBlock=True, exitOnError=True)
+        trans=node.delegatebw(account, 20000000.0000, 20000000.0000, waitForTransBlock=False, exitOnError=True)
 
 
     # ***   vote using accounts   ***
@@ -240,7 +240,7 @@ try:
     index=0
     for account in accounts:
         Print("Vote for producers=%s" % (producers))
-        trans=prodNodes[index % len(prodNodes)].vote(account, producers, waitForTransBlock=True)
+        trans=prodNodes[index % len(prodNodes)].vote(account, producers, waitForTransBlock=False)
         index+=1
 
 
@@ -372,6 +372,11 @@ try:
     # block number to start expecting node killed after
     preKillBlockNum=nonProdNode.getBlockNum()
     preKillBlockProducer=nonProdNode.getBlockProducerByNum(preKillBlockNum)
+    if preKillBlockProducer == "defproducerj" or preKillBlockProducer == "defproducerk":
+        # wait for defproduceri so there is plenty of time to send kill before defproducerk
+        nonProdNode.waitForProducer("defproduceri")
+        preKillBlockNum=nonProdNode.getBlockNum()
+        preKillBlockProducer=nonProdNode.getBlockProducerByNum(preKillBlockNum)
     Print("preKillBlockProducer = {}".format(preKillBlockProducer))
     # kill at last block before defproducerl, since the block it is killed on will get propagated
     killAtProducer="defproducerk"

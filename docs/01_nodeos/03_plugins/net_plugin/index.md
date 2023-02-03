@@ -44,7 +44,7 @@ Config Options for eosio::net_plugin:
   --p2p-accept-transactions arg (=1)    Allow transactions received over p2p
                                         network to be evaluated and relayed if
                                         valid.
-  --agent-name arg (="EOS Test Agent")  The name supplied to identify this node
+  --agent-name arg (=EOS Test Agent)    The name supplied to identify this node
                                         amongst the peers.
   --allowed-connection arg (=any)       Can be 'any' or 'producers' or
                                         'specified' or 'none'. If 'specified',
@@ -73,12 +73,14 @@ Config Options for eosio::net_plugin:
                                         synchronization
   --use-socket-read-watermark arg (=0)  Enable experimental socket read
                                         watermark optimization
-  --peer-log-format arg (=["${_name}" ${_ip}:${_port}])
+  --peer-log-format arg (=["${_name}" - ${_cid} ${_ip}:${_port}] )
                                         The string used to format peers when
                                         logging messages about them.  Variables
                                         are escaped with ${<variable name>}.
                                         Available Variables:
                                            _name  self-reported name
+
+                                           _cid   assigned connection id
 
                                            _id    self-reported ID (64 hex
                                                   characters)
@@ -94,7 +96,10 @@ Config Options for eosio::net_plugin:
                                                   peer
 
                                            _lport local port number connected
-                                                  to peer                                        
+                                                  to peer
+  --p2p-keepalive-interval-ms arg (=10000)
+                                        peer heartbeat keepalive message
+                                        interval in milliseconds
 ```
 
 ## Dependencies

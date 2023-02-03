@@ -10,6 +10,7 @@
 #include <boost/test/unit_test.hpp>
 
 #include <contracts.hpp>
+#include <test_contracts.hpp>
 
 #include "fork_test_utilities.hpp"
 
@@ -27,7 +28,7 @@ BOOST_AUTO_TEST_CASE( activate_preactivate_feature ) try {
 
    // Cannot set latest bios contract since it requires intrinsics that have not yet been whitelisted.
    BOOST_CHECK_EXCEPTION( c.set_code( config::system_account_name, contracts::eosio_bios_wasm() ),
-                          wasm_exception, fc_exception_message_is("env.is_feature_activated unresolveable")
+                          wasm_exception, fc_exception_message_is("env.set_proposed_producers_ex unresolveable")
    );
 
    // But the old bios contract can still be set.
@@ -377,8 +378,8 @@ BOOST_AUTO_TEST_CASE( replace_deferred_test ) try {
    c.preactivate_builtin_protocol_features( {builtin_protocol_feature_t::crypto_primitives} );
    c.produce_block();
    c.create_accounts( {"alice"_n, "bob"_n, "test"_n} );
-   c.set_code( "test"_n, contracts::deferred_test_wasm() );
-   c.set_abi( "test"_n, contracts::deferred_test_abi().data() );
+   c.set_code( "test"_n, test_contracts::deferred_test_wasm() );
+   c.set_abi( "test"_n, test_contracts::deferred_test_abi().data() );
    c.produce_block();
 
    auto alice_ram_usage0 = c.control->get_resource_limits_manager().get_account_ram_usage( "alice"_n );
@@ -517,8 +518,8 @@ BOOST_AUTO_TEST_CASE( no_duplicate_deferred_id_test ) try {
    c.preactivate_builtin_protocol_features( {builtin_protocol_feature_t::crypto_primitives} );
    c.produce_block();
    c.create_accounts( {"alice"_n, "test"_n} );
-   c.set_code( "test"_n, contracts::deferred_test_wasm() );
-   c.set_abi( "test"_n, contracts::deferred_test_abi().data() );
+   c.set_code( "test"_n, test_contracts::deferred_test_wasm() );
+   c.set_abi( "test"_n, test_contracts::deferred_test_abi().data() );
    c.produce_block();
 
    push_blocks( c, c2 );
@@ -791,11 +792,11 @@ BOOST_AUTO_TEST_CASE( restrict_action_to_self_test ) { try {
    BOOST_REQUIRE( d );
 
    c.create_accounts( {"testacc"_n, "acctonotify"_n, "alice"_n} );
-   c.set_code( "testacc"_n, contracts::restrict_action_test_wasm() );
-   c.set_abi( "testacc"_n, contracts::restrict_action_test_abi().data() );
+   c.set_code( "testacc"_n, test_contracts::restrict_action_test_wasm() );
+   c.set_abi( "testacc"_n, test_contracts::restrict_action_test_abi().data() );
 
-   c.set_code( "acctonotify"_n, contracts::restrict_action_test_wasm() );
-   c.set_abi( "acctonotify"_n, contracts::restrict_action_test_abi().data() );
+   c.set_code( "acctonotify"_n, test_contracts::restrict_action_test_wasm() );
+   c.set_abi( "acctonotify"_n, test_contracts::restrict_action_test_abi().data() );
 
    // Before the protocol feature is preactivated
    // - Sending inline action to self = no problem
@@ -960,11 +961,11 @@ BOOST_AUTO_TEST_CASE( forward_setcode_test ) { try {
    // Deploy contract that rejects all actions dispatched to it with the following exceptions:
    //   * eosio::setcode to set code on the eosio is allowed (unless the rejectall account exists)
    //   * eosio::newaccount is allowed only if it creates the rejectall account.
-   c.set_code( config::system_account_name, contracts::reject_all_wasm() );
+   c.set_code( config::system_account_name, test_contracts::reject_all_wasm() );
    c.produce_block();
 
    // Before activation, deploying a contract should work since setcode won't be forwarded to the WASM on eosio.
-   c.set_code( tester1_account, contracts::noop_wasm() );
+   c.set_code( tester1_account, test_contracts::noop_wasm() );
 
    // Activate FORWARD_SETCODE protocol feature and then return contract on eosio back to what it was.
    const auto& pfm = c.control->get_protocol_feature_manager();
@@ -973,12 +974,12 @@ BOOST_AUTO_TEST_CASE( forward_setcode_test ) { try {
    c.set_before_producer_authority_bios_contract();
    c.preactivate_protocol_features( {*d} );
    c.produce_block();
-   c.set_code( config::system_account_name, contracts::reject_all_wasm() );
+   c.set_code( config::system_account_name, test_contracts::reject_all_wasm() );
    c.produce_block();
 
    // After activation, deploying a contract causes setcode to be dispatched to the WASM on eosio,
    // and in this case the contract is configured to reject the setcode action.
-   BOOST_REQUIRE_EXCEPTION( c.set_code( tester2_account, contracts::noop_wasm() ),
+   BOOST_REQUIRE_EXCEPTION( c.set_code( tester2_account, test_contracts::noop_wasm() ),
                             eosio_assert_message_exception,
                             eosio_assert_message_is( "rejecting all actions" ) );
 
@@ -993,7 +994,7 @@ BOOST_AUTO_TEST_CASE( forward_setcode_test ) { try {
 
    // It will now not be possible to deploy the reject_all contract to the eosio account,
    // because after it is set by the native function, it is called immediately after which will reject the transaction.
-   BOOST_REQUIRE_EXCEPTION( c.set_code( config::system_account_name, contracts::reject_all_wasm() ),
+   BOOST_REQUIRE_EXCEPTION( c.set_code( config::system_account_name, test_contracts::reject_all_wasm() ),
                             eosio_assert_message_exception,
                             eosio_assert_message_is( "rejecting all actions" ) );
 
@@ -1018,7 +1019,7 @@ BOOST_AUTO_TEST_CASE( get_sender_test ) { try {
    c.create_accounts( {tester1_account, tester2_account} );
    c.produce_block();
 
-   BOOST_CHECK_EXCEPTION(  c.set_code( tester1_account, contracts::get_sender_test_wasm() ),
+   BOOST_CHECK_EXCEPTION(  c.set_code( tester1_account, test_contracts::get_sender_test_wasm() ),
                            wasm_exception,
                            fc_exception_message_is( "env.get_sender unresolveable" ) );
 
@@ -1029,10 +1030,10 @@ BOOST_AUTO_TEST_CASE( get_sender_test ) { try {
    c.preactivate_protocol_features( {*d} );
    c.produce_block();
 
-   c.set_code( tester1_account, contracts::get_sender_test_wasm() );
-   c.set_abi( tester1_account, contracts::get_sender_test_abi().data() );
-   c.set_code( tester2_account, contracts::get_sender_test_wasm() );
-   c.set_abi( tester2_account, contracts::get_sender_test_abi().data() );
+   c.set_code( tester1_account, test_contracts::get_sender_test_wasm() );
+   c.set_abi( tester1_account, test_contracts::get_sender_test_abi().data() );
+   c.set_code( tester2_account, test_contracts::get_sender_test_wasm() );
+   c.set_abi( tester2_account, test_contracts::get_sender_test_abi().data() );
    c.produce_block();
 
    BOOST_CHECK_EXCEPTION(  c.push_action( tester1_account, "sendinline"_n, tester1_account, mutable_variant_object()
@@ -1072,11 +1073,11 @@ BOOST_AUTO_TEST_CASE( ram_restrictions_test ) { try {
    const auto& bob_account = account_name("bob");
    c.create_accounts( {tester1_account, tester2_account, alice_account, bob_account} );
    c.produce_block();
-   c.set_code( tester1_account, contracts::ram_restrictions_test_wasm() );
-   c.set_abi( tester1_account, contracts::ram_restrictions_test_abi().data() );
+   c.set_code( tester1_account, test_contracts::ram_restrictions_test_wasm() );
+   c.set_abi( tester1_account, test_contracts::ram_restrictions_test_abi().data() );
    c.produce_block();
-   c.set_code( tester2_account, contracts::ram_restrictions_test_wasm() );
-   c.set_abi( tester2_account, contracts::ram_restrictions_test_abi().data() );
+   c.set_code( tester2_account, test_contracts::ram_restrictions_test_wasm() );
+   c.set_abi( tester2_account, test_contracts::ram_restrictions_test_abi().data() );
    c.produce_block();
 
    // Basic setup

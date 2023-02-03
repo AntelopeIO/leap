@@ -23,7 +23,8 @@ namespace bfs = boost::filesystem;
 
 void snapshot_actions::setup(CLI::App& app) {
    auto* sub = app.add_subcommand("snapshot", "Snapshot utility");
-   sub->require_subcommand(1);
+   sub->require_subcommand();
+   sub->fallthrough();
 
    // subcommand -convert snapshot to json
    auto to_json = sub->add_subcommand("to-json", "Convert snapshot file to json format");
@@ -76,12 +77,12 @@ int snapshot_actions::run_subcommand() {
    bfs::path state_dir = temp_dir / "state";
    bfs::path blocks_dir = temp_dir / "blocks";
    std::unique_ptr<controller> control;
-   protocol_feature_set pfs;
    controller::config cfg;
    cfg.blocks_dir = blocks_dir;
    cfg.state_dir = state_dir;
    cfg.state_size = opt->db_size * 1024 * 1024;
    cfg.state_guard_size = opt->guard_size * 1024 * 1024;
+   protocol_feature_set pfs = initialize_protocol_features( bfs::path("protocol_features"), false );
 
    try {
       auto infile = std::ifstream(snapshot_path.generic_string(),

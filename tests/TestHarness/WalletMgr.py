@@ -80,7 +80,7 @@ class WalletMgr(object):
                     statusMsg+=" port %d is NOT available." % (self.port)
                 Utils.Print("Launching %s, note similar processes running. %s" % (Utils.EosWalletName, statusMsg))
 
-        cmd="%s --data-dir %s --config-dir %s --http-server-address=%s:%d --http-max-response-time-ms 99999 --verbose-http-errors" % (
+        cmd="%s --data-dir %s --config-dir %s --unlock-timeout=999999 --http-server-address=%s:%d --http-max-response-time-ms 99999 --verbose-http-errors" % (
             Utils.EosWalletPath, WalletMgr.__walletDataDir, WalletMgr.__walletDataDir, self.host, self.port)
         if Utils.Debug: Utils.Print("cmd: %s" % (cmd))
         with open(WalletMgr.__walletLogOutFile, 'w') as sout, open(WalletMgr.__walletLogErrFile, 'w') as serr:

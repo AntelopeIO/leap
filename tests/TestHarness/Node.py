@@ -6,6 +6,8 @@ import os
 import re
 import json
 import signal
+import sys
+
 import urllib.request
 import urllib.parse
 import urllib.error
@@ -25,7 +27,7 @@ class Node(Transactions):
 
     # pylint: disable=too-many-instance-attributes
     # pylint: disable=too-many-arguments
-    def __init__(self, host, port, nodeId, pid=None, cmd=None, walletMgr=None):
+    def __init__(self, host, port, nodeId, pid=None, cmd=None, walletMgr=None, nodeosVers=""):
         super().__init__(host, port, walletMgr)
         self.host=host
         self.port=port
@@ -45,6 +47,21 @@ class Node(Transactions):
         self.missingTransaction=False
         self.popenProc=None           # initial process is started by launcher, this will only be set on relaunch
         self.lastTrackedTransactionId=None
+        self.nodeosVers=nodeosVers
+        if self.nodeosVers=="v2":
+            self.fetchTransactionCommand = lambda: "get transaction"
+            self.fetchTransactionFromTrace = lambda trx: trx['trx']['id']
+            self.fetchBlock = lambda blockNum: self.processUrllibRequest("chain", "get_block", {"block_num_or_id":blockNum}, silentErrors=False, exitOnError=True)
+            self.fetchKeyCommand = lambda: "[trx][trx][ref_block_num]"
+            self.fetchRefBlock = lambda trans: trans["trx"]["trx"]["ref_block_num"]
+            self.cleosLimit = ""
+        else:
+            self.fetchTransactionCommand = lambda: "get transaction_trace"
+            self.fetchTransactionFromTrace = lambda trx: trx['id']
+            self.fetchBlock = lambda blockNum: self.processUrllibRequest("trace_api", "get_block", {"block_num":blockNum}, silentErrors=False, exitOnError=True)
+            self.fetchKeyCommand = lambda: "[transaction][transaction_header][ref_block_num]"
+            self.fetchRefBlock = lambda trans: trans["transaction_header"]["ref_block_num"]
+            self.cleosLimit = "--time-limit 99999"
 
     def __str__(self):
         return "Host: %s, Port:%d, NodeNum:%s, Pid:%s" % (self.host, self.port, self.nodeId, self.pid)
@@ -108,6 +125,32 @@ class Node(Transactions):
         lam = lambda: self.isTransInAnyBlock(transId)
         ret=Utils.waitForBool(lam, timeout)
         return ret
+
+    def checkBlockForTransactions(self, transIds, blockNum):
+        block = self.fetchBlock(blockNum)
+        if block['payload']['transactions']:
+            for trx in block['payload']['transactions']:
+                if self.fetchTransactionFromTrace(trx) in transIds:
+                    transIds.pop(self.fetchTransactionFromTrace(trx))
+        return transIds
+
+    def waitForTransactionsInBlockRange(self, transIds, startBlock=2, maxFutureBlocks=0):
+        lastBlockProcessed = startBlock
+        overallFinalBlock = startBlock + maxFutureBlocks
+        while len(transIds) > 0:
+            currentLoopEndBlock = self.getHeadBlockNum()
+            if currentLoopEndBlock >  overallFinalBlock:
+                currentLoopEndBlock = overallFinalBlock
+            for blockNum in range(currentLoopEndBlock, lastBlockProcessed - 1, -1):
+                transIds = self.checkBlockForTransactions(transIds, blockNum)
+                if len(transIds) == 0:
+                    return transIds
+            lastBlockProcessed = currentLoopEndBlock
+            if currentLoopEndBlock == overallFinalBlock:
+                Utils.Print("ERROR: Transactions were missing upon expiration of waitOnblockTransactions")
+                break
+            self.waitForHeadToAdvance()
+        return transIds
 
     def waitForTransactionsInBlock(self, transIds, timeout=None):
         for transId in transIds:
@@ -214,8 +257,8 @@ class Node(Transactions):
             response = urllib.request.urlopen(req, data=data)
             if returnType==ReturnType.json:
                 rtn = {}
-                rtn["payload"] = json.load(response)
                 rtn["code"] = response.getcode()
+                rtn["payload"] = json.load(response)
             elif returnType==ReturnType.raw:
                 rtn = response.read()
             else:
@@ -225,7 +268,7 @@ class Node(Transactions):
                 end=time.perf_counter()
                 Utils.Print("cmd Duration: %.3f sec" % (end-start))
                 printReturn=json.dumps(rtn) if returnType==ReturnType.json else rtn
-                Utils.Print("cmd returned: %s" % (printReturn))
+                Utils.Print("cmd returned: %s" % (printReturn[:1024]))
         except urllib.error.HTTPError as ex:
             if not silentErrors:
                 end=time.perf_counter()

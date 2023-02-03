@@ -58,6 +58,8 @@ class Utils:
     EosClientPath="programs/cleos/cleos"
     MiscEosClientArgs="--no-auto-keosd"
 
+    LeapClientPath="programs/leap-util/leap-util"
+
     EosWalletName="keosd"
     EosWalletPath="programs/keosd/"+ EosWalletName
 
@@ -327,6 +329,40 @@ class Utils:
         return Utils.runCmdArrReturnJson(cmdArr, trace=trace, silentErrors=silentErrors)
 
     @staticmethod
+    def processLeapUtilCmd(cmd, cmdDesc, silentErrors=True, exitOnError=False, exitMsg=None):
+        cmd="%s %s" % (Utils.LeapClientPath, cmd)
+        if Utils.Debug: Utils.Print("cmd: %s" % (cmd))
+        if exitMsg is not None:
+            exitMsg="Context: " + exitMsg
+        else:
+            exitMsg=""
+        output=None
+        start=time.perf_counter()
+        try:
+            output=Utils.runCmdReturnStr(cmd)
+
+            if Utils.Debug:
+                end=time.perf_counter()
+                Utils.Print("cmd Duration: %.3f sec" % (end-start))
+        except subprocess.CalledProcessError as ex:
+            if not silentErrors:
+                end=time.perf_counter()
+                msg=ex.stderr.decode("utf-8")
+                errorMsg="Exception during \"%s\". Exception message: %s.  cmd Duration=%.3f sec. %s" % (cmdDesc, msg, end-start, exitMsg)
+                if exitOnError:
+                    Utils.cmdError(errorMsg)
+                    Utils.errorExit(errorMsg)
+                else:
+                    Utils.Print("ERROR: %s" % (errorMsg))
+            return None
+
+        if exitOnError and output is None:
+            Utils.cmdError("could not \"%s\". %s" % (cmdDesc,exitMsg))
+            Utils.errorExit("Failed to \"%s\"" % (cmdDesc))
+
+        return output
+
+    @staticmethod
     def arePortsAvailable(ports):
         """Check if specified port (as int) or ports (as set) is/are available for listening on."""
         assert(ports)
@@ -480,6 +516,44 @@ class Utils:
         return "comparison of %s type is not supported, context=%s" % (typeName,context)
 
     @staticmethod
+    def compareFiles(file1: str, file2: str):
+        f1 = open(file1)
+        f2 = open(file2)
+
+        i = 0
+        same = True
+        for line1 in f1:
+            i += 1
+            for line2 in f2:
+                if line1 != line2:
+                    if Utils.Debug: Utils.Print("Diff line ", i, ":")
+                    if Utils.Debug: Utils.Print("\tFile 1: ", line1)
+                    if Utils.Debug: Utils.Print("\tFile 2: ", line2)
+                    same = False
+                break
+
+        f1.close()
+        f2.close()
+        return same
+
+    @staticmethod
+    def rmFromFile(file: str, matchValue: str):
+        """Rm lines from file that match *matchValue*"""
+
+        lines = []
+        with open(file, "r") as f:
+            lines = f.readlines()
+
+        c = 0
+        with open(file, "w") as f:
+            for line in lines:
+                if matchValue not in line:
+                    f.write(line)
+                    c += 1
+
+        return c
+
+    @staticmethod
     def addAmount(assetStr: str, deltaStr: str) -> str:
         asset = assetStr.split()
         if len(asset) != 2:
@@ -548,7 +622,10 @@ class Utils:
         Retrusn data as decoded string object"""
         data = Utils.readSocketData(sock, maxMsgSize) 
         return data.decode(enc)
-        
+
+    @staticmethod
+    def getNodeosVersion():
+        return os.popen(f"{Utils.EosServerPath} --version").read().replace("\n", "")
 
 
 ###########################################################################################
