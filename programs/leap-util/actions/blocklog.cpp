@@ -61,11 +61,14 @@ void blocklog_actions::setup(CLI::App& app) {
 
    // main command
    auto* sub = app.add_subcommand("block-log", "Blocklog utility");
-   sub->require_subcommand(1);
+   sub->require_subcommand();
+   sub->fallthrough();
+
+   // fallthrough options
+   sub->add_option("--blocks-dir", opt->blocks_dir, "The location of the blocks directory (absolute path or relative to the current directory).");
 
    // subcommand - print log
    auto* print_log = sub->add_subcommand("print-log", "Print  blocks.log as JSON")->callback([err_guard]() { err_guard(&blocklog_actions::read_log); });
-   print_log->add_option("--blocks-dir", opt->blocks_dir, "The location of the blocks directory (absolute path or relative to the current directory).");
    print_log->add_option("--output-file,-o", opt->output_file, "The file to write the output to (absolute or relative path).  If not specified then output is to stdout.");
    print_log->add_option("--first,-f", opt->first_block, "The first block number to log or the first to keep if trim-blocklog.");
    print_log->add_option("--last,-l", opt->last_block, "The last block number to log or the last to keep if trim-blocklog.");
@@ -74,33 +77,27 @@ void blocklog_actions::setup(CLI::App& app) {
 
    // subcommand - make index
    auto* make_index = sub->add_subcommand("make-index", "Create blocks.index from blocks.log. Must give 'blocks-dir'. Give 'output-file' relative to current directory or absolute path (default is <blocks-dir>/blocks.index).")->callback([err_guard]() { err_guard(&blocklog_actions::make_index); });
-   make_index->add_option("--blocks-dir", opt->blocks_dir, "The location of the blocks directory (absolute path or relative to the current directory).");
    make_index->add_option("--output-file,-o", opt->output_file, "The file to write the output to (absolute or relative path).  If not specified then output is to stdout.");
 
    // subcommand - trim blocklog
    auto* trim_blocklog = sub->add_subcommand("trim-blocklog", "Trim blocks.log and blocks.index. Must give 'blocks-dir' and 'first' and/or 'last'.")->callback([err_guard]() { err_guard(&blocklog_actions::trim_blocklog); });
-   trim_blocklog->add_option("--blocks-dir", opt->blocks_dir, "The location of the blocks directory (absolute path or relative to the current directory).");
    trim_blocklog->add_option("--first,-f", opt->first_block, "The first block number to keep.")->required();
    trim_blocklog->add_option("--last,-l", opt->last_block, "The last block number to keep.")->required();
 
    // subcommand - extract blocks
    auto* extract_blocks = sub->add_subcommand("extract-blocks", "Extract range of blocks from blocks.log and write to output-dir.  Must give 'first' and/or 'last'.")->callback([err_guard]() { err_guard(&blocklog_actions::extract_blocks); });
-   extract_blocks->add_option("--blocks-dir", opt->blocks_dir, "The location of the blocks directory (absolute path or relative to the current directory).");
    extract_blocks->add_option("--first,-f", opt->first_block, "The first block number to keep.")->required();
    extract_blocks->add_option("--last,-l", opt->last_block, "The last block number to keep.")->required();
    extract_blocks->add_option("--output-dir", opt->output_dir, "The output directory for the block log extracted from blocks-dir.");
 
    // subcommand - smoke test
-   auto* smoke_test = sub->add_subcommand("smoke-test", "Quick test that blocks.log and blocks.index are well formed and agree with each other.")->callback([err_guard]() { err_guard(&blocklog_actions::smoke_test); });
-   smoke_test->add_option("--blocks-dir", opt->blocks_dir, "The location of the blocks directory (absolute path or relative to the current directory).");
+   sub->add_subcommand("smoke-test", "Quick test that blocks.log and blocks.index are well formed and agree with each other.")->callback([err_guard]() { err_guard(&blocklog_actions::smoke_test); });
 
    // subcommand - vacuum
-   auto* vacuum = sub->add_subcommand("vacuum", "Vacuum a pruned blocks.log in to an un-pruned blocks.log")->callback([err_guard]() { err_guard(&blocklog_actions::do_vacuum); });
-   vacuum->add_option("--blocks-dir", opt->blocks_dir, "The location of the blocks directory (absolute path or relative to the current directory).");
+   sub->add_subcommand("vacuum", "Vacuum a pruned blocks.log in to an un-pruned blocks.log")->callback([err_guard]() { err_guard(&blocklog_actions::do_vacuum); });
 
    // subcommand - genesis
    auto* genesis = sub->add_subcommand("genesis", "Extract genesis_state from blocks.log as JSON")->callback([err_guard]() { err_guard(&blocklog_actions::do_genesis); });
-   genesis->add_option("--blocks-dir", opt->blocks_dir, "The location of the blocks directory (absolute path or relative to the current directory).");
    genesis->add_option("--output-file,-o", opt->output_file, "The file to write the output to (absolute or relative path).  If not specified then output is to stdout.");
 }
 

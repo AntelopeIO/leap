@@ -34,7 +34,8 @@ FC_REFLECT(chainbase::environment, (debug) (os) (arch) (boost_version) (compiler
 
 void chain_actions::setup(CLI::App& app) {
    auto* sub = app.add_subcommand("chain-state", "chain utility");
-   sub->require_subcommand(1);
+   sub->require_subcommand();
+   sub->fallthrough();
 
    auto* build = sub->add_subcommand("build-info", "extract build environment information as JSON");
    build->add_option("--output-file,-o", opt->build_output_file, "write into specified file")->capture_default_str();

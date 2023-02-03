@@ -283,7 +283,7 @@ BOOST_AUTO_TEST_CASE( unapplied_transaction_queue_test ) try {
    auto trx22 = unique_trx_meta_data( fc::time_point::now() + fc::seconds( 120 ) );
    auto trx23 = unique_trx_meta_data( fc::time_point::now() + fc::seconds( 120 ) );
    q.add_aborted( { trx20, trx22 } );
-   q.clear_expired( fc::time_point::now(), fc::time_point::now() + fc::seconds( 300 ), [](auto, auto){} );
+   q.clear_expired( fc::time_point::now(), [](){ return false; }, [](auto, auto){} );
    BOOST_CHECK( q.size() == 1 );
    BOOST_REQUIRE( next( q ) == trx22 );
    BOOST_CHECK( q.empty() );

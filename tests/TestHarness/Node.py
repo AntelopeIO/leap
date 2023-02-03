@@ -1128,23 +1128,6 @@ class Node(object):
 
         return rtn
 
-    def txnGenCreateTestAccounts(self, genAccount, genKey, silentErrors=True, exitOnError=False, exitMsg=None, returnType=ReturnType.json):
-        assert(isinstance(genAccount, str))
-        assert(isinstance(genKey, str))
-        assert(isinstance(returnType, ReturnType))
-
-        payload=[ genAccount, genKey ]
-        return self.processUrllibRequest("txn_test_gen", "create_test_accounts", payload, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=exitMsg, returnType=returnType)
-
-    def txnGenStart(self, salt, period, batchSize, silentErrors=True, exitOnError=False, exitMsg=None, returnType=ReturnType.json):
-        assert(isinstance(salt, str))
-        assert(isinstance(period, int))
-        assert(isinstance(batchSize, int))
-        assert(isinstance(returnType, ReturnType))
-
-        payload=[ salt, period, batchSize ]
-        return self.processUrllibRequest("txn_test_gen", "start_generation", payload, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=exitMsg, returnType=returnType)
-
     def waitForTransBlockIfNeeded(self, trans, waitForTransBlock, exitOnError=False):
         if not waitForTransBlock:
             return trans
