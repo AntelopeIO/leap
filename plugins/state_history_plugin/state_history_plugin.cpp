@@ -84,21 +84,17 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
    state_history::trace_converter   trace_converter;
    std::set<std::shared_ptr<session_base>> session_set;
 
-   struct tcp_acceptor  {
-      using socket_type = tcp::acceptor::protocol_type::socket;
-      tcp_acceptor(boost::asio::io_context& ioc) : acceptor_(ioc), socket_(ioc), error_timer_(ioc) {}
-      tcp::acceptor               acceptor_;
+   template <class ACCEPTOR>
+   struct generic_acceptor  {
+      using socket_type = typename ACCEPTOR::protocol_type::socket;
+      generic_acceptor(boost::asio::io_context& ioc) : acceptor_(ioc), socket_(ioc), error_timer_(ioc) {}
+      ACCEPTOR                    acceptor_;
       socket_type                 socket_;
       boost::asio::deadline_timer error_timer_;
    };
    
-   struct unix_acceptor {
-      using socket_type = unixs::acceptor::protocol_type::socket;
-      unix_acceptor(boost::asio::io_context& ioc) : acceptor_(ioc), socket_(ioc), error_timer_(ioc) {}
-      unixs::acceptor             acceptor_;
-      socket_type                 socket_;
-      boost::asio::deadline_timer error_timer_;
-   };
+   using tcp_acceptor  = generic_acceptor<tcp::acceptor>;
+   using unix_acceptor = generic_acceptor<unixs::acceptor>;
    
    using acceptor_type = std::variant<std::unique_ptr<tcp_acceptor>, std::unique_ptr<unix_acceptor>>;
    std::set<acceptor_type>          acceptors;
