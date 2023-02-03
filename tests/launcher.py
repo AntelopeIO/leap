@@ -8,6 +8,8 @@ from pathlib import Path
 import os
 import math
 import shlex
+import select
+import signal
 import string
 import subprocess
 import sys
@@ -171,7 +173,7 @@ class launcher(object):
         parser.add_argument('-o', '--output', help='save a copy of the generated topology in this file and exit without launching', dest='topology_filename')
         parser.add_argument('-k', '--kill', help='retrieve the list of previously started process ids and issue a kill to each')
         parser.add_argument('--down', type=comma_separated, help='comma-separated list of node numbers that will be shut down', default=[])
-        parser.add_argument('--bounce', type=comma_separated, help='comma-separated list of node numbers that will be restarted')
+        parser.add_argument('--bounce', type=comma_separated, help='comma-separated list of node numbers that will be restarted', default=[])
         parser.add_argument('--roll', type=comma_separated, help='comma-separated list of host names where the nodes will be rolled to a new version')
         parser.add_argument('-b', '--base_dir', type=Path, help='base directory where configuration and data files will be written', default=Path('.'))
         parser.add_argument('--config-dir', type=Path, help='directory containing configuration files such as config.ini', default=Path('etc') / 'eosio')
@@ -590,13 +592,35 @@ plugin = eosio::chain_api_plugin
             with open(instance.data_dir_name / 'start.cmd', 'w') as f:
                 f.write(' '.join(eosdcmd))
 
+    def bounce(self, nodeNumbers):
+        for num in nodeNumbers:
+            for node in self.network.nodes.values():
+                if self.network.name + num == node.name:
+                    with open(node.data_dir_name / f'{Utils.EosServerName}.pid', 'r') as f:
+                        pid = int(f.readline())
+                        try:
+                            fd = os.pidfd_open(pid)
+                        except:
+                            # tolerate missing process
+                            pass
+                        else:
+                            po = select.poll()
+                            po.register(fd, select.POLLIN)
+                            os.kill(pid, signal.SIGTERM)
+                            po.poll(None)
+                    self.launch(node)
+
     def down(self, nodeNumbers):
         for num in nodeNumbers:
             for node in self.network.nodes.values():
                 if self.network.name + num == node.name:
-                    with open(node.data_dir_name / 'nodeos.pid', 'r') as f:
-                        pid = f.readline()
-                        subprocess.call(f'kill -15 {pid}')
+                    with open(node.data_dir_name / f'{Utils.EosServerName}.pid', 'r') as f:
+                        pid = int(f.readline())
+                        fd = os.pidfd_open(pid)
+                        po = select.poll()
+                        po.register(fd, select.POLLIN)
+                        os.kill(pid, signal.SIGTERM)
+                        po.poll(None)
 
     def start_all(self):
         if self.args.launch.lower() != 'none':
@@ -644,5 +668,7 @@ if __name__ == '__main__':
     l = launcher(sys.argv[1:])
     if len(l.args.down):
         l.down(l.args.down)
+    elif len(l.args.bounce):
+        l.bounce(l.args.bounce)
     elif l.args.launch == 'all' or l.args.launch == 'local':
         l.start_all()
