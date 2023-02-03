@@ -1,4 +1,5 @@
 #include <eosio/chain/thread_utils.hpp>
+#include <eosio/chain/name.hpp>
 #include <fc/log/logger_config.hpp>
 #include <fc/exception/exception.hpp>
 
@@ -19,8 +20,15 @@ void named_thread_pool::start( size_t num_threads, on_except_t on_except ) {
    _ioc_work.emplace( boost::asio::make_work_guard( _ioc ) );
    _ioc.restart();
    _thread_pool.reserve( num_threads );
+
+   // capture name since name_prefix is invalid in debugger, use abieos/tools/num2name to get name
+   std::string sanitized_name = fc::to_lower(_name_prefix);
+   sanitized_name = sanitized_name.substr(0, 12);
+   name desc(string_to_uint64_t(sanitized_name));
+
    for( size_t i = 0; i < num_threads; ++i ) {
-      _thread_pool.emplace_back( [&ioc = _ioc, &name_prefix = _name_prefix, on_except, i]() {
+      _thread_pool.emplace_back( [desc, &ioc = _ioc, &name_prefix = _name_prefix, on_except, i]() {
+         (void)desc;
          std::string tn = name_prefix + "-" + std::to_string( i );
          try {
             fc::set_os_thread_name( tn );
