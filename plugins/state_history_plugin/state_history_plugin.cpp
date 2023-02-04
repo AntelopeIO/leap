@@ -87,7 +87,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
    template <class ACCEPTOR>
    struct generic_acceptor  {
       using socket_type = typename ACCEPTOR::protocol_type::socket;
-      generic_acceptor(boost::asio::io_context& ioc) : acceptor_(ioc), socket_(ioc), error_timer_(ioc) {}
+      generic_acceptor(boost::asio::io_context::strand& s) : acceptor_(s), socket_(s), error_timer_(s) {}
       ACCEPTOR                    acceptor_;
       socket_type                 socket_;
       boost::asio::deadline_timer error_timer_;
@@ -99,7 +99,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
    using acceptor_type = std::variant<std::unique_ptr<tcp_acceptor>, std::unique_ptr<unix_acceptor>>;
    std::set<acceptor_type>          acceptors;
 
-   named_thread_pool                thread_pool{"ship"_n};
+   named_thread                     ship_thread{"ship"_n};
 
    static void get_log_entry(state_history_log& log, uint32_t block_num, std::optional<bytes>& result) {
       if (block_num < log.begin_block() || block_num >= log.end_block())
@@ -224,7 +224,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
 
       template <typename T>
       void send(T obj) {
-         boost::asio::post(this->plugin->thread_pool.get_executor(), [self = this->shared_from_this(), obj = std::move(obj) ]() mutable {
+         boost::asio::post(this->plugin->ship_thread.get_executor(), [self = this->shared_from_this(), obj = std::move(obj) ]() mutable {
             self->send_queue.emplace_back(fc::raw::pack(state_result{std::move(obj)}));
             self->send();
          });
@@ -405,7 +405,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
       }
 
       void close() override {
-         boost::asio::post(plugin->thread_pool.get_executor(), [self = this->shared_from_this()]() {
+         boost::asio::post(plugin->ship_thread.get_executor(), [self = this->shared_from_this()]() {
             self->close_i();
          });
       }
@@ -434,7 +434,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
          FC_THROW_EXCEPTION(plugin_exception, "unable to open listen socket");
       };
 
-      auto init_tcp_acceptor  = [&]() { acceptors.insert(std::make_unique<tcp_acceptor>(thread_pool.get_executor())); };
+      auto init_tcp_acceptor  = [&]() { acceptors.insert(std::make_unique<tcp_acceptor>(ship_thread.get_executor())); };
       auto init_unix_acceptor = [&]() {
          // take a sniff and see if anything is already listening at the given socket path, or if the socket path exists
          //  but nothing is listening
@@ -453,7 +453,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
                ec = test_ec;
          }
          check_ec("open");
-         acceptors.insert(std::make_unique<unix_acceptor>(thread_pool.get_executor()));
+         acceptors.insert(std::make_unique<unix_acceptor>(ship_thread.get_executor()));
       };
 
       // create and configure acceptors, can be both
@@ -727,8 +727,7 @@ void state_history_plugin::plugin_startup() {
          fc_ilog( _log, "Done storing initial state on startup" );
       }
       my->listen();
-      // use of executor assumes only one thread
-      my->thread_pool.start( 1, [](const fc::exception& e) {
+      my->ship_thread.start( [](const fc::exception& e) {
          fc_elog( _log, "Exception in SHiP thread pool, exiting: ${e}", ("e", e.to_detail_string()) );
          app().quit();
       } );
@@ -745,7 +744,7 @@ void state_history_plugin::plugin_shutdown() {
    my->stopping = true;
    my->trace_log->stop();
    my->chain_state_log->stop();
-   my->thread_pool.stop();
+   my->ship_thread.stop();
 }
 
 void state_history_plugin::handle_sighup() { fc::logger::update(logger_name, _log); }
