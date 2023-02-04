@@ -1842,7 +1842,6 @@ struct controller_impl {
 
       auto action_merkle_fut = post_async_task( thread_pool.get_executor(),
                                                 [ids{std::move( bb._action_receipt_digests )}]() mutable {
-         std::abort();
                                                    return merkle( std::move( ids ) );
                                                 } );
       const bool calc_trx_merkle = !std::holds_alternative<checksum256_type>(bb._trx_mroot_or_receipt_digests);
