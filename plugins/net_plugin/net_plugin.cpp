@@ -281,7 +281,7 @@ namespace eosio {
       compat::channels::transaction_ack::channel_type::handle  incoming_transaction_ack_subscription;
 
       uint16_t                              thread_pool_size = 4;
-      eosio::chain::named_thread_pool       thread_pool{ "net" };
+      eosio::chain::named_thread_pool       thread_pool{ "net"_n };
 
       boost::asio::deadline_timer           accept_error_timer{thread_pool.get_executor()};
 

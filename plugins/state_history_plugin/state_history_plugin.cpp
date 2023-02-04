@@ -87,7 +87,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
    using acceptor_type = std::variant<std::unique_ptr<tcp::acceptor>, std::unique_ptr<unixs::acceptor>>;
    std::set<acceptor_type>          acceptors;
 
-   named_thread_pool                thread_pool{"SHiP"};
+   named_thread_pool                thread_pool{"ship"_n};
 
    static void get_log_entry(state_history_log& log, uint32_t block_num, std::optional<bytes>& result) {
       if (block_num < log.begin_block() || block_num >= log.end_block())

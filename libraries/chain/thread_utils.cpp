@@ -5,8 +5,8 @@
 
 namespace eosio { namespace chain {
 
-named_thread_pool::named_thread_pool( std::string name_prefix )
-: _name_prefix( std::move(name_prefix) )
+named_thread_pool::named_thread_pool( eosio::chain::name name_prefix )
+: _name_prefix( name_prefix )
 , _ioc()
 {
 }
@@ -21,15 +21,10 @@ void named_thread_pool::start( size_t num_threads, on_except_t on_except ) {
    _ioc.restart();
    _thread_pool.reserve( num_threads );
 
-   // capture eosio::name desc since name_prefix is invalid in debugger, use abieos/tools/num2name to get string name
-   std::string sanitized_name = fc::to_lower(_name_prefix);
-   sanitized_name = sanitized_name.substr(0, 12);
-   name desc(string_to_uint64_t(sanitized_name));
-
    for( size_t i = 0; i < num_threads; ++i ) {
-      _thread_pool.emplace_back( [desc, &ioc = _ioc, &name_prefix = _name_prefix, on_except, i]() {
-         (void)desc; // see comment above
-         std::string tn = name_prefix + "-" + std::to_string( i );
+      // capture eosio::name so it is available in the stack for debugger, use abieos/tools/num2name to get string name
+      _thread_pool.emplace_back( [name_prefix = _name_prefix, &ioc = _ioc, on_except, i]() {
+         std::string tn = name_prefix.to_string() + "-" + std::to_string( i );
          try {
             fc::set_os_thread_name( tn );
             ioc.run();

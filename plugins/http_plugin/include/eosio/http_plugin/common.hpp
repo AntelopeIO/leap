@@ -129,7 +129,7 @@ struct http_plugin_state {
    bool keep_alive = false;
 
    uint16_t thread_pool_size = 2;
-   eosio::chain::named_thread_pool thread_pool{ "http" };
+   eosio::chain::named_thread_pool thread_pool{ eosio::chain::name("http") };
 
    fc::logger& logger;
 

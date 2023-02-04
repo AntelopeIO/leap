@@ -1,5 +1,6 @@
 #pragma once
 
+#include <eosio/chain/name.hpp>
 #include <fc/exception/exception.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/post.hpp>
@@ -21,7 +22,7 @@ namespace eosio { namespace chain {
       /// @param name_prefix is name appended with -## of thread.
       ///                    A short name_prefix (6 chars or under) is recommended as console_appender uses 9 chars
       ///                    for the thread name.
-      explicit named_thread_pool( std::string name_prefix );
+      explicit named_thread_pool( eosio::chain::name name_prefix );
 
       /// calls stop()
       ~named_thread_pool();
@@ -42,7 +43,7 @@ namespace eosio { namespace chain {
    private:
       using ioc_work_t = boost::asio::executor_work_guard<boost::asio::io_context::executor_type>;
 
-      std::string                    _name_prefix;
+      eosio::chain::name             _name_prefix;
       boost::asio::io_context        _ioc;
       std::vector<std::thread>       _thread_pool;
       std::optional<ioc_work_t>      _ioc_work;
