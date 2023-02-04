@@ -236,7 +236,7 @@ struct controller_impl {
    std::optional<fc::microseconds> subjective_cpu_leeway;
    bool                            trusted_producer_light_validation = false;
    uint32_t                        snapshot_head_block = 0;
-   named_thread_pool               thread_pool;
+   named_thread_pool<eosio::chain::make_name_v("chain")> thread_pool;
    platform_timer                  timer;
    deep_mind_handler*              deep_mind_logger = nullptr;
    bool                            okay_to_print_integrity_hash_on_stop = false;
@@ -301,7 +301,7 @@ struct controller_impl {
     conf( cfg ),
     chain_id( chain_id ),
     read_mode( cfg.read_mode ),
-    thread_pool( "chain" )
+    thread_pool()
    {
       fork_db.open( [this]( block_timestamp_type timestamp,
                             const flat_set<digest_type>& cur_features,
@@ -1842,6 +1842,7 @@ struct controller_impl {
 
       auto action_merkle_fut = post_async_task( thread_pool.get_executor(),
                                                 [ids{std::move( bb._action_receipt_digests )}]() mutable {
+         std::abort();
                                                    return merkle( std::move( ids ) );
                                                 } );
       const bool calc_trx_merkle = !std::holds_alternative<checksum256_type>(bb._trx_mroot_or_receipt_digests);

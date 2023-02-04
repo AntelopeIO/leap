@@ -115,7 +115,7 @@ BOOST_FIXTURE_TEST_CASE(updateauth_test_multi_threaded, TESTER) { try {
    produce_block();
    create_account(tester_account);
 
-   named_thread_pool thread_pool( "test" );
+   named_thread_pool<eosio::chain::make_name_v("test")> thread_pool;
    thread_pool.start( 5, {} );
 
    for( size_t i = 0; i < 100; ++i ) {
