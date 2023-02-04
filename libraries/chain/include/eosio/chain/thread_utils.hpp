@@ -3,6 +3,7 @@
 #include <eosio/chain/name.hpp>
 #include <fc/exception/exception.hpp>
 #include <boost/asio/io_context.hpp>
+#include <boost/asio/strand.hpp>
 #include <boost/asio/post.hpp>
 #include <future>
 #include <memory>
@@ -27,7 +28,7 @@ namespace eosio { namespace chain {
       /// calls stop()
       ~named_thread_pool();
 
-      boost::asio::io_context& get_executor() { return _ioc; }
+      auto& get_executor() { return _ioc; }
 
       /// Spawn threads, can be re-started after stop().
       /// Assumes start()/stop() called from the same thread or externally protected.
@@ -47,6 +48,34 @@ namespace eosio { namespace chain {
       boost::asio::io_context        _ioc;
       std::vector<std::thread>       _thread_pool;
       std::optional<ioc_work_t>      _ioc_work;
+   };
+
+   class named_thread {
+   public:
+      /// @param name_prefix is name appended with -1 for thread name.
+      ///                    A short name_prefix (6 chars or under) is recommended as console_appender uses 9 chars
+      ///                    for the thread name.
+      explicit named_thread( eosio::chain::name name_prefix )
+      : _pool( name_prefix ) {}
+
+      /// stop before destroying strand
+      ~named_thread() { stop(); }
+
+      auto& get_executor() { return _strand; }
+
+      /// Spawn thread, can be re-started after stop().
+      /// Assumes start()/stop() called from the same thread or externally protected.
+      /// @param on_except is the function to call if io_context throws an exception, is called from thread pool thread.
+      ///                  if an empty function then logs and rethrows exception on thread which will terminate.
+      /// @throw assert_exception if already started and not stopped.
+      void start( named_thread_pool::on_except_t on_except ) { _pool.start( 1, std::move(on_except) ); }
+
+      /// destroy work guard, stop io_context, join thread_pool
+      void stop() { _pool.stop(); }
+
+   private:
+      named_thread_pool _pool;
+      boost::asio::io_context::strand _strand{_pool.get_executor()};
    };
 
 
