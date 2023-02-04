@@ -5,6 +5,7 @@
 #include <fc/log/logger_config.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/post.hpp>
+#include <boost/asio/strand.hpp>
 #include <future>
 #include <memory>
 #include <optional>
@@ -29,7 +30,7 @@ namespace eosio { namespace chain {
    public:
       using on_except_t = std::function<void(const fc::exception& e)>;
 
-      explicit named_thread_pool()
+      named_thread_pool()
             : _name_prefix(NamePrefix)
             , _ioc()
       {}
@@ -38,7 +39,7 @@ namespace eosio { namespace chain {
          stop();
       }
 
-      boost::asio::io_context& get_executor() { return _ioc; }
+      auto& get_executor() { return _ioc; }
 
       /// Spawn threads, can be re-started after stop().
       /// Assumes start()/stop() called from the same thread or externally protected.
@@ -109,6 +110,33 @@ namespace eosio { namespace chain {
       std::optional<ioc_work_t>      _ioc_work;
    };
 
+   template<uint64_t NamePrefix>
+   class named_thread {
+   public:
+      /// @param name_prefix is name appended with -1 for thread name.
+      ///                    A short name_prefix (6 chars or under) is recommended as console_appender uses 9 chars
+      ///                    for the thread name.
+      named_thread() = default;
+
+      /// stop before destroying strand
+      ~named_thread() { stop(); }
+
+      auto& get_executor() { return _strand; }
+
+      /// Spawn thread, can be re-started after stop().
+      /// Assumes start()/stop() called from the same thread or externally protected.
+      /// @param on_except is the function to call if io_context throws an exception, is called from thread pool thread.
+      ///                  if an empty function then logs and rethrows exception on thread which will terminate.
+      /// @throw assert_exception if already started and not stopped.
+      void start( typename named_thread_pool<NamePrefix>::on_except_t on_except ) { _pool.start( 1, std::move( on_except ) ); }
+
+      /// destroy work guard, stop io_context, join thread_pool
+      void stop() { _pool.stop(); }
+
+   private:
+      named_thread_pool<NamePrefix> _pool;
+      decltype(boost::asio::make_strand(_pool.get_executor())) _strand{ boost::asio::make_strand( _pool.get_executor() ) };
+   };
 
    // async on io_context and return future
    template<typename F>
