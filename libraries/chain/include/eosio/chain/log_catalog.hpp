@@ -57,13 +57,13 @@ struct log_catalog {
 
    bool empty() const { return collection.empty(); }
 
-   uint32_t first_block_num() const {
+   block_num_t first_block_num() const {
       if (empty())
          return std::numeric_limits<block_num_t>::max();
       return collection.begin()->first;
    }
 
-   uint32_t last_block_num() const {
+   block_num_t last_block_num() const {
       if (empty())
          return std::numeric_limits<block_num_t>::max();
       return collection.rbegin()->second.last_block_num;
