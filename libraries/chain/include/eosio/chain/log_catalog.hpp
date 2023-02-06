@@ -65,7 +65,7 @@ struct log_catalog {
 
    block_num_t last_block_num() const {
       if (empty())
-         return std::numeric_limits<block_num_t>::max();
+         return std::numeric_limits<block_num_t>::min();
       return collection.rbegin()->second.last_block_num;
    }
 
