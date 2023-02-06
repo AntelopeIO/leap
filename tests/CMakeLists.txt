@@ -27,7 +27,6 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_startup_catchup.py ${CMAKE_CUR
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_forked_chain_test.py ${CMAKE_CURRENT_BINARY_DIR}/nodeos_forked_chain_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_short_fork_take_over_test.py ${CMAKE_CURRENT_BINARY_DIR}/nodeos_short_fork_take_over_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_run_test.py ${CMAKE_CURRENT_BINARY_DIR}/nodeos_run_test.py COPYONLY)
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_run_remote_test.py ${CMAKE_CURRENT_BINARY_DIR}/nodeos_run_remote_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_under_min_avail_ram.py ${CMAKE_CURRENT_BINARY_DIR}/nodeos_under_min_avail_ram.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_voting_test.py ${CMAKE_CURRENT_BINARY_DIR}/nodeos_voting_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_irreversible_mode_test.py ${CMAKE_CURRENT_BINARY_DIR}/nodeos_irreversible_mode_test.py COPYONLY)
@@ -158,8 +157,6 @@ set_property(TEST nested_container_multi_index_test PROPERTY LABELS nonparalleli
 
 add_test(NAME nodeos_run_check_test COMMAND tests/nodeos_run_test.py -v --clean-run WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nodeos_run_check_test PROPERTY LABELS nonparallelizable_tests)
-add_test(NAME nodeos_remote_test COMMAND tests/nodeos_run_remote_test.py -v --clean-run WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
-set_property(TEST nodeos_remote_test PROPERTY LABELS nonparallelizable_tests)
 
 # needs iproute-tc or iproute2 depending on platform
 #add_test(NAME p2p_high_latency_test COMMAND tests/p2p_high_latency_test.py -v --clean-run WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
@@ -255,7 +252,7 @@ if(ENABLE_COVERAGE_TESTING)
 
   # no spaces allowed within tests list
   set(ctest_tests 'plugin_test|p2p_dawn515_test|nodeos_run_test|distributed-transactions-test|restart-scenarios-test_resync')
-  set(ctest_exclude_tests 'nodeos_run_remote_test|distributed-transactions-remote-test|restart-scenarios-test_replay')
+  set(ctest_exclude_tests 'distributed-transactions-remote-test|restart-scenarios-test_replay')
 
   # Setup target
   add_custom_target(${Coverage_NAME}
