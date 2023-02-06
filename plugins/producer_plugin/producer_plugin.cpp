@@ -2036,7 +2036,7 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
                      ("c", e.code())("a", first_auth)("p", prev_billed_cpu_time_us)
                      ( "r", end - start)("id", trx->id())("e", e) );
             if( !disable_subjective_enforcement )
-               _account_fails.add( first_auth, e.code() );
+               _account_fails.add( first_auth, e );
          }
          if( next ) {
             if( return_failure_trace ) {
