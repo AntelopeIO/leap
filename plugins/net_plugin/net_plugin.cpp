@@ -287,7 +287,8 @@ namespace eosio {
 
       uint16_t                                       thread_pool_size = 2;
       std::optional<eosio::chain::named_thread_pool> thread_pool;
-      net_plugin_metrics metrics;
+
+      net_plugin_metrics   metrics;
 
    private:
       mutable std::mutex            chain_info_mtx; // protects chain_*
@@ -2690,6 +2691,7 @@ namespace eosio {
          my_impl->producer_plug->log_failed_transaction(ptr->id(), ptr, reason);
          if (fc::time_point::now() - fc::seconds(1) >= last_dropped_trx_msg_time) {
             last_dropped_trx_msg_time = fc::time_point::now();
+            my_impl->metrics.post_metrics();
             peer_wlog(this, reason);
          }
          return true;
@@ -3348,9 +3350,8 @@ namespace eosio {
       }
       g.unlock();
 
-      metrics.num_clients.value = num_clients;
-      metrics.num_peers.value = num_peers;
-      
+      metrics.post_metrics();
+
       if( num_clients > 0 || num_peers > 0 )
          fc_ilog( logger, "p2p client connections: ${num}/${max}, peer connections: ${pnum}/${pmax}",
                   ("num", num_clients)("max", max_client_count)("pnum", num_peers)("pmax", supplied_peers.size()) );
@@ -3830,8 +3831,8 @@ namespace eosio {
       FC_CAPTURE_AND_RETHROW()
    }
 
-   net_plugin_metrics& net_plugin::metrics() {
-      return my->metrics;
+   void net_plugin::register_metrics_listener(metrics_listener listener) {
+      my->metrics.register_listener(listener);
    }
 
    /**

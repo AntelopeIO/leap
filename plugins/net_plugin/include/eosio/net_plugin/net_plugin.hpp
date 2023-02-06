@@ -20,10 +20,14 @@ namespace eosio {
       runtime_metric num_clients{metric_type::gauge, "num_clients", "num_clients", 0};
       runtime_metric dropped_trxs{metric_type::counter, "dropped_trxs", "dropped_trxs", 0};
 
-      net_plugin_metrics() {
-         metrics.emplace_back(std::ref(num_peers));
-         metrics.emplace_back(std::ref(num_clients));
-         metrics.emplace_back(std::ref(dropped_trxs));
+      vector<runtime_metric> metrics() final {
+         vector<runtime_metric> metrics {
+            num_peers,
+            num_clients,
+            dropped_trxs
+         };
+
+         return metrics;
       }
    };
 
@@ -46,7 +50,7 @@ namespace eosio {
         std::optional<connection_status>  status( const string& endpoint )const;
         vector<connection_status>         connections()const;
 
-        net_plugin_metrics& metrics();
+        void register_metrics_listener(metrics_listener listener);
 
       private:
         std::shared_ptr<class net_plugin_impl> my;

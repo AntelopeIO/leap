@@ -11,6 +11,7 @@ using boost::signals2::signal;
 
 using chain::plugin_interface::runtime_metric;
 using chain::plugin_interface::metric_type;
+using chain::plugin_interface::metrics_listener;
 using chain::plugin_interface::plugin_metrics;
 
 struct producer_plugin_metrics : public plugin_metrics {
@@ -24,16 +25,20 @@ struct producer_plugin_metrics : public plugin_metrics {
    runtime_metric subjective_bill_block_size{metric_type::gauge, "subjective_bill_block_size", "subjective_bill_block_size", 0};
    runtime_metric scheduled_trxs{metric_type::gauge, "scheduled_trxs", "scheduled_trxs", 0};
 
-   producer_plugin_metrics() {
-      metrics.emplace_back(std::ref(unapplied_transactions));
-      metrics.emplace_back(std::ref(blacklisted_transactions));
-      metrics.emplace_back(std::ref(blocks_produced));
-      metrics.emplace_back(std::ref(trxs_produced));
-      metrics.emplace_back(std::ref(last_irreversible));
-      metrics.emplace_back(std::ref(block_num));
-      metrics.emplace_back(std::ref(subjective_bill_account_size));
-      metrics.emplace_back(std::ref(subjective_bill_block_size));
-      metrics.emplace_back(std::ref(scheduled_trxs));
+   virtual vector<runtime_metric> metrics() {
+      vector<runtime_metric> metrics{
+            unapplied_transactions,
+            blacklisted_transactions,
+            blocks_produced,
+            trxs_produced,
+            last_irreversible,
+            block_num,
+            subjective_bill_account_size,
+            subjective_bill_block_size,
+            scheduled_trxs
+      };
+
+      return metrics;
    }
 };
 
@@ -172,6 +177,7 @@ public:
 
    void log_failed_transaction(const transaction_id_type& trx_id, const chain::packed_transaction_ptr& packed_trx_ptr, const char* reason) const;
    producer_plugin_metrics& metrics();
+   void register_metrics_listener(metrics_listener listener);
 
  private:
    std::shared_ptr<class producer_plugin_impl> my;

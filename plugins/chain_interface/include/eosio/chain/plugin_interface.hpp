@@ -18,20 +18,43 @@ namespace eosio { namespace chain { namespace plugin_interface {
    };
 
    struct runtime_metric {
-      const metric_type type;
-      const std::string family;
-      const std::string label;
-      std::atomic<int64_t> value;
+      metric_type type = metric_type::gauge;
+      std::string family;
+      std::string label;
+      int64_t value = 0;
+
    };
+
+   using metrics_listener = std::function<void(std::vector<runtime_metric>)>;
 
    struct plugin_metrics {
-      std::vector<std::reference_wrapper<runtime_metric>> metrics;
-      void enable(bool enabled)  {_enabled = enabled; }
-      bool enabled() {return _enabled;}
+      virtual vector<runtime_metric> metrics()=0;
+      bool should_post() {
+         return ((_listener) && fc::time_point::now() > (_last_post + fc::milliseconds(_min_post_interval_ms)));
+      }
+
+      bool post_metrics() {
+         if (should_post()){
+            _listener(metrics());
+            _last_post = fc::time_point::now();
+            return true;
+         }
+
+         return false;
+      }
+
+      void register_listener(metrics_listener listener) {
+         _listener = listener;
+      }
+
+      plugin_metrics(int64_t min_post_interval_ms=250) : _min_post_interval_ms(min_post_interval_ms), _listener(nullptr) {}
 
    private:
-      bool _enabled = false;
+      int64_t _min_post_interval_ms;
+      metrics_listener _listener;
+      fc::time_point _last_post;
    };
+
    template<typename T>
    using next_function = std::function<void(const std::variant<fc::exception_ptr, T>&)>;
 
