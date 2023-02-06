@@ -159,11 +159,10 @@ public:
       ++trx_success_num;
    }
 
-
-   void add( const account_name& n, int64_t exception_code ) {
+   void add( const account_name& n, const fc::exception& e ) {
       auto& fa = failed_accounts[n];
       ++fa.num_failures;
-      fa.add( n, exception_code );
+      fa.add( n, e );
    }
 
    // return true if exceeds max_failures_per_account and should be dropped
@@ -223,7 +222,8 @@ private:
          ex_other_exception = 8
       };
 
-      void add( const account_name& n, int64_t exception_code ) {
+      void add( const account_name& n, const fc::exception& e ) {
+         auto exception_code = e.code();
          if( exception_code == tx_cpu_usage_exceeded::code_value ) {
             ex_flags = set_field( ex_flags, ex_fields::ex_tx_cpu_usage_exceeded );
          } else if( exception_code == deadline_exception::code_value ) {
@@ -233,8 +233,8 @@ private:
             ex_flags = set_field( ex_flags, ex_fields::ex_eosio_assert_exception );
          } else {
             ex_flags = set_field( ex_flags, ex_fields::ex_other_exception );
-            fc_dlog( _log, "Failed trx, account: ${a}, reason: ${r}",
-                     ("a", n)("r", exception_code) );
+            fc_dlog( _log, "Failed trx, account: ${a}, reason: ${r}, except: ${e}",
+                     ("a", n)("r", exception_code)("e", e) );
          }
       }
 
@@ -2023,8 +2023,8 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
          pr.trx_exhausted = true;
       } else {
          pr.failed = true;
-         auto failure_code = trace->except->code();
-         if( failure_code != tx_duplicate::code_value ) {
+         const fc::exception& e = *trace->except;
+         if( e.code() != tx_duplicate::code_value ) {
             fc_dlog( _trx_failed_trace_log, "Subjective bill for failed ${a}: ${b} elapsed ${t}us, time ${r}us",
                      ("a",first_auth)("b",sub_bill)("t",trace->elapsed)("r", end - start));
             if (!disable_subjective_enforcement) // subjectively bill failure when producing since not in objective cpu account billing
@@ -2032,11 +2032,11 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
 
             log_trx_results( trx, trace, start );
             // this failed our configured maximum transaction time, we don't want to replay it
-            fc_dlog( _trx_failed_trace_log, "Failed ${c} trx, auth: ${a}, prev billed: ${p}us, ran: ${r}us, id: ${id}",
-                     ("c", failure_code)("a", first_auth)("p", prev_billed_cpu_time_us)
-                     ( "r", end - start )( "id", trx->id() ) );
+            fc_dlog( _trx_failed_trace_log, "Failed ${c} trx, auth: ${a}, prev billed: ${p}us, ran: ${r}us, id: ${id}, except: ${e}",
+                     ("c", e.code())("a", first_auth)("p", prev_billed_cpu_time_us)
+                     ( "r", end - start)("id", trx->id())("e", e) );
             if( !disable_subjective_enforcement )
-               _account_fails.add( first_auth, failure_code );
+               _account_fails.add( first_auth, e.code() );
          }
          if( next ) {
             if( return_failure_trace ) {
