@@ -111,7 +111,7 @@ namespace eosio {
 
          prometheus_plugin_impl(): _prometheus_thread_pool("prom", 1), _prometheus_strand(_prometheus_thread_pool.get_executor()){ }
 
-         void update_metrics(std::string plugin_name, vector<runtime_metric>& metrics) {
+         void update_metrics(std::string plugin_name, vector<runtime_metric> metrics) {
             auto plugin_metrics = _plugin_metrics.find(plugin_name);
             if (plugin_metrics != _plugin_metrics.end()) {
                plugin_metrics->second = metrics;
@@ -119,14 +119,14 @@ namespace eosio {
          }
 
          metrics_listener create_metrics_listener(std::string plugin_name) {
-            return  [plugin_name, self=this] (vector<runtime_metric> metrics) mutable {
+            return  [plugin_name, self=this] (vector<runtime_metric> metrics) {
                self->_prometheus_strand.post(
-                     [self, plugin_name, metrics]() mutable {
-                        self->update_metrics(plugin_name, metrics);
-                     }
-               );
+                     [self, plugin_name, metrics{std::move(metrics)}]() mutable {
+                        self->update_metrics(plugin_name, std::move(metrics));
+               });
             };
          }
+
 
          void initialize_metrics() {
             net_plugin* np = app().find_plugin<net_plugin>();
@@ -180,11 +180,11 @@ namespace eosio {
    using metrics_params = fc::variant_object;
 
    struct prometheus_api {
-      fc::microseconds max_response_time_ms{30*100};
+      fc::microseconds max_response_time_us{30*1000};
       prometheus_plugin_impl& _pp;
 
       fc::time_point start() const {
-         return fc::time_point::now() + max_response_time_ms;
+         return fc::time_point::now() + max_response_time_us;
       }
 
       void metrics(const metrics_params& p, chain::plugin_interface::next_function<std::string> results) {

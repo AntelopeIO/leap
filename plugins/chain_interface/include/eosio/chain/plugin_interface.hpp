@@ -30,8 +30,7 @@ namespace eosio { namespace chain { namespace plugin_interface {
    struct plugin_metrics {
       virtual vector<runtime_metric> metrics()=0;
       bool should_post() {
-         fc::time_point now = fc::time_point::now();
-         return ((_listener) && now > (_last_post + fc::milliseconds(_min_post_interval_ms)));
+         return ((_listener) && fc::time_point::now() > (_last_post + fc::milliseconds(_min_post_interval_ms)));
       }
 
       bool post_metrics() {
