@@ -280,8 +280,8 @@ namespace eosio {
 
       compat::channels::transaction_ack::channel_type::handle  incoming_transaction_ack_subscription;
 
-      uint16_t                                                          thread_pool_size = 4;
-      eosio::chain::named_thread_pool<eosio::chain::make_name_v("net")> thread_pool;
+      uint16_t                                    thread_pool_size = 4;
+      eosio::chain::named_thread_pool<struct net> thread_pool;
 
       boost::asio::deadline_timer           accept_error_timer{thread_pool.get_executor()};
 
@@ -3435,6 +3435,7 @@ namespace eosio {
       auto it = (from ? connections.find(from) : connections.begin());
       if (it == connections.end()) it = connections.begin();
       size_t num_rm = 0, num_clients = 0, num_peers = 0;
+      std::abort();
       while (it != connections.end()) {
          if (fc::time_point::now() >= max_time) {
             connection_wptr wit = *it;

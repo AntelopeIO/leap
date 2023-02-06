@@ -307,7 +307,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       pending_block_mode                                        _pending_block_mode = pending_block_mode::speculating;
       unapplied_transaction_queue                               _unapplied_transactions;
       size_t                                                    _thread_pool_size = config::default_controller_thread_pool_size;
-      named_thread_pool<eosio::chain::make_name_v("prod")>      _thread_pool;
+      named_thread_pool<struct prod>                            _thread_pool;
 
       std::atomic<int32_t>                                      _max_transaction_time_ms; // modified by app thread, read by net_plugin thread pool
       std::atomic<bool>                                         _received_block{false}; // modified by net_plugin thread pool and app thread

@@ -12,27 +12,21 @@
 
 namespace eosio { namespace chain {
 
-   inline constexpr uint64_t make_name_v( std::string_view str ) {
-      return string_to_uint64_t(str);
-   }
-
    /**
     * Wrapper class for thread pool of boost asio io_context run.
     * Also names threads so that tools like htop can see thread name.
-    * Example: named_thread_pool<eosio::chain::make_name_v("chain")> thread_pool;
-    * @param NamePrefix  is eosio::name appended with -## of thread.
-    *                    A short name_prefix (6 chars or under) is recommended as console_appender uses 9 chars
-    *                    for the thread name.
+    * Example: named_thread_pool<struct net> thread_pool;
+    *      or: struct net{}; named_thread_pool<net> thread_pool;
+    * @param NamePrefixTag is a type name appended with -## of thread.
+    *                    A short NamePrefixTag type name (6 chars or under) is recommended as console_appender uses
+    *                    9 chars for the thread name.
     */
-   template<uint64_t NamePrefix>
+   template<typename NamePrefixTag>
    class named_thread_pool {
    public:
       using on_except_t = std::function<void(const fc::exception& e)>;
 
-      explicit named_thread_pool()
-            : _name_prefix(NamePrefix)
-            , _ioc()
-      {}
+      named_thread_pool() = default;
 
       ~named_thread_pool(){
          stop();
@@ -68,7 +62,11 @@ namespace eosio { namespace chain {
 
    private:
       void run_thread( size_t i, const on_except_t& on_except ) {
-         std::string tn = _name_prefix.to_string() + "-" + std::to_string( i );
+         std::string tn = boost::core::demangle(typeid(this).name());
+         auto offset = tn.rfind("::");
+         if (offset != std::string::npos)
+            tn.erase(0, offset+2);
+         tn = tn.substr(0, tn.find('>')) + "-" + std::to_string( i );
          try {
             fc::set_os_thread_name( tn );
             _ioc.run();
@@ -102,7 +100,6 @@ namespace eosio { namespace chain {
    private:
       using ioc_work_t = boost::asio::executor_work_guard<boost::asio::io_context::executor_type>;
 
-      eosio::chain::name             _name_prefix;
       boost::asio::io_context        _ioc;
       std::vector<std::thread>       _thread_pool;
       std::optional<ioc_work_t>      _ioc_work;
