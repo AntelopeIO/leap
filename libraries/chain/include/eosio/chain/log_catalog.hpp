@@ -48,7 +48,7 @@ struct log_catalog {
 
    bfs::path    retained_dir;
    bfs::path    archive_dir;
-   size_type    max_retained_files = UINT32_MAX;
+   size_type    max_retained_files = std::numeric_limits<size_type>::max();
    collection_t collection;
    size_type    active_index = npos;
    LogData      log_data;
@@ -59,13 +59,13 @@ struct log_catalog {
 
    uint32_t first_block_num() const {
       if (empty())
-         return 0;
+         return std::numeric_limits<block_num_t>::max();
       return collection.begin()->first;
    }
 
    uint32_t last_block_num() const {
       if (empty())
-         return 0;
+         return std::numeric_limits<block_num_t>::max();
       return collection.rbegin()->second.last_block_num;
    }
 
@@ -146,7 +146,7 @@ struct log_catalog {
                return log_index.nth_block_position(block_num - log_data.first_block_num());
             }
          }
-         if (collection.empty() || block_num < collection.begin()->first)
+         if (block_num < first_block_num())
             return {};
 
          auto it = --collection.upper_bound(block_num);
@@ -230,10 +230,8 @@ struct log_catalog {
       size_type items_to_erase = 0;
       collection.emplace(start_block_num, mapped_type{end_block_num, new_path});
       if (collection.size() >= max_retained_files) {
-         if(max_retained_files < UINT32_MAX){
-            items_to_erase =
-               max_retained_files > 0 ? collection.size() - max_retained_files : collection.size();
-         }
+         items_to_erase =
+            max_retained_files > 0 ? collection.size() - max_retained_files : collection.size();
 
          for (auto it = collection.begin(); it < collection.begin() + items_to_erase; ++it) {
             auto orig_name = it->second.filename_base;
@@ -269,6 +267,7 @@ struct log_catalog {
          bfs::remove(name.replace_extension("index"));
       };
 
+      active_index = npos;
       auto it = collection.upper_bound(block_num);
 
       if (it == collection.begin() || block_num > (it - 1)->second.last_block_num) {

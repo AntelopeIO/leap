@@ -18,12 +18,12 @@ bytes zlib_compress_bytes(const bytes& in) {
    return out;
 }
 
-bytes zlib_decompress(const char* data, uint64_t data_size) {
+bytes zlib_decompress(std::string_view data) {
    bytes                  out;
    bio::filtering_ostream decomp;
    decomp.push(bio::zlib_decompressor());
    decomp.push(bio::back_inserter(out));
-   bio::write(decomp, data, data_size);
+   bio::write(decomp, data.data(), data.size());
    bio::close(decomp);
    return out;
 }

@@ -131,14 +131,14 @@ std::vector<char> zlib_decompress(fc::cfile& file, uint64_t compressed_size) {
    if (compressed_size) {
       std::vector<char> compressed(compressed_size);
       file.read(compressed.data(), compressed_size);
-      return state_history::zlib_decompress(compressed.data(), compressed_size);
+      return state_history::zlib_decompress({compressed.data(), compressed_size});
    }
    return {};
 }
 
 std::vector<char> zlib_decompress(fc::datastream<const char*>& strm, uint64_t compressed_size) {
    if (compressed_size) {
-      return state_history::zlib_decompress(strm.pos(), compressed_size);
+      return state_history::zlib_decompress({strm.pos(), compressed_size});
    }
    return {};
 }
@@ -372,8 +372,7 @@ class state_history_log {
    //        begin     end
    std::pair<uint32_t, uint32_t> block_range() const {
       std::lock_guard g(_mx);
-      uint32_t result = catalog.first_block_num();
-      return { result != 0 ? result : _begin_block, _end_block };
+      return { std::min(catalog.first_block_num(), _begin_block), _end_block };
    }
 
    bool empty() const {
