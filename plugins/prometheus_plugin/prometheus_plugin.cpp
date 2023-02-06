@@ -114,7 +114,7 @@ namespace eosio {
          void update_metrics(std::string plugin_name, vector<runtime_metric> metrics) {
             auto plugin_metrics = _plugin_metrics.find(plugin_name);
             if (plugin_metrics != _plugin_metrics.end()) {
-               plugin_metrics->second = metrics;
+               plugin_metrics->second = std::move(metrics);
             }
          }
 
