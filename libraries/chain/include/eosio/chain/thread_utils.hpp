@@ -68,7 +68,6 @@ namespace eosio { namespace chain {
 
    private:
       void run_thread( size_t i, const on_except_t& on_except ) {
-         // copying the name_prefix and i into lambda makes it available to be seen on the stack in the debugger
          std::string tn = _name_prefix.to_string() + "-" + std::to_string( i );
          try {
             fc::set_os_thread_name( tn );
