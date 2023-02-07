@@ -105,7 +105,7 @@ Options:
 #include <fc/io/fstream.hpp>
 
 #define CLI11_HAS_FILESYSTEM 0
-#include <cli11/CLI11.hpp>
+#include <CLI/CLI.hpp>
 
 #include "help_text.hpp"
 #include "localize.hpp"
@@ -1051,7 +1051,7 @@ struct set_action_permission_subcommand {
    string requirementStr;
 
    set_action_permission_subcommand(CLI::App* actionRoot) {
-      auto permissions = actionRoot->add_subcommand("permission", localized("Set paramaters dealing with account permissions"));
+      auto permissions = actionRoot->add_subcommand("permission", localized("Set parameters dealing with account permissions"));
       permissions->add_option("account", accountStr, localized("The account to set/delete a permission authority for"))->required();
       permissions->add_option("code", codeStr, localized("The account that owns the code for the action"))->required();
       permissions->add_option("type", typeStr, localized("The type of the action"))->required();

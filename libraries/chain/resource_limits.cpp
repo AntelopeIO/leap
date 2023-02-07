@@ -166,8 +166,9 @@ void resource_limits_manager::add_transaction_usage(const flat_set<account_name>
 
          EOS_ASSERT( cpu_used_in_window <= max_user_use_in_window,
                      tx_cpu_usage_exceeded,
-                     "authorizing account '${n}' has insufficient cpu resources for this transaction",
-                     ("n", name(a))
+                     "authorizing account '${n}' has insufficient objective cpu resources for this transaction,"
+                     " used in window ${cpu_used_in_window}us, allowed in window ${max_user_use_in_window}us",
+                     ("n", a)
                      ("cpu_used_in_window",cpu_used_in_window)
                      ("max_user_use_in_window",max_user_use_in_window) );
       }
@@ -185,8 +186,9 @@ void resource_limits_manager::add_transaction_usage(const flat_set<account_name>
 
          EOS_ASSERT( net_used_in_window <= max_user_use_in_window,
                      tx_net_usage_exceeded,
-                     "authorizing account '${n}' has insufficient net resources for this transaction",
-                     ("n", name(a))
+                     "authorizing account '${n}' has insufficient net resources for this transaction,"
+                     " used in window ${net_used_in_window}, allowed in window ${max_user_use_in_window}",
+                     ("n", a)
                      ("net_used_in_window",net_used_in_window)
                      ("max_user_use_in_window",max_user_use_in_window) );
 

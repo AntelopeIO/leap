@@ -214,6 +214,7 @@ public:
   uint16_t     http_port;
   uint16_t     file_size;
   string       name;
+  string       dex;
   tn_node_def* node;
   string       host;
   string       p2p_endpoint;
@@ -417,6 +418,7 @@ struct launcher_def {
    bool nogen;
    bool boot;
    bool add_enable_stale_production = false;
+   bool is_nodeos_v2 = false;
    string launch_name;
    string launch_time;
    server_identities servers;
@@ -425,6 +427,8 @@ struct launcher_def {
    string start_script;
    std::optional<uint32_t> max_block_cpu_usage;
    std::optional<uint32_t> max_transaction_cpu_usage;
+   std::string logging_level;
+   std::map<string,fc::log_level> logging_level_map;
    eosio::chain::genesis_state genesis_from_file;
 
    void assign_name (eosd_def &node, bool is_bios);
@@ -505,6 +509,9 @@ launcher_def::set_options (bpo::options_description &cfg) {
     ("script",bpo::value<string>(&start_script)->default_value("bios_boot.sh"),"the generated startup script name")
     ("max-block-cpu-usage",bpo::value<uint32_t>(),"Provide the \"max-block-cpu-usage\" value to use in the genesis.json file")
     ("max-transaction-cpu-usage",bpo::value<uint32_t>(),"Provide the \"max-transaction-cpu-usage\" value to use in the genesis.json file")
+    ("logging-level",bpo::value<string>(),"Provide the \"level\" value to use in the logging.json file ")
+    ("logging-level-map",bpo::value<string>(),"String of a dict which specifies \"level\" value to use in the logging.json file for specific nodes, matching based on node number. Ex: {\"bios\":\"off\",\"00\":\"info\"}")
+    ("is-nodeos-v2", bpo::bool_switch(&is_nodeos_v2)->default_value(false), "Toggles old nodeos compatibility")
         ;
 }
 
@@ -564,6 +571,21 @@ launcher_def::initialize (const variables_map &vmap) {
 
   if (vmap.count("max-transaction-cpu-usage")) {
      max_transaction_cpu_usage = vmap["max-transaction-cpu-usage"].as<uint32_t>();
+  }
+
+  if (vmap.count("logging-level")) {
+     logging_level = vmap["logging-level"].as<string>();
+  }
+  if (vmap.count("logging-level-map")) {
+     string llm_str = vmap["logging-level-map"].as<string>();
+     auto const regex = std::regex("\"(.*?)\":\"(.*?)\"");
+     for (auto it = std::sregex_iterator(llm_str.begin(), llm_str.end(), regex); it != std::sregex_iterator(); it++) {
+        std::smatch sm = *it;
+        fc::log_level ll;
+        fc::variant v(sm.str(2));
+        fc::from_variant(v, ll);
+        logging_level_map[sm.str(1)] = ll;
+     }
   }
 
   genesis = vmap["genesis"].as<string>();
@@ -703,12 +725,14 @@ launcher_def::assign_name (eosd_def &node, bool is_bios) {
    if (is_bios) {
       node.name = "bios";
       node_cfg_name = "node_bios";
+      node.dex = "bios";
    }
    else {
       string dex = next_node < 10 ? "0":"";
       dex += boost::lexical_cast<string,int>(next_node++);
       node.name = network.name + dex;
       node_cfg_name = "node_" + dex;
+      node.dex = dex;
    }
   node.config_dir_name = (config_dir_base / node_cfg_name).string();
   node.data_dir_name = (data_dir_base / node_cfg_name).string();
@@ -1146,13 +1170,25 @@ launcher_def::write_logging_config_file(tn_node_def &node) {
   if (!bfs::exists(dd)) {
     bfs::create_directories(dd);
   }
+  fc::log_level ll = fc::log_level::debug;
+  if (logging_level != "") {
+     fc::variant v(logging_level);
+     fc::from_variant(v, ll);
+  }
 
   filename = dd / "logging.json";
 
+  if (!logging_level_map.empty()) {
+     auto it = logging_level_map.find(instance.dex);
+     if (it != logging_level_map.end()) {
+       ll = it->second;
+     }
+  }
+
   bfs::ofstream cfg(filename);
   if (!cfg.good()) {
-    cerr << "unable to open " << filename << " " << strerror(errno) << "\n";
-    exit (9);
+     cerr << "unable to open " << filename << " " << strerror(errno) << "\n";
+     exit (9);
   }
 
   auto log_config = fc::logging_config::default_config();
@@ -1167,49 +1203,49 @@ launcher_def::write_logging_config_file(tn_node_def &node) {
   }
 
   fc::logger_config p2p( "net_plugin_impl" );
-  p2p.level = fc::log_level::debug;
+  p2p.level = ll;
   p2p.appenders.push_back( "stderr" );
   if( gelf_enabled ) p2p.appenders.push_back( "net" );
   log_config.loggers.emplace_back( p2p );
 
   fc::logger_config http( "http_plugin" );
-  http.level = fc::log_level::debug;
+  http.level = ll;
   http.appenders.push_back( "stderr" );
   if( gelf_enabled ) http.appenders.push_back( "net" );
   log_config.loggers.emplace_back( http );
 
   fc::logger_config pp( "producer_plugin" );
-  pp.level = fc::log_level::debug;
+  pp.level = ll;
   pp.appenders.push_back( "stderr" );
   if( gelf_enabled ) pp.appenders.push_back( "net" );
   log_config.loggers.emplace_back( pp );
 
   fc::logger_config tt( "transaction_success_tracing" );
-  tt.level = fc::log_level::debug;
+  tt.level = ll;
   tt.appenders.push_back( "stderr" );
   if( gelf_enabled ) tt.appenders.push_back( "net" );
   log_config.loggers.emplace_back( tt );
 
   fc::logger_config tft( "transaction_failure_tracing" );
-  tft.level = fc::log_level::debug;
+  tft.level = ll;
   tft.appenders.push_back( "stderr" );
   if( gelf_enabled ) tft.appenders.push_back( "net" );
   log_config.loggers.emplace_back( tft );
 
   fc::logger_config tts( "transaction_trace_success" );
-  tts.level = fc::log_level::debug;
+  tts.level = ll;
   tts.appenders.push_back( "stderr" );
   if( gelf_enabled ) tts.appenders.push_back( "net" );
   log_config.loggers.emplace_back( tts );
 
    fc::logger_config ttf( "transaction_trace_failure" );
-   ttf.level = fc::log_level::debug;
+   ttf.level = ll;
    ttf.appenders.push_back( "stderr" );
    if( gelf_enabled ) ttf.appenders.push_back( "net" );
    log_config.loggers.emplace_back( ttf );
 
   fc::logger_config ta( "trace_api" );
-  ta.level = fc::log_level::debug;
+  ta.level = ll;
   ta.appenders.push_back( "stderr" );
   if( gelf_enabled ) ta.appenders.push_back( "net" );
   log_config.loggers.emplace_back( ta );
@@ -1601,6 +1637,15 @@ launcher_def::launch (eosd_def &instance, string &gts) {
      if (specific_nodeos_args.count(node_num)) {
         eosdcmd += specific_nodeos_args[node_num] + " ";
      }
+  }
+
+  //Always enable the trace_api_plugin on the bios node
+  if (instance.name == "bios") {
+    if (is_nodeos_v2) {
+      eosdcmd += "--plugin eosio::history_api_plugin  --filter-on \"*\"";
+    } else {
+      eosdcmd += "--plugin eosio::trace_api_plugin ";
+    }
   }
 
   if( add_enable_stale_production ) {

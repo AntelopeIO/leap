@@ -118,6 +118,8 @@ namespace eosio { namespace chain {
 
          void disallow_transaction_extensions( const char* error_msg )const;
 
+         std::string get_tx_cpu_usage_exceeded_reason_msg(fc::microseconds& limit) const;
+
       /// Fields:
       public:
 
@@ -171,6 +173,16 @@ namespace eosio { namespace chain {
          int64_t                       billing_timer_exception_code = block_cpu_usage_exceeded::code_value;
          fc::time_point                pseudo_start;
          fc::microseconds              billed_time;
+
+         enum class tx_cpu_usage_exceeded_reason {
+            account_cpu_limit, // includes subjective billing
+            on_chain_consensus_max_transaction_cpu_usage,
+            user_specified_trx_max_cpu_usage_ms,
+            node_configured_max_transaction_time,
+            speculative_executed_adjusted_max_transaction_time // prev_billed_cpu_time_us > 0
+         };
+         tx_cpu_usage_exceeded_reason  tx_cpu_usage_reason = tx_cpu_usage_exceeded_reason::account_cpu_limit;
+         fc::microseconds              tx_cpu_usage_amount;
    };
 
 } }

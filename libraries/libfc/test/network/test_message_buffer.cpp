@@ -79,7 +79,7 @@ BOOST_AUTO_TEST_CASE(message_buffer_growth)
     BOOST_CHECK_EQUAL(mb.bytes_to_read(), 100u);
     BOOST_CHECK_NE(mb.read_ptr(), nullptr);
     BOOST_CHECK_NE(mb.write_ptr(), nullptr);
-    BOOST_CHECK_EQUAL((mb.read_ptr() + 100), mb.write_ptr());
+    BOOST_CHECK_EQUAL(static_cast<void*>(mb.read_ptr() + 100), static_cast<void*>(mb.write_ptr()));
 
     {
       auto mbs = mb.get_buffer_sequence_for_boost_async_read();

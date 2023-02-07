@@ -134,12 +134,12 @@ public:
    ,irreversible_block_channel(app().get_channel<channels::irreversible_block>())
    ,accepted_transaction_channel(app().get_channel<channels::accepted_transaction>())
    ,applied_transaction_channel(app().get_channel<channels::applied_transaction>())
-   ,incoming_block_channel(app().get_channel<incoming::channels::block>())
    ,incoming_block_sync_method(app().get_method<incoming::methods::block_sync>())
    ,incoming_transaction_async_method(app().get_method<incoming::methods::transaction_async>())
    {}
 
    bfs::path                        blocks_dir;
+   bfs::path                        state_dir;
    bool                             readonly = false;
    flat_map<uint32_t,block_id_type> loaded_checkpoints;
    bool                             accept_transactions = false;
@@ -162,7 +162,6 @@ public:
    channels::irreversible_block::channel_type&     irreversible_block_channel;
    channels::accepted_transaction::channel_type&   accepted_transaction_channel;
    channels::applied_transaction::channel_type&    applied_transaction_channel;
-   incoming::channels::block::channel_type&        incoming_block_channel;
 
    // retained references to methods for easy calling
    incoming::methods::block_sync::method_type&        incoming_block_sync_method;
@@ -248,6 +247,8 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
          ("fix-irreversible-blocks",
           "When the existing block log is inconsistent with the index, allows fixing the block log and index files automatically - that is, "
           "it will take the highest indexed block if it is valid; otherwise it will repair the block log and reconstruct the index.")
+         ("state-dir", bpo::value<bfs::path>()->default_value(config::default_state_dir_name),
+          "the location of the state directory (absolute path or relative to application data dir)")
          ("protocol-features-dir", bpo::value<bfs::path>()->default_value("protocol_features"),
           "the location of the protocol_features directory (absolute path or relative to application config dir)")
          ("checkpoint", bpo::value<vector<string>>()->composing(), "Pairs of [BLOCK_NUM,BLOCK_ID] that should be enforced as checkpoints.")
@@ -540,6 +541,14 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
             my->blocks_dir = bld;
       }
 
+      if( options.count( "state-dir" )) {
+         auto sd = options.at( "state-dir" ).as<bfs::path>();
+         if( sd.is_relative())
+            my->state_dir = app().data_dir() / sd;
+         else
+            my->state_dir = sd;
+      }
+
       protocol_feature_set pfs;
       {
          fc::path protocol_features_dir;
@@ -578,7 +587,7 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
       my->abi_serializer_max_time_us = fc::microseconds(options.at("abi-serializer-max-time-ms").as<uint32_t>() * 1000);
 
       my->chain_config->blocks_dir = my->blocks_dir;
-      my->chain_config->state_dir = app().data_dir() / config::default_state_dir_name;
+      my->chain_config->state_dir = my->state_dir;
       my->chain_config->read_only = my->readonly;
 
       if (auto resmon_plugin = app().find_plugin<resource_monitor_plugin>()) {
@@ -1186,8 +1195,8 @@ chain_apis::read_only chain_plugin::get_read_only_api(const fc::microseconds& ht
 }
 
 
-bool chain_plugin::accept_block(const signed_block_ptr& block, const block_id_type& id ) {
-   return my->incoming_block_sync_method(block, id);
+bool chain_plugin::accept_block(const signed_block_ptr& block, const block_id_type& id, const block_state_ptr& bsp ) {
+   return my->incoming_block_sync_method(block, id, bsp);
 }
 
 void chain_plugin::accept_transaction(const chain::packed_transaction_ptr& trx, next_function<chain::transaction_trace_ptr> next) {
@@ -2006,7 +2015,7 @@ fc::variant read_only::get_block_header_state(const get_block_header_state_param
 
 void read_write::push_block(read_write::push_block_params&& params, next_function<read_write::push_block_results> next) {
    try {
-      app().get_method<incoming::methods::block_sync>()(std::make_shared<signed_block>( std::move( params ) ), std::optional<block_id_type>{});
+      app().get_method<incoming::methods::block_sync>()(std::make_shared<signed_block>( std::move(params) ), std::optional<block_id_type>{}, block_state_ptr{});
    } catch ( boost::interprocess::bad_alloc& ) {
       chain_plugin::handle_db_exhaustion();
    } catch ( const std::bad_alloc& ) {

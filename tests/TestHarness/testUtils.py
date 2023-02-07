@@ -615,7 +615,10 @@ class Utils:
         Retrusn data as decoded string object"""
         data = Utils.readSocketData(sock, maxMsgSize) 
         return data.decode(enc)
-        
+
+    @staticmethod
+    def getNodeosVersion():
+        return os.popen(f"{Utils.EosServerPath} --version").read().replace("\n", "")
 
 
 ###########################################################################################
