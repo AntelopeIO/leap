@@ -168,7 +168,7 @@ namespace eosio { namespace chain {
          error_messages[std::move(e.error_code)] = std::move(e.error_msg);
 
       for( auto& v : abi.variants.value )
-         variants[std::move(v.name)] = std::move(v);
+         variants[v.name] = std::move(v);
 
       for( auto& r : abi.action_results.value )
          action_results[std::move(r.name)] = std::move(r.result_type);
