@@ -3,10 +3,12 @@
 import argparse
 import datetime
 from dataclasses import InitVar, dataclass, field, is_dataclass, asdict
+import errno
 import json
 from pathlib import Path
 import os
 import math
+import platform
 import shlex
 import select
 import signal
@@ -598,16 +600,7 @@ plugin = eosio::chain_api_plugin
                 if self.network.name + num == node.name:
                     with open(node.data_dir_name / f'{Utils.EosServerName}.pid', 'r') as f:
                         pid = int(f.readline())
-                        try:
-                            fd = os.pidfd_open(pid)
-                        except:
-                            # tolerate missing process
-                            pass
-                        else:
-                            po = select.poll()
-                            po.register(fd, select.POLLIN)
-                            os.kill(pid, signal.SIGTERM)
-                            po.poll(None)
+                        self.terminate_wait_pid(pid, raise_if_missing=False)
                     self.launch(node)
 
     def down(self, nodeNumbers):
@@ -616,11 +609,7 @@ plugin = eosio::chain_api_plugin
                 if self.network.name + num == node.name:
                     with open(node.data_dir_name / f'{Utils.EosServerName}.pid', 'r') as f:
                         pid = int(f.readline())
-                        fd = os.pidfd_open(pid)
-                        po = select.poll()
-                        po.register(fd, select.POLLIN)
-                        os.kill(pid, signal.SIGTERM)
-                        po.poll(None)
+                        self.terminate_wait_pid(pid)
 
     def start_all(self):
         if self.args.launch.lower() != 'none':
@@ -663,6 +652,43 @@ plugin = eosio::chain_api_plugin
                     pname = self.network.nodes[p].dot_label
                     f.write(f'"{node.dot_label}"->"{pname}" [dir="forward"];\n')
             f.write('}')
+
+    def terminate_wait_pid(self, pid, raise_if_missing=True):
+        '''Terminate a non-child process with SIGTERM and wait for it to exit.'''
+        if sys.version_info >= (3, 9) and platform.system() == 'Linux': # on our supported platforms, Python 3.9 accompanies a kernel > 5.3
+            try:
+                fd = os.pidfd_open(pid)
+            except:
+                if raise_if_missing:
+                    raise
+            else:
+                po = select.poll()
+                po.register(fd, select.POLLIN)
+                os.kill(pid, signal.SIGTERM)
+                po.poll(None)
+        else:
+            if platform.system() in {'Linux', 'Darwin'}:
+                def pid_exists(pid):
+                    try:
+                        os.kill(pid, 0)
+                    except OSError as err:
+                        if err.errno == erno.ESRCH:
+                            return False
+                        elif err.errno == errno.EPERM:
+                            return True
+                        else:
+                            raise err
+                    return True
+                def backoff_timer(delay):
+                    time.sleep(delay)
+                    return min(delay * 2, 0.04)
+                delay = 0.0001
+                os.kill(pid, signal.SIGTERM)
+                while True:
+                    if pid_exists(pid):
+                        delay = backoff_timer(delay)
+                    else:
+                        return
 
 if __name__ == '__main__':
     l = launcher(sys.argv[1:])

@@ -473,7 +473,6 @@ class Cluster(object):
             self.unstartedNodes=self.discoverUnstartedLocalNodes(unstartedNodes, totalNodes)
 
         biosNode=self.discoverBiosNode(timeout=Utils.systemWaitTimeout)
-
         if not biosNode or not Utils.waitForBool(biosNode.checkPulse, Utils.systemWaitTimeout):
             Utils.Print("ERROR: Bios node doesn't appear to be running...")
             return False
