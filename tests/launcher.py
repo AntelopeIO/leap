@@ -678,6 +678,8 @@ plugin = eosio::chain_api_plugin
                             return True
                         else:
                             raise err
+                    except ProcessLookupError as err:
+                        return False
                     return True
                 def backoff_timer(delay):
                     time.sleep(delay)
