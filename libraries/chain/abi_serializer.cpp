@@ -149,8 +149,11 @@ namespace eosio { namespace chain {
       variants.clear();
       action_results.clear();
 
-      for( auto& st : abi.structs )
-         structs[st.name] = std::move(st);
+      for( auto& st : abi.structs ) {
+         // side effect rules indicate std::move can happen before st.name is accessed.
+         auto n = st.name;
+         structs[std::move(n)] = std::move(st);
+      }
 
       for( auto& td : abi.types ) {
          EOS_ASSERT(!_is_type(td.new_type_name, ctx), duplicate_abi_type_def_exception,
@@ -167,8 +170,11 @@ namespace eosio { namespace chain {
       for( auto& e : abi.error_messages )
          error_messages[std::move(e.error_code)] = std::move(e.error_msg);
 
-      for( auto& v : abi.variants.value )
-         variants[v.name] = std::move(v);
+      for( auto& v : abi.variants.value ) {
+         // Not strictly necessary since trivially copyable, but error on safe side in case name becomes std::string
+         auto n = v.name;
+         variants[std::move(n)] = std::move(v);
+      }
 
       for( auto& r : abi.action_results.value )
          action_results[std::move(r.name)] = std::move(r.result_type);
