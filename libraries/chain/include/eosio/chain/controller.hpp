@@ -350,7 +350,7 @@ namespace eosio { namespace chain {
                   const auto& a = get_account( n );
                   abi_def abi;
                   if( abi_serializer::to_abi( a.abi, abi ))
-                     return abi_serializer( abi, yield );
+                     return abi_serializer( std::move(abi), yield );
                } FC_CAPTURE_AND_LOG((n))
             }
             return std::optional<abi_serializer>();
