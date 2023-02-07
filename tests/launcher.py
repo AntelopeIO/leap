@@ -664,7 +664,11 @@ plugin = eosio::chain_api_plugin
             else:
                 po = select.poll()
                 po.register(fd, select.POLLIN)
-                os.kill(pid, signal.SIGTERM)
+                try:
+                    os.kill(pid, signal.SIGTERM)
+                except ProcessLookupError:
+                    if raise_if_missing:
+                        raise
                 po.poll(None)
         else:
             if platform.system() in {'Linux', 'Darwin'}:
@@ -678,14 +682,18 @@ plugin = eosio::chain_api_plugin
                             return True
                         else:
                             raise err
-                    except ProcessLookupError as err:
-                        return False
                     return True
                 def backoff_timer(delay):
                     time.sleep(delay)
                     return min(delay * 2, 0.04)
                 delay = 0.0001
-                os.kill(pid, signal.SIGTERM)
+                try:
+                    os.kill(pid, signal.SIGTERM)
+                except ProcessLookupError:
+                    if raise_if_missing:
+                        raise
+                    else:
+                        return
                 while True:
                     if pid_exists(pid):
                         delay = backoff_timer(delay)
