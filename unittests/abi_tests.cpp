@@ -551,9 +551,8 @@ BOOST_AUTO_TEST_CASE(general)
 { try {
 
    auto abi = eosio_contract_abi(fc::json::from_string(my_abi).as<abi_def>());
-   auto abi2 = abi;
 
-   abi_serializer abis(std::move(abi), abi_serializer::create_yield_function( max_serialization_time ));
+   abi_serializer abis(abi_def(abi), abi_serializer::create_yield_function( max_serialization_time ));
 
    const char *my_other = R"=====(
     {
@@ -752,7 +751,7 @@ BOOST_AUTO_TEST_CASE(general)
    )=====";
 
    auto var = fc::json::from_string(my_other);
-   verify_byte_round_trip_conversion(abi_serializer{std::move(abi2), abi_serializer::create_yield_function( max_serialization_time )}, "A", var);
+   verify_byte_round_trip_conversion(abi_serializer{std::move(abi), abi_serializer::create_yield_function( max_serialization_time )}, "A", var);
 
 } FC_LOG_AND_RETHROW() }
 
