@@ -152,7 +152,7 @@ void chain_api_plugin::plugin_startup() {
 
    _http_plugin.add_api({
       { std::string("/v1/chain/get_block"),
-        [ro_api, &chain, &_http_plugin, max_time=std::min(chain.get_abi_serializer_max_time(),max_response_time)]
+        [ro_api, &_http_plugin, max_time=std::min(chain.get_abi_serializer_max_time(),max_response_time)]
               ( string, string body, url_response_callback cb ) mutable {
            auto deadline = ro_api.start();
            try {
@@ -161,50 +161,17 @@ void chain_api_plugin::plugin_startup() {
               FC_CHECK_DEADLINE( deadline );
               chain::signed_block_ptr block = ro_api.get_block( params, deadline );
 
-              auto yield = abi_serializer::create_yield_function( max_time );
-              std::unordered_map<account_name, std::optional<abi_serializer> > abi_cache;
-              auto add_to_cache = [&]( const chain::action& a ) {
-                 auto it = abi_cache.find( a.account );
-                 if( it == abi_cache.end() )
-                    abi_cache.emplace_hint( it, a.account, chain.chain().get_abi_serializer( a.account, yield ) );
-              };
-              for( const auto& receipt: block->transactions ) {
-                 if( std::holds_alternative<chain::packed_transaction>( receipt.trx ) ) {
-                    const auto& pt = std::get<chain::packed_transaction>( receipt.trx );
-                    const auto& t = pt.get_transaction();
-                    for( const auto& a: t.actions )
-                       add_to_cache( a );
-                    for( const auto& a: t.context_free_actions )
-                       add_to_cache( a );
-                 }
-              }
+              auto abi_cache = ro_api.get_block_serializers( block, max_time );
               FC_CHECK_DEADLINE( deadline );
 
               auto post_time = fc::time_point::now();
               auto remaining_time = max_time - (post_time - start);
               _http_plugin.post_http_thread_pool(
-                    [cb, deadline, post_time, remaining_time, abi_cache{std::move(abi_cache)}, block{std::move( block )}]() {
+                    [ro_api, cb, deadline, post_time, remaining_time, abi_cache{std::move(abi_cache)}, block{std::move( block )}]() {
                  try {
                     auto new_deadline = deadline + (fc::time_point::now() - post_time);
 
-                    auto abi_serializer_resolver = [&abi_cache](const account_name& account) -> std::optional<abi_serializer> {
-                       auto it = abi_cache.find( account );
-                       if( it != abi_cache.end() )
-                          return it->second;
-                       return {};
-                    };
-
-                    fc::variant pretty_output;
-                    abi_serializer::to_variant( *block, pretty_output, abi_serializer_resolver,
-                                                abi_serializer::create_yield_function( remaining_time ) );
-
-                    const auto block_id = block->calculate_id();
-                    uint32_t ref_block_prefix = block_id._hash[1];
-
-                    fc::variant result = fc::mutable_variant_object( pretty_output.get_object() )
-                          ( "id", block_id )
-                          ( "block_num", block->block_num() )
-                          ( "ref_block_prefix", ref_block_prefix );
+                    fc::variant result = ro_api.convert_block( block, abi_cache, remaining_time );
 
                     cb( 200, new_deadline, std::move( result ) );
                  } catch( ... ) {

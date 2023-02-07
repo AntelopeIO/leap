@@ -355,6 +355,13 @@ public:
    };
 
    chain::signed_block_ptr get_block(const get_block_params& params, const fc::time_point& deadline) const;
+   // call from app() thread
+   std::unordered_map<account_name, std::optional<abi_serializer>>
+     get_block_serializers( const chain::signed_block_ptr& block, const fc::microseconds& max_time ) const;
+   // call from any thread
+   fc::variant convert_block( const chain::signed_block_ptr& block,
+                              std::unordered_map<account_name, std::optional<abi_serializer>> abi_cache,
+                              const fc::microseconds& max_time ) const;
 
    struct get_block_info_params {
       uint32_t block_num = 0;

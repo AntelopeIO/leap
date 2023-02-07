@@ -1906,6 +1906,58 @@ chain::signed_block_ptr read_only::get_block(const read_only::get_block_params& 
    return block;
 }
 
+std::unordered_map<account_name, std::optional<abi_serializer>>
+read_only::get_block_serializers( const chain::signed_block_ptr& block, const fc::microseconds& max_time ) const {
+   auto yield = abi_serializer::create_yield_function( max_time );
+   auto resolver = make_resolver(db, yield );
+   std::unordered_map<account_name, std::optional<abi_serializer> > abi_cache;
+   auto add_to_cache = [&]( const chain::action& a ) {
+      auto it = abi_cache.find( a.account );
+      if( it == abi_cache.end() ) {
+         try {
+            abi_cache.emplace_hint( it, a.account, resolver( a.account ) );
+         } catch( ... ) {
+            // keep behavior of not throwing on invalid abi, will result in hex data
+         }
+      }
+   };
+   for( const auto& receipt: block->transactions ) {
+      if( std::holds_alternative<chain::packed_transaction>( receipt.trx ) ) {
+         const auto& pt = std::get<chain::packed_transaction>( receipt.trx );
+         const auto& t = pt.get_transaction();
+         for( const auto& a: t.actions )
+            add_to_cache( a );
+         for( const auto& a: t.context_free_actions )
+            add_to_cache( a );
+      }
+   }
+   return abi_cache;
+}
+
+fc::variant read_only::convert_block( const chain::signed_block_ptr& block,
+                                      std::unordered_map<account_name, std::optional<abi_serializer>> abi_cache,
+                                      const fc::microseconds& max_time ) const {
+
+   auto abi_serializer_resolver = [&abi_cache](const account_name& account) -> std::optional<abi_serializer> {
+      auto it = abi_cache.find( account );
+      if( it != abi_cache.end() )
+         return it->second;
+      return {};
+   };
+
+   fc::variant pretty_output;
+   abi_serializer::to_variant( *block, pretty_output, abi_serializer_resolver,
+                               abi_serializer::create_yield_function( max_time ) );
+
+   const auto block_id = block->calculate_id();
+   uint32_t ref_block_prefix = block_id._hash[1];
+
+   return fc::mutable_variant_object( pretty_output.get_object() )
+         ( "id", block_id )
+         ( "block_num", block->block_num() )
+         ( "ref_block_prefix", ref_block_prefix );
+}
+
 fc::variant read_only::get_block_info(const read_only::get_block_info_params& params, const fc::time_point& deadline) const {
 
    signed_block_ptr block;
