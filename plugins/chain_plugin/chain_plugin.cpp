@@ -2473,8 +2473,7 @@ read_only::get_account_results read_only::get_account( const get_account_params&
 
 static fc::variant action_abi_to_variant( const account_object* code_account, type_name action_type ) {
    fc::variant v;
-   abi_def abi;
-   if( abi_serializer::to_abi(code_account->abi, abi) ) {
+   if( abi_def abi; abi_serializer::to_abi(code_account->abi, abi) ) {
       auto it = std::find_if(abi.structs.begin(), abi.structs.end(), [&](auto& x){return x.name == action_type;});
       if( it != abi.structs.end() )
          to_variant( it->fields,  v );
