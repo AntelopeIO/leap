@@ -672,7 +672,7 @@ plugin = eosio::chain_api_plugin
                     try:
                         os.kill(pid, 0)
                     except OSError as err:
-                        if err.errno == erno.ESRCH:
+                        if err.errno == errno.ESRCH:
                             return False
                         elif err.errno == errno.EPERM:
                             return True
