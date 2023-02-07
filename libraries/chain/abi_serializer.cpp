@@ -149,29 +149,29 @@ namespace eosio { namespace chain {
       variants.clear();
       action_results.clear();
 
-      for( auto&& st : abi.structs )
+      for( auto& st : abi.structs )
          structs[st.name] = std::move(st);
 
-      for( auto&& td : abi.types ) {
+      for( auto& td : abi.types ) {
          EOS_ASSERT(!_is_type(td.new_type_name, ctx), duplicate_abi_type_def_exception,
                     "type already exists", ("new_type_name",impl::limit_size(td.new_type_name)));
-         typedefs[td.new_type_name] = std::move(td.type);
+         typedefs[std::move(td.new_type_name)] = std::move(td.type);
       }
 
-      for( auto&& a : abi.actions )
-         actions[a.name] = std::move(a.type);
+      for( auto& a : abi.actions )
+         actions[std::move(a.name)] = std::move(a.type);
 
-      for( auto&& t : abi.tables )
-         tables[t.name] = std::move(t.type);
+      for( auto& t : abi.tables )
+         tables[std::move(t.name)] = std::move(t.type);
 
-      for( auto&& e : abi.error_messages )
-         error_messages[e.error_code] = std::move(e.error_msg);
+      for( auto& e : abi.error_messages )
+         error_messages[std::move(e.error_code)] = std::move(e.error_msg);
 
-      for( auto&& v : abi.variants.value )
-         variants[v.name] = std::move(v);
+      for( auto& v : abi.variants.value )
+         variants[std::move(v.name)] = std::move(v);
 
-      for( auto&& r : abi.action_results.value )
-         action_results[r.name] = std::move(r.result_type);
+      for( auto& r : abi.action_results.value )
+         action_results[std::move(r.name)] = std::move(r.result_type);
 
       /**
        *  The ABI vector may contain duplicates which would make it

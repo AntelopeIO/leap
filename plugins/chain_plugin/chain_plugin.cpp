@@ -1783,23 +1783,16 @@ read_only::get_producer_schedule_result read_only::get_producer_schedule( const 
 }
 
 
-struct resolver_factory {
-    static auto make(const controller& control, abi_serializer::yield_function_t yield) {
-        return [&control, yield{std::move(yield)}](const account_name &name) -> std::optional<abi_serializer> {
-            const auto* accnt = control.db().template find<account_object, by_name>(name);
-            if (accnt != nullptr) {
-                abi_def abi;
-                if (abi_serializer::to_abi(accnt->abi, abi)) {
-                    return abi_serializer(std::move(abi), yield);
-                }
-            }
-            return std::optional<abi_serializer>();
-        };
-    }
-};
-
 auto make_resolver(const controller& control, abi_serializer::yield_function_t yield) {
-    return resolver_factory::make(control, std::move( yield ));
+   return [&control, yield{std::move(yield)}](const account_name &name) -> std::optional<abi_serializer> {
+      const auto* accnt = control.db().template find<account_object, by_name>(name);
+      if (accnt != nullptr) {
+         if (abi_def abi; abi_serializer::to_abi(accnt->abi, abi)) {
+            return abi_serializer(std::move(abi), yield);
+         }
+      }
+      return {};
+   };
 }
 
 read_only::get_scheduled_transactions_result
@@ -2235,8 +2228,7 @@ read_only::get_abi_results read_only::get_abi( const get_abi_params& params, con
    const auto& d = db.db();
    const auto& accnt  = d.get<account_object,by_name>( params.account_name );
 
-   abi_def abi;
-   if( abi_serializer::to_abi(accnt.abi, abi) ) {
+   if( abi_def abi; abi_serializer::to_abi(accnt.abi, abi) ) {
       result.abi = std::move(abi);
    }
 
@@ -2258,8 +2250,7 @@ read_only::get_code_results read_only::get_code( const get_code_params& params, 
       result.code_hash = code_obj.code_hash;
    }
 
-   abi_def abi;
-   if( abi_serializer::to_abi(accnt_obj.abi, abi) ) {
+   if( abi_def abi; abi_serializer::to_abi(accnt_obj.abi, abi) ) {
       result.abi = std::move(abi);
    }
 
@@ -2397,8 +2388,7 @@ read_only::get_account_results read_only::get_account( const get_account_params&
 
    const auto& code_account = db.db().get<account_object,by_name>( config::system_account_name );
 
-   abi_def abi;
-   if( abi_serializer::to_abi(code_account.abi, abi) ) {
+   if( abi_def abi; abi_serializer::to_abi(code_account.abi, abi) ) {
       abi_serializer abis( std::move(abi), abi_serializer::create_yield_function( abi_serializer_max_time ) );
 
       const auto token_code = "eosio.token"_n;
@@ -2497,8 +2487,7 @@ read_only::abi_json_to_bin_result read_only::abi_json_to_bin( const read_only::a
    const auto code_account = db.db().find<account_object,by_name>( params.code );
    EOS_ASSERT(code_account != nullptr, contract_query_exception, "Contract can't be found ${contract}", ("contract", params.code));
 
-   abi_def abi;
-   if( abi_serializer::to_abi(code_account->abi, abi) ) {
+   if( abi_def abi; abi_serializer::to_abi(code_account->abi, abi) ) {
       abi_serializer abis( std::move(abi), abi_serializer::create_yield_function( abi_serializer_max_time ) );
       auto action_type = abis.get_action_type(params.action);
       EOS_ASSERT(!action_type.empty(), action_validate_exception, "Unknown action ${action} in contract ${contract}", ("action", params.action)("contract", params.code));
@@ -2517,8 +2506,7 @@ read_only::abi_json_to_bin_result read_only::abi_json_to_bin( const read_only::a
 read_only::abi_bin_to_json_result read_only::abi_bin_to_json( const read_only::abi_bin_to_json_params& params, const fc::time_point& deadline )const {
    abi_bin_to_json_result result;
    const auto& code_account = db.db().get<account_object,by_name>( params.code );
-   abi_def abi;
-   if( abi_serializer::to_abi(code_account.abi, abi) ) {
+   if( abi_def abi; abi_serializer::to_abi(code_account.abi, abi) ) {
       abi_serializer abis( std::move(abi), abi_serializer::create_yield_function( abi_serializer_max_time ) );
       result.args = abis.binary_to_variant( abis.get_action_type( params.action ), params.binargs, abi_serializer::create_yield_function( abi_serializer_max_time ), shorten_abi_errors );
    } else {

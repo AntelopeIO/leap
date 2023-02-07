@@ -341,8 +341,7 @@ namespace eosio { namespace testing {
             return [this]( const account_name& name ) -> std::optional<abi_serializer> {
                try {
                   const auto& accnt = control->db().get<account_object, by_name>( name );
-                  abi_def abi;
-                  if( abi_serializer::to_abi( accnt.abi, abi )) {
+                  if( abi_def abi; abi_serializer::to_abi( accnt.abi, abi )) {
                      return abi_serializer( std::move(abi), abi_serializer::create_yield_function( abi_serializer_max_time ) );
                   }
                   return std::optional<abi_serializer>();
