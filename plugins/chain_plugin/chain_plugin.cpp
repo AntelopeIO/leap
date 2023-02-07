@@ -16,7 +16,6 @@
 #include <eosio/chain_plugin/trx_finality_status_processing.hpp>
 #include <eosio/chain/permission_link_object.hpp>
 #include <eosio/chain/global_property_object.hpp>
-#include <eosio/chain/eosio_contract.hpp>
 
 #include <eosio/resource_monitor_plugin/resource_monitor_plugin.hpp>
 
@@ -30,7 +29,6 @@
 
 #include <fc/io/json.hpp>
 #include <fc/variant.hpp>
-#include <signal.h>
 #include <cstdlib>
 
 // reflect chainbase::environment for --print-build-info option
@@ -1881,7 +1879,7 @@ read_only::get_scheduled_transactions( const read_only::get_scheduled_transactio
    return result;
 }
 
-fc::variant read_only::get_block(const read_only::get_block_params& params, const fc::time_point& deadline) const {
+chain::signed_block_ptr read_only::get_block(const read_only::get_block_params& params, const fc::time_point& deadline) const {
    signed_block_ptr block;
    std::optional<uint64_t> block_num;
 
@@ -1903,18 +1901,9 @@ fc::variant read_only::get_block(const read_only::get_block_params& params, cons
    }
 
    EOS_ASSERT( block, unknown_block_exception, "Could not find block: ${block}", ("block", params.block_num_or_id));
+   FC_CHECK_DEADLINE(deadline);
 
-   fc::variant pretty_output;
-   abi_serializer::to_variant(*block, pretty_output, make_resolver(db, abi_serializer::create_yield_function( abi_serializer_max_time )),
-                              abi_serializer::create_yield_function( abi_serializer_max_time ));
-
-   const auto block_id = block->calculate_id();
-   uint32_t ref_block_prefix = block_id._hash[1];
-
-   return fc::mutable_variant_object(pretty_output.get_object())
-           ("id", block_id)
-           ("block_num",block->block_num())
-           ("ref_block_prefix", ref_block_prefix);
+   return block;
 }
 
 fc::variant read_only::get_block_info(const read_only::get_block_info_params& params, const fc::time_point& deadline) const {

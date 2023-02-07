@@ -354,7 +354,7 @@ public:
       string block_num_or_id;
    };
 
-   fc::variant get_block(const get_block_params& params, const fc::time_point& deadline) const;
+   chain::signed_block_ptr get_block(const get_block_params& params, const fc::time_point& deadline) const;
 
    struct get_block_info_params {
       uint32_t block_num = 0;
