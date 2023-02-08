@@ -327,23 +327,20 @@ BOOST_AUTO_TEST_CASE(trx_generator_constructor)
 {
    uint16_t id = 1;
    std::string chain_id = "999";
-   std::string contract_owner_account = "eosio";
-   std::string acct = "aaa";
-   std::string action_name = "transfer";
-   std::string action_auth_acct = "aaa";
-   std::string action_auth_priv_key_str = "5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3";
-   const std::string action_data = "{\"from\":\"aaa\",\"to\":\"bbb\",\"quantity\":\"10.0000 SYS\",\"memo\":\"hello\"}";
    const std::string abi_file = "../../unittests/contracts/eosio.token/eosio.token.abi";
+   std::string contract_owner_account = "eosio";
+   std::string actions_data = "[{\"actionAuthAcct\": \"testacct1\",\"actionName\": \"transfer\",\"authorization\": {\"actor\": \"testacct1\",\"permission\": \"active\"},\"actionData\": {\"from\": \"testacct1\",\"to\": \"testacct2\",\"quantity\": \"0.0001 CUR\",\"memo\": \"transaction specified\"}}]";
+   std::string action_auths = "{\"testacct1\":\"5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3\",\"testacct2\":\"5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3\",\"eosio\":\"5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3\"}";
    fc::microseconds trx_expr = fc::seconds(3600);
    std::string log_dir = ".";
    std::string lib_id_str = "00000062989f69fd251df3e0b274c3364ffc2f4fce73de3f1c7b5e11a4c92f21";
+   bool stop_on_trx_failed = true;
    std::string peer_endpoint = "127.0.0.1";
    unsigned short port = 9876;
-   bool stop_on_trx_failed = true;
 
    auto generator = trx_generator(id, chain_id, abi_file, contract_owner_account,
-                                  action_name, action_auth_acct, action_auth_priv_key_str, action_data, trx_expr,
-                                  lib_id_str, log_dir, stop_on_trx_failed, peer_endpoint, port);
+                                  actions_data, action_auths,
+                                  trx_expr, lib_id_str, log_dir, stop_on_trx_failed, peer_endpoint, port);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

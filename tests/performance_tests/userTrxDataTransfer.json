@@ -1,13 +1,23 @@
 {
-    "accounts": ["testacct1", "testacct2"],
+    "initAccounts": [
+        "testacct1",
+        "testacct2"
+    ],
     "abiFile": "unittests/contracts/eosio.token/eosio.token.abi",
-    "actionName": "transfer",
-    "actionAuthAcct": "testacct1",
-    "actionData": 
+    "actions": [
         {
-            "from":"testacct1",
-            "to":"testacct2",
-            "quantity":"0.0001 CUR",
-            "memo":"transaction specified"
+            "actionAuthAcct": "testacct1",
+            "actionName": "transfer",
+            "authorization": {
+                "actor": "testacct1",
+                "permission": "active"
+            },
+            "actionData": {
+                "from": "testacct1",
+                "to": "testacct2",
+                "quantity": "0.0001 CUR",
+                "memo": "transaction specified"
+            }
         }
+    ]
 }

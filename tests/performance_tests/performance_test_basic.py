@@ -70,8 +70,10 @@ class PerformanceTestBasic:
 
         @dataclass
         class SpecifiedContract:
-            accountName: str = "c"
+            accountName: str = "eosio"
+            ownerPrivateKey: str = "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
             ownerPublicKey: str = "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
+            activePrivateKey: str = "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
             activePublicKey: str = "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
             contractDir: str = "unittests/contracts/eosio.system"
             wasmFile: str = "eosio.system.wasm"
@@ -288,20 +290,32 @@ class PerformanceTestBasic:
             self.userTrxDataDict = json.load(f)
 
     def setupContract(self):
-        specifiedAccount = Account(self.clusterConfig.specifiedContract.accountName)
-        specifiedAccount.ownerPublicKey = self.clusterConfig.specifiedContract.ownerPublicKey
-        specifiedAccount.activePublicKey = self.clusterConfig.specifiedContract.activePublicKey
-        self.cluster.createAccountAndVerify(specifiedAccount, self.cluster.eosioAccount, validationNodeIndex=self.validationNodeId)
-        print("Publishing contract")
-        transaction=self.cluster.biosNode.publishContract(specifiedAccount, self.clusterConfig.specifiedContract.contractDir,
-                                                          self.clusterConfig.specifiedContract.wasmFile,
-                                                          self.clusterConfig.specifiedContract.abiFile, waitForTransBlock=True)
-        if transaction is None:
-            print("ERROR: Failed to publish contract.")
-            return None
+        if (self.clusterConfig.specifiedContract.accountName != self.cluster.eosioAccount.name):
+            specifiedAccount = Account(self.clusterConfig.specifiedContract.accountName)
+            specifiedAccount.ownerPublicKey = self.clusterConfig.specifiedContract.ownerPublicKey
+            specifiedAccount.ownerPrivateKey = self.clusterConfig.specifiedContract.ownerPrivateKey
+            specifiedAccount.activePublicKey = self.clusterConfig.specifiedContract.activePublicKey
+            specifiedAccount.activePrivateKey = self.clusterConfig.specifiedContract.activePrivateKey
+            self.cluster.createAccountAndVerify(specifiedAccount, self.cluster.eosioAccount, validationNodeIndex=self.validationNodeId)
+            print("Publishing contract")
+            transaction=self.cluster.biosNode.publishContract(specifiedAccount, self.clusterConfig.specifiedContract.contractDir,
+                                                            self.clusterConfig.specifiedContract.wasmFile,
+                                                            self.clusterConfig.specifiedContract.abiFile, waitForTransBlock=True)
+            if transaction is None:
+                print("ERROR: Failed to publish contract.")
+                return None
+        else:
+            self.clusterConfig.specifiedContract.activePrivateKey = self.cluster.eosioAccount.activePrivateKey
+            self.clusterConfig.specifiedContract.activePublicKey = self.cluster.eosioAccount.activePublicKey
+            self.clusterConfig.specifiedContract.ownerPrivateKey = self.cluster.eosioAccount.ownerPrivateKey
+            self.clusterConfig.specifiedContract.ownerPublicKey = self.cluster.eosioAccount.ownerPublicKey
+            print(f"setupContract: default {self.clusterConfig.specifiedContract.accountName} \
+                    activePrivateKey: {self.clusterConfig.specifiedContract.activePrivateKey} \
+                    activePublicKey: {self.clusterConfig.specifiedContract.activePublicKey} \
+                    ownerPrivateKey: {self.clusterConfig.specifiedContract.ownerPrivateKey} \
+                    ownerPublicKey: {self.clusterConfig.specifiedContract.ownerPublicKey}")
 
     def runTpsTest(self) -> PtbTpsTestResult:
-
         completedRun = False
         self.producerNode = self.cluster.getNode(self.producerNodeId)
         self.producerP2pPort = self.cluster.getNodeP2pPort(self.producerNodeId)
@@ -313,25 +327,34 @@ class PerformanceTestBasic:
         self.data = log_reader.chainData()
 
         abiFile=None
-        actionName=None
-        actionAuthAcct=None
-        actionAuthPrivKey=None
-        actionData=None
+        actionsDataJson=None
+        actionsAuthsJson=None
+        self.accountNames=[]
+        self.accountPrivKeys=[]
         if (self.ptbConfig.userTrxDataFile is not None):
             self.readUserTrxDataFromFile(self.ptbConfig.userTrxDataFile)
-            self.setupWalletAndAccounts(accountCnt=len(self.userTrxDataDict['accounts']), accountNames=self.userTrxDataDict['accounts'])
+            if self.userTrxDataDict['initAccounts']:
+                print(f"Creating accounts specified in userTrxData: {self.userTrxDataDict['initAccounts']}")
+                self.setupWalletAndAccounts(accountCnt=len(self.userTrxDataDict['initAccounts']), accountNames=self.userTrxDataDict['initAccounts'])
             abiFile = self.userTrxDataDict['abiFile']
-            actionName = self.userTrxDataDict['actionName']
-            actionAuthAcct = self.userTrxDataDict['actionAuthAcct']
-            actionData = json.dumps(self.userTrxDataDict['actionData'])
 
-            if actionAuthAcct == self.cluster.eosioAccount.name:
-                actionAuthPrivKey = self.cluster.eosioAccount.activePrivateKey
-            else:
-                for account in self.cluster.accounts:
-                    if actionAuthAcct == account.name:
-                        actionAuthPrivKey = account.activePrivateKey
-                        break
+            actionsDataJson = json.dumps(self.userTrxDataDict['actions'])
+
+            authorizations={}
+            for act in self.userTrxDataDict['actions']:
+                actionAuthAcct=act["actionAuthAcct"]
+                actionAuthPrivKey=None
+                if actionAuthAcct == self.cluster.eosioAccount.name:
+                    actionAuthPrivKey = self.cluster.eosioAccount.activePrivateKey
+                else:
+                    for account in self.cluster.accounts:
+                        if actionAuthAcct == account.name:
+                            actionAuthPrivKey = account.activePrivateKey
+                            break
+
+                if actionAuthPrivKey is not None:
+                    authorizations[actionAuthAcct]=actionAuthPrivKey
+            actionsAuthsJson = json.dumps(authorizations)
         else:
             self.setupWalletAndAccounts()
 
@@ -340,10 +363,10 @@ class PerformanceTestBasic:
         self.data.startBlock = self.waitForEmptyBlocks(self.validationNode, self.emptyBlockGoal)
         tpsTrxGensConfig = TpsTrxGensConfig(targetTps=self.ptbConfig.targetTps, tpsLimitPerGenerator=self.ptbConfig.tpsLimitPerGenerator)
 
-        trxGenLauncher = TransactionGeneratorsLauncher(chainId=chainId, lastIrreversibleBlockId=lib_id,
-                                                       contractOwnerAccount=self.clusterConfig.specifiedContract.accountName, accts=','.join(map(str, self.accountNames)),
-                                                       privateKeys=','.join(map(str, self.accountPrivKeys)), trxGenDurationSec=self.ptbConfig.testTrxGenDurationSec, logDir=self.trxGenLogDirPath,
-                                                       abiFile=abiFile, actionName=actionName, actionAuthAcct=actionAuthAcct, actionAuthPrivKey=actionAuthPrivKey, actionData=actionData,
+        trxGenLauncher = TransactionGeneratorsLauncher(chainId=chainId, lastIrreversibleBlockId=lib_id, contractOwnerAccount=self.clusterConfig.specifiedContract.accountName,
+                                                       accts=','.join(map(str, self.accountNames)), privateKeys=','.join(map(str, self.accountPrivKeys)),
+                                                       trxGenDurationSec=self.ptbConfig.testTrxGenDurationSec, logDir=self.trxGenLogDirPath,
+                                                       abiFile=abiFile, actionsData=actionsDataJson, actionsAuths=actionsAuthsJson,
                                                        peerEndpoint=self.producerNode.host, port=self.producerP2pPort, tpsTrxGensConfig=tpsTrxGensConfig)
 
         trxGenExitCodes = trxGenLauncher.launch()
@@ -520,7 +543,7 @@ class PtbArgumentsHandler(object):
         ptbBaseParserGroup.add_argument("--quiet", help="Whether to quiet printing intermediate results and reports to stdout", action='store_true')
         ptbBaseParserGroup.add_argument("--prods-enable-trace-api", help="Determines whether producer nodes should have eosio::trace_api_plugin enabled", action='store_true')
         ptbBaseParserGroup.add_argument("--print-missing-transactions", type=bool, help="Toggles if missing transactions are be printed upon test completion.", default=False)
-        ptbBaseParserGroup.add_argument("--account-name", type=str, help="Name of the account to create and assign a contract to", default="c")
+        ptbBaseParserGroup.add_argument("--account-name", type=str, help="Name of the account to create and assign a contract to", default="eosio")
         ptbBaseParserGroup.add_argument("--owner-public-key", type=str, help="Owner public key to use with specified account name", default="EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV")
         ptbBaseParserGroup.add_argument("--active-public-key", type=str, help="Active public key to use with specified account name", default="EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV")
         ptbBaseParserGroup.add_argument("--contract-dir", type=str, help="Path to contract dir", default="unittests/contracts/eosio.system")

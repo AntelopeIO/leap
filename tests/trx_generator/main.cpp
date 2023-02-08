@@ -46,11 +46,9 @@ int main(int argc, char** argv) {
    unsigned short port;
 
    bool transaction_specified = false;
-   std::string action_name_in;
-   std::string action_auth_acct_in;
-   std::string action_auth_acct_priv_key_in;
-   std::string action_data_file_or_str;
    std::string abi_file_path_in;
+   std::string actions_data_json_file_or_str;
+   std::string actions_auths_json_file_or_str;
 
    vector<string> account_str_vector;
    vector<string> private_keys_str_vector;
@@ -70,12 +68,9 @@ int main(int argc, char** argv) {
          ("monitor-max-lag-percent", bpo::value<uint32_t>(&max_lag_per)->default_value(5), "Max percentage off from expected transactions sent before being in violation. Defaults to 5.")
          ("monitor-max-lag-duration-us", bpo::value<int64_t>(&max_lag_duration_us)->default_value(1000000), "Max microseconds that transaction generation can be in violation before quitting. Defaults to 1000000 (1s).")
          ("log-dir", bpo::value<string>(&log_dir_in), "set the logs directory")
-         ("action-name", bpo::value<string>(&action_name_in), "The action name applied to the provided action data input")
-         ("action-auth-acct", bpo::value<string>(&action_auth_acct_in), "The action authorization account")
-         ("action-auth-acct-priv-key", bpo::value<string>(&action_auth_acct_priv_key_in), "The action authorization account priv key for signing trxs")
-         ("action-data", bpo::value<string>(&action_data_file_or_str), "The path to the json action data file or json action data description string to use")
          ("abi-file", bpo::value<string>(&abi_file_path_in), "The path to the contract abi file to use for the supplied transaction action data")
-         ("stop-on-trx-failed", bpo::value<bool>(&stop_on_trx_failed)->default_value(true), "stop transaction generation if sending fails.")
+         ("actions-data", bpo::value<string>(&actions_data_json_file_or_str), "The json actions data file or json actions data description string to use")
+         ("actions-auths", bpo::value<string>(&actions_auths_json_file_or_str), "The json actions auth file or json actions auths description string to use, containting authAcctName to activePrivateKey pairs.")
          ("peer-endpoint", bpo::value<string>(&peer_endpoint)->default_value("127.0.0.1"), "set the peer endpoint to send transactions to")
          ("port", bpo::value<uint16_t>(&port)->default_value(9876), "set the peer endpoint port to send transactions to")
          ("help,h", "print this list")
@@ -90,15 +85,15 @@ int main(int argc, char** argv) {
          return SUCCESS;
       }
 
-      if((vmap.count("action-name") || vmap.count("action-auth-acct") || vmap.count("action-auth-acct-priv-key") || vmap.count("action-data") || vmap.count("abi-file")) &&
-        !(vmap.count("action-name") && vmap.count("action-auth-acct") && vmap.count("action-auth-acct-priv-key") && vmap.count("action-data") && vmap.count("abi-file"))) {
-         ilog("Initialization error: If using action-name, action-auth-acct, action-auth-acct-priv-key, action-data, or abi-file to specify a transaction type to generate, must provide all inputs.");
+      if((vmap.count("abi-file") || vmap.count("actions-data") || vmap.count("actions-auths")) &&
+        !(vmap.count("abi-file") && vmap.count("actions-data") && vmap.count("actions-auths"))) {
+         ilog("Initialization error: If using abi-file, actions-data, and actions-auths to specify a transaction type to generate, must provide all inputs.");
          cli.print(std::cerr);
          return INITIALIZE_FAIL;
       }
 
-      if(vmap.count("action-name") && vmap.count("action-auth-acct") && vmap.count("action-auth-acct-priv-key") && vmap.count("action-data") && vmap.count("abi-file")) {
-         ilog("Specifying transaction to generate directly using action-name, action-auth-acct, action-auth-acct-priv-key, action-data, and abi-file.");
+      if(vmap.count("abi-file") && vmap.count("actions-data") && vmap.count("actions-auths")) {
+         ilog("Specifying transaction to generate directly using abi-file, actions-data, and actions-auths.");
          transaction_specified = true;
       }
 
@@ -134,11 +129,6 @@ int main(int argc, char** argv) {
             cli.print(std::cerr);
             return INITIALIZE_FAIL;
          }
-         if (transaction_specified && account_str_vector.size() < 1) {
-            ilog("Initialization error: Specifying transaction to generate requires at minimum 1 account.");
-            cli.print(std::cerr);
-            return INITIALIZE_FAIL;
-         }
       } else {
          ilog("Initialization error: did not specify transfer accounts. Auto transfer transaction generation requires at minimum 2 transfer accounts, while providing transaction action data requires at least one.");
          cli.print(std::cerr);
@@ -149,11 +139,6 @@ int main(int argc, char** argv) {
          boost::split(private_keys_str_vector, p_keys, boost::is_any_of(","));
          if(!transaction_specified && private_keys_str_vector.size() < 2) {
             ilog("Initialization error: requires at minimum 2 private keys");
-            cli.print(std::cerr);
-            return INITIALIZE_FAIL;
-         }
-         if (transaction_specified && private_keys_str_vector.size() < 1) {
-            ilog("Initialization error: Specifying transaction to generate requires at minimum 1 private key");
             cli.print(std::cerr);
             return INITIALIZE_FAIL;
          }
@@ -221,11 +206,9 @@ int main(int argc, char** argv) {
    ilog("Peer Endpoint ${peer-endpoint}:${peer-port}", ("peer-endpoint", peer_endpoint)("peer-port", port));
 
    if (transaction_specified) {
-      ilog("User Transaction Specified: Action Name ${act}", ("act", action_name_in));
-      ilog("User Transaction Specified: Action Auth Acct Name ${acct}", ("acct", action_auth_acct_in));
-      ilog("User Transaction Specified: Action Auth Acct Priv Key ${key}", ("key", action_auth_acct_priv_key_in));
-      ilog("User Transaction Specified: Action Data File or Str ${data}", ("data", action_data_file_or_str));
       ilog("User Transaction Specified: Abi File ${abi}", ("abi", abi_file_path_in));
+      ilog("User Transaction Specified: Actions Data ${acts}", ("acts", actions_data_json_file_or_str));
+      ilog("User Transaction Specified: Actions Auths ${auths}", ("auths", actions_auths_json_file_or_str));
    }
 
    fc::microseconds trx_expr_ms = fc::seconds(trx_expr);
@@ -233,7 +216,7 @@ int main(int argc, char** argv) {
    std::shared_ptr<tps_performance_monitor> monitor;
    if (transaction_specified) {
       auto generator = std::make_shared<trx_generator>(gen_id, chain_id_in, abi_file_path_in, contract_owner_acct,
-                                                       action_name_in, action_auth_acct_in, action_auth_acct_priv_key_in, action_data_file_or_str,
+                                                       actions_data_json_file_or_str, actions_auths_json_file_or_str,
                                                        trx_expr_ms,  lib_id_str, log_dir_in, stop_on_trx_failed, peer_endpoint, port);
       monitor = std::make_shared<tps_performance_monitor>(spinup_time_us, max_lag_per, max_lag_duration_us);
       trx_tps_tester<trx_generator, tps_performance_monitor> tester{generator, monitor, gen_duration, target_tps};
