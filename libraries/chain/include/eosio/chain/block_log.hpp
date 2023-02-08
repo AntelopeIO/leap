@@ -61,7 +61,6 @@ namespace eosio { namespace chain {
          /**
           * Return offset of block in file, or block_log::npos if it does not exist.
           */
-         uint64_t get_block_pos(uint32_t block_num) const; //used by test only
 
          signed_block_ptr        read_head()const; //use blocklog
          const signed_block_ptr& head()const;
@@ -98,6 +97,8 @@ namespace eosio { namespace chain {
          // used for unit test to generate older version blocklog
          static void set_initial_version(uint32_t);
          uint32_t    version() const;
+         uint64_t get_block_pos(uint32_t block_num) const;
+
 
          /**
           * @param n Only test 1 block out of every n blocks. If n is 0, it is maximum between 1 and the ceiling of the total number blocks divided by 8.
