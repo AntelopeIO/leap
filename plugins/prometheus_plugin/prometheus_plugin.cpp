@@ -103,13 +103,13 @@ namespace eosio {
    };
 
       struct prometheus_plugin_impl {
-         eosio::chain::named_thread_pool _prometheus_thread_pool;
+         eosio::chain::named_thread_pool _prometheus_thread_pool{"prom"};
          boost::asio::io_context::strand _prometheus_strand;
          prometheus_plugin_metrics _metrics;
 
          map<std::string, vector<runtime_metric>> _plugin_metrics;
 
-         prometheus_plugin_impl(): _prometheus_thread_pool("prom"), _prometheus_strand(_prometheus_thread_pool.get_executor()){ }
+         prometheus_plugin_impl(): _prometheus_strand(_prometheus_thread_pool.get_executor()){ }
 
          void update_metrics(std::string plugin_name, vector<runtime_metric> metrics) {
             auto plugin_metrics = _plugin_metrics.find(plugin_name);
