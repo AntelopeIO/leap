@@ -139,6 +139,12 @@ jobs:
           ctest -j "$(nproc)" --output-on-failure -T 'Test' -LE '(nonparallelizable_tests|long_running_tests)'
       - name: Collect Test Metrics
         run: cp "$(find ./Testing -name 'Test.xml' | sort | tail -n '1')" "${XUNIT_FILENAME:-test-results.xml}"
+      - name: Upload Test Metrics
+        uses: actions/upload-artifact@v3
+        with:
+          name: parallel-test-results.xml
+          path: test-results.xml
+          if-no-files-found: error
 
   np-tests:
     name: NP Tests
@@ -164,6 +170,12 @@ jobs:
           tests-label: nonparallelizable_tests
       - name: Collect Test Metrics
         run: cp "$(find ./Testing -name 'Test.xml' | sort | tail -n '1')" "${XUNIT_FILENAME:-test-results.xml}"
+      - name: Upload Test Metrics
+        uses: actions/upload-artifact@v3
+        with:
+          name: serial-test-results.xml
+          path: test-results.xml
+          if-no-files-found: error
       - name: Upload logs from failed tests  
         uses: actions/upload-artifact@v3
         if: failure()
@@ -195,6 +207,12 @@ jobs:
           tests-label: long_running_tests
       - name: Collect Test Metrics
         run: cp "$(find ./Testing -name 'Test.xml' | sort | tail -n '1')" "${XUNIT_FILENAME:-test-results.xml}"
+      - name: Upload Test Metrics
+        uses: actions/upload-artifact@v3
+        with:
+          name: long-running-test-results.xml
+          path: test-results.xml
+          if-no-files-found: error
       - name: Upload logs from failed tests
         uses: actions/upload-artifact@v3
         if: failure()
