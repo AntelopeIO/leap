@@ -61,8 +61,9 @@ def performPtbBinarySearch(tpsTestFloor: int, tpsTestCeiling: int, minStep: int,
         scenarioResult = PerfTestSearchIndivResult(success=False, searchTarget=binSearchTarget, searchFloor=floor, searchCeiling=ceiling, basicTestResult=ptbResult)
 
         myTest = PerformanceBasicTest(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, targetTps=binSearchTarget,
-                                    testTrxGenDurationSec=testDurationSec, tpsLimitPerGenerator=tpsLimitPerGenerator,
-                                    numAddlBlocksToPrune=numAddlBlocksToPrune, rootLogDir=testLogDir, delReport=delReport, quiet=quiet, delPerfLogs=delPerfLogs)
+                                      testTrxGenDurationSec=testDurationSec, tpsLimitPerGenerator=tpsLimitPerGenerator,
+                                      numAddlBlocksToPrune=numAddlBlocksToPrune, rootLogDir=testLogDir, delReport=delReport, quiet=quiet,
+                                      delPerfLogs=delPerfLogs, nodeosBasePath="performance_test")
         testSuccessful = myTest.runTest()
         if evaluateSuccess(myTest, testSuccessful, ptbResult):
             maxTpsAchieved = binSearchTarget
@@ -102,8 +103,9 @@ def performPtbReverseLinearSearch(tpsInitial: int, step: int, testHelperConfig: 
         scenarioResult = PerfTestSearchIndivResult(success=False, searchTarget=searchTarget, searchFloor=absFloor, searchCeiling=absCeiling, basicTestResult=ptbResult)
 
         myTest = PerformanceBasicTest(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, targetTps=searchTarget,
-                                    testTrxGenDurationSec=testDurationSec, tpsLimitPerGenerator=tpsLimitPerGenerator,
-                                    numAddlBlocksToPrune=numAddlBlocksToPrune, rootLogDir=testLogDir, delReport=delReport, quiet=quiet, delPerfLogs=delPerfLogs)
+                                      testTrxGenDurationSec=testDurationSec, tpsLimitPerGenerator=tpsLimitPerGenerator,
+                                      numAddlBlocksToPrune=numAddlBlocksToPrune, rootLogDir=testLogDir, delReport=delReport, quiet=quiet,
+                                      delPerfLogs=delPerfLogs, nodeosBasePath="performance_test")
         testSuccessful = myTest.runTest()
         if evaluateSuccess(myTest, testSuccessful, ptbResult):
             maxTpsAchieved = searchTarget
@@ -211,10 +213,10 @@ def prepArgsDict(testDurationSec, finalDurationSec, logsDir, maxTpsToTest, testI
 
 def parseArgs():
     appArgs=AppArgs()
-    appArgs.add(flag="--max-tps-to-test", type=int, help="The max target transfers realistic as ceiling of test range", default=50000)
-    appArgs.add(flag="--test-iteration-duration-sec", type=int, help="The duration of transfer trx generation for each iteration of the test during the initial search (seconds)", default=150)
-    appArgs.add(flag="--test-iteration-min-step", type=int, help="The step size determining granularity of tps result during initial search", default=500)
-    appArgs.add(flag="--final-iterations-duration-sec", type=int, help="The duration of transfer trx generation for each final longer run iteration of the test during the final search (seconds)", default=300)
+    appArgs.add(flag="--max-tps-to-test", type=int, help="The max target transfers realistic as ceiling of test range", default=10000)
+    appArgs.add(flag="--test-iteration-duration-sec", type=int, help="The duration of transfer trx generation for each iteration of the test during the initial search (seconds)", default=15)
+    appArgs.add(flag="--test-iteration-min-step", type=int, help="The step size determining granularity of tps result during initial search", default=2500)
+    appArgs.add(flag="--final-iterations-duration-sec", type=int, help="The duration of transfer trx generation for each final longer run iteration of the test during the final search (seconds)", default=30)
     appArgs.add(flag="--tps-limit-per-generator", type=int, help="Maximum amount of transactions per second a single generator can have.", default=4000)
     appArgs.add(flag="--genesis", type=str, help="Path to genesis.json", default="tests/performance_tests/genesis.json")
     appArgs.add(flag="--num-blocks-to-prune", type=int, help="The number of potentially non-empty blocks, in addition to leading and trailing size 0 blocks, to prune from the beginning and end of the range of blocks of interest for evaluation.", default=2)

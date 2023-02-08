@@ -116,7 +116,7 @@ class PerformanceBasicTest:
 
     def __init__(self, testHelperConfig: TestHelperConfig=TestHelperConfig(), clusterConfig: ClusterConfig=ClusterConfig(), targetTps: int=8000,
                  testTrxGenDurationSec: int=30, tpsLimitPerGenerator: int=4000, numAddlBlocksToPrune: int=2,
-                 rootLogDir: str=".", delReport: bool=False, quiet: bool=False, delPerfLogs: bool=False):
+                 rootLogDir: str=".", delReport: bool=False, quiet: bool=False, delPerfLogs: bool=False, nodeosBasePath="performance_test_basic"):
         self.testHelperConfig = testHelperConfig
         self.clusterConfig = clusterConfig
         self.targetTps = targetTps
@@ -135,8 +135,9 @@ class PerformanceBasicTest:
 
         self.testStart = datetime.utcnow()
 
+        self.nodeosBasePath = nodeosBasePath
         self.rootLogDir = rootLogDir
-        self.ptbLogDir = f"{self.rootLogDir}/{os.path.splitext(os.path.basename(__file__))[0]}"
+        self.ptbLogDir = f"{self.rootLogDir}/{self.nodeosBasePath}"
         self.testTimeStampDirPath = f"{self.ptbLogDir}/{self.testStart.strftime('%Y-%m-%d_%H-%M-%S')}"
         self.trxGenLogDirPath = f"{self.testTimeStampDirPath}/trxGenLogs"
         self.varLogsDirPath = f"{self.testTimeStampDirPath}/var"
@@ -153,7 +154,7 @@ class PerformanceBasicTest:
         self.producerNodeId = 0
         self.validationNodeId = self.clusterConfig.pnodes
 
-        self.nodeosLogPath = f'{self.testTimeStampDirPath}/var/performance_test_basic{os.getpid()}/node_{str(self.validationNodeId).zfill(2)}/stderr.txt'
+        self.nodeosLogPath = f'{self.testTimeStampDirPath}/var/{self.nodeosBasePath}{os.getpid()}/node_{str(self.validationNodeId).zfill(2)}/stderr.txt'
 
         # Setup cluster and its wallet manager
         self.walletMgr=WalletMgr(True)
@@ -313,9 +314,9 @@ class PerformanceBasicTest:
     def captureLowLevelArtifacts(self):
         try:
             pid = os.getpid()
-            shutil.move(f"TestLogs/performance_test_basic{pid}", f"{self.varLogsDirPath}")
+            shutil.move(f"TestLogs/{self.nodeosBasePath}{pid}", f"{self.varLogsDirPath}")
         except Exception as e:
-            print(f"Failed to move 'TestLogs/performance_test_basic{pid}' to '{self.varLogsDirPath}': {type(e)}: {e}")
+            print(f"Failed to move 'TestLogs/{self.nodeosBasePath}{pid}' to '{self.varLogsDirPath}': {type(e)}: {e}")
 
         etcEosioDir = "etc/eosio"
         for path in os.listdir(etcEosioDir):
