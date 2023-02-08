@@ -2,11 +2,11 @@
 #include <eosio/chain/protocol_state_object.hpp>
 #include <eosio/chain/transaction_context.hpp>
 #include <eosio/chain/apply_context.hpp>
-#include <fc/crypto/alt_bn128.hpp>
 #include <fc/crypto/modular_arithmetic.hpp>
 #include <fc/crypto/blake2.hpp>
 #include <fc/crypto/sha3.hpp>
 #include <fc/crypto/k1_recover.hpp>
+#include <bn256/bn256.h>
 
 namespace {
     uint32_t ceil_log2(uint32_t n)
@@ -117,51 +117,26 @@ namespace eosio { namespace chain { namespace webassembly {
    }
 
    int32_t interface::alt_bn128_add(span<const char> op1, span<const char> op2, span<char> result ) const {
-      bytes bop1(op1.data(), op1.data() + op1.size());
-      bytes bop2(op2.data(), op2.data() + op2.size());
-
-      auto maybe_err = fc::alt_bn128_add(bop1, bop2);
-      if(std::holds_alternative<fc::alt_bn128_error>(maybe_err)) {
+      if (op1.size() != 64 ||  op2.size() != 64 ||  result.size() < 64 ||
+         bn256::g1_add({(const uint8_t*)op1.data(), 64}, {(const uint8_t*)op2.data(), 64}, { (uint8_t*)result.data(), 64}) == -1)
          return return_code::failure;
-      }
-
-      const auto& res = std::get<bytes>(maybe_err);
-
-      if( result.size() < res.size() )
-         return return_code::failure;
-
-      std::memcpy( result.data(), res.data(), res.size() );
       return return_code::success;
    }
 
    int32_t interface::alt_bn128_mul(span<const char> g1_point, span<const char> scalar, span<char> result) const {
-      bytes bg1_point(g1_point.data(), g1_point.data() + g1_point.size());
-      bytes bscalar(scalar.data(), scalar.data() + scalar.size());
-
-      auto maybe_err = fc::alt_bn128_mul(bg1_point, bscalar);
-      if(std::holds_alternative<fc::alt_bn128_error>(maybe_err)) {
+      if (g1_point.size() != 64 ||  scalar.size() != 32 ||  result.size() < 64 ||
+         bn256::g1_scalar_mul({(const uint8_t*)g1_point.data(), 64}, {(const uint8_t*)scalar.data(), 32}, { (uint8_t*)result.data(), 64}) == -1)
          return return_code::failure;
-      }
-
-      const auto& res = std::get<bytes>(maybe_err);
-
-      if( result.size() < res.size() )
-         return return_code::failure;
-
-      std::memcpy( result.data(), res.data(), res.size() );
       return return_code::success;
    }
 
    int32_t interface::alt_bn128_pair(span<const char> g1_g2_pairs) const {
-      bytes bg1_g2_pairs(g1_g2_pairs.data(), g1_g2_pairs.data() + g1_g2_pairs.size());
-
       auto checktime = [this]() { context.trx_context.checktime(); };
-      auto res = fc::alt_bn128_pair(bg1_g2_pairs, checktime);
-      if(std::holds_alternative<fc::alt_bn128_error>(res)) {
+      auto res = bn256::pairing_check({(const uint8_t*)g1_g2_pairs.data(), g1_g2_pairs.size()} , checktime);
+      if (res == -1)
          return return_code::failure;
-      }
-
-      return !std::get<bool>(res); 
+      else
+         return res? 0 : 1;
    }
 
    int32_t interface::mod_exp(span<const char> base,
@@ -172,7 +147,7 @@ namespace eosio { namespace chain { namespace webassembly {
          unsigned int base_modulus_size = std::max(base.size(), modulus.size());
 
          if (base_modulus_size < exp.size()) {
-            EOS_THROW(subjective_block_production_exception, 
+            EOS_THROW(subjective_block_production_exception,
                       "mod_exp restriction: exponent bit size cannot exceed bit size of either base or modulus");
          }
 
@@ -181,7 +156,7 @@ namespace eosio { namespace chain { namespace webassembly {
          uint64_t bit_calc = 5 * ceil_log2(exp.size()) + 8 * ceil_log2(base_modulus_size);
 
          if (bit_calc_limit < bit_calc) {
-            EOS_THROW(subjective_block_production_exception, 
+            EOS_THROW(subjective_block_production_exception,
                       "mod_exp restriction: bit size too large for input arguments");
          }
       }

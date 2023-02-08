@@ -24,6 +24,7 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/sample-cluster-map.json ${CMAKE_CURRE
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/restart-scenarios-test.py ${CMAKE_CURRENT_BINARY_DIR}/restart-scenarios-test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/terminate-scenarios-test.py ${CMAKE_CURRENT_BINARY_DIR}/terminate-scenarios-test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_startup_catchup.py ${CMAKE_CURRENT_BINARY_DIR}/nodeos_startup_catchup.py COPYONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_snapshot_diff_test.py ${CMAKE_CURRENT_BINARY_DIR}/nodeos_snapshot_diff_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_forked_chain_test.py ${CMAKE_CURRENT_BINARY_DIR}/nodeos_forked_chain_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_short_fork_take_over_test.py ${CMAKE_CURRENT_BINARY_DIR}/nodeos_short_fork_take_over_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_run_test.py ${CMAKE_CURRENT_BINARY_DIR}/nodeos_run_test.py COPYONLY)
@@ -92,6 +93,8 @@ else()
 endif()
 
 add_subdirectory( TestHarness )
+add_subdirectory( trx_generator )
+add_subdirectory( performance_tests )
 
 find_package(Threads)
 add_executable(ship_client ship_client.cpp)
@@ -141,6 +144,8 @@ add_test(NAME launcher_test COMMAND tests/launcher_test.py -v --clean-run WORKIN
 set_property(TEST launcher_test PROPERTY LABELS nonparallelizable_tests)
 add_test(NAME keosd_auto_launch_test COMMAND tests/keosd_auto_launch_test.py WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST keosd_auto_launch_test PROPERTY LABELS nonparallelizable_tests)
+add_test(NAME nodeos_snapshot_diff_test COMMAND tests/nodeos_snapshot_diff_test.py -v --clean-run WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+set_property(TEST nodeos_snapshot_diff_test PROPERTY LABELS nonparallelizable_tests)
 
 add_test(NAME trx_finality_status_test COMMAND tests/trx_finality_status_test.py -v --clean-run WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST trx_finality_status_test PROPERTY LABELS nonparallelizable_tests)

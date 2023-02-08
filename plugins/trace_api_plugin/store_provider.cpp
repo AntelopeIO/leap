@@ -307,8 +307,11 @@ namespace eosio::trace_api {
                _maintenance_condition.wait(lock);
             }
 
+            if (_maintenance_shutdown) {
+               break;
+            }
+
             uint32_t best_known_lib = _best_known_lib;
-            bool shutdown = _maintenance_shutdown;
             lock.unlock();
 
             log(std::string("Waking up to handle lib: ") + std::to_string(best_known_lib));
@@ -318,10 +321,6 @@ namespace eosio::trace_api {
                   run_maintenance_tasks(best_known_lib, log);
                   last_lib = best_known_lib;
                } FC_LOG_AND_DROP();
-            }
-
-            if (shutdown) {
-               break;
             }
          }
       });

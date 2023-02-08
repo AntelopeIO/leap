@@ -20,7 +20,6 @@ For information on specific plugins, just select from the list below:
 * [`test_control_api_plugin`](test_control_api_plugin/index.md)
 * [`test_control_plugin`](test_control_plugin/index.md)
 * [`trace_api_plugin`](trace_api_plugin/index.md)
-* [`txn_test_gen_plugin`](txn_test_gen_plugin/index.md)
 
 [[info | Nodeos is modular]]
 | Plugins add incremental functionality to `nodeos`. Unlike runtime plugins, `nodeos` plugins are built at compile-time.

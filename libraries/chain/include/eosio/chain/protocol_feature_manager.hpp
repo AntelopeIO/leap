@@ -396,6 +396,9 @@ private:
    std::function<deep_mind_handler*()>           _get_deep_mind_logger;
 };
 
+std::optional<builtin_protocol_feature> read_builtin_protocol_feature( const fc::path& p  );
+protocol_feature_set initialize_protocol_features( const fc::path& p, bool populate_missing_builtins = true );
+
 } } // namespace eosio::chain
 
 FC_REFLECT(eosio::chain::protocol_feature_subjective_restrictions,

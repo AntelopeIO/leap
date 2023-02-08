@@ -12,4 +12,5 @@ RUN apt-get update && apt-get upgrade -y && \
                                                       libssl-dev           \
                                                       llvm-11-dev          \
                                                       ninja-build          \
+                                                      python3-numpy        \
                                                       zstd
