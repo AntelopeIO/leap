@@ -215,7 +215,7 @@ namespace eosio {
    }
 
    void prometheus_plugin::plugin_startup() {
-      my->_prometheus_thread_pool.start(1, nullptr);
+      my->_prometheus_thread_pool.start(1, []( const fc::exception& e ) {} );
       ilog("Prometheus plugin started.");
    }
 
