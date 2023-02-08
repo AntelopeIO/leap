@@ -1,4 +1,4 @@
-__all__ = ['Node', 'Cluster', 'WalletMgr', 'testUtils', 'TestHelper']
+__all__ = ['Node', 'Cluster', 'WalletMgr', 'testUtils', 'TestHelper', 'TransactionGeneratorsLauncher', 'TpsTrxGensConfig']
 
 from .Cluster import Cluster
 from .Node import Node
@@ -7,3 +7,4 @@ from .testUtils import Account
 from .testUtils import Utils
 from .Node import ReturnType
 from .TestHelper import TestHelper
+from .launch_transaction_generators import TransactionGeneratorsLauncher, TpsTrxGensConfig

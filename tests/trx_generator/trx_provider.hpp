@@ -132,6 +132,10 @@ namespace eosio::testing {
                stats.trxs_sent++;
             } else {
                elog("generator unable to create/send a transaction");
+               if (_generator->stop_on_trx_fail()) {
+                  elog("generator stopping due to trx failure to send.");
+                  break;
+               }
             }
 
             stats.expected_sent = ((stats.last_run - stats.start_time).count() / stats.trx_interval.count()) +1;

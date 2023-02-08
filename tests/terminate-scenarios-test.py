@@ -17,16 +17,15 @@ from TestHarness import Cluster, TestHelper, Utils, WalletMgr
 Print=Utils.Print
 errorExit=Utils.errorExit
 
-args=TestHelper.parse_args({"-p","-d","-s","-c","--kill-sig","--kill-count","--keep-logs"
+args=TestHelper.parse_args({"-d","-s","-c","--kill-sig","--keep-logs"
                             ,"--dump-error-details","-v","--leave-running","--clean-run"
                             ,"--terminate-at-block"})
-pnodes=args.p
+pnodes=1
 topo=args.s
 delay=args.d
 chainSyncStrategyStr=args.c
 debug=args.v
 total_nodes = pnodes
-killCount=args.kill_count if args.kill_count > 0 else 1
 killSignal=args.kill_sig
 killEosInstances= not args.leave_running
 dumpErrorDetails=args.dump_error_details
@@ -66,19 +65,20 @@ try:
     if not cluster.waitOnClusterBlockNumSync(3):
         errorExit("Cluster never stabilized")
 
-    Print("Kill %d cluster node instances." % (killCount))
-    if cluster.killSomeEosInstances(killCount, killSignal) is False:
+    Print("Kill cluster node instance.")
+    if cluster.killSomeEosInstances(1, killSignal) is False:
         errorExit("Failed to kill Eos instances")
+    assert not cluster.getNode(0).verifyAlive()
     Print("nodeos instances killed.")
 
-    Print ("Relaunch dead cluster nodes instances.")
+    Print ("Relaunch dead cluster node instance.")
     nodeArg = "--terminate-at-block %d" % terminate if terminate > 0 else ""
     if nodeArg != "":
         if chainSyncStrategyStr == "hardReplay":
             nodeArg += " --truncate-at-block %d" % terminate
-    if cluster.relaunchEosInstances(cachePopen=True, nodeArgs=nodeArg) is False:
-        errorExit("Failed to relaunch Eos instances")
-    Print("nodeos instances relaunched.")
+    if cluster.relaunchEosInstances(cachePopen=True, nodeArgs=nodeArg, waitForTerm=(terminate > 0)) is False:
+        errorExit("Failed to relaunch Eos instance")
+    Print("nodeos instance relaunched.")
 
     testSuccessful=True
 finally:

@@ -4,6 +4,7 @@
 #include <fc/io/raw.hpp>
 #include <fc/log/appender.hpp>
 
+#include <boost/asio.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <eosio/chain/exceptions.hpp>
 
@@ -37,7 +38,10 @@ namespace eosio::testing {
 
    void p2p_connection::connect() {
       ilog("Attempting P2P connection to ${ip}:${port}.", ("ip", _peer_endpoint)("port", _peer_port));
-      _p2p_socket.connect(tcp::endpoint(boost::asio::ip::address::from_string(_peer_endpoint), _peer_port));
+      tcp::resolver r(_p2p_service);
+      tcp::resolver::query q(tcp::v4(), _peer_endpoint, std::to_string(_peer_port));
+      auto i = r.resolve(q);
+      boost::asio::connect(_p2p_socket, i);
       ilog("Connected to ${ip}:${port}.", ("ip", _peer_endpoint)("port", _peer_port));
    }
 

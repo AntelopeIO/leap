@@ -109,7 +109,7 @@ namespace eosio {
 
          map<std::string, vector<runtime_metric>> _plugin_metrics;
 
-         prometheus_plugin_impl(): _prometheus_thread_pool("prom", 1), _prometheus_strand(_prometheus_thread_pool.get_executor()){ }
+         prometheus_plugin_impl(): _prometheus_thread_pool("prom"), _prometheus_strand(_prometheus_thread_pool.get_executor()){ }
 
          void update_metrics(std::string plugin_name, vector<runtime_metric> metrics) {
             auto plugin_metrics = _plugin_metrics.find(plugin_name);
@@ -215,6 +215,7 @@ namespace eosio {
    }
 
    void prometheus_plugin::plugin_startup() {
+      my->_prometheus_thread_pool.start(1, nullptr);
       ilog("Prometheus plugin started.");
    }
 

@@ -853,7 +853,7 @@ public:
    chain_apis::read_write get_read_write_api(const fc::microseconds& http_max_response_time);
    chain_apis::read_only get_read_only_api(const fc::microseconds& http_max_response_time) const;
 
-   bool accept_block( const chain::signed_block_ptr& block, const chain::block_id_type& id );
+   bool accept_block( const chain::signed_block_ptr& block, const chain::block_id_type& id, const chain::block_state_ptr& bsp );
    void accept_transaction(const chain::packed_transaction_ptr& trx, chain::plugin_interface::next_function<chain::transaction_trace_ptr> next);
 
    // Only call this after plugin_initialize()!

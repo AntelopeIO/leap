@@ -134,7 +134,7 @@ struct http_plugin_state {
    bool keep_alive = false;
 
    uint16_t thread_pool_size = 2;
-   std::unique_ptr<eosio::chain::named_thread_pool> thread_pool;
+   eosio::chain::named_thread_pool thread_pool{ "http" };
 
    fc::logger& logger;
 
@@ -167,7 +167,7 @@ auto make_http_response_handler(std::shared_ptr<http_plugin_state> plugin_state,
       plugin_state->bytes_in_flight += payload_size;
 
       // post back to an HTTP thread to allow the response handler to be called from any thread
-      boost::asio::post(plugin_state->thread_pool->get_executor(),
+      boost::asio::post(plugin_state->thread_pool.get_executor(),
                         [plugin_state, session_ptr, code, deadline, start, payload_size, response = std::move(response), content_type]() {
                            try {
                               plugin_state->bytes_in_flight -= payload_size;

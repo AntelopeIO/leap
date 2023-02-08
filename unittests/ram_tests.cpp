@@ -37,7 +37,7 @@ BOOST_FIXTURE_TEST_CASE(ram_tests, eosio_system::eosio_system_tester) { try {
 
    for (auto i = 0; i < 10; ++i) {
       try {
-         set_code( "testram11111"_n, contracts::test_ram_limit_wasm() );
+         set_code( "testram11111"_n, test_contracts::test_ram_limit_wasm() );
          break;
       } catch (const ram_usage_exceeded&) {
          init_request_bytes += increment_contract_bytes;
@@ -49,7 +49,7 @@ BOOST_FIXTURE_TEST_CASE(ram_tests, eosio_system::eosio_system_tester) { try {
 
    for (auto i = 0; i < 10; ++i) {
       try {
-         set_abi( "testram11111"_n, contracts::test_ram_limit_abi().data() );
+         set_abi( "testram11111"_n, test_contracts::test_ram_limit_abi().data() );
          break;
       } catch (const ram_usage_exceeded&) {
          init_request_bytes += increment_contract_bytes;
@@ -58,8 +58,8 @@ BOOST_FIXTURE_TEST_CASE(ram_tests, eosio_system::eosio_system_tester) { try {
       }
    }
    produce_blocks(10);
-   set_code( "testram22222"_n, contracts::test_ram_limit_wasm() );
-   set_abi( "testram22222"_n, contracts::test_ram_limit_abi().data() );
+   set_code( "testram22222"_n, test_contracts::test_ram_limit_wasm() );
+   set_abi( "testram22222"_n, test_contracts::test_ram_limit_abi().data() );
    produce_blocks(10);
 
    auto total = get_total_stake( "testram11111"_n );

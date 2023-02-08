@@ -11,7 +11,7 @@ recover_keys_future transaction_metadata::start_recover_keys( packed_transaction
                                                               trx_type t,
                                                               uint32_t max_variable_sig_size )
 {
-   return async_thread_pool( thread_pool, [trx{std::move(trx)}, chain_id, time_limit, t, max_variable_sig_size]() mutable {
+   return post_async_task( thread_pool, [trx{std::move(trx)}, chain_id, time_limit, t, max_variable_sig_size]() mutable {
          fc::time_point deadline = time_limit == fc::microseconds::maximum() ?
                                    fc::time_point::maximum() : fc::time_point::now() + time_limit;
          check_variable_sig_size( trx, max_variable_sig_size );

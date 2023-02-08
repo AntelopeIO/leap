@@ -23,7 +23,7 @@ int main(int argc, char** argv) {
 
    app.set_help_all_flag("--help-all", "Show all help");
    app.failure_message(CLI::FailureMessage::help);
-   app.require_subcommand(1, 2);
+   app.require_subcommand();
 
    // generics sc tree
    auto generic_subcommand = std::make_shared<generic_actions>();
