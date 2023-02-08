@@ -168,6 +168,12 @@ jobs:
           error-log-paths: '["build/etc", "build/var", "build/leap-ignition-wd"]'
           log-tarball-prefix: ${{matrix.platform}}
           tests-label: nonparallelizable_tests
+      - name: Upload logs from failed tests
+        uses: actions/upload-artifact@v3
+        if: failure()
+        with:
+          name: ${{matrix.platform}}-np-logs
+          path: '*-logs.tar.gz'
       - name: Collect Test Metrics
         run: cp "$(find ./Testing -name 'Test.xml' | sort | tail -n '1')" "${XUNIT_FILENAME:-test-results.xml}"
       - name: Upload Test Metrics
@@ -176,12 +182,6 @@ jobs:
           name: ${{ matrix.platform }}-serial-test-results.xml
           path: test-results.xml
           if-no-files-found: error
-      - name: Upload logs from failed tests  
-        uses: actions/upload-artifact@v3
-        if: failure()
-        with:
-          name: ${{matrix.platform}}-np-logs
-          path: '*-logs.tar.gz'
 
   lr-tests:
     name: LR Tests
@@ -205,6 +205,12 @@ jobs:
           error-log-paths: '["build/etc", "build/var", "build/leap-ignition-wd"]'
           log-tarball-prefix: ${{matrix.platform}}
           tests-label: long_running_tests
+      - name: Upload logs from failed tests
+        uses: actions/upload-artifact@v3
+        if: failure()
+        with:
+          name: ${{matrix.platform}}-lr-logs
+          path: '*-logs.tar.gz'
       - name: Collect Test Metrics
         run: cp "$(find ./Testing -name 'Test.xml' | sort | tail -n '1')" "${XUNIT_FILENAME:-test-results.xml}"
       - name: Upload Test Metrics
@@ -213,12 +219,6 @@ jobs:
           name: ${{ matrix.platform }}-long-running-test-results.xml
           path: test-results.xml
           if-no-files-found: error
-      - name: Upload logs from failed tests
-        uses: actions/upload-artifact@v3
-        if: failure()
-        with:
-          name: ${{matrix.platform}}-lr-logs
-          path: '*-logs.tar.gz'
 
   all-passing:
     name: All Required Tests Passed
