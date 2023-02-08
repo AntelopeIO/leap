@@ -2971,8 +2971,7 @@ BOOST_AUTO_TEST_CASE(abi_to_variant__add_action__good_return_value)
       ]
    })";
    auto abidef = fc::json::from_string(abi).as<abi_def>();
-   auto abidef2 = abidef;
-   abi_serializer abis(std::move(abidef2), abi_serializer::create_yield_function(max_serialization_time));
+   abi_serializer abis(abi_def(abidef), abi_serializer::create_yield_function(max_serialization_time));
 
    mutable_variant_object mvo;
    eosio::chain::impl::abi_traverse_context ctx(abi_serializer::create_yield_function(max_serialization_time));
@@ -2997,8 +2996,7 @@ BOOST_AUTO_TEST_CASE(abi_to_variant__add_action__bad_return_value)
       ]
    })";
    auto abidef = fc::json::from_string(abi).as<abi_def>();
-   auto abidef2 = abidef;
-   abi_serializer abis(std::move(abidef2), abi_serializer::create_yield_function(max_serialization_time));
+   abi_serializer abis(abi_def(abidef), abi_serializer::create_yield_function(max_serialization_time));
 
    mutable_variant_object mvo;
    eosio::chain::impl::abi_traverse_context ctx(abi_serializer::create_yield_function(max_serialization_time));
@@ -3033,8 +3031,7 @@ BOOST_AUTO_TEST_CASE(abi_to_variant__add_action__no_return_value)
       ]
    })";
    auto abidef = fc::json::from_string(abi).as<abi_def>();
-   auto abidef2 = abidef;
-   abi_serializer abis(std::move(abidef2), abi_serializer::create_yield_function(max_serialization_time));
+   abi_serializer abis(abi_def(abidef), abi_serializer::create_yield_function(max_serialization_time));
 
    mutable_variant_object mvo;
    eosio::chain::impl::abi_traverse_context ctx(abi_serializer::create_yield_function(max_serialization_time));
