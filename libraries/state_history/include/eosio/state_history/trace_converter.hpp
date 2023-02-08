@@ -15,6 +15,9 @@ struct trace_converter {
 
    void  add_transaction(const transaction_trace_ptr& trace, const chain::packed_transaction_ptr& transaction);
    bytes pack(const chainbase::database& db, bool trace_debug_mode, const block_state_ptr& block_state);
+
+   std::vector<augmented_transaction_trace> get_txs_traces_in_block(const block_state_ptr& block_state) const;
+   void                                     reset();
 };
 
 } // namespace state_history

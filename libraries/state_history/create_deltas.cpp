@@ -140,5 +140,82 @@ std::vector<table_delta> create_deltas(const chainbase::database& db, bool full_
    return deltas;
 }
 
+std::vector<table_delta_with_context> create_contract_row_deltas_with_context(const chainbase::database& db,
+                                                                              bool full_snapshot) {
+   std::vector<table_delta_with_context>             deltas;
+   const auto&                                       table_id_index = db.get_index<chain::table_id_multi_index>();
+   std::map<uint64_t, const chain::table_id_object*> removed_table_id;
+   for (auto& rem : table_id_index.last_undo_session().removed_values)
+      removed_table_id[rem.id._id] = &rem;
+
+   auto get_table_id = [&](uint64_t tid) -> const chain::table_id_object& {
+      auto obj = table_id_index.find(tid);
+      if (obj)
+         return *obj;
+      auto it = removed_table_id.find(tid);
+      EOS_ASSERT(it != removed_table_id.end(), chain::plugin_exception, "can not found table id ${tid}", ("tid", tid));
+      return *it->second;
+   };
+
+   auto pack_contract_row = [&](auto& row) {
+      return std::vector<char>(row.value.data(), row.value.data() + row.value.size());
+   };
+
+   auto get_additional_info_contract_row = [&](auto& row, bool present = false) {
+      auto tid        = get_table_id(row.t_id._id);
+      auto table_name = tid.table.to_string();
+      auto account    = tid.code.to_string();
+      auto payer      = tid.payer.to_string();
+      auto scope      = tid.scope.to_string();
+      auto row_pk     = row.primary_key;
+      auto row_id     = row.id._id;
+
+      return table_delta_with_context::context{.account    = account,
+                                               .scope      = scope,
+                                               .payer      = payer,
+                                               .table_name = table_name,
+                                               .row_id     = row_id,
+                                               .row_pk     = row_pk,
+                                               .present    = present};
+   };
+
+   auto process_table = [&](auto* name, auto& index, auto& pack_row, auto& additional_data_fn) {
+      if (full_snapshot) {
+         if (index.indices().empty())
+            return;
+         deltas.push_back({});
+         auto& delta = deltas.back();
+         delta.name  = name;
+         for (auto& row : index.indices()) {
+            delta.rows.obj.emplace_back(additional_data_fn(row, true), pack_row(row));
+         }
+      } else {
+         auto undo = index.last_undo_session();
+         if (undo.old_values.empty() && undo.new_values.empty() && undo.removed_values.empty())
+            return;
+         deltas.push_back({});
+         auto& delta = deltas.back();
+         delta.name  = name;
+         for (auto& old : undo.old_values) {
+            auto& row = index.get(old.id);
+            if (include_delta(old, row))
+               delta.rows.obj.emplace_back(additional_data_fn(row, true), pack_row(row));
+         }
+         for (auto& old : undo.removed_values)
+            delta.rows.obj.emplace_back(additional_data_fn(old, false), pack_row(old));
+         for (auto& row : undo.new_values) {
+            delta.rows.obj.emplace_back(additional_data_fn(row, true), pack_row(row));
+         }
+      }
+   };
+
+   process_table("contract_row", db.get_index<chain::key_value_index>(), pack_contract_row,
+                 get_additional_info_contract_row);
+   auto s = db.get_index<chain::key_value_index>().indices().size();
+   ilog("size = ${size}", ("size", s));
+
+   return deltas;
+}
+
 } // namespace state_history
 } // namespace eosio

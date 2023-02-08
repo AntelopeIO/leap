@@ -15,7 +15,8 @@ void trace_converter::add_transaction(const transaction_trace_ptr& trace, const 
    }
 }
 
-bytes trace_converter::pack(const chainbase::database& db, bool trace_debug_mode, const block_state_ptr& block_state) {
+std::vector<augmented_transaction_trace>
+trace_converter::get_txs_traces_in_block(const block_state_ptr& block_state) const {
    std::vector<augmented_transaction_trace> traces;
    if (onblock_trace)
       traces.push_back(*onblock_trace);
@@ -30,9 +31,18 @@ bytes trace_converter::pack(const chainbase::database& db, bool trace_debug_mode
                  "missing trace for transaction ${id}", ("id", id));
       traces.push_back(it->second);
    }
+
+   return traces;
+}
+
+void trace_converter::reset() {
    cached_traces.clear();
    onblock_trace.reset();
+}
 
+bytes trace_converter::pack(const chainbase::database& db, bool trace_debug_mode, const block_state_ptr& block_state) {
+   auto traces = get_txs_traces_in_block(block_state);
+   reset();
    return fc::raw::pack(make_history_context_wrapper(db, trace_debug_mode, traces));
 }
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "nlohmann/json.hpp"
 #include <eosio/chain/trace.hpp>
 
 namespace eosio {
@@ -69,6 +70,30 @@ struct table_delta {
    state_history::big_vector_wrapper<std::vector<std::pair<bool, bytes>>> rows{};
 };
 
+struct table_delta_with_context {
+   struct context {
+      std::string account;
+      std::string scope;
+      std::string payer;
+      std::string table_name;
+      int64_t     row_id;
+      uint64_t    row_pk;
+      bool        present;
+   };
+   fc::unsigned_int                                                          struct_version = 0;
+   std::string                                                               name{};
+   state_history::big_vector_wrapper<std::vector<std::pair<context, bytes>>> rows{};
+};
+
+inline void to_json(nlohmann::json& j, const table_delta_with_context::context& data) {
+   j["account"]    = data.account;
+   j["scope"]      = data.scope;
+   j["payer"]      = data.payer;
+   j["table_name"] = data.table_name;
+   j["row_id"]     = data.row_id;
+   j["row_pk"]     = data.row_pk;
+}
+
 struct block_position {
    uint32_t      block_num = 0;
    block_id_type block_id  = {};
@@ -118,6 +143,8 @@ using state_result  = std::variant<get_status_result_v0, get_blocks_result_v0>;
 } // namespace eosio
 
 // clang-format off
+FC_REFLECT(eosio::state_history::table_delta_with_context::context, (account)(payer)(table_name)(present));
+FC_REFLECT(eosio::state_history::table_delta_with_context, (struct_version)(name)(rows));
 FC_REFLECT(eosio::state_history::table_delta, (struct_version)(name)(rows));
 FC_REFLECT(eosio::state_history::block_position, (block_num)(block_id));
 FC_REFLECT_EMPTY(eosio::state_history::get_status_request_v0);
