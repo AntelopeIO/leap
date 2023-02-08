@@ -153,7 +153,7 @@ class PerformanceBasicTest:
         self.producerNodeId = 0
         self.validationNodeId = self.clusterConfig.pnodes
 
-        self.nodeosLogPath = f'var/lib/node_{str(self.validationNodeId).zfill(2)}/stderr.txt'
+        self.nodeosLogPath = f'{self.testTimeStampDirPath}/var/performance_test_basic{os.getpid()}/node_{str(self.validationNodeId).zfill(2)}/stderr.txt'
 
         # Setup cluster and its wallet manager
         self.walletMgr=WalletMgr(True)
@@ -312,9 +312,10 @@ class PerformanceBasicTest:
 
     def captureLowLevelArtifacts(self):
         try:
-            shutil.move(f"var", f"{self.varLogsDirPath}")
+            pid = os.getpid()
+            shutil.move(f"TestLogs/performance_test_basic{pid}", f"{self.varLogsDirPath}")
         except Exception as e:
-            print(f"Failed to move 'var' to '{self.varLogsDirPath}': {type(e)}: {e}")
+            print(f"Failed to move 'TestLogs/performance_test_basic{pid}' to '{self.varLogsDirPath}': {type(e)}: {e}")
 
         etcEosioDir = "etc/eosio"
         for path in os.listdir(etcEosioDir):
@@ -380,6 +381,7 @@ class PerformanceBasicTest:
 
             self.postTpsTestSteps()
 
+            self.captureLowLevelArtifacts()
             self.analyzeResultsAndReport(self.ptbTestResult)
 
             testSuccessful = self.ptbTestResult.completedRun
@@ -404,9 +406,6 @@ class PerformanceBasicTest:
                 self.testHelperConfig.killAll,
                 self.testHelperConfig.dumpErrorDetails
                 )
-
-            if not self.delPerfLogs:
-                self.captureLowLevelArtifacts()
 
             if not completedRun:
                 os.system("pkill trx_generator")
