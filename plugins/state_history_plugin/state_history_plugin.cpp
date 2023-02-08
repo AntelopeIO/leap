@@ -43,7 +43,7 @@ using namespace chain;
 using namespace state_history;
 using boost::signals2::scoped_connection;
 
-static appbase::abstract_plugin& _state_history_plugin = app().register_plugin<state_history_plugin>();
+   static auto _state_history_plugin = application::register_plugin<state_history_plugin>();
 
 const std::string logger_name("state_history");
 fc::logger _log;

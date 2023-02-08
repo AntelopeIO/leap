@@ -22,7 +22,7 @@ namespace eosio {
       }
    }
 
-   static appbase::abstract_plugin& _http_plugin = app().register_plugin<http_plugin>();
+   static auto _http_plugin = application::register_plugin<http_plugin>();
 
    using std::map;
    using std::vector;

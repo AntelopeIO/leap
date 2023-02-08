@@ -31,7 +31,7 @@
 using namespace eosio::chain::plugin_interface;
 
 namespace eosio {
-   static appbase::abstract_plugin& _net_plugin = app().register_plugin<net_plugin>();
+   static auto _net_plugin = application::register_plugin<net_plugin>();
 
    using std::vector;
 
