@@ -136,7 +136,7 @@ jobs:
           mkdir -p $TMPDIR
           zstdcat build.tar.zst | tar x
           cd build
-          ctest -j "$(nproc)" --output-on-failure -LE '(nonparallelizable_tests|long_running_tests)'
+          ctest -j "$(nproc)" --output-on-failure -T 'Test' -LE '(nonparallelizable_tests|long_running_tests)'
 
   np-tests:
     name: NP Tests
