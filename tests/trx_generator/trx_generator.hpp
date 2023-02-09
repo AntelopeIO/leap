@@ -155,10 +155,10 @@ namespace eosio::testing {
          fc::microseconds trx_expr, std::string lib_id_str, std::string log_dir, bool stop_on_trx_failed,
          const std::string& peer_endpoint="127.0.0.1", unsigned short port=9876);
 
-      void locate_key_words_in_action_mvo(std::vector<std::string>& acctGenFieldsOut, fc::mutable_variant_object& action_mvo, const std::string& keyword);
-      void locate_key_words_in_action_array(std::map<int, std::vector<std::string>>& acctGenFieldsOut, fc::variants& action_array, const std::string& keyword);
-      void update_key_word_fields_in_sub_action(std::string key, fc::mutable_variant_object& action_mvo, std::string action_inner_key, const std::string keyWord);
-      void update_key_word_fields_in_action(std::vector<std::string>& acctGenFields, fc::mutable_variant_object& action_mvo, const std::string keyWord);
+      void locate_key_words_in_action_mvo(std::vector<std::string>& acct_gen_fields_out, fc::mutable_variant_object& action_mvo, const std::string& key_word);
+      void locate_key_words_in_action_array(std::map<int, std::vector<std::string>>& acct_gen_fields_out, fc::variants& action_array, const std::string& key_word);
+      void update_key_word_fields_in_sub_action(std::string key, fc::mutable_variant_object& action_mvo, std::string action_inner_key, const std::string key_word);
+      void update_key_word_fields_in_action(std::vector<std::string>& acct_gen_fields, fc::mutable_variant_object& action_mvo, const std::string key_word);
 
       void update_actions();
       virtual void update_resign_transaction(eosio::chain::signed_transaction& trx, fc::crypto::private_key priv_key, uint64_t& nonce_prefix, uint64_t& nonce,
