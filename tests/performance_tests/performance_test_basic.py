@@ -98,7 +98,7 @@ class PerformanceTestBasic:
         def log_transactions(self, trxDataFile, block):
             for trx in block['payload']['transactions']:
                 for actions in trx['actions']:
-                    if actions['account'] != 'eosio' and actions['action'] != 'onblock':
+                    if actions['account'] != 'eosio' or actions['action'] != 'onblock':
                         trxDataFile.write(f"{trx['id']},{trx['block_num']},{trx['block_time']},{trx['cpu_usage_us']},{trx['net_usage_words']},{trx['actions']}\n")
 
         def __post_init__(self):
