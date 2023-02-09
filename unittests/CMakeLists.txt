@@ -17,6 +17,19 @@ if( EOSIO_COMPILE_TEST_CONTRACTS )
       list(APPEND CMAKE_ARGS_VAL -DUSE_EOSIO_CDT_1_8_X=${USE_EOSIO_CDT_1_8_X})
    endif()
 
+   message( STATUS "Building contracts in directory `./unittests/contracts/`" )
+   ExternalProject_Add(
+           contracts_project
+           SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/contracts
+           BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/contracts
+           CMAKE_ARGS ${CMAKE_ARGS_VAL}
+           UPDATE_COMMAND ""
+           PATCH_COMMAND ""
+           TEST_COMMAND ""
+           INSTALL_COMMAND ""
+           BUILD_ALWAYS 1
+   )
+
    message( STATUS "Building contracts in directory `./unittests/test-contracts/`" )
    ExternalProject_Add(
       test_contracts_project
@@ -30,15 +43,18 @@ if( EOSIO_COMPILE_TEST_CONTRACTS )
       BUILD_ALWAYS 1
    )
 else()
+  message( STATUS "Not building contracts in directory `./unittests/contracts/`" )
+  add_subdirectory(contracts)
   message( STATUS "Not building contracts in directory `./unittests/test-contracts/`" )
   add_subdirectory(test-contracts)
 endif()
 
-add_subdirectory(contracts)
 
 if (NOT DISABLE_WASM_SPEC_TESTS)
 add_subdirectory( wasm-spec-tests/generated-tests )
 endif()
+
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/test_contracts.hpp.in ${CMAKE_CURRENT_BINARY_DIR}/include/test_contracts.hpp ESCAPE_QUOTES)
 
 add_subdirectory(snapshots)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/snapshots.hpp.in ${CMAKE_CURRENT_BINARY_DIR}/include/snapshots.hpp ESCAPE_QUOTES)

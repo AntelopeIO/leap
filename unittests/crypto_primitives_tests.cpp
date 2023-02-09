@@ -10,7 +10,7 @@
 
 #include <boost/test/unit_test.hpp>
 
-#include <contracts.hpp>
+#include <test_contracts.hpp>
 
 #include "fork_test_utilities.hpp"
 
@@ -43,8 +43,8 @@ BOOST_AUTO_TEST_CASE( alt_bn128_add_test ) { try {
    c.preactivate_protocol_features( {*d} );
    c.produce_block();
 
-   c.set_code( tester1_account, contracts::crypto_primitives_test_wasm() );
-   c.set_abi( tester1_account, contracts::crypto_primitives_test_abi().data() );
+   c.set_code( tester1_account, test_contracts::crypto_primitives_test_wasm() );
+   c.set_abi( tester1_account, test_contracts::crypto_primitives_test_abi().data() );
    c.produce_block();
 
    using test_add = std::tuple<std::string, std::string, int32_t, std::string>;
@@ -161,8 +161,8 @@ BOOST_AUTO_TEST_CASE( alt_bn128_mul_test ) { try {
    c.preactivate_protocol_features( {*d} );
    c.produce_block();
 
-   c.set_code( tester1_account, contracts::crypto_primitives_test_wasm() );
-   c.set_abi( tester1_account, contracts::crypto_primitives_test_abi().data() );
+   c.set_code( tester1_account, test_contracts::crypto_primitives_test_wasm() );
+   c.set_abi( tester1_account, test_contracts::crypto_primitives_test_abi().data() );
    c.produce_block();
 
    using test_mul = std::tuple<std::string, std::string, int32_t, std::string>;
@@ -288,8 +288,8 @@ BOOST_AUTO_TEST_CASE( alt_bn128_pair_test ) { try {
    c.preactivate_protocol_features( {*d} );
    c.produce_block();
 
-   c.set_code( tester1_account, contracts::crypto_primitives_test_wasm() );
-   c.set_abi( tester1_account, contracts::crypto_primitives_test_abi().data() );
+   c.set_code( tester1_account, test_contracts::crypto_primitives_test_wasm() );
+   c.set_abi( tester1_account, test_contracts::crypto_primitives_test_abi().data() );
    c.produce_block();
 
    using g1g2_pair = std::vector<std::string>;
@@ -428,8 +428,8 @@ BOOST_AUTO_TEST_CASE( modexp_test ) { try {
    c.preactivate_protocol_features( {*d} );
    c.produce_block();
 
-   c.set_code( tester1_account, contracts::crypto_primitives_test_wasm() );
-   c.set_abi( tester1_account, contracts::crypto_primitives_test_abi().data() );
+   c.set_code( tester1_account, test_contracts::crypto_primitives_test_wasm() );
+   c.set_abi( tester1_account, test_contracts::crypto_primitives_test_abi().data() );
    c.produce_block();
 
    using modexp_test = std::tuple<std::vector<string>, int32_t, std::string>;
@@ -518,8 +518,8 @@ BOOST_AUTO_TEST_CASE( modexp_subjective_limit_test ) { try {
    c.preactivate_protocol_features( {*d} );
    c.produce_block();
 
-   c.set_code( tester1_account, contracts::crypto_primitives_test_wasm() );
-   c.set_abi( tester1_account, contracts::crypto_primitives_test_abi().data() );
+   c.set_code( tester1_account, test_contracts::crypto_primitives_test_wasm() );
+   c.set_abi( tester1_account, test_contracts::crypto_primitives_test_abi().data() );
    c.produce_block();
 
    auto exponent = h2bin("010001");
@@ -592,8 +592,8 @@ BOOST_AUTO_TEST_CASE( blake2f_test ) { try {
    c.preactivate_protocol_features( {*d} );
    c.produce_block();
 
-   c.set_code( tester1_account, contracts::crypto_primitives_test_wasm() );
-   c.set_abi( tester1_account, contracts::crypto_primitives_test_abi().data() );
+   c.set_code( tester1_account, test_contracts::crypto_primitives_test_wasm() );
+   c.set_abi( tester1_account, test_contracts::crypto_primitives_test_abi().data() );
    c.produce_block();
 
    using compress_test = std::tuple<std::vector<string>, int32_t, std::string>;
@@ -719,8 +719,8 @@ BOOST_AUTO_TEST_CASE( keccak256_test ) { try {
    c.preactivate_protocol_features( {*d} );
    c.produce_block();
 
-   c.set_code( tester1_account, contracts::crypto_primitives_test_wasm() );
-   c.set_abi( tester1_account, contracts::crypto_primitives_test_abi().data() );
+   c.set_code( tester1_account, test_contracts::crypto_primitives_test_wasm() );
+   c.set_abi( tester1_account, test_contracts::crypto_primitives_test_abi().data() );
    c.produce_block();
 
    using test_keccak256 = std::tuple<std::string, std::string>;
@@ -770,8 +770,8 @@ BOOST_AUTO_TEST_CASE( sha3_test ) { try {
    c.preactivate_protocol_features( {*d} );
    c.produce_block();
 
-   c.set_code( tester1_account, contracts::crypto_primitives_test_wasm() );
-   c.set_abi( tester1_account, contracts::crypto_primitives_test_abi().data() );
+   c.set_code( tester1_account, test_contracts::crypto_primitives_test_wasm() );
+   c.set_abi( tester1_account, test_contracts::crypto_primitives_test_abi().data() );
    c.produce_block();
 
    using test_sha3 = std::tuple<std::string, std::string>;
@@ -821,8 +821,8 @@ BOOST_AUTO_TEST_CASE( k1_recover_test ) { try {
    c.preactivate_protocol_features( {*d} );
    c.produce_block();
 
-   c.set_code( tester1_account, contracts::crypto_primitives_test_wasm() );
-   c.set_abi( tester1_account, contracts::crypto_primitives_test_abi().data() );
+   c.set_code( tester1_account, test_contracts::crypto_primitives_test_wasm() );
+   c.set_abi( tester1_account, test_contracts::crypto_primitives_test_abi().data() );
    c.produce_block();
 
    using test_k1_recover = std::tuple<std::string, std::string, int32_t, std::string>;

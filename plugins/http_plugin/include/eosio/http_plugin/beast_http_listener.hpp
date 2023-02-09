@@ -38,7 +38,7 @@ public:
    beast_http_listener& operator=(const beast_http_listener&) = delete;
    beast_http_listener& operator=(beast_http_listener&&) = delete;
 
-   beast_http_listener(std::shared_ptr<http_plugin_state> plugin_state) : is_listening_(false), plugin_state_(std::move(plugin_state)), acceptor_(plugin_state_->thread_pool->get_executor()), socket_(plugin_state_->thread_pool->get_executor()), accept_error_timer_(plugin_state_->thread_pool->get_executor()) {}
+   beast_http_listener(std::shared_ptr<http_plugin_state> plugin_state) : is_listening_(false), plugin_state_(std::move(plugin_state)), acceptor_(plugin_state_->thread_pool.get_executor()), socket_(plugin_state_->thread_pool.get_executor()), accept_error_timer_(plugin_state_->thread_pool.get_executor()) {}
 
    virtual ~beast_http_listener() {
       try {
@@ -99,7 +99,7 @@ public:
 
    void stop_listening() {
       if(is_listening_) {
-         plugin_state_->thread_pool->stop();
+         plugin_state_->thread_pool.stop();
          is_listening_ = false;
       }
    }
