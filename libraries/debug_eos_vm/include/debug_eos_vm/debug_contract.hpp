@@ -20,15 +20,27 @@ namespace debug_contract
       std::map<fc::sha256, std::vector<uint8_t>> codes;
       std::map<fc::sha256, debugging_module<Backend>> cached_modules;
 
-      bool substitute_apply(const eosio::chain::digest_type& code_hash,
+      bool substitute_apply(const fc::sha256& code_hash,
                             uint8_t vm_type,
                             uint8_t vm_version,
                             eosio::chain::apply_context& context)
       {
          if (vm_type || vm_version)
             return false;
-         if (auto it = substitutions.find(code_hash); it != substitutions.end())
+
+         ilog("Searching for ${h}", ("h", code_hash));
+         ilog("Substitutions size: ${s}", ("s", substitutions.size()));
+
+         if (substitutions.size() > 0) {
+             wlog("First item key ${i}", ("i", substitutions.begin()->first));
+             wlog("First item value ${i}", ("i", substitutions.begin()->second));
+         }
+
+         auto it = substitutions.find(code_hash);
+
+         if (it != substitutions.end())
          {
+            ilog("Found, applying subst");
             auto& module = *get_module(it->second).module;
             module.set_wasm_allocator(&context.control.get_wasm_allocator());
             eosio::chain::webassembly::interface iface(context);
@@ -38,6 +50,7 @@ namespace debug_contract
                         context.get_action().name.to_uint64_t());
             return true;
          }
+         elog("No subst for ${h}", ("h", code_hash));
          return false;
       }
 

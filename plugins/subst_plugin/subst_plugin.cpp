@@ -30,14 +30,14 @@ namespace eosio {
             new_code = eosio::vm::read_wasm(new_code_path);
 
             auto new_hash = fc::sha256::hash((const char*)new_code.data(), new_code.size());
-            auto old_hash = fc::sha256::hash(old_code_hash_str.c_str());
+            auto old_hash = fc::sha256(old_code_hash_str);
             cache.substitutions[old_hash] = new_hash;
             cache.codes[new_hash] = std::move(new_code);
 
             ilog("===================SUBST-PLUGIN==================");
             ilog("Loaded new wasm for ${h}", ("h", old_code_hash_str));
             ilog("New hash is: ${n}", ("n", new_hash.str()));
-            ilog("New size: ${s}", ("s", new_code.size()));
+            ilog("New size: ${s}", ("s", cache.codes[new_hash].size()));
             ilog("=================================================");
         }
     };  // subst_plugin_impl
