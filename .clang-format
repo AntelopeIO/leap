@@ -1,23 +1,21 @@
 BasedOnStyle: LLVM
-BraceWrapping:
-  SplitEmptyFunction: false
-  SplitEmptyRecord: false
 IndentWidth: 3
 ColumnLimit: 120
 PointerAlignment: Left
 AccessModifierOffset: -3
-AlwaysBreakTemplateDeclarations: true
+AlwaysBreakTemplateDeclarations: Yes
 AlignArrayOfStructures: Left
-AlignConsecutiveAssignments: Consecutive
-AlignConsecutiveDeclarations: Consecutive
-AllowAllParametersOfDeclarationOnNextLine: false
 AllowShortBlocksOnASingleLine: Empty
 AllowShortFunctionsOnASingleLine: Inline
 BinPackArguments: false
 BinPackParameters: false
 BreakBeforeBraces: Custom
-BreakConstructorInitializers: BeforeComma
-BreakInheritanceList: BeforeComma
+BraceWrapping:
+  SplitEmptyFunction: false
+  SplitEmptyNamespace: false
+  SplitEmptyRecord: false
+BreakConstructorInitializers: AfterColon
+BreakInheritanceList: AfterColon
 ConstructorInitializerIndentWidth: 3
 ContinuationIndentWidth: 3
 MaxEmptyLinesToKeep: 3
