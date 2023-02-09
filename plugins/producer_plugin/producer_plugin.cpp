@@ -84,7 +84,7 @@ fc::logger       _trx_log;
 
 namespace eosio {
 
-static appbase::abstract_plugin& _producer_plugin = app().register_plugin<producer_plugin>();
+   static auto _producer_plugin = application::register_plugin<producer_plugin>();
 
 using namespace eosio::chain;
 using namespace eosio::chain::plugin_interface;
@@ -159,11 +159,10 @@ public:
       ++trx_success_num;
    }
 
-
-   void add( const account_name& n, int64_t exception_code ) {
+   void add( const account_name& n, const fc::exception& e ) {
       auto& fa = failed_accounts[n];
       ++fa.num_failures;
-      fa.add( n, exception_code );
+      fa.add( n, e );
    }
 
    // return true if exceeds max_failures_per_account and should be dropped
@@ -177,11 +176,12 @@ public:
       return false;
    }
 
-   void report( const fc::time_point& idle_trx_time ) {
+   void report( const fc::time_point& idle_trx_time, uint32_t block_num ) {
       if( _log.is_enabled( fc::log_level::debug ) ) {
          auto now = fc::time_point::now();
          add_idle_time( now - idle_trx_time );
-         fc_dlog( _log, "Block trx idle: ${i}us out of ${t}us, success: ${sn}, ${s}us, fail: ${fn}, ${f}us, other: ${o}us",
+         fc_dlog( _log, "Block #${n} trx idle: ${i}us out of ${t}us, success: ${sn}, ${s}us, fail: ${fn}, ${f}us, other: ${o}us",
+	 	  ("n", block_num)
                   ("i", block_idle_time)("t", now - clear_time)("sn", trx_success_num)("s", trx_success_time)
                   ("fn", trx_fail_num)("f", trx_fail_time)
                   ("o", (now - clear_time) - block_idle_time - trx_success_time - trx_fail_time) );
@@ -223,7 +223,8 @@ private:
          ex_other_exception = 8
       };
 
-      void add( const account_name& n, int64_t exception_code ) {
+      void add( const account_name& n, const fc::exception& e ) {
+         auto exception_code = e.code();
          if( exception_code == tx_cpu_usage_exceeded::code_value ) {
             ex_flags = set_field( ex_flags, ex_fields::ex_tx_cpu_usage_exceeded );
          } else if( exception_code == deadline_exception::code_value ) {
@@ -233,8 +234,8 @@ private:
             ex_flags = set_field( ex_flags, ex_fields::ex_eosio_assert_exception );
          } else {
             ex_flags = set_field( ex_flags, ex_fields::ex_other_exception );
-            fc_dlog( _log, "Failed trx, account: ${a}, reason: ${r}",
-                     ("a", n)("r", exception_code) );
+            fc_dlog( _log, "Failed trx, account: ${a}, reason: ${r}, except: ${e}",
+                     ("a", n)("r", exception_code)("e", e) );
          }
       }
 
@@ -307,7 +308,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       pending_block_mode                                        _pending_block_mode = pending_block_mode::speculating;
       unapplied_transaction_queue                               _unapplied_transactions;
       size_t                                                    _thread_pool_size = config::default_controller_thread_pool_size;
-      named_thread_pool                                         _thread_pool{ "prod" };
+      named_thread_pool<struct prod>                            _thread_pool;
 
       std::atomic<int32_t>                                      _max_transaction_time_ms; // modified by app thread, read by net_plugin thread pool
       std::atomic<bool>                                         _received_block{false}; // modified by net_plugin thread pool and app thread
@@ -413,7 +414,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          auto& chain = chain_plug->chain();
 
          if( chain.is_building_block() ) {
-            _account_fails.report( _idle_trx_time );
+            _account_fails.report( _idle_trx_time, chain.pending_block_num() );
          }
          _unapplied_transactions.add_aborted( chain.abort_block() );
          _subjective_billing.abort_block();
@@ -1585,7 +1586,7 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
 
    const auto& hbs = chain.head_block_state();
 
-   if( chain.get_terminate_at_block() > 0 && chain.get_terminate_at_block() < chain.head_block_num() ) {
+   if( chain.get_terminate_at_block() > 0 && chain.get_terminate_at_block() <= chain.head_block_num() ) {
       ilog("Reached configured maximum block ${num}; terminating", ("num", chain.get_terminate_at_block()));
       app().quit();
       return start_block_result::failed;
@@ -2023,8 +2024,8 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
          pr.trx_exhausted = true;
       } else {
          pr.failed = true;
-         auto failure_code = trace->except->code();
-         if( failure_code != tx_duplicate::code_value ) {
+         const fc::exception& e = *trace->except;
+         if( e.code() != tx_duplicate::code_value ) {
             fc_dlog( _trx_failed_trace_log, "Subjective bill for failed ${a}: ${b} elapsed ${t}us, time ${r}us",
                      ("a",first_auth)("b",sub_bill)("t",trace->elapsed)("r", end - start));
             if (!disable_subjective_enforcement) // subjectively bill failure when producing since not in objective cpu account billing
@@ -2032,11 +2033,11 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
 
             log_trx_results( trx, trace, start );
             // this failed our configured maximum transaction time, we don't want to replay it
-            fc_dlog( _trx_failed_trace_log, "Failed ${c} trx, auth: ${a}, prev billed: ${p}us, ran: ${r}us, id: ${id}",
-                     ("c", failure_code)("a", first_auth)("p", prev_billed_cpu_time_us)
-                     ( "r", end - start )( "id", trx->id() ) );
+            fc_dlog( _trx_failed_trace_log, "Failed ${c} trx, auth: ${a}, prev billed: ${p}us, ran: ${r}us, id: ${id}, except: ${e}",
+                     ("c", e.code())("a", first_auth)("p", prev_billed_cpu_time_us)
+                     ( "r", end - start)("id", trx->id())("e", e) );
             if( !disable_subjective_enforcement )
-               _account_fails.add( first_auth, failure_code );
+               _account_fails.add( first_auth, e );
          }
          if( next ) {
             if( return_failure_trace ) {
@@ -2482,7 +2483,7 @@ void producer_plugin_impl::produce_block() {
 
    block_state_ptr new_bs = chain.head_block_state();
 
-   _account_fails.report(_idle_trx_time);
+   _account_fails.report(_idle_trx_time, new_bs->block_num);
    _account_fails.clear();
 
    br.total_time += fc::time_point::now() - start;

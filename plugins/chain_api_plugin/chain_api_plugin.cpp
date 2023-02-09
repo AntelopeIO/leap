@@ -5,7 +5,7 @@
 
 namespace eosio {
 
-static appbase::abstract_plugin& _chain_api_plugin = app().register_plugin<chain_api_plugin>();
+   static auto _chain_api_plugin = application::register_plugin<chain_api_plugin>();
 
 using namespace eosio;
 
