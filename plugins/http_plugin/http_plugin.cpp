@@ -22,7 +22,7 @@ namespace eosio {
       }
    }
 
-   static appbase::abstract_plugin& _http_plugin = app().register_plugin<http_plugin>();
+   static auto _http_plugin = application::register_plugin<http_plugin>();
 
    using std::map;
    using std::vector;
@@ -373,8 +373,11 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
       app().post(appbase::priority::high, [this] ()
       {
          try {
-            my->plugin_state->thread_pool =
-                  std::make_unique<eosio::chain::named_thread_pool>( "http", my->plugin_state->thread_pool_size );
+            my->plugin_state->thread_pool.start( my->plugin_state->thread_pool_size, [](const fc::exception& e) {
+               fc_elog( logger(), "Exception in http thread pool, exiting: ${e}", ("e", e.to_detail_string()) );
+               app().quit();
+            } );
+
             if(my->listen_endpoint) {
                try {
                   my->create_beast_server(false);
@@ -465,9 +468,7 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
       if(my->beast_unix_server)
          my->beast_unix_server->stop_listening();
 
-      if( my->plugin_state->thread_pool ) {
-         my->plugin_state->thread_pool->stop();
-      }
+      my->plugin_state->thread_pool.stop();
 
       my->beast_server.reset();
       my->beast_https_server.reset();

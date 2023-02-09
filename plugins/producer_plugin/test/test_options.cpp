@@ -1,4 +1,4 @@
-#define BOOST_TEST_MODULE full_producer_trxs
+#define BOOST_TEST_MODULE test --state-dir option
 #include <boost/test/included/unit_test.hpp>
 
 #include <eosio/producer_plugin/producer_plugin.hpp>
@@ -26,6 +26,8 @@ BOOST_AUTO_TEST_CASE(state_dir) {
    auto temp_dir_str = temp_dir.string();
    auto custom_state_dir_str = custom_state_dir.string();
       
+   appbase::scoped_app app;
+
    std::promise<std::tuple<producer_plugin*, chain_plugin*>> plugin_promise;
    std::future<std::tuple<producer_plugin*, chain_plugin*>> plugin_fut = plugin_promise.get_future();
    std::thread app_thread( [&]() {
@@ -36,11 +38,10 @@ BOOST_AUTO_TEST_CASE(state_dir) {
           "--state-dir",  custom_state_dir_str.c_str(),
           "--config-dir", temp_dir_str.c_str(),
           "-p", "eosio", "-e", "--max-transaction-time", "475", "--disable-subjective-billing=true" };
-      appbase::app().initialize<chain_plugin, producer_plugin>( argv.size(), (char**) &argv[0] );
-      appbase::app().startup();
-      plugin_promise.set_value(
-         {appbase::app().find_plugin<producer_plugin>(), appbase::app().find_plugin<chain_plugin>()} );
-      appbase::app().exec();
+      app->initialize<chain_plugin, producer_plugin>( argv.size(), (char**) &argv[0] );
+      app->startup();
+      plugin_promise.set_value( {app->find_plugin<producer_plugin>(), app->find_plugin<chain_plugin>()} );
+      app->exec();
    } );
 
    auto[prod_plug, chain_plug] = plugin_fut.get();
@@ -50,7 +51,7 @@ BOOST_AUTO_TEST_CASE(state_dir) {
    BOOST_CHECK(  exists( custom_state_dir ));
    BOOST_CHECK( !exists( state_dir ));
       
-   appbase::app().quit();
+   app->quit();
    app_thread.join();
 }
 

@@ -375,6 +375,8 @@ try:
     if preKillBlockProducer == "defproducerj" or preKillBlockProducer == "defproducerk":
         # wait for defproduceri so there is plenty of time to send kill before defproducerk
         nonProdNode.waitForProducer("defproduceri")
+        preKillBlockNum=nonProdNode.getBlockNum()
+        preKillBlockProducer=nonProdNode.getBlockProducerByNum(preKillBlockNum)
     Print("preKillBlockProducer = {}".format(preKillBlockProducer))
     # kill at last block before defproducerl, since the block it is killed on will get propagated
     killAtProducer="defproducerk"

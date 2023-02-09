@@ -51,7 +51,7 @@ class NetPluginArgs(BasePluginArgs):
     _p2pDedupCacheExpireTimeSecNodeosDefault: int=10
     _p2pDedupCacheExpireTimeSecNodeosArg: str="--p2p-dedup-cache-expire-time-sec"
     netThreads: int=None
-    _netThreadsNodeosDefault: int=2
+    _netThreadsNodeosDefault: int=4
     _netThreadsNodeosArg: str="--net-threads"
     syncFetchSpan: int=None
     _syncFetchSpanNodeosDefault: int=100
