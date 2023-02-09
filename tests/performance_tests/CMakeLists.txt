@@ -16,5 +16,7 @@ add_test(NAME performance_test_basic_ex_new_acct_trx_spec COMMAND tests/performa
 add_test(NAME log_reader_tests COMMAND tests/performance_tests/log_reader_tests.py WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 add_test(NAME validate_nodeos_plugin_args COMMAND tests/performance_tests/validate_nodeos_plugin_args.py WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST performance_test_basic PROPERTY LABELS nonparallelizable_tests)
+set_property(TEST performance_test_basic_ex_transfer_trx_spec PROPERTY LABELS nonparallelizable_tests)
+set_property(TEST performance_test_basic_ex_new_acct_trx_spec PROPERTY LABELS nonparallelizable_tests)
 
 add_subdirectory( NodeosPluginArgs )
