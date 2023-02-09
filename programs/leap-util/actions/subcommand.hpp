@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cli11/CLI11.hpp>
+#include <CLI/CLI.hpp>
 #include <memory>
 
 class leap_util_exception_handler {

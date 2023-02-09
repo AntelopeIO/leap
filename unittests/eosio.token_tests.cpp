@@ -8,6 +8,7 @@
 #include <boost/test/unit_test.hpp>
 
 #include <contracts.hpp>
+#include <test_contracts.hpp>
 
 using namespace eosio::testing;
 using namespace eosio;
@@ -27,8 +28,8 @@ public:
       create_accounts( { "alice"_n, "bob"_n, "carol"_n, "eosio.token"_n } );
       produce_blocks( 2 );
 
-      set_code( "eosio.token"_n, contracts::eosio_token_wasm() );
-      set_abi( "eosio.token"_n, contracts::eosio_token_abi().data() );
+      set_code( "eosio.token"_n, test_contracts::eosio_token_wasm() );
+      set_abi( "eosio.token"_n, test_contracts::eosio_token_abi().data() );
 
       produce_blocks();
 

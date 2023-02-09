@@ -10,7 +10,7 @@
 
 #include <boost/test/unit_test.hpp>
 
-#include <contracts.hpp>
+#include <test_contracts.hpp>
 
 #include "fork_test_utilities.hpp"
 
@@ -43,8 +43,8 @@ BOOST_AUTO_TEST_CASE( alt_bn128_add_test ) { try {
    c.preactivate_protocol_features( {*d} );
    c.produce_block();
 
-   c.set_code( tester1_account, contracts::crypto_primitives_test_wasm() );
-   c.set_abi( tester1_account, contracts::crypto_primitives_test_abi().data() );
+   c.set_code( tester1_account, test_contracts::crypto_primitives_test_wasm() );
+   c.set_abi( tester1_account, test_contracts::crypto_primitives_test_abi().data() );
    c.produce_block();
 
    using test_add = std::tuple<std::string, std::string, int32_t, std::string>;
@@ -89,6 +89,46 @@ BOOST_AUTO_TEST_CASE( alt_bn128_add_test ) { try {
             return_code::success,
             "1bd20beca3d8d28e536d2b5bd3bf36d76af68af5e6c96ca6e5519ba9ff8f53322a53edf6b48bcf5cb1c0b4ad1d36dfce06a79dcd6526f1c386a14d8ce4649844"
         },
+
+        // test bigger P1 length
+        {
+            "222480c9f95409bfa4ac6ae890b9c150bc88542b87b352e92950c340458b0c092976efd698cf23b414ea622b3f720dd9080d679042482ff3668cb2e32cad8ae200",
+            "1bd20beca3d8d28e536d2b5bd3bf36d76af68af5e6c96ca6e5519ba9ff8f53322a53edf6b48bcf5cb1c0b4ad1d36dfce06a79dcd6526f1c386a14d8ce4649844",
+            return_code::failure,
+            "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+        },
+
+        // test bigger P2 length
+        {
+            "222480c9f95409bfa4ac6ae890b9c150bc88542b87b352e92950c340458b0c092976efd698cf23b414ea622b3f720dd9080d679042482ff3668cb2e32cad8ae2",
+            "1bd20beca3d8d28e536d2b5bd3bf36d76af68af5e6c96ca6e5519ba9ff8f53322a53edf6b48bcf5cb1c0b4ad1d36dfce06a79dcd6526f1c386a14d8ce464984400",
+            return_code::failure,
+            "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+        },
+
+        // test smaller P2 length
+        {
+            "222480c9f95409bfa4ac6ae890b9c150bc88542b87b352e92950c340458b0c092976efd698cf23b414ea622b3f720dd9080d679042482ff3668cb2e32cad8ae2",
+            "1bd20beca3d8d28e536d2b5bd3bf36d76af68af5e6c96ca6e5519ba9ff8f53322a53edf6b48bcf5cb1c0b4ad1d36dfce06a79dcd6526f1c386a14d8ce46498",
+            return_code::failure,
+            "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+        },
+
+        // test smaller result length
+        {
+            "222480c9f95409bfa4ac6ae890b9c150bc88542b87b352e92950c340458b0c092976efd698cf23b414ea622b3f720dd9080d679042482ff3668cb2e32cad8ae2",
+            "1bd20beca3d8d28e536d2b5bd3bf36d76af68af5e6c96ca6e5519ba9ff8f53322a53edf6b48bcf5cb1c0b4ad1d36dfce06a79dcd6526f1c386a14d8ce4649844",
+            return_code::failure,
+            "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+        },
+
+        // test bigger result length
+        {
+            "222480c9f95409bfa4ac6ae890b9c150bc88542b87b352e92950c340458b0c092976efd698cf23b414ea622b3f720dd9080d679042482ff3668cb2e32cad8ae2",
+            "1bd20beca3d8d28e536d2b5bd3bf36d76af68af5e6c96ca6e5519ba9ff8f53322a53edf6b48bcf5cb1c0b4ad1d36dfce06a79dcd6526f1c386a14d8ce4649844",
+            return_code::success,
+            "16c7c4042e3a725ddbacf197c519c3dcad2bc87dfd9ac7e1e1631154ee0b7d9c19cd640dd28c9811ebaaa095a16b16190d08d6906c4f926fce581985fe35be0e00"
+        },
    };
 
    for(const auto& test : tests) {
@@ -121,8 +161,8 @@ BOOST_AUTO_TEST_CASE( alt_bn128_mul_test ) { try {
    c.preactivate_protocol_features( {*d} );
    c.produce_block();
 
-   c.set_code( tester1_account, contracts::crypto_primitives_test_wasm() );
-   c.set_abi( tester1_account, contracts::crypto_primitives_test_abi().data() );
+   c.set_code( tester1_account, test_contracts::crypto_primitives_test_wasm() );
+   c.set_abi( tester1_account, test_contracts::crypto_primitives_test_abi().data() );
    c.produce_block();
 
    using test_mul = std::tuple<std::string, std::string, int32_t, std::string>;
@@ -150,7 +190,7 @@ BOOST_AUTO_TEST_CASE( alt_bn128_mul_test ) { try {
             return_code::failure,
             "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
         },
-        
+
         //test (invalid P1 length)
         {
             "222480c9f95409bfa4ac6ae890b9c150bc88542b87b352e92950c340458b0c092976efd698cf23b414ea622b3f720dd9080d679042482ff3668cb2e32cad8a",
@@ -174,6 +214,46 @@ BOOST_AUTO_TEST_CASE( alt_bn128_mul_test ) { try {
             "0312ed43559cf8ecbab5221256a56e567aac5035308e3f1d54954d8b97cd1c9b",
             return_code::success,
             "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+        },
+
+        //test bigger P1 length
+        {
+            "007c43fcd125b2b13e2521e395a81727710a46b34fe279adbf1b94c72f7f91360db2f980370fb8962751c6ff064f4516a6a93d563388518bb77ab9a6b30755be00",
+            "0312ed43559cf8ecbab5221256a56e567aac5035308e3f1d54954d8b97cd1c9b",
+            return_code::failure,
+            "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+        },
+
+        //test bigger scalar length
+        {
+            "007c43fcd125b2b13e2521e395a81727710a46b34fe279adbf1b94c72f7f91360db2f980370fb8962751c6ff064f4516a6a93d563388518bb77ab9a6b30755be",
+            "0312ed43559cf8ecbab5221256a56e567aac5035308e3f1d54954d8b97cd1c9b00",
+            return_code::failure,
+            "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+        },
+
+        //test smaller scalar length
+        {
+            "007c43fcd125b2b13e2521e395a81727710a46b34fe279adbf1b94c72f7f91360db2f980370fb8962751c6ff064f4516a6a93d563388518bb77ab9a6b30755be",
+            "0312ed43559cf8ecbab5221256a56e567aac5035308e3f1d54954d8b97cd1c",
+            return_code::failure,
+            "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+        },
+
+        //test smaller result length
+        {
+            "007c43fcd125b2b13e2521e395a81727710a46b34fe279adbf1b94c72f7f91360db2f980370fb8962751c6ff064f4516a6a93d563388518bb77ab9a6b30755be",
+            "0312ed43559cf8ecbab5221256a56e567aac5035308e3f1d54954d8b97cd1c9b",
+            return_code::failure,
+            "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+        },
+
+        //test bigger result length
+        {
+            "007c43fcd125b2b13e2521e395a81727710a46b34fe279adbf1b94c72f7f91360db2f980370fb8962751c6ff064f4516a6a93d563388518bb77ab9a6b30755be",
+            "0312ed43559cf8ecbab5221256a56e567aac5035308e3f1d54954d8b97cd1c9b",
+            return_code::success,
+            "2d66cdeca5e1715896a5a924c50a149be87ddd2347b862150fbb0fd7d0b1833c11c76319ebefc5379f7aa6d85d40169a612597637242a4bbb39e5cd3b844becd00"
         },
    };
 
@@ -208,8 +288,8 @@ BOOST_AUTO_TEST_CASE( alt_bn128_pair_test ) { try {
    c.preactivate_protocol_features( {*d} );
    c.produce_block();
 
-   c.set_code( tester1_account, contracts::crypto_primitives_test_wasm() );
-   c.set_abi( tester1_account, contracts::crypto_primitives_test_abi().data() );
+   c.set_code( tester1_account, test_contracts::crypto_primitives_test_wasm() );
+   c.set_abi( tester1_account, test_contracts::crypto_primitives_test_abi().data() );
    c.produce_block();
 
    using g1g2_pair = std::vector<std::string>;
@@ -348,8 +428,8 @@ BOOST_AUTO_TEST_CASE( modexp_test ) { try {
    c.preactivate_protocol_features( {*d} );
    c.produce_block();
 
-   c.set_code( tester1_account, contracts::crypto_primitives_test_wasm() );
-   c.set_abi( tester1_account, contracts::crypto_primitives_test_abi().data() );
+   c.set_code( tester1_account, test_contracts::crypto_primitives_test_wasm() );
+   c.set_abi( tester1_account, test_contracts::crypto_primitives_test_abi().data() );
    c.produce_block();
 
    using modexp_test = std::tuple<std::vector<string>, int32_t, std::string>;
@@ -415,7 +495,7 @@ BOOST_AUTO_TEST_CASE( modexp_subjective_limit_test ) { try {
    // Given the need to respect the deadline timer and the current limitation that the deadline timer is not plumbed into the
    // inner loops of the implementation of mod_exp (which currently exists in the gmp shared library), only a small enough duration for
    // mod_exp can be tolerated to avoid going over the deadline timer by too much. A good threshold for small may be less than 5 ms.
-   // Based on benchmarks within the test_modular_arithmetic test within fc, the following constraints are subjectively enforced on the 
+   // Based on benchmarks within the test_modular_arithmetic test within fc, the following constraints are subjectively enforced on the
    // base, exp, and modulus input arguments of the mod_exp host function:
    //    1. exp.size() <= std::max(base.size(), modulus.size())
    //    2. 5 * ceil(log2(exp.size())) + 8 * ceil(log2(std::max(base.size(), modulus.size()))) <= 101
@@ -438,8 +518,8 @@ BOOST_AUTO_TEST_CASE( modexp_subjective_limit_test ) { try {
    c.preactivate_protocol_features( {*d} );
    c.produce_block();
 
-   c.set_code( tester1_account, contracts::crypto_primitives_test_wasm() );
-   c.set_abi( tester1_account, contracts::crypto_primitives_test_abi().data() );
+   c.set_code( tester1_account, test_contracts::crypto_primitives_test_wasm() );
+   c.set_abi( tester1_account, test_contracts::crypto_primitives_test_abi().data() );
    c.produce_block();
 
    auto exponent = h2bin("010001");
@@ -512,8 +592,8 @@ BOOST_AUTO_TEST_CASE( blake2f_test ) { try {
    c.preactivate_protocol_features( {*d} );
    c.produce_block();
 
-   c.set_code( tester1_account, contracts::crypto_primitives_test_wasm() );
-   c.set_abi( tester1_account, contracts::crypto_primitives_test_abi().data() );
+   c.set_code( tester1_account, test_contracts::crypto_primitives_test_wasm() );
+   c.set_abi( tester1_account, test_contracts::crypto_primitives_test_abi().data() );
    c.produce_block();
 
    using compress_test = std::tuple<std::vector<string>, int32_t, std::string>;
@@ -595,7 +675,7 @@ BOOST_AUTO_TEST_CASE( blake2f_test ) { try {
    };
 
    for(const auto& test : tests) {
-      
+
       const auto& params          = std::get<0>(test);
       const auto& expected_error  = std::get<1>(test);
       const auto& expected_result = std::get<2>(test);
@@ -639,8 +719,8 @@ BOOST_AUTO_TEST_CASE( keccak256_test ) { try {
    c.preactivate_protocol_features( {*d} );
    c.produce_block();
 
-   c.set_code( tester1_account, contracts::crypto_primitives_test_wasm() );
-   c.set_abi( tester1_account, contracts::crypto_primitives_test_abi().data() );
+   c.set_code( tester1_account, test_contracts::crypto_primitives_test_wasm() );
+   c.set_abi( tester1_account, test_contracts::crypto_primitives_test_abi().data() );
    c.produce_block();
 
    using test_keccak256 = std::tuple<std::string, std::string>;
@@ -690,8 +770,8 @@ BOOST_AUTO_TEST_CASE( sha3_test ) { try {
    c.preactivate_protocol_features( {*d} );
    c.produce_block();
 
-   c.set_code( tester1_account, contracts::crypto_primitives_test_wasm() );
-   c.set_abi( tester1_account, contracts::crypto_primitives_test_abi().data() );
+   c.set_code( tester1_account, test_contracts::crypto_primitives_test_wasm() );
+   c.set_abi( tester1_account, test_contracts::crypto_primitives_test_abi().data() );
    c.produce_block();
 
    using test_sha3 = std::tuple<std::string, std::string>;
@@ -741,8 +821,8 @@ BOOST_AUTO_TEST_CASE( k1_recover_test ) { try {
    c.preactivate_protocol_features( {*d} );
    c.produce_block();
 
-   c.set_code( tester1_account, contracts::crypto_primitives_test_wasm() );
-   c.set_abi( tester1_account, contracts::crypto_primitives_test_abi().data() );
+   c.set_code( tester1_account, test_contracts::crypto_primitives_test_wasm() );
+   c.set_abi( tester1_account, test_contracts::crypto_primitives_test_abi().data() );
    c.produce_block();
 
    using test_k1_recover = std::tuple<std::string, std::string, int32_t, std::string>;

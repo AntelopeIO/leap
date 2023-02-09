@@ -212,7 +212,7 @@ try:
          resultDesc = "!!!TEST CASE #{} ({}) IS SUCCESSFUL".format(nodeIdOfNodeToTest, runTestScenario.__name__)
          testResult = True
       except Exception as e:
-         resultDesc = "!!!BUG IS CONFIRMED ON TEST CASE #{} ({}): {}".format(nodeIdOfNodeToTest, runTestScenario.__name__, e)
+         resultDesc = "!!!BUG ON TEST CASE #{} ({}): {}".format(nodeIdOfNodeToTest, runTestScenario.__name__, e)
       finally:
          Utils.Print(resultDesc)
          testResultMsgs.append(resultDesc)

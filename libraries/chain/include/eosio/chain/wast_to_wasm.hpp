@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include <string>
+#include <stdint.h>
 
 namespace eosio { namespace chain {
 

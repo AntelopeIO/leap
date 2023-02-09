@@ -56,11 +56,12 @@ namespace detail {
 */
 struct abstract_conn {
    virtual ~abstract_conn() = default;
-   virtual bool verify_max_bytes_in_flight() = 0;
-   virtual bool verify_max_requests_in_flight() = 0;
+   virtual std::string verify_max_bytes_in_flight(size_t extra_bytes) = 0;
+   virtual std::string verify_max_requests_in_flight() = 0;
+   virtual void send_busy_response(std::string&& what) = 0;
    virtual void handle_exception() = 0;
 
-   virtual void send_response(std::string json_body, unsigned int code) = 0;
+   virtual void send_response(std::string&& json_body, unsigned int code) = 0;
 };
 
 using abstract_conn_ptr = std::shared_ptr<abstract_conn>;
@@ -99,14 +100,6 @@ static size_t in_flight_sizeof(const std::optional<T>& o) {
    return 0;
 }
 
-/**
-* Helper method to calculate the "in flight" size of a string
-* @param s - the string
-* @return in flight size of s
-*/
-static size_t in_flight_sizeof(const string& s) {
-   return s.size();
-}
 }// namespace detail
 
 // key -> priority, url_handler
@@ -136,73 +129,13 @@ struct http_plugin_state {
    bool keep_alive = false;
 
    uint16_t thread_pool_size = 2;
-   std::unique_ptr<eosio::chain::named_thread_pool> thread_pool;
+   eosio::chain::named_thread_pool thread_pool{ "http" };
 
    fc::logger& logger;
 
    explicit http_plugin_state(fc::logger& log)
        : logger(log) {}
 };
-
-/**
-* Helper type that wraps an object of type T and records its "in flight" size to
-* http_plugin_impl::bytes_in_flight using RAII semantics
-*
-* @tparam T - the contained Type
-*/
-template<typename T>
-struct in_flight {
-   in_flight(T&& object, std::shared_ptr<http_plugin_state> plugin_state)
-       : _object(std::move(object)), _plugin_state(std::move(plugin_state)) {
-      _count = detail::in_flight_sizeof(_object);
-      _plugin_state->bytes_in_flight += _count;
-   }
-
-   ~in_flight() {
-      if(_count) {
-         _plugin_state->bytes_in_flight -= _count;
-      }
-   }
-
-   // No copy constructor, but allow move
-   in_flight(const in_flight&) = delete;
-   in_flight(in_flight&& from)
-       : _object(std::move(from._object)), _count(from._count), _plugin_state(std::move(from._plugin_state)) {
-      from._count = 0;
-   }
-
-   // Delete copy/move assignment
-   in_flight& operator=(const in_flight&) = delete;
-   in_flight& operator=(in_flight&& from) = delete;
-
-   /**
-   * const accessor
-   * @return const reference to the contained object
-   */
-   const T& obj() const {
-      return _object;
-   }
-
-   /**
-   * mutable accessor (can be moved from)
-   * @return mutable reference to the contained object
-   */
-   T& obj() {
-      return _object;
-   }
-
-   T _object;
-   size_t _count;
-   std::shared_ptr<http_plugin_state> _plugin_state;
-};
-
-/**
-* convenient wrapper to make an in_flight<T>
-*/
-template<typename T>
-auto make_in_flight(T&& object, std::shared_ptr<http_plugin_state> plugin_state) {
-   return std::make_shared<in_flight<T>>(std::forward<T>(object), std::move(plugin_state));
-}
 
 /**
 * Construct a lambda appropriate for url_response_callback that will
@@ -215,8 +148,9 @@ auto make_in_flight(T&& object, std::shared_ptr<http_plugin_state> plugin_state)
 auto make_http_response_handler(std::shared_ptr<http_plugin_state> plugin_state, detail::abstract_conn_ptr session_ptr) {
    return [plugin_state{std::move(plugin_state)},
            session_ptr{std::move(session_ptr)}](int code, fc::time_point deadline, std::optional<fc::variant> response) {
-      auto tracked_response = make_in_flight(std::move(response), plugin_state);
-      if(!session_ptr->verify_max_bytes_in_flight()) {
+      auto payload_size = detail::in_flight_sizeof(response);
+      if(auto error_str = session_ptr->verify_max_bytes_in_flight(payload_size); !error_str.empty()) {
+         session_ptr->send_busy_response(std::move(error_str));
          return;
       }
 
@@ -225,15 +159,19 @@ auto make_http_response_handler(std::shared_ptr<http_plugin_state> plugin_state,
          deadline = start + plugin_state->max_response_time;
       }
 
+      plugin_state->bytes_in_flight += payload_size;
+
       // post back to an HTTP thread to allow the response handler to be called from any thread
-      boost::asio::post(plugin_state->thread_pool->get_executor(),
-                        [plugin_state, session_ptr, code, deadline, start,
-                         tracked_response = std::move(tracked_response)]() {
+      boost::asio::post(plugin_state->thread_pool.get_executor(),
+                        [plugin_state, session_ptr, code, deadline, start, payload_size, response = std::move(response)]() {
                            try {
-                              if(tracked_response->obj().has_value()) {
-                                 std::string json = fc::json::to_string(*tracked_response->obj(), deadline + (fc::time_point::now() - start));
-                                 auto tracked_json = make_in_flight(std::move(json), plugin_state);
-                                 session_ptr->send_response(std::move(tracked_json->obj()), code);
+                              plugin_state->bytes_in_flight -= payload_size;
+                              if (response.has_value()) {
+                                 std::string json = fc::json::to_string(*response, deadline + (fc::time_point::now() - start));
+                                 if (auto error_str = session_ptr->verify_max_bytes_in_flight(json.size()); error_str.empty())
+                                    session_ptr->send_response(std::move(json), code);
+                                 else
+                                    session_ptr->send_busy_response(std::move(error_str));
                               } else {
                                  session_ptr->send_response("{}", code);
                               }

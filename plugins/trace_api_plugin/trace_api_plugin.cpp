@@ -453,6 +453,7 @@ void trace_api_plugin::plugin_startup() {
 void trace_api_plugin::plugin_shutdown() {
    my->plugin_shutdown();
    rpc->plugin_shutdown();
+   fc_ilog( _log, "exit shutdown");
 }
 
 void trace_api_plugin::handle_sighup() {

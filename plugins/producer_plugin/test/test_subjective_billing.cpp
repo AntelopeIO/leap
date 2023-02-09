@@ -19,9 +19,6 @@ BOOST_AUTO_TEST_CASE( subjective_bill_test ) {
    transaction_id_type id1 = sha256::hash( "1" );
    transaction_id_type id2 = sha256::hash( "2" );
    transaction_id_type id3 = sha256::hash( "3" );
-   transaction_id_type id4 = sha256::hash( "4" );
-   transaction_id_type id5 = sha256::hash( "5" );
-   transaction_id_type id6 = sha256::hash( "6" );
    account_name a = "a"_n;
    account_name b = "b"_n;
    account_name c = "c"_n;
@@ -36,9 +33,9 @@ BOOST_AUTO_TEST_CASE( subjective_bill_test ) {
    {  // Failed transactions remain until expired in subjective billing.
       subjective_billing sub_bill;
 
-      sub_bill.subjective_bill( id1, now, a, fc::microseconds( 13 ), false );
-      sub_bill.subjective_bill( id2, now, a, fc::microseconds( 11 ), false );
-      sub_bill.subjective_bill( id3, now, b, fc::microseconds( 9 ), false );
+      sub_bill.subjective_bill( id1, now, a, fc::microseconds( 13 ) );
+      sub_bill.subjective_bill( id2, now, a, fc::microseconds( 11 ) );
+      sub_bill.subjective_bill( id3, now, b, fc::microseconds( 9 ) );
 
       BOOST_CHECK_EQUAL( 13+11, sub_bill.get_subjective_bill(a, now) );
       BOOST_CHECK_EQUAL( 9, sub_bill.get_subjective_bill(b, now) );
@@ -50,7 +47,7 @@ BOOST_AUTO_TEST_CASE( subjective_bill_test ) {
       BOOST_CHECK_EQUAL( 9, sub_bill.get_subjective_bill(b, now) );
 
       // expires transactions but leaves them in the decay at full value
-      sub_bill.remove_expired( log, now + fc::microseconds(1), now, fc::time_point::maximum() );
+      sub_bill.remove_expired( log, now + fc::microseconds(1), now, [](){ return false; } );
 
       BOOST_CHECK_EQUAL( 13+11, sub_bill.get_subjective_bill(a, now) );
       BOOST_CHECK_EQUAL( 9, sub_bill.get_subjective_bill(b, now) );
@@ -64,9 +61,9 @@ BOOST_AUTO_TEST_CASE( subjective_bill_test ) {
    {  // db_read_mode HEAD mode, so transactions are immediately reverted
       subjective_billing sub_bill;
 
-      sub_bill.subjective_bill( id1, now, a, fc::microseconds( 23 ), false );
-      sub_bill.subjective_bill( id2, now, a, fc::microseconds( 19 ), false );
-      sub_bill.subjective_bill( id3, now, b, fc::microseconds( 7 ), false );
+      sub_bill.subjective_bill( id1, now, a, fc::microseconds( 23 ) );
+      sub_bill.subjective_bill( id2, now, a, fc::microseconds( 19 ) );
+      sub_bill.subjective_bill( id3, now, b, fc::microseconds( 7 ) );
 
       BOOST_CHECK_EQUAL( 23+19, sub_bill.get_subjective_bill(a, now) );
       BOOST_CHECK_EQUAL( 7, sub_bill.get_subjective_bill(b, now) );
@@ -82,34 +79,6 @@ BOOST_AUTO_TEST_CASE( subjective_bill_test ) {
       sub_bill.abort_block();
 
       BOOST_CHECK_EQUAL( 19, sub_bill.get_subjective_bill(a, now) );
-      BOOST_CHECK_EQUAL( 7, sub_bill.get_subjective_bill(b, now) );
-   }
-   {  // db_read_mode SPECULATIVE mode, so transactions are in pending block until aborted
-      subjective_billing sub_bill;
-
-      sub_bill.subjective_bill( id1, now, a, fc::microseconds( 23 ), true );
-      sub_bill.subjective_bill( id2, now, a, fc::microseconds( 19 ), false ); // trx outside of block
-      sub_bill.subjective_bill( id3, now, a, fc::microseconds( 55 ), true );
-      sub_bill.subjective_bill( id4, now, b, fc::microseconds( 3 ), true );
-      sub_bill.subjective_bill( id5, now, b, fc::microseconds( 7 ), true );
-      sub_bill.subjective_bill( id6, now, a, fc::microseconds( 11 ), false ); // trx outside of block
-
-      BOOST_CHECK_EQUAL( 19+11, sub_bill.get_subjective_bill(a, now) ); // should not include what is in the pending block
-      BOOST_CHECK_EQUAL( 0, sub_bill.get_subjective_bill(b, now) );     // should not include what is in the pending block
-      BOOST_CHECK_EQUAL( 0, sub_bill.get_subjective_bill(c, now) );
-
-      sub_bill.on_block(log, {}, now);  // have not seen any of the transactions come back yet
-      sub_bill.abort_block(); // aborts the pending block, so subjective billing needs to include the reverted trxs
-
-      BOOST_CHECK_EQUAL( 23+19+55+11, sub_bill.get_subjective_bill(a, now) );
-      BOOST_CHECK_EQUAL( 3+7, sub_bill.get_subjective_bill(b, now) );
-
-      sub_bill.on_block(log, {}, now);
-      sub_bill.remove_subjective_billing( id3, 0 ); // simulate seeing id3 come back in block (this is what on_block would do)
-      sub_bill.remove_subjective_billing( id4, 0 ); // simulate seeing id4 come back in block (this is what on_block would do)
-      sub_bill.abort_block();
-
-      BOOST_CHECK_EQUAL( 23+19+11, sub_bill.get_subjective_bill(a, now) );
       BOOST_CHECK_EQUAL( 7, sub_bill.get_subjective_bill(b, now) );
    }
    { // failed handling logic, decay with repeated failures should be exponential, single failures should be linear
@@ -132,13 +101,13 @@ BOOST_AUTO_TEST_CASE( subjective_bill_test ) {
    { // expired handling logic, full billing until expiration then failed/decay logic
       subjective_billing sub_bill;
 
-      sub_bill.subjective_bill( id1, now, a, fc::microseconds( 1024 ), false );
-      sub_bill.subjective_bill( id2, now + fc::microseconds(1), a, fc::microseconds( 1024 ), false );
-      sub_bill.subjective_bill( id3, now, b, fc::microseconds( 1024 ), false );
+      sub_bill.subjective_bill( id1, now, a, fc::microseconds( 1024 ) );
+      sub_bill.subjective_bill( id2, now + fc::microseconds(1), a, fc::microseconds( 1024 ) );
+      sub_bill.subjective_bill( id3, now, b, fc::microseconds( 1024 ) );
       BOOST_CHECK_EQUAL( 1024 + 1024, sub_bill.get_subjective_bill(a, now) );
       BOOST_CHECK_EQUAL( 1024, sub_bill.get_subjective_bill(b, now) );
 
-      sub_bill.remove_expired( log, now, now, fc::time_point::maximum() );
+      sub_bill.remove_expired( log, now, now, [](){ return false; } );
       BOOST_CHECK_EQUAL( 1024 + 1024, sub_bill.get_subjective_bill(a, now) );
       BOOST_CHECK_EQUAL( 1024, sub_bill.get_subjective_bill(b, now) );
 
@@ -148,7 +117,7 @@ BOOST_AUTO_TEST_CASE( subjective_bill_test ) {
       BOOST_CHECK_EQUAL( 1024, sub_bill.get_subjective_bill(a, endtime) );
       BOOST_CHECK_EQUAL( 0, sub_bill.get_subjective_bill(b, endtime) );
 
-      sub_bill.remove_expired( log, now + fc::microseconds(1), now, fc::time_point::maximum() );
+      sub_bill.remove_expired( log, now + fc::microseconds(1), now, [](){ return false; } );
       BOOST_CHECK_EQUAL( 1024 + 1024, sub_bill.get_subjective_bill(a, now) );
       BOOST_CHECK_EQUAL( 1024, sub_bill.get_subjective_bill(b, now) );
 

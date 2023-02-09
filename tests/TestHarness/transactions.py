@@ -241,10 +241,12 @@ class Transactions(Queries):
                 Utils.Print("cmd Duration: %.3f sec" % (end-start))
             return (Queries.getTransStatus(trans) == 'executed' if expectTrxTrace else True, trans)
         except subprocess.CalledProcessError as ex:
+            msg=ex.stderr.decode("utf-8")
+            output=ex.output.decode("utf-8")
             msg=ex.output.decode("utf-8")
             if not silentErrors:
                 end=time.perf_counter()
-                Utils.Print("ERROR: Exception during push message.  cmd Duration=%.3f sec.  %s" % (end - start, msg))
+                Utils.Print("ERROR: Exception during push message. stderr: %s. stdout: %s.  cmd Duration=%.3f sec." % (msg, output, end - start))
             return (False, msg)
 
     def setPermission(self, account, code, pType, requirement, waitForTransBlock=False, exitOnError=False, sign=False):

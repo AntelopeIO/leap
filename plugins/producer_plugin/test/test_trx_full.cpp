@@ -100,15 +100,17 @@ BOOST_AUTO_TEST_SUITE(ordered_trxs_full)
 // Test verifies that transactions are processed, reported to caller, and not lost
 // even when blocks are aborted and some transactions fail.
 BOOST_AUTO_TEST_CASE(producer) {
-   boost::filesystem::path temp = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
+   
+   fc::temp_directory temp;
+   auto temp_dir_str = temp.path().string();
 
-   try {
+   {
       std::promise<std::tuple<producer_plugin*, chain_plugin*>> plugin_promise;
       std::future<std::tuple<producer_plugin*, chain_plugin*>> plugin_fut = plugin_promise.get_future();
       std::thread app_thread( [&]() {
          fc::logger::get(DEFAULT_LOGGER).set_log_level(fc::log_level::debug);
          std::vector<const char*> argv =
-               {"test", "--data-dir", temp.c_str(), "--config-dir", temp.c_str(),
+               {"test", "--data-dir", temp_dir_str.c_str(), "--config-dir", temp_dir_str.c_str(),
                 "-p", "eosio", "-e", "--max-transaction-time", "475", "--disable-subjective-billing=true" };
          appbase::app().initialize<chain_plugin, producer_plugin>( argv.size(), (char**) &argv[0] );
          appbase::app().startup();
@@ -204,11 +206,7 @@ BOOST_AUTO_TEST_CASE(producer) {
 
       BOOST_REQUIRE( verify_equal(trxs, all_blocks ) );
 
-   } catch ( ... ) {
-      bfs::remove_all( temp );
-      throw;
-   }
-   bfs::remove_all( temp );
+   } 
 }
 
 

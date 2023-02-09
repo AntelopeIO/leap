@@ -22,49 +22,59 @@ These can be specified from both the command-line or the `config.ini` file:
 
 ```console
 Config Options for eosio::http_plugin:
-  --unix-socket-path arg                The filename (relative to data-dir) to 
-                                        create a unix socket for HTTP RPC; set 
-                                        blank to disable (=keosd.sock for keosd)
-  --http-server-address arg (=127.0.0.1:8888 for nodeos)
-                                        The local IP and port to listen for 
+  --unix-socket-path arg                The filename (relative to data-dir) to
+                                        create a unix socket for HTTP RPC; set
+                                        blank to disable.
+  --http-server-address arg (=127.0.0.1:8888)
+                                        The local IP and port to listen for
                                         incoming http connections; set blank to
                                         disable.
-  --https-server-address arg            The local IP and port to listen for 
+  --https-server-address arg            The local IP and port to listen for
                                         incoming https connections; leave blank
                                         to disable.
-  --https-certificate-chain-file arg    Filename with the certificate chain to 
-                                        present on https connections. PEM 
+  --https-certificate-chain-file arg    Filename with the certificate chain to
+                                        present on https connections. PEM
                                         format. Required for https.
-  --https-private-key-file arg          Filename with https private key in PEM 
+  --https-private-key-file arg          Filename with https private key in PEM
                                         format. Required for https
-  --https-ecdh-curve arg (=secp384r1)   Configure https ECDH curve to use: 
+  --https-ecdh-curve arg (=secp384r1)   Configure https ECDH curve to use:
                                         secp384r1 or prime256v1
   --access-control-allow-origin arg     Specify the Access-Control-Allow-Origin
-                                        to be returned on each request.
+                                        to be returned on each request
   --access-control-allow-headers arg    Specify the Access-Control-Allow-Header
-                                        s to be returned on each request.
-  --access-control-max-age arg          Specify the Access-Control-Max-Age to 
+                                        s to be returned on each request
+  --access-control-max-age arg          Specify the Access-Control-Max-Age to
                                         be returned on each request.
   --access-control-allow-credentials    Specify if Access-Control-Allow-Credent
-                                        ials: true should be returned on each 
+                                        ials: true should be returned on each
                                         request.
-  --max-body-size arg (=1048576)        The maximum body size in bytes allowed 
+  --max-body-size arg (=2097152)        The maximum body size in bytes allowed
                                         for incoming RPC requests
   --http-max-bytes-in-flight-mb arg (=500)
-                                        Maximum size in megabytes http_plugin 
-                                        should use for processing http 
-                                        requests. 503 error response when 
+                                        Maximum size in megabytes http_plugin
+                                        should use for processing http
+                                        requests. -1 for unlimited. 429 error
+                                        response when exceeded.
+  --http-max-in-flight-requests arg (=-1)
+                                        Maximum number of requests http_plugin
+                                        should use for processing http
+                                        requests. 429 error response when
                                         exceeded.
+  --http-max-response-time-ms arg (=30) Maximum time for processing a request,
+                                        -1 for unlimited
   --verbose-http-errors                 Append the error log to HTTP responses
-  --http-validate-host arg (=1)         If set to false, then any incoming 
+  --http-validate-host arg (=1)         If set to false, then any incoming
                                         "Host" header is considered valid
-  --http-alias arg                      Additionaly acceptable values for the 
-                                        "Host" header of incoming HTTP 
-                                        requests, can be specified multiple 
-                                        times.  Includes http/s_server_address 
+  --http-alias arg                      Additionaly acceptable values for the
+                                        "Host" header of incoming HTTP
+                                        requests, can be specified multiple
+                                        times.  Includes http/s_server_address
                                         by default.
   --http-threads arg (=2)               Number of worker threads in http thread
                                         pool
+  --http-keep-alive arg (=1)            If set to false, do not keep HTTP
+                                        connections alive, even if client
+                                        requests.
 ```
 
 ## Dependencies
