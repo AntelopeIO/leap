@@ -497,7 +497,7 @@ class PtbArgumentsHandler(object):
                                                                 In \"heap\" mode database is preloaded in to swappable memory and will use huge pages if available. \
                                                                 In \"locked\" mode database is preloaded, locked in to memory, and will use huge pages if available.",
                                                                 choices=["mapped", "heap", "locked"], default="mapped")
-        ptbBaseParserGroup.add_argument("--net-threads", type=int, help="Number of worker threads in net_plugin thread pool", default=2)
+        ptbBaseParserGroup.add_argument("--net-threads", type=int, help="Number of worker threads in net_plugin thread pool", default=4)
         ptbBaseParserGroup.add_argument("--disable-subjective-billing", type=bool, help="Disable subjective CPU billing for API/P2P transactions", default=True)
         ptbBaseParserGroup.add_argument("--last-block-time-offset-us", type=int, help="Offset of last block producing time in microseconds. Valid range 0 .. -block_time_interval.", default=0)
         ptbBaseParserGroup.add_argument("--produce-time-offset-us", type=int, help="Offset of non last block producing time in microseconds. Valid range 0 .. -block_time_interval.", default=0)
