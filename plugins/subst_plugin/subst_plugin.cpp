@@ -79,10 +79,6 @@ namespace eosio {
                     auto timer_pause =
                         fc::make_scoped_exit([&]() { context.trx_context.resume_billing_timer(); });
                     context.trx_context.pause_billing_timer();
-                    ilog("calling substitute_apply with params:");
-                    ilog("code_hash: ${h}", ("h", code_hash));
-                    ilog("vm_type: ${v}", ("v", vm_type));
-                    ilog("vm_version: ${r}", ("r", vm_version));
                     return my->cache.substitute_apply(code_hash, vm_type, vm_version, context);
                 };
             }

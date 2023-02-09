@@ -28,19 +28,8 @@ namespace debug_contract
          if (vm_type || vm_version)
             return false;
 
-         ilog("Searching for ${h}", ("h", code_hash));
-         ilog("Substitutions size: ${s}", ("s", substitutions.size()));
-
-         if (substitutions.size() > 0) {
-             wlog("First item key ${i}", ("i", substitutions.begin()->first));
-             wlog("First item value ${i}", ("i", substitutions.begin()->second));
-         }
-
-         auto it = substitutions.find(code_hash);
-
-         if (it != substitutions.end())
+         if (auto it = substitutions.find(code_hash); it != substitutions.end())
          {
-            ilog("Found, applying subst");
             auto& module = *get_module(it->second).module;
             module.set_wasm_allocator(&context.control.get_wasm_allocator());
             eosio::chain::webassembly::interface iface(context);
@@ -50,7 +39,6 @@ namespace debug_contract
                         context.get_action().name.to_uint64_t());
             return true;
          }
-         elog("No subst for ${h}", ("h", code_hash));
          return false;
       }
 
