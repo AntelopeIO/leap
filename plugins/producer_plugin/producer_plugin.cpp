@@ -84,7 +84,7 @@ fc::logger       _trx_log;
 
 namespace eosio {
 
-static appbase::abstract_plugin& _producer_plugin = app().register_plugin<producer_plugin>();
+   static auto _producer_plugin = application::register_plugin<producer_plugin>();
 
 using namespace eosio::chain;
 using namespace eosio::chain::plugin_interface;
@@ -176,11 +176,12 @@ public:
       return false;
    }
 
-   void report( const fc::time_point& idle_trx_time ) {
+   void report( const fc::time_point& idle_trx_time, uint32_t block_num ) {
       if( _log.is_enabled( fc::log_level::debug ) ) {
          auto now = fc::time_point::now();
          add_idle_time( now - idle_trx_time );
-         fc_dlog( _log, "Block trx idle: ${i}us out of ${t}us, success: ${sn}, ${s}us, fail: ${fn}, ${f}us, other: ${o}us",
+         fc_dlog( _log, "Block #${n} trx idle: ${i}us out of ${t}us, success: ${sn}, ${s}us, fail: ${fn}, ${f}us, other: ${o}us",
+	 	  ("n", block_num)
                   ("i", block_idle_time)("t", now - clear_time)("sn", trx_success_num)("s", trx_success_time)
                   ("fn", trx_fail_num)("f", trx_fail_time)
                   ("o", (now - clear_time) - block_idle_time - trx_success_time - trx_fail_time) );
@@ -307,7 +308,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       pending_block_mode                                        _pending_block_mode = pending_block_mode::speculating;
       unapplied_transaction_queue                               _unapplied_transactions;
       size_t                                                    _thread_pool_size = config::default_controller_thread_pool_size;
-      named_thread_pool                                         _thread_pool{ "prod" };
+      named_thread_pool<struct prod>                            _thread_pool;
 
       std::atomic<int32_t>                                      _max_transaction_time_ms; // modified by app thread, read by net_plugin thread pool
       std::atomic<bool>                                         _received_block{false}; // modified by net_plugin thread pool and app thread
@@ -413,7 +414,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          auto& chain = chain_plug->chain();
 
          if( chain.is_building_block() ) {
-            _account_fails.report( _idle_trx_time );
+            _account_fails.report( _idle_trx_time, chain.pending_block_num() );
          }
          _unapplied_transactions.add_aborted( chain.abort_block() );
          _subjective_billing.abort_block();
@@ -2482,7 +2483,7 @@ void producer_plugin_impl::produce_block() {
 
    block_state_ptr new_bs = chain.head_block_state();
 
-   _account_fails.report(_idle_trx_time);
+   _account_fails.report(_idle_trx_time, new_bs->block_num);
    _account_fails.clear();
 
    br.total_time += fc::time_point::now() - start;
