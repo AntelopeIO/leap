@@ -20,7 +20,7 @@ namespace eosio::testing {
 
    struct action_pair_w_keys {
       action_pair_w_keys(eosio::chain::action first_action, eosio::chain::action second_action, fc::crypto::private_key first_act_signer, fc::crypto::private_key second_act_signer)
-            : _first_act(first_action), _second_act(second_action), _first_act_priv_key(first_act_signer), _second_act_priv_key(second_act_signer) {}
+            : _first_act(std::move(first_action)), _second_act(std::move(second_action)), _first_act_priv_key(std::move(first_act_signer)), _second_act_priv_key(std::move(second_act_signer)) {}
 
       eosio::chain::action _first_act;
       eosio::chain::action _second_act;
@@ -29,17 +29,17 @@ namespace eosio::testing {
    };
 
    struct account_name_generator {
-      account_name_generator() : _name_index_vec(ACCT_NAME_LEN, 0) {}
+      account_name_generator() : _name_index_vec(acct_name_len, 0) {}
 
-      const char* CHARMAP = "12345abcdefghijklmnopqrstuvwxyz";
-      const int ACCT_NAME_CHAR_CNT = 31;
-      const int ACCT_NAME_LEN = 12;
-      const int MAX_PREFEX = 960;
+      static constexpr char char_map[] = "12345abcdefghijklmnopqrstuvwxyz";
+      static constexpr int acct_name_char_cnt = sizeof(char_map) - 1;
+      const int acct_name_len = 12;
+      const int prefix_max = 960;
       std::vector<int> _name_index_vec;
 
       void increment(int index) {
          _name_index_vec[index]++;
-         if(_name_index_vec[index] >= ACCT_NAME_CHAR_CNT) {
+         if(_name_index_vec[index] >= acct_name_char_cnt) {
             _name_index_vec[index] = 0;
             increment(index - 1);
          }
@@ -54,8 +54,8 @@ namespace eosio::testing {
       }
 
       void setPrefix(int generator_id) {
-         if (generator_id > MAX_PREFEX) {
-            elog("Account Name Generator Prefix above allowable ${max}", ("max", MAX_PREFEX));
+         if (generator_id > prefix_max) {
+            elog("Account Name Generator Prefix above allowable ${max}", ("max", prefix_max));
             return;
          }
          _name_index_vec[0] = 0;
@@ -65,11 +65,11 @@ namespace eosio::testing {
          }
       };
 
-      std::string calcName() {
+      std::string calc_name() {
          std::string name;
          name.reserve(12);
          for(auto i: _name_index_vec) {
-            name += CHARMAP[i];
+            name += char_map[i];
          }
          return name;
       }

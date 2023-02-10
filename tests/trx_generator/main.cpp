@@ -24,8 +24,8 @@ enum return_codes {
 };
 
 int main(int argc, char** argv) {
-   const int64_t TRX_EXPIRATION_MAX = 3600;
-   const uint16_t GENERATOR_ID_MAX = 960;
+   const int64_t trx_expiration_max = 3600;
+   const uint16_t generator_id_max = 960;
    variables_map vmap;
    options_description cli("Transaction Generator command line options.");
    uint16_t gen_id;
@@ -149,16 +149,16 @@ int main(int argc, char** argv) {
       }
 
       if(vmap.count("generation-id")) {
-         if(gen_id > GENERATOR_ID_MAX) {
-            ilog("Initialization error: Exceeded max value for generator id. Value must be less than ${max}.", ("max", GENERATOR_ID_MAX));
+         if(gen_id > generator_id_max) {
+            ilog("Initialization error: Exceeded max value for generator id. Value must be less than ${max}.", ("max", generator_id_max));
             cli.print(std::cerr);
             return INITIALIZE_FAIL;
          }
       }
 
       if(vmap.count("trx-expiration")) {
-         if(trx_expr > TRX_EXPIRATION_MAX) {
-            ilog("Initialization error: Exceeded max value for transaction expiration. Value must be less than ${max}.", ("max", TRX_EXPIRATION_MAX));
+         if(trx_expr > trx_expiration_max) {
+            ilog("Initialization error: Exceeded max value for transaction expiration. Value must be less than ${max}.", ("max", trx_expiration_max));
             cli.print(std::cerr);
             return INITIALIZE_FAIL;
          }

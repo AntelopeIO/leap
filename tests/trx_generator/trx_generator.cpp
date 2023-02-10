@@ -234,7 +234,7 @@ namespace eosio::testing {
       _actions.clear();
 
       if (!_acct_gen_fields.empty()) {
-         std::string generated_account_name = _acct_name_generator.calcName();
+         std::string generated_account_name = _acct_name_generator.calc_name();
          _acct_name_generator.increment();
 
          for (auto const& [key, val] : _acct_gen_fields) {
