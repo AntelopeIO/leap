@@ -100,10 +100,11 @@ BOOST_AUTO_TEST_SUITE(ordered_trxs_full)
 // Test verifies that transactions are processed, reported to caller, and not lost
 // even when blocks are aborted and some transactions fail.
 BOOST_AUTO_TEST_CASE(producer) {
+   appbase::scoped_app app;
    
    fc::temp_directory temp;
    auto temp_dir_str = temp.path().string();
-
+   
    {
       std::promise<std::tuple<producer_plugin*, chain_plugin*>> plugin_promise;
       std::future<std::tuple<producer_plugin*, chain_plugin*>> plugin_fut = plugin_promise.get_future();
@@ -112,11 +113,11 @@ BOOST_AUTO_TEST_CASE(producer) {
          std::vector<const char*> argv =
                {"test", "--data-dir", temp_dir_str.c_str(), "--config-dir", temp_dir_str.c_str(),
                 "-p", "eosio", "-e", "--max-transaction-time", "475", "--disable-subjective-billing=true" };
-         appbase::app().initialize<chain_plugin, producer_plugin>( argv.size(), (char**) &argv[0] );
-         appbase::app().startup();
+         app->initialize<chain_plugin, producer_plugin>( argv.size(), (char**) &argv[0] );
+         app->startup();
          plugin_promise.set_value(
-               {appbase::app().find_plugin<producer_plugin>(), appbase::app().find_plugin<chain_plugin>()} );
-         appbase::app().exec();
+               {app->find_plugin<producer_plugin>(), app->find_plugin<chain_plugin>()} );
+         app->exec();
       } );
 
       auto[prod_plug, chain_plug] = plugin_fut.get();
@@ -140,7 +141,7 @@ BOOST_AUTO_TEST_CASE(producer) {
 
       std::atomic<size_t> num_acked = 0;
       plugin_interface::compat::channels::transaction_ack::channel_type::handle incoming_transaction_ack_subscription =
-            appbase::app().get_channel<plugin_interface::compat::channels::transaction_ack>().subscribe(
+            app->get_channel<plugin_interface::compat::channels::transaction_ack>().subscribe(
                   [&num_acked]( const std::pair<fc::exception_ptr, packed_transaction_ptr>& t){
                      ++num_acked;
                   } );
@@ -154,10 +155,10 @@ BOOST_AUTO_TEST_CASE(producer) {
       for( size_t i = 1; i <= num_pushes; ++i ) {
          auto ptrx = make_unique_trx( chain_id );
          dlog( "posting ${id}", ("id", ptrx->id()) );
-         app().post( priority::low, [ptrx, &next_calls, &num_posts, &trace_with_except, &trx_match, &trxs]() {
+         app->post( priority::low, [ptrx, &next_calls, &num_posts, &trace_with_except, &trx_match, &trxs, &app]() {
             ++num_posts;
             bool return_failure_traces = num_posts % 2;
-            app().get_method<plugin_interface::incoming::methods::transaction_async>()(ptrx,
+            app->get_method<plugin_interface::incoming::methods::transaction_async>()(ptrx,
                false, // api_trx
                transaction_metadata::trx_type::input, // trx_type
                return_failure_traces, // return_failure_traces
@@ -186,8 +187,8 @@ BOOST_AUTO_TEST_CASE(producer) {
          if( i % 200 == 0 ) {
             // get_integrity_hash aborts block and places aborted trxs into unapplied_transaction_queue
             // verifying that aborting block does not lose transactions
-            app().post(priority::high, [](){
-               app().find_plugin<producer_plugin>()->get_integrity_hash();
+            app->post(priority::high, [&](){
+               app->find_plugin<producer_plugin>()->get_integrity_hash();
             });
          }
       }
@@ -201,7 +202,7 @@ BOOST_AUTO_TEST_CASE(producer) {
       BOOST_CHECK_EQUAL( num_pushes, num_acked );
       BOOST_CHECK( trx_match.load() );
 
-      appbase::app().quit();
+      app->quit();
       app_thread.join();
 
       BOOST_REQUIRE( verify_equal(trxs, all_blocks ) );

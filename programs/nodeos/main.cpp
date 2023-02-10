@@ -108,43 +108,44 @@ enum return_codes {
 int main(int argc, char** argv)
 {
    try {
+      appbase::scoped_app app;
       uint32_t short_hash = 0;
       fc::from_hex(eosio::version::version_hash(), (char*)&short_hash, sizeof(short_hash));
 
-      app().set_version(htonl(short_hash));
-      app().set_version_string(eosio::version::version_client());
-      app().set_full_version_string(eosio::version::version_full());
+      app->set_version(htonl(short_hash));
+      app->set_version_string(eosio::version::version_client());
+      app->set_full_version_string(eosio::version::version_full());
 
       auto root = fc::app_path();
-      app().set_default_data_dir(root / "eosio" / nodeos::config::node_executable_name / "data" );
-      app().set_default_config_dir(root / "eosio" / nodeos::config::node_executable_name / "config" );
+      app->set_default_data_dir(root / "eosio" / nodeos::config::node_executable_name / "data" );
+      app->set_default_config_dir(root / "eosio" / nodeos::config::node_executable_name / "config" );
       http_plugin::set_defaults({
          .default_unix_socket_path = "",
          .default_http_port = 8888,
-         .server_header = nodeos::config::node_executable_name + "/" + app().version_string()
+         .server_header = nodeos::config::node_executable_name + "/" + app->version_string()
       });
-      if(!app().initialize<chain_plugin, net_plugin, producer_plugin, resource_monitor_plugin>(argc, argv)) {
-         const auto& opts = app().get_options();
+      if(!app->initialize<chain_plugin, net_plugin, producer_plugin, resource_monitor_plugin>(argc, argv)) {
+         const auto& opts = app->get_options();
          if( opts.count("help") || opts.count("version") || opts.count("full-version") || opts.count("print-default-config") ) {
             return SUCCESS;
          }
          return INITIALIZE_FAIL;
       }
-      if (auto resmon_plugin = app().find_plugin<resource_monitor_plugin>()) {
-         resmon_plugin->monitor_directory(app().data_dir());
+      if (auto resmon_plugin = app->find_plugin<resource_monitor_plugin>()) {
+         resmon_plugin->monitor_directory(app->data_dir());
       } else {
          elog("resource_monitor_plugin failed to initialize");
          return INITIALIZE_FAIL;
       }
       initialize_logging();
       ilog( "${name} version ${ver} ${fv}",
-            ("name", nodeos::config::node_executable_name)("ver", app().version_string())
-            ("fv", app().version_string() == app().full_version_string() ? "" : app().full_version_string()) );
-      ilog("${name} using configuration file ${c}", ("name", nodeos::config::node_executable_name)("c", app().full_config_file_path().string()));
-      ilog("${name} data directory is ${d}", ("name", nodeos::config::node_executable_name)("d", app().data_dir().string()));
-      app().startup();
-      app().set_thread_priority_max();
-      app().exec();
+            ("name", nodeos::config::node_executable_name)("ver", app->version_string())
+            ("fv", app->version_string() == app->full_version_string() ? "" : app->full_version_string()) );
+      ilog("${name} using configuration file ${c}", ("name", nodeos::config::node_executable_name)("c", app->full_config_file_path().string()));
+      ilog("${name} data directory is ${d}", ("name", nodeos::config::node_executable_name)("d", app->data_dir().string()));
+      app->startup();
+      app->set_thread_priority_max();
+      app->exec();
    } catch( const extract_genesis_state_exception& e ) {
       return EXTRACTED_GENESIS;
    } catch( const fixed_reversible_db_exception& e ) {
