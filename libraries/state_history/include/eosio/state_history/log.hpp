@@ -166,74 +166,74 @@ uint64_t read_unpacked_entry(Log&& log, Stream& stream, uint64_t payload_size, l
 }
 
 class state_history_log_data : public chain::log_data_base<state_history_log_data> {
+   uint32_t version_;
+   bool is_currently_pruned_;
+   uint64_t size_;
  public:
-   std::string filename;
-
    state_history_log_data() = default;
-   explicit state_history_log_data(const fc::path& path, mapmode mode = mapmode::readonly){
-      open(path, mode);
+   explicit state_history_log_data(const fc::path& path){
+      open(path);
    }
 
-   void open(const fc::path& path, mapmode mode = mapmode::readonly) {
-      filename = path.string();
+   void open(const fc::path& path) {
       if (file.is_open())
          file.close();
-      file.open(filename, mode);
+      file.set_file_path(path);
+      file.open("rb");
+      uint64_t v = chain::read_data_at<uint64_t>(file, 0);
+      version_ =  get_ship_version(v);
+      is_currently_pruned_ = is_ship_log_pruned(v);
+      file.seek_end(0);
+      size_ = file.tellp();
       return;
    }
 
-   uint32_t version() const { return get_ship_version(chain::read_buffer<uint64_t>(file.const_data())); }
-   uint32_t first_block_num() const { return block_num_at(0); }
+   uint64_t size() const { return size_;}
+   uint32_t version() const { return version_; }
+   uint32_t first_block_num() { return block_num_at(0); }
    uint32_t first_block_position() const { return 0; }
 
-   bool is_currently_pruned() const { return is_ship_log_pruned(chain::read_buffer<uint64_t>(file.const_data())); }
+   bool is_currently_pruned() const { return is_currently_pruned_; }
 
-   std::pair<fc::datastream<const char*>, uint32_t> ro_stream_at(uint64_t pos) const {
-      uint32_t ver = get_ship_version(chain::read_buffer<uint64_t>(file.const_data() + pos));
-      return std::make_pair(
-          fc::datastream<const char*>(file.const_data() + pos + sizeof(state_history_log_header), payload_size_at(pos)),
-          ver);
-   }
-
-   uint64_t ro_stream_at(uint64_t pos, locked_decompress_stream& result) const {
+   uint64_t ro_stream_at(uint64_t pos, locked_decompress_stream& result) {
       uint64_t                    payload_size = payload_size_at(pos);
-      fc::datastream<const char*> stream(file.const_data() + pos + sizeof(state_history_log_header), payload_size);
-      return read_unpacked_entry(*this, stream, payload_size, result);
+      file.seek(pos + sizeof(state_history_log_header));
+      // fc::datastream<const char*> stream(file.const_data() + pos + sizeof(state_history_log_header), payload_size);
+      return read_unpacked_entry(*this, file, payload_size, result);
    }
 
-   uint32_t block_num_at(uint64_t position) const {
+   uint32_t block_num_at(uint64_t position) {
       return fc::endian_reverse_u32(
-          chain::read_buffer<uint32_t>(file.const_data() + position + offsetof(state_history_log_header, block_id)));
+          chain::read_data_at<uint32_t>(file, position + offsetof(state_history_log_header, block_id)));
    }
 
-   chain::block_id_type block_id_at(uint64_t position) const {
-      return chain::read_buffer<chain::block_id_type>(file.const_data() + position +
+   chain::block_id_type block_id_at(uint64_t position) {
+      return chain::read_data_at<chain::block_id_type>(file, position +
                                                       offsetof(state_history_log_header, block_id));
    }
 
-   uint64_t payload_size_at(uint64_t pos) const {
-      EOS_ASSERT(file.size() >= pos + sizeof(state_history_log_header), chain::plugin_exception,
+   uint64_t payload_size_at(uint64_t pos) {
+      std::string filename = file.get_file_path().generic_string();
+      EOS_ASSERT(size() >= pos + sizeof(state_history_log_header), chain::plugin_exception,
                  "corrupt ${name}: invalid entry size at at position ${pos}", ("name", filename)("pos", pos));
 
-      fc::datastream<const char*> ds(file.const_data() + pos, sizeof(state_history_log_header));
-      state_history_log_header    header;
-      fc::raw::unpack(ds, header);
+      state_history_log_header header = chain::read_data_at<state_history_log_header>(file, pos);
 
       EOS_ASSERT(is_ship(header.magic) && is_ship_supported_version(header.magic), chain::plugin_exception,
                  "corrupt ${name}: invalid header for entry at position ${pos}", ("name", filename)("pos", pos));
 
-      EOS_ASSERT(file.size() >= pos + sizeof(state_history_log_header) + header.payload_size, chain::plugin_exception,
+      EOS_ASSERT(size() >= pos + sizeof(state_history_log_header) + header.payload_size, chain::plugin_exception,
                  "corrupt ${name}: invalid payload size for entry at position ${pos}", ("name", filename)("pos", pos));
       return header.payload_size;
    }
 
-   void construct_index(const fc::path& index_file_name) const {
+   void construct_index(const fc::path& index_file_name) {
       fc::cfile index_file;
       index_file.set_file_path(index_file_name);
       index_file.open("w+b");
 
       uint64_t pos = 0;
-      while (pos < file.size()) {
+      while (pos < size()) {
          uint64_t payload_size = payload_size_at(pos);
          index_file.write(reinterpret_cast<const char*>(&pos), sizeof(pos));
          pos += (sizeof(state_history_log_header) + payload_size + sizeof(uint64_t));
