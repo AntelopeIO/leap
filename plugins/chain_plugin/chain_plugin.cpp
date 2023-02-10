@@ -228,6 +228,25 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
    cfg.add_options()
          ("blocks-dir", bpo::value<bfs::path>()->default_value("blocks"),
           "the location of the blocks directory (absolute path or relative to application data dir)")
+         ("blocks-log-stride", bpo::value<uint32_t>(),
+         "split the block log file when the head block number is the multiple of the stride\n"
+         "When the stride is reached, the current block log and index will be renamed '<blocks-retained-dir>/blocks-<start num>-<end num>.log/index'\n"
+         "and a new current block log and index will be created with the most recent block. All files following\n"
+         "this format will be used to construct an extended block log.")
+         ("max-retained-block-files", bpo::value<uint32_t>(),
+          "the maximum number of blocks files to retain so that the blocks in those files can be queried.\n"
+          "When the number is reached, the oldest block file would be moved to archive dir or deleted if the archive dir is empty.\n"
+          "The retained block log files should not be manipulated by users." )
+         ("blocks-retained-dir", bpo::value<bfs::path>(),
+          "the location of the blocks retained directory (absolute path or relative to blocks dir).\n"
+          "If the value is empty, it is set to the value of blocks dir.")
+         ("blocks-archive-dir", bpo::value<bfs::path>(),
+          "the location of the blocks archive directory (absolute path or relative to blocks dir).\n"
+          "If the value is empty, blocks files beyond the retained limit will be deleted.\n"
+          "All files in the archive directory are completely under user's control, i.e. they won't be accessed by nodeos anymore.")
+         ("fix-irreversible-blocks",
+          "When the existing block log is inconsistent with the index, allows fixing the block log and index files automatically - that is, "
+          "it will take the highest indexed block if it is valid; otherwise it will repair the block log and reconstruct the index.")
          ("state-dir", bpo::value<bfs::path>()->default_value(config::default_state_dir_name),
           "the location of the state directory (absolute path or relative to application data dir)")
          ("protocol-features-dir", bpo::value<bfs::path>()->default_value("protocol_features"),
@@ -665,19 +684,44 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
       // move fork_db to new location
       upgrade_from_reversible_to_fork_db( my.get() );
 
-      if(options.count( "block-log-retain-blocks" )) {
-         my->chain_config->prune_config.emplace();
-         my->chain_config->prune_config->prune_blocks = options.at( "block-log-retain-blocks" ).as<uint32_t>();
+      bool has_partitioned_block_log_options = options.count("blocks-retained-dir") ||  options.count("blocks-archive-dir")
+         || options.count("blocks-log-stride") || options.count("max-retained-block-files");
+      bool has_retain_blocks_option = options.count("block-log-retain-blocks");
+      bool has_fix_irreversible_blocks_option = options.count("fix-irreversible-blocks");
 
-         if ( my->chain_config->prune_config->prune_blocks == 0 ) {
-            // clear out empty blocks.log. otherwise block_log::extract_genesis_state
-            // will return version 0 which asserts.
-            if( fc::exists( my->blocks_dir / "blocks.log" ) && fc::file_size( my->blocks_dir / "blocks.log" ) == 0 ) {
-               fc::remove( my->blocks_dir / "blocks.log" );
-               fc::remove( my->blocks_dir / "blocks.index" );
-            }
-         } else {
-            EOS_ASSERT(cfile::supports_hole_punching(), plugin_config_exception, "block-log-retain-blocks cannot be greater than 0 because the file system does not support hole punching");
+      EOS_ASSERT(!has_partitioned_block_log_options || !has_retain_blocks_option, plugin_config_exception,
+         "block-log-retain-blocks cannot be specified together with blocks-retained-dir, blocks-archive-dir or blocks-log-stride or max-retained-block-files.");
+      EOS_ASSERT(!has_fix_irreversible_blocks_option || !has_retain_blocks_option, plugin_config_exception,
+         "block-log-retain-blocks cannot be specified together with fix-irreversible-blocks.");
+
+
+      if (has_partitioned_block_log_options) {
+         my->chain_config->blog = eosio::chain::partitioned_blocklog_config{
+            .retained_dir = options.count("blocks-retained-dir") ? options.at("blocks-retained-dir").as<bfs::path>()
+                                                                 : bfs::path(""),
+            .archive_dir  = options.count("blocks-archive-dir") ? options.at("blocks-archive-dir").as<bfs::path>()
+                                                                : bfs::path("archive"),
+            .stride       = options.count("blocks-log-stride") ? options.at("blocks-log-stride").as<uint32_t>()
+                                                               : UINT32_MAX,
+            .max_retained_files = options.count("max-retained-block-files")
+                                        ? options.at("max-retained-block-files").as<uint32_t>()
+                                        : UINT32_MAX,
+            .fix_irreversible_blocks =
+                  options.count("fix-irreversible-blocks") ? options.at("fix-irreversible-blocks").as<bool>() : false
+         };
+      } else if (has_fix_irreversible_blocks_option) {
+         my->chain_config->blog = eosio::chain::basic_blocklog_config{
+            .fix_irreversible_blocks = options.at("fix-irreversible-blocks").as<bool>()
+         };
+      } else if(has_retain_blocks_option) {
+         uint32_t block_log_retain_blocks = options.at("block-log-retain-blocks").as<uint32_t>();
+         if (block_log_retain_blocks == 0)
+            my->chain_config->blog = eosio::chain::empty_blocklog_config{};
+         else {
+            EOS_ASSERT(cfile::supports_hole_punching(), plugin_config_exception,
+                       "block-log-retain-blocks cannot be greater than 0 because the file system does not support hole "
+                       "punching");
+            my->chain_config->blog = eosio::chain::prune_blocklog_config{ .prune_blocks = block_log_retain_blocks };
          }
       }
 
@@ -767,7 +811,7 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
                            ("block_log_chain_id", *block_log_chain_id)
                            ("state_chain_id", *chain_id)
                );
-            } else if( block_log_genesis ) {
+            } else if (block_log_genesis) {
                ilog( "Starting fresh blockchain state using genesis state extracted from blocks.log." );
                my->genesis = block_log_genesis;
                // Delay setting chain_id until later so that the code handling genesis-json below can know
@@ -937,7 +981,7 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
          // For the time being, when `deep-mind = true` is activated, we set `stdout` here to
          // be an unbuffered I/O stream.
          setbuf(stdout, NULL);
-         
+
          //verify configuration is correct
          EOS_ASSERT( options.at("api-accept-transactions").as<bool>() == false, plugin_config_exception,
             "api-accept-transactions must be set to false in order to enable deep-mind logging.");

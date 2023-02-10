@@ -42,7 +42,7 @@ using namespace state_history;
 using boost::signals2::scoped_connection;
 namespace bio = boost::iostreams;
 
-static appbase::abstract_plugin& _state_history_plugin = app().register_plugin<state_history_plugin>();
+   static auto _state_history_plugin = application::register_plugin<state_history_plugin>();
 
 const std::string logger_name("state_history");
 fc::logger        _log;
@@ -92,7 +92,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
    using acceptor_type = std::variant<std::unique_ptr<tcp_acceptor>, std::unique_ptr<unix_acceptor>>;
    std::set<acceptor_type>          acceptors;
 
-   named_thread_pool                thread_pool{"SHiP"};
+   named_thread_pool<struct ship> thread_pool;
 
    static fc::logger& logger() { return _log; }
 

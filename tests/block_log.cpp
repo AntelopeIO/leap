@@ -58,7 +58,7 @@ struct block_log_fixture {
       p->previous._hash[0] = fc::endian_reverse_u32(index-1);
       p->header_extensions.push_back(std::make_pair<uint16_t, std::vector<char>>(0, std::vector<char>(a)));
 
-      log->append(p, p->calculate_id());
+      log->append(p, p->calculate_id(), fc::raw::pack(*p));
 
       if(index + 1 > written_data.size())
          written_data.resize(index + 1);
@@ -94,6 +94,7 @@ struct block_log_fixture {
 
    bool enable_read, reopen_on_mark, remove_index_on_reopen, vacuum_on_exit_if_small;
    std::optional<uint32_t> prune_blocks;
+   std::optional<uint32_t> partition_stride;
    fc::temp_directory dir;
 
    std::optional<eosio::chain::block_log> log;
@@ -105,14 +106,27 @@ private:
       log.reset();
       if(remove_index_on_reopen)
          fc::remove(dir.path() / "blocks.index");
-      std::optional<eosio::chain::block_log_prune_config> conf;
+
+      eosio::chain::block_log_config conf;
+
       if(prune_blocks) {
-         conf.emplace();
-         conf->prune_blocks = *prune_blocks;
-         conf->prune_threshold = 8; //check to prune every 8 bytes; should guarantee always checking to prune for each block added
-         if(vacuum_on_exit_if_small)
-            conf->vacuum_on_close = 1024*1024*1024; //something large: will always vacuum on close for these small tests
+         if (*prune_blocks) {
+            eosio::chain::prune_blocklog_config prune_conf;
+            prune_conf.prune_blocks = *prune_blocks;
+            prune_conf.prune_threshold = 8; //check to prune every 8 bytes; should guarantee always checking to prune for each block added
+            if(vacuum_on_exit_if_small)
+               prune_conf.vacuum_on_close = 1024*1024*1024; //something large: will always vacuum on close for these small tests
+            conf = prune_conf;
+         } else{
+            conf = eosio::chain::empty_blocklog_config{};
+         }
+      } else if (partition_stride) {
+         conf = eosio::chain::partitioned_blocklog_config{
+            .stride = *partition_stride,
+            .max_retained_files = 1
+         };
       }
+
       log.emplace(dir.path(), conf);
    }
 };
@@ -575,11 +589,6 @@ BOOST_DATA_TEST_CASE(no_block_log_basic_nongenesis, bdata::xrange(2) * bdata::xr
 
 void no_block_log_public_functions_test( block_log_fixture& t) {
    BOOST_REQUIRE_NO_THROW(t.log->flush());
-   BOOST_REQUIRE(t.log->read_block(1) == nullptr);
-   BOOST_REQUIRE_NO_THROW(
-      eosio::chain::block_header bh;
-      t.log->read_block_header(bh, 1);
-   );
    BOOST_REQUIRE(t.log->read_block_by_num(1) == nullptr);
    BOOST_REQUIRE(t.log->read_block_id_by_num(1) == eosio::chain::block_id_type{});
    BOOST_REQUIRE(t.log->get_block_pos(1) == eosio::chain::block_log::npos);
@@ -602,6 +611,39 @@ BOOST_DATA_TEST_CASE(no_block_log_public_functions_nogenesis, bdata::xrange(2) *
 
    t.startup(10);
    no_block_log_public_functions_test(t);
+}  FC_LOG_AND_RETHROW() }
+
+
+BOOST_DATA_TEST_CASE(empty_prune_to_partitioned_transitions, bdata::xrange(2) * bdata::xrange(1, 11, 9), remove_index_on_reopen, starting_block)  { try {
+   //start pruned
+   block_log_fixture t(false, true, remove_index_on_reopen, false, 5);
+   t.startup(starting_block);
+
+   const uint32_t stride = 5;
+   uint32_t next_block_num = starting_block;
+
+   //vacuum back to partitioned
+   t.prune_blocks.reset();
+   t.partition_stride = stride;
+   t.check_n_bounce([&]() {});
+   if(starting_block == 1) {
+      t.check_range_present(1, 1);
+      t.check_not_present(2);
+      next_block_num = 2;
+   }
+   else
+      t.check_not_present(starting_block);
+
+   // add 10 more blocks
+   for (int i = 0; i < 10; ++i )
+      t.add(next_block_num + i, payload_size(), 'A');
+
+   uint32_t last_block_num = next_block_num + 10 - 1;
+   uint32_t expected_smallest_block_num = ((last_block_num - stride)/stride)*stride + 1;
+   t.check_range_present(expected_smallest_block_num, last_block_num);
+   t.check_not_present(expected_smallest_block_num-1);
+
+
 }  FC_LOG_AND_RETHROW() }
 
 BOOST_AUTO_TEST_SUITE_END()

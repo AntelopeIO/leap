@@ -44,8 +44,6 @@ struct log_catalog {
    using size_type                 = typename collection_t::size_type;
    static constexpr size_type npos = std::numeric_limits<size_type>::max();
 
-   using mapmode = boost::iostreams::mapped_file::mapmode;
-
    bfs::path    retained_dir;
    bfs::path    archive_dir;
    size_type    max_retained_files = std::numeric_limits<size_type>::max();
@@ -119,7 +117,7 @@ struct log_catalog {
       });
    }
 
-   bool index_matches_data(const bfs::path& index_path, const LogData& log) const {
+   bool index_matches_data(const bfs::path& index_path, LogData& log) const {
       if (!bfs::exists(index_path))
          return false;
 
@@ -137,12 +135,11 @@ struct log_catalog {
       return pos == log.last_block_position();
    }
 
-   std::optional<uint64_t> get_block_position(uint32_t block_num, mapmode mode = mapmode::readonly) {
+   std::optional<uint64_t> get_block_position(uint32_t block_num) {
       try {
          if (active_index != npos) {
             auto active_item = collection.nth(active_index);
-            if (active_item->first <= block_num && block_num <= active_item->second.last_block_num &&
-                log_data.flags() == mode) {
+            if (active_item->first <= block_num && block_num <= active_item->second.last_block_num) {
                return log_index.nth_block_position(block_num - log_data.first_block_num());
             }
          }
@@ -153,7 +150,7 @@ struct log_catalog {
 
          if (block_num <= it->second.last_block_num) {
             auto name = it->second.filename_base;
-            log_data.open(name.replace_extension("log"), mode);
+            log_data.open(name.replace_extension("log"));
             log_index.open(name.replace_extension("index"));
             active_index = collection.index_of(it);
             return log_index.nth_block_position(block_num - log_data.first_block_num());
@@ -165,12 +162,12 @@ struct log_catalog {
       }
    }
 
-   std::pair<fc::datastream<const char*>, uint32_t> ro_stream_for_block(uint32_t block_num) {
-      auto pos = get_block_position(block_num, mapmode::readonly);
+   fc::datastream<fc::cfile>* ro_stream_for_block(uint32_t block_num) {
+      auto pos = get_block_position(block_num);
       if (pos) {
-         return log_data.ro_stream_at(*pos);
+         return &log_data.ro_stream_at(*pos);
       }
-      return {fc::datastream<const char*>(nullptr, 0), static_cast<uint32_t>(0)};
+      return nullptr;
    }
 
    template <typename ...Rest>
@@ -182,16 +179,8 @@ struct log_catalog {
       return {};
    }
 
-   std::pair<fc::datastream<char*>, uint32_t> rw_stream_for_block(uint32_t block_num) {
-      auto pos = get_block_position(block_num, mapmode::readwrite);
-      if (pos) {
-         return log_data.rw_stream_at(*pos);
-      }
-      return {fc::datastream<char*>(nullptr, 0), static_cast<uint32_t>(0)};
-   }
-
    std::optional<block_id_type> id_for_block(uint32_t block_num) {
-      auto pos = get_block_position(block_num, mapmode::readonly);
+      auto pos = get_block_position(block_num);
       if (pos) {
          return log_data.block_id_at(*pos);
       }

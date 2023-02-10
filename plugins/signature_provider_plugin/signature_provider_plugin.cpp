@@ -7,7 +7,7 @@
 #include <boost/algorithm/string.hpp>
 
 namespace eosio {
-   static appbase::abstract_plugin& _signature_provider_plugin = app().register_plugin<signature_provider_plugin>();
+   static auto _signature_provider_plugin = application::register_plugin<signature_provider_plugin>();
 
 class signature_provider_plugin_impl {
    public:

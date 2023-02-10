@@ -1,41 +1,50 @@
 #pragma once
 
-#include <eosio/chain/exceptions.hpp>
-
 #include <boost/filesystem/path.hpp>
-#include <boost/iostreams/device/mapped_file.hpp>
+#include <fc/io/cfile.hpp>
 
 namespace eosio {
 namespace chain {
+/// copy up to n bytes from the current position of src to dest
+void copy_file_content(fc::cfile& src, fc::cfile& dest, uint64_t n = UINT64_MAX);
 
 template <typename Exception>
 class log_index {
-   boost::iostreams::mapped_file_source file;
-
+   fc::cfile file_;
+   std::size_t num_blocks_ = 0;
  public:
    log_index() = default;
-   log_index(const boost::filesystem::path& path) { open(path); }
+   log_index(const boost::filesystem::path& path) {
+      open(path);
+   }
 
    void open(const boost::filesystem::path& path) {
-      if (file.is_open())
-         file.close();
-      file.open(path.generic_string());
-      EOS_ASSERT(file.size() % sizeof(uint64_t) == 0, Exception,
+      if (file_.is_open())
+         file_.close();
+      file_.set_file_path(path);
+      file_.open("rb");
+      file_.seek_end(0);
+      num_blocks_ = file_.tellp()/ sizeof(uint64_t);
+      EOS_ASSERT(file_.tellp() % sizeof(uint64_t) == 0, Exception,
                  "The size of ${file} is not a multiple of sizeof(uint64_t)", ("file", path.generic_string()));
    }
 
-   bool is_open() const { return file.is_open(); }
+   bool is_open() const { return file_.is_open(); }
 
-   using iterator = const uint64_t*;
-   iterator begin() const { return reinterpret_cast<iterator>(file.data()); }
-   iterator end() const { return reinterpret_cast<iterator>(file.data() + file.size()); }
+   uint64_t back() { return nth_block_position(num_blocks()-1); }
+   int      num_blocks() const { return num_blocks_; }
+   uint64_t nth_block_position(uint32_t n) {
+      file_.seek(n*sizeof(uint64_t));
+      uint64_t r;
+      file_.read((char*)&r, sizeof(r));
+      return r;
+   }
 
-   /// @pre file.size() > 0
-   uint64_t back() const { return *(this->end() - 1); }
-   int      num_blocks() const { return file.size() / sizeof(uint64_t); }
-   uint64_t nth_block_position(uint32_t n) const { return *(begin() + n); }
+   void copy_to(fc::cfile& dest, uint64_t nbytes) {
+      file_.seek(0);
+      copy_file_content(file_, dest, nbytes);
+   }
 
-   const char* data() const { return file.data(); }
 };
 
 } // namespace chain
