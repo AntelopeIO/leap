@@ -288,9 +288,6 @@ public:
          return;
       }
 
-      // create a new parser to clear state
-      new_request_parser();
-
       // Read the rest of the message.
       do_read();
    }
