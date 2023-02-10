@@ -99,6 +99,8 @@ protected:
    // whether response should be sent back to client when an exception occurs
    bool is_send_exception_response_ = true;
 
+   bool read_body_ { false };
+
    template<
          class Body, class Allocator>
    void
@@ -162,6 +164,28 @@ protected:
       } catch(...) {
          handle_exception();
       }
+   }
+
+private:
+   void new_request_parser() {
+      // create a new parser to clear state
+      req_parser_.emplace();
+      req_parser_->body_limit(plugin_state_->max_body_size);
+   }
+
+   void send_100_response() {
+      auto res = std::make_shared<http::response<http::empty_body>>();
+         
+      res->version(11);
+      res->result(http::status::continue_);
+      res->set(http::field::server, plugin_state_->server_header);
+      
+      http::async_write(
+         derived().stream(),
+         *res,
+         [self = derived().shared_from_this(), res](beast::error_code ec, std::size_t bytes_transferred) {
+            self->on_write(ec, bytes_transferred, false);
+         });
    }
 
 public:
@@ -235,29 +259,58 @@ public:
       }
    }
 
-   void do_read() {
+   void do_read_header() {
       read_begin_ = steady_clock::now();
 
       // Read a request
-      auto self = derived().shared_from_this();
+      http::async_read_header(
+            derived().stream(),
+            buffer_,
+            *req_parser_,
+            [self = derived().shared_from_this()](beast::error_code ec, std::size_t bytes_transferred) {
+               self->on_read_header(ec, bytes_transferred);
+            });
+   }
+
+   void on_read_header(beast::error_code ec, std::size_t /* bytes_transferred */) {
+      if(ec) {
+         if(ec == http::error::end_of_stream) // other side closed the connection
+            return derived().do_eof();
+         
+         return fail(ec, "read_header", plugin_state_->logger, "closing connection");
+      }
+
+      read_body_ = true;
+
+      // Check for the Expect field value
+      if (req_parser_->get()[http::field::expect] == "100-continue") {
+         send_100_response(); // todo: check plugin_state_->max_body_size
+         return;
+      }
+
+      // create a new parser to clear state
+      new_request_parser();
+
+      // Read the rest of the message.
+      do_read();
+   }
+
+   void do_read() {
+      // Read a request
       http::async_read(
             derived().stream(),
             buffer_,
             *req_parser_,
-            [self](beast::error_code ec, std::size_t bytes_transferred) {
+            [self = derived().shared_from_this()](beast::error_code ec, std::size_t bytes_transferred) {
                self->on_read(ec, bytes_transferred);
             });
    }
 
-   void on_read(beast::error_code ec,
-                std::size_t bytes_transferred) {
-      boost::ignore_unused(bytes_transferred);
-
-      // This means they closed the connection
-      if(ec == http::error::end_of_stream)
-         return derived().do_eof();
-
+   void on_read(beast::error_code ec, std::size_t /* bytes_transferred */) {
       if(ec) {
+         if(ec == http::error::end_of_stream) // other side closed the connection
+            return derived().do_eof();
+
          return fail(ec, "read", plugin_state_->logger, "closing connection");
       }
 
@@ -289,14 +342,19 @@ public:
          return derived().do_eof();
       }
 
-      // create a new parser to clear state
-      req_parser_.emplace();
-      req_parser_->body_limit(plugin_state_->max_body_size);
       // create a new response object
       res_.emplace();
 
       // Read another request
-      do_read();
+      if (read_body_) {
+         read_body_ = false;
+         do_read();
+      }
+      else {
+         // create a new parser to clear state
+         new_request_parser();
+         do_read_header();
+      }
    }
 
    virtual void handle_exception() final {
@@ -371,21 +429,19 @@ public:
 
       res_->result(code);
       res_->body() = std::move(json);
-
       res_->prepare_payload();
-
+         
       // Determine if we should close the connection after
       bool close = !(plugin_state_->keep_alive) || res_->need_eof();
 
       // Write the response
-      auto self = derived().shared_from_this();
       http::async_write(
-            derived().stream(),
-            *res_,
-            [self, payload_size, close](beast::error_code ec, std::size_t bytes_transferred) {
-               self->decrement_bytes_in_flight(payload_size);
-               self->on_write(ec, bytes_transferred, close);
-            });
+         derived().stream(),
+         *res_,
+         [self = derived().shared_from_this(), payload_size, close](beast::error_code ec, std::size_t bytes_transferred) {
+            self->decrement_bytes_in_flight(payload_size);
+            self->on_write(ec, bytes_transferred, close);
+         });
    }
 
    void run_session() {
@@ -416,7 +472,7 @@ public:
 
    // Start the asynchronous operation
    void run() {
-      do_read();
+      do_read_header();
    }
 
    void do_eof() {
@@ -480,7 +536,7 @@ public:
 
       buffer_.consume(bytes_used);
 
-      do_read();
+      do_read_header();
    }
 
    void do_eof() {
@@ -545,7 +601,7 @@ public:
    bool is_secure() { return false; };
 
    void run() {
-      do_read();
+      do_read_header();
    }
 
    stream_protocol::socket& stream() { return socket_; }
