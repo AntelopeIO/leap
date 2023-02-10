@@ -167,28 +167,27 @@ uint64_t read_unpacked_entry(Log&& log, Stream& stream, uint64_t payload_size, l
 
 class state_history_log_data : public chain::log_data_base<state_history_log_data> {
    uint32_t version_;
-   bool is_currently_pruned_;
+   bool     is_currently_pruned_;
    uint64_t size_;
+
  public:
    state_history_log_data() = default;
-   explicit state_history_log_data(const fc::path& path){
-      open(path);
-   }
+   explicit state_history_log_data(const fc::path& path) { open(path); }
 
    void open(const fc::path& path) {
       if (file.is_open())
          file.close();
       file.set_file_path(path);
       file.open("rb");
-      uint64_t v = chain::read_data_at<uint64_t>(file, 0);
-      version_ =  get_ship_version(v);
+      uint64_t v           = chain::read_data_at<uint64_t>(file, 0);
+      version_             = get_ship_version(v);
       is_currently_pruned_ = is_ship_log_pruned(v);
       file.seek_end(0);
       size_ = file.tellp();
       return;
    }
 
-   uint64_t size() const { return size_;}
+   uint64_t size() const { return size_; }
    uint32_t version() const { return version_; }
    uint32_t first_block_num() { return block_num_at(0); }
    uint32_t first_block_position() const { return 0; }
@@ -647,12 +646,12 @@ class state_history_log {
    // only called from constructor
    void open_log() {
       log.set_file_path(log.get_file_path().string());
-      log.open("a+b");
+      log.open(fc::cfile::create_or_update_rw_mode);
       log.seek_end(0);
       uint64_t size = log.tellp();
       log.close();
 
-      log.open("r+b");
+      log.open(fc::cfile::update_rw_mode);
       if (size >= state_history_log_header_serial_size) {
          state_history_log_header header;
          log.seek(0);
@@ -693,7 +692,7 @@ class state_history_log {
 
    // only called from constructor
    void open_index() {
-      index.open("a+b");
+      index.open(fc::cfile::create_or_update_rw_mode);
       index.seek_end(0);
       if (index.tellp() == (static_cast<int>(_end_block) - _index_begin_block) * sizeof(uint64_t))
          return;
@@ -733,7 +732,7 @@ class state_history_log {
       }
 
       index.close();
-      index.open("a+b");
+      index.open(fc::cfile::create_or_update_rw_mode);
    }
 
    uint64_t get_pos(uint32_t block_num) {
@@ -782,9 +781,9 @@ class state_history_log {
          // restoring the prune trailer if required
       }
 
-      log.open("r+b");
+      log.open(fc::cfile::update_rw_mode);
       log.seek_end(0);
-      index.open("a+b");
+      index.open(fc::cfile::create_or_update_rw_mode);
 
       ilog("fork or replay: removed ${n} blocks from ${name}.log", ("n", num_removed)("name", name));
    }
@@ -869,6 +868,31 @@ class state_history_log {
    }
 
    void split_log() {
+
+      fc::path log_file_path = log.get_file_path();
+      fc::path index_file_path = index.get_file_path();
+
+      fc::datastream<fc::cfile>  new_log_file;
+      fc::datastream<fc::cfile> new_index_file;
+
+      fc::path tmp_log_file_path = log_file_path;
+      tmp_log_file_path.replace_extension("log.tmp");
+      fc::path tmp_index_file_path = index_file_path;
+      tmp_index_file_path.replace_extension("index.tmp");
+
+      new_log_file.set_file_path(tmp_log_file_path);
+      new_index_file.set_file_path(tmp_index_file_path);
+
+      try {
+         new_log_file.open(fc::cfile::truncate_rw_mode);
+         new_index_file.open(fc::cfile::truncate_rw_mode);
+
+      } catch (...) {
+         wlog("Unable to open new state history log or index file for writing during log spliting, "
+              "continue writing to existing block log file\n");
+         return;
+      }
+
       index.close();
       log.close();
 
@@ -876,8 +900,15 @@ class state_history_log {
 
       _begin_block = _end_block;
 
-      log.open("w+b");
-      index.open("w+b");
+      using std::swap;
+      swap(new_log_file, log);
+      swap(new_index_file, index);
+
+      fc::rename(tmp_log_file_path, log_file_path);
+      fc::rename(tmp_index_file_path, index_file_path);
+
+      log.set_file_path(log_file_path);
+      index.set_file_path(index_file_path);
    }
 }; // state_history_log
 
