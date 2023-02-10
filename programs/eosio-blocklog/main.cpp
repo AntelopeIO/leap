@@ -51,8 +51,6 @@ struct blocklog {
    bool                             smoke_test = false;
    bool                             vacuum = false;
    bool                             help = false;
-   bool                             merge_blocklogs = false;
-   uint32_t                         blocklog_split_stride = 0;
 
    block_log_config blog_conf;
 };
@@ -205,11 +203,6 @@ void blocklog::set_program_options(options_description& cli)
           "Quick test that blocks.log and blocks.index are well formed and agree with each other.")
          ("vacuum", bpo::bool_switch(&vacuum)->default_value(false),
           "Vacuum a pruned blocks.log in to an un-pruned blocks.log")
-         ("split-blocklog", bpo::value<uint32_t>(&blocklog_split_stride)->default_value(0),
-          "split the block log file based on the stride and store the result in the specified 'output-dir'.")
-         ("merge-blocklogs", bpo::bool_switch(&merge_blocklogs)->default_value(false),
-          "Merge block log files in 'blocks-dir' with the file pattern 'blocks-\\d+-\\d+.[log,index]' to 'output-dir' whenever possible."
-          "The files in 'blocks-dir' will be kept without change. Must give 'blocks-dir' and 'output-dir'.")
          ("help,h", bpo::bool_switch(&help)->default_value(false), "Print this help message and exit.")
          ;
 }
@@ -329,16 +322,6 @@ int main(int argc, char** argv) {
          block_log::construct_index(block_file.generic_string(), out_file.generic_string());
          fc::logger::get(DEFAULT_LOGGER).set_log_level(log_level);
          rt.report();
-         return 0;
-      }
-
-      if (blog.blocklog_split_stride != 0) {
-         block_log::split_blocklog(vmap.at("blocks-dir").as<bfs::path>(), vmap["output-dir"].as<bfs::path>(), blog.blocklog_split_stride);
-         return 0;
-      }
-
-      if (blog.merge_blocklogs) {
-         block_log::merge_blocklogs(vmap.at("blocks-dir").as<bfs::path>(), vmap["output-dir"].as<bfs::path>());
          return 0;
       }
 

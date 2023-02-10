@@ -101,7 +101,7 @@ namespace eosio { namespace chain {
 
 
          /**
-          * @param n Only test 1 block out of every n blocks. If n is 0, it is maximum between 1 and the ceiling of the total number blocks divided by 8.
+          * @param n Only test 1 block out of every n blocks. If n is 0, the interval is adjusted so that at most 8 blocks are tested.
           */
          static void smoke_test(fc::path block_dir, uint32_t n);
 
