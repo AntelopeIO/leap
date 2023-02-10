@@ -53,7 +53,8 @@ public:
            "Unless resource-monitor-not-shutdown-on-threshold-exceeded is enabled, a graceful shutdown is initiated if used space is above the threshold. "
            "The value should be between 6 and 99" )
          ( "resource-monitor-space-absolute-gb", bpo::value<uint64_t>(),
-           "Absolute threshold in gibibytes of remaining space. If remaining space is less than value then threshold is considered exceeded."
+           "Absolute threshold in gibibytes of remaining space; applied to each monitored directory. "
+           "If remaining space is less than value for any monitored directories then threshold is considered exceeded."
            "Overrides resource-monitor-space-threshold value.")
          ( "resource-monitor-not-shutdown-on-threshold-exceeded",
            "Used to indicate nodeos will not shutdown when threshold is exceeded." )
@@ -76,7 +77,7 @@ public:
             auto max = std::numeric_limits<uint64_t>::max()/1024/1024/1024;
             EOS_ASSERT(v > 0 && v < max, chain::plugin_config_exception,
                        "\"resource-monitor-space-absolute-gb\" must be greater than 0 GiB and less than max 64 bit value.");
-            uint64_t w = v < 10 ? v+1 : v < 50 ? v+5 : v < 100 ? v+10 : std::min(max, v+25); // set reasonable absolute warning levels
+            uint64_t w = v < 10 ? v+1 : std::min(max, (v + v/10)); // set reasonable absolute warning levels
             space_handler.set_absolute(v*1024*1024*1024, w*1024*1024*1024);
             ilog("Space usage absolute threshold set to ${v} GiB, warning set to ${w} GiB", ("v", v)("w",w));
          } else {
@@ -85,7 +86,7 @@ public:
                "\"resource-monitor-space-threshold\" must be between ${space_threshold_min} and ${space_threshold_max}",
                ("space_threshold_min", space_threshold_min) ("space_threshold_max", space_threshold_max));
             space_handler.set_threshold(threshold, threshold - space_threshold_warning_diff);
-            ilog("Space usage threshold set to ${threshold}", ("threshold", threshold));
+            ilog("Space usage threshold set to ${threshold}%", ("threshold", threshold));
          }
 
          if (options.count("resource-monitor-not-shutdown-on-threshold-exceeded")) {
