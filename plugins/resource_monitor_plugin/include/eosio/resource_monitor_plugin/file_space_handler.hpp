@@ -189,7 +189,7 @@ namespace eosio::resource_monitor {
       bool     output_threshold_warning {true};
 
    private:
-      uint32_t to_gib(uint64_t bytes) {
+      uint64_t to_gib(uint64_t bytes) {
          return bytes/1024/1024/1024;
       }
 
