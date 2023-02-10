@@ -97,6 +97,8 @@ namespace eosio::testing {
       trx_generator_base(uint16_t generator_id, std::string chain_id_in, std::string contract_owner_account, fc::microseconds trx_expr, std::string lib_id_str, std::string log_dir, bool stop_on_trx_failed,
          const std::string& peer_endpoint="127.0.0.1", unsigned short port=9876);
 
+      virtual ~trx_generator_base() = default;
+
       virtual void update_resign_transaction(eosio::chain::signed_transaction& trx, fc::crypto::private_key priv_key, uint64_t& nonce_prefix, uint64_t& nonce,
                                      const fc::microseconds& trx_expiration, const eosio::chain::chain_id_type& chain_id, const eosio::chain::block_id_type& last_irr_block_id);
 
