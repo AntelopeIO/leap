@@ -325,7 +325,7 @@ BOOST_AUTO_TEST_CASE(tps_cant_keep_up_monitored)
 
 BOOST_AUTO_TEST_CASE(trx_generator_constructor)
 {
-   uint16_t id = 1;
+   uint16_t generator_id = 1;
    std::string chain_id = "999";
    const std::string abi_file = "../../unittests/contracts/eosio.token/eosio.token.abi";
    std::string contract_owner_account = "eosio";
@@ -338,7 +338,7 @@ BOOST_AUTO_TEST_CASE(trx_generator_constructor)
    std::string peer_endpoint = "127.0.0.1";
    unsigned short port = 9876;
 
-   auto generator = trx_generator(id, chain_id, abi_file, contract_owner_account,
+   auto generator = trx_generator(generator_id, chain_id, abi_file, contract_owner_account,
                                   actions_data, action_auths,
                                   trx_expr, lib_id_str, log_dir, stop_on_trx_failed, peer_endpoint, port);
 }

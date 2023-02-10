@@ -53,14 +53,14 @@ namespace eosio::testing {
          increment(1);
       }
 
-      void setPrefix(int id) {
-         if (id > MAX_PREFEX) {
+      void setPrefix(int generator_id) {
+         if (generator_id > MAX_PREFEX) {
             elog("Account Name Generator Prefix above allowable ${max}", ("max", MAX_PREFEX));
             return;
          }
          _name_index_vec[0] = 0;
          _name_index_vec[1] = 0;
-         for(int i = 0; i < id; i++) {
+         for(int i = 0; i < generator_id; i++) {
             incrementPrefix();
          }
       };
@@ -77,7 +77,7 @@ namespace eosio::testing {
 
    struct trx_generator_base {
       p2p_trx_provider _provider;
-      uint16_t _id;
+      uint16_t _generator_id;
       eosio::chain::chain_id_type _chain_id;
       eosio::chain::name _contract_owner_account;
       fc::microseconds _trx_expiration;
@@ -94,7 +94,7 @@ namespace eosio::testing {
       bool _stop_on_trx_failed = true;
 
 
-      trx_generator_base(uint16_t id, std::string chain_id_in, std::string contract_owner_account, fc::microseconds trx_expr, std::string lib_id_str, std::string log_dir, bool stop_on_trx_failed,
+      trx_generator_base(uint16_t generator_id, std::string chain_id_in, std::string contract_owner_account, fc::microseconds trx_expr, std::string lib_id_str, std::string log_dir, bool stop_on_trx_failed,
          const std::string& peer_endpoint="127.0.0.1", unsigned short port=9876);
 
       virtual void update_resign_transaction(eosio::chain::signed_transaction& trx, fc::crypto::private_key priv_key, uint64_t& nonce_prefix, uint64_t& nonce,
@@ -121,7 +121,7 @@ namespace eosio::testing {
       const std::vector<std::string> _accts;
       std::vector<std::string> _private_keys_str_vector;
 
-      transfer_trx_generator(uint16_t id, std::string chain_id_in, std::string contract_owner_account, const std::vector<std::string>& accts,
+      transfer_trx_generator(uint16_t generator_id, std::string chain_id_in, std::string contract_owner_account, const std::vector<std::string>& accts,
          fc::microseconds trx_expr, const std::vector<std::string>& private_keys_str_vector, std::string lib_id_str, std::string log_dir, bool stop_on_trx_failed,
          const std::string& peer_endpoint="127.0.0.1", unsigned short port=9876);
 
@@ -150,7 +150,7 @@ namespace eosio::testing {
 
       const fc::microseconds abi_serializer_max_time = fc::seconds(10); // No risk to client side serialization taking a long time
 
-      trx_generator(uint16_t id, std::string chain_id_in, const std::string& abi_data_file, std::string contract_owner_account,
+      trx_generator(uint16_t generator_id, std::string chain_id_in, const std::string& abi_data_file, std::string contract_owner_account,
          const std::string& actions_data_json_file_or_str, const std::string& actions_auths_json_file_or_str,
          fc::microseconds trx_expr, std::string lib_id_str, std::string log_dir, bool stop_on_trx_failed,
          const std::string& peer_endpoint="127.0.0.1", unsigned short port=9876);
