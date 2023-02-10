@@ -77,7 +77,7 @@ namespace eosio::testing {
 
    struct trx_generator_base {
       p2p_trx_provider _provider;
-      uint16_t _generator_id;
+      uint16_t _generator_id = 0;
       eosio::chain::chain_id_type _chain_id;
       eosio::chain::name _contract_owner_account;
       fc::microseconds _trx_expiration;
@@ -104,7 +104,7 @@ namespace eosio::testing {
                             uint64_t& nonce, const fc::microseconds& trx_expiration, const eosio::chain::chain_id_type& chain_id,
                             const eosio::chain::block_id_type& last_irr_block_id);
 
-      void set_transaction_headers(eosio::chain::transaction& trx, const eosio::chain::block_id_type& last_irr_block_id, const fc::microseconds expiration, uint32_t delay_sec = 0);
+      void set_transaction_headers(eosio::chain::transaction& trx, const eosio::chain::block_id_type& last_irr_block_id, const fc::microseconds& expiration, uint32_t delay_sec = 0);
 
       signed_transaction_w_signer create_trx_w_actions_and_signer(std::vector<eosio::chain::action> act, const fc::crypto::private_key& priv_key, uint64_t& nonce_prefix, uint64_t& nonce,
                                                                  const fc::microseconds& trx_expiration, const eosio::chain::chain_id_type& chain_id, const eosio::chain::block_id_type& last_irr_block_id);
@@ -157,8 +157,8 @@ namespace eosio::testing {
 
       void locate_key_words_in_action_mvo(std::vector<std::string>& acct_gen_fields_out, fc::mutable_variant_object& action_mvo, const std::string& key_word);
       void locate_key_words_in_action_array(std::map<int, std::vector<std::string>>& acct_gen_fields_out, fc::variants& action_array, const std::string& key_word);
-      void update_key_word_fields_in_sub_action(std::string key, fc::mutable_variant_object& action_mvo, std::string action_inner_key, const std::string key_word);
-      void update_key_word_fields_in_action(std::vector<std::string>& acct_gen_fields, fc::mutable_variant_object& action_mvo, const std::string key_word);
+      void update_key_word_fields_in_sub_action(const std::string& key, fc::mutable_variant_object& action_mvo, const std::string& action_inner_key, const std::string& key_word);
+      void update_key_word_fields_in_action(std::vector<std::string>& acct_gen_fields, fc::mutable_variant_object& action_mvo, const std::string& key_word);
 
       void update_actions();
       virtual void update_resign_transaction(eosio::chain::signed_transaction& trx, fc::crypto::private_key priv_key, uint64_t& nonce_prefix, uint64_t& nonce,

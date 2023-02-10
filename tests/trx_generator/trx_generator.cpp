@@ -17,7 +17,7 @@ namespace bpo=boost::program_options;
 
 namespace eosio::testing {
 
-   void trx_generator_base::set_transaction_headers(transaction& trx, const block_id_type& last_irr_block_id, const fc::microseconds expiration, uint32_t delay_sec) {
+   void trx_generator_base::set_transaction_headers(transaction& trx, const block_id_type& last_irr_block_id, const fc::microseconds& expiration, uint32_t delay_sec) {
       trx.expiration = fc::time_point::now() + expiration;
       trx.set_reference_block(last_irr_block_id);
 
@@ -186,9 +186,9 @@ namespace eosio::testing {
       }
    }
 
-   void trx_generator::update_key_word_fields_in_sub_action(std::string key, fc::mutable_variant_object& action_mvo, std::string action_inner_key, const std::string key_word) {
-      auto mvo = action_mvo.find(action_inner_key);
-      if(mvo != action_mvo.end()) {
+   void trx_generator::update_key_word_fields_in_sub_action(const std::string& key, fc::mutable_variant_object& action_mvo, const std::string& action_inner_key, const std::string& key_word) {
+      auto itr = action_mvo.find(action_inner_key);
+      if(itr != action_mvo.end()) {
          fc::mutable_variant_object inner_mvo = fc::mutable_variant_object(action_mvo[action_inner_key].get_object());
          if (inner_mvo.find(key) != inner_mvo.end()) {
             inner_mvo.set(key, key_word);
@@ -197,13 +197,13 @@ namespace eosio::testing {
       }
    }
 
-   void trx_generator::update_key_word_fields_in_action(std::vector<std::string>& acct_gen_fields, fc::mutable_variant_object& action_mvo, const std::string key_word) {
-      for(auto key: acct_gen_fields) {
-         auto mvo = action_mvo.find(key);
-         if(mvo != action_mvo.end()) {
+   void trx_generator::update_key_word_fields_in_action(std::vector<std::string>& acct_gen_fields, fc::mutable_variant_object& action_mvo, const std::string& key_word) {
+      for(const auto& key: acct_gen_fields) {
+         auto itr = action_mvo.find(key);
+         if(itr != action_mvo.end()) {
             action_mvo.set(key, key_word);
          } else {
-            for(auto e: action_mvo) {
+            for(const auto& e: action_mvo) {
                if(e.value().get_type() == fc::variant::object_type) {
                   update_key_word_fields_in_sub_action(key, action_mvo, e.key(), key_word);
                }
@@ -215,7 +215,7 @@ namespace eosio::testing {
    void trx_generator::update_resign_transaction(signed_transaction& trx, fc::crypto::private_key priv_key, uint64_t& nonce_prefix, uint64_t& nonce, const fc::microseconds& trx_expiration, const chain_id_type& chain_id, const block_id_type& last_irr_block_id) {
       trx.actions.clear();
       update_actions();
-      for(auto act: _actions) {
+      for(const auto& act: _actions) {
          trx.actions.push_back(act);
       }
       trx_generator_base::update_resign_transaction(trx, priv_key, nonce_prefix, nonce, trx_expiration, chain_id, last_irr_block_id);
@@ -242,7 +242,7 @@ namespace eosio::testing {
          }
       }
 
-      for (auto action_mvo : _unpacked_actions) {
+      for (const auto& action_mvo : _unpacked_actions) {
          chain::name action_name = chain::name(action_mvo["actionName"].as_string());
          chain::name action_auth_acct = chain::name(action_mvo["actionAuthAcct"].as_string());
          bytes packed_action_data;
@@ -289,7 +289,7 @@ namespace eosio::testing {
 
       if(!_acct_gen_fields.empty()) {
          ilog("Located the following account names that need to be generated and populted in each transaction:");
-         for(auto e: _acct_gen_fields) {
+         for(const auto& e: _acct_gen_fields) {
             ilog("acct_gen_fields entry: ${value}", ("value", e));
          }
          ilog("Priming name generator for trx generator prefix.");
