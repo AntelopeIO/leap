@@ -65,10 +65,12 @@ namespace eosio::testing {
       eosio::chain::name _action;
       std::string _action_data_file_or_str;
       fc::crypto::private_key _private_key;
+      fc::crypto::private_key _owner_private_key;
 
       const fc::microseconds abi_serializer_max_time = fc::seconds(10); // No risk to client side serialization taking a long time
 
-      trx_generator(std::string chain_id_in, const std::string& abi_data_file, std::string contract_owner_account, std::string auth_account, std::string action_name, const std::string& action_data_file_or_str,
+      trx_generator(std::string chain_id_in, const std::string& abi_data_file, std::string contract_owner_account, const std::string& owner_private_key,
+         std::string auth_account, std::string action_name, const std::string& action_data_file_or_str,
          fc::microseconds trx_expr, const std::string& private_key_str, std::string lib_id_str, std::string log_dir, bool stop_on_trx_failed,
          const std::string& peer_endpoint="127.0.0.1", unsigned short port=9876);
 

@@ -37,7 +37,8 @@ class TpsTrxGensConfig:
 class TransactionGeneratorsLauncher:
 
     def __init__(self, chainId: int, lastIrreversibleBlockId: int, contractOwnerAccount: str, accts: str, privateKeys: str,
-                 trxGenDurationSec: int, logDir: str, abiFile: Path, actionName: str, actionData, peerEndpoint: str, port: int, tpsTrxGensConfig: TpsTrxGensConfig):
+                 trxGenDurationSec: int, logDir: str, abiFile: Path, actionName: str, actionData, peerEndpoint: str, port: int, tpsTrxGensConfig: TpsTrxGensConfig,
+                 ownerPrivateKey: str):
         self.chainId = chainId
         self.lastIrreversibleBlockId = lastIrreversibleBlockId
         self.contractOwnerAccount  = contractOwnerAccount
@@ -51,6 +52,7 @@ class TransactionGeneratorsLauncher:
         self.actionData = actionData
         self.peerEndpoint = peerEndpoint
         self.port = port
+        self.ownerPrivateKey=ownerPrivateKey
 
     def launch(self, waitToComplete=True):
         self.subprocess_ret_codes = []
@@ -71,7 +73,8 @@ class TransactionGeneratorsLauncher:
                         f'--action-data {self.actionData} '
                         f'--abi-file {self.abiFile} '
                         f'--peer-endpoint {self.peerEndpoint} '
-                        f'--port {self.port}'
+                        f'--port {self.port} '
+                        f'--owner-private-key {self.ownerPrivateKey}'
                     )
                 self.subprocess_ret_codes.append(
                     subprocess.Popen([
@@ -88,7 +91,8 @@ class TransactionGeneratorsLauncher:
                         '--action-data', f'{self.actionData}',
                         '--abi-file', f'{self.abiFile}',
                         '--peer-endpoint', f'{self.peerEndpoint}',
-                        '--port', f'{self.port}'
+                        '--port', f'{self.port}',
+                        '--owner-private-key', f'{self.ownerPrivateKey}'
                     ])
                 )
             else:
@@ -104,7 +108,8 @@ class TransactionGeneratorsLauncher:
                         f'--target-tps {targetTps} '
                         f'--log-dir {self.logDir} '
                         f'--peer-endpoint {self.peerEndpoint} '
-                        f'--port {self.port}'
+                        f'--port {self.port} '
+                        f'--owner-private-key {self.ownerPrivateKey}'
                     )
                 self.subprocess_ret_codes.append(
                     subprocess.Popen([
@@ -118,7 +123,8 @@ class TransactionGeneratorsLauncher:
                         '--target-tps', f'{targetTps}',
                         '--log-dir', f'{self.logDir}',
                         '--peer-endpoint', f'{self.peerEndpoint}',
-                        '--port', f'{self.port}'
+                        '--port', f'{self.port}',
+                        '--owner-private-key', f'{self.ownerPrivateKey}'
                     ])
                 )
         exitCodes=None
@@ -149,6 +155,7 @@ def parseArgs():
     parser.add_argument("abi_file", type=str, help="The path to the contract abi file to use for the supplied transaction action data")
     parser.add_argument("peer_endpoint", type=str, help="set the peer endpoint to send transactions to", default="127.0.0.1")
     parser.add_argument("port", type=int, help="set the peer endpoint port to send transactions to", default=9876)
+    parser.add_argument("owner_private_key", type=str, help="ownerPrivateKey of the contract owner")
     args = parser.parse_args()
     return args
 
@@ -160,7 +167,8 @@ def main():
                                                    privateKeys=args.priv_keys, trxGenDurationSec=args.trx_gen_duration, logDir=args.log_dir,
                                                    abiFile=args.abi_file, actionName=args.action_name, actionData=args.action_data,
                                                    peerEndpoint=args.peer_endpoint, port=args.port,
-                                                   tpsTrxGensConfig=TpsTrxGensConfig(targetTps=args.target_tps, tpsLimitPerGenerator=args.tps_limit_per_generator))
+                                                   tpsTrxGensConfig=TpsTrxGensConfig(targetTps=args.target_tps, tpsLimitPerGenerator=args.tps_limit_per_generator),
+                                                   ownerPrivateKey=args.owner_private_key)
 
 
     exit_codes = trxGenLauncher.launch()

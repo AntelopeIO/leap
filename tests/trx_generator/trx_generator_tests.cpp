@@ -339,7 +339,7 @@ BOOST_AUTO_TEST_CASE(trx_generator_constructor)
    unsigned short port = 9876;
    bool stop_on_trx_failed = true;
 
-   auto generator = trx_generator(chain_id, abi_file, contract_owner_account, acct, action_name, action_data, trx_expr, private_key_str, lib_id_str, log_dir, stop_on_trx_failed, peer_endpoint, port);
+   auto generator = trx_generator(chain_id, abi_file, contract_owner_account, private_key_str, acct, action_name, action_data, trx_expr, private_key_str, lib_id_str, log_dir, stop_on_trx_failed, peer_endpoint, port);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

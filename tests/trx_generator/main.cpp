@@ -42,6 +42,7 @@ int main(int argc, char** argv) {
    bool stop_on_trx_failed;
    std::string peer_endpoint;
    unsigned short port;
+   string owner_private_key;
 
    bool transaction_specified = false;
    std::string action_name_in;
@@ -71,6 +72,7 @@ int main(int argc, char** argv) {
          ("stop-on-trx-failed", bpo::value<bool>(&stop_on_trx_failed)->default_value(true), "stop transaction generation if sending fails.")
          ("peer-endpoint", bpo::value<string>(&peer_endpoint)->default_value("127.0.0.1"), "set the peer endpoint to send transactions to")
          ("port", bpo::value<uint16_t>(&port)->default_value(9876), "set the peer endpoint port to send transactions to")
+         ("owner-private-key", bpo::value<string>(&owner_private_key), "ownerPrivateKey of the contract owner")
          ("help,h", "print this list")
          ;
 
@@ -121,13 +123,8 @@ int main(int argc, char** argv) {
 
       if(vmap.count("accounts")) {
          boost::split(account_str_vector, accts, boost::is_any_of(","));
-         if(!transaction_specified && account_str_vector.size() < 2) {
-            ilog("Initialization error: requires at minimum 2 transfer accounts");
-            cli.print(std::cerr);
-            return INITIALIZE_FAIL;
-         }
-         if (transaction_specified && account_str_vector.size() < 1) {
-            ilog("Initialization error: Specifying transaction to generate requires at minimum 1 account.");
+         if(account_str_vector.size() < 1) {
+            ilog("Initialization error: requires at minimum 1 account");
             cli.print(std::cerr);
             return INITIALIZE_FAIL;
          }
@@ -186,6 +183,12 @@ int main(int argc, char** argv) {
             return INITIALIZE_FAIL;
          }
       }
+
+      if(!vmap.count("owner-private-key")) {
+         ilog("Initialization error: missing owner-private-key");
+         cli.print(std::cerr);
+         return INITIALIZE_FAIL;
+      }
    } catch(bpo::unknown_option& ex) {
       std::cerr << ex.what() << std::endl;
       cli.print(std::cerr);
@@ -202,14 +205,15 @@ int main(int argc, char** argv) {
    ilog("Target generation Transaction Per Second (TPS) ${tps}", ("tps", target_tps));
    ilog("Logs directory ${logDir}", ("logDir", log_dir_in));
    ilog("Peer Endpoint ${peer-endpoint}:${peer-port}", ("peer-endpoint", peer_endpoint)("peer-port", port));
+   ilog("OwnerPrivateKey ${key}", ("key", owner_private_key));
 
    fc::microseconds trx_expr_ms = fc::seconds(trx_expr);
 
    std::shared_ptr<tps_performance_monitor> monitor;
    if (transaction_specified) {
-      auto generator = std::make_shared<trx_generator>(chain_id_in, abi_file_path_in, contract_owner_acct, account_str_vector.at(0), action_name_in,
-                                                       action_data_file_or_str, trx_expr_ms, private_keys_str_vector.at(0), lib_id_str, log_dir_in,
-                                                       stop_on_trx_failed, peer_endpoint, port);
+      auto generator = std::make_shared<trx_generator>(chain_id_in, abi_file_path_in, contract_owner_acct, owner_private_key, account_str_vector.at(0),
+                                                       action_name_in, action_data_file_or_str, trx_expr_ms, private_keys_str_vector.at(0), lib_id_str,
+                                                       log_dir_in, stop_on_trx_failed, peer_endpoint, port);
       monitor = std::make_shared<tps_performance_monitor>(spinup_time_us, max_lag_per, max_lag_duration_us);
       trx_tps_tester<trx_generator, tps_performance_monitor> tester{generator, monitor, gen_duration, target_tps};
 

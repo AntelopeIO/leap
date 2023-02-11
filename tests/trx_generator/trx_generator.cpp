@@ -166,9 +166,9 @@ namespace eosio::testing {
       }
    }
 
-   trx_generator::trx_generator(std::string chain_id_in, const std::string& abi_data_file, std::string contract_owner_account, std::string auth_account, std::string action_name,
+   trx_generator::trx_generator(std::string chain_id_in, const std::string& abi_data_file, std::string contract_owner_account, const std::string& owner_private_key, std::string auth_account, std::string action_name,
          const std::string& action_data_file_or_str, fc::microseconds trx_expr, const std::string& private_key_str, std::string lib_id_str, std::string log_dir, bool stop_on_trx_failed, const std::string& peer_endpoint, unsigned short port)
-       : trx_generator_base(chain_id_in, contract_owner_account, trx_expr, lib_id_str, log_dir, stop_on_trx_failed, peer_endpoint, port), _abi_data_file_path(abi_data_file), _auth_account(auth_account),
+       : trx_generator_base(chain_id_in, contract_owner_account, trx_expr, lib_id_str, log_dir, stop_on_trx_failed, peer_endpoint, port), _abi_data_file_path(abi_data_file), _owner_private_key(fc::crypto::private_key(owner_private_key)), _auth_account(auth_account),
          _action(action_name), _action_data_file_or_str(action_data_file_or_str), _private_key(fc::crypto::private_key(private_key_str)) {}
 
    bool trx_generator::setup() {
@@ -196,10 +196,10 @@ namespace eosio::testing {
       eosio::chain::action act;
       act.account = _contract_owner_account;
       act.name = _action;
-      act.authorization = vector<permission_level>{{_auth_account, config::active_name}};
+      act.authorization = vector<permission_level>{{_contract_owner_account, config::owner_name}};
       act.data = std::move(packed_action_data);
 
-      _trxs.emplace_back(create_transfer_trx_w_signer(act, _private_key, ++_nonce_prefix, _nonce, _trx_expiration, _chain_id, _last_irr_block_id));
+      _trxs.emplace_back(create_transfer_trx_w_signer(act, _owner_private_key, ++_nonce_prefix, _nonce, _trx_expiration, _chain_id, _last_irr_block_id));
 
       ilog("Setup p2p transaction provider");
 
