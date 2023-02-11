@@ -6,7 +6,7 @@ AccessModifierOffset: -3
 AlwaysBreakTemplateDeclarations: Yes
 AlignArrayOfStructures: Left
 AllowShortBlocksOnASingleLine: Empty
-AllowShortFunctionsOnASingleLine: Inline
+AllowShortFunctionsOnASingleLine: All
 BinPackArguments: false
 BinPackParameters: false
 BreakBeforeBraces: Custom
