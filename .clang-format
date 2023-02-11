@@ -1,7 +1,7 @@
+---
 BasedOnStyle: LLVM
-IndentWidth: 3
-ColumnLimit: 120
-PointerAlignment: Left
+---
+Language: Cpp
 AccessModifierOffset: -3
 AlwaysBreakTemplateDeclarations: Yes
 AlignArrayOfStructures: Left
@@ -11,12 +11,23 @@ BinPackArguments: false
 BinPackParameters: false
 BreakBeforeBraces: Custom
 BraceWrapping:
-  SplitEmptyFunction: false
+  AfterClass:       true
+  AfterControlStatement: Never  # LLVM default
+  AfterEnum:        true
+  AfterFunction:    true
+  AfterNamespace:   false       # LLVM default
+  AfterStruct:      true
+  AfterUnion:       true
+  AfterExternBlock: true
+  SplitEmptyFunction:  false
   SplitEmptyNamespace: false
   SplitEmptyRecord: false
 BreakConstructorInitializers: AfterColon
 BreakInheritanceList: AfterColon
+ColumnLimit: 120
 ConstructorInitializerIndentWidth: 3
 ContinuationIndentWidth: 3
+IndentWidth: 3
 MaxEmptyLinesToKeep: 3
+PointerAlignment: Left
 SortIncludes:    Never
