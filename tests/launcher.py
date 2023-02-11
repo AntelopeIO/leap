@@ -3,6 +3,7 @@
 import argparse
 import datetime
 from dataclasses import InitVar, dataclass, field, is_dataclass, asdict
+from enum import Enum
 import errno
 import json
 from pathlib import Path
@@ -20,6 +21,7 @@ from typing import ClassVar, Dict, List
 
 from TestHarness import Cluster
 from TestHarness import Utils
+from TestHarness import fc_log_level
 
 block_dir = 'blocks'
 
@@ -28,6 +30,8 @@ class EnhancedEncoder(json.JSONEncoder):
         if is_dataclass(o):
             return asdict(o)
         elif isinstance(o, Path):
+            return str(o)
+        elif isinstance(o, Enum):
             return str(o)
         return super().default(o)
 
@@ -213,6 +217,9 @@ class launcher(object):
         cfg.add_argument('--max-block-cpu-usage', type=int, help='the "max-block-cpu-usage" value to use in the genesis.json file', default=200000)
         cfg.add_argument('--max-transaction-cpu-usage', type=int, help='the "max-transaction-cpu-usage" value to use in the genesis.json file', default=150000)
         cfg.add_argument('--nodeos-log-path', type=Path, help='path to nodeos log directory')
+        cfg.add_argument('--logging-level', type=fc_log_level, help='Provide the "level" value to use in the logging.json file')
+        cfg.add_argument('--logging-level-map', type=json.loads, help='JSON string of a logging level dictionary to use in the logging.json file for specific nodes, matching based on node number. Ex: {"bios":"off","00":"info"}')
+        cfg.add_argument('--is-nodeos-v2', action='store_true', help='Toggles old nodeos compatibility', default=False)
         r = parser.parse_args(args)
         if r.launch != 'none' and r.topology_filename:
             Utils.Print('Output file specified--overriding launch to "none"')
@@ -371,7 +378,18 @@ plugin = eosio::chain_api_plugin
             cfg.write(config)
 
     def write_logging_config_file(self, node):
-        pass
+        ll = fc_log_level.debug
+        if self.args.logging_level:
+            ll = self.args.logging_level
+        dex = str(node.index).zfill(2)
+        if dex in self.args.logging_level_map:
+            ll = self.args.logging_level_map[dex]
+        with open(Path(os.getcwd()) / 'logging.json', 'r') as default:
+            cfg = json.load(default)
+        for logger in cfg['loggers']:
+            logger['level'] = ll
+        with open(node.config_dir_name / 'logging.json', 'w') as out:
+            json.dump(cfg, out, cls=EnhancedEncoder, indent=2)
 
     def init_genesis(self):
         genesis_path = self.args.genesis if self.args.genesis.is_absolute() else Path.cwd() / self.args.genesis
@@ -566,6 +584,17 @@ plugin = eosio::chain_api_plugin
         if self.args.timestamp:
             eosdcmd.append('--genesis-timestamp')
             eosdcmd.append(self.args.timestamp)
+
+        # Always enable a history query plugin on the bios node
+        if instance.name == 'bios':
+            if self.args.is_nodeos_v2:
+                eosdcmd.append('--plugin')
+                eosdcmd.append('eosio::history_api_plugin')
+                eosdcmd.append('--filter-on')
+                eosdcmd.append('"*"')
+            else:
+                eosdcmd.append('--plugin')
+                eosdcmd.append('eosio::trace_api_plugin')
 
         if 'eosio::history_api_plugin' in eosdcmd and 'eosio::trace_api_plugin' in eosdcmd:
             eosdcmd.remove('--trace-no-abis')
