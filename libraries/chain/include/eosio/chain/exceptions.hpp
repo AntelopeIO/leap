@@ -573,6 +573,11 @@ namespace eosio { namespace chain {
                                     3170011, "The signer returned no valid block signatures" )
       FC_DECLARE_DERIVED_EXCEPTION( unsupported_multiple_block_signatures,  producer_exception,
                                     3170012, "The signer returned multiple signatures but that is not supported" )
+      FC_DECLARE_DERIVED_EXCEPTION( duplicate_snapshot_request,  producer_exception,
+                                    3170013, "Snapshot has been already scheduled with specified parameters" )
+      FC_DECLARE_DERIVED_EXCEPTION( snapshot_request_not_found,  producer_exception,
+                                    3170014, "Snapshot request not found" )
+
 
    FC_DECLARE_DERIVED_EXCEPTION( reversible_blocks_exception,           chain_exception,
                                  3180000, "Reversible Blocks exception" )

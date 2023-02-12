@@ -1,6 +1,8 @@
 #include <eosio/producer_plugin/producer_plugin.hpp>
 #include <eosio/producer_plugin/pending_snapshot.hpp>
 #include <eosio/producer_plugin/subjective_billing.hpp>
+#include <eosio/producer_plugin/snapshot_scheduler.hpp>
+#include <eosio/producer_plugin/snapshot_db_json.hpp>
 #include <eosio/chain/plugin_interface.hpp>
 #include <eosio/chain/global_property_object.hpp>
 #include <eosio/chain/generated_transaction_object.hpp>
@@ -1329,9 +1331,9 @@ void producer_plugin::unschedule_snapshot(const snapshot_request_information& sc
 {
 }
 
-producer_plugin::snapshot_requests producer_plugin::get_snapshot_requests() const
+producer_plugin::get_snapshot_requests_result producer_plugin::get_snapshot_requests() const
 {
-   snapshot_requests results;
+   get_snapshot_requests_result results;
    return results;
 }
 
