@@ -26,6 +26,7 @@
 #include <boost/asio/steady_timer.hpp>
 
 #include <atomic>
+#include <cmath>
 #include <shared_mutex>
 
 using namespace eosio::chain::plugin_interface;
@@ -1776,7 +1777,6 @@ namespace eosio {
       if( c->is_transactions_only_connection() ) return;
 
       uint32_t lib_num = 0;
-      uint32_t peer_lib = msg.last_irreversible_block_num;
       uint32_t head = 0;
       block_id_type head_id;
       std::tie( lib_num, std::ignore, head,
@@ -1790,10 +1790,10 @@ namespace eosio {
          peer_wlog(c, "Peer sent a handshake with a timestamp skewed by at least ${t}ms", ("t", network_latency_ns/1000000));
          network_latency_ns = 0;
       }
-      // number of blocks syncing node is behind from a peer node
-      uint32_t nblk_behind_by_net_latency = static_cast<uint32_t>(network_latency_ns / block_interval_ns);
-      // 2x for time it takes for message to reach back to peer node, +1 to compensate for integer division truncation
-      uint32_t nblk_combined_latency = 2 * nblk_behind_by_net_latency + 1;
+      // number of blocks syncing node is behind from a peer node, round up
+      uint32_t nblk_behind_by_net_latency = std::lround( static_cast<double>(network_latency_ns) / static_cast<double>(block_interval_ns) );
+      // 2x for time it takes for message to reach back to peer node
+      uint32_t nblk_combined_latency = 2 * nblk_behind_by_net_latency;
       // message in the log below is used in p2p_high_latency_test.py test
       peer_dlog(c, "Network latency is ${lat}ms, ${num} blocks discrepancy by network latency, ${tot_num} blocks discrepancy expected once message received",
                 ("lat", network_latency_ns/1000000)("num", nblk_behind_by_net_latency)("tot_num", nblk_combined_latency));
@@ -1813,8 +1813,8 @@ namespace eosio {
       //-----------------------------
 
       if (head_id == msg.head_id) {
-         peer_ilog( c, "handshake lib ${lib}, head ${head}, head id ${id}.. sync 0",
-                    ("lib", msg.last_irreversible_block_num)("head", msg.head_num)("id", msg.head_id.str().substr(8,16)) );
+         peer_ilog( c, "handshake lib ${lib}, head ${head}, head id ${id}.. sync 0, lib ${l}",
+                    ("lib", msg.last_irreversible_block_num)("head", msg.head_num)("id", msg.head_id.str().substr(8,16))("l", lib_num) );
          c->syncing = false;
          notice_message note;
          note.known_blocks.mode = none;
@@ -1823,9 +1823,10 @@ namespace eosio {
          c->enqueue( note );
          return;
       }
-      if (head < peer_lib) {
-         peer_ilog( c, "handshake lib ${lib}, head ${head}, head id ${id}.. sync 1",
-                    ("lib", msg.last_irreversible_block_num)("head", msg.head_num)("id", msg.head_id.str().substr(8,16)) );
+      if (head < msg.last_irreversible_block_num) {
+         peer_ilog( c, "handshake lib ${lib}, head ${head}, head id ${id}.. sync 1, head ${h}, lib ${l}",
+                    ("lib", msg.last_irreversible_block_num)("head", msg.head_num)("id", msg.head_id.str().substr(8,16))
+                    ("h", head)("l", lib_num) );
          c->syncing = false;
          if (c->sent_handshake_count > 0) {
             c->send_handshake();
@@ -1833,8 +1834,9 @@ namespace eosio {
          return;
       }
       if (lib_num > msg.head_num + nblk_combined_latency) {
-         peer_ilog( c, "handshake lib ${lib}, head ${head}, head id ${id}.. sync 2",
-                    ("lib", msg.last_irreversible_block_num)("head", msg.head_num)("id", msg.head_id.str().substr(8,16)) );
+         peer_ilog( c, "handshake lib ${lib}, head ${head}, head id ${id}.. sync 2, head ${h}, lib ${l}",
+                    ("lib", msg.last_irreversible_block_num)("head", msg.head_num)("id", msg.head_id.str().substr(8,16))
+                    ("h", head)("l", lib_num) );
          if (msg.generation > 1 || c->protocol_version > proto_base) {
             notice_message note;
             note.known_trx.pending = lib_num;
@@ -1848,14 +1850,16 @@ namespace eosio {
       }
 
       if (head + nblk_combined_latency < msg.head_num ) {
-         peer_ilog( c, "handshake lib ${lib}, head ${head}, head id ${id}.. sync 3",
-                    ("lib", msg.last_irreversible_block_num)("head", msg.head_num)("id", msg.head_id.str().substr(8,16)) );
+         peer_ilog( c, "handshake lib ${lib}, head ${head}, head id ${id}.. sync 3, head ${h}, lib ${l}",
+                    ("lib", msg.last_irreversible_block_num)("head", msg.head_num)("id", msg.head_id.str().substr(8,16))
+                    ("h", head)("l", lib_num) );
          c->syncing = false;
          verify_catchup(c, msg.head_num, msg.head_id);
          return;
       } else if(head >= msg.head_num + nblk_combined_latency) {
-         peer_ilog( c, "handshake lib ${lib}, head ${head}, head id ${id}.. sync 4",
-                  ("lib", msg.last_irreversible_block_num)("head", msg.head_num)("id", msg.head_id.str().substr(8,16)) );
+         peer_ilog( c, "handshake lib ${lib}, head ${head}, head id ${id}.. sync 4, head ${h}, lib ${l}",
+                    ("lib", msg.last_irreversible_block_num)("head", msg.head_num)("id", msg.head_id.str().substr(8,16))
+                    ("h", head)("l", lib_num) );
          if (msg.generation > 1 ||  c->protocol_version > proto_base) {
             notice_message note;
             note.known_trx.mode = none;
