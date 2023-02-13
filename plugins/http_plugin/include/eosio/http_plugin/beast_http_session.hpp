@@ -169,12 +169,6 @@ protected:
    }
 
 private:
-   void new_request_parser() {
-      // create a new parser to clear state
-      req_parser_.emplace();
-      req_parser_->body_limit(plugin_state_->max_body_size);
-   }
-
    void send_100_continue_response(bool do_continue) {
       auto res = std::make_shared<http::response<http::empty_body>>();
          
@@ -362,14 +356,19 @@ public:
          break;
          
       case continue_state_t::reject:
+         // request body too large. After issuing 401 response, close connection
          continue_state_ = continue_state_t::none;
          derived().do_eof();
          break;
          
       default:
-         // Read another request
+         assert(continue_state_ == continue_state_t::none);
+         
          // create a new parser to clear state
-         new_request_parser();
+         req_parser_.emplace();
+         req_parser_->body_limit(plugin_state_->max_body_size);
+
+         // Read another request
          do_read_header();
          break;
       }
@@ -448,7 +447,7 @@ public:
       res_->result(code);
       res_->body() = std::move(json);
       res_->prepare_payload();
-         
+
       // Determine if we should close the connection after
       bool close = !(plugin_state_->keep_alive) || res_->need_eof();
 
