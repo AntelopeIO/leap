@@ -64,7 +64,7 @@ public:
          return sri1.block_spacing <  sri2.block_spacing || sri1.start_block_num <  sri2.start_block_num || sri1.end_block_num <  sri2.end_block_num;
       }
    };
-   
+
    using snapshot_requests =  std::map<snapshot_request_information, std::variant<std::monostate, snapshot_information>, snapshot_request_cmp>;
 
    struct get_snapshot_requests_result {
@@ -170,7 +170,8 @@ public:
    void log_failed_transaction(const transaction_id_type& trx_id, const chain::packed_transaction_ptr& packed_trx_ptr, const char* reason) const;
 
  private:
-   std::shared_ptr<class producer_plugin_impl> my;
+   std::shared_ptr<class producer_plugin_impl>  my;
+   std::shared_ptr<class snapshot_scheduler>    scheduler;
 };
 
 } //eosio

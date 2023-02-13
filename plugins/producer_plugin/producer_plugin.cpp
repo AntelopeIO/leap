@@ -2,7 +2,6 @@
 #include <eosio/producer_plugin/pending_snapshot.hpp>
 #include <eosio/producer_plugin/subjective_billing.hpp>
 #include <eosio/producer_plugin/snapshot_scheduler.hpp>
-#include <eosio/producer_plugin/snapshot_db_json.hpp>
 #include <eosio/chain/plugin_interface.hpp>
 #include <eosio/chain/global_property_object.hpp>
 #include <eosio/chain/generated_transaction_object.hpp>
@@ -698,7 +697,8 @@ void new_chain_banner(const eosio::chain::controller& db)
 }
 
 producer_plugin::producer_plugin()
-   : my(new producer_plugin_impl(app().get_io_service())){
+   : my(new producer_plugin_impl(app().get_io_service())),
+     scheduler(new snapshot_scheduler()) {
    }
 
 producer_plugin::~producer_plugin() {}
@@ -995,6 +995,12 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
       for( const auto& a : accounts ) {
          my->_subjective_billing.disable_account( account_name(a) );
       }
+   }
+
+   scheduler->get_db().set_path(my->_snapshots_dir);
+   // if schedule exists, try to load it
+   if (fc::exists(scheduler->get_db().get_json_path())) {
+      scheduler->load_schedule();
    }
 
 } FC_LOG_AND_RETHROW() }
@@ -1323,12 +1329,14 @@ void producer_plugin::create_snapshot(producer_plugin::next_function<producer_pl
    }
 }
 
-void producer_plugin::schedule_snapshot(const snapshot_request_information& schedule)
+void producer_plugin::schedule_snapshot(const snapshot_request_information& sri)
 {
+   scheduler->schedule_snapshot(sri);
 }
 
-void producer_plugin::unschedule_snapshot(const snapshot_request_information& schedule)
+void producer_plugin::unschedule_snapshot(const snapshot_request_information& sri)
 {
+   scheduler->unschedule_snapshot(sri);
 }
 
 producer_plugin::get_snapshot_requests_result producer_plugin::get_snapshot_requests() const
