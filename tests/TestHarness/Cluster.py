@@ -182,7 +182,7 @@ class Cluster(object):
     # pylint: disable=too-many-statements
     def launch(self, pnodes=1, unstartedNodes=0, totalNodes=1, prodCount=1, topo="mesh", delay=1, onlyBios=False, dontBootstrap=False,
                totalProducers=None, sharedProducers=0, extraNodeosArgs="", useBiosBootFile=True, specificExtraNodeosArgs=None, specificNodeosInstances=None, onlySetProds=False,
-               pfSetupPolicy=PFSetupPolicy.FULL, alternateVersionLabelsFile=None, associatedNodeLabels=None, loadSystemContract=True, nodeosLogPath=f"TestLogs/{os.path.basename(sys.argv[0]).split('.')[0]}{os.getpid()}/", genesisPath=None,
+               pfSetupPolicy=PFSetupPolicy.FULL, alternateVersionLabelsFile=None, associatedNodeLabels=None, loadSystemContract=True, nodeosLogPath=Path(f"TestLogs/{os.path.basename(sys.argv[0]).split('.')[0]}{os.getpid()}/"), genesisPath=None,
                maximumP2pPerHost=0, maximumClients=25, prodsEnableTraceApi=True):
         """Launch cluster.
         pnodes: producer nodes count
@@ -325,7 +325,7 @@ class Cluster(object):
             cmdArr.append("--genesis")
             cmdArr.append(str(genesisPath))
         cmdArr.append("--nodeos-log-path")
-        cmdArr.append(nodeosLogPath)
+        cmdArr.append(str(nodeosLogPath))
 
         if associatedNodeLabels is not None:
             for nodeNum,label in associatedNodeLabels.items():
@@ -346,7 +346,7 @@ class Cluster(object):
             shapeFile=shapeFilePrefix+".json"
             cmdArrForOutput=copy.deepcopy(cmdArr)
             cmdArrForOutput.append("--output")
-            cmdArrForOutput.append(nodeosLogPath + shapeFile)
+            cmdArrForOutput.append(str(nodeosLogPath / shapeFile))
             cmdArrForOutput.append("--shape")
             cmdArrForOutput.append("line")
             s=" ".join(cmdArrForOutput)
