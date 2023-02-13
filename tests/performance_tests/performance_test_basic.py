@@ -71,9 +71,9 @@ class PerformanceTestBasic:
         @dataclass
         class SpecifiedContract:
             accountName: str = "eosio"
-            ownerPrivateKey: str = "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
+            ownerPrivateKey: str = "5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3"
             ownerPublicKey: str = "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
-            activePrivateKey: str = "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
+            activePrivateKey: str = "5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3"
             activePublicKey: str = "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
             contractDir: str = "unittests/contracts/eosio.system"
             wasmFile: str = "eosio.system.wasm"
