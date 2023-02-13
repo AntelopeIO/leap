@@ -74,7 +74,7 @@ class PluginHttpTest(unittest.TestCase):
         self.nodeos.activatePreactivateFeature()
 
         contract = "eosio.bios"
-        contractDir = "unittests/contracts/old_versions/v1.7.0-develop-preactivate_feature/%s" % (contract)
+        contractDir = "libraries/testing/contracts/old_versions/v1.7.0-develop-preactivate_feature/%s" % (contract)
         wasmFile = "%s.wasm" % (contract)
         abiFile = "%s.abi" % (contract)
 

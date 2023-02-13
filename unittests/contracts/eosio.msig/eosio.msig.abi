@@ -1,6 +1,7 @@
 {
-    "____comment": "This file was generated with eosio-abigen. DO NOT EDIT Thu Nov 15 14:56:36 2018",
-    "version": "eosio::abi/1.1",
+    "____comment": "This file was generated with eosio-abigen. DO NOT EDIT ",
+    "version": "eosio::abi/1.2",
+    "types": [],
     "structs": [
         {
             "name": "action",
@@ -199,6 +200,10 @@
                 {
                     "name": "packed_transaction",
                     "type": "bytes"
+                },
+                {
+                    "name": "earliest_exec_time",
+                    "type": "time_point?$"
                 }
             ]
         },
@@ -291,7 +296,6 @@
             ]
         }
     ],
-    "types": [],
     "actions": [
         {
             "name": "approve",
@@ -356,5 +360,5 @@
     ],
     "ricardian_clauses": [],
     "variants": [],
-    "abi_extensions": []
+    "action_results": []
 }

@@ -114,8 +114,8 @@ BOOST_FIXTURE_TEST_CASE(updateauth_test_multi_threaded, TESTER) { try {
    const string role = "first";
    produce_block();
    create_account(tester_account);
-
-   named_thread_pool thread_pool( "test", 5 );
+   named_thread_pool<struct test> thread_pool;
+   thread_pool.start( 5, {} );
 
    for( size_t i = 0; i < 100; ++i ) {
       boost::asio::post( thread_pool.get_executor(), [&aq_db, tester_account, role]() {

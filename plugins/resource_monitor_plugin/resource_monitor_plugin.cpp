@@ -35,7 +35,7 @@ using namespace eosio::resource_monitor;
 namespace bfs = boost::filesystem;
 
 namespace eosio {
-   static appbase::abstract_plugin& _resource_monitor_plugin = app().register_plugin<resource_monitor_plugin>();
+   static auto _resource_monitor_plugin = application::register_plugin<resource_monitor_plugin>();
 
 class resource_monitor_plugin_impl {
 public:
