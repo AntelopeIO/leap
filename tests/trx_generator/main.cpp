@@ -148,7 +148,7 @@ int main(int argc, char** argv) {
          return INITIALIZE_FAIL;
       }
 
-      if(vmap.count("generation-id")) {
+      if(vmap.count("generator-id")) {
          if(gen_id > generator_id_max) {
             ilog("Initialization error: Exceeded max value for generator id. Value must be less than ${max}.", ("max", generator_id_max));
             cli.print(std::cerr);
