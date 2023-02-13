@@ -120,7 +120,7 @@ namespace eosio::testing {
 
       virtual ~trx_generator_base() = default;
 
-      virtual void update_resign_transaction(eosio::chain::signed_transaction& trx, fc::crypto::private_key priv_key, uint64_t& nonce_prefix, uint64_t& nonce,
+      virtual void update_resign_transaction(eosio::chain::signed_transaction& trx, const fc::crypto::private_key& priv_key, uint64_t& nonce_prefix, uint64_t& nonce,
                                      const fc::microseconds& trx_expiration, const eosio::chain::chain_id_type& chain_id, const eosio::chain::block_id_type& last_irr_block_id);
 
       void push_transaction(p2p_trx_provider& provider, signed_transaction_w_signer& trx, uint64_t& nonce_prefix,
@@ -152,7 +152,7 @@ namespace eosio::testing {
       std::vector<fc::crypto::private_key> get_private_keys(const std::vector<std::string>& priv_key_str_vector);
 
       std::vector<signed_transaction_w_signer> create_initial_transfer_transactions(const std::vector<action_pair_w_keys>& action_pairs_vector, uint64_t& nonce_prefix, uint64_t& nonce, const fc::microseconds& trx_expiration, const eosio::chain::chain_id_type& chain_id, const eosio::chain::block_id_type& last_irr_block_id);
-      eosio::chain::bytes make_transfer_data(const eosio::chain::name& from, const eosio::chain::name& to, const eosio::chain::asset& quantity, const std::string&& memo);
+      eosio::chain::bytes make_transfer_data(const eosio::chain::name& from, const eosio::chain::name& to, const eosio::chain::asset& quantity, const std::string& memo);
       auto make_transfer_action(eosio::chain::name account, eosio::chain::name from, eosio::chain::name to, eosio::chain::asset quantity, std::string memo);
       std::vector<action_pair_w_keys> create_initial_transfer_actions(const std::string& salt, const uint64_t& period, const eosio::chain::name& contract_owner_account,
                                                                  const std::vector<eosio::chain::name>& accounts, const std::vector<fc::crypto::private_key>& priv_keys);
@@ -184,7 +184,7 @@ namespace eosio::testing {
       void update_key_word_fields_in_action(std::vector<std::string>& acct_gen_fields, fc::mutable_variant_object& action_mvo, const std::string& key_word);
 
       void update_actions();
-      virtual void update_resign_transaction(eosio::chain::signed_transaction& trx, fc::crypto::private_key priv_key, uint64_t& nonce_prefix, uint64_t& nonce,
+      virtual void update_resign_transaction(eosio::chain::signed_transaction& trx, const fc::crypto::private_key& priv_key, uint64_t& nonce_prefix, uint64_t& nonce,
                                      const fc::microseconds& trx_expiration, const eosio::chain::chain_id_type& chain_id, const eosio::chain::block_id_type& last_irr_block_id);
 
       fc::variant json_from_file_or_string(const std::string& file_or_str, fc::json::parse_type ptype = fc::json::parse_type::legacy_parser);
