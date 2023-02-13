@@ -24,35 +24,38 @@ enum return_codes {
 };
 
 int main(int argc, char** argv) {
-   const int64_t TRX_EXPIRATION_MAX = 3600;
+   const int64_t trx_expiration_max = 3600;
+   const uint16_t generator_id_max = 960;
    variables_map vmap;
    options_description cli("Transaction Generator command line options.");
+   uint16_t gen_id = 0;
    string chain_id_in;
    string contract_owner_acct;
    string accts;
    string p_keys;
-   int64_t trx_expr;
-   uint32_t gen_duration;
-   uint32_t target_tps;
+   int64_t trx_expr = 3600;
+   uint32_t gen_duration = 60;
+   uint32_t target_tps = 1;
    string lib_id_str;
-   int64_t spinup_time_us;
-   uint32_t max_lag_per;
-   int64_t max_lag_duration_us;
+   int64_t spinup_time_us = 1000000;
+   uint32_t max_lag_per = 5;
+   int64_t max_lag_duration_us = 1000000;
    string log_dir_in;
    bool stop_on_trx_failed;
-   std::string peer_endpoint;
-   unsigned short port;
+   std::string peer_endpoint = "127.0.0.1";
+   unsigned short port = 9876;
 
    bool transaction_specified = false;
-   std::string action_name_in;
-   std::string action_data_file_or_str;
    std::string abi_file_path_in;
+   std::string actions_data_json_file_or_str;
+   std::string actions_auths_json_file_or_str;
 
    vector<string> account_str_vector;
    vector<string> private_keys_str_vector;
 
 
    cli.add_options()
+         ("generator-id", bpo::value<uint16_t>(&gen_id)->default_value(0), "Id for the transaction generator. Allowed range (0-960). Defaults to 0.")
          ("chain-id", bpo::value<string>(&chain_id_in), "set the chain id")
          ("contract-owner-account", bpo::value<string>(&contract_owner_acct), "Account name of the contract account for the transaction actions")
          ("accounts", bpo::value<string>(&accts), "comma-separated list of accounts that will be used for transfers. Minimum required accounts: 2.")
@@ -65,10 +68,9 @@ int main(int argc, char** argv) {
          ("monitor-max-lag-percent", bpo::value<uint32_t>(&max_lag_per)->default_value(5), "Max percentage off from expected transactions sent before being in violation. Defaults to 5.")
          ("monitor-max-lag-duration-us", bpo::value<int64_t>(&max_lag_duration_us)->default_value(1000000), "Max microseconds that transaction generation can be in violation before quitting. Defaults to 1000000 (1s).")
          ("log-dir", bpo::value<string>(&log_dir_in), "set the logs directory")
-         ("action-name", bpo::value<string>(&action_name_in), "The action name applied to the provided action data input")
-         ("action-data", bpo::value<string>(&action_data_file_or_str), "The path to the json action data file or json action data description string to use")
          ("abi-file", bpo::value<string>(&abi_file_path_in), "The path to the contract abi file to use for the supplied transaction action data")
-         ("stop-on-trx-failed", bpo::value<bool>(&stop_on_trx_failed)->default_value(true), "stop transaction generation if sending fails.")
+         ("actions-data", bpo::value<string>(&actions_data_json_file_or_str), "The json actions data file or json actions data description string to use")
+         ("actions-auths", bpo::value<string>(&actions_auths_json_file_or_str), "The json actions auth file or json actions auths description string to use, containting authAcctName to activePrivateKey pairs.")
          ("peer-endpoint", bpo::value<string>(&peer_endpoint)->default_value("127.0.0.1"), "set the peer endpoint to send transactions to")
          ("port", bpo::value<uint16_t>(&port)->default_value(9876), "set the peer endpoint port to send transactions to")
          ("help,h", "print this list")
@@ -83,14 +85,15 @@ int main(int argc, char** argv) {
          return SUCCESS;
       }
 
-      if((vmap.count("action-name") || vmap.count("action-data") || vmap.count("abi-file")) && !(vmap.count("action-name") && vmap.count("action-data") && vmap.count("abi-file"))) {
-         ilog("Initialization error: If using action-name, action-data, or abi-file to specify a transaction type to generate, must provide all three inputs.");
+      if((vmap.count("abi-file") || vmap.count("actions-data") || vmap.count("actions-auths")) &&
+        !(vmap.count("abi-file") && vmap.count("actions-data") && vmap.count("actions-auths"))) {
+         ilog("Initialization error: If using abi-file, actions-data, and actions-auths to specify a transaction type to generate, must provide all inputs.");
          cli.print(std::cerr);
          return INITIALIZE_FAIL;
       }
 
-      if(vmap.count("action-name") && vmap.count("action-data") && vmap.count("abi-file")) {
-         ilog("Specifying transaction to generate directly using action-name, action-data, and abi-file.");
+      if(vmap.count("abi-file") && vmap.count("actions-data") && vmap.count("actions-auths")) {
+         ilog("Specifying transaction to generate directly using abi-file, actions-data, and actions-auths.");
          transaction_specified = true;
       }
 
@@ -126,11 +129,6 @@ int main(int argc, char** argv) {
             cli.print(std::cerr);
             return INITIALIZE_FAIL;
          }
-         if (transaction_specified && account_str_vector.size() < 1) {
-            ilog("Initialization error: Specifying transaction to generate requires at minimum 1 account.");
-            cli.print(std::cerr);
-            return INITIALIZE_FAIL;
-         }
       } else {
          ilog("Initialization error: did not specify transfer accounts. Auto transfer transaction generation requires at minimum 2 transfer accounts, while providing transaction action data requires at least one.");
          cli.print(std::cerr);
@@ -144,20 +142,23 @@ int main(int argc, char** argv) {
             cli.print(std::cerr);
             return INITIALIZE_FAIL;
          }
-         if (transaction_specified && private_keys_str_vector.size() < 1) {
-            ilog("Initialization error: Specifying transaction to generate requires at minimum 1 private key");
-            cli.print(std::cerr);
-            return INITIALIZE_FAIL;
-         }
       } else {
          ilog("Initialization error: did not specify accounts' private keys. Auto transfer transaction generation requires at minimum 2 private keys, while providing transaction action data requires at least one.");
          cli.print(std::cerr);
          return INITIALIZE_FAIL;
       }
 
+      if(vmap.count("generator-id")) {
+         if(gen_id > generator_id_max) {
+            ilog("Initialization error: Exceeded max value for generator id. Value must be less than ${max}.", ("max", generator_id_max));
+            cli.print(std::cerr);
+            return INITIALIZE_FAIL;
+         }
+      }
+
       if(vmap.count("trx-expiration")) {
-         if(trx_expr > TRX_EXPIRATION_MAX) {
-            ilog("Initialization error: Exceeded max value for transaction expiration. Value must be less than ${max}.", ("max", TRX_EXPIRATION_MAX));
+         if(trx_expr > trx_expiration_max) {
+            ilog("Initialization error: Exceeded max value for transaction expiration. Value must be less than ${max}.", ("max", trx_expiration_max));
             cli.print(std::cerr);
             return INITIALIZE_FAIL;
          }
@@ -192,6 +193,7 @@ int main(int argc, char** argv) {
       return INITIALIZE_FAIL;
    }
 
+   ilog("Initial generator id ${id}", ("id", gen_id));
    ilog("Initial chain id ${chainId}", ("chainId", chain_id_in));
    ilog("Contract owner account ${acct}", ("acct", contract_owner_acct));
    ilog("Transfer accounts ${accts}", ("accts", accts));
@@ -203,13 +205,19 @@ int main(int argc, char** argv) {
    ilog("Logs directory ${logDir}", ("logDir", log_dir_in));
    ilog("Peer Endpoint ${peer-endpoint}:${peer-port}", ("peer-endpoint", peer_endpoint)("peer-port", port));
 
+   if (transaction_specified) {
+      ilog("User Transaction Specified: Abi File ${abi}", ("abi", abi_file_path_in));
+      ilog("User Transaction Specified: Actions Data ${acts}", ("acts", actions_data_json_file_or_str));
+      ilog("User Transaction Specified: Actions Auths ${auths}", ("auths", actions_auths_json_file_or_str));
+   }
+
    fc::microseconds trx_expr_ms = fc::seconds(trx_expr);
 
    std::shared_ptr<tps_performance_monitor> monitor;
    if (transaction_specified) {
-      auto generator = std::make_shared<trx_generator>(chain_id_in, abi_file_path_in, contract_owner_acct, account_str_vector.at(0), action_name_in,
-                                                       action_data_file_or_str, trx_expr_ms, private_keys_str_vector.at(0), lib_id_str, log_dir_in,
-                                                       stop_on_trx_failed, peer_endpoint, port);
+      auto generator = std::make_shared<trx_generator>(gen_id, chain_id_in, abi_file_path_in, contract_owner_acct,
+                                                       actions_data_json_file_or_str, actions_auths_json_file_or_str,
+                                                       trx_expr_ms,  lib_id_str, log_dir_in, stop_on_trx_failed, peer_endpoint, port);
       monitor = std::make_shared<tps_performance_monitor>(spinup_time_us, max_lag_per, max_lag_duration_us);
       trx_tps_tester<trx_generator, tps_performance_monitor> tester{generator, monitor, gen_duration, target_tps};
 
@@ -217,7 +225,7 @@ int main(int argc, char** argv) {
          return OTHER_FAIL;
       }
    } else {
-      auto generator = std::make_shared<transfer_trx_generator>(chain_id_in, contract_owner_acct, account_str_vector, trx_expr_ms, private_keys_str_vector,
+      auto generator = std::make_shared<transfer_trx_generator>(gen_id, chain_id_in, contract_owner_acct, account_str_vector, trx_expr_ms, private_keys_str_vector,
                                                                 lib_id_str, log_dir_in, stop_on_trx_failed, peer_endpoint, port);
 
       monitor = std::make_shared<tps_performance_monitor>(spinup_time_us, max_lag_per, max_lag_duration_us);
