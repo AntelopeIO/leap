@@ -5,6 +5,7 @@
 
 #include <memory>
 #include <string>
+#include <charconv>
 
 namespace eosio {
 
@@ -99,7 +100,8 @@ protected:
    // whether response should be sent back to client when an exception occurs
    bool is_send_exception_response_ = true;
 
-   bool read_body_ { false };
+   enum class continue_state_t { none, read_body, reject };
+   continue_state_t continue_state_ { continue_state_t::none };
 
    template<
          class Body, class Allocator>
@@ -173,11 +175,17 @@ private:
       req_parser_->body_limit(plugin_state_->max_body_size);
    }
 
-   void send_100_response() {
+   void send_100_continue_response(bool do_continue) {
       auto res = std::make_shared<http::response<http::empty_body>>();
          
       res->version(11);
-      res->result(http::status::continue_);
+      if (do_continue) {
+         res->result(http::status::continue_);
+         continue_state_ = continue_state_t::read_body;   // after sending the continue response, just read the body with the same parser
+      } else {
+         res->result(http::status::unauthorized);
+         continue_state_ = continue_state_t::reject;
+      }
       res->set(http::field::server, plugin_state_->server_header);
       
       http::async_write(
@@ -280,11 +288,15 @@ public:
          return fail(ec, "read_header", plugin_state_->logger, "closing connection");
       }
 
-      read_body_ = true;
-
       // Check for the Expect field value
       if (req_parser_->get()[http::field::expect] == "100-continue") {
-         send_100_response(); // todo: check plugin_state_->max_body_size
+         bool do_continue = true;
+         auto sv = req_parser_->get()[http::field::content_length];
+         if (uint64_t sz; sv.size() && std::from_chars(sv.data(), sv.data() + sv.size(), sz).ec == std::errc() &&
+             sz > plugin_state_->max_body_size) {
+            do_continue = false;
+         }
+         send_100_continue_response(do_continue);
          return;
       }
 
@@ -342,15 +354,24 @@ public:
       // create a new response object
       res_.emplace();
 
-      // Read another request
-      if (read_body_) {
-         read_body_ = false;
+      switch(continue_state_) {
+      case continue_state_t::read_body:
+         // just sent "100-continue" response - now read the body with same parser
+         continue_state_ = continue_state_t::none;
          do_read();
-      }
-      else {
+         break;
+         
+      case continue_state_t::reject:
+         continue_state_ = continue_state_t::none;
+         derived().do_eof();
+         break;
+         
+      default:
+         // Read another request
          // create a new parser to clear state
          new_request_parser();
          do_read_header();
+         break;
       }
    }
 
