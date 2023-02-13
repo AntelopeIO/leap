@@ -57,14 +57,6 @@ namespace eosio::testing {
       const int prefix_max = 960;
       std::vector<int> _name_index_vec;
 
-      void increment(int index) {
-         _name_index_vec[index]++;
-         if(_name_index_vec[index] >= acct_name_char_cnt) {
-            _name_index_vec[index] = 0;
-            increment(index - 1);
-         }
-      }
-
       void increment() {
          increment(_name_index_vec.size() - 1);
       }
@@ -93,6 +85,15 @@ namespace eosio::testing {
          }
          return name;
       }
+
+      private:
+         void increment(int index) {
+            _name_index_vec[index]++;
+            if(_name_index_vec[index] >= acct_name_char_cnt) {
+               _name_index_vec[index] = 0;
+               increment(index - 1);
+            }
+         }
    };
 
    struct trx_generator_base {
