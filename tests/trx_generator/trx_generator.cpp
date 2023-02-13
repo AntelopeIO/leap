@@ -88,13 +88,13 @@ namespace eosio::testing {
       return actions_pairs_vector;
    }
 
-   trx_generator_base::trx_generator_base(uint16_t generator_id, std::string chain_id_in, std::string contract_owner_account, fc::microseconds trx_expr, std::string lib_id_str, std::string log_dir,
+   trx_generator_base::trx_generator_base(uint16_t generator_id, const std::string& chain_id_in, const std::string& contract_owner_account, const fc::microseconds& trx_expr, const std::string& lib_id_str, const std::string& log_dir,
       bool stop_on_trx_failed, const std::string& peer_endpoint, unsigned short port)
     : _provider(peer_endpoint, port), _generator_id(generator_id), _chain_id(chain_id_in), _contract_owner_account(contract_owner_account), _trx_expiration(trx_expr),
       _last_irr_block_id(fc::variant(lib_id_str).as<block_id_type>()), _log_dir(log_dir), _stop_on_trx_failed(stop_on_trx_failed) {}
 
-   transfer_trx_generator::transfer_trx_generator(uint16_t generator_id, std::string chain_id_in, std::string contract_owner_account, const std::vector<std::string>& accts,
-         fc::microseconds trx_expr, const std::vector<std::string>& private_keys_str_vector, std::string lib_id_str, std::string log_dir, bool stop_on_trx_failed, const std::string& peer_endpoint, unsigned short port)
+   transfer_trx_generator::transfer_trx_generator(uint16_t generator_id, const std::string& chain_id_in, const std::string& contract_owner_account, const std::vector<std::string>& accts,
+         const fc::microseconds& trx_expr, const std::vector<std::string>& private_keys_str_vector, const std::string& lib_id_str, const std::string& log_dir, bool stop_on_trx_failed, const std::string& peer_endpoint, unsigned short port)
        : trx_generator_base(generator_id, chain_id_in, contract_owner_account, trx_expr, lib_id_str, log_dir, stop_on_trx_failed, peer_endpoint, port), _accts(accts), _private_keys_str_vector(private_keys_str_vector) {}
 
    vector<name> transfer_trx_generator::get_accounts(const vector<string>& account_str_vector) {
@@ -214,9 +214,9 @@ namespace eosio::testing {
       trx_generator_base::update_resign_transaction(trx, priv_key, nonce_prefix, nonce, trx_expiration, chain_id, last_irr_block_id);
    }
 
-   trx_generator::trx_generator(uint16_t generator_id, std::string chain_id_in, const std::string& abi_data_file, std::string contract_owner_account,
+   trx_generator::trx_generator(uint16_t generator_id, const std::string& chain_id_in, const std::string& abi_data_file, const std::string& contract_owner_account,
          const std::string& actions_data_json_file_or_str, const std::string& actions_auths_json_file_or_str,
-         fc::microseconds trx_expr, std::string lib_id_str, std::string log_dir, bool stop_on_trx_failed,
+         const fc::microseconds& trx_expr, const std::string& lib_id_str, const std::string& log_dir, bool stop_on_trx_failed,
          const std::string& peer_endpoint, unsigned short port)
        : trx_generator_base(generator_id, chain_id_in, contract_owner_account, trx_expr, lib_id_str, log_dir, stop_on_trx_failed, peer_endpoint, port),
          _abi_data_file_path(abi_data_file),

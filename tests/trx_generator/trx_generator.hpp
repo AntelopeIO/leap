@@ -115,7 +115,7 @@ namespace eosio::testing {
       bool _stop_on_trx_failed = true;
 
 
-      trx_generator_base(uint16_t generator_id, std::string chain_id_in, std::string contract_owner_account, fc::microseconds trx_expr, std::string lib_id_str, std::string log_dir, bool stop_on_trx_failed,
+      trx_generator_base(uint16_t generator_id, const std::string& chain_id_in, const std::string& contract_owner_account, const fc::microseconds& trx_expr, const std::string& lib_id_str, const std::string& log_dir, bool stop_on_trx_failed,
          const std::string& peer_endpoint="127.0.0.1", unsigned short port=9876);
 
       virtual ~trx_generator_base() = default;
@@ -144,8 +144,8 @@ namespace eosio::testing {
       const std::vector<std::string> _accts;
       std::vector<std::string> _private_keys_str_vector;
 
-      transfer_trx_generator(uint16_t generator_id, std::string chain_id_in, std::string contract_owner_account, const std::vector<std::string>& accts,
-         fc::microseconds trx_expr, const std::vector<std::string>& private_keys_str_vector, std::string lib_id_str, std::string log_dir, bool stop_on_trx_failed,
+      transfer_trx_generator(uint16_t generator_id, const std::string& chain_id_in, const std::string& contract_owner_account, const std::vector<std::string>& accts,
+         const fc::microseconds& trx_expr, const std::vector<std::string>& private_keys_str_vector, const std::string& lib_id_str, const std::string& log_dir, bool stop_on_trx_failed,
          const std::string& peer_endpoint="127.0.0.1", unsigned short port=9876);
 
       std::vector<eosio::chain::name> get_accounts(const std::vector<std::string>& account_str_vector);
@@ -173,9 +173,9 @@ namespace eosio::testing {
 
       const fc::microseconds abi_serializer_max_time = fc::seconds(10); // No risk to client side serialization taking a long time
 
-      trx_generator(uint16_t generator_id, std::string chain_id_in, const std::string& abi_data_file, std::string contract_owner_account,
+      trx_generator(uint16_t generator_id, const std::string& chain_id_in, const std::string& abi_data_file, const std::string& contract_owner_account,
          const std::string& actions_data_json_file_or_str, const std::string& actions_auths_json_file_or_str,
-         fc::microseconds trx_expr, std::string lib_id_str, std::string log_dir, bool stop_on_trx_failed,
+         const fc::microseconds& trx_expr, const std::string& lib_id_str, const std::string& log_dir, bool stop_on_trx_failed,
          const std::string& peer_endpoint="127.0.0.1", unsigned short port=9876);
 
       void locate_key_words_in_action_mvo(std::vector<std::string>& acct_gen_fields_out, fc::mutable_variant_object& action_mvo, const std::string& key_word);
