@@ -346,7 +346,7 @@ class Cluster(object):
             shapeFile=shapeFilePrefix+".json"
             cmdArrForOutput=copy.deepcopy(cmdArr)
             cmdArrForOutput.append("--output")
-            cmdArrForOutput.append(str(nodeosLogPath / shapeFile))
+            cmdArrForOutput.append(nodeosLogPath + shapeFile)
             cmdArrForOutput.append("--shape")
             cmdArrForOutput.append("line")
             s=" ".join(cmdArrForOutput)
