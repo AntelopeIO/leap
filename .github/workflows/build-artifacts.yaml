@@ -6,7 +6,7 @@ on:
 jobs:
   build:
     name: Build nodeos
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v2
         with:
@@ -16,18 +16,18 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential      \
-                             cmake                \
-                             curl                 \
-                             git                  \
-                             jq                   \
-                             libboost-all-dev     \
-                             libcurl4-openssl-dev \
-                             libgmp-dev           \
-                             libssl-dev           \
-                             llvm-11-dev          \
-                             ninja-build          \
-                             python3-numpy        \
-                             zstdi
+                                  cmake                \
+                                  curl                 \
+                                  git                  \
+                                  jq                   \
+                                  libboost-all-dev     \
+                                  libcurl4-openssl-dev \
+                                  libgmp-dev           \
+                                  libssl-dev           \
+                                  llvm-11-dev          \
+                                  ninja-build          \
+                                  python3-numpy        \
+                                  zstd
         env:
           DEBIAN_FRONTEND: noninteractive
 
