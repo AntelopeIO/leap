@@ -33,6 +33,7 @@ jobs:
           mkdir build
           cd build
           cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -GNinja ..
+          make -j$(nproc)
         env:
           DEBIAN_FRONTEND: noninteractive
       - name: version
