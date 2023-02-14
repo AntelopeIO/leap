@@ -8,13 +8,14 @@ jobs:
     name: Build nodeos
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           submodules: recursive
-
-      - name: Install dependencies
+      - name: Build
+        id: build
         run: |
           sudo apt-get update
+          sudo apt-get remove -y llvm*
           sudo apt-get install -y build-essential      \
                                   cmake                \
                                   curl                 \
@@ -28,18 +29,12 @@ jobs:
                                   ninja-build          \
                                   python3-numpy        \
                                   zstd
+          chown -R $(id -u):$(id -g) $PWD
+          mkdir build
+          cd build
+          cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -GNinja ..
         env:
           DEBIAN_FRONTEND: noninteractive
-
-      - name: Build setup
-        run: mkdir build
-
-      - name: Build
-        working-directory: ./build
-        run: |
-          cmake ..
-          make -j$(nproc)
-
       - name: version
         run: echo "::set-output name=version::$(./build/bin/nodeos --version)"
         id: version
