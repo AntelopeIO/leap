@@ -481,7 +481,6 @@ class Cluster(object):
             return False
 
         startedNodes=totalNodes-unstartedNodes
-        self.nodes=list(range(startedNodes)) # placeholder for cleanup purposes only
 
         nodes=self.discoverLocalNodes(startedNodes, timeout=Utils.systemWaitTimeout)
         if nodes is None or startedNodes != len(nodes):
