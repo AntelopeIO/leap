@@ -11,31 +11,34 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
-      - name: Build
-        id: build
+      - name: Remove default llvm
+        run: sudo apt-get remove -y llvm*
+      - name: Install deps
+        uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: build-essential      \
+                    cmake                \
+                    curl                 \
+                    git                  \
+                    jq                   \
+                    libboost-all-dev     \
+                    libcurl4-openssl-dev \
+                    libgmp-dev           \
+                    libssl-dev           \
+                    llvm-11-dev          \
+                    ninja-build          \
+                    python3-numpy        \
+                    zstd
+          version: 1.0
+      - name: Build prep
         run: |
-          sudo apt-get update
-          sudo apt-get remove -y llvm*
-          sudo apt-get install -y build-essential      \
-                                  cmake                \
-                                  curl                 \
-                                  git                  \
-                                  jq                   \
-                                  libboost-all-dev     \
-                                  libcurl4-openssl-dev \
-                                  libgmp-dev           \
-                                  libssl-dev           \
-                                  llvm-11-dev          \
-                                  ninja-build          \
-                                  python3-numpy        \
-                                  zstd
           chown -R $(id -u):$(id -g) $PWD
           mkdir build
-          cd build
-          cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -GNinja ..
+      - name: Build
+        run: |
+          cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr ..
           make -j$(nproc)
-        env:
-          DEBIAN_FRONTEND: noninteractive
+        working-directory: ./build
       - name: version
         run: echo "::set-output name=version::$(./build/bin/nodeos --version)"
         id: version
