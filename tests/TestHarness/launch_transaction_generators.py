@@ -36,9 +36,9 @@ class TpsTrxGensConfig:
 
 class TransactionGeneratorsLauncher:
 
-    def __init__(self, chainId: int, lastIrreversibleBlockId: int, contractOwnerAccount: str, accts: str, privateKeys: str,
-                 trxGenDurationSec: int, logDir: str, abiFile: Path, actionName: str, actionData, peerEndpoint: str, port: int, tpsTrxGensConfig: TpsTrxGensConfig,
-                 ownerPrivateKey: str):
+    def __init__(self, chainId: int, lastIrreversibleBlockId: int, contractOwnerAccount: str, accts: str, privateKeys: str, trxGenDurationSec: int, logDir: str,
+                 abiFile: Path, actionsData, actionsAuths,
+                 peerEndpoint: str, port: int, tpsTrxGensConfig: TpsTrxGensConfig):
         self.chainId = chainId
         self.lastIrreversibleBlockId = lastIrreversibleBlockId
         self.contractOwnerAccount  = contractOwnerAccount
@@ -48,19 +48,19 @@ class TransactionGeneratorsLauncher:
         self.tpsTrxGensConfig = tpsTrxGensConfig
         self.logDir = logDir
         self.abiFile = abiFile
-        self.actionName = actionName
-        self.actionData = actionData
+        self.actionsData=actionsData
+        self.actionsAuths=actionsAuths
         self.peerEndpoint = peerEndpoint
         self.port = port
-        self.ownerPrivateKey=ownerPrivateKey
 
     def launch(self, waitToComplete=True):
         self.subprocess_ret_codes = []
-        for targetTps in self.tpsTrxGensConfig.targetTpsPerGenList:
-            if self.abiFile is not None and self.actionName is not None and self.actionData is not None:
+        for id, targetTps in enumerate(self.tpsTrxGensConfig.targetTpsPerGenList):
+            if self.abiFile is not None and self.actionsData is not None and self.actionsAuths is not None:
                 if Utils.Debug:
                     Print(
                         f'Running trx_generator: ./tests/trx_generator/trx_generator  '
+                        f'--generator-id {id} '
                         f'--chain-id {self.chainId} '
                         f'--last-irreversible-block-id {self.lastIrreversibleBlockId} '
                         f'--contract-owner-account {self.contractOwnerAccount} '
@@ -69,16 +69,16 @@ class TransactionGeneratorsLauncher:
                         f'--trx-gen-duration {self.trxGenDurationSec} '
                         f'--target-tps {targetTps} '
                         f'--log-dir {self.logDir} '
-                        f'--action-name {self.actionName} '
-                        f'--action-data {self.actionData} '
                         f'--abi-file {self.abiFile} '
+                        f'--actions-data {self.actionsData} '
+                        f'--actions-auths {self.actionsAuths} '
                         f'--peer-endpoint {self.peerEndpoint} '
                         f'--port {self.port} '
-                        f'--owner-private-key {self.ownerPrivateKey}'
                     )
                 self.subprocess_ret_codes.append(
                     subprocess.Popen([
                         './tests/trx_generator/trx_generator',
+                        '--generator-id', f'{id}',
                         '--chain-id', f'{self.chainId}',
                         '--last-irreversible-block-id', f'{self.lastIrreversibleBlockId}',
                         '--contract-owner-account', f'{self.contractOwnerAccount}',
@@ -87,18 +87,18 @@ class TransactionGeneratorsLauncher:
                         '--trx-gen-duration', f'{self.trxGenDurationSec}',
                         '--target-tps', f'{targetTps}',
                         '--log-dir', f'{self.logDir}',
-                        '--action-name', f'{self.actionName}',
-                        '--action-data', f'{self.actionData}',
                         '--abi-file', f'{self.abiFile}',
+                        '--actions-data', f'{self.actionsData}',
+                        '--actions-auths', f'{self.actionsAuths}',
                         '--peer-endpoint', f'{self.peerEndpoint}',
                         '--port', f'{self.port}',
-                        '--owner-private-key', f'{self.ownerPrivateKey}'
                     ])
                 )
             else:
                 if Utils.Debug:
                     Print(
                         f'Running trx_generator: ./tests/trx_generator/trx_generator  '
+                        f'--generator-id {id} '
                         f'--chain-id {self.chainId} '
                         f'--last-irreversible-block-id {self.lastIrreversibleBlockId} '
                         f'--contract-owner-account {self.contractOwnerAccount} '
@@ -109,11 +109,11 @@ class TransactionGeneratorsLauncher:
                         f'--log-dir {self.logDir} '
                         f'--peer-endpoint {self.peerEndpoint} '
                         f'--port {self.port} '
-                        f'--owner-private-key {self.ownerPrivateKey}'
                     )
                 self.subprocess_ret_codes.append(
                     subprocess.Popen([
                         './tests/trx_generator/trx_generator',
+                        '--generator-id', f'{id}',
                         '--chain-id', f'{self.chainId}',
                         '--last-irreversible-block-id', f'{self.lastIrreversibleBlockId}',
                         '--contract-owner-account', f'{self.contractOwnerAccount}',
@@ -124,7 +124,6 @@ class TransactionGeneratorsLauncher:
                         '--log-dir', f'{self.logDir}',
                         '--peer-endpoint', f'{self.peerEndpoint}',
                         '--port', f'{self.port}',
-                        '--owner-private-key', f'{self.ownerPrivateKey}'
                     ])
                 )
         exitCodes=None
@@ -150,12 +149,11 @@ def parseArgs():
     parser.add_argument("target_tps", type=int, help="Goal transactions per second")
     parser.add_argument("tps_limit_per_generator", type=int, help="Maximum amount of transactions per second a single generator can have.", default=4000)
     parser.add_argument("log_dir", type=str, help="Path to directory where trx logs should be written.")
-    parser.add_argument("action_name", type=str, help="The action name applied to the provided action data input")
-    parser.add_argument("action_data", type=str, help="The path to the json action data file or json action data description string to use")
     parser.add_argument("abi_file", type=str, help="The path to the contract abi file to use for the supplied transaction action data")
+    parser.add_argument("actions_data", type=str, help="The json actions data file or json actions data description string to use")
+    parser.add_argument("actions_auths", type=str, help="The json actions auth file or json actions auths description string to use, containting authAcctName to activePrivateKey pairs.")
     parser.add_argument("peer_endpoint", type=str, help="set the peer endpoint to send transactions to", default="127.0.0.1")
     parser.add_argument("port", type=int, help="set the peer endpoint port to send transactions to", default=9876)
-    parser.add_argument("owner_private_key", type=str, help="ownerPrivateKey of the contract owner")
     args = parser.parse_args()
     return args
 
@@ -165,10 +163,9 @@ def main():
     trxGenLauncher = TransactionGeneratorsLauncher(chainId=args.chain_id, lastIrreversibleBlockId=args.last_irreversible_block_id,
                                                    contractOwnerAccount=args.contract_owner_account, accts=args.accounts,
                                                    privateKeys=args.priv_keys, trxGenDurationSec=args.trx_gen_duration, logDir=args.log_dir,
-                                                   abiFile=args.abi_file, actionName=args.action_name, actionData=args.action_data,
+                                                   abiFile=args.abi_file, actionsData=args.actions_data, actionsAuths=args.actions_auths,
                                                    peerEndpoint=args.peer_endpoint, port=args.port,
-                                                   tpsTrxGensConfig=TpsTrxGensConfig(targetTps=args.target_tps, tpsLimitPerGenerator=args.tps_limit_per_generator),
-                                                   ownerPrivateKey=args.owner_private_key)
+                                                   tpsTrxGensConfig=TpsTrxGensConfig(targetTps=args.target_tps, tpsLimitPerGenerator=args.tps_limit_per_generator))
 
 
     exit_codes = trxGenLauncher.launch()

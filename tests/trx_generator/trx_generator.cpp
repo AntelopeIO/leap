@@ -5,9 +5,7 @@
 #include <boost/algorithm/string.hpp>
 #include <eosio/chain/chain_id_type.hpp>
 #include <eosio/chain/name.hpp>
-#include <eosio/chain/asset.hpp>
 #include <fc/bitutil.hpp>
-#include <fc/io/json.hpp>
 #include <fc/io/raw.hpp>
 #include <regex>
 
@@ -18,65 +16,65 @@ using namespace appbase;
 namespace bpo=boost::program_options;
 
 namespace eosio::testing {
-   struct action_pair_w_keys {
-      action_pair_w_keys(eosio::chain::action first_action, eosio::chain::action second_action, fc::crypto::private_key first_act_signer, fc::crypto::private_key second_act_signer)
-            : _first_act(first_action), _second_act(second_action), _first_act_priv_key(first_act_signer), _second_act_priv_key(second_act_signer) {}
 
-      eosio::chain::action _first_act;
-      eosio::chain::action _second_act;
-      fc::crypto::private_key _first_act_priv_key;
-      fc::crypto::private_key _second_act_priv_key;
-   };
+   void trx_generator_base::set_transaction_headers(transaction& trx, const block_id_type& last_irr_block_id, const fc::microseconds& expiration, uint32_t delay_sec) {
+      trx.expiration = fc::time_point::now() + expiration;
+      trx.set_reference_block(last_irr_block_id);
 
-   signed_transaction_w_signer create_transfer_trx_w_signer(const action& act, const fc::crypto::private_key& priv_key, uint64_t& nonce_prefix, uint64_t& nonce, const fc::microseconds& trx_expiration, const chain_id_type& chain_id, const block_id_type& last_irr_block_id) {
+      trx.max_net_usage_words = 0;// No limit
+      trx.max_cpu_usage_ms = 0;   // No limit
+      trx.delay_sec = delay_sec;
+   }
+
+   signed_transaction_w_signer trx_generator_base::create_trx_w_actions_and_signer(std::vector<action> acts, const fc::crypto::private_key& priv_key, uint64_t& nonce_prefix, uint64_t& nonce, const fc::microseconds& trx_expiration, const chain_id_type& chain_id, const block_id_type& last_irr_block_id) {
       signed_transaction trx;
-      trx.actions.push_back(act);
+      set_transaction_headers(trx, last_irr_block_id, trx_expiration);
+      for (auto& act : acts) {
+         trx.actions.emplace_back(std::move(act));
+      }
       trx.context_free_actions.emplace_back(action({}, config::null_account_name, name("nonce"),
          fc::raw::pack(std::to_string(nonce_prefix) + ":" + std::to_string(++nonce) + ":" +
          fc::time_point::now().time_since_epoch().count())));
 
-      trx.set_reference_block(last_irr_block_id);
-      trx.expiration = fc::time_point::now() + trx_expiration;
-      trx.max_net_usage_words = 100;
       trx.sign(priv_key, chain_id);
       return signed_transaction_w_signer(trx, priv_key);
    }
 
-   vector<signed_transaction_w_signer> create_initial_transfer_transactions(const vector<action_pair_w_keys>& action_pairs_vector, uint64_t& nonce_prefix, uint64_t& nonce, const fc::microseconds& trx_expiration, const chain_id_type& chain_id, const block_id_type& last_irr_block_id) {
+   vector<signed_transaction_w_signer> transfer_trx_generator::create_initial_transfer_transactions(const vector<action_pair_w_keys>& action_pairs_vector, uint64_t& nonce_prefix, uint64_t& nonce, const fc::microseconds& trx_expiration, const chain_id_type& chain_id, const block_id_type& last_irr_block_id) {
       std::vector<signed_transaction_w_signer> trxs;
       trxs.reserve(2 * action_pairs_vector.size());
 
-      for(action_pair_w_keys ap: action_pairs_vector) {
-         trxs.emplace_back(create_transfer_trx_w_signer(ap._first_act, ap._first_act_priv_key, nonce_prefix, nonce, trx_expiration, chain_id, last_irr_block_id));
-         trxs.emplace_back(create_transfer_trx_w_signer(ap._second_act, ap._second_act_priv_key, nonce_prefix, nonce, trx_expiration, chain_id, last_irr_block_id));
+      for (const action_pair_w_keys& ap : action_pairs_vector) {
+         trxs.emplace_back(create_trx_w_actions_and_signer({ap._first_act}, ap._first_act_priv_key, nonce_prefix, nonce, trx_expiration, chain_id, last_irr_block_id));
+         trxs.emplace_back(create_trx_w_actions_and_signer({ap._second_act}, ap._second_act_priv_key, nonce_prefix, nonce, trx_expiration, chain_id, last_irr_block_id));
       }
 
       return trxs;
    }
 
-   void update_resign_transaction(signed_transaction& trx, fc::crypto::private_key priv_key, uint64_t& nonce_prefix, uint64_t& nonce, const fc::microseconds& trx_expiration, const chain_id_type& chain_id, const block_id_type& last_irr_block_id) {
+   void trx_generator_base::update_resign_transaction(signed_transaction& trx, const fc::crypto::private_key& priv_key, uint64_t& nonce_prefix, uint64_t& nonce, const fc::microseconds& trx_expiration,
+                                                      const chain_id_type& chain_id, const block_id_type& last_irr_block_id) {
       trx.context_free_actions.clear();
       trx.context_free_actions.emplace_back(action({}, config::null_account_name, name("nonce"), fc::raw::pack(std::to_string(nonce_prefix) + ":" + std::to_string(++nonce) + ":" + fc::time_point::now().time_since_epoch().count())));
-      trx.set_reference_block(last_irr_block_id);
-      trx.expiration = fc::time_point::now() + trx_expiration;
+      set_transaction_headers(trx, last_irr_block_id, trx_expiration);
       trx.signatures.clear();
       trx.sign(priv_key, chain_id);
    }
 
-   chain::bytes make_transfer_data(const chain::name& from, const chain::name& to, const chain::asset& quantity, const std::string&& memo) {
+   chain::bytes transfer_trx_generator::make_transfer_data(const chain::name& from, const chain::name& to, const chain::asset& quantity, const std::string& memo) {
       return fc::raw::pack<chain::name>(from, to, quantity, memo);
    }
 
-   auto make_transfer_action(chain::name account, chain::name from, chain::name to, chain::asset quantity, std::string memo) {
+   auto transfer_trx_generator::make_transfer_action(chain::name account, chain::name from, chain::name to, chain::asset quantity, std::string memo) {
       return chain::action(std::vector<chain::permission_level>{{from, chain::config::active_name}},
                            account, "transfer"_n, make_transfer_data(from, to, quantity, std::move(memo)));
    }
 
-   vector<action_pair_w_keys> create_initial_transfer_actions(const std::string& salt, const uint64_t& period, const name& contract_owner_account, const vector<name>& accounts, const vector<fc::crypto::private_key>& priv_keys) {
+   vector<action_pair_w_keys> transfer_trx_generator::create_initial_transfer_actions(const std::string& salt, const uint64_t& period, const name& contract_owner_account, const vector<name>& accounts, const vector<fc::crypto::private_key>& priv_keys) {
       vector<action_pair_w_keys> actions_pairs_vector;
 
-      for(size_t i = 0; i < accounts.size(); ++i) {
-         for(size_t j = i + 1; j < accounts.size(); ++j) {
+      for (size_t i = 0; i < accounts.size(); ++i) {
+         for (size_t j = i + 1; j < accounts.size(); ++j) {
             //create the actions here
             ilog("create_initial_transfer_actions: creating transfer from ${acctA} to ${acctB}", ("acctA", accounts.at(i))("acctB", accounts.at(j)));
             action act_a_to_b = make_transfer_action(contract_owner_account, accounts.at(i), accounts.at(j), asset::from_string("1.0000 CUR"), salt);
@@ -84,36 +82,36 @@ namespace eosio::testing {
             ilog("create_initial_transfer_actions: creating transfer from ${acctB} to ${acctA}", ("acctB", accounts.at(j))("acctA", accounts.at(i)));
             action act_b_to_a = make_transfer_action(contract_owner_account, accounts.at(j), accounts.at(i), asset::from_string("1.0000 CUR"), salt);
 
-            actions_pairs_vector.push_back(action_pair_w_keys(act_a_to_b, act_b_to_a, priv_keys.at(i), priv_keys.at(j)));
+            actions_pairs_vector.emplace_back(action_pair_w_keys(act_a_to_b, act_b_to_a, priv_keys.at(i), priv_keys.at(j)));
          }
       }
       ilog("create_initial_transfer_actions: total action pairs created: ${pairs}", ("pairs", actions_pairs_vector.size()));
       return actions_pairs_vector;
    }
 
-   trx_generator_base::trx_generator_base(std::string chain_id_in, std::string contract_owner_account, fc::microseconds trx_expr, std::string lib_id_str, std::string log_dir,
+   trx_generator_base::trx_generator_base(uint16_t generator_id, const std::string& chain_id_in, const std::string& contract_owner_account, const fc::microseconds& trx_expr, const std::string& lib_id_str, const std::string& log_dir,
       bool stop_on_trx_failed, const std::string& peer_endpoint, unsigned short port)
-    : _provider(peer_endpoint, port), _chain_id(chain_id_in), _contract_owner_account(contract_owner_account), _trx_expiration(trx_expr),
+    : _provider(peer_endpoint, port), _generator_id(generator_id), _chain_id(chain_id_in), _contract_owner_account(contract_owner_account), _trx_expiration(trx_expr),
       _last_irr_block_id(fc::variant(lib_id_str).as<block_id_type>()), _log_dir(log_dir), _stop_on_trx_failed(stop_on_trx_failed) {}
 
-   transfer_trx_generator::transfer_trx_generator(std::string chain_id_in, std::string contract_owner_account, const std::vector<std::string>& accts,
-         fc::microseconds trx_expr, const std::vector<std::string>& private_keys_str_vector, std::string lib_id_str, std::string log_dir, bool stop_on_trx_failed, const std::string& peer_endpoint, unsigned short port)
-       : trx_generator_base(chain_id_in, contract_owner_account, trx_expr, lib_id_str, log_dir, stop_on_trx_failed, peer_endpoint, port), _accts(accts), _private_keys_str_vector(private_keys_str_vector) {}
+   transfer_trx_generator::transfer_trx_generator(uint16_t generator_id, const std::string& chain_id_in, const std::string& contract_owner_account, const std::vector<std::string>& accts,
+         const fc::microseconds& trx_expr, const std::vector<std::string>& private_keys_str_vector, const std::string& lib_id_str, const std::string& log_dir, bool stop_on_trx_failed, const std::string& peer_endpoint, unsigned short port)
+       : trx_generator_base(generator_id, chain_id_in, contract_owner_account, trx_expr, lib_id_str, log_dir, stop_on_trx_failed, peer_endpoint, port), _accts(accts), _private_keys_str_vector(private_keys_str_vector) {}
 
    vector<name> transfer_trx_generator::get_accounts(const vector<string>& account_str_vector) {
       vector<name> acct_name_list;
-      for(string account_name: account_str_vector) {
+      for (const string& account_name : account_str_vector) {
          ilog("get_account about to try to create name for ${acct}", ("acct", account_name));
-         acct_name_list.push_back(eosio::chain::name(account_name));
+         acct_name_list.emplace_back(eosio::chain::name(account_name));
       }
       return acct_name_list;
    }
 
    vector<fc::crypto::private_key> transfer_trx_generator::get_private_keys(const vector<string>& priv_key_str_vector) {
       vector<fc::crypto::private_key> key_list;
-      for(const string& private_key: priv_key_str_vector) {
+      for (const string& private_key: priv_key_str_vector) {
          ilog("get_private_keys about to try to create private_key for ${key} : gen key ${newKey}", ("key", private_key)("newKey", fc::crypto::private_key(private_key)));
-         key_list.push_back(fc::crypto::private_key(private_key));
+         key_list.emplace_back(fc::crypto::private_key(private_key));
       }
       return key_list;
    }
@@ -151,7 +149,7 @@ namespace eosio::testing {
       return true;
    }
 
-   fc::variant json_from_file_or_string(const string& file_or_str, fc::json::parse_type ptype = fc::json::parse_type::legacy_parser)
+   fc::variant trx_generator::json_from_file_or_string(const string& file_or_str, fc::json::parse_type ptype)
    {
       regex r("^[ \t]*[\{\[]");
       if ( !regex_search(file_or_str, r) && fc::is_regular_file(file_or_str) ) {
@@ -166,10 +164,100 @@ namespace eosio::testing {
       }
    }
 
-   trx_generator::trx_generator(std::string chain_id_in, const std::string& abi_data_file, std::string contract_owner_account, const std::string& owner_private_key, std::string auth_account, std::string action_name,
-         const std::string& action_data_file_or_str, fc::microseconds trx_expr, const std::string& private_key_str, std::string lib_id_str, std::string log_dir, bool stop_on_trx_failed, const std::string& peer_endpoint, unsigned short port)
-       : trx_generator_base(chain_id_in, contract_owner_account, trx_expr, lib_id_str, log_dir, stop_on_trx_failed, peer_endpoint, port), _abi_data_file_path(abi_data_file), _owner_private_key(fc::crypto::private_key(owner_private_key)), _auth_account(auth_account),
-         _action(action_name), _action_data_file_or_str(action_data_file_or_str), _private_key(fc::crypto::private_key(private_key_str)) {}
+   void trx_generator::locate_key_words_in_action_mvo(std::vector<std::string>& acct_gen_fields_out, fc::mutable_variant_object& action_mvo, const std::string& key_word) {
+      for (const mutable_variant_object::entry& e: action_mvo) {
+         if (e.value().get_type() == fc::variant::string_type && e.value() == key_word) {
+            acct_gen_fields_out.emplace_back(e.key());
+         } else if (e.value().get_type() == fc::variant::object_type) {
+            auto inner_mvo = fc::mutable_variant_object(e.value());
+            locate_key_words_in_action_mvo(acct_gen_fields_out, inner_mvo, key_word);
+         }
+      }
+   }
+
+   void trx_generator::locate_key_words_in_action_array(std::map<int, std::vector<std::string>>& acct_gen_fields_out, fc::variants& action_array, const std::string& key_word) {
+      for (size_t i = 0; i < action_array.size(); ++i) {
+         auto action_mvo = fc::mutable_variant_object(action_array[i]);
+         locate_key_words_in_action_mvo(acct_gen_fields_out[i], action_mvo, key_word);
+      }
+   }
+
+   void trx_generator::update_key_word_fields_in_sub_action(const std::string& key, fc::mutable_variant_object& action_mvo, const std::string& action_inner_key, const std::string& key_word) {
+      if (action_mvo.find(action_inner_key) != action_mvo.end()) {
+         if (action_mvo[action_inner_key].get_object().find(key) != action_mvo[action_inner_key].get_object().end()) {
+            fc::mutable_variant_object inner_mvo = fc::mutable_variant_object(action_mvo[action_inner_key].get_object());
+            inner_mvo.set(key, key_word);
+            action_mvo.set(action_inner_key, std::move(inner_mvo));
+         }
+      }
+   }
+
+   void trx_generator::update_key_word_fields_in_action(std::vector<std::string>& acct_gen_fields, fc::mutable_variant_object& action_mvo, const std::string& key_word) {
+      for (const auto& key: acct_gen_fields) {
+         if (action_mvo.find(key) != action_mvo.end()) {
+            action_mvo.set(key, key_word);
+         } else {
+            for (const auto& e: action_mvo) {
+               if (e.value().get_type() == fc::variant::object_type) {
+                  update_key_word_fields_in_sub_action(key, action_mvo, e.key(), key_word);
+               }
+            }
+         }
+      }
+   }
+
+   void trx_generator::update_resign_transaction(signed_transaction& trx, const fc::crypto::private_key& priv_key, uint64_t& nonce_prefix, uint64_t& nonce, const fc::microseconds& trx_expiration, const chain_id_type& chain_id, const block_id_type& last_irr_block_id) {
+      trx.actions.clear();
+      update_actions();
+      for (const auto& act: _actions) {
+         trx.actions.emplace_back(act);
+      }
+      trx_generator_base::update_resign_transaction(trx, priv_key, nonce_prefix, nonce, trx_expiration, chain_id, last_irr_block_id);
+   }
+
+   trx_generator::trx_generator(uint16_t generator_id, const std::string& chain_id_in, const std::string& abi_data_file, const std::string& contract_owner_account,
+         const std::string& actions_data_json_file_or_str, const std::string& actions_auths_json_file_or_str,
+         const fc::microseconds& trx_expr, const std::string& lib_id_str, const std::string& log_dir, bool stop_on_trx_failed,
+         const std::string& peer_endpoint, unsigned short port)
+       : trx_generator_base(generator_id, chain_id_in, contract_owner_account, trx_expr, lib_id_str, log_dir, stop_on_trx_failed, peer_endpoint, port),
+         _abi_data_file_path(abi_data_file),
+         _actions_data_json_file_or_str(actions_data_json_file_or_str), _actions_auths_json_file_or_str(actions_auths_json_file_or_str),
+         _acct_name_generator() {}
+
+   void trx_generator::update_actions() {
+      _actions.clear();
+
+      if (!_acct_gen_fields.empty()) {
+         std::string generated_account_name = _acct_name_generator.calc_name();
+         _acct_name_generator.increment();
+
+         for (auto const& [key, val] : _acct_gen_fields) {
+            update_key_word_fields_in_action(_acct_gen_fields.at(key), _unpacked_actions.at(key), generated_account_name);
+         }
+      }
+
+      for (const auto& action_mvo : _unpacked_actions) {
+         chain::name action_name = chain::name(action_mvo["actionName"].as_string());
+         chain::name action_auth_acct = chain::name(action_mvo["actionAuthAcct"].as_string());
+         bytes packed_action_data;
+         try {
+            auto action_type = _abi.get_action_type( action_name );
+            FC_ASSERT( !action_type.empty(), "Unknown action ${action} in contract ${contract}", ("action", action_name)( "contract", action_auth_acct ));
+            packed_action_data = _abi.variant_to_binary( action_type, action_mvo["actionData"], abi_serializer::create_yield_function( abi_serializer_max_time ) );
+         } EOS_RETHROW_EXCEPTIONS(transaction_type_exception, "Fail to parse unpacked action data JSON")
+
+         eosio::chain::action act;
+         act.account = _contract_owner_account;
+         act.name = action_name;
+
+         chain::name auth_actor = chain::name(action_mvo["authorization"].get_object()["actor"].as_string());
+         chain::name auth_perm = chain::name(action_mvo["authorization"].get_object()["permission"].as_string());
+
+         act.authorization = vector<permission_level>{{auth_actor, auth_perm}};
+         act.data = std::move(packed_action_data);
+         _actions.emplace_back(std::move(act));
+      }
+   }
 
    bool trx_generator::setup() {
       _nonce_prefix = 0;
@@ -179,31 +267,47 @@ namespace eosio::testing {
       stop_generation();
 
       ilog("Create Initial Transaction with action data.");
-      abi_serializer abi = abi_serializer(fc::json::from_file(_abi_data_file_path).as<abi_def>(), abi_serializer::create_yield_function( abi_serializer_max_time ));
-      fc::variant unpacked_action_data_json = json_from_file_or_string(_action_data_file_or_str);
-      ilog("action data variant: ${data}", ("data", fc::json::to_pretty_string(unpacked_action_data_json)));
+      _abi = abi_serializer(fc::json::from_file(_abi_data_file_path).as<abi_def>(), abi_serializer::create_yield_function( abi_serializer_max_time ));
+      fc::variant unpacked_actions_data_json = json_from_file_or_string(_actions_data_json_file_or_str);
+      fc::variant unpacked_actions_auths_data_json = json_from_file_or_string(_actions_auths_json_file_or_str);
+      ilog("Loaded actions data: ${data}", ("data", fc::json::to_pretty_string(unpacked_actions_data_json)));
+      ilog("Loaded actions auths data: ${auths}", ("auths", fc::json::to_pretty_string(unpacked_actions_auths_data_json)));
 
-      bytes packed_action_data;
-      try {
-         auto action_type = abi.get_action_type( _action );
-         FC_ASSERT( !action_type.empty(), "Unknown action ${action} in contract ${contract}", ("action", _action)( "contract", _auth_account ));
-         packed_action_data = abi.variant_to_binary( action_type, unpacked_action_data_json, abi_serializer::create_yield_function( abi_serializer_max_time ) );
+      const std::string gen_acct_name_per_trx("ACCT_PER_TRX");
 
-      } EOS_RETHROW_EXCEPTIONS(transaction_type_exception, "Fail to parse unpacked action data JSON")
+      auto action_array = unpacked_actions_data_json.get_array();
+      for (size_t i =0; i < action_array.size(); ++i ) {
+         _unpacked_actions.emplace_back(fc::mutable_variant_object(action_array[i]));
+      }
+      locate_key_words_in_action_array(_acct_gen_fields, action_array, gen_acct_name_per_trx);
 
-      ilog("${packed_data}", ("packed_data", fc::to_hex(packed_action_data.data(), packed_action_data.size())));
+      if (!_acct_gen_fields.empty()) {
+         ilog("Located the following account names that need to be generated and populated in each transaction:");
+         for (const auto& e: _acct_gen_fields) {
+            ilog("acct_gen_fields entry: ${value}", ("value", e));
+         }
+         ilog("Priming name generator for trx generator prefix.");
+         _acct_name_generator.setPrefix(_generator_id);
+      }
 
-      eosio::chain::action act;
-      act.account = _contract_owner_account;
-      act.name = _action;
-      act.authorization = vector<permission_level>{{_contract_owner_account, config::owner_name}};
-      act.data = std::move(packed_action_data);
+      ilog("Setting up transaction signer.");
+      fc::crypto::private_key signer_key;
+      signer_key = fc::crypto::private_key(unpacked_actions_auths_data_json.get_object()[_unpacked_actions.at(0)["actionAuthAcct"].as_string()].as_string());
 
-      _trxs.emplace_back(create_transfer_trx_w_signer(act, _owner_private_key, ++_nonce_prefix, _nonce, _trx_expiration, _chain_id, _last_irr_block_id));
+      ilog("Setting up initial transaction actions.");
+      update_actions();
+      ilog("Initial actions (${count}):", ("count", _unpacked_actions.size()));
+      for (size_t i = 0; i < _unpacked_actions.size(); ++i) {
+         ilog("Initial action ${index}: ${act}", ("index", i)("act", fc::json::to_pretty_string(_unpacked_actions.at(i))));
+         ilog("Initial action packed data ${index}: ${packed_data}", ("packed_data", fc::to_hex(_actions.at(i).data.data(), _actions.at(i).data.size())));
+      }
+
+      ilog("Populate initial transaction.");
+      _trxs.emplace_back(create_trx_w_actions_and_signer(_actions, signer_key, ++_nonce_prefix, _nonce, _trx_expiration, _chain_id, _last_irr_block_id));
 
       ilog("Setup p2p transaction provider");
 
-      ilog("Update each trx to qualify as unique and fresh timestamps, re-sign trx, and send each updated transactions via p2p transaction provider");
+      ilog("Update each trx to qualify as unique and fresh timestamps and update each action with unique generated account name if necessary, re-sign trx, and send each updated transactions via p2p transaction provider");
 
       _provider.setup();
       return true;
@@ -244,7 +348,7 @@ namespace eosio::testing {
       return true;
    }
 
-   void log_first_trx(const std::string& log_dir, const chain::signed_transaction& trx) {
+   void trx_generator_base::log_first_trx(const std::string& log_dir, const chain::signed_transaction& trx) {
       std::ostringstream fileName;
       fileName << log_dir << "/first_trx_" << getpid() << ".txt";
       std::ofstream out(fileName.str());
@@ -264,7 +368,7 @@ namespace eosio::testing {
    void trx_generator_base::stop_generation() {
       ilog("Stopping transaction generation");
 
-      if(_txcount) {
+      if (_txcount) {
          ilog("${d} transactions executed, ${t}us / transaction", ("d", _txcount)("t", _total_us / (double) _txcount));
          _txcount = _total_us = 0;
       }
