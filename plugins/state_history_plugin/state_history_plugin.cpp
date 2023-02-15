@@ -1,3 +1,4 @@
+#include "eosio/chain/block_header.hpp"
 #include <eosio/chain/config.hpp>
 #include <eosio/chain/thread_utils.hpp>
 #include <eosio/resource_monitor_plugin/resource_monitor_plugin.hpp>
@@ -16,6 +17,7 @@
 #include <boost/beast/core.hpp>
 
 #include <boost/signals2/connection.hpp>
+#include <mutex>
 
 
 namespace ws = boost::beast::websocket;
@@ -75,12 +77,17 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
    state_history::trace_converter   trace_converter;
    std::set<std::shared_ptr<session_base>> session_set;
 
+   mutable std::mutex mtx;
+   block_id_type head_id;
+   block_id_type lib_id;
+   time_point head_timestamp;
+
    constexpr static uint64_t default_frame_size =  1024 * 1024;
 
    template <class ACCEPTOR>
    struct generic_acceptor  {
       using socket_type = typename ACCEPTOR::protocol_type::socket;
-      generic_acceptor(boost::asio::io_context& ioc) : acceptor_(ioc), socket_(ioc), error_timer_(ioc) {}
+      explicit generic_acceptor(boost::asio::io_context& ioc) : acceptor_(ioc), socket_(ioc), error_timer_(ioc) {}
       ACCEPTOR                    acceptor_;
       socket_type                 socket_;
       boost::asio::deadline_timer error_timer_;
@@ -101,6 +108,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
 
    boost::asio::io_context& get_ship_executor() { return thread_pool.get_executor(); }
 
+   // thread-safe
    signed_block_ptr get_block(uint32_t block_num, const block_state_ptr& block_state) const {
       chain::signed_block_ptr p;
       try {
@@ -119,12 +127,14 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
       return chain_plug->chain().get_chain_id();
    }
 
+   // thread-safe
    void get_block(uint32_t block_num, const block_state_ptr& block_state, std::optional<bytes>& result) const {
       auto p = get_block(block_num, block_state);
       if (p)
          result = fc::raw::pack(*p);
    }
 
+   // thread-safe
    std::optional<chain::block_id_type> get_block_id(uint32_t block_num) {
       if (trace_log)
          return trace_log->get_block_id(block_num);
@@ -137,19 +147,22 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
       return {};
    }
 
+   // thread-safe
    block_position get_block_head() const {
-      auto& chain              = chain_plug->chain();
-      return {chain.head_block_num(), chain.head_block_id()};
+      std::lock_guard g(mtx);
+      return { block_header::num_from_id(head_id), head_id };
    }
 
+   // thread-safe
    block_position get_last_irreversible() const {
-      auto& chain              = chain_plug->chain();
-      return {chain.last_irreversible_block_num(), chain.last_irreversible_block_id()};
+      std::lock_guard g(mtx);
+      return { block_header::num_from_id(lib_id), lib_id };
    }
 
+   // thread-safe
    time_point get_head_block_timestamp() const {
-      auto& chain = chain_plug->chain();
-      return chain.head_block_time();
+      std::lock_guard g(mtx);
+      return head_timestamp;
    }
 
    template <typename Task>
@@ -259,6 +272,14 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
 
    // called from main thread
    void on_accepted_block(const block_state_ptr& block_state) {
+      {
+         const auto& chain = chain_plug->chain();
+         std::lock_guard g(mtx);
+         head_id = chain.head_block_id();
+         lib_id = chain.last_irreversible_block_id();
+         head_timestamp = chain.head_block_time();
+      }
+
       try {
          store_traces(block_state);
          store_chain_state(block_state);
@@ -276,9 +297,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
 
       boost::asio::post(get_ship_executor(), [self = this->shared_from_this(), block_state]() mutable {
          for( auto& s : self->session_set ) {
-            self->post_task_main_thread_medium( [s, block_state]() {
-               s->send_update(block_state);
-            } );
+            s->send_update(block_state);
          }
       });
 

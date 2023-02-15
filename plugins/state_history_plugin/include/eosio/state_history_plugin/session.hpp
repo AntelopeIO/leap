@@ -27,11 +27,15 @@ struct send_queue_entry_base {
 };
 
 template <typename Session>
-struct basic_send_queue_entry : send_queue_entry_base<Session> {
+class basic_send_queue_entry : public send_queue_entry_base<Session> {
    std::vector<char> data;
+
+public:
+
    template <typename... Args>
    explicit basic_send_queue_entry(Args&&... args)
        : data(std::forward<Args>(args)...) {}
+
    void send(std::shared_ptr<Session> s) override {
       s->socket_stream->async_write(boost::asio::buffer(data),
                                    [s{std::move(s)}](boost::system::error_code ec, size_t) {
@@ -160,7 +164,7 @@ struct session_base {
 
 template <typename Plugin, typename SocketType>
 struct session : session_base, std::enable_shared_from_this<session<Plugin, SocketType>> {
-
+private:
    using entry_ptr = std::unique_ptr<send_queue_entry_base<session>>;
 
    Plugin                 plugin;
@@ -173,6 +177,11 @@ struct session : session_base, std::enable_shared_from_this<session<Plugin, Sock
    std::optional<std::vector<block_position>::const_iterator> position_it; // main thread only
 
    const int32_t          default_frame_size;
+
+   friend class blocks_result_send_queue_entry<session>;
+   friend class basic_send_queue_entry<session>;
+
+public:
 
    session(Plugin plugin, SocketType socket)
        : plugin(std::move(plugin))
@@ -204,6 +213,7 @@ struct session : session_base, std::enable_shared_from_this<session<Plugin, Sock
       });
    }
 
+private:
    void start_read() {
       auto in_buffer = std::make_shared<boost::beast::flat_buffer>();
       socket_stream->async_read(
@@ -214,7 +224,9 @@ struct session : session_base, std::enable_shared_from_this<session<Plugin, Sock
                 fc::datastream<const char*> ds(d, s);
                 state_request               req;
                 fc::raw::unpack(ds, req);
-                self->plugin->post_task_main_thread_medium([self, req = std::move(req)]() mutable { std::visit(*self, req); });
+                std::visit( [self]( auto& r ) {
+                   self->process( r );
+                }, req );
                 self->start_read();
              });
           });
@@ -224,9 +236,7 @@ struct session : session_base, std::enable_shared_from_this<session<Plugin, Sock
       if (sending)
          return;
       if (send_queue.empty()) {
-         plugin->post_task_main_thread_medium([self = this->shared_from_this()]() {
-            self->send_update();
-         });
+         send_update();
          return;
       }
       if (sending_block_session) {
@@ -295,8 +305,7 @@ struct session : session_base, std::enable_shared_from_this<session<Plugin, Sock
       return 0;
    }
 
-   using result_type = void;
-   void operator()(get_status_request_v0&) {
+   void process(get_status_request_v0&) {
       fc_dlog(plugin->logger(), "got get_status_request_v0");
 
       get_status_result_v0 result;
@@ -319,8 +328,8 @@ struct session : session_base, std::enable_shared_from_this<session<Plugin, Sock
       send(std::move(result));
    }
 
-   // called from main thread
-   void operator()(get_blocks_request_v0& req) {
+   // called from ship thread
+   void process(get_blocks_request_v0& req) {
       fc_dlog(plugin->logger(), "received get_blocks_request_v0 = ${req}", ("req", req));
       to_send_block_num = req.start_block_num;
       for (auto& cp : req.have_positions) {
@@ -350,8 +359,8 @@ struct session : session_base, std::enable_shared_from_this<session<Plugin, Sock
       send_update(true);
    }
 
-   // called from main thread
-   void operator()(get_blocks_ack_request_v0& req) {
+   // called from ship thread
+   void process(get_blocks_ack_request_v0& req) {
       fc_dlog(plugin->logger(), "received get_blocks_ack_request_v0 = ${req}", ("req", req));
       if (!current_request) {
          fc_dlog(plugin->logger(), " no current get_blocks_request_v0, discarding the get_blocks_ack_request_v0");
@@ -361,7 +370,7 @@ struct session : session_base, std::enable_shared_from_this<session<Plugin, Sock
       send_update();
    }
 
-   // called from main thread
+   // called from ship thread
    void send_update(get_blocks_result_v0 result, const chain::block_state_ptr& block_state) {
       need_to_send_update = true;
       if (!current_request || !current_request->max_messages_in_flight)
@@ -426,7 +435,7 @@ struct session : session_base, std::enable_shared_from_this<session<Plugin, Sock
                             to_send_block_num < current_request->end_block_num;
    }
 
-   // called from main thread
+   // called from ship thread
    void send_update(const chain::block_state_ptr& block_state) override {
       if (!current_request || !current_request->max_messages_in_flight)
          return;

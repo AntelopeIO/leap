@@ -298,6 +298,8 @@ class state_history_log {
  public:
    friend struct ::state_history_test_fixture;
 
+   state_history_log( const state_history_log&) = delete;
+
    state_history_log(const char* name, const fc::path& log_dir,
                      state_history_log_config conf = {})
        : name(name)
