@@ -542,7 +542,7 @@ BOOST_AUTO_TEST_CASE(uint_types)
 
 
    auto var = fc::json::from_string(test_data);
-   verify_byte_round_trip_conversion(abi_serializer{abi, abi_serializer::create_yield_function( max_serialization_time )}, "transfer", var);
+   verify_byte_round_trip_conversion(abi_serializer{std::move(abi), abi_serializer::create_yield_function( max_serialization_time )}, "transfer", var);
 
 } FC_LOG_AND_RETHROW() }
 
@@ -552,7 +552,7 @@ BOOST_AUTO_TEST_CASE(general)
 
    auto abi = eosio_contract_abi(fc::json::from_string(my_abi).as<abi_def>());
 
-   abi_serializer abis(abi, abi_serializer::create_yield_function( max_serialization_time ));
+   abi_serializer abis(abi_def(abi), abi_serializer::create_yield_function( max_serialization_time ));
 
    const char *my_other = R"=====(
     {
@@ -751,7 +751,7 @@ BOOST_AUTO_TEST_CASE(general)
    )=====";
 
    auto var = fc::json::from_string(my_other);
-   verify_byte_round_trip_conversion(abi_serializer{abi, abi_serializer::create_yield_function( max_serialization_time )}, "A", var);
+   verify_byte_round_trip_conversion(abi_serializer{std::move(abi), abi_serializer::create_yield_function( max_serialization_time )}, "A", var);
 
 } FC_LOG_AND_RETHROW() }
 
@@ -802,11 +802,11 @@ BOOST_AUTO_TEST_CASE(abi_cycle)
    auto is_assert_exception = [](const auto& e) -> bool {
       wlog(e.to_string()); return true;
    };
-   BOOST_CHECK_EXCEPTION( abi_serializer abis(abi, abi_serializer::create_yield_function( max_serialization_time )), duplicate_abi_type_def_exception, is_assert_exception);
+   BOOST_CHECK_EXCEPTION( abi_serializer abis(std::move(abi), abi_serializer::create_yield_function( max_serialization_time )), duplicate_abi_type_def_exception, is_assert_exception);
 
    abi = fc::json::from_string(struct_cycle_abi).as<abi_def>();
    abi_serializer abis;
-   BOOST_CHECK_EXCEPTION( abis.set_abi(abi, abi_serializer::create_yield_function( max_serialization_time )), abi_circular_def_exception, is_assert_exception );
+   BOOST_CHECK_EXCEPTION( abis.set_abi(std::move(abi), abi_serializer::create_yield_function( max_serialization_time )), abi_circular_def_exception, is_assert_exception );
 
 } FC_LOG_AND_RETHROW() }
 
@@ -1649,7 +1649,7 @@ BOOST_AUTO_TEST_CASE(abi_type_repeat)
 
    auto abi = eosio_contract_abi(fc::json::from_string(repeat_abi).as<abi_def>());
    auto is_table_exception = [](fc::exception const & e) -> bool { return e.to_detail_string().find("type already exists") != std::string::npos; };
-   BOOST_CHECK_EXCEPTION( abi_serializer abis(abi, abi_serializer::create_yield_function( max_serialization_time )), duplicate_abi_type_def_exception, is_table_exception );
+   BOOST_CHECK_EXCEPTION( abi_serializer abis(std::move(abi), abi_serializer::create_yield_function( max_serialization_time )), duplicate_abi_type_def_exception, is_table_exception );
 } FC_LOG_AND_RETHROW() }
 
 BOOST_AUTO_TEST_CASE(abi_struct_repeat)
@@ -1706,7 +1706,7 @@ BOOST_AUTO_TEST_CASE(abi_struct_repeat)
    )=====";
 
    auto abi = eosio_contract_abi(fc::json::from_string(repeat_abi).as<abi_def>());
-   BOOST_CHECK_THROW( abi_serializer abis(abi, abi_serializer::create_yield_function( max_serialization_time )), duplicate_abi_struct_def_exception );
+   BOOST_CHECK_THROW( abi_serializer abis(std::move(abi), abi_serializer::create_yield_function( max_serialization_time )), duplicate_abi_struct_def_exception );
 } FC_LOG_AND_RETHROW() }
 
 BOOST_AUTO_TEST_CASE(abi_action_repeat)
@@ -1766,7 +1766,7 @@ BOOST_AUTO_TEST_CASE(abi_action_repeat)
    )=====";
 
    auto abi = eosio_contract_abi(fc::json::from_string(repeat_abi).as<abi_def>());
-   BOOST_CHECK_THROW( abi_serializer abis(abi, abi_serializer::create_yield_function( max_serialization_time )), duplicate_abi_action_def_exception );
+   BOOST_CHECK_THROW( abi_serializer abis(std::move(abi), abi_serializer::create_yield_function( max_serialization_time )), duplicate_abi_action_def_exception );
 } FC_LOG_AND_RETHROW() }
 
 BOOST_AUTO_TEST_CASE(abi_table_repeat)
@@ -1829,7 +1829,7 @@ BOOST_AUTO_TEST_CASE(abi_table_repeat)
    )=====";
 
    auto abi = eosio_contract_abi(fc::json::from_string(repeat_abi).as<abi_def>());
-   BOOST_CHECK_THROW( abi_serializer abis(abi, abi_serializer::create_yield_function( max_serialization_time )), duplicate_abi_table_def_exception );
+   BOOST_CHECK_THROW( abi_serializer abis(std::move(abi), abi_serializer::create_yield_function( max_serialization_time )), duplicate_abi_table_def_exception );
 } FC_LOG_AND_RETHROW() }
 
 BOOST_AUTO_TEST_CASE(abi_type_def)
@@ -2056,7 +2056,7 @@ BOOST_AUTO_TEST_CASE(abi_account_name_in_eosio_abi)
 
    auto abi = eosio_contract_abi(fc::json::from_string(repeat_abi).as<abi_def>());
    auto is_type_exception = [](fc::assert_exception const & e) -> bool { return e.to_detail_string().find("type already exists") != std::string::npos; };
-   BOOST_CHECK_EXCEPTION( abi_serializer abis(abi, abi_serializer::create_yield_function(max_serialization_time )), duplicate_abi_type_def_exception, is_type_exception );
+   BOOST_CHECK_EXCEPTION( abi_serializer abis(std::move(abi), abi_serializer::create_yield_function(max_serialization_time )), duplicate_abi_type_def_exception, is_type_exception );
 
 } FC_LOG_AND_RETHROW() }
 
@@ -2971,7 +2971,7 @@ BOOST_AUTO_TEST_CASE(abi_to_variant__add_action__good_return_value)
       ]
    })";
    auto abidef = fc::json::from_string(abi).as<abi_def>();
-   abi_serializer abis(abidef, abi_serializer::create_yield_function(max_serialization_time));
+   abi_serializer abis(abi_def(abidef), abi_serializer::create_yield_function(max_serialization_time));
 
    mutable_variant_object mvo;
    eosio::chain::impl::abi_traverse_context ctx(abi_serializer::create_yield_function(max_serialization_time));
@@ -2996,7 +2996,7 @@ BOOST_AUTO_TEST_CASE(abi_to_variant__add_action__bad_return_value)
       ]
    })";
    auto abidef = fc::json::from_string(abi).as<abi_def>();
-   abi_serializer abis(abidef, abi_serializer::create_yield_function(max_serialization_time));
+   abi_serializer abis(abi_def(abidef), abi_serializer::create_yield_function(max_serialization_time));
 
    mutable_variant_object mvo;
    eosio::chain::impl::abi_traverse_context ctx(abi_serializer::create_yield_function(max_serialization_time));
@@ -3031,7 +3031,7 @@ BOOST_AUTO_TEST_CASE(abi_to_variant__add_action__no_return_value)
       ]
    })";
    auto abidef = fc::json::from_string(abi).as<abi_def>();
-   abi_serializer abis(abidef, abi_serializer::create_yield_function(max_serialization_time));
+   abi_serializer abis(abi_def(abidef), abi_serializer::create_yield_function(max_serialization_time));
 
    mutable_variant_object mvo;
    eosio::chain::impl::abi_traverse_context ctx(abi_serializer::create_yield_function(max_serialization_time));
