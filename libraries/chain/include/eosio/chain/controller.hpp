@@ -243,13 +243,15 @@ namespace eosio { namespace chain {
          block_id_type last_irreversible_block_id() const;
          time_point last_irreversible_block_time() const;
 
+         // thread-safe
          signed_block_ptr fetch_block_by_number( uint32_t block_num )const;
+         // thread-safe
          signed_block_ptr fetch_block_by_id( block_id_type id )const;
-
+         // return block_state from forkdb, thread-safe
          block_state_ptr fetch_block_state_by_number( uint32_t block_num )const;
          // return block_state from forkdb, thread-safe
          block_state_ptr fetch_block_state_by_id( block_id_type id )const;
-
+         // thread-safe
          block_id_type get_block_id_for_num( uint32_t block_num )const;
 
          sha256 calculate_integrity_hash();
