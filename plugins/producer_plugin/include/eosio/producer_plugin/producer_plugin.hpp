@@ -68,7 +68,7 @@ public:
    using snapshot_requests =  std::map<snapshot_request_information, std::variant<std::monostate, snapshot_information>, snapshot_request_cmp>;
 
    struct get_snapshot_requests_result {
-      snapshot_requests requests;
+       std::vector<snapshot_request_information>  requests;
    };
 
    struct scheduled_protocol_feature_activations {
@@ -171,7 +171,6 @@ public:
 
  private:
    std::shared_ptr<class producer_plugin_impl>  my;
-   std::shared_ptr<class snapshot_scheduler>    scheduler;
 };
 
 } //eosio

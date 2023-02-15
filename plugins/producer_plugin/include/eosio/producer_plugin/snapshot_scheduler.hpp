@@ -50,6 +50,10 @@ public:
       return requests;
    }
 
+   void on_irreversible_block(uint32_t height) {
+
+   }
+
 private:
    snapshot_db_json snapshot_db;
    producer_plugin::snapshot_requests requests;
