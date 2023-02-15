@@ -3121,11 +3121,6 @@ block_state_ptr controller::fetch_block_state_by_number( uint32_t block_num )con
 } FC_CAPTURE_AND_RETHROW( (block_num) ) }
 
 block_id_type controller::get_block_id_for_num( uint32_t block_num )const { try {
-   const auto& tapos_block_summary = db().get<block_summary_object>((uint16_t)block_num);
-
-   if( block_header::num_from_id(tapos_block_summary.block_id) == block_num )
-      return tapos_block_summary.block_id;
-
    const auto& blog_head = my->blog.head();
 
    bool find_in_blog = (blog_head && block_num <= blog_head->block_num());
