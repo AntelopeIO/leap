@@ -297,7 +297,7 @@ namespace eosio { namespace chain {
                     ("num", block_num)("id", id)("prev_num", previous_block_num)("previous", previous_block_id));
             }
 
-            if (previous_block_id != block_id_type() && previous_block_id != header.previous) {
+            if (!previous_block_id.empty() && previous_block_id != header.previous) {
                elog("Block ${num} (${id}) does not link back to previous block. "
                     "Expected previous: ${expected}. Actual previous: ${actual}.",
                     ("num", block_num)("id", id)("expected", previous_block_id)("actual", header.previous));

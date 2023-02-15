@@ -393,7 +393,7 @@ struct controller_impl {
       EOS_ASSERT( fork_db.root(), fork_database_exception, "fork database not properly initialized" );
 
       block_id_type log_head_id = blog.head_id();
-      const bool valid_log_head = log_head_id != block_id_type();
+      const bool valid_log_head = !log_head_id.empty();
 
       auto lib_num = valid_log_head ? block_header::num_from_id(log_head_id) : (blog.first_block_num() - 1);
 

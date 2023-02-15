@@ -22,6 +22,10 @@ class sha256
     char*       data();
     size_t      data_size() const { return 256 / 8; }
 
+    bool empty()const {
+       return _hash[0] == 0 && _hash[1] == 0 && _hash[2] == 0 && _hash[3] == 0;
+    }
+
     static sha256 hash( const char* d, uint32_t dlen );
     static sha256 hash( const string& );
     static sha256 hash( const sha256& );
