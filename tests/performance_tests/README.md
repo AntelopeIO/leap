@@ -832,8 +832,8 @@ The Performance Test Basic generates, by default, a report that details results 
 ``` json
 {
   "completedRun": true,
-  "testStart": "2023-01-13T18:00:42.465802",
-  "testFinish": "2023-01-13T18:03:11.831277",
+  "testStart": "2023-02-15T22:32:36.946671",
+  "testFinish": "2023-02-15T22:33:41.280861",
   "Analysis": {
     "BlockSize": {
       "min": 1920,
@@ -841,20 +841,20 @@ The Performance Test Basic generates, by default, a report that details results 
       "avg": 1920.0,
       "sigma": 0.0,
       "emptyBlocks": 0,
-      "numBlocks": 177
+      "numBlocks": 7
     },
     "BlocksGuide": {
       "firstBlockNum": 2,
-      "lastBlockNum": 299,
-      "totalBlocks": 298,
-      "testStartBlockNum": 112,
-      "testEndBlockNum": 299,
-      "setupBlocksCnt": 110,
+      "lastBlockNum": 129,
+      "totalBlocks": 128,
+      "testStartBlockNum": 113,
+      "testEndBlockNum": 129,
+      "setupBlocksCnt": 111,
       "tearDownBlocksCnt": 0,
       "leadingEmptyBlocksCnt": 1,
-      "trailingEmptyBlocksCnt": 6,
+      "trailingEmptyBlocksCnt": 5,
       "configAddlDropCnt": 2,
-      "testAnalysisBlockCnt": 177
+      "testAnalysisBlockCnt": 7
     },
     "TPS": {
       "min": 20,
@@ -862,9 +862,9 @@ The Performance Test Basic generates, by default, a report that details results 
       "avg": 20.0,
       "sigma": 0.0,
       "emptyBlocks": 0,
-      "numBlocks": 177,
+      "numBlocks": 7,
       "configTps": 20,
-      "configTestDuration": 90,
+      "configTestDuration": 5,
       "tpsPerGenerator": [
         10,
         10
@@ -872,25 +872,25 @@ The Performance Test Basic generates, by default, a report that details results 
       "generatorCount": 2
     },
     "TrxCPU": {
-      "min": 11.0,
-      "max": 360.0,
-      "avg": 63.10444444444445,
-      "sigma": 33.234456387280126,
-      "samples": 1800
+      "min": 20.0,
+      "max": 141.0,
+      "avg": 72.15,
+      "sigma": 31.078408903932,
+      "samples": 100
     },
     "TrxLatency": {
-      "min": 0.06500005722045898,
-      "max": 0.4679999351501465,
-      "avg": 0.26723387837409973,
-      "sigma": 0.1414459711179884,
-      "samples": 1800
+      "min": 0.0409998893737793,
+      "max": 0.4419999122619629,
+      "avg": 0.24149999618530274,
+      "sigma": 0.14142224015850113,
+      "samples": 100
     },
     "TrxNet": {
       "min": 24.0,
       "max": 24.0,
       "avg": 24.0,
       "sigma": 0.0,
-      "samples": 1800
+      "samples": 100
     },
     "DroppedBlocks": {},
     "DroppedBlocksCount": 0,
@@ -902,6 +902,7 @@ The Performance Test Basic generates, by default, a report that details results 
     "ForksCount": 0
   },
   "args": {
+    "rawCmdLine ": "/home/leap/build/tests/performance_tests/performance_test_basic.py -v -p 1 -n 1 --target-tps 20 --tps-limit-per-generator 10 --test-duration-sec 5 --clean-run",
     "killAll": true,
     "dontKill": false,
     "keepLogs": true,
@@ -1197,8 +1198,8 @@ The Performance Test Basic generates, by default, a report that details results 
         "p2pDedupCacheExpireTimeSec": null,
         "_p2pDedupCacheExpireTimeSecNodeosDefault": 10,
         "_p2pDedupCacheExpireTimeSecNodeosArg": "--p2p-dedup-cache-expire-time-sec",
-        "netThreads": 2,
-        "_netThreadsNodeosDefault": 2,
+        "netThreads": 4,
+        "_netThreadsNodeosDefault": 4,
         "_netThreadsNodeosArg": "--net-threads",
         "syncFetchSpan": null,
         "_syncFetchSpanNodeosDefault": 100,
@@ -1372,10 +1373,21 @@ The Performance Test Basic generates, by default, a report that details results 
         "_traceNoAbisNodeosArg": "--trace-no-abis"
       }
     },
+    "specifiedContract": {
+      "accountName": "eosio",
+      "ownerPrivateKey": "5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3",
+      "ownerPublicKey": "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV",
+      "activePrivateKey": "5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3",
+      "activePublicKey": "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV",
+      "contractDir": "unittests/contracts/eosio.system",
+      "wasmFile": "eosio.system.wasm",
+      "abiFile": "eosio.system.abi"
+    },
     "useBiosBootFile": false,
     "genesisPath": "tests/performance_tests/genesis.json",
     "maximumP2pPerHost": 5000,
     "maximumClients": 0,
+    "loggingLevel": "info",
     "loggingDict": {
       "bios": "off"
     },
@@ -1386,19 +1398,20 @@ The Performance Test Basic generates, by default, a report that details results 
     },
     "_totalNodes": 2,
     "targetTps": 20,
-    "testTrxGenDurationSec": 90,
+    "testTrxGenDurationSec": 5,
     "tpsLimitPerGenerator": 10,
     "numAddlBlocksToPrune": 2,
     "logDirRoot": ".",
     "delReport": false,
     "quiet": false,
     "delPerfLogs": false,
-    "expectedTransactionsSent": 1800,
+    "expectedTransactionsSent": 100,
     "printMissingTransactions": false,
+    "userTrxDataFile": null,
     "logDirBase": "p",
-    "logDirTimestamp": "2023-01-13_18-00-42",
+    "logDirTimestamp": "2023-02-15_22-32-36",
     "logDirTimestampedOptSuffix": "-20",
-    "logDirPath": "p/2023-01-13_18-00-42-20"
+    "logDirPath": "p/2023-02-15_22-32-36-20"
   },
   "env": {
     "system": "Linux",

@@ -131,7 +131,6 @@ class PerformanceTestBasic:
         expectedTransactionsSent: int = field(default_factory=int, init=False)
         printMissingTransactions: bool=False
         userTrxDataFile: Path=None
-        argsString: str=""
 
         def __post_init__(self):
             self.expectedTransactionsSent = self.testTrxGenDurationSec * self.targetTps
@@ -398,6 +397,7 @@ class PerformanceTestBasic:
 
     def prepArgs(self) -> dict:
         args = {}
+        args.update({"rawCmdLine ": ' '.join(sys.argv[0:])})
         args.update(asdict(self.testHelperConfig))
         args.update(asdict(self.clusterConfig))
         args.update(asdict(self.ptbConfig))
@@ -617,7 +617,7 @@ def main():
     ptbConfig = PerformanceTestBasic.PtbConfig(targetTps=args.target_tps, testTrxGenDurationSec=args.test_duration_sec, tpsLimitPerGenerator=args.tps_limit_per_generator,
                                   numAddlBlocksToPrune=args.num_blocks_to_prune, logDirRoot=".", delReport=args.del_report, quiet=args.quiet, delPerfLogs=args.del_perf_logs,
                                   printMissingTransactions=args.print_missing_transactions,
-                                  userTrxDataFile=Path(args.user_trx_data_file) if args.user_trx_data_file is not None else None, argsString=' '.join(sys.argv[1:]))
+                                  userTrxDataFile=Path(args.user_trx_data_file) if args.user_trx_data_file is not None else None)
     myTest = PerformanceTestBasic(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, ptbConfig=ptbConfig)
 
     testSuccessful = myTest.runTest()
