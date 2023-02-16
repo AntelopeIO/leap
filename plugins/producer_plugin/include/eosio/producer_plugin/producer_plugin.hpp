@@ -51,11 +51,11 @@ public:
    };
 
    struct snapshot_request_information {
-      uint32_t             snapshot_request_id;
-      uint32_t             block_spacing;
-      uint32_t             start_block_num;
-      uint32_t             end_block_num;
-      std::string          snapshot_description;
+      uint32_t             snapshot_request_id = 0;
+      uint32_t             block_spacing = 0;
+      uint32_t             start_block_num = 0;
+      uint32_t             end_block_num = 0;
+      std::string          snapshot_description = "";
    };
 
    // id and description are not affecting snapshot execution

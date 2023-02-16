@@ -391,6 +391,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          auto before = _unapplied_transactions.size();
          _unapplied_transactions.clear_applied( bsp );
          _subjective_billing.on_block( _log, bsp, fc::time_point::now() );
+         _snapshot_scheduler->on_block(bsp->block_num);
          fc_dlog( _log, "Removed applied transactions before: ${before}, after: ${after}",
                   ("before", before)("after", _unapplied_transactions.size()) );
       }
@@ -417,8 +418,6 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
 
             snapshots_by_height.erase(snapshots_by_height.begin());
          }
-
-         // notify scheduler
          _snapshot_scheduler->on_irreversible_block(lib_height);
       }
 

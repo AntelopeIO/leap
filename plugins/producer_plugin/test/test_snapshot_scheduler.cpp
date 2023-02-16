@@ -47,6 +47,16 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
       scheduler.unschedule_snapshot(sri_delete_2);
 
       BOOST_CHECK_EQUAL(0, scheduler.get_snapshots().size());
+
+      producer_plugin::snapshot_request_information sri_large_spacing = {.snapshot_request_id = 0, .block_spacing = 1000, .start_block_num = 5000, .end_block_num = 5010 };
+      BOOST_CHECK_EXCEPTION(scheduler.schedule_snapshot(sri_large_spacing), invalid_snapshot_request, [](const fc::assert_exception& e) {
+         return e.to_detail_string().find("Block spacing exceeds defined by start and end range") != std::string::npos;
+      });
+
+      producer_plugin::snapshot_request_information sri_start_end = {.snapshot_request_id = 0, .block_spacing = 1000, .start_block_num = 50000, .end_block_num = 5000 };
+      BOOST_CHECK_EXCEPTION(scheduler.schedule_snapshot(sri_start_end), invalid_snapshot_request, [](const fc::assert_exception& e) {
+         return e.to_detail_string().find("End block number should be greater or equal to start block number") != std::string::npos;
+      });
    }
 }
 
