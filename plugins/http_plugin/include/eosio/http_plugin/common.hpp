@@ -75,9 +75,10 @@ using namespace eosio::chain::plugin_interface;
 
 using internal_url_handler_fn = std::function<void(abstract_conn_ptr, string, string, url_response_callback)>;
 struct internal_url_handler {
-   runtime_metric call_count{metric_type::gauge, "num_calls", "num_calls"};
+   runtime_metric call_count;
    internal_url_handler_fn fn;
    http_content_type content_type = http_content_type::json;
+   internal_url_handler(const string& url="") : call_count{metric_type::gauge, "num_calls", url} {}
 };
 /**
 * Helper method to calculate the "in flight" size of a fc::variant
