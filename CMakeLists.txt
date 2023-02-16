@@ -29,6 +29,14 @@ endif()
 option(ENABLE_WERROR "Enable `-Werror` compilation flag." Off)
 option(ENABLE_WEXTRA "Enable `-Wextra` compilation flag." Off)
 
+set(SPLUGIN_VERSION_MAJOR 1)
+set(SPLUGIN_VERSION_MINOR 0)
+set(SPLUGIN_VERSION_PATCH 0)
+
+set(
+    VERSION_FULL
+    "${VERSION_FULL}-${SPLUGIN_VERSION_MAJOR}-${SPLUGIN_VERSION_MINOR}-${SPLUGIN_VERSION_PATCH}"
+)
 
 set( CLI_CLIENT_EXECUTABLE_NAME cleos )
 set( NODE_EXECUTABLE_NAME nodeos )

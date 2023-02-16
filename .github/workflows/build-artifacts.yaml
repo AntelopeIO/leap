@@ -7,6 +7,8 @@ jobs:
   build:
     name: Build nodeos
     runs-on: ubuntu-22.04
+    outputs:
+      version: ${{ steps.set_version.outputs.version }}
     steps:
       - uses: actions/checkout@v3
         with:
@@ -39,8 +41,16 @@ jobs:
           cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr ..
           make -j$(nproc)
         working-directory: ./build
-      - name: version
-        run: echo "::set-output name=version::$(./build/bin/nodeos --version)"
-        id: version
+      - name: Set version
+        id: set_version
+        run: |
+          echo "version=$(./build/bin/nodeos --version)" >> $GITHUB_OUTPUT
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            build/leap-*.deb
+            build/leap-*.tar.gz
+
 
 
