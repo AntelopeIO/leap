@@ -1,6 +1,8 @@
 name: Artifacts Build
 
 on:
+  release:
+    types: [published]
   workflow_dispatch:
 
 jobs:
@@ -40,7 +42,8 @@ jobs:
       - name: Build
         run: |
           cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr ..
-          make -j$(nproc)
+          make -j$(nproc) package
+          ls -la
         working-directory: ./build
       - name: Set version
         id: set_version
@@ -48,10 +51,12 @@ jobs:
           echo "version=$(./build/bin/nodeos --version)" >> $GITHUB_OUTPUT
       - name: Release
         uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
-            build/leap-*.deb
-            build/leap-*.tar.gz
+            ./build/leap*.deb
+            ./build/leap*.rpm
+            ./build/leap*.tar.gz
 
 
 
