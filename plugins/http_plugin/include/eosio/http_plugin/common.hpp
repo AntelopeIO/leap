@@ -1,6 +1,7 @@
 #pragma once
 
 #include <eosio/chain/thread_utils.hpp>// for thread pool
+#include <eosio/chain/plugin_interface.hpp>
 #include <eosio/http_plugin/http_plugin.hpp>
 #include <fc/utility.hpp>
 
@@ -70,9 +71,11 @@ using abstract_conn_ptr = std::shared_ptr<abstract_conn>;
 * internal url handler that contains more parameters than the handlers provided by external systems
 */
 
+using namespace eosio::chain::plugin_interface;
 
 using internal_url_handler_fn = std::function<void(abstract_conn_ptr, string, string, url_response_callback)>;
 struct internal_url_handler {
+   runtime_metric call_count{metric_type::gauge, "num_calls", "num_calls"};
    internal_url_handler_fn fn;
    http_content_type content_type = http_content_type::json;
 };
@@ -110,6 +113,26 @@ static size_t in_flight_sizeof(const std::optional<T>& o) {
 // key -> priority, url_handler
 typedef map<string, detail::internal_url_handler> url_handlers_type;
 
+using eosio::chain::plugin_interface::plugin_metrics;
+using eosio::chain::plugin_interface::runtime_metric;
+
+struct http_plugin_metrics : plugin_metrics {
+   url_handlers_type& _handlers;
+
+   vector<runtime_metric> metrics() {
+      vector<runtime_metric> m;
+      m.reserve(_handlers.size());
+
+      for (const auto& p : _handlers) {
+         m.push_back(p.second.call_count);
+      }
+
+      return m;
+   }
+
+   http_plugin_metrics(url_handlers_type& handlers) : _handlers(handlers) { }
+};
+
 struct http_plugin_state {
    string access_control_allow_origin;
    string access_control_allow_headers;
@@ -138,6 +161,7 @@ struct http_plugin_state {
 
    fc::logger& logger;
 
+   http_plugin_metrics metrics{url_handlers};
    explicit http_plugin_state(fc::logger& log)
        : logger(log) {}
 };

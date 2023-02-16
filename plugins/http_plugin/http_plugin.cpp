@@ -49,6 +49,7 @@ namespace eosio {
 
    using http_plugin_impl_ptr = std::shared_ptr<class http_plugin_impl>;
 
+
 class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
       public:
          http_plugin_impl() = default;
@@ -73,7 +74,7 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
          shared_ptr<beast_http_listener<unix_socket_session, stream_protocol, stream_protocol::socket > > beast_unix_server;
 
          shared_ptr<http_plugin_state> plugin_state = std::make_shared<http_plugin_state>(logger());
-         
+
          /**
           * Make an internal_url_handler that will run the url_handler on the app() thread and then
           * return to the http thread pool for response processing
@@ -560,6 +561,10 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
       }
 
       return result;
+   }
+
+   void http_plugin::register_metrics_listener(metrics_listener listener) {
+      my->plugin_state->metrics.register_listener(listener);
    }
 
    fc::microseconds http_plugin::get_max_response_time()const {
