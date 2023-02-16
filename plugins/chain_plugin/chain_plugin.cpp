@@ -687,12 +687,9 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
       bool has_partitioned_block_log_options = options.count("blocks-retained-dir") ||  options.count("blocks-archive-dir")
          || options.count("blocks-log-stride") || options.count("max-retained-block-files");
       bool has_retain_blocks_option = options.count("block-log-retain-blocks");
-      bool has_fix_irreversible_blocks_option = options.count("fix-irreversible-blocks");
 
       EOS_ASSERT(!has_partitioned_block_log_options || !has_retain_blocks_option, plugin_config_exception,
          "block-log-retain-blocks cannot be specified together with blocks-retained-dir, blocks-archive-dir or blocks-log-stride or max-retained-block-files.");
-      EOS_ASSERT(!has_fix_irreversible_blocks_option || !has_retain_blocks_option, plugin_config_exception,
-         "block-log-retain-blocks cannot be specified together with fix-irreversible-blocks.");
 
 
       if (has_partitioned_block_log_options) {
@@ -706,12 +703,6 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
             .max_retained_files = options.count("max-retained-block-files")
                                         ? options.at("max-retained-block-files").as<uint32_t>()
                                         : UINT32_MAX,
-            .fix_irreversible_blocks =
-                  options.count("fix-irreversible-blocks") ? options.at("fix-irreversible-blocks").as<bool>() : false
-         };
-      } else if (has_fix_irreversible_blocks_option) {
-         my->chain_config->blog = eosio::chain::basic_blocklog_config{
-            .fix_irreversible_blocks = options.at("fix-irreversible-blocks").as<bool>()
          };
       } else if(has_retain_blocks_option) {
          uint32_t block_log_retain_blocks = options.at("block-log-retain-blocks").as<uint32_t>();
