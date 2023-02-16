@@ -24,6 +24,7 @@ jobs:
                     git                  \
                     jq                   \
                     libboost-all-dev     \
+                    libusb-1.0-0-dev     \
                     libcurl4-openssl-dev \
                     libgmp-dev           \
                     libssl-dev           \
