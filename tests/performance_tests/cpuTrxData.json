@@ -1,0 +1,16 @@
+{
+    "initAccounts": ["c"],
+    "abiFile": "unittests/contracts/eosio.mechanics/contracts/eosmechanics.abi",
+    "actions": [
+        {
+            "actionName": "cpu",
+            "actionData": {
+            },
+            "actionAuthAcct": "c",
+            "authorization": {
+                "actor": "c",
+                "permission": "active"
+            }
+        }
+    ]
+}
