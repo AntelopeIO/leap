@@ -124,8 +124,8 @@ int main(int argc, char** argv) {
 
       if(vmap.count("accounts")) {
          boost::split(account_str_vector, accts, boost::is_any_of(","));
-         if(!transaction_specified && account_str_vector.size() < 1) {
-            ilog("Initialization error: requires at minimum 1 account");
+         if(!transaction_specified && account_str_vector.size() < 2) {
+            ilog("Initialization error: requires at minimum 2 accounts");
             cli.print(std::cerr);
             return INITIALIZE_FAIL;
          }

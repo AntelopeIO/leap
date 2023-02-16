@@ -91,7 +91,7 @@ class TransactionGeneratorsLauncher:
                         '--actions-data', f'{self.actionsData}',
                         '--actions-auths', f'{self.actionsAuths}',
                         '--peer-endpoint', f'{self.peerEndpoint}',
-                        '--port', f'{self.port}',
+                        '--port', f'{self.port}'
                     ])
                 )
             else:
@@ -123,7 +123,7 @@ class TransactionGeneratorsLauncher:
                         '--target-tps', f'{targetTps}',
                         '--log-dir', f'{self.logDir}',
                         '--peer-endpoint', f'{self.peerEndpoint}',
-                        '--port', f'{self.port}',
+                        '--port', f'{self.port}'
                     ])
                 )
         exitCodes=None
