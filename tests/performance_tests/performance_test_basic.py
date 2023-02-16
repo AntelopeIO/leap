@@ -291,16 +291,16 @@ class PerformanceTestBasic:
                     ret = self.cluster.biosNode.getEosAccount(name)
                     if ret is None:
                         newAccountNames.append(name)
-            self.cluster.populateWallet(accountsCount=len(newAccountNames), wallet=self.wallet, accountNames=newAccountNames, createProducerAccounts=True)
-            self.cluster.createAccounts(self.cluster.eosioAccount, newAccountNames, stakedDeposit=0, validationNodeIndex=self.validationNodeId)
+            self.cluster.populateWallet(accountsCount=len(newAccountNames), wallet=self.wallet, accountNames=newAccountNames)
+            self.cluster.createAccounts(self.cluster.eosioAccount, stakedDeposit=0, validationNodeIndex=self.validationNodeId)
             if len(newAccountNames) != 0:
                 for index in range(len(self.accountNames), len(accountNames)):
                     self.accountNames.append(self.cluster.accounts[index].name)
                     self.accountPrivKeys.append(self.cluster.accounts[index].activePrivateKey)
                     self.accountPrivKeys.append(self.cluster.accounts[index].ownerPrivateKey)
         else:
-            self.cluster.populateWallet(accountsCount=accountCnt, wallet=self.wallet, createProducerAccounts=True)
-            self.cluster.createAccounts(self.cluster.eosioAccount, newAccountNames, stakedDeposit=0, validationNodeIndex=self.validationNodeId)
+            self.cluster.populateWallet(accountsCount=accountCnt, wallet=self.wallet)
+            self.cluster.createAccounts(self.cluster.eosioAccount, stakedDeposit=0, validationNodeIndex=self.validationNodeId)
             for index in range(0, accountCnt):
                 self.accountNames.append(self.cluster.accounts[index].name)
                 self.accountPrivKeys.append(self.cluster.accounts[index].activePrivateKey)

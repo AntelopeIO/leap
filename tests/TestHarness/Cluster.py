@@ -705,7 +705,7 @@ class Cluster(object):
 
     # create account keys and import into wallet. Wallet initialization will be user responsibility
     # also imports defproducera and defproducerb accounts
-    def populateWallet(self, accountsCount, wallet, accountNames: list=None, createProducerAccounts: bool=False):
+    def populateWallet(self, accountsCount, wallet, accountNames: list=None):
         if accountsCount == 0 and len(accountNames) == 0:
             return True
         if self.walletMgr is None:
@@ -720,16 +720,15 @@ class Cluster(object):
                 Utils.Print("Account keys creation failed.")
                 return False
 
-        if createProducerAccounts:
-            Utils.Print("Importing keys for account %s into wallet %s." % (self.defproduceraAccount.name, wallet.name))
-            if not self.walletMgr.importKey(self.defproduceraAccount, wallet):
-                Utils.Print("ERROR: Failed to import key for account %s" % (self.defproduceraAccount.name))
-                return False
+        Utils.Print("Importing keys for account %s into wallet %s." % (self.defproduceraAccount.name, wallet.name))
+        if not self.walletMgr.importKey(self.defproduceraAccount, wallet):
+            Utils.Print("ERROR: Failed to import key for account %s" % (self.defproduceraAccount.name))
+            return False
 
-            Utils.Print("Importing keys for account %s into wallet %s." % (self.defproducerbAccount.name, wallet.name))
-            if not self.walletMgr.importKey(self.defproducerbAccount, wallet):
-                Utils.Print("ERROR: Failed to import key for account %s" % (self.defproducerbAccount.name))
-                return False
+        Utils.Print("Importing keys for account %s into wallet %s." % (self.defproducerbAccount.name, wallet.name))
+        if not self.walletMgr.importKey(self.defproducerbAccount, wallet):
+            Utils.Print("ERROR: Failed to import key for account %s" % (self.defproducerbAccount.name))
+            return False
 
         if accountNames is not None:
             for idx, name in enumerate(accountNames):
@@ -1595,13 +1594,13 @@ class Cluster(object):
             os.remove(f)
 
     # Create accounts and validates that the last transaction is received on root node
-    def createAccounts(self, creator, nameList: list, waitForTransBlock=True, stakedDeposit=1000, validationNodeIndex=0):
+    def createAccounts(self, creator, waitForTransBlock=True, stakedDeposit=1000, validationNodeIndex=0):
         if self.accounts is None:
             return True
         transId=None
         for account in self.accounts:
             ret = self.biosNode.getEosAccount(account.name)
-            if (len(nameList) == 0 and ret is None) or account.name in nameList:
+            if ret is None:
                 if Utils.Debug: Utils.Print("Create account %s." % (account.name))
                 if Utils.Debug: Utils.Print("Validation node %s" % validationNodeIndex)
                 trans=self.createAccountAndVerify(account, creator, stakedDeposit, validationNodeIndex=validationNodeIndex)
