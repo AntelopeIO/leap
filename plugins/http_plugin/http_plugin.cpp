@@ -437,13 +437,12 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
             
             add_api({{
                std::string("/v1/node/get_supported_apis"),
-               [&](const string&, string body, url_response_callback cb) mutable {
+               [&](string, string body, url_response_callback cb) {
                   try {
-                     if (body.empty()) body = "{}";
                      auto result = (*this).get_supported_apis();
                      cb(200, fc::time_point::maximum(), fc::variant(result));
                   } catch (...) {
-                     handle_exception("node", "get_supported_apis", body, cb);
+                     handle_exception("node", "get_supported_apis", body.empty() ? "{}" : body, cb);
                   }
                }
             }});
