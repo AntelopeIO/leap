@@ -16,24 +16,21 @@
 extern const char* const state_history_plugin_abi;
 
 namespace eosio {
-using namespace state_history;
-using tcp     = boost::asio::ip::tcp;
-using unixs   = boost::asio::local::stream_protocol;
-namespace ws  = boost::beast::websocket;
-namespace bio = boost::iostreams;
 
 class session_manager;
 
 struct send_queue_entry_base {
    virtual ~send_queue_entry_base() = default;
-   virtual void send_entry() = 0;
+   virtual void send_entry()        = 0;
 };
 
 struct session_base {
    virtual void send_update(bool changed)                                     = 0;
    virtual void send_update(const eosio::chain::block_state_ptr& block_state) = 0;
    virtual ~session_base()                                                    = default;
-   std::optional<get_blocks_request_v0> current_request;
+
+   std::optional<state_history::get_blocks_request_v0> current_request;
+   bool need_to_send_update = false;
 };
 
 class send_update_send_queue_entry : public send_queue_entry_base {
@@ -53,14 +50,16 @@ public:
    }
 };
 
-// accessed from ship thread
+/// Coordinate sending of queued entries. Only one session can read from the ship logs at a time so coordinate
+/// their execution on the ship thread.
+/// accessed from ship thread
 class session_manager {
 private:
    using entry_ptr = std::unique_ptr<send_queue_entry_base>;
 
    std::set<std::shared_ptr<session_base>> session_set;
    bool sending  = false;
-   std::vector<entry_ptr> send_queue;
+   std::deque<std::pair<std::shared_ptr<session_base>, entry_ptr>> send_queue;
 
 public:
    void insert(std::shared_ptr<session_base> s) {
@@ -73,8 +72,12 @@ public:
          pop_entry();
    }
 
-   void add_send_queue(entry_ptr p) {
-      send_queue.emplace_back(std::move(p));
+   bool is_active(const std::shared_ptr<session_base>& s) {
+      return session_set.count(s);
+   }
+
+   void add_send_queue(std::shared_ptr<session_base> s, entry_ptr p) {
+      send_queue.emplace_back(std::move(s), std::move(p));
       send();
    }
 
@@ -82,30 +85,39 @@ public:
       if (sending)
          return;
       if (send_queue.empty()) {
-         send_update();
+         send_updates();
          return;
       }
-      sending = true;
+      while (!send_queue.empty() && !is_active(send_queue[0].first)) {
+         send_queue.erase(send_queue.begin());
+      }
 
-      send_queue[0]->send_entry();
+      if (!send_queue.empty()) {
+         sending = true;
+         send_queue[0].second->send_entry();
+      } else {
+         send();
+      }
    }
 
    void pop_entry(bool call_send = true) {
       send_queue.erase(send_queue.begin());
       sending = false;
-      if( call_send)
+      if (call_send)
          send();
    }
 
-   void send_update() {
+   void send_updates() {
       for( auto& s : session_set ) {
-         add_send_queue(std::make_unique<send_update_send_queue_entry>(s, nullptr));
+         if (s->need_to_send_update ) {
+            add_send_queue(s, std::make_unique<send_update_send_queue_entry>(s, nullptr));
+         }
       }
    }
 
    void send_update(const chain::block_state_ptr& block_state) {
       for( auto& s : session_set ) {
-         add_send_queue(std::make_unique<send_update_send_queue_entry>(s, block_state));
+         add_send_queue(s, std::make_unique<send_update_send_queue_entry>(s, block_state));
       }
    }
 
@@ -123,7 +135,7 @@ public:
 
    void send_entry() override {
       fc_dlog(session->plugin->logger(), "replying get_status_request_v0");
-      get_status_result_v0 result;
+      state_history::get_status_result_v0 result;
       result.head              = session->plugin->get_block_head();
       result.last_irreversible = session->plugin->get_last_irreversible();
       result.chain_id          = session->plugin->get_chain_id();
@@ -141,7 +153,7 @@ public:
       }
       fc_dlog(session->plugin->logger(), "pushing get_status_result_v0 to send queue");
 
-      data = fc::raw::pack(state_result{std::move(result)});
+      data = fc::raw::pack(state_history::state_result{std::move(result)});
 
       session->socket_stream->async_write(boost::asio::buffer(data),
                                    [s{session}](boost::system::error_code ec, size_t) {
@@ -156,7 +168,7 @@ class blocks_ack_request_send_queue_entry : public send_queue_entry_base {
    eosio::state_history::get_blocks_ack_request_v0 req;
 
 public:
-   explicit blocks_ack_request_send_queue_entry(std::shared_ptr<Session> s, get_blocks_ack_request_v0&& r)
+   explicit blocks_ack_request_send_queue_entry(std::shared_ptr<Session> s, state_history::get_blocks_ack_request_v0&& r)
    : session(std::move(s))
    , req(std::move(r)) {}
 
@@ -172,7 +184,7 @@ class blocks_request_send_queue_entry : public send_queue_entry_base {
    eosio::state_history::get_blocks_request_v0 req;
 
 public:
-   blocks_request_send_queue_entry(std::shared_ptr<Session> s, get_blocks_request_v0&& r)
+   blocks_request_send_queue_entry(std::shared_ptr<Session> s, state_history::get_blocks_request_v0&& r)
    : session(std::move(s))
    , req(std::move(r)) {}
 
@@ -210,7 +222,7 @@ public:
 template <typename Session>
 class blocks_result_send_queue_entry : public send_queue_entry_base, public std::enable_shared_from_this<blocks_result_send_queue_entry<Session>> {
    std::shared_ptr<Session>                                        session;
-   eosio::state_history::get_blocks_result_v0                      r;
+   state_history::get_blocks_result_v0                             r;
    std::vector<char>                                               data;
    std::optional<locked_decompress_stream>                         stream;
 
@@ -296,7 +308,7 @@ class blocks_result_send_queue_entry : public send_queue_entry_base, public std:
    }
 
 public:
-   blocks_result_send_queue_entry(std::shared_ptr<Session> s, get_blocks_result_v0&& r)
+   blocks_result_send_queue_entry(std::shared_ptr<Session> s, state_history::get_blocks_result_v0&& r)
        : session(std::move(s)),
          r(std::move(r)) {}
 
@@ -304,11 +316,11 @@ public:
       // pack the state_result{get_blocks_result} excluding the fields `traces` and `deltas`
       fc::datastream<size_t> ss;
       fc::raw::pack(ss, fc::unsigned_int(1)); // pack the variant index of state_result{r}
-      fc::raw::pack(ss, static_cast<const get_blocks_result_base&>(r));
+      fc::raw::pack(ss, static_cast<const state_history::get_blocks_result_base&>(r));
       data.resize(ss.tellp());
       fc::datastream<char*> ds(data.data(), data.size());
       fc::raw::pack(ds, fc::unsigned_int(1)); // pack the variant index of state_result{r}
-      fc::raw::pack(ds, static_cast<const get_blocks_result_base&>(r));
+      fc::raw::pack(ds, static_cast<const state_history::get_blocks_result_base&>(r));
 
       async_send(false, data, [me=this->shared_from_this()]() {
          me->send_traces();
@@ -321,11 +333,10 @@ struct session : session_base, std::enable_shared_from_this<session<Plugin, Sock
 private:
    Plugin                 plugin;
    session_manager&       session_mgr;
-   std::optional<ws::stream<SocketType>> socket_stream; // ship thread only after creation
+   std::optional<boost::beast::websocket::stream<SocketType>> socket_stream; // ship thread only after creation
 
-   bool                   need_to_send_update = false;
    uint32_t               to_send_block_num = 0;
-   std::optional<std::vector<block_position>::const_iterator> position_it;
+   std::optional<std::vector<state_history::block_position>::const_iterator> position_it;
 
    const int32_t          default_frame_size;
 
@@ -346,7 +357,7 @@ public:
       fc_ilog(plugin->logger(), "incoming connection");
       socket_stream->auto_fragment(false);
       socket_stream->binary(true);
-      if constexpr (std::is_same_v<SocketType, tcp::socket>) {
+      if constexpr (std::is_same_v<SocketType, boost::asio::ip::tcp::socket>) {
          socket_stream->next_layer().set_option(boost::asio::ip::tcp::no_delay(true));
       }
       socket_stream->next_layer().set_option(boost::asio::socket_base::send_buffer_size(1024 * 1024));
@@ -376,7 +387,7 @@ private:
                 auto d = boost::asio::buffer_cast<char const*>(boost::beast::buffers_front(in_buffer->data()));
                 auto s = boost::asio::buffer_size(in_buffer->data());
                 fc::datastream<const char*> ds(d, s);
-                state_request               req;
+                state_history::state_request req;
                 fc::raw::unpack(ds, req);
                 std::visit( [self]( auto& r ) {
                    self->process( r );
@@ -411,32 +422,38 @@ private:
    }
 
    // called from ship thread
-   void process(get_status_request_v0&) {
+   void process(state_history::get_status_request_v0&) {
       fc_dlog(plugin->logger(), "received get_status_request_v0");
 
-      session_mgr.add_send_queue(std::make_unique<status_result_send_queue_entry<session>>(this->shared_from_this()));
+      auto self = this->shared_from_this();
+      auto entry_ptr = std::make_unique<status_result_send_queue_entry<session>>(self);
+      session_mgr.add_send_queue(std::move(self), std::move(entry_ptr));
    }
 
    // called from ship thread
-   void process(get_blocks_request_v0& req) {
+   void process(state_history::get_blocks_request_v0& req) {
       fc_dlog(plugin->logger(), "received get_blocks_request_v0 = ${req}", ("req", req));
 
-      session_mgr.add_send_queue(std::make_unique<blocks_request_send_queue_entry<session>>(this->shared_from_this(), std::move(req)));
+      auto self = this->shared_from_this();
+      auto entry_ptr = std::make_unique<blocks_request_send_queue_entry<session>>(self, std::move(req));
+      session_mgr.add_send_queue(std::move(self), std::move(entry_ptr));
    }
 
    // called from ship thread
-   void process(get_blocks_ack_request_v0& req) {
+   void process(state_history::get_blocks_ack_request_v0& req) {
       fc_dlog(plugin->logger(), "received get_blocks_ack_request_v0 = ${req}", ("req", req));
       if (!current_request) {
          fc_dlog(plugin->logger(), " no current get_blocks_request_v0, discarding the get_blocks_ack_request_v0");
          return;
       }
 
-      session_mgr.add_send_queue(std::make_unique<blocks_ack_request_send_queue_entry<session>>(this->shared_from_this(), std::move(req)));
+      auto self = this->shared_from_this();
+      auto entry_ptr = std::make_unique<blocks_ack_request_send_queue_entry<session>>(self, std::move(req));
+      session_mgr.add_send_queue(std::move(self), std::move(entry_ptr));
    }
 
    // called from ship thread
-   void send_update(get_blocks_result_v0 result, const chain::block_state_ptr& block_state) {
+   void send_update(state_history::get_blocks_result_v0 result, const chain::block_state_ptr& block_state) {
       need_to_send_update = true;
       if (!current_request || !current_request->max_messages_in_flight) {
          session_mgr.pop_entry(false);
@@ -474,10 +491,10 @@ private:
       }
 
       if (block_id) {
-         result.this_block  = block_position{to_send_block_num, *block_id};
+         result.this_block  = state_history::block_position{to_send_block_num, *block_id};
          auto prev_block_id = plugin->get_block_id(to_send_block_num - 1);
          if (prev_block_id)
-            result.prev_block = block_position{to_send_block_num - 1, *prev_block_id};
+            result.prev_block = state_history::block_position{to_send_block_num - 1, *prev_block_id};
          if (current_request->fetch_block)
             plugin->get_block(to_send_block_num, block_state, result.block);
          if (current_request->fetch_traces && plugin->get_trace_log())
@@ -512,7 +529,7 @@ private:
          return;
       }
 
-      get_blocks_result_v0 result;
+      state_history::get_blocks_result_v0 result;
       result.head = {block_state->block_num, block_state->id};
       send_update(std::move(result), block_state);
    }
@@ -520,7 +537,7 @@ private:
    // called from ship thread
    void send_update(bool changed) override {
       if (changed || need_to_send_update) {
-         get_blocks_result_v0 result;
+         state_history::get_blocks_result_v0 result;
          result.head = plugin->get_block_head();
          send_update(std::move(result), {});
       } else {

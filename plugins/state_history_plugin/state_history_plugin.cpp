@@ -92,8 +92,8 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
       boost::asio::deadline_timer error_timer_;
    };
    
-   using tcp_acceptor  = generic_acceptor<tcp::acceptor>;
-   using unix_acceptor = generic_acceptor<unixs::acceptor>;
+   using tcp_acceptor  = generic_acceptor<boost::asio::ip::tcp::acceptor>;
+   using unix_acceptor = generic_acceptor<boost::asio::local::stream_protocol::acceptor>;
    
    using acceptor_type = std::variant<std::unique_ptr<tcp_acceptor>, std::unique_ptr<unix_acceptor>>;
    std::set<acceptor_type>          acceptors;
@@ -185,7 +185,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
          //  but nothing is listening
          {
             boost::system::error_code test_ec;
-            unixs::socket             test_socket(app().get_io_service());
+            boost::asio::local::stream_protocol::socket test_socket(app().get_io_service());
             test_socket.connect(unix_path.c_str(), test_ec);
 
             // looks like a service is already running on that socket, don't touch it... fail out
@@ -209,7 +209,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
       std::for_each(acceptors.begin(), acceptors.end(), [&](const acceptor_type& acc) {
          std::visit(overloaded{[&](const std::unique_ptr<tcp_acceptor>& tcp_acc) {
                                 auto address  = boost::asio::ip::make_address(endpoint_address);
-                                auto endpoint = tcp::endpoint{address, endpoint_port};
+                                auto endpoint = boost::asio::ip::tcp::endpoint{address, endpoint_port};
                                 tcp_acc->acceptor_.open(endpoint.protocol(), ec);
                                 check_ec("open");
                                 tcp_acc->acceptor_.set_option(boost::asio::socket_base::reuse_address(true));
@@ -220,7 +220,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
                                 do_accept(*tcp_acc);
                              },
                              [&](const std::unique_ptr<unix_acceptor>& unx_acc) {
-                                unx_acc->acceptor_.open(unixs::acceptor::protocol_type(), ec);
+                                unx_acc->acceptor_.open(boost::asio::local::stream_protocol::acceptor::protocol_type(), ec);
                                 check_ec("open");
                                 unx_acc->acceptor_.bind(unix_path.c_str(), ec);
                                 check_ec("bind");

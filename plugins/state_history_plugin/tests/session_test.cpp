@@ -117,7 +117,7 @@ struct mock_state_history_plugin {
    fc::logger logger() { return fc::logger::get(DEFAULT_LOGGER); }
 
    void get_block(uint32_t block_num, const eosio::chain::block_state_ptr& block_state,
-                  std::optional<eosio::bytes>& result) const {
+                  std::optional<eosio::chain::bytes>& result) const {
       result.emplace().resize(16);
    }
 
