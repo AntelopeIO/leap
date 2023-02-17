@@ -100,7 +100,7 @@ struct mock_state_history_plugin {
    fc::temp_directory                      log_dir;
    std::optional<eosio::state_history_log> log;
    std::atomic<bool>                       stopping = false;
-   std::set<std::shared_ptr<eosio::session_base>> session_set;
+   eosio::session_manager                  session_mgr;
 
    constexpr static uint32_t default_frame_size = 1024;
 
@@ -131,7 +131,7 @@ struct mock_state_history_plugin {
    eosio::state_history::block_position get_last_irreversible() { return block_head; }
 
    void add_session(std::shared_ptr<eosio::session_base> s) {
-      session_set.insert(s);
+      session_mgr.insert(std::move(s));
    }
 
    template <typename Task>
@@ -211,7 +211,7 @@ class listener : public std::enable_shared_from_this<listener> {
          fail(ec, "accept");
       } else {
          // Create the session and run it
-         auto s = std::make_shared<session_type>(server_, std::move(socket));
+         auto s = std::make_shared<session_type>(server_, std::move(socket), server_->session_mgr);
          s->start();
          server_->add_session(s);
       }

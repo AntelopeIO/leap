@@ -67,7 +67,6 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
    std::optional<state_history_log> trace_log;
    std::optional<state_history_log> chain_state_log;
    bool                             trace_debug_mode = false;
-   std::atomic<bool>                stopping         = false;
    std::optional<scoped_connection> applied_transaction_connection;
    std::optional<scoped_connection> block_start_connection;
    std::optional<scoped_connection> accepted_block_connection;
@@ -75,7 +74,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
    uint16_t                         endpoint_port = 8080;
    string                           unix_path;
    state_history::trace_converter   trace_converter;
-   std::set<std::shared_ptr<session_base>> session_set;
+   session_manager                  session_mgr;
 
    mutable std::mutex mtx;
    block_id_type head_id;
@@ -237,8 +236,6 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
    void do_accept(Acceptor& acc) {
       // &acceptor kept alive by self, reference into acceptors set
       acc.acceptor_.async_accept(acc.socket_, [self = shared_from_this(), &acc](const boost::system::error_code& ec) {
-         if (self->stopping)
-            return;
          if (ec == boost::system::errc::too_many_files_open) {
             fc_elog(_log, "ship accept() error: too many files open - waiting 200ms");
             acc.error_timer_.expires_from_now(boost::posix_time::milliseconds(200));
@@ -252,9 +249,9 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
             else {
                // Create a session object and run it
                catch_and_log([&] {
-                  auto s = std::make_shared<session<std::shared_ptr<state_history_plugin_impl>, typename Acceptor::socket_type>>(self, std::move(acc.socket_));
+                  auto s = std::make_shared<session<std::shared_ptr<state_history_plugin_impl>, typename Acceptor::socket_type>>(self, std::move(acc.socket_), self->session_mgr);
+                  self->session_mgr.insert(s);
                   s->start();
-                  self->session_set.insert( std::move(s) );
                });
             }
 
@@ -295,10 +292,8 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
              "the process");
       }
 
-      boost::asio::post(get_ship_executor(), [self = this->shared_from_this(), block_state]() mutable {
-         for( auto& s : self->session_set ) {
-            s->send_update(block_state);
-         }
+      boost::asio::post(get_ship_executor(), [self = this->shared_from_this(), block_state]() {
+         self->session_mgr.send_update(block_state);
       });
 
    }
@@ -510,7 +505,6 @@ void state_history_plugin::plugin_shutdown() {
    my->applied_transaction_connection.reset();
    my->accepted_block_connection.reset();
    my->block_start_connection.reset();
-   my->stopping = true;
    my->thread_pool.stop();
 }
 

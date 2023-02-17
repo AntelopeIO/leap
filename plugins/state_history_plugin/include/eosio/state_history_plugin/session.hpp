@@ -1,13 +1,16 @@
 #pragma once
+#include <boost/asio/error.hpp>
 #include <eosio/chain/block_state.hpp>
 #include <eosio/state_history/compression.hpp>
 #include <eosio/state_history/log.hpp>
 #include <eosio/state_history/serialization.hpp>
+#include <eosio/state_history/types.hpp>
 
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/local/stream_protocol.hpp>
 #include <boost/beast/websocket.hpp>
+#include <memory>
 
 
 extern const char* const state_history_plugin_abi;
@@ -19,33 +22,193 @@ using unixs   = boost::asio::local::stream_protocol;
 namespace ws  = boost::beast::websocket;
 namespace bio = boost::iostreams;
 
+class session_manager;
 
-template <typename Session>
 struct send_queue_entry_base {
    virtual ~send_queue_entry_base() = default;
-   virtual void send(std::shared_ptr<Session> s) = 0;
+   virtual void send_entry() = 0;
+};
+
+struct session_base {
+   virtual void send_update(bool changed)                                     = 0;
+   virtual void send_update(const eosio::chain::block_state_ptr& block_state) = 0;
+   virtual ~session_base()                                                    = default;
+   std::optional<get_blocks_request_v0> current_request;
+};
+
+class send_update_send_queue_entry : public send_queue_entry_base {
+   std::shared_ptr<session_base> session;
+   const chain::block_state_ptr block_state;
+public:
+   send_update_send_queue_entry(std::shared_ptr<session_base> s, chain::block_state_ptr block_state)
+         : session(std::move(s))
+         , block_state(std::move(block_state)){}
+
+   void send_entry() override {
+      if( block_state ) {
+         session->send_update(block_state);
+      } else {
+         session->send_update(false);
+      }
+   }
+};
+
+// accessed from ship thread
+class session_manager {
+private:
+   using entry_ptr = std::unique_ptr<send_queue_entry_base>;
+
+   std::set<std::shared_ptr<session_base>> session_set;
+   bool sending  = false;
+   std::vector<entry_ptr> send_queue;
+
+public:
+   void insert(std::shared_ptr<session_base> s) {
+      session_set.insert(std::move(s));
+   }
+
+   void remove(const std::shared_ptr<session_base>& s, bool active_entry) {
+      session_set.erase( s );
+      if (active_entry)
+         pop_entry();
+   }
+
+   void add_send_queue(entry_ptr p) {
+      send_queue.emplace_back(std::move(p));
+      send();
+   }
+
+   void send() {
+      if (sending)
+         return;
+      if (send_queue.empty()) {
+         send_update();
+         return;
+      }
+      sending = true;
+
+      send_queue[0]->send_entry();
+   }
+
+   void pop_entry(bool call_send = true) {
+      send_queue.erase(send_queue.begin());
+      sending = false;
+      if( call_send)
+         send();
+   }
+
+   void send_update() {
+      for( auto& s : session_set ) {
+         add_send_queue(std::make_unique<send_update_send_queue_entry>(s, nullptr));
+      }
+   }
+
+   void send_update(const chain::block_state_ptr& block_state) {
+      for( auto& s : session_set ) {
+         add_send_queue(std::make_unique<send_update_send_queue_entry>(s, block_state));
+      }
+   }
+
 };
 
 template <typename Session>
-class basic_send_queue_entry : public send_queue_entry_base<Session> {
+class status_result_send_queue_entry : public send_queue_entry_base {
+   std::shared_ptr<Session> session;
    std::vector<char> data;
 
 public:
 
-   template <typename... Args>
-   explicit basic_send_queue_entry(Args&&... args)
-       : data(std::forward<Args>(args)...) {}
+   explicit status_result_send_queue_entry(std::shared_ptr<Session> s)
+   : session(std::move(s)) {};
 
-   void send(std::shared_ptr<Session> s) override {
-      s->socket_stream->async_write(boost::asio::buffer(data),
-                                   [s{std::move(s)}](boost::system::error_code ec, size_t) {
-                                      s->callback(ec, "async_write", [s] { s->pop_entry(); });
+   void send_entry() override {
+      fc_dlog(session->plugin->logger(), "replying get_status_request_v0");
+      get_status_result_v0 result;
+      result.head              = session->plugin->get_block_head();
+      result.last_irreversible = session->plugin->get_last_irreversible();
+      result.chain_id          = session->plugin->get_chain_id();
+      auto&& trace_log         = session->plugin->get_trace_log();
+      if (trace_log) {
+         auto r = trace_log->block_range();
+         result.trace_begin_block = r.first;
+         result.trace_end_block   = r.second;
+      }
+      auto&& chain_state_log = session->plugin->get_chain_state_log();
+      if (chain_state_log) {
+         auto r = chain_state_log->block_range();
+         result.chain_state_begin_block = r.first;
+         result.chain_state_end_block   = r.second;
+      }
+      fc_dlog(session->plugin->logger(), "pushing get_status_result_v0 to send queue");
+
+      data = fc::raw::pack(state_result{std::move(result)});
+
+      session->socket_stream->async_write(boost::asio::buffer(data),
+                                   [s{session}](boost::system::error_code ec, size_t) {
+                                      s->callback(ec, true, "async_write", [s] { s->session_mgr.pop_entry(); });
                                    });
    }
 };
 
 template <typename Session>
-class blocks_result_send_queue_entry : public send_queue_entry_base<Session> {
+class blocks_ack_request_send_queue_entry : public send_queue_entry_base {
+   std::shared_ptr<Session> session;
+   eosio::state_history::get_blocks_ack_request_v0 req;
+
+public:
+   explicit blocks_ack_request_send_queue_entry(std::shared_ptr<Session> s, get_blocks_ack_request_v0&& r)
+   : session(std::move(s))
+   , req(std::move(r)) {}
+
+   void send_entry() override {
+      session->current_request->max_messages_in_flight += req.num_messages;
+      session->send_update(false);
+   }
+};
+
+template <typename Session>
+class blocks_request_send_queue_entry : public send_queue_entry_base {
+   std::shared_ptr<Session> session;
+   eosio::state_history::get_blocks_request_v0 req;
+
+public:
+   blocks_request_send_queue_entry(std::shared_ptr<Session> s, get_blocks_request_v0&& r)
+   : session(std::move(s))
+   , req(std::move(r)) {}
+
+   void send_entry() override {
+      fc_dlog(session->plugin->logger(), "replying get_blocks_request_v0 = ${req}", ("req", req));
+      session->to_send_block_num = req.start_block_num;
+      for (auto& cp : req.have_positions) {
+         if (req.start_block_num <= cp.block_num)
+            continue;
+         auto id = session->plugin->get_block_id(cp.block_num);
+         if (!id || *id != cp.block_id)
+            req.start_block_num = std::min(req.start_block_num, cp.block_num);
+
+         if (!id) {
+            session->to_send_block_num = std::min(session->to_send_block_num, cp.block_num);
+            fc_dlog(session->plugin->logger(), "block ${block_num} is not available", ("block_num", cp.block_num));
+         } else if (*id != cp.block_id) {
+            session->to_send_block_num = std::min(session->to_send_block_num, cp.block_num);
+            fc_dlog(session->plugin->logger(),
+                    "the id for block ${block_num} in block request have_positions does not match the existing",
+                    ("block_num", cp.block_num));
+         }
+      }
+      fc_dlog(session->plugin->logger(), "  get_blocks_request_v0 start_block_num set to ${num}", ("num", session->to_send_block_num));
+
+      if( !req.have_positions.empty() ) {
+         session->position_it = req.have_positions.begin();
+      }
+
+      session->current_request = std::move(req);
+      session->send_update(true);
+   }
+};
+
+template <typename Session>
+class blocks_result_send_queue_entry : public send_queue_entry_base, public std::enable_shared_from_this<blocks_result_send_queue_entry<Session>> {
    std::shared_ptr<Session>                                        session;
    eosio::state_history::get_blocks_result_v0                      r;
    std::vector<char>                                               data;
@@ -55,12 +218,13 @@ class blocks_result_send_queue_entry : public send_queue_entry_base<Session> {
    void async_send(bool fin, const std::vector<char>& d, Next&& next) {
       session->socket_stream->async_write_some(
           fin, boost::asio::buffer(d),
-          [this, s=session, next = std::forward<Next>(next)](boost::system::error_code ec, size_t) mutable {
+          [me=this->shared_from_this(), next = std::forward<Next>(next)](boost::system::error_code ec, size_t) mutable {
              if( ec ) {
-                stream.reset();
-                s->sending_block_session.reset();
+                me->stream.reset();
              }
-             s->callback(ec, "async_write", [next = std::move(next)]() mutable { next(); });
+             me->session->callback(ec, true, "async_write", [me, next = std::move(next)]() mutable {
+                next();
+             });
           });
    }
 
@@ -72,16 +236,15 @@ class blocks_result_send_queue_entry : public send_queue_entry_base<Session> {
       bool eof = (strm->sgetc() == EOF);
 
       session->socket_stream->async_write_some( fin && eof, boost::asio::buffer(data),
-          [this, s=session, fin, eof, next = std::forward<Next>(next)](boost::system::error_code ec, size_t) mutable {
+          [me=this->shared_from_this(), fin, eof, next = std::forward<Next>(next)](boost::system::error_code ec, size_t) mutable {
              if( ec ) {
-                stream.reset();
-                s->sending_block_session.reset();
+                me->stream.reset();
              }
-             s->callback(ec, "async_write", [this, fin, eof, next = std::move(next)]() mutable {
+             me->session->callback(ec, true, "async_write", [me, fin, eof, next = std::move(next)]() mutable {
                 if (eof) {
                    next();
                 } else {
-                   async_send_buf(fin, std::move(next));
+                   me->async_send_buf(fin, std::move(next));
                 }
              });
           });
@@ -89,9 +252,9 @@ class blocks_result_send_queue_entry : public send_queue_entry_base<Session> {
 
    template <typename Next>
    void async_send_buf(bool fin, Next&& next) {
-      std::visit([this, fin,
-                  next = std::forward<Next>(next)](auto& d) mutable { this->async_send(fin, d, std::move(next)); },
-                 stream->buf);
+      std::visit([me=this->shared_from_this(), fin, next = std::forward<Next>(next)](auto& d) mutable {
+            me->async_send(fin, d, std::move(next));
+         }, stream->buf);
    }
 
    template <typename Next>
@@ -107,9 +270,11 @@ class blocks_result_send_queue_entry : public send_queue_entry_base<Session> {
       }
 
       async_send(is_deltas && entry_size == 0, data,
-                [this, is_deltas, entry_size, next = std::forward<Next>(next)]() mutable {
+                [is_deltas, entry_size, next = std::forward<Next>(next), me=this->shared_from_this()]() mutable {
                    if (entry_size) {
-                      async_send_buf(is_deltas, [next = std::move(next)]() { next(); });
+                      me->async_send_buf(is_deltas, [me, next = std::move(next)]() {
+                         next();
+                      });
                    } else
                       next();
                 });
@@ -117,25 +282,25 @@ class blocks_result_send_queue_entry : public send_queue_entry_base<Session> {
 
    void send_deltas() {
       stream.reset();
-      send_log(session->get_delta_log_entry(r, stream), true, [s=session]() {
-         s->sending_block_session.reset();
-         s->pop_entry();
+      send_log(session->get_delta_log_entry(r, stream), true, [me=this->shared_from_this()]() {
+         me->stream.reset();
+         me->session->session_mgr.pop_entry();
       });
    }
 
    void send_traces() {
       stream.reset();
-      send_log(session->get_trace_log_entry(r, stream), false, [this]() { this->send_deltas(); });
+      send_log(session->get_trace_log_entry(r, stream), false, [me=this->shared_from_this()]() {
+         me->send_deltas();
+      });
    }
 
 public:
+   blocks_result_send_queue_entry(std::shared_ptr<Session> s, get_blocks_result_v0&& r)
+       : session(std::move(s)),
+         r(std::move(r)) {}
 
-   explicit blocks_result_send_queue_entry(get_blocks_result_v0&& r)
-       : r(std::move(r)) {}
-
-   void send(std::shared_ptr<Session> s) override {
-      s->sending_block_session = s;
-      session = std::move(s);
+   void send_entry() override {
       // pack the state_result{get_blocks_result} excluding the fields `traces` and `deltas`
       fc::datastream<size_t> ss;
       fc::raw::pack(ss, fc::unsigned_int(1)); // pack the variant index of state_result{r}
@@ -145,46 +310,35 @@ public:
       fc::raw::pack(ds, fc::unsigned_int(1)); // pack the variant index of state_result{r}
       fc::raw::pack(ds, static_cast<const get_blocks_result_base&>(r));
 
-      async_send(false, data, [this]() { send_traces(); });
+      async_send(false, data, [me=this->shared_from_this()]() {
+         me->send_traces();
+      });
    }
-};
-
-struct session_base {
-   virtual void send()                                                        = 0;
-   virtual void send_update(const eosio::chain::block_state_ptr& block_state) = 0;
-   virtual ~session_base()                                                    = default;
-   std::optional<get_blocks_request_v0> current_request;
-
-   // static across all sessions. blocks_result_send_queue_entry locks state_history_log mutex
-   // and holds until done streaming the block. Only one of these can be in progress at a time.
-   inline static std::shared_ptr<session_base> sending_block_session{}; // ship thread only
-   // other session waiting on this session to complete block sending before they can continue
-   std::set<std::weak_ptr<session_base>, std::owner_less<>> others_waiting; // ship thread only
 };
 
 template <typename Plugin, typename SocketType>
 struct session : session_base, std::enable_shared_from_this<session<Plugin, SocketType>> {
 private:
-   using entry_ptr = std::unique_ptr<send_queue_entry_base<session>>;
-
    Plugin                 plugin;
+   session_manager&       session_mgr;
    std::optional<ws::stream<SocketType>> socket_stream; // ship thread only after creation
-   bool                   sending  = false; // ship thread only
-   std::vector<entry_ptr> send_queue; // ship thread only
 
-   bool                   need_to_send_update = false; // main thread only
-   uint32_t               to_send_block_num = 0; // main thread only
-   std::optional<std::vector<block_position>::const_iterator> position_it; // main thread only
+   bool                   need_to_send_update = false;
+   uint32_t               to_send_block_num = 0;
+   std::optional<std::vector<block_position>::const_iterator> position_it;
 
    const int32_t          default_frame_size;
 
    friend class blocks_result_send_queue_entry<session>;
-   friend class basic_send_queue_entry<session>;
+   friend class status_result_send_queue_entry<session>;
+   friend class blocks_ack_request_send_queue_entry<session>;
+   friend class blocks_request_send_queue_entry<session>;
 
 public:
 
-   session(Plugin plugin, SocketType socket)
+   session(Plugin plugin, SocketType socket, session_manager& sm)
        : plugin(std::move(plugin))
+       , session_mgr(sm)
        , socket_stream(std::move(socket))
        , default_frame_size(plugin->default_frame_size) {}
 
@@ -199,12 +353,12 @@ public:
       socket_stream->next_layer().set_option(boost::asio::socket_base::receive_buffer_size(1024 * 1024));
 
       socket_stream->async_accept([self = this->shared_from_this()](boost::system::error_code ec) {
-         self->callback(ec, "async_accept", [self] {
+         self->callback(ec, false, "async_accept", [self] {
             self->socket_stream->binary(false);
             self->socket_stream->async_write(
                   boost::asio::buffer(state_history_plugin_abi, strlen(state_history_plugin_abi)),
                   [self](boost::system::error_code ec, size_t) {
-                     self->callback(ec, "async_write", [self] {
+                     self->callback(ec, false, "async_write", [self] {
                         self->socket_stream->binary(true);
                         self->start_read();
                      });
@@ -218,7 +372,7 @@ private:
       auto in_buffer = std::make_shared<boost::beast::flat_buffer>();
       socket_stream->async_read(
           *in_buffer, [self = this->shared_from_this(), in_buffer](boost::system::error_code ec, size_t) {
-             self->callback(ec, "async_read", [self, in_buffer] {
+             self->callback(ec, false, "async_read", [self, in_buffer] {
                 auto d = boost::asio::buffer_cast<char const*>(boost::beast::buffers_front(in_buffer->data()));
                 auto s = boost::asio::buffer_size(in_buffer->data());
                 fc::datastream<const char*> ds(d, s);
@@ -230,55 +384,6 @@ private:
                 self->start_read();
              });
           });
-   }
-
-   void send() override {
-      if (sending)
-         return;
-      if (send_queue.empty()) {
-         send_update();
-         return;
-      }
-      if (sending_block_session) {
-         sending_block_session->others_waiting.insert( this->weak_from_this() );
-         return;
-      }
-      sending = true;
-
-      send_queue[0]->send(this->shared_from_this());
-   }
-
-   template <typename T>
-   void send(T obj) {
-      boost::asio::post(this->plugin->get_ship_executor(), [self = this->shared_from_this(), obj = std::move(obj)]() mutable {
-         self->send_queue.push_back(
-             std::make_unique<basic_send_queue_entry<session>>(fc::raw::pack(state_result{std::move(obj)})));
-         self->send();
-      });
-   }
-
-   void send(get_blocks_result_v0&& obj) {
-      boost::asio::post(this->plugin->get_ship_executor(), [self = this->shared_from_this(), obj = std::move(obj)]() mutable {
-         self->send_queue.push_back(std::make_unique<blocks_result_send_queue_entry<session>>(std::move(obj)));
-         self->send();
-      });
-   }
-
-   void pop_entry() {
-      send_queue.erase(send_queue.begin());
-      sending = false;
-      send();
-      send_others_waiting();
-   }
-
-   void send_others_waiting() {
-      for( auto& w : others_waiting ) {
-         auto s = w.lock();
-         if( s ) {
-            s->send();
-         }
-      }
-      others_waiting.clear();
    }
 
    uint64_t get_trace_log_entry(const eosio::state_history::get_blocks_result_v0& result,
@@ -305,58 +410,18 @@ private:
       return 0;
    }
 
+   // called from ship thread
    void process(get_status_request_v0&) {
-      fc_dlog(plugin->logger(), "got get_status_request_v0");
+      fc_dlog(plugin->logger(), "received get_status_request_v0");
 
-      get_status_result_v0 result;
-      result.head              = plugin->get_block_head();
-      result.last_irreversible = plugin->get_last_irreversible();
-      result.chain_id          = plugin->get_chain_id();
-      auto&& trace_log         = plugin->get_trace_log();
-      if (trace_log) {
-         auto r = trace_log->block_range();
-         result.trace_begin_block = r.first;
-         result.trace_end_block   = r.second;
-      }
-      auto&& chain_state_log = plugin->get_chain_state_log();
-      if (chain_state_log) {
-         auto r = chain_state_log->block_range();
-         result.chain_state_begin_block = r.first;
-         result.chain_state_end_block   = r.second;
-      }
-      fc_dlog(plugin->logger(), "pushing get_status_result_v0 to send queue");
-      send(std::move(result));
+      session_mgr.add_send_queue(std::make_unique<status_result_send_queue_entry<session>>(this->shared_from_this()));
    }
 
    // called from ship thread
    void process(get_blocks_request_v0& req) {
       fc_dlog(plugin->logger(), "received get_blocks_request_v0 = ${req}", ("req", req));
-      to_send_block_num = req.start_block_num;
-      for (auto& cp : req.have_positions) {
-         if (req.start_block_num <= cp.block_num)
-            continue;
-         auto id = plugin->get_block_id(cp.block_num);
-         if (!id || *id != cp.block_id)
-            req.start_block_num = std::min(req.start_block_num, cp.block_num);
 
-         if (!id) {
-            to_send_block_num = std::min(to_send_block_num, cp.block_num);
-            fc_dlog(plugin->logger(), "block ${block_num} is not available", ("block_num", cp.block_num));
-         } else if (*id != cp.block_id) {
-            to_send_block_num = std::min(to_send_block_num, cp.block_num);
-            fc_dlog(plugin->logger(),
-                    "the id for block ${block_num} in block request have_positions does not match the existing",
-                    ("block_num", cp.block_num));
-         }
-      }
-      fc_dlog(plugin->logger(), "  get_blocks_request_v0 start_block_num set to ${num}", ("num", to_send_block_num));
-
-      if( !req.have_positions.empty() ) {
-         position_it = req.have_positions.begin();
-      }
-
-      current_request = std::move(req);
-      send_update(true);
+      session_mgr.add_send_queue(std::make_unique<blocks_request_send_queue_entry<session>>(this->shared_from_this(), std::move(req)));
    }
 
    // called from ship thread
@@ -366,15 +431,17 @@ private:
          fc_dlog(plugin->logger(), " no current get_blocks_request_v0, discarding the get_blocks_ack_request_v0");
          return;
       }
-      current_request->max_messages_in_flight += req.num_messages;
-      send_update();
+
+      session_mgr.add_send_queue(std::make_unique<blocks_ack_request_send_queue_entry<session>>(this->shared_from_this(), std::move(req)));
    }
 
    // called from ship thread
    void send_update(get_blocks_result_v0 result, const chain::block_state_ptr& block_state) {
       need_to_send_update = true;
-      if (!current_request || !current_request->max_messages_in_flight)
+      if (!current_request || !current_request->max_messages_in_flight) {
+         session_mgr.pop_entry(false);
          return;
+      }
 
       result.last_irreversible = plugin->get_last_irreversible();
       uint32_t current =
@@ -383,6 +450,7 @@ private:
       if (to_send_block_num > current || to_send_block_num >= current_request->end_block_num) {
          fc_dlog( plugin->logger(), "Not sending, to_send_block_num: ${s}, current: ${c} current_request.end_block_num: ${b}",
                   ("s", to_send_block_num)("c", current)("b", current_request->end_block_num) );
+         session_mgr.pop_entry(false);
          return;
       }
 
@@ -400,6 +468,7 @@ private:
 
          if(block_id_seen_by_client == *block_id) {
             ++to_send_block_num;
+            session_mgr.pop_entry(false);
             return;
          }
       }
@@ -429,36 +498,38 @@ private:
                      "this_block", result.this_block ? result.this_block->block_num : fc::variant()));
       }
 
-      send(std::move(result));
       --current_request->max_messages_in_flight;
       need_to_send_update = to_send_block_num <= current &&
                             to_send_block_num < current_request->end_block_num;
+
+      std::make_shared<blocks_result_send_queue_entry<session>>(this->shared_from_this(), std::move(result))->send_entry();
    }
 
    // called from ship thread
    void send_update(const chain::block_state_ptr& block_state) override {
-      if (!current_request || !current_request->max_messages_in_flight)
+      if (!current_request || !current_request->max_messages_in_flight) {
+         session_mgr.pop_entry(false);
          return;
+      }
 
       get_blocks_result_v0 result;
       result.head = {block_state->block_num, block_state->id};
       send_update(std::move(result), block_state);
    }
 
-   // called from main thread
-   void send_update(bool changed = false) {
+   // called from ship thread
+   void send_update(bool changed) override {
       if (changed || need_to_send_update) {
          get_blocks_result_v0 result;
          result.head = plugin->get_block_head();
          send_update(std::move(result), {});
+      } else {
+         session_mgr.pop_entry(false);
       }
    }
 
    template <typename F>
-   void callback(boost::system::error_code ec, const char* what, F f) {
-      if (plugin->stopping)
-         return;
-
+   void callback(const boost::system::error_code& ec, bool active_entry, const char* what, F f) {
       if( !ec ) {
          try {
             f();
@@ -471,7 +542,10 @@ private:
             fc_elog( plugin->logger(), "unknown exception" );
          }
       } else {
-         if (ec == boost::asio::error::eof || ec == boost::beast::websocket::error::closed) {
+         if (ec == boost::asio::error::operation_aborted ||
+             ec == boost::asio::error::connection_reset ||
+             ec == boost::asio::error::eof ||
+             ec == boost::beast::websocket::error::closed) {
             fc_dlog(plugin->logger(), "${w}: ${m}", ("w", what)("m", ec.message()));
          } else {
             fc_elog(plugin->logger(), "${w}: ${m}", ("w", what)("m", ec.message()));
@@ -480,8 +554,8 @@ private:
 
       // on exception allow session to be destroyed
 
-      send_others_waiting();
-      plugin->session_set.erase( this->shared_from_this() );
+      session_mgr.remove( this->shared_from_this(), active_entry );
    }
 };
+
 } // namespace eosio
