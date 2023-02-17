@@ -51,14 +51,14 @@ class Db
 public:
    void add_api(http_plugin &p) {
       p.add_api({
-            {  std::string("/Hello"),
+            {  std::string("/hello"),
                   [&](string, string body, url_response_callback cb) {
-                  cb(200, fc::time_point::maximum(), fc::variant("World!"));
+                  cb(200, fc::time_point::maximum(), fc::variant("world!"));
                }
             },
             {  std::string("/mirror"),
                   [&](string, string body, url_response_callback cb) {
-                  cb(200, fc::time_point::maximum(), fc::variant());
+                  cb(200, fc::time_point::maximum(), fc::variant(body));
                }
             },
                
@@ -114,8 +114,10 @@ BOOST_AUTO_TEST_CASE(http_plugin_unit_tests)
       http::request<http::string_body> req{http::verb::post, r, 11};
       req.set(http::field::host, host);
       req.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
-      if (body)
-         req.set(http::field::body, body);
+      if (body) {
+         req.body() = body;
+         req.prepare_payload();
+      }
       return req;
    };
 
@@ -139,8 +141,13 @@ BOOST_AUTO_TEST_CASE(http_plugin_unit_tests)
       stream.connect(results);
 
       // try a simple request
-      http::write(stream, send_request("/Hello", nullptr));
-      BOOST_CHECK(get_response(stream) == string("\"World!\""));
+      http::write(stream, send_request("/hello", nullptr));
+      BOOST_CHECK(get_response(stream) == string("\"world!\""));
+
+      // try a mirror
+      http::write(stream, send_request("/mirror", "hello"));
+      BOOST_CHECK(get_response(stream) == string("\"hello\""));
+      //std::cout << get_response(stream) << '\n';
 
       // Gracefully close the socket
       beast::error_code ec;
