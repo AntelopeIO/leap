@@ -311,7 +311,6 @@ class PerformanceTestBasic:
             transaction=self.cluster.biosNode.publishContract(self.clusterConfig.specifiedContract.account, self.clusterConfig.specifiedContract.contractDir,
                                                             self.clusterConfig.specifiedContract.wasmFile,
                                                             self.clusterConfig.specifiedContract.abiFile, waitForTransBlock=True)
-            
             if transaction is None:
                 print("ERROR: Failed to publish contract.")
                 return None
@@ -345,6 +344,7 @@ class PerformanceTestBasic:
                 print(f"Creating accounts specified in userTrxData: {self.userTrxDataDict['initAccounts']}")
                 self.setupWalletAndAccounts(accountCnt=len(self.userTrxDataDict['initAccounts']), accountNames=self.userTrxDataDict['initAccounts'])
             abiFile = self.userTrxDataDict['abiFile']
+
             actionsDataJson = json.dumps(self.userTrxDataDict['actions'])
 
             authorizations={}
@@ -369,11 +369,13 @@ class PerformanceTestBasic:
 
         self.data.startBlock = self.waitForEmptyBlocks(self.validationNode, self.emptyBlockGoal)
         tpsTrxGensConfig = TpsTrxGensConfig(targetTps=self.ptbConfig.targetTps, tpsLimitPerGenerator=self.ptbConfig.tpsLimitPerGenerator)
+
         trxGenLauncher = TransactionGeneratorsLauncher(chainId=chainId, lastIrreversibleBlockId=lib_id, contractOwnerAccount=self.clusterConfig.specifiedContract.account.name,
                                                        accts=','.join(map(str, self.accountNames)), privateKeys=','.join(map(str, self.accountPrivKeys)),
                                                        trxGenDurationSec=self.ptbConfig.testTrxGenDurationSec, logDir=self.trxGenLogDirPath,
                                                        abiFile=abiFile, actionsData=actionsDataJson, actionsAuths=actionsAuthsJson,
                                                        peerEndpoint=self.producerNode.host, port=self.producerP2pPort, tpsTrxGensConfig=tpsTrxGensConfig)
+
         trxGenExitCodes = trxGenLauncher.launch()
         print(f"Transaction Generator exit codes: {trxGenExitCodes}")
         for exitCode in trxGenExitCodes:
@@ -434,8 +436,6 @@ class PerformanceTestBasic:
                                                completedRun=testResult.completedRun)
 
         jsonReport = None
-        self.ptbConfig.quiet = True
-        self.ptbConfig.delReport = True
         if not self.ptbConfig.quiet or not self.ptbConfig.delReport:
             jsonReport = log_reader.reportAsJSON(self.report)
 

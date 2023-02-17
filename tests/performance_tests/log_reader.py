@@ -10,7 +10,7 @@ import gzip
 from pathlib import Path, PurePath
 sys.path.append(str(PurePath(PurePath(Path(__file__).absolute()).parent).parent))
 
-from TestHarness import Utils
+from TestHarness import Utils, Account
 from dataclasses import dataclass, asdict, field
 from platform import release, system
 from datetime import datetime
@@ -473,6 +473,8 @@ class LogReaderEncoder(json.JSONEncoder):
         if obj is None:
             return "Unknown"
         if isinstance(obj, Path):
+            return str(obj)
+        if isinstance(obj, Account):
             return str(obj)
         return json.JSONEncoder.default(self, obj)
 
