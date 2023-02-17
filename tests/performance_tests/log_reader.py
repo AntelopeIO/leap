@@ -476,7 +476,12 @@ class LogReaderEncoder(json.JSONEncoder):
             return str(obj)
         if isinstance(obj, Account):
             return str(obj)
-        return json.JSONEncoder.default(self, obj)
+        defaultStr = ""
+        try:
+            defaultStr = json.JSONEncoder.default(self, obj)
+        except TypeError as err:
+            defaultStr = f"ERROR: {str(err)}"
+        return defaultStr
 
 def reportAsJSON(report: dict) -> json:
     return json.dumps(report, indent=2, cls=LogReaderEncoder)
