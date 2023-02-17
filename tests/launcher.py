@@ -51,7 +51,6 @@ class nodeDefinition:
     keys: List[str] = field(default_factory=list)
     peers: List[str] = field(default_factory=list)
     producers: List[str] = field(default_factory=list)
-    #gelf_endpoint: str
     dont_start: bool = field(init=False, default=False)
     config_dir_name: Path = field(init=False)
     data_dir_name: str = field(init=False)
@@ -59,9 +58,6 @@ class nodeDefinition:
     http_port: int = 0
     base_p2p_port: ClassVar[int] = 9876
     base_http_port: ClassVar[int] = 8888
-    #file_size: int
-    #instance_name: str = field(init=False, repr=False)
-    #host: str
     host_name: str = 'localhost'
     public_name: str = 'localhost'
     listen_addr: str = '0.0.0.0'
@@ -454,28 +450,6 @@ plugin = eosio::chain_api_plugin
                 attempts -= 1
         return ndx
 
-    def old_make_line(self, make_ring: bool = True):
-        if Utils.Debug: Utils.Print(f"making {'ring' if make_ring else 'line'}")
-        self.bind_nodes()
-        non_bios = self.args.total_nodes - 1
-        if non_bios > 2:
-            end_of_loop = False
-            i = self.start_ndx()
-            while not end_of_loop:
-                front = i
-                front, end_of_loop = self.next_ndx(front)
-                if end_of_loop and not make_ring:
-                    break
-                self.network.nodes[self.aliases[i]].peers.append(self.aliases[front])
-                i, _ = self.next_ndx(i)
-        elif non_bios == 2:
-            n0 = self.start_ndx()
-            n1 = n0
-            n1 = self.next_ndx(n1)[0]
-            self.network.nodes[self.aliases[n0]].peers.append(self.aliases[n1])
-            if make_ring:
-                self.network.nodes[self.aliases[n1]].peers.append(self.aliases[n0])
-
     def make_line(self, make_ring: bool = True):
         if Utils.Debug: Utils.Print(f"making {'ring' if make_ring else 'line'}")
         self.bind_nodes()
@@ -627,6 +601,7 @@ plugin = eosio::chain_api_plugin
         for num in nodeNumbers:
             for node in self.network.nodes.values():
                 if self.network.name + num == node.name:
+                    Utils.Print(f'Restarting node {node.name}')
                     with open(node.data_dir_name / f'{Utils.EosServerName}.pid', 'r') as f:
                         pid = int(f.readline())
                         self.terminate_wait_pid(pid, raise_if_missing=False)
@@ -636,6 +611,7 @@ plugin = eosio::chain_api_plugin
         for num in nodeNumbers:
             for node in self.network.nodes.values():
                 if self.network.name + num == node.name:
+                    Utils.Print(f'Shutting down node {node.name}')
                     with open(node.data_dir_name / f'{Utils.EosServerName}.pid', 'r') as f:
                         pid = int(f.readline())
                         self.terminate_wait_pid(pid)
@@ -669,7 +645,7 @@ plugin = eosio::chain_api_plugin
                             if node.producers and node.producers[0] == 'eosio':
                                 continue
                             for producer in node.producers:
-                                f.write(f'cacmd {producer} {node.keys[0].pubkey} {node.keys[0].pubkey}\n')
+                                f.write(f'cacmd {producer} {node.keys[0].pubkey}\n')
                 f.write(f'{line}\n')
 
     
