@@ -55,7 +55,13 @@ public:
                   [&](string, string body, url_response_callback cb) {
                   cb(200, fc::time_point::maximum(), fc::variant("World!"));
                }
-            }
+            },
+            {  std::string("/mirror"),
+                  [&](string, string body, url_response_callback cb) {
+                  cb(200, fc::time_point::maximum(), fc::variant());
+               }
+            },
+               
          });
    }
 
@@ -104,10 +110,12 @@ BOOST_AUTO_TEST_CASE(http_plugin_unit_tests)
    Db db;
    db.add_api(http_plugin);
 
-   auto send_request = [&](string_view r) {
-      http::request<http::string_body> req{http::verb::get, "/Hello", 11};
+   auto send_request = [&](const char* r, const char* body) {
+      http::request<http::string_body> req{http::verb::post, r, 11};
       req.set(http::field::host, host);
       req.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
+      if (body)
+         req.set(http::field::body, body);
       return req;
    };
 
@@ -131,7 +139,7 @@ BOOST_AUTO_TEST_CASE(http_plugin_unit_tests)
       stream.connect(results);
 
       // try a simple request
-      http::write(stream, send_request("/Hello"));
+      http::write(stream, send_request("/Hello", nullptr));
       BOOST_CHECK(get_response(stream) == string("\"World!\""));
 
       // Gracefully close the socket
