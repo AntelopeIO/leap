@@ -832,69 +832,80 @@ The Performance Test Basic generates, by default, a report that details results 
 ``` json
 {
   "completedRun": true,
-  "testStart": "2023-02-15T22:32:36.946671",
-  "testFinish": "2023-02-15T22:33:41.280861",
+  "testStart": "2023-02-17T22:00:41.305618",
+  "testFinish": "2023-02-17T22:02:21.597430",
   "Analysis": {
     "BlockSize": {
-      "min": 1920,
-      "max": 1920,
-      "avg": 1920.0,
-      "sigma": 0.0,
+      "min": 925248,
+      "max": 1551936,
+      "avg": 1332244.3636363635,
+      "sigma": 144713.34505483133,
       "emptyBlocks": 0,
-      "numBlocks": 7
+      "numBlocks": 44
     },
     "BlocksGuide": {
       "firstBlockNum": 2,
-      "lastBlockNum": 129,
-      "totalBlocks": 128,
-      "testStartBlockNum": 113,
-      "testEndBlockNum": 129,
-      "setupBlocksCnt": 111,
-      "tearDownBlocksCnt": 0,
+      "lastBlockNum": 193,
+      "totalBlocks": 192,
+      "testStartBlockNum": 112,
+      "testEndBlockNum": 160,
+      "setupBlocksCnt": 110,
+      "tearDownBlocksCnt": 33,
       "leadingEmptyBlocksCnt": 1,
-      "trailingEmptyBlocksCnt": 5,
+      "trailingEmptyBlocksCnt": 0,
       "configAddlDropCnt": 2,
-      "testAnalysisBlockCnt": 7
+      "testAnalysisBlockCnt": 44
     },
     "TPS": {
-      "min": 20,
-      "max": 20,
-      "avg": 20.0,
-      "sigma": 0.0,
+      "min": 10265,
+      "max": 15774,
+      "avg": 13882.232558139534,
+      "sigma": 1454.0837894863364,
       "emptyBlocks": 0,
-      "numBlocks": 7,
-      "configTps": 20,
-      "configTestDuration": 5,
+      "numBlocks": 44,
+      "configTps": 50000,
+      "configTestDuration": 10,
       "tpsPerGenerator": [
-        10,
-        10
+        3846,
+        3846,
+        3846,
+        3846,
+        3846,
+        3846,
+        3846,
+        3846,
+        3846,
+        3846,
+        3846,
+        3847,
+        3847
       ],
-      "generatorCount": 2
+      "generatorCount": 13
     },
     "TrxCPU": {
-      "min": 20.0,
-      "max": 141.0,
-      "avg": 72.15,
-      "sigma": 31.078408903932,
-      "samples": 100
+      "min": 6.0,
+      "max": 15292.0,
+      "avg": 25.024962251222377,
+      "sigma": 49.9778703823556,
+      "samples": 322527
     },
     "TrxLatency": {
-      "min": 0.0409998893737793,
-      "max": 0.4419999122619629,
-      "avg": 0.24149999618530274,
-      "sigma": 0.14142224015850113,
-      "samples": 100
+      "min": 0.11500000953674316,
+      "max": 16.91100001335144,
+      "avg": 8.950405516519615,
+      "sigma": 4.844012708597167,
+      "samples": 322527
     },
     "TrxNet": {
       "min": 24.0,
       "max": 24.0,
       "avg": 24.0,
       "sigma": 0.0,
-      "samples": 100
+      "samples": 322527
     },
     "DroppedBlocks": {},
     "DroppedBlocksCount": 0,
-    "DroppedTransactions": 0,
+    "DroppedTransactions": 177473,
     "ProductionWindowsTotal": 0,
     "ProductionWindowsAverageSize": 0,
     "ProductionWindowsMissed": 0,
@@ -902,18 +913,18 @@ The Performance Test Basic generates, by default, a report that details results 
     "ForksCount": 0
   },
   "args": {
-    "rawCmdLine ": "/home/leap/build/tests/performance_tests/performance_test_basic.py -v -p 1 -n 1 --target-tps 20 --tps-limit-per-generator 10 --test-duration-sec 5 --clean-run",
-    "killAll": true,
+    "rawCmdLine ": "tests/performance_tests/performance_test.py --test-iteration-duration-sec 10 --final-iterations-duration-sec 30 --calc-producer-threads lmax --calc-chain-threads lmax --calc-net-threads lmax",
+    "killAll": false,
     "dontKill": false,
-    "keepLogs": true,
+    "keepLogs": false,
     "dumpErrorDetails": false,
     "delay": 1,
     "nodesFile": null,
-    "verbose": true,
+    "verbose": false,
     "_killEosInstances": true,
     "_killWallet": true,
     "pnodes": 1,
-    "totalNodes": 1,
+    "totalNodes": 0,
     "topo": "mesh",
     "extraNodeosArgs": {
       "chainPluginArgs": {
@@ -1397,21 +1408,21 @@ The Performance Test Basic generates, by default, a report that details results 
       "1": "--plugin eosio::trace_api_plugin"
     },
     "_totalNodes": 2,
-    "targetTps": 20,
-    "testTrxGenDurationSec": 5,
-    "tpsLimitPerGenerator": 10,
+    "targetTps": 50000,
+    "testTrxGenDurationSec": 10,
+    "tpsLimitPerGenerator": 4000,
     "numAddlBlocksToPrune": 2,
-    "logDirRoot": ".",
-    "delReport": false,
+    "logDirRoot": "p/2023-02-17_22-00-41/pluginThreadOptRunLogs",
+    "delReport": true,
     "quiet": false,
-    "delPerfLogs": false,
-    "expectedTransactionsSent": 100,
+    "delPerfLogs": true,
+    "expectedTransactionsSent": 500000,
     "printMissingTransactions": false,
     "userTrxDataFile": null,
-    "logDirBase": "p",
-    "logDirTimestamp": "2023-02-15_22-32-36",
-    "logDirTimestampedOptSuffix": "-20",
-    "logDirPath": "p/2023-02-15_22-32-36-20"
+    "logDirBase": "p/2023-02-17_22-00-41/pluginThreadOptRunLogs/p",
+    "logDirTimestamp": "2023-02-17_22-00-41",
+    "logDirTimestampedOptSuffix": "-50000",
+    "logDirPath": "p/2023-02-17_22-00-41/pluginThreadOptRunLogs/p/2023-02-17_22-00-41-50000"
   },
   "env": {
     "system": "Linux",
