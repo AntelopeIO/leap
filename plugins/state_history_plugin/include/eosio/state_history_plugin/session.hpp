@@ -334,6 +334,7 @@ private:
    Plugin                 plugin;
    session_manager&       session_mgr;
    std::optional<boost::beast::websocket::stream<SocketType>> socket_stream; // ship thread only after creation
+   std::string            description;
 
    uint32_t               to_send_block_num = 0;
    std::optional<std::vector<state_history::block_position>::const_iterator> position_it;
@@ -351,10 +352,12 @@ public:
        : plugin(std::move(plugin))
        , session_mgr(sm)
        , socket_stream(std::move(socket))
-       , default_frame_size(plugin->default_frame_size) {}
+       , default_frame_size(plugin->default_frame_size) {
+      description = to_description_string();
+   }
 
    void start() {
-      fc_ilog(plugin->logger(), "incoming connection");
+      fc_ilog(plugin->logger(), "incoming connection from ${a}", ("a", description));
       socket_stream->auto_fragment(false);
       socket_stream->binary(true);
       if constexpr (std::is_same_v<SocketType, boost::asio::ip::tcp::socket>) {
@@ -395,6 +398,18 @@ private:
                 self->start_read();
              });
           });
+   }
+
+   // should only be called once per session
+   std::string to_description_string() const {
+      try {
+         boost::system::error_code ec;
+         auto re = socket_stream->next_layer().remote_endpoint(ec);
+         return boost::lexical_cast<std::string>(re);
+      } catch (...) {
+         static uint32_t n = 0;
+         return "unknown " + std::to_string(++n);
+      }
    }
 
    uint64_t get_trace_log_entry(const eosio::state_history::get_blocks_result_v0& result,
@@ -571,6 +586,7 @@ private:
 
       // on exception allow session to be destroyed
 
+      fc_ilog(plugin->logger(), "Closing connection from ${a}", ("a", description));
       session_mgr.remove( this->shared_from_this(), active_entry );
    }
 };
