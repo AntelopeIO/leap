@@ -236,7 +236,8 @@ struct controller_impl {
    std::optional<fc::microseconds> subjective_cpu_leeway;
    bool                            trusted_producer_light_validation = false;
    uint32_t                        snapshot_head_block = 0;
-   named_thread_pool               thread_pool;
+   struct chain; // chain is a namespace so use an embedded type for the named_thread_pool tag
+   named_thread_pool<chain>        thread_pool;
    platform_timer                  timer;
    deep_mind_handler*              deep_mind_logger = nullptr;
    bool                            okay_to_print_integrity_hash_on_stop = false;
@@ -301,7 +302,7 @@ struct controller_impl {
     conf( cfg ),
     chain_id( chain_id ),
     read_mode( cfg.read_mode ),
-    thread_pool( "chain" )
+    thread_pool()
    {
       fork_db.open( [this]( block_timestamp_type timestamp,
                             const flat_set<digest_type>& cur_features,
@@ -3571,7 +3572,11 @@ std::optional<chain_id_type> controller::extract_chain_id_from_db( const path& s
       if (gpo==nullptr) return {};
 
       return gpo->chain_id;
-   } catch (std::system_error &) {} //  do not propagate db_error_code::not_found" for absent db, so it will be created 
+   } catch( const std::system_error& e ) {
+      // do not propagate db_error_code::not_found for absent db, so it will be created
+      if( e.code().value() != chainbase::db_error_code::not_found )
+         throw;
+   }
 
    return {};
 }

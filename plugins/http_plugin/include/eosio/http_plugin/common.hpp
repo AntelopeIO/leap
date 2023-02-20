@@ -158,7 +158,8 @@ struct http_plugin_state {
    bool keep_alive = false;
 
    uint16_t thread_pool_size = 2;
-   eosio::chain::named_thread_pool thread_pool{ "http" };
+   struct http; // http is a namespace so use an embedded type for the named_thread_pool tag
+   eosio::chain::named_thread_pool<http> thread_pool;
 
    fc::logger& logger;
 

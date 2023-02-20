@@ -22,7 +22,7 @@ namespace eosio {
       }
    }
 
-   static appbase::abstract_plugin& _http_plugin = app().register_plugin<http_plugin>();
+   static auto _http_plugin = application::register_plugin<http_plugin>();
 
    using std::map;
    using std::vector;
@@ -495,6 +495,11 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
    void http_plugin::add_async_handler(const string& url, const url_handler& handler, http_content_type content_type) {
       fc_ilog( logger(), "add api url: ${c}", ("c", url) );
       my->plugin_state->url_handlers[url] = my->make_http_thread_url_handler(url, handler, content_type);
+   }
+
+   void http_plugin::post_http_thread_pool(std::function<void()> f) {
+      if( f )
+         boost::asio::post( my->plugin_state->thread_pool.get_executor(), f );
    }
 
    void http_plugin::handle_exception( const char *api_name, const char *call_name, const string& body, const url_response_callback& cb) {

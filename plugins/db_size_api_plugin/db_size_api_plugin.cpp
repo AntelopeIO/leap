@@ -5,7 +5,7 @@
 
 namespace eosio {
 
-static appbase::abstract_plugin& _db_size_api_plugin = app().register_plugin<db_size_api_plugin>();
+   static auto _db_size_api_plugin = application::register_plugin<db_size_api_plugin>();
 
 using namespace eosio;
 

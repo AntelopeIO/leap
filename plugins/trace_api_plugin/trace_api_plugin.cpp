@@ -16,7 +16,7 @@ using namespace eosio::trace_api::configuration_utils;
 using boost::signals2::scoped_connection;
 
 namespace {
-   appbase::abstract_plugin& plugin_reg = app().register_plugin<trace_api_plugin>();
+   static auto plugin_reg = application::register_plugin<trace_api_plugin>();
 
    const std::string logger_name("trace_api");
    fc::logger _log;
@@ -213,7 +213,7 @@ struct trace_api_rpc_plugin_impl : public std::enable_shared_from_this<trace_api
                auto kv = parse_kv_pairs(entry);
                auto account = chain::name(kv.first);
                auto abi = abi_def_from_file(kv.second, app().data_dir());
-               data_handler->add_abi(account, abi);
+               data_handler->add_abi(account, std::move(abi));
             } catch (...) {
                elog("Malformed trace-rpc-abi provider: \"${val}\"", ("val", entry));
                throw;

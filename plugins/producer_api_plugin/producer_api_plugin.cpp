@@ -16,7 +16,7 @@ FC_REFLECT(eosio::detail::producer_api_plugin_response, (result));
 
 namespace eosio {
 
-static appbase::abstract_plugin& _producer_api_plugin = app().register_plugin<producer_api_plugin>();
+   static auto _producer_api_plugin = application::register_plugin<producer_api_plugin>();
 
 using namespace eosio;
 
