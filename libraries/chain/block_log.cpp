@@ -9,7 +9,7 @@
 #include <mutex>
 
 #if defined(__BYTE_ORDER__)
-static_assert( __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__ );
+static_assert(__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__);
 #endif
 
 namespace eosio { namespace chain {
@@ -208,9 +208,7 @@ namespace eosio { namespace chain {
        public:
          block_log_data() = default;
          block_log_data(const fc::path& path) { open(path); }
-         uint64_t first_block_position() {
-            return first_block_pos;
-         }
+         uint64_t first_block_position() { return first_block_pos; }
 
          const block_log_preamble& get_preamble() const { return preamble; }
 
@@ -399,10 +397,8 @@ namespace eosio { namespace chain {
 
          block_file.seek_end(0);
          // walk along the block position of each block entry and add its value by offset
-         auto iter = reverse_block_position_iterator{ block_file, first_block_position, block_file.tellp()};
-         while (!iter.done()) {
-            index.write(iter.add_value_then_advance(offset));
-         }
+         auto iter = reverse_block_position_iterator{ block_file, first_block_position, block_file.tellp() };
+         while (!iter.done()) { index.write(iter.add_value_then_advance(offset)); }
       }
 
       void block_log_data::construct_index(const fc::path& index_file_path) {
@@ -482,14 +478,14 @@ namespace eosio { namespace chain {
 
          virtual signed_block_ptr read_head() = 0;
          void                     update_head(const signed_block_ptr& b, const std::optional<block_id_type>& id = {}) {
-            head = b;
-            if (id) {
-               head_id = *id;
+                                head = b;
+                                if (id) {
+                                   head_id = *id;
             } else {
-               if (head) {
-                  head_id = b->calculate_id();
+                                   if (head) {
+                                      head_id = b->calculate_id();
                } else {
-                  head_id = {};
+                                      head_id = {};
                }
             }
          }
@@ -527,9 +523,7 @@ namespace eosio { namespace chain {
 
          basic_block_log() = default;
 
-         basic_block_log(const bfs::path& log_dir, const basic_blocklog_config& conf) {
-            open(log_dir, conf.fix_irreversible_blocks);
-         }
+         explicit basic_block_log(bfs::path log_dir) { open(log_dir); }
 
          static void ensure_file_exists(fc::cfile& f) {
             if (fc::exists(f.get_file_path()))
@@ -624,7 +618,7 @@ namespace eosio { namespace chain {
             FC_LOG_AND_RETHROW()
          }
 
-         void open(const fc::path& data_dir, bool fix_irreversible_blocks) {
+         void open(const fc::path& data_dir) {
 
             if (!fc::is_directory(data_dir))
                fc::create_directories(data_dir);
@@ -665,41 +659,24 @@ namespace eosio { namespace chain {
 
                genesis_written_to_block_log = true; // Assume it was constructed properly.
 
-               auto reconstruct_index = [&]() {
-                  if (fix_irreversible_blocks && !preamble.is_currently_pruned()) {
-                     block_log::repair_log(block_file.get_file_path().parent_path(), UINT32_MAX);
-                     block_log::construct_index(block_file.get_file_path(), index_file.get_file_path());
-                  } else {
-                     log_data.construct_index(index_file.get_file_path());
-                  }
-               };
+               EOS_ASSERT(index_size, block_log_exception,
+                          "${index_file} file is empty, please use leap-util to fix the problem.",
+                          ("index_file", index_file.get_file_path().string()));
+               EOS_ASSERT(index_size % sizeof(uint64_t) == 0, block_log_exception,
+                          "${index_file} file is invalid, please use leap-util to reconstruct the index.",
+                          ("index_file", index_file.get_file_path().string()));
 
-               if (index_size) {
-                  ilog("Index is nonempty");
-                  if (index_size % sizeof(uint64_t) == 0) {
-                     block_log_index index(index_file.get_file_path());
+               block_log_index index(index_file.get_file_path());
+               auto            last_block_pos = log_data.last_block_position();
+               auto            last_index_pos = index.back();
 
-                     if (log_data.last_block_position() != index.back()) {
-                        if (!fix_irreversible_blocks) {
-                           ilog("The last block positions from blocks.log and blocks.index are different, "
-                                "Reconstructing "
-                                "index...");
-                           log_data.construct_index(index_file.get_file_path());
-                        } else if (!recover_from_incomplete_block_head(log_data, index) &&
-                                   !preamble.is_currently_pruned()) {
-                           block_log::repair_log(block_file.get_file_path().parent_path(), UINT32_MAX);
-                           block_log::construct_index(block_file.get_file_path(), index_file.get_file_path());
-                        }
-                     } else if (fix_irreversible_blocks) {
-                        ilog("Irreversible blocks was not corrupted.");
-                     }
-                  } else {
-                     reconstruct_index();
-                  }
-               } else {
-                  ilog("Index is empty. Reconstructing index...");
-                  reconstruct_index();
-               }
+               EOS_ASSERT(last_block_pos == last_index_pos, block_log_exception,
+                          "The last block position from ${block_file} is at ${block_pos} "
+                          "which does not match the last block postion ${index_pos} from ${index_file}, please use "
+                          "leap-util to fix the inconsistency.",
+                          ("block_pos", last_block_pos)("index_pos", last_index_pos)(
+                                "block_file", block_file.get_file_path().string())(
+                                "index_file", index_file.get_file_path().string()));
 
                log_data.close();
 
@@ -966,7 +943,7 @@ namespace eosio { namespace chain {
             catalog.open(log_dir, config.retained_dir, config.archive_dir, "blocks");
             catalog.max_retained_files = config.max_retained_files;
 
-            open(log_dir, config.fix_irreversible_blocks);
+            open(log_dir);
             const auto log_size = fc::file_size(block_file.get_file_path());
 
             if (log_size == 0 && !catalog.empty()) {
@@ -1070,7 +1047,7 @@ namespace eosio { namespace chain {
                        "block log prune threshold must be power of 2");
             // switch this over to the mask that will be used
             prune_config.prune_threshold = ~(prune_config.prune_threshold - 1);
-            open(data_dir, false);
+            open(data_dir);
             if (head)
                first_block_number = first_block_num_from_pruned_log();
             else if (preamble.first_block_num)
@@ -1557,7 +1534,7 @@ namespace eosio { namespace chain {
    std::pair<fc::path, fc::path> blocklog_files(const fc::path& dir, uint32_t start_block_num, uint32_t num_blocks) {
       const int bufsize = 64;
       char      buf[bufsize];
-      snprintf(buf, bufsize, "blocks-%d-%d.log", start_block_num, start_block_num + num_blocks - 1);
+      snprintf(buf, bufsize, "blocks-%u-%u.log", start_block_num, start_block_num + num_blocks - 1);
       fc::path new_block_filename = dir / buf;
       fc::path new_index_filename(new_block_filename);
       new_index_filename.replace_extension(".index");

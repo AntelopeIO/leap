@@ -24,7 +24,6 @@ void remove_existing_states(eosio::chain::controller::config& config) {
 struct restart_from_block_log_test_fixture {
    eosio::testing::tester chain;
    uint32_t               cutoff_block_num;
-   bool                   fix_irreversible_blocks = false;
 
    restart_from_block_log_test_fixture() {
       using namespace eosio::chain;
@@ -44,11 +43,12 @@ struct restart_from_block_log_test_fixture {
 
       chain.close();
    }
-   ~restart_from_block_log_test_fixture() {
+
+   void restart_chain() {
       eosio::chain::controller::config copied_config = chain.get_config();
 
       copied_config.blog =
-            eosio::chain::basic_blocklog_config{ .fix_irreversible_blocks = this->fix_irreversible_blocks };
+            eosio::chain::basic_blocklog_config{};
 
       auto genesis = eosio::chain::block_log::extract_genesis_state(chain.get_config().blocks_dir);
       BOOST_REQUIRE(genesis);
@@ -354,7 +354,7 @@ BOOST_AUTO_TEST_CASE(test_restart_without_blocks_log_file) {
    from_block_log_chain.produce_blocks(10);
 }
 
-BOOST_FIXTURE_TEST_CASE(auto_fix_with_incomplete_head, restart_from_block_log_test_fixture) {
+BOOST_FIXTURE_TEST_CASE(start_with_incomplete_head, restart_from_block_log_test_fixture) {
    auto& config      = chain.get_config();
    auto  blocks_path = config.blocks_dir;
    // write a few random bytes to block log indicating the last block entry is incomplete
@@ -363,10 +363,11 @@ BOOST_FIXTURE_TEST_CASE(auto_fix_with_incomplete_head, restart_from_block_log_te
    logfile.open("ab");
    const char random_data[] = "12345678901231876983271649837";
    logfile.write(random_data, sizeof(random_data));
-   fix_irreversible_blocks = true;
+   logfile.close();
+   BOOST_CHECK_THROW(restart_chain(), eosio::chain::block_log_exception);
 }
 
-BOOST_FIXTURE_TEST_CASE(auto_fix_with_corrupted_index, restart_from_block_log_test_fixture) {
+BOOST_FIXTURE_TEST_CASE(start_with_corrupted_index, restart_from_block_log_test_fixture) {
    auto& config      = chain.get_config();
    auto  blocks_path = config.blocks_dir;
    // write a few random index to block log indicating the index is corrupted
@@ -375,10 +376,11 @@ BOOST_FIXTURE_TEST_CASE(auto_fix_with_corrupted_index, restart_from_block_log_te
    indexfile.open("ab");
    uint64_t data = UINT64_MAX;
    indexfile.write(reinterpret_cast<const char*>(&data), sizeof(data));
-   fix_irreversible_blocks = true;
+   indexfile.close();
+   BOOST_CHECK_THROW(restart_chain(), eosio::chain::block_log_exception);
 }
 
-BOOST_FIXTURE_TEST_CASE(auto_fix_with_corrupted_log_and_index, restart_from_block_log_test_fixture) {
+BOOST_FIXTURE_TEST_CASE(start_with_corrupted_log_and_index, restart_from_block_log_test_fixture) {
    auto& config      = chain.get_config();
    auto  blocks_path = config.blocks_dir;
    // write a few random bytes to block log and index
@@ -393,8 +395,8 @@ BOOST_FIXTURE_TEST_CASE(auto_fix_with_corrupted_log_and_index, restart_from_bloc
    logfile.open("ab");
    const char random_data[] = "12345678901231876983271649837";
    logfile.write(random_data, sizeof(random_data));
-
-   fix_irreversible_blocks = true;
+   indexfile.close();
+   BOOST_CHECK_THROW(restart_chain(), eosio::chain::block_log_exception);
 }
 
 struct blocklog_version_setter {
