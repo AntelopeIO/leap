@@ -134,30 +134,13 @@ public:
    : session(std::move(s)) {};
 
    void send_entry() override {
-      fc_dlog(session->plugin->logger(), "replying get_status_request_v0");
-      state_history::get_status_result_v0 result;
-      result.head              = session->plugin->get_block_head();
-      result.last_irreversible = session->plugin->get_last_irreversible();
-      result.chain_id          = session->plugin->get_chain_id();
-      auto&& trace_log         = session->plugin->get_trace_log();
-      if (trace_log) {
-         auto r = trace_log->block_range();
-         result.trace_begin_block = r.first;
-         result.trace_end_block   = r.second;
-      }
-      auto&& chain_state_log = session->plugin->get_chain_state_log();
-      if (chain_state_log) {
-         auto r = chain_state_log->block_range();
-         result.chain_state_begin_block = r.first;
-         result.chain_state_end_block   = r.second;
-      }
-      fc_dlog(session->plugin->logger(), "pushing get_status_result_v0 to send queue");
-
-      data = fc::raw::pack(state_history::state_result{std::move(result)});
+      data = fc::raw::pack(state_history::state_result{session->get_status_result()});
 
       session->socket_stream->async_write(boost::asio::buffer(data),
                                    [s{session}](boost::system::error_code ec, size_t) {
-                                      s->callback(ec, true, "async_write", [s] { s->session_mgr.pop_entry(); });
+                                      s->callback(ec, true, "async_write", [s] {
+                                         s->session_mgr.pop_entry();
+                                      });
                                    });
    }
 };
@@ -189,32 +172,7 @@ public:
    , req(std::move(r)) {}
 
    void send_entry() override {
-      fc_dlog(session->plugin->logger(), "replying get_blocks_request_v0 = ${req}", ("req", req));
-      session->to_send_block_num = req.start_block_num;
-      for (auto& cp : req.have_positions) {
-         if (req.start_block_num <= cp.block_num)
-            continue;
-         auto id = session->plugin->get_block_id(cp.block_num);
-         if (!id || *id != cp.block_id)
-            req.start_block_num = std::min(req.start_block_num, cp.block_num);
-
-         if (!id) {
-            session->to_send_block_num = std::min(session->to_send_block_num, cp.block_num);
-            fc_dlog(session->plugin->logger(), "block ${block_num} is not available", ("block_num", cp.block_num));
-         } else if (*id != cp.block_id) {
-            session->to_send_block_num = std::min(session->to_send_block_num, cp.block_num);
-            fc_dlog(session->plugin->logger(),
-                    "the id for block ${block_num} in block request have_positions does not match the existing",
-                    ("block_num", cp.block_num));
-         }
-      }
-      fc_dlog(session->plugin->logger(), "  get_blocks_request_v0 start_block_num set to ${num}", ("num", session->to_send_block_num));
-
-      if( !req.have_positions.empty() ) {
-         session->position_it = req.have_positions.begin();
-      }
-
-      session->current_request = std::move(req);
+      session->update_current_request(req);
       session->send_update(true);
    }
 };
@@ -436,7 +394,6 @@ private:
       return 0;
    }
 
-   // called from ship thread
    void process(state_history::get_status_request_v0&) {
       fc_dlog(plugin->logger(), "received get_status_request_v0");
 
@@ -445,7 +402,6 @@ private:
       session_mgr.add_send_queue(std::move(self), std::move(entry_ptr));
    }
 
-   // called from ship thread
    void process(state_history::get_blocks_request_v0& req) {
       fc_dlog(plugin->logger(), "received get_blocks_request_v0 = ${req}", ("req", req));
 
@@ -454,7 +410,6 @@ private:
       session_mgr.add_send_queue(std::move(self), std::move(entry_ptr));
    }
 
-   // called from ship thread
    void process(state_history::get_blocks_ack_request_v0& req) {
       fc_dlog(plugin->logger(), "received get_blocks_ack_request_v0 = ${req}", ("req", req));
       if (!current_request) {
@@ -467,7 +422,57 @@ private:
       session_mgr.add_send_queue(std::move(self), std::move(entry_ptr));
    }
 
-   // called from ship thread
+   state_history::get_status_result_v0 get_status_result() {
+      fc_dlog(plugin->logger(), "replying get_status_request_v0");
+      state_history::get_status_result_v0 result;
+      result.head              = plugin->get_block_head();
+      result.last_irreversible = plugin->get_last_irreversible();
+      result.chain_id          = plugin->get_chain_id();
+      auto&& trace_log         = plugin->get_trace_log();
+      if (trace_log) {
+         auto r = trace_log->block_range();
+         result.trace_begin_block = r.first;
+         result.trace_end_block   = r.second;
+      }
+      auto&& chain_state_log = plugin->get_chain_state_log();
+      if (chain_state_log) {
+         auto r = chain_state_log->block_range();
+         result.chain_state_begin_block = r.first;
+         result.chain_state_end_block   = r.second;
+      }
+      fc_dlog(plugin->logger(), "pushing get_status_result_v0 to send queue");
+
+      return result;
+   }
+
+   void update_current_request(state_history::get_blocks_request_v0& req) {
+      fc_dlog(plugin->logger(), "replying get_blocks_request_v0 = ${req}", ("req", req));
+      to_send_block_num = req.start_block_num;
+      for (auto& cp : req.have_positions) {
+         if (req.start_block_num <= cp.block_num)
+            continue;
+         auto id = plugin->get_block_id(cp.block_num);
+         if (!id || *id != cp.block_id)
+            req.start_block_num = std::min(req.start_block_num, cp.block_num);
+
+         if (!id) {
+            to_send_block_num = std::min(to_send_block_num, cp.block_num);
+            fc_dlog(plugin->logger(), "block ${block_num} is not available", ("block_num", cp.block_num));
+         } else if (*id != cp.block_id) {
+            to_send_block_num = std::min(to_send_block_num, cp.block_num);
+            fc_dlog(plugin->logger(), "the id for block ${block_num} in block request have_positions does not match the existing",
+                    ("block_num", cp.block_num));
+         }
+      }
+      fc_dlog(plugin->logger(), "  get_blocks_request_v0 start_block_num set to ${num}", ("num", to_send_block_num));
+
+      if( !req.have_positions.empty() ) {
+         position_it = req.have_positions.begin();
+      }
+
+      current_request = std::move(req);
+   }
+
    void send_update(state_history::get_blocks_result_v0 result, const chain::block_state_ptr& block_state) {
       need_to_send_update = true;
       if (!current_request || !current_request->max_messages_in_flight) {
@@ -537,7 +542,6 @@ private:
       std::make_shared<blocks_result_send_queue_entry<session>>(this->shared_from_this(), std::move(result))->send_entry();
    }
 
-   // called from ship thread
    void send_update(const chain::block_state_ptr& block_state) override {
       if (!current_request || !current_request->max_messages_in_flight) {
          session_mgr.pop_entry(false);
@@ -549,7 +553,6 @@ private:
       send_update(std::move(result), block_state);
    }
 
-   // called from ship thread
    void send_update(bool changed) override {
       if (changed || need_to_send_update) {
          state_history::get_blocks_result_v0 result;
