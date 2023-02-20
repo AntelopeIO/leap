@@ -1165,7 +1165,7 @@ namespace eosio { namespace chain {
 
    block_log::block_log(const fc::path& data_dir, const block_log_config& config)
        : my(std::visit(overloaded{ [&data_dir](const basic_blocklog_config& conf) -> detail::block_log_impl* {
-                                     return new detail::basic_block_log(data_dir, conf);
+                                     return new detail::basic_block_log(data_dir);
                                   },
                                    [&data_dir](const empty_blocklog_config&) -> detail::block_log_impl* {
                                       return new detail::empty_block_log(data_dir);
