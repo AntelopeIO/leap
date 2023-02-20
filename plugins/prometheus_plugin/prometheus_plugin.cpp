@@ -11,7 +11,7 @@
 
 namespace eosio {
    using namespace prometheus;
-   static appbase::abstract_plugin &_prometheus_plugin = app().register_plugin<prometheus_plugin>();
+   static auto& _prometheus_plugin = app().register_plugin<prometheus_plugin>();
    using metric_type=chain::plugin_interface::metric_type;
 
    struct prometheus_plugin_metrics : plugin_metrics {
@@ -102,8 +102,9 @@ namespace eosio {
       }
    };
 
+   struct prom;
       struct prometheus_plugin_impl {
-         eosio::chain::named_thread_pool _prometheus_thread_pool{"prom"};
+         eosio::chain::named_thread_pool<prom> _prometheus_thread_pool;
          boost::asio::io_context::strand _prometheus_strand;
          prometheus_plugin_metrics _metrics;
 
