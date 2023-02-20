@@ -705,7 +705,7 @@ class Cluster(object):
 
     # create account keys and import into wallet. Wallet initialization will be user responsibility
     # also imports defproducera and defproducerb accounts
-    def populateWallet(self, accountsCount, wallet, accountNames: list=None):
+    def populateWallet(self, accountsCount, wallet, accountNames: list=None, createProducerAccounts: bool=True):
         if accountsCount == 0 and len(accountNames) == 0:
             return True
         if self.walletMgr is None:
@@ -720,15 +720,16 @@ class Cluster(object):
                 Utils.Print("Account keys creation failed.")
                 return False
 
-        Utils.Print("Importing keys for account %s into wallet %s." % (self.defproduceraAccount.name, wallet.name))
-        if not self.walletMgr.importKey(self.defproduceraAccount, wallet):
-            Utils.Print("ERROR: Failed to import key for account %s" % (self.defproduceraAccount.name))
-            return False
+        if createProducerAccounts:
+            Utils.Print("Importing keys for account %s into wallet %s." % (self.defproduceraAccount.name, wallet.name))
+            if not self.walletMgr.importKey(self.defproduceraAccount, wallet):
+                Utils.Print("ERROR: Failed to import key for account %s" % (self.defproduceraAccount.name))
+                return False
 
-        Utils.Print("Importing keys for account %s into wallet %s." % (self.defproducerbAccount.name, wallet.name))
-        if not self.walletMgr.importKey(self.defproducerbAccount, wallet):
-            Utils.Print("ERROR: Failed to import key for account %s" % (self.defproducerbAccount.name))
-            return False
+            Utils.Print("Importing keys for account %s into wallet %s." % (self.defproducerbAccount.name, wallet.name))
+            if not self.walletMgr.importKey(self.defproducerbAccount, wallet):
+                Utils.Print("ERROR: Failed to import key for account %s" % (self.defproducerbAccount.name))
+                return False
 
         if accountNames is not None:
             for idx, name in enumerate(accountNames):

@@ -1,0 +1,16 @@
+{
+    "initAccounts": ["r"],
+    "abiFile": "unittests/contracts/eosio.mechanics/contracts/eosmechanics.abi",
+    "actions": [
+        {
+            "actionName": "ram",
+            "actionData": {
+            },
+            "actionAuthAcct": "r",
+            "authorization": {
+                "actor": "r",
+                "permission": "active"
+            }
+        }
+    ]
+}

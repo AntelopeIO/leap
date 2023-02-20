@@ -73,7 +73,7 @@ class TransactionGeneratorsLauncher:
                         f'--actions-data {self.actionsData} '
                         f'--actions-auths {self.actionsAuths} '
                         f'--peer-endpoint {self.peerEndpoint} '
-                        f'--port {self.port} '
+                        f'--port {self.port}'
                     )
                 self.subprocess_ret_codes.append(
                     subprocess.Popen([
@@ -108,7 +108,7 @@ class TransactionGeneratorsLauncher:
                         f'--target-tps {targetTps} '
                         f'--log-dir {self.logDir} '
                         f'--peer-endpoint {self.peerEndpoint} '
-                        f'--port {self.port} '
+                        f'--port {self.port}'
                     )
                 self.subprocess_ret_codes.append(
                     subprocess.Popen([

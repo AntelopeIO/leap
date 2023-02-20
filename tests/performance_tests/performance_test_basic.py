@@ -306,7 +306,9 @@ class PerformanceTestBasic:
 
     def setupContract(self):
         if self.clusterConfig.specifiedContract.account.name != self.cluster.eosioAccount.name:
-            self.cluster.createAccountAndVerify(self.clusterConfig.specifiedContract.account, self.cluster.eosioAccount, validationNodeIndex=self.validationNodeId)
+            self.cluster.populateWallet(accountsCount=1, wallet=self.wallet, accountNames=[self.clusterConfig.specifiedContract.account.name], createProducerAccounts=False)
+            self.cluster.createAccounts(self.cluster.eosioAccount, stakedDeposit=0, validationNodeIndex=self.validationNodeId)
+            self.clusterConfig.specifiedContract.account = self.cluster.accounts[0]
             print("Publishing contract")
             transaction=self.cluster.biosNode.publishContract(self.clusterConfig.specifiedContract.account, self.clusterConfig.specifiedContract.contractDir,
                                                             self.clusterConfig.specifiedContract.wasmFile,
