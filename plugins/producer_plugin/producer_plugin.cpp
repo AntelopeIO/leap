@@ -1,7 +1,7 @@
 #include <eosio/producer_plugin/producer_plugin.hpp>
 #include <eosio/producer_plugin/pending_snapshot.hpp>
 #include <eosio/producer_plugin/subjective_billing.hpp>
-#include <eosio/producer_plugin/snapshot_scheduler.hpp>
+#include <eosio/producer_plugin/snapshot_db_json.hpp>
 #include <eosio/chain/plugin_interface.hpp>
 #include <eosio/chain/global_property_object.hpp>
 #include <eosio/chain/generated_transaction_object.hpp>
@@ -26,6 +26,7 @@
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/ordered_index.hpp>
+#include <boost/multi_index/random_access_index.hpp>
 #include <boost/signals2/connection.hpp>
 #include <boost/range/adaptor/map.hpp>
 #include <boost/range/algorithm/copy.hpp>
@@ -131,6 +132,25 @@ enum class pending_block_mode {
    producing,
    speculating
 };
+
+struct by_snapshot_id;
+struct by_snapshot_value;
+struct as_vector;
+
+using snapshot_requests = multi_index_container<
+   producer_plugin::snapshot_request_information,
+   indexed_by<
+      hashed_unique<tag<by_snapshot_id>, BOOST_MULTI_INDEX_MEMBER(producer_plugin::snapshot_request_information, uint32_t, snapshot_request_id)>,
+      random_access<tag<as_vector>>,
+      ordered_unique<tag<by_snapshot_value>,
+         composite_key< producer_plugin::snapshot_request_information,
+            BOOST_MULTI_INDEX_MEMBER(producer_plugin::snapshot_request_information, uint32_t, block_spacing),
+            BOOST_MULTI_INDEX_MEMBER(producer_plugin::snapshot_request_information, uint32_t, start_block_num),
+            BOOST_MULTI_INDEX_MEMBER(producer_plugin::snapshot_request_information, uint32_t, end_block_num)
+         >
+      >
+   >
+>;
 
 namespace {
 
@@ -267,8 +287,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
    public:
       producer_plugin_impl(boost::asio::io_service& io)
       :_timer(io)
-      ,_transaction_ack_channel(app().get_channel<compat::channels::transaction_ack>()),
-      _snapshot_scheduler(new snapshot_scheduler())
+      ,_transaction_ack_channel(app().get_channel<compat::channels::transaction_ack>())
       {
       }
 
@@ -297,8 +316,6 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       void log_trx_results( const transaction_metadata_ptr& trx, const fc::exception_ptr& except_ptr );
       void log_trx_results( const packed_transaction_ptr& trx, const transaction_trace_ptr& trace,
                             const fc::exception_ptr& except_ptr, uint32_t billed_cpu_us, const fc::time_point& start );
-
-      snapshot_scheduler & get_snapshot_scheduler() { return *_snapshot_scheduler; }
 
       boost::program_options::variables_map _options;
       bool     _production_enabled                 = false;
@@ -366,8 +383,10 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       // path to write the snapshots to
       bfs::path _snapshots_dir;
 
-      // snapshot scheduler
-      std::shared_ptr<class snapshot_scheduler>    _snapshot_scheduler;
+      // snapshot schedule
+      snapshot_requests _snapshot_requests;
+      snapshot_db_json  _snapshot_db;
+      uint32_t          _snapshot_id = 0;
 
       void consider_new_watermark( account_name producer, uint32_t block_num, block_timestamp_type timestamp) {
          auto itr = _producer_watermarks.find( producer );
@@ -391,9 +410,34 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          auto before = _unapplied_transactions.size();
          _unapplied_transactions.clear_applied( bsp );
          _subjective_billing.on_block( _log, bsp, fc::time_point::now() );
-         _snapshot_scheduler->on_block(bsp->block_num);
+         scheduler_on_block(bsp);
          fc_dlog( _log, "Removed applied transactions before: ${before}, after: ${after}",
                   ("before", before)("after", _unapplied_transactions.size()) );
+      }
+
+      void scheduler_on_block( const block_state_ptr& bsp ) {
+
+         auto height =bsp->block_num;
+         for (const auto & req : _snapshot_requests.get<0>()) {
+            // execute "asap" or if matches spacing
+            if ((req.start_block_num == 0) ||
+               (!((height - req.start_block_num) % req.block_spacing))) {
+              // x_execute_snapshot();
+            }
+            // assume "asap" for snapshot with missed/zero start, it can have spacing
+           /*
+            if (req.start_block_num == 0) {
+               auto node = requests.extract(req);
+               node.key().start_block_num = height;
+               requests.insert(std::move(node));
+            }
+            */
+            // remove expired request
+            if (req.end_block_num > 0 && height >= req.end_block_num) {
+              auto& snapshot_by_id = _snapshot_requests.get<by_snapshot_id>();
+              _snapshot_requests.erase(snapshot_by_id.find(req.snapshot_request_id));
+            }
+         }
       }
 
       void on_block_header( const block_state_ptr& bsp ) {
@@ -418,7 +462,6 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
 
             snapshots_by_height.erase(snapshots_by_height.begin());
          }
-         _snapshot_scheduler->on_irreversible_block(lib_height);
       }
 
       void abort_block() {
@@ -1006,16 +1049,12 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
          my->_subjective_billing.disable_account( account_name(a) );
       }
    }
-
-   // now path in scheduler can be updated
-   my->get_snapshot_scheduler().get_db().set_path(my->_snapshots_dir);
-
-   // if schedule exists, try to load it
-   if (fc::exists(my->get_snapshot_scheduler().get_db().get_json_path())) {
-      my->get_snapshot_scheduler().load_schedule();
+   my->_snapshot_db.set_path(my->_snapshots_dir);
+   if (fc::exists(my->_snapshot_db.get_json_path())) {
+      std::vector<producer_plugin::snapshot_request_information>  sr;
+      my->_snapshot_db >> sr;
+      my->_snapshot_requests.insert(sr.begin(), sr.end());
    }
-
-
 } FC_LOG_AND_RETHROW() }
 
 void producer_plugin::plugin_startup()
@@ -1344,18 +1383,37 @@ void producer_plugin::create_snapshot(producer_plugin::next_function<producer_pl
 
 void producer_plugin::schedule_snapshot(const snapshot_request_information& sri)
 {
-   my->get_snapshot_scheduler().schedule_snapshot(sri);
+   auto& snapshot_by_value = my->_snapshot_requests.get<by_snapshot_value>();
+   auto existing = snapshot_by_value.find(std::make_tuple(sri.block_spacing, sri.start_block_num, sri.end_block_num));
+   EOS_ASSERT(existing == snapshot_by_value.end() , duplicate_snapshot_request, "Duplicate snapshot request");
+   if (sri.end_block_num>0) EOS_ASSERT(sri.start_block_num <= sri.end_block_num, invalid_snapshot_request, "End block number should be greater or equal to start block number");
+   if (sri.block_spacing>0) EOS_ASSERT(sri.start_block_num + sri.block_spacing <= sri.end_block_num, invalid_snapshot_request, "Block spacing exceeds defined by start and end range");
+
+   auto request_id = sri.snapshot_request_id ? sri.snapshot_request_id : my->_snapshot_id++ ;
+   my->_snapshot_requests.emplace(producer_plugin::snapshot_request_information{request_id, sri.block_spacing, sri.start_block_num, sri.end_block_num,{}});
+
+   auto & vec = my->_snapshot_requests.get<as_vector>();
+   std::vector<producer_plugin::snapshot_request_information>  sr(vec.begin(), vec.end());
+   my->_snapshot_db << sr;
 }
 
 void producer_plugin::unschedule_snapshot(const snapshot_request_information& sri)
 {
-   my->get_snapshot_scheduler().unschedule_snapshot(sri);
+   auto& snapshot_by_id = my->_snapshot_requests.get<by_snapshot_id>();
+   auto existing = snapshot_by_id.find(sri.snapshot_request_id);
+   EOS_ASSERT(existing != snapshot_by_id.end(), snapshot_request_not_found, "Snapshot request not found");
+   my->_snapshot_requests.erase(existing);
+
+   auto & vec = my->_snapshot_requests.get<as_vector>();
+   std::vector<producer_plugin::snapshot_request_information>  sr(vec.begin(), vec.end());
+   my->_snapshot_db << sr;
 }
 
 producer_plugin::get_snapshot_requests_result producer_plugin::get_snapshot_requests() const
 {
    producer_plugin::get_snapshot_requests_result result;
-   boost::copy(my->get_snapshot_scheduler().get_snapshots() | boost::adaptors::map_keys, std::back_inserter(result.requests));
+   auto & asvector = my->_snapshot_requests.get<as_vector>();
+   result.requests.insert(result.requests.begin(),  asvector.begin(), asvector.end());
    return result;
 }
 

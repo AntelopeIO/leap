@@ -56,16 +56,8 @@ public:
       uint32_t             start_block_num = 0;
       uint32_t             end_block_num = 0;
       std::string          snapshot_description = "";
+      std::optional<snapshot_information> pending_snapshot;
    };
-
-   // id and description are not affecting snapshot execution
-   struct snapshot_request_cmp {
-      bool operator()(const snapshot_request_information& sri1, const snapshot_request_information& sri2) const {
-         return sri1.block_spacing <  sri2.block_spacing || sri1.start_block_num <  sri2.start_block_num || sri1.end_block_num <  sri2.end_block_num;
-      }
-   };
-
-   using snapshot_requests =  std::map<snapshot_request_information, std::variant<std::monostate, snapshot_information>, snapshot_request_cmp>;
 
    struct get_snapshot_requests_result {
        std::vector<snapshot_request_information>  requests;

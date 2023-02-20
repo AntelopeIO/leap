@@ -28,7 +28,7 @@ public:
       return db_path / "snapshot-schedule.json";
    }
 
-   const snapshot_db_json& operator>>(producer_plugin::snapshot_requests& sr) {
+   const snapshot_db_json& operator>>(std::vector<producer_plugin::snapshot_request_information> & sr) {
       boost::property_tree::ptree root;
       std::ifstream file(get_json_path().string());
       boost::property_tree::read_json(file, root);
@@ -42,17 +42,17 @@ public:
          sri.block_spacing = req.second.get<uint32_t>("block_spacing");
          sri.start_block_num = req.second.get<uint32_t>("start_block_num");
          sri.end_block_num = req.second.get<uint32_t>("end_block_num");
-         sr[sri] = std::monostate{};
+         sr.push_back(sri);
       }
 
       return *this;
    }
 
-   const snapshot_db_json& operator<<(const producer_plugin::snapshot_requests& sr) {
+   const snapshot_db_json& operator<<(std::vector<producer_plugin::snapshot_request_information> & sr) {
       boost::property_tree::ptree root;
       boost::property_tree::ptree node_srs;
 
-      for(const auto& [key, value]: sr) {
+      for(const auto& key: sr) {
          boost::property_tree::ptree node;
          node.put("snapshot_request_id", key.snapshot_request_id);
          node.put("snapshot_description", key.snapshot_description);
