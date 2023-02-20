@@ -3,10 +3,10 @@
 
 namespace eosio::trace_api {
 
-   void abi_data_handler::add_abi( const chain::name& name, const chain::abi_def& abi ) {
+   void abi_data_handler::add_abi( const chain::name& name, chain::abi_def&& abi ) {
       // currently abis are operator provided so no need to protect against abuse
       abi_serializer_by_account.emplace(name,
-            std::make_shared<chain::abi_serializer>(abi, chain::abi_serializer::create_yield_function(fc::microseconds::maximum())));
+            std::make_shared<chain::abi_serializer>(std::move(abi), chain::abi_serializer::create_yield_function(fc::microseconds::maximum())));
    }
 
    std::tuple<fc::variant, std::optional<fc::variant>> abi_data_handler::serialize_to_variant(const std::variant<action_trace_v0, action_trace_v1> & action, const yield_function& yield ) {

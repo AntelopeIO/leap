@@ -213,7 +213,7 @@ struct log_catalog {
 
       const int bufsize = 64;
       char      buf[bufsize];
-      snprintf(buf, bufsize, "%s-%d-%d", name, start_block_num, end_block_num);
+      snprintf(buf, bufsize, "%s-%u-%u", name, start_block_num, end_block_num);
       bfs::path new_path = retained_dir / buf;
       rename_bundle(dir / name, new_path);
       size_type items_to_erase = 0;

@@ -6,9 +6,7 @@ namespace eosio { namespace chain {
 
    namespace bfs = boost::filesystem;
 
-   struct basic_blocklog_config {
-      bool      fix_irreversible_blocks = false;
-   };
+   struct basic_blocklog_config {};
 
    struct empty_blocklog_config {};
 
@@ -17,7 +15,6 @@ namespace eosio { namespace chain {
       bfs::path archive_dir;
       uint32_t  stride                  = UINT32_MAX;
       uint32_t  max_retained_files      = UINT32_MAX;
-      bool      fix_irreversible_blocks = false;
    };
 
    struct prune_blocklog_config {
