@@ -144,6 +144,14 @@ namespace eosio {
             } else {
                dlog("producer_plugin not found -- metrics not added");
             }
+
+            http_plugin* hp = app().find_plugin<http_plugin>();
+            if (nullptr != pp) {
+               _plugin_metrics.emplace(std::pair{"http", std::vector<runtime_metric>()});
+               hp->register_metrics_listener(create_metrics_listener("http"));
+            } else {
+               dlog("producer_plugin not found -- metrics not added");
+            }
          }
 
          std::string metrics() {

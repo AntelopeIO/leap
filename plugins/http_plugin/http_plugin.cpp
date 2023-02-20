@@ -49,6 +49,7 @@ namespace eosio {
 
    using http_plugin_impl_ptr = std::shared_ptr<class http_plugin_impl>;
 
+
 class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
       public:
          http_plugin_impl() = default;
@@ -73,7 +74,7 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
          shared_ptr<beast_http_listener<unix_socket_session, stream_protocol, stream_protocol::socket > > beast_unix_server;
 
          shared_ptr<http_plugin_state> plugin_state = std::make_shared<http_plugin_state>(logger());
-         
+
          /**
           * Make an internal_url_handler that will run the url_handler on the app() thread and then
           * return to the http thread pool for response processing
@@ -84,8 +85,8 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
           * @param my - the http_plugin_impl
           * @return the constructed internal_url_handler
           */
-         static detail::internal_url_handler make_app_thread_url_handler( int priority, url_handler next, http_plugin_impl_ptr my, http_content_type content_type ) {
-            detail::internal_url_handler handler;
+         static detail::internal_url_handler make_app_thread_url_handler(const string& url, int priority, url_handler next, http_plugin_impl_ptr my, http_content_type content_type ) {
+            detail::internal_url_handler handler{url};
             handler.content_type = content_type;
             auto next_ptr = std::make_shared<url_handler>(std::move(next));
             handler.fn = [my=std::move(my), priority, next_ptr=std::move(next_ptr)]
@@ -121,8 +122,8 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
           * @param next - the next handler for responses
           * @return the constructed internal_url_handler
           */
-         static detail::internal_url_handler make_http_thread_url_handler(url_handler next, http_content_type content_type) {
-            detail::internal_url_handler handler;
+         static detail::internal_url_handler make_http_thread_url_handler(const string &url, url_handler next, http_content_type content_type) {
+            detail::internal_url_handler handler{url};
             handler.content_type = content_type;
             handler.fn = [next=std::move(next)]( const detail::abstract_conn_ptr& conn, string r, string b, url_response_callback then ) {
                try {
@@ -488,12 +489,12 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
 
    void http_plugin::add_handler(const string& url, const url_handler& handler, int priority, http_content_type content_type) {
       fc_ilog( logger(), "add api url: ${c}", ("c", url) );
-      my->plugin_state->url_handlers[url] = my->make_app_thread_url_handler(priority, handler, my, content_type);
+      my->plugin_state->url_handlers[url] = my->make_app_thread_url_handler(url, priority, handler, my, content_type);
    }
 
    void http_plugin::add_async_handler(const string& url, const url_handler& handler, http_content_type content_type) {
       fc_ilog( logger(), "add api url: ${c}", ("c", url) );
-      my->plugin_state->url_handlers[url] = my->make_http_thread_url_handler(handler, content_type);
+      my->plugin_state->url_handlers[url] = my->make_http_thread_url_handler(url, handler, content_type);
    }
 
    void http_plugin::handle_exception( const char *api_name, const char *call_name, const string& body, const url_response_callback& cb) {
@@ -560,6 +561,10 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
       }
 
       return result;
+   }
+
+   void http_plugin::register_metrics_listener(metrics_listener listener) {
+      my->plugin_state->metrics.register_listener(listener);
    }
 
    fc::microseconds http_plugin::get_max_response_time()const {
