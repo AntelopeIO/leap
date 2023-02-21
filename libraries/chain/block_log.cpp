@@ -202,7 +202,7 @@ namespace eosio { namespace chain {
       class block_log_data : public chain::log_data_base<block_log_data> {
          block_log_preamble preamble;
          uint64_t           first_block_pos = 0;
-         std::size_t        size_;
+         std::size_t        size_ = 0;
 
        public:
          block_log_data() = default;
@@ -226,6 +226,7 @@ namespace eosio { namespace chain {
 
          uint32_t      version() { return preamble.version(); }
          uint32_t      first_block_num() { return preamble.first_block_num; }
+         uint32_t      number_of_blocks();
          chain_id_type chain_id() { return preamble.chain_id(); }
          bool          is_currently_pruned() { return preamble.is_currently_pruned(); }
          uint64_t      end_of_block_position() { return is_currently_pruned() ? size() - sizeof(uint32_t) : size(); }
@@ -400,14 +401,19 @@ namespace eosio { namespace chain {
          while (!iter.done()) { index.write(iter.add_value_then_advance(offset)); }
       }
 
+      uint32_t block_log_data::number_of_blocks() {
+         const uint32_t num_blocks =
+               first_block_position() == end_of_block_position() ? 0 : last_block_num() - first_block_num() + 1;
+         return num_blocks;
+      }
+
       void block_log_data::construct_index(const fc::path& index_file_path) {
          std::string index_file_name = index_file_path.generic_string();
          ilog("Will write new blocks.index file ${file}", ("file", index_file_name));
 
-         const uint32_t num_blocks =
-               first_block_position() == end_of_block_position() ? 0 : last_block_num() - first_block_num() + 1;
+         const uint32_t num_blocks = number_of_blocks();
 
-         ilog("block log version= ${version}", ("version", this->version()));
+         ilog("block log version= ${version}, number of blocks ${n}", ("version", this->version())("n", num_blocks));
 
          if (num_blocks == 0) {
             return;
@@ -648,8 +654,6 @@ namespace eosio { namespace chain {
             auto index_size = fc::file_size(this->index_file.get_file_path());
 
             if (log_size) {
-               ilog("Log is nonempty");
-
                block_log_data log_data(block_file.get_file_path());
                preamble = log_data.get_preamble();
                // genesis state is not going to be useful afterwards, just convert it to chain id to save space
@@ -657,25 +661,29 @@ namespace eosio { namespace chain {
 
                genesis_written_to_block_log = true; // Assume it was constructed properly.
 
-               EOS_ASSERT(index_size, block_log_exception,
+               uint32_t number_of_blocks = log_data.number_of_blocks();
+               ilog("Log has ${n} blocks", ("n", number_of_blocks));
+
+               EOS_ASSERT(index_size || number_of_blocks == 0, block_log_exception,
                           "${index_file} file is empty, please use leap-util to fix the problem.",
                           ("index_file", index_file.get_file_path().string()));
                EOS_ASSERT(index_size % sizeof(uint64_t) == 0, block_log_exception,
                           "${index_file} file is invalid, please use leap-util to reconstruct the index.",
                           ("index_file", index_file.get_file_path().string()));
 
-               block_log_index index(index_file.get_file_path());
-               auto            last_block_pos = log_data.last_block_position();
-               auto            last_index_pos = index.back();
+               if (index_size) {
+                  block_log_index index(index_file.get_file_path());
+                  auto last_block_pos = log_data.last_block_position();
+                  auto last_index_pos = index.back();
 
-               EOS_ASSERT(last_block_pos == last_index_pos, block_log_exception,
-                          "The last block position from ${block_file} is at ${block_pos} "
-                          "which does not match the last block postion ${index_pos} from ${index_file}, please use "
-                          "leap-util to fix the inconsistency.",
-                          ("block_pos", last_block_pos)("index_pos", last_index_pos)(
-                                "block_file", block_file.get_file_path().string())(
-                                "index_file", index_file.get_file_path().string()));
-
+                  EOS_ASSERT(last_block_pos == last_index_pos, block_log_exception,
+                             "The last block position from ${block_file} is at ${block_pos} "
+                             "which does not match the last block postion ${index_pos} from ${index_file}, please use "
+                             "leap-util to fix the inconsistency.",
+                             ("block_pos", last_block_pos)("index_pos", last_index_pos)
+                             ("block_file", block_file.get_file_path().string())
+                             ("index_file", index_file.get_file_path().string()));
+               }
                log_data.close();
 
                transform_block_log();
@@ -1284,7 +1292,9 @@ namespace eosio { namespace chain {
       ilog("Moved existing blocks directory to backup location: '${new_blocks_dir}'", ("new_blocks_dir", backup_dir));
 
       const auto block_log_path  = blocks_dir / "blocks.log";
+      const auto block_index_path = blocks_dir / "blocks.index";
       const auto block_file_name = block_log_path.generic_string();
+      const auto block_index_file_name = block_index_path.generic_string();
 
       ilog("Reconstructing '${new_block_log}' from backed up block log", ("new_block_log", block_file_name));
 
@@ -1293,10 +1303,14 @@ namespace eosio { namespace chain {
 
       auto [pos, block_num, error_msg] = log_data.full_validate_blocks(truncate_at_block, blocks_dir, now);
 
-      fc::cfile new_block_file;
-      new_block_file.set_file_path(block_log_path);
-      new_block_file.open(fc::cfile::create_or_update_rw_mode);
-      copy_file_content(log_data.ro_stream_at(0), new_block_file, pos);
+      {
+         fc::cfile new_block_file;
+         new_block_file.set_file_path( block_log_path );
+         new_block_file.open( fc::cfile::create_or_update_rw_mode );
+         copy_file_content( log_data.ro_stream_at( 0 ), new_block_file, pos );
+         new_block_file.close();
+      }
+      construct_index(block_log_path, block_index_path);
 
       if (error_msg.size()) {
          ilog("Recovered only up to block number ${num}. "
