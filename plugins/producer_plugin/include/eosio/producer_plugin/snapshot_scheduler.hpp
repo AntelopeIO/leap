@@ -1,0 +1,140 @@
+#pragma once
+
+#include <eosio/chain/block_state.hpp>
+#include <eosio/chain/config.hpp>
+#include <eosio/chain/exceptions.hpp>
+#include <eosio/chain/resource_limits.hpp>
+#include <eosio/chain/resource_limits_private.hpp>
+#include <eosio/chain/transaction.hpp>
+#include <eosio/chain/types.hpp>
+
+#include <boost/multi_index/hashed_index.hpp>
+#include <boost/multi_index/member.hpp>
+#include <boost/multi_index/ordered_index.hpp>
+#include <boost/multi_index/random_access_index.hpp>
+#include <boost/multi_index_container.hpp>
+
+#include <eosio/producer_plugin/snapshot_db_json.hpp>
+
+namespace eosio {
+
+namespace bmi = boost::multi_index;
+using chain::account_name;
+using chain::block_state_ptr;
+using chain::packed_transaction;
+using chain::transaction_id_type;
+
+using snapshot_request_information = producer_plugin::snapshot_request_information;
+using get_snapshot_requests_result = producer_plugin::get_snapshot_requests_result;
+
+class snapshot_scheduler_listener {
+   virtual void on_block(const block_state_ptr& bsp) = 0;
+   virtual void on_irreversible_block(const signed_block_ptr& lib) = 0;
+   virtual void on_abort_block() = 0;
+};
+
+class snapshot_scheduler_handler {
+   virtual void schedule_snapshot(const snapshot_request_information& sri) = 0;
+   virtual void unschedule_snapshot(uint32_t sri) = 0;
+   virtual get_snapshot_requests_result get_snapshot_requests() = 0;
+};
+
+class snapshot_scheduler : public snapshot_scheduler_handler, public snapshot_scheduler_listener {
+private:
+   struct by_snapshot_id;
+   struct by_snapshot_value;
+   struct as_vector;
+
+   using snapshot_requests = bmi::multi_index_container<
+         snapshot_request_information,
+         indexed_by<
+               bmi::hashed_unique<tag<by_snapshot_id>, BOOST_MULTI_INDEX_MEMBER(snapshot_request_information, uint32_t, snapshot_request_id)>,
+               bmi::random_access<tag<as_vector>>,
+               bmi::ordered_unique<tag<by_snapshot_value>,
+                                   composite_key<snapshot_request_information,
+                                                 BOOST_MULTI_INDEX_MEMBER(snapshot_request_information, uint32_t, block_spacing),
+                                                 BOOST_MULTI_INDEX_MEMBER(snapshot_request_information, uint32_t, start_block_num),
+                                                 BOOST_MULTI_INDEX_MEMBER(snapshot_request_information, uint32_t, end_block_num)>>>>;
+   snapshot_requests _snapshot_requests;
+   snapshot_db_json _snapshot_db;
+   uint32_t _snapshot_id = 0;
+
+public:
+   snapshot_scheduler() {}
+
+   // snapshot_scheduler_listener
+   virtual void on_block(const block_state_ptr& bsp) {
+      auto height = bsp->block_num;
+      for(const auto& req: _snapshot_requests.get<0>()) {
+         // execute "asap" or if matches spacing
+         if((req.start_block_num == 0) ||
+            (!((height - req.start_block_num) % req.block_spacing))) {
+            ilog("BOOM!!!!");
+            // x_execute_snapshot();
+         }
+         // assume "asap" for snapshot with missed/zero start, it can have spacing
+         if(req.start_block_num == 0) {
+            auto& snapshot_by_id = _snapshot_requests.get<by_snapshot_id>();
+            auto it = snapshot_by_id.find(req.snapshot_request_id);
+            _snapshot_requests.modify(it, [&height](auto& p) { p.start_block_num = height; });
+         }
+         // remove expired request
+         if(req.end_block_num > 0 && height >= req.end_block_num) {
+            auto& snapshot_by_id = _snapshot_requests.get<by_snapshot_id>();
+            _snapshot_requests.erase(snapshot_by_id.find(req.snapshot_request_id));
+         }
+      }
+   }
+
+   virtual void on_irreversible_block(const signed_block_ptr& lib) {
+   }
+
+   virtual void on_abort_block() {
+   }
+
+   // snapshot_scheduler_handler
+   void schedule_snapshot(const snapshot_request_information& sri) {
+      auto& snapshot_by_value = _snapshot_requests.get<by_snapshot_value>();
+      auto existing = snapshot_by_value.find(std::make_tuple(sri.block_spacing, sri.start_block_num, sri.end_block_num));
+      EOS_ASSERT(existing == snapshot_by_value.end(), duplicate_snapshot_request, "Duplicate snapshot request");
+      if(sri.end_block_num > 0) EOS_ASSERT(sri.start_block_num <= sri.end_block_num, invalid_snapshot_request, "End block number should be greater or equal to start block number");
+      if(sri.block_spacing > 0) EOS_ASSERT(sri.start_block_num + sri.block_spacing <= sri.end_block_num, invalid_snapshot_request, "Block spacing exceeds defined by start and end range");
+
+      auto request_id = sri.snapshot_request_id ? sri.snapshot_request_id : _snapshot_id++;
+      _snapshot_requests.emplace(producer_plugin::snapshot_request_information{request_id, sri.block_spacing, sri.start_block_num, sri.end_block_num, {}});
+
+      auto& vec = _snapshot_requests.get<as_vector>();
+      std::vector<producer_plugin::snapshot_request_information> sr(vec.begin(), vec.end());
+      _snapshot_db << sr;
+   }
+
+   virtual void unschedule_snapshot(uint32_t sri) {
+      auto& snapshot_by_id = _snapshot_requests.get<by_snapshot_id>();
+      auto existing = snapshot_by_id.find(sri);
+      EOS_ASSERT(existing != snapshot_by_id.end(), snapshot_request_not_found, "Snapshot request not found");
+      _snapshot_requests.erase(existing);
+
+      auto& vec = _snapshot_requests.get<as_vector>();
+      std::vector<producer_plugin::snapshot_request_information> sr(vec.begin(), vec.end());
+      _snapshot_db << sr;
+   }
+
+   virtual get_snapshot_requests_result get_snapshot_requests() {
+      get_snapshot_requests_result result;
+      auto& asvector = _snapshot_requests.get<as_vector>();
+      result.requests.insert(result.requests.begin(), asvector.begin(), asvector.end());
+      return result;
+   }
+
+   // initialize with storage
+   void set_db_path(bfs::path db_path) {
+      _snapshot_db.set_path(db_path);
+      // init from db
+      if(fc::exists(_snapshot_db.get_json_path())) {
+         std::vector<producer_plugin::snapshot_request_information> sr;
+         _snapshot_db >> sr;
+         _snapshot_requests.insert(sr.begin(), sr.end());
+      }
+   }
+};
+}// namespace eosio

@@ -28,7 +28,7 @@ public:
       return db_path / "snapshot-schedule.json";
    }
 
-   const snapshot_db_json& operator>>(std::vector<producer_plugin::snapshot_request_information> & sr) {
+   const snapshot_db_json& operator>>(std::vector<producer_plugin::snapshot_request_information>& sr) {
       boost::property_tree::ptree root;
       std::ifstream file(get_json_path().string());
       boost::property_tree::read_json(file, root);
@@ -48,7 +48,7 @@ public:
       return *this;
    }
 
-   const snapshot_db_json& operator<<(std::vector<producer_plugin::snapshot_request_information> & sr) {
+   const snapshot_db_json& operator<<(std::vector<producer_plugin::snapshot_request_information>& sr) {
       boost::property_tree::ptree root;
       boost::property_tree::ptree node_srs;
 
