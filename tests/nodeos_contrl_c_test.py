@@ -112,11 +112,11 @@ try:
     testSuccessful = nonProdNode.kill(signal.SIGTERM)
 
     if not testSuccessful:
-        TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, killEosInstances=True, killWallet=True, keepLogs=True, cleanRun=True, dumpErrorDetails=True)
+        TestHelper.shutdown(cluster, walletMgr, cluster.trxGenLauncher, testSuccessful=testSuccessful, killEosInstances=True, killWallet=True, keepLogs=True, cleanRun=True, dumpErrorDetails=True)
         errorExit("Failed to kill the seed node")
 
 finally:
-    TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, killEosInstances=True, killWallet=True, keepLogs=True, cleanRun=True, dumpErrorDetails=True)
+    TestHelper.shutdown(cluster, walletMgr, cluster.trxGenLauncher, testSuccessful=testSuccessful, killEosInstances=True, killWallet=True, keepLogs=True, cleanRun=True, dumpErrorDetails=True)
 
 errorCode = 0 if testSuccessful else 1
 exit(errorCode)

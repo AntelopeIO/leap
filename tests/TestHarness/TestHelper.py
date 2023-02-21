@@ -1,6 +1,7 @@
 from .testUtils import Utils
 from .Cluster import Cluster
 from .WalletMgr import WalletMgr
+from .launch_transaction_generators import TransactionGeneratorsLauncher
 from datetime import datetime
 import platform
 
@@ -148,12 +149,14 @@ class TestHelper(object):
     
     @staticmethod
     # pylint: disable=too-many-arguments
-    def shutdown(cluster, walletMgr, testSuccessful=True, killEosInstances=True, killWallet=True, keepLogs=False, cleanRun=True, dumpErrorDetails=False):
+    def shutdown(cluster, walletMgr, trxGenLauncher=None, testSuccessful=True, killEosInstances=True, killWallet=True, keepLogs=False, cleanRun=True, dumpErrorDetails=False):
         """Cluster and WalletMgr shutdown and cleanup."""
         assert(cluster)
         assert(isinstance(cluster, Cluster))
         if walletMgr:
             assert(isinstance(walletMgr, WalletMgr))
+        if trxGenLauncher is not None:
+            assert(isinstance(trxGenLauncher, TransactionGeneratorsLauncher))
         assert(isinstance(testSuccessful, bool))
         assert(isinstance(killEosInstances, bool))
         assert(isinstance(killWallet, bool))
@@ -199,3 +202,6 @@ class TestHelper(object):
                 Utils.Print("Cleanup wallet data.")
                 walletMgr.cleanup()
 
+        if trxGenLauncher is not None:
+            Utils.Print("Shut down the TransactionGeneratorsLauncher and TransactionGenerators")
+            trxGenLauncher.killAll()
