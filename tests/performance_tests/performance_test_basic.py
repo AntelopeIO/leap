@@ -397,6 +397,7 @@ class PerformanceTestBasic:
 
     def prepArgs(self) -> dict:
         args = {}
+        args.update({"rawCmdLine ": ' '.join(sys.argv[0:])})
         args.update(asdict(self.testHelperConfig))
         args.update(asdict(self.clusterConfig))
         args.update(asdict(self.ptbConfig))
