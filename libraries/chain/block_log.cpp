@@ -202,7 +202,7 @@ namespace eosio { namespace chain {
       class block_log_data : public chain::log_data_base<block_log_data> {
          block_log_preamble preamble;
          uint64_t           first_block_pos = 0;
-         std::size_t        size_;
+         std::size_t        size_ = 0;
 
        public:
          block_log_data() = default;
@@ -1292,7 +1292,9 @@ namespace eosio { namespace chain {
       ilog("Moved existing blocks directory to backup location: '${new_blocks_dir}'", ("new_blocks_dir", backup_dir));
 
       const auto block_log_path  = blocks_dir / "blocks.log";
+      const auto block_index_path = blocks_dir / "blocks.index";
       const auto block_file_name = block_log_path.generic_string();
+      const auto block_index_file_name = block_index_path.generic_string();
 
       ilog("Reconstructing '${new_block_log}' from backed up block log", ("new_block_log", block_file_name));
 
@@ -1301,10 +1303,14 @@ namespace eosio { namespace chain {
 
       auto [pos, block_num, error_msg] = log_data.full_validate_blocks(truncate_at_block, blocks_dir, now);
 
-      fc::cfile new_block_file;
-      new_block_file.set_file_path(block_log_path);
-      new_block_file.open(fc::cfile::create_or_update_rw_mode);
-      copy_file_content(log_data.ro_stream_at(0), new_block_file, pos);
+      {
+         fc::cfile new_block_file;
+         new_block_file.set_file_path( block_log_path );
+         new_block_file.open( fc::cfile::create_or_update_rw_mode );
+         copy_file_content( log_data.ro_stream_at( 0 ), new_block_file, pos );
+         new_block_file.close();
+      }
+      construct_index(block_log_path, block_index_path);
 
       if (error_msg.size()) {
          ilog("Recovered only up to block number ${num}. "
