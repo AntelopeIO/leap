@@ -392,10 +392,10 @@ struct controller_impl {
    void log_irreversible() {
       EOS_ASSERT( fork_db.root(), fork_database_exception, "fork database not properly initialized" );
 
-      block_id_type log_head_id = blog.head_id();
+      const block_id_type log_head_id = blog.head_id();
       const bool valid_log_head = !log_head_id.empty();
 
-      auto lib_num = valid_log_head ? block_header::num_from_id(log_head_id) : (blog.first_block_num() - 1);
+      const auto lib_num = valid_log_head ? block_header::num_from_id(log_head_id) : (blog.first_block_num() - 1);
 
       auto root_id = fork_db.root()->id;
 
@@ -406,7 +406,7 @@ struct controller_impl {
                      "empty block log expects the first appended block to build off a block that is not the fork database root. root block number: ${block_num}, lib: ${lib_num}", ("block_num", fork_db.root()->block_num) ("lib_num", lib_num) );
       }
 
-      auto fork_head = (read_mode == db_read_mode::IRREVERSIBLE) ? fork_db.pending_head() : fork_db.head();
+      const auto fork_head = (read_mode == db_read_mode::IRREVERSIBLE) ? fork_db.pending_head() : fork_db.head();
 
       if( fork_head->dpos_irreversible_blocknum <= lib_num )
          return;
