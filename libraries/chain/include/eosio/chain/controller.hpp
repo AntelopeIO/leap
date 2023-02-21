@@ -82,7 +82,7 @@ namespace eosio { namespace chain {
             bool                     allow_ram_billing_in_notify = false;
             uint32_t                 maximum_variable_signature_length = chain::config::default_max_variable_signature_length;
             bool                     disable_all_subjective_mitigations = false; //< for developer & testing purposes, can be configured using `disable-all-subjective-mitigations` when `EOSIO_DEVELOPER` build option is provided
-            uint32_t                 terminate_at_block     = 0; //< primarily for testing purposes
+            uint32_t                 terminate_at_block     = 0;
             bool                     integrity_hash_on_start= false;
             bool                     integrity_hash_on_stop = false;
 
@@ -348,9 +348,8 @@ namespace eosio { namespace chain {
             if( n.good() ) {
                try {
                   const auto& a = get_account( n );
-                  abi_def abi;
-                  if( abi_serializer::to_abi( a.abi, abi ))
-                     return abi_serializer( abi, yield );
+                  if( abi_def abi; abi_serializer::to_abi( a.abi, abi ))
+                     return abi_serializer( std::move(abi), yield );
                } FC_CAPTURE_AND_LOG((n))
             }
             return std::optional<abi_serializer>();

@@ -354,7 +354,14 @@ public:
       string block_num_or_id;
    };
 
-   fc::variant get_block(const get_block_params& params, const fc::time_point& deadline) const;
+   chain::signed_block_ptr get_block(const get_block_params& params, const fc::time_point& deadline) const;
+   // call from app() thread
+   std::unordered_map<account_name, std::optional<abi_serializer>>
+     get_block_serializers( const chain::signed_block_ptr& block, const fc::microseconds& max_time ) const;
+   // call from any thread
+   fc::variant convert_block( const chain::signed_block_ptr& block,
+                              std::unordered_map<account_name, std::optional<abi_serializer>> abi_cache,
+                              const fc::microseconds& max_time ) const;
 
    struct get_block_info_params {
       uint32_t block_num = 0;
@@ -525,7 +532,7 @@ public:
 
    template <typename IndexType, typename SecKeyType, typename ConvFn>
    read_only::get_table_rows_result get_table_rows_by_seckey( const read_only::get_table_rows_params& p,
-                                                              const abi_def& abi,
+                                                              abi_def&& abi,
                                                               const fc::time_point& deadline,
                                                               ConvFn conv )const {
 
@@ -538,7 +545,7 @@ public:
       name scope{ convert_to_type<uint64_t>(p.scope, "scope") };
 
       abi_serializer abis;
-      abis.set_abi(abi, abi_serializer::create_yield_function( abi_serializer_max_time ) );
+      abis.set_abi(std::move(abi), abi_serializer::create_yield_function( abi_serializer_max_time ) );
       bool primary = false;
       const uint64_t table_with_index = get_table_index_name(p, primary);
       const auto* t_id = d.find<chain::table_id_object, chain::by_code_scope_table>(boost::make_tuple(p.code, scope, p.table));
@@ -629,7 +636,7 @@ public:
 
    template <typename IndexType>
    read_only::get_table_rows_result get_table_rows_ex( const read_only::get_table_rows_params& p,
-                                                       const abi_def& abi,
+                                                       abi_def&& abi,
                                                        const fc::time_point& deadline )const {
 
       fc::microseconds params_time_limit = p.time_limit_ms ? fc::milliseconds(*p.time_limit_ms) : fc::milliseconds(10);
@@ -641,7 +648,7 @@ public:
       uint64_t scope = convert_to_type<uint64_t>(p.scope, "scope");
 
       abi_serializer abis;
-      abis.set_abi(abi, abi_serializer::create_yield_function( abi_serializer_max_time ));
+      abis.set_abi(std::move(abi), abi_serializer::create_yield_function( abi_serializer_max_time ));
       const auto* t_id = d.find<chain::table_id_object, chain::by_code_scope_table>(boost::make_tuple(p.code, name(scope), p.table));
       if( t_id != nullptr ) {
          const auto& idx = d.get_index<IndexType, chain::by_scope_primary>();
