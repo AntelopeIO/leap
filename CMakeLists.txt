@@ -24,8 +24,9 @@ else()
     set(VERSION_FULL "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")
 endif()
 
-# silence boost "#pragma message: This header is deprecated" from program_options
+# silence boost warnings: "#pragma message: This header is deprecated" from program_options
 add_definitions("-DBOOST_ALLOW_DEPRECATED_HEADERS")
+add_definitions("-DBOOST_BIND_GLOBAL_PLACEHOLDERS")
 
 # Options
 option(ENABLE_WERROR "Enable `-Werror` compilation flag." Off)
