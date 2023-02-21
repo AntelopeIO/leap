@@ -1,1 +1,6 @@
-file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/contracts/ DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/contracts/)
+if( EOSIO_COMPILE_TEST_CONTRACTS )
+   add_contract( eosmechanics eosmechanics eosmechanics.cpp )
+else()
+   configure_file( ${CMAKE_CURRENT_SOURCE_DIR}/eosmechanics.wasm ${CMAKE_CURRENT_BINARY_DIR}/eosmechanics.wasm COPYONLY )
+   configure_file( ${CMAKE_CURRENT_SOURCE_DIR}/eosmechanics.abi  ${CMAKE_CURRENT_BINARY_DIR}/eosmechanics.abi  COPYONLY )
+endif()
