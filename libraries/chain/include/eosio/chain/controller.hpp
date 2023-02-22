@@ -5,6 +5,7 @@
 #include <eosio/chain/genesis_state.hpp>
 #include <chainbase/pinnable_mapped_file.hpp>
 #include <boost/signals2/signal.hpp>
+#include <boost/thread/thread.hpp>
 
 #include <eosio/chain/abi_serializer.hpp>
 #include <eosio/chain/account_object.hpp>
@@ -372,6 +373,7 @@ namespace eosio { namespace chain {
 
       void set_db_read_only_mode();
       void unset_db_read_only_mode();
+      void setup_thread_local_data(const std::vector<boost::thread::id>& thread_ids);
 
       private:
          friend class apply_context;
