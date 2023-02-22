@@ -609,6 +609,10 @@ struct controller_impl {
       }
       initialize_blockchain_state(genesis); // sets head to genesis state
 
+      if( !fork_db.head() ) {
+         fork_db.reset( *head );
+      }
+
       if( blog.head() ) {
          EOS_ASSERT( blog.first_block_num() == 1, block_log_exception,
                      "block log does not start with genesis block"
