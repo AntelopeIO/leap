@@ -1,6 +1,6 @@
 {
     "initAccounts": ["c"],
-    "abiFile": "unittests/contracts/eosio.mechanics/contracts/eosmechanics.abi",
+    "abiFile": "unittests/contracts/eosio.mechanics/eosmechanics.abi",
     "actions": [
         {
             "actionName": "cpu",
