@@ -149,7 +149,7 @@ class TestHelper(object):
     
     @staticmethod
     # pylint: disable=too-many-arguments
-    def shutdown(cluster, walletMgr, trxGenLauncher=None, testSuccessful=True, killEosInstances=True, killWallet=True, keepLogs=False, cleanRun=True, dumpErrorDetails=False):
+    def shutdown(cluster, walletMgr, testSuccessful=True, killEosInstances=True, killWallet=True, keepLogs=False, cleanRun=True, dumpErrorDetails=False, trxGenLauncher=None):
         """Cluster and WalletMgr shutdown and cleanup."""
         assert(cluster)
         assert(isinstance(cluster, Cluster))

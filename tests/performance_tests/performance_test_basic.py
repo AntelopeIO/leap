@@ -487,13 +487,13 @@ class PerformanceTestBasic:
             TestHelper.shutdown(
                 self.cluster,
                 self.walletMgr,
-                self.cluster.trxGenLauncher,
                 testSuccessful,
                 self.testHelperConfig._killEosInstances,
                 self.testHelperConfig._killWallet,
                 self.testHelperConfig.keepLogs,
                 self.testHelperConfig.killAll,
-                self.testHelperConfig.dumpErrorDetails
+                self.testHelperConfig.dumpErrorDetails,
+                trxGenLauncher=self.cluster.trxGenLauncher
                 )
 
             if not self.ptbConfig.delPerfLogs:
