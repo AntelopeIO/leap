@@ -216,12 +216,15 @@ class state_history_log {
          }
       }
 
-      if (block_num < _end_block)
+      if (block_num < _end_block) {
+         EOS_ASSERT( block_num > 2, chain::plugin_exception, "Existing ship log with ${eb} blocks when starting from genesis block ${b}",
+                     ("eb", _end_block)("b", block_num) );
          truncate(block_num); //truncate is expected to always leave file pointer at the end
-      else if (!prune_config)
+      } else if (!prune_config) {
          log.seek_end(0);
-      else if (prune_config && _begin_block != _end_block)
+      } else if (prune_config && _begin_block != _end_block) {
          log.seek_end(-sizeof(uint32_t));  //overwrite the trailing block count marker on this write
+      }
 
       //if we're operating on a pruned block log and this is the first entry in the log, make note of the feature in the header
       if(prune_config && _begin_block == _end_block)
