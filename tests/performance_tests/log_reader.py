@@ -10,7 +10,7 @@ import gzip
 from pathlib import Path, PurePath
 sys.path.append(str(PurePath(PurePath(Path(__file__).absolute()).parent).parent))
 
-from TestHarness import Utils, TransactionGeneratorsLauncher
+from TestHarness import Utils
 from dataclasses import dataclass, asdict, field
 from platform import release, system
 from datetime import datetime

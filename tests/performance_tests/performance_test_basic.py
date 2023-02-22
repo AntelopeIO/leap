@@ -492,8 +492,7 @@ class PerformanceTestBasic:
                 self.testHelperConfig._killWallet,
                 self.testHelperConfig.keepLogs,
                 self.testHelperConfig.killAll,
-                self.testHelperConfig.dumpErrorDetails,
-                trxGenLauncher=self.cluster.trxGenLauncher
+                self.testHelperConfig.dumpErrorDetails
                 )
 
             if not self.ptbConfig.delPerfLogs:
