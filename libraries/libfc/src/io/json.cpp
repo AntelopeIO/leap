@@ -443,17 +443,18 @@ namespace fc
 
    variant json::from_string( const std::string& utf8_str, const json::parse_type ptype, const uint32_t max_depth )
    { try {
-      boost::iostreams::stream<boost::iostreams::array_source> in(utf8_str.c_str(), utf8_str.size());
+      using stream_t = boost::iostreams::stream<boost::iostreams::array_source>;
+      stream_t in(utf8_str.c_str(), utf8_str.size());
       switch( ptype )
       {
           case parse_type::legacy_parser:
-             return variant_from_stream<boost::iostreams::stream<boost::iostreams::array_source>, json::parse_type::legacy_parser>( in, max_depth );
+             return variant_from_stream<stream_t, json::parse_type::legacy_parser>( in, max_depth );
           case parse_type::legacy_parser_with_string_doubles:
-              return variant_from_stream<boost::iostreams::stream<boost::iostreams::array_source>, json::parse_type::legacy_parser_with_string_doubles>( in, max_depth );
+              return variant_from_stream<stream_t, json::parse_type::legacy_parser_with_string_doubles>( in, max_depth );
           case parse_type::strict_parser:
-              return json_relaxed::variant_from_stream<boost::iostreams::stream<boost::iostreams::array_source>, true>( in, max_depth );
+              return json_relaxed::variant_from_stream<stream_t, true>( in, max_depth );
           case parse_type::relaxed_parser:
-              return json_relaxed::variant_from_stream<boost::iostreams::stream<boost::iostreams::array_source>, false>( in, max_depth );
+              return json_relaxed::variant_from_stream<stream_t, false>( in, max_depth );
           default:
               FC_ASSERT( false, "Unknown JSON parser type {ptype}", ("ptype", static_cast<int>(ptype)) );
       }
