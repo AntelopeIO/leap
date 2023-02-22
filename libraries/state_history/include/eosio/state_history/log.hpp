@@ -217,9 +217,16 @@ class state_history_log {
       }
 
       if (block_num < _end_block) {
+         static uint32_t start_block_num = block_num;
          EOS_ASSERT( block_num > 2, chain::plugin_exception, "Existing ship log with ${eb} blocks when starting from genesis block ${b}",
                      ("eb", _end_block)("b", block_num) );
-         truncate(block_num); //truncate is expected to always leave file pointer at the end
+         if ( get_block_id_i(block_num) != header.block_id ) {
+            truncate(block_num); //truncate is expected to always leave file pointer at the end
+         } else {
+            if (start_block_num == block_num || block_num % 1000 == 0 )
+               ilog("log ${name}.log already contains block ${b}, end block ${eb}", ("name", name)("b", block_num)("eb", _end_block));
+            return;
+         }
       } else if (!prune_config) {
          log.seek_end(0);
       } else if (prune_config && _begin_block != _end_block) {
@@ -256,22 +263,31 @@ class state_history_log {
 
    // returns cfile positioned at payload
    fc::cfile& get_entry(uint32_t block_num, state_history_log_header& header) {
+      std::lock_guard lock(mx);
+      return get_entry_i(block_num, header);
+   }
+
+   chain::block_id_type get_block_id(uint32_t block_num) {
+      std::lock_guard lock(mx);
+      return get_block_id_i(block_num);
+   }
+
+ private:
+
+   fc::cfile& get_entry_i(uint32_t block_num, state_history_log_header& header) {
       EOS_ASSERT(block_num >= _begin_block && block_num < _end_block, chain::plugin_exception,
                  "read non-existing block in ${name}.log", ("name", name));
-      std::lock_guard lock(mx);
       log.seek(get_pos(block_num));
       read_header(header);
       return log;
    }
 
-   chain::block_id_type get_block_id(uint32_t block_num) {
-      std::lock_guard          lock(mx);
+   chain::block_id_type get_block_id_i(uint32_t block_num) {
       state_history_log_header header;
-      get_entry(block_num, header);
+      get_entry_i(block_num, header);
       return header.block_id;
    }
 
- private:
    //file position must be at start of last block's suffix (back pointer)
    //called from open_log / ctor 
    bool get_last_block() {
