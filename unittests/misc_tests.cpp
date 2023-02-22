@@ -7,7 +7,7 @@
 
 #include <fc/io/json.hpp>
 #include <fc/log/logger_config.hpp>
-#include <appbase/execution_priority_queue.hpp>
+#include <appbase/application.hpp>
 #include <fc/bitutil.hpp>
 
 #include <thread>
