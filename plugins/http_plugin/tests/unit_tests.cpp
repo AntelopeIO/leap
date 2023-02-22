@@ -52,121 +52,190 @@ public:
    void add_api(http_plugin &p) {
       p.add_api({
             {  std::string("/hello"),
-                  [&](string, string body, url_response_callback cb) {
+               [&](string, string body, url_response_callback cb) {
                   cb(200, fc::time_point::maximum(), fc::variant("world!"));
                }
             },
             {  std::string("/echo"),
-                  [&](string, string body, url_response_callback cb) {
+               [&](string, string body, url_response_callback cb) {
                   cb(200, fc::time_point::maximum(), fc::variant(body));
                }
             },
-               
+            {  std::string("/check_ones"), // returns "yes" if body only has only '1' chars, "no" otherwise
+               [&](string, string body, url_response_callback cb) {
+                  bool ok = std::all_of(body.begin(), body.end(), [](char c) { return c == '1'; });
+                  cb(200, fc::time_point::maximum(), fc::variant(ok ? string("yes") : string("no")));
+               }
+            },
          });
    }
 
 private:
 };
 
-// -------------------------------------------------------------------------
-// -------------------------------------------------------------------------
-struct BasicProtocol
+// --------------------------------------------------------------------------
+// Expect100ContinueProtocol sends requests using the `Expect "100-continue"`
+// from HTTP 1.1
+// --------------------------------------------------------------------------
+template <class Results>
+struct ProtocolCommon
 {
-   bool send_request(const char* r, const char* body) {
-      http::request<http::string_body> req{http::verb::post, r, 11};
-      req.set(http::field::host, host);
-      req.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
-      if (body) {
-         req.body() = body;
-         req.prepare_payload();
+   auto get_response() -> std::optional<string>  {
+      try {
+         beast::flat_buffer buffer;
+         http::response<http::dynamic_body> res;
+         http::read(stream, buffer, res);
+         return { beast::buffers_to_string(res.body().data()) };
       }
-      return http::write(stream, req) != 0;
-   };
+      catch(std::exception const& e)
+      {
+         std::cerr << "Error: " << e.what() << std::endl;
+         this->reconnect();
+         return {};
+      }
+   }
 
-   auto get_response() -> string {
-      beast::flat_buffer buffer;
-      http::response<http::dynamic_body> res;
-      http::read(stream, buffer, res);
-      return beast::buffers_to_string(res.body().data());
-   };
+   void reconnect()
+   {
+      try {
+         stream.connect(results);
+      } catch(...) {};
+   }
 
    const char* host;
    beast::tcp_stream& stream;
+   Results &results;
 };
 
-// -------------------------------------------------------------------------
-// -------------------------------------------------------------------------
-struct Expect100ContinueProtocol
+   
+template <class Results>
+struct BasicProtocol : public ProtocolCommon<Results>
 {
-   bool send_request(const char* r, const char* body) {
-      http::request<http::string_body> req{http::verb::post, r, 11};
-      req.set(http::field::host, host);
-      req.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
-      if (body) {
-         req.set(http::field::expect, "100-continue");
-         req.body() = body;
-         req.prepare_payload();
+   bool send_request(const char* r, const char* body, bool expect_fail) {
+      try {
+         http::request<http::string_body> req{http::verb::post, r, 11};
+         req.set(http::field::host, this->host);
+         req.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
+         if (body) {
+            req.body() = body;
+            req.prepare_payload();
+         }
+         return http::write(this->stream, req) != 0;
+      }
+      catch(std::exception const& e)
+      {
+         std::cerr << "Error: " << e.what() << std::endl;
+         this->reconnect();
+         return false;
+      }
+   }
+};
+
+template <class Results>
+struct Expect100ContinueProtocol : public ProtocolCommon<Results>
+{
+   bool send_request(const char* r, const char* body, bool expect_fail) {
+      try {
+         http::request<http::string_body> req{http::verb::post, r, 11};
+         req.set(http::field::host, this->host);
+         req.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
+         if (body) {
+            req.set(http::field::expect, "100-continue");
+            req.body() = body;
+            req.prepare_payload();
       
-         http::request_serializer<http::string_body> sr{req};
-         beast::error_code ec;
-         http::write_header(stream, sr, ec);
-         BOOST_CHECK_MESSAGE(!ec, "write_header failed");
-         if (ec)
-            return false;
-      
-         {
-            http::response<http::string_body> res;
-            beast::flat_buffer buffer;
-            http::read(stream, buffer, res, ec);
-            BOOST_CHECK_MESSAGE(!ec, "continue_ read  failed");
-         
-            if (ec)
-               return false;
-         
-            if (res.result() != http::status::continue_)
-            {
-               // The server indicated that it will not
-               // accept the request, so skip sending the body.
-               BOOST_CHECK_MESSAGE(false, "server rejected 100-continue request");
+            http::request_serializer<http::string_body> sr{req};
+            beast::error_code ec;
+            http::write_header(this->stream, sr, ec);
+            if (ec) {
+               BOOST_CHECK_MESSAGE(expect_fail, "write_header failed");
                return false;
             }
-         }
+            
+            {
+               http::response<http::string_body> res {};
+               beast::flat_buffer buffer;
+               http::read(this->stream, buffer, res, ec);
+               // std::cerr << "Result: " << res.result() << '\n';
+               if (ec) {
+                  BOOST_CHECK_MESSAGE(expect_fail, "continue_ read  failed");
+                  if (res.result() != http::status::continue_)
+                  {
+                     // The server indicated that it will not
+                     // accept the request, so skip sending the body.
+                     // actually we don't get here, the server closes the connection
+                     BOOST_CHECK_MESSAGE(expect_fail, "server rejected 100-continue request");
+                     this->reconnect();
+                  }
+                  return false;
+               }
+            }
 
-         // Server is OK with the request, send the body
-         http::write(stream, sr, ec);
-         return !ec;
-      } 
-      return http::write(stream, req) != 0;
-   };
-
-   auto get_response() -> string {
-      beast::flat_buffer buffer;
-      http::response<http::dynamic_body> res;
-      http::read(stream, buffer, res);
-      return beast::buffers_to_string(res.body().data());
-   };
-
-   const char* host;
-   beast::tcp_stream& stream;
+            // Server is OK with the request, send the body
+            http::write(this->stream, sr, ec);
+            return !ec;
+         } 
+         return http::write(this->stream, req) != 0;
+      }
+      catch(std::exception const& e)
+      {
+         std::cerr << "Error: " << e.what() << std::endl;
+         this->reconnect();
+         return false;
+      }
+   }
 };
 
 // -------------------------------------------------------------------------
 // -------------------------------------------------------------------------
 template<class Protocol>
-void run_test(Protocol &p)
+void check_request(Protocol &p, const char* r, const char* body,
+                   std::optional<const char*> expected_response)
 {
-   // try a simple request
-   if (p.send_request("/hello", nullptr))
-      BOOST_CHECK(p.get_response() == string("\"world!\""));
-   else
-      BOOST_CHECK(false);
+   if (p.send_request(r, body, !expected_response)) {
+      auto resp = p.get_response();
+      BOOST_CHECK(!resp || expected_response);
+      if (expected_response) {
+         // substr to remove enclosing '"' characters
+         BOOST_CHECK(resp->substr(1, resp->size() - 2) == string(*expected_response));
+      }
+      if (resp)
+         std::cout << *resp << '\n';
+      else
+         p.reconnect();
+   } else
+      BOOST_CHECK(!expected_response);
+}
 
+template<class Protocol>
+void run_test(Protocol &p, size_t max_body_size)
+{
    // try a echo
-   if (p.send_request("/echo", "hello"))
-      BOOST_CHECK(p.get_response() == string("\"hello\""));
-   else
-      BOOST_CHECK(false);
-   //std::cout << p.get_response() << '\n';
+   check_request(p, "/echo", "hello", {"hello"});
+
+   // try a simple request
+   check_request(p, "/hello", nullptr, {"world!"});
+
+   // check ones with small body
+   check_request(p, "/check_ones", "111111111111111111111111", {"yes"});
+
+   // check ones with long body exactly max_req_size - should work and return yes
+   {
+      string test_str;
+      test_str.resize(max_body_size);
+      for (auto& c : test_str)
+         c = '1';
+      check_request(p, "/check_ones", test_str.c_str(), {"yes"});
+   }
+
+   // check ones with long body (should be rejected by http_plugin as over max_body_size
+   {
+      string test_str;
+      test_str.resize(max_body_size + 1);
+      for (auto& c : test_str)
+         c = '1';
+      check_request(p, "/check_ones", test_str.c_str(), {}); // we don't expect a response
+   }
 }   
 
 // -------------------------------------------------------------------------
@@ -204,13 +273,13 @@ BOOST_AUTO_TEST_CASE(http_plugin_unit_tests)
    auto http_plugin = plugin_fut.get();
    BOOST_CHECK(http_plugin.get_state() == abstract_plugin::started);
 
-   //do {
-      std::this_thread::sleep_for(std::chrono::milliseconds(100));
-   //} while (http_plugin.get_supported_apis().apis.empty());
+   std::this_thread::sleep_for(std::chrono::milliseconds(100));
    
    Db db;
    db.add_api(http_plugin);
 
+   size_t max_body_size = http_plugin.get_max_body_size();
+   
    try
    {
       net::io_context ioc;
@@ -220,19 +289,19 @@ BOOST_AUTO_TEST_CASE(http_plugin_unit_tests)
       beast::tcp_stream stream(ioc);
 
       // Look up IP and connect to it
+      //boost::asio::ip::basic_resolver::results_type const results = resolver.resolve(host, port);
       auto const results = resolver.resolve(host, port);
       stream.connect(results);
 
       {
-         BasicProtocol p { host, stream };
-         run_test(p);
+         BasicProtocol<decltype(results)> p { host, stream, results };
+         run_test(p, max_body_size);
       }
 
       {
-         Expect100ContinueProtocol p { host, stream };
-         run_test(p);
+         Expect100ContinueProtocol<decltype(results)> p { host, stream, results };
+         run_test(p, max_body_size);
       }
-
 
       // Gracefully close the socket
       beast::error_code ec;

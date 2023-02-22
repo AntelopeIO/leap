@@ -564,6 +564,10 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
       return my->plugin_state->max_response_time;
    }
 
+   size_t http_plugin::get_max_body_size()const {
+      return my->plugin_state->max_body_size;
+   }
+
    std::istream& operator>>(std::istream& in, https_ecdh_curve_t& curve) {
       std::string s;
       in >> s;

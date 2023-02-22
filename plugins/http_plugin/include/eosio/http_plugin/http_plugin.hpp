@@ -111,6 +111,8 @@ namespace eosio {
         /// @return the configured http-max-response-time-ms
         fc::microseconds get_max_response_time()const;
 
+        size_t get_max_body_size()const;
+      
    private:
         std::shared_ptr<class http_plugin_impl> my;
    };
