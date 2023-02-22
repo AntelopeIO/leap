@@ -370,13 +370,13 @@ class PerformanceTestBasic:
         self.data.startBlock = self.waitForEmptyBlocks(self.validationNode, self.emptyBlockGoal)
         tpsTrxGensConfig = TpsTrxGensConfig(targetTps=self.ptbConfig.targetTps, tpsLimitPerGenerator=self.ptbConfig.tpsLimitPerGenerator)
 
-        trxGenLauncher = TransactionGeneratorsLauncher(chainId=chainId, lastIrreversibleBlockId=lib_id, contractOwnerAccount=self.clusterConfig.specifiedContract.accountName,
+        self.cluster.trxGenLauncher = TransactionGeneratorsLauncher(chainId=chainId, lastIrreversibleBlockId=lib_id, contractOwnerAccount=self.clusterConfig.specifiedContract.accountName,
                                                        accts=','.join(map(str, self.accountNames)), privateKeys=','.join(map(str, self.accountPrivKeys)),
                                                        trxGenDurationSec=self.ptbConfig.testTrxGenDurationSec, logDir=self.trxGenLogDirPath,
                                                        abiFile=abiFile, actionsData=actionsDataJson, actionsAuths=actionsAuthsJson,
                                                        peerEndpoint=self.producerNode.host, port=self.producerP2pPort, tpsTrxGensConfig=tpsTrxGensConfig)
 
-        trxGenExitCodes = trxGenLauncher.launch()
+        trxGenExitCodes = self.cluster.trxGenLauncher.launch()
         print(f"Transaction Generator exit codes: {trxGenExitCodes}")
         for exitCode in trxGenExitCodes:
             if exitCode != 0:
@@ -461,7 +461,6 @@ class PerformanceTestBasic:
 
     def runTest(self) -> bool:
         testSuccessful = False
-        completedRun = False
 
         try:
             # Kill any existing instances and launch cluster
@@ -499,10 +498,6 @@ class PerformanceTestBasic:
 
             if not self.ptbConfig.delPerfLogs:
                 self.captureLowLevelArtifacts()
-
-            if not completedRun:
-                os.system("pkill trx_generator")
-                print("Test run cancelled early via SIGINT")
 
             if self.ptbConfig.delPerfLogs:
                 print(f"Cleaning up logs directory: {self.loggingConfig.logDirPath}")
