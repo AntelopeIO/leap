@@ -198,6 +198,10 @@ The Performance Harness main script `performance_test.py` can be configured usin
 <details open>
     <summary>Expand Argument List</summary>
 
+Test Helper Arguments:
+  Test Helper configuration items used to configure and spin up the regression test framework and blockchain environment.
+
+* `-?`                    show this help message and exit
 * `-p P`                  producing nodes count (default: 1)
 * `-n N`                  total nodes (default: 0)
 * `-d D`                  delay between nodes startup (default: 1)
@@ -208,15 +212,10 @@ The Performance Harness main script `performance_test.py` can be configured usin
 * `-v`                    verbose logging (default: False)
 * `--leave-running`       Leave cluster running after test finishes (default: False)
 * `--clean-run`           Kill all nodeos and keosd instances (default: False)
-* `--max-tps-to-test MAX_TPS_TO_TEST`
-                          The max target transfers realistic as ceiling of test range (default: 50000)
-* `--test-iteration-duration-sec TEST_ITERATION_DURATION_SEC`
-                          The duration of transfer trx generation for each iteration of the test during the initial search (seconds) (default: 30)
-* `--test-iteration-min-step TEST_ITERATION_MIN_STEP`
-                          The step size determining granularity of tps result during initial search (default: 500)
-* `--final-iterations-duration-sec FINAL_ITERATIONS_DURATION_SEC`
-                          The duration of transfer trx generation for each final longer run iteration of the test during
-                          the final search (seconds) (default: 90)
+
+Performance Test Basic Base:
+  Performance Test Basic base configuration items.
+
 * `--tps-limit-per-generator TPS_LIMIT_PER_GENERATOR`
                           Maximum amount of transactions per second a single generator can have. (default: 4000)
 * `--genesis GENESIS`     Path to genesis.json (default: tests/performance_tests/genesis.json)
@@ -229,14 +228,18 @@ The Performance Harness main script `performance_test.py` can be configured usin
 * `--chain-state-db-size-mb CHAIN_STATE_DB_SIZE_MB`
                           Maximum size (in MiB) of the chain state database (default: 10240)
 * `--chain-threads CHAIN_THREADS`
-                          Number of worker threads in controller thread pool (default: 3)
+                          Number of worker threads in controller thread pool (default: 2)
 * `--database-map-mode {mapped,heap,locked}`
                           Database map mode ("mapped", "heap", or "locked").
                           In "mapped" mode database is memory mapped as a file.
                           In "heap" mode database is preloaded in to swappable memory and will use huge pages if available.
                           In "locked" mode database is preloaded, locked in to memory, and will use huge pages if available. (default: mapped)
+* `--cluster-log-lvl {all,debug,info,warn,error,off}`
+                          Cluster log level ("all", "debug", "info", "warn", "error", or "off"). Performance Harness Test Basic relies on some logging at
+                          "info" level, so it is recommended lowest logging level to use. However, there are instances where more verbose logging can be
+                          useful. (default: info)
 * `--net-threads NET_THREADS`
-                          Number of worker threads in net_plugin thread pool (default: 2)
+                          Number of worker threads in net_plugin thread pool (default: 4)
 * `--disable-subjective-billing DISABLE_SUBJECTIVE_BILLING`
                           Disable subjective CPU billing for API/P2P transactions (default: True)
 * `--last-block-time-offset-us LAST_BLOCK_TIME_OFFSET_US`
@@ -248,15 +251,30 @@ The Performance Harness main script `performance_test.py` can be configured usin
 * `--last-block-cpu-effort-percent LAST_BLOCK_CPU_EFFORT_PERCENT`
                           Percentage of cpu block production time used to produce last block. Whole number percentages, e.g. 80 for 80% (default: 100)
 * `--producer-threads PRODUCER_THREADS`
-                          Number of worker threads in producer thread pool (default: 6)
+                          Number of worker threads in producer thread pool (default: 2)
 * `--http-max-response-time-ms HTTP_MAX_RESPONSE_TIME_MS`
                           Maximum time for processing a request, -1 for unlimited (default: 990000)
 * `--del-perf-logs`       Whether to delete performance test specific logs. (default: False)
 * `--del-report`          Whether to delete overarching performance run report. (default: False)
-* `--del-test-report`     Whether to save json reports from each test scenario. (default: False)
 * `--quiet`               Whether to quiet printing intermediate results and reports to stdout (default: False)
 * `--prods-enable-trace-api`
                           Determines whether producer nodes should have eosio::trace_api_plugin enabled (default: False)
+* `--print-missing-transactions PRINT_MISSING_TRANSACTIONS`
+                          Toggles if missing transactions are be printed upon test completion. (default: False)
+* `--account-name ACCOUNT_NAME`
+                          Name of the account to create and assign a contract to (default: eosio)
+* `--owner-public-key OWNER_PUBLIC_KEY`
+                          Owner public key to use with specified account name (default: EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV)
+* `--active-public-key ACTIVE_PUBLIC_KEY`
+                          Active public key to use with specified account name (default: EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV)
+* `--contract-dir CONTRACT_DIR`
+                          Path to contract dir (default: unittests/contracts/eosio.system)
+* `--wasm-file WASM_FILE` WASM file name for contract (default: eosio.system.wasm)
+* `--abi-file ABI_FILE`   ABI file name for contract (default: eosio.system.abi)
+
+Performance Harness:
+  Performance Harness testing configuration items.
+
 * `--skip-tps-test`       Determines whether to skip the max TPS measurement tests (default: False)
 * `--calc-producer-threads {none,lmax,full}`
                           Determines whether to calculate number of worker threads to use in producer thread pool ("none", "lmax", or "full").
@@ -273,12 +291,20 @@ The Performance Harness main script `performance_test.py` can be configured usin
                           In "none" mode, the default, no calculation will be attempted and default configured --net-threads value will be used.
                           In "lmax" mode, producer threads will incrementally be tested until the performance rate ceases to increase with the addition of additional threads.
                           In "full" mode producer threads will incrementally be tested from 2..num logical processors, recording each performance and choosing the local max performance (same value as would be discovered in "lmax" mode). Useful for graphing the full performance impact of each available thread. (default: none)
-* `--account-name`        Name of the account to create and assign a contract to
-* `--owner-public-key`    Owner public key to use with specified account name
-* `--active-public-key`   Active public key to use with specified account name
-* `--contract-dir`        Path to contract dir
-* `--wasm-file`           WASM file name for contract
-* `--abi-file`            ABI file name for contract
+* `--del-test-report`     Whether to save json reports from each test scenario. (default: False)
+
+Performance Harness - TPS Test Config:
+  TPS Performance Test configuration items.
+
+* `--max-tps-to-test MAX_TPS_TO_TEST`
+                          The max target transfers realistic as ceiling of test range (default: 50000)
+* `--test-iteration-duration-sec TEST_ITERATION_DURATION_SEC`
+                          The duration of transfer trx generation for each iteration of the test during the initial search (seconds) (default: 150)
+* `--test-iteration-min-step TEST_ITERATION_MIN_STEP`
+                          The step size determining granularity of tps result during initial search (default: 500)
+* `--final-iterations-duration-sec FINAL_ITERATIONS_DURATION_SEC`
+                          The duration of transfer trx generation for each final longer run iteration of the test during the final search (seconds)
+                          (default: 300)
 </details>
 
 ### Support Scripts
@@ -292,6 +318,10 @@ The following scripts are typically used by the Performance Harness main script 
 <details>
     <summary>Expand Argument List</summary>
 
+Test Helper Arguments:
+  Test Helper configuration items used to configure and spin up the regression test framework and blockchain environment.
+
+* `-?`                    show this help message and exit
 * `-p P`                  producing nodes count (default: 1)
 * `-n N`                  total nodes (default: 0)
 * `-d D`                  delay between nodes startup (default: 1)
@@ -302,12 +332,12 @@ The following scripts are typically used by the Performance Harness main script 
 * `-v`                    verbose logging (default: False)
 * `--leave-running`       Leave cluster running after test finishes (default: False)
 * `--clean-run`           Kill all nodeos and keosd instances (default: False)
-* `--target-tps TARGET_TPS`
-                          The target transfers per second to send during test (default: 8000)
+
+Performance Test Basic Base:
+  Performance Test Basic base configuration items.
+
 * `--tps-limit-per-generator TPS_LIMIT_PER_GENERATOR`
                           Maximum amount of transactions per second a single generator can have. (default: 4000)
-* `--test-duration-sec TEST_DURATION_SEC`
-                          The duration of transfer trx generation for the test in seconds (default: 30)
 * `--genesis GENESIS`     Path to genesis.json (default: tests/performance_tests/genesis.json)
 * `--num-blocks-to-prune NUM_BLOCKS_TO_PRUNE`
                           The number of potentially non-empty blocks, in addition to leading and trailing size 0 blocks, to prune from the beginning and end
@@ -317,14 +347,18 @@ The following scripts are typically used by the Performance Harness main script 
 * `--chain-state-db-size-mb CHAIN_STATE_DB_SIZE_MB`
                           Maximum size (in MiB) of the chain state database (default: 10240)
 * `--chain-threads CHAIN_THREADS`
-                          Number of worker threads in controller thread pool (default: 3)
+                          Number of worker threads in controller thread pool (default: 2)
 * `--database-map-mode {mapped,heap,locked}`
                           Database map mode ("mapped", "heap", or "locked").
                           In "mapped" mode database is memory mapped as a file.
                           In "heap" mode database is preloaded in to swappable memory and will use huge pages if available.
                           In "locked" mode database is preloaded, locked in to memory, and will use huge pages if available. (default: mapped)
+* `--cluster-log-lvl {all,debug,info,warn,error,off}`
+                          Cluster log level ("all", "debug", "info", "warn", "error", or "off"). Performance Harness Test Basic relies on some logging at
+                          "info" level, so it is recommended lowest logging level to use. However, there are instances where more verbose logging can be
+                          useful. (default: info)
 * `--net-threads NET_THREADS`
-                          Number of worker threads in net_plugin thread pool (default: 2)
+                          Number of worker threads in net_plugin thread pool (default: 4)
 * `--disable-subjective-billing DISABLE_SUBJECTIVE_BILLING`
                           Disable subjective CPU billing for API/P2P transactions (default: True)
 * `--last-block-time-offset-us LAST_BLOCK_TIME_OFFSET_US`
@@ -336,7 +370,7 @@ The following scripts are typically used by the Performance Harness main script 
 * `--last-block-cpu-effort-percent LAST_BLOCK_CPU_EFFORT_PERCENT`
                           Percentage of cpu block production time used to produce last block. Whole number percentages, e.g. 80 for 80% (default: 100)
 * `--producer-threads PRODUCER_THREADS`
-                          Number of worker threads in producer thread pool (default: 6)
+                          Number of worker threads in producer thread pool (default: 2)
 * `--http-max-response-time-ms HTTP_MAX_RESPONSE_TIME_MS`
                           Maximum time for processing a request, -1 for unlimited (default: 990000)
 * `--del-perf-logs`       Whether to delete performance test specific logs. (default: False)
@@ -344,14 +378,30 @@ The following scripts are typically used by the Performance Harness main script 
 * `--quiet`               Whether to quiet printing intermediate results and reports to stdout (default: False)
 * `--prods-enable-trace-api`
                           Determines whether producer nodes should have eosio::trace_api_plugin enabled (default: False)
-* `--print-missing-transactions`
+* `--print-missing-transactions PRINT_MISSING_TRANSACTIONS`
                           Toggles if missing transactions are be printed upon test completion. (default: False)
-* `--account-name`        Name of the account to create and assign a contract to
-* `--owner-public-key`    Owner public key to use with specified account name
-* `--active-public-key`   Active public key to use with specified account name
-* `--contract-dir`        Path to contract dir
-* `--wasm-file`           WASM file name for contract
-* `--abi-file`            ABI file name for contract
+* `--account-name ACCOUNT_NAME`
+                          Name of the account to create and assign a contract to (default: eosio)
+* `--owner-public-key OWNER_PUBLIC_KEY`
+                          Owner public key to use with specified account name (default: EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV)
+* `--active-public-key ACTIVE_PUBLIC_KEY`
+                          Active public key to use with specified account name (default: EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV)
+* `--contract-dir CONTRACT_DIR`
+                          Path to contract dir (default: unittests/contracts/eosio.system)
+* `--wasm-file WASM_FILE`
+                          WASM file name for contract (default: eosio.system.wasm)
+* `--abi-file ABI_FILE`   ABI file name for contract (default: eosio.system.abi)
+
+Performance Test Basic Single Test:
+  Performance Test Basic single test configuration items. Useful for running a single test directly. These items may not be directly configurable from
+  higher level scripts as the scripts themselves may configure these internally.
+
+* `--target-tps TARGET_TPS`
+                          The target transfers per second to send during test (default: 8000)
+* `--test-duration-sec TEST_DURATION_SEC`
+                          The duration of transfer trx generation for the test in seconds (default: 90)
+* `--user-trx-data-file USER_TRX_DATA_FILE`
+                          Path to userTrxDataTransfer.json (default: None)
 </details>
 
 #### Launch Transaction Generators (TestHarness)
@@ -360,7 +410,6 @@ The following scripts are typically used by the Performance Harness main script 
 
 <details>
     <summary>Expand Argument List</summary>
-
 * `chain_id`                    set the chain id
 * `last_irreversible_block_id`  Current last-irreversible-block-id (LIB ID) to use for transactions.
 * `contract_owner_account`      Account name of the contract owner account for the transfer actions
@@ -370,6 +419,11 @@ The following scripts are typically used by the Performance Harness main script 
 * `target_tps`                  Target transactions per second to generate/send.
 * `tps_limit_per_generator`     Maximum amount of transactions per second a single generator can have.
 * `log_dir`                     set the logs directory
+* `abi_file`                    The path to the contract abi file to use for the supplied transaction action data
+* `actions_data`                The json actions data file or json actions data description string to use
+* `actions_auths`               The json actions auth file or json actions auths description string to use, containting authAcctName to activePrivateKey pairs.
+* `peer_endpoint`               set the peer endpoint to send transactions to, default="127.0.0.1"
+* `port`                        set the peer endpoint port to send transactions to, default=9876
 </details>
 
 #### Transaction Generator
@@ -378,38 +432,54 @@ The following scripts are typically used by the Performance Harness main script 
 <details>
     <summary>Expand Argument List</summary>
 
+* `--generator-id arg` (=0)         Id for the transaction generator.
+                                    Allowed range (0-960). Defaults to 0.
 * `--chain-id arg`                  set the chain id
-* `--contract-owner-account arg`    Account name of the contract owner account for
-                                    the transfer actions
-* `--accounts arg`                  comma-separated list of accounts that 
-                                    will be used for transfers. Minimum 
+* `--contract-owner-account arg`    Account name of the contract account for
+                                    the transaction actions
+* `--accounts arg`                  comma-separated list of accounts that
+                                    will be used for transfers. Minimum
                                     required accounts: 2.
 * `--priv-keys arg`                 comma-separated list of private keys in
-                                    same order of accounts list that will 
-                                    be used to sign transactions. Minimum 
+                                    same order of accounts list that will
+                                    be used to sign transactions. Minimum
                                     required: 2.
 * `--trx-expiration arg` (=3600)    transaction expiration time in seconds.
-                                    Defaults to 3,600. Maximum allowed: 
+                                    Defaults to 3,600. Maximum allowed:
                                     3,600
-* `--trx-gen-duration arg` (=60)    Transaction generation duration 
+* `--trx-gen-duration arg` (=60)    Transaction generation duration
                                     (seconds). Defaults to 60 seconds.
-* `--target-tps arg` (=1)           Target transactions per second to 
-                                    generate/send. Defaults to 1 
+* `--target-tps arg` (=1)           Target transactions per second to
+                                    generate/send. Defaults to 1
                                     transaction per second.
-* `--last-irreversible-block-id arg`      Current last-irreversible-block-id (LIB
-                                    ID) to use for transactions.
+* `--last-irreversible-block-id arg`    Current last-irreversible-block-id (LIB
+                                        ID) to use for transactions.
 * `--monitor-spinup-time-us arg` (=1000000)
-                                    Number of microseconds to wait before 
-                                    monitoring TPS. Defaults to 1000000 
-                                    (1s).
-* `--monitor-max-lag-percent arg` (=5)    Max percentage off from expected 
-                                    transactions sent before being in 
-                                    violation. Defaults to 5.
+                                        Number of microseconds to wait before
+                                        monitoring TPS. Defaults to 1000000
+                                        (1s).
+* `--monitor-max-lag-percent arg` (=5)  Max percentage off from expected
+                                        transactions sent before being in
+                                        violation. Defaults to 5.
 * `--monitor-max-lag-duration-us arg` (=1000000)
-                                    Max microseconds that transaction 
-                                    generation can be in violation before 
-                                    quitting. Defaults to 1000000 (1s).
-* `--log-dir arg`                   set the logs directory
+                                        Max microseconds that transaction
+                                        generation can be in violation before
+                                        quitting. Defaults to 1000000 (1s).
+* `--log-dir arg`                       set the logs directory
+* `--abi-file arg`                      The path to the contract abi file to
+                                        use for the supplied transaction action
+                                        data
+* `--actions-data arg`                  The json actions data file or json
+                                        actions data description string to use
+* `--actions-auths arg`                 The json actions auth file or json
+                                        actions auths description string to
+                                        use, containting authAcctName to
+                                        activePrivateKey pairs.
+* `--peer-endpoint arg` (=127.0.0.1)    set the peer endpoint to send
+                                        transactions to
+* `--port arg` (=9876)                  set the peer endpoint port to send
+                                        transactions to
+* `-h [ --help ]`                       print this list
 </details>
 
 ## Result Reports
