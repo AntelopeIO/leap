@@ -828,69 +828,80 @@ The Performance Test Basic generates, by default, a report that details results 
 ``` json
 {
   "completedRun": true,
-  "testStart": "2023-01-13T18:00:42.465802",
-  "testFinish": "2023-01-13T18:03:11.831277",
+  "testStart": "2023-02-17T22:00:41.305618",
+  "testFinish": "2023-02-17T22:02:21.597430",
   "Analysis": {
     "BlockSize": {
-      "min": 1920,
-      "max": 1920,
-      "avg": 1920.0,
-      "sigma": 0.0,
+      "min": 925248,
+      "max": 1551936,
+      "avg": 1332244.3636363635,
+      "sigma": 144713.34505483133,
       "emptyBlocks": 0,
-      "numBlocks": 177
+      "numBlocks": 44
     },
     "BlocksGuide": {
       "firstBlockNum": 2,
-      "lastBlockNum": 299,
-      "totalBlocks": 298,
+      "lastBlockNum": 193,
+      "totalBlocks": 192,
       "testStartBlockNum": 112,
-      "testEndBlockNum": 299,
+      "testEndBlockNum": 160,
       "setupBlocksCnt": 110,
-      "tearDownBlocksCnt": 0,
+      "tearDownBlocksCnt": 33,
       "leadingEmptyBlocksCnt": 1,
-      "trailingEmptyBlocksCnt": 6,
+      "trailingEmptyBlocksCnt": 0,
       "configAddlDropCnt": 2,
-      "testAnalysisBlockCnt": 177
+      "testAnalysisBlockCnt": 44
     },
     "TPS": {
-      "min": 20,
-      "max": 20,
-      "avg": 20.0,
-      "sigma": 0.0,
+      "min": 10265,
+      "max": 15774,
+      "avg": 13882.232558139534,
+      "sigma": 1454.0837894863364,
       "emptyBlocks": 0,
-      "numBlocks": 177,
-      "configTps": 20,
-      "configTestDuration": 90,
+      "numBlocks": 44,
+      "configTps": 50000,
+      "configTestDuration": 10,
       "tpsPerGenerator": [
-        10,
-        10
+        3846,
+        3846,
+        3846,
+        3846,
+        3846,
+        3846,
+        3846,
+        3846,
+        3846,
+        3846,
+        3846,
+        3847,
+        3847
       ],
-      "generatorCount": 2
+      "generatorCount": 13
     },
     "TrxCPU": {
-      "min": 11.0,
-      "max": 360.0,
-      "avg": 63.10444444444445,
-      "sigma": 33.234456387280126,
-      "samples": 1800
+      "min": 6.0,
+      "max": 15292.0,
+      "avg": 25.024962251222377,
+      "sigma": 49.9778703823556,
+      "samples": 322527
     },
     "TrxLatency": {
-      "min": 0.06500005722045898,
-      "max": 0.4679999351501465,
-      "avg": 0.26723387837409973,
-      "sigma": 0.1414459711179884,
-      "samples": 1800
+      "min": 0.11500000953674316,
+      "max": 16.91100001335144,
+      "avg": 8.950405516519615,
+      "sigma": 4.844012708597167,
+      "samples": 322527
     },
     "TrxNet": {
       "min": 24.0,
       "max": 24.0,
       "avg": 24.0,
       "sigma": 0.0,
-      "samples": 1800
+      "samples": 322527
     },
     "DroppedBlocks": {},
     "DroppedBlocksCount": 0,
-    "DroppedTransactions": 0,
+    "DroppedTransactions": 177473,
     "ProductionWindowsTotal": 0,
     "ProductionWindowsAverageSize": 0,
     "ProductionWindowsMissed": 0,
@@ -898,17 +909,18 @@ The Performance Test Basic generates, by default, a report that details results 
     "ForksCount": 0
   },
   "args": {
-    "killAll": true,
+    "rawCmdLine ": "tests/performance_tests/performance_test.py --test-iteration-duration-sec 10 --final-iterations-duration-sec 30 --calc-producer-threads lmax --calc-chain-threads lmax --calc-net-threads lmax",
+    "killAll": false,
     "dontKill": false,
-    "keepLogs": true,
+    "keepLogs": false,
     "dumpErrorDetails": false,
     "delay": 1,
     "nodesFile": null,
-    "verbose": true,
+    "verbose": false,
     "_killEosInstances": true,
     "_killWallet": true,
     "pnodes": 1,
-    "totalNodes": 1,
+    "totalNodes": 0,
     "topo": "mesh",
     "extraNodeosArgs": {
       "chainPluginArgs": {
@@ -1193,8 +1205,8 @@ The Performance Test Basic generates, by default, a report that details results 
         "p2pDedupCacheExpireTimeSec": null,
         "_p2pDedupCacheExpireTimeSecNodeosDefault": 10,
         "_p2pDedupCacheExpireTimeSecNodeosArg": "--p2p-dedup-cache-expire-time-sec",
-        "netThreads": 2,
-        "_netThreadsNodeosDefault": 2,
+        "netThreads": 4,
+        "_netThreadsNodeosDefault": 4,
         "_netThreadsNodeosArg": "--net-threads",
         "syncFetchSpan": null,
         "_syncFetchSpanNodeosDefault": 100,
@@ -1368,10 +1380,21 @@ The Performance Test Basic generates, by default, a report that details results 
         "_traceNoAbisNodeosArg": "--trace-no-abis"
       }
     },
+    "specifiedContract": {
+      "accountName": "eosio",
+      "ownerPrivateKey": "5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3",
+      "ownerPublicKey": "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV",
+      "activePrivateKey": "5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3",
+      "activePublicKey": "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV",
+      "contractDir": "unittests/contracts/eosio.system",
+      "wasmFile": "eosio.system.wasm",
+      "abiFile": "eosio.system.abi"
+    },
     "useBiosBootFile": false,
     "genesisPath": "tests/performance_tests/genesis.json",
     "maximumP2pPerHost": 5000,
     "maximumClients": 0,
+    "loggingLevel": "info",
     "loggingDict": {
       "bios": "off"
     },
@@ -1381,20 +1404,21 @@ The Performance Test Basic generates, by default, a report that details results 
       "1": "--plugin eosio::trace_api_plugin"
     },
     "_totalNodes": 2,
-    "targetTps": 20,
-    "testTrxGenDurationSec": 90,
-    "tpsLimitPerGenerator": 10,
+    "targetTps": 50000,
+    "testTrxGenDurationSec": 10,
+    "tpsLimitPerGenerator": 4000,
     "numAddlBlocksToPrune": 2,
-    "logDirRoot": ".",
-    "delReport": false,
+    "logDirRoot": "p/2023-02-17_22-00-41/pluginThreadOptRunLogs",
+    "delReport": true,
     "quiet": false,
-    "delPerfLogs": false,
-    "expectedTransactionsSent": 1800,
+    "delPerfLogs": true,
+    "expectedTransactionsSent": 500000,
     "printMissingTransactions": false,
-    "logDirBase": "p",
-    "logDirTimestamp": "2023-01-13_18-00-42",
-    "logDirTimestampedOptSuffix": "-20",
-    "logDirPath": "p/2023-01-13_18-00-42-20"
+    "userTrxDataFile": null,
+    "logDirBase": "p/2023-02-17_22-00-41/pluginThreadOptRunLogs/p",
+    "logDirTimestamp": "2023-02-17_22-00-41",
+    "logDirTimestampedOptSuffix": "-50000",
+    "logDirPath": "p/2023-02-17_22-00-41/pluginThreadOptRunLogs/p/2023-02-17_22-00-41-50000"
   },
   "env": {
     "system": "Linux",

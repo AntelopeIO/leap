@@ -341,6 +341,7 @@ class PerformanceTest:
 
     def prepArgsDict(self) -> dict:
         argsDict = {}
+        argsDict.update({"rawCmdLine ": ' '.join(sys.argv[0:])})
         argsDict.update(asdict(self.testHelperConfig))
         argsDict.update(asdict(self.clusterConfig))
         argsDict.update(asdict(self.ptConfig))
