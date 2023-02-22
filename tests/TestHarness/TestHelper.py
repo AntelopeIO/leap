@@ -1,7 +1,6 @@
 from .testUtils import Utils
 from .Cluster import Cluster
 from .WalletMgr import WalletMgr
-from .launch_transaction_generators import TransactionGeneratorsLauncher
 from datetime import datetime
 import platform
 
