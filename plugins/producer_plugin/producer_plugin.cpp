@@ -363,6 +363,15 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       // max time in milliseconds that a read-only transaction is allowed to run
       int32_t _max_read_only_transaction_time_ms = 150;
 
+      // read-only transaction parallelization related
+      uint16_t _read_only_thread_pool_size  { 0 };
+      int32_t  _read_only_rw_window_time_us { 200000 };
+      int32_t  _read_only_ro_window_time_us { 60000 };
+
+      static constexpr uint32_t   _read_only_ro_window_pct { 95 };
+      uint32_t                    _read_only_ro_window_effective_time_us { 0 }; // calculated during option initialization
+      uint32_t                    _read_only_max_trx_time_us { 0 }; // calculated during option initialization
+
       void consider_new_watermark( account_name producer, uint32_t block_num, block_timestamp_type timestamp) {
          auto itr = _producer_watermarks.find( producer );
          if( itr != _producer_watermarks.end() ) {
@@ -774,6 +783,12 @@ void producer_plugin::set_program_options(
           "Number of worker threads in producer thread pool")
          ("snapshots-dir", bpo::value<bfs::path>()->default_value("snapshots"),
           "the location of the snapshots directory (absolute path or relative to application data dir)")
+         ("read-only-threads", bpo::value<uint16_t>()->default_value(my->_read_only_thread_pool_size),
+          "Number of worker threads in read-only thread pool")
+         ("read-only-rw-window-time-us", bpo::value<int32_t>()->default_value(my->_read_only_rw_window_time_us),
+          "time in microseconds the read-write window lasts")
+         ("read-only-ro-window-time-us", bpo::value<int32_t>()->default_value(my->_read_only_ro_window_time_us),
+          "time in microseconds the read-only lasts")
          ("max-read-only-transaction-time", bpo::value<int32_t>()->default_value(my->_max_read_only_transaction_time_ms),
           "Limits the maximum time (in milliseconds) a read-only transaction can execute before being considered invalid")
          ;
@@ -958,6 +973,25 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
       if (auto resmon_plugin = app().find_plugin<resource_monitor_plugin>()) {
          resmon_plugin->monitor_directory(my->_snapshots_dir);
       }
+   }
+
+   my->_read_only_thread_pool_size = options.at( "read-only-threads" ).as<uint16_t>();
+   // only initialize other read-only options when read-only thread pool is enabled
+   if ( my->_read_only_thread_pool_size > 0 ) {
+      my->_read_only_rw_window_time_us = options.at( "read-only-rw-window-time-us" ).as<int32_t>();
+      my->_read_only_ro_window_time_us = options.at( "read-only-ro-window-time-us" ).as<int32_t>();
+
+      my->_read_only_ro_window_effective_time_us = ( my->_read_only_ro_window_time_us / 100 ) * my->_read_only_ro_window_pct;
+      // make sure a read-only transaction cannot finish within the read-only
+      // window if scheduled at the very beginning. use _read_only_ro_window_effective_time_us
+      // instead of _read_only_ro_window_time_us for safety marging
+      if ( my->_max_transaction_time_ms.load() > 0 )
+         // _max_transaction_time_ms can be set to negative for unlimited in testing
+         // safe to do static_cast as we know it is > 0
+         my->_read_only_max_trx_time_us = std::min( static_cast<uint32_t>(my->_max_transaction_time_ms.load()) * 1000, my->_read_only_ro_window_effective_time_us );
+      else
+         my->_read_only_max_trx_time_us = my->_read_only_ro_window_effective_time_us;
+      ilog("_read_only_max_trx_time_us ${t}, _read_only_ro_window_effective_time_us ${w}", ("t", my->_read_only_max_trx_time_us) ("w", my->_read_only_ro_window_effective_time_us));
    }
 
    my->_max_read_only_transaction_time_ms = options.at("max-read-only-transaction-time").as<int32_t>();
