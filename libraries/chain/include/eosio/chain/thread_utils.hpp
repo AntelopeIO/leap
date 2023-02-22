@@ -5,10 +5,12 @@
 #include <fc/log/logger_config.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/post.hpp>
+#include <boost/thread/thread.hpp>
 #include <future>
 #include <memory>
 #include <optional>
 #include <thread>
+#include <shared_mutex>
 
 namespace eosio { namespace chain {
 
@@ -57,8 +59,12 @@ namespace eosio { namespace chain {
          for( auto& t : _thread_pool ) {
             t.join();
          }
+         _thread_ids.clear();
          _thread_pool.clear();
       }
+
+      /// return thread IDs of all the threads in the pool
+      std::vector<boost::thread::id> thread_ids() { return _thread_ids; };
 
    private:
       void run_thread( size_t i, const on_except_t& on_except ) {
@@ -69,6 +75,9 @@ namespace eosio { namespace chain {
          tn = tn.substr(0, tn.find('>')) + "-" + std::to_string( i );
          try {
             fc::set_os_thread_name( tn );
+            std::unique_lock<std::shared_mutex> g(_ids_mtx);
+            _thread_ids.emplace_back(boost::this_thread::get_id());
+            g.unlock();
             _ioc.run();
          } catch( const fc::exception& e ) {
             if( on_except ) {
@@ -103,6 +112,8 @@ namespace eosio { namespace chain {
       boost::asio::io_context        _ioc;
       std::vector<std::thread>       _thread_pool;
       std::optional<ioc_work_t>      _ioc_work;
+      mutable std::shared_mutex      _ids_mtx;
+      std::vector<boost::thread::id> _thread_ids;
    };
 
 
