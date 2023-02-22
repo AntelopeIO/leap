@@ -345,6 +345,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       std::optional<scoped_connection>                          _accepted_block_connection;
       std::optional<scoped_connection>                          _accepted_block_header_connection;
       std::optional<scoped_connection>                          _irreversible_block_connection;
+      std::optional<scoped_connection>                          _block_start_connection;
 
       /*
        * HACK ALERT
@@ -389,7 +390,8 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          auto before = _unapplied_transactions.size();
          _unapplied_transactions.clear_applied( bsp );
          _subjective_billing.on_block( _log, bsp, fc::time_point::now() );
-         _snapshot_scheduler.on_block(bsp);
+         //_snapshot_scheduler.on_block(bsp->block_num);
+
          fc_dlog( _log, "Removed applied transactions before: ${before}, after: ${after}",
                   ("before", before)("after", _unapplied_transactions.size()) );
       }
@@ -1005,6 +1007,7 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
    }
 
    my->_snapshot_scheduler.set_db_path(my->_snapshots_dir);
+   my->_snapshot_scheduler.set_create_snapshot_fn(std::bind(&producer_plugin::create_snapshot, this, std::placeholders::_1));
 
 } FC_LOG_AND_RETHROW() }
 
@@ -1028,6 +1031,7 @@ void producer_plugin::plugin_startup()
    my->_accepted_block_connection.emplace(chain.accepted_block.connect( [this]( const auto& bsp ){ my->on_block( bsp ); } ));
    my->_accepted_block_header_connection.emplace(chain.accepted_block_header.connect( [this]( const auto& bsp ){ my->on_block_header( bsp ); } ));
    my->_irreversible_block_connection.emplace(chain.irreversible_block.connect( [this]( const auto& bsp ){ my->on_irreversible_block( bsp->block ); } ));
+   my->_block_start_connection.emplace(chain.block_start.connect( [this]( uint32_t bs ){ my->_snapshot_scheduler.on_block(bs); } ));
 
    const auto lib_num = chain.last_irreversible_block_num();
    const auto lib = chain.fetch_block_by_number(lib_num);
@@ -1326,7 +1330,6 @@ void producer_plugin::create_snapshot(producer_plugin::next_function<producer_pl
                ("bn", head_block_num)
                ("ec", ec.value())
                ("message", ec.message()));
-
          my->_pending_snapshot_index.emplace(head_id, next, pending_path.generic_string(), snapshot_path.generic_string());
       } CATCH_AND_CALL (next);
    }

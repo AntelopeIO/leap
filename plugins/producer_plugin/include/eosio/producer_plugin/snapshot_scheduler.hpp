@@ -28,8 +28,8 @@ using snapshot_request_information = producer_plugin::snapshot_request_informati
 using get_snapshot_requests_result = producer_plugin::get_snapshot_requests_result;
 
 class snapshot_scheduler_listener {
-   virtual void on_block(const block_state_ptr& bsp) = 0;
-   virtual void on_irreversible_block(const signed_block_ptr& lib) = 0;
+   virtual void on_block(uint32_t height) = 0;
+   virtual void on_irreversible_block(uint32_t height) = 0;
    virtual void on_abort_block() = 0;
 };
 
@@ -58,19 +58,18 @@ private:
    snapshot_requests _snapshot_requests;
    snapshot_db_json _snapshot_db;
    uint32_t _snapshot_id = 0;
+   std::function<void(producer_plugin::next_function<producer_plugin::snapshot_information>)> _create_snapshot;
 
 public:
    snapshot_scheduler() {}
 
    // snapshot_scheduler_listener
-   virtual void on_block(const block_state_ptr& bsp) {
-      auto height = bsp->block_num;
+   virtual void on_block(uint32_t height) {
       for(const auto& req: _snapshot_requests.get<0>()) {
          // execute "asap" or if matches spacing
          if((req.start_block_num == 0) ||
             (!((height - req.start_block_num) % req.block_spacing))) {
-            ilog("BOOM!!!!");
-            // x_execute_snapshot();
+            execute_snapshot();
          }
          // assume "asap" for snapshot with missed/zero start, it can have spacing
          if(req.start_block_num == 0) {
@@ -86,7 +85,7 @@ public:
       }
    }
 
-   virtual void on_irreversible_block(const signed_block_ptr& lib) {
+   virtual void on_irreversible_block(uint32_t height) {
    }
 
    virtual void on_abort_block() {
@@ -135,6 +134,32 @@ public:
          _snapshot_db >> sr;
          _snapshot_requests.insert(sr.begin(), sr.end());
       }
+   }
+
+   // snapshot executor
+   void set_create_snapshot_fn(std::function<void(producer_plugin::next_function<producer_plugin::snapshot_information>)> fn) {
+      _create_snapshot = fn;
+   }
+
+
+   void execute_snapshot() {
+      auto next = [](const std::variant<fc::exception_ptr, producer_plugin::snapshot_information>& result) {
+         if(std::holds_alternative<fc::exception_ptr>(result)) {
+            try {
+               std::get<fc::exception_ptr>(result)->dynamic_rethrow_exception();
+            } catch(const fc::exception& e) {
+               edump((e.to_detail_string()));
+               throw;
+            } catch(const std::exception& e) {
+               edump((e.what()));
+               throw;
+            }
+         } else {
+            // success
+         }
+      };
+      _create_snapshot(next);
+      //auto theasync=std::async([&,next]{ return _create_snapshot(next);});
    }
 };
 }// namespace eosio
