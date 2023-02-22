@@ -6,6 +6,10 @@ import re
 import subprocess
 import time
 
+import urllib.request
+import urllib.parse
+import urllib.error
+
 from core_symbol import CORE_SYMBOL
 from .testUtils import Account
 from .testUtils import EnumType
@@ -317,16 +321,16 @@ class Queries:
         if Utils.Debug: Utils.Print("Reference block num %d, Head block num: %d" % (refBlockNum, headBlockNum))
         for blockNum in range(refBlockNum, headBlockNum + blocksAhead):
             self.waitForBlock(blockNum)
-            if self.isTransInBlock(str(transId), blockNum):
+            if self.isTransInBlock(transId, blockNum):
                 if Utils.Debug: Utils.Print("Found transaction %s in block %d" % (transId, blockNum))
                 return blockNum
 
         return None
 
-    def isTransInAnyBlock(self, transId):
+    def isTransInAnyBlock(self, transId: str):
         """Check if transaction (transId) is in a block."""
         assert(transId)
-        assert(isinstance(transId, (str,int)))
+        assert(isinstance(transId, str))
         blockId=self.getBlockNumByTransId(transId)
         return True if blockId else False
 
@@ -598,6 +602,63 @@ class Queries:
             Utils.errorExit("Failed to \"%s\"" % (cmdDesc))
 
         return trans
+
+    def processUrllibRequest(self, resource, command, payload={}, silentErrors=False, exitOnError=False, exitMsg=None, returnType=ReturnType.json, endpoint=None):
+        if not endpoint:
+            endpoint = self.endpointHttp
+        cmd = f"{endpoint}/v1/{resource}/{command}"
+        req = urllib.request.Request(cmd, method="POST")
+        req.add_header('Content-Type', 'application/json')
+        data = payload
+        data = json.dumps(data)
+        data = data.encode()
+        if Utils.Debug: Utils.Print("cmd: %s %s" % (cmd, payload))
+        rtn=None
+        start=time.perf_counter()
+        try:
+            response = urllib.request.urlopen(req, data=data)
+            if returnType==ReturnType.json:
+                rtn = {}
+                rtn["code"] = response.getcode()
+                rtn["payload"] = json.load(response)
+            elif returnType==ReturnType.raw:
+                rtn = response.read()
+            else:
+                unhandledEnumType(returnType)
+
+            if Utils.Debug:
+                end=time.perf_counter()
+                Utils.Print("cmd Duration: %.3f sec" % (end-start))
+                printReturn=json.dumps(rtn) if returnType==ReturnType.json else rtn
+                Utils.Print("cmd returned: %s" % (printReturn[:1024]))
+        except urllib.error.HTTPError as ex:
+            if not silentErrors:
+                end=time.perf_counter()
+                msg=ex.msg
+                errorMsg="Exception during \"%s\". %s.  cmd Duration=%.3f sec." % (cmd, msg, end-start)
+                if exitOnError:
+                    Utils.cmdError(errorMsg)
+                    Utils.errorExit(errorMsg)
+                else:
+                    Utils.Print("ERROR: %s" % (errorMsg))
+                    if returnType==ReturnType.json:
+                        rtn = json.load(ex)
+                    elif returnType==ReturnType.raw:
+                        rtn = ex.read()
+                    else:
+                        unhandledEnumType(returnType)
+            else:
+                return None
+
+        if exitMsg is not None:
+            exitMsg=": " + exitMsg
+        else:
+            exitMsg=""
+        if exitOnError and rtn is None:
+            Utils.cmdError("could not \"%s\" - %s" % (cmd,exitMsg))
+            Utils.errorExit("Failed to \"%s\"" % (cmd))
+
+        return rtn
 
     def getInfo(self, silentErrors=False, exitOnError=False):
         cmdDesc = "get info"

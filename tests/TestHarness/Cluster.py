@@ -87,7 +87,7 @@ class Cluster(object):
     # pylint: disable=too-many-arguments
     # walletd [True|False] Is keosd running. If not load the wallet plugin
     def __init__(self, walletd=False, localCluster=True, host="localhost", port=8888, walletHost="localhost", walletPort=9899
-                 , defproduceraPrvtKey=None, defproducerbPrvtKey=None, staging=False, loggingLevel="debug", loggingLevelDict={}, nodeosVers=""):
+                 , defproduceraPrvtKey=None, defproducerbPrvtKey=None, staging=False, loggingLevel="debug", loggingLevelDict={}):
         """Cluster container.
         walletd [True|False] Is wallet keosd running. If not load the wallet plugin
         localCluster [True|False] Is cluster local to host.
@@ -131,7 +131,6 @@ class Cluster(object):
         self.filesToCleanup=[]
         self.alternateVersionLabels=Cluster.__defaultAlternateVersionLabels()
         self.biosNode = None
-        self.nodeosVers=nodeosVers
 
         unshare(CLONE_NEWNET)
         for index, name in socket.if_nameindex():
@@ -181,8 +180,8 @@ class Cluster(object):
     # pylint: disable=too-many-branches
     # pylint: disable=too-many-statements
     def launch(self, pnodes=1, unstartedNodes=0, totalNodes=1, prodCount=1, topo="mesh", delay=1, onlyBios=False, dontBootstrap=False,
-               totalProducers=None, sharedProducers=0, extraNodeosArgs="", useBiosBootFile=True, specificExtraNodeosArgs=None, specificNodeosInstances=None, onlySetProds=False,
-               pfSetupPolicy=PFSetupPolicy.FULL, alternateVersionLabelsFile=None, associatedNodeLabels=None, loadSystemContract=True, nodeosLogPath=Path(f"TestLogs/{os.path.basename(sys.argv[0]).split('.')[0]}{os.getpid()}/"), genesisPath=None,
+               totalProducers=None, sharedProducers=0, extraNodeosArgs="", useBiosBootFile=False, specificExtraNodeosArgs=None, specificNodeosInstances=None, onlySetProds=False,
+               pfSetupPolicy=PFSetupPolicy.FULL, alternateVersionLabelsFile=None, associatedNodeLabels=None, loadSystemContract=True, nodeosLogPath=Path('TestLogs') / Path(f'{Path(sys.argv[0]).stem}{os.getpid()}'), genesisPath=None,
                maximumP2pPerHost=0, maximumClients=25, prodsEnableTraceApi=True):
         """Launch cluster.
         pnodes: producer nodes count
@@ -521,15 +520,9 @@ class Cluster(object):
             useBiosBootFile=False  #ensure we use Cluster.bootstrap
         if onlyBios or not useBiosBootFile:
             self.biosNode=self.bootstrap(biosNode, startedNodes, prodCount + sharedProducers, totalProducers, pfSetupPolicy, onlyBios, onlySetProds, loadSystemContract)
-            if self.biosNode is None:
-                Utils.Print("ERROR: Bootstrap failed.")
-                return False
         else:
             self.useBiosBootFile=True
             self.biosNode=self.bios_bootstrap(biosNode, startedNodes, pfSetupPolicy)
-            if self.biosNode is None:
-                Utils.Print("ERROR: Bootstrap failed.")
-                return False
 
         if self.biosNode is None:
             Utils.Print("ERROR: Bootstrap failed.")
@@ -564,7 +557,7 @@ class Cluster(object):
         port=Cluster.__BiosPort if onlyBios else self.port
         host=Cluster.__BiosHost if onlyBios else self.host
         nodeNum="bios" if onlyBios else 0
-        node=Node(host, port, nodeNum, walletMgr=self.walletMgr, nodeosVers=self.nodeosVers)
+        node=Node(host, port, nodeNum, walletMgr=self.walletMgr)
         if Utils.Debug: Utils.Print("Node: %s", str(node))
 
         node.checkPulse(exitOnError=True)
@@ -603,7 +596,7 @@ class Cluster(object):
         for n in nArr:
             port=n["port"]
             host=n["host"]
-            node=Node(host, port, nodeId=len(nodes), walletMgr=self.walletMgr, nodeosVers=self.nodeosVers)
+            node=Node(host, port, nodeId=len(nodes), walletMgr=self.walletMgr)
             if Utils.Debug: Utils.Print("Node:", node)
 
             node.checkPulse(exitOnError=True)
@@ -1057,7 +1050,8 @@ class Cluster(object):
             env["BIOS_CONTRACT_PATH"] = "libraries/testing/contracts/old_versions/v1.7.0-develop-preactivate_feature/eosio.bios"
 
         if pfSetupPolicy == PFSetupPolicy.FULL:
-            allBuiltinProtocolFeatureDigests = biosNode.getAllBuiltinFeatureDigestsToPreactivate()
+            queryNode = self.getLowestVersionNode(silentErrors=silent)
+            allBuiltinProtocolFeatureDigests = queryNode.getAllBuiltinFeatureDigestsToPreactivate()
             env["FEATURE_DIGESTS"] = " ".join(allBuiltinProtocolFeatureDigests)
             Utils.Print("Set FEATURE_DIGESTS to: %s" % env["FEATURE_DIGESTS"])
 
@@ -1184,7 +1178,8 @@ class Cluster(object):
             return None
 
         if pfSetupPolicy == PFSetupPolicy.FULL:
-            biosNode.preactivateAllBuiltinProtocolFeature()
+            queryNode = self.getLowestVersionNode(silentErrors=True)
+            queryNode.preactivateAllBuiltinProtocolFeature()
 
         Node.validateTransaction(trans)
 
@@ -1192,7 +1187,6 @@ class Cluster(object):
         producerKeys.pop(eosioName)
         accounts=[]
         for name, keys in producerKeys.items():
-            initx = None
             initx = Account(name)
             initx.ownerPrivateKey=keys["private"]
             initx.ownerPublicKey=keys["public"]
@@ -1268,40 +1262,28 @@ class Cluster(object):
 
         if onlySetProds: return biosNode
 
-        eosioTokenAccount=copy.deepcopy(eosioAccount)
-        eosioTokenAccount.name="eosio.token"
-        trans=biosNode.createAccount(eosioTokenAccount, eosioAccount, 0)
-        if trans is None:
-            Utils.Print("ERROR: Failed to create account %s" % (eosioTokenAccount.name))
+        def createSystemAccount(accountName):
+            newAccount = copy.deepcopy(eosioAccount)
+            newAccount.name = accountName
+            trans=biosNode.createAccount(newAccount, eosioAccount, 0)
+            if trans is None:
+                Utils.Print(f'ERROR: Failed to create account {newAccount.name}')
+                return None
+            return trans
+
+        systemAccounts = ['eosio.bpay', 'eosio.msig', 'eosio.names', 'eosio.ram', 'eosio.ramfee', 'eosio.saving', 'eosio.stake', 'eosio.token', 'eosio.vpay', 'eosio.wrap']
+        acctTrans = list(map(createSystemAccount, systemAccounts))
+
+        for trans in acctTrans:
+            Node.validateTransaction(trans)
+
+        transIds = list(map(Node.getTransId, acctTrans))
+        if not biosNode.waitForTransactionsInBlock(transIds):
+            Utils.Print('ERROR: Failed to validate creation of system accounts')
             return None
 
-        eosioRamAccount=copy.deepcopy(eosioAccount)
-        eosioRamAccount.name="eosio.ram"
-        trans=biosNode.createAccount(eosioRamAccount, eosioAccount, 0)
-        if trans is None:
-            Utils.Print("ERROR: Failed to create account %s" % (eosioRamAccount.name))
-            return None
-
-        eosioRamfeeAccount=copy.deepcopy(eosioAccount)
-        eosioRamfeeAccount.name="eosio.ramfee"
-        trans=biosNode.createAccount(eosioRamfeeAccount, eosioAccount, 0)
-        if trans is None:
-            Utils.Print("ERROR: Failed to create account %s" % (eosioRamfeeAccount.name))
-            return None
-
-        eosioStakeAccount=copy.deepcopy(eosioAccount)
-        eosioStakeAccount.name="eosio.stake"
-        trans=biosNode.createAccount(eosioStakeAccount, eosioAccount, 0)
-        if trans is None:
-            Utils.Print("ERROR: Failed to create account %s" % (eosioStakeAccount.name))
-            return None
-
-        Node.validateTransaction(trans)
-        transId=Node.getTransId(trans)
-        if not biosNode.waitForTransactionInBlock(transId):
-            Utils.Print("ERROR: Failed to validate transaction %s got rolled into a block on server port %d." % (transId, biosNode.port))
-            return None
-
+        eosioTokenAccount = copy.deepcopy(eosioAccount)
+        eosioTokenAccount.name = 'eosio.token'
         contract="eosio.token"
         contractDir="unittests/contracts/%s" % (contract)
         wasmFile="%s.wasm" % (contract)
@@ -1465,7 +1447,7 @@ class Cluster(object):
         if m is None:
             Utils.Print("ERROR: Failed to find %s pid. Pattern %s" % (Utils.EosServerName, pattern))
             return None
-        instance=Node(self.host, self.port + nodeNum, nodeNum, pid=int(m.group(1)), cmd=m.group(2), walletMgr=self.walletMgr, nodeosVers=self.nodeosVers)
+        instance=Node(self.host, self.port + nodeNum, nodeNum, pid=int(m.group(1)), cmd=m.group(2), walletMgr=self.walletMgr)
         if Utils.Debug: Utils.Print("Node>", instance)
         return instance
 
@@ -1478,7 +1460,7 @@ class Cluster(object):
             Utils.Print("ERROR: Failed to find %s pid. Pattern %s" % (Utils.EosServerName, pattern))
             return None
         else:
-            return Node(Cluster.__BiosHost, Cluster.__BiosPort, "bios", pid=int(m.group(1)), cmd=m.group(2), walletMgr=self.walletMgr, nodeosVers=self.nodeosVers)
+            return Node(Cluster.__BiosHost, Cluster.__BiosPort, "bios", pid=int(m.group(1)), cmd=m.group(2), walletMgr=self.walletMgr)
 
     # Kills a percentange of Eos instances starting from the tail and update eosInstanceInfos state
     def killSomeEosInstances(self, killCount, killSignalStr=Utils.SigKillTag):
@@ -1655,7 +1637,7 @@ class Cluster(object):
         with open(startFile, 'r') as file:
             cmd=file.read()
             Utils.Print("unstarted local node cmd: %s" % (cmd))
-        instance=Node(self.host, port=self.port+nodeId, nodeId=nodeId, pid=None, cmd=cmd, walletMgr=self.walletMgr, nodeosVers=self.nodeosVers)
+        instance=Node(self.host, port=self.port+nodeId, nodeId=nodeId, pid=None, cmd=cmd, walletMgr=self.walletMgr)
         if Utils.Debug: Utils.Print("Unstarted Node>", instance)
         return instance
 
@@ -1665,6 +1647,17 @@ class Cluster(object):
             infos.append(node.getInfo(silentErrors=silentErrors, exitOnError=exitOnError))
 
         return infos
+
+    def getLowestVersionNode(self, silentErrors=False, exitOnError=False):
+        '''Returns node with lowest major version of all nodes in the cluster.
+        
+        Naive implementation depends on current node version scheme.
+        Upgrade this to use packaging.version.parse_version() if 
+        more sophisticated versioning is necessary.'''
+        vers=[]
+        for node in self.nodes:
+            vers.append(node.getInfo(silentErrors=silentErrors, exitOnError=exitOnError)['server_version_string'][:2])
+        return self.nodes[vers.index(min(vers))]
 
     def reportStatus(self):
         nodes = self.getAllNodes()
@@ -1692,7 +1685,6 @@ class Cluster(object):
             blockLog=self.getBlockLog(i)
             Utils.Print(Utils.FileDivider)
             Utils.Print("Block log from node %s:\n%s" % (i, json.dumps(blockLog, indent=1)))
-
 
     def compareBlockLogs(self):
         blockLogs=[]

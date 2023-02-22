@@ -73,7 +73,7 @@ class Utils:
 
     FileDivider="================================================================="
     TestLogRoot="TestLogs"
-    DataRoot=os.path.basename(sys.argv[0]).split('.')[0]
+    DataRoot=os.path.basename(sys.argv[0]).rsplit('.',maxsplit=1)[0]
     PID = os.getpid()
     DataPath= f"{TestLogRoot}/{DataRoot}{PID}"
     DataDir= f"{DataPath}/"
