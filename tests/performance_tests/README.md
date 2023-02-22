@@ -274,8 +274,6 @@ The Performance Harness main script `performance_test.py` can be configured usin
                           In "lmax" mode, producer threads will incrementally be tested until the performance rate ceases to increase with the addition of additional threads.
                           In "full" mode producer threads will incrementally be tested from 2..num logical processors, recording each performance and choosing the local max performance (same value as would be discovered in "lmax" mode). Useful for graphing the full performance impact of each available thread. (default: none)
 * `--account-name`        Name of the account to create and assign a contract to
-* `--owner-public-key`    Owner public key to use with specified account name
-* `--active-public-key`   Active public key to use with specified account name
 * `--contract-dir`        Path to contract dir
 * `--wasm-file`           WASM file name for contract
 * `--abi-file`            ABI file name for contract
@@ -347,8 +345,6 @@ The following scripts are typically used by the Performance Harness main script 
 * `--print-missing-transactions`
                           Toggles if missing transactions are be printed upon test completion. (default: False)
 * `--account-name`        Name of the account to create and assign a contract to
-* `--owner-public-key`    Owner public key to use with specified account name
-* `--active-public-key`   Active public key to use with specified account name
 * `--contract-dir`        Path to contract dir
 * `--wasm-file`           WASM file name for contract
 * `--abi-file`            ABI file name for contract
