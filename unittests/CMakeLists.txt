@@ -81,6 +81,7 @@ target_include_directories( unit_test PUBLIC
                             ${CMAKE_CURRENT_SOURCE_DIR}/contracts
                             ${CMAKE_CURRENT_BINARY_DIR}/contracts
                             ${CMAKE_CURRENT_BINARY_DIR}/include
+                            ${CMAKE_SOURCE_DIR}/plugins/chain_interface/include
                             ${CMAKE_SOURCE_DIR}/plugins/http_plugin/include )
 
 ### MARK TEST SUITES FOR EXECUTION ###

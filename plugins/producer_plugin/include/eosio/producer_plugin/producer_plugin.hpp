@@ -3,7 +3,7 @@
 #include <eosio/chain_plugin/chain_plugin.hpp>
 #include <eosio/signature_provider_plugin/signature_provider_plugin.hpp>
 
-#include <appbase/application.hpp>
+#include <eosio/chain/application.hpp>
 
 namespace eosio {
 
