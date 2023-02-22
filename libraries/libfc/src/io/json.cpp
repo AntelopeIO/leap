@@ -293,7 +293,8 @@ namespace fc
               default:
                  if( isalnum( c ) )
                  {
-                    return s + stringFromToken( in );
+                    s += stringFromToken( in );
+                    return s;
                  }
                 done = true;
                 break;
