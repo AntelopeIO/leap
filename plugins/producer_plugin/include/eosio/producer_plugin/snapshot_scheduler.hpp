@@ -96,8 +96,15 @@ public:
       auto& snapshot_by_value = _snapshot_requests.get<by_snapshot_value>();
       auto existing = snapshot_by_value.find(std::make_tuple(sri.block_spacing, sri.start_block_num, sri.end_block_num));
       EOS_ASSERT(existing == snapshot_by_value.end(), duplicate_snapshot_request, "Duplicate snapshot request");
-      if(sri.end_block_num > 0) EOS_ASSERT(sri.start_block_num <= sri.end_block_num, invalid_snapshot_request, "End block number should be greater or equal to start block number");
-      if(sri.block_spacing > 0) EOS_ASSERT(sri.start_block_num + sri.block_spacing <= sri.end_block_num, invalid_snapshot_request, "Block spacing exceeds defined by start and end range");
+
+      if(sri.end_block_num > 0) {
+         // if "end" is specified, it should be greater then start
+         EOS_ASSERT(sri.start_block_num <= sri.end_block_num, invalid_snapshot_request, "End block number should be greater or equal to start block number");
+         // if also block_spacing specified, check it
+         if(sri.block_spacing > 0) {
+            EOS_ASSERT(sri.start_block_num + sri.block_spacing <= sri.end_block_num, invalid_snapshot_request, "Block spacing exceeds defined by start and end range");
+         }
+      }
 
       auto request_id = sri.snapshot_request_id ? sri.snapshot_request_id : _snapshot_id++;
       _snapshot_requests.emplace(producer_plugin::snapshot_request_information{request_id, sri.block_spacing, sri.start_block_num, sri.end_block_num, {}});

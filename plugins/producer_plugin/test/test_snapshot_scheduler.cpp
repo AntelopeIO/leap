@@ -48,18 +48,71 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
 
       BOOST_CHECK_EQUAL(0, scheduler.get_snapshot_requests().requests.size());
 
-      producer_plugin::snapshot_request_information sri_large_spacing = {.snapshot_request_id = 0, .block_spacing = 1000, .start_block_num = 5000, .end_block_num = 5010 };
+      producer_plugin::snapshot_request_information sri_large_spacing = {.snapshot_request_id = 0, .block_spacing = 1000, .start_block_num = 5000, .end_block_num = 5010};
       BOOST_CHECK_EXCEPTION(scheduler.schedule_snapshot(sri_large_spacing), invalid_snapshot_request, [](const fc::assert_exception& e) {
          return e.to_detail_string().find("Block spacing exceeds defined by start and end range") != std::string::npos;
       });
 
-      producer_plugin::snapshot_request_information sri_start_end = {.snapshot_request_id = 0, .block_spacing = 1000, .start_block_num = 50000, .end_block_num = 5000 };
+      producer_plugin::snapshot_request_information sri_start_end = {.snapshot_request_id = 0, .block_spacing = 1000, .start_block_num = 50000, .end_block_num = 5000};
       BOOST_CHECK_EXCEPTION(scheduler.schedule_snapshot(sri_start_end), invalid_snapshot_request, [](const fc::assert_exception& e) {
          return e.to_detail_string().find("End block number should be greater or equal to start block number") != std::string::npos;
       });
    }
-}
+   {
+      boost::filesystem::path temp = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
 
-BOOST_AUTO_TEST_SUITE_END()
+      try {
+         std::promise<std::tuple<producer_plugin*, chain_plugin*>> plugin_promise;
+         std::future<std::tuple<producer_plugin*, chain_plugin*>> plugin_fut = plugin_promise.get_future();
+         std::thread app_thread([&]() {
+            fc::logger::get(DEFAULT_LOGGER).set_log_level(fc::log_level::debug);
+            std::vector<const char*> argv =
+                  {"test", "--data-dir", temp.c_str(), "--config-dir", temp.c_str(),
+                   "-p", "eosio", "-e", "--max-transaction-time", "475", "--disable-subjective-billing=true"};
+            appbase::app().initialize<chain_plugin, producer_plugin>(argv.size(), (char**) &argv[0]);
+            appbase::app().startup();
+            plugin_promise.set_value(
+                  {appbase::app().find_plugin<producer_plugin>(), appbase::app().find_plugin<chain_plugin>()});
+            appbase::app().exec();
+         });
+
+         auto [prod_plug, chain_plug] = plugin_fut.get();
+         // auto chain_id = chain_plug->get_chain_id();
+         std::deque<block_state_ptr> all_blocks;
+         std::promise<void> empty_blocks_promise;
+         std::future<void> empty_blocks_fut = empty_blocks_promise.get_future();
+         auto ab = chain_plug->chain().accepted_block.connect([&](const block_state_ptr& bsp) {
+            static int num_empty = std::numeric_limits<int>::max();
+            all_blocks.push_back(bsp);
+            if(bsp->block->transactions.empty()) {
+               --num_empty;
+               if(num_empty == 0) empty_blocks_promise.set_value();
+            } else {// we want a few empty blocks after we have some non-empty blocks
+               num_empty = 10;
+            }
+         });
+         auto bs = chain_plug->chain().block_start.connect([&](uint32_t bn) {
+         });
+
+         producer_plugin::snapshot_request_information sri = {.block_spacing = 1, .start_block_num = 0, .end_block_num = 1, .snapshot_description = "Example of recurring snapshot"};
+         auto pp = appbase::app().find_plugin<producer_plugin>();
+         pp->schedule_snapshot(sri);
+
+         empty_blocks_fut.wait_for(std::chrono::seconds(5));
+
+         // snapshot is done here and request should be deleted
+         BOOST_CHECK_EQUAL(0, pp->get_snapshot_requests().requests.size());
+
+         appbase::app().quit();
+         app_thread.join();
+      } catch(...) {
+         bfs::remove_all(temp);
+         throw;
+      }
+      bfs::remove_all(temp);
+   }
+
+   BOOST_AUTO_TEST_SUITE_END()
+}
 
 }// namespace
