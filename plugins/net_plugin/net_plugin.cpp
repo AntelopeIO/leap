@@ -3668,8 +3668,8 @@ namespace eosio {
            "    p2p.blk.eos.io:9876:blk\n")
          ( "p2p-max-nodes-per-host", bpo::value<int>()->default_value(def_max_nodes_per_host), "Maximum number of client nodes from any single IP address")
          ( "p2p-accept-transactions", bpo::value<bool>()->default_value(true), "Allow transactions received over p2p network to be evaluated and relayed if valid.")
-         ( "auto-bp-peer", bpo::value< vector<string> >()->composing(),
-           "The account and public endpoint of a block producer node to automatically connect to when the it is in producer schedule proximity\n."
+         ( "p2p-auto-bp-peer", bpo::value< vector<string> >()->composing(),
+           "The account and public p2p endpoint of a block producer node to automatically connect to when the it is in producer schedule proximity\n."
            "   Syntax: account,host:port\n"
            "   Example,\n"
            "     eosproducer1,p2p.eos.io:9876\n")
@@ -3757,11 +3757,11 @@ namespace eosio {
                         "agent-name too long, must be less than ${m}", ("m", max_handshake_str_length) );
          }
 
-         if ( options.count( "auto-bp-peer")) {
-            my->set_bp_peers(options.at( "auto-bp-peer" ).as<vector<string>>());
+         if ( options.count( "p2p-auto-bp-peer")) {
+            my->set_bp_peers(options.at( "p2p-auto-bp-peer" ).as<vector<string>>());
             my->for_each_bp_peer_address([this](auto addr) {
                EOS_ASSERT(my->supplied_peers.count(addr) == 0, chain::plugin_config_exception,
-                          "\"${addr}\" should only appear in either p2p-peer-address or auto-bp-peer option, not both.",
+                          "\"${addr}\" should only appear in either p2p-peer-address or p2p-auto-bp-peer option, not both.",
                           ("addr",addr));
             });
          }

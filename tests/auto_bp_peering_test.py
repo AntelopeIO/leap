@@ -10,7 +10,7 @@ from TestHarness import Cluster, TestHelper, Utils, WalletMgr, ReturnType
 # auto_bp_perring_test
 #
 # This test setups  a cluster with 21 producers nodeos, each nodeos is configured with only one producer and only connects to the bios node.
-# Moreover, each producer nodeos also configured with a list of auto-bp-peer so that each one can automatically establish p2p connections to
+# Moreover, each producer nodeos also configured with a list of p2p-auto-bp-peer so that each one can automatically establish p2p connections to
 # their downstream two neighbors based on producer schedule on the chain and tear down the connections with are no longer in the scheduling neighborhood.
 #
 ###############################################################
@@ -54,7 +54,7 @@ for nodeId in range(0, producerNodes):
     port = cluster.p2pBasePort + nodeId
     hostname = "localhost:" + str(port)
     peer_names[hostname] = producer_name
-    auto_bp_peer_args += (" --auto-bp-peer " + producer_name + "," + hostname)
+    auto_bp_peer_args += (" --p2p-auto-bp-peer " + producer_name + "," + hostname)
 
 
 def neigbors_in_schedule(name, schedule):
