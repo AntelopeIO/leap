@@ -66,7 +66,7 @@ if(APPLE AND UNIX AND "${OPENSSL_ROOT_DIR}" STREQUAL "")
       set(OPENSSL_ROOT_DIR "/usr/local/opt/openssl@3;/usr/local/opt/openssl@1.1")
    endif()
 endif()
-￼
+
 option(ENABLE_OC "Enable eosvm-oc on supported platforms" ON)
 
 # WASM runtimes to enable. Each runtime in this list will have:
