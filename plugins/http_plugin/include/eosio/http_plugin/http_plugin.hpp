@@ -95,6 +95,8 @@ namespace eosio {
         // standard exception handling for api handlers
         static void handle_exception( const char *api_name, const char *call_name, const string& body, const url_response_callback& cb );
 
+        void post_http_thread_pool(std::function<void()> f);
+
         bool is_on_loopback() const;
         bool is_secure() const;
 
