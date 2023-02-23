@@ -12,7 +12,7 @@ from pathlib import Path, PurePath
 sys.path.append(str(PurePath(PurePath(Path(__file__).absolute()).parent).parent))
 
 from NodeosPluginArgs import ChainPluginArgs, HttpPluginArgs, NetPluginArgs, ProducerPluginArgs
-from TestHarness import TestHelper, Utils
+from TestHarness import TestHelper, Utils, Account
 from performance_test_basic import PerformanceTestBasic, PtbArgumentsHandler
 from platform import release, system
 from dataclasses import dataclass, asdict, field
@@ -509,8 +509,7 @@ def main():
     extraNodeosArgs = ENA(chainPluginArgs=chainPluginArgs, httpPluginArgs=httpPluginArgs, producerPluginArgs=producerPluginArgs, netPluginArgs=netPluginArgs)
     testClusterConfig = PerformanceTestBasic.ClusterConfig(pnodes=args.p, totalNodes=args.n, topo=args.s, genesisPath=args.genesis,
                                                            prodsEnableTraceApi=args.prods_enable_trace_api, extraNodeosArgs=extraNodeosArgs,
-                                                           specifiedContract=PerformanceTestBasic.ClusterConfig.SpecifiedContract(accountName=args.account_name,
-                                                                ownerPublicKey=args.owner_public_key, activePublicKey=args.active_public_key,
+                                                           specifiedContract=PerformanceTestBasic.ClusterConfig.SpecifiedContract(account=Account(args.account_name),
                                                                 contractDir=args.contract_dir, wasmFile=args.wasm_file, abiFile=args.abi_file),
                                                            nodeosVers=Utils.getNodeosVersion().split('.')[0])
 

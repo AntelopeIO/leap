@@ -272,8 +272,6 @@ The Performance Harness main script `performance_test.py` can be configured usin
                           In "lmax" mode, producer threads will incrementally be tested until the performance rate ceases to increase with the addition of additional threads.
                           In "full" mode producer threads will incrementally be tested from 2..num logical processors, recording each performance and choosing the local max performance (same value as would be discovered in "lmax" mode). Useful for graphing the full performance impact of each available thread. (default: none)
 * `--account-name`        Name of the account to create and assign a contract to
-* `--owner-public-key`    Owner public key to use with specified account name
-* `--active-public-key`   Active public key to use with specified account name
 * `--contract-dir`        Path to contract dir
 * `--wasm-file`           WASM file name for contract
 * `--abi-file`            ABI file name for contract
@@ -360,8 +358,6 @@ The following scripts are typically used by the Performance Harness main script 
 * `--print-missing-transactions`
                           Toggles if missing transactions are be printed upon test completion. (default: False)
 * `--account-name`        Name of the account to create and assign a contract to
-* `--owner-public-key`    Owner public key to use with specified account name
-* `--active-public-key`   Active public key to use with specified account name
 * `--contract-dir`        Path to contract dir
 * `--wasm-file`           WASM file name for contract
 * `--abi-file`            ABI file name for contract
@@ -862,37 +858,37 @@ The Performance Test Basic generates, by default, a report that details results 
 ``` json
 {
   "completedRun": true,
-  "testStart": "2023-02-17T22:00:41.305618",
-  "testFinish": "2023-02-17T22:02:21.597430",
+  "testStart": "2023-02-22T21:28:58.867999",
+  "testFinish": "2023-02-22T21:30:39.932852",
   "Analysis": {
     "BlockSize": {
-      "min": 925248,
-      "max": 1551936,
-      "avg": 1332244.3636363635,
-      "sigma": 144713.34505483133,
+      "min": 1069248,
+      "max": 1521216,
+      "avg": 1335995.7333333334,
+      "sigma": 107425.6639278012,
       "emptyBlocks": 0,
-      "numBlocks": 44
+      "numBlocks": 45
     },
     "BlocksGuide": {
       "firstBlockNum": 2,
-      "lastBlockNum": 193,
-      "totalBlocks": 192,
+      "lastBlockNum": 194,
+      "totalBlocks": 193,
       "testStartBlockNum": 112,
-      "testEndBlockNum": 160,
+      "testEndBlockNum": 161,
       "setupBlocksCnt": 110,
       "tearDownBlocksCnt": 33,
       "leadingEmptyBlocksCnt": 1,
       "trailingEmptyBlocksCnt": 0,
       "configAddlDropCnt": 2,
-      "testAnalysisBlockCnt": 44
+      "testAnalysisBlockCnt": 45
     },
     "TPS": {
-      "min": 10265,
-      "max": 15774,
-      "avg": 13882.232558139534,
-      "sigma": 1454.0837894863364,
+      "min": 11982,
+      "max": 15496,
+      "avg": 13922.954545454546,
+      "sigma": 1026.4435279720471,
       "emptyBlocks": 0,
-      "numBlocks": 44,
+      "numBlocks": 45,
       "configTps": 50000,
       "configTestDuration": 10,
       "tpsPerGenerator": [
@@ -913,29 +909,29 @@ The Performance Test Basic generates, by default, a report that details results 
       "generatorCount": 13
     },
     "TrxCPU": {
-      "min": 6.0,
-      "max": 15292.0,
-      "avg": 25.024962251222377,
-      "sigma": 49.9778703823556,
-      "samples": 322527
+      "min": 7.0,
+      "max": 8186.0,
+      "avg": 24.41423694803685,
+      "sigma": 32.88703511468667,
+      "samples": 326924
     },
     "TrxLatency": {
-      "min": 0.11500000953674316,
-      "max": 16.91100001335144,
-      "avg": 8.950405516519615,
-      "sigma": 4.844012708597167,
-      "samples": 322527
+      "min": 0.023999929428100586,
+      "max": 17.144999980926514,
+      "avg": 9.035915723544147,
+      "sigma": 4.873430717683421,
+      "samples": 326924
     },
     "TrxNet": {
       "min": 24.0,
       "max": 24.0,
       "avg": 24.0,
       "sigma": 0.0,
-      "samples": 322527
+      "samples": 326924
     },
     "DroppedBlocks": {},
     "DroppedBlocksCount": 0,
-    "DroppedTransactions": 177473,
+    "DroppedTransactions": 173076,
     "ProductionWindowsTotal": 0,
     "ProductionWindowsAverageSize": 0,
     "ProductionWindowsMissed": 0,
@@ -1415,14 +1411,10 @@ The Performance Test Basic generates, by default, a report that details results 
       }
     },
     "specifiedContract": {
-      "accountName": "eosio",
-      "ownerPrivateKey": "5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3",
-      "ownerPublicKey": "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV",
-      "activePrivateKey": "5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3",
-      "activePublicKey": "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV",
       "contractDir": "unittests/contracts/eosio.system",
       "wasmFile": "eosio.system.wasm",
-      "abiFile": "eosio.system.abi"
+      "abiFile": "eosio.system.abi",
+      "account": "Name: eosio"
     },
     "useBiosBootFile": false,
     "genesisPath": "tests/performance_tests/genesis.json",
@@ -1442,17 +1434,17 @@ The Performance Test Basic generates, by default, a report that details results 
     "testTrxGenDurationSec": 10,
     "tpsLimitPerGenerator": 4000,
     "numAddlBlocksToPrune": 2,
-    "logDirRoot": "p/2023-02-17_22-00-41/pluginThreadOptRunLogs",
+    "logDirRoot": "p/2023-02-22_21-28-58/pluginThreadOptRunLogs",
     "delReport": true,
     "quiet": false,
     "delPerfLogs": true,
     "expectedTransactionsSent": 500000,
     "printMissingTransactions": false,
     "userTrxDataFile": null,
-    "logDirBase": "p/2023-02-17_22-00-41/pluginThreadOptRunLogs/p",
-    "logDirTimestamp": "2023-02-17_22-00-41",
+    "logDirBase": "p/2023-02-22_21-28-58/pluginThreadOptRunLogs/p",
+    "logDirTimestamp": "2023-02-22_21-28-58",
     "logDirTimestampedOptSuffix": "-50000",
-    "logDirPath": "p/2023-02-17_22-00-41/pluginThreadOptRunLogs/p/2023-02-17_22-00-41-50000"
+    "logDirPath": "p/2023-02-22_21-28-58/pluginThreadOptRunLogs/p/2023-02-22_21-28-58-50000"
   },
   "env": {
     "system": "Linux",
