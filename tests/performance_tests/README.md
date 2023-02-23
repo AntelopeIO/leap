@@ -249,7 +249,7 @@ The Performance Harness main script `performance_test.py` can be configured usin
                           Number of worker threads in producer thread pool (default: 6)
 * `--http-max-response-time-ms HTTP_MAX_RESPONSE_TIME_MS`
                           Maximum time for processing a request, -1 for unlimited (default: -1)
-* `--http-max-bytes-inflight-mb HTTP_MAX_BYTES_IN FLIGHT`
+* `--http-max-bytes-in-flight-mb HTTP_MAX_IN_FLIGHT_BYTES`
                           Maximum size in megabytes http_plugin should use for processing http requests. -1 for unlimited.
                           429 error response when exceeded. (default: -1)
 * `--del-perf-logs`       Whether to delete performance test specific logs. (default: False)
@@ -353,7 +353,7 @@ The following scripts are typically used by the Performance Harness main script 
                           Number of worker threads in producer thread pool (default: 6)
 * `--http-max-response-time-ms HTTP_MAX_RESPONSE_TIME_MS`
                           Maximum time for processing a request, -1 for unlimited (default: -1)
-* `--http-max-bytes-inflight-mb HTTP_MAX_BYTES_IN FLIGHT`
+* `--http-max-bytes-in-flight-mb HTTP_MAX_IN_FLIGHT_BYTES`
                           Maximum size in megabytes http_plugin should use for processing http requests. -1 for unlimited.
                           429 error response when exceeded. (default: -1)
 * `--del-perf-logs`       Whether to delete performance test specific logs. (default: False)
