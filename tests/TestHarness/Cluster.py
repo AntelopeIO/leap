@@ -94,7 +94,7 @@ class Cluster(object):
         defproduceraPrvtKey: Defproducera account private key
         defproducerbPrvtKey: Defproducerb account private key
         """
-        self.accounts={}
+        self.accounts=[]
         self.nodes=[]
         self.unstartedNodes=[]
         self.localCluster=localCluster
@@ -705,7 +705,9 @@ class Cluster(object):
 
     # create account keys and import into wallet. Wallet initialization will be user responsibility
     # also imports defproducera and defproducerb accounts
-    def populateWallet(self, accountsCount, wallet, accountNames: list=None):
+    def populateWallet(self, accountsCount, wallet, accountNames: list=None, createProducerAccounts: bool=True):
+        if accountsCount == 0 and len(accountNames) == 0:
+            return True
         if self.walletMgr is None:
             Utils.Print("ERROR: WalletMgr hasn't been initialized.")
             return False
@@ -718,15 +720,16 @@ class Cluster(object):
                 Utils.Print("Account keys creation failed.")
                 return False
 
-        Utils.Print("Importing keys for account %s into wallet %s." % (self.defproduceraAccount.name, wallet.name))
-        if not self.walletMgr.importKey(self.defproduceraAccount, wallet):
-            Utils.Print("ERROR: Failed to import key for account %s" % (self.defproduceraAccount.name))
-            return False
+        if createProducerAccounts:
+            Utils.Print("Importing keys for account %s into wallet %s." % (self.defproduceraAccount.name, wallet.name))
+            if not self.walletMgr.importKey(self.defproduceraAccount, wallet):
+                Utils.Print("ERROR: Failed to import key for account %s" % (self.defproduceraAccount.name))
+                return False
 
-        Utils.Print("Importing keys for account %s into wallet %s." % (self.defproducerbAccount.name, wallet.name))
-        if not self.walletMgr.importKey(self.defproducerbAccount, wallet):
-            Utils.Print("ERROR: Failed to import key for account %s" % (self.defproducerbAccount.name))
-            return False
+            Utils.Print("Importing keys for account %s into wallet %s." % (self.defproducerbAccount.name, wallet.name))
+            if not self.walletMgr.importKey(self.defproducerbAccount, wallet):
+                Utils.Print("ERROR: Failed to import key for account %s" % (self.defproducerbAccount.name))
+                return False
 
         if accountNames is not None:
             for idx, name in enumerate(accountNames):
@@ -737,8 +740,8 @@ class Cluster(object):
             if not self.walletMgr.importKey(account, wallet):
                 Utils.Print("ERROR: Failed to import key for account %s" % (account.name))
                 return False
+            self.accounts.append(account)
 
-        self.accounts=accounts
         return True
 
     def getNodeP2pPort(self, nodeId: int):
@@ -1595,17 +1598,18 @@ class Cluster(object):
     def createAccounts(self, creator, waitForTransBlock=True, stakedDeposit=1000, validationNodeIndex=0):
         if self.accounts is None:
             return True
-
         transId=None
         for account in self.accounts:
-            if Utils.Debug: Utils.Print("Create account %s." % (account.name))
-            if Utils.Debug: Utils.Print("Validation node %s" % validationNodeIndex)
-            trans=self.createAccountAndVerify(account, creator, stakedDeposit, validationNodeIndex=validationNodeIndex)
-            if trans is None:
-                Utils.Print("ERROR: Failed to create account %s." % (account.name))
-                return False
-            if Utils.Debug: Utils.Print("Account %s created." % (account.name))
-            transId=Node.getTransId(trans)
+            ret = self.biosNode.getEosAccount(account.name)
+            if ret is None:
+                if Utils.Debug: Utils.Print("Create account %s." % (account.name))
+                if Utils.Debug: Utils.Print("Validation node %s" % validationNodeIndex)
+                trans=self.createAccountAndVerify(account, creator, stakedDeposit, validationNodeIndex=validationNodeIndex)
+                if trans is None:
+                    Utils.Print("ERROR: Failed to create account %s." % (account.name))
+                    return False
+                if Utils.Debug: Utils.Print("Account %s created." % (account.name))
+                transId=Node.getTransId(trans)
 
         if waitForTransBlock and transId is not None:
             node=self.nodes[validationNodeIndex]
