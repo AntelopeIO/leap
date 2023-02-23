@@ -58,6 +58,15 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS "ON")
 set(BUILD_DOXYGEN FALSE CACHE BOOL "Build doxygen documentation on every make")
 set(ENABLE_MULTIVERSION_PROTOCOL_TEST FALSE CACHE BOOL "Enable nodeos multiversion protocol test")
 
+# add defaults for openssl		
+if(APPLE AND UNIX AND "${OPENSSL_ROOT_DIR}" STREQUAL "")		
+   if(CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")		
+      set(OPENSSL_ROOT_DIR "/opt/homebrew/opt/openssl@3;/opt/homebrew/opt/openssl@1.1")		
+   else()		
+      set(OPENSSL_ROOT_DIR "/usr/local/opt/openssl@3;/usr/local/opt/openssl@1.1")		
+   endif()		
+endif()		
+￼
 option(ENABLE_OC "Enable eosvm-oc on supported platforms" ON)
 
 # WASM runtimes to enable. Each runtime in this list will have:
