@@ -220,7 +220,7 @@ class state_history_log {
          static uint32_t start_block_num = block_num;
          EOS_ASSERT( block_num > 2, chain::plugin_exception, "Existing ship log with ${eb} blocks when starting from genesis block ${b}",
                      ("eb", _end_block)("b", block_num) );
-         if ( get_block_id_i(block_num) != header.block_id ) {
+         if ( block_num < _begin_block || get_block_id_i(block_num) != header.block_id ) {
             truncate(block_num); //truncate is expected to always leave file pointer at the end
          } else {
             if (start_block_num == block_num || block_num % 1000 == 0 )
