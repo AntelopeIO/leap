@@ -69,7 +69,7 @@ BOOST_AUTO_TEST_CASE( execute_from_read_queue ) {
    auto app_thread = start_app_thread(app);
    
    // set to run functions from read queue only
-   app->executor().set_exec_window(appbase::exec_window::read_only);
+   app->executor().set_exec_window_to_read_only();
 
    // post functions
    std::map<int, int> rslts {};
@@ -114,7 +114,7 @@ BOOST_AUTO_TEST_CASE( execute_from_empty_read_queue ) {
    auto app_thread = start_app_thread(app);
    
    // set to run functions from read queue only
-   app->executor().set_exec_window(appbase::exec_window::read_only);
+   app->executor().set_exec_window_to_read_only();
 
    // post functions
    std::map<int, int> rslts {};
@@ -153,7 +153,7 @@ BOOST_AUTO_TEST_CASE( execute_from_both_queues ) {
    auto app_thread = start_app_thread(app);
 
    // set to run functions from both queues
-   app->executor().set_exec_window( appbase::exec_window::read_write );
+   app->executor().is_exec_window_read_write();
 
    // post functions
    std::map<int, int> rslts {};
