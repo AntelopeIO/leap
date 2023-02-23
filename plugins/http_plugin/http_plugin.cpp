@@ -84,9 +84,9 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
           * @param my - the http_plugin_impl
           * @return the constructed internal_url_handler
           */
-         static detail::internal_url_handler make_app_thread_url_handler( int priority, url_handler next, http_plugin_impl_ptr my ) {
+         static detail::internal_url_handler make_app_thread_url_handler( int priority, appbase::exec_pri_queue& q, url_handler next, http_plugin_impl_ptr my ) {
             auto next_ptr = std::make_shared<url_handler>(std::move(next));
-            return [my=std::move(my), priority, next_ptr=std::move(next_ptr)]
+            return [my=std::move(my), priority, &q, next_ptr=std::move(next_ptr)]
                        ( detail::abstract_conn_ptr conn, string r, string b, url_response_callback then ) {
                if (auto error_str = conn->verify_max_bytes_in_flight(b.size()); !error_str.empty()) {
                   conn->send_busy_response(std::move(error_str));
@@ -99,7 +99,7 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
 
                // post to the app thread taking shared ownership of next (via std::shared_ptr),
                // sole ownership of the tracked body and the passed in parameters
-               app().post( priority, [next_ptr, conn=std::move(conn), r=std::move(r), b = std::move(b), wrapped_then=std::move(wrapped_then)]() mutable {
+               app().executor().post( priority, q, [next_ptr, conn=std::move(conn), r=std::move(r), b = std::move(b), wrapped_then=std::move(wrapped_then)]() mutable {
                   try {
                      if( app().is_quiting() ) return; // http_plugin shutting down, do not call callback
                      // call the `next` url_handler and wrap the response handler
@@ -370,7 +370,7 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
    void http_plugin::plugin_startup() {
 
       handle_sighup(); // setup logging
-      app().post(appbase::priority::high, [this] ()
+      app().executor().post(appbase::priority::high, [this] ()
       {
          try {
             my->plugin_state->thread_pool.start( my->plugin_state->thread_pool_size, [](const fc::exception& e) {
@@ -480,9 +480,9 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
       fc_ilog( logger(), "exit shutdown");
    }
 
-   void http_plugin::add_handler(const string& url, const url_handler& handler, int priority) {
+   void http_plugin::add_handler(const string& url, const url_handler& handler, int priority, appbase::exec_pri_queue& q) {
       fc_ilog( logger(), "add api url: ${c}", ("c", url) );
-      my->plugin_state->url_handlers[url] = my->make_app_thread_url_handler(priority, handler, my);
+      my->plugin_state->url_handlers[url] = my->make_app_thread_url_handler(priority, q, handler, my);
    }
 
    void http_plugin::add_async_handler(const string& url, const url_handler& handler) {
