@@ -527,7 +527,6 @@ class PtbArgumentsHandler(object):
         ptbBaseParserGroup.add_argument("--num-blocks-to-prune", type=int, help=("The number of potentially non-empty blocks, in addition to leading and trailing size 0 blocks, "
                                                                 "to prune from the beginning and end of the range of blocks of interest for evaluation."), default=2)
         ptbBaseParserGroup.add_argument("--signature-cpu-billable-pct", type=int, help="Percentage of actual signature recovery cpu to bill. Whole number percentages, e.g. 50 for 50%%", default=0)
-        ptbBaseParserGroup.add_argument("--chain-state-db-size-mb", type=int, help="Maximum size (in MiB) of the chain state database", default=10*1024)
         ptbBaseParserGroup.add_argument("--chain-threads", type=int, help="Number of worker threads in controller thread pool", default=2)
         ptbBaseParserGroup.add_argument("--database-map-mode", type=str, help="Database map mode (\"mapped\", \"heap\", or \"locked\"). \
                                                                 In \"mapped\" mode database is memory mapped as a file. \
@@ -557,6 +556,18 @@ class PtbArgumentsHandler(object):
         ptbBaseParserGroup.add_argument("--contract-dir", type=str, help="Path to contract dir", default="unittests/contracts/eosio.system")
         ptbBaseParserGroup.add_argument("--wasm-file", type=str, help="WASM file name for contract", default="eosio.system.wasm")
         ptbBaseParserGroup.add_argument("--abi-file", type=str, help="ABI file name for contract", default="eosio.system.abi")
+        ptbBaseParserGroup.add_argument("--wasm-runtime", type=str, help="Override default WASM runtime (\"eos-vm-jit\", \"eos-vm\")\
+                                         \"eos-vm-jit\" : A WebAssembly runtime that compiles WebAssembly code to native x86 code prior to\
+                                         execution. \"eos-vm\" : A WebAssembly interpreter.", default="eos-vm-jit")
+        ptbBaseParserGroup.add_argument("--contracts-console", type=bool, help="print contract's output to console", default=False)
+        ptbBaseParserGroup.add_argument("--eos-vm-oc-cache-size-mb", type=int, help="Maximum size (in MiB) of the EOS VM OC code cache", default=1024)
+        ptbBaseParserGroup.add_argument("--eos-vm-oc-compile-threads", type=int, help="Number of threads to use for EOS VM OC tier-up", default=1)
+        ptbBaseParserGroup.add_argument("--eos-vm-oc-enable", type=bool, help="Enable EOS VM OC tier-up runtime", default=False)
+        ptbBaseParserGroup.add_argument("--block-log-retain-blocks", type=int, help="If set to greater than 0, periodically prune the block log to\
+                                         store only configured number of most recent blocks. If set to 0, no blocks are be written to the block log;\
+                                         block log file is removed after startup.", default=None)
+        ptbBaseParserGroup.add_argument("--http-threads", type=int, help="Number of worker threads in http thread pool", default=2)
+
         return ptbBaseParser
 
     @staticmethod
@@ -580,6 +591,8 @@ class PtbArgumentsHandler(object):
     def parseArgs():
         ptbParser=PtbArgumentsHandler.createArgumentParser()
         args=ptbParser.parse_args()
+        if args.contracts_console:
+            print("Enabling contracts-console will not print anything unless debug level is 'debug' or higher.")
         return args
 
 def main():
@@ -590,8 +603,7 @@ def main():
     testHelperConfig = PerformanceTestBasic.TestHelperConfig(killAll=args.clean_run, dontKill=args.leave_running, keepLogs=not args.del_perf_logs,
                                                              dumpErrorDetails=args.dump_error_details, delay=args.d, nodesFile=args.nodes_file, verbose=args.v)
 
-    chainPluginArgs = ChainPluginArgs(signatureCpuBillablePct=args.signature_cpu_billable_pct, chainStateDbSizeMb=args.chain_state_db_size_mb,
-                                      chainThreads=args.chain_threads, databaseMapMode=args.database_map_mode)
+    chainPluginArgs = ChainPluginArgs(chainThreads=args.chain_threads, databaseMapMode=args.database_map_mode, abiSerializerMaxTimeMs=990000, chainStateDbSizeMb=256000)
 
     lbto = args.last_block_time_offset_us
     lbcep = args.last_block_cpu_effort_percent
@@ -602,11 +614,12 @@ def main():
     producerPluginArgs = ProducerPluginArgs(disableSubjectiveBilling=args.disable_subjective_billing,
                                             lastBlockTimeOffsetUs=lbto, produceTimeOffsetUs=args.produce_time_offset_us,
                                             cpuEffortPercent=args.cpu_effort_percent, lastBlockCpuEffortPercent=lbcep,
-                                            producerThreads=args.producer_threads)
-    httpPluginArgs = HttpPluginArgs(httpMaxResponseTimeMs=args.http_max_response_time_ms)
-    netPluginArgs = NetPluginArgs(netThreads=args.net_threads)
+                                            producerThreads=args.producer_threads, maxTransactionTime=-1)
+    httpPluginArgs = HttpPluginArgs(httpMaxBytesInFlightMb=-1, httpMaxResponseTimeMs=-1)
+    netPluginArgs = NetPluginArgs(netThreads=args.net_threads, maxClients=0)
+    resourceMonitorPluginArgs = ResourceMonitorPluginArgs(resourceMonitorNotShutdownOnThresholdExceeded=True)
     ENA = PerformanceTestBasic.ClusterConfig.ExtraNodeosArgs
-    extraNodeosArgs = ENA(chainPluginArgs=chainPluginArgs, httpPluginArgs=httpPluginArgs, producerPluginArgs=producerPluginArgs, netPluginArgs=netPluginArgs)
+    extraNodeosArgs = ENA(chainPluginArgs=chainPluginArgs, httpPluginArgs=httpPluginArgs, producerPluginArgs=producerPluginArgs, netPluginArgs=netPluginArgs, resourceMonitorPluginArgs=resourceMonitorPluginArgs)
     SC = PerformanceTestBasic.ClusterConfig.SpecifiedContract
     specifiedContract=SC(accountName=args.account_name, ownerPublicKey=args.owner_public_key, activePublicKey=args.active_public_key,
                          contractDir=args.contract_dir, wasmFile=args.wasm_file, abiFile=args.abi_file)

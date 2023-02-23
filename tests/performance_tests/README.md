@@ -226,8 +226,6 @@ The Performance Harness main script `performance_test.py` can be configured usin
                           (default: 2)
 * `--signature-cpu-billable-pct SIGNATURE_CPU_BILLABLE_PCT`
                           Percentage of actual signature recovery cpu to bill. Whole number percentages, e.g. 50 for 50% (default: 0)
-* `--chain-state-db-size-mb CHAIN_STATE_DB_SIZE_MB`
-                          Maximum size (in MiB) of the chain state database (default: 10240)
 * `--chain-threads CHAIN_THREADS`
                           Number of worker threads in controller thread pool (default: 3)
 * `--database-map-mode {mapped,heap,locked}`
@@ -279,6 +277,23 @@ The Performance Harness main script `performance_test.py` can be configured usin
 * `--contract-dir`        Path to contract dir
 * `--wasm-file`           WASM file name for contract
 * `--abi-file`            ABI file name for contract
+* `--wasm-runtime RUNTIME`
+                          Override default WASM runtime ("eos-vm-jit", "eos-vm")
+                          "eos-vm-jit" : A WebAssembly runtime that compiles WebAssembly code to native x86 code prior to
+                          execution. "eos-vm" : A WebAssembly interpreter. (default: eos-vm-jit)
+* `--contracts-console`   print contract's output to console (default: False)
+* `--eos-vm-oc-cache-size-mb CACHE_SIZE_MiB`
+                          Maximum size (in MiB) of the EOS VM OC code cache (default: 1024)
+* `--eos-vm-oc-compile-threads COMPILE_THREADS`
+                          Number of threads to use for EOS VM OC tier-up (default: 1)
+* `--eos-vm-oc-enable`
+                          Enable EOS VM OC tier-up runtime (default: False)
+* `--block-log-retain-blocks BLOCKS_TO_RETAIN`
+                          If set to greater than 0, periodically prune the block log to
+                          store only configured number of most recent blocks. If set to 0, no blocks are be written to the block log;
+                          block log file is removed after startup. (default: None)
+* `--http-threads HTTP_THREADS`
+                          Number of worker threads in http thread pool (default: 2)
 </details>
 
 ### Support Scripts
@@ -314,8 +329,6 @@ The following scripts are typically used by the Performance Harness main script 
                           of the range of blocks of interest for evaluation. (default: 2)
 * `--signature-cpu-billable-pct SIGNATURE_CPU_BILLABLE_PCT`
                           Percentage of actual signature recovery cpu to bill. Whole number percentages, e.g. 50 for 50% (default: 0)
-* `--chain-state-db-size-mb CHAIN_STATE_DB_SIZE_MB`
-                          Maximum size (in MiB) of the chain state database (default: 10240)
 * `--chain-threads CHAIN_THREADS`
                           Number of worker threads in controller thread pool (default: 3)
 * `--database-map-mode {mapped,heap,locked}`
@@ -352,6 +365,23 @@ The following scripts are typically used by the Performance Harness main script 
 * `--contract-dir`        Path to contract dir
 * `--wasm-file`           WASM file name for contract
 * `--abi-file`            ABI file name for contract
+* `--wasm-runtime RUNTIME`
+                          Override default WASM runtime ("eos-vm-jit", "eos-vm")
+                          "eos-vm-jit" : A WebAssembly runtime that compiles WebAssembly code to native x86 code prior to
+                          execution. "eos-vm" : A WebAssembly interpreter. (default: eos-vm-jit)
+* `--contracts-console`   print contract's output to console (default: False)
+* `--eos-vm-oc-cache-size-mb CACHE_SIZE_MiB`
+                          Maximum size (in MiB) of the EOS VM OC code cache (default: 1024)
+* `--eos-vm-oc-compile-threads COMPILE_THREADS`
+                          Number of threads to use for EOS VM OC tier-up (default: 1)
+* `--eos-vm-oc-enable`
+                          Enable EOS VM OC tier-up runtime (default: False)
+* `--block-log-retain-blocks BLOCKS_TO_RETAIN`
+                          If set to greater than 0, periodically prune the block log to
+                          store only configured number of most recent blocks. If set to 0, no blocks are be written to the block log;
+                          block log file is removed after startup. (default: None)
+* `--http-threads HTTP_THREADS`
+                          Number of worker threads in http thread pool (default: 2)
 </details>
 
 #### Launch Transaction Generators (TestHarness)

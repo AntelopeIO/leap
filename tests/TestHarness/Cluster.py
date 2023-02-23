@@ -257,8 +257,15 @@ class Cluster(object):
         cmdArr=cmd.split()
         if self.staging:
             cmdArr.append("--nogen")
-
-        nodeosArgs="--max-transaction-time -1 --abi-serializer-max-time-ms 990000 --p2p-max-nodes-per-host %d --max-clients %d" % (maximumP2pPerHost, maximumClients)
+        nodeosArgs=""
+        if extraNodeosArgs.find("--max-transaction-time") == -1:
+            nodeosArgs += " --max-transaction-time -1"
+        if extraNodeosArgs.find("--abi-serializer-max-time-ms") == -1:
+            nodeosArgs += " --abi-serializer-max-time-ms 990000"
+        if extraNodeosArgs.find("--p2p-max-nodes-per-host") == -1:
+            nodeosArgs += f" --p2p-max-nodes-per-host {maximumP2pPerHost}"
+        if extraNodeosArgs.find("--max-clients") == -1:
+            nodeosArgs += f" --max-clients {maximumClients}"
         if not self.walletd:
             nodeosArgs += " --plugin eosio::wallet_api_plugin"
         if Utils.Debug:
