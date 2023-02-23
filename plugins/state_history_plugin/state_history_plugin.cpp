@@ -194,7 +194,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
                    fc::datastream<const char*> ds(d, s);
                    state_request               req;
                    fc::raw::unpack(ds, req);
-                   app().post(priority::medium,
+                   app().executor().post(priority::medium,
                               [self, req = std::move(req)]() mutable { std::visit(*self, std::move(req)); });
                    self->start_read();
                 });
@@ -206,7 +206,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
          if (sending)
             return;
          if (send_queue.empty()) {
-            app().post(priority::medium, [self = this->shared_from_this()]() {
+            app().executor().post(priority::medium, [self = this->shared_from_this()]() {
                self->send_update();
             });
             return;
@@ -417,7 +417,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
          if (ec) {
             fc_elog(_log, "close: ${m}", ("m", ec.message()));
          }
-         app().post(priority::high,
+         app().executor().post(priority::high,
                     [self = this->shared_from_this(), plugin=plugin]() { plugin->session_set.erase(self); });
       }
 
@@ -507,7 +507,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
                catch_and_log([&] {
                   auto s = std::make_shared<session<typename Acceptor::socket_type>>(self, std::move(acc.socket_));
                   s->start();
-                  app().post(priority::high, [self, s]() mutable { self->session_set.insert(std::move(s)); });
+                  app().executor().post(priority::high, [self, s]() mutable { self->session_set.insert(std::move(s)); });
                });
             }
 
