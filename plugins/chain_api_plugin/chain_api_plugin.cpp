@@ -115,6 +115,7 @@ void chain_api_plugin::plugin_startup() {
       CHAIN_RO_CALL(get_account, 200, http_params_types::params_required),
       CHAIN_RO_CALL(get_code, 200, http_params_types::params_required),
       CHAIN_RO_CALL(get_code_hash, 200, http_params_types::params_required),
+      CHAIN_RO_CALL(get_consensus_parameters, 200, http_params_types::no_params),
       CHAIN_RO_CALL(get_abi, 200, http_params_types::params_required),
       CHAIN_RO_CALL(get_raw_code_and_abi, 200, http_params_types::params_required),
       CHAIN_RO_CALL(get_raw_abi, 200, http_params_types::params_required),
@@ -129,15 +130,16 @@ void chain_api_plugin::plugin_startup() {
       CHAIN_RO_CALL(abi_bin_to_json, 200, http_params_types::params_required),
       CHAIN_RO_CALL(get_required_keys, 200, http_params_types::params_required),
       CHAIN_RO_CALL(get_transaction_id, 200, http_params_types::params_required),
+      CHAIN_RO_CALL_ASYNC(send_read_only_transaction, chain_apis::read_only::send_read_only_transaction_results, 200, http_params_types::params_required)
+   });
+   _http_plugin.add_api({
       CHAIN_RO_CALL_ASYNC(compute_transaction, chain_apis::read_only::compute_transaction_results, 200, http_params_types::params_required),
-      CHAIN_RO_CALL_ASYNC(send_read_only_transaction, chain_apis::read_only::send_read_only_transaction_results, 200, http_params_types::params_required),
       CHAIN_RW_CALL_ASYNC(push_block, chain_apis::read_write::push_block_results, 202, http_params_types::params_required),
       CHAIN_RW_CALL_ASYNC(push_transaction, chain_apis::read_write::push_transaction_results, 202, http_params_types::params_required),
       CHAIN_RW_CALL_ASYNC(push_transactions, chain_apis::read_write::push_transactions_results, 202, http_params_types::params_required),
       CHAIN_RW_CALL_ASYNC(send_transaction, chain_apis::read_write::send_transaction_results, 202, http_params_types::params_required),
-      CHAIN_RW_CALL_ASYNC(send_transaction2, chain_apis::read_write::send_transaction_results, 202, http_params_types::params_required),
-      CHAIN_RO_CALL(get_consensus_parameters, 200, http_params_types::no_params)
-   });
+      CHAIN_RW_CALL_ASYNC(send_transaction2, chain_apis::read_write::send_transaction_results, 202, http_params_types::params_required)
+   }, appbase::priority::medium_low, app().executor().write_queue());
 
    if (chain.account_queries_enabled()) {
       _http_plugin.add_async_api({

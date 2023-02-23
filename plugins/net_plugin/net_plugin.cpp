@@ -784,6 +784,7 @@ namespace eosio {
       void handle_message( packed_transaction_ptr msg );
 
       void process_signed_block( const block_id_type& id, signed_block_ptr msg, block_state_ptr bsp );
+      void process_packed_transaction( packed_transaction_ptr trx );
 
       fc::variant_object get_logger_variant() const {
          fc::mutable_variant_object mvo;
@@ -1049,7 +1050,7 @@ namespace eosio {
       const auto lib_num = peer_lib_num;
       if( lib_num == 0 ) return; // if last_irreversible_block_id is null (we have not received handshake or reset)
 
-      app().post( priority::medium, [chain_plug = my_impl->chain_plug, c = shared_from_this(),
+      app().executor().post( priority::medium, [chain_plug = my_impl->chain_plug, c = shared_from_this(),
             lib_num, head_num, msg_head_id]() {
          auto msg_head_num = block_header::num_from_id(msg_head_id);
          bool on_fork = msg_head_num == 0;
@@ -1102,7 +1103,7 @@ namespace eosio {
 
    void connection::blk_send( const block_id_type& blkid ) {
       connection_wptr weak = shared_from_this();
-      app().post( priority::medium, [blkid, weak{std::move(weak)}]() {
+      app().executor().post( priority::medium, [blkid, weak{std::move(weak)}]() {
          connection_ptr c = weak.lock();
          if( !c ) return;
          try {
@@ -1288,7 +1289,7 @@ namespace eosio {
          peer_dlog( this, "completing enqueue_sync_block ${num}", ("num", num) );
       }
       connection_wptr weak = shared_from_this();
-      app().post( priority::medium, [num, weak{std::move(weak)}]() {
+      app().executor().post( priority::medium, [num, weak{std::move(weak)}]() {
          connection_ptr c = weak.lock();
          if( !c ) return;
          controller& cc = my_impl->chain_plug->chain();
@@ -1865,7 +1866,7 @@ namespace eosio {
             c->enqueue( note );
          }
          c->syncing = false;
-         app().post( priority::medium, [chain_plug = my_impl->chain_plug, c,
+         app().executor().post( priority::medium, [chain_plug = my_impl->chain_plug, c,
                                         msg_head_num = msg.head_num, msg_head_id = msg.head_id]() {
             bool on_fork = true;
             try {
@@ -2926,7 +2927,7 @@ namespace eosio {
 
          uint32_t peer_lib = msg.last_irreversible_block_num;
          connection_wptr weak = shared_from_this();
-         app().post( priority::medium, [peer_lib, chain_plug = my_impl->chain_plug, weak{std::move(weak)},
+         app().executor().post( priority::medium, [peer_lib, chain_plug = my_impl->chain_plug, weak{std::move(weak)},
                                      msg_lib_id = msg.last_irreversible_block_id]() {
             connection_ptr c = weak.lock();
             if( !c ) return;
@@ -3164,10 +3165,18 @@ namespace eosio {
       return trx->get_estimated_size();
    }
 
+   // called from connection strand
    void connection::handle_message( packed_transaction_ptr trx ) {
       const auto& tid = trx->id();
       peer_dlog( this, "received packed_transaction ${id}", ("id", tid) );
 
+      app().executor().post(priority::medium, app().executor().write_queue(), [trx{std::move(trx)}, c = shared_from_this()]() mutable {
+         c->process_packed_transaction( std::move( trx ) );
+      });
+   }
+
+   // called from application thread
+   void connection::process_packed_transaction( packed_transaction_ptr trx ) {
       trx_in_progress_size += calc_trx_size( trx );
       my_impl->chain_plug->accept_transaction( trx,
          [weak = weak_from_this(), trx](const std::variant<fc::exception_ptr, transaction_trace_ptr>& result) mutable {
@@ -3238,7 +3247,7 @@ namespace eosio {
             my_impl->dispatcher->bcast_block( bsp->block, bsp->id );
          }
 
-         app().post(priority::medium, [ptr{std::move(ptr)}, bsp{std::move(bsp)}, id, c{std::move(c)}]() mutable {
+         app().executor().post(priority::medium, app().executor().write_queue(), [ptr{std::move(ptr)}, bsp{std::move(bsp)}, id, c{std::move(c)}]() mutable {
             c->process_signed_block( id, std::move(ptr), std::move(bsp) );
          });
 
@@ -3833,7 +3842,7 @@ namespace eosio {
       my->incoming_transaction_ack_subscription = app().get_channel<compat::channels::transaction_ack>().subscribe(
             std::bind(&net_plugin_impl::transaction_ack, my.get(), std::placeholders::_1));
 
-      app().post(priority::highest, [my=my, listen_endpoint](){
+      app().executor().post(priority::highest, [my=my, listen_endpoint](){
          if( my->acceptor ) {
             try {
                my->acceptor->open(listen_endpoint.protocol());
@@ -3875,7 +3884,7 @@ namespace eosio {
          
          my->plugin_shutdown();
          
-         app().post( 0, [me = my](){} ); // keep my pointer alive until queue is drained
+         app().executor().post( 0, [me = my](){} ); // keep my pointer alive until queue is drained
          fc_ilog( logger, "exit shutdown" );
       }
       FC_CAPTURE_AND_RETHROW()
