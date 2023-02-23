@@ -248,7 +248,10 @@ The Performance Harness main script `performance_test.py` can be configured usin
 * `--producer-threads PRODUCER_THREADS`
                           Number of worker threads in producer thread pool (default: 6)
 * `--http-max-response-time-ms HTTP_MAX_RESPONSE_TIME_MS`
-                          Maximum time for processing a request, -1 for unlimited (default: 990000)
+                          Maximum time for processing a request, -1 for unlimited (default: -1)
+* `--http-max-bytes-inflight-mb HTTP_MAX_BYTES_IN FLIGHT`
+                          Maximum size in megabytes http_plugin should use for processing http requests. -1 for unlimited.
+                          429 error response when exceeded. (default: -1)
 * `--del-perf-logs`       Whether to delete performance test specific logs. (default: False)
 * `--del-report`          Whether to delete overarching performance run report. (default: False)
 * `--del-test-report`     Whether to save json reports from each test scenario. (default: False)
@@ -349,7 +352,10 @@ The following scripts are typically used by the Performance Harness main script 
 * `--producer-threads PRODUCER_THREADS`
                           Number of worker threads in producer thread pool (default: 6)
 * `--http-max-response-time-ms HTTP_MAX_RESPONSE_TIME_MS`
-                          Maximum time for processing a request, -1 for unlimited (default: 990000)
+                          Maximum time for processing a request, -1 for unlimited (default: -1)
+* `--http-max-bytes-inflight-mb HTTP_MAX_BYTES_IN FLIGHT`
+                          Maximum size in megabytes http_plugin should use for processing http requests. -1 for unlimited.
+                          429 error response when exceeded. (default: -1)
 * `--del-perf-logs`       Whether to delete performance test specific logs. (default: False)
 * `--del-report`          Whether to delete overarching performance run report. (default: False)
 * `--quiet`               Whether to quiet printing intermediate results and reports to stdout (default: False)

@@ -541,7 +541,9 @@ class PtbArgumentsHandler(object):
         ptbBaseParserGroup.add_argument("--cpu-effort-percent", type=int, help="Percentage of cpu block production time used to produce block. Whole number percentages, e.g. 80 for 80%%", default=100)
         ptbBaseParserGroup.add_argument("--last-block-cpu-effort-percent", type=int, help="Percentage of cpu block production time used to produce last block. Whole number percentages, e.g. 80 for 80%%", default=100)
         ptbBaseParserGroup.add_argument("--producer-threads", type=int, help="Number of worker threads in producer thread pool", default=2)
-        ptbBaseParserGroup.add_argument("--http-max-response-time-ms", type=int, help="Maximum time for processing a request, -1 for unlimited", default=990000)
+        ptbBaseParserGroup.add_argument("--http-max-response-time-ms", type=int, help="Maximum time for processing a request, -1 for unlimited", default=-1)
+        ptbBaseParserGroup.add_argument("--http-max-bytes-in-flight-mb", type=int, help="Maximum size in megabytes http_plugin should use for processing http requests. -1 for unlimited. 429\
+                                         error response when exceeded.", default=-1)
         ptbBaseParserGroup.add_argument("--del-perf-logs", help="Whether to delete performance test specific logs.", action='store_true')
         ptbBaseParserGroup.add_argument("--del-report", help="Whether to delete overarching performance run report.", action='store_true')
         ptbBaseParserGroup.add_argument("--quiet", help="Whether to quiet printing intermediate results and reports to stdout", action='store_true')
@@ -553,7 +555,8 @@ class PtbArgumentsHandler(object):
         ptbBaseParserGroup.add_argument("--abi-file", type=str, help="ABI file name for contract", default="eosio.system.abi")
         ptbBaseParserGroup.add_argument("--wasm-runtime", type=str, help="Override default WASM runtime (\"eos-vm-jit\", \"eos-vm\")\
                                          \"eos-vm-jit\" : A WebAssembly runtime that compiles WebAssembly code to native x86 code prior to\
-                                         execution. \"eos-vm\" : A WebAssembly interpreter.", default="eos-vm-jit")
+                                         execution. \"eos-vm\" : A WebAssembly interpreter.",
+                                         choices=["eos-vm-jit", "eos-vm", "eos-vm-jit"], default="eos-vm-jit")
         ptbBaseParserGroup.add_argument("--contracts-console", type=bool, help="print contract's output to console", default=False)
         ptbBaseParserGroup.add_argument("--eos-vm-oc-cache-size-mb", type=int, help="Maximum size (in MiB) of the EOS VM OC code cache", default=1024)
         ptbBaseParserGroup.add_argument("--eos-vm-oc-compile-threads", type=int, help="Number of threads to use for EOS VM OC tier-up", default=1)
@@ -586,8 +589,6 @@ class PtbArgumentsHandler(object):
     def parseArgs():
         ptbParser=PtbArgumentsHandler.createArgumentParser()
         args=ptbParser.parse_args()
-        if args.contracts_console:
-            print("Enabling contracts-console will not print anything unless debug level is 'debug' or higher.")
         return args
 
 def main():
@@ -598,7 +599,12 @@ def main():
     testHelperConfig = PerformanceTestBasic.TestHelperConfig(killAll=args.clean_run, dontKill=args.leave_running, keepLogs=not args.del_perf_logs,
                                                              dumpErrorDetails=args.dump_error_details, delay=args.d, nodesFile=args.nodes_file, verbose=args.v)
 
-    chainPluginArgs = ChainPluginArgs(chainThreads=args.chain_threads, databaseMapMode=args.database_map_mode, abiSerializerMaxTimeMs=990000, chainStateDbSizeMb=256000)
+    chainPluginArgs = ChainPluginArgs(signatureCpuBillablePct=args.signature_cpu_billable_pct,
+                                      chainThreads=args.chain_threads, databaseMapMode=args.database_map_mode,
+                                      wasmRuntime=args.wasm_runtime, contractsConsole=args.contracts_console,
+                                      eosVmOcCacheSizeMb=args.eos_vm_oc_cache_size_mb, eosVmOcCompileThreads=args.eos_vm_oc_compile_threads,
+                                      eosVmOcEnable=args.eos_vm_oc_enable, blockLogRetainBlocks=args.block_log_retain_blocks,
+                                      abiSerializerMaxTimeMs=990000, chainStateDbSizeMb=256000)
 
     lbto = args.last_block_time_offset_us
     lbcep = args.last_block_cpu_effort_percent
@@ -610,17 +616,22 @@ def main():
                                             lastBlockTimeOffsetUs=lbto, produceTimeOffsetUs=args.produce_time_offset_us,
                                             cpuEffortPercent=args.cpu_effort_percent, lastBlockCpuEffortPercent=lbcep,
                                             producerThreads=args.producer_threads, maxTransactionTime=-1)
-    httpPluginArgs = HttpPluginArgs(httpMaxBytesInFlightMb=-1, httpMaxResponseTimeMs=-1)
+    httpPluginArgs = HttpPluginArgs(httpMaxResponseTimeMs=args.http_max_response_time_ms, httpMaxBytesInFlightMb=args.http_max_bytes_in_flight_mb,
+                                    httpThreads=args.http_threads)
     netPluginArgs = NetPluginArgs(netThreads=args.net_threads, maxClients=0)
     resourceMonitorPluginArgs = ResourceMonitorPluginArgs(resourceMonitorNotShutdownOnThresholdExceeded=True)
     ENA = PerformanceTestBasic.ClusterConfig.ExtraNodeosArgs
-    extraNodeosArgs = ENA(chainPluginArgs=chainPluginArgs, httpPluginArgs=httpPluginArgs, producerPluginArgs=producerPluginArgs, netPluginArgs=netPluginArgs, resourceMonitorPluginArgs=resourceMonitorPluginArgs)
+    extraNodeosArgs = ENA(chainPluginArgs=chainPluginArgs, httpPluginArgs=httpPluginArgs, producerPluginArgs=producerPluginArgs, netPluginArgs=netPluginArgs,
+                          resourceMonitorPluginArgs=resourceMonitorPluginArgs)
     SC = PerformanceTestBasic.ClusterConfig.SpecifiedContract
     specifiedContract=SC(contractDir=args.contract_dir, wasmFile=args.wasm_file, abiFile=args.abi_file, account=Account(args.account_name))
     testClusterConfig = PerformanceTestBasic.ClusterConfig(pnodes=args.p, totalNodes=args.n, topo=args.s, genesisPath=args.genesis,
                                                            prodsEnableTraceApi=args.prods_enable_trace_api, extraNodeosArgs=extraNodeosArgs,
                                                            specifiedContract=specifiedContract, loggingLevel=args.cluster_log_lvl,
                                                            nodeosVers=Utils.getNodeosVersion().split('.')[0])
+    if args.contracts_console and testClusterConfig.loggingLevel != "debug" and testClusterConfig.loggingLevel != "all":
+        print("Enabling contracts-console will not print anything unless debug level is 'debug' or higher."
+              f" Current debug level is: {testClusterConfig.loggingLevel}")
     ptbConfig = PerformanceTestBasic.PtbConfig(targetTps=args.target_tps, testTrxGenDurationSec=args.test_duration_sec, tpsLimitPerGenerator=args.tps_limit_per_generator,
                                   numAddlBlocksToPrune=args.num_blocks_to_prune, logDirRoot=".", delReport=args.del_report, quiet=args.quiet, delPerfLogs=args.del_perf_logs,
                                   printMissingTransactions=args.print_missing_transactions,
