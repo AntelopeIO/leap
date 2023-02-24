@@ -43,10 +43,20 @@ class Node(Transactions):
         self.missingTransaction=False
         self.popenProc=None           # initial process is started by launcher, this will only be set on relaunch
         self.lastTrackedTransactionId=None
+        self.pollVersion()
+
+    def pollVersion(self):
         info = self.getInfo(silentErrors=True)
+        timeout = datetime.now() + timedelta(seconds=10)
         while info == None:
             time.sleep(0.5)
             info = self.getInfo(silentErrors=True)
+            if datetime.now() > timeout:
+                break
+        else:
+            self.configureVersion(info)
+
+    def configureVersion(self, info):
         self.nodeosVers=info["server_version_string"]
         if 'v2' in self.nodeosVers:
             self.fetchTransactionCommand = lambda: "get transaction"
@@ -436,6 +446,7 @@ class Node(Transactions):
                 self.popenProc=popen
             self.pid=popen.pid
             if Utils.Debug: Utils.Print("start Node host=%s, port=%s, pid=%s, cmd=%s" % (self.host, self.port, self.pid, self.cmd))
+        self.pollVersion()
 
     def trackCmdTransaction(self, trans, ignoreNonTrans=False, reportStatus=True):
         if trans is None:
