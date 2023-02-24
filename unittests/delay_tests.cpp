@@ -1684,8 +1684,8 @@ BOOST_AUTO_TEST_CASE( mindelay_test ) { try {
 
    // send transfer with delay_sec set to 10
    const auto& acnt = chain.control->db().get<account_object,by_name>("eosio.token"_n);
-   auto abi = acnt.get_abi();
-   chain::abi_serializer abis(std::move(abi), abi_serializer::create_yield_function( chain.abi_serializer_max_time ));
+   const auto abi = acnt.get_abi();
+   chain::abi_serializer abis(abi, abi_serializer::create_yield_function( chain.abi_serializer_max_time ));
    const auto a = chain.control->db().get<account_object,by_name>("eosio.token"_n).get_abi();
 
    string action_type_name = abis.get_action_type(name("transfer"));

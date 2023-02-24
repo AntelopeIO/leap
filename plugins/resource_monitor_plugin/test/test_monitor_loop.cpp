@@ -1,4 +1,7 @@
-#include <boost/test/unit_test.hpp>
+#define BOOST_TEST_MODULE monitor_loop
+#include <boost/test/included/unit_test.hpp>
+
+#include <fc/variant_object.hpp>
 
 #include <eosio/resource_monitor_plugin/file_space_handler.hpp>
 
@@ -8,7 +11,7 @@ using namespace boost::system;
 
 struct space_handler_fixture {
    struct mock_space_provider {
-      explicit mock_space_provider(space_handler_fixture& fixture)
+      mock_space_provider(space_handler_fixture& fixture)
       :fixture(fixture)
       {}
 
@@ -60,7 +63,7 @@ struct space_handler_fixture {
       mock_get_space = [ i = 0, num_loops ]( const bfs::path& p, boost::system::error_code& ec) mutable -> bfs::space_info {
          ec = boost::system::errc::make_error_code(errc::success);
 
-         bfs::space_info rc{};
+         bfs::space_info rc;
          rc.capacity  = 1000000;
 
          if ( i < num_loops + 1 ) {  // "+ 1" for the get_space in add_file_system
@@ -143,9 +146,14 @@ BOOST_AUTO_TEST_SUITE(monitor_loop_tests)
       BOOST_TEST( test_loop_common(2, 5) );
    }
 
-   BOOST_FIXTURE_TEST_CASE(five_loops_5_sec_interval, space_handler_fixture)
+   BOOST_FIXTURE_TEST_CASE(ten_loops_5_sec_interval, space_handler_fixture)
    {
-      BOOST_TEST( test_loop_common(5, 5) );
+      BOOST_TEST( test_loop_common(10, 5) );
+   }
+
+   BOOST_FIXTURE_TEST_CASE(one_hundred_twenty_loops_1_sec_interval, space_handler_fixture)
+   {
+      BOOST_TEST( test_loop_common(120, 1) );
    }
 
 BOOST_AUTO_TEST_SUITE_END()

@@ -205,7 +205,7 @@ public:
            const auto& accnt = control->db().get<account_object,by_name>( "eosio.token"_n );
            abi_def abi;
            BOOST_CHECK_EQUAL(abi_serializer::to_abi(accnt.abi, abi), true);
-           token_abi_ser.set_abi(std::move(abi), abi_serializer::create_yield_function( abi_serializer_max_time ));
+           token_abi_ser.set_abi(abi, abi_serializer::create_yield_function( abi_serializer_max_time ));
        }
 
        create_currency( "eosio.token"_n, config::system_account_name, core_from_string("10000000000.0000") );
@@ -224,7 +224,7 @@ public:
            const auto& accnt = control->db().get<account_object,by_name>( config::system_account_name );
            abi_def abi;
            BOOST_CHECK_EQUAL(abi_serializer::to_abi(accnt.abi, abi), true);
-           abi_ser.set_abi(std::move(abi), abi_serializer::create_yield_function( abi_serializer_max_time ));
+           abi_ser.set_abi(abi, abi_serializer::create_yield_function( abi_serializer_max_time ));
        }
 
     }

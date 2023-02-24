@@ -45,7 +45,6 @@ controller::config copy_config_and_files(const controller::config& config, int o
    controller::config copied_config = copy_config(config, ordinal);
    fc::create_directories(copied_config.blocks_dir);
    fc::copy(config.blocks_dir / "blocks.log", copied_config.blocks_dir / "blocks.log");
-   fc::copy(config.blocks_dir / "blocks.index", copied_config.blocks_dir / "blocks.index");
    return copied_config;
 }
 
@@ -407,9 +406,8 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(test_compatible_versions, SNAPSHOT_SUITE, snapshot
       }
 
       auto source = chain.get_config().blocks_dir / "blocks.log";
+      auto dest = bfs::path(snapshot_file<snapshot::binary>::base_path) / "blocks.log";
       bfs::copy_file(source, source_log_dir / "blocks.log", bfs::copy_option::overwrite_if_exists);
-      auto source_i = chain.get_config().blocks_dir / "blocks.index";
-      bfs::copy_file(source_i, source_log_dir / "blocks.index", bfs::copy_option::overwrite_if_exists);
       chain.close();
    }
 
@@ -417,7 +415,6 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(test_compatible_versions, SNAPSHOT_SUITE, snapshot
    auto genesis = eosio::chain::block_log::extract_genesis_state(source_log_dir);
    bfs::create_directories(config.blocks_dir);
    bfs::copy(source_log_dir / "blocks.log", config.blocks_dir / "blocks.log");
-   bfs::copy(source_log_dir / "blocks.index", config.blocks_dir / "blocks.index");
    tester base_chain(config, *genesis);
 
    std::string current_version = "v6";
@@ -481,7 +478,6 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(test_pending_schedule_snapshot, SNAPSHOT_SUITE, sn
    auto genesis = eosio::chain::block_log::extract_genesis_state(source_log_dir);
    bfs::create_directories(config.blocks_dir);
    bfs::copy(source_log_dir / "blocks.log", config.blocks_dir / "blocks.log");
-   bfs::copy(source_log_dir / "blocks.index", config.blocks_dir / "blocks.index");
    tester blockslog_chain(config, *genesis);
 
    // consruct a chain by loading the saved snapshot

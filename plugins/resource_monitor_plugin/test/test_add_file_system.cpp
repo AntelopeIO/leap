@@ -1,4 +1,7 @@
-#include <boost/test/unit_test.hpp>
+#define BOOST_TEST_MODULE add_file_system
+#include <boost/test/included/unit_test.hpp>
+
+#include <fc/variant_object.hpp>
 
 #include <eosio/resource_monitor_plugin/file_space_handler.hpp>
 
@@ -8,7 +11,7 @@ using namespace boost::system;
 
 struct add_file_system_fixture {
    struct mock_space_provider {
-      explicit mock_space_provider(add_file_system_fixture& fixture)
+      mock_space_provider(add_file_system_fixture& fixture)
       :fixture(fixture)
       {}
 
@@ -47,7 +50,7 @@ struct add_file_system_fixture {
       mock_get_space = [ i = 0, capacity, available ]( const bfs::path& p, boost::system::error_code& ec) mutable -> bfs::space_info {
          ec = boost::system::errc::make_error_code(errc::success);
 
-         bfs::space_info rc{};
+         bfs::space_info rc;
          rc.capacity  = capacity[i];
          rc.available = available[i];
          i++;
@@ -90,7 +93,7 @@ BOOST_AUTO_TEST_SUITE(space_handler_tests)
    {
       mock_get_space = []( const bfs::path& p, boost::system::error_code& ec) -> bfs::space_info {
          ec = boost::system::errc::make_error_code(errc::no_such_file_or_directory);
-         bfs::space_info rc{};
+         bfs::space_info rc;
          return rc;
       };
 

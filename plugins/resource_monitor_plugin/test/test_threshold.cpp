@@ -1,4 +1,7 @@
-#include <boost/test/unit_test.hpp>
+#define BOOST_TEST_MODULE threshold
+#include <boost/test/included/unit_test.hpp>
+
+#include <fc/variant_object.hpp>
 
 #include <eosio/resource_monitor_plugin/file_space_handler.hpp>
 
@@ -8,7 +11,7 @@ using namespace boost::system;
 
 struct threshold_fixture {
    struct mock_space_provider {
-      explicit mock_space_provider(threshold_fixture& fixture)
+      mock_space_provider(threshold_fixture& fixture)
       :fixture(fixture)
       {}
 
@@ -27,44 +30,33 @@ struct threshold_fixture {
 
    using file_space_handler_t = file_space_handler<mock_space_provider>;
    threshold_fixture()
-   : space_handler(std::make_unique<file_space_handler_t>(mock_space_provider(*this), ctx))
+   : space_handler(mock_space_provider(*this), ctx)
    {
    }
 
    void add_file_system(const bfs::path& path_name) {
-      space_handler->add_file_system(path_name);
+      space_handler.add_file_system(path_name);
    }
 
    void set_threshold(uint32_t threshold, uint32_t warning_threshold) {
-      space_handler->set_threshold(threshold, warning_threshold);
+      space_handler.set_threshold(threshold, warning_threshold);
    }
 
    bool is_threshold_exceeded() {
-      return space_handler->is_threshold_exceeded();
+      return space_handler.is_threshold_exceeded();
    }
 
    void set_shutdown_on_exceeded(bool shutdown_on_exceeded) {
-      space_handler->set_shutdown_on_exceeded(shutdown_on_exceeded);
+      space_handler.set_shutdown_on_exceeded(shutdown_on_exceeded);
    }
 
-   bool test_threshold_common(std::map<bfs::path, uintmax_t>& available, std::map<bfs::path, int>& dev, uint32_t warning_threshold=75) {
-      bool first = test_threshold_common_(available, dev, warning_threshold);
-      space_handler = std::make_unique<file_space_handler_t>(mock_space_provider(*this), ctx);
-
-      test_absolute = true;
-      bool second = test_threshold_common_(available, dev, warning_threshold);
-      BOOST_TEST(first == second);
-      return second;
-   }
-
-   bool test_threshold_common_(std::map<bfs::path, uintmax_t>& available, std::map<bfs::path, int>& dev, uint32_t warning_threshold=75)
+   bool test_threshold_common(std::map<bfs::path, uintmax_t>& available, std::map<bfs::path, int>& dev, uint32_t warning_threshold=75)
    {
-      const uint32_t capacity = 1000000;
       mock_get_space = [available]( const bfs::path& p, boost::system::error_code& ec) mutable -> bfs::space_info {
          ec = boost::system::errc::make_error_code(errc::success);
 
-         bfs::space_info rc{};
-         rc.capacity  = capacity;
+         bfs::space_info rc;
+         rc.capacity  = 1000000;
          rc.available = available[p];
 
          return rc;
@@ -77,11 +69,7 @@ struct threshold_fixture {
          return 0;
       };
 
-      if (test_absolute) {
-         space_handler->set_absolute(.20*capacity, ((100-warning_threshold)/100.0)*capacity);
-      } else {
-         set_threshold(80, warning_threshold);
-      }
+      set_threshold(80, warning_threshold);
       set_shutdown_on_exceeded(true);
 
       for (size_t i = 0; i < available.size(); i++) {
@@ -95,11 +83,10 @@ struct threshold_fixture {
    std::function<bfs::space_info(const bfs::path& p, boost::system::error_code& ec)> mock_get_space;
    std::function<int(const char *path, struct stat *buf)> mock_get_stat;
 
-   std::unique_ptr<file_space_handler_t> space_handler;
-   bool test_absolute = false;
+   file_space_handler_t space_handler;
 };
 
-BOOST_AUTO_TEST_SUITE(threshold_tests)
+BOOST_AUTO_TEST_SUITE(threshol_tests)
    BOOST_FIXTURE_TEST_CASE(equal_to_threshold, threshold_fixture)
    {
       std::map<bfs::path, uintmax_t> availables {{"/test0", 200000}};
@@ -277,7 +264,7 @@ BOOST_AUTO_TEST_SUITE(threshold_tests)
             ec = boost::system::errc::make_error_code(errc::success);
          }
 
-         bfs::space_info rc{};
+         bfs::space_info rc;
          rc.capacity  = 1000000;
          rc.available = 200500;
 

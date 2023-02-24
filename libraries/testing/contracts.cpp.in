@@ -8,7 +8,7 @@
 
 #define MAKE_EMBEDDED_WASM_ABI(CN,C, D)                                                                                                                                       \
 INCBIN(eosio_testing_contract_ ## CN ## _wasm, "${CMAKE_BINARY_DIR}/libraries/testing/" #D "/" #C "/" #C ".wasm");                                                            \
-INCTXT(eosio_testing_contract_ ## CN ## _abi,  "${CMAKE_BINARY_DIR}/libraries/testing/" #D "/" #C "/" #C ".abi");                                                             \
+INCBIN(eosio_testing_contract_ ## CN ## _abi,  "${CMAKE_BINARY_DIR}/libraries/testing/" #D "/" #C "/" #C ".abi");                                                             \
                                                                                                                                                                               \
 namespace eosio::testing {                                                                                                                                                    \
    std::vector<std::uint8_t> contracts:: CN ## _wasm() {                                                                                                                      \
