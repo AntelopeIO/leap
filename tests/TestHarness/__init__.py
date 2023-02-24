@@ -1,4 +1,4 @@
-__all__ = ['Node', 'Cluster', 'WalletMgr', 'logging', 'testUtils', 'TestHelper', 'queries', 'transactions', 'TransactionGeneratorsLauncher', 'TpsTrxGensConfig']
+__all__ = ['Node', 'Cluster', 'WalletMgr', 'logging', 'depresolver', 'testUtils', 'TestHelper', 'queries', 'transactions', 'TransactionGeneratorsLauncher', 'TpsTrxGensConfig']
 
 from .Cluster import Cluster
 from .Node import Node
