@@ -55,6 +55,7 @@ Requirements to build:
 - git
 - GMP
 - Python 3
+- python3-numpy
 - zlib
 
 ### Step 1 - Clone

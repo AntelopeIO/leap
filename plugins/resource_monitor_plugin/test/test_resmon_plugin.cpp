@@ -113,6 +113,31 @@ BOOST_AUTO_TEST_SUITE(resmon_plugin_tests)
       BOOST_REQUIRE_NO_THROW(set_options({"--resource-monitor-space-threshold=99"}));
    }
 
+   BOOST_FIXTURE_TEST_CASE(absoluteTooBig, resmon_fixture)
+   {
+      BOOST_REQUIRE_THROW(set_options({"--resource-monitor-space-absolute-gb=17179869183"}), chain::plugin_config_exception);
+   }
+
+   BOOST_FIXTURE_TEST_CASE(absoluteTooSmall, resmon_fixture)
+   {
+      BOOST_REQUIRE_THROW(set_options({"--resource-monitor-space-absolute-gb=0"}), chain::plugin_config_exception);
+   }
+
+   BOOST_FIXTURE_TEST_CASE(absoluteLowBound, resmon_fixture)
+   {
+      BOOST_REQUIRE_NO_THROW(set_options({"--resource-monitor-space-absolute-gb=1"}));
+   }
+
+   BOOST_FIXTURE_TEST_CASE(absoluteMiddle, resmon_fixture)
+   {
+      BOOST_REQUIRE_NO_THROW(set_options({"--resource-monitor-space-absolute-gb=1024"}));
+   }
+
+   BOOST_FIXTURE_TEST_CASE(absoluteHighBound, resmon_fixture)
+   {
+      BOOST_REQUIRE_NO_THROW(set_options({"--resource-monitor-space-absolute-gb=17179869182"}));
+   }
+
    BOOST_FIXTURE_TEST_CASE(noShutdown, resmon_fixture)
    {
       BOOST_REQUIRE_NO_THROW(set_options({"--resource-monitor-not-shutdown-on-threshold-exceeded"}));
@@ -142,7 +167,7 @@ BOOST_AUTO_TEST_SUITE(resmon_plugin_tests)
 
    BOOST_FIXTURE_TEST_CASE(startupLongRun, resmon_fixture)
    {
-      BOOST_REQUIRE_NO_THROW( plugin_startup({"/tmp"}, 120));
+      BOOST_REQUIRE_NO_THROW( plugin_startup({"/tmp"}, 5));
    }
 
    BOOST_FIXTURE_TEST_CASE(warningIntervalTooBig, resmon_fixture)

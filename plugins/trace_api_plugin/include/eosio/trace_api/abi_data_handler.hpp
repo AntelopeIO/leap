@@ -28,7 +28,7 @@ namespace eosio {
        * @param name - the name of the account/contract that this ABI belongs to
        * @param abi - the ABI definition of that ABI
        */
-      void add_abi( const chain::name& name, const chain::abi_def& abi );
+      void add_abi( const chain::name& name, chain::abi_def&& abi );
 
       /**
        * Given an action trace, produce a tuple representing the `data` and `return_value` fields in the trace
