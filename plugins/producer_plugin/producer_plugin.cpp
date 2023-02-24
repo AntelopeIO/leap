@@ -1124,7 +1124,8 @@ void producer_plugin::plugin_startup()
          ++i;
       }
       EOS_ASSERT( read_only_thread_ids.size() == my->_read_only_thread_pool_size, producer_exception, "number of read-only thread IDs ${ids} not equal to number of threads ${threads} after ${i} milliseconds. threads might not be ready", ("ids", read_only_thread_ids.size()) ("threads", my->_read_only_thread_pool_size) ("i", i) );
-      chain.setup_thread_local_data( read_only_thread_ids ); // set up thread specific data
+      for ( auto& id: read_only_thread_ids )
+         chain.init_wasmif_for_thread( id ); // set up thread specific data
 
       my->start_write_window();
    }
