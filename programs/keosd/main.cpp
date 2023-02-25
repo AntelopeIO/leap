@@ -93,6 +93,7 @@ int main(int argc, char** argv)
              opts.count("print-default-config")) {
             return 0;
          }
+         return EXIT_FAILURE;
       }
       initialize_logging();
       auto& http = app->get_plugin<http_plugin>();
