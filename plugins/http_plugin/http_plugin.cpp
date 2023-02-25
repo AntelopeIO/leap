@@ -271,6 +271,7 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
 
    void http_plugin::plugin_initialize(const variables_map& options) {
       try {
+         handle_sighup(); // setup logging
          my->plugin_state->max_body_size = options.at( "max-body-size" ).as<uint32_t>();
          verbose_http_errors = options.at( "verbose-http-errors" ).as<bool>();
 
@@ -369,7 +370,6 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
 
    void http_plugin::plugin_startup() {
 
-      handle_sighup(); // setup logging
       app().post(appbase::priority::high, [this] ()
       {
          try {
