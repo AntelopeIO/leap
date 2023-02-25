@@ -71,6 +71,17 @@ bfs::path determine_home_directory()
    return home;
 }
 
+enum return_codes {
+   OTHER_FAIL        = -2,
+   INITIALIZE_FAIL   = -1,
+   SUCCESS           = 0,
+   BAD_ALLOC         = 1,
+   DATABASE_DIRTY    = 2,
+   FIXED_REVERSIBLE  = SUCCESS,
+   EXTRACTED_GENESIS = SUCCESS,
+   NODE_MANAGEMENT_SUCCESS = 5
+};
+
 int main(int argc, char** argv)
 {
    try {
@@ -93,7 +104,7 @@ int main(int argc, char** argv)
              opts.count("print-default-config")) {
             return 0;
          }
-         return EXIT_FAILURE;
+         return INITIALIZE_FAIL;
       }
       initialize_logging();
       auto& http = app->get_plugin<http_plugin>();
