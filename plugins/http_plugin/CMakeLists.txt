@@ -4,4 +4,4 @@ add_library( http_plugin
              ${HEADERS} )
 
 target_link_libraries( http_plugin eosio_chain appbase fc )
-target_include_directories( http_plugin PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" "${CMAKE_CURRENT_SOURCE_DIR}/../custom_appbase/include" )
+target_include_directories( http_plugin PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" "${CMAKE_CURRENT_SOURCE_DIR}/../../libraries/custom_appbase/include" )

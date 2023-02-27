@@ -7,6 +7,7 @@ set(BN256_INSTALL_COMPONENT "dev")
 
 add_subdirectory( libfc )
 add_subdirectory( builtins )
+add_subdirectory( custom_appbase )
 add_subdirectory( softfloat )
 add_subdirectory( wasm-jit )
 add_subdirectory( chainbase )
