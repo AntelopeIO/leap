@@ -355,6 +355,7 @@ def abi_file_with_nodeos_test():
         node = Node('localhost', 8888, nodeId, cmd="./programs/nodeos/nodeos -e -p eosio --plugin eosio::trace_api_plugin --trace-no-abis --plugin eosio::producer_plugin --plugin eosio::producer_api_plugin --plugin eosio::chain_api_plugin --plugin eosio::chain_plugin --plugin eosio::http_plugin --access-control-allow-origin=* --http-validate-host=false --resource-monitor-not-shutdown-on-threshold-exceeded " + "--data-dir " + data_dir + " --config-dir " + data_dir, walletMgr=walletMgr)
         node.verifyAlive() # Setting node state to not alive
         node.relaunch(newChain=True, cachePopen=True)
+        node.waitForBlock(1)
         accountNames = ["eosio", "eosio.token", "alice", "bob"]
         accounts = []
         for name in accountNames:
