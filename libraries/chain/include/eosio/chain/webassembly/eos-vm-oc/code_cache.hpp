@@ -15,6 +15,7 @@
 
 
 #include <thread>
+#include <shared_mutex>
 
 namespace std {
     template<> struct hash<eosio::chain::eosvmoc::code_tuple> {
@@ -95,6 +96,7 @@ class code_cache_async : public code_cache_base {
       //If code is not in cache, and not blacklisted, and not currently compiling: return nullptr and kick off compile
       //otherwise: return nullptr
       const code_descriptor* const get_descriptor_for_code(const digest_type& code_id, const uint8_t& vm_version);
+      std::shared_mutex get_descriptor_async_mutex;
 
    private:
       std::thread _monitor_reply_thread;
@@ -112,6 +114,7 @@ class code_cache_sync : public code_cache_base {
 
       //Can still fail and return nullptr if, for example, there is an expected instantiation failure
       const code_descriptor* const get_descriptor_for_code_sync(const digest_type& code_id, const uint8_t& vm_version);
+      std::shared_mutex get_descriptor_sync_mutex;
 };
 
 }}}

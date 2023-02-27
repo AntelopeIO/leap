@@ -373,7 +373,7 @@ namespace eosio { namespace chain {
 
       void set_db_read_only_mode();
       void unset_db_read_only_mode();
-      void init_wasmif_for_thread(const boost::thread::id& id);
+      void init_thread_local_data();
 
       private:
          friend class apply_context;

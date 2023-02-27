@@ -34,9 +34,18 @@
 namespace eosio { namespace chain {
 
    wasm_interface::wasm_interface(vm_type vm, bool eosvmoc_tierup, const chainbase::database& d, const boost::filesystem::path data_dir, const eosvmoc::config& eosvmoc_config, bool profile)
-     : my( new wasm_interface_impl(vm, eosvmoc_tierup, d, data_dir, eosvmoc_config, profile) ) {}
+     : my( new wasm_interface_impl(vm, eosvmoc_tierup, d, data_dir, eosvmoc_config, profile) ), vm( vm ) {}
 
    wasm_interface::~wasm_interface() {}
+
+#ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
+   void wasm_interface::init_thread_local_data() {
+      if (my->eosvmoc)
+         my->eosvmoc->init_thread_local_data();
+      else if (vm == wasm_interface::vm_type::eos_vm_oc && my->runtime_interface)
+         my->runtime_interface->init_thread_local_data();
+   }
+#endif
 
    void wasm_interface::validate(const controller& control, const bytes& code) {
       const auto& pso = control.db().get<protocol_state_object>();
@@ -96,7 +105,7 @@ namespace eosio { namespace chain {
             once_is_enough = true;
          }
          if(cd) {
-            my->eosvmoc->exec.execute(*cd, my->eosvmoc->mem, context);
+            my->eosvmoc->exec->execute(*cd, my->eosvmoc->mem, context);
             return;
          }
       }
@@ -114,6 +123,9 @@ namespace eosio { namespace chain {
 
    wasm_instantiated_module_interface::~wasm_instantiated_module_interface() {}
    wasm_runtime_interface::~wasm_runtime_interface() {}
+
+   thread_local std::unique_ptr<eosvmoc::executor> wasm_interface_impl::eosvmoc_tier::exec {};
+   thread_local eosvmoc::memory wasm_interface_impl::eosvmoc_tier::mem{ wasm_constraints::maximum_linear_memory/wasm_constraints::wasm_page_size };
 
 std::istream& operator>>(std::istream& in, wasm_interface::vm_type& runtime) {
    std::string s;

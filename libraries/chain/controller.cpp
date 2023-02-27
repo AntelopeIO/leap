@@ -238,18 +238,22 @@ struct controller_impl {
    uint32_t                        snapshot_head_block = 0;
    struct chain; // chain is a namespace so use an embedded type for the named_thread_pool tag
    named_thread_pool<chain>        thread_pool;
-   thread_local static platform_timer timer;
    deep_mind_handler*              deep_mind_logger = nullptr;
    bool                            okay_to_print_integrity_hash_on_stop = false;
+
+   // multi-threading support
+   thread_local static platform_timer timer;
 #if defined(EOSIO_EOS_VM_RUNTIME_ENABLED) || defined(EOSIO_EOS_VM_JIT_RUNTIME_ENABLED)
    thread_local static vm::wasm_allocator wasm_alloc;
 #endif
+   // eos-vm-oc requires one wasmif for all the threads, eos-vm and eos-vm-jit requires one wasmif per thread
+   std::unique_ptr<wasm_interface> wasmif_eosvmoc;
+   thread_local static std::unique_ptr<wasm_interface> wasmif_non_eosvmoc;
 
    typedef pair<scope_name,action_name>                   handler_key;
    map< account_name, map<handler_key, apply_handler> >   apply_handlers;
    unordered_map< builtin_protocol_feature_t, std::function<void(controller_impl&)>, enum_hash<builtin_protocol_feature_t> > protocol_feature_activation_handlers;
 
-   std::map<boost::thread::id, std::unique_ptr<wasm_interface>> wasmifs;
 
    void pop_block() {
       auto prev = fork_db.get_block( head->header.previous );
@@ -317,7 +321,12 @@ struct controller_impl {
       } );
 
       // set thread local data for app thread
-      init_wasmif_for_thread(boost::this_thread::get_id());
+      if ( conf.eosvmoc_tierup || conf.wasm_runtime == wasm_interface::vm_type::eos_vm_oc )
+         // eosvmoc can only have one wasmif
+         wasmif_eosvmoc = std::make_unique<wasm_interface>( conf.wasm_runtime, conf.eosvmoc_tierup, db, conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty());
+      else
+         // non-eosvmoc requires seperate wasmif per thread
+         init_thread_local_data();
 
       set_activation_handler<builtin_protocol_feature_t::preactivate_feature>();
       set_activation_handler<builtin_protocol_feature_t::replace_deferred>();
@@ -2679,14 +2688,22 @@ struct controller_impl {
       return (blog.first_block_num() != 0) ? blog.first_block_num() : fork_db.root()->block_num;
    }
 
-   void init_wasmif_for_thread(const boost::thread::id& id) {
-      wasmifs.emplace(id, std::make_unique<wasm_interface>( conf.wasm_runtime, conf.eosvmoc_tierup, db, conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty()) );
+   void init_thread_local_data() {
+      if ( conf.eosvmoc_tierup ||  conf.wasm_runtime == wasm_interface::vm_type::eos_vm_oc ) {
+         // EOSVMOC can only have one wasmif. Initialize thread local data
+         wasmif_eosvmoc->init_thread_local_data();
+      } else {
+         // Non-EOSVMOC has a wasmif per thread
+         wasmif_non_eosvmoc = std::make_unique<wasm_interface>( conf.wasm_runtime, conf.eosvmoc_tierup, db, conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty());
+      }
    }
 
    wasm_interface& wasmif_thread_local() {
-      auto id = boost::this_thread::get_id();
-      EOS_ASSERT( wasmifs.find(id) != wasmifs.end(), misc_exception, "no thread data exists for current thread");
-      return *wasmifs[id];
+      if ( conf.eosvmoc_tierup || conf.wasm_runtime == wasm_interface::vm_type::eos_vm_oc ) {
+         return *wasmif_eosvmoc;
+      } else {
+         return *wasmif_non_eosvmoc;
+      }
    }
 }; /// controller_impl
 
@@ -2694,6 +2711,7 @@ thread_local platform_timer controller_impl::timer;
 #if defined(EOSIO_EOS_VM_RUNTIME_ENABLED) || defined(EOSIO_EOS_VM_JIT_RUNTIME_ENABLED)
 thread_local eosio::vm::wasm_allocator controller_impl::wasm_alloc;
 #endif
+thread_local std::unique_ptr<wasm_interface> controller_impl::wasmif_non_eosvmoc;
 
 const resource_limits_manager&   controller::get_resource_limits_manager()const
 {
@@ -3663,9 +3681,10 @@ void controller::unset_db_read_only_mode() {
    mutable_db().unset_read_only_mode();
 }
 
-void controller::init_wasmif_for_thread(const boost::thread::id& id) {
-   my->init_wasmif_for_thread(id);
+void controller::init_thread_local_data() {
+   my->init_thread_local_data();
 }
+
 /// Protocol feature activation handlers:
 
 template<>

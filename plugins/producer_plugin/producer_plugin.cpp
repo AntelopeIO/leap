@@ -1075,12 +1075,6 @@ void producer_plugin::plugin_startup()
       app().quit();
    } );
 
-   if ( my->_read_only_thread_pool_size > 0 ) {
-      my->_read_only_thread_pool.start( my->_read_only_thread_pool_size, []( const fc::exception& e ) {
-         fc_elog( _log, "Exception in read-only transaction thread pool, exiting: ${e}", ("e", e.to_detail_string()) );
-         app().quit();
-      } );
-   }
 
    chain::controller& chain = my->chain_plug->chain();
    EOS_ASSERT( my->_producers.empty() || chain.get_read_mode() != chain::db_read_mode::IRREVERSIBLE, plugin_config_exception,
@@ -1115,17 +1109,14 @@ void producer_plugin::plugin_startup()
    }
 
    if ( my->_read_only_thread_pool_size > 0 ) {
-      auto read_only_thread_ids = my->_read_only_thread_pool.thread_ids();
-      auto i = 0;
-      while ( i < 200 && read_only_thread_ids.size() != my->_read_only_thread_pool_size ) {
-         // hardcodied here. 200 milliseconds more than enough in any machine to start the threads
-         std::this_thread::sleep_for(std::chrono::milliseconds(1));
-         read_only_thread_ids = my->_read_only_thread_pool.thread_ids();
-         ++i;
-      }
-      EOS_ASSERT( read_only_thread_ids.size() == my->_read_only_thread_pool_size, producer_exception, "number of read-only thread IDs ${ids} not equal to number of threads ${threads} after ${i} milliseconds. threads might not be ready", ("ids", read_only_thread_ids.size()) ("threads", my->_read_only_thread_pool_size) ("i", i) );
-      for ( auto& id: read_only_thread_ids )
-         chain.init_wasmif_for_thread( id ); // set up thread specific data
+      my->_read_only_thread_pool.start( my->_read_only_thread_pool_size,
+         []( const fc::exception& e ) {
+            fc_elog( _log, "Exception in read-only transaction thread pool, exiting: ${e}", ("e", e.to_detail_string()) );
+            app().quit();
+         },
+         [&]() {
+            chain.init_thread_local_data();
+         });
 
       my->start_write_window();
    }
@@ -2678,9 +2669,6 @@ void producer_plugin_impl::switch_to_read_window() {
    app().executor().set_exec_window_to_read_only();
    chain_plug->chain().set_db_read_only_mode();
    _tasks_fut.clear();
-
-   auto expire_time = boost::posix_time::microseconds(_read_only_ro_window_time_us);
-   // expires_from_now will cancel any pending async waits
 
    _read_window_timer.async_wait( app().executor().wrap( priority::medium,
        [weak_this = weak_from_this()]( const boost::system::error_code& ec ) {

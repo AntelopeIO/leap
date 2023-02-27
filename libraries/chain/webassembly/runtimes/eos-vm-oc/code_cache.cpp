@@ -107,6 +107,8 @@ std::tuple<size_t, size_t> code_cache_async::consume_compile_thread_queue() {
 }
 
 const code_descriptor* const code_cache_async::get_descriptor_for_code(const digest_type& code_id, const uint8_t& vm_version) {
+   std::lock_guard<std::shared_mutex> g(get_descriptor_async_mutex);
+
    //if there are any outstanding compiles, process the result queue now
    if(_outstanding_compiles_and_poison.size()) {
       auto [count_processed, bytes_remaining] = consume_compile_thread_queue();
@@ -175,6 +177,8 @@ code_cache_sync::~code_cache_sync() {
 }
 
 const code_descriptor* const code_cache_sync::get_descriptor_for_code_sync(const digest_type& code_id, const uint8_t& vm_version) {
+   std::lock_guard<std::shared_mutex> g(get_descriptor_sync_mutex);
+
    //check for entry in cache
    code_cache_index::index<by_hash>::type::iterator it = _cache_index.get<by_hash>().find(boost::make_tuple(code_id, vm_version));
    if(it != _cache_index.get<by_hash>().end()) {

@@ -22,7 +22,8 @@ errorExit=Utils.errorExit
 
 appArgs=AppArgs()
 appArgs.add(flag="--read-only-threads", type=int, help="number of read-only threads", default=0)
-appArgs.add_bool(flag="--eos-vm-oc-enable", help="enale eos-vm-oc")
+appArgs.add_bool(flag="--eos-vm-oc-enable", help="enable eos-vm-oc")
+appArgs.add(flag="--wasm-runtime", type=str, help="if set to eos-vm-oc, must compile with EOSIO_EOS_VM_OC_DEVELOPER", default="eos-vm-jit")
 
 args=TestHelper.parse_args({"-p","-n","-d","-s","--nodes-file","--seed"
                             ,"--dump-error-details","-v","--leave-running"
@@ -86,7 +87,10 @@ try:
         specificExtraNodeosArgs[pnodes]+=" --read-only-threads "
         specificExtraNodeosArgs[pnodes]+=str(args.read_only_threads)
     if args.eos_vm_oc_enable:
-        specificExtraNodeosArgs[pnodes]+="eos-vm-oc-enable"
+        specificExtraNodeosArgs[pnodes]+=" --eos-vm-oc-enable"
+    if args.wasm_runtime:
+        specificExtraNodeosArgs[pnodes]+=" --wasm-runtime "
+        specificExtraNodeosArgs[pnodes]+=args.wasm_runtime
     extraNodeosArgs=" --http-max-response-time-ms 990000 --disable-subjective-api-billing false "
     if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, topo=topo, delay=delay, specificExtraNodeosArgs=specificExtraNodeosArgs, extraNodeosArgs=extraNodeosArgs ) is False:
         errorExit("Failed to stand up eos cluster.")
@@ -110,7 +114,7 @@ try:
     userAccount = Account(userAccountName)
     userAccount.ownerPublicKey = EOSIO_ACCT_PUBLIC_DEFAULT_KEY
     userAccount.activePublicKey = EOSIO_ACCT_PUBLIC_DEFAULT_KEY
-    cluster.createAccountAndVerify(userAccount, cluster.eosioAccount)
+    cluster.createAccountAndVerify(userAccount, cluster.eosioAccount, stakeCPU=1000)
 
     noAuthTableContractDir="unittests/test-contracts/no_auth_table"
     noAuthTableWasmFile="no_auth_table.wasm"
