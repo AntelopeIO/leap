@@ -1245,6 +1245,8 @@ namespace eosio { namespace chain {
             std::rethrow_exception(e.inner);
          }
       // clang-format off
+      } catch (const fc::exception& e) {
+         error_msg = e.what();
       } catch (const std::exception& e) {
          error_msg = e.what();
       } catch (...) {
