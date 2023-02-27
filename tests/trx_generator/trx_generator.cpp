@@ -33,7 +33,7 @@ namespace eosio::testing {
          trx.actions.emplace_back(std::move(act));
       }
       trx.context_free_actions.emplace_back(action({}, config::null_account_name, name("nonce"),
-         fc::raw::pack(std::to_string(nonce_prefix) + ":" + std::to_string(++nonce) + ":" +
+         fc::raw::pack(std::to_string(_generator_id) + ":" + std::to_string(nonce_prefix) + ":" + std::to_string(++nonce) + ":" +
          fc::time_point::now().time_since_epoch().count())));
 
       trx.sign(priv_key, chain_id);
