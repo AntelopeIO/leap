@@ -390,6 +390,8 @@ class PerformanceTestBasic:
         # Get stats after transaction generation stops
         trxSent = {}
         log_reader.scrapeTrxGenTrxSentDataLogs(trxSent, self.trxGenLogDirPath, self.ptbConfig.quiet)
+        if len(trxSent) != self.ptbConfig.expectedTransactionsSent:
+            print(f"ERROR: Transactions generated: {len(trxSent)} does not match the expected number of transactions: {self.ptbConfig.expectedTransactionsSent}")
         blocksToWait = 2 * self.ptbConfig.testTrxGenDurationSec + 10
         trxSent = self.validationNode.waitForTransactionsInBlockRange(trxSent, self.data.startBlock, blocksToWait)
         self.data.ceaseBlock = self.validationNode.getHeadBlockNum()
