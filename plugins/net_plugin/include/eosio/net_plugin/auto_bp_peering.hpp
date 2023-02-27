@@ -46,7 +46,7 @@ class connection_manager {
       const flat_map<account_name, std::string>&    bp_peer_addresses;
       const flat_set<account_name>&                 my_accounts;
       const std::vector<chain::producer_authority>& schedule;
-      chain::flat_set<std::size_t>                  indeces;
+      chain::flat_set<std::size_t>                  indices;
     public:
       neighbor_finder_type(const flat_map<account_name, std::string>&    bp_peer_addresses,
                            const flat_set<account_name>&                 my_accounts,
@@ -56,14 +56,14 @@ class connection_manager {
             auto itr = std::find_if(schedule.begin(), schedule.end(),
                                     [account](auto& e) { return e.producer_name == account; });
             if (itr != schedule.end())
-               indeces.insert(itr - schedule.begin());
+               indices.insert(itr - schedule.begin());
          }
       }
 
       void add_neighbors_with_distance(chain::flat_set<account_name>& result, int distance) const {
-         for (auto schedule_index : indeces) {
+         for (auto schedule_index : indices) {
             auto i = (schedule_index + distance) % schedule.size();
-            if (!indeces.count(i)) {
+            if (!indices.count(i)) {
                auto name = schedule[i].producer_name;
                if (bp_peer_addresses.count(name))
                   result.insert(name);
