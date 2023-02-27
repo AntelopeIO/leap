@@ -25,6 +25,7 @@ namespace eosio { namespace chain {
    class named_thread_pool {
    public:
       using on_except_t = std::function<void(const fc::exception& e)>;
+      using init_t = std::function<void()>;
 
       named_thread_pool() = default;
 
@@ -40,13 +41,24 @@ namespace eosio { namespace chain {
       /// @param on_except is the function to call if io_context throws an exception, is called from thread pool thread.
       ///                  if an empty function then logs and rethrows exception on thread which will terminate.
       /// @throw assert_exception if already started and not stopped.
-      void start( size_t num_threads, on_except_t on_except ) {
+      void start( size_t num_threads, on_except_t on_except) {
+         start(num_threads, on_except, [](){});
+      }
+
+      /// Spawn threads, can be re-started after stop().
+      /// Assumes start()/stop() called from the same thread or externally protected.
+      /// @param num_threads is number of threads spawned
+      /// @param on_except is the function to call if io_context throws an exception, is called from thread pool thread.
+      ///                  if an empty function then logs and rethrows exception on thread which will terminate.
+      /// @param init is an optional function to call at startup to initialize any data.
+      /// @throw assert_exception if already started and not stopped.
+      void start( size_t num_threads, on_except_t on_except, init_t init ) {
          FC_ASSERT( !_ioc_work, "Thread pool already started" );
          _ioc_work.emplace( boost::asio::make_work_guard( _ioc ) );
          _ioc.restart();
          _thread_pool.reserve( num_threads );
          for( size_t i = 0; i < num_threads; ++i ) {
-            _thread_pool.emplace_back( std::thread( &named_thread_pool::run_thread, this, i, on_except )  );
+            _thread_pool.emplace_back( std::thread( &named_thread_pool::run_thread, this, i, on_except, init )  );
          }
       }
 
@@ -61,7 +73,7 @@ namespace eosio { namespace chain {
       }
 
    private:
-      void run_thread( size_t i, const on_except_t& on_except ) {
+      void run_thread( size_t i, const on_except_t& on_except, const init_t& init ) {
          std::string tn = boost::core::demangle(typeid(this).name());
          auto offset = tn.rfind("::");
          if (offset != std::string::npos)
@@ -69,6 +81,8 @@ namespace eosio { namespace chain {
          tn = tn.substr(0, tn.find('>')) + "-" + std::to_string( i );
          try {
             fc::set_os_thread_name( tn );
+            if ( init )
+               init();
             _ioc.run();
          } catch( const fc::exception& e ) {
             if( on_except ) {
