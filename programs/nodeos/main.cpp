@@ -75,7 +75,7 @@ void logging_conf_handler()
       ilog( "Received HUP.  No log config found at ${p}, setting to default.", ("p", config_path.string()) );
    }
    ::detail::configure_logging( config_path );
-   fc::log_config::initialize_appenders( app().get_io_service() );
+   fc::log_config::initialize_appenders();
 }
 
 void initialize_logging()
@@ -89,7 +89,7 @@ void initialize_logging()
       fc::configure_logging( ::detail::add_deep_mind_logger(cfg) );
    }
 
-   fc::log_config::initialize_appenders( app().get_io_service() );
+   fc::log_config::initialize_appenders();
 
    app().set_sighup_callback(logging_conf_handler);
 }

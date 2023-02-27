@@ -8,6 +8,7 @@
 #include <fc/io/json.hpp>
 #include <fc/crypto/city.hpp>
 #include <fc/compress/zlib.hpp>
+#include <fc/log/logger_config.hpp>
 
 #include <boost/lexical_cast.hpp>
 #include <iomanip>
@@ -42,9 +43,13 @@ namespace fc
   class gelf_appender::impl
   {
   public:
+    using work_guard_t = boost::asio::executor_work_guard<boost::asio::io_context::executor_type>;
     config                                         cfg;
     std::optional<boost::asio::ip::udp::endpoint>  gelf_endpoint;
+    boost::asio::io_context                        io_context;
+    work_guard_t work_guard =                      boost::asio::make_work_guard(io_context);
     udp_socket                                     gelf_socket;
+    std::thread                                    thread;
 
     impl(const variant& c)
     {
@@ -73,6 +78,10 @@ namespace fc
 
     ~impl()
     {
+       if (thread.joinable()) {
+          work_guard.reset();
+          thread.join();
+       }
     }
   };
 
@@ -81,7 +90,7 @@ namespace fc
   {
   }
 
-  void gelf_appender::initialize(boost::asio::io_service &io_service)
+  void gelf_appender::initialize()
   {
     try
     {
@@ -100,14 +109,18 @@ namespace fc
         string::size_type colon_pos = my->cfg.endpoint.find(':');
         try
         {
-          uint16_t port = boost::lexical_cast<uint16_t>(my->cfg.endpoint.substr(colon_pos + 1, my->cfg.endpoint.size()));
+          string port = my->cfg.endpoint.substr(colon_pos + 1, my->cfg.endpoint.size());
 
           string hostname = my->cfg.endpoint.substr( 0, colon_pos );
-          auto endpoints = resolve(io_service, hostname, port);
+
+          boost::asio::ip::udp::resolver resolver{ my->io_context };
+          auto endpoints = resolver.resolve(hostname, port);
+
           if (endpoints.empty())
               FC_THROW_EXCEPTION(unknown_host_exception, "The logging destination host name can not be resolved: ${hostname}",
                                  ("hostname", hostname));
-          my->gelf_endpoint = endpoints.back();
+
+          my->gelf_endpoint = *endpoints.begin();
         }
         catch (const boost::bad_lexical_cast&)
         {
@@ -117,9 +130,17 @@ namespace fc
 
       if (my->gelf_endpoint)
       {
-        my->gelf_socket.initialize(io_service);
+        my->gelf_socket.initialize(my->io_context);
         my->gelf_socket.open();
         std::cerr << "opened GELF socket to endpoint " << my->cfg.endpoint << "\n";
+
+        my->thread = std::thread([this] {
+           try {
+              fc::set_os_thread_name("gelf_appender");
+              my->io_context.run();
+           } catch (...) {
+           }
+        });
       }
     }
     catch (...)
@@ -131,11 +152,8 @@ namespace fc
   gelf_appender::~gelf_appender()
   {}
 
-  void gelf_appender::log(const log_message& message)
+  void do_log(gelf_appender::impl* my, uint64_t time_ns, const log_message& message)
   {
-    if (!my->gelf_endpoint)
-      return;
-
     log_context context = message.get_context();
 
     mutable_variant_object gelf_message;
@@ -144,7 +162,7 @@ namespace fc
     gelf_message["short_message"] = format_string(message.get_format(), message.get_data(), true);
 
     // use now() instead of context.get_timestamp() because log_message construction can include user provided long running calls
-    const auto time_ns = time_point::now().time_since_epoch().count();
+    //const auto time_ns = time_point::now().time_since_epoch().count();
     gelf_message["timestamp"] = time_ns / 1000000.;
     gelf_message["_timestamp_ns"] = time_ns;
 
@@ -247,5 +265,13 @@ namespace fc
       }
       FC_ASSERT(number_of_packets_sent == total_number_of_packets);
     }
+  }
+
+  void gelf_appender::log(const log_message& message) {
+     if (!my->gelf_endpoint)
+        return;
+     boost::asio::post(my->io_context, [impl = my, time_ns = time_point::now().time_since_epoch().count(), message] () {
+        do_log(impl.get(), time_ns, message);
+     });
   }
 } // fc

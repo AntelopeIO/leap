@@ -20,7 +20,7 @@ namespace fc {
             explicit dmlog_appender( const std::optional<config>& args) ;
 
             virtual ~dmlog_appender();
-            virtual void initialize( boost::asio::io_service& io_service ) override;
+            virtual void initialize() override;
 
             virtual void log( const log_message& m ) override;
 
