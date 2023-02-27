@@ -90,6 +90,7 @@ class PerformanceTestBasic:
         nodeosVers: str = ""
         specificExtraNodeosArgs: dict = field(default_factory=dict)
         _totalNodes: int = 2
+        nonprodsEnableEosVmOcEnable: bool = False
 
         def log_transactions(self, trxDataFile, block):
             for trx in block['payload']['transactions']:
@@ -101,6 +102,8 @@ class PerformanceTestBasic:
             self._totalNodes = self.pnodes + 1 if self.totalNodes <= self.pnodes else self.totalNodes
             if not self.prodsEnableTraceApi:
                 self.specificExtraNodeosArgs.update({f"{node}" : "--plugin eosio::trace_api_plugin" for node in range(self.pnodes, self._totalNodes)})
+            if self.nonprodsEnableEosVmOcEnable:
+                self.specificExtraNodeosArgs.update({f"{node}" : "--eos-vm-oc-enable" for node in range(self.pnodes, self._totalNodes)})
             assert self.nodeosVers != "v1" and self.nodeosVers != "v0", f"nodeos version {Utils.getNodeosVersion().split('.')[0]} is unsupported by performance test"
             if self.nodeosVers == "v2":
                 self.fetchBlock = lambda node, blockNum: node.processUrllibRequest("chain", "get_block", {"block_num_or_id":blockNum}, silentErrors=False, exitOnError=True)
@@ -548,7 +551,7 @@ class PtbArgumentsHandler(object):
         ptbBaseParserGroup.add_argument("--del-report", help="Whether to delete overarching performance run report.", action='store_true')
         ptbBaseParserGroup.add_argument("--quiet", help="Whether to quiet printing intermediate results and reports to stdout", action='store_true')
         ptbBaseParserGroup.add_argument("--prods-enable-trace-api", help="Determines whether producer nodes should have eosio::trace_api_plugin enabled", action='store_true')
-        ptbBaseParserGroup.add_argument("--print-missing-transactions", type=bool, help="Toggles if missing transactions are be printed upon test completion.", default=False)
+        ptbBaseParserGroup.add_argument("--print-missing-transactions", help="Toggles if missing transactions are be printed upon test completion.", action='store_true')
         ptbBaseParserGroup.add_argument("--account-name", type=str, help="Name of the account to create and assign a contract to", default="eosio")
         ptbBaseParserGroup.add_argument("--contract-dir", type=str, help="Path to contract dir", default="unittests/contracts/eosio.system")
         ptbBaseParserGroup.add_argument("--wasm-file", type=str, help="WASM file name for contract", default="eosio.system.wasm")
@@ -556,11 +559,11 @@ class PtbArgumentsHandler(object):
         ptbBaseParserGroup.add_argument("--wasm-runtime", type=str, help="Override default WASM runtime (\"eos-vm-jit\", \"eos-vm\")\
                                          \"eos-vm-jit\" : A WebAssembly runtime that compiles WebAssembly code to native x86 code prior to\
                                          execution. \"eos-vm\" : A WebAssembly interpreter.",
-                                         choices=["eos-vm-jit", "eos-vm", "eos-vm-jit"], default="eos-vm-jit")
-        ptbBaseParserGroup.add_argument("--contracts-console", type=bool, help="print contract's output to console", default=False)
+                                         choices=["eos-vm-jit", "eos-vm"], default="eos-vm-jit")
+        ptbBaseParserGroup.add_argument("--contracts-console", help="print contract's output to console", action='store_true')
         ptbBaseParserGroup.add_argument("--eos-vm-oc-cache-size-mb", type=int, help="Maximum size (in MiB) of the EOS VM OC code cache", default=1024)
         ptbBaseParserGroup.add_argument("--eos-vm-oc-compile-threads", type=int, help="Number of threads to use for EOS VM OC tier-up", default=1)
-        ptbBaseParserGroup.add_argument("--eos-vm-oc-enable", type=bool, help="Enable EOS VM OC tier-up runtime", default=False)
+        ptbBaseParserGroup.add_argument("--eos-vm-oc-enable", help="Enable EOS VM OC tier-up runtime", action='store_true')
         ptbBaseParserGroup.add_argument("--block-log-retain-blocks", type=int, help="If set to greater than 0, periodically prune the block log to\
                                          store only configured number of most recent blocks. If set to 0, no blocks are be written to the block log;\
                                          block log file is removed after startup.", default=None)
@@ -602,8 +605,7 @@ def main():
     chainPluginArgs = ChainPluginArgs(signatureCpuBillablePct=args.signature_cpu_billable_pct,
                                       chainThreads=args.chain_threads, databaseMapMode=args.database_map_mode,
                                       wasmRuntime=args.wasm_runtime, contractsConsole=args.contracts_console,
-                                      eosVmOcCacheSizeMb=args.eos_vm_oc_cache_size_mb, eosVmOcCompileThreads=args.eos_vm_oc_compile_threads,
-                                      eosVmOcEnable=args.eos_vm_oc_enable, blockLogRetainBlocks=args.block_log_retain_blocks,
+                                      eosVmOcCacheSizeMb=args.eos_vm_oc_cache_size_mb, eosVmOcCompileThreads=args.eos_vm_oc_compile_threads, blockLogRetainBlocks=args.block_log_retain_blocks,
                                       abiSerializerMaxTimeMs=990000, chainStateDbSizeMb=256000)
 
     lbto = args.last_block_time_offset_us
@@ -628,7 +630,8 @@ def main():
     testClusterConfig = PerformanceTestBasic.ClusterConfig(pnodes=args.p, totalNodes=args.n, topo=args.s, genesisPath=args.genesis,
                                                            prodsEnableTraceApi=args.prods_enable_trace_api, extraNodeosArgs=extraNodeosArgs,
                                                            specifiedContract=specifiedContract, loggingLevel=args.cluster_log_lvl,
-                                                           nodeosVers=Utils.getNodeosVersion().split('.')[0])
+                                                           nodeosVers=Utils.getNodeosVersion().split('.')[0], nonprodsEnableEosVmOcEnable=args.eos_vm_oc_enable)
+
     if args.contracts_console and testClusterConfig.loggingLevel != "debug" and testClusterConfig.loggingLevel != "all":
         print("Enabling contracts-console will not print anything unless debug level is 'debug' or higher."
               f" Current debug level is: {testClusterConfig.loggingLevel}")
