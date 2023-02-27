@@ -644,3 +644,5 @@ class Account(object):
     def __str__(self):
         return "Name: %s" % (self.name)
 
+    def __repr__(self):
+        return "Name: %s" % (self.name)
