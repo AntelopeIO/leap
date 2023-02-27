@@ -184,7 +184,6 @@ class state_history_log_data : public chain::log_data_base<state_history_log_dat
       is_currently_pruned_ = is_ship_log_pruned(v);
       file.seek_end(0);
       size_ = file.tellp();
-      return;
    }
 
    uint64_t size() const { return size_; }
