@@ -19,8 +19,8 @@ class connection_manager {
  public:
 #endif
 
-   flat_map<account_name, std::string> bp_peer_addresses;
-   flat_map<std::string, account_name> bp_peer_accounts;
+   flat_map<account_name, std::string> bp_peer_addresses;  // thread safe only because modified at plugin startup currently
+   flat_map<std::string, account_name> bp_peer_accounts;   // thread safe only because modified at plugin startup currently
    flat_set<account_name>              my_accounts;
    flat_set<account_name>              pending_neighbors;
    flat_set<account_name>              active_neighbors;
@@ -41,14 +41,64 @@ class connection_manager {
       return result.str();
    }
 
+   class neighbor_finder_type {
+
+      const flat_map<account_name, std::string>&    bp_peer_addresses;
+      const flat_set<account_name>&                 my_accounts;
+      const std::vector<chain::producer_authority>& schedule;
+      chain::flat_set<std::size_t>                  indeces;
+    public:
+      neighbor_finder_type(const flat_map<account_name, std::string>&    bp_peer_addresses,
+                           const flat_set<account_name>&                 my_accounts,
+                           const std::vector<chain::producer_authority>& schedule)
+          : bp_peer_addresses(bp_peer_addresses), my_accounts(my_accounts), schedule(schedule) {
+         for (auto account : my_accounts) {
+            auto itr = std::find_if(schedule.begin(), schedule.end(),
+                                    [account](auto& e) { return e.producer_name == account; });
+            if (itr != schedule.end())
+               indeces.insert(itr - schedule.begin());
+         }
+      }
+
+      void add_neighbors_with_distance(chain::flat_set<account_name>& result, int distance) const {
+         for (auto schedule_index : indeces) {
+            auto i = (schedule_index + distance) % schedule.size();
+            if (!indeces.count(i)) {
+               auto name = schedule[i].producer_name;
+               if (bp_peer_addresses.count(name))
+                  result.insert(name);
+            }
+         }
+      }
+
+      flat_set<account_name> downstream_neighbors() const {
+         chain::flat_set<account_name> result;
+         for (int i = 0; i < proximity_count; ++i) { add_neighbors_with_distance(result, i + 1); }
+         return result;
+      }
+
+      void add_upstream_neighbors(chain::flat_set<account_name>& result) const {
+         for (int i = 0; i < proximity_count; ++i) { add_neighbors_with_distance(result, -1 - i); }
+      }
+
+      flat_set<account_name> neighbors() const {
+         flat_set<account_name> result = downstream_neighbors();
+         add_upstream_neighbors(result);
+         return result;
+      }
+   };
+
  public:
    const static std::size_t proximity_count = 2;
 
    bool auto_bp_peering_enabled() const { return bp_peer_addresses.size() && my_accounts.size(); }
+
+   // Only called at plugin startup
    void set_producer_accounts(const std::set<account_name>& accounts) {
       my_accounts.insert(accounts.begin(), accounts.end());
    }
 
+   // Only called at plugin startup
    void set_bp_peers(const std::vector<std::string>& peers) {
       try {
          for (auto& entry : peers) {
@@ -66,11 +116,13 @@ class connection_manager {
       }
    }
 
+   // Only called at plugin startup
    template <typename T>
    void for_each_bp_peer_address(T&& fun) const {
       for (auto& [_, addr] : bp_peer_addresses) { fun(addr); }
    }
 
+   // Only called from connection strand and the connection constructor
    void mark_bp_connection(Connection* conn) const {
       /// mark an connection as a bp connection if it connects to an address in the bp peer list, so that the connection
       /// won't be subject to the limit of max_client_count.
@@ -80,11 +132,13 @@ class connection_manager {
       }
    }
 
+    // Only called from connection strand
    template <typename Conn>
    static bool established_client_connection(Conn&& conn) {
       return !conn->is_bp_connection && conn->socket_is_open() && conn->incoming_and_handshake_received();
    }
 
+    // Only called from connection strand
    std::size_t num_established_clients() const {
       uint32_t num_clients = 0;
       self()->for_each_connection([&num_clients](auto&& conn) {
@@ -96,6 +150,7 @@ class connection_manager {
       return num_clients;
    }
 
+   // Only called from connection strand
    // This should only be called after the first handshake message is received to check if an incoming connection
    // has exceeded the pre-configured max_client_count limit.
    bool exceeding_connection_limit(Connection* new_connection) const {
@@ -103,56 +158,13 @@ class connection_manager {
              established_client_connection(new_connection) && num_established_clients() > self()->max_client_count;
    }
 
-   struct neighbor_finder_type {
-      const flat_map<account_name, std::string>&    bp_peer_addresses;
-      const flat_set<account_name>&                 my_accounts;
-      const std::vector<chain::producer_authority>& schedule;
-      chain::flat_set<std::size_t>                  indeces;
 
-      neighbor_finder_type(const flat_map<account_name, std::string>&    bp_peer_addresses,
-                           const flat_set<account_name>&                 my_accounts,
-                           const std::vector<chain::producer_authority>& schedule)
-          : bp_peer_addresses(bp_peer_addresses), my_accounts(my_accounts), schedule(schedule) {
-         for (auto account : my_accounts) {
-            auto itr = std::find_if(schedule.begin(), schedule.end(),
-                                    [account](auto& e) { return e.producer_name == account; });
-            if (itr != schedule.end())
-               indeces.insert(itr - schedule.begin());
-         }
-      }
-
-      void add_neigbors_with_distance(chain::flat_set<account_name>& result, int distance) const {
-         for (auto schedule_index : indeces) {
-            auto i = (schedule_index + distance) % schedule.size();
-            if (!indeces.count(i)) {
-               auto name = schedule[i].producer_name;
-               if (bp_peer_addresses.count(name))
-                  result.insert(name);
-            }
-         }
-      }
-
-      flat_set<account_name> downstream_neighbors() const {
-         chain::flat_set<account_name> result;
-         for (int i = 0; i < proximity_count; ++i) { add_neigbors_with_distance(result, i + 1); }
-         return result;
-      }
-
-      void add_upstream_neighbors(chain::flat_set<account_name>& result) const {
-         for (int i = 0; i < proximity_count; ++i) { add_neigbors_with_distance(result, -1 - i); }
-      }
-
-      flat_set<account_name> neighbors() const {
-         flat_set<account_name> result = downstream_neighbors();
-         add_upstream_neighbors(result);
-         return result;
-      }
-   };
-
+   // Only called from main thread
    neighbor_finder_type neighbor_finder(const std::vector<chain::producer_authority>& schedule) const {
       return neighbor_finder_type(bp_peer_addresses, my_accounts, schedule);
    }
 
+   // Only called from main thread
    void on_pending_schedule(const chain::producer_authority_schedule& schedule) {
       if (auto_bp_peering_enabled() && self()->in_sync()) {
          if (schedule.producers.size()) {
@@ -182,6 +194,7 @@ class connection_manager {
       }
    }
 
+   // Only called from main thread
    void on_active_schedule(const chain::producer_authority_schedule& schedule) {
       if (auto_bp_peering_enabled() && active_schedule_version != schedule.version && self()->in_sync()) {
          /// drops any BP connection which is no longer within our scheduling proximity

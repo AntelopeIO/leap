@@ -2,6 +2,7 @@
 
 #include <eosio/net_plugin/net_plugin.hpp>
 #include <eosio/net_plugin/protocol.hpp>
+#include <eosio/net_plugin/auto_bp_peering.hpp>
 #include <eosio/chain/controller.hpp>
 #include <eosio/chain/exceptions.hpp>
 #include <eosio/chain/block.hpp>
@@ -27,7 +28,6 @@
 #include <atomic>
 #include <cmath>
 #include <shared_mutex>
-#include <eosio/net_plugin/auto_bp_peering.hpp>
 
 using namespace eosio::chain::plugin_interface;
 
@@ -653,7 +653,7 @@ namespace eosio {
       std::atomic<uint16_t>   protocol_version = 0;
       uint16_t                net_version = net_version_max;
       std::atomic<uint16_t>   consecutive_immediate_connection_close = 0;
-      bool                    is_bp_connection = false;
+      std::atomic<bool>       is_bp_connection = false;
       block_status_monitor    block_status_monitor_;
 
       std::mutex                            response_expected_timer_mtx;
@@ -811,8 +811,12 @@ namespace eosio {
          return mvo;
       }
 
-      bool incoming() const { return peer_address().empty(); }
-      bool incoming_and_handshake_received() const { return incoming() && last_handshake_recv.p2p_address.size(); }
+      bool incoming() const { return peer_address().empty(); } // thread safe becuase of peer_address
+      bool incoming_and_handshake_received() const {
+         if (!incoming()) return false;
+         std::lock_guard<std::mutex> g_conn( conn_mtx );
+         return last_handshake_recv.p2p_address.size();
+      }
    };
 
    const string connection::unknown = "<unknown>";
@@ -3759,7 +3763,7 @@ namespace eosio {
 
          if ( options.count( "p2p-auto-bp-peer")) {
             my->set_bp_peers(options.at( "p2p-auto-bp-peer" ).as<vector<string>>());
-            my->for_each_bp_peer_address([this](auto addr) {
+            my->for_each_bp_peer_address([this](const auto& addr) {
                EOS_ASSERT(my->supplied_peers.count(addr) == 0, chain::plugin_config_exception,
                           "\"${addr}\" should only appear in either p2p-peer-address or p2p-auto-bp-peer option, not both.",
                           ("addr",addr));
