@@ -294,10 +294,6 @@ Performance Test Basic Base:
                           Toggles if missing transactions are be printed upon test completion. (default: False)
 * `--account-name ACCOUNT_NAME`
                           Name of the account to create and assign a contract to (default: eosio)
-* `--owner-public-key OWNER_PUBLIC_KEY`
-                          Owner public key to use with specified account name (default: EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV)
-* `--active-public-key ACTIVE_PUBLIC_KEY`
-                          Active public key to use with specified account name (default: EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV)
 * `--contract-dir CONTRACT_DIR`
                           Path to contract dir (default: unittests/contracts/eosio.system)
 * `--wasm-file WASM_FILE` WASM file name for contract (default: eosio.system.wasm)
@@ -413,10 +409,6 @@ Performance Test Basic Base:
                           Toggles if missing transactions are be printed upon test completion. (default: False)
 * `--account-name ACCOUNT_NAME`
                           Name of the account to create and assign a contract to (default: eosio)
-* `--owner-public-key OWNER_PUBLIC_KEY`
-                          Owner public key to use with specified account name (default: EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV)
-* `--active-public-key ACTIVE_PUBLIC_KEY`
-                          Active public key to use with specified account name (default: EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV)
 * `--contract-dir CONTRACT_DIR`
                           Path to contract dir (default: unittests/contracts/eosio.system)
 * `--wasm-file WASM_FILE`
@@ -1277,14 +1269,10 @@ Finally, the full detail test report for each of the determined max TPS throughp
       }
     },
     "specifiedContract": {
-      "accountName": "eosio",
-      "ownerPrivateKey": "5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3",
-      "ownerPublicKey": "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV",
-      "activePrivateKey": "5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3",
-      "activePublicKey": "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV",
       "contractDir": "unittests/contracts/eosio.system",
       "wasmFile": "eosio.system.wasm",
-      "abiFile": "eosio.system.abi"
+      "abiFile": "eosio.system.abi",
+      "account": "Name: eosio"
     },
     "useBiosBootFile": false,
     "genesisPath": "tests/performance_tests/genesis.json",
@@ -1309,6 +1297,8 @@ Finally, the full detail test report for each of the determined max TPS throughp
     "delReport": false,
     "delTestReport": false,
     "numAddlBlocksToPrune": 2,
+    "logDirRoot": "p/2023-02-22_21-28-58/pluginThreadOptRunLogs",
+    "delReport": true,
     "quiet": false,
     "logDirRoot": ".",
     "skipTpsTests": false,
