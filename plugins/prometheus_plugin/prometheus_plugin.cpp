@@ -168,8 +168,6 @@ namespace eosio {
             std::string body = mm.serialize();
 
             auto stop_time_of_request = std::chrono::steady_clock::now();
-            auto duration = std::chrono::duration_cast<std::chrono::microseconds>(
-                  stop_time_of_request - start_time_of_request);
 
             _metrics.bytes_transferred.value += body.length();
             _metrics.num_scrapes.value++;
@@ -200,7 +198,7 @@ namespace eosio {
          _pp.metrics_async(results);
       }
 
-      prometheus_api(prometheus_plugin_impl& plugin) : _pp(plugin){
+      explicit prometheus_api(prometheus_plugin_impl& plugin)  : _pp(plugin){
       }
    };
 
@@ -211,7 +209,7 @@ namespace eosio {
         CALL_ASYNC_WITH_400(prometheus, handle, eosio, metrics, std::string, 200, http_params_types::no_params)}, http_content_type::plaintext);
    }
 
-   prometheus_plugin::~prometheus_plugin() {}
+   prometheus_plugin::~prometheus_plugin() = default;
 
    std::string prometheus_plugin::metrics() {return my->metrics();}
 
@@ -224,7 +222,10 @@ namespace eosio {
    }
 
    void prometheus_plugin::plugin_startup() {
-      my->_prometheus_thread_pool.start(1, []( const fc::exception& e ) {} );
+      my->_prometheus_thread_pool.start(1, []( const fc::exception& e ) {
+         elog("Prometheus excpetion ${e}:${l}", ("e", e));
+      } );
+
       ilog("Prometheus plugin started.");
    }
 

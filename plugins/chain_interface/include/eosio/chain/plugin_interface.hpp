@@ -30,7 +30,7 @@ namespace eosio { namespace chain { namespace plugin_interface {
    struct plugin_metrics {
       virtual vector<runtime_metric> metrics()=0;
       bool should_post() {
-         return ((_listener) && fc::time_point::now() > (_last_post + fc::milliseconds(_min_post_interval_ms)));
+         return ((_listener) && fc::time_point::now() > (_last_post + fc::milliseconds(_min_post_interval_ms.count()*1000)));
       }
 
       bool post_metrics() {
@@ -44,13 +44,13 @@ namespace eosio { namespace chain { namespace plugin_interface {
       }
 
       void register_listener(metrics_listener listener) {
-         _listener = listener;
+         _listener = std::move(listener);
       }
 
-      plugin_metrics(int64_t min_post_interval_ms=250) : _min_post_interval_ms(min_post_interval_ms), _listener(nullptr) {}
+      explicit plugin_metrics(fc::microseconds min_post_interval_ms=fc::microseconds(250)) : _min_post_interval_ms(min_post_interval_ms), _listener(nullptr) {}
 
    private:
-      int64_t _min_post_interval_ms;
+      fc::microseconds _min_post_interval_ms;
       metrics_listener _listener;
       fc::time_point _last_post;
    };
