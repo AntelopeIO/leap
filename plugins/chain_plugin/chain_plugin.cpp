@@ -708,7 +708,8 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
             EOS_ASSERT(cfile::supports_hole_punching(), plugin_config_exception,
                        "block-log-retain-blocks cannot be greater than 0 because the file system does not support hole "
                        "punching");
-            my->chain_config->blog = eosio::chain::prune_blocklog_config{ .prune_blocks = block_log_retain_blocks };         }
+            my->chain_config->blog = eosio::chain::prune_blocklog_config{ .prune_blocks = block_log_retain_blocks };
+         }
       }
 
       if( options.at( "delete-all-blocks" ).as<bool>()) {
@@ -797,7 +798,7 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
                            ("block_log_chain_id", *block_log_chain_id)
                            ("state_chain_id", *chain_id)
                );
-            } else if( block_log_genesis ) {
+            } else if (block_log_genesis) {
                ilog( "Starting fresh blockchain state using genesis state extracted from blocks.log." );
                my->genesis = block_log_genesis;
                // Delay setting chain_id until later so that the code handling genesis-json below can know

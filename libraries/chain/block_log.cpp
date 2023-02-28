@@ -1252,7 +1252,7 @@ namespace eosio { namespace chain {
             detail::basic_block_log::write_incomplete_block_data(blocks_dir, now, block_num, ro_stream_at(pos));
             std::rethrow_exception(e.inner);
          }
-         // clang-format off
+      // clang-format off
       } catch (const std::exception& e) {
          error_msg = e.what();
       } catch (...) {

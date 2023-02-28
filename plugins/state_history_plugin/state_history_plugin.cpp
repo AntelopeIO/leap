@@ -417,7 +417,6 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
          if (ec) {
             fc_elog(_log, "close: ${m}", ("m", ec.message()));
          }
-         socket_stream.reset();
          app().post(priority::high,
                     [self = this->shared_from_this(), plugin=plugin]() { plugin->session_set.erase(self); });
       }
