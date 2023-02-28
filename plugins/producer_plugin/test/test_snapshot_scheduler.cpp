@@ -94,15 +94,21 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
          auto bs = chain_plug->chain().block_start.connect([&](uint32_t bn) {
          });
 
-         producer_plugin::snapshot_request_information sri = {.block_spacing = 1, .start_block_num = 0, .end_block_num = 1, .snapshot_description = "Example of recurring snapshot"};
+         producer_plugin::snapshot_request_information sri1 = {.block_spacing = 2, .start_block_num = 0, .end_block_num = 3, .snapshot_description = "Example of recurring snapshot 1"};
+         producer_plugin::snapshot_request_information sri2 = {.block_spacing = 5000, .start_block_num = 100000, .end_block_num = 300000, .snapshot_description = "Example of recurring snapshot 2"};
          auto pp = appbase::app().find_plugin<producer_plugin>();
-         pp->schedule_snapshot(sri);
+         pp->schedule_snapshot(sri1);
+         pp->schedule_snapshot(sri2);
+
+         // both snapshot requests should be present now
+         BOOST_CHECK_EQUAL(2, pp->get_snapshot_requests().requests.size());
 
          empty_blocks_fut.wait_for(std::chrono::seconds(5));
 
-         // snapshot is done here and request should be deleted
-         BOOST_CHECK_EQUAL(0, pp->get_snapshot_requests().requests.size());
+         // one of the snapshots is done here and request, corresponding to it should be deleted
+         BOOST_CHECK_EQUAL(1, pp->get_snapshot_requests().requests.size());
 
+         // quit app
          appbase::app().quit();
          app_thread.join();
       } catch(...) {
@@ -111,7 +117,6 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
       }
       bfs::remove_all(temp);
    }
-
    BOOST_AUTO_TEST_SUITE_END()
 }
 
