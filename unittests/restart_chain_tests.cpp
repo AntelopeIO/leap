@@ -59,7 +59,7 @@ class replay_tester : public base_tester {
    template <typename OnAppliedTrx>
    replay_tester(controller::config config, const genesis_state& genesis, OnAppliedTrx&& on_applied_trx) {
       cfg = config;
-      base_tester::open(make_protocol_feature_set(), genesis.compute_chain_id(), [&genesis,&control=this->control, &on_applied_trx]() {        
+      base_tester::open(make_protocol_feature_set(), genesis.compute_chain_id(), [&genesis,&control=this->control, &on_applied_trx]() {
          control->applied_transaction.connect(on_applied_trx);
          control->startup( [](){}, []() { return false; }, genesis );
       });
@@ -250,61 +250,6 @@ namespace{
          boost::filesystem::remove_all(path);
       }
    };
-}
-
-enum class buf_len_type { small, medium, large };
-
-void trim_blocklog_front(uint32_t truncate_at_block, buf_len_type len_type) {
-   tester chain;
-   chain.produce_blocks(30);
-   chain.close();
-
-   namespace bfs = boost::filesystem;
-
-   auto blocks_dir     = chain.get_config().blocks_dir;
-   auto old_index_size = fc::file_size(blocks_dir / "blocks.index");
-
-   scoped_temp_path temp1, temp2;
-   boost::filesystem::create_directory(temp1.path);
-   bfs::copy(blocks_dir / "blocks.log", temp1.path / "blocks.log");
-   bfs::copy(blocks_dir / "blocks.index", temp1.path / "blocks.index");
-
-   trim_data old_log(temp1.path);
-   uint64_t blk_size = old_log.block_pos(30) - old_log.block_pos(29);
-   uint64_t log_size = old_log.block_pos(30) + blk_size;
-
-   switch (len_type){
-      case buf_len_type::small:
-         block_log_set_buff_len( blk_size + (sizeof(uint64_t) - 1));
-         break;
-      case buf_len_type::medium:
-         block_log_set_buff_len( log_size / 3);
-         break;
-      case buf_len_type::large:
-         block_log_set_buff_len(log_size);
-         break;
-      default:
-         return;
-   }
-
-   block_num_type end = std::numeric_limits<block_num_type>::max();
-   BOOST_CHECK( block_log::extract_block_range(temp1.path, temp2.path, truncate_at_block, end, true) == true);
-   trim_data new_log(temp1.path);
-   BOOST_CHECK(new_log.first_block == truncate_at_block);
-   BOOST_CHECK(new_log.last_block == old_log.last_block);
-   BOOST_CHECK(old_log.version == new_log.version);
-
-   int num_blocks_trimmed = truncate_at_block - 1;
-   BOOST_CHECK(fc::file_size(temp1.path / "blocks.index") == old_index_size - sizeof(uint64_t) * num_blocks_trimmed);
-}
-
-BOOST_AUTO_TEST_CASE(test_trim_blocklog_front) {
-   trim_blocklog_front(5, buf_len_type::small);
-   trim_blocklog_front(6, buf_len_type::small);
-   trim_blocklog_front(10, buf_len_type::medium);
-   trim_blocklog_front(11, buf_len_type::medium);
-   trim_blocklog_front(15, buf_len_type::large);
-   trim_blocklog_front(16, buf_len_type::large);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

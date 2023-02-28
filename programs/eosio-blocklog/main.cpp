@@ -52,7 +52,7 @@ struct blocklog {
    bool                             vacuum = false;
    bool                             help = false;
 
-   std::optional<block_log_prune_config> blog_keep_prune_conf;
+   block_log_config blog_conf;
 };
 
 struct report_time {
@@ -71,14 +71,14 @@ struct report_time {
 };
 
 void blocklog::do_vacuum() {
-   EOS_ASSERT( blog_keep_prune_conf, block_log_exception, "blocks.log is not a pruned log; nothing to vacuum" );
-   block_log blocks(blocks_dir, std::optional<block_log_prune_config>()); //passing an unset block_log_prune_config turns off pruning this performs a vacuum
+   EOS_ASSERT( std::holds_alternative<prune_blocklog_config>(blog_conf), block_log_exception, "blocks.log is not a pruned log; nothing to vacuum" );
+   block_log blocks(blocks_dir); // turns off pruning this performs a vacuum
    ilog("Successfully vacuumed block log");
 }
 
 void blocklog::read_log() {
    report_time rt("reading log");
-   block_log block_logger(blocks_dir, blog_keep_prune_conf);
+   block_log block_logger(blocks_dir, blog_conf);
    const auto end = block_logger.read_head();
    EOS_ASSERT( end, block_log_exception, "No blocks found in block log" );
    EOS_ASSERT( end->block_num() > 1, block_log_exception, "Only one block found in block log" );
@@ -226,8 +226,7 @@ void blocklog::initialize(const variables_map& options) {
       //if the log is pruned, keep it that way by passing in a config with a large block pruning value. There is otherwise no
       // way to tell block_log "keep the current non/pruneness of the log"
       if(block_log::is_pruned_log(blocks_dir)) {
-         blog_keep_prune_conf.emplace();
-         blog_keep_prune_conf->prune_blocks = UINT32_MAX;
+         blog_conf = prune_blocklog_config { .prune_blocks = UINT32_MAX };
       }
    } FC_LOG_AND_RETHROW()
 
@@ -235,31 +234,14 @@ void blocklog::initialize(const variables_map& options) {
 
 int trim_blocklog_end(bfs::path block_dir, uint32_t n) {       //n is last block to keep (remove later blocks)
    report_time rt("trimming blocklog end");
-   using namespace std;
-   trim_data td(block_dir);
-   cout << "\nIn directory " << block_dir << " will trim all blocks after block " << n << " from "
-        << td.block_file_name.generic_string() << " and " << td.index_file_name.generic_string() << ".\n";
-   if (n < td.first_block) {
-      cerr << "All blocks are after block " << n << " so do nothing (trim_end would delete entire blocks.log)\n";
-      return 1;
-   }
-   if (n >= td.last_block) {
-      cerr << "There are no blocks after block " << n << " so do nothing\n";
-      return 2;
-   }
-   const uint64_t end_of_new_file = td.block_pos(n + 1);
-   bfs::resize_file(td.block_file_name, end_of_new_file);
-   const uint64_t index_end= td.block_index(n) + sizeof(uint64_t);             //advance past record for block n
-   bfs::resize_file(td.index_file_name, index_end);
-   cout << "blocks.index has been trimmed to " << index_end << " bytes\n";
+   int ret = block_log::trim_blocklog_end(block_dir, n);
    rt.report();
-   return 0;
+   return ret;
 }
 
 bool trim_blocklog_front(bfs::path block_dir, uint32_t n) {        //n is first block to keep (remove prior blocks)
    report_time rt("trimming blocklog start");
-   block_num_type end = std::numeric_limits<block_num_type>::max();
-   const bool status = block_log::extract_block_range(block_dir, block_dir / "old", n, end, true);
+   const bool status = block_log::trim_blocklog_front(block_dir, block_dir / "old", n);
    rt.report();
    return status;
 }
@@ -276,31 +258,8 @@ bool extract_block_range(bfs::path block_dir, bfs::path output_dir, uint32_t sta
 void smoke_test(bfs::path block_dir) {
    using namespace std;
    cout << "\nSmoke test of blocks.log and blocks.index in directory " << block_dir << '\n';
-   trim_data td(block_dir);
-   auto status = fseek(td.blk_in, -sizeof(uint64_t), SEEK_END);             //get last_block from blocks.log, compare to from blocks.index
-   EOS_ASSERT( status == 0, block_log_exception, "cannot seek to ${file} ${pos} from beginning of file", ("file", td.block_file_name.string())("pos", sizeof(uint64_t)) );
-   uint64_t file_pos;
-   auto size = fread((void*)&file_pos, sizeof(uint64_t), 1, td.blk_in);
-   EOS_ASSERT( size == 1, block_log_exception, "${file} read fails", ("file", td.block_file_name.string()) );
-   status = fseek(td.blk_in, file_pos + trim_data::blknum_offset, SEEK_SET);
-   EOS_ASSERT( status == 0, block_log_exception, "cannot seek to ${file} ${pos} from beginning of file", ("file", td.block_file_name.string())("pos", file_pos + trim_data::blknum_offset) );
-   uint32_t bnum;
-   size = fread((void*)&bnum, sizeof(uint32_t), 1, td.blk_in);
-   EOS_ASSERT( size == 1, block_log_exception, "${file} read fails", ("file", td.block_file_name.string()) );
-   bnum = endian_reverse_u32(bnum) + 1;                       //convert from big endian to little endian and add 1
-   EOS_ASSERT( td.last_block == bnum, block_log_exception, "blocks.log says last block is ${lb} which disagrees with blocks.index", ("lb", bnum) );
-   cout << "blocks.log and blocks.index agree on number of blocks\n";
-   uint32_t delta = (td.last_block + 8 - td.first_block) >> 3;
-   if (delta < 1)
-      delta = 1;
-   for (uint32_t n = td.first_block; ; n += delta) {
-      if (n > td.last_block)
-         n = td.last_block;
-      td.block_pos(n);                                 //check block 'n' is where blocks.index says
-      if (n == td.last_block)
-         break;
-   }
-   cout << "\nno problems found\n";                         //if get here there were no exceptions
+   block_log::smoke_test(block_dir, 0);
+   cout << "\nno problems found\n"; // if get here there were no exceptions
 }
 
 int main(int argc, char** argv) {
@@ -365,6 +324,7 @@ int main(int argc, char** argv) {
          rt.report();
          return 0;
       }
+
       //else print blocks.log as JSON
       blog.initialize(vmap);
       blog.read_log();
