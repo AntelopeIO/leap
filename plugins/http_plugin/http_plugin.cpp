@@ -489,6 +489,11 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
       my->plugin_state->url_handlers[url] = my->make_http_thread_url_handler(handler);
    }
 
+   void http_plugin::post_http_thread_pool(std::function<void()> f) {
+      if( f )
+         boost::asio::post( my->plugin_state->thread_pool.get_executor(), f );
+   }
+
    void http_plugin::handle_exception( const char *api_name, const char *call_name, const string& body, const url_response_callback& cb) {
       try {
          try {
