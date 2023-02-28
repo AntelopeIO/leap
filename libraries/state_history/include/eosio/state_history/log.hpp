@@ -217,9 +217,13 @@ class state_history_log {
       }
 
       if (block_num < _end_block) {
+         // This is typically because of a fork, and we need to truncate the log back to the beginning of the fork.
          static uint32_t start_block_num = block_num;
+         // Guard agaisnt accidently starting a fresh chain with an existing ship log, require manual removal of ship logs.
          EOS_ASSERT( block_num > 2, chain::plugin_exception, "Existing ship log with ${eb} blocks when starting from genesis block ${b}",
                      ("eb", _end_block)("b", block_num) );
+         // block_num < _begin_block = pruned log, need to call truncate() to reset
+         // get_block_id_i check is an optimization to avoid writing a block that is already in the log (snapshot or replay)
          if ( block_num < _begin_block || get_block_id_i(block_num) != header.block_id ) {
             truncate(block_num); //truncate is expected to always leave file pointer at the end
          } else {
