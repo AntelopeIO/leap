@@ -37,13 +37,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OK'
+                $ref: "#/components/schemas/OK"
         "400":
           description: client error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
   /producer/resume:
     post:
       summary: resume
@@ -55,13 +55,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OK'
+                $ref: "#/components/schemas/OK"
         "400":
           description: client error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
   /producer/paused:
     post:
       summary: paused
@@ -81,7 +81,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
   /producer/get_runtime_options:
     post:
       summary: get_runtime_options
@@ -93,13 +93,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Runtime_Options'
+                $ref: "#/components/schemas/Runtime_Options"
         "400":
           description: client error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
   /producer/update_runtime_options:
     post:
       summary: update_runtime_options
@@ -109,20 +109,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/Runtime_Options'
+              $ref: "#/components/schemas/Runtime_Options"
       responses:
         "201":
           description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OK'
+                $ref: "#/components/schemas/OK"
         "400":
           description: client error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
   /producer/get_greylist:
     post:
       summary: get_greylist
@@ -146,8 +146,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-
+                $ref: "#/components/schemas/Error"
   /producer/add_greylist_accounts:
     post:
       summary: add_greylist_accounts
@@ -159,24 +158,24 @@ paths:
             schema:
               type: object
               properties:
-                  accounts:
-                    type: array
-                    description: List of account names to add
-                    items:
-                      $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
+                accounts:
+                  type: array
+                  description: List of account names to add
+                  items:
+                    $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
       responses:
         "201":
           description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OK'
+                $ref: "#/components/schemas/OK"
         "400":
           description: client error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
   /producer/remove_greylist_accounts:
     post:
       summary: remove_greylist_accounts
@@ -199,15 +198,14 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OK'
+                $ref: "#/components/schemas/OK"
         "400":
           description: client error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-
-/producer/get_whitelist_blacklist:
+                $ref: "#/components/schemas/Error"
+  /producer/get_whitelist_blacklist:
     post:
       summary: get_whitelist_blacklist
       description: Retrieves the whitelist and blacklist for producer node. A JSON object containing whitelist and blacklist information.
@@ -254,8 +252,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-
+                $ref: "#/components/schemas/Error"
   /producer/set_whitelist_blacklist:
     post:
       summary: set_whitelist_blacklist
@@ -302,13 +299,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OK'
+                $ref: "#/components/schemas/OK"
         "400":
           description: client error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
   /producer/create_snapshot:
     post:
       summary: create_snapshot
@@ -346,7 +343,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/component/schema/Error"
-
   /producer/schedule_snapshot:
     post:
       summary: schedule_snapshot
@@ -370,9 +366,9 @@ paths:
                   description: Block number at which schedule ends
                   example: 15102
                 snapshot_description:
-                    type: string
-                    description: Description of the snapshot
-                    example: Daily snapshot
+                  type: string
+                  description: Description of the snapshot
+                  example: Daily snapshot
 
       responses:
         "201":
@@ -380,33 +376,32 @@ paths:
           content:
             application/json:
               schema:
-                  type: object
-                  properties:
-                    snapshot_request_id:
-                      type: integer
-                      description: Unique id identifying current snapshot request
-                    block_spacing:
-                      type: integer
-                      description: Generate snapshot every block_spacing blocks
-                    start_block_num:
-                      type: integer
-                      description: Block number at which schedule starts
-                      example: 5102
-                    end_block_num:
-                      type: integer
-                      description: Block number at which schedule ends
-                      example: 15102
-                    snapshot_description:
-                        type: string
-                        description: Description of the snapshot
-                        example: Daily snapshot
+                type: object
+                properties:
+                  snapshot_request_id:
+                    type: integer
+                    description: Unique id identifying current snapshot request
+                  block_spacing:
+                    type: integer
+                    description: Generate snapshot every block_spacing blocks
+                  start_block_num:
+                    type: integer
+                    description: Block number at which schedule starts
+                    example: 5102
+                  end_block_num:
+                    type: integer
+                    description: Block number at which schedule ends
+                    example: 15102
+                  snapshot_description:
+                    type: string
+                    description: Description of the snapshot
+                    example: Daily snapshot
         "400":
           description: client error
           content:
             application/json:
               schema:
                 $ref: "#/component/schema/Error"
-
   /producer/get_snapshot_requests:
     post:
       summary: get_snapshot_requests
@@ -417,7 +412,7 @@ paths:
           description: OK
           content:
             application/json:
-             schema:
+              schema:
                 type: object
                 properties:
                   snapshot_requests:
@@ -426,55 +421,54 @@ paths:
                     items:
                       type: object
                       properties:
-                          snapshot_request_id:
-                            type: integer
-                            description: Unique id identifying current snapshot request
-                          block_spacing:
-                            type: integer
-                            description: Generate snapshot every block_spacing blocks
-                          start_block_num:
-                            type: integer
-                            description: Block number at which schedule starts
-                            example: 5102
-                          end_block_num:
-                            type: integer
-                            description: Block number at which schedule ends
-                            example: 15102
-                          snapshot_description:
-                              type: string
-                              description: Description of the snapshot
-                              example: Daily snapshot
-                          pending_snapshots:
-                            type: array
-                            description: List of pending snapshots
-                            items:
-                              type: object
-                              properties:
-                                head_block_id:
-                                  $ref: "https://docs.eosnetwork.com/openapi/v2.0/Sha256.yaml"
-                                head_block_num:
-                                  type: integer
-                                  description: Highest block number on the chain
-                                  example: 5102
-                                head_block_time:
-                                  type: string
-                                  description: Highest block unix timestamp
-                                  example: 2020-11-16T00:00:00.000
-                                version:
-                                  type: integer
-                                  description: version number
-                                  example: 6
-                                snapshot_name:
-                                  type: string
-                                  description: The path and file name of the snapshot
-                                  example: /home/me/nodes/node-name/snapshots/snapshot-0000999f99999f9f999f99f99ff9999f999f9fff99ff99ffff9f9f9fff9f9999.bin
+                        snapshot_request_id:
+                          type: integer
+                          description: Unique id identifying current snapshot request
+                        block_spacing:
+                          type: integer
+                          description: Generate snapshot every block_spacing blocks
+                        start_block_num:
+                          type: integer
+                          description: Block number at which schedule starts
+                          example: 5102
+                        end_block_num:
+                          type: integer
+                          description: Block number at which schedule ends
+                          example: 15102
+                        snapshot_description:
+                          type: string
+                          description: Description of the snapshot
+                          example: Daily snapshot
+                        pending_snapshots:
+                          type: array
+                          description: List of pending snapshots
+                          items:
+                            type: object
+                            properties:
+                              head_block_id:
+                                $ref: "https://docs.eosnetwork.com/openapi/v2.0/Sha256.yaml"
+                              head_block_num:
+                                type: integer
+                                description: Highest block number on the chain
+                                example: 5102
+                              head_block_time:
+                                type: string
+                                description: Highest block unix timestamp
+                                example: 2020-11-16T00:00:00.000
+                              version:
+                                type: integer
+                                description: version number
+                                example: 6
+                              snapshot_name:
+                                type: string
+                                description: The path and file name of the snapshot
+                                example: /home/me/nodes/node-name/snapshots/snapshot-0000999f99999f9f999f99f99ff9999f999f9fff99ff99ffff9f9f9fff9f9999.bin
         "400":
           description: client error
           content:
             application/json:
               schema:
                 $ref: "#/component/schema/Error"
-
   /producer/unschedule_snapshot:
     post:
       summary: unschedule_snapshot
@@ -499,8 +493,8 @@ paths:
                 type: object
                 properties:
                   snapshot_request_id:
-                      type: integer
-                      description: Unique id identifying current snapshot request
+                    type: integer
+                    description: Unique id identifying current snapshot request
                   block_spacing:
                     type: integer
                     description: Generate snapshot every block_spacing blocks
@@ -513,16 +507,15 @@ paths:
                     description: Block number at which schedule ends
                     example: 15102
                   snapshot_description:
-                      type: string
-                      description: Description of the snapshot
-                      example: Daily snapshot
+                    type: string
+                    description: Description of the snapshot
+                    example: Daily snapshot
         "400":
           description: client error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-
+                $ref: "#/components/schemas/Error"
   /producer/get_integrity_hash:
     post:
       summary: get_integrity_hash
@@ -546,8 +539,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-
+                $ref: "#/components/schemas/Error"
   /producer/schedule_protocol_feature_activations:
     post:
       summary: schedule_protocol_feature_activations
@@ -570,15 +562,14 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OK'
+                $ref: "#/components/schemas/OK"
         "400":
           description: client error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-
-/producer/get_supported_protocol_features:
+                $ref: "#/components/schemas/Error"
+  /producer/get_supported_protocol_features:
     post:
       summary: get_supported_protocol_features
       description: Retrieves supported protocol features for producer node. Pass filters in as part of the request body.
@@ -647,8 +638,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-
+                $ref: "#/components/schemas/Error"
   /producer/get_account_ram_corrections:
     post:
       summary: get_account_ram_corrections
@@ -699,8 +689,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-
+                $ref: "#/components/schemas/Error"
   /producer/get_unapplied_transactions:
     post:
       summary: get_unapplied_transactions
@@ -780,7 +769,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
 components:
   securitySchemes: {}
   schemas:
