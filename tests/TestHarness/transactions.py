@@ -5,7 +5,7 @@ import subprocess
 import time
 
 from core_symbol import CORE_SYMBOL
-from.depresolver import dep
+from .depresolver import dep
 from .queries import Queries
 from .testUtils import Account
 from .testUtils import Utils
