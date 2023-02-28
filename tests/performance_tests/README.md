@@ -267,7 +267,7 @@ Performance Test Basic Base:
                           In "locked" mode database is preloaded, locked in to memory, and will use huge pages if available. (default: mapped)
 * `--cluster-log-lvl {all,debug,info,warn,error,off}`
                           Cluster log level ("all", "debug", "info", "warn", "error", or "off"). Performance Harness Test Basic relies on some logging at
-                          "info" level, so it is recommended lowest logging level to use. However, there are instances where more verbose logging can be
+                          "info" level, so it is the lowest recommended logging level to use. However, there are instances where more verbose logging can be
                           useful. (default: info)
 * `--net-threads NET_THREADS`
                           Number of worker threads in net_plugin thread pool (default: 4)
@@ -386,7 +386,7 @@ Performance Test Basic Base:
                           In "locked" mode database is preloaded, locked in to memory, and will use huge pages if available. (default: mapped)
 * `--cluster-log-lvl {all,debug,info,warn,error,off}`
                           Cluster log level ("all", "debug", "info", "warn", "error", or "off"). Performance Harness Test Basic relies on some logging at
-                          "info" level, so it is recommended lowest logging level to use. However, there are instances where more verbose logging can be
+                          "info" level, so it is the lowest recommended logging level to use. However, there are instances where more verbose logging can be
                           useful. (default: info)
 * `--net-threads NET_THREADS`
                           Number of worker threads in net_plugin thread pool (default: 4)
@@ -432,7 +432,7 @@ Performance Test Basic Single Test:
 * `--test-duration-sec TEST_DURATION_SEC`
                           The duration of transfer trx generation for the test in seconds (default: 90)
 * `--user-trx-data-file USER_TRX_DATA_FILE`
-                          Path to userTrxDataTransfer.json (default: None)
+                          Path to transaction data JSON file (default: None)
 </details>
 
 #### Launch Transaction Generators (TestHarness)
