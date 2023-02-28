@@ -70,7 +70,7 @@ namespace eosio { namespace chain {
       );
    }
 
-   abi_serializer::abi_serializer( const abi_def& abi, const yield_function_t& yield ) {
+   abi_serializer::abi_serializer( abi_def abi, const yield_function_t& yield ) {
       configure_built_in_types();
       set_abi(abi, yield);
    }
@@ -128,7 +128,7 @@ namespace eosio { namespace chain {
       built_in_types.emplace("extended_asset",            pack_unpack<extended_asset>());
    }
 
-   void abi_serializer::set_abi(const abi_def& abi, const yield_function_t& yield) {
+   void abi_serializer::set_abi(abi_def abi, const yield_function_t& yield) {
       impl::abi_traverse_context ctx(yield);
 
       EOS_ASSERT(starts_with(abi.version, "eosio::abi/1."), unsupported_abi_version_exception, "ABI has an unsupported version");

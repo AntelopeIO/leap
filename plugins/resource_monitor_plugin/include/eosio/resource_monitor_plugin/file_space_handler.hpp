@@ -81,7 +81,7 @@ namespace eosio::resource_monitor {
          EOS_ASSERT(status == 0, chain::plugin_config_exception,
                     "Failed to run stat on ${path} with status ${status}", ("path", path_name.string())("status", status));
 
-         dlog("${path_name}'s file system to be monitored", ("path_name", path_name.string()));
+         ilog("${path_name}'s file system to be monitored", ("path_name", path_name.string()));
 
          // If the file system containing the path is already
          // in the filesystem list, do not add it again

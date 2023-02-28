@@ -433,6 +433,8 @@ void trace_api_plugin::set_program_options(appbase::options_description& cli, ap
 }
 
 void trace_api_plugin::plugin_initialize(const appbase::variables_map& options) {
+   handle_sighup(); // setup logging
+
    auto common = std::make_shared<trace_api_common_impl>();
    common->plugin_initialize(options);
 
@@ -444,8 +446,6 @@ void trace_api_plugin::plugin_initialize(const appbase::variables_map& options) 
 }
 
 void trace_api_plugin::plugin_startup() {
-   handle_sighup(); // setup logging
-
    my->plugin_startup();
    rpc->plugin_startup();
 }
