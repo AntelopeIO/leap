@@ -598,23 +598,18 @@ plugin = eosio::chain_api_plugin
                 f.write(' '.join(eosdcmd))
 
     def bounce(self, nodeNumbers):
-        for num in nodeNumbers:
-            for node in self.network.nodes.values():
-                if self.network.name + num == node.name:
-                    Utils.Print(f'Restarting node {node.name}')
-                    with open(node.data_dir_name / f'{Utils.EosServerName}.pid', 'r') as f:
-                        pid = int(f.readline())
-                        self.terminate_wait_pid(pid, raise_if_missing=False)
-                    self.launch(node)
+        self.down(nodeNumbers, True)
 
-    def down(self, nodeNumbers):
+    def down(self, nodeNumbers, relaunch=False):
         for num in nodeNumbers:
             for node in self.network.nodes.values():
                 if self.network.name + num == node.name:
-                    Utils.Print(f'Shutting down node {node.name}')
+                    Utils.Print(f'{"Restarting" if relaunch else "Shutting down"} node {node.name}')
                     with open(node.data_dir_name / f'{Utils.EosServerName}.pid', 'r') as f:
                         pid = int(f.readline())
                         self.terminate_wait_pid(pid)
+                    if relaunch:
+                        self.launch(node)
 
     def start_all(self):
         if self.args.launch.lower() != 'none':
