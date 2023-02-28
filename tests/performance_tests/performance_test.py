@@ -502,7 +502,7 @@ def main():
                                       chainThreads=args.chain_threads, databaseMapMode=args.database_map_mode,
                                       wasmRuntime=args.wasm_runtime, contractsConsole=args.contracts_console,
                                       eosVmOcCacheSizeMb=args.eos_vm_oc_cache_size_mb, eosVmOcCompileThreads=args.eos_vm_oc_compile_threads,
-                                      eosVmOcEnable=args.eos_vm_oc_enable, blockLogRetainBlocks=args.block_log_retain_blocks,
+                                      blockLogRetainBlocks=args.block_log_retain_blocks,
                                       abiSerializerMaxTimeMs=990000, chainStateDbSizeMb=256000)
     producerPluginArgs = ProducerPluginArgs(disableSubjectiveBilling=args.disable_subjective_billing,
                                             lastBlockTimeOffsetUs=args.last_block_time_offset_us, produceTimeOffsetUs=args.produce_time_offset_us,

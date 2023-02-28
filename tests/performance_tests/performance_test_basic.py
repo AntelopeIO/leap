@@ -90,7 +90,7 @@ class PerformanceTestBasic:
         nodeosVers: str = ""
         specificExtraNodeosArgs: dict = field(default_factory=dict)
         _totalNodes: int = 2
-        nonprodsEnableEosVmOcEnable: bool = False
+        nonProdsEosVmOcEnable: bool = False
 
         def log_transactions(self, trxDataFile, block):
             for trx in block['payload']['transactions']:
@@ -100,10 +100,12 @@ class PerformanceTestBasic:
 
         def __post_init__(self):
             self._totalNodes = self.pnodes + 1 if self.totalNodes <= self.pnodes else self.totalNodes
+            nonProdsSpecificNodeosStr = ""
             if not self.prodsEnableTraceApi:
-                self.specificExtraNodeosArgs.update({f"{node}" : "--plugin eosio::trace_api_plugin" for node in range(self.pnodes, self._totalNodes)})
-            if self.nonprodsEnableEosVmOcEnable:
-                self.specificExtraNodeosArgs.update({f"{node}" : "--eos-vm-oc-enable" for node in range(self.pnodes, self._totalNodes)})
+                nonProdsSpecificNodeosStr += "--plugin eosio::trace_api_plugin "
+            if self.nonProdsEosVmOcEnable:
+                nonProdsSpecificNodeosStr += "--eos-vm-oc-enable "
+            self.specificExtraNodeosArgs.update({f"{node}" : nonProdsSpecificNodeosStr for node in range(self.pnodes, self._totalNodes)})
             assert self.nodeosVers != "v1" and self.nodeosVers != "v0", f"nodeos version {Utils.getNodeosVersion().split('.')[0]} is unsupported by performance test"
             if self.nodeosVers == "v2":
                 self.fetchBlock = lambda node, blockNum: node.processUrllibRequest("chain", "get_block", {"block_num_or_id":blockNum}, silentErrors=False, exitOnError=True)
@@ -563,7 +565,7 @@ class PtbArgumentsHandler(object):
         ptbBaseParserGroup.add_argument("--contracts-console", help="print contract's output to console", action='store_true')
         ptbBaseParserGroup.add_argument("--eos-vm-oc-cache-size-mb", type=int, help="Maximum size (in MiB) of the EOS VM OC code cache", default=1024)
         ptbBaseParserGroup.add_argument("--eos-vm-oc-compile-threads", type=int, help="Number of threads to use for EOS VM OC tier-up", default=1)
-        ptbBaseParserGroup.add_argument("--eos-vm-oc-enable", help="Enable EOS VM OC tier-up runtime", action='store_true')
+        ptbBaseParserGroup.add_argument("--non-prods-eos-vm-oc-enable", help="Enable EOS VM OC tier-up runtime on non producer nodes", action='store_true')
         ptbBaseParserGroup.add_argument("--block-log-retain-blocks", type=int, help="If set to greater than 0, periodically prune the block log to\
                                          store only configured number of most recent blocks. If set to 0, no blocks are be written to the block log;\
                                          block log file is removed after startup.", default=None)
@@ -605,7 +607,8 @@ def main():
     chainPluginArgs = ChainPluginArgs(signatureCpuBillablePct=args.signature_cpu_billable_pct,
                                       chainThreads=args.chain_threads, databaseMapMode=args.database_map_mode,
                                       wasmRuntime=args.wasm_runtime, contractsConsole=args.contracts_console,
-                                      eosVmOcCacheSizeMb=args.eos_vm_oc_cache_size_mb, eosVmOcCompileThreads=args.eos_vm_oc_compile_threads, blockLogRetainBlocks=args.block_log_retain_blocks,
+                                      eosVmOcCacheSizeMb=args.eos_vm_oc_cache_size_mb, eosVmOcCompileThreads=args.eos_vm_oc_compile_threads,
+                                      blockLogRetainBlocks=args.block_log_retain_blocks,
                                       abiSerializerMaxTimeMs=990000, chainStateDbSizeMb=256000)
 
     lbto = args.last_block_time_offset_us
@@ -630,7 +633,7 @@ def main():
     testClusterConfig = PerformanceTestBasic.ClusterConfig(pnodes=args.p, totalNodes=args.n, topo=args.s, genesisPath=args.genesis,
                                                            prodsEnableTraceApi=args.prods_enable_trace_api, extraNodeosArgs=extraNodeosArgs,
                                                            specifiedContract=specifiedContract, loggingLevel=args.cluster_log_lvl,
-                                                           nodeosVers=Utils.getNodeosVersion().split('.')[0], nonprodsEnableEosVmOcEnable=args.eos_vm_oc_enable)
+                                                           nodeosVers=Utils.getNodeosVersion().split('.')[0], nonProdsEosVmOcEnable=args.non_prods_eos_vm_oc_enable)
 
     if args.contracts_console and testClusterConfig.loggingLevel != "debug" and testClusterConfig.loggingLevel != "all":
         print("Enabling contracts-console will not print anything unless debug level is 'debug' or higher."

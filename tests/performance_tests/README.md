@@ -287,8 +287,8 @@ The Performance Harness main script `performance_test.py` can be configured usin
                           Maximum size (in MiB) of the EOS VM OC code cache (default: 1024)
 * `--eos-vm-oc-compile-threads COMPILE_THREADS`
                           Number of threads to use for EOS VM OC tier-up (default: 1)
-* `--eos-vm-oc-enable`
-                          Enable EOS VM OC tier-up runtime (default: False)
+* `--non-prods-eos-vm-oc-enable`
+                          Enable EOS VM OC tier-up runtime on non producer nodes (default: False)
 * `--block-log-retain-blocks BLOCKS_TO_RETAIN`
                           If set to greater than 0, periodically prune the block log to
                           store only configured number of most recent blocks. If set to 0, no blocks are be written to the block log;
@@ -376,8 +376,8 @@ The following scripts are typically used by the Performance Harness main script 
                           Maximum size (in MiB) of the EOS VM OC code cache (default: 1024)
 * `--eos-vm-oc-compile-threads COMPILE_THREADS`
                           Number of threads to use for EOS VM OC tier-up (default: 1)
-* `--eos-vm-oc-enable`
-                          Enable EOS VM OC tier-up runtime (default: False)
+* `--non-prods-eos-vm-oc-enable`
+                          Enable EOS VM OC tier-up runtime on non producer nodes (default: False)
 * `--block-log-retain-blocks BLOCKS_TO_RETAIN`
                           If set to greater than 0, periodically prune the block log to
                           store only configured number of most recent blocks. If set to 0, no blocks are be written to the block log;
