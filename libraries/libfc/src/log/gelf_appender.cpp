@@ -46,10 +46,11 @@ namespace fc
     using work_guard_t = boost::asio::executor_work_guard<boost::asio::io_context::executor_type>;
     config                                         cfg;
     std::optional<boost::asio::ip::udp::endpoint>  gelf_endpoint;
+    std::thread                                    thread;
     boost::asio::io_context                        io_context;
     work_guard_t work_guard =                      boost::asio::make_work_guard(io_context);
     udp_socket                                     gelf_socket;
-    std::thread                                    thread;
+
 
     impl(const variant& c)
     {
@@ -109,7 +110,8 @@ namespace fc
         string::size_type colon_pos = my->cfg.endpoint.find(':');
         try
         {
-          string port = my->cfg.endpoint.substr(colon_pos + 1, my->cfg.endpoint.size());
+          FC_ASSERT(colon_pos != std::string::npos, "The logging destination port is not specified");
+          string port = my->cfg.endpoint.substr(colon_pos + 1);
 
           string hostname = my->cfg.endpoint.substr( 0, colon_pos );
 
@@ -135,11 +137,14 @@ namespace fc
         std::cerr << "opened GELF socket to endpoint " << my->cfg.endpoint << "\n";
 
         my->thread = std::thread([this] {
-           try {
-              fc::set_os_thread_name("gelf_appender");
-              my->io_context.run();
-           } catch (...) {
-           }
+          try {
+            fc::set_os_thread_name("gelf");
+            my->io_context.run();
+          } catch (std::exception& ex) {
+            fprintf(stderr, "GELF logger caught exception at %s:%d : %s\n", __FILE__, __LINE__, ex.what());
+          } catch (...) {
+            fprintf(stderr, "GELF logger caught exception unknown exception %s:%d\n", __FILE__, __LINE__);
+          }
         });
       }
     }
@@ -161,8 +166,6 @@ namespace fc
     gelf_message["host"] = my->cfg.host;
     gelf_message["short_message"] = format_string(message.get_format(), message.get_data(), true);
 
-    // use now() instead of context.get_timestamp() because log_message construction can include user provided long running calls
-    //const auto time_ns = time_point::now().time_since_epoch().count();
     gelf_message["timestamp"] = time_ns / 1000000.;
     gelf_message["_timestamp_ns"] = time_ns;
 
@@ -268,10 +271,18 @@ namespace fc
   }
 
   void gelf_appender::log(const log_message& message) {
-     if (!my->gelf_endpoint)
-        return;
-     boost::asio::post(my->io_context, [impl = my, time_ns = time_point::now().time_since_epoch().count(), message] () {
+    if (!my->gelf_endpoint)
+      return;
+
+    // use now() instead of context.get_timestamp() because log_message construction can include user provided long running calls
+    boost::asio::post(my->io_context, [impl = my, time_ns = time_point::now().time_since_epoch().count(), message] () {
+      try {
         do_log(impl.get(), time_ns, message);
-     });
+      } catch (std::exception& ex) {
+        fprintf(stderr, "GELF logger caught exception at %s:%d : %s\n", __FILE__, __LINE__, ex.what());
+      } catch (...) {
+        fprintf(stderr, "GELF logger caught exception unknown exception %s:%d\n", __FILE__, __LINE__);
+      }
+    });
   }
 } // fc
