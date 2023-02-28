@@ -16,7 +16,6 @@
 #include <eosio/chain_plugin/trx_finality_status_processing.hpp>
 #include <eosio/chain/permission_link_object.hpp>
 #include <eosio/chain/global_property_object.hpp>
-#include <eosio/chain/eosio_contract.hpp>
 
 #include <eosio/resource_monitor_plugin/resource_monitor_plugin.hpp>
 
@@ -30,7 +29,6 @@
 
 #include <fc/io/json.hpp>
 #include <fc/variant.hpp>
-#include <signal.h>
 #include <cstdlib>
 
 // reflect chainbase::environment for --print-build-info option
@@ -134,12 +132,12 @@ public:
    ,irreversible_block_channel(app().get_channel<channels::irreversible_block>())
    ,accepted_transaction_channel(app().get_channel<channels::accepted_transaction>())
    ,applied_transaction_channel(app().get_channel<channels::applied_transaction>())
-   ,incoming_block_channel(app().get_channel<incoming::channels::block>())
    ,incoming_block_sync_method(app().get_method<incoming::methods::block_sync>())
    ,incoming_transaction_async_method(app().get_method<incoming::methods::transaction_async>())
    {}
 
    bfs::path                        blocks_dir;
+   bfs::path                        state_dir;
    bool                             readonly = false;
    flat_map<uint32_t,block_id_type> loaded_checkpoints;
    bool                             accept_transactions = false;
@@ -162,7 +160,6 @@ public:
    channels::irreversible_block::channel_type&     irreversible_block_channel;
    channels::accepted_transaction::channel_type&   accepted_transaction_channel;
    channels::applied_transaction::channel_type&    applied_transaction_channel;
-   incoming::channels::block::channel_type&        incoming_block_channel;
 
    // retained references to methods for easy calling
    incoming::methods::block_sync::method_type&        incoming_block_sync_method;
@@ -229,6 +226,8 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
    cfg.add_options()
          ("blocks-dir", bpo::value<bfs::path>()->default_value("blocks"),
           "the location of the blocks directory (absolute path or relative to application data dir)")
+         ("state-dir", bpo::value<bfs::path>()->default_value(config::default_state_dir_name),
+          "the location of the state directory (absolute path or relative to application data dir)")
          ("protocol-features-dir", bpo::value<bfs::path>()->default_value("protocol_features"),
           "the location of the protocol_features directory (absolute path or relative to application config dir)")
          ("checkpoint", bpo::value<vector<string>>()->composing(), "Pairs of [BLOCK_NUM,BLOCK_ID] that should be enforced as checkpoints.")
@@ -450,9 +449,10 @@ chain_plugin::do_hard_replay(const variables_map& options) {
 }
 
 void chain_plugin::plugin_initialize(const variables_map& options) {
-   ilog("initializing chain plugin");
-
    try {
+      handle_sighup(); // Sets loggers
+      ilog("initializing chain plugin");
+
       try {
          genesis_state gs; // Check if EOSIO_ROOT_KEY is bad
       } catch ( const std::exception& ) {
@@ -521,6 +521,14 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
             my->blocks_dir = bld;
       }
 
+      if( options.count( "state-dir" )) {
+         auto sd = options.at( "state-dir" ).as<bfs::path>();
+         if( sd.is_relative())
+            my->state_dir = app().data_dir() / sd;
+         else
+            my->state_dir = sd;
+      }
+
       protocol_feature_set pfs;
       {
          fc::path protocol_features_dir;
@@ -559,7 +567,7 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
       my->abi_serializer_max_time_us = fc::microseconds(options.at("abi-serializer-max-time-ms").as<uint32_t>() * 1000);
 
       my->chain_config->blocks_dir = my->blocks_dir;
-      my->chain_config->state_dir = app().data_dir() / config::default_state_dir_name;
+      my->chain_config->state_dir = my->state_dir;
       my->chain_config->read_only = my->readonly;
 
       if (auto resmon_plugin = app().find_plugin<resource_monitor_plugin>()) {
@@ -1046,8 +1054,6 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
 
 void chain_plugin::plugin_startup()
 { try {
-   handle_sighup(); // Sets loggers
-
    EOS_ASSERT( my->chain_config->read_mode != db_read_mode::IRREVERSIBLE || !accept_transactions(), plugin_config_exception,
                "read-mode = irreversible. transactions should not be enabled by enable_accept_transactions" );
    try {
@@ -1142,8 +1148,8 @@ chain_apis::read_only chain_plugin::get_read_only_api(const fc::microseconds& ht
 }
 
 
-bool chain_plugin::accept_block(const signed_block_ptr& block, const block_id_type& id ) {
-   return my->incoming_block_sync_method(block, id);
+bool chain_plugin::accept_block(const signed_block_ptr& block, const block_id_type& id, const block_state_ptr& bsp ) {
+   return my->incoming_block_sync_method(block, id, bsp);
 }
 
 void chain_plugin::accept_transaction(const chain::packed_transaction_ptr& trx, next_function<chain::transaction_trace_ptr> next) {
@@ -1500,39 +1506,39 @@ string get_table_type( const abi_def& abi, const name& table_name ) {
 }
 
 read_only::get_table_rows_result read_only::get_table_rows( const read_only::get_table_rows_params& p, const fc::time_point& deadline )const {
-   const abi_def abi = eosio::chain_apis::get_abi( db, p.code );
+   abi_def abi = eosio::chain_apis::get_abi( db, p.code );
    bool primary = false;
    auto table_with_index = get_table_index_name( p, primary );
    if( primary ) {
       EOS_ASSERT( p.table == table_with_index, chain::contract_table_query_exception, "Invalid table name ${t}", ( "t", p.table ));
       auto table_type = get_table_type( abi, p.table );
       if( table_type == KEYi64 || p.key_type == "i64" || p.key_type == "name" ) {
-         return get_table_rows_ex<key_value_index>(p,abi,deadline);
+         return get_table_rows_ex<key_value_index>(p,std::move(abi),deadline);
       }
       EOS_ASSERT( false, chain::contract_table_query_exception,  "Invalid table type ${type}", ("type",table_type)("abi",abi));
    } else {
       EOS_ASSERT( !p.key_type.empty(), chain::contract_table_query_exception, "key type required for non-primary index" );
 
       if (p.key_type == chain_apis::i64 || p.key_type == "name") {
-         return get_table_rows_by_seckey<index64_index, uint64_t>(p, abi, deadline, [](uint64_t v)->uint64_t {
+         return get_table_rows_by_seckey<index64_index, uint64_t>(p, std::move(abi), deadline, [](uint64_t v)->uint64_t {
             return v;
          });
       }
       else if (p.key_type == chain_apis::i128) {
-         return get_table_rows_by_seckey<index128_index, uint128_t>(p, abi, deadline, [](uint128_t v)->uint128_t {
+         return get_table_rows_by_seckey<index128_index, uint128_t>(p, std::move(abi), deadline, [](uint128_t v)->uint128_t {
             return v;
          });
       }
       else if (p.key_type == chain_apis::i256) {
          if ( p.encode_type == chain_apis::hex) {
             using  conv = keytype_converter<chain_apis::sha256,chain_apis::hex>;
-            return get_table_rows_by_seckey<conv::index_type, conv::input_type>(p, abi, deadline, conv::function());
+            return get_table_rows_by_seckey<conv::index_type, conv::input_type>(p, std::move(abi), deadline, conv::function());
          }
          using  conv = keytype_converter<chain_apis::i256>;
-         return get_table_rows_by_seckey<conv::index_type, conv::input_type>(p, abi, deadline, conv::function());
+         return get_table_rows_by_seckey<conv::index_type, conv::input_type>(p, std::move(abi), deadline, conv::function());
       }
       else if (p.key_type == chain_apis::float64) {
-         return get_table_rows_by_seckey<index_double_index, double>(p, abi, deadline, [](double v)->float64_t {
+         return get_table_rows_by_seckey<index_double_index, double>(p, std::move(abi), deadline, [](double v)->float64_t {
             float64_t f;
             double_to_float64(v, f);
             return f;
@@ -1540,13 +1546,13 @@ read_only::get_table_rows_result read_only::get_table_rows( const read_only::get
       }
       else if (p.key_type == chain_apis::float128) {
          if ( p.encode_type == chain_apis::hex) {
-            return get_table_rows_by_seckey<index_long_double_index, uint128_t>(p, abi, deadline, [](uint128_t v)->float128_t{
+            return get_table_rows_by_seckey<index_long_double_index, uint128_t>(p, std::move(abi), deadline, [](uint128_t v)->float128_t{
                float128_t f;
                uint128_to_float128(v, f);
                return f;
             });
          }
-         return get_table_rows_by_seckey<index_long_double_index, double>(p, abi, deadline, [](double v)->float128_t{
+         return get_table_rows_by_seckey<index_long_double_index, double>(p, std::move(abi), deadline, [](double v)->float128_t{
             float64_t f;
             double_to_float64(v, f);
             float128_t f128;
@@ -1556,11 +1562,11 @@ read_only::get_table_rows_result read_only::get_table_rows( const read_only::get
       }
       else if (p.key_type == chain_apis::sha256) {
          using  conv = keytype_converter<chain_apis::sha256,chain_apis::hex>;
-         return get_table_rows_by_seckey<conv::index_type, conv::input_type>(p, abi, deadline, conv::function());
+         return get_table_rows_by_seckey<conv::index_type, conv::input_type>(p, std::move(abi), deadline, conv::function());
       }
       else if(p.key_type == chain_apis::ripemd160) {
          using  conv = keytype_converter<chain_apis::ripemd160,chain_apis::hex>;
-         return get_table_rows_by_seckey<conv::index_type, conv::input_type>(p, abi, deadline, conv::function());
+         return get_table_rows_by_seckey<conv::index_type, conv::input_type>(p, std::move(abi), deadline, conv::function());
       }
       EOS_ASSERT(false, chain::contract_table_query_exception,  "Unsupported secondary index type: ${t}", ("t", p.key_type));
    }
@@ -1688,9 +1694,9 @@ fc::variant get_global_row( const database& db, const abi_def& abi, const abi_se
 
 read_only::get_producers_result
 read_only::get_producers( const read_only::get_producers_params& params, const fc::time_point& deadline ) const try {
-   const abi_def abi = eosio::chain_apis::get_abi(db, config::system_account_name);
+   abi_def abi = eosio::chain_apis::get_abi(db, config::system_account_name);
    const auto table_type = get_table_type(abi, "producers"_n);
-   const abi_serializer abis{ abi, abi_serializer::create_yield_function( abi_serializer_max_time ) };
+   const abi_serializer abis{ abi_def(abi), abi_serializer::create_yield_function( abi_serializer_max_time ) };
    EOS_ASSERT(table_type == KEYi64, chain::contract_table_query_exception, "Invalid table type ${type} for table producers", ("type",table_type));
 
    const auto& d = db.db();
@@ -1776,23 +1782,16 @@ read_only::get_producer_schedule_result read_only::get_producer_schedule( const 
 }
 
 
-struct resolver_factory {
-    static auto make(const controller& control, abi_serializer::yield_function_t yield) {
-        return [&control, yield{std::move(yield)}](const account_name &name) -> std::optional<abi_serializer> {
-            const auto* accnt = control.db().template find<account_object, by_name>(name);
-            if (accnt != nullptr) {
-                abi_def abi;
-                if (abi_serializer::to_abi(accnt->abi, abi)) {
-                    return abi_serializer(abi, yield);
-                }
-            }
-            return std::optional<abi_serializer>();
-        };
-    }
-};
-
 auto make_resolver(const controller& control, abi_serializer::yield_function_t yield) {
-    return resolver_factory::make(control, std::move( yield ));
+   return [&control, yield{std::move(yield)}](const account_name &name) -> std::optional<abi_serializer> {
+      const auto* accnt = control.db().template find<account_object, by_name>(name);
+      if (accnt != nullptr) {
+         if (abi_def abi; abi_serializer::to_abi(accnt->abi, abi)) {
+            return abi_serializer(std::move(abi), yield);
+         }
+      }
+      return {};
+   };
 }
 
 read_only::get_scheduled_transactions_result
@@ -1872,7 +1871,7 @@ read_only::get_scheduled_transactions( const read_only::get_scheduled_transactio
    return result;
 }
 
-fc::variant read_only::get_block(const read_only::get_block_params& params, const fc::time_point& deadline) const {
+chain::signed_block_ptr read_only::get_block(const read_only::get_block_params& params, const fc::time_point& deadline) const {
    signed_block_ptr block;
    std::optional<uint64_t> block_num;
 
@@ -1894,18 +1893,61 @@ fc::variant read_only::get_block(const read_only::get_block_params& params, cons
    }
 
    EOS_ASSERT( block, unknown_block_exception, "Could not find block: ${block}", ("block", params.block_num_or_id));
+   FC_CHECK_DEADLINE(deadline);
+
+   return block;
+}
+
+std::unordered_map<account_name, std::optional<abi_serializer>>
+read_only::get_block_serializers( const chain::signed_block_ptr& block, const fc::microseconds& max_time ) const {
+   auto yield = abi_serializer::create_yield_function( max_time );
+   auto resolver = make_resolver(db, yield );
+   std::unordered_map<account_name, std::optional<abi_serializer> > abi_cache;
+   auto add_to_cache = [&]( const chain::action& a ) {
+      auto it = abi_cache.find( a.account );
+      if( it == abi_cache.end() ) {
+         try {
+            abi_cache.emplace_hint( it, a.account, resolver( a.account ) );
+         } catch( ... ) {
+            // keep behavior of not throwing on invalid abi, will result in hex data
+         }
+      }
+   };
+   for( const auto& receipt: block->transactions ) {
+      if( std::holds_alternative<chain::packed_transaction>( receipt.trx ) ) {
+         const auto& pt = std::get<chain::packed_transaction>( receipt.trx );
+         const auto& t = pt.get_transaction();
+         for( const auto& a: t.actions )
+            add_to_cache( a );
+         for( const auto& a: t.context_free_actions )
+            add_to_cache( a );
+      }
+   }
+   return abi_cache;
+}
+
+fc::variant read_only::convert_block( const chain::signed_block_ptr& block,
+                                      std::unordered_map<account_name, std::optional<abi_serializer>> abi_cache,
+                                      const fc::microseconds& max_time ) const {
+
+   auto abi_serializer_resolver = [&abi_cache](const account_name& account) -> std::optional<abi_serializer> {
+      auto it = abi_cache.find( account );
+      if( it != abi_cache.end() )
+         return it->second;
+      return {};
+   };
 
    fc::variant pretty_output;
-   abi_serializer::to_variant(*block, pretty_output, make_resolver(db, abi_serializer::create_yield_function( abi_serializer_max_time )),
-                              abi_serializer::create_yield_function( abi_serializer_max_time ));
+   abi_serializer::to_variant( *block, pretty_output, abi_serializer_resolver,
+                               abi_serializer::create_yield_function( max_time ) );
 
    const auto block_id = block->calculate_id();
    uint32_t ref_block_prefix = block_id._hash[1];
 
-   return fc::mutable_variant_object(pretty_output.get_object())
-           ("id", block_id)
-           ("block_num",block->block_num())
-           ("ref_block_prefix", ref_block_prefix);
+   return fc::mutable_variant_object( pretty_output.get_object() )
+         ( "id", block_id )
+         ( "block_num", block->block_num() )
+         ( "ref_block_prefix", ref_block_prefix );
 }
 
 fc::variant read_only::get_block_info(const read_only::get_block_info_params& params, const fc::time_point& deadline) const {
@@ -1962,7 +2004,7 @@ fc::variant read_only::get_block_header_state(const get_block_header_state_param
 
 void read_write::push_block(read_write::push_block_params&& params, next_function<read_write::push_block_results> next) {
    try {
-      app().get_method<incoming::methods::block_sync>()(std::make_shared<signed_block>( std::move( params ) ), std::optional<block_id_type>{});
+      app().get_method<incoming::methods::block_sync>()(std::make_shared<signed_block>( std::move(params) ), std::optional<block_id_type>{}, block_state_ptr{});
    } catch ( boost::interprocess::bad_alloc& ) {
       chain_plugin::handle_db_exhaustion();
    } catch ( const std::bad_alloc& ) {
@@ -2185,8 +2227,7 @@ read_only::get_abi_results read_only::get_abi( const get_abi_params& params, con
    const auto& d = db.db();
    const auto& accnt  = d.get<account_object,by_name>( params.account_name );
 
-   abi_def abi;
-   if( abi_serializer::to_abi(accnt.abi, abi) ) {
+   if( abi_def abi; abi_serializer::to_abi(accnt.abi, abi) ) {
       result.abi = std::move(abi);
    }
 
@@ -2208,8 +2249,7 @@ read_only::get_code_results read_only::get_code( const get_code_params& params, 
       result.code_hash = code_obj.code_hash;
    }
 
-   abi_def abi;
-   if( abi_serializer::to_abi(accnt_obj.abi, abi) ) {
+   if( abi_def abi; abi_serializer::to_abi(accnt_obj.abi, abi) ) {
       result.abi = std::move(abi);
    }
 
@@ -2347,9 +2387,8 @@ read_only::get_account_results read_only::get_account( const get_account_params&
 
    const auto& code_account = db.db().get<account_object,by_name>( config::system_account_name );
 
-   abi_def abi;
-   if( abi_serializer::to_abi(code_account.abi, abi) ) {
-      abi_serializer abis( abi, abi_serializer::create_yield_function( abi_serializer_max_time ) );
+   if( abi_def abi; abi_serializer::to_abi(code_account.abi, abi) ) {
+      abi_serializer abis( std::move(abi), abi_serializer::create_yield_function( abi_serializer_max_time ) );
 
       const auto token_code = "eosio.token"_n;
 
@@ -2431,11 +2470,13 @@ read_only::get_account_results read_only::get_account( const get_account_params&
    return result;
 }
 
-static fc::variant action_abi_to_variant( const abi_def& abi, type_name action_type ) {
+static fc::variant action_abi_to_variant( const account_object* code_account, type_name action_type ) {
    fc::variant v;
-   auto it = std::find_if(abi.structs.begin(), abi.structs.end(), [&](auto& x){return x.name == action_type;});
-   if( it != abi.structs.end() )
-      to_variant( it->fields,  v );
+   if( abi_def abi; abi_serializer::to_abi(code_account->abi, abi) ) {
+      auto it = std::find_if(abi.structs.begin(), abi.structs.end(), [&](auto& x){return x.name == action_type;});
+      if( it != abi.structs.end() )
+         to_variant( it->fields,  v );
+   }
    return v;
 };
 
@@ -2444,16 +2485,15 @@ read_only::abi_json_to_bin_result read_only::abi_json_to_bin( const read_only::a
    const auto code_account = db.db().find<account_object,by_name>( params.code );
    EOS_ASSERT(code_account != nullptr, contract_query_exception, "Contract can't be found ${contract}", ("contract", params.code));
 
-   abi_def abi;
-   if( abi_serializer::to_abi(code_account->abi, abi) ) {
-      abi_serializer abis( abi, abi_serializer::create_yield_function( abi_serializer_max_time ) );
+   if( abi_def abi; abi_serializer::to_abi(code_account->abi, abi) ) {
+      abi_serializer abis( std::move(abi), abi_serializer::create_yield_function( abi_serializer_max_time ) );
       auto action_type = abis.get_action_type(params.action);
       EOS_ASSERT(!action_type.empty(), action_validate_exception, "Unknown action ${action} in contract ${contract}", ("action", params.action)("contract", params.code));
       try {
          result.binargs = abis.variant_to_binary( action_type, params.args, abi_serializer::create_yield_function( abi_serializer_max_time ), shorten_abi_errors );
       } EOS_RETHROW_EXCEPTIONS(chain::invalid_action_args_exception,
                                 "'${args}' is invalid args for action '${action}' code '${code}'. expected '${proto}'",
-                                ("args", params.args)("action", params.action)("code", params.code)("proto", action_abi_to_variant(abi, action_type)))
+                                ("args", params.args)("action", params.action)("code", params.code)("proto", action_abi_to_variant(code_account, action_type)))
    } else {
       EOS_ASSERT(false, abi_not_found_exception, "No ABI found for ${contract}", ("contract", params.code));
    }
@@ -2464,9 +2504,8 @@ read_only::abi_json_to_bin_result read_only::abi_json_to_bin( const read_only::a
 read_only::abi_bin_to_json_result read_only::abi_bin_to_json( const read_only::abi_bin_to_json_params& params, const fc::time_point& deadline )const {
    abi_bin_to_json_result result;
    const auto& code_account = db.db().get<account_object,by_name>( params.code );
-   abi_def abi;
-   if( abi_serializer::to_abi(code_account.abi, abi) ) {
-      abi_serializer abis( abi, abi_serializer::create_yield_function( abi_serializer_max_time ) );
+   if( abi_def abi; abi_serializer::to_abi(code_account.abi, abi) ) {
+      abi_serializer abis( std::move(abi), abi_serializer::create_yield_function( abi_serializer_max_time ) );
       result.args = abis.binary_to_variant( abis.get_action_type( params.action ), params.binargs, abi_serializer::create_yield_function( abi_serializer_max_time ), shorten_abi_errors );
    } else {
       EOS_ASSERT(false, abi_not_found_exception, "No ABI found for ${contract}", ("contract", params.code));

@@ -27,7 +27,7 @@
 #include "test_wasts.hpp"
 #include "test_softfloat_wasts.hpp"
 
-#include <contracts.hpp>
+#include <test_contracts.hpp>
 
 #ifdef NON_VALIDATING_TEST
 #define TESTER tester
@@ -87,7 +87,7 @@ BOOST_FIXTURE_TEST_CASE( basic_test, TESTER ) try {
    create_accounts( {"asserter"_n} );
    produce_block();
 
-   set_code("asserter"_n, contracts::asserter_wasm());
+   set_code("asserter"_n, test_contracts::asserter_wasm());
    produce_blocks(1);
 
    transaction_id_type no_assert_id;
@@ -146,7 +146,7 @@ BOOST_FIXTURE_TEST_CASE( prove_mem_reset, TESTER ) try {
    create_accounts( {"asserter"_n} );
    produce_block();
 
-   set_code("asserter"_n, contracts::asserter_wasm());
+   set_code("asserter"_n, test_contracts::asserter_wasm());
    produce_blocks(1);
 
    // repeat the action multiple times, each time the action handler checks for the expected
@@ -176,16 +176,15 @@ BOOST_FIXTURE_TEST_CASE( abi_from_variant, TESTER ) try {
    create_accounts( {"asserter"_n} );
    produce_block();
 
-   set_code("asserter"_n, contracts::asserter_wasm());
-   set_abi("asserter"_n, contracts::asserter_abi().data());
+   set_code("asserter"_n, test_contracts::asserter_wasm());
+   set_abi("asserter"_n, test_contracts::asserter_abi().data());
    produce_blocks(1);
 
    auto resolver = [&,this]( const account_name& name ) -> std::optional<abi_serializer> {
       try {
          const auto& accnt  = this->control->db().get<account_object,by_name>( name );
-         abi_def abi;
-         if (abi_serializer::to_abi(accnt.abi, abi)) {
-            return abi_serializer(abi, abi_serializer::create_yield_function( abi_serializer_max_time ));
+         if (abi_def abi; abi_serializer::to_abi(accnt.abi, abi)) {
+            return abi_serializer(std::move(abi), abi_serializer::create_yield_function( abi_serializer_max_time ));
          }
          return std::optional<abi_serializer>();
       } FC_RETHROW_EXCEPTIONS(error, "Failed to find or parse ABI for ${name}", ("name", name))
@@ -1043,13 +1042,13 @@ BOOST_FIXTURE_TEST_CASE(noop, TESTER) try {
    create_accounts( {"noop"_n, "alice"_n} );
    produce_block();
 
-   set_code("noop"_n, contracts::noop_wasm());
+   set_code("noop"_n, test_contracts::noop_wasm());
 
-   set_abi("noop"_n, contracts::noop_abi().data());
+   set_abi("noop"_n, test_contracts::noop_abi().data());
    const auto& accnt  = control->db().get<account_object,by_name>("noop"_n);
    abi_def abi;
    BOOST_REQUIRE_EQUAL(abi_serializer::to_abi(accnt.abi, abi), true);
-   abi_serializer abi_ser(abi, abi_serializer::create_yield_function( abi_serializer_max_time ));
+   abi_serializer abi_ser(std::move(abi), abi_serializer::create_yield_function( abi_serializer_max_time ));
 
    {
       produce_blocks(5);
@@ -1112,7 +1111,7 @@ BOOST_FIXTURE_TEST_CASE(eosio_abi, TESTER) try {
    const auto& accnt  = control->db().get<account_object,by_name>(config::system_account_name);
    abi_def abi;
    BOOST_REQUIRE_EQUAL(abi_serializer::to_abi(accnt.abi, abi), true);
-   abi_serializer abi_ser(abi, abi_serializer::create_yield_function( abi_serializer_max_time ));
+   abi_serializer abi_ser(std::move(abi), abi_serializer::create_yield_function( abi_serializer_max_time ));
 
    signed_transaction trx;
    name a = "alice"_n;
@@ -1952,7 +1951,9 @@ BOOST_AUTO_TEST_CASE( billed_cpu_test ) try {
    BOOST_CHECK_LT( max_cpu_time_us + 1, cpu_limit ); // max_cpu_time_us+1 has to be less than cpu_limit to actually test max and not account
    // indicate explicit billing at max + 1
    BOOST_CHECK_EXCEPTION( push_trx( ptrx, fc::time_point::maximum(), max_cpu_time_us + 1, true, 0 ), tx_cpu_usage_exceeded,
-                          fc_exception_message_starts_with( "billed") );
+                          [](const tx_cpu_usage_exceeded& e){ fc_exception_message_starts_with starts("billed");
+                                                              fc_exception_message_contains contains("reached on chain max_transaction_cpu_usage");
+                                                              return starts(e) && contains(e); } );
 
    // allow to bill at trx configured max
    ptrx = create_trx(5); // set trx max at 5ms
@@ -1968,7 +1969,9 @@ BOOST_AUTO_TEST_CASE( billed_cpu_test ) try {
    BOOST_CHECK_LT( 5 * 1000 + 1, cpu_limit ); // 5ms has to be less than cpu_limit to actually test trx max and not account
    // indicate explicit billing at max + 1
    BOOST_CHECK_EXCEPTION( push_trx( ptrx, fc::time_point::maximum(), 5 * 1000 + 1, true, 0 ), tx_cpu_usage_exceeded,
-                          fc_exception_message_starts_with("billed") );
+                          [](const tx_cpu_usage_exceeded& e){ fc_exception_message_starts_with starts("billed");
+                                                              fc_exception_message_contains contains("reached trx specified max_cpu_usage_ms");
+                                                              return starts(e) && contains(e); } );
 
    // bill at minimum
    ptrx = create_trx(0);
@@ -2009,7 +2012,9 @@ BOOST_AUTO_TEST_CASE( billed_cpu_test ) try {
    // indicate explicit billing at over our account cpu limit, not allowed
    cpu_limit = mgr.get_account_cpu_limit_ex(acc).first.max;
    BOOST_CHECK_EXCEPTION( push_trx( ptrx, fc::time_point::maximum(), cpu_limit+1, true, 0 ), tx_cpu_usage_exceeded,
-                          fc_exception_message_starts_with("billed") );
+                          [](const tx_cpu_usage_exceeded& e){ fc_exception_message_starts_with starts("billed");
+                                                              fc_exception_message_contains contains("reached account cpu limit");
+                                                              return starts(e) && contains(e); } );
 
    // leeway and subjective billing interaction tests
    auto leeway = fc::microseconds(config::default_subjective_cpu_leeway_us);
@@ -2043,13 +2048,19 @@ BOOST_AUTO_TEST_CASE( billed_cpu_test ) try {
    subjective_cpu_bill_us = cpu_limit;
    billed_cpu_time_us = EOS_PERCENT( combined_cpu_limit - subjective_cpu_bill_us, 90 * config::percent_1 );
    BOOST_CHECK_EXCEPTION(push_trx( ptrx, fc::time_point::maximum(), billed_cpu_time_us, false, subjective_cpu_bill_us ), tx_cpu_usage_exceeded,
-                         fc_exception_message_starts_with("estimated") );
+                         [](const tx_cpu_usage_exceeded& e){ fc_exception_message_starts_with starts("estimated");
+                                                             fc_exception_message_contains contains_reached("reached account cpu limit");
+                                                             fc_exception_message_contains contains_subjective("with a subjective cpu of");
+                                                             return starts(e) && contains_reached(e) && contains_subjective(e); } );
 
    // Disallow transaction with billed cpu greater 90% of (account cpu limit + leeway - subjective bill)
    subjective_cpu_bill_us = 0;
    billed_cpu_time_us = EOS_PERCENT( combined_cpu_limit - subjective_cpu_bill_us, 91 * config::percent_1 );
    BOOST_CHECK_EXCEPTION(push_trx( ptrx, fc::time_point::maximum(), billed_cpu_time_us, false, subjective_cpu_bill_us ), tx_cpu_usage_exceeded,
-                         fc_exception_message_starts_with("estimated") );
+                         [](const tx_cpu_usage_exceeded& e){ fc_exception_message_starts_with starts("estimated");
+                                                             fc_exception_message_contains contains_reached("reached account cpu limit");
+                                                             fc_exception_message_contains contains_subjective("with a subjective cpu of");
+                                                             return starts(e) && contains_reached(e) && !contains_subjective(e); } );
 
    // Test when cpu limit is 0
    chain.push_action( config::system_account_name, "setalimits"_n, config::system_account_name, fc::mutable_variant_object()
@@ -2067,7 +2078,9 @@ BOOST_AUTO_TEST_CASE( billed_cpu_test ) try {
    subjective_cpu_bill_us = 0;
    billed_cpu_time_us = EOS_PERCENT( leeway.count(), 89 *config::percent_1 );
    BOOST_CHECK_EXCEPTION(push_trx( ptrx, fc::time_point::maximum(), billed_cpu_time_us, false, subjective_cpu_bill_us ), tx_cpu_usage_exceeded,
-                         fc_exception_message_starts_with("billed") );
+                         [](const tx_cpu_usage_exceeded& e){ fc_exception_message_starts_with starts("billed");
+                                                             fc_exception_message_contains contains("reached account cpu limit");
+                                                             return starts(e) && contains(e); } );
 
 } FC_LOG_AND_RETHROW()
 

@@ -29,6 +29,10 @@ struct mock_trx_generator {
       return true;
    }
 
+   bool stop_on_trx_fail() {
+      return false;
+   }
+
    mock_trx_generator(size_t expected_num_calls, uint32_t delay=0) :_calls(), _delay(delay) {
       _calls.reserve(expected_num_calls);
    }
@@ -301,10 +305,6 @@ BOOST_AUTO_TEST_CASE(tps_cant_keep_up_monitored)
    constexpr uint32_t trx_delay_us = 10;
    constexpr uint32_t expected_trxs = test_duration_s * test_tps;
    constexpr uint64_t expected_runtime_us = test_duration_s * 1000000;
-   constexpr uint64_t allowable_runtime_deviation_per = 20;
-   constexpr uint64_t allowable_runtime_deviation_us = expected_runtime_us / allowable_runtime_deviation_per;
-   constexpr uint64_t minimum_runtime_us = expected_runtime_us - allowable_runtime_deviation_us;
-   constexpr uint64_t maximum_runtime_us = expected_runtime_us + allowable_runtime_deviation_us;
 
    std::shared_ptr<mock_trx_generator> generator = std::make_shared<mock_trx_generator>(expected_trxs, trx_delay_us);
    std::shared_ptr<tps_performance_monitor> monitor = std::make_shared<tps_performance_monitor>();

@@ -22,6 +22,9 @@
 [submodule "libraries/libfc/secp256k1/secp256k1"]
 	path = libraries/libfc/secp256k1/secp256k1
 	url = https://github.com/bitcoin-core/secp256k1
-[submodule "libraries/libfc/libraries/ff"]
-	path = libraries/libfc/libraries/ff
-	url = https://github.com/AntelopeIO/libff
+[submodule "libraries/libfc/libraries/bn256"]
+	path = libraries/libfc/libraries/bn256
+	url = https://github.com/AntelopeIO/bn256
+[submodule "libraries/cli11/cli11"]
+	path = libraries/cli11/cli11
+	url = https://github.com/AntelopeIO/CLI11.git

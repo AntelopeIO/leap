@@ -10,7 +10,7 @@
 #include <eosio/chain/global_property_object.hpp>
 #include <eosio/chain_plugin/chain_plugin.hpp>
 
-#include <contracts.hpp>
+#include <test_contracts.hpp>
 
 #include <fc/io/fstream.hpp>
 
@@ -42,16 +42,15 @@ BOOST_FIXTURE_TEST_CASE( get_block_with_invalid_abi, TESTER ) try {
    produce_block();
 
    // setup contract and abi
-   set_code( "asserter"_n, contracts::asserter_wasm() );
-   set_abi( "asserter"_n, contracts::asserter_abi().data() );
+   set_code( "asserter"_n, test_contracts::asserter_wasm() );
+   set_abi( "asserter"_n, test_contracts::asserter_abi().data() );
    produce_blocks(1);
 
    auto resolver = [&,this]( const account_name& name ) -> std::optional<abi_serializer> {
       try {
          const auto& accnt  = this->control->db().get<account_object,by_name>( name );
-         abi_def abi;
-         if (abi_serializer::to_abi(accnt.abi, abi)) {
-            return abi_serializer(abi, abi_serializer::create_yield_function( abi_serializer_max_time ));
+         if (abi_def abi; abi_serializer::to_abi(accnt.abi, abi)) {
+            return abi_serializer(std::move(abi), abi_serializer::create_yield_function( abi_serializer_max_time ));
          }
          return std::optional<abi_serializer>();
       } FC_RETHROW_EXCEPTIONS(error, "resolver failed at chain_plugin_tests::abi_invalid_type");
@@ -93,14 +92,16 @@ BOOST_FIXTURE_TEST_CASE( get_block_with_invalid_abi, TESTER ) try {
    chain_apis::read_only plugin(*(this->control), {}, fc::microseconds::maximum(), fc::microseconds::maximum(), {}, {});
 
    // block should be decoded successfully
-   std::string block_str = json::to_pretty_string(plugin.get_block(param, fc::time_point::maximum()));
+   auto block = plugin.get_block(param, fc::time_point::maximum());
+   auto abi_cache = plugin.get_block_serializers(block, fc::microseconds::maximum());
+   std::string block_str = json::to_pretty_string(plugin.convert_block(block, abi_cache, fc::microseconds::maximum()));
    BOOST_TEST(block_str.find("procassert") != std::string::npos);
    BOOST_TEST(block_str.find("condition") != std::string::npos);
    BOOST_TEST(block_str.find("Should Not Assert!") != std::string::npos);
    BOOST_TEST(block_str.find("011253686f756c64204e6f742041737365727421") != std::string::npos); //action data
 
    // set an invalid abi (int8->xxxx)
-   std::string abi2 = contracts::asserter_abi().data();
+   std::string abi2 = test_contracts::asserter_abi().data();
    auto pos = abi2.find("int8");
    BOOST_TEST(pos != std::string::npos);
    abi2.replace(pos, 4, "xxxx");
@@ -111,7 +112,9 @@ BOOST_FIXTURE_TEST_CASE( get_block_with_invalid_abi, TESTER ) try {
    BOOST_CHECK_THROW(resolver("asserter"_n), invalid_type_inside_abi);
 
    // get the same block as string, results in decode failed(invalid abi) but not exception
-   std::string block_str2 = json::to_pretty_string(plugin.get_block(param, fc::time_point::maximum()));
+   auto block2 = plugin.get_block(param, fc::time_point::maximum());
+   auto abi_cache2 = plugin.get_block_serializers(block2, fc::microseconds::maximum());
+   std::string block_str2 = json::to_pretty_string(plugin.convert_block(block2, abi_cache2, fc::microseconds::maximum()));
    BOOST_TEST(block_str2.find("procassert") != std::string::npos);
    BOOST_TEST(block_str2.find("condition") == std::string::npos); // decode failed
    BOOST_TEST(block_str2.find("Should Not Assert!") == std::string::npos); // decode failed

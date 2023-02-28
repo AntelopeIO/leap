@@ -8,12 +8,11 @@ import signal
 from unittest import TestResult
 import log_reader
 import inspect
-import launch_transaction_generators as ltg
 
 harnessPath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(harnessPath)
 
-from TestHarness import Cluster, TestHelper, Utils, WalletMgr
+from TestHarness import Cluster, TestHelper, Utils, WalletMgr, TransactionGeneratorsLauncher, TpsTrxGensConfig
 from TestHarness.TestHelper import AppArgs
 from dataclasses import dataclass, asdict, field
 from datetime import datetime
@@ -94,6 +93,7 @@ class PerformanceBasicTest:
         maximumClients: int = 0
         loggingDict: dict = field(default_factory=lambda: { "bios": "off" })
         prodsEnableTraceApi: bool = False
+        nodeosVers: str = ""
         specificExtraNodeosArgs: dict = field(default_factory=dict)
         _totalNodes: int = 2
 
@@ -101,6 +101,18 @@ class PerformanceBasicTest:
             self._totalNodes = self.pnodes + 1 if self.totalNodes <= self.pnodes else self.totalNodes
             if not self.prodsEnableTraceApi:
                 self.specificExtraNodeosArgs.update({f"{node}" : "--plugin eosio::trace_api_plugin" for node in range(self.pnodes, self._totalNodes)})
+            assert self.nodeosVers != "v1" and self.nodeosVers != "v0", f"nodeos version {Utils.getNodeosVersion().split('.')[0]} is unsupported by performance test"
+            if self.nodeosVers == "v2":
+                self.fetchBlock = lambda node, blockNum: node.processUrllibRequest("chain", "get_block", {"block_num_or_id":blockNum}, silentErrors=False, exitOnError=True)
+                self.writeTrx = lambda trxDataFile, block, blockNum: [trxDataFile.write(f"{trx['trx']['id']},{blockNum},{trx['cpu_usage_us']},{trx['net_usage_words']}\n") for trx in block['payload']['transactions'] if block['payload']['transactions']]
+                self.writeBlock = lambda blockDataFile, block: blockDataFile.write(f"{block['payload']['block_num']},{block['payload']['id']},{block['payload']['producer']},{block['payload']['confirmed']},{block['payload']['timestamp']}\n")
+                self.fetchHeadBlock = lambda node, headBlock: node.processUrllibRequest("chain", "get_block", {"block_num_or_id":headBlock}, silentErrors=False, exitOnError=True)
+                self.specificExtraNodeosArgs.update({f"{node}" : '--plugin eosio::history_api_plugin --filter-on "*"' for node in range(self.pnodes, self._totalNodes)})
+            else:
+                self.fetchBlock = lambda node, blockNum: node.processUrllibRequest("trace_api", "get_block", {"block_num":blockNum}, silentErrors=False, exitOnError=True)
+                self.writeTrx = lambda trxDataFile, block, blockNum: [trxDataFile.write(f"{trx['id']},{trx['block_num']},{trx['cpu_usage_us']},{trx['net_usage_words']}\n") for trx in block['payload']['transactions'] if block['payload']['transactions']]
+                self.writeBlock = lambda blockDataFile, block: blockDataFile.write(f"{block['payload']['number']},{block['payload']['id']},{block['payload']['producer']},{block['payload']['status']},{block['payload']['timestamp']}\n")
+                self.fetchHeadBlock = lambda node, headBlock: node.processUrllibRequest("chain", "get_block_info", {"block_num":headBlock}, silentErrors=False, exitOnError=True)
 
     def __init__(self, testHelperConfig: TestHelperConfig=TestHelperConfig(), clusterConfig: ClusterConfig=ClusterConfig(), targetTps: int=8000,
                  testTrxGenDurationSec: int=30, tpsLimitPerGenerator: int=4000, numAddlBlocksToPrune: int=2,
@@ -115,7 +127,6 @@ class PerformanceBasicTest:
         self.delReport = delReport
         self.quiet = quiet
         self.delPerfLogs=delPerfLogs
-
         self.testHelperConfig.keepLogs = not self.delPerfLogs
 
         Utils.Debug = self.testHelperConfig.verbose
@@ -146,7 +157,7 @@ class PerformanceBasicTest:
 
         # Setup cluster and its wallet manager
         self.walletMgr=WalletMgr(True)
-        self.cluster=Cluster(walletd=True, loggingLevel="info", loggingLevelDict=self.clusterConfig.loggingDict)
+        self.cluster=Cluster(walletd=True, loggingLevel="info", loggingLevelDict=self.clusterConfig.loggingDict, nodeosVers=self.clusterConfig.nodeosVers)
         self.cluster.setWalletMgr(self.walletMgr)
 
     def cleanupOldClusters(self):
@@ -204,22 +215,22 @@ class PerformanceBasicTest:
 
     def queryBlockTrxData(self, node, blockDataPath, blockTrxDataPath, startBlockNum, endBlockNum):
         for blockNum in range(startBlockNum, endBlockNum):
-            block = node.processUrllibRequest("trace_api", "get_block", {"block_num":blockNum}, silentErrors=False, exitOnError=True)
+            block = self.clusterConfig.fetchBlock(node, blockNum)
             btdf_append_write = self.fileOpenMode(blockTrxDataPath)
             with open(blockTrxDataPath, btdf_append_write) as trxDataFile:
-                [trxDataFile.write(f"{trx['id']},{trx['block_num']},{trx['cpu_usage_us']},{trx['net_usage_words']}\n") for trx in block['payload']['transactions'] if block['payload']['transactions']]
+                self.clusterConfig.writeTrx(trxDataFile, block, blockNum)
             trxDataFile.close()
 
             bdf_append_write = self.fileOpenMode(blockDataPath)
             with open(blockDataPath, bdf_append_write) as blockDataFile:
-                blockDataFile.write(f"{block['payload']['number']},{block['payload']['id']},{block['payload']['producer']},{block['payload']['status']},{block['payload']['timestamp']}\n")
+                self.clusterConfig.writeBlock(blockDataFile, block)
             blockDataFile.close()
 
     def waitForEmptyBlocks(self, node, numEmptyToWaitOn):
         emptyBlocks = 0
         while emptyBlocks < numEmptyToWaitOn:
             headBlock = node.getHeadBlockNum()
-            block = node.processUrllibRequest("chain", "get_block_info", {"block_num":headBlock}, silentErrors=False, exitOnError=True)
+            block = self.clusterConfig.fetchHeadBlock(node, headBlock)
             node.waitForHeadToAdvance()
             if block['payload']['transaction_mroot'] == "0000000000000000000000000000000000000000000000000000000000000000":
                 emptyBlocks += 1
@@ -255,6 +266,7 @@ class PerformanceBasicTest:
     def runTpsTest(self) -> PbtTpsTestResult:
         completedRun = False
         self.producerNode = self.cluster.getNode(self.producerNodeId)
+        self.producerP2pPort = self.cluster.getNodeP2pPort(self.producerNodeId)
         self.validationNode = self.cluster.getNode(self.validationNodeId)
         info = self.producerNode.getInfo()
         chainId = info['chain_id']
@@ -264,11 +276,12 @@ class PerformanceBasicTest:
         self.cluster.biosNode.kill(signal.SIGTERM)
 
         self.data.startBlock = self.waitForEmptyBlocks(self.validationNode, self.emptyBlockGoal)
-        tpsTrxGensConfig = ltg.TpsTrxGensConfig(targetTps=self.targetTps, tpsLimitPerGenerator=self.tpsLimitPerGenerator)
-        trxGenLauncher = ltg.TransactionGeneratorsLauncher(chainId=chainId, lastIrreversibleBlockId=lib_id,
+        tpsTrxGensConfig = TpsTrxGensConfig(targetTps=self.targetTps, tpsLimitPerGenerator=self.tpsLimitPerGenerator)
+        trxGenLauncher = TransactionGeneratorsLauncher(chainId=chainId, lastIrreversibleBlockId=lib_id,
                                                            handlerAcct=self.cluster.eosioAccount.name, accts=f"{self.account1Name},{self.account2Name}",
                                                            privateKeys=f"{self.account1PrivKey},{self.account2PrivKey}", trxGenDurationSec=self.testTrxGenDurationSec,
-                                                           logDir=self.trxGenLogDirPath, tpsTrxGensConfig=tpsTrxGensConfig)
+                                                           logDir=self.trxGenLogDirPath, peerEndpoint=self.producerNode.host, port=self.producerP2pPort,
+                                                           tpsTrxGensConfig=tpsTrxGensConfig)
 
         trxGenExitCodes = trxGenLauncher.launch()
         print(f"Transaction Generator exit codes: {trxGenExitCodes}")
@@ -444,7 +457,8 @@ def main():
                 lastBlockCpuEffortPercent=args.last_block_cpu_effort_percent)
     extraNodeosHttpPluginArgs = PerformanceBasicTest.ClusterConfig.ExtraNodeosArgs.ExtraNodeosHttpPluginArgs(httpMaxResponseTimeMs=args.http_max_response_time_ms)
     extraNodeosArgs = PerformanceBasicTest.ClusterConfig.ExtraNodeosArgs(chainPluginArgs=extraNodeosChainPluginArgs, httpPluginArgs=extraNodeosHttpPluginArgs, producerPluginArgs=extraNodeosProducerPluginArgs)
-    testClusterConfig = PerformanceBasicTest.ClusterConfig(pnodes=args.p, totalNodes=args.n, topo=args.s, genesisPath=args.genesis, prodsEnableTraceApi=args.prods_enable_trace_api, extraNodeosArgs=extraNodeosArgs)
+
+    testClusterConfig = PerformanceBasicTest.ClusterConfig(pnodes=args.p, totalNodes=args.n, topo=args.s, genesisPath=args.genesis, prodsEnableTraceApi=args.prods_enable_trace_api, extraNodeosArgs=extraNodeosArgs, nodeosVers=Utils.getNodeosVersion().split('.')[0])
 
     myTest = PerformanceBasicTest(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, targetTps=args.target_tps,
                                   testTrxGenDurationSec=args.test_duration_sec, tpsLimitPerGenerator=args.tps_limit_per_generator,

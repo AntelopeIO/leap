@@ -82,7 +82,7 @@ namespace eosio { namespace chain {
             bool                     allow_ram_billing_in_notify = false;
             uint32_t                 maximum_variable_signature_length = chain::config::default_max_variable_signature_length;
             bool                     disable_all_subjective_mitigations = false; //< for developer & testing purposes, can be configured using `disable-all-subjective-mitigations` when `EOSIO_DEVELOPER` build option is provided
-            uint32_t                 terminate_at_block     = 0; //< primarily for testing purposes
+            uint32_t                 terminate_at_block     = 0;
             bool                     integrity_hash_on_start= false;
             bool                     integrity_hash_on_stop = false;
 
@@ -166,16 +166,19 @@ namespace eosio { namespace chain {
          void sign_block( const signer_callback_type& signer_callback );
          void commit_block();
 
+         // thread-safe
          std::future<block_state_ptr> create_block_state_future( const block_id_type& id, const signed_block_ptr& b );
+         // thread-safe
+         block_state_ptr create_block_state( const block_id_type& id, const signed_block_ptr& b ) const;
 
          /**
           * @param br returns statistics for block
-          * @param block_state_future provide from call to create_block_state_future
+          * @param bsp block to push
           * @param cb calls cb with forked applied transactions for each forked block
           * @param trx_lookup user provided lookup function for externally cached transaction_metadata
           */
          void push_block( block_report& br,
-                          std::future<block_state_ptr>& block_state_future,
+                          const block_state_ptr& bsp,
                           const forked_branch_callback& cb,
                           const trx_meta_cache_lookup& trx_lookup );
 
@@ -244,6 +247,7 @@ namespace eosio { namespace chain {
          signed_block_ptr fetch_block_by_id( block_id_type id )const;
 
          block_state_ptr fetch_block_state_by_number( uint32_t block_num )const;
+         // return block_state from forkdb, thread-safe
          block_state_ptr fetch_block_state_by_id( block_id_type id )const;
 
          block_id_type get_block_id_for_num( uint32_t block_num )const;
@@ -344,9 +348,8 @@ namespace eosio { namespace chain {
             if( n.good() ) {
                try {
                   const auto& a = get_account( n );
-                  abi_def abi;
-                  if( abi_serializer::to_abi( a.abi, abi ))
-                     return abi_serializer( abi, yield );
+                  if( abi_def abi; abi_serializer::to_abi( a.abi, abi ))
+                     return abi_serializer( std::move(abi), yield );
                } FC_CAPTURE_AND_LOG((n))
             }
             return std::optional<abi_serializer>();

@@ -10,7 +10,7 @@ import subprocess
 harnessPath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(harnessPath)
 
-from TestHarness import Utils
+from .testUtils import Utils
 Print = Utils.Print
 
 class TpsTrxGensConfig:
@@ -35,7 +35,7 @@ class TpsTrxGensConfig:
 class TransactionGeneratorsLauncher:
 
     def __init__(self, chainId: int, lastIrreversibleBlockId: int, handlerAcct: str, accts: str, privateKeys: str,
-                 trxGenDurationSec: int, logDir: str, tpsTrxGensConfig: TpsTrxGensConfig):
+                 trxGenDurationSec: int, logDir: str, peerEndpoint: str, port: int, tpsTrxGensConfig: TpsTrxGensConfig):
         self.chainId = chainId
         self.lastIrreversibleBlockId = lastIrreversibleBlockId
         self.handlerAcct  = handlerAcct
@@ -44,9 +44,11 @@ class TransactionGeneratorsLauncher:
         self.trxGenDurationSec  = trxGenDurationSec
         self.tpsTrxGensConfig = tpsTrxGensConfig
         self.logDir = logDir
+        self.peerEndpoint = peerEndpoint
+        self.port = port
 
-    def launch(self):
-        subprocess_ret_codes = []
+    def launch(self, waitToComplete=True):
+        self.subprocess_ret_codes = []
         for targetTps in self.tpsTrxGensConfig.targetTpsPerGenList:
             if Utils.Debug:
                 Print(
@@ -58,9 +60,11 @@ class TransactionGeneratorsLauncher:
                     f'--priv-keys {self.privateKeys} '
                     f'--trx-gen-duration {self.trxGenDurationSec} '
                     f'--target-tps {targetTps} '
-                    f'--log-dir {self.logDir}'
+                    f'--log-dir {self.logDir} '
+                    f'--peer-endpoint {self.peerEndpoint} '
+                    f'--port {self.port}'
                 )
-            subprocess_ret_codes.append(
+            self.subprocess_ret_codes.append(
                 subprocess.Popen([
                     './tests/trx_generator/trx_generator',
                     '--chain-id', f'{self.chainId}',
@@ -70,11 +74,21 @@ class TransactionGeneratorsLauncher:
                     '--priv-keys', f'{self.privateKeys}',
                     '--trx-gen-duration', f'{self.trxGenDurationSec}',
                     '--target-tps', f'{targetTps}',
-                    '--log-dir', f'{self.logDir}'
+                    '--log-dir', f'{self.logDir}',
+                    '--peer-endpoint', f'{self.peerEndpoint}',
+                    '--port', f'{self.port}'
                 ])
             )
-        exitCodes = [ret_code.wait() for ret_code in subprocess_ret_codes]
+        exitCodes=None
+        if waitToComplete:
+            exitCodes = [ret_code.wait() for ret_code in self.subprocess_ret_codes]
         return exitCodes
+
+    def killAll(self):
+        for ret_code in self.subprocess_ret_codes:
+            ret_code.kill()
+        for ret_code in self.subprocess_ret_codes:
+            ret_code.wait()
 
 def parseArgs():
     parser = argparse.ArgumentParser(add_help=False)
@@ -88,6 +102,8 @@ def parseArgs():
     parser.add_argument("target_tps", type=int, help="Goal transactions per second")
     parser.add_argument("tps_limit_per_generator", type=int, help="Maximum amount of transactions per second a single generator can have.", default=4000)
     parser.add_argument("log_dir", type=str, help="Path to directory where trx logs should be written.")
+    parser.add_argument("peer_endpoint", type=str, help="set the peer endpoint to send transactions to", default="127.0.0.1")
+    parser.add_argument("port", type=int, help="set the peer endpoint port to send transactions to", default=9876)
     args = parser.parse_args()
     return args
 
@@ -97,6 +113,7 @@ def main():
     trxGenLauncher = TransactionGeneratorsLauncher(chainId=args.chain_id, lastIrreversibleBlockId=args.last_irreversible_block_id,
                                                    handlerAcct=args.handler_account, accts=args.accounts,
                                                    privateKeys=args.priv_keys, trxGenDurationSec=args.trx_gen_duration, logDir=args.log_dir,
+                                                   peerEndpoint=args.peer_endpoint, port=args.port,
                                                    tpsTrxGensConfig=TpsTrxGensConfig(targetTps=args.target_tps, tpsLimitPerGenerator=args.tps_limit_per_generator))
 
 

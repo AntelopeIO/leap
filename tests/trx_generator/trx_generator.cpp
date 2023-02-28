@@ -44,8 +44,8 @@ namespace eosio::testing {
       trxs.reserve(2 * action_pairs_vector.size());
 
       for(action_pair_w_keys ap: action_pairs_vector) {
-         trxs.emplace_back(std::move(create_transfer_trx_w_signer(ap._first_act, ap._first_act_priv_key, nonce_prefix, nonce, trx_expiration, chain_id, last_irr_block_id)));
-         trxs.emplace_back(std::move(create_transfer_trx_w_signer(ap._second_act, ap._second_act_priv_key, nonce_prefix, nonce, trx_expiration, chain_id, last_irr_block_id)));
+         trxs.emplace_back(create_transfer_trx_w_signer(ap._first_act, ap._first_act_priv_key, nonce_prefix, nonce, trx_expiration, chain_id, last_irr_block_id));
+         trxs.emplace_back(create_transfer_trx_w_signer(ap._second_act, ap._second_act_priv_key, nonce_prefix, nonce, trx_expiration, chain_id, last_irr_block_id));
       }
 
       return trxs;
@@ -90,14 +90,27 @@ namespace eosio::testing {
 
    transfer_trx_generator::transfer_trx_generator(std::string chain_id_in, std::string handler_acct,
       const std::vector<std::string>& accts, int64_t trx_expr, const std::vector<std::string>& private_keys_str_vector,
-      std::string lib_id_str, std::string log_dir) :
-      _provider(), _chain_id(chain_id_in), _handler_acct(handler_acct), _accts(accts),
+      std::string lib_id_str, std::string log_dir, bool stop_on_trx_failed, const std::string& peer_endpoint, unsigned short port) :
+      _provider(peer_endpoint, port), _chain_id(chain_id_in), _handler_acct(handler_acct), _accts(accts),
       _trx_expiration(trx_expr*1000000), _private_keys_str_vector(private_keys_str_vector),
-      _last_irr_block_id(fc::variant(lib_id_str).as<block_id_type>()), _log_dir(log_dir) {
+      _last_irr_block_id(fc::variant(lib_id_str).as<block_id_type>()), _log_dir(log_dir),
+      _stop_on_trx_failed(stop_on_trx_failed) {
+   }
+
+   void log_first_trx(const std::string& log_dir, const chain::signed_transaction& trx) {
+      std::ostringstream fileName;
+      fileName << log_dir << "/first_trx_" << getpid() << ".txt";
+      std::ofstream out(fileName.str());
+
+      out << fc::string(trx.id()) << "\n";
+      out.close();
    }
 
    void transfer_trx_generator::push_transaction(p2p_trx_provider& provider, signed_transaction_w_signer& trx, uint64_t& nonce_prefix, uint64_t& nonce, const fc::microseconds& trx_expiration, const chain_id_type& chain_id, const block_id_type& last_irr_block_id) {
       update_resign_transaction(trx._trx, trx._signer, ++nonce_prefix, nonce, trx_expiration, chain_id, last_irr_block_id);
+      if (_txcount == 0) {
+         log_first_trx(_log_dir, trx._trx);
+      }
       provider.send(trx._trx);
    }
 
@@ -202,4 +215,7 @@ namespace eosio::testing {
       return true;
    }
 
+   bool transfer_trx_generator::stop_on_trx_fail() {
+      return _stop_on_trx_failed;
+   }
 }

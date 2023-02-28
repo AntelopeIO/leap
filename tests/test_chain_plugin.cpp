@@ -1,21 +1,18 @@
-#define BOOST_TEST_MODULE chain_plugin
+#include <boost/test/unit_test.hpp>
 #include <eosio/chain/permission_object.hpp>
-#include <boost/test/included/unit_test.hpp>
 #include <eosio/testing/tester.hpp>
 #include <eosio/chain/types.hpp>
 #include <eosio/chain_plugin/chain_plugin.hpp>
 #include <eosio/chain/abi_serializer.hpp>
 #include <fc/variant_object.hpp>
 #include <contracts.hpp>
+#include <test_contracts.hpp>
 #include <eosio/chain/contract_table_objects.hpp>
 #include <eosio/chain/resource_limits.hpp>
 #include <eosio/chain/wast_to_wasm.hpp>
 #include <cstdlib>
-#include <iostream>
-#include <sstream>
 #include <fc/log/logger.hpp>
 #include <eosio/chain/exceptions.hpp>
-#include <Runtime/Runtime.h>
 
 #ifdef NON_VALIDATING_TEST
 #define TESTER tester
@@ -201,33 +198,33 @@ public:
        create_accounts({ "eosio.token"_n, "eosio.ram"_n, "eosio.ramfee"_n, "eosio.stake"_n,
                          "eosio.bpay"_n, "eosio.vpay"_n, "eosio.saving"_n, "eosio.names"_n, "eosio.rex"_n });
 
-       set_code( "eosio.token"_n, contracts::eosio_token_wasm() );
-       set_abi( "eosio.token"_n, contracts::eosio_token_abi().data() );
+       set_code( "eosio.token"_n, test_contracts::eosio_token_wasm() );
+       set_abi( "eosio.token"_n, test_contracts::eosio_token_abi().data() );
 
        {
            const auto& accnt = control->db().get<account_object,by_name>( "eosio.token"_n );
            abi_def abi;
            BOOST_CHECK_EQUAL(abi_serializer::to_abi(accnt.abi, abi), true);
-           token_abi_ser.set_abi(abi, abi_serializer::create_yield_function( abi_serializer_max_time ));
+           token_abi_ser.set_abi(std::move(abi), abi_serializer::create_yield_function( abi_serializer_max_time ));
        }
 
        create_currency( "eosio.token"_n, config::system_account_name, core_from_string("10000000000.0000") );
        issue(config::system_account_name,      core_from_string("1000000000.0000"));
        BOOST_CHECK_EQUAL( core_from_string("1000000000.0000"), get_balance( name("eosio") ) );
 
-       set_code( config::system_account_name, contracts::eosio_system_wasm() );
-       set_abi( config::system_account_name, contracts::eosio_system_abi().data() );
+       set_code( config::system_account_name, test_contracts::eosio_system_wasm() );
+       set_abi( config::system_account_name, test_contracts::eosio_system_abi().data() );
 
        base_tester::push_action(config::system_account_name, "init"_n,
                                 config::system_account_name,  mutable_variant_object()
                                         ("version", 0)
-                                        ("core", CORE_SYM_STR));
+                                        ("core", symbol(CORE_SYMBOL).to_string()));
 
        {
            const auto& accnt = control->db().get<account_object,by_name>( config::system_account_name );
            abi_def abi;
            BOOST_CHECK_EQUAL(abi_serializer::to_abi(accnt.abi, abi), true);
-           abi_ser.set_abi(abi, abi_serializer::create_yield_function( abi_serializer_max_time ));
+           abi_ser.set_abi(std::move(abi), abi_serializer::create_yield_function( abi_serializer_max_time ));
        }
 
     }
@@ -369,7 +366,7 @@ public:
    abi_serializer token_abi_ser;
 };
 
-BOOST_AUTO_TEST_SUITE(chain_plugin_tests)
+BOOST_AUTO_TEST_SUITE(test_chain_plugin_tests)
 
 BOOST_FIXTURE_TEST_CASE(account_results_total_resources_test, chain_plugin_tester) { try {
 

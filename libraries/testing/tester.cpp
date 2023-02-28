@@ -322,7 +322,7 @@ namespace eosio { namespace testing {
       auto bsf = control->create_block_state_future(b->calculate_id(), b);
       unapplied_transactions.add_aborted( control->abort_block() );
       controller::block_report br;
-      control->push_block( br, bsf, [this]( const branch_type& forked_branch ) {
+      control->push_block( br, bsf.get(), [this]( const branch_type& forked_branch ) {
          unapplied_transactions.add_forked( forked_branch );
       }, [this]( const transaction_id_type& id ) {
          return unapplied_transactions.get_trx( id );
@@ -682,7 +682,7 @@ namespace eosio { namespace testing {
                                    const variant_object& data )const { try {
       const auto& acnt = control->get_account(code);
       auto abi = acnt.get_abi();
-      chain::abi_serializer abis(abi, abi_serializer::create_yield_function( abi_serializer_max_time ));
+      chain::abi_serializer abis(std::move(abi), abi_serializer::create_yield_function( abi_serializer_max_time ));
 
       string action_type_name = abis.get_action_type(acttype);
       FC_ASSERT( action_type_name != string(), "unknown action type ${a}", ("a",acttype) );
@@ -950,6 +950,13 @@ namespace eosio { namespace testing {
       push_transaction( trx );
    }
 
+   bool base_tester::is_code_cached( eosio::chain::account_name name ) const {
+      const auto& db  = control->db();
+      const account_metadata_object* receiver_account = &db.template get<account_metadata_object,by_name>( name );
+      if ( receiver_account->code_hash == digest_type() ) return false;
+      return control->get_wasm_interface().is_code_cached( receiver_account->code_hash, receiver_account->vm_type, receiver_account->vm_version );
+   }
+
 
    bool base_tester::chain_has_transaction( const transaction_id_type& txid ) const {
       return chain_transactions.count(txid) != 0;
@@ -1053,7 +1060,7 @@ namespace eosio { namespace testing {
                auto bsf = b.control->create_block_state_future( block->calculate_id(), block );
                b.control->abort_block();
                controller::block_report br;
-               b.control->push_block(br, bsf, forked_branch_callback{}, trx_meta_cache_lookup{}); //, eosio::chain::validation_steps::created_block);
+               b.control->push_block(br, bsf.get(), forked_branch_callback{}, trx_meta_cache_lookup{}); //, eosio::chain::validation_steps::created_block);
             }
          }
       };
@@ -1211,6 +1218,15 @@ namespace eosio { namespace testing {
    bool fc_exception_message_starts_with::operator()( const fc::exception& ex ) {
       auto message = ex.get_log().at( 0 ).get_message();
       bool match = boost::algorithm::starts_with( message, expected );
+      if( !match ) {
+         BOOST_TEST_MESSAGE( "LOG: expected: " << expected << ", actual: " << message );
+      }
+      return match;
+   }
+
+   bool fc_exception_message_contains::operator()( const fc::exception& ex ) {
+      auto message = ex.get_log().at( 0 ).get_message();
+      bool match = message.find(expected) != std::string::npos;
       if( !match ) {
          BOOST_TEST_MESSAGE( "LOG: expected: " << expected << ", actual: " << message );
       }

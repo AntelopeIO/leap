@@ -22,7 +22,7 @@ namespace eosio {
       }
    }
 
-   static appbase::abstract_plugin& _http_plugin = app().register_plugin<http_plugin>();
+   static auto _http_plugin = application::register_plugin<http_plugin>();
 
    using std::map;
    using std::vector;
@@ -271,6 +271,7 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
 
    void http_plugin::plugin_initialize(const variables_map& options) {
       try {
+         handle_sighup(); // setup logging
          my->plugin_state->max_body_size = options.at( "max-body-size" ).as<uint32_t>();
          verbose_http_errors = options.at( "verbose-http-errors" ).as<bool>();
 
@@ -369,12 +370,14 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
 
    void http_plugin::plugin_startup() {
 
-      handle_sighup(); // setup logging
       app().post(appbase::priority::high, [this] ()
       {
          try {
-            my->plugin_state->thread_pool =
-                  std::make_unique<eosio::chain::named_thread_pool>( "http", my->plugin_state->thread_pool_size );
+            my->plugin_state->thread_pool.start( my->plugin_state->thread_pool_size, [](const fc::exception& e) {
+               fc_elog( logger(), "Exception in http thread pool, exiting: ${e}", ("e", e.to_detail_string()) );
+               app().quit();
+            } );
+
             if(my->listen_endpoint) {
                try {
                   my->create_beast_server(false);
@@ -453,8 +456,7 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
    }
 
    void http_plugin::handle_sighup() {
-      const std::string name = logger().name(); // copy needed as update can destroy logger impl which holds name
-      fc::logger::update( name, logger() );
+      fc::logger::update( logger().get_name(), logger() );
    }
 
    void http_plugin::plugin_shutdown() {
@@ -465,9 +467,7 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
       if(my->beast_unix_server)
          my->beast_unix_server->stop_listening();
 
-      if( my->plugin_state->thread_pool ) {
-         my->plugin_state->thread_pool->stop();
-      }
+      my->plugin_state->thread_pool.stop();
 
       my->beast_server.reset();
       my->beast_https_server.reset();
@@ -487,6 +487,11 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
    void http_plugin::add_async_handler(const string& url, const url_handler& handler) {
       fc_ilog( logger(), "add api url: ${c}", ("c", url) );
       my->plugin_state->url_handlers[url] = my->make_http_thread_url_handler(handler);
+   }
+
+   void http_plugin::post_http_thread_pool(std::function<void()> f) {
+      if( f )
+         boost::asio::post( my->plugin_state->thread_pool.get_executor(), f );
    }
 
    void http_plugin::handle_exception( const char *api_name, const char *call_name, const string& body, const url_response_callback& cb) {

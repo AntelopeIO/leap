@@ -8,10 +8,10 @@ target_link_libraries( test_trx_full producer_plugin eosio_testing )
 
 add_test(NAME test_trx_full COMMAND plugins/producer_plugin/test/test_trx_full WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 
-add_executable( test_snapshot_information test_snapshot_information.cpp )
-target_link_libraries( test_snapshot_information producer_plugin eosio_testing )
+add_executable( test_options test_options.cpp )
+target_link_libraries( test_options producer_plugin eosio_testing )
 
-add_test(NAME test_snapshot_information COMMAND plugins/producer_plugin/test/test_snapshot_information WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+add_test(NAME test_options COMMAND plugins/producer_plugin/test/test_options WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 
 add_executable( test_snapshot_scheduler test_snapshot_scheduler.cpp )
 target_link_libraries( test_snapshot_scheduler producer_plugin eosio_testing )

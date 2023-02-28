@@ -8,6 +8,7 @@
 #include <boost/test/unit_test.hpp>
 
 #include <contracts.hpp>
+#include <test_contracts.hpp>
 
 using namespace eosio::testing;
 using namespace eosio;
@@ -27,15 +28,15 @@ public:
       create_accounts( { "alice"_n, "bob"_n, "carol"_n, "eosio.token"_n } );
       produce_blocks( 2 );
 
-      set_code( "eosio.token"_n, contracts::eosio_token_wasm() );
-      set_abi( "eosio.token"_n, contracts::eosio_token_abi().data() );
+      set_code( "eosio.token"_n, test_contracts::eosio_token_wasm() );
+      set_abi( "eosio.token"_n, test_contracts::eosio_token_abi().data() );
 
       produce_blocks();
 
       const auto& accnt = control->db().get<account_object,by_name>( "eosio.token"_n );
       abi_def abi;
       BOOST_REQUIRE_EQUAL(abi_serializer::to_abi(accnt.abi, abi), true);
-      abi_ser.set_abi(abi, abi_serializer::create_yield_function( abi_serializer_max_time ));
+      abi_ser.set_abi(std::move(abi), abi_serializer::create_yield_function( abi_serializer_max_time ));
    }
 
    action_result push_action( const account_name& signer, const action_name &name, const variant_object &data ) {

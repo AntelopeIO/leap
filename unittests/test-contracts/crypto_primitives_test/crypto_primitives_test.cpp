@@ -3,16 +3,16 @@
 
 using namespace eosio;
 void crypto_primitives_test::testadd(const bytes& op1, const bytes& op2, int32_t expected_error, const bytes& expected_result) {
-   bytes ret(64, '\0');
-   int32_t errorCode = eosio::internal_use_do_not_use::alt_bn128_add( op1.data(), op1.size(), op2.data(), op2.size(), (char*)ret.data(), 64);
+   bytes ret(expected_result.size(), '\0');
+   int32_t errorCode = eosio::internal_use_do_not_use::alt_bn128_add( op1.data(), op1.size(), op2.data(), op2.size(), (char*)ret.data(), ret.size());
    check( errorCode == expected_error, "Error does not match");
    check( ret == expected_result, "Result does not match");
 }
 
 [[eosio::action]]
 void crypto_primitives_test::testmul(const bytes& point, const bytes& scalar, int32_t expected_error, const bytes& expected_result) {
-   bytes ret(64, '\0');
-   int32_t errorCode = eosio::internal_use_do_not_use::alt_bn128_mul( point.data(), point.size(), scalar.data(), scalar.size(), (char*)ret.data(), 64);
+   bytes ret(expected_result.size(), '\0');
+   int32_t errorCode = eosio::internal_use_do_not_use::alt_bn128_mul( point.data(), point.size(), scalar.data(), scalar.size(), (char*)ret.data(), ret.size());
    check( errorCode == expected_error, "Error does not match");
    check( ret == expected_result, "Result does not match");
 }
@@ -37,11 +37,11 @@ void crypto_primitives_test::testmodexp(const bytes& base, const bytes& exp, con
 [[eosio::action]]
 void crypto_primitives_test::testblake2f( uint32_t rounds, const bytes& state, const bytes& message, const bytes& t0, const bytes& t1, bool final, int32_t expected_error, const bytes& expected_result) {
    bytes ret(64);
-   int32_t errorCode = eosio::internal_use_do_not_use::blake2_f( rounds, 
+   int32_t errorCode = eosio::internal_use_do_not_use::blake2_f( rounds,
                                              state.data(), state.size(),
                                              message.data(), message.size(),
                                              t0.data(), t0.size(),
-                                             t1.data(), t1.size(), 
+                                             t1.data(), t1.size(),
                                              final,
                                              (char*)ret.data(), 64);
    check( errorCode == expected_error, "Error does not match");

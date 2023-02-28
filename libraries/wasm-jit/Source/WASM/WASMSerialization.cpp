@@ -406,8 +406,8 @@ namespace WASM
 
 	struct LocalSet
 	{
-		Uptr num;
-		ValueType type;
+		Uptr num{};
+		ValueType type{};
 	};
 	
 	template<typename Stream>
