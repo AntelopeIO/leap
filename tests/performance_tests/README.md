@@ -34,158 +34,189 @@ Please refer to [Leap: Build and Install from Source](https://github.com/Antelop
             <summary>Expand Example Directory Structure</summary>
 
         ``` bash
-        performance_test/
-        └── 2022-10-27_15-28-09
-            ├── report.json
+        p/
+        └── 2023-02-22_15-17-12
             ├── pluginThreadOptRunLogs
-            │   ├── performance_test_basic
-            │   ├── chainThreadResults.txt
-            │   ├── netThreadResults.txt
-            │   └── producerThreadResults.txt
+            │   ├── chainThreadResults.txt
+            │   ├── netThreadResults.txt
+            │   ├── p
+            │   └── producerThreadResults.txt
+            ├── report.json
             └── testRunLogs
-                └── performance_test_basic
-                    └── 2022-10-19_10-29-07
-                        ├── blockDataLogs
-                        │   ├── blockData.txt
-                        │   └── blockTrxData.txt
-                        ├── data.json
-                        ├── etc
-                        │   └── eosio
-                        │       ├── launcher
-                        │       │   └── testnet.template
-                        │       ├── node_00
-                        │       │   ├── config.ini
-                        │       │   ├── genesis.json
-                        │       │   ├── logging.json
-                        │       │   └── protocol_features
-                        │       │       ├── BUILTIN-ACTION_RETURN_VALUE.json
-                        │       │       ├── BUILTIN-BLOCKCHAIN_PARAMETERS.json
-                        │       │       ├── BUILTIN-CONFIGURABLE_WASM_LIMITS2.json
-                        │       │       ├── BUILTIN-CRYPTO_PRIMITIVES.json
-                        │       │       ├── BUILTIN-DISALLOW_EMPTY_PRODUCER_SCHEDULE.json
-                        │       │       ├── BUILTIN-FIX_LINKAUTH_RESTRICTION.json
-                        │       │       ├── BUILTIN-FORWARD_SETCODE.json
-                        │       │       ├── BUILTIN-GET_BLOCK_NUM.json
-                        │       │       ├── BUILTIN-GET_CODE_HASH.json
-                        │       │       ├── BUILTIN-GET_SENDER.json
-                        │       │       ├── BUILTIN-NO_DUPLICATE_DEFERRED_ID.json
-                        │       │       ├── BUILTIN-ONLY_BILL_FIRST_AUTHORIZER.json
-                        │       │       ├── BUILTIN-ONLY_LINK_TO_EXISTING_PERMISSION.json
-                        │       │       ├── BUILTIN-PREACTIVATE_FEATURE.json
-                        │       │       ├── BUILTIN-RAM_RESTRICTIONS.json
-                        │       │       ├── BUILTIN-REPLACE_DEFERRED.json
-                        │       │       ├── BUILTIN-RESTRICT_ACTION_TO_SELF.json
-                        │       │       ├── BUILTIN-WEBAUTHN_KEY.json
-                        │       │       └── BUILTIN-WTMSIG_BLOCK_SIGNATURES.json
-                        │       ├── node_01
-                        │       │   ├── config.ini
-                        │       │   ├── genesis.json
-                        │       │   ├── logging.json
-                        │       │   └── protocol_features
-                        │       │       ├── BUILTIN-ACTION_RETURN_VALUE.json
-                        │       │       ├── BUILTIN-BLOCKCHAIN_PARAMETERS.json
-                        │       │       ├── BUILTIN-CONFIGURABLE_WASM_LIMITS2.json
-                        │       │       ├── BUILTIN-CRYPTO_PRIMITIVES.json
-                        │       │       ├── BUILTIN-DISALLOW_EMPTY_PRODUCER_SCHEDULE.json
-                        │       │       ├── BUILTIN-FIX_LINKAUTH_RESTRICTION.json
-                        │       │       ├── BUILTIN-FORWARD_SETCODE.json
-                        │       │       ├── BUILTIN-GET_BLOCK_NUM.json
-                        │       │       ├── BUILTIN-GET_CODE_HASH.json
-                        │       │       ├── BUILTIN-GET_SENDER.json
-                        │       │       ├── BUILTIN-NO_DUPLICATE_DEFERRED_ID.json
-                        │       │       ├── BUILTIN-ONLY_BILL_FIRST_AUTHORIZER.json
-                        │       │       ├── BUILTIN-ONLY_LINK_TO_EXISTING_PERMISSION.json
-                        │       │       ├── BUILTIN-PREACTIVATE_FEATURE.json
-                        │       │       ├── BUILTIN-RAM_RESTRICTIONS.json
-                        │       │       ├── BUILTIN-REPLACE_DEFERRED.json
-                        │       │       ├── BUILTIN-RESTRICT_ACTION_TO_SELF.json
-                        │       │       ├── BUILTIN-WEBAUTHN_KEY.json
-                        │       │       └── BUILTIN-WTMSIG_BLOCK_SIGNATURES.json
-                        │       └── node_bios
-                        │           ├── config.ini
-                        │           ├── genesis.json
-                        │           ├── logging.json
-                        │           └── protocol_features
-                        │               ├── BUILTIN-ACTION_RETURN_VALUE.json
-                        │               ├── BUILTIN-BLOCKCHAIN_PARAMETERS.json
-                        │               ├── BUILTIN-CONFIGURABLE_WASM_LIMITS2.json
-                        │               ├── BUILTIN-CRYPTO_PRIMITIVES.json
-                        │               ├── BUILTIN-DISALLOW_EMPTY_PRODUCER_SCHEDULE.json
-                        │               ├── BUILTIN-FIX_LINKAUTH_RESTRICTION.json
-                        │               ├── BUILTIN-FORWARD_SETCODE.json
-                        │               ├── BUILTIN-GET_BLOCK_NUM.json
-                        │               ├── BUILTIN-GET_CODE_HASH.json
-                        │               ├── BUILTIN-GET_SENDER.json
-                        │               ├── BUILTIN-NO_DUPLICATE_DEFERRED_ID.json
-                        │               ├── BUILTIN-ONLY_BILL_FIRST_AUTHORIZER.json
-                        │               ├── BUILTIN-ONLY_LINK_TO_EXISTING_PERMISSION.json
-                        │               ├── BUILTIN-PREACTIVATE_FEATURE.json
-                        │               ├── BUILTIN-RAM_RESTRICTIONS.json
-                        │               ├── BUILTIN-REPLACE_DEFERRED.json
-                        │               ├── BUILTIN-RESTRICT_ACTION_TO_SELF.json
-                        │               ├── BUILTIN-WEBAUTHN_KEY.json
-                        │               └── BUILTIN-WTMSIG_BLOCK_SIGNATURES.json
-                        ├── trxGenLogs
-                        │   ├── trx_data_output_26451.txt
-                        │   ├── trx_data_output_26452.txt
-                        │   ├── trx_data_output_26453.txt
-                        │   └── trx_data_output_26454.txt
-                        └── var
-                            └── var
-                                ├── lib
-                                │   ├── node_00
-                                │   │   ├── blocks
-                                │   │   │   ├── blocks.index
-                                │   │   │   ├── blocks.log
-                                │   │   │   └── reversible
-                                │   │   ├── nodeos.pid
-                                │   │   ├── snapshots
-                                │   │   ├── state
-                                │   │   │   └── shared_memory.bin
-                                │   │   ├── stderr.2022_10_27_10_49_01.txt
-                                │   │   ├── stderr.txt -> stderr.2022_10_27_10_49_01.txt
-                                │   │   └── stdout.txt
-                                │   ├── node_01
-                                │   │   ├── blocks
-                                │   │   │   ├── blocks.index
-                                │   │   │   ├── blocks.log
-                                │   │   │   └── reversible
-                                │   │   ├── nodeos.pid
-                                │   │   ├── snapshots
-                                │   │   ├── state
-                                │   │   │   └── shared_memory.bin
-                                │   │   ├── stderr.2022_10_27_10_49_01.txt
-                                │   │   ├── stderr.txt -> stderr.2022_10_27_10_49_01.txt
-                                │   │   ├── stdout.txt
-                                │   │   └── traces
-                                │   │       ├── trace_0000000000-0000010000.log
-                                │   │       ├── trace_index_0000000000-0000010000.log
-                                │   │       └── trace_trx_id_0000000000-0000010000.log
-                                │   └── node_bios
-                                │       ├── blocks
-                                │       │   ├── blocks.index
-                                │       │   ├── blocks.log
-                                │       │   └── reversible
-                                │       │       └── fork_db.dat
-                                │       ├── nodeos.pid
-                                │       ├── snapshots
-                                │       ├── state
-                                │       │   └── shared_memory.bin
-                                │       ├── stderr.2022_10_27_10_49_01.txt
-                                │       ├── stderr.txt -> stderr.2022_10_27_10_49_01.txt
-                                │       ├── stdout.txt
-                                │       └── traces
-                                │           ├── trace_0000000000-0000010000.log
-                                │           ├── trace_index_0000000000-0000010000.log
-                                │           └── trace_trx_id_0000000000-0000010000.log
-                                ├── test_keosd_err.log
-                                ├── test_keosd_out.log
-                                └── test_wallet_0
-                                    ├── config.ini
-                                    ├── default.wallet
-                                    ├── ignition.wallet
-                                    ├── keosd.sock
-                                    └── wallet.lock
+                └── p
+                    ├── 2023-02-22_17-04-36-50000
+                    │   ├── blockDataLogs
+                    │   │   ├── blockData.txt
+                    │   │   ├── blockTrxData.txt
+                    │   │   └── transaction_metrics.csv
+                    │   ├── data.json
+                    │   ├── etc
+                    │   │   └── eosio
+                    │   │       ├── launcher
+                    │   │       │   └── testnet.template
+                    │   │       ├── node_00
+                    │   │       │   ├── config.ini
+                    │   │       │   ├── genesis.json
+                    │   │       │   ├── logging.json
+                    │   │       │   └── protocol_features
+                    │   │       │       ├── BUILTIN-ACTION_RETURN_VALUE.json
+                    │   │       │       ├── BUILTIN-BLOCKCHAIN_PARAMETERS.json
+                    │   │       │       ├── BUILTIN-CONFIGURABLE_WASM_LIMITS2.json
+                    │   │       │       ├── BUILTIN-CRYPTO_PRIMITIVES.json
+                    │   │       │       ├── BUILTIN-DISALLOW_EMPTY_PRODUCER_SCHEDULE.json
+                    │   │       │       ├── BUILTIN-FIX_LINKAUTH_RESTRICTION.json
+                    │   │       │       ├── BUILTIN-FORWARD_SETCODE.json
+                    │   │       │       ├── BUILTIN-GET_BLOCK_NUM.json
+                    │   │       │       ├── BUILTIN-GET_CODE_HASH.json
+                    │   │       │       ├── BUILTIN-GET_SENDER.json
+                    │   │       │       ├── BUILTIN-NO_DUPLICATE_DEFERRED_ID.json
+                    │   │       │       ├── BUILTIN-ONLY_BILL_FIRST_AUTHORIZER.json
+                    │   │       │       ├── BUILTIN-ONLY_LINK_TO_EXISTING_PERMISSION.json
+                    │   │       │       ├── BUILTIN-PREACTIVATE_FEATURE.json
+                    │   │       │       ├── BUILTIN-RAM_RESTRICTIONS.json
+                    │   │       │       ├── BUILTIN-REPLACE_DEFERRED.json
+                    │   │       │       ├── BUILTIN-RESTRICT_ACTION_TO_SELF.json
+                    │   │       │       ├── BUILTIN-WEBAUTHN_KEY.json
+                    │   │       │       └── BUILTIN-WTMSIG_BLOCK_SIGNATURES.json
+                    │   │       ├── node_01
+                    │   │       │   ├── config.ini
+                    │   │       │   ├── genesis.json
+                    │   │       │   ├── logging.json
+                    │   │       │   └── protocol_features
+                    │   │       │       ├── BUILTIN-ACTION_RETURN_VALUE.json
+                    │   │       │       ├── BUILTIN-BLOCKCHAIN_PARAMETERS.json
+                    │   │       │       ├── BUILTIN-CONFIGURABLE_WASM_LIMITS2.json
+                    │   │       │       ├── BUILTIN-CRYPTO_PRIMITIVES.json
+                    │   │       │       ├── BUILTIN-DISALLOW_EMPTY_PRODUCER_SCHEDULE.json
+                    │   │       │       ├── BUILTIN-FIX_LINKAUTH_RESTRICTION.json
+                    │   │       │       ├── BUILTIN-FORWARD_SETCODE.json
+                    │   │       │       ├── BUILTIN-GET_BLOCK_NUM.json
+                    │   │       │       ├── BUILTIN-GET_CODE_HASH.json
+                    │   │       │       ├── BUILTIN-GET_SENDER.json
+                    │   │       │       ├── BUILTIN-NO_DUPLICATE_DEFERRED_ID.json
+                    │   │       │       ├── BUILTIN-ONLY_BILL_FIRST_AUTHORIZER.json
+                    │   │       │       ├── BUILTIN-ONLY_LINK_TO_EXISTING_PERMISSION.json
+                    │   │       │       ├── BUILTIN-PREACTIVATE_FEATURE.json
+                    │   │       │       ├── BUILTIN-RAM_RESTRICTIONS.json
+                    │   │       │       ├── BUILTIN-REPLACE_DEFERRED.json
+                    │   │       │       ├── BUILTIN-RESTRICT_ACTION_TO_SELF.json
+                    │   │       │       ├── BUILTIN-WEBAUTHN_KEY.json
+                    │   │       │       └── BUILTIN-WTMSIG_BLOCK_SIGNATURES.json
+                    │   │       └── node_bios
+                    │   │           ├── config.ini
+                    │   │           ├── genesis.json
+                    │   │           ├── logging.json
+                    │   │           └── protocol_features
+                    │   │               ├── BUILTIN-ACTION_RETURN_VALUE.json
+                    │   │               ├── BUILTIN-BLOCKCHAIN_PARAMETERS.json
+                    │   │               ├── BUILTIN-CONFIGURABLE_WASM_LIMITS2.json
+                    │   │               ├── BUILTIN-CRYPTO_PRIMITIVES.json
+                    │   │               ├── BUILTIN-DISALLOW_EMPTY_PRODUCER_SCHEDULE.json
+                    │   │               ├── BUILTIN-FIX_LINKAUTH_RESTRICTION.json
+                    │   │               ├── BUILTIN-FORWARD_SETCODE.json
+                    │   │               ├── BUILTIN-GET_BLOCK_NUM.json
+                    │   │               ├── BUILTIN-GET_CODE_HASH.json
+                    │   │               ├── BUILTIN-GET_SENDER.json
+                    │   │               ├── BUILTIN-NO_DUPLICATE_DEFERRED_ID.json
+                    │   │               ├── BUILTIN-ONLY_BILL_FIRST_AUTHORIZER.json
+                    │   │               ├── BUILTIN-ONLY_LINK_TO_EXISTING_PERMISSION.json
+                    │   │               ├── BUILTIN-PREACTIVATE_FEATURE.json
+                    │   │               ├── BUILTIN-RAM_RESTRICTIONS.json
+                    │   │               ├── BUILTIN-REPLACE_DEFERRED.json
+                    │   │               ├── BUILTIN-RESTRICT_ACTION_TO_SELF.json
+                    │   │               ├── BUILTIN-WEBAUTHN_KEY.json
+                    │   │               └── BUILTIN-WTMSIG_BLOCK_SIGNATURES.json
+                    │   ├── trxGenLogs
+                    │   │   ├── first_trx_12330.txt
+                    │   │   ├── first_trx_12331.txt
+                    │   │   ├── first_trx_12332.txt
+                    │   │   ├── first_trx_12333.txt
+                    │   │   ├── first_trx_12334.txt
+                    │   │   ├── first_trx_12335.txt
+                    │   │   ├── first_trx_12336.txt
+                    │   │   ├── first_trx_12337.txt
+                    │   │   ├── first_trx_12338.txt
+                    │   │   ├── first_trx_12339.txt
+                    │   │   ├── first_trx_12340.txt
+                    │   │   ├── first_trx_12341.txt
+                    │   │   ├── first_trx_12342.txt
+                    │   │   ├── trx_data_output_12330.txt
+                    │   │   ├── trx_data_output_12331.txt
+                    │   │   ├── trx_data_output_12332.txt
+                    │   │   ├── trx_data_output_12333.txt
+                    │   │   ├── trx_data_output_12334.txt
+                    │   │   ├── trx_data_output_12335.txt
+                    │   │   ├── trx_data_output_12336.txt
+                    │   │   ├── trx_data_output_12337.txt
+                    │   │   ├── trx_data_output_12338.txt
+                    │   │   ├── trx_data_output_12339.txt
+                    │   │   ├── trx_data_output_12340.txt
+                    │   │   ├── trx_data_output_12341.txt
+                    │   │   └── trx_data_output_12342.txt
+                    │   └── var
+                    │       └── var
+                    │           ├── lib
+                    │           │   ├── node_00
+                    │           │   │   ├── blocks
+                    │           │   │   │   ├── blocks.index
+                    │           │   │   │   ├── blocks.log
+                    │           │   │   │   └── reversible
+                    │           │   │   ├── nodeos.pid
+                    │           │   │   ├── snapshots
+                    │           │   │   ├── state
+                    │           │   │   │   └── shared_memory.bin
+                    │           │   │   ├── stderr.2023_02_22_11_04_36.txt
+                    │           │   │   ├── stderr.txt -> stderr.2023_02_22_11_04_36.txt
+                    │           │   │   └── stdout.txt
+                    │           │   ├── node_01
+                    │           │   │   ├── blocks
+                    │           │   │   │   ├── blocks.index
+                    │           │   │   │   ├── blocks.log
+                    │           │   │   │   └── reversible
+                    │           │   │   ├── nodeos.pid
+                    │           │   │   ├── snapshots
+                    │           │   │   ├── state
+                    │           │   │   │   └── shared_memory.bin
+                    │           │   │   ├── stderr.2023_02_22_11_04_36.txt
+                    │           │   │   ├── stderr.txt -> stderr.2023_02_22_11_04_36.txt
+                    │           │   │   ├── stdout.txt
+                    │           │   │   └── traces
+                    │           │   │       ├── trace_0000000000-0000010000.log
+                    │           │   │       ├── trace_index_0000000000-0000010000.log
+                    │           │   │       └── trace_trx_id_0000000000-0000010000.log
+                    │           │   └── node_bios
+                    │           │       ├── blocks
+                    │           │       │   ├── blocks.index
+                    │           │       │   ├── blocks.log
+                    │           │       │   └── reversible
+                    │           │       │       └── fork_db.dat
+                    │           │       ├── nodeos.pid
+                    │           │       ├── snapshots
+                    │           │       ├── state
+                    │           │       │   └── shared_memory.bin
+                    │           │       ├── stderr.2023_02_22_11_04_36.txt
+                    │           │       ├── stderr.txt -> stderr.2023_02_22_11_04_36.txt
+                    │           │       ├── stdout.txt
+                    │           │       └── traces
+                    │           │           ├── trace_0000000000-0000010000.log
+                    │           │           ├── trace_index_0000000000-0000010000.log
+                    │           │           └── trace_trx_id_0000000000-0000010000.log
+                    │           ├── subprocess_results.log
+                    │           ├── test_keosd_err.log
+                    │           ├── test_keosd_out.log
+                    │           └── test_wallet_0
+                    │               ├── config.ini
+                    │               ├── default.wallet
+                    │               ├── ignition.wallet
+                    │               ├── keosd.sock
+                    │               └── wallet.lock
+                    ├── 2023-02-22_17-06-16-25000
+                    ├── 2023-02-22_17-07-47-12500
+                    ├── 2023-02-22_17-09-00-19000
+                    ├── 2023-02-22_17-10-24-16000
+                    ├── 2023-02-22_17-11-46-14500
+                    ├── 2023-02-22_17-13-06-15500
+                    └── 2023-02-22_17-14-24-15500
         ```
         </details>
 
@@ -198,6 +229,10 @@ The Performance Harness main script `performance_test.py` can be configured usin
 <details open>
     <summary>Expand Argument List</summary>
 
+Test Helper Arguments:
+  Test Helper configuration items used to configure and spin up the regression test framework and blockchain environment.
+
+* `-?`                    show this help message and exit
 * `-p P`                  producing nodes count (default: 1)
 * `-n N`                  total nodes (default: 0)
 * `-d D`                  delay between nodes startup (default: 1)
@@ -208,15 +243,10 @@ The Performance Harness main script `performance_test.py` can be configured usin
 * `-v`                    verbose logging (default: False)
 * `--leave-running`       Leave cluster running after test finishes (default: False)
 * `--clean-run`           Kill all nodeos and keosd instances (default: False)
-* `--max-tps-to-test MAX_TPS_TO_TEST`
-                          The max target transfers realistic as ceiling of test range (default: 50000)
-* `--test-iteration-duration-sec TEST_ITERATION_DURATION_SEC`
-                          The duration of transfer trx generation for each iteration of the test during the initial search (seconds) (default: 30)
-* `--test-iteration-min-step TEST_ITERATION_MIN_STEP`
-                          The step size determining granularity of tps result during initial search (default: 500)
-* `--final-iterations-duration-sec FINAL_ITERATIONS_DURATION_SEC`
-                          The duration of transfer trx generation for each final longer run iteration of the test during
-                          the final search (seconds) (default: 90)
+
+Performance Test Basic Base:
+  Performance Test Basic base configuration items.
+
 * `--tps-limit-per-generator TPS_LIMIT_PER_GENERATOR`
                           Maximum amount of transactions per second a single generator can have. (default: 4000)
 * `--genesis GENESIS`     Path to genesis.json (default: tests/performance_tests/genesis.json)
@@ -227,14 +257,18 @@ The Performance Harness main script `performance_test.py` can be configured usin
 * `--signature-cpu-billable-pct SIGNATURE_CPU_BILLABLE_PCT`
                           Percentage of actual signature recovery cpu to bill. Whole number percentages, e.g. 50 for 50% (default: 0)
 * `--chain-threads CHAIN_THREADS`
-                          Number of worker threads in controller thread pool (default: 3)
+                          Number of worker threads in controller thread pool (default: 2)
 * `--database-map-mode {mapped,heap,locked}`
                           Database map mode ("mapped", "heap", or "locked").
                           In "mapped" mode database is memory mapped as a file.
                           In "heap" mode database is preloaded in to swappable memory and will use huge pages if available.
                           In "locked" mode database is preloaded, locked in to memory, and will use huge pages if available. (default: mapped)
+* `--cluster-log-lvl {all,debug,info,warn,error,off}`
+                          Cluster log level ("all", "debug", "info", "warn", "error", or "off"). Performance Harness Test Basic relies on some logging at
+                          "info" level, so it is the lowest recommended logging level to use. However, there are instances where more verbose logging can be
+                          useful. (default: info)
 * `--net-threads NET_THREADS`
-                          Number of worker threads in net_plugin thread pool (default: 2)
+                          Number of worker threads in net_plugin thread pool (default: 4)
 * `--disable-subjective-billing DISABLE_SUBJECTIVE_BILLING`
                           Disable subjective CPU billing for API/P2P transactions (default: True)
 * `--last-block-time-offset-us LAST_BLOCK_TIME_OFFSET_US`
@@ -246,7 +280,7 @@ The Performance Harness main script `performance_test.py` can be configured usin
 * `--last-block-cpu-effort-percent LAST_BLOCK_CPU_EFFORT_PERCENT`
                           Percentage of cpu block production time used to produce last block. Whole number percentages, e.g. 80 for 80% (default: 100)
 * `--producer-threads PRODUCER_THREADS`
-                          Number of worker threads in producer thread pool (default: 6)
+                          Number of worker threads in producer thread pool (default: 2)
 * `--http-max-response-time-ms HTTP_MAX_RESPONSE_TIME_MS`
                           Maximum time for processing a request, -1 for unlimited (default: -1)
 * `--http-max-bytes-in-flight-mb HTTP_MAX_IN_FLIGHT_BYTES`
@@ -254,10 +288,38 @@ The Performance Harness main script `performance_test.py` can be configured usin
                           429 error response when exceeded. (default: -1)
 * `--del-perf-logs`       Whether to delete performance test specific logs. (default: False)
 * `--del-report`          Whether to delete overarching performance run report. (default: False)
-* `--del-test-report`     Whether to save json reports from each test scenario. (default: False)
 * `--quiet`               Whether to quiet printing intermediate results and reports to stdout (default: False)
 * `--prods-enable-trace-api`
                           Determines whether producer nodes should have eosio::trace_api_plugin enabled (default: False)
+* `--print-missing-transactions PRINT_MISSING_TRANSACTIONS`
+                          Toggles if missing transactions are be printed upon test completion. (default: False)
+* `--account-name ACCOUNT_NAME`
+                          Name of the account to create and assign a contract to (default: eosio)
+* `--contract-dir CONTRACT_DIR`
+                          Path to contract dir (default: unittests/contracts/eosio.system)
+* `--wasm-file WASM_FILE` WASM file name for contract (default: eosio.system.wasm)
+* `--abi-file ABI_FILE`   ABI file name for contract (default: eosio.system.abi)
+* `--wasm-runtime RUNTIME`
+                          Override default WASM runtime ("eos-vm-jit", "eos-vm")
+                          "eos-vm-jit" : A WebAssembly runtime that compiles WebAssembly code to native x86 code prior to
+                          execution. "eos-vm" : A WebAssembly interpreter. (default: eos-vm-jit)
+* `--contracts-console`   print contract's output to console (default: False)
+* `--eos-vm-oc-cache-size-mb CACHE_SIZE_MiB`
+                          Maximum size (in MiB) of the EOS VM OC code cache (default: 1024)
+* `--eos-vm-oc-compile-threads COMPILE_THREADS`
+                          Number of threads to use for EOS VM OC tier-up (default: 1)
+* `--non-prods-eos-vm-oc-enable`
+                          Enable EOS VM OC tier-up runtime on non producer nodes (default: False)
+* `--block-log-retain-blocks BLOCKS_TO_RETAIN`
+                          If set to greater than 0, periodically prune the block log to
+                          store only configured number of most recent blocks. If set to 0, no blocks are be written to the block log;
+                          block log file is removed after startup. (default: None)
+* `--http-threads HTTP_THREADS`
+                          Number of worker threads in http thread pool (default: 2)
+
+Performance Harness:
+  Performance Harness testing configuration items.
+
 * `--skip-tps-test`       Determines whether to skip the max TPS measurement tests (default: False)
 * `--calc-producer-threads {none,lmax,full}`
                           Determines whether to calculate number of worker threads to use in producer thread pool ("none", "lmax", or "full").
@@ -274,27 +336,20 @@ The Performance Harness main script `performance_test.py` can be configured usin
                           In "none" mode, the default, no calculation will be attempted and default configured --net-threads value will be used.
                           In "lmax" mode, producer threads will incrementally be tested until the performance rate ceases to increase with the addition of additional threads.
                           In "full" mode producer threads will incrementally be tested from 2..num logical processors, recording each performance and choosing the local max performance (same value as would be discovered in "lmax" mode). Useful for graphing the full performance impact of each available thread. (default: none)
-* `--account-name`        Name of the account to create and assign a contract to
-* `--contract-dir`        Path to contract dir
-* `--wasm-file`           WASM file name for contract
-* `--abi-file`            ABI file name for contract
-* `--wasm-runtime RUNTIME`
-                          Override default WASM runtime ("eos-vm-jit", "eos-vm")
-                          "eos-vm-jit" : A WebAssembly runtime that compiles WebAssembly code to native x86 code prior to
-                          execution. "eos-vm" : A WebAssembly interpreter. (default: eos-vm-jit)
-* `--contracts-console`   print contract's output to console (default: False)
-* `--eos-vm-oc-cache-size-mb CACHE_SIZE_MiB`
-                          Maximum size (in MiB) of the EOS VM OC code cache (default: 1024)
-* `--eos-vm-oc-compile-threads COMPILE_THREADS`
-                          Number of threads to use for EOS VM OC tier-up (default: 1)
-* `--non-prods-eos-vm-oc-enable`
-                          Enable EOS VM OC tier-up runtime on non producer nodes (default: False)
-* `--block-log-retain-blocks BLOCKS_TO_RETAIN`
-                          If set to greater than 0, periodically prune the block log to
-                          store only configured number of most recent blocks. If set to 0, no blocks are be written to the block log;
-                          block log file is removed after startup. (default: None)
-* `--http-threads HTTP_THREADS`
-                          Number of worker threads in http thread pool (default: 2)
+* `--del-test-report`     Whether to save json reports from each test scenario. (default: False)
+
+Performance Harness - TPS Test Config:
+  TPS Performance Test configuration items.
+
+* `--max-tps-to-test MAX_TPS_TO_TEST`
+                          The max target transfers realistic as ceiling of test range (default: 50000)
+* `--test-iteration-duration-sec TEST_ITERATION_DURATION_SEC`
+                          The duration of transfer trx generation for each iteration of the test during the initial search (seconds) (default: 150)
+* `--test-iteration-min-step TEST_ITERATION_MIN_STEP`
+                          The step size determining granularity of tps result during initial search (default: 500)
+* `--final-iterations-duration-sec FINAL_ITERATIONS_DURATION_SEC`
+                          The duration of transfer trx generation for each final longer run iteration of the test during the final search (seconds)
+                          (default: 300)
 </details>
 
 ### Support Scripts
@@ -308,6 +363,10 @@ The following scripts are typically used by the Performance Harness main script 
 <details>
     <summary>Expand Argument List</summary>
 
+Test Helper Arguments:
+  Test Helper configuration items used to configure and spin up the regression test framework and blockchain environment.
+
+* `-?`                    show this help message and exit
 * `-p P`                  producing nodes count (default: 1)
 * `-n N`                  total nodes (default: 0)
 * `-d D`                  delay between nodes startup (default: 1)
@@ -318,12 +377,12 @@ The following scripts are typically used by the Performance Harness main script 
 * `-v`                    verbose logging (default: False)
 * `--leave-running`       Leave cluster running after test finishes (default: False)
 * `--clean-run`           Kill all nodeos and keosd instances (default: False)
-* `--target-tps TARGET_TPS`
-                          The target transfers per second to send during test (default: 8000)
+
+Performance Test Basic Base:
+  Performance Test Basic base configuration items.
+
 * `--tps-limit-per-generator TPS_LIMIT_PER_GENERATOR`
                           Maximum amount of transactions per second a single generator can have. (default: 4000)
-* `--test-duration-sec TEST_DURATION_SEC`
-                          The duration of transfer trx generation for the test in seconds (default: 30)
 * `--genesis GENESIS`     Path to genesis.json (default: tests/performance_tests/genesis.json)
 * `--num-blocks-to-prune NUM_BLOCKS_TO_PRUNE`
                           The number of potentially non-empty blocks, in addition to leading and trailing size 0 blocks, to prune from the beginning and end
@@ -331,14 +390,18 @@ The following scripts are typically used by the Performance Harness main script 
 * `--signature-cpu-billable-pct SIGNATURE_CPU_BILLABLE_PCT`
                           Percentage of actual signature recovery cpu to bill. Whole number percentages, e.g. 50 for 50% (default: 0)
 * `--chain-threads CHAIN_THREADS`
-                          Number of worker threads in controller thread pool (default: 3)
+                          Number of worker threads in controller thread pool (default: 2)
 * `--database-map-mode {mapped,heap,locked}`
                           Database map mode ("mapped", "heap", or "locked").
                           In "mapped" mode database is memory mapped as a file.
                           In "heap" mode database is preloaded in to swappable memory and will use huge pages if available.
                           In "locked" mode database is preloaded, locked in to memory, and will use huge pages if available. (default: mapped)
+* `--cluster-log-lvl {all,debug,info,warn,error,off}`
+                          Cluster log level ("all", "debug", "info", "warn", "error", or "off"). Performance Harness Test Basic relies on some logging at
+                          "info" level, so it is the lowest recommended logging level to use. However, there are instances where more verbose logging can be
+                          useful. (default: info)
 * `--net-threads NET_THREADS`
-                          Number of worker threads in net_plugin thread pool (default: 2)
+                          Number of worker threads in net_plugin thread pool (default: 4)
 * `--disable-subjective-billing DISABLE_SUBJECTIVE_BILLING`
                           Disable subjective CPU billing for API/P2P transactions (default: True)
 * `--last-block-time-offset-us LAST_BLOCK_TIME_OFFSET_US`
@@ -350,7 +413,7 @@ The following scripts are typically used by the Performance Harness main script 
 * `--last-block-cpu-effort-percent LAST_BLOCK_CPU_EFFORT_PERCENT`
                           Percentage of cpu block production time used to produce last block. Whole number percentages, e.g. 80 for 80% (default: 100)
 * `--producer-threads PRODUCER_THREADS`
-                          Number of worker threads in producer thread pool (default: 6)
+                          Number of worker threads in producer thread pool (default: 2)
 * `--http-max-response-time-ms HTTP_MAX_RESPONSE_TIME_MS`
                           Maximum time for processing a request, -1 for unlimited (default: -1)
 * `--http-max-bytes-in-flight-mb HTTP_MAX_IN_FLIGHT_BYTES`
@@ -361,12 +424,15 @@ The following scripts are typically used by the Performance Harness main script 
 * `--quiet`               Whether to quiet printing intermediate results and reports to stdout (default: False)
 * `--prods-enable-trace-api`
                           Determines whether producer nodes should have eosio::trace_api_plugin enabled (default: False)
-* `--print-missing-transactions`
+* `--print-missing-transactions PRINT_MISSING_TRANSACTIONS`
                           Toggles if missing transactions are be printed upon test completion. (default: False)
-* `--account-name`        Name of the account to create and assign a contract to
-* `--contract-dir`        Path to contract dir
-* `--wasm-file`           WASM file name for contract
-* `--abi-file`            ABI file name for contract
+* `--account-name ACCOUNT_NAME`
+                          Name of the account to create and assign a contract to (default: eosio)
+* `--contract-dir CONTRACT_DIR`
+                          Path to contract dir (default: unittests/contracts/eosio.system)
+* `--wasm-file WASM_FILE`
+                          WASM file name for contract (default: eosio.system.wasm)
+* `--abi-file ABI_FILE`   ABI file name for contract (default: eosio.system.abi)
 * `--wasm-runtime RUNTIME`
                           Override default WASM runtime ("eos-vm-jit", "eos-vm")
                           "eos-vm-jit" : A WebAssembly runtime that compiles WebAssembly code to native x86 code prior to
@@ -384,6 +450,17 @@ The following scripts are typically used by the Performance Harness main script 
                           block log file is removed after startup. (default: None)
 * `--http-threads HTTP_THREADS`
                           Number of worker threads in http thread pool (default: 2)
+
+Performance Test Basic Single Test:
+  Performance Test Basic single test configuration items. Useful for running a single test directly. These items may not be directly configurable from
+  higher level scripts as the scripts themselves may configure these internally.
+
+* `--target-tps TARGET_TPS`
+                          The target transfers per second to send during test (default: 8000)
+* `--test-duration-sec TEST_DURATION_SEC`
+                          The duration of transfer trx generation for the test in seconds (default: 90)
+* `--user-trx-data-file USER_TRX_DATA_FILE`
+                          Path to transaction data JSON file (default: None)
 </details>
 
 #### Launch Transaction Generators (TestHarness)
@@ -392,7 +469,6 @@ The following scripts are typically used by the Performance Harness main script 
 
 <details>
     <summary>Expand Argument List</summary>
-
 * `chain_id`                    set the chain id
 * `last_irreversible_block_id`  Current last-irreversible-block-id (LIB ID) to use for transactions.
 * `contract_owner_account`      Account name of the contract owner account for the transfer actions
@@ -402,6 +478,11 @@ The following scripts are typically used by the Performance Harness main script 
 * `target_tps`                  Target transactions per second to generate/send.
 * `tps_limit_per_generator`     Maximum amount of transactions per second a single generator can have.
 * `log_dir`                     set the logs directory
+* `abi_file`                    The path to the contract abi file to use for the supplied transaction action data
+* `actions_data`                The json actions data file or json actions data description string to use
+* `actions_auths`               The json actions auth file or json actions auths description string to use, containting authAcctName to activePrivateKey pairs.
+* `peer_endpoint`               set the peer endpoint to send transactions to, default="127.0.0.1"
+* `port`                        set the peer endpoint port to send transactions to, default=9876
 </details>
 
 #### Transaction Generator
@@ -410,38 +491,54 @@ The following scripts are typically used by the Performance Harness main script 
 <details>
     <summary>Expand Argument List</summary>
 
+* `--generator-id arg` (=0)         Id for the transaction generator.
+                                    Allowed range (0-960). Defaults to 0.
 * `--chain-id arg`                  set the chain id
-* `--contract-owner-account arg`    Account name of the contract owner account for
-                                    the transfer actions
-* `--accounts arg`                  comma-separated list of accounts that 
-                                    will be used for transfers. Minimum 
+* `--contract-owner-account arg`    Account name of the contract account for
+                                    the transaction actions
+* `--accounts arg`                  comma-separated list of accounts that
+                                    will be used for transfers. Minimum
                                     required accounts: 2.
 * `--priv-keys arg`                 comma-separated list of private keys in
-                                    same order of accounts list that will 
-                                    be used to sign transactions. Minimum 
+                                    same order of accounts list that will
+                                    be used to sign transactions. Minimum
                                     required: 2.
 * `--trx-expiration arg` (=3600)    transaction expiration time in seconds.
-                                    Defaults to 3,600. Maximum allowed: 
+                                    Defaults to 3,600. Maximum allowed:
                                     3,600
-* `--trx-gen-duration arg` (=60)    Transaction generation duration 
+* `--trx-gen-duration arg` (=60)    Transaction generation duration
                                     (seconds). Defaults to 60 seconds.
-* `--target-tps arg` (=1)           Target transactions per second to 
-                                    generate/send. Defaults to 1 
+* `--target-tps arg` (=1)           Target transactions per second to
+                                    generate/send. Defaults to 1
                                     transaction per second.
-* `--last-irreversible-block-id arg`      Current last-irreversible-block-id (LIB
-                                    ID) to use for transactions.
+* `--last-irreversible-block-id arg`    Current last-irreversible-block-id (LIB
+                                        ID) to use for transactions.
 * `--monitor-spinup-time-us arg` (=1000000)
-                                    Number of microseconds to wait before 
-                                    monitoring TPS. Defaults to 1000000 
-                                    (1s).
-* `--monitor-max-lag-percent arg` (=5)    Max percentage off from expected 
-                                    transactions sent before being in 
-                                    violation. Defaults to 5.
+                                        Number of microseconds to wait before
+                                        monitoring TPS. Defaults to 1000000
+                                        (1s).
+* `--monitor-max-lag-percent arg` (=5)  Max percentage off from expected
+                                        transactions sent before being in
+                                        violation. Defaults to 5.
 * `--monitor-max-lag-duration-us arg` (=1000000)
-                                    Max microseconds that transaction 
-                                    generation can be in violation before 
-                                    quitting. Defaults to 1000000 (1s).
-* `--log-dir arg`                   set the logs directory
+                                        Max microseconds that transaction
+                                        generation can be in violation before
+                                        quitting. Defaults to 1000000 (1s).
+* `--log-dir arg`                       set the logs directory
+* `--abi-file arg`                      The path to the contract abi file to
+                                        use for the supplied transaction action
+                                        data
+* `--actions-data arg`                  The json actions data file or json
+                                        actions data description string to use
+* `--actions-auths arg`                 The json actions auth file or json
+                                        actions auths description string to
+                                        use, containting authAcctName to
+                                        activePrivateKey pairs.
+* `--peer-endpoint arg` (=127.0.0.1)    set the peer endpoint to send
+                                        transactions to
+* `--port arg` (=9876)                  set the peer endpoint port to send
+                                        transactions to
+* `-h [ --help ]`                       print this list
 </details>
 
 ## Result Reports
@@ -467,23 +564,23 @@ Next, a summary of the search scenario conducted and respective results is inclu
     <summary>Expand Search Scenario Summary Example</summary>
 
 ``` json
-    "1": {
+    "2": {
       "success": true,
-      "searchTarget": 26000,
+      "searchTarget": 12500,
       "searchFloor": 0,
-      "searchCeiling": 26500,
+      "searchCeiling": 24500,
       "basicTestResult": {
-        "targetTPS": 26000,
-        "resultAvgTps": 25986.9375,
-        "expectedTxns": 260000,
-        "resultTxns": 260000,
+        "targetTPS": 12500,
+        "resultAvgTps": 12507.6875,
+        "expectedTxns": 125000,
+        "resultTxns": 125000,
         "tpsExpectMet": true,
         "trxExpectMet": true,
         "basicTestSuccess": true,
         "testAnalysisBlockCnt": 17,
-        "logsDir": "./performance_test/2022-11-23_12-56-58/testRunLogs/performance_test_basic/2022-11-23_15-18-52-26000",
-        "testStart": "2022-11-23T15:18:52.115767",
-        "testEnd": "2022-11-23T15:20:16.911367"
+        "logsDir": "p/2023-02-28_17-10-36/testRunLogs/p/2023-02-28_19-15-15-12500",
+        "testStart": "2023-02-28T19:15:15.406134",
+        "testEnd": "2023-02-28T19:16:34.379216"
       }
     }
 ```
@@ -516,12 +613,12 @@ Finally, the full detail test report for each of the determined max TPS throughp
 
 ``` json
 {
-  "perfTestsBegin": "2022-11-23T12:56:58.699686",
-  "perfTestsFinish": "2022-11-23T15:20:16.979815",
-  "InitialMaxTpsAchieved": 26500,
-  "LongRunningMaxTpsAchieved": 26000,
-  "tpsTestStart": "2022-11-23T15:05:42.005050",
-  "tpsTestFinish": "2022-11-23T15:20:16.979800",
+  "perfTestsBegin": "2023-02-28T17:10:36.281418",
+  "perfTestsFinish": "2023-02-28T19:26:06.224176",
+  "InitialMaxTpsAchieved": 15000,
+  "LongRunningMaxTpsAchieved": 14500,
+  "tpsTestStart": "2023-02-28T19:12:06.501739",
+  "tpsTestFinish": "2023-02-28T19:26:06.224167",
   "InitialSearchResults": {
     "0": {
       "success": false,
@@ -530,149 +627,149 @@ Finally, the full detail test report for each of the determined max TPS throughp
       "searchCeiling": 50000,
       "basicTestResult": {
         "targetTPS": 50000,
-        "resultAvgTps": 23784.324324324323,
+        "resultAvgTps": 14271.463414634147,
         "expectedTxns": 500000,
-        "resultTxns": 500000,
+        "resultTxns": 315135,
         "tpsExpectMet": false,
-        "trxExpectMet": true,
-        "basicTestSuccess": true,
-        "testAnalysisBlockCnt": 38,
-        "logsDir": "./performance_test/2022-11-23_12-56-58/testRunLogs/performance_test_basic/2022-11-23_15-05-42-50000",
-        "testStart": "2022-11-23T15:05:42.005080",
-        "testEnd": "2022-11-23T15:07:24.111044"
+        "trxExpectMet": false,
+        "basicTestSuccess": false,
+        "testAnalysisBlockCnt": 42,
+        "logsDir": "p/2023-02-28_17-10-36/testRunLogs/p/2023-02-28_19-12-06-50000",
+        "testStart": "2023-02-28T19:12:06.501793",
+        "testEnd": "2023-02-28T19:13:45.664215"
       }
     },
     "1": {
-      "success": true,
+      "success": false,
       "searchTarget": 25000,
       "searchFloor": 0,
       "searchCeiling": 49500,
       "basicTestResult": {
         "targetTPS": 25000,
-        "resultAvgTps": 25013.3125,
+        "resultAvgTps": 14964.896551724138,
         "expectedTxns": 250000,
         "resultTxns": 250000,
+        "tpsExpectMet": false,
+        "trxExpectMet": true,
+        "basicTestSuccess": true,
+        "testAnalysisBlockCnt": 30,
+        "logsDir": "p/2023-02-28_17-10-36/testRunLogs/p/2023-02-28_19-13-45-25000",
+        "testStart": "2023-02-28T19:13:45.773450",
+        "testEnd": "2023-02-28T19:15:15.330054"
+      }
+    },
+    "2": {
+      "success": true,
+      "searchTarget": 12500,
+      "searchFloor": 0,
+      "searchCeiling": 24500,
+      "basicTestResult": {
+        "targetTPS": 12500,
+        "resultAvgTps": 12507.6875,
+        "expectedTxns": 125000,
+        "resultTxns": 125000,
         "tpsExpectMet": true,
         "trxExpectMet": true,
         "basicTestSuccess": true,
         "testAnalysisBlockCnt": 17,
-        "logsDir": "./performance_test/2022-11-23_12-56-58/testRunLogs/performance_test_basic/2022-11-23_15-07-24-25000",
-        "testStart": "2022-11-23T15:07:24.225706",
-        "testEnd": "2022-11-23T15:08:47.510691"
-      }
-    },
-    "2": {
-      "success": false,
-      "searchTarget": 37500,
-      "searchFloor": 25500,
-      "searchCeiling": 49500,
-      "basicTestResult": {
-        "targetTPS": 37500,
-        "resultAvgTps": 24912.576923076922,
-        "expectedTxns": 375000,
-        "resultTxns": 375000,
-        "tpsExpectMet": false,
-        "trxExpectMet": true,
-        "basicTestSuccess": true,
-        "testAnalysisBlockCnt": 27,
-        "logsDir": "./performance_test/2022-11-23_12-56-58/testRunLogs/performance_test_basic/2022-11-23_15-08-47-37500",
-        "testStart": "2022-11-23T15:08:47.579754",
-        "testEnd": "2022-11-23T15:10:23.342881"
+        "logsDir": "p/2023-02-28_17-10-36/testRunLogs/p/2023-02-28_19-15-15-12500",
+        "testStart": "2023-02-28T19:15:15.406134",
+        "testEnd": "2023-02-28T19:16:34.379216"
       }
     },
     "3": {
       "success": false,
-      "searchTarget": 31500,
-      "searchFloor": 25500,
-      "searchCeiling": 37000,
+      "searchTarget": 19000,
+      "searchFloor": 13000,
+      "searchCeiling": 24500,
       "basicTestResult": {
-        "targetTPS": 31500,
-        "resultAvgTps": 24525.095238095237,
-        "expectedTxns": 315000,
-        "resultTxns": 315000,
+        "targetTPS": 19000,
+        "resultAvgTps": 14874.90909090909,
+        "expectedTxns": 190000,
+        "resultTxns": 190000,
         "tpsExpectMet": false,
         "trxExpectMet": true,
         "basicTestSuccess": true,
-        "testAnalysisBlockCnt": 22,
-        "logsDir": "./performance_test/2022-11-23_12-56-58/testRunLogs/performance_test_basic/2022-11-23_15-10-23-31500",
-        "testStart": "2022-11-23T15:10:23.432821",
-        "testEnd": "2022-11-23T15:11:53.366694"
+        "testAnalysisBlockCnt": 23,
+        "logsDir": "p/2023-02-28_17-10-36/testRunLogs/p/2023-02-28_19-16-34-19000",
+        "testStart": "2023-02-28T19:16:34.432286",
+        "testEnd": "2023-02-28T19:17:59.828271"
       }
     },
     "4": {
       "success": false,
-      "searchTarget": 28500,
-      "searchFloor": 25500,
-      "searchCeiling": 31000,
+      "searchTarget": 16000,
+      "searchFloor": 13000,
+      "searchCeiling": 18500,
       "basicTestResult": {
-        "targetTPS": 28500,
-        "resultAvgTps": 25896.666666666668,
-        "expectedTxns": 285000,
-        "resultTxns": 285000,
+        "targetTPS": 16000,
+        "resultAvgTps": 15246.941176470587,
+        "expectedTxns": 160000,
+        "resultTxns": 160000,
         "tpsExpectMet": false,
         "trxExpectMet": true,
         "basicTestSuccess": true,
-        "testAnalysisBlockCnt": 19,
-        "logsDir": "./performance_test/2022-11-23_12-56-58/testRunLogs/performance_test_basic/2022-11-23_15-11-53-28500",
-        "testStart": "2022-11-23T15:11:53.448449",
-        "testEnd": "2022-11-23T15:13:17.714663"
+        "testAnalysisBlockCnt": 18,
+        "logsDir": "p/2023-02-28_17-10-36/testRunLogs/p/2023-02-28_19-17-59-16000",
+        "testStart": "2023-02-28T19:17:59.893538",
+        "testEnd": "2023-02-28T19:19:21.997058"
       }
     },
     "5": {
-      "success": false,
-      "searchTarget": 27000,
-      "searchFloor": 25500,
-      "searchCeiling": 28000,
-      "basicTestResult": {
-        "targetTPS": 27000,
-        "resultAvgTps": 26884.625,
-        "expectedTxns": 270000,
-        "resultTxns": 270000,
-        "tpsExpectMet": false,
-        "trxExpectMet": true,
-        "basicTestSuccess": true,
-        "testAnalysisBlockCnt": 17,
-        "logsDir": "./performance_test/2022-11-23_12-56-58/testRunLogs/performance_test_basic/2022-11-23_15-13-17-27000",
-        "testStart": "2022-11-23T15:13:17.787205",
-        "testEnd": "2022-11-23T15:14:40.753850"
-      }
-    },
-    "6": {
       "success": true,
-      "searchTarget": 26000,
-      "searchFloor": 25500,
-      "searchCeiling": 26500,
+      "searchTarget": 14500,
+      "searchFloor": 13000,
+      "searchCeiling": 15500,
       "basicTestResult": {
-        "targetTPS": 26000,
-        "resultAvgTps": 25959.0,
-        "expectedTxns": 260000,
-        "resultTxns": 260000,
+        "targetTPS": 14500,
+        "resultAvgTps": 14543.125,
+        "expectedTxns": 145000,
+        "resultTxns": 145000,
         "tpsExpectMet": true,
         "trxExpectMet": true,
         "basicTestSuccess": true,
         "testAnalysisBlockCnt": 17,
-        "logsDir": "./performance_test/2022-11-23_12-56-58/testRunLogs/performance_test_basic/2022-11-23_15-14-40-26000",
-        "testStart": "2022-11-23T15:14:40.823681",
-        "testEnd": "2022-11-23T15:16:02.884525"
+        "logsDir": "p/2023-02-28_17-10-36/testRunLogs/p/2023-02-28_19-19-22-14500",
+        "testStart": "2023-02-28T19:19:22.056683",
+        "testEnd": "2023-02-28T19:20:39.705683"
+      }
+    },
+    "6": {
+      "success": false,
+      "searchTarget": 15500,
+      "searchFloor": 15000,
+      "searchCeiling": 15500,
+      "basicTestResult": {
+        "targetTPS": 15500,
+        "resultAvgTps": 15353.4375,
+        "expectedTxns": 155000,
+        "resultTxns": 155000,
+        "tpsExpectMet": false,
+        "trxExpectMet": true,
+        "basicTestSuccess": true,
+        "testAnalysisBlockCnt": 17,
+        "logsDir": "p/2023-02-28_17-10-36/testRunLogs/p/2023-02-28_19-20-39-15500",
+        "testStart": "2023-02-28T19:20:39.761125",
+        "testEnd": "2023-02-28T19:22:01.537270"
       }
     },
     "7": {
       "success": true,
-      "searchTarget": 26500,
-      "searchFloor": 26500,
-      "searchCeiling": 26500,
+      "searchTarget": 15000,
+      "searchFloor": 15000,
+      "searchCeiling": 15000,
       "basicTestResult": {
-        "targetTPS": 26500,
-        "resultAvgTps": 26400.5625,
-        "expectedTxns": 265000,
-        "resultTxns": 265000,
+        "targetTPS": 15000,
+        "resultAvgTps": 14963.529411764706,
+        "expectedTxns": 150000,
+        "resultTxns": 150000,
         "tpsExpectMet": true,
         "trxExpectMet": true,
         "basicTestSuccess": true,
-        "testAnalysisBlockCnt": 17,
-        "logsDir": "./performance_test/2022-11-23_12-56-58/testRunLogs/performance_test_basic/2022-11-23_15-16-02-26500",
-        "testStart": "2022-11-23T15:16:02.953195",
-        "testEnd": "2022-11-23T15:17:28.412837"
+        "testAnalysisBlockCnt": 18,
+        "logsDir": "p/2023-02-28_17-10-36/testRunLogs/p/2023-02-28_19-22-01-15000",
+        "testStart": "2023-02-28T19:22:01.594970",
+        "testEnd": "2023-02-28T19:23:22.901483"
       }
     }
   },
@@ -692,40 +789,40 @@ Finally, the full detail test report for each of the determined max TPS throughp
   "LongRunningSearchResults": {
     "0": {
       "success": false,
-      "searchTarget": 26500,
+      "searchTarget": 15000,
       "searchFloor": 0,
-      "searchCeiling": 26500,
+      "searchCeiling": 15000,
       "basicTestResult": {
-        "targetTPS": 26500,
-        "resultAvgTps": 22554.42105263158,
-        "expectedTxns": 265000,
-        "resultTxns": 265000,
+        "targetTPS": 15000,
+        "resultAvgTps": 14361.529411764706,
+        "expectedTxns": 150000,
+        "resultTxns": 150000,
         "tpsExpectMet": false,
         "trxExpectMet": true,
         "basicTestSuccess": true,
-        "testAnalysisBlockCnt": 20,
-        "logsDir": "./performance_test/2022-11-23_12-56-58/testRunLogs/performance_test_basic/2022-11-23_15-17-28-26500",
-        "testStart": "2022-11-23T15:17:28.483195",
-        "testEnd": "2022-11-23T15:18:52.048868"
+        "testAnalysisBlockCnt": 18,
+        "logsDir": "p/2023-02-28_17-10-36/testRunLogs/p/2023-02-28_19-23-22-15000",
+        "testStart": "2023-02-28T19:23:22.962336",
+        "testEnd": "2023-02-28T19:24:44.753772"
       }
     },
     "1": {
       "success": true,
-      "searchTarget": 26000,
+      "searchTarget": 14500,
       "searchFloor": 0,
-      "searchCeiling": 26500,
+      "searchCeiling": 15000,
       "basicTestResult": {
-        "targetTPS": 26000,
-        "resultAvgTps": 25986.9375,
-        "expectedTxns": 260000,
-        "resultTxns": 260000,
+        "targetTPS": 14500,
+        "resultAvgTps": 14546.0625,
+        "expectedTxns": 145000,
+        "resultTxns": 145000,
         "tpsExpectMet": true,
         "trxExpectMet": true,
         "basicTestSuccess": true,
         "testAnalysisBlockCnt": 17,
-        "logsDir": "./performance_test/2022-11-23_12-56-58/testRunLogs/performance_test_basic/2022-11-23_15-18-52-26000",
-        "testStart": "2022-11-23T15:18:52.115767",
-        "testEnd": "2022-11-23T15:20:16.911367"
+        "logsDir": "p/2023-02-28_17-10-36/testRunLogs/p/2023-02-28_19-24-44-14500",
+        "testStart": "2023-02-28T19:24:44.811953",
+        "testEnd": "2023-02-28T19:26:06.165715"
       }
     }
   },
@@ -745,210 +842,40 @@ Finally, the full detail test report for each of the determined max TPS throughp
   "ProducerThreadAnalysis": {
     "recommendedThreadCount": 6,
     "threadToMaxTpsDict": {
-      "2": 16000,
-      "3": 21000,
-      "4": 24000,
-      "5": 25500,
-      "6": 27000,
-      "7": 26000
+      "2": 12000,
+      "3": 14000,
+      "4": 19000,
+      "5": 20500,
+      "6": 21500,
+      "7": 21500
     },
-    "analysisStart": "2022-11-23T12:56:58.730271",
-    "analysisFinish": "2022-11-23T14:05:45.727625"
+    "analysisStart": "2023-02-28T17:10:36.313384",
+    "analysisFinish": "2023-02-28T18:15:53.250540"
   },
   "ChainThreadAnalysis": {
     "recommendedThreadCount": 3,
     "threadToMaxTpsDict": {
-      "2": 25000,
-      "3": 26500,
-      "4": 26500
+      "2": 14000,
+      "3": 15000,
+      "4": 13500
     },
-    "analysisStart": "2022-11-23T14:05:45.728348",
-    "analysisFinish": "2022-11-23T14:41:43.721885"
+    "analysisStart": "2023-02-28T18:15:53.251366",
+    "analysisFinish": "2023-02-28T18:49:30.383395"
   },
   "NetThreadAnalysis": {
     "recommendedThreadCount": 2,
     "threadToMaxTpsDict": {
-      "2": 25500,
-      "3": 25000
+      "2": 14000,
+      "3": 13500
     },
-    "analysisStart": "2022-11-23T14:41:43.722862",
-    "analysisFinish": "2022-11-23T15:05:42.004421"
+    "analysisStart": "2023-02-28T18:49:30.384564",
+    "analysisFinish": "2023-02-28T19:12:06.501003"
   },
   "args": {
+    "rawCmdLine ": "./tests/performance_tests/performance_test.py --test-iteration-duration-sec 10 --final-iterations-duration-sec 30 --calc-producer-threads lmax --calc-chain-threads lmax --calc-net-threads lmax",
     "killAll": false,
     "dontKill": false,
     "keepLogs": true,
-    "dumpErrorDetails": false,
-    "delay": 1,
-    "nodesFile": null,
-    "verbose": false,
-    "_killEosInstances": true,
-    "_killWallet": true,
-    "pnodes": 1,
-    "totalNodes": 0,
-    "topo": "mesh",
-    "extraNodeosArgs": {
-      "chainPluginArgs": {
-        "signatureCpuBillablePct": 0,
-        "chainStateDbSizeMb": 10240,
-        "chainThreads": 3,
-        "databaseMapMode": "mapped"
-      },
-      "producerPluginArgs": {
-        "disableSubjectiveBilling": true,
-        "lastBlockTimeOffsetUs": 0,
-        "produceTimeOffsetUs": 0,
-        "cpuEffortPercent": 100,
-        "lastBlockCpuEffortPercent": 100,
-        "producerThreads": 6
-      },
-      "httpPluginArgs": {
-        "httpMaxResponseTimeMs": 990000
-      },
-      "netPluginArgs": {
-        "netThreads": 2
-      }
-    },
-    "useBiosBootFile": false,
-    "genesisPath": "tests/performance_tests/genesis.json",
-    "maximumP2pPerHost": 5000,
-    "maximumClients": 0,
-    "loggingDict": {
-      "bios": "off"
-    },
-    "prodsEnableTraceApi": false,
-    "specificExtraNodeosArgs": {
-      "1": "--plugin eosio::trace_api_plugin"
-    },
-    "_totalNodes": 2,
-    "testDurationSec": 10,
-    "finalDurationSec": 30,
-    "delPerfLogs": false,
-    "maxTpsToTest": 50000,
-    "testIterationMinStep": 500,
-    "tpsLimitPerGenerator": 4000,
-    "delReport": false,
-    "delTestReport": false,
-    "numAddlBlocksToPrune": 2,
-    "quiet": false,
-    "logDirRoot": ".",
-    "skipTpsTests": false,
-    "calcProducerThreads": "lmax",
-    "calcChainThreads": "lmax",
-    "calcNetThreads": "lmax",
-    "logDirBase": "./performance_test",
-    "logDirTimestamp": "2022-11-23_12-56-58",
-    "logDirPath": "./performance_test/2022-11-23_12-56-58",
-    "ptbLogsDirPath": "./performance_test/2022-11-23_12-56-58/testRunLogs",
-    "pluginThreadOptLogsDirPath": "./performance_test/2022-11-23_12-56-58/pluginThreadOptRunLogs"
-  },
-  "env": {
-    "system": "Linux",
-    "os": "posix",
-    "release": "5.15.74.2-microsoft-standard-WSL2",
-    "logical_cpu_count": 16
-  },
-  "nodeosVersion": "v4.0.0-dev"
-}
-```
-</details>
-
-
-### Performance Test Basic Report
-
-The Performance Test Basic generates, by default, a report that details results of the test, statistics around metrics of interest, as well as diagnostic information about the test run.  If `performance_test.py` is run with `--del-test-report`, or `performance_test_basic.py` is run with `--del-report`, the report described below will not be written.  Otherwise the report will be written to the timestamped directory within the `performance_test_basic` log directory for the test run with the file name `data.json`.
-
-<details>
-    <summary>Expand for full sample report</summary>
-    
-``` json
-{
-  "completedRun": true,
-  "testStart": "2023-02-22T21:28:58.867999",
-  "testFinish": "2023-02-22T21:30:39.932852",
-  "Analysis": {
-    "BlockSize": {
-      "min": 1069248,
-      "max": 1521216,
-      "avg": 1335995.7333333334,
-      "sigma": 107425.6639278012,
-      "emptyBlocks": 0,
-      "numBlocks": 45
-    },
-    "BlocksGuide": {
-      "firstBlockNum": 2,
-      "lastBlockNum": 194,
-      "totalBlocks": 193,
-      "testStartBlockNum": 112,
-      "testEndBlockNum": 161,
-      "setupBlocksCnt": 110,
-      "tearDownBlocksCnt": 33,
-      "leadingEmptyBlocksCnt": 1,
-      "trailingEmptyBlocksCnt": 0,
-      "configAddlDropCnt": 2,
-      "testAnalysisBlockCnt": 45
-    },
-    "TPS": {
-      "min": 11982,
-      "max": 15496,
-      "avg": 13922.954545454546,
-      "sigma": 1026.4435279720471,
-      "emptyBlocks": 0,
-      "numBlocks": 45,
-      "configTps": 50000,
-      "configTestDuration": 10,
-      "tpsPerGenerator": [
-        3846,
-        3846,
-        3846,
-        3846,
-        3846,
-        3846,
-        3846,
-        3846,
-        3846,
-        3846,
-        3846,
-        3847,
-        3847
-      ],
-      "generatorCount": 13
-    },
-    "TrxCPU": {
-      "min": 7.0,
-      "max": 8186.0,
-      "avg": 24.41423694803685,
-      "sigma": 32.88703511468667,
-      "samples": 326924
-    },
-    "TrxLatency": {
-      "min": 0.023999929428100586,
-      "max": 17.144999980926514,
-      "avg": 9.035915723544147,
-      "sigma": 4.873430717683421,
-      "samples": 326924
-    },
-    "TrxNet": {
-      "min": 24.0,
-      "max": 24.0,
-      "avg": 24.0,
-      "sigma": 0.0,
-      "samples": 326924
-    },
-    "DroppedBlocks": {},
-    "DroppedBlocksCount": 0,
-    "DroppedTransactions": 173076,
-    "ProductionWindowsTotal": 0,
-    "ProductionWindowsAverageSize": 0,
-    "ProductionWindowsMissed": 0,
-    "ForkedBlocks": [],
-    "ForksCount": 0
-  },
-  "args": {
-    "rawCmdLine ": "tests/performance_tests/performance_test.py --test-iteration-duration-sec 10 --final-iterations-duration-sec 30 --calc-producer-threads lmax --calc-chain-threads lmax --calc-net-threads lmax",
-    "killAll": false,
-    "dontKill": false,
-    "keepLogs": false,
     "dumpErrorDetails": false,
     "delay": 1,
     "nodesFile": null,
@@ -1351,6 +1278,9 @@ The Performance Test Basic generates, by default, a report that details results 
         "resourceMonitorSpaceThreshold": null,
         "_resourceMonitorSpaceThresholdNodeosDefault": 90,
         "_resourceMonitorSpaceThresholdNodeosArg": "--resource-monitor-space-threshold",
+        "resourceMonitorSpaceAbsoluteGb": null,
+        "_resourceMonitorSpaceAbsoluteGbNodeosDefault": null,
+        "_resourceMonitorSpaceAbsoluteGbNodeosArg": "--resource-monitor-space-absolute-gb",
         "resourceMonitorNotShutdownOnThresholdExceeded": null,
         "_resourceMonitorNotShutdownOnThresholdExceededNodeosDefault": false,
         "_resourceMonitorNotShutdownOnThresholdExceededNodeosArg": "--resource-monitor-not-shutdown-on-threshold-exceeded",
@@ -1436,26 +1366,635 @@ The Performance Test Basic generates, by default, a report that details results 
       "1": "--plugin eosio::trace_api_plugin"
     },
     "_totalNodes": 2,
-    "targetTps": 50000,
-    "testTrxGenDurationSec": 10,
+    "testDurationSec": 10,
+    "finalDurationSec": 30,
+    "delPerfLogs": false,
+    "maxTpsToTest": 50000,
+    "testIterationMinStep": 500,
     "tpsLimitPerGenerator": 4000,
+    "delReport": false,
+    "delTestReport": false,
     "numAddlBlocksToPrune": 2,
-    "logDirRoot": "p/2023-02-22_21-28-58/pluginThreadOptRunLogs",
-    "delReport": true,
     "quiet": false,
-    "delPerfLogs": true,
-    "expectedTransactionsSent": 500000,
-    "printMissingTransactions": false,
-    "userTrxDataFile": null,
-    "logDirBase": "p/2023-02-22_21-28-58/pluginThreadOptRunLogs/p",
-    "logDirTimestamp": "2023-02-22_21-28-58",
-    "logDirTimestampedOptSuffix": "-50000",
-    "logDirPath": "p/2023-02-22_21-28-58/pluginThreadOptRunLogs/p/2023-02-22_21-28-58-50000"
+    "logDirRoot": ".",
+    "skipTpsTests": false,
+    "calcProducerThreads": "lmax",
+    "calcChainThreads": "lmax",
+    "calcNetThreads": "lmax",
+    "logDirBase": "p",
+    "logDirTimestamp": "2023-02-28_17-10-36",
+    "logDirPath": "p/2023-02-28_17-10-36",
+    "ptbLogsDirPath": "p/2023-02-28_17-10-36/testRunLogs",
+    "pluginThreadOptLogsDirPath": "p/2023-02-28_17-10-36/pluginThreadOptRunLogs"
   },
   "env": {
     "system": "Linux",
     "os": "posix",
-    "release": "5.10.16.3-microsoft-standard-WSL2",
+    "release": "5.15.79.1-microsoft-standard-WSL2",
+    "logical_cpu_count": 16
+  },
+  "nodeosVersion": "v4.0.0-dev"
+}
+```
+</details>
+
+
+### Performance Test Basic Report
+
+The Performance Test Basic generates, by default, a report that details results of the test, statistics around metrics of interest, as well as diagnostic information about the test run.  If `performance_test.py` is run with `--del-test-report`, or `performance_test_basic.py` is run with `--del-report`, the report described below will not be written.  Otherwise the report will be written to the timestamped directory within the `performance_test_basic` log directory for the test run with the file name `data.json`.
+
+<details>
+    <summary>Expand for full sample report</summary>
+    
+``` json
+{
+  "completedRun": true,
+  "testStart": "2023-02-28T19:24:44.811953",
+  "testFinish": "2023-02-28T19:26:06.165715",
+  "Analysis": {
+    "BlockSize": {
+      "min": 1148352,
+      "max": 1557888,
+      "avg": 1396653.1764705882,
+      "sigma": 80740.60358240586,
+      "emptyBlocks": 0,
+      "numBlocks": 17
+    },
+    "BlocksGuide": {
+      "firstBlockNum": 2,
+      "lastBlockNum": 159,
+      "totalBlocks": 158,
+      "testStartBlockNum": 113,
+      "testEndBlockNum": 149,
+      "setupBlocksCnt": 111,
+      "tearDownBlocksCnt": 10,
+      "leadingEmptyBlocksCnt": 1,
+      "trailingEmptyBlocksCnt": 15,
+      "configAddlDropCnt": 2,
+      "testAnalysisBlockCnt": 17
+    },
+    "TPS": {
+      "min": 13737,
+      "max": 15776,
+      "avg": 14546.0625,
+      "sigma": 428.6321950037701,
+      "emptyBlocks": 0,
+      "numBlocks": 17,
+      "configTps": 14500,
+      "configTestDuration": 10,
+      "tpsPerGenerator": [
+        3625,
+        3625,
+        3625,
+        3625
+      ],
+      "generatorCount": 4
+    },
+    "TrxCPU": {
+      "min": 7.0,
+      "max": 924.0,
+      "avg": 23.99186896551724,
+      "sigma": 13.466278551411643,
+      "samples": 145000
+    },
+    "TrxLatency": {
+      "min": 0.0009999275207519531,
+      "max": 0.5899999141693115,
+      "avg": 0.2662433517719137,
+      "sigma": 0.146137230822956,
+      "samples": 145000
+    },
+    "TrxNet": {
+      "min": 24.0,
+      "max": 24.0,
+      "avg": 24.0,
+      "sigma": 0.0,
+      "samples": 145000
+    },
+    "DroppedBlocks": {},
+    "DroppedBlocksCount": 0,
+    "DroppedTransactions": 0,
+    "ProductionWindowsTotal": 0,
+    "ProductionWindowsAverageSize": 0,
+    "ProductionWindowsMissed": 0,
+    "ForkedBlocks": [],
+    "ForksCount": 0
+  },
+  "args": {
+    "rawCmdLine ": "./tests/performance_tests/performance_test.py --test-iteration-duration-sec 10 --final-iterations-duration-sec 30 --calc-producer-threads lmax --calc-chain-threads lmax --calc-net-threads lmax",
+    "killAll": false,
+    "dontKill": false,
+    "keepLogs": true,
+    "dumpErrorDetails": false,
+    "delay": 1,
+    "nodesFile": null,
+    "verbose": false,
+    "_killEosInstances": true,
+    "_killWallet": true,
+    "pnodes": 1,
+    "totalNodes": 0,
+    "topo": "mesh",
+    "extraNodeosArgs": {
+      "chainPluginArgs": {
+        "_pluginNamespace": "eosio",
+        "_pluginName": "chain_plugin",
+        "blocksDir": null,
+        "_blocksDirNodeosDefault": "\"blocks\"",
+        "_blocksDirNodeosArg": "--blocks-dir",
+        "stateDir": null,
+        "_stateDirNodeosDefault": "\"state\"",
+        "_stateDirNodeosArg": "--state-dir",
+        "protocolFeaturesDir": null,
+        "_protocolFeaturesDirNodeosDefault": "\"protocol_features\"",
+        "_protocolFeaturesDirNodeosArg": "--protocol-features-dir",
+        "checkpoint": null,
+        "_checkpointNodeosDefault": null,
+        "_checkpointNodeosArg": "--checkpoint",
+        "wasmRuntime": null,
+        "_wasmRuntimeNodeosDefault": "eos-vm-jit",
+        "_wasmRuntimeNodeosArg": "--wasm-runtime",
+        "profileAccount": null,
+        "_profileAccountNodeosDefault": null,
+        "_profileAccountNodeosArg": "--profile-account",
+        "abiSerializerMaxTimeMs": null,
+        "_abiSerializerMaxTimeMsNodeosDefault": 15,
+        "_abiSerializerMaxTimeMsNodeosArg": "--abi-serializer-max-time-ms",
+        "chainStateDbSizeMb": 10240,
+        "_chainStateDbSizeMbNodeosDefault": 1024,
+        "_chainStateDbSizeMbNodeosArg": "--chain-state-db-size-mb",
+        "chainStateDbGuardSizeMb": null,
+        "_chainStateDbGuardSizeMbNodeosDefault": 128,
+        "_chainStateDbGuardSizeMbNodeosArg": "--chain-state-db-guard-size-mb",
+        "signatureCpuBillablePct": 0,
+        "_signatureCpuBillablePctNodeosDefault": 50,
+        "_signatureCpuBillablePctNodeosArg": "--signature-cpu-billable-pct",
+        "chainThreads": 2,
+        "_chainThreadsNodeosDefault": 2,
+        "_chainThreadsNodeosArg": "--chain-threads",
+        "contractsConsole": null,
+        "_contractsConsoleNodeosDefault": false,
+        "_contractsConsoleNodeosArg": "--contracts-console",
+        "deepMind": null,
+        "_deepMindNodeosDefault": false,
+        "_deepMindNodeosArg": "--deep-mind",
+        "actorWhitelist": null,
+        "_actorWhitelistNodeosDefault": null,
+        "_actorWhitelistNodeosArg": "--actor-whitelist",
+        "actorBlacklist": null,
+        "_actorBlacklistNodeosDefault": null,
+        "_actorBlacklistNodeosArg": "--actor-blacklist",
+        "contractWhitelist": null,
+        "_contractWhitelistNodeosDefault": null,
+        "_contractWhitelistNodeosArg": "--contract-whitelist",
+        "contractBlacklist": null,
+        "_contractBlacklistNodeosDefault": null,
+        "_contractBlacklistNodeosArg": "--contract-blacklist",
+        "actionBlacklist": null,
+        "_actionBlacklistNodeosDefault": null,
+        "_actionBlacklistNodeosArg": "--action-blacklist",
+        "keyBlacklist": null,
+        "_keyBlacklistNodeosDefault": null,
+        "_keyBlacklistNodeosArg": "--key-blacklist",
+        "senderBypassWhiteblacklist": null,
+        "_senderBypassWhiteblacklistNodeosDefault": null,
+        "_senderBypassWhiteblacklistNodeosArg": "--sender-bypass-whiteblacklist",
+        "readMode": null,
+        "_readModeNodeosDefault": "head",
+        "_readModeNodeosArg": "--read-mode",
+        "apiAcceptTransactions": null,
+        "_apiAcceptTransactionsNodeosDefault": 1,
+        "_apiAcceptTransactionsNodeosArg": "--api-accept-transactions",
+        "validationMode": null,
+        "_validationModeNodeosDefault": "full",
+        "_validationModeNodeosArg": "--validation-mode",
+        "disableRamBillingNotifyChecks": null,
+        "_disableRamBillingNotifyChecksNodeosDefault": false,
+        "_disableRamBillingNotifyChecksNodeosArg": "--disable-ram-billing-notify-checks",
+        "maximumVariableSignatureLength": null,
+        "_maximumVariableSignatureLengthNodeosDefault": 16384,
+        "_maximumVariableSignatureLengthNodeosArg": "--maximum-variable-signature-length",
+        "trustedProducer": null,
+        "_trustedProducerNodeosDefault": null,
+        "_trustedProducerNodeosArg": "--trusted-producer",
+        "databaseMapMode": "mapped",
+        "_databaseMapModeNodeosDefault": "mapped",
+        "_databaseMapModeNodeosArg": "--database-map-mode",
+        "eosVmOcCacheSizeMb": null,
+        "_eosVmOcCacheSizeMbNodeosDefault": 1024,
+        "_eosVmOcCacheSizeMbNodeosArg": "--eos-vm-oc-cache-size-mb",
+        "eosVmOcCompileThreads": null,
+        "_eosVmOcCompileThreadsNodeosDefault": 1,
+        "_eosVmOcCompileThreadsNodeosArg": "--eos-vm-oc-compile-threads",
+        "eosVmOcEnable": null,
+        "_eosVmOcEnableNodeosDefault": false,
+        "_eosVmOcEnableNodeosArg": "--eos-vm-oc-enable",
+        "enableAccountQueries": null,
+        "_enableAccountQueriesNodeosDefault": 0,
+        "_enableAccountQueriesNodeosArg": "--enable-account-queries",
+        "maxNonprivilegedInlineActionSize": null,
+        "_maxNonprivilegedInlineActionSizeNodeosDefault": 4096,
+        "_maxNonprivilegedInlineActionSizeNodeosArg": "--max-nonprivileged-inline-action-size",
+        "transactionRetryMaxStorageSizeGb": null,
+        "_transactionRetryMaxStorageSizeGbNodeosDefault": null,
+        "_transactionRetryMaxStorageSizeGbNodeosArg": "--transaction-retry-max-storage-size-gb",
+        "transactionRetryIntervalSec": null,
+        "_transactionRetryIntervalSecNodeosDefault": 20,
+        "_transactionRetryIntervalSecNodeosArg": "--transaction-retry-interval-sec",
+        "transactionRetryMaxExpirationSec": null,
+        "_transactionRetryMaxExpirationSecNodeosDefault": 120,
+        "_transactionRetryMaxExpirationSecNodeosArg": "--transaction-retry-max-expiration-sec",
+        "transactionFinalityStatusMaxStorageSizeGb": null,
+        "_transactionFinalityStatusMaxStorageSizeGbNodeosDefault": null,
+        "_transactionFinalityStatusMaxStorageSizeGbNodeosArg": "--transaction-finality-status-max-storage-size-gb",
+        "transactionFinalityStatusSuccessDurationSec": null,
+        "_transactionFinalityStatusSuccessDurationSecNodeosDefault": 180,
+        "_transactionFinalityStatusSuccessDurationSecNodeosArg": "--transaction-finality-status-success-duration-sec",
+        "transactionFinalityStatusFailureDurationSec": null,
+        "_transactionFinalityStatusFailureDurationSecNodeosDefault": 180,
+        "_transactionFinalityStatusFailureDurationSecNodeosArg": "--transaction-finality-status-failure-duration-sec",
+        "integrityHashOnStart": null,
+        "_integrityHashOnStartNodeosDefault": false,
+        "_integrityHashOnStartNodeosArg": "--integrity-hash-on-start",
+        "integrityHashOnStop": null,
+        "_integrityHashOnStopNodeosDefault": false,
+        "_integrityHashOnStopNodeosArg": "--integrity-hash-on-stop",
+        "blockLogRetainBlocks": null,
+        "_blockLogRetainBlocksNodeosDefault": null,
+        "_blockLogRetainBlocksNodeosArg": "--block-log-retain-blocks",
+        "genesisJson": null,
+        "_genesisJsonNodeosDefault": null,
+        "_genesisJsonNodeosArg": "--genesis-json",
+        "genesisTimestamp": null,
+        "_genesisTimestampNodeosDefault": null,
+        "_genesisTimestampNodeosArg": "--genesis-timestamp",
+        "printGenesisJson": null,
+        "_printGenesisJsonNodeosDefault": false,
+        "_printGenesisJsonNodeosArg": "--print-genesis-json",
+        "extractGenesisJson": null,
+        "_extractGenesisJsonNodeosDefault": null,
+        "_extractGenesisJsonNodeosArg": "--extract-genesis-json",
+        "printBuildInfo": null,
+        "_printBuildInfoNodeosDefault": false,
+        "_printBuildInfoNodeosArg": "--print-build-info",
+        "extractBuildInfo": null,
+        "_extractBuildInfoNodeosDefault": null,
+        "_extractBuildInfoNodeosArg": "--extract-build-info",
+        "forceAllChecks": null,
+        "_forceAllChecksNodeosDefault": false,
+        "_forceAllChecksNodeosArg": "--force-all-checks",
+        "disableReplayOpts": null,
+        "_disableReplayOptsNodeosDefault": false,
+        "_disableReplayOptsNodeosArg": "--disable-replay-opts",
+        "replayBlockchain": null,
+        "_replayBlockchainNodeosDefault": false,
+        "_replayBlockchainNodeosArg": "--replay-blockchain",
+        "hardReplayBlockchain": null,
+        "_hardReplayBlockchainNodeosDefault": false,
+        "_hardReplayBlockchainNodeosArg": "--hard-replay-blockchain",
+        "deleteAllBlocks": null,
+        "_deleteAllBlocksNodeosDefault": false,
+        "_deleteAllBlocksNodeosArg": "--delete-all-blocks",
+        "truncateAtBlock": null,
+        "_truncateAtBlockNodeosDefault": 0,
+        "_truncateAtBlockNodeosArg": "--truncate-at-block",
+        "terminateAtBlock": null,
+        "_terminateAtBlockNodeosDefault": 0,
+        "_terminateAtBlockNodeosArg": "--terminate-at-block",
+        "snapshot": null,
+        "_snapshotNodeosDefault": null,
+        "_snapshotNodeosArg": "--snapshot"
+      },
+      "httpClientPluginArgs": {
+        "_pluginNamespace": "eosio",
+        "_pluginName": "http_client_plugin",
+        "httpsClientRootCert": null,
+        "_httpsClientRootCertNodeosDefault": null,
+        "_httpsClientRootCertNodeosArg": "--https-client-root-cert",
+        "httpsClientValidatePeers": null,
+        "_httpsClientValidatePeersNodeosDefault": 1,
+        "_httpsClientValidatePeersNodeosArg": "--https-client-validate-peers"
+      },
+      "httpPluginArgs": {
+        "_pluginNamespace": "eosio",
+        "_pluginName": "http_plugin",
+        "unixSocketPath": null,
+        "_unixSocketPathNodeosDefault": null,
+        "_unixSocketPathNodeosArg": "--unix-socket-path",
+        "httpServerAddress": null,
+        "_httpServerAddressNodeosDefault": "127.0.0.1:8888",
+        "_httpServerAddressNodeosArg": "--http-server-address",
+        "httpsServerAddress": null,
+        "_httpsServerAddressNodeosDefault": null,
+        "_httpsServerAddressNodeosArg": "--https-server-address",
+        "httpsCertificateChainFile": null,
+        "_httpsCertificateChainFileNodeosDefault": null,
+        "_httpsCertificateChainFileNodeosArg": "--https-certificate-chain-file",
+        "httpsPrivateKeyFile": null,
+        "_httpsPrivateKeyFileNodeosDefault": null,
+        "_httpsPrivateKeyFileNodeosArg": "--https-private-key-file",
+        "httpsEcdhCurve": null,
+        "_httpsEcdhCurveNodeosDefault": "secp384r1",
+        "_httpsEcdhCurveNodeosArg": "--https-ecdh-curve",
+        "accessControlAllowOrigin": null,
+        "_accessControlAllowOriginNodeosDefault": null,
+        "_accessControlAllowOriginNodeosArg": "--access-control-allow-origin",
+        "accessControlAllowHeaders": null,
+        "_accessControlAllowHeadersNodeosDefault": null,
+        "_accessControlAllowHeadersNodeosArg": "--access-control-allow-headers",
+        "accessControlMaxAge": null,
+        "_accessControlMaxAgeNodeosDefault": null,
+        "_accessControlMaxAgeNodeosArg": "--access-control-max-age",
+        "accessControlAllowCredentials": null,
+        "_accessControlAllowCredentialsNodeosDefault": false,
+        "_accessControlAllowCredentialsNodeosArg": "--access-control-allow-credentials",
+        "maxBodySize": null,
+        "_maxBodySizeNodeosDefault": 2097152,
+        "_maxBodySizeNodeosArg": "--max-body-size",
+        "httpMaxBytesInFlightMb": null,
+        "_httpMaxBytesInFlightMbNodeosDefault": 500,
+        "_httpMaxBytesInFlightMbNodeosArg": "--http-max-bytes-in-flight-mb",
+        "httpMaxInFlightRequests": null,
+        "_httpMaxInFlightRequestsNodeosDefault": -1,
+        "_httpMaxInFlightRequestsNodeosArg": "--http-max-in-flight-requests",
+        "httpMaxResponseTimeMs": 990000,
+        "_httpMaxResponseTimeMsNodeosDefault": 30,
+        "_httpMaxResponseTimeMsNodeosArg": "--http-max-response-time-ms",
+        "verboseHttpErrors": null,
+        "_verboseHttpErrorsNodeosDefault": false,
+        "_verboseHttpErrorsNodeosArg": "--verbose-http-errors",
+        "httpValidateHost": null,
+        "_httpValidateHostNodeosDefault": 1,
+        "_httpValidateHostNodeosArg": "--http-validate-host",
+        "httpAlias": null,
+        "_httpAliasNodeosDefault": null,
+        "_httpAliasNodeosArg": "--http-alias",
+        "httpThreads": null,
+        "_httpThreadsNodeosDefault": 2,
+        "_httpThreadsNodeosArg": "--http-threads",
+        "httpKeepAlive": null,
+        "_httpKeepAliveNodeosDefault": 1,
+        "_httpKeepAliveNodeosArg": "--http-keep-alive"
+      },
+      "netPluginArgs": {
+        "_pluginNamespace": "eosio",
+        "_pluginName": "net_plugin",
+        "p2pListenEndpoint": null,
+        "_p2pListenEndpointNodeosDefault": "0.0.0.0:9876",
+        "_p2pListenEndpointNodeosArg": "--p2p-listen-endpoint",
+        "p2pServerAddress": null,
+        "_p2pServerAddressNodeosDefault": null,
+        "_p2pServerAddressNodeosArg": "--p2p-server-address",
+        "p2pPeerAddress": null,
+        "_p2pPeerAddressNodeosDefault": null,
+        "_p2pPeerAddressNodeosArg": "--p2p-peer-address",
+        "p2pMaxNodesPerHost": null,
+        "_p2pMaxNodesPerHostNodeosDefault": 1,
+        "_p2pMaxNodesPerHostNodeosArg": "--p2p-max-nodes-per-host",
+        "p2pAcceptTransactions": null,
+        "_p2pAcceptTransactionsNodeosDefault": 1,
+        "_p2pAcceptTransactionsNodeosArg": "--p2p-accept-transactions",
+        "agentName": null,
+        "_agentNameNodeosDefault": "EOS Test Agent",
+        "_agentNameNodeosArg": "--agent-name",
+        "allowedConnection": null,
+        "_allowedConnectionNodeosDefault": "any",
+        "_allowedConnectionNodeosArg": "--allowed-connection",
+        "peerKey": null,
+        "_peerKeyNodeosDefault": null,
+        "_peerKeyNodeosArg": "--peer-key",
+        "peerPrivateKey": null,
+        "_peerPrivateKeyNodeosDefault": null,
+        "_peerPrivateKeyNodeosArg": "--peer-private-key",
+        "maxClients": null,
+        "_maxClientsNodeosDefault": 25,
+        "_maxClientsNodeosArg": "--max-clients",
+        "connectionCleanupPeriod": null,
+        "_connectionCleanupPeriodNodeosDefault": 30,
+        "_connectionCleanupPeriodNodeosArg": "--connection-cleanup-period",
+        "maxCleanupTimeMsec": null,
+        "_maxCleanupTimeMsecNodeosDefault": 10,
+        "_maxCleanupTimeMsecNodeosArg": "--max-cleanup-time-msec",
+        "p2pDedupCacheExpireTimeSec": null,
+        "_p2pDedupCacheExpireTimeSecNodeosDefault": 10,
+        "_p2pDedupCacheExpireTimeSecNodeosArg": "--p2p-dedup-cache-expire-time-sec",
+        "netThreads": 4,
+        "_netThreadsNodeosDefault": 4,
+        "_netThreadsNodeosArg": "--net-threads",
+        "syncFetchSpan": null,
+        "_syncFetchSpanNodeosDefault": 100,
+        "_syncFetchSpanNodeosArg": "--sync-fetch-span",
+        "useSocketReadWatermark": null,
+        "_useSocketReadWatermarkNodeosDefault": 0,
+        "_useSocketReadWatermarkNodeosArg": "--use-socket-read-watermark",
+        "peerLogFormat": null,
+        "_peerLogFormatNodeosDefault": "[\"${_name}\" - ${_cid} ${_ip}:${_port}] ",
+        "_peerLogFormatNodeosArg": "--peer-log-format",
+        "p2pKeepaliveIntervalMs": null,
+        "_p2pKeepaliveIntervalMsNodeosDefault": 10000,
+        "_p2pKeepaliveIntervalMsNodeosArg": "--p2p-keepalive-interval-ms"
+      },
+      "producerPluginArgs": {
+        "_pluginNamespace": "eosio",
+        "_pluginName": "producer_plugin",
+        "enableStaleProduction": null,
+        "_enableStaleProductionNodeosDefault": false,
+        "_enableStaleProductionNodeosArg": "--enable-stale-production",
+        "pauseOnStartup": null,
+        "_pauseOnStartupNodeosDefault": false,
+        "_pauseOnStartupNodeosArg": "--pause-on-startup",
+        "maxTransactionTime": null,
+        "_maxTransactionTimeNodeosDefault": 30,
+        "_maxTransactionTimeNodeosArg": "--max-transaction-time",
+        "maxIrreversibleBlockAge": null,
+        "_maxIrreversibleBlockAgeNodeosDefault": -1,
+        "_maxIrreversibleBlockAgeNodeosArg": "--max-irreversible-block-age",
+        "producerName": null,
+        "_producerNameNodeosDefault": null,
+        "_producerNameNodeosArg": "--producer-name",
+        "privateKey": null,
+        "_privateKeyNodeosDefault": null,
+        "_privateKeyNodeosArg": "--private-key",
+        "signatureProvider": null,
+        "_signatureProviderNodeosDefault": "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV=KEY:5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3",
+        "_signatureProviderNodeosArg": "--signature-provider",
+        "greylistAccount": null,
+        "_greylistAccountNodeosDefault": null,
+        "_greylistAccountNodeosArg": "--greylist-account",
+        "greylistLimit": null,
+        "_greylistLimitNodeosDefault": 1000,
+        "_greylistLimitNodeosArg": "--greylist-limit",
+        "produceTimeOffsetUs": 0,
+        "_produceTimeOffsetUsNodeosDefault": 0,
+        "_produceTimeOffsetUsNodeosArg": "--produce-time-offset-us",
+        "lastBlockTimeOffsetUs": 0,
+        "_lastBlockTimeOffsetUsNodeosDefault": -200000,
+        "_lastBlockTimeOffsetUsNodeosArg": "--last-block-time-offset-us",
+        "cpuEffortPercent": 100,
+        "_cpuEffortPercentNodeosDefault": 80,
+        "_cpuEffortPercentNodeosArg": "--cpu-effort-percent",
+        "lastBlockCpuEffortPercent": 100,
+        "_lastBlockCpuEffortPercentNodeosDefault": 80,
+        "_lastBlockCpuEffortPercentNodeosArg": "--last-block-cpu-effort-percent",
+        "maxBlockCpuUsageThresholdUs": null,
+        "_maxBlockCpuUsageThresholdUsNodeosDefault": 5000,
+        "_maxBlockCpuUsageThresholdUsNodeosArg": "--max-block-cpu-usage-threshold-us",
+        "maxBlockNetUsageThresholdBytes": null,
+        "_maxBlockNetUsageThresholdBytesNodeosDefault": 1024,
+        "_maxBlockNetUsageThresholdBytesNodeosArg": "--max-block-net-usage-threshold-bytes",
+        "maxScheduledTransactionTimePerBlockMs": null,
+        "_maxScheduledTransactionTimePerBlockMsNodeosDefault": 100,
+        "_maxScheduledTransactionTimePerBlockMsNodeosArg": "--max-scheduled-transaction-time-per-block-ms",
+        "subjectiveCpuLeewayUs": null,
+        "_subjectiveCpuLeewayUsNodeosDefault": 31000,
+        "_subjectiveCpuLeewayUsNodeosArg": "--subjective-cpu-leeway-us",
+        "subjectiveAccountMaxFailures": null,
+        "_subjectiveAccountMaxFailuresNodeosDefault": 3,
+        "_subjectiveAccountMaxFailuresNodeosArg": "--subjective-account-max-failures",
+        "subjectiveAccountDecayTimeMinutes": null,
+        "_subjectiveAccountDecayTimeMinutesNodeosDefault": 1440,
+        "_subjectiveAccountDecayTimeMinutesNodeosArg": "--subjective-account-decay-time-minutes",
+        "incomingDeferRatio": null,
+        "_incomingDeferRatioNodeosDefault": 1,
+        "_incomingDeferRatioNodeosArg": "--incoming-defer-ratio",
+        "incomingTransactionQueueSizeMb": null,
+        "_incomingTransactionQueueSizeMbNodeosDefault": 1024,
+        "_incomingTransactionQueueSizeMbNodeosArg": "--incoming-transaction-queue-size-mb",
+        "disableSubjectiveBilling": true,
+        "_disableSubjectiveBillingNodeosDefault": 1,
+        "_disableSubjectiveBillingNodeosArg": "--disable-subjective-billing",
+        "disableSubjectiveAccountBilling": null,
+        "_disableSubjectiveAccountBillingNodeosDefault": false,
+        "_disableSubjectiveAccountBillingNodeosArg": "--disable-subjective-account-billing",
+        "disableSubjectiveP2pBilling": null,
+        "_disableSubjectiveP2pBillingNodeosDefault": 1,
+        "_disableSubjectiveP2pBillingNodeosArg": "--disable-subjective-p2p-billing",
+        "disableSubjectiveApiBilling": null,
+        "_disableSubjectiveApiBillingNodeosDefault": 1,
+        "_disableSubjectiveApiBillingNodeosArg": "--disable-subjective-api-billing",
+        "producerThreads": 2,
+        "_producerThreadsNodeosDefault": 2,
+        "_producerThreadsNodeosArg": "--producer-threads",
+        "snapshotsDir": null,
+        "_snapshotsDirNodeosDefault": "\"snapshots\"",
+        "_snapshotsDirNodeosArg": "--snapshots-dir"
+      },
+      "resourceMonitorPluginArgs": {
+        "_pluginNamespace": "eosio",
+        "_pluginName": "resource_monitor_plugin",
+        "resourceMonitorIntervalSeconds": null,
+        "_resourceMonitorIntervalSecondsNodeosDefault": 2,
+        "_resourceMonitorIntervalSecondsNodeosArg": "--resource-monitor-interval-seconds",
+        "resourceMonitorSpaceThreshold": null,
+        "_resourceMonitorSpaceThresholdNodeosDefault": 90,
+        "_resourceMonitorSpaceThresholdNodeosArg": "--resource-monitor-space-threshold",
+        "resourceMonitorSpaceAbsoluteGb": null,
+        "_resourceMonitorSpaceAbsoluteGbNodeosDefault": null,
+        "_resourceMonitorSpaceAbsoluteGbNodeosArg": "--resource-monitor-space-absolute-gb",
+        "resourceMonitorNotShutdownOnThresholdExceeded": null,
+        "_resourceMonitorNotShutdownOnThresholdExceededNodeosDefault": false,
+        "_resourceMonitorNotShutdownOnThresholdExceededNodeosArg": "--resource-monitor-not-shutdown-on-threshold-exceeded",
+        "resourceMonitorWarningInterval": null,
+        "_resourceMonitorWarningIntervalNodeosDefault": 30,
+        "_resourceMonitorWarningIntervalNodeosArg": "--resource-monitor-warning-interval"
+      },
+      "signatureProviderPluginArgs": {
+        "_pluginNamespace": "eosio",
+        "_pluginName": "signature_provider_plugin",
+        "keosdProviderTimeout": null,
+        "_keosdProviderTimeoutNodeosDefault": 5,
+        "_keosdProviderTimeoutNodeosArg": "--keosd-provider-timeout"
+      },
+      "stateHistoryPluginArgs": {
+        "_pluginNamespace": "eosio",
+        "_pluginName": "state_history_plugin",
+        "stateHistoryDir": null,
+        "_stateHistoryDirNodeosDefault": "\"state-history\"",
+        "_stateHistoryDirNodeosArg": "--state-history-dir",
+        "traceHistory": null,
+        "_traceHistoryNodeosDefault": false,
+        "_traceHistoryNodeosArg": "--trace-history",
+        "chainStateHistory": null,
+        "_chainStateHistoryNodeosDefault": false,
+        "_chainStateHistoryNodeosArg": "--chain-state-history",
+        "stateHistoryEndpoint": null,
+        "_stateHistoryEndpointNodeosDefault": "127.0.0.1:8080",
+        "_stateHistoryEndpointNodeosArg": "--state-history-endpoint",
+        "stateHistoryUnixSocketPath": null,
+        "_stateHistoryUnixSocketPathNodeosDefault": null,
+        "_stateHistoryUnixSocketPathNodeosArg": "--state-history-unix-socket-path",
+        "traceHistoryDebugMode": null,
+        "_traceHistoryDebugModeNodeosDefault": false,
+        "_traceHistoryDebugModeNodeosArg": "--trace-history-debug-mode",
+        "stateHistoryLogRetainBlocks": null,
+        "_stateHistoryLogRetainBlocksNodeosDefault": null,
+        "_stateHistoryLogRetainBlocksNodeosArg": "--state-history-log-retain-blocks",
+        "deleteStateHistory": null,
+        "_deleteStateHistoryNodeosDefault": false,
+        "_deleteStateHistoryNodeosArg": "--delete-state-history"
+      },
+      "traceApiPluginArgs": {
+        "_pluginNamespace": "eosio",
+        "_pluginName": "trace_api_plugin",
+        "traceDir": null,
+        "_traceDirNodeosDefault": "\"traces\"",
+        "_traceDirNodeosArg": "--trace-dir",
+        "traceSliceStride": null,
+        "_traceSliceStrideNodeosDefault": 10000,
+        "_traceSliceStrideNodeosArg": "--trace-slice-stride",
+        "traceMinimumIrreversibleHistoryBlocks": null,
+        "_traceMinimumIrreversibleHistoryBlocksNodeosDefault": -1,
+        "_traceMinimumIrreversibleHistoryBlocksNodeosArg": "--trace-minimum-irreversible-history-blocks",
+        "traceMinimumUncompressedIrreversibleHistoryBlocks": null,
+        "_traceMinimumUncompressedIrreversibleHistoryBlocksNodeosDefault": -1,
+        "_traceMinimumUncompressedIrreversibleHistoryBlocksNodeosArg": "--trace-minimum-uncompressed-irreversible-history-blocks",
+        "traceRpcAbi": null,
+        "_traceRpcAbiNodeosDefault": null,
+        "_traceRpcAbiNodeosArg": "--trace-rpc-abi",
+        "traceNoAbis": null,
+        "_traceNoAbisNodeosDefault": false,
+        "_traceNoAbisNodeosArg": "--trace-no-abis"
+      }
+    },
+    "specifiedContract": {
+      "contractDir": "unittests/contracts/eosio.system",
+      "wasmFile": "eosio.system.wasm",
+      "abiFile": "eosio.system.abi",
+      "account": "Name: eosio"
+    },
+    "useBiosBootFile": false,
+    "genesisPath": "tests/performance_tests/genesis.json",
+    "maximumP2pPerHost": 5000,
+    "maximumClients": 0,
+    "loggingLevel": "info",
+    "loggingDict": {
+      "bios": "off"
+    },
+    "prodsEnableTraceApi": false,
+    "nodeosVers": "v4",
+    "specificExtraNodeosArgs": {
+      "1": "--plugin eosio::trace_api_plugin"
+    },
+    "_totalNodes": 2,
+    "targetTps": 14500,
+    "testTrxGenDurationSec": 10,
+    "tpsLimitPerGenerator": 4000,
+    "numAddlBlocksToPrune": 2,
+    "logDirRoot": "p/2023-02-28_17-10-36/testRunLogs",
+    "delReport": false,
+    "quiet": false,
+    "delPerfLogs": false,
+    "expectedTransactionsSent": 145000,
+    "printMissingTransactions": false,
+    "userTrxDataFile": null,
+    "logDirBase": "p/2023-02-28_17-10-36/testRunLogs/p",
+    "logDirTimestamp": "2023-02-28_19-24-44",
+    "logDirTimestampedOptSuffix": "-14500",
+    "logDirPath": "p/2023-02-28_17-10-36/testRunLogs/p/2023-02-28_19-24-44-14500"
+  },
+  "env": {
+    "system": "Linux",
+    "os": "posix",
+    "release": "5.15.79.1-microsoft-standard-WSL2",
     "logical_cpu_count": 16
   },
   "nodeosVersion": "v4.0.0-dev"

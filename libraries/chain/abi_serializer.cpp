@@ -70,9 +70,9 @@ namespace eosio { namespace chain {
       );
    }
 
-   abi_serializer::abi_serializer( const abi_def& abi, const yield_function_t& yield ) {
+   abi_serializer::abi_serializer( abi_def abi, const yield_function_t& yield ) {
       configure_built_in_types();
-      set_abi(abi, yield);
+      set_abi(std::move(abi), yield);
    }
 
    abi_serializer::abi_serializer( const abi_def& abi, const fc::microseconds& max_serialization_time) {
@@ -128,10 +128,18 @@ namespace eosio { namespace chain {
       built_in_types.emplace("extended_asset",            pack_unpack<extended_asset>());
    }
 
-   void abi_serializer::set_abi(const abi_def& abi, const yield_function_t& yield) {
+   void abi_serializer::set_abi(abi_def abi, const yield_function_t& yield) {
       impl::abi_traverse_context ctx(yield);
 
       EOS_ASSERT(starts_with(abi.version, "eosio::abi/1."), unsupported_abi_version_exception, "ABI has an unsupported version");
+
+      size_t types_size = abi.types.size();
+      size_t structs_size = abi.structs.size();
+      size_t actions_size = abi.actions.size();
+      size_t tables_size = abi.tables.size();
+      size_t error_messages_size = abi.error_messages.size();
+      size_t variants_size = abi.variants.value.size();
+      size_t action_results_size = abi.action_results.value.size();
 
       typedefs.clear();
       structs.clear();
@@ -141,41 +149,41 @@ namespace eosio { namespace chain {
       variants.clear();
       action_results.clear();
 
-      for( const auto& st : abi.structs )
-         structs[st.name] = st;
+      for( auto& st : abi.structs )
+         structs[st.name] = std::move(st);
 
-      for( const auto& td : abi.types ) {
+      for( auto& td : abi.types ) {
          EOS_ASSERT(!_is_type(td.new_type_name, ctx), duplicate_abi_type_def_exception,
                     "type already exists", ("new_type_name",impl::limit_size(td.new_type_name)));
-         typedefs[td.new_type_name] = td.type;
+         typedefs[std::move(td.new_type_name)] = std::move(td.type);
       }
 
-      for( const auto& a : abi.actions )
-         actions[a.name] = a.type;
+      for( auto& a : abi.actions )
+         actions[std::move(a.name)] = std::move(a.type);
 
-      for( const auto& t : abi.tables )
-         tables[t.name] = t.type;
+      for( auto& t : abi.tables )
+         tables[std::move(t.name)] = std::move(t.type);
 
-      for( const auto& e : abi.error_messages )
-         error_messages[e.error_code] = e.error_msg;
+      for( auto& e : abi.error_messages )
+         error_messages[std::move(e.error_code)] = std::move(e.error_msg);
 
-      for( const auto& v : abi.variants.value )
-         variants[v.name] = v;
+      for( auto& v : abi.variants.value )
+         variants[v.name] = std::move(v);
 
-      for( const auto& r : abi.action_results.value )
-         action_results[r.name] = r.result_type;
+      for( auto& r : abi.action_results.value )
+         action_results[std::move(r.name)] = std::move(r.result_type);
 
       /**
        *  The ABI vector may contain duplicates which would make it
        *  an invalid ABI
        */
-      EOS_ASSERT( typedefs.size() == abi.types.size(), duplicate_abi_type_def_exception, "duplicate type definition detected" );
-      EOS_ASSERT( structs.size() == abi.structs.size(), duplicate_abi_struct_def_exception, "duplicate struct definition detected" );
-      EOS_ASSERT( actions.size() == abi.actions.size(), duplicate_abi_action_def_exception, "duplicate action definition detected" );
-      EOS_ASSERT( tables.size() == abi.tables.size(), duplicate_abi_table_def_exception, "duplicate table definition detected" );
-      EOS_ASSERT( error_messages.size() == abi.error_messages.size(), duplicate_abi_err_msg_def_exception, "duplicate error message definition detected" );
-      EOS_ASSERT( variants.size() == abi.variants.value.size(), duplicate_abi_variant_def_exception, "duplicate variant definition detected" );
-      EOS_ASSERT( action_results.size() == abi.action_results.value.size(), duplicate_abi_action_results_def_exception, "duplicate action results definition detected" );
+      EOS_ASSERT( typedefs.size() == types_size, duplicate_abi_type_def_exception, "duplicate type definition detected" );
+      EOS_ASSERT( structs.size() == structs_size, duplicate_abi_struct_def_exception, "duplicate struct definition detected" );
+      EOS_ASSERT( actions.size() == actions_size, duplicate_abi_action_def_exception, "duplicate action definition detected" );
+      EOS_ASSERT( tables.size() == tables_size, duplicate_abi_table_def_exception, "duplicate table definition detected" );
+      EOS_ASSERT( error_messages.size() == error_messages_size, duplicate_abi_err_msg_def_exception, "duplicate error message definition detected" );
+      EOS_ASSERT( variants.size() == variants_size, duplicate_abi_variant_def_exception, "duplicate variant definition detected" );
+      EOS_ASSERT( action_results.size() == action_results_size, duplicate_abi_action_results_def_exception, "duplicate action results definition detected" );
 
       validate(ctx);
    }

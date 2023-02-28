@@ -12,36 +12,52 @@ The Transaction Generator logs each transaction's id and sent timestamp at the m
 <details open>
     <summary>Expand Argument List</summary>
 
+* `--generator-id arg` (=0)         Id for the transaction generator.
+                                    Allowed range (0-960). Defaults to 0.
 * `--chain-id arg`                  set the chain id
-* `--handler-account arg`           Account name of the handler account for
-                                    the transfer actions
-* `--accounts arg`                  comma-separated list of accounts that 
-                                    will be used for transfers. Minimum 
+* `--contract-owner-account arg`    Account name of the contract account
+                                    for the transaction actions
+* `--accounts arg`                  comma-separated list of accounts that
+                                    will be used for transfers. Minimum
                                     required accounts: 2.
 * `--priv-keys arg`                 comma-separated list of private keys in
-                                    same order of accounts list that will 
-                                    be used to sign transactions. Minimum 
+                                    same order of accounts list that will
+                                    be used to sign transactions. Minimum
                                     required: 2.
 * `--trx-expiration arg` (=3600)    transaction expiration time in seconds.
-                                    Defaults to 3,600. Maximum allowed: 
+                                    Defaults to 3,600. Maximum allowed:
                                     3,600
-* `--trx-gen-duration arg` (=60)    Transaction generation duration 
+* `--trx-gen-duration arg` (=60)    Transaction generation duration
                                     (seconds). Defaults to 60 seconds.
-* `--target-tps arg` (=1)           Target transactions per second to 
-                                    generate/send. Defaults to 1 
+* `--target-tps arg` (=1)           Target transactions per second to
+                                    generate/send. Defaults to 1
                                     transaction per second.
 * `--last-irreversible-block-id arg`      Current last-irreversible-block-id (LIB
                                     ID) to use for transactions.
 * `--monitor-spinup-time-us arg` (=1000000)
-                                    Number of microseconds to wait before 
-                                    monitoring TPS. Defaults to 1000000 
+                                    Number of microseconds to wait before
+                                    monitoring TPS. Defaults to 1000000
                                     (1s).
-* `--monitor-max-lag-percent arg` (=5)    Max percentage off from expected 
-                                    transactions sent before being in 
+* `--monitor-max-lag-percent arg` (=5)    Max percentage off from expected
+                                    transactions sent before being in
                                     violation. Defaults to 5.
 * `--monitor-max-lag-duration-us arg` (=1000000)
-                                    Max microseconds that transaction 
-                                    generation can be in violation before 
+                                    Max microseconds that transaction
+                                    generation can be in violation before
                                     quitting. Defaults to 1000000 (1s).
 * `--log-dir arg`                   set the logs directory
+* `--abi-file arg`                  The path to the contract abi file to
+                                    use for the supplied transaction action
+                                    data
+* `--actions-data arg`              The json actions data file or json
+                                    actions data description string to use
+* `--actions-auths arg`             The json actions auth file or json
+                                    actions auths description string to
+                                    use, containting authAcctName to
+                                    activePrivateKey pairs.
+* `--peer-endpoint arg` (=127.0.0.1)      set the peer endpoint to send
+                                    transactions to
+* `--port arg` (=9876)              set the peer endpoint port to send
+                                    transactions to
+* `-h [ --help ]`                   print this list
 </details>

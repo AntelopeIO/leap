@@ -17,6 +17,9 @@ class ResourceMonitorPluginArgs(BasePluginArgs):
     resourceMonitorSpaceThreshold: int=None
     _resourceMonitorSpaceThresholdNodeosDefault: int=90
     _resourceMonitorSpaceThresholdNodeosArg: str="--resource-monitor-space-threshold"
+    resourceMonitorSpaceAbsoluteGb: str=None
+    _resourceMonitorSpaceAbsoluteGbNodeosDefault: str=None
+    _resourceMonitorSpaceAbsoluteGbNodeosArg: str="--resource-monitor-space-absolute-gb"
     resourceMonitorNotShutdownOnThresholdExceeded: bool=None
     _resourceMonitorNotShutdownOnThresholdExceededNodeosDefault: bool=False
     _resourceMonitorNotShutdownOnThresholdExceededNodeosArg: str="--resource-monitor-not-shutdown-on-threshold-exceeded"
