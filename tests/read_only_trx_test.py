@@ -140,10 +140,9 @@ try:
             results = sendTransaction('age', {"user": userAccountName, "id": startId + i}, opts='--read')
             assert(results[0])
             assert(results[1]['processed']['action_traces'][0]['return_value_data'] == 25)
-            #time.sleep(1)
 
     def sendTrxsOnThread(startId, numTrxs, opts=None):
-        Print("sendTrxsOnThread: ", startId, numTrxs)
+        Print("sendTrxsOnThread: ", startId, numTrxs, opts)
 
         global errorInThread
         errorInThread = False
@@ -151,8 +150,6 @@ try:
             for i in range(numTrxs):
                 results = sendTransaction('age', {"user": userAccountName, "id": startId + i}, auth=[{"actor": userAccountName, "permission":"active"}], opts=opts)
                 assert(results[0])
-                #assert(results[1]['processed']['action_traces'][0]['return_value_data'] == 25)
-                #time.sleep(1)
         except Exception as e:
             errorInThread = True
 
@@ -185,9 +182,9 @@ try:
         assert(not errorInThread)
 
     def testReadOnlyTrxAndOtherTrx(opt=None):
-        Print("testReadOnlyTrxAndOtherTrx: ", opt)
+        Print("testReadOnlyTrxAndOtherTrx -- opt = ", opt)
 
-        numRuns = 10
+        numRuns = 50
         readOnlyThread = threading.Thread(target = sendReadOnlyTrxOnThread, args = (0, numRuns ))
         readOnlyThread.start()
         trxThread = threading.Thread(target = sendTrxsOnThread, args = (numRuns, numRuns, opt))
@@ -225,6 +222,7 @@ try:
         assert(results[0])
         apiNode.waitForTransactionInBlock(results[1]['transaction_id'])
 
+    def multiReadOnlyTests():
         Print("Verify multiple read-only Get actions work after Modify")
         sendMulReadOnlyTrx(numThreads=5)
 
@@ -262,6 +260,7 @@ try:
         runReadOnlyTrxAndRpcInParallel("net", "disconnect", code=201, payload = "localhost")
 
     basicTests()
+    multiReadOnlyTests()
     chainApiTests()
     netApiTests()
     testReadOnlyTrxAndOtherTrx()

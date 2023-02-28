@@ -124,8 +124,10 @@ namespace eosio { namespace chain {
    wasm_instantiated_module_interface::~wasm_instantiated_module_interface() {}
    wasm_runtime_interface::~wasm_runtime_interface() {}
 
+#ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
    thread_local std::unique_ptr<eosvmoc::executor> wasm_interface_impl::eosvmoc_tier::exec {};
    thread_local eosvmoc::memory wasm_interface_impl::eosvmoc_tier::mem{ wasm_constraints::maximum_linear_memory/wasm_constraints::wasm_page_size };
+#endif
 
 std::istream& operator>>(std::istream& in, wasm_interface::vm_type& runtime) {
    std::string s;

@@ -241,14 +241,17 @@ struct controller_impl {
    deep_mind_handler*              deep_mind_logger = nullptr;
    bool                            okay_to_print_integrity_hash_on_stop = false;
 
-   // multi-threading support
+   // Ideally wasmif should be thread_local which must be a static.
+   // Unittests can create multiple controller objects (testers) at the same time,
+   // which overwrites the same static wasmif. This same wasmif is used for eosvmoc too.
+   boost::thread::id               main_thread_id;
+   wasm_interface                  wasmif;
    thread_local static platform_timer timer;
 #if defined(EOSIO_EOS_VM_RUNTIME_ENABLED) || defined(EOSIO_EOS_VM_JIT_RUNTIME_ENABLED)
    thread_local static vm::wasm_allocator wasm_alloc;
 #endif
-   // eos-vm-oc requires one wasmif for all the threads, eos-vm and eos-vm-jit requires one wasmif per thread
-   std::unique_ptr<wasm_interface> wasmif_eosvmoc;
-   thread_local static std::unique_ptr<wasm_interface> wasmif_non_eosvmoc;
+   // eos-vm and eos-vm-jit requires one wasmif per thread
+   thread_local static std::unique_ptr<wasm_interface> wasmif_thread_local;
 
    typedef pair<scope_name,action_name>                   handler_key;
    map< account_name, map<handler_key, apply_handler> >   apply_handlers;
@@ -307,7 +310,9 @@ struct controller_impl {
     conf( cfg ),
     chain_id( chain_id ),
     read_mode( cfg.read_mode ),
-    thread_pool()
+    thread_pool(),
+    main_thread_id( boost::this_thread::get_id() ),
+    wasmif( conf.wasm_runtime, conf.eosvmoc_tierup, db, conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty() )
    {
       fork_db.open( [this]( block_timestamp_type timestamp,
                             const flat_set<digest_type>& cur_features,
@@ -319,14 +324,6 @@ struct controller_impl {
          elog( "Exception in chain thread pool, exiting: ${e}", ("e", e.to_detail_string()) );
          if( shutdown ) shutdown();
       } );
-
-      // set thread local data for app thread
-      if ( conf.eosvmoc_tierup || conf.wasm_runtime == wasm_interface::vm_type::eos_vm_oc )
-         // eosvmoc can only have one wasmif
-         wasmif_eosvmoc = std::make_unique<wasm_interface>( conf.wasm_runtime, conf.eosvmoc_tierup, db, conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty());
-      else
-         // non-eosvmoc requires seperate wasmif per thread
-         init_thread_local_data();
 
       set_activation_handler<builtin_protocol_feature_t::preactivate_feature>();
       set_activation_handler<builtin_protocol_feature_t::replace_deferred>();
@@ -341,7 +338,7 @@ struct controller_impl {
       set_activation_handler<builtin_protocol_feature_t::crypto_primitives>();
 
       self.irreversible_block.connect([this](const block_state_ptr& bsp) {
-         wasmif_thread_local().current_lib(bsp->block_num);
+         get_wasm_interface().current_lib(bsp->block_num);
       });
 
 
@@ -2688,22 +2685,26 @@ struct controller_impl {
       return (blog.first_block_num() != 0) ? blog.first_block_num() : fork_db.root()->block_num;
    }
 
+   // only called from non-main threads (read-only trx execution threads)
+   // when producer_plugin starts them
    void init_thread_local_data() {
-      if ( conf.eosvmoc_tierup ||  conf.wasm_runtime == wasm_interface::vm_type::eos_vm_oc ) {
-         // EOSVMOC can only have one wasmif. Initialize thread local data
-         wasmif_eosvmoc->init_thread_local_data();
-      } else {
-         // Non-EOSVMOC has a wasmif per thread
-         wasmif_non_eosvmoc = std::make_unique<wasm_interface>( conf.wasm_runtime, conf.eosvmoc_tierup, db, conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty());
-      }
+      EOS_ASSERT( !is_main_thread(), misc_exception, "init_thread_local_data called on the main thread");
+#ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
+      if ( conf.eosvmoc_tierup || conf.wasm_runtime == wasm_interface::vm_type::eos_vm_oc )
+         wasmif.init_thread_local_data();
+#endif
+      else
+         // Non-EOSVMOC needs a wasmif per thread
+         wasmif_thread_local = std::make_unique<wasm_interface>( conf.wasm_runtime, conf.eosvmoc_tierup, db, conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty());
    }
 
-   wasm_interface& wasmif_thread_local() {
-      if ( conf.eosvmoc_tierup || conf.wasm_runtime == wasm_interface::vm_type::eos_vm_oc ) {
-         return *wasmif_eosvmoc;
-      } else {
-         return *wasmif_non_eosvmoc;
-      }
+   bool is_main_thread() { return main_thread_id == boost::this_thread::get_id(); };
+
+   wasm_interface& get_wasm_interface() {
+      if ( is_main_thread() || conf.eosvmoc_tierup || conf.wasm_runtime == wasm_interface::vm_type::eos_vm_oc )
+         return wasmif;
+      else
+         return *wasmif_thread_local;
    }
 }; /// controller_impl
 
@@ -2711,7 +2712,7 @@ thread_local platform_timer controller_impl::timer;
 #if defined(EOSIO_EOS_VM_RUNTIME_ENABLED) || defined(EOSIO_EOS_VM_JIT_RUNTIME_ENABLED)
 thread_local eosio::vm::wasm_allocator controller_impl::wasm_alloc;
 #endif
-thread_local std::unique_ptr<wasm_interface> controller_impl::wasmif_non_eosvmoc;
+thread_local std::unique_ptr<wasm_interface> controller_impl::wasmif_thread_local;
 
 const resource_limits_manager&   controller::get_resource_limits_manager()const
 {
@@ -3392,7 +3393,7 @@ const apply_handler* controller::find_apply_handler( account_name receiver, acco
    return nullptr;
 }
 wasm_interface& controller::get_wasm_interface() {
-   return my->wasmif_thread_local();
+   return my->get_wasm_interface();
 }
 
 const account_object& controller::get_account( account_name name )const
