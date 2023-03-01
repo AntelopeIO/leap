@@ -10,6 +10,7 @@ namespace eosio {
       string            peer;
       bool              connecting = false;
       bool              syncing    = false;
+      bool              is_bp_peer = false;
       handshake_message last_handshake;
    };
 

@@ -970,6 +970,7 @@ namespace eosio {
       stat.peer = peer_addr;
       stat.connecting = connecting;
       stat.syncing = syncing;
+      stat.is_bp_peer = is_bp_connection;
       std::lock_guard<std::mutex> g( conn_mtx );
       stat.last_handshake = last_handshake_recv;
       return stat;

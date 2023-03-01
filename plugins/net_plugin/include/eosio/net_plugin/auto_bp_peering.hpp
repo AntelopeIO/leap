@@ -1,5 +1,7 @@
 #pragma once
 
+#include <boost/algorithm/string.hpp>
+#include <boost/range/adaptor/transformed.hpp>
 #include <eosio/chain/producer_schedule.hpp>
 
 namespace eosio::auto_bp_peering {
@@ -19,53 +21,51 @@ class connection_manager {
  public:
 #endif
 
-   flat_map<account_name, std::string> bp_peer_addresses;  // thread safe only because modified at plugin startup currently
-   flat_map<std::string, account_name> bp_peer_accounts;   // thread safe only because modified at plugin startup currently
-   flat_set<account_name>              my_accounts;
-   flat_set<account_name>              pending_neighbors;
-   flat_set<account_name>              active_neighbors;
-   uint32_t                            pending_schedule_version = 0;
-   uint32_t                            active_schedule_version  = 0;
+
+   struct config_t {
+      flat_map<account_name, std::string> bp_peer_addresses;
+      flat_map<std::string, account_name> bp_peer_accounts;
+      flat_set<account_name> my_bp_accounts;
+   } config; // thread safe only because modified at plugin startup currently
+
+   // the following member are only accessed from main thread
+   flat_set<account_name> pending_neighbors;
+   flat_set<account_name> active_neighbors;
+   uint32_t               pending_schedule_version = 0;
+   uint32_t               active_schedule_version  = 0;
 
    Derived*       self() { return static_cast<Derived*>(this); }
    const Derived* self() const { return static_cast<const Derived*>(this); }
 
-   template <template<typename...> typename Container, typename... Rest >
+   template <template <typename...> typename Container, typename... Rest>
    static std::string to_string(const Container<account_name, Rest...>& peers) {
-      std::stringstream result;
-      const char*       sep = "";
-      for (auto p : peers) {
-         result << sep << p.to_string();
-         sep = ", ";
-      }
-      return result.str();
+      return boost::algorithm::join(peers | boost::adaptors::transformed([](auto& p) { return p.to_string(); }), ",");
    }
 
    class neighbor_finder_type {
 
-      const flat_map<account_name, std::string>&    bp_peer_addresses;
-      const flat_set<account_name>&                 my_accounts;
+      const config_t&                               config;
       const std::vector<chain::producer_authority>& schedule;
-      chain::flat_set<std::size_t>                  indices;
+      chain::flat_set<std::size_t>                  my_schedule_indices;
+
     public:
-      neighbor_finder_type(const flat_map<account_name, std::string>&    bp_peer_addresses,
-                           const flat_set<account_name>&                 my_accounts,
+      neighbor_finder_type(const config_t& config,
                            const std::vector<chain::producer_authority>& schedule)
-          : bp_peer_addresses(bp_peer_addresses), my_accounts(my_accounts), schedule(schedule) {
-         for (auto account : my_accounts) {
+          : config(config), schedule(schedule) {
+         for (auto account : config.my_bp_accounts) {
             auto itr = std::find_if(schedule.begin(), schedule.end(),
                                     [account](auto& e) { return e.producer_name == account; });
             if (itr != schedule.end())
-               indices.insert(itr - schedule.begin());
+               my_schedule_indices.insert(itr - schedule.begin());
          }
       }
 
       void add_neighbors_with_distance(chain::flat_set<account_name>& result, int distance) const {
-         for (auto schedule_index : indices) {
+         for (auto schedule_index : my_schedule_indices) {
             auto i = (schedule_index + distance) % schedule.size();
-            if (!indices.count(i)) {
+            if (!my_schedule_indices.count(i)) {
                auto name = schedule[i].producer_name;
-               if (bp_peer_addresses.count(name))
+               if (config.bp_peer_addresses.count(name))
                   result.insert(name);
             }
          }
@@ -91,11 +91,11 @@ class connection_manager {
  public:
    const static std::size_t proximity_count = 2;
 
-   bool auto_bp_peering_enabled() const { return bp_peer_addresses.size() && my_accounts.size(); }
+   bool auto_bp_peering_enabled() const { return config.bp_peer_addresses.size() && config.my_bp_accounts.size(); }
 
    // Only called at plugin startup
    void set_producer_accounts(const std::set<account_name>& accounts) {
-      my_accounts.insert(accounts.begin(), accounts.end());
+      config.my_bp_accounts.insert(accounts.begin(), accounts.end());
    }
 
    // Only called at plugin startup
@@ -108,8 +108,8 @@ class connection_manager {
             auto         addr = entry.substr(comma_pos + 1);
             account_name account(entry.substr(0, comma_pos));
 
-            bp_peer_addresses[account] = addr;
-            bp_peer_accounts[addr]     = account;
+            config.bp_peer_addresses[account] = addr;
+            config.bp_peer_accounts[addr]     = account;
          }
       } catch (eosio::chain::name_type_exception&) {
          EOS_ASSERT(false, chain::plugin_config_exception, "the account supplied by --auto-bp-peer option is invalid");
@@ -119,7 +119,7 @@ class connection_manager {
    // Only called at plugin startup
    template <typename T>
    void for_each_bp_peer_address(T&& fun) const {
-      for (auto& [_, addr] : bp_peer_addresses) { fun(addr); }
+      for (auto& [_, addr] : config.bp_peer_addresses) { fun(addr); }
    }
 
    // Only called from connection strand and the connection constructor
@@ -127,18 +127,18 @@ class connection_manager {
       /// mark an connection as a bp connection if it connects to an address in the bp peer list, so that the connection
       /// won't be subject to the limit of max_client_count.
 
-      if (auto itr = bp_peer_accounts.find(conn->log_p2p_address); itr != bp_peer_accounts.end()) {
+      if (auto itr = config.bp_peer_accounts.find(conn->log_p2p_address); itr != config.bp_peer_accounts.end()) {
          conn->is_bp_connection = true;
       }
    }
 
-    // Only called from connection strand
+   // Only called from connection strand
    template <typename Conn>
    static bool established_client_connection(Conn&& conn) {
       return !conn->is_bp_connection && conn->socket_is_open() && conn->incoming_and_handshake_received();
    }
 
-    // Only called from connection strand
+   // Only called from connection strand
    std::size_t num_established_clients() const {
       uint32_t num_clients = 0;
       self()->for_each_connection([&num_clients](auto&& conn) {
@@ -158,10 +158,9 @@ class connection_manager {
              established_client_connection(new_connection) && num_established_clients() > self()->max_client_count;
    }
 
-
    // Only called from main thread
    neighbor_finder_type neighbor_finder(const std::vector<chain::producer_authority>& schedule) const {
-      return neighbor_finder_type(bp_peer_addresses, my_accounts, schedule);
+      return neighbor_finder_type(config, schedule);
    }
 
    // Only called from main thread
@@ -179,7 +178,7 @@ class connection_manager {
 
                fc_dlog(self()->get_logger(), "pending_downstream_neighbors: ${pending_downstream_neighbors}",
                        ("pending_downstream_neighbors", to_string(pending_downstream_neighbors)));
-               for (auto neighbor : pending_downstream_neighbors) { self()->connect(bp_peer_addresses[neighbor]); }
+               for (auto neighbor : pending_downstream_neighbors) { self()->connect(config.bp_peer_addresses[neighbor]); }
 
                pending_neighbors = pending_downstream_neighbors;
                finder.add_upstream_neighbors(pending_neighbors);
@@ -219,7 +218,7 @@ class connection_manager {
                              std::back_inserter(peers_to_drop));
          fc_dlog(self()->get_logger(), "peers to drop: ${peers_to_drop}", ("peers_to_drop", to_string(peers_to_drop)));
 
-         for (auto account : peers_to_drop) { self()->disconnect(bp_peer_addresses[account]); }
+         for (auto account : peers_to_drop) { self()->disconnect(config.bp_peer_addresses[account]); }
          active_schedule_version = schedule.version;
       }
    }
