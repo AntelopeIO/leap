@@ -275,9 +275,9 @@ namespace fc
       return;
 
     // use now() instead of context.get_timestamp() because log_message construction can include user provided long running calls
-    boost::asio::post(my->io_context, [impl = my, time_ns = time_point::now().time_since_epoch().count(), message] () {
+    boost::asio::post(my->io_context, [impl = my.get(), time_ns = time_point::now().time_since_epoch().count(), message] () {
       try {
-        do_log(impl.get(), time_ns, message);
+        do_log(impl, time_ns, message);
       } catch (std::exception& ex) {
         fprintf(stderr, "GELF logger caught exception at %s:%d : %s\n", __FILE__, __LINE__, ex.what());
       } catch (...) {
