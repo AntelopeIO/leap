@@ -2685,12 +2685,18 @@ struct controller_impl {
       return (blog.first_block_num() != 0) ? blog.first_block_num() : fork_db.root()->block_num;
    }
 
+#ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
+   bool is_eos_vm_oc_enabled() const {
+      return ( conf.eosvmoc_tierup || conf.wasm_runtime == wasm_interface::vm_type::eos_vm_oc );
+   }
+#endif
+
    // only called from non-main threads (read-only trx execution threads)
    // when producer_plugin starts them
    void init_thread_local_data() {
       EOS_ASSERT( !is_main_thread(), misc_exception, "init_thread_local_data called on the main thread");
 #ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
-      if ( conf.eosvmoc_tierup || conf.wasm_runtime == wasm_interface::vm_type::eos_vm_oc )
+      if ( is_eos_vm_oc_enabled() )
          wasmif.init_thread_local_data();
 #endif
       else
@@ -2701,7 +2707,7 @@ struct controller_impl {
    bool is_main_thread() { return main_thread_id == boost::this_thread::get_id(); };
 
    wasm_interface& get_wasm_interface() {
-      if ( is_main_thread() || conf.eosvmoc_tierup || conf.wasm_runtime == wasm_interface::vm_type::eos_vm_oc )
+      if ( is_main_thread() || is_eos_vm_oc_enabled() )
          return wasmif;
       else
          return *wasmif_thread_local;
@@ -3570,6 +3576,10 @@ uint32_t controller::earliest_available_block_num() const{
 #if defined(EOSIO_EOS_VM_RUNTIME_ENABLED) || defined(EOSIO_EOS_VM_JIT_RUNTIME_ENABLED)
 vm::wasm_allocator& controller::get_wasm_allocator() {
    return my->wasm_alloc;
+}
+
+bool controller::is_eos_vm_oc_enabled() const {
+   return my->is_eos_vm_oc_enabled();
 }
 #endif
 

@@ -1012,11 +1012,38 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
    my->_read_only_thread_pool_size = options.at( "read-only-threads" ).as<uint16_t>();
    // only initialize other read-only options when read-only thread pool is enabled
    if ( my->_read_only_thread_pool_size > 0 ) {
+      if (chain.is_eos_vm_oc_enabled()) {
+         // EOS VM OC requires 4.2TB Virtual for each executing thread. Make sure the memory
+         // required by configured read-only threads does not exceed the total system virtual memory.
+         auto get_total_vm_size = []() -> unsigned long {
+            std::string attr_name;
+            std::ifstream meminfo_file("/proc/meminfo");
+            while (meminfo_file >> attr_name) {
+               if (attr_name == "VmallocTotal:") {
+                  unsigned long vm_total;
+                  if (meminfo_file >> vm_total) {
+                     return vm_total;
+                  } else {
+                     return 0;
+                  }
+               }
+               meminfo_file.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+            }
+            return 0;
+         };
+
+         unsigned long vm_total_kb = get_total_vm_size();
+         EOS_ASSERT( vm_total_kb > 0, plugin_config_exception, "Unable to get system virtual memory size (not a Linux?), therefore cannot determine if the system has enough virtual memory for multi-threaded read-only transactions on EOS VM OC");
+         auto num_threads_supported = vm_total_kb / 4200000000;
+         // reserve 1 for the main thread
+         EOS_ASSERT( num_threads_supported > my->_read_only_thread_pool_size + 1, plugin_config_exception, "--read-only-threads (${th}) greater than number of threads supported for EOS VM OC (${supp})", ("th", my->_read_only_thread_pool_size) ("supp", num_threads_supported - 1 ) );
+      }
+
       my->_read_only_rw_window_time_us = options.at( "read-only-rw-window-time-us" ).as<int32_t>();
       my->_read_only_ro_window_time_us = options.at( "read-only-ro-window-time-us" ).as<int32_t>();
 
       my->_read_only_ro_window_effective_time_us = ( my->_read_only_ro_window_time_us / 100 ) * my->_read_only_ro_window_pct;
-      // make sure a read-only transaction cannot finish within the read-only
+      // make sure a read-only transaction can finish within the read-only
       // window if scheduled at the very beginning. use _read_only_ro_window_effective_time_us
       // instead of _read_only_ro_window_time_us for safety marging
       if ( my->_max_transaction_time_ms.load() > 0 )
