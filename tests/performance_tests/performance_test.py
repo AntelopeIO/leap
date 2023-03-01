@@ -11,7 +11,7 @@ import shutil
 from pathlib import Path, PurePath
 sys.path.append(str(PurePath(PurePath(Path(__file__).absolute()).parent).parent))
 
-from NodeosPluginArgs import ChainPluginArgs, HttpPluginArgs, NetPluginArgs, ProducerPluginArgs
+from NodeosPluginArgs import ChainPluginArgs, HttpPluginArgs, NetPluginArgs, ProducerPluginArgs, ResourceMonitorPluginArgs
 from TestHarness import TestHelper, Utils, Account
 from performance_test_basic import PerformanceTestBasic, PtbArgumentsHandler
 from platform import release, system
@@ -498,15 +498,22 @@ def main():
                                                              verbose=args.v)
 
     ENA = PerformanceTestBasic.ClusterConfig.ExtraNodeosArgs
-    chainPluginArgs = ChainPluginArgs(signatureCpuBillablePct=args.signature_cpu_billable_pct, chainStateDbSizeMb=args.chain_state_db_size_mb,
-                                      chainThreads=args.chain_threads, databaseMapMode=args.database_map_mode)
+    chainPluginArgs = ChainPluginArgs(signatureCpuBillablePct=args.signature_cpu_billable_pct,
+                                      chainThreads=args.chain_threads, databaseMapMode=args.database_map_mode,
+                                      wasmRuntime=args.wasm_runtime, contractsConsole=args.contracts_console,
+                                      eosVmOcCacheSizeMb=args.eos_vm_oc_cache_size_mb, eosVmOcCompileThreads=args.eos_vm_oc_compile_threads,
+                                      blockLogRetainBlocks=args.block_log_retain_blocks,
+                                      abiSerializerMaxTimeMs=990000, chainStateDbSizeMb=256000)
     producerPluginArgs = ProducerPluginArgs(disableSubjectiveBilling=args.disable_subjective_billing,
                                             lastBlockTimeOffsetUs=args.last_block_time_offset_us, produceTimeOffsetUs=args.produce_time_offset_us,
                                             cpuEffortPercent=args.cpu_effort_percent, lastBlockCpuEffortPercent=args.last_block_cpu_effort_percent,
-                                            producerThreads=args.producer_threads)
-    httpPluginArgs = HttpPluginArgs(httpMaxResponseTimeMs=args.http_max_response_time_ms)
-    netPluginArgs = NetPluginArgs(netThreads=args.net_threads)
-    extraNodeosArgs = ENA(chainPluginArgs=chainPluginArgs, httpPluginArgs=httpPluginArgs, producerPluginArgs=producerPluginArgs, netPluginArgs=netPluginArgs)
+                                            producerThreads=args.producer_threads, maxTransactionTime=-1)
+    httpPluginArgs = HttpPluginArgs(httpMaxResponseTimeMs=args.http_max_response_time_ms, httpMaxBytesInFlightMb=args.http_max_bytes_in_flight_mb,
+                                    httpThreads=args.http_threads)
+    netPluginArgs = NetPluginArgs(netThreads=args.net_threads, maxClients=0)
+    resourceMonitorPluginArgs = ResourceMonitorPluginArgs(resourceMonitorNotShutdownOnThresholdExceeded=True)
+    extraNodeosArgs = ENA(chainPluginArgs=chainPluginArgs, httpPluginArgs=httpPluginArgs, producerPluginArgs=producerPluginArgs, netPluginArgs=netPluginArgs,
+                          resourceMonitorPluginArgs=resourceMonitorPluginArgs)
     testClusterConfig = PerformanceTestBasic.ClusterConfig(pnodes=args.p, totalNodes=args.n, topo=args.s, genesisPath=args.genesis,
                                                            prodsEnableTraceApi=args.prods_enable_trace_api, extraNodeosArgs=extraNodeosArgs,
                                                            specifiedContract=PerformanceTestBasic.ClusterConfig.SpecifiedContract(account=Account(args.account_name),

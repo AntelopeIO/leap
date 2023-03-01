@@ -257,11 +257,18 @@ class Cluster(object):
         cmdArr=cmd.split()
         if self.staging:
             cmdArr.append("--nogen")
-
-        nodeosArgs="--max-transaction-time -1 --abi-serializer-max-time-ms 990000 --p2p-max-nodes-per-host %d --max-clients %d" % (maximumP2pPerHost, maximumClients)
+        nodeosArgs=""
+        if "--max-transaction-time" not in extraNodeosArgs:
+            nodeosArgs += " --max-transaction-time -1"
+        if "--abi-serializer-max-time-ms" not in extraNodeosArgs:
+            nodeosArgs += " --abi-serializer-max-time-ms 990000"
+        if "--p2p-max-nodes-per-host" not in extraNodeosArgs:
+            nodeosArgs += f" --p2p-max-nodes-per-host {maximumP2pPerHost}"
+        if "--max-clients" not in extraNodeosArgs:
+            nodeosArgs += f" --max-clients {maximumClients}"
         if not self.walletd:
             nodeosArgs += " --plugin eosio::wallet_api_plugin"
-        if Utils.Debug:
+        if Utils.Debug and "--contracts-console" not in extraNodeosArgs:
             nodeosArgs += " --contracts-console"
         if PFSetupPolicy.hasPreactivateFeature(pfSetupPolicy):
             nodeosArgs += " --plugin eosio::producer_api_plugin"

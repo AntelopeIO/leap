@@ -256,8 +256,6 @@ Performance Test Basic Base:
                           (default: 2)
 * `--signature-cpu-billable-pct SIGNATURE_CPU_BILLABLE_PCT`
                           Percentage of actual signature recovery cpu to bill. Whole number percentages, e.g. 50 for 50% (default: 0)
-* `--chain-state-db-size-mb CHAIN_STATE_DB_SIZE_MB`
-                          Maximum size (in MiB) of the chain state database (default: 10240)
 * `--chain-threads CHAIN_THREADS`
                           Number of worker threads in controller thread pool (default: 2)
 * `--database-map-mode {mapped,heap,locked}`
@@ -284,7 +282,10 @@ Performance Test Basic Base:
 * `--producer-threads PRODUCER_THREADS`
                           Number of worker threads in producer thread pool (default: 2)
 * `--http-max-response-time-ms HTTP_MAX_RESPONSE_TIME_MS`
-                          Maximum time for processing a request, -1 for unlimited (default: 990000)
+                          Maximum time for processing a request, -1 for unlimited (default: -1)
+* `--http-max-bytes-in-flight-mb HTTP_MAX_IN_FLIGHT_BYTES`
+                          Maximum size in megabytes http_plugin should use for processing http requests. -1 for unlimited.
+                          429 error response when exceeded. (default: -1)
 * `--del-perf-logs`       Whether to delete performance test specific logs. (default: False)
 * `--del-report`          Whether to delete overarching performance run report. (default: False)
 * `--quiet`               Whether to quiet printing intermediate results and reports to stdout (default: False)
@@ -298,6 +299,23 @@ Performance Test Basic Base:
                           Path to contract dir (default: unittests/contracts/eosio.system)
 * `--wasm-file WASM_FILE` WASM file name for contract (default: eosio.system.wasm)
 * `--abi-file ABI_FILE`   ABI file name for contract (default: eosio.system.abi)
+* `--wasm-runtime RUNTIME`
+                          Override default WASM runtime ("eos-vm-jit", "eos-vm")
+                          "eos-vm-jit" : A WebAssembly runtime that compiles WebAssembly code to native x86 code prior to
+                          execution. "eos-vm" : A WebAssembly interpreter. (default: eos-vm-jit)
+* `--contracts-console`   print contract's output to console (default: False)
+* `--eos-vm-oc-cache-size-mb CACHE_SIZE_MiB`
+                          Maximum size (in MiB) of the EOS VM OC code cache (default: 1024)
+* `--eos-vm-oc-compile-threads COMPILE_THREADS`
+                          Number of threads to use for EOS VM OC tier-up (default: 1)
+* `--non-prods-eos-vm-oc-enable`
+                          Enable EOS VM OC tier-up runtime on non producer nodes (default: False)
+* `--block-log-retain-blocks BLOCKS_TO_RETAIN`
+                          If set to greater than 0, periodically prune the block log to
+                          store only configured number of most recent blocks. If set to 0, no blocks are be written to the block log;
+                          block log file is removed after startup. (default: None)
+* `--http-threads HTTP_THREADS`
+                          Number of worker threads in http thread pool (default: 2)
 
 Performance Harness:
   Performance Harness testing configuration items.
@@ -371,8 +389,6 @@ Performance Test Basic Base:
                           of the range of blocks of interest for evaluation. (default: 2)
 * `--signature-cpu-billable-pct SIGNATURE_CPU_BILLABLE_PCT`
                           Percentage of actual signature recovery cpu to bill. Whole number percentages, e.g. 50 for 50% (default: 0)
-* `--chain-state-db-size-mb CHAIN_STATE_DB_SIZE_MB`
-                          Maximum size (in MiB) of the chain state database (default: 10240)
 * `--chain-threads CHAIN_THREADS`
                           Number of worker threads in controller thread pool (default: 2)
 * `--database-map-mode {mapped,heap,locked}`
@@ -399,7 +415,10 @@ Performance Test Basic Base:
 * `--producer-threads PRODUCER_THREADS`
                           Number of worker threads in producer thread pool (default: 2)
 * `--http-max-response-time-ms HTTP_MAX_RESPONSE_TIME_MS`
-                          Maximum time for processing a request, -1 for unlimited (default: 990000)
+                          Maximum time for processing a request, -1 for unlimited (default: -1)
+* `--http-max-bytes-in-flight-mb HTTP_MAX_IN_FLIGHT_BYTES`
+                          Maximum size in megabytes http_plugin should use for processing http requests. -1 for unlimited.
+                          429 error response when exceeded. (default: -1)
 * `--del-perf-logs`       Whether to delete performance test specific logs. (default: False)
 * `--del-report`          Whether to delete overarching performance run report. (default: False)
 * `--quiet`               Whether to quiet printing intermediate results and reports to stdout (default: False)
@@ -414,6 +433,23 @@ Performance Test Basic Base:
 * `--wasm-file WASM_FILE`
                           WASM file name for contract (default: eosio.system.wasm)
 * `--abi-file ABI_FILE`   ABI file name for contract (default: eosio.system.abi)
+* `--wasm-runtime RUNTIME`
+                          Override default WASM runtime ("eos-vm-jit", "eos-vm")
+                          "eos-vm-jit" : A WebAssembly runtime that compiles WebAssembly code to native x86 code prior to
+                          execution. "eos-vm" : A WebAssembly interpreter. (default: eos-vm-jit)
+* `--contracts-console`   print contract's output to console (default: False)
+* `--eos-vm-oc-cache-size-mb CACHE_SIZE_MiB`
+                          Maximum size (in MiB) of the EOS VM OC code cache (default: 1024)
+* `--eos-vm-oc-compile-threads COMPILE_THREADS`
+                          Number of threads to use for EOS VM OC tier-up (default: 1)
+* `--non-prods-eos-vm-oc-enable`
+                          Enable EOS VM OC tier-up runtime on non producer nodes (default: False)
+* `--block-log-retain-blocks BLOCKS_TO_RETAIN`
+                          If set to greater than 0, periodically prune the block log to
+                          store only configured number of most recent blocks. If set to 0, no blocks are be written to the block log;
+                          block log file is removed after startup. (default: None)
+* `--http-threads HTTP_THREADS`
+                          Number of worker threads in http thread pool (default: 2)
 
 Performance Test Basic Single Test:
   Performance Test Basic single test configuration items. Useful for running a single test directly. These items may not be directly configurable from
