@@ -3170,7 +3170,7 @@ namespace eosio {
       const auto& tid = trx->id();
       peer_dlog( this, "received packed_transaction ${id}", ("id", tid) );
 
-      app().executor().post(priority::medium, app().executor().write_queue(), [trx{std::move(trx)}, c = shared_from_this()]() mutable {
+      app().executor().post(priority::medium, exec_queue::write, [trx{std::move(trx)}, c = shared_from_this()]() mutable {
          c->process_packed_transaction( std::move( trx ) );
       });
    }
@@ -3247,7 +3247,7 @@ namespace eosio {
             my_impl->dispatcher->bcast_block( bsp->block, bsp->id );
          }
 
-         app().executor().post(priority::medium, app().executor().write_queue(), [ptr{std::move(ptr)}, bsp{std::move(bsp)}, id, c{std::move(c)}]() mutable {
+         app().executor().post(priority::medium, exec_queue::write, [ptr{std::move(ptr)}, bsp{std::move(bsp)}, id, c{std::move(c)}]() mutable {
             c->process_signed_block( id, std::move(ptr), std::move(bsp) );
          });
 

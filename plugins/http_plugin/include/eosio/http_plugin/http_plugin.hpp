@@ -80,8 +80,8 @@ namespace eosio {
         void plugin_shutdown();
         void handle_sighup() override;
 
-        void add_handler(const string& url, const url_handler&, int priority = appbase::priority::medium_low, appbase::exec_pri_queue& q = app().executor().read_queue());
-        void add_api(const api_description& api, int priority = appbase::priority::medium_low, appbase::exec_pri_queue& q = app().executor().read_queue()) {
+        void add_handler(const string& url, const url_handler&, int priority = appbase::priority::medium_low, appbase::exec_queue q = appbase::exec_queue::read);
+        void add_api(const api_description& api, int priority = appbase::priority::medium_low, appbase::exec_queue q = appbase::exec_queue::read) {
            for (const auto& call : api)
               add_handler(call.first, call.second, priority, q);
         }

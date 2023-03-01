@@ -603,7 +603,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                                                           next{std::move(next)}, trx=trx]() mutable {
             if( future.valid() ) {
                future.wait();
-               app().executor().post( priority::low, [self, future{std::move(future)}, api_trx, next{std::move( next )}, trx{std::move(trx)}, return_failure_traces]() mutable {
+               app().executor().post( priority::low, exec_queue::write, [self, future{std::move(future)}, api_trx, next{std::move( next )}, trx{std::move(trx)}, return_failure_traces]() mutable {
                   auto start = fc::time_point::now();
                   auto idle_time = start - self->_idle_trx_time;
                   self->_account_fails.add_idle_time( idle_time );
@@ -2411,7 +2411,7 @@ void producer_plugin_impl::schedule_production_loop() {
       _timer.expires_from_now( boost::posix_time::microseconds( config::block_interval_us  / 10 ));
 
       // we failed to start a block, so try again later?
-      _timer.async_wait( app().executor().wrap( priority::high,
+      _timer.async_wait( app().executor().wrap( priority::high, exec_queue::write,
           [weak_this = weak_from_this(), cid = ++_timer_corelation_id]( const boost::system::error_code& ec ) {
              auto self = weak_this.lock();
              if( self && ec != boost::asio::error::operation_aborted && cid == self->_timer_corelation_id ) {
@@ -2464,7 +2464,7 @@ void producer_plugin_impl::schedule_maybe_produce_block( bool exhausted ) {
                ("num", chain.head_block_num() + 1)("desc", block_is_exhausted() ? "Exhausted" : "Deadline exceeded") );
    }
 
-   _timer.async_wait( app().executor().wrap( priority::high,
+   _timer.async_wait( app().executor().wrap( priority::high, exec_queue::write,
          [&chain, weak_this = weak_from_this(), cid=++_timer_corelation_id](const boost::system::error_code& ec) {
             auto self = weak_this.lock();
             if( self && ec != boost::asio::error::operation_aborted && cid == self->_timer_corelation_id ) {
@@ -2506,7 +2506,7 @@ void producer_plugin_impl::schedule_delayed_production_loop(const std::weak_ptr<
       fc_dlog(_log, "Scheduling Speculative/Production Change at ${time}", ("time", wake_up_time));
       static const boost::posix_time::ptime epoch(boost::gregorian::date(1970, 1, 1));
       _timer.expires_at(epoch + boost::posix_time::microseconds(wake_up_time->time_since_epoch().count()));
-      _timer.async_wait( app().executor().wrap( priority::high,
+      _timer.async_wait( app().executor().wrap( priority::high, exec_queue::write,
          [weak_this,cid=++_timer_corelation_id](const boost::system::error_code& ec) {
             auto self = weak_this.lock();
             if( self && ec != boost::asio::error::operation_aborted && cid == self->_timer_corelation_id ) {
@@ -2626,7 +2626,7 @@ void producer_plugin_impl::start_write_window() {
    chain.unset_db_read_only_mode();
    auto expire_time = boost::posix_time::microseconds(_read_only_rw_window_time_us);
    _write_window_timer.expires_from_now( expire_time );
-   _write_window_timer.async_wait( app().executor().wrap( priority::medium,
+   _write_window_timer.async_wait( app().executor().wrap( priority::medium, exec_queue::read,
        [weak_this = weak_from_this()]( const boost::system::error_code& ec ) {
           auto self = weak_this.lock();
           if( self && ec != boost::asio::error::operation_aborted ) {
@@ -2670,13 +2670,14 @@ void producer_plugin_impl::switch_to_read_window() {
    chain_plug->chain().set_db_read_only_mode();
    _tasks_fut.clear();
 
-   _read_window_timer.async_wait( app().executor().wrap( priority::medium,
+   auto expire_time = boost::posix_time::microseconds(_read_only_ro_window_time_us);
+   _read_window_timer.expires_from_now( expire_time );
+   _read_window_timer.async_wait( app().executor().wrap( priority::medium, exec_queue::read,
        [weak_this = weak_from_this()]( const boost::system::error_code& ec ) {
           // on app thread
           auto self = weak_this.lock();
           if( self && ec != boost::asio::error::operation_aborted ) {
              // use future make sure all read-only tasks finished before swithcing to write window 
-             //for( auto it = tasks_fut.begin(); it != tasks_fut.end(); ++it )
              for ( auto& task: self->_tasks_fut )
                 task.get();
              self->switch_to_write_window();
@@ -2724,7 +2725,7 @@ bool producer_plugin_impl::read_only_trx_execution_task() {
       if ( _read_only_num_active_tasks == 0 ) {
          g_unique.unlock();
          // do switch on app thread
-         app().post( priority::high, [self=this]() {
+         app().executor().post( priority::high, exec_queue::read, [self=this]() {
             self->switch_to_write_window();
          } );
       }

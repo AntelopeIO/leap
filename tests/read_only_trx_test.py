@@ -114,7 +114,7 @@ try:
     userAccount = Account(userAccountName)
     userAccount.ownerPublicKey = EOSIO_ACCT_PUBLIC_DEFAULT_KEY
     userAccount.activePublicKey = EOSIO_ACCT_PUBLIC_DEFAULT_KEY
-    cluster.createAccountAndVerify(userAccount, cluster.eosioAccount, stakeCPU=1000)
+    cluster.createAccountAndVerify(userAccount, cluster.eosioAccount, stakeCPU=2000)
 
     noAuthTableContractDir="unittests/test-contracts/no_auth_table"
     noAuthTableWasmFile="no_auth_table.wasm"
@@ -136,10 +136,16 @@ try:
     def sendReadOnlyTrxOnThread(startId, numTrxs):
         Print("start sendReadOnlyTrxOnThread")
 
-        for i in range(numTrxs):
-            results = sendTransaction('age', {"user": userAccountName, "id": startId + i}, opts='--read')
-            assert(results[0])
-            assert(results[1]['processed']['action_traces'][0]['return_value_data'] == 25)
+        global errorInThread
+        errorInThread = False
+        try:
+           for i in range(numTrxs):
+               results = sendTransaction('age', {"user": userAccountName, "id": startId + i}, opts='--read')
+               assert(results[0])
+               assert(results[1]['processed']['action_traces'][0]['return_value_data'] == 25)
+        except Exception as e:
+            Print("Exception in sendReadOnlyTrxOnThread: ", e)
+            errorInThread = True
 
     def sendTrxsOnThread(startId, numTrxs, opts=None):
         Print("sendTrxsOnThread: ", startId, numTrxs, opts)
@@ -151,6 +157,7 @@ try:
                 results = sendTransaction('age', {"user": userAccountName, "id": startId + i}, auth=[{"actor": userAccountName, "permission":"active"}], opts=opts)
                 assert(results[0])
         except Exception as e:
+            Print("Exception in sendTrxsOnThread: ", e)
             errorInThread = True
 
     def doRpc(resource, command, numRuns, fieldIn, expectedValue, code, payload={}):
@@ -166,6 +173,7 @@ try:
                 else:
                     assert(ret_json["code"] == code)
         except Exception as e:
+            Print("Exception in doRpc: ", e)
             errorInThread = True
 
     def runReadOnlyTrxAndRpcInParallel(resource, command, fieldIn=None, expectedValue=None, code=None, payload={}):
@@ -184,7 +192,7 @@ try:
     def testReadOnlyTrxAndOtherTrx(opt=None):
         Print("testReadOnlyTrxAndOtherTrx -- opt = ", opt)
 
-        numRuns = 50
+        numRuns = 100
         readOnlyThread = threading.Thread(target = sendReadOnlyTrxOnThread, args = (0, numRuns ))
         readOnlyThread.start()
         trxThread = threading.Thread(target = sendTrxsOnThread, args = (numRuns, numRuns, opt))

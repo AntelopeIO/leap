@@ -8,21 +8,32 @@
 */
 namespace appbase { 
 
+enum class exec_window {
+   read_only,  // execute functions only from read_queue_
+   read_write  // execute functions from both read_queue_ and write_queue
+};
+
+enum class exec_queue {
+   read,
+   write
+};
+
 class two_queue_executor {
 public:
-    enum class exec_window {
-       read_only,  // execute functions only from read_queue_
-       read_write  // execute functions from both read_queue_ and write_queue
-    };
 
    template <typename Func>
-   auto post( int priority, appbase::exec_pri_queue& q, Func&& func ) {
-      return boost::asio::post(io_serv_, q.wrap(priority, --order_, std::forward<Func>(func)));
+   auto post( int priority, exec_queue q, Func&& func ) {
+      if ( q == exec_queue::write )
+         return boost::asio::post(io_serv_, write_queue_.wrap(priority, --order_, std::forward<Func>(func)));
+      else
+         return boost::asio::post(io_serv_, read_queue_.wrap(priority, --order_, std::forward<Func>(func)));
    }
 
+   // Legacy and deprecated. To be removed after cleaning up its uses in base appbase
    template <typename Func>
    auto post( int priority, Func&& func ) {
-      return boost::asio::post(io_serv_, read_queue_.wrap(priority, --order_, std::forward<Func>(func)));
+      // safer to use write_queue_ for unknown type of function
+      return boost::asio::post(io_serv_, write_queue_.wrap(priority, --order_, std::forward<Func>(func)));
    }
 
    auto& read_queue() { return read_queue_; }
@@ -46,8 +57,11 @@ public:
 
    template <typename Function>
    boost::asio::executor_binder<Function, appbase::exec_pri_queue::executor>
-   wrap(int priority, Function&& func) {
-      return read_queue_.wrap(priority, --order_, std::forward<Function>(func));
+   wrap(int priority, exec_queue q, Function&& func ) {
+      if ( q == exec_queue::write )
+         return write_queue_.wrap(priority, --order_, std::forward<Function>(func));
+      else
+         return read_queue_.wrap(priority, --order_, std::forward<Function>(func));
    }
      
    void clear() {
